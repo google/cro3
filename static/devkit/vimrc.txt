@@ -1,0 +1,29 @@
+set nocompatible
+syntax on
+
+" use indents of 2 spaces, and have them copied down lines:
+set tabstop=2
+set shiftwidth=2
+set shiftround
+set expandtab
+set autoindent
+set softtabstop=2
+
+" normally don't automatically format `text' as it is typed, IE only do this
+" with comments, at 79 characters:
+set formatoptions-=t
+set textwidth=79
+
+filetype on
+
+" make searches case-insensitive, unless they contain upper-case letters:
+set ignorecase
+set smartcase
+
+set gdefault
+
+" for C-like programming, have automatic indentation:
+autocmd FileType c,cpp,slang set cindent
+
+autocmd BufRead *.py set smartindent cinwords=if,elif,else,for,while,try,except,finally,def,class
+autocmd BufWritePre *.py normal m`:%s/\s\+$//e ``
