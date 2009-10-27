@@ -6,13 +6,7 @@ import autoupdate
 import buildutil
 import os
 import web
-
-app_id = "87efface-864d-49a5-9bb3-4b050a7c227a"
-root_dir = "/usr/local/google/home/rtc/chromeos/trunk/src"
-scripts_dir = "%s/scripts" % root_dir
-app_dir = os.popen("pwd").read().strip()
-static_dir = "%s/static" % app_dir
-web.debug("Serving images from %s/static" % app_dir)
+import sys
 
 urls = ('/', 'index',
         '/update', 'update')
@@ -34,8 +28,10 @@ class update:
   def POST(self):
     return autoupdate.HandleUpdatePing(web.data())
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
   web.debug("Setting up the static repo")
+  static_dir = os.path.realpath("%s/static" % os.path.dirname(sys.argv[0]))
+  web.debug("Serving images from %s" % static_dir)
   os.system("mkdir -p %s" % static_dir)
   app.run()
 
