@@ -30,8 +30,7 @@ class update:
 
 if __name__ == "__main__":
   web.debug("Setting up the static repo")
-  static_dir = os.path.realpath("%s/static" % os.path.dirname(sys.argv[0]))
+  static_dir = os.path.realpath("%s/static" % os.path.dirname(os.path.abspath(sys.argv[0])))
   web.debug("Serving images from %s" % static_dir)
   os.system("mkdir -p %s" % static_dir)
   app.run()
-
