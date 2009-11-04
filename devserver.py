@@ -8,12 +8,9 @@ import os
 import web
 import sys
 
-urls = ('/', 'index',
-        '/update', 'update')
 
-app = web.application(urls, globals())
-render = web.template.render('templates/')
-
+global updater
+updater = None
 
 class index:
   def GET(self):
@@ -26,11 +23,24 @@ class update:
     references a static link that can be served automagically from web.py.
   """
   def POST(self):
-    return autoupdate.HandleUpdatePing(web.data())
+    return updater.HandleUpdatePing(web.data())
+
+  def GET(self):
+    web.debug("Value of updater is %s" % updater)
 
 if __name__ == "__main__":
-  web.debug("Setting up the static repo")
+
+  root_dir = os.path.realpath("%s/../.." % os.path.dirname(os.path.abspath(sys.argv[0])))
   static_dir = os.path.realpath("%s/static" % os.path.dirname(os.path.abspath(sys.argv[0])))
+  web.debug("dev root is %s" % root_dir)
   web.debug("Serving images from %s" % static_dir)
   os.system("mkdir -p %s" % static_dir)
+
+  updater = autoupdate.Autoupdate(root_dir=root_dir, static_dir=static_dir)
+
+  urls = ('/', 'index',
+          '/update', 'update')
+  app = web.application(urls, globals())
+  render = web.template.render('templates/')
+
   app.run()

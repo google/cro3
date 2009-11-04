@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import os
+
 def GetPackages():
   """
     Lists all of the packages that can be built with a make_pkg.sh script.
