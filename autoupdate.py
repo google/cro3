@@ -2,20 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from buildutil import BuildObject
 from xml.dom import minidom
 
 import os
 import web
 
-class Autoupdate:
-
-  def __init__(self, root_dir, static_dir):
-    # TODO(rtc): This is redundant with devserver.py. Move this code to a 
-    # common location.
-    self.app_id = "87efface-864d-49a5-9bb3-4b050a7c227a"
-    self.root_dir = root_dir
-    self.scripts_dir = "%s/scripts" % self.root_dir
-    self.static_dir = static_dir
+class Autoupdate(BuildObject):
 
   # Basic functionality of handling ChromeOS autoupdate pings 
   # and building/serving update images.

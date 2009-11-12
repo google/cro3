@@ -8,13 +8,15 @@ import os
 import web
 import sys
 
-
 global updater
 updater = None
 
+global buildbot
+buildbot = None
+
 class index:
   def GET(self):
-    pkgs = buildutil.GetPackages()
+    pkgs = buildbot.GetPackages()
     return render.index(pkgs)
 
 class update:
@@ -25,8 +27,26 @@ class update:
   def POST(self):
     return updater.HandleUpdatePing(web.data())
 
+class webbuild:
+  """
+    builds the package specified by the pkg parameter. Then redirects to index
+  """
   def GET(self):
-    web.debug("Value of updater is %s" % updater)
+    input = web.input()
+    web.debug("called %s " % input.pkg)
+    output = buildbot.BuildPackage(input.pkg)
+    web.debug("copied %s to static" % output)
+    raise web.seeother('/')
+
+class build:
+  """
+    builds the package specified by the pkg parameter and returns the name
+    of the output file.
+  """
+  def GET(self):
+    input = web.input()
+    web.debug("called %s " % input.pkg)
+    return buildbot.BuildPackage(input.pkg)
 
 if __name__ == "__main__":
 
@@ -37,9 +57,13 @@ if __name__ == "__main__":
   os.system("mkdir -p %s" % static_dir)
 
   updater = autoupdate.Autoupdate(root_dir=root_dir, static_dir=static_dir)
+  buildbot = buildutil.BuildUtil(root_dir=root_dir, static_dir=static_dir)
 
   urls = ('/', 'index',
-          '/update', 'update')
+          '/update', 'update',
+          '/webbuild', 'webbuild',
+          '/build', 'build')
+
   app = web.application(urls, globals())
   render = web.template.render('templates/')
 

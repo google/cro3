@@ -9,6 +9,17 @@ $def with (pkgs)
     <title>ChromeOS Developer Console</title>
   </head>
   <body>
-    <p> Developer Console - put useful functionality here.
+    <table> 
+    <tr>
+      <td><b>Package Name</b></td>
+      <td><b>Last Built On</b></td>
+      <td><b>Functions</b></td>
+    $for k,v in pkgs.iteritems():
+      <tr>
+        <td>$k</td> 
+        <td>$v['build_time']</td> 
+        <td><a href="/webbuild?pkg=$v['name']">build</a></td>
+      </tr>
+    </table>
   </body>
 </html>
