@@ -23,7 +23,7 @@ class BuildObject:
       TODO(rtc): This code should probably live somewhere else.
     """
     if err != 0:
-      raise Exception("%s failed to execute % cmd")
+      raise Exception("%s failed to execute" % cmd)
     
 
 class BuildUtil(BuildObject):
@@ -105,9 +105,14 @@ class BuildUtil(BuildObject):
         web.debug("unable to find a package info for %s" % pkg_path)
         continue
 
-      build_time = self.GetLastBuildTime(pkg_name)
       build_path = self.GetPackageBuildPath(pkg_name)
-      build_file = self.GetPackageBuildFile(build_path)
+
+      build_time = None
+      build_file = None
+      if build_path != "":
+        build_time = self.GetLastBuildTime(pkg_name)
+        build_file = self.GetPackageBuildFile(build_path)
+
       pkgs[pkg_name] = {
         "name": pkg_name,
         "build_time": build_time,
