@@ -29,7 +29,7 @@ class BuildObject:
 class BuildUtil(BuildObject):
 
   def GetPackageName(self, pkg_path):
-    cmd = "cat %s/debian/control | grep Package | cut -d \" \" -f 2-" % pkg_path
+    cmd = "cat %s/debian/control | grep Package: | cut -d \" \" -f 2-" % pkg_path
     return os.popen(cmd).read().strip() 
 
   def GetLastBuildTime(self, pkg_name):
@@ -116,4 +116,3 @@ class BuildUtil(BuildObject):
         "output_file_name": build_file
       }
     return pkgs
-
