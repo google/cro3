@@ -9,12 +9,16 @@ $def with (pkgs)
     <title>ChromeOS Developer Console</title>
   </head>
   <body>
-    <table> 
+    <table cellspacing=10> 
     <tr>
-      <td><b>Package Name</b></td>
-      <td><b>Last Built On</b></td>
-      <td><b>Functions</b></td>
-    $for k,v in pkgs.iteritems():
+      <th>Package Name</th>
+      <th>Last Built On</th>
+      <th>Functions</th>
+    </tr>
+    $ keys = pkgs.keys()
+    $ keys.sort()
+    $for k in keys:
+      $ v = pkgs[k]
       <tr>
         <td>$k</td> 
         <td>$v['build_time']</td> 
