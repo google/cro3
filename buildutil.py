@@ -76,6 +76,10 @@ class BuildUtil(BuildObject):
     err = os.system(cmd)
     self.AssertSystemCallSuccess(err, cmd)
 
+    # Reset pkg_properties after building so that output_path and
+    # output_file_name are set up properly.
+    pkg_properties = self.GetPackages().get(pkg, None)
+
     cmd = "cp %s %s" % (pkg_properties.get("output_path"), self.static_dir)
     err = os.system(cmd)
     self.AssertSystemCallSuccess(err, cmd)
