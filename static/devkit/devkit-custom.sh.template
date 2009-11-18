@@ -1,0 +1,8 @@
+#!/bin/sh
+
+sudo apt-get install -y vim
+sudo apt-get install -y sshfs
+sudo apt-get install -y gdb
+
+sudo wget $DEVKIT_URL/static/devkit/vimrc.txt -O /home/chronos/.vimrc
+sudo chmod a+r /home/chronos/.vimrc
