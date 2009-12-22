@@ -95,7 +95,7 @@ class Autoupdate(BuildObject):
     client_version = query.attributes['version'].value
     latest_image_path = self.GetLatestImagePath();
     latest_version = self.GetLatestVersion(latest_image_path);
-    if not self.CanUpdate(client_version, latest_version):
+    if client_version != "ForcedUpdate" and not self.CanUpdate(client_version, latest_version):
       web.debug("no update")
       return self.GetNoUpdatePayload()
 
