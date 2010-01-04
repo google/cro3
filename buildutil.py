@@ -72,7 +72,7 @@ class BuildUtil(BuildObject):
     if pkg_properties == None:
       raise Exception("Unknown package name %s" % pkg)
 
-    cmd = "%s/make_pkg.sh" % pkg_properties.get("source_path")
+    cmd = "(cd %s; ./make_pkg.sh)" % pkg_properties.get("source_path")
     err = os.system(cmd)
     self.AssertSystemCallSuccess(err, cmd)
 
