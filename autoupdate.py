@@ -47,6 +47,9 @@ class Autoupdate(BuildObject):
 
   def GetLatestVersion(self, latest_image_path):
     latest_version = latest_image_path.split('/')[-1]
+
+    # Removes the portage build prefix.
+    latest_version = latest_version.lstrip("g-")
     return latest_version.split('-')[0]
 
   def CanUpdate(self, client_version, latest_version):
