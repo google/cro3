@@ -41,8 +41,8 @@ class Autoupdate(BuildObject):
     """
     return payload % self.app_id
 
-  def GetLatestImagePath(self):
-    cmd = "%s/get_latest_image.sh" % self.scripts_dir
+  def GetLatestImagePath(self, board_id):
+    cmd = "%s/get_latest_image.sh --board %s" % (self.scripts_dir, board_id)
     return os.popen(cmd).read().strip()
 
   def GetLatestVersion(self, latest_image_path):
@@ -96,7 +96,8 @@ class Autoupdate(BuildObject):
     root = update_dom.firstChild
     query = root.getElementsByTagName("o:app")[0]
     client_version = query.attributes['version'].value
-    latest_image_path = self.GetLatestImagePath();
+    board_id = query.attributes['board'].value
+    latest_image_path = self.GetLatestImagePath(board_id);
     latest_version = self.GetLatestVersion(latest_image_path);
     if client_version != "ForcedUpdate" and not self.CanUpdate(client_version, latest_version):
       web.debug("no update")
