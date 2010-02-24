@@ -58,7 +58,8 @@ class Autoupdate(BuildObject):
     """
     client_tokens = client_version.split('.')
     latest_tokens = latest_version.split('.')
-    web.debug("client version %s latest version %s" % (client_version, latest_version))
+    web.debug("client version %s latest version %s" \
+        % (client_version, latest_version))
     for i in range(0,4):
       if int(latest_tokens[i]) == int(client_tokens[i]):
         continue
@@ -79,7 +80,8 @@ class Autoupdate(BuildObject):
     web.debug("Found an image, copying it to static")
     err = os.system("cp %s/update.gz %s" % (image_path, self.static_dir))
     if err != 0:
-      web.debug("Unable to move update.gz from %s to %s" % (image_path, self.static_dir))
+      web.debug("Unable to move update.gz from %s to %s" \
+          % (image_path, self.static_dir))
       return False
     return True
 
@@ -87,7 +89,8 @@ class Autoupdate(BuildObject):
     return os.path.getsize(update_path)
 
   def GetHash(self, update_path):
-    cmd = "cat %s | openssl sha1 -binary | openssl base64 | tr \'\\n\' \' \';" % update_path
+    cmd = "cat %s | openssl sha1 -binary | openssl base64 | tr \'\\n\' \' \';" \
+        % update_path
     web.debug(cmd)
     return os.popen(cmd).read()
 
@@ -95,11 +98,13 @@ class Autoupdate(BuildObject):
     update_dom = minidom.parseString(data)
     root = update_dom.firstChild
     query = root.getElementsByTagName("o:app")[0]
-    client_version = query.attributes['version'].value
-    board_id = query.attributes['board'].value
-    latest_image_path = self.GetLatestImagePath(board_id);
-    latest_version = self.GetLatestVersion(latest_image_path);
-    if client_version != "ForcedUpdate" and not self.CanUpdate(client_version, latest_version):
+    client_version = query.getAttribute('version')
+    board_id = query.hasAttribute('board') and query.getAttribute('board') \
+        or "x86-generic"
+    latest_image_path = self.GetLatestImagePath(board_id)
+    latest_version = self.GetLatestVersion(latest_image_path)
+    if client_version != "ForcedUpdate" \
+        and not self.CanUpdate(client_version, latest_version):
       web.debug("no update")
       return self.GetNoUpdatePayload()
 
