@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import autoupdate
-import buildutil
 import os
 import web
 import sys
@@ -27,26 +26,18 @@ class update:
   def POST(self):
     return updater.HandleUpdatePing(web.data())
 
-class webbuild:
-  """
-    builds the package specified by the pkg parameter. Then redirects to index
-  """
-  def GET(self):
-    input = web.input()
-    web.debug("called %s " % input.pkg)
-    output = buildbot.BuildPackage(input.pkg)
-    web.debug("copied %s to static" % output)
-    raise web.seeother('/')
-
 class build:
   """
     builds the package specified by the pkg parameter and returns the name
     of the output file.
   """
-  def GET(self):
+  def POST(self):
     input = web.input()
-    web.debug("called %s " % input.pkg)
-    return buildbot.BuildPackage(input.pkg)
+    web.debug("emerging %s " % input.pkg)
+    emerge_command = "emerge-%s %s" % (input.board, input.pkg)
+    err = os.system(emerge_command)
+    if err != 0:
+      raise Exception("failed to execute %s" % emerge_command)
 
 if __name__ == "__main__":
 
@@ -57,7 +48,6 @@ if __name__ == "__main__":
   os.system("mkdir -p %s" % static_dir)
 
   updater = autoupdate.Autoupdate(root_dir=root_dir, static_dir=static_dir)
-  buildbot = buildutil.BuildUtil(root_dir=root_dir, static_dir=static_dir)
 
   urls = ('/', 'index',
           '/update', 'update',

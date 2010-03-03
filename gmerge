@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Copyright (c) 2009 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+set -e 
+
+DEVKIT_URL=$(grep ^CHROMEOS_DEVSERVER /etc/lsb-release | cut -d = -f 2-) 
+BOARD_NAME=$(grep ^CHROMEOS_RELEASE_BOARD $dir/etc/lsb-release | cut -d = -f 2-)
+
+if [ -z $DEVKIT_URL ]
+then
+  echo "No devkit server specified in /etc/lsb-release"
+  exit 1
+fi
+
+if [ -z $BOARD_NAME ]
+then
+  echo "No board specified in /etc/lsb-release"
+  exit 1
+fi
+
+mount -o remount,rw /
+mkdir -p /etc/make.profile 
+
+echo "Building $1"
+ESCAPED_PACKAGE=$(python -c "import urllib; print urllib.quote('''$1''')")
+ESCAPED_BOARD=$(python -c \
+  "import urllib; print urllib.quote('''${BOARD_NAME}''')")
+
+wget $DEVKIT_URL/build --post-data="pkg=${ESCAPED_PACKAGE}&board=${ESCAPED_BOARD}"
+
+echo "Emerging $1"
+
+export PORTAGE_BINHOST="${DEVKIT_URL}/static/pkgroot/${BOARD_NAME}/packages"
+export PORTAGE_TMPDIR=/tmp
+export ACCEPT_KEYWORDS=x86
+
+emerge --getbinpkg --usepkgonly $1
