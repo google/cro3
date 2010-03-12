@@ -4,9 +4,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-set -e 
+set -e
 
-DEVKIT_URL=$(grep ^CHROMEOS_DEVSERVER /etc/lsb-release | cut -d = -f 2-) 
+build=1
+
+if [ x$1 == x-n ] ; then
+  shift
+  build=0
+fi
+
+DEVKIT_URL=$(grep ^CHROMEOS_DEVSERVER /etc/lsb-release | cut -d = -f 2-)
 BOARD_NAME=$(grep ^CHROMEOS_RELEASE_BOARD $dir/etc/lsb-release | cut -d = -f 2-)
 
 if [ -z $DEVKIT_URL ]
@@ -22,19 +29,24 @@ then
 fi
 
 mount -o remount,rw /
-mkdir -p /etc/make.profile 
+mkdir -p /etc/make.profile
 
-echo "Building $1"
-ESCAPED_PACKAGE=$(python -c "import urllib; print urllib.quote('''$1''')")
-ESCAPED_BOARD=$(python -c \
+if [ $build == 1 ] ; then
+  echo "Building $1"
+  ESCAPED_PACKAGE=$(python -c "import urllib; print urllib.quote('''$1''')")
+  ESCAPED_BOARD=$(python -c \
   "import urllib; print urllib.quote('''${BOARD_NAME}''')")
 
-wget $DEVKIT_URL/build --post-data="pkg=${ESCAPED_PACKAGE}&board=${ESCAPED_BOARD}"
+  wget $DEVKIT_URL/build --post-data="pkg=${ESCAPED_PACKAGE}&board=${ESCAPED_BOARD}"
+fi
 
 echo "Emerging $1"
 
 export PORTAGE_BINHOST="${DEVKIT_URL}/static/pkgroot/${BOARD_NAME}/packages"
 export PORTAGE_TMPDIR=/tmp
-export ACCEPT_KEYWORDS=x86
+# TODO(rtc): Revisit setting ~x86.
+# If we add support to build recursive deps this might pull in
+# unstable changes from upstream for packages that you do not want.
+export ACCEPT_KEYWORDS='~x86 x86'
 
 emerge --getbinpkg --usepkgonly $1
