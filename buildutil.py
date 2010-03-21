@@ -7,7 +7,7 @@ import web
 from datetime import datetime
 import time 
 
-class BuildObject:
+class BuildObject(object):
   """
     Common base class that defines key paths in the source tree.
   """
