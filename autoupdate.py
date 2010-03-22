@@ -6,10 +6,11 @@ from buildutil import BuildObject
 from xml.dom import minidom
 
 import os
+import shutil
 import web
 
 class Autoupdate(BuildObject):
-  # Basic functionality of handling ChromeOS autoupdate pings 
+  # Basic functionality of handling ChromeOS autoupdate pings
   # and building/serving update images.
   # TODO(rtc): Clean this code up and write some tests.
 
@@ -92,7 +93,7 @@ class Autoupdate(BuildObject):
     if not self.serve_only:
       web.debug('Found an image, copying it to static')
       try:
-        shutil.copyfile('%s/update.gz' % image_path, self.static_dir)
+        shutil.copy('%s/update.gz' % image_path, self.static_dir)
       except Exception, e:
         web.debug('Unable to copy update.gz from %s to %s' \
                   % (image_path, self.static_dir))
