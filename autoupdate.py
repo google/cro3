@@ -104,16 +104,11 @@ class Autoupdate(BuildObject):
     return os.path.getsize(update_path)
 
   def GetHash(self, update_path):
-    update_dir = os.path.dirname(update_path)
-    if not os.path.exists('%s/cksum' % update_dir):
-      cmd = ('cat %s | openssl sha1 -binary'
-             '| openssl base64 | tr \'\\n\' \' \' | tee %s/cksum' %
-             (update_path, update_dir))
-      web.debug(cmd)
-      return os.popen(cmd).read()
-    else:
-      web.debug('using cached checksum for %s' % update_path)
-      return file('%s/cksum' % update_dir).read()
+    cmd = "cat %s | openssl sha1 -binary | openssl base64 | tr \'\\n\' \' \';" \
+        % update_path
+    web.debug(cmd)
+    return os.popen(cmd).read()
+
 
   def HandleUpdatePing(self, data, label=None):
     update_dom = minidom.parseString(data)
