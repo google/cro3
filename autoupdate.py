@@ -73,11 +73,29 @@ class Autoupdate(BuildObject):
       return int(latest_tokens[i]) > int(client_tokens[i])
     return False
 
+  def UnpackRootfs(self, image_path, rootfs_file):
+    if os.path.exists(rootfs_file):
+      return True
+    if self.test_image:
+      image_file = 'chromiumos_test_image.bin'
+    else:
+      image_file = 'chromiumos_image.bin'
+    os.system('rm -f %s/part_*' % image_path)
+    os.system('cd %s && ./unpack_partitions.sh %s' % (image_path, image_file))
+    shutil.move(os.path.join(image_path, 'part_3'), rootfs_file)
+    os.system('rm -f %s/part_*' % image_path)
+    return True
+
   def BuildUpdateImage(self, image_path):
     if self.test_image:
       image_file = '%s/rootfs_test.image' % image_path
     else:
       image_file = '%s/rootfs.image' % image_path
+
+    if not self.UnpackRootfs(image_path, image_file):
+      web.debug('failed to unpack rootfs.')
+      return False
+
     update_file = '%s/update.gz' % image_path
     if (os.path.exists(update_file) and
         os.path.getmtime(update_file) >= os.path.getmtime(image_file)):
