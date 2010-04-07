@@ -14,12 +14,24 @@ class Autoupdate(BuildObject):
   # and building/serving update images.
   # TODO(rtc): Clean this code up and write some tests.
 
-  def __init__(self, serve_only=None, test_image=False, *args, **kwargs):
-    self.serve_only = serve_only
-    if serve_only:
-      web.debug('Autoupdate in "serve update images only" mode.')
-    self.test_image=test_image
+  def __init__(self, serve_only=None, test_image=False, urlbase=None,
+               *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
+    self.serve_only = serve_only
+    self.test_image=test_image
+    self.static_urlbase = urlbase
+    if serve_only:
+      # If  we're  serving  out  of  an archived  build  dir  (e.g.  a
+      # buildbot), prepare this webserver's magic 'static/' dir with a
+      # link to the build archive.
+      web.debug('Autoupdate in "serve update images only" mode.')
+      if os.path.exists('static/archive'):
+        archive_symlink = os.readlink('static/archive')
+        if archive_symlink != self.static_dir:
+          web.debug('removing stale symlink to %s' % self.static_dir)
+          os.unlink('static/archive')
+      else:
+        os.symlink(self.static_dir, 'static/archive')
 
   def GetUpdatePayload(self, hash, size, url):
     payload = """<?xml version="1.0" encoding="UTF-8"?>
@@ -80,6 +92,9 @@ class Autoupdate(BuildObject):
       image_file = 'chromiumos_test_image.bin'
     else:
       image_file = 'chromiumos_image.bin'
+    if self.serve_only:
+      os.system('cd %s && unzip -o image.zip unpack_partitions.sh %s' %
+                (image_path, image_file))
     os.system('rm -f %s/part_*' % image_path)
     os.system('cd %s && ./unpack_partitions.sh %s' % (image_path, image_file))
     shutil.move(os.path.join(image_path, 'part_3'), rootfs_file)
@@ -101,7 +116,7 @@ class Autoupdate(BuildObject):
         os.path.getmtime(update_file) >= os.path.getmtime(image_file)):
       web.debug('Found cached update image %s/update.gz' % image_path)
     else:
-      web.debug('generating update image %s/update.gz' % image_path)
+      web.debug('generating update image %s' % update_file)
       mkupdate = '%s/mk_memento_images.sh %s' % (self.scripts_dir, image_file)
       web.debug(mkupdate)
       err = os.system(mkupdate)
@@ -111,10 +126,9 @@ class Autoupdate(BuildObject):
     if not self.serve_only:
       web.debug('Found an image, copying it to static')
       try:
-        shutil.copy('%s/update.gz' % image_path, self.static_dir)
+        shutil.copy(update_file, self.static_dir)
       except Exception, e:
-        web.debug('Unable to copy update.gz from %s to %s' \
-                  % (image_path, self.static_dir))
+        web.debug('Unable to copy %s to %s' % (update_file, self.static_dir))
         return False
     return True
 
@@ -157,7 +171,15 @@ class Autoupdate(BuildObject):
       web.debug('serving update: ')
       hash = self.GetHash('%s/%s/update.gz' % (self.static_dir, label))
       size = self.GetSize('%s/%s/update.gz' % (self.static_dir, label))
-      url = 'http://%s/static/archive/%s/update.gz' % (hostname, label)
+      # In case we configured images to be hosted elsewhere
+      # (e.g. buildbot's httpd), use that. Otherwise, serve it
+      # ourselves using web.py's static resource handler.
+      if self.static_urlbase:
+        urlbase = self.static_urlbase
+      else:
+        urlbase = 'http://%s/static/archive/' % hostname
+
+      url = '%s/%s/update.gz' % (urlbase, label)
       return self.GetUpdatePayload(hash, size, url)
       web.debug( 'DONE')
     else:

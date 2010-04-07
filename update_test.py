@@ -80,15 +80,15 @@ def _verify_response(data):
   try:
     fd = urllib2.urlopen(head_request)
   except urllib2.HTTPError, e:
+    # HTTP error
     print 'FAILED: unable to retrieve %s\n\t%s' % (update_url, e)
-    return False
-  length = int(fd.headers.getheaders('Content-Length')[0])
-  assert length > 0
-  print 'Got a valid update response.'
-  fd.close()
-  assert (urllib2.urlopen(urljoin(update_url, 'cksum')).read() == hash)
-  print 'Update cksum matched the one in the update XML.'
-  return _verify_download(update_url, length)
+    length = 0
+  else:
+    # HTTP succeeded
+    length = int(fd.headers.getheaders('Content-Length')[0])
+  finally:
+    fd.close()
+    return (length > 0)
 
 def test(num_clients):
   # Fake some concurrent requests for each autoupdate operation.

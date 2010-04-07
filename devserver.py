@@ -47,7 +47,9 @@ if __name__ == '__main__':
   parser = optparse.OptionParser(usage)
   parser.add_option('-a', '--archive_dir', dest='archive_dir',
                     help='serve archived builds only.')
-  parser.add_option("-t", action="store_true", dest="test_image")
+  parser.add_option('-t', action='store_true', dest='test_image')
+  parser.add_option('-u', '--urlbase', dest='urlbase',
+                    help='base URL, other than devserver, for update images.')
   options, args = parser.parse_args()
   # clean up the args, due to httpserver's hardcoded use of sys.argv
   if options.archive_dir:
@@ -55,7 +57,9 @@ if __name__ == '__main__':
     sys.argv.remove(options.archive_dir)
   if options.test_image:
     sys.argv.remove('-t')
-
+  if options.urlbase:
+    sys.argv.remove('-u')
+    sys.argv.remove(options.urlbase)
 
   root_dir = os.path.realpath('%s/../..' %
                               os.path.dirname(os.path.abspath(sys.argv[0])))
@@ -73,6 +77,7 @@ if __name__ == '__main__':
   updater = autoupdate.Autoupdate(root_dir=root_dir,
                                   static_dir=static_dir,
                                   serve_only=options.archive_dir,
+                                  urlbase=options.urlbase,
                                   test_image=options.test_image)
   urls = ('/', 'index',
           '/update', 'update',
