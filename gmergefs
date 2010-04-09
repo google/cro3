@@ -4,7 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Script that emerges packages and their dependencies from a host development 
+# Script that emerges packages and their dependencies from a host development
 # machine onto a target Chromium OS device
 #
 # NOTE: This script must be run from the chromiumos build chroot environment.
@@ -57,7 +57,7 @@ check_args() {
 # Clean up function for mount point
 cleanup_sshfs_mount() {
   echo "Cleaning up mount point"
-  sudo umount "${REMOTE_ROOT_DIR}"  
+  sudo umount "${REMOTE_ROOT_DIR}"
 }
 
 check_args "${FLAGS_board}"
@@ -67,7 +67,7 @@ check_args "${FLAGS_ARGV}" "Emerge package name"
 eval /sbin/modprobe fuse
 
 EMERGE_FLAGS=""
-[[ $FLAGS_usepkg -eq $FLAGS_TRUE ]] && 
+[[ $FLAGS_usepkg -eq $FLAGS_TRUE ]] &&
   EMERGE_FLAGS="${EMERGE_FLAGS} --getbinpkg --usepkg --with-bdeps y"
 
 INSTALL_MASK=""
@@ -107,7 +107,7 @@ sudo mkdir -p "${REMOTE_ROOT_DIR}"
 echo "Enter password for remote machine"
 sudo sshfs -o idmap=user -o allow_other -o nonempty -o transform_symlinks \
   "root@${FLAGS_remote}:/" "${REMOTE_ROOT_DIR}"
-  
+
 trap cleanup_sshfs_mount EXIT
 
 # Ensure root path is created for emerge
@@ -125,8 +125,13 @@ for emerge_request in $FLAGS_ARGV; do
   fi
 done
 
-sync
+# Update ld.so.cache of root partition if installing to /usr/local
+if [ ${FLAGS_onstatefuldev} -eq $FLAGS_TRUE ] ; then
+  # Re-run ldconfig to fix /etc/ldconfig.so.cache
+  sudo /sbin/ldconfig -r "${REMOTE_ROOT_DIR}"
+fi
 
-sudo umount "${REMOTE_ROOT_DIR}" 
+sync
+sudo umount "${REMOTE_ROOT_DIR}"
 
 trap - EXIT
