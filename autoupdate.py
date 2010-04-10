@@ -93,7 +93,7 @@ class Autoupdate(BuildObject):
     else:
       image_file = 'chromiumos_image.bin'
     if self.serve_only:
-      os.system('cd %s && unzip -o image.zip unpack_partitions.sh %s' %
+      os.system('cd %s && unzip -o image.zip && unpack_partitions.sh %s' %
                 (image_path, image_file))
     os.system('rm -f %s/part_*' % image_path)
     os.system('cd %s && ./unpack_partitions.sh %s' % (image_path, image_file))
