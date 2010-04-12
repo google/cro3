@@ -7,6 +7,7 @@ from xml.dom import minidom
 
 import os
 import shutil
+import sys
 import web
 
 class Autoupdate(BuildObject):
@@ -15,6 +16,7 @@ class Autoupdate(BuildObject):
   # TODO(rtc): Clean this code up and write some tests.
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
+               factory_config_path=None, validate_factory_config=None,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
@@ -32,6 +34,8 @@ class Autoupdate(BuildObject):
           os.unlink('static/archive')
       else:
         os.symlink(self.static_dir, 'static/archive')
+    if factory_config_path is not None:
+      self.ImportFactoryConfigFile(factory_config_path, validate_factory_config)
 
   def GetUpdatePayload(self, hash, size, url):
     payload = """<?xml version="1.0" encoding="UTF-8"?>
@@ -138,24 +142,101 @@ class Autoupdate(BuildObject):
   def GetHash(self, update_path):
     cmd = "cat %s | openssl sha1 -binary | openssl base64 | tr \'\\n\' \' \';" \
         % update_path
-    web.debug(cmd)
-    return os.popen(cmd).read()
+    return os.popen(cmd).read().rstrip()
 
+  def ImportFactoryConfigFile(self, filename, validate_checksums=False):
+    """Imports a factory-floor server configuration file. The file should
+    be in this format:
+      config = [
+        {
+          'qual_ids': set([1, 2, 3, "x86-generic"]),
+          'factory_image': 'generic-factory.gz',
+          'factory_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'release_image': 'generic-release.gz',
+          'release_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'oempartitionimg_image': 'generic-oem.gz',
+          'oempartitionimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'stateimg_image': 'generic-state.gz',
+          'stateimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM='
+        },
+        {
+          'qual_ids': set([6]),
+          'factory_image': '6-factory.gz',
+          'factory_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'release_image': '6-release.gz',
+          'release_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'oempartitionimg_image': '6-oem.gz',
+          'oempartitionimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'stateimg_image': '6-state.gz',
+          'stateimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM='
+        },
+      ]
+    The server will look for the files by name in the static files
+    directory.
+    
+    If validate_checksums is True, validates checksums and exits. If
+    a checksum mismatch is found, it's printed to the screen.
+    """
+    f = open(filename, 'r')
+    output = {}
+    exec(f.read(), output)
+    self.factory_config = output['config']
+    success = True
+    for stanza in self.factory_config:
+      for kind in ('factory', 'oempartitionimg', 'release', 'stateimg'):
+        stanza[kind + '_size'] = \
+          os.path.getsize(self.static_dir + '/' + stanza[kind + '_image'])
+        if validate_checksums:
+          factory_checksum = self.GetHash(self.static_dir + '/' +
+                                          stanza[kind + '_image'])
+          if factory_checksum != stanza[kind + '_checksum']:
+            print 'Error: checksum mismatch for %s. Expected "%s" but file ' \
+                'has checksum "%s".' % (stanza[kind + '_image'],
+                                        stanza[kind + '_checksum'],
+                                        factory_checksum)
+            success = False
+    if validate_checksums:
+      if success is False:
+        raise Exception('Checksum mismatch in conf file.')
+      print 'Config file looks good.'
+
+  def GetFactoryImage(self, board_id, channel):
+    kind = channel.rsplit('-', 1)[0]
+    for stanza in self.factory_config:
+      if board_id not in stanza['qual_ids']:
+        continue
+      return (stanza[kind + '_image'],
+              stanza[kind + '_checksum'],
+              stanza[kind + '_size'])
 
   def HandleUpdatePing(self, data, label=None):
+    web.debug('handle update ping')
     update_dom = minidom.parseString(data)
     root = update_dom.firstChild
     query = root.getElementsByTagName('o:app')[0]
     client_version = query.getAttribute('version')
+    channel = query.getAttribute('track')
     board_id = query.hasAttribute('board') and query.getAttribute('board') \
         or 'x86-generic'
     latest_image_path = self.GetLatestImagePath(board_id)
     latest_version = self.GetLatestVersion(latest_image_path)
+    hostname = web.ctx.host
+
+    # If this is a factory floor server, return the image here:
+    if self.factory_config:
+      (filename, checksum, size) = \
+          self.GetFactoryImage(board_id, channel)
+      if filename is None:
+        web.debug('unable to find image for board %s' % board_id)
+        return self.GetNoUpdatePayload()
+      url = 'http://%s/static/%s' % (hostname, filename)
+      web.debug('returning update payload ' + url)
+      return self.GetUpdatePayload(checksum, size, url)
+
     if client_version != 'ForcedUpdate' \
         and not self.CanUpdate(client_version, latest_version):
       web.debug('no update')
       return self.GetNoUpdatePayload()
-    hostname = web.ctx.host
     if label:
       web.debug('Client requested version %s' % label)
       # Check that matching build exists
