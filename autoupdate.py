@@ -85,39 +85,39 @@ class Autoupdate(BuildObject):
       return int(latest_tokens[i]) > int(client_tokens[i])
     return False
 
-  def UnpackRootfs(self, image_path, rootfs_file):
-    if os.path.exists(rootfs_file):
+  def UnpackImage(self, image_path, kernel_file, rootfs_file):
+    if os.path.exists(rootfs_file) and os.path.exists(kernel_file):
       return True
     if self.test_image:
       image_file = 'chromiumos_test_image.bin'
     else:
       image_file = 'chromiumos_image.bin'
     if self.serve_only:
-      os.system('cd %s && unzip -o image.zip && unpack_partitions.sh %s' %
+      os.system('cd %s && unzip -o image.zip' %
                 (image_path, image_file))
     os.system('rm -f %s/part_*' % image_path)
     os.system('cd %s && ./unpack_partitions.sh %s' % (image_path, image_file))
+    shutil.move(os.path.join(image_path, 'part_2'), kernel_file)
     shutil.move(os.path.join(image_path, 'part_3'), rootfs_file)
     os.system('rm -f %s/part_*' % image_path)
     return True
 
   def BuildUpdateImage(self, image_path):
-    if self.test_image:
-      image_file = '%s/rootfs_test.image' % image_path
-    else:
-      image_file = '%s/rootfs.image' % image_path
+    kernel_file = '%s/kernel.image' % image_path
+    rootfs_file = '%s/rootfs.image' % image_path
 
-    if not self.UnpackRootfs(image_path, image_file):
-      web.debug('failed to unpack rootfs.')
+    if not self.UnpackImage(image_path, kernel_file, rootfs_file):
+      web.debug('failed to unpack image.')
       return False
 
     update_file = '%s/update.gz' % image_path
     if (os.path.exists(update_file) and
-        os.path.getmtime(update_file) >= os.path.getmtime(image_file)):
+        os.path.getmtime(update_file) >= os.path.getmtime(rootfs_file)):
       web.debug('Found cached update image %s/update.gz' % image_path)
     else:
       web.debug('generating update image %s' % update_file)
-      mkupdate = '%s/mk_memento_images.sh %s' % (self.scripts_dir, image_file)
+      mkupdate = ('%s/mk_memento_images.sh %s %s' %
+                  (self.scripts_dir, kernel_file, rootfs_file))
       web.debug(mkupdate)
       err = os.system(mkupdate)
       if err != 0:
