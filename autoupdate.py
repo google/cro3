@@ -34,6 +34,7 @@ class Autoupdate(BuildObject):
           os.unlink('static/archive')
       else:
         os.symlink(self.static_dir, 'static/archive')
+    self.factory_config = None
     if factory_config_path is not None:
       self.ImportFactoryConfigFile(factory_config_path, validate_factory_config)
 
