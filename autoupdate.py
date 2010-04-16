@@ -98,8 +98,12 @@ class Autoupdate(BuildObject):
     else:
       image_file = 'chromiumos_image.bin'
     if self.serve_only:
-      os.system('cd %s && unzip -o image.zip' %
+      err = os.system('cd %s && unzip -o image.zip %s unpack_partitions.sh' %
                 (image_path, image_file))
+      if err:
+        web.debug('unzip image.zip failed.')
+        return False
+
     os.system('rm -f %s/part_*' % image_path)
     os.system('cd %s && ./unpack_partitions.sh %s' % (image_path, image_file))
     shutil.move(os.path.join(image_path, 'part_2'), kernel_file)

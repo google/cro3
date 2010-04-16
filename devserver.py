@@ -45,7 +45,7 @@ class build:
 if __name__ == '__main__':
   usage = 'usage: %prog [options]'
   parser = optparse.OptionParser(usage)
-  parser.add_option('-a', '--archive_dir', dest='archive_dir',
+  parser.add_option('--archive_dir', dest='archive_dir',
                     help='serve archived builds only.')
   parser.add_option('--factory_config', dest='factory_config',
                     help='Config file for serving images from factory floor.')
@@ -58,7 +58,6 @@ if __name__ == '__main__':
   options, args = parser.parse_args()
   # clean up the args, due to httpserver's hardcoded use of sys.argv
   if options.archive_dir:
-    sys.argv.remove('-a')
     sys.argv.remove('--archive_dir')
     sys.argv.remove(options.archive_dir)
   if options.factory_config:
