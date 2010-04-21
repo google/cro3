@@ -31,6 +31,20 @@ fi
 mount -o remount,rw /
 mkdir -p /etc/make.profile
 
+# Installing emerge into /usr/local installs make.globals needed in
+# /usr/local/etc rather than /etc.
+if [ ! -f /etc/make.globals ]
+then
+  if [ -f /usr/local/etc/make.globals ]
+  then
+    echo "Missing /etc/make.globals, copying over from /usr/local/etc"
+    sudo cp /usr/local/etc/make.globals /etc
+  else
+    echo "Missing /etc/make.globals and none in /usr/local/etc.  Aborting."
+    exit 1
+  fi
+fi
+
 if [ $build == 1 ] ; then
   echo "Building $1"
   ESCAPED_PACKAGE=$(python -c "import urllib; print urllib.quote('''$1''')")
@@ -49,4 +63,4 @@ export PORTAGE_TMPDIR=/tmp
 # unstable changes from upstream for packages that you do not want.
 export ACCEPT_KEYWORDS='~x86 x86'
 
-emerge --getbinpkg --usepkgonly $1
+FEATURES="-sandbox" emerge --getbinpkg --usepkgonly $1
