@@ -64,9 +64,9 @@ echo "Emerging $package_name"
 
 export PORTAGE_BINHOST="${DEVKIT_URL}/static/pkgroot/${BOARD_NAME}/packages"
 export PORTAGE_TMPDIR=/tmp
-# TODO(rtc): Revisit setting ~x86.
+# TODO(rtc): Revisit setting ~x86 and ~arm.
 # If we add support to build recursive deps this might pull in
 # unstable changes from upstream for packages that you do not want.
-export ACCEPT_KEYWORDS='~x86 x86'
+export ACCEPT_KEYWORDS='~arm arm ~x86 x86'
 
 FEATURES="-sandbox" emerge --getbinpkg --usepkgonly "$@"
