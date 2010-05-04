@@ -20,7 +20,7 @@ class Autoupdate(BuildObject):
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
-    self.test_image=test_image
+    self.test_image = test_image
     self.static_urlbase = urlbase
     if serve_only:
       # If  we're  serving  out  of  an archived  build  dir  (e.g.  a
@@ -84,61 +84,93 @@ class Autoupdate(BuildObject):
     latest_tokens = latest_version.split('.')
     web.debug('client version %s latest version %s' \
         % (client_version, latest_version))
-    for i in range(0,4):
+    for i in range(4):
       if int(latest_tokens[i]) == int(client_tokens[i]):
         continue
       return int(latest_tokens[i]) > int(client_tokens[i])
     return False
 
-  def UnpackImage(self, image_path, kernel_file, rootfs_file):
-    if os.path.exists(rootfs_file) and os.path.exists(kernel_file):
+  def UnpackImage(self, image_path, image_file, stateful_file, kernel_file, rootfs_file):
+    unpack_command = 'cd %s && ./unpack_partitions.sh %s' % \
+        (image_path, image_file)
+    if os.system(unpack_command) == 0:
+      shutil.move(os.path.join(image_path, 'part_1'), stateful_file)
+      shutil.move(os.path.join(image_path, 'part_2'), kernel_file)
+      shutil.move(os.path.join(image_path, 'part_3'), rootfs_file)
+      os.system('cd %s && rm part_*' % image_path)
       return True
+    return False
+
+  def UnpackZip(self, image_path, image_file):
+    return os.system('cd %s && unzip -o image.zip %s unpack_partitions.sh' % \
+                     (image_path, image_file)) == 0
+
+  def GetImageBinPath(self, image_path):
     if self.test_image:
       image_file = 'chromiumos_test_image.bin'
     else:
       image_file = 'chromiumos_image.bin'
-    if self.serve_only:
-      err = os.system('cd %s && unzip -o image.zip %s unpack_partitions.sh' %
-                (image_path, image_file))
-      if err:
-        web.debug('unzip image.zip failed.')
-        return False
-
-    os.system('rm -f %s/part_*' % image_path)
-    os.system('cd %s && ./unpack_partitions.sh %s' % (image_path, image_file))
-    shutil.move(os.path.join(image_path, 'part_2'), kernel_file)
-    shutil.move(os.path.join(image_path, 'part_3'), rootfs_file)
-    os.system('rm -f %s/part_*' % image_path)
-    return True
+    return image_file
 
   def BuildUpdateImage(self, image_path):
+    stateful_file = '%s/stateful.image' % image_path
     kernel_file = '%s/kernel.image' % image_path
     rootfs_file = '%s/rootfs.image' % image_path
 
-    if not self.UnpackImage(image_path, kernel_file, rootfs_file):
-      web.debug('failed to unpack image.')
-      return False
+    image_file = self.GetImageBinPath(image_path)
+    bin_path = os.path.join(image_path, image_file)
 
-    update_file = '%s/update.gz' % image_path
-    if (os.path.exists(update_file) and
-        os.path.getmtime(update_file) >= os.path.getmtime(rootfs_file)):
-      web.debug('Found cached update image %s/update.gz' % image_path)
+    # Get appropriate update.gz to compare timestamps.
+    if self.serve_only:
+      cached_update_file = os.path.join(image_path, 'update.gz')
     else:
-      web.debug('generating update image %s' % update_file)
-      mkupdate = ('%s/mk_memento_images.sh %s %s' %
-                  (self.scripts_dir, kernel_file, rootfs_file))
-      web.debug(mkupdate)
-      err = os.system(mkupdate)
-      if err != 0:
-        web.debug('failed to create update image')
+      cached_update_file = os.path.join(self.static_dir, 'update.gz')
+
+    # Check whether we need to re-create if the original image is newer.
+    if (os.path.exists(cached_update_file) and
+        os.path.getmtime(cached_update_file) >= os.path.getmtime(bin_path)):
+      web.debug('Using cached update image at %s instead of %s' %
+                (cached_update_file, bin_path))
+    else:
+      # Unpack zip file if we are serving from a directory.
+      if self.serve_only and not self.UnpackZip(image_path, image_file):
+        web.debug('unzip image.zip failed.')
         return False
-    if not self.serve_only:
-      web.debug('Found an image, copying it to static')
-      try:
-        shutil.copy(update_file, self.static_dir)
-      except Exception, e:
-        web.debug('Unable to copy %s to %s' % (update_file, self.static_dir))
+
+      if not self.UnpackImage(image_path, image_file, stateful_file,
+                              kernel_file, rootfs_file):
+        web.debug('Failed to unpack image.')
         return False
+
+      update_file = os.path.join(image_path, 'update.gz')
+      web.debug('Generating update image %s' % update_file)
+      mkupdate_command = '%s/mk_memento_images.sh %s %s' % \
+                          (self.scripts_dir, kernel_file, rootfs_file)
+      if os.system(mkupdate_command) != 0:
+        web.debug('Failed to create update image')
+        return False
+
+      mkstatefulupdate_command = 'gzip %s' % stateful_file
+      if os.system(mkstatefulupdate_command) != 0:
+        web.debug('Failed to create stateful update image')
+        return False
+
+      # Add gz suffix
+      stateful_file = '%s.gz' % stateful_file
+
+      # Cleanup of image files
+      os.remove(kernel_file)
+      os.remove(rootfs_file)
+      if not self.serve_only:
+        try:
+          web.debug('Found a new image to serve, copying it to static')
+          shutil.copy(update_file, self.static_dir)
+          shutil.copy(stateful_file, self.static_dir)
+          os.remove(update_file)
+          os.remove(stateful_file)
+        except Exception, e:
+          web.debug('%s' % e)
+          return False
     return True
 
   def GetSize(self, update_path):
@@ -178,7 +210,7 @@ class Autoupdate(BuildObject):
       ]
     The server will look for the files by name in the static files
     directory.
-    
+
     If validate_checksums is True, validates checksums and exits. If
     a checksum mismatch is found, it's printed to the screen.
     """
@@ -267,7 +299,7 @@ class Autoupdate(BuildObject):
 
       url = '%s/%s/update.gz' % (urlbase, label)
       return self.GetUpdatePayload(hash, size, url)
-      web.debug( 'DONE')
+      web.debug('DONE')
     else:
       web.debug('update found %s ' % latest_version)
       ok = self.BuildUpdateImage(latest_image_path)
