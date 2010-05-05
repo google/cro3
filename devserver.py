@@ -6,7 +6,6 @@ import autoupdate
 import buildutil
 import optparse
 import os
-import SimpleHTTPServer
 import sys
 import web
 
