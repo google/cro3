@@ -46,6 +46,9 @@ if __name__ == '__main__':
   parser = optparse.OptionParser(usage)
   parser.add_option('--archive_dir', dest='archive_dir',
                     help='serve archived builds only.')
+  parser.add_option('--client_prefix', dest='client_prefix',
+                    help='Required prefix for client software version.',
+                    default='MementoSoftwareUpdate')
   parser.add_option('--factory_config', dest='factory_config',
                     help='Config file for serving images from factory floor.')
   parser.add_option('-t', action='store_true', dest='test_image')
@@ -59,6 +62,9 @@ if __name__ == '__main__':
   if options.archive_dir:
     sys.argv.remove('--archive_dir')
     sys.argv.remove(options.archive_dir)
+  if '--client_prefix' in sys.argv:
+    sys.argv.remove('--client_prefix')
+    sys.argv.remove(options.client_prefix)
   if options.factory_config:
     sys.argv.remove('--factory_config')
     sys.argv.remove(options.factory_config)

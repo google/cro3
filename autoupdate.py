@@ -250,6 +250,12 @@ class Autoupdate(BuildObject):
     web.debug('handle update ping')
     update_dom = minidom.parseString(data)
     root = update_dom.firstChild
+    if root.hasAttribute('updaterversion') and \
+        not root.getAttribute('updaterversion').startswith(
+        'MementoSoftwareUpdate'):
+      web.debug('Got update from unsupported updater:' + \
+          root.getAttribute('updaterversion'))
+      return self.GetNoUpdatePayload()
     query = root.getElementsByTagName('o:app')[0]
     client_version = query.getAttribute('version')
     channel = query.getAttribute('track')
