@@ -63,9 +63,6 @@ cleanup_sshfs_mount() {
 check_args "${FLAGS_board}"
 check_args "${FLAGS_ARGV}" "Emerge package name"
 
-# Just in case we haven't done this before.
-eval /sbin/modprobe fuse
-
 EMERGE_FLAGS=""
 [[ $FLAGS_usepkg -eq $FLAGS_TRUE ]] &&
   EMERGE_FLAGS="${EMERGE_FLAGS} --getbinpkg --usepkg --with-bdeps y"
