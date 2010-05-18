@@ -80,8 +80,8 @@ class Autoupdate(BuildObject):
     """
       Returns true iff the latest_version is greater than the client_version.
     """
-    client_tokens = client_version.split('.')
-    latest_tokens = latest_version.split('.')
+    client_tokens = client_version.replace('_','').split('.')
+    latest_tokens = latest_version.replace('_','').split('.')
     web.debug('client version %s latest version %s' \
         % (client_version, latest_version))
     for i in range(4):
