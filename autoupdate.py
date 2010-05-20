@@ -194,7 +194,11 @@ class Autoupdate(BuildObject):
           'oempartitionimg_image': 'generic-oem.gz',
           'oempartitionimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
           'stateimg_image': 'generic-state.gz',
-          'stateimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM='
+          'stateimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'systemrom_image': 'generic-systemrom.gz',
+          'systemrom_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'ecrom_image': 'generic-ecrom.gz',
+          'ecrom_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
         },
         {
           'qual_ids': set([6]),
@@ -205,7 +209,11 @@ class Autoupdate(BuildObject):
           'oempartitionimg_image': '6-oem.gz',
           'oempartitionimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
           'stateimg_image': '6-state.gz',
-          'stateimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM='
+          'stateimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'systemrom_image': '6-systemrom.gz',
+          'systemrom_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'ecrom_image': '6-ecrom.gz',
+          'ecrom_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
         },
       ]
     The server will look for the files by name in the static files
@@ -220,18 +228,21 @@ class Autoupdate(BuildObject):
     self.factory_config = output['config']
     success = True
     for stanza in self.factory_config:
-      for kind in ('factory', 'oempartitionimg', 'release', 'stateimg'):
-        stanza[kind + '_size'] = \
-          os.path.getsize(self.static_dir + '/' + stanza[kind + '_image'])
-        if validate_checksums:
-          factory_checksum = self.GetHash(self.static_dir + '/' +
-                                          stanza[kind + '_image'])
-          if factory_checksum != stanza[kind + '_checksum']:
-            print 'Error: checksum mismatch for %s. Expected "%s" but file ' \
-                'has checksum "%s".' % (stanza[kind + '_image'],
-                                        stanza[kind + '_checksum'],
-                                        factory_checksum)
-            success = False
+      for key in stanza.copy().iterkeys():
+        suffix = '_image'
+        if key.endswith(suffix):
+          kind = key[:-len(suffix)]
+          stanza[kind + '_size'] = \
+            os.path.getsize(self.static_dir + '/' + stanza[kind + '_image'])
+          if validate_checksums:
+            factory_checksum = self.GetHash(self.static_dir + '/' +
+                                            stanza[kind + '_image'])
+            if factory_checksum != stanza[kind + '_checksum']:
+              print 'Error: checksum mismatch for %s. Expected "%s" but file ' \
+                  'has checksum "%s".' % (stanza[kind + '_image'],
+                                          stanza[kind + '_checksum'],
+                                          factory_checksum)
+              success = False
     if validate_checksums:
       if success is False:
         raise Exception('Checksum mismatch in conf file.')
