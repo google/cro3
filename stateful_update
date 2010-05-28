@@ -16,8 +16,13 @@ STATEFUL_MOUNT_POINT="/tmp/s"
 
 PING_OMAHA=/opt/google/memento_updater/ping_omaha.sh
 
+if [ -n "$1" ] ; then
+  OMAHA_ARG="--omaha_url=$1"
+fi
+
 # Get image url for stateful image
-OMAHA_CHECK_OUTPUT=$($PING_OMAHA --app_version ForcedUpdate 2> /dev/null)
+OMAHA_CHECK_OUTPUT=$($PING_OMAHA --app_version ForcedUpdate \
+   "$OMAHA_ARG" 2> /dev/null)
 ROOT_UPDATE_URL=$(echo "$OMAHA_CHECK_OUTPUT" | grep '^URL=' | cut -d = -f 2-)
 STATEFUL_UPDATE_URL="$(dirname "$ROOT_UPDATE_URL")/stateful.image.gz"
 

@@ -90,7 +90,8 @@ class Autoupdate(BuildObject):
       return int(latest_tokens[i]) > int(client_tokens[i])
     return False
 
-  def UnpackImage(self, image_path, image_file, stateful_file, kernel_file, rootfs_file):
+  def UnpackImage(self, image_path, image_file, stateful_file,
+                  kernel_file, rootfs_file):
     unpack_command = 'cd %s && ./unpack_partitions.sh %s' % \
         (image_path, image_file)
     if os.system(unpack_command) == 0:
@@ -102,8 +103,12 @@ class Autoupdate(BuildObject):
     return False
 
   def UnpackZip(self, image_path, image_file):
-    return os.system('cd %s && unzip -o image.zip %s unpack_partitions.sh' % \
-                     (image_path, image_file)) == 0
+    image = os.path.join(image_path, image_file)
+    if os.path.exists(image):
+      return True
+    else:
+      return os.system('cd %s && unzip -o image.zip %s unpack_partitions.sh' %
+                       (image_path, image_file)) == 0
 
   def GetImageBinPath(self, image_path):
     if self.test_image:
@@ -126,7 +131,7 @@ class Autoupdate(BuildObject):
     else:
       cached_update_file = os.path.join(self.static_dir, 'update.gz')
 
-    # Check whether we need to re-create if the original image is newer.
+    # If the rootfs image is newer, re-create everything.
     if (os.path.exists(cached_update_file) and
         os.path.getmtime(cached_update_file) >= os.path.getmtime(bin_path)):
       web.debug('Using cached update image at %s instead of %s' %
@@ -150,7 +155,7 @@ class Autoupdate(BuildObject):
         web.debug('Failed to create update image')
         return False
 
-      mkstatefulupdate_command = 'gzip %s' % stateful_file
+      mkstatefulupdate_command = 'gzip -f %s' % stateful_file
       if os.system(mkstatefulupdate_command) != 0:
         web.debug('Failed to create stateful update image')
         return False
