@@ -35,7 +35,9 @@ mkdir -p "$STATEFUL_MOUNT_POINT"
 
 # Unzip mount and copy the relevant directories.
 # Get the update.
-eval "wget -O - \"$STATEFUL_UPDATE_URL\"" | gzip -d > $STATEFUL_IMAGE
+eval "wget -qS -T 300 -O - \"$STATEFUL_UPDATE_URL\"" | \
+    gzip -d > $STATEFUL_IMAGE
+echo "Successfully downloaded update"
 trap "rm -f \"$STATEFUL_IMAGE\"" EXIT
 mount -n -o loop "$STATEFUL_IMAGE" "$STATEFUL_MOUNT_POINT"
 if [ -d "$STATEFUL_MOUNT_POINT/var" ] && \

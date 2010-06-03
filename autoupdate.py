@@ -20,6 +20,7 @@ class Autoupdate(BuildObject):
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
+    self.factory_config = factory_config_path
     self.test_image = test_image
     self.static_urlbase = urlbase
     if serve_only:
@@ -28,13 +29,12 @@ class Autoupdate(BuildObject):
       # link to the build archive.
       web.debug('Autoupdate in "serve update images only" mode.')
       if os.path.exists('static/archive'):
-        archive_symlink = os.readlink('static/archive')
-        if archive_symlink != self.static_dir:
+        if self.static_dir != os.readlink('static/archive'):
           web.debug('removing stale symlink to %s' % self.static_dir)
           os.unlink('static/archive')
+          os.symlink(self.static_dir, 'static/archive')
       else:
-        os.symlink(self.static_dir, 'static/archive')
-    self.factory_config = None
+         os.symlink(self.static_dir, 'static/archive')
     if factory_config_path is not None:
       self.ImportFactoryConfigFile(factory_config_path, validate_factory_config)
 
@@ -107,7 +107,11 @@ class Autoupdate(BuildObject):
     if os.path.exists(image):
       return True
     else:
-      return os.system('cd %s && unzip -o image.zip %s unpack_partitions.sh' %
+      # -n, never clobber an existing file, in case we get invoked
+      # simultaneously by multiple request handlers. This means that
+      # we're assuming each image.zip file lives in a versioned
+      # directory (a la Buildbot).
+      return os.system('cd %s && unzip -n image.zip %s unpack_partitions.sh' %
                        (image_path, image_file)) == 0
 
   def GetImageBinPath(self, image_path):
