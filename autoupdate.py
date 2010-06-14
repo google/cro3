@@ -206,10 +206,8 @@ class Autoupdate(BuildObject):
           'efipartitionimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
           'stateimg_image': 'generic-state.gz',
           'stateimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'systemrom_image': 'generic-systemrom.gz',
-          'systemrom_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'ecrom_image': 'generic-ecrom.gz',
-          'ecrom_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'firmware_image': 'generic-firmware.gz',
+          'firmware_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
         },
         {
           'qual_ids': set([6]),
@@ -223,10 +221,8 @@ class Autoupdate(BuildObject):
           'efipartitionimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
           'stateimg_image': '6-state.gz',
           'stateimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'systemrom_image': '6-systemrom.gz',
-          'systemrom_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'ecrom_image': '6-ecrom.gz',
-          'ecrom_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
+          'firmware_image': '6-firmware.gz',
+          'firmware_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
         },
       ]
     The server will look for the files by name in the static files
