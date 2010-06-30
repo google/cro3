@@ -271,9 +271,12 @@ class Autoupdate(BuildObject):
     for stanza in self.factory_config:
       if board_id not in stanza['qual_ids']:
         continue
+      if kind + '_image' not in stanza:
+        break
       return (stanza[kind + '_image'],
               stanza[kind + '_checksum'],
               stanza[kind + '_size'])
+    return (None, None, None)
 
   def HandleUpdatePing(self, data, label=None):
     web.debug('handle update ping')
