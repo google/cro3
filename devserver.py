@@ -96,7 +96,8 @@ if __name__ == '__main__':
       urlbase=options.urlbase,
       test_image=options.test_image,
       factory_config_path=options.factory_config,
-      validate_factory_config=options.validate_factory_config)
+      validate_factory_config=options.validate_factory_config,
+      client_prefix=options.client_prefix)
   if options.validate_factory_config:
     sys.exit(0)
   urls = ('/', 'index',

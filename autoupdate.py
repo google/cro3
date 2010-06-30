@@ -17,12 +17,14 @@ class Autoupdate(BuildObject):
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
                factory_config_path=None, validate_factory_config=None,
+               client_prefix=None,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
     self.factory_config = factory_config_path
     self.test_image = test_image
     self.static_urlbase = urlbase
+    self.client_prefix=client_prefix
     if serve_only:
       # If  we're  serving  out  of  an archived  build  dir  (e.g.  a
       # buildbot), prepare this webserver's magic 'static/' dir with a
@@ -272,7 +274,7 @@ class Autoupdate(BuildObject):
     root = update_dom.firstChild
     if root.hasAttribute('updaterversion') and \
         not root.getAttribute('updaterversion').startswith(
-        'MementoSoftwareUpdate'):
+        self.client_prefix):
       web.debug('Got update from unsupported updater:' + \
           root.getAttribute('updaterversion'))
       return self.GetNoUpdatePayload()
