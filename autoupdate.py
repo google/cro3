@@ -67,6 +67,13 @@ class Autoupdate(BuildObject):
     """
     return payload % self.app_id
 
+  def GetDefaultBoardID(self):
+    board_file = '%s/.default_board' % (self.scripts_dir)
+    try:
+      return open(board_file).read()
+    except IOError:
+      return 'x86-generic'
+
   def GetLatestImagePath(self, board_id):
     cmd = '%s/get_latest_image.sh --board %s' % (self.scripts_dir, board_id)
     return os.popen(cmd).read().strip()
@@ -282,7 +289,7 @@ class Autoupdate(BuildObject):
     client_version = query.getAttribute('version')
     channel = query.getAttribute('track')
     board_id = query.hasAttribute('board') and query.getAttribute('board') \
-        or 'x86-generic'
+        or self.GetDefaultBoardID()
     latest_image_path = self.GetLatestImagePath(board_id)
     latest_version = self.GetLatestVersion(latest_image_path)
     hostname = web.ctx.host
