@@ -12,17 +12,14 @@ import web
 global updater
 updater = None
 
-global buildbot
-buildbot = None
 
 class index:
   def GET(self):
-    pkgs = buildbot.GetPackages()
-    return render.index(pkgs)
+    return render.index(None)
 
 class update:
   """
-    Processes updates from the client machine. If an update is found, the url 
+    Processes updates from the client machine. If an update is found, the url
     references a static link that can be served automagically from web.py.
   """
   def POST(self, args=None):
@@ -103,7 +100,6 @@ if __name__ == '__main__':
   urls = ('/', 'index',
           '/update', 'update',
           '/update/(.+)', 'update',
-          '/webbuild', 'webbuild',
           '/build', 'build')
 
   app = web.application(urls, globals(), autoreload=True)
