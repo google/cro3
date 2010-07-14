@@ -279,7 +279,7 @@ class Autoupdate(BuildObject):
     return (None, None, None)
 
   def HandleUpdatePing(self, data, label=None):
-    web.debug('handle update ping')
+    web.debug('handle update ping: %s' % data)
     update_dom = minidom.parseString(data)
     root = update_dom.firstChild
     if root.hasAttribute('updaterversion') and \
