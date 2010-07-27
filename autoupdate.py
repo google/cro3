@@ -8,6 +8,7 @@ from xml.dom import minidom
 import os
 import shutil
 import sys
+import time
 import web
 
 class Autoupdate(BuildObject):
@@ -40,9 +41,14 @@ class Autoupdate(BuildObject):
     if factory_config_path is not None:
       self.ImportFactoryConfigFile(factory_config_path, validate_factory_config)
 
+  def GetSecondsSinceMidnight(self):
+    now = time.localtime()
+    return now[3] * 3600 + now[4] * 60 + now[5]
+
   def GetUpdatePayload(self, hash, size, url):
     payload = """<?xml version="1.0" encoding="UTF-8"?>
       <gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
+        <daystart elapsed_seconds="%s"/>
         <app appid="{%s}" status="ok">
           <ping status="ok"/>
           <updatecheck
@@ -54,18 +60,20 @@ class Autoupdate(BuildObject):
         </app>
       </gupdate>
     """
-    return payload % (self.app_id, url, hash, size)
+    return payload % (self.GetSecondsSinceMidnight(),
+                      self.app_id, url, hash, size)
 
   def GetNoUpdatePayload(self):
     payload = """<?xml version="1.0" encoding="UTF-8"?>
       <gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
+        <daystart elapsed_seconds="%s"/>
         <app appid="{%s}" status="ok">
           <ping status="ok"/>
           <updatecheck status="noupdate"/>
         </app>
       </gupdate>
     """
-    return payload % self.app_id
+    return payload % (self.GetSecondsSinceMidnight(), self.app_id)
 
   def GetDefaultBoardID(self):
     board_file = '%s/.default_board' % (self.scripts_dir)
