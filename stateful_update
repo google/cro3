@@ -10,21 +10,30 @@
 # Die on error.
 set -e
 
+LSB_RELEASE="/etc/lsb-release"
 STATEFUL_DIR="/mnt/stateful_partition"
 STATEFUL_IMAGE="$STATEFUL_DIR/stateful.image"
 STATEFUL_MOUNT_POINT="/tmp/s"
 
-PING_OMAHA=/opt/google/memento_updater/ping_omaha.sh
-
-if [ -n "$1" ] ; then
-  OMAHA_ARG="--omaha_url=$1"
+if [ -n "$1" ]; then
+  BASE_UPDATE_URL="$1"
+else
+  if [ -f "$STATEFUL_DIR$LSB_RELEASE" ]; then
+    DEVSERVER_URL=$(grep CHROMEOS_DEVSERVER $STATEFUL_DIR$LSB_RELEASE | \
+                  cut -f 2 -d '=')
+  fi
+  if [ -z "$DEVSERVER_URL" ]; then
+    DEVSERVER_URL=$(grep CHROMEOS_DEVSERVER $LSB_RELEASE | cut -f 2 -d '=')
+  fi
+  # Sanity check.
+  if [ -z "$DEVSERVER_URL" ]; then
+    echo "No CHROMEOS_DEVSERVER URL found in lsb-release file"
+    exit 1
+  fi
+  BASE_UPDATE_URL="$DEVSERVER_URL/static"
 fi
+STATEFUL_UPDATE_URL="$BASE_UPDATE_URL/stateful.image.gz"
 
-# Get image url for stateful image
-OMAHA_CHECK_OUTPUT=$($PING_OMAHA --app_version ForcedUpdate \
-   "$OMAHA_ARG" 2> /dev/null)
-ROOT_UPDATE_URL=$(echo "$OMAHA_CHECK_OUTPUT" | grep '^URL=' | cut -d = -f 2-)
-STATEFUL_UPDATE_URL="$(dirname "$ROOT_UPDATE_URL")/stateful.image.gz"
 
 # Prepare directories for update.
 rm -rf "$STATEFUL_DIR/var_new" "$STATEFUL_DIR/dev_image_new"
@@ -33,6 +42,7 @@ rm -rf "$STATEFUL_DIR/var_new" "$STATEFUL_DIR/dev_image_new"
 rm -rf "$STATEFUL_MOUNT_POINT"
 mkdir -p "$STATEFUL_MOUNT_POINT"
 
+echo "Download stateful partition image from $STATEFUL_UPDATE_URL"
 # Unzip mount and copy the relevant directories.
 # Get the update.
 eval "wget -qS -T 300 -O - \"$STATEFUL_UPDATE_URL\"" | \
