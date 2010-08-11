@@ -38,6 +38,20 @@ class build:
     if err != 0:
       raise Exception('failed to execute %s' % emerge_command)
 
+def OverrideWSGIServer(server_address, wsgi_app):
+  """Creates a CherryPyWSGIServer instance.
+
+  Overrides web.py's WSGIServer routine (web.httpserver.WSGIServer) to
+  increase the accepted connection socket timeout from the default 10
+  seconds to 10 minutes. The extra time is necessary to serve delta
+  updates as well as update requests from a low priority update_engine
+  process running on a heavily loaded Chrome OS device.
+  """
+  web.debug('using local OverrideWSGIServer routine')
+  from web.wsgiserver import CherryPyWSGIServer
+  return CherryPyWSGIServer(server_address, wsgi_app, server_name="localhost",
+                            timeout=600)
+
 if __name__ == '__main__':
   usage = 'usage: %prog [options]'
   parser = optparse.OptionParser(usage)
@@ -102,6 +116,8 @@ if __name__ == '__main__':
           '/update/(.+)', 'update',
           '/build', 'build')
 
+  # Overrides the default WSGIServer routine -- see OverrideWSGIServer.
+  web.httpserver.WSGIServer = OverrideWSGIServer
   app = web.application(urls, globals(), autoreload=True)
   render = web.template.render('templates/')
   app.run()
