@@ -37,6 +37,10 @@ class build:
     err = os.system(emerge_command)
     if err != 0:
       raise Exception('failed to execute %s' % emerge_command)
+    eclean_command = 'eclean-%s -d packages' % input.board
+    err = os.system(eclean_command)
+    if err != 0:
+      raise Exception('failed to execute %s' % emerge_command)
 
 def OverrideWSGIServer(server_address, wsgi_app):
   """Creates a CherryPyWSGIServer instance.

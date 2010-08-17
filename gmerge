@@ -35,6 +35,9 @@ fi
 mount -o remount,rw /
 mkdir -p /etc/make.profile
 
+# Delete the local binary package cache.
+sudo rm -rf /usr/portage/packages
+
 if [ $build == 1 ] ; then
   echo "Building $package_name"
   ESCAPED_PACKAGE=$(python -c \
@@ -67,7 +70,7 @@ export PORTAGE_TMPDIR=/tmp
 
 # Accept keywords only for stable ebuilds by default.
 if [ -z "$ACCEPT_KEYWORDS" ] ; then
-  ACCEPT_KEYWORDS='arm x86'
+  ACCEPT_KEYWORDS='arm x86 ~arm ~x86'
 fi
 export ACCEPT_KEYWORDS
 
