@@ -30,6 +30,8 @@ else
     echo "No CHROMEOS_DEVSERVER URL found in lsb-release file"
     exit 1
   fi
+  # Devserver URL should never contain "/update"
+  DEVSERVER_URL=$(echo $DEVSERVER_URL | sed -e 's#/update##')
   BASE_UPDATE_URL="$DEVSERVER_URL/static"
 fi
 STATEFUL_UPDATE_URL="$BASE_UPDATE_URL/stateful.image.gz"
