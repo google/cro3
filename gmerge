@@ -74,4 +74,7 @@ if [ -z "$ACCEPT_KEYWORDS" ] ; then
 fi
 export ACCEPT_KEYWORDS
 
+# Disable CONFIG_PROTECT.
+export CONFIG_PROTECT="-*"
+
 FEATURES="-sandbox" emerge --getbinpkg --usepkgonly "$@"
