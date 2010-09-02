@@ -25,7 +25,7 @@ class Autoupdate(BuildObject):
     self.factory_config = factory_config_path
     self.test_image = test_image
     self.static_urlbase = urlbase
-    self.client_prefix=client_prefix
+    self.client_prefix = client_prefix
     if serve_only:
       # If  we're  serving  out  of  an archived  build  dir  (e.g.  a
       # buildbot), prepare this webserver's magic 'static/' dir with a
@@ -97,8 +97,8 @@ class Autoupdate(BuildObject):
     """
       Returns true iff the latest_version is greater than the client_version.
     """
-    client_tokens = client_version.replace('_','').split('.')
-    latest_tokens = latest_version.replace('_','').split('.')
+    client_tokens = client_version.replace('_', '').split('.')
+    latest_tokens = latest_version.replace('_', '').split('.')
     web.debug('client version %s latest version %s' \
         % (client_version, latest_version))
     for i in range(4):
@@ -107,15 +107,16 @@ class Autoupdate(BuildObject):
       return int(latest_tokens[i]) > int(client_tokens[i])
     return False
 
-  def UnpackImage(self, image_path, image_file, stateful_file,
-                  kernel_file, rootfs_file):
-    unpack_command = 'cd %s && ./unpack_partitions.sh %s' % \
-        (image_path, image_file)
+  def UnpackStatefulPartition(self, image_path, image_file, stateful_file):
+    """Given an image, unpacks the stateful partition to stateful_file."""
+    stateful_part = "part_1"
+    unpack_command = (
+        'cd %s && '
+        '$(grep %s\  unpack_partitions.sh | sed s/\\"\$TARGET\\"/%s/)' %
+            (image_path, stateful_part, image_file))
+    web.debug(unpack_command)
     if os.system(unpack_command) == 0:
-      shutil.move(os.path.join(image_path, 'part_1'), stateful_file)
-      shutil.move(os.path.join(image_path, 'part_2'), kernel_file)
-      shutil.move(os.path.join(image_path, 'part_3'), rootfs_file)
-      os.system('cd %s && rm part_*' % image_path)
+      shutil.move(os.path.join(image_path, stateful_part), stateful_file)
       return True
     return False
 
@@ -140,9 +141,6 @@ class Autoupdate(BuildObject):
 
   def BuildUpdateImage(self, image_path):
     stateful_file = '%s/stateful.image' % image_path
-    kernel_file = '%s/kernel.image' % image_path
-    rootfs_file = '%s/rootfs.image' % image_path
-
     image_file = self.GetImageBinPath(image_path)
     bin_path = os.path.join(image_path, image_file)
 
@@ -152,7 +150,7 @@ class Autoupdate(BuildObject):
     else:
       cached_update_file = os.path.join(self.static_dir, 'update.gz')
 
-    # If the rootfs image is newer, re-create everything.
+    # If the new chromiumos image is newer, re-create everything.
     if (os.path.exists(cached_update_file) and
         os.path.getmtime(cached_update_file) >= os.path.getmtime(bin_path)):
       web.debug('Using cached update image at %s instead of %s' %
@@ -163,30 +161,30 @@ class Autoupdate(BuildObject):
         web.debug('unzip image.zip failed.')
         return False
 
-      if not self.UnpackImage(image_path, image_file, stateful_file,
-                              kernel_file, rootfs_file):
-        web.debug('Failed to unpack image.')
-        return False
-
       update_file = os.path.join(image_path, 'update.gz')
       web.debug('Generating update image %s' % update_file)
-      mkupdate_command = '%s/mk_memento_images.sh %s %s' % \
-                          (self.scripts_dir, kernel_file, rootfs_file)
+      mkupdate_command = (
+          '%s/cros_generate_update_payload --image=%s --output=%s' %
+              (self.scripts_dir, bin_path, update_file))
       if os.system(mkupdate_command) != 0:
         web.debug('Failed to create update image')
         return False
 
+      # Unpack to get stateful partition.
+      if not self.UnpackStatefulPartition(image_path, image_file,
+                                          stateful_file):
+        web.debug('Failed to unpack stateful partition.')
+        return False
+
       mkstatefulupdate_command = 'gzip -f %s' % stateful_file
       if os.system(mkstatefulupdate_command) != 0:
-        web.debug('Failed to create stateful update image')
+        web.debug('Failed to create stateful update gz')
         return False
 
       # Add gz suffix
       stateful_file = '%s.gz' % stateful_file
 
-      # Cleanup of image files
-      os.remove(kernel_file)
-      os.remove(rootfs_file)
+      # Cleanup of image files.
       if not self.serve_only:
         try:
           web.debug('Found a new image to serve, copying it to static')
