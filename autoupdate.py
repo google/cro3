@@ -109,16 +109,14 @@ class Autoupdate(BuildObject):
 
   def UnpackStatefulPartition(self, image_path, image_file, stateful_file):
     """Given an image, unpacks the stateful partition to stateful_file."""
-    stateful_part = "part_1"
+    get_offset = '$(cgpt show -b -i 1 %s)' % image_file
+    get_size = '$(cgpt show -s -i 1 %s)' % image_file
     unpack_command = (
         'cd %s && '
-        '$(grep %s\  unpack_partitions.sh | sed s/\\"\$TARGET\\"/%s/)' %
-            (image_path, stateful_part, image_file))
+        'dd if=%s of=%s bs=512 skip=%s count=%s' % (image_path, image_file,
+            stateful_file, get_offset, get_size))
     web.debug(unpack_command)
-    if os.system(unpack_command) == 0:
-      shutil.move(os.path.join(image_path, stateful_part), stateful_file)
-      return True
-    return False
+    return os.system(unpack_command) == 0
 
   def UnpackZip(self, image_path, image_file):
     image = os.path.join(image_path, image_file)
@@ -164,8 +162,8 @@ class Autoupdate(BuildObject):
       update_file = os.path.join(image_path, 'update.gz')
       web.debug('Generating update image %s' % update_file)
       mkupdate_command = (
-          '%s/cros_generate_update_payload --image=%s --output=%s' %
-              (self.scripts_dir, bin_path, update_file))
+          '%s/cros_generate_update_payload --image=%s --output=%s '
+          '--patch_kernel' % (self.scripts_dir, bin_path, update_file))
       if os.system(mkupdate_command) != 0:
         web.debug('Failed to create update image')
         return False
