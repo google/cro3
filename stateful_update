@@ -21,14 +21,18 @@ FLAGS "$@" || exit 1
 # Die on error.
 set -e
 
+remove_quotes() {
+  echo "$1" | sed -e "s/^'//; s/'$//"
+}
+
 update_dev_image () {
   LSB_RELEASE="/etc/lsb-release"
   STATEFUL_DIR="/mnt/stateful_partition"
   STATEFUL_IMAGE="$STATEFUL_DIR/stateful.image"
   STATEFUL_MOUNT_POINT="/tmp/s"
 
-  if [ -n "$1" ]; then
-    BASE_UPDATE_URL="$1"
+  if [ -n "${FLAGS_ARGV}" ]; then
+    BASE_UPDATE_URL=$(remove_quotes "${FLAGS_ARGV}")
   else
     if [ -f "$STATEFUL_DIR$LSB_RELEASE" ]; then
       DEVSERVER_URL=$(grep CHROMEOS_DEVSERVER $STATEFUL_DIR$LSB_RELEASE | \
