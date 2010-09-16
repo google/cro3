@@ -96,8 +96,7 @@ class Autoupdate(BuildObject):
       # simultaneously by multiple request handlers. This means that
       # we're assuming each image.zip file lives in a versioned
       # directory (a la Buildbot).
-      return os.system('cd %s && unzip -n image.zip %s unpack_partitions.sh' %
-                       (image_dir, self._GetImageName())) == 0
+      return os.system('cd %s && unzip -n image.zip' % image_dir) == 0
 
   def _GetImageName(self):
     """Returns the name of the image that should be used."""
@@ -109,17 +108,19 @@ class Autoupdate(BuildObject):
 
   def _IsImageNewerThanCached(self, image_path, cached_file_path):
     """Returns true if the image is newer than the cached image."""
-    # No image to compare against.
-    if not os.path.exists(image_path) and os.path.exists(cached_file_path):
-      return True
-
-    if (os.path.exists(cached_file_path) and
-        os.path.getmtime(cached_file_path) < os.path.getmtime(image_path)):
-      return True
+    if os.path.exists(cached_file_path) and os.path.exists(image_path):
+      web.debug('Usable cached image found.')
+      return os.path.getmtime(image_path) > os.path.getmtime(cached_file_path)
+    elif not os.path.exists(cached_file_path) and not os.path.exists(image_path):
+      raise Exception('Image does not exist and cached image missing')
     else:
-      web.debug('Found usable cached update image at %s instead of %s' %
-                (cached_file_path, image_path))
-      return False
+      # Only one is missing, figure out which one.
+      if os.path.exists(image_path):
+        web.debug('No cached image found - image generation required.')
+        return True
+      else:
+        web.debug('Only cached image found to serve.')
+        return False
 
   def _GetSize(self, update_path):
     """Returns the size of the file given."""
@@ -310,10 +311,11 @@ class Autoupdate(BuildObject):
     web.debug('Preparing to generate update from zip in %s.' % static_image_dir)
     image_path = os.path.join(static_image_dir, self._GetImageName())
     cached_file_path = os.path.join(static_image_dir, 'update.gz')
-    if not self._IsImageNewerThanCached(image_path, cached_file_path):
+    zip_file_path = os.path.join(static_image_dir, 'image.zip')
+    if not self._IsImageNewerThanCached(zip_file_path, cached_file_path):
       return True
 
-    if self._UnpackZip(static_image_dir):
+    if not self._UnpackZip(static_image_dir):
       web.debug('unzip image.zip failed.')
       return False
 
