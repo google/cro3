@@ -1,14 +1,16 @@
-# Copyright (c) 2009 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2009-2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import autoupdate
-import buildutil
 import optparse
 import os
 import sys
 import web
 
+import autoupdate
+import buildutil
+
+# Sets up global to share between classes.
 global updater
 updater = None
 
@@ -17,6 +19,7 @@ class index:
   def GET(self):
     return render.index(None)
 
+
 class update:
   """
     Processes updates from the client machine. If an update is found, the url
@@ -24,6 +27,7 @@ class update:
   """
   def POST(self, args=None):
     return updater.HandleUpdatePing(web.data(), args)
+
 
 class build:
   """
@@ -42,6 +46,7 @@ class build:
     if err != 0:
       raise Exception('failed to execute %s' % emerge_command)
 
+
 def OverrideWSGIServer(server_address, wsgi_app):
   """Creates a CherryPyWSGIServer instance.
 
@@ -56,6 +61,23 @@ def OverrideWSGIServer(server_address, wsgi_app):
   return CherryPyWSGIServer(server_address, wsgi_app, server_name="localhost",
                             timeout=600)
 
+def _PrepareToServeUpdatesOnly(image_dir):
+  """Sets up symlink to image_dir for serving purposes."""
+  assert os.path.exists(image_dir), '%s must exist.' % image_dir
+  # If  we're  serving  out  of  an archived  build  dir  (e.g.  a
+  # buildbot), prepare this webserver's magic 'static/' dir with a
+  # link to the build archive.
+  web.debug('Preparing autoupdate for "serve updates only" mode.')
+  if os.path.exists('static/archive'):
+    if image_dir != os.readlink('static/archive'):
+      web.debug('removing stale symlink to %s' % image_dir)
+      os.unlink('static/archive')
+      os.symlink(image_dir, 'static/archive')
+  else:
+    os.symlink(image_dir, 'static/archive')
+  web.debug('archive dir: %s ready to be used to serve images.' % image_dir)
+
+
 if __name__ == '__main__':
   usage = 'usage: %prog [options]'
   parser = optparse.OptionParser(usage)
@@ -66,62 +88,58 @@ if __name__ == '__main__':
                     default='MementoSoftwareUpdate')
   parser.add_option('--factory_config', dest='factory_config',
                     help='Config file for serving images from factory floor.')
+  parser.add_option('--image', dest='image',
+                    help='Force update using this image.')
   parser.add_option('-t', action='store_true', dest='test_image')
   parser.add_option('-u', '--urlbase', dest='urlbase',
                     help='base URL, other than devserver, for update images.')
   parser.add_option('--validate_factory_config', action="store_true",
                     dest='validate_factory_config',
                     help='Validate factory config file, then exit.')
-  options, args = parser.parse_args()
-  # clean up the args, due to httpserver's hardcoded use of sys.argv
-  if options.archive_dir:
-    sys.argv.remove('--archive_dir')
-    sys.argv.remove(options.archive_dir)
-  if '--client_prefix' in sys.argv:
-    sys.argv.remove('--client_prefix')
-    sys.argv.remove(options.client_prefix)
-  if options.factory_config:
-    sys.argv.remove('--factory_config')
-    sys.argv.remove(options.factory_config)
-  if options.test_image:
-    sys.argv.remove('-t')
-  if options.urlbase:
-    sys.argv.remove('-u')
-    sys.argv.remove(options.urlbase)
-  if options.validate_factory_config:
-    sys.argv.remove('--validate_factory_config')
+  # Clean up the args, due to httpserver's hardcoded use of sys.argv.
+  options, sys.argv = parser.parse_args(sys.argv)
 
   root_dir = os.path.realpath('%s/../..' %
                               os.path.dirname(os.path.abspath(sys.argv[0])))
+
+  serve_only = False
+
   if options.archive_dir:
     static_dir = os.path.realpath(options.archive_dir)
-    assert os.path.exists(static_dir), '%s must exist.' % options.archive_dir
-    web.debug('using archive dir: %s' % static_dir)
+    _PrepareToServeUpdatesOnly(static_dir)
+    serve_only = True
   else:
     static_dir = os.path.realpath('%s/static' %
         os.path.dirname(os.path.abspath(sys.argv[0])))
     web.debug('dev root is %s' % root_dir)
     os.system('mkdir -p %s' % static_dir)
-  web.debug('Serving images from %s' % static_dir)
+
+  web.debug('Serving from %s' % static_dir)
 
   updater = autoupdate.Autoupdate(
       root_dir=root_dir,
       static_dir=static_dir,
-      serve_only=options.archive_dir,
+      serve_only=serve_only,
       urlbase=options.urlbase,
       test_image=options.test_image,
       factory_config_path=options.factory_config,
-      validate_factory_config=options.validate_factory_config,
-      client_prefix=options.client_prefix)
-  if options.validate_factory_config:
-    sys.exit(0)
-  urls = ('/', 'index',
-          '/update', 'update',
-          '/update/(.+)', 'update',
-          '/build', 'build')
+      client_prefix=options.client_prefix,
+      forced_image=options.image)
 
-  # Overrides the default WSGIServer routine -- see OverrideWSGIServer.
-  web.httpserver.WSGIServer = OverrideWSGIServer
-  app = web.application(urls, globals(), autoreload=True)
-  render = web.template.render('templates/')
-  app.run()
+  if options.factory_config:
+     updater.ImportFactoryConfigFile(options.factory_config,
+                                     options.validate_factory_config)
+
+  if not options.validate_factory_config:
+    # We do not need to run the dev server for validating the factory config.
+    # TODO(nsanders): Write unit test to validate.
+    urls = ('/', 'index',
+            '/update', 'update',
+            '/update/(.+)', 'update',
+            '/build', 'build')
+
+    # Overrides the default WSGIServer routine -- see OverrideWSGIServer.
+    web.httpserver.WSGIServer = OverrideWSGIServer
+    app = web.application(urls, globals(), autoreload=True)
+    render = web.template.render('templates/')
+    app.run()
