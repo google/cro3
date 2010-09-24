@@ -1,18 +1,24 @@
 #!/bin/bash
 
-# Copyright (c) 2009 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2009,2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 set -e
 
 build=1
+if [ x$1 == x-n ]
+then
+  # eat the gmerge -n option to avoid passing it to emerge
+  build=0
+  shift
+fi
 
 # Package name is the last argument.
 package_name=${!#}
 
-# If no package name is provided skip to emerge options or if -n is given.
-if [[ $package_name == -* ]] || [ x$1 == x-n ]
+# If no package name is provided skip to emerge options.
+if [[ $package_name == -* ]]
 then
   build=0
 fi
@@ -77,4 +83,4 @@ export ACCEPT_KEYWORDS
 # Disable CONFIG_PROTECT.
 export CONFIG_PROTECT="-*"
 
-FEATURES="-sandbox" emerge --getbinpkg --usepkgonly "$@"
+FEATURES="-sandbox" emerge --getbinpkgonly --usepkgonly "$@"
