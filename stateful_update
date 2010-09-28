@@ -70,8 +70,11 @@ update_dev_image () {
   mount -n -o loop "$STATEFUL_IMAGE" "$STATEFUL_MOUNT_POINT"
   if [ -d "$STATEFUL_MOUNT_POINT/var" ] && \
       [ -d "$STATEFUL_MOUNT_POINT/dev_image" ] ; then
+    echo >&2 "Copying new /var from stateful update"
     cp -rf "$STATEFUL_MOUNT_POINT/var" "$STATEFUL_DIR/var_new"
+    echo >&2 "Copying new /usr/local from stateful update"
     cp -rf "$STATEFUL_MOUNT_POINT/dev_image" "$STATEFUL_DIR/dev_image_new"
+    echo >&2 "Notifying startup that an update is available"
     touch "$STATEFUL_DIR/.update_available"
   else
     echo >&2 "No update available"
