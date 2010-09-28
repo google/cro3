@@ -132,11 +132,23 @@ class Autoupdate(BuildObject):
            % update_path)
     return os.popen(cmd).read().rstrip()
 
-  def GetUpdatePayload(self, hash, size, url):
+  # TODO(petkov): Consider optimizing getting both SHA-1 and SHA-256 so that
+  # it takes advantage of reduced I/O and multiple processors. Something like:
+  # % tee < FILE > /dev/null \
+  #     >( openssl dgst -sha256 -binary | openssl base64 ) \
+  #     >( openssl sha1 -binary | openssl base64 )
+  def _GetSHA256(self, update_path):
+    """Returns the sha256 of the file given."""
+    cmd = ('cat %s | openssl dgst -sha256 -binary | openssl base64' %
+           update_path)
+    return os.popen(cmd).read().rstrip()
+
+  def GetUpdatePayload(self, hash, sha256, size, url):
     """Returns a payload to the client corresponding to a new update.
 
     Args:
       hash: hash of update blob
+      sha256: SHA-256 hash of update blob
       size: size of update blob
       url: where to find update blob
     Returns:
@@ -150,6 +162,7 @@ class Autoupdate(BuildObject):
           <updatecheck
             codebase="%s"
             hash="%s"
+            sha256="%s"
             needsadmin="false"
             size="%s"
             status="ok"/>
@@ -157,7 +170,7 @@ class Autoupdate(BuildObject):
       </gupdate>
     """
     return payload % (self._GetSecondsSinceMidnight(),
-                      self.app_id, url, hash, size)
+                      self.app_id, url, hash, sha256, size)
 
   def GetNoUpdatePayload(self):
     """Returns a payload to the client corresponding to no update."""
@@ -410,7 +423,9 @@ class Autoupdate(BuildObject):
       return self.GetNoUpdatePayload()
     url = 'http://%s/static/%s' % (hostname, filename)
     web.debug('returning update payload ' + url)
-    return self.GetUpdatePayload(checksum, size, url)
+    # Factory install is using memento updater which is using the sha-1 hash so
+    # setting sha-256 to an empty string.
+    return self.GetUpdatePayload(checksum, '', size, url)
 
   def HandleUpdatePing(self, data, label=None):
     """Handles an update ping from an update client.
@@ -474,6 +489,7 @@ class Autoupdate(BuildObject):
 
       if has_built_image:
         hash = self._GetHash(os.path.join(static_image_dir, 'update.gz'))
+        sha256 = self._GetSHA256(os.path.join(static_image_dir, 'update.gz'))
         size = self._GetSize(os.path.join(static_image_dir, 'update.gz'))
         if self.static_urlbase and label:
           url = '%s/%s/update.gz' % (self.static_urlbase, label)
@@ -481,6 +497,6 @@ class Autoupdate(BuildObject):
           url = 'http://%s/static/archive/update.gz' % hostname
         else:
           url = 'http://%s/static/update.gz' % hostname
-        return self.GetUpdatePayload(hash, size, url)
+        return self.GetUpdatePayload(hash, sha256, size, url)
       else:
         return self.GetNoUpdatePayload()
