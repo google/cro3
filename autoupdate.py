@@ -27,14 +27,21 @@ class Autoupdate(BuildObject):
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
                factory_config_path=None, client_prefix=None, forced_image=None,
-               *args, **kwargs):
+               use_cached=False, *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
     self.factory_config = factory_config_path
     self.use_test_image = test_image
-    self.static_urlbase = urlbase
+    if urlbase:
+      self.static_urlbase = urlbase
+    elif self.serve_only:
+      self.static_urlbase = 'http://%(host)s/static/archive'
+    else:
+      self.static_urlbase = 'http://%(host)s/static'
+
     self.client_prefix = client_prefix
     self.forced_image = forced_image
+    self.use_cached = use_cached
 
   def _GetSecondsSinceMidnight(self):
     """Returns the seconds since midnight as a decimal value."""
@@ -109,7 +116,7 @@ class Autoupdate(BuildObject):
   def _IsImageNewerThanCached(self, image_path, cached_file_path):
     """Returns true if the image is newer than the cached image."""
     if os.path.exists(cached_file_path) and os.path.exists(image_path):
-      web.debug('Usable cached image found.')
+      web.debug('Usable cached image found at %s.' % cached_file_path)
       return os.path.getmtime(image_path) > os.path.getmtime(cached_file_path)
     elif not os.path.exists(cached_file_path) and not os.path.exists(image_path):
       raise Exception('Image does not exist and cached image missing')
@@ -119,7 +126,7 @@ class Autoupdate(BuildObject):
         web.debug('No cached image found - image generation required.')
         return True
       else:
-        web.debug('Only cached image found to serve.')
+        web.debug('Cached image found to serve at %s.' % cached_file_path)
         return False
 
   def _GetSize(self, update_path):
@@ -440,6 +447,10 @@ class Autoupdate(BuildObject):
     update_dom = minidom.parseString(data)
     root = update_dom.firstChild
 
+    # Parse host if not done yet.
+    if '%(host)' in self.static_urlbase:
+      self.static_urlbase = self.static_urlbase % {'host' : web.ctx.host}
+
     # Check the client prefix to make sure you can support this type of update.
     if (root.hasAttribute('updaterversion') and
         not root.getAttribute('updaterversion').startswith(self.client_prefix)):
@@ -472,31 +483,36 @@ class Autoupdate(BuildObject):
       if label:
         static_image_dir = os.path.join(static_image_dir, label)
 
-      # Not for factory, find and serve the correct image given the options.
-      if self.forced_image:
-        has_built_image = self.GenerateUpdateImage(
-            self.forced_image, move_to_static_dir=True,
-            static_image_dir=static_image_dir)
-        # Now that we've generated it, clear out so that other pings of same
-        # devserver instance do not generate new images.
-        self.forced_image = None
-      elif self.serve_only:
-        has_built_image = self.GenerateImageFromZip(static_image_dir)
+      # Prefer cached image if it exists.
+      if self.use_cached and os.path.exists(os.path.join(static_image_dir,
+                                                         'update.gz')):
+        web.debug('Using cached image regardless of timestamps.')
+        has_built_image = True
       else:
-        has_built_image = self.GenerateLatestUpdateImage(board_id,
-                                                         client_version,
-                                                         static_image_dir)
+        if self.forced_image:
+          has_built_image = self.GenerateUpdateImage(
+              self.forced_image, move_to_static_dir=True,
+              static_image_dir=static_image_dir)
+          # Now that we've generated it, clear out so that other pings of same
+          # devserver instance do not generate new images.
+          self.forced_image = None
+        elif self.serve_only:
+          has_built_image = self.GenerateImageFromZip(static_image_dir)
+        else:
+          has_built_image = self.GenerateLatestUpdateImage(board_id,
+                                                           client_version,
+                                                           static_image_dir)
 
       if has_built_image:
         hash = self._GetHash(os.path.join(static_image_dir, 'update.gz'))
         sha256 = self._GetSHA256(os.path.join(static_image_dir, 'update.gz'))
         size = self._GetSize(os.path.join(static_image_dir, 'update.gz'))
-        if self.static_urlbase and label:
+        if label:
           url = '%s/%s/update.gz' % (self.static_urlbase, label)
-        elif self.serve_only:
-          url = 'http://%s/static/archive/update.gz' % hostname
         else:
-          url = 'http://%s/static/update.gz' % hostname
+          url = '%s/update.gz' % self.static_urlbase
+
+        web.debug('Responding to client to use url %s to get image.' % url)
         return self.GetUpdatePayload(hash, sha256, size, url)
       else:
         return self.GetNoUpdatePayload()

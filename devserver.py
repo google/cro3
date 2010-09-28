@@ -93,6 +93,8 @@ if __name__ == '__main__':
   parser.add_option('-t', action='store_true', dest='test_image')
   parser.add_option('-u', '--urlbase', dest='urlbase',
                     help='base URL, other than devserver, for update images.')
+  parser.add_option('--use_cached', action="store_true", default=False,
+                    help='Prefer cached image regardless of timestamps.')
   parser.add_option('--validate_factory_config', action="store_true",
                     dest='validate_factory_config',
                     help='Validate factory config file, then exit.')
@@ -124,7 +126,8 @@ if __name__ == '__main__':
       test_image=options.test_image,
       factory_config_path=options.factory_config,
       client_prefix=options.client_prefix,
-      forced_image=options.image)
+      forced_image=options.image,
+      use_cached=options.use_cached)
 
   if options.factory_config:
      updater.ImportFactoryConfigFile(options.factory_config,
