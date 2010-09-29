@@ -16,6 +16,7 @@ import autoupdate
 _TEST_REQUEST = """
 <client_test xmlns:o="http://www.google.com/update2/request" updaterversion="%(client)s" >
   <o:app version="%(version)s" track="%(track)s" board="%(board)s" />
+  <o:updatecheck />
 </client_test>"""
 
 
@@ -24,6 +25,7 @@ class AutoupdateTest(mox.MoxTestBase):
     mox.MoxTestBase.setUp(self)
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetSize')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetHash')
+    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetSHA256')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GetUpdatePayload')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetLatestImageDir')
     self.test_board = 'test-board'
@@ -43,6 +45,7 @@ class AutoupdateTest(mox.MoxTestBase):
     self.size = 54321
     self.url = 'http://%s/static/update.gz' % self.hostname
     self.payload = 'My payload'
+    self.sha256 = 'SHA LA LA'
 
   def _DummyAutoupdateConstructor(self):
     """Creates a dummy autoupdater.  Used to avoid using constructor."""
@@ -77,13 +80,17 @@ class AutoupdateTest(mox.MoxTestBase):
     test_data = _TEST_REQUEST % self.test_dict
 
     autoupdate.Autoupdate.GenerateUpdateImage(
-        self.forced_image_path, self.static_image_dir).AndReturn(True)
+        self.forced_image_path,
+        move_to_static_dir=True,
+        static_image_dir=self.static_image_dir).AndReturn(True)
     autoupdate.Autoupdate._GetHash(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.hash)
+    autoupdate.Autoupdate._GetSHA256(os.path.join(
+        self.static_image_dir, 'update.gz')).AndReturn(self.sha256)
     autoupdate.Autoupdate._GetSize(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.size)
     autoupdate.Autoupdate.GetUpdatePayload(
-        self.hash, self.size, self.url).AndReturn(self.payload)
+        self.hash, self.sha256, self.size, self.url).AndReturn(self.payload)
 
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor()
@@ -100,10 +107,12 @@ class AutoupdateTest(mox.MoxTestBase):
         self.test_board, 'ForcedUpdate', self.static_image_dir).AndReturn(True)
     autoupdate.Autoupdate._GetHash(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.hash)
+    autoupdate.Autoupdate._GetSHA256(os.path.join(
+        self.static_image_dir, 'update.gz')).AndReturn(self.sha256)
     autoupdate.Autoupdate._GetSize(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.size)
     autoupdate.Autoupdate.GetUpdatePayload(
-        self.hash, self.size, self.url).AndReturn(self.payload)
+        self.hash, self.sha256, self.size, self.url).AndReturn(self.payload)
 
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor()
@@ -119,16 +128,19 @@ class AutoupdateTest(mox.MoxTestBase):
         self.static_image_dir).AndReturn(True)
     autoupdate.Autoupdate._GetHash(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.hash)
+    autoupdate.Autoupdate._GetSHA256(os.path.join(
+        self.static_image_dir, 'update.gz')).AndReturn(self.sha256)
     autoupdate.Autoupdate._GetSize(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.size)
     autoupdate.Autoupdate.GetUpdatePayload(
-        self.hash, self.size,
+        self.hash, self.sha256, self.size,
         'http://%s/static/archive/update.gz' % self.hostname).AndReturn(
             self.payload)
 
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor()
     au_mock.serve_only = True
+    au_mock.static_urlbase = 'http://%s/static/archive' % self.hostname
     self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
     self.mox.VerifyAll()
 
