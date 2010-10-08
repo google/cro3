@@ -41,6 +41,9 @@ fi
 mount -o remount,rw /
 mkdir -p /etc/make.profile
 
+# Re-mount /tmp as exec
+mount -o remount,exec /tmp
+
 # Delete the local binary package cache.
 sudo rm -rf /usr/portage/packages
 
@@ -84,3 +87,6 @@ export ACCEPT_KEYWORDS
 export CONFIG_PROTECT="-*"
 
 FEATURES="-sandbox" emerge --getbinpkgonly --usepkgonly "$@"
+
+# Re-mount /tmp as noexec
+mount -o remount,noexec /tmp
