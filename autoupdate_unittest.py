@@ -8,8 +8,8 @@
 
 import mox
 import os
+import socket
 import unittest
-import web
 
 import autoupdate
 
@@ -28,12 +28,13 @@ class AutoupdateTest(mox.MoxTestBase):
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetSHA256')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GetUpdatePayload')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetLatestImageDir')
+    self.port = 8080
     self.test_board = 'test-board'
     self.build_root = '/src_path/build/images'
     self.latest_dir = '12345_af_12-a1'
     self.latest_verision = '12345_af_12'
     self.static_image_dir = '/tmp/static-dir/'
-    self.hostname = 'fake-host'
+    self.hostname = '%s:%s' % (socket.gethostname(), self.port)
     self.test_dict = { 'client': 'ChromeOSUpdateEngine-1.0',
                        'version': 'ForcedUpdate',
                        'track': 'unused_var',
@@ -50,11 +51,9 @@ class AutoupdateTest(mox.MoxTestBase):
   def _DummyAutoupdateConstructor(self):
     """Creates a dummy autoupdater.  Used to avoid using constructor."""
     dummy = autoupdate.Autoupdate(root_dir=None,
-                                  static_dir=self.static_image_dir)
+                                  static_dir=self.static_image_dir,
+                                  port=self.port)
     dummy.client_prefix = 'ChromeOSUpdateEngine'
-
-    # Set to fool the web.
-    web.ctx.host = self.hostname
     return dummy
 
   def testGenerateLatestUpdateImageWithForced(self):

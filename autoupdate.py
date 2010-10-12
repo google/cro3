@@ -5,10 +5,14 @@
 from buildutil import BuildObject
 from xml.dom import minidom
 
+import cherrypy
 import os
 import shutil
+import socket
 import time
-import web
+
+def _LogMessage(message):
+  cherrypy.log(message, 'UPDATE')
 
 
 class Autoupdate(BuildObject):
@@ -27,17 +31,18 @@ class Autoupdate(BuildObject):
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
                factory_config_path=None, client_prefix=None, forced_image=None,
-               use_cached=False, *args, **kwargs):
+               use_cached=False, port=8080, *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
     self.factory_config = factory_config_path
     self.use_test_image = test_image
+    self.hostname = '%s:%s' % (socket.gethostname(), port)
     if urlbase:
       self.static_urlbase = urlbase
     elif self.serve_only:
-      self.static_urlbase = 'http://%(host)s/static/archive'
+      self.static_urlbase = 'http://%s/static/archive' % self.hostname
     else:
-      self.static_urlbase = 'http://%(host)s/static'
+      self.static_urlbase = 'http://%s/static' % self.hostname
 
     self.client_prefix = client_prefix
     self.forced_image = forced_image
@@ -70,7 +75,7 @@ class Autoupdate(BuildObject):
     """Returns true if the latest_version is greater than the client_version."""
     client_tokens = client_version.replace('_', '').split('.')
     latest_tokens = latest_version.replace('_', '').split('.')
-    web.debug('client version %s latest version %s'
+    _LogMessage('client version %s latest version %s'
               % (client_version, latest_version))
     for i in range(4):
       if int(latest_tokens[i]) == int(client_tokens[i]):
@@ -90,7 +95,7 @@ class Autoupdate(BuildObject):
         'dd if=%s of=%s bs=512 skip=%s count=%s' % (image_dir, image_file,
                                                     stateful_file, get_offset,
                                                     get_size))
-    web.debug(unpack_command)
+    _LogMessage(unpack_command)
     return os.system(unpack_command) == 0
 
   def _UnpackZip(self, image_dir):
@@ -116,17 +121,17 @@ class Autoupdate(BuildObject):
   def _IsImageNewerThanCached(self, image_path, cached_file_path):
     """Returns true if the image is newer than the cached image."""
     if os.path.exists(cached_file_path) and os.path.exists(image_path):
-      web.debug('Usable cached image found at %s.' % cached_file_path)
+      _LogMessage('Usable cached image found at %s.' % cached_file_path)
       return os.path.getmtime(image_path) > os.path.getmtime(cached_file_path)
     elif not os.path.exists(cached_file_path) and not os.path.exists(image_path):
       raise Exception('Image does not exist and cached image missing')
     else:
       # Only one is missing, figure out which one.
       if os.path.exists(image_path):
-        web.debug('No cached image found - image generation required.')
+        _LogMessage('No cached image found - image generation required.')
         return True
       else:
-        web.debug('Cached image found to serve at %s.' % cached_file_path)
+        _LogMessage('Cached image found to serve at %s.' % cached_file_path)
         return False
 
   def _GetSize(self, update_path):
@@ -202,13 +207,13 @@ class Autoupdate(BuildObject):
     """
     image_dir = os.path.dirname(image_path)
     update_path = os.path.join(image_dir, 'update.gz')
-    web.debug('Generating update image %s' % update_path)
+    _LogMessage('Generating update image %s' % update_path)
 
     mkupdate_command = (
         '%s/cros_generate_update_payload --image=%s --output=%s '
         '--patch_kernel' % (self.scripts_dir, image_path, update_path))
     if os.system(mkupdate_command) != 0:
-      web.debug('Failed to create base update file')
+      _LogMessage('Failed to create base update file')
       return None
 
     return update_path
@@ -227,10 +232,10 @@ class Autoupdate(BuildObject):
     if self._UnpackStatefulPartition(image_path, stateful_partition_path):
       mkstatefulupdate_command = 'gzip -f %s' % stateful_partition_path
       if os.system(mkstatefulupdate_command) == 0:
-        web.debug('Successfully generated %s.gz' % stateful_partition_path)
+        _LogMessage('Successfully generated %s.gz' % stateful_partition_path)
         return '%s.gz' % stateful_partition_path
 
-    web.debug('Failed to create stateful update file')
+    _LogMessage('Failed to create stateful update file')
     return None
 
   def MoveImagesToStaticDir(self, update_path, stateful_update_path,
@@ -250,7 +255,7 @@ class Autoupdate(BuildObject):
       os.remove(update_path)
       os.remove(stateful_update_path)
     except Exception:
-      web.debug('Failed to move %s and %s to %s' % (update_path,
+      _LogMessage('Failed to move %s and %s to %s' % (update_path,
                                                     stateful_update_path,
                                                     static_image_dir))
       return False
@@ -268,11 +273,11 @@ class Autoupdate(BuildObject):
     Returns:
       True if the update payload was created successfully.
     """
-    web.debug('Generating update for image %s' % image_path)
+    _LogMessage('Generating update for image %s' % image_path)
     update_path = self.GenerateUpdateFile(image_path)
     stateful_update_path = self.GenerateStatefulFile(image_path)
     if not update_path or not stateful_update_path:
-      web.debug('Failed to generate update')
+      _LogMessage('Failed to generate update')
       return False
 
     if move_to_static_dir:
@@ -299,13 +304,13 @@ class Autoupdate(BuildObject):
     latest_version = self._GetVersionFromDir(latest_image_dir)
     latest_image_path = os.path.join(latest_image_dir, self._GetImageName())
 
-    web.debug('Preparing to generate update from latest built image %s.' %
+    _LogMessage('Preparing to generate update from latest built image %s.' %
               latest_image_path)
 
      # Check to see whether or not we should update.
     if client_version != 'ForcedUpdate' and not self._CanUpdate(
         client_version, latest_version):
-      web.debug('no update')
+      _LogMessage('no update')
       return False
 
     cached_file_path = os.path.join(static_image_dir, 'update.gz')
@@ -328,7 +333,7 @@ class Autoupdate(BuildObject):
     Returns:
       True if the update payload was created successfully.
     """
-    web.debug('Preparing to generate update from zip in %s.' % static_image_dir)
+    _LogMessage('Preparing to generate update from zip in %s.' % static_image_dir)
     image_path = os.path.join(static_image_dir, self._GetImageName())
     cached_file_path = os.path.join(static_image_dir, 'update.gz')
     zip_file_path = os.path.join(static_image_dir, 'image.zip')
@@ -336,7 +341,7 @@ class Autoupdate(BuildObject):
       return True
 
     if not self._UnpackZip(static_image_dir):
-      web.debug('unzip image.zip failed.')
+      _LogMessage('unzip image.zip failed.')
       return False
 
     return self.GenerateUpdateImage(image_path, move_to_static_dir=False,
@@ -423,13 +428,13 @@ class Autoupdate(BuildObject):
               stanza[kind + '_size'])
     return (None, None, None)
 
-  def HandleFactoryRequest(self, hostname, board_id, channel):
+  def HandleFactoryRequest(self, board_id, channel):
     (filename, checksum, size) = self.GetFactoryImage(board_id, channel)
     if filename is None:
-      web.debug('unable to find image for board %s' % board_id)
+      _LogMessage('unable to find image for board %s' % board_id)
       return self.GetNoUpdatePayload()
-    url = 'http://%s/static/%s' % (hostname, filename)
-    web.debug('returning update payload ' + url)
+    url = 'http://%s/static/%s' % (self.hostname, filename)
+    _LogMessage('returning update payload ' + url)
     # Factory install is using memento updater which is using the sha-1 hash so
     # setting sha-256 to an empty string.
     return self.GetUpdatePayload(checksum, '', size, url)
@@ -443,31 +448,26 @@ class Autoupdate(BuildObject):
     Returns:
       Update payload message for client.
     """
-    web.debug('handling update ping: %s' % data)
+    _LogMessage('handling update ping: %s' % data)
     update_dom = minidom.parseString(data)
     root = update_dom.firstChild
-
-    # Parse host if not done yet.
-    if '%(host)' in self.static_urlbase:
-      self.static_urlbase = self.static_urlbase % {'host' : web.ctx.host}
 
     # Check the client prefix to make sure you can support this type of update.
     if (root.hasAttribute('updaterversion') and
         not root.getAttribute('updaterversion').startswith(self.client_prefix)):
-      web.debug('Got update from unsupported updater:' +
+      _LogMessage('Got update from unsupported updater:' +
                 root.getAttribute('updaterversion'))
       return self.GetNoUpdatePayload()
 
     # We only generate update payloads for updatecheck requests.
     update_check = root.getElementsByTagName('o:updatecheck')
     if not update_check:
-      web.debug('Non-update check received.  Returning blank payload.')
+      _LogMessage('Non-update check received.  Returning blank payload.')
       # TODO(sosa): Generate correct non-updatecheck payload to better test
       # update clients.
       return self.GetNoUpdatePayload()
 
     # Since this is an updatecheck, get information about the requester.
-    hostname = web.ctx.host
     query = root.getElementsByTagName('o:app')[0]
     client_version = query.getAttribute('version')
     channel = query.getAttribute('track')
@@ -477,7 +477,7 @@ class Autoupdate(BuildObject):
     # Separate logic as Factory requests have static url's that override
     # other options.
     if self.factory_config:
-      return self.HandleFactoryRequest(hostname, board_id, channel)
+      return self.HandleFactoryRequest(board_id, channel)
     else:
       static_image_dir = self.static_dir
       if label:
@@ -486,7 +486,7 @@ class Autoupdate(BuildObject):
       # Prefer cached image if it exists.
       if self.use_cached and os.path.exists(os.path.join(static_image_dir,
                                                          'update.gz')):
-        web.debug('Using cached image regardless of timestamps.')
+        _LogMessage('Using cached image regardless of timestamps.')
         has_built_image = True
       else:
         if self.forced_image:
@@ -512,7 +512,7 @@ class Autoupdate(BuildObject):
         else:
           url = '%s/update.gz' % self.static_urlbase
 
-        web.debug('Responding to client to use url %s to get image.' % url)
+        _LogMessage('Responding to client to use url %s to get image.' % url)
         return self.GetUpdatePayload(hash, sha256, size, url)
       else:
         return self.GetNoUpdatePayload()
