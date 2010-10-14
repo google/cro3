@@ -36,13 +36,10 @@ class Autoupdate(BuildObject):
     self.serve_only = serve_only
     self.factory_config = factory_config_path
     self.use_test_image = test_image
-    self.hostname = '%s:%s' % (socket.gethostname(), port)
     if urlbase:
-      self.static_urlbase = urlbase
-    elif self.serve_only:
-      self.static_urlbase = 'http://%s/static/archive' % self.hostname
+      self.urlbase = urlbase
     else:
-      self.static_urlbase = 'http://%s/static' % self.hostname
+      self.urlbase = None
 
     self.client_prefix = client_prefix
     self.forced_image = forced_image
@@ -448,11 +445,22 @@ class Autoupdate(BuildObject):
     Returns:
       Update payload message for client.
     """
-    _LogMessage('handling update ping: %s' % data)
-    update_dom = minidom.parseString(data)
-    root = update_dom.firstChild
+    # Set hostname as the hostname that the client is calling to and set up
+    # the url base.
+    self.hostname = cherrypy.request.base
+    if self.urlbase:
+      static_urlbase = self.urlbase
+    elif self.serve_only:
+      static_urlbase = '%s/static/archive' % self.hostname
+    else:
+      static_urlbase = '%s/static' % self.hostname
+
+    _LogMessage('Using static url base %s' % static_urlbase)
+    _LogMessage('Handling update ping as %s: %s' % (self.hostname, data))
 
     # Check the client prefix to make sure you can support this type of update.
+    update_dom = minidom.parseString(data)
+    root = update_dom.firstChild
     if (root.hasAttribute('updaterversion') and
         not root.getAttribute('updaterversion').startswith(self.client_prefix)):
       _LogMessage('Got update from unsupported updater:' +
@@ -508,9 +516,9 @@ class Autoupdate(BuildObject):
         sha256 = self._GetSHA256(os.path.join(static_image_dir, 'update.gz'))
         size = self._GetSize(os.path.join(static_image_dir, 'update.gz'))
         if label:
-          url = '%s/%s/update.gz' % (self.static_urlbase, label)
+          url = '%s/%s/update.gz' % (static_urlbase, label)
         else:
-          url = '%s/update.gz' % self.static_urlbase
+          url = '%s/update.gz' % static_urlbase
 
         _LogMessage('Responding to client to use url %s to get image.' % url)
         return self.GetUpdatePayload(hash, sha256, size, url)
