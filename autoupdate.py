@@ -430,7 +430,7 @@ class Autoupdate(BuildObject):
     if filename is None:
       _LogMessage('unable to find image for board %s' % board_id)
       return self.GetNoUpdatePayload()
-    url = 'http://%s/static/%s' % (self.hostname, filename)
+    url = '%s/static/%s' % (self.hostname, filename)
     _LogMessage('returning update payload ' + url)
     # Factory install is using memento updater which is using the sha-1 hash so
     # setting sha-256 to an empty string.
