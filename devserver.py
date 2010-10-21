@@ -28,6 +28,10 @@ def _GetConfig(options):
                     'response.timeout': 6000,
                     'tools.staticdir.root': os.getcwd(),
                   },
+                  '/build':
+                  {
+                    'response.timeout': 100000,
+                  },
                   '/update':
                   {
                     # Gets rid of cherrypy parsing post file for args.
