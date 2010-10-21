@@ -32,11 +32,13 @@ def _GetConfig(options):
                   {
                     # Gets rid of cherrypy parsing post file for args.
                     'request.process_request_body': False,
+                    'response.timeout': 10000,
                   },
                   # Sets up the static dir for file hosting.
                   '/static':
                   { 'tools.staticdir.dir': 'static',
                     'tools.staticdir.on': True,
+                    'response.timeout': 10000,
                   },
                 }
   return base_config
