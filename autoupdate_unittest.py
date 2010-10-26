@@ -6,6 +6,7 @@
 
 """Unit tests for autoupdate.py."""
 
+import cherrypy
 import mox
 import os
 import socket
@@ -47,6 +48,8 @@ class AutoupdateTest(mox.MoxTestBase):
     self.url = 'http://%s/static/update.gz' % self.hostname
     self.payload = 'My payload'
     self.sha256 = 'SHA LA LA'
+    cherrypy.request.base = 'http://%s' % self.hostname
+
 
   def _DummyAutoupdateConstructor(self):
     """Creates a dummy autoupdater.  Used to avoid using constructor."""
