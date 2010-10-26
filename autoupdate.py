@@ -141,6 +141,15 @@ class Autoupdate(BuildObject):
            % update_path)
     return os.popen(cmd).read().rstrip()
 
+  def _IsDeltaFormatFile(self, filename):
+    try:
+      file_handle = open(filename, 'r')
+      delta_magic = 'CrAU'
+      magic = file_handle.read(len(delta_magic))
+      return magic == delta_magic
+    except Exception:
+      return False
+
   # TODO(petkov): Consider optimizing getting both SHA-1 and SHA-256 so that
   # it takes advantage of reduced I/O and multiple processors. Something like:
   # % tee < FILE > /dev/null \
@@ -152,7 +161,7 @@ class Autoupdate(BuildObject):
            update_path)
     return os.popen(cmd).read().rstrip()
 
-  def GetUpdatePayload(self, hash, sha256, size, url):
+  def GetUpdatePayload(self, hash, sha256, size, url, is_delta_format):
     """Returns a payload to the client corresponding to a new update.
 
     Args:
@@ -163,6 +172,9 @@ class Autoupdate(BuildObject):
     Returns:
       Xml string to be passed back to client.
     """
+    delta = 'false'
+    if is_delta_format:
+      delta = 'true'
     payload = """<?xml version="1.0" encoding="UTF-8"?>
       <gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
         <daystart elapsed_seconds="%s"/>
@@ -174,12 +186,13 @@ class Autoupdate(BuildObject):
             sha256="%s"
             needsadmin="false"
             size="%s"
+            IsDelta="%s"
             status="ok"/>
         </app>
       </gupdate>
     """
     return payload % (self._GetSecondsSinceMidnight(),
-                      self.app_id, url, hash, sha256, size)
+                      self.app_id, url, hash, sha256, size, delta)
 
   def GetNoUpdatePayload(self):
     """Returns a payload to the client corresponding to no update."""
@@ -431,10 +444,11 @@ class Autoupdate(BuildObject):
       _LogMessage('unable to find image for board %s' % board_id)
       return self.GetNoUpdatePayload()
     url = '%s/static/%s' % (self.hostname, filename)
+    is_delta_format = self._IsDeltaFormatFile(filename)
     _LogMessage('returning update payload ' + url)
     # Factory install is using memento updater which is using the sha-1 hash so
     # setting sha-256 to an empty string.
-    return self.GetUpdatePayload(checksum, '', size, url)
+    return self.GetUpdatePayload(checksum, '', size, url, is_delta_format)
 
   def HandleUpdatePing(self, data, label=None):
     """Handles an update ping from an update client.
@@ -512,15 +526,17 @@ class Autoupdate(BuildObject):
                                                            static_image_dir)
 
       if has_built_image:
-        hash = self._GetHash(os.path.join(static_image_dir, 'update.gz'))
-        sha256 = self._GetSHA256(os.path.join(static_image_dir, 'update.gz'))
-        size = self._GetSize(os.path.join(static_image_dir, 'update.gz'))
+        filename = os.path.join(static_image_dir, 'update.gz')
+        hash = self._GetHash(filename)
+        sha256 = self._GetSHA256(filename)
+        size = self._GetSize(filename)
+        is_delta_format = self._IsDeltaFormatFile(filename)
         if label:
           url = '%s/%s/update.gz' % (static_urlbase, label)
         else:
           url = '%s/update.gz' % static_urlbase
 
         _LogMessage('Responding to client to use url %s to get image.' % url)
-        return self.GetUpdatePayload(hash, sha256, size, url)
+        return self.GetUpdatePayload(hash, sha256, size, url, is_delta_format)
       else:
         return self.GetNoUpdatePayload()
