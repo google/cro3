@@ -454,6 +454,38 @@ class Autoupdate(BuildObject):
     # setting sha-256 to an empty string.
     return self.GetUpdatePayload(checksum, '', size, url, is_delta_format)
 
+  def GenerateUpdatePayloadForNonFactory(self, static_image_dir):
+    """Generates an update for non-factory and returns True on success."""
+    if self.use_cached and os.path.exists(os.path.join(static_image_dir,
+                                                       'update.gz')):
+      _LogMessage('Using cached image regardless of timestamps.')
+      return True
+    else:
+      if self.forced_image:
+        has_built_image = self.GenerateUpdateImage(
+            self.forced_image, move_to_static_dir=True,
+            static_image_dir=static_image_dir)
+        # Now that we've generated it, force devserver to use it.
+        self.use_cached = True
+      elif self.serve_only:
+        return self.GenerateImageFromZip(static_image_dir)
+      else:
+        return self.GenerateLatestUpdateImage(board_id,
+                                              client_version,
+                                              static_image_dir)
+
+  def PreGenerateUpdate(self):
+    """Pre-generates an update.  Does not work for factory or label updates."""
+     # Does not work with factory config.
+    assert(not self.factory_config)
+    _LogMessage('Pre-generating the update payload.')
+    # Does not work with labels so just use static dir.
+    if self.GenerateUpdatePayloadForNonFactory(self.static_dir):
+      # Force the devserver to use the pre-generated payload.
+      self.use_cached = True
+    else:
+      _LogMessage('Failed to pre-generate update.')
+
   def HandleUpdatePing(self, data, label=None):
     """Handles an update ping from an update client.
 
@@ -509,27 +541,7 @@ class Autoupdate(BuildObject):
       if label:
         static_image_dir = os.path.join(static_image_dir, label)
 
-      # Prefer cached image if it exists.
-      if self.use_cached and os.path.exists(os.path.join(static_image_dir,
-                                                         'update.gz')):
-        _LogMessage('Using cached image regardless of timestamps.')
-        has_built_image = True
-      else:
-        if self.forced_image:
-          has_built_image = self.GenerateUpdateImage(
-              self.forced_image, move_to_static_dir=True,
-              static_image_dir=static_image_dir)
-          # Now that we've generated it, clear out so that other pings of same
-          # devserver instance do not generate new images.
-          self.forced_image = None
-        elif self.serve_only:
-          has_built_image = self.GenerateImageFromZip(static_image_dir)
-        else:
-          has_built_image = self.GenerateLatestUpdateImage(board_id,
-                                                           client_version,
-                                                           static_image_dir)
-
-      if has_built_image:
+      if self.GenerateUpdatePayloadForNonFactory(static_image_dir):
         filename = os.path.join(static_image_dir, 'update.gz')
         hash = self._GetHash(filename)
         sha256 = self._GetSHA256(filename)

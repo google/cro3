@@ -118,6 +118,8 @@ if __name__ == '__main__':
                     help='Config file for serving images from factory floor.')
   parser.add_option('--image', dest='image',
                     help='Force update using this image.')
+  parser.add_option('-p', '--pregenerate_update', action='store_true',
+                    default=False, help='Pre-generate update payload.')
   parser.add_option('--port', default=8080,
                     help='Port for the dev server to use.')
   parser.add_option('--src_image', default='',
@@ -171,5 +173,7 @@ if __name__ == '__main__':
     # We don't run the dev server with this option.
     if options.validate_factory_config:
       sys.exit(0)
+  elif options.pregenerate_update:
+    updater.PreGenerateUpdate()
 
   cherrypy.quickstart(DevServerRoot(), config=_GetConfig(options))
