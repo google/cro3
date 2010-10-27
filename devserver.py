@@ -120,6 +120,8 @@ if __name__ == '__main__':
                     help='Force update using this image.')
   parser.add_option('--port', default=8080,
                     help='Port for the dev server to use.')
+  parser.add_option('--src_image', default='',
+                    help='Image on remote machine for generating delta update.')
   parser.add_option('-t', action='store_true', dest='test_image')
   parser.add_option('-u', '--urlbase', dest='urlbase',
                     help='base URL, other than devserver, for update images.')
@@ -156,7 +158,8 @@ if __name__ == '__main__':
       client_prefix=options.client_prefix,
       forced_image=options.image,
       use_cached=options.use_cached,
-      port=options.port)
+      port=options.port,
+      src_image=options.src_image)
 
   # Sanity-check for use of validate_factory_config.
   if not options.factory_config and options.validate_factory_config:
