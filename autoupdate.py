@@ -454,7 +454,8 @@ class Autoupdate(BuildObject):
     # setting sha-256 to an empty string.
     return self.GetUpdatePayload(checksum, '', size, url, is_delta_format)
 
-  def GenerateUpdatePayloadForNonFactory(self, static_image_dir):
+  def GenerateUpdatePayloadForNonFactory(self, board_id, client_version,
+                                         static_image_dir):
     """Generates an update for non-factory and returns True on success."""
     if self.use_cached and os.path.exists(os.path.join(static_image_dir,
                                                        'update.gz')):
@@ -469,10 +470,12 @@ class Autoupdate(BuildObject):
         self.use_cached = True
       elif self.serve_only:
         return self.GenerateImageFromZip(static_image_dir)
-      else:
+      elif board_id and client_version:
         return self.GenerateLatestUpdateImage(board_id,
                                               client_version,
                                               static_image_dir)
+      else:
+        return False
 
   def PreGenerateUpdate(self):
     """Pre-generates an update.  Does not work for factory or label updates."""
@@ -480,7 +483,7 @@ class Autoupdate(BuildObject):
     assert(not self.factory_config)
     _LogMessage('Pre-generating the update payload.')
     # Does not work with labels so just use static dir.
-    if self.GenerateUpdatePayloadForNonFactory(self.static_dir):
+    if self.GenerateUpdatePayloadForNonFactory(None, None, self.static_dir):
       # Force the devserver to use the pre-generated payload.
       self.use_cached = True
     else:
@@ -541,7 +544,8 @@ class Autoupdate(BuildObject):
       if label:
         static_image_dir = os.path.join(static_image_dir, label)
 
-      if self.GenerateUpdatePayloadForNonFactory(static_image_dir):
+      if self.GenerateUpdatePayloadForNonFactory(board_id, client_version,
+                                                 static_image_dir):
         filename = os.path.join(static_image_dir, 'update.gz')
         hash = self._GetHash(filename)
         sha256 = self._GetSHA256(filename)
