@@ -31,7 +31,8 @@ class Autoupdate(BuildObject):
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
                factory_config_path=None, client_prefix=None, forced_image=None,
-               use_cached=False, port=8080, src_image='', *args, **kwargs):
+               use_cached=False, port=8080, src_image='', vm=False, *args,
+               **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
     self.factory_config = factory_config_path
@@ -45,6 +46,7 @@ class Autoupdate(BuildObject):
     self.forced_image = forced_image
     self.use_cached = use_cached
     self.src_image = src_image
+    self.vm = vm
 
   def _GetSecondsSinceMidnight(self):
     """Returns the seconds since midnight as a decimal value."""
@@ -218,13 +220,18 @@ class Autoupdate(BuildObject):
     """
     image_dir = os.path.dirname(image_path)
     update_path = os.path.join(image_dir, 'update.gz')
+    patch_kernel_flag = '--patch_kernel'
     _LogMessage('Generating update image %s' % update_path)
+
+    # Don't patch the kernel for vm images as they don't need the patch.
+    if self.vm:
+      patch_kernel_flag = ''
 
     mkupdate_command = (
         '%s/cros_generate_update_payload --image="%s" --output="%s" '
-        '--patch_kernel --noold_style --src_image="%s"' % (
-                                          self.scripts_dir, image_path,
-                                          update_path, self.src_image))
+        '%s --noold_style --src_image="%s"' % (
+            self.scripts_dir, image_path, update_path, patch_kernel_flag,
+            self.src_image))
     _LogMessage(mkupdate_command)
     if os.system(mkupdate_command) != 0:
       _LogMessage('Failed to create base update file')

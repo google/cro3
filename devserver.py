@@ -116,6 +116,8 @@ if __name__ == '__main__':
                     default='MementoSoftwareUpdate')
   parser.add_option('--factory_config', dest='factory_config',
                     help='Config file for serving images from factory floor.')
+  parser.add_option('--for_vm', dest='vm', default=False, action='store_true',
+                    help='Update is for a vm image.')
   parser.add_option('--image', dest='image',
                     help='Force update using this image.')
   parser.add_option('-p', '--pregenerate_update', action='store_true',
@@ -161,7 +163,8 @@ if __name__ == '__main__':
       forced_image=options.image,
       use_cached=options.use_cached,
       port=options.port,
-      src_image=options.src_image)
+      src_image=options.src_image,
+      vm = options.vm)
 
   # Sanity-check for use of validate_factory_config.
   if not options.factory_config and options.validate_factory_config:
