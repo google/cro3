@@ -111,6 +111,8 @@ if __name__ == '__main__':
   parser = optparse.OptionParser(usage)
   parser.add_option('--archive_dir', dest='archive_dir',
                     help='serve archived builds only.')
+  parser.add_option('--board', dest='board',
+                    help='When pre-generating update, board for latest image.')
   parser.add_option('--client_prefix', dest='client_prefix',
                     help='Required prefix for client software version.',
                     default='MementoSoftwareUpdate')
@@ -164,7 +166,8 @@ if __name__ == '__main__':
       use_cached=options.use_cached,
       port=options.port,
       src_image=options.src_image,
-      vm = options.vm)
+      vm=options.vm,
+      board=options.board)
 
   # Sanity-check for use of validate_factory_config.
   if not options.factory_config and options.validate_factory_config:
@@ -177,6 +180,7 @@ if __name__ == '__main__':
     if options.validate_factory_config:
       sys.exit(0)
   elif options.pregenerate_update:
-    updater.PreGenerateUpdate()
+    if not updater.PreGenerateUpdate():
+      sys.exit(1)
 
   cherrypy.quickstart(DevServerRoot(), config=_GetConfig(options))

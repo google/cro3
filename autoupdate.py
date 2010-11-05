@@ -31,8 +31,8 @@ class Autoupdate(BuildObject):
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
                factory_config_path=None, client_prefix=None, forced_image=None,
-               use_cached=False, port=8080, src_image='', vm=False, *args,
-               **kwargs):
+               use_cached=False, port=8080, src_image='', vm=False, board=None,
+               *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
     self.factory_config = factory_config_path
@@ -47,6 +47,7 @@ class Autoupdate(BuildObject):
     self.use_cached = use_cached
     self.src_image = src_image
     self.vm = vm
+    self.board = board
 
   def _GetSecondsSinceMidnight(self):
     """Returns the seconds since midnight as a decimal value."""
@@ -296,16 +297,17 @@ class Autoupdate(BuildObject):
     """
     _LogMessage('Generating update for image %s' % image_path)
     update_path = self.GenerateUpdateFile(image_path)
-    stateful_update_path = self.GenerateStatefulFile(image_path)
-    if not update_path or not stateful_update_path:
-      _LogMessage('Failed to generate update')
-      return False
+    if update_path:
+      stateful_update_path = self.GenerateStatefulFile(image_path)
+      if stateful_update_path:
+        if move_to_static_dir:
+          return self.MoveImagesToStaticDir(update_path, stateful_update_path,
+                                            static_image_dir)
 
-    if move_to_static_dir:
-      return self.MoveImagesToStaticDir(update_path, stateful_update_path,
-                                        static_image_dir)
-    else:
-      return True
+        return True
+
+    _LogMessage('Failed to generate update')
+    return False
 
   def GenerateLatestUpdateImage(self, board_id, client_version,
                                 static_image_dir=None):
@@ -473,28 +475,33 @@ class Autoupdate(BuildObject):
         has_built_image = self.GenerateUpdateImage(
             self.forced_image, move_to_static_dir=True,
             static_image_dir=static_image_dir)
-        # Now that we've generated it, force devserver to use it.
-        self.use_cached = True
+        return has_built_image
       elif self.serve_only:
         return self.GenerateImageFromZip(static_image_dir)
-      elif board_id and client_version:
-        return self.GenerateLatestUpdateImage(board_id,
-                                              client_version,
-                                              static_image_dir)
       else:
+        if board_id:
+          return self.GenerateLatestUpdateImage(board_id,
+                                                client_version,
+                                                static_image_dir)
+
+        _LogMessage('You must set --board for pre-generating latest update.')
         return False
 
   def PreGenerateUpdate(self):
-    """Pre-generates an update.  Does not work for factory or label updates."""
+    """Pre-generates an update.  Returns True on success."""
      # Does not work with factory config.
     assert(not self.factory_config)
     _LogMessage('Pre-generating the update payload.')
     # Does not work with labels so just use static dir.
-    if self.GenerateUpdatePayloadForNonFactory(None, None, self.static_dir):
+    if self.GenerateUpdatePayloadForNonFactory(self.board, '0.0.0.0',
+                                               self.static_dir):
       # Force the devserver to use the pre-generated payload.
       self.use_cached = True
+      _LogMessage('Pre-generated update successfully.')
+      return True
     else:
       _LogMessage('Failed to pre-generate update.')
+      return False
 
   def HandleUpdatePing(self, data, label=None):
     """Handles an update ping from an update client.
