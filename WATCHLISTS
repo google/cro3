@@ -4,11 +4,16 @@
 
 {
   'WATCHLIST_DEFINITIONS': {
-    'all': {
-      'filepath': './*.py',
+    'autoupdate': {
+      'filepath': '.*.py',
+    },
+    'stateful_update': {
+      'filepath': 'stateful_update',
     },
   },
   'WATCHLISTS': {
-    'all': ['nsanders@chromium.org']
+    'autoupdate': ['nsanders@chromium.org', 'ericli@chromium.org', 
+                   'dalecurtis@chromium.org'],
+    'stateful_update': [ 'ericli@chromium.org', 'dalecurtis@chromium.org' ],
   },
 }
