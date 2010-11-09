@@ -4,12 +4,13 @@
 
 from buildutil import BuildObject
 from xml.dom import minidom
-
 import cherrypy
 import os
 import shutil
-import socket
+import subprocess
+import tempfile
 import time
+
 
 def _LogMessage(message):
   cherrypy.log(message, 'UPDATE')
@@ -48,6 +49,7 @@ class Autoupdate(BuildObject):
     self.src_image = src_image
     self.vm = vm
     self.board = board
+    self.crosutils = os.path.join(os.path.dirname(__file__), '../../scripts')
 
   def _GetSecondsSinceMidnight(self):
     """Returns the seconds since midnight as a decimal value."""
@@ -83,21 +85,6 @@ class Autoupdate(BuildObject):
         continue
       return int(latest_tokens[i]) > int(client_tokens[i])
     return False
-
-  def _UnpackStatefulPartition(self, image_path, stateful_file):
-    """Given an image, unpacks its stateful partition to stateful_file."""
-    image_dir = os.path.dirname(image_path)
-    image_file = os.path.basename(image_path)
-
-    get_offset = '$(cgpt show -b -i 1 %s)' % image_file
-    get_size = '$(cgpt show -s -i 1 %s)' % image_file
-    unpack_command = (
-        'cd %s && '
-        'dd if=%s of=%s bs=512 skip=%s count=%s' % (image_dir, image_file,
-                                                    stateful_file, get_offset,
-                                                    get_size))
-    _LogMessage(unpack_command)
-    return os.system(unpack_command) == 0
 
   def _UnpackZip(self, image_dir):
     """Unpacks an image.zip into a given directory."""
@@ -248,17 +235,51 @@ class Autoupdate(BuildObject):
     Returns:
       Path to created stateful update_payload or None on error.
     """
-    stateful_partition_path = '%s/stateful.image' % os.path.dirname(image_path)
+    _LogMessage('Generating stateful update file.')
+    from_dir = os.path.dirname(image_path)
+    image = os.path.basename(image_path)
+    output_gz = os.path.join(from_dir, 'stateful.tgz')
 
-    # Unpack to get stateful partition.
-    if self._UnpackStatefulPartition(image_path, stateful_partition_path):
-      mkstatefulupdate_command = 'gzip -f %s' % stateful_partition_path
-      if os.system(mkstatefulupdate_command) == 0:
-        _LogMessage('Successfully generated %s.gz' % stateful_partition_path)
-        return '%s.gz' % stateful_partition_path
+    # Temporary directories for this function.
+    rootfs_dir = tempfile.mkdtemp(suffix='rootfs', prefix='tmp')
+    stateful_dir = tempfile.mkdtemp(suffix='stateful', prefix='tmp')
 
-    _LogMessage('Failed to create stateful update file')
-    return None
+    # Mount the image to pull out the important directories.
+    try:
+      # Only need stateful partition, but this saves us having to manage our
+      # own loopback device.
+      subprocess.check_call(['%s/mount_gpt_image.sh' % self.crosutils,
+                             '--from=%s' % from_dir,
+                             '--image=%s' % image,
+                             '--read_only',
+                             '--rootfs_mountpt=%s' % rootfs_dir,
+                             '--stateful_mountpt=%s' % stateful_dir,
+                            ])
+      _LogMessage('Tarring up /usr/local and /var!')
+      subprocess.check_call(['sudo',
+                             'tar',
+                             '-czf',
+                             output_gz,
+                             '--directory=%s' % stateful_dir,
+                             'dev_image',
+                             'var',
+                            ])
+    except:
+      _LogMessage('Failed to create stateful update file')
+      raise
+    finally:
+      # Unmount best effort regardless.
+      subprocess.call(['%s/mount_gpt_image.sh' % self.crosutils,
+                       '--unmount',
+                       '--rootfs_mountpt=%s' % rootfs_dir,
+                       '--stateful_mountpt=%s' % stateful_dir,
+                      ])
+      # Clean up our directories.
+      os.rmdir(rootfs_dir)
+      os.rmdir(stateful_dir)
+
+    _LogMessage('Successfully generated %s' % output_gz)
+    return output_gz
 
   def MoveImagesToStaticDir(self, update_path, stateful_update_path,
                             static_image_dir):
