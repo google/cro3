@@ -28,7 +28,6 @@ remove_quotes() {
 update_dev_image () {
   LSB_RELEASE="/etc/lsb-release"
   STATEFUL_DIR="/mnt/stateful_partition"
-  WORK_DIR="${STATEFUL_DIR}/stateful_update"
 
   if [ -n "${FLAGS_ARGV}" ]; then
     BASE_UPDATE_URL=$(remove_quotes "${FLAGS_ARGV}")
@@ -51,19 +50,14 @@ update_dev_image () {
   fi
 
   STATEFUL_UPDATE_URL="${BASE_UPDATE_URL}/stateful.tgz"
-
-  # Prepare directories for update.
-  rm -rf "${WORK_DIR}"
-  mkdir "${WORK_DIR}"
-
-  echo "Download stateful image from ${STATEFUL_UPDATE_URL}"
-  # Unzip mount and copy the relevant directories.
-  # Get the update.
+  echo "Downloading stateful payload from ${STATEFUL_UPDATE_URL}"
+  # Download and unzip directories onto the stateful partition.
   eval "wget -qS -T 300 -O - \"${STATEFUL_UPDATE_URL}\"" | \
-      tar -C ${WORK_DIR} -xz
+      tar --overwrite --directory=${STATEFUL_DIR} -xz
   echo >&2 "Successfully downloaded update"
 
-  if [ -d "${WORK_DIR}/var" ] && [ -d "${WORK_DIR}/dev_image" ] ; then
+  if [ -d "${STATEFUL_DIR}/var_new" ] && [ -d "${STATEFUL_DIR}/dev_image_new" ]
+  then
     echo >&2 "Notifying startup that an update is available"
     touch "${STATEFUL_DIR}/.update_available"
   else

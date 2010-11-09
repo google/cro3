@@ -261,6 +261,8 @@ class Autoupdate(BuildObject):
                              '-czf',
                              output_gz,
                              '--directory=%s' % stateful_dir,
+                             '--transform=s,^dev_image,dev_image_new,',
+                             '--transform=s,^var,var_new,',
                              'dev_image',
                              'var',
                             ])
