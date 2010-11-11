@@ -1,86 +1,63 @@
 #!/bin/bash
 
-# Copyright (c) 2009,2010 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2009-2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# Prints the arguments and dies.
+print_and_die() {
+  echo $*
+  exit 1
+}
+
 set -e
 
-build=1
-if [ x$1 == x-n ]
-then
-  # eat the gmerge -n option to avoid passing it to emerge
-  build=0
+# Get variables for the devserver from the lsb-release file.
+DEVKIT_URL=$(grep ^CHROMEOS_DEVSERVER /etc/lsb-release | cut -d = -f 2-)
+BOARD_NAME=$(grep ^CHROMEOS_RELEASE_BOARD /etc/lsb-release | cut -d = -f 2-)
+[ -z "${BOARD_NAME}" ] && print_and_die "No board in /etc/lsb-release"
+[ -z "${DEVKIT_URL}" ] && print_and_die "No dev server url in /etc/lsb-release"
+
+# Determine if we should send a build command to the devserver.
+BUILD=1
+if [ x$1 == x-n ]; then
+  BUILD=0
   shift
 fi
 
 # Package name is the last argument.
-package_name=${!#}
+# TODO(sosa) - Support multiple packages.
+PACKAGE_NAME=${!#}
 
 # If no package name is provided skip to emerge options.
-if [[ $package_name == -* ]]
-then
-  build=0
-fi
-
-DEVKIT_URL=$(grep ^CHROMEOS_DEVSERVER /etc/lsb-release | cut -d = -f 2-)
-BOARD_NAME=$(grep ^CHROMEOS_RELEASE_BOARD $dir/etc/lsb-release | cut -d = -f 2-)
-
-if [ -z $DEVKIT_URL ]
-then
-  echo "No devkit server specified in /etc/lsb-release"
-  exit 1
-fi
-
-if [ -z $BOARD_NAME ]
-then
-  echo "No board specified in /etc/lsb-release"
-  exit 1
-fi
+[[ ${PACKAGE_NAME} == -* ]] && BUILD=0
 
 mount -o remount,rw /
-mkdir -p /etc/make.profile
 
-# Re-mount /tmp as exec
+# Re-mount /tmp as exec.
 mount -o remount,exec /tmp
 
 # Delete the local binary package cache.
 sudo rm -rf /usr/portage/packages
 
-if [ $build == 1 ] ; then
-  echo "Building $package_name"
+if [ ${BUILD} == 1 ]; then
+  echo "Building ${PACKAGE_NAME}"
   ESCAPED_PACKAGE=$(python -c \
-    "import urllib; print urllib.quote('''$package_name''')")
+    "import urllib; print urllib.quote('''${PACKAGE_NAME}''')")
   ESCAPED_BOARD=$(python -c \
-  "import urllib; print urllib.quote('''${BOARD_NAME}''')")
+    "import urllib; print urllib.quote('''${BOARD_NAME}''')")
 
   wget $DEVKIT_URL/build \
     --post-data="pkg=${ESCAPED_PACKAGE}&board=${ESCAPED_BOARD}"
 fi
 
-# Installing emerge into /usr/local installs make.globals needed in
-# /usr/local/etc rather than /etc.
-if [ ! -f /etc/make.globals ]
-then
-  if [ -f /usr/local/etc/make.globals ]
-  then
-    echo "Missing /etc/make.globals, copying over from /usr/local/etc"
-    sudo cp /usr/local/etc/make.globals /etc
-   else
-    echo "Missing /etc/make.globals and none in /usr/local/etc.  Aborting."
-    exit 1
-  fi
-fi
-
-echo "Emerging $package_name"
+echo "Emerging ${PACKAGE_NAME}"
 
 export PORTAGE_BINHOST="${DEVKIT_URL}/static/pkgroot/${BOARD_NAME}/packages"
 export PORTAGE_TMPDIR=/tmp
 
 # Accept keywords only for stable ebuilds by default.
-if [ -z "$ACCEPT_KEYWORDS" ] ; then
-  ACCEPT_KEYWORDS='arm x86 ~arm ~x86'
-fi
+[ -z "${ACCEPT_KEYWORDS}" ] && ACCEPT_KEYWORDS='arm x86 ~arm ~x86'
 export ACCEPT_KEYWORDS
 
 # Disable CONFIG_PROTECT.
@@ -88,5 +65,5 @@ export CONFIG_PROTECT="-*"
 
 FEATURES="-sandbox" emerge --getbinpkgonly --usepkgonly "$@"
 
-# Re-mount /tmp as noexec
+# Re-mount /tmp as noexec.
 mount -o remount,noexec /tmp
