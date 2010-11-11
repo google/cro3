@@ -228,59 +228,23 @@ class Autoupdate(BuildObject):
     return update_path
 
   def GenerateStatefulFile(self, image_path):
-    """Generates a stateful update gz given a full path to an image.
+    """Generates a stateful update given a full path to an image.
 
     Args:
       image_path: Full path to image.
     Returns:
-      Path to created stateful update_payload or None on error.
+      Path to created stateful update_payload.
+    Raises:
+      A subprocess exception if the update generator fails to generate a
+      stateful payload.
     """
-    _LogMessage('Generating stateful update file.')
-    from_dir = os.path.dirname(image_path)
-    image = os.path.basename(image_path)
-    output_gz = os.path.join(from_dir, 'stateful.tgz')
-
-    # Temporary directories for this function.
-    rootfs_dir = tempfile.mkdtemp(suffix='rootfs', prefix='tmp')
-    stateful_dir = tempfile.mkdtemp(suffix='stateful', prefix='tmp')
-
-    # Mount the image to pull out the important directories.
-    try:
-      # Only need stateful partition, but this saves us having to manage our
-      # own loopback device.
-      subprocess.check_call(['%s/mount_gpt_image.sh' % self.crosutils,
-                             '--from=%s' % from_dir,
-                             '--image=%s' % image,
-                             '--read_only',
-                             '--rootfs_mountpt=%s' % rootfs_dir,
-                             '--stateful_mountpt=%s' % stateful_dir,
-                            ])
-      _LogMessage('Tarring up /usr/local and /var!')
-      subprocess.check_call(['sudo',
-                             'tar',
-                             '-czf',
-                             output_gz,
-                             '--directory=%s' % stateful_dir,
-                             '--transform=s,^dev_image,dev_image_new,',
-                             '--transform=s,^var,var_new,',
-                             'dev_image',
-                             'var',
-                            ])
-    except:
-      _LogMessage('Failed to create stateful update file')
-      raise
-    finally:
-      # Unmount best effort regardless.
-      subprocess.call(['%s/mount_gpt_image.sh' % self.crosutils,
-                       '--unmount',
-                       '--rootfs_mountpt=%s' % rootfs_dir,
-                       '--stateful_mountpt=%s' % stateful_dir,
-                      ])
-      # Clean up our directories.
-      os.rmdir(rootfs_dir)
-      os.rmdir(stateful_dir)
-
-    _LogMessage('Successfully generated %s' % output_gz)
+    work_dir = os.path.dirname(image_path)
+    output_gz = os.path.join(work_dir, 'stateful.tgz')
+    subprocess.check_call(
+        ['%s/cros_generate_stateful_update_payload' % self.crosutils,
+         '--image=%s' % image_path,
+         '--output_dir=%s' % work_dir,
+        ])
     return output_gz
 
   def MoveImagesToStaticDir(self, update_path, stateful_update_path,
@@ -309,7 +273,7 @@ class Autoupdate(BuildObject):
 
   def GenerateUpdateImage(self, image_path, move_to_static_dir=False,
                           static_image_dir=None):
-    """Force generates an update payload based on the given image_path.
+    """Generates an update payload based on the given image_path.
 
     Args:
       image_path: full path to the image.
@@ -322,11 +286,9 @@ class Autoupdate(BuildObject):
     update_path = self.GenerateUpdateFile(image_path)
     if update_path:
       stateful_update_path = self.GenerateStatefulFile(image_path)
-      if stateful_update_path:
-        if move_to_static_dir:
-          return self.MoveImagesToStaticDir(update_path, stateful_update_path,
-                                            static_image_dir)
-
+      if move_to_static_dir:
+        return self.MoveImagesToStaticDir(update_path, stateful_update_path,
+                                          static_image_dir)
         return True
 
     _LogMessage('Failed to generate update')
