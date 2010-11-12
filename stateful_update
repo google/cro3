@@ -53,7 +53,7 @@ update_dev_image () {
   echo "Downloading stateful payload from ${STATEFUL_UPDATE_URL}"
   # Download and unzip directories onto the stateful partition.
   eval "wget -qS -T 300 -O - \"${STATEFUL_UPDATE_URL}\"" | \
-      tar --overwrite --directory=${STATEFUL_DIR} -xz
+      tar --ignore-command-error --overwrite --directory=${STATEFUL_DIR} -xz
   echo >&2 "Successfully downloaded update"
 
   if [ -d "${STATEFUL_DIR}/var_new" ] && [ -d "${STATEFUL_DIR}/dev_image_new" ]
