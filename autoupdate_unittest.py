@@ -60,14 +60,14 @@ class AutoupdateTest(mox.MoxTestBase):
     return dummy
 
   def testGenerateLatestUpdateImageWithForced(self):
-    self.mox.StubOutWithMock(autoupdate.Autoupdate,
-                             'GenerateUpdateImageWithCache')
+    self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GenerateUpdateImage')
     autoupdate.Autoupdate._GetLatestImageDir(self.test_board).AndReturn(
         '%s/%s/%s' % (self.build_root, self.test_board, self.latest_dir))
-    autoupdate.Autoupdate.GenerateUpdateImageWithCache(
+    autoupdate.Autoupdate.GenerateUpdateImage(
         '%s/%s/%s/chromiumos_image.bin' % (self.build_root, self.test_board,
                                            self.latest_dir),
-        static_image_dir=self.static_image_dir).AndReturn('update.gz')
+        move_to_static_dir=True,
+        static_image_dir=self.static_image_dir).AndReturn(True)
 
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor()
@@ -77,14 +77,14 @@ class AutoupdateTest(mox.MoxTestBase):
     self.mox.VerifyAll()
 
   def testHandleUpdatePingForForcedImage(self):
-    self.mox.StubOutWithMock(autoupdate.Autoupdate,
-                             'GenerateUpdateImageWithCache')
+    self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GenerateUpdateImage')
 
     test_data = _TEST_REQUEST % self.test_dict
 
-    autoupdate.Autoupdate.GenerateUpdateImageWithCache(
+    autoupdate.Autoupdate.GenerateUpdateImage(
         self.forced_image_path,
-        static_image_dir=self.static_image_dir).AndReturn('update.gz')
+        move_to_static_dir=True,
+        static_image_dir=self.static_image_dir).AndReturn(True)
     autoupdate.Autoupdate._GetHash(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.hash)
     autoupdate.Autoupdate._GetSHA256(os.path.join(
@@ -107,8 +107,7 @@ class AutoupdateTest(mox.MoxTestBase):
     test_data = _TEST_REQUEST % self.test_dict
 
     autoupdate.Autoupdate.GenerateLatestUpdateImage(
-        self.test_board, 'ForcedUpdate', self.static_image_dir).AndReturn(
-            'update.gz')
+        self.test_board, 'ForcedUpdate', self.static_image_dir).AndReturn(True)
     autoupdate.Autoupdate._GetHash(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.hash)
     autoupdate.Autoupdate._GetSHA256(os.path.join(
@@ -130,7 +129,7 @@ class AutoupdateTest(mox.MoxTestBase):
     test_data = _TEST_REQUEST % self.test_dict
 
     autoupdate.Autoupdate.GenerateImageFromZip(
-        self.static_image_dir).AndReturn('update.gz')
+        self.static_image_dir).AndReturn(True)
     autoupdate.Autoupdate._GetHash(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.hash)
     autoupdate.Autoupdate._GetSHA256(os.path.join(

@@ -13,8 +13,6 @@ import sys
 
 import autoupdate
 
-CACHED_ENTRIES=12
-
 # Sets up global to share between classes.
 global updater
 updater = None
@@ -115,8 +113,6 @@ if __name__ == '__main__':
                     help='serve archived builds only.')
   parser.add_option('--board', dest='board',
                     help='When pre-generating update, board for latest image.')
-  parser.add_option('--clear_cache', action="store_true", default=False,
-                    help='Clear out all cached udpates and exit')
   parser.add_option('--client_prefix', dest='client_prefix',
                     help='Required prefix for client software version.',
                     default='MementoSoftwareUpdate')
@@ -135,6 +131,8 @@ if __name__ == '__main__':
   parser.add_option('-t', action='store_true', dest='test_image')
   parser.add_option('-u', '--urlbase', dest='urlbase',
                     help='base URL, other than devserver, for update images.')
+  parser.add_option('--use_cached', action="store_true", default=False,
+                    help='Prefer cached image regardless of timestamps.')
   parser.add_option('--validate_factory_config', action="store_true",
                     dest='validate_factory_config',
                     help='Validate factory config file, then exit.')
@@ -153,22 +151,6 @@ if __name__ == '__main__':
     static_dir = os.path.realpath('%s/static' % devserver_dir)
     os.system('mkdir -p %s' % static_dir)
 
-  cache_dir = os.path.join(static_dir, 'cache')
-  cherrypy.log('Using cache directory %s' % cache_dir, 'DEVSERVER')
-
-  if options.clear_cache:
-    # Clear the cache and exit
-    sys.exit(os.system('sudo rm -rf %s' % cache_dir))
-
-  if os.path.exists(cache_dir):
-    # Clear all but the last N cached updates
-    cmd = ('cd %s; ls -1tr | head --lines=-%d | xargs rm -rf' %
-           (cache_dir, CACHED_ENTRIES))
-    if os.system(cmd) != 0:
-      cherrypy.log('Failed to clean up old delta cache files with %s' % cmd,
-                   'DEVSERVER')
-      sys.exit(1)
-
   cherrypy.log('Source root is %s' % root_dir, 'DEVSERVER')
   cherrypy.log('Serving from %s' % static_dir, 'DEVSERVER')
 
@@ -181,6 +163,7 @@ if __name__ == '__main__':
       factory_config_path=options.factory_config,
       client_prefix=options.client_prefix,
       forced_image=options.image,
+      use_cached=options.use_cached,
       port=options.port,
       src_image=options.src_image,
       vm=options.vm,

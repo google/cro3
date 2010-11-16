@@ -4,11 +4,11 @@
 
 from buildutil import BuildObject
 from xml.dom import minidom
-
 import cherrypy
 import os
 import shutil
 import subprocess
+import tempfile
 import time
 
 
@@ -32,7 +32,7 @@ class Autoupdate(BuildObject):
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
                factory_config_path=None, client_prefix=None, forced_image=None,
-               port=8080, src_image='', vm=False, board=None,
+               use_cached=False, port=8080, src_image='', vm=False, board=None,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
@@ -45,6 +45,7 @@ class Autoupdate(BuildObject):
 
     self.client_prefix = client_prefix
     self.forced_image = forced_image
+    self.use_cached = use_cached
     self.src_image = src_image
     self.vm = vm
     self.board = board
@@ -74,12 +75,11 @@ class Autoupdate(BuildObject):
     return latest_version.split('-')[0]
 
   def _CanUpdate(self, client_version, latest_version):
-    """Returns true if the latest_version is greater than the client_version.
-    """
+    """Returns true if the latest_version is greater than the client_version."""
     client_tokens = client_version.replace('_', '').split('.')
     latest_tokens = latest_version.replace('_', '').split('.')
     _LogMessage('client version %s latest version %s'
-                % (client_version, latest_version))
+              % (client_version, latest_version))
     for i in range(4):
       if int(latest_tokens[i]) == int(client_tokens[i]):
         continue
@@ -105,6 +105,22 @@ class Autoupdate(BuildObject):
     else:
       image_name = 'chromiumos_image.bin'
     return image_name
+
+  def _IsImageNewerThanCached(self, image_path, cached_file_path):
+    """Returns true if the image is newer than the cached image."""
+    if os.path.exists(cached_file_path) and os.path.exists(image_path):
+      _LogMessage('Usable cached image found at %s.' % cached_file_path)
+      return os.path.getmtime(image_path) > os.path.getmtime(cached_file_path)
+    elif not os.path.exists(cached_file_path) and not os.path.exists(image_path):
+      raise Exception('Image does not exist and cached image missing')
+    else:
+      # Only one is missing, figure out which one.
+      if os.path.exists(image_path):
+        _LogMessage('No cached image found - image generation required.')
+        return True
+      else:
+        _LogMessage('Cached image found to serve at %s.' % cached_file_path)
+        return False
 
   def _GetSize(self, update_path):
     """Returns the size of the file given."""
@@ -134,11 +150,6 @@ class Autoupdate(BuildObject):
     """Returns the sha256 of the file given."""
     cmd = ('cat %s | openssl dgst -sha256 -binary | openssl base64' %
            update_path)
-    return os.popen(cmd).read().rstrip()
-
-  def _GetMd5(self, update_path):
-    """Returns the md5 checksum of the file given."""
-    cmd = ("md5sum %s | awk '{print $1}'" % update_path)
     return os.popen(cmd).read().rstrip()
 
   def GetUpdatePayload(self, hash, sha256, size, url, is_delta_format):
@@ -187,7 +198,7 @@ class Autoupdate(BuildObject):
     """
     return payload % (self._GetSecondsSinceMidnight(), self.app_id)
 
-  def GenerateUpdateFile(self, src_image, image_path, static_image_dir):
+  def GenerateUpdateFile(self, image_path):
     """Generates an update gz given a full path to an image.
 
     Args:
@@ -195,7 +206,8 @@ class Autoupdate(BuildObject):
     Returns:
       Path to created update_payload or None on error.
     """
-    update_path = os.path.join(static_image_dir, 'update.gz')
+    image_dir = os.path.dirname(image_path)
+    update_path = os.path.join(image_dir, 'update.gz')
     patch_kernel_flag = '--patch_kernel'
     _LogMessage('Generating update image %s' % update_path)
 
@@ -207,7 +219,7 @@ class Autoupdate(BuildObject):
         '%s/cros_generate_update_payload --image="%s" --output="%s" '
         '%s --noold_style --src_image="%s"' % (
             self.scripts_dir, image_path, update_path, patch_kernel_flag,
-            src_image))
+            self.src_image))
     _LogMessage(mkupdate_command)
     if os.system(mkupdate_command) != 0:
       _LogMessage('Failed to create base update file')
@@ -215,124 +227,75 @@ class Autoupdate(BuildObject):
 
     return update_path
 
-  def GenerateStatefulFile(self, image_path, static_image_dir):
-    """Generates a stateful update payload given a full path to an image.
+  def GenerateStatefulFile(self, image_path):
+    """Generates a stateful update given a full path to an image.
 
     Args:
       image_path: Full path to image.
     Returns:
-      Path to created stateful update_payload or None on error.
+      Path to created stateful update_payload.
     Raises:
       A subprocess exception if the update generator fails to generate a
       stateful payload.
     """
-    output_gz = os.path.join(static_image_dir, 'stateful.tgz')
+    work_dir = os.path.dirname(image_path)
+    output_gz = os.path.join(work_dir, 'stateful.tgz')
     subprocess.check_call(
         ['%s/cros_generate_stateful_update_payload' % self.crosutils,
          '--image=%s' % image_path,
-         '--output_dir=%s' % static_image_dir,
+         '--output_dir=%s' % work_dir,
         ])
     return output_gz
 
-  def FindCachedUpdateImageSubDir(self, src_image, dest_image):
-    """Find directory to store a cached update.
+  def MoveImagesToStaticDir(self, update_path, stateful_update_path,
+                            static_image_dir):
+    """Moves gz files from their directories to serving directories.
 
-       Given one, or two images for an update, this finds which
-       cache directory should hold the update files, even if they don't exist
-       yet. The directory will be inside static_image_dir, and of the form:
+    Args:
+      update_path: full path to main update gz.
+      stateful_update_path: full path to stateful partition gz.
+      static_image_dir: where to put files.
+    Returns:
+      Returns True if the files were moved over successfully.
+    """
+    try:
+      shutil.copy(update_path, static_image_dir)
+      shutil.copy(stateful_update_path, static_image_dir)
+      os.remove(update_path)
+      os.remove(stateful_update_path)
+    except Exception:
+      _LogMessage('Failed to move %s and %s to %s' % (update_path,
+                                                    stateful_update_path,
+                                                    static_image_dir))
+      return False
 
-       Non-delta updates:
-         cache/12345678
+    return True
 
-       Delta updates:
-         cache/12345678_12345678
-       """
-    # If there is no src, we only have an image file, check image for changes
-    if not src_image:
-      return os.path.join('cache', self._GetMd5(dest_image))
-
-    # If we have src and dest, we are a delta, and check both for changes
-    return os.path.join('cache',
-                        "%s_%s" % (self._GetMd5(src_image),
-                                   self._GetMd5(dest_image)))
-
-  def GenerateUpdateImage(self, src_image, image_path, static_image_dir):
-    """Force generates an update payload based on the given image_path.
+  def GenerateUpdateImage(self, image_path, move_to_static_dir=False,
+                          static_image_dir=None):
+    """Generates an update payload based on the given image_path.
 
     Args:
       image_path: full path to the image.
       move_to_static_dir: Moves the files from their dir to the static dir.
       static_image_dir: the directory to move images to after generating.
     Returns:
-      update filename (not directory) on success, or None
+      True if the update payload was created successfully.
     """
-    update_file = None
-    stateful_update_file = None
-
-    # Actually do the generation
     _LogMessage('Generating update for image %s' % image_path)
-    update_file = self.GenerateUpdateFile(src_image,
-                                          image_path,
+    update_path = self.GenerateUpdateFile(image_path)
+    if update_path:
+      stateful_update_path = self.GenerateStatefulFile(image_path)
+      if move_to_static_dir:
+        return self.MoveImagesToStaticDir(update_path, stateful_update_path,
                                           static_image_dir)
-
-    if update_file:
-      stateful_update_file = self.GenerateStatefulFile(image_path,
-                                                       static_image_dir)
-
-    if update_file and stateful_update_file:
-      return os.path.basename(update_file)
+        return True
 
     _LogMessage('Failed to generate update')
-
-    # Cleanup incomplete files, if they exist
-    if update_file and os.path.exists(update_file):
-      os.remove(update_file)
-
-    return None
-
-  def GenerateUpdateImageWithCache(self, image_path, static_image_dir):
-    """Force generates an update payload based on the given image_path.
-
-    Args:
-      image_path: full path to the image.
-      move_to_static_dir: Moves the files from their dir to the static dir.
-      static_image_dir: the directory to move images to after generating.
-    Returns:
-      update filename (not directory) relative to static_image_dir on success,
-        or None
-    """
-    _LogMessage('Generating update for src %s image %s' % (self.src_image,
-                                                           image_path))
-
-    # Which sub_dir of static_image_dir should hold our cached update image
-    cache_sub_dir = self.FindCachedUpdateImageSubDir(self.src_image, image_path)
-    _LogMessage('Caching in sub_dir "%s"' % cache_sub_dir)
-
-    # Check for a cached image to use
-    if os.path.exists(os.path.join(static_image_dir,
-                                   cache_sub_dir,
-                                   'update.gz')):
-      return os.path.join(cache_sub_dir, 'update.gz')
-
-    full_cache_dir = os.path.join(static_image_dir, cache_sub_dir)
-
-    # Create the directory for the cache values
-    if not os.path.exists(full_cache_dir):
-      os.makedirs(full_cache_dir)
-
-    gen_image = self.GenerateUpdateImage(self.src_image,
-                                         image_path,
-                                         full_cache_dir)
-
-    # If the generation worked
-    if gen_image:
-      return os.path.join(cache_sub_dir, gen_image)
-    else:
-      return None
-
+    return False
 
   def GenerateLatestUpdateImage(self, board_id, client_version,
-                                static_image_dir):
+                                static_image_dir=None):
     """Generates an update using the latest image that has been built.
 
     This will only generate an update if the newest update is newer than that
@@ -343,7 +306,7 @@ class Autoupdate(BuildObject):
       client_version: Current version of the client or 'ForcedUpdate'
       static_image_dir: the directory to move images to after generating.
     Returns:
-      Name of the update image relative to static_image_dir or None
+      True if the update payload was created successfully.
     """
     latest_image_dir = self._GetLatestImageDir(board_id)
     latest_version = self._GetVersionFromDir(latest_image_dir)
@@ -356,10 +319,15 @@ class Autoupdate(BuildObject):
     if client_version != 'ForcedUpdate' and not self._CanUpdate(
         client_version, latest_version):
       _LogMessage('no update')
-      return None
+      return False
 
-    return self.GenerateUpdateImageWithCache(latest_image_path,
-                                             static_image_dir=static_image_dir)
+    cached_file_path = os.path.join(static_image_dir, 'update.gz')
+    if (os.path.exists(cached_file_path) and
+        not self._IsImageNewerThanCached(latest_image_path, cached_file_path)):
+      return True
+
+    return self.GenerateUpdateImage(latest_image_path, move_to_static_dir=True,
+                                    static_image_dir=static_image_dir)
 
   def GenerateImageFromZip(self, static_image_dir):
     """Generates an update from an image zip file.
@@ -371,23 +339,21 @@ class Autoupdate(BuildObject):
     Args:
       static_image_dir: Directory where the zip file exists.
     Returns:
-      Name of the update payload relative to static_image_dir if successful.
+      True if the update payload was created successfully.
     """
-    _LogMessage('Preparing to generate update from zip in %s.' %
-                static_image_dir)
+    _LogMessage('Preparing to generate update from zip in %s.' % static_image_dir)
     image_path = os.path.join(static_image_dir, self._GetImageName())
+    cached_file_path = os.path.join(static_image_dir, 'update.gz')
     zip_file_path = os.path.join(static_image_dir, 'image.zip')
-
-    # TODO(dgarrett): Either work caching into this path before
-    #       we unpack, or remove zip support (sosa is considering).
-    #       It does currently cache, but after the unpack.
+    if not self._IsImageNewerThanCached(zip_file_path, cached_file_path):
+      return True
 
     if not self._UnpackZip(static_image_dir):
       _LogMessage('unzip image.zip failed.')
-      return None
+      return False
 
-    return self.GenerateUpdateImageWithCache(image_path,
-                                             static_image_dir=static_image_dir)
+    return self.GenerateUpdateImage(image_path, move_to_static_dir=False,
+                                    static_image_dir=None)
 
   def ImportFactoryConfigFile(self, filename, validate_checksums=False):
     """Imports a factory-floor server configuration file. The file should
@@ -484,35 +450,38 @@ class Autoupdate(BuildObject):
 
   def GenerateUpdatePayloadForNonFactory(self, board_id, client_version,
                                          static_image_dir):
-    """Generates an update for non-factory image.
-
-       Returns:
-         file name relative to static_image_dir on success.
-    """
-    if self.forced_image:
-      return self.GenerateUpdateImageWithCache(
-          self.forced_image,
-          static_image_dir=static_image_dir)
-    elif self.serve_only:
-      return self.GenerateImageFromZip(static_image_dir)
+    """Generates an update for non-factory and returns True on success."""
+    if self.use_cached and os.path.exists(os.path.join(static_image_dir,
+                                                       'update.gz')):
+      _LogMessage('Using cached image regardless of timestamps.')
+      return True
     else:
-      if board_id:
-        return self.GenerateLatestUpdateImage(board_id,
-                                              client_version,
-                                              static_image_dir)
+      if self.forced_image:
+        has_built_image = self.GenerateUpdateImage(
+            self.forced_image, move_to_static_dir=True,
+            static_image_dir=static_image_dir)
+        return has_built_image
+      elif self.serve_only:
+        return self.GenerateImageFromZip(static_image_dir)
+      else:
+        if board_id:
+          return self.GenerateLatestUpdateImage(board_id,
+                                                client_version,
+                                                static_image_dir)
 
-      _LogMessage('You must set --board for pre-generating latest update.')
-      return None
+        _LogMessage('You must set --board for pre-generating latest update.')
+        return False
 
   def PreGenerateUpdate(self):
-    """Pre-generates an update.  Returns True on success.
-    """
+    """Pre-generates an update.  Returns True on success."""
      # Does not work with factory config.
     assert(not self.factory_config)
     _LogMessage('Pre-generating the update payload.')
     # Does not work with labels so just use static dir.
     if self.GenerateUpdatePayloadForNonFactory(self.board, '0.0.0.0',
                                                self.static_dir):
+      # Force the devserver to use the pre-generated payload.
+      self.use_cached = True
       _LogMessage('Pre-generated update successfully.')
       return True
     else:
@@ -574,19 +543,17 @@ class Autoupdate(BuildObject):
       if label:
         static_image_dir = os.path.join(static_image_dir, label)
 
-      payload_path = self.GenerateUpdatePayloadForNonFactory(board_id,
-                                                             client_version,
-                                                             static_image_dir)
-      if payload_path:
-        filename = os.path.join(static_image_dir, payload_path)
+      if self.GenerateUpdatePayloadForNonFactory(board_id, client_version,
+                                                 static_image_dir):
+        filename = os.path.join(static_image_dir, 'update.gz')
         hash = self._GetHash(filename)
         sha256 = self._GetSHA256(filename)
         size = self._GetSize(filename)
         is_delta_format = self._IsDeltaFormatFile(filename)
         if label:
-          url = '%s/%s/%s' % (static_urlbase, label, payload_path)
+          url = '%s/%s/update.gz' % (static_urlbase, label)
         else:
-          url = '%s/%s' % (static_urlbase, payload_path)
+          url = '%s/update.gz' % static_urlbase
 
         _LogMessage('Responding to client to use url %s to get image.' % url)
         return self.GetUpdatePayload(hash, sha256, size, url, is_delta_format)
