@@ -115,11 +115,14 @@ if __name__ == '__main__':
                     help='serve archived builds only.')
   parser.add_option('--board', dest='board',
                     help='When pre-generating update, board for latest image.')
-  parser.add_option('--clear_cache', action="store_true", default=False,
+  parser.add_option('--clear_cache', action='store_true', default=False,
                     help='Clear out all cached udpates and exit')
   parser.add_option('--client_prefix', dest='client_prefix',
                     help='Required prefix for client software version.',
                     default='MementoSoftwareUpdate')
+  parser.add_option('--exit', action='store_true', default=False,
+                    help='Don\'t start the server (still pregenerate or clear'
+                         'cache).')
   parser.add_option('--factory_config', dest='factory_config',
                     help='Config file for serving images from factory floor.')
   parser.add_option('--for_vm', dest='vm', default=False, action='store_true',
@@ -128,6 +131,8 @@ if __name__ == '__main__':
                     help='Force update using this image.')
   parser.add_option('-p', '--pregenerate_update', action='store_true',
                     default=False, help='Pre-generate update payload.')
+  parser.add_option('--payload', dest='payload',
+                    help='Use update payload from specified directory.')
   parser.add_option('--port', default=8080,
                     help='Port for the dev server to use.')
   parser.add_option('--src_image', default='',
@@ -157,8 +162,11 @@ if __name__ == '__main__':
   cherrypy.log('Using cache directory %s' % cache_dir, 'DEVSERVER')
 
   if options.clear_cache:
-    # Clear the cache and exit
-    sys.exit(os.system('sudo rm -rf %s' % cache_dir))
+    # Clear the cache and exit on error
+    if os.system('sudo rm -rf %s' % cache_dir) != 0:
+      cherrypy.log('Failed to clear the cache with %s' % cmd,
+                   'DEVSERVER')
+      sys.exit(1)
 
   if os.path.exists(cache_dir):
     # Clear all but the last N cached updates
@@ -181,6 +189,7 @@ if __name__ == '__main__':
       factory_config_path=options.factory_config,
       client_prefix=options.client_prefix,
       forced_image=options.image,
+      forced_payload=options.payload,
       port=options.port,
       src_image=options.src_image,
       vm=options.vm,
@@ -200,4 +209,6 @@ if __name__ == '__main__':
     if not updater.PreGenerateUpdate():
       sys.exit(1)
 
-  cherrypy.quickstart(DevServerRoot(), config=_GetConfig(options))
+  # If the command line requested after setup, it's time to do it.
+  if not options.exit:
+    cherrypy.quickstart(DevServerRoot(), config=_GetConfig(options))

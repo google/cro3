@@ -31,7 +31,8 @@ class Autoupdate(BuildObject):
   """
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
-               factory_config_path=None, client_prefix=None, forced_image=None,
+               factory_config_path=None, client_prefix=None,
+               forced_image=None, forced_payload=None,
                port=8080, src_image='', vm=False, board=None,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
@@ -45,6 +46,7 @@ class Autoupdate(BuildObject):
 
     self.client_prefix = client_prefix
     self.forced_image = forced_image
+    self.forced_payload = forced_payload
     self.src_image = src_image
     self.vm = vm
     self.board = board
@@ -141,11 +143,12 @@ class Autoupdate(BuildObject):
     cmd = ("md5sum %s | awk '{print $1}'" % update_path)
     return os.popen(cmd).read().rstrip()
 
-  def _Symlink(self, source, dest):
-    """Creates a symlink at dest to source"""
-    if os.path.exists(dest):
+  def _Copy(self, source, dest):
+    """Copies a file from dest to source (if different)"""
+    _LogMessage('Copy File %s -> %s' % (source, dest))
+    if os.path.lexists(dest):
       os.remove(dest)
-    os.symlink(source, dest)
+    shutil.copy(source, dest)
 
   def GetUpdatePayload(self, hash, sha256, size, url, is_delta_format):
     """Returns a payload to the client corresponding to a new update.
@@ -352,9 +355,9 @@ class Autoupdate(BuildObject):
       _LogMessage('"%s" "%s"' % (new_stateful_payload, cache_stateful_payload))
       assert new_stateful_payload == cache_stateful_payload
 
-    # If the generation worked, create symlinks
-    self._Symlink(cache_update_payload, update_payload)
-    self._Symlink(cache_stateful_payload, stateful_payload)
+    # If the generation worked, copy files
+    self._Copy(cache_update_payload, update_payload)
+    self._Copy(cache_stateful_payload, stateful_payload)
 
     # return just the filename which is symlink in static_image_dir
     return 'update.gz'
@@ -517,7 +520,21 @@ class Autoupdate(BuildObject):
        Returns:
          file name relative to static_image_dir on success.
     """
-    if self.forced_image:
+    if self.forced_payload:
+      # If the forced payload is not already in our static_image_dir,
+      # copy it there.
+      if (os.path.dirname(os.path.abspath(self.forced_payload)) !=
+          os.path.abspath(static_image_dir)):
+        self._Copy(self.forced_payload, os.path.join(static_image_dir,
+                                                     'update.gz'))
+
+        self._Copy(os.path.join(os.path.dirname(self.forced_payload),
+                                'stateful.tgz'),
+                   os.path.join(static_image_dir,
+                                'stateful.tgz'))
+
+      return 'update.gz'
+    elif self.forced_image:
       return self.GenerateUpdateImageWithCache(
           self.forced_image,
           static_image_dir=static_image_dir)
