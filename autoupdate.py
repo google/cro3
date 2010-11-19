@@ -15,6 +15,8 @@ import time
 def _LogMessage(message):
   cherrypy.log(message, 'UPDATE')
 
+UPDATE_FILE='update.gz'
+STATEFUL_FILE='stateful.tgz'
 
 class Autoupdate(BuildObject):
   """Class that contains functionality that handles Chrome OS update pings.
@@ -50,7 +52,13 @@ class Autoupdate(BuildObject):
     self.src_image = src_image
     self.vm = vm
     self.board = board
-    self.crosutils = os.path.join(os.path.dirname(__file__), '../../scripts')
+
+    # Caching is enabled if we are not doing serve_only
+    # aka if --archive_dir was not passed in.
+    self.caching_enabled = not self.serve_only
+
+    # Track update pregeneration, so we don't recopy if not needed.
+    self.pregenerated = False
 
   def _GetSecondsSinceMidnight(self):
     """Returns the seconds since midnight as a decimal value."""
@@ -204,7 +212,7 @@ class Autoupdate(BuildObject):
     Returns:
       Path to created update_payload or None on error.
     """
-    update_path = os.path.join(output_dir, 'update.gz')
+    update_path = os.path.join(output_dir, UPDATE_FILE)
     patch_kernel_flag = '--patch_kernel'
     _LogMessage('Generating update image %s' % update_path)
 
@@ -222,7 +230,7 @@ class Autoupdate(BuildObject):
       _LogMessage('Failed to create base update file')
       return None
 
-    return update_path
+    return UPDATE_FILE
 
   def GenerateStatefulFile(self, image_path, output_dir):
     """Generates a stateful update payload given a full path to an image.
@@ -235,13 +243,13 @@ class Autoupdate(BuildObject):
       A subprocess exception if the update generator fails to generate a
       stateful payload.
     """
-    output_gz = os.path.join(output_dir, 'stateful.tgz')
+    output_gz = os.path.join(output_dir, STATEFUL_FILE)
     subprocess.check_call(
-        ['%s/cros_generate_stateful_update_payload' % self.crosutils,
+        ['%s/cros_generate_stateful_update_payload' % self.scripts_dir,
          '--image=%s' % image_path,
          '--output_dir=%s' % output_dir,
         ])
-    return output_gz
+    return STATEFUL_FILE
 
   def FindCachedUpdateImageSubDir(self, src_image, dest_image):
     """Find directory to store a cached update.
@@ -265,7 +273,7 @@ class Autoupdate(BuildObject):
                         "%s_%s" % (self._GetMd5(src_image),
                                    self._GetMd5(dest_image)))
 
-  def GenerateUpdateImage(self, src_image, image_path, output_dir):
+  def GenerateUpdateImage(self, image_path, output_dir):
     """Force generates an update payload based on the given image_path.
 
     Args:
@@ -273,14 +281,14 @@ class Autoupdate(BuildObject):
       image_path: full path to the image.
       output_dir: the directory to write the update payloads in
     Returns:
-      update and stateful payload tuple with full file names
+      update payload name relative to output_dir
     """
     update_file = None
     stateful_update_file = None
 
     # Actually do the generation
     _LogMessage('Generating update for image %s' % image_path)
-    update_file = self.GenerateUpdateFile(src_image,
+    update_file = self.GenerateUpdateFile(self.src_image,
                                           image_path,
                                           output_dir)
 
@@ -289,7 +297,7 @@ class Autoupdate(BuildObject):
                                                        output_dir)
 
     if update_file and stateful_update_file:
-      return update_file, stateful_update_file
+      return update_file
 
     _LogMessage('Failed to generate update')
 
@@ -312,6 +320,13 @@ class Autoupdate(BuildObject):
     _LogMessage('Generating update for src %s image %s' % (self.src_image,
                                                            image_path))
 
+    # If it was pregenerated, don't regenerate
+    if self.pregenerated:
+      return UPDATE_FILE
+
+    if not self.caching_enabled:
+      return self.GenerateUpdateImage(image_path, static_image_dir)
+
     # Which sub_dir of static_image_dir should hold our cached update image
     cache_sub_dir = self.FindCachedUpdateImageSubDir(self.src_image, image_path)
     _LogMessage('Caching in sub_dir "%s"' % cache_sub_dir)
@@ -319,16 +334,16 @@ class Autoupdate(BuildObject):
     # The cached payloads exist in a cache dir
     cache_update_payload = os.path.join(static_image_dir,
                                         cache_sub_dir,
-                                        'update.gz')
+                                        UPDATE_FILE)
     cache_stateful_payload = os.path.join(static_image_dir,
                                           cache_sub_dir,
-                                          'stateful.tgz')
+                                          STATEFUL_FILE)
 
-    # The final results (symlinks?) exist directly in static
+    # The final results exist directly in static
     update_payload = os.path.join(static_image_dir,
-                                  'update.gz')
+                                  UPDATE_FILE)
     stateful_payload = os.path.join(static_image_dir,
-                                    'stateful.tgz')
+                                    STATEFUL_FILE)
 
     # If there isn't a cached payload, make one
     if not os.path.exists(cache_update_payload):
@@ -338,29 +353,20 @@ class Autoupdate(BuildObject):
       if not os.path.exists(full_cache_dir):
         os.makedirs(full_cache_dir)
 
-      payloads = self.GenerateUpdateImage(self.src_image,
-                                          image_path,
-                                          full_cache_dir)
+      result = self.GenerateUpdateImage(image_path,
+                                        full_cache_dir)
 
-      if not payloads:
+      if not result:
         # Clean up cache dir if it's not valid
         os.system("rm -rf %s" % os.path.join(static_image_dir, cache_sub_dir))
         return None
-
-      # Verify they were created with the expected names
-      new_update_payload, new_stateful_payload = payloads
-
-      _LogMessage('"%s" "%s"' % (new_update_payload, cache_update_payload))
-      assert new_update_payload == cache_update_payload
-      _LogMessage('"%s" "%s"' % (new_stateful_payload, cache_stateful_payload))
-      assert new_stateful_payload == cache_stateful_payload
 
     # If the generation worked, copy files
     self._Copy(cache_update_payload, update_payload)
     self._Copy(cache_stateful_payload, stateful_payload)
 
-    # return just the filename which is symlink in static_image_dir
-    return 'update.gz'
+    # Return just the filename in static_image_dir.
+    return UPDATE_FILE
 
   def GenerateLatestUpdateImage(self, board_id, client_version,
                                 static_image_dir):
@@ -526,14 +532,14 @@ class Autoupdate(BuildObject):
       if (os.path.dirname(os.path.abspath(self.forced_payload)) !=
           os.path.abspath(static_image_dir)):
         self._Copy(self.forced_payload, os.path.join(static_image_dir,
-                                                     'update.gz'))
+                                                     UPDATE_FILE))
 
         self._Copy(os.path.join(os.path.dirname(self.forced_payload),
-                                'stateful.tgz'),
+                                STATEFUL_FILE),
                    os.path.join(static_image_dir,
-                                'stateful.tgz'))
+                                STATEFUL_FILE))
 
-      return 'update.gz'
+      return UPDATE_FILE
     elif self.forced_image:
       return self.GenerateUpdateImageWithCache(
           self.forced_image,
@@ -559,6 +565,7 @@ class Autoupdate(BuildObject):
     if self.GenerateUpdatePayloadForNonFactory(self.board, '0.0.0.0',
                                                self.static_dir):
       _LogMessage('Pre-generated update successfully.')
+      self.pregenerated = True
       return True
     else:
       _LogMessage('Failed to pre-generate update.')
