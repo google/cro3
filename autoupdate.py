@@ -529,15 +529,26 @@ class Autoupdate(BuildObject):
     if self.forced_payload:
       # If the forced payload is not already in our static_image_dir,
       # copy it there.
-      if (os.path.dirname(os.path.abspath(self.forced_payload)) !=
-          os.path.abspath(static_image_dir)):
-        self._Copy(self.forced_payload, os.path.join(static_image_dir,
-                                                     UPDATE_FILE))
+      src_path = os.path.abspath(self.forced_payload)
+      dest_path = os.path.join(static_image_dir, UPDATE_FILE)
 
-        self._Copy(os.path.join(os.path.dirname(self.forced_payload),
-                                STATEFUL_FILE),
-                   os.path.join(static_image_dir,
-                                STATEFUL_FILE))
+      src_stateful = os.path.join(os.path.dirname(src_path),
+                                  STATEFUL_FILE)
+      dest_stateful = os.path.join(static_image_dir,
+                                   STATEFUL_FILE)
+
+      # Only copy the files if the source directory is different from dest.
+      if os.path.dirname(src_path) != os.path.abspath(static_image_dir):
+        self._Copy(src_path, dest_path)
+
+        # The stateful payload is optional.
+        if os.path.exists(src_stateful):
+          self._Copy(src_stateful, dest_stateful)
+        else:
+          _LogMessage('WARN: %s not found. Expected for dev and test builds.' %
+                      STATEFUL_FILE)
+          if os.path.exists(dest_stateful):
+            os.remove(dest_stateful)
 
       return UPDATE_FILE
     elif self.forced_image:
