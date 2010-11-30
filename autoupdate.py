@@ -22,8 +22,8 @@ class Autoupdate(BuildObject):
   """Class that contains functionality that handles Chrome OS update pings.
 
   Members:
-    serve_only: Serve images from a pre-built image.zip file.  static_dir
-      must be set to the location of the image.zip.
+    serve_only: Serve only pre-built updates. static_dir must contain update.gz
+      and stateful.tgz.
     factory_config: Path to the factory config file if handling factory
       requests.
     use_test_image: Use chromiumos_test_image.bin rather than the standard.
@@ -52,10 +52,6 @@ class Autoupdate(BuildObject):
     self.src_image = src_image
     self.vm = vm
     self.board = board
-
-    # Caching is enabled if we are not doing serve_only
-    # aka if --archive_dir was not passed in.
-    self.caching_enabled = not self.serve_only
 
     # Track update pregeneration, so we don't recopy if not needed.
     self.pregenerated = False
@@ -324,9 +320,6 @@ class Autoupdate(BuildObject):
     if self.pregenerated:
       return UPDATE_FILE
 
-    if not self.caching_enabled:
-      return self.GenerateUpdateImage(image_path, static_image_dir)
-
     # Which sub_dir of static_image_dir should hold our cached update image
     cache_sub_dir = self.FindCachedUpdateImageSubDir(self.src_image, image_path)
     _LogMessage('Caching in sub_dir "%s"' % cache_sub_dir)
@@ -396,34 +389,6 @@ class Autoupdate(BuildObject):
       return None
 
     return self.GenerateUpdateImageWithCache(latest_image_path,
-                                             static_image_dir=static_image_dir)
-
-  def GenerateImageFromZip(self, static_image_dir):
-    """Generates an update from an image zip file.
-
-    This method assumes you have an image.zip in directory you are serving
-    from.  If this file is newer than a previously cached file, it will unzip
-    this file, create a payload and serve it.
-
-    Args:
-      static_image_dir: Directory where the zip file exists.
-    Returns:
-      Name of the update payload relative to static_image_dir if successful.
-    """
-    _LogMessage('Preparing to generate update from zip in %s.' %
-                static_image_dir)
-    image_path = os.path.join(static_image_dir, self._GetImageName())
-    zip_file_path = os.path.join(static_image_dir, 'image.zip')
-
-    # TODO(dgarrett): Either work caching into this path before
-    #       we unpack, or remove zip support (sosa is considering).
-    #       It does currently cache, but after the unpack.
-
-    if not self._UnpackZip(static_image_dir):
-      _LogMessage('unzip image.zip failed.')
-      return None
-
-    return self.GenerateUpdateImageWithCache(image_path,
                                              static_image_dir=static_image_dir)
 
   def ImportFactoryConfigFile(self, filename, validate_checksums=False):
@@ -526,16 +491,16 @@ class Autoupdate(BuildObject):
        Returns:
          file name relative to static_image_dir on success.
     """
+    dest_path = os.path.join(static_image_dir, UPDATE_FILE)
+    dest_stateful = os.path.join(static_image_dir, STATEFUL_FILE)
+
     if self.forced_payload:
       # If the forced payload is not already in our static_image_dir,
       # copy it there.
       src_path = os.path.abspath(self.forced_payload)
-      dest_path = os.path.join(static_image_dir, UPDATE_FILE)
 
       src_stateful = os.path.join(os.path.dirname(src_path),
                                   STATEFUL_FILE)
-      dest_stateful = os.path.join(static_image_dir,
-                                   STATEFUL_FILE)
 
       # Only copy the files if the source directory is different from dest.
       if os.path.dirname(src_path) != os.path.abspath(static_image_dir):
@@ -556,7 +521,16 @@ class Autoupdate(BuildObject):
           self.forced_image,
           static_image_dir=static_image_dir)
     elif self.serve_only:
-      return self.GenerateImageFromZip(static_image_dir)
+      # Warn if update or stateful files can't be found.
+      if not os.path.exists(dest_path):
+        _LogMessage('WARN: %s not found. Expected for dev and test builds.' %
+                    UPDATE_FILE)
+
+      if not os.path.exists(dest_stateful):
+        _LogMessage('WARN: %s not found. Expected for dev and test builds.' %
+                    STATEFUL_FILE)
+
+      return UPDATE_FILE
     else:
       if board_id:
         return self.GenerateLatestUpdateImage(board_id,

@@ -124,32 +124,6 @@ class AutoupdateTest(mox.MoxTestBase):
     self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
     self.mox.VerifyAll()
 
-  def testHandleUpdatePingForArchivedBuild(self):
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GenerateImageFromZip')
-
-    test_data = _TEST_REQUEST % self.test_dict
-
-    autoupdate.Autoupdate.GenerateImageFromZip(
-        self.static_image_dir).AndReturn('update.gz')
-    autoupdate.Autoupdate._GetHash(os.path.join(
-        self.static_image_dir, 'update.gz')).AndReturn(self.hash)
-    autoupdate.Autoupdate._GetSHA256(os.path.join(
-        self.static_image_dir, 'update.gz')).AndReturn(self.sha256)
-    autoupdate.Autoupdate._GetSize(os.path.join(
-        self.static_image_dir, 'update.gz')).AndReturn(self.size)
-    autoupdate.Autoupdate.GetUpdatePayload(
-        self.hash, self.sha256, self.size,
-        'http://%s/static/archive/update.gz' % self.hostname,
-        False).AndReturn(
-            self.payload)
-
-    self.mox.ReplayAll()
-    au_mock = self._DummyAutoupdateConstructor()
-    au_mock.serve_only = True
-    au_mock.static_urlbase = 'http://%s/static/archive' % self.hostname
-    self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
-    self.mox.VerifyAll()
-
 
 if __name__ == '__main__':
   unittest.main()
