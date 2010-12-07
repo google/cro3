@@ -135,6 +135,8 @@ if __name__ == '__main__':
                     help='Use update payload from specified directory.')
   parser.add_option('--port', default=8080,
                     help='Port for the dev server to use.')
+  parser.add_option('--proxy_port', default=None,
+                    help='Port to have the client connect to (testing support)')
   parser.add_option('--src_image', default='',
                     help='Image on remote machine for generating delta update.')
   parser.add_option('-t', action='store_true', dest='test_image')
@@ -170,7 +172,7 @@ if __name__ == '__main__':
 
   if os.path.exists(cache_dir):
     # Clear all but the last N cached updates
-    cmd = ('cd %s; ls -1tr | head --lines=-%d | xargs rm -rf' %
+    cmd = ('cd %s; ls -tr | head --lines=-%d | xargs rm -rf' %
            (cache_dir, CACHED_ENTRIES))
     if os.system(cmd) != 0:
       cherrypy.log('Failed to clean up old delta cache files with %s' % cmd,
@@ -191,6 +193,7 @@ if __name__ == '__main__':
       forced_image=options.image,
       forced_payload=options.payload,
       port=options.port,
+      proxy_port=options.proxy_port,
       src_image=options.src_image,
       vm=options.vm,
       board=options.board)

@@ -124,6 +124,19 @@ class AutoupdateTest(mox.MoxTestBase):
     self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
     self.mox.VerifyAll()
 
+  def testChangeUrlPort(self):
+    r = autoupdate._ChangeUrlPort('http://fuzzy:8080/static', 8085)
+    self.assertEqual(r, 'http://fuzzy:8085/static')
+
+    r = autoupdate._ChangeUrlPort('http://fuzzy/static', 8085)
+    self.assertEqual(r, 'http://fuzzy:8085/static')
+
+    r = autoupdate._ChangeUrlPort('ftp://fuzzy/static', 8085)
+    self.assertEqual(r, 'ftp://fuzzy:8085/static')
+
+    r = autoupdate._ChangeUrlPort('ftp://fuzzy', 8085)
+    self.assertEqual(r, 'ftp://fuzzy:8085')
+
 
 if __name__ == '__main__':
   unittest.main()

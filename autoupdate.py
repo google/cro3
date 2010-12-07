@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 import time
+import urlparse
 
 
 def _LogMessage(message):
@@ -17,6 +18,23 @@ def _LogMessage(message):
 
 UPDATE_FILE='update.gz'
 STATEFUL_FILE='stateful.tgz'
+
+
+def _ChangeUrlPort(url, new_port):
+  """Return the URL passed in with a different port"""
+  scheme, netloc, path, query, fragment = urlparse.urlsplit(url)
+  host_port = netloc.split(':')
+
+  if len(host_port) == 1:
+    host_port.append(new_port)
+  else:
+    host_port[1] = new_port
+
+  print host_port
+  netloc = "%s:%s" % tuple(host_port)
+
+  return urlparse.urlunsplit((scheme, netloc, path, query, fragment))
+
 
 class Autoupdate(BuildObject):
   """Class that contains functionality that handles Chrome OS update pings.
@@ -35,7 +53,7 @@ class Autoupdate(BuildObject):
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
                factory_config_path=None, client_prefix=None,
                forced_image=None, forced_payload=None,
-               port=8080, src_image='', vm=False, board=None,
+               port=8080, proxy_port=None, src_image='', vm=False, board=None,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
@@ -50,6 +68,7 @@ class Autoupdate(BuildObject):
     self.forced_image = forced_image
     self.forced_payload = forced_payload
     self.src_image = src_image
+    self.proxy_port = proxy_port
     self.vm = vm
     self.board = board
 
@@ -574,6 +593,11 @@ class Autoupdate(BuildObject):
       static_urlbase = '%s/static/archive' % self.hostname
     else:
       static_urlbase = '%s/static' % self.hostname
+
+    # If we have a proxy port, adjust the URL we instruct the client to
+    # use to go through the proxy.
+    if self.proxy_port:
+      static_urlbase = _ChangeUrlPort(static_urlbase, self.proxy_port)
 
     _LogMessage('Using static url base %s' % static_urlbase)
     _LogMessage('Handling update ping as %s: %s' % (self.hostname, data))
