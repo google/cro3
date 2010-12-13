@@ -10,6 +10,21 @@ print_and_die() {
   exit 1
 }
 
+# Set up PORTAGE variables to be rooted in /usr/local/portage.
+setup_portage_vars() {
+  export PORTDIR=/usr/local/portage
+  export PKGDIR=/usr/local/portage
+  export DISTDIR=/usr/local/portage/distfiles
+  export PORTAGE_BINHOST="${DEVKIT_URL}/static/pkgroot/${BOARD_NAME}/packages"
+  export PORTAGE_TMPDIR=/tmp
+  export CONFIG_PROTECT="-*"
+  export FEATURES="-sandbox"
+  # Accept keywords only for stable ebuilds by default.
+  [ -z "$ACCEPT_KEYWORDS" ] && ACCEPT_KEYWORDS="arm x86 ~arm ~x86"
+  export ACCEPT_KEYWORDS
+  export ROOT=/
+}
+
 set -e
 
 # Get variables for the devserver from the lsb-release file.
@@ -17,6 +32,8 @@ DEVKIT_URL=$(grep ^CHROMEOS_DEVSERVER /etc/lsb-release | cut -d = -f 2-)
 BOARD_NAME=$(grep ^CHROMEOS_RELEASE_BOARD /etc/lsb-release | cut -d = -f 2-)
 [ -z "${BOARD_NAME}" ] && print_and_die "No board in /etc/lsb-release"
 [ -z "${DEVKIT_URL}" ] && print_and_die "No dev server url in /etc/lsb-release"
+
+setup_portage_vars
 
 # Determine if we should send a build command to the devserver.
 BUILD=1
@@ -36,9 +53,10 @@ mount -o remount,rw /
 
 # Re-mount /tmp as exec.
 mount -o remount,exec /tmp
+trap "mount -o remount,noexec /tmp" EXIT
 
 # Delete the local binary package cache.
-sudo rm -rf /usr/portage/packages
+rm -rf "${PKGDIR}/packages"
 
 if [ ${BUILD} == 1 ]; then
   echo "Building ${PACKAGE_NAME}"
@@ -52,18 +70,4 @@ if [ ${BUILD} == 1 ]; then
 fi
 
 echo "Emerging ${PACKAGE_NAME}"
-
-export PORTAGE_BINHOST="${DEVKIT_URL}/static/pkgroot/${BOARD_NAME}/packages"
-export PORTAGE_TMPDIR=/tmp
-
-# Accept keywords only for stable ebuilds by default.
-[ -z "${ACCEPT_KEYWORDS}" ] && ACCEPT_KEYWORDS='arm x86 ~arm ~x86'
-export ACCEPT_KEYWORDS
-
-# Disable CONFIG_PROTECT.
-export CONFIG_PROTECT="-*"
-
-FEATURES="-sandbox" emerge --getbinpkgonly --usepkgonly "$@"
-
-# Re-mount /tmp as noexec.
-mount -o remount,noexec /tmp
+emerge --getbinpkgonly --usepkgonly "$@"
