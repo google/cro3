@@ -25,6 +25,16 @@ setup_portage_vars() {
   export ROOT=/
 }
 
+# Prompts the user to change the root to /usr/local.
+change_portage_root() {
+  read -p "Do you wish to install this program into /usr/local? (Y/n) " input
+  if [[ ${input} = [Nn]* ]]; then
+    echo "Better safe than sorry."
+   exit 1
+  fi
+  export ROOT=/usr/local
+}
+
 set -e
 
 # Get variables for the devserver from the lsb-release file.
@@ -49,7 +59,7 @@ PACKAGE_NAME=${!#}
 # If no package name is provided skip to emerge options.
 [[ ${PACKAGE_NAME} == -* ]] && BUILD=0
 
-mount -o remount,rw /
+mount -o remount,rw / || change_portage_root
 
 # Re-mount /tmp as exec.
 mount -o remount,exec /tmp
