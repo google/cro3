@@ -208,14 +208,14 @@ class Autoupdate(BuildObject):
 
   def GetNoUpdatePayload(self):
     """Returns a payload to the client corresponding to no update."""
-    payload = """ < ?xml version = "1.0" encoding = "UTF-8"? >
-      < gupdate xmlns = "http://www.google.com/update2/response" protocol = "2.0" >
-        < daystart elapsed_seconds = "%s" />
-        < app appid = "{%s}" status = "ok" >
-          < ping status = "ok" />
-          < updatecheck status = "noupdate" />
-        </ app >
-      </ gupdate >
+    payload = """<?xml version="1.0" encoding="UTF-8"?>
+      <gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
+        <daystart elapsed_seconds="%s"/>
+        <app appid="{%s}" status="ok">
+          <ping status="ok"/>
+          <updatecheck status="noupdate"/>
+        </app>
+      </gupdate>
     """
     return payload % (self._GetSecondsSinceMidnight(), self.app_id)
 
