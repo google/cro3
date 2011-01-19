@@ -1,83 +1,134 @@
-#!/bin/bash
+#!/usr/bin/env python
 
-# Copyright (c) 2009-2010 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Prints the arguments and dies.
-print_and_die() {
-  echo $*
-  exit 1
-}
+"""Build packages on a host machine, then install them on the local target.
 
-# Set up PORTAGE variables to be rooted in /usr/local/portage.
-setup_portage_vars() {
-  export PORTDIR=/usr/local/portage
-  export PKGDIR=/usr/local/portage
-  export DISTDIR=/usr/local/portage/distfiles
-  export PORTAGE_BINHOST="${DEVKIT_URL}/static/pkgroot/${BOARD_NAME}/packages"
-  export PORTAGE_TMPDIR=/tmp
-  export CONFIG_PROTECT="-*"
-  export FEATURES="-sandbox"
-  # Accept keywords only for stable ebuilds by default.
-  [ -z "$ACCEPT_KEYWORDS" ] && ACCEPT_KEYWORDS="arm x86 ~arm ~x86"
-  export ACCEPT_KEYWORDS
-  export ROOT=/
-}
+Contacts a devserver (trunk/src/platform/dev/devserver.py) and
+requests that it build a package, then performs a binary install of
+that package on the local machine.
+"""
 
-# Prompts the user to change the root to /usr/local.
-change_portage_root() {
-  read -p "Do you wish to install this program into /usr/local? (Y/n) " input
-  if [[ ${input} = [Nn]* ]]; then
-    echo "Better safe than sorry."
-   exit 1
-  fi
-  export ROOT=/usr/local
-}
+import optparse
+import os
+import shutil
+import subprocess
+import sys
+import urllib
+import urllib2
 
-set -e
 
-# Get variables for the devserver from the lsb-release file.
-DEVKIT_URL=$(grep ^CHROMEOS_DEVSERVER /etc/lsb-release | cut -d = -f 2-)
-BOARD_NAME=$(grep ^CHROMEOS_RELEASE_BOARD /etc/lsb-release | cut -d = -f 2-)
-[ -z "${BOARD_NAME}" ] && print_and_die "No board in /etc/lsb-release"
-[ -z "${DEVKIT_URL}" ] && print_and_die "No dev server url in /etc/lsb-release"
+class GMerger(object):
+  """emerges a package from the devserver.
 
-setup_portage_vars
+  NB:  Must be instantiated using with, e.g.:
+    with GMerger(open('/etc/lsb-release').readlines()) as merger:
+  in order to remount /tmp as executable.
+  """
 
-# Determine if we should send a build command to the devserver.
-BUILD=1
-if [ x$1 == x-n ]; then
-  BUILD=0
-  shift
-fi
+  def __init__(self, lsb_release_lines):
+    self.lsb_release = self.ParseLsbRelease(lsb_release_lines)
+    try:
+      self.devkit_url = self.lsb_release['CHROMEOS_DEVSERVER']
+      self.board_name = self.lsb_release['CHROMEOS_RELEASE_BOARD']
+    except KeyError, e:
+      sys.exit('Could not find /etc/lsb_release value: ' + e)
 
-# Package name is the last argument.
-# TODO(sosa) - Support multiple packages.
-PACKAGE_NAME=${!#}
+  def RemountOrChangeRoot(self, environ):
+    """Remount the root filesystem rw; install into /usr/local if this fails."""
+    rc = subprocess.call(['mount', '-o', 'remount,rw', '/'])
+    if rc == 0:
+      return
+    answer = raw_input(
+        'Could not mount / as writable.  Install into /usr/local? (Y/n)')
+    if answer[0] not in 'Yy':
+      sys.exit('Better safe than sorry.')
+    environ['ROOT'] = '/usr/local'
 
-# If no package name is provided skip to emerge options.
-[[ ${PACKAGE_NAME} == -* ]] && BUILD=0
+  def ParseLsbRelease(self, lsb_release_lines):
+    """Convert a list of KEY=VALUE lines to a dictionary."""
+    partitioned_lines = [line.rstrip().partition('=')
+                         for line in lsb_release_lines]
+    return dict([(fields[0], fields[2]) for fields in partitioned_lines])
 
-mount -o remount,rw / || change_portage_root
+  def SetupPortageEnvironment(self, environ):
+    """Setup portage to use stateful partition and fetch from dev server."""
+    environ.update({
+        'PORTDIR': '/usr/local/portage',
+        'PKGDIR': '/usr/local/portage',
+        'DISTDIR': '/usr/local/portage/distfiles',
+        'PORTAGE_BINHOST': '%s/static/pkgroot/%s/packages' % (
+            self.devkit_url, self.board_name),
+        'PORTAGE_TMPDIR': '/tmp',
+        'CONFIG_PROTECT': '-*',
+        'FEATURES': '-sandbox',
+        'ACCEPT_KEYWORDS': 'arm x86 ~arm ~x86',
+        'ROOT': '/',
+        })
 
-# Re-mount /tmp as exec.
-mount -o remount,exec /tmp
-trap "mount -o remount,noexec /tmp" EXIT
+  def GeneratePackageRequest(self, package_name):
+    """Build the POST string that conveys our options to the devserver."""
+    post_data = {'board': self.board_name,
+                 'pkg': package_name,
+                 'use': FLAGS.use,
+                 'accept_stable': FLAGS.accept_stable,
+                }
+    post_data = dict([(key, value) for (key, value) in post_data.iteritems()
+                      if value])
+    return urllib.urlencode(post_data)
 
-# Delete the local binary package cache.
-rm -rf "${PKGDIR}/packages"
+  def RequestPackageBuild(self, package_name):
+    """Contacts devserver to request a build."""
+    try:
+      result = urllib2.urlopen(self.devkit_url + '/build',
+                               data=self.GeneratePackageRequest(package_name))
+      print result.read()
+      result.close()
 
-if [ ${BUILD} == 1 ]; then
-  echo "Building ${PACKAGE_NAME}"
-  ESCAPED_PACKAGE=$(python -c \
-    "import urllib; print urllib.quote('''${PACKAGE_NAME}''')")
-  ESCAPED_BOARD=$(python -c \
-    "import urllib; print urllib.quote('''${BOARD_NAME}''')")
+    except urllib2.HTTPError, e:
+      # The exception includes the content, which is the error mesage
+      sys.exit(e.read())
 
-  wget $DEVKIT_URL/build \
-    --post-data="pkg=${ESCAPED_PACKAGE}&board=${ESCAPED_BOARD}"
-fi
 
-echo "Emerging ${PACKAGE_NAME}"
-emerge --getbinpkgonly --usepkgonly "$@"
+def main():
+  global FLAGS
+  parser = optparse.OptionParser(usage='usage: %prog [options] package_name')
+  parser.add_option('--accept_stable',
+                    action='store_true', dest='accept_stable', default=False,
+                    help=('Build even if a cros_workon package is not '
+                          'using the live package'))
+  parser.add_option('-n', '--no_devserver',
+                    action='store_false', dest='call_devserver', default=True,
+                    help='Do not actually ask the server to build')
+  parser.add_option('--use', '--USE',
+                    dest='use', default=None,
+                    help='USE flags to pass to emerge on the server')
+
+  (FLAGS, remaining_arguments) = parser.parse_args()
+  if len(remaining_arguments) != 1:
+    parser.print_help()
+    sys.exit('Need exactly one package name')
+
+  package_name = remaining_arguments[0]
+
+  try:
+    subprocess.check_call(['mount', '-o', 'remount,exec', '/tmp'])
+    merger = GMerger(open('/etc/lsb-release').readlines())
+    merger.SetupPortageEnvironment(os.environ)
+    merger.RemountOrChangeRoot(os.environ)
+    if FLAGS.call_devserver:
+      merger.RequestPackageBuild(package_name)
+    else:
+      print 'Not requesting fresh build on server---installing whatever we find'
+
+    print 'Emerging ', package_name
+    subprocess.check_call([
+        'emerge', '--getbinpkgonly', '--usepkgonly', package_name])
+  finally:
+    subprocess.call(['mount', '-o', 'remount,noexec', '/tmp'])
+
+
+if __name__ == '__main__':
+  main()

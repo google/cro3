@@ -9,9 +9,11 @@
 import cherrypy
 import optparse
 import os
+import subprocess
 import sys
 
 import autoupdate
+import builder
 
 CACHED_ENTRIES=12
 
@@ -69,7 +71,7 @@ def _PrepareToServeUpdatesOnly(image_dir):
                'DEVSERVER')
 
 
-class DevServerRoot:
+class DevServerRoot(object):
   """The Root Class for the Dev Server.
 
   CherryPy works as follows:
@@ -81,17 +83,12 @@ class DevServerRoot:
     cherrypy uses the update method and puts the extra paths in args.
   """
 
-  def build(self, board, pkg):
+  def __init__(self):
+    self._builder = builder.Builder()
+
+  def build(self, board, pkg, **kwargs):
     """Builds the package specified."""
-    cherrypy.log('emerging %s' % pkg, 'BUILD')
-    emerge_command = 'emerge-%s %s' % (board, pkg)
-    err = os.system(emerge_command)
-    if err != 0:
-      raise Exception('failed to execute %s' % emerge_command)
-    eclean_command = 'eclean-%s -d packages' % board
-    err = os.system(eclean_command)
-    if err != 0:
-      raise Exception('failed to execute %s' % emerge_command)
+    return self._builder.Build(board, pkg, kwargs)
 
   def index(self):
     return 'Welcome to the Dev Server!'
