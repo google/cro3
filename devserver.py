@@ -193,7 +193,8 @@ if __name__ == '__main__':
       proxy_port=options.proxy_port,
       src_image=options.src_image,
       vm=options.vm,
-      board=options.board)
+      board=options.board,
+      copy_to_static_root=not options.exit)
 
   # Sanity-check for use of validate_factory_config.
   if not options.factory_config and options.validate_factory_config:

@@ -48,12 +48,21 @@ class Autoupdate(BuildObject):
     static_url_base: base URL, other than devserver, for update images.
     client_prefix: The prefix for the update engine client.
     forced_image: Path to an image to use for all updates.
+    forced_payload: Path to pre-generated payload to serve.
+    port: port to host devserver
+    proxy_port: port of local proxy to tell client to connect to you through.
+    src_image: If specified, creates a delta payload from this image.
+    vm: Set for VM images (doesn't patch kernel)
+    board: board for the image.  Needed for pre-generating of updates.
+    copy_to_static_root: Copies images generated from the cache to
+      ~/static.
   """
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
                factory_config_path=None, client_prefix=None,
                forced_image=None, forced_payload=None,
                port=8080, proxy_port=None, src_image='', vm=False, board=None,
+               copy_to_static_root=True,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
@@ -71,6 +80,7 @@ class Autoupdate(BuildObject):
     self.proxy_port = proxy_port
     self.vm = vm
     self.board = board
+    self.copy_to_static_root = copy_to_static_root
 
     # Track update pregeneration, so we don't recopy if not needed.
     self.pregenerated = False
@@ -373,9 +383,10 @@ class Autoupdate(BuildObject):
         os.system("rm -rf %s" % os.path.join(static_image_dir, cache_sub_dir))
         return None
 
-    # If the generation worked, copy files
-    self._Copy(cache_update_payload, update_payload)
-    self._Copy(cache_stateful_payload, stateful_payload)
+    # Generation complete, copy if requested.
+    if self.copy_to_static_root:
+      self._Copy(cache_update_payload, update_payload)
+      self._Copy(cache_stateful_payload, stateful_payload)
 
     # Return just the filename in static_image_dir.
     return UPDATE_FILE
