@@ -15,7 +15,7 @@ import sys
 import autoupdate
 import builder
 
-CACHED_ENTRIES = 12
+CACHED_ENTRIES=12
 
 # Sets up global to share between classes.
 global updater
@@ -49,9 +49,6 @@ def _GetConfig(options):
                     'response.timeout': 10000,
                   },
                 }
-  if options.production:
-    base_config['global']['server.environment'] = 'production'
-
   return base_config
 
 
@@ -135,8 +132,6 @@ if __name__ == '__main__':
                     help='Use update payload from specified directory.')
   parser.add_option('--port', default=8080,
                     help='Port for the dev server to use.')
-  parser.add_option('--production', action='store_true', default=False,
-                    help='Have the devserver use production values.')
   parser.add_option('--proxy_port', default=None,
                     help='Port to have the client connect to (testing support)')
   parser.add_option('--src_image', default='',
