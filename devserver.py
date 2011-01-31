@@ -165,21 +165,24 @@ if __name__ == '__main__':
   cache_dir = os.path.join(static_dir, 'cache')
   cherrypy.log('Using cache directory %s' % cache_dir, 'DEVSERVER')
 
-  if options.clear_cache:
-    # Clear the cache and exit on error
-    if os.system('sudo rm -rf %s' % cache_dir) != 0:
-      cherrypy.log('Failed to clear the cache with %s' % cmd,
-                   'DEVSERVER')
-      sys.exit(1)
-
   if os.path.exists(cache_dir):
-    # Clear all but the last N cached updates
-    cmd = ('cd %s; ls -tr | head --lines=-%d | xargs rm -rf' %
-           (cache_dir, CACHED_ENTRIES))
-    if os.system(cmd) != 0:
-      cherrypy.log('Failed to clean up old delta cache files with %s' % cmd,
-                   'DEVSERVER')
-      sys.exit(1)
+    if options.clear_cache:
+      # Clear the cache and exit on error.
+      if os.system('rm -rf %s/*' % cache_dir) != 0:
+        cherrypy.log('Failed to clear the cache with %s' % cmd,
+                     'DEVSERVER')
+        sys.exit(1)
+
+    else:
+      # Clear all but the last N cached updates
+      cmd = ('cd %s; ls -tr | head --lines=-%d | xargs rm -rf' %
+             (cache_dir, CACHED_ENTRIES))
+      if os.system(cmd) != 0:
+        cherrypy.log('Failed to clean up old delta cache files with %s' % cmd,
+                     'DEVSERVER')
+        sys.exit(1)
+  else:
+    os.makedirs(cache_dir)
 
   cherrypy.log('Source root is %s' % root_dir, 'DEVSERVER')
   cherrypy.log('Serving from %s' % static_dir, 'DEVSERVER')
