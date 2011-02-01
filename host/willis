@@ -1,0 +1,109 @@
+#!/usr/bin/env python
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+"""Display active git branches and code changes in a ChromiumOS workspace."""
+
+import os
+import re
+import subprocess
+
+def RunCommand(path, command):
+  """Run a command in a given directory, return stdout."""
+
+  return subprocess.Popen(command,
+                          cwd=path,
+                          stdout=subprocess.PIPE).communicate()[0].rstrip()
+
+#
+# Taken with slight modification from gclient_utils.py in the depot_tools
+# project.
+#
+def FindFileUpwards(filename, path):
+  """Search upwards from the a directory to find a file."""
+
+  path = os.path.realpath(path)
+  while True:
+    file_path = os.path.join(path, filename)
+    if os.path.exists(file_path):
+      return file_path
+    (new_path, _) = os.path.split(path)
+    if new_path == path:
+      return None
+    path = new_path
+
+
+def ShowName(relative_name, color):
+  """Display the directory name."""
+
+  if color:
+    print('\033[44m\033[37m%s\033[0m' % relative_name)
+  else:
+    print relative_name
+
+
+def ShowDir(full_name, relative_name, color):
+  """Display active work in a single git repo."""
+
+  lines_printed = 0
+  command = ['git', 'branch', '-vv']
+
+  if color:
+    command.append('--color')
+
+  branch = RunCommand(full_name, command)
+  lines  = branch.splitlines()
+
+  if (len(lines) > 1 or
+      (len(lines) == 1 and not re.search(r"\(no branch\)", lines[0]))):
+    if lines_printed == 0:
+      ShowName(relative_name, color)
+    lines_printed += 1
+    print branch
+
+  status = RunCommand(full_name, ['git', 'status', '-s'])
+
+  if status.splitlines():
+    if lines_printed == 0:
+      ShowName(relative_name, color)
+    if lines_printed == 1:
+      print '---------------'
+    lines_printed += 1
+    print status
+
+  if lines_printed > 0:
+    print ""
+
+
+def FindRoot():
+  """Returns the repo root."""
+
+  repo_file = '.repo'
+  repo_path = FindFileUpwards(repo_file, os.getcwd())
+
+  if repo_path is None:
+    raise Exception('Failed to find %s.' % repo_file)
+
+  return os.path.dirname(repo_path)
+
+
+def main():
+  """Take no arguments."""
+
+  color = os.isatty(1)
+  base = os.path.basename(os.getcwd())
+  root = FindRoot()
+  repos = RunCommand(root, ['repo', 'forall', '-c', 'pwd']).splitlines()
+
+  # We want to use the full path for testing, but we want to use the relative
+  # path for display.
+  fulldirs = [os.path.normpath(os.path.join(root, p)) for p in repos]
+  reldirs = [re.sub('^' + re.escape(base), '.', p) for p in repos]
+
+  for full_path, relative_path in zip(fulldirs, reldirs):
+    ShowDir(full_path, relative_path, color)
+
+
+if __name__ == '__main__':
+  main()
