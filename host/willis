@@ -43,36 +43,42 @@ def ShowName(relative_name, color):
     print relative_name
 
 
-def ShowDir(full_name, relative_name, color):
-  """Display active work in a single git repo."""
+def GetBranches(full_name, relative_name, color):
+  """Return a list of branch descriptions."""
 
-  lines_printed = 0
   command = ['git', 'branch', '-vv']
 
   if color:
     command.append('--color')
 
-  branch = RunCommand(full_name, command)
-  lines  = branch.splitlines()
+  branches = RunCommand(full_name, command).splitlines()
 
-  if (len(lines) > 1 or
-      (len(lines) == 1 and not re.search(r"\(no branch\)", lines[0]))):
-    if lines_printed == 0:
-      ShowName(relative_name, color)
-    lines_printed += 1
-    print branch
+  if re.search(r"\(no branch\)", branches[0]):
+    return []
 
-  status = RunCommand(full_name, ['git', 'status', '-s'])
+  return branches
 
-  if status.splitlines():
-    if lines_printed == 0:
-      ShowName(relative_name, color)
-    if lines_printed == 1:
-      print '---------------'
-    lines_printed += 1
-    print status
+def GetStatus(full_name, relative_name, color):
+  """Return a list of files that have modifications."""
 
-  if lines_printed > 0:
+  command = ['git', 'status', '-s']
+
+  return RunCommand(full_name, command).splitlines()
+
+
+def ShowDir(full_name, relative_name, color):
+  """Display active work in a single git repository."""
+
+  branches = GetBranches(full_name, relative_name, color)
+  status = GetStatus(full_name, relative_name, color)
+
+  if branches or status:
+    ShowName(relative_name, color)
+
+  if branches: print '\n'.join(branches)
+  if status: print '\n'.join(status)
+
+  if branches or status:
     print ""
 
 
