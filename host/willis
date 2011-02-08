@@ -92,17 +92,15 @@ def main():
   """Take no arguments."""
 
   color = os.isatty(1)
-  base = os.path.basename(os.getcwd())
   root = FindRoot()
   repos = RunCommand(root, ['repo', 'forall', '-c', 'pwd']).splitlines()
 
   # We want to use the full path for testing, but we want to use the relative
   # path for display.
-  fulldirs = [os.path.normpath(os.path.join(root, p)) for p in repos]
-  reldirs = [re.sub('^' + re.escape(base), '.', p) for p in repos]
+  reldirs = [re.sub('^' + re.escape(root) + '/', '', p) for p in repos]
 
-  for full_path, relative_path in zip(fulldirs, reldirs):
-    ShowDir(full_path, relative_path, color)
+  for full, relative in zip(repos, reldirs):
+    ShowDir(full, relative, color)
 
 
 if __name__ == '__main__':
