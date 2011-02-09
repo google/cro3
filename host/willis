@@ -5,6 +5,7 @@
 
 """Display active git branches and code changes in a ChromiumOS workspace."""
 
+import optparse
 import os
 import re
 import subprocess
@@ -66,19 +67,40 @@ def GetStatus(full_name, relative_name, color):
   return RunCommand(full_name, command).splitlines()
 
 
-def ShowDir(full_name, relative_name, color):
+def GetHistory(full_name, relative_name, color, author, days):
+  """Return a list of oneline log messages.
+
+  The messages are for the author going back a specified number of days.
+  """
+
+  command = ['git', 'log',
+             '--author=' + author,
+             '--after=' + '-' + str(days) + 'days',
+             '--pretty=oneline',
+             'm/master']
+
+  return RunCommand(full_name, command).splitlines()
+
+
+def ShowDir(full_name, relative_name, color, logs, author, days):
   """Display active work in a single git repository."""
 
   branches = GetBranches(full_name, relative_name, color)
   status = GetStatus(full_name, relative_name, color)
 
-  if branches or status:
+  if logs:
+    history = GetHistory(full_name, relative_name, color, author, days)
+  else:
+    history = []
+
+  if branches or status or history:
     ShowName(relative_name, color)
 
   if branches: print '\n'.join(branches)
   if status: print '\n'.join(status)
+  if history: print '\n'.join(history)
 
-  if branches or status:
+  if branches or status or history:
     print ""
 
 
@@ -95,7 +117,29 @@ def FindRoot():
 
 
 def main():
-  """Take no arguments."""
+  parser = optparse.OptionParser(usage = 'usage: %prog [options]\n')
+
+  parser.add_option('-l', '--logs', default=False,
+                    help='Show the last few days of your commits in short '
+                         'form.',
+                    action='store_true',
+                    dest='logs')
+
+  parser.add_option('-d', '--days', default=8,
+                    help='Set the number of days of history to show.',
+                    type='int',
+                    dest='days')
+
+  parser.add_option('-a', '--author', default=os.environ['USER'],
+                    help='Set the author to filter for.',
+                    type='string',
+                    dest='author')
+
+  options, arguments = parser.parse_args()
+
+  if arguments:
+    parser.print_usage()
+    return 1
 
   color = os.isatty(1)
   root = FindRoot()
@@ -106,7 +150,7 @@ def main():
   reldirs = [re.sub('^' + re.escape(root) + '/', '', p) for p in repos]
 
   for full, relative in zip(repos, reldirs):
-    ShowDir(full, relative, color)
+    ShowDir(full, relative, color, options.logs, options.author, options.days)
 
 
 if __name__ == '__main__':
