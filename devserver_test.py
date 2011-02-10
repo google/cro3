@@ -49,13 +49,15 @@ UPDATE_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 # TODO(girts): use a random available port.
 UPDATE_URL = 'http://127.0.0.1:8080/update'
 
+# Run all tests while being in /
+base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+os.chdir("/")
 
 class DevserverTest(unittest.TestCase):
   """Regressions tests for devserver."""
 
   def setUp(self):
     """Copies in testing files."""
-    base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
     # Copy in developer-test.gz, as "static/" directory is hardcoded, and it
     # would be very hard to change it (static file serving is handled deep
@@ -77,7 +79,7 @@ class DevserverTest(unittest.TestCase):
     """Tests --validate_factory_config."""
     cmd = [
         'python',
-        'devserver.py',
+        os.path.join(base_dir, 'devserver.py'),
         '--validate_factory_config',
         '--factory_config', self.factory_config,
     ]
@@ -90,6 +92,7 @@ class DevserverTest(unittest.TestCase):
     """Starts devserver, returns process."""
     cmd = [
         'python',
+        os.path.join(base_dir, 'devserver.py'),
         'devserver.py',
         '--factory_config', self.factory_config,
     ]
