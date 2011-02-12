@@ -121,6 +121,9 @@ if __name__ == '__main__':
   parser.add_option('--client_prefix', dest='client_prefix',
                     help='Required prefix for client software version.',
                     default='MementoSoftwareUpdate')
+  parser.add_option('--data_dir', dest='data_dir',
+                    help='Writable directory where static lives',
+                    default=os.path.dirname(os.path.abspath(sys.argv[0])))
   parser.add_option('--exit', action='store_true', default=False,
                     help='Don\'t start the server (still pregenerate or clear'
                          'cache).')
@@ -160,7 +163,7 @@ if __name__ == '__main__':
     _PrepareToServeUpdatesOnly(static_dir)
     serve_only = True
   else:
-    static_dir = os.path.realpath('%s/static' % devserver_dir)
+    static_dir = os.path.realpath('%s/static' % options.data_dir)
     os.system('mkdir -p %s' % static_dir)
 
   cache_dir = os.path.join(static_dir, 'cache')
@@ -185,6 +188,7 @@ if __name__ == '__main__':
   else:
     os.makedirs(cache_dir)
 
+  cherrypy.log('Data dir is %s' % options.data_dir, 'DEVSERVER')
   cherrypy.log('Source root is %s' % root_dir, 'DEVSERVER')
   cherrypy.log('Serving from %s' % static_dir, 'DEVSERVER')
 

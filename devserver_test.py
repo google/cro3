@@ -18,8 +18,11 @@ from xml.dom import minidom
 
 # Paths are relative to this script's base directory.
 STATIC_DIR = 'static'
-TEST_IMAGE = 'testdata/devserver/developer-test.gz'
+TEST_IMAGE_PATH = 'testdata/devserver'
+TEST_IMAGE_NAME = 'developer-test.gz'
+TEST_IMAGE = TEST_IMAGE_PATH + '/' + TEST_IMAGE_NAME
 TEST_FACTORY_CONFIG = 'testdata/devserver/miniomaha-test.conf'
+TEST_DATA_PATH = '/tmp/devserver-test'
 
 # TODO(girts): Get a copy of a recent request.  For now, I copied this from
 # update_test.
@@ -62,11 +65,11 @@ class DevserverTest(unittest.TestCase):
     # Copy in developer-test.gz, as "static/" directory is hardcoded, and it
     # would be very hard to change it (static file serving is handled deep
     # inside webpy).
-    image_src = os.path.join(base_dir, TEST_IMAGE)
-    self.image = os.path.join(base_dir, STATIC_DIR, 'developer-test.gz')
+    self.image_src = os.path.join(base_dir, TEST_IMAGE)
+    self.image = os.path.join(base_dir, STATIC_DIR, TEST_IMAGE_NAME)
     if os.path.exists(self.image):
       os.unlink(self.image)
-    shutil.copy(image_src, self.image)
+    shutil.copy(self.image_src, self.image)
 
     self.factory_config = os.path.join(base_dir, TEST_FACTORY_CONFIG)
 
@@ -88,7 +91,7 @@ class DevserverTest(unittest.TestCase):
     self.assertEqual(0, process.returncode)
     self.assertTrue('Config file looks good.' in stdout)
 
-  def _StartServer(self):
+  def _StartServer(self, data_dir=''):
     """Starts devserver, returns process."""
     cmd = [
         'python',
@@ -96,6 +99,9 @@ class DevserverTest(unittest.TestCase):
         'devserver.py',
         '--factory_config', self.factory_config,
     ]
+    if data_dir:
+      cmd.append('--data_dir')
+      cmd.append(data_dir)
     process = subprocess.Popen(cmd)
     return process.pid
 
@@ -108,6 +114,7 @@ class DevserverTest(unittest.TestCase):
       request = urllib2.Request(UPDATE_URL, UPDATE_REQUEST)
       connection = urllib2.urlopen(request)
       response = connection.read()
+      connection.close()
       self.assertNotEqual('', response)
 
       # Parse the response and check if it contains the right result.
@@ -115,7 +122,7 @@ class DevserverTest(unittest.TestCase):
       update = dom.getElementsByTagName('updatecheck')[0]
 
       codebase = update.getAttribute('codebase')
-      self.assertEqual('http://127.0.0.1:8080/static/developer-test.gz',
+      self.assertEqual('http://127.0.0.1:8080/static/' + TEST_IMAGE_NAME,
                        codebase)
 
       hash_value = update.getAttribute('hash')
@@ -124,7 +131,51 @@ class DevserverTest(unittest.TestCase):
       # Try to fetch the image.
       connection = urllib2.urlopen(codebase)
       contents = connection.read()
+      connection.close()
       self.assertEqual('Developers, developers, developers!\n', contents)
+    finally:
+      os.kill(pid, signal.SIGKILL)
+
+  def testHandleDatadirUpdate(self):
+    """Tests getting an update from a specified datadir"""
+    # Push the image to the expected path where devserver picks it up.
+    image_path = os.path.join(TEST_DATA_PATH, STATIC_DIR)
+    if not os.path.exists(image_path):
+      os.makedirs(image_path)
+
+    foreign_image = os.path.join(image_path, TEST_IMAGE_NAME)
+    if os.path.exists(foreign_image):
+      os.unlink(foreign_image)
+    shutil.copy(self.image_src, foreign_image)
+
+    pid = self._StartServer(data_dir=TEST_DATA_PATH)
+    try:
+      # Wait for the server to start up.
+      time.sleep(1)
+
+      request = urllib2.Request(UPDATE_URL, UPDATE_REQUEST)
+      connection = urllib2.urlopen(request)
+      response = connection.read()
+      connection.close()
+      self.assertNotEqual('', response)
+
+      # Parse the response and check if it contains the right result.
+      dom = minidom.parseString(response)
+      update = dom.getElementsByTagName('updatecheck')[0]
+
+      codebase = update.getAttribute('codebase')
+      self.assertEqual('http://127.0.0.1:8080/static/' + TEST_IMAGE_NAME,
+                       codebase)
+
+      hash_value = update.getAttribute('hash')
+      self.assertEqual('kGcOinJ0vA8vdYX53FN0F5BdwfY=', hash_value)
+
+      # Try to fetch the image.
+      connection = urllib2.urlopen(codebase)
+      contents = connection.read()
+      connection.close()
+      self.assertEqual('Developers, developers, developers!\n', contents)
+      os.unlink(foreign_image)
     finally:
       os.kill(pid, signal.SIGKILL)
 
