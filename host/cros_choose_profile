@@ -1,0 +1,143 @@
+#!/bin/bash
+
+# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# This script selects a profile from the overlays.
+
+# Load common CrOS utilities.  Inside the chroot this file is installed in
+# /usr/lib/crosutils.  Outside the chroot we find it relative to the scripts
+# location.
+common_paths="/usr/lib/crosutils $(dirname "$0")/../../../scripts"
+
+for path in ${common_paths} ; do
+  if [ -f "${path}/common.sh" ] ; then
+    COMMON_SH="${path}/common.sh"
+    break
+  fi
+done
+
+if [ -z "${COMMON_SH}" ] ; then
+  echo "common.sh not found in search path (${common_paths})"
+  exit 1
+fi
+
+. "${COMMON_SH}"
+
+get_default_board
+
+# Flags
+DEFINE_string board "$DEFAULT_BOARD" "The name of the board to set up."
+DEFINE_string build_root "/build" "The root location for board sysroots."
+DEFINE_string board_overlay "" "Location of the board overlay."
+DEFINE_string variant "" "Board variant."
+DEFINE_string profile "" "The portage configuration profile to use."
+
+# Parse command line flags
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+
+# Only now can we die on error.  shflags functions leak non-zero error codes,
+# so will die prematurely if 'set -e' is specified before now.
+set -e
+
+if [ -z "$FLAGS_board" ] ; then
+  error "--board required."
+  exit 1
+fi
+
+get_board_and_variant $FLAGS_board $FLAGS_variant
+
+BOARD_ROOT="${FLAGS_build_root}/${BOARD_VARIANT}"
+CHROMIUMOS_OVERLAY="/usr/local/portage/chromiumos"
+CHROMIUMOS_PROFILES="${CHROMIUMOS_OVERLAY}/profiles"
+MAKE_PROFILE="${BOARD_ROOT}/etc/make.profile"
+
+if [ -e "${MAKE_PROFILE}" -a ! -L "${MAKE_PROFILE}" ]; then
+  error "${MAKE_PROFILE} is not a symbolic link, it should be."
+  exit 1
+fi
+
+#
+# Construct board overlay list.
+#
+BOARD_OVERLAY_LIST=$(cros_overlay_list \
+  --board "$BOARD" \
+  --board_overlay "$FLAGS_board_overlay" \
+  --variant "$VARIANT")
+
+# The profile directory comes from many possible locations, the <overlay>
+# values below can be any of the board overlays, public, private, primary
+# or variant.  The name defaults to base, but can be set using --profile:
+#  * relative profile name from --profile in <overlay>/profiles/<name>
+#  * absolute profile path from --profile
+#  * <overlay>/profiles/base
+#  * ${CHROMIUMOS_PROFILES}/default/linux/${ARCH}/10.0/chromeos
+#
+# If --profile is non-null and does not exist the script will error
+# If none of the directories exist the script will error as well
+PROFILES_LIST=""
+PROFILES_DIR=""
+PROFILE_NAME="base"
+
+if [ ! -z "${FLAGS_profile}" ]; then  # profile specified. must exist or we fail
+  if [ -d "${FLAGS_profile}" ]; then
+    PROFILES_DIR="${FLAGS_profile}"
+  else
+    PROFILE_NAME="${FLAGS_profile}"
+  fi
+fi
+
+if [ -z "${PROFILES_DIR}" ]; then
+  # Add the overlays in reverse order so that the most specific overlay is
+  # searched first.
+  for overlay in ${BOARD_OVERLAY_LIST}; do
+    PROFILES_LIST="${overlay}/profiles/${PROFILE_NAME} ${PROFILES_LIST}"
+  done
+
+  # Then, if we are looking for the default profile, we look in the
+  # chromiumos-overlay as well.
+  CHROMEOS_PROFILE="${CHROMIUMOS_PROFILES}/default/linux/${ARCH}/10.0/chromeos/"
+
+  if [ "${PROFILE_NAME}" == "base" ]; then
+    PROFILES_LIST="${PROFILES_LIST} ${CHROMEOS_PROFILE}"
+  fi
+
+  # Search for the most specific profile.  Stop looking once we've found the
+  # first one.
+  for profile in ${PROFILES_LIST}; do
+    if [ -d "${profile}" ]; then
+      PROFILES_DIR="${profile}"
+      break
+    fi
+  done
+fi
+
+if [ -z "${PROFILES_DIR}" ]; then
+  error "Profiles directory not found, searched in (${PROFILES_LIST})"
+  exit 1
+fi
+
+info "Selecting profile: ${PROFILES_DIR} for ${BOARD_ROOT}"
+
+if [ ! -f "${PROFILES_DIR}/parent" ]; then
+  warn "Portage profile directory '${PROFILES_DIR}' has no file 'parent'."
+  warn "This likely means your profile directory is invalid and build_packages"
+  warn "will fail"
+fi
+
+if [ -e "${MAKE_PROFILE}" ]; then
+  warn "You are switching profiles for a board that is already setup.  This"
+  warn "can cause trouble for Portage.  If you experience problems with"
+  warn "build_packages you may need to run:"
+  warn ""
+  warn "setup_board --board ${BOARD_VARIANT} --force --profile ${PROFILE_NAME}"
+  warn ""
+  warn "Alternatively, you can correct the dependecy graph by using"
+  warn "'emerge-${BOARD_VARIANT} -c' or 'emerge-${BOARD_VARIANT} -C <ebuild>'"
+
+  sudo rm -f "${MAKE_PROFILE}"
+fi
+
+sudo ln -sf "${PROFILES_DIR}" "${MAKE_PROFILE}"
