@@ -64,7 +64,7 @@ def _PrepareToServeUpdatesOnly(image_dir):
   # link to the build archive.
   cherrypy.log('Preparing autoupdate for "serve updates only" mode.',
                'DEVSERVER')
-  if os.path.exists('static/archive'):
+  if os.path.lexists('static/archive'):
     if image_dir != os.readlink('static/archive'):
       cherrypy.log('removing stale symlink to %s' % image_dir, 'DEVSERVER')
       os.unlink('static/archive')
@@ -139,6 +139,8 @@ if __name__ == '__main__':
                     help='Use update payload from specified directory.')
   parser.add_option('--port', default=8080,
                     help='Port for the dev server to use.')
+  parser.add_option('--private_key', default=None,
+                    help='Path to the private key in pem format.')
   parser.add_option('--production', action='store_true', default=False,
                     help='Have the devserver use production values.')
   parser.add_option('--proxy_port', default=None,
@@ -207,7 +209,9 @@ if __name__ == '__main__':
       src_image=options.src_image,
       vm=options.vm,
       board=options.board,
-      copy_to_static_root=not options.exit)
+      copy_to_static_root=not options.exit,
+      private_key=options.private_key,
+  )
 
   # Sanity-check for use of validate_factory_config.
   if not options.factory_config and options.validate_factory_config:

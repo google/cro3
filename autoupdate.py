@@ -63,7 +63,7 @@ class Autoupdate(BuildObject):
                factory_config_path=None, client_prefix=None,
                forced_image=None, forced_payload=None,
                port=8080, proxy_port=None, src_image='', vm=False, board=None,
-               copy_to_static_root=True,
+               copy_to_static_root=True, private_key=None,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
@@ -82,6 +82,7 @@ class Autoupdate(BuildObject):
     self.vm = vm
     self.board = board
     self.copy_to_static_root = copy_to_static_root
+    self.private_key = private_key
 
     # Path to pre-generated file.
     self.pregenerated_path = None
@@ -239,20 +240,23 @@ class Autoupdate(BuildObject):
       Path to created update_payload or None on error.
     """
     update_path = os.path.join(output_dir, UPDATE_FILE)
-    patch_kernel_flag = '--patch_kernel'
     _LogMessage('Generating update image %s' % update_path)
 
-    # Don't patch the kernel for vm images as they don't need the patch.
-    if self.vm:
-      patch_kernel_flag = ''
+    update_command = [
+        '%s/cros_generate_update_payload' % self.scripts_dir,
+        '--image="%s"' % image_path,
+        '--output="%s"' % update_path,
+        '--noold_style',
+    ]
 
-    mkupdate_command = (
-        '%s/cros_generate_update_payload --image="%s" --output="%s" '
-        '%s --noold_style --src_image="%s"' % (
-            self.scripts_dir, image_path, update_path, patch_kernel_flag,
-            src_image))
-    _LogMessage(mkupdate_command)
-    if os.system(mkupdate_command) != 0:
+    if src_image: update_command.append('--src_image="%s"' % src_image)
+    if not self.vm: update_command.append('--patch_kernel')
+    if self.private_key: update_command.append('--private_key="%s"' %
+                                               self.private_key)
+
+    update_string = ' '.join(update_command)
+    _LogMessage('Running ' + update_string)
+    if os.system(update_string) != 0:
       _LogMessage('Failed to create update payload')
       return None
 
