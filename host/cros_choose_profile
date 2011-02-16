@@ -67,6 +67,29 @@ BOARD_OVERLAY_LIST=$(cros_overlay_list \
   --board_overlay "$FLAGS_board_overlay" \
   --variant "$VARIANT")
 
+#
+# Compute ARCH
+#
+PRIMARY_BOARD_OVERLAY=$(cros_overlay_list \
+  --board "$BOARD" \
+  --board_overlay "$FLAGS_board_overlay" \
+  --variant "$VARIANT" \
+  --primary_only)
+
+TC_ARCH=$(awk -F'-' '{ print $1 }' < "${PRIMARY_BOARD_OVERLAY}/toolchain.conf")
+
+case "${TC_ARCH}" in
+  arm*)
+    ARCH="arm"
+    ;;
+  *86)
+    ARCH="x86"
+    ;;
+  *)
+    error "Unable to determine ARCH from toolchain: ${BOARD_VARIANT}"
+    exit 1
+esac
+
 # The profile directory comes from many possible locations, the <overlay>
 # values below can be any of the board overlays, public, private, primary
 # or variant.  The name defaults to base, but can be set using --profile:
