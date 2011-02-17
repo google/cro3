@@ -7,6 +7,7 @@
 """Package builder for the dev server."""
 import os
 import subprocess
+import sys
 
 import cherrypy
 
@@ -26,7 +27,8 @@ def _OutputOf(command):
   """
   scripts = 'scripts/'
   if command[0].find(scripts) == 0:
-    command[0] = command[0].replace(scripts, '../../' + scripts)
+    server_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    command[0] = command[0].replace(scripts, server_dir + '/../../' + scripts)
   command_name = ' '.join(command)
   cherrypy.log('Executing: ' + command_name, 'BUILD')
 
