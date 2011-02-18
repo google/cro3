@@ -56,7 +56,7 @@ def _GetConfig(options):
   return base_config
 
 
-def _PrepareToServeUpdatesOnly(image_dir):
+def _PrepareToServeUpdatesOnly(image_dir, static_dir):
   """Sets up symlink to image_dir for serving purposes."""
   assert os.path.exists(image_dir), '%s must exist.' % image_dir
   # If  we're  serving  out  of  an archived  build  dir  (e.g.  a
@@ -64,13 +64,13 @@ def _PrepareToServeUpdatesOnly(image_dir):
   # link to the build archive.
   cherrypy.log('Preparing autoupdate for "serve updates only" mode.',
                'DEVSERVER')
-  if os.path.lexists('static/archive'):
-    if image_dir != os.readlink('static/archive'):
+  if os.path.lexists('%s/archive' % static_dir):
+    if image_dir != os.readlink('%s/archive' % static_dir):
       cherrypy.log('removing stale symlink to %s' % image_dir, 'DEVSERVER')
-      os.unlink('static/archive')
-      os.symlink(image_dir, 'static/archive')
+      os.unlink('%s/archive' % static_dir)
+      os.symlink(image_dir, '%s/archive' % static_dir)
   else:
-    os.symlink(image_dir, 'static/archive')
+    os.symlink(image_dir, '%s/archive' % static_dir)
   cherrypy.log('archive dir: %s ready to be used to serve images.' % image_dir,
                'DEVSERVER')
 
@@ -160,13 +160,22 @@ if __name__ == '__main__':
   root_dir = os.path.realpath('%s/../..' % devserver_dir)
   serve_only = False
 
+  static_dir = os.path.realpath('%s/static' % options.data_dir)
+  os.system('mkdir -p %s' % static_dir)
+
   if options.archive_dir:
-    static_dir = os.path.realpath(options.archive_dir)
-    _PrepareToServeUpdatesOnly(static_dir)
+  # TODO(zbehan) Remove legacy support:
+  #  archive_dir is the directory where static/archive will point.
+  #  If this is an absolute path, all is fine. If someone calls this
+  #  using a relative path, that is relative to src/platform/dev/.
+  #  That use case is unmaintainable, but since applications use it
+  #  with =./static, instead of a boolean flag, we'll make this relative
+  #  to devserver_dir  to keep these unbroken. For now.
+    archive_dir = options.archive_dir
+    if not os.path.isabs(archive_dir):
+      archive_dir = os.path.realpath(os.path.join(devserver_dir,archive_dir))
+    _PrepareToServeUpdatesOnly(archive_dir, static_dir)
     serve_only = True
-  else:
-    static_dir = os.path.realpath('%s/static' % options.data_dir)
-    os.system('mkdir -p %s' % static_dir)
 
   cache_dir = os.path.join(static_dir, 'cache')
   cherrypy.log('Using cache directory %s' % cache_dir, 'DEVSERVER')
