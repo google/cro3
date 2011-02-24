@@ -243,7 +243,7 @@ class Autoupdate(BuildObject):
     _LogMessage('Generating update image %s' % update_path)
 
     update_command = [
-        '%s/cros_generate_update_payload' % self.scripts_dir,
+        '%s/cros_generate_update_payload' % self.devserver_dir,
         '--image="%s"' % image_path,
         '--output="%s"' % update_path,
         '--noold_style',
@@ -275,7 +275,7 @@ class Autoupdate(BuildObject):
     """
     output_gz = os.path.join(output_dir, STATEFUL_FILE)
     subprocess.check_call(
-        ['%s/cros_generate_stateful_update_payload' % self.scripts_dir,
+        ['%s/cros_generate_stateful_update_payload' % self.devserver_dir,
          '--image=%s' % image_path,
          '--output_dir=%s' % output_dir,
         ])

@@ -27,7 +27,9 @@ def GenerateStatefulPayload(image_path, output_directory, logger):
     from_dir = os.path.dirname(image_path)
     image = os.path.basename(image_path)
     output_gz = os.path.join(output_directory, STATEFUL_FILE)
-    crosutils_dir = os.path.dirname(__file__)
+    # TODO(zbehan): This is only used for mount_gpt_image.sh. That script also
+    # needs to move away from src/scripts.
+    crosutils_dir = '%s/src/scripts' % os.environ['CROS_WORKON_SRCROOT']
 
     # Temporary directories for this function.
     rootfs_dir = tempfile.mkdtemp(suffix='rootfs', prefix='tmp')
