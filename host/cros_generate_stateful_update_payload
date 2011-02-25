@@ -1,4 +1,4 @@
-#!/usr/bin/python2.6
+#!/usr/bin/python
 
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -9,6 +9,7 @@
 import logging
 import optparse
 import os
+import sys
 import subprocess
 import tempfile
 
@@ -29,7 +30,18 @@ def GenerateStatefulPayload(image_path, output_directory, logger):
     output_gz = os.path.join(output_directory, STATEFUL_FILE)
     # TODO(zbehan): This is only used for mount_gpt_image.sh. That script also
     # needs to move away from src/scripts.
-    crosutils_dir = '%s/src/scripts' % os.environ['CROS_WORKON_SRCROOT']
+    try:
+      crosutils_dir = '%s/src/scripts' % os.environ['CROS_WORKON_SRCROOT']
+    except KeyError:
+      # Wow, we're outside the chroot. There's no clean way to do this, but we
+      # need to find out where sourceroot is.
+      # The two places where we may be running is platform/dev/, or /usr/bin/.
+      # Coincidentally, both are just a ../../../ away from sourceroot. Other
+      # locations for this script will just not work, and long term, we want
+      # exactly one anyway. (/usr/bin/)
+      self_path = os.path.dirname(sys.argv[0])
+      crosutils_dir = os.path.realpath(
+          os.path.join(self_path, '../../..', 'src/scripts'))
 
     # Temporary directories for this function.
     rootfs_dir = tempfile.mkdtemp(suffix='rootfs', prefix='tmp')
