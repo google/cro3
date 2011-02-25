@@ -140,7 +140,7 @@ extract_kern_root() {
 DEFINE_string image "" "The image that should be sent to clients."
 DEFINE_string src_image "" "Optional: a source image. If specified, this makes\
  a delta update."
-DEFINE_boolean old_style "$FLAGS_TRUE" "Generate an old-style .gz full update."
+DEFINE_boolean old_style "$FLAGS_FALSE" "Generate an old-style .gz full update."
 DEFINE_string output "" "Output file"
 DEFINE_boolean outside_chroot "$FLAGS_FALSE" "Running outside of chroot."
 DEFINE_boolean patch_kernel "$FLAGS_FALSE" "Whether or not to patch the kernel \
