@@ -15,9 +15,6 @@ import cherrypy
 def _OutputOf(command):
   """Runs command, a list of arguments beginning with an executable.
 
-  If the executable begins with "scripts/", the path is adjusted to
-  the scripts directory of this chroot.
-
   Args:
     command: A list of arguments, beginning with the executable
   Returns:
@@ -25,10 +22,6 @@ def _OutputOf(command):
   Raises:
     subprocess.CalledProcessError if the command fails
   """
-  scripts = 'scripts/'
-  if command[0].find(scripts) == 0:
-    server_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    command[0] = command[0].replace(scripts, server_dir + '/../../' + scripts)
   command_name = ' '.join(command)
   cherrypy.log('Executing: ' + command_name, 'BUILD')
 
@@ -44,12 +37,12 @@ class Builder(object):
 
   def _ShouldBeWorkedOn(self, board, pkg):
     """Is pkg a package that could be worked on, but is not?"""
-    if pkg in _OutputOf(['scripts/cros_workon', '--board=' + board, 'list']):
+    if pkg in _OutputOf(['cros_workon', '--board=' + board, 'list']):
       return False
 
     # If it's in the list of possible workon targets, we should be working on it
     return pkg in _OutputOf([
-        'scripts/cros_workon', '--board=' + board, 'list', '--all'])
+        'cros_workon', '--board=' + board, 'list', '--all'])
 
   def SetError(self, text):
     cherrypy.response.status = 500
