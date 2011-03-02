@@ -175,6 +175,7 @@ if __name__ == '__main__':
     if not os.path.isabs(archive_dir):
       archive_dir = os.path.realpath(os.path.join(devserver_dir,archive_dir))
     _PrepareToServeUpdatesOnly(archive_dir, static_dir)
+    static_dir = os.path.realpath(archive_dir)
     serve_only = True
 
   cache_dir = os.path.join(static_dir, 'cache')
