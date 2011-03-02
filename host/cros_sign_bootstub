@@ -1,0 +1,88 @@
+#!/bin/bash
+
+# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# This utility uses cbootimage to signs a bootstub so that the Tegra boot ROM
+# will load and run it.
+
+# Include common CrOS utilities.
+. "/usr/lib/crosutils/common.sh"
+
+# Command line options
+DEFINE_string bct "" "DDR memory timing BCT file."
+DEFINE_string flash "" "Boot flash parameter file."
+DEFINE_string bootstub "" "Bootstub firmware image to sign."
+DEFINE_string output "bootstub.bin" "Signed bootstub + BCT output file."
+DEFINE_string text_base "0xe08000" "Load address and entry point for bootstub."
+DEFINE_string config "" "Directory for temporary configuration files."
+
+# Parse command line.
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+
+# Die on errors.
+set -e
+
+CROS_LOG_PREFIX="cros_sign_bootstub"
+
+function construct_config() {
+  local flash_file="$1"
+  local bct_file="$2"
+  local bootstub="$3"
+  local text_base="$4"
+
+  #
+  # First we output the boot flash configuration file.
+  #
+  cat ${flash_file}
+
+  #
+  # The cbootimage config file format is not yet documented.  Below is
+  # a minimal config file that merges a BCT file and bootloader; in
+  # this case our stub U-Boot image.  We do not use the Version, but it
+  # needs to be set.
+  #
+  # Currently a bug in cbootimage prevents us from setting Redundancy to
+  # 0.  Redundancy controls how many instances of the BCT should be
+  # written to the signed image.  A value of 1 causes two instances to
+  # be written.
+  #
+  # The BootLoader parameter specifies the bootloader image to use.  It
+  # also specifies the load address for the bootloader in RAM and the
+  # entry point of the resulting image.  For U-Boot these are the same
+  # value (TEXT_BASE).
+  #
+  echo ""
+  echo "Bctfile=${bct_file};"
+  echo "Version=1;"
+  echo "Redundancy=1;"
+  echo "BootLoader=${bootstub},${text_base},${text_base},Complete;"
+}
+
+###############################################################################
+
+check_for_file "boot flash device config" "..." "${FLAGS_flash}"
+check_for_file "BCT" "........................" "${FLAGS_bct}"
+check_for_file "bootstub image" "............." "${FLAGS_bootstub}"
+
+check_for_tool "cbootimage" "cbootimage"
+
+if [ -z "${FLAGS_config}" ]; then
+  config=$(mktemp -d)
+
+  trap "rm -rf ${config}" EXIT
+else
+  mkdir -p "${FLAGS_config}"
+
+  config=${FLAGS_config}
+fi
+
+construct_config \
+  "${FLAGS_flash}" \
+  "${FLAGS_bct}" \
+  "${FLAGS_bootstub}" \
+  "${FLAGS_text_base}" > "${config}/boot.cfg"
+
+cbootimage "${config}/boot.cfg" "${FLAGS_output}"
