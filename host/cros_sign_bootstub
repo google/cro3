@@ -34,11 +34,6 @@ function construct_config() {
   local text_base="$4"
 
   #
-  # First we output the boot flash configuration file.
-  #
-  cat ${flash_file}
-
-  #
   # The cbootimage config file format is not yet documented.  Below is
   # a minimal config file that merges a BCT file and bootloader; in
   # this case our stub U-Boot image.  We do not use the Version, but it
@@ -54,11 +49,21 @@ function construct_config() {
   # entry point of the resulting image.  For U-Boot these are the same
   # value (TEXT_BASE).
   #
-  echo ""
-  echo "Bctfile=${bct_file};"
-  echo "Version=1;"
-  echo "Redundancy=1;"
-  echo "BootLoader=${bootstub},${text_base},${text_base},Complete;"
+  echo "Bctfile    = ${bct_file};"
+  echo "Version    = 1;"
+  echo "Redundancy = 1;"
+
+  # TODO(robotboy): This needs to be added back in to support selecting the
+  # boot flash device.  With this commented out we can only boot from the
+  # boot device that the source BCT file was created for.  This is commented
+  # out because it causes the resulting image to not boot if it is added.
+  # TRACKER: http://code.google.com/p/chromium-os/issues/detail?id=12712
+  #
+  # echo ""
+  # cat ${flash_file}
+  # echo ""
+
+  echo "BootLoader = ${bootstub},${text_base},${text_base},Complete;"
 }
 
 ###############################################################################
