@@ -33,8 +33,8 @@ update_dev_image () {
     BASE_UPDATE_URL=$(remove_quotes "${FLAGS_ARGV}")
   else
     if [ -f "${STATEFUL_DIR}${LSB_RELEASE}" ]; then
-      DEVSERVER_URL=$(grep CHROMEOS_DEVSERVER ${STATEFUL_DIR}${LSB_RELEASE} | \
-                    cut -f 2 -d '=')
+      DEVSERVER_URL=$(grep CHROMEOS_DEVSERVER ${STATEFUL_DIR}${LSB_RELEASE} |
+          cut -f 2 -d '=')
     fi
     if [ -z "${DEVSERVER_URL}" ]; then
       DEVSERVER_URL=$(grep CHROMEOS_DEVSERVER ${LSB_RELEASE} | cut -f 2 -d '=')
@@ -52,37 +52,39 @@ update_dev_image () {
   STATEFUL_UPDATE_URL="${BASE_UPDATE_URL}/stateful.tgz"
   echo "Downloading stateful payload from ${STATEFUL_UPDATE_URL}"
   # Download and unzip directories onto the stateful partition.
-  eval "wget -qS -T 300 -O - \"${STATEFUL_UPDATE_URL}\"" | \
+  eval "wget -qS -T 300 -O - \"${STATEFUL_UPDATE_URL}\"" |
       tar --ignore-command-error --overwrite --directory=${STATEFUL_DIR} -xz
   echo >&2 "Successfully downloaded update"
 
-  if [ -d "${STATEFUL_DIR}/var_new" ] && [ -d "${STATEFUL_DIR}/dev_image_new" ]
-  then
-    echo >&2 "Notifying startup that an update is available"
-    touch "${STATEFUL_DIR}/.update_available"
-  else
-    echo >&2 "No update available"
+  if [ ! -d "${STATEFUL_DIR}/var_new" ] ||
+      [ ! -d "${STATEFUL_DIR}/dev_image_new" ]; then
+    echo >&2 "Missing var or dev_image in stateful payload."
+    return 1
   fi
 }
 
 update_old_state () {
   echo >&2 "Performing standard stateful update."
+  echo -n "" > "${STATEFUL_DIR}/.update_available"
 }
 
 update_clean_state () {
   echo >&2 "Restoring state to factory_install with dev_image."
-  echo "fast test" > "/mnt/stateful_partition/factory_install_reset"
+  echo -n "clobber" > "${STATEFUL_DIR}/.update_available"
 }
 
 main () {
-  update_dev_image
-  if [ "${FLAGS_stateful_change}" = "${OLD_STATE}" ]; then
-    update_old_state
-  elif [ "${FLAGS_stateful_change}" = "${CLEAN_STATE}" ]; then
-    update_clean_state
+  if update_dev_image; then
+    if [ "${FLAGS_stateful_change}" = "${OLD_STATE}" ]; then
+      update_old_state
+    elif [ "${FLAGS_stateful_change}" = "${CLEAN_STATE}" ]; then
+      update_clean_state
+    else
+      echo >&2 "Invalid state given to stateful update.  Aborting..."
+      return 1
+    fi
   else
-    echo >&2 "Invalid state given to stateful update.  Aborting..."
-    exit 1
+    return 1
   fi
 }
 
