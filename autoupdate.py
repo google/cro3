@@ -47,7 +47,6 @@ class Autoupdate(BuildObject):
       requests.
     use_test_image: Use chromiumos_test_image.bin rather than the standard.
     static_url_base: base URL, other than devserver, for update images.
-    client_prefix: The prefix for the update engine client.
     forced_image: Path to an image to use for all updates.
     forced_payload: Path to pre-generated payload to serve.
     port: port to host devserver
@@ -60,7 +59,7 @@ class Autoupdate(BuildObject):
   """
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
-               factory_config_path=None, client_prefix=None,
+               factory_config_path=None,
                forced_image=None, forced_payload=None,
                port=8080, proxy_port=None, src_image='', vm=False, board=None,
                copy_to_static_root=True, private_key=None,
@@ -74,7 +73,6 @@ class Autoupdate(BuildObject):
     else:
       self.urlbase = None
 
-    self.client_prefix = client_prefix
     self.forced_image = forced_image
     self.forced_payload = forced_payload
     self.src_image = src_image
@@ -377,8 +375,8 @@ class Autoupdate(BuildObject):
         os.system('rm -rf "%s"' % full_cache_dir)
         return None
       else:
-        assert (return_path == update_path,
-                'Returned path %s not equal to %s' % (return_path, update_path))
+        assert return_path == update_path, \
+            'Returned path %s not equal to %s' % (return_path, update_path)
 
     self.pregenerated_path = update_path
 
@@ -617,14 +615,8 @@ class Autoupdate(BuildObject):
     _LogMessage('Using static url base %s' % static_urlbase)
     _LogMessage('Handling update ping as %s: %s' % (self.hostname, data))
 
-    # Check the client prefix to make sure you can support this type of update.
     update_dom = minidom.parseString(data)
     root = update_dom.firstChild
-    if (root.hasAttribute('updaterversion') and
-        not root.getAttribute('updaterversion').startswith(self.client_prefix)):
-      _LogMessage('Got update from unsupported updater:' +
-                root.getAttribute('updaterversion'))
-      return self.GetNoUpdatePayload()
 
     # We only generate update payloads for updatecheck requests.
     update_check = root.getElementsByTagName('o:updatecheck')

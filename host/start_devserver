@@ -32,9 +32,6 @@ if [[ "$1" != "--archive_dir" ]]; then
   restart_in_chroot_if_needed "$@"
 fi
 
-# Temporary workaround: to start devserver for update engine, pass in args
-# --client_prefix ChromeOSUpdateEngine
-
 # Set PKG_INSTALL_MASK if it's not set already.
 if [ -z "${PKG_INSTALL_MASK+x}" ]; then
   export PKG_INSTALL_MASK="${DEFAULT_INSTALL_MASK}"

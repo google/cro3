@@ -118,9 +118,9 @@ if __name__ == '__main__':
                     help='When pre-generating update, board for latest image.')
   parser.add_option('--clear_cache', action='store_true', default=False,
                     help='Clear out all cached udpates and exit')
-  parser.add_option('--client_prefix', dest='client_prefix',
-                    help='Required prefix for client software version.',
-                    default='MementoSoftwareUpdate')
+  parser.add_option('--client_prefix', dest='client_prefix_deprecated',
+                    help='No longer used.  It is still here so we don\'t break '
+                    'scripts that used it.', default='')
   parser.add_option('--data_dir', dest='data_dir',
                     help='Writable directory where static lives',
                     default=os.path.dirname(os.path.abspath(sys.argv[0])))
@@ -200,6 +200,10 @@ if __name__ == '__main__':
   else:
     os.makedirs(cache_dir)
 
+  if options.client_prefix_deprecated:
+    cherrypy.log('The --client_prefix argument is DEPRECATED, '
+                 'and is no longer needed.', 'DEVSERVER')
+
   cherrypy.log('Data dir is %s' % options.data_dir, 'DEVSERVER')
   cherrypy.log('Source root is %s' % root_dir, 'DEVSERVER')
   cherrypy.log('Serving from %s' % static_dir, 'DEVSERVER')
@@ -211,7 +215,6 @@ if __name__ == '__main__':
       urlbase=options.urlbase,
       test_image=options.test_image,
       factory_config_path=options.factory_config,
-      client_prefix=options.client_prefix,
       forced_image=options.image,
       forced_payload=options.payload,
       port=options.port,

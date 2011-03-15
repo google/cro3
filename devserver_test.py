@@ -23,30 +23,15 @@ TEST_IMAGE_NAME = 'developer-test.gz'
 TEST_IMAGE = TEST_IMAGE_PATH + '/' + TEST_IMAGE_NAME
 TEST_FACTORY_CONFIG = 'testdata/devserver/miniomaha-test.conf'
 TEST_DATA_PATH = '/tmp/devserver-test'
+TEST_CLIENT_PREFIX = 'ChromeOSUpdateEngine'
 
-# TODO(girts): Get a copy of a recent request.  For now, I copied this from
-# update_test.
 UPDATE_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
-<o:gupdate
-  xmlns:o="http://www.google.com/update2/request"
-  version="MementoSoftwareUpdate-0.1.0.0"
-  protocol="2.0"
-  machineid="{1B0A13AC-7004-638C-3CA6-EC082E8F5DE9}"
-  ismachine="0"
-  userid="{bogus}">
-<o:os version="Memento"
-   platform="memento"
-   sp="ForcedUpdate_i686">
-</o:os>
-<o:app appid="{87efface-864d-49a5-9bb3-4b050a7c227a}"
-   version="ForcedUpdate"
-   lang="en-us"
-   brand="GGLG"
-   track="developer-build"
-   board="x86-generic">
-<o:ping active="0"></o:ping>
-<o:updatecheck></o:updatecheck>
-</o:app>
+<o:gupdate xmlns:o="http://www.google.com/update2/request" version="ChromeOSUpdateEngine-0.1.0.0" updaterversion="ChromeOSUpdateEngine-0.1.0.0" protocol="2.0" ismachine="1">
+    <o:os version="Indy" platform="Chrome OS" sp="0.11.254.2011_03_09_1814_i686"></o:os>
+    <o:app appid="{DEV-BUILD}" version="0.11.254.2011_03_09_1814" lang="en-US" track="developer-build" board="x86-generic" hardware_class="BETA DVT" delta_okay="true">
+        <o:updatecheck></o:updatecheck>
+        <o:event eventtype="3" eventresult="2" previousversion="0.11.216.2011_03_02_1358"></o:event>
+    </o:app>
 </o:gupdate>
 """
 # TODO(girts): use a random available port.
@@ -84,6 +69,7 @@ class DevserverTest(unittest.TestCase):
         'python',
         os.path.join(base_dir, 'devserver.py'),
         '--validate_factory_config',
+        '--client_prefix', TEST_CLIENT_PREFIX,
         '--factory_config', self.factory_config,
     ]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -97,6 +83,7 @@ class DevserverTest(unittest.TestCase):
         'python',
         os.path.join(base_dir, 'devserver.py'),
         'devserver.py',
+        '--client_prefix', TEST_CLIENT_PREFIX,
         '--factory_config', self.factory_config,
     ]
     if data_dir:
