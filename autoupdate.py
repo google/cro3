@@ -374,9 +374,6 @@ class Autoupdate(BuildObject):
       if not return_path:
         os.system('rm -rf "%s"' % full_cache_dir)
         return None
-      else:
-        assert return_path == update_path, \
-            'Returned path %s not equal to %s' % (return_path, update_path)
 
     self.pregenerated_path = update_path
 
