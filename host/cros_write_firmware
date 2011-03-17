@@ -18,7 +18,6 @@ DEFINE_string firmware "" "Path to firmware image to write."
 DEFINE_string flasher "" "Path to flasher image to use."
 DEFINE_string bct "" "Path to bct image to write."
 DEFINE_string map "" "Path to System.map file to read for load address."
-DEFINE_string flash "" "Boot flash parameter file."
 DEFINE_string config "" "Directory for temporary configuration files."
 DEFINE_boolean sign $FLAGS_FALSE "Sign and append a BCT to the firmware image."
 
@@ -91,9 +90,8 @@ u_boot="/build/${BOARD_VARIANT}/u-boot"
 # file paths from the board and variant information provided.
 firmware=${FLAGS_firmware:-"${u_boot}/image.bin"}
 flasher=${FLAGS_flasher:-"${u_boot}/u-boot-flasher.bin"}
-bct=${FLAGS_bct:-"${u_boot}/board.bct"}
+bct=${FLAGS_bct:-"${u_boot}/bct/board.bct"}
 map=${FLAGS_map:-"${u_boot}/System.map"}
-flash=${FLAGS_flash:-"${u_boot}/flash.cfg"}
 
 # Extract the load and entry point for U-Boot.
 text_base="0x$(get_text_base "${map}")"
@@ -103,7 +101,6 @@ check_for_file "firmware" " " "${firmware}"
 check_for_file "flasher" "  " "${flasher}"
 check_for_file "BCT" "      " "${bct}"
 check_for_file "map" "      " "${map}"
-check_for_file "flash" "    " "${flash}"
 
 check_for_tool "nvflash" "nvflash"
 
@@ -129,7 +126,6 @@ if [ $FLAGS_sign -eq $FLAGS_TRUE ]; then
 
   cros_sign_bootstub \
     --bct "${bct}" \
-    --flash "${flash}" \
     --bootstub "${firmware}" \
     --output "${signed_firmware}" \
     --config "${config}" \
