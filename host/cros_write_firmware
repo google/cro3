@@ -147,18 +147,14 @@ dd if="${config}/script.uimg" of="${config}/image" seek=512 &> /dev/null
 dd if="${signed_firmware}"    of="${config}/image" seek=520 &> /dev/null
 
 # Write the RAM image image to the board.  The flasher will write the payload
-# into the boot device.  The warning below about the failure is due to the
-# way that we are using nvflash.  It expects to be able to talk to the flashing
-# bootloader that is passed down, but U-Boot doesn't talk back the way
-# bootloader.bin did, and nvflash complains.
+# into the boot device using the flashing script.
 sudo nvflash \
-  --configfile /usr/share/cros_write_firmware/nvflash-spi.cfg \
   --bct "${bct}" \
   --setbct \
   --bl "${config}/image" \
   --go \
   --setentry "${text_base}" "${text_base}" ||
-  warn "The above 'command failure: go failed' can be ignored."
+  (echo "" && die "Failed to download U-Boot flasher + payload using nvflash.")
 
 # TODO(robotboy): Make a U-Boot tool that can compute the same checksum on
 # the host and display it here.  Unfortunately U-Boot uses a slightly different
