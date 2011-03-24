@@ -12,10 +12,9 @@
 
 # Load common constants.  This should be the first executable line.
 # The path to common.sh should be relative to your script's location.
-. "$(dirname "$0")/../../scripts/common.sh"
-
-# Script must be run inside the chroot
-assert_inside_chroot
+. /usr/lib/crosutils/common.sh 2> /dev/null || 
+  (echo "Must run from within the chroot" && false) ||
+  exit 1
 
 get_default_board
 

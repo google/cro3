@@ -8,8 +8,9 @@
 . $(dirname "$(readlink -f "$0")")/outside_chroot_common.sh ||
   SCRIPT_ROOT=/usr/lib/crosutils
 
-. "${SCRIPT_ROOT}/common.sh" || (echo "Unable to load common.sh" && exit 1)
-# --- END COMMON.SH BOILERPLATE ---
+. "${SCRIPT_ROOT}/common.sh" ||
+  (echo "Unable to load common.sh" && false) ||
+  exit 1
 
 . "${SCRIPT_ROOT}/remote_access.sh" || die "Unable to load remote_access.sh"
 
