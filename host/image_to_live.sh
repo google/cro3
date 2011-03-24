@@ -102,29 +102,6 @@ function get_hostname {
   echo ${hostname}
 }
 
-# Reinterprets path from outside the chroot for use inside.
-# Returns "" if "" given.
-# $1 - The path to reinterpret.
-function reinterpret_path_for_chroot() {
-  if [ -z "${1}" ]; then
-    echo ""
-  else
-    local path_abs_path=$(readlink -f "${1}")
-    local gclient_root_abs_path=$(readlink -f "${GCLIENT_ROOT}")
-
-    # Strip the repository root from the path.
-    local relative_path=$(echo ${path_abs_path} \
-        | sed s:${gclient_root_abs_path}/::)
-
-    if [ "${relative_path}" = "${path_abs_path}" ]; then
-      die "Error reinterpreting path.  Path ${1} is not within source tree."
-    fi
-
-    # Prepend the chroot repository path.
-    echo "/home/${USER}/trunk/${relative_path}"
-  fi
-}
-
 function start_dev_server {
   kill_all_devservers
   local devserver_flags="--pregenerate_update"
