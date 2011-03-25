@@ -21,6 +21,7 @@ DEFINE_string bct "" "Path to bct image to write."
 DEFINE_string map "" "Path to System.map file to read for load address."
 DEFINE_string config "" "Directory for temporary configuration files."
 DEFINE_boolean sign $FLAGS_FALSE "Sign and append a BCT to the firmware image."
+DEFINE_boolean dry_run $FLAGS_FALSE "Do everything except calling nvflash."
 
 # Parse command line.
 FLAGS "$@" || exit 1
@@ -150,20 +151,22 @@ dd if="${flasher}"            of="${config}/image"          &> /dev/null
 dd if="${config}/script.uimg" of="${config}/image" seek=512 &> /dev/null
 dd if="${signed_firmware}"    of="${config}/image" seek=520 &> /dev/null
 
-# Write the RAM image image to the board.  The flasher will write the payload
-# into the boot device using the flashing script.
-sudo nvflash \
-  --bct "${bct}" \
-  --setbct \
-  --bl "${config}/image" \
-  --go \
-  --setentry "${text_base}" "${text_base}" ||
-  (echo "" && die "Failed to download U-Boot flasher + payload using nvflash.")
+if [ $FLAGS_dry_run -eq $FLAGS_FALSE ]; then
+  # Write the RAM image image to the board.  The flasher will write the payload
+  # into the boot device using the flashing script.
+  sudo nvflash \
+    --bct "${bct}" \
+    --setbct \
+    --bl "${config}/image" \
+    --go \
+    --setentry "${text_base}" "${text_base}" ||
+    (echo && die "Failed to download U-Boot flasher + payload using nvflash.")
 
-# TODO(robotboy): Make a U-Boot tool that can compute the same checksum on
-# the host and display it here.  Unfortunately U-Boot uses a slightly different
-# crc32 than zlib, so it's not possible to use zlib's crc32 to do this.  It has
-# to be done by building a tool that uses U-Boots version.
-info "The serial terminal or LCD panel should show before and after CRCs of"
-info "the image written to the boot flash.  If these values match each other"
-info "your flash was probably successful."
+  # TODO(robotboy): Make a U-Boot tool that can compute the same checksum on
+  # the host and display it here.  Unfortunately U-Boot uses a slightly
+  # different crc32 than zlib, so it's not possible to use zlib's crc32 to do
+  # this.  It has to be done by building a tool that uses U-Boots version.
+  info "The serial terminal or LCD panel should show before and after CRCs of"
+  info "the image written to the boot flash.  If these values match each"
+  info "other your flash was probably successful."
+fi
