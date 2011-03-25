@@ -7,7 +7,7 @@
 # Simple wrapper script to build a cros_workon package incrementally.
 # You must already be cros_workon'ing the package in question.
 
-. /usr/lib/crosutils/common.sh || (echo "Unable to load common.sh" && exit 1)
+. /usr/lib/crosutils/common.sh || exit 1
 
 get_default_board
 
