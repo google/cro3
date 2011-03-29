@@ -46,6 +46,7 @@ workon_name="${1}-${unstable_suffix}"
 pkgfile=
 workpath=
 
+# Find the ebuild file, ensure the caller is workon'ing the package.
 if ! pkgfile=$("${EQUERYCMD}" which "${workon_name}" 2> /dev/null); then
   if ACCEPT_KEYWORDS="~${BOARD_KEYWORD}" "${EQUERYCMD}" which "${workon_name}" \
       > /dev/null 2>&1; then
@@ -71,16 +72,19 @@ if [ "${FLAGS_scrub}" = "${FLAGS_TRUE}" ]; then
   exit 0
 fi
 
+# Find the portage work directory for this package.
 workpath=$(\
     echo "${pkgfile}" | \
         awk -F '/' '{ print $(NF-2) "/" $(NF-1) }')-"${unstable_suffix}"
 
+# Determine if we're going to do tests, set up commands appropriately.
 emerge_features=
 to_do="compile"
 if [ "${FLAGS_test}" = "${FLAGS_TRUE}" ]; then
   to_do="test"
   emerge_features="test"
 fi
+
 if [ "${FLAGS_install}" = "${FLAGS_TRUE}" ]; then
   SANDBOX_WRITE=~/trunk CROS_WORKON_INPLACE=1 \
     FEATURES="${emerge_features} ${FEATURES}" "${EMERGECMD}" "${1}"

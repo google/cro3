@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Simple wrapper script to build the chromeos-chrome package incrementally.
+
+. /usr/lib/crosutils/common.sh || (echo "Unable to load common.sh")
+
+get_default_board
+
+DEFINE_string board "${DEFAULT_BOARD}" \
+    "Board for which to build the package."
+
+set -e
+# Parse command line.
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+
+if [ $# -ne 0 ]; then
+  echo "Usage: ${0} [OPTIONS]"
+  exit 1
+fi
+
+if [ -n "${FLAGS_board}" ]; then
+  BOARD_DIR=/build/"${FLAGS_board}"
+  EBUILDCMD=ebuild-"${FLAGS_board}"
+  EMERGECMD=emerge-"${FLAGS_board}"
+  EQUERYCMD=equery-"${FLAGS_board}"
+  BOARD_STR="${FLAGS_board}"
+  BOARD_KEYWORD="$(portageq-${FLAGS_board} envvar ARCH)"
+fi
+
+chrome="chromeos-chrome"
+unstable_suffix="9999"
+workon_name="${chrome}-${unstable_suffix}"
+pkgfile=
+workpath=
+
+# Find the ebuild file.
+if ! pkgfile=$(ACCEPT_KEYWORDS="~${BOARD_KEYWORD}" "${EQUERYCMD}" which \
+   "${workon_name}" 2> /dev/null); then
+  die "error looking up ${chrome}"
+fi
+
+# Find the portage work directory for this package.
+workpath=$(\
+    echo "${pkgfile}" | \
+        awk -F '/' '{ print $(NF-2) "/" $(NF-1) }')-"${unstable_suffix}"
+rm -f "/build/${BOARD_STR}/tmp/portage/${workpath}/.compiled"
+
+CCACHE_SIZE=2G CHROME_ORIGIN=LOCAL_SOURCE FEATURES="ccache -usersandbox" \
+  USE="-build_tests gold" "${EBUILDCMD}" "${pkgfile}" compile
