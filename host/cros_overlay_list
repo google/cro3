@@ -135,6 +135,15 @@ if private && [ -d "${CHROMEOS_OVERLAY}" ]; then
 fi
 
 #
+# Check for partner-binary-overlay.
+#
+PARTNER_BINARY_OVERLAY="${SRC_ROOT}/private-overlays/partner-binary-overlay"
+
+if private && [ -d "${PARTNER_BINARY_OVERLAY}" ]; then
+  echo "${PARTNER_BINARY_OVERLAY}"
+fi
+
+#
 # Check if there are any public board overlays.
 #
 if public && [ -d "${BOARD_OVERLAY}" ]; then
