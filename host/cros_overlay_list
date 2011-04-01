@@ -135,12 +135,12 @@ if private && [ -d "${CHROMEOS_OVERLAY}" ]; then
 fi
 
 #
-# Check for partner-binary-overlay.
+# Check for chromeos-partner-overlay.
 #
-PARTNER_BINARY_OVERLAY="${SRC_ROOT}/private-overlays/partner-binary-overlay"
+CHROMEOS_PARTNER_OVERLAY="${SRC_ROOT}/private-overlays/chromeos-partner-overlay"
 
-if private && [ -d "${PARTNER_BINARY_OVERLAY}" ]; then
-  echo "${PARTNER_BINARY_OVERLAY}"
+if private && [ -d "${CHROMEOS_PARTNER_OVERLAY}" ]; then
+  echo "${CHROMEOS_PARTNER_OVERLAY}"
 fi
 
 #
