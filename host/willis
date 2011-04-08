@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -44,7 +44,7 @@ def ShowName(relative_name, color):
     print relative_name
 
 
-def GetBranches(full_name, relative_name, color):
+def GetBranches(full_name, color):
   """Return a list of branch descriptions."""
 
   command = ['git', 'branch', '-vv']
@@ -59,7 +59,7 @@ def GetBranches(full_name, relative_name, color):
 
   return branches
 
-def GetStatus(full_name, relative_name, color):
+def GetStatus(full_name, color):
   """Return a list of files that have modifications."""
 
   command = ['git', 'status', '-s']
@@ -67,7 +67,7 @@ def GetStatus(full_name, relative_name, color):
   return RunCommand(full_name, command).splitlines()
 
 
-def GetHistory(full_name, relative_name, color, author, days):
+def GetHistory(full_name, color, author, days):
   """Return a list of oneline log messages.
 
   The messages are for the author going back a specified number of days.
@@ -82,19 +82,21 @@ def GetHistory(full_name, relative_name, color, author, days):
   return RunCommand(full_name, command).splitlines()
 
 
-def ShowDir(full_name, relative_name, color, logs, author, days):
+def ShowDir(full_name, color, logs, author, days):
   """Display active work in a single git repository."""
 
-  branches = GetBranches(full_name, relative_name, color)
-  status = GetStatus(full_name, relative_name, color)
+  branches = GetBranches(full_name, color)
+  status = GetStatus(full_name, color)
 
   if logs:
-    history = GetHistory(full_name, relative_name, color, author, days)
+    history = GetHistory(full_name, color, author, days)
   else:
     history = []
 
   if branches or status or history:
-    ShowName(relative_name, color)
+      # We want to use the full path for testing, but we want to use the
+      # relative path for display.
+    ShowName(os.path.relpath(full_name), color)
 
   if branches: print '\n'.join(branches)
   if status: print '\n'.join(status)
@@ -145,12 +147,8 @@ def main():
   root = FindRoot()
   repos = RunCommand(root, ['repo', 'forall', '-c', 'pwd']).splitlines()
 
-  # We want to use the full path for testing, but we want to use the relative
-  # path for display.
-  reldirs = [re.sub('^' + re.escape(root) + '/', '', p) for p in repos]
-
-  for full, relative in zip(repos, reldirs):
-    ShowDir(full, relative, color, options.logs, options.author, options.days)
+  for full in repos:
+    ShowDir(full, color, options.logs, options.author, options.days)
 
 
 if __name__ == '__main__':
