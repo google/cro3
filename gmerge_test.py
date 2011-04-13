@@ -7,6 +7,7 @@
 """Unit tests for gmerge."""
 
 import gmerge
+import os
 import unittest
 
 class Flags(object):
@@ -29,13 +30,15 @@ class GMergeTest(unittest.TestCase):
                      merger.lsb_release)
 
   def testPostData(self):
-    gmerge.FLAGS = Flags({'use': 'a b c d +e',
-                          'accept_stable': 'blah'})
+    original_use = os.environ.get('USE', '')
+    os.environ['USE'] = 'a b c d +e'
+    gmerge.FLAGS = Flags({'accept_stable': 'blah'})
 
     merger = gmerge.GMerger(self.lsb_release_lines)
     self.assertEqual(
         'use=a+b+c+d+%2Be&pkg=package_name&board=x86-mario&accept_stable=blah',
         merger.GeneratePackageRequest('package_name'))
+    os.environ['USE'] = original_use
 
 
 if __name__ == '__main__':
