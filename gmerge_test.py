@@ -30,7 +30,8 @@ class GMergeTest(unittest.TestCase):
                      merger.lsb_release)
 
   def testPostData(self):
-    original_use = os.environ.get('USE', '')
+    old_env = os.environ
+    os.environ = {}
     os.environ['USE'] = 'a b c d +e'
     gmerge.FLAGS = Flags({'accept_stable': 'blah'})
 
@@ -38,7 +39,7 @@ class GMergeTest(unittest.TestCase):
     self.assertEqual(
         'use=a+b+c+d+%2Be&pkg=package_name&board=x86-mario&accept_stable=blah',
         merger.GeneratePackageRequest('package_name'))
-    os.environ['USE'] = original_use
+    os.environ = old_env
 
 
 if __name__ == '__main__':
