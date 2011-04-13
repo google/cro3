@@ -51,13 +51,19 @@ class Builder(object):
 
   def Build(self, board, pkg, additional_args):
     """Handles a build request from the cherrypy server."""
-    cherrypy.log('Additional build request arguments: '+ str(additional_args),
+    cherrypy.log('Additional build request arguments: ' + str(additional_args),
                  'BUILD')
 
-    original_use = os.environ.get('USE', '')
+    def _AppendStrToEnvVar(env, var, additional_string):
+      env[var] = env.get(var, '') + ' ' + additional_string
+      cherrypy.log('%s flags modified to %s' % (var, env[var]), 'BUILD')
+
+    env_copy = os.environ.copy()
     if 'use' in additional_args:
-      os.environ['USE'] = original_use + ' ' + additional_args['use']
-      cherrypy.log('USE flags modified to ' + os.environ['USE'], 'BUILD')
+      _AppendStrToEnvVar(env_copy, 'USE', additional_args['use'])
+
+    if 'features' in additional_args:
+      _AppendStrToEnvVar(env_copy, 'FEATURES', additional_args['features'])
 
     try:
       if (self._ShouldBeWorkedOn(board, pkg) and
@@ -67,7 +73,7 @@ class Builder(object):
             'Either start working on the package or pass --accept_stable '
             'to gmerge')
 
-      rc = subprocess.call(['emerge-%s' % board, pkg])
+      rc = subprocess.call(['emerge-%s' % board, pkg], env=env_copy)
       if rc != 0:
         return self.SetError('Could not emerge ' + pkg)
 
@@ -80,5 +86,3 @@ class Builder(object):
       return 'Success\n'
     except OSError, e:
       return self.SetError('Could not execute build command: ' + str(e))
-    finally:
-      os.environ['USE'] =  original_use

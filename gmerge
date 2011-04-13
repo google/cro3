@@ -72,7 +72,8 @@ class GMerger(object):
     """Build the POST string that conveys our options to the devserver."""
     post_data = {'board': self.board_name,
                  'pkg': package_name,
-                 'use': FLAGS.use,
+                 'features': os.environ.get('FEATURES', None),
+                 'use': os.environ.get('USE', None),
                  'accept_stable': FLAGS.accept_stable,
                 }
     post_data = dict([(key, value) for (key, value) in post_data.iteritems()
@@ -102,9 +103,6 @@ def main():
   parser.add_option('-n', '--no_devserver',
                     action='store_false', dest='call_devserver', default=True,
                     help='Do not actually ask the server to build')
-  parser.add_option('--use', '--USE',
-                    dest='use', default=None,
-                    help='USE flags to pass to emerge on the server')
 
   (FLAGS, remaining_arguments) = parser.parse_args()
   if len(remaining_arguments) != 1:
@@ -116,14 +114,14 @@ def main():
   try:
     subprocess.check_call(['mount', '-o', 'remount,exec', '/tmp'])
     merger = GMerger(open('/etc/lsb-release').readlines())
-    merger.SetupPortageEnvironment(os.environ)
-    merger.RemountOrChangeRoot(os.environ)
     if FLAGS.call_devserver:
       merger.RequestPackageBuild(package_name)
     else:
       print 'Not requesting fresh build on server---installing whatever we find'
 
     print 'Emerging ', package_name
+    merger.SetupPortageEnvironment(os.environ)
+    merger.RemountOrChangeRoot(os.environ)
     subprocess.check_call([
         'emerge', '--getbinpkgonly', '--usepkgonly', package_name])
   finally:
