@@ -19,6 +19,9 @@ DEFINE_boolean ignore_hostname ${FLAGS_TRUE} \
   "Ignore existing AU hostname on running instance use this hostname."
 DEFINE_boolean ignore_version ${FLAGS_TRUE} \
   "Ignore existing version on running instance and always update."
+DEFINE_string netdev "eth0" \
+  "The network device to use for figuring out hostname. \
+   This is useful on hosts with multiple NICs."
 DEFINE_string server_log "dev_server.log" \
   "Path to log for the devserver."
 DEFINE_boolean update "${FLAGS_TRUE}" \
@@ -92,7 +95,7 @@ function get_hostname {
   # Dedicated usb NIC? Perhaps this detection should be done in the target,
   # which will get the return address in one way or another. Or maybe we should
   # just open a ssh tunnel and use localhost.
-  hostname=$(/sbin/ifconfig eth0 |
+  hostname=$(/sbin/ifconfig ${FLAGS_netdev} |
       grep 'inet addr' |
       cut -f2 -d':' |
       cut -f1 -d' ')
