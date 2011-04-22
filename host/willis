@@ -54,7 +54,7 @@ def GetBranches(full_name, color):
 
   branches = RunCommand(full_name, command).splitlines()
 
-  if re.search(r"\(no branch\)", branches[0]):
+  if re.search(r"\(no branch\)", branches[0]) and len(branches) == 1:
     return []
 
   return branches
