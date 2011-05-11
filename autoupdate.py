@@ -1,4 +1,4 @@
-# Copyright (c) 2009-2010 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -244,7 +244,6 @@ class Autoupdate(BuildObject):
         '%s/cros_generate_update_payload' % self.devserver_dir,
         '--image="%s"' % image_path,
         '--output="%s"' % update_path,
-        '--noold_style',
     ]
 
     if src_image: update_command.append('--src_image="%s"' % src_image)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -26,8 +26,7 @@ find_common_sh() {
 
   # HACK(zbehan): We have to fake GCLIENT_ROOT in case we're running inside
   # au_zip enviroment. GCLIENT_ROOT detection became fatal...
-  [ "${SCRIPT_ROOT}" == "${thisdir}" ] && \
-    export GCLIENT_ROOT="."
+  [ "${SCRIPT_ROOT}" == "${thisdir}" ] && export GCLIENT_ROOT="."
 }
 
 find_common_sh
@@ -146,7 +145,6 @@ extract_kern_root() {
 DEFINE_string image "" "The image that should be sent to clients."
 DEFINE_string src_image "" "Optional: a source image. If specified, this makes\
  a delta update."
-DEFINE_boolean old_style "$FLAGS_FALSE" "Generate an old-style .gz full update."
 DEFINE_string output "" "Output file"
 DEFINE_boolean outside_chroot "$FLAGS_FALSE" "Running outside of chroot."
 DEFINE_boolean patch_kernel "$FLAGS_FALSE" "Whether or not to patch the kernel \
@@ -186,86 +184,64 @@ if [ "$FLAGS_extract" -eq "$FLAGS_TRUE" ]; then
   exit 0
 fi
 
-DELTA=$FLAGS_TRUE
-[ -n "$FLAGS_output" ] || die \
-    "Error: you must specify an output filename with --output FILENAME"
+[ -n "$FLAGS_output" ] ||
+  die "Error: you must specify an output filename with --output FILENAME"
 
-if [ -z "$FLAGS_src_image" ]; then
-  DELTA=$FLAGS_FALSE
+DELTA=$FLAGS_TRUE
+[ -z "$FLAGS_src_image" ] && DELTA=$FLAGS_FALSE
+
+echo "Generating an update"
+
+# Sanity check that the real generator exists:
+GENERATOR="$(which delta_generator)"
+[ -x "$GENERATOR" ] || die "can't find delta_generator"
+
+trap cleanup INT TERM EXIT
+if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
+  if [ "$FLAGS_full_kernel" -eq "$FLAGS_FALSE" ]; then
+    SRC_KERNEL=$(extract_partition_to_temp_file "$FLAGS_src_image" 2)
+    if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
+      patch_kernel "$FLAGS_src_image" "$SRC_KERNEL"
+    fi
+    echo md5sum of src kernel:
+    md5sum "$SRC_KERNEL"
+  else
+    echo "Generating a full kernel update."
+  fi
+  SRC_ROOT=$(extract_partition_to_temp_file "$FLAGS_src_image" 3)
+
+  echo md5sum of src root:
+  md5sum "$SRC_ROOT"
 fi
 
-if [ "$DELTA" -eq "$FLAGS_TRUE" -o "$FLAGS_old_style" -eq "$FLAGS_FALSE" ]; then
-  echo "Generating a delta update"
+DST_KERNEL=$(extract_partition_to_temp_file "$FLAGS_image" 2)
+if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
+  patch_kernel "$FLAGS_image" "$DST_KERNEL"
+fi
+DST_ROOT=$(extract_partition_to_temp_file "$FLAGS_image" 3)
 
-  # Sanity check that the real generator exists:
-  GENERATOR="$(which delta_generator)"
-  [ -x "$GENERATOR" ] || die "can't find delta_generator"
+if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
+  SRC_MNT=$(mktemp -d /tmp/src_root.XXXXXX)
+  sudo mount -o loop,ro "$SRC_ROOT" "$SRC_MNT"
 
-  trap cleanup INT TERM EXIT
-  if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
-    if [ "$FLAGS_full_kernel" -eq "$FLAGS_FALSE" ]; then
-      SRC_KERNEL=$(extract_partition_to_temp_file "$FLAGS_src_image" 2)
-      if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
-        patch_kernel "$FLAGS_src_image" "$SRC_KERNEL"
-      fi
-      echo md5sum of src kernel:
-      md5sum "$SRC_KERNEL"
-    else
-      echo "Generating a full kernel update."
-    fi
-    SRC_ROOT=$(extract_partition_to_temp_file "$FLAGS_src_image" 3)
+  DST_MNT=$(mktemp -d /tmp/src_root.XXXXXX)
+  sudo mount -o loop,ro "$DST_ROOT" "$DST_MNT"
 
-    echo md5sum of src root:
-    md5sum "$SRC_ROOT"
-  fi
-
-  DST_KERNEL=$(extract_partition_to_temp_file "$FLAGS_image" 2)
-  if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
-    patch_kernel "$FLAGS_image" "$DST_KERNEL"
-  fi
-  DST_ROOT=$(extract_partition_to_temp_file "$FLAGS_image" 3)
-
-  if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
-    SRC_MNT=$(mktemp -d /tmp/src_root.XXXXXX)
-    sudo mount -o loop,ro "$SRC_ROOT" "$SRC_MNT"
-
-    DST_MNT=$(mktemp -d /tmp/src_root.XXXXXX)
-    sudo mount -o loop,ro "$DST_ROOT" "$DST_MNT"
-
-    sudo LD_LIBRARY_PATH=${LD_LIBRARY_PATH}  PATH=${PATH} "$GENERATOR" \
-        -new_dir "$DST_MNT" -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
-        -old_dir "$SRC_MNT" -old_image "$SRC_ROOT" -old_kernel "$SRC_KERNEL" \
-        -out_file "$FLAGS_output" -private_key "$FLAGS_private_key"
-  else
-    "$GENERATOR" \
-        -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
-        -out_file "$FLAGS_output" -private_key "$FLAGS_private_key"
-  fi
-
-  trap - INT TERM EXIT
-  cleanup noexit
-
-  if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
-    echo "Done generating delta."
-  else
-    echo "Done generating new style full update."
-  fi
+  sudo LD_LIBRARY_PATH=${LD_LIBRARY_PATH}  PATH=${PATH} "$GENERATOR" \
+      -new_dir "$DST_MNT" -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
+      -old_dir "$SRC_MNT" -old_image "$SRC_ROOT" -old_kernel "$SRC_KERNEL" \
+      -out_file "$FLAGS_output" -private_key "$FLAGS_private_key"
 else
-  echo "Generating old-style full update"
+  "$GENERATOR" \
+      -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
+      -out_file "$FLAGS_output" -private_key "$FLAGS_private_key"
+fi
 
-  trap cleanup INT TERM EXIT
-  DST_KERNEL=$(extract_partition_to_temp_file "$FLAGS_image" 2)
-  if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
-    patch_kernel "$FLAGS_image" "$DST_KERNEL"
-  fi
-  DST_ROOT=$(extract_partition_to_temp_file "$FLAGS_image" 3)
+trap - INT TERM EXIT
+cleanup noexit
 
-  GENERATOR="${SCRIPTS_DIR}/mk_memento_images.sh"
-
-  CROS_GENERATE_UPDATE_PAYLOAD_CALLED=1 "$GENERATOR" "$DST_KERNEL" "$DST_ROOT"
-  mv "$(dirname "$DST_KERNEL")/update.gz" "$FLAGS_output"
-
-  trap - INT TERM EXIT
-  cleanup noexit
+if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
+  echo "Done generating delta."
+else
   echo "Done generating full update."
 fi
