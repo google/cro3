@@ -63,7 +63,7 @@ if [ "${FLAGS_scrub}" = "${FLAGS_TRUE}" ]; then
     srcdir=$(readlink -m ${CROS_WORKON_SRCDIR})
     trunkdir=$(readlink -m ${CHROOT_TRUNK_DIR})
     project_path=${srcdir#${trunkdir}/}
-    if ! (cd "${GCLIENT_ROOT}/${project_path}" && git clean -xf); then
+    if ! (cd "${GCLIENT_ROOT}/${project_path}" && git clean -dxf); then
       die "Could not scrub source directory"
     fi
   else
