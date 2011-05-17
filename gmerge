@@ -55,12 +55,13 @@ class GMerger(object):
 
   def SetupPortageEnvironment(self, environ):
     """Setup portage to use stateful partition and fetch from dev server."""
+    binhost_prefix = '%s/static/pkgroot/%s' % (self.devkit_url, self.board_name)
     environ.update({
         'PORTDIR': '/usr/local/portage',
         'PKGDIR': '/usr/local/portage',
         'DISTDIR': '/usr/local/portage/distfiles',
-        'PORTAGE_BINHOST': '%s/static/pkgroot/%s/packages' % (
-            self.devkit_url, self.board_name),
+        'PORTAGE_BINHOST': '%s/packages %s/gmerge-packages' % (
+            binhost_prefix, binhost_prefix),
         'PORTAGE_TMPDIR': '/tmp',
         'CONFIG_PROTECT': '-*',
         'FEATURES': '-sandbox',
@@ -72,12 +73,13 @@ class GMerger(object):
     """Build the POST string that conveys our options to the devserver."""
     post_data = {'board': self.board_name,
                  'pkg': package_name,
-                 'features': os.environ.get('FEATURES', None),
-                 'use': os.environ.get('USE', None),
-                 'accept_stable': FLAGS.accept_stable,
+                 'features': os.environ.get('FEATURES'),
+                 'use': os.environ.get('USE'),
+                 'accept_stable': FLAGS.accept_stable or '',
+                 'usepkg': FLAGS.usepkg or '',
                 }
     post_data = dict([(key, value) for (key, value) in post_data.iteritems()
-                      if value])
+                      if value is not None])
     return urllib.urlencode(post_data)
 
   def RequestPackageBuild(self, package_name):
@@ -100,9 +102,9 @@ def main():
                     action='store_true', dest='accept_stable', default=False,
                     help=('Build even if a cros_workon package is not '
                           'using the live package'))
-  parser.add_option('-n', '--no_devserver',
-                    action='store_false', dest='call_devserver', default=True,
-                    help='Do not actually ask the server to build')
+  parser.add_option('-n', '--usepkg',
+                    action='store_true', dest='usepkg', default=False,
+                    help='Use binary packages.')
 
   (FLAGS, remaining_arguments) = parser.parse_args()
   if len(remaining_arguments) != 1:
@@ -114,16 +116,15 @@ def main():
   try:
     subprocess.check_call(['mount', '-o', 'remount,exec', '/tmp'])
     merger = GMerger(open('/etc/lsb-release').readlines())
-    if FLAGS.call_devserver:
-      merger.RequestPackageBuild(package_name)
-    else:
-      print 'Not requesting fresh build on server---installing whatever we find'
+    merger.RequestPackageBuild(package_name)
 
     print 'Emerging ', package_name
     merger.SetupPortageEnvironment(os.environ)
     merger.RemountOrChangeRoot(os.environ)
     subprocess.check_call([
         'emerge', '--getbinpkgonly', '--usepkgonly', package_name])
+    subprocess.check_call([
+        'rm', '-rf', '/usr/local/portage'])
   finally:
     subprocess.call(['mount', '-o', 'remount,noexec', '/tmp'])
 
