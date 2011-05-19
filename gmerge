@@ -56,12 +56,14 @@ class GMerger(object):
   def SetupPortageEnvironment(self, environ):
     """Setup portage to use stateful partition and fetch from dev server."""
     binhost_prefix = '%s/static/pkgroot/%s' % (self.devkit_url, self.board_name)
+    binhost = '%s/packages' % binhost_prefix
+    if not FLAGS.include_masked_files:
+      binhost += ' %s/gmerge-packages' % binhost_prefix
     environ.update({
         'PORTDIR': '/usr/local/portage',
         'PKGDIR': '/usr/local/portage',
         'DISTDIR': '/usr/local/portage/distfiles',
-        'PORTAGE_BINHOST': '%s/packages %s/gmerge-packages' % (
-            binhost_prefix, binhost_prefix),
+        'PORTAGE_BINHOST': binhost,
         'PORTAGE_TMPDIR': '/tmp',
         'CONFIG_PROTECT': '-*',
         'FEATURES': '-sandbox',
@@ -102,6 +104,10 @@ def main():
                     action='store_true', dest='accept_stable', default=False,
                     help=('Build even if a cros_workon package is not '
                           'using the live package'))
+  parser.add_option('--include_masked_files',
+                    action='store_true', dest='include_masked_files',
+                    default=False, help=('Include masked files in package '
+                                         '(e.g. debug symbols)'))
   parser.add_option('-n', '--usepkg',
                     action='store_true', dest='usepkg', default=False,
                     help='Use binary packages.')
