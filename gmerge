@@ -68,8 +68,7 @@ class GMerger(object):
         'CONFIG_PROTECT': '-*',
         'FEATURES': '-sandbox',
         'ACCEPT_KEYWORDS': 'arm x86 ~arm ~x86',
-        'ROOT': os.environ.get('ROOT', '/'),
-        'PORTAGE_CONFIGROOT': '/usr/local'
+        'ROOT': '/',
         })
 
   def GeneratePackageRequest(self, package_name):
