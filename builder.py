@@ -86,7 +86,7 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
   xpak.tbz2(out_path).recompose_mem(x)
 
 
-def _UpdateGmergeBinhost(board, pkg):
+def _UpdateGmergeBinhost(board, pkg, deep):
   """Add pkg to our gmerge-specific binhost.
 
   Files matching DEFAULT_INSTALL_MASK are not included in the tarball.
@@ -110,10 +110,16 @@ def _UpdateGmergeBinhost(board, pkg):
                                          settings=bintree.settings)
   gmerge_tree.populate()
 
-  # Create lists of matching packages.
-  gmerge_matches = set(gmerge_tree.dbapi.match(pkg))
-  bindb_matches = set(bintree.dbapi.match(pkg))
-  installed_matches = set(vardb.match(pkg)) & bindb_matches
+  if deep:
+    # If we're in deep mode, fill in the binhost completely.
+    gmerge_matches = set(gmerge_tree.dbapi.cpv_all())
+    bindb_matches = set(bintree.dbapi.cpv_all())
+    installed_matches = set(vardb.cpv_all()) & bindb_matches
+  else:
+    # Otherwise, just fill in the requested package.
+    gmerge_matches = set(gmerge_tree.dbapi.match(pkg))
+    bindb_matches = set(bintree.dbapi.match(pkg))
+    installed_matches = set(vardb.match(pkg)) & bindb_matches
 
   # Remove any stale packages that exist in the local binhost but are not
   # installed anymore.
@@ -142,6 +148,7 @@ def _UpdateGmergeBinhost(board, pkg):
       if old_build_time == build_time:
         continue
 
+    cherrypy.log('Filtering install mask from %s' % pkg, 'BUILD')
     _FilterInstallMaskFromPackage(build_path, gmerge_path)
     changed = True
 
@@ -206,7 +213,8 @@ class Builder(object):
           return self.SetError('Could not emerge ' + pkg)
 
       # Sync gmerge binhost.
-      if not _UpdateGmergeBinhost(board, pkg):
+      deep = additional_args.get('deep')
+      if not _UpdateGmergeBinhost(board, pkg, deep):
         return self.SetError('Package %s is not installed' % pkg)
 
       return 'Success\n'

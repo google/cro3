@@ -75,6 +75,7 @@ class GMerger(object):
   def GeneratePackageRequest(self, package_name):
     """Build the POST string that conveys our options to the devserver."""
     post_data = {'board': self.board_name,
+                 'deep': FLAGS.deep or '',
                  'pkg': package_name,
                  'features': os.environ.get('FEATURES'),
                  'use': os.environ.get('USE'),
@@ -96,6 +97,8 @@ class GMerger(object):
     except urllib2.HTTPError, e:
       # The exception includes the content, which is the error mesage
       sys.exit(e.read())
+    except urllib2.URLError, e:
+      sys.exit('Could not reach devserver. Reason: %s' % e.reason)
 
 
 def main():
@@ -111,12 +114,24 @@ def main():
                                          '(e.g. debug symbols)'))
   parser.add_option('-n', '--usepkg',
                     action='store_true', dest='usepkg', default=False,
-                    help='Use binary packages.')
+                    help='Use currently built binary packages on server.')
+  parser.add_option('-D', '--deep',
+                    action='store_true', dest='deep', default=False,
+                    help='Update package and all dependencies '
+                         '(requires --usepkg).')
+  parser.add_option('-x', '--extra', dest='extra', default='',
+                    help='Extra arguments to pass to emerge command.')
 
   (FLAGS, remaining_arguments) = parser.parse_args()
   if len(remaining_arguments) != 1:
     parser.print_help()
     sys.exit('Need exactly one package name')
+
+  # TODO(davidjames): Should we allow --deep without --usepkg? Not sure what
+  # the desired behavior should be in this case, so disabling the combo for
+  # now.
+  if FLAGS.deep and not FLAGS.usepkg:
+    sys.exit('If using --deep, --usepkg must also be enabled.')
 
   package_name = remaining_arguments[0]
 
@@ -128,10 +143,14 @@ def main():
     print 'Emerging ', package_name
     merger.SetupPortageEnvironment(os.environ)
     merger.RemountOrChangeRoot(os.environ)
-    subprocess.check_call([
-        'emerge', '--getbinpkgonly', '--usepkgonly', package_name])
-    subprocess.check_call([
-        'rm', '-rf', '/usr/local/portage'])
+    subprocess.check_call(['rm', '-rf', '/usr/local/portage'])
+    emerge_args = 'emerge --getbinpkgonly --usepkgonly --verbose'
+    if FLAGS.deep:
+      emerge_args += ' --update --deep'
+    if FLAGS.extra:
+      emerge_args += ' ' + FLAGS.extra
+    emerge_args += ' ' + package_name
+    subprocess.check_call(emerge_args, shell=True)
   finally:
     subprocess.call(['mount', '-o', 'remount,noexec', '/tmp'])
 
