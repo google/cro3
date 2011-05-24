@@ -152,7 +152,7 @@ function start_dev_server {
 
   info "Waiting on devserver to start"
   info "note: be patient as the server generates the update before starting."
-  until netstat -anp 2>&1 | grep 0.0.0.0:${FLAGS_devserver_port} > /dev/null; do
+  until netstat -lnp 2>&1 | grep :${FLAGS_devserver_port} > /dev/null; do
     sleep 5
     echo -n "."
     if ! pgrep -f start_devserver > /dev/null; then
