@@ -83,6 +83,7 @@ to_do="compile"
 if [ "${FLAGS_test}" = "${FLAGS_TRUE}" ]; then
   to_do="test"
   emerge_features="test"
+  rm -f "/build/${BOARD_STR}/tmp/portage/${workpath}/.tested"
 fi
 
 if [ "${FLAGS_install}" = "${FLAGS_TRUE}" ]; then
