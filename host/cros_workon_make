@@ -86,6 +86,12 @@ if [ "${FLAGS_test}" = "${FLAGS_TRUE}" ]; then
   rm -f "/build/${BOARD_STR}/tmp/portage/${workpath}/.tested"
 fi
 
+workdir="/build/${BOARD_STR}/tmp/portage/${workpath}/work/${workon_name}"
+if [ ! -h "${workdir}" ]; then
+  warn "Cleaning up stale workdir: ${workdir}"
+  FLAGS_reconf="${FLAGS_TRUE}"  # To force symlinking in the user's src dir.
+fi
+
 if [ "${FLAGS_install}" = "${FLAGS_TRUE}" ]; then
   SANDBOX_WRITE=~/trunk CROS_WORKON_INPLACE=1 \
     FEATURES="${emerge_features} ${FEATURES}" "${EMERGECMD}" "${1}"
