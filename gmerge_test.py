@@ -33,11 +33,14 @@ class GMergeTest(unittest.TestCase):
     old_env = os.environ
     os.environ = {}
     os.environ['USE'] = 'a b c d +e'
-    gmerge.FLAGS = Flags({'accept_stable': 'blah'})
+    gmerge.FLAGS = Flags({'accept_stable': 'blah',
+                          'deep': False,
+                          'usepkg': False})
 
     merger = gmerge.GMerger(self.lsb_release_lines)
     self.assertEqual(
-        'use=a+b+c+d+%2Be&pkg=package_name&board=x86-mario&accept_stable=blah',
+        'use=a+b+c+d+%2Be&board=x86-mario&deep=&pkg=package_name&usepkg=&'
+        'accept_stable=blah',
         merger.GeneratePackageRequest('package_name'))
     os.environ = old_env
 
