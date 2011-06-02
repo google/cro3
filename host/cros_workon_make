@@ -41,8 +41,15 @@ if [ -n "${FLAGS_board}" ]; then
   BOARD_KEYWORD="$(portageq-${FLAGS_board} envvar ARCH)"
 fi
 
+pkg="${1}"
+if [ "${pkg}" = "." ]; then
+  if ! pkg=$(git config workon.pkg); then
+    die "workon.pkg not set in git config for this project"
+  fi
+fi
+
 unstable_suffix="9999"
-workon_name="${1}-${unstable_suffix}"
+workon_name="${pkg}-${unstable_suffix}"
 pkgfile=
 workpath=
 
@@ -50,9 +57,9 @@ workpath=
 if ! pkgfile=$("${EQUERYCMD}" which "${workon_name}" 2> /dev/null); then
   if ACCEPT_KEYWORDS="~${BOARD_KEYWORD}" "${EQUERYCMD}" which "${workon_name}" \
       > /dev/null 2>&1; then
-    die "run 'cros_workon --board ${BOARD_STR} start ${1}' first!" 1>&2
+    die "run 'cros_workon --board ${BOARD_STR} start ${pkg}' first!" 1>&2
   fi
-  die "error looking up package $1"
+  die "error looking up package ${pkg}"
 fi
 
 if [ "${FLAGS_scrub}" = "${FLAGS_TRUE}" ]; then
@@ -94,7 +101,7 @@ fi
 
 if [ "${FLAGS_install}" = "${FLAGS_TRUE}" ]; then
   SANDBOX_WRITE=~/trunk CROS_WORKON_INPLACE=1 \
-    FEATURES="${emerge_features} ${FEATURES}" "${EMERGECMD}" "${1}"
+    FEATURES="${emerge_features} ${FEATURES}" "${EMERGECMD}" "${pkg}"
   exit $?
 fi
 
