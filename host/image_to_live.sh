@@ -74,7 +74,7 @@ function cleanup {
     kill_all_devservers
   fi
   cleanup_remote_access
-  rm -rf "${TMP}"
+  sudo rm -rf "${TMP}" || true
 }
 
 function remote_reboot_sh {
