@@ -12,6 +12,8 @@ get_default_board
 
 DEFINE_string board "${DEFAULT_BOARD}" \
     "Board for which to build the package."
+DEFINE_boolean reconf "${FLAGS_FALSE}" \
+  "Re-run configure and prepare steps."
 
 set -e
 # Parse command line.
@@ -48,7 +50,12 @@ fi
 workpath=$(\
     echo "${pkgfile}" | \
         awk -F '/' '{ print $(NF-2) "/" $(NF-1) }')-"${unstable_suffix}"
-rm -f "/build/${BOARD_STR}/tmp/portage/${workpath}/.compiled"
+clean=
+if [ "${FLAGS_reconf}" = "${FLAGS_TRUE}" ]; then
+  clean="clean"
+else
+  rm -f "/build/${BOARD_STR}/tmp/portage/${workpath}/.compiled"
+fi
 
-CCACHE_SIZE=2G CHROME_ORIGIN=LOCAL_SOURCE FEATURES="ccache -usersandbox" \
-  USE="-build_tests gold" "${EBUILDCMD}" "${pkgfile}" compile
+CCACHE_SIZE=2G CHROME_ORIGIN=LOCAL_SOURCE FEATURES="ccache" \
+  USE="-build_tests" "${EBUILDCMD}" "${pkgfile}" ${clean} compile
