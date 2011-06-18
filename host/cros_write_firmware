@@ -18,10 +18,12 @@ DEFINE_string firmware "" "Path to firmware image to write."
 DEFINE_string flasher "" "Path to flasher image to use."
 DEFINE_string script "" "Path to flasher script to use."
 DEFINE_string bct "" "Path to bct image to write."
+DEFINE_string dtb "" "Path to dtb (device tree blob) file to use."
 DEFINE_string map "" "Path to System.map file to read for load address."
 DEFINE_string config "" "Directory for temporary configuration files."
 DEFINE_boolean sign $FLAGS_FALSE "Sign and append a BCT to the firmware image."
 DEFINE_boolean dry_run $FLAGS_FALSE "Do everything except calling nvflash."
+DEFINE_boolean next $FLAGS_FALSE "Pull flasher from u-boot-next"
 
 # Parse command line.
 FLAGS "$@" || exit 1
@@ -59,18 +61,24 @@ function to_hex() {
   awk "BEGIN { printf \"0x%x\", $1 }"
 }
 
+# Given flasher and dtb, return an estimated size that should be sufficiently
+# large for the final flasher image (which is the two combined)
+function estimate_final_flasher_size() {
+  local flasher_size=$(stat -c"%s" "$1")
+  local dtb_size=$(stat -c"%s" "$2")
+  round $((${flasher_size} + ${dtb_size})) 65536
+}
+
 # Create the flashing script.  This script will be loaded and run by the flasher
 # build of U-Boot.  Most of the script is constant, we just need to append the
 # sizes and address of the payload.
-#
-# TODO(robotboy): Compute the address from the text_base (0xe08000) +
-# flasher image size (0x40000) + script block (0x1000)
 function make_flashing_script() {
   local firmware=$1
   local script=$2
   local firmware_size=$(stat -c"%s" "${firmware}")
+  local image_address=$((${text_base} + ${script_offset} + ${script_size}))
 
-  echo "setenv address       0xe49000"
+  echo "setenv address       $(to_hex ${image_address})"
   echo "setenv firmware_size $(to_hex ${firmware_size})"
   echo "setenv length        $(to_hex $(round ${firmware_size} 4096))"
 
@@ -89,13 +97,25 @@ function get_text_base() {
 
 u_boot="/build/${BOARD_VARIANT}/u-boot"
 
+if [ $FLAGS_next -eq $FLAGS_TRUE ]; then
+  default_flasher="${u_boot}/u-boot.bin"
+else
+  default_flasher="${u_boot}/u-boot-flasher.bin"
+fi
+
 # Generate default values for the firmware, flasher, BCT, map and flash config
 # file paths from the board and variant information provided.
 firmware=${FLAGS_firmware:-"${u_boot}/image.bin"}
-flasher=${FLAGS_flasher:-"${u_boot}/u-boot-flasher.bin"}
+flasher=${FLAGS_flasher:-"${default_flasher}"}
 script=${FLAGS_script:-"${u_boot}/flasher.script"}
 bct=${FLAGS_bct:-"${u_boot}/bct/board.bct"}
+dtb=${FLAGS_dtb:-"${u_boot}/u-boot.dtb"}
 map=${FLAGS_map:-"${u_boot}/System.map"}
+
+# Default value that hard-coded in u-boot-flasher.bin; use $(()) to convert
+# hexadecimal into decimal values
+script_offset=$((0x40000))
+script_size=$((0x1000))
 
 # Extract the load and entry point for U-Boot.
 text_base="0x$(get_text_base "${map}")"
@@ -106,10 +126,29 @@ check_for_file "flasher" "  " "${flasher}"
 check_for_file "script" "   " "${script}"
 check_for_file "BCT" "      " "${bct}"
 check_for_file "map" "      " "${map}"
+if [ $FLAGS_next -eq $FLAGS_TRUE ]; then
+  check_for_file "DTB" "      " "${dtb}"
+fi
 
 check_for_tool "nvflash" "nvflash"
+if [ $FLAGS_next -eq $FLAGS_TRUE ]; then
+  check_for_tool "dtget" "dtget"
+  check_for_tool "dtput" "dtput"
+fi
 
 show_u_boot_info "${firmware}"
+
+# Estimate final script offset and size; this can only be done for u-boot-next
+# because it does not hard-code these values in configuration. This is only an
+# estimation because the dtb size may (or may not) be increased after we write
+# bootcmd into it. So later we will have to check whether the flasher size is
+# not larger than our estimation.
+if [ $FLAGS_next -eq $FLAGS_TRUE ]; then
+  script_offset="$(estimate_final_flasher_size "${flasher}" "${dtb}")"
+  script_size=$(round $(stat -c"%s" ${script}) 4096)
+fi
+info "Flasher script offset: $(to_hex ${script_offset})"
+info "Flasher script size:   $(to_hex ${script_size})"
 
 # If the user has not specified a config directory then create one on the fly
 # and remove it when we are done.
@@ -139,17 +178,57 @@ else
   signed_firmware=${firmware}
 fi
 
+if [ $FLAGS_next -eq $FLAGS_TRUE ]; then
+  # make a copy of dtb
+  cp ${dtb} ${config}/u-boot.dtb
+  dtb="${config}/u-boot.dtb"
+
+  # write bootcmd to the dtb
+  #
+  # FIXME "%[^^]" (matching anything except '^' character) is a
+  # hack of putting a bootcmd string that:
+  #   * contains whitespace character
+  #   * but does not contain '^' character (so the choice of '^'
+  #     is somewhat arbitrarily)
+  # input the dtb file with a '\0' termination.
+  #
+  # We cannot use "%s", which stops at whitespace, and we cannot
+  # use "%${#bootcmd}c", which does not add '\0' to the scanned
+  # string. So our only option left is "%[^^]", which does not
+  # stop at whitespace and adds '\0' to the end.
+  #
+  bootcmd="source $(to_hex $((${text_base} + ${script_offset})))"
+  dtput -t s -f "%[^^]" ${dtb} /config/bootcmd "${bootcmd}"
+  info "Flasher bootcmd: '$(dtget -t s ${dtb} /config/bootcmd)'"
+
+  # create flasher
+  cat ${flasher} ${dtb} > ${config}/u-boot-flasher.bin
+  flasher="${config}/u-boot-flasher.bin"
+fi
+
 # Create the flashing script and turn it into a U-Boot uImage.
 make_flashing_script "${signed_firmware}" "${script}" > ${config}/script
 
 mkimage -A arm -T script -d ${config}/script ${config}/script.uimg > /dev/null
 
+# check whether our estimated script offset and size makes sense
+final_script_offset=$(stat -c"%s" "${flasher}")
+if [ ${final_script_offset} -gt ${script_offset} ]; then
+  die "script offset > estimation: $(to_hex ${final_script_offset})"
+fi
+final_script_size=$(stat -c"%s" "${config}/script.uimg")
+if [ ${final_script_size} -gt ${script_size} ]; then
+  die "script size > estimation: $(to_hex ${final_script_size})"
+fi
+
 # Construct RAM image of flasher + script + firmware.  The firmware should
 # already be signed by cbootimage.  The RAM image has a fixed 256K partition
 # for the flasher, followed by the script and payload to be written.
+b1=$((${script_offset} / 512))
+b2=$(((${script_offset} + ${script_size}) / 512))
 dd if="${flasher}"            of="${config}/image"          &> /dev/null
-dd if="${config}/script.uimg" of="${config}/image" seek=512 &> /dev/null
-dd if="${signed_firmware}"    of="${config}/image" seek=520 &> /dev/null
+dd if="${config}/script.uimg" of="${config}/image" seek=$b1 &> /dev/null
+dd if="${signed_firmware}"    of="${config}/image" seek=$b2 &> /dev/null
 
 if [ $FLAGS_dry_run -eq $FLAGS_FALSE ]; then
   # Write the RAM image image to the board.  The flasher will write the payload
