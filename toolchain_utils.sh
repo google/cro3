@@ -9,7 +9,8 @@
 get_ctarget_from_board()
 {
   local board="$1"
-  local board_overlay=$(cros_overlay_list --board="$board" --primary_only)
+  local base_board=$(echo ${board} | cut -d '_' -f 1)
+  local board_overlay=$(cros_overlay_list --board="$base_board" --primary_only)
   cat "$board_overlay/toolchain.conf"
 }
 
@@ -86,11 +87,11 @@ cros_gcc_config()
   local ctarget=$(get_ctarget_from_atom "$atom")
   for board_root in /build/*
   do
-    local board=$(basename ${board_root} | cut -d '_' -f 1)
+    local board=$(basename $board_root)
     local board_tc=$(get_ctarget_from_board $board)
     if [[ "${board_tc}" == "${ctarget}" ]]
     then
-      copy_gcc_libs "/build/$board" $atom
+      copy_gcc_libs "$board_root" $atom
     fi
   done
 }
