@@ -1,0 +1,600 @@
+#!/usr/bin/python
+
+# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+"""This utility builds a firmware image for a tegra-based board.
+
+This utility uses a few rudimentary libraries for its activity.
+
+Hint: in order to run this outside the chroot you will need the following
+from the chroot:
+
+  /usr/bin:
+    bmpblk_utility
+    gbb_utility
+    cbootimage
+    vbutil_firmware
+    dtget
+    dtput
+
+  /usr/lib:
+    liblzma.so.0*
+    libyaml-0.so.1*
+
+Here are the names we give to the various files we deal with. It is important
+to keep these consistent!
+
+  uboot     u-boot.bin (with no device tree)
+  fdt       the fdt blob
+  bct       the BCT file
+  bootstub  uboot + fdt
+  signed    (uboot + fdt + bct) signed blob
+
+"""
+
+# Python imports
+import optparse
+import os
+import re
+import sys
+import shutil
+import subprocess
+import tempfile
+import time
+
+# Add the path to our own libraries
+base = os.path.dirname(sys.argv[0])
+sys.path.append(base)
+sys.path.append(os.path.join(base, 'lib'))
+
+from pack_firmware import PackFirmware
+from tools import Tools
+from fdt import Fdt
+from tools import CmdError
+import cros_build_lib
+
+# TODO(sjg): Move this into Chromite libraries when we have them
+_STDOUT_IS_TTY = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
+
+# This data is required by bmpblk_utility. Does it ever change?
+# It is currently stored with the chromeos-bootimage ebuild, but we want
+# this utility to work outside the chroot.
+yaml_data = '''
+bmpblock: 1.0
+
+images:
+    devmode:    DeveloperBmp/DeveloperBmp.bmp
+    recovery:   RecoveryBmp/RecoveryBmp.bmp
+    rec_yuck:   RecoveryNoOSBmp/RecoveryNoOSBmp.bmp
+    rec_insert: RecoveryMissingOSBmp/RecoveryMissingOSBmp.bmp
+
+screens:
+  dev_en:
+    - [0, 0, devmode]
+  rec_en:
+    - [0, 0, recovery]
+  yuck_en:
+    - [0, 0, rec_yuck]
+  ins_en:
+    - [0, 0, rec_insert]
+
+localizations:
+  - [ dev_en, rec_en, yuck_en, ins_en ]
+'''
+
+def RoundUp(value, boundary):
+  """Align a value to the next power of 2 boundary.
+
+  Args:
+    value: The value to align.
+    boundary: The boundary value, e.g. 4096. Must be a power of 2.
+
+  Returns:
+    The rounded-up value.
+  """
+  return (value + boundary - 1) & ~(boundary - 1)
+
+
+class Bundle:
+  """This class encapsulates the entire bundle firmware logic."""
+
+  def __init__(self, options, args):
+    self.options = options
+    self.args = args
+    self.progress = ''          # Our last progress message
+    self.color = cros_build_lib.Color()
+    self.delete_tempdir = None  # Path to temp directory to remove at end
+    self.outdir = None          # Directory where we create output files
+    self.verbose = options.verbosity
+
+  def __del__(self):
+    """Clean up and remove any progress message."""
+    self._ClearProgress()
+    self._FinalizeOutputDir()
+
+  def _ClearProgress(self):
+    """Clear any active progress message on the terminal."""
+    if self.verbose > 0 and _STDOUT_IS_TTY:
+      sys.stdout.write('\r%s\r' % (" " * len (self.progress)))
+      sys.stdout.flush()
+
+  def _Progress(self, msg, warning=False):
+    """Display progress information.
+
+    Args:
+      msg: Message to display."""
+    self._ClearProgress()
+    if self.verbose > 0:
+      self.progress = msg + '...'
+      if _STDOUT_IS_TTY:
+        col = self.color.YELLOW if warning else self.color.GREEN
+        sys.stdout.write('\r' + self.color.Color(col, self.progress))
+        sys.stdout.flush()
+      else:
+        print self.progress
+
+  def _Output(self, level, msg, error=False):
+    """Output a message to the terminal.
+
+    Args:
+      level: Verbosity level for this message. It will only be displayed if
+          this as high as the currently selected level.
+      msg; Message to display.
+      error: True if this is an error message, else False.
+    """
+    self._ClearProgress()
+    if self.verbose >= level:
+      if error:
+        msg = self.color.Color(self.color.RED, msg)
+      print msg
+
+  def _OutputSize(self, label, filename):
+    """Display the filename and size of an object with log level 2.
+
+    Args:
+      label: Label for this file.
+      filename: Filename to output.
+    """
+    filename = self.tools.Filename(filename)
+    size = os.stat(filename).st_size
+    self._Output(2, "%s: %s; size: %d / %#x" % (label, filename, size, size))
+
+  def _Error(self, msg):
+    """Display an error message
+
+    Args:
+      msg; Message to display.
+    """
+    self._Output(0, msg, True)
+
+  def _CheckOptions(self):
+    """Check provided options and select defaults."""
+    options = self.options
+    build_root = os.path.join('##', 'build', options.board, 'u-boot')
+    if not options.fdt:
+      options.fdt = os.path.join(build_root, 'dtb', '%s.dtb' %
+          re.sub('_', '-', options.board))
+    if not options.uboot:
+      options.uboot = os.path.join(build_root, 'u-boot.bin')
+    if not options.bct:
+      options.bct = os.path.join(build_root, 'bct', 'board.bct')
+
+  def _CheckTools(self):
+    """Check that all required tools are present.
+
+    Raises:
+      CmdError if a required tool is not found.
+    """
+    if self.options.write:
+      self.tools.CheckTool('nvflash')
+    self.tools.CheckTool('dtput', 'dtc')
+    self.tools.CheckTool('dtget', 'dtc')
+
+  def _CreateGoogleBinaryBlock(self):
+    """Create a GBB for the image.
+
+    Returns:
+      Path of the created GBB file.
+
+    Raises:
+      CmdError if a command fails.
+    """
+    hwid = self.fdt.GetString('/config/hwid')
+    gbb_size = self.fdt.GetFlashPartSize('ro', 'gbb')
+    dir = self.outdir
+
+    # Get LCD dimentions from the device tree.
+    screen_geometry = '%sx%s' % (self.fdt.GetInt('/lcd/width'),
+        self.fdt.GetInt('/lcd/height'))
+
+    # This is the magic directory that make_bmp_image writes to!
+    out_dir = 'out_%s' % re.sub(' ', '_', hwid)
+    bmp_dir = os.path.join(dir, out_dir)
+    self._Progress('Creating bitmaps')
+    self.tools.Run('make_bmp_image', [hwid, screen_geometry, 'arm'], cwd=dir)
+
+    self._Progress('Creating bitmap block')
+    yaml = 'config.yaml'
+    self.tools.WriteFile(os.path.join(bmp_dir, yaml), yaml_data)
+    self.tools.Run('bmpblk_utility', ['-z', '2', '-c', yaml, 'bmpblk.bin'],
+        cwd=bmp_dir)
+
+    self._Progress('Creating GBB')
+    sizes = [0x100, 0x1000, gbb_size - 0x2180, 0x1000]
+    sizes = ['%#x' % size for size in sizes]
+    gbb = 'gbb.bin'
+    keydir = self.tools.Filename(self.options.key)
+    self.tools.Run('gbb_utility', ['-c', ','.join(sizes), gbb], cwd=dir)
+    self.tools.Run('gbb_utility', ['-s',
+        '--hwid=%s' % hwid,
+        '--rootkey=%s/root_key.vbpubk' % keydir,
+        '--recoverykey=%s/recovery_key.vbpubk' % keydir,
+        '--bmpfv=%s' % os.path.join(out_dir, 'bmpblk.bin'),
+        gbb],
+        cwd=dir)
+    return os.path.join(dir, gbb)
+
+  def _SignBootstub(self, bct, bootstub, text_base, name):
+    """Sign an image so that the Tegra SOC will boot it.
+
+    Args:
+      bct: BCT file to use.
+      bootstub: Boot stub (U-Boot + fdt) file to sign.
+      text_base: Address of text base for image.
+      name: root of basename to use for signed image.
+
+    Returns:
+      filename of signed image.
+
+    Raises:
+      CmdError if a command fails.
+    """
+    # First create a config file
+    signed = os.path.join(self.outdir, 'signed%s.bin' % name)
+    self._Progress('Signing Bootstub')
+    config = os.path.join(self.outdir, 'boot%s.cfg' % name)
+    fd = open(config, 'w')
+    fd.write('Version    = 1;\n')
+    fd.write('Redundancy = 1;\n')
+    fd.write('Bctfile    = %s;\n' % bct)
+    fd.write('BootLoader = %s,%#x,%#x,Complete;\n' % (bootstub, text_base,
+        text_base))
+    fd.close()
+
+    self.tools.Run('cbootimage', [config, signed])
+    self._OutputSize('BCT', bct)
+    self._OutputSize('Signed image', signed)
+    return signed
+
+  def _CreateBootStub(self, uboot, fdt, text_base):
+    """Create a boot stub and a signed boot stub.
+
+    Args:
+      uboot: Path to u-boot.bin (may be chroot-relative)
+      fdt: Path to FDT (may be chroot-relative)
+      text_base: Address of text base for image.
+
+    Returns:
+      Tuple containing:
+        Full path to u-boot.bin.
+        Full path to bootstub.
+
+    Raises:
+      CmdError if a command fails.
+    """
+    options = self.options
+    uboot_data = self.tools.ReadFile(uboot)
+    fdt_data = self.tools.ReadFile(fdt)
+    bootstub = os.path.join(self.outdir, 'u-boot-fdt.bin')
+    self.tools.WriteFile(bootstub, uboot_data + fdt_data)
+    self._OutputSize('U-Boot binary', options.uboot)
+    self._OutputSize('U-Boot fdt', options.fdt)
+    self._OutputSize('Combined binary', bootstub)
+
+    # sign the bootstub; this is a combination of the board specific
+    # bct and the stub u-boot image.
+    signed = self._SignBootstub(self.tools.Filename(options.bct), bootstub,
+        text_base, '')
+    return self.tools.Filename(uboot), signed
+
+  def _PackOutput(self, msg):
+    """Helper function to write output from PackFirmware (verbose level 2).
+
+    This is passed to PackFirmware for it to use to write output.
+
+    Args:
+      msg: Message to display.
+    """
+    self._Output(2, msg)
+
+  def _CreateImage(self, gbb, text_base):
+    """Create a full firmware image, along with various by-products.
+
+    This uses the provided u-boot.bin, fdt and bct to create a firmware
+    image containing all the required parts. If the GBB is not supplied
+    then this will just return a signed U-Boot as the image.
+
+    Args:
+      gbb       Full path to the GBB file, or empty if a GBB is not required.
+      text_base: Address of text base for image.
+
+    Raises:
+      CmdError if a command fails.
+    """
+
+    options = self.options
+    self._Output(2, "Model: %s" % self.fdt.GetString('/model'))
+
+    # Create the boot stub, which is U-Boot plus an fdt and bct
+    uboot, signed = self._CreateBootStub(options.uboot, options.fdt, text_base)
+
+    if gbb:
+      pack = PackFirmware(self._PackOutput, self.tools, self.verbose)
+      image = os.path.join(self.outdir, 'image.bin')
+      fwid = self.tools.GetChromeosVersion()
+      self._Output(2, 'Firmware ID: %s' % fwid)
+      pack.SetupFiles(boot=uboot, signed=signed, gbb=gbb,
+          fwid=fwid, keydir=options.key)
+      pack.SelectFdt(self.fdt)
+      pack.PackImage(self.outdir, image)
+    else:
+      image = signed
+
+    self._OutputSize('Final image', image)
+    return uboot, image
+
+  def _GetFlashScript(self, load_address, payload_size):
+    """Get the U-Boot boot command needed to flash U-Boot.
+
+    Args:
+      load_address: Load address for the payload (in SDRAM).
+      payload_size: Size of payload in bytes.
+
+    Returns:
+      The script, as a string.
+    """
+    cmds = [
+        'setenv address       %#x' % load_address,
+        'setenv firmware_size %#x' % payload_size,
+        'setenv length        %#x' % RoundUp(payload_size, 4096),
+        'setenv _crc   "crc32 ${address} ${firmware_size}"',
+        'setenv _init  "echo Initing SPI;  sf probe            0"',
+        'setenv _erase "echo Erasing SPI;  sf erase            0 ${length}"',
+        'setenv _write "echo Writing SPI;  sf write ${address} 0 ${length}"',
+        'setenv _clear "echo Clearing RAM; mw.b     ${address} 0 ${length}"',
+        'setenv _read  "echo Reading SPI;  sf read  ${address} 0 ${length}"',
+
+        'echo Firmware loaded to ${address}, size ${firmware_size}, '
+            'length ${length}',
+        'run _crc',
+        'run _init',
+        'run _erase',
+        'run _write',
+        'run _clear',
+        'run _read',
+        'run _crc',
+        'echo If the two CRCs above are equal, flash was successful.'
+    ]
+    script = '; '.join(cmds)
+    return script
+
+  def PrepareFlasher(self, text_base, uboot, payload):
+    """Get a flasher ready for sending to the board.
+
+    The flasher is an executable image consisting of:
+
+      - U-Boot (u-boot.bin)
+      - a special FDT to tell it what to do in the form of a run command
+      - (we could add some empty space here, in case U-Boot is not built to
+          be relocatable)
+      - the payload (which is a full flash image, or signed U-Boot + fdt)
+
+    Args:
+      text_base: Start execution address of U-Boot.
+      uboot: Full path to u-boot.bin.
+      payload: Full path to payload.
+
+    Returns:
+      Filename of the flasher binary created."
+    """
+    fdt = self.fdt.Copy(os.path.join(self.outdir, 'flasher.dtb'))
+    payload_size = os.stat(payload).st_size
+    payload_offset = os.stat(uboot).st_size + os.stat(fdt.fname).st_size
+
+    # Allow space for FDT to grow when we change it
+    space = 0x4000
+    payload_offset += space
+
+    script = self._GetFlashScript(text_base + payload_offset, payload_size)
+    fdt.PutString('/config/bootcmd', script)
+
+    # Now put it together
+    data = self.tools.ReadFile(uboot)
+    data += self.tools.ReadFile(fdt.fname)
+    data += "\0" * (payload_offset - len(data))
+    data += self.tools.ReadFile(payload)
+    flasher = os.path.join(self.outdir, 'flasher-for-image.bin')
+    self.tools.WriteFile(flasher, data)
+
+    # Tell the user about a few things
+    self._OutputSize('U-Boot', uboot)
+    self._OutputSize('Flasher', flasher)
+    return flasher
+
+  def _FlashImage(self, text_base, uboot, payload):
+    """Flash the image to SPI flash.
+
+    This creates a special Flasher binary with the image to be flashed as
+    a payload. This is then sent to the board using the nvflash utility.
+
+    Args:
+      text_base: Start execution address of U-Boot.
+      uboot: Full path to u-boot.bin.
+      payload: Full path to payload.
+
+    Returns:
+      True if ok, False if failed.
+    """
+    flasher = self.PrepareFlasher(text_base, uboot, payload)
+
+    self._Progress('Uploading flasher image')
+    args = [
+      'nvflash',
+      '--bct', self.options.bct,
+      '--setbct',
+      '--bl',  flasher,
+      '--go',
+      '--setentry', "%#x" % text_base, "%#x" % text_base
+    ]
+
+    # TODO(sjg): Check for existence of board - but chroot has no lsusb!
+    last_err = None
+    for tries in range(10):
+      try:
+        # TODO(sjg): Make sudo an argument to Run()
+        # TODO(sjg): Use Chromite library so we can monitor output
+        self.tools.Run('sudo', args)
+        self._Output(2, 'Flasher downloaded - please see serial output for '
+            'progress.')
+        return True
+
+      except CmdError as err:
+        if not _STDOUT_IS_TTY:
+          return False
+
+        # Only show the error output once unless it changes.
+        err = str(err)
+        if not 'USB device not found' in err:
+          raise CmdError('nvflash failed: %s' % err)
+
+        if err != last_err:
+          self._Output(2, err)
+          last_err = err
+          self._Progress('Please connect USB A-A cable and do a '
+              'recovery-reset', True)
+        time.sleep(1)
+
+    return False
+
+  def _PrepareOutputDir(self, outdir):
+    """Select an output directory, ensuring it exists.
+
+    This either creates a temporary directory or checks that the one supplied
+    by the user is valid. For a temporary directory, it makes a note to
+    remove it later if required.
+
+    Args:
+      outdir: Output directory to use, or None to use a temporary dir.
+
+    Raises:
+      OSError: If it cannot create the output directory.
+    """
+    self.outdir = outdir
+    if self.outdir:
+      if not os.path.isdir(self.outdir):
+        try:
+          os.makedirs(self.outdir)
+        except OSError as err:
+          raise CmdError("Cannot make output directory '%s': '%s'" %
+              (self.outdir, err))
+
+    else:
+      self.outdir = tempfile.mkdtemp()
+      self.delete_tempdir = self.outdir
+
+  def _FinalizeOutputDir(self):
+    """Tidy up the output direcory, deleting it if temporary"""
+    if self.delete_tempdir and not self.options.preserve:
+      shutil.rmtree(self.delete_tempdir)
+    elif self.outdir:
+      self._Output(2, "Output directory '%s'" % self.outdir)
+
+  def Start(self):
+    """This performs all the requested operations for this script.
+
+      - Checks options, tools, output directory, fdt.
+      - Creates GBB and image.
+      - Writes image to board.
+    """
+    self._CheckOptions()
+    self.tools = Tools(self.verbose)
+    self._CheckTools()
+
+    self._PrepareOutputDir(self.options.outdir)
+    self.fdt = Fdt(self.tools, self.options.fdt)
+
+    text_base = self.fdt.GetInt('/chromeos-config/textbase');
+    gbb = ''
+    if not self.options.small:
+      gbb = self._CreateGoogleBinaryBlock()
+
+    # This creates the actual image, then writes it to the board if required
+    uboot, image = self._CreateImage(gbb, text_base)
+    if self.options.write:
+      if self._FlashImage(text_base, uboot, image):
+        self._Progress('Image uploaded - please wait for flashing to complete')
+      else:
+        raise CmdError('Image upload failed - please check board connection')
+
+
+def main():
+  """Main function for cros_bundle_firmware."""
+  parser = optparse.OptionParser()
+  parser.add_option('-v', '--verbosity', dest='verbosity', default=1,
+      type='int', help='Control verbosity: 0=silent, 1=progress, 3=full, '
+      '4=debug')
+  parser.add_option('-c', '--bct', dest='bct', type='string', action='append',
+      help='Path to BCT source file: more than one can be given')
+  parser.add_option('-k', '--key', dest='key', type='string', action='store',
+      help='Path to signing key directory (default to dev key)',
+      default='##/usr/share/vboot/devkeys')
+  parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
+      help='Path to fdt file to use (source .dts or binary ,dtb). For '
+          'source files you can specify more than one. Properties defined '
+          'in later ones will override earlier ones')
+  parser.add_option('-I', '--hwid', dest='hardware_id', type='string',
+      action='store', help='Hardware ID string to use')
+  parser.add_option('-u', '--uboot', dest='uboot', type='string',
+      action='store', help='Executable bootloader file (U-Boot)')
+  parser.add_option('-w', '--write', dest='write', action='store_true',
+      default=False, help='Write firmware to SPI flash with USB A-A cable')
+  parser.add_option('-b', '--board', dest='board', type='string',
+      action='store', help='Board name to use (e.g. tegra2_kaen)',
+      default='tegra2_seaboard')
+  parser.add_option('-o', '--outdir', dest='outdir', type='string',
+      action='store', help='Path to directory to use for intermediate and '
+      'output files')
+  parser.add_option('-p', '--preserve', dest='preserve', action='store_true',\
+      help='Preserve temporary output directory')
+  parser.add_option('-s', '--small', dest='small', action='store_true',
+      help='Create/write only the signed U-Boot binary (not the full image)')
+
+  (options, args) = parser.parse_args(sys.argv)
+  bundle = Bundle(options, args)
+
+  try:
+    bundle.Start()
+  except (CmdError, ValueError) as err:
+    # For verbosity 4 we want to display all possible information
+    if options.verbosity >= 4:
+      bundle._ClearProgress()
+      del bundle
+      raise
+    else:
+      bundle._Error(str(err))
+  del bundle
+
+
+def _Test():
+  """Run any built-in tests."""
+  import doctest
+  doctest.testmod()
+
+if __name__ == '__main__':
+  # If first argument is --test, run testing code.
+  if sys.argv[1:2] == ["--test"]:
+    _Test(*sys.argv[2:])
+  else:
+    main()
