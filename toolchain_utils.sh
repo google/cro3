@@ -129,6 +129,8 @@ emerge_gcc()
   return $emerge_retval
 }
 
+# This function should only be called when testing experimental toolchain
+# compilers. Please don't call this from any other script.
 cros_gcc_config()
 {
   # Return if we're not switching profiles.
@@ -152,11 +154,16 @@ cros_gcc_config()
 
   sudo gcc-config "$1" || die "Could not switch to $1"
 
-  cros_install_libs_for_config "$1"
+  local boards=$(get_boards_from_config "$1")
+  local board
+  for board in $boards
+  do
+    cros_install_libs_for_config "$board" "$atom"
+    emerge-"$board" --oneshot sys-devel/libtool
+  done
 }
 
-
-cros_install_libs_for_config()
+get_boards_from_config()
 {
   local atom=$(get_installed_atom_from_config "$1")
   if [[ $atom != cross* ]]
@@ -174,7 +181,14 @@ cros_install_libs_for_config()
     local board_tc="$(get_ctarget_from_board $board)"
     if [[ "${board_tc}" == "${ctarget}" ]]
     then
-      copy_gcc_libs "$board_root" "$atom"
+      echo "$board"
     fi
   done
+}
+
+cros_install_libs_for_config()
+{
+  local board="$1"
+  local atom=$(get_installed_atom_from_config "$2")
+  copy_gcc_libs /build/"$board" "$atom"
 }
