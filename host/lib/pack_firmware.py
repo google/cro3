@@ -16,6 +16,8 @@ from tools import Tools
 from fdt import Fdt
 import tools
 
+# TODO(sjg): Once we have a stable fdt, write some unit tests for this
+
 # TODO(clchiou): Rewrite this part after official flashmap implementation is
 # pulled into Chromium OS code base.
 
@@ -119,9 +121,21 @@ class Entry(dict):
         raise ConfigError("Entry %s, property %s: could not convert '%s'"
             " to integer" % (self['name'], f, self[f]))
 
-  def IsOverlapped(self, entry):
-    return (entry.offset <= self.offset < entry.offset + entry.size or
-            self.offset <= entry.offset < self.offset + self.size)
+  def GetOverlap(self, entry):
+    """Returns the amount by which we overlap with the supplied entry.
+
+    Args:
+      entry: Entry to check.
+
+    Returns:
+      Amount of overlap:
+        0: the entries butt up together.
+        <0: there is a gap bewteen the entries.
+        >0: there is overlap.
+    """
+    a = [self.offset, self.offset + self.size]
+    b = [entry.offset, entry.offset + entry.size]
+    return min(a[1], b[1]) - max(a[0], b[0])
 
   def GetData(self):
     """Method implemented by subclasses to return data for the entry.
@@ -427,6 +441,31 @@ class PackFirmware:
     self.props['fwid'] = fwid
     self.keydir = keydir
 
+  def _CheckOverlap(self):
+    """Check that no entries overlap each other.
+
+    We only allow section areas to overlap - anything with actual data in it
+    must not overlap.
+    """
+    entries = sorted(self.entries, key=lambda e: e.offset)
+    for e1, e2 in zip(entries, entries[1:]):
+      # Allow overlap between "pure" fmap areas, but not any of its subclasses
+      # Here we exploit the fact that Entry is a new-style class
+      if type(e1) is EntryFmapArea or type(e2) is EntryFmapArea:
+        continue
+
+      overlap = e1.GetOverlap(e2)
+      if overlap > 0:
+        raise ValueError('Flash map entries overlap by %d bytes: '
+            '%s: %08x-%08x, %s: %08x-%08x' %
+            (overlap, e1.label, e1.offset, e1.offset + e1.size,
+             e2.label, e2.offset, e2.offset + e2.size))
+      elif overlap is not 0:
+        self.output('Warning: Flash map has a gap of %d bytes: '
+            '%s: %08x-%08x, %s: %08x-%08x' %
+            (-overlap, e1.label, e1.offset, e1.offset + e1.size,
+             e2.label, e2.offset, e2.offset + e2.size))
+
   def SelectFdt(self, fdt):
     """Scan FDT and build entry objects.
 
@@ -467,7 +506,6 @@ class PackFirmware:
       except ConfigError as err:
         raise ValueError('Config error: %s' % err)
 
-
   def PackImage(self, tmpdir, output_path):
     """Pack the various components into a firmware image,
 
@@ -484,7 +522,9 @@ class PackFirmware:
     self.tmpdir = tmpdir
     root = '/flash/'
 
-    # Set up a zeroed fiel of the correct size.
+    self._CheckOverlap()
+
+    # Set up a zeroed file of the correct size.
     image = open(output_path, 'wb')
     image.write('\0' * self.image_size)
 
