@@ -33,6 +33,12 @@ set -e
 
 CROS_LOG_PREFIX="cros_write_firmware"
 
+# No arguments are expected; error if any are passed.
+if [ $# -ne 0 ]; then
+  error "Unexpted arguments: $*"
+  exit 1
+fi
+
 if [ -z "${FLAGS_board}" ]; then
   error "--board required."
   exit 1
