@@ -495,7 +495,9 @@ class PackFirmware:
       offset, size = fdt.DecodeIntList(node + '/reg', props['reg'], 2)
       props['offset'] = offset
       props['size'] = size
-      props['name'] = props['label']
+
+      # The section names must be upper case with underscores, for other tools
+      props['name'] = re.sub('-', '_', props['label']).upper()
       props['flags'] = self._GetFlags(props)
       props['keydir'] = self.keydir
       try:
