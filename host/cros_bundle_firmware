@@ -518,21 +518,27 @@ class Bundle:
       - Creates GBB and image.
       - Writes image to board.
     """
+    options = self.options
     self._CheckOptions()
     self.tools = Tools(self.verbose)
     self._CheckTools()
 
-    self._PrepareOutputDir(self.options.outdir)
-    self.fdt = Fdt(self.tools, self.options.fdt)
+    self._PrepareOutputDir(options.outdir)
+    self.fdt = Fdt(self.tools, options.fdt)
 
     text_base = self.fdt.GetInt('/chromeos-config/textbase');
     gbb = ''
-    if not self.options.small:
+    if not options.small:
       gbb = self._CreateGoogleBinaryBlock()
 
-    # This creates the actual image, then writes it to the board if required
+    # This creates the actual image.
     uboot, image = self._CreateImage(gbb, text_base)
-    if self.options.write:
+    if options.output:
+      shutil.copyfile(image, options.output)
+      self._Output(2, "Output image '%s'" % options.output)
+
+    # Write it to the board if required.
+    if options.write:
       if self._FlashImage(text_base, uboot, image):
         self._Progress('Image uploaded - please wait for flashing to complete')
       else:
@@ -563,9 +569,11 @@ def main():
   parser.add_option('-b', '--board', dest='board', type='string',
       action='store', help='Board name to use (e.g. tegra2_kaen)',
       default='tegra2_seaboard')
-  parser.add_option('-o', '--outdir', dest='outdir', type='string',
+  parser.add_option('-O', '--outdir', dest='outdir', type='string',
       action='store', help='Path to directory to use for intermediate and '
       'output files')
+  parser.add_option('-o', '--output', dest='output', type='string',
+      action='store', help='Filename of final output image')
   parser.add_option('-p', '--preserve', dest='preserve', action='store_true',\
       help='Preserve temporary output directory')
   parser.add_option('-s', '--small', dest='small', action='store_true',
