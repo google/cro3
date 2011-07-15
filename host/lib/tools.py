@@ -54,10 +54,15 @@ class Tools:
     # Detect whether we're inside a chroot or not
     self.in_chroot = cros_build_lib.IsInsideChroot()
     self.verbose = verbose
-    repo = cros_build_lib.FindRepoDir()
-    if not repo:
-      raise IOError('Cannot find .repo directory (must be below cwd level)')
-    self._SetRoot(os.path.dirname(repo))
+    self._root = None
+    if self.in_chroot:
+      root_dir = os.getenv('CROS_WORKON_SRCROOT')
+    else:
+      repo = cros_build_lib.FindRepoDir()
+      if not repo:
+        raise IOError('Cannot find .repo directory (must be below cwd level)')
+      root_dir = os.path.dirname(repo)
+    self._SetRoot(root_dir)
 
     if verbose >= 3:
       print "Chroot is at '%s'" % self.chroot_path

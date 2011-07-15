@@ -625,6 +625,8 @@ def main():
       raise
     else:
       bundle._Error(str(err))
+      del bundle
+      sys.exit(1)
   del bundle
 
 
