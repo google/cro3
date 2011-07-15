@@ -18,7 +18,11 @@ from tools import CmdError
 _base = os.path.dirname(sys.argv[0])
 
 class Fdt:
-  """Provides simple access to a flat device tree blob"""
+  """Provides simple access to a flat device tree blob
+
+  Properties:
+    fname: Filename of fdt
+  """
   def __init__(self, tools, fname):
     self.fname = fname
     self.tools = tools

@@ -268,12 +268,27 @@ class Bundle:
     self._OutputSize('Signed image', signed)
     return signed
 
+  def _PrepareFdt(self, fdt):
+    """Prepare an fdt with any additions selected, and return its contents.
+
+    Args:
+      fdt: Input fdt filename
+
+    Returns:
+      String containing new fdt, after adding boot command, etc.
+    """
+    fdt = self.fdt.Copy(os.path.join(self.outdir, 'updated.dtb'))
+    if self.options.bootcmd:
+      fdt.PutString('/config/bootcmd', self.options.bootcmd)
+      self._Output(3, 'Boot command: %s' % self.options.bootcmd)
+    return self.tools.ReadFile(fdt.fname)
+
   def _CreateBootStub(self, uboot, fdt, text_base):
     """Create a boot stub and a signed boot stub.
 
     Args:
       uboot: Path to u-boot.bin (may be chroot-relative)
-      fdt: Path to FDT (may be chroot-relative)
+      fdt: A Fdt object to use as the base Fdt
       text_base: Address of text base for image.
 
     Returns:
@@ -286,7 +301,7 @@ class Bundle:
     """
     options = self.options
     uboot_data = self.tools.ReadFile(uboot)
-    fdt_data = self.tools.ReadFile(fdt)
+    fdt_data = self._PrepareFdt(fdt)
     bootstub = os.path.join(self.outdir, 'u-boot-fdt.bin')
     self.tools.WriteFile(bootstub, uboot_data + fdt_data)
     self._OutputSize('U-Boot binary', options.uboot)
@@ -328,7 +343,7 @@ class Bundle:
     self._Output(2, "Model: %s" % self.fdt.GetString('/model'))
 
     # Create the boot stub, which is U-Boot plus an fdt and bct
-    uboot, signed = self._CreateBootStub(options.uboot, options.fdt, text_base)
+    uboot, signed = self._CreateBootStub(options.uboot, self.fdt, text_base)
 
     if gbb:
       pack = PackFirmware(self._PackOutput, self.tools, self.verbose)
@@ -578,6 +593,8 @@ def main():
       help='Preserve temporary output directory')
   parser.add_option('-s', '--small', dest='small', action='store_true',
       help='Create/write only the signed U-Boot binary (not the full image)')
+  parser.add_option('--bootcmd', dest='bootcmd', type='string',
+      help='Set U-Boot boot command')
 
   (options, args) = parser.parse_args(sys.argv)
   bundle = Bundle(options, args)
