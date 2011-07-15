@@ -577,15 +577,16 @@ def main():
   parser.add_option('-v', '--verbosity', dest='verbosity', default=1,
       type='int', help='Control verbosity: 0=silent, 1=progress, 3=full, '
       '4=debug')
-  parser.add_option('-c', '--bct', dest='bct', type='string', action='append',
-      help='Path to BCT source file: more than one can be given')
+  # TODO(sjg): Support multiple BCT files
+  # TODO(sjg): Support source BCT files
+  parser.add_option('-c', '--bct', dest='bct', type='string', action='store',
+      help='Path to BCT source file: only one can be given')
   parser.add_option('-k', '--key', dest='key', type='string', action='store',
       help='Path to signing key directory (default to dev key)',
       default='##/usr/share/vboot/devkeys')
+  # TODO(sjg): Support source FDT files
   parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
-      help='Path to fdt file to use (source .dts or binary ,dtb). For '
-          'source files you can specify more than one. Properties defined '
-          'in later ones will override earlier ones')
+      help='Path to fdt binary blob .dtb file to use')
   parser.add_option('-I', '--hwid', dest='hardware_id', type='string',
       action='store', help='Hardware ID string to use')
   parser.add_option('-u', '--uboot', dest='uboot', type='string',
