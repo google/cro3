@@ -39,7 +39,7 @@ FMAP_HEADER_NAMES = (
     'ver_major',
     'ver_minor',
     'base',
-    'size',
+    'image_size',
     'name',
     'nareas',
 )
@@ -191,9 +191,9 @@ class EntryFmap(EntryFmapArea):
     super(EntryFmap, self).__init__(props)
     self._CheckFieldsInt(('ver_major', 'ver_minor'))
 
-  def SetEntries(self, base, size, entries):
+  def SetEntries(self, base, image_size, entries):
     self['base'] = base
-    self['size'] = size
+    self['image_size'] = image_size
     self['nareas'] = len(entries)
     self['entries'] = entries
 
@@ -533,7 +533,8 @@ class PackFirmware:
     for entry in self.entries:
       # Add in the info for the fmap.
       if type(entry) == EntryFmap:
-        entry.SetEntries(base=0, size=self.image_size, entries=self.entries)
+        entry.SetEntries(base=0, image_size=self.image_size,
+            entries=self.entries)
 
       try:
         # First run any required tools.
