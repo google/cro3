@@ -281,6 +281,17 @@ class Bundle:
     if self.options.bootcmd:
       fdt.PutString('/config/bootcmd', self.options.bootcmd)
       self._Output(3, 'Boot command: %s' % self.options.bootcmd)
+    if self.options.add_config_str:
+      for config in self.options.add_config_str:
+        fdt.PutString('/config/%s' % config[0], config[1])
+    if self.options.add_config_int:
+      for config in self.options.add_config_int:
+        try:
+          value = int(config[1])
+        except ValueError as str:
+          raise CmdError("Cannot convert config option '%s' to integer" %
+              config[1])
+        fdt.PutInteger('/config/%s' % config[0], value)
     return self.tools.ReadFile(fdt.fname)
 
   def _CreateBootStub(self, uboot, fdt, text_base):
@@ -595,6 +606,10 @@ def main():
       help='Create/write only the signed U-Boot binary (not the full image)')
   parser.add_option('--bootcmd', dest='bootcmd', type='string',
       help='Set U-Boot boot command')
+  parser.add_option('--add-config-str', dest='add_config_str', type='string',
+      nargs=2, action='append', help='Add a /config string to the U-Boot fdt')
+  parser.add_option('--add-config-int', dest='add_config_int', type='string',
+      nargs=2, action='append', help='Add a /config integer to the U-Boot fdt')
 
   (options, args) = parser.parse_args(sys.argv)
   bundle = Bundle(options, args)

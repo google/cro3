@@ -490,7 +490,6 @@ class PackFirmware:
     for child in children:
       node = root + child
       props = fdt.GetProps(node, True)
-      match = re_label.match(props['label'])
 
       # Read the two cells from the node's /reg property to get entry extent.
       offset, size = fdt.DecodeIntList(node + '/reg', props['reg'], 2)

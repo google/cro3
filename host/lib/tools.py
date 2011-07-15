@@ -74,7 +74,7 @@ class Tools:
     calculated from this.
 
     Args:
-      dir: The path to the root directory.
+      root_dir: The path to the root directory.
     """
     self._root = os.path.normpath(root_dir)
 

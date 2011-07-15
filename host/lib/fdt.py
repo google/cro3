@@ -329,9 +329,28 @@ which has 4 elements, but 3 expected
 
     Args:
       key: Key to write value to.
-      str: String to write.
+      value_str: String to write.
     """
     args = ['-t', 's', self.fname, key, value_str]
+    self.tools.Run('dtput', args)
+
+  def PutInteger(self, key, value_int):
+    """Writes a string to a property in the fdt.
+
+    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> our_copy = fdt.Copy(os.path.join(_base, '../tests/copy.dtb'))
+    >>> our_copy.PutString('/display/compatible', 'north')
+    >>> fdt.GetString('/display/compatible')
+    'nvidia,tegra250-display'
+    >>> our_copy.PutString('/display/compatible', 'south')
+    >>> our_copy.GetString('/display/compatible')
+    'south'
+
+    Args:
+      key: Key to write value to.
+      value_int: Integer to write.
+    """
+    args = ['-t', 'i', self.fname, key, str(value_int)]
     self.tools.Run('dtput', args)
 
 
