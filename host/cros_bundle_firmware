@@ -31,37 +31,30 @@ to keep these consistent!
   bct       the BCT file
   bootstub  uboot + fdt
   signed    (uboot + fdt + bct) signed blob
-
 """
 
 # Python imports
 import optparse
 import os
 import re
-import sys
 import shutil
-import subprocess
+import sys
 import tempfile
-import time
 
 # Add the path to our own libraries
 base = os.path.dirname(sys.argv[0])
 sys.path.append(base)
 sys.path.append(os.path.join(base, 'lib'))
 
+from fdt import Fdt
 from pack_firmware import PackFirmware
 from write_firmware import WriteFirmware
 import cros_output
 from tools import Tools
-from fdt import Fdt
 from tools import CmdError
-import cros_build_lib
-
-# TODO(sjg): Move this into Chromite libraries when we have them
-_STDOUT_IS_TTY = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
 
 # This data is required by bmpblk_utility. Does it ever change?
-# It is currently stored with the chromeos-bootimage ebuild, but we want
+# It was stored with the chromeos-bootimage ebuild, but we want
 # this utility to work outside the chroot.
 yaml_data = '''
 bmpblock: 1.0
@@ -119,9 +112,9 @@ class Bundle:
       CmdError if a required tool is not found.
     """
     if self.options.write:
-      self.tools.CheckTool('nvflash')
-    self.tools.CheckTool('dtput', 'dtc')
-    self.tools.CheckTool('dtget', 'dtc')
+      self._tools.CheckTool('nvflash')
+    self._tools.CheckTool('dtput', 'dtc')
+    self._tools.CheckTool('dtget', 'dtc')
 
   def _CreateGoogleBinaryBlock(self):
     """Create a GBB for the image.
@@ -136,7 +129,7 @@ class Bundle:
     gbb_size = self.fdt.GetFlashPartSize('ro', 'gbb')
     dir = self.outdir
 
-    # Get LCD dimentions from the device tree.
+    # Get LCD dimensions from the device tree.
     screen_geometry = '%sx%s' % (self.fdt.GetInt('/lcd/width'),
         self.fdt.GetInt('/lcd/height'))
 
@@ -144,21 +137,21 @@ class Bundle:
     out_dir = 'out_%s' % re.sub(' ', '_', hwid)
     bmp_dir = os.path.join(dir, out_dir)
     self._out.Progress('Creating bitmaps')
-    self.tools.Run('make_bmp_image', [hwid, screen_geometry, 'arm'], cwd=dir)
+    self._tools.Run('make_bmp_image', [hwid, screen_geometry, 'arm'], cwd=dir)
 
     self._out.Progress('Creating bitmap block')
     yaml = 'config.yaml'
-    self.tools.WriteFile(os.path.join(bmp_dir, yaml), yaml_data)
-    self.tools.Run('bmpblk_utility', ['-z', '2', '-c', yaml, 'bmpblk.bin'],
+    self._tools.WriteFile(os.path.join(bmp_dir, yaml), yaml_data)
+    self._tools.Run('bmpblk_utility', ['-z', '2', '-c', yaml, 'bmpblk.bin'],
         cwd=bmp_dir)
 
     self._out.Progress('Creating GBB')
     sizes = [0x100, 0x1000, gbb_size - 0x2180, 0x1000]
     sizes = ['%#x' % size for size in sizes]
     gbb = 'gbb.bin'
-    keydir = self.tools.Filename(self.options.key)
-    self.tools.Run('gbb_utility', ['-c', ','.join(sizes), gbb], cwd=dir)
-    self.tools.Run('gbb_utility', ['-s',
+    keydir = self._tools.Filename(self.options.key)
+    self._tools.Run('gbb_utility', ['-c', ','.join(sizes), gbb], cwd=dir)
+    self._tools.Run('gbb_utility', ['-s',
         '--hwid=%s' % hwid,
         '--rootkey=%s/root_key.vbpubk' % keydir,
         '--recoverykey=%s/recovery_key.vbpubk' % keydir,
@@ -182,7 +175,7 @@ class Bundle:
     Raises:
       CmdError if a command fails.
     """
-    # First create a config file
+    # First create a config file - this is how we instruct cbootimage
     signed = os.path.join(self.outdir, 'signed%s.bin' % name)
     self._out.Progress('Signing Bootstub')
     config = os.path.join(self.outdir, 'boot%s.cfg' % name)
@@ -194,9 +187,9 @@ class Bundle:
         text_base))
     fd.close()
 
-    self.tools.Run('cbootimage', [config, signed])
-    self.tools.OutputSize('BCT', bct)
-    self.tools.OutputSize('Signed image', signed)
+    self._tools.Run('cbootimage', [config, signed])
+    self._tools.OutputSize('BCT', bct)
+    self._tools.OutputSize('Signed image', signed)
     return signed
 
   def _PrepareFdt(self, fdt):
@@ -223,7 +216,7 @@ class Bundle:
           raise CmdError("Cannot convert config option '%s' to integer" %
               config[1])
         fdt.PutInteger('/config/%s' % config[0], value)
-    return self.tools.ReadFile(fdt.fname)
+    return self._tools.ReadFile(fdt.fname)
 
   def _CreateBootStub(self, uboot, fdt, text_base):
     """Create a boot stub and a signed boot stub.
@@ -243,19 +236,19 @@ class Bundle:
       CmdError if a command fails.
     """
     options = self.options
-    uboot_data = self.tools.ReadFile(uboot)
+    uboot_data = self._tools.ReadFile(uboot)
     fdt_data = self._PrepareFdt(fdt)
     bootstub = os.path.join(self.outdir, 'u-boot-fdt.bin')
-    self.tools.WriteFile(bootstub, uboot_data + fdt_data)
-    self.tools.OutputSize('U-Boot binary', options.uboot)
-    self.tools.OutputSize('U-Boot fdt', options.fdt)
-    self.tools.OutputSize('Combined binary', bootstub)
+    self._tools.WriteFile(bootstub, uboot_data + fdt_data)
+    self._tools.OutputSize('U-Boot binary', options.uboot)
+    self._tools.OutputSize('U-Boot fdt', options.fdt)
+    self._tools.OutputSize('Combined binary', bootstub)
 
     # sign the bootstub; this is a combination of the board specific
     # bct and the stub u-boot image.
-    signed = self._SignBootstub(self.tools.Filename(options.bct), bootstub,
+    signed = self._SignBootstub(self._tools.Filename(options.bct), bootstub,
         text_base, '')
-    return self.tools.Filename(uboot), bootstub, signed
+    return self._tools.Filename(uboot), bootstub, signed
 
   def _PackOutput(self, msg):
     """Helper function to write output from PackFirmware (verbose level 2).
@@ -290,9 +283,9 @@ class Bundle:
         self.fdt, text_base)
 
     if gbb:
-      pack = PackFirmware(self.tools, self._out)
+      pack = PackFirmware(self._tools, self._out)
       image = os.path.join(self.outdir, 'image.bin')
-      fwid = self.tools.GetChromeosVersion()
+      fwid = self._tools.GetChromeosVersion()
       self._out.Notice('Firmware ID: %s' % fwid)
       pack.SetupFiles(boot=bootstub, signed=signed, gbb=gbb,
           fwid=fwid, keydir=options.key)
@@ -301,7 +294,7 @@ class Bundle:
     else:
       image = signed
 
-    self.tools.OutputSize('Final image', image)
+    self._tools.OutputSize('Final image', image)
     return uboot, image
 
   def _PrepareOutputDir(self, outdir):
@@ -346,11 +339,11 @@ class Bundle:
     """
     options = self.options
     self._CheckOptions()
-    self.tools = Tools(self._out)
+    self._tools = Tools(self._out)
     self._CheckTools()
 
     self._PrepareOutputDir(options.outdir)
-    self.fdt = Fdt(self.tools, options.fdt)
+    self.fdt = Fdt(self._tools, options.fdt)
 
     text_base = self.fdt.GetInt('/chromeos-config/textbase');
     gbb = ''
@@ -365,7 +358,7 @@ class Bundle:
 
     # Write it to the board if required.
     if options.write:
-      write = WriteFirmware(self.tools, self.fdt, self._out, self.outdir,
+      write = WriteFirmware(self._tools, self.fdt, self._out, self.outdir,
           text_base)
       if write.FlashImage(uboot, options.bct, image):
         self._out.Progress('Image uploaded - please wait for flashing to '

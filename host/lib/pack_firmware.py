@@ -352,7 +352,7 @@ class PackFirmware:
     self.props = {}             # Properties / files we know about.
     self.entries = []           # The entries in the flash image.
     self._out = output
-    self.tools = tools
+    self._tools = tools
 
   def _GetFlags(self, props):
     """Create the fmap flags value from the given properties.
@@ -537,7 +537,7 @@ class PackFirmware:
 
       try:
         # First run any required tools.
-        entry.RunTools(self.tools, self._out, self.tmpdir)
+        entry.RunTools(self._tools, self._out, self.tmpdir)
         if 'value' in entry:
           self._out.Notice("Pack '%s' into %s" % (entry.value, entry.name))
 
