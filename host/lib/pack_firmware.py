@@ -145,7 +145,7 @@ class Entry(dict):
     """
     raise PackError('class Entry does not implement GetEntry()')
 
-  def RunTools(self, tools, dir):
+  def RunTools(self, tools, out, tmpdir):
     """Method implemented by subclasses to run required tools.
 
     Some entry types require running external tools to create their data.
@@ -156,7 +156,8 @@ class Entry(dict):
 
     Args:
       tools: Tools object to use to run tools.
-      dir: Temporary directory to use to create required files.
+      out: Output object to send output to
+      tmpdir: Temporary directory to use to create required files.
     """
     pass
 
@@ -280,9 +281,9 @@ class EntryKeyBlock(EntryFmapArea):
     self._CheckFields(('keyblock', 'signprivate', 'kernelkey'))
     self._CheckFieldsInt(('version','preamble_flags'))
 
-  def RunTools(self, tool, dir):
+  def RunTools(self, tools, out, tmpdir):
     """Create a vblock for the given firmware image"""
-    self.path = os.path.join(dir, 'vblock.%s' % self.label)
+    self.path = os.path.join(tmpdir, 'vblock.%s' % self.label)
     try:
       prefix = self.keydir + '/'
       args = [
@@ -294,9 +295,8 @@ class EntryKeyBlock(EntryFmapArea):
           '--kernelkey', prefix + self.kernelkey,
           '--flags', '%d' % self.preamble_flags,
       ]
-      stdout = tool.Run('vbutil_firmware', args)
-      if tool.verbose >= 4:
-        print stdout
+      stdout = tools.Run('vbutil_firmware', args)
+      out.Debug(stdout)
 
       # Update value to the actual filename to be used
       self.value = self.path
@@ -338,7 +338,7 @@ class PackFirmware:
     SelectFdt
     PackImage
   """
-  def __init__(self, output, tools, verbose):
+  def __init__(self, tools, output):
     """
     Args:
       output: A method to call to diplay output:
@@ -351,9 +351,8 @@ class PackFirmware:
     """
     self.props = {}             # Properties / files we know about.
     self.entries = []           # The entries in the flash image.
-    self.output = output
+    self._out = output
     self.tools = tools
-    self.verbose = verbose
 
   def _GetFlags(self, props):
     """Create the fmap flags value from the given properties.
@@ -461,7 +460,7 @@ class PackFirmware:
             (overlap, e1.label, e1.offset, e1.offset + e1.size,
              e2.label, e2.offset, e2.offset + e2.size))
       elif overlap is not 0:
-        self.output('Warning: Flash map has a gap of %d bytes: '
+        self._out.Warning('Warning: Flash map has a gap of %d bytes: '
             '%s: %08x-%08x, %s: %08x-%08x' %
             (-overlap, e1.label, e1.offset, e1.offset + e1.size,
              e2.label, e2.offset, e2.offset + e2.size))
@@ -538,16 +537,15 @@ class PackFirmware:
 
       try:
         # First run any required tools.
-        entry.RunTools(self.tools, self.tmpdir)
+        entry.RunTools(self.tools, self._out, self.tmpdir)
         if 'value' in entry:
-          self.output("Pack '%s' into %s" % (entry.value, entry.name))
+          self._out.Notice("Pack '%s' into %s" % (entry.value, entry.name))
 
         # Now read out the data
         data = entry.GetData()
-        if self.verbose > 3:            # Debugging
-          print 'Entry:', entry.name
-          print 'Entry data:', entry
-          print 'Data size: %d bytes' % len(data)
+        self._out.Debug('Entry: %s' % entry.name)
+        self._out.Debug('Entry data: %s' % entry)
+        self._out.Debug('Data size: %s bytes' % len(data))
         if len(data) > entry.size:
           raise PackError("Data for '%s' too large for area: %d/%#x >"
               " %d/%#x" % (entry.name, len(data), len(data), entry.size,

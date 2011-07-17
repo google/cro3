@@ -22,6 +22,7 @@ import sys
 
 from cros_build_lib import RunCommandCaptureOutput
 import cros_build_lib
+import cros_output
 
 
 class CmdError(Exception):
@@ -44,16 +45,15 @@ class Tools:
     third_party_path: third_parth directory (src/third_party)
     cros_overlay_path: Chromium OS overlay (src/chromiumos-overlay)
   """
-  def __init__(self, verbose):
+  def __init__(self, output):
     """Set up the tools system.
 
     Args:
-      in_chroot: True if in the chroot.
-      verbose: Verbosity level (0-4).
+      output: cros_output object to use for output.
     """
     # Detect whether we're inside a chroot or not
     self.in_chroot = cros_build_lib.IsInsideChroot()
-    self.verbose = verbose
+    self._out = output
     self._root = None
     if self.in_chroot:
       root_dir = os.getenv('CROS_WORKON_SRCROOT')
@@ -64,8 +64,7 @@ class Tools:
       root_dir = os.path.dirname(repo)
     self._SetRoot(root_dir)
 
-    if verbose >= 3:
-      print "Chroot is at '%s'" % self.chroot_path
+    self._out.Info("Chroot is at '%s'" % self.chroot_path)
     self._tools = {
       'make_bmp_image' : '##/usr/share/vboot/bitmaps/make_bmp_images.sh'
     }
@@ -140,15 +139,14 @@ class Tools:
     args = [self.Filename(arg) for arg in args]
     cmd = [tool] + args
     try:
-      rc, out, err = RunCommandCaptureOutput(cmd, print_cmd=self.verbose > 3,
-          cwd=cwd)
+      rc, stdout, err = RunCommandCaptureOutput(cmd,
+          print_cmd=self._out.verbose > 3, cwd=cwd)
     except OSError:
       raise CmdError('Command not found: %s' % (' '.join(cmd)))
     if rc:
-      raise CmdError('Command failed: %s\n%s' % (' '.join(cmd), out))
-    if self.verbose > 3:
-      print out
-    return out
+      raise CmdError('Command failed: %s\n%s' % (' '.join(cmd), stdout))
+    self._out.Debug(stdout)
+    return stdout
 
   def ReadFile(self, fname):
     """Read and return the contents of a file.
@@ -162,8 +160,8 @@ class Tools:
     fd = open(self.Filename(fname), 'rb')
     data = fd.read()
     fd.close()
-    if self.verbose >= 3:
-      print "Read file '%s' size %d (%#0x)" % (fname, len(data), len(data))
+    self._out.Info("Read file '%s' size %d (%#0x)" %
+        (fname, len(data), len(data)))
     return data
 
   def WriteFile(self, fname, data):
@@ -173,8 +171,8 @@ class Tools:
       fname: path to filename to write, where ## signifiies the chroot.
       data: data to write to file, as a string.
     """
-    if self.verbose >= 3:
-      print "Write file '%s' size %d (%#0x)" % (fname, len(data), len(data))
+    self._out.Info("Write file '%s' size %d (%#0x)" %
+        (fname, len(data), len(data)))
     fd = open(self.Filename(fname), 'wb')
     fd.write(data)
     fd.close()
@@ -227,6 +225,19 @@ class Tools:
           "Run the following command in \nyour chroot to install it: "
           "sudo -E emerge %s" % (filename, ebuild or filename))
 
+  def OutputSize(self, label, filename, level=cros_output.NOTICE):
+    """Display the filename and size of an object.
+
+    Args:
+      label: Label for this file.
+      filename: Filename to output.
+      level: Verbosity level to attach to this message
+    """
+    filename = self.Filename(filename)
+    size = os.stat(filename).st_size
+    self._out.DoOutput(level, "%s: %s; size: %d / %#x" %
+        (label, filename, size, size))
+
 def _Test():
   """Run any built-in tests."""
   import doctest
@@ -251,7 +262,8 @@ def main():
   (options, args) = parser.parse_args(sys.argv)
   args = args[1:]
 
-  tools = Tools(options.verbosity)
+  out = cros_output.Output(options.verbosity)
+  tools = Tools(out)
   if not args:
     parser.error('No command provided')
   elif args[0] == 'chromeos-version':

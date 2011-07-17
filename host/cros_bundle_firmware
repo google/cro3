@@ -50,6 +50,7 @@ sys.path.append(base)
 sys.path.append(os.path.join(base, 'lib'))
 
 from pack_firmware import PackFirmware
+import cros_output
 from tools import Tools
 from fdt import Fdt
 from tools import CmdError
@@ -103,71 +104,13 @@ class Bundle:
   def __init__(self, options, args):
     self.options = options
     self.args = args
-    self.progress = ''          # Our last progress message
-    self.color = cros_build_lib.Color()
     self.delete_tempdir = None  # Path to temp directory to remove at end
     self.outdir = None          # Directory where we create output files
-    self.verbose = options.verbosity
+    self._out = cros_output.Output(options.verbosity)
 
   def __del__(self):
-    """Clean up and remove any progress message."""
-    self._ClearProgress()
+    self._out.ClearProgress()
     self._FinalizeOutputDir()
-
-  def _ClearProgress(self):
-    """Clear any active progress message on the terminal."""
-    if self.verbose > 0 and _STDOUT_IS_TTY:
-      sys.stdout.write('\r%s\r' % (" " * len (self.progress)))
-      sys.stdout.flush()
-
-  def _Progress(self, msg, warning=False):
-    """Display progress information.
-
-    Args:
-      msg: Message to display."""
-    self._ClearProgress()
-    if self.verbose > 0:
-      self.progress = msg + '...'
-      if _STDOUT_IS_TTY:
-        col = self.color.YELLOW if warning else self.color.GREEN
-        sys.stdout.write('\r' + self.color.Color(col, self.progress))
-        sys.stdout.flush()
-      else:
-        print self.progress
-
-  def _Output(self, level, msg, error=False):
-    """Output a message to the terminal.
-
-    Args:
-      level: Verbosity level for this message. It will only be displayed if
-          this as high as the currently selected level.
-      msg; Message to display.
-      error: True if this is an error message, else False.
-    """
-    self._ClearProgress()
-    if self.verbose >= level:
-      if error:
-        msg = self.color.Color(self.color.RED, msg)
-      print msg
-
-  def _OutputSize(self, label, filename):
-    """Display the filename and size of an object with log level 2.
-
-    Args:
-      label: Label for this file.
-      filename: Filename to output.
-    """
-    filename = self.tools.Filename(filename)
-    size = os.stat(filename).st_size
-    self._Output(2, "%s: %s; size: %d / %#x" % (label, filename, size, size))
-
-  def _Error(self, msg):
-    """Display an error message
-
-    Args:
-      msg; Message to display.
-    """
-    self._Output(0, msg, True)
 
   def _CheckOptions(self):
     """Check provided options and select defaults."""
@@ -212,16 +155,16 @@ class Bundle:
     # This is the magic directory that make_bmp_image writes to!
     out_dir = 'out_%s' % re.sub(' ', '_', hwid)
     bmp_dir = os.path.join(dir, out_dir)
-    self._Progress('Creating bitmaps')
+    self._out.Progress('Creating bitmaps')
     self.tools.Run('make_bmp_image', [hwid, screen_geometry, 'arm'], cwd=dir)
 
-    self._Progress('Creating bitmap block')
+    self._out.Progress('Creating bitmap block')
     yaml = 'config.yaml'
     self.tools.WriteFile(os.path.join(bmp_dir, yaml), yaml_data)
     self.tools.Run('bmpblk_utility', ['-z', '2', '-c', yaml, 'bmpblk.bin'],
         cwd=bmp_dir)
 
-    self._Progress('Creating GBB')
+    self._out.Progress('Creating GBB')
     sizes = [0x100, 0x1000, gbb_size - 0x2180, 0x1000]
     sizes = ['%#x' % size for size in sizes]
     gbb = 'gbb.bin'
@@ -253,7 +196,7 @@ class Bundle:
     """
     # First create a config file
     signed = os.path.join(self.outdir, 'signed%s.bin' % name)
-    self._Progress('Signing Bootstub')
+    self._out.Progress('Signing Bootstub')
     config = os.path.join(self.outdir, 'boot%s.cfg' % name)
     fd = open(config, 'w')
     fd.write('Version    = 1;\n')
@@ -264,8 +207,8 @@ class Bundle:
     fd.close()
 
     self.tools.Run('cbootimage', [config, signed])
-    self._OutputSize('BCT', bct)
-    self._OutputSize('Signed image', signed)
+    self.tools.OutputSize('BCT', bct)
+    self.tools.OutputSize('Signed image', signed)
     return signed
 
   def _PrepareFdt(self, fdt):
@@ -280,7 +223,7 @@ class Bundle:
     fdt = self.fdt.Copy(os.path.join(self.outdir, 'updated.dtb'))
     if self.options.bootcmd:
       fdt.PutString('/config/bootcmd', self.options.bootcmd)
-      self._Output(3, 'Boot command: %s' % self.options.bootcmd)
+      self._out.Info('Boot command: %s' % self.options.bootcmd)
     if self.options.add_config_str:
       for config in self.options.add_config_str:
         fdt.PutString('/config/%s' % config[0], config[1])
@@ -316,9 +259,9 @@ class Bundle:
     fdt_data = self._PrepareFdt(fdt)
     bootstub = os.path.join(self.outdir, 'u-boot-fdt.bin')
     self.tools.WriteFile(bootstub, uboot_data + fdt_data)
-    self._OutputSize('U-Boot binary', options.uboot)
-    self._OutputSize('U-Boot fdt', options.fdt)
-    self._OutputSize('Combined binary', bootstub)
+    self.tools.OutputSize('U-Boot binary', options.uboot)
+    self.tools.OutputSize('U-Boot fdt', options.fdt)
+    self.tools.OutputSize('Combined binary', bootstub)
 
     # sign the bootstub; this is a combination of the board specific
     # bct and the stub u-boot image.
@@ -334,7 +277,7 @@ class Bundle:
     Args:
       msg: Message to display.
     """
-    self._Output(2, msg)
+    self._out.Notice(msg)
 
   def _CreateImage(self, gbb, text_base):
     """Create a full firmware image, along with various by-products.
@@ -352,17 +295,17 @@ class Bundle:
     """
 
     options = self.options
-    self._Output(2, "Model: %s" % self.fdt.GetString('/model'))
+    self._out.Notice("Model: %s" % self.fdt.GetString('/model'))
 
     # Create the boot stub, which is U-Boot plus an fdt and bct
     uboot, bootstub, signed = self._CreateBootStub(options.uboot,
         self.fdt, text_base)
 
     if gbb:
-      pack = PackFirmware(self._PackOutput, self.tools, self.verbose)
+      pack = PackFirmware(self.tools, self._out)
       image = os.path.join(self.outdir, 'image.bin')
       fwid = self.tools.GetChromeosVersion()
-      self._Output(2, 'Firmware ID: %s' % fwid)
+      self._out.Notice('Firmware ID: %s' % fwid)
       pack.SetupFiles(boot=bootstub, signed=signed, gbb=gbb,
           fwid=fwid, keydir=options.key)
       pack.SelectFdt(self.fdt)
@@ -370,7 +313,7 @@ class Bundle:
     else:
       image = signed
 
-    self._OutputSize('Final image', image)
+    self.tools.OutputSize('Final image', image)
     return uboot, image
 
   def _GetFlashScript(self, load_address, payload_size):
@@ -447,8 +390,8 @@ class Bundle:
     self.tools.WriteFile(flasher, data)
 
     # Tell the user about a few things
-    self._OutputSize('U-Boot', uboot)
-    self._OutputSize('Flasher', flasher)
+    self.tools.OutputSize('U-Boot', uboot)
+    self.tools.OutputSize('Flasher', flasher)
     return flasher
 
   def _FlashImage(self, text_base, uboot, payload):
@@ -467,7 +410,7 @@ class Bundle:
     """
     flasher = self.PrepareFlasher(text_base, uboot, payload)
 
-    self._Progress('Uploading flasher image')
+    self._out.Progress('Uploading flasher image')
     args = [
       'nvflash',
       '--bct', self.options.bct,
@@ -484,23 +427,23 @@ class Bundle:
         # TODO(sjg): Make sudo an argument to Run()
         # TODO(sjg): Use Chromite library so we can monitor output
         self.tools.Run('sudo', args)
-        self._Output(2, 'Flasher downloaded - please see serial output for '
-            'progress.')
+        self._out.Notice('Flasher downloaded - please see serial output '
+            'for progress.')
         return True
 
       except CmdError as err:
-        if not _STDOUT_IS_TTY:
+        if not self._out.UserIsPresent():
           return False
 
-        # Only show the error output once unless it changes.
+        # Only show the error output once, unless it changes.
         err = str(err)
         if not 'USB device not found' in err:
           raise CmdError('nvflash failed: %s' % err)
 
         if err != last_err:
-          self._Output(2, err)
+          self._out.Notice(err)
           last_err = err
-          self._Progress('Please connect USB A-A cable and do a '
+          self._out.Progress('Please connect USB A-A cable and do a '
               'recovery-reset', True)
         time.sleep(1)
 
@@ -537,7 +480,7 @@ class Bundle:
     if self.delete_tempdir and not self.options.preserve:
       shutil.rmtree(self.delete_tempdir)
     elif self.outdir:
-      self._Output(2, "Output directory '%s'" % self.outdir)
+      self._out.Notice("Output directory '%s'" % self.outdir)
 
   def Start(self):
     """This performs all the requested operations for this script.
@@ -548,7 +491,7 @@ class Bundle:
     """
     options = self.options
     self._CheckOptions()
-    self.tools = Tools(self.verbose)
+    self.tools = Tools(self._out)
     self._CheckTools()
 
     self._PrepareOutputDir(options.outdir)
@@ -563,12 +506,13 @@ class Bundle:
     uboot, image = self._CreateImage(gbb, text_base)
     if options.output:
       shutil.copyfile(image, options.output)
-      self._Output(2, "Output image '%s'" % options.output)
+      self._out.Notice("Output image '%s'" % options.output)
 
     # Write it to the board if required.
     if options.write:
       if self._FlashImage(text_base, uboot, image):
-        self._Progress('Image uploaded - please wait for flashing to complete')
+        self._out.Progress('Image uploaded - please wait for flashing to '
+            'complete')
       else:
         raise CmdError('Image upload failed - please check board connection')
 
@@ -622,11 +566,9 @@ def main():
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
     if options.verbosity >= 4:
-      bundle._ClearProgress()
-      del bundle
       raise
     else:
-      bundle._Error(str(err))
+      bundle._out.Error(str(err))
       del bundle
       sys.exit(1)
   del bundle
