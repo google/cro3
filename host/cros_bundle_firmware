@@ -39,7 +39,6 @@ import os
 import re
 import shutil
 import sys
-import tempfile
 
 # Add the path to our own libraries
 base = os.path.dirname(sys.argv[0])
@@ -85,13 +84,10 @@ class Bundle:
   def __init__(self, options, args):
     self.options = options
     self.args = args
-    self.delete_tempdir = None  # Path to temp directory to remove at end
-    self.outdir = None          # Directory where we create output files
     self._out = cros_output.Output(options.verbosity)
 
   def __del__(self):
     self._out.ClearProgress()
-    self._FinalizeOutputDir()
 
   def _CheckOptions(self):
     """Check provided options and select defaults."""
@@ -127,7 +123,7 @@ class Bundle:
     """
     hwid = self.fdt.GetString('/config/hwid')
     gbb_size = self.fdt.GetFlashPartSize('ro', 'gbb')
-    dir = self.outdir
+    dir = self._tools.outdir
 
     # Get LCD dimensions from the device tree.
     screen_geometry = '%sx%s' % (self.fdt.GetInt('/lcd/width'),
@@ -176,9 +172,9 @@ class Bundle:
       CmdError if a command fails.
     """
     # First create a config file - this is how we instruct cbootimage
-    signed = os.path.join(self.outdir, 'signed%s.bin' % name)
+    signed = os.path.join(self._tools.outdir, 'signed%s.bin' % name)
     self._out.Progress('Signing Bootstub')
-    config = os.path.join(self.outdir, 'boot%s.cfg' % name)
+    config = os.path.join(self._tools.outdir, 'boot%s.cfg' % name)
     fd = open(config, 'w')
     fd.write('Version    = 1;\n')
     fd.write('Redundancy = 1;\n')
@@ -201,7 +197,7 @@ class Bundle:
     Returns:
       String containing new fdt, after adding boot command, etc.
     """
-    fdt = self.fdt.Copy(os.path.join(self.outdir, 'updated.dtb'))
+    fdt = self.fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
     if self.options.bootcmd:
       fdt.PutString('/config/bootcmd', self.options.bootcmd)
       self._out.Info('Boot command: %s' % self.options.bootcmd)
@@ -238,7 +234,7 @@ class Bundle:
     options = self.options
     uboot_data = self._tools.ReadFile(uboot)
     fdt_data = self._PrepareFdt(fdt)
-    bootstub = os.path.join(self.outdir, 'u-boot-fdt.bin')
+    bootstub = os.path.join(self._tools.outdir, 'u-boot-fdt.bin')
     self._tools.WriteFile(bootstub, uboot_data + fdt_data)
     self._tools.OutputSize('U-Boot binary', options.uboot)
     self._tools.OutputSize('U-Boot fdt', options.fdt)
@@ -284,51 +280,18 @@ class Bundle:
 
     if gbb:
       pack = PackFirmware(self._tools, self._out)
-      image = os.path.join(self.outdir, 'image.bin')
+      image = os.path.join(self._tools.outdir, 'image.bin')
       fwid = self._tools.GetChromeosVersion()
       self._out.Notice('Firmware ID: %s' % fwid)
       pack.SetupFiles(boot=bootstub, signed=signed, gbb=gbb,
           fwid=fwid, keydir=options.key)
       pack.SelectFdt(self.fdt)
-      pack.PackImage(self.outdir, image)
+      pack.PackImage(self._tools.outdir, image)
     else:
       image = signed
 
     self._tools.OutputSize('Final image', image)
     return uboot, image
-
-  def _PrepareOutputDir(self, outdir):
-    """Select an output directory, ensuring it exists.
-
-    This either creates a temporary directory or checks that the one supplied
-    by the user is valid. For a temporary directory, it makes a note to
-    remove it later if required.
-
-    Args:
-      outdir: Output directory to use, or None to use a temporary dir.
-
-    Raises:
-      OSError: If it cannot create the output directory.
-    """
-    self.outdir = outdir
-    if self.outdir:
-      if not os.path.isdir(self.outdir):
-        try:
-          os.makedirs(self.outdir)
-        except OSError as err:
-          raise CmdError("Cannot make output directory '%s': '%s'" %
-              (self.outdir, err))
-
-    else:
-      self.outdir = tempfile.mkdtemp()
-      self.delete_tempdir = self.outdir
-
-  def _FinalizeOutputDir(self):
-    """Tidy up the output direcory, deleting it if temporary"""
-    if self.delete_tempdir and not self.options.preserve:
-      shutil.rmtree(self.delete_tempdir)
-    elif self.outdir:
-      self._out.Notice("Output directory '%s'" % self.outdir)
 
   def Start(self):
     """This performs all the requested operations for this script.
@@ -342,7 +305,7 @@ class Bundle:
     self._tools = Tools(self._out)
     self._CheckTools()
 
-    self._PrepareOutputDir(options.outdir)
+    self._tools.PrepareOutputDir(options.outdir, options.preserve)
     self.fdt = Fdt(self._tools, options.fdt)
 
     text_base = self.fdt.GetInt('/chromeos-config/textbase');
@@ -358,8 +321,7 @@ class Bundle:
 
     # Write it to the board if required.
     if options.write:
-      write = WriteFirmware(self._tools, self.fdt, self._out, self.outdir,
-          text_base)
+      write = WriteFirmware(self._tools, self.fdt, self._out, text_base)
       if write.FlashImage(uboot, options.bct, image):
         self._out.Progress('Image uploaded - please wait for flashing to '
             'complete')

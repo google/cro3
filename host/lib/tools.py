@@ -18,7 +18,9 @@ So we can use filenames like this:
 
 import optparse
 import os
+import shutil
 import sys
+import tempfile
 
 from cros_build_lib import RunCommandCaptureOutput
 import cros_build_lib
@@ -68,6 +70,11 @@ class Tools:
     self._tools = {
       'make_bmp_image' : '##/usr/share/vboot/bitmaps/make_bmp_images.sh'
     }
+    self.outdir = None          # We have no output directory yet
+    self._delete_tempdir = None # And no temporary directory to delete
+
+  def __del__(self):
+      self.FinalizeOutputDir()
 
   def _SetRoot(self, root_dir):
     """Sets the root directory for the build envionrment.
@@ -237,6 +244,43 @@ class Tools:
     size = os.stat(filename).st_size
     self._out.DoOutput(level, "%s: %s; size: %d / %#x" %
         (label, filename, size, size))
+
+  def PrepareOutputDir(self, outdir, preserve=False):
+    """Select an output directory, ensuring it exists.
+
+    This either creates a temporary directory or checks that the one supplied
+    by the user is valid. For a temporary directory, it makes a note to
+    remove it later if required.
+
+    Args:
+      outdir: Output directory to use, or None to use a temporary dir.
+
+    Raises:
+      OSError: If it cannot create the output directory.
+    """
+    self.outdir = outdir
+    self.preserve_outdir = preserve
+    if self.outdir:
+      if not os.path.isdir(self.outdir):
+        try:
+          os.makedirs(self.outdir)
+        except OSError as err:
+          raise CmdError("Cannot make output directory '%s': '%s'" %
+              (self.outdir, err))
+
+    else:
+      self.outdir = tempfile.mkdtemp()
+      self._delete_tempdir = self.outdir
+
+  def FinalizeOutputDir(self):
+    """Tidy up the output direcory, deleting it if temporary"""
+    if self._delete_tempdir and not self.preserve_outdir:
+      shutil.rmtree(self._delete_tempdir)
+      self._out.Debug("Deleted temporary directory '%s'" %
+          self._delete_tempdir)
+      self._delete_tempdir = None
+    elif self.outdir:
+      self._out.Debug("Output directory '%s'" % self.outdir)
 
 def _Test():
   """Run any built-in tests."""

@@ -34,20 +34,18 @@ class WriteFirmware:
   full Chrome OS image consisting of U-Boot, some keys and verification
   information, images and a map of the flash memory.
   """
-  def __init__(self, tools, fdt, output, outdir, text_base):
+  def __init__(self, tools, fdt, output, text_base):
     """Set up a new WriteFirmware object.
 
     Args:
       tools: A tools library for us to use.
       fdt: An fdt which gives us some info that we need.
       output: An output object to use for printing progress and messages.
-      outdir: The output directory to use for our temporary files.
       text_base: Start execution address of U-Boot.
     """
     self._tools = tools
     self._fdt = fdt
     self._out = output
-    self._outdir = outdir
     self._text_base = text_base
 
   def _GetFlashScript(self, payload_size):
@@ -111,7 +109,7 @@ class WriteFirmware:
     Returns:
       Filename of the flasher binary created."
     """
-    fdt = self._fdt.Copy(os.path.join(self._outdir, 'flasher.dtb'))
+    fdt = self._fdt.Copy(os.path.join(self._tools.outdir, 'flasher.dtb'))
     payload_size = os.stat(payload).st_size
 
     script, replace_me = self._GetFlashScript(payload_size)
@@ -145,7 +143,7 @@ class WriteFirmware:
     data += fdt_data
     data += "\0" * (payload_offset - len(data))
     data += self._tools.ReadFile(payload)
-    flasher = os.path.join(self._outdir, 'flasher-for-image.bin')
+    flasher = os.path.join(self._tools.outdir, 'flasher-for-image.bin')
     self._tools.WriteFile(flasher, data)
 
     # Tell the user about a few things.
