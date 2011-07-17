@@ -36,7 +36,12 @@ class Tools:
   """A class to encapsulate the external tools we want to run
 
   This provides convenient functions for running tools inside/outside the
-  chroot. It also provides common paths:
+  chroot.
+
+  Public properties:
+    outdir: The output directory to write output files to.
+
+  The tools class also provides common paths:
 
     chroot_path: chroot directory
     src_path: source directory
@@ -271,6 +276,8 @@ class Tools:
     else:
       self.outdir = tempfile.mkdtemp()
       self._delete_tempdir = self.outdir
+      self._out.Debug("Using temporary directory '%s'" %
+          self._delete_tempdir)
 
   def FinalizeOutputDir(self):
     """Tidy up the output direcory, deleting it if temporary"""

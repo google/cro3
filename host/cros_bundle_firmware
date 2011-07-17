@@ -6,7 +6,7 @@
 
 """This utility builds a firmware image for a tegra-based board.
 
-This utility uses a few rudimentary libraries for its activity.
+This utility uses a number of libraries for its activity.
 
 Hint: in order to run this outside the chroot you will need the following
 from the chroot:
@@ -81,8 +81,6 @@ def main():
       action='store', help='Hardware ID string to use')
   parser.add_option('-u', '--uboot', dest='uboot', type='string',
       action='store', help='Executable bootloader file (U-Boot)')
-  parser.add_option('-w', '--write', dest='write', action='store_true',
-      default=False, help='Write firmware to SPI flash with USB A-A cable')
   parser.add_option('-b', '--board', dest='board', type='string',
       action='store', help='Board name to use (e.g. tegra2_kaen)',
       default='tegra2_seaboard')
@@ -102,20 +100,49 @@ def main():
   parser.add_option('--add-config-int', dest='add_config_int', type='string',
       nargs=2, action='append', help='Add a /config integer to the U-Boot fdt')
 
+  # TODO(sjg): Move this into cros_write_firmware
+  parser.add_option('-w', '--write', dest='write', action='store_true',
+      default=False, help='Write firmware to SPI flash with USB A-A cable')
   (options, args) = parser.parse_args(sys.argv)
-  bundle = Bundle(options, args)
+
+  output = cros_output.Output(options.verbosity)
+  tools = Tools(output)
+  _CheckTools(tools, options)
+  tools.PrepareOutputDir(options.outdir, options.preserve)
+
+  bundle = Bundle(tools, output)
+  bundle.SetDirs(keydir=options.key)
+  bundle.SetFiles(board=options.board, uboot=options.uboot, bct=options.bct)
+  bundle.SetOptions(small=options.small)
 
   try:
-    bundle.Start()
+    # Set up the fdt and options that we want.
+    bundle.SelectFdt(options.fdt)
+    bundle.SetBootcmd(options.bootcmd)
+    bundle.AddConfigList(options.add_config_str)
+    bundle.AddConfigList(options.add_config_int, use_int=True)
+
+    out_fname = bundle.Start(options.output)
+
+    # Write it to the board if required.
+    if options.write:
+      write = WriteFirmware(tools, bundle.fdt, output)
+      if write.FlashImage(bundle.uboot_fname, bundle.bct_fname, out_fname):
+        output.Progress('Image uploaded - please wait for flashing to '
+            'complete')
+      else:
+        raise CmdError('Image upload failed - please check board connection')
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
     if options.verbosity >= 4:
       raise
     else:
-      bundle._out.Error(str(err))
-      del bundle
+      output.Error(str(err))
+      del tools
+      del output
       sys.exit(1)
-  del bundle
+  del tools
+  del output
 
 
 def _Test():

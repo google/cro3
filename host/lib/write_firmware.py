@@ -34,19 +34,18 @@ class WriteFirmware:
   full Chrome OS image consisting of U-Boot, some keys and verification
   information, images and a map of the flash memory.
   """
-  def __init__(self, tools, fdt, output, text_base):
+  def __init__(self, tools, fdt, output):
     """Set up a new WriteFirmware object.
 
     Args:
       tools: A tools library for us to use.
       fdt: An fdt which gives us some info that we need.
       output: An output object to use for printing progress and messages.
-      text_base: Start execution address of U-Boot.
     """
     self._tools = tools
     self._fdt = fdt
     self._out = output
-    self._text_base = text_base
+    self._text_base = self._fdt.GetInt('/chromeos-config/textbase');
 
   def _GetFlashScript(self, payload_size):
     """Get the U-Boot boot command needed to flash U-Boot.
@@ -107,7 +106,7 @@ class WriteFirmware:
       payload: Full path to payload.
 
     Returns:
-      Filename of the flasher binary created."
+      Filename of the flasher binary created.
     """
     fdt = self._fdt.Copy(os.path.join(self._tools.outdir, 'flasher.dtb'))
     payload_size = os.stat(payload).st_size

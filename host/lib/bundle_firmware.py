@@ -54,38 +54,87 @@ localizations:
 '''
 
 class Bundle:
-  """This class encapsulates the entire bundle firmware logic."""
+  """This class encapsulates the entire bundle firmware logic.
 
-  def __init__(self, options, args):
-    self.options = options
-    self.args = args
-    self._out = cros_output.Output(options.verbosity)
+  Sequence of events:
+    bundle = Bundle(tools.Tools(), cros_output.Output())
+    bundle.SetDirs(...)
+    bundle.SetFiles(...)
+    bundle.SetOptions(...)
+    bundle.SelectFdt(fdt.Fdt('filename.dtb')
+    .. can call bundle.AddConfigList() if required
+    bundle.Start(...)
 
-  def __del__(self):
-    self._out.ClearProgress()
+  Public properties:
+    fdt: The fdt object that we use for building our image. This wil be the
+        one specified by the user, except that we might add config options
+        to it. This is set up by SelectFdt() which must be called before
+        bundling starts.
+    uboot_fname: Full filename of the U-Boot binary we use.
+    bct_fname: Full filename of the BCT file we use.
+  """
 
-  def _CheckOptions(self):
-    """Check provided options and select defaults."""
-    options = self.options
-    build_root = os.path.join('##', 'build', options.board, 'u-boot')
-    if not options.fdt:
-      options.fdt = os.path.join(build_root, 'dtb', '%s.dtb' %
-          re.sub('_', '-', options.board))
-    if not options.uboot:
-      options.uboot = os.path.join(build_root, 'u-boot.bin')
-    if not options.bct:
-      options.bct = os.path.join(build_root, 'bct', 'board.bct')
+  def __init__(self, tools, output):
+    """Set up a new Bundle object.
 
-  def _CheckTools(self):
-    """Check that all required tools are present.
-
-    Raises:
-      CmdError if a required tool is not found.
+    Args:
+      tools: A tools.Tools object to use for external tools.
+      output: A cros_output.Output object to use for program output.
     """
-    if self.options.write:
-      self._tools.CheckTool('nvflash')
-    self._tools.CheckTool('dtput', 'dtc')
-    self._tools.CheckTool('dtget', 'dtc')
+    self.text_base = None       # Base of U-Boot image in memory
+
+    self._tools = tools
+    self._out = output
+
+    # Set up the things we need to know in order to operate.
+    self._board = None          # Board name, e.g. tegra2_seaboard.
+    self._fdt_fname = None      # Filename of our FDT.
+    self.uboot_fname = None     # Filename of our U-Boot binary.
+    self.bct_fname = None       # Filename of our BCT file.
+    self.fdt = None             # Our Fdt object.
+
+  def SetDirs(self, keydir):
+    """Set up directories required for Bundle.
+
+    Args:
+      keydir: Directory containing keys to use for signing firmware.
+    """
+    self._keydir = keydir
+
+  def SetFiles(self, board, uboot, bct):
+    """Set up files required for Bundle.
+
+    Args:
+      board: The name of the board to target (e.g. tegra2_seaboard).
+      uboot: The filename of the u-boot.bin image to use.
+      bct: The filename of the binary BCT file to use.
+    """
+    self._board = board
+    self.uboot_fname = uboot
+    self.bct_fname = bct
+
+  def SetOptions(self, small):
+    """Set up options supported by Bundle.
+
+    Args:
+      small: Only create a signed U-Boot - don't produce the full packed
+          firmware image. This is useful for devs who want to replace just the
+          U-Boot part while keeping the keys, gbb, etc. the same.
+    """
+    self._small = small
+
+  def CheckOptions(self):
+    """Check provided options and select defaults."""
+    if not self._board:
+      raise ValueError('No board defined - please define a board to use')
+    build_root = os.path.join('##', 'build', self._board, 'u-boot')
+    if not self._fdt_fname:
+      self._fdt_fname = os.path.join(build_root, 'dtb', '%s.dtb' %
+          re.sub('_', '-', self._board))
+    if not self.uboot_fname:
+      self.uboot_fname = os.path.join(build_root, 'u-boot.bin')
+    if not self.bct_fname:
+      self.bct_fname = os.path.join(build_root, 'bct', 'board.bct')
 
   def _CreateGoogleBinaryBlock(self):
     """Create a GBB for the image.
@@ -98,7 +147,7 @@ class Bundle:
     """
     hwid = self.fdt.GetString('/config/hwid')
     gbb_size = self.fdt.GetFlashPartSize('ro', 'gbb')
-    dir = self._tools.outdir
+    odir = self._tools.outdir
 
     # Get LCD dimensions from the device tree.
     screen_geometry = '%sx%s' % (self.fdt.GetInt('/lcd/width'),
@@ -106,9 +155,9 @@ class Bundle:
 
     # This is the magic directory that make_bmp_image writes to!
     out_dir = 'out_%s' % re.sub(' ', '_', hwid)
-    bmp_dir = os.path.join(dir, out_dir)
+    bmp_dir = os.path.join(odir, out_dir)
     self._out.Progress('Creating bitmaps')
-    self._tools.Run('make_bmp_image', [hwid, screen_geometry, 'arm'], cwd=dir)
+    self._tools.Run('make_bmp_image', [hwid, screen_geometry, 'arm'], cwd=odir)
 
     self._out.Progress('Creating bitmap block')
     yaml = 'config.yaml'
@@ -120,16 +169,16 @@ class Bundle:
     sizes = [0x100, 0x1000, gbb_size - 0x2180, 0x1000]
     sizes = ['%#x' % size for size in sizes]
     gbb = 'gbb.bin'
-    keydir = self._tools.Filename(self.options.key)
-    self._tools.Run('gbb_utility', ['-c', ','.join(sizes), gbb], cwd=dir)
+    keydir = self._tools.Filename(self._keydir)
+    self._tools.Run('gbb_utility', ['-c', ','.join(sizes), gbb], cwd=odir)
     self._tools.Run('gbb_utility', ['-s',
         '--hwid=%s' % hwid,
         '--rootkey=%s/root_key.vbpubk' % keydir,
         '--recoverykey=%s/recovery_key.vbpubk' % keydir,
         '--bmpfv=%s' % os.path.join(out_dir, 'bmpblk.bin'),
         gbb],
-        cwd=dir)
-    return os.path.join(dir, gbb)
+        cwd=odir)
+    return os.path.join(odir, gbb)
 
   def _SignBootstub(self, bct, bootstub, text_base, name):
     """Sign an image so that the Tegra SOC will boot it.
@@ -163,38 +212,52 @@ class Bundle:
     self._tools.OutputSize('Signed image', signed)
     return signed
 
-  def _PrepareFdt(self, fdt):
-    """Prepare an fdt with any additions selected, and return its contents.
+  def SetBootcmd(self, bootcmd):
+    """Set the boot command for U-Boot.
 
     Args:
-      fdt: Input fdt filename
-
-    Returns:
-      String containing new fdt, after adding boot command, etc.
+      bootcmd: Boot command to use, as a string (if None this this is a nop).
     """
-    fdt = self.fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
-    if self.options.bootcmd:
-      fdt.PutString('/config/bootcmd', self.options.bootcmd)
-      self._out.Info('Boot command: %s' % self.options.bootcmd)
-    if self.options.add_config_str:
-      for config in self.options.add_config_str:
-        fdt.PutString('/config/%s' % config[0], config[1])
-    if self.options.add_config_int:
-      for config in self.options.add_config_int:
-        try:
-          value = int(config[1])
-        except ValueError as str:
-          raise CmdError("Cannot convert config option '%s' to integer" %
-              config[1])
-        fdt.PutInteger('/config/%s' % config[0], value)
-    return self._tools.ReadFile(fdt.fname)
+    if bootcmd:
+      fdt.PutString('/config/bootcmd', bootcmd)
+      self._out.Info('Boot command: %s' % bootcmd)
 
-  def _CreateBootStub(self, uboot, fdt, text_base):
+  def AddConfigList(self, config_list, use_int=False):
+    """Add a list of config items to the fdt.
+
+    Normally these values are written to the fdt as strings, but integers
+    are also supported, in which case the values will be converted to integers
+    (if necessary) before being stored.
+
+    Args:
+      config_list: List of (config, value) tuples to add to the fdt. For each
+          tuple:
+              config: The fdt node to write to will be /config/<config>.
+              value: An integer or string value to write.
+      use_int: True to only write integer values.
+
+    Raises:
+      CmdError: if a value is required to be converted to integer but can't be.
+    """
+    if config_list:
+      for config in config_list:
+        value = config[1]
+        if use_int:
+          try:
+            value = int(value)
+          except ValueError as str:
+            raise CmdError("Cannot convert config option '%s' to integer" %
+                value)
+        if type(value) == type(1):
+          self.fdt.PutInteger('/config/%s' % config[0], value)
+        else:
+          self.fdt.PutString('/config/%s' % config[0], value)
+
+  def _CreateBootStub(self, uboot, fdt):
     """Create a boot stub and a signed boot stub.
 
     Args:
       uboot: Path to u-boot.bin (may be chroot-relative)
-      fdt: A Fdt object to use as the base Fdt
       text_base: Address of text base for image.
 
     Returns:
@@ -205,19 +268,19 @@ class Bundle:
     Raises:
       CmdError if a command fails.
     """
-    options = self.options
+    text_base = self.fdt.GetInt('/chromeos-config/textbase');
     uboot_data = self._tools.ReadFile(uboot)
-    fdt_data = self._PrepareFdt(fdt)
+    fdt_data = self._tools.ReadFile(fdt.fname)
     bootstub = os.path.join(self._tools.outdir, 'u-boot-fdt.bin')
     self._tools.WriteFile(bootstub, uboot_data + fdt_data)
-    self._tools.OutputSize('U-Boot binary', options.uboot)
-    self._tools.OutputSize('U-Boot fdt', options.fdt)
+    self._tools.OutputSize('U-Boot binary', self.uboot_fname)
+    self._tools.OutputSize('U-Boot fdt', self._fdt_fname)
     self._tools.OutputSize('Combined binary', bootstub)
 
     # sign the bootstub; this is a combination of the board specific
     # bct and the stub u-boot image.
-    signed = self._SignBootstub(self._tools.Filename(options.bct), bootstub,
-        text_base, '')
+    signed = self._SignBootstub(self._tools.Filename(self.bct_fname),
+        bootstub, text_base, '')
     return self._tools.Filename(uboot), bootstub, signed
 
   def _PackOutput(self, msg):
@@ -230,7 +293,7 @@ class Bundle:
     """
     self._out.Notice(msg)
 
-  def _CreateImage(self, gbb, text_base):
+  def _CreateImage(self, gbb, fdt):
     """Create a full firmware image, along with various by-products.
 
     This uses the provided u-boot.bin, fdt and bct to create a firmware
@@ -239,18 +302,14 @@ class Bundle:
 
     Args:
       gbb       Full path to the GBB file, or empty if a GBB is not required.
-      text_base: Address of text base for image.
 
     Raises:
       CmdError if a command fails.
     """
-
-    options = self.options
-    self._out.Notice("Model: %s" % self.fdt.GetString('/model'))
+    self._out.Notice("Model: %s" % fdt.GetString('/model'))
 
     # Create the boot stub, which is U-Boot plus an fdt and bct
-    uboot, bootstub, signed = self._CreateBootStub(options.uboot,
-        self.fdt, text_base)
+    uboot, bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt)
 
     if gbb:
       pack = PackFirmware(self._tools, self._out)
@@ -258,8 +317,8 @@ class Bundle:
       fwid = self._tools.GetChromeosVersion()
       self._out.Notice('Firmware ID: %s' % fwid)
       pack.SetupFiles(boot=bootstub, signed=signed, gbb=gbb,
-          fwid=fwid, keydir=options.key)
-      pack.SelectFdt(self.fdt)
+          fwid=fwid, keydir=self._keydir)
+      pack.SelectFdt(fdt)
       pack.PackImage(self._tools.outdir, image)
     else:
       image = signed
@@ -267,37 +326,40 @@ class Bundle:
     self._tools.OutputSize('Final image', image)
     return uboot, image
 
-  def Start(self):
-    """This performs all the requested operations for this script.
+  def SelectFdt(self, fdt_fname):
+    """Select an FDT to control the firmware bundling
+
+    Args:
+      fdt_fname: The filename of the fdt to use.
+
+    We make a copy of this which will include any on-the-fly changes we want
+    to make.
+    """
+    self._fdt_fname = fdt_fname
+    self.CheckOptions()
+    fdt = Fdt(self._tools, self._fdt_fname)
+    self.fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
+
+  def Start(self, output_fname):
+    """This creates a firmware bundle according to settings provided.
 
       - Checks options, tools, output directory, fdt.
       - Creates GBB and image.
-      - Writes image to board.
+
+    Args:
+      output_fname: Output filename for the image. If this is not None, then
+          the final image will be copied here.
+
+    Returns:
+      Filename of the resulting image (not the output_fname copy).
     """
-    options = self.options
-    self._CheckOptions()
-    self._tools = Tools(self._out)
-    self._CheckTools()
-
-    self._tools.PrepareOutputDir(options.outdir, options.preserve)
-    self.fdt = Fdt(self._tools, options.fdt)
-
-    text_base = self.fdt.GetInt('/chromeos-config/textbase');
     gbb = ''
-    if not options.small:
+    if not self._small:
       gbb = self._CreateGoogleBinaryBlock()
 
     # This creates the actual image.
-    uboot, image = self._CreateImage(gbb, text_base)
-    if options.output:
-      shutil.copyfile(image, options.output)
-      self._out.Notice("Output image '%s'" % options.output)
-
-    # Write it to the board if required.
-    if options.write:
-      write = WriteFirmware(self._tools, self.fdt, self._out, text_base)
-      if write.FlashImage(uboot, options.bct, image):
-        self._out.Progress('Image uploaded - please wait for flashing to '
-            'complete')
-      else:
-        raise CmdError('Image upload failed - please check board connection')
+    uboot, image = self._CreateImage(gbb, self.fdt)
+    if output_fname:
+      shutil.copyfile(image, output_fname)
+      self._out.Notice("Output image '%s'" % output_fname)
+    return image
