@@ -50,6 +50,7 @@ sys.path.append(base)
 sys.path.append(os.path.join(base, 'lib'))
 
 from pack_firmware import PackFirmware
+from write_firmware import WriteFirmware
 import cros_output
 from tools import Tools
 from fdt import Fdt
@@ -84,19 +85,6 @@ screens:
 localizations:
   - [ dev_en, rec_en, yuck_en, ins_en ]
 '''
-
-def RoundUp(value, boundary):
-  """Align a value to the next power of 2 boundary.
-
-  Args:
-    value: The value to align.
-    boundary: The boundary value, e.g. 4096. Must be a power of 2.
-
-  Returns:
-    The rounded-up value.
-  """
-  return (value + boundary - 1) & ~(boundary - 1)
-
 
 class Bundle:
   """This class encapsulates the entire bundle firmware logic."""
@@ -316,139 +304,6 @@ class Bundle:
     self.tools.OutputSize('Final image', image)
     return uboot, image
 
-  def _GetFlashScript(self, load_address, payload_size):
-    """Get the U-Boot boot command needed to flash U-Boot.
-
-    Args:
-      load_address: Load address for the payload (in SDRAM).
-      payload_size: Size of payload in bytes.
-
-    Returns:
-      The script, as a string.
-    """
-    cmds = [
-        'setenv address       %#x' % load_address,
-        'setenv firmware_size %#x' % payload_size,
-        'setenv length        %#x' % RoundUp(payload_size, 4096),
-        'setenv _crc   "crc32 ${address} ${firmware_size}"',
-        'setenv _init  "echo Initing SPI;  sf probe            0"',
-        'setenv _erase "echo Erasing SPI;  sf erase            0 ${length}"',
-        'setenv _write "echo Writing SPI;  sf write ${address} 0 ${length}"',
-        'setenv _clear "echo Clearing RAM; mw.b     ${address} 0 ${length}"',
-        'setenv _read  "echo Reading SPI;  sf read  ${address} 0 ${length}"',
-
-        'echo Firmware loaded to ${address}, size ${firmware_size}, '
-            'length ${length}',
-        'run _crc',
-        'run _init',
-        'run _erase',
-        'run _write',
-        'run _clear',
-        'run _read',
-        'run _crc',
-        'echo If the two CRCs above are equal, flash was successful.'
-    ]
-    script = '; '.join(cmds)
-    return script
-
-  def PrepareFlasher(self, text_base, uboot, payload):
-    """Get a flasher ready for sending to the board.
-
-    The flasher is an executable image consisting of:
-
-      - U-Boot (u-boot.bin)
-      - a special FDT to tell it what to do in the form of a run command
-      - (we could add some empty space here, in case U-Boot is not built to
-          be relocatable)
-      - the payload (which is a full flash image, or signed U-Boot + fdt)
-
-    Args:
-      text_base: Start execution address of U-Boot.
-      uboot: Full path to u-boot.bin.
-      payload: Full path to payload.
-
-    Returns:
-      Filename of the flasher binary created."
-    """
-    fdt = self.fdt.Copy(os.path.join(self.outdir, 'flasher.dtb'))
-    payload_size = os.stat(payload).st_size
-    payload_offset = os.stat(uboot).st_size + os.stat(fdt.fname).st_size
-
-    # Allow space for FDT to grow when we change it
-    space = 0x4000
-    payload_offset += space
-
-    script = self._GetFlashScript(text_base + payload_offset, payload_size)
-    fdt.PutString('/config/bootcmd', script)
-
-    # Now put it together
-    data = self.tools.ReadFile(uboot)
-    data += self.tools.ReadFile(fdt.fname)
-    data += "\0" * (payload_offset - len(data))
-    data += self.tools.ReadFile(payload)
-    flasher = os.path.join(self.outdir, 'flasher-for-image.bin')
-    self.tools.WriteFile(flasher, data)
-
-    # Tell the user about a few things
-    self.tools.OutputSize('U-Boot', uboot)
-    self.tools.OutputSize('Flasher', flasher)
-    return flasher
-
-  def _FlashImage(self, text_base, uboot, payload):
-    """Flash the image to SPI flash.
-
-    This creates a special Flasher binary with the image to be flashed as
-    a payload. This is then sent to the board using the nvflash utility.
-
-    Args:
-      text_base: Start execution address of U-Boot.
-      uboot: Full path to u-boot.bin.
-      payload: Full path to payload.
-
-    Returns:
-      True if ok, False if failed.
-    """
-    flasher = self.PrepareFlasher(text_base, uboot, payload)
-
-    self._out.Progress('Uploading flasher image')
-    args = [
-      'nvflash',
-      '--bct', self.options.bct,
-      '--setbct',
-      '--bl',  flasher,
-      '--go',
-      '--setentry', "%#x" % text_base, "%#x" % text_base
-    ]
-
-    # TODO(sjg): Check for existence of board - but chroot has no lsusb!
-    last_err = None
-    for tries in range(10):
-      try:
-        # TODO(sjg): Make sudo an argument to Run()
-        # TODO(sjg): Use Chromite library so we can monitor output
-        self.tools.Run('sudo', args)
-        self._out.Notice('Flasher downloaded - please see serial output '
-            'for progress.')
-        return True
-
-      except CmdError as err:
-        if not self._out.UserIsPresent():
-          return False
-
-        # Only show the error output once, unless it changes.
-        err = str(err)
-        if not 'USB device not found' in err:
-          raise CmdError('nvflash failed: %s' % err)
-
-        if err != last_err:
-          self._out.Notice(err)
-          last_err = err
-          self._out.Progress('Please connect USB A-A cable and do a '
-              'recovery-reset', True)
-        time.sleep(1)
-
-    return False
-
   def _PrepareOutputDir(self, outdir):
     """Select an output directory, ensuring it exists.
 
@@ -510,7 +365,9 @@ class Bundle:
 
     # Write it to the board if required.
     if options.write:
-      if self._FlashImage(text_base, uboot, image):
+      write = WriteFirmware(self.tools, self.fdt, self._out, self.outdir,
+          text_base)
+      if write.FlashImage(uboot, options.bct, image):
         self._out.Progress('Image uploaded - please wait for flashing to '
             'complete')
       else:
