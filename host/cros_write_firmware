@@ -108,7 +108,7 @@ firmware=${FLAGS_firmware:-"${u_boot}/image.bin"}
 flasher=${FLAGS_flasher:-"${u_boot}/u-boot.bin"}
 script=${FLAGS_script:-"${u_boot}/flasher.script"}
 bct=${FLAGS_bct:-"${u_boot}/bct/board.bct"}
-dtb=${FLAGS_dtb:-"${u_boot}/u-boot.dtb"}
+dtb=${FLAGS_dtb:-"${u_boot}/dtb/${FLAGS_board/_/-}.dtb"}
 map=${FLAGS_map:-"${u_boot}/System.map"}
 
 # Default value that hard-coded in u-boot-flasher.bin; use $(()) to convert
