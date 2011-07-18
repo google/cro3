@@ -136,8 +136,12 @@ class Bundle:
     if not self.bct_fname:
       self.bct_fname = os.path.join(build_root, 'bct', 'board.bct')
 
-  def _CreateGoogleBinaryBlock(self):
+  def _CreateGoogleBinaryBlock(self, hardware_id):
     """Create a GBB for the image.
+
+    Args:
+      hardware_id: Hardware ID to use for this board. If None, then the
+          default from the Fdt will be used
 
     Returns:
       Path of the created GBB file.
@@ -145,7 +149,8 @@ class Bundle:
     Raises:
       CmdError if a command fails.
     """
-    hwid = self.fdt.GetString('/config/hwid')
+    if not hardware_id:
+      hardware_id = self.fdt.GetString('/config/hwid')
     gbb_size = self.fdt.GetFlashPartSize('ro', 'gbb')
     odir = self._tools.outdir
 
@@ -154,10 +159,11 @@ class Bundle:
         self.fdt.GetInt('/lcd/height'))
 
     # This is the magic directory that make_bmp_image writes to!
-    out_dir = 'out_%s' % re.sub(' ', '_', hwid)
+    out_dir = 'out_%s' % re.sub(' ', '_', hardware_id)
     bmp_dir = os.path.join(odir, out_dir)
     self._out.Progress('Creating bitmaps')
-    self._tools.Run('make_bmp_image', [hwid, screen_geometry, 'arm'], cwd=odir)
+    self._tools.Run('make_bmp_image', [hardware_id, screen_geometry, 'arm'],
+        cwd=odir)
 
     self._out.Progress('Creating bitmap block')
     yaml = 'config.yaml'
@@ -172,7 +178,7 @@ class Bundle:
     keydir = self._tools.Filename(self._keydir)
     self._tools.Run('gbb_utility', ['-c', ','.join(sizes), gbb], cwd=odir)
     self._tools.Run('gbb_utility', ['-s',
-        '--hwid=%s' % hwid,
+        '--hwid=%s' % hardware_id,
         '--rootkey=%s/root_key.vbpubk' % keydir,
         '--recoverykey=%s/recovery_key.vbpubk' % keydir,
         '--bmpfv=%s' % os.path.join(out_dir, 'bmpblk.bin'),
@@ -263,7 +269,8 @@ class Bundle:
     Returns:
       Tuple containing:
         Full path to u-boot.bin.
-        Full path to bootstub.
+        Full path to bootstub (uboot + fdt).
+        Full path to signed blob (uboot + fdt + bct).
 
     Raises:
       CmdError if a command fails.
@@ -340,13 +347,15 @@ class Bundle:
     fdt = Fdt(self._tools, self._fdt_fname)
     self.fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
 
-  def Start(self, output_fname):
+  def Start(self, hardware_id, output_fname):
     """This creates a firmware bundle according to settings provided.
 
       - Checks options, tools, output directory, fdt.
       - Creates GBB and image.
 
     Args:
+      hardware_id: Hardware ID to use for this board. If None, then the
+          default from the Fdt will be used
       output_fname: Output filename for the image. If this is not None, then
           the final image will be copied here.
 
@@ -355,7 +364,7 @@ class Bundle:
     """
     gbb = ''
     if not self._small:
-      gbb = self._CreateGoogleBinaryBlock()
+      gbb = self._CreateGoogleBinaryBlock(hardware_id)
 
     # This creates the actual image.
     uboot, image = self._CreateImage(gbb, self.fdt)

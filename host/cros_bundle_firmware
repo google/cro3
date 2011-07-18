@@ -122,7 +122,7 @@ def main():
     bundle.AddConfigList(options.add_config_str)
     bundle.AddConfigList(options.add_config_int, use_int=True)
 
-    out_fname = bundle.Start(options.output)
+    out_fname = bundle.Start(options.hardware_id, options.output)
 
     # Write it to the board if required.
     if options.write:
