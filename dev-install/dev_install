@@ -1,0 +1,124 @@
+#!/bin/sh
+# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# This script downloads and installs the basic packages that the user needs
+# in developer mode. It also takes care of some configuration details
+# that arise from not havin write access to the root filesystem.
+
+# TODO(arkaitzr): more details (and more code) to come.
+
+# Constant definitions.
+PKG_BZIP2_FILE="dev-installer-latest.bz2"
+# Python is not in the base image, so we use a statically linked python
+# interpreter. The only version available for download is 2.7.
+PYTHON_BINARY="python2.7-static"
+# Color the script output a little.
+ERROR_S_COLOR="\E[47;44m\033[1m"
+ERROR_E_COLOR="\033[0m"
+S_COLOR="\E[40;32m\033[1m"
+E_COLOR="\033[0m"
+
+# This script should only run in developer mode or for developer images.
+/usr/bin/crossystem cros_debug?0
+CROS_DEBUG=$?
+
+if [ ${CROS_DEBUG} -ne 1 ]; then
+  echo -en "${ERROR_S_COLOR}ERROR: Can not run script."
+  echo -en "Chrome OS is not in developer mode.${ERROR_E_COLOR}"
+  exit 1
+fi
+
+# Check if we are root.
+if [[ $(/usr/bin/id -u) -ne 0 ]]; then
+  echo -en "${ERROR_S_COLOR}ERROR: Can not run script."
+  echo -en "You are not root or you did not use sudo.${ERROR_E_COLOR}"
+  exit 1
+fi
+
+# Create work directory.
+WORKDIR="$(mktemp -d /tmp/dev-installer.XXXX)"
+
+# Get the static Python binary and portage (emerge script and python modules).
+download_bootstrap_package() {
+  # Obtain the BOOTSTRAP and BINHOST variables.
+  source "/etc/portage/repository.conf"
+  local url
+  local tar_exit_code
+  url="${BOOTSTRAP}/${PKG_BZIP2_FILE}"
+
+  wget -N -p "${WORKDIR}" $"{url}"
+  if [ ! -f "${WORKDIR}/${PKG_BZIP2_FILE}" ]; then
+    echo -en "${ERROR_S_COLOR}ERROR: Can not download dev-installer package."
+    echo -en "Check network connection and access to ${url}.${ERROR_E_COLOR}"
+    exit 1
+  fi
+
+  tar -C "${WORKDIR}" -xjf "${WORKDIR}/${PKG_BZIP2_FILE}"
+  tar_exit_code=$?
+  if [ tar_exit_code -ne 0 ]; then
+    echo -en "$ERROR_S_COLOR}ERROR: Can not extract dev-installer package."
+    echo -en "Command tar -C ${WORKDIR}-xjf ${PKG_BZIP2_FILE} failed." \
+             "${ERROR_E_COLOR}"
+    exit 1
+  fi
+}
+
+# Install python and emerge in /usr/local.
+install_emerge() {
+  chmod +x "${WORKDIR}/${PYTHON_BINARY}"
+  # Set PYTHONPATH so python can find portage's modules.
+  PYTHONPATH="${WORKDIR}/portage/pym"
+  export PYTHONPATH
+
+  # TODO(arkaitzr): Create the directories defined in the portage config files.
+  source "/etc/make.profile/make.defaults"
+
+  # Move packages to the appropiate directory in /usr/local.
+  # TODO(arkaitzr): once the binhost is setup, get packages from there via wget
+  # so they do not have to be included in the downloaded bz2 file (now 18MB).
+  mv "${WORKDIR}/app-misc" "/usr/local/portage/packages"
+  mv "${WORKDIR}/dev-lang" "/usr/local/portage/packages"
+  mv "${WORKDIR}/dev-libs" "/usr/local/portage/packages"
+  mv "${WORKDIR}/virtual" "/usr/local/portage/packages"
+  # First, we install python using the files from the downloaded package.
+  # We can not use the binhost because the static version of python included
+  # does not have module unicodedata (necessary for http connections).
+  "${WORKDIR}/${PYTHON_BINARY}" "${WORKDIR}/portage/bin/emerge" --usepkgonly \
+                                                                dev-lang/python
+  # Now we install portage using the binary packages from the binhost.
+  python "${WORKDIR}/portage/bin/emerge" --getbinpkgonly \
+                                         --usepkgonly \
+                                         portage
+  unset PYTHONPATH
+}
+
+install_optional_packages() {
+  # TODO(arkaitzr): give the user the option of installing chromeos-dev pkgs.
+  echo "Do you want to install chrome-os/dev package and dependencies? (y/n)"
+}
+
+cleanup_directories() {
+  rm -r "${WORKDIR}"
+}
+
+# TODO(arkaitzr): add calls to download_bootstrap_package and install_emerge
+# when repositories are configured.
+echo -en "${S_COLOR}Starting installation of developer packages."
+echo -en "First, we download the necessary files.${E_COLOR}"
+download_bootstrap_package
+
+echo -en "${S_COLOR}Files downloaded, installing python and emerge."\
+         "${E_COLOR}"
+install_emerge
+
+echo -en "${S_COLOR}Emerge installation complete. Installing additional " \
+         "packages.${E_COLOR}"
+install_optional_packages
+
+echo -en "${S_COLOR}Cleaning temporary directories.${E_COLOR}"
+cleanup_directories
+
+echo -en "${S_COLOR}Dev-install.sh done. Enjoy!${E_COLOR}"
+
