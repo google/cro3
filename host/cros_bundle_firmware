@@ -305,7 +305,8 @@ class Bundle:
     Returns:
       Tuple containing:
         Full path to u-boot.bin.
-        Full path to bootstub.
+        Full path to bootstub (uboot + fdt).
+        Full path to signed blob (uboot + fdt + bct).
 
     Raises:
       CmdError if a command fails.
@@ -323,7 +324,7 @@ class Bundle:
     # bct and the stub u-boot image.
     signed = self._SignBootstub(self.tools.Filename(options.bct), bootstub,
         text_base, '')
-    return self.tools.Filename(uboot), signed
+    return self.tools.Filename(uboot), bootstub, signed
 
   def _PackOutput(self, msg):
     """Helper function to write output from PackFirmware (verbose level 2).
@@ -354,14 +355,15 @@ class Bundle:
     self._Output(2, "Model: %s" % self.fdt.GetString('/model'))
 
     # Create the boot stub, which is U-Boot plus an fdt and bct
-    uboot, signed = self._CreateBootStub(options.uboot, self.fdt, text_base)
+    uboot, bootstub, signed = self._CreateBootStub(options.uboot,
+        self.fdt, text_base)
 
     if gbb:
       pack = PackFirmware(self._PackOutput, self.tools, self.verbose)
       image = os.path.join(self.outdir, 'image.bin')
       fwid = self.tools.GetChromeosVersion()
       self._Output(2, 'Firmware ID: %s' % fwid)
-      pack.SetupFiles(boot=uboot, signed=signed, gbb=gbb,
+      pack.SetupFiles(boot=bootstub, signed=signed, gbb=gbb,
           fwid=fwid, keydir=options.key)
       pack.SelectFdt(self.fdt)
       pack.PackImage(self.outdir, image)
