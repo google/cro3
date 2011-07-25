@@ -219,7 +219,7 @@ class Bundle:
       bootcmd: Boot command to use, as a string (if None this this is a nop).
     """
     if bootcmd:
-      fdt.PutString('/config/bootcmd', bootcmd)
+      self.fdt.PutString('/config/bootcmd', bootcmd)
       self._out.Info('Boot command: %s' % bootcmd)
 
   def AddConfigList(self, config_list, use_int=False):
