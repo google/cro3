@@ -218,14 +218,16 @@ class Bundle:
     self._tools.OutputSize('Signed image', signed)
     return signed
 
-  def SetBootcmd(self, bootcmd):
+  def SetBootcmd(self, bootcmd, bootsecure):
     """Set the boot command for U-Boot.
 
     Args:
       bootcmd: Boot command to use, as a string (if None this this is a nop).
+      bootsecure: We'll set '/config/bootsecure' to 1 if True and 0 if False.
     """
     if bootcmd:
       self.fdt.PutString('/config/bootcmd', bootcmd)
+      self.fdt.PutInteger('/config/bootsecure', int(bootsecure))
       self._out.Info('Boot command: %s' % bootcmd)
 
   def AddConfigList(self, config_list, use_int=False):

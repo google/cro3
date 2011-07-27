@@ -95,6 +95,9 @@ def main():
       help='Create/write only the signed U-Boot binary (not the full image)')
   parser.add_option('--bootcmd', dest='bootcmd', type='string',
       help='Set U-Boot boot command')
+  parser.add_option('--bootsecure', dest='bootsecure',
+      default=False, action='store_true',
+      help='Boot command is simple (no arguments) and not interruptible')
   parser.add_option('--add-config-str', dest='add_config_str', type='string',
       nargs=2, action='append', help='Add a /config string to the U-Boot fdt')
   parser.add_option('--add-config-int', dest='add_config_int', type='string',
@@ -118,7 +121,7 @@ def main():
   try:
     # Set up the fdt and options that we want.
     bundle.SelectFdt(options.fdt)
-    bundle.SetBootcmd(options.bootcmd)
+    bundle.SetBootcmd(options.bootcmd, options.bootsecure)
     bundle.AddConfigList(options.add_config_str)
     bundle.AddConfigList(options.add_config_int, use_int=True)
 
