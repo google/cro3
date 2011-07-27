@@ -323,7 +323,9 @@ class Bundle:
     if gbb:
       pack = PackFirmware(self._tools, self._out)
       image = os.path.join(self._tools.outdir, 'image.bin')
-      fwid = self._tools.GetChromeosVersion()
+      fwid = '.'.join([
+          re.sub('[ ,]+', '_', fdt.GetString('/model')),
+          self._tools.GetChromeosVersion()])
       self._out.Notice('Firmware ID: %s' % fwid)
       pack.SetupFiles(boot=bootstub, signed=signed, gbb=gbb,
           fwid=fwid, keydir=self._keydir)
