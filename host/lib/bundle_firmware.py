@@ -186,14 +186,13 @@ class Bundle:
         cwd=odir)
     return os.path.join(odir, gbb)
 
-  def _SignBootstub(self, bct, bootstub, text_base, name):
+  def _SignBootstub(self, bct, bootstub, text_base):
     """Sign an image so that the Tegra SOC will boot it.
 
     Args:
       bct: BCT file to use.
       bootstub: Boot stub (U-Boot + fdt) file to sign.
       text_base: Address of text base for image.
-      name: root of basename to use for signed image.
 
     Returns:
       filename of signed image.
@@ -202,9 +201,9 @@ class Bundle:
       CmdError if a command fails.
     """
     # First create a config file - this is how we instruct cbootimage
-    signed = os.path.join(self._tools.outdir, 'signed%s.bin' % name)
+    signed = os.path.join(self._tools.outdir, 'signed.bin')
     self._out.Progress('Signing Bootstub')
-    config = os.path.join(self._tools.outdir, 'boot%s.cfg' % name)
+    config = os.path.join(self._tools.outdir, 'boot.cfg')
     fd = open(config, 'w')
     fd.write('Version    = 1;\n')
     fd.write('Redundancy = 1;\n')
@@ -270,27 +269,27 @@ class Bundle:
 
     Returns:
       Tuple containing:
-        Full path to u-boot.bin.
         Full path to bootstub (uboot + fdt).
         Full path to signed blob (uboot + fdt + bct).
 
     Raises:
       CmdError if a command fails.
     """
+    bootstub = os.path.join(self._tools.outdir, 'u-boot-fdt.bin')
     text_base = self.fdt.GetInt('/chromeos-config/textbase');
     uboot_data = self._tools.ReadFile(uboot)
     fdt_data = self._tools.ReadFile(fdt.fname)
-    bootstub = os.path.join(self._tools.outdir, 'u-boot-fdt.bin')
+
     self._tools.WriteFile(bootstub, uboot_data + fdt_data)
     self._tools.OutputSize('U-Boot binary', self.uboot_fname)
     self._tools.OutputSize('U-Boot fdt', self._fdt_fname)
     self._tools.OutputSize('Combined binary', bootstub)
 
-    # sign the bootstub; this is a combination of the board specific
+    # Sign the bootstub; this is a combination of the board specific
     # bct and the stub u-boot image.
     signed = self._SignBootstub(self._tools.Filename(self.bct_fname),
-        bootstub, text_base, '')
-    return self._tools.Filename(uboot), bootstub, signed
+        bootstub, text_base)
+    return bootstub, signed
 
   def _PackOutput(self, msg):
     """Helper function to write output from PackFirmware (verbose level 2).
@@ -310,7 +309,11 @@ class Bundle:
     then this will just return a signed U-Boot as the image.
 
     Args:
-      gbb       Full path to the GBB file, or empty if a GBB is not required.
+      gbb:      Full path to the GBB file, or empty if a GBB is not required.
+      fdt:      Fdt object containing required information.
+
+    Returns:
+      Path to image file
 
     Raises:
       CmdError if a command fails.
@@ -318,7 +321,7 @@ class Bundle:
     self._out.Notice("Model: %s" % fdt.GetString('/model'))
 
     # Create the boot stub, which is U-Boot plus an fdt and bct
-    uboot, bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt)
+    bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt)
 
     if gbb:
       pack = PackFirmware(self._tools, self._out)
@@ -335,7 +338,7 @@ class Bundle:
       image = signed
 
     self._tools.OutputSize('Final image', image)
-    return uboot, image
+    return image
 
   def SelectFdt(self, fdt_fname):
     """Select an FDT to control the firmware bundling
@@ -371,7 +374,7 @@ class Bundle:
       gbb = self._CreateGoogleBinaryBlock(hardware_id)
 
     # This creates the actual image.
-    uboot, image = self._CreateImage(gbb, self.fdt)
+    image = self._CreateImage(gbb, self.fdt)
     if output_fname:
       shutil.copyfile(image, output_fname)
       self._out.Notice("Output image '%s'" % output_fname)
