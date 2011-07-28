@@ -103,7 +103,8 @@ class Bundle:
     """
     self._keydir = keydir
 
-  def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None):
+  def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
+               postload=None):
     """Set up files required for Bundle.
 
     Args:
@@ -112,12 +113,14 @@ class Bundle:
       bct: The filename of the binary BCT file to use.
       bmpblk: The filename of bitmap block file to use.
       coreboot: The filename of the coreboot image to use (on x86)
+      postload: The filename of the u-boot-post.bin image to use.
     """
     self._board = board
     self.uboot_fname = uboot
     self.bct_fname = bct
     self.bmpblk_fname = bmpblk
     self.coreboot_fname = coreboot
+    self.postload_fname = postload
 
   def SetOptions(self, small):
     """Set up options supported by Bundle.
@@ -251,17 +254,29 @@ class Bundle:
         else:
           self.fdt.PutString('/config/%s' % config[0], value)
 
-  def _CreateBootStub(self, uboot, fdt):
+  def _CreateBootStub(self, uboot, base_fdt, postload):
     """Create a boot stub and a signed boot stub.
+
+    For postload:
+    We add a /config/postload-text-offset entry to the signed bootstub's
+    fdt so that U-Boot can find the postload code.
+
+    The raw (unsigned) bootstub will have a value of -1 for this since we will
+    simply append the postload code to the bootstub and it can find it there.
+    This will be used for RW A/B firmware.
+
+    For the signed case this value will specify where in the flash to find
+    the postload code. This will be used for RO firmware.
 
     Args:
       uboot: Path to u-boot.bin (may be chroot-relative)
-      fdt: Device Tree
+      fdt: Fdt object containing the flat device tree.
+      postload: Path to u-boot-post.bin, or None if none.
 
     Returns:
       Tuple containing:
-        Full path to bootstub (uboot + fdt).
-        Full path to signed blob (uboot + fdt + bct).
+        Full path to bootstub (uboot + fdt(-1) + postload).
+        Full path to signed (uboot + fdt(flash pos) + bct) + postload.
 
     Raises:
       CmdError if a command fails.
@@ -269,6 +284,10 @@ class Bundle:
     bootstub = os.path.join(self._tools.outdir, 'u-boot-fdt.bin')
     text_base = self.fdt.GetInt('/chromeos-config/textbase');
     uboot_data = self._tools.ReadFile(uboot)
+
+    # Make a copy of the fdt for the bootstub
+    fdt = base_fdt.Copy(os.path.join(self._tools.outdir, 'bootstub.dtb'))
+    fdt.PutInteger('/config/postload-text-offset', 0xffffffff);
     fdt_data = self._tools.ReadFile(fdt.fname)
 
     self._tools.WriteFile(bootstub, uboot_data + fdt_data)
@@ -280,7 +299,39 @@ class Bundle:
     # bct and the stub u-boot image.
     signed = self._SignBootstub(self._tools.Filename(self.bct_fname),
         bootstub, text_base)
-    return bootstub, signed
+
+    signed_postload = os.path.join(self._tools.outdir, 'signed-postload.bin')
+    data = self._tools.ReadFile(signed)
+
+    if postload:
+      # We must add postload to the bootstub since A and B will need to
+      # be able to find it without the /config/postload-text-offset mechanism.
+      bs_data = self._tools.ReadFile(bootstub)
+      bs_data += self._tools.ReadFile(postload)
+      bootstub = os.path.join(self._tools.outdir, 'u-boot-fdt-postload.bin')
+      self._tools.WriteFile(bootstub, bs_data)
+      self._tools.OutputSize('Combined binary with postload', bootstub)
+
+      # Now that we know the file size, adjust the fdt and re-sign
+      postload_bootstub = os.path.join(self._tools.outdir, 'postload.bin')
+      fdt.PutInteger('/config/postload-text-offset', len(data))
+      fdt_data = self._tools.ReadFile(fdt.fname)
+      self._tools.WriteFile(postload_bootstub, uboot_data + fdt_data)
+      signed = self._SignBootstub(self._tools.Filename(self.bct_fname),
+          postload_bootstub, text_base)
+      if len(data) != os.path.getsize(signed):
+        raise CmdError('Signed file size changed from %d to %d after updating '
+            'fdt' % (len(data), os.path.getsize(signed)))
+
+      # Re-read the signed image, and add the post-load binary.
+      data = self._tools.ReadFile(signed)
+      data += self._tools.ReadFile(postload)
+      self._tools.OutputSize('Post-load binary', postload)
+
+    self._tools.WriteFile(signed_postload, data)
+    self._tools.OutputSize('Final bootstub with postload', signed_postload)
+
+    return bootstub, signed_postload
 
   def _CreateCorebootStub(self, uboot, coreboot, fdt):
     """Create a coreboot boot stub.
@@ -344,7 +395,8 @@ class Bundle:
       bootstub = self.uboot_fname
     else:
       # Create the boot stub, which is U-Boot plus an fdt and bct
-      bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt)
+      bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt,
+                                              self.postload_fname)
 
     if gbb:
       pack = PackFirmware(self._tools, self._out)
