@@ -99,6 +99,9 @@ def main():
       help='Create/write only the signed U-Boot binary (not the full image)')
   parser.add_option('-u', '--uboot', dest='uboot', type='string',
       action='store', help='Executable bootloader file (U-Boot)')
+  parser.add_option('-U', '--uboot-flasher', dest='uboot_flasher',
+      type='string', action='store', help='Executable bootloader file '
+      '(U-Boot) to use for flashing (defaults to the same as --uboot)')
   parser.add_option('-v', '--verbosity', dest='verbosity', default=1,
       type='int', help='Control verbosity: 0=silent, 1=progress, 3=full, '
       '4=debug')
@@ -130,7 +133,10 @@ def main():
     # Write it to the board if required.
     if options.write:
       write = WriteFirmware(tools, bundle.fdt, output)
-      if write.FlashImage(bundle.uboot_fname, bundle.bct_fname, out_fname):
+      flasher = options.uboot_flasher
+      if not flasher:
+        flasher = bundle.uboot_fname
+      if write.FlashImage(flasher, bundle.bct_fname, out_fname):
         output.Progress('Image uploaded - please wait for flashing to '
             'complete')
       else:
