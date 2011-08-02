@@ -100,16 +100,14 @@ function get_text_base() {
 
 ###############################################################################
 
-u_boot="/build/${BOARD_VARIANT}/u-boot"
-
 # Generate default values for the firmware, flasher, BCT, map and flash config
 # file paths from the board and variant information provided.
-firmware=${FLAGS_firmware:-"${u_boot}/image.bin"}
-flasher=${FLAGS_flasher:-"${u_boot}/u-boot.bin"}
-script=${FLAGS_script:-"${u_boot}/flasher.script"}
-bct=${FLAGS_bct:-"${u_boot}/bct/board.bct"}
-dtb=${FLAGS_dtb:-"${u_boot}/dtb/${FLAGS_board/_/-}.dtb"}
-map=${FLAGS_map:-"${u_boot}/System.map"}
+firmware=$(find_u_boot_component "image.bin" "${FLAGS_firmware}")
+flasher=$(find_u_boot_component "u-boot.bin" "${FLAGS_flasher}")
+script=$(find_u_boot_component "flasher.script" "${FLAGS_script}")
+bct=$(find_u_boot_component "bct/board.bct" "${FLAGS_bct}")
+dtb=$(find_u_boot_component "dtb/${FLAGS_board/_/-}.dtb" "${FLAGS_dtb}")
+map=$(find_u_boot_component "System.map" "${FLAGS_map}")
 
 # Default value that hard-coded in u-boot-flasher.bin; use $(()) to convert
 # hexadecimal into decimal values
