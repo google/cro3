@@ -92,6 +92,7 @@ class Bundle:
     self.uboot_fname = None     # Filename of our U-Boot binary.
     self.bct_fname = None       # Filename of our BCT file.
     self.fdt = None             # Our Fdt object.
+    self.bmpblk_fname = None    # Filename of our Bitmap Block
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -101,17 +102,19 @@ class Bundle:
     """
     self._keydir = keydir
 
-  def SetFiles(self, board, uboot, bct):
+  def SetFiles(self, board, uboot, bct, bmpblk):
     """Set up files required for Bundle.
 
     Args:
       board: The name of the board to target (e.g. tegra2_seaboard).
       uboot: The filename of the u-boot.bin image to use.
       bct: The filename of the binary BCT file to use.
+      bmpblk: The filename of bitmap block file to use.
     """
     self._board = board
     self.uboot_fname = uboot
     self.bct_fname = bct
+    self.bmpblk_fname = bmpblk
 
   def SetOptions(self, small):
     """Set up options supported by Bundle.
@@ -154,22 +157,26 @@ class Bundle:
     gbb_size = self.fdt.GetFlashPartSize('ro', 'gbb')
     odir = self._tools.outdir
 
-    # Get LCD dimensions from the device tree.
-    screen_geometry = '%sx%s' % (self.fdt.GetInt('/lcd/width'),
-        self.fdt.GetInt('/lcd/height'))
+    if not self.bmpblk_fname:
+      # TODO(hungte) Remove this bitmap generation in future because we should
+      # always use pre-genereated bitmaps.
+      # Get LCD dimensions from the device tree.
+      screen_geometry = '%sx%s' % (self.fdt.GetInt('/lcd/width'),
+          self.fdt.GetInt('/lcd/height'))
 
-    # This is the magic directory that make_bmp_image writes to!
-    out_dir = 'out_%s' % re.sub(' ', '_', hardware_id)
-    bmp_dir = os.path.join(odir, out_dir)
-    self._out.Progress('Creating bitmaps')
-    self._tools.Run('make_bmp_image', [hardware_id, screen_geometry, 'arm'],
-        cwd=odir)
+      # This is the magic directory that make_bmp_image writes to!
+      out_dir = 'out_%s' % re.sub(' ', '_', hardware_id)
+      bmp_dir = os.path.join(odir, out_dir)
+      self._out.Progress('Creating bitmaps')
+      self._tools.Run('make_bmp_image', [hardware_id, screen_geometry, 'arm'],
+          cwd=odir)
 
-    self._out.Progress('Creating bitmap block')
-    yaml = 'config.yaml'
-    self._tools.WriteFile(os.path.join(bmp_dir, yaml), yaml_data)
-    self._tools.Run('bmpblk_utility', ['-z', '2', '-c', yaml, 'bmpblk.bin'],
-        cwd=bmp_dir)
+      self._out.Progress('Creating bitmap block')
+      yaml = 'config.yaml'
+      self._tools.WriteFile(os.path.join(bmp_dir, yaml), yaml_data)
+      self._tools.Run('bmpblk_utility', ['-z', '2', '-c', yaml, 'bmpblk.bin'],
+          cwd=bmp_dir)
+      self.bmpblk_fname = os.path.join(out_dir, 'bmpblk.bin')
 
     self._out.Progress('Creating GBB')
     sizes = [0x100, 0x1000, gbb_size - 0x2180, 0x1000]
@@ -181,7 +188,7 @@ class Bundle:
         '--hwid=%s' % hardware_id,
         '--rootkey=%s/root_key.vbpubk' % keydir,
         '--recoverykey=%s/recovery_key.vbpubk' % keydir,
-        '--bmpfv=%s' % os.path.join(out_dir, 'bmpblk.bin'),
+        '--bmpfv=%s' % self.bmpblk_fname,
         gbb],
         cwd=odir)
     return os.path.join(odir, gbb)

@@ -85,6 +85,8 @@ def main():
       help='Path to fdt binary blob .dtb file to use')
   parser.add_option('-I', '--hwid', dest='hardware_id', type='string',
       action='store', help='Hardware ID string to use')
+  parser.add_option('-B', '--bmpblk', dest='bmpblk', type='string',
+      action='store', help='Bitmap block to use')
   parser.add_option('-k', '--key', dest='key', type='string', action='store',
       help='Path to signing key directory (default to dev key)',
       default='##/usr/share/vboot/devkeys')
@@ -118,7 +120,8 @@ def main():
 
   bundle = Bundle(tools, output)
   bundle.SetDirs(keydir=options.key)
-  bundle.SetFiles(board=options.board, uboot=options.uboot, bct=options.bct)
+  bundle.SetFiles(board=options.board, uboot=options.uboot, bct=options.bct,
+                  bmpblk=options.bmpblk)
   bundle.SetOptions(small=options.small)
 
   try:
