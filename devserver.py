@@ -13,7 +13,6 @@ import subprocess
 import sys
 
 import autoupdate
-import builder
 
 CACHED_ENTRIES = 12
 
@@ -88,10 +87,13 @@ class DevServerRoot(object):
   """
 
   def __init__(self):
-    self._builder = builder.Builder()
+    self._builder = None
 
   def build(self, board, pkg, **kwargs):
     """Builds the package specified."""
+    import builder
+    if self._builder is None:
+      self._builder = builder.Builder()
     return self._builder.Build(board, pkg, kwargs)
 
   def index(self):
