@@ -104,7 +104,6 @@ emerge_gcc()
   USE+=" multislot"
   if echo "$atom" | grep -q "gcc-4.6.0$"
   then
-    USE+=" svn_sources"
     old_binutils_config="$(get_current_binutils_config $ctarget)"
     if [[ "$old_binutils_config" != "$ctarget-2.20.1" ]]
     then
