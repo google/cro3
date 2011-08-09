@@ -6,6 +6,7 @@
 
 """Regression tests for devserver."""
 
+import json
 import os
 import signal
 import shutil
@@ -36,6 +37,14 @@ UPDATE_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 """
 # TODO(girts): use a random available port.
 UPDATE_URL = 'http://127.0.0.1:8080/update'
+
+API_HOST_INFO_BAD_URL = 'http://127.0.0.1:8080/api/hostinfo/'
+API_HOST_INFO_URL = API_HOST_INFO_BAD_URL + '127.0.0.1'
+
+API_SET_UPDATE_BAD_URL = 'http://127.0.0.1:8080/api/setnextupdate/'
+API_SET_UPDATE_URL = API_SET_UPDATE_BAD_URL + '127.0.0.1'
+
+API_SET_UPDATE_REQUEST = 'new_update-test/the-new-update'
 
 # Run all tests while being in /
 base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -163,6 +172,84 @@ class DevserverTest(unittest.TestCase):
       connection.close()
       self.assertEqual('Developers, developers, developers!\n', contents)
       os.unlink(foreign_image)
+    finally:
+      os.kill(pid, signal.SIGKILL)
+
+  def testApiBadSetNextUpdateRequest(self):
+    """Tests sending a bad setnextupdate request."""
+    pid = self._StartServer()
+    try:
+      # Wait for the server to start up.
+      time.sleep(1)
+
+      # Send bad request and ensure it fails...
+      try:
+        request = urllib2.Request(API_SET_UPDATE_URL, '')
+        connection = urllib2.urlopen(request)
+        connection.read()
+        connection.close()
+        self.fail('Invalid setnextupdate request did not fail!')
+      except urllib2.URLError:
+        pass
+    finally:
+      os.kill(pid, signal.SIGKILL)
+
+  def testApiBadSetNextUpdateURL(self):
+    """Tests contacting a bad setnextupdate url."""
+    pid = self._StartServer()
+    try:
+      # Wait for the server to start up.
+      time.sleep(1)
+
+      # Send bad request and ensure it fails...
+      try:
+        connection = urllib2.urlopen(API_SET_UPDATE_BAD_URL)
+        connection.read()
+        connection.close()
+        self.fail('Invalid setnextupdate url did not fail!')
+      except urllib2.URLError:
+        pass
+    finally:
+      os.kill(pid, signal.SIGKILL)
+
+  def testApiBadHostInfoURL(self):
+    """Tests contacting a bad hostinfo url."""
+    pid = self._StartServer()
+    try:
+      # Wait for the server to start up.
+      time.sleep(1)
+
+      # Send bad request and ensure it fails...
+      try:
+        connection = urllib2.urlopen(API_HOST_INFO_BAD_URL)
+        connection.read()
+        connection.close()
+        self.fail('Invalid hostinfo url did not fail!')
+      except urllib2.URLError:
+        pass
+    finally:
+      os.kill(pid, signal.SIGKILL)
+
+  def testApiHostInfoAndSetNextUpdate(self):
+    """Tests using the setnextupdate and hostinfo api commands."""
+    pid = self._StartServer()
+    try:
+      # Wait for the server to start up.
+      time.sleep(1)
+
+      # Send setnextupdate command.
+      request = urllib2.Request(API_SET_UPDATE_URL, API_SET_UPDATE_REQUEST)
+      connection = urllib2.urlopen(request)
+      response = connection.read()
+      connection.close()
+
+      # Send hostinfo command and verify the setnextupdate worked.
+      connection = urllib2.urlopen(API_HOST_INFO_URL)
+      response = connection.read()
+      connection.close()
+
+      self.assertEqual(
+          json.loads(response)['forced_update_label'], API_SET_UPDATE_REQUEST)
     finally:
       os.kill(pid, signal.SIGKILL)
 

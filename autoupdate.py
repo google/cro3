@@ -6,6 +6,7 @@ from buildutil import BuildObject
 from xml.dom import minidom
 
 import cherrypy
+import json
 import os
 import shutil
 import subprocess
@@ -84,6 +85,10 @@ class Autoupdate(BuildObject):
 
     # Path to pre-generated file.
     self.pregenerated_path = None
+
+    # Initialize empty host info cache. Used to keep track of various bits of
+    # information about a given host.
+    self.host_info = {}
 
   def _GetSecondsSinceMidnight(self):
     """Returns the seconds since midnight as a decimal value."""
@@ -614,6 +619,20 @@ class Autoupdate(BuildObject):
     update_dom = minidom.parseString(data)
     root = update_dom.firstChild
 
+    # Determine request IP, strip any IPv6 data for simplicity.
+    client_ip = cherrypy.request.remote.ip.split(':')[-1]
+
+    # Initialize host info dictionary for this client if it doesn't exist.
+    self.host_info.setdefault(client_ip, {})
+
+    # Store event details in the host info dictionary for API usage.
+    event = root.getElementsByTagName('o:event')
+    if event:
+      self.host_info[client_ip]['last_event_status'] = (
+          int(event[0].getAttribute('eventresult')))
+      self.host_info[client_ip]['last_event_type'] = (
+          int(event[0].getAttribute('eventtype')))
+
     # We only generate update payloads for updatecheck requests.
     update_check = root.getElementsByTagName('o:updatecheck')
     if not update_check:
@@ -628,6 +647,14 @@ class Autoupdate(BuildObject):
     channel = query.getAttribute('track')
     board_id = (query.hasAttribute('board') and query.getAttribute('board')
                 or self._GetDefaultBoardID())
+
+    # Store version for this host in the cache.
+    self.host_info[client_ip]['last_known_version'] = client_version
+
+    # Check if an update has been forced for this client.
+    forced_update = self.host_info[client_ip].pop('forced_update_label', None)
+    if forced_update:
+      label = forced_update
 
     # Separate logic as Factory requests have static url's that override
     # other options.
@@ -656,3 +683,15 @@ class Autoupdate(BuildObject):
         return self.GetUpdatePayload(hash, sha256, size, url, is_delta_format)
       else:
         return self.GetNoUpdatePayload()
+
+  def HandleHostInfoPing(self, ip):
+    """Returns host info dictionary for the given IP in JSON format."""
+    assert ip, 'No ip provided.'
+    if ip in self.host_info:
+      return json.dumps(self.host_info[ip])
+
+  def HandleSetUpdatePing(self, ip, label):
+    """Sets forced_update_label for a given host."""
+    assert ip, 'No ip provided.'
+    assert label, 'No label provided.'
+    self.host_info.setdefault(ip, {})['forced_update_label'] = label

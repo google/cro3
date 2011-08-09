@@ -7,6 +7,7 @@
 """Unit tests for autoupdate.py."""
 
 import cherrypy
+import json
 import mox
 import os
 import socket
@@ -18,6 +19,7 @@ _TEST_REQUEST = """
 <client_test xmlns:o="http://www.google.com/update2/request" updaterversion="%(client)s" >
   <o:app version="%(version)s" track="%(track)s" board="%(board)s" />
   <o:updatecheck />
+  <o:event eventresult="%(event_result)d" eventtype="%(event_type)d" />
 </client_test>"""
 
 
@@ -36,11 +38,14 @@ class AutoupdateTest(mox.MoxTestBase):
     self.latest_verision = '12345_af_12'
     self.static_image_dir = '/tmp/static-dir/'
     self.hostname = '%s:%s' % (socket.gethostname(), self.port)
-    self.test_dict = { 'client': 'ChromeOSUpdateEngine-1.0',
-                       'version': 'ForcedUpdate',
-                       'track': 'unused_var',
-                       'board': self.test_board
-                     }
+    self.test_dict = {
+        'client': 'ChromeOSUpdateEngine-1.0',
+        'version': 'ForcedUpdate',
+        'track': 'unused_var',
+        'board': self.test_board,
+        'event_result': 2,
+        'event_type': 3
+    }
     self.test_data = _TEST_REQUEST % self.test_dict
     self.forced_image_path = '/path_to_force/chromiumos_image.bin'
     self.hash = 12345
@@ -49,7 +54,6 @@ class AutoupdateTest(mox.MoxTestBase):
     self.payload = 'My payload'
     self.sha256 = 'SHA LA LA'
     cherrypy.request.base = 'http://%s' % self.hostname
-
 
   def _DummyAutoupdateConstructor(self):
     """Creates a dummy autoupdater.  Used to avoid using constructor."""
@@ -93,7 +97,7 @@ class AutoupdateTest(mox.MoxTestBase):
         self.static_image_dir, 'update.gz')).AndReturn(self.size)
     autoupdate.Autoupdate.GetUpdatePayload(
         self.hash, self.sha256, self.size, self.url, False).AndReturn(
-        self.payload)
+            self.payload)
 
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor()
@@ -117,11 +121,19 @@ class AutoupdateTest(mox.MoxTestBase):
         self.static_image_dir, 'update.gz')).AndReturn(self.size)
     autoupdate.Autoupdate.GetUpdatePayload(
         self.hash, self.sha256, self.size, self.url, False).AndReturn(
-        self.payload)
+            self.payload)
 
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor()
     self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
+    self.assertEqual(
+        au_mock.host_info['127.0.0.1']['last_known_version'], 'ForcedUpdate')
+    self.assertEqual(
+        au_mock.host_info['127.0.0.1']['last_event_type'],
+        self.test_dict['event_type'])
+    self.assertEqual(
+        au_mock.host_info['127.0.0.1']['last_event_status'],
+        self.test_dict['event_result'])
     self.mox.VerifyAll()
 
   def testChangeUrlPort(self):
@@ -136,6 +148,60 @@ class AutoupdateTest(mox.MoxTestBase):
 
     r = autoupdate._ChangeUrlPort('ftp://fuzzy', 8085)
     self.assertEqual(r, 'ftp://fuzzy:8085')
+
+  def testHandleHostInfoPing(self):
+    au_mock = self._DummyAutoupdateConstructor()
+    self.assertRaises(AssertionError, au_mock.HandleHostInfoPing, None)
+
+    # Setup fake host_info entry and ensure it comes back to us in one piece.
+    test_ip = '1.2.3.4'
+    au_mock.host_info[test_ip] = self.test_dict
+    self.assertEqual(
+        json.loads(au_mock.HandleHostInfoPing(test_ip)), self.test_dict)
+
+  def testHandleSetUpdatePing(self):
+    au_mock = self._DummyAutoupdateConstructor()
+    test_ip = '1.2.3.4'
+    test_label = 'test/old-update'
+    self.assertRaises(
+        AssertionError, au_mock.HandleSetUpdatePing, test_ip, None)
+    self.assertRaises(
+        AssertionError, au_mock.HandleSetUpdatePing, None, test_label)
+    self.assertRaises(
+        AssertionError, au_mock.HandleSetUpdatePing, None, None)
+
+    au_mock.HandleSetUpdatePing(test_ip, test_label)
+    self.assertEqual(
+        au_mock.host_info[test_ip]['forced_update_label'], test_label)
+
+  def testHandleUpdatePingWithSetUpdate(self):
+    self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GenerateLatestUpdateImage')
+
+    test_data = _TEST_REQUEST % self.test_dict
+    test_label = 'new_update-test/the-new-update'
+    new_image_dir = os.path.join(self.static_image_dir, test_label)
+    new_url = self.url.replace('update.gz', test_label + '/update.gz')
+
+    autoupdate.Autoupdate.GenerateLatestUpdateImage(
+        self.test_board, 'ForcedUpdate', new_image_dir).AndReturn(
+            'update.gz')
+    autoupdate.Autoupdate._GetHash(os.path.join(
+        new_image_dir, 'update.gz')).AndReturn(self.hash)
+    autoupdate.Autoupdate._GetSHA256(os.path.join(
+        new_image_dir, 'update.gz')).AndReturn(self.sha256)
+    autoupdate.Autoupdate._GetSize(os.path.join(
+        new_image_dir, 'update.gz')).AndReturn(self.size)
+    autoupdate.Autoupdate.GetUpdatePayload(
+        self.hash, self.sha256, self.size, new_url, False).AndReturn(
+            self.payload)
+
+    self.mox.ReplayAll()
+    au_mock = self._DummyAutoupdateConstructor()
+    au_mock.HandleSetUpdatePing('127.0.0.1', test_label)
+    self.assertEqual(
+        au_mock.host_info['127.0.0.1']['forced_update_label'], test_label)
+    self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
+    self.assertFalse('forced_update_label' in au_mock.host_info['127.0.0.1'])
 
 
 if __name__ == '__main__':

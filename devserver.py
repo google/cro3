@@ -32,6 +32,11 @@ def _GetConfig(options):
                     'tools.staticdir.root':
                       os.path.dirname(os.path.abspath(sys.argv[0])),
                   },
+                  '/api':
+                  {
+                    # Gets rid of cherrypy parsing post file for args.
+                    'request.process_request_body': False,
+                  },
                   '/build':
                   {
                     'response.timeout': 100000,
@@ -74,6 +79,49 @@ def _PrepareToServeUpdatesOnly(image_dir, static_dir):
                'DEVSERVER')
 
 
+class ApiRoot(object):
+  """RESTful API for Dev Server information."""
+  exposed = True
+
+  @cherrypy.expose
+  def hostinfo(self, ip):
+    """Returns a JSON dictionary containing information about the given ip.
+
+    Not all information may be known at the time the request is made. The
+    possible keys are:
+
+        last_event_type: int
+            Last update event type received.
+
+        last_event_status: int
+            Last update event status received.
+
+        last_known_version: string
+            Last known version recieved for update ping.
+
+        forced_update_label: string
+            Update label to force next update ping to use. Set by setnextupdate.
+
+    See the OmahaEvent class in update_engine/omaha_request_action.h for status
+    code definitions. If the ip does not exist an empty string is returned."""
+    return updater.HandleHostInfoPing(ip)
+
+  @cherrypy.expose
+  def setnextupdate(self, ip):
+    """Allows the response to the next update ping from a host to be set.
+
+    Takes the IP of the host and an update label as normally provided to the
+    /update command."""
+    body_length = int(cherrypy.request.headers['Content-Length'])
+    label = cherrypy.request.rfile.read(body_length)
+
+    if label:
+      label = label.strip()
+      if label:
+        return updater.HandleSetUpdatePing(ip, label)
+    raise cherrypy.HTTPError(400, 'No label provided.')
+
+
 class DevServerRoot(object):
   """The Root Class for the Dev Server.
 
@@ -85,10 +133,12 @@ class DevServerRoot(object):
     For paths http://myhost/update/dir1/dir2, you can use *args so that
     cherrypy uses the update method and puts the extra paths in args.
   """
+  api = ApiRoot()
 
   def __init__(self):
     self._builder = None
 
+  @cherrypy.expose
   def build(self, board, pkg, **kwargs):
     """Builds the package specified."""
     import builder
@@ -96,19 +146,16 @@ class DevServerRoot(object):
       self._builder = builder.Builder()
     return self._builder.Build(board, pkg, kwargs)
 
+  @cherrypy.expose
   def index(self):
     return 'Welcome to the Dev Server!'
 
+  @cherrypy.expose
   def update(self, *args):
     label = '/'.join(args)
     body_length = int(cherrypy.request.headers['Content-Length'])
     data = cherrypy.request.rfile.read(body_length)
     return updater.HandleUpdatePing(data, label)
-
-  # Expose actual methods.  Necessary to actually have these callable.
-  build.exposed = True
-  update.exposed = True
-  index.exposed = True
 
 
 if __name__ == '__main__':
