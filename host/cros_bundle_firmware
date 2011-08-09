@@ -61,6 +61,49 @@ def _CheckTools(tools, options):
   tools.CheckTool('dtput', 'dtc')
   tools.CheckTool('dtget', 'dtc')
 
+def _DoBundle(options, output, tools):
+  """The main part of the cros_bundle_firmware code.
+
+  This takes the supplied options and performs the firmware bundling.
+
+  Args:
+    options: Parser options.
+    output: cros_output object to use.
+    tools: Tools object to use.
+  """
+  _CheckTools(tools, options)
+  tools.PrepareOutputDir(options.outdir, options.preserve)
+
+  bundle = Bundle(tools, output)
+  bundle.SetDirs(keydir=options.key)
+  bundle.SetFiles(board=options.board, uboot=options.uboot, bct=options.bct,
+                  bmpblk=options.bmpblk)
+  bundle.SetOptions(small=options.small)
+
+  try:
+    # Set up the fdt and options that we want.
+    bundle.SelectFdt(options.fdt)
+    bundle.SetBootcmd(options.bootcmd, options.bootsecure)
+    bundle.AddConfigList(options.add_config_str)
+    bundle.AddConfigList(options.add_config_int, use_int=True)
+
+    out_fname = bundle.Start(options.hardware_id, options.output)
+
+    # Write it to the board if required.
+    if options.write:
+      flasher = options.uboot_flasher
+      if not flasher:
+        flasher = bundle.uboot_fname
+      write_firmware.DoWriteFirmware(output, tools, bundle.fdt, flasher,
+          bundle.bct_fname, out_fname)
+
+  except (CmdError, ValueError) as err:
+    # For verbosity 4 we want to display all possible information
+    if options.verbosity >= 4:
+      raise
+    else:
+      output.Error(str(err))
+
 def main():
   """Main function for cros_bundle_firmware."""
   parser = optparse.OptionParser()
@@ -113,45 +156,9 @@ def main():
       default=False, help='Write firmware to SPI flash with USB A-A cable')
   (options, args) = parser.parse_args(sys.argv)
 
-  output = cros_output.Output(options.verbosity)
-  tools = Tools(output)
-  _CheckTools(tools, options)
-  tools.PrepareOutputDir(options.outdir, options.preserve)
-
-  bundle = Bundle(tools, output)
-  bundle.SetDirs(keydir=options.key)
-  bundle.SetFiles(board=options.board, uboot=options.uboot, bct=options.bct,
-                  bmpblk=options.bmpblk)
-  bundle.SetOptions(small=options.small)
-
-  try:
-    # Set up the fdt and options that we want.
-    bundle.SelectFdt(options.fdt)
-    bundle.SetBootcmd(options.bootcmd, options.bootsecure)
-    bundle.AddConfigList(options.add_config_str)
-    bundle.AddConfigList(options.add_config_int, use_int=True)
-
-    out_fname = bundle.Start(options.hardware_id, options.output)
-
-    # Write it to the board if required.
-    if options.write:
-      flasher = options.uboot_flasher
-      if not flasher:
-        flasher = bundle.uboot_fname
-      write_firmware.DoWriteFirmware(output, tools, bundle.fdt, flasher,
-          bundle.bct_fname, out_fname)
-
-  except (CmdError, ValueError) as err:
-    # For verbosity 4 we want to display all possible information
-    if options.verbosity >= 4:
-      raise
-    else:
-      output.Error(str(err))
-      del tools
-      del output
-      sys.exit(1)
-  del tools
-  del output
+  with cros_output.Output(options.verbosity) as output:
+    with Tools(output) as tools:
+      _DoBundle(options, output, tools)
 
 
 def _Test():

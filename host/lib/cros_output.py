@@ -45,9 +45,13 @@ class Output:
     # TODO(sjg): Move this into Chromite libraries when we have them
     self.stdout_is_tty = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
 
-  def __del__(self):
+  def __enter__(self):
+    return self
+
+  def __exit__(self, type, value, traceback):
     """Clean up and remove any progress message."""
     self.ClearProgress()
+    return False
 
   def UserIsPresent(self):
     """This returns True if it is likely that a user is present.

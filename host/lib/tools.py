@@ -78,8 +78,12 @@ class Tools:
     self.outdir = None          # We have no output directory yet
     self._delete_tempdir = None # And no temporary directory to delete
 
-  def __del__(self):
-      self.FinalizeOutputDir()
+  def __enter__(self):
+    return self
+
+  def __exit__(self, type, value, traceback):
+    self.FinalizeOutputDir()
+    return False
 
   def _SetRoot(self, root_dir):
     """Sets the root directory for the build envionrment.
