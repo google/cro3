@@ -1,240 +1,120 @@
-#!/bin/bash
+#!/usr/bin/python
 
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This utility writes a firmware image to a tegra based board.
+"""This utility writes a firmware image to a tegra-based board.
 
-# Include common CrOS utilities.
-. "/usr/lib/crosutils/common.sh"
+This utility uses a number of libraries for its activity.
+"""
 
-get_default_board
+# Python imports
+import optparse
+import os
+import sys
 
-# Command line options
-DEFINE_string board "${DEFAULT_BOARD}" "The name of the board to flash."
-DEFINE_string variant "" "Board variant."
-DEFINE_string firmware "" "Path to firmware image to write."
-DEFINE_string flasher "" "Path to flasher image to use."
-DEFINE_string script "" "Path to flasher script to use."
-DEFINE_string bct "" "Path to bct image to write."
-DEFINE_string dtb "" "Path to dtb (device tree blob) file to use."
-DEFINE_string map "" "Path to System.map file to read for load address."
-DEFINE_string config "" "Directory for temporary configuration files."
-DEFINE_boolean sign $FLAGS_FALSE "Sign and append a BCT to the firmware image."
-DEFINE_boolean dry_run $FLAGS_FALSE "Do everything except calling nvflash."
+from fdt import Fdt
+import write_firmware
+from bundle_firmware import Bundle
+import cros_output
+from tools import Tools
+from tools import CmdError
 
-# Parse command line.
-FLAGS "$@" || exit 1
-eval set -- "${FLAGS_ARGV}"
+def _CheckTools(tools, options):
+  """Check that all required tools are present.
 
-# Die on errors.
-set -e
+  This just does a simple presence test on the external tools we thing we
+  might need.
 
-CROS_LOG_PREFIX="cros_write_firmware"
+  Args:
+    tools: Tools object to use to check tools.
+    Options: Command line options provided.
 
-# No arguments are expected; error if any are passed.
-if [ $# -ne 0 ]; then
-  error "Unexpted arguments: $*"
-  exit 1
-fi
+  Raises:
+    CmdError if a required tool is not found.
+  """
+  tools.CheckTool('nvflash')
+  tools.CheckTool('dtput', 'dtc')
+  tools.CheckTool('dtget', 'dtc')
 
-if [ -z "${FLAGS_board}" ]; then
-  error "--board required."
-  exit 1
-fi
+def _DoWriteFirmware(options, output, tools):
+  """The main part of the cros_write_firmware code.
 
-get_board_and_variant $FLAGS_board $FLAGS_variant
+  This takes the supplied options and performs the firmware write.
 
-# Display the U-Boot version string.
-function show_u_boot_info() {
-  local firmware=$1
-  local header=$(strings "${firmware}" | grep "U-Boot" | head -1 )
+  Args:
+    options: Parser options.
+    output: cros_output object to use.
+    tools: Tools object to use.
+  """
+  _CheckTools(tools, options)
+  tools.PrepareOutputDir(options.outdir, options.preserve)
 
-  info "Using ${header}"
-}
+  bundle = Bundle(tools, output)
+  bundle.SetFiles(board=options.board, bct=options.bct)
+  bundle.CheckOptions()
+  # Set up the fdt and options that we want.
+  bundle.SelectFdt(options.fdt)
 
-# Given two values in decimal format return the first value rounded up to a
-# multiple of the second value.  The second value must be a power of two.
-function round() {
-  awk "BEGIN { print and(($1 + $2 - 1), compl($2 - 1)) }"
-}
+  try:
+    # Write it to the board.
+    flasher = options.uboot_flasher
+    if not flasher:
+      flasher = bundle.uboot_fname
+    write_firmware.DoWriteFirmware(output, tools, bundle.fdt, flasher,
+        bundle.bct_fname, options.image)
 
-# Given a value in decimal format return that value converted to hexidecimal
-# and formatted as 0xXXXXXXXX.
-function to_hex() {
-  awk "BEGIN { printf \"0x%x\", $1 }"
-}
+  except (CmdError, ValueError) as err:
+    # For verbosity 4 we want to display all possible information
+    if options.verbosity >= 4:
+      raise
+    else:
+      output.Error(str(err))
 
-# Given flasher and dtb, return an estimated size that should be sufficiently
-# large for the final flasher image (which is the two combined)
-function estimate_final_flasher_size() {
-  local flasher_size=$(stat -c"%s" "$1")
-  local dtb_size=$(stat -c"%s" "$2")
-  round $((${flasher_size} + ${dtb_size})) 65536
-}
 
-# Create the flashing script.  This script will be loaded and run by the flasher
-# build of U-Boot.  Most of the script is constant, we just need to append the
-# sizes and address of the payload.
-function make_flashing_script() {
-  local firmware=$1
-  local script=$2
-  local firmware_size=$(stat -c"%s" "${firmware}")
-  local image_address=$((${text_base} + ${script_offset} + ${script_size}))
+def main():
+  """Main function for cros_bundle_firmware."""
+  parser = optparse.OptionParser()
+  parser.add_option('-b', '--board', dest='board', type='string',
+      action='store', help='Board name to use (e.g. tegra2_kaen)',
+      default='tegra2_seaboard')
+  parser.add_option('-c', '--bct', dest='bct', type='string', action='store',
+      help='Path to BCT file for flasher: only one can be given')
+  parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
+      help='Path to fdt binary blob .dtb file to use for flasher')
+  parser.add_option('-i', '--image', dest='image', type='string',
+      action='store', help='Firmware image to write')
+  parser.add_option('-O', '--outdir', dest='outdir', type='string',
+      action='store', help='Path to directory to use for intermediate and '
+      'output files')
+  parser.add_option('-p', '--preserve', dest='preserve', action='store_true',\
+      help='Preserve temporary output directory')
+  parser.add_option('-U', '--uboot-flasher', dest='uboot_flasher',
+      type='string', action='store', help='Executable bootloader file '
+      "(U-Boot) to use for flashing (defaults to board's u-boot.bin)")
+  parser.add_option('-v', '--verbosity', dest='verbosity', default=1,
+      type='int', help='Control verbosity: 0=silent, 1=progress, 3=full, '
+      '4=debug')
+  (options, args) = parser.parse_args(sys.argv)
+  if not options.image and len(args) > 1:
+    options.image = args[1]
+  if not options.image:
+    parser.error('Please use --image to specify a firmware image to flash');
 
-  echo "setenv address       $(to_hex ${image_address})"
-  echo "setenv firmware_size $(to_hex ${firmware_size})"
-  echo "setenv length        $(to_hex $(round ${firmware_size} 4096))"
+  with cros_output.Output(options.verbosity) as output:
+    with Tools(output) as tools:
+      _DoWriteFirmware(options, output, tools)
 
-  cat "${script}"
-}
 
-# Parse the System.map file generated by the U-Boot build to get the entry
-# point address.
-function get_text_base() {
-  local map=$1
+def _Test():
+  """Run any built-in tests."""
+  import doctest
+  doctest.testmod()
 
-  grep -m1 -E "^[0-9a-fA-F]{8} T _start$" ${map} | cut -d " " -f 1
-}
-
-###############################################################################
-
-# Generate default values for the firmware, flasher, BCT, map and flash config
-# file paths from the board and variant information provided.
-firmware=$(find_u_boot_component "image.bin" "${FLAGS_firmware}")
-flasher=$(find_u_boot_component "u-boot.bin" "${FLAGS_flasher}")
-script=$(find_u_boot_component "flasher.script" "${FLAGS_script}")
-bct=$(find_u_boot_component "bct/board.bct" "${FLAGS_bct}")
-dtb=$(find_u_boot_component "dtb/${FLAGS_board/_/-}.dtb" "${FLAGS_dtb}")
-map=$(find_u_boot_component "System.map" "${FLAGS_map}")
-
-# Default value that hard-coded in u-boot-flasher.bin; use $(()) to convert
-# hexadecimal into decimal values
-script_offset=$((0x40000))
-script_size=$((0x1000))
-
-# Extract the load and entry point for U-Boot.
-text_base="0x$(get_text_base "${map}")"
-
-# Verify that all of the files and tools we will need are present.
-check_for_file "firmware" " " "${firmware}"
-check_for_file "flasher" "  " "${flasher}"
-check_for_file "script" "   " "${script}"
-check_for_file "BCT" "      " "${bct}"
-check_for_file "map" "      " "${map}"
-check_for_file "DTB" "      " "${dtb}"
-
-check_for_tool "nvflash" "nvflash"
-check_for_tool "dtget" "dtc"
-check_for_tool "dtput" "dtc"
-
-show_u_boot_info "${firmware}"
-
-# Estimate final script offset and size. This is only an estimation because the
-# dtb size may (or may not) be increased after we write bootcmd into it. So
-# later we will have to check whether the flasher size is not larger than our
-# estimation.
-script_offset="$(estimate_final_flasher_size "${flasher}" "${dtb}")"
-script_size=$(round $(stat -c"%s" ${script}) 4096)
-
-info "Flasher script offset: $(to_hex ${script_offset})"
-info "Flasher script size:   $(to_hex ${script_size})"
-
-# If the user has not specified a config directory then create one on the fly
-# and remove it when we are done.
-if [ -z "${FLAGS_config}" ]; then
-  config=$(mktemp -d)
-
-  trap "rm -rf ${config}" EXIT
-else
-  mkdir -p "${FLAGS_config}"
-
-  config=${FLAGS_config}
-fi
-
-# Optionally sign the firmware.  This is usefull if you want to write a bare
-# U-Boot to flash and boot with that instead of a fully build ChromiumOS
-# firmware image.
-if [ $FLAGS_sign -eq $FLAGS_TRUE ]; then
-  signed_firmware=${config}/signed.bin
-
-  cros_sign_bootstub \
-    --bct "${bct}" \
-    --bootstub "${firmware}" \
-    --output "${signed_firmware}" \
-    --config "${config}" \
-    --text_base "${text_base}"
-else
-  signed_firmware=${firmware}
-fi
-
-# make a copy of dtb
-cp ${dtb} ${config}/u-boot.dtb
-dtb="${config}/u-boot.dtb"
-
-# write bootcmd to the dtb
-#
-# FIXME "%[^^]" (matching anything except '^' character) is a
-# hack of putting a bootcmd string that:
-#   * contains whitespace character
-#   * but does not contain '^' character (so the choice of '^'
-#     is somewhat arbitrarily)
-# input the dtb file with a '\0' termination.
-#
-# We cannot use "%s", which stops at whitespace, and we cannot
-# use "%${#bootcmd}c", which does not add '\0' to the scanned
-# string. So our only option left is "%[^^]", which does not
-# stop at whitespace and adds '\0' to the end.
-#
-bootcmd="source $(to_hex $((${text_base} + ${script_offset})))"
-dtput -t s -f "%[^^]" ${dtb} /config/bootcmd "${bootcmd}"
-info "Flasher bootcmd: '$(dtget -t s ${dtb} /config/bootcmd)'"
-
-# create flasher
-cat ${flasher} ${dtb} > ${config}/u-boot-flasher.bin
-flasher="${config}/u-boot-flasher.bin"
-
-# Create the flashing script and turn it into a U-Boot uImage.
-make_flashing_script "${signed_firmware}" "${script}" > ${config}/script
-
-mkimage -A arm -T script -d ${config}/script ${config}/script.uimg > /dev/null
-
-# check whether our estimated script offset and size makes sense
-final_script_offset=$(stat -c"%s" "${flasher}")
-if [ ${final_script_offset} -gt ${script_offset} ]; then
-  die "script offset > estimation: $(to_hex ${final_script_offset})"
-fi
-final_script_size=$(stat -c"%s" "${config}/script.uimg")
-if [ ${final_script_size} -gt ${script_size} ]; then
-  die "script size > estimation: $(to_hex ${final_script_size})"
-fi
-
-# Construct RAM image of flasher + script + firmware.  The firmware should
-# already be signed by cbootimage.  The RAM image has a fixed 256K partition
-# for the flasher, followed by the script and payload to be written.
-b1=$((${script_offset} / 512))
-b2=$(((${script_offset} + ${script_size}) / 512))
-dd if="${flasher}"            of="${config}/image"          &> /dev/null
-dd if="${config}/script.uimg" of="${config}/image" seek=$b1 &> /dev/null
-dd if="${signed_firmware}"    of="${config}/image" seek=$b2 &> /dev/null
-
-if [ $FLAGS_dry_run -eq $FLAGS_FALSE ]; then
-  # Write the RAM image image to the board.  The flasher will write the payload
-  # into the boot device using the flashing script.
-  sudo nvflash \
-    --bct "${bct}" \
-    --setbct \
-    --bl "${config}/image" \
-    --go \
-    --setentry "${text_base}" "${text_base}" ||
-    (echo && die "Failed to download U-Boot flasher + payload using nvflash.")
-
-  # TODO(robotboy): Make a U-Boot tool that can compute the same checksum on
-  # the host and display it here.  Unfortunately U-Boot uses a slightly
-  # different crc32 than zlib, so it's not possible to use zlib's crc32 to do
-  # this.  It has to be done by building a tool that uses U-Boots version.
-  info "The serial terminal or LCD panel should show before and after CRCs of"
-  info "the image written to the boot flash.  If these values match each"
-  info "other your flash was probably successful."
-fi
+if __name__ == '__main__':
+  # If first argument is --test, run testing code.
+  if sys.argv[1:2] == ["--test"]:
+    _Test(*sys.argv[2:])
+  else:
+    main()
