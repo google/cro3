@@ -37,7 +37,7 @@ sys.path.append(os.path.join(base, 'lib'))
 
 from fdt import Fdt
 from pack_firmware import PackFirmware
-from write_firmware import WriteFirmware
+import write_firmware
 from bundle_firmware import Bundle
 import cros_output
 from tools import Tools
@@ -135,15 +135,12 @@ def main():
 
     # Write it to the board if required.
     if options.write:
-      write = WriteFirmware(tools, bundle.fdt, output)
       flasher = options.uboot_flasher
       if not flasher:
         flasher = bundle.uboot_fname
-      if write.FlashImage(flasher, bundle.bct_fname, out_fname):
-        output.Progress('Image uploaded - please wait for flashing to '
-            'complete')
-      else:
-        raise CmdError('Image upload failed - please check board connection')
+      write_firmware.DoWriteFirmware(output, tools, bundle.fdt, flasher,
+          bundle.bct_fname, out_fname)
+
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
     if options.verbosity >= 4:

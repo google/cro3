@@ -205,3 +205,24 @@ class WriteFirmware:
         time.sleep(1)
 
     return False
+
+def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname):
+  """A simple function to write firmware to the board.
+
+  This creates a WriteFirmware object and uses it to write the firmware image
+  to the board.
+
+  Args:
+    output: cros_output object to use.
+    tools: Tools object to use.
+    fdt: Fdt object to use as our device tree.
+    flasher: U-Boot binary to use as the flasher.
+    bct_fname: Bct file to use for the flasher.
+    image_fname: Filename of image to write.
+  """
+  write = WriteFirmware(tools, fdt, output)
+  if write.FlashImage(flasher, bct_fname, image_fname):
+    output.Progress('Image uploaded - please wait for flashing to '
+        'complete')
+  else:
+    raise CmdError('Image upload failed - please check board connection')
