@@ -353,6 +353,9 @@ class Bundle:
     Args:
       fdt_fname: The filename of the fdt to use.
 
+    Returns:
+      The Fdt object of the original fdt file, which we will not modify.
+
     We make a copy of this which will include any on-the-fly changes we want
     to make.
     """
@@ -360,6 +363,7 @@ class Bundle:
     self.CheckOptions()
     fdt = Fdt(self._tools, self._fdt_fname)
     self.fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
+    return fdt
 
   def Start(self, hardware_id, output_fname):
     """This creates a firmware bundle according to settings provided.

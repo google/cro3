@@ -55,14 +55,14 @@ def _DoWriteFirmware(options, output, tools):
   bundle.SetFiles(board=options.board, bct=options.bct)
   bundle.CheckOptions()
   # Set up the fdt and options that we want.
-  bundle.SelectFdt(options.fdt)
+  fdt = bundle.SelectFdt(options.fdt)
 
   try:
     # Write it to the board.
     flasher = options.uboot_flasher
     if not flasher:
       flasher = bundle.uboot_fname
-    write_firmware.DoWriteFirmware(output, tools, bundle.fdt, flasher,
+    write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
         bundle.bct_fname, options.image)
 
   except (CmdError, ValueError) as err:
