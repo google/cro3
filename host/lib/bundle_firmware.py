@@ -102,7 +102,7 @@ class Bundle:
     """
     self._keydir = keydir
 
-  def SetFiles(self, board, uboot, bct, bmpblk):
+  def SetFiles(self, board, bct, uboot=None, bmpblk=None):
     """Set up files required for Bundle.
 
     Args:
