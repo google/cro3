@@ -9,48 +9,73 @@
 
 # Constant definitions.
 EMERGE_PACKAGES="/etc/portage/bootstrap.packages"
-# TODO(arkaitzr): Fix the color output if time allows.
-# Color the script output a little.
-ERROR_S_COLOR="\033[47m\033[44m\033[1m"
-ERROR_E_COLOR="\033[0m"
-S_COLOR="\033[40m\033[32m\033[1m"
-E_COLOR="\033[0m"
+# Global variables.
+BINHOST=""
+
+# Check if we are root.
+if [ $(/usr/bin/id -u) -ne 0 ]; then
+  echo "ERROR: Can not run script."
+  echo "You are not root or you did not use sudo."
+  exit 1
+fi
 
 # This script should only run in developer mode or for developer images.
 /usr/bin/crossystem cros_debug?0
 CROS_DEBUG=$?
 
 if [ ${CROS_DEBUG} -ne 1 ]; then
-  echo -e "${ERROR_S_COLOR}ERROR: Can not run script."
-  echo -e "Chrome OS is not in developer mode.${ERROR_E_COLOR}"
+  echo "ERROR: Can not run script."
+  echo "Chrome OS is not in developer mode."
   exit 1
 fi
 
-# Check if we are root.
-if [ $(/usr/bin/id -u) -ne 0 ]; then
-  echo -e "${ERROR_S_COLOR}ERROR: Can not run script."
-  echo -e "You are not root or you did not use sudo.${ERROR_E_COLOR}"
+# Process flags.
+. /usr/lib/shflags
+DEFINE_string binhost "" \
+  "URL of the binhost that emerge will use."
+DEFINE_boolean uninstall "${FLAGS_FALSE}" \
+  "Remove all installed packages."
+DEFINE_boolean reinstall "${FLAGS_FALSE}" \
+  "Remove all installed packages and re-bootstrap emerge."
+
+FLAGS "$@" || exit 1
+
+set -e
+
+# Here we simply wipe /usr/local/* since that it's the only directory in which
+# packages are installed to.
+remove_installed_packages() {
+  read -p "Remove all installed packages now (y/n)?" reply
+  if [ "${reply}" = "y" ]; then
+    rm -rf /usr/local/*
+    echo "Removed all installed packages."
+  else
+    echo "Operation cancelled."
+    exit 0
+  fi
+}
+
+if [ ${FLAGS_uninstall} -eq ${FLAGS_TRUE} \
+     -o ${FLAGS_reinstall} -eq ${FLAGS_TRUE} ]; then
+  remove_installed_packages
+  if [ ${FLAGS_uninstall} -eq ${FLAGS_TRUE} ]; then
+    exit 0
+  else
+    echo "Reinstalling emerge."
+  fi
+fi
+
+# Check if packages are already installed.
+if [ -d /usr/local/etc/portage ]; then
+  echo "ERROR: Directory /urs/local/etc/portage exists."
+  echo "Did you mean dev_install --reinstall?"
   exit 1
 fi
 
 # Create work directory.
 WORKDIR="$(mktemp -d /tmp/dev-installer.XXXX)"
-# Copy emerge configuration to /usr/local.
-mkdir -p -m 0755 /usr/local/etc/portage
-cp /etc/portage/make.profile/make.conf /usr/local/etc/portage
-ln -s /etc/portage/make.profile /usr/local/etc/portage/make.profile
 # Get the portage configuration variables.
 . /etc/portage/make.profile/make.defaults
-
-# Create the directories defined in the portage config files. Permissions are
-# consistent with the other directories in /usr/local, which is a bind mount
-# for /mnt/stateful_partition/dev_image.
-mkdir -p -m 0755 "${PORTDIR}"
-mkdir -p -m 0755 "${PKGDIR}"
-mkdir -p -m 0755 "${DISTDIR}"
-mkdir -p -m 0755 "${RPMDIR}"
-mkdir -p -m 0755 "${PORTAGE_TMPDIR}"
-mkdir -p -m 0755 "${BUILD_PREFIX}"
 
 # Create this loop so uncompressed files in /usr/local/usr/* will be reachable
 # through /usr/local*.
@@ -58,36 +83,50 @@ if [ ! -d /usr/local/usr ]; then
   ln -s /usr/local /usr/local/usr
 fi
 
+if [ ! -d /usr/local/local ]; then
+  ln -s /usr/local /usr/local/local
+fi
+
+get_binhost() {
+  if [ "${FLAGS_binhost}" != "" ]; then
+    BINHOST="${FLAGS_binhost}"
+  else
+    local release_number
+    # Get prefix for binhost.
+    . /etc/portage/repository.conf
+    # Get the release number.
+    release_number=`grep "CHROMEOS_RELEASE_VERSION" /etc/lsb-release | \
+                    grep -Eo "[0-9]\.[0-9]+\.[0-9]+"`
+    BINHOST="${PREFIX_BINHOST}full-${release_number}.0/packages"
+  fi
+}
+
 # Get the static Python binary and portage (emerge script and python modules).
 download_bootstrap_packages() {
-  # Obtain the BOOTSTRAP and BINHOST variables.
-  . /etc/portage/repository.conf
-
   # Download packages that python/emerge require into /usr/local/bootsrap.
   while read line; do
     local package_url
     local directory
     local package_file
-    package_url="${BINHOST}packages/$line.tbz2"
+    package_url="${BINHOST}/$line.tbz2"
     directory=`echo "${line}" | cut -d"/" -f1`
     package_file="${PKGDIR}/$line.tbz2"
-    mkdir -p -m 0755 "/usr/local/portage/packages/${directory}"
-    wget -nv -N -nd -P "/usr/local/portage/packages/${directory}" \
+    mkdir -p -m 0755 "${PKGDIR}/${directory}"
+    wget -nv -N -nd -P "${PKGDIR}/${directory}" \
          "${package_url}"
     wget_exit_code=$?
     if [ ${wget_exit_code} -ne 0 ]; then
-      echo -e "${ERROR_S_COLOR}ERROR: Could not download package."
-      echo -e "Command wget -nv -N -nd -P /usr/local/portage/packages/" \
-              "${directory} ${package_url} failed.${ERROR_E_COLOR}"
+      echo "ERROR: Could not download package."
+      echo "Command wget -nv -N -nd -P ${PKGDIR}/" \
+           "${directory} ${package_url} failed."
       exit 1
     fi
     # Ignore std error output about trailing garbage after EOF.
     tar -C "/usr/local/" -xjf "${package_file}" 2>/dev/null
     tar_exit_code=$?
     if [ ${tar_exit_code} -ne 0 ]; then
-      echo -e "${ERROR_S_COLOR}ERROR: Could not extract package."
-      echo -e "Command tar -C /usr/local -xjf ${package_file} " \
-              "failed.${ERROR_E_COLOR}"
+      echo "ERROR: Could not extract package."
+      echo "Command tar -C /usr/local -xjf ${package_file} failed."
       exit 1
     fi
   done < "${EMERGE_PACKAGES}"
@@ -95,6 +134,23 @@ download_bootstrap_packages() {
 
 # Configure emerge in /usr/local.
 configure_emerge() {
+  # Copy emerge configuration to /usr/local.
+  mkdir -p -m 0755 /usr/local/etc/portage
+  cp /etc/portage/make.profile/make.conf /usr/local/etc/portage
+  ln -s /etc/portage/make.profile /usr/local/etc/portage/make.profile
+
+  # Create the directories defined in the portage config files. Permissions are
+  # consistent with the other directories in /usr/local, which is a bind mount
+  # for /mnt/stateful_partition/dev_image.
+  mkdir -p -m 0755 "${PORTDIR}"
+  mkdir -p -m 0755 "${PKGDIR}"
+  mkdir -p -m 0755 "${DISTDIR}"
+  mkdir -p -m 0755 "${RPMDIR}"
+  mkdir -p -m 0755 "${PORTAGE_TMPDIR}"
+  mkdir -p -m 0755 "${BUILD_PREFIX}"
+
+  echo "PORTAGE_BINHOST=${BINHOST}" >> /usr/local/etc/portage/make.conf
+
   # Add LD_LIBRARY_PATH within ebuild.sh.
   # TODO(arkaitzr): find out a cleaner way to do this.
   sed -i '3 a\export LD_LIBRARY_PATH=/usr/local/lib' \
@@ -105,6 +161,10 @@ install_optional_packages() {
   local reply
   read -p "Install chromeos-dev package now (y/n)?" reply
   if [ "${reply}" = "y" ]; then
+    # TODO(arkaitzr): remove emergeing perf once the packages dependencies are
+    # correct. Now chromeos-dev does not install because of missing
+    # virtual/perf although dev-util/perf is available.
+    emerge dev-util/perf
     emerge chromeos-dev
   else
     echo "You can install chromeos-dev later by typing the command:"
@@ -118,6 +178,7 @@ cleanup_directories() {
 
 echo "Starting installation of developer packages."
 echo "First, we download the necessary files."
+get_binhost
 download_bootstrap_packages
 
 echo "Files downloaded, configuring emerge."

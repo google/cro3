@@ -31,6 +31,3 @@ PORTAGE_WORKDIR_MODE="0700"
 
 EMERGE_DEFAULT_OPTS="--getbinpkg --usepkgonly"
 
-# TODO(arkaitzr): generate this during the ebuild phase.
-PORTAGE_BINHOST=http://commondatastorage.googleapis.com/chromeos-dev-installer2/board/x86-mario/full-02.08.11.130047/packages/
-
