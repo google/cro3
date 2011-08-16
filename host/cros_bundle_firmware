@@ -77,7 +77,7 @@ def _DoBundle(options, output, tools):
   bundle = Bundle(tools, output)
   bundle.SetDirs(keydir=options.key)
   bundle.SetFiles(board=options.board, uboot=options.uboot, bct=options.bct,
-                  bmpblk=options.bmpblk)
+                  bmpblk=options.bmpblk, coreboot=options.coreboot)
   bundle.SetOptions(small=options.small)
 
   try:
@@ -147,6 +147,8 @@ def main():
   parser.add_option('-U', '--uboot-flasher', dest='uboot_flasher',
       type='string', action='store', help='Executable bootloader file '
       '(U-Boot) to use for flashing (defaults to the same as --uboot)')
+  parser.add_option('-C', '--coreboot', dest='coreboot', type='string',
+      action='store', help='Executable lowlevel init file (coreboot)')
   parser.add_option('-v', '--verbosity', dest='verbosity', default=1,
       type='int', help='Control verbosity: 0=silent, 1=progress, 3=full, '
       '4=debug')

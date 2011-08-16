@@ -93,6 +93,7 @@ class Bundle:
     self.bct_fname = None       # Filename of our BCT file.
     self.fdt = None             # Our Fdt object.
     self.bmpblk_fname = None    # Filename of our Bitmap Block
+    self.coreboot_fname = None  # Filename of our coreboot binary.
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -102,7 +103,7 @@ class Bundle:
     """
     self._keydir = keydir
 
-  def SetFiles(self, board, bct, uboot=None, bmpblk=None):
+  def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None):
     """Set up files required for Bundle.
 
     Args:
@@ -110,11 +111,13 @@ class Bundle:
       uboot: The filename of the u-boot.bin image to use.
       bct: The filename of the binary BCT file to use.
       bmpblk: The filename of bitmap block file to use.
+      coreboot: The filename of the coreboot image to use (on x86)
     """
     self._board = board
     self.uboot_fname = uboot
     self.bct_fname = bct
     self.bmpblk_fname = bmpblk
+    self.coreboot_fname = coreboot
 
   def SetOptions(self, small):
     """Set up options supported by Bundle.
@@ -327,8 +330,15 @@ class Bundle:
     """
     self._out.Notice("Model: %s" % fdt.GetString('/model'))
 
-    # Create the boot stub, which is U-Boot plus an fdt and bct
-    bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt)
+    if self.coreboot_fname:
+      # FIXME(reinauer) the names are not too great choices.
+      # signed gets packed into the bootstub, and bootstub gets
+      # packed into the RW sections.
+      signed = self.coreboot_fname
+      bootstub = self.uboot_fname
+    else:
+      # Create the boot stub, which is U-Boot plus an fdt and bct
+      bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt)
 
     if gbb:
       pack = PackFirmware(self._tools, self._out)
