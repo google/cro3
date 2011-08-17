@@ -47,7 +47,11 @@ class WriteFirmware:
     self._out = output
     self._text_base = self._fdt.GetInt('/chromeos-config/textbase');
 
-  def _GetFlashScript(self, payload_size):
+    # For speed, use the 'update' algorithm and don't verify
+    self.update = True
+    self.verify = False
+
+  def _GetFlashScript(self, payload_size, update, verify):
     """Get the U-Boot boot command needed to flash U-Boot.
 
     We leave a marker in the string for the load address of the image,
@@ -56,6 +60,8 @@ class WriteFirmware:
 
     Args:
       payload_size: Size of payload in bytes.
+      update: Use faster update algorithm rather then full device erase
+      verify: Verify the write by doing a readback and CRC
 
     Returns:
       A tuple containing:
@@ -69,28 +75,36 @@ class WriteFirmware:
         'setenv address       0x%s' % replace_me,
         'setenv firmware_size %#x' % payload_size,
         'setenv length        %#x' % RoundUp(payload_size, 4096),
-        'setenv _crc   "crc32 ${address} ${firmware_size}"',
-        'setenv _init  "echo Initing SPI;  sf probe            0"',
-        'setenv _erase "echo Erasing SPI;  sf erase            0 ${length}"',
-        'setenv _write "echo Writing SPI;  sf write ${address} 0 ${length}"',
-        'setenv _clear "echo Clearing RAM; mw.b     ${address} 0 ${length}"',
-        'setenv _read  "echo Reading SPI;  sf read  ${address} 0 ${length}"',
+        'setenv _crc    "crc32 ${address} ${firmware_size}"',
+        'setenv _init   "echo Initing SPI;  sf probe            0"',
+        'setenv _erase  "echo Erasing SPI;  sf erase            0 ${length}"',
+        'setenv _write  "echo Writing SPI;  sf write ${address} 0 ${length}"',
+        'setenv _clear  "echo Clearing RAM; mw.b     ${address} 0 ${length}"',
+        'setenv _read   "echo Reading SPI;  sf read  ${address} 0 ${length}"',
+        'setenv _update "echo Updating SPI;  sf update ${address} 0 ${length}"',
 
         'echo Firmware loaded to ${address}, size ${firmware_size}, '
             'length ${length}',
         'run _crc',
         'run _init',
-        'run _erase',
-        'run _write',
+    ]
+    if update:
+      cmds += ['time run _update']
+    else:
+      cmds += ['run _erase', 'run _write']
+    if verify:
+      cmds += [
         'run _clear',
         'run _read',
         'run _crc',
         'echo If the two CRCs above are equal, flash was successful.'
-    ]
+      ]
+    else:
+      cmds += ['echo Skipping verify']
     script = '; '.join(cmds)
     return script, replace_me
 
-  def PrepareFlasher(self, uboot, payload):
+  def PrepareFlasher(self, uboot, payload, update, verify):
     """Get a flasher ready for sending to the board.
 
     The flasher is an executable image consisting of:
@@ -104,6 +118,8 @@ class WriteFirmware:
     Args:
       uboot: Full path to u-boot.bin.
       payload: Full path to payload.
+      update: Use faster update algorithm rather then full device erase
+      verify: Verify the write by doing a readback and CRC
 
     Returns:
       Filename of the flasher binary created.
@@ -111,7 +127,7 @@ class WriteFirmware:
     fdt = self._fdt.Copy(os.path.join(self._tools.outdir, 'flasher.dtb'))
     payload_size = os.stat(payload).st_size
 
-    script, replace_me = self._GetFlashScript(payload_size)
+    script, replace_me = self._GetFlashScript(payload_size, update, verify)
     data = self._tools.ReadFile(uboot)
     fdt.PutString('/config/bootcmd', script)
     fdt_data = self._tools.ReadFile(fdt.fname)
@@ -165,7 +181,7 @@ class WriteFirmware:
     Returns:
       True if ok, False if failed.
     """
-    flasher = self.PrepareFlasher(uboot, payload)
+    flasher = self.PrepareFlasher(uboot, payload, self.update, self.verify)
 
     self._out.Progress('Uploading flasher image')
     args = [
@@ -206,7 +222,8 @@ class WriteFirmware:
 
     return False
 
-def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname):
+def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname,
+                    update=True, verify=False):
   """A simple function to write firmware to the board.
 
   This creates a WriteFirmware object and uses it to write the firmware image
@@ -219,8 +236,12 @@ def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname):
     flasher: U-Boot binary to use as the flasher.
     bct_fname: Bct file to use for the flasher.
     image_fname: Filename of image to write.
+    update: Use faster update algorithm rather then full device erase
+    verify: Verify the write by doing a readback and CRC
   """
   write = WriteFirmware(tools, fdt, output)
+  write.update = update
+  write.verify = verify
   if write.FlashImage(flasher, bct_fname, image_fname):
     output.Progress('Image uploaded - please wait for flashing to '
         'complete')
