@@ -31,3 +31,7 @@ PORTAGE_WORKDIR_MODE="0700"
 
 EMERGE_DEFAULT_OPTS="--getbinpkg --usepkgonly"
 
+# use curl instead of wget since curl supports HTTPS with Subject Alternative
+# Name (commondatastorage.googleapis.com for googleusercontent.com)
+FETCHCOMMAND="/usr/bin/curl --connect-timeout 15 -# -o \${DISTDIR}/\${FILE} \${URI}" 
+RESUMECOMMAND="/usr/bin/curl --connect-timeout 15 -# -C - -o \${DISTDIR}/\${FILE}\${URI}"

@@ -33,6 +33,8 @@ fi
 . /usr/lib/shflags
 DEFINE_string binhost "" \
   "URL of the binhost that emerge will use."
+DEFINE_string binhost_version "" \
+  "Version number to use instead of the one in /etc/lsb-release."
 DEFINE_boolean uninstall "${FLAGS_FALSE}" \
   "Remove all installed packages."
 DEFINE_boolean reinstall "${FLAGS_FALSE}" \
@@ -47,7 +49,7 @@ set -e
 remove_installed_packages() {
   read -p "Remove all installed packages now (y/n)?" reply
   if [ "${reply}" = "y" ]; then
-    rm -rf /usr/local/*
+    rm -rf --one-file-system /usr/local/*
     echo "Removed all installed packages."
   else
     echo "Operation cancelled."
@@ -72,8 +74,6 @@ if [ -d /usr/local/etc/portage ]; then
   exit 1
 fi
 
-# Create work directory.
-WORKDIR="$(mktemp -d /tmp/dev-installer.XXXX)"
 # Get the portage configuration variables.
 . /etc/portage/make.profile/make.defaults
 
@@ -88,15 +88,20 @@ if [ ! -d /usr/local/local ]; then
 fi
 
 get_binhost() {
-  if [ "${FLAGS_binhost}" != "" ]; then
+  if [ -n "${FLAGS_binhost}" ]; then
     BINHOST="${FLAGS_binhost}"
   else
     local release_number
     # Get prefix for binhost.
     . /etc/portage/repository.conf
-    # Get the release number.
-    release_number=`grep "CHROMEOS_RELEASE_VERSION" /etc/lsb-release | \
-                    grep -Eo "[0-9]\.[0-9]+\.[0-9]+"`
+
+    if [ -n "${FLAGS_binhost_version}" ]; then
+      release_number="${FLAGS_binhost_version}"
+    else
+      # Get the release number.
+      release_number=`grep "CHROMEOS_RELEASE_VERSION" /etc/lsb-release |
+                      grep -Eo "[0-9]\.[0-9]+\.[0-9]+"`
+    fi
     BINHOST="${PREFIX_BINHOST}full-${release_number}.0/packages"
   fi
 }
@@ -112,15 +117,16 @@ download_bootstrap_packages() {
     directory=`echo "${line}" | cut -d"/" -f1`
     package_file="${PKGDIR}/$line.tbz2"
     mkdir -p -m 0755 "${PKGDIR}/${directory}"
-    wget -nv -N -nd -P "${PKGDIR}/${directory}" \
-         "${package_url}"
-    wget_exit_code=$?
-    if [ ${wget_exit_code} -ne 0 ]; then
+    echo "Downloading ${package_url}"
+    curl -o "${package_file}" "${package_url}"
+    cur_exit_code=$?
+    if [ ${curl_exit_code} -ne 0 ]; then
       echo "ERROR: Could not download package."
       echo "Command wget -nv -N -nd -P ${PKGDIR}/" \
            "${directory} ${package_url} failed."
       exit 1
     fi
+    echo "Extracting ${package_file}"
     # Ignore std error output about trailing garbage after EOF.
     tar -C "/usr/local/" -xjf "${package_file}" 2>/dev/null
     tar_exit_code=$?
@@ -172,10 +178,6 @@ install_optional_packages() {
   fi
 }
 
-cleanup_directories() {
-  rm -r "${WORKDIR}"
-}
-
 echo "Starting installation of developer packages."
 echo "First, we download the necessary files."
 get_binhost
@@ -186,9 +188,6 @@ configure_emerge
 
 echo "Emerge installation complete. Installing additional optional packages."
 install_optional_packages
-
-echo "Cleaning temporary directories."
-cleanup_directories
 
 echo "dev_install done. Enjoy!"
 
