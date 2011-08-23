@@ -275,7 +275,7 @@ class Bundle:
 
     Args:
       uboot: Path to u-boot.bin (may be chroot-relative)
-      text_base: Address of text base for image.
+      fdt: Device Tree
 
     Returns:
       Tuple containing:
@@ -300,6 +300,30 @@ class Bundle:
     signed = self._SignBootstub(self._tools.Filename(self.bct_fname),
         bootstub, text_base)
     return bootstub, signed
+
+  def _CreateCorebootStub(self, uboot, coreboot, fdt):
+    """Create a coreboot boot stub.
+
+    Args:
+      uboot: Path to u-boot.bin (may be chroot-relative)
+      coreboot: Path to coreboot.rom
+      fdt: Device Tree
+
+    Returns:
+      Full path to bootstub (coreboot + uboot + fdt).
+
+    Raises:
+      CmdError if a command fails.
+    """
+    bootstub = os.path.join(self._tools.outdir, 'coreboot-full.rom')
+    cbfstool = os.path.join(os.path.dirname(coreboot), "cbfstool")
+    uboot_elf = uboot.replace(".bin", ".elf")
+    shutil.copyfile(coreboot, bootstub)
+    self._tools.Run(cbfstool, [bootstub, 'add-payload', uboot_elf,
+        'fallback/payload', 'lzma'])
+    self._tools.Run(cbfstool, [bootstub, 'add', fdt.fname, 'u-boot.dtb',
+        '0xac'])
+    return bootstub
 
   def _PackOutput(self, msg):
     """Helper function to write output from PackFirmware (verbose level 2).
@@ -334,7 +358,8 @@ class Bundle:
       # FIXME(reinauer) the names are not too great choices.
       # signed gets packed into the bootstub, and bootstub gets
       # packed into the RW sections.
-      signed = self.coreboot_fname
+      signed = self._CreateCorebootStub(self.uboot_fname,
+          self.coreboot_fname, fdt)
       bootstub = self.uboot_fname
     else:
       # Create the boot stub, which is U-Boot plus an fdt and bct
