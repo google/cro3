@@ -62,6 +62,8 @@ UPDATER_UPDATE_CHECK="UPDATE_STATUS_CHECKING_FOR_UPDATE"
 UPDATER_DOWNLOADING="UPDATE_STATUS_DOWNLOADING"
 
 IMAGE_PATH=""
+ROOTFS_MOUNTPT=""
+STATEFUL_MOUNTPT=""
 
 function kill_all_devservers {
   # Using ! here to avoid exiting with set -e is insufficient, so use
@@ -75,6 +77,12 @@ function cleanup {
   fi
   cleanup_remote_access
   sudo rm -rf "${TMP}" || true
+  if [ ! -z "${ROOTFS_MOUNTPT}" ]; then
+    rm -rf "${ROOTFS_MOUNTPT}"
+  fi
+  if [ ! -z "${STATEFUL_MOUNTPT}" ]; then
+    rm -rf "${STATEFUL_MOUNTPT}"
+  fi
 }
 
 function remote_reboot_sh {
@@ -325,15 +333,21 @@ function run_auto_update {
 
 function verify_image {
   info "Verifying image."
+  ROOTFS_MOUNTPT=$(mktemp -d)
+  STATEFUL_MOUNTPT=$(mktemp -d)
   "${SCRIPTS_DIR}/mount_gpt_image.sh" --from "$(dirname "${IMAGE_PATH}")" \
                      --image "$(basename ${IMAGE_PATH})" \
+                     --rootfs_mountpt="${ROOTFS_MOUNTPT}" \
+                     --stateful_mountpt="${STATEFUL_MOUNTPT}" \
                      --read_only
 
-  local lsb_release=$(cat /tmp/m/etc/lsb-release)
+  local lsb_release=$(cat ${ROOTFS_MOUNTPT}/etc/lsb-release)
   info "Verifying image with release:"
   echo ${lsb_release}
 
-  "${SCRIPTS_DIR}/mount_gpt_image.sh" --unmount
+  "${SCRIPTS_DIR}/mount_gpt_image.sh" --unmount \
+                     --rootfs_mountpt="${ROOTFS_MOUNTPT}" \
+                     --stateful_mountpt="${STATEFUL_MOUNTPT}"
 
   remote_sh "cat /etc/lsb-release"
   info "Remote image reports:"
