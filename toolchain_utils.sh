@@ -157,7 +157,7 @@ cros_gcc_config()
   local board
   for board in $boards
   do
-    cros_install_libs_for_config "$board" "$atom"
+    cros_install_libs_for_config "$board" "$1"
     emerge-"$board" --oneshot sys-devel/libtool
   done
 }
