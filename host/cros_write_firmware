@@ -38,7 +38,7 @@ def _CheckTools(tools, options):
   tools.CheckTool('dtput', 'dtc')
   tools.CheckTool('dtget', 'dtc')
 
-def _DoWriteFirmware(options, output, tools):
+def _DoWriteFirmware(options, output, tools, update, verify):
   """The main part of the cros_write_firmware code.
 
   This takes the supplied options and performs the firmware write.
@@ -47,6 +47,8 @@ def _DoWriteFirmware(options, output, tools):
     options: Parser options.
     output: cros_output object to use.
     tools: Tools object to use.
+    update: Use faster update algorithm rather then full device erase
+    verify: Verify the write by doing a readback and CRC
   """
   _CheckTools(tools, options)
   tools.PrepareOutputDir(options.outdir, options.preserve)
@@ -63,7 +65,7 @@ def _DoWriteFirmware(options, output, tools):
     if not flasher:
       flasher = bundle.uboot_fname
     write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
-        bundle.bct_fname, options.image)
+        bundle.bct_fname, options.image, update, verify)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
@@ -83,6 +85,8 @@ def main():
       help='Path to BCT file for flasher: only one can be given')
   parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
       help='Path to fdt binary blob .dtb file to use for flasher')
+  parser.add_option('-f', '--full-erase', dest='full_erase',
+      action='store_true', help='Erase entire flash before writing (slow)')
   parser.add_option('-i', '--image', dest='image', type='string',
       action='store', help='Firmware image to write')
   parser.add_option('-O', '--outdir', dest='outdir', type='string',
@@ -96,6 +100,8 @@ def main():
   parser.add_option('-v', '--verbosity', dest='verbosity', default=1,
       type='int', help='Control verbosity: 0=silent, 1=progress, 3=full, '
       '4=debug')
+  parser.add_option('-V', '--verify', dest='verify', action='store_true',
+      help='Verify flash after writing')
   (options, args) = parser.parse_args(sys.argv)
   if not options.image and len(args) > 1:
     options.image = args[1]
@@ -104,7 +110,8 @@ def main():
 
   with cros_output.Output(options.verbosity) as output:
     with Tools(output) as tools:
-      _DoWriteFirmware(options, output, tools)
+      _DoWriteFirmware(options, output, tools, not options.full_erase,
+          options.verify)
 
 
 def _Test():
