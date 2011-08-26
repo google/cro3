@@ -103,6 +103,7 @@ def _DoBundle(options, output, tools):
       raise
     else:
       output.Error(str(err))
+      sys.exit(1)
 
 def main():
   """Main function for cros_bundle_firmware."""
