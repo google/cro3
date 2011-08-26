@@ -141,6 +141,8 @@ class Bundle:
       self.uboot_fname = os.path.join(build_root, 'u-boot.bin')
     if not self.bct_fname:
       self.bct_fname = os.path.join(build_root, 'bct', 'board.bct')
+    if not self.bmpblk_fname:
+      self.bmpblk_fname = os.path.join(build_root, 'default.bmpblk')
 
   def _CreateGoogleBinaryBlock(self, hardware_id):
     """Create a GBB for the image.
@@ -160,27 +162,6 @@ class Bundle:
     gbb_size = self.fdt.GetFlashPartSize('ro', 'gbb')
     odir = self._tools.outdir
 
-    if not self.bmpblk_fname:
-      # TODO(hungte) Remove this bitmap generation in future because we should
-      # always use pre-genereated bitmaps.
-      # Get LCD dimensions from the device tree.
-      screen_geometry = '%sx%s' % (self.fdt.GetInt('/lcd/width'),
-          self.fdt.GetInt('/lcd/height'))
-
-      # This is the magic directory that make_bmp_image writes to!
-      out_dir = 'out_%s' % re.sub(' ', '_', hardware_id)
-      bmp_dir = os.path.join(odir, out_dir)
-      self._out.Progress('Creating bitmaps')
-      self._tools.Run('make_bmp_image', [hardware_id, screen_geometry, 'arm'],
-          cwd=odir)
-
-      self._out.Progress('Creating bitmap block')
-      yaml = 'config.yaml'
-      self._tools.WriteFile(os.path.join(bmp_dir, yaml), yaml_data)
-      self._tools.Run('bmpblk_utility', ['-z', '2', '-c', yaml, 'bmpblk.bin'],
-          cwd=bmp_dir)
-      self.bmpblk_fname = os.path.join(out_dir, 'bmpblk.bin')
-
     self._out.Progress('Creating GBB')
     sizes = [0x100, 0x1000, gbb_size - 0x2180, 0x1000]
     sizes = ['%#x' % size for size in sizes]
@@ -191,7 +172,7 @@ class Bundle:
         '--hwid=%s' % hardware_id,
         '--rootkey=%s/root_key.vbpubk' % keydir,
         '--recoverykey=%s/recovery_key.vbpubk' % keydir,
-        '--bmpfv=%s' % self.bmpblk_fname,
+        '--bmpfv=%s' % self._tools.Filename(self.bmpblk_fname),
         gbb],
         cwd=odir)
     return os.path.join(odir, gbb)
