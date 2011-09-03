@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 
-from tools import Tools
+from tools import Tools, CmdError
 from fdt import Fdt
 import tools
 
@@ -45,7 +45,7 @@ FMAP_HEADER_NAMES = (
 )
 
 FMAP_AREA_NAMES = (
-    'offset',
+    'rom_offset',
     'size',
     'name',
     'flags',
@@ -482,6 +482,7 @@ class PackFirmware:
     self.fdt = fdt
     root = '/flash/'
     self.image_size = int(fdt.GetIntList(root + 'reg', 2)[1])
+    bios_base = int(fdt.GetInt(root + 'bios-base', 0))
 
     # Scan the flash map in the fdt, creating a list of Entry objects.
     re_label = re.compile('(.*)-(\w*)')
@@ -493,6 +494,7 @@ class PackFirmware:
       # Read the two cells from the node's /reg property to get entry extent.
       offset, size = fdt.DecodeIntList(node + '/reg', props['reg'], 2)
       props['offset'] = offset
+      props['rom_offset'] = offset + bios_base
       props['size'] = size
 
       # The section names must be upper case with underscores, for other tools

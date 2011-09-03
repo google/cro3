@@ -136,7 +136,7 @@ which has 4 elements, but 3 expected
           num_values))
     return [int(item) for item in int_list]
 
-  def GetIntList(self, key, num_values=None):
+  def GetIntList(self, key, num_values=None, default=None):
     """Read a key and decode it into a list of integers.
 
     >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
@@ -175,9 +175,9 @@ which has 4 elements, but 3 expected
       ValueError if the list is the wrong size.
       CmdError: if the property does not exist.
     """
-    return self.DecodeIntList(key, self.GetProp(key), num_values)
+    return self.DecodeIntList(key, self.GetProp(key, default), num_values)
 
-  def GetInt(self, key):
+  def GetInt(self, key, default=None):
     """Gets an integer from a device tree property.
 
     >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
@@ -191,7 +191,7 @@ which has 4 elements, but 3 expected
       ValueError if the property cannot be converted to an integer.
       CmdError: if the property does not exist.
     """
-    value = self.GetIntList(key, 1)[0]
+    value = self.GetIntList(key, 1, default)[0]
     return int(value)
 
   def GetString(self, key, default=None):
