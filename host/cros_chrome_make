@@ -12,10 +12,11 @@ get_default_board
 
 DEFINE_string board "${DEFAULT_BOARD}" \
     "Board for which to build the package."
-DEFINE_boolean reconf "${FLAGS_FALSE}" \
-  "Re-run configure and prepare steps."
+DEFINE_boolean runhooks "${FLAGS_FALSE}" \
+    "Re-run hooks contained in the DEPS file - i.e., regenerate Makefiles."
+DEFINE_boolean build_tests "${FLAGS_FALSE}" \
+    "Build test targets."
 
-set -e
 # Parse command line.
 FLAGS "$@" || exit 1
 eval set -- "${FLAGS_ARGV}"
@@ -23,6 +24,10 @@ eval set -- "${FLAGS_ARGV}"
 if [ $# -ne 0 ]; then
   echo "Usage: ${0} [OPTIONS]"
   exit 1
+fi
+
+if [ -z "${FLAGS_board}" ]; then
+  die "You must specify --board="
 fi
 
 if [ -n "${FLAGS_board}" ]; then
@@ -34,11 +39,68 @@ if [ -n "${FLAGS_board}" ]; then
   BOARD_KEYWORD="$(portageq-${FLAGS_board} envvar ARCH)"
 fi
 
+chrome_workon="chromeos-base/chromeos-chrome"
 chrome="chromeos-chrome"
 unstable_suffix="9999"
 workon_name="${chrome}-${unstable_suffix}"
+cache_dir="/build/${BOARD_STR}/tmp/cros_chrome_make"
+src_hash_file="${cache_dir}/PREV_SRC_HASH"
+local_src_tag="${cache_dir}/LOCAL_SOURCE"
+gerrit_src_tag="${cache_dir}/GERRIT_SOURCE"
+gerrit_chrome_src="/home/$(whoami)/trunk/chromium/src"
 pkgfile=
 workpath=
+
+cros_workon_list() {
+  # Get list of packages being cros-worked on.
+  cros_workon --board="${FLAGS_board}" list
+}
+
+get_upstream_base_hash() {
+  # Get the upstream change that the local changes in the repo is based on.
+  # This gets updated on a rebase (happens during repo sync).
+  echo $(cd ${gerrit_chrome_src}; git merge-base m/master HEAD)
+}
+
+decide_auto_runhooks_local_src() {
+  # Decide whether to run 'gclient runhooks' for LOCAL_SOURCE.
+  auto_runhooks=true
+  if [ -e ${local_src_tag} ] && [ -e "${workpath}/.prepared" ]; then
+    auto_runhooks=false
+  elif [ -e ${gerrit_src_tag} ]; then
+    # Handle case for switch-over from GERRIT_SOURCE.
+    rm ${gerrit_src_tag}
+  fi
+}
+
+decide_auto_runhooks_gerrit_src() {
+  # Decide whether to run 'chrome_set_ver --runhooks' for GERRIT_SOURCE.
+  auto_runhooks=true
+  if [ -e ${gerrit_src_tag} ] && [ -e "${workpath}/.prepared" ]; then
+    # We rerun hooks and re-pin the DEPS when chromium/src is rebased - i.e.,
+    # after the user runs 'repo sync'.
+    if [ -e ${src_hash_file} ]; then
+      local prev_src_hash=`cat ${src_hash_file}`
+      if [ "${prev_src_hash}" = "$(get_upstream_base_hash)"  ]; then
+         auto_runhooks=false
+      fi
+    fi
+  elif [ -e ${local_src_tag} ]; then
+    # Handle case for switch-over from LOCAL_SOURCE.
+    rm ${local_src_tag}
+  fi
+}
+
+# Make temporary cache directory
+#
+# We keep two pieces of information in the temp directory:
+# 1. The CHROME_ORIGIN that the last build ran with.
+# 2. In the case of CHROME_ORIGIN==GERRIT_SOURCE, The git hash of the upstream
+#    change chromium/src is based on.  A change in the git hash alerts us to a
+#    'repo sync' that was run, in which case we need to re-run hooks.
+if [ ! -e ${cache_dir} ]; then
+  mkdir ${cache_dir}
+fi
 
 # Find the ebuild file.
 if ! pkgfile=$(ACCEPT_KEYWORDS="~${BOARD_KEYWORD}" "${EQUERYCMD}" which \
@@ -47,15 +109,40 @@ if ! pkgfile=$(ACCEPT_KEYWORDS="~${BOARD_KEYWORD}" "${EQUERYCMD}" which \
 fi
 
 # Find the portage work directory for this package.
-workpath=$(\
-    echo "${pkgfile}" | \
-        awk -F '/' '{ print $(NF-2) "/" $(NF-1) }')-"${unstable_suffix}"
-clean=
-if [ "${FLAGS_reconf}" = "${FLAGS_TRUE}" ]; then
-  clean="clean"
+workpath="/build/${BOARD_STR}/tmp/portage/$( \
+          echo "${pkgfile}" | \
+            awk -F '/' '{ print $(NF-2) "/" $(NF-1) }')-${unstable_suffix}"
+
+local_source=
+if [ "$(cros_workon_list | grep ${chrome_workon})" != "${chrome_workon}" ]; then
+  decide_auto_runhooks_local_src
+  local_source="CHROME_ORIGIN=LOCAL_SOURCE"
+  touch ${local_src_tag}
 else
-  rm -f "/build/${BOARD_STR}/tmp/portage/${workpath}/.compiled"
+  decide_auto_runhooks_gerrit_src
+  touch ${gerrit_src_tag}
 fi
 
-CCACHE_SIZE=2G CHROME_ORIGIN=LOCAL_SOURCE FEATURES="ccache" \
-  USE="-build_tests" "${EBUILDCMD}" "${pkgfile}" ${clean} compile
+use="${USE} -verbose"
+if [ "${FLAGS_runhooks}" = "${FLAGS_TRUE}" ] || ${auto_runhooks}; then
+  use="${use} runhooks"
+else
+  use="${use} -runhooks"
+fi
+
+if [ "${FLAGS_build_tests}" = "${FLAGS_FALSE}" ]; then
+  use="${use} -build_tests"
+else
+  use="${use} build_tests"
+fi
+
+# TODO(rcui): crosbug.com/20435.  Investigate not running 'clean' and just
+# re-running the compile stage when the Chrome build switches to Ninja inside
+# the chroot.
+eval "USE='${use}'" CCACHE_SIZE=2G FEATURES="ccache" ${local_source} \
+     "${EBUILDCMD}" "${pkgfile}" clean compile
+
+# If we didn't get to run chrome_set_ver --runhooks, don't update our hash.
+if [ -z "${local_source}" ] && [ -e "${workpath}/.prepared" ]; then
+  echo "$(get_upstream_base_hash)" > ${src_hash_file}
+fi
