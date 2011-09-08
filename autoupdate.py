@@ -286,24 +286,26 @@ class Autoupdate(BuildObject):
   def FindCachedUpdateImageSubDir(self, src_image, dest_image):
     """Find directory to store a cached update.
 
-       Given one, or two images for an update, this finds which
-       cache directory should hold the update files, even if they don't exist
-       yet. The directory will be inside static_image_dir, and of the form:
+    Given one, or two images for an update, this finds which
+    cache directory should hold the update files, even if they don't exist
+    yet. The directory will be inside static_image_dir, and of the form:
 
-       Non-delta updates:
-         CACHE_DIR/12345678
+    Non-delta updates:
+      CACHE_DIR/12345678
+    Delta updates:
+      CACHE_DIR/12345678_12345678
 
-       Delta updates:
-         CACHE_DIR/12345678_12345678
-       """
-    # If there is no src, we only have an image file, check image for changes
-    if not src_image:
-      return os.path.join(CACHE_DIR, self._GetMd5(dest_image))
+    If self.private_key -- Signed updates:
+      CACHE_DIR/from_above+12345678
+    """
+    sub_dir = self._GetMd5(dest_image)
+    if src_image:
+      sub_dir = '%s_%s' % (self._GetMd5(src_image), sub_dir)
 
-    # If we have src and dest, we are a delta, and check both for changes
-    return os.path.join(CACHE_DIR,
-                        "%s_%s" % (self._GetMd5(src_image),
-                                   self._GetMd5(dest_image)))
+    if self.private_key:
+      sub_dir = '%s+%s' % (sub_dir, self._GetMd5(self.private_key))
+
+    return os.path.join(CACHE_DIR, sub_dir)
 
   def GenerateUpdateImage(self, image_path, output_dir):
     """Force generates an update payload based on the given image_path.

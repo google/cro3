@@ -63,6 +63,25 @@ class AutoupdateTest(mox.MoxTestBase):
     dummy.client_prefix = 'ChromeOSUpdateEngine'
     return dummy
 
+  def testGetRightSignedDeltaPayloadDir(self):
+    """Test that our directory is what we expect it to be for signed updates."""
+    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetMd5')
+    key_path = 'test_key_path'
+    src_image = 'test_src_image'
+    target_image = 'test_target_image'
+    hashes = ['12345', '67890', 'abcde']
+
+    autoupdate.Autoupdate._GetMd5(target_image).AndReturn(hashes[1])
+    autoupdate.Autoupdate._GetMd5(src_image).AndReturn(hashes[0])
+    autoupdate.Autoupdate._GetMd5(key_path).AndReturn(hashes[2])
+
+    self.mox.ReplayAll()
+    au_mock = self._DummyAutoupdateConstructor()
+    au_mock.private_key = key_path
+    update_dir = au_mock.FindCachedUpdateImageSubDir(src_image, target_image)
+    self.assertEqual(os.path.basename(update_dir), '%s_%s+%s' % tuple(hashes))
+    self.mox.VerifyAll()
+
   def testGenerateLatestUpdateImageWithForced(self):
     self.mox.StubOutWithMock(autoupdate.Autoupdate,
                              'GenerateUpdateImageWithCache')
