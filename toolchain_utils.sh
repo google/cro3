@@ -83,7 +83,14 @@ copy_gcc_libs()
 get_current_binutils_config()
 {
   local ctarget="$1"
-  binutils-config -l | grep "$ctarget" | grep "*" | cut -d" " -f3
+  binutils-config -l | grep "$ctarget" | grep "*" | awk '{print $NF}'
+}
+
+get_bfd_config()
+{
+  local ctarget="$1"
+  binutils-config -l | grep "$ctarget" | grep -v "gold" | head -n1 | \
+    awk '{print $NF}'
 }
 
 emerge_gcc()
@@ -105,9 +112,10 @@ emerge_gcc()
   if echo "$atom" | grep -q "gcc-4.6.0$"
   then
     old_binutils_config="$(get_current_binutils_config $ctarget)"
-    if [[ "$old_binutils_config" != "$ctarget-2.20.1" ]]
+    bfd_binutils_config="$(get_bfd_config $ctarget)"
+    if [[ "$old_binutils_config" != "$bfd_binutils_config" ]]
     then
-      sudo binutils-config "$ctarget-2.20.1"
+      sudo binutils-config "$bfd_binutils_config"
     fi
   fi
   sudo ACCEPT_KEYWORDS="*" USE="$USE" emerge ="$atom"
