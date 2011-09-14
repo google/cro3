@@ -133,7 +133,7 @@ class Bundle:
     """Check provided options and select defaults."""
     if not self._board:
       raise ValueError('No board defined - please define a board to use')
-    build_root = os.path.join('##', 'build', self._board, 'u-boot')
+    build_root = os.path.join('##', 'build', self._board, 'firmware')
     if not self._fdt_fname:
       self._fdt_fname = os.path.join(build_root, 'dtb', '%s.dtb' %
           re.sub('_', '-', self._board))
