@@ -86,5 +86,14 @@ __git_branch_ps1() {
   if [ "${m_branch}" != "master" -a -n "${m_branch}" ]; then
     format_str=$(printf "${format_str}" "${m_branch}/%s")
   fi
-  __git_ps1 "${format_str}"
+  # for subshells, prefix the prompt with the shell nesting level
+  local lshlvl=""
+  [ ! -z "${SHLVL##*[!0-9]*}" ] && [ ${SHLVL} -gt 1 ] && lshlvl="${SHLVL} "
+  __git_ps1 "${lshlvl}${format_str}"
 }
+
+# Prompt functions should not error when in subshells
+export -f __gitdir
+export -f __git_ps1
+export -f __git_m_branch
+export -f __git_branch_ps1
