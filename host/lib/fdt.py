@@ -11,6 +11,8 @@ import os
 import re
 import shutil
 import sys
+
+import cros_output
 import tools
 from tools import Tools
 from tools import CmdError
@@ -30,15 +32,15 @@ class Fdt:
   def GetProp(self, key, default=None):
     """Get a property from a device tree.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetProp('/lcd/width')
     '1366'
 
     >>> fdt.GetProp('/fluffy')
     Traceback (most recent call last):
       ...
-    CmdError: Command failed: dtget /home/sjg/trunk/src/platform/dev/host\
-/lib/../tests/test.dtb /fluffy
+    CmdError: Command failed: dtget ../tests/test.dtb /fluffy
     Error at 'fluffy': FDT_ERR_NOTFOUND
     (Node / exists but you didn't specify a property to print)
     <BLANKLINE>
@@ -70,7 +72,8 @@ class Fdt:
   def GetProps(self, key, convert_dashes=False):
     """Get all properties from a node.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetProps('/')
     {'compatible': '1853253988 1767976051 1700881007 1634886656 1853253988 \
 1767976052 1701278305 842346496', '#size-cells': '1', 'model': \
@@ -101,7 +104,8 @@ class Fdt:
   def DecodeIntList(self, key, int_list_str, num_values=None):
     """Decode a string into a list of integers.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.DecodeIntList('galveston', '1 2 3 4')
     [1, 2, 3, 4]
 
@@ -139,7 +143,8 @@ which has 4 elements, but 3 expected
   def GetIntList(self, key, num_values=None, default=None):
     """Read a key and decode it into a list of integers.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetIntList('/flash@0/shared-dev-cfg@180000/reg')
     [1572864, 262144]
 
@@ -155,10 +160,11 @@ which has 4 elements, but 3 expected
     >>> fdt.GetIntList('/swaffham/bulbeck', 2)
     Traceback (most recent call last):
       ...
-    CmdError: Command failed: dtget /home/sjg/trunk/src/platform/dev\
-/host/lib/../tests/test.dtb /swaffham/bulbeck
+    CmdError: Command failed: dtget ../tests/test.dtb /swaffham/bulbeck
     Error at '/swaffham/bulbeck': FDT_ERR_NOTFOUND
     <BLANKLINE>
+    >>> fdt.GetIntList('/lcd/bulbeck', 2, '5 6')
+    [5, 6]
 
     This decodes a key containing a list of integers like '1 2 3' into
     a list like [1 2 3].
@@ -180,8 +186,18 @@ which has 4 elements, but 3 expected
   def GetInt(self, key, default=None):
     """Gets an integer from a device tree property.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetInt('/lcd/width')
+    1366
+    >>> fdt.GetInt('/lcd/rangiora')
+    Traceback (most recent call last):
+      ...
+    CmdError: Command failed: dtget ../tests/test.dtb /lcd/rangiora
+    Error at 'rangiora': FDT_ERR_NOTFOUND
+    (Node / exists but you didn't specify a property to print)
+    <BLANKLINE>
+    >>> fdt.GetInt('/lcd/rangiora', 1366)
     1366
 
     Args:
@@ -197,7 +213,8 @@ which has 4 elements, but 3 expected
   def GetString(self, key, default=None):
     """Gets a string from a device tree property.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetString('/display/compatible')
     'nvidia,tegra250-display'
 
@@ -212,7 +229,8 @@ which has 4 elements, but 3 expected
   def GetFlashPart(self, section, part):
     """Returns the setup of the given section/part number in the flash map.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetFlashPart('ro', 'onestop')
     [65536, 524288]
 
@@ -228,7 +246,8 @@ which has 4 elements, but 3 expected
   def GetFlashPartSize(self, section, part):
     """Returns the size of the given section/part number in the flash map.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetFlashPartSize('ro', 'onestop')
     524288
 
@@ -244,7 +263,8 @@ which has 4 elements, but 3 expected
   def GetChildren(self, key):
     """Returns a list of children of a given node.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetChildren('/amba')
     ['interrupt-controller@50041000']
 
@@ -271,15 +291,15 @@ which has 4 elements, but 3 expected
   def GetLabel(self, key):
     """Returns the label property of a given node.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetLabel('/flash/ro-onestop')
     'ro-onestop'
 
     >>> fdt.GetLabel('/go/hotspurs')
     Traceback (most recent call last):
       ...
-    CmdError: Command failed: dtget /home/sjg/trunk/src/platform/dev/host\
-/lib/../tests/test.dtb /go/hotspurs/label
+    CmdError: Command failed: dtget ../tests/test.dtb /go/hotspurs/label
     Error at '/go/hotspurs/label': FDT_ERR_NOTFOUND
     <BLANKLINE>
 
@@ -294,7 +314,8 @@ which has 4 elements, but 3 expected
   def Copy(self, new_name):
     """Make a copy of the FDT into another file, and return its object.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> our_copy = fdt.Copy(os.path.join(_base, '../tests/copy.dtb'))
     >>> our_copy.PutString('/display/compatible', 'north')
     >>> fdt.GetString('/display/compatible')
@@ -318,7 +339,8 @@ which has 4 elements, but 3 expected
   def PutString(self, key, value_str):
     """Writes a string to a property in the fdt.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> our_copy = fdt.Copy(os.path.join(_base, '../tests/copy.dtb'))
     >>> our_copy.PutString('/display/compatible', 'north')
     >>> fdt.GetString('/display/compatible')
@@ -337,7 +359,8 @@ which has 4 elements, but 3 expected
   def PutInteger(self, key, value_int):
     """Writes a string to a property in the fdt.
 
-    >>> fdt = Fdt(Tools(1), os.path.join(_base, '../tests/test.dtb'))
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> our_copy = fdt.Copy(os.path.join(_base, '../tests/copy.dtb'))
     >>> our_copy.PutString('/display/compatible', 'north')
     >>> fdt.GetString('/display/compatible')
@@ -365,7 +388,7 @@ def main():
       help='Path to fdt file to use (binary ,dtb)', default='u-boot.dtb')
 
   (options, args) = parser.parse_args(sys.argv)
-  tools = Tools(1)
+  tools = Tools(cros_output.Output())
   fdt = Fdt(tools, options.fdt)
   children = fdt.GetChildren('/')
   for child in children:
