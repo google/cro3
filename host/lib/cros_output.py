@@ -30,7 +30,7 @@ class Output:
   Public properties:
     verbose: Verbosity level: 0=silent, 1=progress, 3=full, 4=debug
   """
-  def __init__(self, verbose, stdout=sys.stdout):
+  def __init__(self, verbose=WARNING, stdout=sys.stdout):
     """Initialize a new output object.
 
     Args:
