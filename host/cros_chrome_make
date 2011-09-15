@@ -44,10 +44,10 @@ chrome="chromeos-chrome"
 unstable_suffix="9999"
 workon_name="${chrome}-${unstable_suffix}"
 cache_dir="/build/${BOARD_STR}/tmp/cros_chrome_make"
+useflags_file="${cache_dir}/PREV_USEFLAGS"
 src_hash_file="${cache_dir}/PREV_SRC_HASH"
-local_src_tag="${cache_dir}/LOCAL_SOURCE"
-gerrit_src_tag="${cache_dir}/GERRIT_SOURCE"
-gerrit_chrome_src="/home/$(whoami)/trunk/chromium/src"
+gerrit_chrome_root="/home/$(whoami)/trunk/chromium"
+gerrit_chrome_src="${gerrit_chrome_root}/src"
 pkgfile=
 workpath=
 
@@ -62,39 +62,85 @@ get_upstream_base_hash() {
   echo $(cd ${gerrit_chrome_src}; git merge-base m/master HEAD)
 }
 
+get_prev_useflags() {
+  # Get the user-specified USE flags from the last run
+  if [ -e ${useflags_file} ]; then
+    cat ${useflags_file}
+  fi
+}
+
+get_prev_src_hash() {
+  # Get the upstream hash that the local changes were based on the last time
+  # hooks were run.
+  if [ -e ${src_hash_file} ]; then
+    cat ${src_hash_file}
+  fi
+}
+
+was_last_run_gerrit_src() {
+  # Checks the symlink to CHROME_ROOT in the working dir to see if the last run
+  # was done with CHROME_ORIGIN=GERRIT_SOURCE
+  if [ -e "${workpath}/work/${workon_name}" ] && \
+     [ "$(readlink -f "${workpath}/work/${workon_name}")" = \
+       "${gerrit_chrome_root}" ]; then
+    return 0   # True
+  else
+    return 1   # False
+  fi
+}
+
+was_last_run_local_src() {
+  # Checks the symlink to CHROME_ROOT in the working dir to see if the last run
+  # was done with CHROME_ORIGIN=LOCAL_SOURCE
+  if [ ! -e "${workpath}/work/${workon_name}" ] || \
+     was_last_run_gerrit_src; then
+    return 1   # False
+  else
+    return 0   # True
+  fi
+}
+
+decide_use_flags() {
+  # Do not set 'runhooks' useflag here because we don't want to consider it
+  # when comparing use flags between runs.
+  if [ "${FLAGS_build_tests}" = "${FLAGS_FALSE}" ]; then
+    echo "${USE} -build_tests"
+  else
+    echo "${USE} build_tests"
+  fi
+}
+
 decide_auto_runhooks_local_src() {
   # Decide whether to run 'gclient runhooks' for LOCAL_SOURCE.
-  auto_runhooks=true
-  if [ -e ${local_src_tag} ] && [ -e "${workpath}/.prepared" ]; then
-    auto_runhooks=false
-  elif [ -e ${gerrit_src_tag} ]; then
-    # Handle case for switch-over from GERRIT_SOURCE.
-    rm ${gerrit_src_tag}
+  # We rerun hooks when user-specified useflags change.
+  local _runhooks=0   # True
+  if [ -e "${workpath}/.prepared" ] && was_last_run_local_src && \
+     [ "$(get_prev_useflags)" = "$(decide_use_flags)" ]; then
+    _runhooks=1   # False
   fi
+
+  return ${_runhooks}
 }
 
 decide_auto_runhooks_gerrit_src() {
   # Decide whether to run 'chrome_set_ver --runhooks' for GERRIT_SOURCE.
-  auto_runhooks=true
-  if [ -e ${gerrit_src_tag} ] && [ -e "${workpath}/.prepared" ]; then
-    # We rerun hooks and re-pin the DEPS when chromium/src is rebased - i.e.,
-    # after the user runs 'repo sync'.
-    if [ -e ${src_hash_file} ]; then
-      local prev_src_hash=`cat ${src_hash_file}`
-      if [ "${prev_src_hash}" = "$(get_upstream_base_hash)"  ]; then
-         auto_runhooks=false
-      fi
-    fi
-  elif [ -e ${local_src_tag} ]; then
-    # Handle case for switch-over from LOCAL_SOURCE.
-    rm ${local_src_tag}
+  # We rerun hooks when either:
+  # 1. user-specified useflags change. OR
+  # 2. chromium/src is rebased - i.e. after the user runs 'repo sync'.
+  local _runhooks=0   # True
+  if [ -e "${workpath}/.prepared" ] && was_last_run_gerrit_src && \
+     [ "$(get_prev_useflags)" = "$(decide_use_flags)" ] && \
+     [ "$(get_prev_src_hash)" = "$(get_upstream_base_hash)" ]; then
+       _runhooks=1   # False
   fi
+
+  return ${_runhooks}
 }
 
 # Make temporary cache directory
 #
-# We keep two pieces of information in the temp directory:
-# 1. The CHROME_ORIGIN that the last build ran with.
+# We keep three pieces of information in the temp directory:
+# 1. The useflags set by the user on the last run.
 # 2. In the case of CHROME_ORIGIN==GERRIT_SOURCE, The git hash of the upstream
 #    change chromium/src is based on.  A change in the git hash alerts us to a
 #    'repo sync' that was run, in which case we need to re-run hooks.
@@ -113,36 +159,32 @@ workpath="/build/${BOARD_STR}/tmp/portage/$( \
           echo "${pkgfile}" | \
             awk -F '/' '{ print $(NF-2) "/" $(NF-1) }')-${unstable_suffix}"
 
+use="$(decide_use_flags)"
+
 local_source=
 if [ "$(cros_workon_list | grep ${chrome_workon})" != "${chrome_workon}" ]; then
-  decide_auto_runhooks_local_src
+  auto_runhooks=decide_auto_runhooks_local_src
   local_source="CHROME_ORIGIN=LOCAL_SOURCE"
-  touch ${local_src_tag}
 else
-  decide_auto_runhooks_gerrit_src
-  touch ${gerrit_src_tag}
+  auto_runhooks=decide_auto_runhooks_gerrit_src
 fi
 
-use="${USE} -verbose"
+runhooks="-runhooks"
 if [ "${FLAGS_runhooks}" = "${FLAGS_TRUE}" ] || ${auto_runhooks}; then
-  use="${use} runhooks"
-else
-  use="${use} -runhooks"
-fi
-
-if [ "${FLAGS_build_tests}" = "${FLAGS_FALSE}" ]; then
-  use="${use} -build_tests"
-else
-  use="${use} build_tests"
+  runhooks="runhooks"
 fi
 
 # TODO(rcui): crosbug.com/20435.  Investigate not running 'clean' and just
 # re-running the compile stage when the Chrome build switches to Ninja inside
 # the chroot.
-eval "USE='${use}'" CCACHE_SIZE=2G FEATURES="ccache" ${local_source} \
+eval "USE='${use} -verbose ${runhooks}'" CCACHE_SIZE=2G \
+     FEATURES="ccache" ${local_source} \
      "${EBUILDCMD}" "${pkgfile}" clean compile
 
-# If we didn't get to run chrome_set_ver --runhooks, don't update our hash.
-if [ -z "${local_source}" ] && [ -e "${workpath}/.prepared" ]; then
-  echo "$(get_upstream_base_hash)" > ${src_hash_file}
+# If we didn't get to run hooks, don't update our cache.
+if [ -e "${workpath}/.prepared" ]; then
+  echo "${use}" > ${useflags_file}
+  if [ -z "${local_source}" ]; then
+    echo "$(get_upstream_base_hash)" > ${src_hash_file}
+  fi
 fi
