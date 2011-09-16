@@ -202,8 +202,17 @@ class Bundle:
     fd.write('Version    = 1;\n')
     fd.write('Redundancy = 1;\n')
     fd.write('Bctfile    = %s;\n' % bct)
+
+    # TODO(dianders): Right now, we don't have enough space in our flash map
+    # for two copies of the BCT when we're using NAND, so hack it to 1.  Not
+    # sure what this does for reliability, but at least things will fit...
+    is_nand = "NvBootDevType_Nand" in self._tools.Run('bct_dump', [bct])
+    if is_nand:
+      fd.write('Bctcopy = 1;\n')
+
     fd.write('BootLoader = %s,%#x,%#x,Complete;\n' % (bootstub, text_base,
         text_base))
+
     fd.close()
 
     self._tools.Run('cbootimage', [config, signed])
