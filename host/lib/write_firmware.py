@@ -51,7 +51,7 @@ class WriteFirmware:
     self.update = True
     self.verify = False
 
-  def _GetFlashScript(self, payload_size, update, verify):
+  def _GetFlashScript(self, payload_size, update, verify, is_nand):
     """Get the U-Boot boot command needed to flash U-Boot.
 
     We leave a marker in the string for the load address of the image,
@@ -62,6 +62,7 @@ class WriteFirmware:
       payload_size: Size of payload in bytes.
       update: Use faster update algorithm rather then full device erase
       verify: Verify the write by doing a readback and CRC
+      is_nand: True if we're using NAND (instead of SPI Flash)
 
     Returns:
       A tuple containing:
@@ -76,18 +77,32 @@ class WriteFirmware:
         'setenv firmware_size %#x' % payload_size,
         'setenv length        %#x' % RoundUp(payload_size, 4096),
         'setenv _crc    "crc32 ${address} ${firmware_size}"',
-        'setenv _init   "echo Initing SPI;  sf probe            0"',
-        'setenv _erase  "echo Erasing SPI;  sf erase            0 ${length}"',
-        'setenv _write  "echo Writing SPI;  sf write ${address} 0 ${length}"',
         'setenv _clear  "echo Clearing RAM; mw.b     ${address} 0 ${length}"',
-        'setenv _read   "echo Reading SPI;  sf read  ${address} 0 ${length}"',
-        'setenv _update "echo Updating SPI;  sf update ${address} 0 ${length}"',
+    ]
+    if is_nand:
+      cmds.extend([
+          'setenv _init   "echo Init NAND;  nand info"',
+          'setenv _erase  "echo Erase NAND; nand erase            0 ${length}"',
+          'setenv _write  "echo Write NAND; nand write ${address} 0 ${length}"',
+          'setenv _read   "echo Read NAND;  nand read  ${address} 0 ${length}"',
+      ])
+      # Don't support update for NAND yet.  NAND is fast anyway...
+      update = False
+    else:
+      cmds.extend([
+          'setenv _init   "echo Init SPI;   sf probe            0"',
+          'setenv _erase  "echo Erase SPI;  sf erase            0 ${length}"',
+          'setenv _write  "echo Write SPI;  sf write ${address} 0 ${length}"',
+          'setenv _read   "echo Read SPI;   sf read  ${address} 0 ${length}"',
+          'setenv _update "echo Update SPI; sf update ${address} 0 ${length}"',
+      ])
 
+    cmds.extend([
         'echo Firmware loaded to ${address}, size ${firmware_size}, '
             'length ${length}',
         'run _crc',
         'run _init',
-    ]
+    ])
     if update:
       cmds += ['time run _update']
     else:
@@ -104,7 +119,7 @@ class WriteFirmware:
     script = '; '.join(cmds)
     return script, replace_me
 
-  def PrepareFlasher(self, uboot, payload, update, verify):
+  def PrepareFlasher(self, uboot, payload, update, verify, is_nand):
     """Get a flasher ready for sending to the board.
 
     The flasher is an executable image consisting of:
@@ -120,6 +135,7 @@ class WriteFirmware:
       payload: Full path to payload.
       update: Use faster update algorithm rather then full device erase
       verify: Verify the write by doing a readback and CRC
+      is_nand: True if we're using NAND (instead of SPI Flash)
 
     Returns:
       Filename of the flasher binary created.
@@ -127,7 +143,8 @@ class WriteFirmware:
     fdt = self._fdt.Copy(os.path.join(self._tools.outdir, 'flasher.dtb'))
     payload_size = os.stat(payload).st_size
 
-    script, replace_me = self._GetFlashScript(payload_size, update, verify)
+    script, replace_me = self._GetFlashScript(payload_size, update, verify,
+                                              is_nand)
     data = self._tools.ReadFile(uboot)
     fdt.PutString('/config/bootcmd', script)
     fdt_data = self._tools.ReadFile(fdt.fname)
@@ -144,6 +161,11 @@ class WriteFirmware:
     #
     # Question: ok so who laid the egg then?
     payload_offset = len(data) + len(fdt_data)
+
+    # NAND driver expects 4-byte alignment.  Just go whole hog and do 4K.
+    alignment = 0x1000
+    payload_offset = (payload_offset + alignment - 1) & ~(alignment-1)
+
     load_address = self._text_base + payload_offset,
     new_str = '%08x' % load_address
     if len(replace_me) is not len(new_str):
@@ -181,7 +203,10 @@ class WriteFirmware:
     Returns:
       True if ok, False if failed.
     """
-    flasher = self.PrepareFlasher(uboot, payload, self.update, self.verify)
+    is_nand = "NvBootDevType_Nand" in self._tools.Run('bct_dump', [bct])
+
+    flasher = self.PrepareFlasher(uboot, payload, self.update, self.verify,
+                                  is_nand)
 
     self._out.Progress('Uploading flasher image')
     args = [
