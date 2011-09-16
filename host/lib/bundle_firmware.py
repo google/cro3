@@ -348,7 +348,7 @@ class Bundle:
       CmdError if a command fails.
     """
     bootstub = os.path.join(self._tools.outdir, 'coreboot-full.rom')
-    cbfstool = os.path.join(os.path.dirname(coreboot), "cbfstool")
+    cbfstool = "/usr/bin/cbfstool"
     uboot_elf = uboot.replace(".bin", ".elf")
     shutil.copyfile(coreboot, bootstub)
     self._tools.Run(cbfstool, [bootstub, 'add-payload', uboot_elf,
