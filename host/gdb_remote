@@ -1,0 +1,186 @@
+#!/bin/bash
+
+# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+COMMON_SH=/usr/lib/crosutils/common.sh
+. "${COMMON_SH}" || exit 1
+
+get_default_board
+
+# Flags
+DEFINE_string board "${DEFAULT_BOARD}" \
+ "The board to run debugger on."
+DEFINE_string ip_address "localhost" \
+ "The IP address of the remote device."
+DEFINE_integer port 1234 \
+ "The port number to use for connecting to remote device."
+DEFINE_integer remote_pid 0 \
+ "Process ID of the running process on the remote device to which to attach."
+DEFINE_string remote_file "" \
+ "Full pathname of the file to be debugged on the remote device."
+
+# Parse command line
+FLAGS_HELP="usage: $0 [flags]"
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+check_flags_only_and_allow_null_arg "$@" && set --
+
+BOARD=${FLAGS_board}
+BOARD_ROOT=/build/${BOARD}
+
+# Derive toolchain from $BOARD
+CHOST=$(portageq-${BOARD} envvar CHOST)
+
+# Create a temporary location in which to copy testing_rsa file; make
+# sure to clean it up when we exit.
+
+trap 'rm -rf ${TMP_DIR}' EXIT
+TMP_DIR=$(mktemp -d)
+
+cp ${SCRIPTS_DIR}/mod_for_test_scripts/ssh_keys/testing_rsa \
+ ${TMP_DIR}/testing_rsa
+chmod 0600 ${TMP_DIR}/testing_rsa
+
+
+ssh_to_remote_machine ()
+{
+  local command=$1
+  local error_msg=$2
+
+  if ! ssh -i ${TMP_DIR}/testing_rsa \
+    -o StrictHostKeyChecking=no -o CheckHostIP=no root@${FLAGS_ip_address} \
+    "${command}" ; then
+     die "${error_msg}"
+  fi
+}
+
+validate_command_options ()
+{
+  # Verify we have at least a board, toolchain and remote file.
+
+  if [[ -z "${BOARD}" ]] ; then
+    die "--board is required."
+  fi
+
+  if [[ -z "${CHOST}" ]] ; then
+    die "Unable to determine correct toolchain from board."
+  fi
+
+  if [[ -z "${FLAGS_remote_file}" ]] ; then
+    die "--remote_file is required."
+  fi
+
+  if [[ ${FLAGS_remote_file:0:1} != '/' ]] ; then
+    die "--remote_file must contain full pathname."
+  fi
+
+  # Verify that the correct cross-gdb has been built first!
+
+  if [[ ! -f /usr/bin/${CHOST}-gdb ]] ; then
+    die "${CHOST}-gdb does not exist. Please run setup_board."
+  fi
+
+  # Verify that the IP Address is currently active.
+
+  if [[ -z "${FLAGS_ip_address}" ]] ; then
+    die "No IP address specified."
+  fi
+
+  echo "Verifying IP address ${FLAGS_ip_address} (this will take a few\
+ seconds)..."
+
+  if ! ping -c 3 -q ${FLAGS_ip_address} > /dev/null ; then
+    die "${FLAGS_ip_address} is not currently available."
+  fi
+
+  # Verify that the debug version of the remote file exists.
+
+  if [ ! -x "${BOARD_ROOT}${FLAGS_remote_file}" ]; then
+    echo
+    warn "${BOARD_ROOT}${FLAGS_remote_file} does not exist on your local"
+    warn "machine or is not executable.  You may need to re-run build_packages"
+    warn "before attempting to debug."
+    echo
+    read -p "Do you want to stop now? [y/n] " y_or_n
+    case "$y_or_n" in
+      y | Y ) exit 1 ;;
+      *) ;;
+    esac
+  fi
+
+  if [[ ${FLAGS_remote_pid} -ne 0 ]] ; then
+    local ssh_cmd="ps -p ${FLAGS_remote_pid} > /dev/null"
+    local err_msg="${FLAGS_remote_pid} is not a valid PID on\
+ ${FLAGS_ip_address}"
+    ssh_to_remote_machine "${ssh_cmd}" "${err_msg}"
+  fi
+}
+
+setup_remote_iptable ()
+{
+  # Update the iptables on the remote device
+
+  local ssh_cmd="/sbin/iptables -A INPUT -p tcp --dport ${FLAGS_port}\
+ -j ACCEPT"
+  local err_msg="Unable to add port to iptables."
+  ssh_to_remote_machine "${ssh_cmd}" "${err_msg}"
+}
+
+start_remote_gdbserver ()
+{
+  # Start gdbserver on the remote device
+
+  local gdbserver_cmd="gdbserver :${FLAGS_port} ${FLAGS_remote_file}"
+  if [[ ${FLAGS_remote_pid} -ne 0 ]] ; then
+    gdbserver_cmd="gdbserver --attach :${FLAGS_port} ${FLAGS_remote_pid}"
+  fi
+
+  echo "Starting up gdbserver on your remote device."
+  local ssh_cmd="nohup ${gdbserver_cmd} > /tmp/gdbserver.out 2>&1 &"
+  local err_msg="Unable to ssh into root@${FLAGS_ip_address}."
+  ssh_to_remote_machine "${ssh_cmd}" "${err_msg}"
+}
+
+generate_gdbinit_file ()
+{
+  # Create board-and-notebook-specific .gdbinit file.
+
+  cat <<-EOF > ~/.gdbinit
+
+define remote_connect
+  set \$file="${FLAGS_remote_file}"
+  python import os
+  python filename = str (gdb.parse_and_eval ("\$file"))
+  python fullname = os.path.join ("${BOARD_ROOT}", filename)
+  python file_command = "file " + fullname
+  python gdb.execute (file_command)
+  python remote_ip_address = "${FLAGS_ip_address}"
+  python remote_port = "${FLAGS_port}"
+  python remote_cmd = "target remote " + remote_ip_address + ":" + remote_port
+  python gdb.execute (remote_cmd)
+end
+
+set sysroot $BOARD_ROOT
+set debug-file-directory $BOARD_ROOT/usr/lib/debug
+EOF
+}
+
+validate_command_options
+setup_remote_iptable
+start_remote_gdbserver
+
+echo "gdbserver is now running remotely.  Output will be written to "
+echo "/tmp/gdbserver.out on your remote device."
+
+generate_gdbinit_file
+
+echo
+echo "To connect to gdbserver, type 'remote_connect' at the gdb prompt."
+echo
+echo
+
+# Start gdb on local machine.
+
+exec ${CHOST}-gdb
