@@ -79,8 +79,7 @@ def main():
   """Main function for cros_bundle_firmware."""
   parser = optparse.OptionParser()
   parser.add_option('-b', '--board', dest='board', type='string',
-      action='store', help='Board name to use (e.g. tegra2_kaen)',
-      default='tegra2_seaboard')
+      action='store', help='Board name to use (e.g. tegra2_kaen)')
   parser.add_option('-c', '--bct', dest='bct', type='string', action='store',
       help='Path to BCT file for flasher: only one can be given')
   parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
@@ -107,6 +106,8 @@ def main():
     options.image = args[1]
   if not options.image:
     parser.error('Please use --image to specify a firmware image to flash');
+  if not options.board:
+    parser.error('Please use --board to specify the board type to flash');
 
   with cros_output.Output(options.verbosity) as output:
     with Tools(output) as tools:
