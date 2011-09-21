@@ -280,6 +280,13 @@ function status_thread {
   done
 }
 
+# Dumps the update_engine log in real-time
+function log_thread {
+  echo 'starting log thread'
+  remote_sh_raw "tail -f /var/log/update_engine.log"
+  echo 'stopping log thread'
+}
+
 # Pings the update_engine to see if it responds or a max timeout is reached.
 # Returns 1 if max timeout is reached.
 function wait_until_update_engine_is_ready {
@@ -306,20 +313,20 @@ function run_auto_update {
 
   info "Starting update using args ${update_args}"
 
-  # Sets up a secondary thread to track the update progress.
+  # Sets up secondary threads to track the update progress and logs
   status_thread &
   local status_thread_pid=$!
-  trap "kill ${status_thread_pid} && cleanup" EXIT
+  log_thread &
+  local log_thread_pid=$!
+  trap "kill ${status_thread_pid} && kill ${log_thread_pid} && cleanup" EXIT
 
   # Actually run the update.  This is a blocking call.
   remote_sh "${UPDATER_BIN} ${update_args}"
 
-  # Clean up secondary thread.
+  # Clean up secondary threads.
   ! kill ${status_thread_pid} 2> /dev/null
+  ! kill ${log_thread_pid} 2> /dev/null
   trap cleanup EXIT
-
-  # We get the log file now.
-  get_update_log
 
   local update_status="$(get_update_var CURRENT_OP)"
   if [ "${update_status}" = ${UPDATER_NEED_REBOOT} ]; then
