@@ -283,7 +283,10 @@ function status_thread {
 # Dumps the update_engine log in real-time
 function log_thread {
   echo 'starting log thread'
-  remote_sh_raw "tail -f /var/log/update_engine.log"
+  # Using -t -t twice forces pseudo-tty allocation on the remote end, which
+  # causes tail to go into line-buffered mode.
+  EXTRA_REMOTE_SH_ARGS="-t -t" remote_sh_raw \
+      "tail -n +0 -f /var/log/update_engine.log"
   echo 'stopping log thread'
 }
 
@@ -318,7 +321,8 @@ function run_auto_update {
   local status_thread_pid=$!
   log_thread &
   local log_thread_pid=$!
-  trap "kill ${status_thread_pid} && kill ${log_thread_pid} && cleanup" EXIT
+  trap "kill -1 ${status_thread_pid} && kill -1 ${log_thread_pid} && cleanup" \
+      EXIT INT TERM
 
   # Actually run the update.  This is a blocking call.
   remote_sh "${UPDATER_BIN} ${update_args}"
@@ -326,7 +330,7 @@ function run_auto_update {
   # Clean up secondary threads.
   ! kill ${status_thread_pid} 2> /dev/null
   ! kill ${log_thread_pid} 2> /dev/null
-  trap cleanup EXIT
+  trap cleanup EXIT INT TERM
 
   local update_status="$(get_update_var CURRENT_OP)"
   if [ "${update_status}" = ${UPDATER_NEED_REBOOT} ]; then
@@ -390,7 +394,7 @@ function main() {
     FLAGS_verify=${FLAGS_FALSE}
   fi
 
-  trap cleanup EXIT
+  trap cleanup EXIT INT TERM
 
   TMP=$(mktemp -d /tmp/image_to_live.XXXX)
 
