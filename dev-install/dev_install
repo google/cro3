@@ -20,7 +20,7 @@ if [ $(/usr/bin/id -u) -ne 0 ]; then
 fi
 
 # This script should only run in developer mode or for developer images.
-/usr/bin/crossystem cros_debug?0
+/usr/bin/crossystem "cros_debug?0"
 CROS_DEBUG=$?
 
 if [ ${CROS_DEBUG} -ne 1 ]; then
