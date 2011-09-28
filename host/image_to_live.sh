@@ -26,7 +26,7 @@ DEFINE_string server_log "dev_server.log" \
   "Path to log for the devserver."
 DEFINE_boolean update "${FLAGS_TRUE}" \
   "Perform update of root partition."
-DEFINE_boolean update_known_hosts ${FLAGS_FALSE} \
+DEFINE_boolean update_hostkey ${FLAGS_TRUE} \
   "Update your known_hosts with the new remote instance's key."
 DEFINE_string update_log "update_engine.log" \
   "Path to log for the update_engine."
