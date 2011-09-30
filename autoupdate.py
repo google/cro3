@@ -111,20 +111,40 @@ class Autoupdate(BuildObject):
   def _GetVersionFromDir(self, image_dir):
     """Returns the version of the image based on the name of the directory."""
     latest_version = os.path.basename(image_dir)
-    return latest_version.split('-')[0]
+    parts = latest_version.split('-')
+    if len(parts) == 2:
+      # Old-style, e.g. "0.15.938.2011_08_23_0941-a1".
+      # TODO(derat): Remove the code for old-style versions after 20120101.
+      return parts[0]
+    else:
+      # New-style, e.g. "R16-1102.0.2011_09_30_0806-a1".
+      return parts[1]
 
   def _CanUpdate(self, client_version, latest_version):
     """Returns true if the latest_version is greater than the client_version.
     """
-    client_tokens = client_version.replace('_', '').split('.')
-    latest_tokens = latest_version.replace('_', '').split('.')
     _LogMessage('client version %s latest version %s'
                 % (client_version, latest_version))
-    for i in range(4):
+
+    client_tokens = client_version.replace('_', '').split('.')
+    # If the client has an old four-token version like "0.16.892.0", drop the
+    # first two tokens -- we use versions like "892.0.0" now.
+    # TODO(derat): Remove the code for old-style versions after 20120101.
+    if len(client_tokens) == 4:
+      client_tokens = client_tokens[2:]
+
+    latest_tokens = latest_version.replace('_', '').split('.')
+    if len(latest_tokens) == 4:
+      latest_tokens = latest_tokens[2:]
+
+    for i in range(min(len(client_tokens), len(latest_tokens))):
       if int(latest_tokens[i]) == int(client_tokens[i]):
         continue
       return int(latest_tokens[i]) > int(client_tokens[i])
-    return False
+
+    # Favor four-token new-style versions on the server over old-style versions
+    # on the client if everything else matches.
+    return len(latest_tokens) > len(client_tokens)
 
   def _UnpackZip(self, image_dir):
     """Unpacks an image.zip into a given directory."""

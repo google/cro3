@@ -222,6 +222,45 @@ class AutoupdateTest(mox.MoxTestBase):
     self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
     self.assertFalse('forced_update_label' in au_mock.host_info['127.0.0.1'])
 
+  def testGetVersionFromDir(self):
+    au = self._DummyAutoupdateConstructor()
+
+    # New-style version number.
+    self.assertEqual(
+        au._GetVersionFromDir('/foo/x86-alex/R16-1102.0.2011_09_30_0806-a1'),
+        '1102.0.2011_09_30_0806')
+
+    # Old-style version number.
+    self.assertEqual(
+        au._GetVersionFromDir('/foo/x86-alex/0.15.938.2011_08_23_0941-a1'),
+        '0.15.938.2011_08_23_0941')
+
+  def testCanUpdate(self):
+    au = self._DummyAutoupdateConstructor()
+
+    # When both the client and the server have new-style versions, we should
+    # just compare the tokens directly.
+    self.assertTrue(
+        au._CanUpdate('1098.0.2011_09_28_1635', '1098.0.2011_09_30_0806'))
+    self.assertTrue(
+        au._CanUpdate('1098.0.2011_09_28_1635', '1100.0.2011_09_26_0000'))
+    self.assertFalse(
+        au._CanUpdate('1098.0.2011_09_28_1635', '1098.0.2011_09_26_0000'))
+    self.assertFalse(
+        au._CanUpdate('1098.0.2011_09_28_1635', '1096.0.2011_09_30_0000'))
+
+    # When the device has an old four-token version number, we should skip the
+    # first two tokens and compare the rest.  If there's a tie, go with the
+    # server's version.
+    self.assertTrue(au._CanUpdate('0.16.892.0', '892.0.1'))
+    self.assertTrue(au._CanUpdate('0.16.892.0', '892.0.0'))
+    self.assertFalse(au._CanUpdate('0.16.892.0', '890.0.0'))
+
+    # Test the case where both the client and the server have old-style
+    # versions.
+    self.assertTrue(au._CanUpdate('0.16.892.0', '0.16.892.1'))
+    self.assertFalse(au._CanUpdate('0.16.892.0', '0.16.892.0'))
+
 
 if __name__ == '__main__':
   unittest.main()
