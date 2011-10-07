@@ -33,16 +33,33 @@ BOARD_ROOT=/build/${BOARD}
 # Derive toolchain from $BOARD
 CHOST=$(portageq-${BOARD} envvar CHOST)
 
+TMP_DIR=""
+SSH_PID=0
+CLEAN=0
+
+cleanup ()
+{
+  if [ ${CLEAN} -eq 0 ] ; then
+    rm -rf ${TMP_DIR}
+    if [ ${SSH_PID} -ne 0 ] ; then
+      kill ${SSH_PID}
+    fi
+    CLEAN=1
+  fi
+}
+
 # Create a temporary location in which to copy testing_rsa file; make
 # sure to clean it up when we exit.
 
-trap 'rm -rf ${TMP_DIR}' EXIT
+trap 'cleanup' EXIT INT TERM
 TMP_DIR=$(mktemp -d)
 
 cp ${SCRIPTS_DIR}/mod_for_test_scripts/ssh_keys/testing_rsa \
  ${TMP_DIR}/testing_rsa
 chmod 0600 ${TMP_DIR}/testing_rsa
 
+REMOTE_SSH_FLAGS=" -o StrictHostKeyChecking=no -o CheckHostIP=no\
+ -o BatchMode=yes"
 
 ssh_to_remote_machine ()
 {
@@ -50,7 +67,7 @@ ssh_to_remote_machine ()
   local error_msg=$2
 
   if ! ssh -i ${TMP_DIR}/testing_rsa \
-    -o StrictHostKeyChecking=no -o CheckHostIP=no root@${FLAGS_ip_address} \
+    ${REMOTE_SSH_FLAGS} root@${FLAGS_ip_address} ${VM_PORT} \
     "${command}" ; then
      die "${error_msg}"
   fi
@@ -167,8 +184,35 @@ set debug-file-directory $BOARD_ROOT/usr/lib/debug
 EOF
 }
 
+
+# Some special set up is required for accessing the VM on a local machine...
+
+VM_PORT=""
+PORT_FORWARDING=""
+
+if [[ "${FLAGS_ip_address}" == "localhost" ||
+      "${FLAGS_ip_address}" == "127.0.0.1" ]] ; then
+  VM_PORT=" -p 9222"
+  PORT_FORWARDING=" -L ${FLAGS_port}:localhost:${FLAGS_port}"
+else
+  setup_remote_iptable
+fi
+
 validate_command_options
-setup_remote_iptable
+
+# If accessing the VM on the local machine, need a second ssh session open,
+# for port forwarding, so gdb can find gdbserver...
+
+SSHD_PID=0
+if [[ -n "${VM_PORT}" ]] ; then
+  # Call ssh directly rather than using 'ssh_to_remote_machine' because
+  # too many things about this particular call are different.
+  ssh -i ${TMP_DIR}/testing_rsa -N \
+    ${REMOTE_SSH_FLAGS} \
+    root@${FLAGS_ip_address} ${VM_PORT} ${PORT_FORWARDING} &
+  SSH_PID=$!
+fi
+
 start_remote_gdbserver
 
 echo "gdbserver is now running remotely.  Output will be written to "
@@ -183,4 +227,6 @@ echo
 
 # Start gdb on local machine.
 
-exec ${CHOST}-gdb
+${CHOST}-gdb
+
+cleanup
