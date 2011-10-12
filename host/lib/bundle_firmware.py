@@ -94,6 +94,7 @@ class Bundle:
     self.fdt = None             # Our Fdt object.
     self.bmpblk_fname = None    # Filename of our Bitmap Block
     self.coreboot_fname = None  # Filename of our coreboot binary.
+    self.seabios_fname = None   # Filename of our SeaBIOS payload.
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -104,7 +105,7 @@ class Bundle:
     self._keydir = keydir
 
   def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
-               postload=None):
+               postload=None, seabios=None):
     """Set up files required for Bundle.
 
     Args:
@@ -114,6 +115,7 @@ class Bundle:
       bmpblk: The filename of bitmap block file to use.
       coreboot: The filename of the coreboot image to use (on x86)
       postload: The filename of the u-boot-post.bin image to use.
+      seabios: The filename of the SeaBIOS payload to use if any.
     """
     self._board = board
     self.uboot_fname = uboot
@@ -121,6 +123,7 @@ class Bundle:
     self.bmpblk_fname = bmpblk
     self.coreboot_fname = coreboot
     self.postload_fname = postload
+    self.seabios_fname = seabios
 
   def SetOptions(self, small):
     """Set up options supported by Bundle.
@@ -342,13 +345,14 @@ class Bundle:
 
     return bootstub, signed_postload
 
-  def _CreateCorebootStub(self, uboot, coreboot, fdt):
+  def _CreateCorebootStub(self, uboot, coreboot, fdt, seabios):
     """Create a coreboot boot stub.
 
     Args:
       uboot: Path to u-boot.bin (may be chroot-relative)
       coreboot: Path to coreboot.rom
       fdt: Device Tree
+      seabios: Path to SeaBIOS payload binary or None
 
     Returns:
       Full path to bootstub (coreboot + uboot + fdt).
@@ -360,8 +364,14 @@ class Bundle:
     cbfstool = "/usr/bin/cbfstool"
     uboot_elf = uboot.replace(".bin", ".elf")
     shutil.copyfile(coreboot, bootstub)
-    self._tools.Run(cbfstool, [bootstub, 'add-payload', uboot_elf,
-        'fallback/payload', 'lzma'])
+    if seabios:
+        self._tools.Run(cbfstool, [bootstub, 'add-payload', seabios,
+            'fallback/payload', 'lzma'])
+        self._tools.Run(cbfstool, [bootstub, 'add-payload', uboot_elf,
+            'img/U-Boot', 'lzma'])
+    else:
+        self._tools.Run(cbfstool, [bootstub, 'add-payload', uboot_elf,
+            'fallback/payload', 'lzma'])
     self._tools.Run(cbfstool, [bootstub, 'add', fdt.fname, 'u-boot.dtb',
         '0xac'])
     return bootstub
@@ -400,7 +410,7 @@ class Bundle:
       # signed gets packed into the bootstub, and bootstub gets
       # packed into the RW sections.
       signed = self._CreateCorebootStub(self.uboot_fname,
-          self.coreboot_fname, fdt)
+          self.coreboot_fname, fdt, self.seabios_fname)
       bootstub = self.uboot_fname
     else:
       # Create the boot stub, which is U-Boot plus an fdt and bct

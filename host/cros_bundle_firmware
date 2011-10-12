@@ -78,7 +78,7 @@ def _DoBundle(options, output, tools):
   bundle.SetDirs(keydir=options.key)
   bundle.SetFiles(board=options.board, uboot=options.uboot, bct=options.bct,
                   bmpblk=options.bmpblk, coreboot=options.coreboot,
-                  postload=options.postload)
+                  postload=options.postload, seabios=options.seabios)
   bundle.SetOptions(small=options.small)
 
   try:
@@ -147,6 +147,8 @@ def main():
       '(u-boot-post.bin)')
   parser.add_option('-s', '--small', dest='small', action='store_true',
       help='Create/write only the signed U-Boot binary (not the full image)')
+  parser.add_option('-S', '--seabios', dest='seabios', type='string',
+        action='store', help='Legacy BIOS (SeaBIOS)')
   parser.add_option('-u', '--uboot', dest='uboot', type='string',
       action='store', help='Executable bootloader file (U-Boot)')
   parser.add_option('-U', '--uboot-flasher', dest='uboot_flasher',
