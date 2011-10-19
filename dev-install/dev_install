@@ -30,7 +30,7 @@ if [ ${CROS_DEBUG} -ne 1 ]; then
 fi
 
 # Process flags.
-. /usr/lib/shflags
+. /usr/share/misc/shflags
 DEFINE_string binhost "" \
   "URL of the binhost that emerge will use."
 DEFINE_string binhost_version "" \

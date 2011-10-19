@@ -7,7 +7,7 @@
 # This scripts performs update of stateful partition directories useful for
 # dev_mode.
 
-. /usr/lib/shflags
+. /usr/share/misc/shflags
 
 # Constants for states.
 CLEAN_STATE="clean"
