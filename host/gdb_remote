@@ -12,7 +12,7 @@ get_default_board
 # Flags
 DEFINE_string board "${DEFAULT_BOARD}" \
  "The board to run debugger on."
-DEFINE_string ip_address "localhost" \
+DEFINE_string remote "localhost" \
  "The IP address of the remote device."
 DEFINE_integer port 1234 \
  "The port number to use for connecting to remote device."
@@ -67,7 +67,7 @@ ssh_to_remote_machine ()
   local error_msg=$2
 
   if ! ssh -i ${TMP_DIR}/testing_rsa \
-    ${REMOTE_SSH_FLAGS} root@${FLAGS_ip_address} ${VM_PORT} \
+    ${REMOTE_SSH_FLAGS} root@${FLAGS_remote} ${VM_PORT} \
     "${command}" ; then
      die "${error_msg}"
   fi
@@ -101,15 +101,15 @@ validate_command_options ()
 
   # Verify that the IP Address is currently active.
 
-  if [[ -z "${FLAGS_ip_address}" ]] ; then
+  if [[ -z "${FLAGS_remote}" ]] ; then
     die "No IP address specified."
   fi
 
-  echo "Verifying IP address ${FLAGS_ip_address} (this will take a few\
+  echo "Verifying IP address ${FLAGS_remote} (this will take a few\
  seconds)..."
 
-  if ! ping -c 3 -q ${FLAGS_ip_address} > /dev/null ; then
-    die "${FLAGS_ip_address} is not currently available."
+  if ! ping -c 3 -q ${FLAGS_remote} > /dev/null ; then
+    die "${FLAGS_remote} is not currently available."
   fi
 
   # Verify that the debug version of the remote file exists.
@@ -130,7 +130,7 @@ validate_command_options ()
   if [[ ${FLAGS_remote_pid} -ne 0 ]] ; then
     local ssh_cmd="ps -p ${FLAGS_remote_pid} > /dev/null"
     local err_msg="${FLAGS_remote_pid} is not a valid PID on\
- ${FLAGS_ip_address}"
+ ${FLAGS_remote}"
     ssh_to_remote_machine "${ssh_cmd}" "${err_msg}"
   fi
 }
@@ -156,7 +156,7 @@ start_remote_gdbserver ()
 
   echo "Starting up gdbserver on your remote device."
   local ssh_cmd="nohup ${gdbserver_cmd} > /tmp/gdbserver.out 2>&1 &"
-  local err_msg="Unable to ssh into root@${FLAGS_ip_address}."
+  local err_msg="Unable to ssh into root@${FLAGS_remote}."
   ssh_to_remote_machine "${ssh_cmd}" "${err_msg}"
 }
 
@@ -173,7 +173,7 @@ define remote_connect
   python fullname = os.path.join ("${BOARD_ROOT}", filename)
   python file_command = "file " + fullname
   python gdb.execute (file_command)
-  python remote_ip_address = "${FLAGS_ip_address}"
+  python remote_ip_address = "${FLAGS_remote}"
   python remote_port = "${FLAGS_port}"
   python remote_cmd = "target remote " + remote_ip_address + ":" + remote_port
   python gdb.execute (remote_cmd)
@@ -190,8 +190,8 @@ EOF
 VM_PORT=""
 PORT_FORWARDING=""
 
-if [[ "${FLAGS_ip_address}" == "localhost" ||
-      "${FLAGS_ip_address}" == "127.0.0.1" ]] ; then
+if [[ "${FLAGS_remote}" == "localhost" ||
+      "${FLAGS_remote}" == "127.0.0.1" ]] ; then
   VM_PORT=" -p 9222"
   PORT_FORWARDING=" -L ${FLAGS_port}:localhost:${FLAGS_port}"
 else
@@ -209,7 +209,7 @@ if [[ -n "${VM_PORT}" ]] ; then
   # too many things about this particular call are different.
   ssh -i ${TMP_DIR}/testing_rsa -N \
     ${REMOTE_SSH_FLAGS} \
-    root@${FLAGS_ip_address} ${VM_PORT} ${PORT_FORWARDING} &
+    root@${FLAGS_remote} ${VM_PORT} ${PORT_FORWARDING} &
   SSH_PID=$!
 fi
 
