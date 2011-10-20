@@ -9,6 +9,77 @@ import optparse
 import os
 import re
 import subprocess
+import threading
+
+class Result(object):
+  '''A class to synchronize multiple repository request threads.
+
+  Multiple parallel running threads collect text information (for instance,
+  state of different git repositories, one per thread).
+
+  Using this class object allows these multiple threads to synchronously
+  attach collected information to a list.
+
+  This class also provides a facility to unblock the master thread once all
+  parallel running threads have finished running.
+
+  To make matters simpler, the number of parallel threads to expect to run is
+  given to this class during initialization.
+
+  Attributes:
+
+    thread_lock - a lock object, used as a mutex to control access to the count
+                  of running threads
+
+    finished_lock - a lock object, used as a mutex for the master thread. This
+                 lock is locked as soon as the first parallel thread starts
+                 and stays locked until the last parallel thread finishes.
+
+    thread_count - an integer, number of parallel threads this object will
+                 have to handle.
+
+    results - a list of strings, each representing a result of a running
+                 parallel thread.
+  '''
+
+  def __init__(self, max_threads):
+    '''Initialize the object with the number of parallel threads to handle.'''
+
+    self.thread_lock = threading.Lock()
+    self.finished_lock = threading.Lock()
+    self.finished_lock.acquire()
+    self.thread_count = max_threads
+    self.results = []
+
+  def ReportFinishedThread(self, result):
+    '''Report that a parallel thread finished running.
+
+    Each time a finished thread is reported, decrement the running thread
+    count. Once the running thread count reaches zero - unblock the master
+    thread lock.
+
+    result - a string, representing the output of the thread, could be empty.
+             If not empty - add this string to the results attribute.
+    '''
+
+    self.thread_lock.acquire()
+    if result:
+      self.results.append(result)
+    self.thread_count = self.thread_count - 1
+    self.thread_lock.release()
+    if self.thread_count == 0:
+      self.finished_lock.release()
+
+  def GetResults(self):
+    '''Wait till all parallel threads finish and return results.
+
+    This function blocks until all parallel threads finish running. Once they
+    do, sort the results[] list and return it.
+    '''
+
+    self.finished_lock.acquire()
+    self.results.sort()
+    return self.results
 
 def RunCommand(path, command):
   """Run a command in a given directory, return stdout."""
@@ -35,13 +106,13 @@ def FindFileUpwards(filename, path):
     path = new_path
 
 
-def ShowName(relative_name, color):
+def GetName(relative_name, color):
   """Display the directory name."""
 
   if color:
-    print('\033[44m\033[37m%s\033[0m' % relative_name)
+    return '\033[44m\033[37m%s\033[0m' % relative_name
   else:
-    print relative_name
+    return relative_name
 
 
 def GetBranches(full_name, color):
@@ -82,12 +153,13 @@ def GetHistory(full_name, color, author, days):
   return RunCommand(full_name, command).splitlines()
 
 
-def ShowDir(full_name, color, logs, author, days):
-  """Display active work in a single git repository."""
+def ShowDir(full_name, color, logs, author, days, result):
+  """Report active work in a single git repository."""
 
   branches = GetBranches(full_name, color)
   status = GetStatus(full_name, color)
 
+  text = []
   if logs:
     history = GetHistory(full_name, color, author, days)
   else:
@@ -95,15 +167,14 @@ def ShowDir(full_name, color, logs, author, days):
 
   if branches or status or history:
       # We want to use the full path for testing, but we want to use the
-      # relative path for display.
-    ShowName(os.path.relpath(full_name), color)
+      # relative path for display. Add an empty string to the list to have the
+      # output sections separated.
+    text = [ '', GetName(os.path.relpath(full_name), color), ]
 
-  if branches: print '\n'.join(branches)
-  if status: print '\n'.join(status)
-  if history: print '\n'.join(history)
+    for extra in (branches, status, history):
+        if extra: text = text + extra
 
-  if branches or status or history:
-    print ""
+  result.ReportFinishedThread('\n'.join(text))
 
 
 def FindRoot():
@@ -147,9 +218,16 @@ def main():
   root = FindRoot()
   repos = RunCommand(root, ['repo', 'forall', '-c', 'pwd']).splitlines()
 
-  for full in repos:
-    ShowDir(full, color, options.logs, options.author, options.days)
+  result = Result(len(repos))
 
+  for full in repos:
+    t = threading.Thread(
+        target=ShowDir,
+        args=(
+            full, color, options.logs, options.author, options.days, result))
+    t.start()
+
+  print '\n'.join(result.GetResults())
 
 if __name__ == '__main__':
   main()
