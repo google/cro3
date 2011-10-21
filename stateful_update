@@ -7,7 +7,16 @@
 # This scripts performs update of stateful partition directories useful for
 # dev_mode.
 
-. /usr/share/misc/shflags
+# in order to support developers going from older images with the old shflags
+# we'll check for both new shflags and old shflags
+if [ -f /usr/share/misc/shflags ] ; then
+  . /usr/share/misc/shflags
+elif [ -f /usr/lib/shflags ] ; then
+  . /usr/lib/shflags
+else
+  echo >&2 "$0 Unable to source shflags"
+  exit 1
+fi
 
 # Constants for states.
 CLEAN_STATE="clean"
