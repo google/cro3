@@ -38,18 +38,49 @@ class Result(object):
     thread_count - an integer, number of parallel threads this object will
                  have to handle.
 
+    fast_report - a boolean, if True - report results as they arrive, do not
+                 wait for all thread results to arrive and get sorted
+
+    started_threads - an integer, number of threads started so far.
+
     results - a list of strings, each representing a result of a running
                  parallel thread.
   '''
 
-  def __init__(self, max_threads):
+  def __init__(self, max_threads, fast_report=False):
     '''Initialize the object with the number of parallel threads to handle.'''
 
     self.thread_lock = threading.Lock()
     self.finished_lock = threading.Lock()
     self.finished_lock.acquire()
     self.thread_count = max_threads
+    self.fast_report = fast_report
+    self.started_threads = 0
     self.results = []
+
+  def ReportThreadStatus(self):
+    '''Print status line when enabled.
+
+    If enabled, print a line showing numbers of started and still running
+    threads. Make sure this line is printed in the same screen position (using
+    the ANSI cursor control escape sequence).
+    '''
+
+    if self.fast_report:
+        return
+    print '\n%c[1AStarted threads: %3d, remaining threads: %3d' % (
+        27, self.started_threads, self.thread_count),
+
+  def ReportStartedThread(self):
+    '''Increment started thread count.
+
+    And report status, if enabled.
+    '''
+
+    self.thread_lock.acquire()
+    self.started_threads = self.started_threads + 1
+    self.ReportThreadStatus()
+    self.thread_lock.release()
 
   def ReportFinishedThread(self, result):
     '''Report that a parallel thread finished running.
@@ -59,15 +90,23 @@ class Result(object):
     thread lock.
 
     result - a string, representing the output of the thread, could be empty.
-             If not empty - add this string to the results attribute.
+             If not empty - ether add this string to the results attribute or
+             print it, if fast reporting is enabled.
     '''
 
     self.thread_lock.acquire()
     if result:
-      self.results.append(result)
+        if self.fast_report:
+            print result
+        else:
+            self.results.append(result)
     self.thread_count = self.thread_count - 1
+    self.ReportThreadStatus()
     self.thread_lock.release()
     if self.thread_count == 0:
+      if not self.fast_report:
+        # Erase the status line.
+        print '\n%c[1A%c[K%c[1A' % (27, 27, 27),
       self.finished_lock.release()
 
   def GetResults(self):
@@ -156,6 +195,8 @@ def GetHistory(full_name, color, author, days):
 def ShowDir(full_name, color, logs, author, days, result):
   """Report active work in a single git repository."""
 
+  result.ReportStartedThread()
+
   branches = GetBranches(full_name, color)
   status = GetStatus(full_name, color)
 
@@ -208,6 +249,11 @@ def main():
                     type='string',
                     dest='author')
 
+  parser.add_option('-f', '--fast-report', default=False,
+                    help='Print results as they arrive, do not sort.',
+                    action='store_true',
+                    dest='fast_report')
+
   options, arguments = parser.parse_args()
 
   if arguments:
@@ -218,7 +264,7 @@ def main():
   root = FindRoot()
   repos = RunCommand(root, ['repo', 'forall', '-c', 'pwd']).splitlines()
 
-  result = Result(len(repos))
+  result = Result(len(repos), options.fast_report)
 
   for full in repos:
     t = threading.Thread(
