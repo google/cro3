@@ -77,6 +77,7 @@ copy_gcc_libs()
   fi
   copy_gcc_libs_helper $target_location $libgcc_file
   copy_gcc_libs_helper $target_location $libstdcxx_file
+  sudo ROOT="$target_location" env-update
   return 0
 }
 
