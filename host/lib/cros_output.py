@@ -86,7 +86,7 @@ class Output:
       else:
         self._stdout.write(self._progress + '\n')
 
-  def _Output(self, level, msg, error=False):
+  def _Output(self, level, msg, color=None):
     """Output a message to the terminal.
 
     Args:
@@ -97,8 +97,8 @@ class Output:
     """
     self.ClearProgress()
     if self.verbose >= level:
-      if error:
-        msg = self._color.Color(self._color.RED, msg)
+      if color:
+        msg = self._color.Color(color, msg)
       self._stdout.write(msg + '\n')
 
   def DoOutput(self, level, msg):
@@ -117,7 +117,7 @@ class Output:
     Args:
       msg; Message to display.
     """
-    self._Output(0, msg, True)
+    self._Output(0, msg, self._color.RED)
 
   def Warning(self, msg):
     """Display a warning message
@@ -125,7 +125,7 @@ class Output:
     Args:
       msg; Message to display.
     """
-    self._Output(1, msg)
+    self._Output(1, msg, self._color.YELLOW)
 
   def Notice(self, msg):
     """Display an important infomation message
