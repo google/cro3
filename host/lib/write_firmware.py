@@ -45,7 +45,7 @@ class WriteFirmware:
     self._tools = tools
     self._fdt = fdt
     self._out = output
-    self._text_base = self._fdt.GetInt('/chromeos-config/textbase');
+    self.text_base = self._fdt.GetInt('/chromeos-config/textbase');
 
     # For speed, use the 'update' algorithm and don't verify
     self.update = True
@@ -166,7 +166,7 @@ class WriteFirmware:
     alignment = 0x1000
     payload_offset = (payload_offset + alignment - 1) & ~(alignment-1)
 
-    load_address = self._text_base + payload_offset,
+    load_address = self.text_base + payload_offset,
     new_str = '%08x' % load_address
     if len(replace_me) is not len(new_str):
       raise ValueError("Internal error: replacement string '%s' length does "
@@ -215,7 +215,7 @@ class WriteFirmware:
       '--setbct',
       '--bl',  flasher,
       '--go',
-      '--setentry', "%#x" % self._text_base, "%#x" % self._text_base
+      '--setentry', "%#x" % self.text_base, "%#x" % self.text_base
     ]
 
     # TODO(sjg): Check for existence of board - but chroot has no lsusb!
@@ -248,7 +248,7 @@ class WriteFirmware:
     return False
 
 def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname,
-                    update=True, verify=False):
+                    text_base=None, update=True, verify=False):
   """A simple function to write firmware to the board.
 
   This creates a WriteFirmware object and uses it to write the firmware image
@@ -261,10 +261,13 @@ def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname,
     flasher: U-Boot binary to use as the flasher.
     bct_fname: Bct file to use for the flasher.
     image_fname: Filename of image to write.
-    update: Use faster update algorithm rather then full device erase
-    verify: Verify the write by doing a readback and CRC
+    text_base: U-Boot text base (base of executable image), None for default.
+    update: Use faster update algorithm rather then full device erase.
+    verify: Verify the write by doing a readback and CRC.
   """
   write = WriteFirmware(tools, fdt, output)
+  if text_base:
+    write.text_base = text_base
   write.update = update
   write.verify = verify
   if write.FlashImage(flasher, bct_fname, image_fname):

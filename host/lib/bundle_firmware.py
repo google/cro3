@@ -81,8 +81,6 @@ class Bundle:
       tools: A tools.Tools object to use for external tools.
       output: A cros_output.Output object to use for program output.
     """
-    self.text_base = None       # Base of U-Boot image in memory
-
     self._tools = tools
     self._out = output
 
