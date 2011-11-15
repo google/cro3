@@ -95,8 +95,9 @@ def _DoBundle(options, output, tools):
       flasher = options.uboot_flasher
       if not flasher:
         flasher = bundle.uboot_fname
+      text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
       write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
-          bundle.bct_fname, out_fname)
+          bundle.bct_fname, out_fname, text_base)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information

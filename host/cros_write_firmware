@@ -64,8 +64,9 @@ def _DoWriteFirmware(options, output, tools, update, verify):
     flasher = options.uboot_flasher
     if not flasher:
       flasher = bundle.uboot_fname
+    text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
     write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
-        bundle.bct_fname, options.image, None, update, verify)
+        bundle.bct_fname, options.image, text_base, update, verify)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information

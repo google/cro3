@@ -23,6 +23,7 @@ import cros_output
 from fdt import Fdt
 from pack_firmware import PackFirmware
 import shutil
+import struct
 import tempfile
 from tools import Tools
 from write_firmware import WriteFirmware
@@ -264,6 +265,56 @@ class Bundle:
         else:
           self.fdt.PutString('/config/%s' % config[0], value)
 
+  def DecodeTextBase(self, data):
+    """Look at a U-Boot image and try to decode its TEXT_BASE.
+
+    This works because U-Boot has a header with the value 0x12345678
+    immediately followed by the TEXT_BASE value. We can therefore read this
+    from the image with some certainty. We check only the first 40 words
+    since the header should be within that region.
+
+    Args:
+      data: U-Boot binary data
+
+    Returns:
+      Text base (integer) or None if none was found
+    """
+    found = False
+    for i in range(0, 160, 4):
+      word = data[i:i + 4]
+
+      # TODO(sjg): This does not cope with a big-endian target
+      value = struct.unpack('<I', word)[0]
+      if found:
+        return value
+      if value == 0x12345678:
+        found = True
+
+    return None
+
+  def CalcTextBase(self, name, fdt, fname):
+    """Calculate the TEXT_BASE to use for U-Boot.
+
+    Normally this value is in the fdt, so we just read it from there. But as
+    a second check we look at the image itself in case this is different, and
+    switch to that if it is.
+
+    This allows us to flash any U-Boot even if its TEXT_BASE is different.
+    This is particularly useful with upstream U-Boot which uses a different
+    value (which we will move to).
+    """
+    data = self._tools.ReadFile(fname)
+    fdt_text_base = fdt.GetInt('/chromeos-config/textbase')
+    text_base = self.DecodeTextBase(data)
+
+    # If they are different, issue a warning and switch over.
+    if text_base and text_base != fdt_text_base:
+      self._out.Warning("TEXT_BASE %x in %sU-Boot doesn't match "
+              "fdt value of %x. Using %x" % (text_base, name,
+                  fdt_text_base, text_base))
+      fdt_text_base = text_base
+    return fdt_text_base
+
   def _CreateBootStub(self, uboot, base_fdt, postload):
     """Create a boot stub and a signed boot stub.
 
@@ -292,7 +343,7 @@ class Bundle:
       CmdError if a command fails.
     """
     bootstub = os.path.join(self._tools.outdir, 'u-boot-fdt.bin')
-    text_base = self.fdt.GetInt('/chromeos-config/textbase');
+    text_base = self.CalcTextBase('', self.fdt, uboot)
     uboot_data = self._tools.ReadFile(uboot)
 
     # Make a copy of the fdt for the bootstub
