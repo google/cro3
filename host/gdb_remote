@@ -36,6 +36,7 @@ CHOST=$(portageq-${BOARD} envvar CHOST)
 TMP_DIR=""
 SSH_PID=0
 CLEAN=0
+GDBINIT_FILE=~/.gdbinit
 
 cleanup ()
 {
@@ -46,6 +47,7 @@ cleanup ()
     fi
     CLEAN=1
   fi
+  rm -rf ${GDBINIT_FILE}
 }
 
 # Create a temporary location in which to copy testing_rsa file; make
@@ -61,14 +63,19 @@ chmod 0600 ${TMP_DIR}/testing_rsa
 REMOTE_SSH_FLAGS=" -o StrictHostKeyChecking=no -o CheckHostIP=no\
  -o BatchMode=yes"
 
+run_remote_command ()
+{
+  ssh -i ${TMP_DIR}/testing_rsa \
+    ${REMOTE_SSH_FLAGS} root@${FLAGS_remote} ${VM_PORT} \
+    "$@"
+}
+
 ssh_to_remote_machine ()
 {
   local command=$1
   local error_msg=$2
 
-  if ! ssh -i ${TMP_DIR}/testing_rsa \
-    ${REMOTE_SSH_FLAGS} root@${FLAGS_remote} ${VM_PORT} \
-    "${command}" ; then
+  if ! run_remote_command "${command}" ; then
      die "${error_msg}"
   fi
 }
@@ -85,12 +92,10 @@ validate_command_options ()
     die "Unable to determine correct toolchain from board."
   fi
 
-  if [[ -z "${FLAGS_remote_file}" ]] ; then
-    die "--remote_file is required."
-  fi
-
-  if [[ ${FLAGS_remote_file:0:1} != '/' ]] ; then
-    die "--remote_file must contain full pathname."
+  if [[ -z "${FLAGS_remote_pid}" ]] ; then
+    if [[ -z "${FLAGS_remote_file}" ]] ; then
+      die "--remote_file is required."
+    fi
   fi
 
   # Verify that the correct cross-gdb has been built first!
@@ -112,6 +117,22 @@ validate_command_options ()
     die "${FLAGS_remote} is not currently available."
   fi
 
+  if [[ ${FLAGS_remote_pid} -ne 0 ]] ; then
+    local ssh_cmd="readlink -e /proc/${FLAGS_remote_pid}/exe"
+    local err_msg="${FLAGS_remote_pid} is not a valid PID on\
+ ${FLAGS_remote}"
+    FLAGS_remote_file=$(run_remote_command "${ssh_cmd}")
+    if [[ $? -ne 0 ]] ; then
+      die "${err_msg}"
+    fi
+  fi
+
+  if [[ ! -z "${FLAGS_remote_file}" ]] ; then
+    if [[ ${FLAGS_remote_file:0:1} != '/' ]] ; then
+      die "--remote_file must contain full pathname."
+    fi
+  fi
+
   # Verify that the debug version of the remote file exists.
 
   if [ ! -x "${BOARD_ROOT}${FLAGS_remote_file}" ]; then
@@ -125,13 +146,6 @@ validate_command_options ()
       y | Y ) exit 1 ;;
       *) ;;
     esac
-  fi
-
-  if [[ ${FLAGS_remote_pid} -ne 0 ]] ; then
-    local ssh_cmd="ps -p ${FLAGS_remote_pid} > /dev/null"
-    local err_msg="${FLAGS_remote_pid} is not a valid PID on\
- ${FLAGS_remote}"
-    ssh_to_remote_machine "${ssh_cmd}" "${err_msg}"
   fi
 }
 
@@ -164,7 +178,7 @@ generate_gdbinit_file ()
 {
   # Create board-and-notebook-specific .gdbinit file.
 
-  cat <<-EOF > ~/.gdbinit
+  cat <<-EOF > ${GDBINIT_FILE}
 
 define remote_connect
   set \$file="${FLAGS_remote_file}"
@@ -181,6 +195,7 @@ end
 
 set sysroot $BOARD_ROOT
 set debug-file-directory $BOARD_ROOT/usr/lib/debug
+remote_connect
 EOF
 }
 
