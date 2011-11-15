@@ -170,6 +170,9 @@ if __name__ == '__main__':
   parser.add_option('--client_prefix', dest='client_prefix_deprecated',
                     help='No longer used.  It is still here so we don\'t break '
                     'scripts that used it.', default='')
+  parser.add_option('--critical_update', dest='critical_update',
+                    action='store_true', default=False,
+                    help='Present update payload as critical')
   parser.add_option('--data_dir', dest='data_dir',
                     help='Writable directory where static lives',
                     default=os.path.dirname(os.path.abspath(sys.argv[0])))
@@ -273,6 +276,7 @@ if __name__ == '__main__':
       board=options.board,
       copy_to_static_root=not options.exit,
       private_key=options.private_key,
+      critical_update=options.critical_update,
   )
 
   # Sanity-check for use of validate_factory_config.

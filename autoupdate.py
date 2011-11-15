@@ -6,6 +6,7 @@ from buildutil import BuildObject
 from xml.dom import minidom
 
 import cherrypy
+import datetime
 import json
 import os
 import shutil
@@ -64,6 +65,7 @@ class Autoupdate(BuildObject):
                forced_image=None, forced_payload=None,
                port=8080, proxy_port=None, src_image='', vm=False, board=None,
                copy_to_static_root=True, private_key=None,
+               critical_update=False,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
@@ -82,6 +84,7 @@ class Autoupdate(BuildObject):
     self.board = board
     self.copy_to_static_root = copy_to_static_root
     self.private_key = private_key
+    self.critical_update = critical_update
 
     # Path to pre-generated file.
     self.pregenerated_path = None
@@ -234,12 +237,23 @@ class Autoupdate(BuildObject):
             needsadmin="false"
             size="%s"
             IsDelta="%s"
-            status="ok"/>
+            status="ok"
+            %s/>
         </app>
       </gupdate>
     """
-    return payload % (self._GetSecondsSinceMidnight(),
-                      self.app_id, url, hash, sha256, size, delta)
+    extra_attributes = []
+    if self.critical_update:
+      # The date string looks like '20111115' (2011-11-15). As of writing,
+      # there's no particular format for the deadline value that the
+      # client expects -- it's just empty vs. non-empty.
+      date_str = datetime.date.today().strftime('%Y%m%d')
+      extra_attributes.append('deadline="%s"' % date_str)
+    xml = payload % (self._GetSecondsSinceMidnight(),
+                     self.app_id, url, hash, sha256, size, delta,
+                     ' '.join(extra_attributes))
+    _LogMessage('Generated update payload: %s' % xml)
+    return xml
 
   def GetNoUpdatePayload(self):
     """Returns a payload to the client corresponding to no update."""
