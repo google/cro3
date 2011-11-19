@@ -10,6 +10,8 @@ COMMON_SH=/usr/lib/crosutils/common.sh
 get_default_board
 
 # Flags
+DEFINE_string attach "" \
+ "pgrep for the given command - 'browser' finds the chrome browser process"
 DEFINE_string board "${DEFAULT_BOARD}" \
  "The board to run debugger on."
 DEFINE_string remote "localhost" \
@@ -94,7 +96,9 @@ validate_command_options ()
 
   if [[ -z "${FLAGS_remote_pid}" ]] ; then
     if [[ -z "${FLAGS_remote_file}" ]] ; then
-      die "--remote_file is required."
+      if [[ -z "${FLAGS_attach}" ]] ; then
+        die "--remote_file is required."
+      fi
     fi
   fi
 
@@ -115,6 +119,27 @@ validate_command_options ()
 
   if ! ping -c 3 -q ${FLAGS_remote} > /dev/null ; then
     die "${FLAGS_remote} is not currently available."
+  fi
+
+  if [[ -n "${FLAGS_attach}" ]]; then
+    if [[ "${FLAGS_attach}" == "browser" ]]; then
+      FLAGS_remote_pid=$(run_remote_command \
+        "pstree -p|grep session_manager|cut -d\( -f3 | cut -d\) -f1")
+      if [ -z "${FLAGS_remote_pid}" ]; then
+        die "Unable to find browser process"
+      fi
+    else
+      FLAGS_remote_pid=$(run_remote_command "pgrep -f '${FLAGS_attach}'")
+      local count=$(echo ${FLAGS_remote_pid} | wc -w)
+      if [ ${count} -eq 0 ]; then
+        die "No process matching ${FLAGS_attach}"
+      elif [ ${count} -gt 1 ]; then
+        error "Multiple (${count}) processes matching \"${FLAGS_attach}\":"
+        local pids=$(echo "${FLAGS_remote_pid}" | tr '\n' ' ')
+        run_remote_command "ps ${pids}"
+        exit 1
+      fi
+    fi
   fi
 
   if [[ ${FLAGS_remote_pid} -ne 0 ]] ; then
@@ -235,9 +260,12 @@ echo "/tmp/gdbserver.out on your remote device."
 
 generate_gdbinit_file
 
+echo "Some helpful GDB commands:"
+echo "directory <path> -- causes path to be searched for source files."
+echo "info functions <regexp> -- find function matching given regexp."
 echo
-echo "To connect to gdbserver, type 'remote_connect' at the gdb prompt."
-echo
+echo "Some helpful gdb_remote specific commands:"
+echo "remote_connect -- reestablish remote connection."
 echo
 
 # Start gdb on local machine.
