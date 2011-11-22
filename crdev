@@ -18,25 +18,40 @@ _PUB_KEY_FILENAME = "~/.ssh/id_rsa.pub"
 _PUB_KEY_FILEPATH = os.path.expanduser(_PUB_KEY_FILENAME)
 _AUTH_KEYS_FILEPATH = os.path.expanduser("~/.ssh/authorized_keys")
 _CHROME_MOUNT_PATH = "/tmp/chrome"
-_DEFAULT_CHROME_DIR = "~/chromeos/chromium"
+# Note: no ~/ for sshfs:
+_DEFAULT_HOST_CHROOT_DIR = "chromeos/chroot"
+_HOST_CHROOT_DIR_FILENAME = os.path.expanduser("~/.chromedir")
 
 RAN_SUDO = False
 
 ###############################################################################
 # Utility commands
 
-def _Confirm(message):
+def _PrintError(msg, err=""):
+  """Print a message with an optional error message to stderr"""
+  if err:
+    print >> sys.stderr, "%s: %s" % (msg, err)
+  else:
+    print >> sys.stderr, msg
+
+def _Confirm(message, default_response="n"):
   """Request confirmation and return True/False."""
-  reply = raw_input(message + " [y/N] ")
-  if reply == "y" or reply == "Y":
-    return True
-  return False
+  default_lc = default_response.lower()
+  if default_lc == "y":
+    input_msg = "%s [Y/n] " % message
+  else:
+    input_msg = "%s [y/N] " % message
+
+  reply = raw_input(input_msg).lower()
+  if reply:
+    return reply == "y"
+  return default_lc == "y"
 
 
 def _CheckOverwriteFile(filepath):
   """Check for a file and request confirmation if it exists."""
   if os.path.isfile(filepath):
-    if not _Confirm(filepath + " already exists. Overwrite?"):
+    if not _Confirm("%s already exists. Overwrite?" % filepath):
       return False
   return True
 
@@ -47,11 +62,24 @@ def _WriteFile(filepath, contents):
     print "Writing to: ", filepath
     with open(filepath,"w") as f_1:
       f_1.write(contents)
-  except EnvironmentError:
-    print >> sys.stderr, "Failed to write to file: ", filepath
+  except EnvironmentError as err:
+    _PrintError("Failed to write to file '%s'" % filepath, err)
     return False
 
   return True
+
+
+def _ReadFile(filepath):
+  """Return contents of |filepath| as a string."""
+  try:
+    print "Reading from: " + filepath
+    with open(filepath,"r") as f_1:
+      result = f_1.read()
+  except EnvironmentError as err:
+    _PrintError("Failed to read from file '%s'" % filepath, err)
+    return None
+
+  return result.rstrip()
 
 
 def _Sudo():
@@ -61,8 +89,8 @@ def _Sudo():
     print "Executing: sudo -v"
   try:
     subprocess.call(["sudo", "-v"])
-  except EnvironmentError:
-    print >> sys.stderr, "Failed to run sudo"
+  except EnvironmentError as err:
+    _PrintError("Failed to run sudo", err)
     return False
   RAN_SUDO = True
   return True
@@ -77,12 +105,12 @@ def _RunCommand(args):
         return False
     print "Executing: ", cmd
     retcode = subprocess.call(args)
-  except EnvironmentError:
-    print >> sys.stderr, "Failed to run command: ", cmd
+  except EnvironmentError as err:
+    _PrintError("Failed to run command '%s'" % cmd, err)
     return False
   else:
     if retcode != 0:
-      print >> sys.stderr, "Error: ", retcode, ", running command: ", cmd
+      _PrintError("Error running command '%s'" % cmd, "%s" % retcode)
       return False
     return True
 
@@ -93,21 +121,22 @@ def _GetCommandOutput(args):
   try:
     proc = subprocess.Popen(args, stdout=subprocess.PIPE)
     result = proc.communicate()[0]
-  except EnvironmentError:
-    print >> sys.stderr, "Failed to run command: ", cmd
+  except EnvironmentError as err:
+    _PrintError("Failed to run command '%s'" % cmd, err)
     return None
   result = result.rstrip('\n')
   return result
 
 
-def _MakeDirectory(dirpath):
+def _MakeDirectory(dirpath, warn=True):
   """Create directory |dirpath| if it does not exist."""
   if not os.path.isdir(dirpath):
     try:
       print "Creating directory: ", dirpath
       os.makedirs(dirpath)
-    except EnvironmentError:
-      print >> sys.stderr, "Failed to create directory: ", dirpath
+    except EnvironmentError as err:
+      if warn:
+        _PrintError("Failed to create directory '%s'" % dirpath, err)
       return False
   return True
 
@@ -118,8 +147,8 @@ def _RemoveFile(filepath):
     try:
       print "Removing file: ", filepath
       os.remove(filepath)
-    except EnvironmentError:
-      print >> sys.stderr, "Failed to remove file: ", filepath
+    except EnvironmentError as err:
+      _PrintError("Failed to remove file '%s'" % filepath, err)
       return False
   return True
 
@@ -130,14 +159,15 @@ def _RemoveDirectory(dirpath):
     try:
       print "Removing directory: ", dirpath
       shutil.rmtree(dirpath)
-    except EnvironmentError:
-      print >> sys.stderr, "Failed to remove directory: ", dirpath
+    except EnvironmentError as err:
+      _PrintError("Failed to remove dir '%s'" % dirpath, err)
       return False
   return True
 
 
 def _DevUser():
   """Extract the user name from lsb-release."""
+  # TODO(stevenjb): Refactor this using python re.
   awk_expr  = """/CHROMEOS_RELEASE_DESCRIPTION/ {"""
   awk_expr += """ sub(/.*Developer Build - /,"");"""
   awk_expr += """ sub(/\).*/,"");"""
@@ -147,21 +177,57 @@ def _DevUser():
 
 def _DevHost():
   """Extract the host name from lsb-release."""
+  # TODO(stevenjb): Refactor this using python re.
   awk_expr  = """/CHROMEOS_DEVSERVER/ {"""
   awk_expr += """ sub(/.*http:\/\//,"");"""
   awk_expr += """ sub(/:8080.*/,"");"""
   awk_expr += """ print; }"""
   return _GetCommandOutput(["awk", awk_expr, "/etc/lsb-release"])
 
+
+def _DevBoard():
+  """Extract the board from lsb-release."""
+  # TODO(stevenjb): Refactor this using python re.
+  awk_expr  = """/CHROMEOS_RELEASE_BOARD/ {"""
+  awk_expr += """ sub(/.*=/,"");"""
+  awk_expr += """ print; }"""
+  return _GetCommandOutput(["awk", awk_expr, "/etc/lsb-release"])
+
+
+def _GetChrootDir(prompt_for_dir=False):
+  """Get the name for the chrome directory on the host."""
+  chromedir = _ReadFile(_HOST_CHROOT_DIR_FILENAME)
+  if not chromedir:
+    chromedir = _DEFAULT_HOST_CHROOT_DIR
+
+  if prompt_for_dir:
+    host = _DevHost()
+    prompt = ("Chroot directory on %s [ %s ]: "
+              % (host, _DEFAULT_HOST_CHROOT_DIR))
+    inputdir = raw_input(prompt).rstrip()
+    if inputdir:
+      chromedir = inputdir
+    _WriteFile(_HOST_CHROOT_DIR_FILENAME, chromedir)
+
+  return chromedir
+
+
 ###############################################################################
 # Other Commands
 
 def TestCommand(args):
   """Test command."""
+  _WriteFile("/foo/test", "test")
   if len(args) == 0:
     args = ["sudo", "ls", "/"]
     return _RunCommand(args)
   return False
+
+
+def GetBoard(unused_args=0):
+  """Gets the board name from /etc/lsb-release."""
+  print _DevBoard()
+  return True
 
 
 def GetUser(unused_args=0):
@@ -212,7 +278,7 @@ def ShowOobe(unused_args=0):
   res &= _RemoveDirectory("/home/chronos/Local State")
 
   if not res:
-    print >> sys.stderr, "Unable to set up OOBE mode."
+    _PrintError("Unable to set up OOBE mode.")
     return False
 
   if _Confirm("Reboot is required to enter OOBE mode. Reboot now?"):
@@ -238,7 +304,7 @@ def SetupBashrc(unused_args):
   """Sets up .bashrc."""
   filepath = os.path.expanduser("~/.bashrc")
   if not _CheckOverwriteFile(filepath):
-    return False
+    return True
 
   print "Writing to: ", filepath
   bashrc  = "#!/bin/bash\n"
@@ -267,10 +333,12 @@ def SetupDev(unused_args):
   if not MountWriteable():
     return False
   res = True
-  res &= _WriteFile("1", "/home/chronos/.oobe_completed")
+  res &= _WriteFile("/home/chronos/.oobe_completed", "1\n")
   res &= _RemoveFile("/root/.forget_usernames")
   res &= _MakeDirectory("/usr/share/power_manager")
-  res &= _WriteFile("1", "/usr/share/power_manager/disable_idle_suspend")
+  res &= _WriteFile("/tmp/disable_idle_suspend", "1\n")
+  res &= _RunCommand(["sudo", "cp", "/tmp/disable_idle_suspend",
+                      "/usr/share/power_manager/"])
   # Enable iptables and system-services for remote debugging
   for filename in ["iptables", "saft"]:
     res &= _RunCommand(["sudo", "sed", "-i", "-e",
@@ -289,19 +357,18 @@ def SetupSsh(unused_args):
   user = _DevUser()
   host = _DevHost()
 
-  if not _CheckOverwriteFile(_SSH_KEY_FILEPATH):
-    return False
-
   res = True
-  res &= _RemoveFile(_SSH_KEY_FILEPATH)
+  if _CheckOverwriteFile(_SSH_KEY_FILEPATH):
+    res &= _RemoveFile(_SSH_KEY_FILEPATH)
+    # Generate an ssh key
+    if _RunCommand(["ssh-keygen", "-f", _SSH_KEY_FILEPATH, "-N", "", "-q"]):
+      host_source_path = "%s@%s:%s" % (user, host, _PUB_KEY_FILENAME)
+      # Copy the ssh key to the host
+      res &= _RunCommand(["scp", host_source_path, _AUTH_KEYS_FILEPATH])
+
   # Enable ssh to device
   res &= _RunCommand(
       ["sudo", "sed", "-i", "s/#for_test //", "/etc/init/openssh-server.conf"])
-  # Generate an ssh key
-  if _RunCommand(["ssh-keygen", "-f", _SSH_KEY_FILEPATH, "-N", "", "-q"]):
-    host_source_path = "%s@%s:%s" % (user, host, _PUB_KEY_FILENAME)
-    # Copy the ssh key to the host
-    res &= _RunCommand(["scp", host_source_path, _AUTH_KEYS_FILEPATH])
 
   return res
 
@@ -313,8 +380,12 @@ def AuthorizeSsh(unused_args):
   user = _DevUser()
   host = _DevHost()
 
-  if not _Confirm("This will copy %s to authorized_keys on %s. Are you sure?" %
-                  (_PUB_KEY_FILENAME, host)):
+  if not os.path.isdir(os.path.expanduser("~/.ssh")):
+    print "Run '%s ssh' to set up .ssh directory first." % _PROG
+    return False
+
+  if not _Confirm("This will append %s to authorized_keys on %s. "
+                  "Are you sure?" % (_PUB_KEY_FILENAME, host)):
     return False
 
   proc1 = subprocess.Popen(["cat", _PUB_KEY_FILEPATH], stdout=subprocess.PIPE)
@@ -322,15 +393,14 @@ def AuthorizeSsh(unused_args):
     ssh_args = ["ssh", user+"@"+host, "cat >> ~/.ssh/authorized_keys"]
     proc2 = subprocess.Popen(
         ssh_args, stdin=proc1.stdout, stdout=subprocess.PIPE)
-  except EnvironmentError:
-    print >> sys.stderr, "Error executing: ", ' '.join(ssh_args)
+  except EnvironmentError as err1:
+    _PrintError("Error executing '%s'" % ' '.join(ssh_args), err1)
     return False
   try:
     proc1.stdout.close()
-    result, err = proc2.communicate()
+    result, err2 = proc2.communicate()
   except EnvironmentError:
-    print >> sys.stderr, \
-        "Error completing ssh command: ", result, "Error: ", err
+    _PrintError("Error completing ssh command '%s'" % result, err2)
     return False
   return True
 
@@ -341,18 +411,16 @@ def SetupSshfsForChrome(unused_args):
   user = _DevUser()
   host = _DevHost()
 
-  prompt = "Chrome directory on %s [ %s ]: " % (host, _DEFAULT_CHROME_DIR)
-  chromedir = raw_input(prompt).rstrip()
-  if not chromedir:
-    chromedir = _DEFAULT_CHROME_DIR
+  chrootdir = _GetChrootDir(True)
 
-  target = user+"@"+host+":"+chromedir
+  target = ("%s@%s:%s/var/lib/portage/distfiles-target/chrome-src"
+            % (user, host, chrootdir))
   print "Setting up sshfs mount to: ", target
 
   res = True
   res &= _RunCommand(["sudo", "modprobe", "fuse"])
   if os.path.isdir(_CHROME_MOUNT_PATH):
-    res &= _RunCommand(["fusemount", "-q", "-u", _CHROME_MOUNT_PATH])
+    res &= _RunCommand(["fusermount", "-q", "-u", _CHROME_MOUNT_PATH])
     res &= _RemoveDirectory(_CHROME_MOUNT_PATH)
   res &= _MakeDirectory(_CHROME_MOUNT_PATH)
   res &= _RunCommand(["sshfs", target, _CHROME_MOUNT_PATH])
@@ -367,13 +435,13 @@ def SetupSshfsForChrome(unused_args):
 def Setup(args):
   """Performs default developer setup (bash,bashrc,dev,ssh)."""
   if not SetBash(args):
-    if not _Confirm("Bash setup failed. Continue?"):
+    if not _Confirm("Bash setup failed. Continue?", "y"):
       return False
   if not SetupBashrc(args):
-    if not _Confirm(".bashrc setup failed. Continue?"):
+    if not _Confirm(".bashrc setup failed. Continue?", "y"):
       return False
   if not SetupDev(args):
-    if not _Confirm("Dev setup failed. Continue?"):
+    if not _Confirm("Dev setup failed. Continue?", "y"):
       return False
   if not SetupSsh(args):
     return False
@@ -396,6 +464,7 @@ _OTHER_COMMANDS = {
     'mountrw': MountWriteable,
     'ip': ShowIP,
     'test': TestCommand,
+    'board': GetBoard,
     'user': GetUser,
     'host': GetHost,
 }
@@ -423,7 +492,8 @@ def main():
   """Main crdev function"""
   usage = """usage: crdev command [options]
 
-Note: Beta! Send feature requests / changes to stevenjb@chromium.org (for now)
+Note: Beta! Feature requests / changes can be sent to:
+  stevenjb@chromium.org (for now)
 
 """
 
@@ -440,7 +510,7 @@ Note: Beta! Send feature requests / changes to stevenjb@chromium.org (for now)
     return
 
   if os.getenv('USER') != 'chronos':
-    print >> sys.stderr, "%s must be run as chronos." % _PROG
+    _PrintError("%s must be run as chronos." % _PROG)
     return
 
   cmd = args[0]
@@ -453,7 +523,7 @@ Note: Beta! Send feature requests / changes to stevenjb@chromium.org (for now)
     return
 
   if not res:
-    print >> sys.stderr, "Error running command: " + ' '.join(args)
+    _PrintError("Errors encountered when running '%s'" % ' '.join(args))
   else:
     print "Success!"
 
