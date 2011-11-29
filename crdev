@@ -169,7 +169,7 @@ def _DevUser():
   """Extract the user name from lsb-release."""
   # TODO(stevenjb): Refactor this using python re.
   awk_expr  = """/CHROMEOS_RELEASE_DESCRIPTION/ {"""
-  awk_expr += """ sub(/.*Developer Build - /,"");"""
+  awk_expr += """ sub(/.*Build - /,"");"""
   awk_expr += """ sub(/\).*/,"");"""
   awk_expr += """ print; }"""
   return _GetCommandOutput(["awk", awk_expr, "/etc/lsb-release"])
@@ -196,14 +196,14 @@ def _DevBoard():
 
 def _GetChrootDir(prompt_for_dir=False):
   """Get the name for the chrome directory on the host."""
-  chromedir = _ReadFile(_HOST_CHROOT_DIR_FILENAME)
-  if not chromedir:
+  if os.path.isfile(_HOST_CHROOT_DIR_FILENAME):
+    chromedir = _ReadFile(_HOST_CHROOT_DIR_FILENAME)
+  else:
     chromedir = _DEFAULT_HOST_CHROOT_DIR
 
   if prompt_for_dir:
     host = _DevHost()
-    prompt = ("Chroot directory on %s [ %s ]: "
-              % (host, _DEFAULT_HOST_CHROOT_DIR))
+    prompt = ("Chroot directory on %s [ %s ]: " % (host, chromedir))
     inputdir = raw_input(prompt).rstrip()
     if inputdir:
       chromedir = inputdir
@@ -334,7 +334,7 @@ def SetupDev(unused_args):
     return False
   res = True
   res &= _WriteFile("/home/chronos/.oobe_completed", "1\n")
-  res &= _RemoveFile("/root/.forget_usernames")
+  res &= _RunCommand(["sudo", "rm", "-f", "/root/.forget_usernames"])
   res &= _MakeDirectory("/usr/share/power_manager")
   res &= _WriteFile("/tmp/disable_idle_suspend", "1\n")
   res &= _RunCommand(["sudo", "cp", "/tmp/disable_idle_suspend",
