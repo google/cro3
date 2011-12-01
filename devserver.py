@@ -13,12 +13,15 @@ import subprocess
 import sys
 
 import autoupdate
+import devserver_util
+import downloader
 
 CACHED_ENTRIES = 12
 
 # Sets up global to share between classes.
 global updater
 updater = None
+
 
 def _GetConfig(options):
   """Returns the configuration for the devserver."""
@@ -40,6 +43,16 @@ def _GetConfig(options):
                   '/build':
                   {
                     'response.timeout': 100000,
+                  },
+                  '/download':
+                  {
+                    # Gets rid of cherrypy parsing post file for args.
+                    'request.process_request_body': False,
+                  },
+                  '/controlfile':
+                  {
+                    # Gets rid of cherrypy parsing post file for args.
+                    'request.process_request_body': False,
                   },
                   '/update':
                   {
@@ -137,6 +150,7 @@ class DevServerRoot(object):
 
   def __init__(self):
     self._builder = None
+    self._downloader = None
 
   @cherrypy.expose
   def build(self, board, pkg, **kwargs):
@@ -145,6 +159,21 @@ class DevServerRoot(object):
     if self._builder is None:
       self._builder = builder.Builder()
     return self._builder.Build(board, pkg, kwargs)
+
+  @cherrypy.expose
+  def download(self, *args):
+    """Downloads and archives full/delta payloads from Google Storage."""
+    archive_url = '/'.join(args)
+    if self._downloader is None:
+      self._downloader = downloader.Downloader(updater.static_dir)
+    return self._downloader.Download(archive_url)
+
+  @cherrypy.expose
+  def controlfile(self, board, build, *args):
+    """Return the content of the control file."""
+    control_path = os.path.sep.join(args)
+    return devserver_util.GetControlFile(updater.static_dir, board, build,
+                                         control_path)
 
   @cherrypy.expose
   def index(self):
