@@ -8,29 +8,17 @@
 # that arise from not havin write access to the root filesystem.
 
 # Constant definitions.
-EMERGE_PACKAGES="/etc/portage/bootstrap.packages"
+P_CONFIG_CROS=/etc/portage
+P_CONFIG_DEVELOPER=/usr/local/etc/portage
+EMERGE_PACKAGES="${P_CONFIG_CROS}/bootstrap.packages"
+
 # Global variables.
-BINHOST=""
-
-# Check if we are root.
-if [ $(/usr/bin/id -u) -ne 0 ]; then
-  echo "ERROR: Can not run script."
-  echo "You are not root or you did not use sudo."
-  exit 1
-fi
-
-# This script should only run in developer mode or for developer images.
-/usr/bin/crossystem "cros_debug?0"
-CROS_DEBUG=$?
-
-if [ ${CROS_DEBUG} -ne 1 ]; then
-  echo "ERROR: Can not run script."
-  echo "Chrome OS is not in developer mode."
-  exit 1
-fi
+BINHOST=
+CHROMEOS_DEVSERVER=
+CHROMEOS_RELEASE_BOARD=
 
 # Process flags.
-. /usr/share/misc/shflags
+. /usr/share/misc/shflags || exit 1
 DEFINE_string binhost "" \
   "URL of the binhost that emerge will use."
 DEFINE_string binhost_version "" \
@@ -44,9 +32,26 @@ FLAGS "$@" || exit 1
 
 set -e
 
+# Get the portage configuration variables.
+. "${P_CONFIG_CROS}/make.profile/make.defaults"
+
+# Echo's args to stderr and prefixes with ERROR(dev_install).
+error() {
+  echo "ERROR(dev_install): $*" >&2
+}
+
+# Returns value of variable $2 from /etc/lsb-like file $1.
+# $1 - Path to the /etc/lsb-like file.
+# $2 - Variable name.
+# Returns value or an empty string.
+get_lsb_var() {
+  sed -n "s/^$2=//p" "$1"
+}
+
 # Here we simply wipe /usr/local/* since that it's the only directory in which
 # packages are installed to.
 remove_installed_packages() {
+  local reply
   read -p "Remove all installed packages now (y/n)?" reply
   if [ "${reply}" = "y" ]; then
     rm -rf --one-file-system /usr/local/*
@@ -57,52 +62,37 @@ remove_installed_packages() {
   fi
 }
 
-if [ ${FLAGS_uninstall} -eq ${FLAGS_TRUE} \
-     -o ${FLAGS_reinstall} -eq ${FLAGS_TRUE} ]; then
-  remove_installed_packages
-  if [ ${FLAGS_uninstall} -eq ${FLAGS_TRUE} ]; then
-    exit 0
-  else
-    echo "Reinstalling emerge."
-  fi
-fi
-
-# Check if packages are already installed.
-if [ -d /usr/local/etc/portage ]; then
-  echo "ERROR: Directory /urs/local/etc/portage exists."
-  echo "Did you mean dev_install --reinstall?"
-  exit 1
-fi
-
-# Get the portage configuration variables.
-. /etc/portage/make.profile/make.defaults
-
-# Create this loop so uncompressed files in /usr/local/usr/* will be reachable
-# through /usr/local*.
-if [ ! -d /usr/local/usr ]; then
-  ln -s /usr/local /usr/local/usr
-fi
-
-if [ ! -d /usr/local/local ]; then
-  ln -s /usr/local /usr/local/local
-fi
-
+# Parses flags to return the binhost or if none set, use the default binhost
+# set up from installation.
 get_binhost() {
+  local reply
   if [ -n "${FLAGS_binhost}" ]; then
     BINHOST="${FLAGS_binhost}"
-  else
+  elif [ -n "${CHROMEOS_DEVSERVER}" ]; then
+    echo "Devserver URL set to:  ${CHROMEOS_DEVSERVER}"
+    read -p "Use it as the binhost? (y/n)?" reply
+    if [ "${reply}" = "y" ]; then
+      local packages_path="static/pkgroot/${CHROMEOS_RELEASE_BOARD}/packages"
+      BINHOST="${CHROMEOS_DEVSERVER}/${packages_path}"
+    fi
+  fi
+  if [ -z "${BINHOST}" ]; then
     local release_number
     # Get prefix for binhost.
-    . /etc/portage/repository.conf
+    . "${P_CONFIG_CROS}/repository.conf"
 
     if [ -n "${FLAGS_binhost_version}" ]; then
       release_number="${FLAGS_binhost_version}"
     else
       # Get the release number.
-      release_number=`grep "CHROMEOS_RELEASE_VERSION" /etc/lsb-release |
-                      grep -Eo "[0-9]\.[0-9]+\.[0-9]+"`
+      local cr_version="$(/opt/google/chrome/chrome --version)"
+      # Chrome version looks like (Google Chrome/Chromium) branch.0.a.b
+      local cr_branch="$(echo "${cr_version}" |
+          sed -r 's/.*[[:space:]]([0-9]+)\..*/\1/')"
+      local version="$(get_lsb_var /etc/lsb-release CHROMEOS_RELEASE_VERSION)"
+      release_number="R${cr_branch}-${version}"
     fi
-    BINHOST="${PREFIX_BINHOST}full-${release_number}.0/packages"
+    BINHOST="${PREFIX_BINHOST}canary-${release_number}/packages"
   fi
 }
 
@@ -110,30 +100,23 @@ get_binhost() {
 download_bootstrap_packages() {
   # Download packages that python/emerge require into /usr/local/bootsrap.
   while read line; do
-    local package_url
-    local directory
-    local package_file
-    package_url="${BINHOST}/$line.tbz2"
-    directory=`echo "${line}" | cut -d"/" -f1`
-    package_file="${PKGDIR}/$line.tbz2"
+    local package_url="${BINHOST}/${line}.tbz2"
+    local directory="$(echo "${line}" | cut -d "/" -f 1)"
+    local package_file="${PKGDIR}/${line}.tbz2"
     mkdir -p -m 0755 "${PKGDIR}/${directory}"
     echo "Downloading ${package_url}"
-    curl -o "${package_file}" "${package_url}"
-    cur_exit_code=$?
-    if [ ${curl_exit_code} -ne 0 ]; then
-      echo "ERROR: Could not download package."
-      echo "Command wget -nv -N -nd -P ${PKGDIR}/" \
-           "${directory} ${package_url} failed."
-      exit 1
+    if ! curl --fail -o "${package_file}" "${package_url}"; then
+      error "Could not download package."
+      error "Command curl --fail -o ${package_file} ${package_url} failed."
+      return 1
     fi
     echo "Extracting ${package_file}"
+    # TODO(sosa): pipeline our download/unpack cycles.
     # Ignore std error output about trailing garbage after EOF.
-    tar -C "/usr/local/" -xjf "${package_file}" 2>/dev/null
-    tar_exit_code=$?
-    if [ ${tar_exit_code} -ne 0 ]; then
-      echo "ERROR: Could not extract package."
-      echo "Command tar -C /usr/local -xjf ${package_file} failed."
-      exit 1
+    if ! tar -C /usr/local/ -xjkf "${package_file}" 2>/dev/null; then
+      error "Could not extract package."
+      error "Command tar -C /usr/local -xjf ${package_file} failed."
+      return 1
     fi
   done < "${EMERGE_PACKAGES}"
 }
@@ -141,9 +124,9 @@ download_bootstrap_packages() {
 # Configure emerge in /usr/local.
 configure_emerge() {
   # Copy emerge configuration to /usr/local.
-  mkdir -p -m 0755 /usr/local/etc/portage
-  cp /etc/portage/make.profile/make.conf /usr/local/etc/portage
-  ln -s /etc/portage/make.profile /usr/local/etc/portage/make.profile
+  mkdir -p -m 0755 "${P_CONFIG_DEVELOPER}"
+  cp "${P_CONFIG_CROS}/make.profile/make.conf" "${P_CONFIG_DEVELOPER}"
+  cp -rf "${P_CONFIG_CROS}/make.profile" "${P_CONFIG_DEVELOPER}/make.profile"
 
   # Create the directories defined in the portage config files. Permissions are
   # consistent with the other directories in /usr/local, which is a bind mount
@@ -154,13 +137,28 @@ configure_emerge() {
   mkdir -p -m 0755 "${RPMDIR}"
   mkdir -p -m 0755 "${PORTAGE_TMPDIR}"
   mkdir -p -m 0755 "${BUILD_PREFIX}"
-
-  echo "PORTAGE_BINHOST=${BINHOST}" >> /usr/local/etc/portage/make.conf
+  echo "PORTAGE_BINHOST=${BINHOST}" >> "${P_CONFIG_DEVELOPER}/make.conf"
 
   # Add LD_LIBRARY_PATH within ebuild.sh.
   # TODO(arkaitzr): find out a cleaner way to do this.
-  sed -i '3 a\export LD_LIBRARY_PATH=/usr/local/lib' \
+  sed -i "3 a\export LD_LIBRARY_PATH=\"${LD_LIBRARY_PATH}\"" \
       /usr/local/lib/portage/bin/ebuild.sh
+
+  # Check for package.provided from $BINHOST.
+  local package_provided="${BINHOST}/package.provided"
+  local tmp_provided="$(mktemp)"
+  if ! curl --fail -o "${tmp_provided}" "${package_provided}"; then
+    cat "${P_CONFIG_CROS}/make.profile/package.provided" "${tmp_provided}" > \
+        "${P_CONFIG_DEVELOPER}/make.profile/package.provided"
+  else
+    error "Could not find package.provided.  If you get errors" \
+          "finding dependencies during emerge, modify" \
+          "${P_CONFIG_DEVELOPER}/make.profile/package.provided and re-run" \
+          "emerge."
+    cp "${P_CONFIG_CROS}/make.profile/package.provided" \
+       "${P_CONFIG_DEVELOPER}/make.profile/package.provided"
+  fi
+  rm "${tmp_provided}"
 }
 
 install_optional_packages() {
@@ -173,21 +171,91 @@ install_optional_packages() {
     emerge dev-util/perf
     emerge chromeos-dev
   else
-    echo "You can install chromeos-dev later by typing the command:"
-    echo "emerge chromeos-dev"
+    echo "You can install chromeos-dev later by typing the command:" \
+         "emerge chromeos-dev"
   fi
 }
 
-echo "Starting installation of developer packages."
-echo "First, we download the necessary files."
-get_binhost
-download_bootstrap_packages
+import_lsb_release() {
+  local override
+  CHROMEOS_DEVSERVER=$(get_lsb_var /etc/lsb-release CHROMEOS_DEVSERVER)
+  CHROMEOS_RELEASE_BOARD=$(get_lsb_var /etc/lsb-release CHROMEOS_RELEASE_BOARD)
 
-echo "Files downloaded, configuring emerge."
-configure_emerge
+  # Check local overrides.
+  if [ -f /usr/local/etc/lsb-release ]; then
+    override=$(get_lsb_var /usr/local/etc/lsb-release CHROMEOS_DEVSERVER)
+    [ -n "${override}" ] && CHROMEOS_DEVSERVER="${override}"
+    override=$(get_lsb_var /usr/local/etc/lsb-release CHROMEOS_RELEASE_BOARD)
+    [ -n "${override}" ] && CHROMEOS_RELEASE_BOARD="${override}"
+  fi
+}
 
-echo "Emerge installation complete. Installing additional optional packages."
-install_optional_packages
+main() {
+  # Check if we are root.
+  if [ $(id -u) -ne 0 ]; then
+    error "Can not run dev_install."
+    error "You are not root or you did not use sudo."
+    return 1
+  fi
 
-echo "dev_install done. Enjoy!"
+  # This script should only run in developer mode or for developer images.
+  if crossystem "cros_debug?0"; then
+    error "Can not run dev_install."
+    error "Chrome OS is not in developer mode."
+    return 1
+  fi
 
+  if [ ${FLAGS_uninstall} -eq ${FLAGS_TRUE} \
+       -o ${FLAGS_reinstall} -eq ${FLAGS_TRUE} ]; then
+    remove_installed_packages
+    if [ ${FLAGS_uninstall} -eq ${FLAGS_TRUE} ]; then
+      if [ ${FLAGS_reinstall} -eq ${FLAGS_TRUE} ]; then
+        error "Reinstall specified but ignored as uninstall was also specified."
+      fi
+      return 0
+    else
+      echo "Reinstalling emerge."
+    fi
+  fi
+
+  # Check if packages are already installed.
+  if [ -d "${P_CONFIG_DEVELOPER}" ]; then
+    error "Directory ${P_CONFIG_DEVELOPER} exists."
+    error "Did you mean dev_install --reinstall?"
+    return 1
+  fi
+
+  # Create this loop so uncompressed files in /usr/local/usr/* will be reachable
+  # through /usr/local*.
+  # Note: /usr/local is mount-binded onto the /mnt/stateful_partition/dev_mode
+  # during chromeos_startup during boot for machines in dev_mode.
+  if [ ! -d /usr/local/usr ]; then
+    ln -s . /usr/local/usr
+  fi
+
+  if [ ! -d /usr/local/local ]; then
+    ln -s . /usr/local/local
+  fi
+
+  # TODO(sosa): Remove hack once lib dependencies are sorted in R27.
+  if [ ! -d /usr/local/lib64 ]; then
+    mkdir -p /usr/local/lib
+    ln -s /usr/local/lib /usr/local/lib64
+  fi
+
+  echo "Starting installation of developer packages."
+  echo "First, we download the necessary files."
+  import_lsb_release
+  get_binhost
+  download_bootstrap_packages
+
+  echo "Files downloaded, configuring emerge."
+  configure_emerge
+
+  echo "Emerge installation complete. Installing additional optional packages."
+  install_optional_packages
+
+  echo "dev_install done. Enjoy!"
+}
+
+main
