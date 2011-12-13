@@ -212,6 +212,33 @@ def _GetChrootDir(prompt_for_dir=False):
   return chromedir
 
 
+def _DaemonizeAndReRunAsRoot(cmd):
+  """Double-fork to become owned by init, then re-exec this tool as root.
+
+  Double-forking is the standard way to detach yourself from a
+  process tree and become owned by init.  By doing this, you get to
+  live on even if your parent goes away."""
+  try:
+    pid = os.fork()
+    if pid > 0:
+      sys.exit(0)  # Just want to go away silently.
+  except OSError, e:
+    return False
+  try:
+    pid = os.fork()
+    if pid > 0:
+      sys.exit(0)  # Just want to go away silently.
+  except OSError, e:
+    return False
+
+  # re-run self as root.
+  try:
+    os.execlp('sudo', sys.executable, __file__, cmd)
+  except OSError, e:
+    _PrintError("Unable to exec self as root: %s", str(e))
+    return False
+
+
 ###############################################################################
 # Other Commands
 
@@ -264,26 +291,41 @@ def ShowIP(unused_args=0):
 def KillChrome(unused_args=0):
   """Kills all chrome processes and prevents restarting of chrome."""
   res = True
-  res &=  _RunCommand(["touch", "/tmp/disable_chrome_restart"])
+  res &= _RunCommand(["touch", "/tmp/disable_chrome_restart"])
   res &= _RunCommand(["sudo", "pkill", "-9", "chrome"])
   return res
 
 
-def ShowOobe(unused_args=0):
-  """Removes .oobe_completed and Local State directory."""
-
+def ClearOwnership(unused_args=0):
+  """Clears any state related to the device Ownership (NOT TPM ownership)."""
   res = True
-  res &= KillChrome()
-  res &= _RemoveFile("/home/chronos/.oobe_completed")
+  res &= _RunCommand(["sudo", "stop", "ui"])
+
+  whitelist_dir = "/var/lib/whitelist"
+  for file in os.listdir(whitelist_dir):
+    res &= _RemoveFile(os.path.join(whitelist_dir, file))
+
   res &= _RemoveDirectory("/home/chronos/Local State")
+  res &= _RemoveFile("/home/chronos/Consent To Send Stats")
+  res &= _RunCommand(["sudo", "start", "ui"])
 
   if not res:
-    _PrintError("Unable to set up OOBE mode.")
+    _PrintError("Errors encountered while clearing ownership state.")
     return False
-
-  if _Confirm("Reboot is required to enter OOBE mode. Reboot now?"):
-    _RunCommand(["sudo", "reboot"])
   return True
+
+
+def ShowOobe(unused_args=0):
+  """Removes .oobe_completed and Local State directory."""
+  res = True
+  res &= _RemoveFile("/home/chronos/.oobe_completed")
+  res &= ClearOwnership()
+
+  if not res:
+    _PrintError("Errors encountered while clearing setting up OOBE mode.")
+    return False
+  return _RunCommand(["sudo", "reboot"])
+
 
 ###############################################################################
 # Setup Commands
@@ -470,6 +512,12 @@ _OTHER_COMMANDS = {
 }
 
 
+_CLEANUP_COMMANDS = {
+    'show_oobe': ShowOobe,
+    'clear_owner': ClearOwnership,
+}
+
+
 def GetUsage(commands):
   """Get the docstring for each command."""
   usage = ""
@@ -501,6 +549,8 @@ Note: Beta! Feature requests / changes can be sent to:
   usage += GetUsage(_SETUP_COMMANDS)
   usage += "Other Commands:\n"
   usage += GetUsage(_OTHER_COMMANDS)
+  usage += "Cleanup Commands:\n"
+  usage += GetUsage(_CLEANUP_COMMANDS)
 
   parser = optparse.OptionParser(usage)
   args = parser.parse_args()[1]
@@ -509,15 +559,23 @@ Note: Beta! Feature requests / changes can be sent to:
     print usage
     return
 
-  if os.getenv('USER') != 'chronos':
-    _PrintError("%s must be run as chronos." % _PROG)
-    return
-
   cmd = args[0]
+  root_ok = cmd in _CLEANUP_COMMANDS.keys()
+  if not root_ok or os.geteuid() != 0:
+    if os.getenv('USER') != 'chronos':
+      _PrintError("%s must be run as chronos." % _PROG)
+      return
+
   if cmd in _SETUP_COMMANDS.keys():
     res = _SETUP_COMMANDS[cmd](args[1:])
   elif cmd in _OTHER_COMMANDS.keys():
     res = _OTHER_COMMANDS[cmd](args[1:])
+  elif cmd in _CLEANUP_COMMANDS.keys():
+    if os.geteuid() != 0:
+      _DaemonizeAndReRunAsRoot(cmd)
+      _PrintError("Should never return from DaemonizeAndReRunAsRoot()")
+      return
+    res = _CLEANUP_COMMANDS[cmd](args[1:])
   else:
     parser.error("Unknown command: " + cmd)
     return
