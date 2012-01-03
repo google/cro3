@@ -160,13 +160,20 @@ class DevServerRoot(object):
     return self._builder.Build(board, pkg, kwargs)
 
   @cherrypy.expose
-  def download(self, *args):
-    """Downloads and archives full/delta payloads from Google Storage."""
+  def download(self, **kwargs):
+    """Downloads and archives full/delta payloads from Google Storage.
+
+    Args:
+      archive_url: Google Storage URL for the build.
+
+    Example URL:
+      'http://myhost/download?archive_url=gs://chromeos-image-archive/'
+      'x86-generic/R17-1208.0.0-a1-b338'
+    """
     import downloader
-    archive_url = '/'.join(args)
     if self._downloader is None:
       self._downloader = downloader.Downloader(updater.static_dir)
-    return self._downloader.Download(archive_url)
+    return self._downloader.Download(kwargs['archive_url'])
 
   @cherrypy.expose
   def controlfile(self, board, build, *args):

@@ -74,14 +74,12 @@ def DownloadBuildFromGS(staging_dir, archive_url, build):
   Args:
     staging_dir: Temp directory containing payloads and autotest packages.
     archive_url: Google Storage path to the build directory.
-        e.g. chromeos-image-archive/x86-generic-release/R17-1208.0.0-a1-b338.
+        e.g. gs://chromeos-image-archive/x86-generic/R17-1208.0.0-a1-b338.
     build: Full build string to look for; e.g. R17-1208.0.0-a1-b338.
 
   Raises:
     DevServerUtilError: If any steps in the process fail to complete.
   """
-  archive_url = 'gs://' + archive_url
-
   # Get a list of payloads from Google Storage.
   cmd = 'gsutil ls %s/*.bin' % archive_url
   msg = 'Failed to get a list of payloads.'

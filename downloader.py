@@ -47,7 +47,7 @@ class Downloader(object):
         return 'Success'
 
       cherrypy.log('Downloading build from %s' % archive_url, 'DOWNLOAD')
-      staging_dir = tempfile.mkdtemp(suffix=archive_url.replace('/', '_'))
+      staging_dir = tempfile.mkdtemp(suffix='_'.join([board, build]))
       devserver_util.DownloadBuildFromGS(
           staging_dir=staging_dir, archive_url=archive_url, build=build)
 
