@@ -156,17 +156,8 @@ def InstallBuild(staging_dir, build_dir):
   for component in install_list:
     shutil.move(os.path.join(staging_dir, component), build_dir)
 
-  # Install autotest-pkgs.
-  shutil.move(os.path.join(staging_dir, 'autotest-pkgs'),
+  shutil.move(os.path.join(staging_dir, 'autotest'),
               os.path.join(build_dir, 'autotest'))
-
-  # Install autotest/server/{tests,site_tests}.
-  server_dir = os.path.join(build_dir, 'server')
-  os.mkdir(server_dir)
-  tests = os.path.join(staging_dir, 'autotest', 'server', 'tests')
-  site_tests = os.path.join(staging_dir, 'autotest', 'server', 'site_tests')
-  shutil.move(tests, server_dir)
-  shutil.move(site_tests, server_dir)
 
 
 def PrepareAutotestPkgs(staging_dir):
@@ -186,10 +177,12 @@ def PrepareAutotestPkgs(staging_dir):
   except cros_build_lib.RunCommandError, e:
     raise DevServerUtilError(str(e))
 
-  os.mkdir(os.path.join(staging_dir, 'autotest-pkgs'))
-
+  # Use the root of Autotest
+  autotest_pkgs_dir = os.path.join(staging_dir, 'autotest', 'packages')
+  if not os.path.exists(autotest_pkgs_dir):
+    os.makedirs(autotest_pkgs_dir)
   cmd_list = ['autotest/utils/packager.py',
-              'upload', '--repository autotest-pkgs', '--all']
+              'upload', '--repository', autotest_pkgs_dir, '--all']
   msg = 'Failed to create autotest packages!'
   try:
     cros_build_lib.RunCommand(' '.join(cmd_list), cwd=staging_dir, shell=True,
@@ -394,7 +387,6 @@ def CloneBuild(static_dir, board, build, tag, force=False):
 
   return dev_build_dir
 
-
 def GetControlFile(static_dir, board, build, control_path):
   """Attempts to pull the requested control file from the Dev Server.
 
@@ -410,12 +402,44 @@ def GetControlFile(static_dir, board, build, control_path):
   Returns:
     Content of the requested control file.
   """
-  control_path = os.path.join(static_dir, board, build, control_path)
+  control_path = os.path.join(static_dir, board, build, 'autotest',
+                              control_path)
   if not SafeSandboxAccess(static_dir, control_path):
     raise DevServerUtilError('Invaid control file "%s".' % control_path)
 
   with open(control_path, 'r') as control_file:
     return control_file.read()
+
+
+def GetControlFileList(static_dir, board, build):
+  """List all control|control. files in the specified board/build path.
+
+  Args:
+    static_dir: Directory where builds are served from.
+    board: Fully qualified board name; e.g. x86-generic-release.
+    build: Fully qualified build string; e.g. R17-1234.0.0-a1-b983.
+
+  Raises:
+    DevServerUtilError: If path is outside of sandbox.
+
+  Returns:
+    String of each file separated by a newline.
+  """
+  autotest_dir = os.path.join(static_dir, board, build, 'autotest')
+  if not SafeSandboxAccess(static_dir, autotest_dir):
+    raise DevServerUtilError('Autotest dir not in sandbox "%s".' % autotest_dir)
+
+  control_files = set()
+  control_paths = ['testsuite', 'server/tests', 'server/site_tests',
+                   'client/tests', 'client/site_tests']
+  for entry in os.walk(autotest_dir):
+    dir_path, _, files = entry
+    for file_entry in files:
+      if file_entry.startswith('control.') or file_entry == 'control':
+        control_files.add(os.path.join(dir_path,
+                                       file_entry).replace(static_dir,''))
+
+  return '\n'.join(control_files)
 
 
 def ListAutoupdateTargets(static_dir, board, build):

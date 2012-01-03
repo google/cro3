@@ -9,7 +9,7 @@
 import cherrypy
 import optparse
 import os
-import subprocess
+import re
 import sys
 
 import autoupdate
@@ -20,6 +20,42 @@ CACHED_ENTRIES = 12
 # Sets up global to share between classes.
 global updater
 updater = None
+
+
+def _LeadingWhiteSpaceCount(string):
+  """Count the amount of leading whitespace in a string.
+
+  Args:
+    string: The string to count leading whitespace in.
+  Returns:
+    number of white space chars before characters start.
+  """
+  matched = re.match('^\s+', string)
+  if matched:
+    return len(matched.group())
+
+  return 0
+
+
+def _PrintDocStringAsHTML(func):
+  """Make a functions docstring somewhat HTML style.
+
+  Args:
+    func: The function to return the docstring from.
+  Returns:
+    A string that is somewhat formated for a web browser.
+  """
+  # TODO(scottz): Make this parse Args/Returns in a prettier way.
+  # Arguments could be bolded and indented etc.
+  html_doc = []
+  for line in func.__doc__.splitlines():
+    leading_space = _LeadingWhiteSpaceCount(line)
+    if leading_space > 0:
+      line = '&nbsp;'*leading_space + line
+
+    html_doc.append('<BR>%s' % line)
+
+  return '\n'.join(html_doc)
 
 
 def _GetConfig(options):
@@ -176,12 +212,42 @@ class DevServerRoot(object):
     return self._downloader.Download(kwargs['archive_url'])
 
   @cherrypy.expose
-  def controlfile(self, board, build, *args):
-    """Return the content of the control file."""
+  def controlfiles(self, **params): # board, build, control_path=None):
+    """Return a control file or a list of all known control files.
+
+    Example URL:
+      To List all control files:
+      http://dev-server/controlfiles/?board=x86-alex-release&build=R18-1514.0.0
+      To return the contents of a path:
+      http://dev-server/controlfiles/?board=x86-alex-release&build=R18-1514.0.0&control_path=client/sleeptest/control
+
+    Args:
+      board: The board i.e. x86-alex-release.
+      build: The build i.e. R18-1514.0.0-a1-b1450.
+      control_path: If you want the contents of a control file set this
+        to the path. E.g. client/site_tests/sleeptest/control
+        Optional, if not provided return a list of control files is returned.
+    Returns:
+      Contents of a control file if control_path is provided.
+      A list of control files if no control_path is provided.
+    """
     import devserver_util
-    control_path = os.path.sep.join(args)
-    return devserver_util.GetControlFile(updater.static_dir, board, build,
-                                         control_path)
+    if not params:
+      return _PrintDocStringAsHTML(self.controlfiles)
+
+    if ('board' not in params or
+        'build' not in params):
+      errmsg = 'Error: board and build are required!'
+      raise cherrypy.HTTPError('500 Internal Server Error',
+                               'Error: board= and build= params are required!')
+
+    if 'control_path' not in params:
+      return devserver_util.GetControlFileList(updater.static_dir,
+                                               params['board'], params['build'])
+    else:
+      return devserver_util.GetControlFile(updater.static_dir, params['board'],
+                                           params['build'],
+                                           params['control_path'])
 
   @cherrypy.expose
   def index(self):
