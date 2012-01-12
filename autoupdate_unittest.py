@@ -145,14 +145,13 @@ class AutoupdateTest(mox.MoxTestBase):
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor()
     self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
-    self.assertEqual(
-        au_mock.host_info['127.0.0.1']['last_known_version'], 'ForcedUpdate')
-    self.assertEqual(
-        au_mock.host_info['127.0.0.1']['last_event_type'],
-        self.test_dict['event_type'])
-    self.assertEqual(
-        au_mock.host_info['127.0.0.1']['last_event_status'],
-        self.test_dict['event_result'])
+    curr_host_info = au_mock.host_infos.GetHostInfo('127.0.0.1');
+    self.assertEqual(curr_host_info.GetAttr('last_known_version'),
+                     'ForcedUpdate')
+    self.assertEqual(curr_host_info.GetAttr('last_event_type'),
+                     self.test_dict['event_type'])
+    self.assertEqual(curr_host_info.GetAttr('last_event_status'),
+                     self.test_dict['event_result'])
     self.mox.VerifyAll()
 
   def testChangeUrlPort(self):
@@ -172,9 +171,9 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock = self._DummyAutoupdateConstructor()
     self.assertRaises(AssertionError, au_mock.HandleHostInfoPing, None)
 
-    # Setup fake host_info entry and ensure it comes back to us in one piece.
+    # Setup fake host_infos entry and ensure it comes back to us in one piece.
     test_ip = '1.2.3.4'
-    au_mock.host_info[test_ip] = self.test_dict
+    au_mock.host_infos.GetInitHostInfo(test_ip).attrs = self.test_dict
     self.assertEqual(
         json.loads(au_mock.HandleHostInfoPing(test_ip)), self.test_dict)
 
@@ -191,7 +190,8 @@ class AutoupdateTest(mox.MoxTestBase):
 
     au_mock.HandleSetUpdatePing(test_ip, test_label)
     self.assertEqual(
-        au_mock.host_info[test_ip]['forced_update_label'], test_label)
+        au_mock.host_infos.GetHostInfo(test_ip).GetAttr('forced_update_label'),
+        test_label)
 
   def testHandleUpdatePingWithSetUpdate(self):
     self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GenerateLatestUpdateImage')
@@ -218,9 +218,12 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock = self._DummyAutoupdateConstructor()
     au_mock.HandleSetUpdatePing('127.0.0.1', test_label)
     self.assertEqual(
-        au_mock.host_info['127.0.0.1']['forced_update_label'], test_label)
+        au_mock.host_infos.GetHostInfo('127.0.0.1').
+        GetAttr('forced_update_label'),
+        test_label)
     self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
-    self.assertFalse('forced_update_label' in au_mock.host_info['127.0.0.1'])
+    self.assertFalse('forced_update_label' in
+        au_mock.host_infos.GetHostInfo('127.0.0.1').attrs)
 
   def testGetVersionFromDir(self):
     au = self._DummyAutoupdateConstructor()
@@ -262,5 +265,5 @@ class AutoupdateTest(mox.MoxTestBase):
     self.assertFalse(au._CanUpdate('0.16.892.0', '0.16.892.0'))
 
 
-if __name__ == '__main__':
-  unittest.main()
+suite = unittest.TestLoader().loadTestsFromTestCase(AutoupdateTest)
+unittest.TextTestRunner(verbosity=3).run(suite)

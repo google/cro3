@@ -39,6 +39,71 @@ def _ChangeUrlPort(url, new_port):
   return urlparse.urlunsplit((scheme, netloc, path, query, fragment))
 
 
+class HostInfo:
+  """Records information about an individual host.
+
+  Members:
+    attrs: Static attributes (legacy)
+    log: Complete log of recorded client entries
+  """
+
+  def __init__(self):
+    # A dictionary of current attributes pertaining to the host.
+    self.attrs = {}
+
+    # A list of pairs consisting of a timestamp and a dictionary of recorded
+    # attributes.
+    self.log = []
+
+  def __repr__(self):
+    return 'attrs=%s, log=%s' % (self.attrs, self.log)
+
+  def AddLogEntry(self, entry):
+    """Append a new log entry."""
+    # Append a timestamp.
+    assert not 'timestamp' in entry, 'Oops, timestamp field already in use'
+    entry['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S')
+    # Add entry to hosts' message log.
+    self.log.append(entry)
+
+  def SetAttr(self, attr, value):
+    """Set an attribute value."""
+    self.attrs[attr] = value
+
+  def GetAttr(self, attr):
+    """Returns the value of an attribute."""
+    if attr in self.attrs:
+      return self.attrs[attr]
+
+  def PopAttr(self, attr, default):
+    """Returns and deletes a particular attribute."""
+    return self.attrs.pop(attr, default)
+
+
+class HostInfoTable:
+  """Records information about a set of hosts who engage in update activity.
+
+  Members:
+    table: Table of information on hosts.
+  """
+
+  def __init__(self):
+    # A dictionary of host information. Keys are normally IP addresses.
+    self.table = {}
+
+  def __repr__(self):
+    return '%s' % self.table
+
+  def GetInitHostInfo(self, host_id):
+    """Return a host's info object, or create a new one if none exists."""
+    return self.table.setdefault(host_id, HostInfo())
+
+  def GetHostInfo(self, host_id):
+    """Return an info object for given host, if such exists."""
+    if host_id in self.table:
+      return self.table[host_id]
+
+
 class Autoupdate(BuildObject):
   """Class that contains functionality that handles Chrome OS update pings.
 
@@ -90,8 +155,10 @@ class Autoupdate(BuildObject):
     self.pregenerated_path = None
 
     # Initialize empty host info cache. Used to keep track of various bits of
-    # information about a given host.
-    self.host_info = {}
+    # information about a given host.  A host is identified by its IP address.
+    # The info stored for each host includes a complete log of events for this
+    # host, as well as a dictionary of current attributes derived from events.
+    self.host_infos = HostInfoTable()
 
   def _GetSecondsSinceMidnight(self):
     """Returns the seconds since midnight as a decimal value."""
@@ -658,16 +725,38 @@ class Autoupdate(BuildObject):
     # Determine request IP, strip any IPv6 data for simplicity.
     client_ip = cherrypy.request.remote.ip.split(':')[-1]
 
-    # Initialize host info dictionary for this client if it doesn't exist.
-    self.host_info.setdefault(client_ip, {})
+    # Obtain (or init) info object for this client.
+    curr_host_info = self.host_infos.GetInitHostInfo(client_ip)
+
+    # Initialize an empty dictionary for event attributes.
+    log_message = {}
 
     # Store event details in the host info dictionary for API usage.
     event = root.getElementsByTagName('o:event')
     if event:
-      self.host_info[client_ip]['last_event_status'] = (
-          int(event[0].getAttribute('eventresult')))
-      self.host_info[client_ip]['last_event_type'] = (
-          int(event[0].getAttribute('eventtype')))
+      event_result = int(event[0].getAttribute('eventresult'))
+      event_type = int(event[0].getAttribute('eventtype'))
+      # Store attributes to legacy host info structure
+      curr_host_info.attrs['last_event_status'] = event_result
+      curr_host_info.attrs['last_event_type'] = event_type
+      # Add attributes to log message
+      log_message['event_result'] = event_result
+      log_message['event_type'] = event_type
+
+    # Get information about the requester.
+    query = root.getElementsByTagName('o:app')[0]
+    if query:
+      client_version = query.getAttribute('version')
+      channel = query.getAttribute('track')
+      board_id = (query.hasAttribute('board') and query.getAttribute('board')
+          or self._GetDefaultBoardID())
+      # Add attributes to log message
+      log_message['version'] = client_version
+      log_message['track'] = channel
+      log_message['board'] = board_id
+
+    # Log client's message
+    curr_host_info.AddLogEntry(log_message)
 
     # We only generate update payloads for updatecheck requests.
     update_check = root.getElementsByTagName('o:updatecheck')
@@ -677,18 +766,11 @@ class Autoupdate(BuildObject):
       # update clients.
       return self.GetNoUpdatePayload()
 
-    # Since this is an updatecheck, get information about the requester.
-    query = root.getElementsByTagName('o:app')[0]
-    client_version = query.getAttribute('version')
-    channel = query.getAttribute('track')
-    board_id = (query.hasAttribute('board') and query.getAttribute('board')
-                or self._GetDefaultBoardID())
-
     # Store version for this host in the cache.
-    self.host_info[client_ip]['last_known_version'] = client_version
+    curr_host_info.attrs['last_known_version'] = client_version
 
     # Check if an update has been forced for this client.
-    forced_update = self.host_info[client_ip].pop('forced_update_label', None)
+    forced_update = curr_host_info.PopAttr('forced_update_label', None)
     if forced_update:
       label = forced_update
 
@@ -723,11 +805,20 @@ class Autoupdate(BuildObject):
   def HandleHostInfoPing(self, ip):
     """Returns host info dictionary for the given IP in JSON format."""
     assert ip, 'No ip provided.'
-    if ip in self.host_info:
-      return json.dumps(self.host_info[ip])
+    if ip in self.host_infos.table:
+      return json.dumps(self.host_infos.GetHostInfo(ip).attrs)
+
+  def HandleHostLogPing(self, ip):
+    """Returns a complete log of events for host in JSON format."""
+    if ip == 'all':
+      return json.dumps(
+          dict([(key, self.host_infos.table[key].log)
+                for key in self.host_infos.table]))
+    if ip in self.host_infos.table:
+      return json.dumps(self.host_infos.GetHostInfo(ip).log)
 
   def HandleSetUpdatePing(self, ip, label):
     """Sets forced_update_label for a given host."""
     assert ip, 'No ip provided.'
     assert label, 'No label provided.'
-    self.host_info.setdefault(ip, {})['forced_update_label'] = label
+    self.host_infos.GetInitHostInfo(ip).attrs['forced_update_label'] = label

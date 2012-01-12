@@ -145,6 +145,13 @@ class ApiRoot(object):
     return updater.HandleHostInfoPing(ip)
 
   @cherrypy.expose
+  def hostlog(self, ip):
+    """Returns a JSON object containing a log of events pertaining to a
+    particular host, or all hosts. Log events contain a timestamp and any
+    subset of the attributes listed for the hostinfo method."""
+    return updater.HandleHostLogPing(ip)
+
+  @cherrypy.expose
   def setnextupdate(self, ip):
     """Allows the response to the next update ping from a host to be set.
 
@@ -243,14 +250,14 @@ class DevServerRoot(object):
   @cherrypy.expose
   def update(self, *args):
     label = '/'.join(args)
-    body_length = int(cherrypy.request.headers['Content-Length'])
+    body_length = int(cherrypy.request.headers.get('Content-Length', 0))
     data = cherrypy.request.rfile.read(body_length)
     return updater.HandleUpdatePing(data, label)
 
 
 if __name__ == '__main__':
   usage = 'usage: %prog [options]'
-  parser = optparse.OptionParser(usage)
+  parser = optparse.OptionParser(usage=usage)
   parser.add_option('--archive_dir', dest='archive_dir',
                     help='serve archived builds only.')
   parser.add_option('--board', dest='board',
@@ -280,7 +287,7 @@ if __name__ == '__main__':
   parser.add_option('--payload', dest='payload',
                     help='Use update payload from specified directory.')
   parser.add_option('--port', default=8080,
-                    help='Port for the dev server to use.')
+                    help='Port for the dev server to use (default: 8080).')
   parser.add_option('--private_key', default=None,
                     help='Path to the private key in pem format.')
   parser.add_option('--production', action='store_true', default=False,
@@ -295,7 +302,8 @@ if __name__ == '__main__':
   parser.add_option('--validate_factory_config', action="store_true",
                     dest='validate_factory_config',
                     help='Validate factory config file, then exit.')
-  parser.set_usage(parser.format_help())
+  parser.add_option('-l', '--logging', action="store_true", default=False,
+                    help='Enable logging and reporting of update processes.')
   (options, _) = parser.parse_args()
 
   devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
