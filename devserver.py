@@ -79,16 +79,6 @@ def _GetConfig(options):
                   {
                     'response.timeout': 100000,
                   },
-                  '/download':
-                  {
-                    # Gets rid of cherrypy parsing post file for args.
-                    'request.process_request_body': False,
-                  },
-                  '/controlfile':
-                  {
-                    # Gets rid of cherrypy parsing post file for args.
-                    'request.process_request_body': False,
-                  },
                   '/update':
                   {
                     # Gets rid of cherrypy parsing post file for args.
@@ -212,18 +202,17 @@ class DevServerRoot(object):
     return self._downloader.Download(kwargs['archive_url'])
 
   @cherrypy.expose
-  def controlfiles(self, **params): # board, build, control_path=None):
+  def controlfiles(self, **params):
     """Return a control file or a list of all known control files.
 
     Example URL:
       To List all control files:
-      http://dev-server/controlfiles/?board=x86-alex-release&build=R18-1514.0.0
+      http://dev-server/controlfiles?board=x86-alex-release&build=R18-1514.0.0
       To return the contents of a path:
-      http://dev-server/controlfiles/?board=x86-alex-release&build=R18-1514.0.0&control_path=client/sleeptest/control
+      http://dev-server/controlfiles?board=x86-alex-release&build=R18-1514.0.0&control_path=client/sleeptest/control
 
     Args:
-      board: The board i.e. x86-alex-release.
-      build: The build i.e. R18-1514.0.0-a1-b1450.
+      build: The build i.e. x86-alex-release/R18-1514.0.0-a1-b1450.
       control_path: If you want the contents of a control file set this
         to the path. E.g. client/site_tests/sleeptest/control
         Optional, if not provided return a list of control files is returned.
@@ -235,18 +224,16 @@ class DevServerRoot(object):
     if not params:
       return _PrintDocStringAsHTML(self.controlfiles)
 
-    if ('board' not in params or
-        'build' not in params):
-      errmsg = 'Error: board and build are required!'
+    if 'build' not in params:
+      errmsg = 'Error: build is required!'
       raise cherrypy.HTTPError('500 Internal Server Error',
-                               'Error: board= and build= params are required!')
+                               'Error: build= is required!')
 
     if 'control_path' not in params:
       return devserver_util.GetControlFileList(updater.static_dir,
-                                               params['board'], params['build'])
+                                               params['build'])
     else:
-      return devserver_util.GetControlFile(updater.static_dir, params['board'],
-                                           params['build'],
+      return devserver_util.GetControlFile(updater.static_dir, params['build'],
                                            params['control_path'])
 
   @cherrypy.expose

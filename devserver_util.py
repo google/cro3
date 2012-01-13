@@ -387,12 +387,12 @@ def CloneBuild(static_dir, board, build, tag, force=False):
 
   return dev_build_dir
 
-def GetControlFile(static_dir, board, build, control_path):
+
+def GetControlFile(static_dir, build, control_path):
   """Attempts to pull the requested control file from the Dev Server.
 
   Args:
     static_dir: Directory where builds are served from.
-    board: Fully qualified board name; e.g. x86-generic-release.
     build: Fully qualified build string; e.g. R17-1234.0.0-a1-b983.
     control_path: Path to control file on Dev Server relative to Autotest root.
 
@@ -402,21 +402,25 @@ def GetControlFile(static_dir, board, build, control_path):
   Returns:
     Content of the requested control file.
   """
-  control_path = os.path.join(static_dir, board, build, 'autotest',
+  control_path = os.path.join(static_dir, build, 'autotest',
                               control_path)
   if not SafeSandboxAccess(static_dir, control_path):
     raise DevServerUtilError('Invaid control file "%s".' % control_path)
+
+  if not os.path.exists(control_path):
+    # TODO(scottz): Come up with some sort of error mechanism.
+    # crosbug.com/25040
+    return 'Unknown control path %s' % control_path
 
   with open(control_path, 'r') as control_file:
     return control_file.read()
 
 
-def GetControlFileList(static_dir, board, build):
+def GetControlFileList(static_dir, build):
   """List all control|control. files in the specified board/build path.
 
   Args:
     static_dir: Directory where builds are served from.
-    board: Fully qualified board name; e.g. x86-generic-release.
     build: Fully qualified build string; e.g. R17-1234.0.0-a1-b983.
 
   Raises:
@@ -425,13 +429,16 @@ def GetControlFileList(static_dir, board, build):
   Returns:
     String of each file separated by a newline.
   """
-  autotest_dir = os.path.join(static_dir, board, build, 'autotest')
+  autotest_dir = os.path.join(static_dir, build, 'autotest')
   if not SafeSandboxAccess(static_dir, autotest_dir):
     raise DevServerUtilError('Autotest dir not in sandbox "%s".' % autotest_dir)
 
   control_files = set()
-  control_paths = ['testsuite', 'server/tests', 'server/site_tests',
-                   'client/tests', 'client/site_tests']
+  if not os.path.exists(autotest_dir):
+    # TODO(scottz): Come up with some sort of error mechanism.
+    # crosbug.com/25040
+    return 'Unknown build path %s' % autotest_dir
+
   for entry in os.walk(autotest_dir):
     dir_path, _, files = entry
     for file_entry in files:
