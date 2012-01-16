@@ -402,6 +402,8 @@ def GetControlFile(static_dir, build, control_path):
   Returns:
     Content of the requested control file.
   """
+  # Be forgiving if the user passes in the control_path with a leading /
+  control_path = control_path.lstrip('/')
   control_path = os.path.join(static_dir, build, 'autotest',
                               control_path)
   if not SafeSandboxAccess(static_dir, control_path):
@@ -429,7 +431,7 @@ def GetControlFileList(static_dir, build):
   Returns:
     String of each file separated by a newline.
   """
-  autotest_dir = os.path.join(static_dir, build, 'autotest')
+  autotest_dir = os.path.join(static_dir, build, 'autotest/')
   if not SafeSandboxAccess(static_dir, autotest_dir):
     raise DevServerUtilError('Autotest dir not in sandbox "%s".' % autotest_dir)
 
@@ -444,7 +446,7 @@ def GetControlFileList(static_dir, build):
     for file_entry in files:
       if file_entry.startswith('control.') or file_entry == 'control':
         control_files.add(os.path.join(dir_path,
-                                       file_entry).replace(static_dir,''))
+                                       file_entry).replace(autotest_dir,''))
 
   return '\n'.join(control_files)
 
