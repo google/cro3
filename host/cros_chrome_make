@@ -178,7 +178,7 @@ fi
 # re-running the compile stage when the Chrome build switches to Ninja inside
 # the chroot.
 eval "USE='${use} -verbose ${runhooks}'" CCACHE_SIZE=2G \
-     FEATURES="ccache" ${local_source} \
+     "FEATURES='${FEATURES} ccache'" ${local_source} \
      "${EBUILDCMD}" "${pkgfile}" clean compile
 
 # If we didn't get to run hooks, don't update our cache.
