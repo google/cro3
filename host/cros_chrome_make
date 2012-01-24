@@ -163,10 +163,17 @@ workpath="/build/${BOARD_STR}/tmp/portage/$( \
 
 use="$(decide_use_flags)"
 
-local_source=
-if [ "$(cros_workon_list | grep ${chrome_workon})" != "${chrome_workon}" ]; then
+if [ -z "${CHROME_ORIGIN}" ]; then
+  if [ "$(cros_workon_list | grep ${chrome_workon})" !=
+       "${chrome_workon}" ]; then
+    CHROME_ORIGIN="LOCAL_SOURCE"
+  else
+    CHROME_ORIGIN="GERRIT_SOURCE"
+  fi
+fi
+
+if [ "${CHROME_ORIGIN}" = "LOCAL_SOURCE" ]; then
   auto_runhooks=decide_auto_runhooks_local_src
-  local_source="CHROME_ORIGIN=LOCAL_SOURCE"
 else
   auto_runhooks=decide_auto_runhooks_gerrit_src
 fi
@@ -187,13 +194,13 @@ fi
 # re-running the compile stage when the Chrome build switches to Ninja inside
 # the chroot.
 eval "USE='${use} -verbose ${runhooks}'" CCACHE_SIZE=2G \
-     "FEATURES='${FEATURES} ${ccache}'" ${local_source} \
+     "FEATURES='${FEATURES} ${ccache}'" "CHROME_ORIGIN='${CHROME_ORIGIN}'" \
      "${EBUILDCMD}" "${pkgfile}" clean compile
 
 # If we didn't get to run hooks, don't update our cache.
 if [ -e "${workpath}/.prepared" ]; then
   echo "${use}" > ${useflags_file}
-  if [ -z "${local_source}" ]; then
+  if [ "${CHROME_ORIGIN}" = "GERRIT_SOURCE" ]; then
     echo "$(get_upstream_base_hash)" > ${src_hash_file}
   fi
 fi
