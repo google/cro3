@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
@@ -18,6 +18,8 @@ DEFINE_boolean build_tests "${FLAGS_FALSE}" \
     "Build test targets."
 DEFINE_boolean ccache "${FLAGS_FALSE}" \
     "Compile with ccache."
+DEFINE_boolean install "${FLAGS_FALSE}" \
+    "Install to a temporary directory."
 
 # Parse command line.
 FLAGS "$@" || exit 1
@@ -193,9 +195,14 @@ fi
 # TODO(rcui): crosbug.com/20435.  Investigate not running 'clean' and just
 # re-running the compile stage when the Chrome build switches to Ninja inside
 # the chroot.
+ebuild_actions="clean compile"
+if [ "${FLAGS_install}" = "${FLAGS_TRUE}" ]; then
+  ebuild_actions="${ebuild_actions} install"
+fi
+
 eval "USE='${use} -verbose ${runhooks}'" CCACHE_SIZE=2G \
      "FEATURES='${FEATURES} ${ccache}'" "CHROME_ORIGIN='${CHROME_ORIGIN}'" \
-     "${EBUILDCMD}" "${pkgfile}" clean compile
+     "${EBUILDCMD}" "${pkgfile}" "${ebuild_actions}"
 
 # If we didn't get to run hooks, don't update our cache.
 if [ -e "${workpath}/.prepared" ]; then
