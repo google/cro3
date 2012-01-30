@@ -164,7 +164,7 @@ workpath="/build/${BOARD_STR}/tmp/portage/$( \
 use="$(decide_use_flags)"
 
 if [ -z "${CHROME_ORIGIN}" ]; then
-  if [ "$(cros_workon_list | grep ${chrome_workon})" !=
+  if [ "$(cros_workon_list | grep ${chrome_workon})" != \
        "${chrome_workon}" ]; then
     CHROME_ORIGIN="LOCAL_SOURCE"
   else
