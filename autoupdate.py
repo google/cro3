@@ -406,6 +406,9 @@ class Autoupdate(BuildObject):
     if self.private_key:
       sub_dir = '%s+%s' % (sub_dir, self._GetMd5(self.private_key))
 
+    if not self.vm:
+      sub_dir = '%s+patched_kernel' % sub_dir
+
     return os.path.join(CACHE_DIR, sub_dir)
 
   def GenerateUpdateImage(self, image_path, output_dir):
