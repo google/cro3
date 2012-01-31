@@ -69,6 +69,8 @@ def _GetConfig(options):
                     'response.timeout': 6000,
                     'tools.staticdir.root':
                       os.path.dirname(os.path.abspath(sys.argv[0])),
+                    'log.access_file': 'devserver_access.log',
+                    'log.error_file': 'devserver_error.log',
                   },
                   '/api':
                   {
