@@ -1,18 +1,41 @@
 #!/bin/bash
 
-# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 # TODO: Convert this to python.
 
-get_ctarget_from_board()
+get_all_board_toolchains()
 {
   local board="$1"
-  local base_board="$(echo $board | cut -d '_' -f 1)"
-  local board_overlay="$(cros_overlay_list --board="$base_board"\
-    --primary_only)"
-  cat "$board_overlay/toolchain.conf"
+  local base_board=$(echo "${board}" | cut -d '_' -f 1)
+  local board_overlay=$(cros_overlay_list --board="${base_board}" \
+    --primary_only)
+  sed 's:#.*::' "${board_overlay}/toolchain.conf"
+}
+
+get_ctarget_from_board()
+{
+  local all_toolchains=( $(get_all_board_toolchains "$@") )
+  echo "${all_toolchains[0]}"
+}
+
+get_board_arch()
+{
+  local ctarget=$(get_ctarget_from_board "$@")
+
+  case ${ctarget} in
+  arm*)    echo "arm" ;;
+  i?86*)   echo "x86" ;;
+  x86_64*) echo "amd64" ;;
+  *)
+    error "Unable to determine ARCH from toolchain: ${ctarget}"
+    return 1
+    ;;
+  esac
+
+  return 0
 }
 
 is_number()

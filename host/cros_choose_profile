@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -24,6 +24,7 @@ if [ -z "${COMMON_SH}" ] ; then
 fi
 
 . "${COMMON_SH}"
+. "${SRC_ROOT}/platform/dev/toolchain_utils.sh"
 
 get_default_board
 
@@ -76,22 +77,7 @@ PRIMARY_BOARD_OVERLAY=$(cros_overlay_list \
   --variant "$VARIANT" \
   --primary_only)
 
-TC_ARCH=$(awk -F'-' '{ print $1 }' < "${PRIMARY_BOARD_OVERLAY}/toolchain.conf")
-
-case "${TC_ARCH}" in
-  arm*)
-    ARCH="arm"
-    ;;
-  *86)
-    ARCH="x86"
-    ;;
-  x86_64)
-    ARCH="amd64"
-    ;;
-  *)
-    error "Unable to determine ARCH from toolchain: ${BOARD_VARIANT}"
-    exit 1
-esac
+ARCH=$(get_board_arch "${BOARD}") || exit 1
 
 # The profile directory comes from many possible locations, the <overlay>
 # values below can be any of the board overlays, public, private, primary
