@@ -52,17 +52,17 @@ STATE_MNT=""
 cleanup() {
   set +e
   if [ -n "$SRC_MNT" ]; then
-    sudo umount -d "$SRC_MNT"
+    sudo umount "$SRC_MNT"
     [ -d "$SRC_MNT" ] && rmdir "$SRC_MNT"
     SRC_MNT=""
   fi
   if [ -n "$DST_MNT" ]; then
-    sudo umount -d "$DST_MNT"
+    sudo umount "$DST_MNT"
     [ -d "$DST_MNT" ] && rmdir "$DST_MNT"
     DST_MNT=""
   fi
   if [ -n "$STATE_MNT" ]; then
-    sudo umount -d "$STATE_MNT" || true
+    sudo umount "$STATE_MNT" || true
     [ -d "$STATE_MNT" ] && rmdir "$STATE_MNT"
     STATE_MNT=""
   fi
@@ -109,7 +109,7 @@ patch_kernel() {
   STATE_MNT=$(mktemp -d /tmp/state.XXXXXX)
   sudo mount -o ro,loop,offset=$offset "$IMAGE" "$STATE_MNT"
   dd if="$STATE_MNT"/vmlinuz_hd.vblock of="$KERN_FILE" conv=notrunc 2>/dev/null
-  sudo umount -d "$STATE_MNT"
+  sudo umount "$STATE_MNT"
   rmdir "$STATE_MNT"
   STATE_MNT=""
 }
