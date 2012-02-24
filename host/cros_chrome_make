@@ -195,8 +195,10 @@ fi
 # TODO(rcui): crosbug.com/20435.  Investigate not running 'clean' and just
 # re-running the compile stage when the Chrome build switches to Ninja inside
 # the chroot.
-ebuild_actions="clean compile"
-if [ "${FLAGS_install}" = "${FLAGS_TRUE}" ]; then
+ebuild_actions="clean"
+if [ "${FLAGS_install}" = "${FLAGS_FALSE}" ]; then
+  ebuild_actions="${ebuild_actions} compile"
+else
   ebuild_actions="${ebuild_actions} install"
 fi
 
