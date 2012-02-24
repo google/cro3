@@ -60,6 +60,9 @@ def _PrintDocStringAsHTML(func):
 
 def _GetConfig(options):
   """Returns the configuration for the devserver."""
+  base_path = os.path.dirname(__file__)
+  access_log = os.path.join(base_path, 'devserver_access.log')
+  error_log = os.path.join(base_path, 'devserver_error.log')
   base_config = { 'global':
                   { 'server.log_request_headers': True,
                     'server.protocol_version': 'HTTP/1.1',
@@ -69,8 +72,8 @@ def _GetConfig(options):
                     'response.timeout': 6000,
                     'tools.staticdir.root':
                       os.path.dirname(os.path.abspath(sys.argv[0])),
-                    'log.access_file': 'devserver_access.log',
-                    'log.error_file': 'devserver_error.log',
+                    'log.access_file': access_log,
+                    'log.error_file': error_log,
                   },
                   '/api':
                   {
