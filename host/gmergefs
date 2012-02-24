@@ -77,11 +77,11 @@ EMERGE_JOBS=
 
 # Skip building on host if we are unmerging.
 if [ ${FLAGS_unmerge} -eq ${FLAGS_FALSE} ] ; then
-  eretry sudo emerge -uDNv $EMERGE_FLAGS world
+  eretry sudo emerge -uDNv $EMERGE_FLAGS $EMERGE_JOBS world
 
   # Build request and install them onto the sysroot
   for emerge_request in $FLAGS_ARGV; do
-    eretry sudo emerge-${FLAGS_board} -uDNv \
+    eretry sudo emerge-${FLAGS_board} $EMERGE_JOBS -uDNv \
       $(remove_quotes "${emerge_request}")
   done
 fi
