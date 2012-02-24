@@ -12,8 +12,6 @@ import shutil
 import sys
 
 import constants
-sys.path.append(constants.SOURCE_ROOT)
-from chromite.lib import cros_build_lib
 
 
 AU_BASE = 'au'
@@ -84,11 +82,15 @@ def DownloadBuildFromGS(staging_dir, archive_url, build):
   cmd = 'gsutil ls %s/*.bin' % archive_url
   msg = 'Failed to get a list of payloads.'
   try:
-    result = cros_build_lib.RunCommand(cmd, shell=True, redirect_stdout=True,
-                                       error_message=msg)
-  except cros_build_lib.RunCommandError, e:
-    raise DevServerUtilError(str(e))
-  payload_list = result.output.splitlines()
+    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    stdout, stderr = proc.communicate()
+    if proc.returncode != 0:
+      raise DevServerUtilError('%s nonzero exit code: %i'
+                               % (msg, proc.returncode))
+  except subprocess.CalledProcessError, e:
+    raise DevServerUtilError('%s %s' % (msg, e))
+
+  payload_list = stdout.splitlines()
   full_payload_url, nton_payload_url, mton_payload_url = (
       ParsePayloadList(payload_list))
 
@@ -113,9 +115,9 @@ def DownloadBuildFromGS(staging_dir, archive_url, build):
     cmd = 'gsutil cp %s %s' % (src, dest)
     msg = 'Failed to download "%s".' % src
     try:
-      cros_build_lib.RunCommand(cmd, shell=True, error_message=msg)
-    except cros_build_lib.RunCommandError, e:
-      raise DevServerUtilError(str(e))
+      subprocess.check_call(cmd, shell=True)
+    except subprocess.CalledProcessError, e:
+      raise DevServerUtilError('%s %s' % (msg, e))
 
 
 def InstallBuild(staging_dir, build_dir):
@@ -173,9 +175,9 @@ def PrepareAutotestPkgs(staging_dir):
          (os.path.join(staging_dir, AUTOTEST_PACKAGE), staging_dir))
   msg = 'Failed to extract autotest.tar.bz2 ! Is pbzip2 installed?'
   try:
-    cros_build_lib.RunCommand(cmd, shell=True, error_message=msg)
-  except cros_build_lib.RunCommandError, e:
-    raise DevServerUtilError(str(e))
+    subprocess.check_call(cmd, shell=True)
+  except subprocess.CalledProcessError, e:
+    raise DevServerUtilError('%s %s' % (msg, e))
 
   # Use the root of Autotest
   autotest_pkgs_dir = os.path.join(staging_dir, 'autotest', 'packages')
@@ -185,10 +187,9 @@ def PrepareAutotestPkgs(staging_dir):
               'upload', '--repository', autotest_pkgs_dir, '--all']
   msg = 'Failed to create autotest packages!'
   try:
-    cros_build_lib.RunCommand(' '.join(cmd_list), cwd=staging_dir, shell=True,
-                              error_message=msg)
-  except cros_build_lib.RunCommandError, e:
-    raise DevServerUtilError(str(e))
+    subprocess.check_call(' '.join(cmd_list), cwd=staging_dir, shell=True)
+  except subprocess.CalledProcessError, e:
+    raise DevServerUtilError('%s %s' % (msg, e))
 
 
 def SafeSandboxAccess(static_dir, path):
