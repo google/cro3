@@ -425,9 +425,6 @@ function main() {
 
   remote_reboot
 
-  # TODO(sosa): Remove once ssh debugging issues are resolved.
-  set -x
-
   if [[ ${FLAGS_update_hostkey} -eq ${FLAGS_TRUE} ]]; then
     local known_hosts="${HOME}/.ssh/known_hosts"
     cp "${known_hosts}" "${known_hosts}~"
@@ -451,8 +448,6 @@ function main() {
     local release_description=$(echo ${REMOTE_OUT} | cut -d '=' -f 2)
     info "Update was successful and rebooted to $release_description"
   fi
-
-  set +x
 
   print_time_elapsed
 
