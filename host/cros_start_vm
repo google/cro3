@@ -7,7 +7,7 @@
 # Simple wrapper scipt to start a vm using the vm lib.
 
 . $(dirname "$(readlink -f "$0")")/outside_chroot_common.sh ||
-  SCRIPT_ROOT=/usr/lib/crosutils
+  exit 1
 
 . "${SCRIPT_ROOT}/common.sh" ||
   (echo "Unable to load common.sh" && false) ||
@@ -17,6 +17,7 @@
 . "${SCRIPT_ROOT}/lib/cros_vm_constants.sh" || \
   die "Unable to load cros_vm_constants.sh"
 
+assert_outside_chroot
 get_default_board
 
 DEFINE_string board "${DEFAULT_BOARD}" \
