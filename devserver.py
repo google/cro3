@@ -60,9 +60,6 @@ def _PrintDocStringAsHTML(func):
 
 def _GetConfig(options):
   """Returns the configuration for the devserver."""
-  base_path = os.path.dirname(__file__)
-  access_log = os.path.join(base_path, 'devserver_access.log')
-  error_log = os.path.join(base_path, 'devserver_error.log')
   base_config = { 'global':
                   { 'server.log_request_headers': True,
                     'server.protocol_version': 'HTTP/1.1',
@@ -72,8 +69,6 @@ def _GetConfig(options):
                     'response.timeout': 6000,
                     'tools.staticdir.root':
                       os.path.dirname(os.path.abspath(sys.argv[0])),
-                    'log.access_file': access_log,
-                    'log.error_file': error_log,
                   },
                   '/api':
                   {
@@ -97,6 +92,13 @@ def _GetConfig(options):
                     'response.timeout': 10000,
                   },
                 }
+
+  if options.log_dir:
+    base_config['global']['log.access_file'] = os.path.join(
+        options.log_dir, 'devserver_access.log')
+    base_config['global']['log.error_file'] = os.path.join(
+        options.log_dir, 'devserver_error.log')
+
   if options.production:
     base_config['global']['server.environment'] = 'production'
 
@@ -307,8 +309,9 @@ if __name__ == '__main__':
   parser.add_option('--validate_factory_config', action="store_true",
                     dest='validate_factory_config',
                     help='Validate factory config file, then exit.')
-  parser.add_option('-l', '--logging', action="store_true", default=False,
-                    help='Enable logging and reporting of update processes.')
+  parser.add_option('-l', '--log-dir', default=None,
+                    help=('Specify a directory for error and access logs. ',
+                          'Default None, i.e. no logging.'))
   (options, _) = parser.parse_args()
 
   devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -317,6 +320,10 @@ if __name__ == '__main__':
 
   static_dir = os.path.realpath('%s/static' % options.data_dir)
   os.system('mkdir -p %s' % static_dir)
+
+  if options.log_dir and not os.path.isdir(options.log_dir):
+    parser.error('%s is not a valid dir, provide a valid dir to --log-dir' %
+                 options.log_dir)
 
   if options.archive_dir:
   # TODO(zbehan) Remove legacy support:
