@@ -167,6 +167,13 @@ class Bundle:
     gbb_size = self.fdt.GetFlashPartSize('ro', 'gbb')
     odir = self._tools.outdir
 
+    chromeos_config = self.fdt.GetProps("/chromeos-config")
+    if 'fast-developer-mode' not in chromeos_config:
+      gbb_flags = 0
+    else:
+      self._out.Notice("Enabling fast-developer-mode.")
+      gbb_flags = 1
+
     self._out.Progress('Creating GBB')
     sizes = [0x100, 0x1000, gbb_size - 0x2180, 0x1000]
     sizes = ['%#x' % size for size in sizes]
@@ -178,6 +185,7 @@ class Bundle:
         '--rootkey=%s/root_key.vbpubk' % keydir,
         '--recoverykey=%s/recovery_key.vbpubk' % keydir,
         '--bmpfv=%s' % self._tools.Filename(self.bmpblk_fname),
+        '--flags=%d' % gbb_flags,
         gbb],
         cwd=odir)
     return os.path.join(odir, gbb)
