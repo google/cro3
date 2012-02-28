@@ -242,12 +242,26 @@ function get_update_log {
   echo "${REMOTE_OUT}" > "${FLAGS_update_log}"
 }
 
+# Used to store the current update status of the remote update engine.
+REMOTE_UPDATE_STATUS=
+
 # Returns ${1} reported by the update client e.g. PROGRESS, CURRENT_OP.
-function get_update_var {
-  remote_sh "${UPDATER_BIN} --status 2> /dev/null |
+function get_var_from_remote_status {
+  echo "${REMOTE_UPDATE_STATUS}" |
       grep ${1} |
-      cut -f 2 -d ="
-  echo "${REMOTE_OUT}"
+      cut -f 2 -d =
+}
+
+# Updates the remote status variable for the update engine.
+function update_remote_status {
+  remote_sh "${UPDATER_BIN} --status 2> /dev/null"
+  REMOTE_UPDATE_STATUS="${REMOTE_OUT}"
+}
+
+# Both updates the remote status and gets the given variables.
+function get_update_var {
+  update_remote_status
+  get_var_from_remote_status "${1}"
 }
 
 # Returns the current status / progress of the update engine.
@@ -258,8 +272,9 @@ function status_thread {
   info "Devserver handling ping.  Check ${FLAGS_server_log} for more info."
   sleep ${timeout}
 
+  update_remote_status
   local current_state=""
-  local next_state="$(get_update_var CURRENT_OP)"
+  local next_state="$(get_var_from_remote_status CURRENT_OP)"
 
   # For current status, only print out status changes.
   # For download, show progress.
@@ -269,14 +284,15 @@ function status_thread {
     if [ "${current_state}" != "${next_state}" ]; then
       info "State of updater has changed to: ${next_state}"
     elif [ "${next_state}" = "${UPDATER_DOWNLOADING}" ]; then
-      echo "Download progress $(get_update_var PROGRESS)"
+      echo "Download progress $(get_var_from_remote_status PROGRESS)"
     else
       echo -n "."
     fi
 
     sleep ${timeout}
     current_state="${next_state}"
-    next_state="$(get_update_var CURRENT_OP)"
+    update_remote_status
+    next_state="$(get_var_from_remote_status CURRENT_OP)"
   done
 }
 
