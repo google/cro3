@@ -25,16 +25,14 @@ get_board_arch()
 {
   local ctarget=$(get_ctarget_from_board "$@")
 
-  case ${ctarget} in
-  arm*)    echo "arm" ;;
-  i?86*)   echo "x86" ;;
-  x86_64*) echo "amd64" ;;
-  *)
+  # Ask crossdev what the magical portage arch is!
+  local arch=$(eval $(crossdev --show-target-cfg "${ctarget}"); echo ${arch})
+  if [[ -z ${arch} ]] ; then
     error "Unable to determine ARCH from toolchain: ${ctarget}"
     return 1
-    ;;
-  esac
+  fi
 
+  echo "${arch}"
   return 0
 }
 
