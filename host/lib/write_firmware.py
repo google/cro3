@@ -45,7 +45,7 @@ class WriteFirmware:
     self._tools = tools
     self._fdt = fdt
     self._out = output
-    self.text_base = self._fdt.GetInt('/chromeos-config/textbase');
+    self.text_base = self._fdt.GetInt('/chromeos-config', 'textbase');
 
     # For speed, use the 'update' algorithm and don't verify
     self.update = True
@@ -146,7 +146,7 @@ class WriteFirmware:
     script, replace_me = self._GetFlashScript(payload_size, update, verify,
                                               is_nand)
     data = self._tools.ReadFile(uboot)
-    fdt.PutString('/config/bootcmd', script)
+    fdt.PutString('/config', 'bootcmd', script)
     fdt_data = self._tools.ReadFile(fdt.fname)
 
     # Work out where to place the payload in memory. This is a chicken-and-egg

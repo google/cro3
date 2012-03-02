@@ -29,31 +29,29 @@ class Fdt:
     self.fname = fname
     self.tools = tools
 
-  def GetProp(self, key, default=None):
+  def GetProp(self, node, prop, default=None):
     """Get a property from a device tree.
 
     >>> tools = Tools(cros_output.Output())
     >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
-    >>> fdt.GetProp('/lcd/width')
+    >>> fdt.GetProp('/lcd', 'width')
     '1366'
 
-    >>> fdt.GetProp('/fluffy')
+    >>> fdt.GetProp('/', 'fluffy')
     Traceback (most recent call last):
       ...
-    CmdError: Command failed: dtget ../tests/test.dtb /fluffy
+    CmdError: Command failed: fdtget ../tests/test.dtb / fluffy
     Error at 'fluffy': FDT_ERR_NOTFOUND
-    (Node / exists but you didn't specify a property to print)
     <BLANKLINE>
 
-    This looks up the given key and returns the value as a string, The key
-    consists of a node with a property attached, like:
-
-        /path/to/node/property
+    This looks up the given node and property, and returns the value as a
+    string,
 
     If the node or property does not exist, this will return the default value.
 
     Args:
-      key: Key to look up.
+      node: Full path to node to look up.
+      prop: Property name to look up.
       default: Default value to return if nothing is present in the fdt, or
           None to raise in this case. This will be converted to a string.
 
@@ -63,13 +61,13 @@ class Fdt:
     Raises:
       CmdError: if the property does not exist and no default is provided.
     """
-    args = [self.fname, key]
+    args = [self.fname, node, prop]
     if default is not None:
       args += ['-d', str(default)]
-    out = self.tools.Run('dtget', args)
+    out = self.tools.Run('fdtget', args)
     return out.strip()
 
-  def GetProps(self, key, convert_dashes=False):
+  def GetProps(self, node, convert_dashes=False):
     """Get all properties from a node.
 
     >>> tools = Tools(cros_output.Output())
@@ -80,7 +78,7 @@ class Fdt:
 'NVIDIA Seaboard', '#address-cells': '1', 'interrupt-parent': '1'}
 
     Args:
-      key: node name to look in.
+      node: node name to look in.
       convert_dashes: True to convert - to _ in node names.
 
     Returns:
@@ -91,38 +89,39 @@ class Fdt:
     Raises:
       CmdError: if the node does not exist.
     """
-    out = self.tools.Run('dtget', [self.fname, key, '-p'])
+    out = self.tools.Run('fdtget', [self.fname, node, '-p'])
     props = out.strip().splitlines()
     props_dict = {}
     for prop in props:
       name = prop
       if convert_dashes:
         prop = re.sub('-', '_', prop)
-      props_dict[prop] = self.GetProp(key + '/' + name)
+      props_dict[prop] = self.GetProp(node, name)
     return props_dict
 
-  def DecodeIntList(self, key, int_list_str, num_values=None):
+  def DecodeIntList(self, node, prop, int_list_str, num_values=None):
     """Decode a string into a list of integers.
 
     >>> tools = Tools(cros_output.Output())
     >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
-    >>> fdt.DecodeIntList('galveston', '1 2 3 4')
+    >>> fdt.DecodeIntList('/', 'galveston', '1 2 3 4')
     [1, 2, 3, 4]
 
-    >>> fdt.DecodeIntList('galveston', '1 2 3 4', 4)
+    >>> fdt.DecodeIntList('/', 'galveston', '1 2 3 4', 4)
     [1, 2, 3, 4]
 
-    >>> fdt.DecodeIntList('galveston', '1 2 3 4', 3)
+    >>> fdt.DecodeIntList('/', 'galveston', '1 2 3 4', 3)
     Traceback (most recent call last):
       ...
-    ValueError: GetIntList of key 'galveston' returns '<type 'list'>', \
-which has 4 elements, but 3 expected
+    ValueError: GetIntList of node '/' prop 'galveston' returns \
+'<type 'list'>', which has 4 elements, but 3 expected
 
     This decodes a string containing a list of integers like '1 2 3' into
     a list like [1 2 3].
 
     Args:
-      key: Key where the value came from (only used for error message).
+      node: Full path to node to report in any error raised.
+      prop: Property name to report in any error raised.
       int_list_str: String to decode.
       num_values: If not None, then the array is checked to make sure it
           has this many values, and an error is raised if not.
@@ -135,42 +134,43 @@ which has 4 elements, but 3 expected
     """
     int_list = int_list_str.split()
     if num_values and num_values != len(int_list):
-      raise ValueError, ("GetIntList of key '%s' returns '%s', which has "
-          "%d elements, but %d expected" % (key, list, len(int_list),
-          num_values))
+      raise ValueError, ("GetIntList of node '%s' prop '%s' returns '%s'"
+          ", which has %d elements, but %d expected" %
+          (node, prop, list, len(int_list), num_values))
     return [int(item) for item in int_list]
 
-  def GetIntList(self, key, num_values=None):
-    """Read a key and decode it into a list of integers.
+  def GetIntList(self, node, prop, num_values=None, default=None):
+    """Read a property and decode it into a list of integers.
 
     >>> tools = Tools(cros_output.Output())
     >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
-    >>> fdt.GetIntList('/flash@0/shared-dev-cfg@180000/reg')
+    >>> fdt.GetIntList('/flash@0/shared-dev-cfg@180000', 'reg')
     [1572864, 262144]
 
-    >>> fdt.GetIntList('/flash/shared-dev-cfg/reg')
+    >>> fdt.GetIntList('/flash/shared-dev-cfg', 'reg')
     [1572864, 262144]
 
-    >>> fdt.GetIntList('/flash/shared-dev-cfg/reg', 3)
+    >>> fdt.GetIntList('/flash/shared-dev-cfg', 'reg', 3)
     Traceback (most recent call last):
       ...
-    ValueError: GetIntList of key '/flash/shared-dev-cfg/reg' returns \
+    ValueError: GetIntList of node '/flash/shared-dev-cfg' prop 'reg' returns \
 '<type 'list'>', which has 2 elements, but 3 expected
 
-    >>> fdt.GetIntList('/swaffham/bulbeck', 2)
+    >>> fdt.GetIntList('/swaffham', 'bulbeck', 2)
     Traceback (most recent call last):
       ...
-    CmdError: Command failed: dtget ../tests/test.dtb /swaffham/bulbeck
-    Error at '/swaffham/bulbeck': FDT_ERR_NOTFOUND
+    CmdError: Command failed: fdtget ../tests/test.dtb /swaffham bulbeck
+    Error at '/swaffham': FDT_ERR_NOTFOUND
     <BLANKLINE>
-    >>> fdt.GetIntList('/lcd/bulbeck', 2, '5 6')
+    >>> fdt.GetIntList('/lcd', 'bulbeck', 2, '5 6')
     [5, 6]
 
-    This decodes a key containing a list of integers like '1 2 3' into
+    This decodes a property containing a list of integers like '1 2 3' into
     a list like [1 2 3].
 
     Args:
-      key: Key to read to get value.
+      node: Full path to node to look up.
+      prop: Property name to look up.
       num_values: If not None, then the array is checked to make sure it
           has this many values, and an error is raised if not.
 
@@ -181,50 +181,53 @@ which has 4 elements, but 3 expected
       ValueError if the list is the wrong size.
       CmdError: if the property does not exist.
     """
-    return self.DecodeIntList(key, self.GetProp(key), num_values)
+    return self.DecodeIntList(node, prop, self.GetProp(node, prop, default),
+                              num_values)
 
-  def GetInt(self, key):
+  def GetInt(self, node, prop, default=None):
     """Gets an integer from a device tree property.
 
     >>> tools = Tools(cros_output.Output())
     >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
-    >>> fdt.GetInt('/lcd/width')
+    >>> fdt.GetInt('/lcd', 'width')
     1366
-    >>> fdt.GetInt('/lcd/rangiora')
+    >>> fdt.GetInt('/lcd', 'rangiora')
     Traceback (most recent call last):
       ...
-    CmdError: Command failed: dtget ../tests/test.dtb /lcd/rangiora
+    CmdError: Command failed: fdtget ../tests/test.dtb /lcd rangiora
     Error at 'rangiora': FDT_ERR_NOTFOUND
-    (Node / exists but you didn't specify a property to print)
     <BLANKLINE>
-    >>> fdt.GetInt('/lcd/rangiora', 1366)
+
+    >>> fdt.GetInt('/lcd', 'rangiora', 1366)
     1366
 
     Args:
-      key: Key to read to get value.
+      node: Full path to node to look up.
+      prop: Property name to look up.
 
     Raises:
       ValueError if the property cannot be converted to an integer.
       CmdError: if the property does not exist.
     """
-    value = self.GetIntList(key, 1)[0]
+    value = self.GetIntList(node, prop, 1, default)[0]
     return int(value)
 
-  def GetString(self, key, default=None):
+  def GetString(self, node, prop, default=None):
     """Gets a string from a device tree property.
 
     >>> tools = Tools(cros_output.Output())
     >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
-    >>> fdt.GetString('/display/compatible')
+    >>> fdt.GetString('/display', 'compatible')
     'nvidia,tegra250-display'
 
     Args:
-      key: Key to read to get value.
+      node: Full path to node to look up.
+      prop: Property name to look up.
 
     Raises:
       CmdError: if the property does not exist.
     """
-    return self.GetProp(key, default)
+    return self.GetProp(node, prop, default)
 
   def GetFlashPart(self, section, part):
     """Returns the setup of the given section/part number in the flash map.
@@ -241,7 +244,7 @@ which has 4 elements, but 3 expected
     Returns:
       Tuple (position, size) of flash area in bytes.
     """
-    return self.GetIntList('/flash/%s-%s/reg' % (section, part), 2)
+    return self.GetIntList('/flash/%s-%s' % (section, part), 'reg', 2)
 
   def GetFlashPartSize(self, section, part):
     """Returns the size of the given section/part number in the flash map.
@@ -260,7 +263,7 @@ which has 4 elements, but 3 expected
     """
     return self.GetFlashPart(section, part)[1]
 
-  def GetChildren(self, key):
+  def GetChildren(self, node):
     """Returns a list of children of a given node.
 
     >>> tools = Tools(cros_output.Output())
@@ -285,10 +288,10 @@ which has 4 elements, but 3 expected
     Raises:
       CmdError: if the node does not exist.
     """
-    out = self.tools.Run('dtget', [self.fname, '-l', key])
+    out = self.tools.Run('fdtget', [self.fname, '-l', node])
     return out.strip().splitlines()
 
-  def GetLabel(self, key):
+  def GetLabel(self, node):
     """Returns the label property of a given node.
 
     >>> tools = Tools(cros_output.Output())
@@ -299,17 +302,17 @@ which has 4 elements, but 3 expected
     >>> fdt.GetLabel('/go/hotspurs')
     Traceback (most recent call last):
       ...
-    CmdError: Command failed: dtget ../tests/test.dtb /go/hotspurs/label
-    Error at '/go/hotspurs/label': FDT_ERR_NOTFOUND
+    CmdError: Command failed: fdtget ../tests/test.dtb /go/hotspurs label
+    Error at '/go/hotspurs': FDT_ERR_NOTFOUND
     <BLANKLINE>
 
     Args:
-      key: Node to return label property from.
+      node: Node to return label property from.
 
     Raises:
       CmdError: if the node or property does not exist.
     """
-    return self.GetString(key + '/label')
+    return self.GetString(node, 'label')
 
   def Copy(self, new_name):
     """Make a copy of the FDT into another file, and return its object.
@@ -317,10 +320,10 @@ which has 4 elements, but 3 expected
     >>> tools = Tools(cros_output.Output())
     >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> our_copy = fdt.Copy(os.path.join(_base, '../tests/copy.dtb'))
-    >>> our_copy.PutString('/display/compatible', 'north')
-    >>> fdt.GetString('/display/compatible')
+    >>> our_copy.PutString('/display', 'compatible', 'north')
+    >>> fdt.GetString('/display', 'compatible')
     'nvidia,tegra250-display'
-    >>> our_copy.GetString('/display/compatible')
+    >>> our_copy.GetString('/display', 'compatible')
     'north'
 
     This copies the FDT into a supplied file, then creates an FDT object to
@@ -336,45 +339,47 @@ which has 4 elements, but 3 expected
         self.tools.Filename(new_name))
     return Fdt(self.tools, new_name)
 
-  def PutString(self, key, value_str):
+  def PutString(self, node, prop, value_str):
     """Writes a string to a property in the fdt.
 
     >>> tools = Tools(cros_output.Output())
     >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> our_copy = fdt.Copy(os.path.join(_base, '../tests/copy.dtb'))
-    >>> our_copy.PutString('/display/compatible', 'north')
-    >>> fdt.GetString('/display/compatible')
+    >>> our_copy.PutString('/display', 'compatible', 'north')
+    >>> fdt.GetString('/display', 'compatible')
     'nvidia,tegra250-display'
-    >>> our_copy.PutString('/display/compatible', 'south')
-    >>> our_copy.GetString('/display/compatible')
+    >>> our_copy.PutString('/display', 'compatible', 'south')
+    >>> our_copy.GetString('/display', 'compatible')
     'south'
 
     Args:
-      key: Key to write value to.
+      node: Full path to node to look up.
+      prop: Property name to look up.
       value_str: String to write.
     """
-    args = ['-t', 's', self.fname, key, value_str]
-    self.tools.Run('dtput', args)
+    args = ['-t', 's', self.fname, node, prop, value_str]
+    self.tools.Run('fdtput', args)
 
-  def PutInteger(self, key, value_int):
+  def PutInteger(self, node, prop, value_int):
     """Writes a string to a property in the fdt.
 
     >>> tools = Tools(cros_output.Output())
     >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> our_copy = fdt.Copy(os.path.join(_base, '../tests/copy.dtb'))
-    >>> our_copy.PutString('/display/compatible', 'north')
-    >>> fdt.GetString('/display/compatible')
+    >>> our_copy.PutString('/display', 'compatible', 'north')
+    >>> fdt.GetString('/display', 'compatible')
     'nvidia,tegra250-display'
-    >>> our_copy.PutString('/display/compatible', 'south')
-    >>> our_copy.GetString('/display/compatible')
+    >>> our_copy.PutString('/display', 'compatible', 'south')
+    >>> our_copy.GetString('/display', 'compatible')
     'south'
 
     Args:
-      key: Key to write value to.
+      node: Full path to node to look up.
+      prop: Property name to look up.
       value_int: Integer to write.
     """
-    args = ['-t', 'i', self.fname, key, str(value_int)]
-    self.tools.Run('dtput', args)
+    args = ['-t', 'i', self.fname, node, prop, str(value_int)]
+    self.tools.Run('fdtput', args)
 
 
 def main():

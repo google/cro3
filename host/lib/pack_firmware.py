@@ -390,7 +390,7 @@ class PackFirmware:
     Raises:
       ValueError: If fdt has an unknown entry type.
     """
-    entry_list = self.fdt.GetString(node + 'type', 'empty').split()
+    entry_list = self.fdt.GetString(node, 'type', 'empty').split()
     ftype = entry_list[0]
     key = None
     if len(entry_list) > 1:
@@ -481,7 +481,7 @@ class PackFirmware:
     """
     self.fdt = fdt
     root = '/flash/'
-    self.image_size = int(fdt.GetIntList(root + 'reg', 2)[1])
+    self.image_size = int(fdt.GetIntList(root, 'reg', 2)[1])
 
     # Scan the flash map in the fdt, creating a list of Entry objects.
     re_label = re.compile('(.*)-(\w*)')
@@ -491,7 +491,7 @@ class PackFirmware:
       props = fdt.GetProps(node, True)
 
       # Read the two cells from the node's /reg property to get entry extent.
-      offset, size = fdt.DecodeIntList(node + '/reg', props['reg'], 2)
+      offset, size = fdt.DecodeIntList(node, 'reg', props['reg'], 2)
       props['offset'] = offset
       props['size'] = size
 

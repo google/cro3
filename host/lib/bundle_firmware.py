@@ -163,7 +163,7 @@ class Bundle:
       CmdError if a command fails.
     """
     if not hardware_id:
-      hardware_id = self.fdt.GetString('/config/hwid')
+      hardware_id = self.fdt.GetString('/config', 'hwid')
     gbb_size = self.fdt.GetFlashPartSize('ro', 'gbb')
     odir = self._tools.outdir
 
@@ -238,8 +238,8 @@ class Bundle:
       bootsecure: We'll set '/config/bootsecure' to 1 if True and 0 if False.
     """
     if bootcmd:
-      self.fdt.PutString('/config/bootcmd', bootcmd)
-      self.fdt.PutInteger('/config/bootsecure', int(bootsecure))
+      self.fdt.PutString('/config', 'bootcmd', bootcmd)
+      self.fdt.PutInteger('/config', 'bootsecure', int(bootsecure))
       self._out.Info('Boot command: %s' % bootcmd)
 
   def AddConfigList(self, config_list, use_int=False):
@@ -269,9 +269,9 @@ class Bundle:
             raise CmdError("Cannot convert config option '%s' to integer" %
                 value)
         if type(value) == type(1):
-          self.fdt.PutInteger('/config/%s' % config[0], value)
+          self.fdt.PutInteger('/config', '%s' % config[0], value)
         else:
-          self.fdt.PutString('/config/%s' % config[0], value)
+          self.fdt.PutString('/config', '%s' % config[0], value)
 
   def DecodeTextBase(self, data):
     """Look at a U-Boot image and try to decode its TEXT_BASE.
@@ -312,7 +312,7 @@ class Bundle:
     value (which we will move to).
     """
     data = self._tools.ReadFile(fname)
-    fdt_text_base = fdt.GetInt('/chromeos-config/textbase')
+    fdt_text_base = fdt.GetInt('/chromeos-config', 'textbase')
     text_base = self.DecodeTextBase(data)
 
     # If they are different, issue a warning and switch over.
@@ -356,7 +356,7 @@ class Bundle:
 
     # Make a copy of the fdt for the bootstub
     fdt = base_fdt.Copy(os.path.join(self._tools.outdir, 'bootstub.dtb'))
-    fdt.PutInteger('/config/postload-text-offset', 0xffffffff);
+    fdt.PutInteger('/config', 'postload-text-offset', 0xffffffff);
     fdt_data = self._tools.ReadFile(fdt.fname)
 
     self._tools.WriteFile(bootstub, uboot_data + fdt_data)
@@ -383,7 +383,7 @@ class Bundle:
 
       # Now that we know the file size, adjust the fdt and re-sign
       postload_bootstub = os.path.join(self._tools.outdir, 'postload.bin')
-      fdt.PutInteger('/config/postload-text-offset', len(data))
+      fdt.PutInteger('/config', 'postload-text-offset', len(data))
       fdt_data = self._tools.ReadFile(fdt.fname)
       self._tools.WriteFile(postload_bootstub, uboot_data + fdt_data)
       signed = self._SignBootstub(self._tools.Filename(self.bct_fname),
@@ -460,7 +460,7 @@ class Bundle:
     Raises:
       CmdError if a command fails.
     """
-    self._out.Notice("Model: %s" % fdt.GetString('/model'))
+    self._out.Notice("Model: %s" % fdt.GetString('/', 'model'))
 
     if self.coreboot_fname:
       # FIXME(reinauer) the names are not too great choices.
@@ -478,7 +478,7 @@ class Bundle:
       pack = PackFirmware(self._tools, self._out)
       image = os.path.join(self._tools.outdir, 'image.bin')
       fwid = '.'.join([
-          re.sub('[ ,]+', '_', fdt.GetString('/model')),
+          re.sub('[ ,]+', '_', fdt.GetString('/', 'model')),
           self._tools.GetChromeosVersion()])
       self._out.Notice('Firmware ID: %s' % fwid)
       pack.SetupFiles(boot=bootstub, signed=signed, gbb=gbb,

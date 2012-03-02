@@ -58,8 +58,8 @@ def _CheckTools(tools, options):
   """
   if options.write:
     tools.CheckTool('nvflash')
-  tools.CheckTool('dtput', 'dtc')
-  tools.CheckTool('dtget', 'dtc')
+  tools.CheckTool('fdtput', 'dtc')
+  tools.CheckTool('fdtget', 'dtc')
 
 def _DoBundle(options, output, tools):
   """The main part of the cros_bundle_firmware code.
