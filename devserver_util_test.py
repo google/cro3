@@ -6,8 +6,10 @@
 
 """Unit tests for devserver_util module."""
 
+import mox
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 
@@ -21,9 +23,10 @@ TEST_LAYOUT = {
 }
 
 
-class DevServerUtilTest(unittest.TestCase):
+class DevServerUtilTest(mox.MoxTestBase):
 
   def setUp(self):
+    mox.MoxTestBase.setUp(self)
     self._static_dir = tempfile.mkdtemp()
     self._outside_sandbox_dir = tempfile.mkdtemp()
 
@@ -54,6 +57,11 @@ class DevServerUtilTest(unittest.TestCase):
         with open(os.path.join(mton_dir,
                                devserver_util.ROOT_UPDATE), 'w') as f:
           f.write('ROOT_UPDATE')
+
+    self._good_mock_process = self.mox.CreateMock(subprocess.Popen)
+    self._good_mock_process.returncode = 0
+    self._bad_mock_process = self.mox.CreateMock(subprocess.Popen)
+    self._bad_mock_process.returncode = 1
 
   def tearDown(self):
     shutil.rmtree(self._static_dir)
@@ -86,8 +94,64 @@ class DevServerUtilTest(unittest.TestCase):
     self.assertEqual([full_url, nton_url, mton_url],
                      [full_url_out, nton_url_out, mton_url_out])
 
+  def _CallRunGS(self, output, str_should_contain, attempts=1):
+    """Helper that wraps a RunGS for tests."""
+    for attempt in range(attempts):
+      if attempt == devserver_util.GSUTIL_ATTEMPTS:
+        # We can't mock more than we can attempt.
+        return
+
+      # Return 1's for all but last attempt.
+      if attempt != attempts - 1:
+        mock_process = self._bad_mock_process
+      else:
+        mock_process = self._good_mock_process
+
+      subprocess.Popen(mox.StrContains(str_should_contain), shell=True,
+                       stdout=subprocess.PIPE).AndReturn(mock_process)
+      mock_process.communicate().AndReturn((output, None))
+
   def testDownloadBuildFromGS(self):
-    self.fail('Not implemented.')
+    """Tests that we can run download build from gs with one error."""
+    build = 'R17-1413.0.0-a1-b1346'
+    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
+                          build)
+    mock_data = 'mock data\nmock_data\nmock_data'
+    payloads = ['p1', 'p2', 'p3']
+    self.mox.StubOutWithMock(subprocess, 'Popen', use_mock_anything=True)
+    self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
+
+    # Make sure we our retry works.
+    self._CallRunGS(mock_data, archive_url_prefix, attempts=2)
+    devserver_util.ParsePayloadList(mock_data.splitlines()).AndReturn(
+        payloads)
+
+    for payload in payloads + [devserver_util.STATEFUL_UPDATE,
+                               devserver_util.AUTOTEST_PACKAGE]:
+      self._CallRunGS(mock_data, payload,)
+
+    self.mox.ReplayAll()
+    devserver_util.DownloadBuildFromGS(self._static_dir, archive_url_prefix,
+                                       build)
+    self.mox.VerifyAll()
+
+  def testDownloadBuildFromGSButGSDown(self):
+    """Tests that we fail correctly if we can't reach GS."""
+    build = 'R17-1413.0.0-a1-b1346'
+    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
+                          build)
+    mock_data = 'mock data\nmock_data\nmock_data'
+    self.mox.StubOutWithMock(subprocess, 'Popen', use_mock_anything=True)
+
+    self._CallRunGS(mock_data, archive_url_prefix,
+                    attempts=devserver_util.GSUTIL_ATTEMPTS + 1)
+
+    self.mox.ReplayAll()
+    self.assertRaises(
+        devserver_util.DevServerUtilError,
+        devserver_util.DownloadBuildFromGS,
+        self._static_dir, archive_url_prefix, build)
+    self.mox.VerifyAll()
 
   def testInstallBuild(self):
     self.fail('Not implemented.')
@@ -235,14 +299,14 @@ class DevServerUtilTest(unittest.TestCase):
 
   def testGetControlFile(self):
     control_file_dir = os.path.join(
-        self._static_dir, 'test-board-1', 'R17-1413.0.0-a1-b1346', 'server',
-        'site_tests', 'network_VPN')
+        self._static_dir, 'test-board-1', 'R17-1413.0.0-a1-b1346', 'autotest',
+        'server', 'site_tests', 'network_VPN')
     os.makedirs(control_file_dir)
     with open(os.path.join(control_file_dir, 'control'), 'w') as f:
       f.write('hello!')
 
     control_content = devserver_util.GetControlFile(
-        self._static_dir, 'test-board-1', 'R17-1413.0.0-a1-b1346',
+        self._static_dir, 'test-board-1/R17-1413.0.0-a1-b1346',
         os.path.join('server', 'site_tests', 'network_VPN', 'control'))
     self.assertEqual(control_content, 'hello!')
 

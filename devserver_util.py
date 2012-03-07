@@ -9,11 +9,13 @@ import distutils.version
 import errno
 import os
 import shutil
+import subprocess
 import sys
 
 import constants
 
 
+GSUTIL_ATTEMPTS = 5
 AU_BASE = 'au'
 NTON_DIR_SUFFIX = '_nton'
 MTON_DIR_SUFFIX = '_mton'
@@ -78,17 +80,26 @@ def DownloadBuildFromGS(staging_dir, archive_url, build):
   Raises:
     DevServerUtilError: If any steps in the process fail to complete.
   """
+  def GSUtilRun(cmd, err_msg):
+    """Runs a GSUTIL command up to GSUTIL_ATTEMPTS number of times.
+
+    Raises:
+      subprocess.CalledProcessError if all attempt to run gsutil cmd fails.
+    """
+    proc = None
+    for _attempt in range(GSUTIL_ATTEMPTS):
+      proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+      stdout, _stderr = proc.communicate()
+      if proc.returncode == 0:
+        return stdout
+    else:
+      raise DevServerUtilError('%s GSUTIL cmd %s failed with return code %d' % (
+          err_msg, cmd, proc.returncode))
+
   # Get a list of payloads from Google Storage.
   cmd = 'gsutil ls %s/*.bin' % archive_url
   msg = 'Failed to get a list of payloads.'
-  try:
-    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-    stdout, stderr = proc.communicate()
-    if proc.returncode != 0:
-      raise DevServerUtilError('%s nonzero exit code: %i'
-                               % (msg, proc.returncode))
-  except subprocess.CalledProcessError, e:
-    raise DevServerUtilError('%s %s' % (msg, e))
+  stdout = GSUtilRun(cmd, msg)
 
   payload_list = stdout.splitlines()
   full_payload_url, nton_payload_url, mton_payload_url = (
@@ -114,10 +125,7 @@ def DownloadBuildFromGS(staging_dir, archive_url, build):
   for src, dest in zip(src, dst):
     cmd = 'gsutil cp %s %s' % (src, dest)
     msg = 'Failed to download "%s".' % src
-    try:
-      subprocess.check_call(cmd, shell=True)
-    except subprocess.CalledProcessError, e:
-      raise DevServerUtilError('%s %s' % (msg, e))
+    GSUtilRun(cmd, msg)
 
 
 def InstallBuild(staging_dir, build_dir):
@@ -447,7 +455,7 @@ def GetControlFileList(static_dir, build):
     for file_entry in files:
       if file_entry.startswith('control.') or file_entry == 'control':
         control_files.add(os.path.join(dir_path,
-                                       file_entry).replace(autotest_dir,''))
+                                       file_entry).replace(autotest_dir, ''))
 
   return '\n'.join(control_files)
 
