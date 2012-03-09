@@ -28,6 +28,8 @@ class Fdt:
   def __init__(self, tools, fname):
     self.fname = fname
     self.tools = tools
+    root, ext = os.path.splitext(fname)
+    self._is_compiled = ext == '.dtb'
 
   def GetProp(self, node, prop, default=None):
     """Get a property from a device tree.
@@ -381,6 +383,22 @@ class Fdt:
     args = ['-t', 'i', self.fname, node, prop, str(value_int)]
     self.tools.Run('fdtput', args)
 
+  def Compile(self):
+    """Compile an fdt .dts source file into a .dtb binary blob"""
+    if not self._is_compiled:
+      root, ext = os.path.splitext(self.fname)
+
+      # If this is in a dts/ subdir, try to put it in the dtb/ subdir
+      dirname = os.path.basename(os.path.dirname(root))
+      if os.path.basename(dirname) == 'dts':
+        root = os.path.join(os.path.dirname(os.path.dirname(root)),
+            'dtb', os.path.basename(root))
+      out_fname = root + '.dtb'
+      args = ['-I', 'dts', '-o', out_fname, '-O', 'dtb', '-p', '4096']
+      args.append(self.fname)
+      self.tools.Run('dtc', args)
+      self.fname = out_fname
+      self._is_compiled = True
 
 def main():
   """Main function for cros_bundle_firmware.

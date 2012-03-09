@@ -140,7 +140,7 @@ class Bundle:
       raise ValueError('No board defined - please define a board to use')
     build_root = os.path.join('##', 'build', self._board, 'firmware')
     if not self._fdt_fname:
-      self._fdt_fname = os.path.join(build_root, 'dtb', '%s.dtb' %
+      self._fdt_fname = os.path.join(build_root, 'dts', '%s.dts' %
           re.sub('_', '-', self._board))
     if not self.uboot_fname:
       self.uboot_fname = os.path.join(build_root, 'u-boot.bin')
@@ -339,7 +339,7 @@ class Bundle:
 
     Args:
       uboot: Path to u-boot.bin (may be chroot-relative)
-      fdt: Fdt object containing the flat device tree.
+      base_fdt: Fdt object containing the flat device tree.
       postload: Path to u-boot-post.bin, or None if none.
 
     Returns:
@@ -506,6 +506,7 @@ class Bundle:
     self._fdt_fname = fdt_fname
     self.CheckOptions()
     fdt = Fdt(self._tools, self._fdt_fname)
+    fdt.Compile()
     self.fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
     return fdt
 
