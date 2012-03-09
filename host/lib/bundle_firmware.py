@@ -418,18 +418,17 @@ class Bundle:
       CmdError if a command fails.
     """
     bootstub = os.path.join(self._tools.outdir, 'coreboot-full.rom')
-    cbfstool = "/usr/bin/cbfstool"
     uboot_elf = uboot.replace(".bin", ".elf")
     shutil.copyfile(coreboot, bootstub)
     if seabios:
-        self._tools.Run(cbfstool, [bootstub, 'add-payload', seabios,
+        self._tools.Run('cbfstool', [bootstub, 'add-payload', seabios,
             'fallback/payload', 'lzma'])
-        self._tools.Run(cbfstool, [bootstub, 'add-payload', uboot_elf,
+        self._tools.Run('cbfstool', [bootstub, 'add-payload', uboot_elf,
             'img/U-Boot', 'lzma'])
     else:
-        self._tools.Run(cbfstool, [bootstub, 'add-payload', uboot_elf,
+        self._tools.Run('cbfstool', [bootstub, 'add-payload', uboot_elf,
             'fallback/payload', 'lzma'])
-    self._tools.Run(cbfstool, [bootstub, 'add', fdt.fname, 'u-boot.dtb',
+    self._tools.Run('cbfstool', [bootstub, 'add', fdt.fname, 'u-boot.dtb',
         '0xac'])
     return bootstub
 
