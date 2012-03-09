@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 
+from tools import CmdError
 from tools import Tools
 from fdt import Fdt
 import tools
@@ -300,7 +301,7 @@ class EntryKeyBlock(EntryFmapArea):
 
       # Update value to the actual filename to be used
       self.value = self.path
-    except tools.CmdError as err:
+    except CmdError as err:
       raise PackError('Cannot make key block: vbutil_firmware failed\n%s' %
                       err)
 
@@ -381,7 +382,7 @@ class PackFirmware:
     used will be self.props['signed'].
 
     Args:
-      node: The node to use with trailing slash, e.g. /flash/ro-stub/
+      node: The node to use, e.g. /flash/ro-stub
       props: Doctionary containing all properties from the node.
 
     Returns:
@@ -480,14 +481,14 @@ class PackFirmware:
       ConfigError if an error is detected in the fdt configuration.
     """
     self.fdt = fdt
-    root = '/flash/'
+    root = '/flash'
     self.image_size = int(fdt.GetIntList(root, 'reg', 2)[1])
 
     # Scan the flash map in the fdt, creating a list of Entry objects.
     re_label = re.compile('(.*)-(\w*)')
     children = fdt.GetChildren(root)
     for child in children:
-      node = root + child
+      node = root + '/' + child
       props = fdt.GetProps(node, True)
 
       # Read the two cells from the node's /reg property to get entry extent.
@@ -500,7 +501,7 @@ class PackFirmware:
       props['flags'] = self._GetFlags(props)
       props['keydir'] = self.keydir
       try:
-        entry = self._CreateEntry(node + '/', props)
+        entry = self._CreateEntry(node, props)
         self.entries.append(entry)
 
       except ConfigError as err:
@@ -520,7 +521,6 @@ class PackFirmware:
           required file or setup piece is missing.
     """
     self.tmpdir = tmpdir
-    root = '/flash/'
 
     self._CheckOverlap()
 
