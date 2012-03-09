@@ -394,7 +394,11 @@ class Fdt:
         root = os.path.join(os.path.dirname(os.path.dirname(root)),
             'dtb', os.path.basename(root))
       out_fname = root + '.dtb'
+      search_list = []
+      for path in self.tools.search_paths:
+        search_list.extend(['-i', path])
       args = ['-I', 'dts', '-o', out_fname, '-O', 'dtb', '-p', '4096']
+      args.extend(search_list)
       args.append(self.fname)
       self.tools.Run('dtc', args)
       self.fname = out_fname

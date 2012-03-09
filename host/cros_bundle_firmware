@@ -73,6 +73,8 @@ def _DoBundle(options, output, tools):
   """
   _CheckTools(tools, options)
   tools.PrepareOutputDir(options.outdir, options.preserve)
+  if options.includedirs:
+    tools.search_paths += options.includedirs
 
   bundle = Bundle(tools, output)
   bundle.SetDirs(keydir=options.key)
@@ -129,13 +131,15 @@ def main():
   # TODO(sjg): Support source FDT files
   parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
       help='Path to fdt binary blob .dtb file to use')
-  parser.add_option('-I', '--hwid', dest='hardware_id', type='string',
+  parser.add_option('--hwid', dest='hardware_id', type='string',
       action='store', help='Hardware ID string to use')
   parser.add_option('-B', '--bmpblk', dest='bmpblk', type='string',
       action='store', help='Bitmap block to use')
   parser.add_option('-k', '--key', dest='key', type='string', action='store',
       help='Path to signing key directory (default to dev key)',
       default='##/usr/share/vboot/devkeys')
+  parser.add_option('-I', '--includedir', dest='includedirs', type='string',
+      action='append', help='Include directory to search for files')
   parser.add_option('-o', '--output', dest='output', type='string',
       action='store', help='Filename of final output image')
   parser.add_option('-O', '--outdir', dest='outdir', type='string',

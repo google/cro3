@@ -40,6 +40,8 @@ class Tools:
 
   Public properties:
     outdir: The output directory to write output files to.
+    search_paths: The list of directories to search for files we are asked
+        to read.
 
   The tools class also provides common paths:
 
@@ -81,6 +83,7 @@ class Tools:
     }
     self.outdir = None          # We have no output directory yet
     self._delete_tempdir = None # And no temporary directory to delete
+    self.search_paths = []
 
   def __enter__(self):
     return self
@@ -132,6 +135,15 @@ class Tools:
     """
     if fname.startswith('##/'):
       fname = os.path.join(self.chroot_path, fname[3:])
+
+    # Search for a pathname that exists, and return it if found
+    if not os.path.exists(fname):
+      for path in self.search_paths:
+        pathname = os.path.join(path, os.path.basename(fname))
+        if os.path.exists(pathname):
+          return pathname
+
+    # If not found, just return the standard, unchanged path
     return fname
 
   def Run(self, tool, args, cwd=None, sudo=False):
