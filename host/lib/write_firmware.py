@@ -51,7 +51,7 @@ class WriteFirmware:
     self.update = True
     self.verify = False
 
-  def _GetFlashScript(self, payload_size, update, verify, is_nand):
+  def _GetFlashScript(self, payload_size, update, verify, boot_type):
     """Get the U-Boot boot command needed to flash U-Boot.
 
     We leave a marker in the string for the load address of the image,
@@ -62,7 +62,7 @@ class WriteFirmware:
       payload_size: Size of payload in bytes.
       update: Use faster update algorithm rather then full device erase
       verify: Verify the write by doing a readback and CRC
-      is_nand: True if we're using NAND (instead of SPI Flash)
+      boot_type: the src for bootdevice (Nand, Sdmmc, or Spi)
 
     Returns:
       A tuple containing:
@@ -72,22 +72,36 @@ class WriteFirmware:
             load address as 8 hex digits, without changing its length.
     """
     replace_me = 'zsHEXYla'
+    page_size = 4096
+    if boot_type == 'Sdmmc':
+      page_size = 512
+    if boot_type != 'Spi':
+      update = False
+
     cmds = [
         'setenv address       0x%s' % replace_me,
         'setenv firmware_size %#x' % payload_size,
-        'setenv length        %#x' % RoundUp(payload_size, 4096),
+        'setenv length        %#x' % RoundUp(payload_size, page_size),
+        'setenv blocks   %#x' % (RoundUp(payload_size, page_size) / page_size),
         'setenv _crc    "crc32 ${address} ${firmware_size}"',
         'setenv _clear  "echo Clearing RAM; mw.b     ${address} 0 ${length}"',
     ]
-    if is_nand:
+    if boot_type == 'Nand':
       cmds.extend([
           'setenv _init   "echo Init NAND;  nand info"',
           'setenv _erase  "echo Erase NAND; nand erase            0 ${length}"',
           'setenv _write  "echo Write NAND; nand write ${address} 0 ${length}"',
           'setenv _read   "echo Read NAND;  nand read  ${address} 0 ${length}"',
       ])
-      # Don't support update for NAND yet.  NAND is fast anyway...
-      update = False
+    elif boot_type == 'Sdmmc':
+      cmds.extend([
+          'setenv _init   "echo Init EMMC;  mmc rescan            0"',
+          'setenv _erase  "echo Erase EMMC; "',
+          'setenv _write  "echo Write EMMC; mmc write 0 ${address} 0 ' \
+             '${blocks} boot1"',
+          'setenv _read   "echo Read EMMC;  mmc read 0 ${address} 0 ' \
+             '${blocks} boot1"',
+      ])
     else:
       cmds.extend([
           'setenv _init   "echo Init SPI;   sf probe            0"',
@@ -119,7 +133,7 @@ class WriteFirmware:
     script = '; '.join(cmds)
     return script, replace_me
 
-  def PrepareFlasher(self, uboot, payload, update, verify, is_nand):
+  def PrepareFlasher(self, uboot, payload, update, verify, boot_type):
     """Get a flasher ready for sending to the board.
 
     The flasher is an executable image consisting of:
@@ -135,7 +149,7 @@ class WriteFirmware:
       payload: Full path to payload.
       update: Use faster update algorithm rather then full device erase
       verify: Verify the write by doing a readback and CRC
-      is_nand: True if we're using NAND (instead of SPI Flash)
+      boot_type: the src for bootdevice (Nand, Sdmmc, or Spi)
 
     Returns:
       Filename of the flasher binary created.
@@ -144,7 +158,7 @@ class WriteFirmware:
     payload_size = os.stat(payload).st_size
 
     script, replace_me = self._GetFlashScript(payload_size, update, verify,
-                                              is_nand)
+                                              boot_type)
     data = self._tools.ReadFile(uboot)
     fdt.PutString('/config', 'bootcmd', script)
     fdt_data = self._tools.ReadFile(fdt.fname)
@@ -203,10 +217,14 @@ class WriteFirmware:
     Returns:
       True if ok, False if failed.
     """
-    is_nand = "NvBootDevType_Nand" in self._tools.Run('bct_dump', [bct])
+    # Use a Regex to pull Boot type from BCT file.
+    match = re.compile('DevType\[0\] = NvBootDevType_(?P<boot>([a-zA-Z])+);')
+    bct_dumped = self._tools.Run('bct_dump', [bct]).splitlines()
+    boot_type = filter(match.match, bct_dumped)
+    boot_type = match.match(boot_type[0]).group('boot')
 
     flasher = self.PrepareFlasher(uboot, payload, self.update, self.verify,
-                                  is_nand)
+                                  boot_type)
 
     self._out.Progress('Uploading flasher image')
     args = [
