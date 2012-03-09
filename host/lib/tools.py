@@ -73,7 +73,11 @@ class Tools:
 
     self._out.Info("Chroot is at '%s'" % self.chroot_path)
     self._tools = {
-      'make_bmp_image' : '##/usr/share/vboot/bitmaps/make_bmp_images.sh'
+      'make_bmp_image' : '##/usr/share/vboot/bitmaps/make_bmp_images.sh',
+      'bct_dump' : '##/usr/bin/bct_dump',
+      'nvflash' : '##/usr/bin/nvflash',
+      'gbb_utility' : '##/usr/bin/gbb_utility',
+      'cbfstool' : '##/usr/bin/cbfstool',
     }
     self.outdir = None          # We have no output directory yet
     self._delete_tempdir = None # And no temporary directory to delete
