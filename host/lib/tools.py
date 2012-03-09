@@ -134,7 +134,7 @@ class Tools:
       fname = os.path.join(self.chroot_path, fname[3:])
     return fname
 
-  def Run(self, tool, args, cwd=None):
+  def Run(self, tool, args, cwd=None, sudo=False):
     """Run a tool with given arguments.
 
     The tool name may be used unchanged or substituted with a full path if
@@ -147,6 +147,7 @@ class Tools:
       tool: Name of tool to run.
       args: List of arguments to pass to tool.
       cwd: Directory to change into before running tool (None if none).
+      sudo: True to run the tool with sudo
 
     Returns:
       Output of tool (stdout).
@@ -158,6 +159,8 @@ class Tools:
     tool = self.Filename(tool)
     args = [self.Filename(arg) for arg in args]
     cmd = [tool] + args
+    if sudo:
+      cmd.insert(0, 'sudo')
     try:
       rc, stdout, err = RunCommandCaptureOutput(cmd,
           print_cmd=self._out.verbose > 3, cwd=cwd)

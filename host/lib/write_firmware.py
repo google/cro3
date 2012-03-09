@@ -228,7 +228,6 @@ class WriteFirmware:
 
     self._out.Progress('Uploading flasher image')
     args = [
-      'nvflash',
       '--bct', bct,
       '--setbct',
       '--bl',  flasher,
@@ -240,9 +239,8 @@ class WriteFirmware:
     last_err = None
     for tries in range(10):
       try:
-        # TODO(sjg): Make sudo an argument to Run()
         # TODO(sjg): Use Chromite library so we can monitor output
-        self._tools.Run('sudo', args)
+        self._tools.Run('nvflash', args, sudo=True)
         self._out.Notice('Flasher downloaded - please see serial output '
             'for progress.')
         return True
