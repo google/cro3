@@ -25,6 +25,7 @@ from pack_firmware import PackFirmware
 import shutil
 import struct
 import tempfile
+from tools import CmdError
 from tools import Tools
 from write_firmware import WriteFirmware
 
@@ -442,6 +443,31 @@ class Bundle:
     """
     self._out.Notice(msg)
 
+  def _BuildBlob(self, pack, fdt, blob_type):
+    """Build the blob data for a particular blob type.
+
+    Args:
+      blob_type: The type of blob to create data for. Supported types are:
+          coreboot    A coreboot image (ROM plus U-boot and .dtb payloads).
+          signed      Nvidia T20/T30 signed image (BCT, U-Boot, .dtb).
+    """
+    if blob_type == 'coreboot':
+      coreboot = self._CreateCorebootStub(self.uboot_fname,
+          self.coreboot_fname, fdt, self.seabios_fname)
+      pack.AddProperty('coreboot', coreboot)
+      pack.AddProperty('image', coreboot)
+    elif blob_type == 'signed':
+      bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt,
+                                              self.postload_fname)
+      pack.AddProperty('bootstub', bootstub)
+      pack.AddProperty('signed', signed)
+      pack.AddProperty('image', signed)
+    elif pack.GetProperty(blob_type):
+      pass
+    else:
+      raise CmdError("Unknown blob type '%s' required in flash map" %
+          blob_type)
+
   def _CreateImage(self, gbb, fdt):
     """Create a full firmware image, along with various by-products.
 
@@ -461,32 +487,30 @@ class Bundle:
     """
     self._out.Notice("Model: %s" % fdt.GetString('/', 'model'))
 
-    if self.coreboot_fname:
-      # FIXME(reinauer) the names are not too great choices.
-      # signed gets packed into the bootstub, and bootstub gets
-      # packed into the RW sections.
-      signed = self._CreateCorebootStub(self.uboot_fname,
-          self.coreboot_fname, fdt, self.seabios_fname)
-      bootstub = self.uboot_fname
-    else:
-      # Create the boot stub, which is U-Boot plus an fdt and bct
-      bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt,
-                                              self.postload_fname)
+    # Get the flashmap so we know what to build
+    pack = PackFirmware(self._tools, self._out)
+    pack.SelectFdt(fdt)
+
+    # Get all our blobs ready
+    pack.AddProperty('boot', self.uboot_fname)
+    pack.AddProperty('gbb', self.uboot_fname)
+    for blob_type in pack.GetBlobList(self.coreboot_fname is not None):
+      self._BuildBlob(pack, fdt, blob_type)
 
     if gbb:
-      pack = PackFirmware(self._tools, self._out)
-      image = os.path.join(self._tools.outdir, 'image.bin')
       fwid = '.'.join([
           re.sub('[ ,]+', '_', fdt.GetString('/', 'model')),
           self._tools.GetChromeosVersion()])
       self._out.Notice('Firmware ID: %s' % fwid)
-      pack.SetupFiles(boot=bootstub, signed=signed, gbb=gbb,
-          fwid=fwid, keydir=self._keydir)
-      pack.SelectFdt(fdt)
+      pack.AddProperty('fwid', fwid)
+      pack.AddProperty('gbb', gbb)
+      pack.AddProperty('keydir', self._keydir)
+      pack.CheckProperties()
+      image = os.path.join(self._tools.outdir, 'image.bin')
       pack.PackImage(self._tools.outdir, image)
-    else:
-      image = signed
+      pack.AddProperty('image', image)
 
+    image = pack.GetProperty('image')
     self._tools.OutputSize('Final image', image)
     return image
 

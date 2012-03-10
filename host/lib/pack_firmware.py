@@ -77,6 +77,7 @@ class Entry(dict):
   image file back into an entry, to allow an image file to be updated.
 
   Properties which we need in our dictionary:
+    pack: The PackFirmware object (essentially this is our parent)
     offset: Byte offset of area.
     size: Size of area in bytes.
     name: Name of area.
@@ -286,7 +287,7 @@ class EntryKeyBlock(EntryFmapArea):
     """Create a vblock for the given firmware image"""
     self.path = os.path.join(tmpdir, 'vblock.%s' % self.label)
     try:
-      prefix = self.keydir + '/'
+      prefix = self.pack.props['keydir'] + '/'
       args = [
           '--vblock', self.path,
           '--keyblock', prefix + self.keyblock,
@@ -396,9 +397,6 @@ class PackFirmware:
     key = None
     if len(entry_list) > 1:
       key = entry_list[1]
-      if not self.props.get(key):
-        raise ConfigError("%s: Requests property '%s' but we only have %s"
-            % (node, key, self.props))
 
     # Create an entry of the correct type.
     entry = None
@@ -420,9 +418,9 @@ class PackFirmware:
     else:
       raise ValueError('%s: unknown entry type' % ftype)
 
-    # Store the property if requested
-    if entry and key:
-      entry['value'] = self.props[key]
+    entry.pack = self
+    entry.node = node
+    entry.key = key
     return entry
 
   def SetupFiles(self, boot, signed, gbb, fwid, keydir):
@@ -499,13 +497,71 @@ class PackFirmware:
       # The section names must be upper case with underscores, for other tools
       props['name'] = re.sub('-', '_', props['label']).upper()
       props['flags'] = self._GetFlags(props)
-      props['keydir'] = self.keydir
       try:
         entry = self._CreateEntry(node, props)
         self.entries.append(entry)
 
       except ConfigError as err:
         raise ValueError('Config error: %s' % err)
+
+  def GetBlobList(self, use_coreboot):
+    """Generate a list of blob types that we are going to need.
+
+    Args:
+      use_coreboot: HACK to deal with old device tree files during the
+        transition period. We change 'signed' to 'coreboot' so that these
+        files can be used until moved over.
+
+    Returns:
+      List of blob type strings
+    """
+    blob_list = set()
+    for entry in self.entries:
+      if isinstance(entry, EntryBlob):
+        if use_coreboot and entry.key == 'signed':
+          entry.key = 'coreboot'
+        blob_list.add(entry.key)
+
+    return list(blob_list)
+
+  def AddProperty(self, name, value):
+    """Add a new property which can be used by the fdt.
+
+    Args:
+      name: Name of property
+      value: Value of property (typically a filename)
+    """
+    if not value:
+      raise CmdError("Cannot find value for entry property '%s'" % name)
+    self.props[name] = value
+
+  def GetProperty(self, name):
+    """Get the value of a property required by the fdt.
+
+    Args:
+      name: Name of property
+
+    Returns:
+      Value of property, normally a filename string
+    """
+    return self.props.get(name, None)
+
+  def CheckProperties(self):
+    """Check that each entry has the properties that it needs.
+
+    Entries with a 'key' use that to look up properties. We need to make
+    sure that there is a property for that key. If not, then the entry will
+    not be able to access the data it needs during the packing stage.
+
+    Raises:
+      ConfigError: The property for a required key is missing
+    """
+    for entry in self.entries:
+      if entry.key:
+        if not self.props.get(entry.key):
+          raise ConfigError("%s: Requests property '%s' but we only have %s"
+              % (entry.node, entry.key, self.props))
+        entry.value = self.props[entry.key]
 
   def PackImage(self, tmpdir, output_path):
     """Pack the various components into a firmware image,
