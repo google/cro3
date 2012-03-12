@@ -21,6 +21,8 @@ find_common_sh() {
 find_common_sh
 . "${SCRIPT_ROOT}/common.sh" || ! echo "Run me inside the chroot." || exit 1
 
+get_default_board
+
 # Command line options
 DEFINE_string board "${DEFAULT_BOARD}" "The board to debug for."
 DEFINE_string sysroot "" "Where your target binaries are."
