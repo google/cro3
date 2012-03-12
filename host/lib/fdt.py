@@ -384,7 +384,36 @@ class Fdt:
     self.tools.Run('fdtput', args)
 
   def Compile(self):
-    """Compile an fdt .dts source file into a .dtb binary blob"""
+    """Compile an fdt .dts source file into a .dtb binary blob
+
+    >>> tools = Tools(cros_output.Output())
+    >>> src_path = '../tests/dts'
+    >>> src = os.path.join(src_path, 'source.dts')
+    >>> bin_path = '../tests/dtb'
+    >>> shutil.rmtree(bin_path)
+    >>> fdt = Fdt(tools, src)
+    >>> os.mkdir(bin_path)
+
+    # Check that we compiles .../dts/file.dts to .../dtb/file.dts
+    >>> fdt.Compile()
+    >>> os.path.exists(os.path.join(bin_path, 'source.dtb'))
+    True
+    >>> if os.path.exists('../tests/source.dtb'):
+    ...   os.remove('../tests/source.dtb')
+
+    # Now check that search paths work
+    >>> fdt = Fdt(tools, '../tests/source.dts')
+    >>> fdt.Compile()
+    Traceback (most recent call last):
+      ...
+    CmdError: Command failed: dtc -I dts -o ../tests/source.dtb -O dtb \
+-p 4096 ../tests/source.dts
+    DTC: dts->dtb  on file "../tests/source.dts"
+    FATAL ERROR: Couldn't open "tegra250.dtsi": No such file or directory
+    <BLANKLINE>
+    >>> tools.search_paths = ['../tests/dts']
+    >>> fdt.Compile()
+    """
     if not self._is_compiled:
       root, ext = os.path.splitext(self.fname)
 
@@ -394,6 +423,10 @@ class Fdt:
         root = os.path.join(os.path.dirname(os.path.dirname(root)),
             'dtb', os.path.basename(root))
       out_fname = root + '.dtb'
+
+      # If we don't have a directory, put it in the tools tempdir
+      if not os.path.dirname(root):
+        out_fname = os.path.join(self.tools.outdir, out_fname)
       search_list = []
       for path in self.tools.search_paths:
         search_list.extend(['-i', path])
