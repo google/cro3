@@ -10,9 +10,6 @@ import errno
 import os
 import shutil
 import subprocess
-import sys
-
-import constants
 
 
 GSUTIL_ATTEMPTS = 5
@@ -191,13 +188,17 @@ def PrepareAutotestPkgs(staging_dir):
   autotest_pkgs_dir = os.path.join(staging_dir, 'autotest', 'packages')
   if not os.path.exists(autotest_pkgs_dir):
     os.makedirs(autotest_pkgs_dir)
-  cmd_list = ['autotest/utils/packager.py',
-              'upload', '--repository', autotest_pkgs_dir, '--all']
-  msg = 'Failed to create autotest packages!'
-  try:
-    subprocess.check_call(' '.join(cmd_list), cwd=staging_dir, shell=True)
-  except subprocess.CalledProcessError, e:
-    raise DevServerUtilError('%s %s' % (msg, e))
+
+  if not os.path.exists(os.path.join(autotest_pkgs_dir, 'packages.checksum')):
+    cmd_list = ['autotest/utils/packager.py',
+                'upload', '--repository', autotest_pkgs_dir, '--all']
+    msg = 'Failed to create autotest packages!'
+    try:
+      subprocess.check_call(' '.join(cmd_list), cwd=staging_dir, shell=True)
+    except subprocess.CalledProcessError, e:
+      raise DevServerUtilError('%s %s' % (msg, e))
+  else:
+    cherrypy.log('Using pre-generated packages from autotest', 'DEVSERVER_UTIL')
 
 
 def SafeSandboxAccess(static_dir, path):
