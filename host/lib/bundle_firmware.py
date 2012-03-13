@@ -437,6 +437,58 @@ class Bundle:
         '0xac'])
     return bootstub
 
+  def _UpdateBl2Parameters(self, fdt, data, pos):
+    """Update the parameters in a BL2 blob.
+
+    We look at the list in the parameter block, extract the value of each
+    from the device tree, and write that value to the parameter block.
+
+    Args:
+      fdt: Device tree containing the parameter values.
+      data: The BL2 data.
+      pos: The position of the start of the parameter block.
+
+    Returns:
+      The new contents of the parameter block, after updating.
+    """
+    self._out.Info('Configuring BL2')
+    version, size = struct.unpack('<2L', data[pos + 4:pos + 12])
+    if version != 1:
+      raise CmdError("Cannot update machine parameter block version '%d'" %
+          version)
+    if size < 0 or pos + size > len(data):
+      raise CmdError("Machine parameter block size %d is invalid" % size)
+
+    # Move past the header and read the parameter list, which is terminated
+    # with \0.
+    pos += 12
+    param_list = struct.unpack('<%ds' % (len(data) - pos), data[pos:])[0]
+    param_len = param_list.find('\0')
+    param_list = param_list[:param_len]
+    pos += (param_len + 3) & ~3
+
+    # Work through the parameters one at a time, adding each value
+    new_data = ''
+    for param in param_list:
+      if param == 'm' :
+        mem_type = fdt.GetString('/memory', 'samsung,memtype')
+        mem_types = ['ddr2', 'ddr3', 'lpddr2', 'lpddr3']
+        if not mem_type in mem_types:
+          raise CmdError("Unknown memory type '%s'" % mem_type)
+        value = mem_types.index(mem_type)
+        self._out.Info('  Memory type: %s (%d)' % (mem_type, value))
+      elif param == 'v':
+        value = 31
+        self._out.Info('  Memory interleave: %#0x' % value)
+      else:
+        raise CmdError("Machine parameter block size %d is invalid" % size)
+      new_data += struct.pack('<L', value)
+
+    # Put the data into our block.
+    data = data[:pos] + new_data + data[pos + len(new_data):]
+    self._out.Info('BL2 configuration complete')
+    return data
+
   def _ConfigureExynosBl2(self, fdt, orig_bl2):
     """Configure an Exynos BL2 binary for our needs.
 
@@ -456,8 +508,7 @@ class Bundle:
     if not pos:
       raise CmdError("Could not find machine parameter block in '%s'" %
           orig_bl2)
-
-    # TODO: Update parameter block
+    self._UpdateBl2Parameters(fdt, data, pos)
     self._tools.WriteFile(bl2, data)
     return bl2
 
