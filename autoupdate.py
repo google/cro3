@@ -739,12 +739,17 @@ class Autoupdate(BuildObject):
     if event:
       event_result = int(event[0].getAttribute('eventresult'))
       event_type = int(event[0].getAttribute('eventtype'))
+      client_previous_version = (event[0].getAttribute('previousversion')
+                                 if event[0].hasAttribute('previousversion')
+                                 else None)
       # Store attributes to legacy host info structure
       curr_host_info.attrs['last_event_status'] = event_result
       curr_host_info.attrs['last_event_type'] = event_type
       # Add attributes to log message
       log_message['event_result'] = event_result
       log_message['event_type'] = event_type
+      if client_previous_version is not None:
+        log_message['previous_version'] = client_previous_version
 
     # Get information about the requester.
     query = root.getElementsByTagName('o:app')[0]
