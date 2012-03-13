@@ -81,6 +81,7 @@ class Entry(dict):
     offset: Byte offset of area.
     size: Size of area in bytes.
     name: Name of area.
+    required: True if this entry is required in the image, False if not
   """
   def __init__(self, props):
     super(Entry, self).__init__(props)
@@ -394,13 +395,15 @@ class PackFirmware:
     """
     entry_list = self.fdt.GetString(node, 'type', 'empty').split()
     ftype = entry_list[0]
+    if ftype == 'empty':
+      ftype = ''
     key = None
     if len(entry_list) > 1:
       key = entry_list[1]
 
     # Create an entry of the correct type.
     entry = None
-    if ftype == 'empty':
+    if not ftype:
       entry = EntryFmapArea(props)
     elif ftype == 'blob':
       entry = EntryBlob(props)
@@ -421,7 +424,20 @@ class PackFirmware:
     entry.pack = self
     entry.node = node
     entry.key = key
+    entry.required = 'required' in props
+    entry.ftype = ftype
     return entry
+
+  def _IsRequired(self, entry):
+    """Check if an entry is required in the final image.
+
+    Args:
+      entry: Entry to check
+
+    Returns:
+      True if this entry must be included, False if not.
+    """
+    return entry.required
 
   def SetupFiles(self, boot, signed, gbb, fwid, keydir):
     """Set up files required for packing the firmware.
@@ -444,8 +460,13 @@ class PackFirmware:
 
     We only allow section areas to overlap - anything with actual data in it
     must not overlap.
+
+    Returns:
+      True if all entries are required in the image, else False
     """
-    entries = sorted(self.entries, key=lambda e: e.offset)
+    required = filter(self._IsRequired, self.entries)
+    entries = sorted(required, key=lambda e: e.offset)
+    all_entries = len(self.entries) == len(required)
     for e1, e2 in zip(entries, entries[1:]):
       # Allow overlap between "pure" fmap areas, but not any of its subclasses
       # Here we exploit the fact that Entry is a new-style class
@@ -463,6 +484,8 @@ class PackFirmware:
             '%s: %08x-%08x, %s: %08x-%08x' %
             (-overlap, e1.label, e1.offset, e1.offset + e1.size,
              e2.label, e2.offset, e2.offset + e2.size))
+
+    return all_entries
 
   def SelectFdt(self, fdt):
     """Scan FDT and build entry objects.
@@ -557,11 +580,16 @@ class PackFirmware:
       ConfigError: The property for a required key is missing
     """
     for entry in self.entries:
-      if entry.key:
+      if entry.required and entry.key:
         if not self.props.get(entry.key):
           raise ConfigError("%s: Requests property '%s' but we only have %s"
               % (entry.node, entry.key, self.props))
         entry.value = self.props[entry.key]
+
+  def RequireAllEntries(self):
+    """Mark all entries as required, to produce a full image."""
+    for entry in self.entries:
+      entry.required = True
 
   def PackImage(self, tmpdir, output_path):
     """Pack the various components into a firmware image,
@@ -578,14 +606,18 @@ class PackFirmware:
     """
     self.tmpdir = tmpdir
 
-    self._CheckOverlap()
+    all_entries = self._CheckOverlap()
 
     # Set up a zeroed file of the correct size.
     image = open(output_path, 'wb')
-    image.write('\0' * self.image_size)
+    if all_entries:
+      image.write('\0' * self.image_size)
 
     # Pack all the entriess.
     for entry in self.entries:
+      if not entry.required:
+        continue
+
       # Add in the info for the fmap.
       if type(entry) == EntryFmap:
         entry.SetEntries(base=0, image_size=self.image_size,

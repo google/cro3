@@ -498,6 +498,7 @@ class Bundle:
       self._BuildBlob(pack, fdt, blob_type)
 
     if gbb:
+      pack.RequireAllEntries()
       fwid = '.'.join([
           re.sub('[ ,]+', '_', fdt.GetString('/', 'model')),
           self._tools.GetChromeosVersion()])
