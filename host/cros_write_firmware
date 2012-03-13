@@ -38,7 +38,7 @@ def _CheckTools(tools, options):
   tools.CheckTool('fdtput', 'dtc')
   tools.CheckTool('fdtget', 'dtc')
 
-def _DoWriteFirmware(options, output, tools, update, verify):
+def _DoWriteFirmware(options, output, tools, update, verify, dest):
   """The main part of the cros_write_firmware code.
 
   This takes the supplied options and performs the firmware write.
@@ -102,6 +102,8 @@ def main():
       '4=debug')
   parser.add_option('-V', '--verify', dest='verify', action='store_true',
       help='Verify flash after writing')
+  parser.add_option('-w', '--write', dest='write', type='string',
+      action='store', default='usb', help='Write firmware to device (usb, sd)')
   (options, args) = parser.parse_args(sys.argv)
   if not options.image and len(args) > 1:
     options.image = args[1]
@@ -113,7 +115,7 @@ def main():
   with cros_output.Output(options.verbosity) as output:
     with Tools(output) as tools:
       _DoWriteFirmware(options, output, tools, not options.full_erase,
-          options.verify)
+          options.verify, dest=options.write)
 
 
 def _Test():

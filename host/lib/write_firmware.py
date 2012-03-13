@@ -203,7 +203,7 @@ class WriteFirmware:
     self._tools.OutputSize('Flasher', flasher)
     return flasher
 
-  def FlashImage(self, uboot, bct, payload):
+  def NvidiaFlashImage(self, uboot, bct, payload):
     """Flash the image to SPI flash.
 
     This creates a special Flasher binary, with the image to be flashed as
@@ -264,11 +264,11 @@ class WriteFirmware:
     return False
 
 def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname,
-                    text_base=None, update=True, verify=False):
-  """A simple function to write firmware to the board.
+                    text_base=None, update=True, verify=False, dest=None):
+  """A simple function to write firmware to a device.
 
   This creates a WriteFirmware object and uses it to write the firmware image
-  to the board.
+  to the given destination device.
 
   Args:
     output: cros_output object to use.
@@ -280,14 +280,25 @@ def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname,
     text_base: U-Boot text base (base of executable image), None for default.
     update: Use faster update algorithm rather then full device erase.
     verify: Verify the write by doing a readback and CRC.
+    dest: Destination device to write firmware to (usb, sd).
   """
   write = WriteFirmware(tools, fdt, output)
   if text_base:
     write.text_base = text_base
   write.update = update
   write.verify = verify
-  if write.FlashImage(flasher, bct_fname, image_fname):
-    output.Progress('Image uploaded - please wait for flashing to '
-        'complete')
+  if dest == 'usb':
+    method = fdt.GetString('/chromeos-config', 'flash-method', 'tegra')
+    if method == 'tegra':
+      ok = write.NvidiaFlashImage(flasher, bct_fname, image_fname)
+    else:
+      raise CmdError("Unknown flash method '%s'" % method)
+    if ok:
+      output.Progress('Image uploaded - please wait for flashing to '
+          'complete')
+    else:
+      raise CmdError('Image upload failed - please check board connection')
+  elif dest == 'sd':
+    pass
   else:
-    raise CmdError('Image upload failed - please check board connection')
+    raise CmdError("Unknown destination device '%s'" % dest)
