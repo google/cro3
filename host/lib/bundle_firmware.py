@@ -506,14 +506,15 @@ class Bundle:
       pack.AddProperty('fwid', fwid)
       pack.AddProperty('gbb', gbb)
       pack.AddProperty('keydir', self._keydir)
-      pack.CheckProperties()
-      image = os.path.join(self._tools.outdir, 'image.bin')
-      pack.PackImage(self._tools.outdir, image)
-      pack.AddProperty('image', image)
+
+    pack.CheckProperties()
+    image = os.path.join(self._tools.outdir, 'image.bin')
+    pack.PackImage(self._tools.outdir, image)
+    pack.AddProperty('image', image)
 
     image = pack.GetProperty('image')
     self._tools.OutputSize('Final image', image)
-    return image
+    return image, pack
 
   def SelectFdt(self, fdt_fname):
     """Select an FDT to control the firmware bundling
@@ -534,7 +535,7 @@ class Bundle:
     self.fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
     return fdt
 
-  def Start(self, hardware_id, output_fname):
+  def Start(self, hardware_id, output_fname, show_map):
     """This creates a firmware bundle according to settings provided.
 
       - Checks options, tools, output directory, fdt.
@@ -545,6 +546,7 @@ class Bundle:
           default from the Fdt will be used
       output_fname: Output filename for the image. If this is not None, then
           the final image will be copied here.
+      show_map: Show a flash map, with each area's name and position
 
     Returns:
       Filename of the resulting image (not the output_fname copy).
@@ -554,7 +556,9 @@ class Bundle:
       gbb = self._CreateGoogleBinaryBlock(hardware_id)
 
     # This creates the actual image.
-    image = self._CreateImage(gbb, self.fdt)
+    image, pack = self._CreateImage(gbb, self.fdt)
+    if show_map:
+      pack.ShowMap()
     if output_fname:
       shutil.copyfile(image, output_fname)
       self._out.Notice("Output image '%s'" % output_fname)

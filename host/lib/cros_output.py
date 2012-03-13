@@ -150,3 +150,12 @@ class Output:
       msg; Message to display.
     """
     self._Output(4, msg)
+
+  def UserOutput(self, msg):
+    """Display a message regardless of the current output level.
+
+    This is used when the output was specifically requested by the user.
+    Args:
+      msg; Message to display.
+    """
+    self._Output(0, msg)

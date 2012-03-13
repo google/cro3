@@ -645,6 +645,37 @@ class PackFirmware:
       except PackError as err:
         raise ValueError('Packing error: %s' % err)
 
+  def _OutEntry(self, status, offset, size, name):
+    """Display a flash map entry.
+
+    Args:
+      status: Status character.
+      offset: Byte offset of entry.
+      size: Size of entry in bytes.
+      name: Name of entry.
+    """
+    indent = '' if status == '-' else ' '
+    self._out.UserOutput('%s %08x  %08x  %s%-20s' % (status, offset, size,
+        indent, name))
+
+  def ShowMap(self):
+    """Show a map of the final image."""
+    self._out.UserOutput('Final Flash Map:')
+    self._out.UserOutput('%s %8s  %8s  %-20s' % ('S', 'Start', 'Size', 'Name'))
+    offset = 0
+    for entry in self.entries:
+      if not entry.ftype:
+        status = '-'
+      elif entry.required:
+        status = 'P'
+      else:
+        status = '.'
+      if entry.ftype and offset != entry.offset:
+        self._OutEntry('!', offset, entry.offset - offset, '<gap>')
+      self._OutEntry(status, entry.offset, entry.size, entry.name)
+      if entry.ftype:
+        offset = entry.offset + entry.size
+
 def _Test():
   """Run any built-in tests."""
   import doctest

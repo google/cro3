@@ -90,7 +90,8 @@ def _DoBundle(options, output, tools):
     bundle.AddConfigList(options.add_config_str)
     bundle.AddConfigList(options.add_config_int, use_int=True)
 
-    out_fname = bundle.Start(options.hardware_id, options.output)
+    out_fname = bundle.Start(options.hardware_id, options.output,
+        options.show_map)
 
     # Write it to the board if required.
     if options.write:
@@ -140,6 +141,8 @@ def main():
       default='##/usr/share/vboot/devkeys')
   parser.add_option('-I', '--includedir', dest='includedirs', type='string',
       action='append', help='Include directory to search for files')
+  parser.add_option('-m', '--map', dest='show_map', action='store_true',\
+      help='Output a flash map summary')
   parser.add_option('-o', '--output', dest='output', type='string',
       action='store', help='Filename of final output image')
   parser.add_option('-O', '--outdir', dest='outdir', type='string',
