@@ -508,12 +508,24 @@ class PackFirmware:
     # Scan the flash map in the fdt, creating a list of Entry objects.
     re_label = re.compile('(.*)-(\w*)')
     children = fdt.GetChildren(root)
+
+    # Current offset to use for entries with only a 'size' property.
+    upto_offset = 0
     for child in children:
       node = root + '/' + child
       props = fdt.GetProps(node, True)
 
       # Read the two cells from the node's /reg property to get entry extent.
-      offset, size = fdt.DecodeIntList(node, 'reg', props['reg'], 2)
+      reg = props.get('reg', None)
+      if reg:
+        offset, size = fdt.DecodeIntList(node, 'reg', reg, 2)
+      else:
+        size = props.get('size', None)
+        if not size:
+          raise ValueError("Must specify either 'reg' or 'size' in flash node")
+        size = int(size)
+        offset = upto_offset
+
       props['offset'] = offset
       props['size'] = size
 
@@ -526,6 +538,9 @@ class PackFirmware:
 
       except ConfigError as err:
         raise ValueError('Config error: %s' % err)
+
+      if entry.ftype:
+        upto_offset = offset + size
 
   def GetBlobList(self, use_coreboot):
     """Generate a list of blob types that we are going to need.
@@ -633,7 +648,8 @@ class PackFirmware:
         data = entry.GetData()
         self._out.Debug('Entry: %s' % entry.name)
         self._out.Debug('Entry data: %s' % entry)
-        self._out.Debug('Data size: %s bytes' % len(data))
+        self._out.Debug('Data size: %s bytes, at %#x' %
+            (len(data), entry.offset))
         if len(data) > entry.size:
           raise PackError("Data for '%s' too large for area: %d/%#x >"
               " %d/%#x" % (entry.name, len(data), len(data), entry.size,
