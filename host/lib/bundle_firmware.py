@@ -95,6 +95,8 @@ class Bundle:
     self.bmpblk_fname = None    # Filename of our Bitmap Block
     self.coreboot_fname = None  # Filename of our coreboot binary.
     self.seabios_fname = None   # Filename of our SeaBIOS payload.
+    self.exynos_bl1 = None      # Filename of Exynos BL1 (pre-boot)
+    self.exynos_bl2 = None      # Filename of Exynos BL2 (SPL)
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -105,7 +107,7 @@ class Bundle:
     self._keydir = keydir
 
   def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
-               postload=None, seabios=None):
+               postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None):
     """Set up files required for Bundle.
 
     Args:
@@ -124,6 +126,8 @@ class Bundle:
     self.coreboot_fname = coreboot
     self.postload_fname = postload
     self.seabios_fname = seabios
+    self.exynos_bl1 = exynos_bl1
+    self.exynos_bl2 = exynos_bl2
 
   def SetOptions(self, small):
     """Set up options supported by Bundle.
@@ -433,6 +437,30 @@ class Bundle:
         '0xac'])
     return bootstub
 
+  def _ConfigureExynosBl2(self, fdt, orig_bl2):
+    """Configure an Exynos BL2 binary for our needs.
+
+    We create a new modified BL2 and return its filename.
+
+    Args:
+      fdt: Device tree containing the parameter values.
+      orig_bl2: Filename of original BL2 file to modify.
+    """
+    bl2 = os.path.join(self._tools.outdir, 'updated-spl.bin')
+    shutil.copyfile(orig_bl2, bl2)
+
+    # Locate the parameter block
+    data = self._tools.ReadFile(bl2)
+    marker = struct.pack('<L', 0xdeadbeef)
+    pos = data.rfind(marker)
+    if not pos:
+      raise CmdError("Could not find machine parameter block in '%s'" %
+          orig_bl2)
+
+    # TODO: Update parameter block
+    self._tools.WriteFile(bl2, data)
+    return bl2
+
   def _PackOutput(self, msg):
     """Helper function to write output from PackFirmware (verbose level 2).
 
@@ -462,6 +490,11 @@ class Bundle:
       pack.AddProperty('bootstub', bootstub)
       pack.AddProperty('signed', signed)
       pack.AddProperty('image', signed)
+    elif blob_type == 'exynos-bl1':
+      pack.AddProperty(blob_type, self.exynos_bl1)
+    elif blob_type == 'exynos-bl2':
+      bl2 = self._ConfigureExynosBl2(fdt, self.exynos_bl2)
+      pack.AddProperty(blob_type, bl2)
     elif pack.GetProperty(blob_type):
       pass
     else:

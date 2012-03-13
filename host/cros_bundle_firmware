@@ -80,7 +80,8 @@ def _DoBundle(options, output, tools):
   bundle.SetDirs(keydir=options.key)
   bundle.SetFiles(board=options.board, uboot=options.uboot, bct=options.bct,
                   bmpblk=options.bmpblk, coreboot=options.coreboot,
-                  postload=options.postload, seabios=options.seabios)
+                  postload=options.postload, seabios=options.seabios,
+                  exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2)
   bundle.SetOptions(small=options.small)
 
   try:
@@ -132,6 +133,10 @@ def main():
   # TODO(sjg): Support source FDT files
   parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
       help='Path to fdt binary blob .dtb file to use')
+  parser.add_option('--bl1', dest='exynos_bl1', type='string',
+      action='store', help='Exynos preboot (BL1) file')
+  parser.add_option('--bl2', dest='exynos_bl2', type='string',
+      action='store', help='Exynos Secondary Program Loader (SPL / BL2) file')
   parser.add_option('--hwid', dest='hardware_id', type='string',
       action='store', help='Hardware ID string to use')
   parser.add_option('-B', '--bmpblk', dest='bmpblk', type='string',
