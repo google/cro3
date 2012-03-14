@@ -1,4 +1,4 @@
-# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -9,17 +9,13 @@ import distutils.version
 import errno
 import os
 import shutil
-import subprocess
 
+import downloadable_artifact
+import gsutil_util
 
-GSUTIL_ATTEMPTS = 5
 AU_BASE = 'au'
 NTON_DIR_SUFFIX = '_nton'
 MTON_DIR_SUFFIX = '_mton'
-ROOT_UPDATE = 'update.gz'
-STATEFUL_UPDATE = 'stateful.tgz'
-TEST_IMAGE = 'chromiumos_test_image.bin'
-AUTOTEST_PACKAGE = 'autotest.tar.bz2'
 DEV_BUILD_PREFIX = 'dev'
 
 
@@ -61,150 +57,66 @@ def ParsePayloadList(payload_list):
   return full_payload_url, nton_payload_url, mton_payload_url
 
 
-def DownloadBuildFromGS(staging_dir, archive_url, build):
-  """Downloads the specified build from Google Storage into a temp directory.
+def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir):
+  """Generates artifacts that we mean to download and install for autotest.
 
-  The archive is expected to contain stateful.tgz, autotest.tar.bz2, and three
-  payloads: full, N-1->N, and N->N. gsutil is used to download the file.
-  gsutil must be in the path and should have required credentials.
-
-  Args:
-    staging_dir: Temp directory containing payloads and autotest packages.
-    archive_url: Google Storage path to the build directory.
-        e.g. gs://chromeos-image-archive/x86-generic/R17-1208.0.0-a1-b338.
-    build: Full build string to look for; e.g. R17-1208.0.0-a1-b338.
-
-  Raises:
-    DevServerUtilError: If any steps in the process fail to complete.
+  This method generates the list of artifacts we will need for autotest. These
+  artifacts are instances of downloadable_artifact.DownloadableArtifact.Note,
+  these artifacts can be downloaded asynchronously iff !artifact.Synchronous().
   """
-  def GSUtilRun(cmd, err_msg):
-    """Runs a GSUTIL command up to GSUTIL_ATTEMPTS number of times.
-
-    Raises:
-      subprocess.CalledProcessError if all attempt to run gsutil cmd fails.
-    """
-    proc = None
-    for _attempt in range(GSUTIL_ATTEMPTS):
-      proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-      stdout, _stderr = proc.communicate()
-      if proc.returncode == 0:
-        return stdout
-    else:
-      raise DevServerUtilError('%s GSUTIL cmd %s failed with return code %d' % (
-          err_msg, cmd, proc.returncode))
-
-  # Get a list of payloads from Google Storage.
   cmd = 'gsutil ls %s/*.bin' % archive_url
   msg = 'Failed to get a list of payloads.'
-  stdout = GSUtilRun(cmd, msg)
+  payload_list = gsutil_util.GSUtilRun(cmd, msg).splitlines()
 
-  payload_list = stdout.splitlines()
-  full_payload_url, nton_payload_url, mton_payload_url = (
-      ParsePayloadList(payload_list))
+  # First we gather the urls/paths for the update payloads.
+  full_url, nton_url, mton_url = ParsePayloadList(payload_list)
 
-  # Create temp directories for payloads.
-  nton_payload_dir = os.path.join(staging_dir, AU_BASE, build + NTON_DIR_SUFFIX)
-  os.makedirs(nton_payload_dir)
-  mton_payload_dir = os.path.join(staging_dir, AU_BASE, build + MTON_DIR_SUFFIX)
-  os.mkdir(mton_payload_dir)
+  full_payload = os.path.join(build_dir, downloadable_artifact.ROOT_UPDATE)
+  nton_payload = os.path.join(build_dir, AU_BASE, build + NTON_DIR_SUFFIX,
+                              downloadable_artifact.ROOT_UPDATE)
+  mton_payload = os.path.join(build_dir, AU_BASE, build + MTON_DIR_SUFFIX,
+                              downloadable_artifact.ROOT_UPDATE)
 
-  # Download build components into respective directories.
-  src = [full_payload_url,
-         nton_payload_url,
-         mton_payload_url,
-         archive_url + '/' + STATEFUL_UPDATE,
-         archive_url + '/' + AUTOTEST_PACKAGE]
-  dst = [os.path.join(staging_dir, ROOT_UPDATE),
-         os.path.join(nton_payload_dir, ROOT_UPDATE),
-         os.path.join(mton_payload_dir, ROOT_UPDATE),
-         staging_dir,
-         staging_dir]
-  for src, dest in zip(src, dst):
-    cmd = 'gsutil cp %s %s' % (src, dest)
-    msg = 'Failed to download "%s".' % src
-    GSUtilRun(cmd, msg)
+  artifacts = []
+  artifacts.append(downloadable_artifact.DownloadableArtifact(full_url,
+      main_staging_dir, full_payload, synchronous=True))
+  artifacts.append(downloadable_artifact.AUTestPayload(nton_url,
+      main_staging_dir, nton_payload))
+  artifacts.append(downloadable_artifact.AUTestPayload(mton_url,
+      main_staging_dir, mton_payload))
+
+  # Next we gather the miscellaneous payloads.
+  stateful_url = archive_url + '/' + downloadable_artifact.STATEFUL_UPDATE
+  autotest_url = archive_url + '/' + downloadable_artifact.AUTOTEST_PACKAGE
+  test_suites_url = (archive_url + '/' +
+                     downloadable_artifact.TEST_SUITES_PACKAGE)
+
+  stateful_payload = os.path.join(build_dir,
+                                  downloadable_artifact.STATEFUL_UPDATE)
+
+  artifacts.append(downloadable_artifact.DownloadableArtifact(
+      stateful_url, main_staging_dir, stateful_payload, synchronous=True))
+  artifacts.append(downloadable_artifact.AutotestTarball(
+      autotest_url, main_staging_dir, os.path.join(build_dir, 'autotest')))
+  artifacts.append(downloadable_artifact.Tarball(
+      test_suites_url, main_staging_dir, os.path.join(build_dir, 'autotest'),
+      synchronous=True))
+  return artifacts
 
 
-def InstallBuild(staging_dir, build_dir):
-  """Installs various build components from staging directory.
-
-  Specifically, the following components are installed:
-    - update.gz
-    - stateful.tgz
-    - chromiumos_test_image.bin
-    - The entire contents of the au directory. Symlinks are generated for each
-      au payload as well.
-    - Contents of autotest-pkgs directory.
-    - Control files from autotest/server/{tests, site_tests}
+def PrepareBuildDirectory(build_dir):
+  """Preliminary staging of installation directory for build.
 
   Args:
-    staging_dir: Temp directory containing payloads and autotest packages.
     build_dir: Directory to install build components into.
   """
-  install_list = [ROOT_UPDATE, STATEFUL_UPDATE]
+  if not os.path.isdir(build_dir):
+    os.path.makedirs(build_dir)
 
   # Create blank chromiumos_test_image.bin. Otherwise the Dev Server will
   # try to rebuild it unnecessarily.
-  test_image = os.path.join(build_dir, TEST_IMAGE)
+  test_image = os.path.join(build_dir, downloadable_artifact.TEST_IMAGE)
   open(test_image, 'a').close()
-
-  # Install AU payloads.
-  au_path = os.path.join(staging_dir, AU_BASE)
-  install_list.append(AU_BASE)
-  # For each AU payload, setup symlinks to the main payloads.
-  cwd = os.getcwd()
-  for au in os.listdir(au_path):
-    os.chdir(os.path.join(au_path, au))
-    os.symlink(os.path.join(os.pardir, os.pardir, TEST_IMAGE), TEST_IMAGE)
-    os.symlink(os.path.join(os.pardir, os.pardir, STATEFUL_UPDATE),
-               STATEFUL_UPDATE)
-    os.chdir(cwd)
-
-  for component in install_list:
-    shutil.move(os.path.join(staging_dir, component), build_dir)
-
-  shutil.move(os.path.join(staging_dir, 'autotest'),
-              os.path.join(build_dir, 'autotest'))
-
-
-def PrepareAutotestPkgs(staging_dir):
-  """Create autotest client packages inside staging_dir.
-
-  Args:
-    staging_dir: Temp directory containing payloads and autotest packages.
-
-  Raises:
-    DevServerUtilError: If any steps in the process fail to complete.
-  """
-  cmd = ('tar xf %s --use-compress-prog=pbzip2 --directory=%s' %
-         (os.path.join(staging_dir, AUTOTEST_PACKAGE), staging_dir))
-  msg = 'Failed to extract autotest.tar.bz2 ! Is pbzip2 installed?'
-  try:
-    subprocess.check_call(cmd, shell=True)
-  except subprocess.CalledProcessError, e:
-    raise DevServerUtilError('%s %s' % (msg, e))
-
-  # Use the root of Autotest
-  autotest_pkgs_dir = os.path.join(staging_dir, 'autotest', 'packages')
-  if not os.path.exists(autotest_pkgs_dir):
-    os.makedirs(autotest_pkgs_dir)
-
-  if not os.path.exists(os.path.join(autotest_pkgs_dir, 'packages.checksum')):
-    cmd_list = ['autotest/utils/packager.py',
-                'upload', '--repository', autotest_pkgs_dir, '--all']
-    msg = 'Failed to create autotest packages!'
-    try:
-      subprocess.check_call(' '.join(cmd_list), cwd=staging_dir, shell=True)
-    except subprocess.CalledProcessError, e:
-      raise DevServerUtilError('%s %s' % (msg, e))
-  else:
-    cherrypy.log('Using pre-generated packages from autotest', 'DEVSERVER_UTIL')
-
-  # TODO(scottz): Remove after we have moved away from the old test_scheduler
-  # code.
-  cmd = 'cp %s/* %s' % (autotest_pkgs_dir,
-                        os.path.join(staging_dir, 'autotest'))
-  subprocess.check_call(cmd, shell=True)
 
 
 def SafeSandboxAccess(static_dir, path):
@@ -371,7 +283,9 @@ def CloneBuild(static_dir, board, build, tag, force=False):
 
   # Make a copy of the official build, only take necessary files.
   if not dev_build_exists:
-    copy_list = [TEST_IMAGE, ROOT_UPDATE, STATEFUL_UPDATE]
+    copy_list = [downloadable_artifact.TEST_IMAGE,
+                 downloadable_artifact.ROOT_UPDATE,
+                 downloadable_artifact.STATEFUL_UPDATE]
     for f in copy_list:
       shutil.copy(os.path.join(official_build_dir, f), dev_build_dir)
 
