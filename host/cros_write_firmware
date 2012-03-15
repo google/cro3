@@ -35,8 +35,8 @@ def _CheckTools(tools, options):
     CmdError if a required tool is not found.
   """
   tools.CheckTool('nvflash')
-  tools.CheckTool('dtput', 'dtc')
-  tools.CheckTool('dtget', 'dtc')
+  tools.CheckTool('fdtput', 'dtc')
+  tools.CheckTool('fdtget', 'dtc')
 
 def _DoWriteFirmware(options, output, tools, update, verify):
   """The main part of the cros_write_firmware code.
