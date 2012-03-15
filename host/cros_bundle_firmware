@@ -16,8 +16,8 @@ from the chroot:
     gbb_utility
     cbootimage
     vbutil_firmware
-    dtget
-    dtput
+    fdtget
+    fdtput
 
   /usr/lib:
     liblzma.so.0*
