@@ -30,7 +30,6 @@ get_default_board
 
 # Flags
 DEFINE_string board "$DEFAULT_BOARD" "The name of the board to set up."
-DEFINE_string build_root "/build" "The root location for board sysroots."
 DEFINE_string board_overlay "" "Location of the board overlay."
 DEFINE_string variant "" "Board variant."
 DEFINE_string profile "" "The portage configuration profile to use."
@@ -50,7 +49,7 @@ fi
 
 get_board_and_variant $FLAGS_board $FLAGS_variant
 
-BOARD_ROOT="${FLAGS_build_root}/${BOARD_VARIANT}"
+BOARD_ROOT="/build/${BOARD_VARIANT}"
 CHROMIUMOS_OVERLAY="/usr/local/portage/chromiumos"
 CHROMIUMOS_PROFILES="${CHROMIUMOS_OVERLAY}/profiles"
 MAKE_PROFILE="${BOARD_ROOT}/etc/make.profile"

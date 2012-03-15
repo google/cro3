@@ -23,8 +23,6 @@ DEFINE_string board "$DEFAULT_BOARD" \
   "The board to build packages for."
 DEFINE_boolean usepkg $FLAGS_FALSE \
   "Use binary packages to bootstrap build when possible."
-DEFINE_string build_root "/build" \
-  "The root location for board sysroots."
 DEFINE_integer jobs -1 \
   "How many packages to build in parallel at maximum."
 DEFINE_boolean unmerge $FLAGS_FALSE \
@@ -86,7 +84,7 @@ fi
 
 # Name is unique per client.  This allows one to run gmergefs in parallel
 # with multiple clients.
-REMOTE_ROOT_DIR="${FLAGS_build_root}/${FLAGS_board}/gmergefs/${FLAGS_remote}"
+REMOTE_ROOT_DIR="/build/${FLAGS_board}/gmergefs/${FLAGS_remote}"
 
 # Default is to install on stateful dev, otherwise install on root.
 REMOTE_RELATIVE_PATH=""
