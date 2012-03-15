@@ -12,7 +12,7 @@
 
 # Load common constants.  This should be the first executable line.
 # The path to common.sh should be relative to your script's location.
-. /usr/lib/crosutils/common.sh 2> /dev/null || 
+. /usr/lib/crosutils/common.sh 2> /dev/null ||
   (echo "Must run from within the chroot" && false) ||
   exit 1
 
@@ -29,8 +29,6 @@ DEFINE_integer jobs -1 \
   "How many packages to build in parallel at maximum."
 DEFINE_boolean unmerge $FLAGS_FALSE \
   "Whether to unmerge the package versus emerge it."
-DEFINE_integer retries -1 \
-  "On build failure, the number of times to retry"
 DEFINE_boolean onstatefuldev $FLAGS_TRUE \
   "Build packages and install them into stateful partition on device."
 DEFINE_boolean installmask $FLAGS_TRUE \
@@ -77,11 +75,11 @@ EMERGE_JOBS=
 
 # Skip building on host if we are unmerging.
 if [ ${FLAGS_unmerge} -eq ${FLAGS_FALSE} ] ; then
-  eretry sudo emerge -uDNv $EMERGE_FLAGS $EMERGE_JOBS world
+  sudo emerge -uDNv $EMERGE_FLAGS $EMERGE_JOBS world
 
   # Build request and install them onto the sysroot
   for emerge_request in $FLAGS_ARGV; do
-    eretry sudo emerge-${FLAGS_board} $EMERGE_JOBS -uDNv \
+    sudo emerge-${FLAGS_board} $EMERGE_JOBS -uDNv \
       $(remove_quotes "${emerge_request}")
   done
 fi
