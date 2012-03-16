@@ -511,6 +511,8 @@ class PackFirmware:
 
     # Current offset to use for entries with only a 'size' property.
     upto_offset = 0
+    required_count = 0
+    first_blob_entry = None
     for child in children:
       node = root + '/' + child
       props = fdt.GetProps(node, True)
@@ -541,6 +543,16 @@ class PackFirmware:
 
       if entry.ftype:
         upto_offset = offset + size
+      if entry.required:
+        required_count += 1
+      if entry.key == 'signed':
+        first_blob_entry = entry
+
+    # HACK: Since Tegra FDT files are not in our tree yet, but we still want
+    # to use the old ones, we emulate the old behavior by marking the signed
+    # entry as required, if none of the entries were marked required.
+    if not required_count:
+      first_blob_entry.required = True
 
   def GetBlobList(self, use_coreboot):
     """Generate a list of blob types that we are going to need.
