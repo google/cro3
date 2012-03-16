@@ -457,7 +457,9 @@ class Bundle:
       raise CmdError("Cannot update machine parameter block version '%d'" %
           version)
     if size < 0 or pos + size > len(data):
-      raise CmdError("Machine parameter block size %d is invalid" % size)
+      raise CmdError("Machine parameter block size %d is invalid: "
+            "pos=%d, size=%d, space=%d, len=%d" %
+            (size, pos, size, len(data) - pos, len(data)))
 
     # Move past the header and read the parameter list, which is terminated
     # with \0.
@@ -469,6 +471,7 @@ class Bundle:
 
     # Work through the parameters one at a time, adding each value
     new_data = ''
+    upto = 0
     for param in param_list:
       if param == 'm' :
         mem_type = fdt.GetString('/memory', 'samsung,memtype')
@@ -481,8 +484,10 @@ class Bundle:
         value = 31
         self._out.Info('  Memory interleave: %#0x' % value)
       else:
-        raise CmdError("Machine parameter block size %d is invalid" % size)
+        self._out.Warning("Unknown machine parameter type '%s'" % param)
+        value = struct.unpack('<1L', data[pos + upto:pos + upto + 4])[0]
       new_data += struct.pack('<L', value)
+      upto += 4
 
     # Put the data into our block.
     data = data[:pos] + new_data + data[pos + len(new_data):]
