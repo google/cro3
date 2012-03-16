@@ -458,7 +458,7 @@ class Bundle:
         '0xac'])
     return bootstub
 
-  def _UpdateBl2Parameters(self, fdt, data, pos):
+  def _UpdateBl2Parameters(self, fdt, pack, data, pos):
     """Update the parameters in a BL2 blob.
 
     We look at the list in the parameter block, extract the value of each
@@ -466,6 +466,7 @@ class Bundle:
 
     Args:
       fdt: Device tree containing the parameter values.
+      pack: The firmware packer object
       data: The BL2 data.
       pos: The position of the start of the parameter block.
 
@@ -504,6 +505,14 @@ class Bundle:
       elif param == 'v':
         value = 31
         self._out.Info('  Memory interleave: %#0x' % value)
+      elif param == 'u':
+        value = os.stat(pack.GetProperty('boot+dtb')).st_size
+        value = (value + 0xfff) & ~0xfff
+
+        # Seems to not work if this is another value
+        #value += 0x3000
+        value = 0x40000
+        self._out.Info('  U-Boot size: %#0x' % value)
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
         value = struct.unpack('<1L', data[pos + upto:pos + upto + 4])[0]
@@ -515,13 +524,14 @@ class Bundle:
     self._out.Info('BL2 configuration complete')
     return data
 
-  def _ConfigureExynosBl2(self, fdt, orig_bl2):
+  def _ConfigureExynosBl2(self, fdt, pack, orig_bl2):
     """Configure an Exynos BL2 binary for our needs.
 
     We create a new modified BL2 and return its filename.
 
     Args:
       fdt: Device tree containing the parameter values.
+      pack: The firmware packer object
       orig_bl2: Filename of original BL2 file to modify.
     """
     bl2 = os.path.join(self._tools.outdir, 'updated-spl.bin')
@@ -534,7 +544,7 @@ class Bundle:
     if not pos:
       raise CmdError("Could not find machine parameter block in '%s'" %
           orig_bl2)
-    self._UpdateBl2Parameters(fdt, data, pos)
+    data = self._UpdateBl2Parameters(fdt, pack, data, pos)
     self._tools.WriteFile(bl2, data)
     return bl2
 
@@ -570,7 +580,7 @@ class Bundle:
     elif blob_type == 'exynos-bl1':
       pack.AddProperty(blob_type, self.exynos_bl1)
     elif blob_type == 'exynos-bl2':
-      bl2 = self._ConfigureExynosBl2(fdt, self.exynos_bl2)
+      bl2 = self._ConfigureExynosBl2(fdt, pack, self.exynos_bl2)
       pack.AddProperty(blob_type, bl2)
     elif pack.GetProperty(blob_type):
       pass
