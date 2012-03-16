@@ -153,6 +153,10 @@ class Bundle:
       self.bct_fname = os.path.join(build_root, 'bct', 'board.bct')
     if not self.bmpblk_fname:
       self.bmpblk_fname = os.path.join(build_root, 'default.bmpblk')
+    if not self.exynos_bl1:
+      self.exynos_bl1 = os.path.join(build_root, 'E5250.nbl1.bin')
+    if not self.exynos_bl2:
+      self.exynos_bl2 = os.path.join(build_root, 'smdk5250-spl.bin')
 
   def GetFiles(self):
     """Get a list of files that we know about.
