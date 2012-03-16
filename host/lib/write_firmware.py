@@ -275,7 +275,7 @@ def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname,
     tools: Tools object to use.
     fdt: Fdt object to use as our device tree.
     flasher: U-Boot binary to use as the flasher.
-    bct_fname: Bct file to use for the flasher.
+    file_list: Dictionary containing files that we might need.
     image_fname: Filename of image to write.
     text_base: U-Boot text base (base of executable image), None for default.
     update: Use faster update algorithm rather then full device erase.
@@ -290,7 +290,7 @@ def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname,
   if dest == 'usb':
     method = fdt.GetString('/chromeos-config', 'flash-method', 'tegra')
     if method == 'tegra':
-      ok = write.NvidiaFlashImage(flasher, bct_fname, image_fname)
+      ok = write._NvidiaFlashImage(flasher, file_list['bct'], image_fname)
     else:
       raise CmdError("Unknown flash method '%s'" % method)
     if ok:

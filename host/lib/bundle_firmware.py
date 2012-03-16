@@ -154,6 +154,23 @@ class Bundle:
     if not self.bmpblk_fname:
       self.bmpblk_fname = os.path.join(build_root, 'default.bmpblk')
 
+  def GetFiles(self):
+    """Get a list of files that we know about.
+
+    This is the opposite of SetFiles except that we may have put in some
+    default names. It returns a dictionary containing the filename for
+    each of a number of pre-defined files.
+
+    Returns:
+      Dictionary, with one entry for each file.
+    """
+    file_list = {
+        'bct' : self.bct_fname,
+        'exynos-bl1' : self.exynos_bl1,
+        'exynos-bl2' : self.exynos_bl2,
+        }
+    return file_list
+
   def _CreateGoogleBinaryBlock(self, hardware_id):
     """Create a GBB for the image.
 
