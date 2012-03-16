@@ -474,7 +474,7 @@ class Bundle:
     upto = 0
     for param in param_list:
       if param == 'm' :
-        mem_type = fdt.GetString('/memory', 'samsung,memtype')
+        mem_type = fdt.GetString('/dmc', 'mem-type')
         mem_types = ['ddr2', 'ddr3', 'lpddr2', 'lpddr3']
         if not mem_type in mem_types:
           raise CmdError("Unknown memory type '%s'" % mem_type)
