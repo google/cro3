@@ -51,7 +51,7 @@ class WriteFirmware:
     self.update = True
     self.verify = False
 
-  def _GetFlashScript(self, payload_size, update, verify, boot_type):
+  def _GetFlashScript(self, payload_size, update, verify, boot_type, bus=0):
     """Get the U-Boot boot command needed to flash U-Boot.
 
     We leave a marker in the string for the load address of the image,
@@ -104,7 +104,7 @@ class WriteFirmware:
       ])
     else:
       cmds.extend([
-          'setenv _init   "echo Init SPI;   sf probe            0"',
+          'setenv _init   "echo Init SPI;   sf probe            %s"' % bus,
           'setenv _erase  "echo Erase SPI;  sf erase            0 ${length}"',
           'setenv _write  "echo Write SPI;  sf write ${address} 0 ${length}"',
           'setenv _read   "echo Read SPI;   sf read  ${address} 0 ${length}"',
@@ -133,7 +133,7 @@ class WriteFirmware:
     script = '; '.join(cmds)
     return script, replace_me
 
-  def PrepareFlasher(self, uboot, payload, update, verify, boot_type):
+  def PrepareFlasher(self, uboot, payload, update, verify, boot_type, bus):
     """Get a flasher ready for sending to the board.
 
     The flasher is an executable image consisting of:
@@ -158,7 +158,7 @@ class WriteFirmware:
     payload_size = os.stat(payload).st_size
 
     script, replace_me = self._GetFlashScript(payload_size, update, verify,
-                                              boot_type)
+                                              boot_type, bus)
     data = self._tools.ReadFile(uboot)
     fdt.PutString('/config', 'bootcmd', script)
     fdt_data = self._tools.ReadFile(fdt.fname)
@@ -224,7 +224,7 @@ class WriteFirmware:
     boot_type = match.match(boot_type[0]).group('boot')
 
     flasher = self.PrepareFlasher(uboot, payload, self.update, self.verify,
-                                  boot_type)
+                                  boot_type, 0)
 
     self._out.Progress('Uploading flasher image')
     args = [
