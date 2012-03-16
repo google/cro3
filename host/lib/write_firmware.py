@@ -203,7 +203,7 @@ class WriteFirmware:
     self._tools.OutputSize('Flasher', flasher)
     return flasher
 
-  def NvidiaFlashImage(self, uboot, bct, payload):
+  def _NvidiaFlashImage(self, uboot, bct, payload):
     """Flash the image to SPI flash.
 
     This creates a special Flasher binary, with the image to be flashed as
@@ -263,7 +263,82 @@ class WriteFirmware:
 
     return False
 
-def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname,
+  def _WaitForUSBDevice(self, name, vendor_id, product_id, timeout=10):
+    """Wait until we see a device on the USB bus.
+
+    Args:
+      name: Board type name
+      vendor_id: USB vendor ID to look for
+      product_id: USB product ID to look for
+      timeout: Timeout to wait in seconds
+
+    Returns
+      True if the device was found, False if we timed out.
+    """
+    self._out.Progress('Waiting for board to appear on USB bus')
+    for tries in range(timeout):
+      try:
+        args = ['-d', '%04x:%04x' % (vendor_id, product_id)]
+        self._tools.Run('lsusb', args, sudo=True)
+        self._out.Notice('Flasher downloaded - please see serial output '
+            'for progress.')
+        return True
+
+      except CmdError as err:
+        pass
+
+      time.sleep(1)
+
+    self._out.Progress('Found %s board' % name)
+    return True
+
+  def _ExynosFlashImage(self, uboot, bl1, bl2, payload):
+    """Flash the image to SPI flash.
+
+    This creates a special Flasher binary, with the image to be flashed as
+    a payload. This is then sent to the board using the nvflash utility.
+
+    Args:
+      uboot: Full path to u-boot.bin.
+      bl1: Full path to file containing BL1 (pre-boot).
+      bl2: Full path to file containing BL2 (SPL)
+      payload: Full path to payload.
+
+    Returns:
+      True if ok, False if failed.
+    """
+    flasher = self.PrepareFlasher(uboot, payload, self.update, self.verify,
+                                  'Spi', '1:0')
+
+    vendor_id = 0x04e8
+    product_id = 0x1234
+    if not self._WaitForUSBDevice('exynos', vendor_id, product_id):
+      raise CmdError('Could not find USB device %04x:%04x' % (vendor_id,
+          product_id))
+
+    self._out.Progress('Uploading flasher image')
+    download_list = [
+        ['bl1', 0x02021400, bl1],
+        ['bl2', 0x02023400, bl2],
+        ['u-boot', 0x43e00000, flasher]
+        ]
+    for item in download_list:
+      print item
+      args = ['-a', '%#x' % item[1], '-f', item[2]]
+      bad = False
+      try:
+        self._out.Progress("Uploading stage '%s'" % item[0])
+        self._tools.Run('smdk-usbdl', args, sudo=True)
+      except CmdError as err:
+        bad = True
+
+      if bad or not self._WaitForUSBDevice('exynos', vendor_id, product_id, 1):
+        raise CmdError("Stage '%s' did not complete" % item[0])
+      time.sleep(.7)
+
+    return True
+
+def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
                     text_base=None, update=True, verify=False, dest=None):
   """A simple function to write firmware to a device.
 
@@ -291,6 +366,9 @@ def DoWriteFirmware(output, tools, fdt, flasher, bct_fname, image_fname,
     method = fdt.GetString('/chromeos-config', 'flash-method', 'tegra')
     if method == 'tegra':
       ok = write._NvidiaFlashImage(flasher, file_list['bct'], image_fname)
+    elif method == 'exynos':
+      ok = write._ExynosFlashImage(flasher, file_list['exynos-bl1'],
+          file_list['exynos-bl2'], image_fname)
     else:
       raise CmdError("Unknown flash method '%s'" % method)
     if ok:
