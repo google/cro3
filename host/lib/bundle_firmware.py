@@ -577,6 +577,17 @@ class Bundle:
 
     # Get all our blobs ready
     pack.AddProperty('boot', self.uboot_fname)
+
+    # Make a copy of the fdt for the bootstub
+    fdt_data = self._tools.ReadFile(fdt.fname)
+    uboot_data = self._tools.ReadFile(self.uboot_fname)
+    uboot_copy = os.path.join(self._tools.outdir, 'u-boot.bin')
+    self._tools.WriteFile(uboot_copy, uboot_data)
+
+    bootstub = os.path.join(self._tools.outdir, 'u-boot-dtb.bin')
+    self._tools.WriteFile(bootstub, uboot_data + fdt_data)
+    pack.AddProperty('boot+dtb', bootstub)
+
     pack.AddProperty('gbb', self.uboot_fname)
     for blob_type in pack.GetBlobList(self.coreboot_fname is not None):
       self._BuildBlob(pack, fdt, blob_type)
