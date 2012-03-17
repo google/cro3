@@ -298,6 +298,7 @@ class Autoupdate(BuildObject):
         <app appid="{%s}" status="ok">
           <ping status="ok"/>
           <updatecheck
+            ChromeOSVersion="9999.0.0"
             codebase="%s"
             hash="%s"
             sha256="%s"
