@@ -19,7 +19,8 @@ import devserver_util
 # Fake Dev Server Layout:
 TEST_LAYOUT = {
     'test-board-1': ['R17-1413.0.0-a1-b1346', 'R17-18.0.0-a1-b1346'],
-    'test-board-2': ['R16-2241.0.0-a0-b2', 'R17-2.0.0-a1-b1346']
+    'test-board-2': ['R16-2241.0.0-a0-b2', 'R17-2.0.0-a1-b1346'],
+    'test-board-3': []
 }
 
 
@@ -161,6 +162,7 @@ class DevServerUtilTest(mox.MoxTestBase):
   def testPrepareAutotestPkgs(self):
     # TODO(frankf): Implement this test
     # self.fail('Not implemented.')
+    # TODO: implement
     pass
 
   def testSafeSandboxAccess(self):
@@ -237,32 +239,25 @@ class DevServerUtilTest(mox.MoxTestBase):
         devserver_util.GetLatestBuildVersion(self._static_dir, 'test-board-1'),
         'R17-1413.0.0-a1-b1346')
 
-  def testFindBuild(self):
-    # Ensure no matching boards raises exception for latest.
-    self.assertRaises(
-        devserver_util.DevServerUtilError, devserver_util.FindBuild,
-        self._static_dir, 'aasdf', 'latest')
+  def testGetLatestBuildVersionLatest(self):
+    """Test that we raise DevServerUtilError when a build dir is empty."""
+    self.assertRaises(devserver_util.DevServerUtilError,
+                      devserver_util.GetLatestBuildVersion,
+                      self._static_dir, 'test-board-3')
 
-    # Ensure no matching builds or boards raises an exception.
-    self.assertRaises(
-        devserver_util.DevServerUtilError, devserver_util.FindBuild,
-        self._static_dir, 'aasdf', 'asdgsadg')
+  def testGetLatestBuildVersionUnknownBuild(self):
+    """Test that we raise DevServerUtilError when a build dir does not exist."""
+    self.assertRaises(devserver_util.DevServerUtilError,
+                      devserver_util.GetLatestBuildVersion,
+                      self._static_dir, 'bad-dir')
 
-    # Ensure latest returns the proper build.
-    self.assertEqual(
-        devserver_util.FindBuild(self._static_dir, 'test-board-1', 'latest'),
-        ('test-board-1', 'R17-1413.0.0-a1-b1346'))
-
-    # Ensure specific board, build is returned.
-    self.assertEqual(
-        devserver_util.FindBuild(self._static_dir, 'test-board-1',
-                                 'R17-18.0.0-a1-b1346'),
-        ('test-board-1', 'R17-18.0.0-a1-b1346'))
-
-    # Ensure too many matches raises an exception.
-    self.assertRaises(
-        devserver_util.DevServerUtilError, devserver_util.FindBuild,
-        self._static_dir, 'test-board', 'R17')
+  def testGetLatestBuildVersionMilestone(self):
+    """Test that we can get builds based on milestone."""
+    expected_build_str = 'R16-2241.0.0-a0-b2'
+    milestone = 'R16'
+    build_str = devserver_util.GetLatestBuildVersion(
+        self._static_dir, 'test-board-2', milestone)
+    self.assertEqual(expected_build_str, build_str)
 
   def testCloneBuild(self):
     test_prefix = 'abc'

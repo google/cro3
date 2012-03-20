@@ -13,6 +13,7 @@ import re
 import sys
 
 import autoupdate
+import devserver_util
 
 
 CACHED_ENTRIES = 12
@@ -216,6 +217,33 @@ class DevServerRoot(object):
     return self._downloader.Download(kwargs['archive_url'])
 
   @cherrypy.expose
+  def latestbuild(self, **params):
+    """Return a string representing the latest build for a given target.
+
+    Args:
+      target: The build target, typically a combination of the board and the
+          type of build e.g. x86-mario-release.
+      milestone: The milestone to filter builds on. E.g. R16. Optional, if not
+          provided the latest RXX build will be returned.
+    Returns:
+      A string representation of the latest build if one exists, i.e.
+          R19-1993.0.0-a1-b1480.
+      An empty string if no latest could be found.
+    """
+    if not params:
+      return _PrintDocStringAsHTML(self.latestbuild)
+
+    if 'target' not in params:
+      raise cherrypy.HTTPError('500 Internal Server Error',
+                               'Error: target= is required!')
+    try:
+      return devserver_util.GetLatestBuildVersion(
+          updater.static_dir, params['target'],
+          milestone=params.get('milestone'))
+    except devserver_util.DevServerUtilError as errmsg:
+      raise cherrypy.HTTPError('500 Internal Server Error', str(errmsg))
+
+  @cherrypy.expose
   def controlfiles(self, **params):
     """Return a control file or a list of all known control files.
 
@@ -234,12 +262,10 @@ class DevServerRoot(object):
       Contents of a control file if control_path is provided.
       A list of control files if no control_path is provided.
     """
-    import devserver_util
     if not params:
       return _PrintDocStringAsHTML(self.controlfiles)
 
     if 'build' not in params:
-      errmsg = 'Error: build is required!'
       raise cherrypy.HTTPError('500 Internal Server Error',
                                'Error: build= is required!')
 

@@ -296,66 +296,40 @@ def FindMatchingBuilds(static_dir, board, build):
   return matches
 
 
-def GetLatestBuildVersion(static_dir, board):
+def GetLatestBuildVersion(static_dir, target, milestone=None):
   """Retrieves the latest build version for a given board.
 
   Args:
     static_dir: Directory where builds are served from.
-    board: Board name for this build; e.g. x86-generic-release.
+    target: The build target, typically a combination of the board and the
+        type of build e.g. x86-mario-release.
+    milestone: For latest build set to None, for builds only in a specific
+        milestone set to a str of format Rxx (e.g. R16). Default: None.
 
   Returns:
-    Full build string; e.g. R17-1234.0.0-a1-b983.
-  """
-  builds = [distutils.version.LooseVersion(build) for build in
-            os.listdir(os.path.join(static_dir, board))]
-  return str(max(builds))
-
-
-def FindBuild(static_dir, board, build):
-  """Given partial build and board ids, figure out the appropriate build.
-
-  Args:
-    static_dir: Directory where builds are served from.
-    board: Partial board name for this build; e.g. x86-generic.
-    build: Partial build string to look for; e.g. R17-1234 or "latest" to
-        return the latest build for for most newest board.
-
-  Returns:
-    Tuple of (board, build):
-        board: Fully qualified board name; e.g. x86-generic-release
-        build: Fully qualified build string; e.g. R17-1234.0.0-a1-b983
+    If latest found, a full build string is returned e.g. R17-1234.0.0-a1-b983.
+    If no latest is found for some reason or another a '' string is returned.
 
   Raises:
-    DevServerUtilError: If no boards, no builds, or too many builds
-        are matched.
+    DevServerUtilError: If for some reason the latest build cannot be
+        deteremined, this could be due to the dir not existing or no builds
+        being present after filtering on milestone.
   """
-  if build.lower() == 'latest':
-    boards = FindMatchingBoards(static_dir, board)
-    if not boards:
-      raise DevServerUtilError(
-          'No boards matching %s could be found on the Dev Server.' % board)
+  target_path = os.path.join(static_dir, target)
+  if not os.path.isdir(target_path):
+    raise DevServerUtilError('Cannot find path %s' % target_path)
 
-    if len(boards) > 1:
-      raise DevServerUtilError(
-          'The given board name is ambiguous. Disambiguate by using one of'
-          ' these instead: %s' % ', '.join(boards))
+  builds = [distutils.version.LooseVersion(build) for build in
+            os.listdir(target_path)]
 
-    build = GetLatestBuildVersion(static_dir, board)
-  else:
-    builds = FindMatchingBuilds(static_dir, board, build)
-    if not builds:
-      raise DevServerUtilError(
-          'No builds matching %s could be found for board %s.' % (
-              build, board))
+  if milestone and builds:
+    # Check if milestone Rxx is in the string representation of the build.
+    builds = filter(lambda x: milestone.upper() in str(x), builds)
 
-    if len(builds) > 1:
-      raise DevServerUtilError(
-          'The given build id is ambiguous. Disambiguate by using one of'
-          ' these instead: %s' % ', '.join([b[1] for b in builds]))
+  if not builds:
+    raise DevServerUtilError('Could not determine build for %s' % target)
 
-    board, build = builds[0]
-
-  return board, build
+  return str(max(builds))
 
 
 def CloneBuild(static_dir, board, build, tag, force=False):

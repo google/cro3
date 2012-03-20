@@ -69,7 +69,7 @@ class AutoupdateTest(mox.MoxTestBase):
     key_path = 'test_key_path'
     src_image = 'test_src_image'
     target_image = 'test_target_image'
-    hashes = ['12345', '67890', 'abcde']
+    hashes = ['12345', '67890', 'abcde', 'patched_kernel']
 
     autoupdate.Autoupdate._GetMd5(target_image).AndReturn(hashes[1])
     autoupdate.Autoupdate._GetMd5(src_image).AndReturn(hashes[0])
@@ -79,7 +79,8 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock = self._DummyAutoupdateConstructor()
     au_mock.private_key = key_path
     update_dir = au_mock.FindCachedUpdateImageSubDir(src_image, target_image)
-    self.assertEqual(os.path.basename(update_dir), '%s_%s+%s' % tuple(hashes))
+    self.assertEqual(os.path.basename(update_dir),
+                     '%s_%s+%s+%s' % tuple(hashes))
     self.mox.VerifyAll()
 
   def testGenerateLatestUpdateImageWithForced(self):
