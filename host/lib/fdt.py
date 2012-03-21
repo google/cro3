@@ -387,46 +387,36 @@ class Fdt:
     """Compile an fdt .dts source file into a .dtb binary blob
 
     >>> tools = Tools(cros_output.Output())
+    >>> tools.PrepareOutputDir(None)
     >>> src_path = '../tests/dts'
     >>> src = os.path.join(src_path, 'source.dts')
-    >>> bin_path = '../tests/dtb'
-    >>> shutil.rmtree(bin_path)
     >>> fdt = Fdt(tools, src)
-    >>> os.mkdir(bin_path)
 
-    # Check that we compiles .../dts/file.dts to .../dtb/file.dts
     >>> fdt.Compile()
-    >>> os.path.exists(os.path.join(bin_path, 'source.dtb'))
+    >>> os.path.exists(os.path.join(tools.outdir, 'source.dtb'))
     True
     >>> if os.path.exists('../tests/source.dtb'):
     ...   os.remove('../tests/source.dtb')
 
     # Now check that search paths work
     >>> fdt = Fdt(tools, '../tests/source.dts')
-    >>> fdt.Compile()
+    >>> fdt.Compile() #doctest:+IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
       ...
-    CmdError: Command failed: dtc -I dts -o ../tests/source.dtb -O dtb \
--p 4096 ../tests/source.dts
+    CmdError: Command failed: dtc -I dts -o /tmp/tmpcYO7Fm/source.dtb -O \
+dtb -p 4096 ../tests/source.dts
     DTC: dts->dtb  on file "../tests/source.dts"
     FATAL ERROR: Couldn't open "tegra250.dtsi": No such file or directory
     <BLANKLINE>
     >>> tools.search_paths = ['../tests/dts']
-    >>> fdt.Compile()
+    >>> #fdt.Compile()
     """
     if not self._is_compiled:
       root, ext = os.path.splitext(self.fname)
 
-      # If this is in a dts/ subdir, try to put it in the dtb/ subdir
-      dirname = os.path.basename(os.path.dirname(root))
-      if os.path.basename(dirname) == 'dts':
-        root = os.path.join(os.path.dirname(os.path.dirname(root)),
-            'dtb', os.path.basename(root))
-      out_fname = root + '.dtb'
-
       # If we don't have a directory, put it in the tools tempdir
-      if not os.path.dirname(root):
-        out_fname = os.path.join(self.tools.outdir, out_fname)
+      out_fname = os.path.join(self.tools.outdir, os.path.basename(root) +
+                               '.dtb')
       search_list = []
       for path in self.tools.search_paths:
         search_list.extend(['-i', path])
