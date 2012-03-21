@@ -262,10 +262,7 @@ class EntryBlob(EntryFmapArea):
 
   def GetData(self,):
     filename = self.value
-    size = os.stat(filename).st_size
-    fd = open(filename, 'rb')
-    data = fd.read(size)
-    fd.close()
+    data = self.pack.tools.ReadFile(filename)
     return data
 
 
@@ -355,7 +352,7 @@ class PackFirmware:
     self.props = {}             # Properties / files we know about.
     self.entries = []           # The entries in the flash image.
     self._out = output
-    self._tools = tools
+    self.tools = tools
 
   def _GetFlags(self, props):
     """Create the fmap flags value from the given properties.
@@ -652,7 +649,7 @@ class PackFirmware:
 
       try:
         # First run any required tools.
-        entry.RunTools(self._tools, self._out, self.tmpdir)
+        entry.RunTools(self.tools, self._out, self.tmpdir)
         if 'value' in entry:
           self._out.Notice("Pack '%s' into %s" % (entry.value, entry.name))
 
