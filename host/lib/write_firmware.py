@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import binascii
+import glob
 import os
 import re
 import time
@@ -291,21 +292,19 @@ class WriteFirmware:
       True if the device was found, False if we timed out.
     """
     self._out.Progress('Waiting for board to appear on USB bus')
-    for tries in range(timeout):
+    for tries in range(timeout * 2):
       try:
         args = ['-d', '%04x:%04x' % (vendor_id, product_id)]
         self._tools.Run('lsusb', args, sudo=True)
-        self._out.Notice('Flasher downloaded - please see serial output '
-            'for progress.')
+        self._out.Progress('Found %s board' % name)
         return True
 
       except CmdError as err:
         pass
 
-      time.sleep(1)
+      time.sleep(.5)
 
-    self._out.Progress('Found %s board' % name)
-    return True
+    return False
 
   def _ExynosFlashImage(self, uboot, bl1, bl2, payload):
     """Flash the image to SPI flash.
@@ -327,9 +326,16 @@ class WriteFirmware:
 
     vendor_id = 0x04e8
     product_id = 0x1234
-    if not self._WaitForUSBDevice('exynos', vendor_id, product_id):
-      raise CmdError('Could not find USB device %04x:%04x' % (vendor_id,
-          product_id))
+
+    self._out.Progress('Reseting board via servo')
+    args = ['warm_reset:on', 'fw_up:on', 'pwr_button:press', 'sleep:.1',
+        'warm_reset:off']
+    # TODO(sjg) If the board is bricked a reset does not seem to bring it
+    # back to life.
+    # BUG=chromium-os:28229
+    args = ['cold_reset:on', 'sleep:.2', 'cold_reset:off'] + args
+    self._tools.Run('dut-control', args)
+    time.sleep(2)
 
     self._out.Progress('Uploading flasher image')
     download_list = [
@@ -337,20 +343,28 @@ class WriteFirmware:
         ['bl2', 0x02023400, bl2],
         ['u-boot', 0x43e00000, flasher]
         ]
-    for item in download_list:
-      print item
-      args = ['-a', '%#x' % item[1], '-f', item[2]]
-      bad = False
-      try:
+    first = True
+    try:
+      for item in download_list:
+        if not self._WaitForUSBDevice('exynos', vendor_id, product_id, 4):
+          if first:
+            raise CmdError('Could not find Exynos board on USB port')
+          raise CmdError("Stage '%s' did not complete" % item[0])
+        args = ['-a', '%#x' % item[1], '-f', item[2]]
+        first = False
+        self._out.Notice(item[2])
         self._out.Progress("Uploading stage '%s'" % item[0])
+
+        # TODO(sjg): Remove this delay, once the need for it is understood.
+        time.sleep(1)
         self._tools.Run('smdk-usbdl', args, sudo=True)
-      except CmdError as err:
-        bad = True
 
-      if bad or not self._WaitForUSBDevice('exynos', vendor_id, product_id, 1):
-        raise CmdError("Stage '%s' did not complete" % item[0])
-      time.sleep(.7)
+    finally:
+      args = ['fw_up:off', 'pwr_button:release']
+      self._tools.Run('dut-control', args)
 
+    self._out.Notice('Flasher downloaded - please see serial output '
+        'for progress.')
     return True
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
