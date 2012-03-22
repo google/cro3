@@ -95,8 +95,8 @@ class Output:
       msg; Message to display.
       error: True if this is an error message, else False.
     """
-    self.ClearProgress()
     if self.verbose >= level:
+      self.ClearProgress()
       if color:
         msg = self._color.Color(color, msg)
       self._stdout.write(msg + '\n')
