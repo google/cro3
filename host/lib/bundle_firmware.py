@@ -535,7 +535,7 @@ class Bundle:
       orig_bl2: Filename of original BL2 file to modify.
     """
     bl2 = os.path.join(self._tools.outdir, 'updated-spl.bin')
-    shutil.copyfile(orig_bl2, bl2)
+    shutil.copyfile(self._tools.Filename(orig_bl2), bl2)
 
     # Locate the parameter block
     data = self._tools.ReadFile(bl2)
