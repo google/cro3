@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import binascii
 import os
 import re
 import time
@@ -51,7 +52,8 @@ class WriteFirmware:
     self.update = True
     self.verify = False
 
-  def _GetFlashScript(self, payload_size, update, verify, boot_type, bus=0):
+  def _GetFlashScript(self, payload_size, update, verify, boot_type, checksum,
+                      bus='0'):
     """Get the U-Boot boot command needed to flash U-Boot.
 
     We leave a marker in the string for the load address of the image,
@@ -62,7 +64,9 @@ class WriteFirmware:
       payload_size: Size of payload in bytes.
       update: Use faster update algorithm rather then full device erase
       verify: Verify the write by doing a readback and CRC
-      boot_type: the src for bootdevice (Nand, Sdmmc, or Spi)
+      boot_type: The source for bootdevice (Nand, Sdmmc, or Spi)
+      checksum: The checksum of the payload (an integer)
+      bus: The bus number
 
     Returns:
       A tuple containing:
@@ -83,7 +87,8 @@ class WriteFirmware:
         'setenv firmware_size %#x' % payload_size,
         'setenv length        %#x' % RoundUp(payload_size, page_size),
         'setenv blocks   %#x' % (RoundUp(payload_size, page_size) / page_size),
-        'setenv _crc    "crc32 ${address} ${firmware_size}"',
+        'setenv _crc    "crc32 -v ${address} ${firmware_size} %#08x"' %
+            checksum,
         'setenv _clear  "echo Clearing RAM; mw.b     ${address} 0 ${length}"',
     ]
     if boot_type == 'Nand':
@@ -114,7 +119,7 @@ class WriteFirmware:
     cmds.extend([
         'echo Firmware loaded to ${address}, size ${firmware_size}, '
             'length ${length}',
-        'run _crc',
+        'if run _crc; then',
         'run _init',
     ])
     if update:
@@ -126,10 +131,15 @@ class WriteFirmware:
         'run _clear',
         'run _read',
         'run _crc',
-        'echo If the two CRCs above are equal, flash was successful.'
       ]
     else:
       cmds += ['echo Skipping verify']
+    cmds.extend([
+      'else',
+      'echo',
+      'echo "** Checksum error on load: please check download tool **"',
+      'fi',
+      ])
     script = '; '.join(cmds)
     return script, replace_me
 
@@ -155,10 +165,14 @@ class WriteFirmware:
       Filename of the flasher binary created.
     """
     fdt = self._fdt.Copy(os.path.join(self._tools.outdir, 'flasher.dtb'))
+    payload_data = self._tools.ReadFile(payload)
     payload_size = os.stat(payload).st_size
 
-    script, replace_me = self._GetFlashScript(payload_size, update, verify,
-                                              boot_type, bus)
+    # Make sure that the checksum is not negative
+    checksum = binascii.crc32(payload_data) & 0xffffffff
+
+    script, replace_me = self._GetFlashScript(len(payload_data), update,
+                                              verify, boot_type, checksum, bus)
     data = self._tools.ReadFile(uboot)
     fdt.PutString('/config', 'bootcmd', script)
     fdt_data = self._tools.ReadFile(fdt.fname)
@@ -178,7 +192,7 @@ class WriteFirmware:
 
     # NAND driver expects 4-byte alignment.  Just go whole hog and do 4K.
     alignment = 0x1000
-    payload_offset = (payload_offset + alignment - 1) & ~(alignment-1)
+    payload_offset = (payload_offset + alignment - 1) & ~(alignment - 1)
 
     load_address = self.text_base + payload_offset,
     new_str = '%08x' % load_address
@@ -193,13 +207,14 @@ class WriteFirmware:
     # Now put it together.
     data += fdt_data
     data += "\0" * (payload_offset - len(data))
-    data += self._tools.ReadFile(payload)
+    data += payload_data
     flasher = os.path.join(self._tools.outdir, 'flasher-for-image.bin')
     self._tools.WriteFile(flasher, data)
 
     # Tell the user about a few things.
     self._tools.OutputSize('U-Boot', uboot)
     self._tools.OutputSize('Payload', payload)
+    self._out.Notice('Payload checksum %08x' % checksum)
     self._tools.OutputSize('Flasher', flasher)
     return flasher
 
