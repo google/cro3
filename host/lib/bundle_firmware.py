@@ -79,6 +79,11 @@ class Bundle:
         straps: Select device according to CPU strap pins
         spi: Boot from SPI
         emmc: Boot from eMMC
+
+  Private attributes:
+    _small: True to create a 'small' signed U-Boot, False to produce a
+        full image. The small U-Boot is enough to boot but will not have
+        access to GBB, RW U-Boot, etc.
   """
 
   def __init__(self, tools, output):
@@ -106,6 +111,7 @@ class Bundle:
     self.skeleton_fname = None  # Filename of Coreboot skeleton file
     self.ecrw_fname = None     # Filename of EC file
     self.ecro_fname = None      # Filename of EC read-only file
+    self._small = False
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
