@@ -200,6 +200,12 @@ def PrepareAutotestPkgs(staging_dir):
   else:
     cherrypy.log('Using pre-generated packages from autotest', 'DEVSERVER_UTIL')
 
+  # TODO(scottz): Remove after we have moved away from the old test_scheduler
+  # code.
+  cmd = 'cp %s/* %s' % (autotest_pkgs_dir,
+                        os.path.join(staging_dir, 'autotest'))
+  subprocess.check_call(cmd, shell=True)
+
 
 def SafeSandboxAccess(static_dir, path):
   """Verify that the path is in static_dir.
