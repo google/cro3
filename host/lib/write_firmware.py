@@ -384,6 +384,139 @@ class WriteFirmware:
         'for progress.')
     return True
 
+  def _GetDiskInfo(self, disk, item):
+    """Returns information about a SCSI disk device.
+
+    Args:
+      disk: a block device name in sys/block, like '/sys/block/sdf'.
+      item: the item of disk information that is required.
+
+    Returns:
+      The information obtained, as a string, or '[Unknown]' if not found
+    """
+    dev_path = os.path.join(disk, 'device')
+
+    # Search upwards and through symlinks looking for the item.
+    while os.path.isdir(dev_path) and dev_path != '/sys':
+      fname = os.path.join(dev_path, item)
+      if os.path.exists(fname):
+        with open(fname, 'r') as fd:
+          return fd.readline().rstrip()
+
+      # Move up a level and follow any symlink.
+      new_path = os.path.join(dev_path, '..')
+      if os.path.islink(new_path):
+        new_path = os.path.abspath(os.readlink(os.path.dirname(dev_path)))
+      dev_path = new_path
+    return '[Unknown]'
+
+  def _GetDiskCapacity(self, device):
+    """Returns the disk capacity in GB, or 0 if not known.
+
+    Args:
+      device: Device to check, like '/dev/sdf'.
+
+    Returns:
+      Capacity of device in GB, or 0 if not known.
+    """
+    args = ['-l', device]
+    stdout = self._tools.Run('fdisk', args, sudo=True)
+    if stdout:
+      # Seach for the line with capacity information.
+      re_capacity = re.compile('Disk .*: (\d+) \w+,')
+      lines = filter(re_capacity.match, stdout.splitlines())
+      if len(lines):
+        m = re_capacity.match(lines[0])
+
+        # We get something like 7859 MB, so turn into bytes, then GB
+        return int(m.group(1)) * 1024 * 1024 / 1e9
+    return 0
+
+  def _ListUsbDisks(self):
+    """Return a list of available removable USB disks.
+
+    Returns:
+      List of USB devices, each element is itself a list containing:
+        device ('/dev/sdx')
+        manufacturer name
+        product name
+        capacity in GB (an integer)
+        full description (all of the above concatenated).
+    """
+    disk_list = []
+    for disk in glob.glob('/sys/block/sd*'):
+      with open(disk + '/removable', 'r') as fd:
+        if int(fd.readline()) == 1:
+          device = '/dev/%s' % disk.split('/')[-1]
+          manuf = self._GetDiskInfo(disk, 'manufacturer')
+          product = self._GetDiskInfo(disk, 'product')
+          capacity = self._GetDiskCapacity(device)
+          if capacity:
+            desc = '%s: %s %s %d GB' % (device, manuf, product, capacity)
+            disk_list.append([device, manuf, product, capacity, desc])
+    return disk_list
+
+  def WriteToSd(self, flash_dest, disk, uboot, payload):
+    if flash_dest:
+      image = self.PrepareFlasher(uboot, payload, self.update, self.verify,
+                                  flash_dest, '1:0')
+      self._out.Progress('Writing flasher to %s' % disk)
+    else:
+      image = payload
+      self._out.Progress('Writing image to %s' % disk)
+
+    args = ['if=%s' % image, 'of=%s' % disk, 'bs=512', 'seek=1']
+    self._tools.Run('dd', args, sudo=True)
+
+  def SendToSdCard(self, dest, flash_dest, uboot, payload):
+    """Write a flasher to an SD card.
+
+    Args:
+      dest: Destination in one of these forms:
+          ':<full description of device>'
+          ':.' selects the only available device, fails if more than one option
+          ':<device>' select deivce
+
+          Examples:
+            ':/dev/sdd: Generic Flash Card Reader/Writer 8 GB'
+            ':.'
+            ':/dev/sdd'
+
+      flash_dest: Destination for flasher, or None to not create a flasher:
+          Valid options are spi, sdmmc.
+      uboot: Full path to u-boot.bin.
+      payload: Full path to payload.
+    """
+    disk = None
+    disks = self._ListUsbDisks()
+    if dest[:1] == ':':
+      name = dest[1:]
+
+      # A '.' just means to use the only available disk.
+      if name == '.' and len(disks) == 1:
+        disk = disks[0][0]
+      for disk_info in disks:
+        # Use the full name or the device name.
+        if disk_info[4] == name or disk_info[1] == name:
+          disk = disk_info[0]
+
+    if disk:
+      self.WriteToSd(flash_dest, disk, uboot, payload)
+    else:
+      self._out.Error("Please specify destination -w 'sd:<disk_description>':")
+      self._out.Error('   - description can be . for the only disk, SCSI '
+                      'device letter')
+      self._out.Error('     or the full description listed here')
+      msg = 'Found %d available disks.' % len(disks)
+      if not disks:
+        msg += ' Please insert an SD card and try again.'
+      self._out.UserOutput(msg)
+
+      # List available disks as a convenience.
+      for disk in disks:
+        self._out.UserOutput('  %s' % disk[4])
+
+
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
                     text_base=None, update=True, verify=False, dest=None,
                     flash_dest=None):
@@ -425,7 +558,7 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
           'complete')
     else:
       raise CmdError('Image upload failed - please check board connection')
-  elif dest == 'sd':
-    pass
+  elif dest.startswith('sd'):
+    write.SendToSdCard(dest[2:], flash_dest, flasher, image_fname)
   else:
     raise CmdError("Unknown destination device '%s'" % dest)

@@ -80,6 +80,7 @@ class Tools:
       'nvflash' : '##/usr/bin/nvflash',
       'gbb_utility' : '##/usr/bin/gbb_utility',
       'cbfstool' : '##/usr/bin/cbfstool',
+      'fdisk' : '##/sbin/fdisk',
     }
     self.outdir = None          # We have no output directory yet
     self._delete_tempdir = None # And no temporary directory to delete
