@@ -64,7 +64,7 @@ class WriteFirmware:
       payload_size: Size of payload in bytes.
       update: Use faster update algorithm rather then full device erase
       verify: Verify the write by doing a readback and CRC
-      boot_type: The source for bootdevice (Nand, Sdmmc, or Spi)
+      boot_type: The source for bootdevice (nand, sdmmc, or spi)
       checksum: The checksum of the payload (an integer)
       bus: The bus number
 
@@ -77,9 +77,9 @@ class WriteFirmware:
     """
     replace_me = 'zsHEXYla'
     page_size = 4096
-    if boot_type == 'Sdmmc':
+    if boot_type == 'sdmmc':
       page_size = 512
-    if boot_type != 'Spi':
+    if boot_type != 'spi':
       update = False
 
     cmds = [
@@ -91,14 +91,14 @@ class WriteFirmware:
             checksum,
         'setenv _clear  "echo Clearing RAM; mw.b     ${address} 0 ${length}"',
     ]
-    if boot_type == 'Nand':
+    if boot_type == 'nand':
       cmds.extend([
           'setenv _init   "echo Init NAND;  nand info"',
           'setenv _erase  "echo Erase NAND; nand erase            0 ${length}"',
           'setenv _write  "echo Write NAND; nand write ${address} 0 ${length}"',
           'setenv _read   "echo Read NAND;  nand read  ${address} 0 ${length}"',
       ])
-    elif boot_type == 'Sdmmc':
+    elif boot_type == 'sdmmc':
       cmds.extend([
           'setenv _init   "echo Init EMMC;  mmc rescan            0"',
           'setenv _erase  "echo Erase EMMC; "',
@@ -159,7 +159,7 @@ class WriteFirmware:
       payload: Full path to payload.
       update: Use faster update algorithm rather then full device erase
       verify: Verify the write by doing a readback and CRC
-      boot_type: the src for bootdevice (Nand, Sdmmc, or Spi)
+      boot_type: the src for bootdevice (nand, sdmmc, or spi)
 
     Returns:
       Filename of the flasher binary created.
@@ -236,7 +236,7 @@ class WriteFirmware:
     match = re.compile('DevType\[0\] = NvBootDevType_(?P<boot>([a-zA-Z])+);')
     bct_dumped = self._tools.Run('bct_dump', [bct]).splitlines()
     boot_type = filter(match.match, bct_dumped)
-    boot_type = match.match(boot_type[0]).group('boot')
+    boot_type = match.match(boot_type[0]).group('boot').lower()
 
     flasher = self.PrepareFlasher(uboot, payload, self.update, self.verify,
                                   boot_type, 0)
