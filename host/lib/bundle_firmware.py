@@ -473,7 +473,6 @@ class Bundle:
     Returns:
       The new contents of the parameter block, after updating.
     """
-    self._out.Info('Configuring BL2')
     version, size = struct.unpack('<2L', data[pos + 4:pos + 12])
     if version != 1:
       raise CmdError("Cannot update machine parameter block version '%d'" %
@@ -489,7 +488,7 @@ class Bundle:
     param_list = struct.unpack('<%ds' % (len(data) - pos), data[pos:])[0]
     param_len = param_list.find('\0')
     param_list = param_list[:param_len]
-    pos += (param_len + 3) & ~3
+    pos += (param_len + 4) & ~3
 
     # Work through the parameters one at a time, adding each value
     new_data = ''
@@ -534,8 +533,10 @@ class Bundle:
       pack: The firmware packer object
       orig_bl2: Filename of original BL2 file to modify.
     """
+    self._out.Info('Configuring BL2')
     bl2 = os.path.join(self._tools.outdir, 'updated-spl.bin')
-    shutil.copyfile(self._tools.Filename(orig_bl2), bl2)
+    data = self._tools.ReadFile(orig_bl2)
+    self._tools.WriteFile(bl2, data)
 
     # Locate the parameter block
     data = self._tools.ReadFile(bl2)
