@@ -494,6 +494,7 @@ class Bundle:
     new_data = ''
     upto = 0
     for param in param_list:
+      value = struct.unpack('<1L', data[pos + upto:pos + upto + 4])[0]
       if param == 'm' :
         mem_type = fdt.GetString('/dmc', 'mem-type')
         mem_types = ['ddr2', 'ddr3', 'lpddr2', 'lpddr3']
@@ -505,16 +506,15 @@ class Bundle:
         value = 31
         self._out.Info('  Memory interleave: %#0x' % value)
       elif param == 'u':
-        value = os.stat(pack.GetProperty('boot+dtb')).st_size
-        value = (value + 0xfff) & ~0xfff
-
-        # Seems to not work if this is another value
-        #value += 0x3000
-        value = 0x40000
+        # TODO(sjg): Seems to not work unless set to the same value as in the
+        # existing image. Need to find root cause.
+        #value = os.stat(pack.GetProperty('boot+dtb')).st_size
+        #value = (value + 0xfff) & ~0xfff
+        self._out.Warning("Leaving U-Boot size unchanged")
         self._out.Info('  U-Boot size: %#0x' % value)
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
-        value = struct.unpack('<1L', data[pos + upto:pos + upto + 4])[0]
+        self._out.Info('  Unknown value: %#0x' % value)
       new_data += struct.pack('<L', value)
       upto += 4
 
