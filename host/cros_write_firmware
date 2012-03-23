@@ -68,7 +68,8 @@ def _DoWriteFirmware(options, output, tools, update, verify, dest):
     text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
     file_list = bundle.GetFiles()
     write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
-        file_list, options.image, text_base, update, verify, dest)
+        file_list, options.image, text_base, update, verify, dest,
+        flash_dest=options.flash_dest)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
@@ -93,6 +94,8 @@ def main():
       help='Path to fdt binary blob .dtb file to use for flasher')
   parser.add_option('-f', '--full-erase', dest='full_erase',
       action='store_true', help='Erase entire flash before writing (slow)')
+  parser.add_option('-F', '--flash', dest='flash_dest', type='string',
+      action='store', help='Create a flasher to flash the device (spi, mmc)')
   parser.add_option('-i', '--image', dest='image', type='string',
       action='store', help='Firmware image to write')
   parser.add_option('-I', '--includedir', dest='includedirs', type='string',

@@ -104,7 +104,8 @@ def _DoBundle(options, output, tools):
       text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
       file_list = bundle.GetFiles()
       write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
-          file_list, out_fname, text_base, dest=options.write)
+          file_list, out_fname, text_base, dest=options.write,
+          flash_dest=options.flash_dest)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
@@ -144,6 +145,8 @@ def main():
       action='store', help='Hardware ID string to use')
   parser.add_option('-B', '--bmpblk', dest='bmpblk', type='string',
       action='store', help='Bitmap block to use')
+  parser.add_option('-F', '--flash', dest='flash_dest', type='string',
+      action='store', help='Create a flasher to flash the device (spi, mmc)')
   parser.add_option('-k', '--key', dest='key', type='string', action='store',
       help='Path to signing key directory (default to dev key)',
       default='##/usr/share/vboot/devkeys')

@@ -219,13 +219,15 @@ class WriteFirmware:
     self._tools.OutputSize('Flasher', flasher)
     return flasher
 
-  def _NvidiaFlashImage(self, uboot, bct, payload):
+  def _NvidiaFlashImage(self, flash_dest, uboot, bct, payload):
     """Flash the image to SPI flash.
 
     This creates a special Flasher binary, with the image to be flashed as
     a payload. This is then sent to the board using the nvflash utility.
 
     Args:
+      flash_dest: Destination for flasher, or None to not create a flasher
+          Valid options are spi, sdmmc
       uboot: Full path to u-boot.bin.
       bct: Full path to BCT file (binary chip timings file for Nvidia SOCs).
       payload: Full path to payload.
@@ -236,6 +238,10 @@ class WriteFirmware:
     # Use a Regex to pull Boot type from BCT file.
     match = re.compile('DevType\[0\] = NvBootDevType_(?P<boot>([a-zA-Z])+);')
     bct_dumped = self._tools.Run('bct_dump', [bct]).splitlines()
+
+    # TODO(sjg): The boot type is currently selected by the bct, rather than
+    # flash_dest selecting which bct to use. This is a bit backwards. For now
+    # we go with the bct's idea.
     boot_type = filter(match.match, bct_dumped)
     boot_type = match.match(boot_type[0]).group('boot').lower()
 
@@ -306,23 +312,34 @@ class WriteFirmware:
 
     return False
 
-  def _ExynosFlashImage(self, uboot, bl1, bl2, payload):
+  def _ExynosFlashImage(self, flash_dest, flash_uboot, bl1, bl2, payload):
     """Flash the image to SPI flash.
 
     This creates a special Flasher binary, with the image to be flashed as
     a payload. This is then sent to the board using the nvflash utility.
 
     Args:
-      uboot: Full path to u-boot.bin.
+      flash_dest: Destination for flasher, or None to not create a flasher
+          Valid options are spi, sdmmc.
+      flash_uboot: Full path to u-boot.bin to use for flasher.
       bl1: Full path to file containing BL1 (pre-boot).
-      bl2: Full path to file containing BL2 (SPL)
+      bl2: Full path to file containing BL2 (SPL).
       payload: Full path to payload.
 
     Returns:
       True if ok, False if failed.
     """
-    flasher = self.PrepareFlasher(uboot, payload, self.update, self.verify,
-                                  'Spi', '1:0')
+    if flash_dest:
+      image = self.PrepareFlasher(flash_uboot, payload, self.update,
+                                  self.verify, flash_dest, '1:0')
+    else:
+      bl1 = os.path.join(self._tools.outdir, 'bl1.bin')
+      bl2 = os.path.join(self._tools.outdir, 'bl2.bin')
+      image = os.path.join(self._tools.outdir, 'u-boot-from-image.bin')
+      data = self._tools.ReadFile(payload)
+      self._tools.WriteFile(bl1, data[:0x2000])
+      self._tools.WriteFile(bl2, data[0x2000:0x6000])
+      self._tools.WriteFile(image, data[0x6000:])
 
     vendor_id = 0x04e8
     product_id = 0x1234
@@ -337,11 +354,11 @@ class WriteFirmware:
     self._tools.Run('dut-control', args)
     time.sleep(2)
 
-    self._out.Progress('Uploading flasher image')
+    self._out.Progress('Uploading image')
     download_list = [
         ['bl1', 0x02021400, bl1],
         ['bl2', 0x02023400, bl2],
-        ['u-boot', 0x43e00000, flasher]
+        ['u-boot', 0x43e00000, image]
         ]
     first = True
     try:
@@ -363,12 +380,13 @@ class WriteFirmware:
       args = ['fw_up:off', 'pwr_button:release']
       self._tools.Run('dut-control', args)
 
-    self._out.Notice('Flasher downloaded - please see serial output '
+    self._out.Notice('Image downloaded - please see serial output '
         'for progress.')
     return True
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
-                    text_base=None, update=True, verify=False, dest=None):
+                    text_base=None, update=True, verify=False, dest=None,
+                    flash_dest=None):
   """A simple function to write firmware to a device.
 
   This creates a WriteFirmware object and uses it to write the firmware image
@@ -385,6 +403,7 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     update: Use faster update algorithm rather then full device erase.
     verify: Verify the write by doing a readback and CRC.
     dest: Destination device to write firmware to (usb, sd).
+    flash_dest: Destination device for flasher to program payload into.
   """
   write = WriteFirmware(tools, fdt, output)
   if text_base:
@@ -394,10 +413,11 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
   if dest == 'usb':
     method = fdt.GetString('/chromeos-config', 'flash-method', 'tegra')
     if method == 'tegra':
-      ok = write._NvidiaFlashImage(flasher, file_list['bct'], image_fname)
+      ok = write._NvidiaFlashImage(flash_dest, flasher, file_list['bct'],
+          image_fname)
     elif method == 'exynos':
-      ok = write._ExynosFlashImage(flasher, file_list['exynos-bl1'],
-          file_list['exynos-bl2'], image_fname)
+      ok = write._ExynosFlashImage(flash_dest, flasher,
+          file_list['exynos-bl1'], file_list['exynos-bl2'], image_fname)
     else:
       raise CmdError("Unknown flash method '%s'" % method)
     if ok:
