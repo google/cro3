@@ -225,7 +225,7 @@ class WriteFirmware:
     """Flash the image to SPI flash.
 
     This creates a special Flasher binary, with the image to be flashed as
-    a payload. This is then sent to the board using the nvflash utility.
+    a payload. This is then sent to the board using the tegrarcm utility.
 
     Args:
       flash_dest: Destination for flasher, or None to not create a flasher
@@ -259,10 +259,8 @@ class WriteFirmware:
     self._out.Progress('Uploading flasher image')
     args = [
       '--bct', bct,
-      '--setbct',
-      '--bl',  image,
-      '--go',
-      '--setentry', "%#x" % self.text_base, "%#x" % self.text_base
+      '--bootloader',  image,
+      '--loadaddr', "%#x" % self.text_base
     ]
 
     # TODO(sjg): Check for existence of board - but chroot has no lsusb!
@@ -270,7 +268,7 @@ class WriteFirmware:
     for tries in range(10):
       try:
         # TODO(sjg): Use Chromite library so we can monitor output
-        self._tools.Run('nvflash', args, sudo=True)
+        self._tools.Run('tegrarcm', args, sudo=True)
         self._out.Notice('Flasher downloaded - please see serial output '
             'for progress.')
         return True
@@ -282,7 +280,7 @@ class WriteFirmware:
         # Only show the error output once unless it changes.
         err = str(err)
         if not 'USB device not found' in err:
-          raise CmdError('nvflash failed: %s' % err)
+          raise CmdError('tegrarcm failed: %s' % err)
 
         if err != last_err:
           self._out.Notice(err)
@@ -358,7 +356,7 @@ class WriteFirmware:
     """Flash the image to SPI flash.
 
     This creates a special Flasher binary, with the image to be flashed as
-    a payload. This is then sent to the board using the nvflash utility.
+    a payload. This is then sent to the board using the tegrarcm utility.
 
     Args:
       flash_dest: Destination for flasher, or None to not create a flasher
@@ -628,7 +626,7 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
   if dest == 'usb':
     method = fdt.GetString('/chromeos-config', 'flash-method', 'tegra')
     if method == 'tegra':
-      tools.CheckTool('nvflash')
+      tools.CheckTool('tegrarcm')
       bootstub = props['bootstub']
       if flash_dest:
         write.text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
