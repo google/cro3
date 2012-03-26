@@ -34,4 +34,8 @@ fi
 
 export DEFAULT_INSTALL_MASK
 
-python /usr/bin/devserver.py "$@"
+if [ -f /usr/lib/devserver/devserver.py ]; then
+  python /usr/lib/devserver/devserver.py "$@"
+else
+  python /usr/bin/devserver.py "$@"
+fi
