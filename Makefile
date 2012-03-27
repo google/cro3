@@ -21,6 +21,8 @@ install:
 		downloader.py \
 		"${DESTDIR}/usr/lib/devserver"
 
+	install -m 0755 stateful_update "${DESTDIR}/usr/bin"
+
 	# Data directory for the devserver.
 	mkdir -m0777 -p "${DESTDIR}/var/lib/devserver"
 	mkdir -m0777 -p "${DESTDIR}/var/lib/devserver/static"
