@@ -14,8 +14,6 @@ import tempfile
 import unittest
 
 import devserver_util
-import downloadable_artifact
-import gsutil_util
 
 
 # Fake Dev Server Layout:
@@ -30,9 +28,8 @@ class DevServerUtilTest(mox.MoxTestBase):
 
   def setUp(self):
     mox.MoxTestBase.setUp(self)
-    self._static_dir = tempfile.mkdtemp('devserver_util_unittest')
-    self._outside_sandbox_dir = tempfile.mkdtemp('devserver_util_unittest')
-    self._install_dir = tempfile.mkdtemp('devserver_util_unittest')
+    self._static_dir = tempfile.mkdtemp()
+    self._outside_sandbox_dir = tempfile.mkdtemp()
 
     for board, builds in TEST_LAYOUT.iteritems():
       board_path = os.path.join(self._static_dir, board)
@@ -41,25 +38,25 @@ class DevServerUtilTest(mox.MoxTestBase):
         build_path = os.path.join(board_path, build)
         os.mkdir(build_path)
         with open(os.path.join(build_path,
-                               downloadable_artifact.TEST_IMAGE), 'w') as f:
+                               devserver_util.TEST_IMAGE), 'w') as f:
           f.write('TEST_IMAGE')
-        with open(os.path.join(
-            build_path, downloadable_artifact.STATEFUL_UPDATE), 'w') as f:
+        with open(os.path.join(build_path,
+                               devserver_util.STATEFUL_UPDATE), 'w') as f:
           f.write('STATEFUL_UPDATE')
         with open(os.path.join(build_path,
-                               downloadable_artifact.ROOT_UPDATE), 'w') as f:
+                               devserver_util.ROOT_UPDATE), 'w') as f:
           f.write('ROOT_UPDATE')
         # AU payloads.
         au_dir = os.path.join(build_path, devserver_util.AU_BASE)
         nton_dir = os.path.join(au_dir, build + devserver_util.NTON_DIR_SUFFIX)
         os.makedirs(nton_dir)
         with open(os.path.join(nton_dir,
-                               downloadable_artifact.ROOT_UPDATE), 'w') as f:
+                               devserver_util.ROOT_UPDATE), 'w') as f:
           f.write('ROOT_UPDATE')
         mton_dir = os.path.join(au_dir, build + devserver_util.MTON_DIR_SUFFIX)
         os.makedirs(mton_dir)
         with open(os.path.join(mton_dir,
-                               downloadable_artifact.ROOT_UPDATE), 'w') as f:
+                               devserver_util.ROOT_UPDATE), 'w') as f:
           f.write('ROOT_UPDATE')
 
     self._good_mock_process = self.mox.CreateMock(subprocess.Popen)
@@ -70,7 +67,6 @@ class DevServerUtilTest(mox.MoxTestBase):
   def tearDown(self):
     shutil.rmtree(self._static_dir)
     shutil.rmtree(self._outside_sandbox_dir)
-    shutil.rmtree(self._install_dir)
 
   def testParsePayloadList(self):
     archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/'
@@ -98,6 +94,65 @@ class DevServerUtilTest(mox.MoxTestBase):
         devserver_util.ParsePayloadList([full_url, nton_url, mton_url]))
     self.assertEqual([full_url, nton_url, mton_url],
                      [full_url_out, nton_url_out, mton_url_out])
+
+  def _CallRunGS(self, output, str_should_contain, attempts=1):
+    """Helper that wraps a RunGS for tests."""
+    for attempt in range(attempts):
+      if attempt == devserver_util.GSUTIL_ATTEMPTS:
+        # We can't mock more than we can attempt.
+        return
+
+      # Return 1's for all but last attempt.
+      if attempt != attempts - 1:
+        mock_process = self._bad_mock_process
+      else:
+        mock_process = self._good_mock_process
+
+      subprocess.Popen(mox.StrContains(str_should_contain), shell=True,
+                       stdout=subprocess.PIPE).AndReturn(mock_process)
+      mock_process.communicate().AndReturn((output, None))
+
+  def testDownloadBuildFromGS(self):
+    """Tests that we can run download build from gs with one error."""
+    build = 'R17-1413.0.0-a1-b1346'
+    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
+                          build)
+    mock_data = 'mock data\nmock_data\nmock_data'
+    payloads = ['p1', 'p2', 'p3']
+    self.mox.StubOutWithMock(subprocess, 'Popen', use_mock_anything=True)
+    self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
+
+    # Make sure we our retry works.
+    self._CallRunGS(mock_data, archive_url_prefix, attempts=2)
+    devserver_util.ParsePayloadList(mock_data.splitlines()).AndReturn(
+        payloads)
+
+    for payload in payloads + [devserver_util.STATEFUL_UPDATE,
+                               devserver_util.AUTOTEST_PACKAGE]:
+      self._CallRunGS(mock_data, payload,)
+
+    self.mox.ReplayAll()
+    devserver_util.DownloadBuildFromGS(self._static_dir, archive_url_prefix,
+                                       build)
+    self.mox.VerifyAll()
+
+  def testDownloadBuildFromGSButGSDown(self):
+    """Tests that we fail correctly if we can't reach GS."""
+    build = 'R17-1413.0.0-a1-b1346'
+    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
+                          build)
+    mock_data = 'mock data\nmock_data\nmock_data'
+    self.mox.StubOutWithMock(subprocess, 'Popen', use_mock_anything=True)
+
+    self._CallRunGS(mock_data, archive_url_prefix,
+                    attempts=devserver_util.GSUTIL_ATTEMPTS + 1)
+
+    self.mox.ReplayAll()
+    self.assertRaises(
+        devserver_util.DevServerUtilError,
+        devserver_util.DownloadBuildFromGS,
+        self._static_dir, archive_url_prefix, build)
+    self.mox.VerifyAll()
 
   def testInstallBuild(self):
     # TODO(frankf): Implement this test
@@ -219,11 +274,11 @@ class DevServerUtilTest(mox.MoxTestBase):
     self.assertEquals(dev_build, abc_path)
     self.assertTrue(os.path.exists(abc_path))
     self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, downloadable_artifact.TEST_IMAGE)))
+        abc_path, devserver_util.TEST_IMAGE)))
     self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, downloadable_artifact.ROOT_UPDATE)))
+        abc_path, devserver_util.ROOT_UPDATE)))
     self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, downloadable_artifact.STATEFUL_UPDATE)))
+        abc_path, devserver_util.STATEFUL_UPDATE)))
 
     # Verify force properly removes the old directory.
     junk_path = os.path.join(dev_build, 'junk')
@@ -234,11 +289,11 @@ class DevServerUtilTest(mox.MoxTestBase):
     self.assertEquals(remote_dir, abc_path)
     self.assertTrue(os.path.exists(abc_path))
     self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, downloadable_artifact.TEST_IMAGE)))
+        abc_path, devserver_util.TEST_IMAGE)))
     self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, downloadable_artifact.ROOT_UPDATE)))
+        abc_path, devserver_util.ROOT_UPDATE)))
     self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, downloadable_artifact.STATEFUL_UPDATE)))
+        abc_path, devserver_util.STATEFUL_UPDATE)))
     self.assertFalse(os.path.exists(junk_path))
 
   def testGetControlFile(self):
@@ -262,37 +317,6 @@ class DevServerUtilTest(mox.MoxTestBase):
         self.assertEqual(set(au_targets),
                          set([build + devserver_util.NTON_DIR_SUFFIX,
                               build + devserver_util.MTON_DIR_SUFFIX]))
-
-  def testGatherArtifactDownloads(self):
-    """Tests that we can gather the correct download requirements."""
-    build = 'R17-1413.0.0-a1-b1346'
-    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
-                          build)
-    mock_data = 'mock data\nmock_data\nmock_data'
-    payloads = map(lambda x: '/'.join([archive_url_prefix, x]),
-                   ['p1', 'p2', 'p3'])
-    expected_payloads = payloads + map(
-        lambda x: '/'.join([archive_url_prefix, x]),
-            [downloadable_artifact.STATEFUL_UPDATE,
-             downloadable_artifact.AUTOTEST_PACKAGE,
-             downloadable_artifact.TEST_SUITES_PACKAGE])
-    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
-    self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
-
-    # GSUtil ls.
-    gsutil_util.GSUtilRun(mox.StrContains(archive_url_prefix),
-                          mox.IgnoreArg()).AndReturn(mock_data)
-    devserver_util.ParsePayloadList(mock_data.splitlines()).AndReturn(payloads)
-
-    self.mox.ReplayAll()
-    artifacts = devserver_util.GatherArtifactDownloads(
-        self._static_dir, archive_url_prefix, build, self._install_dir)
-    for index, artifact in enumerate(artifacts):
-      self.assertEqual(artifact._gs_path, expected_payloads[index])
-      self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
-      print 'Will Download Artifact: %s' % artifact
-
-    self.mox.VerifyAll()
 
 
 if __name__ == '__main__':

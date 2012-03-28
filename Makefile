@@ -18,9 +18,7 @@ install:
 		buildutil.py \
 		constants.py \
 		devserver_util.py \
-		downloadable_artifact.py \
 		downloader.py \
-		gsutil_util.py \
 		"${DESTDIR}/usr/lib/devserver"
 
 	install -m 0755 stateful_update "${DESTDIR}/usr/bin"

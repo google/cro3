@@ -14,7 +14,6 @@ import sys
 
 import autoupdate
 import devserver_util
-import downloader
 
 
 CACHED_ENTRIES = 12
@@ -22,11 +21,6 @@ CACHED_ENTRIES = 12
 # Sets up global to share between classes.
 global updater
 updater = None
-
-
-def DevServerError(Exception):
-  """Exception class used by this module."""
-  pass
 
 
 def _LeadingWhiteSpaceCount(string):
@@ -58,7 +52,7 @@ def _PrintDocStringAsHTML(func):
   for line in func.__doc__.splitlines():
     leading_space = _LeadingWhiteSpaceCount(line)
     if leading_space > 0:
-      line = '&nbsp;' * leading_space + line
+      line = '&nbsp;'*leading_space + line
 
     html_doc.append('<BR>%s' % line)
 
@@ -196,7 +190,7 @@ class DevServerRoot(object):
 
   def __init__(self):
     self._builder = None
-    self._downloader_dict = {}
+    self._downloader = None
 
   @cherrypy.expose
   def build(self, board, pkg, **kwargs):
@@ -210,11 +204,6 @@ class DevServerRoot(object):
   def download(self, **kwargs):
     """Downloads and archives full/delta payloads from Google Storage.
 
-    This methods downloads artifacts. It may download artifacts in the
-    background in which case a caller should call wait_for_status to get
-    the status of the background artifact downloads. They should use the same
-    args passed to download.
-
     Args:
       archive_url: Google Storage URL for the build.
 
@@ -222,36 +211,10 @@ class DevServerRoot(object):
       'http://myhost/download?archive_url=gs://chromeos-image-archive/'
       'x86-generic/R17-1208.0.0-a1-b338'
     """
-    downloader_instance = downloader.Downloader(updater.static_dir)
-    archive_url = kwargs.get('archive_url')
-    if not archive_url:
-      raise DevServerError("Didn't specify the archive_url in request")
-
-    return_obj = downloader_instance.Download(archive_url)
-    self._downloader_dict[archive_url] = downloader_instance
-    return return_obj
-
-  @cherrypy.expose
-  def wait_for_status(self, **kwargs):
-    """Waits for background artifacts to be downloaded from Google Storage.
-
-    Args:
-      archive_url: Google Storage URL for the build.
-
-    Example URL:
-      'http://myhost/wait_for_status?archive_url=gs://chromeos-image-archive/'
-      'x86-generic/R17-1208.0.0-a1-b338'
-    """
-    archive_url = kwargs.get('archive_url')
-    if not archive_url:
-      raise DevServerError("Didn't specify the archive_url in request")
-
-    downloader_instance = self._downloader_dict.get(archive_url)
-    if downloader_instance:
-      self._downloader_dict[archive_url] = None
-      return downloader_instance.GetStatusOfBackgroundDownloads()
-    else:
-      raise DevServerError('No download for the given archive_url found.')
+    import downloader
+    if self._downloader is None:
+      self._downloader = downloader.Downloader(updater.static_dir)
+    return self._downloader.Download(kwargs['archive_url'])
 
   @cherrypy.expose
   def latestbuild(self, **params):
@@ -398,7 +361,7 @@ if __name__ == '__main__':
   #  to devserver_dir  to keep these unbroken. For now.
     archive_dir = options.archive_dir
     if not os.path.isabs(archive_dir):
-      archive_dir = os.path.realpath(os.path.join(devserver_dir, archive_dir))
+      archive_dir = os.path.realpath(os.path.join(devserver_dir,archive_dir))
     _PrepareToServeUpdatesOnly(archive_dir, static_dir)
     static_dir = os.path.realpath(archive_dir)
     serve_only = True
