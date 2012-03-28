@@ -6,6 +6,7 @@
 
 import cherrypy
 import multiprocessing
+import os
 import shutil
 import tempfile
 
@@ -31,6 +32,13 @@ class Downloader(object):
     self._lock_tag = None
     self._archive_url = None
 
+  @staticmethod
+  def BuildStaged(archive_url, static_dir):
+    """Returns True if the build is already staged."""
+    target, short_build = archive_url.rsplit('/', 2)[-2:]
+    sub_directory = '/'.join([target, short_build])
+    return os.path.isdir(os.path.join(static_dir, sub_directory))
+
   def Download(self, archive_url, background=False):
     """Downloads the given build artifacts defined by the |archive_url|.
 
@@ -38,14 +46,14 @@ class Downloader(object):
     have been downloaded. The artifacts that can be backgrounded are all those
     that are not set as synchronous.
     """
-    # Parse archive_url into board and build.
-    # e.g. gs://chromeos-image-archive/{board}/{build}
+    # Parse archive_url into target and short_build.
+    # e.g. gs://chromeos-image-archive/{target}/{short_build}
     self._archive_url = archive_url.strip('/')
-    board, build = self._archive_url.rsplit('/', 2)[-2:]
+    target, short_build = self._archive_url.rsplit('/', 2)[-2:]
 
     # Bind build_dir and staging_dir here so we can tell if we need to do any
     # cleanup after an exception occurs before build_dir is set.
-    self._lock_tag = '/'.join([board, build])
+    self._lock_tag = '/'.join([target, short_build])
     try:
       # Create Dev Server directory for this build and tell other Downloader
       # instances we have processed this build.
@@ -53,16 +61,21 @@ class Downloader(object):
         self._build_dir = devserver_util.AcquireLock(
             static_dir=self._static_dir, tag=self._lock_tag)
       except devserver_util.DevServerUtilError, e:
-        cherrypy.log('Refused lock "%s". Assuming build has already been'
-                     'processed: %s' % (self._lock_tag, str(e)), 'DOWNLOAD')
-        self._status_queue.put('Success')
-        return 'Success'
+        if Downloader.BuildStaged(archive_url, self._static_dir):
+          cherrypy.log(
+              'Build %s has already been processed.' % self._lock_tag,
+              'DOWNLOAD')
+          self._status_queue.put('Success')
+          return 'Success'
+        else:
+          raise
 
-      self._staging_dir = tempfile.mkdtemp(suffix='_'.join([board, build]))
+      self._staging_dir = tempfile.mkdtemp(suffix='_'.join([target,
+                                                            short_build]))
       cherrypy.log('Gathering download requirements %s' % self._archive_url,
                    'DOWNLOAD')
       artifacts = devserver_util.GatherArtifactDownloads(
-          self._staging_dir, self._archive_url, build, self._build_dir)
+          self._staging_dir, self._archive_url, short_build, self._build_dir)
       devserver_util.PrepareBuildDirectory(self._build_dir)
 
       cherrypy.log('Downloading foreground artifacts from %s' % archive_url,

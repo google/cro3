@@ -151,7 +151,7 @@ def AcquireLock(static_dir, tag):
   """
   build_dir = os.path.join(static_dir, tag)
   if not SafeSandboxAccess(static_dir, build_dir):
-    raise DevServerUtilError('Invaid tag "%s".' % tag)
+    raise DevServerUtilError('Invalid tag "%s".' % tag)
 
   try:
     os.makedirs(build_dir)

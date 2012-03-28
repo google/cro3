@@ -113,6 +113,7 @@ class DownloaderTest(mox.MoxTestBase):
     self.mox.VerifyAll()
 
   def testInteractionWithDevserver(self):
+    """Tests interaction between the downloader and devserver methods."""
     artifacts = self._CommonDownloaderSetup()
     class FakeUpdater():
       static_dir = self._work_dir
@@ -132,6 +133,18 @@ class DownloaderTest(mox.MoxTestBase):
     status = dev.wait_for_status(archive_url=self.archive_url_prefix)
     self.assertTrue(status, 'Success')
     self.mox.VerifyAll()
+
+  def testBuildStaged(self):
+    """Test whether we can correctly check if a build is previously staged."""
+    archive_url = 'x86-awesome-release/R99-1234.0-r1'
+    archive_url_non_staged = 'x86-awesome-release/R99-1234.0-r2'
+    # Create the directory to reflect staging.
+    os.makedirs(os.path.join(self._work_dir, archive_url))
+
+    self.assertTrue(downloader.Downloader.BuildStaged(archive_url,
+                                                      self._work_dir))
+    self.assertFalse(downloader.Downloader.BuildStaged(archive_url_non_staged,
+                                                       self._work_dir))
 
 
 if __name__ == '__main__':

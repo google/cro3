@@ -24,7 +24,7 @@ global updater
 updater = None
 
 
-def DevServerError(Exception):
+class DevServerError(Exception):
   """Exception class used by this module."""
   pass
 
@@ -251,7 +251,12 @@ class DevServerRoot(object):
       self._downloader_dict[archive_url] = None
       return downloader_instance.GetStatusOfBackgroundDownloads()
     else:
-      raise DevServerError('No download for the given archive_url found.')
+      # We may have previously downloaded but removed the downloader instance
+      # from the cache.
+      if downloader.Downloader.BuildStaged(archive_url, updater.static_dir):
+        return 'Success'
+      else:
+        raise DevServerError('No download for the given archive_url found.')
 
   @cherrypy.expose
   def latestbuild(self, **params):
@@ -409,7 +414,8 @@ if __name__ == '__main__':
   if os.path.exists(cache_dir):
     if options.clear_cache:
       # Clear the cache and exit on error.
-      if os.system('rm -rf %s/*' % cache_dir) != 0:
+      cmd = 'rm -rf %s/*' % cache_dir
+      if os.system(cmd) != 0:
         cherrypy.log('Failed to clear the cache with %s' % cmd,
                      'DEVSERVER')
         sys.exit(1)
