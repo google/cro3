@@ -227,7 +227,7 @@ class DevServerRoot(object):
     if not archive_url:
       raise DevServerError("Didn't specify the archive_url in request")
 
-    return_obj = downloader_instance.Download(archive_url)
+    return_obj = downloader_instance.Download(archive_url, background=True)
     self._downloader_dict[archive_url] = downloader_instance
     return return_obj
 
@@ -378,7 +378,7 @@ if __name__ == '__main__':
                     dest='validate_factory_config',
                     help='Validate factory config file, then exit.')
   parser.add_option('-l', '--log-dir', default=None,
-                    help=('Specify a directory for error and access logs. ',
+                    help=('Specify a directory for error and access logs. '
                           'Default None, i.e. no logging.'))
   (options, _) = parser.parse_args()
 

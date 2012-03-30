@@ -141,7 +141,7 @@ class Downloader(object):
     """Downloads |artifacts| in the background and signals when complete."""
     proc = multiprocessing.Process(target=self._DownloadArtifactsSerially,
                                    args=(artifacts,))
-    proc.run()
+    proc.start()
 
   def GetStatusOfBackgroundDownloads(self):
     """Returns the status of the background downloads.
