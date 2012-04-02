@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2009-2010 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2009-2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -428,15 +428,37 @@ function main() {
     start_dev_server
   fi
 
-  if [ ${FLAGS_update} -eq ${FLAGS_TRUE} ] && ! run_auto_update; then
-    warn "Dumping update_engine.log for debugging and/or bug reporting."
+  local update_pid
+  if [ ${FLAGS_update} -eq ${FLAGS_TRUE} ]; then
+    run_auto_update &
+    update_pid=$!
+  fi
+
+  local stateful_pid
+  local stateful_tmp_file
+  if [ ${FLAGS_update_stateful} -eq ${FLAGS_TRUE} ]; then
+    stateful_tmp_file=$(mktemp)
+    run_stateful_update &> "${stateful_tmp_file}" &
+    stateful_pid=$!
+  fi
+
+  if [ -n "${update_pid}" ] && ! wait ${update_pid}; then
+    warn "Update failed. " \
+       "Dumping update_engine.log for debugging and/or bug reporting."
     tail -n 200 "${FLAGS_update_log}" >&2
     die "Update was not successful."
   fi
 
-  if [ ${FLAGS_update_stateful} -eq ${FLAGS_TRUE} ] && \
-      ! run_stateful_update; then
-    die "Stateful update was not successful."
+  if [ -n "${stateful_pid}" ]; then
+    local stateful_success=0
+    if ! wait ${stateful_pid}; then
+      stateful_success=1
+    fi
+    cat "${stateful_tmp_file}"
+    rm "${stateful_tmp_file}"
+    if [ ${stateful_success} -ne 0 ]; then
+      die "Stateful update was not successful."
+    fi
   fi
 
   remote_reboot
