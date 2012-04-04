@@ -16,6 +16,7 @@ to keep these consistent!
   signed    (uboot + fdt + bct) signed blob
 """
 
+import glob
 import os
 import re
 
@@ -145,8 +146,19 @@ class Bundle:
       raise ValueError('No board defined - please define a board to use')
     build_root = os.path.join('##', 'build', self._board, 'firmware')
     if not self._fdt_fname:
-      self._fdt_fname = os.path.join(build_root, 'dts', '%s.dts' %
-          re.sub('_', '-', self._board))
+      # Figure out where the file should be, and the name we expect.
+      dir_name = os.path.join(build_root, 'dts')
+      base_name = re.sub('_', '-', self._board)
+
+      # In case the name exists with a prefix or suffix, find it.
+      wildcard = os.path.join(dir_name, '*%s*.dts' % base_name)
+      found_list = glob.glob(self._tools.Filename(wildcard))
+      if len(found_list) == 1:
+        self._fdt_fname = found_list[0]
+      else:
+        # We didn't find anything definite, so set up our expected name.
+        self._fdt_fname = os.path.join(dir_name, '%s.dts' % base_name)
+
     if not self.uboot_fname:
       self.uboot_fname = os.path.join(build_root, 'u-boot.bin')
     if not self.bct_fname:
