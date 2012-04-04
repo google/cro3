@@ -145,9 +145,9 @@ class Bundle:
     if not self._board:
       raise ValueError('No board defined - please define a board to use')
     build_root = os.path.join('##', 'build', self._board, 'firmware')
+    dir_name = os.path.join(build_root, 'dts')
     if not self._fdt_fname:
       # Figure out where the file should be, and the name we expect.
-      dir_name = os.path.join(build_root, 'dts')
       base_name = re.sub('_', '-', self._board)
 
       # In case the name exists with a prefix or suffix, find it.
@@ -158,6 +158,11 @@ class Bundle:
       else:
         # We didn't find anything definite, so set up our expected name.
         self._fdt_fname = os.path.join(dir_name, '%s.dts' % base_name)
+
+    # Convert things like 'exynos5250-daisy' into a full path.
+    root, ext = os.path.splitext(self._fdt_fname)
+    if not ext and not os.path.dirname(root):
+      self._fdt_fname = os.path.join(dir_name, '%s.dts' % root)
 
     if not self.uboot_fname:
       self.uboot_fname = os.path.join(build_root, 'u-boot.bin')
