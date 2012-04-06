@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2009-2012 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -50,6 +50,8 @@ DEFINE_string src_image "" \
   "Create a delta update by passing in the image on the remote machine."
 DEFINE_boolean update_stateful ${FLAGS_TRUE} \
   "Perform update of stateful partition e.g. /var /usr/local."
+DEFINE_boolean reboot_after_update ${FLAGS_TRUE} \
+  "Reboot after update applied for the update to take effect."
 
 # Flags for stateful update.
 DEFINE_string stateful_update_flag "" \
@@ -459,6 +461,12 @@ function main() {
     if [ ${stateful_success} -ne 0 ]; then
       die "Stateful update was not successful."
     fi
+  fi
+
+  if [ ${FLAGS_reboot_after_update} -eq ${FLAGS_FALSE} ]; then
+    echo "Not rebooting because of --noreboot_after_update"
+    print_time_elapsed
+    exit 0
   fi
 
   remote_reboot
