@@ -56,10 +56,6 @@ def _CheckTools(tools, options):
   Raises:
     CmdError if a required tool is not found.
   """
-  if options.write:
-    tools.CheckTool('nvflash')
-    tools.CheckTool('lsusb', 'usbutils')
-    tools.CheckTool('smdk-usbdl', 'smdk-dltool')
   tools.CheckTool('fdtput', 'dtc')
   tools.CheckTool('fdtget', 'dtc')
 

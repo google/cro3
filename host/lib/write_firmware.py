@@ -546,9 +546,12 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
   if dest == 'usb':
     method = fdt.GetString('/chromeos-config', 'flash-method', 'tegra')
     if method == 'tegra':
+      tools.CheckTool('nvflash')
       ok = write._NvidiaFlashImage(flash_dest, flasher, file_list['bct'],
           image_fname)
     elif method == 'exynos':
+      tools.CheckTool('lsusb', 'usbutils')
+      tools.CheckTool('smdk-usbdl', 'smdk-dltool')
       ok = write._ExynosFlashImage(flash_dest, flasher,
           file_list['exynos-bl1'], file_list['exynos-bl2'], image_fname)
     else:
