@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Copyright (c) 2009-2012 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2009-2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -227,15 +227,8 @@ class DevServerRoot(object):
     if not archive_url:
       raise DevServerError("Didn't specify the archive_url in request")
 
-    # Do this before we start such that other calls to the downloader or
-    # wait_for_status are blocked until this completed/failed.
+    return_obj = downloader_instance.Download(archive_url, background=True)
     self._downloader_dict[archive_url] = downloader_instance
-    try:
-      return_obj = downloader_instance.Download(archive_url, background=True)
-    except:
-      self._downloader_dict[archive_url] = None
-      raise
-
     return return_obj
 
   @cherrypy.expose
@@ -255,15 +248,12 @@ class DevServerRoot(object):
 
     downloader_instance = self._downloader_dict.get(archive_url)
     if downloader_instance:
-      status = downloader_instance.GetStatusOfBackgroundDownloads()
       self._downloader_dict[archive_url] = None
-      return status
+      return downloader_instance.GetStatusOfBackgroundDownloads()
     else:
       # We may have previously downloaded but removed the downloader instance
       # from the cache.
       if downloader.Downloader.BuildStaged(archive_url, updater.static_dir):
-        logging.info('%s not found in downloader cache but previously staged.',
-                     archive_url)
         return 'Success'
       else:
         raise DevServerError('No download for the given archive_url found.')
