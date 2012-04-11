@@ -93,7 +93,6 @@ class Downloader(object):
       else:
         self._DownloadArtifactsSerially(background_artifacts)
 
-      self._status_queue.put('Success')
     except Exception, e:
       # Release processing lock, which will remove build components directory
       # so future runs can retry.

@@ -50,7 +50,7 @@ def ParsePayloadList(payload_list):
       else:
         mton_payload_url = payload
 
-  if not full_payload_url or not nton_payload_url or not mton_payload_url:
+  if not full_payload_url or not nton_payload_url:
     raise DevServerUtilError(
         'Payloads are missing or have unexpected name formats.', payload_list)
 
@@ -74,16 +74,17 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir):
   full_payload = os.path.join(build_dir, downloadable_artifact.ROOT_UPDATE)
   nton_payload = os.path.join(build_dir, AU_BASE, build + NTON_DIR_SUFFIX,
                               downloadable_artifact.ROOT_UPDATE)
-  mton_payload = os.path.join(build_dir, AU_BASE, build + MTON_DIR_SUFFIX,
-                              downloadable_artifact.ROOT_UPDATE)
 
   artifacts = []
   artifacts.append(downloadable_artifact.DownloadableArtifact(full_url,
       main_staging_dir, full_payload, synchronous=True))
   artifacts.append(downloadable_artifact.AUTestPayload(nton_url,
       main_staging_dir, nton_payload))
-  artifacts.append(downloadable_artifact.AUTestPayload(mton_url,
-      main_staging_dir, mton_payload))
+  if mton_url:
+    mton_payload = os.path.join(build_dir, AU_BASE, build + MTON_DIR_SUFFIX,
+                                downloadable_artifact.ROOT_UPDATE)
+    artifacts.append(downloadable_artifact.AUTestPayload(
+        mton_url, main_staging_dir, mton_payload))
 
   # Next we gather the miscellaneous payloads.
   stateful_url = archive_url + '/' + downloadable_artifact.STATEFUL_UPDATE
