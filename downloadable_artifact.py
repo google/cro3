@@ -13,6 +13,7 @@ import gsutil_util
 
 
 # Names of artifacts we care about.
+DEBUG_SYMBOLS = 'debug.tgz'
 STATEFUL_UPDATE = 'stateful.tgz'
 TEST_IMAGE = 'chromiumos_test_image.bin'
 ROOT_UPDATE = 'update.gz'
@@ -137,3 +138,17 @@ class AutotestTarball(Tarball):
     # code.
     cmd = 'cp %s/* %s' % (autotest_pkgs_dir, autotest_dir)
     subprocess.check_call(cmd, shell=True)
+
+
+class DebugTarball(Tarball):
+  """Wrapper around the debug symbols tarball to download from gsutil."""
+
+  def _ExtractTarball(self):
+    """Extracts debug/breakpad from the tarball into the install_path."""
+    cmd = 'tar xzf %s --directory=%s debug/breakpad' % (
+        self._tmp_stage_path, self._install_path)
+    msg = 'An error occurred when attempting to untar %s' % self._tmp_stage_path
+    try:
+      subprocess.check_call(cmd, shell=True)
+    except subprocess.CalledProcessError, e:
+      raise ArtifactDownloadError('%s %s' % (msg, e))
