@@ -75,8 +75,7 @@ class Downloader(object):
       cherrypy.log('Gathering download requirements %s' % self._archive_url,
                    'DOWNLOAD')
       artifacts = devserver_util.GatherArtifactDownloads(
-          self._staging_dir, self._archive_url, short_build, self._build_dir,
-          self._static_dir)
+          self._staging_dir, self._archive_url, short_build, self._build_dir)
       devserver_util.PrepareBuildDirectory(self._build_dir)
 
       cherrypy.log('Downloading foreground artifacts from %s' % archive_url,
