@@ -339,6 +339,78 @@ class DevServerUtilTest(mox.MoxTestBase):
 
     self.mox.VerifyAll()
 
+  def testGatherSymbolArtifactDownloads(self):
+    """Tests that we can find debug symbol artifacts to download."""
+    build = 'R17-1413.0.0-a1-b1346'
+    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
+                          build)
+    symbol_url = archive_url_prefix + '/' + downloadable_artifact.DEBUG_SYMBOLS
+    mock_data = 'mock data\nmock_data\nmock_data'
+    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
+
+    # GSUtil ls.
+    gsutil_util.GSUtilRun(mox.StrContains(symbol_url),
+                          mox.IgnoreArg()).AndReturn(mock_data)
+
+    self.mox.ReplayAll()
+    artifacts = devserver_util.GatherSymbolArtifactDownloads(
+        self._static_dir, archive_url_prefix, self._install_dir)
+    for index, artifact in enumerate(artifacts):
+      self.assertEqual(artifact._gs_path, symbol_url)
+      self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
+
+    self.mox.VerifyAll()
+
+  def testGatherSymbolArtifactDownloadsWithRetry(self):
+    """Tests that we can poll for debug symbol artifacts to download."""
+    build = 'R17-1413.0.0-a1-b1346'
+    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
+                          build)
+    symbol_url = archive_url_prefix + '/' + downloadable_artifact.DEBUG_SYMBOLS
+    mock_data = 'mock data\nmock_data\nmock_data'
+    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
+
+    # GSUtil ls.
+    gsutil_util.GSUtilRun(mox.StrContains(symbol_url),
+                          mox.IgnoreArg()).AndRaise(gsutil_util.GSUtilError())
+    gsutil_util.GSUtilRun(mox.StrContains(symbol_url),
+                          mox.IgnoreArg()).AndReturn(mock_data)
+
+    self.mox.ReplayAll()
+    artifacts = devserver_util.GatherSymbolArtifactDownloads(
+        self._static_dir, archive_url_prefix, self._install_dir, delay=1)
+    for index, artifact in enumerate(artifacts):
+      self.assertEqual(artifact._gs_path, symbol_url)
+      self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
+
+    self.mox.VerifyAll()
+
+  def testGatherSymbolArtifactDownloadsFailAfterRetry(self):
+    """Tests that we can poll for debug symbol artifacts to download."""
+    build = 'R17-1413.0.0-a1-b1346'
+    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
+                          build)
+    symbol_url = archive_url_prefix + '/' + downloadable_artifact.DEBUG_SYMBOLS
+    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
+
+    # GSUtil ls.
+    gsutil_util.GSUtilRun(mox.StrContains(symbol_url),
+                          mox.IgnoreArg()
+                          ).MultipleTimes().AndRaise(gsutil_util.GSUtilError())
+
+    self.mox.ReplayAll()
+    self.assertRaises(gsutil_util.GSUtilError,
+                      devserver_util.GatherSymbolArtifactDownloads,
+                      self._static_dir,
+                      archive_url_prefix,
+                      self._install_dir,
+                      timeout=1,
+                      delay=1)
+    self.mox.VerifyAll()
+
 
 if __name__ == '__main__':
   unittest.main()

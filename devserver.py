@@ -7,11 +7,14 @@
 """A CherryPy-based webserver to host images and build packages."""
 
 import cherrypy
+import cStringIO
 import logging
 import optparse
 import os
 import re
 import sys
+import subprocess
+import tempfile
 
 import autoupdate
 import devserver_util
@@ -238,6 +241,61 @@ class DevServerRoot(object):
       raise
 
     return return_obj
+
+  @cherrypy.expose
+  def stage_debug(self, **kwargs):
+    """Downloads and stages debug symbol payloads from Google Storage.
+
+    This methods downloads the debug symbol build artifact synchronously,
+    and then stages it for use by symbolicate_dump/.
+
+    Args:
+      archive_url: Google Storage URL for the build.
+
+    Example URL:
+      'http://myhost/stage_debug?archive_url=gs://chromeos-image-archive/'
+      'x86-generic/R17-1208.0.0-a1-b338'
+    """
+    archive_url = kwargs.get('archive_url')
+    if not archive_url:
+      raise DevServerError("Didn't specify the archive_url in request")
+
+    return downloader.SymbolDownloader(updater.static_dir).Download(archive_url)
+
+  @cherrypy.expose
+  def symbolicate_dump(self, minidump):
+    """Symbolicates a minidump using pre-downloaded symbols, returns it.
+
+    Callers will need to POST to this URL with a body of MIME-type
+    "multipart/form-data".
+    The body should include a single argument, 'minidump', containing the
+    binary-formatted minidump to symbolicate.
+
+    It is up to the caller to ensure that the symbols they want are currently
+    staged.
+
+    Args:
+      minidump: The binary minidump file to symbolicate.
+    """
+    to_return = ''
+    with tempfile.NamedTemporaryFile() as local:
+      while True:
+        data = minidump.file.read(8192)
+        if not data:
+          break
+        local.write(data)
+      local.flush()
+      stackwalk = subprocess.Popen(['minidump_stackwalk',
+                                    local.name,
+                                    updater.static_dir + '/debug/breakpad'],
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+      to_return, error_text = stackwalk.communicate()
+      if stackwalk.returncode != 0:
+        raise DevServerError("Can't generate stack trace: %s (rc=%d)" % (
+            error_text, stackwalk.returncode))
+
+    return to_return
 
   @cherrypy.expose
   def wait_for_status(self, **kwargs):

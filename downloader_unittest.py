@@ -12,7 +12,7 @@ import shutil
 import tempfile
 import unittest
 
-import artifact_download
+import downloadable_artifact
 import devserver
 import devserver_util
 import downloader
@@ -26,7 +26,7 @@ TEST_LAYOUT = {
 }
 
 
-class DownloaderTest(mox.MoxTestBase):
+class DownloaderTestBase(mox.MoxTestBase):
 
   def setUp(self):
     mox.MoxTestBase.setUp(self)
@@ -42,10 +42,10 @@ class DownloaderTest(mox.MoxTestBase):
   def _CommonDownloaderSetup(self):
     """Common code to downloader tests.
 
-    Sets up artifacts and sets up expectations for synchronous artifacts to
-    be downloaded first.
+    Mocks out key devserver_util module methods, creates mock artifacts
+    and sets appropriate expectations.
 
-    Returns the artifacts to use in the test.
+    @return iterable of artifact objects with appropriate expectations.
     """
     board = 'x86-mario-release'
     self.mox.StubOutWithMock(devserver_util, 'AcquireLock')
@@ -53,31 +53,77 @@ class DownloaderTest(mox.MoxTestBase):
     self.mox.StubOutWithMock(devserver_util, 'ReleaseLock')
     self.mox.StubOutWithMock(tempfile, 'mkdtemp')
 
-    artifacts = []
+    devserver_util.AcquireLock(
+        static_dir=self._work_dir,
+        tag=self._ClassUnderTest().GenerateLockTag(board, self.build)
+        ).AndReturn(self._work_dir)
 
+    tempfile.mkdtemp(suffix=mox.IgnoreArg()).AndReturn(self._work_dir)
+    return self._GenerateArtifacts()
+
+  def _CreateArtifactDownloader(self, artifacts):
+    """Create and return a Downloader of the appropriate type.
+
+    The returned downloader will expect to download and stage the
+    DownloadableArtifacts listed in [artifacts].
+
+    @param artifacts: iterable of DownloadableArtifacts.
+    @return instance of downloader.Downloader or subclass.
+    """
+    raise NotImplementedError()
+
+  def _ClassUnderTest(self):
+    """Return class object of the type being tested.
+
+    @return downloader.Downloader class object, or subclass.
+    """
+    raise NotImplementedError()
+
+  def _GenerateArtifacts(self):
+    """Instantiate artifact mocks and set expectations on them.
+
+    @return iterable of artifact objects with appropriate expectations.
+    """
+    raise NotImplementedError()
+
+
+class DownloaderTest(DownloaderTestBase):
+  """Unit tests for downloader.Downloader.
+
+  setUp() and tearDown() inherited from DownloaderTestBase.
+  """
+
+  def _CreateArtifactDownloader(self, artifacts):
+    d = downloader.Downloader(self._work_dir)
+    self.mox.StubOutWithMock(d, 'GatherArtifactDownloads')
+    d.GatherArtifactDownloads(
+        self._work_dir, self.archive_url_prefix, self.build,
+        self._work_dir).AndReturn(artifacts)
+    return d
+
+  def _ClassUnderTest(self):
+    return downloader.Downloader
+
+  def _GenerateArtifacts(self):
+    """Instantiate artifact mocks and set expectations on them.
+
+    Sets up artifacts and sets up expectations for synchronous artifacts to
+    be downloaded first.
+
+    @return iterable of artifact objects with appropriate expectations.
+    """
+    artifacts = []
     for index in range(5):
-      artifact = self.mox.CreateMock(artifact_download.DownloadableArtifact)
+      artifact = self.mox.CreateMock(downloadable_artifact.DownloadableArtifact)
       # Make every other artifact synchronous.
       if index % 2 == 0:
         artifact.Synchronous = lambda: True
+        artifact.Download()
+        artifact.Stage()
       else:
         artifact.Synchronous = lambda: False
 
       artifacts.append(artifact)
-
-    devserver_util.AcquireLock(
-        static_dir=self._work_dir,
-        tag='/'.join([board, self.build])).AndReturn(self._work_dir)
-
-    tempfile.mkdtemp(suffix=mox.IgnoreArg()).AndReturn(self._work_dir)
-    devserver_util.GatherArtifactDownloads(
-        self._work_dir, self.archive_url_prefix, self.build,
-        self._work_dir).AndReturn(artifacts)
-
-    for index, artifact in enumerate(artifacts):
-      if index % 2 == 0:
-        artifact.Download()
-        artifact.Stage()
 
     return artifacts
 
@@ -91,9 +137,10 @@ class DownloaderTest(mox.MoxTestBase):
         artifact.Download()
         artifact.Stage()
 
+    d = self._CreateArtifactDownloader(artifacts)
     self.mox.ReplayAll()
-    self.assertEqual(downloader.Downloader(self._work_dir).Download(
-        self.archive_url_prefix, background=False), 'Success')
+    self.assertEqual(d.Download(self.archive_url_prefix, background=False),
+                     'Success')
     self.mox.VerifyAll()
 
   def testDownloaderInBackground(self):
@@ -106,8 +153,8 @@ class DownloaderTest(mox.MoxTestBase):
         artifact.Download()
         artifact.Stage()
 
+    d = self._CreateArtifactDownloader(artifacts)
     self.mox.ReplayAll()
-    d = downloader.Downloader(self._work_dir)
     d.Download(self.archive_url_prefix, background=True)
     self.assertEqual(d.GetStatusOfBackgroundDownloads(), 'Success')
     self.mox.VerifyAll()
@@ -115,6 +162,10 @@ class DownloaderTest(mox.MoxTestBase):
   def testInteractionWithDevserver(self):
     """Tests interaction between the downloader and devserver methods."""
     artifacts = self._CommonDownloaderSetup()
+    devserver_util.GatherArtifactDownloads(
+        self._work_dir, self.archive_url_prefix, self.build,
+        self._work_dir).AndReturn(artifacts)
+
     class FakeUpdater():
       static_dir = self._work_dir
 
@@ -145,6 +196,46 @@ class DownloaderTest(mox.MoxTestBase):
                                                       self._work_dir))
     self.assertFalse(downloader.Downloader.BuildStaged(archive_url_non_staged,
                                                        self._work_dir))
+
+
+class SymbolDownloaderTest(DownloaderTestBase):
+  """Unit tests for downloader.SymbolDownloader.
+
+  setUp() and tearDown() inherited from DownloaderTestBase.
+  """
+
+  def _CreateArtifactDownloader(self, artifacts):
+    d = downloader.SymbolDownloader(self._work_dir)
+    self.mox.StubOutWithMock(d, 'GatherArtifactDownloads')
+    d.GatherArtifactDownloads(
+        self._work_dir, self.archive_url_prefix, '',
+        self._work_dir).AndReturn(artifacts)
+    return d
+
+  def _ClassUnderTest(self):
+    return downloader.SymbolDownloader
+
+  def _GenerateArtifacts(self):
+    """Instantiate artifact mocks and set expectations on them.
+
+    Sets up a DebugTarball and sets up expectation that it will be
+    downloaded and staged.
+
+    @return iterable of one artifact object with appropriate expectations.
+    """
+    artifact = self.mox.CreateMock(downloadable_artifact.DownloadableArtifact)
+    artifact.Synchronous = lambda: True
+    artifact.Download()
+    artifact.Stage()
+    return [artifact]
+
+  def testDownloaderSerially(self):
+    """Runs through the symbol downloader workflow."""
+    d = self._CreateArtifactDownloader(self._CommonDownloaderSetup())
+
+    self.mox.ReplayAll()
+    self.assertEqual(d.Download(self.archive_url_prefix), 'Success')
+    self.mox.VerifyAll()
 
 
 if __name__ == '__main__':

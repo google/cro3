@@ -8,7 +8,9 @@ import cherrypy
 import distutils.version
 import errno
 import os
+import random
 import shutil
+import time
 
 import downloadable_artifact
 import gsutil_util
@@ -61,8 +63,10 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir):
   """Generates artifacts that we mean to download and install for autotest.
 
   This method generates the list of artifacts we will need for autotest. These
-  artifacts are instances of downloadable_artifact.DownloadableArtifact.Note,
-  these artifacts can be downloaded asynchronously iff !artifact.Synchronous().
+  artifacts are instances of downloadable_artifact.DownloadableArtifact.
+
+  Note, these artifacts can be downloaded asynchronously iff
+  !artifact.Synchronous().
   """
   cmd = 'gsutil ls %s/*.bin' % archive_url
   msg = 'Failed to get a list of payloads.'
@@ -102,6 +106,49 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir):
   artifacts.append(downloadable_artifact.Tarball(
       test_suites_url, main_staging_dir, build_dir, synchronous=True))
   return artifacts
+
+
+def GatherSymbolArtifactDownloads(temp_download_dir, archive_url, staging_dir,
+                                  timeout=600, delay=10):
+  """Generates debug symbol artifacts that we mean to download and stage.
+
+  This method generates the list of artifacts we will need to
+  symbolicate crash dumps that occur during autotest runs.  These
+  artifacts are instances of downloadable_artifact.DownloadableArtifact.
+
+  This will poll google storage until the debug symbol artifact becomes
+  available, or until the 10 minute timeout is up.
+
+  @param temp_download_dir: the tempdir into which we're downloading artifacts
+                            prior to staging them.
+  @param archive_url: the google storage url of the bucket where the debug
+                      symbols for the desired build are stored.
+  @param staging_dir: the dir into which to stage the symbols
+
+  @return an iterable of one DebugTarball pointing to the right debug symbols.
+          This is an iterable so that it's similar to GatherArtifactDownloads.
+          Also, it's possible that someday we might have more than one.
+  """
+  symbol_url = archive_url + '/' + downloadable_artifact.DEBUG_SYMBOLS
+  cmd = 'gsutil ls %s' % symbol_url
+  msg = 'Debug symbols for %s not archived.' % archive_url
+
+  deadline = time.time() + timeout
+  while time.time() < deadline:
+    to_delay = delay + random.choice([-1, 1]) * random.random() * .5 * delay
+    try:
+      gsutil_util.GSUtilRun(cmd, msg)
+      break
+    except gsutil_util.GSUtilError as e:
+      cherrypy.log('%s, Retrying in %f seconds...' % (e, to_delay),
+                   'SYMBOL_DOWNLOAD')
+      time.sleep(to_delay)
+  else:
+    # On the last try, run and allow exceptions to escape.
+    gsutil_util.GSUtilRun(cmd, msg)
+
+  return [downloadable_artifact.DebugTarball(symbol_url, temp_download_dir,
+                                             staging_dir)]
 
 
 def PrepareBuildDirectory(build_dir):
