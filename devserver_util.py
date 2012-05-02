@@ -57,15 +57,12 @@ def ParsePayloadList(payload_list):
   return full_payload_url, nton_payload_url, mton_payload_url
 
 
-def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir,
-                            static_dir):
+def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir):
   """Generates artifacts that we mean to download and install for autotest.
 
   This method generates the list of artifacts we will need for autotest. These
-  artifacts are instances of downloadable_artifact.DownloadableArtifact.
-
-  Note, these artifacts can be downloaded asynchronously iff
-  !artifact.Synchronous().
+  artifacts are instances of downloadable_artifact.DownloadableArtifact.Note,
+  these artifacts can be downloaded asynchronously iff !artifact.Synchronous().
   """
   cmd = 'gsutil ls %s/*.bin' % archive_url
   msg = 'Failed to get a list of payloads.'
@@ -90,7 +87,6 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir,
         mton_url, main_staging_dir, mton_payload))
 
   # Next we gather the miscellaneous payloads.
-  debug_url = archive_url + '/' + downloadable_artifact.DEBUG_SYMBOLS
   stateful_url = archive_url + '/' + downloadable_artifact.STATEFUL_UPDATE
   autotest_url = archive_url + '/' + downloadable_artifact.AUTOTEST_PACKAGE
   test_suites_url = (archive_url + '/' +
@@ -99,8 +95,6 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir,
   stateful_payload = os.path.join(build_dir,
                                   downloadable_artifact.STATEFUL_UPDATE)
 
-  artifacts.append(downloadable_artifact.DebugTarball(
-      debug_url, main_staging_dir, static_dir))
   artifacts.append(downloadable_artifact.DownloadableArtifact(
       stateful_url, main_staging_dir, stateful_payload, synchronous=True))
   artifacts.append(downloadable_artifact.AutotestTarball(

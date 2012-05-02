@@ -286,8 +286,7 @@ class DevServerUtilTest(mox.MoxTestBase):
                    ['p1', 'p2', 'p3'])
     expected_payloads = payloads + map(
         lambda x: '/'.join([archive_url_prefix, x]),
-            [downloadable_artifact.DEBUG_SYMBOLS,
-             downloadable_artifact.STATEFUL_UPDATE,
+            [downloadable_artifact.STATEFUL_UPDATE,
              downloadable_artifact.AUTOTEST_PACKAGE,
              downloadable_artifact.TEST_SUITES_PACKAGE])
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
@@ -300,8 +299,7 @@ class DevServerUtilTest(mox.MoxTestBase):
 
     self.mox.ReplayAll()
     artifacts = devserver_util.GatherArtifactDownloads(
-        self._static_dir, archive_url_prefix, build, self._install_dir,
-        self._static_dir)
+        self._static_dir, archive_url_prefix, build, self._install_dir)
     for index, artifact in enumerate(artifacts):
       self.assertEqual(artifact._gs_path, expected_payloads[index])
       self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
@@ -319,8 +317,7 @@ class DevServerUtilTest(mox.MoxTestBase):
                    ['p1', 'p2'])
     expected_payloads = payloads + map(
         lambda x: '/'.join([archive_url_prefix, x]),
-            [downloadable_artifact.DEBUG_SYMBOLS,
-             downloadable_artifact.STATEFUL_UPDATE,
+            [downloadable_artifact.STATEFUL_UPDATE,
              downloadable_artifact.AUTOTEST_PACKAGE,
              downloadable_artifact.TEST_SUITES_PACKAGE])
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
@@ -334,8 +331,7 @@ class DevServerUtilTest(mox.MoxTestBase):
 
     self.mox.ReplayAll()
     artifacts = devserver_util.GatherArtifactDownloads(
-        self._static_dir, archive_url_prefix, build, self._install_dir,
-        self._static_dir)
+        self._static_dir, archive_url_prefix, build, self._install_dir)
     for index, artifact in enumerate(artifacts):
       self.assertEqual(artifact._gs_path, expected_payloads[index])
       self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))

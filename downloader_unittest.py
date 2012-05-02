@@ -12,7 +12,7 @@ import shutil
 import tempfile
 import unittest
 
-import downloadable_artifact
+import artifact_download
 import devserver
 import devserver_util
 import downloader
@@ -56,7 +56,7 @@ class DownloaderTest(mox.MoxTestBase):
     artifacts = []
 
     for index in range(5):
-      artifact = self.mox.CreateMock(downloadable_artifact.DownloadableArtifact)
+      artifact = self.mox.CreateMock(artifact_download.DownloadableArtifact)
       # Make every other artifact synchronous.
       if index % 2 == 0:
         artifact.Synchronous = lambda: True
@@ -72,7 +72,7 @@ class DownloaderTest(mox.MoxTestBase):
     tempfile.mkdtemp(suffix=mox.IgnoreArg()).AndReturn(self._work_dir)
     devserver_util.GatherArtifactDownloads(
         self._work_dir, self.archive_url_prefix, self.build,
-        self._work_dir, self._work_dir).AndReturn(artifacts)
+        self._work_dir).AndReturn(artifacts)
 
     for index, artifact in enumerate(artifacts):
       if index % 2 == 0:
