@@ -1,0 +1,171 @@
+#!/bin/bash
+#
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Script to download and unpack prebuilt Chromium OS images.
+#
+# This tool will cache downloaded archives in the images directory, named like
+# "~/trunk/src/build/images/${BOARD}/R12-3456.7.8.zip". If an archive is the
+# correct size it will be reused instead of being re-downloaded. Likewise,
+# images are only extracted the first time they are requested.
+#
+# For internally-consistent terminology:
+#   archive: a zip file with multiple images
+#   image: a single .bin file; e.g. 'chromiumos_test_image.bin'
+#   variant: the human name for a single image; e.g. 'test'
+#
+
+SCRIPT_ROOT=/usr/lib/crosutils
+if [[ ! -d ${SCRIPT_ROOT} ]]; then
+  echo "Failed to load required libraries;" \
+       "please run cros_sdk to enter the chroot" >&2
+  exit 1
+fi
+. "${SCRIPT_ROOT}/common.sh"
+. "${SCRIPT_ROOT}/cros_archive.sh"
+
+assert_inside_chroot
+get_default_board
+
+# TODO(cwolfe): The --channel switch is temporarily disabled while we sort
+#               out some ACL problems.
+# DEFINE_string channel "archive" "Channel from which to fetch the image"
+FLAGS_channel='archive'
+
+DEFINE_string board "${DEFAULT_BOARD}" "Name of the board"
+DEFINE_string version "" "Version to fetch, like 'R18-1650' or '1650'"
+
+DEFINE_string symlink "latest" "Short name to link to the unpacked archive"
+
+FLAGS_HELP="Usage: cros_fetch_image [FLAGS] variant...
+
+Downloads and extracts Chromium OS image archives from the automated builders.
+The following image variants can be extracted, if created by the builder:
+  base dev qemu recovery test
+
+Examples:
+# Download the latest archive and extract base and test images from it.
+$ cros_fetch_image --board=x86-generic base test
+"
+
+# Parse command line flags.
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+
+# The call into shflags is the last unsafe code, so can now die on error.
+switch_to_strict_mode
+
+if [[ -z ${FLAGS_board} ]]; then
+  die "Did not find a default board, so the --board argument is required."
+fi
+
+# Check that the version flag is valid.
+if ! cros_archive_get_numeric_pattern "${FLAGS_version}" >/dev/null; then
+  die "Failed to parse version '${FLAGS_version}'"
+fi
+
+# Build the list of image file names from the command-line variants.
+requested_images=()
+for variant in "$@"; do
+  case ${variant} in
+    base) image='chromiumos_base_image.bin' ;;
+    dev)  image='chromiumos_image.bin' ;;
+    qemu) image='chromiumos_qemu_image.bin' ;;
+    recovery) image='recovery_image.bin' ;;
+    test) image='chromiumos_test_image.bin' ;;
+    *) die "Unknown image variant '${$variant}'"
+  esac
+  requested_images+=( "${image}" )
+done
+if [[ ${#requested_images[@]} -eq 0 ]]; then
+  warn "No image variants specified on the command line;" \
+       "assuming the test image."
+  requested_images=( 'chromiumos_test_image.bin' )
+fi
+
+echo 'Searching for matching archives...' >&2
+if ! gsurl=$(cros_archive_gs_list "${FLAGS_channel}" "${FLAGS_board}" \
+                                  "${FLAGS_version}") ||
+    [[ -z ${gsurl} ]]; then
+  echo >&2
+  die_notrace \
+      "Failed to find the requested archive for channel '${FLAGS_channel}'" \
+      "and board '${FLAGS_board}'. This may be because a build failed;" \
+      "please check the archives at:" \
+      "  https://sandbox.google.com/storage/chromeos-image-archive/"
+fi
+
+echo "  found ${gsurl}" >&2
+echo >&2
+
+builddir="${SRC_ROOT}/build"
+manifestdir="${builddir}/manifests"
+archivedir="${builddir}/images/${FLAGS_board}"
+archivename=$(cros_archive_gs_get_url_version "${FLAGS_channel}" \
+                                              "${FLAGS_board}" "${gsurl}")
+imagedir="${archivedir}/${archivename}"
+
+mkdir -p "${archivedir}"
+
+# Check the size of the local and remote archives.
+imgsize=0
+gssize=-1
+if [[ -s ${archivedir}/${archivename}.zip ]]; then
+  echo 'Checking expected archive size...' >&2
+
+  imgsize=$(stat -c '%s' "${archivedir}/${archivename}.zip")
+  gssize=$(gsutil ls -l "${gsurl}" 2>/dev/null | sed 's/ .*//;q')
+  echo "  found ${gssize}" >&2
+  echo "  local ${imgsize}" >&2
+  echo >&2
+fi
+
+# Download the archive if needed.
+if [[ ${imgsize} -ne ${gssize} ]]; then
+  gsutil cp "${gsurl}" "${archivedir}/${archivename}.zip"
+fi
+
+# Generate the list of images available in the zip and sort the requested ones.
+available_images=( $(unzip -l "${archivedir}/${archivename}.zip" |
+                       egrep -o '[^ ]+\.bin' | sort -u ) )
+requested_images=( $(printf '%s\n' "${requested_images[@]}" | sort -u ) )
+
+missing_images=()  # requested but not available; will error later
+exclude_images=()  # available but not requested; will exclude from unzip
+extract_images=()  # available and requested; will extract during unzip
+
+# Compare the available and requested lists. The 'comm' here needs to use a
+# non-whitespace delimeter ('|') to prevent bash from dropping empty fields.
+while IFS='|' read -r missing exclude extract; do
+  [[ -z ${missing} ]] || missing_images+=( "${missing}" )
+  [[ -z ${exclude} ]] || exclude_images+=( "${exclude}" )
+  [[ -z ${extract} ]] || extract_images+=( "${extract}" )
+done < <( comm --output-delimiter='|' \
+               <( printf '%s\n' "${requested_images[@]}" ) \
+               <( printf '%s\n' "${available_images[@]}" ) )
+
+# Construct and execute the unzip command.
+unzip_cmd=( unzip -u "${archivedir}/${archivename}.zip" )
+if [[ ${#exclude_images} -gt 0 ]]; then
+  # The -x switch interprets all later operands as excluded filenames.
+  unzip_cmd+=( -x "${exclude_images[@]}" )
+fi
+unzip_cmd+=( -d "${imagedir}" )
+"${unzip_cmd[@]}"
+
+# Update the symlink (usually 'latest').
+if [[ -n ${FLAGS_symlink} ]]; then
+  echo >&2
+  info "Updating ${FLAGS_symlink} to refer to ${archivename}"
+  ln -fsT "${archivename}" "${archivedir}/${FLAGS_symlink}"
+fi
+
+# Now report failure if any requested images were missing.
+if [[ ${#missing_images} -gt 0 ]]; then
+  echo >&2
+  die_error \
+      "The following images were requested, but not available in the archive:"
+      "  ${missing_images[*]}"
+fi
