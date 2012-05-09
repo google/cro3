@@ -88,6 +88,7 @@ def _DoBundle(options, output, tools):
     bundle.SetBootcmd(options.bootcmd, options.bootsecure)
     bundle.AddConfigList(options.add_config_str)
     bundle.AddConfigList(options.add_config_int, use_int=True)
+    bundle.AddEnableList(options.add_node_enable)
 
     out_fname = bundle.Start(options.hardware_id, options.output,
         options.show_map)
@@ -137,6 +138,14 @@ def main():
       action='store', help='Exynos preboot (BL1) file')
   parser.add_option('--bl2', dest='exynos_bl2', type='string',
       action='store', help='Exynos Secondary Program Loader (SPL / BL2) file')
+  parser.add_option('--add-node-enable', dest='add_node_enable',
+      type='string', nargs=2, action='append',
+      help='''Set a node to status = "ok" / "disabled".
+You can refer to the node with /aliases/... also.
+Examples:
+'--set-node-enable /uart@3f8 1' to enable the uart;
+'--set-node-enable console 1' to enable the node pointed to by
+/aliases/console.''')
   parser.add_option('--hwid', dest='hardware_id', type='string',
       action='store', help='Hardware ID string to use')
   parser.add_option('-B', '--bmpblk', dest='bmpblk', type='string',

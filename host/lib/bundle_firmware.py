@@ -65,7 +65,7 @@ class Bundle:
     bundle.SetFiles(...)
     bundle.SetOptions(...)
     bundle.SelectFdt(fdt.Fdt('filename.dtb')
-    .. can call bundle.AddConfigList() if required
+    .. can call bundle.AddConfigList(), AddEnableList() if required
     bundle.Start(...)
 
   Public properties:
@@ -284,6 +284,70 @@ class Bundle:
       self.fdt.PutString('/config', 'bootcmd', bootcmd)
       self.fdt.PutInteger('/config', 'bootsecure', int(bootsecure))
       self._out.Info('Boot command: %s' % bootcmd)
+
+  def SetNodeEnabled(self, node_name, enabled):
+    """Set whether an node is enabled or disabled.
+
+    This simply sets the 'status' property of a node to "ok", or "disabled".
+
+    The node should either be a full path to the node (like '/uart@10200000')
+    or an alias property.
+
+    Aliases are supported like this:
+
+        aliases {
+                console = "/uart@10200000";
+        };
+
+    pointing to a node:
+
+        uart@10200000 {
+                status = "ok";
+        };
+
+    In this case, this function takes the name of the alias ('console' in
+    this case) and updates the status of the node that is pointed to, to
+    either ok or disabled. If the alias does not exist, a warning is
+    displayed.
+
+    Args:
+      node_name: Name of node (e.g. '/uart@10200000') or alias alias
+          (e.g. 'console') to adjust
+      enabled: True to enable, False to disable
+    """
+    # Look up the alias if this is an alias reference
+    if not node_name.startswith('/'):
+      lookup = self.fdt.GetString('/aliases', node_name, '')
+      if not lookup:
+        self._out.Warning("Cannot find alias '%s' - ignoring" % node_name)
+        return
+      node_name = lookup
+    if enabled:
+      status = 'ok'
+    else:
+      status = 'disabled'
+    self.fdt.PutString(node_name, 'status', status)
+
+  def AddEnableList(self, enable_list):
+    """Process a list of nodes to enable/disable.
+
+    Args:
+      config_list: List of (node, value) tuples to add to the fdt. For each
+          tuple:
+              node: The fdt node to write to will be <node> or pointed to by
+                  /aliases/<node>. We can tell which
+              value: 0 to disable the node, 1 to enable it
+    """
+    if enable_list:
+      for node_name, enabled in enable_list:
+        try:
+          enabled = int(enabled)
+          if enabled not in (0, 1):
+            raise ValueError
+        except ValueError as str:
+          raise CmdError("Invalid enable option value '%s' "
+              "(should be 0 or 1)" % enabled)
+        self.SetNodeEnabled(node_name, enabled)
 
   def AddConfigList(self, config_list, use_int=False):
     """Add a list of config items to the fdt.
