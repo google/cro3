@@ -67,13 +67,13 @@ IMAGE_PATH=""
 ROOTFS_MOUNTPT=""
 STATEFUL_MOUNTPT=""
 
-function kill_all_devservers {
+kill_all_devservers() {
   # Using ! here to avoid exiting with set -e is insufficient, so use
   # || true instead.
   sudo pkill -f devserver\.py || true
 }
 
-function cleanup {
+cleanup() {
   if [ -z "${FLAGS_update_url}" ]; then
     kill_all_devservers
   fi
@@ -87,7 +87,7 @@ function cleanup {
   fi
 }
 
-function remote_reboot_sh {
+remote_reboot_sh() {
   rm -f "${TMP_KNOWN_HOSTS}"
   remote_sh "$@"
 }
@@ -97,7 +97,7 @@ function remote_reboot_sh {
 # default to $HOSTNAME on failure.  We try to use the ip address first as
 # some targets may have dns resolution issues trying to contact back
 # to us.
-function get_hostname {
+get_hostname() {
   local hostname
   # Try to parse ifconfig for ip address. Use sudo, because not all distros
   # allow a common user to call ifconfig.
@@ -116,7 +116,7 @@ function get_hostname {
   echo ${hostname}
 }
 
-function start_dev_server {
+start_dev_server() {
   kill_all_devservers
   local devserver_flags="--pregenerate_update"
   # Parse devserver flags.
@@ -176,7 +176,7 @@ function start_dev_server {
 # Copies stateful update script which fetches the newest stateful update
 # from the dev server and prepares the update. chromeos_startup finishes
 # the update on next boot.
-function run_stateful_update {
+run_stateful_update() {
   local dev_url=$(get_devserver_url)
   local stateful_url=""
   local stateful_update_args=""
@@ -204,7 +204,7 @@ function run_stateful_update {
   remote_sh "/tmp/stateful_update ${stateful_update_args} ${stateful_url}"
 }
 
-function get_update_args {
+get_update_args() {
   if [ -z ${1} ]; then
     die "No url provided for update."
   fi
@@ -217,7 +217,7 @@ function get_update_args {
   echo "${update_args}"
 }
 
-function get_devserver_url {
+get_devserver_url() {
   local devserver_url=""
   local port=${FLAGS_devserver_port}
 
@@ -235,11 +235,11 @@ function get_devserver_url {
   echo "${devserver_url}"
 }
 
-function truncate_update_log {
+truncate_update_log() {
   remote_sh "> /var/log/update_engine.log"
 }
 
-function get_update_log {
+get_update_log() {
   remote_sh "cat /var/log/update_engine.log"
   echo "${REMOTE_OUT}" > "${FLAGS_update_log}"
 }
@@ -248,27 +248,27 @@ function get_update_log {
 REMOTE_UPDATE_STATUS=
 
 # Returns ${1} reported by the update client e.g. PROGRESS, CURRENT_OP.
-function get_var_from_remote_status {
+get_var_from_remote_status() {
   echo "${REMOTE_UPDATE_STATUS}" |
       grep ${1} |
       cut -f 2 -d =
 }
 
 # Updates the remote status variable for the update engine.
-function update_remote_status {
+update_remote_status() {
   remote_sh "${UPDATER_BIN} --status 2> /dev/null"
   REMOTE_UPDATE_STATUS="${REMOTE_OUT}"
 }
 
 # Both updates the remote status and gets the given variables.
-function get_update_var {
+get_update_var() {
   update_remote_status
   get_var_from_remote_status "${1}"
 }
 
 # Returns the current status / progress of the update engine.
 # This is expected to run in its own thread.
-function status_thread {
+status_thread() {
   local timeout=5
 
   info "Devserver handling ping.  Check ${FLAGS_server_log} for more info."
@@ -299,7 +299,7 @@ function status_thread {
 }
 
 # Dumps the update_engine log in real-time
-function log_thread {
+log_thread() {
   echo 'starting log thread'
   # Using -t -t twice forces pseudo-tty allocation on the remote end, which
   # causes tail to go into line-buffered mode.
@@ -310,7 +310,7 @@ function log_thread {
 
 # Pings the update_engine to see if it responds or a max timeout is reached.
 # Returns 1 if max timeout is reached.
-function wait_until_update_engine_is_ready {
+wait_until_update_engine_is_ready() {
   local wait_timeout=1
   local max_timeout=60
   local time_elapsed=0
@@ -324,7 +324,7 @@ function wait_until_update_engine_is_ready {
   done
 }
 
-function run_auto_update {
+run_auto_update() {
   # Truncate the update log so our log file is clean.
   truncate_update_log
 
@@ -360,7 +360,7 @@ function run_auto_update {
   fi
 }
 
-function verify_image {
+verify_image() {
   info "Verifying image."
   ROOTFS_MOUNTPT=$(mktemp -d)
   STATEFUL_MOUNTPT=$(mktemp -d)
@@ -391,12 +391,12 @@ function verify_image {
   fi
 }
 
-function find_root_dev {
+find_root_dev() {
   remote_sh "rootdev -s"
   echo ${REMOTE_OUT}
 }
 
-function main() {
+main() {
   assert_outside_chroot
 
   cd "${SCRIPTS_DIR}"

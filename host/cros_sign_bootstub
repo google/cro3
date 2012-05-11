@@ -26,7 +26,7 @@ set -e
 
 CROS_LOG_PREFIX="cros_sign_bootstub"
 
-function construct_config() {
+construct_config() {
   local bct_file="$1"
   local bootstub="$2"
   local text_base="$3"
