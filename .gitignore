@@ -2,6 +2,7 @@
 *.pyc
 *.log
 miniomaha.conf
+static/archive
 static/efi.gz
 static/oem.gz
 static/rootfs-release.gz

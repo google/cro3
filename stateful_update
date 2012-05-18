@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -21,6 +21,11 @@ fi
 # Constants for states.
 CLEAN_STATE="clean"
 OLD_STATE="old"
+RESET_STATE="reset"
+
+LSB_RELEASE="/etc/lsb-release"
+STATEFUL_DIR="/mnt/stateful_partition"
+UPDATE_STATE_FILE=".update_available"
 
 DEFINE_string stateful_change "${OLD_STATE}" \
   "The state of the new stateful partition - used in update testing."
@@ -35,33 +40,31 @@ remove_quotes() {
 }
 
 update_dev_image () {
-  LSB_RELEASE="/etc/lsb-release"
-  STATEFUL_DIR="/mnt/stateful_partition"
-
+  local base_update_url devserver_url
   if [ -n "${FLAGS_ARGV}" ]; then
-    BASE_UPDATE_URL=$(remove_quotes "${FLAGS_ARGV}")
+    base_update_url=$(remove_quotes "${FLAGS_ARGV}")
   else
     if [ -f "${STATEFUL_DIR}${LSB_RELEASE}" ]; then
-      DEVSERVER_URL=$(grep CHROMEOS_DEVSERVER ${STATEFUL_DIR}${LSB_RELEASE} |
+      devserver_url=$(grep CHROMEOS_DEVSERVER ${STATEFUL_DIR}${LSB_RELEASE} |
           cut -f 2 -d '=')
     fi
-    if [ -z "${DEVSERVER_URL}" ]; then
-      DEVSERVER_URL=$(grep CHROMEOS_DEVSERVER ${LSB_RELEASE} | cut -f 2 -d '=')
+    if [ -z "${devserver_url}" ]; then
+      devserver_url=$(grep CHROMEOS_DEVSERVER ${LSB_RELEASE} | cut -f 2 -d '=')
     fi
     # Sanity check.
-    if [ -z "${DEVSERVER_URL}" ]; then
+    if [ -z "${devserver_url}" ]; then
       echo >&2 "No CHROMEOS_DEVSERVER URL found in lsb-release file"
       exit 1
     fi
     # Devserver URL should never contain "/update"
-    DEVSERVER_URL=$(echo ${DEVSERVER_URL} | sed -e 's#/update##')
-    BASE_UPDATE_URL="${DEVSERVER_URL}/static"
+    devserver_url=$(echo ${devserver_url} | sed -e 's#/update##')
+    base_update_url="${devserver_url}/static"
   fi
 
-  STATEFUL_UPDATE_URL="${BASE_UPDATE_URL}/stateful.tgz"
-  echo "Downloading stateful payload from ${STATEFUL_UPDATE_URL}"
+  local stateful_update_url="${base_update_url}/stateful.tgz"
+  echo "Downloading stateful payload from ${stateful_update_url}"
   # Download and unzip directories onto the stateful partition.
-  eval "wget -qS -T 300 -O - \"${STATEFUL_UPDATE_URL}\"" |
+  eval "wget -qS -T 300 -O - \"${stateful_update_url}\"" |
       tar --ignore-command-error --overwrite --directory=${STATEFUL_DIR} -xz
   echo >&2 "Successfully downloaded update"
 
@@ -72,18 +75,27 @@ update_dev_image () {
   fi
 }
 
+reset_state () {
+  echo >&2 "Resetting stateful update state."
+  rm -f "${STATEFUL_DIR}/${UPDATE_STATE_FILE}"
+  rm -rf "${STATEFUL_DIR}/var_new"
+  rm -rf "${STATEFUL_DIR}/dev_image_new"
+}
+
 update_old_state () {
   echo >&2 "Performing standard stateful update."
-  echo -n "" > "${STATEFUL_DIR}/.update_available"
+  echo -n "" > "${STATEFUL_DIR}/${UPDATE_STATE_FILE}"
 }
 
 update_clean_state () {
   echo >&2 "Restoring state to factory_install with dev_image."
-  echo -n "clobber" > "${STATEFUL_DIR}/.update_available"
+  echo -n "clobber" > "${STATEFUL_DIR}/${UPDATE_STATE_FILE}"
 }
 
 main () {
-  if update_dev_image; then
+  if [ "${FLAGS_stateful_change}" = "${RESET_STATE}" ]; then
+    reset_state
+  elif update_dev_image; then
     if [ "${FLAGS_stateful_change}" = "${OLD_STATE}" ]; then
       update_old_state
     elif [ "${FLAGS_stateful_change}" = "${CLEAN_STATE}" ]; then
