@@ -583,6 +583,13 @@ class Bundle:
           raise CmdError("Unknown memory type '%s'" % mem_type)
         value = mem_types.index(mem_type)
         self._out.Info('  Memory type: %s (%d)' % (mem_type, value))
+      elif param == 'M' :
+        mem_manuf = fdt.GetString('/dmc', 'mem-manuf')
+        mem_manufs = ['autodetect', 'elpida', 'samsung']
+        if not mem_manuf in mem_manufs:
+          raise CmdError("Unknown memory manufacturer: '%s'" % mem_manuf)
+        value = mem_manufs.index(mem_manuf)
+        self._out.Info('  Memory manufacturer: %s (%d)' % (mem_manuf, value))
       elif param == 'v':
         value = 31
         self._out.Info('  Memory interleave: %#0x' % value)
