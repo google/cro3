@@ -24,6 +24,8 @@ class Downloader(object):
     - Install components to static dir.
   """
 
+  _LOG_TAG = 'DOWNLOAD'
+
   def __init__(self, static_dir):
     self._static_dir = static_dir
     self._build_dir = None
@@ -79,7 +81,7 @@ class Downloader(object):
 
     if Downloader.BuildStaged(archive_url, self._static_dir):
       cherrypy.log('Build %s has already been processed.' % self._lock_tag,
-                   'DOWNLOAD')
+                   self._LOG_TAG)
       self._status_queue.put('Success')
       return 'Success'
 
@@ -92,13 +94,13 @@ class Downloader(object):
       self._staging_dir = tempfile.mkdtemp(suffix='_'.join([target,
                                                             short_build]))
       cherrypy.log('Gathering download requirements %s' % archive_url,
-                   'DOWNLOAD')
+                   self._LOG_TAG)
       artifacts = self.GatherArtifactDownloads(
           self._staging_dir, archive_url, short_build, self._build_dir)
       devserver_util.PrepareBuildDirectory(self._build_dir)
 
       cherrypy.log('Downloading foreground artifacts from %s' % archive_url,
-                   'DOWNLOAD')
+                   self._LOG_TAG)
       background_artifacts = []
       for artifact in artifacts:
         if artifact.Synchronous():
@@ -129,14 +131,14 @@ class Downloader(object):
     """Cleans up the staging dir for this downloader instanfce."""
     if self._staging_dir:
       cherrypy.log('Cleaning up staging directory %s' % self._staging_dir,
-                   'DOWNLOAD')
+                   self._LOG_TAG)
       shutil.rmtree(self._staging_dir)
 
     self._staging_dir = None
 
   def _DownloadArtifactsSerially(self, artifacts):
     """Simple function to download all the given artifacts serially."""
-    cherrypy.log('Downloading background artifacts serially.', 'DOWNLOAD')
+    cherrypy.log('Downloading background artifacts serially.', self._LOG_TAG)
     try:
       for artifact in artifacts:
         artifact.Download()
@@ -196,6 +198,7 @@ class SymbolDownloader(Downloader):
   """
 
   _DONE_FLAG = 'done'
+  _LOG_TAG = 'SYMBOL_DOWNLOAD'
 
   @staticmethod
   def GenerateLockTag(target, short_build):
@@ -216,7 +219,7 @@ class SymbolDownloader(Downloader):
     if self.SymbolsStaged(archive_url, self._static_dir):
       cherrypy.log(
           'Symbols for build %s have already been staged.' % self._lock_tag,
-          'SYMBOL_DOWNLOAD')
+          self._LOG_TAG)
       return 'Success'
 
     try:
@@ -228,12 +231,13 @@ class SymbolDownloader(Downloader):
       self._staging_dir = tempfile.mkdtemp(suffix='_'.join([target,
                                                             short_build]))
       cherrypy.log('Downloading debug symbols from %s' % archive_url,
-                   'SYMBOL_DOWNLOAD')
+                   self._LOG_TAG)
 
       [symbol_artifact] = self.GatherArtifactDownloads(
           self._staging_dir, archive_url, '', self._static_dir)
       symbol_artifact.Download()
       symbol_artifact.Stage()
+      self.MarkSymbolsStaged()
 
     except Exception:
       # Release processing "lock", which will indicate to future runs that we
@@ -241,10 +245,9 @@ class SymbolDownloader(Downloader):
       if self._build_dir:
         devserver_util.ReleaseLock(static_dir=self._static_dir,
                                    tag=self._lock_tag)
-      self._Cleanup()
       raise
-
-    self.MarkSymbolsStaged()
+    finally:
+      self._Cleanup()
     return 'Success'
 
   def GatherArtifactDownloads(self, temp_download_dir, archive_url, short_build,
