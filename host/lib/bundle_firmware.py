@@ -539,7 +539,7 @@ class Bundle:
         '0xac'])
     return bootstub
 
-  def _UpdateBl2Parameters(self, fdt, pack, data, pos):
+  def _UpdateBl2Parameters(self, fdt, spl_load_size, data, pos):
     """Update the parameters in a BL2 blob.
 
     We look at the list in the parameter block, extract the value of each
@@ -547,7 +547,7 @@ class Bundle:
 
     Args:
       fdt: Device tree containing the parameter values.
-      pack: The firmware packer object
+      spl_load_size: Size of U-Boot image that SPL must load
       data: The BL2 data.
       pos: The position of the start of the parameter block.
 
@@ -594,9 +594,9 @@ class Bundle:
         value = 31
         self._out.Info('  Memory interleave: %#0x' % value)
       elif param == 'u':
-        value = os.stat(pack.GetProperty('boot+dtb')).st_size
-        value = (value + 0xfff) & ~0xfff
-        self._out.Info('  U-Boot size: %#0x' % value)
+        value = (spl_load_size + 0xfff) & ~0xfff
+        self._out.Info('  U-Boot size: %#0x (rounded up from %#0x)' %
+            (value, spl_load_size))
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
         self._out.Info('  Unknown value: %#0x' % value)
@@ -625,14 +625,14 @@ class Bundle:
       checksum += ord(ch)
     return data[:-4] + struct.pack('<L', checksum & 0xffffffff)
 
-  def _ConfigureExynosBl2(self, fdt, pack, orig_bl2):
+  def ConfigureExynosBl2(self, fdt, spl_load_size, orig_bl2):
     """Configure an Exynos BL2 binary for our needs.
 
     We create a new modified BL2 and return its filename.
 
     Args:
       fdt: Device tree containing the parameter values.
-      pack: The firmware packer object
+      spl_load_size: Size of U-Boot image that SPL must load
       orig_bl2: Filename of original BL2 file to modify.
     """
     self._out.Info('Configuring BL2')
@@ -647,7 +647,7 @@ class Bundle:
     if not pos:
       raise CmdError("Could not find machine parameter block in '%s'" %
           orig_bl2)
-    data = self._UpdateBl2Parameters(fdt, pack, data, pos)
+    data = self._UpdateBl2Parameters(fdt, spl_load_size, data, pos)
     data = self._UpdateChecksum(data)
     self._tools.WriteFile(bl2, data)
     return bl2
@@ -684,7 +684,8 @@ class Bundle:
     elif blob_type == 'exynos-bl1':
       pack.AddProperty(blob_type, self.exynos_bl1)
     elif blob_type == 'exynos-bl2':
-      bl2 = self._ConfigureExynosBl2(fdt, pack, self.exynos_bl2)
+      spl_load_size = os.stat(pack.GetProperty('boot+dtb')).st_size
+      bl2 = self.ConfigureExynosBl2(fdt, spl_load_size, self.exynos_bl2)
       pack.AddProperty(blob_type, bl2)
     elif pack.GetProperty(blob_type):
       pass
