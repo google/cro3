@@ -101,7 +101,7 @@ def _DoBundle(options, output, tools):
       text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
       file_list = bundle.GetFiles()
       write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
-          file_list, out_fname, text_base, dest=options.write,
+          file_list, out_fname, bundle, text_base, dest=options.write,
           flash_dest=options.flash_dest)
 
   except (CmdError, ValueError) as err:

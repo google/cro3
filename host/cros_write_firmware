@@ -67,7 +67,7 @@ def _DoWriteFirmware(options, output, tools, update, verify, dest):
     text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
     file_list = bundle.GetFiles()
     write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
-        file_list, options.image, text_base, update, verify, dest,
+        file_list, options.image, bundle, text_base, update, verify, dest,
         flash_dest=options.flash_dest)
 
   except (CmdError, ValueError) as err:

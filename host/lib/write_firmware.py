@@ -36,17 +36,19 @@ class WriteFirmware:
   full Chrome OS image consisting of U-Boot, some keys and verification
   information, images and a map of the flash memory.
   """
-  def __init__(self, tools, fdt, output):
+  def __init__(self, tools, fdt, output, bundle):
     """Set up a new WriteFirmware object.
 
     Args:
       tools: A tools library for us to use.
       fdt: An fdt which gives us some info that we need.
       output: An output object to use for printing progress and messages.
+      bundle: A BundleFirmware object which created the image.
     """
     self._tools = tools
     self._fdt = fdt
     self._out = output
+    self._bundle = bundle
     self.text_base = self._fdt.GetInt('/chromeos-config', 'textbase');
 
     # For speed, use the 'update' algorithm and don't verify
@@ -518,8 +520,8 @@ class WriteFirmware:
 
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
-                    text_base=None, update=True, verify=False, dest=None,
-                    flash_dest=None):
+                    bundle, text_base=None, update=True, verify=False,
+                    dest=None, flash_dest=None):
   """A simple function to write firmware to a device.
 
   This creates a WriteFirmware object and uses it to write the firmware image
@@ -532,13 +534,14 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     flasher: U-Boot binary to use as the flasher.
     file_list: Dictionary containing files that we might need.
     image_fname: Filename of image to write.
+    bundle: The bundle object which created the image.
     text_base: U-Boot text base (base of executable image), None for default.
     update: Use faster update algorithm rather then full device erase.
     verify: Verify the write by doing a readback and CRC.
     dest: Destination device to write firmware to (usb, sd).
     flash_dest: Destination device for flasher to program payload into.
   """
-  write = WriteFirmware(tools, fdt, output)
+  write = WriteFirmware(tools, fdt, output, bundle)
   if text_base:
     write.text_base = text_base
   write.update = update
