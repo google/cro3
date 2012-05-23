@@ -611,6 +611,23 @@ class Bundle:
     self._out.Info('BL2 configuration complete')
     return data
 
+  def _UpdateChecksum(self, data):
+    """Update the BL2 checksum.
+
+    The checksum is a 4 byte sum of all the bytes in the image before the
+    last 4 bytes (which hold the checksum).
+
+    Args:
+      data: The BL2 data to update.
+
+    Returns:
+      The new contents of the BL2 data, after updating the checksum.
+    """
+    checksum = 0
+    for ch in data[:-4]:
+      checksum += ord(ch)
+    return data[:-4] + struct.pack('<L', checksum & 0xffffffff)
+
   def _ConfigureExynosBl2(self, fdt, pack, orig_bl2):
     """Configure an Exynos BL2 binary for our needs.
 
@@ -634,6 +651,7 @@ class Bundle:
       raise CmdError("Could not find machine parameter block in '%s'" %
           orig_bl2)
     data = self._UpdateBl2Parameters(fdt, pack, data, pos)
+    data = self._UpdateChecksum(data)
     self._tools.WriteFile(bl2, data)
     return bl2
 
