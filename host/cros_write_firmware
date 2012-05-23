@@ -56,6 +56,7 @@ def _DoWriteFirmware(options, output, tools, update, verify, dest):
   bundle.SetFiles(board=options.board, bct=options.bct,
       exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2)
   bundle.CheckOptions()
+  bundle.spl_source = options.spl_source
   # Set up the fdt and options that we want.
   fdt = bundle.SelectFdt(options.fdt)
 
@@ -83,6 +84,9 @@ def main():
   parser = optparse.OptionParser()
   parser.add_option('-b', '--board', dest='board', type='string',
       action='store', help='Board name to use (e.g. tegra2_kaen)')
+  parser.add_option('-B', '--boot', dest='spl_source', type='string',
+      action='store', help='Device for SPL to boot from (straps, spi, emmc)',
+      default='straps')
   parser.add_option('--bl1', dest='exynos_bl1', type='string',
       action='store', help='Exynos preboot (BL1) file')
   parser.add_option('--bl2', dest='exynos_bl2', type='string',

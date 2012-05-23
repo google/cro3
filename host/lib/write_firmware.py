@@ -491,8 +491,22 @@ class WriteFirmware:
 
   def WriteToSd(self, flash_dest, disk, uboot, payload):
     if flash_dest:
-      image = self.PrepareFlasher(uboot, payload, self.update, self.verify,
+      raw_image = self.PrepareFlasher(uboot, payload, self.update, self.verify,
                                   flash_dest, '1:0')
+      bl1, bl2, payload_data = self._ExtractPayloadParts(payload)
+      spl_load_size = os.stat(raw_image).st_size
+      bl2 = self._bundle.ConfigureExynosBl2(self._fdt, spl_load_size, bl2,
+                                            'flasher')
+
+      data = self._tools.ReadFile(bl1) + self._tools.ReadFile(bl2)
+
+      # Pad BL2 out to the required size.
+      # We require that it be 24KB, but data will only contain 8KB + 14KB.
+      # Add the extra padding to bring it to 24KB.
+      data += '\0' * (0x6000 - len(data))
+      data += self._tools.ReadFile(raw_image)
+      image = os.path.join(self._tools.outdir, 'flasher-with-bl.bin')
+      self._tools.WriteFile(image, data)
       self._out.Progress('Writing flasher to %s' % disk)
     else:
       image = payload

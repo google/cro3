@@ -75,6 +75,10 @@ class Bundle:
         bundling starts.
     uboot_fname: Full filename of the U-Boot binary we use.
     bct_fname: Full filename of the BCT file we use.
+    spl_source: Source device to load U-Boot from, in SPL:
+        straps: Select device according to CPU strap pins
+        spi: Boot from SPI
+        emmc: Boot from eMMC
   """
 
   def __init__(self, tools, output):
@@ -98,6 +102,7 @@ class Bundle:
     self.seabios_fname = None   # Filename of our SeaBIOS payload.
     self.exynos_bl1 = None      # Filename of Exynos BL1 (pre-boot)
     self.exynos_bl2 = None      # Filename of Exynos BL2 (SPL)
+    self.spl_source = 'straps'  # SPL boot according to board settings
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -597,6 +602,19 @@ class Bundle:
         value = (spl_load_size + 0xfff) & ~0xfff
         self._out.Info('  U-Boot size: %#0x (rounded up from %#0x)' %
             (value, spl_load_size))
+      elif param == 'b':
+        # These values come from enum boot_mode in U-Boot's cpu.h
+        if self.spl_source == 'straps':
+          value = 32
+        elif self.spl_source == 'emmc':
+          value = 4
+        elif self.spl_source == 'spi':
+          value = 20
+        elif self.spl_source == 'usb':
+          value = 33
+        else:
+          raise CmdError("Invalid boot source '%s'" % self.spl_source)
+        self._out.Info('  Boot source: %#0x' % value)
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
         self._out.Info('  Unknown value: %#0x' % value)
@@ -625,7 +643,7 @@ class Bundle:
       checksum += ord(ch)
     return data[:-4] + struct.pack('<L', checksum & 0xffffffff)
 
-  def ConfigureExynosBl2(self, fdt, spl_load_size, orig_bl2):
+  def ConfigureExynosBl2(self, fdt, spl_load_size, orig_bl2, name=''):
     """Configure an Exynos BL2 binary for our needs.
 
     We create a new modified BL2 and return its filename.
@@ -636,7 +654,7 @@ class Bundle:
       orig_bl2: Filename of original BL2 file to modify.
     """
     self._out.Info('Configuring BL2')
-    bl2 = os.path.join(self._tools.outdir, 'updated-spl.bin')
+    bl2 = os.path.join(self._tools.outdir, 'updated-spl%s.bin' % name)
     data = self._tools.ReadFile(orig_bl2)
     self._tools.WriteFile(bl2, data)
 
