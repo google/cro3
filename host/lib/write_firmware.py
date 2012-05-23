@@ -314,6 +314,41 @@ class WriteFirmware:
 
     return False
 
+  def _ExtractPayloadParts(self, payload):
+    """Extract the BL1, BL2 and U-Boot parts from a payload.
+
+    An exynos image consists of 3 parts: BL1, BL2 and U-Boot/FDT.
+
+    This pulls out the various parts, puts them into files and returns
+    these files.
+
+    Args:
+      payload: Full path to payload.
+
+    Returns:
+      (bl1, bl2, image) where:
+        bl1 is the filename of the extracted BL1
+        bl2 is the filename of the extracted BL2
+        image is the filename of the extracted U-Boot image
+    """
+    # Pull out the parts from the payload
+    bl1 = os.path.join(self._tools.outdir, 'bl1.bin')
+    bl2 = os.path.join(self._tools.outdir, 'bl2.bin')
+    image = os.path.join(self._tools.outdir, 'u-boot-from-image.bin')
+    data = self._tools.ReadFile(payload)
+
+    # The BL1 is always 8KB - extract that part into a new file
+    # TODO(sjg@chromium.org): Perhaps pick these up from the fdt?
+    self._tools.WriteFile(bl1, data[:0x2000])
+
+    # The BL2 (U-Boot SPL) is 14KB and follows BL1. After that there is
+    # a 2KB gap
+    self._tools.WriteFile(bl2, data[0x2000:0x5800])
+
+    # U-Boot itself starts at 24KB, after the gap
+    self._tools.WriteFile(image, data[0x6000:])
+    return bl1, bl2, image
+
   def _ExynosFlashImage(self, flash_dest, flash_uboot, bl1, bl2, payload):
     """Flash the image to SPI flash.
 
@@ -335,13 +370,7 @@ class WriteFirmware:
       image = self.PrepareFlasher(flash_uboot, payload, self.update,
                                   self.verify, flash_dest, '1:0')
     else:
-      bl1 = os.path.join(self._tools.outdir, 'bl1.bin')
-      bl2 = os.path.join(self._tools.outdir, 'bl2.bin')
-      image = os.path.join(self._tools.outdir, 'u-boot-from-image.bin')
-      data = self._tools.ReadFile(payload)
-      self._tools.WriteFile(bl1, data[:0x2000])
-      self._tools.WriteFile(bl2, data[0x2000:0x6000])
-      self._tools.WriteFile(image, data[0x6000:])
+      bl1, bl2, image = self._ExtractPayloadParts(payload)
 
     vendor_id = 0x04e8
     product_id = 0x1234
@@ -358,6 +387,8 @@ class WriteFirmware:
 
     self._out.Progress('Uploading image')
     download_list = [
+        # The numbers are the download addresses (in SRAM) for each piece
+        # TODO(sjg@chromium.org): Perhaps pick these up from the fdt?
         ['bl1', 0x02021400, bl1],
         ['bl2', 0x02023400, bl2],
         ['u-boot', 0x43e00000, image]
