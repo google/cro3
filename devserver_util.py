@@ -52,9 +52,9 @@ def ParsePayloadList(payload_list):
       else:
         mton_payload_url = payload
 
-  if not full_payload_url or not nton_payload_url:
+  if not full_payload_url:
     raise DevServerUtilError(
-        'Payloads are missing or have unexpected name formats.', payload_list)
+        'Full payload is missing or has unexpected name format.', payload_list)
 
   return full_payload_url, nton_payload_url, mton_payload_url
 
@@ -76,14 +76,17 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir):
   full_url, nton_url, mton_url = ParsePayloadList(payload_list)
 
   full_payload = os.path.join(build_dir, downloadable_artifact.ROOT_UPDATE)
-  nton_payload = os.path.join(build_dir, AU_BASE, build + NTON_DIR_SUFFIX,
-                              downloadable_artifact.ROOT_UPDATE)
 
   artifacts = []
   artifacts.append(downloadable_artifact.DownloadableArtifact(full_url,
       main_staging_dir, full_payload, synchronous=True))
-  artifacts.append(downloadable_artifact.AUTestPayload(nton_url,
+
+  if nton_url:
+    nton_payload = os.path.join(build_dir, AU_BASE, build + NTON_DIR_SUFFIX,
+                                downloadable_artifact.ROOT_UPDATE)
+    artifacts.append(downloadable_artifact.AUTestPayload(nton_url,
       main_staging_dir, nton_payload))
+
   if mton_url:
     mton_payload = os.path.join(build_dir, AU_BASE, build + MTON_DIR_SUFFIX,
                                 downloadable_artifact.ROOT_UPDATE)

@@ -73,6 +73,7 @@ class DevServerUtilTest(mox.MoxTestBase):
     shutil.rmtree(self._install_dir)
 
   def testParsePayloadList(self):
+    """Tests we can parse the payload list into urls."""
     archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/'
                           'R17-1413.0.0-a1-b1346/')
     mton_url = (archive_url_prefix + 'chromeos_R17-1412.0.0-a1-b1345_'
@@ -97,6 +98,17 @@ class DevServerUtilTest(mox.MoxTestBase):
     full_url_out, nton_url_out, mton_url_out = (
         devserver_util.ParsePayloadList([full_url, nton_url, mton_url]))
     self.assertEqual([full_url, nton_url, mton_url],
+                     [full_url_out, nton_url_out, mton_url_out])
+
+  def testParsePayloadListWithoutDeltas(self):
+    """Tests we can parse the payload list when no delta updates exist."""
+    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/'
+                          'R17-1413.0.0-a1-b1346/')
+    full_url = (archive_url_prefix + 'chromeos_R17-1413.0.0-a1_'
+                'x86-mario_full_dev.bin')
+    full_url_out, nton_url_out, mton_url_out = (
+        devserver_util.ParsePayloadList([full_url, '', '']))
+    self.assertEqual([full_url, None, None],
                      [full_url_out, nton_url_out, mton_url_out])
 
   def testParsePartialPayloadList(self):
@@ -303,7 +315,6 @@ class DevServerUtilTest(mox.MoxTestBase):
     for index, artifact in enumerate(artifacts):
       self.assertEqual(artifact._gs_path, expected_payloads[index])
       self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
-      print 'Will Download Artifact: %s' % artifact
 
     self.mox.VerifyAll()
 
@@ -335,7 +346,37 @@ class DevServerUtilTest(mox.MoxTestBase):
     for index, artifact in enumerate(artifacts):
       self.assertEqual(artifact._gs_path, expected_payloads[index])
       self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
-      print 'Will Download Artifact: %s' % artifact
+
+    self.mox.VerifyAll()
+
+  def testGatherArtifactDownloadsWithoutMtonOrNton(self):
+    """Gather the correct download requirements without delta payloads."""
+    build = 'R17-1413.0.0-a1-b1346'
+    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
+                          build)
+    mock_data = 'mock data\nmock_data'
+    payloads = map(lambda x: '/'.join([archive_url_prefix, x]),
+                   ['p1'])
+    expected_payloads = payloads + map(
+        lambda x: '/'.join([archive_url_prefix, x]),
+            [downloadable_artifact.STATEFUL_UPDATE,
+             downloadable_artifact.AUTOTEST_PACKAGE,
+             downloadable_artifact.TEST_SUITES_PACKAGE])
+    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
+
+    # GSUtil ls.
+    gsutil_util.GSUtilRun(mox.StrContains(archive_url_prefix),
+                          mox.IgnoreArg()).AndReturn(mock_data)
+    devserver_util.ParsePayloadList(mock_data.splitlines()).AndReturn(
+        payloads + [None, None])
+
+    self.mox.ReplayAll()
+    artifacts = devserver_util.GatherArtifactDownloads(
+        self._static_dir, archive_url_prefix, build, self._install_dir)
+    for index, artifact in enumerate(artifacts):
+      self.assertEqual(artifact._gs_path, expected_payloads[index])
+      self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
 
     self.mox.VerifyAll()
 
