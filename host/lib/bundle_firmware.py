@@ -594,11 +594,8 @@ class Bundle:
         value = 31
         self._out.Info('  Memory interleave: %#0x' % value)
       elif param == 'u':
-        # TODO(sjg): Seems to not work unless set to the same value as in the
-        # existing image. Need to find root cause.
-        #value = os.stat(pack.GetProperty('boot+dtb')).st_size
-        #value = (value + 0xfff) & ~0xfff
-        self._out.Warning("Leaving U-Boot size unchanged")
+        value = os.stat(pack.GetProperty('boot+dtb')).st_size
+        value = (value + 0xfff) & ~0xfff
         self._out.Info('  U-Boot size: %#0x' % value)
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
