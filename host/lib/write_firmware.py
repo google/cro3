@@ -300,7 +300,8 @@ class WriteFirmware:
       True if the device was found, False if we timed out.
     """
     self._out.Progress('Waiting for board to appear on USB bus')
-    for tries in range(timeout * 2):
+    start_time = time.time()
+    while time.time() - start_time < timeout:
       try:
         args = ['-d', '%04x:%04x' % (vendor_id, product_id)]
         self._tools.Run('lsusb', args, sudo=True)
@@ -309,8 +310,6 @@ class WriteFirmware:
 
       except CmdError as err:
         pass
-
-      time.sleep(.5)
 
     return False
 
@@ -383,7 +382,6 @@ class WriteFirmware:
     # BUG=chromium-os:28229
     args = ['cold_reset:on', 'sleep:.2', 'cold_reset:off'] + args
     self._tools.Run('dut-control', args)
-    time.sleep(2)
 
     self._out.Progress('Uploading image')
     download_list = [
@@ -393,23 +391,30 @@ class WriteFirmware:
         ['bl2', 0x02023400, bl2],
         ['u-boot', 0x43e00000, image]
         ]
-    first = True
     try:
-      for item in download_list:
+      for upto in range(len(download_list)):
+        item = download_list[upto]
         if not self._WaitForUSBDevice('exynos', vendor_id, product_id, 4):
-          if first:
+          if upto == 0:
             raise CmdError('Could not find Exynos board on USB port')
           raise CmdError("Stage '%s' did not complete" % item[0])
-        args = ['-a', '%#x' % item[1], '-f', item[2]]
-        first = False
         self._out.Notice(item[2])
         self._out.Progress("Uploading stage '%s'" % item[0])
 
-        # TODO(sjg): Remove this delay, once the need for it is understood.
-        time.sleep(1)
+        if upto == 0:
+          # The IROM needs roughly 200ms here to be ready for USB download
+          time.sleep(.5)
+
+        if upto == 1:
+          # Once SPL starts up we can release the power buttom
+          args = ['fw_up:off', 'pwr_button:release']
+          self._tools.Run('dut-control', args)
+
+        args = ['-a', '%#x' % item[1], '-f', item[2]]
         self._tools.Run('smdk-usbdl', args, sudo=True)
 
     finally:
+      # Make sure that the power button is released, whatever happens
       args = ['fw_up:off', 'pwr_button:release']
       self._tools.Run('dut-control', args)
 
