@@ -8,11 +8,7 @@
 
 get_all_board_toolchains()
 {
-  local board="$1"
-  local base_board=$(echo "${board}" | cut -d '_' -f 1)
-  local board_overlay=$(cros_overlay_list --board="${base_board}" \
-    --primary_only)
-  sed 's:#.*::' "${board_overlay}/toolchain.conf"
+  cros_setup_toolchains --show-board-cfg="$1" | sed 's:,: :g'
 }
 
 get_ctarget_from_board()
