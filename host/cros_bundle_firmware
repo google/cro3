@@ -91,7 +91,7 @@ def _DoBundle(options, output, tools):
     bundle.AddEnableList(options.add_node_enable)
     bundle.spl_source = options.spl_source
 
-    out_fname = bundle.Start(options.hardware_id, options.output,
+    out_fname, props = bundle.Start(options.hardware_id, options.output,
         options.show_map)
 
     # Write it to the board if required.
@@ -103,7 +103,7 @@ def _DoBundle(options, output, tools):
       file_list = bundle.GetFiles()
       write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
           file_list, out_fname, bundle, text_base, dest=options.write,
-          flash_dest=options.flash_dest)
+          flash_dest=options.flash_dest, props=props)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information

@@ -571,7 +571,7 @@ class WriteFirmware:
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
                     bundle, text_base=None, update=True, verify=False,
-                    dest=None, flash_dest=None):
+                    dest=None, flash_dest=None, props=None):
   """A simple function to write firmware to a device.
 
   This creates a WriteFirmware object and uses it to write the firmware image
@@ -590,6 +590,7 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     verify: Verify the write by doing a readback and CRC.
     dest: Destination device to write firmware to (usb, sd).
     flash_dest: Destination device for flasher to program payload into.
+    props: A dictionary containing properties from the PackFirmware object
   """
   write = WriteFirmware(tools, fdt, output, bundle)
   if text_base:

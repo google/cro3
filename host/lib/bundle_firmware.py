@@ -816,4 +816,4 @@ class Bundle:
     if output_fname:
       shutil.copyfile(image, output_fname)
       self._out.Notice("Output image '%s'" % output_fname)
-    return image
+    return image, pack.props
