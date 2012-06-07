@@ -221,7 +221,7 @@ class WriteFirmware:
     self._tools.OutputSize('Flasher', flasher)
     return flasher
 
-  def _NvidiaFlashImage(self, flash_dest, uboot, bct, payload):
+  def _NvidiaFlashImage(self, flash_dest, uboot, bct, payload, bootstub):
     """Flash the image to SPI flash.
 
     This creates a special Flasher binary, with the image to be flashed as
@@ -233,6 +233,8 @@ class WriteFirmware:
       uboot: Full path to u-boot.bin.
       bct: Full path to BCT file (binary chip timings file for Nvidia SOCs).
       payload: Full path to payload.
+      bootstub: Full path to bootstub, which is the payload without the
+          signing information (i.e. bootstub is u-boot.bin + the FDT)
 
     Returns:
       True if ok, False if failed.
@@ -247,14 +249,18 @@ class WriteFirmware:
     boot_type = filter(match.match, bct_dumped)
     boot_type = match.match(boot_type[0]).group('boot').lower()
 
-    flasher = self.PrepareFlasher(uboot, payload, self.update, self.verify,
-                                  boot_type, 0)
+    if flash_dest:
+      image = self.PrepareFlasher(uboot, payload, self.update, self.verify,
+                                    boot_type, 0)
+    else:
+      image = bootstub
 
+    self._out.Notice('TEXT_BASE is %#x' % self.text_base)
     self._out.Progress('Uploading flasher image')
     args = [
       '--bct', bct,
       '--setbct',
-      '--bl',  flasher,
+      '--bl',  image,
       '--go',
       '--setentry', "%#x" % self.text_base, "%#x" % self.text_base
     ]
@@ -598,8 +604,13 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     method = fdt.GetString('/chromeos-config', 'flash-method', 'tegra')
     if method == 'tegra':
       tools.CheckTool('nvflash')
+      bootstub = props['bootstub']
+      if flash_dest:
+        write.text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
+      else:
+        write.text_base = bundle.CalcTextBase('bootstub ', fdt, bootstub)
       ok = write._NvidiaFlashImage(flash_dest, flasher, file_list['bct'],
-          image_fname)
+          image_fname, bootstub)
     elif method == 'exynos':
       tools.CheckTool('lsusb', 'usbutils')
       tools.CheckTool('smdk-usbdl', 'smdk-dltool')
