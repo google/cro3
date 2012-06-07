@@ -426,6 +426,8 @@ class Bundle:
     data = self._tools.ReadFile(fname)
     fdt_text_base = fdt.GetInt('/chromeos-config', 'textbase')
     text_base = self.DecodeTextBase(data)
+    self._out.Info('TEXT_BASE: fdt says %#x, %s says %#x' % (fdt_text_base,
+        fname, text_base))
 
     # If they are different, issue a warning and switch over.
     if text_base and text_base != fdt_text_base:

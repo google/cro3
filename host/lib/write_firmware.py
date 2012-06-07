@@ -49,7 +49,7 @@ class WriteFirmware:
     self._fdt = fdt
     self._out = output
     self._bundle = bundle
-    self.text_base = self._fdt.GetInt('/chromeos-config', 'textbase');
+    self.text_base = self._fdt.GetInt('/chromeos-config', 'textbase', -1);
 
     # For speed, use the 'update' algorithm and don't verify
     self.update = True
@@ -570,8 +570,8 @@ class WriteFirmware:
 
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
-                    bundle, text_base=None, update=True, verify=False,
-                    dest=None, flash_dest=None, props=None):
+                    bundle, update=True, verify=False, dest=None,
+                    flash_dest=None, props=None):
   """A simple function to write firmware to a device.
 
   This creates a WriteFirmware object and uses it to write the firmware image
@@ -585,7 +585,6 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     file_list: Dictionary containing files that we might need.
     image_fname: Filename of image to write.
     bundle: The bundle object which created the image.
-    text_base: U-Boot text base (base of executable image), None for default.
     update: Use faster update algorithm rather then full device erase.
     verify: Verify the write by doing a readback and CRC.
     dest: Destination device to write firmware to (usb, sd).
@@ -593,8 +592,6 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     props: A dictionary containing properties from the PackFirmware object
   """
   write = WriteFirmware(tools, fdt, output, bundle)
-  if text_base:
-    write.text_base = text_base
   write.update = update
   write.verify = verify
   if dest == 'usb':
