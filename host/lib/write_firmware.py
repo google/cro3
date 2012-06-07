@@ -574,6 +574,31 @@ class WriteFirmware:
       for disk in disks:
         self._out.UserOutput('  %s' % disk[4])
 
+  def _Em100FlashImage(self, image_fname):
+    """Send an image to an attached EM100 device.
+
+    This is a Dediprog EM100 SPI flash emulation device. We set up servo2
+    to do the SPI emulation, then write the image, then boot the board.
+    All going well, this is enough to get U-Boot running.
+
+    Args:
+      image_fname: Filename of image to send
+    """
+    args = ['spi2_vref:off', 'spi2_buf_en:off', 'spi2_buf_on_flex_en:off']
+    args.append('spi_hold:on')
+    self._tools.Run('dut-control', args)
+
+    # TODO(sjg@chromium.org): This is for link. We could make this
+    # configurable from the fdt.
+    args = ['-c', 'W25Q64CV', '-d', self._tools.Filename(image_fname), '-r']
+    self._out.Progress('Writing image to em100')
+    self._tools.Run('em100', args, sudo=True)
+
+    self._out.Progress('Resetting board')
+    args = ['cold_reset:on', 'sleep:.2', 'cold_reset:off', 'sleep:.5']
+    args.extend(['pwr_button:press', 'sleep:.2', 'pwr_button:release'])
+    self._tools.Run('dut-control', args)
+
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
                     bundle, update=True, verify=False, dest=None,
@@ -623,6 +648,10 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
           'complete')
     else:
       raise CmdError('Image upload failed - please check board connection')
+  elif dest == 'em100':
+    # crosbug.com/31625
+    tools.CheckTool('em100')
+    write._Em100FlashImage(image_fname)
   elif dest.startswith('sd'):
     write.SendToSdCard(dest[2:], flash_dest, flasher, image_fname)
   else:
