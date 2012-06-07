@@ -414,6 +414,20 @@ dtb -p 4096 ../tests/source.dts
     if not self._is_compiled:
       root, ext = os.path.splitext(self.fname)
 
+      # crosbug.com/31621
+      # This is a temporary hack to support upstream U-Boot
+      # Since it does not have the benefit of the dtc -i option, it uses
+      # the C preprocessor to find its include files. Here we must perform
+      # that task manually for the compiler. Since it is just as easy to
+      # do with the string replace feature, use that.
+      data = self.tools.ReadFile(self.fname)
+      fname = self.fname
+      if 'ARCH_CPU_DTS' in data:
+        fname = os.path.join(self.tools.outdir, os.path.basename(root) +
+                             '.dts')
+        data = data.replace('ARCH_CPU_DTS', '"tegra20.dtsi"')
+        self.tools.WriteFile(fname, data)
+
       # If we don't have a directory, put it in the tools tempdir
       out_fname = os.path.join(self.tools.outdir, os.path.basename(root) +
                                '.dtb')
@@ -422,7 +436,7 @@ dtb -p 4096 ../tests/source.dts
         search_list.extend(['-i', path])
       args = ['-I', 'dts', '-o', out_fname, '-O', 'dtb', '-p', '4096']
       args.extend(search_list)
-      args.append(self.fname)
+      args.append(fname)
       self.tools.Run('dtc', args)
       self.fname = out_fname
       self._is_compiled = True
