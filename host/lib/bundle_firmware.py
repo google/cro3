@@ -542,8 +542,14 @@ class Bundle:
       CmdError if a command fails.
     """
     bootstub = os.path.join(self._tools.outdir, 'coreboot-full.rom')
-    uboot_elf = uboot.replace(".bin", ".elf")
-    shutil.copyfile(coreboot, bootstub)
+
+    # U-Boot itself does not put a .elf extension on the elf file.
+    # The U-Boot ebuild does, but we shouldn't actually require it since
+    # devs may want to just use what U-Boot creates.
+    uboot_elf = uboot.replace('.bin', '')
+    if not os.path.exists(self._tools.Filename(uboot_elf)):
+      uboot_elf = uboot.replace('.bin', '.elf')
+    shutil.copyfile(self._tools.Filename(coreboot), bootstub)
     if seabios:
         self._tools.Run('cbfstool', [bootstub, 'add-payload', seabios,
             'fallback/payload', 'lzma'])
