@@ -79,7 +79,8 @@ def _DoBundle(options, output, tools):
   bundle.SetFiles(board=options.board, uboot=options.uboot, bct=options.bct,
                   bmpblk=options.bmpblk, coreboot=options.coreboot,
                   postload=options.postload, seabios=options.seabios,
-                  exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2)
+                  exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2,
+                  skeleton=options.skeleton)
   bundle.SetOptions(small=options.small)
 
   try:
@@ -158,6 +159,8 @@ Examples:
   parser.add_option('-k', '--key', dest='key', type='string', action='store',
       help='Path to signing key directory (default to dev key)',
       default='##/usr/share/vboot/devkeys')
+  parser.add_option('-K', '--skeleton', dest='skeleton', type='string',
+        action='store', help='Coreboot skeleton file')
   parser.add_option('-I', '--includedir', dest='includedirs', type='string',
       action='append', help='Include directory to search for files')
   parser.add_option('-m', '--map', dest='show_map', action='store_true',\
