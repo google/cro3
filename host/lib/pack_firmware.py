@@ -633,42 +633,42 @@ class PackFirmware:
     all_entries = self._CheckOverlap()
 
     # Set up a zeroed file of the correct size.
-    image = open(output_path, 'wb')
-    if all_entries:
-      image.write('\0' * self.image_size)
+    with open(output_path, 'wb') as image:
+      if all_entries:
+        image.write('\0' * self.image_size)
 
-    # Pack all the entriess.
-    for entry in self.entries:
-      if not entry.required:
-        continue
+      # Pack all the entriess.
+      for entry in self.entries:
+        if not entry.required:
+          continue
 
-      # Add in the info for the fmap.
-      if type(entry) == EntryFmap:
-        entry.SetEntries(base=0, image_size=self.image_size,
-            entries=self.entries)
+        # Add in the info for the fmap.
+        if type(entry) == EntryFmap:
+          entry.SetEntries(base=0, image_size=self.image_size,
+              entries=self.entries)
 
-      try:
-        # First run any required tools.
-        entry.RunTools(self.tools, self._out, self.tmpdir)
-        if 'value' in entry:
-          self._out.Notice("Pack '%s' into %s" % (entry.value, entry.name))
+        try:
+          # First run any required tools.
+          entry.RunTools(self.tools, self._out, self.tmpdir)
+          if 'value' in entry:
+            self._out.Notice("Pack '%s' into %s" % (entry.value, entry.name))
 
-        # Now read out the data
-        data = entry.GetData()
-        self._out.Debug('Entry: %s' % entry.name)
-        self._out.Debug('Entry data: %s' % entry)
-        self._out.Debug('Data size: %s bytes, at %#x' %
-            (len(data), entry.offset))
-        if len(data) > entry.size:
-          raise PackError("Data for '%s' too large for area: %d/%#x >"
-              " %d/%#x" % (entry.name, len(data), len(data), entry.size,
-              entry.size))
+          # Now read out the data
+          data = entry.GetData()
+          self._out.Debug('Entry: %s' % entry.name)
+          self._out.Debug('Entry data: %s' % entry)
+          self._out.Debug('Data size: %s bytes, at %#x' %
+              (len(data), entry.offset))
+          if len(data) > entry.size:
+            raise PackError("Data for '%s' too large for area: %d/%#x >"
+                " %d/%#x" % (entry.name, len(data), len(data), entry.size,
+                entry.size))
 
-        image.seek(entry.offset)
-        image.write(data)
+          image.seek(entry.offset)
+          image.write(data)
 
-      except PackError as err:
-        raise ValueError('Packing error: %s' % err)
+        except PackError as err:
+          raise ValueError('Packing error: %s' % err)
 
   def _OutEntry(self, status, offset, size, name):
     """Display a flash map entry.
