@@ -103,6 +103,7 @@ class Bundle:
     self.exynos_bl1 = None      # Filename of Exynos BL1 (pre-boot)
     self.exynos_bl2 = None      # Filename of Exynos BL2 (SPL)
     self.spl_source = 'straps'  # SPL boot according to board settings
+    self.skeleton_fname = None  # Filename of Coreboot skeleton file
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -113,7 +114,8 @@ class Bundle:
     self._keydir = keydir
 
   def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
-               postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None):
+               postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None,
+               skeleton=None):
     """Set up files required for Bundle.
 
     Args:
@@ -124,6 +126,9 @@ class Bundle:
       coreboot: The filename of the coreboot image to use (on x86)
       postload: The filename of the u-boot-post.bin image to use.
       seabios: The filename of the SeaBIOS payload to use if any.
+      exynos_bl1: The filename of the exynos BL1 file
+      exynos_bl2: The filename of the exynos BL2 file (U-Boot spl)
+      skeleton: The filename of the coreboot skeleton file.
     """
     self._board = board
     self.uboot_fname = uboot
@@ -134,6 +139,7 @@ class Bundle:
     self.seabios_fname = seabios
     self.exynos_bl1 = exynos_bl1
     self.exynos_bl2 = exynos_bl2
+    self.skeleton_fname = skeleton
 
   def SetOptions(self, small):
     """Set up options supported by Bundle.
@@ -179,6 +185,10 @@ class Bundle:
       self.exynos_bl1 = os.path.join(build_root, 'E5250.nbl1.bin')
     if not self.exynos_bl2:
       self.exynos_bl2 = os.path.join(build_root, 'smdk5250-spl.bin')
+    if not self.coreboot_fname:
+      self.coreboot_fname = os.path.join(build_root, 'coreboot.rom')
+    if not self.skeleton_fname:
+      self.skeleton_fname = os.path.join(build_root, 'skeleton.bin')
 
   def GetFiles(self):
     """Get a list of files that we know about.
@@ -738,6 +748,7 @@ class Bundle:
 
     # Get all our blobs ready
     pack.AddProperty('boot', self.uboot_fname)
+    pack.AddProperty('skeleton', self.skeleton_fname)
 
     # Make a copy of the fdt for the bootstub
     fdt_data = self._tools.ReadFile(fdt.fname)
@@ -750,7 +761,7 @@ class Bundle:
     pack.AddProperty('boot+dtb', bootstub)
 
     pack.AddProperty('gbb', self.uboot_fname)
-    for blob_type in pack.GetBlobList(self.coreboot_fname is not None):
+    for blob_type in pack.GetBlobList():
       self._BuildBlob(pack, fdt, blob_type)
 
     if gbb:

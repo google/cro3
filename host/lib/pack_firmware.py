@@ -551,13 +551,8 @@ class PackFirmware:
     if not required_count:
       first_blob_entry.required = True
 
-  def GetBlobList(self, use_coreboot):
+  def GetBlobList(self):
     """Generate a list of blob types that we are going to need.
-
-    Args:
-      use_coreboot: HACK to deal with old device tree files during the
-        transition period. We change 'signed' to 'coreboot' so that these
-        files can be used until moved over.
 
     Returns:
       List of blob type strings
@@ -565,8 +560,6 @@ class PackFirmware:
     blob_list = set()
     for entry in self.entries:
       if isinstance(entry, EntryBlob):
-        if use_coreboot and entry.key == 'signed':
-          entry.key = 'coreboot'
         blob_list.add(entry.key)
 
     return list(blob_list)
