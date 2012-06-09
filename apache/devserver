@@ -1,0 +1,27 @@
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Apache configuration to start up a server with document root
+# at /var/www.
+
+<VirtualHost *:8082>
+  ServerAdmin johnhdong@google.com
+
+  DocumentRoot /var/www
+  <Directory />
+    Options FollowSymLinks
+    AllowOverride None
+  </Directory>
+  <Directory /var/www/>
+    Options Indexes FollowSymLinks MultiViews
+    AllowOverride All
+    Order allow,deny
+    allow from all
+  </Directory>
+
+  ErrorLog /var/log/apache2/error.log
+  LogLevel warn
+  CustomLog /var/log/apache2/access.log combined
+
+</VirtualHost>

@@ -1,0 +1,10 @@
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Sets up rewrite rules to have the devserver handle any requests that
+# don't map to an actual file.
+
+RewriteEngine on
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^(.*) http://127.0.0.1:8080/$1 [proxy]
