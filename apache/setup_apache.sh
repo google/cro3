@@ -12,7 +12,7 @@
 # ./setup_apache.sh -- Sets up using default static directory.
 # ./setup_apache.sh DIR -- Sets up apache to serve images from DIR.
 
-DEFAULT_IMAGE_ROOT=/home/chrome-test/images
+DEFAULT_IMAGE_ROOT=/home/chromeos-test/images
 APACHE_CONFIG=/etc/apache2
 ARCHIVE_ROOT=/var/www
 MY_DIR="$(dirname $0)"
@@ -38,6 +38,8 @@ main () {
     "${APACHE_CONFIG}"/mods-enabled
   ln -sf "${APACHE_CONFIG}"/mods-available/proxy_http.load \
     "${APACHE_CONFIG}"/mods-enabled
+  ln -sf "${APACHE_CONFIG}"/mods-available/rewrite.load \
+    "${APACHE_CONFIG}"/mods-enabled
 
   # Setup devserver archive location.
   local image_root="${DEFAULT_IMAGE_ROOT}"
@@ -49,6 +51,13 @@ main () {
   fi
 
   ln -sf "${image_root}" "${static_dir}"
+
+  if [ -e "${static_dir}/archive" ]; then
+    unlink "${static_dir}/archive"
+  fi
+
+  # Create a link to archive that points back to the same dir.
+  ln -sf "${image_root}" "${static_dir}/archive"
 
   /etc/init.d/apache2 restart
 }

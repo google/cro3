@@ -706,8 +706,14 @@ class Autoupdate(BuildObject):
       Update payload message for client.
     """
     # Set hostname as the hostname that the client is calling to and set up
-    # the url base.
-    self.hostname = cherrypy.request.base
+    # the url base. If behind apache mod_proxy | mod_rewrite, the hostname will
+    # be in X-Forwarded-Host.
+    x_forwarded_host = cherrypy.request.headers.get('X-Forwarded-Host')
+    if x_forwarded_host:
+      self.hostname = 'http://' + x_forwarded_host
+    else:
+      self.hostname = cherrypy.request.base
+
     if self.urlbase:
       static_urlbase = self.urlbase
     elif self.serve_only:
