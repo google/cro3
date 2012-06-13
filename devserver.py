@@ -77,6 +77,7 @@ def _GetConfig(options):
                     'server.socket_host': '::',
                     'server.socket_port': int(options.port),
                     'response.timeout': 6000,
+                    'server.socket_timeout': 60,
                     'tools.staticdir.root':
                       os.path.dirname(os.path.abspath(sys.argv[0])),
                   },
