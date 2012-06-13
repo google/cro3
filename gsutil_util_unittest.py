@@ -8,6 +8,7 @@
 
 import mox
 import subprocess
+import time
 import unittest
 
 import gsutil_util
@@ -22,6 +23,8 @@ class GSUtilUtilTest(mox.MoxTestBase):
     self._good_mock_process.returncode = 0
     self._bad_mock_process = self.mox.CreateMock(subprocess.Popen)
     self._bad_mock_process.returncode = 1
+    self.mox.StubOutWithMock(time, 'sleep')
+    time.sleep(mox.IgnoreArg()).MultipleTimes()
 
   def _CallRunGS(self, str_should_contain, attempts=1):
     """Helper that wraps a RunGS for tests."""
