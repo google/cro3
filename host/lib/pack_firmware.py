@@ -7,7 +7,6 @@
 import optparse
 import os
 import re
-import shutil
 import struct
 import subprocess
 import sys
@@ -252,53 +251,6 @@ class EntryBlobString(EntryFmapArea):
     return self.value
 
 
-class EntryIfd(EntryFmapArea):
-  """This entry marks the use of an Intel Firmware Descriptor.
-
-  The entry itself covers the 'Intel' part of the firmware, containing the
-  firmware descriptor and management engine. When this entry appears in a
-  flash map, we strip it off the image, and use ifdtool to place the rest
-  of the image into a provided skeleton file (which contains the management
-  engine and a skeleton firmware descriptor).
-  """
-  def __init__(self, props):
-    super(EntryIfd, self).__init__(props)
-
-  def ProduceFinalImage(self, tools, out, tmpdir, image_fname):
-    """Produce the final image for an Intel ME system
-
-    Some Intel systems require that an image contains the Management Engine
-    firmware, and also a firmware descriptor.
-
-    This function takes the existing image, removes the front part of it,
-    and replaces it with these required pieces using ifdtool.
-
-    Args:
-      tools: Tools object to use to run tools.
-      out: Output object to send output to
-      tmpdir: Temporary directory to use to create required files.
-      image_fname: Output image filename
-    """
-    out.Progress('Setting up Intel ME')
-    data = tools.ReadFile(image_fname)
-
-    # We can assume that the ifd section is at the start of the image.
-    if self.offset != 0:
-      raise ConfigError('IFD section must be at offset 0 in the image')
-    data = data[self.size:]
-    input_fname = os.path.join(tmpdir, 'ifd-input.bin')
-    tools.WriteFile(input_fname, data)
-    ifd_output = os.path.join(tmpdir, 'image.ifd')
-
-    # This works by modifying a skeleton file.
-    shutil.copyfile(tools.Filename(self.pack.props['skeleton']), ifd_output)
-    args = ['-i', 'BIOS:%s' % input_fname, ifd_output]
-    tools.Run('ifdtool', args)
-
-    # ifdtool puts the output in a file with '.new' tacked on the end.
-    shutil.move(ifd_output + '.new', image_fname)
-    tools.OutputSize('IFD image', image_fname)
-
 class EntryBlob(EntryFmapArea):
   """This entry contains a binary blob.
 
@@ -463,8 +415,6 @@ class PackFirmware:
       entry = EntryBlobString(props)
     elif ftype == 'fmap':
       entry = EntryFmap(props)
-    elif ftype == 'ifd':
-      entry = EntryIfd(props)
     else:
       raise ValueError('%s: unknown entry type' % ftype)
 
@@ -681,7 +631,6 @@ class PackFirmware:
         image.write('\0' * self.image_size)
 
       # Pack all the entriess.
-      ifd = None
       for entry in self.entries:
         if not entry.required:
           continue
@@ -690,8 +639,6 @@ class PackFirmware:
         if type(entry) == EntryFmap:
           entry.SetEntries(base=0, image_size=self.image_size,
               entries=self.entries)
-        elif type(entry) == EntryIfd:
-          ifd = entry
 
         try:
           # First run any required tools.
@@ -715,10 +662,6 @@ class PackFirmware:
 
         except PackError as err:
           raise ValueError('Packing error: %s' % err)
-
-    # If the image contain an IFD section, process it
-    if ifd:
-      ifd.ProduceFinalImage(self.tools, self._out, self.tmpdir, output_path)
 
   def _OutEntry(self, status, offset, size, name):
     """Display a flash map entry.
