@@ -86,18 +86,21 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
   xpak.tbz2(out_path).recompose_mem(x)
 
 
-def _UpdateGmergeBinhost(board, pkg, deep):
+def UpdateGmergeBinhost(board, pkg, deep):
   """Add pkg to our gmerge-specific binhost.
 
   Files matching DEFAULT_INSTALL_MASK are not included in the tarball.
   """
 
   root = '/build/%s/' % board
-  pkgdir = '/build/%s/packages' % board
-  gmerge_pkgdir = '/build/%s/gmerge-packages' % board
+  gmerge_pkgdir = os.path.join(root, 'gmerge-packages')
+  stripped_link = os.path.join(root, 'stripped-packages')
 
   # Create gmerge pkgdir and give us permission to write to it.
   subprocess.check_call(['sudo', 'mkdir', '-p', gmerge_pkgdir])
+  subprocess.check_call(['sudo', 'ln', '-snf', os.path.basename(gmerge_pkgdir),
+                         stripped_link])
+
   username = os.environ['PORTAGE_USERNAME']
   subprocess.check_call(['sudo', 'chown', username, gmerge_pkgdir])
 
@@ -214,7 +217,7 @@ class Builder(object):
 
       # Sync gmerge binhost.
       deep = additional_args.get('deep')
-      if not _UpdateGmergeBinhost(board, pkg, deep):
+      if not UpdateGmergeBinhost(board, pkg, deep):
         return self.SetError('Package %s is not installed' % pkg)
 
       return 'Success\n'

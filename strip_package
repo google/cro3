@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Strip a given package and place the stripped version in
+# /build/<board>/stripped-packages.
+
+if [ ! -e /etc/debian_chroot ]; then
+  echo "Script needs to be run from within the chroot!" && exit 1
+fi
+
+SCRIPT_ROOT="/usr/lib/crosutils"
+. "${SCRIPT_ROOT}/common.sh" || exit 1
+
+export DEFAULT_INSTALL_MASK
+python ${SCRIPTS_DIR}/../platform/dev/strip_package.py "$@"
