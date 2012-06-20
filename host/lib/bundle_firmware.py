@@ -317,7 +317,7 @@ class Bundle:
     pointing to a node:
 
         uart@10200000 {
-                status = "ok";
+                status = "okay";
         };
 
     In this case, this function takes the name of the alias ('console' in
@@ -338,7 +338,7 @@ class Bundle:
         return
       node_name = lookup
     if enabled:
-      status = 'ok'
+      status = 'okay'
     else:
       status = 'disabled'
     self.fdt.PutString(node_name, 'status', status)
