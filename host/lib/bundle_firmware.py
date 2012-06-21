@@ -793,6 +793,10 @@ class Bundle:
       pack.AddProperty('keydir', self._keydir)
 
     pack.CheckProperties()
+
+    # Record position and size of all blob members in the FDT
+    pack.UpdateBlobPositions(fdt)
+
     image = os.path.join(self._tools.outdir, 'image.bin')
     pack.PackImage(self._tools.outdir, image)
     pack.AddProperty('image', image)

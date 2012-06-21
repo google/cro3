@@ -590,6 +590,7 @@ class PackFirmware:
         size = int(size)
         offset = upto_offset
 
+      props['node'] = node
       props['offset'] = offset
       props['size'] = size
 
@@ -629,6 +630,27 @@ class PackFirmware:
 
     return list(blob_set)
 
+  def GetBlobParams(self, blob_type):
+    """Returns the parameters for a blob of the given type.
+
+    There should be only one blob of this type.
+
+    Args:
+      blob_type: Type of the blob (e.g. 'exynos-bl2')
+
+    Raises:
+      ValueError if the blob cannot be found.
+
+    Returns:
+      The list of parameters for this blob, which may be empty
+    """
+    for entry in self.entries:
+      if isinstance(entry, EntryBlob):
+        if entry.key == blob_type:
+          return entry.params
+
+    raise ValueError("Blob type '%s' cannot be found" % blob_type)
+
   def AddProperty(self, name, value):
     """Add a new property which can be used by the fdt.
 
@@ -650,6 +672,67 @@ class PackFirmware:
       Value of property, normally a filename string
     """
     return self.props.get(name, None)
+
+  def ConcatPropContents(self, prop_list):
+    """Read, concatenate and return the contents of the listed props.
+
+    Each property references a filename. We read the contents of each
+    file and join it together.
+
+    Each section starts on a 32-bit boundary.
+
+    Args:
+      prop_list: List of properties to process
+
+    Returns:
+      Tuple:
+        Contents of the files (as a string)
+        Directory of the position of the contents, as a dictionary:
+          key: Name of the property
+          value: List containing:
+            offset of the start of this property's data
+            size of this property's data
+    """
+    data = ''
+    directory = {}
+    upto = 0
+    for prop in prop_list:
+      contents = self.tools.ReadFile(self.props[prop])
+      data += contents
+
+      # Append this offset, and update our pointer (32-bit aligned)
+      directory[prop] = [upto, len(contents)]
+      upto += (len(contents) + 3) & ~3
+    return data, directory
+
+  def UpdateBlobPositions(self, fdt):
+    """Record position and size of all blob members in the FDT.
+
+    Some blobs have multiple files within them. We want a way to
+    access these individiually. We do this by adding a subnode for
+    each, and putting the offset and size information in there.
+
+    This function scans for blobs with more than one file and adds
+    a 'reg' property to the subnode for each file.
+
+    Note: Since one of the members may in fact be the fdt, and we are
+    updating the fdt, we may change the size it. To get around this,
+    we perform two passes of the algorithm. On the second pass we will
+    be writing data that is already there, so the fdt size will not
+    change.
+
+    TODO(sjg@chromium.org): Since we cannot add whole subnodes
+    due to a limitation of fdtput, these must exist already.
+    """
+    for pass_num in range(0,2):
+      for entry in self.entries:
+        if isinstance(entry, EntryBlob):
+          data, directory = self.ConcatPropContents(entry.key.split(','))
+          if len(directory) > 1:
+            fdt.PutInteger(entry.node, '#address-cells', 1)
+            fdt.PutInteger(entry.node, '#size-cells', 1)
+            for key, item in directory.iteritems():
+              fdt.PutIntList(entry.node + '/' + key, 'reg', item)
 
   def CheckProperties(self):
     """Check that each entry has the properties that it needs.
