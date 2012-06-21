@@ -80,7 +80,7 @@ def _DoBundle(options, output, tools):
                   bmpblk=options.bmpblk, coreboot=options.coreboot,
                   postload=options.postload, seabios=options.seabios,
                   exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2,
-                  skeleton=options.skeleton)
+                  skeleton=options.skeleton, ecbin=options.ecbin)
   bundle.SetOptions(small=options.small)
 
   try:
@@ -154,6 +154,8 @@ Examples:
       action='store', help='Hardware ID string to use')
   parser.add_option('--bmpblk', dest='bmpblk', type='string',
       action='store', help='Bitmap block to use')
+  parser.add_option('-e', '--ec', dest='ecbin', type='string',
+        action='store', help='EC binary file')
   parser.add_option('-F', '--flash', dest='flash_dest', type='string',
       action='store', help='Create a flasher to flash the device (spi, mmc)')
   parser.add_option('-k', '--key', dest='key', type='string', action='store',

@@ -104,6 +104,7 @@ class Bundle:
     self.exynos_bl2 = None      # Filename of Exynos BL2 (SPL)
     self.spl_source = 'straps'  # SPL boot according to board settings
     self.skeleton_fname = None  # Filename of Coreboot skeleton file
+    self.ecbin_fname = None     # Filename of EC file
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -115,7 +116,7 @@ class Bundle:
 
   def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
                postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None,
-               skeleton=None):
+               skeleton=None, ecbin=None):
     """Set up files required for Bundle.
 
     Args:
@@ -129,6 +130,7 @@ class Bundle:
       exynos_bl1: The filename of the exynos BL1 file
       exynos_bl2: The filename of the exynos BL2 file (U-Boot spl)
       skeleton: The filename of the coreboot skeleton file.
+      ecbin: The filename of the EC (Embedded Controller) file.
     """
     self._board = board
     self.uboot_fname = uboot
@@ -140,6 +142,7 @@ class Bundle:
     self.exynos_bl1 = exynos_bl1
     self.exynos_bl2 = exynos_bl2
     self.skeleton_fname = skeleton
+    self.ecbin_fname = ecbin
 
   def SetOptions(self, small):
     """Set up options supported by Bundle.
@@ -189,6 +192,8 @@ class Bundle:
       self.coreboot_fname = os.path.join(build_root, 'coreboot.rom')
     if not self.skeleton_fname:
       self.skeleton_fname = os.path.join(build_root, 'skeleton.bin')
+    if not self.ecbin_fname:
+      self.ecbin_fname = os.path.join(build_root, 'ec.RW.bin')
 
   def GetFiles(self):
     """Get a list of files that we know about.
@@ -719,6 +724,8 @@ class Bundle:
       pack.AddProperty('image', signed)
     elif blob_type == 'exynos-bl1':
       pack.AddProperty(blob_type, self.exynos_bl1)
+    elif blob_type == 'ecbin':
+      pack.AddProperty(blob_type, self.ecbin_fname)
     elif blob_type == 'exynos-bl2':
       spl_load_size = os.stat(pack.GetProperty('boot+dtb')).st_size
       bl2 = self.ConfigureExynosBl2(fdt, spl_load_size, self.exynos_bl2)
