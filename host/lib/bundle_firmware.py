@@ -755,6 +755,7 @@ class Bundle:
     # Get all our blobs ready
     pack.AddProperty('boot', self.uboot_fname)
     pack.AddProperty('skeleton', self.skeleton_fname)
+    pack.AddProperty('dtb', fdt.fname)
 
     # Make a copy of the fdt for the bootstub
     fdt_data = self._tools.ReadFile(fdt.fname)
@@ -764,6 +765,10 @@ class Bundle:
 
     bootstub = os.path.join(self._tools.outdir, 'u-boot-dtb.bin')
     self._tools.WriteFile(bootstub, uboot_data + fdt_data)
+
+    # TODO(sjg@chromium.org): Deprecate this property when all boards
+    # use a comma-separated list for section contents. We will then
+    # use only 'boot,dtb' instead of 'boot+dtb'
     pack.AddProperty('boot+dtb', bootstub)
 
     pack.AddProperty('gbb', self.uboot_fname)
