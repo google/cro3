@@ -727,7 +727,22 @@ class Bundle:
     elif blob_type == 'ecbin':
       pack.AddProperty(blob_type, self.ecbin_fname)
     elif blob_type == 'exynos-bl2':
-      spl_load_size = os.stat(pack.GetProperty('boot+dtb')).st_size
+      spl_payload = pack.GetBlobParams(blob_type)
+
+      # TODO(sjg@chromium): Remove this later, when we remove boot+dtb
+      # from all flash map files.
+      if not spl_payload:
+        spl_load_size = os.stat(pack.GetProperty('boot+dtb')).st_size
+        prop_list = 'boot+dtb'
+
+        # Do this later, when we remove boot+dtb.
+        # raise CmdError("No parameters provided for blob type '%s'" %
+        #     blob_type)
+      else:
+        prop_list = spl_payload[0].split(',')
+        spl_load_size = len(pack.ConcatPropContents(prop_list)[0])
+      self._out.Info("BL2/SPL contains '%s', size is %d / %#x" %
+          (', '.join(prop_list), spl_load_size, spl_load_size))
       bl2 = self.ConfigureExynosBl2(fdt, spl_load_size, self.exynos_bl2)
       pack.AddProperty(blob_type, bl2)
     elif pack.GetProperty(blob_type):
