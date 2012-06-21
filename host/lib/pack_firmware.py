@@ -83,6 +83,10 @@ class Entry(dict):
     size: Size of area in bytes.
     name: Name of area.
     required: True if this entry is required in the image, False if not
+
+  Properties which we create:
+    value: The value that we obtain for this entry. This is a list of
+        filenames.
   """
   def __init__(self, props):
     super(Entry, self).__init__(props)
@@ -249,7 +253,7 @@ class EntryBlobString(EntryFmapArea):
     super(EntryBlobString, self).__init__(props)
 
   def GetData(self):
-    return self.value
+    return self.value[0]
 
 
 class EntryIfd(EntryFmapArea):
@@ -305,12 +309,14 @@ class EntryBlob(EntryFmapArea):
   Properties:
     self.value: The filename to read to obtain the blob data.
   """
-  def __init__(self, props):
+  def __init__(self, props, params):
     super(EntryBlob, self).__init__(props)
+    self.params = params
 
-  def GetData(self,):
-    filename = self.value
-    data = self.pack.tools.ReadFile(filename)
+  def GetData(self):
+    data = ''
+    for filename in self.value:
+      data += self.pack.tools.ReadFile(filename)
     return data
 
 
@@ -327,27 +333,35 @@ class EntryKeyBlock(EntryFmapArea):
   def __init__(self, props):
     super(EntryKeyBlock, self).__init__(props)
     self._CheckFields(('keyblock', 'signprivate', 'kernelkey'))
-    self._CheckFieldsInt(('version','preamble_flags'))
+    self._CheckFieldsInt(('version', 'preamble_flags'))
 
   def RunTools(self, tools, out, tmpdir):
     """Create a vblock for the given firmware image"""
     self.path = os.path.join(tmpdir, 'vblock.%s' % self.label)
+    input_data = os.path.join(tmpdir, 'input.%s' % self.label)
     try:
       prefix = self.pack.props['keydir'] + '/'
+
+      # Join up the data files to be signed
+      data = ''
+      for filename in self.value:
+        data += self.pack.tools.ReadFile(filename)
+      tools.WriteFile(input_data, data)
       args = [
           '--vblock', self.path,
           '--keyblock', prefix + self.keyblock,
           '--signprivate', prefix + self.signprivate,
           '--version', '%d' % self.version,
-          '--fv', self.value,
+          '--fv', input_data,
           '--kernelkey', prefix + self.kernelkey,
           '--flags', '%d' % self.preamble_flags,
       ]
+      out.Notice("Sign '%s' into %s" % (', '.join(self.value), self.label))
       stdout = tools.Run('vbutil_firmware', args)
       out.Debug(stdout)
 
       # Update value to the actual filename to be used
-      self.value = self.path
+      self.value = [self.path]
     except CmdError as err:
       raise PackError('Cannot make key block: vbutil_firmware failed\n%s' %
                       err)
@@ -445,13 +459,14 @@ class PackFirmware:
     key = None
     if len(entry_list) > 1:
       key = entry_list[1]
+    params = entry_list[2:]
 
     # Create an entry of the correct type.
     entry = None
     if not ftype:
       entry = EntryFmapArea(props)
     elif ftype == 'blob':
-      entry = EntryBlob(props)
+      entry = EntryBlob(props, params)
       pass
     elif ftype == 'wiped':
       entry = EntryWiped(props)
@@ -607,12 +622,12 @@ class PackFirmware:
     Returns:
       List of blob type strings
     """
-    blob_list = set()
+    blob_set = set()
     for entry in self.entries:
       if isinstance(entry, EntryBlob):
-        blob_list.add(entry.key)
+        blob_set.update(entry.key.split(','))
 
-    return list(blob_list)
+    return list(blob_set)
 
   def AddProperty(self, name, value):
     """Add a new property which can be used by the fdt.
@@ -648,10 +663,13 @@ class PackFirmware:
     """
     for entry in self.entries:
       if entry.required and entry.key:
-        if not self.props.get(entry.key):
-          raise ConfigError("%s: Requests property '%s' but we only have %s"
-              % (entry.node, entry.key, self.props))
-        entry.value = self.props[entry.key]
+        if 'value' not in entry:
+          entry.value = []
+        for prop in entry.key.split(','):
+          if not self.props.get(prop):
+            raise ConfigError("%s: Requests property '%s' but we only "
+                "have %s" % (entry.node, prop, self.props))
+          entry.value.append(self.props[prop])
 
   def RequireAllEntries(self):
     """Mark all entries as required, to produce a full image."""
@@ -697,7 +715,8 @@ class PackFirmware:
           # First run any required tools.
           entry.RunTools(self.tools, self._out, self.tmpdir)
           if 'value' in entry:
-            self._out.Notice("Pack '%s' into %s" % (entry.value, entry.name))
+            self._out.Notice("Pack '%s' into %s" % (', '.join(entry.value),
+                entry.name))
 
           # Now read out the data
           data = entry.GetData()
