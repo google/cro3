@@ -383,6 +383,39 @@ class Fdt:
     args = ['-t', 'i', self.fname, node, prop, str(value_int)]
     self.tools.Run('fdtput', args)
 
+  def PutIntList(self, node, prop, int_list):
+    """Write a list of integers into an fdt property.
+
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
+    >>> fdt.GetIntList('/flash@0/shared-dev-cfg@180000', 'reg')
+    [1572864, 262144]
+
+    >>> fdt.PutIntList('/flash/shared-dev-cfg', 'victoria', [1, 2, 3])
+
+    >>> fdt.GetIntList('/flash/shared-dev-cfg', 'victoria', 3)
+    [1, 2, 3]
+
+    >>> fdt.PutIntList('/flash/shared-dev-cfg', 'victoria', [3])
+
+    >>> fdt.GetIntList('/flash/shared-dev-cfg', 'victoria', 1)
+    [3]
+
+    >>> fdt.PutIntList('/flash/shared-dev-cfg', 'victoria', [])
+
+    >>> fdt.GetIntList('/flash/shared-dev-cfg', 'victoria', 0)
+    []
+
+    Args:
+      node: Full path to node to look up.
+      prop: Property name to look up.
+      int_list: List of integers to write.
+    """
+    value_list = [str(s) for s in int_list]
+    args = ['-t', 'i', self.fname, node, prop]
+    args.extend(value_list)
+    self.tools.Run('fdtput', args)
+
   def Compile(self):
     """Compile an fdt .dts source file into a .dtb binary blob
 
