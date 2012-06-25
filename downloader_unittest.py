@@ -187,16 +187,30 @@ class DownloaderTest(DownloaderTestBase):
 
   def testBuildStaged(self):
     """Test whether we can correctly check if a build is previously staged."""
-    archive_url = 'x86-awesome-release/R99-1234.0-r1'
-    archive_url_non_staged = 'x86-awesome-release/R99-1234.0-r2'
+    base_url = 'gs://chrome-awesome/'
+    build_dir = 'x86-awesome-release/R99-1234.0-r1'
+    archive_url = base_url + build_dir
+    archive_url_non_staged = base_url + 'x86-awesome-release/R99-1234.0-r2'
     # Create the directory to reflect staging.
-    os.makedirs(os.path.join(self._work_dir, archive_url))
+    os.makedirs(os.path.join(self._work_dir, build_dir))
 
     self.assertTrue(downloader.Downloader.BuildStaged(archive_url,
                                                       self._work_dir))
     self.assertFalse(downloader.Downloader.BuildStaged(archive_url_non_staged,
                                                        self._work_dir))
+  def testTrybotBuildStaged(self):
+    """Test whether a previous staged trybot-build can be corrected detected"""
+    base_url = 'gs://chrome-awesome/'
+    build_dir = 'trybot/date/x86-awesome-release/R99-1234.0-r1'
+    archive_url = base_url + build_dir
+    archive_url_non_staged = base_url + 'x86-awesome-release/R99-1234.0-r2'
+    # Create the directory to reflect staging.
+    os.makedirs(os.path.join(self._work_dir, build_dir))
 
+    self.assertTrue(downloader.Downloader.BuildStaged(archive_url,
+                                                      self._work_dir))
+    self.assertFalse(downloader.Downloader.BuildStaged(archive_url_non_staged,
+                                                       self._work_dir))
 
 class SymbolDownloaderTest(DownloaderTestBase):
   """Unit tests for downloader.SymbolDownloader.

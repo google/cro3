@@ -35,29 +35,36 @@ class Downloader(object):
 
   @staticmethod
   def ParseUrl(archive_url):
-    """Parse archive_url into its component parts.
+    """Parse archive_url into rel_path and short_build
+    e.g. gs://chromeos-image-archive/{rel_path}/{short_build}
 
     @param archive_url: a URL at which build artifacts are archived.
-    @return a tuple of (build target, short build name)
+    @return a tuple of (build relative path, short build name)
     """
-    target, short_build = archive_url.rsplit('/', 2)[-2:]
-    return target, short_build
+    # The archive_url is of the form gs://server/[some_path/target]/...]/build
+    # This function discards 'gs://server/' and extracts the [some_path/target]
+    # as rel_path and the build as short_build.
+    sub_url = archive_url.partition('://')[2]
+    split_sub_url = sub_url.split('/')
+    rel_path = '/'.join(split_sub_url[1:-1])
+    short_build = split_sub_url[-1]
+    return rel_path, short_build
 
   @staticmethod
-  def GenerateLockTag(target, short_build):
-    """Generate a name for a lock scoped to this target/build pair.
+  def GenerateLockTag(rel_path, short_build):
+    """Generate a name for a lock scoped to this rel_path/build pair.
 
-    @param target: the target the build was for.
+    @param rel_path: the relative path for the build.
     @param short_build: short build name
     @return a name to use with AcquireLock that will scope the lock.
     """
-    return '/'.join([target, short_build])
+    return '/'.join([rel_path, short_build])
 
   @staticmethod
   def BuildStaged(archive_url, static_dir):
     """Returns True if the build is already staged."""
-    target, short_build = Downloader.ParseUrl(archive_url)
-    sub_directory = Downloader.GenerateLockTag(target, short_build)
+    rel_path, short_build = Downloader.ParseUrl(archive_url)
+    sub_directory = Downloader.GenerateLockTag(rel_path, short_build)
     return os.path.isdir(os.path.join(static_dir, sub_directory))
 
   def Download(self, archive_url, background=False):
@@ -70,22 +77,23 @@ class Downloader(object):
     TODO: refactor this into a common Download method, once unit tests are
     fixed up to make iterating on the code easier.
     """
-    # Parse archive_url into target and short_build.
-    # e.g. gs://chromeos-image-archive/{target}/{short_build}
-    target, short_build = self.ParseUrl(archive_url)
+    # Parse archive_url into rel_path (contains the build target) and
+    # short_build.
+    # e.g. gs://chromeos-image-archive/{rel_path}/{short_build}
+    rel_path, short_build = self.ParseUrl(archive_url)
     # This should never happen. The Devserver should only try to call this
     # method if no previous downloads have been staged for this archive_url.
     assert not Downloader.BuildStaged(archive_url, self._static_dir)
     # Bind build_dir and staging_dir here so we can tell if we need to do any
     # cleanup after an exception occurs before build_dir is set.
-    self._lock_tag = self.GenerateLockTag(target, short_build)
+    self._lock_tag = self.GenerateLockTag(rel_path, short_build)
     try:
       # Create Dev Server directory for this build and tell other Downloader
       # instances we have processed this build.
       self._build_dir = devserver_util.AcquireLock(
           static_dir=self._static_dir, tag=self._lock_tag)
 
-      self._staging_dir = tempfile.mkdtemp(suffix='_'.join([target,
+      self._staging_dir = tempfile.mkdtemp(suffix='_'.join([rel_path,
                                                             short_build]))
       cherrypy.log('Gathering download requirements %s' % archive_url,
                    self._LOG_TAG)
@@ -195,21 +203,22 @@ class SymbolDownloader(Downloader):
   _LOG_TAG = 'SYMBOL_DOWNLOAD'
 
   @staticmethod
-  def GenerateLockTag(target, short_build):
-    return '/'.join([target, short_build, 'symbols'])
+  def GenerateLockTag(rel_path, short_build):
+    return '/'.join([rel_path, short_build, 'symbols'])
 
   def Download(self, archive_url, _background=False):
     """Downloads debug symbols for the build defined by the |archive_url|.
 
     The symbols will be downloaded synchronously
     """
-    # Parse archive_url into target and short_build.
-    # e.g. gs://chromeos-image-archive/{target}/{short_build}
-    target, short_build = self.ParseUrl(archive_url)
+    # Parse archive_url into rel_path (contains the build target) and
+    # short_build.
+    # e.g. gs://chromeos-image-archive/{rel_path}/{short_build}
+    rel_path, short_build = self.ParseUrl(archive_url)
 
     # Bind build_dir and staging_dir here so we can tell if we need to do any
     # cleanup after an exception occurs before build_dir is set.
-    self._lock_tag = self.GenerateLockTag(target, short_build)
+    self._lock_tag = self.GenerateLockTag(rel_path, short_build)
     if self.SymbolsStaged(archive_url, self._static_dir):
       cherrypy.log(
           'Symbols for build %s have already been staged.' % self._lock_tag,
@@ -222,7 +231,7 @@ class SymbolDownloader(Downloader):
       self._build_dir = devserver_util.AcquireLock(
           static_dir=self._static_dir, tag=self._lock_tag)
 
-      self._staging_dir = tempfile.mkdtemp(suffix='_'.join([target,
+      self._staging_dir = tempfile.mkdtemp(suffix='_'.join([rel_path,
                                                             short_build]))
       cherrypy.log('Downloading debug symbols from %s' % archive_url,
                    self._LOG_TAG)
@@ -270,8 +279,8 @@ class SymbolDownloader(Downloader):
 
   def SymbolsStaged(self, archive_url, static_dir):
     """Returns True if the build is already staged."""
-    target, short_build = self.ParseUrl(archive_url)
-    sub_directory = self.GenerateLockTag(target, short_build)
+    rel_path, short_build = self.ParseUrl(archive_url)
+    sub_directory = self.GenerateLockTag(rel_path, short_build)
     return os.path.isfile(os.path.join(static_dir,
                                        sub_directory,
                                        self._DONE_FLAG))
