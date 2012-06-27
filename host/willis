@@ -15,7 +15,7 @@ import threading
 try:
   import chromite.lib.cros_build_lib
 except ImportError:
-  lib_location = os.path.join(os.path.dirname(sys.argv[0]), '../../../..')
+  lib_location = os.path.join(os.path.dirname(sys.argv[0]), '../../..')
   sys.path.append(lib_location)
   try:
     import chromite.lib.cros_build_lib
