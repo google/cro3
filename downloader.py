@@ -93,8 +93,10 @@ class Downloader(object):
       self._build_dir = devserver_util.AcquireLock(
           static_dir=self._static_dir, tag=self._lock_tag)
 
-      self._staging_dir = tempfile.mkdtemp(suffix='_'.join([rel_path,
-                                                            short_build]))
+      # Replace '/' with '_' in rel_path because it may contain multiple levels
+      # which would not be qualified as part of the suffix.
+      self._staging_dir = tempfile.mkdtemp(suffix='_'.join(
+          [rel_path.replace('/','_'), short_build]))
       cherrypy.log('Gathering download requirements %s' % archive_url,
                    self._LOG_TAG)
       artifacts = self.GatherArtifactDownloads(
@@ -231,8 +233,10 @@ class SymbolDownloader(Downloader):
       self._build_dir = devserver_util.AcquireLock(
           static_dir=self._static_dir, tag=self._lock_tag)
 
-      self._staging_dir = tempfile.mkdtemp(suffix='_'.join([rel_path,
-                                                            short_build]))
+      # Replace '/' with '_' in rel_path because it may contain multiple levels
+      # which would not be qualified as part of the suffix.
+      self._staging_dir = tempfile.mkdtemp(suffix='_'.join(
+          [rel_path.replace('/','_'), short_build]))
       cherrypy.log('Downloading debug symbols from %s' % archive_url,
                    self._LOG_TAG)
 
