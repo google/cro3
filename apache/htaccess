@@ -6,5 +6,5 @@
 # don't map to an actual file.
 
 RewriteEngine on
-RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_URI} !^/static
 RewriteRule ^(.*) http://127.0.0.1:8080/$1 [proxy]

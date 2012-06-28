@@ -25,6 +25,7 @@ main () {
   # Copy over configuration data.
   mkdir -m 755 -p "${ARCHIVE_ROOT}"
   cp -f "${MY_DIR}"/htaccess "${ARCHIVE_ROOT}/.htaccess"
+  cp -f "${MY_DIR}"/apache2.conf "${APACHE_CONFIG}"
   cp -f "${MY_DIR}"/ports.conf "${APACHE_CONFIG}"
   cp -f "${MY_DIR}"/devserver "${APACHE_CONFIG}"/sites-available
 

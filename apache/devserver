@@ -20,6 +20,9 @@
     allow from all
   </Directory>
 
+  ProxyRequests Off
+  ProxyPassReverse / http://127.0.0.1:8080/
+
   ErrorLog /var/log/apache2/error.log
   LogLevel warn
   CustomLog /var/log/apache2/access.log combined
