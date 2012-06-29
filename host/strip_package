@@ -15,4 +15,4 @@ SCRIPT_ROOT="/usr/lib/crosutils"
 . "${SCRIPT_ROOT}/common.sh" || exit 1
 
 export DEFAULT_INSTALL_MASK
-python ${SCRIPTS_DIR}/../platform/dev/strip_package.py "$@"
+python /usr/lib/devserver/strip_package.py "$@"
