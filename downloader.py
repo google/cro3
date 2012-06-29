@@ -255,6 +255,7 @@ class SymbolDownloader(Downloader):
       raise
     finally:
       self._Cleanup()
+
     return 'Success'
 
   def GatherArtifactDownloads(self, temp_download_dir, archive_url, short_build,

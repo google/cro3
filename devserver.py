@@ -285,6 +285,7 @@ class DevServerRoot(object):
       except:
         # On any exception, reset the state of the downloader_dict.
         self._downloader_dict[archive_url] = None
+        raise
 
   @cherrypy.expose
   def wait_for_status(self, **kwargs):
