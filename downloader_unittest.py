@@ -39,11 +39,13 @@ class DownloaderTestBase(mox.MoxTestBase):
     if os.path.exists(self._work_dir):
       shutil.rmtree(self._work_dir)
 
-  def _CommonDownloaderSetup(self):
+  def _CommonDownloaderSetup(self, ignore_background=False):
     """Common code to downloader tests.
 
     Mocks out key devserver_util module methods, creates mock artifacts
     and sets appropriate expectations.
+
+    @ignore_background Indicate that background artifacts should be ignored.
 
     @return iterable of artifact objects with appropriate expectations.
     """
@@ -59,7 +61,7 @@ class DownloaderTestBase(mox.MoxTestBase):
         ).AndReturn(self._work_dir)
 
     tempfile.mkdtemp(suffix=mox.IgnoreArg()).AndReturn(self._work_dir)
-    return self._GenerateArtifacts()
+    return self._GenerateArtifacts(ignore_background)
 
   def _CreateArtifactDownloader(self, artifacts):
     """Create and return a Downloader of the appropriate type.
@@ -79,8 +81,11 @@ class DownloaderTestBase(mox.MoxTestBase):
     """
     raise NotImplementedError()
 
-  def _GenerateArtifacts(self):
+  def _GenerateArtifacts(self, ignore_background):
     """Instantiate artifact mocks and set expectations on them.
+
+    @ignore_background Indicate that background artifacts should be ignored.
+      This gets passed by CommonDownloaderSetup.
 
     @return iterable of artifact objects with appropriate expectations.
     """
@@ -104,11 +109,13 @@ class DownloaderTest(DownloaderTestBase):
   def _ClassUnderTest(self):
     return downloader.Downloader
 
-  def _GenerateArtifacts(self):
+  def _GenerateArtifacts(self, ignore_background):
     """Instantiate artifact mocks and set expectations on them.
 
     Sets up artifacts and sets up expectations for synchronous artifacts to
     be downloaded first.
+
+    @ignore_background If True, doesn't use mocks for download/stage methods.
 
     @return iterable of artifact objects with appropriate expectations.
     """
@@ -122,6 +129,9 @@ class DownloaderTest(DownloaderTestBase):
         artifact.Stage()
       else:
         artifact.Synchronous = lambda: False
+        if ignore_background:
+          artifact.Download = lambda: None
+          artifact.Stage = lambda: None
 
       artifacts.append(artifact)
 
@@ -145,14 +155,7 @@ class DownloaderTest(DownloaderTestBase):
 
   def testDownloaderInBackground(self):
     """Runs through the standard downloader workflow with backgrounding."""
-    artifacts = self._CommonDownloaderSetup()
-
-    # Downloads non-synchronous artifacts second.
-    for index, artifact in enumerate(artifacts):
-      if index % 2 != 0:
-        artifact.Download()
-        artifact.Stage()
-
+    artifacts = self._CommonDownloaderSetup(ignore_background=True)
     d = self._CreateArtifactDownloader(artifacts)
     self.mox.ReplayAll()
     d.Download(self.archive_url_prefix, background=True)
@@ -161,7 +164,7 @@ class DownloaderTest(DownloaderTestBase):
 
   def testInteractionWithDevserver(self):
     """Tests interaction between the downloader and devserver methods."""
-    artifacts = self._CommonDownloaderSetup()
+    artifacts = self._CommonDownloaderSetup(ignore_background=True)
     devserver_util.GatherArtifactDownloads(
         self._work_dir, self.archive_url_prefix, self.build,
         self._work_dir).AndReturn(artifacts)
@@ -170,12 +173,6 @@ class DownloaderTest(DownloaderTestBase):
       static_dir = self._work_dir
 
     devserver.updater = FakeUpdater()
-
-    # Downloads non-synchronous artifacts second.
-    for index, artifact in enumerate(artifacts):
-      if index % 2 != 0:
-        artifact.Download()
-        artifact.Stage()
 
     self.mox.ReplayAll()
     dev = devserver.DevServerRoot()
@@ -229,7 +226,7 @@ class SymbolDownloaderTest(DownloaderTestBase):
   def _ClassUnderTest(self):
     return downloader.SymbolDownloader
 
-  def _GenerateArtifacts(self):
+  def _GenerateArtifacts(self, unused_ignore_background):
     """Instantiate artifact mocks and set expectations on them.
 
     Sets up a DebugTarball and sets up expectation that it will be

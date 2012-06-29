@@ -96,7 +96,7 @@ class Downloader(object):
       # Replace '/' with '_' in rel_path because it may contain multiple levels
       # which would not be qualified as part of the suffix.
       self._staging_dir = tempfile.mkdtemp(suffix='_'.join(
-          [rel_path.replace('/','_'), short_build]))
+          [rel_path.replace('/', '_'), short_build]))
       cherrypy.log('Gathering download requirements %s' % archive_url,
                    self._LOG_TAG)
       artifacts = self.GatherArtifactDownloads(
@@ -236,7 +236,7 @@ class SymbolDownloader(Downloader):
       # Replace '/' with '_' in rel_path because it may contain multiple levels
       # which would not be qualified as part of the suffix.
       self._staging_dir = tempfile.mkdtemp(suffix='_'.join(
-          [rel_path.replace('/','_'), short_build]))
+          [rel_path.replace('/', '_'), short_build]))
       cherrypy.log('Downloading debug symbols from %s' % archive_url,
                    self._LOG_TAG)
 
