@@ -66,9 +66,9 @@ def GenerateStatefulPayload(image_path, output_directory, logger):
                              '--directory=%s' % stateful_dir,
                              '--hard-dereference',
                              '--transform=s,^dev_image,dev_image_new,',
-                             '--transform=s,^var,var_new,',
+                             '--transform=s,^var_overlay,var_new,',
                              'dev_image',
-                             'var',
+                             'var_overlay',
                             ])
     except:
       logger.error('Failed to create stateful update file')
