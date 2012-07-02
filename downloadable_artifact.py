@@ -17,7 +17,7 @@ DEBUG_SYMBOLS = 'debug.tgz'
 STATEFUL_UPDATE = 'stateful.tgz'
 TEST_IMAGE = 'chromiumos_test_image.bin'
 ROOT_UPDATE = 'update.gz'
-AUTOTEST_PACKAGE = 'autotest.tar.bz2'
+AUTOTEST_PACKAGE = 'autotest.tar'
 TEST_SUITES_PACKAGE = 'test_suites.tar.bz2'
 
 
@@ -108,6 +108,17 @@ class Tarball(DownloadableArtifact):
 
 class AutotestTarball(Tarball):
   """Wrapper around the autotest tarball to download from gsutil."""
+
+  def _ExtractTarball(self, exclude=None):
+    """Extracts the tarball into the install_path with optional exclude path."""
+    exclude_str = '--exclude=%s' % exclude if exclude else ''
+    cmd = 'tar xf %s %s --directory=%s' % (
+        self._tmp_stage_path, exclude_str, self._install_path)
+    msg = 'An error occurred when attempting to untar %s' % self._tmp_stage_path
+    try:
+      subprocess.check_call(cmd, shell=True)
+    except subprocess.CalledProcessError, e:
+      raise ArtifactDownloadError('%s %s' % (msg, e))
 
   def Stage(self):
     """Untars the autotest tarball into the install path excluding test suites.
