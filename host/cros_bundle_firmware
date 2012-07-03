@@ -80,7 +80,8 @@ def _DoBundle(options, output, tools):
                   bmpblk=options.bmpblk, coreboot=options.coreboot,
                   postload=options.postload, seabios=options.seabios,
                   exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2,
-                  skeleton=options.skeleton, ecbin=options.ecbin)
+                  skeleton=options.skeleton, ecbin=options.ecbin,
+                  kernel=options.kernel)
   bundle.SetOptions(small=options.small)
 
   try:
@@ -103,7 +104,7 @@ def _DoBundle(options, output, tools):
       file_list = bundle.GetFiles()
       write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
           file_list, out_fname, bundle, dest=options.write,
-          flash_dest=options.flash_dest, props=props)
+          flash_dest=options.flash_dest, kernel=options.kernel, props=props)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
@@ -163,6 +164,8 @@ Examples:
       default='##/usr/share/vboot/devkeys')
   parser.add_option('-K', '--skeleton', dest='skeleton', type='string',
         action='store', help='Coreboot skeleton file')
+  parser.add_option('--kernel', dest='kernel', type='string',
+        action='store', help='Kernel file to ask U-Boot to boot')
   parser.add_option('-I', '--includedir', dest='includedirs', type='string',
       action='append', help='Include directory to search for files')
   parser.add_option('-m', '--map', dest='show_map', action='store_true',\

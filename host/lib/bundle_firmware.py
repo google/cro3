@@ -116,7 +116,7 @@ class Bundle:
 
   def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
                postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None,
-               skeleton=None, ecbin=None):
+               skeleton=None, ecbin=None, kernel=None):
     """Set up files required for Bundle.
 
     Args:
@@ -131,6 +131,7 @@ class Bundle:
       exynos_bl2: The filename of the exynos BL2 file (U-Boot spl)
       skeleton: The filename of the coreboot skeleton file.
       ecbin: The filename of the EC (Embedded Controller) file.
+      kernel: The filename of the kernel file if any.
     """
     self._board = board
     self.uboot_fname = uboot
@@ -143,6 +144,7 @@ class Bundle:
     self.exynos_bl2 = exynos_bl2
     self.skeleton_fname = skeleton
     self.ecbin_fname = ecbin
+    self.kernel_fname = kernel
 
   def SetOptions(self, small):
     """Set up options supported by Bundle.
@@ -778,6 +780,10 @@ class Bundle:
     pack.AddProperty('boot', self.uboot_fname)
     pack.AddProperty('skeleton', self.skeleton_fname)
     pack.AddProperty('dtb', fdt.fname)
+
+    # If we are writing a kernel, add its offset from TEXT_BASE to the fdt.
+    if self.kernel_fname:
+      fdt.PutInteger('/config', 'kernel-offset', pack.image_size)
 
     # Make a copy of the fdt for the bootstub
     fdt_data = self._tools.ReadFile(fdt.fname)

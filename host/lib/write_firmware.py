@@ -352,7 +352,8 @@ class WriteFirmware:
     self._tools.WriteFile(image, data[0x6000:])
     return bl1, bl2, image
 
-  def _ExynosFlashImage(self, flash_dest, flash_uboot, bl1, bl2, payload):
+  def _ExynosFlashImage(self, flash_dest, flash_uboot, bl1, bl2, payload,
+                        kernel):
     """Flash the image to SPI flash.
 
     This creates a special Flasher binary, with the image to be flashed as
@@ -365,6 +366,7 @@ class WriteFirmware:
       bl1: Full path to file containing BL1 (pre-boot).
       bl2: Full path to file containing BL2 (SPL).
       payload: Full path to payload.
+      kernel: Kernel to send after the payload, or None.
 
     Returns:
       True if ok, False if failed.
@@ -387,13 +389,25 @@ class WriteFirmware:
     args = ['cold_reset:on', 'sleep:.2', 'cold_reset:off'] + args
     self._tools.Run('dut-control', args)
 
+    # If we have a kernel to write, create a new image with that added.
+    if kernel:
+      dl_image = os.path.join(self._tools.outdir, 'image-plus-kernel.bin')
+      data = self._tools.ReadFile(image)
+
+      # Pad the original payload out to the original length
+      data += '\0' * (os.stat(payload).st_size - len(data))
+      data += self._tools.ReadFile(kernel)
+      self._tools.WriteFile(dl_image, data)
+    else:
+      dl_image = image
+
     self._out.Progress('Uploading image')
     download_list = [
         # The numbers are the download addresses (in SRAM) for each piece
         # TODO(sjg@chromium.org): Perhaps pick these up from the fdt?
         ['bl1', 0x02021400, bl1],
         ['bl2', 0x02023400, bl2],
-        ['u-boot', 0x43e00000, image]
+        ['u-boot', 0x43e00000, dl_image]
         ]
     try:
       for upto in range(len(download_list)):
@@ -600,7 +614,7 @@ class WriteFirmware:
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
                     bundle, update=True, verify=False, dest=None,
-                    flash_dest=None, props=None):
+                    flash_dest=None, kernel=None, props=None):
   """A simple function to write firmware to a device.
 
   This creates a WriteFirmware object and uses it to write the firmware image
@@ -618,6 +632,7 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     verify: Verify the write by doing a readback and CRC.
     dest: Destination device to write firmware to (usb, sd).
     flash_dest: Destination device for flasher to program payload into.
+    kernel: Kernel file to write after U-Boot
     props: A dictionary containing properties from the PackFirmware object
   """
   write = WriteFirmware(tools, fdt, output, bundle)
@@ -638,7 +653,8 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
       tools.CheckTool('lsusb', 'usbutils')
       tools.CheckTool('smdk-usbdl', 'smdk-dltool')
       ok = write._ExynosFlashImage(flash_dest, flasher,
-          file_list['exynos-bl1'], file_list['exynos-bl2'], image_fname)
+          file_list['exynos-bl1'], file_list['exynos-bl2'], image_fname,
+          kernel)
     else:
       raise CmdError("Unknown flash method '%s'" % method)
     if ok:
