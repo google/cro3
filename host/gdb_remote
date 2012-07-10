@@ -4,8 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-COMMON_SH=/usr/lib/crosutils/common.sh
-. "${COMMON_SH}" || exit 1
+. /usr/lib/crosutils/common.sh || exit 1
 
 get_default_board
 

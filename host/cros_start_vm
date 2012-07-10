@@ -9,9 +9,7 @@
 . $(dirname "$(readlink -f "$0")")/outside_chroot_common.sh ||
   exit 1
 
-. "${SCRIPT_ROOT}/common.sh" ||
-  (echo "Unable to load common.sh" && false) ||
-  exit 1
+. "${SCRIPT_ROOT}/common.sh" || exit 1
 
 . "${SCRIPT_ROOT}/lib/cros_vm_lib.sh" || die "Unable to load cros_vm_lib.sh"
 . "${SCRIPT_ROOT}/lib/cros_vm_constants.sh" || \

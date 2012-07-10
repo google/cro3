@@ -4,13 +4,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
-# Simple wrapper scipt to stop a vm specified from a pid file.
+# Simple wrapper script to stop a vm specified from a pid file.
 . $(dirname "$(readlink -f "$0")")/outside_chroot_common.sh ||
   SCRIPT_ROOT=/usr/lib/crosutils
 
-. "${SCRIPT_ROOT}/common.sh" ||
-  (echo "Unable to load common.sh" && false) ||
-  exit 1
+. "${SCRIPT_ROOT}/common.sh" || exit 1
 
 . "${SCRIPT_ROOT}/lib/cros_vm_lib.sh" || die "Unable to load cros_vm_lib.sh"
 

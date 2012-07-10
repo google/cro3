@@ -8,7 +8,7 @@
 # will load and run it.
 
 # Include common CrOS utilities.
-. "/usr/lib/crosutils/common.sh"
+. /usr/lib/crosutils/common.sh || exit 1
 
 # Command line options
 DEFINE_string bct "" "DDR memory timing BCT file."

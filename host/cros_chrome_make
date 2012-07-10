@@ -6,7 +6,7 @@
 #
 # Simple wrapper script to build the chromeos-chrome package incrementally.
 
-. /usr/lib/crosutils/common.sh || (echo "Unable to load common.sh")
+. /usr/lib/crosutils/common.sh || exit 1
 
 get_default_board
 

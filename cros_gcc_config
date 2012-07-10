@@ -7,22 +7,7 @@
 # Script to switch the toolchain compiler. In addition to switching the
 # compiler by calling gcc-config, it copies over the libgcc_s.so and
 # libstdc++.so files to all board roots that use this cross compiler.
-find_common_sh() {
-  local common_paths=(/usr/lib/crosutils $(dirname "$0"))
-  local path
-
-  SCRIPT_ROOT=
-  for path in "${common_paths[@]}"; do
-    local common="${path}/common.sh"
-    if ([ -r "${common}" ] && . "${common}" && [ -d "${SCRIPTS_DIR}" ]); then
-      SCRIPT_ROOT=${path}
-      break
-    fi
-  done
-}
-
-find_common_sh
-. "${SCRIPT_ROOT}/common.sh" || ! echo "Unable to load common.sh" || exit 1
+. /usr/lib/crosutils/common.sh || exit 1
 . "${SRC_ROOT}/platform/dev/toolchain_utils.sh" ||
   ! echo "Unable to load toolchain_utils.sh" || exit 1
 

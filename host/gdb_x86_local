@@ -6,20 +6,7 @@
 
 # Debug a 32 bit binary on 64 bit linux.
 
-find_common_sh() {
-  local path="/usr/lib/crosutils"
-
-  SCRIPT_ROOT=.
-  local common="${path}/common.sh"
-  # Find and source the common stuff to ensure that it's setting expected
-  # values.
-  if ([ -r "${common}" ] && . "${common}" && [ -d "${SCRIPTS_DIR}" ]); then
-    SCRIPT_ROOT=${path}
-  fi
-}
-
-find_common_sh
-. "${SCRIPT_ROOT}/common.sh" || ! echo "Run me inside the chroot." || exit 1
+. /usr/lib/crosutils/common.sh || exit 1
 
 get_default_board
 
