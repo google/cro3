@@ -111,9 +111,6 @@ def _GetConfig(options):
     base_config['global']['log.error_file'] = os.path.join(
         options.log_dir, 'devserver_error.log')
 
-  if options.production:
-    base_config['global']['server.environment'] = 'production'
-
   return base_config
 
 
@@ -584,6 +581,10 @@ def main():
 
   # If the command line requested after setup, it's time to do it.
   if not options.exit:
+    if options.production:
+      cherrypy.config.update({'environment': 'production',
+                              'log.screen': True})
+
     cherrypy.quickstart(DevServerRoot(), config=_GetConfig(options))
 
 
