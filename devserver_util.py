@@ -59,6 +59,23 @@ def ParsePayloadList(payload_list):
   return full_payload_url, nton_payload_url, mton_payload_url
 
 
+def _GetAutotestURL(archive_url):
+  """Find out what type of autotest tarball is available and return the
+  coresponding URL."""
+
+  cmd = 'gsutil ls %s/autotest.*' % archive_url
+  msg = 'Failed to retrieve the list of autotest tarballs.'
+  autotest_tarballs = gsutil_util.GSUtilRun(cmd, msg).splitlines()
+
+  # Use autotest.tar if it is available.
+  for tarball in autotest_tarballs:
+    if os.path.basename(tarball) == downloadable_artifact.AUTOTEST_PACKAGE:
+     return '%s/%s' % (archive_url, downloadable_artifact.AUTOTEST_PACKAGE)
+
+  # Use autotest.tar.bz2 by default for backward compatibility.
+  return '%s/%s' % (archive_url,
+                    downloadable_artifact.AUTOTEST_ZIPPED_PACKAGE)
+
 def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir):
   """Generates artifacts that we mean to download and install for autotest.
 
@@ -93,9 +110,10 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir):
     artifacts.append(downloadable_artifact.AUTestPayload(
         mton_url, main_staging_dir, mton_payload))
 
+
   # Next we gather the miscellaneous payloads.
+  autotest_url = _GetAutotestURL(archive_url)
   stateful_url = archive_url + '/' + downloadable_artifact.STATEFUL_UPDATE
-  autotest_url = archive_url + '/' + downloadable_artifact.AUTOTEST_PACKAGE
   test_suites_url = (archive_url + '/' +
                      downloadable_artifact.TEST_SUITES_PACKAGE)
 

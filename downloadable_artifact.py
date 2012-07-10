@@ -6,6 +6,7 @@
 
 import cherrypy
 import os
+import re
 import shutil
 import subprocess
 
@@ -17,7 +18,8 @@ DEBUG_SYMBOLS = 'debug.tgz'
 STATEFUL_UPDATE = 'stateful.tgz'
 TEST_IMAGE = 'chromiumos_test_image.bin'
 ROOT_UPDATE = 'update.gz'
-AUTOTEST_PACKAGE = 'autotest.tar.bz2'
+AUTOTEST_PACKAGE = 'autotest.tar'
+AUTOTEST_ZIPPED_PACKAGE = 'autotest.tar.bz2'
 TEST_SUITES_PACKAGE = 'test_suites.tar.bz2'
 
 
@@ -88,11 +90,22 @@ class Tarball(DownloadableArtifact):
   """Wrapper around an artifact to download from gsutil which is a tarball."""
 
   def _ExtractTarball(self, exclude=None):
-    """Extracts the tarball into the install_path with optional exclude path."""
+    """Detects whether the tarball is compressed or not based on the file
+    extension and extracts the tarball into the install_path with optional
+    exclude path."""
+
     exclude_str = '--exclude=%s' % exclude if exclude else ''
-    cmd = 'tar xf %s %s --use-compress-prog=pbzip2 --directory=%s' % (
-        self._tmp_stage_path, exclude_str, self._install_path)
+    tarball = os.path.basename(self._tmp_stage_path)
+
+    if re.search('.tar.bz2$', tarball):
+      compress_str = '--use-compress-prog=pbzip2'
+    else:
+      compress_str = ''
+
+    cmd = 'tar xf %s %s %s --directory=%s' % (
+        self._tmp_stage_path, exclude_str, compress_str, self._install_path)
     msg = 'An error occurred when attempting to untar %s' % self._tmp_stage_path
+
     try:
       subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError, e:

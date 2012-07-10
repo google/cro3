@@ -24,6 +24,11 @@ _TEST_GOLO_ARCHIVE = (
     'gs://chromeos-image-archive/x86-alex-release/R19-2003.0.0-a1-b1819')
 _TEST_SUITES_TAR = '/'.join([_TEST_GOLO_ARCHIVE,
                              downloadable_artifact.TEST_SUITES_PACKAGE])
+_TEST_TEMP_ARCHIVE = (
+    'gs://chromeos-image-archive/trybot-lumpy-paladin/R22-2531.0.0-a1-b145')
+_AUTOTEST_TAR = '/'.join([_TEST_TEMP_ARCHIVE,
+                          downloadable_artifact.AUTOTEST_PACKAGE])
+
 
 class DownloadableArtifactTest(mox.MoxTestBase):
 
@@ -56,14 +61,15 @@ class DownloadableArtifactTest(mox.MoxTestBase):
 
 
   def testDownloadAndStageAutotest(self):
-    """Downloads a real tarball, untars it, and treats it like Autotest."""
+    """Downloads a real autotest tarball for test."""
     artifact = downloadable_artifact.AutotestTarball(
-        _TEST_SUITES_TAR, os.path.join(self.work_dir, 'stage'),
+        _AUTOTEST_TAR, os.path.join(self.work_dir, 'stage'),
         os.path.join(self.work_dir, 'install'), True)
     artifact.Download()
-    self.mox.StubOutWithMock(downloadable_artifact.Tarball, '_ExtractTarball')
+    self.mox.StubOutWithMock(downloadable_artifact.AutotestTarball,
+                             '_ExtractTarball')
     self.mox.StubOutWithMock(subprocess, 'check_call')
-    downloadable_artifact.Tarball._ExtractTarball(
+    downloadable_artifact.AutotestTarball._ExtractTarball(
         exclude='autotest/test_suites')
     subprocess.check_call(mox.StrContains('autotest/utils/packager.py'),
                           cwd=os.path.join(self.work_dir, 'stage'), shell=True)
