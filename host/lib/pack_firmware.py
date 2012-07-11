@@ -452,7 +452,7 @@ class PackFirmware:
     Raises:
       ValueError: If fdt has an unknown entry type.
     """
-    entry_list = self.fdt.GetString(node, 'type', 'empty').split()
+    entry_list = props.get('type', 'empty').split()
     ftype = entry_list[0]
     if ftype == 'empty':
       ftype = ''
