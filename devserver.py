@@ -105,12 +105,6 @@ def _GetConfig(options):
                   },
                 }
 
-  if options.log_dir:
-    base_config['global']['log.access_file'] = os.path.join(
-        options.log_dir, 'devserver_access.log')
-    base_config['global']['log.error_file'] = os.path.join(
-        options.log_dir, 'devserver_error.log')
-
   return base_config
 
 
@@ -463,6 +457,8 @@ def main():
                     help='Update is for a vm image.')
   parser.add_option('--image', dest='image',
                     help='Force update using this image.')
+  parser.add_option('--logfile', dest='logfile',
+                    help='Log output to this file instead of stdout.')
   parser.add_option('-p', '--pregenerate_update', action='store_true',
                     default=False, help='Pre-generate update payload.')
   parser.add_option('--payload', dest='payload',
@@ -483,9 +479,6 @@ def main():
   parser.add_option('--validate_factory_config', action="store_true",
                     dest='validate_factory_config',
                     help='Validate factory config file, then exit.')
-  parser.add_option('-l', '--log-dir', default=None,
-                    help=('Specify a directory for error and access logs. '
-                          'Default None, i.e. no logging.'))
   (options, _) = parser.parse_args()
 
   devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -494,10 +487,6 @@ def main():
 
   static_dir = os.path.realpath('%s/static' % options.data_dir)
   os.system('mkdir -p %s' % static_dir)
-
-  if options.log_dir and not os.path.isdir(options.log_dir):
-    parser.error('%s is not a valid dir, provide a valid dir to --log-dir' %
-                 options.log_dir)
 
   if options.archive_dir:
   # TODO(zbehan) Remove legacy support:
@@ -581,9 +570,14 @@ def main():
 
   # If the command line requested after setup, it's time to do it.
   if not options.exit:
+    # Handle options that must be set globally in cherrypy.
     if options.production:
-      cherrypy.config.update({'environment': 'production',
-                              'log.screen': True})
+      cherrypy.config.update({'environment': 'production'})
+    if not options.logfile:
+      cherrypy.config.update({'log.screen': True})
+    else:
+      cherrypy.config.update({'log.error_file': options.logfile,
+                              'log.access_file': options.logfile})
 
     cherrypy.quickstart(DevServerRoot(), config=_GetConfig(options))
 
