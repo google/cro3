@@ -138,7 +138,7 @@ class Tools:
       fname = os.path.join(self.chroot_path, fname[3:])
 
     # Search for a pathname that exists, and return it if found
-    if not os.path.exists(fname):
+    if fname and not os.path.exists(fname):
       for path in self.search_paths:
         pathname = os.path.join(path, os.path.basename(fname))
         if os.path.exists(pathname):
