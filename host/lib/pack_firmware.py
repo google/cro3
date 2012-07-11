@@ -563,22 +563,13 @@ class PackFirmware:
     Raises:
       ConfigError if an error is detected in the fdt configuration.
     """
-    self.fdt = fdt
-    root = '/flash'
-    self.image_size = int(fdt.GetIntList(root, 'reg', 2)[1])
+    def _AddNode(node, props):
+      """Add a new flash map node to the entry list.
 
-    # Scan the flash map in the fdt, creating a list of Entry objects.
-    re_label = re.compile('(.*)-(\w*)')
-    children = fdt.GetChildren(root)
-
-    # Current offset to use for entries with only a 'size' property.
-    upto_offset = 0
-    required_count = 0
-    first_blob_entry = None
-    for child in children:
-      node = root + '/' + child
-      props = fdt.GetProps(node, True)
-
+      Args:
+        node: Name of node to read from
+        props: Dictionary containing properties of the node
+      """
       # Read the two cells from the node's /reg property to get entry extent.
       reg = props.get('reg', None)
       if reg:
@@ -588,7 +579,7 @@ class PackFirmware:
         if not size:
           raise ValueError("Must specify either 'reg' or 'size' in flash node")
         size = int(size)
-        offset = upto_offset
+        offset = self.upto_offset
 
       props['node'] = node
       props['offset'] = offset
@@ -605,17 +596,36 @@ class PackFirmware:
         raise ValueError('Config error: %s' % err)
 
       if entry.ftype:
-        upto_offset = offset + size
+        self.upto_offset = offset + size
       if entry.required:
-        required_count += 1
+        self.required_count += 1
       if entry.key == 'signed':
-        first_blob_entry = entry
+        self.first_blob_entry = entry
+
+    self.fdt = fdt
+    root = '/flash'
+
+    # Current offset to use for entries with only a 'size' property.
+    self.upto_offset = 0
+    self.required_count = 0
+    self.first_blob_entry = None
+
+    self.image_size = int(fdt.GetIntList(root, 'reg', 2)[1])
+
+    # Scan the flash map in the fdt, creating a list of Entry objects.
+    re_label = re.compile('(.*)-(\w*)')
+    children = fdt.GetChildren(root)
+
+    for child in children:
+      node = root + '/' + child
+      props = fdt.GetProps(node, True)
+      _AddNode(node, props)
 
     # HACK: Since Tegra FDT files are not in our tree yet, but we still want
     # to use the old ones, we emulate the old behavior by marking the signed
     # entry as required, if none of the entries were marked required.
-    if not required_count:
-      first_blob_entry.required = True
+    if not self.required_count:
+      self.first_blob_entry.required = True
 
   def GetBlobList(self):
     """Generate a list of blob types that we are going to need.
