@@ -359,7 +359,7 @@ class Fdt:
       prop: Property name to look up.
       value_str: String to write.
     """
-    args = ['-t', 's', self.fname, node, prop, value_str]
+    args = ['-p', '-t', 's', self.fname, node, prop, value_str]
     self.tools.Run('fdtput', args)
 
   def PutInteger(self, node, prop, value_int):
@@ -380,7 +380,7 @@ class Fdt:
       prop: Property name to look up.
       value_int: Integer to write.
     """
-    args = ['-t', 'i', self.fname, node, prop, str(value_int)]
+    args = ['-p', '-t', 'i', self.fname, node, prop, str(value_int)]
     self.tools.Run('fdtput', args)
 
   def PutIntList(self, node, prop, int_list):
@@ -412,7 +412,7 @@ class Fdt:
       int_list: List of integers to write.
     """
     value_list = [str(s) for s in int_list]
-    args = ['-t', 'i', self.fname, node, prop]
+    args = ['-p', '-t', 'i', self.fname, node, prop]
     args.extend(value_list)
     self.tools.Run('fdtput', args)
 
