@@ -252,8 +252,16 @@ class WriteFirmware:
     if flash_dest:
       image = self.PrepareFlasher(uboot, payload, self.update, self.verify,
                                     boot_type, 0)
-    else:
+    elif bootstub:
       image = bootstub
+
+    else:
+      image = payload
+      # If we don't know the textbase, extract it from the payload.
+      if self.text_base == -1:
+        data = self._tools.ReadFile(payload)
+        # Skip the BCT which is the first 64KB
+        self.text_base = self._bundle.DecodeTextBase(data[0x10000:])
 
     self._out.Notice('TEXT_BASE is %#x' % self.text_base)
     self._out.Progress('Uploading flasher image')
@@ -614,7 +622,7 @@ class WriteFirmware:
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
                     bundle, update=True, verify=False, dest=None,
-                    flash_dest=None, kernel=None, props=None):
+                    flash_dest=None, kernel=None, props={}):
   """A simple function to write firmware to a device.
 
   This creates a WriteFirmware object and uses it to write the firmware image
@@ -642,10 +650,10 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     method = fdt.GetString('/chromeos-config', 'flash-method', 'tegra')
     if method == 'tegra':
       tools.CheckTool('tegrarcm')
-      bootstub = props['bootstub']
+      bootstub = props.get('bootstub')
       if flash_dest:
         write.text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
-      else:
+      elif bootstub:
         write.text_base = bundle.CalcTextBase('bootstub ', fdt, bootstub)
       ok = write._NvidiaFlashImage(flash_dest, flasher, file_list['bct'],
           image_fname, bootstub)
