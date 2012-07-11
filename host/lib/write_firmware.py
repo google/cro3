@@ -279,7 +279,7 @@ class WriteFirmware:
 
         # Only show the error output once unless it changes.
         err = str(err)
-        if not 'USB device not found' in err:
+        if not 'could not open USB device' in err:
           raise CmdError('tegrarcm failed: %s' % err)
 
         if err != last_err:
