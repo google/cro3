@@ -610,16 +610,34 @@ class PackFirmware:
     self.required_count = 0
     self.first_blob_entry = None
 
-    self.image_size = int(fdt.GetIntList(root, 'reg', 2)[1])
-
-    # Scan the flash map in the fdt, creating a list of Entry objects.
-    re_label = re.compile('(.*)-(\w*)')
-    children = fdt.GetChildren(root)
-
-    for child in children:
-      node = root + '/' + child
-      props = fdt.GetProps(node, True)
+    # If we don't have a flash map, invent a Tegra one
+    # TODO(sjg@chromium.org): Make this work with other SOCs also
+    if not fdt.GetProp(root, 'reg', ''):
+      self._out.Warning('Warning: No /flash present in fdt - using Tegra'
+              ' default')
+      self.image_size = 512 * 1024
+      node = root + '/ro-boot'
+      props = {
+          'label' : 'boot-stub',
+          'size' : self.image_size,
+          'read-only' : True,
+          'type' : 'blob signed',
+          'required' : True
+          }
       _AddNode(node, props)
+
+    else:
+      self.image_size = int(fdt.GetIntList(root, 'reg', 2)[1])
+
+      # Scan the flash map in the fdt, creating a list of Entry objects.
+      re_label = re.compile('(.*)-(\w*)')
+      children = fdt.GetChildren(root)
+
+      for child in children:
+        node = root + '/' + child
+        props = fdt.GetProps(node, True)
+
+        _AddNode(node, props)
 
     # HACK: Since Tegra FDT files are not in our tree yet, but we still want
     # to use the old ones, we emulate the old behavior by marking the signed
