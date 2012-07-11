@@ -441,7 +441,7 @@ class Bundle:
     value (which we will move to).
     """
     data = self._tools.ReadFile(fname)
-    fdt_text_base = fdt.GetInt('/chromeos-config', 'textbase')
+    fdt_text_base = fdt.GetInt('/chromeos-config', 'textbase', 0)
     text_base = self.DecodeTextBase(data)
     self._out.Info('TEXT_BASE: fdt says %#x, %s says %#x' % (fdt_text_base,
         fname, text_base))
