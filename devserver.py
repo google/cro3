@@ -104,6 +104,8 @@ def _GetConfig(options):
                     'response.timeout': 10000,
                   },
                 }
+  if options.production:
+    base_config['global'].update({'server.thread_pool': 30})
 
   return base_config
 
