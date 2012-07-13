@@ -367,16 +367,15 @@ def SetupBashrc(unused_args):
 
 
 def SetupDev(unused_args):
-  """Developer friendly setup: skip oobe, don't forget usernames,
-\t\tdisable suspend, enable ssh and remote debugging,
-\t\trun commands from /tmp,/home."""
+  """Developer friendly setup: skip oobe, disable suspend,
+\t\tenable ssh and remote debugging, run commands from
+\t\t/tmp,/home."""
   if not _Sudo():
     return False
   if not MountWriteable():
     return False
   res = True
   res &= _WriteFile("/home/chronos/.oobe_completed", "1\n")
-  res &= _RunCommand(["sudo", "rm", "-f", "/root/.forget_usernames"])
   res &= _MakeDirectory("/usr/share/power_manager")
   res &= _WriteFile("/tmp/disable_idle_suspend", "1\n")
   res &= _RunCommand(["sudo", "cp", "/tmp/disable_idle_suspend",
