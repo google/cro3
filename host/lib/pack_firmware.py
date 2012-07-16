@@ -779,7 +779,7 @@ class PackFirmware:
         for prop in entry.key.split(','):
           if not self.props.get(prop):
             raise ConfigError("%s: Requests property '%s' but we only "
-                "have %s" % (entry.node, prop, self.props))
+                "have %s" % (entry.node, prop, self.props.keys()))
           entry.value.append(self.props[prop])
 
   def RequireAllEntries(self):

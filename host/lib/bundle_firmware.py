@@ -800,6 +800,8 @@ class Bundle:
     pack.AddProperty('boot+dtb', bootstub)
 
     pack.AddProperty('gbb', self.uboot_fname)
+    blob_list = pack.GetBlobList()
+    self._out.Info('Building blobs %s\n' % blob_list)
     for blob_type in pack.GetBlobList():
       self._BuildBlob(pack, fdt, blob_type)
 
