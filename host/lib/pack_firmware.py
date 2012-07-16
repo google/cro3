@@ -639,6 +639,11 @@ class PackFirmware:
 
         _AddNode(node, props)
 
+        # If there was only a 'size' property, write a full 'reg' property
+        # based on the offset we calculated
+        if not props.get('reg'):
+          fdt.PutIntList(node, 'reg', [props['offset'], props['size']])
+
     # HACK: Since Tegra FDT files are not in our tree yet, but we still want
     # to use the old ones, we emulate the old behavior by marking the signed
     # entry as required, if none of the entries were marked required.
