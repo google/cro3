@@ -233,11 +233,23 @@ class Bundle:
     odir = self._tools.outdir
 
     chromeos_config = self.fdt.GetProps("/chromeos-config")
-    if 'fast-developer-mode' not in chromeos_config:
-      gbb_flags = 0
-    else:
-      self._out.Notice("Enabling fast-developer-mode.")
-      gbb_flags = 1
+    # Build GBB flags.
+    # (src/platform/vboot_reference/firmware/include/gbb_header.h)
+    flag_properties = {
+        'fast-developer-mode': 0x01,
+        'gbb-flag-dev-screen-short-delay': 0x00000001,
+        'gbb-flag-load-option-roms': 0x00000002,
+        'gbb-flag-enable-alternate-os': 0x00000004,
+        'gbb-flag-force-dev-switch-on': 0x00000008,
+        'gbb-flag-force-dev-boot-usb': 0x00000010,
+        'gbb-flag-disable-fw-rollback-check': 0x00000020,
+    }
+    gbb_flags = 0
+    for flag_name, flag_value in flag_properties.items():
+      if flag_name not in chromeos_config:
+        continue
+      gbb_flags |= flag_value
+      self._out.Notice("Enabling %s." % flag_name)
 
     self._out.Progress('Creating GBB')
     sizes = [0x100, 0x1000, gbb_size - 0x2180, 0x1000]
