@@ -77,7 +77,7 @@ class Tools:
     self._tools = {
       'make_bmp_image' : '##/usr/share/vboot/bitmaps/make_bmp_images.sh',
       'bct_dump' : '##/usr/bin/bct_dump',
-      'nvflash' : '##/usr/bin/nvflash',
+      'tegrarcm' : '##/usr/bin/tegrarcm',
       'gbb_utility' : '##/usr/bin/gbb_utility',
       'cbfstool' : '##/usr/bin/cbfstool',
       'fdisk' : '##/sbin/fdisk',
