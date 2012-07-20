@@ -422,6 +422,10 @@ class Bundle:
     from the image with some certainty. We check only the first 40 words
     since the header should be within that region.
 
+    Since upstream Tegra has moved to having a 16KB SPL region at the start,
+    and currently this does holds the U-Boot text base (e.g. 0x10c000) instead
+    of the SPL one (e.g. 0x108000), we search in the U-Boot part as well.
+
     Args:
       data: U-Boot binary data
 
@@ -429,15 +433,16 @@ class Bundle:
       Text base (integer) or None if none was found
     """
     found = False
-    for i in range(0, 160, 4):
-      word = data[i:i + 4]
+    for start in (0, 0x4000):
+      for i in range(start, start + 160, 4):
+        word = data[i:i + 4]
 
-      # TODO(sjg): This does not cope with a big-endian target
-      value = struct.unpack('<I', word)[0]
-      if found:
-        return value
-      if value == 0x12345678:
-        found = True
+        # TODO(sjg): This does not cope with a big-endian target
+        value = struct.unpack('<I', word)[0]
+        if found:
+          return value - start
+        if value == 0x12345678:
+          found = True
 
     return None
 
@@ -455,8 +460,9 @@ class Bundle:
     data = self._tools.ReadFile(fname)
     fdt_text_base = fdt.GetInt('/chromeos-config', 'textbase', 0)
     text_base = self.DecodeTextBase(data)
-    self._out.Info('TEXT_BASE: fdt says %#x, %s says %#x' % (fdt_text_base,
-        fname, text_base))
+    text_base_str = '%#x' % text_base if text_base else 'None'
+    self._out.Info('TEXT_BASE: fdt says %#x, %s says %s' % (fdt_text_base,
+        fname, text_base_str))
 
     # If they are different, issue a warning and switch over.
     if text_base and text_base != fdt_text_base:
