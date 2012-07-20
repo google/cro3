@@ -120,10 +120,13 @@ def main():
   (options, args) = parser.parse_args(sys.argv)
   if not options.image and len(args) > 1:
     options.image = args[1]
+    del args[1]
   if not options.image:
     parser.error('Please use --image to specify a firmware image to flash');
   if not options.board:
     parser.error('Please use --board to specify the board type to flash');
+  if len(args) > 1:
+    parser.error("Unrecognized arguments '%s'" % ' '.join(args[1:]))
 
   with cros_output.Output(options.verbosity) as output:
     with Tools(output) as tools:

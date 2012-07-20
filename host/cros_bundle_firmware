@@ -198,6 +198,9 @@ Examples:
       action='store', help='Write firmware to device (usb, sd)')
   (options, args) = parser.parse_args(sys.argv)
 
+  if len(args) > 1:
+    parser.error("Unrecognized arguments '%s'" % ' '.join(args[1:]))
+
   with cros_output.Output(options.verbosity) as output:
     with Tools(output) as tools:
       _DoBundle(options, output, tools)
