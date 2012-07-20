@@ -818,6 +818,7 @@ class PackFirmware:
       ifd = None
       for entry in self.entries:
         if not entry.required:
+          self._out.Info("Section '%s' is not required, skipping" % entry.name)
           continue
 
         # Add in the info for the fmap.
