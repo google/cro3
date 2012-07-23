@@ -551,17 +551,16 @@ class Bundle:
 
     return bootstub, signed_postload
 
-  def _CreateCorebootStub(self, uboot, coreboot, fdt, seabios):
+  def _CreateCorebootStub(self, uboot, coreboot, seabios):
     """Create a coreboot boot stub.
 
     Args:
       uboot: Path to u-boot.bin (may be chroot-relative)
       coreboot: Path to coreboot.rom
-      fdt: Device Tree
       seabios: Path to SeaBIOS payload binary or None
 
     Returns:
-      Full path to bootstub (coreboot + uboot + fdt).
+      Full path to bootstub (coreboot + uboot).
 
     Raises:
       CmdError if a command fails.
@@ -583,8 +582,8 @@ class Bundle:
     else:
         self._tools.Run('cbfstool', [bootstub, 'add-payload', uboot_elf,
             'fallback/payload', 'lzma'])
-    self._tools.Run('cbfstool', [bootstub, 'add', fdt.fname, 'u-boot.dtb',
-        '0xac'])
+
+    # Don't add the fdt yet since it is not in final form
     return bootstub
 
   def _UpdateBl2Parameters(self, fdt, spl_load_size, data, pos):
@@ -733,7 +732,7 @@ class Bundle:
     """
     if blob_type == 'coreboot':
       coreboot = self._CreateCorebootStub(self.uboot_fname,
-          self.coreboot_fname, fdt, self.seabios_fname)
+          self.coreboot_fname, self.seabios_fname)
       pack.AddProperty('coreboot', coreboot)
       pack.AddProperty('image', coreboot)
     elif blob_type == 'signed':
@@ -837,6 +836,19 @@ class Bundle:
 
     # Record position and size of all blob members in the FDT
     pack.UpdateBlobPositions(fdt)
+
+    # TODO(sjg@chromium.org): This is not in a good place. _CreateCorebootStub
+    # has created a rom file without the dtb, because until now it is not
+    # complete. Add the dtb here.
+    # A better anwer might be to put the dtb in memory immediately after
+    # U-Boot as is done for ARM and have coreboot load it as a binary file
+    # instead of an elf. However, I need to check whether coreboot supports
+    # this, and whether this is desirable for other reasons.
+    if 'coreboot' in blob_list:
+      bootstub = pack.GetProperty('coreboot')
+      fdt = fdt.Copy(os.path.join(self._tools.outdir, 'bootstub.dtb'))
+      self._tools.Run('cbfstool', [bootstub, 'add', fdt.fname, 'u-boot.dtb',
+          '0xac'])
 
     image = os.path.join(self._tools.outdir, 'image.bin')
     pack.PackImage(self._tools.outdir, image)
