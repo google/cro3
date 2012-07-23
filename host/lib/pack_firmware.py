@@ -753,9 +753,6 @@ class PackFirmware:
     we perform two passes of the algorithm. On the second pass we will
     be writing data that is already there, so the fdt size will not
     change.
-
-    TODO(sjg@chromium.org): Since we cannot add whole subnodes
-    due to a limitation of fdtput, these must exist already.
     """
     for pass_num in range(0,2):
       for entry in self.entries:
