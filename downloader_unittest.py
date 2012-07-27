@@ -193,6 +193,9 @@ class DownloaderTest(DownloaderTestBase):
 
     self.assertTrue(downloader.Downloader.BuildStaged(archive_url,
                                                       self._work_dir))
+    self.assertTrue(os.path.exists(
+      os.path.join(os.path.join(self._work_dir, build_dir),
+        downloader.Downloader._TIMESTAMP_FILENAME)))
     self.assertFalse(downloader.Downloader.BuildStaged(archive_url_non_staged,
                                                        self._work_dir))
   def testTrybotBuildStaged(self):

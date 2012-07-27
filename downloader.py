@@ -25,6 +25,8 @@ class Downloader(object):
   """
 
   _LOG_TAG = 'DOWNLOAD'
+  # This filename must be kept in sync with clean_staged_images.py
+  _TIMESTAMP_FILENAME = 'staged.timestamp'
 
   def __init__(self, static_dir):
     self._static_dir = static_dir
@@ -61,11 +63,24 @@ class Downloader(object):
     return '/'.join([rel_path, short_build])
 
   @staticmethod
+  def _TouchTimestampForStaged(directory_path):
+    file_name = os.path.join(directory_path, Downloader._TIMESTAMP_FILENAME)
+    # Easiest python version of |touch file_name|
+    with file(file_name, 'a'):
+      os.utime(file_name, None)
+
+  @staticmethod
   def BuildStaged(archive_url, static_dir):
     """Returns True if the build is already staged."""
     rel_path, short_build = Downloader.ParseUrl(archive_url)
     sub_directory = Downloader.GenerateLockTag(rel_path, short_build)
-    return os.path.isdir(os.path.join(static_dir, sub_directory))
+    directory_path = os.path.join(static_dir, sub_directory)
+    exists = os.path.isdir(directory_path)
+    # If the build exists, then touch the timestamp to tell
+    # clean_stages_images.py that we're using this build.
+    if exists:
+      Downloader._TouchTimestampForStaged(directory_path)
+    return exists
 
   def Download(self, archive_url, background=False):
     """Downloads the given build artifacts defined by the |archive_url|.
@@ -97,6 +112,7 @@ class Downloader(object):
       # which would not be qualified as part of the suffix.
       self._staging_dir = tempfile.mkdtemp(suffix='_'.join(
           [rel_path.replace('/', '_'), short_build]))
+      Downloader._TouchTimestampForStaged(self._staging_dir)
       cherrypy.log('Gathering download requirements %s' % archive_url,
                    self._LOG_TAG)
       artifacts = self.GatherArtifactDownloads(
