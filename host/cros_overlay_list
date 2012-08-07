@@ -70,12 +70,12 @@ fi
 
 get_board_and_variant $FLAGS_board $FLAGS_variant
 
-if [[ $FLAGS_board =~ [_\ ] ]] ; then
+if [[ ${BOARD} =~ [_\ ] ]] ; then
   error "--board name must not contain an underscore (_) or a space ( )."
   exit 1
 fi
 
-if [[ $FLAGS_variant =~ [_\ ] ]] ; then
+if [[ ${VARIANT} =~ [_\ ] ]] ; then
   error "--variant name must not contain an underscore (_) or a space ( )."
   exit 1
 fi
@@ -83,14 +83,14 @@ fi
 #
 # Check that the provided variant overlay name is valid.
 #
-if [ -n "$FLAGS_variant" ] ; then
-  VARIANT_NAME="overlay-variant-${FLAGS_board}-${FLAGS_variant}"
+if [ -n "${VARIANT}" ] ; then
+  VARIANT_NAME="overlay-variant-${BOARD}-${VARIANT}"
   VARIANT_OVERLAY="${SRC_ROOT}/overlays/${VARIANT_NAME}"
-  PRIVATE_VARIANT_NAME="overlay-variant-${FLAGS_board}-${FLAGS_variant}-private"
+  PRIVATE_VARIANT_NAME="overlay-variant-${BOARD}-${VARIANT}-private"
   PRIVATE_VARIANT_OVERLAY="${SRC_ROOT}/private-overlays/${PRIVATE_VARIANT_NAME}"
   if [ ! -d "${VARIANT_OVERLAY}" ] && \
      [ ! -d "${PRIVATE_VARIANT_OVERLAY}" ] ; then
-    error "There is no variant overlay called '${FLAGS_variant}'"
+    error "There is no variant overlay called '${VARIANT}'"
     exit 1
   fi
 fi
@@ -102,8 +102,8 @@ is_primary_overlay() {
   return 0
 }
 
-BOARD_OVERLAY="${SRC_ROOT}/overlays/overlay-${FLAGS_board}"
-PRIVATE_OVERLAY_NAME="overlay-${FLAGS_board}-private"
+BOARD_OVERLAY="${SRC_ROOT}/overlays/overlay-${BOARD}"
+PRIVATE_OVERLAY_NAME="overlay-${BOARD}-private"
 PRIVATE_BOARD_OVERLAY="${SRC_ROOT}/private-overlays/${PRIVATE_OVERLAY_NAME}"
 
 #
@@ -115,7 +115,7 @@ elif private && is_primary_overlay "${PRIVATE_BOARD_OVERLAY}"; then
   PRIMARY_OVERLAY="${PRIVATE_BOARD_OVERLAY}"
 fi
 if [ ! -n "${PRIMARY_OVERLAY}" ]; then
-  error "There is no primary board overlay for ${FLAGS_board}"
+  error "There is no primary board overlay for ${BOARD}"
   exit 1
 fi
 
@@ -154,7 +154,7 @@ if public && [ -d "${BOARD_OVERLAY}" ]; then
   #
   # Add the public variant overlay if it exists.
   #
-  if [ -n "$FLAGS_variant" ] ; then
+  if [ -n "${VARIANT}" ] ; then
     if [ -d "$VARIANT_OVERLAY" ] ; then
       echo "${VARIANT_OVERLAY}"
     fi
@@ -165,7 +165,7 @@ fi
 # Add any private overlays and private variant overlays for this board.
 #
 if private && [ -d "${SRC_ROOT}/private-overlays" ] ; then
-  OVERLAY_NAME="overlay-${FLAGS_board}-private"
+  OVERLAY_NAME="overlay-${BOARD}-private"
   PRIVATE_OVERLAY="${SRC_ROOT}/private-overlays/${OVERLAY_NAME}"
 
   if [ -d "${PRIVATE_OVERLAY}" ] ; then
@@ -175,7 +175,7 @@ if private && [ -d "${SRC_ROOT}/private-overlays" ] ; then
   #
   # Add the private variant overlay if it exists.
   #
-  if [ -n "$FLAGS_variant" ] ; then
+  if [ -n "${VARIANT}" ] ; then
     if [ -d "${PRIVATE_VARIANT_OVERLAY}" ] ; then
       echo "${PRIVATE_VARIANT_OVERLAY}"
     fi
