@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -67,6 +67,8 @@ if [ -z "$FLAGS_board" ] ; then
   error "--board required."
   exit 1
 fi
+
+get_board_and_variant $FLAGS_board $FLAGS_variant
 
 if [[ $FLAGS_board =~ [_\ ] ]] ; then
   error "--board name must not contain an underscore (_) or a space ( )."
