@@ -314,10 +314,7 @@ class EntryBlob(EntryFmapArea):
     self.params = params
 
   def GetData(self):
-    data = ''
-    for filename in self.value:
-      data += self.pack.tools.ReadFile(filename)
-    return data
+    return self.pack.tools.ReadFileAndConcat(self.value)[0]
 
 
 class EntryKeyBlock(EntryFmapArea):
@@ -343,9 +340,7 @@ class EntryKeyBlock(EntryFmapArea):
       prefix = self.pack.props['keydir'] + '/'
 
       # Join up the data files to be signed
-      data = ''
-      for filename in self.value:
-        data += self.pack.tools.ReadFile(filename)
+      data = self.pack.tools.ReadFileAndConcat(self.value)[0]
       tools.WriteFile(input_data, data)
       args = [
           '--vblock', self.path,
@@ -726,16 +721,11 @@ class PackFirmware:
             offset of the start of this property's data
             size of this property's data
     """
-    data = ''
+    filenames = [self.props[prop] for prop in prop_list]
+    data, addr, length = self.tools.ReadFileAndConcat(filenames)
     directory = {}
-    upto = 0
-    for prop in prop_list:
-      contents = self.tools.ReadFile(self.props[prop])
-      data += contents
-
-      # Append this offset, and update our pointer (32-bit aligned)
-      directory[prop] = [upto, len(contents)]
-      upto += (len(contents) + 3) & ~3
+    for i in xrange(len(prop_list)):
+      directory[prop_list[i]] = [addr[i], length[i]]
     return data, directory
 
   def UpdateBlobPositions(self, fdt):

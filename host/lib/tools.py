@@ -213,6 +213,30 @@ class Tools:
     fd.write(data)
     fd.close()
 
+  def ReadFileAndConcat(self, filenames):
+    """Read several files and concat them.
+
+    Args:
+      filenames: a list containing name of the files to read.
+
+    Returns:
+      A tuple of a string and two list. The string is the concated data read
+        from file, in the same order as in filenames, aligned to 4-byte. The
+        first list contains the address of each file in the data string and
+        the second one contains the length of each file, both in the same
+        order.
+    """
+    data = ''
+    address = []
+    length = []
+    for fname in filenames:
+      address.append(len(data))
+      content = self.ReadFile(fname)
+      pad_len = ((len(content) + 3) & ~3) - len(content)
+      data += content + '\0' * pad_len
+      length.append(len(content))
+    return data, address, length
+
   def GetChromeosVersion(self):
     """Returns the ChromeOS version string
 
