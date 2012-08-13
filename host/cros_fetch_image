@@ -27,7 +27,6 @@ fi
 . "${SCRIPT_ROOT}/cros_archive.sh"
 
 assert_inside_chroot
-get_default_board
 
 # TODO(cwolfe): The --channel switch is temporarily disabled while we sort
 #               out some ACL problems.

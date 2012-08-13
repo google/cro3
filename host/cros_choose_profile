@@ -26,8 +26,6 @@ fi
 . "${COMMON_SH}"
 . "${SRC_ROOT}/platform/dev/toolchain_utils.sh"
 
-get_default_board
-
 # Flags
 DEFINE_string board "$DEFAULT_BOARD" "The name of the board to set up."
 DEFINE_string board_overlay "" "Location of the board overlay."

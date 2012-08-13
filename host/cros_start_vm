@@ -16,7 +16,6 @@
   die "Unable to load cros_vm_constants.sh"
 
 assert_outside_chroot
-get_default_board
 
 DEFINE_string board "${DEFAULT_BOARD}" \
     "Board for VM image (unnecessary if path given)"

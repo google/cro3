@@ -8,8 +8,6 @@
 
 . /usr/lib/crosutils/common.sh || exit 1
 
-get_default_board
-
 DEFINE_string board "${DEFAULT_BOARD}" \
     "Board for which to build the package."
 DEFINE_boolean runhooks "${FLAGS_FALSE}" \

@@ -8,8 +8,6 @@
 
 . /usr/lib/crosutils/common.sh || exit 1
 
-get_default_board
-
 # Command line options
 DEFINE_string board "${DEFAULT_BOARD}" "The board to debug for."
 DEFINE_string sysroot "" "Where your target binaries are."

@@ -16,8 +16,6 @@
   (echo "Must run from within the chroot" && false) ||
   exit 1
 
-get_default_board
-
 # Flags
 DEFINE_string board "$DEFAULT_BOARD" \
   "The board to build packages for."

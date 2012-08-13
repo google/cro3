@@ -6,8 +6,6 @@
 
 . /usr/lib/crosutils/common.sh || exit 1
 
-get_default_board
-
 # Flags
 DEFINE_string attach "" \
  "pgrep for the given command - 'browser' finds the chrome browser process"
