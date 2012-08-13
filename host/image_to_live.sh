@@ -32,6 +32,7 @@ DEFINE_string update_log "update_engine.log" \
   "Path to log for the update_engine."
 DEFINE_string update_url "" "Full url of an update image."
 DEFINE_boolean verify ${FLAGS_TRUE} "Verify image on device after update."
+DEFINE_integer repeat 1 "Number of times to run image_to_live."
 
 # Flags for devserver.
 DEFINE_string archive_dir "" \
@@ -396,28 +397,7 @@ find_root_dev() {
   echo ${REMOTE_OUT}
 }
 
-main() {
-  assert_outside_chroot
-
-  cd "${SCRIPTS_DIR}"
-
-  FLAGS "$@" || exit 1
-  eval set -- "${FLAGS_ARGV}"
-
-  set -e
-
-  if [ ${FLAGS_verify} -eq ${FLAGS_TRUE} ] && \
-      [ -n "${FLAGS_update_url}" ]; then
-    warn "Verify is not compatible with setting an update url."
-    FLAGS_verify=${FLAGS_FALSE}
-  fi
-
-  trap cleanup EXIT INT TERM
-
-  TMP=$(mktemp -d /tmp/image_to_live.XXXX)
-
-  remote_access_init
-
+run_once() {
   if [ "$(get_update_var CURRENT_OP)" != "${UPDATER_IDLE}" ]; then
     warn "Machine is in a bad state.  Rebooting it now."
     remote_reboot
@@ -466,7 +446,7 @@ main() {
   if [ ${FLAGS_reboot_after_update} -eq ${FLAGS_FALSE} ]; then
     echo "Not rebooting because of --noreboot_after_update"
     print_time_elapsed
-    exit 0
+    return 0
   fi
 
   remote_reboot
@@ -496,6 +476,37 @@ main() {
   fi
 
   print_time_elapsed
+}
+
+main() {
+  assert_outside_chroot
+
+  cd "${SCRIPTS_DIR}"
+
+  FLAGS "$@" || exit 1
+  eval set -- "${FLAGS_ARGV}"
+
+  set -e
+
+  if [ ${FLAGS_verify} -eq ${FLAGS_TRUE} ] && \
+      [ -n "${FLAGS_update_url}" ]; then
+    warn "Verify is not compatible with setting an update url."
+    FLAGS_verify=${FLAGS_FALSE}
+  fi
+
+  trap cleanup EXIT INT TERM
+
+  TMP=$(mktemp -d /tmp/image_to_live.XXXX)
+
+  remote_access_init
+
+  for i in $(seq 1 ${FLAGS_repeat}); do
+    echo "Iteration: " $i of ${FLAGS_repeat}
+    run_once
+    if [ ${FLAGS_repeat} -gt 1 ]; then
+      remote_sh "${UPDATER_BIN} --reset_status 2> /dev/null"
+    fi
+  done
 
   exit 0
 }
