@@ -75,39 +75,53 @@ class DevServerUtilTest(mox.MoxTestBase):
   def testParsePayloadList(self):
     """Tests we can parse the payload list into urls."""
     archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/'
-                          'R17-1413.0.0-a1-b1346/')
-    mton_url = (archive_url_prefix + 'chromeos_R17-1412.0.0-a1-b1345_'
-                'R17-1413.0.0-a1_x86-mario_delta_dev.bin')
-    nton_url = (archive_url_prefix + 'chromeos_R17-1413.0.0-a1_'
-                'R17-1413.0.0-a1_x86-mario_delta_dev.bin')
-    full_url = (archive_url_prefix + 'chromeos_R17-1413.0.0-a1_'
-                'x86-mario_full_dev.bin')
+                          'R17-1413.0.0-a1-b1346')
+    mton_basename = ('chromeos_R17-1412.0.0-a1-b1345_R17-1413.0.0-a1_'
+                     'x86-mario_delta_dev.bin')
+    nton_basename = ('chromeos_R17-1413.0.0-a1_R17-1413.0.0-a1_'
+                     'x86-mario_delta_dev.bin')
+    full_basename = ('chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin')
+
+    mton_url = '/'.join([archive_url_prefix, mton_basename])
+    nton_url = '/'.join([archive_url_prefix, nton_basename])
+    full_url = '/'.join([archive_url_prefix, full_basename])
+
     full_url_out, nton_url_out, mton_url_out = (
-        devserver_util.ParsePayloadList([full_url, nton_url, mton_url]))
+        devserver_util.ParsePayloadList(archive_url_prefix,
+                                        [full_basename, nton_basename,
+                                         mton_basename]))
     self.assertEqual([full_url, nton_url, mton_url],
                      [full_url_out, nton_url_out, mton_url_out])
 
     archive_url_prefix = ('gs://chromeos-image-archive/x86-alex_he-release/'
                           'R18-1420.0.0-a1-b541')
-    mton_url = (archive_url_prefix + 'chromeos_R18-1418.0.0-a1-b540_'
-                'R18-1420.0.0-a1_x86-alex_he_delta_dev.bin')
-    nton_url = (archive_url_prefix + 'chromeos_R18-1420.0.0-a1_'
-                'R18-1420.0.0-a1_x86-alex_he_delta_dev.bin')
-    full_url = (archive_url_prefix + 'chromeos_R18-1420.0.0-a1_'
-                'x86-alex_he_full_dev.bin')
+
+    mton_basename = ('chromeos_R18-1418.0.0-a1-b54a0_R18-1420.0.0-a1'
+                     '_x86-alex_he_delta_dev.bin')
+    nton_basename = ('chromeos_R18-1420.0.0-a1_R18-1420.0.0-a1_'
+                     'x86-alex_he_delta_dev.bin')
+    full_basename = ('chromeos_R18-1420.0.0-a1_x86-alex_he_full_dev.bin')
+
+    mton_url = '/'.join([archive_url_prefix, mton_basename])
+    nton_url = '/'.join([archive_url_prefix, nton_basename])
+    full_url = '/'.join([archive_url_prefix, full_basename])
+
     full_url_out, nton_url_out, mton_url_out = (
-        devserver_util.ParsePayloadList([full_url, nton_url, mton_url]))
+        devserver_util.ParsePayloadList(archive_url_prefix,
+                                        [full_basename, nton_basename,
+                                         mton_basename]))
     self.assertEqual([full_url, nton_url, mton_url],
                      [full_url_out, nton_url_out, mton_url_out])
 
   def testParsePayloadListWithoutDeltas(self):
     """Tests we can parse the payload list when no delta updates exist."""
     archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/'
-                          'R17-1413.0.0-a1-b1346/')
-    full_url = (archive_url_prefix + 'chromeos_R17-1413.0.0-a1_'
-                'x86-mario_full_dev.bin')
+                          'R17-1413.0.0-a1-b1346')
+    full_basename = ('chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin')
+    full_url = '/'.join([archive_url_prefix, full_basename])
     full_url_out, nton_url_out, mton_url_out = (
-        devserver_util.ParsePayloadList([full_url, '', '']))
+        devserver_util.ParsePayloadList(archive_url_prefix,
+                                        [full_basename, '', '']))
     self.assertEqual([full_url, None, None],
                      [full_url_out, nton_url_out, mton_url_out])
 
@@ -115,12 +129,16 @@ class DevServerUtilTest(mox.MoxTestBase):
     """Tests that we can parse a payload list with missing optional payload."""
     archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/'
                           'R17-1413.0.0-a1-b1346/')
-    nton_url = (archive_url_prefix + 'chromeos_R17-1413.0.0-a1_'
-                'R17-1413.0.0-a1_x86-mario_delta_dev.bin')
-    full_url = (archive_url_prefix + 'chromeos_R17-1413.0.0-a1_'
-                'x86-mario_full_dev.bin')
+    nton_basename = ('chromeos_R17-1413.0.0-a1_R17-1413.0.0-a1_x86-'
+                     'mario_delta_dev.bin')
+    full_basename = ('chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin')
+
+    nton_url = '/'.join([archive_url_prefix, nton_basename])
+    full_url = '/'.join([archive_url_prefix, full_basename])
+
     full_url_out, nton_url_out, mton_url_out = (
-        devserver_util.ParsePayloadList([full_url, nton_url]))
+        devserver_util.ParsePayloadList(archive_url_prefix,
+                                        [full_basename, nton_basename]))
     self.assertEqual([full_url, nton_url, None],
                      [full_url_out, nton_url_out, mton_url_out])
 
@@ -293,21 +311,25 @@ class DevServerUtilTest(mox.MoxTestBase):
     build = 'R17-1413.0.0-a1-b1346'
     archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
                           build)
-    mock_data = 'mock data\nmock_data\nmock_data'
+    mock_data = 'mock data\nmock_data'
     payloads = map(lambda x: '/'.join([archive_url_prefix, x]),
                    ['p1', 'p2', 'p3'])
     expected_payloads = payloads + map(
         lambda x: '/'.join([archive_url_prefix, x]),
             [downloadable_artifact.STATEFUL_UPDATE,
-             downloadable_artifact.AUTOTEST_PACKAGE,
+             downloadable_artifact.AUTOTEST_ZIPPED_PACKAGE,
              downloadable_artifact.TEST_SUITES_PACKAGE])
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(devserver_util, 'IsAvailable')
     self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
 
-    # GSUtil ls.
-    gsutil_util.GSUtilRun(mox.StrContains(archive_url_prefix),
+    # GSUtil cat gs://archive_url_prefix/UPLOADED.
+    gsutil_util.GSUtilRun(mox.StrContains(devserver_util.UPLOADED_LIST),
                           mox.IgnoreArg()).AndReturn(mock_data)
-    devserver_util.ParsePayloadList(mock_data.splitlines()).AndReturn(payloads)
+    devserver_util.IsAvailable(mox.IgnoreArg(),
+                               mock_data.splitlines()).AndReturn(True)
+    devserver_util.ParsePayloadList(archive_url_prefix,
+                                    mock_data.splitlines()).AndReturn(payloads)
 
     self.mox.ReplayAll()
     artifacts = devserver_util.GatherArtifactDownloads(
@@ -323,22 +345,26 @@ class DevServerUtilTest(mox.MoxTestBase):
     build = 'R17-1413.0.0-a1-b1346'
     archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
                           build)
-    mock_data = 'mock data\nmock_data'
+    mock_data = 'mock data\nmock_data\nmock_data'
     payloads = map(lambda x: '/'.join([archive_url_prefix, x]),
                    ['p1', 'p2'])
     expected_payloads = payloads + map(
         lambda x: '/'.join([archive_url_prefix, x]),
             [downloadable_artifact.STATEFUL_UPDATE,
-             downloadable_artifact.AUTOTEST_PACKAGE,
+             downloadable_artifact.AUTOTEST_ZIPPED_PACKAGE,
              downloadable_artifact.TEST_SUITES_PACKAGE])
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(devserver_util, 'IsAvailable')
     self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
 
-    # GSUtil ls.
-    gsutil_util.GSUtilRun(mox.StrContains(archive_url_prefix),
+    # GSUtil cat gs://archive_url_prefix/UPLOADED.
+    gsutil_util.GSUtilRun(mox.StrContains(devserver_util.UPLOADED_LIST),
                           mox.IgnoreArg()).AndReturn(mock_data)
-    devserver_util.ParsePayloadList(mock_data.splitlines()).AndReturn(
-        payloads + [None])
+    devserver_util.IsAvailable(mox.IgnoreArg(),
+                               mock_data.splitlines()).AndReturn(True)
+    devserver_util.ParsePayloadList(archive_url_prefix,
+                                    mock_data.splitlines()
+                                    ).AndReturn(payloads + [None])
 
     self.mox.ReplayAll()
     artifacts = devserver_util.GatherArtifactDownloads(
@@ -355,21 +381,26 @@ class DevServerUtilTest(mox.MoxTestBase):
     archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
                           build)
     mock_data = 'mock data\nmock_data'
+
     payloads = map(lambda x: '/'.join([archive_url_prefix, x]),
                    ['p1'])
     expected_payloads = payloads + map(
         lambda x: '/'.join([archive_url_prefix, x]),
             [downloadable_artifact.STATEFUL_UPDATE,
-             downloadable_artifact.AUTOTEST_PACKAGE,
+             downloadable_artifact.AUTOTEST_ZIPPED_PACKAGE,
              downloadable_artifact.TEST_SUITES_PACKAGE])
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(devserver_util, 'IsAvailable')
     self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
 
-    # GSUtil ls.
-    gsutil_util.GSUtilRun(mox.StrContains(archive_url_prefix),
+    # GSUtil cat gs://archive_url_prefix/UPLOADED.
+    gsutil_util.GSUtilRun(mox.StrContains(devserver_util.UPLOADED_LIST),
                           mox.IgnoreArg()).AndReturn(mock_data)
-    devserver_util.ParsePayloadList(mock_data.splitlines()).AndReturn(
-        payloads + [None, None])
+    devserver_util.IsAvailable(mox.IgnoreArg(),
+                               mock_data.splitlines()).AndReturn(True)
+    devserver_util.ParsePayloadList(archive_url_prefix,
+                                    mock_data.splitlines()
+                                    ).AndReturn(payloads + [None, None])
 
     self.mox.ReplayAll()
     artifacts = devserver_util.GatherArtifactDownloads(
@@ -385,13 +416,15 @@ class DevServerUtilTest(mox.MoxTestBase):
     build = 'R17-1413.0.0-a1-b1346'
     archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
                           build)
-    symbol_url = archive_url_prefix + '/' + downloadable_artifact.DEBUG_SYMBOLS
-    mock_data = 'mock data\nmock_data\nmock_data'
+    symbol_url = '/'.join([archive_url_prefix,
+                           downloadable_artifact.DEBUG_SYMBOLS])
+    uploaded_list_url = '/'.join([archive_url_prefix,
+                                  devserver_util.UPLOADED_LIST])
+    mock_data = 'mock-tarball.tgz\nmock-debug.tgz'
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
-    self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
 
-    # GSUtil ls.
-    gsutil_util.GSUtilRun(mox.StrContains(symbol_url),
+    # GSUtil cat gs://archive_url_prefix/UPLOADED.
+    gsutil_util.GSUtilRun(mox.StrContains(devserver_util.UPLOADED_LIST),
                           mox.IgnoreArg()).AndReturn(mock_data)
 
     self.mox.ReplayAll()
@@ -403,55 +436,100 @@ class DevServerUtilTest(mox.MoxTestBase):
 
     self.mox.VerifyAll()
 
-  def testGatherSymbolArtifactDownloadsWithRetry(self):
-    """Tests that we can poll for debug symbol artifacts to download."""
+  def testIsAvailable(self):
+    """Test that we can detect whether the target artifacts are avaialble."""
+    # Test when the all target files are available
+    pattern_list = ['_full_', 'autotest.tar']
+    uploaded_list = ['chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin',
+                     'debug.tgz',
+                     'autotest.tar.bz2']
+
+    available = devserver_util.IsAvailable(pattern_list, uploaded_list)
+    self.assertTrue(available)
+
+    # Test when some target files are missing
+    pattern_list = ['_full_', 'autotest.tar']
+    uploaded_list = ['chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin',
+                     'debug.tgz']
+
+    available = devserver_util.IsAvailable(pattern_list, uploaded_list)
+    self.assertFalse(available)
+
+  def testWaitUntilAvailable(self):
+    """Test that we can poll until all target artifacts are available."""
     build = 'R17-1413.0.0-a1-b1346'
-    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
-                          build)
-    symbol_url = archive_url_prefix + '/' + downloadable_artifact.DEBUG_SYMBOLS
+    archive_url = ('gs://chromeos-image-archive/x86-mario-release/'
+                   'R17-1413.0.0-a1-b1346')
+    to_wait_list = ['_full_']
     mock_data = 'mock data\nmock_data\nmock_data'
-    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
-    self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
 
-    # GSUtil ls.
-    gsutil_util.GSUtilRun(mox.StrContains(symbol_url),
-                          mox.IgnoreArg()).AndRaise(gsutil_util.GSUtilError())
-    gsutil_util.GSUtilRun(mox.StrContains(symbol_url),
+    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(devserver_util, 'IsAvailable')
+
+    # GSUtil cat gs://archive_url_prefix/UPLOADED.
+    gsutil_util.GSUtilRun(mox.StrContains(devserver_util.UPLOADED_LIST),
                           mox.IgnoreArg()).AndReturn(mock_data)
+    devserver_util.IsAvailable(mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(True)
 
     self.mox.ReplayAll()
-    artifacts = devserver_util.GatherSymbolArtifactDownloads(
-        self._static_dir, archive_url_prefix, self._install_dir, delay=1)
-    for index, artifact in enumerate(artifacts):
-      self.assertEqual(artifact._gs_path, symbol_url)
-      self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
-
+    uploaded_list = devserver_util.WaitUntilAvailable(to_wait_list, archive_url,
+                                                      'UNIT TEST', delay=1)
+    self.assertEqual(uploaded_list, mock_data.splitlines())
     self.mox.VerifyAll()
 
-  def testGatherSymbolArtifactDownloadsFailAfterRetry(self):
-    """Tests that we can poll for debug symbol artifacts to download."""
+  def testWaitUntilAvailableWithRetry(self):
+    """Test that we can poll until all target artifacts are available."""
     build = 'R17-1413.0.0-a1-b1346'
-    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
-                          build)
-    symbol_url = archive_url_prefix + '/' + downloadable_artifact.DEBUG_SYMBOLS
-    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
-    self.mox.StubOutWithMock(devserver_util, 'ParsePayloadList')
+    archive_url = ('gs://chromeos-image-archive/x86-mario-release/'
+                   'R17-1413.0.0-a1-b1346')
+    to_wait_list = ['_full_']
+    mock_data = 'mock data\nmock_data\nmock_data'
 
-    # GSUtil ls.
-    gsutil_util.GSUtilRun(mox.StrContains(symbol_url),
-                          mox.IgnoreArg()
-                          ).MultipleTimes().AndRaise(gsutil_util.GSUtilError())
+    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(devserver_util, 'IsAvailable')
+
+    # GSUtil cat gs://archive_url_prefix/UPLOADED.
+    gsutil_util.GSUtilRun(mox.StrContains(devserver_util.UPLOADED_LIST),
+                          mox.IgnoreArg()).AndReturn(mock_data)
+    devserver_util.IsAvailable(mox.IgnoreArg(),
+                               mox.IgnoreArg()).AndReturn(False)
+
+    gsutil_util.GSUtilRun(mox.StrContains(devserver_util.UPLOADED_LIST),
+                          mox.IgnoreArg()).AndReturn(mock_data)
+    devserver_util.IsAvailable(mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(True)
 
     self.mox.ReplayAll()
-    self.assertRaises(gsutil_util.GSUtilError,
-                      devserver_util.GatherSymbolArtifactDownloads,
-                      self._static_dir,
-                      archive_url_prefix,
-                      self._install_dir,
-                      timeout=1,
-                      delay=1)
+    uploaded_list = devserver_util.WaitUntilAvailable(to_wait_list, archive_url,
+                                                      'UNIT TEST', delay=1)
+    self.assertEqual(uploaded_list, mock_data.splitlines())
     self.mox.VerifyAll()
 
+  def testWaitUntilAvailableTimeout(self):
+    """Test that we wait for the target artifacts until timeout occurs."""
+    build = 'R17-1413.0.0-a1-b1346'
+    archive_url = ('gs://chromeos-image-archive/x86-mario-release/'
+                   'R17-1413.0.0-a1-b1346')
+    to_wait_list = ['_full_']
+    mock_data = 'mock data\nmock_data\nmock_data'
+
+    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(devserver_util, 'IsAvailable')
+
+    # GSUtil cat gs://archive_url_prefix/UPLOADED.
+    gsutil_util.GSUtilRun(mox.StrContains(devserver_util.UPLOADED_LIST),
+                          mox.IgnoreArg()).AndReturn(mock_data)
+    devserver_util.IsAvailable(mox.IgnoreArg(),
+                               mox.IgnoreArg()).AndReturn(False)
+
+    self.mox.ReplayAll()
+    self.assertRaises(devserver_util.DevServerUtilError,
+                      devserver_util.WaitUntilAvailable,
+                      to_wait_list,
+                      archive_url,
+                      'UNIT TEST',
+                      delay=2,
+                      timeout=1)
+    self.mox.VerifyAll()
 
 if __name__ == '__main__':
   unittest.main()
