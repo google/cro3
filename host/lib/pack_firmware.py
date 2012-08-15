@@ -722,10 +722,10 @@ class PackFirmware:
             size of this property's data
     """
     filenames = [self.props[prop] for prop in prop_list]
-    data, addr, length = self.tools.ReadFileAndConcat(filenames)
+    data, offset, length = self.tools.ReadFileAndConcat(filenames)
     directory = {}
     for i in xrange(len(prop_list)):
-      directory[prop_list[i]] = [addr[i], length[i]]
+      directory[prop_list[i]] = [offset[i], length[i]]
     return data, directory
 
   def UpdateBlobPositions(self, fdt):
