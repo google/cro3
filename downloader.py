@@ -200,6 +200,10 @@ class Downloader(object):
     status = self._status_queue.get()
     # In case anyone else is calling.
     self._status_queue.put(status)
+    # If someone is curious about the status of a build, then we should
+    # probably keep it around for a bit longer.
+    if os.path.exists(self._staging_dir):
+      Downloader._TouchTimestampForStaged(self._staging_dir)
     # It's possible we received an exception, if so, re-raise it here.
     if isinstance(status, Exception):
       raise status
