@@ -104,7 +104,8 @@ class Bundle:
     self.exynos_bl2 = None      # Filename of Exynos BL2 (SPL)
     self.spl_source = 'straps'  # SPL boot according to board settings
     self.skeleton_fname = None  # Filename of Coreboot skeleton file
-    self.ecbin_fname = None     # Filename of EC file
+    self.ecrw_fname = None     # Filename of EC file
+    self.ecro_fname = None      # Filename of EC read-only file
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -116,7 +117,7 @@ class Bundle:
 
   def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
                postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None,
-               skeleton=None, ecbin=None, kernel=None):
+               skeleton=None, ecrw=None, ecro=None, kernel=None):
     """Set up files required for Bundle.
 
     Args:
@@ -130,7 +131,8 @@ class Bundle:
       exynos_bl1: The filename of the exynos BL1 file
       exynos_bl2: The filename of the exynos BL2 file (U-Boot spl)
       skeleton: The filename of the coreboot skeleton file.
-      ecbin: The filename of the EC (Embedded Controller) file.
+      ecrw: The filename of the EC (Embedded Controller) read-write file.
+      ecro: The filename of the EC (Embedded Controller) read-only file.
       kernel: The filename of the kernel file if any.
     """
     self._board = board
@@ -143,7 +145,8 @@ class Bundle:
     self.exynos_bl1 = exynos_bl1
     self.exynos_bl2 = exynos_bl2
     self.skeleton_fname = skeleton
-    self.ecbin_fname = ecbin
+    self.ecrw_fname = ecrw
+    self.ecro_fname = ecro
     self.kernel_fname = kernel
 
   def SetOptions(self, small):
@@ -194,8 +197,10 @@ class Bundle:
       self.coreboot_fname = os.path.join(build_root, 'coreboot.rom')
     if not self.skeleton_fname:
       self.skeleton_fname = os.path.join(build_root, 'skeleton.bin')
-    if not self.ecbin_fname:
-      self.ecbin_fname = os.path.join(build_root, 'ec.RW.bin')
+    if not self.ecrw_fname:
+      self.ecrw_fname = os.path.join(build_root, 'ec.RW.bin')
+    if not self.ecro_fname:
+      self.ecro_fname = os.path.join(build_root, 'ec.RO.bin')
 
   def GetFiles(self):
     """Get a list of files that we know about.
@@ -743,8 +748,13 @@ class Bundle:
       pack.AddProperty('image', signed)
     elif blob_type == 'exynos-bl1':
       pack.AddProperty(blob_type, self.exynos_bl1)
-    elif blob_type == 'ecbin':
-      pack.AddProperty(blob_type, self.ecbin_fname)
+
+    # TODO(sjg@chromium.org): Deprecate ecbin
+    elif blob_type in ['ecrw', 'ecbin']:
+      pack.AddProperty('ecrw', self.ecrw_fname)
+      pack.AddProperty('ecbin', self.ecrw_fname)
+    elif blob_type == 'ecro':
+      pack.AddProperty(blob_type, self.ecro_fname)
     elif blob_type == 'exynos-bl2':
       spl_payload = pack.GetBlobParams(blob_type)
 
