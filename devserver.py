@@ -440,10 +440,7 @@ def main():
   parser.add_option('--board', dest='board',
                     help='When pre-generating update, board for latest image.')
   parser.add_option('--clear_cache', action='store_true', default=False,
-                    help='Clear out all cached udpates and exit')
-  parser.add_option('--client_prefix', dest='client_prefix_deprecated',
-                    help='No longer used.  It is still here so we don\'t break '
-                    'scripts that used it.', default='')
+                    help='Clear out all cached updates and exit')
   parser.add_option('--critical_update', dest='critical_update',
                     action='store_true', default=False,
                     help='Present update payload as critical')
@@ -527,10 +524,6 @@ def main():
         sys.exit(1)
   else:
     os.makedirs(cache_dir)
-
-  if options.client_prefix_deprecated:
-    cherrypy.log('The --client_prefix argument is DEPRECATED, '
-                 'and is no longer needed.', 'DEVSERVER')
 
   cherrypy.log('Data dir is %s' % options.data_dir, 'DEVSERVER')
   cherrypy.log('Source root is %s' % root_dir, 'DEVSERVER')

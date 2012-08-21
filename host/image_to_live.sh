@@ -157,7 +157,6 @@ start_dev_server() {
 
   info "Starting devserver with flags ${devserver_flags}"
   cros_sdk -- sudo sh -c "start_devserver ${devserver_flags} \
-       --client_prefix=ChromeOSUpdateEngine \
        --board=${FLAGS_board} \
        --port=${FLAGS_devserver_port} > ${FLAGS_server_log} 2>&1" &
 

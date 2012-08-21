@@ -60,7 +60,6 @@ class AutoupdateTest(mox.MoxTestBase):
     dummy = autoupdate.Autoupdate(root_dir=None,
                                   static_dir=self.static_image_dir,
                                   port=self.port)
-    dummy.client_prefix = 'ChromeOSUpdateEngine'
     return dummy
 
   def testGetRightSignedDeltaPayloadDir(self):

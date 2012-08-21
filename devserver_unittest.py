@@ -78,7 +78,6 @@ class DevserverTest(unittest.TestCase):
         'python',
         os.path.join(base_dir, 'devserver.py'),
         '--validate_factory_config',
-        '--client_prefix', TEST_CLIENT_PREFIX,
         '--factory_config', self.factory_config,
     ]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -92,7 +91,6 @@ class DevserverTest(unittest.TestCase):
         'python',
         os.path.join(base_dir, 'devserver.py'),
         'devserver.py',
-        '--client_prefix', TEST_CLIENT_PREFIX,
         '--factory_config', self.factory_config,
     ]
     if data_dir:
