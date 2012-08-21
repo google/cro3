@@ -188,7 +188,7 @@ class Bundle:
     if not self.bct_fname:
       self.bct_fname = os.path.join(build_root, 'bct', 'board.bct')
     if not self.bmpblk_fname:
-      self.bmpblk_fname = os.path.join(build_root, 'default.bmpblk')
+      self.bmpblk_fname = os.path.join(build_root, 'bmpblk.bin')
     if not self.exynos_bl1:
       self.exynos_bl1 = os.path.join(build_root, 'E5250.nbl1.bin')
     if not self.exynos_bl2:
