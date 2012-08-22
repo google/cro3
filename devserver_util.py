@@ -124,10 +124,21 @@ def WaitUntilAvailable(to_wait_list, archive_url, err_str, timeout=600,
 
   deadline = time.time() + timeout
   while time.time() < deadline:
+    uploaded_list = []
     to_delay = delay + random.uniform(.5 * delay, 1.5 * delay)
-    # Run "gsutil cat" to retrieve the list
-    uploaded_list = gsutil_util.GSUtilRun(cmd, msg).splitlines()
-    # Check if all target artifacts are available
+    try:
+      # Run "gsutil cat" to retrieve the list.
+      uploaded_list = gsutil_util.GSUtilRun(cmd, msg).splitlines()
+    except gsutil_util.GSUtilError:
+      # For backward compatibility, fallling back to use "gsutil ls"
+      # when the manifest file is not present.
+      cmd = 'gsutil ls %s/*' % archive_url
+      msg = 'Failed to list payloads.'
+      payload_list = gsutil_util.GSUtilRun(cmd, msg).splitlines()
+      for payload in payload_list:
+        uploaded_list.append(payload.rsplit('/', 1)[1])
+
+    # Check if all target artifacts are available.
     if IsAvailable(to_wait_list, uploaded_list):
       return uploaded_list
     cherrypy.log('Retrying in %f seconds...%s' % (to_delay, err_str))
