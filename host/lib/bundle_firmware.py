@@ -754,7 +754,18 @@ class Bundle:
       pack.AddProperty('ecrw', self.ecrw_fname)
       pack.AddProperty('ecbin', self.ecrw_fname)
     elif blob_type == 'ecro':
-      pack.AddProperty(blob_type, self.ecro_fname)
+      # crosbug.com/p/13143
+      # We cannot have an fmap in the EC image since there can be only one,
+      # which is the main fmap describing the whole image.
+      # Ultimately the EC will not have an fmap, since with software sync
+      # there is no flashrom involvement in updating the EC flash, and thus
+      # no need for the fmap.
+      # For now, mangle the fmap name to avoid problems.
+      updated_ecro = os.path.join(self._tools.outdir, 'updated-ecro.bin')
+      data = self._tools.ReadFile(self.ecro_fname)
+      data = re.sub('__FMAP__', '__fMAP__', data)
+      self._tools.WriteFile(updated_ecro, data)
+      pack.AddProperty(blob_type, updated_ecro)
     elif blob_type == 'exynos-bl2':
       spl_payload = pack.GetBlobParams(blob_type)
 
