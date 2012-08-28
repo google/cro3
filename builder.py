@@ -45,26 +45,19 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
   """
 
   # Grab metadata about package in xpak format.
-  x = xpak.xpak_mem(xpak.tbz2(in_path).get_data())
+  my_xpak = xpak.xpak_mem(xpak.tbz2(in_path).get_data())
 
   # Build list of files to exclude. The tar command uses a slightly
   # different exclude format than gmerge, so it needs to be adjusted
   # appropriately.
-  #
-  # 1. tar matches against relative paths instead of absolute paths,
-  #    so we need to prepend '.' to any paths that don't start with
-  #    a wildcard.
-  # 2. tar expects the full filename to match (instead of a prefix),
-  #    so we need to append a wildcard to any paths that don't already
-  #    end with a wildcard.
-  excludes = []
-  for pattern in os.environ['DEFAULT_INSTALL_MASK'].split():
-    if not pattern.startswith('*'):
-      pattern = '.' + pattern
-    elif not pattern.endswith('*'):
-      pattern = pattern + '*'
-    excludes.append('--exclude="%s"' % pattern)
-  excludes = ' '.join(excludes)
+  masks = os.environ['DEFAULT_INSTALL_MASK'].split()
+  # Look for complete paths matching the specified pattern.  Leading slashes
+  # are removed so that the paths are relative. Trailing slashes are removed
+  # so that we delete the directory itself when the '/usr/include/' path is
+  # given.
+  masks = [mask.strip('/') for mask in masks]
+  masks = ['--exclude="' + mask + '"' for mask in masks]
+  excludes = ' '.join(masks)
 
   gmerge_dir = os.path.dirname(out_path)
   subprocess.check_call(['mkdir', '-p', gmerge_dir])
@@ -83,7 +76,7 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
     subprocess.check_call(['sudo', 'rm', '-rf', tmpd])
 
   # Copy package metadata over to new package file.
-  xpak.tbz2(out_path).recompose_mem(x)
+  xpak.tbz2(out_path).recompose_mem(my_xpak)
 
 
 def UpdateGmergeBinhost(board, pkg, deep):
