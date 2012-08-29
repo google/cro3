@@ -431,13 +431,12 @@ class WriteFirmware:
           # The IROM needs roughly 200ms here to be ready for USB download
           time.sleep(.5)
 
+        args = ['-a', '%#x' % item[1], '-f', item[2]]
+        self._tools.Run('smdk-usbdl', args, sudo=True)
         if upto == 1:
           # Once SPL starts up we can release the power buttom
           args = ['fw_up:off', 'pwr_button:release']
           self._tools.Run('dut-control', args)
-
-        args = ['-a', '%#x' % item[1], '-f', item[2]]
-        self._tools.Run('smdk-usbdl', args, sudo=True)
 
     finally:
       # Make sure that the power button is released, whatever happens
