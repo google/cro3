@@ -14,8 +14,23 @@ fi
 
 export DEFAULT_INSTALL_MASK
 
+# Trap and record various signals.
+for sig in INT TERM QUIT; do
+  trap "trap_sig=${sig}" ${sig}
+done
+
+# Spawn devserver in the background, record its pid.
 if [ -f /usr/lib/devserver/devserver.py ]; then
-  python /usr/lib/devserver/devserver.py "$@"
+  python /usr/lib/devserver/devserver.py "$@" &
 else
-  python /usr/bin/devserver.py "$@"
+  python /usr/bin/devserver.py "$@" &
+fi
+devserver_pid=$!
+
+# Wait for devserver to die, or a signal.
+wait
+
+# If interrupted by signal, forward it to the devserver.
+if [ -n "${trap_sig}" ]; then
+  kill -s ${trap_sig} ${devserver_pid}
 fi
