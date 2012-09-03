@@ -14,8 +14,8 @@ fi
 
 export DEFAULT_INSTALL_MASK
 
-# Trap various signals.
-trap 'trap_flag=1' INT TERM QUIT
+# Trap various signals (but do nothing about it).
+trap : INT TERM QUIT
 
 # Spawn devserver in the background, record its pid.
 if [ -f /usr/lib/devserver/devserver.py ]; then
@@ -25,10 +25,10 @@ else
 fi
 devserver_pid=$!
 
-# Wait for devserver to die, or a signal.
+# Wait for devserver to terminate. If we're interrupted by a signal, kill the
+# devserver and wait for it to die.
 wait
-
-# If interrupted by signal, kill the devserver.
-if [ -n "${trap_flag}" ]; then
+while [ $? -ge 128 ]; do
   kill ${devserver_pid}
-fi
+  wait
+done
