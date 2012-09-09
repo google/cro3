@@ -16,14 +16,18 @@ So we can use filenames like this:
 
 """
 
+import doctest
 import optparse
 import os
+import re
 import shutil
 import sys
 import tempfile
+import unittest
+import mox
+import cros_build_lib
 
 from cros_build_lib import RunCommandCaptureOutput
-import cros_build_lib
 import cros_output
 
 
@@ -33,7 +37,7 @@ class CmdError(Exception):
 
 
 class Tools:
-  """A class to encapsulate the external tools we want to run
+  """A class to encapsulate the external tools we want to run.
 
   This provides convenient functions for running tools inside/outside the
   chroot.
@@ -54,11 +58,16 @@ class Tools:
     third_party_path: third_parth directory (src/third_party)
     cros_overlay_path: Chromium OS overlay (src/chromiumos-overlay)
   """
+
   def __init__(self, output):
     """Set up the tools system.
 
     Args:
       output: cros_output object to use for output.
+
+    Raises:
+      IOError: Unable to find .repo directory
+
     """
     # Detect whether we're inside a chroot or not
     self.in_chroot = cros_build_lib.IsInsideChroot()
@@ -75,25 +84,25 @@ class Tools:
 
     self._out.Info("Chroot is at '%s'" % self.chroot_path)
     self._tools = {
-      'make_bmp_image' : '##/usr/share/vboot/bitmaps/make_bmp_images.sh',
-      'bct_dump' : '##/usr/bin/bct_dump',
-      'tegrarcm' : '##/usr/bin/tegrarcm',
-      'gbb_utility' : '##/usr/bin/gbb_utility',
-      'cbfstool' : '##/usr/bin/cbfstool',
-      'fdisk' : '##/sbin/fdisk',
+      'make_bmp_image': '##/usr/share/vboot/bitmaps/make_bmp_images.sh',
+      'bct_dump': '##/usr/bin/bct_dump',
+      'tegrarcm': '##/usr/bin/tegrarcm',
+      'gbb_utility': '##/usr/bin/gbb_utility',
+      'cbfstool': '##/usr/bin/cbfstool',
+      'fdisk': '##/sbin/fdisk',
     }
-    self.outdir = None          # We have no output directory yet
-    self._delete_tempdir = None # And no temporary directory to delete
+    self.outdir = None            # We have no output directory yet
+    self._delete_tempdir = None   # And no temporary directory to delete
     self.search_paths = []
 
   def __enter__(self):
     return self
 
-  def __exit__(self, type, value, traceback):
+  def __exit__(self, the_type, value, traceback):
     self.FinalizeOutputDir()
     return False
 
-  def _SetRoot(self, root_dir):
+  def _SetRoot(self, root_dir, build_lib=cros_build_lib):
     """Sets the root directory for the build envionrment.
 
     The root directory is the one containing .repo, chroot and src.
@@ -103,6 +112,7 @@ class Tools:
 
     Args:
       root_dir: The path to the root directory.
+      build_lib: The cros_build_lib lib module (used for testing).
     """
     self._root = os.path.normpath(root_dir)
 
@@ -110,7 +120,7 @@ class Tools:
     if self.in_chroot:
       self.chroot_path = '/'
     else:
-      self.chroot_path = cros_build_lib.PrependChrootPath('')
+      self.chroot_path = build_lib.PrependChrootPath('')
     self.src_path = os.path.join(self._root, 'src')
     self.script_path = os.path.join(self.src_path, 'scripts')
     self.overlay_path = os.path.join(self.src_path, 'overlays')
@@ -119,7 +129,7 @@ class Tools:
     self.board_path = os.path.join(self.chroot_path, 'build')
     self.third_party_path = os.path.join(self.src_path, 'third_party')
     self.cros_overlay_path = os.path.join(self.third_party_path,
-                                'chromiumos-overlay')
+                                          'chromiumos-overlay')
 
   def Filename(self, fname):
     """Resolve a chroot-relative filename to an absolute path.
@@ -131,7 +141,7 @@ class Tools:
     Args:
       fname: Filename to convert.
 
-    Returns
+    Returns:
       Absolute path to filename.
     """
     if fname.startswith('##/'):
@@ -165,8 +175,9 @@ class Tools:
     Returns:
       Output of tool (stdout).
 
-    Raises
-      CmdError if running the tool, or the tool itself creates an error"""
+    Raises:
+      CmdError: If running the tool, or the tool itself creates an error.
+    """
     if tool in self._tools:
       tool = self._tools[tool]
     tool = self.Filename(tool)
@@ -175,8 +186,9 @@ class Tools:
     if sudo:
       cmd.insert(0, 'sudo')
     try:
-      rc, stdout, err = RunCommandCaptureOutput(cmd,
-          print_cmd=self._out.verbose > 3, cwd=cwd)
+      rc, stdout, _ = RunCommandCaptureOutput(cmd,
+                                              print_cmd=self._out.verbose > 3,
+                                              cwd=cwd)
     except OSError:
       raise CmdError('Command not found: %s' % (' '.join(cmd)))
     if rc:
@@ -197,7 +209,7 @@ class Tools:
     data = fd.read()
     fd.close()
     self._out.Info("Read file '%s' size %d (%#0x)" %
-        (fname, len(data), len(data)))
+                   (fname, len(data), len(data)))
     return data
 
   def WriteFile(self, fname, data):
@@ -208,7 +220,7 @@ class Tools:
       data: data to write to file, as a string.
     """
     self._out.Info("Write file '%s' size %d (%#0x)" %
-        (fname, len(data), len(data)))
+                   (fname, len(data), len(data)))
     fd = open(self.Filename(fname), 'wb')
     fd.write(data)
     fd.close()
@@ -238,7 +250,7 @@ class Tools:
     return data, offset, length
 
   def GetChromeosVersion(self):
-    """Returns the ChromeOS version string
+    """Returns the ChromeOS version string.
 
     This works by finding and executing the version script:
 
@@ -252,13 +264,13 @@ class Tools:
           be executed.
     """
     version_script = os.path.join(self.cros_overlay_path, 'chromeos', 'config',
-          'chromeos_version.sh')
+                                  'chromeos_version.sh')
 
     if os.path.exists(version_script):
-      str = self.Run('sh', ['-c', '. %s >/dev/null; '
-          'echo ${CHROMEOS_VERSION_STRING}'
-          % version_script])
-      return str.strip()
+      result = self.Run('sh', ['-c', '. %s >/dev/null; '
+                               'echo ${CHROMEOS_VERSION_STRING}'
+                               % version_script])
+      return result.strip()
     raise CmdError("Cannot find version script 'chromeos_version.sh'")
 
   def CheckTool(self, name, ebuild=None):
@@ -281,10 +293,10 @@ class Tools:
         filename = self._tools[filename]
       filename = self.Filename(filename)
       self.Run('which', [filename])
-    except CmdError as err:
+    except CmdError:
       raise CmdError("The '%s' utility was not found in your path. "
-          "Run the following command in \nyour chroot to install it: "
-          "sudo -E emerge %s" % (filename, ebuild or name))
+                     "Run the following command in \nyour chroot to install "
+                     "it: sudo -E emerge %s" % (filename, ebuild or name))
 
   def OutputSize(self, label, filename, level=cros_output.NOTICE):
     """Display the filename and size of an object.
@@ -296,8 +308,8 @@ class Tools:
     """
     filename = self.Filename(filename)
     size = os.stat(filename).st_size
-    self._out.DoOutput(level, "%s: %s; size: %d / %#x" %
-        (label, filename, size, size))
+    self._out.DoOutput(level, '%s: %s; size: %d / %#x' %
+                       (label, filename, size, size))
 
   def PrepareOutputDir(self, outdir, preserve=False):
     """Select an output directory, ensuring it exists.
@@ -308,6 +320,8 @@ class Tools:
 
     Args:
       outdir: Output directory to use, or None to use a temporary dir.
+      preserve: True to preserve directory contents when the tools object is
+          destroyed. Otherwise if it is a temporary dir, it will be removed.
 
     Raises:
       OSError: If it cannot create the output directory.
@@ -315,33 +329,324 @@ class Tools:
     self.outdir = outdir
     self.preserve_outdir = preserve
     if self.outdir:
+      self._delete_tempdir = False
       if not os.path.isdir(self.outdir):
         try:
           os.makedirs(self.outdir)
         except OSError as err:
           raise CmdError("Cannot make output directory '%s': '%s'" %
-              (self.outdir, err))
+                         (self.outdir, err))
 
     else:
       self.outdir = tempfile.mkdtemp()
       self._delete_tempdir = self.outdir
       self._out.Debug("Using temporary directory '%s'" %
-          self._delete_tempdir)
+                      self._delete_tempdir)
 
   def FinalizeOutputDir(self):
-    """Tidy up the output direcory, deleting it if temporary"""
+    """Tidy up the output direcory, deleting it if temporary."""
     if self._delete_tempdir and not self.preserve_outdir:
       shutil.rmtree(self._delete_tempdir)
       self._out.Debug("Deleted temporary directory '%s'" %
-          self._delete_tempdir)
+                      self._delete_tempdir)
       self._delete_tempdir = None
     elif self.outdir:
       self._out.Debug("Output directory '%s'" % self.outdir)
 
-def _Test():
+  def GetOutputFilename(self, fname):
+    """Return a filename within the output directory.
+
+    Args:
+      fname: Filename to use for new file
+
+    Returns:
+      The full path of the filename, within the output directory
+    """
+    return os.path.join(self.outdir, fname)
+
+
+# pylint: disable=W0212,C6409
+class ToolsTests(unittest.TestCase):
+  """Unit tests for this module."""
+
+  def setUp(self):
+    self.out = cros_output.Output(False)
+    self.tools = Tools(self.out)
+
+  def MakeOutsideChroot(self, base):
+    tools = Tools(self.out)
+    tools.in_chroot = False
+    moc_cros_build_lib = mox.MockObject(cros_build_lib)
+    moc_cros_build_lib.PrependChrootPath('').AndReturn(base)
+    mox.Replay(moc_cros_build_lib)
+    tools._SetRoot(base, moc_cros_build_lib)
+    return tools
+
+  def testPaths(self):
+    tools = self.tools
+
+    # We expect tests to be run inside the chroot (mostly).
+    self.assertTrue(tools.in_chroot)
+    self.assertTrue(os.path.isdir(os.path.join(tools._root, '.repo')))
+
+  def _testToolsPaths(self, base, tools):
+    """Common paths tests to run inside and outside chroot.
+
+    These tests are the same inside and outside the choot, so we put them in a
+    separate function.
+
+    Args:
+      base: Base directory to use for testing (contains the 'src' directory).
+      tools: Tools object to use.
+    """
+    self.assertEqual(tools._root, base[:-1])
+    self.assertEqual(tools.src_path, base + 'src')
+    self.assertEqual(tools.script_path, base + 'src/scripts')
+    self.assertEqual(tools.overlay_path, base + 'src/overlays')
+    self.assertEqual(tools.priv_overlay_path, base + 'src/private-overlays')
+    self.assertEqual(tools.third_party_path, base + 'src/third_party')
+    self.assertEqual(tools.cros_overlay_path, base +
+                     'src/third_party/chromiumos-overlay')
+
+  def testSetRootInsideChroot(self):
+    """Inside the chroot, paths are slightly different from outside."""
+    tools = Tools(self.out)
+
+    # Force our own path.
+    base = '/air/bridge/'
+    tools._SetRoot(base)
+
+    # We should get a full path from that without the trailing '/'.
+    self.assertEqual(tools.chroot_path, '/')
+    self.assertEqual(tools.board_path, '/build')
+    self._testToolsPaths(base, tools)
+
+  def testSetRootOutsideChroot(self):
+    """Pretend to be outside the chroot, and check that paths are correct."""
+
+    # Force our own path, outside the chroot.
+    base = '/spotty/light/'
+    tools = self.MakeOutsideChroot(base)
+
+    # We should get a full path from that without the trailing '/'.
+    self.assertEqual(tools.chroot_path, base)
+    self.assertEqual(tools.board_path, base + 'build')
+    self._testToolsPaths(base, tools)
+
+  def _testToolsFilenames(self, tools):
+    """Common filename tests to run inside and outside chroot.
+
+    These tests are the same inside and outside the choot, so we put them in a
+    separate function.
+
+    Args:
+      tools: Tools object to use.
+    """
+    self.assertEqual(tools.Filename('/root/based/'),
+                     '/root/based/')
+
+    # Try search paths in /bin and /ls.
+    tools.search_paths = ['/bin', '/lib']
+    file_in_bin = os.listdir('/bin')[0]
+    self.assertEqual(tools.Filename(file_in_bin), '/bin/%s' % file_in_bin)
+    file_in_lib = os.listdir('/lib')[0]
+    self.assertEqual(tools.Filename(file_in_lib), '/lib/%s' % file_in_lib)
+    self.assertEqual(tools.Filename('i-am-not-here'), 'i-am-not-here')
+
+    # Don't search for an empty file.
+    self.assertEqual(tools.Filename(''), '')
+
+  def testFilenameInsideChroot(self):
+    """Test that we can specify search paths and they work correctly.
+
+    Test search patches inside the chroot.
+    """
+    tools = Tools(self.out)
+
+    # Force our own path.
+    base = '/air/bridge/'
+    tools._SetRoot(base)
+
+    self.assertEqual(tools.Filename('##/fred'), '/fred')
+    self.assertEqual(tools.Filename('##/just/a/short/dir/'),
+                     '/just/a/short/dir/')
+
+    self._testToolsFilenames(tools)
+
+  def testFilenameOutsideChroot(self):
+    """Test that we can specify search paths and they work correctly.
+
+    Test search patches outside the chroot.
+    """
+    base = '/home/'
+    tools = self.MakeOutsideChroot(base)
+
+    self.assertEqual(tools.Filename('##/fred'), base + 'fred')
+    self.assertEqual(tools.Filename('##/just/a/short/dir/'),
+                     base + 'just/a/short/dir/')
+
+    self._testToolsFilenames(tools)
+
+  def testReadWriteFile(self):
+    """Test our read/write utility functions."""
+    tools = Tools(self.out)
+    tools.PrepareOutputDir(None)
+    data = 'some context here' * 2
+
+    fname = tools.GetOutputFilename('bang')
+    tools.WriteFile(fname, data)
+
+    # Check that the file looks correct.
+    compare = tools.ReadFile(fname)
+    self.assertEqual(data, compare)
+
+  def testReadFileAndConcat(self):
+    """Test 'cat' of several files."""
+    tools = Tools(self.out)
+    tools.PrepareOutputDir(None)
+    file_list = ['one', 'empty', 'two', 'three', 'four']
+    out_list = [tools.GetOutputFilename(fname) for fname in file_list]
+    file_list[1] = ''   # Empty the 'empty' file.
+    for upto in range(len(file_list)):
+      tools.WriteFile(out_list[upto], file_list[upto])
+
+    data, offset, length = tools.ReadFileAndConcat(out_list)
+    self.assertEqual(len(data), 20)
+    self.assertEqual(offset, [0, 4, 4, 8, 16])
+    self.assertEqual(length, [3, 0, 3, 5, 4])
+
+  def testGetChromeosVersion(self):
+    """Test for GetChromeosVersion() inside and outside chroot.
+
+    This function returns a string like '2893.0.2012_09_16_2219'.
+    """
+    tools = self.tools
+
+    self.assertTrue(tools.in_chroot)
+    re_version = re.compile('\d{4}.\d+.\d{4}_\d{2}_\d{2}_\d+')
+    self.assertTrue(re_version.match(tools.GetChromeosVersion()))
+
+    tools = Tools(self.out)
+
+    # Force our own path, outside the chroot. This should fail.
+    base = 'invalid-dir'
+    tools = self.MakeOutsideChroot(base)
+    tools.in_chroot = False
+    self.assertRaises(CmdError, tools.GetChromeosVersion)
+
+  def testCheckTool(self):
+    """Test for the CheckTool() method."""
+    tools = self.tools
+
+    tools.CheckTool('fdisk')
+    tools.CheckTool('gbb_utility')
+    self.assertRaises(CmdError, tools.CheckTool, 'non-existent-tool')
+    tools.CheckTool('fdisk')
+    self.assertRaises(CmdError, tools.CheckTool, '/usr/bin/fdisk')
+
+  def testRun(self):
+    """Test for the Run() method."""
+    tools = self.tools
+
+    # Ask fdisk for its version - this utility must be in the chroot.
+    re_fdisk = re.compile('fdisk \(util-linux .*\)')
+    self.assertTrue(re_fdisk.match(tools.Run('fdisk', ['-v'])))
+
+    # We need sudo for looking at disks.
+    self.assertEqual(tools.Run('fdisk', ['-l', '/dev/sda']),
+                     'Cannot open /dev/sda\n')
+    out = tools.Run('fdisk', ['-l', '/dev/sda'], sudo=True)
+
+    #  Don't look at the specific output, but it will have > 5 lines.
+    self.assertTrue(len(out.splitlines()) > 5)
+
+    self.assertEqual(tools.Run('pwd', [], cwd='/tmp'), '/tmp\n')
+
+  def testOutputDir(self):
+    """Test output directory creation and deletion."""
+    tools = self.tools
+
+    # First check basic operation, creating and deleting a tmpdir.
+    tools.PrepareOutputDir(None)
+    fname = tools.GetOutputFilename('fred')
+    tools.WriteFile(fname, 'You are old, Father William, the young man said')
+    dirname = tools.outdir
+    tools.FinalizeOutputDir()
+    self.assertFalse(os.path.exists(fname))
+    self.assertFalse(os.path.exists(dirname))
+
+    # Try preserving it.
+    tools.PrepareOutputDir(None, True)
+    fname = tools.GetOutputFilename('fred')
+    tools.WriteFile(fname, 'and your hair has become very white')
+    dirname = tools.outdir
+    tools.FinalizeOutputDir()
+    self.assertTrue(os.path.exists(fname))
+    self.assertTrue(os.path.exists(dirname))
+    shutil.rmtree(dirname)
+
+    # Use our own directory, which is always preserved.
+    testdir = '/tmp/tools-test.test'
+    tools.PrepareOutputDir(testdir)
+    fname = tools.GetOutputFilename('fred')
+    tools.WriteFile(fname, 'and yet you incessantly stand on your head')
+    dirname = tools.outdir
+    tools.FinalizeOutputDir()
+    self.assertTrue(os.path.exists(fname))
+    self.assertTrue(os.path.exists(dirname))
+    shutil.rmtree(dirname)
+
+    # Try creating an invalid directory.
+    testdir = '/sys/cannot/do/this/here'
+    self.assertRaises(CmdError, tools.PrepareOutputDir, testdir)
+    fname = tools.GetOutputFilename('fred')
+    self.assertRaises(IOError, tools.WriteFile, fname,
+                      'do you think at your age it is right?')
+    dirname = tools.outdir
+    tools.FinalizeOutputDir()
+
+  def _OutputMock(self, level, msg, color=None):
+    self._level = level
+    self._msg = msg
+    self._color = color
+
+  def testOutputSize(self):
+    """Test for OutputSize() function."""
+    tools = self.tools
+
+    # Rather than mocks, use a special Output object.
+    out = tools._out
+    out._Output = self._OutputMock
+
+    tools.PrepareOutputDir(None)
+    fname = tools.GetOutputFilename('fred')
+    text_string = 'test of output size'
+    tools.WriteFile(fname, text_string)
+
+    re_fname = re.compile('fred')
+    re_size = re.compile('.*size: (\d*)')
+
+    tools.OutputSize('first', fname, level=cros_output.ERROR)
+    self.assertEqual(self._level, cros_output.ERROR)
+    self.assertTrue(re_fname.search(self._msg))
+    self.assertEqual(self._color, None)
+
+    # Check the default level, and that the filename length is given.
+    tools.OutputSize('second', fname)
+    self.assertEqual(self._level, cros_output.NOTICE)
+    self.assertTrue(re_fname.search(self._msg))
+    self.assertEqual(self._color, None)
+    m = re_size.match(self._msg)
+    self.assertEqual(m.group(1), str(len(text_string)))
+
+    tools.FinalizeOutputDir()
+
+
+def _Test(argv):
   """Run any built-in tests."""
-  import doctest
   doctest.testmod()
+  unittest.main(argv=argv)
+
 
 def main():
   """Main function for tools.
@@ -352,8 +657,9 @@ def main():
   """
   parser = optparse.OptionParser()
   parser.add_option('-v', '--verbosity', dest='verbosity', default=1,
-      type='int', help='Control verbosity: 0=silent, 1=progress, 3=full, '
-      '4=debug')
+                    type='int',
+                    help='Control verbosity: 0=silent, 1=progress, 3=full, '
+                    '4=debug')
 
   help_str = '%s [options] cmd [args]\n\nAvailable commands:\n' % sys.argv[0]
   help_str += '\tchromeos-version\tDisplay Chrome OS version'
@@ -372,7 +678,7 @@ def main():
     parser.error("Unknown command '%s'" % args[0])
 
 if __name__ == '__main__':
-  if sys.argv[1:2] == ["--test"]:
-    _Test(*sys.argv[2:])
+  if sys.argv[1:2] == ['--test']:
+    _Test([sys.argv[0]] + sys.argv[2:])
   else:
     main()
