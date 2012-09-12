@@ -24,6 +24,24 @@ DEV_BUILD_PREFIX = 'dev'
 UPLOADED_LIST = 'UPLOADED'
 DEVSERVER_LOCK_FILE = 'devserver'
 
+
+def CommaSeparatedList(value_list, is_quoted=False):
+  """Concatenates a list of strings.
+
+  This turns ['a', 'b', 'c'] into a single string 'a, b and c'. It optionally
+  adds quotes (`a') around each element. Used for logging.
+
+  """
+  if is_quoted:
+    value_list = ["`" + value + "'" for value in value_list]
+
+  if len(value_list) > 1:
+    return (', '.join(value_list[:-1]) + ' and ' + value_list[-1])
+  elif value_list:
+    return value_list[0]
+  else:
+    return ''
+
 class DevServerUtilError(Exception):
   """Exception classes used by this module."""
   pass
@@ -149,7 +167,7 @@ def WaitUntilAvailable(to_wait_list, archive_url, err_str, timeout=600,
   raise DevServerUtilError('Missing %s for %s.' % (err_str, archive_url))
 
 
-def GatherArtifactDownloads(main_staging_dir, archive_url, build, build_dir,
+def GatherArtifactDownloads(main_staging_dir, archive_url, build_dir, build,
                             timeout=600, delay=10):
   """Generates artifacts that we mean to download and install for autotest.
 
@@ -243,15 +261,44 @@ def GatherSymbolArtifactDownloads(temp_download_dir, archive_url, staging_dir,
           Also, it's possible that someday we might have more than one.
   """
 
-  # Wait up to 10 minutes for the debug symbols to be uploaded.
-  to_wait_list = [downloadable_artifact.DEBUG_SYMBOLS]
-  err_str = 'debug symbols'
-  WaitUntilAvailable(to_wait_list, archive_url, err_str, timeout=timeout,
-                     delay=delay)
+  artifact_name = downloadable_artifact.DEBUG_SYMBOLS
+  WaitUntilAvailable([artifact_name], archive_url, 'debug symbols',
+                     timeout=timeout, delay=delay)
+  artifact = downloadable_artifact.DebugTarball(
+      archive_url + '/' + artifact_name,
+      temp_download_dir,
+      staging_dir)
+  return [artifact]
 
-  symbol_url = archive_url + '/' + downloadable_artifact.DEBUG_SYMBOLS
-  return [downloadable_artifact.DebugTarball(symbol_url, temp_download_dir,
-                                             staging_dir)]
+
+def GatherImageArchiveArtifactDownloads(temp_download_dir, archive_url,
+                                        staging_dir, image_file_list,
+                                        timeout=600, delay=10):
+  """Generates image archive artifact(s) for downloading / staging.
+
+  Generates the list of artifacts that are used for extracting Chrome OS images
+  from. Currently, it returns a single artifact, which is a zipfile configured
+  to extract a given list of images. It first polls Google Storage unti lthe
+  desired artifacts become available (or a timeout expires).
+
+  Args:
+    temp_download_dir: temporary directory, used for downloading artifacts
+    archive_url:       URI to the bucket where the artifacts are stored
+    staging_dir:       directory into which to stage the extracted files
+    image_file_list:   list of image files to be extracted
+  Returns:
+    list of downloadable artifacts (of type Zipfile), currently containing a
+    single obejct
+  """
+
+  artifact_name = downloadable_artifact.IMAGE_ARCHIVE
+  WaitUntilAvailable([artifact_name], archive_url, 'image archive',
+                     timeout=timeout, delay=delay)
+  artifact = downloadable_artifact.Zipfile(
+      archive_url + '/' + artifact_name,
+      temp_download_dir, staging_dir,
+      unzip_file_list=image_file_list)
+  return [artifact]
 
 
 def PrepareBuildDirectory(build_dir):

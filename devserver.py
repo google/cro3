@@ -426,6 +426,30 @@ class DevServerRoot(object):
                                            params['control_path'])
 
   @cherrypy.expose
+  def stage_images(self, **kwargs):
+    """Downloads and stages a Chrome OS image from Google Storage.
+
+    This method downloads a zipped archive from a specified GS location, then
+    extracts and stages the specified list of images and stages them under
+    static/images/BOARD/BUILD/. Download is synchronous.
+
+    Args:
+      archive_url: Google Storage URL for the build.
+      image_types: comma-separated list of images to download, may include
+                   'test', 'recovery', and 'base'
+
+    Example URL:
+      http://myhost/stage_images?archive_url=gs://chromeos-image-archive/
+      x86-generic/R17-1208.0.0-a1-b338&image_types=test,base
+    """
+    # TODO(garnold) This needs to turn into an async operation, to avoid
+    # unnecessary failure of concurrent secondary requests (chromium-os:34661).
+    archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
+    image_types = kwargs.get('image_types').split(',')
+    return (downloader.ImagesDownloader(
+        updater.static_dir).Download(archive_url, image_types))
+
+  @cherrypy.expose
   def index(self):
     return 'Welcome to the Dev Server!'
 

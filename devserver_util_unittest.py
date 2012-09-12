@@ -353,7 +353,7 @@ class DevServerUtilTest(mox.MoxTestBase):
 
     self.mox.ReplayAll()
     artifacts = devserver_util.GatherArtifactDownloads(
-        self._static_dir, archive_url_prefix, build, self._install_dir)
+        self._static_dir, archive_url_prefix, self._install_dir, build)
     for index, artifact in enumerate(artifacts):
       self.assertEqual(artifact._gs_path, expected_payloads[index])
       self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
@@ -388,7 +388,7 @@ class DevServerUtilTest(mox.MoxTestBase):
 
     self.mox.ReplayAll()
     artifacts = devserver_util.GatherArtifactDownloads(
-        self._static_dir, archive_url_prefix, build, self._install_dir)
+        self._static_dir, archive_url_prefix, self._install_dir, build)
     for index, artifact in enumerate(artifacts):
       self.assertEqual(artifact._gs_path, expected_payloads[index])
       self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
@@ -424,7 +424,7 @@ class DevServerUtilTest(mox.MoxTestBase):
 
     self.mox.ReplayAll()
     artifacts = devserver_util.GatherArtifactDownloads(
-        self._static_dir, archive_url_prefix, build, self._install_dir)
+        self._static_dir, archive_url_prefix, self._install_dir, build)
     for index, artifact in enumerate(artifacts):
       self.assertEqual(artifact._gs_path, expected_payloads[index])
       self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))

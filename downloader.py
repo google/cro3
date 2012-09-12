@@ -119,7 +119,7 @@ class Downloader(object):
       cherrypy.log('Gathering download requirements %s' % archive_url,
                    self._LOG_TAG)
       artifacts = self.GatherArtifactDownloads(
-          self._staging_dir, archive_url, short_build, self._build_dir)
+          self._staging_dir, archive_url, self._build_dir, short_build)
       devserver_util.PrepareBuildDirectory(self._build_dir)
 
       cherrypy.log('Downloading foreground artifacts from %s' % archive_url,
@@ -189,14 +189,14 @@ class Downloader(object):
                               args=(artifacts,))
     thread.start()
 
-  def GatherArtifactDownloads(self, main_staging_dir, archive_url, short_build,
-                              build_dir):
+  def GatherArtifactDownloads(self, main_staging_dir, archive_url, build_dir,
+                              short_build):
     """Wrapper around devserver_util.GatherArtifactDownloads().
 
     The wrapper allows mocking and overriding in derived classes.
     """
     return devserver_util.GatherArtifactDownloads(main_staging_dir, archive_url,
-                                                  short_build, build_dir)
+                                                  build_dir, short_build)
 
   def GetStatusOfBackgroundDownloads(self):
     """Returns the status of the background downloads.
@@ -268,7 +268,7 @@ class SymbolDownloader(Downloader):
                    self._LOG_TAG)
 
       [symbol_artifact] = self.GatherArtifactDownloads(
-          self._staging_dir, archive_url, '', self._static_dir)
+          self._staging_dir, archive_url, self._static_dir)
       symbol_artifact.Download()
       symbol_artifact.Stage()
       self.MarkSymbolsStaged()
@@ -291,16 +291,16 @@ class SymbolDownloader(Downloader):
 
     return 'Success'
 
-  def GatherArtifactDownloads(self, temp_download_dir, archive_url, short_build,
-                              static_dir):
+  def GatherArtifactDownloads(self, temp_download_dir, archive_url, static_dir,
+                              short_build=None):
     """Call SymbolDownloader-appropriate artifact gathering method.
 
     @param temp_download_dir: the tempdir into which we're downloading artifacts
                               prior to staging them.
     @param archive_url: the google storage url of the bucket where the debug
                         symbols for the desired build are stored.
-    @param short_build: IGNORED
     @param staging_dir: the dir into which to stage the symbols
+    @param short_build: (ignored)
 
     @return an iterable of one DebugTarball pointing to the right debug symbols.
             This is an iterable so that it's similar to GatherArtifactDownloads.
@@ -322,3 +322,157 @@ class SymbolDownloader(Downloader):
     return os.path.isfile(os.path.join(static_dir,
                                        sub_directory,
                                        self._DONE_FLAG))
+
+
+class ImagesDownloader(Downloader):
+  """Download and stage prebuilt images for a given build.
+
+  Given a URL to a build on the archive server and a list of images:
+   - Determine which images have not been staged yet.
+   - Download the image archive.
+   - Extract missing images to the staging directory.
+
+  """
+  _DONE_FLAG = 'staged'
+  _LOG_TAG = 'IMAGE_DOWNLOAD'
+
+  # List of images to be staged; empty (default) means all.
+  _image_list = []
+
+  # A mapping from test image types to their archived file names.
+  _IMAGE_TO_FNAME = {
+    'test': 'chromiumos_test_image.bin',
+    'base': 'chromiumos_base_image.bin',
+    'recovery': 'recovery_image.bin',
+  }
+
+  @staticmethod
+  def GenerateLockTag(rel_path, short_build):
+    return os.path.join('images', rel_path, short_build)
+
+  def Download(self, archive_url, image_list, _background=False):
+    """Downloads images in |image_list| from the build defined by |archive_url|.
+
+    Download happens synchronously. |images| may include any of those in
+    self._IMAGE_TO_FNAME.keys().
+
+    """
+    # Check correctness of image list, remove duplicates.
+    if not image_list:
+      raise DevServerError('empty list of image types')
+    invalid_images = list(set(image_list) - set(self._IMAGE_TO_FNAME.keys()))
+    if invalid_images:
+      raise DevServerError('invalid images requested: %s' % invalid_images)
+    image_list = list(set(image_list))
+
+    # Parse archive_url into rel_path (contains the build target) and
+    # short_build.
+    # e.g. gs://chromeos-image-archive/{rel_path}/{short_build}
+    rel_path, short_build = self.ParseUrl(archive_url)
+
+    # Bind build_dir and staging_dir here so we can tell if we need to do any
+    # cleanup after an exception occurs before build_dir is set.
+    self._lock_tag = self.GenerateLockTag(rel_path, short_build)
+    staged_image_list = self._CheckStagedImages(archive_url, self._static_dir)
+    unstaged_image_list = [image for image in image_list
+                                 if image not in staged_image_list]
+    if not unstaged_image_list:
+      cherrypy.log(
+          'All requested images (%s) for build %s have already been staged.' %
+          (devserver_util.CommaSeparatedList(image_list, is_quoted=True)
+           if image_list else 'none',
+           self._lock_tag),
+          self._LOG_TAG)
+      return 'Success'
+
+    cherrypy.log(
+        'Image(s) %s for build %s will be staged' %
+        (devserver_util.CommaSeparatedList(unstaged_image_list, is_quoted=True),
+         self._lock_tag),
+        self._LOG_TAG)
+    self._image_list = unstaged_image_list
+
+    try:
+      # Create a static target directory and lock it for processing. We permit
+      # the directory to preexist, as different images might be downloaded and
+      # extracted at different times.
+      self._build_dir = devserver_util.AcquireLock(
+          static_dir=self._static_dir, tag=self._lock_tag,
+          create_once=False)
+
+      # Replace '/' with '_' in rel_path because it may contain multiple levels
+      # which would not be qualified as part of the suffix.
+      self._staging_dir = tempfile.mkdtemp(suffix='_'.join(
+          [rel_path.replace('/', '_'), short_build]))
+      cherrypy.log('Downloading image archive from %s' % archive_url,
+                   self._LOG_TAG)
+      dest_static_dir = os.path.join(self._static_dir, self._lock_tag)
+      [image_archive_artifact] = self.GatherArtifactDownloads(
+          self._staging_dir, archive_url, dest_static_dir)
+      image_archive_artifact.Download()
+      cherrypy.log('Staging images to %s' % dest_static_dir)
+      image_archive_artifact.Stage()
+      self._MarkStagedImages(unstaged_image_list)
+
+    except Exception:
+      # Release processing "lock", which will indicate to future runs that we
+      # did not succeed, and so they should try again.
+      if self._build_dir:
+        devserver_util.ReleaseLock(static_dir=self._static_dir,
+                                   tag=self._lock_tag, destroy=True)
+      raise
+    else:
+      # Release processing "lock", keeping directory intact.
+      if self._build_dir:
+        devserver_util.ReleaseLock(static_dir=self._static_dir,
+                                   tag=self._lock_tag)
+    finally:
+      self._Cleanup()
+
+    return 'Success'
+
+  def GatherArtifactDownloads(self, temp_download_dir, archive_url, static_dir,
+                              short_build=None):
+    """Call appropriate artifact gathering method.
+
+    Args:
+      temp_download_dir: temporary directory for downloading artifacts to
+      archive_url:       URI to the bucket where image archive is stored
+      staging_dir:       directory into which to stage extracted images
+      short_build:       (ignored)
+    Returns:
+      list of downloadable artifacts (of type Zipfile), currently containing a
+      single object, configured for extracting a predetermined list of images
+    """
+    return devserver_util.GatherImageArchiveArtifactDownloads(
+        temp_download_dir, archive_url, static_dir,
+        [self._IMAGE_TO_FNAME[image] for image in self._image_list])
+
+  def _MarkStagedImages(self, image_list):
+    """Update the on-disk flag file with the list of newly staged images.
+
+    This does not check for duplicates against already listed images, and will
+    add any listed images regardless.
+
+    """
+    flag_fname = os.path.join(self._build_dir, self._DONE_FLAG)
+    with open(flag_fname, 'a') as flag_file:
+      flag_file.writelines([image + '\n' for image in image_list])
+
+  def _CheckStagedImages(self, archive_url, static_dir):
+    """Returns a list of images that were already staged.
+
+    Reads the list of images from a flag file, if one is present, and returns
+    after removing duplicates.
+
+    """
+    rel_path, short_build = self.ParseUrl(archive_url)
+    sub_directory = self.GenerateLockTag(rel_path, short_build)
+    flag_fname = os.path.join(static_dir, sub_directory, self._DONE_FLAG)
+    staged_image_list = []
+    # TODO(garnold) make this code immune to race conditions, probably by
+    # acquiring a lock around the file access code.
+    if os.path.isfile(flag_fname):
+      with open(flag_fname) as flag_file:
+        staged_image_list = [image.strip() for image in flag_file.readlines()]
+    return list(set(staged_image_list))

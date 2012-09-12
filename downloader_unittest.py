@@ -104,8 +104,8 @@ class DownloaderTest(DownloaderTestBase):
     d = downloader.Downloader(self._work_dir)
     self.mox.StubOutWithMock(d, 'GatherArtifactDownloads')
     d.GatherArtifactDownloads(
-        self._work_dir, self.archive_url_prefix, self.build,
-        self._work_dir).AndReturn(artifacts)
+        self._work_dir, self.archive_url_prefix, self._work_dir,
+        self.build).AndReturn(artifacts)
     return d
 
   def _ClassUnderTest(self):
@@ -168,8 +168,8 @@ class DownloaderTest(DownloaderTestBase):
     """Tests interaction between the downloader and devserver methods."""
     artifacts = self._CommonDownloaderSetup(ignore_background=True)
     devserver_util.GatherArtifactDownloads(
-        self._work_dir, self.archive_url_prefix, self.build,
-        self._work_dir).AndReturn(artifacts)
+        self._work_dir, self.archive_url_prefix, self._work_dir,
+        self.build).AndReturn(artifacts)
 
     class FakeUpdater():
       static_dir = self._work_dir
@@ -224,7 +224,7 @@ class SymbolDownloaderTest(DownloaderTestBase):
     d = downloader.SymbolDownloader(self._work_dir)
     self.mox.StubOutWithMock(d, 'GatherArtifactDownloads')
     d.GatherArtifactDownloads(
-        self._work_dir, self.archive_url_prefix, '',
+        self._work_dir, self.archive_url_prefix,
         self._work_dir).AndReturn(artifacts)
     return d
 

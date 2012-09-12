@@ -21,6 +21,7 @@ ROOT_UPDATE = 'update.gz'
 AUTOTEST_PACKAGE = 'autotest.tar'
 AUTOTEST_ZIPPED_PACKAGE = 'autotest.tar.bz2'
 TEST_SUITES_PACKAGE = 'test_suites.tar.bz2'
+IMAGE_ARCHIVE = 'image.zip'
 
 
 class ArtifactDownloadError(Exception):
@@ -165,3 +166,42 @@ class DebugTarball(Tarball):
       subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError, e:
       raise ArtifactDownloadError('%s %s' % (msg, e))
+
+
+class Zipfile(DownloadableArtifact):
+  """A downloadable artifact that is a zipfile.
+
+  This class defines an extra public method for setting the list of files to be
+  extracted upon staging. Staging amounts to unzipping the desired files to the
+  install path.
+
+  """
+
+  def __init__(self, gs_path, tmp_staging_dir, install_path, synchronous=False,
+               unzip_file_list=None):
+    super(Zipfile, self).__init__(
+        gs_path, tmp_staging_dir, install_path, synchronous)
+    self._unzip_file_list = unzip_file_list
+
+  def _Unzip(self):
+    """Unzip files into the install path."""
+
+    cmd = 'unzip -o %s -d %s%s' % (
+        self._tmp_stage_path,
+        os.path.join(self._install_path),
+        (' ' + ' '.join(self._unzip_file_list)
+         if self._unzip_file_list else ''))
+    cherrypy.log('unzip command: %s' % cmd)
+    msg = 'An error occurred when attempting to unzip %s' % self._tmp_stage_path
+
+    try:
+      subprocess.check_call(cmd, shell=True)
+    except subprocess.CalledProcessError, e:
+      raise ArtifactDownloadError('%s %s' % (msg, e))
+
+  def Stage(self):
+    """Unzip files into the install path."""
+    if not os.path.isdir(self._install_path):
+      os.makedirs(self._install_path)
+
+    self._Unzip()
