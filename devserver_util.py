@@ -7,6 +7,7 @@
 import cherrypy
 import distutils.version
 import errno
+import lockfile
 import os
 import random
 import re
@@ -21,6 +22,7 @@ NTON_DIR_SUFFIX = '_nton'
 MTON_DIR_SUFFIX = '_mton'
 DEV_BUILD_PREFIX = 'dev'
 UPLOADED_LIST = 'UPLOADED'
+DEVSERVER_LOCK_FILE = 'devserver'
 
 class DevServerUtilError(Exception):
   """Exception classes used by this module."""
@@ -282,15 +284,18 @@ def SafeSandboxAccess(static_dir, path):
   return (path.startswith(static_dir) and path != static_dir)
 
 
-def AcquireLock(static_dir, tag):
+def AcquireLock(static_dir, tag, create_once=True):
   """Acquires a lock for a given tag.
 
-  Creates a directory for the specified tag, telling other
-  components the resource/task represented by the tag is unavailable.
+  Creates a directory for the specified tag, and atomically creates a lock file
+  in it. This tells other components the resource/task represented by the tag
+  is unavailable.
 
   Args:
-    static_dir: Directory where builds are served from.
-    tag: Unique resource/task identifier. Use '/' for nested tags.
+    static_dir:  Directory where builds are served from.
+    tag:         Unique resource/task identifier. Use '/' for nested tags.
+    create_once: Determines whether the directory must be freshly created; this
+                 preserves previous semantics of the lock acquisition.
 
   Returns:
     Path to the created directory or None if creation failed.
@@ -302,23 +307,44 @@ def AcquireLock(static_dir, tag):
   if not SafeSandboxAccess(static_dir, build_dir):
     raise DevServerUtilError('Invalid tag "%s".' % tag)
 
+  # Create the directory.
+  is_created = False
   try:
     os.makedirs(build_dir)
+    is_created = True
   except OSError, e:
     if e.errno == errno.EEXIST:
-      raise DevServerUtilError(str(e))
+      if create_once:
+        raise DevServerUtilError(str(e))
     else:
       raise
+
+  # Lock the directory.
+  try:
+    lock = lockfile.FileLock(os.path.join(build_dir, DEVSERVER_LOCK_FILE))
+    lock.acquire(timeout=0)
+  except lockfile.AlreadyLocked, e:
+    raise DevServerUtilError(str(e))
+  except:
+    # In any other case, remove the directory if we actually created it, so
+    # that subsequent attempts won't fail to re-create it.
+    if is_created:
+      shutil.rmtree(build_dir)
+    raise
 
   return build_dir
 
 
-def ReleaseLock(static_dir, tag):
-  """Releases the lock for a given tag. Removes lock directory content.
+def ReleaseLock(static_dir, tag, destroy=False):
+  """Releases the lock for a given tag.
+
+  Optionally, removes the locked directory entirely.
 
   Args:
     static_dir: Directory where builds are served from.
-    tag: Unique resource/task identifier. Use '/' for nested tags.
+    tag:        Unique resource/task identifier. Use '/' for nested tags.
+    destroy:    Determines whether the locked directory should be removed
+                entirely.
 
   Raises:
     DevServerUtilError: If lock can't be released.
@@ -327,7 +353,17 @@ def ReleaseLock(static_dir, tag):
   if not SafeSandboxAccess(static_dir, build_dir):
     raise DevServerUtilError('Invaid tag "%s".' % tag)
 
-  shutil.rmtree(build_dir)
+  lock = lockfile.FileLock(os.path.join(build_dir, DEVSERVER_LOCK_FILE))
+  if lock.i_am_locking():
+    try:
+      lock.release()
+      if destroy:
+        shutil.rmtree(build_dir)
+    except Exception, e:
+      raise DevServerUtilError(str(e))
+  else:
+    raise DevServerUtilError('thread attempting release is not locking %s' %
+                             build_dir)
 
 
 def FindMatchingBoards(static_dir, board):
@@ -426,7 +462,7 @@ def CloneBuild(static_dir, board, build, tag, force=False):
     dev_build_exists = True
     if force:
       dev_build_exists = False
-      ReleaseLock(dev_static_dir, tag)
+      ReleaseLock(dev_static_dir, tag, destroy=True)
       AcquireLock(dev_static_dir, tag)
 
   # Make a copy of the official build, only take necessary files.

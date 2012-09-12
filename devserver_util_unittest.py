@@ -181,16 +181,36 @@ class DevServerUtilTest(mox.MoxTestBase):
             self._static_dir, os.path.join(self._static_dir, os.pardir)))
 
   def testAcquireReleaseLocks(self):
-    # Successful lock and unlock.
+    # Successful lock and unlock, removing the newly created directory.
     lock_file = devserver_util.AcquireLock(self._static_dir, 'test-lock')
     self.assertTrue(os.path.exists(lock_file))
-    devserver_util.ReleaseLock(self._static_dir, 'test-lock')
+    devserver_util.ReleaseLock(self._static_dir, 'test-lock',
+                               destroy=True)
     self.assertFalse(os.path.exists(lock_file))
 
-    # Attempt to lock an existing directory.
+    # Attempt to freshly create and lock an existing directory.
+    devserver_util.AcquireLock(self._static_dir, 'test-lock')
+    devserver_util.ReleaseLock(self._static_dir, 'test-lock')
+    self.assertRaises(devserver_util.DevServerUtilError,
+                      devserver_util.AcquireLock, self._static_dir, 'test-lock')
+    devserver_util.AcquireLock(self._static_dir, 'test-lock', create_once=False)
+    devserver_util.ReleaseLock(self._static_dir, 'test-lock',
+                               destroy=True)
+
+    # Sucessfully re-lock a pre-existing directory.
+    devserver_util.AcquireLock(self._static_dir, 'test-lock')
+    devserver_util.ReleaseLock(self._static_dir, 'test-lock')
+    devserver_util.AcquireLock(self._static_dir, 'test-lock',
+                               create_once=False)
+    devserver_util.ReleaseLock(self._static_dir, 'test-lock',
+                               destroy=True)
+
+    # Attempt to lock an already locked directory.
     devserver_util.AcquireLock(self._static_dir, 'test-lock')
     self.assertRaises(devserver_util.DevServerUtilError,
                       devserver_util.AcquireLock, self._static_dir, 'test-lock')
+    devserver_util.ReleaseLock(self._static_dir, 'test-lock',
+                               destroy=True)
 
   def testFindMatchingBoards(self):
     for key in TEST_LAYOUT:

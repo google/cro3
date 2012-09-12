@@ -54,10 +54,13 @@ class DownloaderTestBase(mox.MoxTestBase):
     self.mox.StubOutWithMock(devserver_util, 'ReleaseLock')
     self.mox.StubOutWithMock(tempfile, 'mkdtemp')
 
+    lock_tag = self._ClassUnderTest().GenerateLockTag(board, self.build)
     devserver_util.AcquireLock(
         static_dir=self._work_dir,
-        tag=self._ClassUnderTest().GenerateLockTag(board, self.build)
-        ).AndReturn(self._work_dir)
+        tag=lock_tag).AndReturn(self._work_dir)
+    devserver_util.ReleaseLock(
+        static_dir=self._work_dir,
+        tag=lock_tag)
 
     tempfile.mkdtemp(suffix=mox.IgnoreArg()).AndReturn(self._work_dir)
     return self._GenerateArtifacts(ignore_background)

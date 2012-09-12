@@ -105,7 +105,9 @@ class Downloader(object):
     self._lock_tag = self.GenerateLockTag(rel_path, short_build)
     try:
       # Create Dev Server directory for this build and tell other Downloader
-      # instances we have processed this build.
+      # instances we have processed this build. Note that during normal
+      # execution, this lock is only released in the actual downloading
+      # procedure called below.
       self._build_dir = devserver_util.AcquireLock(
           static_dir=self._static_dir, tag=self._lock_tag)
 
@@ -140,12 +142,11 @@ class Downloader(object):
       # so future runs can retry.
       if self._build_dir:
         devserver_util.ReleaseLock(static_dir=self._static_dir,
-                                   tag=self._lock_tag)
+                                   tag=self._lock_tag, destroy=True)
 
       self._status_queue.put(e)
       self._Cleanup()
       raise
-
     return 'Success'
 
   def _Cleanup(self):
@@ -171,8 +172,12 @@ class Downloader(object):
       # so future runs can retry.
       if self._build_dir:
         devserver_util.ReleaseLock(static_dir=self._static_dir,
-                                   tag=self._lock_tag)
+                                   tag=self._lock_tag, destroy=True)
     else:
+      # Release processing lock, keeping directory intact.
+      if self._build_dir:
+        devserver_util.ReleaseLock(static_dir=self._static_dir,
+                                   tag=self._lock_tag)
       self._status_queue.put('Success')
     finally:
       self._Cleanup()
@@ -273,8 +278,14 @@ class SymbolDownloader(Downloader):
       # did not succeed, and so they should try again.
       if self._build_dir:
         devserver_util.ReleaseLock(static_dir=self._static_dir,
-                                   tag=self._lock_tag)
+                                   tag=self._lock_tag, destroy=True)
+
       raise
+    else:
+      # Release processing "lock", keeping directory intact.
+      if self._build_dir:
+        devserver_util.ReleaseLock(static_dir=self._static_dir,
+                                   tag=self._lock_tag)
     finally:
       self._Cleanup()
 
