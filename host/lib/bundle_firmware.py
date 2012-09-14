@@ -642,6 +642,12 @@ class Bundle:
           raise CmdError("Unknown memory manufacturer: '%s'" % mem_manuf)
         value = mem_manufs.index(mem_manuf)
         self._out.Info('  Memory manufacturer: %s (%d)' % (mem_manuf, value))
+      elif param == 'f' :
+        mem_freq = fdt.GetInt('/dmc', 'clock-frequency') / 1000000
+        if not mem_freq in [533, 667, 800]:
+          self._out.Warning("Unexpected memory speed '%s'" % mem_freq)
+        value = mem_freq
+        self._out.Info('  Memory speed: %d' % mem_freq)
       elif param == 'v':
         value = 31
         self._out.Info('  Memory interleave: %#0x' % value)
