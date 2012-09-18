@@ -136,7 +136,8 @@ if [ ! -f "${PROFILES_DIR}/parent" ]; then
   warn "will fail"
 fi
 
-if [ -e "${MAKE_PROFILE}" ]; then
+CURR_PROFILE=$(readlink "${MAKE_PROFILE}" 2>/dev/null)
+if [[ ${CURR_PROFILE} != "${PROFILES_DIR}" ]]; then
   warn "You are switching profiles for a board that is already setup.  This"
   warn "can cause trouble for Portage.  If you experience problems with"
   warn "build_packages you may need to run:"
@@ -147,6 +148,5 @@ if [ -e "${MAKE_PROFILE}" ]; then
   warn "'emerge-${BOARD_VARIANT} -c' or 'emerge-${BOARD_VARIANT} -C <ebuild>'"
 
   sudo rm -f "${MAKE_PROFILE}"
+  sudo ln -sf "${PROFILES_DIR}" "${MAKE_PROFILE}"
 fi
-
-sudo ln -sf "${PROFILES_DIR}" "${MAKE_PROFILE}"
