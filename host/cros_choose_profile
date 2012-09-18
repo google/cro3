@@ -136,17 +136,22 @@ if [ ! -f "${PROFILES_DIR}/parent" ]; then
   warn "will fail"
 fi
 
-if [ -e "${MAKE_PROFILE}" ]; then
-  warn "You are switching profiles for a board that is already setup.  This"
-  warn "can cause trouble for Portage.  If you experience problems with"
-  warn "build_packages you may need to run:"
-  warn ""
-  warn "setup_board --board ${BOARD_VARIANT} --force --profile ${PROFILE_NAME}"
-  warn ""
-  warn "Alternatively, you can correct the dependecy graph by using"
-  warn "'emerge-${BOARD_VARIANT} -c' or 'emerge-${BOARD_VARIANT} -C <ebuild>'"
+# Only run `ln` if profile doesn't exist, or has changed.
+CURR_PROFILE=$(readlink "${MAKE_PROFILE}" 2>/dev/null || :)
+if [[ ${CURR_PROFILE} != "${PROFILES_DIR}" ]]; then
+  if [[ -n ${CURR_PROFILE} ]]; then
+    # If it's changed, then warn & clean out the old link.
+    msg="
+You are switching profiles for a board that is already setup.  This
+can cause trouble for Portage.  If you experience problems with
+build_packages you may need to run:
+\tsetup_board --board ${BOARD_VARIANT} --force --profile ${PROFILE_NAME}\n
+Alternatively, you can correct the dependecy graph by using
+'emerge-${BOARD_VARIANT} -c' or 'emerge-${BOARD_VARIANT} -C <ebuild>'
+"
+    warn "${msg}"
+    sudo rm -f "${MAKE_PROFILE}"
+  fi
 
-  sudo rm -f "${MAKE_PROFILE}"
+  sudo ln -sf "${PROFILES_DIR}" "${MAKE_PROFILE}"
 fi
-
-sudo ln -sf "${PROFILES_DIR}" "${MAKE_PROFILE}"
