@@ -128,7 +128,7 @@ def main():
       action='store', help='Device for SPL to boot from (straps, spi, emmc)',
       default='straps')
   parser.add_option('--bootcmd', dest='bootcmd', type='string',
-      help='Set U-Boot boot command')
+      help="Set U-Boot boot command (use 'none' for none)")
   parser.add_option('--bootsecure', dest='bootsecure',
       default=False, action='store_true',
       help='Boot command is simple (no arguments) and not interruptible')

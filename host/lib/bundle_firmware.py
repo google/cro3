@@ -319,7 +319,9 @@ class Bundle:
       bootcmd: Boot command to use, as a string (if None this this is a nop).
       bootsecure: We'll set '/config/bootsecure' to 1 if True and 0 if False.
     """
-    if bootcmd:
+    if bootcmd is not None:
+      if bootcmd == 'none':
+        bootcmd = ''
       self.fdt.PutString('/config', 'bootcmd', bootcmd)
       self.fdt.PutInteger('/config', 'bootsecure', int(bootsecure))
       self._out.Info('Boot command: %s' % bootcmd)
