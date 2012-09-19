@@ -49,16 +49,16 @@ IMAGE_NAME=$(basename "${FLAGS_image}")
 ROOT_FS_DIR="${IMAGE_DIR}/rootfs"
 STATEFUL_FS_DIR="${IMAGE_DIR}/stateful"
 
-[[ $FLAGS_updated_fm == */ ]] && FLAGS_updated_fm="${FLAGS_updated_fm%?}"
+[[ $FLAGS_updated_fm == */ ]] && FLAGS_updated_fm="${FLAGS_updated_fm}"
 
 # Check we have all 5 new firmware binaries
-FM_VER_PREFIX=${FLAGS_firmware_ver%?}
+FM_VER_PREFIX=${FLAGS_firmware_ver}
 info "Checking ${FLAGS_updated_fm} for binaries..."
-info "Using pattern: ${FLAGS_board}_${FM_VER_PREFIX}1.bin"
+info "Using pattern: ${FLAGS_board}_${FM_VER_PREFIX}.1.bin"
 
 for i in 1 2 3 4 5
 do
-  BIN_FILE="${FLAGS_updated_fm}/${FLAGS_board}_${FM_VER_PREFIX}$i.bin"
+  BIN_FILE="${FLAGS_updated_fm}/${FLAGS_board}_${FM_VER_PREFIX}.${i}.bin"
   if [ ! -f ${BIN_FILE} ]; then
     die_notrace "Unable to locate ${BIN_FILE} firmware binary, exiting."
   fi
@@ -90,7 +90,7 @@ do
   cp ${IMAGE_UPDATER} ${WORKING_UPDATER}-test$i
   chmod 755 ${WORKING_UPDATER}-test$i
 
-  NEW_VER="${FLAGS_board}_${FM_VER_PREFIX}${i}"
+  NEW_VER="${FLAGS_board}_${FM_VER_PREFIX}.${i}"
   FM_VER="Google_${NEW_VER}"
   info "Updating the firmware version to ${FM_VER}"
   sed -i "/^TARGET_FWID=/c TARGET_FWID=${FM_VER}" "${WORKING_UPDATER}-test$i"
@@ -133,6 +133,11 @@ cd ~/trunk/src/platform/vboot_reference
 cp tests/devkeys/* "${KEYS_DIR}"
 cp scripts/keygeneration/* "${KEYS_DIR}"
 
+# Load keygeneration helper methods
+. "${KEYS_DIR}/common.sh"
+
+"${KEYS_DIR}"/create_new_keys.sh
+
 # Enable firmware update
 scripts/image_signing/tag_image.sh --from="${WORKING_DIR}/${IMAGE_NAME}" \
   --update_firmware 1
@@ -161,7 +166,27 @@ do
   info "Contents of the new lsb-release file"
   more "${ROOT_FS_DIR}/etc/lsb-release"
   cleanup
-  # TODO run create_new_keys.sh
+  cd "${KEYS_DIR}"
+  if [[ ${i} == 1 ]]; then
+    load_current_versions
+    new_kern_ver=$(increment_version "${KEYS_DIR}" "kernel_version")
+    write_updated_version_file ${CURR_FIRMKEY_VER} ${CURR_FIRM_VER} \
+      ${CURR_KERNKEY_VER} ${new_kern_ver}
+  elif [[ ${i} == 2 ]]; then
+    "${KEYS_DIR}"/increment_kernel_data_key.sh "${KEYS_DIR}"
+  elif [[ ${i} == 3  ]]; then
+    "${KEYS_DIR}"/increment_kernel_subkey.sh "${KEYS_DIR}"
+  elif [[ ${i} == 4  ]]; then
+    "${KEYS_DIR}"/increment_firmware_data_key.sh "${KEYS_DIR}"
+  elif [[ ${i} == 5  ]]; then
+    load_current_versions
+    new_kern_ver=$(increment_version "${KEYS_DIR}" "kernel_version")
+    write_updated_version_file ${CURR_FIRMKEY_VER} ${CURR_FIRM_VER} \
+      ${CURR_KERNKEY_VER} ${new_kern_ver}
+    "${KEYS_DIR}"/increment_kernel_subkey_and_key.sh "${KEYS_DIR}"
+    "${KEYS_DIR}"/increment_firmware_data_key.sh "${KEYS_DIR}"
+  fi
+
   SIGNED_IMAGE_NAME="chromiumos-key-image-${CHROMEOS_VER_PREFIX}${i}_signed.bin"
 
   info "Resigning the image to ${SIGNED_IMAGE_NAME}..."
@@ -170,7 +195,7 @@ do
     ssd "${WORKING_DIR}/${NEW_IMAGE_NAME}" \
     "${KEYS_DIR}" \
     "${WORKING_DIR}/${SIGNED_IMAGE_NAME}" \
-    "${KEYSDIR}/key.versions"
+    "${KEYS_DIR}/key.versions"
 
   info "Generating payload..."
   cros_generate_update_payload --image="${WORKING_DIR}/${SIGNED_IMAGE_NAME}" \
