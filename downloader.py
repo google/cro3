@@ -4,11 +4,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import Queue
 import cherrypy
-import multiprocessing
 import os
 import shutil
 import tempfile
+import threading
 
 import devserver_util
 
@@ -32,7 +33,7 @@ class Downloader(object):
     self._static_dir = static_dir
     self._build_dir = None
     self._staging_dir = None
-    self._status_queue = multiprocessing.Queue(maxsize=1)
+    self._status_queue = Queue.Queue(maxsize=1)
     self._lock_tag = None
 
   @staticmethod
@@ -158,7 +159,7 @@ class Downloader(object):
 
   def _DownloadArtifactsSerially(self, artifacts):
     """Simple function to download all the given artifacts serially."""
-    cherrypy.log('Downloading background artifacts serially.', self._LOG_TAG)
+    cherrypy.log('Downloading artifacts serially.', self._LOG_TAG)
     try:
       for artifact in artifacts:
         artifact.Download()
@@ -178,9 +179,10 @@ class Downloader(object):
 
   def _DownloadArtifactsInBackground(self, artifacts):
     """Downloads |artifacts| in the background and signals when complete."""
-    proc = multiprocessing.Process(target=self._DownloadArtifactsSerially,
-                                   args=(artifacts,))
-    proc.start()
+    cherrypy.log('Invoking background download of artifacts', self._LOG_TAG)
+    thread = threading.Thread(target=self._DownloadArtifactsSerially,
+                              args=(artifacts,))
+    thread.start()
 
   def GatherArtifactDownloads(self, main_staging_dir, archive_url, short_build,
                               build_dir):

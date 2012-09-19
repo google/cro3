@@ -36,8 +36,7 @@ class DownloaderTestBase(mox.MoxTestBase):
         'gs://chromeos-image-archive/x86-mario-release/' + self.build)
 
   def tearDown(self):
-    if os.path.exists(self._work_dir):
-      shutil.rmtree(self._work_dir)
+    shutil.rmtree(self._work_dir, ignore_errors=True)
 
   def _CommonDownloaderSetup(self, ignore_background=False):
     """Common code to downloader tests.

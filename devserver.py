@@ -8,13 +8,13 @@
 
 import cherrypy
 import logging
-import multiprocessing
 import optparse
 import os
 import re
 import sys
 import subprocess
 import tempfile
+import threading
 
 import autoupdate
 import devserver_util
@@ -31,6 +31,33 @@ updater = None
 class DevServerError(Exception):
   """Exception class used by this module."""
   pass
+
+
+class LockDict(object):
+  """A dictionary of locks.
+
+  This class provides a thread-safe store of threading.Lock objects, which can
+  be used to regulate access to any set of hashable resources.  Usage:
+
+    foo_lock_dict = LockDict()
+    ...
+    with foo_lock_dict.lock('bar'):
+      # Critical section for 'bar'
+  """
+  def __init__(self):
+    self._lock = self._new_lock()
+    self._dict = {}
+
+  def _new_lock(self):
+    return threading.Lock()
+
+  def lock(self, key):
+    with self._lock:
+      lock = self._dict.get(key)
+      if not lock:
+        lock = self._new_lock()
+        self._dict[key] = lock
+      return lock
 
 
 def _LeadingWhiteSpaceCount(string):
@@ -196,8 +223,7 @@ class DevServerRoot(object):
 
   def __init__(self):
     self._builder = None
-    self._lock_dict_lock = multiprocessing.Lock()
-    self._lock_dict = {}
+    self._download_lock_dict = LockDict()
     self._downloader_dict = {}
 
   @cherrypy.expose
@@ -207,27 +233,6 @@ class DevServerRoot(object):
     if self._builder is None:
       self._builder = builder.Builder()
     return self._builder.Build(board, pkg, kwargs)
-
-  def _get_lock_for_archive_url(self, archive_url):
-    """Return a multiprocessing lock to use per archive_url.
-
-    Use this lock to protect critical zones per archive_url.
-
-    Usage:
-      with DevserverInstance._get_lock_for_archive_url(archive_url):
-        # CRITICAL AREA FOR ARCHIVE_URL.
-
-    Returns:
-      A multiprocessing lock that is archive_url specific.
-    """
-    with self._lock_dict_lock:
-      lock = self._lock_dict.get(archive_url)
-      if lock:
-        return lock
-      else:
-        lock = multiprocessing.Lock()
-        self._lock_dict[archive_url] = lock
-        return lock
 
   @staticmethod
   def _canonicalize_archive_url(archive_url):
@@ -261,7 +266,7 @@ class DevServerRoot(object):
 
     # Guarantees that no two downloads for the same url can run this code
     # at the same time.
-    with self._get_lock_for_archive_url(archive_url):
+    with self._download_lock_dict.lock(archive_url):
       try:
         # If we are currently downloading, return. Note, due to the above lock
         # we know that the foreground artifacts must have finished downloading
