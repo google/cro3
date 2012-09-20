@@ -4,7 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Unit tests for downloadable_artifact module.
+"""Unit tests for build_artifact module.
 
 These unit tests take tarball from google storage locations to fully test
 the artifact download process. Please make sure to set up your boto file and
@@ -18,30 +18,30 @@ import subprocess
 import tempfile
 import unittest
 
-import downloadable_artifact
+import build_artifact
 
 _TEST_GOLO_ARCHIVE = (
     'gs://chromeos-image-archive/x86-alex-release/R19-2003.0.0-a1-b1819')
 _TEST_SUITES_TAR = '/'.join([_TEST_GOLO_ARCHIVE,
-                             downloadable_artifact.TEST_SUITES_PACKAGE])
+                             build_artifact.TEST_SUITES_PACKAGE])
 _TEST_TEMP_ARCHIVE = (
     'gs://chromeos-image-archive/trybot-lumpy-paladin/R22-2531.0.0-a1-b145')
 _AUTOTEST_TAR = '/'.join([_TEST_TEMP_ARCHIVE,
-                          downloadable_artifact.AUTOTEST_PACKAGE])
+                          build_artifact.AUTOTEST_PACKAGE])
 
 
-class DownloadableArtifactTest(mox.MoxTestBase):
+class BuildArtifactTest(mox.MoxTestBase):
 
   def setUp(self):
     mox.MoxTestBase.setUp(self)
-    self.work_dir = tempfile.mkdtemp('downloadable_artifact')
+    self.work_dir = tempfile.mkdtemp('build_artifact')
 
   def tearDown(self):
     shutil.rmtree(self.work_dir)
 
   def testDownloadAndStage(self):
     """Downloads a real tarball from GSUtil."""
-    artifact = downloadable_artifact.DownloadableArtifact(
+    artifact = build_artifact.BuildArtifact(
         _TEST_SUITES_TAR, os.path.join(self.work_dir, 'stage'),
         os.path.join(self.work_dir, 'install', 'file'), True)
     artifact.Download()
@@ -51,7 +51,7 @@ class DownloadableArtifactTest(mox.MoxTestBase):
 
   def testDownloadAndStageTarball(self):
     """Downloads a real tarball and untars it."""
-    artifact = downloadable_artifact.Tarball(
+    artifact = build_artifact.TarballBuildArtifact(
         _TEST_SUITES_TAR, os.path.join(self.work_dir, 'stage'),
         os.path.join(self.work_dir, 'install'), True)
     artifact.Download()
@@ -62,14 +62,14 @@ class DownloadableArtifactTest(mox.MoxTestBase):
 
   def testDownloadAndStageAutotest(self):
     """Downloads a real autotest tarball for test."""
-    artifact = downloadable_artifact.AutotestTarball(
+    artifact = build_artifact.AutotestTarballBuildArtifact(
         _AUTOTEST_TAR, os.path.join(self.work_dir, 'stage'),
         os.path.join(self.work_dir, 'install'), True)
     artifact.Download()
-    self.mox.StubOutWithMock(downloadable_artifact.AutotestTarball,
+    self.mox.StubOutWithMock(build_artifact.AutotestTarballBuildArtifact,
                              '_ExtractTarball')
     self.mox.StubOutWithMock(subprocess, 'check_call')
-    downloadable_artifact.AutotestTarball._ExtractTarball(
+    build_artifact.AutotestTarballBuildArtifact._ExtractTarball(
         exclude='autotest/test_suites')
     subprocess.check_call(mox.StrContains('autotest/utils/packager.py'),
                           cwd=os.path.join(self.work_dir, 'stage'), shell=True)
@@ -82,14 +82,14 @@ class DownloadableArtifactTest(mox.MoxTestBase):
     self.assertTrue(os.path.isdir(os.path.join(self.work_dir, 'install',
                                                'autotest', 'packages')))
 
-  def testAUTestPayload(self):
+  def testAUTestPayloadBuildArtifact(self):
     """Downloads a real tarball and treats it like an AU payload."""
-    open(os.path.join(self.work_dir, downloadable_artifact.STATEFUL_UPDATE),
+    open(os.path.join(self.work_dir, build_artifact.STATEFUL_UPDATE),
          'a').close()
-    open(os.path.join(self.work_dir, downloadable_artifact.TEST_IMAGE),
+    open(os.path.join(self.work_dir, build_artifact.TEST_IMAGE),
          'a').close()
 
-    artifact = downloadable_artifact.AUTestPayload(
+    artifact = build_artifact.AUTestPayloadBuildArtifact(
         _TEST_SUITES_TAR, os.path.join(self.work_dir, 'stage'),
         os.path.join(self.work_dir, 'install', 'payload', 'payload.gz'), True)
     artifact.Download()
@@ -98,9 +98,9 @@ class DownloadableArtifactTest(mox.MoxTestBase):
         self.work_dir, 'install', 'payload', 'payload.gz')))
     self.assertTrue(os.path.exists(os.path.join(
         self.work_dir, 'install', 'payload',
-        downloadable_artifact.STATEFUL_UPDATE)))
+        build_artifact.STATEFUL_UPDATE)))
     self.assertTrue(os.path.exists(os.path.join(
-        self.work_dir, 'install', 'payload', downloadable_artifact.TEST_IMAGE)))
+        self.work_dir, 'install', 'payload', build_artifact.TEST_IMAGE)))
 
 
 if __name__ == '__main__':

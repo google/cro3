@@ -17,8 +17,14 @@ import tempfile
 import threading
 
 import autoupdate
-import devserver_util
+import common_util
 import downloader
+import log_util
+
+
+# Module-local log function.
+def _Log(message, *args, **kwargs):
+  return log_util.LogWithTag('DEVSERVER', message, *args, **kwargs)
 
 
 CACHED_ENTRIES = 12
@@ -143,19 +149,17 @@ def _PrepareToServeUpdatesOnly(image_dir, static_dir):
   # If  we're  serving  out  of  an archived  build  dir  (e.g.  a
   # buildbot), prepare this webserver's magic 'static/' dir with a
   # link to the build archive.
-  cherrypy.log('Preparing autoupdate for "serve updates only" mode.',
-               'DEVSERVER')
+  _Log('Preparing autoupdate for "serve updates only" mode.')
   if os.path.lexists('%s/archive' % static_dir):
     if image_dir != os.readlink('%s/archive' % static_dir):
-      cherrypy.log('removing stale symlink to %s' % image_dir, 'DEVSERVER')
+      _Log('removing stale symlink to %s' % image_dir)
       os.unlink('%s/archive' % static_dir)
       os.symlink(image_dir, '%s/archive' % static_dir)
 
   else:
     os.symlink(image_dir, '%s/archive' % static_dir)
 
-  cherrypy.log('archive dir: %s ready to be used to serve images.' % image_dir,
-               'DEVSERVER')
+  _Log('archive dir: %s ready to be used to serve images.' % image_dir)
 
 
 class ApiRoot(object):
@@ -273,8 +277,7 @@ class DevServerRoot(object):
         # and returned Success if this downloader instance exists.
         if (self._downloader_dict.get(archive_url) or
             downloader.Downloader.BuildStaged(archive_url, updater.static_dir)):
-          cherrypy.log('Build %s has already been processed.' % archive_url,
-                       'DEVSERVER')
+          _Log('Build %s has already been processed.' % archive_url)
           return 'Success'
 
         downloader_instance = downloader.Downloader(updater.static_dir)
@@ -386,10 +389,10 @@ class DevServerRoot(object):
       raise cherrypy.HTTPError('500 Internal Server Error',
                                'Error: target= is required!')
     try:
-      return devserver_util.GetLatestBuildVersion(
+      return common_util.GetLatestBuildVersion(
           updater.static_dir, params['target'],
           milestone=params.get('milestone'))
-    except devserver_util.DevServerUtilError as errmsg:
+    except common_util.DevServerUtilError as errmsg:
       raise cherrypy.HTTPError('500 Internal Server Error', str(errmsg))
 
   @cherrypy.expose
@@ -419,11 +422,11 @@ class DevServerRoot(object):
                                'Error: build= is required!')
 
     if 'control_path' not in params:
-      return devserver_util.GetControlFileList(updater.static_dir,
-                                               params['build'])
+      return common_util.GetControlFileList(
+          updater.static_dir, params['build'])
     else:
-      return devserver_util.GetControlFile(updater.static_dir, params['build'],
-                                           params['control_path'])
+      return common_util.GetControlFile(
+          updater.static_dir, params['build'], params['control_path'])
 
   @cherrypy.expose
   def stage_images(self, **kwargs):
@@ -532,15 +535,14 @@ def main():
     serve_only = True
 
   cache_dir = os.path.join(static_dir, 'cache')
-  cherrypy.log('Using cache directory %s' % cache_dir, 'DEVSERVER')
+  _Log('Using cache directory %s' % cache_dir)
 
   if os.path.exists(cache_dir):
     if options.clear_cache:
       # Clear the cache and exit on error.
       cmd = 'rm -rf %s/*' % cache_dir
       if os.system(cmd) != 0:
-        cherrypy.log('Failed to clear the cache with %s' % cmd,
-                     'DEVSERVER')
+        _Log('Failed to clear the cache with %s' % cmd)
         sys.exit(1)
 
     else:
@@ -548,15 +550,14 @@ def main():
       cmd = ('cd %s; ls -tr | head --lines=-%d | xargs rm -rf' %
              (cache_dir, CACHED_ENTRIES))
       if os.system(cmd) != 0:
-        cherrypy.log('Failed to clean up old delta cache files with %s' % cmd,
-                     'DEVSERVER')
+        _Log('Failed to clean up old delta cache files with %s' % cmd)
         sys.exit(1)
   else:
     os.makedirs(cache_dir)
 
-  cherrypy.log('Data dir is %s' % options.data_dir, 'DEVSERVER')
-  cherrypy.log('Source root is %s' % root_dir, 'DEVSERVER')
-  cherrypy.log('Serving from %s' % static_dir, 'DEVSERVER')
+  _Log('Data dir is %s' % options.data_dir)
+  _Log('Source root is %s' % root_dir)
+  _Log('Serving from %s' % static_dir)
 
   global updater
   updater = autoupdate.Autoupdate(

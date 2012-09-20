@@ -265,5 +265,5 @@ class AutoupdateTest(mox.MoxTestBase):
     self.assertFalse(au._CanUpdate('0.16.892.0', '0.16.892.0'))
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(AutoupdateTest)
-unittest.TextTestRunner(verbosity=3).run(suite)
+if __name__ == '__main__':
+  unittest.main()

@@ -14,8 +14,15 @@ import re
 import shutil
 import time
 
-import downloadable_artifact
+import build_artifact
 import gsutil_util
+import log_util
+
+
+# Module-local log function.
+def _Log(message, *args, **kwargs):
+  return log_util.LogWithTag('UTIL', message, *args, **kwargs)
+
 
 AU_BASE = 'au'
 NTON_DIR_SUFFIX = '_nton'
@@ -161,7 +168,7 @@ def WaitUntilAvailable(to_wait_list, archive_url, err_str, timeout=600,
     # Check if all target artifacts are available.
     if IsAvailable(to_wait_list, uploaded_list):
       return uploaded_list
-    cherrypy.log('Retrying in %f seconds...%s' % (to_delay, err_str))
+    _Log('Retrying in %f seconds...%s' % (to_delay, err_str))
     time.sleep(to_delay)
 
   raise DevServerUtilError('Missing %s for %s.' % (err_str, archive_url))
@@ -172,7 +179,7 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build_dir, build,
   """Generates artifacts that we mean to download and install for autotest.
 
   This method generates the list of artifacts we will need for autotest. These
-  artifacts are instances of downloadable_artifact.DownloadableArtifact.
+  artifacts are instances of build_artifact.BuildArtifact.
 
   Note, these artifacts can be downloaded asynchronously iff
   !artifact.Synchronous().
@@ -193,48 +200,45 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build_dir, build,
   # First we gather the urls/paths for the update payloads.
   full_url, nton_url, mton_url = ParsePayloadList(archive_url, uploaded_list)
 
-  full_payload = os.path.join(build_dir, downloadable_artifact.ROOT_UPDATE)
+  full_payload = os.path.join(build_dir, build_artifact.ROOT_UPDATE)
 
   artifacts = []
-  artifacts.append(downloadable_artifact.DownloadableArtifact(full_url,
-      main_staging_dir, full_payload, synchronous=True))
+  artifacts.append(build_artifact.BuildArtifact(
+      full_url, main_staging_dir, full_payload, synchronous=True))
 
   if nton_url:
     nton_payload = os.path.join(build_dir, AU_BASE, build + NTON_DIR_SUFFIX,
-                                downloadable_artifact.ROOT_UPDATE)
-    artifacts.append(downloadable_artifact.AUTestPayload(nton_url,
-      main_staging_dir, nton_payload))
+                                build_artifact.ROOT_UPDATE)
+    artifacts.append(build_artifact.AUTestPayloadBuildArtifact(
+      nton_url, main_staging_dir, nton_payload))
 
   if mton_url:
     mton_payload = os.path.join(build_dir, AU_BASE, build + MTON_DIR_SUFFIX,
-                                downloadable_artifact.ROOT_UPDATE)
-    artifacts.append(downloadable_artifact.AUTestPayload(
+                                build_artifact.ROOT_UPDATE)
+    artifacts.append(build_artifact.AUTestPayloadBuildArtifact(
         mton_url, main_staging_dir, mton_payload))
 
 
   # Gather information about autotest tarballs. Use autotest.tar if available.
-  if downloadable_artifact.AUTOTEST_PACKAGE in uploaded_list:
-    autotest_url = '%s/%s' % (archive_url,
-                              downloadable_artifact.AUTOTEST_PACKAGE)
+  if build_artifact.AUTOTEST_PACKAGE in uploaded_list:
+    autotest_url = '%s/%s' % (archive_url, build_artifact.AUTOTEST_PACKAGE)
   else:
     # Use autotest.tar.bz for backward compatibility. This can be
     # removed once all branches start using "autotest.tar"
-    autotest_url = '%s/%s' % (archive_url,
-                              downloadable_artifact.AUTOTEST_ZIPPED_PACKAGE)
+    autotest_url = '%s/%s' % (
+        archive_url, build_artifact.AUTOTEST_ZIPPED_PACKAGE)
 
   # Next we gather the miscellaneous payloads.
-  stateful_url = archive_url + '/' + downloadable_artifact.STATEFUL_UPDATE
-  test_suites_url = (archive_url + '/' +
-                     downloadable_artifact.TEST_SUITES_PACKAGE)
+  stateful_url = archive_url + '/' + build_artifact.STATEFUL_UPDATE
+  test_suites_url = (archive_url + '/' + build_artifact.TEST_SUITES_PACKAGE)
 
-  stateful_payload = os.path.join(build_dir,
-                                  downloadable_artifact.STATEFUL_UPDATE)
+  stateful_payload = os.path.join(build_dir, build_artifact.STATEFUL_UPDATE)
 
-  artifacts.append(downloadable_artifact.DownloadableArtifact(
+  artifacts.append(build_artifact.BuildArtifact(
       stateful_url, main_staging_dir, stateful_payload, synchronous=True))
-  artifacts.append(downloadable_artifact.AutotestTarball(
+  artifacts.append(build_artifact.AutotestTarballBuildArtifact(
       autotest_url, main_staging_dir, build_dir))
-  artifacts.append(downloadable_artifact.Tarball(
+  artifacts.append(build_artifact.TarballBuildArtifact(
       test_suites_url, main_staging_dir, build_dir, synchronous=True))
   return artifacts
 
@@ -245,7 +249,7 @@ def GatherSymbolArtifactDownloads(temp_download_dir, archive_url, staging_dir,
 
   This method generates the list of artifacts we will need to
   symbolicate crash dumps that occur during autotest runs.  These
-  artifacts are instances of downloadable_artifact.DownloadableArtifact.
+  artifacts are instances of build_artifact.BuildArtifact.
 
   This will poll google storage until the debug symbol artifact becomes
   available, or until the 10 minute timeout is up.
@@ -256,15 +260,16 @@ def GatherSymbolArtifactDownloads(temp_download_dir, archive_url, staging_dir,
                       symbols for the desired build are stored.
   @param staging_dir: the dir into which to stage the symbols
 
-  @return an iterable of one DebugTarball pointing to the right debug symbols.
-          This is an iterable so that it's similar to GatherArtifactDownloads.
-          Also, it's possible that someday we might have more than one.
+  @return an iterable of one DebugTarballBuildArtifact pointing to the right
+          debug symbols.  This is an iterable so that it's similar to
+          GatherArtifactDownloads.  Also, it's possible that someday we might
+          have more than one.
   """
 
-  artifact_name = downloadable_artifact.DEBUG_SYMBOLS
+  artifact_name = build_artifact.DEBUG_SYMBOLS
   WaitUntilAvailable([artifact_name], archive_url, 'debug symbols',
                      timeout=timeout, delay=delay)
-  artifact = downloadable_artifact.DebugTarball(
+  artifact = build_artifact.DebugTarballBuildArtifact(
       archive_url + '/' + artifact_name,
       temp_download_dir,
       staging_dir)
@@ -287,14 +292,14 @@ def GatherImageArchiveArtifactDownloads(temp_download_dir, archive_url,
     staging_dir:       directory into which to stage the extracted files
     image_file_list:   list of image files to be extracted
   Returns:
-    list of downloadable artifacts (of type Zipfile), currently containing a
-    single obejct
+    list of downloadable artifacts (of type ZipfileBuildArtifact), currently
+    containing a single obejct
   """
 
-  artifact_name = downloadable_artifact.IMAGE_ARCHIVE
+  artifact_name = build_artifact.IMAGE_ARCHIVE
   WaitUntilAvailable([artifact_name], archive_url, 'image archive',
                      timeout=timeout, delay=delay)
-  artifact = downloadable_artifact.Zipfile(
+  artifact = build_artifact.ZipfileBuildArtifact(
       archive_url + '/' + artifact_name,
       temp_download_dir, staging_dir,
       unzip_file_list=image_file_list)
@@ -312,7 +317,7 @@ def PrepareBuildDirectory(build_dir):
 
   # Create blank chromiumos_test_image.bin. Otherwise the Dev Server will
   # try to rebuild it unnecessarily.
-  test_image = os.path.join(build_dir, downloadable_artifact.TEST_IMAGE)
+  test_image = os.path.join(build_dir, build_artifact.TEST_IMAGE)
   open(test_image, 'a').close()
 
 
@@ -500,8 +505,7 @@ def CloneBuild(static_dir, board, build, tag, force=False):
   dev_static_dir = os.path.join(static_dir, DEV_BUILD_PREFIX)
   dev_build_dir = os.path.join(dev_static_dir, tag)
   official_build_dir = os.path.join(static_dir, board, build)
-  cherrypy.log('Cloning %s -> %s' % (official_build_dir, dev_build_dir),
-               'DEVSERVER_UTIL')
+  _Log('Cloning %s -> %s' % (official_build_dir, dev_build_dir))
   dev_build_exists = False
   try:
     AcquireLock(dev_static_dir, tag)
@@ -514,9 +518,9 @@ def CloneBuild(static_dir, board, build, tag, force=False):
 
   # Make a copy of the official build, only take necessary files.
   if not dev_build_exists:
-    copy_list = [downloadable_artifact.TEST_IMAGE,
-                 downloadable_artifact.ROOT_UPDATE,
-                 downloadable_artifact.STATEFUL_UPDATE]
+    copy_list = [build_artifact.TEST_IMAGE,
+                 build_artifact.ROOT_UPDATE,
+                 build_artifact.STATEFUL_UPDATE]
     for f in copy_list:
       shutil.copy(os.path.join(official_build_dir, f), dev_build_dir)
 

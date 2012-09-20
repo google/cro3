@@ -4,7 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Unit tests for devserver_util module."""
+"""Unit tests for downloader module."""
 
 import mox
 import os
@@ -12,9 +12,9 @@ import shutil
 import tempfile
 import unittest
 
-import downloadable_artifact
+import build_artifact
+import common_util
 import devserver
-import devserver_util
 import downloader
 
 
@@ -41,26 +41,24 @@ class DownloaderTestBase(mox.MoxTestBase):
   def _CommonDownloaderSetup(self, ignore_background=False):
     """Common code to downloader tests.
 
-    Mocks out key devserver_util module methods, creates mock artifacts
-    and sets appropriate expectations.
+    Mocks out key util module methods, creates mock artifacts and sets
+    appropriate expectations.
 
     @ignore_background Indicate that background artifacts should be ignored.
 
     @return iterable of artifact objects with appropriate expectations.
     """
     board = 'x86-mario-release'
-    self.mox.StubOutWithMock(devserver_util, 'AcquireLock')
-    self.mox.StubOutWithMock(devserver_util, 'GatherArtifactDownloads')
-    self.mox.StubOutWithMock(devserver_util, 'ReleaseLock')
+    self.mox.StubOutWithMock(common_util, 'AcquireLock')
+    self.mox.StubOutWithMock(common_util, 'GatherArtifactDownloads')
+    self.mox.StubOutWithMock(common_util, 'ReleaseLock')
     self.mox.StubOutWithMock(tempfile, 'mkdtemp')
 
     lock_tag = self._ClassUnderTest().GenerateLockTag(board, self.build)
-    devserver_util.AcquireLock(
+    common_util.AcquireLock(
         static_dir=self._work_dir,
         tag=lock_tag).AndReturn(self._work_dir)
-    devserver_util.ReleaseLock(
-        static_dir=self._work_dir,
-        tag=lock_tag)
+    common_util.ReleaseLock(static_dir=self._work_dir, tag=lock_tag)
 
     tempfile.mkdtemp(suffix=mox.IgnoreArg()).AndReturn(self._work_dir)
     return self._GenerateArtifacts(ignore_background)
@@ -69,9 +67,9 @@ class DownloaderTestBase(mox.MoxTestBase):
     """Create and return a Downloader of the appropriate type.
 
     The returned downloader will expect to download and stage the
-    DownloadableArtifacts listed in [artifacts].
+    Artifacts listed in [artifacts].
 
-    @param artifacts: iterable of DownloadableArtifacts.
+    @param artifacts: iterable of Artifacts.
     @return instance of downloader.Downloader or subclass.
     """
     raise NotImplementedError()
@@ -123,7 +121,7 @@ class DownloaderTest(DownloaderTestBase):
     """
     artifacts = []
     for index in range(5):
-      artifact = self.mox.CreateMock(downloadable_artifact.DownloadableArtifact)
+      artifact = self.mox.CreateMock(build_artifact.BuildArtifact)
       # Make every other artifact synchronous.
       if index % 2 == 0:
         artifact.Synchronous = lambda: True
@@ -167,7 +165,7 @@ class DownloaderTest(DownloaderTestBase):
   def testInteractionWithDevserver(self):
     """Tests interaction between the downloader and devserver methods."""
     artifacts = self._CommonDownloaderSetup(ignore_background=True)
-    devserver_util.GatherArtifactDownloads(
+    common_util.GatherArtifactDownloads(
         self._work_dir, self.archive_url_prefix, self._work_dir,
         self.build).AndReturn(artifacts)
 
@@ -234,12 +232,12 @@ class SymbolDownloaderTest(DownloaderTestBase):
   def _GenerateArtifacts(self, unused_ignore_background):
     """Instantiate artifact mocks and set expectations on them.
 
-    Sets up a DebugTarball and sets up expectation that it will be
+    Sets up a DebugTarballBuildArtifact and sets up expectation that it will be
     downloaded and staged.
 
     @return iterable of one artifact object with appropriate expectations.
     """
-    artifact = self.mox.CreateMock(downloadable_artifact.DownloadableArtifact)
+    artifact = self.mox.CreateMock(build_artifact.BuildArtifact)
     artifact.Synchronous = lambda: True
     artifact.Download()
     artifact.Stage()

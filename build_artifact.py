@@ -11,6 +11,7 @@ import shutil
 import subprocess
 
 import gsutil_util
+import log_util
 
 
 # Names of artifacts we care about.
@@ -29,7 +30,7 @@ class ArtifactDownloadError(Exception):
   pass
 
 
-class DownloadableArtifact(object):
+class BuildArtifact(log_util.Loggable):
   """Wrapper around an artifact to download from gsutil.
 
   The purpose of this class is to download objects from Google Storage
@@ -74,10 +75,10 @@ class DownloadableArtifact(object):
     return '->'.join([self._gs_path, self._tmp_staging_dir, self._install_path])
 
 
-class AUTestPayload(DownloadableArtifact):
+class AUTestPayloadBuildArtifact(BuildArtifact):
   """Wrapper for AUTest delta payloads which need additional setup."""
   def Stage(self):
-    super(AUTestPayload, self).Stage()
+    super(AUTestPayloadBuildArtifact, self).Stage()
 
     payload_dir = os.path.dirname(self._install_path)
     # Setup necessary symlinks for updating.
@@ -87,7 +88,7 @@ class AUTestPayload(DownloadableArtifact):
                os.path.join(payload_dir, STATEFUL_UPDATE))
 
 
-class Tarball(DownloadableArtifact):
+class TarballBuildArtifact(BuildArtifact):
   """Wrapper around an artifact to download from gsutil which is a tarball."""
 
   def _ExtractTarball(self, exclude=None):
@@ -120,7 +121,7 @@ class Tarball(DownloadableArtifact):
     self._ExtractTarball()
 
 
-class AutotestTarball(Tarball):
+class AutotestTarballBuildArtifact(TarballBuildArtifact):
   """Wrapper around the autotest tarball to download from gsutil."""
 
   def Stage(self):
@@ -145,8 +146,7 @@ class AutotestTarball(Tarball):
       except subprocess.CalledProcessError, e:
         raise ArtifactDownloadError('%s %s' % (msg, e))
     else:
-      cherrypy.log('Using pre-generated packages from autotest',
-                   'DEVSERVER_UTIL')
+      self._LOG('Using pre-generated packages from autotest')
 
     # TODO(scottz): Remove after we have moved away from the old test_scheduler
     # code.
@@ -154,7 +154,7 @@ class AutotestTarball(Tarball):
     subprocess.check_call(cmd, shell=True)
 
 
-class DebugTarball(Tarball):
+class DebugTarballBuildArtifact(TarballBuildArtifact):
   """Wrapper around the debug symbols tarball to download from gsutil."""
 
   def _ExtractTarball(self):
@@ -168,7 +168,7 @@ class DebugTarball(Tarball):
       raise ArtifactDownloadError('%s %s' % (msg, e))
 
 
-class Zipfile(DownloadableArtifact):
+class ZipfileBuildArtifact(BuildArtifact):
   """A downloadable artifact that is a zipfile.
 
   This class defines an extra public method for setting the list of files to be
@@ -179,7 +179,7 @@ class Zipfile(DownloadableArtifact):
 
   def __init__(self, gs_path, tmp_staging_dir, install_path, synchronous=False,
                unzip_file_list=None):
-    super(Zipfile, self).__init__(
+    super(ZipfileBuildArtifact, self).__init__(
         gs_path, tmp_staging_dir, install_path, synchronous)
     self._unzip_file_list = unzip_file_list
 
@@ -191,7 +191,7 @@ class Zipfile(DownloadableArtifact):
         os.path.join(self._install_path),
         (' ' + ' '.join(self._unzip_file_list)
          if self._unzip_file_list else ''))
-    cherrypy.log('unzip command: %s' % cmd)
+    self._Log('unzip command: %s' % cmd)
     msg = 'An error occurred when attempting to unzip %s' % self._tmp_stage_path
 
     try:

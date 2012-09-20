@@ -11,10 +11,12 @@ import shutil
 import tempfile
 import threading
 
-import devserver_util
+import build_artifact
+import common_util
+import log_util
 
 
-class Downloader(object):
+class Downloader(log_util.Loggable):
   """Download images to the devsever.
 
   Given a URL to a build on the archive server:
@@ -25,7 +27,6 @@ class Downloader(object):
     - Install components to static dir.
   """
 
-  _LOG_TAG = 'DOWNLOAD'
   # This filename must be kept in sync with clean_staged_images.py
   _TIMESTAMP_FILENAME = 'staged.timestamp'
 
@@ -108,7 +109,7 @@ class Downloader(object):
       # instances we have processed this build. Note that during normal
       # execution, this lock is only released in the actual downloading
       # procedure called below.
-      self._build_dir = devserver_util.AcquireLock(
+      self._build_dir = common_util.AcquireLock(
           static_dir=self._static_dir, tag=self._lock_tag)
 
       # Replace '/' with '_' in rel_path because it may contain multiple levels
@@ -116,14 +117,12 @@ class Downloader(object):
       self._staging_dir = tempfile.mkdtemp(suffix='_'.join(
           [rel_path.replace('/', '_'), short_build]))
       Downloader._TouchTimestampForStaged(self._staging_dir)
-      cherrypy.log('Gathering download requirements %s' % archive_url,
-                   self._LOG_TAG)
+      self._Log('Gathering download requirements %s' % archive_url)
       artifacts = self.GatherArtifactDownloads(
           self._staging_dir, archive_url, self._build_dir, short_build)
-      devserver_util.PrepareBuildDirectory(self._build_dir)
+      common_util.PrepareBuildDirectory(self._build_dir)
 
-      cherrypy.log('Downloading foreground artifacts from %s' % archive_url,
-                   self._LOG_TAG)
+      self._Log('Downloading foreground artifacts from %s' % archive_url)
       background_artifacts = []
       for artifact in artifacts:
         if artifact.Synchronous():
@@ -141,8 +140,8 @@ class Downloader(object):
       # Release processing lock, which will remove build components directory
       # so future runs can retry.
       if self._build_dir:
-        devserver_util.ReleaseLock(static_dir=self._static_dir,
-                                   tag=self._lock_tag, destroy=True)
+        common_util.ReleaseLock(static_dir=self._static_dir, tag=self._lock_tag,
+                                destroy=True)
 
       self._status_queue.put(e)
       self._Cleanup()
@@ -152,15 +151,14 @@ class Downloader(object):
   def _Cleanup(self):
     """Cleans up the staging dir for this downloader instanfce."""
     if self._staging_dir:
-      cherrypy.log('Cleaning up staging directory %s' % self._staging_dir,
-                   self._LOG_TAG)
+      self._Log('Cleaning up staging directory %s' % self._staging_dir)
       shutil.rmtree(self._staging_dir)
 
     self._staging_dir = None
 
   def _DownloadArtifactsSerially(self, artifacts):
     """Simple function to download all the given artifacts serially."""
-    cherrypy.log('Downloading artifacts serially.', self._LOG_TAG)
+    self._Log('Downloading artifacts serially.')
     try:
       for artifact in artifacts:
         artifact.Download()
@@ -171,32 +169,31 @@ class Downloader(object):
       # Release processing lock, which will remove build components directory
       # so future runs can retry.
       if self._build_dir:
-        devserver_util.ReleaseLock(static_dir=self._static_dir,
-                                   tag=self._lock_tag, destroy=True)
+        common_util.ReleaseLock(static_dir=self._static_dir, tag=self._lock_tag,
+                                destroy=True)
     else:
       # Release processing lock, keeping directory intact.
       if self._build_dir:
-        devserver_util.ReleaseLock(static_dir=self._static_dir,
-                                   tag=self._lock_tag)
+        common_util.ReleaseLock(static_dir=self._static_dir, tag=self._lock_tag)
       self._status_queue.put('Success')
     finally:
       self._Cleanup()
 
   def _DownloadArtifactsInBackground(self, artifacts):
     """Downloads |artifacts| in the background and signals when complete."""
-    cherrypy.log('Invoking background download of artifacts', self._LOG_TAG)
+    self._Log('Invoking background download of artifacts')
     thread = threading.Thread(target=self._DownloadArtifactsSerially,
                               args=(artifacts,))
     thread.start()
 
   def GatherArtifactDownloads(self, main_staging_dir, archive_url, build_dir,
                               short_build):
-    """Wrapper around devserver_util.GatherArtifactDownloads().
+    """Wrapper around common_util.GatherArtifactDownloads().
 
     The wrapper allows mocking and overriding in derived classes.
     """
-    return devserver_util.GatherArtifactDownloads(main_staging_dir, archive_url,
-                                                  build_dir, short_build)
+    return common_util.GatherArtifactDownloads(
+        main_staging_dir, archive_url, build_dir, short_build)
 
   def GetStatusOfBackgroundDownloads(self):
     """Returns the status of the background downloads.
@@ -229,7 +226,6 @@ class SymbolDownloader(Downloader):
   """
 
   _DONE_FLAG = 'done'
-  _LOG_TAG = 'SYMBOL_DOWNLOAD'
 
   @staticmethod
   def GenerateLockTag(rel_path, short_build):
@@ -249,23 +245,21 @@ class SymbolDownloader(Downloader):
     # cleanup after an exception occurs before build_dir is set.
     self._lock_tag = self.GenerateLockTag(rel_path, short_build)
     if self.SymbolsStaged(archive_url, self._static_dir):
-      cherrypy.log(
-          'Symbols for build %s have already been staged.' % self._lock_tag,
-          self._LOG_TAG)
+      self._Log('Symbols for build %s have already been staged.' %
+                self._lock_tag)
       return 'Success'
 
     try:
       # Create Dev Server directory for this build and tell other Downloader
       # instances we have processed this build.
-      self._build_dir = devserver_util.AcquireLock(
+      self._build_dir = common_util.AcquireLock(
           static_dir=self._static_dir, tag=self._lock_tag)
 
       # Replace '/' with '_' in rel_path because it may contain multiple levels
       # which would not be qualified as part of the suffix.
       self._staging_dir = tempfile.mkdtemp(suffix='_'.join(
           [rel_path.replace('/', '_'), short_build]))
-      cherrypy.log('Downloading debug symbols from %s' % archive_url,
-                   self._LOG_TAG)
+      self._Log('Downloading debug symbols from %s' % archive_url)
 
       [symbol_artifact] = self.GatherArtifactDownloads(
           self._staging_dir, archive_url, self._static_dir)
@@ -277,15 +271,14 @@ class SymbolDownloader(Downloader):
       # Release processing "lock", which will indicate to future runs that we
       # did not succeed, and so they should try again.
       if self._build_dir:
-        devserver_util.ReleaseLock(static_dir=self._static_dir,
-                                   tag=self._lock_tag, destroy=True)
+        common_util.ReleaseLock(static_dir=self._static_dir, tag=self._lock_tag,
+                                destroy=True)
 
       raise
     else:
       # Release processing "lock", keeping directory intact.
       if self._build_dir:
-        devserver_util.ReleaseLock(static_dir=self._static_dir,
-                                   tag=self._lock_tag)
+        common_util.ReleaseLock(static_dir=self._static_dir, tag=self._lock_tag)
     finally:
       self._Cleanup()
 
@@ -302,13 +295,13 @@ class SymbolDownloader(Downloader):
     @param staging_dir: the dir into which to stage the symbols
     @param short_build: (ignored)
 
-    @return an iterable of one DebugTarball pointing to the right debug symbols.
-            This is an iterable so that it's similar to GatherArtifactDownloads.
-            Also, it's possible that someday we might have more than one.
+    @return an iterable of one DebugTarballBuildArtifact pointing to the right
+            debug symbols.  This is an iterable so that it's similar to
+            GatherArtifactDownloads.  Also, it's possible that someday we might
+            have more than one.
     """
-    return devserver_util.GatherSymbolArtifactDownloads(temp_download_dir,
-                                                        archive_url,
-                                                        static_dir)
+    return common_util.GatherSymbolArtifactDownloads(
+        temp_download_dir, archive_url, static_dir)
 
   def MarkSymbolsStaged(self):
     """Puts a flag file on disk to signal that symbols are staged."""
@@ -334,7 +327,6 @@ class ImagesDownloader(Downloader):
 
   """
   _DONE_FLAG = 'staged'
-  _LOG_TAG = 'IMAGE_DOWNLOAD'
 
   # List of images to be staged; empty (default) means all.
   _image_list = []
@@ -377,26 +369,24 @@ class ImagesDownloader(Downloader):
     unstaged_image_list = [image for image in image_list
                                  if image not in staged_image_list]
     if not unstaged_image_list:
-      cherrypy.log(
+      self._Log(
           'All requested images (%s) for build %s have already been staged.' %
-          (devserver_util.CommaSeparatedList(image_list, is_quoted=True)
+          (common_util.CommaSeparatedList(image_list, is_quoted=True)
            if image_list else 'none',
-           self._lock_tag),
-          self._LOG_TAG)
+           self._lock_tag))
       return 'Success'
 
-    cherrypy.log(
+    self._Log(
         'Image(s) %s for build %s will be staged' %
-        (devserver_util.CommaSeparatedList(unstaged_image_list, is_quoted=True),
-         self._lock_tag),
-        self._LOG_TAG)
+        (common_util.CommaSeparatedList(unstaged_image_list, is_quoted=True),
+         self._lock_tag))
     self._image_list = unstaged_image_list
 
     try:
       # Create a static target directory and lock it for processing. We permit
       # the directory to preexist, as different images might be downloaded and
       # extracted at different times.
-      self._build_dir = devserver_util.AcquireLock(
+      self._build_dir = common_util.AcquireLock(
           static_dir=self._static_dir, tag=self._lock_tag,
           create_once=False)
 
@@ -404,13 +394,12 @@ class ImagesDownloader(Downloader):
       # which would not be qualified as part of the suffix.
       self._staging_dir = tempfile.mkdtemp(suffix='_'.join(
           [rel_path.replace('/', '_'), short_build]))
-      cherrypy.log('Downloading image archive from %s' % archive_url,
-                   self._LOG_TAG)
+      self._Log('Downloading image archive from %s' % archive_url)
       dest_static_dir = os.path.join(self._static_dir, self._lock_tag)
       [image_archive_artifact] = self.GatherArtifactDownloads(
           self._staging_dir, archive_url, dest_static_dir)
       image_archive_artifact.Download()
-      cherrypy.log('Staging images to %s' % dest_static_dir)
+      self._Log('Staging images to %s' % dest_static_dir)
       image_archive_artifact.Stage()
       self._MarkStagedImages(unstaged_image_list)
 
@@ -418,14 +407,13 @@ class ImagesDownloader(Downloader):
       # Release processing "lock", which will indicate to future runs that we
       # did not succeed, and so they should try again.
       if self._build_dir:
-        devserver_util.ReleaseLock(static_dir=self._static_dir,
-                                   tag=self._lock_tag, destroy=True)
+        common_util.ReleaseLock(static_dir=self._static_dir, tag=self._lock_tag,
+                                destroy=True)
       raise
     else:
       # Release processing "lock", keeping directory intact.
       if self._build_dir:
-        devserver_util.ReleaseLock(static_dir=self._static_dir,
-                                   tag=self._lock_tag)
+        common_util.ReleaseLock(static_dir=self._static_dir, tag=self._lock_tag)
     finally:
       self._Cleanup()
 
@@ -441,10 +429,11 @@ class ImagesDownloader(Downloader):
       staging_dir:       directory into which to stage extracted images
       short_build:       (ignored)
     Returns:
-      list of downloadable artifacts (of type Zipfile), currently containing a
-      single object, configured for extracting a predetermined list of images
+      list of downloadable artifacts (of type ZipfileBuildArtifact), currently
+      containing a single object, configured for extracting a predetermined
+      list of images
     """
-    return devserver_util.GatherImageArchiveArtifactDownloads(
+    return common_util.GatherImageArchiveArtifactDownloads(
         temp_download_dir, archive_url, static_dir,
         [self._IMAGE_TO_FNAME[image] for image in self._image_list])
 

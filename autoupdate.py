@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from buildutil import BuildObject
+from build_util import BuildObject
 from xml.dom import minidom
 
 import cherrypy
@@ -14,9 +14,13 @@ import subprocess
 import time
 import urlparse
 
+import log_util
 
-def _LogMessage(message):
-  cherrypy.log(message, 'UPDATE')
+
+# Module-local log function.
+def _Log(message, *args, **kwargs):
+  return log_util.LogWithTag('UPDATE', message, *args, **kwargs)
+
 
 UPDATE_FILE = 'update.gz'
 STATEFUL_FILE = 'stateful.tgz'
@@ -193,8 +197,8 @@ class Autoupdate(BuildObject):
   def _CanUpdate(self, client_version, latest_version):
     """Returns true if the latest_version is greater than the client_version.
     """
-    _LogMessage('client version %s latest version %s'
-                % (client_version, latest_version))
+    _Log('client version %s latest version %s'
+         % (client_version, latest_version))
 
     client_tokens = client_version.replace('_', '').split('.')
     # If the client has an old four-token version like "0.16.892.0", drop the
@@ -273,7 +277,7 @@ class Autoupdate(BuildObject):
 
   def _Copy(self, source, dest):
     """Copies a file from dest to source (if different)"""
-    _LogMessage('Copy File %s -> %s' % (source, dest))
+    _Log('Copy File %s -> %s' % (source, dest))
     if os.path.lexists(dest):
       os.remove(dest)
     shutil.copy(source, dest)
@@ -320,7 +324,7 @@ class Autoupdate(BuildObject):
     xml = payload % (self._GetSecondsSinceMidnight(),
                      self.app_id, url, hash, sha256, size, delta,
                      ' '.join(extra_attributes))
-    _LogMessage('Generated update payload: %s' % xml)
+    _Log('Generated update payload: %s' % xml)
     return xml
 
   def GetNoUpdatePayload(self):
@@ -345,7 +349,7 @@ class Autoupdate(BuildObject):
       Path to created update_payload or None on error.
     """
     update_path = os.path.join(output_dir, UPDATE_FILE)
-    _LogMessage('Generating update image %s' % update_path)
+    _Log('Generating update image %s' % update_path)
 
     update_command = [
         'cros_generate_update_payload',
@@ -359,9 +363,9 @@ class Autoupdate(BuildObject):
                                                self.private_key)
 
     update_string = ' '.join(update_command)
-    _LogMessage('Running ' + update_string)
+    _Log('Running ' + update_string)
     if os.system(update_string) != 0:
-      _LogMessage('Failed to create update payload')
+      _Log('Failed to create update payload')
       return None
 
     return UPDATE_FILE
@@ -426,7 +430,7 @@ class Autoupdate(BuildObject):
     stateful_update_file = None
 
     # Actually do the generation
-    _LogMessage('Generating update for image %s' % image_path)
+    _Log('Generating update for image %s' % image_path)
     update_file = self.GenerateUpdateFile(self.src_image,
                                           image_path,
                                           output_dir)
@@ -438,7 +442,7 @@ class Autoupdate(BuildObject):
     if update_file and stateful_update_file:
       return update_file
     else:
-      _LogMessage('Failed to generate update.')
+      _Log('Failed to generate update.')
       return None
 
   def GenerateUpdateImageWithCache(self, image_path, static_image_dir):
@@ -451,8 +455,7 @@ class Autoupdate(BuildObject):
       update filename (not directory) relative to static_image_dir on success,
         or None.
     """
-    _LogMessage('Generating update for src %s image %s' % (self.src_image,
-                                                           image_path))
+    _Log('Generating update for src %s image %s' % (self.src_image, image_path))
 
     # If it was pregenerated_path, don't regenerate
     if self.pregenerated_path:
@@ -460,7 +463,7 @@ class Autoupdate(BuildObject):
 
     # Which sub_dir of static_image_dir should hold our cached update image
     cache_sub_dir = self.FindCachedUpdateImageSubDir(self.src_image, image_path)
-    _LogMessage('Caching in sub_dir "%s"' % cache_sub_dir)
+    _Log('Caching in sub_dir "%s"' % cache_sub_dir)
 
     update_path = os.path.join(cache_sub_dir, UPDATE_FILE)
 
@@ -519,13 +522,13 @@ class Autoupdate(BuildObject):
     latest_version = self._GetVersionFromDir(latest_image_dir)
     latest_image_path = os.path.join(latest_image_dir, self._GetImageName())
 
-    _LogMessage('Preparing to generate update from latest built image %s.' %
-              latest_image_path)
+    _Log('Preparing to generate update from latest built image %s.' %
+         latest_image_path)
 
      # Check to see whether or not we should update.
     if client_version != 'ForcedUpdate' and not self._CanUpdate(
         client_version, latest_version):
-      _LogMessage('no update')
+      _Log('no update')
       return None
 
     return self.GenerateUpdateImageWithCache(latest_image_path,
@@ -615,11 +618,11 @@ class Autoupdate(BuildObject):
   def HandleFactoryRequest(self, board_id, channel):
     (filename, checksum, size) = self.GetFactoryImage(board_id, channel)
     if filename is None:
-      _LogMessage('unable to find image for board %s' % board_id)
+      _Log('unable to find image for board %s' % board_id)
       return self.GetNoUpdatePayload()
     url = '%s/static/%s' % (self.hostname, filename)
     is_delta_format = self._IsDeltaFormatFile(filename)
-    _LogMessage('returning update payload ' + url)
+    _Log('returning update payload ' + url)
     # Factory install is using memento updater which is using the sha-1 hash so
     # setting sha-256 to an empty string.
     return self.GetUpdatePayload(checksum, '', size, url, is_delta_format)
@@ -649,8 +652,8 @@ class Autoupdate(BuildObject):
         if os.path.exists(src_stateful):
           self._Copy(src_stateful, dest_stateful)
         else:
-          _LogMessage('WARN: %s not found. Expected for dev and test builds.' %
-                      STATEFUL_FILE)
+          _Log('WARN: %s not found. Expected for dev and test builds.' %
+               STATEFUL_FILE)
           if os.path.exists(dest_stateful):
             os.remove(dest_stateful)
 
@@ -662,12 +665,12 @@ class Autoupdate(BuildObject):
     elif self.serve_only:
       # Warn if update or stateful files can't be found.
       if not os.path.exists(dest_path):
-        _LogMessage('WARN: %s not found. Expected for dev and test builds.' %
-                    UPDATE_FILE)
+        _Log('WARN: %s not found. Expected for dev and test builds.' %
+             UPDATE_FILE)
 
       if not os.path.exists(dest_stateful):
-        _LogMessage('WARN: %s not found. Expected for dev and test builds.' %
-                    STATEFUL_FILE)
+        _Log('WARN: %s not found. Expected for dev and test builds.' %
+             STATEFUL_FILE)
 
       return UPDATE_FILE
     else:
@@ -676,8 +679,8 @@ class Autoupdate(BuildObject):
                                               client_version,
                                               static_image_dir)
 
-      _LogMessage('Failed to genereate update. '
-                  'You must set --board when pre-generating latest update.')
+      _Log('Failed to genereate update. '
+           'You must set --board when pre-generating latest update.')
       return None
 
   def PreGenerateUpdate(self):
@@ -687,7 +690,7 @@ class Autoupdate(BuildObject):
     """
      # Does not work with factory config.
     assert(not self.factory_config)
-    _LogMessage('Pre-generating the update payload.')
+    _Log('Pre-generating the update payload.')
     # Does not work with labels so just use static dir.
     pregenerated_update = self.GenerateUpdatePayloadForNonFactory(
         self.board, '0.0.0.0', self.static_dir)
@@ -726,8 +729,8 @@ class Autoupdate(BuildObject):
     if self.proxy_port:
       static_urlbase = _ChangeUrlPort(static_urlbase, self.proxy_port)
 
-    _LogMessage('Using static url base %s' % static_urlbase)
-    _LogMessage('Handling update ping as %s: %s' % (self.hostname, data))
+    _Log('Using static url base %s' % static_urlbase)
+    _Log('Handling update ping as %s: %s' % (self.hostname, data))
 
     update_dom = minidom.parseString(data)
     root = update_dom.firstChild
@@ -776,7 +779,7 @@ class Autoupdate(BuildObject):
     # We only generate update payloads for updatecheck requests.
     update_check = root.getElementsByTagName('o:updatecheck')
     if not update_check:
-      _LogMessage('Non-update check received.  Returning blank payload.')
+      _Log('Non-update check received.  Returning blank payload.')
       # TODO(sosa): Generate correct non-updatecheck payload to better test
       # update clients.
       return self.GetNoUpdatePayload()
@@ -812,7 +815,7 @@ class Autoupdate(BuildObject):
         else:
           url = '%s/%s' % (static_urlbase, payload_path)
 
-        _LogMessage('Responding to client to use url %s to get image.' % url)
+        _Log('Responding to client to use url %s to get image.' % url)
         return self.GetUpdatePayload(hash, sha256, size, url, is_delta_format)
       else:
         return self.GetNoUpdatePayload()

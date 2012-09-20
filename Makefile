@@ -13,14 +13,15 @@ install:
 	install -m 0755 host/start_devserver "${DESTDIR}/usr/bin"
 	install -m 0755 devserver.py "${DESTDIR}/usr/lib/devserver"
 	install -m 0644  \
-		builder.py \
 		autoupdate.py \
-		buildutil.py \
+		build_artifact.py \
+		build_util.py \
+		builder.py \
+		common_util.py \
 		constants.py \
-		devserver_util.py \
-		downloadable_artifact.py \
 		downloader.py \
 		gsutil_util.py \
+		log_util.py \
 		strip_package.py \
 		"${DESTDIR}/usr/lib/devserver"
 

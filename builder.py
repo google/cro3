@@ -8,12 +8,17 @@
 import os
 from portage import dbapi
 from portage import xpak
+import cherrypy
 import portage
 import subprocess
 import sys
 import tempfile
 
-import cherrypy
+import log_util
+
+# Module-local log function.
+def _Log(message, *args, **kwargs):
+  return log_util.LogWithTag('BUILD', message, *args, **kwargs)
 
 
 def _OutputOf(command):
@@ -27,7 +32,7 @@ def _OutputOf(command):
     subprocess.CalledProcessError if the command fails
   """
   command_name = ' '.join(command)
-  cherrypy.log('Executing: ' + command_name, 'BUILD')
+  _Log('Executing: ' + command_name)
 
   p = subprocess.Popen(command, stdout=subprocess.PIPE)
   output_blob = p.communicate()[0]
@@ -144,7 +149,7 @@ def UpdateGmergeBinhost(board, pkg, deep):
       if old_build_time == build_time:
         continue
 
-    cherrypy.log('Filtering install mask from %s' % pkg, 'BUILD')
+    _Log('Filtering install mask from %s' % pkg)
     _FilterInstallMaskFromPackage(build_path, gmerge_path)
     changed = True
 
@@ -174,17 +179,16 @@ class Builder(object):
 
   def SetError(self, text):
     cherrypy.response.status = 500
-    cherrypy.log(text, 'BUILD')
+    _Log(text)
     return text
 
   def Build(self, board, pkg, additional_args):
     """Handles a build request from the cherrypy server."""
-    cherrypy.log('Additional build request arguments: ' + str(additional_args),
-                 'BUILD')
+    _Log('Additional build request arguments: ' + str(additional_args))
 
     def _AppendStrToEnvVar(env, var, additional_string):
       env[var] = env.get(var, '') + ' ' + additional_string
-      cherrypy.log('%s flags modified to %s' % (var, env[var]), 'BUILD')
+      _Log('%s flags modified to %s' % (var, env[var]))
 
     env_copy = os.environ.copy()
     if 'use' in additional_args:
