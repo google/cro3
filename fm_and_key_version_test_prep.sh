@@ -109,11 +109,14 @@ do
     ../../tests/devkeys/dev_firmware.keyblock \
     ../../tests/devkeys/kernel_subkey.vbpubk 1 0
   cd "${BIOS_WORKING_DIR}"
+
   mkdir work
   ./chromeos-firmwareupdate-test$i --sb_extract work/
 
   info "Copying new bios ${SIGNED_BIN} into ${WORKING_UPDATER}-test$i"
   sudo cp ${SIGNED_BIN} work/bios.bin
+  info "Dumping keys of the firmware image:"
+  vbutil_what_keys work/bios.bin
   ./chromeos-firmwareupdate-test$i --sb_repack work/
   rm -r work
 done
@@ -129,18 +132,16 @@ cleanup
 # Make a copy of the key directories
 KEYS_DIR="${WORKING_DIR}/keys"
 mkdir "${KEYS_DIR}"
+
 cd ~/trunk/src/platform/vboot_reference
+# Enable firmware update
+scripts/image_signing/tag_image.sh --from="${WORKING_DIR}/${IMAGE_NAME}" \
+  --update_firmware 1
 cp tests/devkeys/* "${KEYS_DIR}"
 cp scripts/keygeneration/* "${KEYS_DIR}"
 
 # Load keygeneration helper methods
 . "${KEYS_DIR}/common.sh"
-
-"${KEYS_DIR}"/create_new_keys.sh
-
-# Enable firmware update
-scripts/image_signing/tag_image.sh --from="${WORKING_DIR}/${IMAGE_NAME}" \
-  --update_firmware 1
 
 # Make a directory to store the new payloads
 PAYLOAD_DIR="${WORKING_DIR}/payloads"
