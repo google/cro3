@@ -6,14 +6,16 @@
 
 """Unit tests for autoupdate.py."""
 
-import cherrypy
 import json
-import mox
 import os
 import socket
 import unittest
 
+import cherrypy
+import mox
+
 import autoupdate
+
 
 _TEST_REQUEST = """
 <client_test xmlns:o="http://www.google.com/update2/request" updaterversion="%(client)s" >

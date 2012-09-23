@@ -4,7 +4,6 @@
 
 """Module containing classes that wrap artifact downloads."""
 
-import cherrypy
 import os
 import re
 import shutil

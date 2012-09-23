@@ -6,10 +6,11 @@
 
 """Unit tests for gsutil_util module."""
 
-import mox
 import subprocess
 import time
 import unittest
+
+import mox
 
 import gsutil_util
 

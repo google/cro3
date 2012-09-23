@@ -11,14 +11,16 @@ the artifact download process. Please make sure to set up your boto file and
 run these unittests from within the chroot.  The tools are self-explanatory.
 """
 
-import mox
 import os
 import shutil
 import subprocess
 import tempfile
 import unittest
 
+import mox
+
 import build_artifact
+
 
 _TEST_GOLO_ARCHIVE = (
     'gs://chromeos-image-archive/x86-alex-release/R19-2003.0.0-a1-b1819')

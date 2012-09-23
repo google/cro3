@@ -1,10 +1,14 @@
 #!/usr/bin/python
+#
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 
-import urllib2
+from xml.dom import minidom
 import sys
 import threading
-from urlparse import urljoin
-from xml.dom import minidom
+import urllib2
+
 
 UPDATE_BLOB="""\
 <?xml version="1.0" encoding="UTF-8"?>

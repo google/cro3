@@ -4,15 +4,15 @@
 
 """Helper class for interacting with the Dev Server."""
 
-import cherrypy
 import distutils.version
 import errno
-import lockfile
 import os
 import random
 import re
 import shutil
 import time
+
+import lockfile
 
 import build_artifact
 import gsutil_util

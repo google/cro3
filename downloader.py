@@ -5,13 +5,11 @@
 # found in the LICENSE file.
 
 import Queue
-import cherrypy
 import os
 import shutil
 import tempfile
 import threading
 
-import build_artifact
 import common_util
 import log_util
 

@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
-# Copyright(c) 2012 The Chromium OS Author. All Rights Reserved.
+# Copyright (c) 2009-2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSE file
+# found in the LICENSE file.
 
 """This script updates given firmware in shellball and puts in an image.
 
@@ -23,12 +23,14 @@ Syntax:
 
 #__author__ = 'rchenna@google.com (Rajesh Chenna)'
 
+# TODO(garnold) deprecated module, switch to using subprocess.
 import commands
 import logging
 import optparse
 import os
 import re
 import sys
+
 
 # Constants
 dev_keys = '$HOME/trunk/src/platform/vboot_reference/tests/devkeys'

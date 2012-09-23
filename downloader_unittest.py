@@ -6,11 +6,12 @@
 
 """Unit tests for downloader module."""
 
-import mox
 import os
 import shutil
 import tempfile
 import unittest
+
+import mox
 
 import build_artifact
 import common_util

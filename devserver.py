@@ -6,7 +6,6 @@
 
 """A CherryPy-based webserver to host images and build packages."""
 
-import cherrypy
 import logging
 import optparse
 import os
@@ -15,6 +14,8 @@ import sys
 import subprocess
 import tempfile
 import threading
+
+import cherrypy
 
 import autoupdate
 import common_util

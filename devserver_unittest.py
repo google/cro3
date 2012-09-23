@@ -6,16 +6,17 @@
 
 """Regression tests for devserver."""
 
+from xml.dom import minidom
 import json
 import os
-import signal
 import shutil
+import signal
 import subprocess
 import sys
 import time
 import unittest
 import urllib2
-from xml.dom import minidom
+
 
 # Paths are relative to this script's base directory.
 STATIC_DIR = 'static'

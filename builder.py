@@ -5,16 +5,18 @@
 # found in the LICENSE file.
 
 """Package builder for the dev server."""
+
 import os
+import subprocess
+import tempfile
+
 from portage import dbapi
 from portage import xpak
 import cherrypy
 import portage
-import subprocess
-import sys
-import tempfile
 
 import log_util
+
 
 # Module-local log function.
 def _Log(message, *args, **kwargs):

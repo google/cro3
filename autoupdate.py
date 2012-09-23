@@ -2,10 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from build_util import BuildObject
 from xml.dom import minidom
-
-import cherrypy
 import datetime
 import json
 import os
@@ -14,6 +11,9 @@ import subprocess
 import time
 import urlparse
 
+import cherrypy
+
+from build_util import BuildObject
 import log_util
 
 

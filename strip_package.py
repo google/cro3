@@ -7,8 +7,9 @@
 """Script that strips a given package and places the stripped version in
    /build/<board>/stripped-packages."""
 
-import builder
 import optparse
+
+import builder
 
 
 def main():

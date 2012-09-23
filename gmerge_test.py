@@ -6,9 +6,11 @@
 
 """Unit tests for gmerge."""
 
-import gmerge
 import os
 import unittest
+
+import gmerge
+
 
 class Flags(object):
   def __init__(self, dictionary):
