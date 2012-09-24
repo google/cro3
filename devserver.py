@@ -224,6 +224,9 @@ class DevServerRoot(object):
     For paths http://myhost/update/dir1/dir2, you can use *args so that
     cherrypy uses the update method and puts the extra paths in args.
   """
+  # Method names that should not be listed on the index page.
+  _UNLISTED_METHODS = ['index', 'doc']
+
   api = ApiRoot()
 
   def __init__(self):
@@ -264,8 +267,8 @@ class DevServerRoot(object):
       archive_url: Google Storage URL for the build.
 
     Example URL:
-      'http://myhost/download?archive_url=gs://chromeos-image-archive/'
-      'x86-generic/R17-1208.0.0-a1-b338'
+      http://myhost/download?archive_url=gs://chromeos-image-archive/
+      x86-generic/R17-1208.0.0-a1-b338
     """
     archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
 
@@ -298,8 +301,8 @@ class DevServerRoot(object):
       archive_url: Google Storage URL for the build.
 
     Example URL:
-      'http://myhost/wait_for_status?archive_url=gs://chromeos-image-archive/'
-      'x86-generic/R17-1208.0.0-a1-b338'
+      http://myhost/wait_for_status?archive_url=gs://chromeos-image-archive/
+      x86-generic/R17-1208.0.0-a1-b338
     """
     archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
     downloader_instance = self._downloader_dict.get(archive_url)
@@ -328,8 +331,8 @@ class DevServerRoot(object):
       archive_url: Google Storage URL for the build.
 
     Example URL:
-      'http://myhost/stage_debug?archive_url=gs://chromeos-image-archive/'
-      'x86-generic/R17-1208.0.0-a1-b338'
+      http://myhost/stage_debug?archive_url=gs://chromeos-image-archive/
+      x86-generic/R17-1208.0.0-a1-b338
     """
     archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
     return downloader.SymbolDownloader(updater.static_dir).Download(archive_url)
@@ -453,12 +456,70 @@ class DevServerRoot(object):
     return (downloader.ImagesDownloader(
         updater.static_dir).Download(archive_url, image_types))
 
+  def _get_exposed_method(self, name, unlisted=[]):
+    """Checks whether a method is exposed as CherryPy URL.
+
+    Args:
+      name: method name to check
+      unlisted: methods to be excluded regardless of their exposed status
+    Returns:
+      Function object if method is exposed and not unlisted, None otherwise.
+    """
+    method = name not in unlisted and self.__class__.__dict__.get(name)
+    if method and hasattr(method, 'exposed') and method.exposed:
+      return method
+    return None
+
+  def _find_exposed_methods(self, unlisted=[]):
+    """Finds exposed CherryPy methods.
+
+    Args:
+      unlisted: methods to be excluded regardless of their exposed status
+    Returns:
+      List of exposed methods that are not unlisted.
+    """
+    return [name for name in self.__class__.__dict__.keys()
+                 if self._get_exposed_method(name, unlisted)]
+
   @cherrypy.expose
   def index(self):
-    return 'Welcome to the Dev Server!'
+    """Presents a welcome message and documentation links."""
+    method_dict = DevServerRoot.__dict__
+    return ('Welcome to the Dev Server!<br>\n'
+            '<br>\n'
+            'Here are the available methods, click for documentation:<br>\n'
+            '<br>\n'
+            '%s' %
+            '<br>\n'.join(
+                [('<a href=doc/%s>%s</a>' % (name, name))
+                 for name in self._find_exposed_methods(
+                     unlisted=self._UNLISTED_METHODS)]))
+
+  @cherrypy.expose
+  def doc(self, *args):
+    """Shows the documentation for available methods / URLs.
+
+    Example:
+      http://myhost/doc/update
+    """
+    name = args[0]
+    method = self._get_exposed_method(name)
+    if not method:
+      raise DevServerError("No exposed method named `%s'" % name)
+    if not method.__doc__:
+      raise DevServerError("No documentation for exposed method `%s'" % name)
+    return '<pre>\n%s</pre>' % method.__doc__
 
   @cherrypy.expose
   def update(self, *args):
+    """Handles an update check from a Chrome OS client.
+
+    The HTTP request should contain the standard Omaha-style XML blob. The URL
+    line may contain an additional intermediate path to the update payload.
+
+    Example:
+      http://myhost/update/optional/path/to/payload
+    """
     label = '/'.join(args)
     body_length = int(cherrypy.request.headers.get('Content-Length', 0))
     data = cherrypy.request.rfile.read(body_length)
