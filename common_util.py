@@ -406,16 +406,12 @@ def ReleaseLock(static_dir, tag, destroy=False):
     raise DevServerUtilError('Invaid tag "%s".' % tag)
 
   lock = lockfile.FileLock(os.path.join(build_dir, DEVSERVER_LOCK_FILE))
-  if lock.i_am_locking():
-    try:
-      lock.release()
-      if destroy:
-        shutil.rmtree(build_dir)
-    except Exception, e:
-      raise DevServerUtilError(str(e))
-  else:
-    raise DevServerUtilError('thread attempting release is not locking %s' %
-                             build_dir)
+  try:
+    lock.break_lock()
+    if destroy:
+      shutil.rmtree(build_dir)
+  except Exception, e:
+    raise DevServerUtilError(str(e))
 
 
 def FindMatchingBoards(static_dir, board):
