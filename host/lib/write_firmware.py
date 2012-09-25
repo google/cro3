@@ -35,6 +35,13 @@ class WriteFirmware:
   and instructions to flash it to SPI flash. The payload is itself normally a
   full Chrome OS image consisting of U-Boot, some keys and verification
   information, images and a map of the flash memory.
+
+  Private attributes:
+    _servo_port: Port number to use to talk to servo with dut-control.
+      Special values are:
+        None: servo is not available.
+        0: any servo will do.
+
   """
   def __init__(self, tools, fdt, output, bundle):
     """Set up a new WriteFirmware object.
@@ -54,6 +61,26 @@ class WriteFirmware:
     # For speed, use the 'update' algorithm and don't verify
     self.update = True
     self.verify = False
+
+    # Use default servo port
+    self._servo_port = 0
+
+  def SelectServo(self, servo):
+    """Select the servo to use for writing firmware.
+
+    Args:
+      servo: String containing description of servo to use:
+        'none'  : Don't use servo, generate an error on any attempt.
+        'any'   : Use any available servo.
+        '<port>': Use servo with that port number.
+    """
+    if servo == 'none':
+      self._servo_port = None
+    elif servo == 'any':
+      self._servo_port = 0
+    else:
+      self._servo_port = int(servo)
+    self._out.Notice('Servo port %s' % str(self._servo_port))
 
   def _GetFlashScript(self, payload_size, update, verify, boot_type, checksum,
                       bus='0'):
@@ -325,6 +352,23 @@ class WriteFirmware:
 
     return False
 
+  def _DutControl(self, args):
+    """Run dut-control with supplied arguments.
+
+    The correct servo will be used based on self._servo_port.
+
+    Args:
+      args: List of arguments to dut-control.
+
+    Raises:
+      IOError if no servo access is permitted.
+    """
+    if self._servo_port is None:
+      raise IOError('No servo access available, please use --servo')
+    if self._servo_port:
+      args.extend(['-p', '%s' % self._servo_port])
+    self._tools.Run('dut-control', args)
+
   def _ExtractPayloadParts(self, payload):
     """Extract the BL1, BL2 and U-Boot parts from a payload.
 
@@ -395,7 +439,7 @@ class WriteFirmware:
     # back to life.
     # BUG=chromium-os:28229
     args = ['cold_reset:on', 'sleep:.2', 'cold_reset:off'] + args
-    self._tools.Run('dut-control', args)
+    self._DutControl(args)
 
     # If we have a kernel to write, create a new image with that added.
     if kernel:
@@ -436,12 +480,12 @@ class WriteFirmware:
         if upto == 1:
           # Once SPL starts up we can release the power buttom
           args = ['fw_up:off', 'pwr_button:release']
-          self._tools.Run('dut-control', args)
+          self._DutControl(args)
 
     finally:
       # Make sure that the power button is released, whatever happens
       args = ['fw_up:off', 'pwr_button:release']
-      self._tools.Run('dut-control', args)
+      self._DutControl(args)
 
     self._out.Notice('Image downloaded - please see serial output '
         'for progress.')
@@ -605,7 +649,7 @@ class WriteFirmware:
     """
     args = ['spi2_vref:off', 'spi2_buf_en:off', 'spi2_buf_on_flex_en:off']
     args.append('spi_hold:on')
-    self._tools.Run('dut-control', args)
+    self._DutControl(args)
 
     # TODO(sjg@chromium.org): This is for link. We could make this
     # configurable from the fdt.
@@ -616,12 +660,12 @@ class WriteFirmware:
     self._out.Progress('Resetting board')
     args = ['cold_reset:on', 'sleep:.2', 'cold_reset:off', 'sleep:.5']
     args.extend(['pwr_button:press', 'sleep:.2', 'pwr_button:release'])
-    self._tools.Run('dut-control', args)
+    self._DutControl(args)
 
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
                     bundle, update=True, verify=False, dest=None,
-                    flash_dest=None, kernel=None, props={}):
+                    flash_dest=None, kernel=None, props={}, servo='any'):
   """A simple function to write firmware to a device.
 
   This creates a WriteFirmware object and uses it to write the firmware image
@@ -641,8 +685,11 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     flash_dest: Destination device for flasher to program payload into.
     kernel: Kernel file to write after U-Boot
     props: A dictionary containing properties from the PackFirmware object
+    servo: Describes the servo unit to use: none=none; any=any; otherwise
+           port number of servo to use.
   """
   write = WriteFirmware(tools, fdt, output, bundle)
+  write.SelectServo(servo)
   write.update = update
   write.verify = verify
   if dest == 'usb':
