@@ -104,7 +104,8 @@ def _DoBundle(options, output, tools):
       file_list = bundle.GetFiles()
       write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
           file_list, out_fname, bundle, dest=options.write,
-          flash_dest=options.flash_dest, kernel=options.kernel, props=props)
+          flash_dest=options.flash_dest, kernel=options.kernel, props=props,
+          servo=options.servo)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
@@ -185,6 +186,8 @@ Examples:
       help='Create/write only the signed U-Boot binary (not the full image)')
   parser.add_option('-S', '--seabios', dest='seabios', type='string',
         action='store', help='Legacy BIOS (SeaBIOS)')
+  parser.add_option('--servo', type='string', default='any',
+        action='store', help='Servo to use (none, any, or port number)')
   parser.add_option('-u', '--uboot', dest='uboot', type='string',
       action='store', help='Executable bootloader file (U-Boot)')
   parser.add_option('-U', '--uboot-flasher', dest='uboot_flasher',

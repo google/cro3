@@ -68,7 +68,7 @@ def _DoWriteFirmware(options, output, tools, update, verify, dest):
     file_list = bundle.GetFiles()
     write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
         file_list, options.image, bundle, update, verify, dest,
-        flash_dest=options.flash_dest)
+        flash_dest=options.flash_dest, servo=options.servo)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
@@ -107,6 +107,8 @@ def main():
       'output files')
   parser.add_option('-p', '--preserve', dest='preserve', action='store_true',\
       help='Preserve temporary output directory')
+  parser.add_option('--servo', type='string', default='any',
+        action='store', help='Servo to use (none, any, or port number)')
   parser.add_option('-U', '--uboot-flasher', dest='uboot_flasher',
       type='string', action='store', help='Executable bootloader file '
       "(U-Boot) to use for flashing (defaults to board's u-boot.bin)")
