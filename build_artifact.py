@@ -145,7 +145,7 @@ class AutotestTarballBuildArtifact(TarballBuildArtifact):
       except subprocess.CalledProcessError, e:
         raise ArtifactDownloadError('%s %s' % (msg, e))
     else:
-      self._LOG('Using pre-generated packages from autotest')
+      self._Log('Using pre-generated packages from autotest')
 
     # TODO(scottz): Remove after we have moved away from the old test_scheduler
     # code.
