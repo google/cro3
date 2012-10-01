@@ -261,14 +261,14 @@ class Tools:
       return str.strip()
     raise CmdError("Cannot find version script 'chromeos_version.sh'")
 
-  def CheckTool(self, filename, ebuild=None):
+  def CheckTool(self, name, ebuild=None):
     """Check that the specified tool exists.
 
     If it does not exist in the PATH, then generate a useful error message
     indicating how to install the ebuild that contains the required tool.
 
     Args:
-      filename: filename of tool to look for on path.
+      name: filename of tool to look for on path.
       ebuild: name of ebuild which should be emerged to install this tool,
           or None if it is the same as the filename.
 
@@ -276,6 +276,7 @@ class Tools:
       CmdError(msg) if the tool is not found.
     """
     try:
+      filename = name
       if filename in self._tools:
         filename = self._tools[filename]
       filename = self.Filename(filename)
@@ -283,7 +284,7 @@ class Tools:
     except CmdError as err:
       raise CmdError("The '%s' utility was not found in your path. "
           "Run the following command in \nyour chroot to install it: "
-          "sudo -E emerge %s" % (filename, ebuild or filename))
+          "sudo -E emerge %s" % (filename, ebuild or name))
 
   def OutputSize(self, label, filename, level=cros_output.NOTICE):
     """Display the filename and size of an object.
