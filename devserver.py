@@ -14,6 +14,7 @@ import sys
 import subprocess
 import tempfile
 import threading
+import types
 
 import cherrypy
 
@@ -161,6 +162,71 @@ def _PrepareToServeUpdatesOnly(image_dir, static_dir):
     os.symlink(image_dir, '%s/archive' % static_dir)
 
   _Log('archive dir: %s ready to be used to serve images.' % image_dir)
+
+
+def _GetRecursiveMemberObject(root, member_list):
+  """Returns an object corresponding to a nested member list.
+
+  Args:
+    root: the root object to search
+    member_list: list of nested members to search
+  Returns:
+    An object corresponding to the member name list; None otherwise.
+  """
+  for member in member_list:
+    next_root = root.__class__.__dict__.get(member)
+    if not next_root:
+      return None
+    root = next_root
+  return root
+
+
+def _IsExposed(name):
+  """Returns True iff |name| has an `exposed' attribute and it is set."""
+  return hasattr(name, 'exposed') and name.exposed
+
+
+def _GetExposedMethod(root, nested_member, ignored=[]):
+  """Returns a CherryPy-exposed method, if such exists.
+
+  Args:
+    root: the root object for searching
+    nested_member: a slash-joined path to the nested member
+    ignored: method paths to be ignored
+  Returns:
+    A function object corresponding to the path defined by |member_list| from
+    the |root| object, if the function is exposed and not ignored; None
+    otherwise.
+  """
+  method = (nested_member not in ignored and
+            _GetRecursiveMemberObject(root, nested_member.split('/')))
+  if (method and type(method) == types.FunctionType and _IsExposed(method)):
+    return method
+
+
+def _FindExposedMethods(root, prefix, unlisted=[]):
+  """Finds exposed CherryPy methods.
+
+  Args:
+    root: the root object for searching
+    prefix: slash-joined chain of members leading to current object
+    unlisted: URLs to be excluded regardless of their exposed status
+  Returns:
+    List of exposed URLs that are not unlisted.
+  """
+  method_list = []
+  for member in sorted(root.__class__.__dict__.keys()):
+    prefixed_member = prefix + '/' + member if prefix else member
+    if prefixed_member in unlisted:
+      continue
+    member_obj = root.__class__.__dict__[member]
+    if _IsExposed(member_obj):
+      if type(member_obj) == types.FunctionType:
+        method_list.append(prefixed_member)
+      else:
+        method_list += _FindExposedMethods(
+            member_obj, prefixed_member, unlisted)
+  return method_list
 
 
 class ApiRoot(object):
@@ -456,31 +522,6 @@ class DevServerRoot(object):
     return (downloader.ImagesDownloader(
         updater.static_dir).Download(archive_url, image_types))
 
-  def _get_exposed_method(self, name, unlisted=[]):
-    """Checks whether a method is exposed as CherryPy URL.
-
-    Args:
-      name: method name to check
-      unlisted: methods to be excluded regardless of their exposed status
-    Returns:
-      Function object if method is exposed and not unlisted, None otherwise.
-    """
-    method = name not in unlisted and self.__class__.__dict__.get(name)
-    if method and hasattr(method, 'exposed') and method.exposed:
-      return method
-    return None
-
-  def _find_exposed_methods(self, unlisted=[]):
-    """Finds exposed CherryPy methods.
-
-    Args:
-      unlisted: methods to be excluded regardless of their exposed status
-    Returns:
-      List of exposed methods that are not unlisted.
-    """
-    return [name for name in self.__class__.__dict__.keys()
-                 if self._get_exposed_method(name, unlisted)]
-
   @cherrypy.expose
   def index(self):
     """Presents a welcome message and documentation links."""
@@ -492,8 +533,8 @@ class DevServerRoot(object):
             '%s' %
             '<br>\n'.join(
                 [('<a href=doc/%s>%s</a>' % (name, name))
-                 for name in self._find_exposed_methods(
-                     unlisted=self._UNLISTED_METHODS)]))
+                 for name in _FindExposedMethods(
+                     self, '', unlisted=self._UNLISTED_METHODS)]))
 
   @cherrypy.expose
   def doc(self, *args):
@@ -502,8 +543,8 @@ class DevServerRoot(object):
     Example:
       http://myhost/doc/update
     """
-    name = args[0]
-    method = self._get_exposed_method(name)
+    name = '/'.join(args)
+    method = _GetExposedMethod(self, name)
     if not method:
       raise DevServerError("No exposed method named `%s'" % name)
     if not method.__doc__:
