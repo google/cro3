@@ -396,7 +396,7 @@ class DevServerRoot(object):
       return common_util.GetLatestBuildVersion(
           updater.static_dir, params['target'],
           milestone=params.get('milestone'))
-    except common_util.DevServerUtilError as errmsg:
+    except common_util.CommonUtilError as errmsg:
       raise cherrypy.HTTPError('500 Internal Server Error', str(errmsg))
 
   @cherrypy.expose

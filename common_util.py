@@ -49,7 +49,7 @@ def CommaSeparatedList(value_list, is_quoted=False):
   else:
     return ''
 
-class DevServerUtilError(Exception):
+class CommonUtilError(Exception):
   """Exception classes used by this module."""
   pass
 
@@ -65,7 +65,7 @@ def ParsePayloadList(archive_url, payload_list):
     Tuple of 3 payloads URLs: (full, nton, mton).
 
   Raises:
-    DevServerUtilError: If payloads missing or invalid.
+    CommonUtilError: If payloads missing or invalid.
   """
   full_payload_url = None
   mton_payload_url = None
@@ -82,7 +82,7 @@ def ParsePayloadList(archive_url, payload_list):
         mton_payload_url = '/'.join([archive_url, payload])
 
   if not full_payload_url:
-    raise DevServerUtilError(
+    raise CommonUtilError(
         'Full payload is missing or has unexpected name format.', payload_list)
 
   return full_payload_url, nton_payload_url, mton_payload_url
@@ -143,7 +143,7 @@ def WaitUntilAvailable(to_wait_list, archive_url, err_str, timeout=600,
     The list of artifacts in the Google Storage bucket.
 
   Raises:
-    DevServerUtilError: If timeout occurs.
+    CommonUtilError: If timeout occurs.
   """
 
   cmd = 'gsutil cat %s/%s' % (archive_url, UPLOADED_LIST)
@@ -171,7 +171,7 @@ def WaitUntilAvailable(to_wait_list, archive_url, err_str, timeout=600,
     _Log('Retrying in %f seconds...%s' % (to_delay, err_str))
     time.sleep(to_delay)
 
-  raise DevServerUtilError('Missing %s for %s.' % (err_str, archive_url))
+  raise CommonUtilError('Missing %s for %s.' % (err_str, archive_url))
 
 
 def GatherArtifactDownloads(main_staging_dir, archive_url, build_dir, build,
@@ -353,11 +353,11 @@ def AcquireLock(static_dir, tag, create_once=True):
     Path to the created directory or None if creation failed.
 
   Raises:
-    DevServerUtilError: If lock can't be acquired.
+    CommonUtilError: If lock can't be acquired.
   """
   build_dir = os.path.join(static_dir, tag)
   if not SafeSandboxAccess(static_dir, build_dir):
-    raise DevServerUtilError('Invalid tag "%s".' % tag)
+    raise CommonUtilError('Invalid tag "%s".' % tag)
 
   # Create the directory.
   is_created = False
@@ -367,7 +367,7 @@ def AcquireLock(static_dir, tag, create_once=True):
   except OSError, e:
     if e.errno == errno.EEXIST:
       if create_once:
-        raise DevServerUtilError(str(e))
+        raise CommonUtilError(str(e))
     else:
       raise
 
@@ -376,7 +376,7 @@ def AcquireLock(static_dir, tag, create_once=True):
     lock = lockfile.FileLock(os.path.join(build_dir, DEVSERVER_LOCK_FILE))
     lock.acquire(timeout=0)
   except lockfile.AlreadyLocked, e:
-    raise DevServerUtilError(str(e))
+    raise CommonUtilError(str(e))
   except:
     # In any other case, remove the directory if we actually created it, so
     # that subsequent attempts won't fail to re-create it.
@@ -399,11 +399,11 @@ def ReleaseLock(static_dir, tag, destroy=False):
                 entirely.
 
   Raises:
-    DevServerUtilError: If lock can't be released.
+    CommonUtilError: If lock can't be released.
   """
   build_dir = os.path.join(static_dir, tag)
   if not SafeSandboxAccess(static_dir, build_dir):
-    raise DevServerUtilError('Invaid tag "%s".' % tag)
+    raise CommonUtilError('Invaid tag "%s".' % tag)
 
   lock = lockfile.FileLock(os.path.join(build_dir, DEVSERVER_LOCK_FILE))
   try:
@@ -411,7 +411,7 @@ def ReleaseLock(static_dir, tag, destroy=False):
     if destroy:
       shutil.rmtree(build_dir)
   except Exception, e:
-    raise DevServerUtilError(str(e))
+    raise CommonUtilError(str(e))
 
 
 def FindMatchingBoards(static_dir, board):
@@ -461,13 +461,13 @@ def GetLatestBuildVersion(static_dir, target, milestone=None):
     If no latest is found for some reason or another a '' string is returned.
 
   Raises:
-    DevServerUtilError: If for some reason the latest build cannot be
+    CommonUtilError: If for some reason the latest build cannot be
         deteremined, this could be due to the dir not existing or no builds
         being present after filtering on milestone.
   """
   target_path = os.path.join(static_dir, target)
   if not os.path.isdir(target_path):
-    raise DevServerUtilError('Cannot find path %s' % target_path)
+    raise CommonUtilError('Cannot find path %s' % target_path)
 
   builds = [distutils.version.LooseVersion(build) for build in
             os.listdir(target_path)]
@@ -477,7 +477,7 @@ def GetLatestBuildVersion(static_dir, target, milestone=None):
     builds = filter(lambda x: milestone.upper() in str(x), builds)
 
   if not builds:
-    raise DevServerUtilError('Could not determine build for %s' % target)
+    raise CommonUtilError('Could not determine build for %s' % target)
 
   return str(max(builds))
 
@@ -505,7 +505,7 @@ def CloneBuild(static_dir, board, build, tag, force=False):
   dev_build_exists = False
   try:
     AcquireLock(dev_static_dir, tag)
-  except DevServerUtilError:
+  except CommonUtilError:
     dev_build_exists = True
     if force:
       dev_build_exists = False
@@ -532,7 +532,7 @@ def GetControlFile(static_dir, build, control_path):
     control_path: Path to control file on Dev Server relative to Autotest root.
 
   Raises:
-    DevServerUtilError: If lock can't be acquired.
+    CommonUtilError: If lock can't be acquired.
 
   Returns:
     Content of the requested control file.
@@ -542,7 +542,7 @@ def GetControlFile(static_dir, build, control_path):
   control_path = os.path.join(static_dir, build, 'autotest',
                               control_path)
   if not SafeSandboxAccess(static_dir, control_path):
-    raise DevServerUtilError('Invaid control file "%s".' % control_path)
+    raise CommonUtilError('Invaid control file "%s".' % control_path)
 
   if not os.path.exists(control_path):
     # TODO(scottz): Come up with some sort of error mechanism.
@@ -561,14 +561,14 @@ def GetControlFileList(static_dir, build):
     build: Fully qualified build string; e.g. R17-1234.0.0-a1-b983.
 
   Raises:
-    DevServerUtilError: If path is outside of sandbox.
+    CommonUtilError: If path is outside of sandbox.
 
   Returns:
     String of each file separated by a newline.
   """
   autotest_dir = os.path.join(static_dir, build, 'autotest/')
   if not SafeSandboxAccess(static_dir, autotest_dir):
-    raise DevServerUtilError('Autotest dir not in sandbox "%s".' % autotest_dir)
+    raise CommonUtilError('Autotest dir not in sandbox "%s".' % autotest_dir)
 
   control_files = set()
   if not os.path.exists(autotest_dir):

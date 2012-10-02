@@ -27,7 +27,7 @@ TEST_LAYOUT = {
 }
 
 
-class DevServerUtilTest(mox.MoxTestBase):
+class CommonUtilTest(mox.MoxTestBase):
 
   def setUp(self):
     mox.MoxTestBase.setUp(self)
@@ -189,7 +189,7 @@ class DevServerUtilTest(mox.MoxTestBase):
     # Attempt to freshly create and lock an existing directory.
     common_util.AcquireLock(self._static_dir, 'test-lock')
     common_util.ReleaseLock(self._static_dir, 'test-lock')
-    self.assertRaises(common_util.DevServerUtilError, common_util.AcquireLock,
+    self.assertRaises(common_util.CommonUtilError, common_util.AcquireLock,
                       self._static_dir, 'test-lock')
     common_util.AcquireLock(self._static_dir, 'test-lock', create_once=False)
     common_util.ReleaseLock(self._static_dir, 'test-lock', destroy=True)
@@ -202,7 +202,7 @@ class DevServerUtilTest(mox.MoxTestBase):
 
     # Attempt to lock an already locked directory.
     common_util.AcquireLock(self._static_dir, 'test-lock')
-    self.assertRaises(common_util.DevServerUtilError, common_util.AcquireLock,
+    self.assertRaises(common_util.CommonUtilError, common_util.AcquireLock,
                       self._static_dir, 'test-lock')
     common_util.ReleaseLock(self._static_dir, 'test-lock', destroy=True)
 
@@ -242,14 +242,14 @@ class DevServerUtilTest(mox.MoxTestBase):
         'R17-1413.0.0-a1-b1346')
 
   def testGetLatestBuildVersionLatest(self):
-    """Test that we raise DevServerUtilError when a build dir is empty."""
-    self.assertRaises(common_util.DevServerUtilError,
+    """Test that we raise CommonUtilError when a build dir is empty."""
+    self.assertRaises(common_util.CommonUtilError,
                       common_util.GetLatestBuildVersion,
                       self._static_dir, 'test-board-3')
 
   def testGetLatestBuildVersionUnknownBuild(self):
-    """Test that we raise DevServerUtilError when a build dir does not exist."""
-    self.assertRaises(common_util.DevServerUtilError,
+    """Test that we raise CommonUtilError when a build dir does not exist."""
+    self.assertRaises(common_util.CommonUtilError,
                       common_util.GetLatestBuildVersion,
                       self._static_dir, 'bad-dir')
 
@@ -534,7 +534,7 @@ class DevServerUtilTest(mox.MoxTestBase):
     common_util.IsAvailable(mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(False)
 
     self.mox.ReplayAll()
-    self.assertRaises(common_util.DevServerUtilError,
+    self.assertRaises(common_util.CommonUtilError,
                       common_util.WaitUntilAvailable,
                       to_wait_list,
                       archive_url,
