@@ -202,7 +202,7 @@ class Bundle:
     if not self.coreboot_fname:
       self.coreboot_fname = os.path.join(build_root, 'coreboot.rom')
     if not self.skeleton_fname:
-      self.skeleton_fname = os.path.join(build_root, 'skeleton.bin')
+      self.skeleton_fname = os.path.join(build_root, 'coreboot.rom')
     if not self.ecrw_fname:
       self.ecrw_fname = os.path.join(build_root, 'ec.RW.bin')
     if not self.ecro_fname:
@@ -884,6 +884,10 @@ class Bundle:
       fdt = fdt.Copy(os.path.join(self._tools.outdir, 'bootstub.dtb'))
       self._tools.Run('cbfstool', [bootstub, 'add', fdt.fname, 'u-boot.dtb',
           '0xac'])
+      bootstub_tmp = bootstub + '.tmp'
+      self._tools.Run('dd', ['if=' + bootstub, 'of=' + bootstub_tmp,
+          'bs=1M', 'skip=7'])
+      shutil.move(bootstub_tmp, bootstub)
 
     image = os.path.join(self._tools.outdir, 'image.bin')
     pack.PackImage(self._tools.outdir, image)
