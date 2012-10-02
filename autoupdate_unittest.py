@@ -15,6 +15,7 @@ import cherrypy
 import mox
 
 import autoupdate
+import common_util
 
 
 _TEST_REQUEST = """
@@ -28,9 +29,9 @@ _TEST_REQUEST = """
 class AutoupdateTest(mox.MoxTestBase):
   def setUp(self):
     mox.MoxTestBase.setUp(self)
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetSize')
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetHash')
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetSHA256')
+    self.mox.StubOutWithMock(common_util, 'GetFileSize')
+    self.mox.StubOutWithMock(common_util, 'GetFileSha1')
+    self.mox.StubOutWithMock(common_util, 'GetFileSha256')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GetUpdatePayload')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetLatestImageDir')
     self.port = 8080
@@ -66,22 +67,25 @@ class AutoupdateTest(mox.MoxTestBase):
 
   def testGetRightSignedDeltaPayloadDir(self):
     """Test that our directory is what we expect it to be for signed updates."""
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetMd5')
+    self.mox.StubOutWithMock(common_util, 'GetFileMd5')
     key_path = 'test_key_path'
     src_image = 'test_src_image'
     target_image = 'test_target_image'
-    hashes = ['12345', '67890', 'abcde', 'patched_kernel']
+    src_hash = '12345'
+    target_hash = '67890'
+    key_hash = 'abcde'
 
-    autoupdate.Autoupdate._GetMd5(target_image).AndReturn(hashes[1])
-    autoupdate.Autoupdate._GetMd5(src_image).AndReturn(hashes[0])
-    autoupdate.Autoupdate._GetMd5(key_path).AndReturn(hashes[2])
+    common_util.GetFileMd5(src_image).AndReturn(src_hash)
+    common_util.GetFileMd5(target_image).AndReturn(target_hash)
+    common_util.GetFileMd5(key_path).AndReturn(key_hash)
 
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor()
     au_mock.private_key = key_path
     update_dir = au_mock.FindCachedUpdateImageSubDir(src_image, target_image)
     self.assertEqual(os.path.basename(update_dir),
-                     '%s_%s+%s+%s' % tuple(hashes))
+                     '%s_%s+%s+patched_kernel' %
+                     (src_hash, target_hash, key_hash))
     self.mox.VerifyAll()
 
   def testGenerateLatestUpdateImageWithForced(self):
@@ -110,11 +114,11 @@ class AutoupdateTest(mox.MoxTestBase):
     autoupdate.Autoupdate.GenerateUpdateImageWithCache(
         self.forced_image_path,
         static_image_dir=self.static_image_dir).AndReturn('update.gz')
-    autoupdate.Autoupdate._GetHash(os.path.join(
+    common_util.GetFileSha1(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.hash)
-    autoupdate.Autoupdate._GetSHA256(os.path.join(
+    common_util.GetFileSha256(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.sha256)
-    autoupdate.Autoupdate._GetSize(os.path.join(
+    common_util.GetFileSize(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.size)
     autoupdate.Autoupdate.GetUpdatePayload(
         self.hash, self.sha256, self.size, self.url, False).AndReturn(
@@ -134,11 +138,11 @@ class AutoupdateTest(mox.MoxTestBase):
     autoupdate.Autoupdate.GenerateLatestUpdateImage(
         self.test_board, 'ForcedUpdate', self.static_image_dir).AndReturn(
             'update.gz')
-    autoupdate.Autoupdate._GetHash(os.path.join(
+    common_util.GetFileSha1(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.hash)
-    autoupdate.Autoupdate._GetSHA256(os.path.join(
+    common_util.GetFileSha256(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.sha256)
-    autoupdate.Autoupdate._GetSize(os.path.join(
+    common_util.GetFileSize(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.size)
     autoupdate.Autoupdate.GetUpdatePayload(
         self.hash, self.sha256, self.size, self.url, False).AndReturn(
@@ -206,11 +210,11 @@ class AutoupdateTest(mox.MoxTestBase):
     autoupdate.Autoupdate.GenerateLatestUpdateImage(
         self.test_board, 'ForcedUpdate', new_image_dir).AndReturn(
             'update.gz')
-    autoupdate.Autoupdate._GetHash(os.path.join(
+    common_util.GetFileSha1(os.path.join(
         new_image_dir, 'update.gz')).AndReturn(self.hash)
-    autoupdate.Autoupdate._GetSHA256(os.path.join(
+    common_util.GetFileSha256(os.path.join(
         new_image_dir, 'update.gz')).AndReturn(self.sha256)
-    autoupdate.Autoupdate._GetSize(os.path.join(
+    common_util.GetFileSize(os.path.join(
         new_image_dir, 'update.gz')).AndReturn(self.size)
     autoupdate.Autoupdate.GetUpdatePayload(
         self.hash, self.sha256, self.size, new_url, False).AndReturn(

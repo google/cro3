@@ -14,6 +14,7 @@ import urlparse
 import cherrypy
 
 from build_util import BuildObject
+import common_util
 import log_util
 
 
@@ -240,16 +241,6 @@ class Autoupdate(BuildObject):
       image_name = 'chromiumos_image.bin'
     return image_name
 
-  def _GetSize(self, update_path):
-    """Returns the size of the file given."""
-    return os.path.getsize(update_path)
-
-  def _GetHash(self, update_path):
-    """Returns the sha1 of the file given."""
-    cmd = ('cat %s | openssl sha1 -binary | openssl base64 | tr \'\\n\' \' \';'
-           % update_path)
-    return os.popen(cmd).read().rstrip()
-
   def _IsDeltaFormatFile(self, filename):
     try:
       file_handle = open(filename, 'r')
@@ -258,29 +249,6 @@ class Autoupdate(BuildObject):
       return magic == delta_magic
     except Exception:
       return False
-
-  # TODO(petkov): Consider optimizing getting both SHA-1 and SHA-256 so that
-  # it takes advantage of reduced I/O and multiple processors. Something like:
-  # % tee < FILE > /dev/null \
-  #     >( openssl dgst -sha256 -binary | openssl base64 ) \
-  #     >( openssl sha1 -binary | openssl base64 )
-  def _GetSHA256(self, update_path):
-    """Returns the sha256 of the file given."""
-    cmd = ('cat %s | openssl dgst -sha256 -binary | openssl base64' %
-           update_path)
-    return os.popen(cmd).read().rstrip()
-
-  def _GetMd5(self, update_path):
-    """Returns the md5 checksum of the file given."""
-    cmd = ("md5sum %s | awk '{print $1}'" % update_path)
-    return os.popen(cmd).read().rstrip()
-
-  def _Copy(self, source, dest):
-    """Copies a file from dest to source (if different)"""
-    _Log('Copy File %s -> %s' % (source, dest))
-    if os.path.lexists(dest):
-      os.remove(dest)
-    shutil.copy(source, dest)
 
   def GetUpdatePayload(self, hash, sha256, size, url, is_delta_format):
     """Returns a payload to the client corresponding to a new update.
@@ -392,29 +360,30 @@ class Autoupdate(BuildObject):
   def FindCachedUpdateImageSubDir(self, src_image, dest_image):
     """Find directory to store a cached update.
 
-    Given one, or two images for an update, this finds which
-    cache directory should hold the update files, even if they don't exist
-    yet. The directory will be inside static_image_dir, and of the form:
+    Given one, or two images for an update, this finds which cache directory
+    should hold the update files, even if they don't exist yet.
 
-    Non-delta updates:
-      CACHE_DIR/12345678
-    Delta updates:
-      CACHE_DIR/12345678_12345678
-
-    If self.private_key -- Signed updates:
-      CACHE_DIR/from_above+12345678
+    Returns:
+      A directory path for storing a cached update, of the following form:
+        Non-delta updates:
+          CACHE_DIR/<dest_hash>
+        Delta updates:
+          CACHE_DIR/<src_hash>_<dest_hash>
+        Signed updates (self.private_key):
+          CACHE_DIR/<src_hash>_<dest_hash>+<private_key_hash>
     """
-    sub_dir = self._GetMd5(dest_image)
+    update_dir = ''
     if src_image:
-      sub_dir = '%s_%s' % (self._GetMd5(src_image), sub_dir)
+      update_dir += common_util.GetFileMd5(src_image) + '_'
 
+    update_dir += common_util.GetFileMd5(dest_image)
     if self.private_key:
-      sub_dir = '%s+%s' % (sub_dir, self._GetMd5(self.private_key))
+      update_dir += '+' + common_util.GetFileMd5(self.private_key)
 
     if not self.vm:
-      sub_dir = '%s+patched_kernel' % sub_dir
+      update_dir += '+patched_kernel'
 
-    return os.path.join(CACHE_DIR, sub_dir)
+    return os.path.join(CACHE_DIR, update_dir)
 
   def GenerateUpdateImage(self, image_path, output_dir):
     """Force generates an update payload based on the given image_path.
@@ -498,8 +467,8 @@ class Autoupdate(BuildObject):
                                     UPDATE_FILE)
       stateful_payload = os.path.join(static_image_dir,
                                       STATEFUL_FILE)
-      self._Copy(cache_update_payload, update_payload)
-      self._Copy(cache_stateful_payload, stateful_payload)
+      common_util.CopyFile(cache_update_payload, update_payload)
+      common_util.CopyFile(cache_stateful_payload, stateful_payload)
       return UPDATE_FILE
     else:
       return self.pregenerated_path
@@ -585,11 +554,11 @@ class Autoupdate(BuildObject):
         suffix = '_image'
         if key.endswith(suffix):
           kind = key[:-len(suffix)]
-          stanza[kind + '_size'] = self._GetSize(os.path.join(
+          stanza[kind + '_size'] = common_util.GetFileSize(os.path.join(
               self.static_dir, stanza[kind + '_image']))
           if validate_checksums:
-            factory_checksum = self._GetHash(os.path.join(self.static_dir,
-                                             stanza[kind + '_image']))
+            factory_checksum = common_util.GetFileSha1(
+                os.path.join(self.static_dir, stanza[kind + '_image']))
             if factory_checksum != stanza[kind + '_checksum']:
               print ('Error: checksum mismatch for %s. Expected "%s" but file '
                      'has checksum "%s".' % (stanza[kind + '_image'],
@@ -646,11 +615,11 @@ class Autoupdate(BuildObject):
 
       # Only copy the files if the source directory is different from dest.
       if os.path.dirname(src_path) != os.path.abspath(static_image_dir):
-        self._Copy(src_path, dest_path)
+        common_util.CopyFile(src_path, dest_path)
 
         # The stateful payload is optional.
         if os.path.exists(src_stateful):
-          self._Copy(src_stateful, dest_stateful)
+          common_util.CopyFile(src_stateful, dest_stateful)
         else:
           _Log('WARN: %s not found. Expected for dev and test builds.' %
                STATEFUL_FILE)
@@ -806,9 +775,9 @@ class Autoupdate(BuildObject):
                                                              static_image_dir)
       if payload_path:
         filename = os.path.join(static_image_dir, payload_path)
-        hash = self._GetHash(filename)
-        sha256 = self._GetSHA256(filename)
-        size = self._GetSize(filename)
+        hash = common_util.GetFileSha1(filename)
+        sha256 = common_util.GetFileSha256(filename)
+        size = common_util.GetFileSize(filename)
         is_delta_format = self._IsDeltaFormatFile(filename)
         if label:
           url = '%s/%s/%s' % (static_urlbase, label, payload_path)

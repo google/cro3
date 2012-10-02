@@ -6,6 +6,7 @@
 
 """A CherryPy-based webserver to host images and build packages."""
 
+import json
 import logging
 import optparse
 import os
@@ -278,6 +279,32 @@ class ApiRoot(object):
         return updater.HandleSetUpdatePing(ip, label)
     raise cherrypy.HTTPError(400, 'No label provided.')
 
+
+  @cherrypy.expose
+  def fileinfo(self, *path_args):
+    """Returns information about a given staged file.
+
+    Args:
+      path_args: path to the file inside the server's static staging directory
+    Returns:
+      A JSON encoded dictionary with information about the said file, which may
+      contain the following keys/values:
+        size:   the file size in bytes (int)
+        sha1:   a base64 encoded SHA1 hash (string)
+        sha256: a base64 encoded SHA256 hash (string)
+    """
+    file_path = os.path.join(updater.static_dir, *path_args)
+    if not os.path.exists(file_path):
+      raise DevServerError('file not found: %s' % file_path)
+    try:
+      file_size = os.path.getsize(file_path)
+      file_sha1 = common_util.GetFileSha1(file_path)
+      file_sha256 = common_util.GetFileSha256(file_path)
+    except os.error, e:
+      raise DevServerError('failed to get info for file %s: %s' %
+                           (file_path, str(e)))
+    return json.dumps(
+        {'size': file_size, 'sha1': file_sha1, 'sha256': file_sha256})
 
 class DevServerRoot(object):
   """The Root Class for the Dev Server.

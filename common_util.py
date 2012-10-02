@@ -4,8 +4,11 @@
 
 """Helper class for interacting with the Dev Server."""
 
+import base64
+import binascii
 import distutils.version
 import errno
+import hashlib
 import os
 import random
 import re
@@ -30,6 +33,8 @@ MTON_DIR_SUFFIX = '_mton'
 DEV_BUILD_PREFIX = 'dev'
 UPLOADED_LIST = 'UPLOADED'
 DEVSERVER_LOCK_FILE = 'devserver'
+
+_HASH_BLOCK_SIZE = 8192
 
 
 def CommaSeparatedList(value_list, is_quoted=False):
@@ -403,7 +408,7 @@ def ReleaseLock(static_dir, tag, destroy=False):
   """
   build_dir = os.path.join(static_dir, tag)
   if not SafeSandboxAccess(static_dir, build_dir):
-    raise CommonUtilError('Invaid tag "%s".' % tag)
+    raise CommonUtilError('Invalid tag "%s".' % tag)
 
   lock = lockfile.FileLock(os.path.join(build_dir, DEVSERVER_LOCK_FILE))
   try:
@@ -542,7 +547,7 @@ def GetControlFile(static_dir, build, control_path):
   control_path = os.path.join(static_dir, build, 'autotest',
                               control_path)
   if not SafeSandboxAccess(static_dir, control_path):
-    raise CommonUtilError('Invaid control file "%s".' % control_path)
+    raise CommonUtilError('Invalid control file "%s".' % control_path)
 
   if not os.path.exists(control_path):
     # TODO(scottz): Come up with some sort of error mechanism.
@@ -598,3 +603,69 @@ def ListAutoupdateTargets(static_dir, board, build):
     List of autoupdate test targets; e.g. ['0.14.747.0-r2bf8859c-b2927_nton']
   """
   return os.listdir(os.path.join(static_dir, board, build, AU_BASE))
+
+
+def GetFileSize(file_path):
+  """Returns the size in bytes of the file given."""
+  return os.path.getsize(file_path)
+
+
+def GetFileHashes(file_path, do_sha1=False, do_sha256=False, do_md5=False):
+  """Computes and returns a list of requested hashes.
+
+  Args:
+    file_path: path to file to be hashed
+    do_sha1:   whether or not to compute a SHA1 hash
+    do_sha256: whether or not to compute a SHA256 hash
+    do_md5:    whether or not to compute a MD5 hash
+  Returns:
+    A dictionary containing binary hash values, keyed by 'sha1', 'sha256' and
+    'md5', respectively.
+  """
+  hashes = {}
+  if (do_sha1 or do_sha256 or do_md5):
+    # Initialize hashers.
+    hasher_sha1 = hashlib.sha1() if do_sha1 else None
+    hasher_sha256 = hashlib.sha256() if do_sha256 else None
+    hasher_md5 = hashlib.md5() if do_md5 else None
+
+    # Read blocks from file, update hashes.
+    with open(file_path, 'rb') as fd:
+      while True:
+        block = fd.read(_HASH_BLOCK_SIZE)
+        if not block:
+          break
+        hasher_sha1 and hasher_sha1.update(block)
+        hasher_sha256 and hasher_sha256.update(block)
+        hasher_md5 and hasher_md5.update(block)
+
+    # Update return values.
+    if hasher_sha1:
+      hashes['sha1'] = hasher_sha1.digest()
+    if hasher_sha256:
+      hashes['sha256'] = hasher_sha256.digest()
+    if hasher_md5:
+      hashes['md5'] = hasher_md5.digest()
+
+  return hashes
+
+
+def GetFileSha1(file_path):
+  """Returns the SHA1 checksum of the file given (base64 encoded)."""
+  return base64.b64encode(GetFileHashes(file_path, do_sha1=True)['sha1'])
+
+
+def GetFileSha256(file_path):
+  """Returns the SHA256 checksum of the file given (base64 encoded)."""
+  return base64.b64encode(GetFileHashes(file_path, do_sha256=True)['sha256'])
+
+
+def GetFileMd5(file_path):
+  """Returns the MD5 checksum of the file given (hex encoded)."""
+  return binascii.hexlify(GetFileHashes(file_path, do_md5=True)['md5'])
+
+
+def CopyFile(source, dest):
+  """Copies a file from |source| to |dest|."""
+  _Log('Copy File %s -> %s' % (source, dest))
+  shutil.copy(source, dest)
