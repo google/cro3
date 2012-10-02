@@ -143,7 +143,7 @@ def RunCommand(path, command):
                           stdout=subprocess.PIPE).communicate()[0].rstrip()
 
 
-def GetBranches(full_name, color):
+def GetBranches(full_name, color, revision):
   """Return a list of branch descriptions."""
 
   command = ['git', 'branch', '-vv']
@@ -154,7 +154,7 @@ def GetBranches(full_name, color):
   branches = RunCommand(full_name, command).splitlines()
 
   # Find out full sha1 of the tracking branch
-  command = ['git', 'rev-parse', 'remotes/m/master']
+  command = ['git', 'rev-parse', revision]
   tracking_sha1 = RunCommand(full_name, command)
 
   rv = []
@@ -221,7 +221,7 @@ def ShowDir(project, root, color, options, result):
     result.ReportFinishedThread('')
     return
 
-  branches = GetBranches(full_name, color)
+  branches = GetBranches(full_name, color, project['local_revision'])
   status = GetStatus(full_name)
 
   text = []
