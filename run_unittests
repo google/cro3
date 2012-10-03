@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Runs the devserver unit test modules.
+
+set -e
+
+# Display help/usage message.
+usage() {
+  cat <<EOF
+Usage: ${0##*/} [OPTION]...
+Options:
+  -f  force running all unit test modules, regardless of failure
+  -h  display this help and exit
+EOF
+}
+
+# Parse command-line options.
+while getopts ":fh" opt; do
+  case $opt in
+    f)
+      force_all=1
+      ;;
+    h)
+      usage
+      exit
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+  esac
+done
+
+shift $((OPTIND-1))
+if [[ $# > 0 ]]; then
+  echo "Invalid argument: $1"
+  exit 1
+fi
+
+# Invoke unit test scripts.
+for unittest_script in *_unittest.py; do
+  ./${unittest_script} || test ${force_all} || break
+done
