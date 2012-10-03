@@ -34,6 +34,7 @@ class AutoupdateTest(mox.MoxTestBase):
     self.mox.StubOutWithMock(common_util, 'GetFileSha256')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GetUpdatePayload')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetLatestImageDir')
+    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetRemotePayloadAttrs')
     self.port = 8080
     self.test_board = 'test-board'
     self.build_root = '/src_path/build/images'
@@ -51,18 +52,18 @@ class AutoupdateTest(mox.MoxTestBase):
     }
     self.test_data = _TEST_REQUEST % self.test_dict
     self.forced_image_path = '/path_to_force/chromiumos_image.bin'
-    self.hash = 12345
+    self.sha1 = 12345
     self.size = 54321
     self.url = 'http://%s/static/update.gz' % self.hostname
     self.payload = 'My payload'
     self.sha256 = 'SHA LA LA'
     cherrypy.request.base = 'http://%s' % self.hostname
 
-  def _DummyAutoupdateConstructor(self):
+  def _DummyAutoupdateConstructor(self, **kwargs):
     """Creates a dummy autoupdater.  Used to avoid using constructor."""
     dummy = autoupdate.Autoupdate(root_dir=None,
                                   static_dir=self.static_image_dir,
-                                  port=self.port)
+                                  **kwargs)
     return dummy
 
   def testGetRightSignedDeltaPayloadDir(self):
@@ -115,13 +116,13 @@ class AutoupdateTest(mox.MoxTestBase):
         self.forced_image_path,
         static_image_dir=self.static_image_dir).AndReturn('update.gz')
     common_util.GetFileSha1(os.path.join(
-        self.static_image_dir, 'update.gz')).AndReturn(self.hash)
+        self.static_image_dir, 'update.gz')).AndReturn(self.sha1)
     common_util.GetFileSha256(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.sha256)
     common_util.GetFileSize(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.size)
     autoupdate.Autoupdate.GetUpdatePayload(
-        self.hash, self.sha256, self.size, self.url, False).AndReturn(
+        self.sha1, self.sha256, self.size, self.url, False).AndReturn(
             self.payload)
 
     self.mox.ReplayAll()
@@ -139,13 +140,13 @@ class AutoupdateTest(mox.MoxTestBase):
         self.test_board, 'ForcedUpdate', self.static_image_dir).AndReturn(
             'update.gz')
     common_util.GetFileSha1(os.path.join(
-        self.static_image_dir, 'update.gz')).AndReturn(self.hash)
+        self.static_image_dir, 'update.gz')).AndReturn(self.sha1)
     common_util.GetFileSha256(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.sha256)
     common_util.GetFileSize(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.size)
     autoupdate.Autoupdate.GetUpdatePayload(
-        self.hash, self.sha256, self.size, self.url, False).AndReturn(
+        self.sha1, self.sha256, self.size, self.url, False).AndReturn(
             self.payload)
 
     self.mox.ReplayAll()
@@ -211,13 +212,13 @@ class AutoupdateTest(mox.MoxTestBase):
         self.test_board, 'ForcedUpdate', new_image_dir).AndReturn(
             'update.gz')
     common_util.GetFileSha1(os.path.join(
-        new_image_dir, 'update.gz')).AndReturn(self.hash)
+        new_image_dir, 'update.gz')).AndReturn(self.sha1)
     common_util.GetFileSha256(os.path.join(
         new_image_dir, 'update.gz')).AndReturn(self.sha256)
     common_util.GetFileSize(os.path.join(
         new_image_dir, 'update.gz')).AndReturn(self.size)
     autoupdate.Autoupdate.GetUpdatePayload(
-        self.hash, self.sha256, self.size, new_url, False).AndReturn(
+        self.sha1, self.sha256, self.size, new_url, False).AndReturn(
             self.payload)
 
     self.mox.ReplayAll()
@@ -269,6 +270,26 @@ class AutoupdateTest(mox.MoxTestBase):
     # versions.
     self.assertTrue(au._CanUpdate('0.16.892.0', '0.16.892.1'))
     self.assertFalse(au._CanUpdate('0.16.892.0', '0.16.892.0'))
+
+  def testHandleUpdatePingRemotePayload(self):
+    remote_urlbase = 'http://remotehost:6666'
+    remote_payload_path = 'static/path/to/update.gz'
+    remote_url = '/'.join([remote_urlbase, remote_payload_path, 'update.gz'])
+
+    test_data = _TEST_REQUEST % self.test_dict
+
+    autoupdate.Autoupdate._GetRemotePayloadAttrs(remote_url).AndReturn(
+            (self.sha1, self.sha256, self.size, False))
+    autoupdate.Autoupdate.GetUpdatePayload(
+        self.sha1, self.sha256, self.size, remote_url, False).AndReturn(
+            self.payload)
+
+    self.mox.ReplayAll()
+    au_mock = self._DummyAutoupdateConstructor(urlbase=remote_urlbase,
+                                               payload_path=remote_payload_path,
+                                               remote_payload=True)
+    self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
+    self.mox.VerifyAll()
 
 
 if __name__ == '__main__':

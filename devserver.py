@@ -632,6 +632,8 @@ def main():
                     help='Have the devserver use production values.')
   parser.add_option('--proxy_port', default=None,
                     help='Port to have the client connect to (testing support)')
+  parser.add_option('--remote_payload', action='store_true', default=False,
+                    help='Payload is being served from a remote machine.')
   parser.add_option('--src_image', default='',
                     help='Image on remote machine for generating delta update.')
   parser.add_option('-t', action='store_true', dest='test_image')
@@ -698,8 +700,7 @@ def main():
       test_image=options.test_image,
       factory_config_path=options.factory_config,
       forced_image=options.image,
-      forced_payload=options.payload,
-      port=options.port,
+      payload_path=options.payload,
       proxy_port=options.proxy_port,
       src_image=options.src_image,
       vm=options.vm,
@@ -707,6 +708,7 @@ def main():
       copy_to_static_root=not options.exit,
       private_key=options.private_key,
       critical_update=options.critical_update,
+      remote_payload=options.remote_payload,
   )
 
   # Sanity-check for use of validate_factory_config.

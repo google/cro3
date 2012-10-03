@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import time
+import urllib2
 import urlparse
 
 import cherrypy
@@ -26,6 +27,11 @@ def _Log(message, *args, **kwargs):
 UPDATE_FILE = 'update.gz'
 STATEFUL_FILE = 'stateful.tgz'
 CACHE_DIR = 'cache'
+
+
+class AutoupdateError(Exception):
+  """Exception classes used by this module."""
+  pass
 
 
 def _ChangeUrlPort(url, new_port):
@@ -113,29 +119,34 @@ class Autoupdate(BuildObject):
   """Class that contains functionality that handles Chrome OS update pings.
 
   Members:
-    serve_only: Serve only pre-built updates. static_dir must contain update.gz
-      and stateful.tgz.
-    factory_config: Path to the factory config file if handling factory
-      requests.
-    use_test_image: Use chromiumos_test_image.bin rather than the standard.
-    static_url_base: base URL, other than devserver, for update images.
-    forced_image: Path to an image to use for all updates.
-    forced_payload: Path to pre-generated payload to serve.
-    port: port to host devserver
-    proxy_port: port of local proxy to tell client to connect to you through.
-    src_image: If specified, creates a delta payload from this image.
-    vm: Set for VM images (doesn't patch kernel)
-    board: board for the image.  Needed for pre-generating of updates.
-    copy_to_static_root: Copies images generated from the cache to
-      ~/static.
+    serve_only:      serve only pre-built updates. static_dir must contain
+                     update.gz and stateful.tgz.
+    factory_config:  path to the factory config file if handling factory
+                     requests.
+    use_test_image:  use chromiumos_test_image.bin rather than the standard.
+    urlbase:         base URL, other than devserver, for update images.
+    forced_image:    path to an image to use for all updates.
+    payload_path:    path to pre-generated payload to serve.
+    src_image:       if specified, creates a delta payload from this image.
+    proxy_port:      port of local proxy to tell client to connect to you
+                     through.
+    vm:              set for VM images (doesn't patch kernel)
+    board:           board for the image. Needed for pre-generating of updates.
+    copy_to_static_root:  copies images generated from the cache to ~/static.
+    private_key:          path to private key in PEM format.
+    critical_update:      whether provisioned payload is critical.
+    remote_payload:       whether provisioned payload is remotely staged.
   """
+
+  _PAYLOAD_URL_PREFIX = '/static/'
+  _FILEINFO_URL_PREFIX = '/api/fileinfo/'
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
                factory_config_path=None,
-               forced_image=None, forced_payload=None,
-               port=8080, proxy_port=None, src_image='', vm=False, board=None,
+               forced_image=None, payload_path=None,
+               proxy_port=None, src_image='', vm=False, board=None,
                copy_to_static_root=True, private_key=None,
-               critical_update=False,
+               critical_update=False, remote_payload=False,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
@@ -147,7 +158,7 @@ class Autoupdate(BuildObject):
       self.urlbase = None
 
     self.forced_image = forced_image
-    self.forced_payload = forced_payload
+    self.payload_path = payload_path
     self.src_image = src_image
     self.proxy_port = proxy_port
     self.vm = vm
@@ -155,6 +166,7 @@ class Autoupdate(BuildObject):
     self.copy_to_static_root = copy_to_static_root
     self.private_key = private_key
     self.critical_update = critical_update
+    self.remote_payload = remote_payload
 
     # Path to pre-generated file.
     self.pregenerated_path = None
@@ -250,12 +262,12 @@ class Autoupdate(BuildObject):
     except Exception:
       return False
 
-  def GetUpdatePayload(self, hash, sha256, size, url, is_delta_format):
+  def GetUpdatePayload(self, sha1, sha256, size, url, is_delta_format):
     """Returns a payload to the client corresponding to a new update.
 
     Args:
-      hash: hash of update blob
-      sha256: SHA-256 hash of update blob
+      sha1: SHA1 hash of update blob
+      sha256: SHA256 hash of update blob
       size: size of update blob
       url: where to find update blob
     Returns:
@@ -290,7 +302,7 @@ class Autoupdate(BuildObject):
       date_str = datetime.date.today().strftime('%Y%m%d')
       extra_attributes.append('deadline="%s"' % date_str)
     xml = payload % (self._GetSecondsSinceMidnight(),
-                     self.app_id, url, hash, sha256, size, delta,
+                     self.app_id, url, sha1, sha256, size, delta,
                      ' '.join(extra_attributes))
     _Log('Generated update payload: %s' % xml)
     return xml
@@ -568,7 +580,7 @@ class Autoupdate(BuildObject):
 
     if validate_checksums:
       if success is False:
-        raise Exception('Checksum mismatch in conf file.')
+        raise AutoupdateError('Checksum mismatch in conf file.')
 
       print 'Config file looks good.'
 
@@ -582,7 +594,7 @@ class Autoupdate(BuildObject):
       return (stanza[kind + '_image'],
               stanza[kind + '_checksum'],
               stanza[kind + '_size'])
-    return (None, None, None)
+    return None, None, None
 
   def HandleFactoryRequest(self, board_id, channel):
     (filename, checksum, size) = self.GetFactoryImage(board_id, channel)
@@ -606,10 +618,10 @@ class Autoupdate(BuildObject):
     dest_path = os.path.join(static_image_dir, UPDATE_FILE)
     dest_stateful = os.path.join(static_image_dir, STATEFUL_FILE)
 
-    if self.forced_payload:
+    if self.payload_path:
       # If the forced payload is not already in our static_image_dir,
       # copy it there.
-      src_path = os.path.abspath(self.forced_payload)
+      src_path = os.path.abspath(self.payload_path)
       src_stateful = os.path.join(os.path.dirname(src_path),
                                   STATEFUL_FILE)
 
@@ -667,6 +679,57 @@ class Autoupdate(BuildObject):
       print 'PREGENERATED_UPDATE=%s' % pregenerated_update
 
     return pregenerated_update
+
+  def _GetRemotePayloadAttrs(self, url):
+    """Returns hashes, size and delta flag of a remote update payload.
+
+    Obtain attributes of a payload file available on a remote devserver. This
+    is based on the assumption that the payload URL uses the /static prefix. We
+    need to make sure that both clients (requests) and remote devserver
+    (provisioning) preserve this invariant.
+
+    Args:
+      url: URL of statically staged remote file (http://host:port/static/...)
+    Returns:
+      A tuple containing the SHA1, SHA256, file size and whether or not it's a
+      delta payload (Boolean).
+    """
+    if self._PAYLOAD_URL_PREFIX not in url:
+      raise AutoupdateError(
+          'Payload URL does not have the expected prefix (%s)' %
+          self._PAYLOAD_URL_PREFIX)
+    fileinfo_url = url.replace(self._PAYLOAD_URL_PREFIX,
+                               self._FILEINFO_URL_PREFIX)
+    _Log('retrieving file info for remote payload via %s' % fileinfo_url)
+    try:
+      conn = urllib2.urlopen(fileinfo_url)
+      file_attr_dict = json.loads(conn.read())
+      sha1 = file_attr_dict['sha1']
+      sha256 = file_attr_dict['sha256']
+      size = file_attr_dict['size']
+    except Exception, e:
+      _Log('failed to obtain remote payload info: %s' % str(e))
+      raise
+    is_delta_format = ('_mton' in url) or ('_nton' in url)
+
+    return sha1, sha256, size, is_delta_format
+
+  def _GetLocalPayloadAttrs(self, static_image_dir, payload_path):
+    """Returns hashes, size and delta flag of a local update payload.
+
+    Args:
+      static_image_dir: directory where static files are being staged
+      payload_path: path to the payload file inside the static directory
+    Returns:
+      A tuple containing the SHA1, SHA256, file size and whether or not it's a
+      delta payload (Boolean).
+    """
+    filename = os.path.join(static_image_dir, payload_path)
+    sha1 = common_util.GetFileSha1(filename)
+    sha256 = common_util.GetFileSha256(filename)
+    size = common_util.GetFileSize(filename)
+    is_delta_format = self._IsDeltaFormatFile(filename)
+    return sha1, sha256, size, is_delta_format
 
   def HandleUpdatePing(self, data, label=None):
     """Handles an update ping from an update client.
@@ -766,26 +829,36 @@ class Autoupdate(BuildObject):
     if self.factory_config:
       return self.HandleFactoryRequest(board_id, channel)
     else:
-      static_image_dir = self.static_dir
-      if label:
-        static_image_dir = os.path.join(static_image_dir, label)
+      url = ''
+      # Are we provisioning a remote or local payload?
+      if self.remote_payload:
+        # If no explicit label was provided, use the value of --payload.
+        if not label and self.payload_path:
+          label = self.payload_path
 
-      payload_path = self.GenerateUpdatePayloadForNonFactory(board_id,
-                                                             client_version,
-                                                             static_image_dir)
-      if payload_path:
-        filename = os.path.join(static_image_dir, payload_path)
-        hash = common_util.GetFileSha1(filename)
-        sha256 = common_util.GetFileSha256(filename)
-        size = common_util.GetFileSize(filename)
-        is_delta_format = self._IsDeltaFormatFile(filename)
-        if label:
-          url = '%s/%s/%s' % (static_urlbase, label, payload_path)
-        else:
-          url = '%s/%s' % (static_urlbase, payload_path)
+        # Form the URL of the update payload. This assumes that the payload
+        # file name is a devserver constant (which currently is the case).
+        url = '/'.join(filter(None, [static_urlbase, label, UPDATE_FILE]))
 
+        # Get remote payload attributes.
+        sha1, sha256, file_size, is_delta_format = \
+            self._GetRemotePayloadAttrs(url)
+      else:
+        # Generate payload.
+        static_image_dir = os.path.join(*filter(None, [self.static_dir, label]))
+        payload_path = self.GenerateUpdatePayloadForNonFactory(
+            board_id, client_version, static_image_dir)
+        # If properly generated, obtain the payload URL and attributes.
+        if payload_path:
+          url = '/'.join(filter(None, [static_urlbase, label, payload_path]))
+          sha1, sha256, file_size, is_delta_format = \
+              self._GetLocalPayloadAttrs(static_image_dir, payload_path)
+
+      # If we end up with an actual payload path, generate a response.
+      if url:
         _Log('Responding to client to use url %s to get image.' % url)
-        return self.GetUpdatePayload(hash, sha256, size, url, is_delta_format)
+        return self.GetUpdatePayload(
+            sha1, sha256, file_size, url, is_delta_format)
       else:
         return self.GetNoUpdatePayload()
 
