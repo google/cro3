@@ -597,51 +597,69 @@ class DevServerRoot(object):
 def main():
   usage = 'usage: %prog [options]'
   parser = optparse.OptionParser(usage=usage)
-  parser.add_option('--archive_dir', dest='archive_dir',
-                    help='serve archived builds only.')
-  parser.add_option('--board', dest='board',
-                    help='When pre-generating update, board for latest image.')
-  parser.add_option('--clear_cache', action='store_true', default=False,
-                    help='Clear out all cached updates and exit')
-  parser.add_option('--critical_update', dest='critical_update',
+  parser.add_option('--archive_dir',
+                    metavar='PATH',
+                    help='serve archived builds only')
+  parser.add_option('--board',
+                    help='when pre-generating update, board for latest image')
+  parser.add_option('--clear_cache',
                     action='store_true', default=False,
-                    help='Present update payload as critical')
-  parser.add_option('--data_dir', dest='data_dir',
-                    help='Writable directory where static lives',
-                    default=os.path.dirname(os.path.abspath(sys.argv[0])))
-  parser.add_option('--exit', action='store_true', default=False,
-                    help='Don\'t start the server (still pregenerate or clear'
-                         'cache).')
-  parser.add_option('--factory_config', dest='factory_config',
-                    help='Config file for serving images from factory floor.')
-  parser.add_option('--for_vm', dest='vm', default=False, action='store_true',
-                    help='Update is for a vm image.')
-  parser.add_option('--image', dest='image',
-                    help='Force update using this image.')
-  parser.add_option('--logfile', dest='logfile',
-                    help='Log output to this file instead of stdout.')
-  parser.add_option('-p', '--pregenerate_update', action='store_true',
-                    default=False, help='Pre-generate update payload.')
-  parser.add_option('--payload', dest='payload',
-                    help='Use update payload from specified directory.')
-  parser.add_option('--port', default=8080,
-                    help='Port for the dev server to use (default: 8080).')
-  parser.add_option('--private_key', default=None,
-                    help='Path to the private key in pem format.')
-  parser.add_option('--production', action='store_true', default=False,
-                    help='Have the devserver use production values.')
-  parser.add_option('--proxy_port', default=None,
-                    help='Port to have the client connect to (testing support)')
-  parser.add_option('--remote_payload', action='store_true', default=False,
-                    help='Payload is being served from a remote machine.')
-  parser.add_option('--src_image', default='',
-                    help='Image on remote machine for generating delta update.')
-  parser.add_option('-t', action='store_true', dest='test_image')
-  parser.add_option('-u', '--urlbase', dest='urlbase',
-                    help='base URL, other than devserver, for update images.')
-  parser.add_option('--validate_factory_config', action="store_true",
-                    dest='validate_factory_config',
-                    help='Validate factory config file, then exit.')
+                    help='clear out all cached updates and exit')
+  parser.add_option('--critical_update',
+                    action='store_true', default=False,
+                    help='present update payload as critical')
+  parser.add_option('--data_dir',
+                    metavar='PATH',
+                    default=os.path.dirname(os.path.abspath(sys.argv[0])),
+                    help='writable directory where static lives')
+  parser.add_option('--exit',
+                    action='store_true',
+                    help='do not start server (yet pregenerate/clear cache)')
+  parser.add_option('--factory_config',
+                    metavar='PATH',
+                    help='config file for serving images from factory floor')
+  parser.add_option('--for_vm',
+                    dest='vm', action='store_true',
+                    help='update is for a vm image')
+  parser.add_option('--image',
+                    metavar='FILE',
+                    help='force update using this image')
+  parser.add_option('--logfile',
+                    metavar='PATH',
+                    help='log output to this file instead of stdout')
+  parser.add_option('-p', '--pregenerate_update',
+                    action='store_true', default=False,
+                    help='pre-generate update payload')
+  parser.add_option('--payload',
+                    metavar='PATH',
+                    help='use update payload from specified directory')
+  parser.add_option('--port',
+                    default=8080, type='int',
+                    help='port for the dev server to use (default: 8080)')
+  parser.add_option('--private_key',
+                    metavar='PATH', default=None,
+                    help='path to the private key in pem format')
+  parser.add_option('--production',
+                    action='store_true', default=False,
+                    help='have the devserver use production values')
+  parser.add_option('--proxy_port',
+                    metavar='PORT', default=None, type='int',
+                    help='port to have the client connect to (testing support)')
+  parser.add_option('--remote_payload',
+                    action='store_true', default=False,
+                    help='Payload is being served from a remote machine')
+  parser.add_option('--src_image',
+                    metavar='PATH', default='',
+                    help='source image for generating delta updates from')
+  parser.add_option('-t', '--test_image',
+                    action='store_true',
+                    help='whether or not to use test images')
+  parser.add_option('-u', '--urlbase',
+                    metavar='URL',
+                    help='base URL for update images, other than the devserver')
+  parser.add_option('--validate_factory_config',
+                    action="store_true",
+                    help='validate factory config file, then exit')
   (options, _) = parser.parse_args()
 
   devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
