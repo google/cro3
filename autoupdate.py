@@ -136,6 +136,7 @@ class Autoupdate(BuildObject):
     private_key:          path to private key in PEM format.
     critical_update:      whether provisioned payload is critical.
     remote_payload:       whether provisioned payload is remotely staged.
+    max_updates:          maximum number of updates we'll try to provision.
   """
 
   _PAYLOAD_URL_PREFIX = '/static/'
@@ -146,7 +147,7 @@ class Autoupdate(BuildObject):
                forced_image=None, payload_path=None,
                proxy_port=None, src_image='', vm=False, board=None,
                copy_to_static_root=True, private_key=None,
-               critical_update=False, remote_payload=False,
+               critical_update=False, remote_payload=False, max_updates=-1,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
@@ -167,6 +168,7 @@ class Autoupdate(BuildObject):
     self.private_key = private_key
     self.critical_update = critical_update
     self.remote_payload = remote_payload
+    self.max_updates=max_updates
 
     # Path to pre-generated file.
     self.pregenerated_path = None
@@ -818,6 +820,12 @@ class Autoupdate(BuildObject):
 
     # Store version for this host in the cache.
     curr_host_info.attrs['last_known_version'] = client_version
+
+    # If maximum number of updates already requested, refuse.
+    if self.max_updates > 0:
+      self.max_updates -= 1
+    elif self.max_updates == 0:
+      return self.GetNoUpdatePayload()
 
     # Check if an update has been forced for this client.
     forced_update = curr_host_info.PopAttr('forced_update_label', None)

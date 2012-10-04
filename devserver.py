@@ -627,6 +627,10 @@ def main():
   parser.add_option('--logfile',
                     metavar='PATH',
                     help='log output to this file instead of stdout')
+  parser.add_option('--max_updates',
+                    metavar='NUM', default=-1, type='int',
+                    help='maximum number of update checks handled positively '
+                         '(default: unlimited)')
   parser.add_option('-p', '--pregenerate_update',
                     action='store_true', default=False,
                     help='pre-generate update payload')
@@ -727,6 +731,7 @@ def main():
       private_key=options.private_key,
       critical_update=options.critical_update,
       remote_payload=options.remote_payload,
+      max_updates=options.max_updates,
   )
 
   # Sanity-check for use of validate_factory_config.
