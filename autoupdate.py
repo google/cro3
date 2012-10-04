@@ -134,9 +134,10 @@ class Autoupdate(BuildObject):
     board:           board for the image. Needed for pre-generating of updates.
     copy_to_static_root:  copies images generated from the cache to ~/static.
     private_key:          path to private key in PEM format.
-    critical_update:      whether provisioned payload is critical.
-    remote_payload:       whether provisioned payload is remotely staged.
-    max_updates:          maximum number of updates we'll try to provision.
+    critical_update:  whether provisioned payload is critical.
+    remote_payload:   whether provisioned payload is remotely staged.
+    max_updates:      maximum number of updates we'll try to provision.
+    host_log:         record full history of host update events.
   """
 
   _PAYLOAD_URL_PREFIX = '/static/'
@@ -148,6 +149,7 @@ class Autoupdate(BuildObject):
                proxy_port=None, src_image='', vm=False, board=None,
                copy_to_static_root=True, private_key=None,
                critical_update=False, remote_payload=False, max_updates=-1,
+               host_log=False,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
@@ -169,6 +171,7 @@ class Autoupdate(BuildObject):
     self.critical_update = critical_update
     self.remote_payload = remote_payload
     self.max_updates=max_updates
+    self.host_log = host_log
 
     # Path to pre-generated file.
     self.pregenerated_path = None
@@ -807,8 +810,9 @@ class Autoupdate(BuildObject):
       log_message['track'] = channel
       log_message['board'] = board_id
 
-    # Log client's message
-    curr_host_info.AddLogEntry(log_message)
+    # Log host event, if so instructed.
+    if self.host_log:
+      curr_host_info.AddLogEntry(log_message)
 
     # We only generate update payloads for updatecheck requests.
     update_check = root.getElementsByTagName('o:updatecheck')

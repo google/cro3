@@ -621,6 +621,9 @@ def main():
   parser.add_option('--for_vm',
                     dest='vm', action='store_true',
                     help='update is for a vm image')
+  parser.add_option('--host_log',
+                    action='store_true', default=False,
+                    help='record history of host update events (/api/hostlog)')
   parser.add_option('--image',
                     metavar='FILE',
                     help='force update using this image')
@@ -732,6 +735,7 @@ def main():
       critical_update=options.critical_update,
       remote_payload=options.remote_payload,
       max_updates=options.max_updates,
+      host_log=options.host_log,
   )
 
   # Sanity-check for use of validate_factory_config.
