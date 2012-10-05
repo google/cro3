@@ -254,6 +254,8 @@ class Bundle:
         'gbb-flag-force-dev-switch-on': 0x00000008,
         'gbb-flag-force-dev-boot-usb': 0x00000010,
         'gbb-flag-disable-fw-rollback-check': 0x00000020,
+        'gbb-flag-enter-triggers-tonorm': 0x00000040,
+        'gbb-flag-force-dev-boot-legacy': 0x00000080,
     }
     gbb_flags = 0
     for flag_name, flag_value in flag_properties.items():
