@@ -870,12 +870,18 @@ class Autoupdate(BuildObject):
 
   def HandleHostLogPing(self, ip):
     """Returns a complete log of events for host in JSON format."""
+    # If all events requested, return a dictionary of logs keyed by IP address.
     if ip == 'all':
       return json.dumps(
           dict([(key, self.host_infos.table[key].log)
                 for key in self.host_infos.table]))
+
+    # Otherwise we're looking for a specific IP address, so find its log.
     if ip in self.host_infos.table:
       return json.dumps(self.host_infos.GetHostInfo(ip).log)
+
+    # If no events were logged for this IP, return an empty log.
+    return json.dumps([])
 
   def HandleSetUpdatePing(self, ip, label):
     """Sets forced_update_label for a given host."""
