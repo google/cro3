@@ -238,30 +238,38 @@ class ApiRoot(object):
   def hostinfo(self, ip):
     """Returns a JSON dictionary containing information about the given ip.
 
-    Not all information may be known at the time the request is made. The
-    possible keys are:
+    Args:
+      ip: address of host whose info is requested
+    Returns:
+      A JSON dictionary containing all or some of the following fields:
+        last_event_type (int):        last update event type received
+        last_event_status (int):      last update event status received
+        last_known_version (string):  last known version reported in update ping
+        forced_update_label (string): update label to force next update ping to
+                                      use, set by setnextupdate
+      See the OmahaEvent class in update_engine/omaha_request_action.h for
+      event type and status code definitions. If the ip does not exist an empty
+      string is returned.
 
-        last_event_type: int
-            Last update event type received.
-
-        last_event_status: int
-            Last update event status received.
-
-        last_known_version: string
-            Last known version recieved for update ping.
-
-        forced_update_label: string
-            Update label to force next update ping to use. Set by setnextupdate.
-
-    See the OmahaEvent class in update_engine/omaha_request_action.h for status
-    code definitions. If the ip does not exist an empty string is returned."""
+    Example URL:
+      http://myhost/api/hostinfo?ip=192.168.1.5
+    """
     return updater.HandleHostInfoPing(ip)
 
   @cherrypy.expose
   def hostlog(self, ip):
-    """Returns a JSON object containing a log of events pertaining to a
-    particular host, or all hosts. Log events contain a timestamp and any
-    subset of the attributes listed for the hostinfo method."""
+    """Returns a JSON object containing a log of host event.
+
+    Args:
+      ip: address of host whose event log is requested, or `all'
+    Returns:
+      A JSON encoded list (log) of dictionaries (events), each of which
+      containing a `timestamp' and other event fields, as described under
+      /api/hostinfo.
+
+    Example URL:
+      http://myhost/api/hostlog?ip=192.168.1.5
+    """
     return updater.HandleHostLogPing(ip)
 
   @cherrypy.expose
@@ -269,7 +277,8 @@ class ApiRoot(object):
     """Allows the response to the next update ping from a host to be set.
 
     Takes the IP of the host and an update label as normally provided to the
-    /update command."""
+    /update command.
+    """
     body_length = int(cherrypy.request.headers['Content-Length'])
     label = cherrypy.request.rfile.read(body_length)
 
@@ -289,9 +298,12 @@ class ApiRoot(object):
     Returns:
       A JSON encoded dictionary with information about the said file, which may
       contain the following keys/values:
-        size:   the file size in bytes (int)
-        sha1:   a base64 encoded SHA1 hash (string)
-        sha256: a base64 encoded SHA256 hash (string)
+        size (int):      the file size in bytes
+        sha1 (string):   a base64 encoded SHA1 hash
+        sha256 (string): a base64 encoded SHA256 hash
+
+    Example URL:
+      http://myhost/api/fileinfo/some/path/to/file
     """
     file_path = os.path.join(updater.static_dir, *path_args)
     if not os.path.exists(file_path):
