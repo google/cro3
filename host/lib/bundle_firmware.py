@@ -203,6 +203,8 @@ class Bundle:
       self.coreboot_fname = os.path.join(build_root, 'coreboot.rom')
     if not self.skeleton_fname:
       self.skeleton_fname = os.path.join(build_root, 'coreboot.rom')
+    if not self.seabios_fname:
+      self.seabios_fname = 'seabios.cbfs'
     if not self.ecrw_fname:
       self.ecrw_fname = os.path.join(build_root, 'ec.RW.bin')
     if not self.ecro_fname:
@@ -566,7 +568,7 @@ class Bundle:
 
     return bootstub, signed_postload
 
-  def _CreateCorebootStub(self, uboot, coreboot, seabios):
+  def _CreateCorebootStub(self, uboot, coreboot):
     """Create a coreboot boot stub.
 
     Args:
@@ -589,13 +591,7 @@ class Bundle:
     if not os.path.exists(self._tools.Filename(uboot_elf)):
       uboot_elf = uboot.replace('.bin', '.elf')
     shutil.copyfile(self._tools.Filename(coreboot), bootstub)
-    if seabios:
-        self._tools.Run('cbfstool', [bootstub, 'add-payload', seabios,
-            'fallback/payload', 'lzma'])
-        self._tools.Run('cbfstool', [bootstub, 'add-payload', uboot_elf,
-            'img/U-Boot', 'lzma'])
-    else:
-        self._tools.Run('cbfstool', [bootstub, 'add-payload', uboot_elf,
+    self._tools.Run('cbfstool', [bootstub, 'add-payload', uboot_elf,
             'fallback/payload', 'lzma'])
 
     # Don't add the fdt yet since it is not in final form
@@ -753,9 +749,11 @@ class Bundle:
     """
     if blob_type == 'coreboot':
       coreboot = self._CreateCorebootStub(self.uboot_fname,
-          self.coreboot_fname, self.seabios_fname)
+          self.coreboot_fname)
       pack.AddProperty('coreboot', coreboot)
       pack.AddProperty('image', coreboot)
+    elif blob_type == 'legacy':
+      pack.AddProperty('legacy', self.seabios_fname)
     elif blob_type == 'signed':
       bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt,
                                               self.postload_fname)
