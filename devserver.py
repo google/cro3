@@ -187,7 +187,7 @@ def _IsExposed(name):
   return hasattr(name, 'exposed') and name.exposed
 
 
-def _GetExposedMethod(root, nested_member, ignored=[]):
+def _GetExposedMethod(root, nested_member, ignored=None):
   """Returns a CherryPy-exposed method, if such exists.
 
   Args:
@@ -199,13 +199,13 @@ def _GetExposedMethod(root, nested_member, ignored=[]):
     the |root| object, if the function is exposed and not ignored; None
     otherwise.
   """
-  method = (nested_member not in ignored and
+  method = (not (ignored and nested_member in ignored) and
             _GetRecursiveMemberObject(root, nested_member.split('/')))
   if (method and type(method) == types.FunctionType and _IsExposed(method)):
     return method
 
 
-def _FindExposedMethods(root, prefix, unlisted=[]):
+def _FindExposedMethods(root, prefix, unlisted=None):
   """Finds exposed CherryPy methods.
 
   Args:
@@ -218,7 +218,7 @@ def _FindExposedMethods(root, prefix, unlisted=[]):
   method_list = []
   for member in sorted(root.__class__.__dict__.keys()):
     prefixed_member = prefix + '/' + member if prefix else member
-    if prefixed_member in unlisted:
+    if unlisted and prefixed_member in unlisted:
       continue
     member_obj = root.__class__.__dict__[member]
     if _IsExposed(member_obj):
