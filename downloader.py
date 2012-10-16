@@ -114,7 +114,7 @@ class Downloader(log_util.Loggable):
       # which would not be qualified as part of the suffix.
       self._staging_dir = tempfile.mkdtemp(suffix='_'.join(
           [rel_path.replace('/', '_'), short_build]))
-      Downloader._TouchTimestampForStaged(self._staging_dir)
+      Downloader._TouchTimestampForStaged(self._build_dir)
       self._Log('Gathering download requirements %s' % archive_url)
       artifacts = self.GatherArtifactDownloads(
           self._staging_dir, archive_url, self._build_dir, short_build)
@@ -204,8 +204,8 @@ class Downloader(log_util.Loggable):
     self._status_queue.put(status)
     # If someone is curious about the status of a build, then we should
     # probably keep it around for a bit longer.
-    if self._staging_dir and os.path.exists(self._staging_dir):
-      Downloader._TouchTimestampForStaged(self._staging_dir)
+    if self._build_dir and os.path.exists(self._build_dir):
+      Downloader._TouchTimestampForStaged(self._build_dir)
     # It's possible we received an exception, if so, re-raise it here.
     if isinstance(status, Exception):
       raise status
