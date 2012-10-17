@@ -35,8 +35,9 @@ assert_inside_chroot
 DEFINE_string board "$FLAGS_board" "Board for which the image was built" b
 DEFINE_string image "$FLAGS_image" "Location of the test image file" i
 DEFINE_string firmware_ver "$FLAGS_firmware_ver" "New firmware version" f
-DEFINE_string updated_fm "$FLAGS_updated_fm" \
-  "Folder path to updated firmware bin files" u
+DEFINE_string firmware_src "$FLAGS_firmware_src" \
+"Location of the source firmware file" s
+DEFINE_string replace_src "$FLAGS_replace_src" "Version string to replace" v
 
 # Parse command line
 FLAGS "$@" || exit 1
@@ -49,31 +50,58 @@ IMAGE_NAME=$(basename "${FLAGS_image}")
 ROOT_FS_DIR="${IMAGE_DIR}/rootfs"
 STATEFUL_FS_DIR="${IMAGE_DIR}/stateful"
 
-[[ $FLAGS_updated_fm == */ ]] && FLAGS_updated_fm="${FLAGS_updated_fm}"
-
-# Check we have all 5 new firmware binaries
 FM_VER_PREFIX=${FLAGS_firmware_ver}
-info "Checking ${FLAGS_updated_fm} for binaries..."
-info "Using pattern: ${FLAGS_board}_${FM_VER_PREFIX}.1.bin"
 
-for i in 1 2 3 4 5
-do
-  BIN_FILE="${FLAGS_updated_fm}/${FLAGS_board}_${FM_VER_PREFIX}.${i}.bin"
-  if [ ! -f ${BIN_FILE} ]; then
-    die_notrace "Unable to locate ${BIN_FILE} firmware binary, exiting."
-  fi
-done
-
-trap cleanup EXIT
-
-cleanup EXIT
-
+# Setup working dir
 if [ -d $WORKING_DIR ]; then
   rm -rf $WORKING_DIR
 fi
 
 mkdir ${WORKING_DIR}
 mkdir ${BIOS_WORKING_DIR}
+
+# Create bvi scripts and run them against the firmware bios
+info "Creating bvi scripts"
+for i in 1 2 3 4 5
+do
+  BVI_SCRIPT_FILE="${BIOS_WORKING_DIR}/bvi_script.${i}"
+  cat > ${BVI_SCRIPT_FILE} <<EOF
+s/${FLAGS_replace_src}/${FLAGS_replace_src}.test${i}/g
+w ${BIOS_WORKING_DIR}/${FLAGS_board}_${FM_VER_PREFIX}.${i}.bin
+q!
+EOF
+done
+
+info "Creating firmware binaries"
+for i in 1 2 3 4 5
+do
+  BVI_SCRIPT_FILE="${BIOS_WORKING_DIR}/bvi_script.${i}"
+  bvi -R -f ${BVI_SCRIPT_FILE} ${FLAGS_firmware_src}
+done
+
+# Check we have all 5 new firmware binaries
+# And verify file size should be same as the
+# source firmware binary
+info "Checking ${BIOS_WORKING_DIR} for binaries..."
+info "Using pattern: ${FLAGS_board}_${FM_VER_PREFIX}.1.bin"
+SRC_SIZE=$(stat -c%s ${FLAGS_firmware_src})
+for i in 1 2 3 4 5
+do
+  BIN_FILE="${BIOS_WORKING_DIR}/${FLAGS_board}_${FM_VER_PREFIX}.${i}.bin"
+  if [ ! -f ${BIN_FILE} ]; then
+    die_notrace "Unable to locate ${BIN_FILE} firmware binary, exiting."
+  fi
+
+  MOD_SIZE=$(stat -c%s ${BIN_FILE})
+  if [ ${SRC_SIZE} -ne ${MOD_SIZE} ]; then
+    die_notrace "Src (${SRC_SIZE}) and modified (${MOD_SIZE}) firmware \
+file sizes are not the same, exiting."
+  fi
+done
+
+trap cleanup EXIT
+
+cleanup EXIT
 
 info "Copying ${FLAGS_image} to ${WORKING_DIR}"
 cp $FLAGS_image $WORKING_DIR
@@ -95,7 +123,7 @@ do
   info "Updating the firmware version to ${FM_VER}"
   sed -i "/^TARGET_FWID=/c TARGET_FWID=${FM_VER}" "${WORKING_UPDATER}-test$i"
   # Resign the provided firmware binaries
-  PROVIDED_BIN="${FLAGS_updated_fm}/${NEW_VER}.bin"
+  PROVIDED_BIN="${BIOS_WORKING_DIR}/${NEW_VER}.bin"
   SIGNED_BIN="${BIOS_WORKING_DIR}/${NEW_VER}_signed.bin"
 
   info "Resigning ${PROVIDED_BIN} to ${SIGNED_BIN}"
