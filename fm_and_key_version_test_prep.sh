@@ -199,7 +199,8 @@ do
     "${KEYS_DIR}/key.versions"
 
   info "Generating payload..."
-  cros_generate_update_payload --image="${WORKING_DIR}/${SIGNED_IMAGE_NAME}" \
+  sudo cros_generate_update_payload \
+    --image="${WORKING_DIR}/${SIGNED_IMAGE_NAME}" \
     --output="${PAYLOAD_DIR}/chromeos_${CHROMEOS_VER_PREFIX}${i}\
 _${FLAGS_board}_testimage-channel_full_test.bin-000${i}.signed"
 done
