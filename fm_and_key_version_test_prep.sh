@@ -43,6 +43,10 @@ DEFINE_string replace_src "$FLAGS_replace_src" "Version string to replace" v
 FLAGS "$@" || exit 1
 eval set -- "$FLAGS_ARGV"
 
+# Convert args to paths
+FLAGS_image=`eval readlink -f ${FLAGS_image}`
+FLAGS_firmware_src=`eval readlink -f ${FLAGS_firmware_src}`
+
 WORKING_DIR=/tmp/key_increment_working_folder
 BIOS_WORKING_DIR="${WORKING_DIR}/bios"
 IMAGE_DIR=$(dirname "${FLAGS_image}")
