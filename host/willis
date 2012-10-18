@@ -299,8 +299,7 @@ def main():
 
   color = os.isatty(1)
   root = FindRoot()
-  manifest = chromite.lib.cros_build_lib.Manifest(
-    os.path.join(root, '.repo/manifest.xml'))
+  manifest = chromite.lib.cros_build_lib.ManifestCheckout(root)
   projects = manifest.projects
 
   result = Result(len(projects), options.fast_report)
