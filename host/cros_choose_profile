@@ -60,18 +60,16 @@ fi
 #
 # Construct board overlay list.
 #
-BOARD_OVERLAY_LIST=$(cros_overlay_list \
-  --board "$BOARD" \
-  --board_overlay "$FLAGS_board_overlay" \
-  --variant "$VARIANT")
+BOARD_OVERLAY_LIST=$(cros_list_overlays \
+  --board "$BOARD_VARIANT" \
+  --board_overlay "$FLAGS_board_overlay")
 
 #
 # Compute ARCH
 #
-PRIMARY_BOARD_OVERLAY=$(cros_overlay_list \
-  --board "$BOARD" \
+PRIMARY_BOARD_OVERLAY=$(cros_list_overlays \
+  --board "$BOARD_VARIANT" \
   --board_overlay "$FLAGS_board_overlay" \
-  --variant "$VARIANT" \
   --primary_only)
 
 ARCH=$(get_board_arch "${BOARD}") || exit 1
