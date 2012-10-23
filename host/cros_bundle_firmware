@@ -35,6 +35,7 @@ base = os.path.dirname(sys.argv[0])
 sys.path.append(base)
 sys.path.append(os.path.join(base, 'lib'))
 
+import bundle_firmware
 from fdt import Fdt
 from pack_firmware import PackFirmware
 import write_firmware
@@ -166,6 +167,8 @@ Examples:
 Argument is either a hex value like c2, or a list of flags, or a list of
 changes to default flags (e.g.-load-option-roms,+force-dev-boot-usb).
 (see --gbb-flags-list) for available flags)''')
+  parser.add_option('--gbb-flags-list', action='store_true',
+      help='List available GBB flags')
   parser.add_option('-k', '--key', dest='key', type='string', action='store',
       help='Path to signing key directory (default to dev key)',
       default='##/usr/share/vboot/devkeys')
@@ -206,6 +209,10 @@ changes to default flags (e.g.-load-option-roms,+force-dev-boot-usb).
   parser.add_option('-w', '--write', dest='write', type='string',
       action='store', help='Write firmware to device (usb, sd)')
   (options, args) = parser.parse_args(sys.argv)
+
+  if options.gbb_flags_list:
+    bundle_firmware.ListGoogleBinaryBlockFlags()
+    sys.exit()
 
   if len(args) > 1:
     parser.error("Unrecognized arguments '%s'" % ' '.join(args[1:]))

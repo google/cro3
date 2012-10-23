@@ -69,6 +69,12 @@ gbb_flag_properties = {
   'force-dev-boot-legacy': 0x00000080,
 }
 
+def ListGoogleBinaryBlockFlags():
+  """Print out a list of GBB flags."""
+  print '   %-30s %s' % ('Available GBB flags:', 'Hex')
+  for name, value in gbb_flag_properties.iteritems():
+    print '   %-30s %02x' % (name, value)
+
 class Bundle:
   """This class encapsulates the entire bundle firmware logic.
 
