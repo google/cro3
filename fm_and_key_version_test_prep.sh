@@ -32,6 +32,7 @@ cleanup() {
 # Need to be inside the chroot to load chromeos-common.sh
 assert_inside_chroot
 
+DEFINE_integer iterations 5 "Iterations to run" x
 DEFINE_string board "$FLAGS_board" "Board for which the image was built" b
 DEFINE_string image "$FLAGS_image" "Location of the test image file" i
 DEFINE_string firmware_ver "$FLAGS_firmware_ver" "New firmware version" f
@@ -55,6 +56,7 @@ ROOT_FS_DIR="${IMAGE_DIR}/rootfs"
 STATEFUL_FS_DIR="${IMAGE_DIR}/stateful"
 
 FM_VER_PREFIX=${FLAGS_firmware_ver}
+ITERATIONS=${FLAGS_iterations}
 
 # Setup working dir
 if [ -d $WORKING_DIR ]; then
@@ -66,7 +68,7 @@ mkdir ${BIOS_WORKING_DIR}
 
 # Create bvi scripts and run them against the firmware bios
 info "Creating bvi scripts"
-for i in 1 2 3 4 5
+for i in $(seq 1 1 ${ITERATIONS})
 do
   BVI_SCRIPT_FILE="${BIOS_WORKING_DIR}/bvi_script.${i}"
   cat > ${BVI_SCRIPT_FILE} <<EOF
@@ -77,7 +79,7 @@ EOF
 done
 
 info "Creating firmware binaries"
-for i in 1 2 3 4 5
+for i in $(seq 1 1 ${ITERATIONS})
 do
   BVI_SCRIPT_FILE="${BIOS_WORKING_DIR}/bvi_script.${i}"
   bvi -R -f ${BVI_SCRIPT_FILE} ${FLAGS_firmware_src}
@@ -89,7 +91,7 @@ done
 info "Checking ${BIOS_WORKING_DIR} for binaries..."
 info "Using pattern: ${FLAGS_board}_${FM_VER_PREFIX}.1.bin"
 SRC_SIZE=$(stat -c%s ${FLAGS_firmware_src})
-for i in 1 2 3 4 5
+for i in $(seq 1 1 ${ITERATIONS})
 do
   BIN_FILE="${BIOS_WORKING_DIR}/${FLAGS_board}_${FM_VER_PREFIX}.${i}.bin"
   if [ ! -f ${BIN_FILE} ]; then
@@ -117,7 +119,7 @@ cp $FLAGS_image $WORKING_DIR
 IMAGE_UPDATER="${ROOT_FS_DIR}/usr/sbin/chromeos-firmwareupdate"
 WORKING_UPDATER="${BIOS_WORKING_DIR}/chromeos-firmwareupdate"
 
-for i in 1 2 3 4 5
+for i in $(seq 1 1 ${ITERATIONS})
 do
   cp ${IMAGE_UPDATER} ${WORKING_UPDATER}-test$i
   chmod 755 ${WORKING_UPDATER}-test$i
@@ -125,7 +127,8 @@ do
   NEW_VER="${FLAGS_board}_${FM_VER_PREFIX}.${i}"
   FM_VER="Google_${NEW_VER}"
   info "Updating the firmware version to ${FM_VER}"
-  sed -i "/^TARGET_FWID=/c TARGET_FWID=${FM_VER}" "${WORKING_UPDATER}-test$i"
+  sed -i \
+    "/^TARGET_FWID=/c TARGET_FWID=\"${FM_VER}\"" "${WORKING_UPDATER}-test$i"
   # Resign the provided firmware binaries
   PROVIDED_BIN="${BIOS_WORKING_DIR}/${NEW_VER}.bin"
   SIGNED_BIN="${BIOS_WORKING_DIR}/${NEW_VER}_signed.bin"
@@ -180,7 +183,7 @@ PAYLOAD_DIR="${WORKING_DIR}/payloads"
 mkdir "${PAYLOAD_DIR}"
 
 # Create a copy of the test image that will be convert to a payload.
-for i in 1 2 3 4 5
+for i in $(seq 1 1 ${ITERATIONS})
 do
   NEW_IMAGE_NAME="chromiumos-key-image-${CHROMEOS_VER_PREFIX}${i}.bin"
   cp "${WORKING_DIR}/${IMAGE_NAME}" "${WORKING_DIR}/${NEW_IMAGE_NAME}"
@@ -201,7 +204,7 @@ do
   cleanup
   cd "${KEYS_DIR}"
   if [[ ${i} == 1 ]]; then
-    load_current_versions
+    load_current_versions "${KEYS_DIR}"
     new_kern_ver=$(increment_version "${KEYS_DIR}" "kernel_version")
     write_updated_version_file ${CURR_FIRMKEY_VER} ${CURR_FIRM_VER} \
       ${CURR_KERNKEY_VER} ${new_kern_ver}
@@ -212,7 +215,7 @@ do
   elif [[ ${i} == 4  ]]; then
     "${KEYS_DIR}"/increment_firmware_data_key.sh "${KEYS_DIR}"
   elif [[ ${i} == 5  ]]; then
-    load_current_versions
+    load_current_versions "${KEYS_DIR}"
     new_kern_ver=$(increment_version "${KEYS_DIR}" "kernel_version")
     write_updated_version_file ${CURR_FIRMKEY_VER} ${CURR_FIRM_VER} \
       ${CURR_KERNKEY_VER} ${new_kern_ver}
