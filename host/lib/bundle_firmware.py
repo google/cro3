@@ -168,7 +168,7 @@ class Bundle:
     self.ecro_fname = ecro
     self.kernel_fname = kernel
 
-  def SetOptions(self, small):
+  def SetOptions(self, small, gbb_flags):
     """Set up options supported by Bundle.
 
     Args:
@@ -177,6 +177,7 @@ class Bundle:
           U-Boot part while keeping the keys, gbb, etc. the same.
     """
     self._small = small
+    self._gbb_flags = gbb_flags
 
   def CheckOptions(self):
     """Check provided options and select defaults."""
@@ -267,6 +268,51 @@ class Bundle:
           raise ValueError("FDT contains invalid GBB flags '%s'" % name)
     return gbb_flags
 
+  def DecodeGBBFlagsFromOptions(self, gbb_flags, adjustments):
+    """Decode ajustments to the provided GBB flags.
+
+    We support three options:
+
+       hex value: c2
+       defined value: force-dev-boot-usb,load-option-roms
+       adjust default value: -load-option-roms,+force-dev-boot-usb
+
+    The last option starts from the passed-in GBB flags and adds or removes
+    flags.
+
+    Args:
+      gbb_flags: Base (default) FDT flags.
+      adjustments: String containing adjustments to make.
+
+    Returns:
+      Updated FDT flags.
+    """
+    use_base_value = True
+    if adjustments:
+      try:
+        return int(adjustments, base=16)
+      except:
+        pass
+      for flag in adjustments.split(','):
+        oper = None
+        if flag[0] in ['-', '+']:
+          oper = flag[0]
+          flag = flag[1:]
+        value = gbb_flag_properties.get(flag)
+        if not value:
+          raise ValueError("Invalid GBB flag '%s'" % flag)
+        if oper == '+':
+          gbb_flags |= value
+        elif oper == '-':
+          gbb_flags &= ~value
+        else:
+          if use_base_value:
+            gbb_flags = 0
+            use_base_value = False
+          gbb_flags |= value
+
+    return gbb_flags
+
   def _CreateGoogleBinaryBlock(self, hardware_id):
     """Create a GBB for the image.
 
@@ -286,6 +332,9 @@ class Bundle:
     odir = self._tools.outdir
 
     gbb_flags = self.DecodeGBBFlagsFromFdt()
+
+    # Allow command line to override flags
+    gbb_flags = self.DecodeGBBFlagsFromOptions(gbb_flags, self._gbb_flags)
 
     self._out.Notice("GBB flags value %#x" % gbb_flags)
     self._out.Progress('Creating GBB')

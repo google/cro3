@@ -16,8 +16,18 @@ import unittest
 import tempfile
 
 from bundle_firmware import Bundle
+import bundle_firmware
 import cros_output
 from tools import Tools
+
+
+def GetFlagName(index):
+  """Returns the flag name for the given index value (0...n-1)."""
+  return bundle_firmware.gbb_flag_properties.keys()[index]
+
+def GetFlagValue(index):
+  """Returns the flag value for the given index value (0...n-1)."""
+  return bundle_firmware.gbb_flag_properties.values()[index]
 
 
 class TestBundleFirmware(unittest.TestCase):
@@ -38,6 +48,7 @@ class TestBundleFirmware(unittest.TestCase):
     self.bmpblk_fname = os.path.abspath('bin/bmpblk.bin')
     self.bct_fname = os.path.abspath('bin/board.bct')
     self.bundle.SetDirs('##/usr/share/vboot/devkeys')
+    self.bundle.SetOptions(False, None)
 
   def tearDown(self):
     """Clean up after completion of tests."""
@@ -130,6 +141,45 @@ class TestBundleFirmware(unittest.TestCase):
     # We expect the size to be 2MB.
     # TODO(sjg@chromium.org): Read this from the fdt file instead.
     self.assertEquals(os.stat(image).st_size, 2 * 1024 * 1024)
+
+  def test_Flags(self):
+    bundle = self.bundle
+    self.assertEquals(0, bundle.DecodeGBBFlagsFromOptions(0, None))
+
+    # Make sure each flag works.
+    all = []
+    all_value = 0
+    for flag, value in bundle_firmware.gbb_flag_properties.iteritems():
+      self.assertEquals(value, bundle.DecodeGBBFlagsFromOptions(0, flag))
+      all.append(flag)
+      all_value |= value
+
+    # Nop.
+    self.assertEquals(23, bundle.DecodeGBBFlagsFromOptions(23, ''))
+    self.assertEquals(23, bundle.DecodeGBBFlagsFromOptions(23, None))
+
+    # Starting from 0, try turning on all flags.
+    self.assertEquals(all_value,
+                      bundle.DecodeGBBFlagsFromOptions(0, ','.join(all)))
+
+    # Starting from the value for all flags on, try turning off all flags.
+    all_off = ['-%s' % item for item in bundle_firmware.gbb_flag_properties]
+    self.assertEquals(0, bundle.DecodeGBBFlagsFromOptions(all_value,
+                                      ','.join(all_off)))
+
+    # Make sure + and - work. Start with a random flag.
+    start_value = GetFlagValue(2) | GetFlagValue(3)
+    expr = '+%s,+%s,-%s' % (GetFlagName(1), GetFlagName(4), GetFlagName(3))
+    expect_value = start_value | GetFlagValue(1) | GetFlagValue(4)
+    expect_value &= ~ GetFlagValue(3)
+    self.assertEquals(expect_value,
+                      bundle.DecodeGBBFlagsFromOptions(start_value, expr))
+
+    # Try hex value
+    self.assertEquals(0x69, bundle.DecodeGBBFlagsFromOptions(4, '69'))
+    self.assertEquals(0xc, bundle.DecodeGBBFlagsFromOptions(4, 'c'))
+    self.assertEquals(0xc, bundle.DecodeGBBFlagsFromOptions(4, '00c'))
+
 
 if __name__ == '__main__':
   unittest.main()
