@@ -56,6 +56,19 @@ localizations:
   - [ dev_en, rec_en, yuck_en, ins_en ]
 '''
 
+# Build GBB flags.
+# (src/platform/vboot_reference/firmware/include/gbb_header.h)
+gbb_flag_properties = {
+  'dev-screen-short-delay': 0x00000001,
+  'load-option-roms': 0x00000002,
+  'enable-alternate-os': 0x00000004,
+  'force-dev-switch-on': 0x00000008,
+  'force-dev-boot-usb': 0x00000010,
+  'disable-fw-rollback-check': 0x00000020,
+  'enter-triggers-tonorm': 0x00000040,
+  'force-dev-boot-legacy': 0x00000080,
+}
+
 class Bundle:
   """This class encapsulates the entire bundle firmware logic.
 
@@ -227,6 +240,33 @@ class Bundle:
         }
     return file_list
 
+  def DecodeGBBFlagsFromFdt(self):
+    """Get Google Binary Block flags from the FDT.
+
+    These should be in the chromeos-config node, like this:
+
+      chromeos-config {
+                  gbb-flag-dev-screen-short-delay;
+                  gbb-flag-force-dev-switch-on;
+                  gbb-flag-force-dev-boot-usb;
+                  gbb-flag-disable-fw-rollback-check;
+      };
+
+    Returns:
+      GBB flags value from FDT.
+    """
+    chromeos_config = self.fdt.GetProps("/chromeos-config")
+    gbb_flags = 0
+    for name in chromeos_config:
+      if name.startswith('gbb-flag-'):
+        flag_value = gbb_flag_properties.get(name[9:])
+        if flag_value:
+          gbb_flags |= flag_value
+          self._out.Notice("FDT: Enabling %s." % name)
+        else:
+          raise ValueError("FDT contains invalid GBB flags '%s'" % name)
+    return gbb_flags
+
   def _CreateGoogleBinaryBlock(self, hardware_id):
     """Create a GBB for the image.
 
@@ -245,27 +285,9 @@ class Bundle:
     gbb_size = self.fdt.GetFlashPartSize('ro', 'gbb')
     odir = self._tools.outdir
 
-    chromeos_config = self.fdt.GetProps("/chromeos-config")
-    # Build GBB flags.
-    # (src/platform/vboot_reference/firmware/include/gbb_header.h)
-    flag_properties = {
-        'fast-developer-mode': 0x01,
-        'gbb-flag-dev-screen-short-delay': 0x00000001,
-        'gbb-flag-load-option-roms': 0x00000002,
-        'gbb-flag-enable-alternate-os': 0x00000004,
-        'gbb-flag-force-dev-switch-on': 0x00000008,
-        'gbb-flag-force-dev-boot-usb': 0x00000010,
-        'gbb-flag-disable-fw-rollback-check': 0x00000020,
-        'gbb-flag-enter-triggers-tonorm': 0x00000040,
-        'gbb-flag-force-dev-boot-legacy': 0x00000080,
-    }
-    gbb_flags = 0
-    for flag_name, flag_value in flag_properties.items():
-      if flag_name not in chromeos_config:
-        continue
-      gbb_flags |= flag_value
-      self._out.Notice("Enabling %s." % flag_name)
+    gbb_flags = self.DecodeGBBFlagsFromFdt()
 
+    self._out.Notice("GBB flags value %#x" % gbb_flags)
     self._out.Progress('Creating GBB')
     sizes = [0x100, 0x1000, gbb_size - 0x2180, 0x1000]
     sizes = ['%#x' % size for size in sizes]
