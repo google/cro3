@@ -174,16 +174,19 @@ class Bundle:
     self.ecro_fname = ecro
     self.kernel_fname = kernel
 
-  def SetOptions(self, small, gbb_flags):
+  def SetOptions(self, small, gbb_flags, force_rw=False):
     """Set up options supported by Bundle.
 
     Args:
       small: Only create a signed U-Boot - don't produce the full packed
           firmware image. This is useful for devs who want to replace just the
           U-Boot part while keeping the keys, gbb, etc. the same.
+      gbb_flags: Specification for string containing adjustments to make.
+      force_rw: Force firmware into RW mode.
     """
     self._small = small
     self._gbb_flags = gbb_flags
+    self._force_rw = force_rw
 
   def CheckOptions(self):
     """Check provided options and select defaults."""
@@ -909,6 +912,10 @@ class Bundle:
     pack.AddProperty('boot', self.uboot_fname)
     pack.AddProperty('skeleton', self.skeleton_fname)
     pack.AddProperty('dtb', fdt.fname)
+
+    if self._force_rw:
+        fdt.PutInteger('/flash/rw-a-vblock', 'preamble-flags', 0)
+        fdt.PutInteger('/flash/rw-b-vblock', 'preamble-flags', 0)
 
     # Let's create some copies of the fdt for vboot. These can be used to
     # pass a different fdt to each firmware type. For now it is just used to

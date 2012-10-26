@@ -83,7 +83,8 @@ def _DoBundle(options, output, tools):
                   exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2,
                   skeleton=options.skeleton, ecrw=options.ecrw,
                   ecro=options.ecro, kernel=options.kernel)
-  bundle.SetOptions(small=options.small, gbb_flags=options.gbb_flags)
+  bundle.SetOptions(small=options.small, gbb_flags=options.gbb_flags,
+                    force_rw=options.force_rw)
 
   try:
     # Set up the fdt and options that we want.
@@ -162,6 +163,8 @@ Examples:
         action='store', help='EC read-only binary file')
   parser.add_option('-F', '--flash', dest='flash_dest', type='string',
       action='store', help='Create a flasher to flash the device (spi, mmc)')
+  parser.add_option('--force-rw', action='store_true',
+      help='Force jump to RW firmware')
   parser.add_option('--gbb-flags', type='string',
       action='store', help='''Set GBB flags:
 Argument is either a hex value like c2, or a list of flags, or a list of
