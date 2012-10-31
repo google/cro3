@@ -26,8 +26,11 @@ TEST_IMAGE = TEST_IMAGE_PATH + '/' + TEST_IMAGE_NAME
 TEST_FACTORY_CONFIG = 'testdata/devserver/miniomaha-test.conf'
 TEST_DATA_PATH = '/tmp/devserver-test'
 TEST_CLIENT_PREFIX = 'ChromeOSUpdateEngine'
+EXPECTED_HASH = 'kGcOinJ0vA8vdYX53FN0F5BdwfY='
 
-UPDATE_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
+# Update request based on Omaha v2 protocol format.
+UPDATE_REQUEST = {}
+UPDATE_REQUEST['2.0'] = """<?xml version="1.0" encoding="UTF-8"?>
 <o:gupdate xmlns:o="http://www.google.com/update2/request" version="ChromeOSUpdateEngine-0.1.0.0" updaterversion="ChromeOSUpdateEngine-0.1.0.0" protocol="2.0" ismachine="1">
     <o:os version="Indy" platform="Chrome OS" sp="0.11.254.2011_03_09_1814_i686"></o:os>
     <o:app appid="{DEV-BUILD}" version="0.11.254.2011_03_09_1814" lang="en-US" track="developer-build" board="x86-generic" hardware_class="BETA DVT" delta_okay="true">
@@ -36,8 +39,20 @@ UPDATE_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
     </o:app>
 </o:gupdate>
 """
+
+# Update request based on Omaha v3 protocol format.
+UPDATE_REQUEST['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
+<request version="ChromeOSUpdateEngine-0.1.0.0" updaterversion="ChromeOSUpdateEngine-0.1.0.0" protocol="3.0" ismachine="1">
+    <os version="Indy" platform="Chrome OS" sp="0.11.254.2011_03_09_1814_i686"></os>
+    <app appid="{DEV-BUILD}" version="0.11.254.2011_03_09_1814" lang="en-US" track="developer-build" board="x86-generic" hardware_class="BETA DVT" delta_okay="true">
+        <updatecheck></updatecheck>
+        <event eventtype="3" eventresult="2" previousversion="0.11.216.2011_03_02_1358"></event>
+    </app>
+</request>
+"""
 # TODO(girts): use a random available port.
 UPDATE_URL = 'http://127.0.0.1:8080/update'
+STATIC_URL = 'http://127.0.0.1:8080/static/'
 
 API_HOST_INFO_BAD_URL = 'http://127.0.0.1:8080/api/hostinfo/'
 API_HOST_INFO_URL = API_HOST_INFO_BAD_URL + '127.0.0.1'
@@ -73,18 +88,7 @@ class DevserverTest(unittest.TestCase):
     if os.path.exists(self.image):
       os.unlink(self.image)
 
-  def testValidateFactoryConfig(self):
-    """Tests --validate_factory_config."""
-    cmd = [
-        'python',
-        os.path.join(base_dir, 'devserver.py'),
-        '--validate_factory_config',
-        '--factory_config', self.factory_config,
-    ]
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    stdout, _ = process.communicate()
-    self.assertEqual(0, process.returncode)
-    self.assertTrue('Config file looks good.' in stdout)
+  # Helper methods begin here.
 
   def _StartServer(self, data_dir=''):
     """Starts devserver, returns process."""
@@ -100,13 +104,14 @@ class DevserverTest(unittest.TestCase):
     process = subprocess.Popen(cmd)
     return process.pid
 
-  def testHandleUpdate(self):
-    """Tests running the server and getting an update."""
-    pid = self._StartServer()
+  def VerifyHandleUpdate(self, protocol, data_dir):
+    """Tests running the server and getting an update for the given protocol.
+       Takes an optional data_dir to pass to the devserver. """
+    pid = self._StartServer(data_dir)
     try:
       # Wait for the server to start up.
       time.sleep(1)
-      request = urllib2.Request(UPDATE_URL, UPDATE_REQUEST)
+      request = urllib2.Request(UPDATE_URL, UPDATE_REQUEST[protocol])
       connection = urllib2.urlopen(request)
       response = connection.read()
       connection.close()
@@ -115,23 +120,52 @@ class DevserverTest(unittest.TestCase):
       # Parse the response and check if it contains the right result.
       dom = minidom.parseString(response)
       update = dom.getElementsByTagName('updatecheck')[0]
-
-      codebase = update.getAttribute('codebase')
-      self.assertEqual('http://127.0.0.1:8080/static/' + TEST_IMAGE_NAME,
-                       codebase)
-
-      hash_value = update.getAttribute('hash')
-      self.assertEqual('kGcOinJ0vA8vdYX53FN0F5BdwfY=', hash_value)
+      if protocol == '2.0':
+        url = self.VerifyV2Response(update)
+      else:
+        url = self.VerifyV3Response(update)
 
       # Try to fetch the image.
-      connection = urllib2.urlopen(codebase)
+      connection = urllib2.urlopen(url)
       contents = connection.read()
       connection.close()
       self.assertEqual('Developers, developers, developers!\n', contents)
     finally:
       os.kill(pid, signal.SIGKILL)
 
-  def testHandleDatadirUpdate(self):
+  def VerifyV2Response(self, update):
+    """Verifies the update DOM from a v2 response and returns the url."""
+    codebase = update.getAttribute('codebase')
+    self.assertEqual(STATIC_URL + TEST_IMAGE_NAME,
+                     codebase)
+
+    hash_value = update.getAttribute('hash')
+    self.assertEqual(EXPECTED_HASH, hash_value)
+
+    return codebase
+
+  def VerifyV3Response(self, update):
+    """Verifies the update DOM from a v3 response and returns the url."""
+    # Parse the response and check if it contains the right result.
+    urls = update.getElementsByTagName('urls')[0]
+    url = urls.getElementsByTagName('url')[0]
+
+    codebase = url.getAttribute('codebase')
+    self.assertEqual(STATIC_URL, codebase)
+
+    manifest = update.getElementsByTagName('manifest')[0]
+    packages = manifest.getElementsByTagName('packages')[0]
+    package = packages.getElementsByTagName('package')[0]
+    filename = package.getAttribute('name')
+    self.assertEqual(TEST_IMAGE_NAME, filename)
+
+    hash_value = package.getAttribute('hash')
+    self.assertEqual(EXPECTED_HASH, hash_value)
+
+    url = os.path.join(codebase, filename)
+    return url
+
+  def VerifyHandleDatadirUpdate(self, protocol):
     """Tests getting an update from a specified datadir"""
     # Push the image to the expected path where devserver picks it up.
     image_path = os.path.join(TEST_DATA_PATH, STATIC_DIR)
@@ -143,36 +177,35 @@ class DevserverTest(unittest.TestCase):
       os.unlink(foreign_image)
     shutil.copy(self.image_src, foreign_image)
 
-    pid = self._StartServer(data_dir=TEST_DATA_PATH)
-    try:
-      # Wait for the server to start up.
-      time.sleep(1)
+    self.VerifyHandleUpdate(protocol, TEST_DATA_PATH)
+    os.unlink(foreign_image)
 
-      request = urllib2.Request(UPDATE_URL, UPDATE_REQUEST)
-      connection = urllib2.urlopen(request)
-      response = connection.read()
-      connection.close()
-      self.assertNotEqual('', response)
+  # Tests begin here.
 
-      # Parse the response and check if it contains the right result.
-      dom = minidom.parseString(response)
-      update = dom.getElementsByTagName('updatecheck')[0]
+  def testValidateFactoryConfig(self):
+    """Tests --validate_factory_config."""
+    cmd = [
+        'python',
+        os.path.join(base_dir, 'devserver.py'),
+        '--validate_factory_config',
+        '--factory_config', self.factory_config,
+    ]
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    stdout, _ = process.communicate()
+    self.assertEqual(0, process.returncode)
+    self.assertTrue('Config file looks good.' in stdout)
 
-      codebase = update.getAttribute('codebase')
-      self.assertEqual('http://127.0.0.1:8080/static/' + TEST_IMAGE_NAME,
-                       codebase)
+  def testHandleUpdateV2(self):
+    self.VerifyHandleUpdate('2.0', '')
 
-      hash_value = update.getAttribute('hash')
-      self.assertEqual('kGcOinJ0vA8vdYX53FN0F5BdwfY=', hash_value)
+  def testHandleUpdateV3(self):
+    self.VerifyHandleUpdate('3.0', '')
 
-      # Try to fetch the image.
-      connection = urllib2.urlopen(codebase)
-      contents = connection.read()
-      connection.close()
-      self.assertEqual('Developers, developers, developers!\n', contents)
-      os.unlink(foreign_image)
-    finally:
-      os.kill(pid, signal.SIGKILL)
+  def testHandleDatadirUpdateV2(self):
+    self.VerifyHandleDatadirUpdate('2.0')
+
+  def testHandleDatadirUpdateV3(self):
+    self.VerifyHandleDatadirUpdate('3.0')
 
   def testApiBadSetNextUpdateRequest(self):
     """Tests sending a bad setnextupdate request."""
@@ -251,7 +284,6 @@ class DevserverTest(unittest.TestCase):
           json.loads(response)['forced_update_label'], API_SET_UPDATE_REQUEST)
     finally:
       os.kill(pid, signal.SIGKILL)
-
 
 if __name__ == '__main__':
   unittest.main()
