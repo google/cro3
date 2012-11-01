@@ -671,8 +671,8 @@ class Bundle:
     if not os.path.exists(self._tools.Filename(uboot_elf)):
       uboot_elf = uboot.replace('.bin', '.elf')
     shutil.copyfile(self._tools.Filename(coreboot), bootstub)
-    self._tools.Run('cbfstool', [bootstub, 'add-payload', uboot_elf,
-            'fallback/payload', 'lzma'])
+    self._tools.Run('cbfstool', [bootstub, 'add-payload', '-f', uboot_elf,
+            '-n', 'fallback/payload', '-c', 'lzma'])
 
     # Don't add the fdt yet since it is not in final form
     return bootstub
@@ -977,8 +977,8 @@ class Bundle:
     if 'coreboot' in blob_list:
       bootstub = pack.GetProperty('coreboot')
       fdt = fdt.Copy(os.path.join(self._tools.outdir, 'bootstub.dtb'))
-      self._tools.Run('cbfstool', [bootstub, 'add', fdt.fname, 'u-boot.dtb',
-          '0xac'])
+      self._tools.Run('cbfstool', [bootstub, 'add', '-f', fdt.fname,
+          '-n', 'u-boot.dtb', '-t', '0xac'])
       bootstub_tmp = bootstub + '.tmp'
       self._tools.Run('dd', ['if=' + bootstub, 'of=' + bootstub_tmp,
           'bs=1M', 'skip=7'])
