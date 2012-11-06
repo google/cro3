@@ -714,22 +714,37 @@ class Bundle:
     upto = 0
     for param in param_list:
       value = struct.unpack('<1L', data[pos + upto:pos + upto + 4])[0]
+
+      # Use this to detect a missing value from the fdt.
+      not_given = 'not-given-invalid-value'
       if param == 'm' :
-        mem_type = fdt.GetString('/dmc', 'mem-type')
+        mem_type = fdt.GetString('/dmc', 'mem-type', not_given)
+        if mem_type == not_given:
+          mem_type = 'ddr3'
+          self._out.Warning("No value for memory type: using '%s'" % mem_type)
         mem_types = ['ddr2', 'ddr3', 'lpddr2', 'lpddr3']
         if not mem_type in mem_types:
           raise CmdError("Unknown memory type '%s'" % mem_type)
         value = mem_types.index(mem_type)
         self._out.Info('  Memory type: %s (%d)' % (mem_type, value))
       elif param == 'M' :
-        mem_manuf = fdt.GetString('/dmc', 'mem-manuf')
+        mem_manuf = fdt.GetString('/dmc', 'mem-manuf', not_given)
+        if mem_manuf == not_given:
+          mem_manuf = 'samsung'
+          self._out.Warning("No value for memory manufacturer: using '%s'" %
+                            mem_manuf)
         mem_manufs = ['autodetect', 'elpida', 'samsung']
         if not mem_manuf in mem_manufs:
           raise CmdError("Unknown memory manufacturer: '%s'" % mem_manuf)
         value = mem_manufs.index(mem_manuf)
         self._out.Info('  Memory manufacturer: %s (%d)' % (mem_manuf, value))
       elif param == 'f' :
-        mem_freq = fdt.GetInt('/dmc', 'clock-frequency') / 1000000
+        mem_freq = fdt.GetInt('/dmc', 'clock-frequency', -1)
+        if mem_freq == -1:
+          mem_freq = 800000000
+          self._out.Warning("No value for memory frequency: using '%s'" %
+                            mem_freq)
+        mem_freq /= 1000000
         if not mem_freq in [533, 667, 800]:
           self._out.Warning("Unexpected memory speed '%s'" % mem_freq)
         value = mem_freq
