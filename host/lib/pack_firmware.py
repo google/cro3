@@ -544,7 +544,7 @@ class PackFirmware:
 
     return all_entries
 
-  def SelectFdt(self, fdt):
+  def SelectFdt(self, fdt, board=None, default_flashmap=None):
     """Scan FDT and build entry objects.
 
     This creates a list of entry objects which we can later use to generate
@@ -554,6 +554,24 @@ class PackFirmware:
 
     Args:
       fdt: fdt object containing the device tree.
+      board: Name of board type if known (None if not known).
+      default_flashmap: A default flash map for the current board, or None if
+          not available. This is a list of dictionaries, each of which is
+          the properties for a single node. For example this one has a single
+          node:
+
+              [{
+              'node' : 'ro-boot',
+              'label' : 'boot-stub',
+              'size' : 512 << 10,
+              'read-only' : True,
+              'type' : 'blob signed',
+              'required' : True
+              }]
+
+          The default flash map is only used if the fdt does not have one.
+          This is typically the case when booting an upstream U-Boot, which
+          does not have a Chrome OS flashmap.
 
     Raises:
       ConfigError if an error is detected in the fdt configuration.
@@ -608,18 +626,15 @@ class PackFirmware:
     # If we don't have a flash map, invent a Tegra one
     # TODO(sjg@chromium.org): Make this work with other SOCs also
     if not fdt.GetProp(root, 'reg', ''):
-      self._out.Warning('Warning: No /flash present in fdt - using Tegra'
-              ' default')
-      self.image_size = 512 * 1024
-      node = root + '/ro-boot'
-      props = {
-          'label' : 'boot-stub',
-          'size' : self.image_size,
-          'read-only' : True,
-          'type' : 'blob signed',
-          'required' : True
-          }
-      _AddNode(node, props)
+      if not default_flashmap:
+        raise ValueError("No /flash present in fdt, and no available default"
+                         " for board '%s'" % board)
+      self._out.Warning("Warning: No /flash present in fdt - using default"
+                        " for board '%s'" % board)
+      self.image_size = 0
+      for fmap_item in default_flashmap:
+        _AddNode(root + '/' + fmap_item['node'], fmap_item)
+        self.image_size += fmap_item['size']
 
     else:
       self.image_size = int(fdt.GetIntList(root, 'reg', 2)[1])

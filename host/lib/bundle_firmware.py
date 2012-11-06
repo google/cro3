@@ -56,6 +56,48 @@ localizations:
   - [ dev_en, rec_en, yuck_en, ins_en ]
 '''
 
+# Default flash maps for various boards we support.
+# These are used when no fdt is provided (e.g. upstream U-Boot with no
+# fdt. Each is a list of nodes.
+default_flashmaps = {
+  'tegra' : [{
+      'node' : 'ro-boot',
+      'label' : 'boot-stub',
+      'size' : 512 << 10,
+      'read-only' : True,
+      'type' : 'blob signed',
+      'required' : True
+    }
+  ],
+  'daisy' : [
+    {
+        'node' : 'pre-boot',
+        'label' : "bl1 pre-boot",
+        'size' : 0x2000,
+        'read-only' : True,
+        'filename' : "e5250.nbl1.bin",
+        'type' : "blob exynos-bl1",
+        'required' : True,
+    }, {
+        'node' : 'spl',
+        'label' : "bl2 spl",
+        'size' : 0x4000,
+        'read-only' : True,
+        'filename' : "bl2.bin",
+        'type' : "blob exynos-bl2 boot,dtb",
+        'required' : True,
+    }, {
+        'node' : 'ro-boot',
+        'label' : "u-boot",
+        'size' : 0x9a000,
+        'read-only' : True,
+        'type' : "blob boot,dtb",
+        'required' : True,
+    }
+  ]
+}
+
+
 # Build GBB flags.
 # (src/platform/vboot_reference/firmware/include/gbb_header.h)
 gbb_flag_properties = {
@@ -921,7 +963,8 @@ class Bundle:
 
     # Get the flashmap so we know what to build
     pack = PackFirmware(self._tools, self._out)
-    pack.SelectFdt(fdt)
+    default_flashmap = default_flashmaps.get(self._board)
+    pack.SelectFdt(fdt, self._board, default_flashmap)
 
     # Get all our blobs ready
     pack.AddProperty('boot', self.uboot_fname)
