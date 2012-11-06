@@ -107,7 +107,7 @@ def _DoBundle(options, output, tools):
       write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
           file_list, out_fname, bundle, dest=options.write,
           flash_dest=options.flash_dest, kernel=options.kernel, props=props,
-          servo=options.servo)
+          servo=options.servo, method=options.method)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
@@ -183,6 +183,9 @@ changes to default flags (e.g.-load-option-roms,+force-dev-boot-usb).
       action='append', help='Include directory to search for files')
   parser.add_option('-m', '--map', dest='show_map', action='store_true',\
       help='Output a flash map summary')
+  parser.add_option('-M', '--method', type='string', default='tegra',
+      action='store', help='Set USB flash method (tegra/exynos)'
+      'output files')
   parser.add_option('-o', '--output', dest='output', type='string',
       action='store', help='Filename of final output image')
   parser.add_option('-O', '--outdir', dest='outdir', type='string',

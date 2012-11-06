@@ -68,7 +68,8 @@ def _DoWriteFirmware(options, output, tools, update, verify, dest):
     file_list = bundle.GetFiles()
     write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
         file_list, options.image, bundle, update, verify, dest,
-        flash_dest=options.flash_dest, servo=options.servo)
+        flash_dest=options.flash_dest, servo=options.servo,
+        method=options.method)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
@@ -102,6 +103,9 @@ def main():
       action='store', help='Firmware image to write')
   parser.add_option('-I', '--includedir', dest='includedirs', type='string',
       action='append', help='Include directory to search for files')
+  parser.add_option('-M', '--method', type='string', default='tegra',
+      action='store', help='Set USB flash method (tegra/exynos)'
+      'output files')
   parser.add_option('-O', '--outdir', dest='outdir', type='string',
       action='store', help='Path to directory to use for intermediate and '
       'output files')

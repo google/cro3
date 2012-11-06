@@ -665,7 +665,8 @@ class WriteFirmware:
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
                     bundle, update=True, verify=False, dest=None,
-                    flash_dest=None, kernel=None, props={}, servo='any'):
+                    flash_dest=None, kernel=None, props={}, servo='any',
+                    method='tegra'):
   """A simple function to write firmware to a device.
 
   This creates a WriteFirmware object and uses it to write the firmware image
@@ -693,7 +694,7 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
   write.update = update
   write.verify = verify
   if dest == 'usb':
-    method = fdt.GetString('/chromeos-config', 'flash-method', 'tegra')
+    method = fdt.GetString('/chromeos-config', 'flash-method', method)
     if method == 'tegra':
       tools.CheckTool('tegrarcm')
       bootstub = props.get('bootstub')
