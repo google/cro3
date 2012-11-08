@@ -60,7 +60,8 @@ localizations:
 # These are used when no fdt is provided (e.g. upstream U-Boot with no
 # fdt. Each is a list of nodes.
 default_flashmaps = {
-  'tegra' : [{
+  'tegra' : [
+    {
       'node' : 'ro-boot',
       'label' : 'boot-stub',
       'size' : 512 << 10,
@@ -92,6 +93,22 @@ default_flashmaps = {
         'size' : 0x9a000,
         'read-only' : True,
         'type' : "blob boot,dtb",
+        'required' : True,
+    }
+  ],
+  'link' : [
+    {
+        'node' : 'si-all',
+        'label' : 'si-all',
+        'reg' : '%d %d' % (0x00000000, 0x00200000),
+        'type' : 'ifd',
+        'required' : True,
+    }, {
+        'node' : 'ro-boot',
+        'label' : 'boot-stub',
+        'reg' : '%d %d' % (0x00700000, 0x00100000),
+        'read-only' : True,
+        'type' : 'blob coreboot',
         'required' : True,
     }
   ]
