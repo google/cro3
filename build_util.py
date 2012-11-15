@@ -11,7 +11,6 @@ class BuildObject(object):
     Common base class that defines key paths in the source tree.
   """
   def __init__(self, root_dir, static_dir):
-    self.app_id = '87efface-864d-49a5-9bb3-4b050a7c227a'
     self.root_dir = root_dir
     self.devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     self.static_dir = static_dir

@@ -14,6 +14,7 @@ install:
 	install -m 0755 devserver.py "${DESTDIR}/usr/lib/devserver"
 	install -m 0644  \
 		autoupdate.py \
+		autoupdate_lib.py \
 		build_artifact.py \
 		build_util.py \
 		builder.py \

@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from xml.dom import minidom
-import datetime
 import json
 import os
 import subprocess
@@ -14,6 +12,7 @@ import urlparse
 import cherrypy
 
 from build_util import BuildObject
+import autoupdate_lib
 import common_util
 import log_util
 
@@ -27,74 +26,6 @@ UPDATE_FILE = 'update.gz'
 STATEFUL_FILE = 'stateful.tgz'
 CACHE_DIR = 'cache'
 
-# Responses for the various Omaha protocols indexed by the protocol version.
-UPDATE_RESPONSE = {}
-UPDATE_RESPONSE['2.0'] = """<?xml version="1.0" encoding="UTF-8"?>
-  <gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
-    <daystart elapsed_seconds="%(time_elapsed)s"/>
-    <app appid="{%(appid)s}" status="ok">
-      <ping status="ok"/>
-      <updatecheck
-        ChromeOSVersion="9999.0.0"
-        codebase="%(url)s"
-        hash="%(sha1)s"
-        sha256="%(sha256)s"
-        needsadmin="false"
-        size="%(size)s"
-        IsDelta="%(is_delta_format)s"
-        status="ok"
-        %(extra_attr)s/>
-    </app>
-  </gupdate>
-  """
-UPDATE_RESPONSE['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
-  <response protocol="3.0">
-    <daystart elapsed_seconds="%(time_elapsed)s"/>
-    <app appid="{%(appid)s}" status="ok">
-      <ping status="ok"/>
-      <updatecheck status="ok">
-        <urls>
-          <url codebase="%(codebase)s/"/>
-        </urls>
-        <manifest version="9999.0.0">
-          <packages>
-            <package hash="%(sha1)s" name="%(filename)s" size="%(size)s"
-                     required="true"/>
-          </packages>
-          <actions>
-            <action event="postinstall"
-              ChromeOSVersion="9999.0.0"
-              sha256="%(sha256)s"
-              needsadmin="false"
-              IsDelta="%(is_delta_format)s"
-              %(extra_attr)s />
-          </actions>
-        </manifest>
-      </updatecheck>
-    </app>
-  </response>
-  """
-# Responses for the various Omaha protocols indexed by the protocol version
-# when there's no update to be served.
-NO_UPDATE_RESPONSE = {}
-NO_UPDATE_RESPONSE['2.0'] = """<?xml version="1.0" encoding="UTF-8"?>
-  <gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
-    <daystart elapsed_seconds="%(time_elapsed)s"/>
-    <app appid="{%(appid)s}" status="ok">
-      <ping status="ok"/>
-      <updatecheck status="noupdate"/>
-    </app>
-  </gupdate>
-  """
-NO_UPDATE_RESPONSE['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
-  <response" protocol="3.0">
-    <daystart elapsed_seconds="%(time_elapsed)s"/>
-    <app appid="{%(appid)s}" status="ok">
-      <ping status="ok"/>
-      <updatecheck status="noupdate"/>
-    </app>
-  </response>
-  """
 
 class AutoupdateError(Exception):
   """Exception classes used by this module."""
@@ -215,7 +146,7 @@ class Autoupdate(BuildObject):
                forced_image=None, payload_path=None,
                proxy_port=None, src_image='', vm=False, board=None,
                copy_to_static_root=True, private_key=None,
-               critical_update=False, remote_payload=False, max_updates=-1,
+               critical_update=False, remote_payload=False, max_updates= -1,
                host_log=False,
                *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
@@ -250,11 +181,6 @@ class Autoupdate(BuildObject):
     # host, as well as a dictionary of current attributes derived from events.
     self.host_infos = HostInfoTable()
 
-  def _GetSecondsSinceMidnight(self):
-    """Returns the seconds since midnight as a decimal value."""
-    now = time.localtime()
-    return now[3] * 3600 + now[4] * 60 + now[5]
-
   def _GetDefaultBoardID(self):
     """Returns the default board id stored in .default_board."""
     board_file = '%s/.default_board' % (self.scripts_dir)
@@ -268,7 +194,8 @@ class Autoupdate(BuildObject):
     cmd = '%s/get_latest_image.sh --board %s' % (self.scripts_dir, board_id)
     return os.popen(cmd).read().strip()
 
-  def _GetVersionFromDir(self, image_dir):
+  @staticmethod
+  def _GetVersionFromDir(image_dir):
     """Returns the version of the image based on the name of the directory."""
     latest_version = os.path.basename(image_dir)
     parts = latest_version.split('-')
@@ -280,7 +207,8 @@ class Autoupdate(BuildObject):
       # New-style, e.g. "R16-1102.0.2011_09_30_0806-a1".
       return parts[1]
 
-  def _CanUpdate(self, client_version, latest_version):
+  @staticmethod
+  def _CanUpdate(client_version, latest_version):
     """Returns true if the latest_version is greater than the client_version.
     """
     _Log('client version %s latest version %s'
@@ -326,7 +254,8 @@ class Autoupdate(BuildObject):
       image_name = 'chromiumos_image.bin'
     return image_name
 
-  def _IsDeltaFormatFile(self, filename):
+  @staticmethod
+  def _IsDeltaFormatFile(filename):
     try:
       file_handle = open(filename, 'r')
       delta_magic = 'CrAU'
@@ -337,80 +266,6 @@ class Autoupdate(BuildObject):
       # ignore these IOErrors. In any case, this value is not being
       # used in update_engine at all as of now.
       return False
-
-  def GetCommonResponseValues(self):
-    """Returns a dictionary of default values for the response."""
-    response_values = {}
-    response_values['appid'] = self.app_id
-    response_values['time_elapsed'] = self._GetSecondsSinceMidnight()
-    return response_values
-
-  def GetSubstitutedResponse(self, response_dict, protocol, response_values):
-    """Substitutes the protocol-specific response with response_values.
-
-    Args:
-      response_dict: Canned response messages indexed by protocol.
-      protocol: client's protocol version from the request Xml.
-      response_values: Values to be substituted in the canned response.
-    Returns:
-      Xml string to be passed back to client.
-    Raises:
-      AutoupdateError if required response values are not present.
-    """
-    try:
-      response_xml = response_dict[protocol] % response_values
-      _Log('Generated response xml: %s' % response_xml)
-      return response_xml
-    except KeyError as e:
-      raise AutoupdateError('Missing response value/unknown protocol: %s' % e)
-
-  def GetUpdateResponse(self, sha1, sha256, size, url, is_delta_format,
-                        protocol):
-    """Returns a protocol-specific response to the client for a new update.
-
-    Args:
-      sha1: SHA1 hash of update blob
-      sha256: SHA256 hash of update blob
-      size: size of update blob
-      url: where to find update blob
-      is_delta_format: true if url refers to a delta payload
-      protocol: client's protocol version from the request Xml.
-    Returns:
-      Xml string to be passed back to client.
-    """
-    response_values = self.GetCommonResponseValues()
-    response_values['sha1'] = sha1
-    response_values['sha256'] = sha256
-    response_values['size'] = size
-    response_values['url'] = url
-    (codebase, filename) = os.path.split(url)
-    response_values['codebase'] = codebase
-    response_values['filename'] = filename
-    response_values['is_delta_format'] = is_delta_format
-    extra_attributes = []
-    if self.critical_update:
-      # The date string looks like '20111115' (2011-11-15). As of writing,
-      # there's no particular format for the deadline value that the
-      # client expects -- it's just empty vs. non-empty.
-      date_str = datetime.date.today().strftime('%Y%m%d')
-      extra_attributes.append('deadline="%s"' % date_str)
-    response_values['extra_attr'] = ' '.join(extra_attributes)
-    response_xml = self.GetSubstitutedResponse(UPDATE_RESPONSE, protocol,
-                                               response_values)
-    return response_xml
-
-  def GetNoUpdateResponse(self, protocol):
-    """Returns a protocol-specific response to the client for no update.
-
-    Args:
-      protocol: client's protocol version from the request Xml.
-    Returns:
-      Xml string to be passed back to client.
-    """
-    response_values = self.GetCommonResponseValues()
-    response_xml = self.GetSubstitutedResponse(NO_UPDATE_RESPONSE, protocol,
-                                               response_values)
-    return response_xml
 
   def GenerateUpdateFile(self, src_image, image_path, output_dir):
     """Generates an update gz given a full path to an image.
@@ -429,10 +284,14 @@ class Autoupdate(BuildObject):
         '--output="%s"' % update_path,
     ]
 
-    if src_image: update_command.append('--src_image="%s"' % src_image)
-    if not self.vm: update_command.append('--patch_kernel')
-    if self.private_key: update_command.append('--private_key="%s"' %
-                                               self.private_key)
+    if src_image:
+      update_command.append('--src_image="%s"' % src_image)
+
+    if not self.vm:
+      update_command.append('--patch_kernel')
+
+    if self.private_key:
+      update_command.append('--private_key="%s"' % self.private_key)
 
     update_string = ' '.join(update_command)
     _Log('Running ' + update_string)
@@ -442,7 +301,8 @@ class Autoupdate(BuildObject):
 
     return UPDATE_FILE
 
-  def GenerateStatefulFile(self, image_path, output_dir):
+  @staticmethod
+  def GenerateStatefulFile(image_path, output_dir):
     """Generates a stateful update payload given a full path to an image.
 
     Args:
@@ -691,14 +551,15 @@ class Autoupdate(BuildObject):
     (filename, checksum, size) = self.GetFactoryImage(board_id, channel)
     if filename is None:
       _Log('unable to find image for board %s' % board_id)
-      return self.GetNoUpdateResponse(protocol)
+      return autoupdate_lib.GetNoUpdateResponse(protocol)
     url = '%s/static/%s' % (self.hostname, filename)
     is_delta_format = self._IsDeltaFormatFile(filename)
     _Log('returning update payload ' + url)
     # Factory install is using memento updater which is using the sha-1 hash so
     # setting sha-256 to an empty string.
-    return self.GetUpdateResponse(checksum, '', size, url, is_delta_format,
-                                  protocol)
+    return autoupdate_lib.GetUpdateResponse(checksum, '', size, url,
+                                            is_delta_format, protocol,
+                                            self.critical_update)
 
   def GenerateUpdatePayloadForNonFactory(self, board_id, client_version,
                                          static_image_dir):
@@ -856,20 +717,8 @@ class Autoupdate(BuildObject):
     _Log('Using static url base %s' % static_urlbase)
     _Log('Handling update ping as %s: %s' % (self.hostname, data))
 
-    update_dom = minidom.parseString(data)
-    root = update_dom.firstChild
-
-    # Create a dictionary for all strings that are dependent on the client's
-    # protocol and use the entries in the dictionary instead of hardcoding
-    # the element names in the rest of the code.
-    protocol = root.getAttribute('protocol')
+    protocol, app, event, update_check = autoupdate_lib.ParseUpdateRequest(data)
     _Log('Client is using protocol version: %s' % protocol)
-    if protocol not in ('2.0', '3.0'):
-      raise AutoupdateError('Unsupported Omaha protocol %s' % protocol)
-
-    element_dict = {}
-    for name in ['event', 'app', 'updatecheck']:
-      element_dict[name] = 'o:' + name if protocol == '2.0' else name
 
     # Determine request IP, strip any IPv6 data for simplicity.
     client_ip = cherrypy.request.remote.ip.split(':')[-1]
@@ -881,7 +730,6 @@ class Autoupdate(BuildObject):
     log_message = {}
 
     # Store event details in the host info dictionary for API usage.
-    event = root.getElementsByTagName(element_dict['event'])
     if event:
       event_result = int(event[0].getAttribute('eventresult'))
       event_type = int(event[0].getAttribute('eventtype'))
@@ -898,12 +746,11 @@ class Autoupdate(BuildObject):
         log_message['previous_version'] = client_previous_version
 
     # Get information about the requester.
-    query = root.getElementsByTagName(element_dict['app'])[0]
-    if query:
-      client_version = query.getAttribute('version')
-      channel = query.getAttribute('track')
-      board_id = (query.hasAttribute('board') and query.getAttribute('board')
-          or self._GetDefaultBoardID())
+    if app:
+      client_version = app.getAttribute('version')
+      channel = app.getAttribute('track')
+      board_id = (app.hasAttribute('board') and app.getAttribute('board')
+                  or self._GetDefaultBoardID())
       # Add attributes to log message
       log_message['version'] = client_version
       log_message['track'] = channel
@@ -914,12 +761,11 @@ class Autoupdate(BuildObject):
       curr_host_info.AddLogEntry(log_message)
 
     # We only generate update payloads for updatecheck requests.
-    update_check = root.getElementsByTagName(element_dict['updatecheck'])
     if not update_check:
       _Log('Non-update check received.  Returning blank payload.')
       # TODO(sosa): Generate correct non-updatecheck payload to better test
       # update clients.
-      return self.GetNoUpdateResponse(protocol)
+      return autoupdate_lib.GetNoUpdateResponse(protocol)
 
     # Store version for this host in the cache.
     curr_host_info.attrs['last_known_version'] = client_version
@@ -928,7 +774,7 @@ class Autoupdate(BuildObject):
     if self.max_updates > 0:
       self.max_updates -= 1
     elif self.max_updates == 0:
-      return self.GetNoUpdateResponse(protocol)
+      return autoupdate_lib.GetNoUpdateResponse(protocol)
 
     # Check if an update has been forced for this client.
     forced_update = curr_host_info.PopAttr('forced_update_label', None)
@@ -968,10 +814,11 @@ class Autoupdate(BuildObject):
       # If we end up with an actual payload path, generate a response.
       if url:
         _Log('Responding to client to use url %s to get image.' % url)
-        return self.GetUpdateResponse(
-            sha1, sha256, file_size, url, is_delta_format, protocol)
+        return autoupdate_lib.GetUpdateResponse(
+            sha1, sha256, file_size, url, is_delta_format, protocol,
+            self.critical_update)
       else:
-        return self.GetNoUpdateResponse(protocol)
+        return autoupdate_lib.GetNoUpdateResponse(protocol)
 
   def HandleHostInfoPing(self, ip):
     """Returns host info dictionary for the given IP in JSON format."""

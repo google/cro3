@@ -15,14 +15,15 @@ import cherrypy
 import mox
 
 import autoupdate
+import autoupdate_lib
 import common_util
 
 
 _TEST_REQUEST = """
-<client_test xmlns:o="http://www.google.com/update2/request" updaterversion="%(client)s" >
-  <o:app version="%(version)s" track="%(track)s" board="%(board)s" />
-  <o:updatecheck />
-  <o:event eventresult="%(event_result)d" eventtype="%(event_type)d" />
+<client_test xmlns:o="http://www.google.com/update2/request" updaterversion="%(client)s" protocol="3.0">
+  <app version="%(version)s" track="%(track)s" board="%(board)s" />
+  <updatecheck />
+  <event eventresult="%(event_result)d" eventtype="%(event_type)d" />
 </client_test>"""
 
 
@@ -32,7 +33,7 @@ class AutoupdateTest(mox.MoxTestBase):
     self.mox.StubOutWithMock(common_util, 'GetFileSize')
     self.mox.StubOutWithMock(common_util, 'GetFileSha1')
     self.mox.StubOutWithMock(common_util, 'GetFileSha256')
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GetUpdatePayload')
+    self.mox.StubOutWithMock(autoupdate_lib, 'GetUpdateResponse')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetLatestImageDir')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetRemotePayloadAttrs')
     self.port = 8080
@@ -121,9 +122,9 @@ class AutoupdateTest(mox.MoxTestBase):
         self.static_image_dir, 'update.gz')).AndReturn(self.sha256)
     common_util.GetFileSize(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.size)
-    autoupdate.Autoupdate.GetUpdatePayload(
-        self.sha1, self.sha256, self.size, self.url, False).AndReturn(
-            self.payload)
+    autoupdate_lib.GetUpdateResponse(
+        self.sha1, self.sha256, self.size, self.url, False, '3.0',
+        False).AndReturn(self.payload)
 
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor()
@@ -145,8 +146,8 @@ class AutoupdateTest(mox.MoxTestBase):
         self.static_image_dir, 'update.gz')).AndReturn(self.sha256)
     common_util.GetFileSize(os.path.join(
         self.static_image_dir, 'update.gz')).AndReturn(self.size)
-    autoupdate.Autoupdate.GetUpdatePayload(
-        self.sha1, self.sha256, self.size, self.url, False).AndReturn(
+    autoupdate_lib.GetUpdateResponse(
+        self.sha1, self.sha256, self.size, self.url, False, '3.0', False).AndReturn(
             self.payload)
 
     self.mox.ReplayAll()
@@ -217,9 +218,9 @@ class AutoupdateTest(mox.MoxTestBase):
         new_image_dir, 'update.gz')).AndReturn(self.sha256)
     common_util.GetFileSize(os.path.join(
         new_image_dir, 'update.gz')).AndReturn(self.size)
-    autoupdate.Autoupdate.GetUpdatePayload(
-        self.sha1, self.sha256, self.size, new_url, False).AndReturn(
-            self.payload)
+    autoupdate_lib.GetUpdateResponse(
+        self.sha1, self.sha256, self.size, new_url, False, '3.0',
+        False).AndReturn(self.payload)
 
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor()
@@ -280,9 +281,9 @@ class AutoupdateTest(mox.MoxTestBase):
 
     autoupdate.Autoupdate._GetRemotePayloadAttrs(remote_url).AndReturn(
             (self.sha1, self.sha256, self.size, False))
-    autoupdate.Autoupdate.GetUpdatePayload(
-        self.sha1, self.sha256, self.size, remote_url, False).AndReturn(
-            self.payload)
+    autoupdate_lib.GetUpdateResponse(
+        self.sha1, self.sha256, self.size, remote_url, False,
+        '3.0', False).AndReturn(self.payload)
 
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor(urlbase=remote_urlbase,
