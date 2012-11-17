@@ -13,12 +13,12 @@ import sys
 import threading
 
 try:
-  import chromite.lib.cros_build_lib
+  import chromite.lib.git
 except ImportError:
   lib_location = os.path.join(os.path.dirname(sys.argv[0]), '../../..')
   sys.path.append(lib_location)
   try:
-    import chromite.lib.cros_build_lib
+    import chromite.lib.git
   except ImportError:
     print 'Failed to import chromite library'
     sys.exit(1)
@@ -256,10 +256,9 @@ def FindRoot():
   """
 
   # Try looking based on current directory
-  repo_path = chromite.lib.cros_build_lib.FindRepoDir()
+  repo_path = chromite.lib.git.FindRepoDir()
   if repo_path is None:
-    repo_path = chromite.lib.cros_build_lib.FindRepoDir(
-      os.path.dirname(sys.argv[0]))
+    repo_path = chromite.lib.git.FindRepoDir(os.path.dirname(sys.argv[0]))
 
   if repo_path is None:
     raise Exception('Failed to find repo root')
@@ -299,7 +298,7 @@ def main():
 
   color = os.isatty(1)
   root = FindRoot()
-  manifest = chromite.lib.cros_build_lib.ManifestCheckout(root)
+  manifest = chromite.lib.git.ManifestCheckout(root)
   projects = manifest.projects
 
   result = Result(len(projects), options.fast_report)
