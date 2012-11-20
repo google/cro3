@@ -371,13 +371,17 @@ class Bundle:
           raise ValueError("Invalid GBB flag '%s'" % flag)
         if oper == '+':
           gbb_flags |= value
+          self._out.Notice("Cmdline: Enabling %s." % flag)
         elif oper == '-':
           gbb_flags &= ~value
+          self._out.Notice("Cmdline: Disabling %s." % flag)
         else:
           if use_base_value:
             gbb_flags = 0
             use_base_value = False
+            self._out.Notice('Cmdline: Resetting flags to 0')
           gbb_flags |= value
+          self._out.Notice("Cmdline: Enabling %s." % flag)
 
     return gbb_flags
 
