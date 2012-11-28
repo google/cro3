@@ -195,7 +195,8 @@ fi
 
 eval "USE='${use} -verbose ${runhooks}'" CCACHE_SIZE=2G \
      "FEATURES='${FEATURES} ${ccache}'" "CHROME_ORIGIN='${CHROME_ORIGIN}'" \
-     "${EBUILDCMD}" "${pkgfile}" "${ebuild_actions}"
+     "${EBUILDCMD}" "${pkgfile}" "${ebuild_actions}" \
+     || die "Failed to execute the ebuild."
 
 # If we didn't get to run hooks, don't update our cache.
 if [ -e "${workpath}/.prepared" ]; then
