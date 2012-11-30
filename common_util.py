@@ -30,7 +30,6 @@ def _Log(message, *args, **kwargs):
 AU_BASE = 'au'
 NTON_DIR_SUFFIX = '_nton'
 MTON_DIR_SUFFIX = '_mton'
-DEV_BUILD_PREFIX = 'dev'
 UPLOADED_LIST = 'UPLOADED'
 DEVSERVER_LOCK_FILE = 'devserver'
 
@@ -419,38 +418,6 @@ def ReleaseLock(static_dir, tag, destroy=False):
     raise CommonUtilError(str(e))
 
 
-def FindMatchingBoards(static_dir, board):
-  """Returns a list of boards given a partial board name.
-
-  Args:
-    static_dir: Directory where builds are served from.
-    board: Partial board name for this build; e.g. x86-generic.
-
-  Returns:
-    Returns a list of boards given a partial board.
-  """
-  return [brd for brd in os.listdir(static_dir) if board in brd]
-
-
-def FindMatchingBuilds(static_dir, board, build):
-  """Returns a list of matching builds given a board and partial build.
-
-  Args:
-    static_dir: Directory where builds are served from.
-    board: Partial board name for this build; e.g. x86-generic-release.
-    build: Partial build string to look for; e.g. R17-1234.
-
-  Returns:
-    Returns a list of (board, build) tuples given a partial board and build.
-  """
-  matches = []
-  for brd in FindMatchingBoards(static_dir, board):
-    a = [(brd, bld) for bld in
-         os.listdir(os.path.join(static_dir, brd)) if build in bld]
-    matches.extend(a)
-  return matches
-
-
 def GetLatestBuildVersion(static_dir, target, milestone=None):
   """Retrieves the latest build version for a given board.
 
@@ -485,47 +452,6 @@ def GetLatestBuildVersion(static_dir, target, milestone=None):
     raise CommonUtilError('Could not determine build for %s' % target)
 
   return str(max(builds))
-
-
-def CloneBuild(static_dir, board, build, tag, force=False):
-  """Clone an official build into the developer sandbox.
-
-  Developer sandbox directory must already exist.
-
-  Args:
-    static_dir: Directory where builds are served from.
-    board: Fully qualified board name; e.g. x86-generic-release.
-    build: Fully qualified build string; e.g. R17-1234.0.0-a1-b983.
-    tag: Unique resource/task identifier. Use '/' for nested tags.
-    force: Force re-creation of build_dir even if it already exists.
-
-  Returns:
-    The path to the new build.
-  """
-  # Create the developer build directory.
-  dev_static_dir = os.path.join(static_dir, DEV_BUILD_PREFIX)
-  dev_build_dir = os.path.join(dev_static_dir, tag)
-  official_build_dir = os.path.join(static_dir, board, build)
-  _Log('Cloning %s -> %s' % (official_build_dir, dev_build_dir))
-  dev_build_exists = False
-  try:
-    AcquireLock(dev_static_dir, tag)
-  except CommonUtilError:
-    dev_build_exists = True
-    if force:
-      dev_build_exists = False
-      ReleaseLock(dev_static_dir, tag, destroy=True)
-      AcquireLock(dev_static_dir, tag)
-
-  # Make a copy of the official build, only take necessary files.
-  if not dev_build_exists:
-    copy_list = [build_artifact.TEST_IMAGE,
-                 build_artifact.ROOT_UPDATE,
-                 build_artifact.STATEFUL_UPDATE]
-    for f in copy_list:
-      shutil.copy(os.path.join(official_build_dir, f), dev_build_dir)
-
-  return dev_build_dir
 
 
 def GetControlFile(static_dir, build, control_path):
@@ -589,20 +515,6 @@ def GetControlFileList(static_dir, build):
                                        file_entry).replace(autotest_dir, ''))
 
   return '\n'.join(control_files)
-
-
-def ListAutoupdateTargets(static_dir, board, build):
-  """Returns a list of autoupdate test targets for the given board, build.
-
-  Args:
-    static_dir: Directory where builds are served from.
-    board: Fully qualified board name; e.g. x86-generic-release.
-    build: Fully qualified build string; e.g. R17-1234.0.0-a1-b983.
-
-  Returns:
-    List of autoupdate test targets; e.g. ['0.14.747.0-r2bf8859c-b2927_nton']
-  """
-  return os.listdir(os.path.join(static_dir, board, build, AU_BASE))
 
 
 def GetFileSize(file_path):

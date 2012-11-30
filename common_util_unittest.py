@@ -71,47 +71,6 @@ class CommonUtilTest(mox.MoxTestBase):
     shutil.rmtree(self._outside_sandbox_dir)
     shutil.rmtree(self._install_dir)
 
-  def testParsePayloadList(self):
-    """Tests we can parse the payload list into urls."""
-    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/'
-                          'R17-1413.0.0-a1-b1346')
-    mton_basename = ('chromeos_R17-1412.0.0-a1-b1345_R17-1413.0.0-a1_'
-                     'x86-mario_delta_dev.bin')
-    nton_basename = ('chromeos_R17-1413.0.0-a1_R17-1413.0.0-a1_'
-                     'x86-mario_delta_dev.bin')
-    full_basename = ('chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin')
-
-    mton_url = '/'.join([archive_url_prefix, mton_basename])
-    nton_url = '/'.join([archive_url_prefix, nton_basename])
-    full_url = '/'.join([archive_url_prefix, full_basename])
-
-    full_url_out, nton_url_out, mton_url_out = (
-        common_util.ParsePayloadList(archive_url_prefix,
-                                     [full_basename, nton_basename,
-                                      mton_basename]))
-    self.assertEqual([full_url, nton_url, mton_url],
-                     [full_url_out, nton_url_out, mton_url_out])
-
-    archive_url_prefix = ('gs://chromeos-image-archive/x86-alex_he-release/'
-                          'R18-1420.0.0-a1-b541')
-
-    mton_basename = ('chromeos_R18-1418.0.0-a1-b54a0_R18-1420.0.0-a1'
-                     '_x86-alex_he_delta_dev.bin')
-    nton_basename = ('chromeos_R18-1420.0.0-a1_R18-1420.0.0-a1_'
-                     'x86-alex_he_delta_dev.bin')
-    full_basename = ('chromeos_R18-1420.0.0-a1_x86-alex_he_full_dev.bin')
-
-    mton_url = '/'.join([archive_url_prefix, mton_basename])
-    nton_url = '/'.join([archive_url_prefix, nton_basename])
-    full_url = '/'.join([archive_url_prefix, full_basename])
-
-    full_url_out, nton_url_out, mton_url_out = (
-        common_util.ParsePayloadList(archive_url_prefix,
-                                     [full_basename, nton_basename,
-                                      mton_basename]))
-    self.assertEqual([full_url, nton_url, mton_url],
-                     [full_url_out, nton_url_out, mton_url_out])
-
   def testParsePayloadListWithoutDeltas(self):
     """Tests we can parse the payload list when no delta updates exist."""
     archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/'
@@ -206,36 +165,6 @@ class CommonUtilTest(mox.MoxTestBase):
                       self._static_dir, 'test-lock')
     common_util.ReleaseLock(self._static_dir, 'test-lock', destroy=True)
 
-  def testFindMatchingBoards(self):
-    for key in TEST_LAYOUT:
-      # Partial match with multiple boards.
-      self.assertEqual(
-          set(common_util.FindMatchingBoards(self._static_dir, key[:-5])),
-          set(TEST_LAYOUT.keys()))
-
-      # Absolute match.
-      self.assertEqual(
-          common_util.FindMatchingBoards(self._static_dir, key), [key])
-
-    # Invalid partial match.
-    self.assertEqual(
-        common_util.FindMatchingBoards(self._static_dir, 'asdfsadf'), [])
-
-  def testFindMatchingBuilds(self):
-    # Try a partial board and build match with single match.
-    self.assertEqual(
-        common_util.FindMatchingBuilds(self._static_dir, 'test-board',
-                                       'R17-1413'),
-        [('test-board-1', 'R17-1413.0.0-a1-b1346')])
-
-    # Try a partial board and build match with multiple match.
-    actual = set(common_util.FindMatchingBuilds(
-        self._static_dir, 'test-board', 'R17'))
-    expected = set([('test-board-1', 'R17-1413.0.0-a1-b1346'),
-                    ('test-board-1', 'R17-18.0.0-a1-b1346'),
-                    ('test-board-2', 'R17-2.0.0-a1-b1346')])
-    self.assertEqual(actual, expected)
-
   def testGetLatestBuildVersion(self):
     self.assertEqual(
         common_util.GetLatestBuildVersion(self._static_dir, 'test-board-1'),
@@ -261,43 +190,6 @@ class CommonUtilTest(mox.MoxTestBase):
         self._static_dir, 'test-board-2', milestone)
     self.assertEqual(expected_build_str, build_str)
 
-  def testCloneBuild(self):
-    test_prefix = 'abc'
-    test_tag = test_prefix + '/123'
-    abc_path = os.path.join(
-        self._static_dir, common_util.DEV_BUILD_PREFIX, test_tag)
-
-    os.mkdir(os.path.join(self._static_dir, test_prefix))
-
-    # Verify leaf path is created and proper values returned.
-    board, builds = TEST_LAYOUT.items()[0]
-    dev_build = common_util.CloneBuild(
-        self._static_dir, board, builds[0], test_tag)
-    self.assertEquals(dev_build, abc_path)
-    self.assertTrue(os.path.exists(abc_path))
-    self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, build_artifact.TEST_IMAGE)))
-    self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, build_artifact.ROOT_UPDATE)))
-    self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, build_artifact.STATEFUL_UPDATE)))
-
-    # Verify force properly removes the old directory.
-    junk_path = os.path.join(dev_build, 'junk')
-    with open(junk_path, 'w') as f:
-      f.write('hello!')
-    remote_dir = common_util.CloneBuild(
-        self._static_dir, board, builds[0], test_tag, force=True)
-    self.assertEquals(remote_dir, abc_path)
-    self.assertTrue(os.path.exists(abc_path))
-    self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, build_artifact.TEST_IMAGE)))
-    self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, build_artifact.ROOT_UPDATE)))
-    self.assertTrue(os.path.isfile(os.path.join(
-        abc_path, build_artifact.STATEFUL_UPDATE)))
-    self.assertFalse(os.path.exists(junk_path))
-
   def testGetControlFile(self):
     control_file_dir = os.path.join(
         self._static_dir, 'test-board-1', 'R17-1413.0.0-a1-b1346', 'autotest',
@@ -310,15 +202,6 @@ class CommonUtilTest(mox.MoxTestBase):
         self._static_dir, 'test-board-1/R17-1413.0.0-a1-b1346',
         os.path.join('server', 'site_tests', 'network_VPN', 'control'))
     self.assertEqual(control_content, 'hello!')
-
-  def testListAutoupdateTargets(self):
-    for board, builds in TEST_LAYOUT.iteritems():
-      for build in builds:
-        au_targets = common_util.ListAutoupdateTargets(
-            self._static_dir, board, build)
-        self.assertEqual(set(au_targets),
-                         set([build + common_util.NTON_DIR_SUFFIX,
-                              build + common_util.MTON_DIR_SUFFIX]))
 
   def testGatherArtifactDownloads(self):
     """Tests that we can gather the correct download requirements."""

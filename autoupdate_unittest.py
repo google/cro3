@@ -154,11 +154,11 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock = self._DummyAutoupdateConstructor()
     self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
     curr_host_info = au_mock.host_infos.GetHostInfo('127.0.0.1');
-    self.assertEqual(curr_host_info.GetAttr('last_known_version'),
+    self.assertEqual(curr_host_info.attrs['last_known_version'],
                      'ForcedUpdate')
-    self.assertEqual(curr_host_info.GetAttr('last_event_type'),
+    self.assertEqual(curr_host_info.attrs['last_event_type'],
                      self.test_dict['event_type'])
-    self.assertEqual(curr_host_info.GetAttr('last_event_status'),
+    self.assertEqual(curr_host_info.attrs['last_event_status'],
                      self.test_dict['event_result'])
     self.mox.VerifyAll()
 
@@ -198,7 +198,7 @@ class AutoupdateTest(mox.MoxTestBase):
 
     au_mock.HandleSetUpdatePing(test_ip, test_label)
     self.assertEqual(
-        au_mock.host_infos.GetHostInfo(test_ip).GetAttr('forced_update_label'),
+        au_mock.host_infos.GetHostInfo(test_ip).attrs['forced_update_label'],
         test_label)
 
   def testHandleUpdatePingWithSetUpdate(self):
@@ -227,7 +227,7 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock.HandleSetUpdatePing('127.0.0.1', test_label)
     self.assertEqual(
         au_mock.host_infos.GetHostInfo('127.0.0.1').
-        GetAttr('forced_update_label'),
+        attrs['forced_update_label'],
         test_label)
     self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
     self.assertFalse('forced_update_label' in

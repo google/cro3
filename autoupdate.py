@@ -75,19 +75,6 @@ class HostInfo:
     # Add entry to hosts' message log.
     self.log.append(entry)
 
-  def SetAttr(self, attr, value):
-    """Set an attribute value."""
-    self.attrs[attr] = value
-
-  def GetAttr(self, attr):
-    """Returns the value of an attribute."""
-    if attr in self.attrs:
-      return self.attrs[attr]
-
-  def PopAttr(self, attr, default):
-    """Returns and deletes a particular attribute."""
-    return self.attrs.pop(attr, default)
-
 
 class HostInfoTable:
   """Records information about a set of hosts who engage in update activity.
@@ -109,8 +96,7 @@ class HostInfoTable:
 
   def GetHostInfo(self, host_id):
     """Return an info object for given host, if such exists."""
-    if host_id in self.table:
-      return self.table[host_id]
+    return self.table.get(host_id)
 
 
 class Autoupdate(BuildObject):
@@ -233,18 +219,6 @@ class Autoupdate(BuildObject):
     # Favor four-token new-style versions on the server over old-style versions
     # on the client if everything else matches.
     return len(latest_tokens) > len(client_tokens)
-
-  def _UnpackZip(self, image_dir):
-    """Unpacks an image.zip into a given directory."""
-    image = os.path.join(image_dir, self._GetImageName())
-    if os.path.exists(image):
-      return True
-    else:
-      # -n, never clobber an existing file, in case we get invoked
-      # simultaneously by multiple request handlers. This means that
-      # we're assuming each image.zip file lives in a versioned
-      # directory (a la Buildbot).
-      return os.system('cd %s && unzip -n image.zip' % image_dir) == 0
 
   def _GetImageName(self):
     """Returns the name of the image that should be used."""
@@ -777,7 +751,7 @@ class Autoupdate(BuildObject):
       return autoupdate_lib.GetNoUpdateResponse(protocol)
 
     # Check if an update has been forced for this client.
-    forced_update = curr_host_info.PopAttr('forced_update_label', None)
+    forced_update = curr_host_info.attrs.pop('forced_update_label', None)
     if forced_update:
       label = forced_update
 
