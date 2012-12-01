@@ -985,16 +985,16 @@ class Bundle:
     # Get the flashmap so we know what to build
     pack = PackFirmware(self._tools, self._out)
     default_flashmap = default_flashmaps.get(self._board)
+    if self._force_rw:
+        fdt.PutInteger('/flash/rw-a-vblock', 'preamble-flags', 0)
+        fdt.PutInteger('/flash/rw-b-vblock', 'preamble-flags', 0)
+
     pack.SelectFdt(fdt, self._board, default_flashmap)
 
     # Get all our blobs ready
     pack.AddProperty('boot', self.uboot_fname)
     pack.AddProperty('skeleton', self.skeleton_fname)
     pack.AddProperty('dtb', fdt.fname)
-
-    if self._force_rw:
-        fdt.PutInteger('/flash/rw-a-vblock', 'preamble-flags', 0)
-        fdt.PutInteger('/flash/rw-b-vblock', 'preamble-flags', 0)
 
     # Let's create some copies of the fdt for vboot. These can be used to
     # pass a different fdt to each firmware type. For now it is just used to
