@@ -1045,6 +1045,8 @@ class Bundle:
 
     # Record position and size of all blob members in the FDT
     pack.UpdateBlobPositions(fdt)
+    pack.UpdateBlobPositions(fdt_rwa)
+    pack.UpdateBlobPositions(fdt_rwb)
 
     # TODO(sjg@chromium.org): This is not in a good place. _CreateCorebootStub
     # has created a rom file without the dtb, because until now it is not
