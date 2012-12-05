@@ -398,8 +398,8 @@ find_root_dev() {
 
 run_once() {
   if [ "$(get_update_var CURRENT_OP)" != "${UPDATER_IDLE}" ]; then
-    warn "Machine is in a bad state.  Rebooting it now."
-    remote_reboot
+    warn "Machine is in a bad state.  Resetting the update_engine."
+    remote_sh "${UPDATER_BIN} --reset_status 2> /dev/null"
   fi
 
   local initial_root_dev=$(find_root_dev)
