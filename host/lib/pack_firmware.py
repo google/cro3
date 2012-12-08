@@ -316,7 +316,8 @@ class EntryBlob(EntryFmapArea):
         self.compress = None
 
   def GetData(self):
-    return self.pack.tools.ReadFileAndConcat(self.value, self.compress)[0]
+    return self.pack.tools.ReadFileAndConcat(
+        self.value, self.compress, len(self.value) > 1)[0]
 
 
 class EntryKeyBlock(EntryFmapArea):
@@ -344,7 +345,8 @@ class EntryKeyBlock(EntryFmapArea):
       prefix = self.pack.props['keydir'] + '/'
 
       # Join up the data files to be signed
-      data = self.pack.tools.ReadFileAndConcat(self.value, self.compress)[0]
+      data = self.pack.tools.ReadFileAndConcat(
+        self.value, self.compress, len(self.value) > 1)[0]
       tools.WriteFile(input_data, data)
       args = [
           '--vblock', self.path,
@@ -733,7 +735,8 @@ class PackFirmware:
 
     Returns:
       Tuple:
-        Contents of the files (as a string)
+        Contents of the files (as a string), optionally with an index
+          prepended (see ReadFileAndConcat for details)
         Directory of the position of the contents, as a dictionary:
           key: Name of the property
           value: List containing:
@@ -741,7 +744,9 @@ class PackFirmware:
             size of this property's data
     """
     filenames = [self.props[prop] for prop in prop_list]
-    data, offset, length = self.tools.ReadFileAndConcat(filenames)
+    with_index = len(filenames) > 1
+    data, offset, length = \
+        self.tools.ReadFileAndConcat(filenames, with_index=with_index)
     directory = {}
     for i in xrange(len(prop_list)):
       directory[prop_list[i]] = [offset[i], length[i]]
