@@ -11,6 +11,7 @@ import logging
 import optparse
 import os
 import re
+import socket
 import sys
 import subprocess
 import tempfile
@@ -107,10 +108,20 @@ def _PrintDocStringAsHTML(func):
 
 def _GetConfig(options):
   """Returns the configuration for the devserver."""
+
+  # On a system with IPv6 not compiled into the kernel,
+  # AF_INET6 sockets will return a socket.error exception.
+  # On such systems, fall-back to IPv4.
+  socket_host = '::'
+  try:
+    socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+  except socket.error:
+    socket_host = '0.0.0.0'
+
   base_config = { 'global':
                   { 'server.log_request_headers': True,
                     'server.protocol_version': 'HTTP/1.1',
-                    'server.socket_host': '::',
+                    'server.socket_host': socket_host,
                     'server.socket_port': int(options.port),
                     'response.timeout': 6000,
                     'request.show_tracebacks': True,
