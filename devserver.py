@@ -6,6 +6,7 @@
 
 """A CherryPy-based webserver to host images and build packages."""
 
+import cherrypy
 import json
 import logging
 import optparse
@@ -17,8 +18,6 @@ import subprocess
 import tempfile
 import threading
 import types
-
-import cherrypy
 
 import autoupdate
 import common_util
@@ -617,12 +616,34 @@ class DevServerRoot(object):
     return updater.HandleUpdatePing(data, label)
 
 
+def _CleanCache(cache_dir, wipe):
+  """Wipes any excess cached items in the cache_dir.
+
+  Args:
+    cache_dir: the directory we are wiping from.
+    wipe: If True, wipe all the contents -- not just the excess.
+  """
+  if wipe:
+    # Clear the cache and exit on error.
+    cmd = 'rm -rf %s/*' % cache_dir
+    if os.system(cmd) != 0:
+      _Log('Failed to clear the cache with %s' % cmd)
+      sys.exit(1)
+  else:
+    # Clear all but the last N cached updates
+    cmd = ('cd %s; ls -tr | head --lines=-%d | xargs rm -rf' %
+           (cache_dir, CACHED_ENTRIES))
+    if os.system(cmd) != 0:
+      _Log('Failed to clean up old delta cache files with %s' % cmd)
+      sys.exit(1)
+
+
 def main():
   usage = 'usage: %prog [options]'
   parser = optparse.OptionParser(usage=usage)
   parser.add_option('--archive_dir',
                     metavar='PATH',
-                    help='serve archived builds only')
+                    help='Enables serve-only mode. Serves archived builds only')
   parser.add_option('--board',
                     help='when pre-generating update, board for latest image')
   parser.add_option('--clear_cache',
@@ -649,7 +670,9 @@ def main():
                     help='record history of host update events (/api/hostlog)')
   parser.add_option('--image',
                     metavar='FILE',
-                    help='force update using this image')
+                    help='Force update using this image. Can only be used when '
+                    'not in serve-only mode as it is used to generate a '
+                    'payload.')
   parser.add_option('--logfile',
                     metavar='PATH',
                     help='log output to this file instead of stdout')
@@ -659,7 +682,9 @@ def main():
                          '(default: unlimited)')
   parser.add_option('-p', '--pregenerate_update',
                     action='store_true', default=False,
-                    help='pre-generate update payload')
+                    help='pre-generate update payload. Can only be used when '
+                    'not in serve-only mode as it is used to generate a '
+                    'payload.')
   parser.add_option('--payload',
                     metavar='PATH',
                     help='use update payload from specified directory')
@@ -715,26 +740,21 @@ def main():
     serve_only = True
 
   cache_dir = os.path.join(static_dir, 'cache')
-  _Log('Using cache directory %s' % cache_dir)
+  # If our devserver is only supposed to serve payloads, we shouldn't be mucking
+  # with the cache at all. If the devserver hadn't previously generated a cache
+  # and is expected, the caller is using it wrong.
+  if serve_only:
+    # Extra check to make sure we're not being called incorrectly.
+    if (options.clear_cache or options.exit or options.pregenerate_update or
+        options.board or options.image):
+      parser.error('Incompatible flags detected for serve_only mode.')
 
-  if os.path.exists(cache_dir):
-    if options.clear_cache:
-      # Clear the cache and exit on error.
-      cmd = 'rm -rf %s/*' % cache_dir
-      if os.system(cmd) != 0:
-        _Log('Failed to clear the cache with %s' % cmd)
-        sys.exit(1)
-
-    else:
-      # Clear all but the last N cached updates
-      cmd = ('cd %s; ls -tr | head --lines=-%d | xargs rm -rf' %
-             (cache_dir, CACHED_ENTRIES))
-      if os.system(cmd) != 0:
-        _Log('Failed to clean up old delta cache files with %s' % cmd)
-        sys.exit(1)
+  elif os.path.exists(cache_dir):
+    _CleanCache(cache_dir, options.clear_cache)
   else:
     os.makedirs(cache_dir)
 
+  _Log('Using cache directory %s' % cache_dir)
   _Log('Data dir is %s' % options.data_dir)
   _Log('Source root is %s' % root_dir)
   _Log('Serving from %s' % static_dir)
