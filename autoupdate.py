@@ -15,14 +15,16 @@ from build_util import BuildObject
 import autoupdate_lib
 import common_util
 import log_util
+import subprocess
 
 
 # Module-local log function.
-def _Log(message, *args, **kwargs):
-  return log_util.LogWithTag('UPDATE', message, *args, **kwargs)
+def _Log(message, *args):
+  return log_util.LogWithTag('UPDATE', message, *args)
 
 
 UPDATE_FILE = 'update.gz'
+METADATA_FILE = 'update.meta'
 STATEFUL_FILE = 'stateful.tgz'
 CACHE_DIR = 'cache'
 
@@ -47,8 +49,12 @@ def _ChangeUrlPort(url, new_port):
 
   return urlparse.urlunsplit((scheme, netloc, path, query, fragment))
 
+def _NonePathJoin(*args):
+  """os.path.join that filters None's from the argument list."""
+  return os.path.join(*filter(None, args))
 
-class HostInfo:
+
+class HostInfo(object):
   """Records information about an individual host.
 
   Members:
@@ -76,7 +82,7 @@ class HostInfo:
     self.log.append(entry)
 
 
-class HostInfoTable:
+class HostInfoTable(object):
   """Records information about a set of hosts who engage in update activity.
 
   Members:
@@ -99,14 +105,22 @@ class HostInfoTable:
     return self.table.get(host_id)
 
 
+class UpdateMetadata(object):
+  """Object containing metadata about an update payload."""
+
+  def __init__(self, sha1, sha256, size, is_delta_format):
+    self.sha1 = sha1
+    self.sha256 = sha256
+    self.size = size
+    self.is_delta_format = is_delta_format
+
+
 class Autoupdate(BuildObject):
   """Class that contains functionality that handles Chrome OS update pings.
 
   Members:
     serve_only:      serve only pre-built updates. static_dir must contain
                      update.gz and stateful.tgz.
-    factory_config:  path to the factory config file if handling factory
-                     requests.
     use_test_image:  use chromiumos_test_image.bin rather than the standard.
     urlbase:         base URL, other than devserver, for update images.
     forced_image:    path to an image to use for all updates.
@@ -127,19 +141,20 @@ class Autoupdate(BuildObject):
   _PAYLOAD_URL_PREFIX = '/static/'
   _FILEINFO_URL_PREFIX = '/api/fileinfo/'
 
+  SHA1_ATTR = 'sha1'
+  SHA256_ATTR = 'sha256'
+  SIZE_ATTR = 'size'
+  ISDELTA_ATTR = 'is_delta'
+
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
-               factory_config_path=None,
                forced_image=None, payload_path=None,
                proxy_port=None, src_image='', vm=False, board=None,
                copy_to_static_root=True, private_key=None,
                critical_update=False, remote_payload=False, max_updates= -1,
-               host_log=False,
-               *args, **kwargs):
+               host_log=False, *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.serve_only = serve_only
-    self.factory_config = factory_config_path
     self.use_test_image = test_image
-    self.hostname = None
     if urlbase:
       self.urlbase = urlbase
     else:
@@ -167,6 +182,40 @@ class Autoupdate(BuildObject):
     # host, as well as a dictionary of current attributes derived from events.
     self.host_infos = HostInfoTable()
 
+  @classmethod
+  def _ReadMetadataFromStream(cls, stream):
+    """Returns metadata obj from input json stream that implements .read()."""
+    file_attr_dict = {}
+    try:
+      file_attr_dict = json.loads(stream.read())
+    except IOError:
+      return None
+
+    sha1 = file_attr_dict.get(cls.SHA1_ATTR)
+    sha256 = file_attr_dict.get(cls.SHA256_ATTR)
+    size = file_attr_dict.get(cls.SIZE_ATTR)
+    is_delta = file_attr_dict.get(cls.ISDELTA_ATTR)
+    return UpdateMetadata(sha1, sha256, size, is_delta)
+
+  @staticmethod
+  def _ReadMetadataFromFile(payload_dir):
+    """Returns metadata object from the metadata_file in the payload_dir"""
+    metadata_file = os.path.join(payload_dir, METADATA_FILE)
+    if os.path.exists(metadata_file):
+      with open(metadata_file, 'r') as metadata_stream:
+        return Autoupdate._ReadMetadataFromStream(metadata_stream)
+
+  @classmethod
+  def _StoreMetadataToFile(cls, payload_dir, metadata_obj):
+    """Stores metadata object into the metadata_file of the payload_dir"""
+    file_dict = {cls.SHA1_ATTR: metadata_obj.sha1,
+                 cls.SHA256_ATTR: metadata_obj.sha256,
+                 cls.SIZE_ATTR: metadata_obj.size,
+                 cls.ISDELTA_ATTR: metadata_obj.is_delta_format}
+    metadata_file = os.path.join(payload_dir, METADATA_FILE)
+    with open(metadata_file, 'w') as file_handle:
+      json.dump(file_dict, file_handle)
+
   def _GetDefaultBoardID(self):
     """Returns the default board id stored in .default_board."""
     board_file = '%s/.default_board' % (self.scripts_dir)
@@ -175,9 +224,9 @@ class Autoupdate(BuildObject):
     except IOError:
       return 'x86-generic'
 
-  def _GetLatestImageDir(self, board_id):
+  def _GetLatestImageDir(self, board):
     """Returns the latest image dir based on shell script."""
-    cmd = '%s/get_latest_image.sh --board %s' % (self.scripts_dir, board_id)
+    cmd = '%s/get_latest_image.sh --board %s' % (self.scripts_dir, board)
     return os.popen(cmd).read().strip()
 
   @staticmethod
@@ -197,8 +246,7 @@ class Autoupdate(BuildObject):
   def _CanUpdate(client_version, latest_version):
     """Returns true if the latest_version is greater than the client_version.
     """
-    _Log('client version %s latest version %s'
-         % (client_version, latest_version))
+    _Log('client version %s latest version %s', client_version, latest_version)
 
     client_tokens = client_version.replace('_', '').split('.')
     # If the client has an old four-token version like "0.16.892.0", drop the
@@ -226,6 +274,7 @@ class Autoupdate(BuildObject):
       image_name = 'chromiumos_test_image.bin'
     else:
       image_name = 'chromiumos_image.bin'
+
     return image_name
 
   @staticmethod
@@ -246,34 +295,30 @@ class Autoupdate(BuildObject):
 
     Args:
       image_path: Full path to image.
-    Returns:
-      Path to created update_payload or None on error.
+    Raises:
+      subprocess.CalledProcessError if the update generator fails to generate a
+      stateful payload.
     """
     update_path = os.path.join(output_dir, UPDATE_FILE)
-    _Log('Generating update image %s' % update_path)
+    _Log('Generating update image %s', update_path)
 
     update_command = [
         'cros_generate_update_payload',
-        '--image="%s"' % image_path,
-        '--output="%s"' % update_path,
+        '--image', image_path,
+        '--output', update_path,
     ]
 
     if src_image:
-      update_command.append('--src_image="%s"' % src_image)
+      update_command.extend(['--src_image', src_image])
 
     if not self.vm:
       update_command.append('--patch_kernel')
 
     if self.private_key:
-      update_command.append('--private_key="%s"' % self.private_key)
+      update_command.extend(['--private_key', self.private_key])
 
-    update_string = ' '.join(update_command)
-    _Log('Running ' + update_string)
-    if os.system(update_string) != 0:
-      _Log('Failed to create update payload')
-      return None
-
-    return UPDATE_FILE
+    _Log('Running %s', ' '.join(update_command))
+    subprocess.check_call(update_command)
 
   @staticmethod
   def GenerateStatefulFile(image_path, output_dir):
@@ -281,18 +326,17 @@ class Autoupdate(BuildObject):
 
     Args:
       image_path: Full path to image.
-    Returns:
-      Path to created stateful update_payload or None on error.
     Raises:
-      A subprocess exception if the update generator fails to generate a
+      subprocess.CalledProcessError if the update generator fails to generate a
       stateful payload.
     """
-    subprocess.check_call(
-        ['cros_generate_stateful_update_payload',
-         '--image=%s' % image_path,
-         '--output_dir=%s' % output_dir,
-        ])
-    return STATEFUL_FILE
+    update_command = [
+        'cros_generate_stateful_update_payload',
+        '--image', image_path,
+        '--output_dir', output_dir,
+    ]
+    _Log('Running %s', ' '.join(update_command))
+    subprocess.check_call(update_command)
 
   def FindCachedUpdateImageSubDir(self, src_image, dest_image):
     """Find directory to store a cached update.
@@ -328,28 +372,23 @@ class Autoupdate(BuildObject):
     Args:
       src_image: image we are updating from (Null/empty for non-delta)
       image_path: full path to the image.
-      output_dir: the directory to write the update payloads in
-    Returns:
-      update payload name relative to output_dir
+      output_dir: the directory to write the update payloads to
+    Raises:
+      AutoupdateError if it failed to generate either update or stateful
+        payload.
     """
-    update_file = None
-    stateful_update_file = None
+    _Log('Generating update for image %s', image_path)
 
-    # Actually do the generation
-    _Log('Generating update for image %s' % image_path)
-    update_file = self.GenerateUpdateFile(self.src_image,
-                                          image_path,
-                                          output_dir)
+    # Delete any previous state in this directory.
+    os.system('rm -rf "%s"' % output_dir)
+    os.makedirs(output_dir)
 
-    if update_file:
-      stateful_update_file = self.GenerateStatefulFile(image_path,
-                                                       output_dir)
-
-    if update_file and stateful_update_file:
-      return update_file
-    else:
-      _Log('Failed to generate update.')
-      return None
+    try:
+      self.GenerateUpdateFile(self.src_image, image_path, output_dir)
+      self.GenerateStatefulFile(image_path, output_dir)
+    except subprocess.CalledProcessError:
+      os.system('rm -rf "%s"' % output_dir)
+      raise AutoupdateError('Failed to generate update in %s' % output_dir)
 
   def GenerateUpdateImageWithCache(self, image_path, static_image_dir):
     """Force generates an update payload based on the given image_path.
@@ -358,10 +397,12 @@ class Autoupdate(BuildObject):
       image_path: full path to the image.
       static_image_dir: the directory to move images to after generating.
     Returns:
-      update filename (not directory) relative to static_image_dir on success,
-        or None.
+      update directory relative to static_image_dir. None if it should
+      serve from the static_image_dir.
+    Raises:
+      AutoupdateError if it we need to generate a payload and fail to do so.
     """
-    _Log('Generating update for src %s image %s' % (self.src_image, image_path))
+    _Log('Generating update for src %s image %s', self.src_image, image_path)
 
     # If it was pregenerated_path, don't regenerate
     if self.pregenerated_path:
@@ -369,33 +410,21 @@ class Autoupdate(BuildObject):
 
     # Which sub_dir of static_image_dir should hold our cached update image
     cache_sub_dir = self.FindCachedUpdateImageSubDir(self.src_image, image_path)
-    _Log('Caching in sub_dir "%s"' % cache_sub_dir)
-
-    update_path = os.path.join(cache_sub_dir, UPDATE_FILE)
+    _Log('Caching in sub_dir "%s"', cache_sub_dir)
 
     # The cached payloads exist in a cache dir
     cache_update_payload = os.path.join(static_image_dir,
-                                        update_path)
+                                        cache_sub_dir, UPDATE_FILE)
     cache_stateful_payload = os.path.join(static_image_dir,
-                                          cache_sub_dir,
-                                          STATEFUL_FILE)
+                                          cache_sub_dir, STATEFUL_FILE)
 
     # Check to see if this cache directory is valid.
     if not os.path.exists(cache_update_payload) or not os.path.exists(
         cache_stateful_payload):
       full_cache_dir = os.path.join(static_image_dir, cache_sub_dir)
-      # Clean up stale state.
-      os.system('rm -rf "%s"' % full_cache_dir)
-      os.makedirs(full_cache_dir)
-      return_path = self.GenerateUpdateImage(image_path,
-                                             full_cache_dir)
+      self.GenerateUpdateImage(image_path, full_cache_dir)
 
-      # Clean up cache dir since it's not valid.
-      if not return_path:
-        os.system('rm -rf "%s"' % full_cache_dir)
-        return None
-
-    self.pregenerated_path = update_path
+    self.pregenerated_path = cache_sub_dir
 
     # Generation complete, copy if requested.
     if self.copy_to_static_root:
@@ -406,11 +435,11 @@ class Autoupdate(BuildObject):
                                       STATEFUL_FILE)
       common_util.CopyFile(cache_update_payload, update_payload)
       common_util.CopyFile(cache_stateful_payload, stateful_payload)
-      return UPDATE_FILE
+      return None
     else:
       return self.pregenerated_path
 
-  def GenerateLatestUpdateImage(self, board_id, client_version,
+  def GenerateLatestUpdateImage(self, board, client_version,
                                 static_image_dir):
     """Generates an update using the latest image that has been built.
 
@@ -418,129 +447,37 @@ class Autoupdate(BuildObject):
     on the client or client_version is 'ForcedUpdate'.
 
     Args:
-      board_id: Name of the board.
+      board: Name of the board.
       client_version: Current version of the client or 'ForcedUpdate'
       static_image_dir: the directory to move images to after generating.
     Returns:
-      Name of the update image relative to static_image_dir or None
+      Name of the update directory relative to the static dir. None if it should
+        serve from the static_image_dir.
+    Raises:
+      AutoupdateError if it failed to generate the payload or can't update
+        the given client_version.
     """
-    latest_image_dir = self._GetLatestImageDir(board_id)
+    latest_image_dir = self._GetLatestImageDir(board)
     latest_version = self._GetVersionFromDir(latest_image_dir)
     latest_image_path = os.path.join(latest_image_dir, self._GetImageName())
-
-    _Log('Preparing to generate update from latest built image %s.' %
-         latest_image_path)
 
      # Check to see whether or not we should update.
     if client_version != 'ForcedUpdate' and not self._CanUpdate(
         client_version, latest_version):
-      _Log('no update')
-      return None
+      raise AutoupdateError('Update check received but no update available '
+                            'for client')
 
     return self.GenerateUpdateImageWithCache(latest_image_path,
                                              static_image_dir=static_image_dir)
 
-  def ImportFactoryConfigFile(self, filename, validate_checksums=False):
-    """Imports a factory-floor server configuration file. The file should
-    be in this format:
-      config = [
-        {
-          'qual_ids': set([1, 2, 3, "x86-generic"]),
-          'factory_image': 'generic-factory.gz',
-          'factory_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'release_image': 'generic-release.gz',
-          'release_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'oempartitionimg_image': 'generic-oem.gz',
-          'oempartitionimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'efipartitionimg_image': 'generic-efi.gz',
-          'efipartitionimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'stateimg_image': 'generic-state.gz',
-          'stateimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'firmware_image': 'generic-firmware.gz',
-          'firmware_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-        },
-        {
-          'qual_ids': set([6]),
-          'factory_image': '6-factory.gz',
-          'factory_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'release_image': '6-release.gz',
-          'release_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'oempartitionimg_image': '6-oem.gz',
-          'oempartitionimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'efipartitionimg_image': '6-efi.gz',
-          'efipartitionimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'stateimg_image': '6-state.gz',
-          'stateimg_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-          'firmware_image': '6-firmware.gz',
-          'firmware_checksum': 'AtiI8B64agHVN+yeBAyiNMX3+HM=',
-        },
-      ]
-    The server will look for the files by name in the static files
-    directory.
+  def GenerateUpdatePayload(self, board, client_version, static_image_dir):
+    """Generates an update for an image and returns the relative payload dir.
 
-    If validate_checksums is True, validates checksums and exits. If
-    a checksum mismatch is found, it's printed to the screen.
-    """
-    f = open(filename, 'r')
-    output = {}
-    exec(f.read(), output)
-    self.factory_config = output['config']
-    success = True
-    for stanza in self.factory_config:
-      for key in stanza.copy().iterkeys():
-        suffix = '_image'
-        if key.endswith(suffix):
-          kind = key[:-len(suffix)]
-          stanza[kind + '_size'] = common_util.GetFileSize(os.path.join(
-              self.static_dir, stanza[kind + '_image']))
-          if validate_checksums:
-            factory_checksum = common_util.GetFileSha1(
-                os.path.join(self.static_dir, stanza[kind + '_image']))
-            if factory_checksum != stanza[kind + '_checksum']:
-              print ('Error: checksum mismatch for %s. Expected "%s" but file '
-                     'has checksum "%s".' % (stanza[kind + '_image'],
-                                             stanza[kind + '_checksum'],
-                                             factory_checksum))
-              success = False
-
-    if validate_checksums:
-      if success is False:
-        raise AutoupdateError('Checksum mismatch in conf file.')
-
-      print 'Config file looks good.'
-
-  def GetFactoryImage(self, board_id, channel):
-    kind = channel.rsplit('-', 1)[0]
-    for stanza in self.factory_config:
-      if board_id not in stanza['qual_ids']:
-        continue
-      if kind + '_image' not in stanza:
-        break
-      return (stanza[kind + '_image'],
-              stanza[kind + '_checksum'],
-              stanza[kind + '_size'])
-    return None, None, None
-
-  def HandleFactoryRequest(self, board_id, channel, protocol):
-    (filename, checksum, size) = self.GetFactoryImage(board_id, channel)
-    if filename is None:
-      _Log('unable to find image for board %s' % board_id)
-      return autoupdate_lib.GetNoUpdateResponse(protocol)
-    url = '%s/static/%s' % (self.hostname, filename)
-    is_delta_format = self._IsDeltaFormatFile(filename)
-    _Log('returning update payload ' + url)
-    # Factory install is using memento updater which is using the sha-1 hash so
-    # setting sha-256 to an empty string.
-    return autoupdate_lib.GetUpdateResponse(checksum, '', size, url,
-                                            is_delta_format, protocol,
-                                            self.critical_update)
-
-  def GenerateUpdatePayloadForNonFactory(self, board_id, client_version,
-                                         static_image_dir):
-    """Generates an update for non-factory image.
-
-       Returns:
-         file name relative to static_image_dir on success.
+    Returns:
+      payload dir relative to static_image_dir. None if it should
+      serve from the static_image_dir.
+    Raises:
+      AutoupdateError if it failed to generate the payload.
     """
     dest_path = os.path.join(static_image_dir, UPDATE_FILE)
     dest_stateful = os.path.join(static_image_dir, STATEFUL_FILE)
@@ -549,9 +486,7 @@ class Autoupdate(BuildObject):
       # If the forced payload is not already in our static_image_dir,
       # copy it there.
       src_path = os.path.abspath(self.payload_path)
-      src_stateful = os.path.join(os.path.dirname(src_path),
-                                  STATEFUL_FILE)
-
+      src_stateful = os.path.join(os.path.dirname(src_path), STATEFUL_FILE)
       # Only copy the files if the source directory is different from dest.
       if os.path.dirname(src_path) != os.path.abspath(static_image_dir):
         common_util.CopyFile(src_path, dest_path)
@@ -560,51 +495,40 @@ class Autoupdate(BuildObject):
         if os.path.exists(src_stateful):
           common_util.CopyFile(src_stateful, dest_stateful)
         else:
-          _Log('WARN: %s not found. Expected for dev and test builds.' %
+          _Log('WARN: %s not found. Expected for dev and test builds',
                STATEFUL_FILE)
           if os.path.exists(dest_stateful):
             os.remove(dest_stateful)
 
-      return UPDATE_FILE
+      # Serve from the main directory so rel_path is None.
+      return None
     elif self.forced_image:
       return self.GenerateUpdateImageWithCache(
           self.forced_image,
           static_image_dir=static_image_dir)
-    elif self.serve_only:
-      # Warn if update or stateful files can't be found.
-      if not os.path.exists(dest_path):
-        _Log('WARN: %s not found. Expected for dev and test builds.' %
-             UPDATE_FILE)
-
-      if not os.path.exists(dest_stateful):
-        _Log('WARN: %s not found. Expected for dev and test builds.' %
-             STATEFUL_FILE)
-
-      return UPDATE_FILE
     else:
-      if board_id:
-        return self.GenerateLatestUpdateImage(board_id,
-                                              client_version,
-                                              static_image_dir)
+      if not board:
+        raise AutoupdateError(
+          'Failed to generate update. '
+          'You must set --board when pre-generating latest update.')
 
-      _Log('Failed to genereate update. '
-           'You must set --board when pre-generating latest update.')
-      return None
+      return self.GenerateLatestUpdateImage(board, client_version,
+                                            static_image_dir)
 
   def PreGenerateUpdate(self):
     """Pre-generates an update and prints out the relative path it.
 
-    Returns relative path of the update on success.
-    """
-     # Does not work with factory config.
-    assert(not self.factory_config)
-    _Log('Pre-generating the update payload.')
-    # Does not work with labels so just use static dir.
-    pregenerated_update = self.GenerateUpdatePayloadForNonFactory(
-        self.board, '0.0.0.0', self.static_dir)
-    if pregenerated_update:
-      print 'PREGENERATED_UPDATE=%s' % pregenerated_update
+    Returns relative path of the update.
 
+    Raises:
+      AutoupdateError if it failed to generate the payload.
+    """
+    _Log('Pre-generating the update payload')
+    # Does not work with labels so just use static dir.
+    pregenerated_update = self.GenerateUpdatePayload(self.board, '0.0.0.0',
+                                                     self.static_dir)
+    print 'PREGENERATED_UPDATE=%s' % _NonePathJoin(pregenerated_update,
+                                                   UPDATE_FILE)
     return pregenerated_update
 
   def _GetRemotePayloadAttrs(self, url):
@@ -625,85 +549,77 @@ class Autoupdate(BuildObject):
       raise AutoupdateError(
           'Payload URL does not have the expected prefix (%s)' %
           self._PAYLOAD_URL_PREFIX)
+
     fileinfo_url = url.replace(self._PAYLOAD_URL_PREFIX,
                                self._FILEINFO_URL_PREFIX)
-    _Log('retrieving file info for remote payload via %s' % fileinfo_url)
+    _Log('Retrieving file info for remote payload via %s', fileinfo_url)
     try:
       conn = urllib2.urlopen(fileinfo_url)
-      file_attr_dict = json.loads(conn.read())
-      sha1 = file_attr_dict['sha1']
-      sha256 = file_attr_dict['sha256']
-      size = file_attr_dict['size']
-    except Exception, e:
-      _Log('failed to obtain remote payload info: %s' % str(e))
-      raise
-    is_delta_format = ('_mton' in url) or ('_nton' in url)
+      metadata_obj = Autoupdate._ReadMetadataFromStream(conn)
+      # These fields are required for remote calls.
+      if not metadata_obj:
+        raise AutoupdateError('Failed to obtain remote payload info')
 
-    return sha1, sha256, size, is_delta_format
+      if not metadata_obj.is_delta_format:
+        metadata_obj.is_delta_format = ('_mton' in url) or ('_nton' in url)
 
-  def _GetLocalPayloadAttrs(self, static_image_dir, payload_path):
+      return metadata_obj
+    except IOError as e:
+      raise AutoupdateError('Failed to obtain remote payload info: %s', e)
+
+  def GetLocalPayloadAttrs(self, payload_dir):
     """Returns hashes, size and delta flag of a local update payload.
 
     Args:
-      static_image_dir: directory where static files are being staged
-      payload_path: path to the payload file inside the static directory
+      payload_dir: Path to the directory the payload is in.
     Returns:
       A tuple containing the SHA1, SHA256, file size and whether or not it's a
       delta payload (Boolean).
     """
-    filename = os.path.join(static_image_dir, payload_path)
-    sha1 = common_util.GetFileSha1(filename)
-    sha256 = common_util.GetFileSha256(filename)
-    size = common_util.GetFileSize(filename)
-    is_delta_format = self._IsDeltaFormatFile(filename)
-    return sha1, sha256, size, is_delta_format
+    filename = os.path.join(payload_dir, UPDATE_FILE)
+    if not os.path.exists(filename):
+      raise AutoupdateError('update.gz not present in payload dir %s' %
+                            payload_dir)
 
-  def HandleUpdatePing(self, data, label=None):
-    """Handles an update ping from an update client.
+    metadata_obj = Autoupdate._ReadMetadataFromFile(payload_dir)
+    if not metadata_obj or not (metadata_obj.sha1 and
+                                metadata_obj.sha256 and
+                                metadata_obj.size):
+      sha1 = common_util.GetFileSha1(filename)
+      sha256 = common_util.GetFileSha256(filename)
+      size = common_util.GetFileSize(filename)
+      is_delta_format = self._IsDeltaFormatFile(filename)
+      metadata_obj = UpdateMetadata(sha1, sha256, size, is_delta_format)
+      Autoupdate._StoreMetadataToFile(payload_dir, metadata_obj)
 
-    Args:
-      data: xml blob from client.
-      label: optional label for the update.
-    Returns:
-      Update payload message for client.
+    return metadata_obj
+
+  def _ProcessUpdateComponents(self, app, event):
+    """Processes the app and event components of an update request.
+
+    Returns tuple containing forced_update_label, client_version, and board.
     """
-    # Set hostname as the hostname that the client is calling to and set up
-    # the url base. If behind apache mod_proxy | mod_rewrite, the hostname will
-    # be in X-Forwarded-Host.
-    x_forwarded_host = cherrypy.request.headers.get('X-Forwarded-Host')
-    if x_forwarded_host:
-      self.hostname = 'http://' + x_forwarded_host
-    else:
-      self.hostname = cherrypy.request.base
-
-    if self.urlbase:
-      static_urlbase = self.urlbase
-    elif self.serve_only:
-      static_urlbase = '%s/static/archive' % self.hostname
-    else:
-      static_urlbase = '%s/static' % self.hostname
-
-    # If we have a proxy port, adjust the URL we instruct the client to
-    # use to go through the proxy.
-    if self.proxy_port:
-      static_urlbase = _ChangeUrlPort(static_urlbase, self.proxy_port)
-
-    _Log('Using static url base %s' % static_urlbase)
-    _Log('Handling update ping as %s: %s' % (self.hostname, data))
-
-    protocol, app, event, update_check = autoupdate_lib.ParseUpdateRequest(data)
-    _Log('Client is using protocol version: %s' % protocol)
+    # Initialize an empty dictionary for event attributes to log.
+    log_message = {}
 
     # Determine request IP, strip any IPv6 data for simplicity.
     client_ip = cherrypy.request.remote.ip.split(':')[-1]
-
     # Obtain (or init) info object for this client.
     curr_host_info = self.host_infos.GetInitHostInfo(client_ip)
 
-    # Initialize an empty dictionary for event attributes.
-    log_message = {}
+    client_version = 'ForcedUpdate'
+    board = None
+    if app:
+      client_version = app.getAttribute('version')
+      channel = app.getAttribute('track')
+      board = (app.hasAttribute('board') and app.getAttribute('board')
+                  or self._GetDefaultBoardID())
+      # Add attributes to log message
+      log_message['version'] = client_version
+      log_message['track'] = channel
+      log_message['board'] = board
+      curr_host_info.attrs['last_known_version'] = client_version
 
-    # Store event details in the host info dictionary for API usage.
     if event:
       event_result = int(event[0].getAttribute('eventresult'))
       event_type = int(event[0].getAttribute('eventtype'))
@@ -719,52 +635,92 @@ class Autoupdate(BuildObject):
       if client_previous_version is not None:
         log_message['previous_version'] = client_previous_version
 
-    # Get information about the requester.
-    if app:
-      client_version = app.getAttribute('version')
-      channel = app.getAttribute('track')
-      board_id = (app.hasAttribute('board') and app.getAttribute('board')
-                  or self._GetDefaultBoardID())
-      # Add attributes to log message
-      log_message['version'] = client_version
-      log_message['track'] = channel
-      log_message['board'] = board_id
-
     # Log host event, if so instructed.
     if self.host_log:
       curr_host_info.AddLogEntry(log_message)
 
-    # We only generate update payloads for updatecheck requests.
+    return (curr_host_info.attrs.pop('forced_update_label', None),
+            client_version, board)
+
+  def _GetStaticUrl(self):
+    """Returns the static url base that should prefix all payload responses."""
+    x_forwarded_host = cherrypy.request.headers.get('X-Forwarded-Host')
+    if x_forwarded_host:
+      hostname = 'http://' + x_forwarded_host
+    else:
+      hostname = cherrypy.request.base
+
+    if self.urlbase:
+      static_urlbase = self.urlbase
+    elif self.serve_only:
+      static_urlbase = '%s/static/archive' % hostname
+    else:
+      static_urlbase = '%s/static' % hostname
+
+    # If we have a proxy port, adjust the URL we instruct the client to
+    # use to go through the proxy.
+    if self.proxy_port:
+      static_urlbase = _ChangeUrlPort(static_urlbase, self.proxy_port)
+
+    _Log('Using static url base %s', static_urlbase)
+    _Log('Handling update ping as %s', hostname)
+    return static_urlbase
+
+  def HandleUpdatePing(self, data, label=None):
+    """Handles an update ping from an update client.
+
+    Args:
+      data: XML blob from client.
+      label: optional label for the update.
+    Returns:
+      Update payload message for client.
+    """
+    # Get the static url base that will form that base of our update url e.g.
+    # http://hostname:8080/static/update.gz.
+    static_urlbase = self._GetStaticUrl()
+
+    # Parse the XML we got into the components we care about.
+    protocol, app, event, update_check = autoupdate_lib.ParseUpdateRequest(data)
+
+    # #########################################################################
+    # Process attributes of the update check.
+    forced_update_label, client_version, board = self._ProcessUpdateComponents(
+        app, event)
+
+    # We only process update_checks in the update rpc.
     if not update_check:
-      _Log('Non-update check received.  Returning blank payload.')
+      _Log('Non-update check received.  Returning blank payload')
       # TODO(sosa): Generate correct non-updatecheck payload to better test
       # update clients.
       return autoupdate_lib.GetNoUpdateResponse(protocol)
 
-    # Store version for this host in the cache.
-    curr_host_info.attrs['last_known_version'] = client_version
-
-    # If maximum number of updates already requested, refuse.
+    # In case max_updates is used, return no response if max reached.
     if self.max_updates > 0:
       self.max_updates -= 1
     elif self.max_updates == 0:
+      _Log('Request received but max number of updates handled')
       return autoupdate_lib.GetNoUpdateResponse(protocol)
 
-    # Check if an update has been forced for this client.
-    forced_update = curr_host_info.attrs.pop('forced_update_label', None)
-    if forced_update:
-      label = forced_update
+    _Log('Update Check Received. Client is using protocol version: %s',
+         protocol)
 
-    # Separate logic as Factory requests have static url's that override
-    # other options.
-    if self.factory_config:
-      return self.HandleFactoryRequest(board_id, channel, protocol)
-    else:
-      url = ''
+    if forced_update_label:
+      if label:
+        _Log('Label: %s set but being overwritten to %s by request', label,
+             forced_update_label)
+
+      label = forced_update_label
+
+    # #########################################################################
+    # Finally its time to generate the omaha response to give to client that
+    # lets them know where to find the payload and its associated metadata.
+    metadata_obj = None
+
+    try:
       # Are we provisioning a remote or local payload?
       if self.remote_payload:
         # If no explicit label was provided, use the value of --payload.
-        if not label and self.payload_path:
+        if not label:
           label = self.payload_path
 
         # Form the URL of the update payload. This assumes that the payload
@@ -772,27 +728,31 @@ class Autoupdate(BuildObject):
         url = '/'.join(filter(None, [static_urlbase, label, UPDATE_FILE]))
 
         # Get remote payload attributes.
-        sha1, sha256, file_size, is_delta_format = \
-            self._GetRemotePayloadAttrs(url)
+        metadata_obj = self._GetRemotePayloadAttrs(url)
       else:
-        # Generate payload.
-        static_image_dir = os.path.join(*filter(None, [self.static_dir, label]))
-        payload_path = self.GenerateUpdatePayloadForNonFactory(
-            board_id, client_version, static_image_dir)
-        # If properly generated, obtain the payload URL and attributes.
-        if payload_path:
-          url = '/'.join(filter(None, [static_urlbase, label, payload_path]))
-          sha1, sha256, file_size, is_delta_format = \
-              self._GetLocalPayloadAttrs(static_image_dir, payload_path)
+        static_image_dir = _NonePathJoin(self.static_dir, label)
+        rel_path = None
 
-      # If we end up with an actual payload path, generate a response.
-      if url:
-        _Log('Responding to client to use url %s to get image.' % url)
-        return autoupdate_lib.GetUpdateResponse(
-            sha1, sha256, file_size, url, is_delta_format, protocol,
-            self.critical_update)
-      else:
-        return autoupdate_lib.GetNoUpdateResponse(protocol)
+        # Serving files only, don't generate an update.
+        if not self.serve_only:
+          # Generate payload if necessary.
+          rel_path = self.GenerateUpdatePayload(board, client_version,
+                                                static_image_dir)
+
+        url = '/'.join(filter(None, [static_urlbase, label, rel_path,
+                                     UPDATE_FILE]))
+        local_payload_dir = _NonePathJoin(static_image_dir, rel_path)
+        metadata_obj = self.GetLocalPayloadAttrs(local_payload_dir)
+
+    except AutoupdateError as e:
+      # Raised if we fail to generate an update payload.
+      _Log('Failed to process an update: %r', e)
+      return autoupdate_lib.GetNoUpdateResponse(protocol)
+
+    _Log('Responding to client to use url %s to get image', url)
+    return autoupdate_lib.GetUpdateResponse(
+        metadata_obj.sha1, metadata_obj.sha256, metadata_obj.size, url,
+        metadata_obj.is_delta_format, protocol, self.critical_update)
 
   def HandleHostInfoPing(self, ip):
     """Returns host info dictionary for the given IP in JSON format."""

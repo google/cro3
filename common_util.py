@@ -23,8 +23,8 @@ import log_util
 
 
 # Module-local log function.
-def _Log(message, *args, **kwargs):
-  return log_util.LogWithTag('UTIL', message, *args, **kwargs)
+def _Log(message, *args):
+  return log_util.LogWithTag('UTIL', message, *args)
 
 
 AU_BASE = 'au'

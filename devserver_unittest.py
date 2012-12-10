@@ -6,26 +6,22 @@
 
 """Regression tests for devserver."""
 
-from xml.dom import minidom
 import json
+from xml.dom import minidom
 import os
 import shutil
 import signal
 import subprocess
-import sys
+import tempfile
 import time
 import unittest
 import urllib2
 
 
 # Paths are relative to this script's base directory.
-STATIC_DIR = 'static'
 TEST_IMAGE_PATH = 'testdata/devserver'
-TEST_IMAGE_NAME = 'developer-test.gz'
+TEST_IMAGE_NAME = 'update.gz'
 TEST_IMAGE = TEST_IMAGE_PATH + '/' + TEST_IMAGE_NAME
-TEST_FACTORY_CONFIG = 'testdata/devserver/miniomaha-test.conf'
-TEST_DATA_PATH = '/tmp/devserver-test'
-TEST_CLIENT_PREFIX = 'ChromeOSUpdateEngine'
 EXPECTED_HASH = 'kGcOinJ0vA8vdYX53FN0F5BdwfY='
 
 # Update request based on Omaha v2 protocol format.
@@ -50,9 +46,10 @@ UPDATE_REQUEST['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
     </app>
 </request>
 """
+
 # TODO(girts): use a random available port.
 UPDATE_URL = 'http://127.0.0.1:8080/update'
-STATIC_URL = 'http://127.0.0.1:8080/static/'
+STATIC_URL = 'http://127.0.0.1:8080/static/archive/'
 
 API_HOST_INFO_BAD_URL = 'http://127.0.0.1:8080/api/hostinfo/'
 API_HOST_INFO_URL = API_HOST_INFO_BAD_URL + '127.0.0.1'
@@ -61,10 +58,8 @@ API_SET_UPDATE_BAD_URL = 'http://127.0.0.1:8080/api/setnextupdate/'
 API_SET_UPDATE_URL = API_SET_UPDATE_BAD_URL + '127.0.0.1'
 
 API_SET_UPDATE_REQUEST = 'new_update-test/the-new-update'
+DEVSERVER_STARTUP_DELAY = 1
 
-# Run all tests while being in /
-base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-os.chdir("/")
 
 class DevserverTest(unittest.TestCase):
   """Regressions tests for devserver."""
@@ -75,42 +70,37 @@ class DevserverTest(unittest.TestCase):
     # Copy in developer-test.gz, as "static/" directory is hardcoded, and it
     # would be very hard to change it (static file serving is handled deep
     # inside webpy).
-    self.image_src = os.path.join(base_dir, TEST_IMAGE)
-    self.image = os.path.join(base_dir, STATIC_DIR, TEST_IMAGE_NAME)
-    if os.path.exists(self.image):
-      os.unlink(self.image)
+    self.test_data_path = tempfile.mkdtemp()
+    self.src_dir = os.path.dirname(__file__)
+    self.image_src = os.path.join(self.src_dir, TEST_IMAGE)
+    self.image = os.path.join(self.test_data_path, TEST_IMAGE_NAME)
     shutil.copy(self.image_src, self.image)
-
-    self.factory_config = os.path.join(base_dir, TEST_FACTORY_CONFIG)
 
   def tearDown(self):
     """Removes testing files."""
-    if os.path.exists(self.image):
-      os.unlink(self.image)
+    shutil.rmtree(self.test_data_path)
 
   # Helper methods begin here.
 
-  def _StartServer(self, data_dir=''):
+  def _StartServer(self):
     """Starts devserver, returns process."""
     cmd = [
         'python',
-        os.path.join(base_dir, 'devserver.py'),
+        os.path.join(self.src_dir, 'devserver.py'),
         'devserver.py',
-        '--factory_config', self.factory_config,
-    ]
-    if data_dir:
-      cmd.append('--data_dir')
-      cmd.append(data_dir)
+        '--archive_dir',
+        self.test_data_path,
+        ]
+
     process = subprocess.Popen(cmd)
+    # Wait for the server to start up.
+    time.sleep(DEVSERVER_STARTUP_DELAY)
     return process.pid
 
-  def VerifyHandleUpdate(self, protocol, data_dir):
-    """Tests running the server and getting an update for the given protocol.
-       Takes an optional data_dir to pass to the devserver. """
-    pid = self._StartServer(data_dir)
+  def VerifyHandleUpdate(self, protocol):
+    """Tests running the server and getting an update for the given protocol."""
+    pid = self._StartServer()
     try:
-      # Wait for the server to start up.
-      time.sleep(1)
       request = urllib2.Request(UPDATE_URL, UPDATE_REQUEST[protocol])
       connection = urllib2.urlopen(request)
       response = connection.read()
@@ -136,12 +126,10 @@ class DevserverTest(unittest.TestCase):
   def VerifyV2Response(self, update):
     """Verifies the update DOM from a v2 response and returns the url."""
     codebase = update.getAttribute('codebase')
-    self.assertEqual(STATIC_URL + TEST_IMAGE_NAME,
-                     codebase)
+    self.assertEqual(STATIC_URL + TEST_IMAGE_NAME, codebase)
 
     hash_value = update.getAttribute('hash')
     self.assertEqual(EXPECTED_HASH, hash_value)
-
     return codebase
 
   def VerifyV3Response(self, update):
@@ -165,55 +153,17 @@ class DevserverTest(unittest.TestCase):
     url = os.path.join(codebase, filename)
     return url
 
-  def VerifyHandleDatadirUpdate(self, protocol):
-    """Tests getting an update from a specified datadir"""
-    # Push the image to the expected path where devserver picks it up.
-    image_path = os.path.join(TEST_DATA_PATH, STATIC_DIR)
-    if not os.path.exists(image_path):
-      os.makedirs(image_path)
-
-    foreign_image = os.path.join(image_path, TEST_IMAGE_NAME)
-    if os.path.exists(foreign_image):
-      os.unlink(foreign_image)
-    shutil.copy(self.image_src, foreign_image)
-
-    self.VerifyHandleUpdate(protocol, TEST_DATA_PATH)
-    os.unlink(foreign_image)
-
   # Tests begin here.
-
-  def testValidateFactoryConfig(self):
-    """Tests --validate_factory_config."""
-    cmd = [
-        'python',
-        os.path.join(base_dir, 'devserver.py'),
-        '--validate_factory_config',
-        '--factory_config', self.factory_config,
-    ]
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    stdout, _ = process.communicate()
-    self.assertEqual(0, process.returncode)
-    self.assertTrue('Config file looks good.' in stdout)
-
   def testHandleUpdateV2(self):
-    self.VerifyHandleUpdate('2.0', '')
+    self.VerifyHandleUpdate('2.0')
 
   def testHandleUpdateV3(self):
-    self.VerifyHandleUpdate('3.0', '')
-
-  def testHandleDatadirUpdateV2(self):
-    self.VerifyHandleDatadirUpdate('2.0')
-
-  def testHandleDatadirUpdateV3(self):
-    self.VerifyHandleDatadirUpdate('3.0')
+    self.VerifyHandleUpdate('3.0')
 
   def testApiBadSetNextUpdateRequest(self):
     """Tests sending a bad setnextupdate request."""
     pid = self._StartServer()
     try:
-      # Wait for the server to start up.
-      time.sleep(1)
-
       # Send bad request and ensure it fails...
       try:
         request = urllib2.Request(API_SET_UPDATE_URL, '')
@@ -230,9 +180,6 @@ class DevserverTest(unittest.TestCase):
     """Tests contacting a bad setnextupdate url."""
     pid = self._StartServer()
     try:
-      # Wait for the server to start up.
-      time.sleep(1)
-
       # Send bad request and ensure it fails...
       try:
         connection = urllib2.urlopen(API_SET_UPDATE_BAD_URL)
@@ -248,9 +195,6 @@ class DevserverTest(unittest.TestCase):
     """Tests contacting a bad hostinfo url."""
     pid = self._StartServer()
     try:
-      # Wait for the server to start up.
-      time.sleep(1)
-
       # Send bad request and ensure it fails...
       try:
         connection = urllib2.urlopen(API_HOST_INFO_BAD_URL)
@@ -266,9 +210,6 @@ class DevserverTest(unittest.TestCase):
     """Tests using the setnextupdate and hostinfo api commands."""
     pid = self._StartServer()
     try:
-      # Wait for the server to start up.
-      time.sleep(1)
-
       # Send setnextupdate command.
       request = urllib2.Request(API_SET_UPDATE_URL, API_SET_UPDATE_REQUEST)
       connection = urllib2.urlopen(request)
@@ -284,6 +225,7 @@ class DevserverTest(unittest.TestCase):
           json.loads(response)['forced_update_label'], API_SET_UPDATE_REQUEST)
     finally:
       os.kill(pid, signal.SIGKILL)
+
 
 if __name__ == '__main__':
   unittest.main()
