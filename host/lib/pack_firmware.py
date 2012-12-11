@@ -312,9 +312,11 @@ class EntryBlob(EntryFmapArea):
   def __init__(self, props, params):
     super(EntryBlob, self).__init__(props)
     self.params = params
+    if 'compress' not in self:
+        self.compress = None
 
   def GetData(self):
-    return self.pack.tools.ReadFileAndConcat(self.value)[0]
+    return self.pack.tools.ReadFileAndConcat(self.value, self.compress)[0]
 
 
 class EntryKeyBlock(EntryFmapArea):
@@ -331,6 +333,8 @@ class EntryKeyBlock(EntryFmapArea):
     super(EntryKeyBlock, self).__init__(props)
     self._CheckFields(('keyblock', 'signprivate', 'kernelkey'))
     self._CheckFieldsInt(('version', 'preamble_flags'))
+    if 'compress' not in self:
+        self.compress = None
 
   def RunTools(self, tools, out, tmpdir):
     """Create a vblock for the given firmware image"""
@@ -340,7 +344,7 @@ class EntryKeyBlock(EntryFmapArea):
       prefix = self.pack.props['keydir'] + '/'
 
       # Join up the data files to be signed
-      data = self.pack.tools.ReadFileAndConcat(self.value)[0]
+      data = self.pack.tools.ReadFileAndConcat(self.value, self.compress)[0]
       tools.WriteFile(input_data, data)
       args = [
           '--vblock', self.path,

@@ -225,7 +225,7 @@ class Tools:
     fd.write(data)
     fd.close()
 
-  def ReadFileAndConcat(self, filenames):
+  def ReadFileAndConcat(self, filenames, compress=None):
     """Read several files and concat them.
 
     Args:
@@ -247,6 +247,20 @@ class Tools:
       pad_len = ((len(content) + 3) & ~3) - len(content)
       data += content + chr(0xff) * pad_len
       length.append(len(content))
+
+    if compress:
+      if compress == 'lzo':
+        # Would be nice to just pipe here. but we don't have RunPipe().
+        fname = self.GetOutputFilename('data.tmp')
+        outname = self.GetOutputFilename('data.tmp.lzo')
+        if os.path.exists(outname):
+          os.remove(outname)
+        self.WriteFile(fname, data)
+        args = ['-9', fname]
+        self.Run('lzop', args)
+        data = self.ReadFile(outname)
+      else:
+        raise ValueError("Unknown compression method '%s'" % compress)
     return data, offset, length
 
   def GetChromeosVersion(self):
