@@ -1008,6 +1008,7 @@ class Bundle:
     for blob_type in pack.GetBlobList():
       self._BuildBlob(pack, fdt, blob_type)
 
+    self._out.Progress('Packing image')
     if gbb:
       pack.RequireAllEntries()
       fwid = '.'.join([
