@@ -416,7 +416,7 @@ class Fdt:
     args.extend(value_list)
     self.tools.Run('fdtput', args)
 
-  def Compile(self):
+  def Compile(self, arch_dts):
     """Compile an fdt .dts source file into a .dtb binary blob
 
     >>> tools = Tools(cros_output.Output())
@@ -443,6 +443,9 @@ dtb -p 4096 ../tests/source.dts
     <BLANKLINE>
     >>> tools.search_paths = ['../tests/dts']
     >>> #fdt.Compile()
+
+    Args:
+      arch_dts: Architecture/SOC .dtsi include file.
     """
     if not self._is_compiled:
       root, ext = os.path.splitext(self.fname)
@@ -458,7 +461,7 @@ dtb -p 4096 ../tests/source.dts
       if 'ARCH_CPU_DTS' in data:
         fname = os.path.join(self.tools.outdir, os.path.basename(root) +
                              '.dts')
-        data = data.replace('ARCH_CPU_DTS', '"tegra20.dtsi"')
+        data = data.replace('ARCH_CPU_DTS', '"%s"' % arch_dts)
         self.tools.WriteFile(fname, data)
 
       # If we don't have a directory, put it in the tools tempdir
