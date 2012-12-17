@@ -1050,10 +1050,10 @@ class Bundle:
           '-l', '0x1110000', '-e', '0x1110008'])
       self._tools.Run('cbfstool', [bootstub, 'add', '-f', fdt.fname,
           '-n', 'u-boot.dtb', '-t', '0xac'])
-      bootstub_tmp = bootstub + '.tmp'
-      self._tools.Run('dd', ['if=' + bootstub, 'of=' + bootstub_tmp,
-          'bs=1M', 'skip=7'])
-      shutil.move(bootstub_tmp, bootstub)
+      data = self._tools.ReadFile(bootstub)
+      bootstub_copy = os.path.join(self._tools.outdir, 'coreboot-8mb.rom')
+      self._tools.WriteFile(bootstub_copy, data)
+      self._tools.WriteFile(bootstub, data[0x700000:])
 
     image = os.path.join(self._tools.outdir, 'image.bin')
     pack.PackImage(self._tools.outdir, image)
