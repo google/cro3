@@ -1020,11 +1020,6 @@ class Bundle:
     bootstub = os.path.join(self._tools.outdir, 'u-boot-dtb.bin')
     self._tools.WriteFile(bootstub, uboot_data + fdt_data)
 
-    # TODO(sjg@chromium.org): Deprecate this property when all boards
-    # use a comma-separated list for section contents. We will then
-    # use only 'boot,dtb' instead of 'boot+dtb'
-    pack.AddProperty('boot+dtb', bootstub)
-
     pack.AddProperty('gbb', self.uboot_fname)
     blob_list = pack.GetBlobList()
     self._out.Info('Building blobs %s\n' % blob_list)
