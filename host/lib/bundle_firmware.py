@@ -726,16 +726,7 @@ class Bundle:
       CmdError if a command fails.
     """
     bootstub = os.path.join(self._tools.outdir, 'coreboot-full.rom')
-
-    # U-Boot itself does not put a .elf extension on the elf file.
-    # The U-Boot ebuild does, but we shouldn't actually require it since
-    # devs may want to just use what U-Boot creates.
-    uboot_elf = uboot.replace('.bin', '')
-    if not os.path.exists(self._tools.Filename(uboot_elf)):
-      uboot_elf = uboot.replace('.bin', '.elf')
     shutil.copyfile(self._tools.Filename(coreboot), bootstub)
-    self._tools.Run('cbfstool', [bootstub, 'add-payload', '-f', uboot_elf,
-            '-n', 'fallback/payload', '-c', 'lzma'])
 
     # Don't add the fdt yet since it is not in final form
     return bootstub
@@ -1011,15 +1002,6 @@ class Bundle:
     if self.kernel_fname:
       fdt.PutInteger('/config', 'kernel-offset', pack.image_size)
 
-    # Make a copy of the fdt for the bootstub
-    fdt_data = self._tools.ReadFile(fdt.fname)
-    uboot_data = self._tools.ReadFile(self.uboot_fname)
-    uboot_copy = os.path.join(self._tools.outdir, 'u-boot.bin')
-    self._tools.WriteFile(uboot_copy, uboot_data)
-
-    bootstub = os.path.join(self._tools.outdir, 'u-boot-dtb.bin')
-    self._tools.WriteFile(bootstub, uboot_data + fdt_data)
-
     pack.AddProperty('gbb', self.uboot_fname)
     blob_list = pack.GetBlobList()
     self._out.Info('Building blobs %s\n' % blob_list)
@@ -1043,6 +1025,15 @@ class Bundle:
     pack.UpdateBlobPositions(fdt_rwa)
     pack.UpdateBlobPositions(fdt_rwb)
 
+    # Make a copy of the fdt for the bootstub
+    fdt_data = self._tools.ReadFile(fdt.fname)
+    uboot_data = self._tools.ReadFile(self.uboot_fname)
+    uboot_copy = os.path.join(self._tools.outdir, 'u-boot.bin')
+    self._tools.WriteFile(uboot_copy, uboot_data)
+
+    uboot_dtb = os.path.join(self._tools.outdir, 'u-boot-dtb.bin')
+    self._tools.WriteFile(uboot_dtb, uboot_data + fdt_data)
+
     # TODO(sjg@chromium.org): This is not in a good place. _CreateCorebootStub
     # has created a rom file without the dtb, because until now it is not
     # complete. Add the dtb here.
@@ -1053,6 +1044,9 @@ class Bundle:
     if 'coreboot' in blob_list:
       bootstub = pack.GetProperty('coreboot')
       fdt = fdt.Copy(os.path.join(self._tools.outdir, 'bootstub.dtb'))
+      self._tools.Run('cbfstool', [bootstub, 'add-flat-binary', '-f',
+          uboot_dtb, '-n', 'fallback/payload', '-c', 'lzma',
+          '-l', '0x1110000', '-e', '0x1110008'])
       self._tools.Run('cbfstool', [bootstub, 'add', '-f', fdt.fname,
           '-n', 'u-boot.dtb', '-t', '0xac'])
       bootstub_tmp = bootstub + '.tmp'
