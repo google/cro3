@@ -14,14 +14,15 @@ import log_util
 
 
 # Names of artifacts we care about.
-DEBUG_SYMBOLS = 'debug.tgz'
-STATEFUL_UPDATE = 'stateful.tgz'
-TEST_IMAGE = 'chromiumos_test_image.bin'
-ROOT_UPDATE = 'update.gz'
 AUTOTEST_PACKAGE = 'autotest.tar'
 AUTOTEST_ZIPPED_PACKAGE = 'autotest.tar.bz2'
-TEST_SUITES_PACKAGE = 'test_suites.tar.bz2'
+DEBUG_SYMBOLS = 'debug.tgz'
+FIRMWARE_ARCHIVE = 'firmware_from_source.tar.bz2'
 IMAGE_ARCHIVE = 'image.zip'
+ROOT_UPDATE = 'update.gz'
+STATEFUL_UPDATE = 'stateful.tgz'
+TEST_IMAGE = 'chromiumos_test_image.bin'
+TEST_SUITES_PACKAGE = 'test_suites.tar.bz2'
 
 
 class ArtifactDownloadError(Exception):

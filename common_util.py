@@ -59,21 +59,23 @@ class CommonUtilError(Exception):
 
 
 def ParsePayloadList(archive_url, payload_list):
-  """Parse and return the full/delta payload URLs.
+  """Parse and return the full, delta, and firmware payload URLs.
 
   Args:
     archive_url: The URL of the Google Storage bucket.
     payload_list: A list filenames.
 
   Returns:
-    Tuple of 3 payloads URLs: (full, nton, mton).
+    Tuple of 4 payload URLs: (full, nton, mton, firmware).
 
   Raises:
-    CommonUtilError: If payloads missing or invalid.
+    CommonUtilError: If full payload is missing or invalid.
   """
   full_payload_url = None
   mton_payload_url = None
   nton_payload_url = None
+  firmware_payload_url = None
+
   for payload in payload_list:
     if '_full_' in payload:
       full_payload_url = '/'.join([archive_url, payload])
@@ -84,12 +86,15 @@ def ParsePayloadList(archive_url, payload_list):
         nton_payload_url = '/'.join([archive_url, payload])
       else:
         mton_payload_url = '/'.join([archive_url, payload])
+    elif build_artifact.FIRMWARE_ARCHIVE in payload:
+        firmware_payload_url = '/'.join([archive_url, payload])
 
   if not full_payload_url:
     raise CommonUtilError(
         'Full payload is missing or has unexpected name format.', payload_list)
 
-  return full_payload_url, nton_payload_url, mton_payload_url
+  return (full_payload_url, nton_payload_url,
+          mton_payload_url, firmware_payload_url)
 
 
 def IsAvailable(pattern_list, uploaded_list):
@@ -196,13 +201,14 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build_dir, build,
   # autotest tarballs (tar or tar.bz2) is available
   # (crosbug.com/32312). This dependency can be removed once all
   # branches move to the new 'tar' format.
-  to_wait_list = ['_full_', 'autotest.tar']
+  to_wait_list = ['_full_', build_artifact.AUTOTEST_PACKAGE]
   err_str = 'full payload or autotest tarball'
   uploaded_list = WaitUntilAvailable(to_wait_list, archive_url, err_str,
                                      timeout=600)
 
   # First we gather the urls/paths for the update payloads.
-  full_url, nton_url, mton_url = ParsePayloadList(archive_url, uploaded_list)
+  full_url, nton_url, mton_url, fw_url = ParsePayloadList(
+      archive_url, uploaded_list)
 
   full_payload = os.path.join(build_dir, build_artifact.ROOT_UPDATE)
 
@@ -222,6 +228,9 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build_dir, build,
     artifacts.append(build_artifact.AUTestPayloadBuildArtifact(
         mton_url, main_staging_dir, mton_payload))
 
+  if fw_url:
+      artifacts.append(build_artifact.BuildArtifact(
+              fw_url, main_staging_dir, build_dir))
 
   # Gather information about autotest tarballs. Use autotest.tar if available.
   if build_artifact.AUTOTEST_PACKAGE in uploaded_list:
