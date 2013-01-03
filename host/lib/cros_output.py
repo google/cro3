@@ -5,7 +5,7 @@
 import os
 import sys
 
-import cros_build_lib
+from chromite.lib import terminal
 
 # Output verbosity levels that we support
 ERROR = 0
@@ -39,7 +39,7 @@ class Output:
     """
     self.verbose = verbose
     self._progress = ''          # Our last progress message
-    self._color = cros_build_lib.Color()
+    self._color = terminal.Color()
     self._stdout = stdout
 
     # TODO(sjg): Move this into Chromite libraries when we have them

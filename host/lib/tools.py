@@ -25,10 +25,9 @@ import struct
 import sys
 import tempfile
 import unittest
-import mox
-import cros_build_lib
 
-from cros_build_lib import RunCommandCaptureOutput
+from chromite.lib import cros_build_lib
+from chromite.lib import git
 import cros_output
 
 
@@ -77,7 +76,7 @@ class Tools:
     if self.in_chroot:
       root_dir = os.getenv('CROS_WORKON_SRCROOT')
     else:
-      repo = cros_build_lib.FindRepoDir()
+      repo = git.FindRepoDir('.')
       if not repo:
         raise IOError('Cannot find .repo directory (must be below cwd level)')
       root_dir = os.path.dirname(repo)
@@ -103,7 +102,7 @@ class Tools:
     self.FinalizeOutputDir()
     return False
 
-  def _SetRoot(self, root_dir, build_lib=cros_build_lib):
+  def _SetRoot(self, root_dir):
     """Sets the root directory for the build envionrment.
 
     The root directory is the one containing .repo, chroot and src.
@@ -113,7 +112,6 @@ class Tools:
 
     Args:
       root_dir: The path to the root directory.
-      build_lib: The cros_build_lib lib module (used for testing).
     """
     self._root = os.path.normpath(root_dir)
 
@@ -121,7 +119,7 @@ class Tools:
     if self.in_chroot:
       self.chroot_path = '/'
     else:
-      self.chroot_path = build_lib.PrependChrootPath('')
+      self.chroot_path = os.path.join(self._root, 'chroot')
     self.src_path = os.path.join(self._root, 'src')
     self.script_path = os.path.join(self.src_path, 'scripts')
     self.overlay_path = os.path.join(self.src_path, 'overlays')
@@ -187,12 +185,13 @@ class Tools:
     if sudo:
       cmd.insert(0, 'sudo')
     try:
-      rc, stdout, _ = RunCommandCaptureOutput(cmd,
-                                              print_cmd=self._out.verbose > 3,
-                                              cwd=cwd)
-    except OSError:
-      raise CmdError('Command not found: %s' % (' '.join(cmd)))
-    if rc:
+      result = cros_build_lib.RunCommandCaptureOutput(
+          cmd, cwd=cwd, print_cmd=self._out.verbose > 3,
+          combine_stdout_stderr=True, error_code_ok=True)
+    except cros_build_lib.RunCommandError as ex:
+      raise CmdError(str(ex))
+    stdout = result.output
+    if result.returncode:
       raise CmdError('Command failed: %s\n%s' % (' '.join(cmd), stdout))
     self._out.Debug(stdout)
     return stdout
@@ -393,7 +392,7 @@ class Tools:
     return os.path.join(self.outdir, fname)
 
 
-# pylint: disable=W0212,C6409
+# pylint: disable=W0212
 class ToolsTests(unittest.TestCase):
   """Unit tests for this module."""
 
@@ -404,17 +403,12 @@ class ToolsTests(unittest.TestCase):
   def MakeOutsideChroot(self, base):
     tools = Tools(self.out)
     tools.in_chroot = False
-    moc_cros_build_lib = mox.MockObject(cros_build_lib)
-    moc_cros_build_lib.PrependChrootPath('').AndReturn(base)
-    mox.Replay(moc_cros_build_lib)
-    tools._SetRoot(base, moc_cros_build_lib)
+    tools._SetRoot(base)
     return tools
 
   def testPaths(self):
     tools = self.tools
 
-    # We expect tests to be run inside the chroot (mostly).
-    self.assertTrue(tools.in_chroot)
     self.assertTrue(os.path.isdir(os.path.join(tools._root, '.repo')))
 
   def _testToolsPaths(self, base, tools):
@@ -439,6 +433,7 @@ class ToolsTests(unittest.TestCase):
   def testSetRootInsideChroot(self):
     """Inside the chroot, paths are slightly different from outside."""
     tools = Tools(self.out)
+    tools.in_chroot = True
 
     # Force our own path.
     base = '/air/bridge/'
@@ -457,8 +452,8 @@ class ToolsTests(unittest.TestCase):
     tools = self.MakeOutsideChroot(base)
 
     # We should get a full path from that without the trailing '/'.
-    self.assertEqual(tools.chroot_path, base)
-    self.assertEqual(tools.board_path, base + 'build')
+    self.assertEqual(tools.chroot_path, base + 'chroot')
+    self.assertEqual(tools.board_path, tools.chroot_path + '/build')
     self._testToolsPaths(base, tools)
 
   def _testToolsFilenames(self, tools):
@@ -490,6 +485,7 @@ class ToolsTests(unittest.TestCase):
     Test search patches inside the chroot.
     """
     tools = Tools(self.out)
+    tools.in_chroot = True
 
     # Force our own path.
     base = '/air/bridge/'
@@ -509,9 +505,9 @@ class ToolsTests(unittest.TestCase):
     base = '/home/'
     tools = self.MakeOutsideChroot(base)
 
-    self.assertEqual(tools.Filename('##/fred'), base + 'fred')
+    self.assertEqual(tools.Filename('##/fred'), base + 'chroot/fred')
     self.assertEqual(tools.Filename('##/just/a/short/dir/'),
-                     base + 'just/a/short/dir/')
+                     base + 'chroot/just/a/short/dir/')
 
     self._testToolsFilenames(tools)
 
@@ -550,7 +546,6 @@ class ToolsTests(unittest.TestCase):
     """
     tools = self.tools
 
-    self.assertTrue(tools.in_chroot)
     re_version = re.compile('\d{4}.\d+.\d{4}_\d{2}_\d{2}_\d+')
     self.assertTrue(re_version.match(tools.GetChromeosVersion()))
 
