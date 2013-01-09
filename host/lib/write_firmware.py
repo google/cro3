@@ -6,6 +6,7 @@ import binascii
 import glob
 import os
 import re
+import struct
 import time
 import tools
 from tools import CmdError
@@ -394,14 +395,30 @@ class WriteFirmware:
 
     # The BL1 is always 8KB - extract that part into a new file
     # TODO(sjg@chromium.org): Perhaps pick these up from the fdt?
-    self._tools.WriteFile(bl1, data[:0x2000])
+    bl1_size = 0x2000
+    self._tools.WriteFile(bl1, data[:bl1_size])
 
-    # The BL2 (U-Boot SPL) is 14KB and follows BL1. After that there is
-    # a 2KB gap
-    self._tools.WriteFile(bl2, data[0x2000:0x5800])
+    # Try to detect the BL2 size. We look for 0xea000014 which is the
+    # 'B reset' instruction at the start of U-Boot.
+    first_instr = struct.pack('<L', 0xea000014)
+    uboot_offset = data.find(first_instr, bl1_size + 0x3800)
+    if uboot_offset == -1:
+        raise ValueError('Could not locate start of U-Boot')
+    bl2_size = uboot_offset - bl1_size - 0x800  # 2KB gap after BL2
 
-    # U-Boot itself starts at 24KB, after the gap
-    self._tools.WriteFile(image, data[0x6000:])
+    # Sanity check: At present we only allow 14KB and 30KB for SPL
+    allowed = [14, 30]
+    if (bl2_size >> 10) not in allowed:
+        raise ValueError('BL2 size is %dK - only %s supported' %
+                (bl2_size >> 10, ', '.join([str(size) for size in allowed])))
+    self._out.Notice('BL2 size is %dKB' % (bl2_size >> 10))
+
+    # The BL2 (U-Boot SPL) follows BL1. After that there is a 2KB gap
+    bl2_end = uboot_offset - 0x800
+    self._tools.WriteFile(bl2, data[0x2000:bl2_end])
+
+    # U-Boot itself starts after the gap
+    self._tools.WriteFile(image, data[uboot_offset:])
     return bl1, bl2, image
 
   def _ExynosFlashImage(self, flash_dest, flash_uboot, bl1, bl2, payload,
