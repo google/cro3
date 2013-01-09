@@ -200,6 +200,7 @@ class Bundle:
     self._keydir = keydir
 
   def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
+               coreboot_elf=None,
                postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None,
                skeleton=None, ecrw=None, ecro=None, kernel=None):
     """Set up files required for Bundle.
@@ -209,7 +210,8 @@ class Bundle:
       uboot: The filename of the u-boot.bin image to use.
       bct: The filename of the binary BCT file to use.
       bmpblk: The filename of bitmap block file to use.
-      coreboot: The filename of the coreboot image to use (on x86)
+      coreboot: The filename of the coreboot image to use (on x86).
+      coreboot_elf: If not none, the ELF file to add as a Coreboot payload.
       postload: The filename of the u-boot-post.bin image to use.
       seabios: The filename of the SeaBIOS payload to use if any.
       exynos_bl1: The filename of the exynos BL1 file
@@ -224,6 +226,7 @@ class Bundle:
     self.bct_fname = bct
     self.bmpblk_fname = bmpblk
     self.coreboot_fname = coreboot
+    self.coreboot_elf = coreboot_elf
     self.postload_fname = postload
     self.seabios_fname = seabios
     self.exynos_bl1 = exynos_bl1
@@ -1035,19 +1038,18 @@ class Bundle:
     uboot_dtb = os.path.join(self._tools.outdir, 'u-boot-dtb.bin')
     self._tools.WriteFile(uboot_dtb, uboot_data + fdt_data)
 
-    # TODO(sjg@chromium.org): This is not in a good place. _CreateCorebootStub
-    # has created a rom file without the dtb, because until now it is not
-    # complete. Add the dtb here.
-    # A better anwer might be to put the dtb in memory immediately after
-    # U-Boot as is done for ARM and have coreboot load it as a binary file
-    # instead of an elf. However, I need to check whether coreboot supports
-    # this, and whether this is desirable for other reasons.
+    # Fix up the coreboot image here, since we can't do this until we have
+    # a final device tree binary.
     if 'coreboot' in blob_list:
       bootstub = pack.GetProperty('coreboot')
       fdt = fdt.Copy(os.path.join(self._tools.outdir, 'bootstub.dtb'))
-      self._tools.Run('cbfstool', [bootstub, 'add-flat-binary', '-f',
-          uboot_dtb, '-n', 'fallback/payload', '-c', 'lzma',
-          '-l', '0x1110000', '-e', '0x1110008'])
+      if self.coreboot_elf:
+        self._tools.Run('cbfstool', [bootstub, 'add-payload', '-f',
+            self.coreboot_elf, '-n', 'fallback/payload', '-c', 'lzma'])
+      else:
+        self._tools.Run('cbfstool', [bootstub, 'add-flat-binary', '-f',
+            uboot_dtb, '-n', 'fallback/payload', '-c', 'lzma',
+            '-l', '0x1110000', '-e', '0x1110008'])
       self._tools.Run('cbfstool', [bootstub, 'add', '-f', fdt.fname,
           '-n', 'u-boot.dtb', '-t', '0xac'])
       data = self._tools.ReadFile(bootstub)

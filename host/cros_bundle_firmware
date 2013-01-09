@@ -79,6 +79,7 @@ def _DoBundle(options, output, tools):
   bundle.SetDirs(keydir=options.key)
   bundle.SetFiles(board=options.board, uboot=options.uboot, bct=options.bct,
                   bmpblk=options.bmpblk, coreboot=options.coreboot,
+                  coreboot_elf=options.coreboot_elf,
                   postload=options.postload, seabios=options.seabios,
                   exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2,
                   skeleton=options.skeleton, ecrw=options.ecrw,
@@ -139,6 +140,10 @@ def main():
   # TODO(sjg): Support source BCT files
   parser.add_option('-c', '--bct', dest='bct', type='string', action='store',
       help='Path to BCT source file: only one can be given')
+  parser.add_option('-C', '--coreboot', dest='coreboot', type='string',
+      action='store', help='Executable lowlevel init file (coreboot)')
+  parser.add_option('--coreboot-elf', type='string',
+      action='store', help='Elf file to use as Coreboot payload')
   parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
       help='Path to fdt source .dts or binary blob .dtb file to use')
   parser.add_option('--bl1', dest='exynos_bl1', type='string',
@@ -207,8 +212,6 @@ changes to default flags (e.g.-load-option-roms,+force-dev-boot-usb).
   parser.add_option('-U', '--uboot-flasher', dest='uboot_flasher',
       type='string', action='store', help='Executable bootloader file '
       '(U-Boot) to use for flashing (defaults to the same as --uboot)')
-  parser.add_option('-C', '--coreboot', dest='coreboot', type='string',
-      action='store', help='Executable lowlevel init file (coreboot)')
   parser.add_option('-v', '--verbosity', dest='verbosity', default=1,
       type='int', help='Control verbosity: 0=silent, 1=progress, 3=full, '
       '4=debug')
