@@ -621,7 +621,9 @@ class Bundle:
     value (which we will move to).
     """
     data = self._tools.ReadFile(fname)
-    fdt_text_base = fdt.GetInt('/chromeos-config', 'textbase', 0)
+    # The value that comes back from fdt.GetInt is signed, which makes no
+    # sense for an address base.  Force it to unsigned.
+    fdt_text_base = fdt.GetInt('/chromeos-config', 'textbase', 0) & 0xffffffff
     text_base = self.DecodeTextBase(data)
     text_base_str = '%#x' % text_base if text_base else 'None'
     self._out.Info('TEXT_BASE: fdt says %#x, %s says %s' % (fdt_text_base,
