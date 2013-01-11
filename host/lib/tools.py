@@ -21,6 +21,7 @@ import optparse
 import os
 import re
 import shutil
+import struct
 import sys
 import tempfile
 import unittest
@@ -225,11 +226,12 @@ class Tools:
     fd.write(data)
     fd.close()
 
-  def ReadFileAndConcat(self, filenames, compress=None):
+  def ReadFileAndConcat(self, filenames, compress=None, with_index=False):
     """Read several files and concat them.
 
     Args:
       filenames: a list containing name of the files to read.
+      with_index: If true, an index structure is prepended to the data.
 
     Returns:
       A tuple of a string and two list. The string is the concated data read
@@ -237,16 +239,28 @@ class Tools:
         first list contains the offset of each file in the data string and
         the second one contains the actual (non-padded) length of each file,
         both in the same order.
+
+        The optional index structure is a 32 bit integer set to the number of
+        entries in the index, followed by that many pairs of integers which
+        describe the offset and length of each chunk.
     """
     data = ''
-    offset = []
-    length = []
+    offsets = []
+    lengths = []
     for fname in filenames:
-      offset.append(len(data))
+      offsets.append(len(data))
       content = self.ReadFile(fname)
       pad_len = ((len(content) + 3) & ~3) - len(content)
       data += content + chr(0xff) * pad_len
-      length.append(len(content))
+      lengths.append(len(content))
+
+    if with_index:
+      index_size = 4 + len(filenames) * 8
+      index = struct.pack("<I", len(filenames))
+      offsets = tuple(offset + index_size for offset in offsets)
+      for filename, offset, length in zip(filenames, offsets, lengths):
+        index += struct.pack("<II", offset, length)
+      data = index + data
 
     if compress:
       if compress == 'lzo':
@@ -261,7 +275,7 @@ class Tools:
         data = self.ReadFile(outname)
       else:
         raise ValueError("Unknown compression method '%s'" % compress)
-    return data, offset, length
+    return data, offsets, lengths
 
   def GetChromeosVersion(self):
     """Returns the ChromeOS version string.

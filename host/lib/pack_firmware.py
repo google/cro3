@@ -314,9 +314,11 @@ class EntryBlob(EntryFmapArea):
     self.params = params
     if 'compress' not in self:
         self.compress = None
+    self.with_index = 'with_index' in props
 
   def GetData(self):
-    return self.pack.tools.ReadFileAndConcat(self.value, self.compress)[0]
+    return self.pack.tools.ReadFileAndConcat(
+        self.value, self.compress, self.with_index)[0]
 
 
 class EntryKeyBlock(EntryFmapArea):
@@ -335,6 +337,7 @@ class EntryKeyBlock(EntryFmapArea):
     self._CheckFieldsInt(('version', 'preamble_flags'))
     if 'compress' not in self:
         self.compress = None
+    self.with_index = 'with_index' in props
 
   def RunTools(self, tools, out, tmpdir):
     """Create a vblock for the given firmware image"""
@@ -344,7 +347,8 @@ class EntryKeyBlock(EntryFmapArea):
       prefix = self.pack.props['keydir'] + '/'
 
       # Join up the data files to be signed
-      data = self.pack.tools.ReadFileAndConcat(self.value, self.compress)[0]
+      data = self.pack.tools.ReadFileAndConcat(
+        self.value, self.compress, self.with_index)[0]
       tools.WriteFile(input_data, data)
       args = [
           '--vblock', self.path,
@@ -720,7 +724,7 @@ class PackFirmware:
     """
     return self.props.get(name, None)
 
-  def ConcatPropContents(self, prop_list):
+  def ConcatPropContents(self, prop_list, with_index):
     """Read, concatenate and return the contents of the listed props.
 
     Each property references a filename. We read the contents of each
@@ -730,10 +734,13 @@ class PackFirmware:
 
     Args:
       prop_list: List of properties to process
+      with_index: Wether an index structure should be prepended
+          See ReadFileAndConcat for more details.
 
     Returns:
       Tuple:
-        Contents of the files (as a string)
+        Contents of the files (as a string), optionally with an index
+          prepended (see ReadFileAndConcat for details)
         Directory of the position of the contents, as a dictionary:
           key: Name of the property
           value: List containing:
@@ -741,7 +748,8 @@ class PackFirmware:
             size of this property's data
     """
     filenames = [self.props[prop] for prop in prop_list]
-    data, offset, length = self.tools.ReadFileAndConcat(filenames)
+    data, offset, length = \
+        self.tools.ReadFileAndConcat(filenames, with_index=with_index)
     directory = {}
     for i in xrange(len(prop_list)):
       directory[prop_list[i]] = [offset[i], length[i]]
@@ -767,7 +775,8 @@ class PackFirmware:
       for entry in self.entries:
         if isinstance(entry, EntryBlob):
           self._out.Info("Updating blob positions in fdt for '%s'" % entry.key)
-          data, directory = self.ConcatPropContents(entry.key.split(','))
+          data, directory = self.ConcatPropContents(
+              entry.key.split(','), entry.with_index)
           if len(directory) > 1:
             fdt.PutInteger(entry.node, '#address-cells', 1)
             fdt.PutInteger(entry.node, '#size-cells', 1)

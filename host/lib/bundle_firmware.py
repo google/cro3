@@ -948,7 +948,7 @@ class Bundle:
         #     blob_type)
       else:
         prop_list = spl_payload[0].split(',')
-        spl_load_size = len(pack.ConcatPropContents(prop_list)[0])
+        spl_load_size = len(pack.ConcatPropContents(prop_list, False)[0])
       self._out.Info("BL2/SPL contains '%s', size is %d / %#x" %
           (', '.join(prop_list), spl_load_size, spl_load_size))
       bl2 = self.ConfigureExynosBl2(fdt, spl_load_size, self.exynos_bl2)
