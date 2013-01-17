@@ -834,6 +834,7 @@ class PackFirmware:
     self.tmpdir = tmpdir
 
     all_entries = self._CheckOverlap()
+    image_used = 0
 
     # Set up a zeroed file of the correct size.
     with open(output_path, 'wb') as image:
@@ -871,6 +872,14 @@ class PackFirmware:
             raise PackError("Data for '%s' too large for area: %d/%#x >"
                 " %d/%#x" % (entry.name, len(data), len(data), entry.size,
                 entry.size))
+          if entry.size:
+            usage = len(data) * 100 / entry.size
+          else:
+            usage = 0
+          self._out.Notice('Entry: %s, size %#x, data %#x, usage %d%%' %
+              (entry.name, entry.size, len(data), usage))
+          entry.used = len(data)
+          image_used += entry.used
 
           image.seek(entry.offset)
           image.write(data)
@@ -881,6 +890,9 @@ class PackFirmware:
     # If the image contain an IFD section, process it
     if ifd:
       ifd.ProduceFinalImage(self.tools, self._out, self.tmpdir, output_path)
+
+    self._out.Notice('Image size %#x, data %#x, usage %d%%' %
+      (self.image_size, image_used, image_used * 100 / self.image_size))
 
   def _OutEntry(self, status, offset, size, name):
     """Display a flash map entry.
