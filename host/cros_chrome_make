@@ -24,8 +24,8 @@ FLAGS "$@" || exit 1
 eval set -- "${FLAGS_ARGV}"
 
 if [ $# -ne 0 ]; then
-  echo "Usage: ${0} [OPTIONS]"
-  exit 1
+  CHROME_TARGET_OVERRIDE="$*"
+  echo "Custom build targets specified: ${CHROME_TARGET_OVERRIDE}"
 fi
 
 if [ -z "${FLAGS_board}" ]; then
@@ -195,6 +195,7 @@ fi
 
 eval "USE='${use} -verbose ${runhooks}'" CCACHE_SIZE=2G \
      "FEATURES='${FEATURES} ${ccache}'" "CHROME_ORIGIN='${CHROME_ORIGIN}'" \
+     "CHROME_TARGET_OVERRIDE='${CHROME_TARGET_OVERRIDE}'" \
      "${EBUILDCMD}" "${pkgfile}" "${ebuild_actions}" \
      || die "Failed to execute the ebuild."
 
