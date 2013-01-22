@@ -13,13 +13,13 @@ class Loggable(object):
   """Provides a log method, with automatic log tag generation."""
   _CAMELCASE_RE = re.compile('(?<=.)([A-Z])')
 
-  def _Log(self, message, *args):
+  def _Log(self, message, *args, **kwargs):
     return LogWithTag(
         self._CAMELCASE_RE.sub(r'_\1', self.__class__.__name__).upper(),
-        message, *args)
+        message, *args, **kwargs)
 
 
-def LogWithTag(tag, message, *args):
-  # CherryPy log doesn't seem to take any optional args, so we just handle
-  # args by formatting them into message.
-  return cherrypy.log(message % args, context=tag)
+def LogWithTag(tag, message, *args, **kwargs):
+  # CherryPy log doesn't seem to take any optional args, so we'll just join
+  # them into a single string, if any are provided.
+  return cherrypy.log(message + ((' ' + ' '.join(args)) if args else ''), tag)

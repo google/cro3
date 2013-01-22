@@ -26,8 +26,8 @@ import log_util
 
 
 # Module-local log function.
-def _Log(message, *args):
-  return log_util.LogWithTag('DEVSERVER', message, *args)
+def _Log(message, *args, **kwargs):
+  return log_util.LogWithTag('DEVSERVER', message, *args, **kwargs)
 
 
 CACHED_ENTRIES = 12
@@ -574,6 +574,7 @@ class DevServerRoot(object):
   @cherrypy.expose
   def index(self):
     """Presents a welcome message and documentation links."""
+    method_dict = DevServerRoot.__dict__
     return ('Welcome to the Dev Server!<br>\n'
             '<br>\n'
             'Here are the available methods, click for documentation:<br>\n'
@@ -658,6 +659,9 @@ def main():
   parser.add_option('--exit',
                     action='store_true',
                     help='do not start server (yet pregenerate/clear cache)')
+  parser.add_option('--factory_config',
+                    metavar='PATH',
+                    help='config file for serving images from factory floor')
   parser.add_option('--for_vm',
                     dest='vm', action='store_true',
                     help='update is for a vm image')
@@ -708,6 +712,9 @@ def main():
   parser.add_option('-u', '--urlbase',
                     metavar='URL',
                     help='base URL for update images, other than the devserver')
+  parser.add_option('--validate_factory_config',
+                    action="store_true",
+                    help='validate factory config file, then exit')
   (options, _) = parser.parse_args()
 
   devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -759,6 +766,7 @@ def main():
       serve_only=serve_only,
       urlbase=options.urlbase,
       test_image=options.test_image,
+      factory_config_path=options.factory_config,
       forced_image=options.image,
       payload_path=options.payload,
       proxy_port=options.proxy_port,
@@ -773,8 +781,19 @@ def main():
       host_log=options.host_log,
   )
 
-  if options.pregenerate_update:
-    updater.PreGenerateUpdate()
+  # Sanity-check for use of validate_factory_config.
+  if not options.factory_config and options.validate_factory_config:
+    parser.error('You need a factory_config to validate.')
+
+  if options.factory_config:
+    updater.ImportFactoryConfigFile(options.factory_config,
+                                     options.validate_factory_config)
+    # We don't run the dev server with this option.
+    if options.validate_factory_config:
+      sys.exit(0)
+  elif options.pregenerate_update:
+    if not updater.PreGenerateUpdate():
+      sys.exit(1)
 
   # If the command line requested after setup, it's time to do it.
   if not options.exit:
