@@ -77,11 +77,11 @@ class CommonUtilTest(mox.MoxTestBase):
                           'R17-1413.0.0-a1-b1346')
     full_basename = ('chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin')
     full_url = '/'.join([archive_url_prefix, full_basename])
-    full_url_out, nton_url_out, mton_url_out = (
+    full_url_out, nton_url_out, mton_url_out, fw_url_out = (
         common_util.ParsePayloadList(
             archive_url_prefix, [full_basename, '', '']))
-    self.assertEqual([full_url, None, None],
-                     [full_url_out, nton_url_out, mton_url_out])
+    self.assertEqual([full_url, None, None, None],
+                     [full_url_out, nton_url_out, mton_url_out, fw_url_out])
 
   def testParsePartialPayloadList(self):
     """Tests that we can parse a payload list with missing optional payload."""
@@ -94,11 +94,11 @@ class CommonUtilTest(mox.MoxTestBase):
     nton_url = '/'.join([archive_url_prefix, nton_basename])
     full_url = '/'.join([archive_url_prefix, full_basename])
 
-    full_url_out, nton_url_out, mton_url_out = (
+    full_url_out, nton_url_out, mton_url_out, fw_url_out = (
         common_util.ParsePayloadList(archive_url_prefix,
                                      [full_basename, nton_basename]))
-    self.assertEqual([full_url, nton_url, None],
-                     [full_url_out, nton_url_out, mton_url_out])
+    self.assertEqual([full_url, nton_url, None, None],
+                     [full_url_out, nton_url_out, mton_url_out, fw_url_out])
 
   def testInstallBuild(self):
     # TODO(frankf): Implement this test
@@ -203,14 +203,13 @@ class CommonUtilTest(mox.MoxTestBase):
         os.path.join('server', 'site_tests', 'network_VPN', 'control'))
     self.assertEqual(control_content, 'hello!')
 
-  def testGatherArtifactDownloads(self):
+  def commonGatherArtifactDownloads(self, payload_names):
     """Tests that we can gather the correct download requirements."""
     build = 'R17-1413.0.0-a1-b1346'
     archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
                           build)
     mock_data = 'mock data\nmock_data'
-    payloads = map(lambda x: '/'.join([archive_url_prefix, x]),
-                   ['p1', 'p2', 'p3'])
+    payloads = map(lambda x: '/'.join([archive_url_prefix, x]), payload_names)
     expected_payloads = payloads + map(
         lambda x: '/'.join([archive_url_prefix, x]),
             [build_artifact.STATEFUL_UPDATE,
@@ -226,8 +225,8 @@ class CommonUtilTest(mox.MoxTestBase):
     common_util.IsAvailable(
         mox.IgnoreArg(), mock_data.splitlines()).AndReturn(True)
     common_util.ParsePayloadList(archive_url_prefix,
-                                 mock_data.splitlines()).AndReturn(payloads)
-
+                                 mock_data.splitlines()).AndReturn(
+        payloads + [None] * (4 - len(payload_names)))
     self.mox.ReplayAll()
     artifacts = common_util.GatherArtifactDownloads(
         self._static_dir, archive_url_prefix, self._install_dir, build)
@@ -236,77 +235,23 @@ class CommonUtilTest(mox.MoxTestBase):
       self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
 
     self.mox.VerifyAll()
+
+
+  def testGatherArtifactDownloadsWithoutFirmware(self):
+    """Tests that we can gather the correct download requirements."""
+    self.commonGatherArtifactDownloads(['p1', 'p2', 'p3'])
+
+  def testGatherArtifactDownloads(self):
+    """Tests that we can gather the correct download requirements."""
+    self.commonGatherArtifactDownloads(['p1', 'p2', 'p3', 'p4'])
 
   def testGatherArtifactDownloadsWithoutMton(self):
     """Gather the correct download requirements without mton delta."""
-    build = 'R17-1413.0.0-a1-b1346'
-    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
-                          build)
-    mock_data = 'mock data\nmock_data\nmock_data'
-    payloads = map(lambda x: '/'.join([archive_url_prefix, x]),
-                   ['p1', 'p2'])
-    expected_payloads = payloads + map(
-        lambda x: '/'.join([archive_url_prefix, x]),
-            [build_artifact.STATEFUL_UPDATE,
-             build_artifact.AUTOTEST_ZIPPED_PACKAGE,
-             build_artifact.TEST_SUITES_PACKAGE])
-    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
-    self.mox.StubOutWithMock(common_util, 'IsAvailable')
-    self.mox.StubOutWithMock(common_util, 'ParsePayloadList')
-
-    # GSUtil cat gs://archive_url_prefix/UPLOADED.
-    gsutil_util.GSUtilRun(mox.StrContains(common_util.UPLOADED_LIST),
-                          mox.IgnoreArg()).AndReturn(mock_data)
-    common_util.IsAvailable(
-        mox.IgnoreArg(), mock_data.splitlines()).AndReturn(True)
-    common_util.ParsePayloadList(archive_url_prefix,
-                                 mock_data.splitlines()
-                                 ).AndReturn(payloads + [None])
-
-    self.mox.ReplayAll()
-    artifacts = common_util.GatherArtifactDownloads(
-        self._static_dir, archive_url_prefix, self._install_dir, build)
-    for index, artifact in enumerate(artifacts):
-      self.assertEqual(artifact._gs_path, expected_payloads[index])
-      self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
-
-    self.mox.VerifyAll()
+    self.commonGatherArtifactDownloads(['p1', 'p2'])
 
   def testGatherArtifactDownloadsWithoutMtonOrNton(self):
     """Gather the correct download requirements without delta payloads."""
-    build = 'R17-1413.0.0-a1-b1346'
-    archive_url_prefix = ('gs://chromeos-image-archive/x86-mario-release/' +
-                          build)
-    mock_data = 'mock data\nmock_data'
-
-    payloads = map(lambda x: '/'.join([archive_url_prefix, x]),
-                   ['p1'])
-    expected_payloads = payloads + map(
-        lambda x: '/'.join([archive_url_prefix, x]),
-            [build_artifact.STATEFUL_UPDATE,
-             build_artifact.AUTOTEST_ZIPPED_PACKAGE,
-             build_artifact.TEST_SUITES_PACKAGE])
-    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
-    self.mox.StubOutWithMock(common_util, 'IsAvailable')
-    self.mox.StubOutWithMock(common_util, 'ParsePayloadList')
-
-    # GSUtil cat gs://archive_url_prefix/UPLOADED.
-    gsutil_util.GSUtilRun(mox.StrContains(common_util.UPLOADED_LIST),
-                          mox.IgnoreArg()).AndReturn(mock_data)
-    common_util.IsAvailable(
-        mox.IgnoreArg(), mock_data.splitlines()).AndReturn(True)
-    common_util.ParsePayloadList(archive_url_prefix,
-                                 mock_data.splitlines()
-                                 ).AndReturn(payloads + [None, None])
-
-    self.mox.ReplayAll()
-    artifacts = common_util.GatherArtifactDownloads(
-        self._static_dir, archive_url_prefix, self._install_dir, build)
-    for index, artifact in enumerate(artifacts):
-      self.assertEqual(artifact._gs_path, expected_payloads[index])
-      self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
-
-    self.mox.VerifyAll()
+    self.commonGatherArtifactDownloads(['p1'])
 
   def testGatherSymbolArtifactDownloads(self):
     """Tests that we can find debug symbol artifacts to download."""
@@ -315,8 +260,6 @@ class CommonUtilTest(mox.MoxTestBase):
                           build)
     symbol_url = '/'.join([archive_url_prefix,
                            build_artifact.DEBUG_SYMBOLS])
-    uploaded_list_url = '/'.join([archive_url_prefix,
-                                  common_util.UPLOADED_LIST])
     mock_data = 'mock-tarball.tgz\nmock-debug.tgz'
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
 
@@ -327,7 +270,7 @@ class CommonUtilTest(mox.MoxTestBase):
     self.mox.ReplayAll()
     artifacts = common_util.GatherSymbolArtifactDownloads(
         self._static_dir, archive_url_prefix, self._install_dir)
-    for index, artifact in enumerate(artifacts):
+    for _, artifact in enumerate(artifacts):
       self.assertEqual(artifact._gs_path, symbol_url)
       self.assertTrue(artifact._tmp_staging_dir.startswith(self._static_dir))
 
@@ -354,7 +297,6 @@ class CommonUtilTest(mox.MoxTestBase):
 
   def testWaitUntilAvailable(self):
     """Test that we can poll until all target artifacts are available."""
-    build = 'R17-1413.0.0-a1-b1346'
     archive_url = ('gs://chromeos-image-archive/x86-mario-release/'
                    'R17-1413.0.0-a1-b1346')
     to_wait_list = ['_full_']
@@ -376,7 +318,6 @@ class CommonUtilTest(mox.MoxTestBase):
 
   def testWaitUntilAvailableWithRetry(self):
     """Test that we can poll until all target artifacts are available."""
-    build = 'R17-1413.0.0-a1-b1346'
     archive_url = ('gs://chromeos-image-archive/x86-mario-release/'
                    'R17-1413.0.0-a1-b1346')
     to_wait_list = ['_full_']
@@ -402,7 +343,6 @@ class CommonUtilTest(mox.MoxTestBase):
 
   def testWaitUntilAvailableTimeout(self):
     """Test that we wait for the target artifacts until timeout occurs."""
-    build = 'R17-1413.0.0-a1-b1346'
     archive_url = ('gs://chromeos-image-archive/x86-mario-release/'
                    'R17-1413.0.0-a1-b1346')
     to_wait_list = ['_full_']
