@@ -8,7 +8,6 @@ import os
 import re
 import struct
 import time
-import tools
 from tools import CmdError
 
 def RoundUp(value, boundary):
@@ -57,7 +56,7 @@ class WriteFirmware:
     self._fdt = fdt
     self._out = output
     self._bundle = bundle
-    self.text_base = self._fdt.GetInt('/chromeos-config', 'textbase', -1);
+    self.text_base = self._fdt.GetInt('/chromeos-config', 'textbase', -1)
 
     # For speed, use the 'update' algorithm and don't verify
     self.update = True
@@ -197,7 +196,6 @@ class WriteFirmware:
     """
     fdt = self._fdt.Copy(os.path.join(self._tools.outdir, 'flasher.dtb'))
     payload_data = self._tools.ReadFile(payload)
-    payload_size = os.stat(payload).st_size
 
     # Make sure that the checksum is not negative
     checksum = binascii.crc32(payload_data) & 0xffffffff
@@ -230,7 +228,8 @@ class WriteFirmware:
     if len(replace_me) is not len(new_str):
       raise ValueError("Internal error: replacement string '%s' length does "
           "not match new string '%s'" % (replace_me, new_str))
-    if len(re.findall(replace_me, fdt_data)) != 1:
+    matches = len(re.findall(replace_me, fdt_data))
+    if matches != 1:
       raise ValueError("Internal error: replacement string '%s' already "
           "exists in the fdt (%d matches)" % (replace_me, matches))
     fdt_data = re.sub(replace_me, new_str, fdt_data)
@@ -249,7 +248,7 @@ class WriteFirmware:
     self._tools.OutputSize('Flasher', flasher)
     return flasher
 
-  def _NvidiaFlashImage(self, flash_dest, uboot, bct, payload, bootstub):
+  def NvidiaFlashImage(self, flash_dest, uboot, bct, payload, bootstub):
     """Flash the image to SPI flash.
 
     This creates a special Flasher binary, with the image to be flashed as
@@ -301,7 +300,7 @@ class WriteFirmware:
 
     # TODO(sjg): Check for existence of board - but chroot has no lsusb!
     last_err = None
-    for tries in range(10):
+    for _ in range(10):
       try:
         # TODO(sjg): Use Chromite library so we can monitor output
         self._tools.Run('tegrarcm', args, sudo=True)
@@ -348,7 +347,7 @@ class WriteFirmware:
         self._out.Progress('Found %s board' % name)
         return True
 
-      except CmdError as err:
+      except CmdError:
         pass
 
     return False
@@ -403,14 +402,15 @@ class WriteFirmware:
     first_instr = struct.pack('<L', 0xea000014)
     uboot_offset = data.find(first_instr, bl1_size + 0x3800)
     if uboot_offset == -1:
-        raise ValueError('Could not locate start of U-Boot')
+      raise ValueError('Could not locate start of U-Boot')
     bl2_size = uboot_offset - bl1_size - 0x800  # 2KB gap after BL2
 
     # Sanity check: At present we only allow 14KB and 30KB for SPL
     allowed = [14, 30]
     if (bl2_size >> 10) not in allowed:
-        raise ValueError('BL2 size is %dK - only %s supported' %
-                (bl2_size >> 10, ', '.join([str(size) for size in allowed])))
+      raise ValueError('BL2 size is %dK - only %s supported' %
+                       (bl2_size >> 10, ', '.join(
+            [str(size) for size in allowed])))
     self._out.Notice('BL2 size is %dKB' % (bl2_size >> 10))
 
     # The BL2 (U-Boot SPL) follows BL1. After that there is a 2KB gap
@@ -421,7 +421,7 @@ class WriteFirmware:
     self._tools.WriteFile(image, data[uboot_offset:])
     return bl1, bl2, image
 
-  def _ExynosFlashImage(self, flash_dest, flash_uboot, bl1, bl2, payload,
+  def ExynosFlashImage(self, flash_dest, flash_uboot, bl1, bl2, payload,
                         kernel):
     """Flash the image to SPI flash.
 
@@ -584,7 +584,7 @@ class WriteFirmware:
     if flash_dest:
       raw_image = self.PrepareFlasher(uboot, payload, self.update, self.verify,
                                   flash_dest, '1:0')
-      bl1, bl2, payload_data = self._ExtractPayloadParts(payload)
+      bl1, bl2, _ = self._ExtractPayloadParts(payload)
       spl_load_size = os.stat(raw_image).st_size
       bl2 = self._bundle.ConfigureExynosBl2(self._fdt, spl_load_size, bl2,
                                             'flasher')
@@ -654,7 +654,7 @@ class WriteFirmware:
       for disk in disks:
         self._out.UserOutput('  %s' % disk[4])
 
-  def _Em100FlashImage(self, image_fname):
+  def Em100FlashImage(self, image_fname):
     """Send an image to an attached EM100 device.
 
     This is a Dediprog EM100 SPI flash emulation device. We set up servo2
@@ -682,7 +682,7 @@ class WriteFirmware:
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
                     bundle, update=True, verify=False, dest=None,
-                    flash_dest=None, kernel=None, props={}, servo='any',
+                    flash_dest=None, kernel=None, bootstub=None, servo='any',
                     method='tegra'):
   """A simple function to write firmware to a device.
 
@@ -702,7 +702,7 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     dest: Destination device to write firmware to (usb, sd).
     flash_dest: Destination device for flasher to program payload into.
     kernel: Kernel file to write after U-Boot
-    props: A dictionary containing properties from the PackFirmware object
+    bootstub: string, file name of the boot stub, if present
     servo: Describes the servo unit to use: none=none; any=any; otherwise
            port number of servo to use.
   """
@@ -714,17 +714,16 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     method = fdt.GetString('/chromeos-config', 'flash-method', method)
     if method == 'tegra':
       tools.CheckTool('tegrarcm')
-      bootstub = props.get('bootstub')
       if flash_dest:
         write.text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
       elif bootstub:
         write.text_base = bundle.CalcTextBase('bootstub ', fdt, bootstub)
-      ok = write._NvidiaFlashImage(flash_dest, flasher, file_list['bct'],
+      ok = write.NvidiaFlashImage(flash_dest, flasher, file_list['bct'],
           image_fname, bootstub)
     elif method == 'exynos':
       tools.CheckTool('lsusb', 'usbutils')
       tools.CheckTool('smdk-usbdl', 'smdk-dltool')
-      ok = write._ExynosFlashImage(flash_dest, flasher,
+      ok = write.ExynosFlashImage(flash_dest, flasher,
           file_list['exynos-bl1'], file_list['exynos-bl2'], image_fname,
           kernel)
     else:
@@ -737,7 +736,7 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
   elif dest == 'em100':
     # crosbug.com/31625
     tools.CheckTool('em100')
-    write._Em100FlashImage(image_fname)
+    write.Em100FlashImage(image_fname)
   elif dest.startswith('sd'):
     write.SendToSdCard(dest[2:], flash_dest, flasher, image_fname)
   else:
