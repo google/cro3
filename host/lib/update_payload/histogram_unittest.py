@@ -8,11 +8,12 @@
 
 import unittest
 
-from histogram import Histogram
 import format_utils
+import histogram
 
 
 class HistogramTest(unittest.TestCase):
+
   @staticmethod
   def AddHumanReadableSize(size):
     fmt = format_utils.BytesToHumanReadable(size)
@@ -26,14 +27,15 @@ class HistogramTest(unittest.TestCase):
     self.assertEqual(actual_str, expected_str)
 
   def testExampleHistogram(self):
-    self.CompareToExpectedDefault(str(Histogram([('Yes', 5), ('No', 1)])))
+    self.CompareToExpectedDefault(str(histogram.Histogram(
+        [('Yes', 5), ('No', 1)])))
 
   def testFromCountDict(self):
-    self.CompareToExpectedDefault(str(Histogram.FromCountDict(
+    self.CompareToExpectedDefault(str(histogram.Histogram.FromCountDict(
         {'Yes': 5, 'No': 1})))
 
   def testFromKeyList(self):
-    self.CompareToExpectedDefault(str(Histogram.FromKeyList(
+    self.CompareToExpectedDefault(str(histogram.Histogram.FromKeyList(
         ['Yes', 'Yes', 'No', 'Yes', 'Yes', 'Yes'])))
 
   def testCustomScale(self):
@@ -41,7 +43,7 @@ class HistogramTest(unittest.TestCase):
         'Yes |#### | 5 (83.3%)\n'
         'No  |     | 1 (16.6%)'
     )
-    actual_str = str(Histogram([('Yes', 5), ('No', 1)], scale=5))
+    actual_str = str(histogram.Histogram([('Yes', 5), ('No', 1)], scale=5))
     self.assertEqual(actual_str, expected_str)
 
   def testCustomFormatter(self):
@@ -49,8 +51,8 @@ class HistogramTest(unittest.TestCase):
         'Yes |################    | 5000 (4.8 KiB) (83.3%)\n'
         'No  |###                 | 1000 (16.6%)'
     )
-    actual_str = str(Histogram([('Yes', 5000), ('No', 1000)],
-                               formatter=self.AddHumanReadableSize))
+    actual_str = str(histogram.Histogram(
+        [('Yes', 5000), ('No', 1000)], formatter=self.AddHumanReadableSize))
     self.assertEqual(actual_str, expected_str)
 
 

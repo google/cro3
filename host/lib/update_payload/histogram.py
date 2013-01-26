@@ -93,7 +93,6 @@ class Histogram(object):
       count_dict[key] += 1
     return Histogram.FromCountDict(count_dict, scale, formatter, key_names)
 
-
   def __str__(self):
     hist_lines = []
     hist_bar = '|'
@@ -111,7 +110,6 @@ class Histogram(object):
 
     return '\n'.join(hist_lines)
 
-
-  def keys(self):
+  def GetKeys(self):
     """Returns the keys of the histogram."""
     return [key for key, _ in self.data]

@@ -74,7 +74,7 @@ def BytesToHumanReadable(size, precision=1, decimal=False):
   """
   constants = (
       (('KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB'), 1024),
-      (('kB',  'MB',  'GB',  'TB',  'PB',  'EB' ), 1000)
+      (('kB', 'MB', 'GB', 'TB', 'PB', 'EB'), 1000)
   )
   suffixes, base = constants[decimal]
   exp, magnitude = 0, 1
