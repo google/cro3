@@ -23,6 +23,7 @@ ROOT_UPDATE = 'update.gz'
 STATEFUL_UPDATE = 'stateful.tgz'
 TEST_IMAGE = 'chromiumos_test_image.bin'
 TEST_SUITES_PACKAGE = 'test_suites.tar.bz2'
+AU_SUITE_PACKAGE = 'au_control.tar.bz2'
 
 
 class ArtifactDownloadError(Exception):
@@ -45,6 +46,7 @@ class BuildArtifact(log_util.Loggable):
       install_path: Final destination of artifact.
       synchronous: If True, artifact must be downloaded in the foreground.
     """
+    super(BuildArtifact, self).__init__()
     self._gs_path = gs_path
     self._tmp_staging_dir = tmp_staging_dir
     self._tmp_stage_path = os.path.join(tmp_staging_dir,
@@ -157,7 +159,7 @@ class AutotestTarballBuildArtifact(TarballBuildArtifact):
 class DebugTarballBuildArtifact(TarballBuildArtifact):
   """Wrapper around the debug symbols tarball to download from gsutil."""
 
-  def _ExtractTarball(self):
+  def _ExtractTarball(self, _exclude=None):
     """Extracts debug/breakpad from the tarball into the install_path."""
     cmd = 'tar xzf %s --directory=%s debug/breakpad' % (
         self._tmp_stage_path, self._install_path)

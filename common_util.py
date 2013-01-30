@@ -23,8 +23,8 @@ import log_util
 
 
 # Module-local log function.
-def _Log(message, *args, **kwargs):
-  return log_util.LogWithTag('UTIL', message, *args, **kwargs)
+def _Log(message, *args):
+  return log_util.LogWithTag('UTIL', message, *args)
 
 
 AU_BASE = 'au'
@@ -87,7 +87,7 @@ def ParsePayloadList(archive_url, payload_list):
       else:
         mton_payload_url = '/'.join([archive_url, payload])
     elif build_artifact.FIRMWARE_ARCHIVE in payload:
-        firmware_payload_url = '/'.join([archive_url, payload])
+      firmware_payload_url = '/'.join([archive_url, payload])
 
   if not full_payload_url:
     raise CommonUtilError(
@@ -204,7 +204,7 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build_dir, build,
   to_wait_list = ['_full_', build_artifact.AUTOTEST_PACKAGE]
   err_str = 'full payload or autotest tarball'
   uploaded_list = WaitUntilAvailable(to_wait_list, archive_url, err_str,
-                                     timeout=600)
+                                     timeout=timeout, delay=delay)
 
   # First we gather the urls/paths for the update payloads.
   full_url, nton_url, mton_url, fw_url = ParsePayloadList(
@@ -229,8 +229,8 @@ def GatherArtifactDownloads(main_staging_dir, archive_url, build_dir, build,
         mton_url, main_staging_dir, mton_payload))
 
   if fw_url:
-      artifacts.append(build_artifact.BuildArtifact(
-              fw_url, main_staging_dir, build_dir))
+    artifacts.append(build_artifact.BuildArtifact(
+        fw_url, main_staging_dir, build_dir))
 
   # Gather information about autotest tarballs. Use autotest.tar if available.
   if build_artifact.AUTOTEST_PACKAGE in uploaded_list:
@@ -531,6 +531,9 @@ def GetFileSize(file_path):
   return os.path.getsize(file_path)
 
 
+# Hashlib is strange and doesn't actually define these in a sane way that
+# pylint can find them. Disable checks for them.
+# pylint: disable=E1101,W0106
 def GetFileHashes(file_path, do_sha1=False, do_sha256=False, do_md5=False):
   """Computes and returns a list of requested hashes.
 
