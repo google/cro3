@@ -60,23 +60,15 @@ def _DoWriteFirmware(options, output, tools, update, verify, dest):
   # Set up the fdt and options that we want.
   fdt = bundle.SelectFdt(options.fdt)
 
-  try:
-    # Write it to the board.
-    flasher = options.uboot_flasher
-    if not flasher:
-      flasher = bundle.uboot_fname
-    file_list = bundle.GetFiles()
-    write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
-        file_list, options.image, bundle, update, verify, dest,
-        flash_dest=options.flash_dest, servo=options.servo,
-        method=options.method)
-
-  except (CmdError, ValueError) as err:
-    # For verbosity 4 we want to display all possible information
-    if options.verbosity >= 4:
-      raise
-    else:
-      output.Error(str(err))
+  # Write it to the board.
+  flasher = options.uboot_flasher
+  if not flasher:
+    flasher = bundle.uboot_fname
+  file_list = bundle.GetFiles()
+  write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
+      file_list, options.image, bundle, update, verify, dest,
+      flash_dest=options.flash_dest, servo=options.servo,
+      method=options.method)
 
 
 def main():
@@ -138,8 +130,16 @@ def main():
     with Tools(output) as tools:
       if options.includedirs:
         tools.search_paths += options.includedirs
-      _DoWriteFirmware(options, output, tools, not options.full_erase,
-          options.verify, dest=options.write)
+      try:
+        _DoWriteFirmware(options, output, tools, not options.full_erase,
+                         options.verify, dest=options.write)
+      except (CmdError, ValueError) as err:
+        # For verbosity 4 we want to display all possible information
+        if options.verbosity >= 4:
+          raise
+        else:
+          output.Error(str(err))
+          sys.exit(1)
 
 
 def _Test():
