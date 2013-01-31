@@ -8,7 +8,6 @@
 
 import cherrypy
 import json
-import logging
 import optparse
 import os
 import re
@@ -16,7 +15,6 @@ import socket
 import sys
 import subprocess
 import tempfile
-import threading
 import types
 
 import autoupdate
@@ -39,33 +37,6 @@ updater = None
 class DevServerError(Exception):
   """Exception class used by this module."""
   pass
-
-
-class LockDict(object):
-  """A dictionary of locks.
-
-  This class provides a thread-safe store of threading.Lock objects, which can
-  be used to regulate access to any set of hashable resources.  Usage:
-
-    foo_lock_dict = LockDict()
-    ...
-    with foo_lock_dict.lock('bar'):
-      # Critical section for 'bar'
-  """
-  def __init__(self):
-    self._lock = self._new_lock()
-    self._dict = {}
-
-  def _new_lock(self):
-    return threading.Lock()
-
-  def lock(self, key):
-    with self._lock:
-      lock = self._dict.get(key)
-      if not lock:
-        lock = self._new_lock()
-        self._dict[key] = lock
-      return lock
 
 
 def _LeadingWhiteSpaceCount(string):
@@ -327,6 +298,7 @@ class ApiRoot(object):
     return json.dumps(
         {'size': file_size, 'sha1': file_sha1, 'sha256': file_sha256})
 
+
 class DevServerRoot(object):
   """The Root Class for the Dev Server.
 
@@ -345,7 +317,7 @@ class DevServerRoot(object):
 
   def __init__(self):
     self._builder = None
-    self._download_lock_dict = LockDict()
+    self._download_lock_dict = common_util.LockDict()
     self._downloader_dict = {}
 
   @cherrypy.expose
@@ -364,6 +336,9 @@ class DevServerRoot(object):
       DevserverError: if archive_url is not set.
     """
     if archive_url:
+      if not archive_url.startswith('gs://'):
+        raise DevServerError("Archive URL isn't from Google Storage.")
+
       return archive_url.rstrip('/')
     else:
       raise DevServerError("Must specify an archive_url in the request")
@@ -372,6 +347,7 @@ class DevServerRoot(object):
   def download(self, **kwargs):
     """Downloads and archives full/delta payloads from Google Storage.
 
+    THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
     This methods downloads artifacts. It may download artifacts in the
     background in which case a caller should call wait_for_status to get
     the status of the background artifact downloads. They should use the same
@@ -384,33 +360,60 @@ class DevServerRoot(object):
       http://myhost/download?archive_url=gs://chromeos-image-archive/
       x86-generic/R17-1208.0.0-a1-b338
     """
+    return self.stage(archive_url=kwargs.get('archive_url'),
+                      artifacts='full_payload,test_suites,stateful')
+
+  @cherrypy.expose
+  def stage(self, **kwargs):
+    """Downloads and caches the artifacts from Google Storage URL.
+
+    Downloads and caches the artifacts Google Storage URL. Returns once these
+    have been downloaded on the devserver. A call to this will attempt to cache
+    non-specified artifacts in the background for the given from the given URL
+    following the principle of spatial locality. Spatial locality of different
+    artifacts is explicitly defined in the build_artifact module.
+
+    These artifacts will then be available from the static/ sub-directory of
+    the devserver.
+
+    Args:
+      archive_url: Google Storage URL for the build.
+      artifacts: Comma separated list of artifacts to download.
+
+    Example:
+      To download the autotest and test suites tarballs:
+        http://devserver_url:<port>/stage?archive_url=gs://your_url/path&
+            artifacts=autotest,test_suites
+      To download the full update payload:
+        http://devserver_url:<port>/stage?archive_url=gs://your_url/path&
+            artifacts=full_payload
+
+      For both these examples, one could find these artifacts at:
+        http://devserver_url:<port>/static/archive/<relative_path>*
+
+      Note for this example, relative path is the archive_url stripped of its
+      basename i.e. path/ in the examples above. Specific example:
+
+      gs://chromeos-image-archive/x86-mario-release/R26-3920.0.0
+
+      Will get staged to:
+
+      http://devserver_url:<port>/static/archive/x86-mario-release/R26-3920.0.0
+    """
     archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
+    artifacts = kwargs.get('artifacts', '')
+    if not artifacts:
+      raise DevServerError('No artifacts specified.')
 
-    # Guarantees that no two downloads for the same url can run this code
-    # at the same time.
-    with self._download_lock_dict.lock(archive_url):
-      try:
-        # If we are currently downloading, return. Note, due to the above lock
-        # we know that the foreground artifacts must have finished downloading
-        # and returned Success if this downloader instance exists.
-        if (self._downloader_dict.get(archive_url) or
-            downloader.Downloader.BuildStaged(archive_url, updater.static_dir)):
-          _Log('Build %s has already been processed.' % archive_url)
-          return 'Success'
-
-        downloader_instance = downloader.Downloader(updater.static_dir)
-        self._downloader_dict[archive_url] = downloader_instance
-        return downloader_instance.Download(archive_url, background=True)
-
-      except:
-        # On any exception, reset the state of the downloader_dict.
-        self._downloader_dict[archive_url] = None
-        raise
+    downloader.Downloader(updater.static_dir, archive_url).Download(
+        artifacts.split(','))
+    return 'Success'
 
   @cherrypy.expose
   def wait_for_status(self, **kwargs):
     """Waits for background artifacts to be downloaded from Google Storage.
 
+    THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
     Args:
       archive_url: Google Storage URL for the build.
 
@@ -418,28 +421,16 @@ class DevServerRoot(object):
       http://myhost/wait_for_status?archive_url=gs://chromeos-image-archive/
       x86-generic/R17-1208.0.0-a1-b338
     """
-    archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
-    downloader_instance = self._downloader_dict.get(archive_url)
-    if downloader_instance:
-      status = downloader_instance.GetStatusOfBackgroundDownloads()
-      self._downloader_dict[archive_url] = None
-      return status
-    else:
-      # We may have previously downloaded but removed the downloader instance
-      # from the cache.
-      if downloader.Downloader.BuildStaged(archive_url, updater.static_dir):
-        logging.info('%s not found in downloader cache but previously staged.',
-                     archive_url)
-        return 'Success'
-      else:
-        raise DevServerError('No download for the given archive_url found.')
+    return self.stage(archive_url=kwargs.get('archive_url'),
+                      artifacts='full_payload,test_suites,autotest,stateful')
 
   @cherrypy.expose
   def stage_debug(self, **kwargs):
     """Downloads and stages debug symbol payloads from Google Storage.
 
-    This methods downloads the debug symbol build artifact synchronously,
-    and then stages it for use by symbolicate_dump/.
+    THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
+    This methods downloads the debug symbol build artifact
+    synchronously, and then stages it for use by symbolicate_dump.
 
     Args:
       archive_url: Google Storage URL for the build.
@@ -448,11 +439,11 @@ class DevServerRoot(object):
       http://myhost/stage_debug?archive_url=gs://chromeos-image-archive/
       x86-generic/R17-1208.0.0-a1-b338
     """
-    archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
-    return downloader.SymbolDownloader(updater.static_dir).Download(archive_url)
+    return self.stage(archive_url=kwargs.get('archive_url'),
+                      artifacts='symbols')
 
   @cherrypy.expose
-  def symbolicate_dump(self, minidump):
+  def symbolicate_dump(self, minidump, **kwargs):
     """Symbolicates a minidump using pre-downloaded symbols, returns it.
 
     Callers will need to POST to this URL with a body of MIME-type
@@ -460,12 +451,15 @@ class DevServerRoot(object):
     The body should include a single argument, 'minidump', containing the
     binary-formatted minidump to symbolicate.
 
-    It is up to the caller to ensure that the symbols they want are currently
-    staged.
-
     Args:
+      archive_url: Google Storage URL for the build.
       minidump: The binary minidump file to symbolicate.
     """
+    # Ensure the symbols have been staged.
+    archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
+    if self.stage(archive_url=archive_url, artifacts='symbols') != 'Success':
+      raise DevServerError('Failed to stage symbols for %s' % archive_url)
+
     to_return = ''
     with tempfile.NamedTemporaryFile() as local:
       while True:
@@ -473,12 +467,16 @@ class DevServerRoot(object):
         if not data:
           break
         local.write(data)
+
       local.flush()
-      stackwalk = subprocess.Popen(['minidump_stackwalk',
-                                    local.name,
-                                    updater.static_dir + '/debug/breakpad'],
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+
+      symbols_directory = os.path.join(downloader.Downloader.GetBuildDir(
+          updater.static_dir, archive_url), 'debug', 'breakpad')
+
+      stackwalk = subprocess.Popen(
+          ['minidump_stackwalk', local.name, symbols_directory],
+          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
       to_return, error_text = stackwalk.communicate()
       if stackwalk.returncode != 0:
         raise DevServerError("Can't generate stack trace: %s (rc=%d)" % (
@@ -550,9 +548,10 @@ class DevServerRoot(object):
   def stage_images(self, **kwargs):
     """Downloads and stages a Chrome OS image from Google Storage.
 
+    THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
     This method downloads a zipped archive from a specified GS location, then
     extracts and stages the specified list of images and stages them under
-    static/images/BOARD/BUILD/. Download is synchronous.
+    static/BOARD/BUILD/. Download is synchronous.
 
     Args:
       archive_url: Google Storage URL for the build.
@@ -563,12 +562,10 @@ class DevServerRoot(object):
       http://myhost/stage_images?archive_url=gs://chromeos-image-archive/
       x86-generic/R17-1208.0.0-a1-b338&image_types=test,base
     """
-    # TODO(garnold) This needs to turn into an async operation, to avoid
-    # unnecessary failure of concurrent secondary requests (chromium-os:34661).
-    archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
     image_types = kwargs.get('image_types').split(',')
-    return (downloader.ImagesDownloader(
-        updater.static_dir).Download(archive_url, image_types))
+    image_types_list = [image + '_image' for image in image_types]
+    self.stage(archive_url=kwargs.get('archive_url'), artifacts=','.join(
+        image_types_list))
 
   @cherrypy.expose
   def index(self):
@@ -672,7 +669,7 @@ def main():
                     metavar='PATH',
                     help='log output to this file instead of stdout')
   parser.add_option('--max_updates',
-                    metavar='NUM', default=-1, type='int',
+                    metavar='NUM', default= -1, type='int',
                     help='maximum number of update checks handled positively '
                          '(default: unlimited)')
   parser.add_option('-p', '--pregenerate_update',

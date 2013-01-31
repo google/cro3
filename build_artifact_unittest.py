@@ -7,8 +7,7 @@
 """Unit tests for build_artifact module.
 
 These unit tests take tarball from google storage locations to fully test
-the artifact download process. Please make sure to set up your boto file and
-run these unittests from within the chroot.  The tools are self-explanatory.
+the artifact download process. Please make sure to set up your boto file.
 """
 
 import os
@@ -22,87 +21,111 @@ import mox
 import build_artifact
 
 
+_VERSION = 'R26-3646.0.0-rc1'
 _TEST_GOLO_ARCHIVE = (
-    'gs://chromeos-image-archive/x86-alex-release/R19-2003.0.0-a1-b1819')
-_TEST_SUITES_TAR = '/'.join([_TEST_GOLO_ARCHIVE,
-                             build_artifact.TEST_SUITES_PACKAGE])
-_TEST_TEMP_ARCHIVE = (
-    'gs://chromeos-image-archive/trybot-lumpy-paladin/R22-2531.0.0-a1-b145')
-_AUTOTEST_TAR = '/'.join([_TEST_TEMP_ARCHIVE,
-                          build_artifact.AUTOTEST_PACKAGE])
+    'gs://chromeos-image-archive/x86-generic-chromium-pfq/R26-3646.0.0-rc1')
+
+# Different as the above does not have deltas (for smaller artifacts).
+_DELTA_VERSION = 'R26-3645.0.0'
+_TEST_GOLO_FOR_DELTAS = (
+    'gs://chromeos-image-archive/x86-mario-release/R26-3645.0.0')
 
 
+# pylint: disable=W0212
 class BuildArtifactTest(mox.MoxTestBase):
 
   def setUp(self):
     mox.MoxTestBase.setUp(self)
-    self.work_dir = tempfile.mkdtemp('build_artifact')
+    self.work_dir = tempfile.mkdtemp('build_artifact_unittest')
 
   def tearDown(self):
     shutil.rmtree(self.work_dir)
 
-  def testDownloadAndStage(self):
-    """Downloads a real tarball from GSUtil."""
+  def testProcessBuildArtifact(self):
+    """Processes a real tarball from GSUtil and stages it."""
     artifact = build_artifact.BuildArtifact(
-        _TEST_SUITES_TAR, os.path.join(self.work_dir, 'stage'),
-        os.path.join(self.work_dir, 'install', 'file'), True)
-    artifact.Download()
-    artifact.Stage()
+        self.work_dir,
+        _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE, _VERSION)
+    artifact.Process(False)
     self.assertTrue(os.path.exists(os.path.join(
-        self.work_dir, 'install', 'file')))
+        self.work_dir, build_artifact.TEST_SUITES_FILE)))
 
-  def testDownloadAndStageTarball(self):
+  def testProcessTarball(self):
     """Downloads a real tarball and untars it."""
     artifact = build_artifact.TarballBuildArtifact(
-        _TEST_SUITES_TAR, os.path.join(self.work_dir, 'stage'),
-        os.path.join(self.work_dir, 'install'), True)
-    artifact.Download()
-    artifact.Stage()
+        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE,
+        _VERSION)
+    artifact.Process(False)
     self.assertTrue(os.path.isdir(os.path.join(
-        self.work_dir, 'install', 'autotest', 'test_suites')))
+        self.work_dir, 'autotest', 'test_suites')))
 
+  def testProcessTarballWithFile(self):
+    """Downloads a real tarball and only untars one file from it."""
+    file_to_download = 'autotest/test_suites/control.au'
+    artifact = build_artifact.TarballBuildArtifact(
+        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE,
+        _VERSION, [file_to_download])
+    artifact.Process(False)
+    self.assertTrue(os.path.exists(os.path.join(
+        self.work_dir, file_to_download)))
 
   def testDownloadAndStageAutotest(self):
     """Downloads a real autotest tarball for test."""
-    artifact = build_artifact.AutotestTarballBuildArtifact(
-        _AUTOTEST_TAR, os.path.join(self.work_dir, 'stage'),
-        os.path.join(self.work_dir, 'install'), True)
-    artifact.Download()
     self.mox.StubOutWithMock(build_artifact.AutotestTarballBuildArtifact,
-                             '_ExtractTarball')
+                             '_Extract')
+    artifact = build_artifact.AutotestTarballBuildArtifact(
+        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.AUTOTEST_FILE,
+        _VERSION, None, ['autotest/test_suites'])
+
+    stage_dir = os.path.join(self.work_dir, 'stage')
+    os.makedirs(stage_dir)
+    artifact.staging_dir = stage_dir
+    artifact._Download()
     self.mox.StubOutWithMock(subprocess, 'check_call')
-    build_artifact.AutotestTarballBuildArtifact._ExtractTarball(
-        exclude='autotest/test_suites')
-    subprocess.check_call(mox.StrContains('autotest/utils/packager.py'),
-                          cwd=os.path.join(self.work_dir, 'stage'), shell=True)
-    subprocess.check_call('cp %s %s' % (
-        os.path.join(self.work_dir, 'install', 'autotest', 'packages/*'),
-        os.path.join(self.work_dir, 'install', 'autotest')), shell=True)
+    artifact._Extract()
+    subprocess.check_call(mox.In('autotest/utils/packager.py'), cwd=stage_dir)
     self.mox.ReplayAll()
-    artifact.Stage()
+    artifact._Stage()
     self.mox.VerifyAll()
-    self.assertTrue(os.path.isdir(os.path.join(self.work_dir, 'install',
-                                               'autotest', 'packages')))
+    self.assertTrue(os.path.isdir(
+        os.path.join(self.work_dir, 'autotest', 'packages')))
 
   def testAUTestPayloadBuildArtifact(self):
     """Downloads a real tarball and treats it like an AU payload."""
-    open(os.path.join(self.work_dir, build_artifact.STATEFUL_UPDATE),
-         'a').close()
-    open(os.path.join(self.work_dir, build_artifact.TEST_IMAGE),
-         'a').close()
-
     artifact = build_artifact.AUTestPayloadBuildArtifact(
-        _TEST_SUITES_TAR, os.path.join(self.work_dir, 'stage'),
-        os.path.join(self.work_dir, 'install', 'payload', 'payload.gz'), True)
-    artifact.Download()
-    artifact.Stage()
+        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE,
+        _VERSION)
+    artifact.Process(False)
     self.assertTrue(os.path.exists(os.path.join(
-        self.work_dir, 'install', 'payload', 'payload.gz')))
+        self.work_dir, 'update.gz')))
+
+  def testDeltaPayloadsArtifact(self):
+    """Downloads delta paylaods from test bucket."""
+    artifact = build_artifact.DeltaPayloadsArtifact(
+        self.work_dir, _TEST_GOLO_FOR_DELTAS, '.*_delta_.*', _DELTA_VERSION)
+    artifact.Process(False)
+    nton_dir = os.path.join(self.work_dir, 'au', '%s_nton' % _DELTA_VERSION)
+    mton_dir = os.path.join(self.work_dir, 'au', '%s_mton' % _DELTA_VERSION)
+    self.assertTrue(os.path.exists(os.path.join(nton_dir, 'update.gz')))
+    self.assertTrue(os.path.exists(os.path.join(mton_dir, 'update.gz')))
+
+  def testImageUnzip(self):
+    """Downloads and stages a zip file and extracts a test image."""
+    artifact = build_artifact.ZipfileBuildArtifact(
+        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.IMAGE_FILE,
+        _VERSION, ['chromiumos_test_image.bin'])
+    artifact.Process(False)
     self.assertTrue(os.path.exists(os.path.join(
-        self.work_dir, 'install', 'payload',
-        build_artifact.STATEFUL_UPDATE)))
-    self.assertTrue(os.path.exists(os.path.join(
-        self.work_dir, 'install', 'payload', build_artifact.TEST_IMAGE)))
+        self.work_dir, 'chromiumos_test_image.bin')))
+
+  def testImageUnzipWithExcludes(self):
+    """Downloads and stages a zip file while excluding all large files."""
+    artifact = build_artifact.ZipfileBuildArtifact(
+        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.IMAGE_FILE,
+        _VERSION, None, ['*.bin'])
+    artifact.Process(False)
+    self.assertFalse(os.path.exists(os.path.join(
+        self.work_dir, 'chromiumos_test_image.bin')))
 
 
 if __name__ == '__main__':

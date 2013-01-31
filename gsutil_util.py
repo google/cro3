@@ -4,15 +4,30 @@
 
 """Module containing gsutil helper methods."""
 
+import random
+import re
 import subprocess
 import time
 
+import log_util
+
 
 GSUTIL_ATTEMPTS = 5
+UPLOADED_LIST = 'UPLOADED'
+
+
+# Module-local log function.
+def _Log(message, *args):
+  return log_util.LogWithTag('GSUTIL_UTIL', message, *args)
 
 
 class GSUtilError(Exception):
-  """Exception raises when we run into an error running gsutil."""
+  """Exception raised when we run into an error running gsutil."""
+  pass
+
+
+class PatternNotSpecific(Exception):
+  """Raised when unexpectedly more than one item is returned for a pattern."""
   pass
 
 
@@ -53,3 +68,73 @@ def DownloadFromGS(src, dst):
   cmd = 'gsutil cp %s %s' % (src, dst)
   msg = 'Failed to download "%s".' % src
   GSUtilRun(cmd, msg)
+
+
+def _GetGSNamesFromList(filename_list, pattern):
+  """Given a list of filenames, returns the filenames that match pattern."""
+  matches = []
+  re_pattern = re.compile(pattern)
+  for filename in filename_list:
+    if re_pattern.match(filename):
+      matches.append(filename)
+
+  return matches
+
+
+def GetGSNamesWithWait(pattern, archive_url, err_str, single_item=True,
+                       timeout=600, delay=10):
+  """Returns the google storage names specified by the given pattern.
+
+  This method polls Google Storage until the target artifacts specified by the
+  pattern is available or until the timeout occurs. Because we may not know the
+  exact name of the target artifacts, the method accepts a filename pattern,
+  to identify whether an artifact whose name matches the pattern exists (e.g.
+  use pattern '_full_' to search for the full payload
+  'chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin'). Returns the name only if
+  found before the timeout.
+
+  Args:
+    pattern: Regular expression pattern to identify the target artifact.
+    archive_url: URL of the Google Storage bucket.
+    err_str: String to display in the error message on error.
+    single_item: Only a single item should be returned.
+    timeout/delay: optional and self-explanatory.
+
+  Returns:
+    The list of artifacts matching the pattern in Google Storage bucket or None
+      if not found.
+
+  Raises:
+    PatternNotSpecific: If caller sets single_item but multiple items match.
+  """
+  deadline = time.time() + timeout
+  while time.time() <= deadline:
+    uploaded_list = []
+    to_delay = delay + random.uniform(.5 * delay, 1.5 * delay)
+    try:
+      cmd = 'gsutil cat %s/%s' % (archive_url, UPLOADED_LIST)
+      msg = 'Failed to get a list of uploaded files.'
+      uploaded_list = GSUtilRun(cmd, msg).splitlines()
+    except GSUtilError:
+      # For backward compatibility, falling back to use "gsutil ls"
+      # when the manifest file is not present.
+      cmd = 'gsutil ls %s/*' % archive_url
+      msg = 'Failed to list payloads.'
+      returned_list = GSUtilRun(cmd, msg).splitlines()
+      for item in returned_list:
+        uploaded_list.append(item.rsplit('/', 1)[1])
+
+    # Check if all target artifacts are available.
+    found_names = _GetGSNamesFromList(uploaded_list, pattern)
+    if found_names:
+      if single_item and len(found_names) > 1:
+        raise PatternNotSpecific(
+            'Too many items %s returned by pattern %s in %s' % (
+                str(found_names), pattern, archive_url))
+
+      return found_names
+
+    _Log('Retrying in %f seconds...%s', to_delay, err_str)
+    time.sleep(to_delay)
+
+  return None
