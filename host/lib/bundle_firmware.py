@@ -1038,9 +1038,9 @@ class Bundle:
     pack.CheckProperties()
 
     # Record position and size of all blob members in the FDT
-    pack.UpdateBlobPositions(fdt)
-    pack.UpdateBlobPositions(fdt_rwa)
-    pack.UpdateBlobPositions(fdt_rwb)
+    pack.UpdateBlobPositionsAndHashes(fdt)
+    pack.UpdateBlobPositionsAndHashes(fdt_rwa)
+    pack.UpdateBlobPositionsAndHashes(fdt_rwb)
 
     # Make a copy of the fdt for the bootstub
     fdt_data = self._tools.ReadFile(fdt.fname)

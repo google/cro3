@@ -4,6 +4,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import binascii
+import hashlib
 import optparse
 import os
 import re
@@ -756,7 +758,7 @@ class PackFirmware:
       directory[prop_list[i]] = [offset[i], length[i]]
     return data, directory
 
-  def UpdateBlobPositions(self, fdt):
+  def UpdateBlobPositionsAndHashes(self, fdt):
     """Record position and size of all blob members in the FDT.
 
     Some blobs have multiple files within them. We want a way to
@@ -764,7 +766,8 @@ class PackFirmware:
     each, and putting the offset and size information in there.
 
     This function scans for blobs with more than one file and adds
-    a 'reg' property to the subnode for each file.
+    a 'reg' property to the subnode for each file. It also adds 'hash'
+    nodes with the sha 256 hash of the file's contents.
 
     Note: Since one of the members may in fact be the fdt, and we are
     updating the fdt, we may change the size it. To get around this,
@@ -783,6 +786,12 @@ class PackFirmware:
             fdt.PutInteger(entry.node, '#size-cells', 1)
             for key, item in directory.iteritems():
               fdt.PutIntList(entry.node + '/' + key, 'reg', item)
+              hasher = hashlib.sha256()
+              offset, size = item
+              hasher.update(data[offset:offset + size])
+              hash = hasher.digest()
+              bytes = struct.unpack('%dB' % len(hash), hash)
+              fdt.PutBytes(entry.node + '/' + key, 'hash', bytes)
 
   def CheckProperties(self):
     """Check that each entry has the properties that it needs.

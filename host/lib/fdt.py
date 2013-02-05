@@ -416,6 +416,32 @@ class Fdt:
     args.extend(value_list)
     self.tools.Run('fdtput', args)
 
+  def PutBytes(self, node, prop, bytes_list):
+    """Write a sequence of bytes into an fdt property.
+
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
+    >>> out_copy = fdt.Copy(os.path.join(_base, '../tests/copy.dtb'))
+    >>> out_copy.PutBytes('/', 'foo', (0, 1, 2, 3))
+    >>> out_copy.GetProp('/', 'foo')
+    '66051'
+    >>> out_copy.PutBytes('/', 'foo2', (3, 2, 1, 0, 0, 1, 2, 3))
+    >>> out_copy.GetProp('/', 'foo2')
+    '50462976 66051'
+    >>> out_copy.PutBytes('/', 'foo3', (3, 2, 1))
+    >>> out_copy.GetProp('/', 'foo3')
+    '3 2 1'
+
+    Args:
+      node: Full path to the node to look up.
+      prop: Property name to look up.
+      bytes_list: List of bytes to write.
+    """
+    value_list = [str(s) for s in bytes_list]
+    args = ['-p', '-t', 'bi', self.fname, node, prop]
+    args.extend(value_list)
+    self.tools.Run('fdtput', args)
+
   def Compile(self, arch_dts):
     """Compile an fdt .dts source file into a .dtb binary blob
 
