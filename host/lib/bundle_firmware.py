@@ -17,6 +17,7 @@ to keep these consistent!
 """
 
 import glob
+import hashlib
 import os
 import re
 
@@ -928,6 +929,13 @@ class Bundle:
     elif blob_type in ['ecrw', 'ecbin']:
       pack.AddProperty('ecrw', self.ecrw_fname)
       pack.AddProperty('ecbin', self.ecrw_fname)
+    elif blob_type == 'ecrwhash':
+      ec_hash_file = os.path.join(self._tools.outdir, 'ec_hash.bin')
+      ecrw = self._tools.ReadFile(self.ecrw_fname)
+      hasher = hashlib.sha256()
+      hasher.update(ecrw)
+      self._tools.WriteFile(ec_hash_file, hasher.digest())
+      pack.AddProperty(blob_type, ec_hash_file)
     elif blob_type == 'ecro':
       # crosbug.com/p/13143
       # We cannot have an fmap in the EC image since there can be only one,
