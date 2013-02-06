@@ -400,9 +400,15 @@ class WriteFirmware:
     self._tools.WriteFile(bl1, data[:bl1_size])
 
     # Try to detect the BL2 size. We look for 0xea000014 which is the
-    # 'B reset' instruction at the start of U-Boot.
+    # 'B reset' instruction at the start of U-Boot. When U-Boot is LZO
+    # compressed, we look for a LZO magic instead.
     first_instr = struct.pack('<L', 0xea000014)
-    uboot_offset = data.find(first_instr, bl1_size + 0x3800)
+    lzo_magic = struct.pack('>B3s', 0x89, 'LZO')
+    first_instr_offset = data.find(first_instr, bl1_size + 0x3800)
+    lzo_magic_offset = data.find(lzo_magic, bl1_size + 0x3800)
+    uboot_offset = min(first_instr_offset, lzo_magic_offset)
+    if uboot_offset == -1:
+      uboot_offset = max(first_instr_offset, lzo_magic_offset)
     if uboot_offset == -1:
       raise ValueError('Could not locate start of U-Boot')
     bl2_size = uboot_offset - bl1_size - 0x800  # 2KB gap after BL2
