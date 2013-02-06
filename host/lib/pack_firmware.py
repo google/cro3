@@ -724,7 +724,7 @@ class PackFirmware:
     """
     return self.props.get(name, None)
 
-  def ConcatPropContents(self, prop_list, with_index):
+  def ConcatPropContents(self, prop_list, compress, with_index):
     """Read, concatenate and return the contents of the listed props.
 
     Each property references a filename. We read the contents of each
@@ -734,6 +734,7 @@ class PackFirmware:
 
     Args:
       prop_list: List of properties to process
+      compress: compression type, like 'lzo', None for no compression
       with_index: Wether an index structure should be prepended
           See ReadFileAndConcat for more details.
 
@@ -749,7 +750,7 @@ class PackFirmware:
     """
     filenames = [self.props[prop] for prop in prop_list]
     data, offset, length = \
-        self.tools.ReadFileAndConcat(filenames, with_index=with_index)
+        self.tools.ReadFileAndConcat(filenames, compress, with_index)
     directory = {}
     for i in xrange(len(prop_list)):
       directory[prop_list[i]] = [offset[i], length[i]]
@@ -776,7 +777,7 @@ class PackFirmware:
         if isinstance(entry, EntryBlob):
           self._out.Info("Updating blob positions in fdt for '%s'" % entry.key)
           data, directory = self.ConcatPropContents(
-              entry.key.split(','), entry.with_index)
+              entry.key.split(','), None, entry.with_index)
           if len(directory) > 1:
             fdt.PutInteger(entry.node, '#address-cells', 1)
             fdt.PutInteger(entry.node, '#size-cells', 1)
