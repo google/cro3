@@ -828,6 +828,13 @@ class Bundle:
         else:
           raise CmdError("Invalid boot source '%s'" % self.spl_source)
         self._out.Info('  Boot source: %#0x' % value)
+      elif param == 'z':
+        compress = fdt.GetString('/flash/ro-boot', 'compress', 'none')
+        compress_types = ['none', 'lzo']
+        if not compress in compress_types:
+          raise CmdError("Unknown compression type '%s'" % compress)
+        value = compress_types.index(compress)
+        self._out.Info('  Compression type: %#0x' % value)
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
         self._out.Info('  Unknown value: %#0x' % value)
