@@ -160,7 +160,13 @@ class WriteFirmware:
       cmds += [
         'run _clear',
         'run _read',
-        'run _crc',
+        'if run _crc; then',
+        'echo "Image Programmed Successfully"',
+        'else',
+        'echo',
+        'echo "** Checksum error on readback, programming failed!! **"',
+        'echo',
+        'fi',
       ]
     else:
       cmds += ['echo Skipping verify']
