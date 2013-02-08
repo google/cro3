@@ -600,7 +600,8 @@ class PackFirmware:
       else:
         size = props.get('size', None)
         if not size:
-          raise ValueError("Must specify either 'reg' or 'size' in flash node")
+          raise ValueError("Must specify either 'reg' or 'size' in flash"
+                           "node '%s'" % props['label'])
         size = int(size)
         offset = self.upto_offset
 
