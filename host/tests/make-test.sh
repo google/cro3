@@ -340,7 +340,7 @@ dtc -O dtb -o test.dtb -p 1000 - <<EOF
         };
         rw-b-onestop@300000 {
             label = "rw-b-onestop";
-            reg = <0x00300000 0x00080000>;
+            size = <0x00008000>;
             type = "blob boot";
         };
     };

@@ -231,6 +231,18 @@ class Fdt:
     """
     return self.GetProp(node, prop, default)
 
+  def GetFlashNode(self, section, part):
+    """Returns the node path to use for a particular flash section/path
+
+    Args:
+      section: Section name to look at: ro, rw-a, etc.
+      part: Partition name to look at: gbb, vpd, etc.
+
+    Returns:
+      Full path to flash node
+    """
+    return '/flash/%s-%s' % (section, part)
+
   def GetFlashPart(self, section, part):
     """Returns the setup of the given section/part number in the flash map.
 
@@ -246,7 +258,7 @@ class Fdt:
     Returns:
       Tuple (position, size) of flash area in bytes.
     """
-    return self.GetIntList('/flash/%s-%s' % (section, part), 'reg', 2)
+    return self.GetIntList(self.GetFlashNode(section, part), 'reg', 2)
 
   def GetFlashPartSize(self, section, part):
     """Returns the size of the given section/part number in the flash map.
@@ -255,6 +267,8 @@ class Fdt:
     >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetFlashPartSize('ro', 'onestop')
     524288
+    >>> fdt.GetFlashPartSize('rw', 'b-onestop')
+    32768
 
     Args:
       section: Section name to look at: ro, rw-a, etc.
@@ -263,7 +277,10 @@ class Fdt:
     Returns:
       Size of flash area in bytes.
     """
-    return self.GetFlashPart(section, part)[1]
+    size = self.GetInt(self.GetFlashNode(section, part), 'size', -1)
+    if size == -1:
+      size = self.GetFlashPart(section, part)[1]
+    return size
 
   def GetChildren(self, node):
     """Returns a list of children of a given node.
