@@ -425,7 +425,7 @@ class Fdt:
     >>> src = os.path.join(src_path, 'source.dts')
     >>> fdt = Fdt(tools, src)
 
-    >>> fdt.Compile()
+    >>> fdt.Compile('')
     >>> os.path.exists(os.path.join(tools.outdir, 'source.dtb'))
     True
     >>> if os.path.exists('../tests/source.dtb'):
@@ -433,7 +433,7 @@ class Fdt:
 
     # Now check that search paths work
     >>> fdt = Fdt(tools, '../tests/source.dts')
-    >>> fdt.Compile() #doctest:+IGNORE_EXCEPTION_DETAIL
+    >>> fdt.Compile('') #doctest:+IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
       ...
     CmdError: Command failed: dtc -I dts -o /tmp/tmpcYO7Fm/source.dtb -O \
