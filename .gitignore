@@ -1,6 +1,7 @@
 .*.sw*
 *.pyc
 *.log
+*~
 miniomaha.conf
 static/archive
 static/efi.gz
