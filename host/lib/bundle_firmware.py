@@ -1008,7 +1008,8 @@ class Bundle:
 
     # Get all our blobs ready
     pack.AddProperty('boot', self.uboot_fname)
-    pack.AddProperty('skeleton', self.skeleton_fname)
+    if self.skeleton_fname:
+      pack.AddProperty('skeleton', self.skeleton_fname)
     pack.AddProperty('dtb', fdt.fname)
 
     # Let's create some copies of the fdt for vboot. These can be used to
