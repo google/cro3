@@ -55,10 +55,11 @@ def _DoWriteFirmware(options, output, tools, update, verify, dest):
   bundle = Bundle(tools, output)
   bundle.SetFiles(board=options.board, bct=options.bct,
       exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2)
-  bundle.CheckOptions()
+  if options.use_defaults:
+    bundle.CheckOptions()
   bundle.spl_source = options.spl_source
   # Set up the fdt and options that we want.
-  fdt = bundle.SelectFdt(options.fdt)
+  fdt = bundle.SelectFdt(options.fdt, options.use_defaults)
 
   # Write it to the board.
   flasher = options.uboot_flasher
@@ -87,6 +88,9 @@ def main():
       help='Path to BCT file for flasher: only one can be given')
   parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
       help='Path to fdt source .dts or binary blob .dtb file for flasher')
+  parser.add_option('-D', '--nodefaults', dest='use_defaults',
+      action='store_false', default=True,
+      help="Don't select default filenames for those not given")
   parser.add_option('-f', '--full-erase', dest='full_erase',
       action='store_true', help='Erase entire flash before writing (slow)')
   parser.add_option('-F', '--flash', dest='flash_dest', type='string',

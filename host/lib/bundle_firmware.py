@@ -1111,19 +1111,26 @@ class Bundle:
     self._tools.OutputSize('Final image', image)
     return image, pack
 
-  def SelectFdt(self, fdt_fname):
+  def SelectFdt(self, fdt_fname, use_defaults):
     """Select an FDT to control the firmware bundling
+
+    We make a copy of this which will include any on-the-fly changes we want
+    to make.
 
     Args:
       fdt_fname: The filename of the fdt to use.
+      use_defaults: True to use a default FDT name if available, and to add
+          a full path to the provided filename if necessary.
 
     Returns:
       The Fdt object of the original fdt file, which we will not modify.
 
-    We make a copy of this which will include any on-the-fly changes we want
-    to make.
+    Raises:
+      ValueError if no FDT is provided (fdt_fname is None and use_defaults is
+          False).
     """
-    fdt_fname = self._CheckFdtFilename(fdt_fname)
+    if use_defaults:
+      fdt_fname = self._CheckFdtFilename(fdt_fname)
     if not fdt_fname:
       raise ValueError('Please provide an FDT filename')
     fdt = Fdt(self._tools, fdt_fname)

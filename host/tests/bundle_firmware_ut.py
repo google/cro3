@@ -118,14 +118,42 @@ class TestBundleFirmware(unittest.TestCase):
   # pylint: disable=W0212,C6409
   def test_NoBoard(self):
     """With no board selected, it should fail."""
-    self.assertRaises(ValueError, self.bundle.SelectFdt, 'tegra-map.dts')
+    self.assertRaises(ValueError, self.bundle.SelectFdt, 'tegra-map.dts', True)
+
+  def assertRaisesContains(self, exception, match, func, *args):
+    try:
+      func(*args)
+    except Exception as e:
+      if not match in str(e):
+        self.fail('Unexpected exception thrown: %s' % str(e))
+    else:
+      self.fail('IOError not thrown')
+
+  def test_Defaults(self):
+    """Test that default handling works correctly."""
+    uboot_fname = self.MakeRandomFile(600 * 1024)
+    self.bundle.SetFiles('robin_hood', bct=self.bct_fname,
+                         uboot=uboot_fname, bmpblk=self.bmpblk_fname)
+
+    # If we don't ask for defaults, we should not get them. This first one
+    # raises because it tries to operate on the string None
+    self.assertRaises(ValueError, self.bundle.SelectFdt, None, False)
+
+    # This one raises because the file 'fred' does not exist.
+    self.assertRaises(IOError, self.bundle.SelectFdt, 'fred', False)
+
+    # Same with this one, but we check the filename.
+    self.assertRaisesContains(IOError,
+        '/build/robin_hood/firmware/dts/fred.dts', self.bundle.SelectFdt,
+        'fred', True)
 
   def test_TooLarge(self):
     """Test for failure when U-Boot exceeds the size available for it."""
     uboot_fname = self.MakeRandomFile(900 * 1024)
     self.bundle.SetFiles('robin_hood', bct=self.bct_fname,
                          uboot=uboot_fname, bmpblk=self.bmpblk_fname)
-    self.bundle.SelectFdt('dts/tegra-map.dts')
+    self.bundle.CheckOptions()
+    self.bundle.SelectFdt('dts/tegra-map.dts', True)
     image = os.path.join(self.tmpdir, 'image.bin')
     self.assertRaises(ValueError, self.bundle.Start, 'hwid', image, False)
 
@@ -134,7 +162,8 @@ class TestBundleFirmware(unittest.TestCase):
     uboot_fname = self.MakeRandomFile(600 * 1024)
     self.bundle.SetFiles('robin_hood', bct=self.bct_fname,
                          uboot=uboot_fname, bmpblk=self.bmpblk_fname)
-    self.bundle.SelectFdt('dts/tegra-map.dts')
+    self.bundle.CheckOptions()
+    self.bundle.SelectFdt('dts/tegra-map.dts', True)
     image = os.path.join(self.tmpdir, 'image.bin')
     out_fname = self.bundle.Start('hwid', image, False)
 
