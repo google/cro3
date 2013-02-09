@@ -251,13 +251,32 @@ class Bundle:
     self._gbb_flags = gbb_flags
     self._force_rw = force_rw
 
-  def CheckOptions(self):
-    """Check provided options and select defaults."""
+  def _GetBuildRoot(self):
+    """Get the path to this board's 'firmware' directory.
+
+    Returns:
+      Path to firmware directory, with ## representing the path to the
+      chroot.
+    """
     if not self._board:
       raise ValueError('No board defined - please define a board to use')
-    build_root = os.path.join('##', 'build', self._board, 'firmware')
+    return os.path.join('##', 'build', self._board, 'firmware')
+
+  def _CheckFdtFilename(self, fname):
+    """Check provided FDT filename and return the correct name if needed.
+
+    Where the filename lacks a path, add a default path for this board.
+    Where no FDT filename is provided, select a default one for this board.
+
+    Args:
+      fname: Proposed FDT filename.
+
+    Returns:
+      Selected FDT filename, after validation.
+    """
+    build_root = self._GetBuildRoot()
     dir_name = os.path.join(build_root, 'dts')
-    if not self._fdt_fname:
+    if not fname:
       # Figure out where the file should be, and the name we expect.
       base_name = re.sub('_', '-', self._board)
 
@@ -265,15 +284,20 @@ class Bundle:
       wildcard = os.path.join(dir_name, '*%s*.dts' % base_name)
       found_list = glob.glob(self._tools.Filename(wildcard))
       if len(found_list) == 1:
-        self._fdt_fname = found_list[0]
+        fname = found_list[0]
       else:
         # We didn't find anything definite, so set up our expected name.
-        self._fdt_fname = os.path.join(dir_name, '%s.dts' % base_name)
+        fname = os.path.join(dir_name, '%s.dts' % base_name)
 
     # Convert things like 'exynos5250-daisy' into a full path.
-    root, ext = os.path.splitext(self._fdt_fname)
+    root, ext = os.path.splitext(fname)
     if not ext and not os.path.dirname(root):
-      self._fdt_fname = os.path.join(dir_name, '%s.dts' % root)
+      fname = os.path.join(dir_name, '%s.dts' % root)
+    return fname
+
+  def CheckOptions(self):
+    """Check provided options and select defaults."""
+    build_root = self._GetBuildRoot()
 
     if not self.uboot_fname:
       self.uboot_fname = os.path.join(build_root, 'u-boot.bin')
@@ -1099,9 +1123,11 @@ class Bundle:
     We make a copy of this which will include any on-the-fly changes we want
     to make.
     """
+    fdt_fname = self._CheckFdtFilename(fdt_fname)
+    if not fdt_fname:
+      raise ValueError('Please provide an FDT filename')
+    fdt = Fdt(self._tools, fdt_fname)
     self._fdt_fname = fdt_fname
-    self.CheckOptions()
-    fdt = Fdt(self._tools, self._fdt_fname)
 
     # For upstream, select the correct architecture .dtsi manually.
     if self._board == 'link' or 'x86' in self._board:

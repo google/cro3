@@ -86,6 +86,7 @@ def _DoBundle(options, output, tools):
                   ecro=options.ecro, kernel=options.kernel)
   bundle.SetOptions(small=options.small, gbb_flags=options.gbb_flags,
                     force_rw=options.force_rw)
+  bundle.CheckOptions()
 
   try:
     # Set up the fdt and options that we want.
