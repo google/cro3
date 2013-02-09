@@ -470,8 +470,12 @@ class WriteFirmware:
     bl2_end = uboot_offset - 0x800
     self._tools.WriteFile(bl2, data[0x2000:bl2_end])
 
+    # U-Boot itself starts at 24KB, after the gap. As a hack, truncate it
+    # to an assumed maximum size.
+    # TODO(sjg@chromium.org): Get a proper flash map here so we know how
+    # large it is
     # U-Boot itself starts after the gap
-    self._tools.WriteFile(image, data[uboot_offset:])
+    self._tools.WriteFile(image, data[uboot_offset:uboot_offset + 0xa0000])
     return bl1, bl2, image
 
   def ExynosFlashImage(self, flash_dest, flash_uboot, bl1, bl2, payload,
@@ -493,10 +497,23 @@ class WriteFirmware:
     Returns:
       True if ok, False if failed.
     """
+    tools = self._tools
+    payload_bl1, payload_bl2, payload_image = (
+        self._ExtractPayloadParts(payload))
     if flash_dest:
+      # If we don't have some bits, get them from the image
+      if not flash_uboot or not os.path.exists(tools.Filename(flash_uboot)):
+        self._out.Warning('Extracting U-Boot from payload')
+        flash_uboot = payload_image
+      if not bl1 or not os.path.exists(tools.Filename(bl1)):
+        self._out.Warning('Extracting BL1 from payload')
+        bl1 = payload_bl1
+      if not bl2 or not os.path.exists(tools.Filename(bl2)):
+        self._out.Warning('Extracting BL2 from payload')
+        bl2 = payload_bl2
       image = self._PrepareFlasher(flash_uboot, payload, flash_dest, '1:0')
     else:
-      bl1, bl2, image = self._ExtractPayloadParts(payload)
+      bl1, bl2, image = payload_bl1, payload_bl2, payload_image
 
     vendor_id = 0x04e8
     product_id = 0x1234
