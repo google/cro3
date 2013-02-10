@@ -24,6 +24,9 @@ from fdt import Fdt
 # TODO(clchiou): Rewrite this part after official flashmap implementation is
 # pulled into Chromium OS code base.
 
+# Use this to find the FDT containing the flashmap
+FDTMAP_SIGNATURE = '__FDTM__'
+
 # constants imported from lib/fmap.h
 FMAP_SIGNATURE = "__FMAP__"
 FMAP_VER_MAJOR = 1
@@ -217,6 +220,29 @@ class EntryFmap(EntryFmapArea):
     blob = _FormatBlob(FMAP_HEADER_FORMAT, FMAP_HEADER_NAMES, self)
     for entry in self.entries:
       blob += _FormatBlob(FMAP_AREA_FORMAT, FMAP_AREA_NAMES, entry)
+
+    return blob
+
+
+class EntryFdtMap(EntryFmapArea):
+  """An entry which contains an FDT-based flashmap
+
+  Properties:
+    base: Base offset of flash device (normally 0).
+    size: Size of the flash device (2MB or 4MB typically).
+  """
+
+  def __init__(self, props):
+    super(EntryFdtMap, self).__init__(props)
+
+  # We could potentially include only the flashmap node, but for now put
+  # the entire FDT in this region. It provides easy access to all
+  # configuration.
+  def GetData(self):
+    data = self.pack.tools.ReadFile(self.pack.props['fdtmap'])
+    crc32 = binascii.crc32(data) & 0xffffffff
+    blob = struct.pack('<8sLL', FDTMAP_SIGNATURE, len(data), crc32)
+    blob += data
 
     return blob
 
@@ -484,6 +510,8 @@ class PackFirmware:
       entry = EntryFmap(props)
     elif ftype == 'ifd':
       entry = EntryIfd(props)
+    elif ftype == 'fdtmap':
+      entry = EntryFdtMap(props)
     else:
       raise ValueError('%s: unknown entry type' % ftype)
 

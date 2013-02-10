@@ -1108,6 +1108,7 @@ class Bundle:
       self._tools.WriteFile(bootstub_copy, data)
       self._tools.WriteFile(bootstub, data[-0x100000:])
 
+    pack.AddProperty('fdtmap', fdt.fname)
     image = os.path.join(self._tools.outdir, 'image.bin')
     pack.PackImage(self._tools.outdir, image)
     pack.AddProperty('image', image)
