@@ -75,16 +75,21 @@ class Tools:
     self.in_chroot = cros_build_lib.IsInsideChroot()
     self._out = output
     self._root = None
+    self.chroot_path = None
+    root_dir = None
     if self.in_chroot:
       root_dir = os.getenv('CROS_WORKON_SRCROOT')
     else:
       repo = git.FindRepoDir('.')
-      if not repo:
-        raise IOError('Cannot find .repo directory (must be below cwd level)')
-      root_dir = os.path.dirname(repo)
-    self._SetRoot(root_dir)
+      if repo:
+        root_dir = os.path.dirname(repo)
 
-    self._out.Info("Chroot is at '%s'" % self.chroot_path)
+    if root_dir:
+      self._SetRoot(root_dir)
+      self._out.Info("Chroot is at '%s'" % self.chroot_path)
+    else:
+      self._out.Info('Running outside chroot')
+
     self._tools = {
       'make_bmp_image': '##/usr/share/vboot/bitmaps/make_bmp_images.sh',
       'bct_dump': '##/usr/bin/bct_dump',
@@ -132,20 +137,28 @@ class Tools:
                                           'chromiumos-overlay')
 
   def Filename(self, fname):
-    """Resolve a chroot-relative filename to an absolute path.
+    """Resolve a file path to an absolute path.
 
-    This looks for ## at the beginning of the filename, and changes it to
-    the chroot directory, which will be / if inside the chroot, or a path
-    to the chroot if not.
+    If fname starts with ##/ and chroot is available, ##/ gets replaced with
+    the chroot path. If chroot is not available, this file name can not be
+    resolved, `None' is returned.
+
+    If fname is not prepended with the above prefix, and is not an existing
+    file, the actual file name is retrieved from the passed in string and the
+    search_paths directories (if any) are searched to for the file. If found -
+    the path to the found file is returned, `None' is returned otherwise.
 
     Args:
-      fname: Filename to convert.
+      fname: a string,  the path to resolve.
 
     Returns:
-      Absolute path to filename.
+      Absolute path to the file or None if not found.
     """
     if fname.startswith('##/'):
-      fname = os.path.join(self.chroot_path, fname[3:])
+      if self.chroot_path:
+        fname = os.path.join(self.chroot_path, fname[3:])
+      else:
+        return None
 
     # Search for a pathname that exists, and return it if found
     if fname and not os.path.exists(fname):
