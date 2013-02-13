@@ -126,7 +126,9 @@ configure_emerge() {
   # Copy emerge configuration to /usr/local.
   mkdir -p -m 0755 "${P_CONFIG_DEVELOPER}"
   cp "${P_CONFIG_CROS}/make.profile/make.conf" "${P_CONFIG_DEVELOPER}"
-  cp -rf "${P_CONFIG_CROS}/make.profile" "${P_CONFIG_DEVELOPER}/make.profile"
+  # The source files might be symlinks, and we'll probably clobber/update things
+  # ourselves locally, so dereference all the symlinks for our local copy.
+  cp -rfL "${P_CONFIG_CROS}/make.profile" "${P_CONFIG_DEVELOPER}/make.profile"
 
   # Create the directories defined in the portage config files. Permissions are
   # consistent with the other directories in /usr/local, which is a bind mount
