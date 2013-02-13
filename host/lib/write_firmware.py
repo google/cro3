@@ -43,7 +43,11 @@ class WriteFirmware:
         0: any servo will do.
 
   """
-  def __init__(self, tools, fdt, output, bundle):
+
+  _WRITE_SUCCESS_MESSAGE = 'Image Programmed Successfully'
+  _WRITE_FAILURE_MESSAGE = '** Readback checksum error, programming failed!! **'
+
+  def __init__(self, tools, fdt, output, bundle, update, verify):
     """Set up a new WriteFirmware object.
 
     Args:
@@ -51,6 +55,8 @@ class WriteFirmware:
       fdt: An fdt which gives us some info that we need.
       output: An output object to use for printing progress and messages.
       bundle: A BundleFirmware object which created the image.
+      update: Use faster update algorithm rather then full device erase.
+      verify: Verify the write by doing a readback and CRC.
     """
     self._tools = tools
     self._fdt = fdt
@@ -59,8 +65,8 @@ class WriteFirmware:
     self.text_base = self._fdt.GetInt('/chromeos-config', 'textbase', -1)
 
     # For speed, use the 'update' algorithm and don't verify
-    self.update = True
-    self.verify = False
+    self.update = update
+    self.verify = verify
 
     # Use default servo port
     self._servo_port = 0
@@ -82,8 +88,7 @@ class WriteFirmware:
       self._servo_port = int(servo)
     self._out.Notice('Servo port %s' % str(self._servo_port))
 
-  def _GetFlashScript(self, payload_size, update, verify, boot_type, checksum,
-                      bus='0'):
+  def _GetFlashScript(self, payload_size, boot_type, checksum, bus='0'):
     """Get the U-Boot boot command needed to flash U-Boot.
 
     We leave a marker in the string for the load address of the image,
@@ -92,8 +97,6 @@ class WriteFirmware:
 
     Args:
       payload_size: Size of payload in bytes.
-      update: Use faster update algorithm rather then full device erase
-      verify: Verify the write by doing a readback and CRC
       boot_type: The source for bootdevice (nand, sdmmc, or spi)
       checksum: The checksum of the payload (an integer)
       bus: The bus number
@@ -109,8 +112,7 @@ class WriteFirmware:
     page_size = 4096
     if boot_type == 'sdmmc':
       page_size = 512
-    if boot_type != 'spi':
-      update = False
+    update = self.update and boot_type == 'spi'
 
     cmds = [
         'setenv address       0x%s' % replace_me,
@@ -156,15 +158,15 @@ class WriteFirmware:
       cmds += ['time run _update']
     else:
       cmds += ['run _erase', 'run _write']
-    if verify:
+    if self.verify:
       cmds += [
         'run _clear',
         'run _read',
         'if run _crc; then',
-        'echo "Image Programmed Successfully"',
+        'echo "%s"' % self._WRITE_SUCCESS_MESSAGE,
         'else',
         'echo',
-        'echo "** Checksum error on readback, programming failed!! **"',
+        'echo "%s"' % self._WRITE_FAILURE_MESSAGE,
         'echo',
         'fi',
       ]
@@ -179,7 +181,7 @@ class WriteFirmware:
     script = '; '.join(cmds)
     return script, replace_me
 
-  def PrepareFlasher(self, uboot, payload, update, verify, boot_type, bus):
+  def _PrepareFlasher(self, uboot, payload, boot_type, bus):
     """Get a flasher ready for sending to the board.
 
     The flasher is an executable image consisting of:
@@ -193,8 +195,6 @@ class WriteFirmware:
     Args:
       uboot: Full path to u-boot.bin.
       payload: Full path to payload.
-      update: Use faster update algorithm rather then full device erase
-      verify: Verify the write by doing a readback and CRC
       boot_type: the src for bootdevice (nand, sdmmc, or spi)
 
     Returns:
@@ -206,8 +206,8 @@ class WriteFirmware:
     # Make sure that the checksum is not negative
     checksum = binascii.crc32(payload_data) & 0xffffffff
 
-    script, replace_me = self._GetFlashScript(len(payload_data), update,
-                                              verify, boot_type, checksum, bus)
+    script, replace_me = self._GetFlashScript(len(payload_data), boot_type,
+                                              checksum, bus)
     data = self._tools.ReadFile(uboot)
     fdt.PutString('/config', 'bootcmd', script)
     fdt_data = self._tools.ReadFile(fdt.fname)
@@ -283,8 +283,7 @@ class WriteFirmware:
     boot_type = match.match(boot_type[0]).group('boot').lower()
 
     if flash_dest:
-      image = self.PrepareFlasher(uboot, payload, self.update, self.verify,
-                                    boot_type, 0)
+      image = self._PrepareFlasher(uboot, payload, boot_type, 0)
     elif bootstub:
       image = bootstub
 
@@ -358,7 +357,7 @@ class WriteFirmware:
 
     return False
 
-  def _DutControl(self, args):
+  def DutControl(self, args):
     """Run dut-control with supplied arguments.
 
     The correct servo will be used based on self._servo_port.
@@ -376,6 +375,47 @@ class WriteFirmware:
     if self._servo_port:
       args.extend(['-p', '%s' % self._servo_port])
     return self._tools.Run('dut-control', args)
+
+  def VerifySuccess(self):
+    """Verify flash programming operation success.
+
+    The DUT is presumed to be programming flash with verification enabled and
+    console capture mode on. This function scans console output for the
+    success or failure strings.
+
+    Raises:
+      CmdError if neither of the strings show up in the allotted time (2
+          minutes) or console goes silent for more than 10 seconds, or an
+          unexpected output is seen.
+    """
+
+    _SOFT_DEADLINE_LIMIT = 10
+    _HARD_DEADLINE_LIMIT = 120
+    string_leftover = ''
+    soft_deadline = time.time() + _SOFT_DEADLINE_LIMIT
+    hard_deadline = soft_deadline + _HARD_DEADLINE_LIMIT - _SOFT_DEADLINE_LIMIT
+
+    while True:
+      now = time.time()
+      if now > hard_deadline:
+        raise CmdError('Target console flooded, programming failed')
+      if now > soft_deadline:
+        raise CmdError('Target console dead, programming failed')
+      stream = self.DutControl(['cpu_uart_stream',])
+      match = re.search("^cpu_uart_stream:'(.*)'\n", stream)
+      if not match:
+        raise CmdError('Unexpected console output: \n%s\n' % stream)
+
+      text = string_leftover + match.group(1)
+      strings = text.split('\\r')
+      string_leftover = strings.pop()
+      if strings:
+        soft_deadline = now + _SOFT_DEADLINE_LIMIT
+        for string in strings:
+          if self._WRITE_SUCCESS_MESSAGE in string:
+            return True
+          if self._WRITE_FAILURE_MESSAGE in string:
+            return False
 
   def _ExtractPayloadParts(self, payload):
     """Extract the BL1, BL2 and U-Boot parts from a payload.
@@ -455,8 +495,7 @@ class WriteFirmware:
       True if ok, False if failed.
     """
     if flash_dest:
-      image = self.PrepareFlasher(flash_uboot, payload, self.update,
-                                  self.verify, flash_dest, '1:0')
+      image = self._PrepareFlasher(flash_uboot, payload, flash_dest, '1:0')
     else:
       bl1, bl2, image = self._ExtractPayloadParts(payload)
 
@@ -464,8 +503,8 @@ class WriteFirmware:
     product_id = 0x1234
 
     # Preserve dut_hub_sel state.
-    preserved_dut_hub_sel = self._DutControl(['dut_hub_sel',]
-                                             ).strip().split(':')[-1]
+    preserved_dut_hub_sel = self.DutControl(['dut_hub_sel',]
+                                            ).strip().split(':')[-1]
     required_dut_hub_sel = 'dut_sees_servo'
     args = ['warm_reset:on', 'fw_up:on', 'pwr_button:press', 'sleep:.1',
         'warm_reset:off']
@@ -477,7 +516,7 @@ class WriteFirmware:
     # BUG=chromium-os:28229
     args = ['cold_reset:on', 'sleep:.2', 'cold_reset:off'] + args
     self._out.Progress('Reseting board via servo')
-    self._DutControl(args)
+    self.DutControl(args)
 
     # If we have a kernel to write, create a new image with that added.
     if kernel:
@@ -518,7 +557,7 @@ class WriteFirmware:
         if upto == 1:
           # Once SPL starts up we can release the power buttom
           args = ['fw_up:off', 'pwr_button:release']
-          self._DutControl(args)
+          self.DutControl(args)
 
     finally:
       # Make sure that the power button is released and dut_sel_hub state is
@@ -526,7 +565,7 @@ class WriteFirmware:
       args = ['fw_up:off', 'pwr_button:release']
       if preserved_dut_hub_sel != required_dut_hub_sel:
         args += ['dut_hub_sel:%s' % preserved_dut_hub_sel]
-      self._DutControl(args)
+      self.DutControl(args)
 
     self._out.Notice('Image downloaded - please see serial output '
         'for progress.')
@@ -606,8 +645,7 @@ class WriteFirmware:
 
   def WriteToSd(self, flash_dest, disk, uboot, payload):
     if flash_dest:
-      raw_image = self.PrepareFlasher(uboot, payload, self.update, self.verify,
-                                  flash_dest, '1:0')
+      raw_image = self._PrepareFlasher(uboot, payload, flash_dest, '1:0')
       bl1, bl2, _ = self._ExtractPayloadParts(payload)
       spl_load_size = os.stat(raw_image).st_size
       bl2 = self._bundle.ConfigureExynosBl2(self._fdt, spl_load_size, bl2,
@@ -690,7 +728,7 @@ class WriteFirmware:
     """
     args = ['spi2_vref:off', 'spi2_buf_en:off', 'spi2_buf_on_flex_en:off']
     args.append('spi_hold:on')
-    self._DutControl(args)
+    self.DutControl(args)
 
     # TODO(sjg@chromium.org): This is for link. We could make this
     # configurable from the fdt.
@@ -701,7 +739,7 @@ class WriteFirmware:
     self._out.Progress('Resetting board')
     args = ['cold_reset:on', 'sleep:.2', 'cold_reset:off', 'sleep:.5']
     args.extend(['pwr_button:press', 'sleep:.2', 'pwr_button:release'])
-    self._DutControl(args)
+    self.DutControl(args)
 
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
@@ -730,33 +768,42 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     servo: Describes the servo unit to use: none=none; any=any; otherwise
            port number of servo to use.
   """
-  write = WriteFirmware(tools, fdt, output, bundle)
+  write = WriteFirmware(tools, fdt, output, bundle, update, verify)
   write.SelectServo(servo)
-  write.update = update
-  write.verify = verify
   if dest == 'usb':
-    method = fdt.GetString('/chromeos-config', 'flash-method', method)
-    if method == 'tegra':
-      tools.CheckTool('tegrarcm')
-      if flash_dest:
-        write.text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
-      elif bootstub:
-        write.text_base = bundle.CalcTextBase('bootstub ', fdt, bootstub)
-      ok = write.NvidiaFlashImage(flash_dest, flasher, file_list['bct'],
-          image_fname, bootstub)
-    elif method == 'exynos':
-      tools.CheckTool('lsusb', 'usbutils')
-      tools.CheckTool('smdk-usbdl', 'smdk-dltool')
-      ok = write.ExynosFlashImage(flash_dest, flasher,
-          file_list['exynos-bl1'], file_list['exynos-bl2'], image_fname,
-          kernel)
-    else:
-      raise CmdError("Unknown flash method '%s'" % method)
-    if ok:
-      output.Progress('Image uploaded - please wait for flashing to '
-          'complete')
-    else:
-      raise CmdError('Image upload failed - please check board connection')
+    try:
+      write.DutControl(['cpu_uart_capture:on',])
+      method = fdt.GetString('/chromeos-config', 'flash-method', method)
+      if method == 'tegra':
+        tools.CheckTool('tegrarcm')
+        if flash_dest:
+          write.text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
+        elif bootstub:
+          write.text_base = bundle.CalcTextBase('bootstub ', fdt, bootstub)
+        ok = write.NvidiaFlashImage(flash_dest, flasher, file_list['bct'],
+            image_fname, bootstub)
+      elif method == 'exynos':
+        tools.CheckTool('lsusb', 'usbutils')
+        tools.CheckTool('smdk-usbdl', 'smdk-dltool')
+        ok = write.ExynosFlashImage(flash_dest, flasher,
+            file_list['exynos-bl1'], file_list['exynos-bl2'], image_fname,
+            kernel)
+      else:
+        raise CmdError("Unknown flash method '%s'" % method)
+      if ok:
+        if verify:
+          output.Progress('Image uploaded, waiting for verification')
+          if write.VerifySuccess():
+            output.Progress('Done!')
+          else:
+            ok = False
+        else:
+          output.Progress('Image uploaded - please wait for flashing to '
+                          'complete')
+      if not ok:
+        raise CmdError('Image upload failed - please check board connection')
+    finally:
+      write.DutControl(['cpu_uart_capture:off',])
   elif dest == 'em100':
     # crosbug.com/31625
     tools.CheckTool('em100')
