@@ -929,7 +929,7 @@ class PackFirmware:
 def _Test():
   """Run any built-in tests."""
   import doctest
-  doctest.testmod()
+  assert doctest.testmod().failed == 0
 
 def _PackOutput(msg):
   """Helper function to write output from PackFirmware (verbose level 2).

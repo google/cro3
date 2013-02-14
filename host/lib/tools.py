@@ -667,8 +667,8 @@ class ToolsTests(unittest.TestCase):
 
 def _Test(argv):
   """Run any built-in tests."""
-  doctest.testmod()
   unittest.main(argv=argv)
+  assert doctest.testmod().failed == 0
 
 
 def main():

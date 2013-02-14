@@ -235,7 +235,7 @@ def main():
 def Test():
   """Run any built-in tests."""
   import doctest
-  doctest.testmod()
+  assert doctest.testmod().failed == 0
 
 
 if __name__ == '__main__':

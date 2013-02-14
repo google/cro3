@@ -541,7 +541,7 @@ def main():
 def _Test(argv):
   """Run any built-in tests."""
   import doctest
-  doctest.testmod()
+  assert doctest.testmod().failed == 0
 
 if __name__ == '__main__':
   # If first argument is --test, run testing code.
