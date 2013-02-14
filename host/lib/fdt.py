@@ -13,9 +13,7 @@ import shutil
 import sys
 
 import cros_output
-import tools
 from tools import Tools
-from tools import CmdError
 
 _base = os.path.dirname(sys.argv[0])
 
@@ -28,7 +26,7 @@ class Fdt:
   def __init__(self, tools, fname):
     self.fname = fname
     self.tools = tools
-    root, ext = os.path.splitext(fname)
+    _, ext = os.path.splitext(fname)
     self._is_compiled = ext == '.dtb'
 
   def GetProp(self, node, prop, default=None):
@@ -491,7 +489,7 @@ dtb -p 4096 ../tests/source.dts
       arch_dts: Architecture/SOC .dtsi include file.
     """
     if not self._is_compiled:
-      root, ext = os.path.splitext(self.fname)
+      root, _ = os.path.splitext(self.fname)
 
       # crosbug.com/31621
       # This is a temporary hack to support upstream U-Boot
@@ -530,7 +528,7 @@ def main():
   parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
       help='Path to fdt file to use (binary ,dtb)', default='u-boot.dtb')
 
-  (options, args) = parser.parse_args(sys.argv)
+  (options, _) = parser.parse_args(sys.argv)
   tools = Tools(cros_output.Output())
   fdt = Fdt(tools, options.fdt)
   children = fdt.GetChildren('/')
@@ -538,7 +536,7 @@ def main():
     print '%s: %s\n' % (child, fdt.GetProps('/' + child))
 
 
-def _Test(argv):
+def _Test():
   """Run any built-in tests."""
   import doctest
   assert doctest.testmod().failed == 0
@@ -546,6 +544,6 @@ def _Test(argv):
 if __name__ == '__main__':
   # If first argument is --test, run testing code.
   if sys.argv[1:2] == ["--test"]:
-    _Test([sys.argv[0]] + sys.argv[2:])
+    _Test()
   else:
     main()

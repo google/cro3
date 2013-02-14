@@ -4,21 +4,20 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import binascii
 import hashlib
 import optparse
 import os
 import re
 import shutil
 import struct
-import subprocess
 import sys
-import tempfile
 
 from tools import CmdError
 from tools import Tools
 from fdt import Fdt
-import tools
+
+# Attributes defined outside __init__
+#pylint: disable=W0201
 
 # TODO(sjg): Once we have a stable fdt, write some unit tests for this
 
@@ -127,7 +126,7 @@ class Entry(dict):
     for f in fields:
       try:
         self[f] = int(self[f])
-      except ValueError as str:
+      except ValueError:
         raise ConfigError("Entry %s, property %s: could not convert '%s'"
             " to integer" % (self['name'], f, self[f]))
 
@@ -209,9 +208,9 @@ class EntryFmap(EntryFmapArea):
     self['entries'] = entries
 
   def GetData(self):
-    def _FormatBlob(format, names, obj):
+    def _FormatBlob(fmt, names, obj):
       params = [obj[name] for name in names]
-      return struct.pack(format, *params)
+      return struct.pack(fmt, *params)
 
     self._CheckFields(('base', 'size'))
     self['signature'] = FMAP_SIGNATURE
@@ -236,8 +235,8 @@ class EntryWiped(EntryFmapArea):
     else:
       self.wipe_value = chr(0)
     if len(self.wipe_value) != 1:
-        raise ConfigError('wipe_value out of range [00:ff]: %s' %
-            repr(self.wipe_value))
+      raise ConfigError('wipe_value out of range [00:ff]: %s' %
+                        repr(self.wipe_value))
 
   def GetData(self):
     return self.wipe_value * self.size
@@ -315,7 +314,7 @@ class EntryBlob(EntryFmapArea):
     super(EntryBlob, self).__init__(props)
     self.params = params
     if 'compress' not in self:
-        self.compress = None
+      self.compress = None
     self.with_index = 'with_index' in props
 
   def GetData(self):
@@ -338,8 +337,11 @@ class EntryKeyBlock(EntryFmapArea):
     self._CheckFields(('keyblock', 'signprivate', 'kernelkey'))
     self._CheckFieldsInt(('version', 'preamble_flags'))
     if 'compress' not in self:
-        self.compress = None
+      self.compress = None
     self.with_index = 'with_index' in props
+
+# pylint can't figure out that self.value is set by now
+#pylint: disable=E0203
 
   def RunTools(self, tools, out, tmpdir):
     """Create a vblock for the given firmware image"""
@@ -472,13 +474,10 @@ class PackFirmware:
       entry = EntryFmapArea(props)
     elif ftype == 'blob':
       entry = EntryBlob(props, params)
-      pass
     elif ftype == 'wiped':
       entry = EntryWiped(props)
-      pass
     elif ftype == 'keyblock':
       entry = EntryKeyBlock(props)
-      pass
     elif ftype == 'blobstring':
       entry = EntryBlobString(props)
     elif ftype == 'fmap':
@@ -651,7 +650,6 @@ class PackFirmware:
       self.image_size = int(fdt.GetIntList(root, 'reg', 2)[1])
 
       # Scan the flash map in the fdt, creating a list of Entry objects.
-      re_label = re.compile('(.*)-(\w*)')
       children = fdt.GetChildren(root)
 
       for child in children:
@@ -759,6 +757,9 @@ class PackFirmware:
       directory[prop_list[i]] = [offset[i], length[i]]
     return data, directory
 
+# For some weird reason pylint presumes that sha256 is not in hashlib
+#pylint: disable=E1101
+
   def UpdateBlobPositionsAndHashes(self, fdt):
     """Record position and size of all blob members in the FDT.
 
@@ -776,7 +777,7 @@ class PackFirmware:
     be writing data that is already there, so the fdt size will not
     change.
     """
-    for pass_num in range(0,2):
+    for _ in range(0, 2):
       for entry in self.entries:
         if isinstance(entry, EntryBlob):
           self._out.Info("Updating blob positions in fdt for '%s'" % entry.key)
@@ -790,9 +791,9 @@ class PackFirmware:
               hasher = hashlib.sha256()
               offset, size = item
               hasher.update(data[offset:offset + size])
-              hash = hasher.digest()
-              bytes = struct.unpack('%dB' % len(hash), hash)
-              fdt.PutBytes(entry.node + '/' + key, 'hash', bytes)
+              hash_value = hasher.digest()
+              byte_count = struct.unpack('%dB' % len(hash_value), hash_value)
+              fdt.PutBytes(entry.node + '/' + key, 'hash', byte_count)
 
   def CheckProperties(self):
     """Check that each entry has the properties that it needs.
@@ -969,7 +970,7 @@ def main():
       action='store', help='Path to directory to use for intermediate and '
       'output files', default='out')
 
-  (options, args) = parser.parse_args(sys.argv)
+  (options, _) = parser.parse_args(sys.argv)
 
   # Set up the output directory.
   if not os.path.isdir(options.outdir):

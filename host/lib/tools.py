@@ -30,6 +30,8 @@ from chromite.lib import cros_build_lib
 from chromite.lib import git
 import cros_output
 
+# Attributes defined outside __init__
+#pylint: disable=W0201
 
 class CmdError(Exception):
   """An error in the execution of a command."""
@@ -257,7 +259,7 @@ class Tools:
       index_size = 4 + len(filenames) * 8
       index = struct.pack("<I", len(filenames))
       offsets = tuple(offset + index_size for offset in offsets)
-      for filename, offset, length in zip(filenames, offsets, lengths):
+      for _, offset, length in zip(filenames, offsets, lengths):
         index += struct.pack("<II", offset, length)
       data = index + data
 
