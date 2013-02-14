@@ -12,6 +12,7 @@ import hashlib
 import os
 import shutil
 import threading
+import subprocess
 
 import log_util
 
@@ -247,3 +248,41 @@ class LockDict(object):
         lock = self._new_lock()
         self._dict[key] = lock
       return lock
+
+
+def ExtractTarball(tarball_path, install_path, files_to_extract=None,
+                   excluded_files=None):
+  """Extracts a tarball using tar.
+
+  Detects whether the tarball is compressed or not based on the file
+  extension and extracts the tarball into the install_path.
+
+  Args:
+    tarball_path: Path to the tarball to extract.
+    install_path: Path to extract the tarball to.
+    files_to_extract: String of specific files in the tarball to extract.
+    excluded_files: String of files to not extract.
+  """
+  # Deal with exclusions.
+  cmd = ['tar', 'xf', tarball_path, '--directory', install_path]
+
+  # Determine how to decompress.
+  tarball = os.path.basename(tarball_path)
+  if tarball.endswith('.tar.bz2'):
+    cmd.append('--use-compress-prog=pbzip2')
+  elif tarball.endswith('.tgz') or tarball.endswith('.tar.gz'):
+    cmd.append('--gzip')
+
+  if excluded_files:
+    for exclude in excluded_files:
+      cmd.extend(['--exclude', exclude])
+
+  if files_to_extract:
+    cmd.extend(files_to_extract)
+
+  try:
+    subprocess.check_call(cmd)
+  except subprocess.CalledProcessError, e:
+    raise CommonUtilError(
+        'An error occurred when attempting to untar %s:\n%s' %
+        (tarball_path, e))

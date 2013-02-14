@@ -280,29 +280,12 @@ class TarballBuildArtifact(BundledBuildArtifact):
     Detects whether the tarball is compressed or not based on the file
     extension and extracts the tarball into the install_path.
     """
-    # Deal with exclusions.
-    cmd = ['tar', 'xf', self.tmp_stage_path, '--directory', self.install_dir]
-
-    # Determine how to decompress.
-    tarball = os.path.basename(self.tmp_stage_path)
-    if tarball.endswith('.tar.bz2'):
-      cmd.append('--use-compress-prog=pbzip2')
-    elif tarball.endswith('.tgz') or tarball.endswith('.tar.gz'):
-      cmd.append('--gzip')
-
-    if self._exclude:
-      for exclude in self._exclude:
-        cmd.extend(['--exclude', exclude])
-
-    if self._files_to_extract:
-      cmd.extend(self._files_to_extract)
-
     try:
-      subprocess.check_call(cmd)
-    except subprocess.CalledProcessError, e:
-      raise ArtifactDownloadError(
-          'An error occurred when attempting to untar %s:\n%s' %
-          (self.tmp_stage_path, e))
+      common_util.ExtractTarball(self.tmp_stage_path, self.install_dir,
+                                 files_to_extract=self._files_to_extract,
+                                 excluded_files=self._exclude)
+    except common_util.CommonUtilError as e:
+      raise ArtifactDownloadError(str(e))
 
 
 class AutotestTarballBuildArtifact(TarballBuildArtifact):

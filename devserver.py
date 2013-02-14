@@ -11,6 +11,7 @@ import json
 import optparse
 import os
 import re
+import shutil
 import socket
 import sys
 import subprocess
@@ -29,6 +30,11 @@ def _Log(message, *args):
 
 
 CACHED_ENTRIES = 12
+
+TELEMETRY_FOLDER = 'telemetry_src'
+TELEMETRY_DEPS = ['dep-telemetry_dep.tar.bz2',
+                  'dep-page_cycler_dep.tar.bz2',
+                  'dep-chrome_test.tar.bz2']
 
 # Sets up global to share between classes.
 updater = None
@@ -317,8 +323,7 @@ class DevServerRoot(object):
 
   def __init__(self):
     self._builder = None
-    self._download_lock_dict = common_util.LockDict()
-    self._downloader_dict = {}
+    self._telemetry_lock_dict = common_util.LockDict()
 
   @cherrypy.expose
   def build(self, board, pkg, **kwargs):
@@ -408,6 +413,57 @@ class DevServerRoot(object):
     downloader.Downloader(updater.static_dir, archive_url).Download(
         artifacts.split(','))
     return 'Success'
+
+  @cherrypy.expose
+  def setup_telemetry(self, **kwargs):
+    """Extracts and sets up telemetry
+
+    This method goes through the telemetry deps packages, and stages them on
+    the devserver to be used by the drones and the telemetry tests.
+
+    Args:
+      archive_url: Google Storage URL for the build.
+
+    Returns:
+      Path to the source folder for the telemetry codebase once it is staged.
+    """
+    archive_url = kwargs.get('archive_url')
+    self.stage(archive_url=archive_url, artifacts='autotest')
+
+    build = '/'.join(downloader.Downloader.ParseUrl(archive_url))
+    build_path = os.path.join(updater.static_dir, build)
+    deps_path = os.path.join(build_path, 'autotest/packages')
+    telemetry_path = os.path.join(build_path, TELEMETRY_FOLDER)
+    src_folder = os.path.join(telemetry_path, 'src')
+
+    with self._telemetry_lock_dict.lock(telemetry_path):
+      if os.path.exists(src_folder):
+        # Telemetry is already fully stage return
+        return src_folder
+
+      common_util.MkDirP(telemetry_path)
+
+      # Copy over the required deps tar balls to the telemetry directory.
+      for dep in TELEMETRY_DEPS:
+        dep_path = os.path.join(deps_path, dep)
+        try:
+          common_util.ExtractTarball(dep_path, telemetry_path)
+        except common_util.CommonUtilError as e:
+          shutil.rmtree(telemetry_path)
+          raise DevServerError(str(e))
+
+      # By default all the tarballs extract to test_src but some parts of
+      # the telemetry code specifically hardcoded to exist inside of 'src'.
+      test_src = os.path.join(telemetry_path, 'test_src')
+      try:
+        shutil.move(test_src, src_folder)
+      except shutil.Error:
+        # This can occur if src_folder already exists. Remove and retry move.
+        shutil.rmtree(src_folder)
+        raise DevServerError('Failure in telemetry setup for build %s. Appears'
+                             ' that the test_src to src move failed.' % build)
+
+      return src_folder
 
   @cherrypy.expose
   def wait_for_status(self, **kwargs):
