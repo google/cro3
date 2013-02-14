@@ -541,15 +541,11 @@ class WriteFirmware:
     preserved_dut_hub_sel = self.DutControl(['dut_hub_sel',]
                                             ).strip().split(':')[-1]
     required_dut_hub_sel = 'dut_sees_servo'
-    args = ['warm_reset:on', 'fw_up:on', 'pwr_button:press', 'sleep:.1',
+    args = ['warm_reset:on', 'fw_up:on', 'pwr_button:press', 'sleep:.2',
         'warm_reset:off']
     if preserved_dut_hub_sel != required_dut_hub_sel:
       # Need to set it to get the port properly powered up.
       args += ['dut_hub_sel:%s' % required_dut_hub_sel]
-    # TODO(sjg) If the board is bricked a reset does not seem to bring it
-    # back to life.
-    # BUG=chromium-os:28229
-    args = ['cold_reset:on', 'sleep:.2', 'cold_reset:off'] + args
     self._out.Progress('Reseting board via servo')
     self.DutControl(args)
 
@@ -589,10 +585,6 @@ class WriteFirmware:
 
         args = ['-a', '%#x' % item[1], '-f', item[2]]
         self._tools.Run('smdk-usbdl', args, sudo=True)
-        if upto == 1:
-          # Once SPL starts up we can release the power buttom
-          args = ['fw_up:off', 'pwr_button:release']
-          self.DutControl(args)
 
     finally:
       # Make sure that the power button is released and dut_sel_hub state is
