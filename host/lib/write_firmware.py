@@ -44,8 +44,10 @@ class WriteFirmware:
 
   """
 
-  _WRITE_SUCCESS_MESSAGE = 'Image Programmed Successfully'
+  _DOWNLOAD_FAILURE_MESSAGE = '** Load checksum error: check download tool **'
+  _SKIP_VERIFY_MESSAGE = 'Skipping verify'
   _WRITE_FAILURE_MESSAGE = '** Readback checksum error, programming failed!! **'
+  _WRITE_SUCCESS_MESSAGE = 'Image Programmed Successfully'
 
   def __init__(self, tools, fdt, output, bundle, update, verify):
     """Set up a new WriteFirmware object.
@@ -171,11 +173,11 @@ class WriteFirmware:
         'fi',
       ]
     else:
-      cmds += ['echo Skipping verify']
+      cmds += ['echo %s' % self._SKIP_VERIFY_MESSAGE]
     cmds.extend([
       'else',
       'echo',
-      'echo "** Checksum error on load: please check download tool **"',
+      'echo "%s"' % self._DOWNLOAD_FAILURE_MESSAGE,
       'fi',
       ])
     script = '; '.join(cmds)
@@ -375,17 +377,18 @@ class WriteFirmware:
       args.extend(['-p', '%s' % self._servo_port])
     return self._tools.Run('dut-control', args)
 
-  def VerifySuccess(self):
+  def WaitForCompletion(self):
     """Verify flash programming operation success.
 
-    The DUT is presumed to be programming flash with verification enabled and
-    console capture mode on. This function scans console output for the
-    success or failure strings.
+    The DUT is presumed to be programming flash with console capture mode on.
+    This function scans console output for the success or failure strings.
 
     Raises:
-      CmdError if neither of the strings show up in the allotted time (2
-          minutes) or console goes silent for more than 10 seconds, or an
-          unexpected output is seen.
+      CmdError if the following cases:
+        - none of the strings show up in the allotted time (2 minutes)
+        - console goes silent for more than 10 seconds
+        - one of the error messages seen in the stream
+        - misformatted output is seen in the stream
     """
 
     _SOFT_DEADLINE_LIMIT = 10
@@ -393,6 +396,11 @@ class WriteFirmware:
     string_leftover = ''
     soft_deadline = time.time() + _SOFT_DEADLINE_LIMIT
     hard_deadline = soft_deadline + _HARD_DEADLINE_LIMIT - _SOFT_DEADLINE_LIMIT
+
+    if self.verify:
+      done_line = self._WRITE_SUCCESS_MESSAGE
+    else:
+      done_line = self._SKIP_VERIFY_MESSAGE
 
     while True:
       now = time.time()
@@ -403,7 +411,7 @@ class WriteFirmware:
       stream = self.DutControl(['cpu_uart_stream',])
       match = re.search("^cpu_uart_stream:'(.*)'\n", stream)
       if not match:
-        raise CmdError('Unexpected console output: \n%s\n' % stream)
+        raise CmdError('Misformatted console output: \n%s\n' % stream)
 
       text = string_leftover + match.group(1)
       strings = text.split('\\r')
@@ -411,10 +419,12 @@ class WriteFirmware:
       if strings:
         soft_deadline = now + _SOFT_DEADLINE_LIMIT
         for string in strings:
-          if self._WRITE_SUCCESS_MESSAGE in string:
+          if done_line in string:
             return True
           if self._WRITE_FAILURE_MESSAGE in string:
-            return False
+            raise CmdError('Readback verification failed!')
+          if self._DOWNLOAD_FAILURE_MESSAGE in string:
+            raise CmdError('Download failed!')
 
   def _ExtractPayloadParts(self, payload):
     """Extract the BL1, BL2 and U-Boot parts from a payload.
@@ -806,18 +816,13 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
             kernel)
       else:
         raise CmdError("Unknown flash method '%s'" % method)
-      if ok:
-        if verify:
-          output.Progress('Image uploaded, waiting for verification')
-          if write.VerifySuccess():
-            output.Progress('Done!')
-          else:
-            ok = False
-        else:
-          output.Progress('Image uploaded - please wait for flashing to '
-                          'complete')
+
       if not ok:
         raise CmdError('Image upload failed - please check board connection')
+      output.Progress('Image uploaded, waiting for completion')
+      write.WaitForCompletion()
+      output.Progress('Done!')
+
     finally:
       write.DutControl(['cpu_uart_capture:off',])
   elif dest == 'em100':
