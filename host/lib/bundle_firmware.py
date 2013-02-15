@@ -1101,7 +1101,7 @@ class Bundle:
       data = self._tools.ReadFile(bootstub)
       bootstub_copy = os.path.join(self._tools.outdir, 'coreboot-8mb.rom')
       self._tools.WriteFile(bootstub_copy, data)
-      self._tools.WriteFile(bootstub, data[0x700000:])
+      self._tools.WriteFile(bootstub, data[-0x100000:])
 
     image = os.path.join(self._tools.outdir, 'image.bin')
     pack.PackImage(self._tools.outdir, image)
