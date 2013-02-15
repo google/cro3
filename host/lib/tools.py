@@ -94,7 +94,6 @@ class Tools:
       'fdisk': '##/sbin/fdisk',
     }
     self.outdir = None            # We have no output directory yet
-    self._delete_tempdir = None   # And no temporary directory to delete
     self.search_paths = []
 
   def __enter__(self):
@@ -348,39 +347,34 @@ class Tools:
     remove it later if required.
 
     Args:
-      outdir: Output directory to use, or None to use a temporary dir.
-      preserve: True to preserve directory contents when the tools object is
-          destroyed. Otherwise if it is a temporary dir, it will be removed.
-
+      outdir: a string, name of the output directory to use to store
+              intermediate and output files. If is None - create a temporary
+              directory.
+      preserve: a Boolean. If outdir above is None and preserve is False, the
+                created temporary directory will be destroyed on exit.
     Raises:
       OSError: If it cannot create the output directory.
     """
-    self.outdir = outdir
-    self.preserve_outdir = preserve
-    if self.outdir:
-      self._delete_tempdir = False
+    self.preserve_outdir = outdir or preserve
+    if outdir:
+      self.outdir = outdir
       if not os.path.isdir(self.outdir):
         try:
           os.makedirs(self.outdir)
         except OSError as err:
           raise CmdError("Cannot make output directory '%s': '%s'" %
-                         (self.outdir, err))
-
+                         (self.outdir, err.strerror))
     else:
-      self.outdir = tempfile.mkdtemp()
-      self._delete_tempdir = self.outdir
-      self._out.Debug("Using temporary directory '%s'" %
-                      self._delete_tempdir)
+      self.outdir = tempfile.mkdtemp(prefix='cros-dev.')
+      self._out.Debug("Using temporary directory '%s'" % self.outdir)
 
   def FinalizeOutputDir(self):
-    """Tidy up the output direcory, deleting it if temporary."""
-    if self._delete_tempdir and not self.preserve_outdir:
-      shutil.rmtree(self._delete_tempdir)
+    """Tidy up: delete output directory if temporary and not preserved."""
+    if self.outdir and not self.preserve_outdir:
+      shutil.rmtree(self.outdir)
       self._out.Debug("Deleted temporary directory '%s'" %
-                      self._delete_tempdir)
-      self._delete_tempdir = None
-    elif self.outdir:
-      self._out.Debug("Output directory '%s'" % self.outdir)
+                      self.outdir)
+      self.outdir = None
 
   def GetOutputFilename(self, fname):
     """Return a filename within the output directory.

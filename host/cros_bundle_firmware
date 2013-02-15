@@ -203,7 +203,7 @@ changes to default flags (e.g.-load-option-roms,+force-dev-boot-usb).
       action='store', help='Path to directory to use for intermediate and '
       'output files')
   parser.add_option('-p', '--preserve', dest='preserve', action='store_true',\
-      help='Preserve temporary output directory')
+      help='Preserve temporary output directory even if option -O is not given')
   parser.add_option('-P', '--postload', dest='postload', type='string',
       action='store', help='Path to post-load portion of U-Boot '
       '(u-boot-post.bin)')
