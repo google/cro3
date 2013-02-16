@@ -19,46 +19,75 @@ import sys
 import urllib
 import urllib2
 
+LSB_RELEASE_PATH = '/etc/lsb-release'
+STATEFUL_LSB_RELEASE_PATH = '/mnt/stateful_partition/etc/lsb-release'
+
+
+class GMergeParsingException(Exception):
+  """A fatal exception raised when an expected variable is not parsed."""
+
 
 class GMerger(object):
-  """emerges a package from the devserver.
+  """emerges a package from the devserver."""
+  def __init__(self, devserver_url, board):
+    self.devserver_url = devserver_url
+    self.board_name = board
 
-  NB:  Must be instantiated using with, e.g.:
-    with GMerger(open('/etc/lsb-release').readlines()) as merger:
-  in order to remount /tmp as executable.
-  """
+  @staticmethod
+  def RemountOrChangeRoot(environ):
+    """Remount the root filesystem rw; install into /usr/local if this fails.
 
-  def __init__(self, lsb_release_lines):
-    self.lsb_release = self.ParseLsbRelease(lsb_release_lines)
-    try:
-      self.devkit_url = self.lsb_release['CHROMEOS_DEVSERVER']
-      self.board_name = self.lsb_release['CHROMEOS_RELEASE_BOARD']
-    except KeyError, e:
-      sys.exit('Could not find /etc/lsb_release value: ' + e)
-
-  def RemountOrChangeRoot(self, environ):
-    """Remount the root filesystem rw; install into /usr/local if this fails."""
+    Args:
+      environ: The environment dictionary.
+    """
     rc = subprocess.call(['mount', '-o', 'remount,rw', '/'])
     if rc == 0:
       return
     answer = raw_input(
         'Could not mount / as writable.  Install into /usr/local? (Y/n)')
-    if answer[0] not in 'Yy':
+    if answer and answer[0] not in 'Yy':
       sys.exit('Better safe than sorry.')
+
     environ['ROOT'] = '/usr/local'
 
   def ParseLsbRelease(self, lsb_release_lines):
-    """Convert a list of KEY=VALUE lines to a dictionary."""
-    partitioned_lines = [line.rstrip().partition('=')
-                         for line in lsb_release_lines]
-    return dict([(fields[0], fields[2]) for fields in partitioned_lines])
+    """Parses LSB release and set out internal variables accordingly
 
-  def SetupPortageEnvironment(self, environ):
-    """Setup portage to use stateful partition and fetch from dev server."""
-    binhost_prefix = '%s/static/pkgroot/%s' % (self.devkit_url, self.board_name)
+    Args:
+      lsb_release_lines: a list of key=val lines e.g. the output of opening
+                         /etc/lsb-release and using readlines().
+    """
+    lsb_release = dict((k, v) for k, _, v in [line.rstrip().partition('=')
+                                          for line in lsb_release_lines])
+
+    parsing_msg = ('%(variable)s not set. Please set by using a command line '
+                   'option or overriding in ' + STATEFUL_LSB_RELEASE_PATH)
+    if not self.devserver_url:
+      self.devserver_url = lsb_release['CHROMEOS_DEVSERVER']
+      if not self.devserver_url:
+        raise GMergeParsingException(parsing_msg % dict(
+            variable='CHROMEOS_DEVSERVER'))
+
+    if not self.board_name:
+      self.board_name = lsb_release['CHROMEOS_RELEASE_BOARD']
+      if not self.board_name:
+        raise GMergeParsingException(parsing_msg % dict(
+            variable='CHROMEOS_RELEASE_BOARD'))
+
+  def SetupPortageEnvironment(self, environ, include_masked_files):
+    """Setup portage to use stateful partition and fetch from dev server.
+
+    Args:
+      environ: The environment dictionary to setup.
+      include_masked_files: If true, include masked files in package
+        (e.g. debug symbols).
+    """
+    binhost_prefix = '%s/static/pkgroot/%s' % (self.devserver_url,
+                                               self.board_name)
     binhost = '%s/packages' % binhost_prefix
-    if not FLAGS.include_masked_files:
+    if not include_masked_files:
       binhost += ' %s/gmerge-packages' % binhost_prefix
+
     environ.update({
         'PORTDIR': '/usr/local/portage',
         'PKGDIR': '/usr/local/portage',
@@ -66,31 +95,40 @@ class GMerger(object):
         'PORTAGE_BINHOST': binhost,
         'PORTAGE_TMPDIR': '/tmp',
         'CONFIG_PROTECT': '-*',
-        'FEATURES': '-sandbox',
-        'ACCEPT_KEYWORDS': 'arm x86 ~arm ~x86',
+        'FEATURES': '-sandbox -usersandbox',
+        'ACCEPT_KEYWORDS': 'arm x86 amd64 ~arm ~x86 ~amd64',
         'ROOT': os.environ.get('ROOT', '/'),
         'PORTAGE_CONFIGROOT': '/usr/local'
         })
 
-  def GeneratePackageRequest(self, package_name):
-    """Build the POST string that conveys our options to the devserver."""
-    post_data = {'board': self.board_name,
-                 'deep': FLAGS.deep or '',
+  def RequestPackageBuild(self, package_name, deep, accept_stable, usepkg):
+    """Contacts devserver to request a build.
+
+    Args:
+      package_name: The name of the package to build.
+      deep: Update package and all dependencies.
+      accept_stable: Allow non-workon packages.
+      usepkg: Use currently built binary packages on server.
+    """
+    def GeneratePackageRequest():
+      """Build the POST string that conveys our options to the devserver."""
+      post_data = {'board': self.board_name,
+                 'deep': deep or '',
                  'pkg': package_name,
                  'features': os.environ.get('FEATURES'),
                  'use': os.environ.get('USE'),
-                 'accept_stable': FLAGS.accept_stable or '',
-                 'usepkg': FLAGS.usepkg or '',
+                 'accept_stable': accept_stable or '',
+                 'usepkg': usepkg or '',
                 }
-    post_data = dict([(key, value) for (key, value) in post_data.iteritems()
+      post_data = dict([(key, value) for (key, value) in post_data.iteritems()
                       if value is not None])
-    return urllib.urlencode(post_data)
+      return urllib.urlencode(post_data)
 
-  def RequestPackageBuild(self, package_name):
-    """Contacts devserver to request a build."""
+    print 'Sending build request to', self.devserver_url
     try:
-      result = urllib2.urlopen(self.devkit_url + '/build',
-                               data=self.GeneratePackageRequest(package_name))
+      result = urllib2.urlopen(
+          self.devserver_url + '/build',
+          data=GeneratePackageRequest())
       print result.read()
       result.close()
 
@@ -100,58 +138,87 @@ class GMerger(object):
     except urllib2.URLError, e:
       sys.exit('Could not reach devserver. Reason: %s' % e.reason)
 
+  @staticmethod
+  def EmergePackage(package_name, deep, extra):
+    """Emerges the package from the binhost.
+
+    Args:
+      package_name: The name of the package to build.
+      deep: Update package and all dependencies.
+      extra: Extra arguments to emerge.
+    """
+    # In case the version is the same as the one that's installed, don't re-use
+    # it.
+    print 'Emerging ', package_name
+    shutil.rmtree('/usr/local/portage', ignore_errors=True)
+    shutil.rmtree('/var/cache/edb/binhost', ignore_errors=True)
+
+    emerge_args = ['emerge', '--getbinpkgonly', '--usepkgonly', '--verbose']
+    if deep:
+      emerge_args.extend(['--update', '--deep'])
+
+    if extra:
+      emerge_args.extend(extra.split())
+
+    emerge_args.append(package_name)
+    subprocess.check_call(emerge_args)
+
 
 def main():
-  global FLAGS
   parser = optparse.OptionParser(usage='usage: %prog [options] package_name')
   parser.add_option('--accept_stable',
-                    action='store_true', dest='accept_stable', default=False,
+                    action='store_true', default=False,
                     help=('Build even if a cros_workon package is not '
                           'using the live package'))
+  parser.add_option('-b', '--board', default=None,
+                    help='Specify a different board to use when building.')
+  parser.add_option('-d', '--devserver_url', default=None,
+                    help='Specify a different devserver(binhost) url to use'
+                    'to build and download packages.')
   parser.add_option('--include_masked_files',
-                    action='store_true', dest='include_masked_files',
+                    action='store_true',
                     default=False, help=('Include masked files in package '
                                          '(e.g. debug symbols)'))
   parser.add_option('-n', '--usepkg',
-                    action='store_true', dest='usepkg', default=False,
+                    action='store_true', default=False,
                     help='Use currently built binary packages on server.')
   parser.add_option('-D', '--deep',
-                    action='store_true', dest='deep', default=False,
+                    action='store_true', default=False,
                     help='Update package and all dependencies '
                          '(requires --usepkg).')
-  parser.add_option('-x', '--extra', dest='extra', default='',
+  parser.add_option('-x', '--extra', default='',
                     help='Extra arguments to pass to emerge command.')
 
-  (FLAGS, remaining_arguments) = parser.parse_args()
+  options, remaining_arguments = parser.parse_args()
   if len(remaining_arguments) != 1:
     parser.print_help()
     sys.exit('Need exactly one package name')
 
+
   # TODO(davidjames): Should we allow --deep without --usepkg? Not sure what
   # the desired behavior should be in this case, so disabling the combo for
   # now.
-  if FLAGS.deep and not FLAGS.usepkg:
+  if options.deep and not options.usepkg:
     sys.exit('If using --deep, --usepkg must also be enabled.')
 
   package_name = remaining_arguments[0]
 
+  subprocess.check_call(['mount', '-o', 'remount,exec', '/tmp'])
   try:
-    subprocess.check_call(['mount', '-o', 'remount,exec', '/tmp'])
-    merger = GMerger(open('/etc/lsb-release').readlines())
-    merger.RequestPackageBuild(package_name)
+    etc_lsb_release_lines = open(LSB_RELEASE_PATH).readlines()
+    # Allow overrides from the stateful partition.
+    if os.path.exists(STATEFUL_LSB_RELEASE_PATH):
+      etc_lsb_release_lines += open(STATEFUL_LSB_RELEASE_PATH).readlines()
+      print 'Stateful lsb release file found', STATEFUL_LSB_RELEASE_PATH
 
-    print 'Emerging ', package_name
-    merger.SetupPortageEnvironment(os.environ)
+    merger = GMerger(options.devserver_url, options.board)
+    merger.ParseLsbRelease(etc_lsb_release_lines)
+    merger.RequestPackageBuild(package_name, options.deep,
+                               options.accept_stable, options.usepkg)
+
+    merger.SetupPortageEnvironment(os.environ, options.include_masked_files)
     merger.RemountOrChangeRoot(os.environ)
-    subprocess.check_call(['rm', '-rf', '/usr/local/portage',
-                           '/var/cache/edb/binhost'])
-    emerge_args = 'emerge --getbinpkgonly --usepkgonly --verbose'
-    if FLAGS.deep:
-      emerge_args += ' --update --deep'
-    if FLAGS.extra:
-      emerge_args += ' ' + FLAGS.extra
-    emerge_args += ' ' + package_name
-    subprocess.check_call(emerge_args, shell=True)
+    merger.EmergePackage(package_name, options.deep, options.extra)
   finally:
     subprocess.call(['mount', '-o', 'remount,noexec', '/tmp'])
 
