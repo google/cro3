@@ -426,7 +426,7 @@ class WriteFirmware:
           if self._DOWNLOAD_FAILURE_MESSAGE in string:
             raise CmdError('Download failed!')
 
-  def _ExtractPayloadParts(self, payload):
+  def _ExtractPayloadParts(self, payload, truncate_to_fdt):
     """Extract the BL1, BL2 and U-Boot parts from a payload.
 
     An exynos image consists of 3 parts: BL1, BL2 and U-Boot/FDT.
@@ -436,6 +436,8 @@ class WriteFirmware:
 
     Args:
       payload: Full path to payload.
+      truncate_to_fdt: Truncate the U-Boot image at the start of its
+        embedded FDT
 
     Returns:
       (bl1, bl2, image) where:
@@ -481,11 +483,18 @@ class WriteFirmware:
     self._tools.WriteFile(bl2, data[0x2000:bl2_end])
 
     # U-Boot itself starts at 24KB, after the gap. As a hack, truncate it
-    # to an assumed maximum size.
+    # to an assumed maximum size. As a secondary hack, locate the FDT
+    # and truncate U-Boot from that point. The correct FDT will be added
+    # when the image is written to the board.
     # TODO(sjg@chromium.org): Get a proper flash map here so we know how
     # large it is
-    # U-Boot itself starts after the gap
-    self._tools.WriteFile(image, data[uboot_offset:uboot_offset + 0xa0000])
+    uboot_data = data[uboot_offset:uboot_offset + 0xa0000]
+    if truncate_to_fdt:
+      fdt_magic = struct.pack('>L', 0xd00dfeed)
+      fdt_offset = uboot_data.rfind(fdt_magic)
+      uboot_data = uboot_data[:fdt_offset]
+
+    self._tools.WriteFile(image, uboot_data)
     return bl1, bl2, image
 
   def ExynosFlashImage(self, flash_dest, flash_uboot, bl1, bl2, payload,
@@ -509,7 +518,7 @@ class WriteFirmware:
     """
     tools = self._tools
     payload_bl1, payload_bl2, payload_image = (
-        self._ExtractPayloadParts(payload))
+        self._ExtractPayloadParts(payload, flash_dest is not None))
     if flash_dest:
       # If we don't have some bits, get them from the image
       if not flash_uboot or not os.path.exists(tools.Filename(flash_uboot)):
