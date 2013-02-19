@@ -183,7 +183,7 @@ class Tools:
     tool = self.Filename(tool)
     args = [self.Filename(arg) for arg in args]
     cmd = [tool] + args
-    if sudo:
+    if sudo and os.getuid():
       cmd.insert(0, 'sudo')
     try:
       result = cros_build_lib.RunCommandCaptureOutput(
