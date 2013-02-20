@@ -555,8 +555,11 @@ class ToolsTests(unittest.TestCase):
     """
     tools = self.tools
 
-    re_version = re.compile('\d{4}.\d+.\d{4}_\d{2}_\d{2}_\d+')
-    self.assertTrue(re_version.match(tools.GetChromeosVersion()))
+    re_version_pattern = '^\d{4}.\d+.\d{4}_\d{2}_\d{2}_\d+$'
+    re_version = re.compile(re_version_pattern)
+    reported_version = tools.GetChromeosVersion()
+    self.assertTrue(re_version.match(reported_version),
+                    msg='%s !~= %s' % (reported_version, re_version_pattern))
 
     tools = Tools(self.out)
 
