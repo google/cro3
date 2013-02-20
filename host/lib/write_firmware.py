@@ -373,7 +373,7 @@ class WriteFirmware:
     """
     if self._servo_port is None:
       return ''  # User has requested not to use servo
-    elif self._servo_port:
+    if self._servo_port:
       args.extend(['-p', '%s' % self._servo_port])
     return self._tools.Run('dut-control', args)
 
@@ -602,8 +602,9 @@ class WriteFirmware:
         args += ['dut_hub_sel:%s' % preserved_dut_hub_sel]
       self.DutControl(args)
 
-    self._out.Notice('Image downloaded - please see serial output '
-        'for progress.')
+    if flash_dest is None:
+      self._out.Notice('Image downloaded - please see serial output '
+                       'for progress.')
     return True
 
   def _GetDiskInfo(self, disk, item):
@@ -829,7 +830,9 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
       if not ok:
         raise CmdError('Image upload failed - please check board connection')
       output.Progress('Image uploaded, waiting for completion')
-      write.WaitForCompletion()
+
+      if flash_dest is not None and servo != 'none':
+        write.WaitForCompletion()
       output.Progress('Done!')
 
     finally:
