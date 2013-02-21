@@ -188,8 +188,9 @@ class Bundle:
     self.exynos_bl2 = None      # Filename of Exynos BL2 (SPL)
     self.spl_source = 'straps'  # SPL boot according to board settings
     self.skeleton_fname = None  # Filename of Coreboot skeleton file
-    self.ecrw_fname = None     # Filename of EC file
+    self.ecrw_fname = None      # Filename of EC file
     self.ecro_fname = None      # Filename of EC read-only file
+    self.blobs = {}             # Table of (type, filename) of arbitrary blobs
     self._small = False
 
   def SetDirs(self, keydir):
@@ -203,7 +204,7 @@ class Bundle:
   def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
                coreboot_elf=None,
                postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None,
-               skeleton=None, ecrw=None, ecro=None, kernel=None):
+               skeleton=None, ecrw=None, ecro=None, kernel=None, blobs=None):
     """Set up files required for Bundle.
 
     Args:
@@ -221,6 +222,7 @@ class Bundle:
       ecrw: The filename of the EC (Embedded Controller) read-write file.
       ecro: The filename of the EC (Embedded Controller) read-only file.
       kernel: The filename of the kernel file if any.
+      blobs: List of (type, filename) of arbitrary blobs.
     """
     self._board = board
     self.uboot_fname = uboot
@@ -236,6 +238,7 @@ class Bundle:
     self.ecrw_fname = ecrw
     self.ecro_fname = ecro
     self.kernel_fname = kernel
+    self.blobs = dict(blobs or ())
 
   def SetOptions(self, small, gbb_flags, force_rw=False):
     """Set up options supported by Bundle.
@@ -998,6 +1001,8 @@ class Bundle:
       pack.AddProperty(blob_type, bl2)
     elif pack.GetProperty(blob_type):
       pass
+    elif blob_type in self.blobs:
+      pack.AddProperty(blob_type, self.blobs[blob_type])
     else:
       raise CmdError("Unknown blob type '%s' required in flash map" %
           blob_type)
