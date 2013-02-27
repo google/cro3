@@ -43,20 +43,24 @@ def GSUtilRun(cmd, err_msg):
   """
   proc = None
   sleep_timeout = 1
+  stderr = None
   for _attempt in range(GSUTIL_ATTEMPTS):
-    # Note processes can hang when capturing from stderr. This command
-    # specifically doesn't pipe stderr.
-    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-    stdout, _stderr = proc.communicate()
+    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    stdout, stderr = proc.communicate()
     if proc.returncode == 0:
       return stdout
+    elif 'matched no objects' in stderr or 'non-existent object' in stderr:
+      # TODO(sosa): Note this is a heuristic that makes us not re-attempt
+      # unnecessarily. However, if it fails, the worst that can happen is just
+      # waiting longer than necessary.
+      break
 
     time.sleep(sleep_timeout)
     sleep_timeout *= 2
 
-  else:
-    raise GSUtilError('%s GSUTIL cmd %s failed with return code %d' % (
-        err_msg, cmd, proc.returncode))
+  raise GSUtilError('%s GSUTIL cmd %s failed with return code %d:\n\n%s' % (
+      err_msg, cmd, proc.returncode, stderr))
 
 
 def DownloadFromGS(src, dst):
