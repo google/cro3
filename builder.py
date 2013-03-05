@@ -63,8 +63,8 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
   # so that we delete the directory itself when the '/usr/include/' path is
   # given.
   masks = [mask.strip('/') for mask in masks]
-  masks = ['--exclude="' + mask + '"' for mask in masks]
-  excludes = ' '.join(masks)
+  masks = ['--exclude="./%s"' % mask for mask in masks]
+  excludes = '--anchored ' + ' '.join(masks)
 
   gmerge_dir = os.path.dirname(out_path)
   subprocess.check_call(['mkdir', '-p', gmerge_dir])
