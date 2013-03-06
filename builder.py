@@ -200,8 +200,8 @@ class Builder(object):
       _AppendStrToEnvVar(env_copy, 'FEATURES', additional_args['features'])
 
     try:
-      if (self._ShouldBeWorkedOn(board, pkg) and
-          not additional_args.get('accept_stable')):
+      if (not additional_args.get('accept_stable')
+          and self._ShouldBeWorkedOn(board, pkg)):
         return self.SetError(
             'Package is not cros_workon\'d on the devserver machine.\n'
             'Either start working on the package or pass --accept_stable '

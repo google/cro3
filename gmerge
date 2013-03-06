@@ -43,8 +43,13 @@ class GMerger(object):
     rc = subprocess.call(['mount', '-o', 'remount,rw', '/'])
     if rc == 0:
       return
-    answer = raw_input(
-        'Could not mount / as writable.  Install into /usr/local? (Y/n)')
+    try:
+      answer = raw_input(
+          'Could not mount / as writable.  Install into /usr/local? (Y/n)')
+    except EOFError:
+      # Received if stdin is piped through /dev/null.
+      answer = None
+
     if answer and answer[0] not in 'Yy':
       sys.exit('Better safe than sorry.')
 
