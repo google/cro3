@@ -28,12 +28,6 @@ import update_metadata_pb2
 #
 # Constants / helper functions.
 #
-_SIG_ASN1_HEADER = (
-    '\x30\x31\x30\x0d\x06\x09\x60\x86'
-    '\x48\x01\x65\x03\x04\x02\x01\x05'
-    '\x00\x04\x20'
-)
-
 _TYPE_FULL = 'full'
 _TYPE_DELTA = 'delta'
 
@@ -398,14 +392,14 @@ class PayloadChecker(object):
         ['openssl', 'rsautl', '-verify', '-pubin', '-inkey', pubkey_file_name],
         send_data=sig_data)
 
-    if len(signed_data) != len(_SIG_ASN1_HEADER) + 32:
+    if len(signed_data) != len(common.SIG_ASN1_HEADER) + 32:
       raise PayloadError('%s: unexpected signed data length (%d)' %
                          (sig_name, len(signed_data)))
 
-    if not signed_data.startswith(_SIG_ASN1_HEADER):
+    if not signed_data.startswith(common.SIG_ASN1_HEADER):
       raise PayloadError('%s: not containing standard ASN.1 prefix' % sig_name)
 
-    signed_hash = signed_data[len(_SIG_ASN1_HEADER):]
+    signed_hash = signed_data[len(common.SIG_ASN1_HEADER):]
     if signed_hash != actual_hash:
       raise PayloadError('%s: signed hash (%s) different from actual (%s)' %
                          (sig_name, signed_hash.encode('hex'),
@@ -560,10 +554,7 @@ class PayloadChecker(object):
 
     """
     total_num_blocks = 0
-    num_extents = 0
     for ex, ex_name in common.ExtentIter(extents, name):
-      num_extents += 1
-
       # Check: mandatory fields.
       start_block = PayloadChecker._CheckMandatoryField(ex, 'start_block',
                                                         None, ex_name)
@@ -585,9 +576,9 @@ class PayloadChecker(object):
         # Record block usage.
         for i in range(start_block, end_block):
           block_counters[i] += 1
-      elif not (allow_pseudo or
-                (allow_signature and
-                 (num_extents == len(extents) and num_blocks == 1))):
+      elif not (allow_pseudo or (allow_signature and len(extents) == 1)):
+        # Pseudo-extents must be allowed explicitly, or otherwise be part of a
+        # signature operation (in which case there has to be exactly one).
         raise PayloadError('%s: unexpected pseudo-extent' % ex_name)
 
       total_num_blocks += num_blocks
@@ -606,8 +597,13 @@ class PayloadChecker(object):
       PayloadError if any check fails.
 
     """
+    # Check: does not contain src extents.
     if op.src_extents:
       raise PayloadError('%s: contains src_extents' % op_name)
+
+    # Check: contains data.
+    if data_length is None:
+      raise PayloadError('%s: missing data_{offset,length}' % op_name)
 
     if op.type == common.OpType.REPLACE:
       PayloadChecker._CheckBlocksFitLength(data_length, total_dst_blocks,
@@ -673,7 +669,7 @@ class PayloadChecker(object):
         dst_num = dst_extent.num_blocks
 
       if src_idx == dst_idx:
-        raise PayloadError('%s: src/dst blocks %d are the same (%d)' %
+        raise PayloadError('%s: src/dst block number %d is the same (%d)' %
                            (op_name, i, src_idx))
 
       advance = min(src_num, dst_num)
@@ -689,6 +685,12 @@ class PayloadChecker(object):
       if dst_num == 0:
         dst_extent = None
 
+    # Make sure we've exhausted all src/dst extents.
+    if src_extent:
+      raise PayloadError('%s: excess src blocks' % op_name)
+    if dst_extent:
+      raise PayloadError('%s: excess dst blocks' % op_name)
+
   def _CheckBsdiffOperation(self, data_length, total_dst_blocks, op_name):
     """Specific checks for BSDIFF operations.
 
@@ -700,12 +702,17 @@ class PayloadChecker(object):
       PayloadError if any check fails.
 
     """
+    # Check: data_{offset,length} present.
+    if data_length is None:
+      raise PayloadError('%s: missing data_{offset,length}' % op_name)
+
     # Check: data_length is strictly smaller than the alotted dst blocks.
     if data_length >= total_dst_blocks * self.block_size:
       raise PayloadError(
-          '%s: data_length (%d) must be smaller than num dst blocks (%d) * '
-          'block_size (%d)' %
-          (op_name, data_length, total_dst_blocks, self.block_size))
+          '%s: data_length (%d) must be smaller than allotted dst space '
+          '(%d * %d = %d)' %
+          (op_name, data_length, total_dst_blocks, self.block_size,
+           total_dst_blocks * self.block_size))
 
   def _CheckOperation(self, op, op_name, is_last, old_block_counters,
                       new_block_counters, old_part_size, new_part_size,
@@ -806,7 +813,7 @@ class PayloadChecker(object):
 
     return data_length if data_length is not None else 0
 
-  def _AllocBlockCounterss(self, part_size):
+  def _AllocBlockCounters(self, part_size):
     """Returns a freshly initialized array of block counters.
 
     Args:
@@ -834,8 +841,7 @@ class PayloadChecker(object):
       allow_unhashed: allow operations with unhashed data blobs
       allow_signature: whether this sequence may contain signature operations
     Returns:
-      A pair consisting of the number of operations and the total data blob
-      size used.
+      The total data blob size used.
     Raises:
       PayloadError if any of the checks fails.
 
@@ -865,9 +871,9 @@ class PayloadChecker(object):
       blob_hash_counts['signature'] = 0
 
     # Allocate old and new block counters.
-    old_block_counters = (self._AllocBlockCounterss(old_part_size)
+    old_block_counters = (self._AllocBlockCounters(old_part_size)
                           if old_part_size else None)
-    new_block_counters = self._AllocBlockCounterss(new_part_size)
+    new_block_counters = self._AllocBlockCounters(new_part_size)
 
     # Process and verify each operation.
     op_num = 0
@@ -937,11 +943,12 @@ class PayloadChecker(object):
     if not sigs.signatures:
       raise PayloadError('signature block is empty')
 
-    # Check: signatures_{offset,size} must match the last (fake) operation.
     last_ops_section = (self.payload.manifest.kernel_install_operations or
                         self.payload.manifest.install_operations)
     fake_sig_op = last_ops_section[-1]
-    if not (self.sigs_offset == fake_sig_op.data_offset and
+    # Check: signatures_{offset,size} must match the last (fake) operation.
+    if not (fake_sig_op.type == common.OpType.REPLACE and
+            self.sigs_offset == fake_sig_op.data_offset and
             self.sigs_size == fake_sig_op.data_length):
       raise PayloadError(
           'signatures_{offset,size} (%d+%d) does not match last operation '

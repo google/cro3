@@ -15,6 +15,12 @@ import update_metadata_pb2
 #
 PSEUDO_EXTENT_MARKER = ctypes.c_uint64(-1).value
 
+SIG_ASN1_HEADER = (
+    '\x30\x31\x30\x0d\x06\x09\x60\x86'
+    '\x48\x01\x65\x03\x04\x02\x01\x05'
+    '\x00\x04\x20'
+)
+
 
 #
 # Payload operation types.
@@ -27,6 +33,7 @@ class OpType(object):
   REPLACE_BZ = _CLASS.REPLACE_BZ
   MOVE = _CLASS.MOVE
   BSDIFF = _CLASS.BSDIFF
+  ALL = (REPLACE, REPLACE_BZ, MOVE, BSDIFF)
   NAMES = {
       REPLACE: 'REPLACE',
       REPLACE_BZ: 'REPLACE_BZ',
@@ -41,6 +48,39 @@ class OpType(object):
 #
 # Checker and hashed reading of data.
 #
+def IntPackingFmtStr(size, is_unsigned):
+  """Returns an integer format string for use by the struct module.
+
+  Args:
+    size: the integer size in bytes (2, 4 or 8)
+    is_unsigned: whether it is signed or not
+  Returns:
+    A format string for packing/unpacking integer values; assumes network byte
+    order (big-endian).
+  Raises:
+    PayloadError if something is wrong with the arguments.
+
+  """
+  # Determine the base conversion format.
+  if size == 2:
+    fmt = 'h'
+  elif size == 4:
+    fmt = 'i'
+  elif size == 8:
+    fmt = 'q'
+  else:
+    raise PayloadError('unsupport numeric field size (%s)' % size)
+
+  # Signed or unsigned?
+  if is_unsigned:
+    fmt = fmt.upper()
+
+  # Make it network byte order (big-endian).
+  fmt = '!' + fmt
+
+  return fmt
+
+
 def Read(file_obj, length, offset=None, hasher=None):
   """Reads binary data from a file.
 

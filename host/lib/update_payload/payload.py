@@ -19,7 +19,7 @@ import update_metadata_pb2
 # Helper functions.
 #
 def _ReadInt(file_obj, size, is_unsigned, hasher=None):
-  """Read a binary-encoded integer from a file.
+  """Reads a binary-encoded integer from a file.
 
   It will do the correct conversion based on the reported size and whether or
   not a signed number is expected. Assumes a network (big-endian) byte
@@ -36,24 +36,8 @@ def _ReadInt(file_obj, size, is_unsigned, hasher=None):
     PayloadError if an read error occurred.
 
   """
-  # Determine the base conversion format.
-  if size == 2:
-    fmt = 'h'
-  elif size == 4:
-    fmt = 'i'
-  elif size == 8:
-    fmt = 'q'
-  else:
-    raise PayloadError('unsupport numeric field size (%s)' % size)
-
-  # Signed or unsigned?
-  if is_unsigned:
-    fmt = fmt.upper()
-
-  # Our numeric values are in network byte order (big-endian).
-  fmt = '!' + fmt
-
-  return struct.unpack(fmt, common.Read(file_obj, size, hasher=hasher))[0]
+  return struct.unpack(common.IntPackingFmtStr(size, is_unsigned),
+                       common.Read(file_obj, size, hasher=hasher))[0]
 
 
 #
