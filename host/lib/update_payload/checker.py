@@ -577,7 +577,7 @@ class PayloadChecker(object):
 
       if start_block != common.PSEUDO_EXTENT_MARKER:
         # Check: make sure we're within the partition limit.
-        if part_size and (end_block - 1) * self.block_size > part_size:
+        if part_size and end_block * self.block_size > part_size:
           raise PayloadError(
               '%s: extent (%s) exceeds partition size (%d)' %
               (ex_name, common.FormatExtent(ex, self.block_size), part_size))
