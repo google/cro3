@@ -157,17 +157,9 @@ configure_emerge() {
   local package_provided="${BINHOST}/package.provided"
   local tmp_provided="$(mktemp)"
   if ! curl --fail -o "${tmp_provided}" "${package_provided}"; then
-    cat "${P_CONFIG_CROS}/make.profile/package.provided" "${tmp_provided}" > \
-        "${P_CONFIG_DEVELOPER}/make.profile/package.provided"
-  else
-    error "Could not find package.provided.  If you get errors" \
-          "finding dependencies during emerge, modify" \
-          "${P_CONFIG_DEVELOPER}/make.profile/package.provided and re-run" \
-          "emerge."
-    cp "${P_CONFIG_CROS}/make.profile/package.provided" \
-       "${P_CONFIG_DEVELOPER}/make.profile/package.provided"
+    mv "${tmp_provided}" \
+        "${P_CONFIG_DEVELOPER}/make.profile/package.provided/gsutil_provided"
   fi
-  rm "${tmp_provided}"
 }
 
 install_optional_packages() {
