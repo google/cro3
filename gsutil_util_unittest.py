@@ -39,8 +39,9 @@ class GSUtilUtilTest(mox.MoxTestBase):
       else:
         mock_process = self._good_mock_process
 
-      subprocess.Popen(mox.StrContains(str_should_contain), shell=True,
-                       stdout=subprocess.PIPE).AndReturn(mock_process)
+      subprocess.Popen(mox.StrContains(str_should_contain),
+                       shell=True, stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE).AndReturn(mock_process)
       mock_process.communicate().AndReturn(('Does not matter', None))
 
   def testDownloadFromGS(self):
@@ -105,8 +106,9 @@ class GSUtilUtilTest(mox.MoxTestBase):
                                     pattern).AndReturn([name])
 
     self.mox.ReplayAll()
+    # Timeout explicitly set to 0 to test that we always run at least once.
     returned_names = gsutil_util.GetGSNamesWithWait(
-        pattern, archive_url, msg, delay=1)
+        pattern, archive_url, msg, delay=1, timeout=0)
     self.assertEqual([name], returned_names)
     self.mox.VerifyAll()
 
@@ -135,7 +137,7 @@ class GSUtilUtilTest(mox.MoxTestBase):
 
     self.mox.ReplayAll()
     returned_names = gsutil_util.GetGSNamesWithWait(
-        pattern, archive_url, msg, delay=1)
+        pattern, archive_url, msg, delay=1, timeout=3)
     self.assertEqual(name, returned_names[0])
     self.mox.VerifyAll()
 

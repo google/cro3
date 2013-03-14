@@ -50,11 +50,14 @@ def GSUtilRun(cmd, err_msg):
     stdout, stderr = proc.communicate()
     if proc.returncode == 0:
       return stdout
-    elif 'matched no objects' in stderr or 'non-existent object' in stderr:
+    elif stderr and ('matched no objects' in stderr or
+                     'non-existent object' in stderr):
       # TODO(sosa): Note this is a heuristic that makes us not re-attempt
       # unnecessarily. However, if it fails, the worst that can happen is just
       # waiting longer than necessary.
       break
+    elif proc.returncode == 127:
+      raise GSUtilError('gsutil tool not found in your path.')
 
     time.sleep(sleep_timeout)
     sleep_timeout *= 2
@@ -112,9 +115,8 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, single_item=True,
     PatternNotSpecific: If caller sets single_item but multiple items match.
   """
   deadline = time.time() + timeout
-  while time.time() <= deadline:
+  while True:
     uploaded_list = []
-    to_delay = delay + random.uniform(.5 * delay, 1.5 * delay)
     try:
       cmd = 'gsutil cat %s/%s' % (archive_url, UPLOADED_LIST)
       msg = 'Failed to get a list of uploaded files.'
@@ -138,7 +140,10 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, single_item=True,
 
       return found_names
 
-    _Log('Retrying in %f seconds...%s', to_delay, err_str)
-    time.sleep(to_delay)
-
-  return None
+    # Don't delay past deadline.
+    to_delay = random.uniform(1.5 * delay, 2.5 * delay)
+    if to_delay < (deadline - time.time()):
+      _Log('Retrying in %f seconds...%s', to_delay, err_str)
+      time.sleep(to_delay)
+    else:
+      return None
