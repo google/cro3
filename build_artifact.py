@@ -377,7 +377,7 @@ ARTIFACT_IMPLEMENTATION_MAP = {
   artifact_info.TEST_SUITES:
       ImplDescription(TarballBuildArtifact, TEST_SUITES_FILE),
   artifact_info.AU_SUITE:
-      ImplDescription(AutotestTarballBuildArtifact, AU_SUITE_FILE),
+      ImplDescription(TarballBuildArtifact, AU_SUITE_FILE),
 
   artifact_info.FIRMWARE:
       ImplDescription(BuildArtifact, FIRMWARE_FILE),
