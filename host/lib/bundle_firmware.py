@@ -112,7 +112,33 @@ default_flashmaps = {
         'type' : 'blob coreboot',
         'required' : True,
     }
-  ]
+  ],
+  'peach' : [
+    {
+        'node' : 'pre-boot',
+        'label' : "bl1 pre-boot",
+        'size' : 0x2000,
+        'read-only' : True,
+        'filename' : "e5420.nbl1.bin",
+        'type' : "blob exynos-bl1",
+        'required' : True,
+    }, {
+        'node' : 'spl',
+        'label' : "bl2 spl",
+        'size' : 0x4000,
+        'read-only' : True,
+        'filename' : "bl2.bin",
+        'type' : "blob exynos-bl2 boot,dtb",
+        'required' : True,
+    }, {
+        'node' : 'ro-boot',
+        'label' : "u-boot",
+        'size' : 0x9a000,
+        'read-only' : True,
+        'type' : "blob boot,dtb",
+        'required' : True,
+    }
+  ],
 }
 
 
