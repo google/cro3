@@ -626,7 +626,7 @@ class WriteFirmware:
     return '[Unknown]'
 
   def _GetDiskCapacity(self, device):
-    """Returns the disk capacity in GB, or 0 if not known.
+    """Returns the disk capacity in tenth of GB, or 0 if not known.
 
     Args:
       device: Device to check, like '/dev/sdf'.
@@ -634,17 +634,13 @@ class WriteFirmware:
     Returns:
       Capacity of device in GB, or 0 if not known.
     """
+    re_capacity = re.compile('Disk %s: .* (\d+) bytes' % device)
     args = ['-l', device]
     stdout = self._tools.Run('fdisk', args, sudo=True)
-    if stdout:
-      # Seach for the line with capacity information.
-      re_capacity = re.compile('Disk .*: (\d+) \w+,')
-      lines = filter(re_capacity.match, stdout.splitlines())
-      if len(lines):
-        m = re_capacity.match(lines[0])
-
-        # We get something like 7859 MB, so turn into bytes, then GB
-        return int(m.group(1)) * 1024 * 1024 / 1e9
+    for line in stdout.splitlines():
+      m = re_capacity.match(line)
+      if m:
+        return int(int(m.group(1)) / 1e8)
     return 0
 
   def _ListUsbDisks(self):
@@ -655,8 +651,7 @@ class WriteFirmware:
         device ('/dev/sdx')
         manufacturer name
         product name
-        capacity in GB (an integer)
-        full description (all of the above concatenated).
+        capacity in tenth of GB (an integer)
     """
     disk_list = []
     for disk in glob.glob('/sys/block/sd*'):
@@ -667,14 +662,13 @@ class WriteFirmware:
           product = self._GetDiskInfo(disk, 'product')
           capacity = self._GetDiskCapacity(device)
           if capacity:
-            desc = '%s: %s %s %d GB' % (device, manuf, product, capacity)
-            disk_list.append([device, manuf, product, capacity, desc])
+            disk_list.append([device, manuf, product, capacity])
     return disk_list
 
   def WriteToSd(self, flash_dest, disk, uboot, payload):
     if flash_dest:
       raw_image = self._PrepareFlasher(uboot, payload, flash_dest, '1:0')
-      bl1, bl2, _ = self._ExtractPayloadParts(payload)
+      bl1, bl2, _ = self._ExtractPayloadParts(payload, True)
       spl_load_size = os.stat(raw_image).st_size
       bl2 = self._bundle.ConfigureExynosBl2(self._fdt, spl_load_size, bl2,
                                             'flasher')
@@ -701,12 +695,10 @@ class WriteFirmware:
 
     Args:
       dest: Destination in one of these forms:
-          ':<full description of device>'
           ':.' selects the only available device, fails if more than one option
           ':<device>' select deivce
 
           Examples:
-            ':/dev/sdd: Generic Flash Card Reader/Writer 8 GB'
             ':.'
             ':/dev/sdd'
 
@@ -717,24 +709,29 @@ class WriteFirmware:
     """
     disk = None
     disks = self._ListUsbDisks()
-    if dest[:1] == ':':
+
+    if not disks:
+      self._out.Error('No removable devices found')
+      self._out.Error('Did you forget to plug in the SD card?')
+      return
+
+    if dest.startswith(':'):
       name = dest[1:]
 
       # A '.' just means to use the only available disk.
       if name == '.' and len(disks) == 1:
         disk = disks[0][0]
       for disk_info in disks:
-        # Use the full name or the device name.
-        if disk_info[4] == name or disk_info[1] == name:
+        # Use the device name.
+        if disk_info[0] == name:
           disk = disk_info[0]
 
     if disk:
       self.WriteToSd(flash_dest, disk, uboot, payload)
     else:
       self._out.Error("Please specify destination -w 'sd:<disk_description>':")
-      self._out.Error('   - description can be . for the only disk, SCSI '
-                      'device letter')
-      self._out.Error('     or the full description listed here')
+      self._out.Error('   - description can be . for the only disk, or')
+      self._out.Error('     the full device name, one of listed below:')
       msg = 'Found %d available disks.' % len(disks)
       if not disks:
         msg += ' Please insert an SD card and try again.'
@@ -742,7 +739,12 @@ class WriteFirmware:
 
       # List available disks as a convenience.
       for disk in disks:
-        self._out.UserOutput('  %s' % disk[4])
+        self._out.UserOutput('  %s: %s %d.%d GB' % (
+            disk[0],
+            ' '.join(str(x) for x in disk[1:3]),
+            disk[3] / 10,  # Integer number of GBs
+            disk[3] % 10,  # Decimal number of GBs
+            ))
 
   def Em100FlashImage(self, image_fname):
     """Send an image to an attached EM100 device.
