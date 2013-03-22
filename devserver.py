@@ -34,7 +34,8 @@ CACHED_ENTRIES = 12
 TELEMETRY_FOLDER = 'telemetry_src'
 TELEMETRY_DEPS = ['dep-telemetry_dep.tar.bz2',
                   'dep-page_cycler_dep.tar.bz2',
-                  'dep-chrome_test.tar.bz2']
+                  'dep-chrome_test.tar.bz2',
+                  'dep-perf_data_dep.tar.bz2']
 
 # Sets up global to share between classes.
 updater = None
@@ -453,6 +454,9 @@ class DevServerRoot(object):
       # Copy over the required deps tar balls to the telemetry directory.
       for dep in TELEMETRY_DEPS:
         dep_path = os.path.join(deps_path, dep)
+        if not os.path.exists(dep_path):
+          # This dep does not exist (could be new), do not extract it.
+          continue
         try:
           common_util.ExtractTarball(dep_path, telemetry_path)
         except common_util.CommonUtilError as e:
