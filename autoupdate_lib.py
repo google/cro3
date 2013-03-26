@@ -78,7 +78,7 @@ NO_UPDATE_RESPONSE['2.0'] = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 NO_UPDATE_RESPONSE['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
-  <response" protocol="3.0">
+  <response protocol="3.0">
     <daystart elapsed_seconds="%(time_elapsed)s"/>
     <app appid="{%(appid)s}" status="ok">
       <ping status="ok"/>
