@@ -21,15 +21,11 @@ import hashlib
 import os
 import re
 
-import cros_output
 from fdt import Fdt
 from pack_firmware import PackFirmware
 import shutil
 import struct
-import tempfile
 from tools import CmdError
-from tools import Tools
-from write_firmware import WriteFirmware
 
 # This data is required by bmpblk_utility. Does it ever change?
 # It was stored with the chromeos-bootimage ebuild, but we want
@@ -204,20 +200,26 @@ class Bundle:
     # Set up the things we need to know in order to operate.
     self._board = None          # Board name, e.g. tegra2_seaboard.
     self._fdt_fname = None      # Filename of our FDT.
-    self.uboot_fname = None     # Filename of our U-Boot binary.
+    self._force_rw = None
+    self._gbb_flags = None
+    self._keydir = None
+    self._small = False
     self.bct_fname = None       # Filename of our BCT file.
-    self.fdt = None             # Our Fdt object.
+    self.blobs = {}             # Table of (type, filename) of arbitrary blobs
     self.bmpblk_fname = None    # Filename of our Bitmap Block
+    self.coreboot_elf = None
     self.coreboot_fname = None  # Filename of our coreboot binary.
-    self.seabios_fname = None   # Filename of our SeaBIOS payload.
+    self.ecro_fname = None      # Filename of EC read-only file
+    self.ecrw_fname = None      # Filename of EC file
     self.exynos_bl1 = None      # Filename of Exynos BL1 (pre-boot)
     self.exynos_bl2 = None      # Filename of Exynos BL2 (SPL)
-    self.spl_source = 'straps'  # SPL boot according to board settings
+    self.fdt = None             # Our Fdt object.
+    self.kernel_fname = None
+    self.postload_fname = None
+    self.seabios_fname = None   # Filename of our SeaBIOS payload.
     self.skeleton_fname = None  # Filename of Coreboot skeleton file
-    self.ecrw_fname = None      # Filename of EC file
-    self.ecro_fname = None      # Filename of EC read-only file
-    self.blobs = {}             # Table of (type, filename) of arbitrary blobs
-    self._small = False
+    self.spl_source = 'straps'  # SPL boot according to board settings
+    self.uboot_fname = None     # Filename of our U-Boot binary.
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -416,7 +418,7 @@ class Bundle:
     if adjustments:
       try:
         return int(adjustments, base=16)
-      except:
+      except (ValueError, TypeError):
         pass
       for flag in adjustments.split(','):
         oper = None
@@ -595,9 +597,9 @@ class Bundle:
           enabled = int(enabled)
           if enabled not in (0, 1):
             raise ValueError
-        except ValueError as str:
+        except ValueError:
           raise CmdError("Invalid enable option value '%s' "
-              "(should be 0 or 1)" % enabled)
+              "(should be 0 or 1)" % str(enabled))
         self.SetNodeEnabled(node_name, enabled)
 
   def AddConfigList(self, config_list, use_int=False):
@@ -623,9 +625,9 @@ class Bundle:
         if use_int:
           try:
             value = int(value)
-          except ValueError as str:
+          except ValueError:
             raise CmdError("Cannot convert config option '%s' to integer" %
-                value)
+                str(value))
         if type(value) == type(1):
           self.fdt.PutInteger('/config', '%s' % config[0], value)
         else:
@@ -724,7 +726,7 @@ class Bundle:
 
     # Make a copy of the fdt for the bootstub
     fdt = base_fdt.Copy(os.path.join(self._tools.outdir, 'bootstub.dtb'))
-    fdt.PutInteger('/config', 'postload-text-offset', 0xffffffff);
+    fdt.PutInteger('/config', 'postload-text-offset', 0xffffffff)
     fdt_data = self._tools.ReadFile(fdt.fname)
 
     self._tools.WriteFile(bootstub, uboot_data + fdt_data)
@@ -770,13 +772,11 @@ class Bundle:
 
     return bootstub, signed_postload
 
-  def _CreateCorebootStub(self, uboot, coreboot):
+  def _CreateCorebootStub(self, coreboot):
     """Create a coreboot boot stub.
 
     Args:
-      uboot: Path to u-boot.bin (may be chroot-relative)
       coreboot: Path to coreboot.rom
-      seabios: Path to SeaBIOS payload binary or None
 
     Returns:
       Full path to bootstub (coreboot + uboot).
@@ -962,9 +962,10 @@ class Bundle:
           coreboot    A coreboot image (ROM plus U-boot and .dtb payloads).
           signed      Nvidia T20/T30 signed image (BCT, U-Boot, .dtb).
     """
+    # stupid pylint insists that sha256 is not in hashlib.
+    # pylint: disable=E1101
     if blob_type == 'coreboot':
-      coreboot = self._CreateCorebootStub(self.uboot_fname,
-          self.coreboot_fname)
+      coreboot = self._CreateCorebootStub(self.coreboot_fname)
       pack.AddProperty('coreboot', coreboot)
       pack.AddProperty('image', coreboot)
     elif blob_type == 'legacy':
@@ -1057,8 +1058,8 @@ class Bundle:
     # main board name as the key (drop the _<variant> suffix).
     default_flashmap = default_flashmaps.get(self._board.split('_')[0])
     if self._force_rw:
-        fdt.PutInteger('/flash/rw-a-vblock', 'preamble-flags', 0)
-        fdt.PutInteger('/flash/rw-b-vblock', 'preamble-flags', 0)
+      fdt.PutInteger('/flash/rw-a-vblock', 'preamble-flags', 0)
+      fdt.PutInteger('/flash/rw-b-vblock', 'preamble-flags', 0)
 
     pack.SelectFdt(fdt, self._board, default_flashmap)
 
