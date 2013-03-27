@@ -1052,9 +1052,10 @@ class Bundle:
     """
     self._out.Notice("Model: %s" % fdt.GetString('/', 'model'))
 
-    # Get the flashmap so we know what to build
     pack = PackFirmware(self._tools, self._out)
-    default_flashmap = default_flashmaps.get(self._board)
+    # Get the flashmap so we know what to build. For board variants use the
+    # main board name as the key (drop the _<variant> suffix).
+    default_flashmap = default_flashmaps.get(self._board.split('_')[0])
     if self._force_rw:
         fdt.PutInteger('/flash/rw-a-vblock', 'preamble-flags', 0)
         fdt.PutInteger('/flash/rw-b-vblock', 'preamble-flags', 0)
