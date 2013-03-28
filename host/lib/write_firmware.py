@@ -121,7 +121,7 @@ class WriteFirmware:
         'setenv firmware_size %#x' % payload_size,
         'setenv length        %#x' % RoundUp(payload_size, page_size),
         'setenv blocks   %#x' % (RoundUp(payload_size, page_size) / page_size),
-        'setenv _crc    "crc32 -v ${address} ${firmware_size} %#08x"' %
+        'setenv _crc    "crc32 -v ${address} ${firmware_size} %08x"' %
             checksum,
         'setenv _clear  "echo Clearing RAM; mw.b     ${address} 0 ${length}"',
     ]
