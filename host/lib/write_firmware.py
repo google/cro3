@@ -689,6 +689,8 @@ class WriteFirmware:
 
     args = ['if=%s' % image, 'of=%s' % disk, 'bs=512', 'seek=1']
     self._tools.Run('dd', args, sudo=True)
+    self._out.Progress('Syncing')
+    self._tools.Run('sync', [], sudo=True)
 
   def SendToSdCard(self, dest, flash_dest, uboot, payload):
     """Write a flasher to an SD card.
