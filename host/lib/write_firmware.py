@@ -802,16 +802,16 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
   """
   write = WriteFirmware(tools, fdt, output, bundle, update, verify)
   write.SelectServo(servo)
+  if flash_dest:
+    write.text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
+  elif bootstub:
+    write.text_base = bundle.CalcTextBase('bootstub ', fdt, bootstub)
   if dest == 'usb':
     try:
       write.DutControl(['cpu_uart_capture:on',])
       method = fdt.GetString('/chromeos-config', 'flash-method', method)
       if method == 'tegra':
         tools.CheckTool('tegrarcm')
-        if flash_dest:
-          write.text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
-        elif bootstub:
-          write.text_base = bundle.CalcTextBase('bootstub ', fdt, bootstub)
         ok = write.NvidiaFlashImage(flash_dest, flasher, file_list['bct'],
             image_fname, bootstub)
       elif method == 'exynos':
