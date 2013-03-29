@@ -5,7 +5,6 @@
 """Utilities for update payload processing."""
 
 import ctypes
-import textwrap
 
 from error import PayloadError
 import update_metadata_pb2
@@ -93,7 +92,7 @@ def FormatExtent(ex, block_size=0):
 
 def FormatSha256(digest):
   """Returns a canonical string representation of a SHA256 digest."""
-  return '\n'.join(textwrap.wrap(digest.encode('hex'), 32))
+  return digest.encode('base64')
 
 
 #
