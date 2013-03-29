@@ -4,7 +4,42 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""A CherryPy-based webserver to host images and build packages."""
+"""Chromium OS development server that can be used for all forms of update.
+
+This devserver can be used to perform system-wide autoupdate and update
+of specific portage packages on devices running Chromium OS derived operating
+systems. It mainly operates in two modes:
+
+1) archive mode: In this mode, the devserver is configured to stage and
+serve artifacts from Google Storage using the credentials provided to it before
+it is run. The easiest way to understand this is that the devserver is
+functioning as a local cache for artifacts produced and uploaded by build
+servers. Users of this form of devserver can either download the artifacts
+from the devservers static directory OR use the update RPC to perform a
+system-wide autoupdate. Archive mode is always active.
+
+2) artifact-generation mode: in this mode, the devserver will attempt to
+generate update payloads and build artifacts when requested. This mode only
+works in the Chromium OS chroot as it uses build tools only present in the
+chroot (emerge, cros_generate_update_payload, etc.). By default, when a device
+requests an update from this form of devserver, the devserver will attempt to
+discover if a more recent build of the board has been built by the developer
+and generate a payload that the requested system can autoupdate to. In addition,
+it accepts gmerge requests from devices that will stage the newest version of
+a particular package from a developer's chroot onto a requesting device. Note
+if archive_dir is specified, this mode is disabled.
+
+For example:
+gmerge gmerge -d <devserver_url>
+
+devserver will see if a newer package of gmerge is available. If gmerge is
+cros_work'd on, it will re-build gmerge. After this, gmerge will install that
+version of gmerge that the devserver just created/found.
+
+For autoupdates, there are many more advanced options that can help specify
+how to update and which payload to give to a requester.
+"""
+
 
 import cherrypy
 import json
@@ -693,77 +728,137 @@ def _CleanCache(cache_dir, wipe):
       sys.exit(1)
 
 
+def _AddTestingOptions(parser):
+  group = optparse.OptionGroup(
+      parser, 'Advanced Testing Options', 'These are used by test scripts and '
+      'developers writing integration tests utilizing the devserver. They are '
+      'not intended to be really used outside the scope of someone '
+      'knowledgable about the test.')
+  group.add_option('--exit',
+                   action='store_true',
+                   help='do not start the server (yet pregenerate/clear cache)')
+  group.add_option('--host_log',
+                   action='store_true', default=False,
+                   help='record history of host update events (/api/hostlog)')
+  group.add_option('--max_updates',
+                   metavar='NUM', default= -1, type='int',
+                   help='maximum number of update checks handled positively '
+                        '(default: unlimited)')
+  group.add_option('--private_key',
+                   metavar='PATH', default=None,
+                   help='path to the private key in pem format. If this is set '
+                   'the devserver will generate update payloads that are '
+                   'signed with this key.')
+  group.add_option('--proxy_port',
+                   metavar='PORT', default=None, type='int',
+                   help='port to have the client connect to -- basically the '
+                   'devserver lies to the update to tell it to get the payload '
+                   'from a different port that will proxy the request back to '
+                   'the devserver. The proxy must be managed outside the '
+                   'devserver.')
+  group.add_option('--remote_payload',
+                   action='store_true', default=False,
+                   help='Payload is being served from a remote machine')
+  group.add_option('-u', '--urlbase',
+                   metavar='URL',
+                     help='base URL for update images, other than the '
+                     'devserver. Use in conjunction with remote_payload.')
+  parser.add_option_group(group)
+
+
+def _AddUpdateOptions(parser):
+  group = optparse.OptionGroup(
+      parser, 'Autoupdate Options', 'These options can be used to change '
+      'how the devserver either generates or serve update payloads. Please '
+      'note that all of these option affect how a payload is generated and so '
+      'do not work in archive-only mode.')
+  group.add_option('--board',
+                   help='By default the devserver will create an update '
+                   'payload from the latest image built for the board '
+                   'a device that is requesting an update has. When we '
+                   'pre-generate an update (see below) and we do not specify '
+                   'another update_type option like image or payload, the '
+                   'devserver needs to know the board to generate the latest '
+                   'image for. This is that board.')
+  group.add_option('--critical_update',
+                   action='store_true', default=False,
+                   help='Present update payload as critical')
+  group.add_option('--for_vm',
+                   dest='vm', action='store_true',
+                   help='DEPRECATED: see no_patch_kernel.')
+  group.add_option('--image',
+                   metavar='FILE',
+                   help='Generate and serve an update using this image to any '
+                   'device that requests an update.')
+  group.add_option('--no_patch_kernel',
+                   dest='patch_kernel', action='store_false', default=True,
+                   help='When generating an update payload, do not patch the '
+                   'kernel with kernel verification blob from the stateful '
+                   'partition.')
+  group.add_option('--payload',
+                   metavar='PATH',
+                   help='use the update payload from specified directory '
+                   '(update.gz).')
+  group.add_option('-p', '--pregenerate_update',
+                   action='store_true', default=False,
+                   help='pre-generate the update payload before accepting '
+                   'update requests. Useful to help debug payload generation '
+                   'issues quickly. Also if an update payload will take a '
+                   'long time to generate, a client may timeout if you do not'
+                   'pregenerate the update.')
+  group.add_option('--src_image',
+                   metavar='PATH', default='',
+                   help='If specified, delta updates will be generated using '
+                   'this image as the source image. Delta updates are when '
+                   'you are updating from a "source image" to a another '
+                   'image.')
+  parser.add_option_group(group)
+
+
+def _AddProductionOptions(parser):
+  group = optparse.OptionGroup(
+      parser, 'Advanced Server Options', 'These options can be used to changed '
+      'for advanced server behavior.')
+  # TODO(sosa): Clean up the fact we have archive_dir and data_dir. It's ugly.
+  # Should be --archive_mode + optional data_dir.
+  group.add_option('--archive_dir',
+                   metavar='PATH',
+                   help='Enables archive-only mode. This disables any '
+                   'update or package generation related functionality. This '
+                   'mode also works without a Chromium OS chroot.')
+  group.add_option('--clear_cache',
+                   action='store_true', default=False,
+                   help='At startup, removes all cached entries from the'
+                   'devserver\'s cache.')
+  group.add_option('--logfile',
+                   metavar='PATH',
+                   help='log output to this file instead of stdout')
+  group.add_option('--production',
+                   action='store_true', default=False,
+                   help='have the devserver use production values when '
+                   'starting up. This includes using more threads and '
+                   'performing less logging.')
+  parser.add_option_group(group)
+
+
 def main():
-  usage = 'usage: %prog [options]'
+  usage = '\n\n'.join(['usage: %prog [options]', __doc__])
   parser = optparse.OptionParser(usage=usage)
-  parser.add_option('--archive_dir',
-                    metavar='PATH',
-                    help='Enables serve-only mode. Serves archived builds only')
-  parser.add_option('--board',
-                    help='when pre-generating update, board for latest image')
-  parser.add_option('--clear_cache',
-                    action='store_true', default=False,
-                    help='clear out all cached updates and exit')
-  parser.add_option('--critical_update',
-                    action='store_true', default=False,
-                    help='present update payload as critical')
   parser.add_option('--data_dir',
                     metavar='PATH',
                     default=os.path.dirname(os.path.abspath(sys.argv[0])),
                     help='writable directory where static lives')
-  parser.add_option('--exit',
-                    action='store_true',
-                    help='do not start server (yet pregenerate/clear cache)')
-  parser.add_option('--for_vm',
-                    dest='vm', action='store_true',
-                    help='update is for a vm image')
-  parser.add_option('--host_log',
-                    action='store_true', default=False,
-                    help='record history of host update events (/api/hostlog)')
-  parser.add_option('--image',
-                    metavar='FILE',
-                    help='Force update using this image. Can only be used when '
-                    'not in serve-only mode as it is used to generate a '
-                    'payload.')
-  parser.add_option('--logfile',
-                    metavar='PATH',
-                    help='log output to this file instead of stdout')
-  parser.add_option('--max_updates',
-                    metavar='NUM', default= -1, type='int',
-                    help='maximum number of update checks handled positively '
-                         '(default: unlimited)')
-  parser.add_option('-p', '--pregenerate_update',
-                    action='store_true', default=False,
-                    help='pre-generate update payload. Can only be used when '
-                    'not in serve-only mode as it is used to generate a '
-                    'payload.')
-  parser.add_option('--payload',
-                    metavar='PATH',
-                    help='use update payload from specified directory')
   parser.add_option('--port',
                     default=8080, type='int',
                     help='port for the dev server to use (default: 8080)')
-  parser.add_option('--private_key',
-                    metavar='PATH', default=None,
-                    help='path to the private key in pem format')
-  parser.add_option('--production',
-                    action='store_true', default=False,
-                    help='have the devserver use production values')
-  parser.add_option('--proxy_port',
-                    metavar='PORT', default=None, type='int',
-                    help='port to have the client connect to (testing support)')
-  parser.add_option('--remote_payload',
-                    action='store_true', default=False,
-                    help='Payload is being served from a remote machine')
-  parser.add_option('--src_image',
-                    metavar='PATH', default='',
-                    help='source image for generating delta updates from')
   parser.add_option('-t', '--test_image',
                     action='store_true',
-                    help='whether or not to use test images')
-  parser.add_option('-u', '--urlbase',
-                    metavar='URL',
-                    help='base URL for update images, other than the devserver')
+                    help='If set, look for the chromiumos_test_image.bin file '
+                    'when generating update payloads rather than the '
+                    'chromiumos_image.bin which is the default.')
+  _AddProductionOptions(parser)
+  _AddUpdateOptions(parser)
+  _AddTestingOptions(parser)
   (options, _) = parser.parse_args()
 
   devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -772,6 +867,10 @@ def main():
 
   static_dir = os.path.realpath('%s/static' % options.data_dir)
   os.system('mkdir -p %s' % static_dir)
+
+  # TODO(sosa): Remove after depcrecation.
+  if options.vm:
+    options.patch_kernel = False
 
   if options.archive_dir:
   # TODO(zbehan) Remove legacy support:
@@ -821,7 +920,7 @@ def main():
       payload_path=options.payload,
       proxy_port=options.proxy_port,
       src_image=options.src_image,
-      vm=options.vm,
+      patch_kernel=options.patch_kernel,
       board=options.board,
       copy_to_static_root=not options.exit,
       private_key=options.private_key,

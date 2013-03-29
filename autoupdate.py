@@ -127,7 +127,7 @@ class Autoupdate(BuildObject):
     src_image:       if specified, creates a delta payload from this image.
     proxy_port:      port of local proxy to tell client to connect to you
                      through.
-    vm:              set for VM images (doesn't patch kernel)
+    patch_kernel:    Patch the kernel when generating updates
     board:           board for the image. Needed for pre-generating of updates.
     copy_to_static_root:  copies images generated from the cache to ~/static.
     private_key:          path to private key in PEM format.
@@ -147,7 +147,7 @@ class Autoupdate(BuildObject):
 
   def __init__(self, serve_only=None, test_image=False, urlbase=None,
                forced_image=None, payload_path=None,
-               proxy_port=None, src_image='', vm=False, board=None,
+               proxy_port=None, src_image='', patch_kernel=True, board=None,
                copy_to_static_root=True, private_key=None,
                critical_update=False, remote_payload=False, max_updates= -1,
                host_log=False, *args, **kwargs):
@@ -163,7 +163,7 @@ class Autoupdate(BuildObject):
     self.payload_path = payload_path
     self.src_image = src_image
     self.proxy_port = proxy_port
-    self.vm = vm
+    self.patch_kernel = patch_kernel
     self.board = board
     self.copy_to_static_root = copy_to_static_root
     self.private_key = private_key
@@ -310,7 +310,7 @@ class Autoupdate(BuildObject):
     if src_image:
       update_command.extend(['--src_image', src_image])
 
-    if not self.vm:
+    if self.patch_kernel:
       update_command.append('--patch_kernel')
 
     if self.private_key:
@@ -360,7 +360,7 @@ class Autoupdate(BuildObject):
     if self.private_key:
       update_dir += '+' + common_util.GetFileMd5(self.private_key)
 
-    if not self.vm:
+    if self.patch_kernel:
       update_dir += '+patched_kernel'
 
     return os.path.join(CACHE_DIR, update_dir)
