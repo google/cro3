@@ -25,10 +25,6 @@ import test_utils
 import update_metadata_pb2
 
 
-_PRIVKEY_FILE_NAME = 'payload-test-key.pem'
-_PUBKEY_FILE_NAME = 'payload-test-key.pub'
-
-
 def _OpTypeByName(op_name):
   op_name_to_type = {
       'REPLACE': common.OpType.REPLACE,
@@ -37,21 +33,6 @@ def _OpTypeByName(op_name):
       'BSDIFF': common.OpType.BSDIFF,
   }
   return op_name_to_type[op_name]
-
-
-def _KiB(count):
-  """Return the byte size of a given number of (binary) kilobytes."""
-  return count << 10
-
-
-def _MiB(count):
-  """Return the byte size of a given number of (binary) megabytes."""
-  return count << 20
-
-
-def _GiB(count):
-  """Return the byte size of a given number of (binary) gigabytes."""
-  return count << 30
 
 
 def _GetPayloadChecker(payload_gen_write_to_file_func, payload_gen_dargs=None,
@@ -441,9 +422,9 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
     # Tamper with block size, if required.
     if fail_mismatched_block_size:
-      payload_gen.SetBlockSize(_KiB(1))
+      payload_gen.SetBlockSize(test_utils.KiB(1))
     else:
-      payload_gen.SetBlockSize(_KiB(4))
+      payload_gen.SetBlockSize(test_utils.KiB(4))
 
     # Add some operations.
     if not fail_missing_ops:
@@ -459,8 +440,8 @@ class PayloadCheckerTest(mox.MoxTestBase):
       payload_gen.SetSignatures(32, None)
 
     # Set partition / filesystem sizes.
-    rootfs_part_size = _MiB(8)
-    kernel_part_size = _KiB(512)
+    rootfs_part_size = test_utils.MiB(8)
+    kernel_part_size = test_utils.KiB(512)
     old_rootfs_fs_size = new_rootfs_fs_size = rootfs_part_size
     old_kernel_fs_size = new_kernel_fs_size = kernel_part_size
     if fail_old_kernel_fs_size:
@@ -822,8 +803,8 @@ class PayloadCheckerTest(mox.MoxTestBase):
     block_size = payload_checker.block_size
 
     # Create auxiliary arguments.
-    old_part_size = _MiB(4)
-    new_part_size = _MiB(8)
+    old_part_size = test_utils.MiB(4)
+    new_part_size = test_utils.MiB(8)
     old_block_counters = array.array(
         'B', [0] * ((old_part_size + block_size - 1) / block_size))
     new_block_counters = array.array(
@@ -931,10 +912,10 @@ class PayloadCheckerTest(mox.MoxTestBase):
     # test with them.
     payload_gen = test_utils.PayloadGenerator()
 
-    block_size = _KiB(4)
+    block_size = test_utils.KiB(4)
     payload_gen.SetBlockSize(block_size)
 
-    rootfs_part_size = _MiB(8)
+    rootfs_part_size = test_utils.MiB(8)
 
     # Fake rootfs operations in a full update, tampered with as required.
     rootfs_op_type = common.OpType.REPLACE
@@ -977,10 +958,10 @@ class PayloadCheckerTest(mox.MoxTestBase):
     # block and how it relates to the payload hash. Therefore, we're generating
     # a random (otherwise useless) payload for this purpose.
     payload_gen = test_utils.EnhancedPayloadGenerator()
-    block_size = _KiB(4)
+    block_size = test_utils.KiB(4)
     payload_gen.SetBlockSize(block_size)
-    rootfs_part_size = _MiB(2)
-    kernel_part_size = _KiB(16)
+    rootfs_part_size = test_utils.MiB(2)
+    kernel_part_size = test_utils.KiB(16)
     payload_gen.SetPartInfo(False, True, rootfs_part_size,
                             hashlib.sha256('fake-new-rootfs-content').digest())
     payload_gen.SetPartInfo(True, True, kernel_part_size,
@@ -1003,7 +984,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
           sig_data = None
         else:
           sig_data = test_utils.SignSha256('fake-payload-content',
-                                           _PRIVKEY_FILE_NAME)
+                                           test_utils._PRIVKEY_FILE_NAME)
         sigs_gen.AddSig(5 if fail_unknown_sig_version else 1, sig_data)
 
       sigs_data = sigs_gen.ToBinary()
@@ -1023,7 +1004,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
         payload_gen.WriteToFileWithData,
         payload_gen_dargs={
             'sigs_data': sigs_data,
-            'privkey_file_name': _PRIVKEY_FILE_NAME,
+            'privkey_file_name': test_utils._PRIVKEY_FILE_NAME,
             'do_add_pseudo_operation': not do_forge_pseudo_op})
     payload_checker.payload_type = checker._TYPE_FULL
     report = checker._PayloadReport()
@@ -1034,7 +1015,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     should_fail = (fail_empty_sigs_blob or fail_missing_pseudo_op or
                    fail_mismatched_pseudo_op or fail_sig_missing_fields or
                    fail_unknown_sig_version or fail_incorrect_sig)
-    largs = (report, _PUBKEY_FILE_NAME)
+    largs = (report, test_utils._PUBKEY_FILE_NAME)
     if should_fail:
       self.assertRaises(update_payload.PayloadError,
                         payload_checker._CheckSignatures, *largs)
@@ -1050,10 +1031,10 @@ class PayloadCheckerTest(mox.MoxTestBase):
     # method itself. Note that the checker doesn't verify partition hashes, so
     # they're safe to fake.
     payload_gen = test_utils.EnhancedPayloadGenerator()
-    block_size = _KiB(4)
+    block_size = test_utils.KiB(4)
     payload_gen.SetBlockSize(block_size)
-    kernel_part_size = _KiB(16)
-    rootfs_part_size = _MiB(2)
+    kernel_part_size = test_utils.KiB(16)
+    rootfs_part_size = test_utils.MiB(2)
     payload_gen.SetPartInfo(False, True, rootfs_part_size,
                             hashlib.sha256('fake-new-rootfs-content').digest())
     payload_gen.SetPartInfo(True, True, kernel_part_size,
@@ -1077,7 +1058,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
     dargs = {
         'payload_gen_dargs': {
-            'privkey_file_name': _PRIVKEY_FILE_NAME,
+            'privkey_file_name': test_utils._PRIVKEY_FILE_NAME,
             'do_add_pseudo_operation': True,
             'is_pseudo_in_kernel': True,
             'padding': os.urandom(1024) if fail_excess_data else None},
@@ -1090,7 +1071,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     else:
       payload_checker = _GetPayloadChecker(payload_gen.WriteToFileWithData,
                                            **dargs)
-      dargs = {'pubkey_file_name': _PUBKEY_FILE_NAME}
+      dargs = {'pubkey_file_name': test_utils._PUBKEY_FILE_NAME}
       should_fail = (fail_wrong_payload_type or fail_mismatched_block_size or
                      fail_excess_data)
       if should_fail:

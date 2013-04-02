@@ -18,6 +18,23 @@ class TestError(Exception):
   """An error during testing of update payload code."""
 
 
+# Private/public RSA keys used for testing.
+_PRIVKEY_FILE_NAME = 'payload-test-key.pem'
+_PUBKEY_FILE_NAME = 'payload-test-key.pub'
+
+
+def KiB(count):
+  return count << 10
+
+
+def MiB(count):
+  return count << 20
+
+
+def GiB(count):
+  return count << 30
+
+
 def _WriteInt(file_obj, size, is_unsigned, val):
   """Writes a binary-encoded integer to a file.
 
