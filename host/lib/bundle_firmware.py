@@ -1198,8 +1198,9 @@ class Bundle:
     Returns:
       Filename of the resulting image (not the output_fname copy).
     """
-    gbb = ''
-    if not self._small:
+    if self._small or self.fdt.GetProp('/config', 'nogbb', 'any') != 'any':
+      gbb = ''  # Building a small image or `nogbb' is requested in device tree.
+    else:
       gbb = self._CreateGoogleBinaryBlock(hardware_id)
 
     # This creates the actual image.
