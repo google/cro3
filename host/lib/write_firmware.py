@@ -134,12 +134,16 @@ class WriteFirmware:
       ])
     elif boot_type == 'sdmmc':
       cmds.extend([
-          'setenv _init   "echo Init EMMC;  mmc rescan            0"',
+          'setenv _init   "echo Init EMMC;  mmc rescan             0"',
           'setenv _erase  "echo Erase EMMC; "',
-          'setenv _write  "echo Write EMMC; mmc write 0 ${address} 0 ' \
-             '${blocks} boot1"',
-          'setenv _read   "echo Read EMMC;  mmc read 0 ${address} 0 ' \
-             '${blocks} boot1"',
+          'setenv _write  "echo Write EMMC; mmc open               0 1;' \
+            '                               mmc write ${address}   0 ' \
+            '${blocks};' \
+            '                               mmc close              0 1"',
+          'setenv _read   "echo Read EMMC;  mmc open               0 1;' \
+            '                               mmc read ${address}    0 ' \
+            '${blocks};' \
+            '                               mmc close 0 1"',
       ])
     else:
       cmds.extend([
