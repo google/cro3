@@ -21,64 +21,42 @@ _TYPE_FULL = 'full'
 _TYPE_DELTA = 'delta'
 
 
-def ParseArguments(parser, argv):
+def ParseArguments(argv):
   """Parse and validate command-line arguments.
 
   Args:
-    parser: the command-line parser
+    argv: command-line arguments to parse (excluding the program name)
   Returns:
-    A tuple (options, payload, extra_args), where `options' are the options
+    A tuple (opts, payload, extra_args), where `opts' are the options
     returned by the parser, `payload' is the name of the payload file
     (mandatory argument) and `extra_args' are any additional command-line
     arguments.
 
   """
-  options, args = parser.parse_args(argv)
-
-  # Validate a value given to --type, if any.
-  if options.assert_type not in (None, _TYPE_FULL, _TYPE_DELTA):
-    parser.error('invalid argument to --type: %s' % options.assert_type)
-
-  # There are several options that imply --check.
-  options.check = (options.check or options.report or options.assert_type or
-                   options.block_size or options.allow_unhashed or
-                   options.key or options.meta_sig)
-
-  # Check number of arguments, enforce payload type accordingly.
-  if len(args) == 3:
-    if options.assert_type == _TYPE_DELTA:
-      parser.error('%s payload requires source partition arguments' %
-                   _TYPE_DELTA)
-    options.assert_type = _TYPE_FULL
-  elif len(args) == 5:
-    if options.assert_type == _TYPE_FULL:
-      parser.error('%s payload does not accept source partition arguments' %
-                   _TYPE_FULL)
-    options.assert_type = _TYPE_DELTA
-  elif len(args) != 1:
-    parser.error('unexpected number of arguments')
-
-  return options, args[0], args[1:]
-
-
-def main(argv):
   parser = optparse.OptionParser(
-      usage='Usage: %prog [OPTION...] PAYLOAD [DST_KERN DST_ROOT '
-            '[SRC_KERN SRC_ROOT]]',
-      description='Applies a Chrome OS update PAYLOAD to SRC_KERN and '
-                  'SRC_ROOT emitting DST_KERN and DST_ROOT, respectively. '
-                  'SRC_KERN and SRC_ROOT need only be provided for delta '
-                  'payloads. If no partitions are provided, only verifies '
-                  'payload integrity.')
+      usage=('Usage: %prog [OPTION...] PAYLOAD [DST_KERN DST_ROOT '
+             '[SRC_KERN SRC_ROOT]]'),
+      description=('Applies a Chrome OS update PAYLOAD to SRC_KERN and '
+                   'SRC_ROOT emitting DST_KERN and DST_ROOT, respectively. '
+                   'SRC_KERN and SRC_ROOT are only needed for delta payloads. '
+                   'When no partitions are provided, verifies the payload '
+                   'integrity.'),
+      epilog=('Note: a payload may verify correctly but fail to apply, and '
+              'vice versa; this is by design and can be thought of as static '
+              'vs dynamic correctness. A payload that both verifies and '
+              'applies correctly should be safe for use by the Chrome OS '
+              'Update Engine. Use --check to verify a payload prior to '
+              'applying it.'))
 
-  check_opts = optparse.OptionGroup(parser, 'Payload checking')
+  check_opts = optparse.OptionGroup(parser, 'Payload integrity checking')
   check_opts.add_option('-c', '--check', action='store_true', default=False,
-                        help='check payload integrity')
+                        help=('force payload integrity check (e.g. before '
+                              'applying)'))
   check_opts.add_option('-r', '--report', metavar='FILE',
                         help="dump payload report (`-' for stdout)")
   check_opts.add_option('-t', '--type', metavar='TYPE', dest='assert_type',
-                        help="assert that payload is either `%s' or `%s'" %
-                             (_TYPE_FULL, _TYPE_DELTA))
+                        help=("assert that payload is either `%s' or `%s'" %
+                              (_TYPE_FULL, _TYPE_DELTA)))
   check_opts.add_option('-z', '--block-size', metavar='NUM', default=0,
                         type='int',
                         help='assert a non-default (4096) payload block size')
@@ -99,8 +77,48 @@ def main(argv):
                         help='skip first NUM occurrences of traced block')
   parser.add_option_group(trace_opts)
 
+  # Parse command-line arguments.
+  opts, args = parser.parse_args(argv)
+
+  # Validate a value given to --type, if any.
+  if opts.assert_type not in (None, _TYPE_FULL, _TYPE_DELTA):
+    parser.error('invalid argument to --type: %s' % opts.assert_type)
+
+  # Ensure consistent use of block tracing options.
+  do_block_trace = opts.root_block or opts.kern_block
+  if opts.skip and not do_block_trace:
+    parser.error('--skip must be used with either --root-block or --kern-block')
+
+  # There are several options that imply --check.
+  opts.check = (opts.check or opts.report or opts.assert_type or
+                opts.block_size or opts.allow_unhashed or opts.key or
+                opts.meta_sig)
+
+  # Check number of arguments, enforce payload type accordingly.
+  if len(args) == 3:
+    if opts.assert_type == _TYPE_DELTA:
+      parser.error('%s payload requires source partition arguments' %
+                   _TYPE_DELTA)
+    opts.assert_type = _TYPE_FULL
+  elif len(args) == 5:
+    if opts.assert_type == _TYPE_FULL:
+      parser.error('%s payload does not accept source partition arguments' %
+                   _TYPE_FULL)
+    opts.assert_type = _TYPE_DELTA
+  elif len(args) == 1:
+    # Not applying payload; if block tracing not requested either, do an
+    # integrity check.
+    if not do_block_trace:
+      opts.check = True
+  else:
+    parser.error('unexpected number of arguments')
+
+  return opts, args[0], args[1:]
+
+
+def main(argv):
   # Parse and validate arguments.
-  options, payload_file_name, extra_args = ParseArguments(parser, argv[1:])
+  options, payload_file_name, extra_args = ParseArguments(argv[1:])
 
   with open(payload_file_name) as payload_file:
     payload = update_payload.Payload(payload_file)
