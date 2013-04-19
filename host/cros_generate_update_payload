@@ -143,6 +143,8 @@ DEFINE_boolean extract "$FLAGS_FALSE" "If set, extract old/new kernel/rootfs \
 to [old|new]_[kern|root].dat. Useful for debugging (default: false)"
 DEFINE_boolean full_kernel "$FLAGS_FALSE" "Generate a full kernel update even \
 if generating a delta update (default: false)"
+DEFINE_integer chunk_size -1 \
+  "Delta payload chunk size (default -1 means whole files)"
 
 # Parse command line
 FLAGS "$@" || exit 1
@@ -219,7 +221,8 @@ if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
   sudo LD_LIBRARY_PATH=${LD_LIBRARY_PATH}  PATH=${PATH} "$GENERATOR" \
       -new_dir "$DST_MNT" -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
       -old_dir "$SRC_MNT" -old_image "$SRC_ROOT" -old_kernel "$SRC_KERNEL" \
-      -out_file "$FLAGS_output" -private_key "$FLAGS_private_key"
+      -out_file "$FLAGS_output" -private_key "$FLAGS_private_key" \
+      -chunk_size "$FLAGS_chunk_size"
 else
   "$GENERATOR" \
       -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
