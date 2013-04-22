@@ -5,16 +5,24 @@
 import json
 import os
 import subprocess
+import sys
 import time
 import urllib2
 import urlparse
 
 import cherrypy
 
+# Allow importing from dev/host/lib when running from source tree.
+lib_dir = os.path.join(os.path.dirname(__file__), 'host', 'lib')
+if os.path.exists(lib_dir) and os.path.isdir(lib_dir):
+  sys.path.insert(1, lib_dir)
+
 from build_util import BuildObject
 import autoupdate_lib
 import common_util
 import log_util
+# pylint: disable=F0401
+import update_payload
 
 
 # Module-local log function.
@@ -277,16 +285,15 @@ class Autoupdate(BuildObject):
     return image_name
 
   @staticmethod
-  def _IsDeltaFormatFile(filename):
+  def IsDeltaFormatFile(filename):
     try:
-      file_handle = open(filename, 'r')
-      delta_magic = 'CrAU'
-      magic = file_handle.read(len(delta_magic))
-      return magic == delta_magic
-    except IOError:
-      # For unit tests, we may not have real files, so it's ok to
-      # ignore these IOErrors. In any case, this value is not being
-      # used in update_engine at all as of now.
+      with open(filename) as payload_file:
+        payload = update_payload.Payload(payload_file)
+        payload.Init()
+        return payload.IsDelta()
+    except (IOError, update_payload.PayloadError):
+      # For unit tests we may not have real files, so it's ok to ignore these
+      # errors.
       return False
 
   def GenerateUpdateFile(self, src_image, image_path, output_dir):
@@ -432,12 +439,10 @@ class Autoupdate(BuildObject):
     # Generation complete, copy if requested.
     if self.copy_to_static_root:
       # The final results exist directly in static
-      update_payload = os.path.join(static_image_dir,
-                                    UPDATE_FILE)
-      stateful_payload = os.path.join(static_image_dir,
-                                      STATEFUL_FILE)
+      cros_update_payload = os.path.join(static_image_dir, UPDATE_FILE)
+      stateful_payload = os.path.join(static_image_dir, STATEFUL_FILE)
       metadata_file = os.path.join(static_image_dir, METADATA_FILE)
-      common_util.CopyFile(cache_update_payload, update_payload)
+      common_util.CopyFile(cache_update_payload, cros_update_payload)
       common_util.CopyFile(cache_stateful_payload, stateful_payload)
       common_util.CopyFile(cache_metadata_file, metadata_file)
       return None
@@ -565,9 +570,6 @@ class Autoupdate(BuildObject):
       if not metadata_obj:
         raise AutoupdateError('Failed to obtain remote payload info')
 
-      if not metadata_obj.is_delta_format:
-        metadata_obj.is_delta_format = ('_mton' in url) or ('_nton' in url)
-
       return metadata_obj
     except IOError as e:
       raise AutoupdateError('Failed to obtain remote payload info: %s', e)
@@ -593,7 +595,7 @@ class Autoupdate(BuildObject):
       sha1 = common_util.GetFileSha1(filename)
       sha256 = common_util.GetFileSha256(filename)
       size = common_util.GetFileSize(filename)
-      is_delta_format = self._IsDeltaFormatFile(filename)
+      is_delta_format = self.IsDeltaFormatFile(filename)
       metadata_obj = UpdateMetadata(sha1, sha256, size, is_delta_format)
       Autoupdate._StoreMetadataToFile(payload_dir, metadata_obj)
 

@@ -336,9 +336,16 @@ class ApiRoot(object):
       file_sha256 = common_util.GetFileSha256(file_path)
     except os.error, e:
       raise DevServerError('failed to get info for file %s: %s' %
-                           (file_path, str(e)))
-    return json.dumps(
-        {'size': file_size, 'sha1': file_sha1, 'sha256': file_sha256})
+                           (file_path, e))
+
+    is_delta = autoupdate.Autoupdate.IsDeltaFormatFile(file_path)
+
+    return json.dumps({
+        autoupdate.Autoupdate.SIZE_ATTR: file_size,
+        autoupdate.Autoupdate.SHA1_ATTR: file_sha1,
+        autoupdate.Autoupdate.SHA256_ATTR: file_sha256,
+        autoupdate.Autoupdate.ISDELTA_ATTR: is_delta
+    })
 
 
 class DevServerRoot(object):
