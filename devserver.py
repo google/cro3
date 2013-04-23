@@ -41,17 +41,20 @@ how to update and which payload to give to a requester.
 """
 
 
-import cherrypy
 import json
 import optparse
 import os
 import re
 import shutil
 import socket
-import sys
 import subprocess
+import sys
 import tempfile
 import types
+from logging import handlers
+
+import cherrypy
+import cherrypy._cplogging
 
 import autoupdate
 import common_util
@@ -74,6 +77,14 @@ TELEMETRY_DEPS = ['dep-telemetry_dep.tar.bz2',
 
 # Sets up global to share between classes.
 updater = None
+
+# Log rotation parameters.  These settings correspond to once a week
+# on Saturday, with about three months of old logs kept for backup.
+#
+# For more, see the documentation for
+# logging.handlers.TimedRotatingFileHandler
+_LOG_ROTATION_TIME = 'W5'
+_LOG_ROTATION_BACKUP = 13
 
 
 class DevServerError(Exception):
@@ -848,6 +859,18 @@ def _AddProductionOptions(parser):
   parser.add_option_group(group)
 
 
+def _MakeLogHandler(logfile):
+  """Create a LogHandler instance used to log all messages."""
+  hdlr_cls = handlers.TimedRotatingFileHandler
+  hdlr = hdlr_cls(logfile, when=_LOG_ROTATION_TIME,
+                  backupCount=_LOG_ROTATION_BACKUP)
+  # The cherrypy documentation says to use the _cplogging module for
+  # this, even though it's named as a private module.
+  # pylint: disable=W0212
+  hdlr.setFormatter(cherrypy._cplogging.logfmt)
+  return hdlr
+
+
 def main():
   usage = '\n\n'.join(['usage: %prog [options]', __doc__])
   parser = optparse.OptionParser(usage=usage)
@@ -868,6 +891,23 @@ def main():
   _AddTestingOptions(parser)
   (options, _) = parser.parse_args()
 
+  # Handle options that must be set globally in cherrypy.  Do this
+  # work up front, because calls to _Log() below depend on this
+  # initialization.
+  if options.production:
+    cherrypy.config.update({'environment': 'production'})
+  if not options.logfile:
+    cherrypy.config.update({'log.screen': True})
+  else:
+    cherrypy.config.update({'log.error_file': '',
+                            'log.access_file': ''})
+    hdlr = _MakeLogHandler(options.logfile)
+    # Pylint can't seem to process these two calls properly
+    # pylint: disable=E1101
+    cherrypy.log.access_log.addHandler(hdlr)
+    cherrypy.log.error_log.addHandler(hdlr)
+    # pylint: enable=E1101
+
   devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
   root_dir = os.path.realpath('%s/../..' % devserver_dir)
   serve_only = False
@@ -875,18 +915,18 @@ def main():
   static_dir = os.path.realpath('%s/static' % options.data_dir)
   os.system('mkdir -p %s' % static_dir)
 
-  # TODO(sosa): Remove after depcrecation.
+  # TODO(sosa): Remove after deprecation.
   if options.vm:
     options.patch_kernel = False
 
   if options.archive_dir:
-  # TODO(zbehan) Remove legacy support:
-  #  archive_dir is the directory where static/archive will point.
-  #  If this is an absolute path, all is fine. If someone calls this
-  #  using a relative path, that is relative to src/platform/dev/.
-  #  That use case is unmaintainable, but since applications use it
-  #  with =./static, instead of a boolean flag, we'll make this relative
-  #  to devserver_dir  to keep these unbroken. For now.
+    # TODO(zbehan) Remove legacy support:
+    #  archive_dir is the directory where static/archive will point.
+    #  If this is an absolute path, all is fine. If someone calls this
+    #  using a relative path, that is relative to src/platform/dev/.
+    #  That use case is unmaintainable, but since applications use it
+    #  with =./static, instead of a boolean flag, we'll make this
+    #  relative to devserver_dir  to keep these unbroken. For now.
     archive_dir = options.archive_dir
     if not os.path.isabs(archive_dir):
       archive_dir = os.path.realpath(os.path.join(devserver_dir, archive_dir))
@@ -895,15 +935,14 @@ def main():
     serve_only = True
 
   cache_dir = os.path.join(static_dir, 'cache')
-  # If our devserver is only supposed to serve payloads, we shouldn't be mucking
-  # with the cache at all. If the devserver hadn't previously generated a cache
-  # and is expected, the caller is using it wrong.
+  # If our devserver is only supposed to serve payloads, we shouldn't be
+  # mucking with the cache at all. If the devserver hadn't previously
+  # generated a cache and is expected, the caller is using it wrong.
   if serve_only:
     # Extra check to make sure we're not being called incorrectly.
     if (options.clear_cache or options.exit or options.pregenerate_update or
         options.board or options.image):
       parser.error('Incompatible flags detected for serve_only mode.')
-
   elif os.path.exists(cache_dir):
     _CleanCache(cache_dir, options.clear_cache)
   else:
@@ -940,18 +979,10 @@ def main():
   if options.pregenerate_update:
     updater.PreGenerateUpdate()
 
-  # If the command line requested after setup, it's time to do it.
-  if not options.exit:
-    # Handle options that must be set globally in cherrypy.
-    if options.production:
-      cherrypy.config.update({'environment': 'production'})
-    if not options.logfile:
-      cherrypy.config.update({'log.screen': True})
-    else:
-      cherrypy.config.update({'log.error_file': options.logfile,
-                              'log.access_file': options.logfile})
+  if options.exit:
+    return
 
-    cherrypy.quickstart(DevServerRoot(), config=_GetConfig(options))
+  cherrypy.quickstart(DevServerRoot(), config=_GetConfig(options))
 
 
 if __name__ == '__main__':
