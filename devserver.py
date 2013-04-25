@@ -724,6 +724,22 @@ class DevServerRoot(object):
     return updater.HandleUpdatePing(data, label)
 
 
+  @cherrypy.expose
+  def check_health(self):
+    """Collect the health status of devserver to see if it's ready for staging.
+
+    @return: A JSON dictionary containing all or some of the following fields:
+        free_disk (int):        free disk space in GB
+    """
+    # Get free disk space.
+    stat = os.statvfs(updater.static_dir)
+    free_disk = stat.f_bsize * stat.f_bavail / 1000000000
+
+    return json.dumps({
+        'free_disk': free_disk,
+    })
+
+
 def _CleanCache(cache_dir, wipe):
   """Wipes any excess cached items in the cache_dir.
 
