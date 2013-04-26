@@ -211,18 +211,26 @@ if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
 fi
 DST_ROOT=$(extract_partition_to_temp_file "$FLAGS_image" 3)
 
+DST_MNT=$(mktemp -d /tmp/src_root.XXXXXX)
+sudo mount -o loop,ro "$DST_ROOT" "$DST_MNT"
+
+source "$DST_MNT"/usr/sbin/write_gpt.sh
+if [ -n "$ROOTFS_PARTITION_SIZE" ]; then
+  echo "Using rootfs partition size: $ROOTFS_PARTITION_SIZE";
+else
+  die "Missing rootfs partition size from disk layout."
+fi
+
 if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
   SRC_MNT=$(mktemp -d /tmp/src_root.XXXXXX)
   sudo mount -o loop,ro "$SRC_ROOT" "$SRC_MNT"
-
-  DST_MNT=$(mktemp -d /tmp/src_root.XXXXXX)
-  sudo mount -o loop,ro "$DST_ROOT" "$DST_MNT"
 
   sudo LD_LIBRARY_PATH=${LD_LIBRARY_PATH}  PATH=${PATH} "$GENERATOR" \
       -new_dir "$DST_MNT" -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
       -old_dir "$SRC_MNT" -old_image "$SRC_ROOT" -old_kernel "$SRC_KERNEL" \
       -out_file "$FLAGS_output" -private_key "$FLAGS_private_key" \
-      -chunk_size "$FLAGS_chunk_size"
+      -chunk_size "$FLAGS_chunk_size" \
+      -rootfs_partition_size="$ROOTFS_PARTITION_SIZE"
 else
   "$GENERATOR" \
       -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
