@@ -151,6 +151,12 @@ gbb_flag_properties = {
   'force-dev-boot-legacy': 0x00000080,
 }
 
+# Maps board name to Exynos product number
+type_to_model = {
+  'peach' : '5420',
+  'daisy' : '5250'
+}
+
 def ListGoogleBinaryBlockFlags():
   """Print out a list of GBB flags."""
   print '   %-30s %s' % ('Available GBB flags:', 'Hex')
@@ -330,16 +336,20 @@ class Bundle:
     """Check provided options and select defaults."""
     build_root = self._GetBuildRoot()
 
+    board_type = self._board.split('_')[0]
+    model = type_to_model.get(board_type)
+
     if not self.uboot_fname:
       self.uboot_fname = os.path.join(build_root, 'u-boot.bin')
     if not self.bct_fname:
       self.bct_fname = os.path.join(build_root, 'bct', 'board.bct')
     if not self.bmpblk_fname:
       self.bmpblk_fname = os.path.join(build_root, 'bmpblk.bin')
-    if not self.exynos_bl1:
-      self.exynos_bl1 = os.path.join(build_root, 'E5250.nbl1.bin')
-    if not self.exynos_bl2:
-      self.exynos_bl2 = os.path.join(build_root, 'smdk5250-spl.bin')
+    if model:
+      if not self.exynos_bl1:
+        self.exynos_bl1 = os.path.join(build_root, 'E%s.nbl1.bin' % model)
+      if not self.exynos_bl2:
+        self.exynos_bl2 = os.path.join(build_root, 'smdk%s-spl.bin' % model)
     if not self.coreboot_fname:
       self.coreboot_fname = os.path.join(build_root, 'coreboot.rom')
     if not self.skeleton_fname:
