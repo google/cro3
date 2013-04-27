@@ -621,6 +621,10 @@ class PackFirmware:
         node: Name of node to read from
         props: Dictionary containing properties of the node
       """
+      align = int(props.get('align', '1'))
+      align_mask = align - 1
+      if align == 0 or (align & align_mask) != 0:
+        raise ValueError("Invalid alignment %d in node '%s'" % props['label'])
       # Read the two cells from the node's /reg property to get entry extent.
       reg = props.get('reg', None)
       if reg:
@@ -632,7 +636,14 @@ class PackFirmware:
                            "node '%s'" % props['label'])
         size = int(size)
         offset = self.upto_offset
+        offset = (offset + align_mask) & ~align_mask
 
+      # Here, offset is checked for the benefit of the 'reg' property present
+      # case, and size is checked for both cases.
+      if (offset & align_mask) or (size & align_mask):
+        raise ValueError("Alignment of %d conflicts with 'reg' setting in"
+                         "node '%s': offset=%#08x, size=%#08x" %
+                         (align, props['label'], offset, size))
       props['node'] = node
       props['offset'] = offset
       props['size'] = size
