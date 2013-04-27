@@ -660,6 +660,8 @@ class PackFirmware:
 
       if entry.ftype:
         self.upto_offset = offset + size
+      else:
+        self.upto_offset = offset
       if entry.required:
         self.required_count += 1
       if entry.key == 'signed':
@@ -961,11 +963,13 @@ class PackFirmware:
         status = 'P'
       else:
         status = '.'
-      if entry.ftype and offset != entry.offset:
+      if offset != entry.offset:
         self._OutEntry('!', offset, entry.offset - offset, '<gap>')
       self._OutEntry(status, entry.offset, entry.size, entry.name)
       if entry.ftype:
         offset = entry.offset + entry.size
+      else:
+        offset = entry.offset
 
 def _Test():
   """Run any built-in tests."""
