@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import os
 import sys
 
 from chromite.lib import terminal
@@ -48,7 +47,7 @@ class Output:
   def __enter__(self):
     return self
 
-  def __exit__(self, type, value, traceback):
+  def __exit__(self, unused1, unused2, unused3):
     """Clean up and remove any progress message."""
     self.ClearProgress()
     return False
