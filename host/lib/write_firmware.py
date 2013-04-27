@@ -714,11 +714,20 @@ class WriteFirmware:
       payload: Full path to payload.
     """
     disk = None
-    disks = self._ListUsbDisks()
 
-    if not disks:
-      self._out.Error('No removable devices found')
-      self._out.Error('Did you forget to plug in the SD card?')
+    # If no removable devices found - prompt user and wait for one to appear.
+    disks = self._ListUsbDisks()
+    try:
+      spinner = '|/-\\'
+      index = 0
+      while not disks:
+        self._out.ClearProgress()
+        self._out.Progress('No removable devices found, plug something in %s '
+                           % spinner[index], trailer='')
+        index = (index + 1) % len(spinner)
+        disks = self._ListUsbDisks()
+        time.sleep(.2)
+    except KeyboardInterrupt:
       return
 
     if dest.startswith(':'):

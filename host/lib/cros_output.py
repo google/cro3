@@ -69,7 +69,7 @@ class Output:
       self._stdout.write('\r%s\r' % (" " * len (self._progress)))
       self._stdout.flush()
 
-  def Progress(self, msg, warning=False):
+  def Progress(self, msg, warning=False, trailer='...'):
     """Display progress information.
 
     Args:
@@ -77,7 +77,7 @@ class Output:
       warning: True if this is a warning."""
     self.ClearProgress()
     if self.verbose > 0:
-      self._progress = msg + '...'
+      self._progress = msg + trailer
       if self.stdout_is_tty:
         col = self._color.YELLOW if warning else self._color.GREEN
         self._stdout.write('\r' + self._color.Color(col, self._progress))
