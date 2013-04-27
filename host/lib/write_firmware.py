@@ -550,8 +550,9 @@ class WriteFirmware:
     if preserved_dut_hub_sel != required_dut_hub_sel:
       # Need to set it to get the port properly powered up.
       args += ['dut_hub_sel:%s' % required_dut_hub_sel]
-    self._out.Progress('Reseting board via servo')
-    self.DutControl(args)
+    if self._servo_port is not None:
+      self._out.Progress('Reseting board via servo')
+      self.DutControl(args)
 
     # If we have a kernel to write, create a new image with that added.
     if kernel:
@@ -775,10 +776,11 @@ class WriteFirmware:
     self._out.Progress('Writing image to em100')
     self._tools.Run('em100', args, sudo=True)
 
-    self._out.Progress('Resetting board')
-    args = ['cold_reset:on', 'sleep:.2', 'cold_reset:off', 'sleep:.5']
-    args.extend(['pwr_button:press', 'sleep:.2', 'pwr_button:release'])
-    self.DutControl(args)
+    if self._servo_port is not None:
+      self._out.Progress('Resetting board via servo')
+      args = ['cold_reset:on', 'sleep:.2', 'cold_reset:off', 'sleep:.5']
+      args.extend(['pwr_button:press', 'sleep:.2', 'pwr_button:release'])
+      self.DutControl(args)
 
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
