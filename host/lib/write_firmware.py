@@ -728,7 +728,7 @@ class WriteFirmware:
         disks = self._ListUsbDisks()
         time.sleep(.2)
     except KeyboardInterrupt:
-      return
+      raise CmdError("No removable device found, interrupted")
 
     if dest.startswith(':'):
       name = dest[1:]
@@ -744,22 +744,16 @@ class WriteFirmware:
     if disk:
       self.WriteToSd(flash_dest, disk, uboot, payload)
     else:
-      self._out.Error("Please specify destination -w 'sd:<disk_description>':")
-      self._out.Error('   - description can be . for the only disk, or')
-      self._out.Error('     the full device name, one of listed below:')
-      msg = 'Found %d available disks.' % len(disks)
-      if not disks:
-        msg += ' Please insert an SD card and try again.'
-      self._out.UserOutput(msg)
-
+      msg = ["Please specify destination as '-w sd:<disk_description>'",]
+      msg.append('   - <disk_description> can be either . for the only disk,')
+      msg.append('     or the full device name, one of listed below:')
       # List available disks as a convenience.
       for disk in disks:
-        self._out.UserOutput('  %s: %s %d.%d GB' % (
+        msg.append('  %s - %s %.1f GB' % (
             disk[0],
             ' '.join(str(x) for x in disk[1:3]),
-            disk[3] / 10,  # Integer number of GBs
-            disk[3] % 10,  # Decimal number of GBs
-            ))
+            disk[3] / 10.0))
+      raise CmdError('\n'.join(msg))
 
   def Em100FlashImage(self, image_fname):
     """Send an image to an attached EM100 device.
