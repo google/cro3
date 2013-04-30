@@ -44,6 +44,11 @@
 # strongly encouraged. Finally, each paycheck.py execution is timed.
 
 
+# Stop on errors, unset variables.
+set -e
+set -u
+
+# Temporary image files.
 OLD_KERN_PART=old_kern.part
 OLD_ROOT_PART=old_root.part
 NEW_DELTA_KERN_PART=new_delta_kern.part
@@ -51,9 +56,6 @@ NEW_DELTA_ROOT_PART=new_delta_root.part
 NEW_FULL_KERN_PART=new_full_kern.part
 NEW_FULL_ROOT_PART=new_full_root.part
 
-# Stop on errors, unset variables.
-set -e
-set -u
 
 log() {
   echo "$@" >&2
@@ -95,18 +97,18 @@ trace_root_block() {
 
 apply_full_payload() {
   payload_file=$1
-  dst_kern_part=$2
-  dst_root_part=$3
+  dst_kern_part="$2/$3"
+  dst_root_part="$2/$4"
 
   time ${paycheck} ${payload_file} ${dst_kern_part} ${dst_root_part}
 }
 
 apply_delta_payload() {
   payload_file=$1
-  dst_kern_part=$2
-  dst_root_part=$3
-  src_kern_part=$4
-  src_root_part=$5
+  dst_kern_part="$2/$3"
+  dst_root_part="$2/$4"
+  src_kern_part="$2/$5"
+  src_root_part="$2/$6"
 
   time ${paycheck} ${payload_file} ${dst_kern_part} ${dst_root_part} \
     ${src_kern_part} ${src_root_part}
@@ -133,13 +135,14 @@ main() {
     die "cannot find paycheck.py or file is not executable"
   fi
 
+  # Check the payloads statically.
   log "Checking payloads..."
   check_payload "${old_full_payload}" "${old_full_metasig}" full
   check_payload "${new_full_payload}" "${new_full_metasig}" full
   check_payload "${delta_payload}" "${delta_metasig}" delta
   log "Done"
 
-  # Pick a random block between 0-1024
+  # Trace a random block between 0-1024 on all payloads.
   block=$((RANDOM * 1024 / 32767))
   log "Tracing a random block (${block}) in full/delta payloads..."
   trace_kern_block "${new_full_payload}" ${block}
@@ -148,21 +151,32 @@ main() {
   trace_root_block "${delta_payload}" ${block}
   log "Done"
 
-  log "Apply old full payload..."
-  apply_full_payload "${old_full_payload}" "${OLD_KERN_PART}" "${OLD_ROOT_PART}"
+  # Apply full/delta payloads and verify results are identical.
+  tmpdir="$(mktemp -d --tmpdir test_paycheck.XXXXXXXX)"
+  log "Initiating application of payloads at $tmpdir"
+
+  log "Applying old full payload..."
+  apply_full_payload "${old_full_payload}" "${tmpdir}" "${OLD_KERN_PART}" \
+    "${OLD_ROOT_PART}"
   log "Done"
-  log "Apply delta payload to old partitions..."
-  time ./paycheck.py "${delta_payload}" "${NEW_DELTA_KERN_PART}" \
+
+  log "Applying delta payload to old partitions..."
+  apply_delta_payload "${delta_payload}" "${tmpdir}" "${NEW_DELTA_KERN_PART}" \
     "${NEW_DELTA_ROOT_PART}" "${OLD_KERN_PART}" "${OLD_ROOT_PART}"
   log "Done"
-  log "Apply new full payload..."
-  time ./paycheck.py "${new_full_payload}" "${NEW_FULL_KERN_PART}" \
+
+  log "Applying new full payload..."
+  apply_full_payload "${new_full_payload}" "${tmpdir}" "${NEW_FULL_KERN_PART}" \
     "${NEW_FULL_ROOT_PART}"
   log "Done"
+
   log "Comparing results of delta and new full updates..."
-  diff "${NEW_FULL_KERN_PART}" "${NEW_DELTA_KERN_PART}"
-  diff "${NEW_FULL_ROOT_PART}" "${NEW_DELTA_ROOT_PART}"
+  diff "${tmpdir}/${NEW_FULL_KERN_PART}" "${tmpdir}/${NEW_DELTA_KERN_PART}"
+  diff "${tmpdir}/${NEW_FULL_ROOT_PART}" "${tmpdir}/${NEW_DELTA_ROOT_PART}"
   log "Done"
+
+  log "Cleaning up"
+  rm -fr "${tmpdir}"
 }
 
 main "$@"
