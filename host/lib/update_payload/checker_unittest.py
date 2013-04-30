@@ -54,14 +54,20 @@ def _GiB(count):
   return count << 30
 
 
-def _GetPayloadChecker(payload_gen_write_to_file_func, *largs, **dargs):
+def _GetPayloadChecker(payload_gen_write_to_file_func, payload_gen_dargs=None,
+                       checker_init_dargs=None):
   """Returns a payload checker from a given payload generator."""
+  if payload_gen_dargs is None:
+    payload_gen_dargs = {}
+  if checker_init_dargs is None:
+    checker_init_dargs = {}
+
   payload_file = cStringIO.StringIO()
-  payload_gen_write_to_file_func(payload_file, *largs, **dargs)
+  payload_gen_write_to_file_func(payload_file, **payload_gen_dargs)
   payload_file.seek(0)
   payload = update_payload.Payload(payload_file)
   payload.Init()
-  return checker.PayloadChecker(payload)
+  return checker.PayloadChecker(payload, **checker_init_dargs)
 
 
 def _GetPayloadCheckerWithData(payload_gen):
@@ -783,7 +789,8 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
     # Create the test object.
     payload = self.MockPayload()
-    payload_checker = checker.PayloadChecker(payload)
+    payload_checker = checker.PayloadChecker(payload,
+                                             allow_unhashed=allow_unhashed)
     block_size = payload_checker.block_size
 
     # Create auxiliary arguments.
@@ -865,7 +872,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
                    fail_dst_length or fail_data_hash or fail_prev_data_offset)
     largs = [op, 'foo', is_last, old_block_counters, new_block_counters,
              old_part_size, new_part_size, prev_data_offset, allow_signature,
-             allow_unhashed, blob_hash_counts]
+             blob_hash_counts]
     if should_fail:
       self.assertRaises(update_payload.PayloadError,
                         payload_checker._CheckOperation, *largs)
@@ -919,13 +926,15 @@ class PayloadCheckerTest(mox.MoxTestBase):
                              data_length=rootfs_data_length)
 
     # Create the test object.
-    payload_checker = _GetPayloadChecker(payload_gen.WriteToFile)
+    payload_checker = _GetPayloadChecker(payload_gen.WriteToFile,
+                                         checker_init_dargs={
+                                             'allow_unhashed': True})
     payload_checker.payload_type = checker._TYPE_FULL
     report = checker._PayloadReport()
 
     should_fail = (fail_bad_type or fail_nonexhaustive_full_update)
     largs = (payload_checker.payload.manifest.install_operations, report,
-             'foo', 0, rootfs_part_size, 0, True, False)
+             'foo', 0, rootfs_part_size, 0, False)
     if should_fail:
       self.assertRaises(update_payload.PayloadError,
                         payload_checker._CheckOperations, *largs)
@@ -982,9 +991,11 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
     # Generate payload (complete w/ signature) and create the test object.
     payload_checker = _GetPayloadChecker(
-        payload_gen.WriteToFileWithData, sigs_data=sigs_data,
-        privkey_file_name=_PRIVKEY_FILE_NAME,
-        do_add_pseudo_operation=(not do_forge_pseudo_op))
+        payload_gen.WriteToFileWithData,
+        payload_gen_dargs={
+            'sigs_data': sigs_data,
+            'privkey_file_name': _PRIVKEY_FILE_NAME,
+            'do_add_pseudo_operation': not do_forge_pseudo_op})
     payload_checker.payload_type = checker._TYPE_FULL
     report = checker._PayloadReport()
 
@@ -1004,7 +1015,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
   def DoRunTest(self, fail_wrong_payload_type, fail_invalid_block_size,
                 fail_mismatched_block_size, fail_excess_data):
     # Generate a test payload. For this test, we generate a full update that
-    # has samle kernel and rootfs operations. Since most testing is done with
+    # has sample kernel and rootfs operations. Since most testing is done with
     # internal PayloadChecker methods that are tested elsewhere, here we only
     # tamper with what's actually being manipulated and/or tested in the Run()
     # method itself. Note that the checker doesn't verify partition hashes, so
@@ -1028,30 +1039,36 @@ class PayloadCheckerTest(mox.MoxTestBase):
         data_blob=os.urandom(kernel_part_size))
 
     # Generate payload (complete w/ signature) and create the test object.
-    payload_checker = _GetPayloadChecker(
-        payload_gen.WriteToFileWithData,
-        privkey_file_name=_PRIVKEY_FILE_NAME,
-        do_add_pseudo_operation=True, is_pseudo_in_kernel=True,
-        padding=os.urandom(1024) if fail_excess_data else None)
-
     if fail_invalid_block_size:
       use_block_size = block_size + 5  # not a power of two
     elif fail_mismatched_block_size:
       use_block_size = block_size * 2  # different that payload stated
     else:
       use_block_size = block_size
-    dargs = {
-        'pubkey_file_name': _PUBKEY_FILE_NAME,
-        'assert_type': 'delta' if fail_wrong_payload_type else 'full',
-        'block_size': use_block_size}
 
-    should_fail = (fail_wrong_payload_type or fail_invalid_block_size or
-                   fail_mismatched_block_size or fail_excess_data)
-    if should_fail:
-      self.assertRaises(update_payload.PayloadError,
-                        payload_checker.Run, **dargs)
+    dargs = {
+        'payload_gen_dargs': {
+            'privkey_file_name': _PRIVKEY_FILE_NAME,
+            'do_add_pseudo_operation': True,
+            'is_pseudo_in_kernel': True,
+            'padding': os.urandom(1024) if fail_excess_data else None},
+        'checker_init_dargs': {
+            'assert_type': 'delta' if fail_wrong_payload_type else 'full',
+            'block_size': use_block_size}}
+    if fail_invalid_block_size:
+      self.assertRaises(update_payload.PayloadError, _GetPayloadChecker,
+                        payload_gen.WriteToFileWithData, **dargs)
     else:
-      self.assertIsNone(payload_checker.Run(**dargs))
+      payload_checker = _GetPayloadChecker(payload_gen.WriteToFileWithData,
+                                           **dargs)
+      dargs = {'pubkey_file_name': _PUBKEY_FILE_NAME}
+      should_fail = (fail_wrong_payload_type or fail_mismatched_block_size or
+                     fail_excess_data)
+      if should_fail:
+        self.assertRaises(update_payload.PayloadError,
+                          payload_checker.Run, **dargs)
+      else:
+        self.assertIsNone(payload_checker.Run(**dargs))
 
 
 # This implements a generic API, hence the occasional unused args.

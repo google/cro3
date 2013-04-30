@@ -175,7 +175,7 @@ class Payload(object):
 
   def Check(self, pubkey_file_name=None, metadata_sig_file=None,
             report_out_file=None, assert_type=None, block_size=0,
-            allow_unhashed=False):
+            allow_unhashed=False, disabled_tests=()):
     """Checks the payload integrity.
 
     Args:
@@ -185,6 +185,7 @@ class Payload(object):
       assert_type: assert that payload is either 'full' or 'delta'
       block_size: expected filesystem / payload block size
       allow_unhashed: allow unhashed operation blobs
+      disabled_tests: list of tests to disable
     Raises:
       PayloadError if payload verification failed.
 
@@ -192,11 +193,12 @@ class Payload(object):
     self._AssertInit()
 
     # Create a short-lived payload checker object and run it.
-    helper = checker.PayloadChecker(self)
+    helper = checker.PayloadChecker(
+        self, assert_type=assert_type, block_size=block_size,
+        allow_unhashed=allow_unhashed, disabled_tests=disabled_tests)
     helper.Run(pubkey_file_name=pubkey_file_name,
                metadata_sig_file=metadata_sig_file,
-               report_out_file=report_out_file, assert_type=assert_type,
-               block_size=block_size, allow_unhashed=allow_unhashed)
+               report_out_file=report_out_file)
 
   def Apply(self, dst_kernel_part, dst_rootfs_part, src_kernel_part=None,
             src_rootfs_part=None):

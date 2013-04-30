@@ -8,3 +8,4 @@
 # pylint: disable=W0401
 from error import PayloadError
 from payload import Payload
+from checker import CHECKS_TO_DISABLE

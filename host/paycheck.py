@@ -62,6 +62,11 @@ def ParseArguments(argv):
                         help='assert a non-default (4096) payload block size')
   check_opts.add_option('-u', '--allow-unhashed', action='store_true',
                         default=False, help='allow unhashed operations')
+  check_opts.add_option('-d', '--disabled_tests', metavar='TESTLIST',
+                        default=(),
+                        help=('comma-separated list of tests to disable; '
+                              'available values: ' +
+                              ', '.join(update_payload.CHECKS_TO_DISABLE)))
   check_opts.add_option('-k', '--key', metavar='FILE',
                         help='public key to be used for signature verification')
   check_opts.add_option('-m', '--meta-sig', metavar='FILE',
@@ -83,6 +88,13 @@ def ParseArguments(argv):
   # Validate a value given to --type, if any.
   if opts.assert_type not in (None, _TYPE_FULL, _TYPE_DELTA):
     parser.error('invalid argument to --type: %s' % opts.assert_type)
+
+  # Convert and validate --disabled_tests value list, if provided.
+  if opts.disabled_tests:
+    opts.disabled_tests = opts.disabled_tests.split(',')
+    for test in opts.disabled_tests:
+      if test not in update_payload.CHECKS_TO_DISABLE:
+        parser.error('invalid argument to --disabled_tests: %s' % test)
 
   # Ensure consistent use of block tracing options.
   do_block_trace = opts.root_block or opts.kern_block
@@ -145,7 +157,8 @@ def main(argv):
               report_out_file=report_file,
               assert_type=options.assert_type,
               block_size=int(options.block_size),
-              allow_unhashed=options.allow_unhashed)
+              allow_unhashed=options.allow_unhashed,
+              disabled_tests=options.disabled_tests)
         finally:
           if do_close_report_file:
             report_file.close()

@@ -28,6 +28,15 @@ import update_metadata_pb2
 #
 # Constants / helper functions.
 #
+_CHECK_DST_PSEUDO_EXTENTS = 'dst-pseudo-extents'
+_CHECK_MOVE_SAME_SRC_DST_BLOCK = 'move-same-src-dst-block'
+_CHECK_PAYLOAD_SIG = 'payload-sig'
+CHECKS_TO_DISABLE = (
+  _CHECK_DST_PSEUDO_EXTENTS,
+  _CHECK_MOVE_SAME_SRC_DST_BLOCK,
+  _CHECK_PAYLOAD_SIG,
+)
+
 _TYPE_FULL = 'full'
 _TYPE_DELTA = 'delta'
 
@@ -252,19 +261,45 @@ class PayloadChecker(object):
 
   """
 
-  def __init__(self, payload):
+  def __init__(self, payload, assert_type=None, block_size=0,
+               allow_unhashed=False, disabled_tests=()):
+    """Initialize the checker object.
+
+    Args:
+      payload: the payload object to check
+      assert_type: assert that payload is either 'full' or 'delta' (optional)
+      block_size: expected filesystem / payload block size (optional)
+      allow_unhashed: allow operations with unhashed data blobs
+      disabled_tests: list of tests to disable
+
+    """
     assert payload.is_init, 'uninitialized update payload'
+
+    # Set checker configuration.
     self.payload = payload
+    self.block_size = block_size if block_size else _DEFAULT_BLOCK_SIZE
+    if not _IsPowerOfTwo(self.block_size):
+      raise PayloadError('expected block (%d) size is not a power of two' %
+                         self.block_size)
+    if assert_type not in (None, _TYPE_FULL, _TYPE_DELTA):
+      raise PayloadError("invalid assert_type value (`%s')" % assert_type)
+    self.payload_type = assert_type
+    self.allow_unhashed = allow_unhashed
+
+    # Disable specific tests.
+    self.check_dst_pseudo_extents = (
+        _CHECK_DST_PSEUDO_EXTENTS not in disabled_tests)
+    self.check_move_same_src_dst_block = (
+        _CHECK_MOVE_SAME_SRC_DST_BLOCK not in disabled_tests)
+    self.check_payload_sig = _CHECK_PAYLOAD_SIG not in disabled_tests
 
     # Reset state; these will be assigned when the manifest is checked.
-    self.block_size = _DEFAULT_BLOCK_SIZE
     self.sigs_offset = 0
     self.sigs_size = 0
     self.old_rootfs_size = 0
     self.old_kernel_size = 0
     self.new_rootfs_size = 0
     self.new_kernel_size = 0
-    self.payload_type = None
 
   @staticmethod
   def _CheckElem(msg, name, report, is_mandatory, is_submsg, convert=str,
@@ -668,7 +703,7 @@ class PayloadChecker(object):
         dst_idx = dst_extent.start_block
         dst_num = dst_extent.num_blocks
 
-      if src_idx == dst_idx:
+      if self.check_move_same_src_dst_block and src_idx == dst_idx:
         raise PayloadError('%s: src/dst block number %d is the same (%d)' %
                            (op_name, i, src_idx))
 
@@ -716,8 +751,7 @@ class PayloadChecker(object):
 
   def _CheckOperation(self, op, op_name, is_last, old_block_counters,
                       new_block_counters, old_part_size, new_part_size,
-                      prev_data_offset, allow_signature, allow_unhashed,
-                      blob_hash_counts):
+                      prev_data_offset, allow_signature, blob_hash_counts):
     """Checks a single update operation.
 
     Args:
@@ -730,7 +764,6 @@ class PayloadChecker(object):
       new_part_size: the target partition size in bytes
       prev_data_offset: offset of last used data bytes
       allow_signature: whether this may be a signature operation
-      allow_unhashed: allow operations with unhashed data blobs
       blob_hash_counts: counters for hashed/unhashed blobs
     Returns:
       The amount of data blob associated with the operation.
@@ -746,7 +779,9 @@ class PayloadChecker(object):
                                   op.type == common.OpType.REPLACE)
     total_dst_blocks = self._CheckExtents(
         op.dst_extents, new_part_size, new_block_counters,
-        op_name + '.dst_extents', allow_signature=allow_signature_in_extents)
+        op_name + '.dst_extents',
+        allow_pseudo=(not self.check_dst_pseudo_extents),
+        allow_signature=allow_signature_in_extents)
 
     # Check: data_offset present <==> data_length present.
     data_offset = self._CheckOptionalField(op, 'data_offset', None)
@@ -785,7 +820,7 @@ class PayloadChecker(object):
     elif data_offset is not None:
       if allow_signature_in_extents:
         blob_hash_counts['signature'] += 1
-      elif allow_unhashed:
+      elif self.allow_unhashed:
         blob_hash_counts['unhashed'] += 1
       else:
         raise PayloadError('%s: unhashed operation not allowed' % op_name)
@@ -827,8 +862,7 @@ class PayloadChecker(object):
     return array.array('B', [0] * num_blocks)
 
   def _CheckOperations(self, operations, report, base_name, old_part_size,
-                       new_part_size, prev_data_offset, allow_unhashed,
-                       allow_signature):
+                       new_part_size, prev_data_offset, allow_signature):
     """Checks a sequence of update operations.
 
     Args:
@@ -838,7 +872,6 @@ class PayloadChecker(object):
       old_part_size: the old partition size in bytes
       new_part_size: the new partition size in bytes
       prev_data_offset: offset of last used data bytes
-      allow_unhashed: allow operations with unhashed data blobs
       allow_signature: whether this sequence may contain signature operations
     Returns:
       The total data blob size used.
@@ -889,7 +922,7 @@ class PayloadChecker(object):
       curr_data_used = self._CheckOperation(
           op, op_name, is_last, old_block_counters, new_block_counters,
           old_part_size, new_part_size, prev_data_offset + total_data_used,
-          allow_signature, allow_unhashed, blob_hash_counts)
+          allow_signature, blob_hash_counts)
       if curr_data_used:
         op_blob_totals[op.type] += curr_data_used
         total_data_used += curr_data_used
@@ -981,32 +1014,18 @@ class PayloadChecker(object):
         raise PayloadError('unknown signature version (%d)' % sig.version)
 
   def Run(self, pubkey_file_name=None, metadata_sig_file=None,
-          report_out_file=None, assert_type=None, block_size=0,
-          allow_unhashed=False):
+          report_out_file=None):
     """Checker entry point, invoking all checks.
 
     Args:
       pubkey_file_name: public key used for signature verification
       metadata_sig_file: metadata signature, if verification is desired
       report_out_file: file object to dump the report to
-      assert_type: assert that payload is either 'full' or 'delta' (optional)
-      block_size: expected filesystem / payload block size
-      allow_unhashed: allow operations with unhashed data blobs
     Raises:
       PayloadError if payload verification failed.
 
     """
     report = _PayloadReport()
-
-    if assert_type not in (None, _TYPE_FULL, _TYPE_DELTA):
-      raise PayloadError("invalid assert_type value (`%s')" % assert_type)
-    self.payload_type = assert_type
-
-    if block_size:
-      self.block_size = block_size
-    if not _IsPowerOfTwo(self.block_size):
-      raise PayloadError('expected block (%d) size is not a power of two' %
-                         self.block_size)
 
     # Get payload file size.
     self.payload.payload_file.seek(0, 2)
@@ -1041,15 +1060,15 @@ class PayloadChecker(object):
       report.AddSection('rootfs operations')
       total_blob_size = self._CheckOperations(
           self.payload.manifest.install_operations, report,
-          'install_operations', self.old_rootfs_size,
-          self.new_rootfs_size, 0, allow_unhashed, False)
+          'install_operations', self.old_rootfs_size, self.new_rootfs_size, 0,
+          False)
 
       # Part 4: examine kernel operations.
       report.AddSection('kernel operations')
       total_blob_size += self._CheckOperations(
           self.payload.manifest.kernel_install_operations, report,
           'kernel_install_operations', self.old_kernel_size,
-          self.new_kernel_size, total_blob_size, allow_unhashed, True)
+          self.new_kernel_size, total_blob_size, True)
 
       # Check: operations data reach the end of the payload file.
       used_payload_size = self.payload.data_offset + total_blob_size
@@ -1059,7 +1078,7 @@ class PayloadChecker(object):
             (used_payload_size, payload_file_size))
 
       # Part 5: handle payload signatures message.
-      if self.sigs_size:
+      if self.check_payload_sig and self.sigs_size:
         if not pubkey_file_name:
           raise PayloadError(
               'no public key provided, cannot verify payload signature')
