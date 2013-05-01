@@ -146,6 +146,21 @@ if generating a delta update (default: false)"
 DEFINE_integer chunk_size -1 \
   "Delta payload chunk size (default -1 means whole files)"
 
+DEFINE_string src_channel "" "Channel of the src image."
+DEFINE_string src_board "" "Board of the src image."
+DEFINE_string src_version "" "Version of the src image."
+DEFINE_string src_key "" "Key of the src image."
+DEFINE_string src_build_channel "" "Channel of the build of the src image."
+DEFINE_string src_build_version "" "Version of the build of the src image."
+
+DEFINE_string channel "" "Channel of the target image."
+DEFINE_string board "" "Board of the target image."
+DEFINE_string version "" "Version of the target image."
+DEFINE_string key "" "Key of the target image."
+DEFINE_string build_channel "" "Channel of the build of the target image."
+DEFINE_string build_version "" "Version of the build of the target image."
+
+
 # Parse command line
 FLAGS "$@" || exit 1
 eval set -- "${FLAGS_ARGV}"
@@ -230,12 +245,24 @@ if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
       -old_dir "$SRC_MNT" -old_image "$SRC_ROOT" -old_kernel "$SRC_KERNEL" \
       -out_file "$FLAGS_output" -private_key "$FLAGS_private_key" \
       -chunk_size "$FLAGS_chunk_size" \
-      -rootfs_partition_size="$ROOTFS_PARTITION_SIZE"
+      -rootfs_partition_size="$ROOTFS_PARTITION_SIZE" \
+      -old_channel "$FLAGS_src_channel" -old_board "$FLAGS_src_board" \
+      -old_version "$FLAGS_src_version" -old_key "$FLAGS_src_key" \
+      -old_build_channel "$FLAGS_src_build_channel" \
+      -old_build_version "$FLAGS_src_build_version" \
+      -new_channel "$FLAGS_channel" -new_board "$FLAGS_board" \
+      -new_version "$FLAGS_version" -new_key "$FLAGS_key" \
+      -new_build_channel "$FLAGS_build_channel" \
+      -new_build_version "$FLAGS_build_version"
 else
   "$GENERATOR" \
       -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
       -out_file "$FLAGS_output" -private_key "$FLAGS_private_key" \
-      -rootfs_partition_size="$ROOTFS_PARTITION_SIZE"
+      -rootfs_partition_size="$ROOTFS_PARTITION_SIZE" \
+      -new_channel "$FLAGS_channel" -new_board "$FLAGS_board" \
+      -new_version "$FLAGS_version" -new_key "$FLAGS_key" \
+      -new_build_channel "$FLAGS_build_channel" \
+      -new_build_version "$FLAGS_build_version"
 fi
 
 trap - INT TERM EXIT
