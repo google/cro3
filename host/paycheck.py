@@ -48,6 +48,9 @@ def ParseArguments(argv):
               'Update Engine. Use --check to verify a payload prior to '
               'applying it.'))
 
+  default_key = os.path.join(lib_dir,
+                             'update_payload/update-payload-key.pub.pem')
+
   check_opts = optparse.OptionGroup(parser, 'Payload integrity checking')
   check_opts.add_option('-c', '--check', action='store_true', default=False,
                         help=('force payload integrity check (e.g. before '
@@ -68,7 +71,9 @@ def ParseArguments(argv):
                               'available values: ' +
                               ', '.join(update_payload.CHECKS_TO_DISABLE)))
   check_opts.add_option('-k', '--key', metavar='FILE',
-                        help='public key to be used for signature verification')
+                        help='Override standard key used for signature '
+                             'validation',
+                        default=default_key)
   check_opts.add_option('-m', '--meta-sig', metavar='FILE',
                         help='verify metadata against its signature')
   parser.add_option_group(check_opts)
