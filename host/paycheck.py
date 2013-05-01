@@ -125,6 +125,15 @@ def ParseArguments(argv):
   else:
     parser.error('unexpected number of arguments')
 
+  # By default, look for a metadata-signature file with a name based on the name
+  # of the payload we are checking.
+  if not opts.meta_sig:
+    print "Looking for default signature."
+    default_meta_sig = args[0] + '.metadata-signature'
+    if os.path.isfile(default_meta_sig):
+      opts.meta_sig = default_meta_sig
+      print "Using default signature %s." % opts.meta_sig
+
   return opts, args[0], args[1:]
 
 
