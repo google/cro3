@@ -234,7 +234,8 @@ if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
 else
   "$GENERATOR" \
       -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
-      -out_file "$FLAGS_output" -private_key "$FLAGS_private_key"
+      -out_file "$FLAGS_output" -private_key "$FLAGS_private_key" \
+      -rootfs_partition_size="$ROOTFS_PARTITION_SIZE"
 fi
 
 trap - INT TERM EXIT
