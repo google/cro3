@@ -46,7 +46,7 @@ class OpType(object):
 
 
 #
-# Checker and hashed reading of data.
+# Checked and hashed reading of data.
 #
 def IntPackingFmtStr(size, is_unsigned):
   """Returns an integer format string for use by the struct module.

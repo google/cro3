@@ -17,6 +17,10 @@ if os.path.exists(lib_dir) and os.path.isdir(lib_dir):
 import update_payload
 
 
+# The default sizes of partitions, based on current partitioning practice.
+_DEFAULT_ROOTFS_PART_SIZE = 2 * 1024 * 1024 * 1024
+_DEFAULT_KERNEL_PART_SIZE = 16 * 1024 * 1024
+
 _TYPE_FULL = 'full'
 _TYPE_DELTA = 'delta'
 
@@ -76,6 +80,15 @@ def ParseArguments(argv):
                         default=default_key)
   check_opts.add_option('-m', '--meta-sig', metavar='FILE',
                         help='verify metadata against its signature')
+  check_opts.add_option('-p', '--root-part-size', metavar='NUM',
+                        default=_DEFAULT_ROOTFS_PART_SIZE, type='int',
+                        help=('override default (%default) rootfs partition '
+                              'size'))
+  check_opts.add_option('-P', '--kern-part-size', metavar='NUM',
+                        default=_DEFAULT_KERNEL_PART_SIZE, type='int',
+                        help=('override default (%default) kernel partition '
+                              'size'))
+
   parser.add_option_group(check_opts)
 
   trace_opts = optparse.OptionGroup(parser, 'Block tracing')
@@ -109,7 +122,9 @@ def ParseArguments(argv):
   # There are several options that imply --check.
   opts.check = (opts.check or opts.report or opts.assert_type or
                 opts.block_size or opts.allow_unhashed or
-                opts.disabled_tests or opts.key or opts.meta_sig)
+                opts.disabled_tests or opts.key or opts.meta_sig or
+                opts.root_part_size != _DEFAULT_ROOTFS_PART_SIZE or
+                opts.kern_part_size != _DEFAULT_KERNEL_PART_SIZE)
 
   # Check number of arguments, enforce payload type accordingly.
   if len(args) == 3:
@@ -171,6 +186,8 @@ def main(argv):
               report_out_file=report_file,
               assert_type=options.assert_type,
               block_size=int(options.block_size),
+              rootfs_part_size=options.root_part_size,
+              kernel_part_size=options.kern_part_size,
               allow_unhashed=options.allow_unhashed,
               disabled_tests=options.disabled_tests)
         finally:

@@ -32,9 +32,9 @@ _CHECK_DST_PSEUDO_EXTENTS = 'dst-pseudo-extents'
 _CHECK_MOVE_SAME_SRC_DST_BLOCK = 'move-same-src-dst-block'
 _CHECK_PAYLOAD_SIG = 'payload-sig'
 CHECKS_TO_DISABLE = (
-  _CHECK_DST_PSEUDO_EXTENTS,
-  _CHECK_MOVE_SAME_SRC_DST_BLOCK,
-  _CHECK_PAYLOAD_SIG,
+    _CHECK_DST_PSEUDO_EXTENTS,
+    _CHECK_MOVE_SAME_SRC_DST_BLOCK,
+    _CHECK_PAYLOAD_SIG,
 )
 
 _TYPE_FULL = 'full'
@@ -296,10 +296,10 @@ class PayloadChecker(object):
     # Reset state; these will be assigned when the manifest is checked.
     self.sigs_offset = 0
     self.sigs_size = 0
-    self.old_rootfs_size = 0
-    self.old_kernel_size = 0
-    self.new_rootfs_size = 0
-    self.new_kernel_size = 0
+    self.old_rootfs_fs_size = 0
+    self.old_kernel_fs_size = 0
+    self.new_rootfs_fs_size = 0
+    self.new_kernel_fs_size = 0
 
   @staticmethod
   def _CheckElem(msg, name, report, is_mandatory, is_submsg, convert=str,
@@ -459,22 +459,24 @@ class PayloadChecker(object):
 
     """
     # Check: length <= num_blocks * block_size.
-    if not length <= num_blocks * block_size:
+    if length > num_blocks * block_size:
       raise PayloadError(
           '%s (%d) > num %sblocks (%d) * block_size (%d)' %
           (length_name, length, block_name or '', num_blocks, block_size))
 
     # Check: length > (num_blocks - 1) * block_size.
-    if not length > (num_blocks - 1) * block_size:
+    if length <= (num_blocks - 1) * block_size:
       raise PayloadError(
           '%s (%d) <= (num %sblocks - 1 (%d)) * block_size (%d)' %
           (length_name, length, block_name or '', num_blocks - 1, block_size))
 
-  def _CheckManifest(self, report):
+  def _CheckManifest(self, report, rootfs_part_size=0, kernel_part_size=0):
     """Checks the payload manifest.
 
     Args:
       report: a report object to add to
+      rootfs_part_size: size of the rootfs partition in bytes
+      kernel_part_size: size of the kernel partition in bytes
     Returns:
       A tuple consisting of the partition block size used during the update
       (integer), the signatures block offset and size.
@@ -515,14 +517,24 @@ class PayloadChecker(object):
       self.payload_type = _TYPE_DELTA
 
       # Check: {size, hash} present in old_{kernel,rootfs}_info.
-      self.old_kernel_size = self._CheckMandatoryField(
+      self.old_kernel_fs_size = self._CheckMandatoryField(
           oki_msg, 'size', oki_report, 'old_kernel_info')
       self._CheckMandatoryField(oki_msg, 'hash', oki_report, 'old_kernel_info',
                                 convert=common.FormatSha256)
-      self.old_rootfs_size = self._CheckMandatoryField(
+      self.old_rootfs_fs_size = self._CheckMandatoryField(
           ori_msg, 'size', ori_report, 'old_rootfs_info')
       self._CheckMandatoryField(ori_msg, 'hash', ori_report, 'old_rootfs_info',
                                 convert=common.FormatSha256)
+
+      # Check: old_{kernel,rootfs} size must fit in respective partition.
+      if kernel_part_size and self.old_kernel_fs_size > kernel_part_size:
+        raise PayloadError(
+            'old kernel content (%d) exceed partition size (%d)' %
+            (self.old_kernel_fs_size, kernel_part_size))
+      if rootfs_part_size and self.old_rootfs_fs_size > rootfs_part_size:
+        raise PayloadError(
+            'old rootfs content (%d) exceed partition size (%d)' %
+            (self.old_rootfs_fs_size, rootfs_part_size))
     else:
       # Assert/mark full payload.
       if self.payload_type == _TYPE_DELTA:
@@ -533,7 +545,7 @@ class PayloadChecker(object):
     # Check: new_kernel_info present; contains {size, hash}.
     nki_msg, nki_report = self._CheckMandatorySubMsg(
         manifest, 'new_kernel_info', report, 'manifest')
-    self.new_kernel_size = self._CheckMandatoryField(
+    self.new_kernel_fs_size = self._CheckMandatoryField(
         nki_msg, 'size', nki_report, 'new_kernel_info')
     self._CheckMandatoryField(nki_msg, 'hash', nki_report, 'new_kernel_info',
                               convert=common.FormatSha256)
@@ -541,10 +553,20 @@ class PayloadChecker(object):
     # Check: new_rootfs_info present; contains {size, hash}.
     nri_msg, nri_report = self._CheckMandatorySubMsg(
         manifest, 'new_rootfs_info', report, 'manifest')
-    self.new_rootfs_size = self._CheckMandatoryField(
+    self.new_rootfs_fs_size = self._CheckMandatoryField(
         nri_msg, 'size', nri_report, 'new_rootfs_info')
     self._CheckMandatoryField(nri_msg, 'hash', nri_report, 'new_rootfs_info',
                               convert=common.FormatSha256)
+
+    # Check: new_{kernel,rootfs} size must fit in respective partition.
+    if kernel_part_size and self.new_kernel_fs_size > kernel_part_size:
+      raise PayloadError(
+          'new kernel content (%d) exceed partition size (%d)' %
+          (self.new_kernel_fs_size, kernel_part_size))
+    if rootfs_part_size and self.new_rootfs_fs_size > rootfs_part_size:
+      raise PayloadError(
+          'new rootfs content (%d) exceed partition size (%d)' %
+          (self.new_rootfs_fs_size, rootfs_part_size))
 
     # Check: payload must contain at least one operation.
     if not(len(manifest.install_operations) or
@@ -571,13 +593,13 @@ class PayloadChecker(object):
     self._CheckBlocksFitLength(length, total_blocks, self.block_size,
                                '%s: %s' % (op_name, length_name))
 
-  def _CheckExtents(self, extents, part_size, block_counters, name,
+  def _CheckExtents(self, extents, usable_size, block_counters, name,
                     allow_pseudo=False, allow_signature=False):
     """Checks a sequence of extents.
 
     Args:
       extents: the sequence of extents to check
-      part_size: the total size of the partition to which the extents apply
+      usable_size: the usable size of the partition to which the extents apply
       block_counters: an array of counters corresponding to the number of blocks
       name: the name of the extent block
       allow_pseudo: whether or not pseudo block numbers are allowed
@@ -603,10 +625,10 @@ class PayloadChecker(object):
 
       if start_block != common.PSEUDO_EXTENT_MARKER:
         # Check: make sure we're within the partition limit.
-        if part_size and end_block * self.block_size > part_size:
+        if usable_size and end_block * self.block_size > usable_size:
           raise PayloadError(
-              '%s: extent (%s) exceeds partition size (%d)' %
-              (ex_name, common.FormatExtent(ex, self.block_size), part_size))
+              '%s: extent (%s) exceeds usable partition size (%d)' %
+              (ex_name, common.FormatExtent(ex, self.block_size), usable_size))
 
         # Record block usage.
         for i in range(start_block, end_block):
@@ -750,7 +772,7 @@ class PayloadChecker(object):
            total_dst_blocks * self.block_size))
 
   def _CheckOperation(self, op, op_name, is_last, old_block_counters,
-                      new_block_counters, old_part_size, new_part_size,
+                      new_block_counters, old_fs_size, new_usable_size,
                       prev_data_offset, allow_signature, blob_hash_counts):
     """Checks a single update operation.
 
@@ -760,8 +782,8 @@ class PayloadChecker(object):
       is_last: whether this is the last operation in the sequence
       old_block_counters: arrays of block read counters
       new_block_counters: arrays of block write counters
-      old_part_size: the source partition size in bytes
-      new_part_size: the target partition size in bytes
+      old_fs_size: the old filesystem size in bytes
+      new_usable_size: the overall usable size of the new partition in bytes
       prev_data_offset: offset of last used data bytes
       allow_signature: whether this may be a signature operation
       blob_hash_counts: counters for hashed/unhashed blobs
@@ -773,12 +795,12 @@ class PayloadChecker(object):
     """
     # Check extents.
     total_src_blocks = self._CheckExtents(
-        op.src_extents, old_part_size, old_block_counters,
+        op.src_extents, old_fs_size, old_block_counters,
         op_name + '.src_extents', allow_pseudo=True)
     allow_signature_in_extents = (allow_signature and is_last and
                                   op.type == common.OpType.REPLACE)
     total_dst_blocks = self._CheckExtents(
-        op.dst_extents, new_part_size, new_block_counters,
+        op.dst_extents, new_usable_size, new_block_counters,
         op_name + '.dst_extents',
         allow_pseudo=(not self.check_dst_pseudo_extents),
         allow_signature=allow_signature_in_extents)
@@ -848,29 +870,34 @@ class PayloadChecker(object):
 
     return data_length if data_length is not None else 0
 
-  def _AllocBlockCounters(self, part_size):
+  def _SizeToNumBlocks(self, size):
+    """Returns the number of blocks needed to contain a given byte size."""
+    return (size + self.block_size - 1) / self.block_size
+
+  def _AllocBlockCounters(self, total_size):
     """Returns a freshly initialized array of block counters.
 
     Args:
-      part_size: the size of the partition
+      total_size: the total block size in bytes
     Returns:
       An array of unsigned char elements initialized to zero, one for each of
       the blocks necessary for containing the partition.
 
     """
-    num_blocks = (part_size + self.block_size - 1) / self.block_size
-    return array.array('B', [0] * num_blocks)
+    return array.array('B', [0] * self._SizeToNumBlocks(total_size))
 
-  def _CheckOperations(self, operations, report, base_name, old_part_size,
-                       new_part_size, prev_data_offset, allow_signature):
+  def _CheckOperations(self, operations, report, base_name, old_fs_size,
+                       new_fs_size, new_usable_size, prev_data_offset,
+                       allow_signature):
     """Checks a sequence of update operations.
 
     Args:
       operations: the sequence of operations to check
       report: the report object to add to
       base_name: the name of the operation block
-      old_part_size: the old partition size in bytes
-      new_part_size: the new partition size in bytes
+      old_fs_size: the old filesystem size in bytes
+      new_fs_size: the new filesystem size in bytes
+      new_usable_size: the olverall usable size of the new partition in bytes
       prev_data_offset: offset of last used data bytes
       allow_signature: whether this sequence may contain signature operations
     Returns:
@@ -904,9 +931,9 @@ class PayloadChecker(object):
       blob_hash_counts['signature'] = 0
 
     # Allocate old and new block counters.
-    old_block_counters = (self._AllocBlockCounters(old_part_size)
-                          if old_part_size else None)
-    new_block_counters = self._AllocBlockCounters(new_part_size)
+    old_block_counters = (self._AllocBlockCounters(old_fs_size)
+                          if old_fs_size else None)
+    new_block_counters = self._AllocBlockCounters(new_usable_size)
 
     # Process and verify each operation.
     op_num = 0
@@ -921,7 +948,7 @@ class PayloadChecker(object):
       is_last = op_num == len(operations)
       curr_data_used = self._CheckOperation(
           op, op_name, is_last, old_block_counters, new_block_counters,
-          old_part_size, new_part_size, prev_data_offset + total_data_used,
+          old_fs_size, new_usable_size, prev_data_offset + total_data_used,
           allow_signature, blob_hash_counts)
       if curr_data_used:
         op_blob_totals[op.type] += curr_data_used
@@ -952,15 +979,16 @@ class PayloadChecker(object):
                       histogram.Histogram.FromKeyList(old_block_counters),
                       linebreak=True, indent=1)
 
-    new_write_hist = histogram.Histogram.FromKeyList(new_block_counters)
+    new_write_hist = histogram.Histogram.FromKeyList(
+        new_block_counters[:self._SizeToNumBlocks(new_fs_size)])
+    report.AddField('block write hist', new_write_hist, linebreak=True,
+                    indent=1)
+
     # Check: full update must write each dst block once.
     if self.payload_type == _TYPE_FULL and new_write_hist.GetKeys() != [1]:
       raise PayloadError(
           '%s: not all blocks written exactly once during full update' %
           base_name)
-
-    report.AddField('block write hist', new_write_hist, linebreak=True,
-                    indent=1)
 
     return total_data_used
 
@@ -1014,12 +1042,16 @@ class PayloadChecker(object):
         raise PayloadError('unknown signature version (%d)' % sig.version)
 
   def Run(self, pubkey_file_name=None, metadata_sig_file=None,
-          report_out_file=None):
+          rootfs_part_size=0, kernel_part_size=0, report_out_file=None):
     """Checker entry point, invoking all checks.
 
     Args:
       pubkey_file_name: public key used for signature verification
       metadata_sig_file: metadata signature, if verification is desired
+      rootfs_part_size: the size of rootfs partitions in bytes (default: use
+                        reported filesystem size)
+      kernel_part_size: the size of kernel partitions in bytes (default: use
+                        reported filesystem size)
       report_out_file: file object to dump the report to
     Raises:
       PayloadError if payload verification failed.
@@ -1053,22 +1085,26 @@ class PayloadChecker(object):
       report.AddField('manifest len', self.payload.header.manifest_len)
 
       # Part 2: check the manifest.
-      self._CheckManifest(report)
+      self._CheckManifest(report, rootfs_part_size, kernel_part_size)
       assert self.payload_type, 'payload type should be known by now'
 
       # Part 3: examine rootfs operations.
       report.AddSection('rootfs operations')
       total_blob_size = self._CheckOperations(
           self.payload.manifest.install_operations, report,
-          'install_operations', self.old_rootfs_size, self.new_rootfs_size, 0,
-          False)
+          'install_operations', self.old_rootfs_fs_size,
+          self.new_rootfs_fs_size,
+          rootfs_part_size if rootfs_part_size else self.new_rootfs_fs_size,
+          0, False)
 
       # Part 4: examine kernel operations.
       report.AddSection('kernel operations')
       total_blob_size += self._CheckOperations(
           self.payload.manifest.kernel_install_operations, report,
-          'kernel_install_operations', self.old_kernel_size,
-          self.new_kernel_size, total_blob_size, True)
+          'kernel_install_operations', self.old_kernel_fs_size,
+          self.new_kernel_fs_size,
+          kernel_part_size if kernel_part_size else self.new_kernel_fs_size,
+          total_blob_size, True)
 
       # Check: operations data reach the end of the payload file.
       used_payload_size = self.payload.data_offset + total_blob_size

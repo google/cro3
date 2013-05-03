@@ -414,7 +414,9 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
   def DoCheckManifestTest(self, fail_mismatched_block_size, fail_bad_sigs,
                           fail_mismatched_oki_ori, fail_bad_oki, fail_bad_ori,
-                          fail_bad_nki, fail_bad_nri, fail_missing_ops):
+                          fail_bad_nki, fail_bad_nri, fail_missing_ops,
+                          fail_old_kernel_fs_size, fail_old_rootfs_fs_size,
+                          fail_new_kernel_fs_size, fail_new_rootfs_fs_size):
     """Parametric testing of _CheckManifest().
 
     Args:
@@ -426,6 +428,10 @@ class PayloadCheckerTest(mox.MoxTestBase):
       fail_bad_nki: tamper with new kernel info
       fail_bad_nri: tamper with new rootfs info
       fail_missing_ops: simulate a manifest without any operations
+      fail_old_kernel_fs_size: make old kernel fs size too big
+      fail_old_rootfs_fs_size: make old rootfs fs size too big
+      fail_new_kernel_fs_size: make new kernel fs size too big
+      fail_new_rootfs_fs_size: make new rootfs fs size too big
 
     """
     # Generate a test payload. For this test, we only care about the manifest
@@ -452,20 +458,37 @@ class PayloadCheckerTest(mox.MoxTestBase):
     if fail_bad_sigs:
       payload_gen.SetSignatures(32, None)
 
+    # Set partition / filesystem sizes.
+    rootfs_part_size = _MiB(8)
+    kernel_part_size = _KiB(512)
+    old_rootfs_fs_size = new_rootfs_fs_size = rootfs_part_size
+    old_kernel_fs_size = new_kernel_fs_size = kernel_part_size
+    if fail_old_kernel_fs_size:
+      old_kernel_fs_size += 100
+    if fail_old_rootfs_fs_size:
+      old_rootfs_fs_size += 100
+    if fail_new_kernel_fs_size:
+      new_kernel_fs_size += 100
+    if fail_new_rootfs_fs_size:
+      new_rootfs_fs_size += 100
+
     # Add old kernel/rootfs partition info, as required.
-    if fail_mismatched_oki_ori or fail_bad_oki:
+    if fail_mismatched_oki_ori or fail_old_kernel_fs_size or fail_bad_oki:
       oki_hash = (None if fail_bad_oki
                   else hashlib.sha256('fake-oki-content').digest())
-      payload_gen.SetPartInfo(True, False, _KiB(512), oki_hash)
-    if not fail_mismatched_oki_ori and fail_bad_ori:
-      payload_gen.SetPartInfo(False, False, _MiB(8), None)
+      payload_gen.SetPartInfo(True, False, old_kernel_fs_size, oki_hash)
+    if not fail_mismatched_oki_ori and (fail_old_rootfs_fs_size or
+                                        fail_bad_ori):
+      ori_hash = (None if fail_bad_ori
+                  else hashlib.sha256('fake-ori-content').digest())
+      payload_gen.SetPartInfo(False, False, old_rootfs_fs_size, ori_hash)
 
     # Add new kernel/rootfs partition info.
     payload_gen.SetPartInfo(
-        True, True, _KiB(512),
+        True, True, new_kernel_fs_size,
         None if fail_bad_nki else hashlib.sha256('fake-nki-content').digest())
     payload_gen.SetPartInfo(
-        False, True, _MiB(8),
+        False, True, new_rootfs_fs_size,
         None if fail_bad_nri else hashlib.sha256('fake-nri-content').digest())
 
     # Create the test object.
@@ -474,12 +497,17 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
     should_fail = (fail_mismatched_block_size or fail_bad_sigs or
                    fail_mismatched_oki_ori or fail_bad_oki or fail_bad_ori or
-                   fail_bad_nki or fail_bad_nri or fail_missing_ops)
+                   fail_bad_nki or fail_bad_nri or fail_missing_ops or
+                   fail_old_kernel_fs_size or fail_old_rootfs_fs_size or
+                   fail_new_kernel_fs_size or fail_new_rootfs_fs_size)
     if should_fail:
       self.assertRaises(update_payload.PayloadError,
-                        payload_checker._CheckManifest, report)
+                        payload_checker._CheckManifest, report,
+                        rootfs_part_size, kernel_part_size)
     else:
-      self.assertIsNone(payload_checker._CheckManifest(report))
+      self.assertIsNone(payload_checker._CheckManifest(report,
+                                                       rootfs_part_size,
+                                                       kernel_part_size))
 
   def testCheckLength(self):
     """Tests _CheckLength()."""
@@ -934,7 +962,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
     should_fail = (fail_bad_type or fail_nonexhaustive_full_update)
     largs = (payload_checker.payload.manifest.install_operations, report,
-             'foo', 0, rootfs_part_size, 0, False)
+             'foo', 0, rootfs_part_size, rootfs_part_size, 0, False)
     if should_fail:
       self.assertRaises(update_payload.PayloadError,
                         payload_checker._CheckOperations, *largs)
@@ -952,9 +980,10 @@ class PayloadCheckerTest(mox.MoxTestBase):
     block_size = _KiB(4)
     payload_gen.SetBlockSize(block_size)
     rootfs_part_size = _MiB(2)
+    kernel_part_size = _KiB(16)
     payload_gen.SetPartInfo(False, True, rootfs_part_size,
                             hashlib.sha256('fake-new-rootfs-content').digest())
-    payload_gen.SetPartInfo(True, True, _KiB(16),
+    payload_gen.SetPartInfo(True, True, kernel_part_size,
                             hashlib.sha256('fake-new-kernel-content').digest())
     payload_gen.AddOperationWithData(
         False, common.OpType.REPLACE,
@@ -1000,7 +1029,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     report = checker._PayloadReport()
 
     # We have to check the manifest first in order to set signature attributes.
-    payload_checker._CheckManifest(report)
+    payload_checker._CheckManifest(report, rootfs_part_size, kernel_part_size)
 
     should_fail = (fail_empty_sigs_blob or fail_missing_pseudo_op or
                    fail_mismatched_pseudo_op or fail_sig_missing_fields or
@@ -1165,7 +1194,11 @@ def AddAllParametricTests():
                       'fail_bad_ori': (True, False),
                       'fail_bad_nki': (True, False),
                       'fail_bad_nri': (True, False),
-                      'fail_missing_ops': (True, False)})
+                      'fail_missing_ops': (True, False),
+                      'fail_old_kernel_fs_size': (True, False),
+                      'fail_old_rootfs_fs_size': (True, False),
+                      'fail_new_kernel_fs_size': (True, False),
+                      'fail_new_rootfs_fs_size': (True, False)})
 
   # Add all _CheckOperation() test cases.
   AddParametricTests('CheckOperation',

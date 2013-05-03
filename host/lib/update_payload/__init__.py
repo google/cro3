@@ -6,6 +6,6 @@
 
 # Just raise the interface classes to the root namespace.
 # pylint: disable=W0401
+from checker import CHECKS_TO_DISABLE
 from error import PayloadError
 from payload import Payload
-from checker import CHECKS_TO_DISABLE

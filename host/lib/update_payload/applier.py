@@ -28,31 +28,36 @@ from error import PayloadError
 #
 # Helper functions.
 #
-def _VerifySha256(file_obj, expected_hash, name, max_length=-1):
+def _VerifySha256(file_obj, expected_hash, name, length=-1):
   """Verifies the SHA256 hash of a file.
 
   Args:
     file_obj: file object to read
     expected_hash: the hash digest we expect to be getting
     name: name string of this hash, for error reporting
-    max_length: maximum length of data to read/hash (optional)
+    length: precise length of data to verify (optional)
   Raises:
-    PayloadError if file hash fails to verify.
+    PayloadError if computed hash doesn't match expected one, or if fails to
+    read the specified length of data.
 
   """
   # pylint: disable=E1101
   hasher = hashlib.sha256()
   block_length = 1024 * 1024
-  if max_length < 0:
-    max_length = sys.maxint
+  max_length = length if length >= 0 else sys.maxint
 
-  while max_length != 0:
+  while max_length > 0:
     read_length = min(max_length, block_length)
     data = file_obj.read(read_length)
     if not data:
       break
     max_length -= len(data)
     hasher.update(data)
+
+  if length >= 0 and max_length > 0:
+    raise PayloadError(
+        'insufficient data (%d instead of %d) when verifying %s' %
+        (length - max_length, length, name))
 
   actual_hash = hasher.digest()
   if actual_hash != expected_hash:
@@ -319,7 +324,8 @@ class PayloadApplier(object):
     if src_part_file_name:
       # Verify the source partition.
       with open(src_part_file_name, 'rb') as src_part_file:
-        _VerifySha256(src_part_file, src_part_info.hash, part_name)
+        _VerifySha256(src_part_file, src_part_info.hash, part_name,
+                      length=src_part_info.size)
 
       # Copy the src partition to the dst one.
       shutil.copyfile(src_part_file_name, dst_part_file_name)
@@ -335,7 +341,8 @@ class PayloadApplier(object):
 
     # Verify the resulting partition.
     with open(dst_part_file_name, 'rb') as dst_part_file:
-      _VerifySha256(dst_part_file, dst_part_info.hash, part_name)
+      _VerifySha256(dst_part_file, dst_part_info.hash, part_name,
+                    length=dst_part_info.size)
 
   def Run(self, dst_kernel_part, dst_rootfs_part, src_kernel_part=None,
           src_rootfs_part=None):
