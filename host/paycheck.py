@@ -108,8 +108,8 @@ def ParseArguments(argv):
 
   # There are several options that imply --check.
   opts.check = (opts.check or opts.report or opts.assert_type or
-                opts.block_size or opts.allow_unhashed or opts.key or
-                opts.meta_sig)
+                opts.block_size or opts.allow_unhashed or
+                opts.disabled_tests or opts.key or opts.meta_sig)
 
   # Check number of arguments, enforce payload type accordingly.
   if len(args) == 3:
