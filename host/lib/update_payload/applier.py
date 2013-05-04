@@ -62,8 +62,8 @@ def _VerifySha256(file_obj, expected_hash, name, length=-1):
   actual_hash = hasher.digest()
   if actual_hash != expected_hash:
     raise PayloadError('%s hash (%s) not as expected (%s)' %
-                       (name, actual_hash.encode('hex'),
-                        expected_hash.encode('hex')))
+                       (name, common.FormatSha256(actual_hash),
+                        common.FormatSha256(expected_hash)))
 
 
 def _ReadExtents(file_obj, extents, block_size, max_length=-1):

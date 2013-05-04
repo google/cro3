@@ -437,8 +437,8 @@ class PayloadChecker(object):
     signed_hash = signed_data[len(common.SIG_ASN1_HEADER):]
     if signed_hash != actual_hash:
       raise PayloadError('%s: signed hash (%s) different from actual (%s)' %
-                         (sig_name, signed_hash.encode('hex'),
-                          actual_hash.encode('hex')))
+                         (sig_name, common.FormatSha256(signed_hash),
+                          common.FormatSha256(actual_hash)))
 
   @staticmethod
   def _CheckBlocksFitLength(length, num_blocks, block_size, length_name,
@@ -837,8 +837,8 @@ class PayloadChecker(object):
       if op.data_sha256_hash != actual_hash.digest():
         raise PayloadError(
             '%s: data_sha256_hash (%s) does not match actual hash (%s)' %
-            (op_name, op.data_sha256_hash.encode('hex'),
-             actual_hash.hexdigest()))
+            (op_name, common.FormatSha256(op.data_sha256_hash),
+             common.FormatSha256(actual_hash.digest())))
     elif data_offset is not None:
       if allow_signature_in_extents:
         blob_hash_counts['signature'] += 1
