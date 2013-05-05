@@ -146,13 +146,13 @@ def ParseArguments(argv):
     parser.error('unexpected number of arguments')
 
   # By default, look for a metadata-signature file with a name based on the name
-  # of the payload we are checking.
-  if not opts.meta_sig:
-    print "Looking for default signature."
+  # of the payload we are checking. We only do it when check is triggered and a
+  # public key provided, so as not to force a metadata signature to fail.
+  if opts.check and opts.key and not opts.meta_sig:
     default_meta_sig = args[0] + '.metadata-signature'
     if os.path.isfile(default_meta_sig):
       opts.meta_sig = default_meta_sig
-      print "Using default signature %s." % opts.meta_sig
+      print >> sys.stderr, 'Using default metadata signature', opts.meta_sig
 
   return opts, args[0], args[1:]
 
@@ -178,11 +178,11 @@ def main(argv):
             else:
               report_file = open(options.report, 'w')
               do_close_report_file = True
-
+              metadata_sig_file = (
+                  open(options.meta_sig) if options.meta_sig else None)
           payload.Check(
               pubkey_file_name=options.key,
-              metadata_sig_file=open(options.meta_sig)
-              if options.meta_sig else None,
+              metadata_sig_file=metadata_sig_file,
               report_out_file=report_file,
               assert_type=options.assert_type,
               block_size=int(options.block_size),
