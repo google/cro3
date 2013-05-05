@@ -304,55 +304,55 @@ class PayloadApplier(object):
                            (op_name, op.type))
 
   def _ApplyToPartition(self, operations, part_name, base_name,
-                        dst_part_file_name, dst_part_info,
-                        src_part_file_name=None, src_part_info=None):
+                        new_part_file_name, new_part_info,
+                        old_part_file_name=None, old_part_info=None):
     """Applies an update to a partition.
 
     Args:
       operations: the sequence of update operations to apply
       part_name: the name of the partition, for error reporting
       base_name: the name of the operation sequence
-      dst_part_file_name: file name to write partition data to
-      dst_part_info: size and expected hash of dest partition
-      src_part_file_name: file name of source partition (optional)
-      src_part_info: size and expected hash of source partition (optional)
+      new_part_file_name: file name to write partition data to
+      new_part_info: size and expected hash of dest partition
+      old_part_file_name: file name of source partition (optional)
+      old_part_info: size and expected hash of source partition (optional)
     Raises:
       PayloadError if anything goes wrong with the update.
 
     """
     # Do we have a source partition?
-    if src_part_file_name:
+    if old_part_file_name:
       # Verify the source partition.
-      with open(src_part_file_name, 'rb') as src_part_file:
-        _VerifySha256(src_part_file, src_part_info.hash, part_name,
-                      length=src_part_info.size)
+      with open(old_part_file_name, 'rb') as old_part_file:
+        _VerifySha256(old_part_file, old_part_info.hash, part_name,
+                      length=old_part_info.size)
 
       # Copy the src partition to the dst one.
-      shutil.copyfile(src_part_file_name, dst_part_file_name)
+      shutil.copyfile(old_part_file_name, new_part_file_name)
     else:
       # Preallocate the dst partition file.
       subprocess.check_call(
-          ['fallocate', '-l', str(dst_part_info.size), dst_part_file_name])
+          ['fallocate', '-l', str(new_part_info.size), new_part_file_name])
 
     # Apply operations.
-    with open(dst_part_file_name, 'r+b') as dst_part_file:
-      self._ApplyOperations(operations, base_name, dst_part_file,
-                            dst_part_info.size)
+    with open(new_part_file_name, 'r+b') as new_part_file:
+      self._ApplyOperations(operations, base_name, new_part_file,
+                            new_part_info.size)
 
     # Verify the resulting partition.
-    with open(dst_part_file_name, 'rb') as dst_part_file:
-      _VerifySha256(dst_part_file, dst_part_info.hash, part_name,
-                    length=dst_part_info.size)
+    with open(new_part_file_name, 'rb') as new_part_file:
+      _VerifySha256(new_part_file, new_part_info.hash, part_name,
+                    length=new_part_info.size)
 
-  def Run(self, dst_kernel_part, dst_rootfs_part, src_kernel_part=None,
-          src_rootfs_part=None):
+  def Run(self, new_kernel_part, new_rootfs_part, old_kernel_part=None,
+          old_rootfs_part=None):
     """Applier entry point, invoking all update operations.
 
     Args:
-      dst_kernel_part: name of dest kernel partition file
-      dst_rootfs_part: name of dest rootfs partition file
-      src_kernel_part: name of source kernel partition file (optional)
-      src_rootfs_part: name of source rootfs partition file (optional)
+      new_kernel_part: name of dest kernel partition file
+      new_rootfs_part: name of dest rootfs partition file
+      old_kernel_part: name of source kernel partition file (optional)
+      old_rootfs_part: name of source rootfs partition file (optional)
     Raises:
       PayloadError if payload application failed.
 
@@ -360,14 +360,14 @@ class PayloadApplier(object):
     self.payload.ResetFile()
 
     # Make sure the arguments are sane and match the payload.
-    if not (dst_kernel_part and dst_rootfs_part):
+    if not (new_kernel_part and new_rootfs_part):
       raise PayloadError('missing dst {kernel,rootfs} partitions')
 
-    if not (src_kernel_part or src_rootfs_part):
+    if not (old_kernel_part or old_rootfs_part):
       if not self.payload.IsFull():
         raise PayloadError('trying to apply a non-full update without src '
                            '{kernel,rootfs} partitions')
-    elif src_kernel_part and src_rootfs_part:
+    elif old_kernel_part and old_rootfs_part:
       if not self.payload.IsDelta():
         raise PayloadError('trying to apply a non-delta update onto src '
                            '{kernel,rootfs} partitions')
@@ -377,13 +377,13 @@ class PayloadApplier(object):
     # Apply update to rootfs.
     self._ApplyToPartition(
         self.payload.manifest.install_operations, 'rootfs',
-        'install_operations', dst_rootfs_part,
-        self.payload.manifest.new_rootfs_info, src_rootfs_part,
+        'install_operations', new_rootfs_part,
+        self.payload.manifest.new_rootfs_info, old_rootfs_part,
         self.payload.manifest.old_rootfs_info)
 
     # Apply update to kernel update.
     self._ApplyToPartition(
         self.payload.manifest.kernel_install_operations, 'kernel',
-        'kernel_install_operations', dst_kernel_part,
-        self.payload.manifest.new_kernel_info, src_kernel_part,
+        'kernel_install_operations', new_kernel_part,
+        self.payload.manifest.new_kernel_info, old_kernel_part,
         self.payload.manifest.old_kernel_info)

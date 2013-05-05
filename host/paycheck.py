@@ -207,8 +207,8 @@ def main(argv):
           payload.Apply(extra_args[0], extra_args[1])
         elif options.assert_type == _TYPE_DELTA:
           payload.Apply(extra_args[0], extra_args[1],
-                        src_kernel_part=extra_args[2],
-                        src_rootfs_part=extra_args[3])
+                        old_kernel_part=extra_args[2],
+                        old_rootfs_part=extra_args[3])
         else:
           assert False, 'cannot get here'
 

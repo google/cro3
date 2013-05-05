@@ -205,15 +205,15 @@ class Payload(object):
                kernel_part_size=kernel_part_size,
                report_out_file=report_out_file)
 
-  def Apply(self, dst_kernel_part, dst_rootfs_part, src_kernel_part=None,
-            src_rootfs_part=None):
+  def Apply(self, new_kernel_part, new_rootfs_part, old_kernel_part=None,
+            old_rootfs_part=None):
     """Applies the update payload.
 
     Args:
-      dst_kernel_part: name of dest kernel partition file
-      dst_rootfs_part: name of dest rootfs partition file
-      src_kernel_part: name of source kernel partition file (optional)
-      src_rootfs_part: name of source rootfs partition file (optional)
+      new_kernel_part: name of dest kernel partition file
+      new_rootfs_part: name of dest rootfs partition file
+      old_kernel_part: name of source kernel partition file (optional)
+      old_rootfs_part: name of source rootfs partition file (optional)
     Raises:
       PayloadError if payload application failed.
 
@@ -222,9 +222,9 @@ class Payload(object):
 
     # Create a short-lived payload applier object and run it.
     helper = applier.PayloadApplier(self)
-    helper.Run(dst_kernel_part, dst_rootfs_part,
-               src_kernel_part=src_kernel_part,
-               src_rootfs_part=src_rootfs_part)
+    helper.Run(new_kernel_part, new_rootfs_part,
+               old_kernel_part=old_kernel_part,
+               old_rootfs_part=old_rootfs_part)
 
   def TraceBlock(self, block, skip, trace_out_file, is_kernel):
     """Traces the origin(s) of a given dest partition block.
