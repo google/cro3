@@ -164,10 +164,6 @@ configure_emerge() {
 
 install_optional_packages() {
   if yes_or_no "Install chromeos-dev package now"; then
-    # TODO(arkaitzr): remove emergeing perf once the packages dependencies are
-    # correct. Now chromeos-dev does not install because of missing
-    # virtual/perf although dev-util/perf is available.
-    emerge dev-util/perf
     emerge chromeos-dev
   else
     echo "You can install chromeos-dev later by typing the command:" \
