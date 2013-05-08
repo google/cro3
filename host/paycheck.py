@@ -178,8 +178,9 @@ def main(argv):
             else:
               report_file = open(options.report, 'w')
               do_close_report_file = True
-              metadata_sig_file = (
-                  open(options.meta_sig) if options.meta_sig else None)
+
+          metadata_sig_file = (
+              open(options.meta_sig) if options.meta_sig else None)
           payload.Check(
               pubkey_file_name=options.key,
               metadata_sig_file=metadata_sig_file,
