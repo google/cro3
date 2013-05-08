@@ -263,7 +263,7 @@ class PayloadChecker(object):
 
   def __init__(self, payload, assert_type=None, block_size=0,
                allow_unhashed=False, disabled_tests=()):
-    """Initialize the checker object.
+    """Initialize the checker.
 
     Args:
       payload: the payload object to check

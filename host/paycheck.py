@@ -55,7 +55,7 @@ def ParseArguments(argv):
   default_key = os.path.join(lib_dir,
                              'update_payload/update-payload-key.pub.pem')
 
-  check_opts = optparse.OptionGroup(parser, 'Payload integrity checking')
+  check_opts = optparse.OptionGroup(parser, 'Checking payload integrity')
   check_opts.add_option('-c', '--check', action='store_true', default=False,
                         help=('force payload integrity check (e.g. before '
                               'applying)'))
@@ -87,8 +87,14 @@ def ParseArguments(argv):
                         default=_DEFAULT_KERNEL_PART_SIZE, type='int',
                         help=('override default (%default) kernel partition '
                               'size'))
-
   parser.add_option_group(check_opts)
+
+  trace_opts = optparse.OptionGroup(parser, 'Applying payload')
+  trace_opts.add_option('-x', '--extract-bsdiff', action='store_true',
+                        default=False,
+                        help=('use temp input/output files with BSDIFF '
+                              'operations (not in-place)'))
+  parser.add_option_group(trace_opts)
 
   trace_opts = optparse.OptionGroup(parser, 'Block tracing')
   trace_opts.add_option('-b', '--root-block', metavar='BLOCK', type='int',
@@ -142,6 +148,8 @@ def ParseArguments(argv):
     # integrity check.
     if not do_block_trace:
       opts.check = True
+    if opts.extract_bsdiff:
+      parser.error('--extract-bsdiff can only be used when applying payloads')
   else:
     parser.error('unexpected number of arguments')
 
@@ -203,14 +211,12 @@ def main(argv):
 
       # Apply payload.
       if extra_args:
-        if options.assert_type == _TYPE_FULL:
-          payload.Apply(extra_args[0], extra_args[1])
-        elif options.assert_type == _TYPE_DELTA:
-          payload.Apply(extra_args[0], extra_args[1],
-                        old_kernel_part=extra_args[2],
-                        old_rootfs_part=extra_args[3])
-        else:
-          assert False, 'cannot get here'
+        dargs = {'bsdiff_in_place': not options.extract_bsdiff}
+        if options.assert_type == _TYPE_DELTA:
+          dargs['old_kernel_part'] = extra_args[2]
+          dargs['old_rootfs_part'] = extra_args[3]
+
+        payload.Apply(extra_args[0], extra_args[1], **dargs)
 
     except update_payload.PayloadError, e:
       sys.stderr.write('Error: %s\n' % e)

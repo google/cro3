@@ -81,20 +81,20 @@ def _ReadExtents(file_obj, extents, block_size, max_length=-1):
 
   """
   data = array.array('c')
+  if max_length < 0:
+    max_length = sys.maxint
   for ex in extents:
     if max_length == 0:
       break
     file_obj.seek(ex.start_block * block_size)
-    read_length = ex.num_blocks * block_size
-    if max_length > 0:
-      read_length = min(max_length, read_length)
-      max_length -= read_length
+    read_length = min(max_length, ex.num_blocks * block_size)
     data.fromfile(file_obj, read_length)
+    max_length -= read_length
   return data
 
 
 def _WriteExtents(file_obj, data, extents, block_size, base_name):
-  """Write data to file as defined by extent sequence.
+  """Writes data to file as defined by extent sequence.
 
   This tries to be efficient by not copy data as it is written in chunks.
 
@@ -103,7 +103,7 @@ def _WriteExtents(file_obj, data, extents, block_size, base_name):
     data: data to write
     extents: sequence of block extents (offset and length)
     block_size: size of each block
-    base_name: name string of extent block for error reporting
+    base_name: name string of extent sequence for error reporting
   Raises:
     PayloadError when things don't add up.
 
@@ -111,16 +111,56 @@ def _WriteExtents(file_obj, data, extents, block_size, base_name):
   data_offset = 0
   data_length = len(data)
   for ex, ex_name in common.ExtentIter(extents, base_name):
-    if data_offset == data_length:
+    if not data_length:
       raise PayloadError('%s: more write extents than data' % ex_name)
-    write_length = min(data_length - data_offset, ex.num_blocks * block_size)
+    write_length = min(data_length, ex.num_blocks * block_size)
     file_obj.seek(ex.start_block * block_size)
     data_view = buffer(data, data_offset, write_length)
     file_obj.write(data_view)
     data_offset += write_length
+    data_length -= write_length
 
-  if data_offset < data_length:
+  if data_length:
     raise PayloadError('%s: more data than write extents' % base_name)
+
+
+def _ExtentsToBspatchArg(extents, block_size, base_name, data_length=-1):
+  """Translates an extent sequence into a bspatch-compatible string argument.
+
+  Args:
+    extents: sequence of block extents (offset and length)
+    block_size: size of each block
+    base_name: name string of extent sequence for error reporting
+    data_length: the actual total length of the data in bytes (optional)
+  Returns:
+    A tuple consisting of (i) a string of the form
+    "off_1:len_1,...,off_n:len_n", (ii) an offset where zero padding is needed
+    for filling the last extent, (iii) the length of the padding (zero means no
+    padding is needed and the extents cover the full length of data).
+  Raises:
+    PayloadError if data_length is too short or too long.
+
+  """
+  arg = ''
+  pad_off = pad_len = 0
+  if data_length < 0:
+    data_length = sys.maxint
+  for ex, ex_name in common.ExtentIter(extents, base_name):
+    if not data_length:
+      raise PayloadError('%s: more extents than total data length' % ex_name)
+    start_byte = ex.start_block * block_size
+    num_bytes = ex.num_blocks * block_size
+    if data_length < num_bytes:
+      pad_off = start_byte + data_length
+      pad_len = num_bytes - data_length
+      num_bytes = data_length
+    arg += '%s%d:%d' % (arg and ',', start_byte, num_bytes)
+    data_length -= num_bytes
+
+  if data_length:
+    raise PayloadError('%s: extents not covering full data length' % base_name)
+
+  return arg, pad_off, pad_len
 
 
 #
@@ -134,10 +174,18 @@ class PayloadApplier(object):
 
   """
 
-  def __init__(self, payload):
+  def __init__(self, payload, bsdiff_in_place=True):
+    """Initialize the applier.
+
+    Args:
+      payload: the payload object to check
+      bsdiff_in_place: whether to perform BSDIFF operation in-place (optional)
+
+    """
     assert payload.is_init, 'uninitialized update payload'
     self.payload = payload
     self.block_size = payload.manifest.block_size
+    self.bsdiff_in_place = bsdiff_in_place
 
   def _ApplyReplaceOperation(self, op, op_name, out_data, part_file, part_size):
     """Applies a REPLACE{,_BZ} operation.
@@ -234,44 +282,66 @@ class PayloadApplier(object):
     """
     block_size = self.block_size
 
-    # Gather input raw data and write to a temp file.
-    in_data = _ReadExtents(part_file, op.src_extents, block_size,
-                           max_length=op.src_length)
-    with tempfile.NamedTemporaryFile(delete=False) as in_file:
-      in_file_name = in_file.name
-      in_file.write(in_data)
-
     # Dump patch data to file.
     with tempfile.NamedTemporaryFile(delete=False) as patch_file:
       patch_file_name = patch_file.name
       patch_file.write(patch_data)
 
-    # Allocate tepmorary output file.
-    with tempfile.NamedTemporaryFile(delete=False) as out_file:
-      out_file_name = out_file.name
+    if self.bsdiff_in_place and hasattr(part_file, 'fileno'):
+      # Construct input and output extents argument for bspatch.
+      in_extents_arg, _, _ = _ExtentsToBspatchArg(
+          op.src_extents, block_size, '%s.src_extents' % op_name,
+          data_length=op.src_length)
+      out_extents_arg, pad_off, pad_len = _ExtentsToBspatchArg(
+          op.dst_extents, block_size, '%s.dst_extents' % op_name,
+          data_length=op.dst_length)
 
-    # Invoke bspatch.
-    bspatch_cmd = ['bspatch', in_file_name, out_file_name, patch_file_name]
-    subprocess.check_call(bspatch_cmd)
+      # Invoke bspatch on partition file with extents args.
+      file_name = '/dev/fd/%d' % part_file.fileno()
+      bspatch_cmd = ['bspatch', file_name, file_name, patch_file_name,
+                     in_extents_arg, out_extents_arg]
+      subprocess.check_call(bspatch_cmd)
 
-    # Read output.
-    with open(out_file_name, 'rb') as out_file:
-      out_data = out_file.read()
-      if len(out_data) != op.dst_length:
-        raise PayloadError(
-            '%s: actual patched data length (%d) not as expected (%d)' %
-            (op_name, len(out_data), op.dst_length))
+      # Pad with zeros past the total output length.
+      if pad_len:
+        part_file.seek(pad_off)
+        part_file.write('\0' * pad_len)
+    else:
+      # Gather input raw data and write to a temp file.
+      in_data = _ReadExtents(part_file, op.src_extents, block_size,
+                             max_length=op.src_length)
+      with tempfile.NamedTemporaryFile(delete=False) as in_file:
+        in_file_name = in_file.name
+        in_file.write(in_data)
 
-    # Write output back to partition, with padding.
-    unaligned_out_len = len(out_data) % block_size
-    if unaligned_out_len:
-      out_data += '\0' * (block_size - unaligned_out_len)
-    _WriteExtents(part_file, out_data, op.dst_extents, block_size,
-                  '%s.dst_extents' % op_name)
+      # Allocate tepmorary output file.
+      with tempfile.NamedTemporaryFile(delete=False) as out_file:
+        out_file_name = out_file.name
 
-    # Delete all temporary files.
-    os.remove(in_file_name)
-    os.remove(out_file_name)
+      # Invoke bspatch.
+      bspatch_cmd = ['bspatch', in_file_name, out_file_name, patch_file_name]
+      subprocess.check_call(bspatch_cmd)
+
+      # Read output.
+      with open(out_file_name, 'rb') as out_file:
+        out_data = out_file.read()
+        if len(out_data) != op.dst_length:
+          raise PayloadError(
+              '%s: actual patched data length (%d) not as expected (%d)' %
+              (op_name, len(out_data), op.dst_length))
+
+      # Write output back to partition, with padding.
+      unaligned_out_len = len(out_data) % block_size
+      if unaligned_out_len:
+        out_data += '\0' * (block_size - unaligned_out_len)
+      _WriteExtents(part_file, out_data, op.dst_extents, block_size,
+                    '%s.dst_extents' % op_name)
+
+      # Delete input/output files.
+      os.remove(in_file_name)
+      os.remove(out_file_name)
+
+    # Delete patch file.
     os.remove(patch_file_name)
 
   def _ApplyOperations(self, operations, base_name, part_file, part_size):

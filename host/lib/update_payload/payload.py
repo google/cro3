@@ -206,7 +206,7 @@ class Payload(object):
                report_out_file=report_out_file)
 
   def Apply(self, new_kernel_part, new_rootfs_part, old_kernel_part=None,
-            old_rootfs_part=None):
+            old_rootfs_part=None, bsdiff_in_place=True):
     """Applies the update payload.
 
     Args:
@@ -214,6 +214,7 @@ class Payload(object):
       new_rootfs_part: name of dest rootfs partition file
       old_kernel_part: name of source kernel partition file (optional)
       old_rootfs_part: name of source rootfs partition file (optional)
+      bsdiff_in_place: whether to perform BSDIFF operations in-place (optional)
     Raises:
       PayloadError if payload application failed.
 
@@ -221,7 +222,7 @@ class Payload(object):
     self._AssertInit()
 
     # Create a short-lived payload applier object and run it.
-    helper = applier.PayloadApplier(self)
+    helper = applier.PayloadApplier(self, bsdiff_in_place=bsdiff_in_place)
     helper.Run(new_kernel_part, new_rootfs_part,
                old_kernel_part=old_kernel_part,
                old_rootfs_part=old_rootfs_part)
