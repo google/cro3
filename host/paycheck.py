@@ -74,10 +74,9 @@ def ParseArguments(argv):
                         help=('comma-separated list of tests to disable; '
                               'available values: ' +
                               ', '.join(update_payload.CHECKS_TO_DISABLE)))
-  check_opts.add_option('-k', '--key', metavar='FILE',
-                        help='Override standard key used for signature '
-                             'validation',
-                        default=default_key)
+  check_opts.add_option('-k', '--key', metavar='FILE', default=default_key,
+                        help=('Override standard key used for signature '
+                              'validation'))
   check_opts.add_option('-m', '--meta-sig', metavar='FILE',
                         help='verify metadata against its signature')
   check_opts.add_option('-p', '--root-part-size', metavar='NUM',

@@ -6,8 +6,8 @@
 
 """Block diff utility."""
 
-import sys
 import optparse
+import sys
 
 
 class BlockDiffError(Exception):
@@ -41,7 +41,7 @@ def BlockDiff(block_size, file1, file2, name1, name2, max_length=-1):
     data2 = file2.read(read_length)
     if len(data1) != len(data2):
       raise BlockDiffError('read %d bytes from %s but %d bytes from %s' %
-                          (len(data1), name1, len(data2), name2))
+                           (len(data1), name1, len(data2), name2))
 
     if data1 != data2:
       # Data is different, mark it down.
@@ -103,7 +103,7 @@ def main(argv):
       print('%d->%d (%d)' %
             (extent_start, extent_start + extent_length, extent_length))
 
-    print('total diff: %d blocks' % total_diff_blocks)
+    print 'total diff: %d blocks' % total_diff_blocks
     return 1
 
   return 0
