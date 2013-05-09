@@ -15,6 +15,7 @@ payload. The interface for invoking the applier is as follows:
 import array
 import bz2
 import hashlib
+import itertools
 import os
 import shutil
 import subprocess
@@ -86,10 +87,17 @@ def _ReadExtents(file_obj, extents, block_size, max_length=-1):
   for ex in extents:
     if max_length == 0:
       break
-    file_obj.seek(ex.start_block * block_size)
     read_length = min(max_length, ex.num_blocks * block_size)
-    data.fromfile(file_obj, read_length)
+
+    # Fill with zeros or read from file, depending on the type of extent.
+    if ex.start_block == common.PSEUDO_EXTENT_MARKER:
+      data.extend(itertools.repeat('\0', read_length))
+    else:
+      file_obj.seek(ex.start_block * block_size)
+      data.fromfile(file_obj, read_length)
+
     max_length -= read_length
+
   return data
 
 
@@ -114,9 +122,13 @@ def _WriteExtents(file_obj, data, extents, block_size, base_name):
     if not data_length:
       raise PayloadError('%s: more write extents than data' % ex_name)
     write_length = min(data_length, ex.num_blocks * block_size)
-    file_obj.seek(ex.start_block * block_size)
-    data_view = buffer(data, data_offset, write_length)
-    file_obj.write(data_view)
+
+    # Only do actual writing if this is not a pseudo-extent.
+    if ex.start_block != common.PSEUDO_EXTENT_MARKER:
+      file_obj.seek(ex.start_block * block_size)
+      data_view = buffer(data, data_offset, write_length)
+      file_obj.write(data_view)
+
     data_offset += write_length
     data_length -= write_length
 
@@ -148,12 +160,18 @@ def _ExtentsToBspatchArg(extents, block_size, base_name, data_length=-1):
   for ex, ex_name in common.ExtentIter(extents, base_name):
     if not data_length:
       raise PayloadError('%s: more extents than total data length' % ex_name)
-    start_byte = ex.start_block * block_size
+
+    is_pseudo = ex.start_block == common.PSEUDO_EXTENT_MARKER
+    start_byte = -1 if is_pseudo else ex.start_block * block_size
     num_bytes = ex.num_blocks * block_size
     if data_length < num_bytes:
-      pad_off = start_byte + data_length
-      pad_len = num_bytes - data_length
+      # We're only padding a real extent.
+      if not is_pseudo:
+        pad_off = start_byte + data_length
+        pad_len = num_bytes - data_length
+
       num_bytes = data_length
+
     arg += '%s%d:%d' % (arg and ',', start_byte, num_bytes)
     data_length -= num_bytes
 
@@ -250,6 +268,10 @@ class PayloadApplier(object):
 
   def _ApplyMoveOperation(self, op, op_name, part_file):
     """Applies a MOVE operation.
+
+    Note that this operation must read the whole block data from the input and
+    only then dump it, due to our in-place update semantics; otherwise, it
+    might clobber data midway through.
 
     Args:
       op: the operation object
