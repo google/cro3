@@ -59,6 +59,8 @@ def ParseArguments(argv):
   check_opts.add_option('-c', '--check', action='store_true', default=False,
                         help=('force payload integrity check (e.g. before '
                               'applying)'))
+  check_opts.add_option('-D', '--describe', action='store_true', default=False,
+                        help='Print a friendly description of the payload.')
   check_opts.add_option('-r', '--report', metavar='FILE',
                         help="dump payload report (`-' for stdout)")
   check_opts.add_option('-t', '--type', metavar='TYPE', dest='assert_type',
@@ -174,6 +176,9 @@ def main(argv):
     try:
       # Initialize payload.
       payload.Init()
+
+      if options.describe:
+        payload.Describe()
 
       # Perform payload integrity checks.
       if options.check:

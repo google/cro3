@@ -154,6 +154,30 @@ class Payload(object):
 
     self.is_init = True
 
+  def Describe(self):
+
+    def _DescribeImageInfo(description, image_info):
+      def _DisplayIndentedValue(name, value):
+        print '  {:<14} {}'.format(name+':', value)
+
+      print '%s:' % description
+      _DisplayIndentedValue('Channel', image_info.channel)
+      _DisplayIndentedValue('Board', image_info.board)
+      _DisplayIndentedValue('Version', image_info.version)
+      _DisplayIndentedValue('Key', image_info.key)
+
+      if (image_info.build_channel != image_info.channel):
+        _DisplayIndentedValue('Build channel', image_info.build_channel)
+
+      if (image_info.build_version != image_info.version):
+        _DisplayIndentedValue('Build version', image_info.build_version)
+
+    if self.manifest.HasField('old_image_info'):
+      _DescribeImageInfo('Old Image', self.manifest.old_image_info)
+
+    if self.manifest.HasField('new_image_info'):
+      _DescribeImageInfo('New Image', self.manifest.new_image_info)
+
   def _AssertInit(self):
     """Raises an exception if the object was not initialized."""
     if not self.is_init:
