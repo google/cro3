@@ -125,7 +125,7 @@ main() {
   # Find paycheck.py
   paycheck=${0%/*}/paycheck.py
   if [ -z "${paycheck}" ] || [ ! -x ${paycheck} ]; then
-    die "cannot find paycheck.py or file is not executable"
+    die "cannot find ${paycheck} or file is not executable"
   fi
 
   # Check the payloads statically.
