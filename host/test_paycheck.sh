@@ -68,19 +68,16 @@ die() {
 
 usage_and_exit() {
   cat >&2 <<EOF
-Usage: ${0##*/} pubkey old_full_payload old_full_metasig \\
-         delta_payload delta_metasig new_full_payload new_full_metasig
+Usage: ${0##*/} old_full_payload delta_payload new_full_payload
 EOF
   exit
 }
 
 check_payload() {
   payload_file=$1
-  metasig_file=$2
-  payload_type=$3
+  payload_type=$2
 
-  time ${paycheck} -r - -k ${pubkey_file} -m ${metasig_file} \
-    -t ${payload_type} ${payload_file}
+  time ${paycheck} -t ${payload_type} ${payload_file}
 }
 
 trace_kern_block() {
@@ -118,16 +115,12 @@ main() {
   # Read command-line arguments.
   if [ $# == 1 ] && [ "$1" == "-h" ]; then
     usage_and_exit
-  elif [ $# != 7 ]; then
+  elif [ $# != 3 ]; then
     die "Error: unexpected number of arguments"
   fi
-  pubkey_file="$1"
-  old_full_payload="$2"
-  old_full_metasig="$3"
-  delta_payload="$4"
-  delta_metasig="$5"
-  new_full_payload="$6"
-  new_full_metasig="$7"
+  old_full_payload="$1"
+  delta_payload="$2"
+  new_full_payload="$3"
 
   # Find paycheck.py
   paycheck=${0%/*}/paycheck.py
@@ -137,9 +130,9 @@ main() {
 
   # Check the payloads statically.
   log "Checking payloads..."
-  check_payload "${old_full_payload}" "${old_full_metasig}" full
-  check_payload "${new_full_payload}" "${new_full_metasig}" full
-  check_payload "${delta_payload}" "${delta_metasig}" delta
+  check_payload "${old_full_payload}" full
+  check_payload "${new_full_payload}" full
+  check_payload "${delta_payload}" delta
   log "Done"
 
   # Trace a random block between 0-1024 on all payloads.

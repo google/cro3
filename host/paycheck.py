@@ -121,7 +121,8 @@ def ParseArguments(argv):
   # There are several options that imply --check.
   opts.check = (opts.check or opts.report or opts.assert_type or
                 opts.block_size or opts.allow_unhashed or
-                opts.disabled_tests or opts.key or opts.meta_sig or
+                opts.disabled_tests or opts.meta_sig or
+                opts.key != default_key or
                 opts.root_part_size != _DEFAULT_ROOTFS_PART_SIZE or
                 opts.kern_part_size != _DEFAULT_KERNEL_PART_SIZE)
 
