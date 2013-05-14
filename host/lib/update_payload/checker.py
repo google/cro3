@@ -772,7 +772,7 @@ class PayloadChecker(object):
            total_dst_blocks * self.block_size))
 
   def _CheckOperation(self, op, op_name, is_last, old_block_counters,
-                      new_block_counters, old_fs_size, new_usable_size,
+                      new_block_counters, old_usable_size, new_usable_size,
                       prev_data_offset, allow_signature, blob_hash_counts):
     """Checks a single update operation.
 
@@ -782,8 +782,8 @@ class PayloadChecker(object):
       is_last: whether this is the last operation in the sequence
       old_block_counters: arrays of block read counters
       new_block_counters: arrays of block write counters
-      old_fs_size: the old filesystem size in bytes
-      new_usable_size: the overall usable size of the new partition in bytes
+      old_usable_size: the overall usable size for src data in bytes
+      new_usable_size: the overall usable size for dst data in bytes
       prev_data_offset: offset of last used data bytes
       allow_signature: whether this may be a signature operation
       blob_hash_counts: counters for hashed/unhashed blobs
@@ -795,7 +795,7 @@ class PayloadChecker(object):
     """
     # Check extents.
     total_src_blocks = self._CheckExtents(
-        op.src_extents, old_fs_size, old_block_counters,
+        op.src_extents, old_usable_size, old_block_counters,
         op_name + '.src_extents', allow_pseudo=True)
     allow_signature_in_extents = (allow_signature and is_last and
                                   op.type == common.OpType.REPLACE)
@@ -897,7 +897,7 @@ class PayloadChecker(object):
       base_name: the name of the operation block
       old_fs_size: the old filesystem size in bytes
       new_fs_size: the new filesystem size in bytes
-      new_usable_size: the olverall usable size of the new partition in bytes
+      new_usable_size: the overall usable size of the new partition in bytes
       prev_data_offset: offset of last used data bytes
       allow_signature: whether this sequence may contain signature operations
     Returns:
@@ -931,7 +931,7 @@ class PayloadChecker(object):
       blob_hash_counts['signature'] = 0
 
     # Allocate old and new block counters.
-    old_block_counters = (self._AllocBlockCounters(old_fs_size)
+    old_block_counters = (self._AllocBlockCounters(new_usable_size)
                           if old_fs_size else None)
     new_block_counters = self._AllocBlockCounters(new_usable_size)
 
@@ -948,8 +948,9 @@ class PayloadChecker(object):
       is_last = op_num == len(operations)
       curr_data_used = self._CheckOperation(
           op, op_name, is_last, old_block_counters, new_block_counters,
-          old_fs_size, new_usable_size, prev_data_offset + total_data_used,
-          allow_signature, blob_hash_counts)
+          new_usable_size if old_fs_size else 0, new_usable_size,
+          prev_data_offset + total_data_used, allow_signature,
+          blob_hash_counts)
       if curr_data_used:
         op_blob_totals[op.type] += curr_data_used
         total_data_used += curr_data_used
