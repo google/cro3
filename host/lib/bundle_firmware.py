@@ -953,6 +953,16 @@ class Bundle:
           raise CmdError("Unknown compression type '%s'" % compress)
         value = compress_types.index(compress)
         self._out.Info('  Compression type: %#0x' % value)
+      elif param == 'c':
+        rtc_type = 0
+        try:
+          rtc_alias = fdt.GetString('/aliases/', 'rtc')
+          rtc_compat = fdt.GetString(rtc_alias, 'compatible')
+          if rtc_compat == 'samsung,s5m8767-pmic':
+            rtc_type = 1
+        except CmdError:
+          self._out.Warning("Failed to find rtc")
+        value = rtc_type
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
         self._out.Info('  Unknown value: %#0x' % value)
