@@ -491,24 +491,24 @@ dtb -p 4096 ../tests/source.dts
     if not self._is_compiled:
       root, _ = os.path.splitext(self.fname)
 
-      # crosbug.com/31621
-      # This is a temporary hack to support upstream U-Boot
-      # Since it does not have the benefit of the dtc -i option, it uses
-      # the C preprocessor to find its include files. Here we must perform
-      # that task manually for the compiler. Since it is just as easy to
-      # do with the string replace feature, use that.
+      # Upstream U-Boot requires that we invoke the C preprocessor
       data = self.tools.ReadFile(self.fname)
       fname = self.fname
-      if 'ARCH_CPU_DTS' in data:
+      search_list = []
+      if 'ARCH_CPU_DTS' in data or '#ifdef' in data:
         fname = os.path.join(self.tools.outdir, os.path.basename(root) +
                              '.dts')
-        data = data.replace('ARCH_CPU_DTS', '"%s"' % arch_dts)
-        self.tools.WriteFile(fname, data)
+        args = ['-E', '-P', '-x', 'assembler-with-cpp', '-D__ASSEMBLY__']
+        args += ['-Ulinux']
+        args += ['-DARCH_CPU_DTS="%s"' % arch_dts]
+        args += ['-DCONFIG_CHROMEOS']
+        args += ['-o', fname, self.fname]
+        self.tools.Run('cc', args)
+        search_list.extend(['-i', os.path.dirname(self.fname)])
 
       # If we don't have a directory, put it in the tools tempdir
       out_fname = os.path.join(self.tools.outdir, os.path.basename(root) +
                                '.dtb')
-      search_list = []
       for path in self.tools.search_paths:
         search_list.extend(['-i', path])
       args = ['-I', 'dts', '-o', out_fname, '-O', 'dtb', '-p', '4096']
