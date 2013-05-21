@@ -229,11 +229,14 @@ DST_ROOT=$(extract_partition_to_temp_file "$FLAGS_image" 3)
 DST_MNT=$(mktemp -d /tmp/src_root.XXXXXX)
 sudo mount -o loop,ro "$DST_ROOT" "$DST_MNT"
 
-source "$DST_MNT"/usr/sbin/write_gpt.sh
+source "$DST_MNT"/usr/sbin/write_gpt.sh || warn "Could not read write_gpt.sh"
+
+PARTITION_SIZE_PARAM=
 if [ -n "$ROOTFS_PARTITION_SIZE" ]; then
   echo "Using rootfs partition size: $ROOTFS_PARTITION_SIZE";
+  PARTITION_SIZE_PARAM="-rootfs_partition_size=$ROOTFS_PARTITION_SIZE"
 else
-  die "Missing rootfs partition size from disk layout."
+  echo "Using the default partition size."
 fi
 
 if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
@@ -245,7 +248,7 @@ if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
       -old_dir "$SRC_MNT" -old_image "$SRC_ROOT" -old_kernel "$SRC_KERNEL" \
       -out_file "$FLAGS_output" -private_key "$FLAGS_private_key" \
       -chunk_size "$FLAGS_chunk_size" \
-      -rootfs_partition_size="$ROOTFS_PARTITION_SIZE" \
+      "$PARTITION_SIZE_PARAM" \
       -old_channel "$FLAGS_src_channel" -old_board "$FLAGS_src_board" \
       -old_version "$FLAGS_src_version" -old_key "$FLAGS_src_key" \
       -old_build_channel "$FLAGS_src_build_channel" \
@@ -258,7 +261,7 @@ else
   "$GENERATOR" \
       -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
       -out_file "$FLAGS_output" -private_key "$FLAGS_private_key" \
-      -rootfs_partition_size="$ROOTFS_PARTITION_SIZE" \
+      "$PARTITION_SIZE_PARAM" \
       -new_channel "$FLAGS_channel" -new_board "$FLAGS_board" \
       -new_version "$FLAGS_version" -new_key "$FLAGS_key" \
       -new_build_channel "$FLAGS_build_channel" \
