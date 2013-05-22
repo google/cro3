@@ -26,7 +26,7 @@ UPDATE_RESPONSE['2.0'] = """<?xml version="1.0" encoding="UTF-8"?>
         sha256="%(sha256)s"
         needsadmin="false"
         size="%(size)s"
-        IsDelta="%(is_delta_format)s"
+        IsDeltaPayload="%(is_delta_format)s"
         status="ok"
         %(extra_attr)s/>
     </app>
@@ -53,7 +53,7 @@ UPDATE_RESPONSE['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
               ChromeOSVersion="9999.0.0"
               sha256="%(sha256)s"
               needsadmin="false"
-              IsDelta="%(is_delta_format)s"
+              IsDeltaPayload="%(is_delta_format)s"
               %(extra_attr)s />
           </actions>
         </manifest>
@@ -143,7 +143,7 @@ def GetUpdateResponse(sha1, sha256, size, url, is_delta_format, protocol,
   (codebase, filename) = os.path.split(url)
   response_values['codebase'] = codebase
   response_values['filename'] = filename
-  response_values['is_delta_format'] = is_delta_format
+  response_values['is_delta_format'] = str(is_delta_format).lower()
   extra_attributes = []
   if critical_update:
     # The date string looks like '20111115' (2011-11-15). As of writing,
