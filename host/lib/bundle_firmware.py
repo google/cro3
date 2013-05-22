@@ -1190,9 +1190,19 @@ class Bundle:
         self._tools.Run('cbfstool', [bootstub, 'add-payload', '-f',
             self.coreboot_elf, '-n', 'fallback/payload', '-c', 'lzma'])
       else:
+        text_base = 0x1110000
+
+        # This is the the 'movw $GD_FLG_COLD_BOOT, %bx' instruction
+        # 1110015:       66 bb 00 01             mov    $0x100,%bx
+        marker = struct.pack('<L', 0x0100bb66)
+        pos = uboot_data.find(marker)
+        if pos == -1 or pos > 0x100:
+          raise ValueError('Cannot find U-Boot cold boot entry point')
+        entry = text_base + pos
+        self._out.Notice('U-Boot entry point %#08x' % entry)
         self._tools.Run('cbfstool', [bootstub, 'add-flat-binary', '-f',
             uboot_dtb, '-n', 'fallback/payload', '-c', 'lzma',
-            '-l', '0x1110000', '-e', '0x1110008'])
+            '-l', '%#x' % text_base, '-e', '%#x' % entry])
       self._tools.Run('cbfstool', [bootstub, 'add', '-f', fdt.fname,
           '-n', 'u-boot.dtb', '-t', '0xac'])
       data = self._tools.ReadFile(bootstub)
