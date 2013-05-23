@@ -179,6 +179,7 @@ def main(argv):
       if options.check:
         report_file = None
         do_close_report_file = False
+        metadata_sig_file = None
         try:
           if options.report:
             if options.report == '-':
@@ -187,8 +188,7 @@ def main(argv):
               report_file = open(options.report, 'w')
               do_close_report_file = True
 
-          metadata_sig_file = (
-              open(options.meta_sig) if options.meta_sig else None)
+          metadata_sig_file = options.meta_sig and open(options.meta_sig)
           payload.Check(
               pubkey_file_name=options.key,
               metadata_sig_file=metadata_sig_file,
@@ -200,6 +200,8 @@ def main(argv):
               allow_unhashed=options.allow_unhashed,
               disabled_tests=options.disabled_tests)
         finally:
+          if metadata_sig_file:
+            metadata_sig_file.close()
           if do_close_report_file:
             report_file.close()
 
