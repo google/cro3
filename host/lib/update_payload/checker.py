@@ -16,6 +16,7 @@ follows:
 import array
 import base64
 import hashlib
+import os
 import subprocess
 
 import common
@@ -26,7 +27,7 @@ import update_metadata_pb2
 
 
 #
-# Constants / helper functions.
+# Constants.
 #
 _CHECK_DST_PSEUDO_EXTENTS = 'dst-pseudo-extents'
 _CHECK_MOVE_SAME_SRC_DST_BLOCK = 'move-same-src-dst-block'
@@ -41,6 +42,10 @@ _TYPE_FULL = 'full'
 _TYPE_DELTA = 'delta'
 
 _DEFAULT_BLOCK_SIZE = 4096
+
+_DEFAULT_PUBKEY_BASE_NAME = 'update-payload-key.pub.pem'
+_DEFAULT_PUBKEY_FILE_NAME = os.path.join(os.path.dirname(__file__),
+                                         _DEFAULT_PUBKEY_BASE_NAME)
 
 
 #
@@ -1058,6 +1063,9 @@ class PayloadChecker(object):
       PayloadError if payload verification failed.
 
     """
+    if not pubkey_file_name:
+      pubkey_file_name = _DEFAULT_PUBKEY_FILE_NAME
+
     report = _PayloadReport()
 
     # Get payload file size.
@@ -1068,9 +1076,6 @@ class PayloadChecker(object):
     try:
       # Check metadata signature (if provided).
       if metadata_sig_file:
-        if not pubkey_file_name:
-          raise PayloadError(
-              'no public key provided, cannot verify metadata signature')
         metadata_sig = base64.b64decode(metadata_sig_file.read())
         self._CheckSha256Signature(metadata_sig, pubkey_file_name,
                                    self.payload.manifest_hasher.digest(),
@@ -1116,9 +1121,6 @@ class PayloadChecker(object):
 
       # Part 5: handle payload signatures message.
       if self.check_payload_sig and self.sigs_size:
-        if not pubkey_file_name:
-          raise PayloadError(
-              'no public key provided, cannot verify payload signature')
         self._CheckSignatures(report, pubkey_file_name)
 
       # Part 6: summary.

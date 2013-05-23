@@ -52,9 +52,6 @@ def ParseArguments(argv):
               'Update Engine. Use --check to verify a payload prior to '
               'applying it.'))
 
-  default_key = os.path.join(lib_dir,
-                             'update_payload/update-payload-key.pub.pem')
-
   check_opts = optparse.OptionGroup(parser, 'Checking payload integrity')
   check_opts.add_option('-c', '--check', action='store_true', default=False,
                         help=('force payload integrity check (e.g. before '
@@ -76,7 +73,7 @@ def ParseArguments(argv):
                         help=('comma-separated list of tests to disable; '
                               'available values: ' +
                               ', '.join(update_payload.CHECKS_TO_DISABLE)))
-  check_opts.add_option('-k', '--key', metavar='FILE', default=default_key,
+  check_opts.add_option('-k', '--key', metavar='FILE',
                         help=('Override standard key used for signature '
                               'validation'))
   check_opts.add_option('-m', '--meta-sig', metavar='FILE',
@@ -129,8 +126,7 @@ def ParseArguments(argv):
   # There are several options that imply --check.
   opts.check = (opts.check or opts.report or opts.assert_type or
                 opts.block_size or opts.allow_unhashed or
-                opts.disabled_tests or opts.meta_sig or
-                opts.key != default_key or
+                opts.disabled_tests or opts.meta_sig or opts.key or
                 opts.root_part_size != _DEFAULT_ROOTFS_PART_SIZE or
                 opts.kern_part_size != _DEFAULT_KERNEL_PART_SIZE)
 
@@ -156,9 +152,8 @@ def ParseArguments(argv):
     parser.error('unexpected number of arguments')
 
   # By default, look for a metadata-signature file with a name based on the name
-  # of the payload we are checking. We only do it when check is triggered and a
-  # public key provided, so as not to force a metadata signature to fail.
-  if opts.check and opts.key and not opts.meta_sig:
+  # of the payload we are checking. We only do it if check was triggered.
+  if opts.check and not opts.meta_sig:
     default_meta_sig = args[0] + '.metadata-signature'
     if os.path.isfile(default_meta_sig):
       opts.meta_sig = default_meta_sig
