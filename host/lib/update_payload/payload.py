@@ -155,7 +155,7 @@ class Payload(object):
     self.is_init = True
 
   def Describe(self):
-
+    """Emits the payload embedded description data to standard output."""
     def _DescribeImageInfo(description, image_info):
       def _DisplayIndentedValue(name, value):
         print '  {:<14} {}'.format(name+':', value)
@@ -166,16 +166,18 @@ class Payload(object):
       _DisplayIndentedValue('Version', image_info.version)
       _DisplayIndentedValue('Key', image_info.key)
 
-      if (image_info.build_channel != image_info.channel):
+      if image_info.build_channel != image_info.channel:
         _DisplayIndentedValue('Build channel', image_info.build_channel)
 
-      if (image_info.build_version != image_info.version):
+      if image_info.build_version != image_info.version:
         _DisplayIndentedValue('Build version', image_info.build_version)
 
     if self.manifest.HasField('old_image_info'):
+      # pylint: disable=E1101
       _DescribeImageInfo('Old Image', self.manifest.old_image_info)
 
     if self.manifest.HasField('new_image_info'):
+      # pylint: disable=E1101
       _DescribeImageInfo('New Image', self.manifest.new_image_info)
 
   def _AssertInit(self):
@@ -230,7 +232,8 @@ class Payload(object):
                report_out_file=report_out_file)
 
   def Apply(self, new_kernel_part, new_rootfs_part, old_kernel_part=None,
-            old_rootfs_part=None, bsdiff_in_place=True):
+            old_rootfs_part=None, bsdiff_in_place=True,
+            truncate_to_expected_size=True):
     """Applies the update payload.
 
     Args:
@@ -239,6 +242,9 @@ class Payload(object):
       old_kernel_part: name of source kernel partition file (optional)
       old_rootfs_part: name of source rootfs partition file (optional)
       bsdiff_in_place: whether to perform BSDIFF operations in-place (optional)
+      truncate_to_expected_size: whether to truncate the resulting partitions
+                                 to their expected sizes, as specified in the
+                                 payload (optional)
     Raises:
       PayloadError if payload application failed.
 
@@ -246,7 +252,9 @@ class Payload(object):
     self._AssertInit()
 
     # Create a short-lived payload applier object and run it.
-    helper = applier.PayloadApplier(self, bsdiff_in_place=bsdiff_in_place)
+    helper = applier.PayloadApplier(
+        self, bsdiff_in_place=bsdiff_in_place,
+        truncate_to_expected_size=truncate_to_expected_size)
     helper.Run(new_kernel_part, new_rootfs_part,
                old_kernel_part=old_kernel_part,
                old_rootfs_part=old_rootfs_part)

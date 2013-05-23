@@ -192,18 +192,23 @@ class PayloadApplier(object):
 
   """
 
-  def __init__(self, payload, bsdiff_in_place=True):
+  def __init__(self, payload, bsdiff_in_place=True,
+               truncate_to_expected_size=True):
     """Initialize the applier.
 
     Args:
       payload: the payload object to check
       bsdiff_in_place: whether to perform BSDIFF operation in-place (optional)
+      truncate_to_expected_size: whether to truncate the resulting partitions
+                                 to their expected sizes, as specified in the
+                                 payload (optional)
 
     """
     assert payload.is_init, 'uninitialized update payload'
     self.payload = payload
     self.block_size = payload.manifest.block_size
     self.bsdiff_in_place = bsdiff_in_place
+    self.truncate_to_expected_size = truncate_to_expected_size
 
   def _ApplyReplaceOperation(self, op, op_name, out_data, part_file, part_size):
     """Applies a REPLACE{,_BZ} operation.
@@ -430,6 +435,12 @@ class PayloadApplier(object):
     with open(new_part_file_name, 'r+b') as new_part_file:
       self._ApplyOperations(operations, base_name, new_part_file,
                             new_part_info.size)
+      # Truncate the result, if so instructed.
+      if self.truncate_to_expected_size:
+        new_part_file.seek(0, 2)
+        if new_part_file.tell() > new_part_info.size:
+          new_part_file.seek(new_part_info.size)
+          new_part_file.truncate()
 
     # Verify the resulting partition.
     with open(new_part_file_name, 'rb') as new_part_file:
