@@ -872,6 +872,37 @@ class Bundle:
           self._out.Warning("Unexpected memory speed '%s'" % mem_freq)
         value = mem_freq
         self._out.Info('  Memory speed: %d' % mem_freq)
+      elif param == 'a' :
+        arm_freq = fdt.GetInt('/dmc', 'arm-frequency', -1)
+        if arm_freq == -1:
+          arm_freq = 1700000000
+          self._out.Warning("No value for ARM frequency: using '%s'" %
+                            arm_freq)
+        arm_freq /= 1000000
+        value = arm_freq
+        self._out.Info('  ARM speed: %d' % arm_freq)
+      elif param == 'i':
+        i2c_addr = -1
+        lookup = fdt.GetString('/aliases', 'pmic', '')
+        if lookup:
+          i2c_addr, size = fdt.GetIntList(lookup, 'reg', 2)
+        if i2c_addr == -1:
+          self._out.Warning("No value for PMIC I2C address: using %#08x" %
+                            value)
+        else:
+          value = i2c_addr
+        self._out.Info('  PMIC I2C Address: %#08x' % value)
+      elif param == 's':
+        serial_addr = -1
+        lookup = fdt.GetString('/aliases', 'console', '')
+        if lookup:
+          serial_addr, size = fdt.GetIntList(lookup, 'reg', 2)
+        if serial_addr == -1:
+          self._out.Warning("No value for Console address: using %#08x" %
+                            value)
+        else:
+          value = serial_addr
+        self._out.Info('  Console Address: %#08x' % value)
       elif param == 'v':
         value = 31
         self._out.Info('  Memory interleave: %#0x' % value)
@@ -879,6 +910,14 @@ class Bundle:
         value = (spl_load_size + 0xfff) & ~0xfff
         self._out.Info('  U-Boot size: %#0x (rounded up from %#0x)' %
             (value, spl_load_size))
+      elif param == 'l':
+        load_addr = fdt.GetInt('/config', 'u-boot-load-addr', -1)
+        if load_addr == -1:
+          self._out.Warning("No value for U-Boot load address: using '%08x'" %
+                            value)
+        else:
+          value = load_addr
+        self._out.Info('  U-Boot load address: %#0x' % value)
       elif param == 'b':
         # These values come from enum boot_mode in U-Boot's cpu.h
         if self.spl_source == 'straps':
@@ -892,6 +931,21 @@ class Bundle:
         else:
           raise CmdError("Invalid boot source '%s'" % self.spl_source)
         self._out.Info('  Boot source: %#0x' % value)
+      elif param in ['r', 'R']:
+        records = fdt.GetIntList('/board-rev', 'google,board-rev-gpios',
+                                 None, '0 0')
+        gpios = []
+        for i in range(1, len(records), 3):
+          gpios.append(records[i])
+        gpios.extend([0, 0, 0, 0])
+        if param == 'r':
+          value = gpios[0] + (gpios[1] << 16)
+          self._out.Info('  Board ID GPIOs: tit0=%d, tit1=%d' % (gpios[0],
+                         gpios[1]))
+        else:
+          value = gpios[2] + (gpios[3] << 16)
+          self._out.Info('  Board ID GPIOs: tit2=%d, tit3=%d' % (gpios[2],
+                         gpios[3]))
       elif param == 'z':
         compress = fdt.GetString('/flash/ro-boot', 'compress', 'none')
         compress_types = ['none', 'lzo']
