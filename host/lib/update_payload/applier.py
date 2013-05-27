@@ -424,15 +424,15 @@ class PayloadApplier(object):
         _VerifySha256(old_part_file, old_part_info.hash, part_name,
                       length=old_part_info.size)
 
-      # Copy the src partition to the dst one.
+      # Copy the src partition to the dst one; make sure we don't truncate it.
       shutil.copyfile(old_part_file_name, new_part_file_name)
+      new_part_file_mode = 'r+b'
     else:
-      # Preallocate the dst partition file.
-      subprocess.check_call(
-          ['fallocate', '-l', str(new_part_info.size), new_part_file_name])
+      # We need to create/truncate the dst partition file.
+      new_part_file_mode = 'w+b'
 
     # Apply operations.
-    with open(new_part_file_name, 'r+b') as new_part_file:
+    with open(new_part_file_name, new_part_file_mode) as new_part_file:
       self._ApplyOperations(operations, base_name, new_part_file,
                             new_part_info.size)
       # Truncate the result, if so instructed.
