@@ -1095,6 +1095,9 @@ class PayloadChecker(object):
       assert self.payload_type, 'payload type should be known by now'
 
       # Part 3: examine rootfs operations.
+      # TODO(garnold)(chromium:243559) only default to the filesystem size if
+      # no explicit size provided *and* the partition size is not embedded in
+      # the payload; see issue for more details.
       report.AddSection('rootfs operations')
       total_blob_size = self._CheckOperations(
           self.payload.manifest.install_operations, report,
@@ -1104,6 +1107,7 @@ class PayloadChecker(object):
           0, False)
 
       # Part 4: examine kernel operations.
+      # TODO(garnold)(chromium:243559) as above.
       report.AddSection('kernel operations')
       total_blob_size += self._CheckOperations(
           self.payload.manifest.kernel_install_operations, report,

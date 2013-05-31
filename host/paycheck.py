@@ -18,6 +18,10 @@ import update_payload
 
 
 # The default sizes of partitions, based on current partitioning practice.
+# TODO(garnold)(chromium:243559) we should stop using these values once
+# partition sizes are encoded in newly generated payloads; that said, we should
+# allow users to specify partition sizes on the command-line, so as to be able
+# to check older payloads.
 _DEFAULT_ROOTFS_PART_SIZE = 2 * 1024 * 1024 * 1024
 _DEFAULT_KERNEL_PART_SIZE = 16 * 1024 * 1024
 
