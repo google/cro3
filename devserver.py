@@ -79,11 +79,12 @@ TELEMETRY_DEPS = ['dep-telemetry_dep.tar.bz2',
 updater = None
 
 # Log rotation parameters.  These settings correspond to once a week
-# on Saturday, with about three months of old logs kept for backup.
+# at midnight between Friday and Saturday, with about three months
+# of old logs kept for backup.
 #
 # For more, see the documentation for
 # logging.handlers.TimedRotatingFileHandler
-_LOG_ROTATION_TIME = 'W5'
+_LOG_ROTATION_TIME = 'W4'
 _LOG_ROTATION_BACKUP = 13
 
 
