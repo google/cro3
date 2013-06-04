@@ -50,6 +50,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import types
 from logging import handlers
 
@@ -60,7 +61,6 @@ import autoupdate
 import common_util
 import downloader
 import log_util
-
 
 # Module-local log function.
 def _Log(message, *args):
@@ -375,6 +375,11 @@ class DevServerRoot(object):
 
   api = ApiRoot()
 
+  # Number of threads that devserver is staging images.
+  _staging_thread_count = 0
+  # Lock used to lock increasing/decreasing count.
+  _staging_thread_count_lock = threading.Lock()
+
   def __init__(self):
     self._builder = None
     self._telemetry_lock_dict = common_util.LockDict()
@@ -422,6 +427,7 @@ class DevServerRoot(object):
     return self.stage(archive_url=kwargs.get('archive_url'),
                       artifacts='full_payload,test_suites,stateful')
 
+
   @cherrypy.expose
   def stage(self, **kwargs):
     """Downloads and caches the artifacts from Google Storage URL.
@@ -464,9 +470,16 @@ class DevServerRoot(object):
     if not artifacts:
       raise DevServerError('No artifacts specified.')
 
-    downloader.Downloader(updater.static_dir, archive_url).Download(
-        artifacts.split(','))
+    with DevServerRoot._staging_thread_count_lock:
+      DevServerRoot._staging_thread_count += 1
+    try:
+      downloader.Downloader(updater.static_dir, archive_url).Download(
+          artifacts.split(','))
+    finally:
+      with DevServerRoot._staging_thread_count_lock:
+        DevServerRoot._staging_thread_count -= 1
     return 'Success'
+
 
   @cherrypy.expose
   def setup_telemetry(self, **kwargs):
@@ -729,7 +742,9 @@ class DevServerRoot(object):
     """Collect the health status of devserver to see if it's ready for staging.
 
     @return: A JSON dictionary containing all or some of the following fields:
-        free_disk (int):        free disk space in GB
+        free_disk (int):            free disk space in GB
+        staging_thread_count (int): number of devserver threads currently
+            staging an image
     """
     # Get free disk space.
     stat = os.statvfs(updater.static_dir)
@@ -737,6 +752,7 @@ class DevServerRoot(object):
 
     return json.dumps({
         'free_disk': free_disk,
+        'staging_thread_count': DevServerRoot._staging_thread_count,
     })
 
 
