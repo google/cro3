@@ -463,9 +463,6 @@ class Bundle:
 
     Returns:
       Path of the created GBB file.
-
-    Raises:
-      CmdError if a command fails.
     """
     if not hardware_id:
       hardware_id = self.fdt.GetString('/config', 'hwid')
@@ -504,9 +501,6 @@ class Bundle:
 
     Returns:
       filename of signed image.
-
-    Raises:
-      CmdError if a command fails.
     """
     # First create a config file - this is how we instruct cbootimage
     signed = os.path.join(self._tools.outdir, 'signed.bin')
@@ -600,6 +594,8 @@ class Bundle:
               node: The fdt node to write to will be <node> or pointed to by
                   /aliases/<node>. We can tell which
               value: 0 to disable the node, 1 to enable it
+    Raises:
+      CmdError if a command fails.
     """
     if enable_list:
       for node_name, enabled in enable_list:
@@ -790,9 +786,6 @@ class Bundle:
 
     Returns:
       Full path to bootstub (coreboot + uboot).
-
-    Raises:
-      CmdError if a command fails.
     """
     bootstub = os.path.join(self._tools.outdir, 'coreboot-full.rom')
     shutil.copyfile(self._tools.Filename(coreboot), bootstub)
@@ -1035,6 +1028,9 @@ class Bundle:
       blob_type: The type of blob to create data for. Supported types are:
           coreboot    A coreboot image (ROM plus U-boot and .dtb payloads).
           signed      Nvidia T20/T30 signed image (BCT, U-Boot, .dtb).
+
+    Raises:
+      CmdError if a command fails.
     """
     # stupid pylint insists that sha256 is not in hashlib.
     # pylint: disable=E1101
@@ -1121,9 +1117,6 @@ class Bundle:
 
     Returns:
       Path to image file
-
-    Raises:
-      CmdError if a command fails.
     """
     self._out.Notice("Model: %s" % fdt.GetString('/', 'model'))
 
