@@ -301,8 +301,6 @@ class AutoupdateTest(mox.MoxTestBase):
     self.assertFalse(au._CanUpdate('0.16.892.0', '0.16.892.0'))
 
   def testHandleUpdatePingRemotePayload(self):
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetRemotePayloadAttrs')
-
     remote_urlbase = 'http://remotehost:6666'
     remote_payload_path = 'static/path/to/update.gz'
     remote_url = '/'.join([remote_urlbase, remote_payload_path, 'update.gz'])
