@@ -8,6 +8,8 @@ import os
 import re
 import struct
 import time
+
+from exynos import ExynosBl2
 from tools import CmdError
 
 def RoundUp(value, boundary):
@@ -676,10 +678,10 @@ class WriteFirmware:
       raw_image = self._PrepareFlasher(uboot, payload, flash_dest, '1:0')
       bl1, bl2, _ = self._ExtractPayloadParts(payload, True)
       spl_load_size = os.stat(raw_image).st_size
-      bl2 = self._bundle.ConfigureExynosBl2(self._fdt, spl_load_size, bl2,
-                                            'flasher')
 
-      data = self._tools.ReadFile(bl1) + self._tools.ReadFile(bl2)
+      bl2_handler = ExynosBl2(self._tools, self._out)
+      bl2_file = bl2_handler.Configure(self._fdt, spl_load_size, bl2, 'flasher')
+      data = self._tools.ReadFile(bl1) + self._tools.ReadFile(bl2_file)
 
       # Pad BL2 out to the required size.
       # We require that it be 24KB, but data will only contain 8KB + 14KB.
