@@ -680,7 +680,8 @@ class WriteFirmware:
       spl_load_size = os.stat(raw_image).st_size
 
       bl2_handler = ExynosBl2(self._tools, self._out)
-      bl2_file = bl2_handler.Configure(self._fdt, spl_load_size, bl2, 'flasher')
+      bl2_file = bl2_handler.Configure(self._fdt, spl_load_size,
+                                       bl2, 'flasher', False)
       data = self._tools.ReadFile(bl1) + self._tools.ReadFile(bl2_file)
 
       # Pad BL2 out to the required size.

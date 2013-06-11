@@ -265,7 +265,7 @@ class ExynosBl2(object):
     return data[:checksum_offset]+ struct.pack(
       '<L', checksum) + data[checksum_offset + 4:]
 
-  def _VerifyBl2(self, data):
+  def _VerifyBl2(self, data, loose_check):
     """Verify BL2 integrity.
 
     Fixed size and variable size SPL have different formats. Determine format,
@@ -274,7 +274,8 @@ class ExynosBl2(object):
 
     Args:
       data: The BL2 data to update.
-
+      loose_check: a Boolean, if true - the variable size SPL blob could be
+                   larger than the size value in the header
     Raises:
       CmdError if SPL blob is of unrecognizable format.
     """
@@ -282,8 +283,8 @@ class ExynosBl2(object):
     # Variable size format is more sophisticated, check it first.
     try:
       size = struct.unpack('<I', data[:4])[0]
-      if size == len(data):
-        check_sum = sum(ord(x) for x in data[8:])
+      if size == len(data) or (loose_check and (size < len(data))):
+        check_sum = sum(ord(x) for x in data[8:size])
         # Compare with header checksum
         if check_sum == struct.unpack('<I', data[4:8])[0]:
           # this is a variable size SPL
@@ -303,7 +304,7 @@ class ExynosBl2(object):
     raise CmdError("Unrecognizable bl2 format")
 
 
-  def Configure(self, fdt, spl_load_size, orig_bl2, name=''):
+  def Configure(self, fdt, spl_load_size, orig_bl2, name='', loose_check=False):
     """Configure an Exynos BL2 binary for our needs.
 
     We create a new modified BL2 and return its file name.
@@ -312,13 +313,17 @@ class ExynosBl2(object):
       fdt: Device tree containing the parameter values.
       spl_load_size: Size of U-Boot image that SPL must load
       orig_bl2: Filename of original BL2 file to modify.
+      name: a string, suffix to add to the generated file name
+      loose_check: if True - allow var size SPL blob to be larger, then the
+                   size value in the header. This is necessary for cases when
+                   SPL is pulled out of an image (and is padded).
 
     Raises:
       CmdError if machine parameter block could not be found.
     """
     self._out.Info('Configuring BL2')
     data = self._tools.ReadFile(orig_bl2)
-    self._VerifyBl2(data)
+    self._VerifyBl2(data, loose_check)
 
     # Locate the parameter block
     marker = struct.pack('<L', 0xdeadbeef)
