@@ -163,14 +163,19 @@ def GetBranches(full_name, color, revision):
     # Let's get the detached HEAD branch sha1. The branch's string looks as
     # follows:
     #
+    # For versions older than git 1.8.x:
     # `* (no branch) <sha_1> <description>'
+    # Newer versions look like:
+    # `* (detached from <sha_1>) <sha_1> <description>'
     #
     # The asterisk could be not there, the '(no branch)' substring could be
     # enveloped in the color enable/disable escape sequences with spaces
     # potentially before and after the escape sequence.
-    m = re.search('\*? +[^ ]*\(no branch\) *(?:\x1b..)? *([^ ]+) ', branch)
+    m = re.search(
+        '\*? +[^ ]*\((no branch|detached from [^)]*)\) *(?:\x1b..)? *([^ ]+) ',
+        branch)
     if m:
-      branch_sha1 = m.groups(0)[0]
+      branch_sha1 = m.groups(0)[1]
       # Does detached HEAD match the tracking branch?
       detached_head_match = tracking_sha1.startswith(branch_sha1)
       if detached_head_match and len(branches) == 1:
