@@ -20,11 +20,12 @@ install:
 		build_util.py \
 		builder.py \
 		common_util.py \
-		constants.py \
+		devserver_constants.py \
 		downloader.py \
 		gsutil_util.py \
 		log_util.py \
 		strip_package.py \
+		xbuddy.py \
 		"${DESTDIR}/usr/lib/devserver"
 
 	install -m 0755 stateful_update "${DESTDIR}/usr/bin"

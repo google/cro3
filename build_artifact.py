@@ -11,6 +11,7 @@ import tempfile
 
 import artifact_info
 import common_util
+import devserver_constants
 import gsutil_util
 import log_util
 
@@ -24,10 +25,11 @@ _MTON_DIR_SUFFIX = '_mton'
 AU_SUITE_FILE = 'au_control.tar.bz2'
 AUTOTEST_FILE = 'autotest.tar'
 AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
+BASE_IMAGE_FILE = 'chromiumos_base_image.bin'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
 FIRMWARE_FILE = 'firmware_from_source.tar.bz2'
 IMAGE_FILE = 'image.zip'
-ROOT_UPDATE_FILE = 'update.gz'
+RECOVERY_IMAGE_FILE = 'recovery_image.bin'
 STATEFUL_UPDATE_FILE = 'stateful.tgz'
 TEST_IMAGE_FILE = 'chromiumos_test_image.bin'
 TEST_SUITES_FILE = 'test_suites.tar.bz2'
@@ -192,7 +194,8 @@ class AUTestPayloadBuildArtifact(BuildArtifact):
 
     # Rename to update.gz.
     install_path = os.path.join(self.install_dir, self.name)
-    new_install_path = os.path.join(self.install_dir, ROOT_UPDATE_FILE)
+    new_install_path = os.path.join(self.install_dir,
+                                    devserver_constants.ROOT_UPDATE_FILE)
     shutil.move(install_path, new_install_path)
 
 
@@ -296,7 +299,8 @@ class AutotestTarballBuildArtifact(TarballBuildArtifact):
     super(AutotestTarballBuildArtifact, self)._Stage()
 
     # Deal with older autotest packages that may not be bundled.
-    autotest_dir = os.path.join(self.install_dir, 'autotest')
+    autotest_dir = os.path.join(self.install_dir,
+                                devserver_constants.AUTOTEST_DIR)
     autotest_pkgs_dir = os.path.join(autotest_dir, 'packages')
     if not os.path.exists(autotest_pkgs_dir):
       os.makedirs(autotest_pkgs_dir)
@@ -365,9 +369,9 @@ ARTIFACT_IMPLEMENTATION_MAP = {
 
   artifact_info.BASE_IMAGE:
       ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
-                      ['chromiumos_base_image.bin']),
+                      [BASE_IMAGE_FILE]),
   artifact_info.RECOVERY_IMAGE:
-      ImplDescription(ZipfileBuildArtifact, IMAGE_FILE, ['recovery_image.bin']),
+      ImplDescription(ZipfileBuildArtifact, IMAGE_FILE, [RECOVERY_IMAGE_FILE]),
   artifact_info.TEST_IMAGE:
       ImplDescription(ZipfileBuildArtifact, IMAGE_FILE, [TEST_IMAGE_FILE]),
 

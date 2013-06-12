@@ -61,6 +61,7 @@ import autoupdate
 import common_util
 import downloader
 import log_util
+import xbuddy
 
 # Module-local log function.
 def _Log(message, *args):
@@ -381,9 +382,10 @@ class DevServerRoot(object):
   # Lock used to lock increasing/decreasing count.
   _staging_thread_count_lock = threading.Lock()
 
-  def __init__(self):
+  def __init__(self, _xbuddy):
     self._builder = None
     self._telemetry_lock_dict = common_util.LockDict()
+    self._xbuddy = _xbuddy
 
   @cherrypy.expose
   def build(self, board, pkg, **kwargs):
@@ -693,6 +695,64 @@ class DevServerRoot(object):
     image_types_list = [image + '_image' for image in image_types]
     self.stage(archive_url=kwargs.get('archive_url'), artifacts=','.join(
         image_types_list))
+
+  @cherrypy.expose
+  def xbuddy(self, **kwargs):
+    """The full xBuddy call, returns path to resource on this devserver.
+
+    Args:
+      path: build_id/alias
+        build_id is composed of "board/version"
+        The board is the familiar board name, optionally suffixed.
+        The version can be the google storage version number, and may also be
+        one of a number of aliases that will be translated into the latest
+        built image that fits the description.
+        The alias is one of a number of image or artifact aliases used by
+        xbuddy, defined in xbuddy:ALIASES
+      return_dir: {true|false}
+                  if set to true, returns the url to the update.gz
+                  instead.
+
+    Example URL:
+      http://host:port/xbuddy?path=/x86-generic/R26-4000.0.0/test
+      or
+      http://host:port/xbuddy?path=/x86-generic/R26-4000.0.0/
+      test&return_dir=true
+
+    Returns:
+      A redirect to the image or update file on the devserver.
+      e.g. http://host:port/static/archive/x86-generic-release/
+      R26-4000.0.0/chromium-test-image.bin
+      or if return_dir is True, return path to the folder where
+      image or update file is
+      http://host:port/static/x86-generic-release/R26-4000.0.0/
+    """
+    boolean_string = kwargs.get('return_dir')
+    return_dir = xbuddy.XBuddy.ParseBoolean(boolean_string)
+    devserver_url = cherrypy.request.base
+    return_url = self._xbuddy.Get(kwargs.get('path'),
+                                  return_dir)
+    if return_dir:
+      return os.path.join(devserver_url, return_url)
+    else:
+      raise cherrypy.HTTPRedirect(return_url, 302)
+
+  @cherrypy.expose
+  def xbuddy_list(self):
+    """Lists the currently available images & time since last access.
+
+    @return: A string representation of a list of tuples
+      [(build_id, time since last access),...]
+    """
+    return self._xbuddy.List()
+
+  @cherrypy.expose
+  def xbuddy_capacity(self):
+    """Returns the number of images cached by xBuddy.
+
+    @return: Capacity of this devserver.
+    """
+    return self._xbuddy.Capacity()
 
   @cherrypy.expose
   def index(self):
@@ -1015,7 +1075,10 @@ def main():
   if options.exit:
     return
 
-  cherrypy.quickstart(DevServerRoot(), config=_GetConfig(options))
+  _xbuddy = xbuddy.XBuddy(static_dir)
+  dev_server = DevServerRoot(_xbuddy)
+
+  cherrypy.quickstart(dev_server, config=_GetConfig(options))
 
 
 if __name__ == '__main__':
