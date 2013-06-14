@@ -347,9 +347,9 @@ class Bundle:
       self.bmpblk_fname = os.path.join(build_root, 'bmpblk.bin')
     if model:
       if not self.exynos_bl1:
-        self.exynos_bl1 = os.path.join(build_root, 'E%s.nbl1.bin' % model)
+        self.exynos_bl1 = os.path.join(build_root, 'u-boot.bl1.bin')
       if not self.exynos_bl2:
-        self.exynos_bl2 = os.path.join(build_root, 'smdk%s-spl.bin' % model)
+        self.exynos_bl2 = os.path.join(build_root, 'u-boot-spl-wrapped.bin')
     if not self.coreboot_fname:
       self.coreboot_fname = os.path.join(build_root, 'coreboot.rom')
     if not self.skeleton_fname:
