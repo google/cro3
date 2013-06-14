@@ -629,6 +629,10 @@ class PackFirmware:
       reg = props.get('reg', None)
       if reg:
         offset, size = fdt.DecodeIntList(node, 'reg', reg, 2)
+        if (offset & align_mask) or (size & align_mask):
+          raise ValueError("Alignment of %d conflicts with 'reg' setting in"
+                           "node '%s': offset=%#08x, size=%#08x" %
+                           (align, props['label'], offset, size))
       else:
         size = props.get('size', None)
         if not size:
@@ -638,12 +642,6 @@ class PackFirmware:
         offset = self.upto_offset
         offset = (offset + align_mask) & ~align_mask
 
-      # Here, offset is checked for the benefit of the 'reg' property present
-      # case, and size is checked for both cases.
-      if (offset & align_mask) or (size & align_mask):
-        raise ValueError("Alignment of %d conflicts with 'reg' setting in"
-                         "node '%s': offset=%#08x, size=%#08x" %
-                         (align, props['label'], offset, size))
       props['node'] = node
       props['offset'] = offset
       props['size'] = size
