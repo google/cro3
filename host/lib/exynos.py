@@ -209,6 +209,11 @@ class ExynosBl2(object):
           value = gpios[2] + (gpios[3] << 16)
           self._out.Info('  Board ID GPIOs: tit2=%d, tit3=%d' % (gpios[2],
                          gpios[3]))
+      elif param == 'w':
+        records = fdt.GetIntList('/config', 'google,bad-wake-gpios',
+                                 3, '0 0xffffffff 0')
+        value = records[1]
+        self._out.Info('  Bad Wake GPIO: %#x' % value)
       elif param == 'z':
         compress = fdt.GetString('/flash/ro-boot', 'compress', 'none')
         compress_types = ['none', 'lzo']
