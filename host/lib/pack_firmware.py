@@ -823,7 +823,8 @@ class PackFirmware:
           self._out.Info("Updating blob positions in fdt for '%s'" % entry.key)
           data, directory = self.ConcatPropContents(
               entry.key.split(','), None, entry.with_index)
-          if len(directory) > 1:
+          if (len(directory) > 1 or
+              fdt.GetProp(entry.node, 'add-hash', 'none') != 'none'):
             fdt.PutInteger(entry.node, '#address-cells', 1)
             fdt.PutInteger(entry.node, '#size-cells', 1)
             for key, item in directory.iteritems():
