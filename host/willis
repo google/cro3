@@ -61,6 +61,9 @@ class Result(object):
 
     results - a list of strings, each representing a result of a running
                  parallel thread.
+
+    not_existing - an integer, counter of repos which were not found (most
+                   often happens in minilayouts)
   '''
 
   def __init__(self, max_threads, fast_report=False):
@@ -73,6 +76,7 @@ class Result(object):
     self.fast_report = fast_report
     self.started_threads = 0
     self.results = []
+    self.not_existing = 0
 
   def ReportThreadStatus(self):
     '''Print status line when enabled.
@@ -98,7 +102,7 @@ class Result(object):
     self.ReportThreadStatus()
     self.thread_lock.release()
 
-  def ReportFinishedThread(self, result):
+  def ReportFinishedThread(self, result=None):
     '''Report that a parallel thread finished running.
 
     Each time a finished thread is reported, decrement the running thread
@@ -106,12 +110,16 @@ class Result(object):
     thread lock.
 
     result - a string, representing the output of the thread, could be empty.
+             Set to None for threads started on non-existing repositories
+             (happens in minilayouts).
              If not empty - ether add this string to the results attribute or
              print it, if fast reporting is enabled.
     '''
 
     self.thread_lock.acquire()
-    if result:
+    if result == None:
+      self.not_existing += 1
+    elif result:
       if self.fast_report:
         print result
       else:
@@ -132,6 +140,9 @@ class Result(object):
     do, sort the results[] list and return it.
     '''
     with self.finished_lock:
+      if self.not_existing:
+        self.results.append(Colorizer.Color(
+            Colorizer.RED, '%d repos not found' % self.not_existing))
       return sorted(self.results)
 
 
@@ -222,8 +233,7 @@ def ShowDir(project, root, color, options, result):
   result.ReportStartedThread()
 
   if not os.path.isdir(full_name):
-    print '\r%s does not exist' % full_name
-    result.ReportFinishedThread('')
+    result.ReportFinishedThread()
     return
 
   branches = GetBranches(full_name, color, project['local_revision'])
