@@ -110,6 +110,9 @@ class Fdt:
     >>> fdt.DecodeIntList('/', 'galveston', '1 2 3 4', 4)
     [1, 2, 3, 4]
 
+    >>> fdt.DecodeIntList('/', 'galveston', '0xff', 1)
+    [255]
+
     >>> fdt.DecodeIntList('/', 'galveston', '1 2 3 4', 3)
     Traceback (most recent call last):
       ...
@@ -137,7 +140,7 @@ class Fdt:
       raise ValueError, ("GetIntList of node '%s' prop '%s' returns '%s'"
           ", which has %d elements, but %d expected" %
           (node, prop, list, len(int_list), num_values))
-    return [int(item) for item in int_list]
+    return [int(item, 0) for item in int_list]
 
   def GetIntList(self, node, prop, num_values=None, default=None):
     """Read a property and decode it into a list of integers.
