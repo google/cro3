@@ -684,10 +684,14 @@ class WriteFirmware:
                                        bl2, 'flasher', True)
       data = self._tools.ReadFile(bl1) + self._tools.ReadFile(bl2_file)
 
-      # Pad BL2 out to the required size.
-      # We require that it be 24KB, but data will only contain 8KB + 14KB.
-      # Add the extra padding to bring it to 24KB.
-      data += '\0' * (0x6000 - len(data))
+      # Pad BL2 out to the required size. Its size could be either 14K or 30K
+      # bytes, but the next object in the file needs to be aligned at an 8K
+      # boundary. The BL1 size is also known to be 8K bytes, so the total BL1
+      # + BL2 size needs to be aligned to 8K (0x2000) boundary.
+      aligned_size = (len(data) + 0x1fff) & ~0x1fff
+      pad_size =  aligned_size - len(data)
+      data += '\0' * pad_size
+
       data += self._tools.ReadFile(raw_image)
       image = os.path.join(self._tools.outdir, 'flasher-with-bl.bin')
       self._tools.WriteFile(image, data)

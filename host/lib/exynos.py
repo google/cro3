@@ -298,11 +298,22 @@ class ExynosBl2(object):
           return
 
       # This is not var size spl, let's see if it's the fixed size one.
-      check_sum = sum(ord(x) for x in data[:-4])
-      if check_sum == struct.unpack('<I', data[-4:])[0]:
-        self._spl_type = self.FIXED_SPL
-        self._out.Progress('Fixed size BL2 detected')
-        return
+      # Checksum is placed at a fixed location in the blob, as defined in
+      # tools/mkexynosspl.c in the u--boot tree. There are two possibilities
+      # for blob sizes - 14K or 30K. The checksum is put in the last 4 bytes
+      # of the blob.
+      #
+      # To complicate things further the blob here could have come not from
+      # mkexynosspl directly, it could have been pulled out of a previously
+      # bundled image. I that case it the blob will be in a chunk aligned to
+      # the closest 16K boundary.
+      blob_size  = ((len(data) + 0x3fff) & ~0x3fff) - 2 * 1024
+      if blob_size == len(data) or (loose_check and (blob_size < len(data))):
+        check_sum = sum(ord(x) for x in data[:blob_size - 4])
+        if check_sum == struct.unpack('<I', data[blob_size - 4:blob_size])[0]:
+          self._spl_type = self.FIXED_SPL
+          self._out.Progress('Fixed size BL2 detected')
+          return
     except IndexError:
       # This will be thrown if bl2 is too small
       pass
