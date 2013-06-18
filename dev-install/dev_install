@@ -193,6 +193,19 @@ main() {
     return 1
   fi
 
+  # Sanity check.  People often run `su` or `sudo su` and leave off that final
+  # - which means they don't get a proper environment.  Catch them here rather
+  # than fail randomly midway through the process.
+  case :${PATH}: in
+  *:/usr/local/bin:*) ;;
+  *)
+    error "Your environment appears to be incomplete.  When changing to root,"
+    error "did you remember to run the full command (don't forget the dash):"
+    error " $ sudo su -"
+    return 1
+    ;;
+  esac
+
   # This script should only run in developer mode or for developer images.
   if crossystem "cros_debug?0"; then
     error "Can not run dev_install."
