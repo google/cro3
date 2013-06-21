@@ -188,11 +188,7 @@ run_stateful_update() {
   fi
 
   # Assume users providing an update url are using an archive_dir path.
-  if [ -n "${FLAGS_update_url}" ]; then
-    stateful_url=$(echo ${dev_url} | sed -e "s/update/static\/archive/")
-  else
-    stateful_url=$(echo ${dev_url} | sed -e "s/update/static/")
-  fi
+  stateful_url=$(echo ${dev_url} | sed -e "s/update/static/")
 
   info "Starting stateful update using URL ${stateful_url}"
 

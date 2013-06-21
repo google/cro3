@@ -49,8 +49,8 @@ UPDATE_REQUEST['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
 
 # TODO(girts): use a random available port.
 UPDATE_URL = 'http://127.0.0.1:8080/update'
-STATIC_URL = 'http://127.0.0.1:8080/static/archive/'
 CHECK_HEALTH_URL = 'http://127.0.0.1:8080/check_health'
+STATIC_URL = 'http://127.0.0.1:8080/static/'
 
 API_HOST_INFO_BAD_URL = 'http://127.0.0.1:8080/api/hostinfo/'
 API_HOST_INFO_URL = API_HOST_INFO_BAD_URL + '127.0.0.1'

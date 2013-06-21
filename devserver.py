@@ -151,8 +151,6 @@ def _GetConfig(options):
                     'response.timeout': 6000,
                     'request.show_tracebacks': True,
                     'server.socket_timeout': 60,
-                    'tools.staticdir.root':
-                      os.path.dirname(os.path.abspath(sys.argv[0])),
                   },
                   '/api':
                   {
@@ -171,7 +169,7 @@ def _GetConfig(options):
                   },
                   # Sets up the static dir for file hosting.
                   '/static':
-                  { 'tools.staticdir.dir': 'static',
+                  { 'tools.staticdir.dir': options.static_dir,
                     'tools.staticdir.on': True,
                     'response.timeout': 10000,
                   },
@@ -180,25 +178,6 @@ def _GetConfig(options):
     base_config['global'].update({'server.thread_pool': 75})
 
   return base_config
-
-
-def _PrepareToServeUpdatesOnly(image_dir, static_dir):
-  """Sets up symlink to image_dir for serving purposes."""
-  assert os.path.exists(image_dir), '%s must exist.' % image_dir
-  # If  we're  serving  out  of  an archived  build  dir  (e.g.  a
-  # buildbot), prepare this webserver's magic 'static/' dir with a
-  # link to the build archive.
-  _Log('Preparing autoupdate for "serve updates only" mode.')
-  if os.path.lexists('%s/archive' % static_dir):
-    if image_dir != os.readlink('%s/archive' % static_dir):
-      _Log('removing stale symlink to %s' % image_dir)
-      os.unlink('%s/archive' % static_dir)
-      os.symlink(image_dir, '%s/archive' % static_dir)
-
-  else:
-    os.symlink(image_dir, '%s/archive' % static_dir)
-
-  _Log('archive dir: %s ready to be used to serve images.' % image_dir)
 
 
 def _GetRecursiveMemberObject(root, member_list):
@@ -458,7 +437,7 @@ class DevServerRoot(object):
             artifacts=full_payload
 
       For both these examples, one could find these artifacts at:
-        http://devserver_url:<port>/static/archive/<relative_path>*
+        http://devserver_url:<port>/static/<relative_path>*
 
       Note for this example, relative path is the archive_url stripped of its
       basename i.e. path/ in the examples above. Specific example:
@@ -467,7 +446,7 @@ class DevServerRoot(object):
 
       Will get staged to:
 
-      http://devserver_url:<port>/static/archive/x86-mario-release/R26-3920.0.0
+      http://devserver_url:<port>/static/x86-mario-release/R26-3920.0.0
     """
     archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
     artifacts = kwargs.get('artifacts', '')
@@ -950,13 +929,9 @@ def _AddProductionOptions(parser):
   group = optparse.OptionGroup(
       parser, 'Advanced Server Options', 'These options can be used to changed '
       'for advanced server behavior.')
-  # TODO(sosa): Clean up the fact we have archive_dir and data_dir. It's ugly.
-  # Should be --archive_mode + optional data_dir.
   group.add_option('--archive_dir',
                    metavar='PATH',
-                   help='Enables archive-only mode. This disables any '
-                   'update or package generation related functionality. This '
-                   'mode also works without a Chromium OS chroot.')
+                   help='To be deprecated.')
   group.add_option('--clear_cache',
                    action='store_true', default=False,
                    help='At startup, removes all cached entries from the'
@@ -987,10 +962,14 @@ def _MakeLogHandler(logfile):
 def main():
   usage = '\n\n'.join(['usage: %prog [options]', __doc__])
   parser = optparse.OptionParser(usage=usage)
-  parser.add_option('--data_dir',
+
+  # get directory that the devserver is run from
+  devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+  default_archive_dir = '%s/static' % devserver_dir
+  parser.add_option('--static_dir',
                     metavar='PATH',
-                    default=os.path.dirname(os.path.abspath(sys.argv[0])),
-                    help='writable directory where static lives')
+                    default=default_archive_dir,
+                    help='writable static directory')
   parser.add_option('--port',
                     default=8080, type='int',
                     help='port for the dev server to use (default: 8080)')
@@ -1021,33 +1000,25 @@ def main():
     cherrypy.log.error_log.addHandler(hdlr)
     # pylint: enable=E1101
 
-  devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
   root_dir = os.path.realpath('%s/../..' % devserver_dir)
   serve_only = False
-
-  static_dir = os.path.realpath('%s/static' % options.data_dir)
-  os.system('mkdir -p %s' % static_dir)
 
   # TODO(sosa): Remove after deprecation.
   if options.vm:
     options.patch_kernel = False
 
+  # set static_dir, from which everything will be served
   if options.archive_dir:
-    # TODO(zbehan) Remove legacy support:
-    #  archive_dir is the directory where static/archive will point.
-    #  If this is an absolute path, all is fine. If someone calls this
-    #  using a relative path, that is relative to src/platform/dev/.
-    #  That use case is unmaintainable, but since applications use it
-    #  with =./static, instead of a boolean flag, we'll make this
-    #  relative to devserver_dir  to keep these unbroken. For now.
+    # TODO(joyc) To be deprecated
     archive_dir = options.archive_dir
     if not os.path.isabs(archive_dir):
-      archive_dir = os.path.realpath(os.path.join(devserver_dir, archive_dir))
-    _PrepareToServeUpdatesOnly(archive_dir, static_dir)
-    static_dir = os.path.realpath(archive_dir)
+      archive_dir = os.path.join(devserver_dir, archive_dir)
+    options.static_dir = os.path.realpath(archive_dir)
     serve_only = True
+  else:
+    options.static_dir = os.path.realpath(options.static_dir)
 
-  cache_dir = os.path.join(static_dir, 'cache')
+  cache_dir = os.path.join(options.static_dir, 'cache')
   # If our devserver is only supposed to serve payloads, we shouldn't be
   # mucking with the cache at all. If the devserver hadn't previously
   # generated a cache and is expected, the caller is using it wrong.
@@ -1062,16 +1033,15 @@ def main():
     os.makedirs(cache_dir)
 
   _Log('Using cache directory %s' % cache_dir)
-  _Log('Data dir is %s' % options.data_dir)
   _Log('Source root is %s' % root_dir)
-  _Log('Serving from %s' % static_dir)
+  _Log('Serving from %s' % options.static_dir)
 
   # We allow global use here to share with cherrypy classes.
   # pylint: disable=W0603
   global updater
   updater = autoupdate.Autoupdate(
       root_dir=root_dir,
-      static_dir=static_dir,
+      static_dir=options.static_dir,
       serve_only=serve_only,
       urlbase=options.urlbase,
       test_image=options.test_image,
@@ -1095,7 +1065,7 @@ def main():
   if options.exit:
     return
 
-  _xbuddy = xbuddy.XBuddy(root_dir=root_dir, static_dir=static_dir)
+  _xbuddy = xbuddy.XBuddy(root_dir=root_dir, static_dir=options.static_dir)
   dev_server = DevServerRoot(_xbuddy)
 
   cherrypy.quickstart(dev_server, config=_GetConfig(options))

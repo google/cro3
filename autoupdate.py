@@ -145,6 +145,7 @@ class Autoupdate(build_util.BuildObject):
     host_log:         record full history of host update events.
   """
 
+  _OLD_PAYLOAD_URL_PREFIX = '/static/archive'
   _PAYLOAD_URL_PREFIX = '/static/'
   _FILEINFO_URL_PREFIX = '/api/fileinfo/'
 
@@ -555,8 +556,13 @@ class Autoupdate(build_util.BuildObject):
           'Payload URL does not have the expected prefix (%s)' %
           self._PAYLOAD_URL_PREFIX)
 
-    fileinfo_url = url.replace(self._PAYLOAD_URL_PREFIX,
-                               self._FILEINFO_URL_PREFIX)
+    if self._OLD_PAYLOAD_URL_PREFIX in url:
+      fileinfo_url = url.replace(self._OLD_PAYLOAD_URL_PREFIX,
+                                 self._FILEINFO_URL_PREFIX)
+    else:
+      fileinfo_url = url.replace(self._PAYLOAD_URL_PREFIX,
+                                 self._FILEINFO_URL_PREFIX)
+
     _Log('Retrieving file info for remote payload via %s', fileinfo_url)
     try:
       conn = urllib2.urlopen(fileinfo_url)
@@ -654,8 +660,6 @@ class Autoupdate(build_util.BuildObject):
 
     if self.urlbase:
       static_urlbase = self.urlbase
-    elif self.serve_only:
-      static_urlbase = '%s/static/archive' % hostname
     else:
       static_urlbase = '%s/static' % hostname
 
