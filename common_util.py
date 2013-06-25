@@ -139,9 +139,8 @@ def GetControlFileList(static_dir, build):
 
   control_files = set()
   if not os.path.exists(autotest_dir):
-    # TODO(scottz): Come up with some sort of error mechanism.
-    # crosbug.com/25040
-    return 'Unknown build path %s' % autotest_dir
+    raise CommonUtilError('Could not find this directory.'
+                          'Is it staged? %s' % autotest_dir)
 
   for entry in os.walk(autotest_dir):
     dir_path, _, files = entry
