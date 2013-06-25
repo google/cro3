@@ -7,7 +7,6 @@
 import os
 import shutil
 import subprocess
-import tempfile
 
 import artifact_info
 import common_util
@@ -58,9 +57,7 @@ class BuildArtifact(log_util.Loggable):
     marker_name: Name used to define the lock marker for the artifacts to
                  prevent it from being re-downloaded. By default based on name
                  but can be overriden by children.
-    staging_dir: directory for the artifact reserved for staging. Cleaned
-                 up after staging.
-    tmp_stage_path: Path used in staging_dir for placing artifact.
+    install_path: Path to artifact.
     install_dir: The final location where the artifact should be staged to.
     single_name: If True the name given should only match one item. Note, if not
                  True, self.name will become a list of items returned.
@@ -84,9 +81,7 @@ class BuildArtifact(log_util.Loggable):
 
     self.marker_name = '.' + self._SanitizeName(name)
 
-    self.staging_dir = tempfile.mkdtemp(prefix='Devserver%s' % (
-        type(self).__name__))
-    self.tmp_stage_path = None
+    self.install_path = None
 
     self.install_dir = install_dir
 
@@ -127,15 +122,15 @@ class BuildArtifact(log_util.Loggable):
       self.name = names
 
   def _Download(self):
-    """Downloads artifact from Google Storage to a local staging directory."""
-    self.tmp_stage_path = os.path.join(self.staging_dir, self.name)
+    """Downloads artifact from Google Storage to a local directory."""
     gs_path = '/'.join([self.archive_url, self.name])
-    gsutil_util.DownloadFromGS(gs_path, self.tmp_stage_path)
+    self.install_path = os.path.join(self.install_dir, self.name)
+    gsutil_util.DownloadFromGS(gs_path, self.install_path)
 
-  def _Stage(self):
-    """Stages the artifact from the tmp directory to the final path."""
-    install_path = os.path.join(self.install_dir, self.name)
-    shutil.move(self.tmp_stage_path, install_path)
+  def _Setup(self):
+    """For tarball like artifacts, extracts and prepares contents."""
+    pass
+
 
   def Process(self, no_wait):
     """Main call point to all artifacts. Downloads and Stages artifact.
@@ -173,24 +168,21 @@ class BuildArtifact(log_util.Loggable):
         timeout = 1 if no_wait else 10
         self._WaitForArtifactToExist(timeout)
         self._Download()
-        self._Stage()
+        self._Setup()
         self._MarkArtifactStaged()
       else:
         self._Log('%s is already staged.', self)
 
-  def __del__(self):
-    shutil.rmtree(self.staging_dir)
-
   def __str__(self):
     """String representation for the download."""
     return '->'.join(['%s/%s' % (self.archive_url, self.name),
-                     self.staging_dir, self.install_dir])
+                     self.install_dir])
 
 
 class AUTestPayloadBuildArtifact(BuildArtifact):
   """Wrapper for AUTest delta payloads which need additional setup."""
-  def _Stage(self):
-    super(AUTestPayloadBuildArtifact, self)._Stage()
+  def _Setup(self):
+    super(AUTestPayloadBuildArtifact, self)._Setup()
 
     # Rename to update.gz.
     install_path = os.path.join(self.install_dir, self.name)
@@ -225,10 +217,10 @@ class DeltaPayloadsArtifact(BuildArtifact):
                                    nton_name, self.build)]
 
   def _Download(self):
-    """With sub-artifacts we do everything in _Stage()."""
+    """With sub-artifacts we do everything in _Setup()."""
     pass
 
-  def _Stage(self):
+  def _Setup(self):
     """Process each sub-artifact. Only error out if none can be found."""
     for artifact in self._sub_artifacts:
       try:
@@ -270,7 +262,7 @@ class BundledBuildArtifact(BuildArtifact):
     """
     raise NotImplementedError()
 
-  def _Stage(self):
+  def _Setup(self):
     self._Extract()
 
 
@@ -284,7 +276,7 @@ class TarballBuildArtifact(BundledBuildArtifact):
     extension and extracts the tarball into the install_path.
     """
     try:
-      common_util.ExtractTarball(self.tmp_stage_path, self.install_dir,
+      common_util.ExtractTarball(self.install_path, self.install_dir,
                                  files_to_extract=self._files_to_extract,
                                  excluded_files=self._exclude)
     except common_util.CommonUtilError as e:
@@ -294,9 +286,9 @@ class TarballBuildArtifact(BundledBuildArtifact):
 class AutotestTarballBuildArtifact(TarballBuildArtifact):
   """Wrapper around the autotest tarball to download from gsutil."""
 
-  def _Stage(self):
+  def _Setup(self):
     """Extracts the tarball into the install path excluding test suites."""
-    super(AutotestTarballBuildArtifact, self)._Stage()
+    super(AutotestTarballBuildArtifact, self)._Setup()
 
     # Deal with older autotest packages that may not be bundled.
     autotest_dir = os.path.join(self.install_dir,
@@ -309,7 +301,7 @@ class AutotestTarballBuildArtifact(TarballBuildArtifact):
       cmd = ['autotest/utils/packager.py', 'upload', '--repository',
              autotest_pkgs_dir, '--all']
       try:
-        subprocess.check_call(cmd, cwd=self.staging_dir)
+        subprocess.check_call(cmd, cwd=self.install_dir)
       except subprocess.CalledProcessError, e:
         raise ArtifactDownloadError(
             'Failed to create autotest packages!:\n%s' % e)
@@ -324,7 +316,7 @@ class ZipfileBuildArtifact(BundledBuildArtifact):
     """Extracts files into the install path."""
     # Unzip is weird. It expects its args before any excepts and expects its
     # excepts in a list following the -x.
-    cmd = ['unzip', '-o', self.tmp_stage_path, '-d', self.install_dir]
+    cmd = ['unzip', '-o', self.install_path, '-d', self.install_dir]
     if self._files_to_extract:
       cmd.extend(self._files_to_extract)
 
@@ -337,7 +329,7 @@ class ZipfileBuildArtifact(BundledBuildArtifact):
     except subprocess.CalledProcessError, e:
       raise ArtifactDownloadError(
           'An error occurred when attempting to unzip %s:\n%s' %
-          (self.tmp_stage_path, e))
+          (self.install_path, e))
 
 
 class ImplDescription(object):
@@ -394,17 +386,16 @@ ARTIFACT_IMPLEMENTATION_MAP = {
 class ArtifactFactory(object):
   """A factory class that generates build artifacts from artifact names."""
 
-  def __init__(self, staging_dir, archive_url, artifact_names, build):
+  def __init__(self, download_dir, archive_url, artifact_names, build):
     """Initalizes the member variables for the factory.
 
     Args:
-      staging_dir: the dir into which to stage the artifacts.
       archive_url: the Google Storage url of the bucket where the debug
                    symbols for the desired build are stored.
       artifact_names: List of artifact names to stage.
       build: The name of the build.
     """
-    self.staging_dir = staging_dir
+    self.download_dir = download_dir
     self.archive_url = archive_url
     self.artifact_names = artifact_names
     self.build = build
@@ -422,7 +413,7 @@ class ArtifactFactory(object):
     for artifact_name in artifact_names:
       artifact_class, path, args = self._GetDescriptionComponents(
           artifact_name)
-      artifacts.append(artifact_class(self.staging_dir, self.archive_url, path,
+      artifacts.append(artifact_class(self.download_dir, self.archive_url, path,
                                       self.build, *args))
 
     return artifacts

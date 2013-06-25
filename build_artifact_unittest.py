@@ -69,7 +69,7 @@ class BuildArtifactTest(mox.MoxTestBase):
     self.assertTrue(os.path.exists(os.path.join(
         self.work_dir, file_to_download)))
 
-  def testDownloadAndStageAutotest(self):
+  def testDownloadAutotest(self):
     """Downloads a real autotest tarball for test."""
     self.mox.StubOutWithMock(build_artifact.AutotestTarballBuildArtifact,
                              '_Extract')
@@ -77,15 +77,14 @@ class BuildArtifactTest(mox.MoxTestBase):
         self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.AUTOTEST_FILE,
         _VERSION, None, ['autotest/test_suites'])
 
-    stage_dir = os.path.join(self.work_dir, 'stage')
-    os.makedirs(stage_dir)
-    artifact.staging_dir = stage_dir
+    install_dir = self.work_dir
+    artifact.staging_dir = install_dir
     artifact._Download()
     self.mox.StubOutWithMock(subprocess, 'check_call')
     artifact._Extract()
-    subprocess.check_call(mox.In('autotest/utils/packager.py'), cwd=stage_dir)
+    subprocess.check_call(mox.In('autotest/utils/packager.py'), cwd=install_dir)
     self.mox.ReplayAll()
-    artifact._Stage()
+    artifact._Setup()
     self.mox.VerifyAll()
     self.assertTrue(os.path.isdir(
         os.path.join(self.work_dir, 'autotest', 'packages')))
