@@ -7,6 +7,7 @@ import threading
 
 import build_artifact
 import common_util
+import gsutil_util
 import log_util
 
 
@@ -75,6 +76,22 @@ class Downloader(log_util.Loggable):
     with file(file_name, 'a'):
       os.utime(file_name, None)
 
+  @staticmethod
+  def _TryRemoveStageDir(directory_path):
+    """If download failed with GSUtilError, try to remove the stage dir.
+
+    If the download attempt failed with GSUtilError and staged.timestamp is the
+    only file in that directory. The build could be non-existing, and the
+    directory should be removed.
+
+    @param directory_path: directory used to stage the image.
+
+    """
+    file_name = os.path.join(directory_path, Downloader._TIMESTAMP_FILENAME)
+    if os.path.exists(file_name) and len(os.listdir(directory_path)) == 1:
+      os.remove(file_name)
+      os.rmdir(directory_path)
+
   def Download(self, artifacts):
     """Downloads and caches the |artifacts|.
 
@@ -103,7 +120,11 @@ class Downloader(log_util.Loggable):
     required_artifacts = factory.RequiredArtifacts()
     str_repr = [str(a) for a in required_artifacts]
     self._Log('Downloading artifacts %s.', ' '.join(str_repr))
-    self._DownloadArtifactsSerially(required_artifacts, no_wait=True)
+    try:
+      self._DownloadArtifactsSerially(required_artifacts, no_wait=True)
+    except gsutil_util.GSUtilError:
+      Downloader._TryRemoveStageDir(self._build_dir)
+      raise
 
   def _DownloadArtifactsSerially(self, artifacts, no_wait):
     """Simple function to download all the given artifacts serially.
