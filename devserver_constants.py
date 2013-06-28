@@ -11,3 +11,7 @@ GOOGLE_STORAGE_IMAGE_DIR = 'gs://chromeos-image-archive'
 #### Local storage locations and names. ####
 AUTOTEST_DIR = 'autotest'
 ROOT_UPDATE_FILE = 'update.gz'
+IMAGE_FILE = "chromiumos_image.bin"
+BASE_IMAGE_FILE = 'chromiumos_base_image.bin'
+TEST_IMAGE_FILE = 'chromiumos_test_image.bin'
+RECOVERY_IMAGE_FILE = 'recovery_image.bin'

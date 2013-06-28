@@ -42,6 +42,9 @@ def MkDirP(directory):
 def GetLatestBuildVersion(static_dir, target, milestone=None):
   """Retrieves the latest build version for a given board.
 
+  Searches the static_dir for builds for target, and returns the highest
+  version number currently available locally.
+
   Args:
     static_dir: Directory where builds are served from.
     target: The build target, typically a combination of the board and the

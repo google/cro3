@@ -35,7 +35,7 @@ class AutoupdateTest(mox.MoxTestBase):
     self.mox.StubOutWithMock(common_util, 'GetFileSha1')
     self.mox.StubOutWithMock(common_util, 'GetFileSha256')
     self.mox.StubOutWithMock(autoupdate_lib, 'GetUpdateResponse')
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetLatestImageDir')
+    self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GetLatestImageDir')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetRemotePayloadAttrs')
     self.port = 8080
     self.test_board = 'test-board'
@@ -99,7 +99,7 @@ class AutoupdateTest(mox.MoxTestBase):
     self.mox.StubOutWithMock(autoupdate.Autoupdate,
                              'GenerateUpdateImageWithCache')
     au_mock = self._DummyAutoupdateConstructor()
-    au_mock._GetLatestImageDir(self.test_board).AndReturn(
+    au_mock.GetLatestImageDir(self.test_board).AndReturn(
         os.path.join(self.build_root, self.test_board, self.latest_dir))
     au_mock.GenerateUpdateImageWithCache(
         os.path.join(self.build_root, self.test_board, self.latest_dir,

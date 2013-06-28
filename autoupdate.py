@@ -17,7 +17,7 @@ lib_dir = os.path.join(os.path.dirname(__file__), 'host', 'lib')
 if os.path.exists(lib_dir) and os.path.isdir(lib_dir):
   sys.path.insert(1, lib_dir)
 
-from build_util import BuildObject
+import build_util
 import autoupdate_lib
 import common_util
 import log_util
@@ -122,7 +122,7 @@ class UpdateMetadata(object):
     self.is_delta_format = is_delta_format
 
 
-class Autoupdate(BuildObject):
+class Autoupdate(build_util.BuildObject):
   """Class that contains functionality that handles Chrome OS update pings.
 
   Members:
@@ -230,11 +230,6 @@ class Autoupdate(BuildObject):
       return open(board_file).read()
     except IOError:
       return 'x86-generic'
-
-  def _GetLatestImageDir(self, board):
-    """Returns the latest image dir based on shell script."""
-    cmd = '%s/get_latest_image.sh --board %s' % (self.scripts_dir, board)
-    return os.popen(cmd).read().strip()
 
   @staticmethod
   def _GetVersionFromDir(image_dir):
@@ -467,7 +462,7 @@ class Autoupdate(BuildObject):
       AutoupdateError if it failed to generate the payload or can't update
         the given client_version.
     """
-    latest_image_dir = self._GetLatestImageDir(board)
+    latest_image_dir = self.GetLatestImageDir(board)
     latest_version = self._GetVersionFromDir(latest_image_dir)
     latest_image_path = os.path.join(latest_image_dir, self._GetImageName())
 

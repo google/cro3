@@ -1084,7 +1084,7 @@ def main():
   if options.exit:
     return
 
-  _xbuddy = xbuddy.XBuddy(static_dir)
+  _xbuddy = xbuddy.XBuddy(root_dir=root_dir, static_dir=static_dir)
   dev_server = DevServerRoot(_xbuddy)
 
   cherrypy.quickstart(dev_server, config=_GetConfig(options))

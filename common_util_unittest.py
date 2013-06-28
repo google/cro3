@@ -41,7 +41,7 @@ class CommonUtilTest(mox.MoxTestBase):
         build_path = os.path.join(board_path, build)
         os.mkdir(build_path)
         with open(os.path.join(
-          build_path, build_artifact.TEST_IMAGE_FILE), 'w') as f:
+          build_path, devserver_constants.TEST_IMAGE_FILE), 'w') as f:
           f.write('TEST_IMAGE_FILE')
         with open(os.path.join(
           build_path, build_artifact.STATEFUL_UPDATE_FILE), 'w') as f:

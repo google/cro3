@@ -24,13 +24,10 @@ _MTON_DIR_SUFFIX = '_mton'
 AU_SUITE_FILE = 'au_control.tar.bz2'
 AUTOTEST_FILE = 'autotest.tar'
 AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
-BASE_IMAGE_FILE = 'chromiumos_base_image.bin'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
 FIRMWARE_FILE = 'firmware_from_source.tar.bz2'
 IMAGE_FILE = 'image.zip'
-RECOVERY_IMAGE_FILE = 'recovery_image.bin'
 STATEFUL_UPDATE_FILE = 'stateful.tgz'
-TEST_IMAGE_FILE = 'chromiumos_test_image.bin'
 TEST_SUITES_FILE = 'test_suites.tar.bz2'
 
 _build_artifact_locks = common_util.LockDict()
@@ -361,11 +358,13 @@ ARTIFACT_IMPLEMENTATION_MAP = {
 
   artifact_info.BASE_IMAGE:
       ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
-                      [BASE_IMAGE_FILE]),
+                      [devserver_constants.BASE_IMAGE_FILE]),
   artifact_info.RECOVERY_IMAGE:
-      ImplDescription(ZipfileBuildArtifact, IMAGE_FILE, [RECOVERY_IMAGE_FILE]),
+      ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
+                      [devserver_constants.RECOVERY_IMAGE_FILE]),
   artifact_info.TEST_IMAGE:
-      ImplDescription(ZipfileBuildArtifact, IMAGE_FILE, [TEST_IMAGE_FILE]),
+      ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
+                      [devserver_constants.TEST_IMAGE_FILE]),
 
   artifact_info.AUTOTEST:
       ImplDescription(AutotestTarballBuildArtifact, AUTOTEST_FILE, None,
