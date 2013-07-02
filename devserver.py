@@ -697,27 +697,33 @@ class DevServerRoot(object):
         image_types_list))
 
   @cherrypy.expose
-  def xbuddy(self, **kwargs):
-    """The full xBuddy call, returns path to resource on this devserver.
+  def xbuddy(self, *args, **kwargs):
+    """The full xBuddy call, returns resource specified by path_parts.
 
     Args:
-      path: build_id/alias
-        build_id is composed of "board/version"
-        The board is the familiar board name, optionally suffixed.
-        The version can be the google storage version number, and may also be
-        one of a number of aliases that will be translated into the latest
-        built image that fits the description.
-        The alias is one of a number of image or artifact aliases used by
-        xbuddy, defined in xbuddy:ALIASES
+      path_parts: the path following xbuddy/ in the call url is split into the
+        components of the path.
+        The path can be understood as a build_id/artifact, build_id is
+        composed of "board/version"
+
+        path_parts[0], the board, is the familiar board name, optionally
+          suffixed.
+        path_parts[1], the version, can be the google storage version
+          number, and may also be any of a number of xBuddy defined version
+          aliases that will be translated into the latest built image that
+          fits the description. defaults to latest.
+        path_parts[2], the artifact, is one of a number of image or artifact
+          aliases used by xbuddy, defined in xbuddy:ALIASES. Defaults to test
+
+    Kwargs:
       return_dir: {true|false}
                   if set to true, returns the url to the update.gz
                   instead.
 
     Example URL:
-      http://host:port/xbuddy?path=/x86-generic/R26-4000.0.0/test
+      http://host:port/xbuddy/x86-generic/R26-4000.0.0/test
       or
-      http://host:port/xbuddy?path=/x86-generic/R26-4000.0.0/
-      test&return_dir=true
+      http://host:port/xbuddy/x86-generic/R26-4000.0.0/test?return_dir=true
 
     Returns:
       A redirect to the image or update file on the devserver.
@@ -729,12 +735,15 @@ class DevServerRoot(object):
     """
     boolean_string = kwargs.get('return_dir')
     return_dir = xbuddy.XBuddy.ParseBoolean(boolean_string)
-    devserver_url = cherrypy.request.base
-    return_url = self._xbuddy.Get(kwargs.get('path'),
+    return_url = self._xbuddy.Get(args,
                                   return_dir)
     if return_dir:
-      return os.path.join(devserver_url, return_url)
+      directory = os.path.join(cherrypy.request.base, return_url)
+      _Log("Directory requested, returning: %s", directory)
+      return directory
     else:
+      return_url = '/' + return_url
+      _Log("Payload requested, returning: %s", return_url)
       raise cherrypy.HTTPRedirect(return_url, 302)
 
   @cherrypy.expose

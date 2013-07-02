@@ -44,18 +44,27 @@ class xBuddyTest(mox.MoxTestBase):
 
   def testBasicInterpretPath(self):
     """Basic checks for splitting a path"""
-    path = "parrot-release/R27-2455.0.0/test"
+    path = ('parrot-release', 'R27-2455.0.0', 'test')
     expected = ('parrot-release', 'R27-2455.0.0', 'test')
-    self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
+    self.assertEqual(self.mock_xb._InterpretPath(path_parts=path), expected)
 
-    path = "parrot-release/R27-2455.0.0/full_payload"
+    path = ('parrot-release', 'R27-2455.0.0', 'full_payload')
     expected = ('parrot-release', 'R27-2455.0.0', 'full_payload')
-    self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
+    self.assertEqual(self.mock_xb._InterpretPath(path_parts=path), expected)
 
-    path = "parrot-release/R27-2455.0.0/bad_alias"
+    path = ('parrot-release', 'R27-2455.0.0')
+    expected = ('parrot-release', 'R27-2455.0.0', 'test')
+    self.assertEqual(self.mock_xb._InterpretPath(path_parts=path), expected)
+
+    path = ('parrot-release', 'R27-2455.0.0', 'bad_alias')
     self.assertRaises(xbuddy.XBuddyException,
                       self.mock_xb._InterpretPath,
-                      path=path)
+                      path_parts=path)
+
+    path = ('parrot-release', 'R27-2455.0.0', 'too', 'many', 'pieces')
+    self.assertRaises(xbuddy.XBuddyException,
+                      self.mock_xb._InterpretPath,
+                      path_parts=path)
 
   def testUnpackArgsWithVersionAliases(self):
     # TODO (joyc)
@@ -91,12 +100,12 @@ class xBuddyTest(mox.MoxTestBase):
   def testXBuddyCaching(self):
     """Caching & replacement of timestamp files."""
 
-    path_a = "a/latest-local/test"
-    path_b = "b/latest-local/test"
-    path_c = "c/latest-local/test"
-    path_d = "d/latest-local/test"
-    path_e = "e/latest-local/test"
-    path_f = "f/latest-local/test"
+    path_a = ('a', 'latest-local', 'test')
+    path_b = ('b', 'latest-local', 'test')
+    path_c = ('c', 'latest-local', 'test')
+    path_d = ('d', 'latest-local', 'test')
+    path_e = ('e', 'latest-local', 'test')
+    path_f = ('f', 'latest-local', 'test')
 
     self.mox.StubOutWithMock(self.mock_xb, '_ResolveVersion')
     self.mox.StubOutWithMock(self.mock_xb, '_Download')

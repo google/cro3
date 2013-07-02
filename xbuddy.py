@@ -193,16 +193,13 @@ class XBuddy():
       # Default to most recent build.
       return self._LookupVersion(board)
 
-  def _InterpretPath(self, path):
+  def _InterpretPath(self, path_parts):
     """
     Split and translate the pieces of an xBuddy path name
 
     input:
-      path: board/version/artifact
-        board must be specified, in the board of board, board-suffix
-        version can be the version number, or any of the xBuddy defined
-          version aliases
-        artifact is the devserver name for what to be downloaded
+      path_parts: the segments of the path xBuddy Get was called with.
+      Documentation of path_parts can be found in devserver.py:xbuddy
 
     Return:
       tuple of (board, version, image_type), as verified exist on gs
@@ -210,7 +207,6 @@ class XBuddy():
     Raises:
       XBuddyException: if the path can't be resolved into valid components
     """
-    path_parts = path.rstrip('/').split('/')
     if len(path_parts) == 3:
       # We have a full path, with b/v/a
       board, version, image_type = path_parts
@@ -225,7 +221,7 @@ class XBuddy():
       image_type = ALIASES[0]
     else:
       # Misshapen beyond recognition
-      raise XBuddyException('Invalid path, %s.' % path)
+      raise XBuddyException('Invalid path, %s.' % '/'.join(path_parts))
 
     # Clean up board
     # TODO(joyc) decide what to do with the board suffix
@@ -314,12 +310,12 @@ class XBuddy():
     """Returns the number of images cached by xBuddy."""
     return str(_XBUDDY_CAPACITY)
 
-  def Get(self, path, return_dir=False):
-    """The full xBuddy call, returns path to resource on this devserver.
+  def Get(self, path_parts, return_dir=False):
+    """The full xBuddy call, returns resource specified by path_parts.
 
     Please see devserver.py:xbuddy for full documentation.
     Args:
-      path: board/version/alias
+      path_parts: [board, version, alias] as split from the xbuddy call url
       return_dir: boolean, if set to true, returns the dir name instead.
 
     Returns:
@@ -332,7 +328,7 @@ class XBuddy():
     Raises:
       XBuddyException if path is invalid or XBuddy's cache fails
     """
-    board, version, image_type = self._InterpretPath(path)
+    board, version, image_type = self._InterpretPath(path_parts)
     file_name = IMAGE_TYPE_TO_FILENAME[image_type]
 
     gs_url = os.path.join(devserver_constants.GOOGLE_STORAGE_IMAGE_DIR,
