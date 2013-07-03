@@ -231,6 +231,15 @@ class ExynosBl2(object):
         except CmdError:
           self._out.Warning("Failed to find rtc")
         value = rtc_type
+      elif param == 'W':
+        try:
+          records = fdt.GetIntList('/chromeos-config/vboot-flag-write-protect',
+                                   'gpio', 3)
+          value = records[1]
+          self._out.Info('  Write Protect GPIO: %#x' % value)
+        except CmdError:
+          self._out.Warning("No value for write protect GPIO: using %#x" %
+                            value)
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
         self._out.Info('  Unknown value: %#0x' % value)
