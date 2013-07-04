@@ -6,6 +6,7 @@
 
 """This library provides basic access to an fdt blob."""
 
+import doctest
 import optparse
 import os
 import re
@@ -17,12 +18,14 @@ from tools import Tools
 
 _base = os.path.dirname(sys.argv[0])
 
+
 class Fdt:
-  """Provides simple access to a flat device tree blob
+  """Provides simple access to a flat device tree blob.
 
   Properties:
     fname: Filename of fdt
   """
+
   def __init__(self, tools, fname):
     self.fname = fname
     self.tools = tools
@@ -133,13 +136,13 @@ class Fdt:
       List of integers.
 
     Raises:
-      ValueError if the list is the wrong size.
+      ValueError: if the list is the wrong size.
     """
     int_list = int_list_str.split()
     if num_values and num_values != len(int_list):
-      raise ValueError, ("GetIntList of node '%s' prop '%s' returns '%s'"
-          ", which has %d elements, but %d expected" %
-          (node, prop, list, len(int_list), num_values))
+      raise ValueError("GetIntList of node '%s' prop '%s' returns '%s'"
+                       ", which has %d elements, but %d expected" %
+                       (node, prop, list, len(int_list), num_values))
     return [int(item, 0) for item in int_list]
 
   def GetIntList(self, node, prop, num_values=None, default=None):
@@ -176,6 +179,8 @@ class Fdt:
       prop: Property name to look up.
       num_values: If not None, then the array is checked to make sure it
           has this many values, and an error is raised if not.
+      default: Default value to return if nothing is present in the fdt, or
+          None to raise in this case. This will be converted to a string.
 
     Returns:
       List of integers.
@@ -207,6 +212,11 @@ class Fdt:
     Args:
       node: Full path to node to look up.
       prop: Property name to look up.
+      default: Default value to return if nothing is present in the fdt, or
+          None to raise in this case. This will be converted to a string.
+
+    Returns:
+      Value of property, as an integer.
 
     Raises:
       ValueError if the property cannot be converted to an integer.
@@ -226,6 +236,11 @@ class Fdt:
     Args:
       node: Full path to node to look up.
       prop: Property name to look up.
+      default: Default value to return if nothing is present in the fdt, or
+          None to raise in this case.
+
+    Returns:
+      Value of property, as a string.
 
     Raises:
       CmdError: if the property does not exist.
@@ -233,7 +248,7 @@ class Fdt:
     return self.GetProp(node, prop, default)
 
   def GetFlashNode(self, section, part):
-    """Returns the node path to use for a particular flash section/path
+    """Returns the node path to use for a particular flash section/path.
 
     Args:
       section: Section name to look at: ro, rw-a, etc.
@@ -329,6 +344,9 @@ class Fdt:
     Args:
       node: Node to return label property from.
 
+    Returns:
+      The value of the label property from the node.
+
     Raises:
       CmdError: if the node or property does not exist.
     """
@@ -356,7 +374,7 @@ class Fdt:
       An Fdt object for the copy.
     """
     shutil.copyfile(self.tools.Filename(self.fname),
-        self.tools.Filename(new_name))
+                    self.tools.Filename(new_name))
     return Fdt(self.tools, new_name)
 
   def PutString(self, node, prop, value_str):
@@ -461,7 +479,7 @@ class Fdt:
     self.tools.Run('fdtput', args)
 
   def Compile(self, arch_dts):
-    """Compile an fdt .dts source file into a .dtb binary blob
+    """Compile an fdt .dts source file into a .dtb binary blob.
 
     >>> tools = Tools(cros_output.Output())
     >>> tools.PrepareOutputDir(None)
@@ -521,6 +539,7 @@ dtb -p 4096 ../tests/source.dts
       self.fname = out_fname
       self._is_compiled = True
 
+
 def main():
   """Main function for cros_bundle_firmware.
 
@@ -529,7 +548,8 @@ def main():
   """
   parser = optparse.OptionParser()
   parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
-      help='Path to fdt file to use (binary ,dtb)', default='u-boot.dtb')
+                    help='Path to fdt file to use (binary ,dtb)',
+                    default='u-boot.dtb')
 
   (options, _) = parser.parse_args(sys.argv)
   tools = Tools(cros_output.Output())
@@ -541,12 +561,11 @@ def main():
 
 def _Test():
   """Run any built-in tests."""
-  import doctest
   assert doctest.testmod().failed == 0
 
 if __name__ == '__main__':
   # If first argument is --test, run testing code.
-  if sys.argv[1:2] == ["--test"]:
+  if sys.argv[1:2] == ['--test']:
     _Test()
   else:
     main()
