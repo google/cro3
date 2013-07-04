@@ -32,7 +32,7 @@ class Fdt:
     _, ext = os.path.splitext(fname)
     self._is_compiled = ext == '.dtb'
 
-  def GetProp(self, node, prop, default=None):
+  def GetProp(self, node, prop, default=None, typespec=None):
     """Get a property from a device tree.
 
     >>> tools = Tools(cros_output.Output())
@@ -57,6 +57,7 @@ class Fdt:
       prop: Property name to look up.
       default: Default value to return if nothing is present in the fdt, or
           None to raise in this case. This will be converted to a string.
+      typespec: Type character to use (None for default, 's' for string)
 
     Returns:
       string containing the property value.
@@ -67,6 +68,8 @@ class Fdt:
     args = [self.fname, node, prop]
     if default is not None:
       args += ['-d', str(default)]
+    if typespec is not None:
+      args += ['-t%s' % typespec]
     out = self.tools.Run('fdtget', args)
     return out.strip()
 
@@ -228,10 +231,16 @@ class Fdt:
   def GetString(self, node, prop, default=None):
     """Gets a string from a device tree property.
 
+    The 's' typespec is used to ask fdtget to convert the property to a
+    string even it is has embedded \0. This allows it to work with
+    compatible strings which contain a list.
+
     >>> tools = Tools(cros_output.Output())
     >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetString('/display', 'compatible')
     'nvidia,tegra250-display'
+    >>> fdt.GetString('/', 'compatible')
+    'nvidia,seaboard nvidia,tegra250'
 
     Args:
       node: Full path to node to look up.
@@ -245,7 +254,7 @@ class Fdt:
     Raises:
       CmdError: if the property does not exist.
     """
-    return self.GetProp(node, prop, default)
+    return self.GetProp(node, prop, default, typespec='s')
 
   def GetFlashNode(self, section, part):
     """Returns the node path to use for a particular flash section/path.
@@ -337,7 +346,7 @@ class Fdt:
     >>> fdt.GetLabel('/go/hotspurs')
     Traceback (most recent call last):
       ...
-    CmdError: Command failed: fdtget ../tests/test.dtb /go/hotspurs label
+    CmdError: Command failed: fdtget ../tests/test.dtb /go/hotspurs label -ts
     Error at '/go/hotspurs': FDT_ERR_NOTFOUND
     <BLANKLINE>
 
