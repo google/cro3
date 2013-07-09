@@ -15,6 +15,7 @@ import mox
 
 import build_artifact
 import common_util
+import devserver_constants
 
 
 # Fake Dev Server Layout:
@@ -46,7 +47,7 @@ class CommonUtilTest(mox.MoxTestBase):
           build_path, build_artifact.STATEFUL_UPDATE_FILE), 'w') as f:
           f.write('STATEFUL_UPDATE_FILE')
         with open(os.path.join(
-          build_path, build_artifact.ROOT_UPDATE_FILE), 'w') as f:
+          build_path, devserver_constants.ROOT_UPDATE_FILE), 'w') as f:
           f.write('ROOT_UPDATE_FILE')
 
   def tearDown(self):
