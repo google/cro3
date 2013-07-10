@@ -4,6 +4,7 @@
 
 """Helper class for interacting with the Dev Server."""
 
+import ast
 import base64
 import binascii
 import distutils.version
@@ -121,6 +122,44 @@ def GetControlFile(static_dir, build, control_path):
 
   with open(control_path, 'r') as control_file:
     return control_file.read()
+
+
+def GetControlFileListForSuite(static_dir, build, suite_name):
+  """List all control files for a specified build, for the given suite.
+
+  If the specified suite_name isn't found in the suite to control file
+  map, this method will return all control files for the build by calling
+  GetControlFileList.
+
+  Args:
+    static_dir: Directory where builds are served from.
+    build: Fully qualified build string; e.g. R17-1234.0.0-a1-b983.
+    suite_name: Name of the suite for which we require control files.
+
+  Raises:
+    CommonUtilError: If the suite_to_control_file_map isn't found in
+        the specified build's staged directory.
+
+  Returns:
+    String of each control file separated by a newline.
+  """
+  suite_to_control_map = os.path.join(static_dir, build,
+                                      'autotest', 'test_suites',
+                                      'suite_to_control_file_map')
+
+  if not PathInDir(static_dir, suite_to_control_map):
+    raise CommonUtilError('suite_to_control_map not in "%s".' %
+                          suite_to_control_map)
+
+  if not os.path.exists(suite_to_control_map):
+    raise CommonUtilError('Could not find this file. '
+                          'Is it staged? %s' % suite_to_control_map)
+
+  with open(suite_to_control_map, 'r') as fd:
+    try:
+      return '\n'.join(ast.literal_eval(fd.read())[suite_name])
+    except KeyError:
+      return GetControlFileList(static_dir, build)
 
 
 def GetControlFileList(static_dir, build):

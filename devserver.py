@@ -102,6 +102,7 @@ def _LeadingWhiteSpaceCount(string):
   Returns:
     number of white space chars before characters start.
   """
+  # pylint: disable=W1401
   matched = re.match('^\s+', string)
   if matched:
     return len(matched.group())
@@ -646,7 +647,9 @@ class DevServerRoot(object):
 
     Example URL:
       To List all control files:
-      http://dev-server/controlfiles?board=x86-alex-release&build=R18-1514.0.0
+      http://dev-server/controlfiles?suite_name=&build=daisy_spring-release/R29-4279.0.0
+      To List all control files for, say, the bvt suite:
+      http://dev-server/controlfiles?suite_name=bvt&build=daisy_spring-release/R29-4279.0.0
       To return the contents of a path:
       http://dev-server/controlfiles?board=x86-alex-release&build=R18-1514.0.0&control_path=client/sleeptest/control
 
@@ -655,6 +658,10 @@ class DevServerRoot(object):
       control_path: If you want the contents of a control file set this
         to the path. E.g. client/site_tests/sleeptest/control
         Optional, if not provided return a list of control files is returned.
+      suite_name: If control_path is not specified but a suite_name is
+        specified, list the control files belonging to that suite instead of
+        all control files. The empty string for suite_name will list all control
+        files for the build.
     Returns:
       Contents of a control file if control_path is provided.
       A list of control files if no control_path is provided.
@@ -667,8 +674,12 @@ class DevServerRoot(object):
                                'Error: build= is required!')
 
     if 'control_path' not in params:
-      return common_util.GetControlFileList(
-          updater.static_dir, params['build'])
+      if 'suite_name' in params and params['suite_name']:
+        return common_util.GetControlFileListForSuite(
+            updater.static_dir, params['build'], params['suite_name'])
+      else:
+        return common_util.GetControlFileList(
+            updater.static_dir, params['build'])
     else:
       return common_util.GetControlFile(
           updater.static_dir, params['build'], params['control_path'])
