@@ -472,37 +472,41 @@ class WriteFirmware:
     image = os.path.join(self._tools.outdir, 'u-boot-from-image.bin')
     data = self._tools.ReadFile(payload)
 
-    # The BL1 is always 8KB - extract that part into a new file
-    # TODO(sjg@chromium.org): Perhaps pick these up from the fdt?
-    bl1_size = 0x2000
-    self._tools.WriteFile(bl1, data[:bl1_size])
+    try:
+      bl1_size = int(self._fdt.GetProps('/flash/pre-boot')['size'])
+      bl2_size = int(self._fdt.GetProps('/flash/spl')['size'])
+      uboot_offset = bl1_size + bl2_size
+    except CmdError:
+      self._out.Warning('No component nodes in the device tree')
+      # The BL1 is always 8KB - extract that part into a new file
+      # TODO(sjg@chromium.org): Perhaps pick these up from the fdt?
+      bl1_size = 0x2000
 
-    # Try to detect the BL2 size. We look for 0xea000014 or 0xea000013
-    # which is the 'B reset' instruction at the start of U-Boot. When
-    # U-Boot is LZO compressed, we look for a LZO magic instead.
-    start_data = [struct.pack('<L', 0xea000014),
-                  struct.pack('<L', 0xea000013),
-                  struct.pack('>B3s', 0x89, 'LZO')]
-    starts = [data.find(magic, bl1_size + 0x3800) for magic in start_data]
-    uboot_offset = None
-    for start in starts:
-      if start != -1 and (not uboot_offset or start < uboot_offset):
-        uboot_offset = start
-    if not uboot_offset:
-      raise ValueError('Could not locate start of U-Boot')
-    bl2_size = uboot_offset - bl1_size - 0x800  # 2KB gap after BL2
+      # Try to detect the BL2 size. We look for 0xea000014 or 0xea000013
+      # which is the 'B reset' instruction at the start of U-Boot. When
+      # U-Boot is LZO compressed, we look for a LZO magic instead.
+      start_data = [struct.pack('<L', 0xea000014),
+                    struct.pack('<L', 0xea000013),
+                    struct.pack('>B3s', 0x89, 'LZO')]
+      starts = [data.find(magic, bl1_size + 0x3800) for magic in start_data]
+      uboot_offset = None
+      for start in starts:
+        if start != -1 and (not uboot_offset or start < uboot_offset):
+          uboot_offset = start
+      if not uboot_offset:
+        raise ValueError('Could not locate start of U-Boot')
+      bl2_size = uboot_offset - bl1_size - 0x800  # 2KB gap after BL2
 
-    # Sanity check: At present we only allow 14KB and 30KB for SPL
-    allowed = [14, 30]
-    if (bl2_size >> 10) not in allowed:
-      raise ValueError('BL2 size is %dK - only %s supported' %
-                       (bl2_size >> 10, ', '.join(
-            [str(size) for size in allowed])))
+      # Sanity check: At present we only allow 14KB and 30KB for SPL
+      allowed = [14, 30]
+      if (bl2_size >> 10) not in allowed:
+        raise ValueError('BL2 size is %dK - only %s supported' %
+                         (bl2_size >> 10, ', '.join(
+              [str(size) for size in allowed])))
     self._out.Notice('BL2 size is %dKB' % (bl2_size >> 10))
 
-    # The BL2 (U-Boot SPL) follows BL1. After that there is a 2KB gap
-    bl2_end = uboot_offset - 0x800
-    self._tools.WriteFile(bl2, data[0x2000:bl2_end])
+    self._tools.WriteFile(bl1, data[:bl1_size])
+    self._tools.WriteFile(bl2, data[bl1_size:bl1_size + bl2_size])
 
     # U-Boot itself starts at 24KB, after the gap. As a hack, truncate it
     # to an assumed maximum size. As a secondary hack, locate the FDT
