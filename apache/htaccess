@@ -6,5 +6,11 @@
 # don't map to an actual file.
 
 RewriteEngine on
+
+# Remove archive from any static/archive paths.
+RewriteCond %{REQUEST_URI} ^/static/archive
+RewriteRule ^static/archive(.*) http://127.0.0.1:8082/static$1 [proxy]
+
+# Re-direct any non-static requests to the devserver on 8080.
 RewriteCond %{REQUEST_URI} !^/static
 RewriteRule ^(.*) http://127.0.0.1:8080/$1 [proxy]

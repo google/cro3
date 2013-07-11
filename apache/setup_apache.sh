@@ -44,10 +44,10 @@ main () {
 
   # Setup devserver archive location.
   local image_root="${DEFAULT_IMAGE_ROOT}"
-  [ -n "${1}" ] && image_root="${1}"
+  [ -n "${1}" ] && image_root="$(readlink -f "${1}")"
 
   local static_dir="${ARCHIVE_ROOT}"/static
-  if [ -e "${static_dir}" ]; then
+  if [ -h "${static_dir}" ]; then
     unlink "${static_dir}"
   fi
 
@@ -56,9 +56,6 @@ main () {
   if [ -e "${static_dir}/archive" ]; then
     unlink "${static_dir}/archive"
   fi
-
-  # Create a link to archive that points back to the same dir.
-  ln -sf "${image_root}" "${static_dir}/archive"
 
   /etc/init.d/apache2 restart
 }
