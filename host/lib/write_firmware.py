@@ -559,6 +559,13 @@ class WriteFirmware:
       if not bl2 or not os.path.exists(tools.Filename(bl2)):
         self._out.Warning('Extracting BL2 from payload')
         bl2 = payload_bl2
+      else:
+        # Update BL2 machine parameters, as
+        # the BL2 passed in may not be updated
+        spl_load_size = os.stat(tools.Filename(bl2)).st_size
+        bl2_handler = ExynosBl2(tools, self._out)
+        bl2 = bl2_handler.Configure(self._fdt, spl_load_size,
+                                    bl2, 'flasher', True)
       image = self._PrepareFlasher(flash_uboot, payload, flash_dest, '1:0')
     else:
       bl1, bl2, image = payload_bl1, payload_bl2, payload_image
