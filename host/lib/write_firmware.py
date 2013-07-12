@@ -150,17 +150,24 @@ class WriteFirmware:
           'setenv _read   "echo Read NAND;  nand read  ${address} 0 ${length}"',
       ])
     elif boot_type == 'sdmmc':
+      # In U-Boot, strings in double quotes have variables expanded to actual
+      # values.  For reasons unclear, this expansion splits the single quoted
+      # argument into separate arguements for each word, which on exynos
+      # boards causes the command to exceed the maximum configured argument
+      # count. Passing the string in single quotes prevents this expansion,
+      # allowing variables to be expanded when run is called.
+      # crbug.com/260294
       cmds.extend([
-          'setenv _init   "echo Init EMMC;  mmc rescan             0"',
+          'setenv _init   "echo Init EMMC;  mmc rescan"',
           'setenv _erase  "echo Erase EMMC; "',
-          'setenv _write  "echo Write EMMC; mmc open               0 1;' \
-            '                               mmc write ${address}   0 ' \
-            '${blocks};' \
-            '                               mmc close              0 1"',
-          'setenv _read   "echo Read EMMC;  mmc open               0 1;' \
-            '                               mmc read ${address}    0 ' \
-            '${blocks};' \
-            '                               mmc close 0 1"',
+          "setenv _write  'echo Write EMMC; mmc open               0 1;" \
+            "                               mmc write ${address}   0 " \
+            "${blocks};" \
+            "                               mmc close              0 1'",
+          "setenv _read   'echo Read EMMC;  mmc open               0 1;" \
+            "                               mmc read ${address}    0 " \
+            "${blocks};" \
+            "                               mmc close 0 1'",
       ])
     else:
       cmds.extend([
