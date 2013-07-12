@@ -50,6 +50,7 @@ UPDATE_REQUEST['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
 # TODO(girts): use a random available port.
 UPDATE_URL = 'http://127.0.0.1:8080/update'
 STATIC_URL = 'http://127.0.0.1:8080/static/archive/'
+CHECK_HEALTH_URL = 'http://127.0.0.1:8080/check_health'
 
 API_HOST_INFO_BAD_URL = 'http://127.0.0.1:8080/api/hostinfo/'
 API_HOST_INFO_URL = API_HOST_INFO_BAD_URL + '127.0.0.1'
@@ -58,8 +59,8 @@ API_SET_UPDATE_BAD_URL = 'http://127.0.0.1:8080/api/setnextupdate/'
 API_SET_UPDATE_URL = API_SET_UPDATE_BAD_URL + '127.0.0.1'
 
 API_SET_UPDATE_REQUEST = 'new_update-test/the-new-update'
-DEVSERVER_STARTUP_DELAY = 1
 
+DEVSERVER_START_TIMEOUT = 15
 
 class DevserverTest(unittest.TestCase):
   """Regressions tests for devserver."""
@@ -75,10 +76,12 @@ class DevserverTest(unittest.TestCase):
     self.image_src = os.path.join(self.src_dir, TEST_IMAGE)
     self.image = os.path.join(self.test_data_path, TEST_IMAGE_NAME)
     shutil.copy(self.image_src, self.image)
+    self.devserver_process = self._StartServer()
 
   def tearDown(self):
     """Removes testing files."""
     shutil.rmtree(self.test_data_path)
+    os.kill(self.devserver_process.pid, signal.SIGKILL)
 
   # Helper methods begin here.
 
@@ -92,36 +95,45 @@ class DevserverTest(unittest.TestCase):
         self.test_data_path,
         ]
 
-    process = subprocess.Popen(cmd)
-    # Wait for the server to start up.
-    time.sleep(DEVSERVER_STARTUP_DELAY)
-    return process.pid
+    process = subprocess.Popen(cmd,
+                               stderr=subprocess.PIPE)
+
+    # wait for devserver to start
+    current_time = time.time()
+    deadline = current_time + DEVSERVER_START_TIMEOUT
+    while current_time < deadline:
+      current_time = time.time()
+      try:
+        urllib2.urlopen(CHECK_HEALTH_URL, timeout=0.05)
+        break
+      except Exception:
+        continue
+    else:
+      self.fail('Devserver failed to start within timeout.')
+
+    return process
 
   def VerifyHandleUpdate(self, protocol):
     """Tests running the server and getting an update for the given protocol."""
-    pid = self._StartServer()
-    try:
-      request = urllib2.Request(UPDATE_URL, UPDATE_REQUEST[protocol])
-      connection = urllib2.urlopen(request)
-      response = connection.read()
-      connection.close()
-      self.assertNotEqual('', response)
+    request = urllib2.Request(UPDATE_URL, UPDATE_REQUEST[protocol])
+    connection = urllib2.urlopen(request)
+    response = connection.read()
+    connection.close()
+    self.assertNotEqual('', response)
 
-      # Parse the response and check if it contains the right result.
-      dom = minidom.parseString(response)
-      update = dom.getElementsByTagName('updatecheck')[0]
-      if protocol == '2.0':
-        url = self.VerifyV2Response(update)
-      else:
-        url = self.VerifyV3Response(update)
+    # Parse the response and check if it contains the right result.
+    dom = minidom.parseString(response)
+    update = dom.getElementsByTagName('updatecheck')[0]
+    if protocol == '2.0':
+      url = self.VerifyV2Response(update)
+    else:
+      url = self.VerifyV3Response(update)
 
-      # Try to fetch the image.
-      connection = urllib2.urlopen(url)
-      contents = connection.read()
-      connection.close()
-      self.assertEqual('Developers, developers, developers!\n', contents)
-    finally:
-      os.kill(pid, signal.SIGKILL)
+    # Try to fetch the image.
+    connection = urllib2.urlopen(url)
+    contents = connection.read()
+    connection.close()
+    self.assertEqual('Developers, developers, developers!\n', contents)
 
   def VerifyV2Response(self, update):
     """Verifies the update DOM from a v2 response and returns the url."""
@@ -162,69 +174,53 @@ class DevserverTest(unittest.TestCase):
 
   def testApiBadSetNextUpdateRequest(self):
     """Tests sending a bad setnextupdate request."""
-    pid = self._StartServer()
+    # Send bad request and ensure it fails...
     try:
-      # Send bad request and ensure it fails...
-      try:
-        request = urllib2.Request(API_SET_UPDATE_URL, '')
-        connection = urllib2.urlopen(request)
-        connection.read()
-        connection.close()
-        self.fail('Invalid setnextupdate request did not fail!')
-      except urllib2.URLError:
-        pass
-    finally:
-      os.kill(pid, signal.SIGKILL)
+      request = urllib2.Request(API_SET_UPDATE_URL, '')
+      connection = urllib2.urlopen(request)
+      connection.read()
+      connection.close()
+      self.fail('Invalid setnextupdate request did not fail!')
+    except urllib2.URLError:
+      pass
 
   def testApiBadSetNextUpdateURL(self):
     """Tests contacting a bad setnextupdate url."""
-    pid = self._StartServer()
+    # Send bad request and ensure it fails...
     try:
-      # Send bad request and ensure it fails...
-      try:
-        connection = urllib2.urlopen(API_SET_UPDATE_BAD_URL)
-        connection.read()
-        connection.close()
-        self.fail('Invalid setnextupdate url did not fail!')
-      except urllib2.URLError:
-        pass
-    finally:
-      os.kill(pid, signal.SIGKILL)
+      connection = urllib2.urlopen(API_SET_UPDATE_BAD_URL)
+      connection.read()
+      connection.close()
+      self.fail('Invalid setnextupdate url did not fail!')
+    except urllib2.URLError:
+      pass
 
   def testApiBadHostInfoURL(self):
     """Tests contacting a bad hostinfo url."""
-    pid = self._StartServer()
+    # Send bad request and ensure it fails...
     try:
-      # Send bad request and ensure it fails...
-      try:
-        connection = urllib2.urlopen(API_HOST_INFO_BAD_URL)
-        connection.read()
-        connection.close()
-        self.fail('Invalid hostinfo url did not fail!')
-      except urllib2.URLError:
-        pass
-    finally:
-      os.kill(pid, signal.SIGKILL)
+      connection = urllib2.urlopen(API_HOST_INFO_BAD_URL)
+      connection.read()
+      connection.close()
+      self.fail('Invalid hostinfo url did not fail!')
+    except urllib2.URLError:
+      pass
 
   def testApiHostInfoAndSetNextUpdate(self):
     """Tests using the setnextupdate and hostinfo api commands."""
-    pid = self._StartServer()
-    try:
-      # Send setnextupdate command.
-      request = urllib2.Request(API_SET_UPDATE_URL, API_SET_UPDATE_REQUEST)
-      connection = urllib2.urlopen(request)
-      response = connection.read()
-      connection.close()
+    # Send setnextupdate command.
+    request = urllib2.Request(API_SET_UPDATE_URL, API_SET_UPDATE_REQUEST)
+    connection = urllib2.urlopen(request)
+    response = connection.read()
+    connection.close()
 
-      # Send hostinfo command and verify the setnextupdate worked.
-      connection = urllib2.urlopen(API_HOST_INFO_URL)
-      response = connection.read()
-      connection.close()
+    # Send hostinfo command and verify the setnextupdate worked.
+    connection = urllib2.urlopen(API_HOST_INFO_URL)
+    response = connection.read()
+    connection.close()
 
-      self.assertEqual(
-          json.loads(response)['forced_update_label'], API_SET_UPDATE_REQUEST)
-    finally:
-      os.kill(pid, signal.SIGKILL)
+    self.assertEqual(
+        json.loads(response)['forced_update_label'], API_SET_UPDATE_REQUEST)
 
 
 if __name__ == '__main__':
