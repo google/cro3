@@ -164,6 +164,31 @@ class GSUtilUtilTest(mox.MoxTestBase):
     self.assertEqual(returned_name, None)
     self.mox.VerifyAll()
 
+  def testGetLatestVersionFromGSDir(self):
+    """Test that we can get the most recent version from gsutil calls."""
+    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    mock_data1 = '''gs://chromeos-releases/stable-channel/parrot/3701.96.0/
+    gs://chromeos-releases/stable-channel/parrot/3701.98.0/
+    gs://chromeos-releases/stable-channel/parrot/3912.100.0/
+    gs://chromeos-releases/stable-channel/parrot/3912.101.0/
+    gs://chromeos-releases/stable-channel/parrot/3912.79.0/
+    gs://chromeos-releases/stable-channel/parrot/3912.79.1/'''
+    gsutil_util.GSUtilRun(mox.IgnoreArg(),
+                          mox.IgnoreArg()).AndReturn(mock_data1)
+    mock_data2 = '''gs://chromeos-image-archive/parrot-release/R28-3912.101.0/a
+    gs://chromeos-image-archive/parrot-release/R28-3912.101.0/image.zip
+    gs://chromeos-image-archive/parrot-release/R28-3912.101.0/index.html
+    gs://chromeos-image-archive/parrot-release/R28-3912.101.0/metadata.json
+    gs://chromeos-image-archive/parrot-release/R28-3912.101.0/stateful.tgz'''
+    gsutil_util.GSUtilRun(mox.IgnoreArg(),
+                          mox.IgnoreArg()).AndReturn(mock_data2)
+    self.mox.ReplayAll()
+    url = ''
+    self.assertEqual(gsutil_util.GetLatestVersionFromGSDir(url),
+                     '3912.101.0')
+    self.assertEqual(gsutil_util.GetLatestVersionFromGSDir(url),
+                     'R28-3912.101.0')
+    self.mox.VerifyAll()
 
 if __name__ == '__main__':
   unittest.main()

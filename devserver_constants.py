@@ -6,7 +6,14 @@
 
 #### Google Storage locations and names. ####
 # TODO (joyc) move the google storage filenames of artfacts here
-GOOGLE_STORAGE_IMAGE_DIR = 'gs://chromeos-image-archive'
+GS_IMAGE_DIR = 'gs://chromeos-image-archive'
+GS_LATEST_MASTER = GS_IMAGE_DIR + '/%(board)s-%(suffix)s/LATEST-master'
+IMAGE_DIR = '%(board)s-%(suffix)s/%(version)s'
+
+GS_RELEASES_DIR = 'gs://chromeos-releases'
+GS_CHANNEL_DIR = GS_RELEASES_DIR + '/%(channel)s-channel/%(board)s/'
+
+VERSION_RE = 'R?[-0-9\.]+'
 
 #### Local storage locations and names. ####
 AUTOTEST_DIR = 'autotest'

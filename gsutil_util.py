@@ -4,11 +4,13 @@
 
 """Module containing gsutil helper methods."""
 
+import distutils.version
 import random
 import re
 import subprocess
 import time
 
+import devserver_constants
 import log_util
 
 
@@ -147,3 +149,22 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, single_item=True,
       time.sleep(to_delay)
     else:
       return None
+
+
+def GetLatestVersionFromGSDir(gsutil_dir):
+  """Returns most recent version number found in a GS directory.
+
+  This lists out the contents of the given GS bucket or regex to GS buckets,
+  and tries to grab the newest version found in the directory names.
+  """
+  cmd = 'gsutil ls %s' % gsutil_dir
+  msg = 'Failed to find most recent builds at %s' % gsutil_dir
+  dir_names = [p.split('/')[-2] for p in GSUtilRun(cmd, msg).splitlines()]
+  try:
+    versions = filter(lambda x: re.match(devserver_constants.VERSION_RE, x),
+                      dir_names)
+    latest_version = max(versions, key=distutils.version.LooseVersion)
+  except ValueError:
+    raise GSUtilError(msg)
+
+  return latest_version

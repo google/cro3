@@ -14,6 +14,7 @@ import unittest
 
 import mox
 
+import gsutil_util
 import xbuddy
 
 #pylint: disable=W0212
@@ -46,33 +47,78 @@ class xBuddyTest(mox.MoxTestBase):
     self.assertEqual(xbuddy.XBuddy.ParseBoolean('true'), True)
     self.assertEqual(xbuddy.XBuddy.ParseBoolean('y'), True)
 
-  def _testResolveVersion(self):
-    # TODO (joyc)
-    pass
+  def testLookupOfficial(self):
+    """Basic test of _LookupOfficial. Checks that a given suffix is handled."""
+    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    gsutil_util.GSUtilRun(mox.IgnoreArg(),
+                          mox.IgnoreArg()).AndReturn('v')
+    expected = 'b-s/v'
+    self.mox.ReplayAll()
+    self.assertEqual(self.mock_xb._LookupOfficial('b', 's'), expected)
+    self.mox.VerifyAll()
+
+  def testLookupChannel(self):
+    """Basic test of _LookupChannel. Checks that a given suffix is handled."""
+    self.mox.StubOutWithMock(gsutil_util, 'GetLatestVersionFromGSDir')
+    mock_data1 = '4100.68.0'
+    gsutil_util.GetLatestVersionFromGSDir(mox.IgnoreArg()).AndReturn(mock_data1)
+    mock_data2 = 'R28-4100.68.0'
+    gsutil_util.GetLatestVersionFromGSDir(mox.IgnoreArg()).AndReturn(mock_data2)
+    self.mox.ReplayAll()
+    expected = 'b-release/R28-4100.68.0'
+    self.assertEqual(self.mock_xb._LookupChannel('b'), expected)
+    self.mox.VerifyAll()
+
+  def testResolveVersionToUrl_Official(self):
+    """Check _ResolveVersionToUrl recognizes aliases for official builds."""
+    board = 'b'
+
+    # aliases that should be redirected to LookupOfficial
+    self.mox.StubOutWithMock(self.mock_xb, '_LookupOfficial')
+    self.mock_xb._LookupOfficial(board)
+    self.mock_xb._LookupOfficial(board, 'paladin')
+
+    self.mox.ReplayAll()
+    version = 'latest-official'
+    self.mock_xb._ResolveVersionToUrl(board, version)
+    version = 'latest-official-paladin'
+    self.mock_xb._ResolveVersionToUrl(board, version)
+    self.mox.VerifyAll()
+
+  def testResolveVersionToUrl_Channel(self):
+    """Check _ResolveVersionToUrl recognizes aliases for channels."""
+    board = 'b'
+
+    # aliases that should be redirected to LookupChannel
+    self.mox.StubOutWithMock(self.mock_xb, '_LookupChannel')
+    self.mock_xb._LookupChannel(board)
+    self.mock_xb._LookupChannel(board, 'dev')
+
+    self.mox.ReplayAll()
+    version = 'latest'
+    self.mock_xb._ResolveVersionToUrl(board, version)
+    version = 'latest-dev'
+    self.mock_xb._ResolveVersionToUrl(board, version)
+    self.mox.VerifyAll()
 
   def testBasicInterpretPath(self):
     """Basic checks for splitting a path"""
-    path = ('parrot-release', 'R27-2455.0.0', 'test')
-    expected = ('parrot-release', 'R27-2455.0.0', 'test')
+    path = ('parrot', 'R27-2455.0.0', 'test')
+    expected = ('test', 'parrot', 'R27-2455.0.0')
     self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
 
-    path = ('parrot-release', 'R27-2455.0.0', 'full_payload')
-    expected = ('parrot-release', 'R27-2455.0.0', 'full_payload')
+    path = ('parrot', 'R27-2455.0.0', 'full_payload')
+    expected = ('full_payload', 'parrot', 'R27-2455.0.0')
     self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
 
-    path = ('parrot-release', 'R27-2455.0.0')
-    expected = ('parrot-release', 'R27-2455.0.0', 'test')
+    path = ('parrot', 'R27-2455.0.0')
+    expected = ('test', 'parrot', 'R27-2455.0.0')
     self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
 
-    path = ('parrot-release', 'R27-2455.0.0', 'too', 'many', 'pieces')
+    path = ('parrot', 'R27-2455.0.0', 'too', 'many', 'pieces')
     self.assertRaises(xbuddy.XBuddyException,
                       self.mock_xb._InterpretPath,
                       path_list=path)
-
-
-  def testLookupVersion(self):
-    # TODO (joyc)
-    pass
 
   def testTimestampsAndList(self):
     """Creation and listing of builds according to their timestamps."""
@@ -120,11 +166,8 @@ class xBuddyTest(mox.MoxTestBase):
     path_a = ('a', 'R0', 'test')
     path_b = ('b', 'R0', 'test')
 
-    self.mox.StubOutWithMock(self.mock_xb, '_ResolveVersion')
     self.mox.StubOutWithMock(self.mock_xb, '_Download')
     for _ in range(8):
-      self.mock_xb._ResolveVersion(mox.IsA(str),
-                                   mox.IsA(str)).AndReturn('R0')
       self.mock_xb._Download(mox.IsA(str), mox.IsA(str))
 
     self.mox.ReplayAll()
@@ -145,7 +188,7 @@ class xBuddyTest(mox.MoxTestBase):
     # Flip the list to get reverse chronological order
     images.reverse()
     for i in range(5):
-      self.assertEqual(result[i][0], '%s/R0' % images[i])
+      self.assertEqual(result[i][0], '%s-release/R0' % images[i])
 
     # Get b,a
     self.mock_xb.Get(path_b, None)
@@ -158,7 +201,7 @@ class xBuddyTest(mox.MoxTestBase):
     self.assertEqual(len(result), 5)
     images_expected = ['a', 'b', 'f', 'e', 'd']
     for i in range(5):
-      self.assertEqual(result[i][0], '%s/R0' % images_expected[i])
+      self.assertEqual(result[i][0], '%s-release/R0' % images_expected[i])
 
     self.mox.VerifyAll()
 

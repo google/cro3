@@ -5,8 +5,9 @@
 import datetime
 import operator
 import os
-import time
+import re
 import shutil
+import time
 import threading
 
 import build_util
@@ -15,6 +16,7 @@ import build_artifact
 import common_util
 import devserver_constants
 import downloader
+import gsutil_util
 import log_util
 
 # Module-local log function.
@@ -33,6 +35,7 @@ LOCAL_ALIASES = [
 
 LOCAL_FILE_NAMES = [
   devserver_constants.TEST_IMAGE_FILE,
+
   devserver_constants.BASE_IMAGE_FILE,
   devserver_constants.IMAGE_FILE,
 ]
@@ -75,23 +78,10 @@ GS_ALIAS_TO_FILENAME = dict(zip(GS_ALIASES, GS_FILE_NAMES))
 GS_ALIAS_TO_ARTIFACT = dict(zip(GS_ALIASES, ARTIFACTS))
 
 LATEST_OFFICIAL = "latest-official"
-VERSION_PREFIX = "R"
 
 LATEST = "latest"
+RELEASE = "release"
 
-CHANNEL = [
-  'stable',
-  'beta',
-  'dev',
-  'canary',
-]
-
-# only paired with official
-SUFFIX = [
-  'release',
-  'paladin',
-  'factory',
-]
 
 class XBuddyException(Exception):
   """Exception classes used by this module."""
@@ -168,16 +158,57 @@ class XBuddy(build_util.BuildObject):
     else:
       return False
 
-  @staticmethod
-  def _TryIndex(alias_chunks, index):
-    """Attempt to access an index of an alias. Default None if not found."""
-    try:
-      return alias_chunks[index]
-    except IndexError:
-      return None
+  def _LookupOfficial(self, board, suffix=RELEASE):
+    """Check LATEST-master for the version number of interest."""
+    _Log("Checking gs for latest %s-%s image", board, suffix)
+    latest_addr = devserver_constants.GS_LATEST_MASTER % {'board':board,
+                                                          'suffix':suffix}
+    cmd = 'gsutil cat %s' % latest_addr
+    msg = 'Failed to find build at %s' % latest_addr
+    # Full release + version is in the LATEST file
+    version = gsutil_util.GSUtilRun(cmd, msg)
 
-  #pylint: disable=W0613
-  def _ResolveVersion(self, board, version):
+    return devserver_constants.IMAGE_DIR % {'board':board,
+                                            'suffix':suffix,
+                                            'version':version}
+
+  def _LookupChannel(self, board, channel='stable'):
+    """Check the channel folder for the version number of interest."""
+    # Get all names in channel dir. Get 10 highest directories by version
+    _Log("Checking channel %s for latest %s image", channel, board)
+    channel_dir = devserver_constants.GS_CHANNEL_DIR % {'channel':channel,
+                                                        'board':board}
+    latest_version = gsutil_util.GetLatestVersionFromGSDir(channel_dir)
+
+    # Figure out release number from the version number
+    image_url = devserver_constants.IMAGE_DIR % {'board':board,
+                                                 'suffix':RELEASE,
+                                                 'version':'R*'+latest_version}
+    image_dir = os.path.join(devserver_constants.GS_IMAGE_DIR, image_url)
+
+    # There should only be one match on cros-image-archive.
+    full_version = gsutil_util.GetLatestVersionFromGSDir(image_dir)
+
+    return devserver_constants.IMAGE_DIR % {'board':board,
+                                            'suffix':RELEASE,
+                                            'version':full_version}
+
+  def _LookupVersion(self, board, version):
+    """Search GS image releases for the highest match to a version prefix."""
+    # Build the pattern for GS to match
+    _Log("Checking gs for latest %s image with prefix %s", board, version)
+    image_url = devserver_constants.IMAGE_DIR % {'board':board,
+                                                 'suffix':RELEASE,
+                                                 'version':version + '*'}
+    image_dir = os.path.join(devserver_constants.GS_IMAGE_DIR, image_url)
+
+    # grab the newest version of the ones matched
+    full_version = gsutil_util.GetLatestVersionFromGSDir(image_dir)
+    return devserver_constants.IMAGE_DIR % {'board':board,
+                                            'suffix':RELEASE,
+                                            'version':full_version}
+
+  def _ResolveVersionToUrl(self, board, version):
     """
     Handle version aliases for remote payloads in GS.
 
@@ -191,19 +222,38 @@ class XBuddy(build_util.BuildObject):
         4. version prefix (i.e. RX-Y.X, RX-Y, RX)
 
     Returns:
-      Version number that is compatible with google storage (i.e. RX-X.X.X)
+      image_url is where the image dir is actually found on GS
 
     """
-    # TODO (joyc) read from a config file
+    # TODO (joychen) Convert separate calls to a dict + error out bad paths
 
-    if version.startswith(VERSION_PREFIX):
-      # TODO (joyc) Find complete version if it's only a prefix.
-      return version
+    # Only the last segment of the alias is variable relative to the rest.
+    version_tuple = version.rsplit('-', 1)
 
+    if re.match(devserver_constants.VERSION_RE, version):
+      # This is supposed to be a complete version number on GS. Return it.
+      return devserver_constants.IMAGE_DIR % {'board':board,
+                                              'suffix':RELEASE,
+                                              'version':version}
+    elif version == LATEST_OFFICIAL:
+      # latest-official --> LATEST build in board-release
+      return self._LookupOfficial(board)
+    elif version_tuple[0] == LATEST_OFFICIAL:
+      # latest-official-{suffix} --> LATEST build in board-{suffix}
+      return self._LookupOfficial(board, version_tuple[1])
+    elif version == LATEST:
+      # latest --> latest build on stable channel
+      return self._LookupChannel(board)
+    elif version_tuple[0] == LATEST:
+      if re.match(devserver_constants.VERSION_RE, version_tuple[1]):
+        # latest-R* --> most recent qualifying build
+        return self._LookupVersion(board, version_tuple[1])
+      else:
+        # latest-{channel} --> latest build within that channel
+        return self._LookupChannel(board, version_tuple[1])
     else:
       # The given version doesn't match any known patterns.
       raise XBuddyException("Version %s unknown. Can't find on GS." % version)
-  #pylint: enable=W0613
 
   @staticmethod
   def _Symlink(link, target):
@@ -255,7 +305,7 @@ class XBuddy(build_util.BuildObject):
       Documentation of path_list can be found in devserver.py:xbuddy
 
     Return:
-      tuple of (board, version, image_type)
+      tuple of (image_type, board, version)
 
     Raises:
       XBuddyException: if the path can't be resolved into valid components
@@ -276,23 +326,7 @@ class XBuddy(build_util.BuildObject):
       # Misshapen beyond recognition
       raise XBuddyException('Invalid path, %s.' % '/'.join(path_list))
 
-    _Log("board: %s, version: %s, image: %s", board, version, image_type)
-
-    return board, version, image_type
-
-  @staticmethod
-  def _LookupVersion(board, version_type, suffix="release"):
-    """Crawl gs for actual version numbers.
-
-    If all we have is the board, we default to the latest local build. If we
-    have latest-official, we default to latest in the release channel.
-    """
-    # TODO (joyc) latest-official (LATEST-master) on
-    # crawl gs://chromeos-image-archive/
-
-    # TODO (joyc) latest-{dev/beta/stable} on
-    # crawl gs://chromeos-releases/
-    raise NotImplementedError()
+    return image_type, board, version
 
   def _SyncRegistryWithBuildImages(self):
     """ Crawl images_dir for build_ids of images generated from build_image.
@@ -349,6 +383,7 @@ class XBuddy(build_util.BuildObject):
     with XBuddy._staging_thread_count_lock:
       XBuddy._staging_thread_count += 1
     try:
+      _Log('Downloading %s from %s', artifact, gs_url)
       downloader.Downloader(self.static_dir, gs_url).Download(
           [artifact])
     finally:
@@ -387,7 +422,7 @@ class XBuddy(build_util.BuildObject):
 
   def _GetFromGS(self, build_id, image_type):
     """Check if the artifact is available locally. Download from GS if not."""
-    gs_url = os.path.join(devserver_constants.GOOGLE_STORAGE_IMAGE_DIR,
+    gs_url = os.path.join(devserver_constants.GS_IMAGE_DIR,
                           build_id)
 
     # stage image if not found in cache
@@ -397,16 +432,13 @@ class XBuddy(build_util.BuildObject):
                                          file_name))
     if not cached:
       artifact = GS_ALIAS_TO_ARTIFACT[image_type]
-      _Log('Artifact to stage: %s', artifact)
-
-      _Log('Staging %s image from: %s', image_type, gs_url)
       self._Download(gs_url, artifact)
     else:
       _Log('Image already cached.')
 
   def _GetArtifact(self, path):
     """Interpret an xBuddy path and return directory/file_name to resource."""
-    board, version, image_type = self._InterpretPath(path)
+    image_type, board, version = self._InterpretPath(path)
 
     if version in [LATEST_LOCAL, '']:
       # Get a local image
@@ -416,24 +448,22 @@ class XBuddy(build_util.BuildObject):
 
       file_name = LOCAL_ALIAS_TO_FILENAME[image_type]
       version = self._GetLatestLocalVersion(board, file_name)
-      build_id = os.path.join(board, version)
+      image_url = os.path.join(board, version)
     else:
       # Get a remote image
       if image_type not in GS_ALIASES:
         raise XBuddyException('Bad image type: %s. Use one of: %s' %
                               (image_type, GS_ALIASES))
-
-      # Clean up board
-      # TODO(joyc) decide what to do with the board suffix
-
-      # Clean up version
       file_name = GS_ALIAS_TO_FILENAME[image_type]
-      version = self._ResolveVersion(board, version)
-      build_id = os.path.join(board, version)
 
-      self._GetFromGS(build_id, image_type)
+      # Interpret the version (alias), and get gs address
+      image_url = self._ResolveVersionToUrl(board, version)
 
-    return build_id, file_name
+      self._GetFromGS(image_url, image_type)
+
+    _Log("Get artifact %s from image %s", image_type, image_url)
+
+    return image_url, file_name
 
   ############################ BEGIN PUBLIC METHODS
 
@@ -461,10 +491,10 @@ class XBuddy(build_util.BuildObject):
 
     Returns:
       Path to the image or update directory on the devserver.
-      e.g. http://host/static/x86-generic-release/
+      e.g. http://host/static/x86-generic/
       R26-4000.0.0/chromium-test-image.bin
       or
-      http://host/static/x86-generic-release/R26-4000.0.0/
+      http://host/static/x86-generic/R26-4000.0.0/
 
     Raises:
       XBuddyException if path is invalid or XBuddy's cache fails
