@@ -978,6 +978,11 @@ def main():
                     help='If set, look for the chromiumos_test_image.bin file '
                     'when generating update payloads rather than the '
                     'chromiumos_image.bin which is the default.')
+  parser.add_option('-x', '--xbuddy_manage_builds',
+                    action='store_true',
+                    default=False,
+                    help='If set, allow xbuddy to manage images in'
+                    'build/images.')
   _AddProductionOptions(parser)
   _AddUpdateOptions(parser)
   _AddTestingOptions(parser)
@@ -1065,7 +1070,9 @@ def main():
   if options.exit:
     return
 
-  _xbuddy = xbuddy.XBuddy(root_dir=root_dir, static_dir=options.static_dir)
+  _xbuddy = xbuddy.XBuddy(options.xbuddy_manage_builds,
+                          root_dir=root_dir,
+                          static_dir=options.static_dir)
   dev_server = DevServerRoot(_xbuddy)
 
   cherrypy.quickstart(dev_server, config=_GetConfig(options))

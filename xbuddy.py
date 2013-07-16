@@ -154,8 +154,9 @@ class XBuddy(build_util.BuildObject):
   # Lock used to lock increasing/decreasing count.
   _staging_thread_count_lock = threading.Lock()
 
-  def __init__(self, **kwargs):
+  def __init__(self, manage_builds=False,  **kwargs):
     super(XBuddy, self).__init__(**kwargs)
+    self._manage_builds = manage_builds
     self._timestamp_folder = os.path.join(self.static_dir,
                                           Timestamp.XBUDDY_TIMESTAMP_DIR)
 
@@ -204,6 +205,14 @@ class XBuddy(build_util.BuildObject):
       raise XBuddyException("Version %s unknown. Can't find on GS." % version)
   #pylint: enable=W0613
 
+  @staticmethod
+  def _Symlink(link, target):
+    """Symlinks link to target, and removes whatever link was there before."""
+    _Log("Linking to %s from %s", link, target)
+    if os.path.lexists(link):
+      os.unlink(link)
+    os.symlink(target, link)
+
   def _GetLatestLocalVersion(self, board, file_name):
     """Get the version of the latest image built for board by build_image
 
@@ -233,10 +242,7 @@ class XBuddy(build_util.BuildObject):
     # symlink the directories
     common_util.MkDirP(os.path.join(self.static_dir, board))
     link = os.path.join(self.static_dir, board, version)
-    _Log("Linking to %s from %s", link, latest_local_dir)
-    if os.path.lexists(link):
-      os.unlink(link)
-    os.symlink(latest_local_dir, link)
+    XBuddy._Symlink(link, latest_local_dir)
 
     return version
 
@@ -289,9 +295,18 @@ class XBuddy(build_util.BuildObject):
     raise NotImplementedError()
 
   def _SyncRegistryWithBuildImages(self):
-    # crawl images_dir for build_ids of images generated from build_image
+    """ Crawl images_dir for build_ids of images generated from build_image.
+
+    This will find images and symlink them in xBuddy's static dir so that
+    xBuddy's cache can serve them.
+    If xBuddy's _manage_builds option is on, then a timestamp will also be
+    generated, and xBuddy will clear them from the directory they are in, as
+    necessary.
+    """
     build_ids = []
     for b in os.listdir(self.images_dir):
+      # Ensure we have directories to track all boards in build/images
+      common_util.MkDirP(os.path.join(self.static_dir, b))
       board_dir = os.path.join(self.images_dir, b)
       build_ids.extend(['/'.join([b, v]) for v
                         in os.listdir(board_dir) if not v==LATEST])
@@ -302,9 +317,13 @@ class XBuddy(build_util.BuildObject):
       if build_id in build_ids:
         build_ids.remove(build_id)
 
-    # Add undiscovered images if there are any
-    for b in build_ids:
-      Timestamp.UpdateTimestamp(self._timestamp_folder, b)
+    # Symlink undiscovered images, and update timestamps if manage_builds is on
+    for build_id in build_ids:
+      link = os.path.join(self.static_dir, build_id)
+      target = os.path.join(self.images_dir, build_id)
+      XBuddy._Symlink(link, target)
+      if self._manage_builds:
+        Timestamp.UpdateTimestamp(self._timestamp_folder, build_id)
 
   def _ListBuildTimes(self):
     """ Returns the currently cached builds and their last access timestamp.
@@ -351,15 +370,16 @@ class XBuddy(build_util.BuildObject):
       os.unlink(time_file)
       clear_dir = os.path.join(self.static_dir, b_path)
       try:
-        # handle symlinks, in the case of links to local builds
-        if (os.path.islink(clear_dir)):
-          target = os.path.readlink(clear_dir)
-          _Log('Deleting image at %s', target)
+        # handle symlinks, in the case of links to local builds if enabled
+        if self._manage_builds and os.path.islink(clear_dir):
+          target = os.readlink(clear_dir)
+          _Log('Deleting locally built image at %s', target)
 
           os.unlink(clear_dir)
-          if (os.path.exists(target)):
+          if os.path.exists(target):
             shutil.rmtree(target)
         elif os.path.exists(clear_dir):
+          _Log('Deleting downloaded image at %s', clear_dir)
           shutil.rmtree(clear_dir)
 
       except Exception:
