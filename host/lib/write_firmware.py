@@ -107,7 +107,7 @@ class WriteFirmware:
       self._servo_port = int(servo)
     self._out.Notice('Servo port %s' % str(self._servo_port))
 
-  def _GetFlashScript(self, payload_size, flash_dest, checksum):
+  def _GetFlashScript(self, payload_size, flash_dest, checksum, ro_size=None):
     """Get the U-Boot boot command needed to flash U-Boot.
 
     We leave a marker in the string for the load address of the image,
@@ -119,6 +119,8 @@ class WriteFirmware:
       flash_dest: A dictionary of strings keyed by 'type' (nand, sdmmc,
                   or spi), 'bus', and 'dev'.
       checksum: The checksum of the payload (an integer)
+      ro_size: Size of read-only partition.  If set, split MMC image between
+               partition 1 (ro) and partition 2 (rw).
 
     Returns:
       A tuple containing:
@@ -126,8 +128,12 @@ class WriteFirmware:
             embedded marker for the load address.
         The marker string, which the caller should replace with the correct
             load address as 8 hex digits, without changing its length.
+        The marker RW string, which the caller should replace with the correct
+            load address for the RW section as 8 hex digits, without changing
+            its length.  This is only required if ro_size is set.
     """
     replace_me = 'zsHEXYla'
+    replace_me_rw = 'zsHEXYrw'
     page_size = 4096
     boot_type = flash_dest['type']
     if boot_type == 'sdmmc':
@@ -143,6 +149,17 @@ class WriteFirmware:
             checksum,
         'setenv _clear  "echo Clearing RAM; mw.b     ${address} 0 ${length}"',
     ]
+
+    if ro_size:
+      rw_size = payload_size - ro_size
+
+      cmds.extend([
+        'setenv address_ro   ${address}',
+        'setenv address_rw   0x%s' % replace_me_rw,
+        'setenv blocks_ro    %#x' % (RoundUp(ro_size, page_size) / page_size),
+        'setenv blocks_rw    %#x' % (RoundUp(rw_size, page_size) / page_size),
+      ])
+
     if boot_type == 'nand':
       cmds.extend([
           'setenv _init   "echo Init NAND;  nand info"',
@@ -161,15 +178,36 @@ class WriteFirmware:
       cmds.extend([
           'setenv _init   "echo Init EMMC;  mmc rescan"',
           'setenv _erase  "echo Erase EMMC; "',
-          "setenv _write  'echo Write EMMC; mmc open               0 1;" \
-            "                               mmc write ${address}   0 " \
-            "${blocks};" \
-            "                               mmc close              0 1'",
-          "setenv _read   'echo Read EMMC;  mmc open               0 1;" \
-            "                               mmc read ${address}    0 " \
-            "${blocks};" \
-            "                               mmc close 0 1'",
       ])
+      if ro_size:
+        # Write RO section to partition 1, RW to partition 2
+        cmds.extend([
+            "setenv _write  'echo Write EMMC;"  \
+              "              mmc open 0 1;" \
+              "              mmc write ${address_ro} 0 ${blocks_ro};" \
+              "              mmc close 0 1;" \
+              "              mmc open 0 2;" \
+              "              mmc write ${address_rw} 0 ${blocks_rw};" \
+              "              mmc close 0 2'",
+            "setenv _read   'echo Read EMMC;"  \
+              "              mmc open 0 1;" \
+              "              mmc read ${address_ro} 0 ${blocks_ro};" \
+              "              mmc close 0 1;" \
+              "              mmc open 0 2;" \
+              "              mmc read ${address_rw} 0 ${blocks_rw};" \
+              "              mmc close 0 2'",
+        ])
+      else:
+        cmds.extend([
+            "setenv _write  'echo Write EMMC;" \
+              "              mmc open 0 1;" \
+              "              mmc write ${address} 0 ${blocks};" \
+              "              mmc close 0 1'",
+            "setenv _read   'echo Read EMMC;" \
+              "              mmc open 0 1;" \
+              "              mmc read ${address} 0 ${blocks};" \
+              "              mmc close 0 1'",
+        ])
     else:
       if flash_dest['bus'] is None:
         flash_dest['bus'] = '0'
@@ -215,9 +253,33 @@ class WriteFirmware:
       'fi',
       ])
     script = '; '.join(cmds)
-    return script, replace_me
+    return script, replace_me, replace_me_rw
 
-  def _PrepareFlasher(self, uboot, payload, flash_dest):
+  def _ReplaceAddr(self, data, replace_me, replacement):
+    """Replace address in FDT
+
+    Detect and replace a placeholder address in the FDT.
+
+    Args:
+      data: FDT data to do replacement on
+      replace_me: String currently in FDT to replace
+      replacement: Replacement string
+
+    Returns:
+      Updated data with replacement
+    """
+    if len(replace_me) is not len(replacement):
+      raise ValueError("Internal error: replacement string '%s' length does "
+          "not match new string '%s'" % (replace_me, replacement))
+
+    matches = len(re.findall(replace_me, data))
+    if matches != 1:
+      raise ValueError("Internal error: replacement string '%s' already "
+          "exists in the fdt (%d matches)" % (replace_me, matches))
+
+    return re.sub(replace_me, replacement, data)
+
+  def _PrepareFlasher(self, uboot, payload, flash_dest, ro_size=None):
     """Get a flasher ready for sending to the board.
 
     The flasher is an executable image consisting of:
@@ -233,6 +295,10 @@ class WriteFirmware:
       payload: Full path to payload.
       flash_dest: A dictionary of strings keyed by 'type' (nand, sdmmc,
                   or spi), 'bus', and 'dev'.
+      boot_type: the src for bootdevice (nand, sdmmc, or spi)
+      ro_size: Size of read-only partition on emmc.  If set, indicates that
+               the image should be split, with half written to partition 1, and
+               half written to partition 2.
 
     Returns:
       Filename of the flasher binary created.
@@ -243,8 +309,8 @@ class WriteFirmware:
     # Make sure that the checksum is not negative
     checksum = binascii.crc32(payload_data) & 0xffffffff
 
-    script, replace_me = self._GetFlashScript(len(payload_data), flash_dest,
-                                              checksum)
+    script, replace_start, replace_rw = self._GetFlashScript(len(payload_data),
+                                          flash_dest, checksum, ro_size)
     data = self._tools.ReadFile(uboot)
     fdt.PutString('/config', 'bootcmd', script)
     fdt_data = self._tools.ReadFile(fdt.fname)
@@ -268,14 +334,11 @@ class WriteFirmware:
 
     load_address = self.text_base + payload_offset,
     new_str = '%08x' % load_address
-    if len(replace_me) is not len(new_str):
-      raise ValueError("Internal error: replacement string '%s' length does "
-          "not match new string '%s'" % (replace_me, new_str))
-    matches = len(re.findall(replace_me, fdt_data))
-    if matches != 1:
-      raise ValueError("Internal error: replacement string '%s' already "
-          "exists in the fdt (%d matches)" % (replace_me, matches))
-    fdt_data = re.sub(replace_me, new_str, fdt_data)
+    fdt_data = self._ReplaceAddr(fdt_data, replace_start, new_str)
+
+    if ro_size:
+      new_str_rw = '%08x' % (load_address[0] + ro_size)
+      fdt_data = self._ReplaceAddr(fdt_data, replace_rw, new_str_rw)
 
     # Now put it together.
     data += fdt_data
@@ -588,7 +651,16 @@ class WriteFirmware:
         flash_dest['bus'] = 1
       if flash_dest['dev'] is None:
         flash_dest['dev'] = 0
-      image = self._PrepareFlasher(flash_uboot, payload, flash_dest)
+
+      # Try to determine RO section size
+      ro_size = None
+      if flash_dest['type'] == 'sdmmc':
+        try:
+          ro_size = self._fdt.GetFlashPartSize('wp', 'ro')
+        except (CmdError, ValueError):
+          self._out.Warning('Unable to detect RO section size')
+
+      image = self._PrepareFlasher(flash_uboot, payload, flash_dest, ro_size)
     else:
       bl1, bl2, image = payload_bl1, payload_bl2, payload_image
 
