@@ -104,21 +104,35 @@ class xBuddyTest(mox.MoxTestBase):
   def testBasicInterpretPath(self):
     """Basic checks for splitting a path"""
     path = ('parrot', 'R27-2455.0.0', 'test')
-    expected = ('test', 'parrot', 'R27-2455.0.0')
+    expected = ('test', 'parrot', 'R27-2455.0.0', False)
     self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
 
     path = ('parrot', 'R27-2455.0.0', 'full_payload')
-    expected = ('full_payload', 'parrot', 'R27-2455.0.0')
+    expected = ('full_payload', 'parrot', 'R27-2455.0.0', False)
     self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
 
     path = ('parrot', 'R27-2455.0.0')
-    expected = ('test', 'parrot', 'R27-2455.0.0')
+    expected = ('test', 'parrot', 'R27-2455.0.0', False)
     self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
 
-    path = ('parrot', 'R27-2455.0.0', 'too', 'many', 'pieces')
+    path = ('remote', 'parrot', 'R27-2455.0.0')
+    expected = ('test', 'parrot', 'R27-2455.0.0', False)
+    self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
+
+    path = ('local', 'parrot', 'R27-2455.0.0')
+    expected = ('test', 'parrot', 'R27-2455.0.0', True)
+    self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
+
+    path = ()
     self.assertRaises(xbuddy.XBuddyException,
                       self.mock_xb._InterpretPath,
                       path_list=path)
+
+    path = ('local',)
+    self.assertRaises(xbuddy.XBuddyException,
+                      self.mock_xb._InterpretPath,
+                      path_list=path)
+
 
   def testTimestampsAndList(self):
     """Creation and listing of builds according to their timestamps."""

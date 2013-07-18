@@ -26,7 +26,9 @@ def _Log(message, *args):
 _XBUDDY_CAPACITY = 5
 
 # Local build constants
-LATEST_LOCAL = "latest-local"
+LATEST = "latest"
+LOCAL = "local"
+REMOTE = "remote"
 LOCAL_ALIASES = [
   'test',
   'base',
@@ -79,7 +81,6 @@ GS_ALIAS_TO_ARTIFACT = dict(zip(GS_ALIASES, ARTIFACTS))
 
 LATEST_OFFICIAL = "latest-official"
 
-LATEST = "latest"
 RELEASE = "release"
 
 
@@ -149,6 +150,7 @@ class XBuddy(build_util.BuildObject):
     self._manage_builds = manage_builds
     self._timestamp_folder = os.path.join(self.static_dir,
                                           Timestamp.XBUDDY_TIMESTAMP_DIR)
+    common_util.MkDirP(self._timestamp_folder)
 
   @classmethod
   def ParseBoolean(cls, boolean_string):
@@ -175,7 +177,7 @@ class XBuddy(build_util.BuildObject):
   def _LookupChannel(self, board, channel='stable'):
     """Check the channel folder for the version number of interest."""
     # Get all names in channel dir. Get 10 highest directories by version
-    _Log("Checking channel %s for latest %s image", channel, board)
+    _Log("Checking channel '%s' for latest '%s' image", channel, board)
     channel_dir = devserver_constants.GS_CHANNEL_DIR % {'channel':channel,
                                                         'board':board}
     latest_version = gsutil_util.GetLatestVersionFromGSDir(channel_dir)
@@ -196,7 +198,7 @@ class XBuddy(build_util.BuildObject):
   def _LookupVersion(self, board, version):
     """Search GS image releases for the highest match to a version prefix."""
     # Build the pattern for GS to match
-    _Log("Checking gs for latest %s image with prefix %s", board, version)
+    _Log("Checking gs for latest '%s' image with prefix '%s'", board, version)
     image_url = devserver_constants.IMAGE_DIR % {'board':board,
                                                  'suffix':RELEASE,
                                                  'version':version + '*'}
@@ -277,7 +279,7 @@ class XBuddy(build_util.BuildObject):
       version - the discovered version of the image.
     """
     latest_local_dir = self.GetLatestImageDir(board)
-    if not (latest_local_dir and os.path.exists(latest_local_dir)):
+    if not latest_local_dir and os.path.exists(latest_local_dir):
       raise XBuddyException('No builds found for %s. Did you run build_image?' %
                             board)
 
@@ -288,12 +290,6 @@ class XBuddy(build_util.BuildObject):
     if not os.path.exists(path_to_image):
       raise XBuddyException('%s not found in %s. Did you run build_image?' %
                             (file_name, latest_local_dir))
-
-    # symlink the directories
-    common_util.MkDirP(os.path.join(self.static_dir, board))
-    link = os.path.join(self.static_dir, board, version)
-    XBuddy._Symlink(link, latest_local_dir)
-
     return version
 
   def _InterpretPath(self, path_list):
@@ -310,23 +306,47 @@ class XBuddy(build_util.BuildObject):
     Raises:
       XBuddyException: if the path can't be resolved into valid components
     """
-    if len(path_list) == 3:
-      # We have a full path, with b/v/a
-      board, version, image_type = path_list
-    elif len(path_list) == 2:
-      # We have only the board and the version, default to test image
-      board, version = path_list
-      image_type = GS_ALIASES[0]
-    elif len(path_list) == 1:
-      # We have only the board. default to latest test image.
-      board = path_list[0]
+    path_list = list(path_list)
+
+    # Required parts of path parsing.
+    try:
+      # Determine if image is explicitly local or remote.
+      is_local = False
+      if path_list[0] == LOCAL:
+        path_list.pop(0)
+        is_local = True
+      elif path_list[0] == REMOTE:
+        path_list.pop(0)
+      _Log(str(path_list))
+
+      # Set board
+      board = path_list.pop(0)
+      _Log(str(path_list))
+
+      # Set defaults
       version = LATEST
       image_type = GS_ALIASES[0]
-    else:
-      # Misshapen beyond recognition
-      raise XBuddyException('Invalid path, %s.' % '/'.join(path_list))
+    except IndexError:
+      msg = "Specify at least the board in your xBuddy call. Your path: %s"
+      raise XBuddyException(msg % os.path.join(path_list))
 
-    return image_type, board, version
+    # Read as much of the xBuddy path as possible
+    try:
+      # Override default if terminal is a valid artifact alias or a version
+      terminal = path_list[-1]
+      if terminal in GS_ALIASES + LOCAL_ALIASES:
+        image_type = terminal
+        version = path_list[-2]
+      else:
+        version = terminal
+    except IndexError:
+      # This path doesn't have an alias or a version. That's fine.
+      _Log("Some parts of the path not specified. Using defaults.")
+
+    _Log("Get artifact '%s' in {%s/%s}. Locally? %s",
+         image_type, board, version, is_local)
+
+    return image_type, board, version, is_local
 
   def _SyncRegistryWithBuildImages(self):
     """ Crawl images_dir for build_ids of images generated from build_image.
@@ -368,9 +388,7 @@ class XBuddy(build_util.BuildObject):
     # update currently cached builds
     build_dict = {}
 
-    common_util.MkDirP(self._timestamp_folder)
-    filenames = os.listdir(self._timestamp_folder)
-    for f in filenames:
+    for f in os.listdir(self._timestamp_folder):
       last_accessed = os.path.getmtime(os.path.join(self._timestamp_folder, f))
       build_id = Timestamp.TimestampToBuild(f)
       stale_time = datetime.timedelta(seconds = (time.time()-last_accessed))
@@ -383,7 +401,7 @@ class XBuddy(build_util.BuildObject):
     with XBuddy._staging_thread_count_lock:
       XBuddy._staging_thread_count += 1
     try:
-      _Log('Downloading %s from %s', artifact, gs_url)
+      _Log("Downloading '%s' from '%s'", artifact, gs_url)
       downloader.Downloader(self.static_dir, gs_url).Download(
           [artifact])
     finally:
@@ -392,13 +410,12 @@ class XBuddy(build_util.BuildObject):
 
   def _CleanCache(self):
     """Delete all builds besides the first _XBUDDY_CAPACITY builds"""
-    self._SyncRegistryWithBuildImages()
     cached_builds = [e[0] for e in self._ListBuildTimes()]
     _Log('In cache now: %s', cached_builds)
 
     for b in range(_XBUDDY_CAPACITY, len(cached_builds)):
       b_path = cached_builds[b]
-      _Log('Clearing %s from cache', b_path)
+      _Log("Clearing '%s' from cache", b_path)
 
       time_file = os.path.join(self._timestamp_folder,
                                Timestamp.BuildToTimestamp(b_path))
@@ -438,30 +455,35 @@ class XBuddy(build_util.BuildObject):
 
   def _GetArtifact(self, path):
     """Interpret an xBuddy path and return directory/file_name to resource."""
-    image_type, board, version = self._InterpretPath(path)
+    image_type, board, version, is_local = self._InterpretPath(path)
 
-    if version in [LATEST_LOCAL, '']:
+    if is_local:
       # Get a local image
       if image_type not in LOCAL_ALIASES:
-        raise XBuddyException('Bad image type: %s. Use one of: %s' %
+        raise XBuddyException('Bad local image type: %s. Use one of: %s' %
                               (image_type, LOCAL_ALIASES))
-
       file_name = LOCAL_ALIAS_TO_FILENAME[image_type]
-      version = self._GetLatestLocalVersion(board, file_name)
+
+      if version == LATEST:
+        # Get the latest local image for the given board
+        version = self._GetLatestLocalVersion(board, file_name)
+      else:
+        # An exact version path in build/images was specified for this board
+        local_file = os.path.join(self.images_dir, board, version, file_name)
+        if not os.path.exists(local_file):
+          raise XBuddyException('File not found in local dir: %s', local_file)
+
       image_url = os.path.join(board, version)
     else:
       # Get a remote image
       if image_type not in GS_ALIASES:
-        raise XBuddyException('Bad image type: %s. Use one of: %s' %
+        raise XBuddyException('Bad remote image type: %s. Use one of: %s' %
                               (image_type, GS_ALIASES))
       file_name = GS_ALIAS_TO_FILENAME[image_type]
 
       # Interpret the version (alias), and get gs address
       image_url = self._ResolveVersionToUrl(board, version)
-
       self._GetFromGS(image_url, image_type)
-
-    _Log("Get artifact %s from image %s", image_type, image_url)
 
     return image_url, file_name
 
@@ -499,6 +521,7 @@ class XBuddy(build_util.BuildObject):
     Raises:
       XBuddyException if path is invalid or XBuddy's cache fails
     """
+    self._SyncRegistryWithBuildImages()
     build_id, file_name = self._GetArtifact(path_list)
 
     Timestamp.UpdateTimestamp(self._timestamp_folder, build_id)
@@ -506,7 +529,6 @@ class XBuddy(build_util.BuildObject):
     #TODO (joyc): run in sep thread
     self._CleanCache()
 
-    #TODO (joyc) static dir dependent on bug id: 214373
     return_url = os.path.join('static', build_id)
     if not return_dir:
       return_url =  os.path.join(return_url, file_name)
