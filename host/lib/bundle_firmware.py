@@ -920,17 +920,6 @@ class Bundle:
       pack.AddProperty('skeleton', self.skeleton_fname)
     pack.AddProperty('dtb', fdt.fname)
 
-    # Let's create some copies of the fdt for vboot. These can be used to
-    # pass a different fdt to each firmware type. For now it is just used to
-    # check that the right fdt comes through.
-    fdt_rwa = fdt.Copy(os.path.join(self._tools.outdir, 'updated-rwa.dtb'))
-    fdt_rwa.PutString('/chromeos-config', 'firmware-type', 'rw-a')
-    pack.AddProperty('dtb-rwa', fdt_rwa.fname)
-    fdt_rwb = fdt.Copy(os.path.join(self._tools.outdir, 'updated-rwb.dtb'))
-    fdt_rwb.PutString('/chromeos-config', 'firmware-type', 'rw-b')
-    pack.AddProperty('dtb-rwb', fdt_rwb.fname)
-    fdt.PutString('/chromeos-config', 'firmware-type', 'ro')
-
     # If we are writing a kernel, add its offset from TEXT_BASE to the fdt.
     if self.kernel_fname:
       fdt.PutInteger('/config', 'kernel-offset', pack.image_size)
@@ -956,8 +945,6 @@ class Bundle:
 
     # Record position and size of all blob members in the FDT
     pack.UpdateBlobPositionsAndHashes(fdt)
-    pack.UpdateBlobPositionsAndHashes(fdt_rwa)
-    pack.UpdateBlobPositionsAndHashes(fdt_rwb)
 
     # Make a copy of the fdt for the bootstub
     fdt_data = self._tools.ReadFile(fdt.fname)
