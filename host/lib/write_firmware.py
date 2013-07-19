@@ -870,6 +870,7 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
            port number of servo to use.
   """
   write = WriteFirmware(tools, fdt, output, bundle, update, verify)
+  fdt.PutInteger('/config', 'bootsecure', 0)
   write.SelectServo(servo)
   if flash_dest:
     write.text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
