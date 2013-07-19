@@ -939,7 +939,8 @@ class Bundle:
       pack.AddProperty('keydir', self._keydir)
 
     # Some blobs need to be configured according to the node they are in.
-    for blob in pack.GetMissingBlobs():
+    todo = pack.GetMissingBlobs()
+    for blob in todo:
       if blob.key.startswith('exynos-bl2'):
         bl2 = ExynosBl2(self._tools, self._out)
         pack.AddProperty(blob.key, bl2.MakeSpl(pack, fdt, blob,
@@ -949,6 +950,15 @@ class Bundle:
 
     # Record position and size of all blob members in the FDT
     pack.UpdateBlobPositionsAndHashes(fdt)
+
+    # Recalculate the Exynos BL2, since it may have a hash. The call to
+    # UpdateBlobPositionsAndHashes() may have updated the hash-target so we
+    # need to recalculate the hash.
+    for blob in todo:
+      if blob.key.startswith('exynos-bl2'):
+        bl2 = ExynosBl2(self._tools, self._out)
+        pack.AddProperty(blob.key, bl2.MakeSpl(pack, fdt, blob,
+                                               self.exynos_bl2))
 
     # Make a copy of the fdt for the bootstub
     fdt_data = self._tools.ReadFile(fdt.fname)

@@ -4,10 +4,18 @@
 
 """This module supports creating Exynos bootprom images."""
 
+import hashlib
 import os
 import struct
 
 from tools import CmdError
+
+HASH_ALGO_LEN = 32
+HASH_LEN = 32
+HASH_SIGNATURE = 0xdead4eef
+HASH_VERSION = 1
+HASH_FLAGS = 0
+HASH_HEADER_LEN = 16
 
 
 class ExynosBl2(object):
@@ -280,6 +288,44 @@ class ExynosBl2(object):
     return data[:checksum_offset]+ struct.pack(
       '<L', checksum) + data[checksum_offset + 4:]
 
+  def _UpdateHash(self, data, digest):
+    """Update the BL2 hash.
+
+    The BL2 header may have a pointer to the hash block, but if not, then we
+    add it (at the end of SPL).
+
+    Args:
+      data: The data to update.
+      digest: The hash digest to write.
+
+    Returns:
+      The new contents of the BL2 data, after updating the hash.
+
+    Raises:
+      CmdError if spl type is not variable size. We don't support this
+          function with fixed-sized SPL.
+    """
+    if self._spl_type != self.VAR_SPL:
+      raise CmdError('Hash is only supported for variable-size SPL')
+
+    # See if there is already a hash there.
+    hash_offset = struct.unpack('<L', data[8:12])[0]
+    if not hash_offset:
+      hash_offset = len(data)
+    algo = 'sha256'.ljust(HASH_ALGO_LEN, '\x00')
+    hash_block = algo + digest
+    hash_block_len = len(hash_block) + HASH_HEADER_LEN
+    hash_hdr = struct.pack('<4L', HASH_SIGNATURE, HASH_VERSION, hash_block_len,
+                           HASH_FLAGS)
+    data = (data[:hash_offset] + hash_hdr + hash_block +
+            data[hash_offset + hash_block_len:])
+
+    # Update the size and hash_offset.
+    data = struct.pack('<LLL', len(data), 0, hash_offset) + data[12:]
+    self._out.Info('  Added hash: %s' % ''.
+                   join(['%02x' % ord(d) for d in digest]))
+    return data
+
   def _VerifyBl2(self, data, loose_check):
     """Verify BL2 integrity.
 
@@ -329,7 +375,8 @@ class ExynosBl2(object):
       pass
     raise CmdError('Unrecognizable bl2 format')
 
-  def Configure(self, fdt, spl_load_size, orig_bl2, name='', loose_check=False):
+  def Configure(self, fdt, spl_load_size, orig_bl2, name='',
+                loose_check=False, digest=None):
     """Configure an Exynos BL2 binary for our needs.
 
     We create a new modified BL2 and return its file name.
@@ -342,6 +389,7 @@ class ExynosBl2(object):
       loose_check: if True - allow var size SPL blob to be larger, then the
                    size value in the header. This is necessary for cases when
                    SPL is pulled out of an image (and is padded).
+      digest: If not None, hash digest to add to this BL2 (a string of bytes).
 
     Returns:
       Filename of configured bl2.
@@ -360,6 +408,8 @@ class ExynosBl2(object):
       raise CmdError("Could not find machine parameter block in '%s'" %
                      orig_bl2)
     data = self._UpdateParameters(fdt, spl_load_size, data, pos)
+    if digest:
+      data = self._UpdateHash(data, digest)
     data = self._UpdateChecksum(data)
 
     bl2 = os.path.join(self._tools.outdir, 'updated-spl%s.bin' % name)
@@ -413,6 +463,13 @@ class ExynosBl2(object):
     data = pack.ConcatPropContents(prop_list, compress, False)[0]
     spl_load_size = len(data)
     self._out.Info("BL2/SPL contains '%s', size is %d / %#x" %
-        (', '.join(prop_list), spl_load_size, spl_load_size))
-    bl2 = self.Configure(fdt, spl_load_size, vanilla_bl2, name=name)
+                   (', '.join(prop_list), spl_load_size, spl_load_size))
+    if fdt.GetBool(blob.node, 'hash-target'):
+      hasher = hashlib.sha256()
+      hasher.update(data)
+      digest = hasher.digest()
+    else:
+      digest = None
+    bl2 = self.Configure(fdt, spl_load_size, vanilla_bl2, name=name,
+                         digest=digest)
     return bl2
