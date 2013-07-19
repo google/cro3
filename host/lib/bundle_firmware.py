@@ -1041,7 +1041,7 @@ class Bundle:
 
     fdt.Compile(arch_dts)
     self.fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
-    return fdt
+    return self.fdt
 
   def Start(self, hardware_id, output_fname, show_map):
     """This creates a firmware bundle according to settings provided.
