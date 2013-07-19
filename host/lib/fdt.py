@@ -307,6 +307,27 @@ class Fdt:
       size = self.GetFlashPart(section, part)[1]
     return size
 
+  def GetFlashPartUsed(self, section, part):
+    """Returns the used part of the given section/part number in the flash map.
+
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
+    >>> fdt.GetFlashPartUsed('ro', 'onestop')
+    1234
+    >>> fdt.GetFlashPartUsed('rw-a', 'onestop')
+
+    Args:
+      section: Section name to look at: ro, rw-a, etc.
+      part: Partition name to look at: gbb, vpd, etc.
+
+    Returns:
+      Size of flash area in bytes.
+    """
+    size = self.GetInt(self.GetFlashNode(section, part), 'used', -1)
+    if size == -1:
+      return None
+    return size
+
   def GetChildren(self, node):
     """Returns a list of children of a given node.
 

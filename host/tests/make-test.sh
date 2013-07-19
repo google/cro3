@@ -267,6 +267,7 @@ dtc -O dtb -o test.dtb -p 1000 - <<EOF
             reg = <0x00010000 0x00080000>;
             read-only;
             type = "blob boot";
+            used = <1234>;
         };
         ro-gbb@90000 {
             label = "gbb";
