@@ -73,6 +73,28 @@ class Fdt:
     out = self.tools.Run('fdtget', args)
     return out.strip()
 
+  def GetBool(self, node, prop):
+    """Get a boolean property from a device tree.
+
+    If the property is present then it is considered True, else False.
+
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
+    >>> fdt.GetBool('/flash/ro-gbb', 'hash-target')
+    False
+    >>> fdt.GetBool('/flash/ro-onestop', 'hash-target')
+    True
+
+    Args:
+      node: Full path to node to look up.
+      prop: Property name to look up.
+
+    Returns:
+      True if property is present, False if not.
+    """
+    value = self.GetProp(node, prop, '<none>')
+    return value != '<none>'
+
   def GetProps(self, node, convert_dashes=False):
     """Get all properties from a node.
 

@@ -268,6 +268,7 @@ dtc -O dtb -o test.dtb -p 1000 - <<EOF
             read-only;
             type = "blob boot";
             used = <1234>;
+            hash-target;
         };
         ro-gbb@90000 {
             label = "gbb";
