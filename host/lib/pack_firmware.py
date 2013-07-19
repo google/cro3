@@ -5,6 +5,7 @@
 # found in the LICENSE file.
 
 import binascii
+import collections
 import hashlib
 import optparse
 import os
@@ -57,6 +58,9 @@ FMAP_AREA_NAMES = (
     'name',
     'flags',
 )
+
+# A useful named tuple.
+Value = collections.namedtuple('Value', ['node', 'key', 'params'])
 
 class ConfigError(Exception):
   """A configuration error, normally a mistake in the fdt."""
@@ -691,7 +695,7 @@ class PackFirmware:
   def GetBlobParams(self, blob_type):
     """Returns the parameters for a blob of the given type.
 
-    There should be only one blob of this type.
+    There should be only one blob of this type in the entire flashmap.
 
     Args:
       blob_type: Type of the blob (e.g. 'exynos-bl2')
@@ -827,6 +831,32 @@ class PackFirmware:
     """Mark all entries as required, to produce a full image."""
     for entry in self.entries:
       entry.required = True
+
+  def GetMissingBlobs(self):
+    """Returns a list of blobs that do not currently have data assigned.
+
+    Some blobs may not yet have data assigned, ie. self.props[] does not
+    contain a filename for one or more of the blob's data types. This
+    function returns a list of nodes that still need to be processed.
+
+    Returns:
+      List of device tree nodes that have no data assigned. Each is a
+      namedtuple with these members:
+        node: Full path to device tree node
+        key: Key name (e.g. exynos-bl2')
+        params: List of [arameters to the node - the first element is the
+            list of files within the blob, for example 'boot,dtb'
+    """
+    missing = []
+    for entry in self.entries:
+      if entry.required and isinstance(entry, EntryBlob):
+        for prop in entry.key.split(','):
+          if not self.props.get(prop):
+            value = Value(entry.node, entry.key, entry.params)
+            missing.append(value)
+            break
+
+    return missing
 
   def PackImage(self, tmpdir, output_path):
     """Pack the various components into a firmware image,

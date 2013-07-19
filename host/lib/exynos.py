@@ -365,3 +365,54 @@ class ExynosBl2(object):
     bl2 = os.path.join(self._tools.outdir, 'updated-spl%s.bin' % name)
     self._tools.WriteFile(bl2, data)
     return bl2
+
+  def MakeSpl(self, pack, fdt, blob, vanilla_bl2):
+    """Create a configured SPL based on the supplied vanilla one.
+
+    This handles the process of working out what to configure in a SPL
+    and also doing it. The settings of what to configure are in the
+    flash map node which requested this SPL to be included. For example
+    a 'compress' property sets the type of compresion to use for the
+    payload that SPL loads.
+
+    Args:
+      pack: The PackFirmware object, providing access to the contents.
+      fdt: The device tree containing the flash map.
+      blob: A namedtuple with these members:
+          node   - Full path to device tree node
+          key    - Key name (e.g. exynos-bl2')
+          params - List of parameters to the node - the first element is the
+                   list of files within the blob, for example 'boot,dtb'
+      vanilla_bl2: The original SPL that needs configuring.
+
+    Returns:
+      Filename of the configured SPL.
+
+    Raises:
+      CmdError if there are no parameters provided (and therefore no payload).
+    """
+    spl_payload = blob.params
+
+    if not spl_payload:
+      raise CmdError('No parameters provided for Exynos SPL/BL2')
+    prop_list = spl_payload[0].split(',')
+    name = blob.key.split('.')
+
+    # At this stage name may be plain 'exynos-bl2', but it is possible to have
+    # different versions, named 'exynos-bl2.rw' for RW SPL, and
+    # 'exynos-bl2.rec' for recovery SPL (in fact anything else can be used).
+    # This logic selects the string to append to the standard name, i.e. we
+    # want '.rw' or '.rec', or an empty string if there is no suffix.
+    if len(name) > 1:
+      name = '.' + name[1]
+    else:
+      name = ''
+    compress = fdt.GetString(blob.node, 'compress', 'none')
+    if compress == 'none':
+      compress = None
+    data = pack.ConcatPropContents(prop_list, compress, False)[0]
+    spl_load_size = len(data)
+    self._out.Info("BL2/SPL contains '%s', size is %d / %#x" %
+        (', '.join(prop_list), spl_load_size, spl_load_size))
+    bl2 = self.Configure(fdt, spl_load_size, vanilla_bl2, name=name)
+    return bl2

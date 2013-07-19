@@ -871,30 +871,9 @@ class Bundle:
       data = re.sub('__FMAP__', '__fMAP__', data)
       self._tools.WriteFile(updated_ecro, data)
       pack.AddProperty(blob_type, updated_ecro)
-    elif blob_type == 'exynos-bl2':
-      spl_payload = pack.GetBlobParams(blob_type)
-
-      # TODO(sjg@chromium): Remove this later, when we remove boot+dtb
-      # from all flash map files.
-      if not spl_payload:
-        spl_load_size = os.stat(pack.GetProperty('boot+dtb')).st_size
-        prop_list = 'boot+dtb'
-
-        # Do this later, when we remove boot+dtb.
-        # raise CmdError("No parameters provided for blob type '%s'" %
-        #     blob_type)
-      else:
-        prop_list = spl_payload[0].split(',')
-        compress = fdt.GetString('/flash/ro-boot', 'compress', 'none')
-        if compress == 'none':
-          compress = None
-        spl_load_size = len(pack.ConcatPropContents(prop_list, compress,
-            False)[0])
-      self._out.Info("BL2/SPL contains '%s', size is %d / %#x" %
-          (', '.join(prop_list), spl_load_size, spl_load_size))
-      bl2 = ExynosBl2(self._tools, self._out)
-      pack.AddProperty(blob_type, bl2.Configure(fdt, spl_load_size,
-                                                self.exynos_bl2))
+    elif blob_type.startswith('exynos-bl2'):
+      # We need to configure this per node, so do it later
+      pass
     elif pack.GetProperty(blob_type):
       pass
     elif blob_type in self.blobs:
@@ -958,6 +937,13 @@ class Bundle:
       pack.AddProperty('fwid', fwid)
       pack.AddProperty('gbb', gbb)
       pack.AddProperty('keydir', self._keydir)
+
+    # Some blobs need to be configured according to the node they are in.
+    for blob in pack.GetMissingBlobs():
+      if blob.key.startswith('exynos-bl2'):
+        bl2 = ExynosBl2(self._tools, self._out)
+        pack.AddProperty(blob.key, bl2.MakeSpl(pack, fdt, blob,
+                         self.exynos_bl2))
 
     pack.CheckProperties()
 
