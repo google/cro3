@@ -95,6 +95,46 @@ class Fdt:
     value = self.GetProp(node, prop, '<none>')
     return value != '<none>'
 
+  def PutBool(self, node, prop, bool_value):
+    """Write a boolean property to a device tree.
+
+    If the property is present then it is considered True, else False. At
+    present we can't actually support removing the property since fdtput
+    does not have this option.
+
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
+    >>> fdt.GetBool('/putbool-test', 'dead-silence')
+    False
+    >>> fdt.PutBool('/putbool-test', 'dead-silence', False)
+    >>> fdt.GetBool('/putbool-test', 'dead-silence')
+    False
+    >>> fdt.PutBool('/putbool-test', 'dead-silence', True)
+    >>> fdt.GetBool('/putbool-test', 'dead-silence')
+    True
+    >>> fdt.PutBool('/putbool-test', 'dead-silence', False)
+    Traceback (most recent call last):
+      ...
+    ValueError: ("Cannot set node '%s' property '%s' to False", \
+('/putbool-test', 'dead-silence'))
+    >>> fdt.GetBool('/putbool-test', 'dead-silence')
+    True
+
+    Args:
+      node: Full path to node to update.
+      prop: Property name to write.
+      bool_value: Boolean to write.
+
+    Raises:
+      ValueError: if the property is True and we try to set it to False.
+    """
+    if bool_value:
+      args = ['-p', self.fname, node, prop]
+      self.tools.Run('fdtput', args)
+    elif self.GetBool(node, prop):
+      raise ValueError("Cannot set node '%s' property '%s' to False",
+                       (node, prop))
+
   def GetProps(self, node, convert_dashes=False):
     """Get all properties from a node.
 
