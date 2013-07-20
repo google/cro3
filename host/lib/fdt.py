@@ -469,6 +469,56 @@ class Fdt:
                     self.tools.Filename(new_name))
     return Fdt(self.tools, new_name)
 
+  def InsertNodes(self, node_list):
+    """Insert a list of new nodes into the FDT.
+
+    >>> tools = Tools(cros_output.Output())
+    >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
+    >>> arg = [{'path': '/new-node/walrus', 'int': 123}]
+    >>> arg.append({'path': '/new-node/walrus', 'bool': True, 'str': 'fred'})
+    >>> arg.append({'path': '/new-node/seal', 'str': 'frankly'})
+    >>> arg.append({'path': '/new-node/seal', 'list': [1, 2, 3]})
+    >>> fdt.InsertNodes(arg)
+    >>> fdt.GetString('/new-node/walrus', 'str')
+    'fred'
+    >>> fdt.GetInt('/new-node/walrus', 'int')
+    123
+    >>> fdt.GetBool('/new-node/walrus', 'bool')
+    True
+    >>> fdt.GetString('/new-node/seal', 'str')
+    'frankly'
+    >>> fdt.GetIntList('/new-node/seal', 'list')
+    [1, 2, 3]
+    >>> arg = [{'path': '/new-node/dodgy', 'dict': {1: 'fred'}}]
+    >>> fdt.InsertNodes(arg)
+    Traceback (most recent call last):
+      ...
+    ValueError: Unrecognized type for prop 'dict', value '{1: 'fred'}'
+
+    Args:
+      node_list: A list of nodes, each a dictionary containing the properties
+          of the node. One of the properties must be 'path' which is the full
+          path to the node. Supported types for property values are string,
+          boolean, integer and integer list.
+
+    Raises:
+      ValueError: if an unrecognized type is provided.
+    """
+    for node_props in node_list:
+      path = node_props['path']
+      for prop, value in node_props.iteritems():
+        if isinstance(value, int):
+          self.PutInteger(path, prop, value)
+        elif isinstance(value, str):
+          self.PutString(path, prop, value)
+        elif isinstance(value, bool):
+          self.PutBool(path, prop, value)
+        elif isinstance(value, list):
+          self.PutIntList(path, prop, value)
+        else:
+          raise ValueError("Unrecognized type for prop '%s', value '%s'" %
+                           (prop, value))
+
   def PutString(self, node, prop, value_str):
     """Writes a string to a property in the fdt.
 
