@@ -79,6 +79,18 @@ default_flashmaps = {
         'path' : '/flash',
         'reg' : [0, 0x400000],
     }, {
+        'path' : '/memory',
+        'reg' : [0x40000000, 0x80000000],
+    }, {
+        'path' : '/iram',
+        'reg' : [0x02020000, 384 << 10],
+    }, {
+        'path' : '/config',
+        'samsung,bl1-offset' : 0x1400,
+        'samsung,bl2-offset' : 0x3400,
+        'u-boot-memory' : '/memory',
+        'u-boot-offset' : [0x3e00000, 0x100000],
+    }, {
         'path' : '/flash/pre-boot',
         'label' : "bl1 pre-boot",
         'reg' : [0, 0x2000],
@@ -126,6 +138,18 @@ default_flashmaps = {
     {
         'path' : '/flash',
         'reg' : [0, 0x400000],
+    }, {
+        'path' : '/memory',
+        'reg' : [0x20000000, 0x80000000],     # Assume 2GB of RAM
+    }, {
+        'path' : '/iram',
+        'reg' : [0x02020000, 384 << 10],
+    }, {
+        'path' : '/config',
+        'samsung,bl1-offset' : 0x2400,
+        'samsung,bl2-offset' : 0x4400,
+        'u-boot-memory' : '/memory',
+        'u-boot-offset' : [0x3e00000, 0x100000],
     }, {
         'path' : '/flash/pre-boot',
         'label' : "bl1 pre-boot",
@@ -905,7 +929,7 @@ class Bundle:
     pack = PackFirmware(self._tools, self._out)
     # Get the flashmap so we know what to build. For board variants use the
     # main board name as the key (drop the _<variant> suffix).
-    default_flashmap = default_flashmaps.get(self._board.split('_')[0])
+    default_flashmap = default_flashmaps.get(self._board.split('_')[0], [])
     if self._force_rw:
       fdt.PutInteger('/flash/rw-a-vblock', 'preamble-flags', 0)
       fdt.PutInteger('/flash/rw-b-vblock', 'preamble-flags', 0)
@@ -914,6 +938,21 @@ class Bundle:
 
     if not fdt.GetProp('/flash', 'reg', ''):
       fdt.InsertNodes(default_flashmap)
+
+    # Insert default values for any essential properties that are missing.
+    # This should only happen for upstream U-Boot, until our changes are
+    # upstreamed.
+    if not fdt.GetProp('/iram', 'reg', ''):
+      self._out.Warning('Cannot find /iram, using default')
+      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/iram'])
+
+    if not fdt.GetProp('/memory', 'reg', ''):
+      self._out.Warning('Cannot find /memory, using default')
+      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/memory'])
+
+    if not fdt.GetProp('/config', 'samsung,bl1-offset', ''):
+      self._out.Warning('Missing properties in /config, using defaults')
+      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/config'])
 
     pack.SelectFdt(fdt, self._board)
 

@@ -12,21 +12,6 @@ import time
 from exynos import ExynosBl2
 from tools import CmdError
 
-# The numbers are the download addresses (in SRAM) for each piece
-exynos_addresses = {
-    'samsung,exynos5250': {
-        'bl1': 0x02021400,
-        'bl2': 0x02023400,
-        'u-boot': 0x43e00000,
-        },
-    'samsung,exynos5420': {
-        'bl1': 0x02022400,
-        'bl2': 0x02024400,
-        'u-boot': 0x23e00000,
-        },
-  }
-
-
 def RoundUp(value, boundary):
   """Align a value to the next power of 2 boundary.
 
@@ -667,23 +652,6 @@ class WriteFirmware:
     vendor_id = 0x04e8
     product_id = 0x1234
 
-    # Work out the exynos model we are talking to,
-    compatible = self._fdt.GetString('/', 'compatible')
-
-    for model in compatible.split():
-      addresses = exynos_addresses.get(model)
-      if addresses:
-        break
-    else:
-      # TODO(sjg@chromium.org): Remove this when upstream U-Boot has the
-      # 'samsung,exynos5250' compatible string.
-      addresses = exynos_addresses.get('samsung,exynos5250')
-      self._out.Warning('No exynos compatible string, assuming Exynos 5250')
-
-    if not addresses:
-      raise CmdError("Unable to determine USB download addresses, compatible" +
-                     "string is '%s'" % compatible)
-
     # Preserve dut_hub_sel state.
     preserved_dut_hub_sel = self.DutControl(['dut_hub_sel',]
                                             ).strip().split(':')[-1]
@@ -710,27 +678,34 @@ class WriteFirmware:
       dl_image = image
 
     self._out.Progress('Uploading image')
-    download_list = [
-        ['bl1', bl1],
-        ['bl2', bl2],
-        ['u-boot', dl_image]
+
+    # This list tells us the memory region to use, the offset into that
+    # region and the filename to upload.
+    upload_list = [
+        ['/iram', 'samsung,bl1-offset', bl1],
+        ['/iram', 'samsung,bl2-offset', bl2],
+        ['/memory', 'u-boot-offset', dl_image]
         ]
 
     try:
-      for upto in range(len(download_list)):
-        item = download_list[upto]
+      for upto in range(len(upload_list)):
+        item = upload_list[upto]
         if not self._WaitForUSBDevice('exynos', vendor_id, product_id, 4):
           if upto == 0:
             raise CmdError('Could not find Exynos board on USB port')
-          raise CmdError("Stage '%s' did not complete" % item[0])
-        self._out.Notice(item[1])
-        self._out.Progress("Uploading stage '%s'" % item[0])
+          raise CmdError("Stage '%s' did not complete" % item[1])
+        self._out.Notice(item[2])
 
         if upto == 0:
           # The IROM needs roughly 200ms here to be ready for USB download
           time.sleep(.5)
 
-        args = ['-a', '%#x' % addresses[item[0]], '-f', item[1]]
+        base = self._fdt.GetIntList(item[0], 'reg')[0]
+        offset = self._fdt.GetIntList('/config', item[1])[0]
+        addr = base + offset
+
+        self._out.Progress("Uploading stage '%s' to %x" % (item[1], addr))
+        args = ['-a', '%#x' % addr, '-f', item[2]]
         self._tools.Run('smdk-usbdl', args, sudo=True)
 
     finally:
