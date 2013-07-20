@@ -86,7 +86,7 @@ def _DoBundle(options, output, tools):
                   ecro=options.ecro, kernel=options.kernel,
                   blobs=options.add_blob)
   bundle.SetOptions(small=options.small, gbb_flags=options.gbb_flags,
-                    force_rw=options.force_rw)
+                    force_rw=options.force_rw, force_efs=options.force_efs)
   if options.use_defaults:
     bundle.CheckOptions()
 
@@ -177,6 +177,8 @@ Examples:
         action='store', help='EC binary file')
   parser.add_option('--ecro', type='string',
         action='store', help='EC read-only binary file')
+  parser.add_option('--force-efs', action='store_true',
+        help='Force early firmware selection')
   parser.add_option('-F', '--flash', dest='flash_dest', type='string',
       action='store', help='Create a flasher to flash the device (spi, mmc)')
   parser.add_option('--force-rw', action='store_true',

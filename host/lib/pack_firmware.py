@@ -453,6 +453,7 @@ class PackFirmware:
     self.entries = []           # The entries in the flash image.
     self._out = output
     self.tools = tools
+    self.use_efs = False        # Early firmware selection
 
   def _GetFlags(self, props):
     """Create the fmap flags value from the given properties.
@@ -490,7 +491,13 @@ class PackFirmware:
     Raises:
       ValueError: If fdt has an unknown entry type.
     """
-    entry_list = props.get('type', 'empty').split()
+    entry_list = ['empty']
+
+    # Try to use the early-firmware-selection type if we are in that mode.
+    if self.use_efs:
+      entry_list = props.get('type,efs', 'empty').split()
+    if entry_list[0] == 'empty':
+      entry_list = props.get('type', 'empty').split()
     ftype = entry_list[0]
     if ftype == 'empty':
       ftype = ''

@@ -223,6 +223,7 @@ class Bundle:
     self._board = None          # Board name, e.g. tegra2_seaboard.
     self._fdt_fname = None      # Filename of our FDT.
     self._force_rw = None
+    self._force_efs = None
     self._gbb_flags = None
     self._keydir = None
     self._small = False
@@ -289,7 +290,7 @@ class Bundle:
     self.kernel_fname = kernel
     self.blobs = dict(blobs or ())
 
-  def SetOptions(self, small, gbb_flags, force_rw=False):
+  def SetOptions(self, small, gbb_flags, force_rw=False, force_efs=False):
     """Set up options supported by Bundle.
 
     Args:
@@ -298,10 +299,13 @@ class Bundle:
           U-Boot part while keeping the keys, gbb, etc. the same.
       gbb_flags: Specification for string containing adjustments to make.
       force_rw: Force firmware into RW mode.
+      force_efs: Force firmware to use 'early firmware selection' feature,
+          where RW firmware is selected before SDRAM is initialized.
     """
     self._small = small
     self._gbb_flags = gbb_flags
     self._force_rw = force_rw
+    self._force_efs = force_efs
 
   def _GetBuildRoot(self):
     """Get the path to this board's 'firmware' directory.
@@ -905,6 +909,8 @@ class Bundle:
     if self._force_rw:
       fdt.PutInteger('/flash/rw-a-vblock', 'preamble-flags', 0)
       fdt.PutInteger('/flash/rw-b-vblock', 'preamble-flags', 0)
+    if self._force_efs:
+      fdt.PutInteger('/chromeos-config', 'early-firmware-selection', 1)
 
     if not fdt.GetProp('/flash', 'reg', ''):
       fdt.InsertNodes(default_flashmap)
