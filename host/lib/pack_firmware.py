@@ -582,7 +582,7 @@ class PackFirmware:
 
     return all_entries
 
-  def SelectFdt(self, fdt, board=None, default_flashmap=None):
+  def SelectFdt(self, fdt, board=None):
     """Scan FDT and build entry objects.
 
     This creates a list of entry objects which we can later use to generate
@@ -593,23 +593,6 @@ class PackFirmware:
     Args:
       fdt: fdt object containing the device tree.
       board: Name of board type if known (None if not known).
-      default_flashmap: A default flash map for the current board, or None if
-          not available. This is a list of dictionaries, each of which is
-          the properties for a single node. For example this one has a single
-          node:
-
-              [{
-              'node' : 'ro-boot',
-              'label' : 'boot-stub',
-              'size' : 512 << 10,
-              'read-only' : True,
-              'type' : 'blob signed',
-              'required' : True
-              }]
-
-          The default flash map is only used if the fdt does not have one.
-          This is typically the case when booting an upstream U-Boot, which
-          does not have a Chrome OS flashmap.
 
     Raises:
       ConfigError if an error is detected in the fdt configuration.
@@ -673,41 +656,24 @@ class PackFirmware:
     self.required_count = 0
     self.first_blob_entry = None
 
-    # If we don't have a flash map, invent a Tegra one
-    # TODO(sjg@chromium.org): Make this work with other SOCs also
     if not fdt.GetProp(root, 'reg', ''):
-      if not default_flashmap:
-        raise ValueError("No /flash present in fdt, and no available default"
-                         " for board '%s'" % board)
-      self._out.Warning("Warning: No /flash present in fdt - using default"
+      raise ValueError("No /flash present in fdt, and no available default"
                         " for board '%s'" % board)
-      self.image_size = 0
-      for fmap_item in default_flashmap:
-        _AddNode(root + '/' + fmap_item['node'], fmap_item)
-        self.image_size += fmap_item['size']
+    self.image_size = int(fdt.GetIntList(root, 'reg', 2)[1])
 
-    else:
-      self.image_size = int(fdt.GetIntList(root, 'reg', 2)[1])
+    # Scan the flash map in the fdt, creating a list of Entry objects.
+    children = fdt.GetChildren(root)
 
-      # Scan the flash map in the fdt, creating a list of Entry objects.
-      children = fdt.GetChildren(root)
+    for child in children:
+      node = root + '/' + child
+      props = fdt.GetProps(node, True)
 
-      for child in children:
-        node = root + '/' + child
-        props = fdt.GetProps(node, True)
+      _AddNode(node, props)
 
-        _AddNode(node, props)
-
-        # If there was only a 'size' property, write a full 'reg' property
-        # based on the offset we calculated
-        if not props.get('reg'):
-          fdt.PutIntList(node, 'reg', [props['offset'], props['size']])
-
-    # HACK: Since Tegra FDT files are not in our tree yet, but we still want
-    # to use the old ones, we emulate the old behavior by marking the signed
-    # entry as required, if none of the entries were marked required.
-    if not self.required_count:
-      self.first_blob_entry.required = True
+      # If there was only a 'size' property, write a full 'reg' property
+      # based on the offset we calculated
+      if not props.get('reg'):
+        fdt.PutIntList(node, 'reg', [props['offset'], props['size']])
 
   def GetBlobList(self):
     """Generate a list of blob types that we are going to need.
