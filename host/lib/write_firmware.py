@@ -492,7 +492,7 @@ class WriteFirmware:
       bl1_size = int(self._fdt.GetProps('/flash/pre-boot')['size'])
       bl2_size = int(self._fdt.GetProps('/flash/spl')['size'])
       uboot_offset = bl1_size + bl2_size
-    except CmdError:
+    except (CmdError, KeyError):
       self._out.Warning('No component nodes in the device tree')
       # The BL1 is always 8KB - extract that part into a new file
       # TODO(sjg@chromium.org): Perhaps pick these up from the fdt?
