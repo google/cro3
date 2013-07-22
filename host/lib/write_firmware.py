@@ -107,7 +107,7 @@ class WriteFirmware:
       self._servo_port = int(servo)
     self._out.Notice('Servo port %s' % str(self._servo_port))
 
-  def _GetFlashScript(self, payload_size, boot_type, checksum, bus='0'):
+  def _GetFlashScript(self, payload_size, flash_dest, checksum):
     """Get the U-Boot boot command needed to flash U-Boot.
 
     We leave a marker in the string for the load address of the image,
@@ -116,9 +116,9 @@ class WriteFirmware:
 
     Args:
       payload_size: Size of payload in bytes.
-      boot_type: The source for bootdevice (nand, sdmmc, or spi)
+      flash_dest: A dictionary of strings keyed by 'type' (nand, sdmmc,
+                  or spi), 'bus', and 'dev'.
       checksum: The checksum of the payload (an integer)
-      bus: The bus number
 
     Returns:
       A tuple containing:
@@ -129,6 +129,7 @@ class WriteFirmware:
     """
     replace_me = 'zsHEXYla'
     page_size = 4096
+    boot_type = flash_dest['type']
     if boot_type == 'sdmmc':
       page_size = 512
     update = self.update and boot_type == 'spi'
@@ -170,8 +171,13 @@ class WriteFirmware:
             "                               mmc close 0 1'",
       ])
     else:
+      if flash_dest['bus'] is None:
+        flash_dest['bus'] = '0'
+      if flash_dest['dev'] is None:
+        flash_dest['dev'] = '0'
       cmds.extend([
-          'setenv _init   "echo Init SPI;   sf probe            %s"' % bus,
+          'setenv _init   "echo Init SPI;   sf probe            %s:%s"' %
+              (flash_dest['bus'], flash_dest['dev']),
           'setenv _erase  "echo Erase SPI;  sf erase            0 ${length}"',
           'setenv _write  "echo Write SPI;  sf write ${address} 0 ${length}"',
           'setenv _read   "echo Read SPI;   sf read  ${address} 0 ${length}"',
@@ -211,7 +217,7 @@ class WriteFirmware:
     script = '; '.join(cmds)
     return script, replace_me
 
-  def _PrepareFlasher(self, uboot, payload, boot_type, bus):
+  def _PrepareFlasher(self, uboot, payload, flash_dest):
     """Get a flasher ready for sending to the board.
 
     The flasher is an executable image consisting of:
@@ -225,7 +231,8 @@ class WriteFirmware:
     Args:
       uboot: Full path to u-boot.bin.
       payload: Full path to payload.
-      boot_type: the src for bootdevice (nand, sdmmc, or spi)
+      flash_dest: A dictionary of strings keyed by 'type' (nand, sdmmc,
+                  or spi), 'bus', and 'dev'.
 
     Returns:
       Filename of the flasher binary created.
@@ -236,8 +243,8 @@ class WriteFirmware:
     # Make sure that the checksum is not negative
     checksum = binascii.crc32(payload_data) & 0xffffffff
 
-    script, replace_me = self._GetFlashScript(len(payload_data), boot_type,
-                                              checksum, bus)
+    script, replace_me = self._GetFlashScript(len(payload_data), flash_dest,
+                                              checksum)
     data = self._tools.ReadFile(uboot)
     fdt.PutString('/config', 'bootcmd', script)
     fdt_data = self._tools.ReadFile(fdt.fname)
@@ -291,8 +298,9 @@ class WriteFirmware:
     a payload. This is then sent to the board using the tegrarcm utility.
 
     Args:
-      flash_dest: Destination for flasher, or None to not create a flasher
-          Valid options are spi, sdmmc
+      flash_dest: Destination for flasher, or None to not create a flasher.
+          This value is a dictionary of strings keyed by 'type', 'bus', and
+          'dev'.
       uboot: Full path to u-boot.bin.
       bct: Full path to BCT file (binary chip timings file for Nvidia SOCs).
       payload: Full path to payload.
@@ -307,13 +315,14 @@ class WriteFirmware:
     bct_dumped = self._tools.Run('bct_dump', [bct]).splitlines()
 
     # TODO(sjg): The boot type is currently selected by the bct, rather than
-    # flash_dest selecting which bct to use. This is a bit backwards. For now
-    # we go with the bct's idea.
-    boot_type = filter(match.match, bct_dumped)
-    boot_type = match.match(boot_type[0]).group('boot').lower()
+    # flash_dest['type'] selecting which bct to use. This is a bit backwards.
+    # For now we go with the bct's idea.
+    flash_dest['type'] = filter(match.match, bct_dumped)
+    flash_dest['type'] = match.match(
+        flash_dest['type'][0]).group('boot').lower()
 
     if flash_dest:
-      image = self._PrepareFlasher(uboot, payload, boot_type, 0)
+      image = self._PrepareFlasher(uboot, payload, flash_dest)
     elif bootstub:
       image = bootstub
 
@@ -538,8 +547,9 @@ class WriteFirmware:
     a payload. This is then sent to the board using the tegrarcm utility.
 
     Args:
-      flash_dest: Destination for flasher, or None to not create a flasher
-          Valid options are spi, sdmmc.
+      flash_dest: Destination for flasher, or None to not create a flasher.
+          This is a dictionary of strings keyed by 'type', 'bus', and 'dev'.
+          Valid options for 'type' are spi, sdmmc.
       flash_uboot: Full path to u-boot.bin to use for flasher.
       bl1: Full path to file containing BL1 (pre-boot).
       bl2: Full path to file containing BL2 (SPL).
@@ -573,7 +583,12 @@ class WriteFirmware:
         bl2_handler = ExynosBl2(tools, self._out)
         bl2 = bl2_handler.Configure(self._fdt, spl_load_size,
                                     bl2, 'flasher', True)
-      image = self._PrepareFlasher(flash_uboot, payload, flash_dest, '1:0')
+      # Set default values for Exynos targets.
+      if flash_dest['bus'] is None:
+        flash_dest['bus'] = 1
+      if flash_dest['dev'] is None:
+        flash_dest['dev'] = 0
+      image = self._PrepareFlasher(flash_uboot, payload, flash_dest)
     else:
       bl1, bl2, image = payload_bl1, payload_bl2, payload_image
 
@@ -727,7 +742,12 @@ class WriteFirmware:
 
   def WriteToSd(self, flash_dest, disk, uboot, payload):
     if flash_dest:
-      raw_image = self._PrepareFlasher(uboot, payload, flash_dest, '1:0')
+      # Set default values for sd.
+      if flash_dest['bus'] is None:
+        flash_dest['bus'] = 1
+      if flash_dest['dev'] is None:
+        flash_dest['dev'] = 0
+      raw_image = self._PrepareFlasher(uboot, payload, flash_dest)
       bl1, bl2, _ = self._ExtractPayloadParts(payload, True)
       spl_load_size = os.stat(raw_image).st_size
 
@@ -845,8 +865,8 @@ class WriteFirmware:
 
 def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
                     bundle, update=True, verify=False, dest=None,
-                    flash_dest=None, kernel=None, bootstub=None, servo='any',
-                    method='tegra'):
+                    flasher_dest=None, kernel=None, bootstub=None,
+                    servo='any', method='tegra'):
   """A simple function to write firmware to a device.
 
   This creates a WriteFirmware object and uses it to write the firmware image
@@ -863,7 +883,10 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
     update: Use faster update algorithm rather then full device erase.
     verify: Verify the write by doing a readback and CRC.
     dest: Destination device to write firmware to (usb, sd).
-    flash_dest: Destination device for flasher to program payload into.
+    flasher_dest: a string, destination device for flasher to program payload
+                  into. This string has the form <type>:[bus]:[dev], where
+                  bus and dev are optional (and default to device and target
+                  specific defaults when absent).
     kernel: Kernel file to write after U-Boot
     bootstub: string, file name of the boot stub, if present
     servo: Describes the servo unit to use: none=none; any=any; otherwise
@@ -872,7 +895,15 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
   write = WriteFirmware(tools, fdt, output, bundle, update, verify)
   fdt.PutInteger('/config', 'bootsecure', 0)
   write.SelectServo(servo)
-  if flash_dest:
+  flash_dest = None
+  if flasher_dest:
+    # Parse flasher_dest and store into a dictionary.
+    flash_dest_list = flasher_dest.split(":")
+    flash_dest = {'type': flash_dest_list[0], 'bus': None, 'dev': None}
+    if len(flash_dest_list) > 1:
+      flash_dest['bus'] = flash_dest_list[1]
+      if len(flash_dest_list) > 2:
+        flash_dest['dev'] = flash_dest_list[2]
     write.text_base = bundle.CalcTextBase('flasher ', fdt, flasher)
   elif bootstub:
     write.text_base = bundle.CalcTextBase('bootstub ', fdt, bootstub)

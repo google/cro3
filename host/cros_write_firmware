@@ -68,7 +68,7 @@ def _DoWriteFirmware(options, output, tools, update, verify, dest):
   file_list = bundle.GetFiles()
   write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
       file_list, options.image, bundle, update, verify, dest,
-      flash_dest=options.flash_dest, servo=options.servo,
+      flasher_dest=options.flash_dest, servo=options.servo,
       method=options.method)
 
 

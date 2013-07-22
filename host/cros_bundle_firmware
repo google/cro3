@@ -110,7 +110,7 @@ def _DoBundle(options, output, tools):
       file_list = bundle.GetFiles()
       write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
           file_list, out_fname, bundle, dest=options.write,
-          flash_dest=options.flash_dest, kernel=options.kernel,
+          flasher_dest=options.flash_dest, kernel=options.kernel,
           bootstub=props.get('bootstub'), servo=options.servo,
           method=options.method)
 
