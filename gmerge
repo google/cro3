@@ -156,6 +156,7 @@ class GMerger(object):
     # it.
     print 'Emerging ', package_name
     shutil.rmtree('/usr/local/portage', ignore_errors=True)
+    os.makedirs('/usr/local/portage')
     shutil.rmtree('/var/cache/edb/binhost', ignore_errors=True)
 
     emerge_args = ['emerge', '--getbinpkgonly', '--usepkgonly', '--verbose']
