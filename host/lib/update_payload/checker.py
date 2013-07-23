@@ -885,11 +885,11 @@ class PayloadChecker(object):
     Args:
       total_size: the total block size in bytes
     Returns:
-      An array of unsigned char elements initialized to zero, one for each of
+      An array of unsigned short elements initialized to zero, one for each of
       the blocks necessary for containing the partition.
 
     """
-    return array.array('B', [0] * self._SizeToNumBlocks(total_size))
+    return array.array('H', [0] * self._SizeToNumBlocks(total_size))
 
   def _CheckOperations(self, operations, report, base_name, old_fs_size,
                        new_fs_size, new_usable_size, prev_data_offset,
