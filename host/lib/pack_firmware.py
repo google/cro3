@@ -941,7 +941,7 @@ class PackFirmware:
     self._out.Notice('Image size %#x, data %#x, usage %d%%' %
       (self.image_size, image_used, image_used * 100 / self.image_size))
 
-  def _OutEntry(self, status, offset, size, name):
+  def _OutEntry(self, status, offset, size, name, fname):
     """Display a flash map entry.
 
     Args:
@@ -949,15 +949,17 @@ class PackFirmware:
       offset: Byte offset of entry.
       size: Size of entry in bytes.
       name: Name of entry.
+      fname: Filename of entry
     """
     indent = '' if status == '-' else ' '
-    self._out.UserOutput('%s %08x  %08x  %s%-20s' % (status, offset, size,
-        indent, name))
+    self._out.UserOutput('%s %08x  %08x  %s%-12s  %s' % (status, offset, size,
+        indent, name, fname))
 
   def ShowMap(self):
     """Show a map of the final image."""
     self._out.UserOutput('Final Flash Map:')
-    self._out.UserOutput('%s %8s  %8s  %-20s' % ('S', 'Start', 'Size', 'Name'))
+    self._out.UserOutput('%s %8s  %8s  %-12s  %s' %
+                         ('S', 'Start', 'Size', 'Name', 'File'))
     offset = 0
     for entry in self.entries:
       if not entry.ftype:
@@ -967,8 +969,9 @@ class PackFirmware:
       else:
         status = '.'
       if offset != entry.offset:
-        self._OutEntry('!', offset, entry.offset - offset, '<gap>')
-      self._OutEntry(status, entry.offset, entry.size, entry.name)
+        self._OutEntry('!', offset, entry.offset - offset, '<gap>', '')
+      self._OutEntry(status, entry.offset, entry.size, entry.name,
+                     entry.get('value', ''))
       if entry.ftype:
         offset = entry.offset + entry.size
       else:
