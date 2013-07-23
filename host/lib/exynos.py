@@ -2,12 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""This module supports creating Exynos bootprom images"""
+"""This module supports creating Exynos bootprom images."""
 
 import os
 import struct
 
 from tools import CmdError
+
 
 class ExynosBl2(object):
   """Class for processing Exynos SPL blob.
@@ -81,11 +82,11 @@ class ExynosBl2(object):
     version, size = struct.unpack('<2L', data[pos + 4:pos + 12])
     if version != 1:
       raise CmdError("Cannot update machine parameter block version '%d'" %
-          version)
+                     version)
     if size < 0 or pos + size > len(data):
-      raise CmdError("Machine parameter block size %d is invalid: "
-            "pos=%d, size=%d, space=%d, len=%d" %
-            (size, pos, size, len(data) - pos, len(data)))
+      raise CmdError('Machine parameter block size %d is invalid: '
+                     'pos=%d, size=%d, space=%d, len=%d' %
+                     (size, pos, size, len(data) - pos, len(data)))
 
     # Move past the header and read the parameter list, which is terminated
     # with \0.
@@ -103,39 +104,39 @@ class ExynosBl2(object):
 
       # Use this to detect a missing value from the fdt.
       not_given = 'not-given-invalid-value'
-      if param == 'm' :
+      if param == 'm':
         mem_type = fdt.GetString('/dmc', 'mem-type', not_given)
         if mem_type == not_given:
           mem_type = 'ddr3'
           self._out.Warning("No value for memory type: using '%s'" % mem_type)
         mem_types = ['ddr2', 'ddr3', 'lpddr2', 'lpddr3']
-        if not mem_type in mem_types:
+        if mem_type not in mem_types:
           raise CmdError("Unknown memory type '%s'" % mem_type)
         value = mem_types.index(mem_type)
         self._out.Info('  Memory type: %s (%d)' % (mem_type, value))
-      elif param == 'M' :
+      elif param == 'M':
         mem_manuf = fdt.GetString('/dmc', 'mem-manuf', not_given)
         if mem_manuf == not_given:
           mem_manuf = 'samsung'
           self._out.Warning("No value for memory manufacturer: using '%s'" %
                             mem_manuf)
         mem_manufs = ['autodetect', 'elpida', 'samsung']
-        if not mem_manuf in mem_manufs:
+        if mem_manuf not in mem_manufs:
           raise CmdError("Unknown memory manufacturer: '%s'" % mem_manuf)
         value = mem_manufs.index(mem_manuf)
         self._out.Info('  Memory manufacturer: %s (%d)' % (mem_manuf, value))
-      elif param == 'f' :
+      elif param == 'f':
         mem_freq = fdt.GetInt('/dmc', 'clock-frequency', -1)
         if mem_freq == -1:
           mem_freq = 800000000
           self._out.Warning("No value for memory frequency: using '%s'" %
                             mem_freq)
         mem_freq /= 1000000
-        if not mem_freq in [533, 667, 800]:
+        if mem_freq not in [533, 667, 800]:
           self._out.Warning("Unexpected memory speed '%s'" % mem_freq)
         value = mem_freq
         self._out.Info('  Memory speed: %d' % mem_freq)
-      elif param == 'a' :
+      elif param == 'a':
         arm_freq = fdt.GetInt('/dmc', 'arm-frequency', -1)
         if arm_freq == -1:
           arm_freq = 1700000000
@@ -150,7 +151,7 @@ class ExynosBl2(object):
         if lookup:
           i2c_addr, size = fdt.GetIntList(lookup, 'reg', 2)
         if i2c_addr == -1:
-          self._out.Warning("No value for PMIC I2C address: using %#08x" %
+          self._out.Warning('No value for PMIC I2C address: using %#08x' %
                             value)
         else:
           value = i2c_addr
@@ -161,7 +162,7 @@ class ExynosBl2(object):
         if lookup:
           serial_addr, size = fdt.GetIntList(lookup, 'reg', 2)
         if serial_addr == -1:
-          self._out.Warning("No value for Console address: using %#08x" %
+          self._out.Warning('No value for Console address: using %#08x' %
                             value)
         else:
           value = serial_addr
@@ -172,7 +173,7 @@ class ExynosBl2(object):
       elif param == 'u':
         value = (spl_load_size + 0xfff) & ~0xfff
         self._out.Info('  U-Boot size: %#0x (rounded up from %#0x)' %
-            (value, spl_load_size))
+                       (value, spl_load_size))
       elif param == 'l':
         load_addr = fdt.GetInt('/config', 'u-boot-load-addr', -1)
         if load_addr == -1:
@@ -204,11 +205,11 @@ class ExynosBl2(object):
         if param == 'r':
           value = gpios[0] + (gpios[1] << 16)
           self._out.Info('  Board ID GPIOs: tit0=%d, tit1=%d' % (gpios[0],
-                         gpios[1]))
+                                                                 gpios[1]))
         else:
           value = gpios[2] + (gpios[3] << 16)
           self._out.Info('  Board ID GPIOs: tit2=%d, tit3=%d' % (gpios[2],
-                         gpios[3]))
+                                                                 gpios[3]))
       elif param == 'w':
         records = fdt.GetIntList('/config', 'google,bad-wake-gpios',
                                  3, '0 0xffffffff 0')
@@ -217,7 +218,7 @@ class ExynosBl2(object):
       elif param == 'z':
         compress = fdt.GetString('/flash/ro-boot', 'compress', 'none')
         compress_types = ['none', 'lzo']
-        if not compress in compress_types:
+        if compress not in compress_types:
           raise CmdError("Unknown compression type '%s'" % compress)
         value = compress_types.index(compress)
         self._out.Info('  Compression type: %#0x' % value)
@@ -229,7 +230,7 @@ class ExynosBl2(object):
           if rtc_compat == 'samsung,s5m8767-pmic':
             rtc_type = 1
         except CmdError:
-          self._out.Warning("Failed to find rtc")
+          self._out.Warning('Failed to find rtc')
         value = rtc_type
       elif param == 'W':
         try:
@@ -238,7 +239,7 @@ class ExynosBl2(object):
           value = records[1]
           self._out.Info('  Write Protect GPIO: %#x' % value)
         except CmdError:
-          self._out.Warning("No value for write protect GPIO: using %#x" %
+          self._out.Warning('No value for write protect GPIO: using %#x' %
                             value)
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
@@ -274,7 +275,7 @@ class ExynosBl2(object):
       checksum = sum(ord(x) for x in data[8:])
       checksum_offset = 4
     else:
-      raise CmdError("SPL type not set")
+      raise CmdError('SPL type not set')
 
     return data[:checksum_offset]+ struct.pack(
       '<L', checksum) + data[checksum_offset + 4:]
@@ -316,7 +317,7 @@ class ExynosBl2(object):
       # mkexynosspl directly, it could have been pulled out of a previously
       # bundled image. I that case it the blob will be in a chunk aligned to
       # the closest 16K boundary.
-      blob_size  = ((len(data) + 0x3fff) & ~0x3fff) - 2 * 1024
+      blob_size = ((len(data) + 0x3fff) & ~0x3fff) - 2 * 1024
       if blob_size == len(data) or (loose_check and (blob_size < len(data))):
         check_sum = sum(ord(x) for x in data[:blob_size - 4])
         if check_sum == struct.unpack('<I', data[blob_size - 4:blob_size])[0]:
@@ -326,8 +327,7 @@ class ExynosBl2(object):
     except IndexError:
       # This will be thrown if bl2 is too small
       pass
-    raise CmdError("Unrecognizable bl2 format")
-
+    raise CmdError('Unrecognizable bl2 format')
 
   def Configure(self, fdt, spl_load_size, orig_bl2, name='', loose_check=False):
     """Configure an Exynos BL2 binary for our needs.
@@ -343,6 +343,9 @@ class ExynosBl2(object):
                    size value in the header. This is necessary for cases when
                    SPL is pulled out of an image (and is padded).
 
+    Returns:
+      Filename of configured bl2.
+
     Raises:
       CmdError if machine parameter block could not be found.
     """
@@ -355,7 +358,7 @@ class ExynosBl2(object):
     pos = data.rfind(marker)
     if not pos:
       raise CmdError("Could not find machine parameter block in '%s'" %
-          orig_bl2)
+                     orig_bl2)
     data = self._UpdateParameters(fdt, spl_load_size, data, pos)
     data = self._UpdateChecksum(data)
 
