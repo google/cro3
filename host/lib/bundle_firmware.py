@@ -105,6 +105,7 @@ default_flashmaps = {
         'read-only' : True,
         'filename' : "bl2.bin",
         'type' : "blob exynos-bl2 boot,dtb",
+        'payload' : '/flash/ro-boot',
         'required' : True,
     }, {
         'path' : '/flash/ro-boot',
@@ -165,6 +166,7 @@ default_flashmaps = {
         'read-only' : True,
         'filename' : "bl2.bin",
         'type' : "blob exynos-bl2 boot,dtb",
+        'payload' : '/flash/ro-boot',
         'required' : True,
     }, {
         'path' : '/flash/ro-boot',
@@ -935,6 +937,8 @@ class Bundle:
       fdt.PutInteger('/flash/rw-b-vblock', 'preamble-flags', 0)
     if self._force_efs:
       fdt.PutInteger('/chromeos-config', 'early-firmware-selection', 1)
+    pack.use_efs = fdt.GetInt('/chromeos-config', 'early-firmware-selection',
+                              0)
 
     if not fdt.GetProp('/flash', 'reg', ''):
       fdt.InsertNodes(default_flashmap)

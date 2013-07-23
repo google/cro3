@@ -75,6 +75,9 @@ class WriteFirmware:
     # Use default servo port
     self._servo_port = 0
 
+    # By default, no early firmware selection.
+    self.use_efs = False
+
   def SelectServo(self, servo):
     """Select the servo to use for writing firmware.
 
@@ -525,10 +528,11 @@ class WriteFirmware:
         embedded FDT
 
     Returns:
-      (bl1, bl2, image) where:
+      (bl1, bl2, image, uboot_offset) where:
         bl1 is the filename of the extracted BL1
         bl2 is the filename of the extracted BL2
         image is the filename of the extracted U-Boot image
+        uboot_offset is the offset of U-Boot in the image
     """
     # Pull out the parts from the payload
     bl1 = os.path.join(self._tools.outdir, 'bl1.bin')
@@ -585,10 +589,10 @@ class WriteFirmware:
       uboot_data = uboot_data[:fdt_offset]
 
     self._tools.WriteFile(image, uboot_data)
-    return bl1, bl2, image
+    return bl1, bl2, image, uboot_offset
 
   def ExynosFlashImage(self, flash_dest, flash_uboot, bl1, bl2, payload,
-                        kernel):
+                       kernel):
     """Flash the image to SPI flash.
 
     This creates a special Flasher binary, with the image to be flashed as
@@ -610,9 +614,11 @@ class WriteFirmware:
     Raises:
       CmdError if a supported Exynos model is not detected in the device tree.
     """
+    use_efs_memory = False
     tools = self._tools
-    payload_bl1, payload_bl2, payload_image = (
+    payload_bl1, payload_bl2, payload_image, spl_load_offset = (
         self._ExtractPayloadParts(payload, flash_dest is not None))
+    bl2_handler = ExynosBl2(tools, self._out)
     if flash_dest:
       # If we don't have some bits, get them from the image
       if not flash_uboot or not os.path.exists(tools.Filename(flash_uboot)):
@@ -625,12 +631,13 @@ class WriteFirmware:
         self._out.Warning('Extracting BL2 from payload')
         bl2 = payload_bl2
       else:
-        # Update BL2 machine parameters, as
-        # the BL2 passed in may not be updated
+        # Update BL2 machine parameters, as the BL2 passed in may not be
+        # updated. Also make sure it doesn't use early-firmware-selection
+        # since our flasher needs to run from SDRAM.
         spl_load_size = os.stat(tools.Filename(bl2)).st_size
-        bl2_handler = ExynosBl2(tools, self._out)
-        bl2 = bl2_handler.Configure(self._fdt, spl_load_size,
-                                    bl2, 'flasher', True)
+        bl2 = bl2_handler.Configure(self._fdt, spl_load_offset, spl_load_size,
+                                    bl2, 'flasher', loose_check=True,
+                                    use_efs_memory=False)
       # Set default values for Exynos targets.
       if flash_dest['bus'] is None:
         flash_dest['bus'] = 1
@@ -675,7 +682,23 @@ class WriteFirmware:
       data += self._tools.ReadFile(kernel)
       self._tools.WriteFile(dl_image, data)
     else:
-      dl_image = image
+      # See which type of memory we should load U-Boot to
+      used_size = self._fdt.GetFlashPartUsed('ro', 'boot')
+      if self.use_efs and used_size:
+        node = self._fdt.GetFlashNode('ro', 'boot')
+        props = self._fdt.GetProp(node, 'type,efs', 'none')
+        if props != 'none' and props[0] == 'blob':
+          parts = props[1].split(',')
+          use_efs_memory = 'ro-boot' in parts
+
+      # Truncate the image to just the size actually used
+      if use_efs_memory:
+        dl_image = os.path.join(self._tools.outdir, 'image-used.bin')
+        data = self._tools.ReadFile(image)
+        self._tools.WriteFile(dl_image, data[:used_size])
+        self._out.Warning('Truncating to used size %#x' % used_size)
+      else:
+        dl_image = image
 
     self._out.Progress('Uploading image')
 
@@ -700,9 +723,13 @@ class WriteFirmware:
           # The IROM needs roughly 200ms here to be ready for USB download
           time.sleep(.5)
 
-        base = self._fdt.GetIntList(item[0], 'reg')[0]
-        offset = self._fdt.GetIntList('/config', item[1])[0]
-        addr = base + offset
+        # Load U-Boot either to IRAM or SDRAM depending on EFS
+        if upto == 2:
+          addr = bl2_handler.GetUBootAddress(self._fdt, use_efs_memory)
+        else:
+          base = self._fdt.GetIntList(item[0], 'reg')[0]
+          offset = self._fdt.GetIntList('/config', item[1])[0]
+          addr = base + offset
 
         self._out.Progress("Uploading stage '%s' to %x" % (item[1], addr))
         args = ['-a', '%#x' % addr, '-f', item[2]]
@@ -795,12 +822,13 @@ class WriteFirmware:
       if flash_dest['dev'] is None:
         flash_dest['dev'] = 0
       raw_image = self._PrepareFlasher(uboot, payload, flash_dest)
-      bl1, bl2, _ = self._ExtractPayloadParts(payload, True)
+      bl1, bl2, _, spl_load_offset = self._ExtractPayloadParts(payload, True)
       spl_load_size = os.stat(raw_image).st_size
 
       bl2_handler = ExynosBl2(self._tools, self._out)
-      bl2_file = bl2_handler.Configure(self._fdt, spl_load_size,
-                                       bl2, 'flasher', True)
+      bl2_file = bl2_handler.Configure(self._fdt, spl_load_offset,
+                                       spl_load_size, bl2, 'flasher', True,
+                                       use_efs_memory=False)
       data = self._tools.ReadFile(bl1) + self._tools.ReadFile(bl2_file)
 
       # Pad BL2 out to the required size. Its size could be either 14K or 30K

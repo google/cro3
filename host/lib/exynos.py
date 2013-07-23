@@ -72,7 +72,34 @@ class ExynosBl2(object):
     self._spl_type = None
     self.spl_source = 'straps'  # SPL boot according to board settings
 
-  def _UpdateParameters(self, fdt, spl_load_size, data, pos):
+  def GetUBootAddress(self, fdt, use_efs_memory):
+    """Work out the correct address for loading U-Boot.
+
+    This deals with EFS and the memory map automatically.
+
+    Args:
+      fdt: Device tree file containing memory map.
+      use_efs_memory: True to return the address in EFS memory (i.e. SRAM),
+          False to use SDRAM
+
+    Returns:
+      Address to load U-Boot
+    """
+    efs_suffix = ''
+    if use_efs_memory:
+      if fdt.GetInt('/chromeos-config', 'early-firmware-selection', 0):
+        efs_suffix = ',efs'
+
+    # Use the correct memory section, and then find the offset in that.
+    memory = fdt.GetString('/config', 'u-boot-memory' + efs_suffix)
+    base = fdt.GetIntList(memory, 'reg')[0]
+    offset = fdt.GetIntList('/config', 'u-boot-offset' + efs_suffix)[0]
+    addr = base + offset
+    self._out.Notice('EFS: Loading U-Boot to %x' % addr)
+    return addr
+
+  def _UpdateParameters(self, fdt, spl_load_offset, spl_load_size, data, pos,
+                        use_efs_memory):
     """Update the parameters in a BL2 blob.
 
     We look at the list in the parameter block, extract the value of each
@@ -80,9 +107,12 @@ class ExynosBl2(object):
 
     Args:
       fdt: Device tree containing the parameter values.
+      spl_load_offset: Offset in boot media that SPL must start loading (bytes)
       spl_load_size: Size of U-Boot image that SPL must load
       data: The BL2 data.
       pos: The position of the start of the parameter block.
+      use_efs_memory: True to return the address in EFS memory (i.e. SRAM),
+          False to use SDRAM
 
     Returns:
       The new contents of the parameter block, after updating.
@@ -182,6 +212,12 @@ class ExynosBl2(object):
         value = (spl_load_size + 0xfff) & ~0xfff
         self._out.Info('  U-Boot size: %#0x (rounded up from %#0x)' %
                        (value, spl_load_size))
+      elif param == 'S':
+        value = self.GetUBootAddress(fdt, use_efs_memory)
+        self._out.Info('  U-Boot start: %#0x' % value)
+      elif param == 'o':
+        value = spl_load_offset
+        self._out.Info('  U-Boot offset: %#0x' % value)
       elif param == 'l':
         load_addr = fdt.GetInt('/config', 'u-boot-load-addr', -1)
         if load_addr == -1:
@@ -257,7 +293,6 @@ class ExynosBl2(object):
 
     # Put the data into our block.
     data = data[:pos] + new_data + data[pos + len(new_data):]
-    self._out.Info('BL2 configuration complete')
     return data
 
   def _UpdateChecksum(self, data):
@@ -375,14 +410,15 @@ class ExynosBl2(object):
       pass
     raise CmdError('Unrecognizable bl2 format')
 
-  def Configure(self, fdt, spl_load_size, orig_bl2, name='',
-                loose_check=False, digest=None):
+  def Configure(self, fdt, spl_load_offset, spl_load_size, orig_bl2, name='',
+                loose_check=False, digest=None, use_efs_memory=True):
     """Configure an Exynos BL2 binary for our needs.
 
     We create a new modified BL2 and return its file name.
 
     Args:
       fdt: Device tree containing the parameter values.
+      spl_load_offset: Offset in boot media that SPL must start loading (bytes)
       spl_load_size: Size of U-Boot image that SPL must load
       orig_bl2: Filename of original BL2 file to modify.
       name: a string, suffix to add to the generated file name
@@ -390,6 +426,8 @@ class ExynosBl2(object):
                    size value in the header. This is necessary for cases when
                    SPL is pulled out of an image (and is padded).
       digest: If not None, hash digest to add to this BL2 (a string of bytes).
+      use_efs_memory: True to return the address in EFS memory (i.e. SRAM),
+          False to use SDRAM
 
     Returns:
       Filename of configured bl2.
@@ -397,7 +435,8 @@ class ExynosBl2(object):
     Raises:
       CmdError if machine parameter block could not be found.
     """
-    self._out.Info('Configuring BL2')
+    bl2 = os.path.join(self._tools.outdir, 'updated-spl%s.bin' % name)
+    self._out.Info('Configuring BL2 %s' % bl2)
     data = self._tools.ReadFile(orig_bl2)
     self._VerifyBl2(data, loose_check)
 
@@ -407,12 +446,12 @@ class ExynosBl2(object):
     if not pos:
       raise CmdError("Could not find machine parameter block in '%s'" %
                      orig_bl2)
-    data = self._UpdateParameters(fdt, spl_load_size, data, pos)
+    data = self._UpdateParameters(fdt, spl_load_offset, spl_load_size, data,
+                                  pos, use_efs_memory)
     if digest:
       data = self._UpdateHash(data, digest)
     data = self._UpdateChecksum(data)
 
-    bl2 = os.path.join(self._tools.outdir, 'updated-spl%s.bin' % name)
     self._tools.WriteFile(bl2, data)
     return bl2
 
@@ -462,6 +501,18 @@ class ExynosBl2(object):
       compress = None
     data = pack.ConcatPropContents(prop_list, compress, False)[0]
     spl_load_size = len(data)
+
+    # Figure out what flash region SPL needs to load.
+    payload = fdt.GetString(blob.node, 'payload', 'none')
+    if payload == 'none':
+      payload = '/flash/ro-boot'
+      self._out.Warning("No payload boot media for '%s' - using %s" %
+                        (blob.node, payload))
+    spl_load_offset = fdt.GetIntList(payload, 'reg', 2)[0]
+
+    # Tell this SPL to use EFS memory (i.e. SRAM) if we are using ro-boot
+    use_efs_memory = 'ro-boot' in prop_list
+
     self._out.Info("BL2/SPL contains '%s', size is %d / %#x" %
                    (', '.join(prop_list), spl_load_size, spl_load_size))
     if fdt.GetBool(blob.node, 'hash-target'):
@@ -470,6 +521,7 @@ class ExynosBl2(object):
       digest = hasher.digest()
     else:
       digest = None
-    bl2 = self.Configure(fdt, spl_load_size, vanilla_bl2, name=name,
-                         digest=digest)
+    bl2 = self.Configure(fdt, spl_load_offset, spl_load_size, vanilla_bl2,
+                         name=name, digest=digest,
+                         use_efs_memory=use_efs_memory)
     return bl2
