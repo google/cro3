@@ -792,7 +792,15 @@ class DevServerRoot(object):
     Example:
       http://myhost/update/optional/path/to/payload
     """
-    label = '/'.join(args)
+    if len(args) > 0 and args[0] == 'xbuddy':
+      # Interpret the rest of the path as an xbuddy path
+      label, found = self._xbuddy.Translate(args[1:] + ('full_payload',))
+      if not found:
+        _Log("Update payload not found for %s, xBuddy looking it up.", label)
+    else:
+      label = '/'.join(args)
+
+    _Log('Update label: %s', label)
     body_length = int(cherrypy.request.headers.get('Content-Length', 0))
     data = cherrypy.request.rfile.read(body_length)
     return updater.HandleUpdatePing(data, label)

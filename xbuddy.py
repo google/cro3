@@ -33,13 +33,14 @@ LOCAL_ALIASES = [
   'test',
   'base',
   'dev',
+  'full_payload',
 ]
 
 LOCAL_FILE_NAMES = [
   devserver_constants.TEST_IMAGE_FILE,
-
   devserver_constants.BASE_IMAGE_FILE,
   devserver_constants.IMAGE_FILE,
+  devserver_constants.ROOT_UPDATE_FILE,
 ]
 
 LOCAL_ALIAS_TO_FILENAME = dict(zip(LOCAL_ALIASES, LOCAL_FILE_NAMES))
@@ -277,6 +278,7 @@ class XBuddy(build_util.BuildObject):
 
     Returns:
       version - the discovered version of the image.
+      found - True if file was found
     """
     latest_local_dir = self.GetLatestImageDir(board)
     if not latest_local_dir and os.path.exists(latest_local_dir):
@@ -287,10 +289,10 @@ class XBuddy(build_util.BuildObject):
     version = os.path.basename(latest_local_dir)
 
     path_to_image = os.path.join(latest_local_dir, file_name)
-    if not os.path.exists(path_to_image):
-      raise XBuddyException('%s not found in %s. Did you run build_image?' %
-                            (file_name, latest_local_dir))
-    return version
+    if os.path.exists(path_to_image):
+      return version, True
+    else:
+      return version, False
 
   def _InterpretPath(self, path_list):
     """
@@ -343,7 +345,7 @@ class XBuddy(build_util.BuildObject):
       # This path doesn't have an alias or a version. That's fine.
       _Log("Some parts of the path not specified. Using defaults.")
 
-    _Log("Get artifact '%s' in {%s/%s}. Locally? %s",
+    _Log("Get artifact '%s' in '%s/%s'. Locally? %s",
          image_type, board, version, is_local)
 
     return image_type, board, version, is_local
@@ -437,26 +439,45 @@ class XBuddy(build_util.BuildObject):
       except Exception:
         raise XBuddyException('Failed to clear build in %s.' % clear_dir)
 
-  def _GetFromGS(self, build_id, image_type):
-    """Check if the artifact is available locally. Download from GS if not."""
+  def _GetFromGS(self, build_id, image_type, lookup_only):
+    """Check if the artifact is available locally. Download from GS if not.
+
+    Return:
+      boolean - True if cached.
+    """
     gs_url = os.path.join(devserver_constants.GS_IMAGE_DIR,
                           build_id)
 
     # stage image if not found in cache
     file_name = GS_ALIAS_TO_FILENAME[image_type]
-    cached = os.path.exists(os.path.join(self.static_dir,
-                                         build_id,
-                                         file_name))
+    file_loc = os.path.join(self.static_dir, build_id, file_name)
+    cached = os.path.exists(file_loc)
+
     if not cached:
-      artifact = GS_ALIAS_TO_ARTIFACT[image_type]
-      self._Download(gs_url, artifact)
+      if lookup_only:
+        return False
+      else:
+        artifact = GS_ALIAS_TO_ARTIFACT[image_type]
+        self._Download(gs_url, artifact)
+        return True
     else:
       _Log('Image already cached.')
+      return True
 
-  def _GetArtifact(self, path):
-    """Interpret an xBuddy path and return directory/file_name to resource."""
+  def _GetArtifact(self, path, lookup_only=False):
+    """Interpret an xBuddy path and return directory/file_name to resource.
+
+    Returns:
+    image_url to the directory
+    file_name of the artifact
+    found = True if the artifact is cached
+
+    Raises:
+    XBuddyException if the path could not be translated
+    """
     image_type, board, version, is_local = self._InterpretPath(path)
 
+    found = False
     if is_local:
       # Get a local image
       if image_type not in LOCAL_ALIASES:
@@ -466,12 +487,12 @@ class XBuddy(build_util.BuildObject):
 
       if version == LATEST:
         # Get the latest local image for the given board
-        version = self._GetLatestLocalVersion(board, file_name)
+        version, found = self._GetLatestLocalVersion(board, file_name)
       else:
         # An exact version path in build/images was specified for this board
         local_file = os.path.join(self.images_dir, board, version, file_name)
-        if not os.path.exists(local_file):
-          raise XBuddyException('File not found in local dir: %s', local_file)
+        if os.path.exists(local_file):
+          found = True
 
       image_url = os.path.join(board, version)
     else:
@@ -483,9 +504,9 @@ class XBuddy(build_util.BuildObject):
 
       # Interpret the version (alias), and get gs address
       image_url = self._ResolveVersionToUrl(board, version)
-      self._GetFromGS(image_url, image_type)
+      found = self._GetFromGS(image_url, image_type, lookup_only)
 
-    return image_url, file_name
+    return image_url, file_name, found
 
   ############################ BEGIN PUBLIC METHODS
 
@@ -503,6 +524,22 @@ class XBuddy(build_util.BuildObject):
     """Returns the number of images cached by xBuddy."""
     return str(_XBUDDY_CAPACITY)
 
+  def Translate(self, path_list):
+    """Translates an xBuddy path to a real path to artifact if it exists.
+
+    Equivalent to the Get call, minus downloading and updating timestamps.
+    The returned path is always the path to the directory.
+
+    Throws:
+      XBuddyException - if the path couldn't be translated
+    """
+    self._SyncRegistryWithBuildImages()
+
+    build_id, _file_name, found = self._GetArtifact(path_list, lookup_only=True)
+
+    _Log('Returning path to payload: %s', build_id)
+    return build_id, found
+
   def Get(self, path_list, return_dir=False):
     """The full xBuddy call, returns resource specified by path_list.
 
@@ -519,10 +556,10 @@ class XBuddy(build_util.BuildObject):
       http://host/static/x86-generic/R26-4000.0.0/
 
     Raises:
-      XBuddyException if path is invalid or XBuddy's cache fails
+      XBuddyException if path is invalid
     """
     self._SyncRegistryWithBuildImages()
-    build_id, file_name = self._GetArtifact(path_list)
+    build_id, file_name, _found = self._GetArtifact(path_list)
 
     Timestamp.UpdateTimestamp(self._timestamp_folder, build_id)
 
