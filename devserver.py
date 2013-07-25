@@ -1015,7 +1015,6 @@ def main():
     # pylint: enable=E1101
 
   root_dir = os.path.realpath('%s/../..' % devserver_dir)
-  serve_only = False
 
   # TODO(sosa): Remove after deprecation.
   if options.vm:
@@ -1028,7 +1027,6 @@ def main():
     if not os.path.isabs(archive_dir):
       archive_dir = os.path.join(devserver_dir, archive_dir)
     options.static_dir = os.path.realpath(archive_dir)
-    serve_only = True
   else:
     options.static_dir = os.path.realpath(options.static_dir)
 
@@ -1036,12 +1034,7 @@ def main():
   # If our devserver is only supposed to serve payloads, we shouldn't be
   # mucking with the cache at all. If the devserver hadn't previously
   # generated a cache and is expected, the caller is using it wrong.
-  if serve_only:
-    # Extra check to make sure we're not being called incorrectly.
-    if (options.clear_cache or options.exit or options.pregenerate_update or
-        options.board or options.image):
-      parser.error('Incompatible flags detected for serve_only mode.')
-  elif os.path.exists(cache_dir):
+  if os.path.exists(cache_dir):
     _CleanCache(cache_dir, options.clear_cache)
   else:
     os.makedirs(cache_dir)
@@ -1056,7 +1049,6 @@ def main():
   updater = autoupdate.Autoupdate(
       root_dir=root_dir,
       static_dir=options.static_dir,
-      serve_only=serve_only,
       urlbase=options.urlbase,
       test_image=options.test_image,
       forced_image=options.image,

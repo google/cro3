@@ -185,7 +185,7 @@ class AUTestPayloadBuildArtifact(BuildArtifact):
     # Rename to update.gz.
     install_path = os.path.join(self.install_dir, self.name)
     new_install_path = os.path.join(self.install_dir,
-                                    devserver_constants.ROOT_UPDATE_FILE)
+                                    devserver_constants.UPDATE_FILE)
     shutil.move(install_path, new_install_path)
 
 

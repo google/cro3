@@ -40,7 +40,7 @@ LOCAL_FILE_NAMES = [
   devserver_constants.TEST_IMAGE_FILE,
   devserver_constants.BASE_IMAGE_FILE,
   devserver_constants.IMAGE_FILE,
-  devserver_constants.ROOT_UPDATE_FILE,
+  devserver_constants.UPDATE_FILE,
 ]
 
 LOCAL_ALIAS_TO_FILENAME = dict(zip(LOCAL_ALIASES, LOCAL_FILE_NAMES))
@@ -63,7 +63,7 @@ GS_FILE_NAMES = [
   devserver_constants.TEST_IMAGE_FILE,
   devserver_constants.BASE_IMAGE_FILE,
   devserver_constants.RECOVERY_IMAGE_FILE,
-  devserver_constants.ROOT_UPDATE_FILE,
+  devserver_constants.UPDATE_FILE,
   build_artifact.STATEFUL_UPDATE_FILE,
   devserver_constants.AUTOTEST_DIR,
 ]
@@ -530,6 +530,13 @@ class XBuddy(build_util.BuildObject):
     Equivalent to the Get call, minus downloading and updating timestamps.
     The returned path is always the path to the directory.
 
+    Returns:
+      build_id - Path to the image or update directory on the devserver.
+      e.g. x86-generic/R26-4000.0.0/chromium-test-image.bin
+      or x86-generic/R26-4000.0.0/
+
+      found - Whether or not the given artifact is currently cached.
+
     Throws:
       XBuddyException - if the path couldn't be translated
     """
@@ -550,10 +557,8 @@ class XBuddy(build_util.BuildObject):
 
     Returns:
       Path to the image or update directory on the devserver.
-      e.g. http://host/static/x86-generic/
-      R26-4000.0.0/chromium-test-image.bin
-      or
-      http://host/static/x86-generic/R26-4000.0.0/
+      e.g. x86-generic/R26-4000.0.0/chromium-test-image.bin
+      or x86-generic/R26-4000.0.0/
 
     Raises:
       XBuddyException if path is invalid

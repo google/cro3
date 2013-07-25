@@ -20,6 +20,7 @@ if os.path.exists(lib_dir) and os.path.isdir(lib_dir):
 import build_util
 import autoupdate_lib
 import common_util
+import devserver_constants as constants
 import log_util
 # pylint: disable=F0401
 import update_payload
@@ -126,8 +127,6 @@ class Autoupdate(build_util.BuildObject):
   """Class that contains functionality that handles Chrome OS update pings.
 
   Members:
-    serve_only:      serve only pre-built updates. static_dir must contain
-                     update.gz and stateful.tgz.
     use_test_image:  use chromiumos_test_image.bin rather than the standard.
     urlbase:         base URL, other than devserver, for update images.
     forced_image:    path to an image to use for all updates.
@@ -154,14 +153,13 @@ class Autoupdate(build_util.BuildObject):
   SIZE_ATTR = 'size'
   ISDELTA_ATTR = 'is_delta'
 
-  def __init__(self, serve_only=None, test_image=False, urlbase=None,
+  def __init__(self, test_image=False, urlbase=None,
                forced_image=None, payload_path=None,
                proxy_port=None, src_image='', patch_kernel=True, board=None,
                copy_to_static_root=True, private_key=None,
                critical_update=False, remote_payload=False, max_updates= -1,
                host_log=False, *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
-    self.serve_only = serve_only
     self.use_test_image = test_image
     if urlbase:
       self.urlbase = urlbase
@@ -301,7 +299,7 @@ class Autoupdate(build_util.BuildObject):
       subprocess.CalledProcessError if the update generator fails to generate a
       stateful payload.
     """
-    update_path = os.path.join(output_dir, UPDATE_FILE)
+    update_path = os.path.join(output_dir, constants.UPDATE_FILE)
     _Log('Generating update image %s', update_path)
 
     update_command = [
@@ -416,7 +414,8 @@ class Autoupdate(build_util.BuildObject):
 
     # The cached payloads exist in a cache dir
     cache_update_payload = os.path.join(static_image_dir,
-                                        cache_sub_dir, UPDATE_FILE)
+                                        cache_sub_dir,
+                                        constants.UPDATE_FILE)
     cache_stateful_payload = os.path.join(static_image_dir,
                                           cache_sub_dir, STATEFUL_FILE)
 
@@ -435,7 +434,8 @@ class Autoupdate(build_util.BuildObject):
     # Generation complete, copy if requested.
     if self.copy_to_static_root:
       # The final results exist directly in static
-      cros_update_payload = os.path.join(static_image_dir, UPDATE_FILE)
+      cros_update_payload = os.path.join(static_image_dir,
+                                         constants.UPDATE_FILE)
       stateful_payload = os.path.join(static_image_dir, STATEFUL_FILE)
       metadata_file = os.path.join(static_image_dir, METADATA_FILE)
       common_util.CopyFile(cache_update_payload, cros_update_payload)
@@ -485,10 +485,10 @@ class Autoupdate(build_util.BuildObject):
     Raises:
       AutoupdateError if it failed to generate the payload.
     """
-    dest_path = os.path.join(static_image_dir, UPDATE_FILE)
-    dest_stateful = os.path.join(static_image_dir, STATEFUL_FILE)
-
     if self.payload_path:
+      dest_path = os.path.join(static_image_dir, constants.UPDATE_FILE)
+      dest_stateful = os.path.join(static_image_dir, STATEFUL_FILE)
+
       # If the forced payload is not already in our static_image_dir,
       # copy it there.
       src_path = os.path.abspath(self.payload_path)
@@ -513,6 +513,11 @@ class Autoupdate(build_util.BuildObject):
           self.forced_image,
           static_image_dir=static_image_dir)
     else:
+      update_path = os.path.join(static_image_dir, constants.UPDATE_FILE)
+      # if a label was specified, check if the update file is there.
+      if static_image_dir != self.static_dir and os.path.exists(update_path):
+        return None
+
       if not board:
         raise AutoupdateError(
           'Failed to generate update. '
@@ -534,7 +539,7 @@ class Autoupdate(build_util.BuildObject):
     pregenerated_update = self.GenerateUpdatePayload(self.board, '0.0.0.0',
                                                      self.static_dir)
     print 'PREGENERATED_UPDATE=%s' % _NonePathJoin(pregenerated_update,
-                                                   UPDATE_FILE)
+                                                   constants.UPDATE_FILE)
     return pregenerated_update
 
   def _GetRemotePayloadAttrs(self, url):
@@ -584,7 +589,7 @@ class Autoupdate(build_util.BuildObject):
       A tuple containing the SHA1, SHA256, file size and whether or not it's a
       delta payload (Boolean).
     """
-    filename = os.path.join(payload_dir, UPDATE_FILE)
+    filename = os.path.join(payload_dir, constants.UPDATE_FILE)
     if not os.path.exists(filename):
       raise AutoupdateError('update.gz not present in payload dir %s' %
                             payload_dir)
@@ -731,22 +736,24 @@ class Autoupdate(build_util.BuildObject):
 
         # Form the URL of the update payload. This assumes that the payload
         # file name is a devserver constant (which currently is the case).
-        url = '/'.join(filter(None, [static_urlbase, label, UPDATE_FILE]))
+        url = _NonePathJoin(static_urlbase, label, constants.UPDATE_FILE)
 
         # Get remote payload attributes.
         metadata_obj = self._GetRemotePayloadAttrs(url)
       else:
         static_image_dir = _NonePathJoin(self.static_dir, label)
         rel_path = None
-
-        # Serving files only, don't generate an update.
-        if not self.serve_only:
-          # Generate payload if necessary.
+        url = _NonePathJoin(static_urlbase, label, rel_path,
+                            constants.UPDATE_FILE)
+        if common_util.IsInsideChroot():
           rel_path = self.GenerateUpdatePayload(board, client_version,
                                                 static_image_dir)
+          url = _NonePathJoin(static_urlbase, label, rel_path,
+                              constants.UPDATE_FILE)
+        elif not os.path.exists(url):
+          # the update payload wasn't found. This update can't happen.
+          raise AutoupdateError("Failed to find an update payload at %s", url)
 
-        url = '/'.join(filter(None, [static_urlbase, label, rel_path,
-                                     UPDATE_FILE]))
         local_payload_dir = _NonePathJoin(static_image_dir, rel_path)
         metadata_obj = self.GetLocalPayloadAttrs(local_payload_dir)
 

@@ -327,3 +327,8 @@ def ExtractTarball(tarball_path, install_path, files_to_extract=None,
     raise CommonUtilError(
         'An error occurred when attempting to untar %s:\n%s' %
         (tarball_path, e))
+
+
+def IsInsideChroot():
+  """Returns True if we are inside chroot."""
+  return os.path.exists('/etc/debian_chroot')

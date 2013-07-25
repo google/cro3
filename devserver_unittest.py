@@ -19,6 +19,7 @@ import urllib2
 
 
 # Paths are relative to this script's base directory.
+LABEL = 'devserver'
 TEST_IMAGE_PATH = 'testdata/devserver'
 TEST_IMAGE_NAME = 'update.gz'
 TEST_IMAGE = TEST_IMAGE_PATH + '/' + TEST_IMAGE_NAME
@@ -48,9 +49,10 @@ UPDATE_REQUEST['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 # TODO(girts): use a random available port.
-UPDATE_URL = 'http://127.0.0.1:8080/update'
+UPDATE_URL = 'http://127.0.0.1:8080/update/devserver'
 CHECK_HEALTH_URL = 'http://127.0.0.1:8080/check_health'
 STATIC_URL = 'http://127.0.0.1:8080/static/'
+SERVE_URL = STATIC_URL + LABEL + '/'
 
 API_HOST_INFO_BAD_URL = 'http://127.0.0.1:8080/api/hostinfo/'
 API_HOST_INFO_URL = API_HOST_INFO_BAD_URL + '127.0.0.1'
@@ -73,9 +75,23 @@ class DevserverTest(unittest.TestCase):
     # inside webpy).
     self.test_data_path = tempfile.mkdtemp()
     self.src_dir = os.path.dirname(__file__)
+
+    # Copy the payload to the root of static_dir.
     self.image_src = os.path.join(self.src_dir, TEST_IMAGE)
     self.image = os.path.join(self.test_data_path, TEST_IMAGE_NAME)
     shutil.copy(self.image_src, self.image)
+
+    # Copy the payload to the location of the update label "devserver."
+    os.makedirs(os.path.join(self.test_data_path, LABEL))
+    shutil.copy(self.image_src, os.path.join(self.test_data_path, LABEL,
+                                             TEST_IMAGE_NAME))
+
+    # Copy the payload to the location of forced label.
+    os.makedirs(os.path.join(self.test_data_path, API_SET_UPDATE_REQUEST))
+    shutil.copy(self.image_src, os.path.join(self.test_data_path,
+                                             API_SET_UPDATE_REQUEST,
+                                             TEST_IMAGE_NAME))
+
     self.devserver_process = self._StartServer()
 
   def tearDown(self):
@@ -91,7 +107,7 @@ class DevserverTest(unittest.TestCase):
         'python',
         os.path.join(self.src_dir, 'devserver.py'),
         'devserver.py',
-        '--archive_dir',
+        '--static_dir',
         self.test_data_path,
         ]
 
@@ -138,7 +154,7 @@ class DevserverTest(unittest.TestCase):
   def VerifyV2Response(self, update):
     """Verifies the update DOM from a v2 response and returns the url."""
     codebase = update.getAttribute('codebase')
-    self.assertEqual(STATIC_URL + TEST_IMAGE_NAME, codebase)
+    self.assertEqual(SERVE_URL + TEST_IMAGE_NAME, codebase)
 
     hash_value = update.getAttribute('hash')
     self.assertEqual(EXPECTED_HASH, hash_value)
@@ -151,7 +167,7 @@ class DevserverTest(unittest.TestCase):
     url = urls.getElementsByTagName('url')[0]
 
     codebase = url.getAttribute('codebase')
-    self.assertEqual(STATIC_URL, codebase)
+    self.assertEqual(SERVE_URL, codebase)
 
     manifest = update.getElementsByTagName('manifest')[0]
     packages = manifest.getElementsByTagName('packages')[0]

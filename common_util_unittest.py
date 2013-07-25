@@ -47,8 +47,8 @@ class CommonUtilTest(mox.MoxTestBase):
           build_path, build_artifact.STATEFUL_UPDATE_FILE), 'w') as f:
           f.write('STATEFUL_UPDATE_FILE')
         with open(os.path.join(
-          build_path, devserver_constants.ROOT_UPDATE_FILE), 'w') as f:
-          f.write('ROOT_UPDATE_FILE')
+          build_path, devserver_constants.UPDATE_FILE), 'w') as f:
+          f.write('UPDATE_FILE')
 
   def tearDown(self):
     shutil.rmtree(self._static_dir)

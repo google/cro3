@@ -17,7 +17,7 @@ VERSION_RE = 'R?[-0-9\.]+'
 
 #### Local storage locations and names. ####
 AUTOTEST_DIR = 'autotest'
-ROOT_UPDATE_FILE = 'update.gz'
+UPDATE_FILE = 'update.gz'
 IMAGE_FILE = "chromiumos_image.bin"
 BASE_IMAGE_FILE = 'chromiumos_base_image.bin'
 TEST_IMAGE_FILE = 'chromiumos_test_image.bin'

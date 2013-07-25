@@ -18,6 +18,7 @@ import mox
 import autoupdate
 import autoupdate_lib
 import common_util
+import devserver_constants as constants
 
 
 _TEST_REQUEST = """
@@ -120,7 +121,7 @@ class AutoupdateTest(mox.MoxTestBase):
     test_data = _TEST_REQUEST % self.test_dict
 
     # Generate a fake payload.
-    update_gz = os.path.join(self.static_image_dir, autoupdate.UPDATE_FILE)
+    update_gz = os.path.join(self.static_image_dir, constants.UPDATE_FILE)
     with open(update_gz, 'w') as fh:
       fh.write('')
 
@@ -152,7 +153,7 @@ class AutoupdateTest(mox.MoxTestBase):
     test_data = _TEST_REQUEST % self.test_dict
 
     # Generate a fake payload.
-    update_gz = os.path.join(self.static_image_dir, autoupdate.UPDATE_FILE)
+    update_gz = os.path.join(self.static_image_dir, constants.UPDATE_FILE)
     with open(update_gz, 'w') as fh:
       fh.write('')
 
@@ -221,7 +222,7 @@ class AutoupdateTest(mox.MoxTestBase):
         test_label)
 
   def testHandleUpdatePingWithSetUpdate(self):
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GenerateLatestUpdateImage')
+    """If update is set, it should use the update found in that directory."""
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_StoreMetadataToFile')
     au_mock = self._DummyAutoupdateConstructor()
 
@@ -230,12 +231,9 @@ class AutoupdateTest(mox.MoxTestBase):
     new_image_dir = os.path.join(self.static_image_dir, test_label)
     new_url = self.url.replace('update.gz', test_label + '/update.gz')
 
-    au_mock.GenerateLatestUpdateImage(
-        self.test_board, 'ForcedUpdate', new_image_dir).AndReturn(None)
-
     # Generate a fake payload.
     os.makedirs(new_image_dir)
-    update_gz = os.path.join(new_image_dir, autoupdate.UPDATE_FILE)
+    update_gz = os.path.join(new_image_dir, constants.UPDATE_FILE)
     with open(update_gz, 'w') as fh:
       fh.write('')
 
