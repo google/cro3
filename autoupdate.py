@@ -222,14 +222,6 @@ class Autoupdate(build_util.BuildObject):
     with open(metadata_file, 'w') as file_handle:
       json.dump(file_dict, file_handle)
 
-  def _GetDefaultBoardID(self):
-    """Returns the default board id stored in .default_board."""
-    board_file = '%s/.default_board' % (self.scripts_dir)
-    try:
-      return open(board_file).read()
-    except IOError:
-      return 'x86-generic'
-
   @staticmethod
   def _GetVersionFromDir(image_dir):
     """Returns the version of the image based on the name of the directory."""
@@ -626,7 +618,7 @@ class Autoupdate(build_util.BuildObject):
       client_version = app.getAttribute('version')
       channel = app.getAttribute('track')
       board = (app.hasAttribute('board') and app.getAttribute('board')
-                  or self._GetDefaultBoardID())
+                  or self.GetDefaultBoardID())
       # Add attributes to log message
       log_message['version'] = client_version
       log_message['track'] = channel

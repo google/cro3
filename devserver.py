@@ -789,6 +789,9 @@ class DevServerRoot(object):
     The HTTP request should contain the standard Omaha-style XML blob. The URL
     line may contain an additional intermediate path to the update payload.
 
+    Paths that can be handled by xbuddy are formatted:
+    http://myhost/update/xbuddy/board/version
+
     Example:
       http://myhost/update/optional/path/to/payload
     """
@@ -1072,8 +1075,10 @@ def main():
     return
 
   _xbuddy = xbuddy.XBuddy(options.xbuddy_manage_builds,
+                          options.board,
                           root_dir=root_dir,
-                          static_dir=options.static_dir)
+                          static_dir=options.static_dir,
+                          )
   dev_server = DevServerRoot(_xbuddy)
 
   cherrypy.quickstart(dev_server, config=_GetConfig(options))

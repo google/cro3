@@ -18,6 +18,7 @@ import devserver_constants
 import downloader
 import gsutil_util
 import log_util
+import xbuddy_lookup_table
 
 # Module-local log function.
 def _Log(message, *args):
@@ -146,9 +147,17 @@ class XBuddy(build_util.BuildObject):
   # Lock used to lock increasing/decreasing count.
   _staging_thread_count_lock = threading.Lock()
 
-  def __init__(self, manage_builds=False,  **kwargs):
+  def __init__(self, manage_builds=False, board=None, **kwargs):
     super(XBuddy, self).__init__(**kwargs)
     self._manage_builds = manage_builds
+
+    # Choose a default board, using the --board flag if given, or
+    # src/scripts/.default_board if it exists.
+    # Default to x86-generic, if that isn't set.
+    self._board = (board or self.GetDefaultBoardID())
+    _Log("Default board used by xBuddy: %s", self._board)
+    self._path_lookup_table = xbuddy_lookup_table.paths(self._board)
+
     self._timestamp_folder = os.path.join(self.static_dir,
                                           Timestamp.XBUDDY_TIMESTAMP_DIR)
     common_util.MkDirP(self._timestamp_folder)
@@ -281,7 +290,7 @@ class XBuddy(build_util.BuildObject):
       found - True if file was found
     """
     latest_local_dir = self.GetLatestImageDir(board)
-    if not latest_local_dir and os.path.exists(latest_local_dir):
+    if not latest_local_dir or not os.path.exists(latest_local_dir):
       raise XBuddyException('No builds found for %s. Did you run build_image?' %
                             board)
 
@@ -319,11 +328,9 @@ class XBuddy(build_util.BuildObject):
         is_local = True
       elif path_list[0] == REMOTE:
         path_list.pop(0)
-      _Log(str(path_list))
 
       # Set board
       board = path_list.pop(0)
-      _Log(str(path_list))
 
       # Set defaults
       version = LATEST
@@ -475,6 +482,10 @@ class XBuddy(build_util.BuildObject):
     Raises:
     XBuddyException if the path could not be translated
     """
+    # Rewrite the path if there is an appropriate default.
+    path = self._path_lookup_table.get('/'.join(path), path)
+
+    # Parse the path
     image_type, board, version, is_local = self._InterpretPath(path)
 
     found = False

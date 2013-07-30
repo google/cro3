@@ -26,6 +26,7 @@ install:
 		log_util.py \
 		strip_package.py \
 		xbuddy.py \
+		xbuddy_lookup_table.py\
 		"${DESTDIR}/usr/lib/devserver"
 
 	install -m 0755 stateful_update "${DESTDIR}/usr/bin"

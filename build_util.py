@@ -32,3 +32,11 @@ class BuildObject(object):
     """Returns the latest image dir based on shell script."""
     cmd = '%s/get_latest_image.sh --board %s' % (self.scripts_dir, board)
     return os.popen(cmd).read().strip()
+
+  def GetDefaultBoardID(self):
+    """Returns the default board id stored in .default_board."""
+    board_file = '%s/.default_board' % (self.scripts_dir)
+    try:
+      return open(board_file).read()
+    except IOError:
+      return 'x86-generic'
