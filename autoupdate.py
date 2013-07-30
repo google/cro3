@@ -31,12 +31,6 @@ def _Log(message, *args):
   return log_util.LogWithTag('UPDATE', message, *args)
 
 
-UPDATE_FILE = 'update.gz'
-METADATA_FILE = 'update.meta'
-STATEFUL_FILE = 'stateful.tgz'
-CACHE_DIR = 'cache'
-
-
 class AutoupdateError(Exception):
   """Exception classes used by this module."""
   pass
@@ -206,7 +200,7 @@ class Autoupdate(build_util.BuildObject):
   @staticmethod
   def _ReadMetadataFromFile(payload_dir):
     """Returns metadata object from the metadata_file in the payload_dir"""
-    metadata_file = os.path.join(payload_dir, METADATA_FILE)
+    metadata_file = os.path.join(payload_dir, constants.METADATA_FILE)
     if os.path.exists(metadata_file):
       with open(metadata_file, 'r') as metadata_stream:
         return Autoupdate._ReadMetadataFromStream(metadata_stream)
@@ -218,7 +212,7 @@ class Autoupdate(build_util.BuildObject):
                  cls.SHA256_ATTR: metadata_obj.sha256,
                  cls.SIZE_ATTR: metadata_obj.size,
                  cls.ISDELTA_ATTR: metadata_obj.is_delta_format}
-    metadata_file = os.path.join(payload_dir, METADATA_FILE)
+    metadata_file = os.path.join(payload_dir, constants.METADATA_FILE)
     with open(metadata_file, 'w') as file_handle:
       json.dump(file_dict, file_handle)
 
@@ -356,7 +350,7 @@ class Autoupdate(build_util.BuildObject):
     if self.patch_kernel:
       update_dir += '+patched_kernel'
 
-    return os.path.join(CACHE_DIR, update_dir)
+    return os.path.join(constants.CACHE_DIR, update_dir)
 
   def GenerateUpdateImage(self, image_path, output_dir):
     """Force generates an update payload based on the given image_path.
@@ -401,7 +395,8 @@ class Autoupdate(build_util.BuildObject):
       return self.pregenerated_path
 
     # Which sub_dir of static_image_dir should hold our cached update image
-    cache_sub_dir = self.FindCachedUpdateImageSubDir(self.src_image, image_path)
+    cache_sub_dir = self.FindCachedUpdateImageSubDir(self.src_image,
+                                                     image_path)
     _Log('Caching in sub_dir "%s"', cache_sub_dir)
 
     # The cached payloads exist in a cache dir
@@ -409,7 +404,8 @@ class Autoupdate(build_util.BuildObject):
                                         cache_sub_dir,
                                         constants.UPDATE_FILE)
     cache_stateful_payload = os.path.join(static_image_dir,
-                                          cache_sub_dir, STATEFUL_FILE)
+                                          cache_sub_dir,
+                                          constants.STATEFUL_FILE)
 
     full_cache_dir = os.path.join(static_image_dir, cache_sub_dir)
     # Check to see if this cache directory is valid.
@@ -421,15 +417,15 @@ class Autoupdate(build_util.BuildObject):
 
     # Generate the cache file.
     self.GetLocalPayloadAttrs(full_cache_dir)
-    cache_metadata_file = os.path.join(full_cache_dir, METADATA_FILE)
+    cache_metadata_file = os.path.join(full_cache_dir, constants.METADATA_FILE)
 
     # Generation complete, copy if requested.
     if self.copy_to_static_root:
       # The final results exist directly in static
       cros_update_payload = os.path.join(static_image_dir,
                                          constants.UPDATE_FILE)
-      stateful_payload = os.path.join(static_image_dir, STATEFUL_FILE)
-      metadata_file = os.path.join(static_image_dir, METADATA_FILE)
+      stateful_payload = os.path.join(static_image_dir, constants.STATEFUL_FILE)
+      metadata_file = os.path.join(static_image_dir, constants.METADATA_FILE)
       common_util.CopyFile(cache_update_payload, cros_update_payload)
       common_util.CopyFile(cache_stateful_payload, stateful_payload)
       common_util.CopyFile(cache_metadata_file, metadata_file)
@@ -479,12 +475,13 @@ class Autoupdate(build_util.BuildObject):
     """
     if self.payload_path:
       dest_path = os.path.join(static_image_dir, constants.UPDATE_FILE)
-      dest_stateful = os.path.join(static_image_dir, STATEFUL_FILE)
+      dest_stateful = os.path.join(static_image_dir, constants.STATEFUL_FILE)
 
       # If the forced payload is not already in our static_image_dir,
       # copy it there.
       src_path = os.path.abspath(self.payload_path)
-      src_stateful = os.path.join(os.path.dirname(src_path), STATEFUL_FILE)
+      src_stateful = os.path.join(os.path.dirname(src_path),
+                                  constants.STATEFUL_FILE)
       # Only copy the files if the source directory is different from dest.
       if os.path.dirname(src_path) != os.path.abspath(static_image_dir):
         common_util.CopyFile(src_path, dest_path)
@@ -494,7 +491,7 @@ class Autoupdate(build_util.BuildObject):
           common_util.CopyFile(src_stateful, dest_stateful)
         else:
           _Log('WARN: %s not found. Expected for dev and test builds',
-               STATEFUL_FILE)
+               constants.STATEFUL_FILE)
           if os.path.exists(dest_stateful):
             os.remove(dest_stateful)
 

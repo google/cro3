@@ -30,7 +30,6 @@ AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
 FIRMWARE_FILE = 'firmware_from_source.tar.bz2'
 IMAGE_FILE = 'image.zip'
-STATEFUL_UPDATE_FILE = 'stateful.tgz'
 TEST_SUITES_FILE = 'test_suites.tar.bz2'
 
 _build_artifact_locks = common_util.LockDict()
@@ -227,8 +226,10 @@ class DeltaPayloadsArtifact(BuildArtifact):
         artifact.Process(no_wait=True)
         # Setup symlink so that AU will work for this payload.
         os.symlink(
-            os.path.join(os.pardir, os.pardir, STATEFUL_UPDATE_FILE),
-            os.path.join(artifact.install_dir, STATEFUL_UPDATE_FILE))
+            os.path.join(os.pardir, os.pardir,
+                         devserver_constants.STATEFUL_UPDATE_FILE),
+            os.path.join(artifact.install_dir,
+                         devserver_constants.STATEFUL_UPDATE_FILE))
       except ArtifactDownloadError as e:
         self._Log('Could not process %s: %s', artifact, e)
 
@@ -360,7 +361,7 @@ ARTIFACT_IMPLEMENTATION_MAP = {
   artifact_info.DELTA_PAYLOADS:
       ImplDescription(DeltaPayloadsArtifact, '.*_delta_.*'),
   artifact_info.STATEFUL_PAYLOAD:
-      ImplDescription(BuildArtifact, STATEFUL_UPDATE_FILE),
+      ImplDescription(BuildArtifact, devserver_constants.STATEFUL_UPDATE_FILE),
 
   artifact_info.BASE_IMAGE:
       ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,

@@ -12,7 +12,6 @@ import threading
 
 import build_util
 import artifact_info
-import build_artifact
 import common_util
 import devserver_constants
 import downloader
@@ -26,15 +25,24 @@ def _Log(message, *args):
 
 _XBUDDY_CAPACITY = 5
 
+# XBuddy aliases
+TEST = 'test'
+BASE = 'base'
+DEV = 'dev'
+FULL = 'full_payload'
+RECOVERY = 'recovery'
+STATEFUL = 'stateful'
+AUTOTEST = 'autotest'
+
 # Local build constants
 LATEST = "latest"
 LOCAL = "local"
 REMOTE = "remote"
 LOCAL_ALIASES = [
-  'test',
-  'base',
-  'dev',
-  'full_payload',
+  TEST,
+  BASE,
+  DEV,
+  FULL
 ]
 
 LOCAL_FILE_NAMES = [
@@ -48,24 +56,20 @@ LOCAL_ALIAS_TO_FILENAME = dict(zip(LOCAL_ALIASES, LOCAL_FILE_NAMES))
 
 # Google Storage constants
 GS_ALIASES = [
-  'test',
-  'base',
-  'recovery',
-  'full_payload',
-  'stateful',
-  'autotest',
+  TEST,
+  BASE,
+  RECOVERY,
+  FULL,
+  STATEFUL,
+  AUTOTEST,
 ]
-
-# TODO(joyc) these should become devserver constants.
-# currently, storage locations are embedded in the artifact classes defined in
-# build_artifact
 
 GS_FILE_NAMES = [
   devserver_constants.TEST_IMAGE_FILE,
   devserver_constants.BASE_IMAGE_FILE,
   devserver_constants.RECOVERY_IMAGE_FILE,
   devserver_constants.UPDATE_FILE,
-  build_artifact.STATEFUL_UPDATE_FILE,
+  devserver_constants.STATEFUL_UPDATE_FILE,
   devserver_constants.AUTOTEST_DIR,
 ]
 
