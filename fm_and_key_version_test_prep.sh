@@ -129,6 +129,10 @@ do
   info "Updating the firmware version to ${FM_VER}"
   sed -i \
     "/^TARGET_FWID=/c TARGET_FWID=\"${FM_VER}\"" "${WORKING_UPDATER}-test$i"
+  # Clear the UNSTABLE flag.
+  sed -i \
+    's/^TARGET_UNSTABLE=.*/TARGET_UNSTABLE=""/' "${WORKING_UPDATER}-test$i"
+
   # Resign the provided firmware binaries
   PROVIDED_BIN="${BIOS_WORKING_DIR}/${NEW_VER}.bin"
   SIGNED_BIN="${BIOS_WORKING_DIR}/${NEW_VER}_signed.bin"
