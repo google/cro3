@@ -176,7 +176,7 @@ def _GetConfig(options):
                   },
                 }
   if options.production:
-    base_config['global'].update({'server.thread_pool': 75})
+    base_config['global'].update({'server.thread_pool': 150})
 
   return base_config
 
