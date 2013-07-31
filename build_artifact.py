@@ -22,6 +22,7 @@ _MTON_DIR_SUFFIX = '_mton'
 ############ Actual filenames of artifacts in Google Storage ############
 
 AU_SUITE_FILE = 'au_control.tar.bz2'
+PAYGEN_AU_SUITE_FILE = 'paygen_au_control.tar.bz2'
 AUTOTEST_FILE = 'autotest.tar'
 AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
@@ -373,6 +374,8 @@ ARTIFACT_IMPLEMENTATION_MAP = {
       ImplDescription(TarballBuildArtifact, TEST_SUITES_FILE),
   artifact_info.AU_SUITE:
       ImplDescription(TarballBuildArtifact, AU_SUITE_FILE),
+  artifact_info.PAYGEN_AU_SUITE:
+      ImplDescription(TarballBuildArtifact, PAYGEN_AU_SUITE_FILE),
 
   artifact_info.FIRMWARE:
       ImplDescription(BuildArtifact, FIRMWARE_FILE),

@@ -39,6 +39,9 @@ TEST_SUITES = 'test_suites'
 # AU Suite - The control files for the autotest autoupdate suite.
 AU_SUITE = 'au_suite'
 
+# AU Suite - The control files for the autotest autoupdate suite.
+PAYGEN_AU_SUITE = 'paygen_au_suite'
+
 #### Miscellaneous artifacts. ####
 
 # Firmware tarball.
