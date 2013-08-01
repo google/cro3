@@ -28,6 +28,7 @@ PAYGEN_AU_SUITE_FILE_TEMPLATE = 'paygen_au_%(channel)s_control.tar.bz2'
 AUTOTEST_FILE = 'autotest.tar'
 AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
+FACTORY_FILE = 'ChromeOS-factory.*zip'
 FIRMWARE_FILE = 'firmware_from_source.tar.bz2'
 IMAGE_FILE = 'image.zip'
 TEST_SUITES_FILE = 'test_suites.tar.bz2'
@@ -386,6 +387,10 @@ ARTIFACT_IMPLEMENTATION_MAP = {
   artifact_info.SYMBOLS:
       ImplDescription(TarballBuildArtifact, DEBUG_SYMBOLS_FILE,
                       ['debug/breakpad']),
+
+  artifact_info.FACTORY_IMAGE:
+      ImplDescription(ZipfileBuildArtifact, FACTORY_FILE,
+                      [devserver_constants.FACTORY_IMAGE_FILE])
 }
 
 # Add all the paygen_au artifacts in one go.

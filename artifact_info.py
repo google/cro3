@@ -51,6 +51,8 @@ FIRMWARE = 'firmware'
 # Tarball containing debug symbols for the given build.
 SYMBOLS = 'symbols'
 
+# The factory test image.
+FACTORY_IMAGE = 'factory_image'
 
 # In general, downloading one artifact usually indicates that the caller will
 # want to download other artifacts later. The following map explicitly defines

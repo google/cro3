@@ -130,7 +130,10 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, single_item=True,
       msg = 'Failed to list payloads.'
       returned_list = GSUtilRun(cmd, msg).splitlines()
       for item in returned_list:
-        uploaded_list.append(item.rsplit('/', 1)[1])
+        try:
+          uploaded_list.append(item.rsplit('/', 1)[1])
+        except IndexError:
+          pass
 
     # Check if all target artifacts are available.
     found_names = _GetGSNamesFromList(uploaded_list, pattern)
