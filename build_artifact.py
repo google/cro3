@@ -94,7 +94,7 @@ class BuildArtifact(log_util.Loggable):
     """
     return name.replace('*', 'STAR').replace('.', 'DOT').replace('/', 'SLASH')
 
-  def _ArtifactStaged(self):
+  def ArtifactStaged(self):
     """Returns True if artifact is already staged."""
     return os.path.exists(os.path.join(self.install_dir, self.marker_name))
 
@@ -161,7 +161,7 @@ class BuildArtifact(log_util.Loggable):
 
     with self._process_lock:
       common_util.MkDirP(self.install_dir)
-      if not self._ArtifactStaged():
+      if not self.ArtifactStaged():
         # If the artifact should already have been uploaded, don't waste
         # cycles waiting around for it to exist.
         timeout = 1 if no_wait else 10

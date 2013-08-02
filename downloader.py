@@ -92,7 +92,7 @@ class Downloader(log_util.Loggable):
       os.remove(file_name)
       os.rmdir(directory_path)
 
-  def Download(self, artifacts):
+  def Download(self, artifacts, async=False):
     """Downloads and caches the |artifacts|.
 
     Downloads and caches the |artifacts|. Returns once these
@@ -100,8 +100,10 @@ class Downloader(log_util.Loggable):
     non-specified artifacts in the background following the principle of
     spatial locality.
 
-    Args:
-      artifacts: a list of artifact names that correspond to artifacts to stage.
+    @params artifacts: A list of artifact names that correspond to artifacts to
+                       stage.
+    @params async: True to return without waiting for download to complete.
+
     """
     common_util.MkDirP(self._build_dir)
 
@@ -121,18 +123,36 @@ class Downloader(log_util.Loggable):
     str_repr = [str(a) for a in required_artifacts]
     self._Log('Downloading artifacts %s.', ' '.join(str_repr))
     try:
-      self._DownloadArtifactsSerially(required_artifacts, no_wait=True)
+      if async:
+        self._DownloadArtifactsInBackground(required_artifacts)
+      else:
+        self._DownloadArtifactsSerially(required_artifacts, no_wait=True)
     except gsutil_util.GSUtilError:
       Downloader._TryRemoveStageDir(self._build_dir)
       raise
 
+  def IsStaged(self, artifacts):
+    """Check if all artifacts have been downloaded.
+
+    @param artifacts: A list of artifacts to be checked.
+    @returns: True if all artifacts are staged.
+
+    """
+    # Create factory to create build_artifacts from artifact names.
+    build = self.ParseUrl(self._archive_url)[1]
+    factory = build_artifact.ArtifactFactory(self._build_dir, self._archive_url,
+                                             artifacts, build)
+    required_artifacts = factory.RequiredArtifacts()
+    return all([artifact.ArtifactStaged() for artifact in required_artifacts])
+
   def _DownloadArtifactsSerially(self, artifacts, no_wait):
     """Simple function to download all the given artifacts serially.
 
-    Args:
-      artifacts: List of build_artifact.BuildArtifact instances to download.
-      no_wait: If True, don't block waiting for artifact to exist if we fail to
-               immediately find it.
+    @param artifacts: A list of build_artifact.BuildArtifact instances to
+                      download.
+    @param no_wait: If True, don't block waiting for artifact to exist if we
+                    fail to immediately find it.
+
     """
     for artifact in artifacts:
       artifact.Process(no_wait)

@@ -102,7 +102,6 @@ def _LeadingWhiteSpaceCount(string):
   Returns:
     number of white space chars before characters start.
   """
-  # pylint: disable=W1401
   matched = re.match('^\s+', string)
   if matched:
     return len(matched.group())
@@ -403,14 +402,37 @@ class DevServerRoot(object):
 
     Args:
       archive_url: Google Storage URL for the build.
+      artifacts: Comma separated list of artifacts to download.
 
     Example URL:
       http://myhost/download?archive_url=gs://chromeos-image-archive/
-      x86-generic/R17-1208.0.0-a1-b338
+      x86-generic/R17-1208.0.0-a1-b338&artifacts=full_payload,test_suites,
+      stateful
     """
+    async = kwargs.get('async', False)
     return self.stage(archive_url=kwargs.get('archive_url'),
-                      artifacts='full_payload,test_suites,stateful')
+                      artifacts=kwargs.get('artifacts'),
+                      async=async)
 
+  @cherrypy.expose
+  def is_staged(self, **kwargs):
+    """Check if artifacts have been downloaded.
+
+    @param archive_url: Google Storage URL for the build.
+    @param artifacts: Comma separated list of artifacts to download.
+    @returns: True of all artifacts are staged.
+
+    Example:
+      To check if autotest and test_suites are staged:
+        http://devserver_url:<port>/is_staged?archive_url=gs://your_url/path&
+            artifacts=autotest,test_suites
+    """
+    archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
+    artifacts = kwargs.get('artifacts', '')
+    if not artifacts:
+      raise DevServerError('No artifacts specified.')
+    return str(downloader.Downloader(updater.static_dir, archive_url).IsStaged(
+        artifacts.split(',')))
 
   @cherrypy.expose
   def stage(self, **kwargs):
@@ -428,6 +450,7 @@ class DevServerRoot(object):
     Args:
       archive_url: Google Storage URL for the build.
       artifacts: Comma separated list of artifacts to download.
+      async: True to return without waiting for download to complete.
 
     Example:
       To download the autotest and test suites tarballs:
@@ -451,19 +474,19 @@ class DevServerRoot(object):
     """
     archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
     artifacts = kwargs.get('artifacts', '')
+    async = kwargs.get('async', False)
     if not artifacts:
       raise DevServerError('No artifacts specified.')
 
     with DevServerRoot._staging_thread_count_lock:
       DevServerRoot._staging_thread_count += 1
     try:
-      downloader.Downloader(updater.static_dir, archive_url).Download(
-          artifacts.split(','))
+      downloader.Downloader(updater.static_dir,
+          archive_url).Download(artifacts.split(','), async=async)
     finally:
       with DevServerRoot._staging_thread_count_lock:
         DevServerRoot._staging_thread_count -= 1
     return 'Success'
-
 
   @cherrypy.expose
   def setup_telemetry(self, **kwargs):
@@ -532,7 +555,7 @@ class DevServerRoot(object):
       x86-generic/R17-1208.0.0-a1-b338
     """
     return self.stage(archive_url=kwargs.get('archive_url'),
-                      artifacts='full_payload,test_suites,autotest,stateful')
+                      artifacts=kwargs.get('artifacts'))
 
   @cherrypy.expose
   def stage_debug(self, **kwargs):
