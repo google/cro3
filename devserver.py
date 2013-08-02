@@ -701,18 +701,22 @@ class DevServerRoot(object):
 
     Args:
       path_parts: the path following xbuddy/ in the call url is split into the
-        components of the path.
-        The path can be understood as a build_id/artifact, build_id is
-        composed of "board/version"
+        components of the path. The path can be understood as
+        "{local|remote}/build_id/artifact" where build_id is composed of
+        "board/version."
 
-        path_parts[0], the board, is the familiar board name, optionally
-          suffixed.
-        path_parts[1], the version, can be the google storage version
-          number, and may also be any of a number of xBuddy defined version
-          aliases that will be translated into the latest built image that
-          fits the description. defaults to latest.
-        path_parts[2], the artifact, is one of a number of image or artifact
-          aliases used by xbuddy, defined in xbuddy:ALIASES. Defaults to test
+        The first path element is optional, and can be "remote" or "local"
+          If local (the default), devserver will not attempt to access Google
+          Storage, and will only search the static directory for the files.
+          If remote, devserver will try to obtain the artifact off GS if it's
+          not found locally.
+        The board is the familiar board name, optionally suffixed.
+        The version can be the google storage version number, and may also be
+          any of a number of xBuddy defined version aliases that will be
+          translated into the latest built image that fits the description.
+          Defaults to latest.
+        The artifact is one of a number of image or artifact aliases used by
+          xbuddy, defined in xbuddy:ALIASES. Defaults to test.
 
     Kwargs:
       return_dir: {true|false}
@@ -729,21 +733,21 @@ class DevServerRoot(object):
       e.g. http://host:port/static/archive/x86-generic-release/
       R26-4000.0.0/chromium-test-image.bin
       or if return_dir is True, return path to the folder where
-      image or update file is
+      the artifact is.
       http://host:port/static/x86-generic-release/R26-4000.0.0/
     """
     boolean_string = kwargs.get('return_dir')
     return_dir = xbuddy.XBuddy.ParseBoolean(boolean_string)
-    return_url = self._xbuddy.Get(args,
-                                  return_dir)
+
+    build_id, file_name = self._xbuddy.Get(args)
     if return_dir:
-      directory = os.path.join(cherrypy.request.base, return_url)
+      directory = os.path.join(cherrypy.request.base, 'static',  build_id)
       _Log("Directory requested, returning: %s", directory)
       return directory
     else:
-      return_url = '/' + return_url
-      _Log("Payload requested, returning: %s", return_url)
-      raise cherrypy.HTTPRedirect(return_url, 302)
+      build_id = '/' + os.path.join('static', build_id, file_name)
+      _Log("Payload requested, returning: %s", build_id)
+      raise cherrypy.HTTPRedirect(build_id, 302)
 
   @cherrypy.expose
   def xbuddy_list(self):
@@ -797,25 +801,57 @@ class DevServerRoot(object):
     The HTTP request should contain the standard Omaha-style XML blob. The URL
     line may contain an additional intermediate path to the update payload.
 
-    Paths that can be handled by xbuddy are formatted:
-    http://myhost/update/xbuddy/board/version
+    This request can be handled in one of 4 ways, depending on the devsever
+    settings and intermediate path.
 
-    Example:
-      http://myhost/update/optional/path/to/payload
+    1. No intermediate path
+    If no intermediate path is given, the default behavior is to generate an
+    update payload from the latest test image locally built for the board
+    specified in the xml. Devserver serves the generated payload.
+
+    2. Path explicitly invokes XBuddy
+    If there is a path given, it can explicitly invoke xbuddy by prefixing it
+    with 'xbuddy'. This path is then used to acquire an image binary for the
+    devserver to generate an update payload from. Devserver then serves this
+    payload.
+
+    3. Path is left for the devserver to interpret.
+    If the path given doesn't explicitly invoke xbuddy, devserver will attempt
+    to generate a payload from the test image in that directory and serve it.
+
+    4. The devserver is in a 'forced' mode. TO BE DEPRECATED
+    This comes from the usage of --forced_payload or --image when starting the
+    devserver. No matter what path (or no path) gets passed in, devserver will
+    serve the update payload (--forced_payload) or generate an update payload
+    from the image (--image).
+
+    Examples:
+      1. No intermediate path
+      update_engine_client --omaha_url=http://myhost/update
+      This generates an update payload from the latest test image locally built
+      for the board specified in the xml.
+
+      2. Explicitly invoke xbuddy
+      update_engine_client --omaha_url=
+      http://myhost/update/xbuddy/remote/board/version/dev
+      This would go to GS to download the dev image for the board, from which
+      the devserver would generate a payload to serve.
+
+      3. Give a path for devserver to interpret
+      update_engine_client --omaha_url=http://myhost/update/some/random/path
+      This would attempt, in order to:
+        a) Generate an update from a test image binary if found in
+           static_dir/some/random/path.
+        b) Serve an update payload found in static_dir/some/random/path.
+        c) Hope that some/random/path takes the form "board/version" and
+           and attempt to download an update payload for that board/version
+           from GS.
     """
-    if len(args) > 0 and args[0] == 'xbuddy':
-      # Interpret the rest of the path as an xbuddy path
-      label, found = self._xbuddy.Translate(args[1:] + ('full_payload',))
-      if not found:
-        _Log("Update payload not found for %s, xBuddy looking it up.", label)
-    else:
-      label = '/'.join(args)
-
-    _Log('Update label: %s', label)
+    label = '/'.join(args)
     body_length = int(cherrypy.request.headers.get('Content-Length', 0))
     data = cherrypy.request.rfile.read(body_length)
-    return updater.HandleUpdatePing(data, label)
 
+    return updater.HandleUpdatePing(data, label)
 
   @cherrypy.expose
   def check_health(self):
@@ -992,9 +1028,7 @@ def main():
                     help='port for the dev server to use (default: 8080)')
   parser.add_option('-t', '--test_image',
                     action='store_true',
-                    help='If set, look for the chromiumos_test_image.bin file '
-                    'when generating update payloads rather than the '
-                    'chromiumos_image.bin which is the default.')
+                    help='Deprecated.')
   parser.add_option('-x', '--xbuddy_manage_builds',
                     action='store_true',
                     default=False,
@@ -1044,14 +1078,19 @@ def main():
   _Log('Source root is %s' % root_dir)
   _Log('Serving from %s' % options.static_dir)
 
+  _xbuddy = xbuddy.XBuddy(options.xbuddy_manage_builds,
+                          options.board,
+                          root_dir=root_dir,
+                          static_dir=options.static_dir)
+
   # We allow global use here to share with cherrypy classes.
   # pylint: disable=W0603
   global updater
   updater = autoupdate.Autoupdate(
+      _xbuddy,
       root_dir=root_dir,
       static_dir=options.static_dir,
       urlbase=options.urlbase,
-      test_image=options.test_image,
       forced_image=options.image,
       payload_path=options.payload,
       proxy_port=options.proxy_port,
@@ -1072,11 +1111,6 @@ def main():
   if options.exit:
     return
 
-  _xbuddy = xbuddy.XBuddy(options.xbuddy_manage_builds,
-                          options.board,
-                          root_dir=root_dir,
-                          static_dir=options.static_dir,
-                          )
   dev_server = DevServerRoot(_xbuddy)
 
   cherrypy.quickstart(dev_server, config=_GetConfig(options))

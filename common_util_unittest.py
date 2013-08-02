@@ -43,8 +43,8 @@ class CommonUtilTest(mox.MoxTestBase):
           build_path, devserver_constants.TEST_IMAGE_FILE), 'w') as f:
           f.write('TEST_IMAGE_FILE')
         with open(os.path.join(
-          build_path, devserver_constants.STATEFUL_UPDATE_FILE), 'w') as f:
-          f.write('STATEFUL_UPDATE_FILE')
+          build_path, devserver_constants.STATEFUL_FILE), 'w') as f:
+          f.write('STATEFUL_FILE')
         with open(os.path.join(
           build_path, devserver_constants.UPDATE_FILE), 'w') as f:
           f.write('UPDATE_FILE')

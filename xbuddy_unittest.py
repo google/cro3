@@ -103,35 +103,35 @@ class xBuddyTest(mox.MoxTestBase):
 
   def testBasicInterpretPath(self):
     """Basic checks for splitting a path"""
-    path = ('parrot', 'R27-2455.0.0', 'test')
-    expected = ('test', 'parrot', 'R27-2455.0.0', False)
-    self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
-
-    path = ('parrot', 'R27-2455.0.0', 'full_payload')
-    expected = ('full_payload', 'parrot', 'R27-2455.0.0', False)
-    self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
-
-    path = ('parrot', 'R27-2455.0.0')
-    expected = ('test', 'parrot', 'R27-2455.0.0', False)
-    self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
-
-    path = ('remote', 'parrot', 'R27-2455.0.0')
-    expected = ('test', 'parrot', 'R27-2455.0.0', False)
-    self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
-
-    path = ('local', 'parrot', 'R27-2455.0.0')
+    path = 'parrot/R27-2455.0.0/test'
     expected = ('test', 'parrot', 'R27-2455.0.0', True)
-    self.assertEqual(self.mock_xb._InterpretPath(path_list=path), expected)
+    self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
 
-    path = ()
+    path = 'parrot/R27-2455.0.0/full_payload'
+    expected = ('full_payload', 'parrot', 'R27-2455.0.0', True)
+    self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
+
+    path = 'parrot/R27-2455.0.0'
+    expected = ('test', 'parrot', 'R27-2455.0.0', True)
+    self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
+
+    path = 'remote/parrot/R27-2455.0.0'
+    expected = ('test', 'parrot', 'R27-2455.0.0', False)
+    self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
+
+    path = 'local/parrot/R27-2455.0.0'
+    expected = ('test', 'parrot', 'R27-2455.0.0', True)
+    self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
+
+    path = ''
     self.assertRaises(xbuddy.XBuddyException,
                       self.mock_xb._InterpretPath,
-                      path_list=path)
+                      path=path)
 
-    path = ('local',)
+    path = 'local'
     self.assertRaises(xbuddy.XBuddyException,
                       self.mock_xb._InterpretPath,
-                      path_list=path)
+                      path=path)
 
 
   def testTimestampsAndList(self):
@@ -177,8 +177,8 @@ class xBuddyTest(mox.MoxTestBase):
   ############### Public Methods
   def testXBuddyCaching(self):
     """Caching & replacement of timestamp files."""
-    path_a = ('a', 'R0', 'test')
-    path_b = ('b', 'R0', 'test')
+    path_a = ('remote', 'a', 'R0', 'test')
+    path_b = ('remote', 'b', 'R0', 'test')
 
     self.mox.StubOutWithMock(self.mock_xb, '_Download')
     for _ in range(8):
@@ -192,7 +192,7 @@ class xBuddyTest(mox.MoxTestBase):
     # Get 6 different images: a,b,c,d,e,f
     images = ['a', 'b', 'c', 'd', 'e', 'f']
     for c in images:
-      self.mock_xb.Get((c, 'R0', 'test'), None)
+      self.mock_xb.Get(('remote', c, 'R0', 'test'), None)
       time.sleep(0.05)
 
     # check that b,c,d,e,f are still stored

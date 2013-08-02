@@ -26,22 +26,10 @@ TEST_IMAGE = TEST_IMAGE_PATH + '/' + TEST_IMAGE_NAME
 EXPECTED_HASH = 'kGcOinJ0vA8vdYX53FN0F5BdwfY='
 
 # Update request based on Omaha v2 protocol format.
-UPDATE_REQUEST = {}
-UPDATE_REQUEST['2.0'] = """<?xml version="1.0" encoding="UTF-8"?>
-<o:gupdate xmlns:o="http://www.google.com/update2/request" version="ChromeOSUpdateEngine-0.1.0.0" updaterversion="ChromeOSUpdateEngine-0.1.0.0" protocol="2.0" ismachine="1">
-    <o:os version="Indy" platform="Chrome OS" sp="0.11.254.2011_03_09_1814_i686"></o:os>
-    <o:app appid="{DEV-BUILD}" version="0.11.254.2011_03_09_1814" lang="en-US" track="developer-build" board="x86-generic" hardware_class="BETA DVT" delta_okay="true">
-        <o:updatecheck></o:updatecheck>
-        <o:event eventtype="3" eventresult="2" previousversion="0.11.216.2011_03_02_1358"></o:event>
-    </o:app>
-</o:gupdate>
-"""
-
-# Update request based on Omaha v3 protocol format.
-UPDATE_REQUEST['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
+UPDATE_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request version="ChromeOSUpdateEngine-0.1.0.0" updaterversion="ChromeOSUpdateEngine-0.1.0.0" protocol="3.0" ismachine="1">
     <os version="Indy" platform="Chrome OS" sp="0.11.254.2011_03_09_1814_i686"></os>
-    <app appid="{DEV-BUILD}" version="0.11.254.2011_03_09_1814" lang="en-US" track="developer-build" board="x86-generic" hardware_class="BETA DVT" delta_okay="true">
+    <app appid="{DEV-BUILD}" version="11.254.2011_03_09_1814" lang="en-US" track="developer-build" board="x86-generic" hardware_class="BETA DVT" delta_okay="true">
         <updatecheck></updatecheck>
         <event eventtype="3" eventresult="2" previousversion="0.11.216.2011_03_02_1358"></event>
     </app>
@@ -129,9 +117,9 @@ class DevserverTest(unittest.TestCase):
 
     return process
 
-  def VerifyHandleUpdate(self, protocol):
+  def VerifyHandleUpdate(self):
     """Tests running the server and getting an update for the given protocol."""
-    request = urllib2.Request(UPDATE_URL, UPDATE_REQUEST[protocol])
+    request = urllib2.Request(UPDATE_URL, UPDATE_REQUEST)
     connection = urllib2.urlopen(request)
     response = connection.read()
     connection.close()
@@ -140,25 +128,13 @@ class DevserverTest(unittest.TestCase):
     # Parse the response and check if it contains the right result.
     dom = minidom.parseString(response)
     update = dom.getElementsByTagName('updatecheck')[0]
-    if protocol == '2.0':
-      url = self.VerifyV2Response(update)
-    else:
-      url = self.VerifyV3Response(update)
+    url = self.VerifyV3Response(update)
 
     # Try to fetch the image.
     connection = urllib2.urlopen(url)
     contents = connection.read()
     connection.close()
     self.assertEqual('Developers, developers, developers!\n', contents)
-
-  def VerifyV2Response(self, update):
-    """Verifies the update DOM from a v2 response and returns the url."""
-    codebase = update.getAttribute('codebase')
-    self.assertEqual(SERVE_URL + TEST_IMAGE_NAME, codebase)
-
-    hash_value = update.getAttribute('hash')
-    self.assertEqual(EXPECTED_HASH, hash_value)
-    return codebase
 
   def VerifyV3Response(self, update):
     """Verifies the update DOM from a v3 response and returns the url."""
@@ -182,11 +158,8 @@ class DevserverTest(unittest.TestCase):
     return url
 
   # Tests begin here.
-  def testHandleUpdateV2(self):
-    self.VerifyHandleUpdate('2.0')
-
   def testHandleUpdateV3(self):
-    self.VerifyHandleUpdate('3.0')
+    self.VerifyHandleUpdate()
 
   def testApiBadSetNextUpdateRequest(self):
     """Tests sending a bad setnextupdate request."""

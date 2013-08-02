@@ -173,7 +173,8 @@ def ParseUpdateRequest(request_string):
 
   Args:
     request_dom: an xml string containing the update request.
-  Returns tuple consisting of protocol string, app element, event element and
+  Returns:
+    Tuple consisting of protocol string, app element, event element, and
     update_check element.
   Raises UnknownProtocolRequestedException if we do not understand the
     protocol.

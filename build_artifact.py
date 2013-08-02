@@ -228,9 +228,9 @@ class DeltaPayloadsArtifact(BuildArtifact):
         # Setup symlink so that AU will work for this payload.
         os.symlink(
             os.path.join(os.pardir, os.pardir,
-                         devserver_constants.STATEFUL_UPDATE_FILE),
+                         devserver_constants.STATEFUL_FILE),
             os.path.join(artifact.install_dir,
-                         devserver_constants.STATEFUL_UPDATE_FILE))
+                         devserver_constants.STATEFUL_FILE))
       except ArtifactDownloadError as e:
         self._Log('Could not process %s: %s', artifact, e)
 
@@ -362,7 +362,7 @@ ARTIFACT_IMPLEMENTATION_MAP = {
   artifact_info.DELTA_PAYLOADS:
       ImplDescription(DeltaPayloadsArtifact, '.*_delta_.*'),
   artifact_info.STATEFUL_PAYLOAD:
-      ImplDescription(BuildArtifact, devserver_constants.STATEFUL_UPDATE_FILE),
+      ImplDescription(BuildArtifact, devserver_constants.STATEFUL_FILE),
 
   artifact_info.BASE_IMAGE:
       ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,

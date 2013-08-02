@@ -69,7 +69,7 @@ GS_FILE_NAMES = [
   devserver_constants.BASE_IMAGE_FILE,
   devserver_constants.RECOVERY_IMAGE_FILE,
   devserver_constants.UPDATE_FILE,
-  devserver_constants.STATEFUL_UPDATE_FILE,
+  devserver_constants.STATEFUL_FILE,
   devserver_constants.AUTOTEST_DIR,
 ]
 
@@ -139,9 +139,9 @@ class XBuddy(build_util.BuildObject):
     directory (XBUDDY_TIMESTAMP_DIR).
 
   Private class members:
-    _true_values - used for interpreting boolean values
-    _staging_thread_count - track download requests
-    _timestamp_folder - directory with empty files standing in as timestamps
+    _true_values: used for interpreting boolean values
+    _staging_thread_count: track download requests
+    _timestamp_folder: directory with empty files standing in as timestamps
                         for each image currently cached by xBuddy
   """
   _true_values = ['true', 't', 'yes', 'y']
@@ -160,7 +160,6 @@ class XBuddy(build_util.BuildObject):
     # Default to x86-generic, if that isn't set.
     self._board = (board or self.GetDefaultBoardID())
     _Log("Default board used by xBuddy: %s", self._board)
-    self._path_lookup_table = xbuddy_lookup_table.paths(self._board)
 
     self._timestamp_folder = os.path.join(self.static_dir,
                                           Timestamp.XBUDDY_TIMESTAMP_DIR)
@@ -181,7 +180,7 @@ class XBuddy(build_util.BuildObject):
                                                           'suffix':suffix}
     cmd = 'gsutil cat %s' % latest_addr
     msg = 'Failed to find build at %s' % latest_addr
-    # Full release + version is in the LATEST file
+    # Full release + version is in the LATEST file.
     version = gsutil_util.GSUtilRun(cmd, msg)
 
     return devserver_constants.IMAGE_DIR % {'board':board,
@@ -190,13 +189,13 @@ class XBuddy(build_util.BuildObject):
 
   def _LookupChannel(self, board, channel='stable'):
     """Check the channel folder for the version number of interest."""
-    # Get all names in channel dir. Get 10 highest directories by version
+    # Get all names in channel dir. Get 10 highest directories by version.
     _Log("Checking channel '%s' for latest '%s' image", channel, board)
     channel_dir = devserver_constants.GS_CHANNEL_DIR % {'channel':channel,
                                                         'board':board}
     latest_version = gsutil_util.GetLatestVersionFromGSDir(channel_dir)
 
-    # Figure out release number from the version number
+    # Figure out release number from the version number.
     image_url = devserver_constants.IMAGE_DIR % {'board':board,
                                                  'suffix':RELEASE,
                                                  'version':'R*'+latest_version}
@@ -211,22 +210,21 @@ class XBuddy(build_util.BuildObject):
 
   def _LookupVersion(self, board, version):
     """Search GS image releases for the highest match to a version prefix."""
-    # Build the pattern for GS to match
+    # Build the pattern for GS to match.
     _Log("Checking gs for latest '%s' image with prefix '%s'", board, version)
     image_url = devserver_constants.IMAGE_DIR % {'board':board,
                                                  'suffix':RELEASE,
                                                  'version':version + '*'}
     image_dir = os.path.join(devserver_constants.GS_IMAGE_DIR, image_url)
 
-    # grab the newest version of the ones matched
+    # Grab the newest version of the ones matched.
     full_version = gsutil_util.GetLatestVersionFromGSDir(image_dir)
     return devserver_constants.IMAGE_DIR % {'board':board,
                                             'suffix':RELEASE,
                                             'version':full_version}
 
   def _ResolveVersionToUrl(self, board, version):
-    """
-    Handle version aliases for remote payloads in GS.
+    """Handle version aliases for remote payloads in GS.
 
     Args:
       board: as specified in the original call. (i.e. x86-generic, parrot)
@@ -238,10 +236,10 @@ class XBuddy(build_util.BuildObject):
         4. version prefix (i.e. RX-Y.X, RX-Y, RX)
 
     Returns:
-      image_url is where the image dir is actually found on GS
+      Location where the image dir is actually found on GS
 
     """
-    # TODO (joychen) Convert separate calls to a dict + error out bad paths
+    # TODO(joychen): Convert separate calls to a dict + error out bad paths.
 
     # Only the last segment of the alias is variable relative to the rest.
     version_tuple = version.rsplit('-', 1)
@@ -279,41 +277,31 @@ class XBuddy(build_util.BuildObject):
       os.unlink(link)
     os.symlink(target, link)
 
-  def _GetLatestLocalVersion(self, board, file_name):
+  def _GetLatestLocalVersion(self, board):
     """Get the version of the latest image built for board by build_image
 
     Updates the symlink reference within the xBuddy static dir to point to
     the real image dir in the local /build/images directory.
 
     Args:
-      board - board-suffix
-      file_name - the filename of the image we have cached
+      board: board that image was built for.jj
 
     Returns:
-      version - the discovered version of the image.
-      found - True if file was found
+      The discovered version of the image.
     """
     latest_local_dir = self.GetLatestImageDir(board)
     if not latest_local_dir or not os.path.exists(latest_local_dir):
       raise XBuddyException('No builds found for %s. Did you run build_image?' %
                             board)
 
-    # assume that the version number is the name of the directory
-    version = os.path.basename(latest_local_dir)
+    # Assume that the version number is the name of the directory.
+    return os.path.basename(latest_local_dir)
 
-    path_to_image = os.path.join(latest_local_dir, file_name)
-    if os.path.exists(path_to_image):
-      return version, True
-    else:
-      return version, False
+  def _InterpretPath(self, path):
+    """Split and return the pieces of an xBuddy path name
 
-  def _InterpretPath(self, path_list):
-    """
-    Split and return the pieces of an xBuddy path name
-
-    input:
-      path_list: the segments of the path xBuddy Get was called with.
-      Documentation of path_list can be found in devserver.py:xbuddy
+    Args:
+      path: the path xBuddy Get was called with.
 
     Return:
       tuple of (image_type, board, version)
@@ -321,31 +309,28 @@ class XBuddy(build_util.BuildObject):
     Raises:
       XBuddyException: if the path can't be resolved into valid components
     """
-    path_list = list(path_list)
+    path_list = filter(None, path.split('/'))
 
     # Required parts of path parsing.
     try:
       # Determine if image is explicitly local or remote.
-      is_local = False
-      if path_list[0] == LOCAL:
-        path_list.pop(0)
-        is_local = True
-      elif path_list[0] == REMOTE:
-        path_list.pop(0)
+      is_local = True
+      if path_list[0] in (REMOTE, LOCAL):
+        is_local = (path_list.pop(0) == REMOTE)
 
-      # Set board
+      # Set board.
       board = path_list.pop(0)
 
-      # Set defaults
+      # Set defaults.
       version = LATEST
       image_type = GS_ALIASES[0]
     except IndexError:
       msg = "Specify at least the board in your xBuddy call. Your path: %s"
       raise XBuddyException(msg % os.path.join(path_list))
 
-    # Read as much of the xBuddy path as possible
+    # Read as much of the xBuddy path as possible.
     try:
-      # Override default if terminal is a valid artifact alias or a version
+      # Override default if terminal is a valid artifact alias or a version.
       terminal = path_list[-1]
       if terminal in GS_ALIASES + LOCAL_ALIASES:
         image_type = terminal
@@ -378,13 +363,13 @@ class XBuddy(build_util.BuildObject):
       build_ids.extend(['/'.join([b, v]) for v
                         in os.listdir(board_dir) if not v==LATEST])
 
-    # Check currently registered images
+    # Check currently registered images.
     for f in os.listdir(self._timestamp_folder):
       build_id = Timestamp.TimestampToBuild(f)
       if build_id in build_ids:
         build_ids.remove(build_id)
 
-    # Symlink undiscovered images, and update timestamps if manage_builds is on
+    # Symlink undiscovered images, and update timestamps if manage_builds is on.
     for build_id in build_ids:
       link = os.path.join(self.static_dir, build_id)
       target = os.path.join(self.images_dir, build_id)
@@ -398,7 +383,7 @@ class XBuddy(build_util.BuildObject):
     Returns:
       list of tuples that matches xBuddy build/version to timestamps in long
     """
-    # update currently cached builds
+    # Update currently cached builds.
     build_dict = {}
 
     for f in os.listdir(self._timestamp_folder):
@@ -423,6 +408,9 @@ class XBuddy(build_util.BuildObject):
 
   def _CleanCache(self):
     """Delete all builds besides the first _XBUDDY_CAPACITY builds"""
+    if not self._manage_builds:
+      return
+
     cached_builds = [e[0] for e in self._ListBuildTimes()]
     _Log('In cache now: %s', cached_builds)
 
@@ -435,8 +423,8 @@ class XBuddy(build_util.BuildObject):
       os.unlink(time_file)
       clear_dir = os.path.join(self.static_dir, b_path)
       try:
-        # handle symlinks, in the case of links to local builds if enabled
-        if self._manage_builds and os.path.islink(clear_dir):
+        # Handle symlinks, in the case of links to local builds if enabled.
+        if os.path.islink(clear_dir):
           target = os.readlink(clear_dir)
           _Log('Deleting locally built image at %s', target)
 
@@ -447,81 +435,75 @@ class XBuddy(build_util.BuildObject):
           _Log('Deleting downloaded image at %s', clear_dir)
           shutil.rmtree(clear_dir)
 
-      except Exception:
-        raise XBuddyException('Failed to clear build in %s.' % clear_dir)
+      except Exception as err:
+        raise XBuddyException('Failed to clear %s: %s' % (clear_dir, err))
 
   def _GetFromGS(self, build_id, image_type, lookup_only):
-    """Check if the artifact is available locally. Download from GS if not.
-
-    Return:
-      boolean - True if cached.
-    """
+    """Check if the artifact is available locally. Download from GS if not."""
     gs_url = os.path.join(devserver_constants.GS_IMAGE_DIR,
                           build_id)
 
-    # stage image if not found in cache
+    # Stage image if not found in cache.
     file_name = GS_ALIAS_TO_FILENAME[image_type]
     file_loc = os.path.join(self.static_dir, build_id, file_name)
     cached = os.path.exists(file_loc)
 
     if not cached:
-      if lookup_only:
-        return False
-      else:
+      if not lookup_only:
         artifact = GS_ALIAS_TO_ARTIFACT[image_type]
         self._Download(gs_url, artifact)
-        return True
     else:
       _Log('Image already cached.')
-      return True
 
-  def _GetArtifact(self, path, lookup_only=False):
+  def _GetArtifact(self, path_list, board=None, lookup_only=False):
     """Interpret an xBuddy path and return directory/file_name to resource.
 
     Returns:
     image_url to the directory
     file_name of the artifact
-    found = True if the artifact is cached
 
     Raises:
-    XBuddyException if the path could not be translated
+      XBuddyException: if the path could not be translated
     """
+    path = '/'.join(path_list)
     # Rewrite the path if there is an appropriate default.
-    path = self._path_lookup_table.get('/'.join(path), path)
+    path = xbuddy_lookup_table.paths().get(path, path)
+    # Fill in the board if the string needs it.
+    path = path % {'board': board or self._board}
 
-    # Parse the path
+    # Parse the path.
     image_type, board, version, is_local = self._InterpretPath(path)
 
-    found = False
     if is_local:
-      # Get a local image
+      # Get a local image.
       if image_type not in LOCAL_ALIASES:
         raise XBuddyException('Bad local image type: %s. Use one of: %s' %
                               (image_type, LOCAL_ALIASES))
       file_name = LOCAL_ALIAS_TO_FILENAME[image_type]
 
       if version == LATEST:
-        # Get the latest local image for the given board
-        version, found = self._GetLatestLocalVersion(board, file_name)
-      else:
-        # An exact version path in build/images was specified for this board
-        local_file = os.path.join(self.images_dir, board, version, file_name)
-        if os.path.exists(local_file):
-          found = True
+        # Get the latest local image for the given board.
+        version = self._GetLatestLocalVersion(board)
 
       image_url = os.path.join(board, version)
+
+      artifact_url = os.path.join(self.static_dir, image_url, file_name)
+      if not os.path.exists(artifact_url):
+        raise XBuddyException('Local artifact not in static_dir at %s/%s' %
+            (image_url, file_name))
+
     else:
-      # Get a remote image
+      # Get a remote image.
       if image_type not in GS_ALIASES:
         raise XBuddyException('Bad remote image type: %s. Use one of: %s' %
                               (image_type, GS_ALIASES))
       file_name = GS_ALIAS_TO_FILENAME[image_type]
 
-      # Interpret the version (alias), and get gs address
+      # Interpret the version (alias), and get gs address.
       image_url = self._ResolveVersionToUrl(board, version)
-      found = self._GetFromGS(image_url, image_type, lookup_only)
+      self._GetFromGS(image_url, image_type, lookup_only)
 
-    return image_url, file_name, found
+    return image_url, file_name
 
   ############################ BEGIN PUBLIC METHODS
 
@@ -539,56 +521,58 @@ class XBuddy(build_util.BuildObject):
     """Returns the number of images cached by xBuddy."""
     return str(_XBUDDY_CAPACITY)
 
-  def Translate(self, path_list):
+  def Translate(self, path_list, board=None):
     """Translates an xBuddy path to a real path to artifact if it exists.
 
-    Equivalent to the Get call, minus downloading and updating timestamps.
-    The returned path is always the path to the directory.
+    Equivalent to the Get call, minus downloading and updating timestamps,
 
     Returns:
-      build_id - Path to the image or update directory on the devserver.
-      e.g. x86-generic/R26-4000.0.0/chromium-test-image.bin
-      or x86-generic/R26-4000.0.0/
+      build_id: Path to the image or update directory on the devserver.
+        e.g. 'x86-generic/R26-4000.0.0'
+        The returned path is always the path to the directory within
+        static_dir, so it is always the build_id of the image.
+      file_name: The file name of the artifact. Can take any of the file
+        values in devserver_constants.
+        e.g. 'chromiumos_test_image.bin' or 'update.gz' if the path list
+        specified 'test' or 'full_payload' artifacts, respectively.
 
-      found - Whether or not the given artifact is currently cached.
-
-    Throws:
-      XBuddyException - if the path couldn't be translated
+    Raises:
+      XBuddyException: if the path couldn't be translated
     """
     self._SyncRegistryWithBuildImages()
+    build_id, file_name = self._GetArtifact(path_list, board, lookup_only=True)
 
-    build_id, _file_name, found = self._GetArtifact(path_list, lookup_only=True)
+    _Log('Returning path to payload: %s/%s', build_id, file_name)
+    return build_id, file_name
 
-    _Log('Returning path to payload: %s', build_id)
-    return build_id, found
-
-  def Get(self, path_list, return_dir=False):
+  def Get(self, path_list, board=None):
     """The full xBuddy call, returns resource specified by path_list.
 
     Please see devserver.py:xbuddy for full documentation.
+
     Args:
       path_list: [board, version, alias] as split from the xbuddy call url
-      return_dir: boolean, if set to true, returns the dir name instead.
+      board: string, if set, it will override the default board in path rewrites
 
     Returns:
-      Path to the image or update directory on the devserver.
-      e.g. x86-generic/R26-4000.0.0/chromium-test-image.bin
-      or x86-generic/R26-4000.0.0/
+      build_id: Path to the image or update directory on the devserver.
+          e.g. 'x86-generic/R26-4000.0.0'
+          The returned path is always the path to the directory within
+          static_dir, so it is always the build_id of the image.
+      file_name: The file name of the artifact. Can take any of the file
+          values in devserver_constants.
+          e.g. 'chromiumos_test_image.bin' or 'update.gz' if the path list
+          specified 'test' or 'full_payload' artifacts, respectively.
 
     Raises:
-      XBuddyException if path is invalid
+      XBuddyException: if path is invalid
     """
     self._SyncRegistryWithBuildImages()
-    build_id, file_name, _found = self._GetArtifact(path_list)
+    build_id, file_name = self._GetArtifact(path_list, board)
 
     Timestamp.UpdateTimestamp(self._timestamp_folder, build_id)
-
     #TODO (joyc): run in sep thread
     self._CleanCache()
 
-    return_url = os.path.join('static', build_id)
-    if not return_dir:
-      return_url =  os.path.join(return_url, file_name)
-
-    _Log('Returning path to payload: %s', return_url)
-    return return_url
+    _Log('Returning path to payload: %s/%s', build_id, file_name)
+    return build_id, file_name

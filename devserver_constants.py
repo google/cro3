@@ -22,8 +22,14 @@ BASE_IMAGE_FILE = 'chromiumos_base_image.bin'
 IMAGE_FILE = 'chromiumos_image.bin'
 FACTORY_IMAGE_FILE = 'factory_test/chromiumos_factory_image.bin'
 RECOVERY_IMAGE_FILE = 'recovery_image.bin'
-STATEFUL_UPDATE_FILE = 'stateful.tgz'
 TEST_IMAGE_FILE = 'chromiumos_test_image.bin'
+
+ALL_IMAGES = (
+  BASE_IMAGE_FILE,
+  IMAGE_FILE,
+  RECOVERY_IMAGE_FILE,
+  TEST_IMAGE_FILE,
+)
 
 #### Update files
 CACHE_DIR = 'cache'

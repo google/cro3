@@ -26,6 +26,17 @@ import log_util
 import update_payload
 
 
+# If used by client in place of an pre-update version string, forces an update
+# to the client regardless of the relative versions of the payload and client.
+FORCED_UPDATE = 'ForcedUpdate'
+
+# Files needed to serve an update.
+UPDATE_FILES = (
+  constants.UPDATE_FILE,
+  constants.STATEFUL_FILE,
+  constants.METADATA_FILE
+)
+
 # Module-local log function.
 def _Log(message, *args):
   return log_util.LogWithTag('UPDATE', message, *args)
@@ -47,7 +58,7 @@ def _ChangeUrlPort(url, new_port):
     host_port[1] = new_port
 
   print host_port
-  netloc = "%s:%s" % tuple(host_port)
+  netloc = '%s:%s' % tuple(host_port)
 
   return urlparse.urlunsplit((scheme, netloc, path, query, fragment))
 
@@ -121,7 +132,6 @@ class Autoupdate(build_util.BuildObject):
   """Class that contains functionality that handles Chrome OS update pings.
 
   Members:
-    use_test_image:  use chromiumos_test_image.bin rather than the standard.
     urlbase:         base URL, other than devserver, for update images.
     forced_image:    path to an image to use for all updates.
     payload_path:    path to pre-generated payload to serve.
@@ -147,19 +157,14 @@ class Autoupdate(build_util.BuildObject):
   SIZE_ATTR = 'size'
   ISDELTA_ATTR = 'is_delta'
 
-  def __init__(self, test_image=False, urlbase=None,
-               forced_image=None, payload_path=None,
+  def __init__(self, xbuddy, urlbase=None, forced_image=None, payload_path=None,
                proxy_port=None, src_image='', patch_kernel=True, board=None,
                copy_to_static_root=True, private_key=None,
                critical_update=False, remote_payload=False, max_updates= -1,
                host_log=False, *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
-    self.use_test_image = test_image
-    if urlbase:
-      self.urlbase = urlbase
-    else:
-      self.urlbase = None
-
+    self.xbuddy = xbuddy
+    self.urlbase = urlbase or None
     self.forced_image = forced_image
     self.payload_path = payload_path
     self.src_image = src_image
@@ -173,7 +178,6 @@ class Autoupdate(build_util.BuildObject):
     self.max_updates = max_updates
     self.host_log = host_log
 
-    # Path to pre-generated file.
     self.pregenerated_path = None
 
     # Initialize empty host info cache. Used to keep track of various bits of
@@ -221,13 +225,9 @@ class Autoupdate(build_util.BuildObject):
     """Returns the version of the image based on the name of the directory."""
     latest_version = os.path.basename(image_dir)
     parts = latest_version.split('-')
-    if len(parts) == 2:
-      # Old-style, e.g. "0.15.938.2011_08_23_0941-a1".
-      # TODO(derat): Remove the code for old-style versions after 20120101.
-      return parts[0]
-    else:
-      # New-style, e.g. "R16-1102.0.2011_09_30_0806-a1".
-      return parts[1]
+    # If we can't get a version number from the directory, default to a high
+    # number to allow the update to happen
+    return parts[1] if len(parts) == 3 else "9999.0.0"
 
   @staticmethod
   def _CanUpdate(client_version, latest_version):
@@ -236,33 +236,13 @@ class Autoupdate(build_util.BuildObject):
     _Log('client version %s latest version %s', client_version, latest_version)
 
     client_tokens = client_version.replace('_', '').split('.')
-    # If the client has an old four-token version like "0.16.892.0", drop the
-    # first two tokens -- we use versions like "892.0.0" now.
-    # TODO(derat): Remove the code for old-style versions after 20120101.
-    if len(client_tokens) == 4:
-      client_tokens = client_tokens[2:]
-
     latest_tokens = latest_version.replace('_', '').split('.')
-    if len(latest_tokens) == 4:
-      latest_tokens = latest_tokens[2:]
 
-    for i in range(min(len(client_tokens), len(latest_tokens))):
-      if int(latest_tokens[i]) == int(client_tokens[i]):
-        continue
-      return int(latest_tokens[i]) > int(client_tokens[i])
-
-    # Favor four-token new-style versions on the server over old-style versions
-    # on the client if everything else matches.
-    return len(latest_tokens) > len(client_tokens)
-
-  def _GetImageName(self):
-    """Returns the name of the image that should be used."""
-    if self.use_test_image:
-      image_name = 'chromiumos_test_image.bin'
+    if len(latest_tokens) == len(client_tokens) == 3:
+      return latest_tokens > client_tokens
     else:
-      image_name = 'chromiumos_image.bin'
-
-    return image_name
+      # If the directory name isn't a version number, let it pass.
+      return True
 
   @staticmethod
   def IsDeltaFormatFile(filename):
@@ -356,7 +336,6 @@ class Autoupdate(build_util.BuildObject):
     """Force generates an update payload based on the given image_path.
 
     Args:
-      src_image: image we are updating from (Null/empty for non-delta)
       image_path: full path to the image.
       output_dir: the directory to write the update payloads to
     Raises:
@@ -383,137 +362,108 @@ class Autoupdate(build_util.BuildObject):
       image_path: full path to the image.
       static_image_dir: the directory to move images to after generating.
     Returns:
-      update directory relative to static_image_dir. None if it should
-      serve from the static_image_dir.
+      update directory relative to static_image_dir.
     Raises:
       AutoupdateError if it we need to generate a payload and fail to do so.
     """
     _Log('Generating update for src %s image %s', self.src_image, image_path)
 
-    # If it was pregenerated_path, don't regenerate
+    # If it was pregenerated, don't regenerate.
     if self.pregenerated_path:
       return self.pregenerated_path
 
-    # Which sub_dir of static_image_dir should hold our cached update image
+    # Which sub_dir of static_image_dir should hold our cached update image.
     cache_sub_dir = self.FindCachedUpdateImageSubDir(self.src_image,
                                                      image_path)
     _Log('Caching in sub_dir "%s"', cache_sub_dir)
 
-    # The cached payloads exist in a cache dir
-    cache_update_payload = os.path.join(static_image_dir,
-                                        cache_sub_dir,
+    # The cached payloads exist in a cache dir.
+    cache_dir = os.path.join(static_image_dir, cache_sub_dir)
+
+    cache_update_payload = os.path.join(cache_dir,
                                         constants.UPDATE_FILE)
-    cache_stateful_payload = os.path.join(static_image_dir,
-                                          cache_sub_dir,
+    cache_stateful_payload = os.path.join(cache_dir,
                                           constants.STATEFUL_FILE)
-
-    full_cache_dir = os.path.join(static_image_dir, cache_sub_dir)
     # Check to see if this cache directory is valid.
-    if not os.path.exists(cache_update_payload) or not os.path.exists(
-        cache_stateful_payload):
-      self.GenerateUpdateImage(image_path, full_cache_dir)
+    if not (os.path.exists(cache_update_payload) and
+            os.path.exists(cache_stateful_payload)):
+      self.GenerateUpdateImage(image_path, cache_dir)
 
+    # Don't regenerate the image for this devserver instance.
     self.pregenerated_path = cache_sub_dir
 
     # Generate the cache file.
-    self.GetLocalPayloadAttrs(full_cache_dir)
-    cache_metadata_file = os.path.join(full_cache_dir, constants.METADATA_FILE)
+    self.GetLocalPayloadAttrs(cache_dir)
 
-    # Generation complete, copy if requested.
-    if self.copy_to_static_root:
-      # The final results exist directly in static
-      cros_update_payload = os.path.join(static_image_dir,
-                                         constants.UPDATE_FILE)
-      stateful_payload = os.path.join(static_image_dir, constants.STATEFUL_FILE)
-      metadata_file = os.path.join(static_image_dir, constants.METADATA_FILE)
-      common_util.CopyFile(cache_update_payload, cros_update_payload)
-      common_util.CopyFile(cache_stateful_payload, stateful_payload)
-      common_util.CopyFile(cache_metadata_file, metadata_file)
-      return None
-    else:
-      return self.pregenerated_path
+    return cache_sub_dir
 
-  def GenerateLatestUpdateImage(self, board, client_version,
-                                static_image_dir):
-    """Generates an update using the latest image that has been built.
+  def _Symlink(self, src_path, dest_path):
+    if os.path.exists(src_path):
+      if os.path.lexists(dest_path):
+        os.unlink(dest_path)
+      _Log('Creating symlink to: %s --> %s', dest_path, src_path)
+      os.symlink(src_path, dest_path)
 
-    This will only generate an update if the newest update is newer than that
-    on the client or client_version is 'ForcedUpdate'.
+  def _SymlinkUpdateFiles(self, image_dir):
+    """Set files in the base static_dir to link to most recent update files.
+
+    Every time an update is called, clear existing files/symlinks in the
+    devserver's static_dir, and replace them with symlinks.
+    This allows the base of archive_dir to serve the most recent update.
 
     Args:
-      board: Name of the board.
-      client_version: Current version of the client or 'ForcedUpdate'
-      static_image_dir: the directory to move images to after generating.
-    Returns:
-      Name of the update directory relative to the static dir. None if it should
-        serve from the static_image_dir.
-    Raises:
-      AutoupdateError if it failed to generate the payload or can't update
-        the given client_version.
+      image_dir: Where update files are staged.
     """
-    latest_image_dir = self.GetLatestImageDir(board)
-    latest_version = self._GetVersionFromDir(latest_image_dir)
-    latest_image_path = os.path.join(latest_image_dir, self._GetImageName())
+    if self.static_dir == image_dir:
+      _Log("Serving from static directory.")
+      return
+    for f in UPDATE_FILES:
+      link = os.path.join(self.static_dir, f)
+      target = os.path.join(image_dir, f)
+      self._Symlink(target, link)
 
-     # Check to see whether or not we should update.
-    if client_version != 'ForcedUpdate' and not self._CanUpdate(
-        client_version, latest_version):
-      raise AutoupdateError('Update check received but no update available '
-                            'for client')
+  def GetUpdateForLabel(self, client_version, label,
+                        image_name=constants.TEST_IMAGE_FILE):
+    """Given a label, get an update from the directory.
 
-    return self.GenerateUpdateImageWithCache(latest_image_path,
-                                             static_image_dir=static_image_dir)
-
-  def GenerateUpdatePayload(self, board, client_version, static_image_dir):
-    """Generates an update for an image and returns the relative payload dir.
-
+    Args:
+      client_version: Current version of the client or FORCED_UPDATE
+      label: the relative directory inside the static dir
+      image_name: If the image type was specified by the update rpc, we try to
+        find an image with this file name first. This is by default
+        "chromiumos_test_image.bin" but can also take any of the values in
+        devserver_constants.ALL_IMAGES
     Returns:
-      payload dir relative to static_image_dir. None if it should
-      serve from the static_image_dir.
+      A relative path to the directory with the update payload.
+      This is the label if an update did not need to be generated, but can
+      be label/cache/hashed_dir_for_update.
     Raises:
-      AutoupdateError if it failed to generate the payload.
+      AutoupdateError: If client version is higher than available update found
+        at the directory given by the label.
     """
-    if self.payload_path:
-      dest_path = os.path.join(static_image_dir, constants.UPDATE_FILE)
-      dest_stateful = os.path.join(static_image_dir, constants.STATEFUL_FILE)
+    _Log('Update label/file: %s/%s', label, image_name)
+    static_image_dir = _NonePathJoin(self.static_dir, label)
+    static_update_path = _NonePathJoin(static_image_dir, constants.UPDATE_FILE)
+    static_image_path = _NonePathJoin(static_image_dir, image_name)
 
-      # If the forced payload is not already in our static_image_dir,
-      # copy it there.
-      src_path = os.path.abspath(self.payload_path)
-      src_stateful = os.path.join(os.path.dirname(src_path),
-                                  constants.STATEFUL_FILE)
-      # Only copy the files if the source directory is different from dest.
-      if os.path.dirname(src_path) != os.path.abspath(static_image_dir):
-        common_util.CopyFile(src_path, dest_path)
+    # Update the client only if client version is older than available update.
+    latest_version = self._GetVersionFromDir(static_image_dir)
+    if not (client_version == FORCED_UPDATE or
+            self._CanUpdate(client_version, latest_version)):
+      raise AutoupdateError(
+          'Update check received but no update available for client')
 
-        # The stateful payload is optional.
-        if os.path.exists(src_stateful):
-          common_util.CopyFile(src_stateful, dest_stateful)
-        else:
-          _Log('WARN: %s not found. Expected for dev and test builds',
-               constants.STATEFUL_FILE)
-          if os.path.exists(dest_stateful):
-            os.remove(dest_stateful)
+    if label and os.path.exists(static_update_path):
+      # An update payload was found for the given label, return it.
+      return label
+    elif os.path.exists(static_image_path) and common_util.IsInsideChroot():
+      # Image was found for the given label. Generate update if we can.
+      rel_path = self.GenerateUpdateImageWithCache(
+          static_image_path, static_image_dir=static_image_dir)
+      return _NonePathJoin(label, rel_path)
 
-      # Serve from the main directory so rel_path is None.
-      return None
-    elif self.forced_image:
-      return self.GenerateUpdateImageWithCache(
-          self.forced_image,
-          static_image_dir=static_image_dir)
-    else:
-      update_path = os.path.join(static_image_dir, constants.UPDATE_FILE)
-      # if a label was specified, check if the update file is there.
-      if static_image_dir != self.static_dir and os.path.exists(update_path):
-        return None
-
-      if not board:
-        raise AutoupdateError(
-          'Failed to generate update. '
-          'You must set --board when pre-generating latest update.')
-
-      return self.GenerateLatestUpdateImage(board, client_version,
-                                            static_image_dir)
+    # The label didn't resolve.
+    return None
 
   def PreGenerateUpdate(self):
     """Pre-generates an update and prints out the relative path it.
@@ -524,9 +474,8 @@ class Autoupdate(build_util.BuildObject):
       AutoupdateError if it failed to generate the payload.
     """
     _Log('Pre-generating the update payload')
-    # Does not work with labels so just use static dir.
-    pregenerated_update = self.GenerateUpdatePayload(self.board, '0.0.0.0',
-                                                     self.static_dir)
+    # Does not work with labels so just use static dir. (empty label)
+    pregenerated_update = self.GetPathToPayload('', FORCED_UPDATE, self.board)
     print 'PREGENERATED_UPDATE=%s' % _NonePathJoin(pregenerated_update,
                                                    constants.UPDATE_FILE)
     return pregenerated_update
@@ -609,7 +558,7 @@ class Autoupdate(build_util.BuildObject):
     # Obtain (or init) info object for this client.
     curr_host_info = self.host_infos.GetInitHostInfo(client_ip)
 
-    client_version = 'ForcedUpdate'
+    client_version = FORCED_UPDATE
     board = None
     if app:
       client_version = app.getAttribute('version')
@@ -666,7 +615,87 @@ class Autoupdate(build_util.BuildObject):
     _Log('Handling update ping as %s', hostname)
     return static_urlbase
 
-  def HandleUpdatePing(self, data, label=None):
+  def GetPathToPayload(self, label, client_version, board):
+    """Find a payload locally.
+
+    See devserver's update rpc for documentation.
+
+    Args:
+      label: from update request
+      client_version: from update request
+      board: from update request
+    Return:
+      The relative path to an update from the static_dir
+    Raises:
+      AutoupdateError: If the update could not be found.
+    """
+    path_to_payload = None
+    #TODO(joychen): deprecate --payload flag
+    if self.payload_path:
+      # Copy the image from the path to '/forced_payload'
+      label = 'forced_payload'
+      dest_path = os.path.join(self.static_dir, label, constants.UPDATE_FILE)
+      dest_stateful = os.path.join(self.static_dir, label,
+                                   constants.STATEFUL_FILE)
+
+      src_path = os.path.abspath(self.payload_path)
+      src_stateful = os.path.join(os.path.dirname(src_path),
+                                  constants.STATEFUL_FILE)
+      common_util.MkDirP(os.path.join(self.static_dir, label))
+      self._Symlink(src_path, dest_path)
+      if os.path.exists(src_stateful):
+        # The stateful payload is optional.
+        self._Symlink(src_stateful, dest_stateful)
+      else:
+        _Log('WARN: %s not found. Expected for dev and test builds',
+             constants.STATEFUL_FILE)
+        if os.path.exists(dest_stateful):
+          os.remove(dest_stateful)
+      path_to_payload = self.GetUpdateForLabel(client_version, label)
+    #TODO(joychen): deprecate --image flag
+    elif self.forced_image:
+      src_path = os.path.abspath(self.forced_image)
+      if os.path.exists(src_path) and common_util.IsInsideChroot():
+        # Image was found for the given label. Generate update if we can.
+        return self.GenerateUpdateImageWithCache(
+            src_path, static_image_dir=self.static_dir)
+    else:
+      label = label or ''
+      label_list = label.split('/')
+      # Suppose that the path follows old protocol of indexing straight
+      # into static_dir with board/version label.
+      # Attempt to get the update in that directory, generating if necc.
+      path_to_payload = self.GetUpdateForLabel(client_version, label)
+      if path_to_payload is None:
+        # There was no update or image found in the directory.
+        # Let XBuddy find an image, and then generate an update to it.
+        if label_list[0] == 'xbuddy':
+          # If path explicitly calls xbuddy, pop off the tag.
+          label_list.pop()
+        x_label, image_name = self.xbuddy.Translate(label_list, board)
+        if image_name not in constants.ALL_IMAGES:
+          raise AutoupdateError(
+              "Use an image alias: dev, base, test, or recovery.")
+        # Path has been resolved, try to get the image.
+        path_to_payload = self.GetUpdateForLabel(client_version, x_label,
+                                                 image_name)
+        if path_to_payload is None:
+          # Neither image nor update payload found after translation.
+          # Try to get an update to a test image from GS using the label.
+          path_to_payload, _image_name = self.xbuddy.Get(
+              ['remote', label, 'full_payload'])
+
+    # One of the above options should have gotten us a relative path.
+    if path_to_payload is None:
+      raise AutoupdateError('Failed to get an update for: %s' % label)
+    else:
+      # Add links from the static directory to the update.
+      self._SymlinkUpdateFiles(
+          _NonePathJoin(self.static_dir, path_to_payload))
+
+    return path_to_payload
+
+  def HandleUpdatePing(self, data, label=''):
     """Handles an update ping from an update client.
 
     Args:
@@ -682,36 +711,31 @@ class Autoupdate(build_util.BuildObject):
     # Parse the XML we got into the components we care about.
     protocol, app, event, update_check = autoupdate_lib.ParseUpdateRequest(data)
 
-    # #########################################################################
+    if not update_check:
+      # TODO(sosa): Generate correct non-updatecheck payload to better test
+      # update clients.
+      _Log('Non-update check received.  Returning blank payload')
+      return autoupdate_lib.GetNoUpdateResponse(protocol)
+
     # Process attributes of the update check.
     forced_update_label, client_version, board = self._ProcessUpdateComponents(
         app, event)
-
-    # We only process update_checks in the update rpc.
-    if not update_check:
-      _Log('Non-update check received.  Returning blank payload')
-      # TODO(sosa): Generate correct non-updatecheck payload to better test
-      # update clients.
-      return autoupdate_lib.GetNoUpdateResponse(protocol)
-
-    # In case max_updates is used, return no response if max reached.
-    if self.max_updates > 0:
-      self.max_updates -= 1
-    elif self.max_updates == 0:
-      _Log('Request received but max number of updates handled')
-      return autoupdate_lib.GetNoUpdateResponse(protocol)
-
-    _Log('Update Check Received. Client is using protocol version: %s',
-         protocol)
 
     if forced_update_label:
       if label:
         _Log('Label: %s set but being overwritten to %s by request', label,
              forced_update_label)
-
       label = forced_update_label
 
-    # #########################################################################
+    if self.max_updates == 0:
+      # In case max_updates is used, return no response if max reached.
+      _Log('Request received but max number of updates handled')
+      return autoupdate_lib.GetNoUpdateResponse(protocol)
+
+    _Log('Update Check Received. Client is using protocol version: %s',
+         protocol)
+    self.max_updates -= 1
+
     # Finally its time to generate the omaha response to give to client that
     # lets them know where to find the payload and its associated metadata.
     metadata_obj = None
@@ -732,25 +756,11 @@ class Autoupdate(build_util.BuildObject):
         # Get remote payload attributes.
         metadata_obj = self._GetRemotePayloadAttrs(url)
       else:
-        static_image_dir = _NonePathJoin(self.static_dir, label)
-        rel_path = None
-        url = _NonePathJoin(static_urlbase, label, rel_path,
+        path_to_payload = self.GetPathToPayload(label, client_version, board)
+        url = _NonePathJoin(static_urlbase, path_to_payload,
                             constants.UPDATE_FILE)
-        # Local path to the update file.
-        static_file_path = _NonePathJoin(static_image_dir,
-                                         constants.UPDATE_FILE)
-        if common_util.IsInsideChroot():
-          rel_path = self.GenerateUpdatePayload(board, client_version,
-                                                static_image_dir)
-          url = _NonePathJoin(static_urlbase, label, rel_path,
-                              constants.UPDATE_FILE)
-        elif not os.path.exists(static_file_path):
-          # the update payload wasn't found. This update can't happen.
-          raise AutoupdateError("Failed to find an update payload at %s", url)
-
-        local_payload_dir = _NonePathJoin(static_image_dir, rel_path)
+        local_payload_dir = _NonePathJoin(self.static_dir, path_to_payload)
         metadata_obj = self.GetLocalPayloadAttrs(local_payload_dir)
-
     except AutoupdateError as e:
       # Raised if we fail to generate an update payload.
       _Log('Failed to process an update: %r', e)
