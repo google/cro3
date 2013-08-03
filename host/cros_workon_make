@@ -99,7 +99,7 @@ fi
 
 if [ "${FLAGS_install}" = "${FLAGS_TRUE}" ]; then
   SANDBOX_WRITE=~/trunk CROS_WORKON_INPLACE=1 \
-    FEATURES="${emerge_features} ${FEATURES}" "${EMERGECMD}" "${pkg}"
+    FEATURES="${emerge_features} ${FEATURES}" "${EMERGECMD}" --nodeps "${pkg}"
   exit $?
 fi
 
