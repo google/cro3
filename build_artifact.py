@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -22,7 +24,7 @@ _MTON_DIR_SUFFIX = '_mton'
 ############ Actual filenames of artifacts in Google Storage ############
 
 AU_SUITE_FILE = 'au_control.tar.bz2'
-PAYGEN_AU_SUITE_FILE = 'paygen_au_control.tar.bz2'
+PAYGEN_AU_SUITE_FILE_TEMPLATE = 'paygen_au_%(channel)s_control.tar.bz2'
 AUTOTEST_FILE = 'autotest.tar'
 AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
@@ -345,6 +347,9 @@ class ImplDescription(object):
     self.name = name
     self.additional_args = additional_args
 
+  def __repr__(self):
+    return '%s_%s' % (self.artifact_class, self.name)
+
 
 # Maps artifact names to their implementation description.
 # Please note, it is good practice to use constants for these names if you're
@@ -374,8 +379,6 @@ ARTIFACT_IMPLEMENTATION_MAP = {
       ImplDescription(TarballBuildArtifact, TEST_SUITES_FILE),
   artifact_info.AU_SUITE:
       ImplDescription(TarballBuildArtifact, AU_SUITE_FILE),
-  artifact_info.PAYGEN_AU_SUITE:
-      ImplDescription(TarballBuildArtifact, PAYGEN_AU_SUITE_FILE),
 
   artifact_info.FIRMWARE:
       ImplDescription(BuildArtifact, FIRMWARE_FILE),
@@ -383,6 +386,13 @@ ARTIFACT_IMPLEMENTATION_MAP = {
       ImplDescription(TarballBuildArtifact, DEBUG_SYMBOLS_FILE,
                       ['debug/breakpad']),
 }
+
+# Add all the paygen_au artifacts in one go.
+ARTIFACT_IMPLEMENTATION_MAP.update({
+  artifact_info.PAYGEN_AU_SUITE_TEMPLATE % { 'channel': c }: ImplDescription(
+      TarballBuildArtifact, PAYGEN_AU_SUITE_FILE_TEMPLATE % { 'channel': c })
+  for c in devserver_constants.CHANNELS
+})
 
 
 class ArtifactFactory(object):
@@ -434,3 +444,12 @@ class ArtifactFactory(object):
         optional_names = optional_names.union(optional_list)
 
     return self._Artifacts(optional_names - set(self.artifact_names))
+
+
+# A simple main to verify correctness of the artifact map when making simple
+# name changes.
+if __name__ == '__main__':
+  print 'ARTIFACT IMPLEMENTATION MAP (for debugging)'
+  print 'FORMAT: ARTIFACT -> IMPLEMENTATION (<class>_file)'
+  for key, value in sorted(ARTIFACT_IMPLEMENTATION_MAP.items()):
+    print '%s -> %s' % (key, value)

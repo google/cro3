@@ -6,6 +6,7 @@
 
 #### Google Storage locations and names. ####
 # TODO (joyc) move the google storage filenames of artfacts here
+CHANNELS = 'canary', 'dev', 'beta', 'stable'
 GS_IMAGE_DIR = 'gs://chromeos-image-archive'
 GS_LATEST_MASTER = GS_IMAGE_DIR + '/%(board)s-%(suffix)s/LATEST-master'
 IMAGE_DIR = '%(board)s-%(suffix)s/%(version)s'

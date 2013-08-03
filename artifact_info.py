@@ -39,8 +39,9 @@ TEST_SUITES = 'test_suites'
 # AU Suite - The control files for the autotest autoupdate suite.
 AU_SUITE = 'au_suite'
 
-# AU Suite - The control files for the autotest autoupdate suite.
-PAYGEN_AU_SUITE = 'paygen_au_suite'
+# AU Suite - The control files for the paygen autoupdate suite (depends
+# on channel defined in devserver_constants).
+PAYGEN_AU_SUITE_TEMPLATE = 'paygen_au_%(channel)s_suite'
 
 #### Miscellaneous artifacts. ####
 
