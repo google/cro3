@@ -36,11 +36,14 @@ DEFINE_integer repeat 1 "Number of times to run image_to_live."
 
 # Flags for devserver.
 DEFINE_string archive_dir "" \
-  "Update using the test image in the image.zip in this directory." a
+  "Deprecated."
 DEFINE_string board "" "Override the board reported by the target"
 DEFINE_integer devserver_port 8080 \
   "Port to use for devserver."
-DEFINE_boolean for_vm ${FLAGS_FALSE} "Image is for a vm."
+DEFINE_boolean no_patch_kernel ${FLAGS_FALSE} \
+  "Don't patch the kernel with verification blob from stateful. aka 'for_vm'"
+DEFINE_boolean for_vm ${FLAGS_FALSE} \
+  "DEPRECATED. See no_patch_kernel"
 DEFINE_string image "" \
   "Update with this image path that is in this source checkout." i
 DEFINE_string payload "" \
@@ -126,9 +129,8 @@ start_dev_server() {
         --image $(reinterpret_path_for_chroot ${FLAGS_image})"
     IMAGE_PATH="${FLAGS_image}"
   elif [ -n "${FLAGS_archive_dir}" ]; then
-    devserver_flags="${devserver_flags} \
-        --archive_dir $(reinterpret_path_for_chroot ${FLAGS_archive_dir}) -t"
-    IMAGE_PATH="${FLAGS_archive_dir}/chromiumos_test_image.bin"
+    echo "archive_dir flag is deprecated. Use --image."
+    exit 1
   else
     # IMAGE_PATH should be the newest image and learn the board from
     # the target.
@@ -149,8 +151,11 @@ start_dev_server() {
         --proxy_port ${FLAGS_proxy_port}"
   fi
 
-  [ ${FLAGS_for_vm} -eq ${FLAGS_TRUE} ] && \
-      devserver_flags="${devserver_flags} --for_vm"
+  if [ ${FLAGS_for_vm} -eq ${FLAGS_TRUE} ]; then
+      devserver_flags="${devserver_flags} --no_patch_kernel"
+  elif [ ${FLAGS_no_patch_kernel} -eq ${FLAGS_TRUE} ]; then
+      devserver_flags="${devserver_flags} --no_patch_kernel"
+  fi
 
   devserver_flags="${devserver_flags} \
       --src_image=\"$(reinterpret_path_for_chroot ${FLAGS_src_image})\""

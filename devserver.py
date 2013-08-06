@@ -26,8 +26,7 @@ requests an update from this form of devserver, the devserver will attempt to
 discover if a more recent build of the board has been built by the developer
 and generate a payload that the requested system can autoupdate to. In addition,
 it accepts gmerge requests from devices that will stage the newest version of
-a particular package from a developer's chroot onto a requesting device. Note
-if archive_dir is specified, this mode is disabled.
+a particular package from a developer's chroot onto a requesting device.
 
 For example:
 gmerge gmerge -d <devserver_url>
@@ -966,9 +965,6 @@ def _AddProductionOptions(parser):
   group = optparse.OptionGroup(
       parser, 'Advanced Server Options', 'These options can be used to changed '
       'for advanced server behavior.')
-  group.add_option('--archive_dir',
-                   metavar='PATH',
-                   help='To be deprecated.')
   group.add_option('--clear_cache',
                    action='store_true', default=False,
                    help='At startup, removes all cached entries from the'
@@ -1002,10 +998,10 @@ def main():
 
   # get directory that the devserver is run from
   devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-  default_archive_dir = '%s/static' % devserver_dir
+  default_static_dir = '%s/static' % devserver_dir
   parser.add_option('--static_dir',
                     metavar='PATH',
-                    default=default_archive_dir,
+                    default=default_static_dir,
                     help='writable static directory')
   parser.add_option('--port',
                     default=8080, type='int',
@@ -1049,14 +1045,7 @@ def main():
     options.patch_kernel = False
 
   # set static_dir, from which everything will be served
-  if options.archive_dir:
-    # TODO(joyc) To be deprecated
-    archive_dir = options.archive_dir
-    if not os.path.isabs(archive_dir):
-      archive_dir = os.path.join(devserver_dir, archive_dir)
-    options.static_dir = os.path.realpath(archive_dir)
-  else:
-    options.static_dir = os.path.realpath(options.static_dir)
+  options.static_dir = os.path.realpath(options.static_dir)
 
   cache_dir = os.path.join(options.static_dir, 'cache')
   # If our devserver is only supposed to serve payloads, we shouldn't be
