@@ -801,8 +801,11 @@ class PackFirmware:
           data, directory = self.ConcatPropContents(
               entry.key.split(','), None, entry.with_index)
           fdt.PutInteger(entry.node, 'used', len(data))
-          if (len(directory) > 1 or
-              fdt.GetProp(entry.node, 'add-hash', 'none') != 'none'):
+          add_hash = fdt.GetBool(entry.node, 'add-hash')
+          if len(directory) > 1 or add_hash:
+            # Deprecate this: crbug.com/254311
+            # In fact entry.with_index should be deprecated - it is not needed
+            # since we can just look at the FDT. Ick.
             fdt.PutInteger(entry.node, '#address-cells', 1)
             fdt.PutInteger(entry.node, '#size-cells', 1)
             for key, item in directory.iteritems():
@@ -813,6 +816,13 @@ class PackFirmware:
               hash_value = hasher.digest()
               byte_count = struct.unpack('%dB' % len(hash_value), hash_value)
               fdt.PutBytes(entry.node + '/' + key, 'hash', byte_count)
+              fdt.PutBool(entry.node + '/' + key, 'this-is-deprecated', True)
+          if add_hash:
+            hasher = hashlib.sha256()
+            hasher.update(data)
+            hash_value = hasher.digest()
+            byte_count = struct.unpack('%dB' % len(hash_value), hash_value)
+            fdt.PutBytes(entry.node, 'hash', byte_count)
 
   def CheckProperties(self):
     """Check that each entry has the properties that it needs.
