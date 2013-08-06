@@ -292,6 +292,8 @@ class WriteFirmware:
       Filename of the flasher binary created.
     """
     fdt = self._fdt.Copy(os.path.join(self._tools.outdir, 'flasher.dtb'))
+    fdt.PutInteger('/config', 'bootsecure', 0)
+    fdt.PutInteger('/config', 'silent-console', 0)
     payload_data = self._tools.ReadFile(payload)
 
     # Make sure that the checksum is not negative
@@ -968,7 +970,6 @@ def DoWriteFirmware(output, tools, fdt, flasher, file_list, image_fname,
            port number of servo to use.
   """
   write = WriteFirmware(tools, fdt, output, bundle, update, verify)
-  fdt.PutInteger('/config', 'bootsecure', 0)
   write.SelectServo(servo)
   flash_dest = None
   if flasher_dest:
