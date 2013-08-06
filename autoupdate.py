@@ -734,12 +734,15 @@ class Autoupdate(build_util.BuildObject):
         rel_path = None
         url = _NonePathJoin(static_urlbase, label, rel_path,
                             constants.UPDATE_FILE)
+        # Local path to the update file.
+        static_file_path = _NonePathJoin(static_image_dir,
+                                         constants.UPDATE_FILE)
         if common_util.IsInsideChroot():
           rel_path = self.GenerateUpdatePayload(board, client_version,
                                                 static_image_dir)
           url = _NonePathJoin(static_urlbase, label, rel_path,
                               constants.UPDATE_FILE)
-        elif not os.path.exists(url):
+        elif not os.path.exists(static_file_path):
           # the update payload wasn't found. This update can't happen.
           raise AutoupdateError("Failed to find an update payload at %s", url)
 
