@@ -126,7 +126,7 @@ class ExynosBl2(object):
     return 1, addr, size
 
   def _UpdateParameters(self, fdt, spl_load_offset, spl_load_size, data, pos,
-                        use_efs_memory):
+                        use_efs_memory, skip_sdram_init):
     """Update the parameters in a BL2 blob.
 
     We look at the list in the parameter block, extract the value of each
@@ -140,6 +140,7 @@ class ExynosBl2(object):
       pos: The position of the start of the parameter block.
       use_efs_memory: True to return the address in EFS memory (i.e. SRAM),
           False to use SDRAM
+      skip_sdram_init: True to skip SDRAM initialization.
 
     Returns:
       The new contents of the parameter block, after updating.
@@ -326,6 +327,9 @@ class ExynosBl2(object):
         elif param == 'U':
           value = size
           self._out.Info('  RW SPL size: %#x' % value)
+      elif param == 'd':
+        value = 1 if skip_sdram_init else 0
+        self._out.Info('  Skip SDRAM init: %d' % value)
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
         self._out.Info('  Unknown value: %#0x' % value)
@@ -452,7 +456,8 @@ class ExynosBl2(object):
     raise CmdError('Unrecognizable bl2 format')
 
   def Configure(self, fdt, spl_load_offset, spl_load_size, orig_bl2, name='',
-                loose_check=False, digest=None, use_efs_memory=True):
+                loose_check=False, digest=None, use_efs_memory=True,
+                skip_sdram_init=False):
     """Configure an Exynos BL2 binary for our needs.
 
     We create a new modified BL2 and return its file name.
@@ -469,6 +474,7 @@ class ExynosBl2(object):
       digest: If not None, hash digest to add to this BL2 (a string of bytes).
       use_efs_memory: True to return the address in EFS memory (i.e. SRAM),
           False to use SDRAM
+      skip_sdram_init: True to skip SDRAM initialization.
 
     Returns:
       Filename of configured bl2.
@@ -488,7 +494,7 @@ class ExynosBl2(object):
       raise CmdError("Could not find machine parameter block in '%s'" %
                      orig_bl2)
     data = self._UpdateParameters(fdt, spl_load_offset, spl_load_size, data,
-                                  pos, use_efs_memory)
+                                  pos, use_efs_memory, skip_sdram_init)
     if digest:
       data = self._UpdateHash(data, digest)
     data = self._UpdateChecksum(data)
@@ -551,7 +557,9 @@ class ExynosBl2(object):
                         (blob.node, payload))
     spl_load_offset = fdt.GetIntList(payload, 'reg', 2)[0]
 
-    # Tell this SPL to use EFS memory (i.e. SRAM) if we are using ro-boot
+    # Tell this SPL to use EFS memory (i.e. SRAM, if available) if we are
+    # loading ro-boot. Otherwise we are loading normal U-Boot, so will use
+    # SDRAM.
     use_efs_memory = 'ro-boot' in prop_list
 
     self._out.Info("BL2/SPL contains '%s', size is %d / %#x" %
@@ -562,7 +570,9 @@ class ExynosBl2(object):
       digest = hasher.digest()
     else:
       digest = None
+    skip_sdram_init = fdt.GetBool(blob.node, 'skip-sdram-init')
     bl2 = self.Configure(fdt, spl_load_offset, spl_load_size, vanilla_bl2,
                          name=name, digest=digest,
-                         use_efs_memory=use_efs_memory)
+                         use_efs_memory=use_efs_memory,
+                         skip_sdram_init=skip_sdram_init)
     return bl2
