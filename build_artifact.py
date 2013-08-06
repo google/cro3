@@ -404,52 +404,87 @@ ARTIFACT_IMPLEMENTATION_MAP.update({
 class ArtifactFactory(object):
   """A factory class that generates build artifacts from artifact names."""
 
-  def __init__(self, download_dir, archive_url, artifact_names, build):
+  def __init__(self, download_dir, archive_url, artifacts, files,
+               build):
     """Initalizes the member variables for the factory.
 
     Args:
       archive_url: the Google Storage url of the bucket where the debug
                    symbols for the desired build are stored.
-      artifact_names: List of artifact names to stage.
+      artifacts: List of artifacts to stage. These artifacts must be
+                 defined in artifact_info.py and have a mapping in the
+                 ARTIFACT_IMPLEMENTATION_MAP.
+      files: List of files to stage. These files are just downloaded and staged
+             as files into the download_dir.
       build: The name of the build.
     """
     self.download_dir = download_dir
     self.archive_url = archive_url
-    self.artifact_names = artifact_names
+    self.artifacts = artifacts
+    self.files = files
     self.build = build
 
   @staticmethod
-  def _GetDescriptionComponents(artifact_name):
-    """Returns a tuple of for BuildArtifact class, name, and additional args."""
-    description = ARTIFACT_IMPLEMENTATION_MAP[artifact_name]
+  def _GetDescriptionComponents(name, is_artifact):
+    """Returns a tuple of for BuildArtifact class, name, and additional args.
+
+    Raises: KeyError if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
+    """
+
+    if is_artifact:
+      description = ARTIFACT_IMPLEMENTATION_MAP[name]
+    else:
+      description = ImplDescription(BuildArtifact, name)
+
     return (description.artifact_class, description.name,
             description.additional_args)
 
-  def _Artifacts(self, artifact_names):
-    """Returns an iterable of BuildArtifacts from |artifact_names|."""
+  def _Artifacts(self, names, is_artifact):
+    """Returns an iterable of BuildArtifacts from |names|.
+
+    If is_artifact is true, then these names define artifacts that must exist in
+    the ARTIFACT_IMPLEMENTATION_MAP. Otherwise, treat as filenames to stage as
+    basic BuildArtifacts.
+
+    Raises: KeyError if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
+    """
     artifacts = []
-    for artifact_name in artifact_names:
+    for name in names:
       artifact_class, path, args = self._GetDescriptionComponents(
-          artifact_name)
+          name, is_artifact)
       artifacts.append(artifact_class(self.download_dir, self.archive_url, path,
                                       self.build, *args))
 
     return artifacts
 
   def RequiredArtifacts(self):
-    """Returns an iterable of BuildArtifacts for the factory's artifacts."""
-    return self._Artifacts(self.artifact_names)
+    """Returns an iterable of BuildArtifacts for the factory's artifacts.
+
+    Raises: KeyError if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
+    """
+    artifacts = []
+    if self.artifacts:
+      artifacts.extend(self._Artifacts(self.artifacts, True))
+    if self.files:
+      artifacts.extend(self._Artifacts(self.files, False))
+
+    return artifacts
 
   def OptionalArtifacts(self):
-    """Returns an iterable of BuildArtifacts that should be cached."""
+    """Returns an iterable of BuildArtifacts that should be cached.
+
+    Raises: KeyError if an optional artifact doesn't exist in
+    ARTIFACT_IMPLEMENTATION_MAP yet defined in
+    artifact_info.REQUESTED_TO_OPTIONAL_MAP.
+    """
     optional_names = set()
     for artifact_name, optional_list in (
         artifact_info.REQUESTED_TO_OPTIONAL_MAP.iteritems()):
       # We are already downloading it.
-      if artifact_name in self.artifact_names:
+      if artifact_name in self.artifacts:
         optional_names = optional_names.union(optional_list)
 
-    return self._Artifacts(optional_names - set(self.artifact_names))
+    return self._Artifacts(optional_names - set(self.artifacts), True)
 
 
 # A simple main to verify correctness of the artifact map when making simple

@@ -48,7 +48,8 @@ class DownloaderTestBase(mox.MoxTestBase):
     downloader.Downloader._DownloadArtifactsSerially(
         [mox.IsA(build_artifact.TarballBuildArtifact)], no_wait=True)
     self.mox.ReplayAll()
-    downloader_instance.Download(artifacts=['test_suites'])
+    downloader_instance.Download(artifacts=['test_suites'],
+                                 files=None)
     # Sanity check the timestamp file exists.
     self.assertTrue(os.path.exists(
         os.path.join(self._work_dir, self.board, self.build,
@@ -67,7 +68,8 @@ class DownloaderTestBase(mox.MoxTestBase):
     downloader.Downloader._DownloadArtifactsSerially(
         [mox.IsA(build_artifact.TarballBuildArtifact)], no_wait=True)
     self.mox.ReplayAll()
-    downloader_instance.Download(artifacts=['symbols'])
+    downloader_instance.Download(artifacts=['symbols'],
+                                 files=None)
     self.mox.VerifyAll()
 
 

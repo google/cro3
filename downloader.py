@@ -92,7 +92,7 @@ class Downloader(log_util.Loggable):
       os.remove(file_name)
       os.rmdir(directory_path)
 
-  def Download(self, artifacts, async=False):
+  def Download(self, artifacts, files, async=False):
     """Downloads and caches the |artifacts|.
 
     Downloads and caches the |artifacts|. Returns once these
@@ -100,9 +100,10 @@ class Downloader(log_util.Loggable):
     non-specified artifacts in the background following the principle of
     spatial locality.
 
-    @params artifacts: A list of artifact names that correspond to artifacts to
-                       stage.
-    @params async: True to return without waiting for download to complete.
+    artifacts: A list of artifact names that correspond to
+               artifacts defined in artifact_info.py to stage.
+    files: A list of filenames to stage from an archive_url.
+    async: If True, return without waiting for download to complete.
 
     """
     common_util.MkDirP(self._build_dir)
@@ -113,8 +114,9 @@ class Downloader(log_util.Loggable):
 
     # Create factory to create build_artifacts from artifact names.
     build = self.ParseUrl(self._archive_url)[1]
-    factory = build_artifact.ArtifactFactory(self._build_dir, self._archive_url,
-                                             artifacts, build)
+    factory = build_artifact.ArtifactFactory(
+        self._build_dir, self._archive_url, artifacts, files,
+        build)
     background_artifacts = factory.OptionalArtifacts()
     if background_artifacts:
       self._DownloadArtifactsInBackground(background_artifacts)
@@ -131,17 +133,19 @@ class Downloader(log_util.Loggable):
       Downloader._TryRemoveStageDir(self._build_dir)
       raise
 
-  def IsStaged(self, artifacts):
+  def IsStaged(self, artifacts, files):
     """Check if all artifacts have been downloaded.
 
-    @param artifacts: A list of artifacts to be checked.
+    artifacts: A list of artifact names that correspond to
+               artifacts defined in artifact_info.py to stage.
+    files: A list of filenames to stage from an archive_url.
     @returns: True if all artifacts are staged.
 
     """
     # Create factory to create build_artifacts from artifact names.
     build = self.ParseUrl(self._archive_url)[1]
-    factory = build_artifact.ArtifactFactory(self._build_dir, self._archive_url,
-                                             artifacts, build)
+    factory = build_artifact.ArtifactFactory(
+        self._build_dir, self._archive_url, artifacts, files, build)
     required_artifacts = factory.RequiredArtifacts()
     return all([artifact.ArtifactStaged() for artifact in required_artifacts])
 

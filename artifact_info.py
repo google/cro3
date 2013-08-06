@@ -6,6 +6,10 @@
 
 ############ Artifact Names ############
 
+# Note these are the available 'artifacts' that are known to the devserver. If
+# you just need to stage a file from gs directly, use the files api. See the
+# stage documentation for more info.
+
 #### Update payload names. ####
 
 # The name of artifact to stage a full update payload.

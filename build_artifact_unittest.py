@@ -126,6 +126,25 @@ class BuildArtifactTest(mox.MoxTestBase):
     self.assertFalse(os.path.exists(os.path.join(
         self.work_dir, 'chromiumos_test_image.bin')))
 
+  def testArtifactFactory(self):
+    """Tests that BuildArtifact logic works for both named and file artifacts.
+    """
+    name_artifact = 'test_suites' # This file is in every real GS dir.
+    file_artifact = 'metadata.json' # This file is in every real GS dir.
+    factory = build_artifact.ArtifactFactory(self.work_dir, _TEST_GOLO_ARCHIVE,
+                                             [name_artifact], [file_artifact],
+                                             _VERSION)
+    artifacts = factory.RequiredArtifacts()
+    self.assertEqual(len(artifacts), 2)
+    artifacts[0].Process(False)
+    artifacts[1].Process(False)
+    # Test suites directory exists.
+    self.assertTrue(os.path.exists(os.path.join(
+        self.work_dir, 'autotest', 'test_suites')))
+    # File artifact was staged.
+    self.assertTrue(os.path.exists(os.path.join(self.work_dir,
+                                                file_artifact)))
+
 
 if __name__ == '__main__':
   unittest.main()

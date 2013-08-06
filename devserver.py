@@ -366,6 +366,20 @@ class DevServerRoot(object):
     self._telemetry_lock_dict = common_util.LockDict()
     self._xbuddy = _xbuddy
 
+  @staticmethod
+  def _get_artifacts(kwargs):
+    """Returns a tuple of named and file artifacts given the stage rpc kwargs.
+
+    Raises: DevserverError if no artifacts would be returned.
+    """
+    artifacts = kwargs.get('artifacts')
+    files = kwargs.get('files')
+    if not artifacts and not files:
+      raise DevServerError('No artifacts specified.')
+
+    return (artifacts.split(',') if artifacts else [],
+            files.split(',') if files else [])
+
   @cherrypy.expose
   def build(self, board, pkg, **kwargs):
     """Builds the package specified."""
@@ -394,19 +408,6 @@ class DevServerRoot(object):
     """Downloads and archives full/delta payloads from Google Storage.
 
     THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
-    This methods downloads artifacts. It may download artifacts in the
-    background in which case a caller should call wait_for_status to get
-    the status of the background artifact downloads. They should use the same
-    args passed to download.
-
-    Args:
-      archive_url: Google Storage URL for the build.
-      artifacts: Comma separated list of artifacts to download.
-
-    Example URL:
-      http://myhost/download?archive_url=gs://chromeos-image-archive/
-      x86-generic/R17-1208.0.0-a1-b338&artifacts=full_payload,test_suites,
-      stateful
     """
     async = kwargs.get('async', False)
     return self.stage(archive_url=kwargs.get('archive_url'),
@@ -417,9 +418,15 @@ class DevServerRoot(object):
   def is_staged(self, **kwargs):
     """Check if artifacts have been downloaded.
 
-    @param archive_url: Google Storage URL for the build.
-    @param artifacts: Comma separated list of artifacts to download.
-    @returns: True of all artifacts are staged.
+      async: True to return without waiting for download to complete.
+      artifacts: Comma separated list of named artifacts to download.
+        These are defined in artifact_info and have their implementation
+        in build_artifact.py.
+      files: Comma separated list of file artifacts to stage. These
+        will be available as is in the corresponding static directory with no
+        custom post-processing.
+
+    returns: True of all artifacts are staged.
 
     Example:
       To check if autotest and test_suites are staged:
@@ -427,11 +434,9 @@ class DevServerRoot(object):
             artifacts=autotest,test_suites
     """
     archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
-    artifacts = kwargs.get('artifacts', '')
-    if not artifacts:
-      raise DevServerError('No artifacts specified.')
+    artifacts, files = self._get_artifacts(kwargs)
     return str(downloader.Downloader(updater.static_dir, archive_url).IsStaged(
-        artifacts.split(',')))
+        artifacts, files))
 
   @cherrypy.expose
   def stage(self, **kwargs):
@@ -448,8 +453,13 @@ class DevServerRoot(object):
 
     Args:
       archive_url: Google Storage URL for the build.
-      artifacts: Comma separated list of artifacts to download.
       async: True to return without waiting for download to complete.
+      artifacts: Comma separated list of named artifacts to download.
+        These are defined in artifact_info and have their implementation
+        in build_artifact.py.
+      files: Comma separated list of files to stage. These
+        will be available as is in the corresponding static directory with no
+        custom post-processing.
 
     Example:
       To download the autotest and test suites tarballs:
@@ -458,6 +468,9 @@ class DevServerRoot(object):
       To download the full update payload:
         http://devserver_url:<port>/stage?archive_url=gs://your_url/path&
             artifacts=full_payload
+      To download just a file called blah.bin:
+        http://devserver_url:<port>/stage?archive_url=gs://your_url/path&
+            files=blah.bin
 
       For both these examples, one could find these artifacts at:
         http://devserver_url:<port>/static/<relative_path>*
@@ -472,16 +485,13 @@ class DevServerRoot(object):
       http://devserver_url:<port>/static/x86-mario-release/R26-3920.0.0
     """
     archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
-    artifacts = kwargs.get('artifacts', '')
     async = kwargs.get('async', False)
-    if not artifacts:
-      raise DevServerError('No artifacts specified.')
-
+    artifacts, files = self._get_artifacts(kwargs)
     with DevServerRoot._staging_thread_count_lock:
       DevServerRoot._staging_thread_count += 1
     try:
-      downloader.Downloader(updater.static_dir,
-          archive_url).Download(artifacts.split(','), async=async)
+      downloader.Downloader(updater.static_dir, archive_url).Download(
+          artifacts, files, async=async)
     finally:
       with DevServerRoot._staging_thread_count_lock:
         DevServerRoot._staging_thread_count -= 1
@@ -546,32 +556,18 @@ class DevServerRoot(object):
     """Waits for background artifacts to be downloaded from Google Storage.
 
     THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
-    Args:
-      archive_url: Google Storage URL for the build.
-
-    Example URL:
-      http://myhost/wait_for_status?archive_url=gs://chromeos-image-archive/
-      x86-generic/R17-1208.0.0-a1-b338
     """
     async = kwargs.get('async', False)
-    return self.stage(archive_url=kwargs.get('archive_url'),
-                      artifacts='full_payload,test_suites,autotest,stateful',
-                      async=async)
+    return self.stage(
+        archive_url=kwargs.get('archive_url'),
+        artifacts='full_payload,test_suites,autotest,stateful',
+        async=async)
 
   @cherrypy.expose
   def stage_debug(self, **kwargs):
     """Downloads and stages debug symbol payloads from Google Storage.
 
     THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
-    This methods downloads the debug symbol build artifact
-    synchronously, and then stages it for use by symbolicate_dump.
-
-    Args:
-      archive_url: Google Storage URL for the build.
-
-    Example URL:
-      http://myhost/stage_debug?archive_url=gs://chromeos-image-archive/
-      x86-generic/R17-1208.0.0-a1-b338
     """
     return self.stage(archive_url=kwargs.get('archive_url'),
                       artifacts='symbols')
@@ -693,18 +689,6 @@ class DevServerRoot(object):
     """Downloads and stages a Chrome OS image from Google Storage.
 
     THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
-    This method downloads a zipped archive from a specified GS location, then
-    extracts and stages the specified list of images and stages them under
-    static/BOARD/BUILD/. Download is synchronous.
-
-    Args:
-      archive_url: Google Storage URL for the build.
-      image_types: comma-separated list of images to download, may include
-                   'test', 'recovery', and 'base'
-
-    Example URL:
-      http://myhost/stage_images?archive_url=gs://chromeos-image-archive/
-      x86-generic/R17-1208.0.0-a1-b338&image_types=test,base
     """
     image_types = kwargs.get('image_types').split(',')
     image_types_list = [image + '_image' for image in image_types]
