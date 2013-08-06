@@ -72,6 +72,24 @@ class ExynosBl2(object):
     self._spl_type = None
     self.spl_source = 'straps'  # SPL boot according to board settings
 
+  def _BootingUsingEFS(self, fdt, use_efs_memory):
+    """Check if we are booting using early-firmware-selection.
+
+    This is just a helper function to avoid using the same logic in many
+    places.
+
+    Args:
+      fdt: Device tree file to use.
+      use_efs_memory: True to use early-firmware-selection memory (i.e. IRAM),
+          False, to ignore it.
+
+    Returns:
+      True if EFS is enabled and we are configured to use EFS memory, else
+          False.
+    """
+    return (use_efs_memory and
+            fdt.GetInt('/chromeos-config', 'early-firmware-selection', 0))
+
   def GetUBootAddress(self, fdt, use_efs_memory):
     """Work out the correct address for loading U-Boot.
 
@@ -86,9 +104,8 @@ class ExynosBl2(object):
       Address to load U-Boot
     """
     efs_suffix = ''
-    if use_efs_memory:
-      if fdt.GetInt('/chromeos-config', 'early-firmware-selection', 0):
-        efs_suffix = ',efs'
+    if self._BootingUsingEFS(fdt, use_efs_memory):
+      efs_suffix = ',efs'
 
     # Use the correct memory section, and then find the offset in that.
     memory = fdt.GetString('/config', 'u-boot-memory' + efs_suffix)
@@ -97,6 +114,16 @@ class ExynosBl2(object):
     addr = base + offset
     self._out.Notice('EFS: Loading U-Boot to %x' % addr)
     return addr
+
+  def _GetRWSPLDetails(self, fdt, use_efs_memory):
+    if not self._BootingUsingEFS(fdt, use_efs_memory):
+      return 0, 0, 0
+
+    memory = fdt.GetString('/chromeos-config', 'rw-spl-memory,efs')
+    base = fdt.GetIntList(memory, 'reg')[0]
+    offset, size = fdt.GetIntList('/chromeos-config', 'rw-spl-offset,efs')
+    addr = base + offset
+    return 1, addr, size
 
   def _UpdateParameters(self, fdt, spl_load_offset, spl_load_size, data, pos,
                         use_efs_memory):
@@ -228,12 +255,15 @@ class ExynosBl2(object):
         self._out.Info('  U-Boot load address: %#0x' % value)
       elif param == 'b':
         # These values come from enum boot_mode in U-Boot's cpu.h
-        if self.spl_source == 'straps':
+        # For EFS we select SPI as the boot source always. We could support
+        # eMMC if we want to add EFS support for eMMC.
+        if (self.spl_source == 'spi' or
+            self._BootingUsingEFS(fdt, use_efs_memory)):
+          value = 20
+        elif self.spl_source == 'straps':
           value = 32
         elif self.spl_source == 'emmc':
           value = 4
-        elif self.spl_source == 'spi':
-          value = 20
         elif self.spl_source == 'usb':
           value = 33
         else:
@@ -285,6 +315,17 @@ class ExynosBl2(object):
         except CmdError:
           self._out.Warning('No value for write protect GPIO: using %#x' %
                             value)
+      elif param in ['j', 'A', 'U']:
+        jump, addr, size = self._GetRWSPLDetails(fdt, use_efs_memory)
+        if param == 'j':
+          value = jump
+          self._out.Info('  Jump to RW SPL: %d' % value)
+        elif param == 'A':
+          value = addr
+          self._out.Info('  RW SPL addr: %#x' % value)
+        elif param == 'U':
+          value = size
+          self._out.Info('  RW SPL size: %#x' % value)
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
         self._out.Info('  Unknown value: %#0x' % value)
