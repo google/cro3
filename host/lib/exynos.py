@@ -237,9 +237,8 @@ class ExynosBl2(object):
         value = 31
         self._out.Info('  Memory interleave: %#0x' % value)
       elif param == 'u':
-        value = (spl_load_size + 0xfff) & ~0xfff
-        self._out.Info('  U-Boot size: %#0x (rounded up from %#0x)' %
-                       (value, spl_load_size))
+        value = spl_load_size
+        self._out.Info('  U-Boot size: %#0x' % value)
       elif param == 'S':
         value = self.GetUBootAddress(fdt, use_efs_memory)
         self._out.Info('  U-Boot start: %#0x' % value)
