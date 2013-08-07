@@ -411,7 +411,7 @@ class DevServerRoot(object):
     """
     async = kwargs.get('async', False)
     return self.stage(archive_url=kwargs.get('archive_url'),
-                      artifacts=kwargs.get('artifacts'),
+                      artifacts='full_payload,test_suites,stateful',
                       async=async)
 
   @cherrypy.expose
@@ -554,8 +554,10 @@ class DevServerRoot(object):
       http://myhost/wait_for_status?archive_url=gs://chromeos-image-archive/
       x86-generic/R17-1208.0.0-a1-b338
     """
+    async = kwargs.get('async', False)
     return self.stage(archive_url=kwargs.get('archive_url'),
-                      artifacts=kwargs.get('artifacts'))
+                      artifacts='full_payload,test_suites,autotest,stateful',
+                      async=async)
 
   @cherrypy.expose
   def stage_debug(self, **kwargs):
