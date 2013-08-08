@@ -304,6 +304,8 @@ class ExynosBl2(object):
           rtc_compat = fdt.GetString(rtc_alias, 'compatible')
           if rtc_compat == 'samsung,s5m8767-pmic':
             rtc_type = 1
+          elif rtc_compat == 'maxim,max77802-pmic':
+            rtc_type = 2
         except CmdError:
           self._out.Warning('Failed to find rtc')
         value = rtc_type
