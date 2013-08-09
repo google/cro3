@@ -144,7 +144,7 @@ class TestBundleFirmware(unittest.TestCase):
 
     # Same with this one, but we check the filename.
     self.assertRaisesContains(IOError,
-        '/build/robin_hood/firmware/dts/fred.dts', self.bundle.SelectFdt,
+        '/build/robin_hood/firmware/dtb/fred.dtb', self.bundle.SelectFdt,
         'fred', True)
 
   def test_TooLarge(self):

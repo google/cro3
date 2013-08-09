@@ -357,24 +357,24 @@ class Bundle:
       Selected FDT filename, after validation.
     """
     build_root = self._GetBuildRoot()
-    dir_name = os.path.join(build_root, 'dts')
+    dir_name = os.path.join(build_root, 'dtb')
     if not fname:
       # Figure out where the file should be, and the name we expect.
       base_name = re.sub('_', '-', self._board)
 
       # In case the name exists with a prefix or suffix, find it.
-      wildcard = os.path.join(dir_name, '*%s*.dts' % base_name)
+      wildcard = os.path.join(dir_name, '*%s.dtb' % base_name)
       found_list = glob.glob(self._tools.Filename(wildcard))
       if len(found_list) == 1:
         fname = found_list[0]
       else:
         # We didn't find anything definite, so set up our expected name.
-        fname = os.path.join(dir_name, '%s.dts' % base_name)
+        fname = os.path.join(dir_name, '%s.dtb' % base_name)
 
     # Convert things like 'exynos5250-daisy' into a full path.
     root, ext = os.path.splitext(fname)
     if not ext and not os.path.dirname(root):
-      fname = os.path.join(dir_name, '%s.dts' % root)
+      fname = os.path.join(dir_name, '%s.dtb' % root)
     return fname
 
   def CheckOptions(self):
