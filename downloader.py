@@ -124,8 +124,14 @@ class Downloader(log_util.Loggable):
     required_artifacts = factory.RequiredArtifacts()
     str_repr = [str(a) for a in required_artifacts]
     self._Log('Downloading artifacts %s.', ' '.join(str_repr))
+
     try:
       if async:
+        # Make sure all artifacts exist before starting downloading in a new
+        # thread. This prevents caller from waiting indefinitely for any
+        # nonexistent artifact.
+        for artifact in required_artifacts:
+          artifact.WaitForArtifactToExist(timeout=10)
         self._DownloadArtifactsInBackground(required_artifacts)
       else:
         self._DownloadArtifactsSerially(required_artifacts, no_wait=True)

@@ -104,7 +104,7 @@ class BuildArtifact(log_util.Loggable):
     with open(os.path.join(self.install_dir, self.marker_name), 'w') as f:
       f.write('')
 
-  def _WaitForArtifactToExist(self, timeout):
+  def WaitForArtifactToExist(self, timeout):
     """Waits for artifact to exist and sets self.name to appropriate name."""
     names = gsutil_util.GetGSNamesWithWait(
         self.name, self.archive_url, str(self), single_item=self.single_name,
@@ -166,7 +166,7 @@ class BuildArtifact(log_util.Loggable):
         # If the artifact should already have been uploaded, don't waste
         # cycles waiting around for it to exist.
         timeout = 1 if no_wait else 10
-        self._WaitForArtifactToExist(timeout)
+        self.WaitForArtifactToExist(timeout)
         self._Download()
         self._Setup()
         self._MarkArtifactStaged()
