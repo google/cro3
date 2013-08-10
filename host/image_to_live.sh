@@ -45,7 +45,7 @@ DEFINE_boolean no_patch_kernel ${FLAGS_FALSE} \
 DEFINE_boolean for_vm ${FLAGS_FALSE} \
   "DEPRECATED. See no_patch_kernel"
 DEFINE_string image "" \
-  "Update with this image path that is in this source checkout." i
+  "Path to the image file to update with, xbuddy paths accepted." i
 DEFINE_string payload "" \
   "Update with this update payload, ignoring specified images."
 DEFINE_string proxy_port "" \
@@ -60,6 +60,21 @@ DEFINE_boolean reboot_after_update ${FLAGS_TRUE} \
 # Flags for stateful update.
 DEFINE_string stateful_update_flag "" \
   "Flag to pass to stateful update e.g. old, clean, etc." s
+
+FLAGS_HELP="
+Usage: $0 --remote=[target_ip] [--image=[...]] ...
+The remote flag is required to specify a ChromeOS machine to reimage.
+The image flag can be a path to a local image or an XBuddy path.
+For example:
+  $0 --remote=172.0.0.0 --image=./some/path/to/chromium_test_image.bin
+  Would reimage device at 172.0.0.0 with that locally available image.
+  $0 --remote=172.0.0.0 --image='xbuddy:remote/parrot/latest/dev'
+  Uses the latest developer parrot image available on Google Storage.
+  $0 --remote=172.0.0.0 --image='xbuddy:release'
+  Uses the latest test image available on Google Storage.
+  $0 --remote=172.0.0.0 --image='xbuddy:'
+  Uses the latest locally built image for the device board.
+Please see http://goo.gl/6WdLrD for XBuddy documentation."
 
 UPDATER_BIN="/usr/bin/update_engine_client"
 UPDATER_IDLE="UPDATE_STATUS_IDLE"
@@ -125,9 +140,16 @@ start_dev_server() {
   local devserver_flags="--pregenerate_update"
   # Parse devserver flags.
   if [ -n "${FLAGS_image}" ]; then
-    devserver_flags="${devserver_flags} \
-        --image $(reinterpret_path_for_chroot ${FLAGS_image})"
-    IMAGE_PATH="${FLAGS_image}"
+    if [[ "${FLAGS_image}" == xbuddy:* ]]; then
+      info "Image flag is an xBuddy path to an image."
+      devserver_flags="${devserver_flags} \
+          --image ${FLAGS_image}"
+    else
+      info "Forcing the devserver to serve a local image."
+      devserver_flags="${devserver_flags} \
+          --image $(reinterpret_path_for_chroot ${FLAGS_image})"
+      IMAGE_PATH="${FLAGS_image}"
+    fi
   elif [ -n "${FLAGS_archive_dir}" ]; then
     echo "archive_dir flag is deprecated. Use --image."
     exit 1
@@ -157,8 +179,10 @@ start_dev_server() {
       devserver_flags="${devserver_flags} --no_patch_kernel"
   fi
 
-  devserver_flags="${devserver_flags} \
-      --src_image=\"$(reinterpret_path_for_chroot ${FLAGS_src_image})\""
+  if [ -n "${FLAGS_src_image}" ]; then
+    devserver_flags="${devserver_flags} \
+        --src_image=\"$(reinterpret_path_for_chroot ${FLAGS_src_image})\""
+  fi
 
   info "Starting devserver with flags ${devserver_flags}"
   cros_sdk -- sudo sh -c "start_devserver ${devserver_flags} \
@@ -209,7 +233,16 @@ get_update_args() {
   if [ -z ${1} ]; then
     die "No url provided for update."
   fi
+
   local update_args="--omaha_url ${1}"
+
+  # Grab everything after last colon as an xbuddy path
+  if [[ "${FLAGS_image}" == xbuddy:* ]]; then
+    update_args="${update_args}/xbuddy/${FLAGS_image##*xbuddy:}"
+  fi
+
+  info "${update_args}"
+
   if [[ ${FLAGS_ignore_version} -eq ${FLAGS_TRUE} ]]; then
     info "Forcing update independent of the current version"
     update_args="--update ${update_args}"
@@ -233,6 +266,7 @@ get_devserver_url() {
       devserver_url="${FLAGS_update_url}"
     fi
   fi
+
   echo "${devserver_url}"
 }
 
