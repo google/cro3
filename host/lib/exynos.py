@@ -90,6 +90,38 @@ class ExynosBl2(object):
     return (use_efs_memory and
             fdt.GetInt('/chromeos-config', 'early-firmware-selection', 0))
 
+  def _GetAddress(self, fdt, use_efs_memory, name, config_node='/config',
+                  allow_none=False):
+    """Work out the correct address for a region of memory.
+
+    This deals with EFS and the memory map automatically.
+
+    Args:
+      fdt: Device tree file containing memory map.
+      use_efs_memory: True to return the address in EFS memory (i.e. SRAM),
+          False to use SDRAM
+      name: Name of the region to look up, e.g. 'u-boot'
+      config_node: Node containing configuration information
+      allow_none: True if it is OK to find nothing.
+
+    Returns:
+      Address to load that region, or None if none.
+    """
+    efs_suffix = ''
+    if self._BootingUsingEFS(fdt, use_efs_memory):
+      efs_suffix = ',efs'
+
+    # Use the correct memory section, and then find the offset in that.
+    default = 'none' if allow_none else None
+    memory = fdt.GetString(config_node, '%s-memory%s' % (name, efs_suffix),
+                           default)
+    if memory == 'none':
+      return None
+    base = fdt.GetIntList(memory, 'reg')[0]
+    offset = fdt.GetIntList(config_node, '%s-offset%s' % (name, efs_suffix))[0]
+    addr = base + offset
+    return addr
+
   def GetUBootAddress(self, fdt, use_efs_memory):
     """Work out the correct address for loading U-Boot.
 
@@ -103,15 +135,7 @@ class ExynosBl2(object):
     Returns:
       Address to load U-Boot
     """
-    efs_suffix = ''
-    if self._BootingUsingEFS(fdt, use_efs_memory):
-      efs_suffix = ',efs'
-
-    # Use the correct memory section, and then find the offset in that.
-    memory = fdt.GetString('/config', 'u-boot-memory' + efs_suffix)
-    base = fdt.GetIntList(memory, 'reg')[0]
-    offset = fdt.GetIntList('/config', 'u-boot-offset' + efs_suffix)[0]
-    addr = base + offset
+    addr = self._GetAddress(fdt, use_efs_memory, 'u-boot')
     self._out.Notice('EFS: Loading U-Boot to %x' % addr)
     return addr
 
@@ -331,6 +355,17 @@ class ExynosBl2(object):
       elif param == 'd':
         value = 1 if skip_sdram_init else 0
         self._out.Info('  Skip SDRAM init: %d' % value)
+      elif param == 'p':
+        addr = self._GetAddress(fdt, use_efs_memory, 'vboot-persist',
+                                '/chromeos-config', True)
+        if addr is None:
+          value = 0
+        else:
+          value = addr
+        self._out.Info('  Vboot persist addr: %x' % value)
+      elif param == 'D':
+        value = fdt.GetBool('/config', 'spl-debug')
+        self._out.Info('  SPL debug: %d' % value)
       else:
         self._out.Warning("Unknown machine parameter type '%s'" % param)
         self._out.Info('  Unknown value: %#0x' % value)
