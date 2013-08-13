@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import ConfigParser
 import datetime
 import operator
 import os
@@ -17,13 +18,16 @@ import devserver_constants
 import downloader
 import gsutil_util
 import log_util
-import xbuddy_lookup_table
 
 # Module-local log function.
 def _Log(message, *args):
   return log_util.LogWithTag('XBUDDY', message, *args)
 
-_XBUDDY_CAPACITY = 5
+# xBuddy config constants
+CONFIG_FILE = 'xbuddy_config.ini'
+SHADOW_CONFIG_FILE = 'shadow_xbuddy_config.ini'
+PATH_REWRITES = 'PATH_REWRITES'
+GENERAL = 'GENERAL'
 
 # XBuddy aliases
 TEST = 'test'
@@ -115,6 +119,7 @@ class Timestamp():
   def UpdateTimestamp(timestamp_dir, build_id):
     """Update timestamp file of build with build_id."""
     common_util.MkDirP(timestamp_dir)
+    _Log("Updating timestamp for %s", build_id)
     time_file = os.path.join(timestamp_dir,
                              Timestamp.BuildToTimestamp(build_id))
     with file(time_file, 'a'):
@@ -153,12 +158,10 @@ class XBuddy(build_util.BuildObject):
 
   def __init__(self, manage_builds=False, board=None, **kwargs):
     super(XBuddy, self).__init__(**kwargs)
-    self._manage_builds = manage_builds
 
-    # Choose a default board, using the --board flag if given, or
-    # src/scripts/.default_board if it exists.
-    # Default to x86-generic, if that isn't set.
-    self._board = (board or self.GetDefaultBoardID())
+    self.config = self._ReadConfig()
+    self._manage_builds = manage_builds or self._ManageBuilds()
+    self._board = board or self.GetDefaultBoardID()
     _Log("Default board used by xBuddy: %s", self._board)
 
     self._timestamp_folder = os.path.join(self.static_dir,
@@ -172,6 +175,87 @@ class XBuddy(build_util.BuildObject):
       return boolean_string.lower() in cls._true_values
     else:
       return False
+
+  def _ReadConfig(self):
+    """Read xbuddy config from ini files.
+
+    Reads the base config from xbuddy_config.ini, and then merges in the
+    shadow config from shadow_xbuddy_config.ini
+
+    Returns:
+      The merged configuration.
+    Raises:
+      XBuddyException if the config file is missing.
+    """
+    xbuddy_config = ConfigParser.ConfigParser()
+    config_file = os.path.join(self.devserver_dir, CONFIG_FILE)
+    if os.path.exists(config_file):
+      xbuddy_config.read(config_file)
+    else:
+      raise XBuddyException('%s not found' % (CONFIG_FILE))
+
+    # Read the shadow file if there is one.
+    shadow_config_file = os.path.join(self.devserver_dir, SHADOW_CONFIG_FILE)
+    if os.path.exists(shadow_config_file):
+      shadow_xbuddy_config = ConfigParser.ConfigParser()
+      shadow_xbuddy_config.read(shadow_config_file)
+
+      # Merge shadow config in.
+      sections = shadow_xbuddy_config.sections()
+      for s in sections:
+        if not xbuddy_config.has_section(s):
+          xbuddy_config.add_section(s)
+        options = shadow_xbuddy_config.options(s)
+        for o in options:
+          val = shadow_xbuddy_config.get(s, o)
+          xbuddy_config.set(s, o, val)
+
+    return xbuddy_config
+
+  def _ManageBuilds(self):
+    """Checks if xBuddy is managing local builds using the current config."""
+    try:
+      return self.ParseBoolean(self.config.get(GENERAL, 'manage_builds'))
+    except ConfigParser.Error:
+      return False
+
+  def _Capacity(self):
+    """Gets the xbuddy capacity from the current config."""
+    try:
+      return int(self.config.get(GENERAL, 'capacity'))
+    except ConfigParser.Error:
+      return 5
+
+  def _LookupAlias(self, alias, board):
+    """Given the full xbuddy config, look up an alias for path rewrite.
+
+    Args:
+      alias: The xbuddy path that could be one of the aliases in the
+        rewrite table.
+      board: The board to fill in with when paths are rewritten. Can be from
+        the update request xml or the default board from devserver.
+    Returns:
+      If a rewrite is found, a string with the current board substituted in.
+      If no rewrite is found, just return the original string.
+    """
+    if alias == '':
+      alias = 'update_default'
+
+    try:
+      val = self.config.get(PATH_REWRITES, alias)
+    except ConfigParser.Error:
+      # No alias lookup found. Return original path.
+      return alias
+
+    if not val.strip():
+      # The found value was an empty string.
+      return alias
+    else:
+      # Fill in the board.
+      rewrite  = val.replace("BOARD", "%(board)s") % {
+          'board': board}
+      _Log("Path was rewritten to %s", rewrite)
+      return rewrite
 
   def _LookupOfficial(self, board, suffix=RELEASE):
     """Check LATEST-master for the version number of interest."""
@@ -193,7 +277,8 @@ class XBuddy(build_util.BuildObject):
     _Log("Checking channel '%s' for latest '%s' image", channel, board)
     channel_dir = devserver_constants.GS_CHANNEL_DIR % {'channel':channel,
                                                         'board':board}
-    latest_version = gsutil_util.GetLatestVersionFromGSDir(channel_dir)
+    latest_version = gsutil_util.GetLatestVersionFromGSDir(
+        channel_dir, with_release=False)
 
     # Figure out release number from the version number.
     image_url = devserver_constants.IMAGE_DIR % {'board':board,
@@ -407,14 +492,13 @@ class XBuddy(build_util.BuildObject):
         XBuddy._staging_thread_count -= 1
 
   def _CleanCache(self):
-    """Delete all builds besides the first _XBUDDY_CAPACITY builds"""
+    """Delete all builds besides the newest N builds"""
     if not self._manage_builds:
       return
-
     cached_builds = [e[0] for e in self._ListBuildTimes()]
     _Log('In cache now: %s', cached_builds)
 
-    for b in range(_XBUDDY_CAPACITY, len(cached_builds)):
+    for b in range(self._Capacity(), len(cached_builds)):
       b_path = cached_builds[b]
       _Log("Clearing '%s' from cache", b_path)
 
@@ -455,7 +539,7 @@ class XBuddy(build_util.BuildObject):
     else:
       _Log('Image already cached.')
 
-  def _GetArtifact(self, path_list, board=None, lookup_only=False):
+  def _GetArtifact(self, path_list, board, lookup_only=False):
     """Interpret an xBuddy path and return directory/file_name to resource.
 
     Returns:
@@ -467,9 +551,7 @@ class XBuddy(build_util.BuildObject):
     """
     path = '/'.join(path_list)
     # Rewrite the path if there is an appropriate default.
-    path = xbuddy_lookup_table.paths().get(path, path)
-    # Fill in the board if the string needs it.
-    path = path % {'board': board or self._board}
+    path = self._LookupAlias(path, board)
 
     # Parse the path.
     image_type, board, version, is_local = self._InterpretPath(path)
@@ -501,6 +583,7 @@ class XBuddy(build_util.BuildObject):
 
       # Interpret the version (alias), and get gs address.
       image_url = self._ResolveVersionToUrl(board, version)
+      _Log("Found on GS: %s", image_url)
       self._GetFromGS(image_url, image_type, lookup_only)
 
     return image_url, file_name
@@ -519,9 +602,9 @@ class XBuddy(build_util.BuildObject):
 
   def Capacity(self):
     """Returns the number of images cached by xBuddy."""
-    return str(_XBUDDY_CAPACITY)
+    return str(self._Capacity())
 
-  def Translate(self, path_list, board=None):
+  def Translate(self, path_list, board):
     """Translates an xBuddy path to a real path to artifact if it exists.
 
     Equivalent to the Get call, minus downloading and updating timestamps,
@@ -545,14 +628,13 @@ class XBuddy(build_util.BuildObject):
     _Log('Returning path to payload: %s/%s', build_id, file_name)
     return build_id, file_name
 
-  def Get(self, path_list, board=None):
+  def Get(self, path_list):
     """The full xBuddy call, returns resource specified by path_list.
 
     Please see devserver.py:xbuddy for full documentation.
 
     Args:
       path_list: [board, version, alias] as split from the xbuddy call url
-      board: string, if set, it will override the default board in path rewrites
 
     Returns:
       build_id: Path to the image or update directory on the devserver.
@@ -568,7 +650,7 @@ class XBuddy(build_util.BuildObject):
       XBuddyException: if path is invalid
     """
     self._SyncRegistryWithBuildImages()
-    build_id, file_name = self._GetArtifact(path_list, board)
+    build_id, file_name = self._GetArtifact(path_list, self._board)
 
     Timestamp.UpdateTimestamp(self._timestamp_folder, build_id)
     #TODO (joyc): run in sep thread

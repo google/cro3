@@ -9,3 +9,4 @@ static/oem.gz
 static/rootfs-release.gz
 static/rootfs-test.gz
 static/state.gz
+shadow_xbuddy_config.ini

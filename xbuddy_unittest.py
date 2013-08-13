@@ -61,7 +61,8 @@ class xBuddyTest(mox.MoxTestBase):
     """Basic test of _LookupChannel. Checks that a given suffix is handled."""
     self.mox.StubOutWithMock(gsutil_util, 'GetLatestVersionFromGSDir')
     mock_data1 = '4100.68.0'
-    gsutil_util.GetLatestVersionFromGSDir(mox.IgnoreArg()).AndReturn(mock_data1)
+    gsutil_util.GetLatestVersionFromGSDir(
+        mox.IgnoreArg(), with_release=False).AndReturn(mock_data1)
     mock_data2 = 'R28-4100.68.0'
     gsutil_util.GetLatestVersionFromGSDir(mox.IgnoreArg()).AndReturn(mock_data2)
     self.mox.ReplayAll()
@@ -192,7 +193,7 @@ class xBuddyTest(mox.MoxTestBase):
     # Get 6 different images: a,b,c,d,e,f
     images = ['a', 'b', 'c', 'd', 'e', 'f']
     for c in images:
-      self.mock_xb.Get(('remote', c, 'R0', 'test'), None)
+      self.mock_xb.Get(('remote', c, 'R0', 'test'))
       time.sleep(0.05)
 
     # check that b,c,d,e,f are still stored
@@ -205,9 +206,9 @@ class xBuddyTest(mox.MoxTestBase):
       self.assertEqual(result[i][0], '%s-release/R0' % images[i])
 
     # Get b,a
-    self.mock_xb.Get(path_b, None)
+    self.mock_xb.Get(path_b)
     time.sleep(0.05)
-    self.mock_xb.Get(path_a, None)
+    self.mock_xb.Get(path_a)
     time.sleep(0.05)
 
     # check that d,e,f,b,a are still stored

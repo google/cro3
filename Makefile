@@ -25,8 +25,9 @@ install:
 		gsutil_util.py \
 		log_util.py \
 		strip_package.py \
+		shadow_xbuddy_config.ini\
 		xbuddy.py \
-		xbuddy_lookup_table.py\
+		xbuddy_config.ini\
 		"${DESTDIR}/usr/lib/devserver"
 
 	install -m 0755 stateful_update "${DESTDIR}/usr/bin"

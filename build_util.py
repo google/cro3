@@ -34,9 +34,13 @@ class BuildObject(object):
     return os.popen(cmd).read().strip()
 
   def GetDefaultBoardID(self):
-    """Returns the default board id stored in .default_board."""
+    """Returns the default board id stored in .default_board.
+
+    Default to x86-generic, if that isn't set.
+    """
     board_file = '%s/.default_board' % (self.scripts_dir)
     try:
-      return open(board_file).read()
+      with open(board_file) as bf:
+        return bf.read().strip()
     except IOError:
       return 'x86-generic'

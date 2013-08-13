@@ -170,7 +170,7 @@ class Autoupdate(build_util.BuildObject):
     self.src_image = src_image
     self.proxy_port = proxy_port
     self.patch_kernel = patch_kernel
-    self.board = board
+    self.board = board or self.GetDefaultBoardID()
     self.copy_to_static_root = copy_to_static_root
     self.private_key = private_key
     self.critical_update = critical_update

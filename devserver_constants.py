@@ -14,7 +14,8 @@ IMAGE_DIR = '%(board)s-%(suffix)s/%(version)s'
 GS_RELEASES_DIR = 'gs://chromeos-releases'
 GS_CHANNEL_DIR = GS_RELEASES_DIR + '/%(channel)s-channel/%(board)s/'
 
-VERSION_RE = 'R?[-0-9\.]+'
+VERSION_RE = 'R[-0-9\.]+'
+VERSION = '[-0-9\.]+'
 
 #### Local storage locations and names. ####
 AUTOTEST_DIR = 'autotest'
