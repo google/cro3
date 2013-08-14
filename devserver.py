@@ -404,17 +404,6 @@ class DevServerRoot(object):
       raise DevServerError("Must specify an archive_url in the request")
 
   @cherrypy.expose
-  def download(self, **kwargs):
-    """Downloads and archives full/delta payloads from Google Storage.
-
-    THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
-    """
-    async = kwargs.get('async', False)
-    return self.stage(archive_url=kwargs.get('archive_url'),
-                      artifacts='full_payload,test_suites,stateful',
-                      async=async)
-
-  @cherrypy.expose
   def is_staged(self, **kwargs):
     """Check if artifacts have been downloaded.
 
@@ -552,27 +541,6 @@ class DevServerRoot(object):
       return src_folder
 
   @cherrypy.expose
-  def wait_for_status(self, **kwargs):
-    """Waits for background artifacts to be downloaded from Google Storage.
-
-    THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
-    """
-    async = kwargs.get('async', False)
-    return self.stage(
-        archive_url=kwargs.get('archive_url'),
-        artifacts='full_payload,test_suites,autotest,stateful',
-        async=async)
-
-  @cherrypy.expose
-  def stage_debug(self, **kwargs):
-    """Downloads and stages debug symbol payloads from Google Storage.
-
-    THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
-    """
-    return self.stage(archive_url=kwargs.get('archive_url'),
-                      artifacts='symbols')
-
-  @cherrypy.expose
   def symbolicate_dump(self, minidump, **kwargs):
     """Symbolicates a minidump using pre-downloaded symbols, returns it.
 
@@ -683,17 +651,6 @@ class DevServerRoot(object):
     else:
       return common_util.GetControlFile(
           updater.static_dir, params['build'], params['control_path'])
-
-  @cherrypy.expose
-  def stage_images(self, **kwargs):
-    """Downloads and stages a Chrome OS image from Google Storage.
-
-    THIS METHOD IS DEPRECATED: use stage(..., artifacts=...) instead.
-    """
-    image_types = kwargs.get('image_types').split(',')
-    image_types_list = [image + '_image' for image in image_types]
-    self.stage(archive_url=kwargs.get('archive_url'), artifacts=','.join(
-        image_types_list))
 
   @cherrypy.expose
   def xbuddy(self, *args, **kwargs):
