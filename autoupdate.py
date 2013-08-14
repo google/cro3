@@ -723,9 +723,11 @@ class Autoupdate(build_util.BuildObject):
         if not label:
           label = self.payload_path
 
-        # Form the URL of the update payload. This assumes that the payload
-        # file name is a devserver constant (which currently is the case).
-        url = _NonePathJoin(static_urlbase, label, constants.UPDATE_FILE)
+        # TODO(sosa): Remove backwards-compatible hack.
+        if not label.endswith('.bin'):
+          url = _NonePathJoin(static_urlbase, label, 'update.gz')
+        else:
+          url = _NonePathJoin(static_urlbase, label)
 
         # Get remote payload attributes.
         metadata_obj = self._GetRemotePayloadAttrs(url)
