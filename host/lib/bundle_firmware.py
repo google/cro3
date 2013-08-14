@@ -394,7 +394,7 @@ class Bundle:
       if not self.exynos_bl1:
         self.exynos_bl1 = os.path.join(build_root, 'u-boot.bl1.bin')
       if not self.exynos_bl2:
-        self.exynos_bl2 = os.path.join(build_root, 'u-boot-spl-wrapped.bin')
+        self.exynos_bl2 = os.path.join(build_root, 'u-boot-spl.wrapped.bin')
     if not self.coreboot_fname:
       self.coreboot_fname = os.path.join(build_root, 'coreboot.rom')
     if not self.skeleton_fname:
