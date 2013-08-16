@@ -185,6 +185,9 @@ class BuildArtifact(log_util.Loggable):
     return '->'.join(['%s/%s' % (self.archive_url, self.name),
                      self.install_dir])
 
+  def __repr__(self):
+    return str(self)
+
 
 class AUTestPayloadBuildArtifact(BuildArtifact):
   """Wrapper for AUTest delta payloads which need additional setup."""

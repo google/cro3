@@ -711,15 +711,15 @@ class Autoupdate(build_util.BuildObject):
     # Parse the XML we got into the components we care about.
     protocol, app, event, update_check = autoupdate_lib.ParseUpdateRequest(data)
 
+    # Process attributes of the update check.
+    forced_update_label, client_version, board = self._ProcessUpdateComponents(
+        app, event)
+
     if not update_check:
       # TODO(sosa): Generate correct non-updatecheck payload to better test
       # update clients.
       _Log('Non-update check received.  Returning blank payload')
       return autoupdate_lib.GetNoUpdateResponse(protocol)
-
-    # Process attributes of the update check.
-    forced_update_label, client_version, board = self._ProcessUpdateComponents(
-        app, event)
 
     if forced_update_label:
       if label:
@@ -748,7 +748,7 @@ class Autoupdate(build_util.BuildObject):
           label = self.payload_path
 
         # TODO(sosa): Remove backwards-compatible hack.
-        if not label.endswith('.bin'):
+        if not '.bin' in label:
           url = _NonePathJoin(static_urlbase, label, 'update.gz')
         else:
           url = _NonePathJoin(static_urlbase, label)

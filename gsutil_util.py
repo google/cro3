@@ -5,6 +5,7 @@
 """Module containing gsutil helper methods."""
 
 import distutils.version
+import logging
 import random
 import re
 import subprocess
@@ -106,7 +107,9 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, single_item=True,
     pattern: Regular expression pattern to identify the target artifact.
     archive_url: URL of the Google Storage bucket.
     err_str: String to display in the error message on error.
-    single_item: Only a single item should be returned.
+    single_item: Only a single item should be returned. If more than one item
+                 matches the pattern errors out unless pattern matches one
+                 exactly.
     timeout/delay: optional and self-explanatory.
 
   Returns:
@@ -139,9 +142,15 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, single_item=True,
     found_names = _GetGSNamesFromList(uploaded_list, pattern)
     if found_names:
       if single_item and len(found_names) > 1:
-        raise PatternNotSpecific(
+        found_names_exact = _GetGSNamesFromList(uploaded_list, '^%s$' % pattern)
+        if not found_names_exact:
+          raise PatternNotSpecific(
             'Too many items %s returned by pattern %s in %s' % (
                 str(found_names), pattern, archive_url))
+        else:
+          logging.info('More than one item returned but one file matched'
+                       ' exactly so returning that: %s.', found_names_exact)
+          found_names = found_names_exact
 
       return found_names
 
