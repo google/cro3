@@ -147,11 +147,7 @@ class AutoupdateTest(mox.MoxTestBase):
     with open(forced_image, 'w') as fh:
       fh.write('')
 
-    static_forced_image_dir = os.path.join(self.static_image_dir,
-                                           'forced_image')
-    static_forced_image = os.path.join(static_forced_image_dir,
-                                       constants.IMAGE_FILE)
-    cache_image_dir = os.path.join(static_forced_image_dir, 'cache')
+    cache_image_dir = os.path.join(self.static_image_dir, 'cache')
 
     # Mock out GenerateUpdateImageWithCache to make an update file in cache
     def mock_fn(_image, static_image_dir):
@@ -164,8 +160,8 @@ class AutoupdateTest(mox.MoxTestBase):
         fh.write('')
 
     common_util.IsInsideChroot().AndReturn(True)
-    au_mock.GenerateUpdateImageWithCache(static_forced_image,
-        static_image_dir=static_forced_image_dir).WithSideEffects(
+    au_mock.GenerateUpdateImageWithCache(forced_image,
+        static_image_dir=self.static_image_dir).WithSideEffects(
         mock_fn).AndReturn('cache')
 
     common_util.GetFileSha1(os.path.join(
@@ -177,7 +173,7 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock._StoreMetadataToFile(cache_image_dir,
                                  mox.IsA(autoupdate.UpdateMetadata))
     forced_url = 'http://%s/static/%s/update.gz' % (self.hostname,
-                                                    'forced_image/cache')
+                                                    'cache')
     autoupdate_lib.GetUpdateResponse(
         self.sha1, self.sha256, self.size, forced_url, False, '3.0',
         False).AndReturn(self.payload)

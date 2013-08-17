@@ -316,7 +316,7 @@ class XBuddy(build_util.BuildObject):
       # Determine if image is explicitly local or remote.
       is_local = True
       if path_list[0] in (REMOTE, LOCAL):
-        is_local = (path_list.pop(0) == REMOTE)
+        is_local = (path_list.pop(0) == LOCAL)
 
       # Set board.
       board = path_list.pop(0)
@@ -401,7 +401,7 @@ class XBuddy(build_util.BuildObject):
     try:
       _Log("Downloading '%s' from '%s'", artifact, gs_url)
       downloader.Downloader(self.static_dir, gs_url).Download(
-          [artifact])
+          [artifact], [])
     finally:
       with XBuddy._staging_thread_count_lock:
         XBuddy._staging_thread_count -= 1
