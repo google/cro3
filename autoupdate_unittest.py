@@ -183,6 +183,24 @@ class AutoupdateTest(mox.MoxTestBase):
     self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
     self.mox.VerifyAll()
 
+  def testHandleForcePregenerateXBuddy(self):
+    """Check pregenerating an xbuddy path.
+
+    A forced image that starts with 'xbuddy:' uses the following path to
+    obtain an update.
+    """
+    self.mox.StubOutWithMock(autoupdate.Autoupdate,
+                             'GetUpdateForLabel')
+    au_mock = self._DummyAutoupdateConstructor()
+    au_mock.forced_image = "xbuddy:b/v/a"
+
+    au_mock.GetUpdateForLabel(
+        autoupdate.FORCED_UPDATE, 'b/v/a').AndReturn('p')
+    self.mox.ReplayAll()
+
+    au_mock.PreGenerateUpdate()
+    self.mox.VerifyAll()
+
   def testChangeUrlPort(self):
     r = autoupdate._ChangeUrlPort('http://fuzzy:8080/static', 8085)
     self.assertEqual(r, 'http://fuzzy:8085/static')

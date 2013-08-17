@@ -654,6 +654,13 @@ class Autoupdate(build_util.BuildObject):
       path_to_payload = self.GetUpdateForLabel(client_version, label)
     #TODO(joychen): deprecate --image flag
     elif self.forced_image:
+      if self.forced_image.startswith('xbuddy:'):
+        # This is trying to use an xbuddy path in place of a path to an image.
+        # Pretend to have called update with this update path to payload.
+        xbuddy_label = self.forced_image.split(':')[1]
+        self.forced_image = None
+        return self.GetPathToPayload(xbuddy_label, client_version, board)
+
       src_path = os.path.abspath(self.forced_image)
       if os.path.exists(src_path) and common_util.IsInsideChroot():
         # Image was found for the given label. Generate update if we can.
