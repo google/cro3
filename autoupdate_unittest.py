@@ -37,6 +37,7 @@ class AutoupdateTest(mox.MoxTestBase):
     self.mox.StubOutWithMock(common_util, 'GetFileSize')
     self.mox.StubOutWithMock(common_util, 'GetFileSha1')
     self.mox.StubOutWithMock(common_util, 'GetFileSha256')
+    self.mox.StubOutWithMock(common_util, 'IsInsideChroot')
     self.mox.StubOutWithMock(autoupdate_lib, 'GetUpdateResponse')
     self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetRemotePayloadAttrs')
     self.port = 8080
@@ -116,6 +117,7 @@ class AutoupdateTest(mox.MoxTestBase):
                              'GenerateUpdateImageWithCache')
     au_mock = self._DummyAutoupdateConstructor()
 
+    common_util.IsInsideChroot().AndReturn(True)
     self._xbuddy._GetArtifact(
         [''], self.test_board, lookup_only=True).AndReturn(
             (latest_label, constants.TEST_IMAGE_FILE))
@@ -161,6 +163,7 @@ class AutoupdateTest(mox.MoxTestBase):
       with open(update_image, 'w') as fh:
         fh.write('')
 
+    common_util.IsInsideChroot().AndReturn(True)
     au_mock.GenerateUpdateImageWithCache(static_forced_image,
         static_image_dir=static_forced_image_dir).WithSideEffects(
         mock_fn).AndReturn('cache')

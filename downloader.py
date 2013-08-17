@@ -131,7 +131,7 @@ class Downloader(log_util.Loggable):
         # thread. This prevents caller from waiting indefinitely for any
         # nonexistent artifact.
         for artifact in required_artifacts:
-          artifact.WaitForArtifactToExist(timeout=10)
+          artifact.WaitForArtifactToExist(timeout=10, update_name=False)
         self._DownloadArtifactsInBackground(required_artifacts)
       else:
         self._DownloadArtifactsSerially(required_artifacts, no_wait=True)

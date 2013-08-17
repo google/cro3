@@ -104,8 +104,12 @@ class BuildArtifact(log_util.Loggable):
     with open(os.path.join(self.install_dir, self.marker_name), 'w') as f:
       f.write('')
 
-  def WaitForArtifactToExist(self, timeout):
-    """Waits for artifact to exist and sets self.name to appropriate name."""
+  def WaitForArtifactToExist(self, timeout, update_name=True):
+    """Waits for artifact to exist and sets self.name to appropriate name.
+
+    Args:
+      update_name: If False, don't actually update self.name.
+    """
     names = gsutil_util.GetGSNamesWithWait(
         self.name, self.archive_url, str(self), single_item=self.single_name,
         timeout=timeout)
@@ -117,9 +121,12 @@ class BuildArtifact(log_util.Loggable):
       if len(names) > 1:
         raise ArtifactDownloadError('Too many artifacts match %s' % self.name)
 
-      self.name = names[0]
+      new_name = names[0]
     else:
-      self.name = names
+      new_name = names
+
+    if update_name:
+      self.name = new_name
 
   def _Download(self):
     """Downloads artifact from Google Storage to a local directory."""
