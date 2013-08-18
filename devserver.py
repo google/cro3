@@ -906,9 +906,6 @@ def _AddUpdateOptions(parser):
   group.add_option('--critical_update',
                    action='store_true', default=False,
                    help='Present update payload as critical')
-  group.add_option('--for_vm',
-                   dest='vm', action='store_true',
-                   help='DEPRECATED: see no_patch_kernel.')
   group.add_option('--image',
                    metavar='FILE',
                    help='Generate and serve an update using this image to any '
@@ -1014,10 +1011,6 @@ def main():
     # pylint: enable=E1101
 
   root_dir = os.path.realpath('%s/../..' % devserver_dir)
-
-  # TODO(sosa): Remove after deprecation.
-  if options.vm:
-    options.patch_kernel = False
 
   # set static_dir, from which everything will be served
   options.static_dir = os.path.realpath(options.static_dir)
