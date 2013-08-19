@@ -39,6 +39,7 @@ STATEFUL = 'stateful'
 AUTOTEST = 'autotest'
 
 # Local build constants
+ANY = "ANY"
 LATEST = "latest"
 LOCAL = "local"
 REMOTE = "remote"
@@ -46,7 +47,8 @@ LOCAL_ALIASES = [
   TEST,
   BASE,
   DEV,
-  FULL
+  FULL,
+  ANY,
 ]
 
 LOCAL_FILE_NAMES = [
@@ -252,7 +254,7 @@ class XBuddy(build_util.BuildObject):
       return alias
     else:
       # Fill in the board.
-      rewrite  = val.replace("BOARD", "%(board)s") % {
+      rewrite = val.replace("BOARD", "%(board)s") % {
           'board': board}
       _Log("Path was rewritten to %s", rewrite)
       return rewrite
@@ -281,9 +283,10 @@ class XBuddy(build_util.BuildObject):
         channel_dir, with_release=False)
 
     # Figure out release number from the version number.
-    image_url = devserver_constants.IMAGE_DIR % {'board':board,
-                                                 'suffix':RELEASE,
-                                                 'version':'R*'+latest_version}
+    image_url = devserver_constants.IMAGE_DIR % {
+        'board':board,
+        'suffix':RELEASE,
+        'version':'R*' + latest_version}
     image_dir = os.path.join(devserver_constants.GS_IMAGE_DIR, image_url)
 
     # There should only be one match on cros-image-archive.
@@ -369,10 +372,14 @@ class XBuddy(build_util.BuildObject):
     the real image dir in the local /build/images directory.
 
     Args:
-      board: board that image was built for.jj
+      board: board that image was built for.
 
     Returns:
       The discovered version of the image.
+
+    Raises:
+      XBuddyException if neither test nor dev image was found in latest built
+      directory.
     """
     latest_local_dir = self.GetLatestImageDir(board)
     if not latest_local_dir or not os.path.exists(latest_local_dir):
@@ -380,9 +387,23 @@ class XBuddy(build_util.BuildObject):
                             board)
 
     # Assume that the version number is the name of the directory.
-    return os.path.basename(latest_local_dir)
+    return os.path.basename(latest_local_dir.rstrip('/'))
 
-  def _InterpretPath(self, path):
+  @staticmethod
+  def _FindAny(local_dir):
+    """Returns the image_type for ANY given the local_dir."""
+    dev_image = os.path.join(local_dir, devserver_constants.IMAGE_FILE)
+    test_image = os.path.join(local_dir, devserver_constants.TEST_IMAGE_FILE)
+    if os.path.exists(dev_image):
+      return 'dev'
+
+    if os.path.exists(test_image):
+      return 'test'
+
+    raise XBuddyException('No images found in %s' % local_dir)
+
+  @staticmethod
+  def _InterpretPath(path):
     """Split and return the pieces of an xBuddy path name
 
     Args:
@@ -446,7 +467,7 @@ class XBuddy(build_util.BuildObject):
       common_util.MkDirP(os.path.join(self.static_dir, b))
       board_dir = os.path.join(self.images_dir, b)
       build_ids.extend(['/'.join([b, v]) for v
-                        in os.listdir(board_dir) if not v==LATEST])
+                        in os.listdir(board_dir) if not v == LATEST])
 
     # Check currently registered images.
     for f in os.listdir(self._timestamp_folder):
@@ -474,7 +495,7 @@ class XBuddy(build_util.BuildObject):
     for f in os.listdir(self._timestamp_folder):
       last_accessed = os.path.getmtime(os.path.join(self._timestamp_folder, f))
       build_id = Timestamp.TimestampToBuild(f)
-      stale_time = datetime.timedelta(seconds = (time.time()-last_accessed))
+      stale_time = datetime.timedelta(seconds=(time.time() - last_accessed))
       build_dict[build_id] = stale_time
     return_tup = sorted(build_dict.iteritems(), key=operator.itemgetter(1))
     return return_tup
@@ -543,7 +564,7 @@ class XBuddy(build_util.BuildObject):
     """Interpret an xBuddy path and return directory/file_name to resource.
 
     Returns:
-    image_url to the directory
+    build_id to the directory
     file_name of the artifact
 
     Raises:
@@ -558,21 +579,20 @@ class XBuddy(build_util.BuildObject):
 
     if is_local:
       # Get a local image.
-      if image_type not in LOCAL_ALIASES:
-        raise XBuddyException('Bad local image type: %s. Use one of: %s' %
-                              (image_type, LOCAL_ALIASES))
-      file_name = LOCAL_ALIAS_TO_FILENAME[image_type]
-
       if version == LATEST:
         # Get the latest local image for the given board.
         version = self._GetLatestLocalVersion(board)
 
-      image_url = os.path.join(board, version)
+      build_id = os.path.join(board, version)
+      artifact_dir = os.path.join(self.static_dir, build_id)
+      if image_type == ANY:
+        image_type = self._FindAny(artifact_dir)
 
-      artifact_url = os.path.join(self.static_dir, image_url, file_name)
-      if not os.path.exists(artifact_url):
-        raise XBuddyException('Local artifact not in static_dir at %s/%s' %
-            (image_url, file_name))
+      file_name = LOCAL_ALIAS_TO_FILENAME[image_type]
+      artifact_path = os.path.join(artifact_dir, file_name)
+      if not os.path.exists(artifact_path):
+        raise XBuddyException('Local %s artifact not in static_dir at %s' %
+                              (image_type, artifact_path))
 
     else:
       # Get a remote image.
@@ -582,11 +602,11 @@ class XBuddy(build_util.BuildObject):
       file_name = GS_ALIAS_TO_FILENAME[image_type]
 
       # Interpret the version (alias), and get gs address.
-      image_url = self._ResolveVersionToUrl(board, version)
-      _Log("Found on GS: %s", image_url)
-      self._GetFromGS(image_url, image_type, lookup_only)
+      build_id = self._ResolveVersionToUrl(board, version)
+      _Log('Found on GS: %s', build_id)
+      self._GetFromGS(build_id, image_type, lookup_only)
 
-    return image_url, file_name
+    return build_id, file_name
 
   ############################ BEGIN PUBLIC METHODS
 

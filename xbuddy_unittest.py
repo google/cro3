@@ -134,6 +134,10 @@ class xBuddyTest(mox.MoxTestBase):
                       self.mock_xb._InterpretPath,
                       path=path)
 
+    path = 'local/parrot/latest/ANY'
+    expected = ('ANY', 'parrot', 'latest', True)
+    self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
+
 
   def testTimestampsAndList(self):
     """Creation and listing of builds according to their timestamps."""
