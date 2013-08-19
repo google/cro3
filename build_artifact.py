@@ -7,6 +7,7 @@
 """Module containing classes that wrap artifact downloads."""
 
 import os
+import pickle
 import shutil
 import subprocess
 
@@ -57,6 +58,11 @@ class BuildArtifact(log_util.Loggable):
     marker_name: Name used to define the lock marker for the artifacts to
                  prevent it from being re-downloaded. By default based on name
                  but can be overriden by children.
+    exception_file_path: Path to a file containing the serialized exception,
+                         which was raised in Process method. The file is located
+                         in the parent folder of install_dir, since the
+                         install_dir will be deleted if the build does not
+                         existed.
     install_path: Path to artifact.
     install_dir: The final location where the artifact should be staged to.
     single_name: If True the name given should only match one item. Note, if not
@@ -80,6 +86,13 @@ class BuildArtifact(log_util.Loggable):
     self.build = build
 
     self.marker_name = '.' + self._SanitizeName(name)
+
+    exception_file_name = ('.' + self._SanitizeName(build) + self.marker_name +
+                           '.exception')
+    # The exception file needs to be located in parent folder, since the
+    # install_dir will be deleted is the build does not exist.
+    self.exception_file_path = os.path.join(os.path.dirname(install_dir),
+                                                            exception_file_name)
 
     self.install_path = None
 
@@ -138,6 +151,29 @@ class BuildArtifact(log_util.Loggable):
     """For tarball like artifacts, extracts and prepares contents."""
     pass
 
+  def _ClearException(self):
+    """Delete any existing exception saved for this artifact."""
+    if os.path.exists(self.exception_file_path):
+      os.remove(self.exception_file_path)
+
+  def _SaveException(self, e):
+    """Save the exception to a file for downloader.IsStaged to retrieve.
+
+    @param e: Exception object to be saved.
+    """
+    with open(self.exception_file_path, 'w') as f:
+      pickle.dump(e, f)
+
+  def GetException(self):
+    """Retrieve any exception that was raised in Process method.
+
+    @return: An Exception object that was raised when trying to process the
+             artifact. Return None if no exception was found.
+    """
+    if not os.path.exists(self.exception_file_path):
+      return None
+    with open(self.exception_file_path, 'r') as f:
+      return pickle.load(f)
 
   def Process(self, no_wait):
     """Main call point to all artifacts. Downloads and Stages artifact.
@@ -170,13 +206,20 @@ class BuildArtifact(log_util.Loggable):
     with self._process_lock:
       common_util.MkDirP(self.install_dir)
       if not self.ArtifactStaged():
-        # If the artifact should already have been uploaded, don't waste
-        # cycles waiting around for it to exist.
-        timeout = 1 if no_wait else 10
-        self.WaitForArtifactToExist(timeout)
-        self._Download()
-        self._Setup()
-        self._MarkArtifactStaged()
+        try:
+          # Delete any existing exception saved for this artifact.
+          self._ClearException()
+          # If the artifact should already have been uploaded, don't waste
+          # cycles waiting around for it to exist.
+          timeout = 1 if no_wait else 10
+          self.WaitForArtifactToExist(timeout)
+          self._Download()
+          self._Setup()
+          self._MarkArtifactStaged()
+        except Exception as e:
+          # Save the exception to a file for downloader.IsStaged to retrieve.
+          self._SaveException(e)
+          raise
       else:
         self._Log('%s is already staged.', self)
 

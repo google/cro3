@@ -11,6 +11,30 @@ import gsutil_util
 import log_util
 
 
+class DownloaderException(Exception):
+  """Exception that aggregates all exceptions raised during async download.
+
+  Exceptions could be raised in artifact.Process method, and saved to files.
+  When caller calls IsStaged to check the downloading progress, devserver can
+  retrieve the persisted exceptions from the files, wrap them into a
+  DownloaderException, and raise it.
+  """
+  def __init__(self, exceptions):
+    """Initialize a DownloaderException instance with a list of exceptions.
+
+    @param exceptions: Exceptions raised when downloading artifacts.
+    """
+    message = 'Exceptions were raised when downloading artifacts.'
+    Exception.__init__(self, message)
+    self.exceptions = exceptions
+
+  def __repr__(self):
+    return self.__str__()
+
+  def __str__(self):
+    """Return a custom exception message with all exceptions merged."""
+    return '--------\n'.join([str(exception) for exception in self.exceptions])
+
 class Downloader(log_util.Loggable):
   """Downloader of images to the devsever.
 
@@ -125,19 +149,10 @@ class Downloader(log_util.Loggable):
     str_repr = [str(a) for a in required_artifacts]
     self._Log('Downloading artifacts %s.', ' '.join(str_repr))
 
-    try:
-      if async:
-        # Make sure all artifacts exist before starting downloading in a new
-        # thread. This prevents caller from waiting indefinitely for any
-        # nonexistent artifact.
-        for artifact in required_artifacts:
-          artifact.WaitForArtifactToExist(timeout=10, update_name=False)
-        self._DownloadArtifactsInBackground(required_artifacts)
-      else:
-        self._DownloadArtifactsSerially(required_artifacts, no_wait=True)
-    except gsutil_util.GSUtilError:
-      Downloader._TryRemoveStageDir(self._build_dir)
-      raise
+    if async:
+      self._DownloadArtifactsInBackground(required_artifacts)
+    else:
+      self._DownloadArtifactsSerially(required_artifacts, no_wait=True)
 
   def IsStaged(self, artifacts, files):
     """Check if all artifacts have been downloaded.
@@ -146,6 +161,7 @@ class Downloader(log_util.Loggable):
                artifacts defined in artifact_info.py to stage.
     files: A list of filenames to stage from an archive_url.
     @returns: True if all artifacts are staged.
+    @raise exception: that was raised by any artifact when calling Process.
 
     """
     # Create factory to create build_artifacts from artifact names.
@@ -153,6 +169,11 @@ class Downloader(log_util.Loggable):
     factory = build_artifact.ArtifactFactory(
         self._build_dir, self._archive_url, artifacts, files, build)
     required_artifacts = factory.RequiredArtifacts()
+    exceptions = [artifact.GetException() for artifact in required_artifacts if
+                  artifact.GetException()]
+    if exceptions:
+      raise DownloaderException(exceptions)
+
     return all([artifact.ArtifactStaged() for artifact in required_artifacts])
 
   def _DownloadArtifactsSerially(self, artifacts, no_wait):
@@ -164,8 +185,12 @@ class Downloader(log_util.Loggable):
                     fail to immediately find it.
 
     """
-    for artifact in artifacts:
-      artifact.Process(no_wait)
+    try:
+      for artifact in artifacts:
+        artifact.Process(no_wait)
+    except gsutil_util.GSUtilError:
+      Downloader._TryRemoveStageDir(self._build_dir)
+      raise
 
   def _DownloadArtifactsInBackground(self, artifacts):
     """Downloads |artifacts| in the background.

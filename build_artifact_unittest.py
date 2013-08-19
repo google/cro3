@@ -24,6 +24,8 @@ import build_artifact
 _VERSION = 'R26-3646.0.0-rc1'
 _TEST_GOLO_ARCHIVE = (
     'gs://chromeos-image-archive/x86-generic-chromium-pfq/R26-3646.0.0-rc1')
+_TEST_NON_EXISTING_GOLO_ARCHIVE = (
+    'gs://chromeos-image-archive/x86-generic-chromium-pfq/R26-no_such_build')
 
 # Different as the above does not have deltas (for smaller artifacts).
 _DELTA_VERSION = 'R26-3645.0.0'
@@ -144,6 +146,18 @@ class BuildArtifactTest(mox.MoxTestBase):
     # File artifact was staged.
     self.assertTrue(os.path.exists(os.path.join(self.work_dir,
                                                 file_artifact)))
+
+  def testProcessBuildArtifactWithException(self):
+    """Test processing a non-existing artifact from GSUtil."""
+    artifact = build_artifact.BuildArtifact(
+        self.work_dir, _TEST_NON_EXISTING_GOLO_ARCHIVE,
+        build_artifact.TEST_SUITES_FILE, _VERSION)
+    try:
+      artifact.Process(False)
+    except Exception as e:
+      expected_exception = e
+    exception = artifact.GetException()
+    self.assertEqual(str(exception), str(expected_exception))
 
 
 if __name__ == '__main__':
