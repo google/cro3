@@ -54,7 +54,8 @@ import types
 from logging import handlers
 
 import cherrypy
-import cherrypy._cplogging
+from cherrypy import _cplogging as cplogging
+from cherrypy.process import plugins
 
 import autoupdate
 import common_util
@@ -698,7 +699,7 @@ class DevServerRoot(object):
 
     build_id, file_name = self._xbuddy.Get(args)
     if return_dir:
-      directory = os.path.join(cherrypy.request.base, 'static',  build_id)
+      directory = os.path.join(cherrypy.request.base, 'static', build_id)
       _Log("Directory requested, returning: %s", directory)
       return directory
     else:
@@ -946,6 +947,9 @@ def _AddProductionOptions(parser):
   group.add_option('--logfile',
                    metavar='PATH',
                    help='log output to this file instead of stdout')
+  group.add_option('--pidfile',
+                   metavar='PATH',
+                   help='path to output a pid file for the server.')
   group.add_option('--production',
                    action='store_true', default=False,
                    help='have the devserver use production values when '
@@ -959,10 +963,7 @@ def _MakeLogHandler(logfile):
   hdlr_cls = handlers.TimedRotatingFileHandler
   hdlr = hdlr_cls(logfile, when=_LOG_ROTATION_TIME,
                   backupCount=_LOG_ROTATION_BACKUP)
-  # The cherrypy documentation says to use the _cplogging module for
-  # this, even though it's named as a private module.
-  # pylint: disable=W0212
-  hdlr.setFormatter(cherrypy._cplogging.logfmt)
+  hdlr.setFormatter(cplogging.logfmt)
   return hdlr
 
 
@@ -1062,6 +1063,9 @@ def main():
     return
 
   dev_server = DevServerRoot(_xbuddy)
+
+  if options.pidfile:
+    plugins.PIDFile(cherrypy.engine, options.pidfile).subscribe()
 
   cherrypy.quickstart(dev_server, config=_GetConfig(options))
 

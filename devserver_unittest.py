@@ -9,6 +9,7 @@
 import json
 from xml.dom import minidom
 import os
+import psutil
 import shutil
 import signal
 import subprocess
@@ -80,7 +81,8 @@ class DevserverTest(unittest.TestCase):
                                              API_SET_UPDATE_REQUEST,
                                              TEST_IMAGE_NAME))
 
-    self.devserver_process = self._StartServer()
+    self.pidfile = tempfile.mktemp('devserver_unittest')
+    self.devserver_process = self._StartServer(self.pidfile)
 
   def tearDown(self):
     """Removes testing files."""
@@ -89,15 +91,17 @@ class DevserverTest(unittest.TestCase):
 
   # Helper methods begin here.
 
-  def _StartServer(self):
+  def _StartServer(self, pidfile):
     """Starts devserver, returns process."""
     cmd = [
         'python',
         os.path.join(self.src_dir, 'devserver.py'),
         'devserver.py',
-        '--static_dir',
-        self.test_data_path,
+        '--static_dir', self.test_data_path,
+        '--pidfile', pidfile
         ]
+    if pidfile:
+      cmd.extend(['--pidfile', pidfile])
 
     process = subprocess.Popen(cmd,
                                stderr=subprocess.PIPE)
@@ -210,6 +214,17 @@ class DevserverTest(unittest.TestCase):
 
     self.assertEqual(
         json.loads(response)['forced_update_label'], API_SET_UPDATE_REQUEST)
+
+  def testPidFile(self):
+    """Test that using a pidfile works correctly."""
+    with open(self.pidfile, 'r') as f:
+      pid = f.read()
+
+    # Let's assert some process information about the devserver.
+    self.assertTrue(pid.isdigit())
+    process = psutil.Process(int(pid))
+    self.assertTrue(process.is_running())
+    self.assertTrue('devserver.py' in process.cmdline)
 
 
 if __name__ == '__main__':
