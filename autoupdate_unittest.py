@@ -194,6 +194,9 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock = self._DummyAutoupdateConstructor()
     au_mock.forced_image = "xbuddy:b/v/a"
 
+    self._xbuddy._GetArtifact(
+        ['b', 'v', 'a'], None).AndReturn(('label', constants.TEST_IMAGE_FILE))
+
     au_mock.GetUpdateForLabel(
         autoupdate.FORCED_UPDATE, 'b/v/a').AndReturn('p')
     self.mox.ReplayAll()

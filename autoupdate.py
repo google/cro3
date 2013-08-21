@@ -656,9 +656,11 @@ class Autoupdate(build_util.BuildObject):
     elif self.forced_image:
       if self.forced_image.startswith('xbuddy:'):
         # This is trying to use an xbuddy path in place of a path to an image.
-        # Pretend to have called update with this update path to payload.
         xbuddy_label = self.forced_image.split(':')[1]
         self.forced_image = None
+        # Make sure the xbuddy path target is in the directory.
+        path_to_payload, _image_name = self.xbuddy.Get(xbuddy_label.split('/'))
+        # Pretend to have called update with this update path to payload.
         return self.GetPathToPayload(xbuddy_label, client_version, board)
 
       src_path = os.path.abspath(self.forced_image)
