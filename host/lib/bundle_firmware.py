@@ -929,9 +929,6 @@ class Bundle:
     self._out.Notice("Model: %s" % fdt.GetString('/', 'model'))
 
     pack = PackFirmware(self._tools, self._out)
-    # Get the flashmap so we know what to build. For board variants use the
-    # main board name as the key (drop the _<variant> suffix).
-    default_flashmap = default_flashmaps.get(self._board.split('_')[0], [])
     if self._force_rw:
       fdt.PutInteger('/flash/rw-a-vblock', 'preamble-flags', 0)
       fdt.PutInteger('/flash/rw-b-vblock', 'preamble-flags', 0)
@@ -939,24 +936,6 @@ class Bundle:
       fdt.PutInteger('/chromeos-config', 'early-firmware-selection', 1)
     pack.use_efs = fdt.GetInt('/chromeos-config', 'early-firmware-selection',
                               0)
-
-    if not fdt.GetProp('/flash', 'reg', ''):
-      fdt.InsertNodes(default_flashmap)
-
-    # Insert default values for any essential properties that are missing.
-    # This should only happen for upstream U-Boot, until our changes are
-    # upstreamed.
-    if not fdt.GetProp('/iram', 'reg', ''):
-      self._out.Warning('Cannot find /iram, using default')
-      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/iram'])
-
-    if not fdt.GetProp('/memory', 'reg', ''):
-      self._out.Warning('Cannot find /memory, using default')
-      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/memory'])
-
-    if not fdt.GetProp('/config', 'samsung,bl1-offset', ''):
-      self._out.Warning('Missing properties in /config, using defaults')
-      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/config'])
 
     pack.SelectFdt(fdt, self._board)
 
@@ -1090,8 +1069,35 @@ class Bundle:
       arch_dts = 'tegra20.dtsi'
 
     fdt.Compile(arch_dts)
-    self.fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
-    return self.fdt
+    fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
+
+    # Get the flashmap so we know what to build. For board variants use the
+    # main board name as the key (drop the _<variant> suffix).
+    default_flashmap = default_flashmaps.get(self._board.split('_')[0], [])
+
+    if not fdt.GetProp('/flash', 'reg', ''):
+      fdt.InsertNodes(default_flashmap)
+
+    # Insert default values for any essential properties that are missing.
+    # This should only happen for upstream U-Boot, until our changes are
+    # upstreamed.
+    if not fdt.GetProp('/iram', 'reg', ''):
+      self._out.Warning('Cannot find /iram, using default')
+      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/iram'])
+
+    # Sadly the pit branch has an invalid /memory node. Work around it for now.
+    # crosbug.com/p/22184
+    if (not fdt.GetProp('/memory', 'reg', '') or
+        fdt.GetIntList('/memory', 'reg')[0] == 0):
+      self._out.Warning('Cannot find /memory, using default')
+      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/memory'])
+
+    if not fdt.GetProp('/config', 'samsung,bl1-offset', ''):
+      self._out.Warning('Missing properties in /config, using defaults')
+      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/config'])
+
+    self.fdt = fdt
+    return fdt
 
   def Start(self, hardware_id, output_fname, show_map):
     """This creates a firmware bundle according to settings provided.
