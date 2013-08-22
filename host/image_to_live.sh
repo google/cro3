@@ -185,9 +185,11 @@ start_dev_server() {
   fi
 
   info "Starting devserver with flags ${devserver_flags}"
-  cros_sdk -- sudo sh -c "start_devserver ${devserver_flags} \
+
+  # Need to inherit environment variables to discover gsutil credentials.
+  cros_sdk -- sudo -E start_devserver ${devserver_flags} \
        --board=${FLAGS_board} \
-       --port=${FLAGS_devserver_port} > ${FLAGS_server_log} 2>&1" &
+       --port=${FLAGS_devserver_port} > ${FLAGS_server_log} 2>&1 &
 
   info "Waiting on devserver to start"
   info "note: be patient as the server generates the update before starting."
