@@ -232,7 +232,7 @@ class Payload(object):
                report_out_file=report_out_file)
 
   def Apply(self, new_kernel_part, new_rootfs_part, old_kernel_part=None,
-            old_rootfs_part=None, bsdiff_in_place=True,
+            old_rootfs_part=None, bsdiff_in_place=True, bspatch_path=None,
             truncate_to_expected_size=True):
     """Applies the update payload.
 
@@ -242,6 +242,7 @@ class Payload(object):
       old_kernel_part: name of source kernel partition file (optional)
       old_rootfs_part: name of source rootfs partition file (optional)
       bsdiff_in_place: whether to perform BSDIFF operations in-place (optional)
+      bspatch_path: path to the bspatch binary (optional)
       truncate_to_expected_size: whether to truncate the resulting partitions
                                  to their expected sizes, as specified in the
                                  payload (optional)
@@ -253,7 +254,7 @@ class Payload(object):
 
     # Create a short-lived payload applier object and run it.
     helper = applier.PayloadApplier(
-        self, bsdiff_in_place=bsdiff_in_place,
+        self, bsdiff_in_place=bsdiff_in_place, bspatch_path=bspatch_path,
         truncate_to_expected_size=truncate_to_expected_size)
     helper.Run(new_kernel_part, new_rootfs_part,
                old_kernel_part=old_kernel_part,

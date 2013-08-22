@@ -192,13 +192,14 @@ class PayloadApplier(object):
 
   """
 
-  def __init__(self, payload, bsdiff_in_place=True,
+  def __init__(self, payload, bsdiff_in_place=True, bspatch_path=None,
                truncate_to_expected_size=True):
     """Initialize the applier.
 
     Args:
       payload: the payload object to check
       bsdiff_in_place: whether to perform BSDIFF operation in-place (optional)
+      bspatch_path: path to the bspatch binary (optional)
       truncate_to_expected_size: whether to truncate the resulting partitions
                                  to their expected sizes, as specified in the
                                  payload (optional)
@@ -208,6 +209,7 @@ class PayloadApplier(object):
     self.payload = payload
     self.block_size = payload.manifest.block_size
     self.bsdiff_in_place = bsdiff_in_place
+    self.bspatch_path = bspatch_path or 'bspatch'
     self.truncate_to_expected_size = truncate_to_expected_size
 
   def _ApplyReplaceOperation(self, op, op_name, out_data, part_file, part_size):
@@ -325,7 +327,7 @@ class PayloadApplier(object):
 
       # Invoke bspatch on partition file with extents args.
       file_name = '/dev/fd/%d' % part_file.fileno()
-      bspatch_cmd = ['bspatch', file_name, file_name, patch_file_name,
+      bspatch_cmd = [self.bspatch_path, file_name, file_name, patch_file_name,
                      in_extents_arg, out_extents_arg]
       subprocess.check_call(bspatch_cmd)
 
@@ -346,7 +348,8 @@ class PayloadApplier(object):
         out_file_name = out_file.name
 
       # Invoke bspatch.
-      bspatch_cmd = ['bspatch', in_file_name, out_file_name, patch_file_name]
+      bspatch_cmd = [self.bspatch_path, in_file_name, out_file_name,
+                     patch_file_name]
       subprocess.check_call(bspatch_cmd)
 
       # Read output.
