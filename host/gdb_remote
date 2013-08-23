@@ -19,6 +19,10 @@ DEFINE_integer remote_pid 0 \
  "Process ID of the running process on the remote device to which to attach."
 DEFINE_string remote_file "" \
  "Full pathname of the file to be debugged on the remote device."
+DEFINE_boolean cgdb ${FLAGS_FALSE} \
+ "Use cgdb curses interface rather than plain gdb."
+DEFINE_boolean ssh ${FLAGS_FALSE} \
+ "Use ssh stdio forwarding instead of TCP to connect to gdbserver."
 
 # Parse command line
 FLAGS_HELP="usage: $0 [flags]"
@@ -28,6 +32,10 @@ check_flags_only_and_allow_null_arg "$@" && set --
 
 BOARD=${FLAGS_board}
 BOARD_ROOT=/build/${BOARD}
+
+if [ ${FLAGS_cgdb} -eq ${FLAGS_TRUE} ] && ! type -P cgdb >/dev/null; then
+  die "Please install cgdb first"
+fi
 
 # Derive toolchain from $BOARD
 CHOST=$(portageq-${BOARD} envvar CHOST)
@@ -200,6 +208,19 @@ generate_gdbinit_file ()
 {
   # Create board-and-notebook-specific .gdbinit file.
 
+  local remote_cmd='"target remote " + remote_ip_address + ":" + remote_port'
+  if [ ${FLAGS_ssh} -eq ${FLAGS_TRUE} ]; then
+    local gdbserver_cmd="gdbserver"
+    if [[ ${FLAGS_remote_pid} -ne 0 ]] ; then
+      gdbserver_cmd+=" --attach -  ${FLAGS_remote_pid}"
+    else
+      gdbserver_cmd+=" - ${FLAGS_remote_file}"
+    fi
+    remote_cmd="\"target remote | ssh -T -i ${TMP_DIR}/testing_rsa \
+      ${REMOTE_SSH_FLAGS} -o TCPKeepAlive=no -o UserKnownHostsFile=/dev/null \
+      root@${FLAGS_remote} ${gdbserver_cmd}\""
+  fi
+
   cat <<-EOF > ${GDBINIT_FILE}
 
 define remote_connect
@@ -211,7 +232,7 @@ define remote_connect
   python gdb.execute (file_command)
   python remote_ip_address = "${FLAGS_remote}"
   python remote_port = "${FLAGS_port}"
-  python remote_cmd = "target remote " + remote_ip_address + ":" + remote_port
+  python remote_cmd = ${remote_cmd}
   python gdb.execute (remote_cmd)
 end
 
@@ -231,7 +252,7 @@ if [[ "${FLAGS_remote}" == "localhost" ||
       "${FLAGS_remote}" == "127.0.0.1" ]] ; then
   VM_PORT=" -p 9222"
   PORT_FORWARDING=" -L ${FLAGS_port}:localhost:${FLAGS_port}"
-else
+elif [ ${FLAGS_ssh} -eq ${FLAGS_FALSE} ]; then
   setup_remote_iptable
 fi
 
@@ -250,10 +271,11 @@ if [[ -n "${VM_PORT}" ]] ; then
   SSH_PID=$!
 fi
 
-start_remote_gdbserver
-
-echo "gdbserver is now running remotely.  Output will be written to "
-echo "/tmp/gdbserver.out on your remote device."
+if [ ${FLAGS_ssh} -eq ${FLAGS_FALSE} ]; then
+  start_remote_gdbserver
+  echo "gdbserver is now running remotely.  Output will be written to "
+  echo "/tmp/gdbserver.out on your remote device."
+fi
 
 generate_gdbinit_file
 
@@ -266,7 +288,10 @@ echo "remote_connect -- reestablish remote connection."
 echo
 
 # Start gdb on local machine.
-
-${CHOST}-gdb
+if [ ${FLAGS_cgdb} -eq ${FLAGS_TRUE} ]; then
+  cgdb -d ${CHOST}-gdb
+else
+  ${CHOST}-gdb
+fi
 
 cleanup
