@@ -499,7 +499,7 @@ class WriteFirmware:
       if now > soft_deadline:
         raise CmdError('Target console dead, programming failed')
       stream = self.DutControl(['cpu_uart_stream',])
-      match = re.search("^cpu_uart_stream:'(.*)'\n", stream)
+      match = re.search("^cpu_uart_stream:['\"](.*)['\"]\n", stream)
       if not match:
         raise CmdError('Misformatted console output: \n%s\n' % stream)
 
