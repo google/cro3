@@ -1096,6 +1096,9 @@ class Bundle:
       self._out.Warning('Missing properties in /config, using defaults')
       fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/config'])
 
+    # Remember our board type.
+    fdt.PutString('/chromeos-config', 'board', self._board)
+
     self.fdt = fdt
     return fdt
 

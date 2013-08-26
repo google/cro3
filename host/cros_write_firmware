@@ -55,6 +55,19 @@ def _DoWriteFirmware(options, output, tools, update, verify, dest):
   bundle = Bundle(tools, output)
   bundle.SetFiles(board=options.board, bct=options.bct,
       exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2)
+
+  # Get the FDT from the image if possible.
+  if not options.fdt:
+    fdt_fname = tools.GetOutputFilename('fdt-from-image.dtb')
+    fdt = Fdt(tools, fdt_fname)
+    fdt.ExtractFromImage(options.image)
+    options.fdt = fdt_fname
+    if not options.board:
+      bundle._board = fdt.GetString('/chromeos-config', 'board', 'none')
+      if bundle._board == 'none':
+        raise ValueError('Cannot obtain board type from FDTMAP')
+      output.Notice("Using board from fdtmap: '%s'" % bundle._board)
+
   if options.use_defaults:
     bundle.CheckOptions()
   bundle.spl_source = options.spl_source
@@ -125,8 +138,6 @@ def main():
     del args[1]
   if not options.image:
     parser.error('Please use --image to specify a firmware image to flash');
-  if not options.board:
-    parser.error('Please use --board to specify the board type to flash');
   if len(args) > 1:
     parser.error("Unrecognized arguments '%s'" % ' '.join(args[1:]))
 

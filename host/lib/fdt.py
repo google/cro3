@@ -6,11 +6,13 @@
 
 """This library provides basic access to an fdt blob."""
 
+import binascii
 import doctest
 import optparse
 import os
 import re
 import shutil
+import struct
 import sys
 
 import cros_output
@@ -31,6 +33,26 @@ class Fdt:
     self.tools = tools
     _, ext = os.path.splitext(fname)
     self._is_compiled = ext == '.dtb'
+
+  def ExtractFromImage(self, fname):
+    """Extract an FDT from a Chrome OS firmware image (FDTMAP).
+
+    Args:
+      fname: Filename of image
+
+    Raises:
+      ValueError if no fdtmap is found in the image, or its crc32 is incorrect.
+    """
+    data = self.tools.ReadFile(fname)
+    pos = data.find('__FDTM__')
+    if pos == -1:
+      raise ValueError("No fdtmap found in image '%s'" % fname)
+    size, crc32 = struct.unpack('<LL', data[pos + 8:pos + 16])
+    fdt_data = data[pos + 16:pos + 16 + size]
+    check_crc32 = binascii.crc32(fdt_data) & 0xffffffff
+    if check_crc32 != crc32:
+      raise ValueError('Invalid CRC for FDTMAP')
+    self.tools.WriteFile(self.fname, fdt_data)
 
   def GetProp(self, node, prop, default=None, typespec=None):
     """Get a property from a device tree.
