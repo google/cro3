@@ -661,13 +661,13 @@ class Autoupdate(build_util.BuildObject):
         # Make sure the xbuddy path target is in the directory.
         path_to_payload, _image_name = self.xbuddy.Get(xbuddy_label.split('/'))
         # Pretend to have called update with this update path to payload.
-        return self.GetPathToPayload(xbuddy_label, client_version, board)
-
-      src_path = os.path.abspath(self.forced_image)
-      if os.path.exists(src_path) and common_util.IsInsideChroot():
-        # Image was found for the given label. Generate update if we can.
-        return self.GenerateUpdateImageWithCache(
-            src_path, static_image_dir=self.static_dir)
+        self.GetPathToPayload(xbuddy_label, client_version, board)
+      else:
+        src_path = os.path.abspath(self.forced_image)
+        if os.path.exists(src_path) and common_util.IsInsideChroot():
+          # Image was found for the given label. Generate update if we can.
+          path_to_payload = self.GenerateUpdateImageWithCache(
+              src_path, static_image_dir=self.static_dir)
     else:
       label = label or ''
       label_list = label.split('/')
