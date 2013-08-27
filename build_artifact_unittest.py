@@ -103,7 +103,7 @@ class BuildArtifactTest(mox.MoxTestBase):
   def testDeltaPayloadsArtifact(self):
     """Downloads delta paylaods from test bucket."""
     artifact = build_artifact.DeltaPayloadsArtifact(
-        self.work_dir, _TEST_GOLO_FOR_DELTAS, '.*_delta_.*', _DELTA_VERSION)
+        self.work_dir, _TEST_GOLO_FOR_DELTAS, 'DONTCARE', _DELTA_VERSION)
     artifact.Process(False)
     nton_dir = os.path.join(self.work_dir, 'au', '%s_nton' % _DELTA_VERSION)
     mton_dir = os.path.join(self.work_dir, 'au', '%s_mton' % _DELTA_VERSION)
@@ -114,7 +114,7 @@ class BuildArtifactTest(mox.MoxTestBase):
     """Downloads and stages a zip file and extracts a test image."""
     artifact = build_artifact.ZipfileBuildArtifact(
         self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.IMAGE_FILE,
-        _VERSION, ['chromiumos_test_image.bin'])
+        _VERSION, files_to_extract=['chromiumos_test_image.bin'])
     artifact.Process(False)
     self.assertTrue(os.path.exists(os.path.join(
         self.work_dir, 'chromiumos_test_image.bin')))
@@ -123,7 +123,7 @@ class BuildArtifactTest(mox.MoxTestBase):
     """Downloads and stages a zip file while excluding all large files."""
     artifact = build_artifact.ZipfileBuildArtifact(
         self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.IMAGE_FILE,
-        _VERSION, None, ['*.bin'])
+        _VERSION, exclude=['*.bin'])
     artifact.Process(False)
     self.assertFalse(os.path.exists(os.path.join(
         self.work_dir, 'chromiumos_test_image.bin')))

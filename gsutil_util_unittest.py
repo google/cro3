@@ -70,40 +70,21 @@ class GSUtilUtilTest(mox.MoxTestBase):
         'from', 'to')
     self.mox.VerifyAll()
 
-  def testGSNamesFromList(self):
-    """Test that we can detect whether the target artifacts are available."""
-    # Test when the all target files are available
-    pattern = '.*_full_.*'
-    uploaded_list = ['chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin',
-                     'debug.tgz',
-                     'autotest.tar.bz2']
-
-    names = gsutil_util._GetGSNamesFromList(uploaded_list, pattern)
-    self.assertEqual(names[0],
-                     'chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin')
-
-    bad_pattern = '_delta_'
-    # Test when some target files are missing
-    names = gsutil_util._GetGSNamesFromList(uploaded_list, bad_pattern)
-    self.assertEqual(names, [])
-
   def testGetGSNamesWithWait(self):
     """Test that we get the target artifact that is available."""
     archive_url = ('gs://chromeos-image-archive/x86-mario-release/'
                    'R17-1413.0.0-a1-b1346')
     name = 'chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin'
-    pattern = '_full_'
+    pattern = '*_full_*'
     mock_data = 'mock data\nmock_data\nmock_data'
     msg = 'UNIT TEST'
 
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
-    self.mox.StubOutWithMock(gsutil_util, '_GetGSNamesFromList')
 
     # GSUtil cat gs://archive_url_prefix/UPLOADED.
     gsutil_util.GSUtilRun(mox.StrContains(gsutil_util.UPLOADED_LIST),
-                          mox.IgnoreArg()).AndReturn(mock_data)
-    gsutil_util._GetGSNamesFromList(mock_data.split('\n'),
-                                    pattern).AndReturn([name])
+                          mox.IgnoreArg()).AndReturn(
+                              '%s\n%s' % (mock_data, name))
 
     self.mox.ReplayAll()
     # Timeout explicitly set to 0 to test that we always run at least once.
@@ -117,23 +98,19 @@ class GSUtilUtilTest(mox.MoxTestBase):
     archive_url = ('gs://chromeos-image-archive/x86-mario-release/'
                    'R17-1413.0.0-a1-b1346')
     name = 'chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin'
-    pattern = '_full_'
+    pattern = '*_full_*'
     mock_data = 'mock data\nmock_data\nmock_data'
     msg = 'UNIT TEST'
 
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
-    self.mox.StubOutWithMock(gsutil_util, '_GetGSNamesFromList')
 
     # GSUtil cat gs://archive_url_prefix/UPLOADED.
     gsutil_util.GSUtilRun(mox.StrContains(gsutil_util.UPLOADED_LIST),
                           mox.IgnoreArg()).AndReturn(mock_data)
-    gsutil_util._GetGSNamesFromList(mock_data.split('\n'),
-                                   pattern).AndReturn(None)
 
     gsutil_util.GSUtilRun(mox.StrContains(gsutil_util.UPLOADED_LIST),
-                          mox.IgnoreArg()).AndReturn(mock_data)
-    gsutil_util._GetGSNamesFromList(mox.IgnoreArg(),
-                                    mox.IgnoreArg()).AndReturn([name])
+                          mox.IgnoreArg()).AndReturn(
+                              '%s\n%s' % (mock_data, name))
 
     self.mox.ReplayAll()
     returned_names = gsutil_util.GetGSNamesWithWait(
@@ -145,18 +122,15 @@ class GSUtilUtilTest(mox.MoxTestBase):
     """Test that we wait for the target artifacts until timeout occurs."""
     archive_url = ('gs://chromeos-image-archive/x86-mario-release/'
                    'R17-1413.0.0-a1-b1346')
-    pattern = '_full_'
+    pattern = '*_full_*'
     mock_data = 'mock data\nmock_data\nmock_data'
     msg = 'UNIT TEST'
 
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
-    self.mox.StubOutWithMock(gsutil_util, '_GetGSNamesFromList')
 
     # GSUtil cat gs://archive_url_prefix/UPLOADED.
     gsutil_util.GSUtilRun(mox.StrContains(gsutil_util.UPLOADED_LIST),
                           mox.IgnoreArg()).AndReturn(mock_data)
-    gsutil_util._GetGSNamesFromList(mock_data.split('\n'),
-                                    pattern).AndReturn(None)
 
     self.mox.ReplayAll()
     returned_name = gsutil_util.GetGSNamesWithWait(
@@ -184,10 +158,12 @@ class GSUtilUtilTest(mox.MoxTestBase):
                           mox.IgnoreArg()).AndReturn(mock_data2)
     self.mox.ReplayAll()
     url = ''
-    self.assertEqual(gsutil_util.GetLatestVersionFromGSDir(url),
-                     '3912.101.0')
-    self.assertEqual(gsutil_util.GetLatestVersionFromGSDir(url),
-                     'R28-3912.101.0')
+    self.assertEqual(
+        gsutil_util.GetLatestVersionFromGSDir(url, with_release=False),
+        '3912.101.0')
+    self.assertEqual(
+        gsutil_util.GetLatestVersionFromGSDir(url, with_release=True),
+        'R28-3912.101.0')
     self.mox.VerifyAll()
 
 if __name__ == '__main__':

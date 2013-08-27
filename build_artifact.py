@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -8,6 +8,7 @@
 
 import os
 import pickle
+import re
 import shutil
 import subprocess
 
@@ -29,7 +30,7 @@ PAYGEN_AU_SUITE_FILE_TEMPLATE = 'paygen_au_%(channel)s_control.tar.bz2'
 AUTOTEST_FILE = 'autotest.tar'
 AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
-FACTORY_FILE = 'ChromeOS-factory.*zip'
+FACTORY_FILE = 'ChromeOS-factory*zip'
 FIRMWARE_FILE = 'firmware_from_source.tar.bz2'
 IMAGE_FILE = 'image.zip'
 TEST_SUITES_FILE = 'test_suites.tar.bz2'
@@ -50,10 +51,17 @@ class BuildArtifact(log_util.Loggable):
   download/prepare the artifacts in to a temporary staging area and the second
   to stage it into its final destination.
 
+  IMPORTANT!  (i) `name' is a glob expression by default (and not a regex), be
+  attentive when adding new artifacts; (ii) name matching semantics differ
+  between a glob (full name string match) and a regex (partial match).
+
   Class members:
-    archive_url = archive_url
-    name: Name given for artifact -- either a regexp or name of the artifact in
-          gs. If a regexp, is modified to actual name before call to _Download.
+    archive_url: An archive URL.
+    name: Name given for artifact; in fact, it is a pattern that captures the
+          names of files contained in the artifact. This can either be an
+          ordinary shell-style glob (the default), or a regular expression (if
+          is_regex_name is True).
+    is_regex_name: Whether the name value is a regex (default: glob).
     build: The version of the build i.e. R26-2342.0.0.
     marker_name: Name used to define the lock marker for the artifacts to
                  prevent it from being re-downloaded. By default based on name
@@ -68,12 +76,17 @@ class BuildArtifact(log_util.Loggable):
     single_name: If True the name given should only match one item. Note, if not
                  True, self.name will become a list of items returned.
   """
-  def __init__(self, install_dir, archive_url, name, build):
-    """Args:
+
+  def __init__(self, install_dir, archive_url, name, build,
+               is_regex_name=False):
+    """Constructor.
+
+    Args:
       install_dir: Where to install the artifact.
       archive_url: The Google Storage path to find the artifact.
       name: Identifying name to be used to find/store the artifact.
       build: The name of the build e.g. board/release.
+      is_regex_name: Whether the name pattern is a regex (default: glob).
     """
     super(BuildArtifact, self).__init__()
 
@@ -83,6 +96,7 @@ class BuildArtifact(log_util.Loggable):
 
     self.archive_url = archive_url
     self.name = name
+    self.is_regex_name = is_regex_name
     self.build = build
 
     self.marker_name = '.' + self._SanitizeName(name)
@@ -92,7 +106,7 @@ class BuildArtifact(log_util.Loggable):
     # The exception file needs to be located in parent folder, since the
     # install_dir will be deleted is the build does not exist.
     self.exception_file_path = os.path.join(os.path.dirname(install_dir),
-                                                            exception_file_name)
+                                            exception_file_name)
 
     self.install_path = None
 
@@ -105,6 +119,11 @@ class BuildArtifact(log_util.Loggable):
     """Sanitizes name to be used for creating a file on the filesystem.
 
     '.','/' and '*' have special meaning in FS lingo. Replace them with words.
+
+    Args:
+      name: A file name/path.
+    Returns:
+      The sanitized name/path.
     """
     return name.replace('*', 'STAR').replace('.', 'DOT').replace('/', 'SLASH')
 
@@ -121,11 +140,14 @@ class BuildArtifact(log_util.Loggable):
     """Waits for artifact to exist and sets self.name to appropriate name.
 
     Args:
+      timeout: How long to wait for artifact to become available.
       update_name: If False, don't actually update self.name.
+    Raises:
+      ArtifactDownloadError: An error occurred when obtaining artifact.
     """
     names = gsutil_util.GetGSNamesWithWait(
-        self.name, self.archive_url, str(self), single_item=self.single_name,
-        timeout=timeout)
+        self.name, self.archive_url, str(self), timeout=timeout,
+        is_regex_pattern=self.is_regex_name)
     if not names:
       raise ArtifactDownloadError('Could not find %s in Google Storage' %
                                   self.name)
@@ -159,7 +181,8 @@ class BuildArtifact(log_util.Loggable):
   def _SaveException(self, e):
     """Save the exception to a file for downloader.IsStaged to retrieve.
 
-    @param e: Exception object to be saved.
+    Args:
+      e: Exception object to be saved.
     """
     with open(self.exception_file_path, 'w') as f:
       pickle.dump(e, f)
@@ -167,8 +190,9 @@ class BuildArtifact(log_util.Loggable):
   def GetException(self):
     """Retrieve any exception that was raised in Process method.
 
-    @return: An Exception object that was raised when trying to process the
-             artifact. Return None if no exception was found.
+    Returns:
+      An Exception object that was raised when trying to process the artifact.
+      Return None if no exception was found.
     """
     if not os.path.exists(self.exception_file_path):
       return None
@@ -226,7 +250,7 @@ class BuildArtifact(log_util.Loggable):
   def __str__(self):
     """String representation for the download."""
     return '->'.join(['%s/%s' % (self.archive_url, self.name),
-                     self.install_dir])
+                      self.install_dir])
 
   def __repr__(self):
     return str(self)
@@ -234,6 +258,7 @@ class BuildArtifact(log_util.Loggable):
 
 class AUTestPayloadBuildArtifact(BuildArtifact):
   """Wrapper for AUTest delta payloads which need additional setup."""
+
   def _Setup(self):
     super(AUTestPayloadBuildArtifact, self)._Setup()
 
@@ -253,19 +278,32 @@ class DeltaPayloadsArtifact(BuildArtifact):
   because unlike other artifacts, this one does not conform to something a
   client might know. The client doesn't know the version of n-1 or whether it
   was even generated.
+
+  IMPORTANT! Note that this artifact simply ignores the `name' argument because
+  that name is derived internally in accordance with sub-artifacts. Also note
+  the different types of names (in fact, file name patterns) used for the
+  different sub-artifacts.
   """
+
   def __init__(self, *args):
     super(DeltaPayloadsArtifact, self).__init__(*args)
-    self.single_name = False # Expect multiple deltas
-    nton_name = 'chromeos_%s%s' % (self.build, self.name)
-    mton_name = 'chromeos_(?!%s)%s' % (self.build, self.name)
+    # Override the name field, we know what it should be.
+    self.name = '*_delta_*'
+    self.is_regex_name = False
+    self.single_name = False  # Expect multiple deltas
+
+    # We use a regular glob for the N-to-N delta payload.
+    nton_name = 'chromeos_%s*_delta_*' % self.build
+    # We use a regular expression for the M-to-N delta payload.
+    mton_name = ('chromeos_(?!%s).*_delta_.*' % re.escape(self.build))
+
     nton_install_dir = os.path.join(self.install_dir, _AU_BASE,
                                     self.build + _NTON_DIR_SUFFIX)
     mton_install_dir = os.path.join(self.install_dir, _AU_BASE,
-                                   self.build + _MTON_DIR_SUFFIX)
+                                    self.build + _MTON_DIR_SUFFIX)
     self._sub_artifacts = [
         AUTestPayloadBuildArtifact(mton_install_dir, self.archive_url,
-                                   mton_name, self.build),
+                                   mton_name, self.build, is_regex_name=True),
         AUTestPayloadBuildArtifact(nton_install_dir, self.archive_url,
                                    nton_name, self.build)]
 
@@ -290,17 +328,23 @@ class DeltaPayloadsArtifact(BuildArtifact):
 
 class BundledBuildArtifact(BuildArtifact):
   """A single build artifact bundle e.g. zip file or tar file."""
-  def __init__(self, install_dir, archive_url, name, build,
-               files_to_extract=None, exclude=None):
-    """Takes BuildArtifacts are with two additional args.
 
-    Additional args:
-        files_to_extract: A list of files to extract. If set to None, extract
-                          all files.
-        exclude: A list of files to exclude. If None, no files are excluded.
+  def __init__(self, install_dir, archive_url, name, build,
+               is_regex_name=False, files_to_extract=None, exclude=None):
+    """Takes BuildArtifact args with some additional ones.
+
+    Args:
+      install_dir: See superclass.
+      archive_url: See superclass.
+      name: See superclass.
+      build: See superclass.
+      is_regex_name: See superclass.
+      files_to_extract: A list of files to extract. If set to None, extract
+                        all files.
+      exclude: A list of files to exclude. If None, no files are excluded.
     """
-    super(BundledBuildArtifact, self).__init__(install_dir, archive_url, name,
-                                               build)
+    super(BundledBuildArtifact, self).__init__(
+        install_dir, archive_url, name, build, is_regex_name=is_regex_name)
     self._files_to_extract = files_to_extract
     self._exclude = exclude
 
@@ -389,18 +433,21 @@ class ZipfileBuildArtifact(BundledBuildArtifact):
 
 class ImplDescription(object):
   """Data wrapper that describes an artifact's implementation."""
-  def __init__(self, artifact_class, name, *additional_args):
-    """Constructor:
+
+  def __init__(self, artifact_class, name, *additional_args,
+               **additional_dargs):
+    """Constructor.
 
     Args:
       artifact_class: BuildArtifact class to use for the artifact.
       name: name to use to identify artifact (see BuildArtifact.name)
-      additional_args: If sub-class uses additional args, these are passed
-                       through to them.
+      *additional_args: Additional arguments to pass to artifact_class.
+      **additional_dargs: Additional named arguments to pass to artifact_class.
     """
     self.artifact_class = artifact_class
     self.name = name
     self.additional_args = additional_args
+    self.additional_dargs = additional_dargs
 
   def __repr__(self):
     return '%s_%s' % (self.artifact_class, self.name)
@@ -410,47 +457,49 @@ class ImplDescription(object):
 # Please note, it is good practice to use constants for these names if you're
 # going to re-use the names ANYWHERE else in the devserver code.
 ARTIFACT_IMPLEMENTATION_MAP = {
-  artifact_info.FULL_PAYLOAD:
-      ImplDescription(AUTestPayloadBuildArtifact, '.*_full_.*'),
-  artifact_info.DELTA_PAYLOADS:
-      ImplDescription(DeltaPayloadsArtifact, '.*_delta_.*'),
-  artifact_info.STATEFUL_PAYLOAD:
-      ImplDescription(BuildArtifact, devserver_constants.STATEFUL_FILE),
+    artifact_info.FULL_PAYLOAD:
+    ImplDescription(AUTestPayloadBuildArtifact, '*_full_*'),
+    artifact_info.DELTA_PAYLOADS:
+    ImplDescription(DeltaPayloadsArtifact, 'DONTCARE'),
+    artifact_info.STATEFUL_PAYLOAD:
+    ImplDescription(BuildArtifact, devserver_constants.STATEFUL_FILE),
 
-  artifact_info.BASE_IMAGE:
-      ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
-                      [devserver_constants.BASE_IMAGE_FILE]),
-  artifact_info.RECOVERY_IMAGE:
-      ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
-                      [devserver_constants.RECOVERY_IMAGE_FILE]),
-  artifact_info.TEST_IMAGE:
-      ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
-                      [devserver_constants.TEST_IMAGE_FILE]),
+    artifact_info.BASE_IMAGE:
+    ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
+                    [devserver_constants.BASE_IMAGE_FILE]),
+    artifact_info.RECOVERY_IMAGE:
+    ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
+                    [devserver_constants.RECOVERY_IMAGE_FILE]),
+    artifact_info.TEST_IMAGE:
+    ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
+                    [devserver_constants.TEST_IMAGE_FILE]),
 
-  artifact_info.AUTOTEST:
-      ImplDescription(AutotestTarballBuildArtifact, AUTOTEST_FILE, None,
-                      ['autotest/test_suites']),
-  artifact_info.TEST_SUITES:
-      ImplDescription(TarballBuildArtifact, TEST_SUITES_FILE),
-  artifact_info.AU_SUITE:
-      ImplDescription(TarballBuildArtifact, AU_SUITE_FILE),
+    artifact_info.AUTOTEST:
+    ImplDescription(AutotestTarballBuildArtifact, AUTOTEST_FILE,
+                    files_to_extract=None,
+                    exclude=['autotest/test_suites']),
+    artifact_info.TEST_SUITES:
+    ImplDescription(TarballBuildArtifact, TEST_SUITES_FILE),
+    artifact_info.AU_SUITE:
+    ImplDescription(TarballBuildArtifact, AU_SUITE_FILE),
 
-  artifact_info.FIRMWARE:
-      ImplDescription(BuildArtifact, FIRMWARE_FILE),
-  artifact_info.SYMBOLS:
-      ImplDescription(TarballBuildArtifact, DEBUG_SYMBOLS_FILE,
-                      ['debug/breakpad']),
+    artifact_info.FIRMWARE:
+    ImplDescription(BuildArtifact, FIRMWARE_FILE),
+    artifact_info.SYMBOLS:
+    ImplDescription(TarballBuildArtifact, DEBUG_SYMBOLS_FILE,
+                    files_to_extract=['debug/breakpad']),
 
-  artifact_info.FACTORY_IMAGE:
-      ImplDescription(ZipfileBuildArtifact, FACTORY_FILE,
-                      [devserver_constants.FACTORY_IMAGE_FILE])
+    artifact_info.FACTORY_IMAGE:
+    ImplDescription(ZipfileBuildArtifact, FACTORY_FILE,
+                    [devserver_constants.FACTORY_IMAGE_FILE])
 }
 
 # Add all the paygen_au artifacts in one go.
 ARTIFACT_IMPLEMENTATION_MAP.update({
-  artifact_info.PAYGEN_AU_SUITE_TEMPLATE % { 'channel': c }: ImplDescription(
-      TarballBuildArtifact, PAYGEN_AU_SUITE_FILE_TEMPLATE % { 'channel': c })
-  for c in devserver_constants.CHANNELS
+    artifact_info.PAYGEN_AU_SUITE_TEMPLATE % {'channel': c}:
+    ImplDescription(
+        TarballBuildArtifact, PAYGEN_AU_SUITE_FILE_TEMPLATE % {'channel': c})
+    for c in devserver_constants.CHANNELS
 })
 
 
@@ -462,6 +511,7 @@ class ArtifactFactory(object):
     """Initalizes the member variables for the factory.
 
     Args:
+      download_dir: A directory to which artifacts are downloaded.
       archive_url: the Google Storage url of the bucket where the debug
                    symbols for the desired build are stored.
       artifacts: List of artifacts to stage. These artifacts must be
@@ -479,9 +529,16 @@ class ArtifactFactory(object):
 
   @staticmethod
   def _GetDescriptionComponents(name, is_artifact):
-    """Returns a tuple of for BuildArtifact class, name, and additional args.
+    """Returns components for constructing a BuildArtifact.
 
-    Raises: KeyError if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
+    Args:
+      name: The artifact name / file pattern.
+      is_artifact: Whether this is a named (True) or file (False) artifact.
+    Returns:
+      A tuple consisting of the BuildArtifact subclass, name, and additional
+      list- and named-arguments.
+    Raises:
+      KeyError: if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
     """
 
     if is_artifact:
@@ -490,30 +547,39 @@ class ArtifactFactory(object):
       description = ImplDescription(BuildArtifact, name)
 
     return (description.artifact_class, description.name,
-            description.additional_args)
+            description.additional_args, description.additional_dargs)
 
   def _Artifacts(self, names, is_artifact):
-    """Returns an iterable of BuildArtifacts from |names|.
+    """Returns the BuildArtifacts from |names|.
 
     If is_artifact is true, then these names define artifacts that must exist in
     the ARTIFACT_IMPLEMENTATION_MAP. Otherwise, treat as filenames to stage as
     basic BuildArtifacts.
 
-    Raises: KeyError if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
+    Args:
+      names: A sequence of artifact names.
+      is_artifact: Whether this is a named (True) or file (False) artifact.
+    Returns:
+      An iterable of BuildArtifacts.
+    Raises:
+      KeyError: if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
     """
     artifacts = []
     for name in names:
-      artifact_class, path, args = self._GetDescriptionComponents(
+      artifact_class, path, args, dargs = self._GetDescriptionComponents(
           name, is_artifact)
       artifacts.append(artifact_class(self.download_dir, self.archive_url, path,
-                                      self.build, *args))
+                                      self.build, *args, **dargs))
 
     return artifacts
 
   def RequiredArtifacts(self):
-    """Returns an iterable of BuildArtifacts for the factory's artifacts.
+    """Returns BuildArtifacts for the factory's artifacts.
 
-    Raises: KeyError if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
+    Returns:
+      An iterable of BuildArtifacts.
+    Raises:
+      KeyError: if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
     """
     artifacts = []
     if self.artifacts:
@@ -524,11 +590,14 @@ class ArtifactFactory(object):
     return artifacts
 
   def OptionalArtifacts(self):
-    """Returns an iterable of BuildArtifacts that should be cached.
+    """Returns BuildArtifacts that should be cached.
 
-    Raises: KeyError if an optional artifact doesn't exist in
-    ARTIFACT_IMPLEMENTATION_MAP yet defined in
-    artifact_info.REQUESTED_TO_OPTIONAL_MAP.
+    Returns:
+      An iterable of BuildArtifacts.
+    Raises:
+      KeyError: if an optional artifact doesn't exist in
+                ARTIFACT_IMPLEMENTATION_MAP yet defined in
+                artifact_info.REQUESTED_TO_OPTIONAL_MAP.
     """
     optional_names = set()
     for artifact_name, optional_list in (
