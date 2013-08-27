@@ -29,6 +29,9 @@ SHADOW_CONFIG_FILE = 'shadow_xbuddy_config.ini'
 PATH_REWRITES = 'PATH_REWRITES'
 GENERAL = 'GENERAL'
 
+# Path for shadow config in chroot.
+CHROOT_SHADOW_DIR = '/mnt/host/source/src/platform/dev'
+
 # XBuddy aliases
 TEST = 'test'
 BASE = 'base'
@@ -197,7 +200,12 @@ class XBuddy(build_util.BuildObject):
       raise XBuddyException('%s not found' % (CONFIG_FILE))
 
     # Read the shadow file if there is one.
-    shadow_config_file = os.path.join(self.devserver_dir, SHADOW_CONFIG_FILE)
+    if os.path.isdir(CHROOT_SHADOW_DIR):
+      shadow_config_file = os.path.join(CHROOT_SHADOW_DIR, SHADOW_CONFIG_FILE)
+    else:
+      shadow_config_file = os.path.join(self.devserver_dir, SHADOW_CONFIG_FILE)
+
+    _Log('Using shadow config file stored at %s', shadow_config_file)
     if os.path.exists(shadow_config_file):
       shadow_xbuddy_config = ConfigParser.ConfigParser()
       shadow_xbuddy_config.read(shadow_config_file)
