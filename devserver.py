@@ -94,6 +94,17 @@ class DevServerError(Exception):
   pass
 
 
+class DevServerHTTPError(Exception):
+  """Exception class to log the HTTPResponse before routing it to cherrypy."""
+  def __init__(self, status, message):
+    """
+    @param status: HTTPResponse status.
+    @param message: Message associated with the response.
+    """
+    _Log('HTTPError status: %s message: %s', status, message)
+    raise cherrypy.HTTPError(status, message)
+
+
 def _LeadingWhiteSpaceCount(string):
   """Count the amount of leading whitespace in a string.
 
@@ -301,7 +312,7 @@ class ApiRoot(object):
       label = label.strip()
       if label:
         return updater.HandleSetUpdatePing(ip, label)
-    raise cherrypy.HTTPError(400, 'No label provided.')
+    raise DevServerHTTPError(400, 'No label provided.')
 
 
   @cherrypy.expose
@@ -601,14 +612,13 @@ class DevServerRoot(object):
       return _PrintDocStringAsHTML(self.latestbuild)
 
     if 'target' not in params:
-      raise cherrypy.HTTPError('500 Internal Server Error',
-                               'Error: target= is required!')
+      raise DevServerHTTPError(500, 'Error: target= is required!')
     try:
       return common_util.GetLatestBuildVersion(
           updater.static_dir, params['target'],
           milestone=params.get('milestone'))
     except common_util.CommonUtilError as errmsg:
-      raise cherrypy.HTTPError('500 Internal Server Error', str(errmsg))
+      raise DevServerHTTPError(500, str(errmsg))
 
   @cherrypy.expose
   def controlfiles(self, **params):
@@ -639,8 +649,7 @@ class DevServerRoot(object):
       return _PrintDocStringAsHTML(self.controlfiles)
 
     if 'build' not in params:
-      raise cherrypy.HTTPError('500 Internal Server Error',
-                               'Error: build= is required!')
+      raise DevServerHTTPError(500, 'Error: build= is required!')
 
     if 'control_path' not in params:
       if 'suite_name' in params and params['suite_name']:
