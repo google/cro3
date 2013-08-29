@@ -93,6 +93,30 @@ class GSUtilUtilTest(mox.MoxTestBase):
     self.assertEqual([name], returned_names)
     self.mox.VerifyAll()
 
+  def testGetGSNamesWithWaitWithDirectStat(self):
+    """We should directly stat an artifact whose name is fully spelled out."""
+    archive_url = ('gs://chromeos-image-archive/x86-mario-release/'
+                   'R17-1413.0.0-a1-b1346')
+    name = 'chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin'
+    pattern = 'chromeos_R17-1413.0.0-a1_x86-mario_full_dev.bin'
+    mock_data = 'mock data\nmock_data\nmock_data'
+    msg = 'UNIT TEST'
+
+    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+
+    # GSUtil cat gs://archive_url_prefix/UPLOADED.
+    gsutil_util.GSUtilRun(mox.StrContains('gsutil getacl %s/%s' %
+                                          (archive_url, pattern)),
+                          mox.IgnoreArg()).AndReturn(
+                              '%s\n%s' % (mock_data, name))
+
+    self.mox.ReplayAll()
+    # Timeout explicitly set to 0 to test that we always run at least once.
+    returned_names = gsutil_util.GetGSNamesWithWait(
+        pattern, archive_url, msg, delay=1, timeout=0)
+    self.assertEqual([name], returned_names)
+    self.mox.VerifyAll()
+
   def testGetGSNamesWithWaitWithRetry(self):
     """Test that we can poll until all target artifacts are available."""
     archive_url = ('gs://chromeos-image-archive/x86-mario-release/'

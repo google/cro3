@@ -89,7 +89,7 @@ def DownloadFromGS(src, dst):
 
 def _GlobHasWildcards(pattern):
   """Returns True if a glob pattern contains any wildcards."""
-  return len(pattern) > len(pattern.translate(None, '*.[]'))
+  return len(pattern) > len(pattern.translate(None, '*?[]'))
 
 
 def GetGSNamesWithWait(pattern, archive_url, err_str, timeout=600, delay=10,
@@ -117,24 +117,40 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, timeout=600, delay=10,
 
   """
   # Define the different methods used for obtaining the list of files on the
-  # archive directory, in the order in which they are attempted.
+  # archive directory, in the order in which they are attempted. Each method is
+  # defined by a tuple consisting of (i) the gsutil command-line to be
+  # executed; (ii) the error message to use in case of a failure (returned in
+  # the corresponding exception); (iii) the desired return value to use in case
+  # of success, or None if the actual command output should be used.
   get_methods = []
+  # If the pattern is a glob and contains no wildcards, we'll first attempt to
+  # stat the file via getacl.
+  if not (is_regex_pattern or _GlobHasWildcards(pattern)):
+    get_methods.append(('gsutil getacl %s/%s' % (archive_url, pattern),
+                        'Failed to getacl on the artifact file.',
+                        pattern))
+
   # The default method is to check the manifest file in the archive directory.
   get_methods.append(('gsutil cat %s/%s' % (archive_url, UPLOADED_LIST),
-                      'Failed to get a list of uploaded files.'))
+                      'Failed to get a list of uploaded files.',
+                      None))
   # For backward compatibility, we fall back to using "gsutil ls" when the
   # manifest file is not present.
   get_methods.append(('gsutil ls %s/*' % archive_url,
-                      'Failed to list archive directory contents.'))
+                      'Failed to list archive directory contents.',
+                      None))
 
   deadline = time.time() + timeout
   while True:
     uploaded_list = []
-    for cmd, msg in get_methods:
+    for cmd, msg, override_result in get_methods:
       try:
         result = GSUtilRun(cmd, msg)
       except GSUtilError:
         continue  # It didn't work, try the next method.
+
+      if override_result:
+        result = override_result
 
       # Make sure we're dealing with artifact base names only.
       uploaded_list = [os.path.basename(p) for p in result.splitlines()]
