@@ -59,45 +59,6 @@ get_ctarget_from_atom()
   echo "$atom" | sed -E 's|cross-([^/]+)/.*|\1|g'
 }
 
-copy_gcc_libs_helper()
-{
-  local target_location="$1"
-  local file_path="$2"
-  local dir_path=$(dirname "$file_path")
-  info "Copying $file_path symlink and file to $target_location/$dir_path/."
-  sudo mkdir -p "$target_location/$dir_path"
-  sudo cp -a "$file_path"* "$target_location/$dir_path/"
-  local env_d_file="$target_location/etc/env.d/05gcc"
-  info "Adding $dir_path to LDPATH in file $env_d_file"
-  sudo mkdir -p $(dirname "$env_d_file")
-  local line_to_add="LDPATH=\"$dir_path\""
-  if ! grep -q "^$line_to_add$" "$env_d_file" &>/dev/null
-  then
-    echo "$line_to_add" | sudo_append "$env_d_file"
-  fi
-}
-
-copy_gcc_libs()
-{
-  # TODO: Figure out a better way of doing this?
-  local target_location="$1"
-  local atom="$2"
-  local libgcc_file=$(portageq contents / $atom | \
-                      grep /libgcc_s.so$)
-  local libstdcxx_file=$(portageq contents / $atom | \
-                         grep /libstdc++.so$)
-  if [[ -z "$libgcc_file" || -z "$libstdcxx_file" ]]
-  then
-    error "Could not find libgcc_s.so/libstdcxx_s.so. Is\
-          =$atom emerged properly?"
-    return 1
-  fi
-  copy_gcc_libs_helper $target_location $libgcc_file
-  copy_gcc_libs_helper $target_location $libstdcxx_file
-  sudo ROOT="$target_location" env-update
-  return 0
-}
-
 get_current_binutils_config()
 {
   local ctarget="$1"
@@ -183,7 +144,6 @@ cros_gcc_config()
   local board
   for board in $boards
   do
-    cros_install_libs_for_config "$board" "$1"
     emerge-"$board" --oneshot sys-devel/libtool
   done
 }
@@ -209,11 +169,4 @@ get_boards_from_config()
       echo "$board"
     fi
   done
-}
-
-cros_install_libs_for_config()
-{
-  local board="$1"
-  local atom=$(get_installed_atom_from_config "$2")
-  copy_gcc_libs /build/"$board" "$atom"
 }
