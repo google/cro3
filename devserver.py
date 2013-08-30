@@ -91,18 +91,17 @@ _LOG_ROTATION_BACKUP = 13
 
 class DevServerError(Exception):
   """Exception class used by this module."""
-  pass
 
 
-class DevServerHTTPError(Exception):
+class DevServerHTTPError(cherrypy.HTTPError):
   """Exception class to log the HTTPResponse before routing it to cherrypy."""
   def __init__(self, status, message):
     """
     @param status: HTTPResponse status.
     @param message: Message associated with the response.
     """
+    cherrypy.HTTPError.__init__(self, status, message)
     _Log('HTTPError status: %s message: %s', status, message)
-    raise cherrypy.HTTPError(status, message)
 
 
 def _LeadingWhiteSpaceCount(string):
@@ -409,7 +408,8 @@ class DevServerRoot(object):
     """
     if archive_url:
       if not archive_url.startswith('gs://'):
-        raise DevServerError("Archive URL isn't from Google Storage.")
+        raise DevServerError("Archive URL isn't from Google Storage (%s) ." %
+                             archive_url)
 
       return archive_url.rstrip('/')
     else:
