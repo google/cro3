@@ -133,12 +133,16 @@ get_hostname() {
   echo ${hostname}
 }
 
+is_xbuddy_path() {
+  [[ "${FLAGS_image}" == xbuddy:* ]]
+}
+
 start_dev_server() {
   kill_all_devservers
   local devserver_flags="--pregenerate_update"
   # Parse devserver flags.
   if [ -n "${FLAGS_image}" ]; then
-    if [[ "${FLAGS_image}" == xbuddy:* ]]; then
+    if is_xbuddy_path; then
       info "Image flag is an xBuddy path to an image."
       devserver_flags="${devserver_flags} \
           --image ${FLAGS_image}"
@@ -181,6 +185,11 @@ start_dev_server() {
   fi
 
   info "Starting devserver with flags ${devserver_flags}"
+
+  # Clobber dev_server log in case image_to_live is run with sudo previously.
+  if [ -f "${FLAGS_server_log}" ]; then
+    sudo rm -f "${FLAGS_server_log}"
+  fi
 
   # Need to inherit environment variables to discover gsutil credentials.
   cros_sdk -- sudo -E start_devserver ${devserver_flags} \
@@ -235,7 +244,7 @@ get_update_args() {
   local update_args="--omaha_url ${1}"
 
   # Grab everything after last colon as an xbuddy path
-  if [[ "${FLAGS_image}" == xbuddy:* ]]; then
+  if is_xbuddy_path; then
     update_args="${update_args}/xbuddy/${FLAGS_image##*xbuddy:}"
   fi
 
@@ -523,6 +532,12 @@ main() {
   if [ ${FLAGS_verify} -eq ${FLAGS_TRUE} ] && \
       [ -n "${FLAGS_update_url}" ]; then
     warn "Verify is not compatible with setting an update url."
+    FLAGS_verify=${FLAGS_FALSE}
+  fi
+
+  if [ ${FLAGS_verify} -eq ${FLAGS_TRUE} ] && \
+      is_xbuddy_path; then
+    warn "Verify is not currently compatible with xbuddy."
     FLAGS_verify=${FLAGS_FALSE}
   fi
 
