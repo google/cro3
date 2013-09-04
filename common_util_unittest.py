@@ -121,6 +121,31 @@ class CommonUtilTest(mox.MoxTestBase):
         os.path.join('server', 'site_tests', 'network_VPN', 'control'))
     self.assertEqual(control_content, 'hello!')
 
+  def testSymlinkFile(self):
+    link_fd, link_base = tempfile.mkstemp(prefix="common-symlink-test")
+    link_a = link_base + '-link-a'
+    link_b = link_base + '-link-b'
+
+    # Create the "link a" --> "base".
+    common_util.SymlinkFile(link_base, link_a)
+    self.assertTrue(os.path.lexists(link_a))
+    self.assertEqual(os.readlink(link_a), link_base)
+
+    # Create the "link b" --> "base".
+    common_util.SymlinkFile(link_base, link_b)
+    self.assertTrue(os.path.lexists(link_b))
+    self.assertEqual(os.readlink(link_b), link_base)
+
+    # Replace the existing "link b" to point to "link a".
+    common_util.SymlinkFile(link_a, link_b)
+    self.assertTrue(os.path.lexists(link_b))
+    self.assertEqual(os.readlink(link_b), link_a)
+
+    os.close(link_fd)
+    os.unlink(link_b)
+    os.unlink(link_a)
+    os.unlink(link_base)
+
 
 if __name__ == '__main__':
   unittest.main()

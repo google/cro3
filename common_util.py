@@ -12,6 +12,7 @@ import errno
 import hashlib
 import os
 import shutil
+import tempfile
 import threading
 import subprocess
 
@@ -261,6 +262,33 @@ def CopyFile(source, dest):
   """Copies a file from |source| to |dest|."""
   _Log('Copy File %s -> %s' % (source, dest))
   shutil.copy(source, dest)
+
+
+def SymlinkFile(target, link):
+  """Atomically creates or replaces the symlink |link| pointing to |target|.
+
+  If the specified |link| file already exists it is replaced with the new link
+  atomically.
+  """
+  if not os.path.exists(target):
+    return
+  _Log('Creating symlink: %s --> %s', link, target)
+
+  # Use the created link_base file to prevent other calls to SymlinkFile() to
+  # pick the same link_base temp file, thanks to mkstemp().
+  with tempfile.NamedTemporaryFile(prefix=os.path.basename(link)) as link_fd:
+    link_base = link_fd.name
+
+    # Use the unique link_base filename to create a symlink, but on the same
+    # directory as the required |link| to ensure the created symlink is in the
+    # same file system as |link|.
+    link_name = os.path.join(os.path.dirname(link),
+                             os.path.basename(link_base) + "-link")
+
+    # Create the symlink and then rename it to the final position. This ensures
+    # the symlink creation is atomic.
+    os.symlink(target, link_name)
+    os.rename(link_name, link)
 
 
 class LockDict(object):

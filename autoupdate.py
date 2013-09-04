@@ -397,13 +397,6 @@ class Autoupdate(build_util.BuildObject):
 
     return cache_sub_dir
 
-  def _Symlink(self, src_path, dest_path):
-    if os.path.exists(src_path):
-      if os.path.lexists(dest_path):
-        os.unlink(dest_path)
-      _Log('Creating symlink to: %s --> %s', dest_path, src_path)
-      os.symlink(src_path, dest_path)
-
   def _SymlinkUpdateFiles(self, image_dir):
     """Set files in the base static_dir to link to most recent update files.
 
@@ -420,7 +413,7 @@ class Autoupdate(build_util.BuildObject):
     for f in UPDATE_FILES:
       link = os.path.join(self.static_dir, f)
       target = os.path.join(image_dir, f)
-      self._Symlink(target, link)
+      common_util.SymlinkFile(target, link)
 
   def GetUpdateForLabel(self, client_version, label,
                         image_name=constants.TEST_IMAGE_FILE):
@@ -642,10 +635,10 @@ class Autoupdate(build_util.BuildObject):
       src_stateful = os.path.join(os.path.dirname(src_path),
                                   constants.STATEFUL_FILE)
       common_util.MkDirP(os.path.join(self.static_dir, label))
-      self._Symlink(src_path, dest_path)
+      common_util.SymlinkFile(src_path, dest_path)
       if os.path.exists(src_stateful):
         # The stateful payload is optional.
-        self._Symlink(src_stateful, dest_stateful)
+        common_util.SymlinkFile(src_stateful, dest_stateful)
       else:
         _Log('WARN: %s not found. Expected for dev and test builds',
              constants.STATEFUL_FILE)
