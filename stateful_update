@@ -62,7 +62,7 @@ update_dev_image () {
   fi
 
   local stateful_update_url="${base_update_url}/stateful.tgz"
-  echo "Downloading stateful payload from ${stateful_update_url}"
+  echo >&2 "Downloading stateful payload from ${stateful_update_url}"
   # Download and unzip directories onto the stateful partition.
   eval "wget -qS -T 300 -O - \"${stateful_update_url}\"" |
       tar --ignore-command-error --overwrite --directory=${STATEFUL_DIR} -xz
