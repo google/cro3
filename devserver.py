@@ -388,8 +388,10 @@ class DevServerRoot(object):
     if not artifacts and not files:
       raise DevServerError('No artifacts specified.')
 
-    return (artifacts.split(',') if artifacts else [],
-            files.split(',') if files else [])
+    # Note we NEED to coerce files to a string as we get raw unicode from
+    # cherrypy and we treat files as strings elsewhere in the code.
+    return (str(artifacts).split(',') if artifacts else [],
+            str(files).split(',') if files else [])
 
   @cherrypy.expose
   def build(self, board, pkg, **kwargs):
