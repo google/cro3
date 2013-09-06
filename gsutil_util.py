@@ -110,7 +110,7 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, timeout=600, delay=10,
     err_str: String to display in the error message on error.
     timeout: how long are we allowed to keep trying.
     delay: how long to wait between attempts.
-    is_regex_pattern: Whether the pattern is a regex (default: glob).
+    is_regex_pattern: Whether the pattern is a regex (otherwise a glob).
   Returns:
     The list of artifacts matching the pattern in Google Storage bucket or None
     if not found.
@@ -124,10 +124,10 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, timeout=600, delay=10,
   # of success, or None if the actual command output should be used.
   get_methods = []
   # If the pattern is a glob and contains no wildcards, we'll first attempt to
-  # stat the file via getacl.
+  # stat the file via du.
   if not (is_regex_pattern or _GlobHasWildcards(pattern)):
-    get_methods.append(('gsutil getacl %s/%s' % (archive_url, pattern),
-                        'Failed to getacl on the artifact file.',
+    get_methods.append(('gsutil du %s/%s' % (archive_url, pattern),
+                        'Failed to du on the artifact file.',
                         pattern))
 
   # The default method is to check the manifest file in the archive directory.
