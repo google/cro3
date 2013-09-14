@@ -796,7 +796,7 @@ class PackFirmware:
     """
     for _ in range(0, 2):
       for entry in self.entries:
-        if isinstance(entry, EntryBlob):
+        if isinstance(entry, EntryBlob) and entry.required:
           self._out.Info("Updating blob positions in fdt for '%s'" % entry.key)
           data, directory = self.ConcatPropContents(
               entry.key.split(','), None, entry.with_index)
