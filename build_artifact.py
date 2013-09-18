@@ -466,13 +466,13 @@ ARTIFACT_IMPLEMENTATION_MAP = {
 
     artifact_info.BASE_IMAGE:
     ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
-                    [devserver_constants.BASE_IMAGE_FILE]),
+                    files_to_extract=[devserver_constants.BASE_IMAGE_FILE]),
     artifact_info.RECOVERY_IMAGE:
     ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
-                    [devserver_constants.RECOVERY_IMAGE_FILE]),
+                    files_to_extract=[devserver_constants.RECOVERY_IMAGE_FILE]),
     artifact_info.TEST_IMAGE:
     ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
-                    [devserver_constants.TEST_IMAGE_FILE]),
+                    files_to_extract=[devserver_constants.TEST_IMAGE_FILE]),
 
     artifact_info.AUTOTEST:
     ImplDescription(AutotestTarballBuildArtifact, AUTOTEST_FILE,
@@ -491,7 +491,7 @@ ARTIFACT_IMPLEMENTATION_MAP = {
 
     artifact_info.FACTORY_IMAGE:
     ImplDescription(ZipfileBuildArtifact, FACTORY_FILE,
-                    [devserver_constants.FACTORY_IMAGE_FILE])
+                    files_to_extract=[devserver_constants.FACTORY_IMAGE_FILE])
 }
 
 # Add all the paygen_au artifacts in one go.
