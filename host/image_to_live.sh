@@ -81,6 +81,7 @@ UPDATER_UPDATE_CHECK="UPDATE_STATUS_CHECKING_FOR_UPDATE"
 UPDATER_DOWNLOADING="UPDATE_STATUS_DOWNLOADING"
 
 IMAGE_PATH=""
+UPDATE_PATH=""
 ROOTFS_MOUNTPT=""
 STATEFUL_MOUNTPT=""
 
@@ -137,19 +138,18 @@ is_xbuddy_path() {
   [[ "${FLAGS_image}" == xbuddy:* ]]
 }
 
+# Starts the devserver and returns the update url to use to get the update.
 start_dev_server() {
   kill_all_devservers
-  local devserver_flags="--pregenerate_update"
+  local devserver_flags="--board=${FLAGS_board} --port=${FLAGS_devserver_port}"
   # Parse devserver flags.
   if [ -n "${FLAGS_image}" ]; then
     if is_xbuddy_path; then
       info "Image flag is an xBuddy path to an image."
-      devserver_flags="${devserver_flags} \
-          --image ${FLAGS_image}"
     else
       info "Forcing the devserver to serve a local image."
-      devserver_flags="${devserver_flags} \
-          --image $(reinterpret_path_for_chroot ${FLAGS_image})"
+      devserver_flags="${devserver_flags} --pregenerate_update \
+          --image=$(reinterpret_path_for_chroot ${FLAGS_image})"
       IMAGE_PATH="${FLAGS_image}"
     fi
   elif [ -n "${FLAGS_archive_dir}" ]; then
@@ -162,17 +162,17 @@ start_dev_server() {
     IMAGE_PATH="$(${SCRIPTS_DIR}/get_latest_image.sh --board="${FLAGS_board}")"
     IMAGE_PATH="${IMAGE_PATH}/chromiumos_image.bin"
     devserver_flags="${devserver_flags} \
-        --image $(reinterpret_path_for_chroot ${IMAGE_PATH})"
+        --image=$(reinterpret_path_for_chroot ${IMAGE_PATH})"
   fi
 
   if [ -n "${FLAGS_payload}" ]; then
     devserver_flags="${devserver_flags} \
-        --payload $(reinterpret_path_for_chroot ${FLAGS_payload})"
+        --payload=$(reinterpret_path_for_chroot ${FLAGS_payload})"
   fi
 
   if [ -n "${FLAGS_proxy_port}" ]; then
     devserver_flags="${devserver_flags} \
-        --proxy_port ${FLAGS_proxy_port}"
+        --proxy_port=${FLAGS_proxy_port}"
   fi
 
   if [ ${FLAGS_no_patch_kernel} -eq ${FLAGS_TRUE} ]; then
@@ -183,7 +183,8 @@ start_dev_server() {
     devserver_flags="${devserver_flags} \
         --src_image=\"$(reinterpret_path_for_chroot ${FLAGS_src_image})\""
   fi
-
+  # Remove any extra whitespace between words in flags.
+  devserver_flags=$(echo ${devserver_flags} | sed 's/ \+/ /g')
   info "Starting devserver with flags ${devserver_flags}"
 
   # Clobber dev_server log in case image_to_live is run with sudo previously.
@@ -192,28 +193,46 @@ start_dev_server() {
   fi
 
   # Need to inherit environment variables to discover gsutil credentials.
-  cros_sdk -- sudo -E start_devserver ${devserver_flags} \
-       --board=${FLAGS_board} \
-       --port=${FLAGS_devserver_port} > ${FLAGS_server_log} 2>&1 &
+  if cros_sdk -- cros_workon list --host |
+      grep chromeos-base/cros-devutils &> /dev/null; then
+    info "cros_workon for devserver detected. Running devserver from source."
+    cros_sdk -- sudo -E ../platform/dev/devserver.py ${devserver_flags} \
+       > ${FLAGS_server_log} 2>&1 &
+  else
+    cros_sdk -- sudo -E start_devserver ${devserver_flags} \
+      > ${FLAGS_server_log} 2>&1 &
+  fi
 
-  info "Waiting on devserver to start"
-  info "note: be patient as the server generates the update before starting."
+  info "Waiting on devserver to start. " \
+       "Be patient as the server generates the update before starting."
   until netstat -lnp 2>&1 | grep :${FLAGS_devserver_port} > /dev/null; do
     sleep 5
-    echo -n "."
-    if ! pgrep -f start_devserver > /dev/null; then
-      echo "Devserver failed, see dev_server.log."
-      exit 1
+    if ! pgrep -f "devserver" > /dev/null; then
+      tail -n 10 "${FLAGS_server_log}"
+      die "Devserver failed, see dev_server.log -- snippet above"
     fi
   done
-  echo ""
+  if is_xbuddy_path; then
+    local devserver_url=$(echo $(get_devserver_url) | sed "s#/update##")
+    local xbuddy_path="xbuddy/${FLAGS_image##*xbuddy:}?for_update=true"
+    info "Xbuddy image detected. Using xbuddy RPC: " ${xbuddy_path}
+    UPDATE_PATH="$(curl -f "${devserver_url}/${xbuddy_path}")"
+    if [ -z "${UPDATE_PATH}" ]; then
+      tail -n 10 "${FLAGS_server_log}"
+      die "XBuddy failed to stage the image specified by ${FLAGS_image}."
+    fi
+    info "XBuddy returned uri to use for update: ${UPDATE_PATH}."
+    if [[ "${UPDATE_PATH}" != *"/update"* ]]; then
+      die "XBuddy did not return a valid update uri."
+    fi
+  fi
 }
 
 # Copies stateful update script which fetches the newest stateful update
 # from the dev server and prepares the update. chromeos_startup finishes
 # the update on next boot.
 run_stateful_update() {
-  local dev_url=$(get_devserver_url)
+  local dev_url="${UPDATE_PATH}"
   local stateful_url=""
   local stateful_update_args=""
 
@@ -237,18 +256,13 @@ run_stateful_update() {
 }
 
 get_update_args() {
-  if [ -z ${1} ]; then
+  if [ -z "${1}" ]; then
     die "No url provided for update."
   fi
 
   local update_args="--omaha_url ${1}"
 
-  # Grab everything after last colon as an xbuddy path
-  if is_xbuddy_path; then
-    update_args="${update_args}/xbuddy/${FLAGS_image##*xbuddy:}"
-  fi
-
-  info "${update_args}"
+  info "Omaha URL: " ${update_args}
 
   if [[ ${FLAGS_ignore_version} -eq ${FLAGS_TRUE} ]]; then
     info "Forcing update independent of the current version"
@@ -267,7 +281,7 @@ get_devserver_url() {
   fi
 
   if [ ${FLAGS_ignore_hostname} -eq ${FLAGS_TRUE} ]; then
-    if [ -z ${FLAGS_update_url} ]; then
+    if [ -z "${FLAGS_update_url}" ]; then
       devserver_url="http://$(get_hostname):${port}/update"
     else
       devserver_url="${FLAGS_update_url}"
@@ -340,16 +354,6 @@ status_thread() {
   done
 }
 
-# Dumps the update_engine log in real-time
-log_thread() {
-  echo 'starting log thread'
-  # Using -t -t twice forces pseudo-tty allocation on the remote end, which
-  # causes tail to go into line-buffered mode.
-  EXTRA_REMOTE_SH_ARGS="-t -t" remote_sh_raw \
-      "tail -n +0 -f /var/log/update_engine.log"
-  echo 'stopping log thread'
-}
-
 # Pings the update_engine to see if it responds or a max timeout is reached.
 # Returns 1 if max timeout is reached.
 wait_until_update_engine_is_ready() {
@@ -366,11 +370,12 @@ wait_until_update_engine_is_ready() {
   done
 }
 
+# Runs the autoupdate.
 run_auto_update() {
   # Truncate the update log so our log file is clean.
   truncate_update_log
 
-  local update_args="$(get_update_args "$(get_devserver_url)")"
+  local update_args="$(get_update_args "${UPDATE_PATH}")"
   info "Waiting to initiate contact with the update_engine."
   wait_until_update_engine_is_ready || die "Could not contact update engine."
 
@@ -379,17 +384,13 @@ run_auto_update() {
   # Sets up secondary threads to track the update progress and logs
   status_thread &
   local status_thread_pid=$!
-  log_thread &
-  local log_thread_pid=$!
-  trap "kill -1 ${status_thread_pid} && kill -1 ${log_thread_pid} && cleanup" \
-      EXIT INT TERM
+  trap "kill ${status_thread_pid}; cleanup" EXIT INT TERM
 
   # Actually run the update.  This is a blocking call.
   remote_sh "${UPDATER_BIN} ${update_args}"
 
   # Clean up secondary threads.
-  ! kill ${status_thread_pid} 2> /dev/null
-  ! kill ${log_thread_pid} 2> /dev/null
+  kill ${status_thread_pid} 2> /dev/null || warn "Failed to kill status thread"
   trap cleanup EXIT INT TERM
 
   local update_status="$(get_update_var CURRENT_OP)"
@@ -404,6 +405,16 @@ run_auto_update() {
 
 verify_image() {
   info "Verifying image."
+  if [ -n "${FLAGS_update_url}" ]; then
+    warn "Verify is not compatible with setting an update url."
+    return
+  fi
+
+  if is_xbuddy_path; then
+    warn "Verify is not currently compatible with xbuddy."
+    return
+  fi
+
   ROOTFS_MOUNTPT=$(mktemp -d)
   STATEFUL_MOUNTPT=$(mktemp -d)
   "${SCRIPTS_DIR}/mount_gpt_image.sh" --from "$(dirname "${IMAGE_PATH}")" \
@@ -445,7 +456,7 @@ run_once() {
   fi
 
   local initial_root_dev=$(find_root_dev)
-
+  UPDATE_PATH="$(get_devserver_url)"
   if [ -z "${FLAGS_update_url}" ]; then
     # Start local devserver if no update url specified.
     start_dev_server
@@ -528,18 +539,6 @@ main() {
   eval set -- "${FLAGS_ARGV}"
 
   set -e
-
-  if [ ${FLAGS_verify} -eq ${FLAGS_TRUE} ] && \
-      [ -n "${FLAGS_update_url}" ]; then
-    warn "Verify is not compatible with setting an update url."
-    FLAGS_verify=${FLAGS_FALSE}
-  fi
-
-  if [ ${FLAGS_verify} -eq ${FLAGS_TRUE} ] && \
-      is_xbuddy_path; then
-    warn "Verify is not currently compatible with xbuddy."
-    FLAGS_verify=${FLAGS_FALSE}
-  fi
 
   trap cleanup EXIT INT TERM
 

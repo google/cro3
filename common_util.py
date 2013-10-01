@@ -271,7 +271,9 @@ def SymlinkFile(target, link):
   atomically.
   """
   if not os.path.exists(target):
+    _Log('Could not find target for symlink: %s', target)
     return
+
   _Log('Creating symlink: %s --> %s', link, target)
 
   # Use the created link_base file to prevent other calls to SymlinkFile() to

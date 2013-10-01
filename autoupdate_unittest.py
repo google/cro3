@@ -119,13 +119,12 @@ class AutoupdateTest(mox.MoxTestBase):
 
     common_util.IsInsideChroot().AndReturn(True)
     self._xbuddy._GetArtifact(
-        [''], self.test_board, lookup_only=True).AndReturn(
+        [''], board=self.test_board, lookup_only=True).AndReturn(
             (latest_label, constants.TEST_IMAGE_FILE))
 
     au_mock.GenerateUpdateImageWithCache(
         os.path.join(self.static_image_dir, self.test_board, self.latest_dir,
-                     constants.TEST_IMAGE_FILE),
-        static_image_dir=latest_image_dir).AndReturn('update.gz')
+                     constants.TEST_IMAGE_FILE)).AndReturn('update.gz')
 
     self.mox.ReplayAll()
     test_data = _TEST_REQUEST % self.test_dict
@@ -150,18 +149,17 @@ class AutoupdateTest(mox.MoxTestBase):
     cache_image_dir = os.path.join(self.static_image_dir, 'cache')
 
     # Mock out GenerateUpdateImageWithCache to make an update file in cache
-    def mock_fn(_image, static_image_dir):
+    def mock_fn(_image):
       print 'mock_fn'
       # No good way to introduce an update file during execution.
-      cache_dir = os.path.join(static_image_dir, 'cache')
+      cache_dir = os.path.join(self.static_image_dir, 'cache')
       common_util.MkDirP(cache_dir)
       update_image = os.path.join(cache_dir, constants.UPDATE_FILE)
       with open(update_image, 'w') as fh:
         fh.write('')
 
     common_util.IsInsideChroot().AndReturn(True)
-    au_mock.GenerateUpdateImageWithCache(forced_image,
-        static_image_dir=self.static_image_dir).WithSideEffects(
+    au_mock.GenerateUpdateImageWithCache(forced_image).WithSideEffects(
         mock_fn).AndReturn('cache')
 
     common_util.GetFileSha1(os.path.join(
@@ -195,7 +193,7 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock.forced_image = "xbuddy:b/v/a"
 
     self._xbuddy._GetArtifact(
-        ['b', 'v', 'a'], None).AndReturn(('label', constants.TEST_IMAGE_FILE))
+        ['b', 'v', 'a']).AndReturn(('label', constants.TEST_IMAGE_FILE))
 
     au_mock.GetUpdateForLabel(
         autoupdate.FORCED_UPDATE, 'b/v/a').AndReturn('p')

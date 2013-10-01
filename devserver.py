@@ -58,6 +58,7 @@ from cherrypy import _cplogging as cplogging
 from cherrypy.process import plugins
 
 import autoupdate
+import build_artifact
 import common_util
 import downloader
 import log_util
@@ -691,6 +692,10 @@ class DevServerRoot(object):
       return_dir: {true|false}
                   if set to true, returns the url to the update.gz
                   instead.
+      for_update: {true|false}
+                  if for_update, pre-generates the update payload for the image
+                  and returns the update path to pass to the
+                  update_engine_client.
 
     Example URL:
       http://host:port/xbuddy/x86-generic/R26-4000.0.0/test
@@ -707,12 +712,35 @@ class DevServerRoot(object):
     """
     boolean_string = kwargs.get('return_dir')
     return_dir = xbuddy.XBuddy.ParseBoolean(boolean_string)
+    boolean_string = kwargs.get('for_update')
+    for_update = xbuddy.XBuddy.ParseBoolean(boolean_string)
 
-    build_id, file_name = self._xbuddy.Get(args)
+    if for_update and return_dir:
+      raise DevServerHTTPError(500, 'Cannot specify both update and return_dir')
+
+    # For updates, we optimize downloading of test images.
+    file_name = None
+    build_id = None
+    if for_update:
+      try:
+        build_id = self._xbuddy.StageTestAritfactsForUpdate(args)
+      except build_artifact.ArtifactDownloadError:
+        build_id = None
+
+    if not build_id:
+      build_id, file_name = self._xbuddy.Get(args)
+
     if return_dir:
       directory = os.path.join(cherrypy.request.base, 'static', build_id)
       _Log("Directory requested, returning: %s", directory)
       return directory
+    elif for_update:
+      # Forces paylaod to be in cache and symlinked into build_id dir.
+      updater.GetUpdateForLabel(autoupdate.FORCED_UPDATE, build_id,
+                                image_name=file_name)
+      update_uri = os.path.join(cherrypy.request.base, 'update', build_id)
+      _Log("Update requested, returning: %s", update_uri)
+      return update_uri
     else:
       build_id = '/' + os.path.join('static', build_id, file_name)
       _Log("Payload requested, returning: %s", build_id)
@@ -1044,6 +1072,8 @@ def main():
                           options.board,
                           root_dir=root_dir,
                           static_dir=options.static_dir)
+  if options.clear_cache and options.xbuddy_manage_builds:
+    _xbuddy.CleanCache()
 
   # We allow global use here to share with cherrypy classes.
   # pylint: disable=W0603

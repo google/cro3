@@ -470,6 +470,9 @@ ARTIFACT_IMPLEMENTATION_MAP = {
     artifact_info.RECOVERY_IMAGE:
     ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
                     files_to_extract=[devserver_constants.RECOVERY_IMAGE_FILE]),
+    artifact_info.DEV_IMAGE:
+    ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
+                    files_to_extract=[devserver_constants.IMAGE_FILE]),
     artifact_info.TEST_IMAGE:
     ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
                     files_to_extract=[devserver_constants.TEST_IMAGE_FILE]),

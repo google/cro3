@@ -32,6 +32,9 @@ RECOVERY_IMAGE = 'recovery_image'
 # The test image - the base image with both develolper and test enhancements.
 TEST_IMAGE = 'test_image'
 
+# The developer image - the base image with developer enhancements.
+DEV_IMAGE = 'dev_image'
+
 #### Autotest related packages. ####
 
 # Autotest -- the main autotest directory without the test_suites subdir.

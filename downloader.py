@@ -124,10 +124,14 @@ class Downloader(log_util.Loggable):
     non-specified artifacts in the background following the principle of
     spatial locality.
 
-    artifacts: A list of artifact names that correspond to
-               artifacts defined in artifact_info.py to stage.
-    files: A list of filenames to stage from an archive_url.
-    async: If True, return without waiting for download to complete.
+    Args:
+      artifacts: A list of artifact names that correspond to
+                 artifacts defined in artifact_info.py to stage.
+     files: A list of filenames to stage from an archive_url.
+     async: If True, return without waiting for download to complete.
+
+    Raises:
+      gsutil_util.GSUtilError: If we failed to download the artifact.
 
     """
     common_util.MkDirP(self._build_dir)
@@ -179,10 +183,15 @@ class Downloader(log_util.Loggable):
   def _DownloadArtifactsSerially(self, artifacts, no_wait):
     """Simple function to download all the given artifacts serially.
 
-    @param artifacts: A list of build_artifact.BuildArtifact instances to
-                      download.
-    @param no_wait: If True, don't block waiting for artifact to exist if we
-                    fail to immediately find it.
+    Args:
+      artifacts: A list of build_artifact.BuildArtifact instances to
+                 download.
+      no_wait: If True, don't block waiting for artifact to exist if we
+               fail to immediately find it.
+
+    Raises:
+      build_artifact.ArtifactDownloadError: If we failed to download the
+                                            artifact.
 
     """
     try:

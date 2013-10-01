@@ -46,19 +46,28 @@ ANY = "ANY"
 LATEST = "latest"
 LOCAL = "local"
 REMOTE = "remote"
+
+# TODO(sosa): Fix a lot of assumptions about these aliases. There is too much
+# implicit logic here that's unnecessary. What should be done:
+# 1) Collapse Alias logic to one set of aliases for xbuddy (not local/remote).
+# 2) Do not use zip when creating these dicts. Better to not rely on ordering.
+# 3) Move alias/artifact mapping to a central module rather than having it here.
+# 4) Be explicit when things are missing i.e. no dev images in image.zip.
+
 LOCAL_ALIASES = [
   TEST,
-  BASE,
   DEV,
+  BASE,
   FULL,
   ANY,
 ]
 
 LOCAL_FILE_NAMES = [
   devserver_constants.TEST_IMAGE_FILE,
-  devserver_constants.BASE_IMAGE_FILE,
   devserver_constants.IMAGE_FILE,
+  devserver_constants.BASE_IMAGE_FILE,
   devserver_constants.UPDATE_FILE,
+  None, # For ANY.
 ]
 
 LOCAL_ALIAS_TO_FILENAME = dict(zip(LOCAL_ALIASES, LOCAL_FILE_NAMES))
@@ -66,6 +75,7 @@ LOCAL_ALIAS_TO_FILENAME = dict(zip(LOCAL_ALIASES, LOCAL_FILE_NAMES))
 # Google Storage constants
 GS_ALIASES = [
   TEST,
+  DEV,
   BASE,
   RECOVERY,
   FULL,
@@ -166,9 +176,7 @@ class XBuddy(build_util.BuildObject):
 
     self.config = self._ReadConfig()
     self._manage_builds = manage_builds or self._ManageBuilds()
-    self._board = board or self.GetDefaultBoardID()
-    _Log("Default board used by xBuddy: %s", self._board)
-
+    self._board = board
     self._timestamp_folder = os.path.join(self.static_dir,
                                           Timestamp.XBUDDY_TIMESTAMP_DIR)
     common_util.MkDirP(self._timestamp_folder)
@@ -418,7 +426,7 @@ class XBuddy(build_util.BuildObject):
       path: the path xBuddy Get was called with.
 
     Return:
-      tuple of (image_type, board, version)
+      tuple of (image_type, board, version, whether the path is local)
 
     Raises:
       XBuddyException: if the path can't be resolved into valid components
@@ -508,19 +516,23 @@ class XBuddy(build_util.BuildObject):
     return_tup = sorted(build_dict.iteritems(), key=operator.itemgetter(1))
     return return_tup
 
-  def _Download(self, gs_url, artifact):
-    """Download the single artifact from the given gs_url."""
+  def _Download(self, gs_url, artifacts):
+    """Download the artifacts from the given gs_url.
+
+    Raises:
+      build_artifact.ArtifactDownloadError: If we failed to download the
+                                            artifact.
+    """
     with XBuddy._staging_thread_count_lock:
       XBuddy._staging_thread_count += 1
     try:
-      _Log("Downloading '%s' from '%s'", artifact, gs_url)
-      downloader.Downloader(self.static_dir, gs_url).Download(
-          [artifact], [])
+      _Log("Downloading %s from %s", artifacts, gs_url)
+      downloader.Downloader(self.static_dir, gs_url).Download(artifacts, [])
     finally:
       with XBuddy._staging_thread_count_lock:
         XBuddy._staging_thread_count -= 1
 
-  def _CleanCache(self):
+  def CleanCache(self):
     """Delete all builds besides the newest N builds"""
     if not self._manage_builds:
       return
@@ -551,8 +563,13 @@ class XBuddy(build_util.BuildObject):
       except Exception as err:
         raise XBuddyException('Failed to clear %s: %s' % (clear_dir, err))
 
-  def _GetFromGS(self, build_id, image_type, lookup_only):
-    """Check if the artifact is available locally. Download from GS if not."""
+  def _GetFromGS(self, build_id, image_type):
+    """Check if the artifact is available locally. Download from GS if not.
+
+    Raises:
+        build_artifact.ArtifactDownloadError: If we failed to download the
+                                              artifact.
+    """
     gs_url = os.path.join(devserver_constants.GS_IMAGE_DIR,
                           build_id)
 
@@ -562,14 +579,16 @@ class XBuddy(build_util.BuildObject):
     cached = os.path.exists(file_loc)
 
     if not cached:
-      if not lookup_only:
-        artifact = GS_ALIAS_TO_ARTIFACT[image_type]
-        self._Download(gs_url, artifact)
+      artifact = GS_ALIAS_TO_ARTIFACT[image_type]
+      self._Download(gs_url, [artifact])
     else:
       _Log('Image already cached.')
 
-  def _GetArtifact(self, path_list, board, lookup_only=False):
+  def _GetArtifact(self, path_list, board=None, lookup_only=False):
     """Interpret an xBuddy path and return directory/file_name to resource.
+
+    Note board can be passed that in but by default if self._board is set,
+    that is used rather than board.
 
     Returns:
     build_id to the directory
@@ -577,10 +596,12 @@ class XBuddy(build_util.BuildObject):
 
     Raises:
       XBuddyException: if the path could not be translated
+      build_artifact.ArtifactDownloadError: if we failed to download the
+                                            artifact.
     """
     path = '/'.join(path_list)
     # Rewrite the path if there is an appropriate default.
-    path = self._LookupAlias(path, board)
+    path = self._LookupAlias(path, self._board if self._board else board)
 
     # Parse the path.
     image_type, board, version, is_local = self._InterpretPath(path)
@@ -607,12 +628,11 @@ class XBuddy(build_util.BuildObject):
       if image_type not in GS_ALIASES:
         raise XBuddyException('Bad remote image type: %s. Use one of: %s' %
                               (image_type, GS_ALIASES))
-      file_name = GS_ALIAS_TO_FILENAME[image_type]
-
-      # Interpret the version (alias), and get gs address.
       build_id = self._ResolveVersionToUrl(board, version)
-      _Log('Found on GS: %s', build_id)
-      self._GetFromGS(build_id, image_type, lookup_only)
+      _Log('Resolved version %s to %s.', version, build_id)
+      file_name = GS_ALIAS_TO_FILENAME[image_type]
+      if not lookup_only:
+        self._GetFromGS(build_id, image_type)
 
     return build_id, file_name
 
@@ -632,7 +652,7 @@ class XBuddy(build_util.BuildObject):
     """Returns the number of images cached by xBuddy."""
     return str(self._Capacity())
 
-  def Translate(self, path_list, board):
+  def Translate(self, path_list, board=None):
     """Translates an xBuddy path to a real path to artifact if it exists.
 
     Equivalent to the Get call, minus downloading and updating timestamps,
@@ -651,10 +671,27 @@ class XBuddy(build_util.BuildObject):
       XBuddyException: if the path couldn't be translated
     """
     self._SyncRegistryWithBuildImages()
-    build_id, file_name = self._GetArtifact(path_list, board, lookup_only=True)
+    build_id, file_name = self._GetArtifact(path_list, board=board,
+                                            lookup_only=True)
 
     _Log('Returning path to payload: %s/%s', build_id, file_name)
     return build_id, file_name
+
+  def StageTestAritfactsForUpdate(self, path_list):
+    """Stages test artifacts for update and returns build_id.
+
+    Raises:
+      XBuddyException: if the path could not be translated
+      build_artifact.ArtifactDownloadError: if we failed to download the test
+                                            artifacts.
+    """
+    build_id, file_name = self.Translate(path_list)
+    if file_name == devserver_constants.TEST_IMAGE_FILE:
+      gs_url = os.path.join(devserver_constants.GS_IMAGE_DIR,
+                            build_id)
+      artifacts = [FULL, STATEFUL]
+      self._Download(gs_url, artifacts)
+      return build_id
 
   def Get(self, path_list):
     """The full xBuddy call, returns resource specified by path_list.
@@ -675,14 +712,15 @@ class XBuddy(build_util.BuildObject):
           specified 'test' or 'full_payload' artifacts, respectively.
 
     Raises:
-      XBuddyException: if path is invalid
+      XBuddyException: if the path could not be translated
+      build_artifact.ArtifactDownloadError: if we failed to download the
+                                            artifact.
     """
     self._SyncRegistryWithBuildImages()
-    build_id, file_name = self._GetArtifact(path_list, self._board)
-
+    build_id, file_name = self._GetArtifact(path_list)
     Timestamp.UpdateTimestamp(self._timestamp_folder, build_id)
     #TODO (joyc): run in sep thread
-    self._CleanCache()
+    self.CleanCache()
 
     _Log('Returning path to payload: %s/%s', build_id, file_name)
     return build_id, file_name

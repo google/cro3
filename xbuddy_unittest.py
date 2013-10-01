@@ -187,7 +187,7 @@ class xBuddyTest(mox.MoxTestBase):
 
     self.mox.StubOutWithMock(self.mock_xb, '_Download')
     for _ in range(8):
-      self.mock_xb._Download(mox.IsA(str), mox.IsA(str))
+      self.mock_xb._Download(mox.IsA(str), mox.In(mox.IsA(str)))
 
     self.mox.ReplayAll()
 

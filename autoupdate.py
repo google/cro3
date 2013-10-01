@@ -355,12 +355,11 @@ class Autoupdate(build_util.BuildObject):
       os.system('rm -rf "%s"' % output_dir)
       raise AutoupdateError('Failed to generate update in %s' % output_dir)
 
-  def GenerateUpdateImageWithCache(self, image_path, static_image_dir):
+  def GenerateUpdateImageWithCache(self, image_path):
     """Force generates an update payload based on the given image_path.
 
     Args:
       image_path: full path to the image.
-      static_image_dir: the directory to move images to after generating.
     Returns:
       update directory relative to static_image_dir.
     Raises:
@@ -372,13 +371,12 @@ class Autoupdate(build_util.BuildObject):
     if self.pregenerated_path:
       return self.pregenerated_path
 
-    # Which sub_dir of static_image_dir should hold our cached update image.
-    cache_sub_dir = self.FindCachedUpdateImageSubDir(self.src_image,
-                                                     image_path)
+    # Which sub_dir should hold our cached update image.
+    cache_sub_dir = self.FindCachedUpdateImageSubDir(self.src_image, image_path)
     _Log('Caching in sub_dir "%s"', cache_sub_dir)
 
     # The cached payloads exist in a cache dir.
-    cache_dir = os.path.join(static_image_dir, cache_sub_dir)
+    cache_dir = os.path.join(self.static_dir, cache_sub_dir)
 
     cache_update_payload = os.path.join(cache_dir,
                                         constants.UPDATE_FILE)
@@ -397,22 +395,23 @@ class Autoupdate(build_util.BuildObject):
 
     return cache_sub_dir
 
-  def _SymlinkUpdateFiles(self, image_dir):
-    """Set files in the base static_dir to link to most recent update files.
+  def _SymlinkUpdateFiles(self, target_dir, link_dir):
+    """Symlinks the update-related files from target_dir to link_dir.
 
     Every time an update is called, clear existing files/symlinks in the
-    devserver's static_dir, and replace them with symlinks.
-    This allows the base of archive_dir to serve the most recent update.
+    link_dir, and replace them with symlinks to the target_dir.
 
     Args:
-      image_dir: Where update files are staged.
+      target_dir: Location of the target files.
+      link_dir: Directory where the links should exist after.
     """
-    if self.static_dir == image_dir:
-      _Log("Serving from static directory.")
+    _Log('Linking %s to %s', target_dir, link_dir)
+    if link_dir == target_dir:
+      _Log('Cannot symlink into the same directory.')
       return
     for f in UPDATE_FILES:
-      link = os.path.join(self.static_dir, f)
-      target = os.path.join(image_dir, f)
+      link = os.path.join(link_dir, f)
+      target = os.path.join(target_dir, f)
       common_util.SymlinkFile(target, link)
 
   def GetUpdateForLabel(self, client_version, label,
@@ -451,9 +450,11 @@ class Autoupdate(build_util.BuildObject):
       return label
     elif os.path.exists(static_image_path) and common_util.IsInsideChroot():
       # Image was found for the given label. Generate update if we can.
-      rel_path = self.GenerateUpdateImageWithCache(
-          static_image_path, static_image_dir=static_image_dir)
-      return _NonePathJoin(label, rel_path)
+      rel_path = self.GenerateUpdateImageWithCache(static_image_path)
+      # Add links from the static directory to the update.
+      cache_path = _NonePathJoin(self.static_dir, rel_path)
+      self._SymlinkUpdateFiles(cache_path, static_image_dir)
+      return label
 
     # The label didn't resolve.
     return None
@@ -659,8 +660,10 @@ class Autoupdate(build_util.BuildObject):
         src_path = os.path.abspath(self.forced_image)
         if os.path.exists(src_path) and common_util.IsInsideChroot():
           # Image was found for the given label. Generate update if we can.
-          path_to_payload = self.GenerateUpdateImageWithCache(
-              src_path, static_image_dir=self.static_dir)
+          path_to_payload = self.GenerateUpdateImageWithCache(src_path)
+          # Add links from the static directory to the update.
+          cache_path = _NonePathJoin(self.static_dir, path_to_payload)
+          self._SymlinkUpdateFiles(cache_path, self.static_dir)
     else:
       label = label or ''
       label_list = label.split('/')
@@ -674,7 +677,7 @@ class Autoupdate(build_util.BuildObject):
         if label_list[0] == 'xbuddy':
           # If path explicitly calls xbuddy, pop off the tag.
           label_list.pop()
-        x_label, image_name = self.xbuddy.Translate(label_list, board)
+        x_label, image_name = self.xbuddy.Translate(label_list, board=board)
         if image_name not in constants.ALL_IMAGES:
           raise AutoupdateError(
               "Use an image alias: dev, base, test, or recovery.")
@@ -691,11 +694,7 @@ class Autoupdate(build_util.BuildObject):
     if path_to_payload is None:
       raise AutoupdateError('Failed to get an update for: %s' % label)
     else:
-      # Add links from the static directory to the update.
-      self._SymlinkUpdateFiles(
-          _NonePathJoin(self.static_dir, path_to_payload))
-
-    return path_to_payload
+      return path_to_payload
 
   def HandleUpdatePing(self, data, label=''):
     """Handles an update ping from an update client.
