@@ -19,6 +19,8 @@ DEFINE_integer remote_pid 0 \
  "Process ID of the running process on the remote device to which to attach."
 DEFINE_string remote_file "" \
  "Full pathname of the file to be debugged on the remote device."
+DEFINE_string remote_args "" \
+ "Command line arguments to pass to the executable on the remote device."
 DEFINE_boolean cgdb ${FLAGS_FALSE} \
  "Use cgdb curses interface rather than plain gdb."
 DEFINE_boolean ssh ${FLAGS_FALSE} \
@@ -193,7 +195,7 @@ start_remote_gdbserver ()
 {
   # Start gdbserver on the remote device
 
-  local gdbserver_cmd="gdbserver :${FLAGS_port} ${FLAGS_remote_file}"
+  local gdbserver_cmd="gdbserver :${FLAGS_port} ${FLAGS_remote_file} ${FLAGS_remote_args}"
   if [[ ${FLAGS_remote_pid} -ne 0 ]] ; then
     gdbserver_cmd="gdbserver --attach :${FLAGS_port} ${FLAGS_remote_pid}"
   fi
@@ -214,11 +216,11 @@ generate_gdbinit_file ()
     if [[ ${FLAGS_remote_pid} -ne 0 ]] ; then
       gdbserver_cmd+=" --attach -  ${FLAGS_remote_pid}"
     else
-      gdbserver_cmd+=" - ${FLAGS_remote_file}"
+      gdbserver_cmd+=" - ${FLAGS_remote_file} ${FLAGS_remote_args}"
     fi
     remote_cmd="\"target remote | ssh -T -i ${TMP_DIR}/testing_rsa \
       ${REMOTE_SSH_FLAGS} -o TCPKeepAlive=no -o UserKnownHostsFile=/dev/null \
-      root@${FLAGS_remote} ${gdbserver_cmd}\""
+      root@${FLAGS_remote} ${VM_PORT} ${gdbserver_cmd}\""
   fi
 
   cat <<-EOF > ${GDBINIT_FILE}
