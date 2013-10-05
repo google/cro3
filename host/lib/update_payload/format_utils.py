@@ -27,9 +27,13 @@ def NumToPercent(num, total, min_precision=1, max_precision=5):
     min_precision: minimum precision for fractional percentage
     max_precision: maximum precision for fractional percentage
   Returns:
-    Percentage string.
+    Percentage string, or None if percent cannot be computed (i.e. total is
+    zero).
 
   """
+  if total == 0:
+    return None
+
   percent = 0
   precision = min(min_precision, max_precision)
   factor = 10 ** precision

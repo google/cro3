@@ -101,11 +101,13 @@ class Histogram(object):
         bar_len = count * self.scale / self.total
         hist_bar = '|%s|' % ('#' * bar_len).ljust(self.scale)
 
-      line = '%s %s %s (%s)' % (
+      line = '%s %s %s' % (
           str(key).ljust(self.max_key_len),
           hist_bar,
-          self.formatter(count),
-          format_utils.NumToPercent(count, self.total))
+          self.formatter(count))
+      percent_str = format_utils.NumToPercent(count, self.total)
+      if percent_str:
+        line += ' (%s)' % percent_str
       hist_lines.append(line)
 
     return '\n'.join(hist_lines)

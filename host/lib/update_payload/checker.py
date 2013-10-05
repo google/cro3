@@ -67,7 +67,11 @@ def _AddFormat(format_func, value):
   Returns:
     A string 'x (y)' where x = str(value) and y = format_func(value).
   """
-  return '%s (%s)' % (value, format_func(value))
+  ret = str(value)
+  formatted_str = format_func(value)
+  if formatted_str:
+    ret += ' (%s)' % formatted_str
+  return ret
 
 
 def _AddHumanReadableSize(size):
