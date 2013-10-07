@@ -168,9 +168,16 @@ class ExynosBl2(object):
       fdt - the Fdt object representing the target device tree
       pos - an int, offset of the machine parameter structure into data
     """
+
+    rev_map = 'google,board-rev-map'
+    try:
+      rev_table =  fdt.GetIntList('/board-rev', rev_map)
+    except CmdError:
+      self._out.Info('No value for %s' % rev_map)
+      return 0
+
     # offset of the revision table from machine param table
     offset = len(self._spl_data) - pos
-    rev_table =  fdt.GetIntList('/board-rev', 'google,board-rev-map')
     extra = struct.pack('%dB' % len(rev_table), *rev_table)
     self._spl_data += extra
     return offset
