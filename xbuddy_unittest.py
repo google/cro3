@@ -54,7 +54,7 @@ class xBuddyTest(mox.MoxTestBase):
                           mox.IgnoreArg()).AndReturn('v')
     expected = 'b-s/v'
     self.mox.ReplayAll()
-    self.assertEqual(self.mock_xb._LookupOfficial('b', 's'), expected)
+    self.assertEqual(self.mock_xb._LookupOfficial('b', '-s'), expected)
     self.mox.VerifyAll()
 
   def testLookupChannel(self):
@@ -70,24 +70,25 @@ class xBuddyTest(mox.MoxTestBase):
     self.assertEqual(self.mock_xb._LookupChannel('b'), expected)
     self.mox.VerifyAll()
 
-  def testResolveVersionToUrl_Official(self):
-    """Check _ResolveVersionToUrl recognizes aliases for official builds."""
+  def testResolveVersionToBuildId_Official(self):
+    """Check _ResolveVersionToBuildId recognizes aliases for official builds."""
     board = 'b'
 
     # aliases that should be redirected to LookupOfficial
+
     self.mox.StubOutWithMock(self.mock_xb, '_LookupOfficial')
     self.mock_xb._LookupOfficial(board)
     self.mock_xb._LookupOfficial(board, 'paladin')
 
     self.mox.ReplayAll()
     version = 'latest-official'
-    self.mock_xb._ResolveVersionToUrl(board, version)
+    self.mock_xb._ResolveVersionToBuildId(board, version)
     version = 'latest-official-paladin'
-    self.mock_xb._ResolveVersionToUrl(board, version)
+    self.mock_xb._ResolveVersionToBuildId(board, version)
     self.mox.VerifyAll()
 
-  def testResolveVersionToUrl_Channel(self):
-    """Check _ResolveVersionToUrl recognizes aliases for channels."""
+  def testResolveVersionToBuildId_Channel(self):
+    """Check _ResolveVersionToBuildId recognizes aliases for channels."""
     board = 'b'
 
     # aliases that should be redirected to LookupChannel
@@ -97,9 +98,9 @@ class xBuddyTest(mox.MoxTestBase):
 
     self.mox.ReplayAll()
     version = 'latest'
-    self.mock_xb._ResolveVersionToUrl(board, version)
+    self.mock_xb._ResolveVersionToBuildId(board, version)
     version = 'latest-dev'
-    self.mock_xb._ResolveVersionToUrl(board, version)
+    self.mock_xb._ResolveVersionToBuildId(board, version)
     self.mox.VerifyAll()
 
   def testBasicInterpretPath(self):
@@ -184,10 +185,17 @@ class xBuddyTest(mox.MoxTestBase):
     """Caching & replacement of timestamp files."""
     path_a = ('remote', 'a', 'R0', 'test')
     path_b = ('remote', 'b', 'R0', 'test')
-
+    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(self.mock_xb, '_Download')
     self.mox.StubOutWithMock(self.mock_xb, '_Download')
     for _ in range(8):
       self.mock_xb._Download(mox.IsA(str), mox.In(mox.IsA(str)))
+
+    # All non-release urls are invalid so we can meet expectations.
+    gsutil_util.GSUtilRun(mox.Not(mox.StrContains('-release')),
+                          None).MultipleTimes().AndRaise(
+                              gsutil_util.GSUtilError('bad url'))
+    gsutil_util.GSUtilRun(mox.StrContains('-release'), None).MultipleTimes()
 
     self.mox.ReplayAll()
 

@@ -106,7 +106,7 @@ GS_ALIAS_TO_ARTIFACT = dict(zip(GS_ALIASES, ARTIFACTS))
 
 LATEST_OFFICIAL = "latest-official"
 
-RELEASE = "release"
+RELEASE = "-release"
 
 
 class XBuddyException(Exception):
@@ -288,7 +288,6 @@ class XBuddy(build_util.BuildObject):
     return devserver_constants.IMAGE_DIR % {'board':board,
                                             'suffix':suffix,
                                             'version':version}
-
   def _LookupChannel(self, board, channel='stable'):
     """Check the channel folder for the version number of interest."""
     # Get all names in channel dir. Get 10 highest directories by version.
@@ -327,7 +326,33 @@ class XBuddy(build_util.BuildObject):
                                             'suffix':RELEASE,
                                             'version':full_version}
 
-  def _ResolveVersionToUrl(self, board, version):
+  def _RemoteBuildId(self, board, version):
+    """Returns the remote build_id for the given board and version.
+
+    Raises:
+      XBuddyException: If we failed to resolve the version to a valid build_id.
+    """
+    build_id_as_is = devserver_constants.IMAGE_DIR % {'board':board,
+                                                      'suffix':'',
+                                                      'version':version}
+    build_id_release = devserver_constants.IMAGE_DIR % {'board':board,
+                                                        'suffix':RELEASE,
+                                                        'version':version}
+    # Return the first path that exists. We assume that what the user typed
+    # is better than with a default suffix added i.e. x86-generic/blah is
+    # more valuable than x86-generic-release/blah.
+    for build_id in build_id_as_is, build_id_release:
+      cmd = 'gsutil ls %s/%s' % (devserver_constants.GS_IMAGE_DIR, build_id)
+      try:
+        version = gsutil_util.GSUtilRun(cmd, None)
+        return build_id
+      except gsutil_util.GSUtilError:
+        continue
+    else:
+      raise XBuddyException('Could not find remote build_id for %s %s' % (
+          board, version))
+
+  def _ResolveVersionToBuildId(self, board, version):
     """Handle version aliases for remote payloads in GS.
 
     Args:
@@ -340,19 +365,16 @@ class XBuddy(build_util.BuildObject):
         4. version prefix (i.e. RX-Y.X, RX-Y, RX)
 
     Returns:
-      Location where the image dir is actually found on GS
+      Location where the image dir is actually found on GS (build_id)
 
+    Raises:
+      XBuddyException: If we failed to resolve the version to a valid url.
     """
-    # TODO(joychen): Convert separate calls to a dict + error out bad paths.
-
     # Only the last segment of the alias is variable relative to the rest.
     version_tuple = version.rsplit('-', 1)
 
     if re.match(devserver_constants.VERSION_RE, version):
-      # This is supposed to be a complete version number on GS. Return it.
-      return devserver_constants.IMAGE_DIR % {'board':board,
-                                              'suffix':RELEASE,
-                                              'version':version}
+      return self._RemoteBuildId(board, version)
     elif version == LATEST_OFFICIAL:
       # latest-official --> LATEST build in board-release
       return self._LookupOfficial(board)
@@ -628,7 +650,7 @@ class XBuddy(build_util.BuildObject):
       if image_type not in GS_ALIASES:
         raise XBuddyException('Bad remote image type: %s. Use one of: %s' %
                               (image_type, GS_ALIASES))
-      build_id = self._ResolveVersionToUrl(board, version)
+      build_id = self._ResolveVersionToBuildId(board, version)
       _Log('Resolved version %s to %s.', version, build_id)
       file_name = GS_ALIAS_TO_FILENAME[image_type]
       if not lookup_only:

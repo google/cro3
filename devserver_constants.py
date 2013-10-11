@@ -8,8 +8,8 @@
 # TODO (joyc) move the google storage filenames of artfacts here
 CHANNELS = 'canary', 'dev', 'beta', 'stable'
 GS_IMAGE_DIR = 'gs://chromeos-image-archive'
-GS_LATEST_MASTER = GS_IMAGE_DIR + '/%(board)s-%(suffix)s/LATEST-master'
-IMAGE_DIR = '%(board)s-%(suffix)s/%(version)s'
+GS_LATEST_MASTER = GS_IMAGE_DIR + '/%(board)s%(suffix)s/LATEST-master'
+IMAGE_DIR = '%(board)s%(suffix)s/%(version)s'
 
 GS_RELEASES_DIR = 'gs://chromeos-releases'
 GS_CHANNEL_DIR = GS_RELEASES_DIR + '/%(channel)s-channel/%(board)s/'
