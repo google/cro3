@@ -24,11 +24,9 @@ class xBuddyTest(mox.MoxTestBase):
     mox.MoxTestBase.setUp(self)
 
     self.static_image_dir = tempfile.mkdtemp('xbuddy_unittest_static')
-    self.root_dir = tempfile.mkdtemp('xbuddy_unittest_ds_root')
 
     self.mock_xb = xbuddy.XBuddy(
       True,
-      root_dir=self.root_dir,
       static_dir=self.static_image_dir
     )
     self.images_dir = tempfile.mkdtemp('xbuddy_unittest_images')

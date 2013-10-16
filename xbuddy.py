@@ -59,6 +59,7 @@ LOCAL_ALIASES = [
   DEV,
   BASE,
   FULL,
+  STATEFUL,
   ANY,
 ]
 
@@ -67,6 +68,7 @@ LOCAL_FILE_NAMES = [
   devserver_constants.IMAGE_FILE,
   devserver_constants.BASE_IMAGE_FILE,
   devserver_constants.UPDATE_FILE,
+  devserver_constants.STATEFUL_FILE,
   None, # For ANY.
 ]
 
@@ -171,7 +173,8 @@ class XBuddy(build_util.BuildObject):
   # Lock used to lock increasing/decreasing count.
   _staging_thread_count_lock = threading.Lock()
 
-  def __init__(self, manage_builds=False, board=None, **kwargs):
+  def __init__(self, manage_builds=False, board=None, images_dir=None,
+               **kwargs):
     super(XBuddy, self).__init__(**kwargs)
 
     self.config = self._ReadConfig()
@@ -179,6 +182,11 @@ class XBuddy(build_util.BuildObject):
     self._board = board
     self._timestamp_folder = os.path.join(self.static_dir,
                                           Timestamp.XBUDDY_TIMESTAMP_DIR)
+    if images_dir:
+      self.images_dir = images_dir
+    else:
+      self.images_dir = os.path.join(self.GetSourceRoot(), 'src/build/images')
+
     common_util.MkDirP(self._timestamp_folder)
 
   @classmethod

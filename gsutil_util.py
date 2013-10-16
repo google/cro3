@@ -16,7 +16,7 @@ import devserver_constants
 import log_util
 
 
-GSUTIL_ATTEMPTS = 5
+GSUTIL_ATTEMPTS = 1
 UPLOADED_LIST = 'UPLOADED'
 
 

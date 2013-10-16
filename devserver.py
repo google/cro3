@@ -61,6 +61,7 @@ import autoupdate
 import build_artifact
 import common_util
 import downloader
+import gsutil_util
 import log_util
 import xbuddy
 
@@ -187,6 +188,8 @@ def _GetConfig(options):
                 }
   if options.production:
     base_config['global'].update({'server.thread_pool': 150})
+    # TODO(sosa): Do this more cleanly.
+    gsutil_util.GSUTIL_ATTEMPTS = 5
 
   return base_config
 
@@ -1050,8 +1053,6 @@ def main():
     cherrypy.log.error_log.addHandler(hdlr)
     # pylint: enable=E1101
 
-  root_dir = os.path.realpath('%s/../..' % devserver_dir)
-
   # set static_dir, from which everything will be served
   options.static_dir = os.path.realpath(options.static_dir)
 
@@ -1065,12 +1066,10 @@ def main():
     os.makedirs(cache_dir)
 
   _Log('Using cache directory %s' % cache_dir)
-  _Log('Source root is %s' % root_dir)
   _Log('Serving from %s' % options.static_dir)
 
   _xbuddy = xbuddy.XBuddy(options.xbuddy_manage_builds,
                           options.board,
-                          root_dir=root_dir,
                           static_dir=options.static_dir)
   if options.clear_cache and options.xbuddy_manage_builds:
     _xbuddy.CleanCache()
@@ -1080,7 +1079,6 @@ def main():
   global updater
   updater = autoupdate.Autoupdate(
       _xbuddy,
-      root_dir=root_dir,
       static_dir=options.static_dir,
       urlbase=options.urlbase,
       forced_image=options.image,

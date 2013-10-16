@@ -13,20 +13,19 @@ class BuildObject(object):
   Classes that inherit from BuildObject can access scripts in the src/scripts
   directory, and have a handle to the static directory of the devserver.
   """
-  def __init__(self, root_dir, static_dir):
+  def __init__(self, static_dir):
     self.devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     self.static_dir = static_dir
-    try:
-      chroot_dir = os.environ['CROS_WORKON_SRCROOT']
-      self.scripts_dir = os.path.join(chroot_dir, 'src/scripts')
-      self.images_dir = os.path.join(chroot_dir, 'src/build/images')
-    except KeyError:
-      # Outside of chroot: This is a corner case. Since we live either in
-      # platform/dev or /usr/bin/, scripts have to live in ../../../src/scripts
-      self.scripts_dir = os.path.abspath(os.path.join(
-          self.devserver_dir, '../../../src/scripts'))
-      self.images_dir = os.path.abspath(os.path.join(
-          self.devserver_dir, '../../../src/build/images'))
+    self.scripts_dir = os.path.join(self.GetSourceRoot(), 'src/scripts')
+
+  @staticmethod
+  def GetSourceRoot():
+    """Returns the path to the source root."""
+    src_root = os.environ.get('CROS_WORKON_SRCROOT')
+    if not src_root:
+      src_root = os.path.join(os.path.dirname(__file__), '..', '..', '..')
+
+    return os.path.realpath(src_root)
 
   def GetLatestImageDir(self, board):
     """Returns the latest image dir based on shell script."""

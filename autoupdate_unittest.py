@@ -64,7 +64,6 @@ class AutoupdateTest(mox.MoxTestBase):
     cherrypy.request.base = 'http://%s' % self.hostname
     common_util.MkDirP(self.static_image_dir)
     self._xbuddy = xbuddy.XBuddy(False,
-                                 root_dir=None,
                                  static_dir=self.static_image_dir)
     self.mox.StubOutWithMock(xbuddy.XBuddy, '_GetArtifact')
 
@@ -75,7 +74,6 @@ class AutoupdateTest(mox.MoxTestBase):
   def _DummyAutoupdateConstructor(self, **kwargs):
     """Creates a dummy autoupdater.  Used to avoid using constructor."""
     dummy = autoupdate.Autoupdate(self._xbuddy,
-                                  root_dir=None,
                                   static_dir=self.static_image_dir,
                                   **kwargs)
     return dummy
