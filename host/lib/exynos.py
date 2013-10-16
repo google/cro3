@@ -208,15 +208,6 @@ class ExynosBl2(object):
                      (size, pos, size, len(self._spl_data)
                       - pos, len(self._spl_data)))
 
-    # Move past the header and read the parameter list, which is terminated
-    # with \0.
-    pos += 12
-    param_list = struct.unpack('<%ds' % (len(self._spl_data) - pos),
-                               self._spl_data[pos:])[0]
-    param_len = param_list.find('\0')
-    param_list = param_list[:param_len]
-    pos += (param_len + 4) & ~3
-
     #
     # A dictionary of functions processing machine parameters. This is being
     # introduced after more than 20 parameters have been already defined and
@@ -243,6 +234,15 @@ class ExynosBl2(object):
     mp_router = {
       't': [self._MpRevMap, pos]
       }
+
+    # Move past the header and read the parameter list, which is terminated
+    # with \0.
+    pos += 12
+    param_list = struct.unpack('<%ds' % (len(self._spl_data) - pos),
+                               self._spl_data[pos:])[0]
+    param_len = param_list.find('\0')
+    param_list = param_list[:param_len]
+    pos += (param_len + 4) & ~3
 
     # Use this to detect a missing value from the fdt.
     not_given = 'not-given-invalid-value'
