@@ -155,18 +155,28 @@ class ExynosBl2(object):
     addr = base + offset
     return 1, addr, size
 
-  def _MpRevMap(self, _unused1, _unused2, fdt, pos):
-    """Append revision map to the SPL blob.
+  def _MpRevMap(self, _unused1, offset, fdt, pos):
+    """Add the revision map to the SPL blob.
 
-    Read the revison map table from the device tree, concatenate it with the
-    SPL data blob and return the offset of the added table from the machine
-    parameter structure.
+    Read the revison map table from the device tree, and place it in the SPL
+    blob.  If we detect that there wasn't already space allocated for the
+    revision map we'll append it to the end of the SPL blob.  If there was
+    already space for the revision map we'll overwrite the existing one.
+
+    The revision map could be anywhere in the SPL.  We store an offset from the
+    beginning of the machine params structure as the value in machine params
+    to allow us to find the map.  If the offset is 0 it means that there is no
+    revision map space allocated.
 
     Args:
       _unused1 - a single character string, machine parameter name
-      _unused2 - a 32 bit int read from the blob
+      offset - If there's alreasy space for the revision map, this will be non-
+               zero and we can find it in the SPL data at "pos + offset".
       fdt - the Fdt object representing the target device tree
       pos - an int, offset of the machine parameter structure into data
+
+    Returns:
+      offset - The new location of the revision map.
     """
 
     rev_map = 'google,board-rev-map'
@@ -176,10 +186,16 @@ class ExynosBl2(object):
       self._out.Info('No value for %s' % rev_map)
       return 0
 
-    # offset of the revision table from machine param table
-    offset = len(self._spl_data) - pos
     extra = struct.pack('%dB' % len(rev_table), *rev_table)
-    self._spl_data += extra
+
+    if offset:
+      self._spl_data = (self._spl_data[:pos + offset] +
+                        extra +
+                        self._spl_data[pos + offset + len(extra):])
+    else:
+      # offset of the revision table from machine param table
+      offset = len(self._spl_data) - pos
+      self._spl_data += extra
     return offset
 
   def _UpdateParameters(self, fdt, spl_load_offset, spl_load_size, pos,
