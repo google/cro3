@@ -35,7 +35,7 @@ if [ -n "${FLAGS_board}" ]; then
   EBUILDCMD=ebuild-"${FLAGS_board}"
   EMERGECMD=emerge-"${FLAGS_board}"
   EQUERYCMD=equery-"${FLAGS_board}"
-  BOARD_STR="${FLAGS_board}"
+  BOARD="${FLAGS_board}"
 fi
 
 pkg="${1}"
@@ -55,7 +55,7 @@ if ! pkgfile=$("${EQUERYCMD}" which "${workon_name}" 2> /dev/null); then
   BOARD_KEYWORD="$(portageq-${FLAGS_board} envvar ARCH)"
   if ACCEPT_KEYWORDS="~${BOARD_KEYWORD}" "${EQUERYCMD}" which "${workon_name}" \
       > /dev/null 2>&1; then
-    die "run 'cros_workon --board ${BOARD_STR} start ${pkg}' first!" 1>&2
+    die "run 'cros_workon --board ${BOARD} start ${pkg}' first!" 1>&2
   fi
   die "error looking up package ${pkg}"
 fi
@@ -88,10 +88,10 @@ to_do="compile"
 if [ "${FLAGS_test}" = "${FLAGS_TRUE}" ]; then
   to_do="test"
   emerge_features="test"
-  rm -f "/build/${BOARD_STR}/tmp/portage/${workpath}/.tested"
+  rm -f "/build/${BOARD}/tmp/portage/${workpath}/.tested"
 fi
 
-workdir="/build/${BOARD_STR}/tmp/portage/${workpath}/work/${workon_name}"
+workdir="/build/${BOARD}/tmp/portage/${workpath}/work/${workon_name}"
 if [ ! -h "${workdir}" ]; then
   warn "Cleaning up stale workdir: ${workdir}"
   FLAGS_reconf="${FLAGS_TRUE}"  # To force symlinking in the user's src dir.
@@ -107,7 +107,7 @@ clean=
 if [ "${FLAGS_reconf}" = "${FLAGS_TRUE}" ]; then
   clean="clean"
 else
-  rm -f "/build/${BOARD_STR}/tmp/portage/${workpath}/.compiled"
+  rm -f "/build/${BOARD}/tmp/portage/${workpath}/.compiled"
 fi
 SANDBOX_WRITE=~/trunk CROS_WORKON_INPLACE=1 \
   "${EBUILDCMD}" "${pkgfile}" ${clean} "${to_do}"
