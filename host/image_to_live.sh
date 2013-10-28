@@ -252,6 +252,7 @@ run_stateful_update() {
   local stateful_update_script="/usr/bin/stateful_update"
 
   remote_cp_to "${chroot_path}/${stateful_update_script}" "/tmp"
+  remote_sh "mount -o remount,exec /tmp"
   remote_sh "/tmp/stateful_update ${stateful_update_args} ${stateful_url}"
 }
 
