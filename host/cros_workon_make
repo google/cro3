@@ -36,7 +36,6 @@ if [ -n "${FLAGS_board}" ]; then
   EMERGECMD=emerge-"${FLAGS_board}"
   EQUERYCMD=equery-"${FLAGS_board}"
   BOARD_STR="${FLAGS_board}"
-  BOARD_KEYWORD="$(portageq-${FLAGS_board} envvar ARCH)"
 fi
 
 pkg="${1}"
@@ -53,6 +52,7 @@ workpath=
 
 # Find the ebuild file, ensure the caller is workon'ing the package.
 if ! pkgfile=$("${EQUERYCMD}" which "${workon_name}" 2> /dev/null); then
+  BOARD_KEYWORD="$(portageq-${FLAGS_board} envvar ARCH)"
   if ACCEPT_KEYWORDS="~${BOARD_KEYWORD}" "${EQUERYCMD}" which "${workon_name}" \
       > /dev/null 2>&1; then
     die "run 'cros_workon --board ${BOARD_STR} start ${pkg}' first!" 1>&2
