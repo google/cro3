@@ -26,7 +26,7 @@ FLAGS "$@" || exit 1
 eval set -- "${FLAGS_ARGV}"
 
 if [ $# -lt 1 ]; then
-  echo "Usage: ${0} [OPTIONS] <package (read: ebuild) basename>"
+  echo "Usage: ${0} [OPTIONS] <package (read: ebuild) basename> [target args]"
   exit 1
 fi
 
@@ -39,6 +39,7 @@ if [ -n "${FLAGS_board}" ]; then
 fi
 
 pkg="${1}"
+shift
 if [ "${pkg}" = "." ]; then
   if ! pkg=$(git config workon.pkg); then
     die "workon.pkg not set in git config for this project"
@@ -86,6 +87,15 @@ workpath="/build/${BOARD}/tmp/portage/${workpath}"
 export SANDBOX_WRITE=~/trunk
 export CROS_WORKON_INPLACE=1
 export FEATURES
+export CROS_WORKON_MAKE_COMPILE_ARGS="$*"
+
+# Vars that we want to pass through for the user.
+PASS_THROUGH_VARS=(
+  # cros-workon.eclass vars.
+  CROS_WORKON_MAKE_COMPILE_ARGS
+  # Common test vars.
+  GTEST_ARGS
+)
 
 # Determine if we're going to do tests, set up commands appropriately.
 to_do="compile"
@@ -110,5 +120,11 @@ if [ "${FLAGS_reconf}" = "${FLAGS_TRUE}" ]; then
   clean="clean"
 else
   rm -f "${workpath}/.compiled"
+  envf="${workpath}/temp/environment"
+  for v in ${PASS_THROUGH_VARS[@]}; do
+    # We delete it independently in case the var wasn't set initially.
+    sed -i -e "/^declare .. ${v}=/d" "${envf}"
+    printf 'declare -x %s="%s"\n' "${v}" "${!v}" >> "${envf}"
+  done
 fi
 exec "${EBUILDCMD}" "${pkgfile}" ${clean} "${to_do}"
