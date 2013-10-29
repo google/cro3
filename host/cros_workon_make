@@ -48,7 +48,6 @@ fi
 unstable_suffix="9999"
 workon_name="${pkg}-${unstable_suffix}"
 pkgfile=
-workpath=
 
 # Find the ebuild file, ensure the caller is workon'ing the package.
 if ! pkgfile=$("${EQUERYCMD}" which "${workon_name}" 2> /dev/null); then
@@ -81,33 +80,35 @@ fi
 workpath=$(\
     echo "${pkgfile}" | \
         awk -F '/' '{ print $(NF-2) "/" $(NF-1) }')-"${unstable_suffix}"
+workpath="/build/${BOARD}/tmp/portage/${workpath}"
+
+# Export vars that the ebuild env needs from us.
+export SANDBOX_WRITE=~/trunk
+export CROS_WORKON_INPLACE=1
+export FEATURES
 
 # Determine if we're going to do tests, set up commands appropriately.
-emerge_features=
 to_do="compile"
 if [ "${FLAGS_test}" = "${FLAGS_TRUE}" ]; then
   to_do="test"
-  emerge_features="test"
-  rm -f "/build/${BOARD}/tmp/portage/${workpath}/.tested"
+  FEATURES+=" test"
+  rm -f "${workpath}/.tested"
 fi
 
-workdir="/build/${BOARD}/tmp/portage/${workpath}/work/${workon_name}"
+workdir="${workpath}/work/${workon_name}"
 if [ ! -h "${workdir}" ]; then
   warn "Cleaning up stale workdir: ${workdir}"
   FLAGS_reconf="${FLAGS_TRUE}"  # To force symlinking in the user's src dir.
 fi
 
 if [ "${FLAGS_install}" = "${FLAGS_TRUE}" ]; then
-  SANDBOX_WRITE=~/trunk CROS_WORKON_INPLACE=1 \
-    FEATURES="${emerge_features} ${FEATURES}" "${EMERGECMD}" --nodeps "${pkg}"
-  exit $?
+  exec "${EMERGECMD}" --nodeps "${pkg}"
 fi
 
 clean=
 if [ "${FLAGS_reconf}" = "${FLAGS_TRUE}" ]; then
   clean="clean"
 else
-  rm -f "/build/${BOARD}/tmp/portage/${workpath}/.compiled"
+  rm -f "${workpath}/.compiled"
 fi
-SANDBOX_WRITE=~/trunk CROS_WORKON_INPLACE=1 \
-  "${EBUILDCMD}" "${pkgfile}" ${clean} "${to_do}"
+exec "${EBUILDCMD}" "${pkgfile}" ${clean} "${to_do}"
