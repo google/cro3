@@ -243,7 +243,7 @@ if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
   SRC_MNT=$(mktemp -d /tmp/src_root.XXXXXX)
   sudo mount -o loop,ro "$SRC_ROOT" "$SRC_MNT"
 
-  "$GENERATOR" \
+  sudo LD_LIBRARY_PATH=${LD_LIBRARY_PATH}  PATH=${PATH} "$GENERATOR" \
       -new_dir "$DST_MNT" -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
       -old_dir "$SRC_MNT" -old_image "$SRC_ROOT" -old_kernel "$SRC_KERNEL" \
       -out_file "$FLAGS_output" -private_key "$FLAGS_private_key" \
