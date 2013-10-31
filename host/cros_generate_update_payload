@@ -139,6 +139,7 @@ DEFINE_boolean outside_chroot "$FLAGS_FALSE" "Running outside of chroot."
 DEFINE_boolean patch_kernel "$FLAGS_FALSE" "Whether or not to patch the kernel \
 with the patch from the stateful partition (default: false)"
 DEFINE_string private_key "" "Path to private key in .pem format."
+DEFINE_string out_metadata_hash_file "" "Path to output metadata hash file."
 DEFINE_boolean extract "$FLAGS_FALSE" "If set, extract old/new kernel/rootfs \
 to [old|new]_[kern|root].dat. Useful for debugging (default: false)"
 DEFINE_boolean full_kernel "$FLAGS_FALSE" "Generate a full kernel update even \
@@ -266,6 +267,18 @@ else
       -new_version "$FLAGS_version" -new_key "$FLAGS_key" \
       -new_build_channel "$FLAGS_build_channel" \
       -new_build_version "$FLAGS_build_version"
+fi
+
+if [ -n "$FLAGS_out_metadata_hash_file" ]; then
+    # The manifest - unfortunately - contain two fields called
+    # signature_offset and signature_size with data about the how the
+    # manifest is signed. This means we have to pass the signature
+    # size used. The value 256 is the number of bytes the SHA-256 hash
+    # value of the manifest signed with a 2048-bit RSA key occupies.
+    "$GENERATOR" \
+        -in_file "$FLAGS_output" \
+        -signature_size 256 \
+        -out_metadata_hash_file "$FLAGS_out_metadata_hash_file"
 fi
 
 trap - INT TERM EXIT

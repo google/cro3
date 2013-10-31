@@ -2,8 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import base64
 import json
 import os
+import struct
 import subprocess
 import sys
 import time
@@ -121,11 +123,14 @@ class HostInfoTable(object):
 class UpdateMetadata(object):
   """Object containing metadata about an update payload."""
 
-  def __init__(self, sha1, sha256, size, is_delta_format):
+  def __init__(self, sha1, sha256, size, is_delta_format, metadata_size,
+               metadata_hash):
     self.sha1 = sha1
     self.sha256 = sha256
     self.size = size
     self.is_delta_format = is_delta_format
+    self.metadata_size = metadata_size
+    self.metadata_hash = metadata_hash
 
 
 class Autoupdate(build_util.BuildObject):
@@ -142,6 +147,8 @@ class Autoupdate(build_util.BuildObject):
     board:           board for the image. Needed for pre-generating of updates.
     copy_to_static_root:  copies images generated from the cache to ~/static.
     private_key:          path to private key in PEM format.
+    private_key_for_metadata_hash_signature: path to private key in PEM format.
+    public_key:       path to public key in PEM format.
     critical_update:  whether provisioned payload is critical.
     remote_payload:   whether provisioned payload is remotely staged.
     max_updates:      maximum number of updates we'll try to provision.
@@ -156,10 +163,13 @@ class Autoupdate(build_util.BuildObject):
   SHA256_ATTR = 'sha256'
   SIZE_ATTR = 'size'
   ISDELTA_ATTR = 'is_delta'
+  METADATA_SIZE_ATTR = 'metadata_size'
+  METADATA_HASH_ATTR = 'metadata_hash'
 
   def __init__(self, xbuddy, urlbase=None, forced_image=None, payload_path=None,
                proxy_port=None, src_image='', patch_kernel=True, board=None,
                copy_to_static_root=True, private_key=None,
+               private_key_for_metadata_hash_signature=None, public_key=None,
                critical_update=False, remote_payload=False, max_updates= -1,
                host_log=False, *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
@@ -173,6 +183,9 @@ class Autoupdate(build_util.BuildObject):
     self.board = board or self.GetDefaultBoardID()
     self.copy_to_static_root = copy_to_static_root
     self.private_key = private_key
+    self.private_key_for_metadata_hash_signature = \
+      private_key_for_metadata_hash_signature
+    self.public_key = public_key
     self.critical_update = critical_update
     self.remote_payload = remote_payload
     self.max_updates = max_updates
@@ -199,7 +212,10 @@ class Autoupdate(build_util.BuildObject):
     sha256 = file_attr_dict.get(cls.SHA256_ATTR)
     size = file_attr_dict.get(cls.SIZE_ATTR)
     is_delta = file_attr_dict.get(cls.ISDELTA_ATTR)
-    return UpdateMetadata(sha1, sha256, size, is_delta)
+    metadata_size = file_attr_dict.get(cls.METADATA_SIZE_ATTR)
+    metadata_hash = file_attr_dict.get(cls.METADATA_HASH_ATTR)
+    return UpdateMetadata(sha1, sha256, size, is_delta, metadata_size,
+                          metadata_hash)
 
   @staticmethod
   def _ReadMetadataFromFile(payload_dir):
@@ -215,7 +231,9 @@ class Autoupdate(build_util.BuildObject):
     file_dict = {cls.SHA1_ATTR: metadata_obj.sha1,
                  cls.SHA256_ATTR: metadata_obj.sha256,
                  cls.SIZE_ATTR: metadata_obj.size,
-                 cls.ISDELTA_ATTR: metadata_obj.is_delta_format}
+                 cls.ISDELTA_ATTR: metadata_obj.is_delta_format,
+                 cls.METADATA_SIZE_ATTR: metadata_obj.metadata_size,
+                 cls.METADATA_HASH_ATTR: metadata_obj.metadata_hash}
     metadata_file = os.path.join(payload_dir, constants.METADATA_FILE)
     with open(metadata_file, 'w') as file_handle:
       json.dump(file_dict, file_handle)
@@ -271,6 +289,8 @@ class Autoupdate(build_util.BuildObject):
     update_command = [
         'cros_generate_update_payload',
         '--image', image_path,
+        '--out_metadata_hash_file', os.path.join(output_dir,
+                                                 constants.METADATA_HASH_FILE),
         '--output', update_path,
     ]
 
@@ -485,8 +505,7 @@ class Autoupdate(build_util.BuildObject):
     Args:
       url: URL of statically staged remote file (http://host:port/static/...)
     Returns:
-      A tuple containing the SHA1, SHA256, file size and whether or not it's a
-      delta payload (Boolean).
+      A UpdateMetadata object.
     """
     if self._PAYLOAD_URL_PREFIX not in url:
       raise AutoupdateError(
@@ -512,14 +531,41 @@ class Autoupdate(build_util.BuildObject):
     except IOError as e:
       raise AutoupdateError('Failed to obtain remote payload info: %s', e)
 
+  @staticmethod
+  def _GetMetadataHash(payload_dir):
+    """Gets the metadata hash.
+
+    Args:
+      payload_dir: The payload directory.
+    Returns:
+      The metadata hash, base-64 encoded.
+    """
+    path = os.path.join(payload_dir, constants.METADATA_HASH_FILE)
+    return base64.b64encode(open(path, 'rb').read())
+
+  @staticmethod
+  def _GetMetadataSize(payload_filename):
+    """Gets the size of the metadata in a payload file.
+
+    Args:
+      payload_filename: Path to the payload file.
+    Returns:
+      The size of the payload metadata, as reported in the payload header.
+    """
+    # Handle corner-case where unit tests pass in empty payload files.
+    if os.path.getsize(payload_filename) < 20:
+      return 0
+    stream = open(payload_filename, 'rb')
+    stream.seek(16)
+    return struct.unpack('>I', stream.read(4))[0] + 20
+
   def GetLocalPayloadAttrs(self, payload_dir):
     """Returns hashes, size and delta flag of a local update payload.
 
     Args:
       payload_dir: Path to the directory the payload is in.
     Returns:
-      A tuple containing the SHA1, SHA256, file size and whether or not it's a
-      delta payload (Boolean).
+      A UpdateMetadata object.
     """
     filename = os.path.join(payload_dir, constants.UPDATE_FILE)
     if not os.path.exists(filename):
@@ -534,7 +580,10 @@ class Autoupdate(build_util.BuildObject):
       sha256 = common_util.GetFileSha256(filename)
       size = common_util.GetFileSize(filename)
       is_delta_format = self.IsDeltaFormatFile(filename)
-      metadata_obj = UpdateMetadata(sha1, sha256, size, is_delta_format)
+      metadata_size = self._GetMetadataSize(filename)
+      metadata_hash = self._GetMetadataHash(payload_dir)
+      metadata_obj = UpdateMetadata(sha1, sha256, size, is_delta_format,
+                                    metadata_size, metadata_hash)
       Autoupdate._StoreMetadataToFile(payload_dir, metadata_obj)
 
     return metadata_obj
@@ -696,6 +745,29 @@ class Autoupdate(build_util.BuildObject):
     else:
       return path_to_payload
 
+  @staticmethod
+  def _SignMetadataHash(private_key_path, metadata_hash):
+    """Signs metadata hash.
+
+    Signs a metadata hash with a private key. This includes padding the
+    hash with PKCS#1 v1.5 padding as well as an ASN.1 header.
+
+    Args:
+      private_key_path: The path to a private key to use for signing.
+      metadata_hash: A raw SHA-256 hash (32 bytes).
+    Returns:
+      The raw signature.
+    """
+    args = ['openssl', 'rsautl', '-pkcs', '-sign', '-inkey', private_key_path]
+    padded_metadata_hash = ('\x30\x31\x30\x0d\x06\x09\x60\x86'
+                            '\x48\x01\x65\x03\x04\x02\x01\x05'
+                            '\x00\x04\x20') + metadata_hash
+    child = subprocess.Popen(args,
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE)
+    signature, _ = child.communicate(input=padded_metadata_hash)
+    return signature
+
   def HandleUpdatePing(self, data, label=''):
     """Handles an update ping from an update client.
 
@@ -767,10 +839,23 @@ class Autoupdate(build_util.BuildObject):
       _Log('Failed to process an update: %r', e)
       return autoupdate_lib.GetNoUpdateResponse(protocol)
 
+    # Sign the metadata hash, if requested.
+    signed_metadata_hash = None
+    if self.private_key_for_metadata_hash_signature:
+      signed_metadata_hash = base64.b64encode(Autoupdate._SignMetadataHash(
+          self.private_key_for_metadata_hash_signature,
+          base64.b64decode(metadata_obj.metadata_hash)))
+
+    # Include public key, if requested.
+    public_key_data = None
+    if self.public_key:
+      public_key_data = base64.b64encode(open(self.public_key, 'r').read())
+
     _Log('Responding to client to use url %s to get image', url)
     return autoupdate_lib.GetUpdateResponse(
         metadata_obj.sha1, metadata_obj.sha256, metadata_obj.size, url,
-        metadata_obj.is_delta_format, protocol, self.critical_update)
+        metadata_obj.is_delta_format, metadata_obj.metadata_size,
+        signed_metadata_hash, public_key_data, protocol, self.critical_update)
 
   def HandleHostInfoPing(self, ip):
     """Returns host info dictionary for the given IP in JSON format."""

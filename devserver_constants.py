@@ -35,5 +35,6 @@ ALL_IMAGES = (
 #### Update files
 CACHE_DIR = 'cache'
 METADATA_FILE = 'update.meta'
+METADATA_HASH_FILE = 'metadata_hash'
 STATEFUL_FILE = 'stateful.tgz'
 UPDATE_FILE = 'update.gz'

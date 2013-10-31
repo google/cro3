@@ -120,7 +120,8 @@ def GetSubstitutedResponse(response_dict, protocol, response_values):
   return response_xml
 
 
-def GetUpdateResponse(sha1, sha256, size, url, is_delta_format, protocol,
+def GetUpdateResponse(sha1, sha256, size, url, is_delta_format, metadata_size,
+                      signed_metadata_hash, public_key, protocol,
                       critical_update=False):
   """Returns a protocol-specific response to the client for a new update.
 
@@ -130,6 +131,9 @@ def GetUpdateResponse(sha1, sha256, size, url, is_delta_format, protocol,
     size: size of update blob
     url: where to find update blob
     is_delta_format: true if url refers to a delta payload
+    metadata_size: the size of the metadata, in bytes.
+    signed_metadata_hash: the signed metadata hash or None if not signed.
+    public_key: the public key to transmit to the client or None if no key.
     protocol: client's protocol version from the request Xml.
     critical_update: whether this is a critical update.
   Returns:
@@ -151,6 +155,13 @@ def GetUpdateResponse(sha1, sha256, size, url, is_delta_format, protocol,
     # client expects -- it's just empty vs. non-empty.
     date_str = datetime.date.today().strftime('%Y%m%d')
     extra_attributes.append('deadline="%s"' % date_str)
+
+  if metadata_size:
+    extra_attributes.append('MetadataSize="%d"' % metadata_size)
+  if signed_metadata_hash:
+    extra_attributes.append('MetadataSignatureRsa="%s"' % signed_metadata_hash)
+  if public_key:
+    extra_attributes.append('PublicKeyRsa="%s"' % public_key)
 
   response_values['extra_attr'] = ' '.join(extra_attributes)
   return GetSubstitutedResponse(UPDATE_RESPONSE, protocol, response_values)

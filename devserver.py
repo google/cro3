@@ -915,6 +915,16 @@ def _AddTestingOptions(parser):
                    help='path to the private key in pem format. If this is set '
                    'the devserver will generate update payloads that are '
                    'signed with this key.')
+  group.add_option('--private_key_for_metadata_hash_signature',
+                   metavar='PATH', default=None,
+                   help='path to the private key in pem format. If this is set '
+                   'the devserver will sign the metadata hash with the given '
+                   'key and transmit in the Omaha-style XML response.')
+  group.add_option('--public_key',
+                   metavar='PATH', default=None,
+                   help='path to the public key in pem format. If this is set '
+                   'the devserver will transmit a base64 encoded version of '
+                   'the content in the Omaha-style XML response.')
   group.add_option('--proxy_port',
                    metavar='PORT', default=None, type='int',
                    help='port to have the client connect to -- basically the '
@@ -1089,6 +1099,9 @@ def main():
       board=options.board,
       copy_to_static_root=not options.exit,
       private_key=options.private_key,
+      private_key_for_metadata_hash_signature=
+        options.private_key_for_metadata_hash_signature,
+      public_key=options.public_key,
       critical_update=options.critical_update,
       remote_payload=options.remote_payload,
       max_updates=options.max_updates,

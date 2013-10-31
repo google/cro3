@@ -155,6 +155,9 @@ class AutoupdateTest(mox.MoxTestBase):
       update_image = os.path.join(cache_dir, constants.UPDATE_FILE)
       with open(update_image, 'w') as fh:
         fh.write('')
+      metadata_hash = os.path.join(cache_dir, constants.METADATA_HASH_FILE)
+      with open(metadata_hash, 'w') as fh:
+        fh.write('')
 
     common_util.IsInsideChroot().AndReturn(True)
     au_mock.GenerateUpdateImageWithCache(forced_image).WithSideEffects(
@@ -171,8 +174,8 @@ class AutoupdateTest(mox.MoxTestBase):
     forced_url = 'http://%s/static/%s/update.gz' % (self.hostname,
                                                     'cache')
     autoupdate_lib.GetUpdateResponse(
-        self.sha1, self.sha256, self.size, forced_url, False, '3.0',
-        False).AndReturn(self.payload)
+        self.sha1, self.sha256, self.size, forced_url, False, 0, None, None,
+        '3.0', False).AndReturn(self.payload)
 
     self.mox.ReplayAll()
     au_mock.forced_image = forced_image
@@ -254,6 +257,9 @@ class AutoupdateTest(mox.MoxTestBase):
     update_gz = os.path.join(new_image_dir, constants.UPDATE_FILE)
     with open(update_gz, 'w') as fh:
       fh.write('')
+    metadata_hash = os.path.join(new_image_dir, constants.METADATA_HASH_FILE)
+    with open(metadata_hash, 'w') as fh:
+      fh.write('')
 
     common_util.GetFileSha1(os.path.join(
         new_image_dir, 'update.gz')).AndReturn(self.sha1)
@@ -264,8 +270,8 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock._StoreMetadataToFile(new_image_dir,
                                  mox.IsA(autoupdate.UpdateMetadata))
     autoupdate_lib.GetUpdateResponse(
-        self.sha1, self.sha256, self.size, new_url, False, '3.0',
-        False).AndReturn(self.payload)
+        self.sha1, self.sha256, self.size, new_url, False, 0, None, None,
+        '3.0', False).AndReturn(self.payload)
 
     self.mox.ReplayAll()
     au_mock.HandleSetUpdatePing('127.0.0.1', test_label)
@@ -310,9 +316,10 @@ class AutoupdateTest(mox.MoxTestBase):
     test_data = _TEST_REQUEST % self.test_dict
 
     au_mock._GetRemotePayloadAttrs(remote_url).AndReturn(
-        autoupdate.UpdateMetadata(self.sha1, self.sha256, self.size, False))
+        autoupdate.UpdateMetadata(self.sha1, self.sha256, self.size, False,
+                                  0, ''))
     autoupdate_lib.GetUpdateResponse(
-        self.sha1, self.sha256, self.size, remote_url, False,
+        self.sha1, self.sha256, self.size, remote_url, False, 0, None, None,
         '3.0', False).AndReturn(self.payload)
 
     self.mox.ReplayAll()
