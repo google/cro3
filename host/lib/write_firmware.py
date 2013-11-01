@@ -26,7 +26,7 @@ def RoundUp(value, boundary):
 
 
 class WriteFirmware:
-  """Write firmware to a Tegra 2 board using USB A-A cable.
+  """Write firmware to a Chrome OS device using USB A-A cable or servo board
 
   This class handles re-reflashing a board with new firmware using the Tegra's
   built-in boot ROM feature. This works by putting the chip into a special mode
@@ -44,6 +44,8 @@ class WriteFirmware:
         None: servo is not available.
         0: any servo will do.
 
+    _preserved_dut_hub_sel: a string, preserved state of the dut_hub_sel
+                            control
   """
 
   _DOWNLOAD_FAILURE_MESSAGE = '** Load checksum error: check download tool **'
@@ -67,6 +69,7 @@ class WriteFirmware:
     self._out = output
     self._bundle = bundle
     self.text_base = self._fdt.GetInt('/chromeos-config', 'textbase', -1)
+    self._preserved_dut_hub_sel = ''
 
     # For speed, use the 'update' algorithm and don't verify
     self.update = update
@@ -77,6 +80,55 @@ class WriteFirmware:
 
     # By default, no early firmware selection.
     self.use_efs = False
+
+  def EnableUsbProgramming(self, args):
+    """Save dut_hub_sel control if necessary, and set it for programming
+
+    For successful A-A USB programming the dut_hub_sel control must be set to
+    'dut_sees_servo'. This function preserves the state of this control, if it
+    is set to anything else, and then sets it as required. After that the
+    function passes its args to dut-control, which is supposed to restart the
+    DUT in USB booting mode.
+
+    Args:
+      args - a list of strings in <control>:<value> format to be passed to
+             servo to restart the DUT in USB booting mode.
+    """
+
+    if self._servo_port is None:
+      return
+
+    # Preserve and configure dut_hub_sel state.
+    self._out.Progress('Reseting board via servo')
+
+    required_dut_hub_sel = 'dut_sees_servo'
+    preserved_dut_hub_sel = self.DutControl(['dut_hub_sel',]
+                                            ).strip().split(':')[-1]
+    if required_dut_hub_sel != preserved_dut_hub_sel:
+      args += ['dut_hub_sel:%s' % required_dut_hub_sel,]
+      self._preserved_dut_hub_sel = preserved_dut_hub_sel
+
+    self.DutControl(args)
+
+  def DisableUsbProgramming(self, args):
+    """Save dut_hub_sel control if necessary, and set it for programming
+
+    Restore dut_hub_sel control setting if it was changed, and take the DUT
+    out of USB booting mode.
+
+    Args:
+      args - a list of strings in <control>:<value> format to be passed to
+             servo to take the DUT out of USB booting mode.
+    """
+
+    if self._servo_port is None:
+      return
+
+    if self._preserved_dut_hub_sel:
+      args += ['dut_hub_sel:%s' % self._preserved_dut_hub_sel,]
+      self._preserved_dut_hub_sel = ''
+
+    self.DutControl(args)
 
   def SelectServo(self, servo):
     """Select the servo to use for writing firmware.
@@ -397,31 +449,47 @@ class WriteFirmware:
 
     # TODO(sjg): Check for existence of board - but chroot has no lsusb!
     last_err = None
-    for _ in range(10):
-      try:
-        # TODO(sjg): Use Chromite library so we can monitor output
-        self._tools.Run('tegrarcm', args, sudo=True)
-        self._out.Notice('Flasher downloaded - please see serial output '
-            'for progress.')
-        return True
 
-      except CmdError as err:
-        if not self._out.stdout_is_tty:
-          return False
+    try:
+      # Set DUT into programmable state
+      self.EnableUsbProgramming(['t20_rec:on',
+                                 'warm_reset:on',
+                                 'sleep:.1',
+                                 'warm_reset:off',
+                                 'sleep:.5'])
+      for _ in range(10):
+        try:
+          # TODO(sjg): Use Chromite library so we can monitor output
+          self._tools.Run('tegrarcm', args, sudo=True)
+          self._out.Notice('Flasher downloaded - please see serial output '
+              'for progress.')
+          return True
 
-        # Only show the error output once unless it changes.
-        err = str(err)
-        if not 'could not open USB device' in err:
-          raise CmdError('tegrarcm failed: %s' % err)
+        except CmdError as err:
+          if not self._out.stdout_is_tty:
+            return False
 
-        if err != last_err:
-          self._out.Notice(err)
-          last_err = err
-          self._out.Progress('Please connect USB A-A cable and do a '
-              'recovery-reset', True)
-        time.sleep(1)
+          # Only show the error output once unless it changes.
+          err = str(err)
+          if not 'could not open USB device' in err:
+            raise CmdError('tegrarcm failed: %s' % err)
 
-    return False
+          if err != last_err:
+            self._out.Notice(err)
+            last_err = err
+            if self._servo_port is None:
+              self._out.Progress('Please connect USB A-A cable and do a '
+                                 'recovery-reset', True)
+          time.sleep(1)
+
+      return False
+
+    finally:
+      # Restore servo state
+      self.DisableUsbProgramming(['t20_rec:off',
+                                  'spi2_buf_en:off',
+                                  'spi2_buf_on_flex_en:off',
+                                  'spi2_vref:off'])
 
   def _WaitForUSBDevice(self, name, vendor_id, product_id, timeout=10):
     """Wait until we see a device on the USB bus.
@@ -661,18 +729,11 @@ class WriteFirmware:
     vendor_id = 0x04e8
     product_id = 0x1234
 
-    # Preserve dut_hub_sel state.
-    preserved_dut_hub_sel = self.DutControl(['dut_hub_sel',]
-                                            ).strip().split(':')[-1]
-    required_dut_hub_sel = 'dut_sees_servo'
-    args = ['warm_reset:on', 'fw_up:on', 'pwr_button:press', 'sleep:.2',
-        'warm_reset:off']
-    if preserved_dut_hub_sel != required_dut_hub_sel:
-      # Need to set it to get the port properly powered up.
-      args += ['dut_hub_sel:%s' % required_dut_hub_sel]
-    if self._servo_port is not None:
-      self._out.Progress('Reseting board via servo')
-      self.DutControl(args)
+    self.EnableUsbProgramming(['warm_reset:on',
+                               'fw_up:on',
+                               'pwr_button:press',
+                               'sleep:.2',
+                               'warm_reset:off'])
 
     # If we have a kernel to write, create a new image with that added.
     if kernel:
@@ -740,10 +801,7 @@ class WriteFirmware:
     finally:
       # Make sure that the power button is released and dut_sel_hub state is
       # restored, whatever happens
-      args = ['fw_up:off', 'pwr_button:release']
-      if preserved_dut_hub_sel != required_dut_hub_sel:
-        args += ['dut_hub_sel:%s' % preserved_dut_hub_sel]
-      self.DutControl(args)
+      self.DisableUsbProgramming(['fw_up:off', 'pwr_button:release'])
 
     if flash_dest is None:
       self._out.Notice('Image downloaded - please see serial output '
