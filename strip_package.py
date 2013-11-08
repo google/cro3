@@ -8,6 +8,7 @@
    /build/<board>/stripped-packages."""
 
 import optparse
+import sys
 
 import builder
 
@@ -28,7 +29,9 @@ def main():
   if not options.board:
     parser.error('Need to specify --board')
 
-  builder.UpdateGmergeBinhost(options.board, args[0], options.deep)
+  # Check if package was installed.
+  if not builder.UpdateGmergeBinhost(options.board, args[0], options.deep):
+    sys.exit(1)
 
 
 if __name__ == '__main__':
