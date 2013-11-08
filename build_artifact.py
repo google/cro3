@@ -75,6 +75,10 @@ class BuildArtifact(log_util.Loggable):
     install_dir: The final location where the artifact should be staged to.
     single_name: If True the name given should only match one item. Note, if not
                  True, self.name will become a list of items returned.
+    installed_files: A list of files that were the final result of downloading
+                     and setting up the artifact.
+    store_installed_files: Whether the list of installed files is stored in the
+                           marker file.
   """
 
   def __init__(self, install_dir, archive_url, name, build,
@@ -114,6 +118,9 @@ class BuildArtifact(log_util.Loggable):
 
     self.single_name = True
 
+    self.installed_files = []
+    self.store_installed_files = True
+
   @staticmethod
   def _SanitizeName(name):
     """Sanitizes name to be used for creating a file on the filesystem.
@@ -128,13 +135,42 @@ class BuildArtifact(log_util.Loggable):
     return name.replace('*', 'STAR').replace('.', 'DOT').replace('/', 'SLASH')
 
   def ArtifactStaged(self):
-    """Returns True if artifact is already staged."""
-    return os.path.exists(os.path.join(self.install_dir, self.marker_name))
+    """Returns True if artifact is already staged.
+
+    This checks for (1) presence of the artifact marker file, and (2) the
+    presence of each installed file listed in this marker. Both must hold for
+    the artifact to be considered staged. Note that this method is safe for use
+    even if the artifacts were not stageed by this instance, as it is assumed
+    that any BuildArtifact instance that did the staging wrote the list of
+    files actually installed into the marker.
+    """
+    marker_file = os.path.join(self.install_dir, self.marker_name)
+
+    # If the marker is missing, it's definitely not staged.
+    if not os.path.exists(marker_file):
+      return False
+
+    # We want to ensure that every file listed in the marker is actually there.
+    if self.store_installed_files:
+      with open(marker_file) as f:
+        files = [line.strip() for line in f]
+
+      # Check to see if any of the purportedly installed files are missing, in
+      # which case the marker is outdated and should be removed.
+      missing_files = [fname for fname in files if not os.path.exists(fname)]
+      if missing_files:
+        self._Log('***ATTENTION*** %s files listed in %s are missing:\n%s',
+                  'All' if len(files) == len(missing_files) else 'Some',
+                  marker_file, '\n'.join(missing_files))
+        os.remove(marker_file)
+        return False
+
+    return True
 
   def _MarkArtifactStaged(self):
     """Marks the artifact as staged."""
     with open(os.path.join(self.install_dir, self.marker_name), 'w') as f:
-      f.write('')
+      f.write('\n'.join(self.installed_files))
 
   def WaitForArtifactToExist(self, timeout, update_name=True):
     """Waits for artifact to exist and sets self.name to appropriate name.
@@ -170,8 +206,10 @@ class BuildArtifact(log_util.Loggable):
     gsutil_util.DownloadFromGS(gs_path, self.install_path)
 
   def _Setup(self):
-    """For tarball like artifacts, extracts and prepares contents."""
-    pass
+    """Process the downloaded content, update the list of installed files."""
+    # In this primitive case, what was downloaded (has to be a single file) is
+    # what's installed.
+    self.installed_files = [self.install_path]
 
   def _ClearException(self):
     """Delete any existing exception saved for this artifact."""
@@ -268,6 +306,10 @@ class AUTestPayloadBuildArtifact(BuildArtifact):
                                     devserver_constants.UPDATE_FILE)
     shutil.move(install_path, new_install_path)
 
+    # Reflect the rename in the list of installed files.
+    self.installed_files.remove(install_path)
+    self.installed_files = [new_install_path]
+
 
 # TODO(sosa): Change callers to make this artifact more sane.
 class DeltaPayloadsArtifact(BuildArtifact):
@@ -317,11 +359,16 @@ class DeltaPayloadsArtifact(BuildArtifact):
       try:
         artifact.Process(no_wait=True)
         # Setup symlink so that AU will work for this payload.
+        stateful_update_symlink = os.path.join(
+            artifact.install_dir, devserver_constants.STATEFUL_FILE)
         os.symlink(
             os.path.join(os.pardir, os.pardir,
                          devserver_constants.STATEFUL_FILE),
-            os.path.join(artifact.install_dir,
-                         devserver_constants.STATEFUL_FILE))
+            stateful_update_symlink)
+
+        # Aggregate sub-artifact file lists, including stateful symlink.
+        self.installed_files += artifact.installed_files
+        self.installed_files.append(stateful_update_symlink)
       except ArtifactDownloadError as e:
         self._Log('Could not process %s: %s', artifact, e)
 
@@ -357,12 +404,17 @@ class BundledBuildArtifact(BuildArtifact):
     """Extracts the bundle into install_dir. Must be overridden.
 
     If set, uses files_to_extract to only extract those items. If set, use
-    exclude to exclude specific files.
+    exclude to exclude specific files. In any case, this must return the list
+    of files extracted (absolute paths).
     """
     raise NotImplementedError()
 
   def _Setup(self):
-    self._Extract()
+    extract_result = self._Extract()
+    if self.store_installed_files:
+      # List both the archive and the extracted files.
+      self.installed_files.append(self.install_path)
+      self.installed_files.extend(extract_result)
 
 
 class TarballBuildArtifact(BundledBuildArtifact):
@@ -375,15 +427,22 @@ class TarballBuildArtifact(BundledBuildArtifact):
     extension and extracts the tarball into the install_path.
     """
     try:
-      common_util.ExtractTarball(self.install_path, self.install_dir,
-                                 files_to_extract=self._files_to_extract,
-                                 excluded_files=self._exclude)
+      return common_util.ExtractTarball(self.install_path, self.install_dir,
+                                        files_to_extract=self._files_to_extract,
+                                        excluded_files=self._exclude,
+                                        return_extracted_files=True)
     except common_util.CommonUtilError as e:
       raise ArtifactDownloadError(str(e))
 
 
 class AutotestTarballBuildArtifact(TarballBuildArtifact):
   """Wrapper around the autotest tarball to download from gsutil."""
+
+  def __init__(self, *args):
+    super(AutotestTarballBuildArtifact, self).__init__(*args)
+    # We don't store/check explicit file lists in Autotest tarball markers;
+    # this can get huge and unwieldy, and generally make little sense.
+    self.store_installed_files = False
 
   def _Setup(self):
     """Extracts the tarball into the install path excluding test suites."""
@@ -411,11 +470,13 @@ class AutotestTarballBuildArtifact(TarballBuildArtifact):
 class ZipfileBuildArtifact(BundledBuildArtifact):
   """A downloadable artifact that is a zipfile."""
 
-  def _Extract(self):
-    """Extracts files into the install path."""
-    # Unzip is weird. It expects its args before any excepts and expects its
-    # excepts in a list following the -x.
-    cmd = ['unzip', '-o', self.install_path, '-d', self.install_dir]
+  def _RunUnzip(self, list_only):
+    # Unzip is weird. It expects its args before any excludes and expects its
+    # excludes in a list following the -x.
+    cmd = ['unzip', '-qql' if list_only else '-o', self.install_path]
+    if not list_only:
+      cmd += ['-d', self.install_dir]
+
     if self._files_to_extract:
       cmd.extend(self._files_to_extract)
 
@@ -424,11 +485,21 @@ class ZipfileBuildArtifact(BundledBuildArtifact):
       cmd.extend(self._exclude)
 
     try:
-      subprocess.check_call(cmd)
+      return subprocess.check_output(cmd).strip('\n').splitlines()
     except subprocess.CalledProcessError, e:
       raise ArtifactDownloadError(
           'An error occurred when attempting to unzip %s:\n%s' %
           (self.install_path, e))
+
+  def _Extract(self):
+    """Extracts files into the install path."""
+    file_list = [os.path.join(self.install_dir, line[30:].strip())
+                 for line in self._RunUnzip(True)
+                 if not line.endswith('/')]
+    if file_list:
+      self._RunUnzip(False)
+
+    return file_list
 
 
 class ImplDescription(object):

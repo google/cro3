@@ -322,7 +322,7 @@ class LockDict(object):
 
 
 def ExtractTarball(tarball_path, install_path, files_to_extract=None,
-                   excluded_files=None):
+                   excluded_files=None, return_extracted_files=False):
   """Extracts a tarball using tar.
 
   Detects whether the tarball is compressed or not based on the file
@@ -333,9 +333,17 @@ def ExtractTarball(tarball_path, install_path, files_to_extract=None,
     install_path: Path to extract the tarball to.
     files_to_extract: String of specific files in the tarball to extract.
     excluded_files: String of files to not extract.
+    return_extracted_file: Whether or not the caller expects the list of
+      files extracted; if False, returns an empty list.
+  Returns:
+    List of absolute paths of the files extracted (possibly empty).
   """
   # Deal with exclusions.
   cmd = ['tar', 'xf', tarball_path, '--directory', install_path]
+
+  # If caller requires the list of extracted files, get verbose.
+  if return_extracted_files:
+    cmd += ['--verbose']
 
   # Determine how to decompress.
   tarball = os.path.basename(tarball_path)
@@ -352,7 +360,12 @@ def ExtractTarball(tarball_path, install_path, files_to_extract=None,
     cmd.extend(files_to_extract)
 
   try:
-    subprocess.check_call(cmd)
+    cmd_output = subprocess.check_output(cmd)
+    if return_extracted_files:
+      return [os.path.join(install_path, filename)
+              for filename in cmd_output.strip('\n').splitlines()
+              if not filename.endswith('/')]
+    return []
   except subprocess.CalledProcessError, e:
     raise CommonUtilError(
         'An error occurred when attempting to untar %s:\n%s' %
