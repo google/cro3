@@ -132,7 +132,7 @@ def FormatExtent(ex, block_size=0):
 
 def FormatSha256(digest):
   """Returns a canonical string representation of a SHA256 digest."""
-  return digest.encode('base64')
+  return digest.encode('base64').strip()
 
 
 #
