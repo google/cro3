@@ -533,15 +533,18 @@ class Autoupdate(build_util.BuildObject):
 
   @staticmethod
   def _GetMetadataHash(payload_dir):
-    """Gets the metadata hash.
+    """Gets the metadata hash, if it exists.
 
     Args:
       payload_dir: The payload directory.
     Returns:
-      The metadata hash, base-64 encoded.
+      The metadata hash, base-64 encoded or None if there is no metadata hash.
     """
     path = os.path.join(payload_dir, constants.METADATA_HASH_FILE)
-    return base64.b64encode(open(path, 'rb').read())
+    if os.path.exists(path):
+      return base64.b64encode(open(path, 'rb').read())
+    else:
+      return None
 
   @staticmethod
   def _GetMetadataSize(payload_filename):
