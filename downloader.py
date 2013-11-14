@@ -7,7 +7,6 @@ import threading
 
 import build_artifact
 import common_util
-import gsutil_util
 import log_util
 
 
@@ -102,11 +101,11 @@ class Downloader(log_util.Loggable):
 
   @staticmethod
   def _TryRemoveStageDir(directory_path):
-    """If download failed with GSUtilError, try to remove the stage dir.
+    """If download failed, try to remove the stage dir.
 
-    If the download attempt failed with GSUtilError and staged.timestamp is the
-    only file in that directory. The build could be non-existing, and the
-    directory should be removed.
+    If the download attempt failed (ArtifactDownloadError) and staged.timestamp
+    is the only file in that directory. The build could be non-existing, and
+    the directory should be removed.
 
     @param directory_path: directory used to stage the image.
 
@@ -131,7 +130,7 @@ class Downloader(log_util.Loggable):
      async: If True, return without waiting for download to complete.
 
     Raises:
-      gsutil_util.GSUtilError: If we failed to download the artifact.
+      build_artifact.ArtifactDownloadError: If failed to download the artifact.
 
     """
     common_util.MkDirP(self._build_dir)
@@ -197,7 +196,7 @@ class Downloader(log_util.Loggable):
     try:
       for artifact in artifacts:
         artifact.Process(no_wait)
-    except gsutil_util.GSUtilError:
+    except build_artifact.ArtifactDownloadError:
       Downloader._TryRemoveStageDir(self._build_dir)
       raise
 

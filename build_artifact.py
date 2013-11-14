@@ -172,7 +172,7 @@ class BuildArtifact(log_util.Loggable):
     with open(os.path.join(self.install_dir, self.marker_name), 'w') as f:
       f.write('\n'.join(self.installed_files))
 
-  def WaitForArtifactToExist(self, timeout, update_name=True):
+  def _WaitForArtifactToExist(self, timeout, update_name=True):
     """Waits for artifact to exist and sets self.name to appropriate name.
 
     Args:
@@ -274,14 +274,19 @@ class BuildArtifact(log_util.Loggable):
           # If the artifact should already have been uploaded, don't waste
           # cycles waiting around for it to exist.
           timeout = 1 if no_wait else 10
-          self.WaitForArtifactToExist(timeout)
+          self._WaitForArtifactToExist(timeout)
           self._Download()
           self._Setup()
           self._MarkArtifactStaged()
         except Exception as e:
           # Save the exception to a file for downloader.IsStaged to retrieve.
           self._SaveException(e)
-          raise
+
+          # Convert an unknown exception into an ArtifactDownloadError.
+          if type(e) is ArtifactDownloadError:
+            raise
+          else:
+            raise ArtifactDownloadError('An error occurred: %s' % e)
       else:
         self._Log('%s is already staged.', self)
 
@@ -371,6 +376,7 @@ class DeltaPayloadsArtifact(BuildArtifact):
         self.installed_files.append(stateful_update_symlink)
       except ArtifactDownloadError as e:
         self._Log('Could not process %s: %s', artifact, e)
+        raise
 
 
 class BundledBuildArtifact(BuildArtifact):

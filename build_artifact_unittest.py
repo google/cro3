@@ -167,8 +167,8 @@ class BuildArtifactTest(mox.MoxTestBase):
     artifact.staging_dir = install_dir
     self.mox.StubOutWithMock(subprocess, 'check_call')
     subprocess.check_call(mox.In('autotest/utils/packager.py'), cwd=install_dir)
-    self.mox.StubOutWithMock(artifact, 'WaitForArtifactToExist')
-    artifact.WaitForArtifactToExist(1)
+    self.mox.StubOutWithMock(artifact, '_WaitForArtifactToExist')
+    artifact._WaitForArtifactToExist(1)
     artifact._Download()
     artifact._Extract()
     self.mox.ReplayAll()
