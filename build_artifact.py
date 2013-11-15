@@ -438,8 +438,8 @@ class TarballBuildArtifact(BundledBuildArtifact):
 class AutotestTarballBuildArtifact(TarballBuildArtifact):
   """Wrapper around the autotest tarball to download from gsutil."""
 
-  def __init__(self, *args):
-    super(AutotestTarballBuildArtifact, self).__init__(*args)
+  def __init__(self, *args, **dargs):
+    super(AutotestTarballBuildArtifact, self).__init__(*args, **dargs)
     # We don't store/check explicit file lists in Autotest tarball markers;
     # this can get huge and unwieldy, and generally make little sense.
     self.store_installed_files = False
