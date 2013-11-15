@@ -26,8 +26,19 @@ class GSUtilUtilTest(mox.MoxTestBase):
     self._bad_mock_process = self.mox.CreateMock(subprocess.Popen)
     self._bad_mock_process.returncode = 1
 
+    self._gs_run_setup = False
+
   def _CallRunGS(self, str_should_contain, attempts=1):
     """Helper that wraps a RunGS for tests."""
+    # Setup necessary stubs for gsutil invocation (just once).
+    if not self._gs_run_setup:
+      self._gs_run_setup = True
+      self.mox.StubOutWithMock(subprocess, 'Popen', use_mock_anything=True)
+      # Sleep only occurs if we expect to have multiple retry attempts.
+      if min(attempts, gsutil_util.GSUTIL_ATTEMPTS) > 1:
+        self.mox.StubOutWithMock(time, 'sleep')
+        time.sleep(mox.IgnoreArg()).MultipleTimes()
+
     for attempt in range(attempts):
       if attempt == gsutil_util.GSUTIL_ATTEMPTS:
         # We can't mock more than we can attempt.
@@ -46,23 +57,16 @@ class GSUtilUtilTest(mox.MoxTestBase):
 
   def testDownloadFromGS(self):
     """Tests that we can run download build from gs with one error."""
-    self.mox.StubOutWithMock(time, 'sleep')
-    time.sleep(mox.IgnoreArg()).MultipleTimes()
-    self.mox.StubOutWithMock(subprocess, 'Popen', use_mock_anything=True)
-
-    # Make sure we our retry works.
-    self._CallRunGS('from to', attempts=2)
+    # Make sure our retry works (but only if actually configured).
+    self._CallRunGS('from to',
+                    attempts=min(2, gsutil_util.GSUTIL_ATTEMPTS))
     self.mox.ReplayAll()
     gsutil_util.DownloadFromGS('from', 'to')
     self.mox.VerifyAll()
 
   def testDownloadFromGSButGSDown(self):
     """Tests that we fail correctly if we can't reach GS."""
-    self.mox.StubOutWithMock(time, 'sleep')
-    time.sleep(mox.IgnoreArg()).MultipleTimes()
-    self.mox.StubOutWithMock(subprocess, 'Popen', use_mock_anything=True)
     self._CallRunGS('from to', attempts=gsutil_util.GSUTIL_ATTEMPTS + 1)
-
     self.mox.ReplayAll()
     self.assertRaises(
         gsutil_util.GSUtilError,
