@@ -225,18 +225,14 @@ def GetHistory(full_name, author, days):
   return RunCommand(full_name, command).splitlines()
 
 
-def ShowDir(project, root, color, options, result):
-  """Report active work in a single git repository."""
+def ShowBranches(full_name, tracking_branch, color, options):
+  """Show all local branches' state.
 
-  full_name = os.path.join(root, project['path'])
+  For a git tree in directory 'full_name' tracking branch named
+  'tracking_branch', report the status of the tree.
+  """
 
-  result.ReportStartedThread()
-
-  if not os.path.isdir(full_name):
-    result.ReportFinishedThread()
-    return
-
-  branches = GetBranches(full_name, color, project['local_revision'])
+  branches = GetBranches(full_name, color, tracking_branch)
   status = GetStatus(full_name)
 
   text = []
@@ -249,12 +245,32 @@ def ShowDir(project, root, color, options, result):
     # We want to use the full path for testing, but we want to use the
     # relative path for display. Add an empty string to the list to have the
     # output sections separated.
-    text = [ '', Colorizer.Color(Colorizer.BLUE, os.path.relpath(full_name)), ]
+    text = [ '', Colorizer.Color(Colorizer.BLUE,
+                                 os.path.relpath(full_name)), ]
 
     for extra in (branches, status, history):
       if extra:
         text = text + extra
+  return text
 
+
+def ShowDir(project, root, color, options, result):
+  """Report active work in a single git repository."""
+
+  result.ReportStartedThread()
+  text = []
+
+  try:
+    full_name = os.path.join(root, project['path'])
+
+    if os.path.isdir(full_name):
+      text = ShowBranches(full_name,
+                          project['local_revision'],
+                          color,
+                          options)
+  except Exception as e:
+    text = ['Exception %s occured. Arguments: %s' % (
+        type(e).__name__, ' '.join(e.args))]
   result.ReportFinishedThread('\n'.join(text))
 
 
