@@ -265,7 +265,7 @@ def ShowDir(project, root, color, options, result):
 
     if os.path.isdir(full_name):
       text = ShowBranches(full_name,
-                          project['local_revision'],
+                          project['tracking_branch'],
                           color,
                           options)
   except Exception as e:
