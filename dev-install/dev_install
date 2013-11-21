@@ -62,6 +62,9 @@ get_lsb_var() {
 # Here we simply wipe /usr/local/* since that it's the only directory in which
 # packages are installed to.
 remove_installed_packages() {
+  echo "To clean up, we will run:"
+  echo "  rm -rf /usr/local/"
+  echo "Any content you have stored in there will be deleted."
   if yes_or_no "Remove all installed packages now"; then
     rm -rf --one-file-system /usr/local/*
     echo "Removed all installed packages."
