@@ -461,12 +461,17 @@ class WriteFirmware:
               'for progress.')
           return True
 
-        except CmdError as err:
+        except CmdError as cmdErr:
+          err = cmdErr.message
+
+          if 'retreiving platform info' in err:
+            self._out.Notice('tegrarcm failed (known bug, retrying):\n%s' % err)
+            continue
+
           if not self._out.stdout_is_tty:
             return False
 
           # Only show the error output once unless it changes.
-          err = str(err)
           if not 'could not open USB device' in err:
             raise CmdError('tegrarcm failed: %s' % err)
 
