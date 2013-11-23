@@ -82,17 +82,15 @@ class WriteFirmware:
     self.use_efs = False
 
   def EnableUsbProgramming(self, args):
-    """Save dut_hub_sel control if necessary, and set it for programming
+    """Reboot DUT in A-A mode via Servo, saving dut_hub_sel if necessary
 
-    For successful A-A USB programming the dut_hub_sel control must be set to
-    'dut_sees_servo'. This function preserves the state of this control, if it
-    is set to anything else, and then sets it as required. After that the
-    function passes its args to dut-control, which is supposed to restart the
-    DUT in USB booting mode.
+    This function starts the USB A-A boot by issuing a warm reset and pulling
+    some SoC-specific control pins. It also sets dut_hub_sel to
+    'dut_sees_servo' and preserves the old state of that control.
 
     Args:
       args - a list of strings in <control>:<value> format to be passed to
-             servo to restart the DUT in USB booting mode.
+             dut-control that contain the SoC-specific A-A pin settings
     """
 
     if self._servo_port is None:
@@ -108,17 +106,19 @@ class WriteFirmware:
       args += ['dut_hub_sel:%s' % required_dut_hub_sel,]
       self._preserved_dut_hub_sel = preserved_dut_hub_sel
 
+    args += ['warm_reset:on', 'sleep:.1', 'warm_reset:off', 'sleep:.5']
+
     self.DutControl(args)
 
   def DisableUsbProgramming(self, args):
-    """Save dut_hub_sel control if necessary, and set it for programming
+    """Restore dut_hub_sel and SoC-specific pins to normal operation
 
-    Restore dut_hub_sel control setting if it was changed, and take the DUT
-    out of USB booting mode.
+    Restores the dut_hub_sel value stored by EnableUsbProgramming and returns
+    additional SoC-specific pins to their default state.
 
     Args:
       args - a list of strings in <control>:<value> format to be passed to
-             servo to take the DUT out of USB booting mode.
+             dut-control that contain defaults for SoC-specific pin settings
     """
 
     if self._servo_port is None:
@@ -452,11 +452,7 @@ class WriteFirmware:
 
     try:
       # Set DUT into programmable state
-      self.EnableUsbProgramming(['t20_rec:on',
-                                 'warm_reset:on',
-                                 'sleep:.1',
-                                 'warm_reset:off',
-                                 'sleep:.5'])
+      self.EnableUsbProgramming(['t20_rec:on'])
       for _ in range(10):
         try:
           # TODO(sjg): Use Chromite library so we can monitor output
@@ -729,11 +725,7 @@ class WriteFirmware:
     vendor_id = 0x04e8
     product_id = 0x1234
 
-    self.EnableUsbProgramming(['warm_reset:on',
-                               'fw_up:on',
-                               'pwr_button:press',
-                               'sleep:.2',
-                               'warm_reset:off'])
+    self.EnableUsbProgramming(['fw_up:on', 'pwr_button:press'])
 
     # If we have a kernel to write, create a new image with that added.
     if kernel:
