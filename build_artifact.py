@@ -185,8 +185,8 @@ class BuildArtifact(log_util.Loggable):
         self.name, self.archive_url, str(self), timeout=timeout,
         is_regex_pattern=self.is_regex_name)
     if not names:
-      raise ArtifactDownloadError('Could not find %s in Google Storage' %
-                                  self.name)
+      raise ArtifactDownloadError('Could not find %s in Google Storage at %s' %
+                                  (self.name, self.archive_url))
 
     if self.single_name:
       if len(names) > 1:
