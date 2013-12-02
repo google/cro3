@@ -68,7 +68,7 @@ def GetLatestBuildVersion(static_dir, target, milestone=None):
     raise CommonUtilError('Cannot find path %s' % target_path)
 
   builds = [distutils.version.LooseVersion(build) for build in
-            os.listdir(target_path)]
+            os.listdir(target_path) if not build.endswith('.exception')]
 
   if milestone and builds:
     # Check if milestone Rxx is in the string representation of the build.
