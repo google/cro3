@@ -5,9 +5,11 @@
 import base64
 import json
 import os
+import random
 import struct
 import subprocess
 import sys
+import threading
 import time
 import urllib2
 import urlparse
@@ -198,6 +200,9 @@ class Autoupdate(build_util.BuildObject):
     # The info stored for each host includes a complete log of events for this
     # host, as well as a dictionary of current attributes derived from events.
     self.host_infos = HostInfoTable()
+
+    self.curr_request_id = -1
+    self._update_response_lock = threading.Lock()
 
   @classmethod
   def _ReadMetadataFromStream(cls, stream):
@@ -803,14 +808,18 @@ class Autoupdate(build_util.BuildObject):
              forced_update_label)
       label = forced_update_label
 
+    # Make sure that we did not already exceed the max number of allowed
+    # responses; note that this is merely an optimization, as the definitive
+    # check and updating of the counter is done later, right before returning a
+    # response.
     if self.max_updates == 0:
-      # In case max_updates is used, return no response if max reached.
       _Log('Request received but max number of updates handled')
       return autoupdate_lib.GetNoUpdateResponse(protocol)
 
-    _Log('Update Check Received. Client is using protocol version: %s',
-         protocol)
-    self.max_updates -= 1
+    request_id = random.randint(0, sys.maxint)
+    self.curr_request_id = request_id
+    _Log('Update Check Received (id=%d). Client is using protocol version: %s',
+         request_id, protocol)
 
     # Finally its time to generate the omaha response to give to client that
     # lets them know where to find the payload and its associated metadata.
@@ -854,11 +863,37 @@ class Autoupdate(build_util.BuildObject):
     if self.public_key:
       public_key_data = base64.b64encode(open(self.public_key, 'r').read())
 
-    _Log('Responding to client to use url %s to get image', url)
-    return autoupdate_lib.GetUpdateResponse(
+    update_response =  autoupdate_lib.GetUpdateResponse(
         metadata_obj.sha1, metadata_obj.sha256, metadata_obj.size, url,
         metadata_obj.is_delta_format, metadata_obj.metadata_size,
         signed_metadata_hash, public_key_data, protocol, self.critical_update)
+
+    # Make sure we can proceed with the response (critical section).
+    with self._update_response_lock:
+      # If the number of responses sent already exceeds the max allowed, abort.
+      if self.max_updates == 0:
+        _Log('Max allowed number of update responses already sent, '
+             'aborting this one (id=%d)', request_id)
+        return autoupdate_lib.GetNoUpdateResponse(protocol)
+
+      # If there's been a more recent request, we assume the client timed out
+      # on this request and should not respond to it.
+      # IMPORTANT: we want to do this as close as posible to where we commit to
+      # making a response, i.e. right before we update the response tally. This
+      # is why this check happens in the critical section.
+      curr_request_id = self.curr_request_id
+      if curr_request_id != request_id:
+        _Log('A more recent request was received (id=%d), aborting this one '
+             '(id=%d)', curr_request_id, request_id)
+        return autoupdate_lib.GetNoUpdateResponse(protocol)
+
+      # Update the counter, committing to make the response.
+      self.max_updates -= 1
+
+    # At this point, we're good to go with the response.
+    _Log('Responding to client to use url %s to get image (id=%d)', url,
+         request_id)
+    return update_response
 
   def HandleHostInfoPing(self, ip):
     """Returns host info dictionary for the given IP in JSON format."""
