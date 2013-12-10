@@ -41,9 +41,10 @@ remove_quotes() {
 
 update_dev_image () {
   local base_update_url devserver_url
-  if [ -n "${FLAGS_ARGV}" ]; then
-    base_update_url=$(remove_quotes "${FLAGS_ARGV}")
-  else
+  local local_payload_path
+  local path=$(remove_quotes "${FLAGS_ARGV}")
+
+  if [ -z "${path}" ]; then
     if [ -f "${STATEFUL_DIR}${LSB_RELEASE}" ]; then
       devserver_url=$(grep CHROMEOS_DEVSERVER ${STATEFUL_DIR}${LSB_RELEASE} |
           cut -f 2 -d '=')
@@ -53,20 +54,33 @@ update_dev_image () {
     fi
     # Sanity check.
     if [ -z "${devserver_url}" ]; then
-      echo >&2 "No CHROMEOS_DEVSERVER URL found in lsb-release file"
+      echo >&2 "No CHROMEOS_DEVSERVER URL found in lsb-release file."
       exit 1
     fi
     # Devserver URL should never contain "/update"
     devserver_url=$(echo ${devserver_url} | sed -e 's#/update##')
     base_update_url="${devserver_url}/static"
+  # Determine whether the path is local.
+  elif [ -f "${path}" ] || [ "${path}" = "-" ]; then
+   local_payload_path=${path}
+  else
+   base_update_url=${path}
   fi
 
-  local stateful_update_url="${base_update_url}/stateful.tgz"
-  echo >&2 "Downloading stateful payload from ${stateful_update_url}"
-  # Download and unzip directories onto the stateful partition.
-  eval "wget -qS -T 300 -O - \"${stateful_update_url}\"" |
-      tar --ignore-command-error --overwrite --directory=${STATEFUL_DIR} -xz
-  echo >&2 "Successfully downloaded update"
+  if [ -n "${base_update_url}" ]; then
+    local stateful_update_url="${base_update_url}/stateful.tgz"
+    echo >&2 "Downloading stateful payload from ${stateful_update_url}"
+    # Download and unzip directories onto the stateful partition.
+    eval "wget -qS -T 300 -O - \"${stateful_update_url}\"" |
+        tar --ignore-command-error --overwrite --directory=${STATEFUL_DIR} -xz
+    echo >&2 "Successfully downloaded update."
+  else
+    echo >&2 "Reading local payload ${local_payload_path}"
+    # Set timeout to two minutes to avoid waiting on stdin indefinitely.
+    timeout 120s tar --ignore-command-error --overwrite \
+        --directory=${STATEFUL_DIR} -xzf ${local_payload_path}
+    echo >&2 "Successfully retrieved update."
+  fi
 
   if [ ! -d "${STATEFUL_DIR}/var_new" ] ||
       [ ! -d "${STATEFUL_DIR}/dev_image_new" ]; then
