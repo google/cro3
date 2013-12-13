@@ -688,34 +688,41 @@ class DevServerRoot(object):
           xbuddy, defined in xbuddy:ALIASES. Defaults to test.
 
     Kwargs:
+      for_update: {true|false}
+                  if true, pregenerates the update payloads for the image,
+                  and returns the update uri to pass to the
+                  update_engine_client.
       return_dir: {true|false}
                   if set to true, returns the url to the update.gz
-                  instead.
-      for_update: {true|false}
-                  if for_update, pre-generates the update payload for the image
-                  and returns the update path to pass to the
-                  update_engine_client.
-
+      relative_path: {true|false}
+                     if set to true, returns the relative path to the payload
+                     directory from static_dir.
     Example URL:
       http://host:port/xbuddy/x86-generic/R26-4000.0.0/test
       or
       http://host:port/xbuddy/x86-generic/R26-4000.0.0/test?return_dir=true
 
     Returns:
-      A redirect to the image or update file on the devserver.
-      e.g. http://host:port/static/archive/x86-generic-release/
-      R26-4000.0.0/chromium-test-image.bin
-      or if return_dir is True, return path to the folder where
-      the artifact is.
-      http://host:port/static/x86-generic-release/R26-4000.0.0/
+      If |for_update|, returns a redirect to the image or update file
+      on the devserver. E.g.,
+        http://host:port/static/archive/x86-generic-release/R26-4000.0.0/
+            chromium-test-image.bin
+      If |return_dir|, return a uri to the folder where the artifact is. E.g.,
+        http://host:port/static/x86-generic-release/R26-4000.0.0/
+      If |relative_path| is true, return a relative path the folder where the
+      payloads are. E.g.,
+        archive/x86-generic-release/R26-4000.0.0
     """
-    boolean_string = kwargs.get('return_dir')
-    return_dir = xbuddy.XBuddy.ParseBoolean(boolean_string)
     boolean_string = kwargs.get('for_update')
     for_update = xbuddy.XBuddy.ParseBoolean(boolean_string)
+    boolean_string = kwargs.get('return_dir')
+    return_dir = xbuddy.XBuddy.ParseBoolean(boolean_string)
+    boolean_string = kwargs.get('relative_path')
+    relative_path = xbuddy.XBuddy.ParseBoolean(boolean_string)
 
-    if for_update and return_dir:
-      raise DevServerHTTPError(500, 'Cannot specify both update and return_dir')
+    if return_dir and relative_path:
+      raise DevServerHTTPError(500, 'Cannot specify both return_dir and '
+                               'relative_path')
 
     # For updates, we optimize downloading of test images.
     file_name = None
@@ -729,21 +736,29 @@ class DevServerRoot(object):
     if not build_id:
       build_id, file_name = self._xbuddy.Get(args)
 
-    if return_dir:
-      directory = os.path.join(cherrypy.request.base, 'static', build_id)
-      _Log("Directory requested, returning: %s", directory)
-      return directory
-    elif for_update:
-      # Forces paylaod to be in cache and symlinked into build_id dir.
+    if for_update:
+      _Log('Payload generation triggered by request')
+      # Forces payload to be in cache and symlinked into build_id dir.
       updater.GetUpdateForLabel(autoupdate.FORCED_UPDATE, build_id,
                                 image_name=file_name)
-      update_uri = os.path.join(cherrypy.request.base, 'update', build_id)
-      _Log("Update requested, returning: %s", update_uri)
-      return update_uri
+
+    response = None
+    if return_dir:
+      response = os.path.join(cherrypy.request.base, 'static', build_id)
+      _Log('Directory requested, returning: %s', response)
+    elif relative_path:
+      response = build_id
+      _Log('Relative path requested, returning: %s', response)
+    elif for_update:
+      response = os.path.join(cherrypy.request.base, 'update', build_id)
+      _Log('Update URI requested, returning: %s', response)
     else:
+      # Redirect to download the payload if no kwargs are set.
       build_id = '/' + os.path.join('static', build_id, file_name)
-      _Log("Payload requested, returning: %s", build_id)
+      _Log('Payload requested, returning: %s', build_id)
       raise cherrypy.HTTPRedirect(build_id, 302)
+
+    return response
 
   @cherrypy.expose
   def xbuddy_list(self):

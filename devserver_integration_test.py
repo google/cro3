@@ -343,6 +343,10 @@ class DevserverUnittests(DevserverTestCommon):
       response = self._MakeRPC('/'.join([XBUDDY, xbuddy_path]), return_dir=True)
       self.assertEqual(response, expected_dir)
 
+      response = self._MakeRPC('/'.join([XBUDDY, xbuddy_path]),
+                               relative_path=True)
+      self.assertEqual(response, build_id)
+
     xbuddy_path = '/'.join([build_id, 'test'])
     logging.info('Testing for_update for %s', xbuddy_path)
     response = self._MakeRPC('/'.join([XBUDDY, xbuddy_path]), for_update=True)
