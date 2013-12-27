@@ -222,9 +222,13 @@ fi
   die "Error: you must specify an output filename with --output FILENAME"
 
 DELTA=$FLAGS_TRUE
-[ -z "$FLAGS_src_image" ] && DELTA=$FLAGS_FALSE
+PAYLOAD_TYPE="delta"
+if [ -z "$FLAGS_src_image" ]; then
+  DELTA=$FLAGS_FALSE
+  PAYLOAD_TYPE="full"
+fi
 
-echo "Generating an update"
+echo "Generating $PAYLOAD_TYPE update"
 
 # Sanity check that the real generator exists:
 GENERATOR="$(which delta_generator)"
@@ -315,8 +319,4 @@ fi
 trap - INT TERM EXIT
 cleanup noexit
 
-if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
-  echo "Done generating delta."
-else
-  echo "Done generating full update."
-fi
+echo "Done generating $PAYLOAD_TYPE update."
