@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""This module builds a firmware image for a tegra-based board.
+"""This module builds a firmware image.
 
 This modules uses a few rudimentary other libraries for its activity.
 
@@ -61,7 +61,7 @@ localizations:
 # each area, since there is no guarantee what order the nodes will appear
 # in the fdt, and if they are out of order the image will not boot.
 default_flashmaps = {
-  'tegra' : [
+  'nyan' : [
     {
         'path' : '/flash',
         'reg' : [0, 0x400000],
@@ -246,7 +246,7 @@ class Bundle:
     self._out = output
 
     # Set up the things we need to know in order to operate.
-    self._board = None          # Board name, e.g. tegra2_seaboard.
+    self._board = None          # Board name, e.g. nyan.
     self._fdt_fname = None      # Filename of our FDT.
     self._force_rw = None
     self._force_efs = None
@@ -284,7 +284,7 @@ class Bundle:
     """Set up files required for Bundle.
 
     Args:
-      board: The name of the board to target (e.g. tegra2_seaboard).
+      board: The name of the board to target (e.g. nyan).
       uboot: The filename of the u-boot.bin image to use.
       bct: The filename of the binary BCT file to use.
       bmpblk: The filename of bitmap block file to use.
@@ -1066,7 +1066,7 @@ class Bundle:
     elif self._board == 'daisy':
       arch_dts = 'exynos5250.dtsi'
     else:
-      arch_dts = 'tegra20.dtsi'
+      arch_dts = 'tegra124.dtsi'
 
     fdt.Compile(arch_dts)
     fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
@@ -1078,23 +1078,25 @@ class Bundle:
     if not fdt.GetProp('/flash', 'reg', ''):
       fdt.InsertNodes(default_flashmap)
 
-    # Insert default values for any essential properties that are missing.
-    # This should only happen for upstream U-Boot, until our changes are
-    # upstreamed.
-    if not fdt.GetProp('/iram', 'reg', ''):
-      self._out.Warning('Cannot find /iram, using default')
-      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/iram'])
+    # Only check for /iram and /config nodes for boards that require it.
+    if self._board in ('daisy', 'peach'):
+      # Insert default values for any essential properties that are missing.
+      # This should only happen for upstream U-Boot, until our changes are
+      # upstreamed.
+      if not fdt.GetProp('/iram', 'reg', ''):
+        self._out.Warning('Cannot find /iram, using default')
+        fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/iram'])
 
-    # Sadly the pit branch has an invalid /memory node. Work around it for now.
-    # crosbug.com/p/22184
-    if (not fdt.GetProp('/memory', 'reg', '') or
-        fdt.GetIntList('/memory', 'reg')[0] == 0):
-      self._out.Warning('Cannot find /memory, using default')
-      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/memory'])
+      # Sadly the pit branch has an invalid /memory node. Work around it
+      # for now. crosbug.com/p/22184
+      if (not fdt.GetProp('/memory', 'reg', '') or
+          fdt.GetIntList('/memory', 'reg')[0] == 0):
+        self._out.Warning('Cannot find /memory, using default')
+        fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/memory'])
 
-    if not fdt.GetProp('/config', 'samsung,bl1-offset', ''):
-      self._out.Warning('Missing properties in /config, using defaults')
-      fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/config'])
+      if not fdt.GetProp('/config', 'samsung,bl1-offset', ''):
+        self._out.Warning('Missing properties in /config, using defaults')
+        fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/config'])
 
     # Remember our board type.
     fdt.PutString('/chromeos-config', 'board', self._board)
