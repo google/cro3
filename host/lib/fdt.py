@@ -163,9 +163,8 @@ class Fdt:
     >>> tools = Tools(cros_output.Output())
     >>> fdt = Fdt(tools, os.path.join(_base, '../tests/test.dtb'))
     >>> fdt.GetProps('/')
-    {'compatible': '1853253988 1767976051 1700881007 1634886656 1853253988 \
-1767976052 1701278305 842346496', '#size-cells': '1', 'model': \
-'NVIDIA Seaboard', '#address-cells': '1', 'interrupt-parent': '1'}
+    {'compatible': 'nvidia,seaboard nvidia,tegra250', '#size-cells': '1', \
+'model': 'NVIDIA Seaboard', '#address-cells': '1', 'interrupt-parent': '1'}
 
     Args:
       node: node name to look in.
