@@ -98,9 +98,11 @@ class DevServerError(Exception):
 class DevServerHTTPError(cherrypy.HTTPError):
   """Exception class to log the HTTPResponse before routing it to cherrypy."""
   def __init__(self, status, message):
-    """
-    @param status: HTTPResponse status.
-    @param message: Message associated with the response.
+    """CherryPy error with logging.
+
+  Args:
+    status: HTTPResponse status.
+    message: Message associated with the response.
     """
     cherrypy.HTTPError.__init__(self, status, message)
     _Log('HTTPError status: %s message: %s', status, message)
@@ -111,6 +113,7 @@ def _LeadingWhiteSpaceCount(string):
 
   Args:
     string: The string to count leading whitespace in.
+
   Returns:
     number of white space chars before characters start.
   """
@@ -126,6 +129,7 @@ def _PrintDocStringAsHTML(func):
 
   Args:
     func: The function to return the docstring from.
+
   Returns:
     A string that is somewhat formated for a web browser.
   """
@@ -196,6 +200,7 @@ def _GetRecursiveMemberObject(root, member_list):
   Args:
     root: the root object to search
     member_list: list of nested members to search
+
   Returns:
     An object corresponding to the member name list; None otherwise.
   """
@@ -219,6 +224,7 @@ def _GetExposedMethod(root, nested_member, ignored=None):
     root: the root object for searching
     nested_member: a slash-joined path to the nested member
     ignored: method paths to be ignored
+
   Returns:
     A function object corresponding to the path defined by |member_list| from
     the |root| object, if the function is exposed and not ignored; None
@@ -237,6 +243,7 @@ def _FindExposedMethods(root, prefix, unlisted=None):
     root: the root object for searching
     prefix: slash-joined chain of members leading to current object
     unlisted: URLs to be excluded regardless of their exposed status
+
   Returns:
     List of exposed URLs that are not unlisted.
   """
@@ -265,6 +272,7 @@ class ApiRoot(object):
 
     Args:
       ip: address of host whose info is requested
+
     Returns:
       A JSON dictionary containing all or some of the following fields:
         last_event_type (int):        last update event type received
@@ -287,6 +295,7 @@ class ApiRoot(object):
 
     Args:
       ip: address of host whose event log is requested, or `all'
+
     Returns:
       A JSON encoded list (log) of dictionaries (events), each of which
       containing a `timestamp' and other event fields, as described under
@@ -315,11 +324,12 @@ class ApiRoot(object):
 
 
   @cherrypy.expose
-  def fileinfo(self, *path_args):
+  def fileinfo(self, *args):
     """Returns information about a given staged file.
 
     Args:
-      path_args: path to the file inside the server's static staging directory
+      args: path to the file inside the server's static staging directory
+
     Returns:
       A JSON encoded dictionary with information about the said file, which may
       contain the following keys/values:
@@ -330,7 +340,7 @@ class ApiRoot(object):
     Example URL:
       http://myhost/api/fileinfo/some/path/to/file
     """
-    file_path = os.path.join(updater.static_dir, *path_args)
+    file_path = os.path.join(updater.static_dir, *args)
     if not os.path.exists(file_path):
       raise DevServerError('file not found: %s' % file_path)
     try:
@@ -381,7 +391,8 @@ class DevServerRoot(object):
   def _get_artifacts(kwargs):
     """Returns a tuple of named and file artifacts given the stage rpc kwargs.
 
-    Raises: DevserverError if no artifacts would be returned.
+    Raises:
+      DevserverError if no artifacts would be returned.
     """
     artifacts = kwargs.get('artifacts')
     files = kwargs.get('files')
@@ -597,7 +608,7 @@ class DevServerRoot(object):
     return to_return
 
   @cherrypy.expose
-  def latestbuild(self, **params):
+  def latestbuild(self, **kwargs):
     """Return a string representing the latest build for a given target.
 
     Args:
@@ -605,25 +616,26 @@ class DevServerRoot(object):
           type of build e.g. x86-mario-release.
       milestone: The milestone to filter builds on. E.g. R16. Optional, if not
           provided the latest RXX build will be returned.
+
     Returns:
       A string representation of the latest build if one exists, i.e.
           R19-1993.0.0-a1-b1480.
       An empty string if no latest could be found.
     """
-    if not params:
+    if not kwargs:
       return _PrintDocStringAsHTML(self.latestbuild)
 
-    if 'target' not in params:
+    if 'target' not in kwargs:
       raise DevServerHTTPError(500, 'Error: target= is required!')
     try:
       return common_util.GetLatestBuildVersion(
-          updater.static_dir, params['target'],
-          milestone=params.get('milestone'))
+          updater.static_dir, kwargs['target'],
+          milestone=kwargs.get('milestone'))
     except common_util.CommonUtilError as errmsg:
       raise DevServerHTTPError(500, str(errmsg))
 
   @cherrypy.expose
-  def controlfiles(self, **params):
+  def controlfiles(self, **kwargs):
     """Return a control file or a list of all known control files.
 
     Example URL:
@@ -643,26 +655,27 @@ class DevServerRoot(object):
         specified, list the control files belonging to that suite instead of
         all control files. The empty string for suite_name will list all control
         files for the build.
+
     Returns:
       Contents of a control file if control_path is provided.
       A list of control files if no control_path is provided.
     """
-    if not params:
+    if not kwargs:
       return _PrintDocStringAsHTML(self.controlfiles)
 
-    if 'build' not in params:
+    if 'build' not in kwargs:
       raise DevServerHTTPError(500, 'Error: build= is required!')
 
-    if 'control_path' not in params:
-      if 'suite_name' in params and params['suite_name']:
+    if 'control_path' not in kwargs:
+      if 'suite_name' in kwargs and kwargs['suite_name']:
         return common_util.GetControlFileListForSuite(
-            updater.static_dir, params['build'], params['suite_name'])
+            updater.static_dir, kwargs['build'], kwargs['suite_name'])
       else:
         return common_util.GetControlFileList(
-            updater.static_dir, params['build'])
+            updater.static_dir, kwargs['build'])
     else:
       return common_util.GetControlFile(
-          updater.static_dir, params['build'], params['control_path'])
+          updater.static_dir, kwargs['build'], kwargs['control_path'])
 
   @cherrypy.expose
   def xbuddy(self, *args, **kwargs):
