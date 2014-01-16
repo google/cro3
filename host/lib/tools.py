@@ -584,12 +584,10 @@ class ToolsTests(unittest.TestCase):
     tools = self.tools
 
     # Ask fdisk for its version - this utility must be in the chroot.
-    re_fdisk = re.compile('fdisk \(util-linux .*\)')
+    re_fdisk = re.compile('fdisk .*util-linux .*')
     self.assertTrue(re_fdisk.match(tools.Run('fdisk', ['-v'])))
 
     # We need sudo for looking at disks.
-    self.assertEqual(tools.Run('fdisk', ['-l', '/dev/sda']),
-                     'Cannot open /dev/sda\n')
     out = tools.Run('fdisk', ['-l', '/dev/sda'], sudo=True)
 
     #  Don't look at the specific output, but it will have > 5 lines.
