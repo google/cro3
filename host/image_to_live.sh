@@ -59,6 +59,14 @@ DEFINE_boolean reboot_after_update ${FLAGS_TRUE} \
 DEFINE_string stateful_update_flag "" \
   "Flag to pass to stateful update e.g. old, clean, etc." s
 
+DEPRECATION_WARNING="
+!!! You are using a deprecated script !!!
+
+Please use 'cros flash' in the future. See 'cros flash -h' for the details.
+More information available in the link below.
+https://sites.google.com/a/chromium.org/dev/chromium-os/build/cros-flash
+"
+
 FLAGS_HELP="
 Usage: $0 --remote=[target_ip] [--image=[...]] ...
 The remote flag is required to specify a ChromeOS machine to reimage.
@@ -532,6 +540,8 @@ run_once() {
 }
 
 main() {
+  echo "$DEPRECATION_WARNING"
+
   assert_outside_chroot
 
   cd "${SCRIPTS_DIR}"
