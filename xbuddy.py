@@ -205,6 +205,7 @@ class XBuddy(build_util.BuildObject):
 
     Returns:
       The merged configuration.
+
     Raises:
       XBuddyException if the config file is missing.
     """
@@ -260,6 +261,7 @@ class XBuddy(build_util.BuildObject):
         rewrite table.
       board: The board to fill in with when paths are rewritten. Can be from
         the update request xml or the default board from devserver.
+
     Returns:
       If a rewrite is found, a string with the current board substituted in.
       If no rewrite is found, just return the original string.
@@ -300,8 +302,12 @@ class XBuddy(build_util.BuildObject):
     """Check the channel folder for the version number of interest."""
     # Get all names in channel dir. Get 10 highest directories by version.
     _Log("Checking channel '%s' for latest '%s' image", channel, board)
-    channel_dir = devserver_constants.GS_CHANNEL_DIR % {'channel':channel,
-                                                        'board':board}
+    # Due to historical reasons, gs://chromeos-releases uses
+    # daisy-spring as opposed to the board name daisy_spring. Convert
+    # the board name for the lookup.
+    channel_dir = devserver_constants.GS_CHANNEL_DIR % {
+        'channel':channel,
+        'board':re.sub('_', '-', board)}
     latest_version = gsutil_util.GetLatestVersionFromGSDir(
         channel_dir, with_release=False)
 
@@ -455,7 +461,7 @@ class XBuddy(build_util.BuildObject):
     Args:
       path: the path xBuddy Get was called with.
 
-    Return:
+    Returns:
       tuple of (image_type, board, version, whether the path is local)
 
     Raises:
