@@ -273,6 +273,18 @@ main() {
     ln -s /usr/local/lib /usr/local/lib64
   fi
 
+  # Set up symlinks for etc/{group,passwd}, so that packages can look up users
+  # and groups correctly.
+  if [ ! -d /usr/local/etc ]; then
+    mkdir -p /usr/local/etc
+  fi
+  if [ ! -f /usr/local/etc/group ]; then
+    ln -s ../../../etc/group /usr/local/etc/group
+  fi
+  if [ ! -f /usr/local/etc/passwd ]; then
+    ln -s ../../../etc/passwd /usr/local/etc/passwd
+  fi
+
   echo "Starting installation of developer packages."
   echo "First, we download the necessary files."
   import_lsb_release
