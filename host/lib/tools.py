@@ -199,8 +199,8 @@ class Tools:
     if sudo and os.getuid():
       cmd.insert(0, 'sudo')
     try:
-      result = cros_build_lib.RunCommandCaptureOutput(
-          cmd, cwd=cwd, print_cmd=self._out.verbose > 3,
+      result = cros_build_lib.RunCommand(
+          cmd, cwd=cwd, print_cmd=self._out.verbose > 3, capture_output=True,
           combine_stdout_stderr=True, error_code_ok=True)
     except cros_build_lib.RunCommandError as ex:
       raise CmdError(str(ex))
@@ -365,6 +365,7 @@ class Tools:
               directory.
       preserve: a Boolean. If outdir above is None and preserve is False, the
                 created temporary directory will be destroyed on exit.
+
     Raises:
       OSError: If it cannot create the output directory.
     """
