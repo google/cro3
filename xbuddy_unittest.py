@@ -112,7 +112,7 @@ class xBuddyTest(mox.MoxTestBase):
     self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
 
     path = 'parrot/R27-2455.0.0'
-    expected = ('test', 'parrot', 'R27-2455.0.0', True)
+    expected = ('ANY', 'parrot', 'R27-2455.0.0', True)
     self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
 
     path = 'remote/parrot/R27-2455.0.0'
@@ -120,18 +120,16 @@ class xBuddyTest(mox.MoxTestBase):
     self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
 
     path = 'local/parrot/R27-2455.0.0'
-    expected = ('test', 'parrot', 'R27-2455.0.0', True)
+    expected = ('ANY', 'parrot', 'R27-2455.0.0', True)
     self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
 
     path = ''
-    self.assertRaises(xbuddy.XBuddyException,
-                      self.mock_xb._InterpretPath,
-                      path=path)
+    expected = ('ANY', None, 'latest', True)
+    self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
 
     path = 'local'
-    self.assertRaises(xbuddy.XBuddyException,
-                      self.mock_xb._InterpretPath,
-                      path=path)
+    expected = ('ANY', None, 'latest', True)
+    self.assertEqual(self.mock_xb._InterpretPath(path=path), expected)
 
     path = 'local/parrot/latest/ANY'
     expected = ('ANY', 'parrot', 'latest', True)

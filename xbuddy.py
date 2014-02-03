@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+"""Main module for parsing and interpreting XBuddy paths for the devserver."""
+
 import ConfigParser
 import datetime
 import operator
@@ -266,9 +268,6 @@ class XBuddy(build_util.BuildObject):
       If a rewrite is found, a string with the current board substituted in.
       If no rewrite is found, just return the original string.
     """
-    if alias == '':
-      alias = 'update_default'
-
     try:
       val = self.config.get(PATH_REWRITES, alias)
     except ConfigParser.Error:
@@ -455,11 +454,12 @@ class XBuddy(build_util.BuildObject):
     raise XBuddyException('No images found in %s' % local_dir)
 
   @staticmethod
-  def _InterpretPath(path):
+  def _InterpretPath(path, default_board=None):
     """Split and return the pieces of an xBuddy path name
 
     Args:
       path: the path xBuddy Get was called with.
+      default_board: board to use in case board isn't in path.
 
     Returns:
       tuple of (image_type, board, version, whether the path is local)
@@ -469,37 +469,46 @@ class XBuddy(build_util.BuildObject):
     """
     path_list = filter(None, path.split('/'))
 
-    # Required parts of path parsing.
-    try:
-      # Determine if image is explicitly local or remote.
-      is_local = True
-      if path_list[0] in (REMOTE, LOCAL):
-        is_local = (path_list.pop(0) == LOCAL)
+    # Do the stuff that is well known first. We know that if paths have a
+    # image_type, it must be one of the GS/LOCAL aliases and it must be at the
+    # end. Similarly, local/remote are well-known and must start the path list.
+    is_local = True
+    if path_list and path_list[0] in (REMOTE, LOCAL):
+      is_local = (path_list.pop(0) == LOCAL)
 
-      # Set board.
-      board = path_list.pop(0)
+    # Default image type is determined by remote vs. local.
+    if is_local:
+      image_type = ANY
+    else:
+      image_type = TEST
 
-      # Set defaults.
-      version = LATEST
-      image_type = GS_ALIASES[0]
-    except IndexError:
-      msg = "Specify at least the board in your xBuddy call. Your path: %s"
-      raise XBuddyException(msg % os.path.join(path_list))
+    if path_list and path_list[-1] in GS_ALIASES + LOCAL_ALIASES:
+      image_type = path_list.pop(-1)
 
-    # Read as much of the xBuddy path as possible.
-    try:
-      # Override default if terminal is a valid artifact alias or a version.
-      terminal = path_list[-1]
-      if terminal in GS_ALIASES + LOCAL_ALIASES:
-        image_type = terminal
-        version = path_list[-2]
+    # Now for the tricky part. We don't actually know at this point if the rest
+    # of the path is just a board | version (like R33-2341.0.0) or just a board
+    # or just a version. So we do our best to do the right thing.
+    board = default_board
+    version = LATEST
+    if len(path_list) == 1:
+      path = path_list.pop(0)
+      # If it's a version we know (contains latest), go for that, otherwise only
+      # treat it as a version if we were given an actual default board.
+      if LATEST in path or default_board is not None:
+        version = path
       else:
-        version = terminal
-    except IndexError:
-      # This path doesn't have an alias or a version. That's fine.
-      _Log("Some parts of the path not specified. Using defaults.")
+        board = path
 
-    _Log("Get artifact '%s' in '%s/%s'. Locally? %s",
+    elif len(path_list) == 2:
+      # Assumes board/version.
+      board = path_list.pop(0)
+      version = path_list.pop(0)
+
+    if path_list:
+      raise XBuddyException("Path isn't valid. Could not figure out how to "
+                            "parse remaining components: %s." % path_list)
+
+    _Log("Get artifact '%s' with board %s and version %s'. Locally? %s",
          image_type, board, version, is_local)
 
     return image_type, board, version, is_local
@@ -513,11 +522,6 @@ class XBuddy(build_util.BuildObject):
     generated, and xBuddy will clear them from the directory they are in, as
     necessary.
     """
-    if not os.path.isdir(self.images_dir):
-      # Skip syncing if images_dir does not exist.
-      _Log('Cannot find %s; skip syncing image registry.', self.images_dir)
-      return
-
     build_ids = []
     for b in os.listdir(self.images_dir):
       # Ensure we have directories to track all boards in build/images
@@ -641,12 +645,12 @@ class XBuddy(build_util.BuildObject):
                                             artifact.
     """
     path = '/'.join(path_list)
+    default_board = self._board if self._board else board
     # Rewrite the path if there is an appropriate default.
-    path = self._LookupAlias(path, self._board if self._board else board)
-
+    path = self._LookupAlias(path, default_board)
     # Parse the path.
-    image_type, board, version, is_local = self._InterpretPath(path)
-
+    image_type, board, version, is_local = self._InterpretPath(
+        path, default_board)
     if is_local:
       # Get a local image.
       if version == LATEST:
