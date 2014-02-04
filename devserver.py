@@ -777,17 +777,15 @@ class DevServerRoot(object):
   def xbuddy_list(self):
     """Lists the currently available images & time since last access.
 
-    @return: A string representation of a list of tuples
-      [(build_id, time since last access),...]
+    Returns:
+      A string representation of a list of tuples [(build_id, time since last
+      access),...]
     """
     return self._xbuddy.List()
 
   @cherrypy.expose
   def xbuddy_capacity(self):
-    """Returns the number of images cached by xBuddy.
-
-    @return: Capacity of this devserver.
-    """
+    """Returns the number of images cached by xBuddy."""
     return self._xbuddy.Capacity()
 
   @cherrypy.expose
@@ -881,10 +879,11 @@ class DevServerRoot(object):
   def check_health(self):
     """Collect the health status of devserver to see if it's ready for staging.
 
-    @return: A JSON dictionary containing all or some of the following fields:
-        free_disk (int):            free disk space in GB
-        staging_thread_count (int): number of devserver threads currently
-            staging an image
+    Returns:
+      A JSON dictionary containing all or some of the following fields:
+      free_disk (int):            free disk space in GB
+      staging_thread_count (int): number of devserver threads currently staging
+                                  an image
     """
     # Get free disk space.
     stat = os.statvfs(updater.static_dir)
