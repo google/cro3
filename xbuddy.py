@@ -79,7 +79,6 @@ LOCAL_ALIAS_TO_FILENAME = dict(zip(LOCAL_ALIASES, LOCAL_FILE_NAMES))
 # Google Storage constants
 GS_ALIASES = [
   TEST,
-  DEV,
   BASE,
   RECOVERY,
   FULL,
