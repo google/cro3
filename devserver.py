@@ -59,6 +59,7 @@ from cherrypy.process import plugins
 
 import autoupdate
 import build_artifact
+import cherrypy_ext
 import common_util
 import downloader
 import gsutil_util
@@ -1025,6 +1026,9 @@ def _AddProductionOptions(parser):
   group.add_option('--pidfile',
                    metavar='PATH',
                    help='path to output a pid file for the server.')
+  group.add_option('--portfile',
+                   metavar='PATH',
+                   help='path to output the port number being served on.')
   group.add_option('--production',
                    action='store_true', default=False,
                    help='have the devserver use production values when '
@@ -1141,8 +1145,14 @@ def main():
 
   dev_server = DevServerRoot(_xbuddy)
 
+  # Patch CherryPy to support binding to any available port (--port=0).
+  cherrypy_ext.ZeroPortPatcher.DoPatch(cherrypy)
+
   if options.pidfile:
     plugins.PIDFile(cherrypy.engine, options.pidfile).subscribe()
+
+  if options.portfile:
+    cherrypy_ext.PortFile(cherrypy.engine, options.portfile).subscribe()
 
   cherrypy.quickstart(dev_server, config=_GetConfig(options))
 

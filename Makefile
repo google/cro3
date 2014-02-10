@@ -19,6 +19,7 @@ install:
 		build_artifact.py \
 		build_util.py \
 		builder.py \
+		cherrypy_ext.py \
 		common_util.py \
 		devserver_constants.py \
 		downloader.py \
