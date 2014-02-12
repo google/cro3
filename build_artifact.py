@@ -30,10 +30,14 @@ PAYGEN_AU_SUITE_FILE_TEMPLATE = 'paygen_au_%(channel)s_control.tar.bz2'
 AUTOTEST_FILE = 'autotest.tar'
 AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
-FACTORY_FILE = 'ChromeOS-factory*zip'
+FACTORY_FILE = 'ChromeOS-factory*.zip'
 FIRMWARE_FILE = 'firmware_from_source.tar.bz2'
 IMAGE_FILE = 'image.zip'
 TEST_SUITES_FILE = 'test_suites.tar.bz2'
+BASE_IMAGE_FILE = 'chromiumos_base_image.tar.xz'
+TEST_IMAGE_FILE = 'chromiumos_test_image.tar.xz'
+RECOVERY_IMAGE_FILE = 'recovery_image.tar.xz'
+
 
 _build_artifact_locks = common_util.LockDict()
 
@@ -82,7 +86,7 @@ class BuildArtifact(log_util.Loggable):
   """
 
   def __init__(self, install_dir, archive_url, name, build,
-               is_regex_name=False):
+               is_regex_name=False, optional_name=None):
     """Constructor.
 
     Args:
@@ -91,6 +95,10 @@ class BuildArtifact(log_util.Loggable):
       name: Identifying name to be used to find/store the artifact.
       build: The name of the build e.g. board/release.
       is_regex_name: Whether the name pattern is a regex (default: glob).
+      optional_name: An alternative name to find the artifact, which can lead
+        to faster download. Unlike |name|, there is no guarantee that an
+        artifact named |optional_name| is/will be on Google Storage. If it
+        exists, we download it. Otherwise, we fall back to wait for |name|.
     """
     super(BuildArtifact, self).__init__()
 
@@ -100,6 +108,7 @@ class BuildArtifact(log_util.Loggable):
 
     self.archive_url = archive_url
     self.name = name
+    self.optional_name = optional_name
     self.is_regex_name = is_regex_name
     self.build = build
 
@@ -129,6 +138,7 @@ class BuildArtifact(log_util.Loggable):
 
     Args:
       name: A file name/path.
+
     Returns:
       The sanitized name/path.
     """
@@ -172,32 +182,29 @@ class BuildArtifact(log_util.Loggable):
     with open(os.path.join(self.install_dir, self.marker_name), 'w') as f:
       f.write('\n'.join(self.installed_files))
 
-  def _WaitForArtifactToExist(self, timeout, update_name=True):
+  def _WaitForArtifactToExist(self, name, timeout):
     """Waits for artifact to exist and sets self.name to appropriate name.
 
     Args:
+      name: Name to look at.
       timeout: How long to wait for artifact to become available.
-      update_name: If False, don't actually update self.name.
+
     Raises:
       ArtifactDownloadError: An error occurred when obtaining artifact.
     """
     names = gsutil_util.GetGSNamesWithWait(
-        self.name, self.archive_url, str(self), timeout=timeout,
+        name, self.archive_url, str(self), timeout=timeout,
         is_regex_pattern=self.is_regex_name)
     if not names:
       raise ArtifactDownloadError('Could not find %s in Google Storage at %s' %
-                                  (self.name, self.archive_url))
+                                  (name, self.archive_url))
+    return names
 
-    if self.single_name:
-      if len(names) > 1:
-        raise ArtifactDownloadError('Too many artifacts match %s' % self.name)
+  def _UpdateName(self, names):
+    if self.single_name and len(names) > 1:
+      raise ArtifactDownloadError('Too many artifacts match %s' % self.name)
 
-      new_name = names[0]
-    else:
-      new_name = names
-
-    if update_name:
-      self.name = new_name
+    self.name = names[0]
 
   def _Download(self):
     """Downloads artifact from Google Storage to a local directory."""
@@ -268,13 +275,33 @@ class BuildArtifact(log_util.Loggable):
     with self._process_lock:
       common_util.MkDirP(self.install_dir)
       if not self.ArtifactStaged():
+        # Delete any existing exception saved for this artifact.
+        self._ClearException()
+        found_artifact = False
+        if self.optional_name:
+          try:
+            # Check if the artifact named |optional_name| exists on GS.
+            # Because this artifact may not always exist, don't bother
+            # to wait for it (set timeout=1).
+            new_names = self._WaitForArtifactToExist(
+                self.optional_name, timeout=1)
+            self._UpdateName(new_names)
+
+          except ArtifactDownloadError:
+            self._Log('Unable to download %s; fall back to download %s',
+                      self.optional_name, self.name)
+          else:
+            found_artifact = True
+
         try:
-          # Delete any existing exception saved for this artifact.
-          self._ClearException()
           # If the artifact should already have been uploaded, don't waste
           # cycles waiting around for it to exist.
-          timeout = 1 if no_wait else 10
-          self._WaitForArtifactToExist(timeout)
+          if not found_artifact:
+            timeout = 1 if no_wait else 10
+            new_names = self._WaitForArtifactToExist(self.name, timeout)
+            self._UpdateName(new_names)
+
+          self._Log('Downloading file %s', self.name)
           self._Download()
           self._Setup()
           self._MarkArtifactStaged()
@@ -382,38 +409,45 @@ class DeltaPayloadsArtifact(BuildArtifact):
 class BundledBuildArtifact(BuildArtifact):
   """A single build artifact bundle e.g. zip file or tar file."""
 
-  def __init__(self, install_dir, archive_url, name, build,
-               is_regex_name=False, files_to_extract=None, exclude=None):
+  def __init__(self, *args, **kwargs):
     """Takes BuildArtifact args with some additional ones.
 
     Args:
-      install_dir: See superclass.
-      archive_url: See superclass.
-      name: See superclass.
-      build: See superclass.
-      is_regex_name: See superclass.
+      *args: See BuildArtifact documentation.
+      **kwargs: See BuildArtifact documentation.
       files_to_extract: A list of files to extract. If set to None, extract
                         all files.
       exclude: A list of files to exclude. If None, no files are excluded.
     """
-    super(BundledBuildArtifact, self).__init__(
-        install_dir, archive_url, name, build, is_regex_name=is_regex_name)
-    self._files_to_extract = files_to_extract
-    self._exclude = exclude
+    self._files_to_extract = kwargs.pop('files_to_extract', None)
+    self._exclude = kwargs.pop('exclude', None)
+    super(BundledBuildArtifact, self).__init__(*args, **kwargs)
 
     # We modify the marker so that it is unique to what was staged.
-    if files_to_extract:
+    if self._files_to_extract:
       self.marker_name = self._SanitizeName(
-          '_'.join(['.' + self.name] + files_to_extract))
+          '_'.join(['.' + self.name] + self._files_to_extract))
 
-  def _Extract(self):
-    """Extracts the bundle into install_dir. Must be overridden.
+  def _RunUnzip(self, list_only):
+    # Unzip is weird. It expects its args before any excludes and expects its
+    # excludes in a list following the -x.
+    cmd = ['unzip', '-qql' if list_only else '-o', self.install_path]
+    if not list_only:
+      cmd += ['-d', self.install_dir]
 
-    If set, uses files_to_extract to only extract those items. If set, use
-    exclude to exclude specific files. In any case, this must return the list
-    of files extracted (absolute paths).
-    """
-    raise NotImplementedError()
+    if self._files_to_extract:
+      cmd.extend(self._files_to_extract)
+
+    if self._exclude:
+      cmd.append('-x')
+      cmd.extend(self._exclude)
+
+    try:
+      return subprocess.check_output(cmd).strip('\n').splitlines()
+    except subprocess.CalledProcessError, e:
+      raise ArtifactDownloadError(
+          'An error occurred when attempting to unzip %s:\n%s' %
+          (self.install_path, e))
 
   def _Setup(self):
     extract_result = self._Extract()
@@ -422,11 +456,24 @@ class BundledBuildArtifact(BuildArtifact):
       self.installed_files.append(self.install_path)
       self.installed_files.extend(extract_result)
 
-
-class TarballBuildArtifact(BundledBuildArtifact):
-  """Artifact for tar and tarball files."""
-
   def _Extract(self):
+    """Extracts files into the install path."""
+    if self.name.endswith('.zip'):
+      return self._ExtractZipfile()
+    else:
+      return self._ExtractTarball()
+
+  def _ExtractZipfile(self):
+    """Extracts a zip file using unzip."""
+    file_list = [os.path.join(self.install_dir, line[30:].strip())
+                 for line in self._RunUnzip(True)
+                 if not line.endswith('/')]
+    if file_list:
+      self._RunUnzip(False)
+
+    return file_list
+
+  def _ExtractTarball(self):
     """Extracts a tarball using tar.
 
     Detects whether the tarball is compressed or not based on the file
@@ -441,11 +488,11 @@ class TarballBuildArtifact(BundledBuildArtifact):
       raise ArtifactDownloadError(str(e))
 
 
-class AutotestTarballBuildArtifact(TarballBuildArtifact):
+class AutotestTarballBuildArtifact(BundledBuildArtifact):
   """Wrapper around the autotest tarball to download from gsutil."""
 
-  def __init__(self, *args, **dargs):
-    super(AutotestTarballBuildArtifact, self).__init__(*args, **dargs)
+  def __init__(self, *args, **kwargs):
+    super(AutotestTarballBuildArtifact, self).__init__(*args, **kwargs)
     # We don't store/check explicit file lists in Autotest tarball markers;
     # this can get huge and unwieldy, and generally make little sense.
     self.store_installed_files = False
@@ -471,41 +518,6 @@ class AutotestTarballBuildArtifact(TarballBuildArtifact):
             'Failed to create autotest packages!:\n%s' % e)
     else:
       self._Log('Using pre-generated packages from autotest')
-
-
-class ZipfileBuildArtifact(BundledBuildArtifact):
-  """A downloadable artifact that is a zipfile."""
-
-  def _RunUnzip(self, list_only):
-    # Unzip is weird. It expects its args before any excludes and expects its
-    # excludes in a list following the -x.
-    cmd = ['unzip', '-qql' if list_only else '-o', self.install_path]
-    if not list_only:
-      cmd += ['-d', self.install_dir]
-
-    if self._files_to_extract:
-      cmd.extend(self._files_to_extract)
-
-    if self._exclude:
-      cmd.append('-x')
-      cmd.extend(self._exclude)
-
-    try:
-      return subprocess.check_output(cmd).strip('\n').splitlines()
-    except subprocess.CalledProcessError, e:
-      raise ArtifactDownloadError(
-          'An error occurred when attempting to unzip %s:\n%s' %
-          (self.install_path, e))
-
-  def _Extract(self):
-    """Extracts files into the install path."""
-    file_list = [os.path.join(self.install_dir, line[30:].strip())
-                 for line in self._RunUnzip(True)
-                 if not line.endswith('/')]
-    if file_list:
-      self._RunUnzip(False)
-
-    return file_list
 
 
 class ImplDescription(object):
@@ -535,23 +547,26 @@ class ImplDescription(object):
 # going to re-use the names ANYWHERE else in the devserver code.
 ARTIFACT_IMPLEMENTATION_MAP = {
     artifact_info.FULL_PAYLOAD:
-    ImplDescription(AUTestPayloadBuildArtifact, '*_full_*'),
+    ImplDescription(AUTestPayloadBuildArtifact, ('*_full_*')),
     artifact_info.DELTA_PAYLOADS:
-    ImplDescription(DeltaPayloadsArtifact, 'DONTCARE'),
+    ImplDescription(DeltaPayloadsArtifact, ('DONTCARE')),
     artifact_info.STATEFUL_PAYLOAD:
-    ImplDescription(BuildArtifact, devserver_constants.STATEFUL_FILE),
+    ImplDescription(BuildArtifact, (devserver_constants.STATEFUL_FILE)),
 
     artifact_info.BASE_IMAGE:
-    ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
+    ImplDescription(BundledBuildArtifact, IMAGE_FILE,
+                    optional_name=BASE_IMAGE_FILE,
                     files_to_extract=[devserver_constants.BASE_IMAGE_FILE]),
     artifact_info.RECOVERY_IMAGE:
-    ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
+    ImplDescription(BundledBuildArtifact, IMAGE_FILE,
+                    optional_name=RECOVERY_IMAGE_FILE,
                     files_to_extract=[devserver_constants.RECOVERY_IMAGE_FILE]),
     artifact_info.DEV_IMAGE:
-    ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
+    ImplDescription(BundledBuildArtifact, IMAGE_FILE,
                     files_to_extract=[devserver_constants.IMAGE_FILE]),
     artifact_info.TEST_IMAGE:
-    ImplDescription(ZipfileBuildArtifact, IMAGE_FILE,
+    ImplDescription(BundledBuildArtifact, IMAGE_FILE,
+                    optional_name=TEST_IMAGE_FILE,
                     files_to_extract=[devserver_constants.TEST_IMAGE_FILE]),
 
     artifact_info.AUTOTEST:
@@ -559,18 +574,18 @@ ARTIFACT_IMPLEMENTATION_MAP = {
                     files_to_extract=None,
                     exclude=['autotest/test_suites']),
     artifact_info.TEST_SUITES:
-    ImplDescription(TarballBuildArtifact, TEST_SUITES_FILE),
+    ImplDescription(BundledBuildArtifact, TEST_SUITES_FILE),
     artifact_info.AU_SUITE:
-    ImplDescription(TarballBuildArtifact, AU_SUITE_FILE),
+    ImplDescription(BundledBuildArtifact, AU_SUITE_FILE),
 
     artifact_info.FIRMWARE:
     ImplDescription(BuildArtifact, FIRMWARE_FILE),
     artifact_info.SYMBOLS:
-    ImplDescription(TarballBuildArtifact, DEBUG_SYMBOLS_FILE,
+    ImplDescription(BundledBuildArtifact, DEBUG_SYMBOLS_FILE,
                     files_to_extract=['debug/breakpad']),
 
     artifact_info.FACTORY_IMAGE:
-    ImplDescription(ZipfileBuildArtifact, FACTORY_FILE,
+    ImplDescription(BundledBuildArtifact, FACTORY_FILE,
                     files_to_extract=[devserver_constants.FACTORY_IMAGE_FILE])
 }
 
@@ -578,7 +593,7 @@ ARTIFACT_IMPLEMENTATION_MAP = {
 ARTIFACT_IMPLEMENTATION_MAP.update({
     artifact_info.PAYGEN_AU_SUITE_TEMPLATE % {'channel': c}:
     ImplDescription(
-        TarballBuildArtifact, PAYGEN_AU_SUITE_FILE_TEMPLATE % {'channel': c})
+        BundledBuildArtifact, PAYGEN_AU_SUITE_FILE_TEMPLATE % {'channel': c})
     for c in devserver_constants.CHANNELS
 })
 
@@ -614,9 +629,11 @@ class ArtifactFactory(object):
     Args:
       name: The artifact name / file pattern.
       is_artifact: Whether this is a named (True) or file (False) artifact.
+
     Returns:
       A tuple consisting of the BuildArtifact subclass, name, and additional
       list- and named-arguments.
+
     Raises:
       KeyError: if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
     """
@@ -639,8 +656,10 @@ class ArtifactFactory(object):
     Args:
       names: A sequence of artifact names.
       is_artifact: Whether this is a named (True) or file (False) artifact.
+
     Returns:
       An iterable of BuildArtifacts.
+
     Raises:
       KeyError: if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
     """
@@ -658,6 +677,7 @@ class ArtifactFactory(object):
 
     Returns:
       An iterable of BuildArtifacts.
+
     Raises:
       KeyError: if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
     """
@@ -674,6 +694,7 @@ class ArtifactFactory(object):
 
     Returns:
       An iterable of BuildArtifacts.
+
     Raises:
       KeyError: if an optional artifact doesn't exist in
                 ARTIFACT_IMPLEMENTATION_MAP yet defined in

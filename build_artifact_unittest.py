@@ -112,6 +112,17 @@ class BuildArtifactTest(mox.MoxTestBase):
     with open(os.path.join(self.work_dir, marker_file)) as f:
       self.assertItemsEqual(installed_files, [line.strip() for line in f])
 
+  def testBundledArtifactTypes(self):
+    """Tests that all known bundled artifacts are either zip or tar files."""
+    known_names = ['zip', '.tgz', '.tar', 'tar.bz2', 'tar.xz', 'tar.gz']
+    for d in build_artifact.ARTIFACT_IMPLEMENTATION_MAP.values():
+      if d.artifact_class == build_artifact.BundledBuildArtifact:
+        for name in known_names:
+          if d.name.endswith(name):
+            break
+        else:
+          self.assertTrue('False')
+
   def testProcessBuildArtifact(self):
     """Processes a real tarball from GSUtil and stages it."""
     artifact = build_artifact.BuildArtifact(
@@ -127,7 +138,7 @@ class BuildArtifactTest(mox.MoxTestBase):
 
   def testProcessTarball(self):
     """Downloads a real tarball and untars it."""
-    artifact = build_artifact.TarballBuildArtifact(
+    artifact = build_artifact.BundledBuildArtifact(
         self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE,
         _VERSION)
     expected_installed_files = [
@@ -143,7 +154,7 @@ class BuildArtifactTest(mox.MoxTestBase):
   def testProcessTarballWithFile(self):
     """Downloads a real tarball and only untars one file from it."""
     file_to_download = 'autotest/test_suites/control.au'
-    artifact = build_artifact.TarballBuildArtifact(
+    artifact = build_artifact.BundledBuildArtifact(
         self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE,
         _VERSION, files_to_extract=[file_to_download])
     expected_installed_files = [
@@ -161,14 +172,16 @@ class BuildArtifactTest(mox.MoxTestBase):
                              '_Extract')
     artifact = build_artifact.AutotestTarballBuildArtifact(
         self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.AUTOTEST_FILE,
-        _VERSION, None, ['autotest/test_suites'])
+        _VERSION, files_to_extract=None, exclude=['autotest/test_suites'])
 
     install_dir = self.work_dir
     artifact.staging_dir = install_dir
     self.mox.StubOutWithMock(subprocess, 'check_call')
     subprocess.check_call(mox.In('autotest/utils/packager.py'), cwd=install_dir)
     self.mox.StubOutWithMock(artifact, '_WaitForArtifactToExist')
-    artifact._WaitForArtifactToExist(1)
+    self.mox.StubOutWithMock(artifact, '_UpdateName')
+    artifact._WaitForArtifactToExist(artifact.name, 1)
+    artifact._UpdateName(mox.IgnoreArg())
     artifact._Download()
     artifact._Extract()
     self.mox.ReplayAll()
@@ -212,7 +225,7 @@ class BuildArtifactTest(mox.MoxTestBase):
   def testImageUnzip(self):
     """Downloads and stages a zip file and extracts a test image."""
     files_to_extract = ['chromiumos_test_image.bin']
-    artifact = build_artifact.ZipfileBuildArtifact(
+    artifact = build_artifact.BundledBuildArtifact(
         self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.IMAGE_FILE,
         _VERSION, files_to_extract=files_to_extract)
     expected_installed_files = [
@@ -226,7 +239,7 @@ class BuildArtifactTest(mox.MoxTestBase):
 
   def testImageUnzipWithExcludes(self):
     """Downloads and stages a zip file while excluding all large files."""
-    artifact = build_artifact.ZipfileBuildArtifact(
+    artifact = build_artifact.BundledBuildArtifact(
         self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.IMAGE_FILE,
         _VERSION, exclude=['*.bin'])
     expected_extracted_files = [
@@ -285,7 +298,7 @@ class BuildArtifactTest(mox.MoxTestBase):
 
   def testArtifactStaged(self):
     """Tests the artifact staging verification logic."""
-    artifact = build_artifact.TarballBuildArtifact(
+    artifact = build_artifact.BundledBuildArtifact(
         self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE,
         _VERSION)
     expected_installed_files = [
