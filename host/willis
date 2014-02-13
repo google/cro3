@@ -330,7 +330,13 @@ def main():
   color = os.isatty(1)
   root = FindRoot()
   manifest = chromite.lib.git.ManifestCheckout(root)
-  projects = manifest.projects
+  projects = {}
+  for proj_name, proj_list in manifest.checkouts_by_name.iteritems():
+    if len(proj_list) > 1:
+      for index in xrange(len(proj_list)):
+        projects['%s_%d' % (proj_name, index)] = proj_list[index]
+      continue
+    projects[proj_name] = proj_list[0]
 
   result = Result(len(projects), options.fast_report)
 
