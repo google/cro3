@@ -26,6 +26,7 @@ import os
 import psutil
 import shutil
 import signal
+import socket
 import subprocess
 import tempfile
 import time
@@ -66,6 +67,7 @@ API_TEST_IP_ADDR = '127.0.0.1'
 
 DEVSERVER_START_TIMEOUT = 15
 DEVSERVER_START_SLEEP = 1
+MAX_START_ATTEMPTS = 5
 
 
 class DevserverFailedToStart(Exception):
@@ -284,6 +286,32 @@ class AutoStartDevserverTestBase(DevserverTestBase):
     """Initialize everything, then start the server."""
     super(AutoStartDevserverTestBase, self).setUp()
     self._StartServer()
+
+
+class DevserverStartTests(DevserverTestBase):
+  """Test that devserver starts up correctly."""
+
+  def testStartAnyPort(self):
+    """Starts the devserver, have it bind to an arbitrary available port."""
+    self._StartServer()
+
+  def testStartSpecificPort(self):
+    """Starts the devserver with a specific port."""
+    for _ in range(MAX_START_ATTEMPTS):
+      # This is a cheap hack to find an arbitrary unused port: we open a socket
+      # and bind it to port zero, then pull out the actual port number and
+      # close the socket. In all likelihood, this will leave us with an
+      # available port number that we can use for starting the devserver.
+      # However, this heuristic is susceptible to race conditions, hence the
+      # retry loop.
+      s = socket.socket()
+      s.bind(('', 0))
+      # s.getsockname() is definitely callable.
+      # pylint: disable=E1102
+      _, port = s.getsockname()
+      s.close()
+
+      self._StartServer(port=port)
 
 
 class DevserverBasicTests(AutoStartDevserverTestBase):
