@@ -65,57 +65,90 @@ API_SET_UPDATE_REQUEST = 'new_update-test/the-new-update'
 API_TEST_IP_ADDR = '127.0.0.1'
 
 DEVSERVER_START_TIMEOUT = 15
+DEVSERVER_START_SLEEP = 1
 
 
 class DevserverFailedToStart(Exception):
   """Raised if we could not start the devserver."""
 
 
-class DevserverTestCommon(unittest.TestCase):
+class DevserverTestBase(unittest.TestCase):
   """Class containing common logic between devserver test classes."""
 
   def setUp(self):
-    """Copies in testing files."""
+    """Creates and populates a test directory, temporary files."""
     self.test_data_path = tempfile.mkdtemp()
     self.src_dir = os.path.dirname(__file__)
 
     # Current location of testdata payload.
     image_src = os.path.join(self.src_dir, TEST_IMAGE_PATH, TEST_IMAGE_NAME)
 
-    # Copy the payload to the location of the update label "devserver."
-    os.makedirs(os.path.join(self.test_data_path, LABEL))
-    shutil.copy(image_src, os.path.join(self.test_data_path, LABEL,
-                                        TEST_IMAGE_NAME))
+    # Copy the payload to the location of the update label.
+    self._CreateLabelAndCopyImage(LABEL, image_src)
 
     # Copy the payload to the location of forced label.
-    os.makedirs(os.path.join(self.test_data_path, API_SET_UPDATE_REQUEST))
-    shutil.copy(image_src, os.path.join(self.test_data_path,
-                                        API_SET_UPDATE_REQUEST,
-                                        TEST_IMAGE_NAME))
+    self._CreateLabelAndCopyImage(API_SET_UPDATE_REQUEST, image_src)
 
-    self.pidfile = tempfile.mktemp('devserver_unittest')
-    self.logfile = tempfile.mktemp('devserver_unittest')
+    # Allocate temporary files for various devserver outputs.
+    self.pidfile = self._MakeTempFile('pid')
+    self.portfile = self._MakeTempFile('port')
+    self.logfile = self._MakeTempFile('log')
 
-    # Devserver url set in start server.
-    self.devserver_url = None
-    self.pid = self._StartServer()
+    # Initialize various runtime values.
+    self.devserver_url = self.port = self.pid = None
 
   def tearDown(self):
-    """Removes testing files."""
-    shutil.rmtree(self.test_data_path)
+    """Kill the server, remove the test directory and temporary files."""
     if self.pid:
       os.kill(self.pid, signal.SIGKILL)
 
-    if os.path.exists(self.pidfile):
-      os.remove(self.pidfile)
+    self._RemoveFile(self.pidfile)
+    self._RemoveFile(self.portfile)
+    self._RemoveFile(self.logfile)
+    shutil.rmtree(self.test_data_path)
 
   # Helper methods begin here.
 
-  def _StartServerOnPort(self, port):
+  def _CreateLabelAndCopyImage(self, label, image):
+    """Creates a label location and copies an image to it."""
+    label_dir = os.path.join(self.test_data_path, label)
+    os.makedirs(label_dir)
+    shutil.copy(image, os.path.join(label_dir, TEST_IMAGE_NAME))
+
+  def _MakeTempFile(self, suffix):
+    """Return path of a newly created temporary file."""
+    with tempfile.NamedTemporaryFile(suffix='-devserver-%s' % suffix) as f:
+      name = f.name
+      f.close()
+
+    return name
+
+  def _RemoveFile(self, filename):
+    """Removes a file if it is present."""
+    if os.path.isfile(filename):
+      os.remove(filename)
+
+  def _ReadIntValueFromFile(self, path, desc):
+    """Reads a string from file and returns its conversion into an integer."""
+    if not os.path.isfile(path):
+      raise DevserverFailedToStart('Devserver did not drop %s (%r).' %
+                                   (desc, path))
+
+    with open(path) as f:
+      value_str = f.read()
+
+    try:
+      return int(value_str)
+    except ValueError:
+      raise DevserverFailedToStart('Devserver did not drop a valid value '
+                                   'in %s (%r).' % (desc, value_str))
+
+  def _StartServer(self, port=0):
     """Attempts to start devserver on |port|.
 
-    Returns:
-      The pid of the devserver.
+    In the default case where port == 0, the server will bind to an arbitrary
+    availble port. If successful, this method will set the devserver's pid
+    (self.pid), actual listening port (self.port) and URL (self.devserver_url).
 
     Raises:
       DevserverFailedToStart: If the devserver could not be started.
@@ -126,54 +159,30 @@ class DevserverTestCommon(unittest.TestCase):
         'devserver.py',
         '--static_dir', self.test_data_path,
         '--pidfile', self.pidfile,
+        '--portfile', self.portfile,
         '--port', str(port),
         '--logfile', self.logfile]
 
     # Pipe all output. Use logfile to get devserver log.
     subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
-    # wait for devserver to start
+    # Wait for devserver to start, determining its actual serving port and URL.
     current_time = time.time()
     deadline = current_time + DEVSERVER_START_TIMEOUT
     while current_time < deadline:
-      current_time = time.time()
       try:
-        self.devserver_url = 'http://127.0.0.1:%d' % port
+        self.port = self._ReadIntValueFromFile(self.portfile, 'portfile')
+        self.devserver_url = 'http://127.0.0.1:%d' % self.port
         self._MakeRPC(CHECK_HEALTH, timeout=0.1)
         break
       except Exception:
-        continue
+        time.sleep(DEVSERVER_START_SLEEP)
+        current_time = time.time()
     else:
       raise DevserverFailedToStart('Devserver failed to start within timeout.')
 
-    if not os.path.exists(self.pidfile):
-      raise DevserverFailedToStart('Devserver did not drop a pidfile.')
-    else:
-      pid_value = open(self.pidfile).read()
-      try:
-        return int(pid_value)
-      except ValueError:
-        raise DevserverFailedToStart('Devserver did not drop a pid in the '
-                                     'pidfile.')
-
-  def _StartServer(self):
-    """Starts devserver on a port, returns pid.
-
-    Raises:
-      DevserverFailedToStart: If all attempts to start the devserver fail.
-    """
-    # TODO(sosa): Fixing crbug.com/308686 will allow the devserver to do this
-    # for us and be cleaner.
-    for port in range(8080, 8090):
-      try:
-        return self._StartServerOnPort(port)
-      except DevserverFailedToStart:
-        logging.error('Devserver could not start on port %s', port)
-        continue
-    else:
-      logging.error(open(self.logfile).read())
-      raise DevserverFailedToStart('Devserver could not be started on all '
-                                   'ports.')
+    # Retrieve PID.
+    self.pid = self._ReadIntValueFromFile(self.pidfile, 'pidfile')
 
   def VerifyHandleUpdate(self, label, use_test_payload=True):
     """Verifies that we can send an update request to the devserver.
@@ -186,6 +195,7 @@ class DevserverTestCommon(unittest.TestCase):
       use_test_payload: If set to true, expects to serve payload under
         testdata/ and does extra checks i.e. compares hash and content of
         payload.
+
     Returns:
       url of the update payload if we verified the update.
     """
@@ -234,13 +244,16 @@ class DevserverTestCommon(unittest.TestCase):
     return url
 
   def _MakeRPC(self, rpc, data=None, timeout=None, **kwargs):
-    """Makes a RPC to the devserver using the kwargs and returns output.
+    """Makes an RPC call to the devserver.
 
     Args:
+      rpc: The function to run on the devserver, e.g. 'stage'.
       data: Optional post data to send.
       timeout: Optional timeout to pass to urlopen.
+      kwargs: Optional arguments to the function, e.g. artifact_url='foo/bar'.
 
-    For example: localhost:8080/stage with artifact_url=blah/blah.
+    Returns:
+      The function output.
     """
     request = '/'.join([self.devserver_url, rpc])
     if kwargs:
@@ -264,8 +277,17 @@ class DevserverTestCommon(unittest.TestCase):
     return output
 
 
-class DevserverUnittests(DevserverTestCommon):
-  """Short running integration/unittests for the devserver (no remote deps).
+class AutoStartDevserverTestBase(DevserverTestBase):
+  """Test base class that automatically starts the devserver."""
+
+  def setUp(self):
+    """Initialize everything, then start the server."""
+    super(AutoStartDevserverTestBase, self).setUp()
+    self._StartServer()
+
+
+class DevserverBasicTests(AutoStartDevserverTestBase):
+  """Short running tests for the devserver (no remote deps).
 
   These are technically not unittests because they depend on being able to
   start a devserver locally which technically requires external resources so
@@ -373,7 +395,7 @@ class DevserverUnittests(DevserverTestCommon):
     self.assertTrue('devserver.py' in process.cmdline)
 
 
-class DevserverIntegrationTests(DevserverTestCommon):
+class DevserverExtendedTests(AutoStartDevserverTestBase):
   """Longer running integration tests that test interaction with Google Storage.
 
   Note: due to the interaction with Google Storage, these tests both require
