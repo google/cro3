@@ -1059,9 +1059,8 @@ def main():
                     help='writable static directory')
   parser.add_option('--port',
                     default=8080, type='int',
-                    help=('port for the dev server to use; if zero, then we '
-                          'attempt to allocate an available port '
-                          '(default: 8080)'))
+                    help=('port for the dev server to use; if zero, binds to '
+                          'an arbitrary available port (default: 8080)'))
   parser.add_option('-t', '--test_image',
                     action='store_true',
                     help='Deprecated.')
