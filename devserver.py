@@ -454,6 +454,32 @@ class DevServerRoot(object):
         artifacts, files))
 
   @cherrypy.expose
+  def list_image_dir(self, **kwargs):
+    """Take an archive url and list the contents in its staged directory.
+
+    Args:
+      kwargs:
+        archive_url: Google Storage URL for the build.
+
+    Example:
+      To list the contents of where this devserver should have staged
+      gs://image-archive/<board>-release/<build> call:
+      http://devserver_url:<port>/list_image_dir?archive_url=<gs://..>
+
+    Returns:
+      A string with information about the contents of the image directory.
+    """
+    archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
+    download_helper = downloader.Downloader(updater.static_dir, archive_url)
+    try:
+      image_dir_contents = download_helper.ListBuildDir()
+    except build_artifact.ArtifactDownloadError as e:
+      return 'Cannot list the contents of staged artifacts. %s' % e
+    if not image_dir_contents:
+      return '%s has not been staged on this devserver.' % archive_url
+    return image_dir_contents
+
+  @cherrypy.expose
   def stage(self, **kwargs):
     """Downloads and caches the artifacts from Google Storage URL.
 

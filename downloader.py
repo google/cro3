@@ -2,8 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import collections
 import os
 import threading
+from datetime import datetime
 
 import build_artifact
 import common_util
@@ -114,6 +116,43 @@ class Downloader(log_util.Loggable):
     if os.path.exists(file_name) and len(os.listdir(directory_path)) == 1:
       os.remove(file_name)
       os.rmdir(directory_path)
+
+  def ListBuildDir(self):
+    """List the files in the build directory.
+
+    Only lists files a single level into the build directory. Includes
+    timestamp information in the listing.
+
+    Returns:
+      A string with information about the files in the build directory.
+      None if the build directory doesn't exist.
+
+    Raises:
+      build_artifact.ArtifactDownloadError: If the build_dir path exists
+      but is not a directory.
+    """
+    if not os.path.exists(self._build_dir):
+      return None
+    if not os.path.isdir(self._build_dir):
+      raise build_artifact.ArtifactDownloadError(
+          'Artifacts %s improperly staged to build_dir path %s. The path is '
+          'not a directory.' % (self._archive_url, self._build_dir))
+
+    ls_format = collections.namedtuple(
+            'ls', ['name', 'accessed', 'modified', 'size'])
+    output_format = ('Name: %(name)s Accessed: %(accessed)s '
+            'Modified: %(modified)s Size: %(size)s bytes.\n')
+
+    build_dir_info = 'Listing contents of :%s \n' % self._build_dir
+    for file_name in os.listdir(self._build_dir):
+      file_path = os.path.join(self._build_dir, file_name)
+      file_info = os.stat(file_path)
+      ls_info = ls_format(file_path,
+                          datetime.fromtimestamp(file_info.st_atime),
+                          datetime.fromtimestamp(file_info.st_mtime),
+                          file_info.st_size)
+      build_dir_info += output_format % ls_info._asdict()
+    return build_dir_info
 
   def Download(self, artifacts, files, async=False):
     """Downloads and caches the |artifacts|.

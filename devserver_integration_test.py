@@ -58,6 +58,7 @@ UPDATE = 'update'
 CHECK_HEALTH = 'check_health'
 CONTROL_FILES = 'controlfiles'
 XBUDDY = 'xbuddy'
+LIST_IMAGE_DIR = 'list_image_dir'
 
 # API rpcs and constants.
 API_HOST_INFO = 'api/hostinfo'
@@ -512,6 +513,29 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
                       self._MakeRPC,
                       '/'.join([XBUDDY, xbuddy_bad_path]))
 
+  def testListImageDir(self):
+    """Verifies that we can list the contents of the image directory."""
+    build_id = 'x86-mario-release/R32-4810.0.0'
+    archive_url = 'gs://chromeos-image-archive/%s' % build_id
+    build_dir = os.path.join(self.test_data_path, build_id)
+    shutil.rmtree(build_dir, ignore_errors=True)
+
+    logging.info('checking for %s on an unstaged build.', LIST_IMAGE_DIR)
+    response = self._MakeRPC(LIST_IMAGE_DIR, archive_url=archive_url)
+    self.assertTrue(archive_url in response and 'not been staged' in response)
+
+    logging.info('Checking for %s on a staged build.', LIST_IMAGE_DIR)
+    fake_file_name = 'fake_file'
+    try:
+      os.makedirs(build_dir)
+      open(os.path.join(build_dir, fake_file_name), 'w').close()
+    except OSError:
+      logging.error('Could not create files to imitate staged content. '
+                    'Build dir %s, file %s', build_dir, fake_file_name)
+      raise
+    response = self._MakeRPC(LIST_IMAGE_DIR, archive_url=archive_url)
+    self.assertTrue(fake_file_name in response)
+    shutil.rmtree(build_dir, ignore_errors=True)
 
 if __name__ == '__main__':
   logging_format = '%(levelname)-8s: %(message)s'
