@@ -565,6 +565,7 @@ main() {
     fi
   done
 
+  command_completed
   exit 0
 }
 
