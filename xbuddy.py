@@ -442,13 +442,14 @@ class XBuddy(build_util.BuildObject):
   @staticmethod
   def _FindAny(local_dir):
     """Returns the image_type for ANY given the local_dir."""
-    dev_image = os.path.join(local_dir, devserver_constants.IMAGE_FILE)
     test_image = os.path.join(local_dir, devserver_constants.TEST_IMAGE_FILE)
-    if os.path.exists(dev_image):
-      return 'dev'
-
+    dev_image = os.path.join(local_dir, devserver_constants.IMAGE_FILE)
+    # Prioritize test images over dev images.
     if os.path.exists(test_image):
       return 'test'
+
+    if os.path.exists(dev_image):
+      return 'dev'
 
     raise XBuddyException('No images found in %s' % local_dir)
 
