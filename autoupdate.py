@@ -5,9 +5,9 @@
 """Devserver module for handling update client requests."""
 
 import base64
+import collections
 import json
 import os
-import random
 import struct
 import subprocess
 import sys
@@ -203,8 +203,7 @@ class Autoupdate(build_util.BuildObject):
     # host, as well as a dictionary of current attributes derived from events.
     self.host_infos = HostInfoTable()
 
-    self.curr_request_id = -1
-    self._update_response_lock = threading.Lock()
+    self._update_count_lock = threading.Lock()
 
   @classmethod
   def _ReadMetadataFromStream(cls, stream):
@@ -613,9 +612,16 @@ class Autoupdate(build_util.BuildObject):
     return metadata_obj
 
   def _ProcessUpdateComponents(self, app, event):
-    """Processes the app and event components of an update request.
+    """Processes the components of an update request.
 
-    Returns tuple containing forced_update_label, client_version, and board.
+    Args:
+      app: An app component of an update request.
+      event: An event component of an update request.
+
+    Returns:
+      A named tuple containing attributes of the update requests as the
+      following fields: 'forced_update_label', 'client_version', 'board',
+      'event_result' and 'event_type'.
     """
     # Initialize an empty dictionary for event attributes to log.
     log_message = {}
@@ -638,6 +644,8 @@ class Autoupdate(build_util.BuildObject):
       log_message['board'] = board
       curr_host_info.attrs['last_known_version'] = client_version
 
+    event_result = None
+    event_type = None
     if event:
       event_result = int(event[0].getAttribute('eventresult'))
       event_type = int(event[0].getAttribute('eventtype'))
@@ -657,8 +665,14 @@ class Autoupdate(build_util.BuildObject):
     if self.host_log:
       curr_host_info.AddLogEntry(log_message)
 
-    return (curr_host_info.attrs.pop('forced_update_label', None),
-            client_version, board)
+    UpdateRequestAttrs = collections.namedtuple(
+        'UpdateRequestAttrs',
+        ('forced_update_label', 'client_version', 'board', 'event_result',
+         'event_type'))
+
+    return UpdateRequestAttrs(
+        curr_host_info.attrs.pop('forced_update_label', None),
+        client_version, board, event_result, event_type)
 
   @classmethod
   def _CheckOmahaRequest(cls, app):
@@ -835,33 +849,40 @@ class Autoupdate(build_util.BuildObject):
     protocol, app, event, update_check = autoupdate_lib.ParseUpdateRequest(data)
 
     # Process attributes of the update check.
-    forced_update_label, client_version, board = self._ProcessUpdateComponents(
-        app, event)
+    request_attrs = self._ProcessUpdateComponents(app, event)
 
     if not update_check:
-      # TODO(sosa): Generate correct non-updatecheck payload to better test
-      # update clients.
-      _Log('Non-update check received.  Returning blank payload')
-      return autoupdate_lib.GetNoUpdateResponse(protocol)
+      if ((request_attrs.event_type ==
+           autoupdate_lib.EVENT_TYPE_UPDATE_DOWNLOAD_STARTED) and
+          request_attrs.event_result == autoupdate_lib.EVENT_RESULT_SUCCESS):
+        with self._update_count_lock:
+          if self.max_updates == 0:
+            _Log('Received too many download_started notifications. This '
+                 'probably means a bug in the test environment, such as too '
+                 'many clients running concurrently. Alternatively, it could '
+                 'be a bug in the update client.')
+          elif self.max_updates > 0:
+            self.max_updates -= 1
 
-    if forced_update_label:
+      _Log('A non-update event notification received. Returning an ack.')
+      return autoupdate_lib.GetEventResponse(protocol)
+
+    if request_attrs.forced_update_label:
       if label:
         _Log('Label: %s set but being overwritten to %s by request', label,
-             forced_update_label)
-      label = forced_update_label
+             request_attrs.forced_update_label)
+      label = request_attrs.forced_update_label
 
-    # Make sure that we did not already exceed the max number of allowed
-    # responses; note that this is merely an optimization, as the definitive
-    # check and updating of the counter is done later, right before returning a
-    # response.
+    # Make sure that we did not already exceed the max number of allowed update
+    # responses. Note that the counter is only decremented when the client
+    # reports an actual download, to avoid race conditions between concurrent
+    # update requests from the same client due to a timeout.
     if self.max_updates == 0:
-      _Log('Request received but max number of updates handled')
+      _Log('Request received but max number of updates already served.')
       return autoupdate_lib.GetNoUpdateResponse(protocol)
 
-    request_id = random.randint(0, sys.maxint)
-    self.curr_request_id = request_id
-    _Log('Update Check Received (id=%d). Client is using protocol version: %s',
-         request_id, protocol)
+    _Log('Update Check Received. Client is using protocol version: %s',
+         protocol)
 
     # Finally its time to generate the omaha response to give to client that
     # lets them know where to find the payload and its associated metadata.
@@ -886,7 +907,8 @@ class Autoupdate(build_util.BuildObject):
         # Get remote payload attributes.
         metadata_obj = self._GetRemotePayloadAttrs(url)
       else:
-        path_to_payload = self.GetPathToPayload(label, client_version, board)
+        path_to_payload = self.GetPathToPayload(
+            label, request_attrs.client_version, request_attrs.board)
         url = _NonePathJoin(static_urlbase, path_to_payload,
                             constants.UPDATE_FILE)
         local_payload_dir = _NonePathJoin(self.static_dir, path_to_payload)
@@ -913,31 +935,7 @@ class Autoupdate(build_util.BuildObject):
         metadata_obj.is_delta_format, metadata_obj.metadata_size,
         signed_metadata_hash, public_key_data, protocol, self.critical_update)
 
-    # Make sure we can proceed with the response (critical section).
-    with self._update_response_lock:
-      # If the number of responses sent already exceeds the max allowed, abort.
-      if self.max_updates == 0:
-        _Log('Max allowed number of update responses already sent, '
-             'aborting this one (id=%d)', request_id)
-        return autoupdate_lib.GetNoUpdateResponse(protocol)
-
-      # If there's been a more recent request, we assume the client timed out
-      # on this request and should not respond to it.
-      # IMPORTANT: we want to do this as close as posible to where we commit to
-      # making a response, i.e. right before we update the response tally. This
-      # is why this check happens in the critical section.
-      curr_request_id = self.curr_request_id
-      if curr_request_id != request_id:
-        _Log('A more recent request was received (id=%d), aborting this one '
-             '(id=%d)', curr_request_id, request_id)
-        return autoupdate_lib.GetNoUpdateResponse(protocol)
-
-      # Update the counter, committing to make the response.
-      self.max_updates -= 1
-
-    # At this point, we're good to go with the response.
-    _Log('Responding to client to use url %s to get image (id=%d)', url,
-         request_id)
+    _Log('Responding to client to use url %s to get image', url)
     return update_response
 
   def HandleHostInfoPing(self, ip):
