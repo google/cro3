@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+"""Devserver module for handling update client requests."""
+
 import base64
 import json
 import os
@@ -283,7 +285,10 @@ class Autoupdate(build_util.BuildObject):
     """Generates an update gz given a full path to an image.
 
     Args:
+      src_image: Path to a source image.
       image_path: Full path to image.
+      output_dir: Path to the generated update file.
+
     Raises:
       subprocess.CalledProcessError if the update generator fails to generate a
       stateful payload.
@@ -317,6 +322,8 @@ class Autoupdate(build_util.BuildObject):
 
     Args:
       image_path: Full path to image.
+      output_dir: Directory for emitting the stateful update payload.
+
     Raises:
       subprocess.CalledProcessError if the update generator fails to generate a
       stateful payload.
@@ -363,6 +370,7 @@ class Autoupdate(build_util.BuildObject):
     Args:
       image_path: full path to the image.
       output_dir: the directory to write the update payloads to
+
     Raises:
       AutoupdateError if it failed to generate either update or stateful
         payload.
@@ -385,8 +393,10 @@ class Autoupdate(build_util.BuildObject):
 
     Args:
       image_path: full path to the image.
+
     Returns:
       update directory relative to static_image_dir.
+
     Raises:
       AutoupdateError if it we need to generate a payload and fail to do so.
     """
@@ -450,10 +460,12 @@ class Autoupdate(build_util.BuildObject):
         find an image with this file name first. This is by default
         "chromiumos_test_image.bin" but can also take any of the values in
         devserver_constants.ALL_IMAGES
+
     Returns:
       A relative path to the directory with the update payload.
       This is the label if an update did not need to be generated, but can
       be label/cache/hashed_dir_for_update.
+
     Raises:
       AutoupdateError: If client version is higher than available update found
         at the directory given by the label.
@@ -509,6 +521,7 @@ class Autoupdate(build_util.BuildObject):
 
     Args:
       url: URL of statically staged remote file (http://host:port/static/...)
+
     Returns:
       A UpdateMetadata object.
     """
@@ -542,6 +555,7 @@ class Autoupdate(build_util.BuildObject):
 
     Args:
       payload_dir: The payload directory.
+
     Returns:
       The metadata hash, base-64 encoded or None if there is no metadata hash.
     """
@@ -557,6 +571,7 @@ class Autoupdate(build_util.BuildObject):
 
     Args:
       payload_filename: Path to the payload file.
+
     Returns:
       The size of the payload metadata, as reported in the payload header.
     """
@@ -572,6 +587,7 @@ class Autoupdate(build_util.BuildObject):
 
     Args:
       payload_dir: Path to the directory the payload is in.
+
     Returns:
       A UpdateMetadata object.
     """
@@ -675,8 +691,10 @@ class Autoupdate(build_util.BuildObject):
       label: from update request
       client_version: from update request
       board: from update request
-    Return:
+
+    Returns:
       The relative path to an update from the static_dir
+
     Raises:
       AutoupdateError: If the update could not be found.
     """
@@ -763,6 +781,7 @@ class Autoupdate(build_util.BuildObject):
     Args:
       private_key_path: The path to a private key to use for signing.
       metadata_hash: A raw SHA-256 hash (32 bytes).
+
     Returns:
       The raw signature.
     """
@@ -782,6 +801,7 @@ class Autoupdate(build_util.BuildObject):
     Args:
       data: XML blob from client.
       label: optional label for the update.
+
     Returns:
       Update payload message for client.
     """
