@@ -50,17 +50,20 @@ STATE_MNT=""
 cleanup() {
   set +e
   if [ -n "$SRC_MNT" ]; then
-    sudo umount "$SRC_MNT"
+    sudo umount -v "$SRC_MNT"
+    echo "sudo umount -v ${SRC_MNT}: $?"
     [ -d "$SRC_MNT" ] && rmdir "$SRC_MNT"
     SRC_MNT=""
   fi
   if [ -n "$DST_MNT" ]; then
-    sudo umount "$DST_MNT"
+    sudo umount -v "$DST_MNT"
+    echo "sudo umount -v ${DST_MNT}: $?"
     [ -d "$DST_MNT" ] && rmdir "$DST_MNT"
     DST_MNT=""
   fi
   if [ -n "$STATE_MNT" ]; then
-    sudo umount "$STATE_MNT" || true
+    sudo umount -v "$STATE_MNT"
+    echo "sudo umount -v ${STATE_MNT}: $?"
     [ -d "$STATE_MNT" ] && rmdir "$STATE_MNT"
     STATE_MNT=""
   fi
