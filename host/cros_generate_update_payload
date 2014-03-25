@@ -46,27 +46,52 @@ DST_KERNEL=""
 DST_ROOT=""
 STATE_MNT=""
 
+umount_with_retry() {
+  local mnt_point="$1"
+  local ret=0
+
+  if [ ! -d "$mnt_point" ]; then
+    return
+  fi
+
+  for x in {1..10}; do
+    sudo umount -v "$mnt_point"
+    echo "umount ${mnt_point} exited with: $?"
+    rmdir "$mnt_point"
+    ret=$?
+    if [ ${ret} -eq 0 ]; then
+      break
+    fi
+
+    echo "fndmnt:"
+    sudo findmnt
+    echo
+
+    echo "lsof +D:"
+    sudo lsof +D "$mnt_point"
+    echo
+
+    echo "fuser -vm:"
+    sudo fuser -vm "$mnt_point"
+    echo
+
+    sleep 60
+    echo "Retrying umount ${mnt_point}"
+  done
+
+  echo "sudo umount -v ${mnt_point}: ${result}"
+
+}
+
 # Pass an arg to not exit 1 at the end
 cleanup() {
   set +e
-  if [ -n "$SRC_MNT" ]; then
-    sudo umount -v "$SRC_MNT"
-    echo "sudo umount -v ${SRC_MNT}: $?"
-    [ -d "$SRC_MNT" ] && rmdir "$SRC_MNT"
-    SRC_MNT=""
-  fi
-  if [ -n "$DST_MNT" ]; then
-    sudo umount -v "$DST_MNT"
-    echo "sudo umount -v ${DST_MNT}: $?"
-    [ -d "$DST_MNT" ] && rmdir "$DST_MNT"
-    DST_MNT=""
-  fi
-  if [ -n "$STATE_MNT" ]; then
-    sudo umount -v "$STATE_MNT"
-    echo "sudo umount -v ${STATE_MNT}: $?"
-    [ -d "$STATE_MNT" ] && rmdir "$STATE_MNT"
-    STATE_MNT=""
-  fi
+  umount_with_retry "$SRC_MNT"
+  SRC_MNT=""
+  umount_with_retry "$DST_MNT"
+  DST_MNT=""
+  umount_with_retry "$STATE_MNT"
+  STATE_MNT=""
   if [ -z "$FLAGS_src_kern_path" ]; then
     rm -f "$SRC_KERNEL"
   fi
