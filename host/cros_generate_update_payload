@@ -46,65 +46,102 @@ DST_KERNEL=""
 DST_ROOT=""
 STATE_MNT=""
 
-umount_with_retry() {
+dump_umount_diags() {
   local mnt_point="$1"
-  local ret=0
 
-  if [ ! -d "$mnt_point" ]; then
-    return
-  fi
+  echo "cat /etc/mtab:"
+  sudo cat /etc/mtab
+  echo
+
+  echo "cat /proc/mounts:"
+  sudo cat /proc/mounts
+  echo
+
+  echo "fndmnt:"
+  sudo findmnt
+  echo
+
+  echo "lsof +D:"
+  sudo lsof +D "$mnt_point"
+  echo
+
+  echo "find:"
+  sudo find "$mnt_point"
+  echo
+
+  echo "fuser -vm:"
+  sudo fuser -vm "$mnt_point"
+  echo
+}
+
+umount_and_rmdir() {
+  local mnt_point="$1"
+
+  local err
+  local ret
+
+  [ -d  "$mnt_point" ] || return
 
   for x in {1..10}; do
-    sudo umount -v "$mnt_point"
-    echo "umount ${mnt_point} exited with: $?"
-    rmdir "$mnt_point"
+    sudo umount -vl "$mnt_point"
+    ret=$?
+    if [ ${ret} -ne 0 ]; then
+      err=1
+      echo "sudo umount -vl ${mnt_point} exited with: $ret"
+      dump_umount_diags "${mnt_point}"
+    fi
+
+    sudo rmdir -v "$mnt_point"
     ret=$?
     if [ ${ret} -eq 0 ]; then
       break
+    else
+      err=1
+      echo "sudo rmdir -v ${mnt_point} exited with: $ret"
+      dump_umount_diags "${mnt_point}"
     fi
 
-    echo "fndmnt:"
-    sudo findmnt
-    echo
-
-    echo "lsof +D:"
-    sudo lsof +D "$mnt_point"
-    echo
-
-    echo "fuser -vm:"
-    sudo fuser -vm "$mnt_point"
-    echo
-
     sleep 60
-    echo "Retrying umount ${mnt_point}"
+    echo "Retrying umount_and_rmdir ${mnt_point}"
   done
 
-  echo "sudo umount -v ${mnt_point}: ${result}"
-
+  return $err
 }
 
 # Pass an arg to not exit 1 at the end
 cleanup() {
+  local err
+
   set +e
-  umount_with_retry "$SRC_MNT"
+
+  umount_and_rmdir "$SRC_MNT" || err=1
+  umount_and_rmdir "$DST_MNT" || err=1
+  umount_and_rmdir "$STATE_MNT" || err=1
+
   SRC_MNT=""
-  umount_with_retry "$DST_MNT"
   DST_MNT=""
-  umount_with_retry "$STATE_MNT"
   STATE_MNT=""
+
   if [ -z "$FLAGS_src_kern_path" ]; then
-    rm -f "$SRC_KERNEL"
+    rm -f "$SRC_KERNEL" || err=1
   fi
   if [ -z "$FLAGS_src_root_path" ]; then
-    rm -f "$SRC_ROOT"
+    rm -f "$SRC_ROOT" || err=1
   fi
   if [ -z "$FLAGS_kern_path" ]; then
-    rm -f "$DST_KERNEL"
+    rm -f "$DST_KERNEL" || err=1
   fi
   if [ -z "$FLAGS_root_path" ]; then
-    rm -f "$DST_ROOT"
+    rm -f "$DST_ROOT" || err=1
   fi
-  [ -n "$1" ] || exit 1
+
+  # If we are cleaning up after an error, or if we got an error during
+  # cleanup (even if we eventually succeeded) return a non-zero exit
+  # code. This triggers additional logging in most environments that call
+  # this script.
+  if [ -n "$1" -o -n "$err" ]; then
+    exit 1
+  fi
 }
 
 extract_partition_to_temp_file() {
