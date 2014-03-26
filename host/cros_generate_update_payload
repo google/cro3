@@ -83,7 +83,7 @@ umount_and_rmdir() {
   local err
   local ret
 
-  if [ ! -d  "$mnt_point" ]; then
+  if [[ ! -d  "$mnt_point" ]]; then
     return 0
   fi
 
@@ -113,8 +113,10 @@ umount_and_rmdir() {
   return $err
 }
 
-# Pass an arg to not exit 1 at the end
+# Pass any argument to this method during normal cleanup.
+# Otherwise, it will assume it was called from a trap, and exit 1.
 cleanup() {
+  local normally_invoked="$1"
   local err=""
 
   set +e
@@ -127,16 +129,16 @@ cleanup() {
   DST_MNT=""
   STATE_MNT=""
 
-  if [ -z "$FLAGS_src_kern_path" ]; then
+  if [[ -z "$FLAGS_src_kern_path" ]]; then
     rm -f "$SRC_KERNEL" || err=1
   fi
-  if [ -z "$FLAGS_src_root_path" ]; then
+  if [[ -z "$FLAGS_src_root_path" ]]; then
     rm -f "$SRC_ROOT" || err=1
   fi
-  if [ -z "$FLAGS_kern_path" ]; then
+  if [[ -z "$FLAGS_kern_path" ]]; then
     rm -f "$DST_KERNEL" || err=1
   fi
-  if [ -z "$FLAGS_root_path" ]; then
+  if [[ -z "$FLAGS_root_path" ]]; then
     rm -f "$DST_ROOT" || err=1
   fi
 
@@ -144,12 +146,12 @@ cleanup() {
   # cleanup (even if we eventually succeeded) return a non-zero exit
   # code. This triggers additional logging in most environments that call
   # this script.
-  if [ -n "$err" ]; then
+  if [[ -n "$err" ]]; then
     echo "Cleanup encountered an error."
     exit 2
   fi
 
-  if [ -z "$1" ]; then
+  if [[ -z "$normally_invoked" ]]; then
     echo "Cleanup success after an error."
     exit 1
   fi
