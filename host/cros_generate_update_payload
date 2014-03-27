@@ -87,7 +87,7 @@ umount_and_rmdir() {
     return 0
   fi
 
-  for x in {1..10}; do
+  for x in {1..30}; do
     sudo umount -v "$mnt_point"
     ret=$?
     if [ ${ret} -ne 0 ]; then
