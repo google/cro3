@@ -80,7 +80,6 @@ dump_umount_diags() {
 umount_and_rmdir() {
   local mnt_point="$1"
 
-  local err
   local ret
 
   if [[ ! -d  "$mnt_point" ]]; then
@@ -91,7 +90,6 @@ umount_and_rmdir() {
     sudo umount -v "$mnt_point"
     ret=$?
     if [ ${ret} -ne 0 ]; then
-      err=1
       echo "sudo umount -vl ${mnt_point} exited with: $ret"
       dump_umount_diags "${mnt_point}"
     fi
@@ -99,9 +97,9 @@ umount_and_rmdir() {
     sudo rmdir -v "$mnt_point"
     ret=$?
     if [ ${ret} -eq 0 ]; then
-      break
+      # This means we worked!
+      return 0
     else
-      err=1
       echo "sudo rmdir -v ${mnt_point} exited with: $ret"
       dump_umount_diags "${mnt_point}"
     fi
@@ -110,7 +108,7 @@ umount_and_rmdir() {
     echo "Retrying umount_and_rmdir ${mnt_point}"
   done
 
-  return $err
+  return 1
 }
 
 # Pass any argument to this method during normal cleanup.
