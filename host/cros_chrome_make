@@ -79,23 +79,10 @@ get_prev_src_hash() {
   fi
 }
 
-was_last_run_gerrit_src() {
-  # Checks the symlink to CHROME_ROOT in the working dir to see if the last run
-  # was done with CHROME_ORIGIN=GERRIT_SOURCE
-  if [ -e "${workpath}/work/${workon_name}" ] && \
-     [ "$(readlink -f "${workpath}/work/${workon_name}")" = \
-       "${gerrit_chrome_root}" ]; then
-    return 0   # True
-  else
-    return 1   # False
-  fi
-}
-
 was_last_run_local_src() {
   # Checks the symlink to CHROME_ROOT in the working dir to see if the last run
   # was done with CHROME_ORIGIN=LOCAL_SOURCE
-  if [ ! -e "${workpath}/work/${workon_name}" ] || \
-     was_last_run_gerrit_src; then
+  if [ ! -e "${workpath}/work/${workon_name}" ]; then
     return 1   # False
   else
     return 0   # True
@@ -124,26 +111,11 @@ decide_auto_runhooks_local_src() {
   return ${_runhooks}
 }
 
-decide_auto_runhooks_gerrit_src() {
-  # Decide whether to run 'chrome_set_ver --runhooks' for GERRIT_SOURCE.
-  # We rerun hooks when either:
-  # 1. user-specified useflags change. OR
-  # 2. chromium/src is rebased - i.e. after the user runs 'repo sync'.
-  local _runhooks=0   # True
-  if [ -e "${workpath}/.prepared" ] && was_last_run_gerrit_src && \
-     [ "$(get_prev_useflags)" = "$(decide_use_flags)" ] && \
-     [ "$(get_prev_src_hash)" = "$(get_upstream_base_hash)" ]; then
-       _runhooks=1   # False
-  fi
-
-  return ${_runhooks}
-}
-
 # Make temporary cache directory
 #
 # We keep three pieces of information in the temp directory:
 # 1. The useflags set by the user on the last run.
-# 2. In the case of CHROME_ORIGIN==GERRIT_SOURCE, The git hash of the upstream
+# 2. In the case of CHROME_ORIGIN==LOCAL_SOURCE, The git hash of the upstream
 #    change chromium/src is based on.  A change in the git hash alerts us to a
 #    'repo sync' that was run, in which case we need to re-run hooks.
 if [ ! -e ${cache_dir} ]; then
@@ -167,8 +139,6 @@ use="$(decide_use_flags)"
 
 if [ "${CHROME_ORIGIN}" = "LOCAL_SOURCE" ]; then
   auto_runhooks=decide_auto_runhooks_local_src
-elif [ "${CHROME_ORIGIN}" = "GERRIT_SOURCE" ]; then
-  auto_runhooks=decide_auto_runhooks_gerrit_src
 fi
 
 # Changing the ccache flag should not trigger a 'gclient runhooks', so
@@ -202,7 +172,4 @@ eval "USE='${use} -verbose ${runhooks}'" CCACHE_SIZE=2G \
 # If we didn't get to run hooks, don't update our cache.
 if [ -e "${workpath}/.prepared" ]; then
   echo "${use}" > ${useflags_file}
-  if [ "${CHROME_ORIGIN}" = "GERRIT_SOURCE" ]; then
-    echo "$(get_upstream_base_hash)" > ${src_hash_file}
-  fi
 fi
