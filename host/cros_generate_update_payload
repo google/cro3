@@ -77,34 +77,30 @@ dump_umount_diags() {
   echo
 }
 
-# umount a loopback device, and remove the mount point.
-# This can be called normally (set -e), or during cleanup (set +3).
 umount_and_rmdir() {
   local mnt_point="$1"
 
-  local umount_ret
-  local rmdir_ret=0
+  local ret
 
   if [[ ! -d  "$mnt_point" ]]; then
     return 0
   fi
 
-
   for x in {1..30}; do
-    umount_ret=0
-    sudo umount -v "$mnt_point" || umount_ret=$?
-    if [ ${umount_ret} -ne 0 ]; then
-      echo "sudo umount -vl ${mnt_point} exited with: $umount_ret"
+    sudo umount -v "$mnt_point"
+    ret=$?
+    if [ ${ret} -ne 0 ]; then
+      echo "sudo umount -vl ${mnt_point} exited with: $ret"
       dump_umount_diags "${mnt_point}"
     fi
 
-    rmdir_ret=0
-    sudo rmdir -v "$mnt_point" || rmdir_ret=$?
-    if [ ${rmdir_ret} -eq 0 ]; then
+    sudo rmdir -v "$mnt_point"
+    ret=$?
+    if [ ${ret} -eq 0 ]; then
       # This means we worked!
       return 0
     else
-      echo "sudo rmdir -v ${mnt_point} exited with: $rmdir_ret"
+      echo "sudo rmdir -v ${mnt_point} exited with: $ret"
       dump_umount_diags "${mnt_point}"
     fi
 
@@ -200,7 +196,8 @@ patch_kernel() {
   STATE_MNT=$(mktemp -d --tmpdir="${FLAGS_work_dir}" state.XXXXXX)
   sudo mount -o ro,loop,offset=$offset "$IMAGE" "$STATE_MNT"
   dd if="$STATE_MNT"/vmlinuz_hd.vblock of="$KERN_FILE" conv=notrunc 2>/dev/null
-  umount_and_rmdir "$SRC_MNT"
+  sudo umount "$STATE_MNT"
+  rmdir "$STATE_MNT"
   STATE_MNT=""
 }
 
