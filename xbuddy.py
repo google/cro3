@@ -722,7 +722,7 @@ class XBuddy(build_util.BuildObject):
     _Log('Returning path to payload: %s/%s', build_id, file_name)
     return build_id, file_name
 
-  def StageTestAritfactsForUpdate(self, path_list):
+  def StageTestArtifactsForUpdate(self, path_list):
     """Stages test artifacts for update and returns build_id.
 
     Raises:

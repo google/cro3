@@ -705,6 +705,21 @@ class DevServerRoot(object):
           updater.static_dir, kwargs['build'], kwargs['control_path'])
 
   @cherrypy.expose
+  def xbuddy_translate(self, *args):
+    """Translates an xBuddy path to a real path to artifact if it exists.
+
+    Args:
+      An xbuddy path in the form of {local|remote}/build_id/artifact.
+
+    Returns:
+      build_id/artifact
+    """
+    build_id, filename = self._xbuddy.Translate(args)
+    response = os.path.join(build_id, filename)
+    _Log('Path translation requested, returning: %s', response)
+    return response
+
+  @cherrypy.expose
   def xbuddy(self, *args, **kwargs):
     """The full xBuddy call, returns resource specified by path_parts.
 
@@ -769,7 +784,7 @@ class DevServerRoot(object):
     build_id = None
     if for_update:
       try:
-        build_id = self._xbuddy.StageTestAritfactsForUpdate(args)
+        build_id = self._xbuddy.StageTestArtifactsForUpdate(args)
       except build_artifact.ArtifactDownloadError:
         build_id = None
 
