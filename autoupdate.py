@@ -660,6 +660,28 @@ class Autoupdate(build_util.BuildObject):
     return (curr_host_info.attrs.pop('forced_update_label', None),
             client_version, board)
 
+  @classmethod
+  def _CheckOmahaRequest(cls, app):
+    """Checks |app| component of Omaha Request for correctly formed data.
+
+    Raises:
+      common_util.DevServerHTTPError: if any check fails. All 400 error codes to
+          indicate a bad HTTP request.
+    """
+    if not app:
+      raise common_util.DevServerHTTPError(
+          400, 'Missing app component in Omaha Request')
+
+    hardware_class = app.getAttribute('hardware_class')
+    if not hardware_class:
+      raise common_util.DevServerHTTPError(
+          400, 'hardware_class is required in Omaha Request')
+
+    track = app.getAttribute('track')
+    if not track or not track.endswith('-channel'):
+      raise common_util.DevServerHTTPError(
+          400, 'Omaha requests need an update channel')
+
   def _GetStaticUrl(self):
     """Returns the static url base that should prefix all payload responses."""
     x_forwarded_host = cherrypy.request.headers.get('X-Forwarded-Host')
@@ -848,6 +870,9 @@ class Autoupdate(build_util.BuildObject):
     try:
       # Are we provisioning a remote or local payload?
       if self.remote_payload:
+
+        self._CheckOmahaRequest(app)
+
         # If no explicit label was provided, use the value of --payload.
         if not label:
           label = self.payload_path
@@ -883,7 +908,7 @@ class Autoupdate(build_util.BuildObject):
     if self.public_key:
       public_key_data = base64.b64encode(open(self.public_key, 'r').read())
 
-    update_response =  autoupdate_lib.GetUpdateResponse(
+    update_response = autoupdate_lib.GetUpdateResponse(
         metadata_obj.sha1, metadata_obj.sha256, metadata_obj.size, url,
         metadata_obj.is_delta_format, metadata_obj.metadata_size,
         signed_metadata_hash, public_key_data, protocol, self.critical_update)

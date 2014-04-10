@@ -96,19 +96,6 @@ class DevServerError(Exception):
   """Exception class used by this module."""
 
 
-class DevServerHTTPError(cherrypy.HTTPError):
-  """Exception class to log the HTTPResponse before routing it to cherrypy."""
-  def __init__(self, status, message):
-    """CherryPy error with logging.
-
-  Args:
-    status: HTTPResponse status.
-    message: Message associated with the response.
-    """
-    cherrypy.HTTPError.__init__(self, status, message)
-    _Log('HTTPError status: %s message: %s', status, message)
-
-
 def _LeadingWhiteSpaceCount(string):
   """Count the amount of leading whitespace in a string.
 
@@ -321,7 +308,7 @@ class ApiRoot(object):
       label = label.strip()
       if label:
         return updater.HandleSetUpdatePing(ip, label)
-    raise DevServerHTTPError(400, 'No label provided.')
+    raise common_util.DevServerHTTPError(400, 'No label provided.')
 
 
   @cherrypy.expose
@@ -653,13 +640,13 @@ class DevServerRoot(object):
       return _PrintDocStringAsHTML(self.latestbuild)
 
     if 'target' not in kwargs:
-      raise DevServerHTTPError(500, 'Error: target= is required!')
+      raise common_util.DevServerHTTPError(500, 'Error: target= is required!')
     try:
       return common_util.GetLatestBuildVersion(
           updater.static_dir, kwargs['target'],
           milestone=kwargs.get('milestone'))
     except common_util.CommonUtilError as errmsg:
-      raise DevServerHTTPError(500, str(errmsg))
+      raise common_util.DevServerHTTPError(500, str(errmsg))
 
   @cherrypy.expose
   def controlfiles(self, **kwargs):
@@ -691,7 +678,7 @@ class DevServerRoot(object):
       return _PrintDocStringAsHTML(self.controlfiles)
 
     if 'build' not in kwargs:
-      raise DevServerHTTPError(500, 'Error: build= is required!')
+      raise common_util.DevServerHTTPError(500, 'Error: build= is required!')
 
     if 'control_path' not in kwargs:
       if 'suite_name' in kwargs and kwargs['suite_name']:
@@ -776,8 +763,8 @@ class DevServerRoot(object):
     relative_path = xbuddy.XBuddy.ParseBoolean(boolean_string)
 
     if return_dir and relative_path:
-      raise DevServerHTTPError(500, 'Cannot specify both return_dir and '
-                               'relative_path')
+      raise common_util.DevServerHTTPError(
+          500, 'Cannot specify both return_dir and relative_path')
 
     # For updates, we optimize downloading of test images.
     file_name = None
@@ -999,7 +986,11 @@ def _AddTestingOptions(parser):
                    'devserver.')
   group.add_option('--remote_payload',
                    action='store_true', default=False,
-                   help='Payload is being served from a remote machine')
+                   help='Payload is being served from a remote machine. With '
+                   'this setting enabled, this devserver instance serves as '
+                   'just an Omaha server instance. In this mode, the '
+                   'devserver enforces a few extra components of the Omaha '
+                   'protocol e.g. hardware class being sent etc.')
   group.add_option('-u', '--urlbase',
                    metavar='URL',
                      help='base URL for update images, other than the '

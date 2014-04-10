@@ -7,6 +7,7 @@
 import ast
 import base64
 import binascii
+import cherrypy
 import distutils.version
 import errno
 import hashlib
@@ -30,6 +31,19 @@ _HASH_BLOCK_SIZE = 8192
 class CommonUtilError(Exception):
   """Exception classes used by this module."""
   pass
+
+
+class DevServerHTTPError(cherrypy.HTTPError):
+  """Exception class to log the HTTPResponse before routing it to cherrypy."""
+  def __init__(self, status, message):
+    """CherryPy error with logging.
+
+  Args:
+    status: HTTPResponse status.
+    message: Message associated with the response.
+    """
+    cherrypy.HTTPError.__init__(self, status, message)
+    _Log('HTTPError status: %s message: %s', status, message)
 
 
 def MkDirP(directory):

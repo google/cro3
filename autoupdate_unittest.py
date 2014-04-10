@@ -30,8 +30,19 @@ _TEST_REQUEST = """
   <event eventresult="%(event_result)d" eventtype="%(event_type)d" />
 </client_test>"""
 
+# Test request with additional fields needed for full Omaha protocol.
+_FULL_TEST_REQUEST = """
+<client_test xmlns:o="http://www.google.com/update2/request" updaterversion="%(client)s" protocol="3.0">
+  <app version="%(version)s" track="%(track)s" board="%(board)s"
+    hardware_class="Test Device" />
+  <updatecheck />
+  <event eventresult="%(event_result)d" eventtype="%(event_type)d" />
+</client_test>"""
+
 #pylint: disable=W0212
 class AutoupdateTest(mox.MoxTestBase):
+  """Tests for the autoupdate.Autoupdate class."""
+
   def setUp(self):
     mox.MoxTestBase.setUp(self)
     self.mox.StubOutWithMock(common_util, 'GetFileSize')
@@ -50,7 +61,7 @@ class AutoupdateTest(mox.MoxTestBase):
     self.test_dict = {
         'client': 'ChromeOSUpdateEngine-1.0',
         'version': 'ForcedUpdate',
-        'track': 'unused_var',
+        'track': 'test-channel',
         'board': self.test_board,
         'event_result': 2,
         'event_type': 3
@@ -313,7 +324,8 @@ class AutoupdateTest(mox.MoxTestBase):
                                                payload_path=remote_payload_path,
                                                remote_payload=True)
 
-    test_data = _TEST_REQUEST % self.test_dict
+    incomplete_test_data = _TEST_REQUEST % self.test_dict
+    complete_test_data = _FULL_TEST_REQUEST % self.test_dict
 
     au_mock._GetRemotePayloadAttrs(remote_url).AndReturn(
         autoupdate.UpdateMetadata(self.sha1, self.sha256, self.size, False,
@@ -323,7 +335,11 @@ class AutoupdateTest(mox.MoxTestBase):
         '3.0', False).AndReturn(self.payload)
 
     self.mox.ReplayAll()
-    self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
+    # This should fail because of missing fields.
+    self.assertRaises(common_util.DevServerHTTPError,
+                      au_mock.HandleUpdatePing, incomplete_test_data)
+    # This should have enough information.
+    self.assertEqual(au_mock.HandleUpdatePing(complete_test_data), self.payload)
     self.mox.VerifyAll()
 
 
