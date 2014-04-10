@@ -38,9 +38,9 @@ class DevServerHTTPError(cherrypy.HTTPError):
   def __init__(self, status, message):
     """CherryPy error with logging.
 
-  Args:
-    status: HTTPResponse status.
-    message: Message associated with the response.
+    Args:
+      status: HTTPResponse status.
+      message: Message associated with the response.
     """
     cherrypy.HTTPError.__init__(self, status, message)
     _Log('HTTPError status: %s message: %s', status, message)
@@ -117,11 +117,11 @@ def GetControlFile(static_dir, build, control_path):
     build: Fully qualified build string; e.g. R17-1234.0.0-a1-b983.
     control_path: Path to control file on Dev Server relative to Autotest root.
 
-  Raises:
-    CommonUtilError: If lock can't be acquired.
-
   Returns:
     Content of the requested control file.
+
+  Raises:
+    CommonUtilError: If lock can't be acquired.
   """
   # Be forgiving if the user passes in the control_path with a leading /
   control_path = control_path.lstrip('/')
@@ -151,12 +151,12 @@ def GetControlFileListForSuite(static_dir, build, suite_name):
     build: Fully qualified build string; e.g. R17-1234.0.0-a1-b983.
     suite_name: Name of the suite for which we require control files.
 
+  Returns:
+    String of each control file separated by a newline.
+
   Raises:
     CommonUtilError: If the suite_to_control_file_map isn't found in
         the specified build's staged directory.
-
-  Returns:
-    String of each control file separated by a newline.
   """
   suite_to_control_map = os.path.join(static_dir, build,
                                       'autotest', 'test_suites',
@@ -184,11 +184,11 @@ def GetControlFileList(static_dir, build):
     static_dir: Directory where builds are served from.
     build: Fully qualified build string; e.g. R17-1234.0.0-a1-b983.
 
-  Raises:
-    CommonUtilError: If path is outside of sandbox.
-
   Returns:
     String of each file separated by a newline.
+
+  Raises:
+    CommonUtilError: If path is outside of sandbox.
   """
   autotest_dir = os.path.join(static_dir, build, 'autotest/')
   if not PathInDir(static_dir, autotest_dir):
@@ -222,9 +222,10 @@ def GetFileHashes(file_path, do_sha1=False, do_sha256=False, do_md5=False):
 
   Args:
     file_path: path to file to be hashed
-    do_sha1:   whether or not to compute a SHA1 hash
+    do_sha1: whether or not to compute a SHA1 hash
     do_sha256: whether or not to compute a SHA256 hash
-    do_md5:    whether or not to compute a MD5 hash
+    do_md5: whether or not to compute a MD5 hash
+
   Returns:
     A dictionary containing binary hash values, keyed by 'sha1', 'sha256' and
     'md5', respectively.
@@ -347,8 +348,9 @@ def ExtractTarball(tarball_path, install_path, files_to_extract=None,
     install_path: Path to extract the tarball to.
     files_to_extract: String of specific files in the tarball to extract.
     excluded_files: String of files to not extract.
-    return_extracted_file: Whether or not the caller expects the list of
+    return_extracted_files: whether or not the caller expects the list of
       files extracted; if False, returns an empty list.
+
   Returns:
     List of absolute paths of the files extracted (possibly empty).
   """

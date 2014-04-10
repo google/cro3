@@ -990,7 +990,7 @@ def _AddTestingOptions(parser):
                    'this setting enabled, this devserver instance serves as '
                    'just an Omaha server instance. In this mode, the '
                    'devserver enforces a few extra components of the Omaha '
-                   'protocol e.g. hardware class being sent etc.')
+                   'protocol, such as hardware class, being sent.')
   group.add_option('-u', '--urlbase',
                    metavar='URL',
                      help='base URL for update images, other than the '

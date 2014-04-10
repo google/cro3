@@ -678,9 +678,9 @@ class Autoupdate(build_util.BuildObject):
           400, 'hardware_class is required in Omaha Request')
 
     track = app.getAttribute('track')
-    if not track or not track.endswith('-channel'):
+    if not (track and track.endswith('-channel')):
       raise common_util.DevServerHTTPError(
-          400, 'Omaha requests need an update channel')
+          400, 'Omaha requests need a valid update channel')
 
   def _GetStaticUrl(self):
     """Returns the static url base that should prefix all payload responses."""
