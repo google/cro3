@@ -180,16 +180,16 @@ configure_emerge() {
 }
 
 install_optional_packages() {
-  # Install gmerge manually first (even though it's part of chromeos-dev)
-  # since it provides its own list of package.provided files.  Other packages
-  # that chromeos-dev pulls in might rely on those lists, so we need them
-  # sooner rather than later.
+  # Install gmerge manually first (even though it's part of the default
+  # virtual/target-os-dev) since it provides its own list of package.provided
+  # files.  Other packages that virtual/target-os-dev pulls in might rely on
+  # those lists, so we need them sooner rather than later.
   emerge gmerge
-  if yes_or_no "Install chromeos-dev package now"; then
-    emerge chromeos-dev
+  if yes_or_no "Install virtual/target-os-dev package now"; then
+    emerge virtual/target-os-dev
   else
-    echo "You can install chromeos-dev later by typing the command:" \
-         "emerge chromeos-dev"
+    echo "You can install virtual/target-os-dev later by typing the command:" \
+         "emerge virtual/target-os-dev"
   fi
 }
 
