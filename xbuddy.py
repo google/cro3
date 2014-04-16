@@ -522,6 +522,11 @@ class XBuddy(build_util.BuildObject):
     generated, and xBuddy will clear them from the directory they are in, as
     necessary.
     """
+    if not os.path.isdir(self.images_dir):
+      # Skip syncing if images_dir does not exist.
+      _Log('Cannot find %s; skip syncing image registry.', self.images_dir)
+      return
+
     build_ids = []
     for b in os.listdir(self.images_dir):
       # Ensure we have directories to track all boards in build/images
