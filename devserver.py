@@ -151,6 +151,7 @@ def _GetConfig(options):
                     'request.show_tracebacks': True,
                     'server.socket_timeout': 60,
                     'server.thread_pool': 2,
+                    'engine.autoreload.on': False,
                   },
                   '/api':
                   {
