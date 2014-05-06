@@ -634,11 +634,12 @@ class Bundle:
     """Process a list of nodes to enable/disable.
 
     Args:
-      config_list: List of (node, value) tuples to add to the fdt. For each
+      enable_list: List of (node, value) tuples to add to the fdt. For each
           tuple:
               node: The fdt node to write to will be <node> or pointed to by
                   /aliases/<node>. We can tell which
               value: 0 to disable the node, 1 to enable it
+
     Raises:
       CmdError if a command fails.
     """
@@ -853,6 +854,8 @@ class Bundle:
     """Build the blob data for a particular blob type.
 
     Args:
+      pack: a PackFirmware object describing the firmware image to build.
+      fdt: an fdt object including image layout information
       blob_type: The type of blob to create data for. Supported types are:
           coreboot    A coreboot image (ROM plus U-boot and .dtb payloads).
           signed      Nvidia T20/T30 signed image (BCT, U-Boot, .dtb).
@@ -920,8 +923,9 @@ class Bundle:
     then this will just return a signed U-Boot as the image.
 
     Args:
-      gbb:      Full path to the GBB file, or empty if a GBB is not required.
-      fdt:      Fdt object containing required information.
+      gbb: a string, full path to the GBB file, or empty if a GBB is not
+           required.
+      fdt: an fdt object containing required information.
 
     Returns:
       Path to image file
