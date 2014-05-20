@@ -18,6 +18,10 @@ import gsutil_util
 import xbuddy
 
 #pylint: disable=W0212
+
+GS_ALTERNATE_DIR = 'gs://chromeos-alternate-archive/'
+
+
 class xBuddyTest(mox.MoxTestBase):
   """Regression tests for xbuddy."""
   def setUp(self):
@@ -65,7 +69,8 @@ class xBuddyTest(mox.MoxTestBase):
     gsutil_util.GetLatestVersionFromGSDir(mox.IgnoreArg()).AndReturn(mock_data2)
     self.mox.ReplayAll()
     expected = 'b-release/R28-4100.68.0'
-    self.assertEqual(self.mock_xb._LookupChannel('b'), expected)
+    self.assertEqual(self.mock_xb._LookupChannel('b'),
+                     expected)
     self.mox.VerifyAll()
 
   def testResolveVersionToBuildId_Official(self):
@@ -75,14 +80,22 @@ class xBuddyTest(mox.MoxTestBase):
     # aliases that should be redirected to LookupOfficial
 
     self.mox.StubOutWithMock(self.mock_xb, '_LookupOfficial')
-    self.mock_xb._LookupOfficial(board)
-    self.mock_xb._LookupOfficial(board, 'paladin')
+    self.mock_xb._LookupOfficial(board, image_dir=None)
+    self.mock_xb._LookupOfficial(board,
+                                 image_dir=GS_ALTERNATE_DIR)
+    self.mock_xb._LookupOfficial(board, 'paladin', image_dir=None)
+    self.mock_xb._LookupOfficial(board, 'paladin',
+                                 image_dir=GS_ALTERNATE_DIR)
 
     self.mox.ReplayAll()
     version = 'latest-official'
     self.mock_xb._ResolveVersionToBuildId(board, version)
+    self.mock_xb._ResolveVersionToBuildId(board, version,
+                                          image_dir=GS_ALTERNATE_DIR)
     version = 'latest-official-paladin'
     self.mock_xb._ResolveVersionToBuildId(board, version)
+    self.mock_xb._ResolveVersionToBuildId(board, version,
+                                          image_dir=GS_ALTERNATE_DIR)
     self.mox.VerifyAll()
 
   def testResolveVersionToBuildId_Channel(self):
@@ -91,14 +104,20 @@ class xBuddyTest(mox.MoxTestBase):
 
     # aliases that should be redirected to LookupChannel
     self.mox.StubOutWithMock(self.mock_xb, '_LookupChannel')
-    self.mock_xb._LookupChannel(board)
-    self.mock_xb._LookupChannel(board, 'dev')
+    self.mock_xb._LookupChannel(board, image_dir=None)
+    self.mock_xb._LookupChannel(board, image_dir=GS_ALTERNATE_DIR)
+    self.mock_xb._LookupChannel(board, 'dev', image_dir=None)
+    self.mock_xb._LookupChannel(board, 'dev', image_dir=GS_ALTERNATE_DIR)
 
     self.mox.ReplayAll()
     version = 'latest'
     self.mock_xb._ResolveVersionToBuildId(board, version)
+    self.mock_xb._ResolveVersionToBuildId(board, version,
+                                          image_dir=GS_ALTERNATE_DIR)
     version = 'latest-dev'
     self.mock_xb._ResolveVersionToBuildId(board, version)
+    self.mock_xb._ResolveVersionToBuildId(board, version,
+                                          image_dir=GS_ALTERNATE_DIR)
     self.mox.VerifyAll()
 
   def testBasicInterpretPath(self):

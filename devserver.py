@@ -693,16 +693,24 @@ class DevServerRoot(object):
           updater.static_dir, kwargs['build'], kwargs['control_path'])
 
   @cherrypy.expose
-  def xbuddy_translate(self, *args):
+  def xbuddy_translate(self, *args, **kwargs):
     """Translates an xBuddy path to a real path to artifact if it exists.
 
     Args:
-      An xbuddy path in the form of {local|remote}/build_id/artifact.
+      args: An xbuddy path in the form of {local|remote}/build_id/artifact.
+        Local searches the devserver's static directory. Remote searches a
+        Google Storage image archive.
+
+    Kwargs:
+      image_dir: Google Storage image archive to search in if requesting a
+        remote artifact. If none uses the default bucket.
 
     Returns:
-      build_id/artifact
+      String in the format of build_id/artifact as stored on the local server
+      or in Google Storage.
     """
-    build_id, filename = self._xbuddy.Translate(args)
+    build_id, filename = self._xbuddy.Translate(
+          args, image_dir=kwargs.get('image_dir'))
     response = os.path.join(build_id, filename)
     _Log('Path translation requested, returning: %s', response)
     return response
