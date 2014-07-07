@@ -34,7 +34,7 @@ find_common_sh
 # Load functions and constants for chromeos-install
 # NOTE: Needs to be called from outside the chroot.
 . "/usr/lib/installer/chromeos-common.sh" &> /dev/null || \
-. "${SRC_ROOT}/platform/installer/share/chromeos-common.sh" &> /dev/null || \
+. "${SRC_ROOT}/platform2/installer/share/chromeos-common.sh" &> /dev/null || \
 . "./chromeos-common.sh" || \
   die "Unable to load /usr/lib/installer/chromeos-common.sh"
 
