@@ -199,8 +199,9 @@ class Tools:
     if sudo and os.getuid():
       cmd.insert(0, 'sudo')
     try:
+      self._out.Debug('will run: "%s"' % ' '.join(cmd))
       result = cros_build_lib.RunCommand(
-          cmd, cwd=cwd, print_cmd=self._out.verbose > 3, capture_output=True,
+          cmd, cwd=cwd, capture_output=True,
           combine_stdout_stderr=True, error_code_ok=True)
     except cros_build_lib.RunCommandError as ex:
       raise CmdError(str(ex))
@@ -244,6 +245,8 @@ class Tools:
 
     Args:
       filenames: a list containing name of the files to read.
+      compress: a string, the name of the compression method, if any, to apply
+                to the files. The only supported method is 'lzo'
       with_index: If true, an index structure is prepended to the data.
 
     Returns:
