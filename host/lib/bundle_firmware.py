@@ -904,7 +904,7 @@ class Bundle:
       bootstub_copy = os.path.join(self._tools.outdir, 'coreboot-8mb.rom')
       self._tools.WriteFile(bootstub_copy, data)
 
-      if self._board in ('storm', ):
+      if self._board in ('storm', 'rush', 'rush_ryu', ):
         # This is a hack, as storm does not fall into any of the two
         # categories of images covered by the [-0x100000:] range. Not applying
         # this to all targets yet, as it is not clear that they all would fit
