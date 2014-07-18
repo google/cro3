@@ -135,6 +135,7 @@ class Bundle:
     self.coreboot_fname = None  # Filename of our coreboot binary.
     self.ecro_fname = None      # Filename of EC read-only file
     self.ecrw_fname = None      # Filename of EC file
+    self.pdrw_fname = None      # Filename of PD file
     self.exynos_bl1 = None      # Filename of Exynos BL1 (pre-boot)
     self.exynos_bl2 = None      # Filename of Exynos BL2 (SPL)
     self.fdt = None             # Our Fdt object.
@@ -155,7 +156,8 @@ class Bundle:
   def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
                coreboot_elf=None,
                postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None,
-               skeleton=None, ecrw=None, ecro=None, kernel=None, blobs=None):
+               skeleton=None, ecrw=None, ecro=None, pdrw=None,
+               kernel=None, blobs=None):
     """Set up files required for Bundle.
 
     Args:
@@ -172,6 +174,7 @@ class Bundle:
       skeleton: The filename of the coreboot skeleton file.
       ecrw: The filename of the EC (Embedded Controller) read-write file.
       ecro: The filename of the EC (Embedded Controller) read-only file.
+      pdrw: The filename of the PD (PD embedded controller) read-write file.
       kernel: The filename of the kernel file if any.
       blobs: List of (type, filename) of arbitrary blobs.
     """
@@ -188,6 +191,7 @@ class Bundle:
     self.skeleton_fname = skeleton
     self.ecrw_fname = ecrw
     self.ecro_fname = ecro
+    self.pdrw_fname = pdrw
     self.kernel_fname = kernel
     self.blobs = dict(blobs or ())
 
@@ -278,6 +282,8 @@ class Bundle:
       self.seabios_fname = 'seabios.cbfs'
     if not self.ecrw_fname:
       self.ecrw_fname = os.path.join(build_root, 'ec.RW.bin')
+    if not self.pdrw_fname:
+      self.pdrw_fname = os.path.join(build_root, 'pd.RW.bin')
     if not self.ecro_fname:
       self.ecro_fname = os.path.join(build_root, 'ec.RO.bin')
 
@@ -759,6 +765,8 @@ class Bundle:
     elif blob_type in ['ecrw', 'ecbin']:
       pack.AddProperty('ecrw', self.ecrw_fname)
       pack.AddProperty('ecbin', self.ecrw_fname)
+    elif blob_type == 'pdrw':
+      pack.AddProperty('pdrw', self.pdrw_fname)
     elif blob_type == 'ecrwhash':
       ec_hash_file = os.path.join(self._tools.outdir, 'ec_hash.bin')
       ecrw = self._tools.ReadFile(self.ecrw_fname)
@@ -766,6 +774,13 @@ class Bundle:
       hasher.update(ecrw)
       self._tools.WriteFile(ec_hash_file, hasher.digest())
       pack.AddProperty(blob_type, ec_hash_file)
+    elif blob_type == 'pdrwhash':
+      pd_hash_file = os.path.join(self._tools.outdir, 'pd_hash.bin')
+      pdrw = self._tools.ReadFile(self.pdrw_fname)
+      hasher = hashlib.sha256()
+      hasher.update(pdrw)
+      self._tools.WriteFile(pd_hash_file, hasher.digest())
+      pack.AddProperty(blob_type, pd_hash_file)
     elif blob_type == 'ecro':
       # crosbug.com/p/13143
       # We cannot have an fmap in the EC image since there can be only one,
