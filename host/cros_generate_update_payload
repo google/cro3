@@ -216,7 +216,7 @@ extract_kern_root() {
     die "missing root output filename"
   fi
 
-  extract_partition_to_temp_file "$bin_file" 2 "$kern_out" > /dev/null
+  extract_partition_to_temp_file "$bin_file" 4 "$kern_out" > /dev/null
   if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
     patch_kernel "$bin_file" "$kern_out"
   fi
@@ -316,7 +316,7 @@ GENERATOR="$(which delta_generator)"
 trap cleanup INT TERM EXIT
 if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
   if [ "$FLAGS_full_kernel" -eq "$FLAGS_FALSE" ]; then
-    SRC_KERNEL=$(extract_partition_to_temp_file "$FLAGS_src_image" 2 \
+    SRC_KERNEL=$(extract_partition_to_temp_file "$FLAGS_src_image" 4 \
                  "$FLAGS_src_kern_path")
     if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
       patch_kernel "$FLAGS_src_image" "$SRC_KERNEL"
@@ -333,7 +333,7 @@ if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
   md5sum "$SRC_ROOT"
 fi
 
-DST_KERNEL=$(extract_partition_to_temp_file "$FLAGS_image" 2 \
+DST_KERNEL=$(extract_partition_to_temp_file "$FLAGS_image" 4 \
              "$FLAGS_kern_path")
 if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
   patch_kernel "$FLAGS_image" "$DST_KERNEL"
