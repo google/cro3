@@ -264,10 +264,11 @@ def ShowDir(project, root, color, options, result):
     full_name = os.path.join(root, project['path'])
 
     if os.path.isdir(full_name):
-      text = ShowBranches(full_name,
-                          project['tracking_branch'],
-                          color,
-                          options)
+      if chromite.lib.git.IsSHA1(project['revision']):
+        top_revision = project['revision']
+      else:
+        top_revision = project['tracking_branch']
+      text = ShowBranches(full_name, top_revision, color, options)
   except Exception as e:
     text = ['Exception %s occured. Arguments: %s' % (
         type(e).__name__, ' '.join(e.args))]
@@ -330,17 +331,11 @@ def main():
   color = os.isatty(1)
   root = FindRoot()
   manifest = chromite.lib.git.ManifestCheckout(root)
-  projects = {}
-  for proj_name, proj_list in manifest.checkouts_by_name.iteritems():
-    if len(proj_list) > 1:
-      for index in xrange(len(proj_list)):
-        projects['%s_%d' % (proj_name, index)] = proj_list[index]
-      continue
-    projects[proj_name] = proj_list[0]
+  projects = manifest.ListCheckouts()
 
   result = Result(len(projects), options.fast_report)
 
-  for p in projects.itervalues():
+  for p in projects:
     t = threading.Thread(
         target=ShowDir,
         args=(p, root, color, options, result))
