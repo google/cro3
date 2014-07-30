@@ -60,6 +60,7 @@ LOCAL_ALIASES = [
   TEST,
   DEV,
   BASE,
+  RECOVERY,
   FULL,
   STATEFUL,
   ANY,
@@ -69,6 +70,7 @@ LOCAL_FILE_NAMES = [
   devserver_constants.TEST_IMAGE_FILE,
   devserver_constants.IMAGE_FILE,
   devserver_constants.BASE_IMAGE_FILE,
+  devserver_constants.RECOVERY_IMAGE_FILE,
   devserver_constants.UPDATE_FILE,
   devserver_constants.STATEFUL_FILE,
   None, # For ANY.
