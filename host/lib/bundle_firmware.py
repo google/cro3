@@ -66,6 +66,10 @@ gbb_flag_properties = {
   'disable-fw-rollback-check': 0x00000020,
   'enter-triggers-tonorm': 0x00000040,
   'force-dev-boot-legacy': 0x00000080,
+  'faft-key-overide': 0x00000100,
+  'disable-ec-software-sync': 0x00000200,
+  'default-dev-boot-legacy': 0x00000400,
+  'disable-pd-software-sync': 0x00000800,
 }
 
 # Maps board name to Exynos product number
