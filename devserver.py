@@ -61,6 +61,7 @@ import autoupdate
 import build_artifact
 import cherrypy_ext
 import common_util
+import devserver_constants
 import downloader
 import gsutil_util
 import log_util
@@ -134,6 +135,27 @@ def _PrintDocStringAsHTML(func):
   return '\n'.join(html_doc)
 
 
+def _GetUpdateTimestampHandler(static_dir):
+  """Returns a handler to update directory staged.timestamp.
+
+  This handler resets the stage.timestamp whenever static content is accessed.
+
+  Args:
+    static_dir: Directory from which static content is being staged.
+
+  Returns:
+      A cherrypy handler to update the timestamp of accessed content.
+  """
+  def UpdateTimestampHandler():
+    if not '404' in cherrypy.response.status:
+      build_match = re.match(devserver_constants.STAGED_BUILD_REGEX,
+                             cherrypy.request.path_info)
+      if build_match:
+        build_dir = os.path.join(static_dir, build_match.group('build'))
+        downloader.Downloader.TouchTimestampForStaged(build_dir)
+  return UpdateTimestampHandler
+
+
 def _GetConfig(options):
   """Returns the configuration for the devserver."""
 
@@ -141,6 +163,12 @@ def _GetConfig(options):
   # Fall back to IPv4 when python is not configured with IPv6.
   if not socket.has_ipv6:
     socket_host = '0.0.0.0'
+
+  # Adds the UpdateTimestampHandler to cherrypy's tools. This tools executes
+  # on the on_end_resource hook. This hook is called once processing is
+  # complete and the response is ready to be returned.
+  cherrypy.tools.update_timestamp = cherrypy.Tool(
+      'on_end_resource', _GetUpdateTimestampHandler(options.static_dir))
 
   base_config = { 'global':
                   { 'server.log_request_headers': True,
@@ -173,6 +201,7 @@ def _GetConfig(options):
                   { 'tools.staticdir.dir': options.static_dir,
                     'tools.staticdir.on': True,
                     'response.timeout': 10000,
+                    'tools.update_timestamp.on': True,
                   },
                 }
   if options.production:

@@ -95,7 +95,7 @@ class Downloader(log_util.Loggable):
     return os.path.join(static_dir, rel_path, build)
 
   @staticmethod
-  def _TouchTimestampForStaged(directory_path):
+  def TouchTimestampForStaged(directory_path):
     file_name = os.path.join(directory_path, Downloader._TIMESTAMP_FILENAME)
     # Easiest python version of |touch file_name|
     with file(file_name, 'a'):
@@ -176,7 +176,7 @@ class Downloader(log_util.Loggable):
 
     # We are doing some work on this build -- let's touch it to indicate that
     # we shouldn't be cleaning it up anytime soon.
-    Downloader._TouchTimestampForStaged(self._build_dir)
+    Downloader.TouchTimestampForStaged(self._build_dir)
 
     # Create factory to create build_artifacts from artifact names.
     build = self.ParseUrl(self._archive_url)[1]
