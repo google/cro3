@@ -40,8 +40,6 @@ DEFINE_string archive_dir "" \
 DEFINE_string board "" "Override the board reported by the target"
 DEFINE_integer devserver_port 8080 \
   "Port to use for devserver."
-DEFINE_boolean no_patch_kernel ${FLAGS_FALSE} \
-  "Don't patch the kernel with verification blob from stateful. Prev: 'for_vm'"
 DEFINE_string image "" \
   "Path to the image file to update with, xbuddy paths accepted." i
 DEFINE_string payload "" \
@@ -181,10 +179,6 @@ start_dev_server() {
   if [ -n "${FLAGS_proxy_port}" ]; then
     devserver_flags="${devserver_flags} \
         --proxy_port=${FLAGS_proxy_port}"
-  fi
-
-  if [ ${FLAGS_no_patch_kernel} -eq ${FLAGS_TRUE} ]; then
-      devserver_flags="${devserver_flags} --no_patch_kernel"
   fi
 
   if [ -n "${FLAGS_src_image}" ]; then
