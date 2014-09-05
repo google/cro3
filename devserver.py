@@ -1057,11 +1057,6 @@ def _AddUpdateOptions(parser):
                    metavar='FILE',
                    help='Generate and serve an update using this image to any '
                    'device that requests an update.')
-  group.add_option('--no_patch_kernel',
-                   dest='patch_kernel', action='store_false', default=True,
-                   help='When generating an update payload, do not patch the '
-                   'kernel with kernel verification blob from the stateful '
-                   'partition.')
   group.add_option('--payload',
                    metavar='PATH',
                    help='use the update payload from specified directory '
