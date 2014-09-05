@@ -1193,7 +1193,6 @@ def main():
       payload_path=options.payload,
       proxy_port=options.proxy_port,
       src_image=options.src_image,
-      patch_kernel=options.patch_kernel,
       board=options.board,
       copy_to_static_root=not options.exit,
       private_key=options.private_key,

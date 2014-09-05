@@ -147,7 +147,6 @@ class Autoupdate(build_util.BuildObject):
     src_image:       if specified, creates a delta payload from this image.
     proxy_port:      port of local proxy to tell client to connect to you
                      through.
-    patch_kernel:    Patch the kernel when generating updates
     board:           board for the image. Needed for pre-generating of updates.
     copy_to_static_root:  copies images generated from the cache to ~/static.
     private_key:          path to private key in PEM format.
@@ -171,7 +170,7 @@ class Autoupdate(build_util.BuildObject):
   METADATA_HASH_ATTR = 'metadata_hash'
 
   def __init__(self, xbuddy, urlbase=None, forced_image=None, payload_path=None,
-               proxy_port=None, src_image='', patch_kernel=True, board=None,
+               proxy_port=None, src_image='', board=None,
                copy_to_static_root=True, private_key=None,
                private_key_for_metadata_hash_signature=None, public_key=None,
                critical_update=False, remote_payload=False, max_updates= -1,
@@ -183,7 +182,6 @@ class Autoupdate(build_util.BuildObject):
     self.payload_path = payload_path
     self.src_image = src_image
     self.proxy_port = proxy_port
-    self.patch_kernel = patch_kernel
     self.board = board or self.GetDefaultBoardID()
     self.copy_to_static_root = copy_to_static_root
     self.private_key = private_key
@@ -306,9 +304,6 @@ class Autoupdate(build_util.BuildObject):
     if src_image:
       update_command.extend(['--src_image', src_image])
 
-    if self.patch_kernel:
-      update_command.append('--patch_kernel')
-
     if self.private_key:
       update_command.extend(['--private_key', self.private_key])
 
@@ -357,9 +352,6 @@ class Autoupdate(build_util.BuildObject):
     update_dir += common_util.GetFileMd5(dest_image)
     if self.private_key:
       update_dir += '+' + common_util.GetFileMd5(self.private_key)
-
-    if self.patch_kernel:
-      update_dir += '+patched_kernel'
 
     return os.path.join(constants.CACHE_DIR, update_dir)
 

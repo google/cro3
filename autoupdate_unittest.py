@@ -108,8 +108,7 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock.private_key = key_path
     update_dir = au_mock.FindCachedUpdateImageSubDir(src_image, target_image)
     self.assertEqual(os.path.basename(update_dir),
-                     '%s_%s+%s+patched_kernel' %
-                     (src_hash, target_hash, key_hash))
+                     '%s_%s+%s' % (src_hash, target_hash, key_hash))
     self.mox.VerifyAll()
 
   def testGenerateLatestUpdateImage(self):
