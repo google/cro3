@@ -156,23 +156,6 @@ extract_partition_to_temp_file() {
       skip="$offset" 2>/dev/null
 }
 
-patch_kernel() {
-  local IMAGE="$1"
-  local KERN_FILE="$2"
-
-  echo "Patching kernel" $KERN_FILE
-  echo "   into" $IMAGE
-  # Keep `local` decl split from assignment so return code is checked.
-  local offset
-  offset=$(partoffset "${IMAGE}" 1)
-  : $(( offset *= 512 ))
-  STATE_MNT=$(mktemp -d --tmpdir="${FLAGS_work_dir}" state.XXXXXX)
-  sudo mount -o ro,loop,offset=$offset "$IMAGE" "$STATE_MNT"
-  dd if="$STATE_MNT"/vmlinuz_hd.vblock of="$KERN_FILE" conv=notrunc 2>/dev/null
-  umount_and_rmdir "$STATE_MNT"
-  STATE_MNT=""
-}
-
 extract_kern_root() {
   local bin_file="$1"
   local kern_out="$2"
@@ -186,9 +169,6 @@ extract_kern_root() {
   fi
 
   extract_partition_to_temp_file "$bin_file" 4 "$kern_out" > /dev/null
-  if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
-    patch_kernel "$bin_file" "$kern_out"
-  fi
   extract_partition_to_temp_file "$bin_file" 3 "$root_out" > /dev/null
 }
 
@@ -197,8 +177,6 @@ DEFINE_string src_image "" "Optional: a source image. If specified, this makes\
  a delta update."
 DEFINE_string output "" "Output file"
 DEFINE_boolean outside_chroot "$FLAGS_FALSE" "Running outside of chroot."
-DEFINE_boolean patch_kernel "$FLAGS_FALSE" "Whether or not to patch the kernel \
-with the patch from the stateful partition (default: false)"
 DEFINE_string private_key "" "Path to private key in .pem format."
 DEFINE_string out_metadata_hash_file "" "Path to output metadata hash file."
 DEFINE_boolean extract "$FLAGS_FALSE" "If set, extract old/new kernel/rootfs \
@@ -287,9 +265,6 @@ if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
   if [ "$FLAGS_full_kernel" -eq "$FLAGS_FALSE" ]; then
     SRC_KERNEL=$(extract_partition_to_temp_file "$FLAGS_src_image" 4 \
                  "$FLAGS_src_kern_path")
-    if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
-      patch_kernel "$FLAGS_src_image" "$SRC_KERNEL"
-    fi
     echo md5sum of src kernel:
     md5sum "$SRC_KERNEL"
   else
@@ -304,9 +279,6 @@ fi
 
 DST_KERNEL=$(extract_partition_to_temp_file "$FLAGS_image" 4 \
              "$FLAGS_kern_path")
-if [ "$FLAGS_patch_kernel" -eq "$FLAGS_TRUE" ]; then
-  patch_kernel "$FLAGS_image" "$DST_KERNEL"
-fi
 DST_ROOT=$(extract_partition_to_temp_file "$FLAGS_image" 3 \
            "$FLAGS_root_path")
 
