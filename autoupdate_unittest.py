@@ -127,9 +127,8 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock = self._DummyAutoupdateConstructor()
 
     common_util.IsInsideChroot().AndReturn(True)
-    self._xbuddy._GetArtifact(
-        [''], board=self.test_board, lookup_only=True).AndReturn(
-            (latest_label, constants.TEST_IMAGE_FILE))
+    self._xbuddy._GetArtifact([''], board=self.test_board, lookup_only=True,
+        image_dir=None).AndReturn((latest_label, constants.TEST_IMAGE_FILE))
 
     au_mock.GenerateUpdateImageWithCache(
         os.path.join(self.static_image_dir, self.test_board, self.latest_dir,
@@ -204,8 +203,8 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock = self._DummyAutoupdateConstructor()
     au_mock.forced_image = "xbuddy:b/v/a"
 
-    self._xbuddy._GetArtifact(
-        ['b', 'v', 'a']).AndReturn(('label', constants.TEST_IMAGE_FILE))
+    self._xbuddy._GetArtifact(['b', 'v', 'a'],
+        image_dir=None).AndReturn(('label', constants.TEST_IMAGE_FILE))
 
     au_mock.GetUpdateForLabel(
         autoupdate.FORCED_UPDATE, 'b/v/a').AndReturn('p')
