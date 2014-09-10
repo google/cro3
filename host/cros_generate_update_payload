@@ -46,37 +46,6 @@ DST_KERNEL=""
 DST_ROOT=""
 STATE_MNT=""
 
-dump_umount_diags() {
-  local mnt_point="$1"
-
-  echo "Running Diagnostics:"
-  echo
-
-  echo "cat /etc/mtab:"
-  sudo cat /etc/mtab
-  echo
-
-  echo "cat /proc/mounts:"
-  sudo cat /proc/mounts
-  echo
-
-  echo "fndmnt:"
-  sudo findmnt
-  echo
-
-  echo "lsof +D:"
-  sudo lsof +D "$mnt_point"
-  echo
-
-  echo "find:"
-  sudo find "$mnt_point"
-  echo
-
-  echo "fuser -vm:"
-  sudo fuser -vm "$mnt_point"
-  echo
-}
-
 # umount a loopback device, and remove the mount point.
 # This can be called normally (set -e), or during cleanup (set +3).
 umount_and_rmdir() {
@@ -95,7 +64,7 @@ umount_and_rmdir() {
     sudo umount -v "$mnt_point" || umount_ret=$?
     if [ ${umount_ret} -ne 0 ]; then
       echo "sudo umount -vl ${mnt_point} exited with: $umount_ret"
-      dump_umount_diags "${mnt_point}"
+      echo "Please note this failure in crbug.com/358933"
     fi
 
     rmdir_ret=0
@@ -105,7 +74,7 @@ umount_and_rmdir() {
       return 0
     else
       echo "sudo rmdir -v ${mnt_point} exited with: $rmdir_ret"
-      dump_umount_diags "${mnt_point}"
+      echo "Please note this failure in crbug.com/358933"
     fi
 
     sleep 60
@@ -358,7 +327,9 @@ if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
   SRC_MNT=$(mktemp -d --tmpdir="${FLAGS_work_dir}" src_root.XXXXXX)
   sudo mount -o loop,ro "$SRC_ROOT" "$SRC_MNT"
 
-  sudo LD_LIBRARY_PATH=${LD_LIBRARY_PATH}  PATH=${PATH} "$GENERATOR" \
+  # Preserve the path during sudo so that unpacked binaries are used when
+  # outside the chroot.
+  sudo PATH=${PATH} "$GENERATOR" \
       -new_dir "$DST_MNT" -new_image "$DST_ROOT" -new_kernel "$DST_KERNEL" \
       -old_dir "$SRC_MNT" -old_image "$SRC_ROOT" -old_kernel "$SRC_KERNEL" \
       -out_file "$FLAGS_output" -private_key "$FLAGS_private_key" \
