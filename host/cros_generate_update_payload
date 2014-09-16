@@ -200,6 +200,10 @@ DEFINE_string key "" "Key of the target image."
 DEFINE_string build_channel "" "Channel of the build of the target image."
 DEFINE_string build_version "" "Version of the build of the target image."
 
+# Because we archive/call old versions of this script, we can't easily remove
+# command line options, even if we ignore this one now.
+DEFINE_boolean patch_kernel "$FLAGS_FALSE" "Ignored. Present for compatibility."
+
 # Specifying any of the following will cause it to not be cleaned up upon exit.
 DEFINE_string kern_path "" "File path for extracting the kernel partition."
 DEFINE_string root_path "" "File path for extracting the rootfs partition."
