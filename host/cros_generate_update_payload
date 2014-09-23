@@ -260,6 +260,23 @@ fi
 
 echo "Generating $PAYLOAD_TYPE update"
 
+patch_kernel() {
+  local IMAGE="$1"
+  local KERN_FILE="$2"
+
+  echo "Patching kernel" $KERN_FILE
+  echo "   into" $IMAGE
+  # Keep `local` decl split from assignment so return code is checked.
+  local offset
+  offset=$(partoffset "${IMAGE}" 1)
+  : $(( offset *= 512 ))
+  STATE_MNT=$(mktemp -d --tmpdir="${FLAGS_work_dir}" state.XXXXXX)
+  sudo mount -o ro,loop,offset=$offset "$IMAGE" "$STATE_MNT"
+  dd if="$STATE_MNT"/vmlinuz_hd.vblock of="$KERN_FILE" conv=notrunc 2>/dev/null
+  umount_and_rmdir "$STATE_MNT"
+  STATE_MNT=""
+}
+
 # Sanity check that the real generator exists:
 GENERATOR="$(which delta_generator)"
 [ -x "$GENERATOR" ] || die "can't find delta_generator"
@@ -269,6 +286,13 @@ if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
   if [ "$FLAGS_full_kernel" -eq "$FLAGS_FALSE" ]; then
     SRC_KERNEL=$(extract_partition_to_temp_file "$FLAGS_src_image" 4 \
                  "$FLAGS_src_kern_path")
+    if $(cmp /dev/zero "${SRC_KERNEL}" -n 65536 -s); then
+      echo "Source kernel B is empty, patching kernel A."
+      rm -rf "$SRC_KERNEL"
+      SRC_KERNEL=$(extract_partition_to_temp_file "$FLAGS_src_image" 2 \
+                   "$FLAGS_src_kern_path")
+      patch_kernel "$FLAGS_src_image" "$SRC_KERNEL"
+    fi
     echo md5sum of src kernel:
     md5sum "$SRC_KERNEL"
   else
@@ -283,6 +307,13 @@ fi
 
 DST_KERNEL=$(extract_partition_to_temp_file "$FLAGS_image" 4 \
              "$FLAGS_kern_path")
+if $(cmp /dev/zero "${DST_KERNEL}" -n 65536 -s); then
+  echo "Destination kernel B is empty, patching kernel A."
+  rm -rf "$DST_KERNEL"
+  DST_KERNEL=$(extract_partition_to_temp_file "$FLAGS_image" 2 \
+               "$FLAGS_kern_path")
+  patch_kernel "$FLAGS_image" "$DST_KERNEL"
+fi
 DST_ROOT=$(extract_partition_to_temp_file "$FLAGS_image" 3 \
            "$FLAGS_root_path")
 
