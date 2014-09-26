@@ -63,8 +63,8 @@ umount_and_rmdir() {
     umount_ret=0
     sudo umount -v "$mnt_point" || umount_ret=$?
     if [ ${umount_ret} -ne 0 ]; then
-      echo "sudo umount -vl ${mnt_point} exited with: $umount_ret"
-      echo "Please note this failure in crbug.com/358933"
+      warn "sudo umount -vl ${mnt_point} exited with: $umount_ret"
+      warn "Please note this failure in crbug.com/358933"
     fi
 
     rmdir_ret=0
@@ -73,12 +73,12 @@ umount_and_rmdir() {
       # This means we worked!
       return 0
     else
-      echo "sudo rmdir -v ${mnt_point} exited with: $rmdir_ret"
-      echo "Please note this failure in crbug.com/358933"
+      warn "sudo rmdir -v ${mnt_point} exited with: $rmdir_ret"
+      warn "Please note this failure in crbug.com/358933"
     fi
 
     sleep 60
-    echo "Retrying umount_and_rmdir ${mnt_point}"
+    warn "Retrying umount_and_rmdir ${mnt_point}"
   done
 
   return 1
@@ -156,20 +156,39 @@ extract_partition_to_temp_file() {
       skip="$offset" 2>/dev/null
 }
 
-extract_kern_root() {
+patch_kernel() {
+  local IMAGE="$1"
+  local KERN_FILE="$2"
+
+  # Keep `local` decl split from assignment so return code is checked.
+  local offset
+  offset=$(partoffset "${IMAGE}" 1)
+  : $(( offset *= 512 ))
+  STATE_MNT=$(mktemp -d --tmpdir="${FLAGS_work_dir}" state.XXXXXX)
+  sudo mount -o ro,loop,offset=$offset "$IMAGE" "$STATE_MNT"
+  dd if="$STATE_MNT"/vmlinuz_hd.vblock of="$KERN_FILE" conv=notrunc 2>/dev/null
+  umount_and_rmdir "$STATE_MNT"
+  STATE_MNT=""
+}
+
+extract_kern() {
   local bin_file="$1"
   local kern_out="$2"
-  local root_out="$3"
 
-  if [ -z "$kern_out" ]; then
-    die "missing kernel output filename"
+  kern_out=$(extract_partition_to_temp_file "${bin_file}" 4 "${kern_out}")
+  if $(cmp /dev/zero "${kern_out}" -n 65536 -s); then
+    warn "${bin_file}: Kernel B is empty, patching kernel A."
+    extract_partition_to_temp_file "${bin_file}" 2 "${kern_out}" > /dev/null
+    patch_kernel "${bin_file}" "${kern_out}" >&2
   fi
-  if [ -z "$root_out" ]; then
-    die "missing root output filename"
-  fi
+  echo "${kern_out}"
+}
 
-  extract_partition_to_temp_file "$bin_file" 4 "$kern_out" > /dev/null
-  extract_partition_to_temp_file "$bin_file" 3 "$root_out" > /dev/null
+extract_root() {
+  local bin_file="$1"
+  local root_out="$2"
+
+  extract_partition_to_temp_file "$bin_file" 3 "$root_out"
 }
 
 DEFINE_string image "" "The image that should be sent to clients."
@@ -237,12 +256,14 @@ if [ "$FLAGS_extract" -eq "$FLAGS_TRUE" ]; then
   if [ -n "$FLAGS_src_image" ]; then
     SRC_KERN_PATH="${FLAGS_src_kern_path:-old_kern.dat}"
     SRC_ROOT_PATH="${FLAGS_src_root_path:-old_root.dat}"
-    extract_kern_root "$FLAGS_src_image" "$SRC_KERN_PATH" "$SRC_ROOT_PATH"
+    extract_kern "$FLAGS_src_image" "$SRC_KERN_PATH"
+    extract_root "$FLAGS_src_image" "$SRC_ROOT_PATH"
   fi
   if [ -n "$FLAGS_image" ]; then
     KERN_PATH="${FLAGS_kern_path:-new_kern.dat}"
     ROOT_PATH="${FLAGS_root_path:-new_root.dat}"
-    extract_kern_root "$FLAGS_image" "$KERN_PATH" "$ROOT_PATH"
+    extract_kern "$FLAGS_image" "$KERN_PATH"
+    extract_root "$FLAGS_image" "$ROOT_PATH"
   fi
   echo Done extracting kernel/root
   exit 0
@@ -260,23 +281,6 @@ fi
 
 echo "Generating $PAYLOAD_TYPE update"
 
-patch_kernel() {
-  local IMAGE="$1"
-  local KERN_FILE="$2"
-
-  echo "Patching kernel" $KERN_FILE
-  echo "   into" $IMAGE
-  # Keep `local` decl split from assignment so return code is checked.
-  local offset
-  offset=$(partoffset "${IMAGE}" 1)
-  : $(( offset *= 512 ))
-  STATE_MNT=$(mktemp -d --tmpdir="${FLAGS_work_dir}" state.XXXXXX)
-  sudo mount -o ro,loop,offset=$offset "$IMAGE" "$STATE_MNT"
-  dd if="$STATE_MNT"/vmlinuz_hd.vblock of="$KERN_FILE" conv=notrunc 2>/dev/null
-  umount_and_rmdir "$STATE_MNT"
-  STATE_MNT=""
-}
-
 # Sanity check that the real generator exists:
 GENERATOR="$(which delta_generator)"
 [ -x "$GENERATOR" ] || die "can't find delta_generator"
@@ -284,38 +288,19 @@ GENERATOR="$(which delta_generator)"
 trap cleanup INT TERM EXIT
 if [ "$DELTA" -eq "$FLAGS_TRUE" ]; then
   if [ "$FLAGS_full_kernel" -eq "$FLAGS_FALSE" ]; then
-    SRC_KERNEL=$(extract_partition_to_temp_file "$FLAGS_src_image" 4 \
-                 "$FLAGS_src_kern_path")
-    if $(cmp /dev/zero "${SRC_KERNEL}" -n 65536 -s); then
-      echo "Source kernel B is empty, patching kernel A."
-      rm -rf "$SRC_KERNEL"
-      SRC_KERNEL=$(extract_partition_to_temp_file "$FLAGS_src_image" 2 \
-                   "$FLAGS_src_kern_path")
-      patch_kernel "$FLAGS_src_image" "$SRC_KERNEL"
-    fi
+    SRC_KERNEL=$(extract_kern "$FLAGS_src_image" "$FLAGS_src_kern_path")
     echo md5sum of src kernel:
     md5sum "$SRC_KERNEL"
   else
     echo "Generating a full kernel update."
   fi
-  SRC_ROOT=$(extract_partition_to_temp_file "$FLAGS_src_image" 3 \
-             "$FLAGS_src_root_path")
-
+  SRC_ROOT=$(extract_root "$FLAGS_src_image" "$FLAGS_src_root_path")
   echo md5sum of src root:
   md5sum "$SRC_ROOT"
 fi
 
-DST_KERNEL=$(extract_partition_to_temp_file "$FLAGS_image" 4 \
-             "$FLAGS_kern_path")
-if $(cmp /dev/zero "${DST_KERNEL}" -n 65536 -s); then
-  echo "Destination kernel B is empty, patching kernel A."
-  rm -rf "$DST_KERNEL"
-  DST_KERNEL=$(extract_partition_to_temp_file "$FLAGS_image" 2 \
-               "$FLAGS_kern_path")
-  patch_kernel "$FLAGS_image" "$DST_KERNEL"
-fi
-DST_ROOT=$(extract_partition_to_temp_file "$FLAGS_image" 3 \
-           "$FLAGS_root_path")
+DST_KERNEL=$(extract_kern "$FLAGS_image" "$FLAGS_kern_path")
+DST_ROOT=$(extract_root "$FLAGS_image" "$FLAGS_root_path")
 
 DST_MNT=$(mktemp -d --tmpdir="${FLAGS_work_dir}" src_root.XXXXXX)
 sudo mount -o loop,ro "$DST_ROOT" "$DST_MNT"
