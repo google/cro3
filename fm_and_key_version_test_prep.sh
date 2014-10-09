@@ -29,6 +29,32 @@ cleanup() {
   "${SCRIPTS_DIR}/mount_gpt_image.sh" -u -r "$ROOT_FS_DIR" -s "$STATEFUL_FS_DIR"
 }
 
+replace_fmap_section() {
+  local image="$1"
+  local section="$2"
+  local data="$3"
+
+  # format: NAME OFFSET SIZE
+  local info="$(dump_fmap -p "${image}" "${section}")"
+  local name offset size
+  read name offset size <<<"${info}"
+
+  [ -n "${offset}" ] || die_notrace "Invalid firmware image: No ${section}."
+
+  dd if=/dev/zero of="$image" bs=1 seek="${offset}" count="${size}" \
+    conv=notrunc
+  echo -n "${data}" | dd of="$image" bs=1 seek="${offset}" conv=notrunc
+}
+
+replace_firmware_id() {
+  local image="$1"
+  local new_id="$2"
+
+  replace_fmap_section "${image}" RO_FRID "$new_id"
+  replace_fmap_section "${image}" RW_FWID_A "$new_id"
+  replace_fmap_section "${image}" RW_FWID_B "$new_id"
+}
+
 # Need to be inside the chroot to load chromeos-common.sh
 assert_inside_chroot
 
@@ -66,23 +92,12 @@ fi
 mkdir ${WORKING_DIR}
 mkdir ${BIOS_WORKING_DIR}
 
-# Create bvi scripts and run them against the firmware bios
-info "Creating bvi scripts"
-for i in $(seq 1 1 ${ITERATIONS})
-do
-  BVI_SCRIPT_FILE="${BIOS_WORKING_DIR}/bvi_script.${i}"
-  cat > ${BVI_SCRIPT_FILE} <<EOF
-s/${FLAGS_replace_src}/${FLAGS_replace_src}.test${i}/g
-w ${BIOS_WORKING_DIR}/${FLAGS_board}_${FM_VER_PREFIX}.${i}.bin
-q!
-EOF
-done
-
 info "Creating firmware binaries"
 for i in $(seq 1 1 ${ITERATIONS})
 do
-  BVI_SCRIPT_FILE="${BIOS_WORKING_DIR}/bvi_script.${i}"
-  bvi -R -f ${BVI_SCRIPT_FILE} ${FLAGS_firmware_src}
+  output="${BIOS_WORKING_DIR}/${FLAGS_board}_${FM_VER_PREFIX}.${i}.bin"
+  cp "${FLAGS_firmware_src}" "${output}"
+  replace_firmware_id "${output}" "${FLAGS_replace_src}.test${i}"
 done
 
 # Check we have all 5 new firmware binaries
