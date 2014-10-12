@@ -31,13 +31,6 @@ find_common_sh() {
 find_common_sh
 . "${SCRIPT_ROOT}/common.sh" || exit 1
 
-# Load functions and constants for chromeos-install
-# NOTE: Needs to be called from outside the chroot.
-. "/usr/lib/installer/chromeos-common.sh" &> /dev/null || \
-. "${SRC_ROOT}/platform2/installer/share/chromeos-common.sh" &> /dev/null || \
-. "./chromeos-common.sh" || \
-  die "Unable to load /usr/lib/installer/chromeos-common.sh"
-
 DEFINE_string image "" "The image that should be sent to clients."
 DEFINE_string src_image "" "Optional: a source image. If specified, this makes\
  a delta update."
@@ -92,13 +85,13 @@ eval set -- "${FLAGS_ARGV}"
 # be cleaned up on the build servers at the end of cbuildbot.
 MOUNTS_ROOT="/tmp/crbug_358933"
 
+SRC_DEV=""
+DST_DEV=""
 SRC_MNT=""
 DST_MNT=""
-SRC_KERNEL=""
-SRC_ROOT=""
-DST_KERNEL=""
-DST_ROOT=""
 STATE_MNT=""
+
+PATCHED=$(mktemp -d --tmpdir="${FLAGS_work_dir}" patched.XXXXXX)
 
 # umount a loopback device, and remove the mount point.
 umount_and_rmdir() {
@@ -136,18 +129,15 @@ cleanup() {
   DST_MNT=""
   STATE_MNT=""
 
-  if [[ -z "${FLAGS_src_kern_path}" ]]; then
-    rm -f "${SRC_KERNEL}" || err=1
+  if [[ -n "${SRC_DEV}" ]]; then
+    loopback_detach "${SRC_DEV}"
   fi
-  if [[ -z "${FLAGS_src_root_path}" ]]; then
-    rm -f "${SRC_ROOT}" || err=1
+
+  if [[ -n "${DST_DEV}" ]]; then
+    loopback_detach "${DST_DEV}"
   fi
-  if [[ -z "${FLAGS_kern_path}" ]]; then
-    rm -f "${DST_KERNEL}" || err=1
-  fi
-  if [[ -z "${FLAGS_root_path}" ]]; then
-    rm -f "${DST_ROOT}" || err=1
-  fi
+
+  sudo rm -rf "${PATCHED}" || err=1
 
   # If we are cleaning up after an error, or if we got an error during
   # cleanup (even if we eventually succeeded) return a non-zero exit
@@ -172,68 +162,51 @@ cleanup_on_exit() {
 trap cleanup_on_error INT TERM ERR
 trap cleanup_on_exit EXIT
 
-extract_partition_to_temp_file() {
-  local filename="$1"
-  local partition="$2"
-  local temp_file="$3"
-  if [[ -z "${temp_file}" ]]; then
-    temp_file=$(mktemp --tmpdir="${FLAGS_work_dir}" \
-                cros_generate_update_payload.XXXXXX)
-  fi
-  echo "${temp_file}"
-
-  # Keep `local` decl split from assignment so return code is checked.
-  local offset length
-  offset=$(partoffset "${filename}" ${partition})  # 512-byte sectors
-  length=$(partsize "${filename}" ${partition})  # 512-byte sectors
-  local bs=512
-  local sectors_per_two_mib=$((2 * 1024 * 1024 / 512))
-  if [[ $(( offset % sectors_per_two_mib )) -eq 0 && \
-        $(( length % sectors_per_two_mib )) -eq 0 ]]; then
-    bs=$((2 * 1024 * 1024))
-    offset=$((offset / sectors_per_two_mib))
-    length=$((length / sectors_per_two_mib))
-  else
-    warn "partition offset or length not at 2MiB boundary"
-  fi
-  dd if="${filename}" of="${temp_file}" bs=${bs} count="${length}" \
-      skip="${offset}" 2>/dev/null
-}
-
 patch_kernel() {
-  local IMAGE="$1"
-  local KERN_FILE="$2"
+  local stateful="$1"
+  local kern="$2"
 
-  # Keep `local` decl split from assignment so return code is checked.
-  local offset
-  offset=$(partoffset "${IMAGE}" 1)
-  : $(( offset *= 512 ))
   STATE_MNT=$(mktemp -d --tmpdir="${MOUNTS_ROOT}" state.XXXXXX)
-  sudo mount -o ro,loop,offset="${offset}" "${IMAGE}" "${STATE_MNT}"
-  dd if="${STATE_MNT}"/vmlinuz_hd.vblock of="${KERN_FILE}" conv=notrunc \
-      2>/dev/null
+  sudo mount -o ro "${stateful}" "${STATE_MNT}"
+  dd if="${STATE_MNT}"/vmlinuz_hd.vblock of="${kern}" conv=notrunc 2>/dev/null
   umount_and_rmdir "${STATE_MNT}"
-  STATE_MNT=""
 }
 
 extract_kern() {
-  local bin_file="$1"
+  local dev="$1"
   local kern_out="$2"
+  local kern_a="${dev}p2"
+  local kern_b="${dev}p4"
+  local stateful="${dev}p1"
 
-  kern_out=$(extract_partition_to_temp_file "${bin_file}" 4 "${kern_out}")
-  if $(cmp /dev/zero "${kern_out}" -n 65536 -s); then
+  if ! cmp /dev/zero "${kern_b}" -n 65536 -s; then
+    if [[ -n "${kern_out}" ]]; then
+      cp "${kern_b}" "${kern_out}"
+    else
+      kern_out="${kern_b}"
+    fi
+  else
     warn "${bin_file}: Kernel B is empty, patching kernel A."
-    extract_partition_to_temp_file "${bin_file}" 2 "${kern_out}" > /dev/null
-    patch_kernel "${bin_file}" "${kern_out}" >&2
+    [[ -n "${kern_out}" ]] || \
+      kern_out=$(mktemp --tmpdir="${PATCHED}" \
+                 cros_generate_update_payload.XXXXXX)
+    cp "${kern_b}" "${kern_out}"
+    patch_kernel "${stateful}" "${kern_out}" >&2
   fi
   echo "${kern_out}"
 }
 
 extract_root() {
-  local bin_file="$1"
+  local dev="$1"
   local root_out="$2"
+  local root_a="${dev}p3"
 
-  extract_partition_to_temp_file "${bin_file}" 3 "${root_out}"
+  if [[ -n "${root_out}" ]]; then
+    cp "${root_a}" "${root_out}"
+  else
+    root_out="${root_a}"
+  fi
+  echo "${root_out}"
 }
 
 mkdir -p "${MOUNTS_ROOT}"
@@ -248,20 +221,24 @@ if [[ -n "${FLAGS_src_image}" ]] && \
   assert_inside_chroot
 fi
 
-locate_gpt
+if [[ -n "${FLAGS_src_image}" ]]; then
+  SRC_DEV=$(loopback_partscan "${FLAGS_src_image}")
+  sudo chmod a+r "${SRC_DEV}" "${SRC_DEV}"p*
+fi
+
+if [[ -n "${FLAGS_image}" ]]; then
+  DST_DEV=$(loopback_partscan "${FLAGS_image}")
+  sudo chmod a+r "${DST_DEV}" "${DST_DEV}"p*
+fi
 
 if [[ "${FLAGS_extract}" -eq "${FLAGS_TRUE}" ]]; then
   if [[ -n "${FLAGS_src_image}" ]]; then
-    SRC_KERN_PATH="${FLAGS_src_kern_path:-old_kern.dat}"
-    SRC_ROOT_PATH="${FLAGS_src_root_path:-old_root.dat}"
-    extract_kern "${FLAGS_src_image}" "${SRC_KERN_PATH}"
-    extract_root "${FLAGS_src_image}" "${SRC_ROOT_PATH}"
+    extract_kern "${SRC_DEV}" "${FLAGS_src_kern_path:-old_kern.dat}"
+    extract_root "${SRC_DEV}" "${FLAGS_src_root_path:-old_root.dat}"
   fi
   if [[ -n "${FLAGS_image}" ]]; then
-    KERN_PATH="${FLAGS_kern_path:-new_kern.dat}"
-    ROOT_PATH="${FLAGS_root_path:-new_root.dat}"
-    extract_kern "${FLAGS_image}" "${KERN_PATH}"
-    extract_root "${FLAGS_image}" "${ROOT_PATH}"
+    extract_kern "${DST_DEV}" "${FLAGS_kern_path:-new_kern.dat}"
+    extract_root "${DST_DEV}" "${FLAGS_root_path:-new_root.dat}"
   fi
   echo Done extracting kernel/root
   exit 0
@@ -285,36 +262,28 @@ GENERATOR="$(which delta_generator)"
 
 if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
   if [[ "${FLAGS_full_kernel}" -eq "${FLAGS_FALSE}" ]]; then
-    SRC_KERNEL=$(extract_kern "${FLAGS_src_image}" "${FLAGS_src_kern_path}")
+    SRC_KERNEL=$(extract_kern "${SRC_DEV}" "${FLAGS_src_kern_path}")
     echo md5sum of src kernel:
     md5sum "${SRC_KERNEL}"
   else
     echo "Generating a full kernel update."
   fi
-  SRC_ROOT=$(extract_root "${FLAGS_src_image}" "${FLAGS_src_root_path}")
+  SRC_ROOT=$(extract_root "${SRC_DEV}" "${FLAGS_src_root_path}")
   echo md5sum of src root:
   md5sum "${SRC_ROOT}"
 fi
 
-DST_KERNEL=$(extract_kern "${FLAGS_image}" "${FLAGS_kern_path}")
-DST_ROOT=$(extract_root "${FLAGS_image}" "${FLAGS_root_path}")
+DST_KERNEL=$(extract_kern "${DST_DEV}" "${FLAGS_kern_path}")
+DST_ROOT=$(extract_root "${DST_DEV}" "${FLAGS_root_path}")
 
 DST_MNT=$(mktemp -d --tmpdir="${MOUNTS_ROOT}" dst_root.XXXXXX)
-sudo mount -o loop,ro "${DST_ROOT}" "${DST_MNT}"
+sudo mount -o ro "${DST_ROOT}" "${DST_MNT}"
 
-source "${DST_MNT}"/usr/sbin/write_gpt.sh || warn "Could not read write_gpt.sh"
-
-PARTITION_SIZE_PARAM=
-if [[ -n "${ROOTFS_PARTITION_SIZE}" ]]; then
-  echo "Using rootfs partition size: ${ROOTFS_PARTITION_SIZE}";
-  PARTITION_SIZE_PARAM="-rootfs_partition_size=${ROOTFS_PARTITION_SIZE}"
-else
-  echo "Using the default partition size."
-fi
+PARTITION_SIZE_PARAM="-rootfs_partition_size=$(bd_safe_size "${DST_ROOT}")"
 
 if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
   SRC_MNT=$(mktemp -d --tmpdir="${MOUNTS_ROOT}" src_root.XXXXXX)
-  sudo mount -o loop,ro "${SRC_ROOT}" "${SRC_MNT}"
+  sudo mount -o ro "${SRC_ROOT}" "${SRC_MNT}"
 
   # Preserve the path during sudo so that unpacked binaries are used when
   # outside the chroot.
