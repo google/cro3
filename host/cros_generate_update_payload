@@ -38,6 +38,54 @@ find_common_sh
 . "./chromeos-common.sh" || \
   die "Unable to load /usr/lib/installer/chromeos-common.sh"
 
+DEFINE_string image "" "The image that should be sent to clients."
+DEFINE_string src_image "" "Optional: a source image. If specified, this makes\
+ a delta update."
+DEFINE_string output "" "Output file"
+DEFINE_boolean outside_chroot "${FLAGS_FALSE}" "Running outside of chroot."
+DEFINE_string private_key "" "Path to private key in .pem format."
+DEFINE_string out_metadata_hash_file "" "Path to output metadata hash file."
+DEFINE_boolean extract "${FLAGS_FALSE}" "If set, extract old/new kernel/rootfs \
+to [old|new]_[kern|root].dat. Useful for debugging (default: false)"
+DEFINE_boolean full_kernel "${FLAGS_FALSE}" "Generate a full kernel update \
+even if generating a delta update (default: false)"
+DEFINE_integer chunk_size -1 \
+  "Delta payload chunk size (default -1 means whole files)"
+
+DEFINE_string src_channel "" "Channel of the src image."
+DEFINE_string src_board "" "Board of the src image."
+DEFINE_string src_version "" "Version of the src image."
+DEFINE_string src_key "" "Key of the src image."
+DEFINE_string src_build_channel "" "Channel of the build of the src image."
+DEFINE_string src_build_version "" "Version of the build of the src image."
+
+DEFINE_string channel "" "Channel of the target image."
+DEFINE_string board "" "Board of the target image."
+DEFINE_string version "" "Version of the target image."
+DEFINE_string key "" "Key of the target image."
+DEFINE_string build_channel "" "Channel of the build of the target image."
+DEFINE_string build_version "" "Version of the build of the target image."
+
+# Because we archive/call old versions of this script, we can't easily remove
+# command line options, even if we ignore this one now.
+DEFINE_boolean patch_kernel "${FLAGS_FALSE}" "Ignored. Present for \
+compatibility."
+
+# Specifying any of the following will cause it to not be cleaned up upon exit.
+DEFINE_string kern_path "" "File path for extracting the kernel partition."
+DEFINE_string root_path "" "File path for extracting the rootfs partition."
+DEFINE_string src_kern_path "" \
+  "File path for extracting the source kernel partition."
+DEFINE_string src_root_path "" \
+  "File path for extracting the source rootfs partition."
+
+DEFINE_string work_dir "" "Where to dump temporary files."
+
+
+# Parse command line
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+
 # We use this directory to create mount points as a way around crbug.com/358933.
 # Use FLAGS_work_dir instead when that workaround is no longer needed.
 # When that bug affects us, we will leak temp directories. They should
@@ -53,7 +101,6 @@ DST_ROOT=""
 STATE_MNT=""
 
 # umount a loopback device, and remove the mount point.
-# This can be called normally (set -e), or during cleanup (set +e).
 umount_and_rmdir() {
   local mnt_point="$1"
 
@@ -78,13 +125,8 @@ umount_and_rmdir() {
   return 0
 }
 
-# Pass any argument to this method during normal cleanup.
-# Otherwise, it will assume it was called from a trap, and exit 1.
 cleanup() {
-  local normally_invoked="$1"
   local err=""
-
-  set +e
 
   umount_and_rmdir "${SRC_MNT}" || err=1
   umount_and_rmdir "${DST_MNT}" || err=1
@@ -112,15 +154,23 @@ cleanup() {
   # code. This triggers additional logging in most environments that call
   # this script.
   if [[ -n "${err}" ]]; then
-    echo "Cleanup encountered an error."
-    exit 2
-  fi
-
-  if [[ -z "${normally_invoked}" ]]; then
-    echo "Cleanup success after an error."
-    exit 1
+    die "Cleanup encountered an error."
   fi
 }
+
+cleanup_on_error() {
+  trap - INT TERM ERR EXIT
+  cleanup
+  die "Cleanup success after an error."
+}
+
+cleanup_on_exit() {
+  trap - INT TERM ERR EXIT
+  cleanup
+}
+
+trap cleanup_on_error INT TERM ERR
+trap cleanup_on_exit EXIT
 
 extract_partition_to_temp_file() {
   local filename="$1"
@@ -186,56 +236,6 @@ extract_root() {
   extract_partition_to_temp_file "${bin_file}" 3 "${root_out}"
 }
 
-DEFINE_string image "" "The image that should be sent to clients."
-DEFINE_string src_image "" "Optional: a source image. If specified, this makes\
- a delta update."
-DEFINE_string output "" "Output file"
-DEFINE_boolean outside_chroot "${FLAGS_FALSE}" "Running outside of chroot."
-DEFINE_string private_key "" "Path to private key in .pem format."
-DEFINE_string out_metadata_hash_file "" "Path to output metadata hash file."
-DEFINE_boolean extract "${FLAGS_FALSE}" "If set, extract old/new kernel/rootfs \
-to [old|new]_[kern|root].dat. Useful for debugging (default: false)"
-DEFINE_boolean full_kernel "${FLAGS_FALSE}" "Generate a full kernel update \
-even if generating a delta update (default: false)"
-DEFINE_integer chunk_size -1 \
-  "Delta payload chunk size (default -1 means whole files)"
-
-DEFINE_string src_channel "" "Channel of the src image."
-DEFINE_string src_board "" "Board of the src image."
-DEFINE_string src_version "" "Version of the src image."
-DEFINE_string src_key "" "Key of the src image."
-DEFINE_string src_build_channel "" "Channel of the build of the src image."
-DEFINE_string src_build_version "" "Version of the build of the src image."
-
-DEFINE_string channel "" "Channel of the target image."
-DEFINE_string board "" "Board of the target image."
-DEFINE_string version "" "Version of the target image."
-DEFINE_string key "" "Key of the target image."
-DEFINE_string build_channel "" "Channel of the build of the target image."
-DEFINE_string build_version "" "Version of the build of the target image."
-
-# Because we archive/call old versions of this script, we can't easily remove
-# command line options, even if we ignore this one now.
-DEFINE_boolean patch_kernel "${FLAGS_FALSE}" "Ignored. Present for \
-compatibility."
-
-# Specifying any of the following will cause it to not be cleaned up upon exit.
-DEFINE_string kern_path "" "File path for extracting the kernel partition."
-DEFINE_string root_path "" "File path for extracting the rootfs partition."
-DEFINE_string src_kern_path "" \
-  "File path for extracting the source kernel partition."
-DEFINE_string src_root_path "" \
-  "File path for extracting the source rootfs partition."
-
-DEFINE_string work_dir "" "Where to dump temporary files."
-
-
-# Parse command line
-FLAGS "$@" || exit 1
-eval set -- "${FLAGS_ARGV}"
-
-set -e
-
 mkdir -p "${MOUNTS_ROOT}"
 
 if [[ -n "${FLAGS_src_image}" ]] && \
@@ -283,7 +283,6 @@ echo "Generating ${PAYLOAD_TYPE} update"
 GENERATOR="$(which delta_generator)"
 [[ -x "${GENERATOR}" ]] || die "can't find delta_generator"
 
-trap cleanup INT TERM EXIT
 if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
   if [[ "${FLAGS_full_kernel}" -eq "${FLAGS_FALSE}" ]]; then
     SRC_KERNEL=$(extract_kern "${FLAGS_src_image}" "${FLAGS_src_kern_path}")
@@ -357,8 +356,5 @@ if [[ -n "${FLAGS_out_metadata_hash_file}" ]]; then
         -signature_size 256 \
         -out_metadata_hash_file "${FLAGS_out_metadata_hash_file}"
 fi
-
-trap - INT TERM EXIT
-cleanup noexit
 
 echo "Done generating ${PAYLOAD_TYPE} update."
