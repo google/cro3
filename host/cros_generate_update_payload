@@ -319,30 +319,30 @@ if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
   # Preserve the path during sudo so that unpacked binaries are used when
   # outside the chroot.
   sudo PATH=${PATH} "${GENERATOR}" \
-      -new_dir "${DST_MNT}" -new_image "${DST_ROOT}" \
-      -new_kernel "${DST_KERNEL}" \
-      -old_dir "${SRC_MNT}" -old_image "${SRC_ROOT}" \
-      -old_kernel "${SRC_KERNEL}" \
-      -out_file "${FLAGS_output}" -private_key "${FLAGS_private_key}" \
-      -chunk_size "${FLAGS_chunk_size}" \
+      -new_dir="${DST_MNT}" -new_image="${DST_ROOT}" \
+      -new_kernel="${DST_KERNEL}" \
+      -old_dir="${SRC_MNT}" -old_image="${SRC_ROOT}" \
+      -old_kernel="${SRC_KERNEL}" \
+      -out_file="${FLAGS_output}" -private_key="${FLAGS_private_key}" \
+      -chunk_size="${FLAGS_chunk_size}" \
       "${PARTITION_SIZE_PARAM}" \
-      -old_channel "${FLAGS_src_channel}" -old_board "${FLAGS_src_board}" \
-      -old_version "${FLAGS_src_version}" -old_key "${FLAGS_src_key}" \
-      -old_build_channel "${FLAGS_src_build_channel}" \
-      -old_build_version "${FLAGS_src_build_version}" \
-      -new_channel "${FLAGS_channel}" -new_board "${FLAGS_board}" \
-      -new_version "${FLAGS_version}" -new_key "${FLAGS_key}" \
-      -new_build_channel "${FLAGS_build_channel}" \
-      -new_build_version "${FLAGS_build_version}"
+      -old_channel="${FLAGS_src_channel}" -old_board="${FLAGS_src_board}" \
+      -old_version="${FLAGS_src_version}" -old_key="${FLAGS_src_key}" \
+      -old_build_channel="${FLAGS_src_build_channel}" \
+      -old_build_version="${FLAGS_src_build_version}" \
+      -new_channel="${FLAGS_channel}" -new_board="${FLAGS_board}" \
+      -new_version="${FLAGS_version}" -new_key="${FLAGS_key}" \
+      -new_build_channel="${FLAGS_build_channel}" \
+      -new_build_version="${FLAGS_build_version}"
 else
   "${GENERATOR}" \
-      -new_image "${DST_ROOT}" -new_kernel "${DST_KERNEL}" \
-      -out_file "${FLAGS_output}" -private_key "${FLAGS_private_key}" \
+      -new_image="${DST_ROOT}" -new_kernel="${DST_KERNEL}" \
+      -out_file="${FLAGS_output}" -private_key="${FLAGS_private_key}" \
       "${PARTITION_SIZE_PARAM}" \
-      -new_channel "${FLAGS_channel}" -new_board "${FLAGS_board}" \
-      -new_version "${FLAGS_version}" -new_key "${FLAGS_key}" \
-      -new_build_channel "${FLAGS_build_channel}" \
-      -new_build_version "${FLAGS_build_version}"
+      -new_channel="${FLAGS_channel}" -new_board="${FLAGS_board}" \
+      -new_version="${FLAGS_version}" -new_key="${FLAGS_key}" \
+      -new_build_channel="${FLAGS_build_channel}" \
+      -new_build_version="${FLAGS_build_version}"
 fi
 
 if [[ -n "${FLAGS_out_metadata_hash_file}" ]]; then
@@ -352,9 +352,9 @@ if [[ -n "${FLAGS_out_metadata_hash_file}" ]]; then
     # size used. The value 256 is the number of bytes the SHA-256 hash
     # value of the manifest signed with a 2048-bit RSA key occupies.
     "${GENERATOR}" \
-        -in_file "${FLAGS_output}" \
-        -signature_size 256 \
-        -out_metadata_hash_file "${FLAGS_out_metadata_hash_file}"
+        -in_file="${FLAGS_output}" \
+        -signature_size=256 \
+        -out_metadata_hash_file="${FLAGS_out_metadata_hash_file}"
 fi
 
 echo "Done generating ${PAYLOAD_TYPE} update."

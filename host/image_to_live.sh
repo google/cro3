@@ -263,7 +263,7 @@ get_update_args() {
     die "No url provided for update."
   fi
 
-  local update_args="--omaha_url ${1}"
+  local update_args="--omaha_url=${1}"
 
   info "Omaha URL: " ${update_args}
 
