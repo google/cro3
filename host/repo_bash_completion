@@ -65,6 +65,8 @@ _complete_repo() {
 
 complete -F _complete_repo repo
 
+source /usr/share/git/git-prompt.sh 2>/dev/null
+
 # Add a way to get the "m" branch from repo easily; used by __git_branch_ps1()
 #
 # Repo seems to maintain a phony 'm/' remote and it always seems to be the name
