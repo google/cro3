@@ -263,10 +263,14 @@ GENERATOR="$(which delta_generator)"
 if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
   if [[ "${FLAGS_full_kernel}" -eq "${FLAGS_FALSE}" ]]; then
     SRC_KERNEL=$(extract_kern "${SRC_DEV}" "${FLAGS_src_kern_path}")
+    echo md5sum of src kernel:
+    md5sum "${SRC_KERNEL}"
   else
     echo "Generating a full kernel update."
   fi
   SRC_ROOT=$(extract_root "${SRC_DEV}" "${FLAGS_src_root_path}")
+  echo md5sum of src root:
+  md5sum "${SRC_ROOT}"
 fi
 
 DST_KERNEL=$(extract_kern "${DST_DEV}" "${FLAGS_kern_path}")
