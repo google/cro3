@@ -28,6 +28,8 @@ _MTON_DIR_SUFFIX = '_mton'
 AU_SUITE_FILE = 'au_control.tar.bz2'
 PAYGEN_AU_SUITE_FILE_TEMPLATE = 'paygen_au_%(channel)s_control.tar.bz2'
 AUTOTEST_FILE = 'autotest.tar'
+CONTROL_FILES_FILE = 'control_files.tar'
+AUTOTEST_PACKAGES_FILE = 'autotest_packages.tar'
 AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
 FACTORY_FILE = 'ChromeOS-factory*.zip'
@@ -573,6 +575,10 @@ ARTIFACT_IMPLEMENTATION_MAP = {
     ImplDescription(AutotestTarballBuildArtifact, AUTOTEST_FILE,
                     files_to_extract=None,
                     exclude=['autotest/test_suites']),
+    artifact_info.CONTROL_FILES:
+    ImplDescription(BundledBuildArtifact, CONTROL_FILES_FILE),
+    artifact_info.AUTOTEST_PACKAGES:
+    ImplDescription(AutotestTarballBuildArtifact, AUTOTEST_PACKAGES_FILE),
     artifact_info.TEST_SUITES:
     ImplDescription(BundledBuildArtifact, TEST_SUITES_FILE),
     artifact_info.AU_SUITE:

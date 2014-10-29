@@ -40,6 +40,12 @@ DEV_IMAGE = 'dev_image'
 # Autotest -- the main autotest directory without the test_suites subdir.
 AUTOTEST = 'autotest'
 
+# Control Files -- the autotest control files without the test_suites subdir.
+CONTROL_FILES = 'control_files'
+
+# Autotest Packages-- the autotest packages subdirectory.
+AUTOTEST_PACKAGES = 'autotest_packages'
+
 # Test Suites - just the test suites control files from the autotest directory.
 TEST_SUITES = 'test_suites'
 
