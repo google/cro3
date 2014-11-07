@@ -217,7 +217,10 @@ class XBuddy(build_util.BuildObject):
     if os.path.exists(config_file):
       xbuddy_config.read(config_file)
     else:
-      raise XBuddyException('%s not found' % (CONFIG_FILE))
+      # Get the directory of xbuddy.py file.
+      file_dir = os.path.dirname(os.path.realpath(__file__))
+      # Read the default xbuddy_config.ini from the directory.
+      xbuddy_config.read(os.path.join(file_dir, CONFIG_FILE))
 
     # Read the shadow file if there is one.
     if os.path.isdir(CHROOT_SHADOW_DIR):
