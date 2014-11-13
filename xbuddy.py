@@ -566,12 +566,6 @@ class XBuddy(build_util.BuildObject):
       build_ids.extend(['/'.join([b, v]) for v
                         in os.listdir(board_dir) if not v == LATEST])
 
-    # Check currently registered images.
-    for f in os.listdir(self._timestamp_folder):
-      build_id = Timestamp.TimestampToBuild(f)
-      if build_id in build_ids:
-        build_ids.remove(build_id)
-
     # Symlink undiscovered images, and update timestamps if manage_builds is on.
     for build_id in build_ids:
       link = os.path.join(self.static_dir, build_id)
