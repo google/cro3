@@ -4,6 +4,7 @@
 
 """Main module for parsing and interpreting XBuddy paths for the devserver."""
 
+import cherrypy
 import ConfigParser
 import datetime
 import operator
@@ -177,8 +178,11 @@ class XBuddy(build_util.BuildObject):
   _staging_thread_count_lock = threading.Lock()
 
   def __init__(self, manage_builds=False, board=None, images_dir=None,
-               **kwargs):
+               log_screen=True, **kwargs):
     super(XBuddy, self).__init__(**kwargs)
+
+    if not log_screen:
+      cherrypy.config.update({'log.screen': False})
 
     self.config = self._ReadConfig()
     self._manage_builds = manage_builds or self._ManageBuilds()
