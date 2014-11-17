@@ -126,9 +126,8 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, timeout=600, delay=10,
   # If the pattern is a glob and contains no wildcards, we'll first attempt to
   # stat the file via du.
   if not (is_regex_pattern or _GlobHasWildcards(pattern)):
-    get_methods.append(('gsutil du %s/%s' % (archive_url, pattern),
-                        'Failed to du on the artifact file.',
-                        pattern))
+    get_methods.append(('gsutil stat %s/%s' % (archive_url, pattern),
+                        'Failed to stat on the artifact file.', pattern))
 
   # The default method is to check the manifest file in the archive directory.
   get_methods.append(('gsutil cat %s/%s' % (archive_url, UPLOADED_LIST),

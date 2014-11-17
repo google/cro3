@@ -109,7 +109,7 @@ class GSUtilUtilTest(mox.MoxTestBase):
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
 
     # GSUtil cat gs://archive_url_prefix/UPLOADED.
-    gsutil_util.GSUtilRun(mox.StrContains('gsutil du %s/%s' %
+    gsutil_util.GSUtilRun(mox.StrContains('gsutil stat %s/%s' %
                                           (archive_url, pattern)),
                           mox.IgnoreArg()).AndReturn(
                               '%s\n%s' % (mock_data, name))
