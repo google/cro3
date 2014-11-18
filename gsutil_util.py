@@ -57,13 +57,18 @@ def GSUtilRun(cmd, err_msg):
     stdout, stderr = proc.communicate()
     if proc.returncode == 0:
       return stdout
-    elif stderr and ('matched no objects' in stderr or
-                     'non-existent object' in stderr):
-      # TODO(sosa): Note this is a heuristic that makes us not re-attempt
-      # unnecessarily. However, if it fails, the worst that can happen is just
-      # waiting longer than necessary.
+
+    not_exist_messages = ('matched no objects', 'non-existent object',
+                          'no urls matched')
+    if (stderr and any(x in stderr.lower() for x in not_exist_messages) or
+        stdout and any(x in stdout.lower() for x in not_exist_messages)):
+      # If the object does not exist, exit now instead of wasting time
+      # on retrying. Note that `gsutil stat` prints error message to
+      # stdout instead (b/16020252), so we check both stdout and
+      # stderr.
       break
-    elif proc.returncode == 127:
+
+    if proc.returncode == 127:
       raise GSUtilError('gsutil tool not found in your path.')
 
     time.sleep(sleep_timeout)
