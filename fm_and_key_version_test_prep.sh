@@ -29,6 +29,13 @@ cleanup() {
   "${SCRIPTS_DIR}/mount_gpt_image.sh" -u -r "$ROOT_FS_DIR" -s "$STATEFUL_FS_DIR"
 }
 
+on_exit() {
+  cleanup
+  if "${IS_ABORT}"; then
+    error "Failed to generate all payloads."
+  fi
+}
+
 replace_fmap_section() {
   local image="$1"
   local section="$2"
@@ -120,9 +127,10 @@ file sizes are not the same, exiting."
   fi
 done
 
-trap cleanup EXIT
-
-cleanup EXIT
+# Abort on error.
+IS_ABORT=true
+set -e
+trap on_exit EXIT
 
 info "Copying ${FLAGS_image} to ${WORKING_DIR}"
 cp $FLAGS_image $WORKING_DIR
@@ -147,6 +155,10 @@ do
   # Clear the UNSTABLE flag.
   sed -i \
     's/^TARGET_UNSTABLE=.*/TARGET_UNSTABLE=""/' "${WORKING_UPDATER}-test$i"
+  # Workaround issue crosbug.com/p/33719
+  sed -i \
+    's/shar -Q -q -x -m -w/shar -Q -q -x -m --no-character-count/' \
+    "${WORKING_UPDATER}-test$i"
 
   # Resign the provided firmware binaries
   PROVIDED_BIN="${BIOS_WORKING_DIR}/${NEW_VER}.bin"
@@ -260,4 +272,5 @@ _${FLAGS_board}_testimage-channel_full_test.bin-000${i}.signed"
 done
 
 info "All payloads are available at ${PAYLOAD_DIR}"
+IS_ABORT=false
 
