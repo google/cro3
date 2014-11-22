@@ -923,20 +923,9 @@ class Bundle:
       bootstub_copy = os.path.join(self._tools.outdir, 'coreboot-8mb.rom')
       self._tools.WriteFile(bootstub_copy, data)
 
-      if self._board in ('storm', 'rush', 'rush_ryu', ):
-        # This is a hack, as storm does not fall into any of the two
-        # categories of images covered by the [-0x100000:] range. Not applying
-        # this to all targets yet, as it is not clear that they all would fit
-        # this scheme where the /flash/ro-boot node has the 'reg' property
-        # showing the location of the ro coreboot part in the image.
-        #
-        # The upcoming refactor of this tool will have to take care of this in
-        # a more consistent way.
-        fdt_ro_boot = fdt.GetProp('/flash/ro-boot', 'reg')
-        rom_range = [int(x) for x in fdt_ro_boot.split()]
-        self._tools.WriteFile(bootstub, data[rom_range[0]:rom_range[1]])
-      else:
-        self._tools.WriteFile(bootstub, data[-0x100000:])
+      # Use offset and size from fmap.dts to extract CBFS area from coreboot.rom
+      cbfs_offset, cbfs_size = fdt.GetFlashPart('ro', 'boot')
+      self._tools.WriteFile(bootstub, data[cbfs_offset:cbfs_offset+cbfs_size])
 
     pack.AddProperty('fdtmap', fdt.fname)
     image = os.path.join(self._tools.outdir, 'image.bin')
