@@ -161,7 +161,7 @@ class Bundle:
                coreboot_elf=None,
                postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None,
                skeleton=None, ecrw=None, ecro=None, pdrw=None,
-               kernel=None, blobs=None):
+               kernel=None, blobs=None, skip_bmpblk=False):
     """Set up files required for Bundle.
 
     Args:
@@ -181,6 +181,7 @@ class Bundle:
       pdrw: The filename of the PD (PD embedded controller) read-write file.
       kernel: The filename of the kernel file if any.
       blobs: List of (type, filename) of arbitrary blobs.
+      skip_bmpblk: True if no bmpblk is required
     """
     self._board = board
     self.uboot_fname = uboot
@@ -198,6 +199,7 @@ class Bundle:
     self.pdrw_fname = pdrw
     self.kernel_fname = kernel
     self.blobs = dict(blobs or ())
+    self.skip_bmpblk = skip_bmpblk
 
   def SetOptions(self, small, gbb_flags, force_rw=False, force_efs=False):
     """Set up options supported by Bundle.
@@ -410,15 +412,19 @@ class Bundle:
     sizes = ['%#x' % size for size in sizes]
     gbb = 'gbb.bin'
     keydir = self._tools.Filename(self._keydir)
+
+    gbb_set_command = ['-s',
+                       '--hwid=%s' % hardware_id,
+                       '--rootkey=%s/root_key.vbpubk' % keydir,
+                       '--recoverykey=%s/recovery_key.vbpubk' % keydir,
+                       '--flags=%d' % gbb_flags,
+                       gbb]
+    if not self.skip_bmpblk:
+      gbb_set_command[-1:-1] = ['--bmpfv=%s' % self._tools.Filename(
+          self.bmpblk_fname),]
+
     self._tools.Run('gbb_utility', ['-c', ','.join(sizes), gbb], cwd=odir)
-    self._tools.Run('gbb_utility', ['-s',
-        '--hwid=%s' % hardware_id,
-        '--rootkey=%s/root_key.vbpubk' % keydir,
-        '--recoverykey=%s/recovery_key.vbpubk' % keydir,
-        '--bmpfv=%s' % self._tools.Filename(self.bmpblk_fname),
-        '--flags=%d' % gbb_flags,
-        gbb],
-        cwd=odir)
+    self._tools.Run('gbb_utility', gbb_set_command, cwd=odir)
     return os.path.join(odir, gbb)
 
   def _SignBootstub(self, bct, bootstub, text_base):

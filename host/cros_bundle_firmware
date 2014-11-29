@@ -84,7 +84,7 @@ def _DoBundle(options, output, tools):
                   exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2,
                   skeleton=options.skeleton, ecrw=options.ecrw,
                   ecro=options.ecro, pdrw=options.pdrw, kernel=options.kernel,
-                  blobs=options.add_blob)
+                  blobs=options.add_blob, skip_bmpblk=options.skip_bmpblk)
   bundle.SetOptions(small=options.small, gbb_flags=options.gbb_flags,
                     force_rw=options.force_rw, force_efs=options.force_efs)
   if options.use_defaults:
@@ -173,6 +173,8 @@ Examples:
       action='store', help='Hardware ID string to use')
   parser.add_option('--bmpblk', dest='bmpblk', type='string',
       action='store', help='Bitmap block to use')
+  parser.add_option('--skip-bmpblk', action='store_true',
+                    help='no bitmap block is needed')
   parser.add_option('-e', '--ec', dest='ecrw', type='string',
         action='store', help='EC binary file')
   parser.add_option('--ecro', type='string',
@@ -237,6 +239,9 @@ changes to default flags (e.g.-load-option-roms,+force-dev-boot-usb).
   if options.gbb_flags_list:
     bundle_firmware.ListGoogleBinaryBlockFlags()
     sys.exit()
+
+  if options.bmpblk and options.skip_bmpblk:
+    parser.error("Either --bmpblk or --skip-bmpblk is allowed")
 
   if len(args) > 1:
     parser.error("Unrecognized arguments '%s'" % ' '.join(args[1:]))
