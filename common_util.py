@@ -47,11 +47,23 @@ class DevServerHTTPError(cherrypy.HTTPError):
 
 
 def MkDirP(directory):
-  """Thread-safely create a directory like mkdir -p."""
+  """Thread-safely create a directory like mkdir -p.
+
+  If the directory already exists, call chown on the directory and its subfiles
+  recursively with current user and group to make sure current process has full
+  access to the directory.
+  """
   try:
     os.makedirs(directory)
   except OSError, e:
-    if not (e.errno == errno.EEXIST and os.path.isdir(directory)):
+    if e.errno == errno.EEXIST and os.path.isdir(directory):
+      # Fix permissions and ownership of the directory and its subfiles by
+      # calling chown recursively with current user and group.
+      chown_command = [
+          'sudo', 'chown', '-R', '%s:%s' % (os.getuid(), os.getgid()), directory
+      ]
+      subprocess.Popen(chown_command).wait()
+    else:
       raise
 
 
