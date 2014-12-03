@@ -569,7 +569,6 @@ class DevServerRoot(object):
       Path to the source folder for the telemetry codebase once it is staged.
     """
     archive_url = kwargs.get('archive_url')
-    self.stage(archive_url=archive_url, artifacts='autotest')
 
     build = '/'.join(downloader.Downloader.ParseUrl(archive_url))
     build_path = os.path.join(updater.static_dir, build)
