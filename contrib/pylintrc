@@ -1,0 +1,65 @@
+# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+[MESSAGES CONTROL]
+
+disable=
+    too-many-lines,
+    too-many-branches,
+    too-many-statements,
+    too-few-public-methods,
+    too-many-instance-attributes,
+    too-many-public-methods,
+    too-many-locals,
+    too-many-arguments,
+    locally-enabled,
+    locally-disabled,
+    fixme,
+    bad-continuation,
+    invalid-name,
+
+[REPORTS]
+
+# Tells whether to display a full report or only the messages
+# CHANGE: No report.
+reports=no
+
+
+[TYPECHECK]
+
+# List of members which are set dynamically and missed by pylint inference
+# system, and so shouldn't trigger E0201 when accessed.
+# CHANGE: Added 'AndReturn', 'InAnyOrder' and 'MultipleTimes' for pymox.
+# CHANGE: Added tempdir for @osutils.TempDirDecorator.
+generated-members=REQUEST,acl_users,aq_parent,AndReturn,InAnyOrder,MultipleTimes,tempdir
+
+
+[BASIC]
+
+# Regular expression which should only match correct function names
+#
+# CHANGE: The ChromiumOS standard is different than PEP-8, so we need to
+# redefine this.
+#
+# Common exceptions to ChromiumOS standard:
+# - main: Standard for main function
+function-rgx=([A-Z_][a-zA-Z0-9]{2,30}|main)$
+
+# Regular expression which should only match correct method names
+#
+# CHANGE: The ChromiumOS standard is different than PEP-8, so we need to
+# redefine this. Here's what we allow:
+# - CamelCaps, starting with a capital letter.  No underscores in function
+#   names.  Can also have a "_" prefix (private method) or a "test" prefix
+#   (unit test).
+# - Methods that look like __xyz__, which are used to do things like
+#   __init__, __del__, etc.
+# - setUp, tearDown: For unit tests.
+method-rgx=((_|test)?[A-Z][a-zA-Z0-9]{2,30}|__[a-z]+__|setUp|tearDown)$
+
+
+[SIMILARITIES]
+
+# Minimum lines number of a similarity.
+min-similarity-lines=8
