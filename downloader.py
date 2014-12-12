@@ -60,8 +60,22 @@ class Downloader(log_util.Loggable):
     self._build_dir = Downloader.GetBuildDir(static_dir, archive_url)
 
   @staticmethod
-  def ParseUrl(archive_url):
-    """Parses archive_url into rel_path and build.
+  def ParseUrl(path_or_url):
+    """Parses |path_or_url| into build relative path and the shorter build name.
+
+    Args:
+      path_or_url: a local path or URL at which build artifacts are archived.
+
+    Returns:
+      A tuple of (build relative path, short build name)
+    """
+    if path_or_url.startswith('gs://'):
+      return Downloader.ParseGSUrl(path_or_url)
+    return Downloader.ParseLocalPath(path_or_url)
+
+  @staticmethod
+  def ParseGSUrl(archive_url):
+    """Parses |path_or_url| into build relative path and the shorter build name.
 
     Parses archive_url into rel_path and build e.g.
     gs://chromeos-image-archive/{rel_path}/{build}.
@@ -79,6 +93,24 @@ class Downloader(log_util.Loggable):
     split_sub_url = sub_url.split('/')
     rel_path = '/'.join(split_sub_url[1:-1])
     build = split_sub_url[-1]
+    return rel_path, build
+
+  @staticmethod
+  def ParseLocalPath(local_path):
+    """Parses local_path into rel_path and build.
+
+    Parses a local path into rel_path and build e.g.
+    /{path to static dir}/{rel_path}/{build}.
+
+    Args:
+      local_path: a local path that the build artifacts are stored. Must be a
+                  subpath of the static directory.
+
+    Returns:
+      A tuple of (build relative path, short build name)
+    """
+    rel_path = os.path.basename(os.path.dirname(local_path))
+    build = os.path.basename(local_path)
     return rel_path, build
 
   @staticmethod

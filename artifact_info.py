@@ -72,5 +72,5 @@ FACTORY_IMAGE = 'factory_image'
 # this relationship. Specifically:
 # If X is requested, all items in Y should also get triggered for download.
 REQUESTED_TO_OPTIONAL_MAP = {
-  TEST_SUITES: [AUTOTEST],
+    TEST_SUITES: [CONTROL_FILES, AUTOTEST_PACKAGES],
 }

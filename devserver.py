@@ -446,6 +446,22 @@ class DevServerRoot(object):
     else:
       raise DevServerError("Must specify an archive_url in the request")
 
+  @staticmethod
+  def _canonicalize_local_path(local_path):
+    """Canonicalizes |local_path| strings.
+
+    Raises:
+      DevserverError: if |local_path| is not set.
+    """
+    # Restrict staging of local content to only files within the static
+    # directory.
+    local_path = os.path.abspath(local_path)
+    if not local_path.startswith(updater.static_dir):
+      raise DevServerError('Local path %s must be a subdirectory of the static'
+                           ' directory: %s' % (local_path, updater.static_dir))
+
+    return local_path.rstrip('/')
+
   @cherrypy.expose
   def is_staged(self, **kwargs):
     """Check if artifacts have been downloaded.
@@ -511,6 +527,7 @@ class DevServerRoot(object):
 
     Args:
       archive_url: Google Storage URL for the build.
+      local_path: Local path for the build.
       async: True to return without waiting for download to complete.
       artifacts: Comma separated list of named artifacts to download.
         These are defined in artifact_info and have their implementation
@@ -542,14 +559,26 @@ class DevServerRoot(object):
 
       http://devserver_url:<port>/static/x86-mario-release/R26-3920.0.0
     """
-    archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
+    archive_url = kwargs.get('archive_url')
+    local_path = kwargs.get('local_path')
+    if not archive_url and not local_path:
+      raise DevServerError('Requires archive_url or local_path to be '
+                           'specified.')
+    if archive_url and local_path:
+      raise DevServerError('archive_url and local_path can not both be '
+                           'specified.')
+    if archive_url:
+      archive_url = self._canonicalize_archive_url(archive_url)
+    if local_path:
+      local_path = self._canonicalize_local_path(local_path)
     async = kwargs.get('async', False)
     artifacts, files = self._get_artifacts(kwargs)
     with DevServerRoot._staging_thread_count_lock:
       DevServerRoot._staging_thread_count += 1
     try:
-      downloader.Downloader(updater.static_dir, archive_url).Download(
-          artifacts, files, async=async)
+      downloader.Downloader(
+          updater.static_dir, (archive_url or local_path)).Download(
+              artifacts, files, async=async)
     finally:
       with DevServerRoot._staging_thread_count_lock:
         DevServerRoot._staging_thread_count -= 1

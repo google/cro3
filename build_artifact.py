@@ -6,6 +6,7 @@
 
 """Module containing classes that wrap artifact downloads."""
 
+import glob
 import os
 import pickle
 import re
@@ -93,7 +94,7 @@ class BuildArtifact(log_util.Loggable):
 
     Args:
       install_dir: Where to install the artifact.
-      archive_url: The Google Storage path to find the artifact.
+      archive_url: The Google Storage URL or local path to find the artifact.
       name: Identifying name to be used to find/store the artifact.
       build: The name of the build e.g. board/release.
       is_regex_name: Whether the name pattern is a regex (default: glob).
@@ -185,11 +186,32 @@ class BuildArtifact(log_util.Loggable):
       f.write('\n'.join(self.installed_files))
 
   def _WaitForArtifactToExist(self, name, timeout):
-    """Waits for artifact to exist and sets self.name to appropriate name.
+    """Waits for artifact to exist and returns the appropriate names.
 
     Args:
       name: Name to look at.
-      timeout: How long to wait for artifact to become available.
+      timeout: How long to wait for artifact to become available. Only matters
+               if self.archive_url is a Google Storage URL.
+
+    Returns:
+      A list of names that match.
+
+    Raises:
+      ArtifactDownloadError: An error occurred when obtaining artifact.
+    """
+    if self.archive_url.startswith('gs://'):
+      return self._WaitForGSArtifactToExist(name, timeout)
+    return self._VerifyLocalArtifactExists(name)
+
+  def _WaitForGSArtifactToExist(self, name, timeout):
+    """Waits for artifact to exist and returns the appropriate names.
+
+    Args:
+      name: Name to look at.
+      timeout: How long to wait for the artifact to become available.
+
+    Returns:
+      A list of names that match.
 
     Raises:
       ArtifactDownloadError: An error occurred when obtaining artifact.
@@ -202,6 +224,30 @@ class BuildArtifact(log_util.Loggable):
                                   (name, self.archive_url))
     return names
 
+  def _VerifyLocalArtifactExists(self, name):
+    """Verifies the local artifact exists and returns the appropriate names.
+
+    Args:
+      name: Name to look at.
+
+    Returns:
+      A list of names that match.
+
+    Raises:
+      ArtifactDownloadError: An error occurred when obtaining artifact.
+    """
+    local_path = os.path.join(self.archive_url, name)
+    if self.is_regex_name:
+      filter_re = re.compile(name)
+      for filename in os.listdir(self.archive_url):
+        if filter_re.match(filename):
+          return [filename]
+    else:
+      glob_search = glob.glob(local_path)
+      if glob_search and len(glob_search) == 1:
+        return [os.path.basename(glob_search[0])]
+    raise ArtifactDownloadError('Artifact not found.')
+
   def _UpdateName(self, names):
     if self.single_name and len(names) > 1:
       raise ArtifactDownloadError('Too many artifacts match %s' % self.name)
@@ -210,9 +256,15 @@ class BuildArtifact(log_util.Loggable):
 
   def _Download(self):
     """Downloads artifact from Google Storage to a local directory."""
-    gs_path = '/'.join([self.archive_url, self.name])
     self.install_path = os.path.join(self.install_dir, self.name)
-    gsutil_util.DownloadFromGS(gs_path, self.install_path)
+    if self.archive_url.startswith('gs://'):
+      gs_path = '/'.join([self.archive_url, self.name])
+      gsutil_util.DownloadFromGS(gs_path, self.install_path)
+    else:
+      # It's a local path so just copy it into the staged directory.
+      shutil.copyfile(os.path.join(self.archive_url, self.name),
+                      self.install_path)
+
 
   def _Setup(self):
     """Process the downloaded content, update the list of installed files."""
