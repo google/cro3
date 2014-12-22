@@ -844,7 +844,8 @@ class Bundle:
     pack.SelectFdt(fdt, self._board)
 
     # Get all our blobs ready
-    pack.AddProperty('boot', self.uboot_fname)
+    if self.uboot_fname:
+      pack.AddProperty('boot', self.uboot_fname)
     if self.skeleton_fname:
       pack.AddProperty('skeleton', self.skeleton_fname)
     pack.AddProperty('dtb', fdt.fname)
@@ -853,7 +854,8 @@ class Bundle:
     if self.kernel_fname:
       fdt.PutInteger('/config', 'kernel-offset', pack.image_size)
 
-    pack.AddProperty('gbb', self.uboot_fname)
+    if gbb:
+      pack.AddProperty('gbb', gbb)
     blob_list = pack.GetBlobList()
     self._out.Info('Building blobs %s\n' % blob_list)
     for blob_type in pack.GetBlobList():
@@ -867,7 +869,6 @@ class Bundle:
           self._tools.GetChromeosVersion()])
       self._out.Notice('Firmware ID: %s' % fwid)
       pack.AddProperty('fwid', fwid)
-      pack.AddProperty('gbb', gbb)
       pack.AddProperty('keydir', self._keydir)
 
     # Some blobs need to be configured according to the node they are in.
@@ -894,12 +895,13 @@ class Bundle:
 
     # Make a copy of the fdt for the bootstub
     fdt_data = self._tools.ReadFile(fdt.fname)
-    uboot_data = self._tools.ReadFile(self.uboot_fname)
-    uboot_copy = os.path.join(self._tools.outdir, 'u-boot.bin')
-    self._tools.WriteFile(uboot_copy, uboot_data)
+    if self.uboot_fname:
+      uboot_data = self._tools.ReadFile(self.uboot_fname)
+      uboot_copy = os.path.join(self._tools.outdir, 'u-boot.bin')
+      self._tools.WriteFile(uboot_copy, uboot_data)
 
-    uboot_dtb = os.path.join(self._tools.outdir, 'u-boot-dtb.bin')
-    self._tools.WriteFile(uboot_dtb, uboot_data + fdt_data)
+      uboot_dtb = os.path.join(self._tools.outdir, 'u-boot-dtb.bin')
+      self._tools.WriteFile(uboot_dtb, uboot_data + fdt_data)
 
     # Fix up the coreboot image here, since we can't do this until we have
     # a final device tree binary.
@@ -909,7 +911,7 @@ class Bundle:
       if self.coreboot_elf:
         self._tools.Run('cbfstool', [bootstub, 'add-payload', '-f',
             self.coreboot_elf, '-n', 'fallback/payload', '-c', 'lzma'])
-      else:
+      elif self.uboot_fname:
         text_base = 0x1110000
 
         # This is the the 'movw $GD_FLG_COLD_BOOT, %bx' instruction
