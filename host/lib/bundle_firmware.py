@@ -741,6 +741,65 @@ class Bundle:
     """
     self._out.Notice(msg)
 
+  def _PrepareCbfs(self, pack, blob_name):
+    """Create CBFS blob in rw-boot-{a,b} FMAP sections.
+
+    When the blob name is defined as cbfs#<section>#<subsection>, fill the
+    <section>_<subsection> area in the flash map with a CBFS copy, putting the
+    CBFS header of the copy at the base of the section.
+
+    If --coreboot-elf parameter was specified during cros_bumdle_firmware
+    invocation, add the parameter of this option as the payload to the new
+    CBFS instance.
+
+    Args:
+      pack: a PackFirmware object describing the firmware image to build.
+      blob_name: a string, blob name describing what FMAP section this CBFS
+                 copy is destined to
+    Raises:
+      CmdError if base coreboot image does not contain CBFS
+    """
+
+    if not self.coreboot_fname:
+      raise CmdError("coreboot file needed for blob % s", blob_name)
+
+    part_sections = blob_name.split('/')[1:]
+
+    # Base address and size of the desitnation partition
+    base, size = self.fdt.GetFlashPart(*part_sections)
+
+    # Create a coreboot copy to use as a scratch pad.
+    cb_copy = os.path.join(self._tools.outdir, 'cb_copy')
+    if not os.path.exists(cb_copy):
+      self._tools.WriteFile(cb_copy, self._tools.ReadFile(self.coreboot_fname))
+
+    # Copy CBFS to the required offset
+    self._tools.Run('cbfstool', [cb_copy, 'copy', '-D',
+                                 '%d' % base, '-s', '%d' % size])
+
+    # Add coreboot payload if so requested. Note that the some images use
+    # different payload for the rw sections, which is passed in as the value
+    # of the --uboot option in the command line.
+    if self.uboot_fname:
+      payload_fname = self.uboot_fname
+    elif self.coreboot_elf:
+      payload_fname = self.coreboot_elf
+    else:
+      payload_fname = None
+
+    if payload_fname:
+      self._tools.Run('cbfstool', [
+        cb_copy, 'add-payload', '-f', payload_fname,
+        '-n', 'fallback/payload', '-c', 'lzma' , '-H', '%d' % base])
+
+    # And extract the blob for the FW section
+    rw_section = os.path.join(self._tools.outdir, '_'.join(part_sections))
+    self._tools.WriteFile(rw_section,
+                          self._tools.ReadFile(cb_copy)[base:base+size])
+
+    pack.AddProperty(blob_name, rw_section)
+
+
   def _BuildBlob(self, pack, fdt, blob_type):
     """Build the blob data for a particular blob type.
 
@@ -807,6 +866,8 @@ class Bundle:
     elif blob_type.startswith('exynos-bl2'):
       # We need to configure this per node, so do it later
       pass
+    elif blob_type.startswith('cbfs'):
+      self._PrepareCbfs(pack, blob_type)
     elif pack.GetProperty(blob_type):
       pass
     elif blob_type in self.blobs:
