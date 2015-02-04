@@ -32,6 +32,7 @@ AUTOTEST_FILE = 'autotest.tar'
 CONTROL_FILES_FILE = 'control_files.tar'
 AUTOTEST_PACKAGES_FILE = 'autotest_packages.tar'
 AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
+AUTOTEST_SERVER_PACKAGE_FILE = 'autotest_server_package.tar.bz2'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
 FACTORY_FILE = 'ChromeOS-factory*.zip'
 FIRMWARE_FILE = 'firmware_from_source.tar.bz2'
@@ -635,6 +636,8 @@ ARTIFACT_IMPLEMENTATION_MAP = {
     ImplDescription(BundledBuildArtifact, TEST_SUITES_FILE),
     artifact_info.AU_SUITE:
     ImplDescription(BundledBuildArtifact, AU_SUITE_FILE),
+    artifact_info.AUTOTEST_SERVER_PACKAGE:
+    ImplDescription(BuildArtifact, AUTOTEST_SERVER_PACKAGE_FILE),
 
     artifact_info.FIRMWARE:
     ImplDescription(BuildArtifact, FIRMWARE_FILE),

@@ -46,6 +46,9 @@ CONTROL_FILES = 'control_files'
 # Autotest Packages-- the autotest packages subdirectory.
 AUTOTEST_PACKAGES = 'autotest_packages'
 
+# Autotest Server Package.
+AUTOTEST_SERVER_PACKAGE = 'autotest_server_package'
+
 # Test Suites - just the test suites control files from the autotest directory.
 TEST_SUITES = 'test_suites'
 
