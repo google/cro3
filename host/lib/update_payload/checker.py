@@ -12,6 +12,8 @@ follows:
   checker.Run(...)
 """
 
+from __future__ import print_function
+
 import array
 import base64
 import hashlib
@@ -64,6 +66,7 @@ def _AddFormat(format_func, value):
   Args:
     format_func: A value formatter.
     value: Value to be formatted and returned.
+
   Returns:
     A string 'x (y)' where x = str(value) and y = format_func(value).
   """
@@ -102,6 +105,7 @@ class _PayloadReport(object):
       Args:
         indent: The indentation amount.
         line: The line content (string).
+
       Returns:
         The properly indented line (string).
       """
@@ -114,6 +118,7 @@ class _PayloadReport(object):
         base_indent: Base indentation for each line.
         sub_indent: Additional indentation for sub-nodes.
         curr_section: The current report section object.
+
       Returns:
         A pair consisting of a list of properly indented report lines and a new
         current section object.
@@ -195,6 +200,7 @@ class _PayloadReport(object):
     Args:
       base_indent: The indentation used for root-level report lines.
       sub_indent: The indentation offset used for sub-reports.
+
     Returns:
       A list of indented report lines.
     """
@@ -325,10 +331,12 @@ class PayloadChecker(object):
       msg_name: The name of the message object (for error reporting).
       linebreak: Whether the value report should induce a line break.
       indent: Amount of indent used for reporting the value.
+
     Returns:
       A pair consisting of the element value and the generated sub-report for
       it (if the element is a sub-message, None otherwise). If the element is
       missing, returns (None, None).
+
     Raises:
       error.PayloadError if a mandatory element is missing.
     """
@@ -386,6 +394,7 @@ class PayloadChecker(object):
       name1: name of object holding the first value.
       name2: name of object holding the second value.
       obj_name: Name of the object containing these values.
+
     Raises:
       error.PayloadError if assertion does not hold.
     """
@@ -402,6 +411,7 @@ class PayloadChecker(object):
     Args:
       cmd: Sequence of command-line argument for invoking the subprocess.
       send_data: Data to feed to the process via its stdin.
+
     Returns:
       A tuple containing the stdout and stderr output of the process.
     """
@@ -427,6 +437,7 @@ class PayloadChecker(object):
       pubkey_file_name: Public key used for verifying signature.
       actual_hash: The actual hash digest.
       sig_name: Signature name for error reporting.
+
     Raises:
       error.PayloadError if signature could not be verified.
     """
@@ -467,6 +478,7 @@ class PayloadChecker(object):
       block_size: The size of each block in bytes.
       length_name: Name of length (used for error reporting).
       block_name: Name of block (used for error reporting).
+
     Raises:
       error.PayloadError if the aforementioned invariant is not satisfied.
     """
@@ -489,9 +501,11 @@ class PayloadChecker(object):
       report: A report object to add to.
       rootfs_part_size: Size of the rootfs partition in bytes.
       kernel_part_size: Size of the kernel partition in bytes.
+
     Returns:
       A tuple consisting of the partition block size used during the update
       (integer), the signatures block offset and size.
+
     Raises:
       error.PayloadError if any of the checks fail.
     """
@@ -592,6 +606,7 @@ class PayloadChecker(object):
       total_blocks: The total number of blocks in extents.
       op_name: Operation name (for error reporting).
       length_name: Length name (for error reporting).
+
     Raises:
       error.PayloadError is there a problem with the length.
     """
@@ -614,8 +629,10 @@ class PayloadChecker(object):
       name: The name of the extent block.
       allow_pseudo: Whether or not pseudo block numbers are allowed.
       allow_signature: Whether or not the extents are used for a signature.
+
     Returns:
       The total number of blocks in the extents.
+
     Raises:
       error.PayloadError if any of the entailed checks fails.
     """
@@ -659,6 +676,7 @@ class PayloadChecker(object):
       data_length: The length of the data blob associated with the operation.
       total_dst_blocks: Total number of blocks in dst_extents.
       op_name: Operation name for error reporting.
+
     Raises:
       error.PayloadError if any check fails.
     """
@@ -692,6 +710,7 @@ class PayloadChecker(object):
       total_src_blocks: Total number of blocks in src_extents.
       total_dst_blocks: Total number of blocks in dst_extents.
       op_name: Operation name for error reporting.
+
     Raises:
       error.PayloadError if any check fails.
     """
@@ -763,6 +782,7 @@ class PayloadChecker(object):
       data_length: The length of the data blob associated with the operation.
       total_dst_blocks: Total number of blocks in dst_extents.
       op_name: Operation name for error reporting.
+
     Raises:
       error.PayloadError if any check fails.
     """
@@ -794,8 +814,10 @@ class PayloadChecker(object):
       prev_data_offset: Offset of last used data bytes.
       allow_signature: Whether this may be a signature operation.
       blob_hash_counts: Counters for hashed/unhashed blobs.
+
     Returns:
       The amount of data blob associated with the operation.
+
     Raises:
       error.PayloadError if any check has failed.
     """
@@ -890,6 +912,7 @@ class PayloadChecker(object):
 
     Args:
       total_size: The total block size in bytes.
+
     Returns:
       An array of unsigned short elements initialized to zero, one for each of
       the blocks necessary for containing the partition.
@@ -911,8 +934,10 @@ class PayloadChecker(object):
       new_usable_size: The overall usable size of the new partition in bytes.
       prev_data_offset: Offset of last used data bytes.
       allow_signature: Whether this sequence may contain signature operations.
+
     Returns:
       The total data blob size used.
+
     Raises:
       error.PayloadError if any of the checks fails.
     """
@@ -1066,6 +1091,7 @@ class PayloadChecker(object):
       kernel_part_size: The size of kernel partitions in bytes (default: use
                         reported filesystem size).
       report_out_file: File object to dump the report to.
+
     Raises:
       error.PayloadError if payload verification failed.
     """

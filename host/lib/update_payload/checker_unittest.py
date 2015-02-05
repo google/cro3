@@ -1,10 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Unit testing checker.py."""
+
+from __future__ import print_function
 
 import array
 import collections
@@ -98,6 +100,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     Args:
       start_block: The starting block of the extent.
       num_blocks: The number of blocks in the extent.
+
     Returns:
       An Extent message.
     """
@@ -114,6 +117,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
     Args:
       *args: (start_block, num_blocks) pairs defining the extents.
+
     Returns:
       A list of Extent objects.
     """
@@ -151,6 +155,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
       convert: A representation conversion function.
       linebreak: Whether or not a linebreak is to be used in the report.
       indent: Indentation used for the report.
+
     Returns:
       msg: A mock message object.
       report: A mock report object.
