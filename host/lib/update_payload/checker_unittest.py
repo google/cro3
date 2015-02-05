@@ -395,9 +395,9 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
   def DoCheckManifestTest(self, fail_mismatched_block_size, fail_bad_sigs,
                           fail_mismatched_oki_ori, fail_bad_oki, fail_bad_ori,
-                          fail_bad_nki, fail_bad_nri, fail_missing_ops,
-                          fail_old_kernel_fs_size, fail_old_rootfs_fs_size,
-                          fail_new_kernel_fs_size, fail_new_rootfs_fs_size):
+                          fail_bad_nki, fail_bad_nri, fail_old_kernel_fs_size,
+                          fail_old_rootfs_fs_size, fail_new_kernel_fs_size,
+                          fail_new_rootfs_fs_size):
     """Parametric testing of _CheckManifest().
 
     Args:
@@ -408,7 +408,6 @@ class PayloadCheckerTest(mox.MoxTestBase):
       fail_bad_ori: Tamper with old rootfs info.
       fail_bad_nki: Tamper with new kernel info.
       fail_bad_nri: Tamper with new rootfs info.
-      fail_missing_ops: Simulate a manifest without any operations.
       fail_old_kernel_fs_size: Make old kernel fs size too big.
       fail_old_rootfs_fs_size: Make old rootfs fs size too big.
       fail_new_kernel_fs_size: Make new kernel fs size too big.
@@ -426,13 +425,12 @@ class PayloadCheckerTest(mox.MoxTestBase):
       payload_gen.SetBlockSize(test_utils.KiB(4))
 
     # Add some operations.
-    if not fail_missing_ops:
-      payload_gen.AddOperation(False, common.OpType.MOVE,
-                               src_extents=[(0, 16), (16, 497)],
-                               dst_extents=[(16, 496), (0, 16)])
-      payload_gen.AddOperation(True, common.OpType.MOVE,
-                               src_extents=[(0, 8), (8, 8)],
-                               dst_extents=[(8, 8), (0, 8)])
+    payload_gen.AddOperation(False, common.OpType.MOVE,
+                             src_extents=[(0, 16), (16, 497)],
+                             dst_extents=[(16, 496), (0, 16)])
+    payload_gen.AddOperation(True, common.OpType.MOVE,
+                             src_extents=[(0, 8), (8, 8)],
+                             dst_extents=[(8, 8), (0, 8)])
 
     # Set an invalid signatures block (offset but no size), if required.
     if fail_bad_sigs:
@@ -477,9 +475,9 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
     should_fail = (fail_mismatched_block_size or fail_bad_sigs or
                    fail_mismatched_oki_ori or fail_bad_oki or fail_bad_ori or
-                   fail_bad_nki or fail_bad_nri or fail_missing_ops or
-                   fail_old_kernel_fs_size or fail_old_rootfs_fs_size or
-                   fail_new_kernel_fs_size or fail_new_rootfs_fs_size)
+                   fail_bad_nki or fail_bad_nri or fail_old_kernel_fs_size or
+                   fail_old_rootfs_fs_size or fail_new_kernel_fs_size or
+                   fail_new_rootfs_fs_size)
     if should_fail:
       self.assertRaises(update_payload.PayloadError,
                         payload_checker._CheckManifest, report,
@@ -1173,7 +1171,6 @@ def AddAllParametricTests():
                       'fail_bad_ori': (True, False),
                       'fail_bad_nki': (True, False),
                       'fail_bad_nri': (True, False),
-                      'fail_missing_ops': (True, False),
                       'fail_old_kernel_fs_size': (True, False),
                       'fail_old_rootfs_fs_size': (True, False),
                       'fail_new_kernel_fs_size': (True, False),

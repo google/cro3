@@ -593,11 +593,6 @@ class PayloadChecker(object):
           'New rootfs content (%d) exceed partition size (%d).' %
           (self.new_rootfs_fs_size, rootfs_part_size))
 
-    # Check: Payload must contain at least one operation.
-    if not(len(manifest.install_operations) or
-           len(manifest.kernel_install_operations)):
-      raise error.PayloadError('Payload contains no operations.')
-
   def _CheckLength(self, length, total_blocks, op_name, length_name):
     """Checks whether a length matches the space designated in extents.
 
