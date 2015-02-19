@@ -1,10 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Unit tests for xbuddy.py."""
+
+from __future__ import print_function
 
 import os
 import shutil
@@ -30,8 +32,8 @@ class xBuddyTest(mox.MoxTestBase):
     self.static_image_dir = tempfile.mkdtemp('xbuddy_unittest_static')
 
     self.mock_xb = xbuddy.XBuddy(
-      True,
-      static_dir=self.static_image_dir
+        True,
+        static_dir=self.static_image_dir
     )
     self.images_dir = tempfile.mkdtemp('xbuddy_unittest_images')
     self.mock_xb.images_dir = self.images_dir

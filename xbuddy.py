@@ -4,6 +4,8 @@
 
 """Main module for parsing and interpreting XBuddy paths for the devserver."""
 
+from __future__ import print_function
+
 import cherrypy
 import ConfigParser
 import datetime
@@ -58,53 +60,53 @@ REMOTE = "remote"
 # 4) Be explicit when things are missing i.e. no dev images in image.zip.
 
 LOCAL_ALIASES = [
-  TEST,
-  DEV,
-  BASE,
-  RECOVERY,
-  FULL,
-  STATEFUL,
-  ANY,
+    TEST,
+    DEV,
+    BASE,
+    RECOVERY,
+    FULL,
+    STATEFUL,
+    ANY,
 ]
 
 LOCAL_FILE_NAMES = [
-  devserver_constants.TEST_IMAGE_FILE,
-  devserver_constants.IMAGE_FILE,
-  devserver_constants.BASE_IMAGE_FILE,
-  devserver_constants.RECOVERY_IMAGE_FILE,
-  devserver_constants.UPDATE_FILE,
-  devserver_constants.STATEFUL_FILE,
-  None, # For ANY.
+    devserver_constants.TEST_IMAGE_FILE,
+    devserver_constants.IMAGE_FILE,
+    devserver_constants.BASE_IMAGE_FILE,
+    devserver_constants.RECOVERY_IMAGE_FILE,
+    devserver_constants.UPDATE_FILE,
+    devserver_constants.STATEFUL_FILE,
+    None, # For ANY.
 ]
 
 LOCAL_ALIAS_TO_FILENAME = dict(zip(LOCAL_ALIASES, LOCAL_FILE_NAMES))
 
 # Google Storage constants
 GS_ALIASES = [
-  TEST,
-  BASE,
-  RECOVERY,
-  FULL,
-  STATEFUL,
-  AUTOTEST,
+    TEST,
+    BASE,
+    RECOVERY,
+    FULL,
+    STATEFUL,
+    AUTOTEST,
 ]
 
 GS_FILE_NAMES = [
-  devserver_constants.TEST_IMAGE_FILE,
-  devserver_constants.BASE_IMAGE_FILE,
-  devserver_constants.RECOVERY_IMAGE_FILE,
-  devserver_constants.UPDATE_FILE,
-  devserver_constants.STATEFUL_FILE,
-  devserver_constants.AUTOTEST_DIR,
+    devserver_constants.TEST_IMAGE_FILE,
+    devserver_constants.BASE_IMAGE_FILE,
+    devserver_constants.RECOVERY_IMAGE_FILE,
+    devserver_constants.UPDATE_FILE,
+    devserver_constants.STATEFUL_FILE,
+    devserver_constants.AUTOTEST_DIR,
 ]
 
 ARTIFACTS = [
-  artifact_info.TEST_IMAGE,
-  artifact_info.BASE_IMAGE,
-  artifact_info.RECOVERY_IMAGE,
-  artifact_info.FULL_PAYLOAD,
-  artifact_info.STATEFUL_PAYLOAD,
-  artifact_info.AUTOTEST,
+    artifact_info.TEST_IMAGE,
+    artifact_info.BASE_IMAGE,
+    artifact_info.RECOVERY_IMAGE,
+    artifact_info.FULL_PAYLOAD,
+    artifact_info.STATEFUL_PAYLOAD,
+    artifact_info.AUTOTEST,
 ]
 
 GS_ALIAS_TO_FILENAME = dict(zip(GS_ALIASES, GS_FILE_NAMES))
@@ -122,7 +124,7 @@ class XBuddyException(Exception):
 
 # no __init__ method
 #pylint: disable=W0232
-class Timestamp():
+class Timestamp(object):
   """Class to translate build path strings and timestamp filenames."""
 
   _TIMESTAMP_DELIMITER = 'SLASH'
@@ -388,9 +390,9 @@ class XBuddy(build_util.BuildObject):
         return build_id
       except gsutil_util.GSUtilError:
         continue
-    else:
-      raise XBuddyException('Could not find remote build_id for %s %s' % (
-          board, version))
+
+    raise XBuddyException('Could not find remote build_id for %s %s' % (
+        board, version))
 
   def _ResolveVersionToBuildId(self, board, version, image_dir=None):
     """Handle version aliases for remote payloads in GS.
@@ -545,7 +547,7 @@ class XBuddy(build_util.BuildObject):
     return image_type, board, version, is_local
 
   def _SyncRegistryWithBuildImages(self):
-    """ Crawl images_dir for build_ids of images generated from build_image.
+    """Crawl images_dir for build_ids of images generated from build_image.
 
     This will find images and symlink them in xBuddy's static dir so that
     xBuddy's cache can serve them.
@@ -575,7 +577,7 @@ class XBuddy(build_util.BuildObject):
         Timestamp.UpdateTimestamp(self._timestamp_folder, build_id)
 
   def _ListBuildTimes(self):
-    """ Returns the currently cached builds and their last access timestamp.
+    """Returns the currently cached builds and their last access timestamp.
 
     Returns:
       list of tuples that matches xBuddy build/version to timestamps in long
