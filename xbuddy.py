@@ -179,8 +179,8 @@ class XBuddy(build_util.BuildObject):
   # Lock used to lock increasing/decreasing count.
   _staging_thread_count_lock = threading.Lock()
 
-  def __init__(self, manage_builds=False, board=None, images_dir=None,
-               log_screen=True, **kwargs):
+  def __init__(self, manage_builds=False, board=None, version=None,
+               images_dir=None, log_screen=True, **kwargs):
     super(XBuddy, self).__init__(**kwargs)
 
     if not log_screen:
@@ -189,6 +189,7 @@ class XBuddy(build_util.BuildObject):
     self.config = self._ReadConfig()
     self._manage_builds = manage_builds or self._ManageBuilds()
     self._board = board
+    self._version = version
     self._timestamp_folder = os.path.join(self.static_dir,
                                           Timestamp.XBUDDY_TIMESTAMP_DIR)
     if images_dir:
@@ -265,7 +266,7 @@ class XBuddy(build_util.BuildObject):
     except ConfigParser.Error:
       return 5
 
-  def _LookupAlias(self, alias, board):
+  def _LookupAlias(self, alias, board, version):
     """Given the full xbuddy config, look up an alias for path rewrite.
 
     Args:
@@ -273,6 +274,8 @@ class XBuddy(build_util.BuildObject):
         rewrite table.
       board: The board to fill in with when paths are rewritten. Can be from
         the update request xml or the default board from devserver.
+      version: The version to fill in when rewriting paths. Could be a specific
+        version number or a version alias like LATEST.
 
     Returns:
       If a rewrite is found, a string with the current board substituted in.
@@ -288,9 +291,10 @@ class XBuddy(build_util.BuildObject):
       # The found value was an empty string.
       return alias
     else:
-      # Fill in the board.
-      rewrite = val.replace("BOARD", "%(board)s") % {
-          'board': board}
+      # Fill in the board and version.
+      rewrite = val.replace("BOARD", "%(board)s")
+      rewrite = rewrite.replace("VERSION", "%(version)s")
+      rewrite = rewrite % {'board': board, 'version': version}
       _Log("Path was rewritten to %s", rewrite)
       return rewrite
 
@@ -487,12 +491,13 @@ class XBuddy(build_util.BuildObject):
     raise XBuddyException('No images found in %s' % local_dir)
 
   @staticmethod
-  def _InterpretPath(path, default_board=None):
+  def _InterpretPath(path, default_board=None, default_version=None):
     """Split and return the pieces of an xBuddy path name
 
     Args:
       path: the path xBuddy Get was called with.
       default_board: board to use in case board isn't in path.
+      default_version: Version to use in case version isn't in path.
 
     Returns:
       tuple of (image_type, board, version, whether the path is local)
@@ -522,12 +527,12 @@ class XBuddy(build_util.BuildObject):
     # of the path is just a board | version (like R33-2341.0.0) or just a board
     # or just a version. So we do our best to do the right thing.
     board = default_board
-    version = LATEST
+    version = default_version or LATEST
     if len(path_list) == 1:
       path = path_list.pop(0)
-      # If it's a version we know (contains latest), go for that, otherwise only
-      # treat it as a version if we were given an actual default board.
-      if LATEST in path or default_board is not None:
+      # Treat this as a version if it's one we know (contains default or
+      # latest), or we were given an actual default board.
+      if default_version in path or LATEST in path or default_board is not None:
         version = path
       else:
         board = path
@@ -669,8 +674,8 @@ class XBuddy(build_util.BuildObject):
     else:
       _Log('Image already cached.')
 
-  def _GetArtifact(self, path_list, board=None, lookup_only=False,
-                   image_dir=None):
+  def _GetArtifact(self, path_list, board=None, version=None,
+                   lookup_only=False, image_dir=None):
     """Interpret an xBuddy path and return directory/file_name to resource.
 
     Note board can be passed that in but by default if self._board is set,
@@ -678,8 +683,10 @@ class XBuddy(build_util.BuildObject):
 
     Args:
       path_list: [board, version, alias] as split from the xbuddy call url.
-      board: Board whos artifacts we are looking for. If None, use the board
-        XBuddy was initialized to use.
+      board: Board whos artifacts we are looking for. Only used if no board was
+        given during XBuddy initialization.
+      version: Version whose artifacts we are looking for. Used if no version
+        was given during XBuddy initialization. If None, defers to LATEST.
       lookup_only: If true just look up the artifact, if False stage it on
         the devserver as well.
       image_dir: Google Storage image archive to search in if requesting a
@@ -697,11 +704,12 @@ class XBuddy(build_util.BuildObject):
     """
     path = '/'.join(path_list)
     default_board = self._board if self._board else board
+    default_version = self._version or version or LATEST
     # Rewrite the path if there is an appropriate default.
-    path = self._LookupAlias(path, default_board)
+    path = self._LookupAlias(path, default_board, default_version)
     # Parse the path.
     image_type, board, version, is_local = self._InterpretPath(
-        path, default_board)
+        path, default_board, default_version)
     if is_local:
       # Get a local image.
       if version == LATEST:
@@ -749,7 +757,7 @@ class XBuddy(build_util.BuildObject):
     """Returns the number of images cached by xBuddy."""
     return str(self._Capacity())
 
-  def Translate(self, path_list, board=None, image_dir=None):
+  def Translate(self, path_list, board=None, version=None, image_dir=None):
     """Translates an xBuddy path to a real path to artifact if it exists.
 
     Equivalent to the Get call, minus downloading and updating timestamps,
@@ -758,6 +766,8 @@ class XBuddy(build_util.BuildObject):
       path_list: [board, version, alias] as split from the xbuddy call url.
       board: Board whos artifacts we are looking for. If None, use the board
         XBuddy was initialized to use.
+      version: Version whose artifacts we are looking for. If None, use the
+        version XBuddy was initialized with, or LATEST.
       image_dir: image directory to check in Google Storage. If none,
         the default bucket is used.
 
@@ -776,6 +786,7 @@ class XBuddy(build_util.BuildObject):
     """
     self._SyncRegistryWithBuildImages()
     build_id, file_name = self._GetArtifact(path_list, board=board,
+                                            version=version,
                                             lookup_only=True,
                                             image_dir=image_dir)
 
