@@ -9,6 +9,8 @@
 CHANNELS = 'canary', 'dev', 'beta', 'stable'
 GS_IMAGE_DIR = 'gs://chromeos-image-archive'
 GS_LATEST_MASTER = '%(image_dir)s/%(board)s%(suffix)s/LATEST-master'
+GS_LATEST_BASE_VERSION = (
+    '%(image_dir)s/%(board)s%(suffix)s/LATEST-%(base_version)s')
 IMAGE_DIR = '%(board)s%(suffix)s/%(version)s'
 
 GS_RELEASES_DIR = 'gs://chromeos-releases'

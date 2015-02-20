@@ -132,6 +132,19 @@ class xBuddyTest(mox.MoxTestBase):
                                           image_dir=GS_ALTERNATE_DIR)
     self.mox.VerifyAll()
 
+  def testResolveVersionToBuildId_BaseVersion(self):
+    """Check _ResolveVersionToBuildId handles a base version."""
+    board = 'b'
+
+    self.mox.StubOutWithMock(self.mock_xb, '_ResolveBuildVersion')
+    self.mock_xb._ResolveBuildVersion(board, '1.2.3').AndReturn('R12-1.2.3')
+    self.mox.StubOutWithMock(self.mock_xb, '_RemoteBuildId')
+    self.mock_xb._RemoteBuildId(board, 'R12-1.2.3')
+    self.mox.ReplayAll()
+
+    self.mock_xb._ResolveVersionToBuildId(board, '1.2.3')
+    self.mox.VerifyAll()
+
   def testBasicInterpretPath(self):
     """Basic checks for splitting a path"""
     path = 'parrot/R27-2455.0.0/test'

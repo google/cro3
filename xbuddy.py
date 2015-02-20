@@ -329,6 +329,7 @@ class XBuddy(build_util.BuildObject):
     return devserver_constants.IMAGE_DIR % {'board':board,
                                             'suffix':suffix,
                                             'version':version}
+
   def _LookupChannel(self, board, channel='stable', image_dir=None):
     """Check the channel folder for the version number of interest."""
     # Get all names in channel dir. Get 10 highest directories by version.
@@ -398,6 +399,21 @@ class XBuddy(build_util.BuildObject):
     raise XBuddyException('Could not find remote build_id for %s %s' % (
         board, version))
 
+  def _ResolveBuildVersion(self, board, base_version):
+    """Check LATEST-<base_version> and returns a full build version."""
+    _Log('Checking gs for full version for %s of %s', base_version, board)
+    # TODO(garnold) We might want to accommodate version prefixes and pick the
+    # most recent found, as done in _LookupVersion().
+    latest_addr = (devserver_constants.GS_LATEST_BASE_VERSION %
+                   {'image_dir': devserver_constants.GS_IMAGE_DIR,
+                    'board': board,
+                    'suffix': RELEASE,
+                    'base_version': base_version})
+    cmd = 'gsutil cat %s' % latest_addr
+    msg = 'Failed to find build at %s' % latest_addr
+    # Full release + version is in the LATEST file.
+    return gsutil_util.GSUtilRun(cmd, msg)
+
   def _ResolveVersionToBuildId(self, board, version, image_dir=None):
     """Handle version aliases for remote payloads in GS.
 
@@ -405,10 +421,11 @@ class XBuddy(build_util.BuildObject):
       board: as specified in the original call. (i.e. x86-generic, parrot)
       version: as entered in the original call. can be
         {TBD, 0. some custom alias as defined in a config file}
-        1. latest
-        2. latest-{channel}
-        3. latest-official-{board suffix}
-        4. version prefix (i.e. RX-Y.X, RX-Y, RX)
+        1. fully qualified build version or base version.
+        2. latest
+        3. latest-{channel}
+        4. latest-official-{board suffix}
+        5. version prefix (i.e. RX-Y.X, RX-Y, RX)
       image_dir: image directory to check in Google Storage. If none,
         the default bucket is used.
 
@@ -423,6 +440,9 @@ class XBuddy(build_util.BuildObject):
 
     if re.match(devserver_constants.VERSION_RE, version):
       return self._RemoteBuildId(board, version)
+    elif re.match(devserver_constants.VERSION, version):
+      return self._RemoteBuildId(board,
+                                 self._ResolveBuildVersion(board, version))
     elif version == LATEST_OFFICIAL:
       # latest-official --> LATEST build in board-release
       return self._LookupOfficial(board, image_dir=image_dir)
