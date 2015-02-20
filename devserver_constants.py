@@ -14,7 +14,7 @@ IMAGE_DIR = '%(board)s%(suffix)s/%(version)s'
 GS_RELEASES_DIR = 'gs://chromeos-releases'
 GS_CHANNEL_DIR = GS_RELEASES_DIR + '/%(channel)s-channel/%(board)s/'
 
-VERSION = '[-0-9\.]+'
+VERSION = r'[-0-9\.]+'
 VERSION_RE = 'R%s' % VERSION
 
 STAGED_BUILD_REGEX = '/static/(?P<build>.*-.*/%s)/.*' % VERSION_RE
@@ -29,10 +29,10 @@ RECOVERY_IMAGE_FILE = 'recovery_image.bin'
 TEST_IMAGE_FILE = 'chromiumos_test_image.bin'
 
 ALL_IMAGES = (
-  BASE_IMAGE_FILE,
-  IMAGE_FILE,
-  RECOVERY_IMAGE_FILE,
-  TEST_IMAGE_FILE,
+    BASE_IMAGE_FILE,
+    IMAGE_FILE,
+    RECOVERY_IMAGE_FILE,
+    TEST_IMAGE_FILE,
 )
 
 #### Update files
