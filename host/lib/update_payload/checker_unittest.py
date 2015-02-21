@@ -33,6 +33,8 @@ def _OpTypeByName(op_name):
       'REPLACE_BZ': common.OpType.REPLACE_BZ,
       'MOVE': common.OpType.MOVE,
       'BSDIFF': common.OpType.BSDIFF,
+      'SOURCE_COPY': common.OpType.SOURCE_COPY,
+      'SOURCE_BSDIFF': common.OpType.SOURCE_BSDIFF,
   }
   return op_name_to_type[op_name]
 
@@ -83,7 +85,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
   """
 
   def MockPayload(self):
-    """Create a mock payload object, complete with a mock menifest."""
+    """Create a mock payload object, complete with a mock manifest."""
     payload = self.mox.CreateMock(update_payload.Payload)
     payload.is_init = True
     payload.manifest = self.mox.CreateMock(
@@ -755,6 +757,26 @@ class PayloadCheckerTest(mox.MoxTestBase):
         payload_checker._CheckBsdiffOperation,
         10000, 2, 'foo')
 
+  def testCheckSourceCopyOperation_Pass(self):
+    """Tests _CheckSourceCopyOperation(); pass case."""
+    payload_checker = checker.PayloadChecker(self.MockPayload())
+    self.assertIsNone(
+        payload_checker._CheckSourceCopyOperation(None, 134, 134, 'foo'))
+
+  def testCheckSourceCopyOperation_FailContainsData(self):
+    """Tests _CheckSourceCopyOperation(); message contains data."""
+    payload_checker = checker.PayloadChecker(self.MockPayload())
+    self.assertRaises(update_payload.PayloadError,
+                      payload_checker._CheckSourceCopyOperation,
+                      134, 0, 0, 'foo')
+
+  def testCheckSourceCopyOperation_FailBlockCountsMismatch(self):
+    """Tests _CheckSourceCopyOperation(); src and dst block totals not equal."""
+    payload_checker = checker.PayloadChecker(self.MockPayload())
+    self.assertRaises(update_payload.PayloadError,
+                      payload_checker._CheckSourceCopyOperation,
+                      None, 0, 1, 'foo')
+
   def DoCheckOperationTest(self, op_type_name, is_last, allow_signature,
                            allow_unhashed, fail_src_extents, fail_dst_extents,
                            fail_mismatched_data_offset_length,
@@ -764,7 +786,8 @@ class PayloadCheckerTest(mox.MoxTestBase):
     """Parametric testing of _CheckOperation().
 
     Args:
-      op_type_name: 'REPLACE', 'REPLACE_BZ', 'MOVE' or 'BSDIFF'.
+      op_type_name: 'REPLACE', 'REPLACE_BZ', 'MOVE', 'BSDIFF', 'SOURCE_COPY',
+        or 'SOURCE_BSDIFF'.
       is_last: Whether we're testing the last operation in a sequence.
       allow_signature: Whether we're testing a signature-capable operation.
       allow_unhashed: Whether we're allowing to not hash the data.
@@ -801,7 +824,8 @@ class PayloadCheckerTest(mox.MoxTestBase):
     op.type = op_type
 
     total_src_blocks = 0
-    if op_type in (common.OpType.MOVE, common.OpType.BSDIFF):
+    if op_type in (common.OpType.MOVE, common.OpType.BSDIFF,
+                   common.OpType.SOURCE_COPY, common.OpType.SOURCE_BSDIFF):
       if fail_src_extents:
         self.AddToMessage(op.src_extents,
                           self.NewExtentList((0, 0)))
@@ -810,7 +834,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
                           self.NewExtentList((0, 16)))
         total_src_blocks = 16
 
-    if op_type != common.OpType.MOVE:
+    if op_type not in (common.OpType.MOVE, common.OpType.SOURCE_COPY):
       if not fail_mismatched_data_offset_length:
         op.data_length = 16 * block_size - 8
       if fail_prev_data_offset:
@@ -935,6 +959,54 @@ class PayloadCheckerTest(mox.MoxTestBase):
       self.assertEqual(rootfs_data_length,
                        payload_checker._CheckOperations(*args))
 
+  def testCheckOperationsMinorVersion(self):
+    """Tests _CheckOperations; checks op compatibility with minor version.
+
+       SOURCE_COPY and SOURCE_BSDIFF operations are not supported in payloads
+       with delta minor version 1. MOVE and BSDIFF operations are not supported
+       in payloads with delta minor version 2.
+    """
+    # Create test objects and parameters.
+    payload_checker = checker.PayloadChecker(self.MockPayload())
+    report = checker._PayloadReport()
+    rootfs_part_size = test_utils.MiB(8)
+
+    FakeOp = collections.namedtuple('FakeOp', ['type'])
+    args = ([FakeOp(common.OpType.SOURCE_COPY),
+             FakeOp(common.OpType.SOURCE_BSDIFF)],
+            report, 'foo', 0, rootfs_part_size, rootfs_part_size, 0, False)
+
+    try:
+      # Mock _CheckOperation() so it will pass.
+      self.mox.StubOutWithMock(payload_checker, '_CheckOperation')
+      payload_checker._CheckOperation(mox.IgnoreArg(), mox.IgnoreArg(),
+                                      mox.IgnoreArg(), mox.IgnoreArg(),
+                                      mox.IgnoreArg(), mox.IgnoreArg(),
+                                      mox.IgnoreArg(), mox.IgnoreArg(),
+                                      mox.IgnoreArg(), mox.IgnoreArg()
+                                     ).MultipleTimes().AndReturn(0)
+      self.mox.ReplayAll()
+
+      # Fail, minor version 1 should not allow SOURCE_COPY or SOURCE_BSDIFF.
+      payload_checker.payload.manifest.minor_version = 1
+      self.assertRaises(update_payload.PayloadError,
+                        payload_checker._CheckOperations,
+                        *args)
+
+      # Pass, minor version 2 should allow these operations.
+      payload_checker.payload.manifest.minor_version = 2
+      self.assertEquals(payload_checker._CheckOperations(*args), 0)
+
+      # Fail, minor version 2 should not allow MOVE or BSDIFF.
+      args = ([FakeOp(common.OpType.MOVE), FakeOp(common.OpType.BSDIFF)],
+              report, 'foo', 0, rootfs_part_size, rootfs_part_size, 0, False)
+      self.assertRaises(update_payload.PayloadError,
+                        payload_checker._CheckOperations,
+                        *args)
+
+    finally:
+      self.mox.UnsetStubs()
+
   def DoCheckSignaturesTest(self, fail_empty_sigs_blob, fail_missing_pseudo_op,
                             fail_mismatched_pseudo_op, fail_sig_missing_fields,
                             fail_unknown_sig_version, fail_incorrect_sig):
@@ -1006,6 +1078,29 @@ class PayloadCheckerTest(mox.MoxTestBase):
     else:
       self.assertIsNone(payload_checker._CheckSignatures(*args))
 
+  def DoCheckMinorVersionTest(self, minor_version, payload_type):
+    """Parametric testing for CheckMinorVersion().
+
+    Args:
+      minor_version: The payload minor version to test with.
+      payload_type: The type of the payload we're testing, delta or full.
+    """
+    # Create the test object.
+    payload_checker = checker.PayloadChecker(self.MockPayload())
+    report = checker._PayloadReport()
+
+    should_succeed = (
+        (minor_version == 0 and payload_type == checker._TYPE_FULL) or
+        (minor_version == 1 and payload_type == checker._TYPE_DELTA) or
+        (minor_version == 2 and payload_type == checker._TYPE_DELTA))
+    args = (report, minor_version, payload_type)
+
+    if should_succeed:
+      self.assertIsNone(payload_checker._CheckMinorVersion(*args))
+    else:
+      self.assertRaises(update_payload.PayloadError,
+                        payload_checker._CheckMinorVersion, *args)
+
   def DoRunTest(self, fail_wrong_payload_type, fail_invalid_block_size,
                 fail_mismatched_block_size, fail_excess_data):
     # Generate a test payload. For this test, we generate a full update that
@@ -1064,7 +1159,6 @@ class PayloadCheckerTest(mox.MoxTestBase):
       else:
         self.assertIsNone(payload_checker.Run(**kwargs))
 
-
 # This implements a generic API, hence the occasional unused args.
 # pylint: disable=W0613
 def ValidateCheckOperationTest(op_type_name, is_last, allow_signature,
@@ -1082,8 +1176,8 @@ def ValidateCheckOperationTest(op_type_name, is_last, allow_signature,
       fail_src_extents or fail_src_length)):
     return False
 
-  # MOVE operations don't carry data.
-  if (op_type == common.OpType.MOVE and (
+  # MOVE and SOURCE_COPY operations don't carry data.
+  if (op_type in (common.OpType.MOVE, common.OpType.SOURCE_COPY) and (
       fail_mismatched_data_offset_length or fail_data_hash or
       fail_prev_data_offset)):
     return False
@@ -1166,7 +1260,8 @@ def AddAllParametricTests():
   # Add all _CheckOperation() test cases.
   AddParametricTests('CheckOperation',
                      {'op_type_name': ('REPLACE', 'REPLACE_BZ', 'MOVE',
-                                       'BSDIFF'),
+                                       'BSDIFF', 'SOURCE_COPY',
+                                       'SOURCE_BSDIFF'),
                       'is_last': (True, False),
                       'allow_signature': (True, False),
                       'allow_unhashed': (True, False),
@@ -1193,6 +1288,12 @@ def AddAllParametricTests():
                       'fail_sig_missing_fields': (True, False),
                       'fail_unknown_sig_version': (True, False),
                       'fail_incorrect_sig': (True, False)})
+
+  # Add all _CheckMinorVersion() test cases.
+  AddParametricTests('CheckMinorVersion',
+                     {'minor_version': (0, 1, 2, 555),
+                      'payload_type': (checker._TYPE_FULL,
+                                       checker._TYPE_DELTA)})
 
   # Add all Run() test cases.
   AddParametricTests('Run',
