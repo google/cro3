@@ -132,19 +132,6 @@ class PayloadCheckerTest(mox.MoxTestBase):
       new_field = repeated_field.add()
       new_field.CopyFrom(field_val)
 
-  # The production environment uses an older Python, this isn't an override.
-  # pylint: disable=W0221
-  def assertIsNone(self, val):
-    """Asserts that val is None (TODO remove once we upgrade to Python 2.7).
-
-    Note that we're using assertEqual so as for it to show us the actual
-    non-None value.
-
-    Args:
-      val: Value/object to be equated to None.
-    """
-    self.assertIs(None, val)
-
   def SetupAddElemTest(self, is_present, is_submsg, convert=str,
                        linebreak=False, indent=0):
     """Setup for testing of _CheckElem() and its derivatives.
