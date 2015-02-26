@@ -782,7 +782,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
                            fail_mismatched_data_offset_length,
                            fail_missing_dst_extents, fail_src_length,
                            fail_dst_length, fail_data_hash,
-                           fail_prev_data_offset):
+                           fail_prev_data_offset, fail_bad_minor_version):
     """Parametric testing of _CheckOperation().
 
     Args:
@@ -800,6 +800,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
       fail_dst_length: Make dst length inconsistent.
       fail_data_hash: Tamper with the data blob hash.
       fail_prev_data_offset: Make data space uses incontiguous.
+      fail_bad_minor_version: Make minor version incompatible with op.
     """
     op_type = _OpTypeByName(op_type_name)
 
@@ -833,6 +834,13 @@ class PayloadCheckerTest(mox.MoxTestBase):
         self.AddToMessage(op.src_extents,
                           self.NewExtentList((0, 16)))
         total_src_blocks = 16
+
+    if op_type in (common.OpType.REPLACE, common.OpType.REPLACE_BZ):
+      payload.manifest.minor_version = 0
+    elif op_type in (common.OpType.MOVE, common.OpType.BSDIFF):
+      payload.manifest.minor_version = 2 if fail_bad_minor_version else 1
+    elif op_type in (common.OpType.SOURCE_COPY, common.OpType.SOURCE_BSDIFF):
+      payload.manifest.minor_version = 1 if fail_bad_minor_version else 2
 
     if op_type not in (common.OpType.MOVE, common.OpType.SOURCE_COPY):
       if not fail_mismatched_data_offset_length:
@@ -886,7 +894,8 @@ class PayloadCheckerTest(mox.MoxTestBase):
     should_fail = (fail_src_extents or fail_dst_extents or
                    fail_mismatched_data_offset_length or
                    fail_missing_dst_extents or fail_src_length or
-                   fail_dst_length or fail_data_hash or fail_prev_data_offset)
+                   fail_dst_length or fail_data_hash or fail_prev_data_offset or
+                   fail_bad_minor_version)
     args = (op, 'foo', is_last, old_block_counters, new_block_counters,
             old_part_size, new_part_size, prev_data_offset, allow_signature,
             blob_hash_counts)
@@ -958,54 +967,6 @@ class PayloadCheckerTest(mox.MoxTestBase):
     else:
       self.assertEqual(rootfs_data_length,
                        payload_checker._CheckOperations(*args))
-
-  def testCheckOperationsMinorVersion(self):
-    """Tests _CheckOperations; checks op compatibility with minor version.
-
-       SOURCE_COPY and SOURCE_BSDIFF operations are not supported in payloads
-       with delta minor version 1. MOVE and BSDIFF operations are not supported
-       in payloads with delta minor version 2.
-    """
-    # Create test objects and parameters.
-    payload_checker = checker.PayloadChecker(self.MockPayload())
-    report = checker._PayloadReport()
-    rootfs_part_size = test_utils.MiB(8)
-
-    FakeOp = collections.namedtuple('FakeOp', ['type'])
-    args = ([FakeOp(common.OpType.SOURCE_COPY),
-             FakeOp(common.OpType.SOURCE_BSDIFF)],
-            report, 'foo', 0, rootfs_part_size, rootfs_part_size, 0, False)
-
-    try:
-      # Mock _CheckOperation() so it will pass.
-      self.mox.StubOutWithMock(payload_checker, '_CheckOperation')
-      payload_checker._CheckOperation(mox.IgnoreArg(), mox.IgnoreArg(),
-                                      mox.IgnoreArg(), mox.IgnoreArg(),
-                                      mox.IgnoreArg(), mox.IgnoreArg(),
-                                      mox.IgnoreArg(), mox.IgnoreArg(),
-                                      mox.IgnoreArg(), mox.IgnoreArg()
-                                     ).MultipleTimes().AndReturn(0)
-      self.mox.ReplayAll()
-
-      # Fail, minor version 1 should not allow SOURCE_COPY or SOURCE_BSDIFF.
-      payload_checker.payload.manifest.minor_version = 1
-      self.assertRaises(update_payload.PayloadError,
-                        payload_checker._CheckOperations,
-                        *args)
-
-      # Pass, minor version 2 should allow these operations.
-      payload_checker.payload.manifest.minor_version = 2
-      self.assertEquals(payload_checker._CheckOperations(*args), 0)
-
-      # Fail, minor version 2 should not allow MOVE or BSDIFF.
-      args = ([FakeOp(common.OpType.MOVE), FakeOp(common.OpType.BSDIFF)],
-              report, 'foo', 0, rootfs_part_size, rootfs_part_size, 0, False)
-      self.assertRaises(update_payload.PayloadError,
-                        payload_checker._CheckOperations,
-                        *args)
-
-    finally:
-      self.mox.UnsetStubs()
 
   def DoCheckSignaturesTest(self, fail_empty_sigs_blob, fail_missing_pseudo_op,
                             fail_mismatched_pseudo_op, fail_sig_missing_fields,
@@ -1167,13 +1128,14 @@ def ValidateCheckOperationTest(op_type_name, is_last, allow_signature,
                                fail_mismatched_data_offset_length,
                                fail_missing_dst_extents, fail_src_length,
                                fail_dst_length, fail_data_hash,
-                               fail_prev_data_offset):
+                               fail_prev_data_offset, fail_bad_minor_version):
   """Returns True iff the combination of arguments represents a valid test."""
   op_type = _OpTypeByName(op_type_name)
 
-  # REPLACE/REPLACE_BZ operations don't read data from src partition.
+  # REPLACE/REPLACE_BZ operations don't read data from src partition. They are
+  # compatible with all valid minor versions, so we don't need to check that.
   if (op_type in (common.OpType.REPLACE, common.OpType.REPLACE_BZ) and (
-      fail_src_extents or fail_src_length)):
+      fail_src_extents or fail_src_length or fail_bad_minor_version)):
     return False
 
   # MOVE and SOURCE_COPY operations don't carry data.
@@ -1272,7 +1234,8 @@ def AddAllParametricTests():
                       'fail_src_length': (True, False),
                       'fail_dst_length': (True, False),
                       'fail_data_hash': (True, False),
-                      'fail_prev_data_offset': (True, False)},
+                      'fail_prev_data_offset': (True, False),
+                      'fail_bad_minor_version': (True, False)},
                      validate_func=ValidateCheckOperationTest)
 
   # Add all _CheckOperations() test cases.
