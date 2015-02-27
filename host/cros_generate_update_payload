@@ -31,12 +31,11 @@ find_common_sh() {
 find_common_sh
 . "${SCRIPT_ROOT}/common.sh" || exit 1
 
-# Load functions and constants for chromeos-install
-# NOTE: Needs to be called from outside the chroot.
-. "/usr/lib/installer/chromeos-common.sh" &> /dev/null || \
+# Load functions and constants for chromeos-common.
 . "${SRC_ROOT}/platform2/installer/share/chromeos-common.sh" &> /dev/null || \
+. "/usr/share/misc/chromeos-common.sh" &> /dev/null || \
 . "./chromeos-common.sh" || \
-  die "Unable to load /usr/lib/installer/chromeos-common.sh"
+  die "Unable to load chromeos-common.sh"
 
 DEFINE_string image "" "The image that should be sent to clients."
 DEFINE_string src_image "" "Optional: a source image. If specified, this makes\
