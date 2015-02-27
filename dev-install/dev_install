@@ -154,7 +154,7 @@ configure_emerge() {
   # Add LD_LIBRARY_PATH within ebuild.sh.
   # TODO(arkaitzr): find out a cleaner way to do this.
   sed -i "3 a\export LD_LIBRARY_PATH=\"${LD_LIBRARY_PATH}\"" \
-      /usr/local/lib/portage/bin/ebuild.sh
+      /usr/local/lib/portage/*/ebuild.sh
 
   # Check for package.provided from $BINHOST.
   local package_provided="${BINHOST}/package.provided"
