@@ -68,11 +68,6 @@ BOARD_OVERLAY_LIST=$(cros_list_overlays \
 #
 # Compute ARCH
 #
-PRIMARY_BOARD_OVERLAY=$(cros_list_overlays \
-  --board "$BOARD_VARIANT" \
-  --board_overlay "$FLAGS_board_overlay" \
-  --primary_only)
-
 ARCH=$(get_board_arch "${BOARD}") || exit 1
 
 # The profile directory comes from many possible locations, the <overlay>
