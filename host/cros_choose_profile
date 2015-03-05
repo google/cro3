@@ -32,6 +32,7 @@ DEFINE_string board_overlay "" "Location of the board overlay."
 DEFINE_string variant "" "Board variant."
 DEFINE_string profile "" "The portage configuration profile to use."
 DEFINE_string board_root "" "Board root where the profile should be created."
+DEFINE_string brick "" "Brick to set up."
 
 # Parse command line flags
 FLAGS "$@" || exit 1
@@ -41,12 +42,15 @@ eval set -- "${FLAGS_ARGV}"
 # so will die prematurely if 'set -e' is specified before now.
 set -e
 
-if [ -z "$FLAGS_board" ] ; then
-  error "--board required."
+if [[ -z "${FLAGS_board}" ]] && [[ -z "${FLAGS_brick}" ]]; then
+  error "--board or --brick required."
+  exit 1
+elif [[ -n "${FLAGS_board}" ]] && [[ -n "${FLAGS_brick}" ]]; then
+  error "--board and --brick are incompatible."
   exit 1
 fi
 
-get_board_and_variant $FLAGS_board $FLAGS_variant
+get_board_and_variant "${FLAGS_board}" "${FLAGS_variant}" "${FLAGS_brick}"
 
 BOARD_ROOT="${FLAGS_board_root:-/build/${BOARD_VARIANT}}"
 CHROMIUMOS_OVERLAY="/usr/local/portage/chromiumos"
@@ -61,14 +65,18 @@ fi
 #
 # Construct board overlay list.
 #
-BOARD_OVERLAY_LIST=$(cros_list_overlays \
-  --board "$BOARD_VARIANT" \
-  --board_overlay "$FLAGS_board_overlay")
+if [[ -n "${FLAGS_brick}" ]]; then
+  BOARD_OVERLAY_LIST=$(cros_list_overlays --brick "${FLAGS_brick}")
+else
+  BOARD_OVERLAY_LIST=$(cros_list_overlays \
+    --board "${BOARD_VARIANT}" \
+    --board_overlay "${FLAGS_board_overlay}")
+fi
 
 #
 # Compute ARCH
 #
-ARCH=$(get_board_arch "${BOARD}") || exit 1
+ARCH=$(get_board_arch "${FLAGS_brick:-${BOARD}}") || exit 1
 
 # The profile directory comes from many possible locations, the <overlay>
 # values below can be any of the board overlays, public, private, primary
