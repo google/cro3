@@ -115,41 +115,6 @@ validate_command_options ()
     die "${CHOST}-gdb does not exist. Please run setup_board."
   fi
 
-  # Verify that the debug version of the remote file exists.
-
-  local local_file="${BOARD_ROOT}${FLAGS_remote_file}"
-  if [[ ! -x "${local_file}" ]]; then
-    echo
-    warn "${local_file} does not exist on your local machine or is not"
-    warn "executable.  You may need to re-run build_packages before attempting to debug."
-    echo
-    read -p "Do you want to stop now? [y/N] " y_or_n
-    case "${y_or_n}" in
-      y|Y) exit 1 ;;
-      *) ;;
-    esac
-  fi
-
-  local local_symbols="${BOARD_ROOT}/usr/lib/debug${FLAGS_remote_file}.debug"
-  local file_info="$(file "${local_file}")"
-  if [[ "${file_info}" != *"not stripped"* && ! -e "${local_symbols}" ]]; then
-    echo
-    local package="$(qfile-${BOARD} -C -q "${FLAGS_remote_file}")"
-    warn "${local_file} is stripped and ${local_symbols} does not exist"
-    warn "on your local machine. The debug symbols for that package may not be"
-    warn "installed."
-    warn "To install the debug symbols for ${package} only, run:"
-    warn " cros_install_debug_syms --board=${BOARD} ${package}"
-    warn "To install the debug symbols for all available packages, run:"
-    warn " cros_install_debug_syms --board=${BOARD} --all"
-    echo
-    read -p "Do you want to stop now? [y/N] " y_or_n
-    case "${y_or_n}" in
-      y|Y) exit 1 ;;
-      *) ;;
-    esac
-  fi
-
   # Verify that the IP Address is currently active.
 
   if [[ -z "${FLAGS_remote}" ]] ; then
@@ -198,6 +163,41 @@ validate_command_options ()
     if [[ ${FLAGS_remote_file:0:1} != '/' ]] ; then
       die "--remote_file must contain full pathname."
     fi
+  fi
+
+  # Verify that the debug version of the remote file exists.
+
+  local local_file="${BOARD_ROOT}${FLAGS_remote_file}"
+  if [[ ! -x "${local_file}" ]]; then
+    echo
+    warn "${local_file} does not exist on your local machine or is not"
+    warn "executable.  You may need to re-run build_packages before attempting to debug."
+    echo
+    read -p "Do you want to stop now? [y/N] " y_or_n
+    case "${y_or_n}" in
+      y|Y) exit 1 ;;
+      *) ;;
+    esac
+  fi
+
+  local local_symbols="${BOARD_ROOT}/usr/lib/debug${FLAGS_remote_file}.debug"
+  local file_info="$(file "${local_file}")"
+  if [[ "${file_info}" != *"not stripped"* && ! -e "${local_symbols}" ]]; then
+    echo
+    local package="$(qfile-${BOARD} -C -q "${FLAGS_remote_file}")"
+    warn "${local_file} is stripped and ${local_symbols} does not exist"
+    warn "on your local machine. The debug symbols for that package may not be"
+    warn "installed."
+    warn "To install the debug symbols for ${package} only, run:"
+    warn " cros_install_debug_syms --board=${BOARD} ${package}"
+    warn "To install the debug symbols for all available packages, run:"
+    warn " cros_install_debug_syms --board=${BOARD} --all"
+    echo
+    read -p "Do you want to stop now? [y/N] " y_or_n
+    case "${y_or_n}" in
+      y|Y) exit 1 ;;
+      *) ;;
+    esac
   fi
 }
 
