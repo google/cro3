@@ -33,6 +33,7 @@ CONFIG_FILE = 'xbuddy_config.ini'
 SHADOW_CONFIG_FILE = 'shadow_xbuddy_config.ini'
 PATH_REWRITES = 'PATH_REWRITES'
 GENERAL = 'GENERAL'
+LOCATION_SUFFIXES = 'LOCATION_SUFFIXES'
 
 # Path for shadow config in chroot.
 CHROOT_SHADOW_DIR = '/mnt/host/source/src/platform/dev'
@@ -278,25 +279,32 @@ class XBuddy(build_util.BuildObject):
         version number or a version alias like LATEST.
 
     Returns:
-      If a rewrite is found, a string with the current board substituted in.
-      If no rewrite is found, just return the original string.
+      A pair (val, suffix) where val is the rewritten path, or the original
+      string if no rewrite was found; and suffix is the assigned location
+      suffix, or the default suffix if none was found.
     """
+    try:
+      suffix = self.config.get(LOCATION_SUFFIXES, alias)
+    except ConfigParser.Error:
+      suffix = RELEASE
+
     try:
       val = self.config.get(PATH_REWRITES, alias)
     except ConfigParser.Error:
       # No alias lookup found. Return original path.
-      return alias
+      val = None
 
-    if not val.strip():
-      # The found value was an empty string.
-      return alias
+    if not (val and val.strip()):
+      val = alias
     else:
+      # The found value is not an empty string.
       # Fill in the board and version.
-      rewrite = val.replace("BOARD", "%(board)s")
-      rewrite = rewrite.replace("VERSION", "%(version)s")
-      rewrite = rewrite % {'board': board, 'version': version}
-      _Log("Path was rewritten to %s", rewrite)
-      return rewrite
+      val = val.replace("BOARD", "%(board)s")
+      val = val.replace("VERSION", "%(version)s")
+      val = val % {'board': board, 'version': version}
+
+    _Log("Path is %s, location suffix is %s", val, suffix)
+    return val, suffix
 
   @staticmethod
   def _ResolveImageDir(image_dir):
@@ -313,7 +321,7 @@ class XBuddy(build_util.BuildObject):
     # Remove trailing slashes.
     return image_dir.rstrip('/')
 
-  def _LookupOfficial(self, board, suffix=RELEASE, image_dir=None):
+  def _LookupOfficial(self, board, suffix, image_dir=None):
     """Check LATEST-master for the version number of interest."""
     _Log("Checking gs for latest %s-%s image", board, suffix)
     image_dir = XBuddy._ResolveImageDir(image_dir)
@@ -330,7 +338,8 @@ class XBuddy(build_util.BuildObject):
                                             'suffix':suffix,
                                             'version':version}
 
-  def _LookupChannel(self, board, channel='stable', image_dir=None):
+  def _LookupChannel(self, board, suffix, channel='stable',
+                     image_dir=None):
     """Check the channel folder for the version number of interest."""
     # Get all names in channel dir. Get 10 highest directories by version.
     _Log("Checking channel '%s' for latest '%s' image", channel, board)
@@ -345,50 +354,50 @@ class XBuddy(build_util.BuildObject):
 
     # Figure out release number from the version number.
     image_url = devserver_constants.IMAGE_DIR % {
-        'board':board,
-        'suffix':RELEASE,
-        'version':'R*' + latest_version}
+        'board': board,
+        'suffix': suffix,
+        'version': 'R*' + latest_version}
     image_dir = XBuddy._ResolveImageDir(image_dir)
     gs_url = os.path.join(image_dir, image_url)
 
     # There should only be one match on cros-image-archive.
     full_version = gsutil_util.GetLatestVersionFromGSDir(gs_url)
 
-    return devserver_constants.IMAGE_DIR % {'board':board,
-                                            'suffix':RELEASE,
-                                            'version':full_version}
+    return devserver_constants.IMAGE_DIR % {'board': board,
+                                            'suffix': suffix,
+                                            'version': full_version}
 
-  def _LookupVersion(self, board, version):
+  def _LookupVersion(self, board, suffix, version):
     """Search GS image releases for the highest match to a version prefix."""
     # Build the pattern for GS to match.
     _Log("Checking gs for latest '%s' image with prefix '%s'", board, version)
-    image_url = devserver_constants.IMAGE_DIR % {'board':board,
-                                                 'suffix':RELEASE,
-                                                 'version':version + '*'}
+    image_url = devserver_constants.IMAGE_DIR % {'board': board,
+                                                 'suffix': suffix,
+                                                 'version': version + '*'}
     image_dir = os.path.join(devserver_constants.GS_IMAGE_DIR, image_url)
 
     # Grab the newest version of the ones matched.
     full_version = gsutil_util.GetLatestVersionFromGSDir(image_dir)
-    return devserver_constants.IMAGE_DIR % {'board':board,
-                                            'suffix':RELEASE,
-                                            'version':full_version}
+    return devserver_constants.IMAGE_DIR % {'board': board,
+                                            'suffix': suffix,
+                                            'version': full_version}
 
-  def _RemoteBuildId(self, board, version):
+  def _RemoteBuildId(self, board, suffix, version):
     """Returns the remote build_id for the given board and version.
 
     Raises:
       XBuddyException: If we failed to resolve the version to a valid build_id.
     """
-    build_id_as_is = devserver_constants.IMAGE_DIR % {'board':board,
-                                                      'suffix':'',
-                                                      'version':version}
-    build_id_release = devserver_constants.IMAGE_DIR % {'board':board,
-                                                        'suffix':RELEASE,
-                                                        'version':version}
+    build_id_as_is = devserver_constants.IMAGE_DIR % {'board': board,
+                                                      'suffix': '',
+                                                      'version': version}
+    build_id_suffix = devserver_constants.IMAGE_DIR % {'board': board,
+                                                       'suffix': suffix,
+                                                       'version': version}
     # Return the first path that exists. We assume that what the user typed
     # is better than with a default suffix added i.e. x86-generic/blah is
     # more valuable than x86-generic-release/blah.
-    for build_id in build_id_as_is, build_id_release:
+    for build_id in build_id_as_is, build_id_suffix:
       cmd = 'gsutil ls %s/%s' % (devserver_constants.GS_IMAGE_DIR, build_id)
       try:
         version = gsutil_util.GSUtilRun(cmd, None)
@@ -399,7 +408,7 @@ class XBuddy(build_util.BuildObject):
     raise XBuddyException('Could not find remote build_id for %s %s' % (
         board, version))
 
-  def _ResolveBuildVersion(self, board, base_version):
+  def _ResolveBuildVersion(self, board, suffix, base_version):
     """Check LATEST-<base_version> and returns a full build version."""
     _Log('Checking gs for full version for %s of %s', base_version, board)
     # TODO(garnold) We might want to accommodate version prefixes and pick the
@@ -407,18 +416,19 @@ class XBuddy(build_util.BuildObject):
     latest_addr = (devserver_constants.GS_LATEST_BASE_VERSION %
                    {'image_dir': devserver_constants.GS_IMAGE_DIR,
                     'board': board,
-                    'suffix': RELEASE,
+                    'suffix': suffix,
                     'base_version': base_version})
     cmd = 'gsutil cat %s' % latest_addr
     msg = 'Failed to find build at %s' % latest_addr
     # Full release + version is in the LATEST file.
     return gsutil_util.GSUtilRun(cmd, msg)
 
-  def _ResolveVersionToBuildId(self, board, version, image_dir=None):
+  def _ResolveVersionToBuildId(self, board, suffix, version, image_dir=None):
     """Handle version aliases for remote payloads in GS.
 
     Args:
       board: as specified in the original call. (i.e. x86-generic, parrot)
+      suffix: The location suffix, to be added to board name.
       version: as entered in the original call. can be
         {TBD, 0. some custom alias as defined in a config file}
         1. fully qualified build version or base version.
@@ -439,26 +449,27 @@ class XBuddy(build_util.BuildObject):
     version_tuple = version.rsplit('-', 1)
 
     if re.match(devserver_constants.VERSION_RE, version):
-      return self._RemoteBuildId(board, version)
+      return self._RemoteBuildId(board, suffix, version)
     elif re.match(devserver_constants.VERSION, version):
-      return self._RemoteBuildId(board,
-                                 self._ResolveBuildVersion(board, version))
+      return self._RemoteBuildId(
+          board, suffix, self._ResolveBuildVersion(board, suffix, version))
     elif version == LATEST_OFFICIAL:
       # latest-official --> LATEST build in board-release
-      return self._LookupOfficial(board, image_dir=image_dir)
+      return self._LookupOfficial(board, suffix, image_dir=image_dir)
     elif version_tuple[0] == LATEST_OFFICIAL:
       # latest-official-{suffix} --> LATEST build in board-{suffix}
-      return self._LookupOfficial(board, version_tuple[1], image_dir=image_dir)
+      return self._LookupOfficial(board, version_tuple[1],
+                                  image_dir=image_dir)
     elif version == LATEST:
       # latest --> latest build on stable channel
-      return self._LookupChannel(board, image_dir=image_dir)
+      return self._LookupChannel(board, suffix, image_dir=image_dir)
     elif version_tuple[0] == LATEST:
       if re.match(devserver_constants.VERSION_RE, version_tuple[1]):
         # latest-R* --> most recent qualifying build
-        return self._LookupVersion(board, version_tuple[1])
+        return self._LookupVersion(board, suffix, version_tuple[1])
       else:
         # latest-{channel} --> latest build within that channel
-        return self._LookupChannel(board, version_tuple[1],
+        return self._LookupChannel(board, suffix, channel=version_tuple[1],
                                    image_dir=image_dir)
     else:
       # The given version doesn't match any known patterns.
@@ -726,7 +737,7 @@ class XBuddy(build_util.BuildObject):
     default_board = self._board if self._board else board
     default_version = self._version or version or LATEST
     # Rewrite the path if there is an appropriate default.
-    path = self._LookupAlias(path, default_board, default_version)
+    path, suffix = self._LookupAlias(path, default_board, default_version)
     # Parse the path.
     image_type, board, version, is_local = self._InterpretPath(
         path, default_board, default_version)
@@ -752,7 +763,7 @@ class XBuddy(build_util.BuildObject):
       if image_type not in GS_ALIASES:
         raise XBuddyException('Bad remote image type: %s. Use one of: %s' %
                               (image_type, GS_ALIASES))
-      build_id = self._ResolveVersionToBuildId(board, version,
+      build_id = self._ResolveVersionToBuildId(board, suffix, version,
                                                image_dir=image_dir)
       _Log('Resolved version %s to %s.', version, build_id)
       file_name = GS_ALIAS_TO_FILENAME[image_type]

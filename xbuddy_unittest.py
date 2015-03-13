@@ -8,6 +8,7 @@
 
 from __future__ import print_function
 
+import ConfigParser
 import os
 import shutil
 import tempfile
@@ -58,7 +59,7 @@ class xBuddyTest(mox.MoxTestBase):
                           mox.IgnoreArg()).AndReturn('v')
     expected = 'b-s/v'
     self.mox.ReplayAll()
-    self.assertEqual(self.mock_xb._LookupOfficial('b', '-s'), expected)
+    self.assertEqual(self.mock_xb._LookupOfficial('b', suffix='-s'), expected)
     self.mox.VerifyAll()
 
   def testLookupChannel(self):
@@ -71,29 +72,56 @@ class xBuddyTest(mox.MoxTestBase):
     gsutil_util.GetLatestVersionFromGSDir(mox.IgnoreArg()).AndReturn(mock_data2)
     self.mox.ReplayAll()
     expected = 'b-release/R28-4100.68.0'
-    self.assertEqual(self.mock_xb._LookupChannel('b'),
+    self.assertEqual(self.mock_xb._LookupChannel('b', '-release'),
                      expected)
     self.mox.VerifyAll()
 
-  def testLookupAlias(self):
-    """Tests _LookupAlias, including keyword substitution."""
+  def testLookupAliasPathRewrite(self):
+    """Tests _LookupAlias of path rewrite, including keyword substitution."""
     alias = 'foobar'
     path = 'remote/BOARD/VERSION/test'
     self.mox.StubOutWithMock(self.mock_xb.config, 'get')
-    self.mock_xb.config.get(mox.IgnoreArg(), alias).AndReturn(path)
+    self.mock_xb.config.get('LOCATION_SUFFIXES', alias).AndRaise(
+        ConfigParser.Error())
+    self.mock_xb.config.get('PATH_REWRITES', alias).AndReturn(path)
     self.mox.ReplayAll()
-    self.assertEqual('remote/parrot/1.2.3/test',
+    self.assertEqual(('remote/parrot/1.2.3/test', '-release'),
+                     self.mock_xb._LookupAlias(alias, 'parrot', '1.2.3'))
+
+  def testLookupAliasSuffix(self):
+    """Tests _LookupAlias of location suffix."""
+    alias = 'foobar'
+    suffix = '-random'
+    self.mox.StubOutWithMock(self.mock_xb.config, 'get')
+    self.mock_xb.config.get('LOCATION_SUFFIXES', alias).AndReturn(suffix)
+    self.mock_xb.config.get('PATH_REWRITES', alias).AndRaise(
+        ConfigParser.Error())
+    self.mox.ReplayAll()
+    self.assertEqual((alias, suffix),
+                     self.mock_xb._LookupAlias(alias, 'parrot', '1.2.3'))
+
+  def testLookupAliasPathRewriteAndSuffix(self):
+    """Tests _LookupAlias with both path rewrite and suffix."""
+    alias = 'foobar'
+    path = 'remote/BOARD/VERSION/test'
+    suffix = '-random'
+    self.mox.StubOutWithMock(self.mock_xb.config, 'get')
+    self.mock_xb.config.get('LOCATION_SUFFIXES', alias).AndReturn(suffix)
+    self.mock_xb.config.get('PATH_REWRITES', alias).AndReturn(path)
+    self.mox.ReplayAll()
+    self.assertEqual(('remote/parrot/1.2.3/test', suffix),
                      self.mock_xb._LookupAlias(alias, 'parrot', '1.2.3'))
 
   def testResolveVersionToBuildId_Official(self):
     """Check _ResolveVersionToBuildId recognizes aliases for official builds."""
     board = 'b'
+    suffix = '-s'
 
     # aliases that should be redirected to LookupOfficial
 
     self.mox.StubOutWithMock(self.mock_xb, '_LookupOfficial')
-    self.mock_xb._LookupOfficial(board, image_dir=None)
-    self.mock_xb._LookupOfficial(board,
+    self.mock_xb._LookupOfficial(board, suffix, image_dir=None)
+    self.mock_xb._LookupOfficial(board, suffix,
                                  image_dir=GS_ALTERNATE_DIR)
     self.mock_xb._LookupOfficial(board, 'paladin', image_dir=None)
     self.mock_xb._LookupOfficial(board, 'paladin',
@@ -101,48 +129,52 @@ class xBuddyTest(mox.MoxTestBase):
 
     self.mox.ReplayAll()
     version = 'latest-official'
-    self.mock_xb._ResolveVersionToBuildId(board, version)
-    self.mock_xb._ResolveVersionToBuildId(board, version,
+    self.mock_xb._ResolveVersionToBuildId(board, suffix, version)
+    self.mock_xb._ResolveVersionToBuildId(board, suffix, version,
                                           image_dir=GS_ALTERNATE_DIR)
     version = 'latest-official-paladin'
-    self.mock_xb._ResolveVersionToBuildId(board, version)
-    self.mock_xb._ResolveVersionToBuildId(board, version,
+    self.mock_xb._ResolveVersionToBuildId(board, suffix, version)
+    self.mock_xb._ResolveVersionToBuildId(board, suffix, version,
                                           image_dir=GS_ALTERNATE_DIR)
     self.mox.VerifyAll()
 
   def testResolveVersionToBuildId_Channel(self):
     """Check _ResolveVersionToBuildId recognizes aliases for channels."""
     board = 'b'
+    suffix = '-s'
 
     # aliases that should be redirected to LookupChannel
     self.mox.StubOutWithMock(self.mock_xb, '_LookupChannel')
-    self.mock_xb._LookupChannel(board, image_dir=None)
-    self.mock_xb._LookupChannel(board, image_dir=GS_ALTERNATE_DIR)
-    self.mock_xb._LookupChannel(board, 'dev', image_dir=None)
-    self.mock_xb._LookupChannel(board, 'dev', image_dir=GS_ALTERNATE_DIR)
+    self.mock_xb._LookupChannel(board, suffix, image_dir=None)
+    self.mock_xb._LookupChannel(board, suffix, image_dir=GS_ALTERNATE_DIR)
+    self.mock_xb._LookupChannel(board, suffix, channel='dev', image_dir=None)
+    self.mock_xb._LookupChannel(board, suffix, channel='dev',
+                                image_dir=GS_ALTERNATE_DIR)
 
     self.mox.ReplayAll()
     version = 'latest'
-    self.mock_xb._ResolveVersionToBuildId(board, version)
-    self.mock_xb._ResolveVersionToBuildId(board, version,
+    self.mock_xb._ResolveVersionToBuildId(board, suffix, version)
+    self.mock_xb._ResolveVersionToBuildId(board, suffix, version,
                                           image_dir=GS_ALTERNATE_DIR)
     version = 'latest-dev'
-    self.mock_xb._ResolveVersionToBuildId(board, version)
-    self.mock_xb._ResolveVersionToBuildId(board, version,
+    self.mock_xb._ResolveVersionToBuildId(board, suffix, version)
+    self.mock_xb._ResolveVersionToBuildId(board, suffix, version,
                                           image_dir=GS_ALTERNATE_DIR)
     self.mox.VerifyAll()
 
   def testResolveVersionToBuildId_BaseVersion(self):
     """Check _ResolveVersionToBuildId handles a base version."""
     board = 'b'
+    suffix = '-s'
 
     self.mox.StubOutWithMock(self.mock_xb, '_ResolveBuildVersion')
-    self.mock_xb._ResolveBuildVersion(board, '1.2.3').AndReturn('R12-1.2.3')
+    self.mock_xb._ResolveBuildVersion(board, suffix, '1.2.3').AndReturn(
+        'R12-1.2.3')
     self.mox.StubOutWithMock(self.mock_xb, '_RemoteBuildId')
-    self.mock_xb._RemoteBuildId(board, 'R12-1.2.3')
+    self.mock_xb._RemoteBuildId(board, suffix, 'R12-1.2.3')
     self.mox.ReplayAll()
 
-    self.mock_xb._ResolveVersionToBuildId(board, '1.2.3')
+    self.mock_xb._ResolveVersionToBuildId(board, suffix, '1.2.3')
     self.mox.VerifyAll()
 
   def testBasicInterpretPath(self):
