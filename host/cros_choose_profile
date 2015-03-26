@@ -28,7 +28,8 @@ fi
 
 # Flags
 DEFINE_string board "$DEFAULT_BOARD" "The name of the board to set up."
-DEFINE_string board_overlay "" "Location of the board overlay."
+# TODO(bsimonnet): Remove this once setup_board has been updated.
+DEFINE_string board_overlay "" "Deprecated. DO NOT USE THIS."
 DEFINE_string variant "" "Board variant."
 DEFINE_string profile "" "The portage configuration profile to use."
 DEFINE_string board_root "" "Board root where the profile should be created."
@@ -42,8 +43,9 @@ eval set -- "${FLAGS_ARGV}"
 # so will die prematurely if 'set -e' is specified before now.
 set -e
 
-if [[ -z "${FLAGS_board}" ]] && [[ -z "${FLAGS_brick}" ]]; then
-  error "--board or --brick required."
+if [[ -z "${FLAGS_board}" ]] && [[ -z "${FLAGS_brick}" ]] && \
+  [[ -z "${FLAGS_board_root}" ]]; then
+  error "--board, --brick or --board_root required."
   exit 1
 elif [[ -n "${FLAGS_board}" ]] && [[ -n "${FLAGS_brick}" ]]; then
   error "--board and --brick are incompatible."
@@ -63,20 +65,14 @@ if [ -e "${MAKE_PROFILE}" -a ! -L "${MAKE_PROFILE}" ]; then
 fi
 
 #
-# Construct board overlay list.
+# Get board overlay list.
 #
-if [[ -n "${FLAGS_brick}" ]]; then
-  BOARD_OVERLAY_LIST=$(cros_list_overlays --brick "${FLAGS_brick}")
-else
-  BOARD_OVERLAY_LIST=$(cros_list_overlays \
-    --board "${BOARD_VARIANT}" \
-    --board_overlay "${FLAGS_board_overlay}")
-fi
+BOARD_OVERLAY_LIST="$(get_sysroot_config "${BOARD_ROOT}" "BOARD_OVERLAY")"
 
 #
-# Compute ARCH
+# Get ARCH
 #
-ARCH=$(get_board_arch "${FLAGS_brick:-${BOARD}}") || exit 1
+ARCH=$(get_sysroot_config "${BOARD_ROOT}" "ARCH") || exit 1
 
 # The profile directory comes from many possible locations, the <overlay>
 # values below can be any of the board overlays, public, private, primary
