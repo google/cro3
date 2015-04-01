@@ -58,6 +58,7 @@ BOARD_ROOT="${FLAGS_board_root:-/build/${BOARD_VARIANT}}"
 CHROMIUMOS_OVERLAY="/usr/local/portage/chromiumos"
 CHROMIUMOS_PROFILES="${CHROMIUMOS_OVERLAY}/profiles"
 MAKE_PROFILE="${BOARD_ROOT}/etc/make.profile"
+SYSROOT_CACHE="${BOARD_ROOT}/${SYSROOT_SETTINGS_FILE}"
 
 if [ -e "${MAKE_PROFILE}" -a ! -L "${MAKE_PROFILE}" ]; then
   error "${MAKE_PROFILE} is not a symbolic link, it should be."
@@ -88,11 +89,14 @@ PROFILES_LIST=""
 PROFILES_DIR=""
 PROFILE_NAME="base"
 
-if [ ! -z "${FLAGS_profile}" ]; then  # profile specified. must exist or we fail
-  if [ -d "${FLAGS_profile}" ]; then
-    PROFILES_DIR="${FLAGS_profile}"
+PROFILE_OVERRIDE="${FLAGS_profile:-$(get_variable "${SYSROOT_CACHE}" \
+  "PROFILE_OVERRIDE")}"
+
+if [ ! -z "${PROFILE_OVERRIDE}" ]; then  # profile specified. must exist or we fail
+  if [ -d "${PROFILE_OVERRIDE}" ]; then
+    PROFILES_DIR="${PROFILE_OVERRIDE}"
   else
-    PROFILE_NAME="${FLAGS_profile}"
+    PROFILE_NAME="${PROFILE_OVERRIDE}"
   fi
 fi
 
@@ -152,4 +156,7 @@ Alternatively, you can correct the dependecy graph by using
   fi
 
   sudo ln -sf "${PROFILES_DIR}" "${MAKE_PROFILE}"
+  if [[ -n "${PROFILE_OVERRIDE}" ]]; then
+    set_variable "${SYSROOT_CACHE}" "PROFILE_OVERRIDE" "${PROFILE_OVERRIDE}"
+  fi
 fi
