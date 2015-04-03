@@ -922,8 +922,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     result = payload_checker._AllocBlockCounters(16 * block_size + 1)
     self.assertEqual(17, len(result))
 
-  def DoCheckOperationsTest(self, fail_bad_type,
-                            fail_nonexhaustive_full_update):
+  def DoCheckOperationsTest(self, fail_nonexhaustive_full_update):
     # Generate a test payload. For this test, we only care about one
     # (arbitrary) set of operations, so we'll only be generating kernel and
     # test with them.
@@ -936,12 +935,6 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
     # Fake rootfs operations in a full update, tampered with as required.
     rootfs_op_type = common.OpType.REPLACE
-    if fail_bad_type:
-      # Choose a type value that's bigger than the highest valid value.
-      for valid_op_type in common.OpType.ALL:
-        rootfs_op_type = max(rootfs_op_type, valid_op_type)
-      rootfs_op_type += 1
-
     rootfs_data_length = rootfs_part_size
     if fail_nonexhaustive_full_update:
       rootfs_data_length -= block_size
@@ -958,10 +951,9 @@ class PayloadCheckerTest(mox.MoxTestBase):
     payload_checker.payload_type = checker._TYPE_FULL
     report = checker._PayloadReport()
 
-    should_fail = (fail_bad_type or fail_nonexhaustive_full_update)
     args = (payload_checker.payload.manifest.install_operations, report,
             'foo', 0, rootfs_part_size, rootfs_part_size, 0, False)
-    if should_fail:
+    if fail_nonexhaustive_full_update:
       self.assertRaises(update_payload.PayloadError,
                         payload_checker._CheckOperations, *args)
     else:
@@ -1240,8 +1232,7 @@ def AddAllParametricTests():
 
   # Add all _CheckOperations() test cases.
   AddParametricTests('CheckOperations',
-                     {'fail_bad_type': (True, False),
-                      'fail_nonexhaustive_full_update': (True, False)})
+                     {'fail_nonexhaustive_full_update': (True, False)})
 
   # Add all _CheckOperations() test cases.
   AddParametricTests('CheckSignatures',
