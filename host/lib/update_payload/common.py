@@ -4,6 +4,8 @@
 
 """Utilities for update payload processing."""
 
+from __future__ import print_function
+
 import ctypes
 
 from error import PayloadError
@@ -21,6 +23,8 @@ SIG_ASN1_HEADER = (
     '\x00\x04\x20'
 )
 
+INPLACE_MINOR_PAYLOAD_VERSION = 1
+SOURCE_MINOR_PAYLOAD_VERSION = 2
 
 #
 # Payload operation types.
@@ -58,9 +62,11 @@ def IntPackingFmtStr(size, is_unsigned):
   Args:
     size: the integer size in bytes (2, 4 or 8)
     is_unsigned: whether it is signed or not
+
   Returns:
     A format string for packing/unpacking integer values; assumes network byte
     order (big-endian).
+
   Raises:
     PayloadError if something is wrong with the arguments.
 
@@ -95,8 +101,10 @@ def Read(file_obj, length, offset=None, hasher=None):
             from either the beginning (non-negative) or end (negative) of the
             file.  (optional)
     hasher: a hashing object to pass the read data through (optional)
+
   Returns:
     A string containing the read data.
+
   Raises:
     PayloadError if a read error occurred or not enough data was read.
 
@@ -150,6 +158,7 @@ def _ObjNameIter(items, base_name, reverse=False, name_format_func=None):
     base_name: the base name for all objects
     reverse: whether iteration should be in reverse order
     name_format_func: a function to apply to the name string
+
   Yields:
     An iterator whose i-th invocation returns (items[i], name), where name ==
     base_name + '[i]' (with a formatting function optionally applied to it).
