@@ -25,6 +25,8 @@ DEFINE_boolean cgdb ${FLAGS_FALSE} \
  "Use cgdb curses interface rather than plain gdb."
 DEFINE_boolean ssh ${FLAGS_FALSE} \
  "Use ssh stdio forwarding instead of TCP to connect to gdbserver."
+DEFINE_integer ssh_port 0 \
+ "The ssh port number to use for ssh connections to the remote device."
 
 # Parse command line
 FLAGS_HELP="usage: $0 [flags]"
@@ -71,11 +73,15 @@ chmod 0600 ${TMP_DIR}/testing_rsa
 
 REMOTE_SSH_FLAGS=" -o StrictHostKeyChecking=no -o CheckHostIP=no\
  -o BatchMode=yes"
+SSH_PORT=""
+if [[ ${FLAGS_ssh_port} -ne 0 ]] ; then
+  SSH_PORT=" -p ${FLAGS_ssh_port}"
+fi
 
 run_remote_command ()
 {
   ssh -i ${TMP_DIR}/testing_rsa \
-    ${REMOTE_SSH_FLAGS} root@${FLAGS_remote} ${VM_PORT} \
+    ${REMOTE_SSH_FLAGS} root@${FLAGS_remote} ${SSH_PORT} \
     "$@"
 }
 
@@ -240,7 +246,7 @@ generate_gdbinit_file ()
     fi
     remote_cmd="\"target remote | ssh -T -i ${TMP_DIR}/testing_rsa \
       ${REMOTE_SSH_FLAGS} -o TCPKeepAlive=no -o UserKnownHostsFile=/dev/null \
-      root@${FLAGS_remote} ${VM_PORT} ${gdbserver_cmd}\""
+      root@${FLAGS_remote} ${SSH_PORT} ${gdbserver_cmd}\""
   fi
 
   cat <<-EOF > ${GDBINIT_FILE}
@@ -267,12 +273,13 @@ EOF
 
 # Some special set up is required for accessing the VM on a local machine...
 
-VM_PORT=""
 PORT_FORWARDING=""
 
 if [[ "${FLAGS_remote}" == "localhost" ||
       "${FLAGS_remote}" == "127.0.0.1" ]] ; then
-  VM_PORT=" -p 9222"
+  if [[ -z ${SSH_PORT} ]] ; then
+    SSH_PORT=" -p 9222"
+  fi
   PORT_FORWARDING=" -L ${FLAGS_port}:localhost:${FLAGS_port}"
 elif [ ${FLAGS_ssh} -eq ${FLAGS_FALSE} ]; then
   setup_remote_iptable
@@ -284,12 +291,12 @@ validate_command_options
 # for port forwarding, so gdb can find gdbserver...
 
 SSHD_PID=0
-if [[ -n "${VM_PORT}" ]] ; then
+if [[ -n "${PORT_FORWARDING}" ]] ; then
   # Call ssh directly rather than using 'ssh_to_remote_machine' because
   # too many things about this particular call are different.
   ssh -i ${TMP_DIR}/testing_rsa -N \
     ${REMOTE_SSH_FLAGS} \
-    root@${FLAGS_remote} ${VM_PORT} ${PORT_FORWARDING} &
+    root@${FLAGS_remote} ${SSH_PORT} ${PORT_FORWARDING} &
   SSH_PID=$!
 fi
 
