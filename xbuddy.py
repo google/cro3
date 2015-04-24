@@ -267,16 +267,18 @@ class XBuddy(build_util.BuildObject):
     except ConfigParser.Error:
       return 5
 
-  def _LookupAlias(self, alias, board, version):
+  def LookupAlias(self, alias, board=None, version=None):
     """Given the full xbuddy config, look up an alias for path rewrite.
 
     Args:
       alias: The xbuddy path that could be one of the aliases in the
         rewrite table.
       board: The board to fill in with when paths are rewritten. Can be from
-        the update request xml or the default board from devserver.
+        the update request xml or the default board from devserver. If None,
+        defers to the value given during XBuddy initialization.
       version: The version to fill in when rewriting paths. Could be a specific
-        version number or a version alias like LATEST.
+        version number or a version alias like LATEST. If None, defers to the
+        value given during XBuddy initialization, or LATEST.
 
     Returns:
       A pair (val, suffix) where val is the rewritten path, or the original
@@ -301,7 +303,8 @@ class XBuddy(build_util.BuildObject):
       # Fill in the board and version.
       val = val.replace("BOARD", "%(board)s")
       val = val.replace("VERSION", "%(version)s")
-      val = val % {'board': board, 'version': version}
+      val = val % {'board': board or self._board,
+                   'version': version or self._version or LATEST}
 
     _Log("Path is %s, location suffix is %s", val, suffix)
     return val, suffix
@@ -737,7 +740,8 @@ class XBuddy(build_util.BuildObject):
     default_board = self._board if self._board else board
     default_version = self._version or version or LATEST
     # Rewrite the path if there is an appropriate default.
-    path, suffix = self._LookupAlias(path, default_board, default_version)
+    path, suffix = self.LookupAlias(path, board=default_board,
+                                    version=default_version)
     # Parse the path.
     image_type, board, version, is_local = self._InterpretPath(
         path, default_board, default_version)

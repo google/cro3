@@ -77,7 +77,7 @@ class xBuddyTest(mox.MoxTestBase):
     self.mox.VerifyAll()
 
   def testLookupAliasPathRewrite(self):
-    """Tests _LookupAlias of path rewrite, including keyword substitution."""
+    """Tests LookupAlias of path rewrite, including keyword substitution."""
     alias = 'foobar'
     path = 'remote/BOARD/VERSION/test'
     self.mox.StubOutWithMock(self.mock_xb.config, 'get')
@@ -86,10 +86,11 @@ class xBuddyTest(mox.MoxTestBase):
     self.mock_xb.config.get('PATH_REWRITES', alias).AndReturn(path)
     self.mox.ReplayAll()
     self.assertEqual(('remote/parrot/1.2.3/test', '-release'),
-                     self.mock_xb._LookupAlias(alias, 'parrot', '1.2.3'))
+                     self.mock_xb.LookupAlias(alias, board='parrot',
+                                              version='1.2.3'))
 
   def testLookupAliasSuffix(self):
-    """Tests _LookupAlias of location suffix."""
+    """Tests LookupAlias of location suffix."""
     alias = 'foobar'
     suffix = '-random'
     self.mox.StubOutWithMock(self.mock_xb.config, 'get')
@@ -98,10 +99,11 @@ class xBuddyTest(mox.MoxTestBase):
         ConfigParser.Error())
     self.mox.ReplayAll()
     self.assertEqual((alias, suffix),
-                     self.mock_xb._LookupAlias(alias, 'parrot', '1.2.3'))
+                     self.mock_xb.LookupAlias(alias, board='parrot',
+                                              version='1.2.3'))
 
   def testLookupAliasPathRewriteAndSuffix(self):
-    """Tests _LookupAlias with both path rewrite and suffix."""
+    """Tests LookupAlias with both path rewrite and suffix."""
     alias = 'foobar'
     path = 'remote/BOARD/VERSION/test'
     suffix = '-random'
@@ -110,7 +112,8 @@ class xBuddyTest(mox.MoxTestBase):
     self.mock_xb.config.get('PATH_REWRITES', alias).AndReturn(path)
     self.mox.ReplayAll()
     self.assertEqual(('remote/parrot/1.2.3/test', suffix),
-                     self.mock_xb._LookupAlias(alias, 'parrot', '1.2.3'))
+                     self.mock_xb.LookupAlias(alias, board='parrot',
+                                              version='1.2.3'))
 
   def testResolveVersionToBuildId_Official(self):
     """Check _ResolveVersionToBuildId recognizes aliases for official builds."""
