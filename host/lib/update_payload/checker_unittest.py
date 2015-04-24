@@ -633,7 +633,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
-                      self.NewExtentList((0, 4), (12, 2), (1024, 128)))
+                      self.NewExtentList((1, 4), (12, 2), (1024, 128)))
     self.AddToMessage(op.dst_extents,
                       self.NewExtentList((16, 128), (512, 6)))
     self.assertIsNone(
@@ -646,7 +646,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
-                      self.NewExtentList((0, 4), (12, 2), (1024, 128)))
+                      self.NewExtentList((1, 4), (12, 2), (1024, 128)))
     self.AddToMessage(op.dst_extents,
                       self.NewExtentList((16, 128), (512, 6)))
     self.assertRaises(
@@ -661,7 +661,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
-                      self.NewExtentList((0, 4), (12, 2), (1024, 127)))
+                      self.NewExtentList((1, 4), (12, 2), (1024, 127)))
     self.AddToMessage(op.dst_extents,
                       self.NewExtentList((16, 128), (512, 6)))
     self.assertRaises(
@@ -676,7 +676,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
-                      self.NewExtentList((0, 4), (12, 2), (1024, 128)))
+                      self.NewExtentList((1, 4), (12, 2), (1024, 128)))
     self.AddToMessage(op.dst_extents,
                       self.NewExtentList((16, 128), (512, 5)))
     self.assertRaises(
@@ -691,7 +691,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
-                      self.NewExtentList((0, 4), (12, 2), (1024, 128)))
+                      self.NewExtentList((1, 4), (12, 2), (1024, 128)))
     self.AddToMessage(op.dst_extents,
                       self.NewExtentList((16, 128), (512, 5)))
     self.assertRaises(
@@ -699,7 +699,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
         payload_checker._CheckMoveOperation,
         op, None, 134, 134, 'foo')
     self.AddToMessage(op.src_extents,
-                      self.NewExtentList((0, 4), (12, 2), (1024, 129)))
+                      self.NewExtentList((1, 4), (12, 2), (1024, 129)))
     self.AddToMessage(op.dst_extents,
                       self.NewExtentList((16, 128), (512, 6)))
     self.assertRaises(
@@ -714,7 +714,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
-                      self.NewExtentList((0, 4), (12, 2), (1024, 128)))
+                      self.NewExtentList((1, 4), (12, 2), (1024, 128)))
     self.AddToMessage(op.dst_extents,
                       self.NewExtentList((16, 128), (512, 7)))
     self.assertRaises(
@@ -729,9 +729,33 @@ class PayloadCheckerTest(mox.MoxTestBase):
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
+                      self.NewExtentList((1, 4), (12, 2), (1024, 128)))
+    self.AddToMessage(op.dst_extents,
+                      self.NewExtentList((8, 128), (512, 6)))
+    self.assertRaises(
+        update_payload.PayloadError,
+        payload_checker._CheckMoveOperation,
+        op, None, 134, 134, 'foo')
+
+  def testCheckMoveOperation_FailZeroStartBlock(self):
+    """Tests _CheckMoveOperation(); fails, has extent with start block 0."""
+    payload_checker = checker.PayloadChecker(self.MockPayload())
+    op = update_metadata_pb2.DeltaArchiveManifest.InstallOperation()
+    op.type = common.OpType.MOVE
+
+    self.AddToMessage(op.src_extents,
                       self.NewExtentList((0, 4), (12, 2), (1024, 128)))
     self.AddToMessage(op.dst_extents,
                       self.NewExtentList((8, 128), (512, 6)))
+    self.assertRaises(
+        update_payload.PayloadError,
+        payload_checker._CheckMoveOperation,
+        op, None, 134, 134, 'foo')
+
+    self.AddToMessage(op.src_extents,
+                      self.NewExtentList((1, 4), (12, 2), (1024, 128)))
+    self.AddToMessage(op.dst_extents,
+                      self.NewExtentList((0, 128), (512, 6)))
     self.assertRaises(
         update_payload.PayloadError,
         payload_checker._CheckMoveOperation,
@@ -829,10 +853,10 @@ class PayloadCheckerTest(mox.MoxTestBase):
                    common.OpType.SOURCE_COPY, common.OpType.SOURCE_BSDIFF):
       if fail_src_extents:
         self.AddToMessage(op.src_extents,
-                          self.NewExtentList((0, 0)))
+                          self.NewExtentList((1, 0)))
       else:
         self.AddToMessage(op.src_extents,
-                          self.NewExtentList((0, 16)))
+                          self.NewExtentList((1, 16)))
         total_src_blocks = 16
 
     if op_type in (common.OpType.REPLACE, common.OpType.REPLACE_BZ):

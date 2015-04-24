@@ -778,6 +778,14 @@ class PayloadChecker(object):
         dst_idx = dst_extent.start_block
         dst_num = dst_extent.num_blocks
 
+      # Check: start block is not 0. See crbug/480751; there are still versions
+      # of update_engine which fail when seeking to 0 in PReadAll and PWriteAll,
+      # so we need to fail payloads that try to MOVE to/from block 0.
+      if src_idx == 0 or dst_idx == 0:
+        raise error.PayloadError(
+            '%s: MOVE operation cannot have extent with start block 0' %
+            op_name)
+
       if self.check_move_same_src_dst_block and src_idx == dst_idx:
         raise error.PayloadError(
             '%s: src/dst block number %d is the same (%d).' %
