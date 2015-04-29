@@ -86,15 +86,16 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
   xpak.tbz2(out_path).recompose_mem(my_xpak)
 
 
-def UpdateGmergeBinhost(board, pkg, deep):
+def UpdateGmergeBinhost(sysroot, pkg, deep):
   """Add pkg to our gmerge-specific binhost.
 
   Files matching DEFAULT_INSTALL_MASK are not included in the tarball.
   """
+  # Portage internal api expects the sysroot to ends with a '/'.
+  sysroot = sysroot.rstrip('/') + '/'
 
-  root = '/build/%s/' % board
-  gmerge_pkgdir = os.path.join(root, 'gmerge-packages')
-  stripped_link = os.path.join(root, 'stripped-packages')
+  gmerge_pkgdir = os.path.join(sysroot, 'gmerge-packages')
+  stripped_link = os.path.join(sysroot, 'stripped-packages')
 
   # Create gmerge pkgdir and give us permission to write to it.
   subprocess.check_call(['sudo', 'mkdir', '-p', gmerge_pkgdir])
@@ -105,11 +106,11 @@ def UpdateGmergeBinhost(board, pkg, deep):
   subprocess.check_call(['sudo', 'chown', username, gmerge_pkgdir])
 
   # Load databases.
-  trees = portage.create_trees(config_root=root, target_root=root)
-  vardb = trees[root]['vartree'].dbapi
-  bintree = trees[root]['bintree']
+  trees = portage.create_trees(config_root=sysroot, target_root=sysroot)
+  vardb = trees[sysroot]['vartree'].dbapi
+  bintree = trees[sysroot]['bintree']
   bintree.populate()
-  gmerge_tree = dbapi.bintree.binarytree(root, gmerge_pkgdir,
+  gmerge_tree = dbapi.bintree.binarytree(sysroot, gmerge_pkgdir,
                                          settings=bintree.settings)
   gmerge_tree.populate()
 
@@ -127,7 +128,8 @@ def UpdateGmergeBinhost(board, pkg, deep):
   # Remove any stale packages that exist in the local binhost but are not
   # installed anymore.
   if bindb_matches - installed_matches:
-    subprocess.check_call(['eclean-%s' % board, '-d', 'packages'])
+    subprocess.check_call([os.path.join(sysroot, 'build', 'bin', 'eclean'),
+                                        '-d', 'packages'])
 
   # Remove any stale packages that exist in the gmerge binhost but are not
   # installed anymore.
@@ -159,7 +161,7 @@ def UpdateGmergeBinhost(board, pkg, deep):
   if changed:
     env_copy = os.environ.copy()
     env_copy['PKGDIR'] = gmerge_pkgdir
-    cmd = ['emaint-%s' % board, '-f', 'binhost']
+    cmd = [os.path.join(sysroot, 'build', 'bin', 'emaint'), '-f', 'binhost']
     subprocess.check_call(cmd, env=env_copy)
 
   return bool(installed_matches)
@@ -205,16 +207,19 @@ class Builder(object):
             'Either start working on the package or pass --accept_stable '
             'to gmerge')
 
+      sysroot = '/build/%s/' % board
       # If user did not supply -n, we want to rebuild the package.
       usepkg = additional_args.get('usepkg')
       if not usepkg:
-        rc = subprocess.call(['emerge-%s' % board, pkg], env=env_copy)
+        rc = subprocess.call(
+            [os.path.join(sysroot, 'build', 'bin', 'emerge'), pkg],
+            env=env_copy)
         if rc != 0:
           return self.SetError('Could not emerge ' + pkg)
 
       # Sync gmerge binhost.
       deep = additional_args.get('deep')
-      if not UpdateGmergeBinhost(board, pkg, deep):
+      if not UpdateGmergeBinhost(sysroot, pkg, deep):
         return self.SetError('Package %s is not installed' % pkg)
 
       return 'Success\n'
