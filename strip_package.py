@@ -1,44 +1,36 @@
-#!/usr/bin/python
-
-# Copyright (c) 2009-2012 The Chromium OS Authors. All rights reserved.
+#!/usr/bin/python2
+# Copyright (c) 2009-2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Script that strips a given package and places the stripped version in
-   <sysroot>/stripped-packages."""
+"""Strip package and place it in <sysroot>/stripped-packages."""
 
-import optparse
+from __future__ import print_function
+
+import argparse
 import sys
 
 import builder
 
 
 def main():
-  parser = optparse.OptionParser(usage='usage: %prog [options] package')
-  parser.add_option('--board', type='string', action='store',
-                    help=('The board that the package being processed belongs '
-                          'to.'))
-  parser.add_option('--sysroot', type='string', action='store',
-                    help=('Sysroot that the package being processed belongs to.'
-                          'This is incompatible with --board.'))
-  parser.add_option('--deep', action='store_true', default=False,
-                    help=('Also strip dependencies of package.'))
+  parser = argparse.ArgumentParser()
+  target = parser.add_mutually_exclusive_group(required=True)
+  target.add_argument('--board',
+                      help=('The board that the package being processed '
+                            'belongs to'))
+  target.add_argument('--sysroot',
+                      help=('Sysroot that the package being processed belongs '
+                            'to. This is incompatible with --board.'))
+  parser.add_argument('--deep', action='store_true',
+                      help='Also strip dependencies of package.')
+  parser.add_argument('package', help='Package to strip.')
 
-  (options, args) = parser.parse_args()
-  if len(args) != 1:
-    parser.print_help()
-    parser.error('Need exactly one package name')
-
-  if not options.board and not options.sysroot:
-    parser.error('Need to specify --board or --sysroot.')
-
-  if options.board and options.sysroot:
-    parser.error('--board and --sysroot are mutually exclusive.')
-
-  sysroot = options.sysroot or '/build/%s/' % options.board
+  options = parser.parse_args()
+  sysroot = options.sysroot or '/build/%s' % options.board
 
   # Check if package was installed.
-  if not builder.UpdateGmergeBinhost(sysroot, args[0], options.deep):
+  if not builder.UpdateGmergeBinhost(sysroot, options.package, options.deep):
     sys.exit(1)
 
 
