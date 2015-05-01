@@ -126,8 +126,9 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock = self._DummyAutoupdateConstructor()
 
     common_util.IsInsideChroot().AndReturn(True)
-    self._xbuddy._GetArtifact([''], board=self.test_board, lookup_only=True,
-        image_dir=None).AndReturn((latest_label, constants.TEST_IMAGE_FILE))
+    self._xbuddy._GetArtifact(
+        [''], board=self.test_board, lookup_only=True, image_dir=None,
+        version=None).AndReturn((latest_label, constants.TEST_IMAGE_FILE))
 
     au_mock.GenerateUpdateImageWithCache(
         os.path.join(self.static_image_dir, self.test_board, self.latest_dir,
