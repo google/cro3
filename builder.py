@@ -18,6 +18,20 @@ import portage
 import log_util
 
 
+# Relative path to the wrapper directory inside the sysroot.
+_SYSROOT_BUILD_BIN = 'build/bin'
+
+
+def _SysrootCmd(sysroot, cmd):
+  """Path to the sysroot wrapper for |cmd|.
+
+  Args:
+    sysroot: Path to the sysroot.
+    cmd: Name of the command.
+  """
+  return os.path.join(sysroot, _SYSROOT_BUILD_BIN, cmd)
+
+
 # Module-local log function.
 def _Log(message, *args):
   return log_util.LogWithTag('BUILD', message, *args)
@@ -92,7 +106,7 @@ def UpdateGmergeBinhost(sysroot, pkg, deep):
   Files matching DEFAULT_INSTALL_MASK are not included in the tarball.
   """
   # Portage internal api expects the sysroot to ends with a '/'.
-  sysroot = sysroot.rstrip('/') + '/'
+  sysroot = os.path.join(sysroot, '')
 
   gmerge_pkgdir = os.path.join(sysroot, 'gmerge-packages')
   stripped_link = os.path.join(sysroot, 'stripped-packages')
@@ -128,8 +142,7 @@ def UpdateGmergeBinhost(sysroot, pkg, deep):
   # Remove any stale packages that exist in the local binhost but are not
   # installed anymore.
   if bindb_matches - installed_matches:
-    subprocess.check_call([os.path.join(sysroot, 'build', 'bin', 'eclean'),
-                                        '-d', 'packages'])
+    subprocess.check_call([_SysrootCmd(sysroot, 'eclean'), '-d', 'packages'])
 
   # Remove any stale packages that exist in the gmerge binhost but are not
   # installed anymore.
@@ -161,7 +174,7 @@ def UpdateGmergeBinhost(sysroot, pkg, deep):
   if changed:
     env_copy = os.environ.copy()
     env_copy['PKGDIR'] = gmerge_pkgdir
-    cmd = [os.path.join(sysroot, 'build', 'bin', 'emaint'), '-f', 'binhost']
+    cmd = [_SysrootCmd(sysroot, 'emaint'), '-f', 'binhost']
     subprocess.check_call(cmd, env=env_copy)
 
   return bool(installed_matches)
@@ -212,7 +225,7 @@ class Builder(object):
       usepkg = additional_args.get('usepkg')
       if not usepkg:
         rc = subprocess.call(
-            [os.path.join(sysroot, 'build', 'bin', 'emerge'), pkg],
+            [_SysrootCmd(sysroot, 'emerge'), pkg],
             env=env_copy)
         if rc != 0:
           return self.SetError('Could not emerge ' + pkg)
