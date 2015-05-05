@@ -37,6 +37,6 @@ fi
 
 [ -e "${FLAGS_image_path}" ] || die "Image ${FLAGS_image_path} does not exist."
 
-start_kvm "${FLAGS_image_path}"
+start_kvm "${FLAGS_image_path}" "${FLAGS_board}"
 
 echo "ssh root@${HOSTNAME} -p ${FLAGS_ssh_port} -o StrictHostKeyChecking=no"
