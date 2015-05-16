@@ -70,6 +70,7 @@ gbb_flag_properties = {
   'disable-ec-software-sync': 0x00000200,
   'default-dev-boot-legacy': 0x00000400,
   'disable-pd-software-sync': 0x00000800,
+  'force-dev-boot-fastboot-full-cap': 0x00002000,
 }
 
 # Maps board name to Exynos product number
