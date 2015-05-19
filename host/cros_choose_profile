@@ -57,13 +57,16 @@ get_board_and_variant "${FLAGS_board}" "${FLAGS_variant}" "${FLAGS_brick}"
 BOARD_ROOT="${FLAGS_board_root:-/build/${BOARD_VARIANT}}"
 CHROMIUMOS_OVERLAY="/usr/local/portage/chromiumos"
 CHROMIUMOS_PROFILES="${CHROMIUMOS_OVERLAY}/profiles"
-MAKE_PROFILE="${BOARD_ROOT}/etc/make.profile"
+MAKE_PROFILE="${BOARD_ROOT}/etc/portage/make.profile"
 SYSROOT_CACHE="${BOARD_ROOT}/${SYSROOT_SETTINGS_FILE}"
 
 if [ -e "${MAKE_PROFILE}" -a ! -L "${MAKE_PROFILE}" ]; then
   error "${MAKE_PROFILE} is not a symbolic link, it should be."
   exit 1
 fi
+# Clean old profile paths.  No need to migrate since we're creating it.
+# http://brbug.com/1098
+sudo rm -f "${BOARD_ROOT}/etc/make.profile"
 
 #
 # Get board overlay list.
