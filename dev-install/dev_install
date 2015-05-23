@@ -270,7 +270,7 @@ main() {
   # TODO(sosa): Remove hack once lib dependencies are sorted in R27.
   if [ ! -d /usr/local/lib64 ]; then
     mkdir -p /usr/local/lib
-    ln -s /usr/local/lib /usr/local/lib64
+    ln -s lib /usr/local/lib64
   fi
 
   # Set up symlinks for etc/{group,passwd}, so that packages can look up users
