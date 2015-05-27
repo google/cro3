@@ -50,6 +50,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import types
 from logging import handlers
 
@@ -71,6 +72,16 @@ import xbuddy
 def _Log(message, *args):
   return log_util.LogWithTag('DEVSERVER', message, *args)
 
+try:
+  import psutil
+except ImportError:
+  # Ignore psutil import failure. This is for backwards compatibility, so
+  # "cros flash" can still update duts with build without psutil installed.
+  # The reason is that, during cros flash, local devserver code is copied over
+  # to DUT, and devserver will be running inside DUT to stage the build.
+  _Log('Python module psutil is not installed, devserver load data will not be '
+       'collected')
+  psutil = None
 
 CACHED_ENTRIES = 12
 
@@ -92,9 +103,36 @@ updater = None
 _LOG_ROTATION_TIME = 'W4'
 _LOG_ROTATION_BACKUP = 13
 
+# Number of seconds between the collection of disk and network IO counters.
+STATS_INTERVAL = 10.0
 
 class DevServerError(Exception):
   """Exception class used by this module."""
+
+
+def require_psutil():
+  """Decorator for functions require psutil to run.
+  """
+  def deco_require_psutil(func):
+    """Wrapper of the decorator function.
+
+    @param func: function to be called.
+    """
+    def func_require_psutil(*args, **kwargs):
+      """Decorator for functions require psutil to run.
+
+      If psutil is not installed, skip calling the function.
+
+      @param args: arguments for function to be called.
+      @param kwargs: keyword arguments for function to be called.
+      """
+      if psutil:
+        return func(*args, **kwargs)
+      else:
+        _Log('Python module psutil is not installed. Function call %s is '
+             'skipped.' % func)
+    return func_require_psutil
+  return deco_require_psutil
 
 
 def _LeadingWhiteSpaceCount(string):
@@ -400,10 +438,59 @@ class DevServerRoot(object):
   # Lock used to lock increasing/decreasing count.
   _staging_thread_count_lock = threading.Lock()
 
+  @require_psutil()
+  def _refresh_io_stats(self):
+    """A call running in a thread to update IO stats periodically."""
+    prev_disk_io_counters = psutil.disk_io_counters()
+    prev_network_io_counters = psutil.net_io_counters()
+    prev_read_time = time.time()
+    while True:
+      time.sleep(STATS_INTERVAL)
+      now = time.time()
+      interval = now - prev_read_time
+      prev_read_time = now
+      # Disk IO is for all disks.
+      disk_io_counters = psutil.disk_io_counters()
+      network_io_counters = psutil.net_io_counters()
+
+      self.disk_read_bytes_per_sec = (
+          disk_io_counters.read_bytes -
+          prev_disk_io_counters.read_bytes)/interval
+      self.disk_write_bytes_per_sec = (
+          disk_io_counters.write_bytes -
+          prev_disk_io_counters.write_bytes)/interval
+      prev_disk_io_counters = disk_io_counters
+
+      self.network_sent_bytes_per_sec = (
+          network_io_counters.bytes_sent -
+          prev_network_io_counters.bytes_sent)/interval
+      self.network_recv_bytes_per_sec = (
+          network_io_counters.bytes_recv -
+          prev_network_io_counters.bytes_recv)/interval
+      prev_network_io_counters = network_io_counters
+
+  @require_psutil()
+  def _start_io_stat_thread(self):
+    """Start the thread to collect IO stats.
+    """
+    thread = threading.Thread(target=self._refresh_io_stats)
+    thread.daemon = True
+    thread.start()
+
   def __init__(self, _xbuddy):
     self._builder = None
     self._telemetry_lock_dict = common_util.LockDict()
     self._xbuddy = _xbuddy
+
+    # Cache of disk IO stats, a thread refresh the stats every 10 seconds.
+    # lock is not used for these variables as the only thread writes to these
+    # variables is _refresh_io_stats.
+    self.disk_read_bytes_per_sec = 0
+    self.disk_write_bytes_per_sec = 0
+    # Cache of network IO stats.
+    self.network_sent_bytes_per_sec = 0
+    self.network_recv_bytes_per_sec = 0
+    self._start_io_stat_thread()
 
   @staticmethod
   def _get_artifacts(kwargs):
@@ -970,6 +1057,23 @@ class DevServerRoot(object):
 
     return updater.HandleUpdatePing(data, label)
 
+  @require_psutil()
+  def _get_io_stats(self):
+    """Get the IO stats as a dictionary.
+
+    @return: A dictionary of IO stats collected by psutil.
+
+    """
+    return {'disk_read_bytes_per_second': self.disk_read_bytes_per_sec,
+            'disk_write_bytes_per_second': self.disk_write_bytes_per_sec,
+            'disk_total_bytes_per_second': (self.disk_read_bytes_per_sec +
+                                            self.disk_write_bytes_per_sec),
+            'network_sent_bytes_per_second': self.network_sent_bytes_per_sec,
+            'network_recv_bytes_per_second': self.network_recv_bytes_per_sec,
+            'network_total_bytes_per_second': (self.network_sent_bytes_per_sec +
+                                               self.network_recv_bytes_per_sec),
+            'cpu_percent': psutil.cpu_percent(),}
+
   @cherrypy.expose
   def check_health(self):
     """Collect the health status of devserver to see if it's ready for staging.
@@ -984,10 +1088,12 @@ class DevServerRoot(object):
     stat = os.statvfs(updater.static_dir)
     free_disk = stat.f_bsize * stat.f_bavail / 1000000000
 
-    return json.dumps({
+    health_data = {
         'free_disk': free_disk,
-        'staging_thread_count': DevServerRoot._staging_thread_count,
-    })
+        'staging_thread_count': DevServerRoot._staging_thread_count}
+    health_data.update(self._get_io_stats() or {})
+
+    return json.dumps(health_data)
 
 
 def _CleanCache(cache_dir, wipe):
