@@ -102,8 +102,8 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
   xpak.tbz2(out_path).recompose_mem(my_xpak)
 
 
-def UpdateGmergeBinhost(sysroot, pkg, deep):
-  """Add pkg to our gmerge-specific binhost.
+def UpdateGmergeBinhost(sysroot, pkgs, deep):
+  """Add packages to our gmerge-specific binhost.
 
   Files matching DEFAULT_INSTALL_MASK are not included in the tarball.
   """
@@ -130,16 +130,20 @@ def UpdateGmergeBinhost(sysroot, pkg, deep):
                                          settings=bintree.settings)
   gmerge_tree.populate()
 
+  gmerge_matches = set()
+  bindb_matches = set()
+  installed_matches = set()
   if deep:
     # If we're in deep mode, fill in the binhost completely.
-    gmerge_matches = set(gmerge_tree.dbapi.cpv_all())
-    bindb_matches = set(bintree.dbapi.cpv_all())
-    installed_matches = set(vardb.cpv_all()) & bindb_matches
+    gmerge_matches.update(gmerge_tree.dbapi.cpv_all())
+    bindb_matches.update(bintree.dbapi.cpv_all())
+    installed_matches.update(set(vardb.cpv_all()) & bindb_matches)
   else:
     # Otherwise, just fill in the requested package.
-    gmerge_matches = set(gmerge_tree.dbapi.match(pkg))
-    bindb_matches = set(bintree.dbapi.match(pkg))
-    installed_matches = set(vardb.match(pkg)) & bindb_matches
+    for pkg in pkgs:
+      gmerge_matches.update(gmerge_tree.dbapi.match(pkg))
+      bindb_matches.update(bintree.dbapi.match(pkg))
+      installed_matches.update(set(vardb.match(pkg)) & bindb_matches)
 
   # Remove any stale packages that exist in the local binhost but are not
   # installed anymore.
@@ -234,7 +238,7 @@ class Builder(object):
 
       # Sync gmerge binhost.
       deep = additional_args.get('deep')
-      if not UpdateGmergeBinhost(sysroot, pkg, deep):
+      if not UpdateGmergeBinhost(sysroot, [pkg], deep):
         return self.SetError('Package %s is not installed' % pkg)
 
       return 'Success\n'
