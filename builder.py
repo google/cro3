@@ -1,10 +1,10 @@
-#!/usr/bin/python
-
 # Copyright (c) 2009-2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Package builder for the dev server."""
+
+from __future__ import print_function
 
 import os
 import subprocess
@@ -42,8 +42,10 @@ def _OutputOf(command):
 
   Args:
     command: A list of arguments, beginning with the executable
+
   Returns:
     The output of the command
+
   Raises:
     subprocess.CalledProcessError if the command fails
   """
