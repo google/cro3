@@ -82,6 +82,14 @@ except ImportError:
   _Log('Python module psutil is not installed, devserver load data will not be '
        'collected')
   psutil = None
+except OSError as e:
+  # Ignore error like following. psutil may not work properly in builder. Ignore
+  # the error as load information of devserver is not used in builder.
+  # OSError: [Errno 2] No such file or directory: '/dev/pts/0'
+  _Log('psutil is failed to be imported, error: %s. devserver load data will '
+       'not be collected.', e)
+  psutil = None
+
 
 CACHED_ENTRIES = 12
 
