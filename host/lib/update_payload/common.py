@@ -6,8 +6,6 @@
 
 from __future__ import print_function
 
-import ctypes
-
 from error import PayloadError
 import update_metadata_pb2
 
@@ -15,7 +13,7 @@ import update_metadata_pb2
 #
 # Constants.
 #
-PSEUDO_EXTENT_MARKER = ctypes.c_uint64(-1).value
+PSEUDO_EXTENT_MARKER = (1L << 64) - 1  # UINT64_MAX
 
 SIG_ASN1_HEADER = (
     '\x30\x31\x30\x0d\x06\x09\x60\x86'
