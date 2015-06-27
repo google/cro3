@@ -48,8 +48,8 @@ DEFINE_boolean extract "${FLAGS_FALSE}" "If set, extract old/new kernel/rootfs \
 to [old|new]_[kern|root].dat. Useful for debugging (default: false)"
 DEFINE_boolean full_kernel "${FLAGS_FALSE}" "Generate a full kernel update \
 even if generating a delta update (default: false)"
-DEFINE_integer chunk_size -1 \
-  "Delta payload chunk size (default -1 means whole files)"
+DEFINE_string chunk_size "" \
+  "Delta payload chunk size (-1 means whole files)"
 
 DEFINE_string src_channel "" "Channel of the src image."
 DEFINE_string src_board "" "Board of the src image."
@@ -301,47 +301,66 @@ DST_ROOT=$(extract_root "${FLAGS_image}" "${FLAGS_root_path}")
 DST_MNT=$(mktemp -d --tmpdir="${MOUNTS_ROOT}" dst_root.XXXXXX)
 sudo mount -o loop,ro "${DST_ROOT}" "${DST_MNT}"
 
+# TODO(deymo): Remove the DST_MNT mounting and read the partition size from the
+# GPT table.
 source "${DST_MNT}"/usr/sbin/write_gpt.sh || warn "Could not read write_gpt.sh"
 
-PARTITION_SIZE_PARAM=
-if [[ -n "${ROOTFS_PARTITION_SIZE}" ]]; then
-  echo "Using rootfs partition size: ${ROOTFS_PARTITION_SIZE}";
-  PARTITION_SIZE_PARAM="-rootfs_partition_size=${ROOTFS_PARTITION_SIZE}"
-else
-  echo "Using the default partition size."
-fi
+GENERATOR_ARGS=(
+  # Common payload args:
+  -out_file="${FLAGS_output}"
+  -private_key="${FLAGS_private_key}"
+  # Target image args:
+  -new_image="${DST_ROOT}"
+  -new_kernel="${DST_KERNEL}"
+  -new_channel="${FLAGS_channel}"
+  -new_board="${FLAGS_board}"
+  -new_version="${FLAGS_version}"
+  -new_key="${FLAGS_key}"
+  -new_build_channel="${FLAGS_build_channel}"
+  -new_build_version="${FLAGS_build_version}"
+)
 
 if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
   SRC_MNT=$(mktemp -d --tmpdir="${MOUNTS_ROOT}" src_root.XXXXXX)
   sudo mount -o loop,ro "${SRC_ROOT}" "${SRC_MNT}"
 
+  GENERATOR_ARGS+=(
+    # Source image args:
+    -old_image="${SRC_ROOT}"
+    -old_kernel="${SRC_KERNEL}"
+    -old_channel="${FLAGS_src_channel}"
+    -old_board="${FLAGS_src_board}"
+    -old_version="${FLAGS_src_version}"
+    -old_key="${FLAGS_src_key}"
+    -old_build_channel="${FLAGS_src_build_channel}"
+    -old_build_version="${FLAGS_src_build_version}"
+    # Extra args required by delta payloads:
+    -new_dir="${DST_MNT}"
+    -old_dir="${SRC_MNT}"
+  )
+
+  # The passed chunk_size is only used for delta payload. Use delta_generator's
+  # default if no value is provided.
+  if [[ -n "${FLAGS_chunk_size}" ]]; then
+    echo "Forcing chunk_size to ${FLAGS_chunk_size}";
+    GENERATOR_ARGS+=( -chunk_size="${FLAGS_chunk_size}" )
+  fi
+fi
+
+if [[ -n "${ROOTFS_PARTITION_SIZE}" ]]; then
+  echo "Using rootfs partition size: ${ROOTFS_PARTITION_SIZE}";
+  GENERATOR_ARGS+=( -rootfs_partition_size="${ROOTFS_PARTITION_SIZE}" )
+else
+  echo "Using the default partition size."
+fi
+
+echo "Running delta_generator with args: ${GENERATOR_ARGS[@]}"
+if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
   # Preserve the path during sudo so that unpacked binaries are used when
   # outside the chroot.
-  sudo PATH=${PATH} "${GENERATOR}" \
-      -new_dir="${DST_MNT}" -new_image="${DST_ROOT}" \
-      -new_kernel="${DST_KERNEL}" \
-      -old_dir="${SRC_MNT}" -old_image="${SRC_ROOT}" \
-      -old_kernel="${SRC_KERNEL}" \
-      -out_file="${FLAGS_output}" -private_key="${FLAGS_private_key}" \
-      -chunk_size="${FLAGS_chunk_size}" \
-      "${PARTITION_SIZE_PARAM}" \
-      -old_channel="${FLAGS_src_channel}" -old_board="${FLAGS_src_board}" \
-      -old_version="${FLAGS_src_version}" -old_key="${FLAGS_src_key}" \
-      -old_build_channel="${FLAGS_src_build_channel}" \
-      -old_build_version="${FLAGS_src_build_version}" \
-      -new_channel="${FLAGS_channel}" -new_board="${FLAGS_board}" \
-      -new_version="${FLAGS_version}" -new_key="${FLAGS_key}" \
-      -new_build_channel="${FLAGS_build_channel}" \
-      -new_build_version="${FLAGS_build_version}"
+  sudo PATH=${PATH} "${GENERATOR}" "${GENERATOR_ARGS[@]}"
 else
-  "${GENERATOR}" \
-      -new_image="${DST_ROOT}" -new_kernel="${DST_KERNEL}" \
-      -out_file="${FLAGS_output}" -private_key="${FLAGS_private_key}" \
-      "${PARTITION_SIZE_PARAM}" \
-      -new_channel="${FLAGS_channel}" -new_board="${FLAGS_board}" \
-      -new_version="${FLAGS_version}" -new_key="${FLAGS_key}" \
-      -new_build_channel="${FLAGS_build_channel}" \
-      -new_build_version="${FLAGS_build_version}"
+  "${GENERATOR}" "${GENERATOR_ARGS[@]}"
 fi
 
 if [[ -n "${FLAGS_out_metadata_hash_file}" ]]; then
