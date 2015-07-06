@@ -185,18 +185,8 @@ extract_partition_to_temp_file() {
   local offset length
   offset=$(partoffset "${filename}" ${partition})  # 512-byte sectors
   length=$(partsize "${filename}" ${partition})  # 512-byte sectors
-  local bs=512
-  local sectors_per_two_mib=$((2 * 1024 * 1024 / 512))
-  if [[ $(( offset % sectors_per_two_mib )) -eq 0 && \
-        $(( length % sectors_per_two_mib )) -eq 0 ]]; then
-    bs=$((2 * 1024 * 1024))
-    offset=$((offset / sectors_per_two_mib))
-    length=$((length / sectors_per_two_mib))
-  else
-    warn "partition offset or length not at 2MiB boundary"
-  fi
-  dd if="${filename}" of="${temp_file}" bs=${bs} count="${length}" \
-      skip="${offset}" 2>/dev/null
+  dd if="${filename}" of="${temp_file}" bs=8M iflag=skip_bytes,count_bytes \
+      count="$(( length * 512 ))" skip="$(( offset * 512 ))" status=none
 }
 
 patch_kernel() {
