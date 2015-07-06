@@ -85,50 +85,16 @@ DEFINE_string work_dir "" "Where to dump temporary files."
 FLAGS "$@" || exit 1
 eval set -- "${FLAGS_ARGV}"
 
-# We use this directory to create mount points as a way around crbug.com/358933.
-# Use FLAGS_work_dir instead when that workaround is no longer needed.
-# When that bug affects us, we will leak temp directories. They should
-# be cleaned up on the build servers at the end of cbuildbot.
-MOUNTS_ROOT="/tmp/crbug_358933"
-
+STATE_PART_NUM=1
 ROOTFS_PART_NUM=3
 
 SRC_KERNEL=""
 SRC_ROOT=""
 DST_KERNEL=""
 DST_ROOT=""
-STATE_MNT=""
-
-# umount a loopback device, and remove the mount point.
-umount_and_rmdir() {
-  local mnt_point="$1"
-
-  local umount_ret
-  local rmdir_ret=0
-
-  if [[ ! -d  "${mnt_point}" ]]; then
-    return 0
-  fi
-
-  sudo umount -v "${mnt_point}" || return 1
-  sudo rmdir -v "${mnt_point}" || rmdir_ret=$?
-  if [[ ${rmdir_ret} -ne 0 ]]; then
-    warn "sudo rmdir -v ${mnt_point} exited with: ${rmdir_ret}"
-    warn "Please note this failure in crbug.com/358933"
-  fi
-
-  # If the rmdir fails, we still return success and keep going. This punts
-  # failures up the chain of cleanup code, and makes them responsible for
-  # crbug.com/358933.
-
-  return 0
-}
 
 cleanup() {
   local err=""
-
-  umount_and_rmdir "${STATE_MNT}" || err=1
-  STATE_MNT=""
 
   if [[ -z "${FLAGS_src_kern_path}" ]]; then
     rm -f "${SRC_KERNEL}" || err=1
@@ -185,19 +151,21 @@ extract_partition_to_temp_file() {
 }
 
 patch_kernel() {
-  local IMAGE="$1"
-  local KERN_FILE="$2"
+  local image="$1"
+  local kern_file="$2"
+  local err=""
 
-  # Keep `local` decl split from assignment so return code is checked.
-  local offset
-  offset=$(partoffset "${IMAGE}" 1)
-  : $(( offset *= 512 ))
-  STATE_MNT=$(mktemp -d --tmpdir="${MOUNTS_ROOT}" state.XXXXXX)
-  sudo mount -o ro,loop,offset="${offset}" "${IMAGE}" "${STATE_MNT}"
-  dd if="${STATE_MNT}"/vmlinuz_hd.vblock of="${KERN_FILE}" conv=notrunc \
-      2>/dev/null
-  umount_and_rmdir "${STATE_MNT}"
-  STATE_MNT=""
+  local state_out vblock
+  state_out=$(extract_partition_to_temp_file "${image}" "${STATE_PART_NUM}" "")
+  vblock=$(mktemp --tmpdir="${FLAGS_work_dir}" vmlinuz_hd.vblock.XXXXXX)
+  e2cp "${state_out}:/vmlinuz_hd.vblock" "${vblock}" || err+="e2cp failed."
+  dd if="${vblock}" of="${kern_file}" conv=notrunc status=none ||
+    err+="dd failed."
+  rm -f "${state_out}" "${vblock}"
+
+  if [[ -n "${err}" ]]; then
+    die "Error patching the kernel: ${err}"
+  fi
 }
 
 extract_kern() {
@@ -220,8 +188,6 @@ extract_root() {
   extract_partition_to_temp_file "${bin_file}" "${ROOTFS_PART_NUM}" \
     "${root_out}"
 }
-
-mkdir -p "${MOUNTS_ROOT}"
 
 if [[ -n "${FLAGS_src_image}" ]] && \
    [[ "${FLAGS_outside_chroot}" -eq "${FLAGS_FALSE}" ]]; then
