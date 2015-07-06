@@ -91,8 +91,8 @@ eval set -- "${FLAGS_ARGV}"
 # be cleaned up on the build servers at the end of cbuildbot.
 MOUNTS_ROOT="/tmp/crbug_358933"
 
-SRC_MNT=""
-DST_MNT=""
+ROOTFS_PART_NUM=3
+
 SRC_KERNEL=""
 SRC_ROOT=""
 DST_KERNEL=""
@@ -127,12 +127,7 @@ umount_and_rmdir() {
 cleanup() {
   local err=""
 
-  umount_and_rmdir "${SRC_MNT}" || err=1
-  umount_and_rmdir "${DST_MNT}" || err=1
   umount_and_rmdir "${STATE_MNT}" || err=1
-
-  SRC_MNT=""
-  DST_MNT=""
   STATE_MNT=""
 
   if [[ -z "${FLAGS_src_kern_path}" ]]; then
@@ -222,7 +217,8 @@ extract_root() {
   local bin_file="$1"
   local root_out="$2"
 
-  extract_partition_to_temp_file "${bin_file}" 3 "${root_out}"
+  extract_partition_to_temp_file "${bin_file}" "${ROOTFS_PART_NUM}" \
+    "${root_out}"
 }
 
 mkdir -p "${MOUNTS_ROOT}"
@@ -288,13 +284,6 @@ fi
 DST_KERNEL=$(extract_kern "${FLAGS_image}" "${FLAGS_kern_path}")
 DST_ROOT=$(extract_root "${FLAGS_image}" "${FLAGS_root_path}")
 
-DST_MNT=$(mktemp -d --tmpdir="${MOUNTS_ROOT}" dst_root.XXXXXX)
-sudo mount -o loop,ro "${DST_ROOT}" "${DST_MNT}"
-
-# TODO(deymo): Remove the DST_MNT mounting and read the partition size from the
-# GPT table.
-source "${DST_MNT}"/usr/sbin/write_gpt.sh || warn "Could not read write_gpt.sh"
-
 GENERATOR_ARGS=(
   # Common payload args:
   -out_file="${FLAGS_output}"
@@ -311,9 +300,6 @@ GENERATOR_ARGS=(
 )
 
 if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
-  SRC_MNT=$(mktemp -d --tmpdir="${MOUNTS_ROOT}" src_root.XXXXXX)
-  sudo mount -o loop,ro "${SRC_ROOT}" "${SRC_MNT}"
-
   GENERATOR_ARGS+=(
     # Source image args:
     -old_image="${SRC_ROOT}"
@@ -324,9 +310,6 @@ if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
     -old_key="${FLAGS_src_key}"
     -old_build_channel="${FLAGS_src_build_channel}"
     -old_build_version="${FLAGS_src_build_version}"
-    # Extra args required by delta payloads:
-    -new_dir="${DST_MNT}"
-    -old_dir="${SRC_MNT}"
   )
 
   # The passed chunk_size is only used for delta payload. Use delta_generator's
@@ -337,21 +320,18 @@ if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
   fi
 fi
 
-if [[ -n "${ROOTFS_PARTITION_SIZE}" ]]; then
-  echo "Using rootfs partition size: ${ROOTFS_PARTITION_SIZE}";
-  GENERATOR_ARGS+=( -rootfs_partition_size="${ROOTFS_PARTITION_SIZE}" )
+# Add partition size. Only *required* for minor_version=1.
+DST_ROOT_PARTITION_SECTORS=$(partsize "${FLAGS_image}" "${ROOTFS_PART_NUM}")
+if [[ -n "${DST_ROOT_PARTITION_SECTORS}" ]]; then
+  DST_ROOT_PARTITION_SIZE=$(( DST_ROOT_PARTITION_SECTORS * 512 ))
+  echo "Using rootfs partition size: ${DST_ROOT_PARTITION_SIZE}";
+  GENERATOR_ARGS+=( -rootfs_partition_size="${DST_ROOT_PARTITION_SIZE}" )
 else
   echo "Using the default partition size."
 fi
 
 echo "Running delta_generator with args: ${GENERATOR_ARGS[@]}"
-if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
-  # Preserve the path during sudo so that unpacked binaries are used when
-  # outside the chroot.
-  sudo PATH=${PATH} "${GENERATOR}" "${GENERATOR_ARGS[@]}"
-else
-  "${GENERATOR}" "${GENERATOR_ARGS[@]}"
-fi
+"${GENERATOR}" "${GENERATOR_ARGS[@]}"
 
 if [[ -n "${FLAGS_out_metadata_hash_file}" ]]; then
     # The manifest - unfortunately - contain two fields called
