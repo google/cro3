@@ -31,12 +31,6 @@ find_common_sh() {
 find_common_sh
 . "${SCRIPT_ROOT}/common.sh" || exit 1
 
-# Load functions and constants for chromeos-common.
-. "${SRC_ROOT}/platform2/installer/share/chromeos-common.sh" &> /dev/null || \
-. "/usr/share/misc/chromeos-common.sh" &> /dev/null || \
-. "./chromeos-common.sh" || \
-  die "Unable to load chromeos-common.sh"
-
 DEFINE_string image "" "The image that should be sent to clients."
 DEFINE_string src_image "" "Optional: a source image. If specified, this makes\
  a delta update."
@@ -93,6 +87,23 @@ SRC_ROOT=""
 DST_KERNEL=""
 DST_ROOT=""
 
+# We include cgpt in the au-generator.zip, so we can call it directly here. We
+# don't use chromeos-common.sh versions because we need to not run them as root.
+
+# Usage: gpt_part_offset <image> <partition_number>
+# Return the start sector number of the partition number |partition_number| in
+# the GPT image |image|.
+gpt_part_offset() {
+  cgpt show -b -i "$2" "$1"
+}
+
+# Usage: gpt_part_size <image> <partition_number>
+# Return the size of the partition number |partition_number| in the GPT image
+#|image|, in number of sectors.
+gpt_part_size() {
+  cgpt show -s -i "$2" "$1"
+}
+
 cleanup() {
   local err=""
 
@@ -144,8 +155,8 @@ extract_partition_to_temp_file() {
 
   # Keep `local` decl split from assignment so return code is checked.
   local offset length
-  offset=$(partoffset "${filename}" ${partition})  # 512-byte sectors
-  length=$(partsize "${filename}" ${partition})  # 512-byte sectors
+  offset=$(gpt_part_offset "${filename}" ${partition})  # 512-byte sectors
+  length=$(gpt_part_size "${filename}" ${partition})  # 512-byte sectors
   dd if="${filename}" of="${temp_file}" bs=8M iflag=skip_bytes,count_bytes \
       count="$(( length * 512 ))" skip="$(( offset * 512 ))" status=none
 }
@@ -198,8 +209,6 @@ if [[ -n "${FLAGS_src_image}" ]] && \
   # and also copying few shared libraries with it.
   assert_inside_chroot
 fi
-
-locate_gpt
 
 if [[ "${FLAGS_extract}" -eq "${FLAGS_TRUE}" ]]; then
   if [[ -n "${FLAGS_src_image}" ]]; then
@@ -287,7 +296,8 @@ if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
 fi
 
 # Add partition size. Only *required* for minor_version=1.
-DST_ROOT_PARTITION_SECTORS=$(partsize "${FLAGS_image}" "${ROOTFS_PART_NUM}")
+DST_ROOT_PARTITION_SECTORS=$(gpt_part_size "${FLAGS_image}" \
+  "${ROOTFS_PART_NUM}")
 if [[ -n "${DST_ROOT_PARTITION_SECTORS}" ]]; then
   DST_ROOT_PARTITION_SIZE=$(( DST_ROOT_PARTITION_SECTORS * 512 ))
   echo "Using rootfs partition size: ${DST_ROOT_PARTITION_SIZE}";
