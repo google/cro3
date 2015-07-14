@@ -458,6 +458,9 @@ class PayloadCheckerTest(mox.MoxTestBase):
         False, True, new_rootfs_fs_size,
         None if fail_bad_nri else hashlib.sha256('fake-nri-content').digest())
 
+    # Set the minor version.
+    payload_gen.SetMinorVersion(0)
+
     # Create the test object.
     payload_checker = _GetPayloadChecker(payload_gen.WriteToFile)
     report = checker._PayloadReport()
@@ -860,11 +863,11 @@ class PayloadCheckerTest(mox.MoxTestBase):
         total_src_blocks = 16
 
     if op_type in (common.OpType.REPLACE, common.OpType.REPLACE_BZ):
-      payload.manifest.minor_version = 0
+      payload_checker.minor_version = 0
     elif op_type in (common.OpType.MOVE, common.OpType.BSDIFF):
-      payload.manifest.minor_version = 2 if fail_bad_minor_version else 1
+      payload_checker.minor_version = 2 if fail_bad_minor_version else 1
     elif op_type in (common.OpType.SOURCE_COPY, common.OpType.SOURCE_BSDIFF):
-      payload.manifest.minor_version = 1 if fail_bad_minor_version else 2
+      payload_checker.minor_version = 1 if fail_bad_minor_version else 2
 
     if op_type not in (common.OpType.MOVE, common.OpType.SOURCE_COPY):
       if not fail_mismatched_data_offset_length:
@@ -999,6 +1002,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
                             hashlib.sha256('fake-new-rootfs-content').digest())
     payload_gen.SetPartInfo(True, True, kernel_part_size,
                             hashlib.sha256('fake-new-kernel-content').digest())
+    payload_gen.SetMinorVersion(0)
     payload_gen.AddOperationWithData(
         False, common.OpType.REPLACE,
         dst_extents=[(0, rootfs_part_size / block_size)],
@@ -1055,28 +1059,31 @@ class PayloadCheckerTest(mox.MoxTestBase):
     else:
       self.assertIsNone(payload_checker._CheckSignatures(*args))
 
-  def DoCheckMinorVersionTest(self, minor_version, payload_type):
-    """Parametric testing for CheckMinorVersion().
+  def DoCheckManifestMinorVersionTest(self, minor_version, payload_type):
+    """Parametric testing for CheckManifestMinorVersion().
 
     Args:
       minor_version: The payload minor version to test with.
       payload_type: The type of the payload we're testing, delta or full.
     """
     # Create the test object.
-    payload_checker = checker.PayloadChecker(self.MockPayload())
+    payload = self.MockPayload()
+    payload.manifest.minor_version = minor_version
+    payload_checker = checker.PayloadChecker(payload)
+    payload_checker.payload_type = payload_type
     report = checker._PayloadReport()
 
     should_succeed = (
         (minor_version == 0 and payload_type == checker._TYPE_FULL) or
         (minor_version == 1 and payload_type == checker._TYPE_DELTA) or
         (minor_version == 2 and payload_type == checker._TYPE_DELTA))
-    args = (report, minor_version, payload_type)
+    args = (report,)
 
     if should_succeed:
-      self.assertIsNone(payload_checker._CheckMinorVersion(*args))
+      self.assertIsNone(payload_checker._CheckManifestMinorVersion(*args))
     else:
       self.assertRaises(update_payload.PayloadError,
-                        payload_checker._CheckMinorVersion, *args)
+                        payload_checker._CheckManifestMinorVersion, *args)
 
   def DoRunTest(self, fail_wrong_payload_type, fail_invalid_block_size,
                 fail_mismatched_block_size, fail_excess_data):
@@ -1095,6 +1102,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
                             hashlib.sha256('fake-new-rootfs-content').digest())
     payload_gen.SetPartInfo(True, True, kernel_part_size,
                             hashlib.sha256('fake-new-kernel-content').digest())
+    payload_gen.SetMinorVersion(0)
     payload_gen.AddOperationWithData(
         False, common.OpType.REPLACE,
         dst_extents=[(0, rootfs_part_size / block_size)],
@@ -1267,9 +1275,9 @@ def AddAllParametricTests():
                       'fail_unknown_sig_version': (True, False),
                       'fail_incorrect_sig': (True, False)})
 
-  # Add all _CheckMinorVersion() test cases.
-  AddParametricTests('CheckMinorVersion',
-                     {'minor_version': (0, 1, 2, 555),
+  # Add all _CheckManifestMinorVersion() test cases.
+  AddParametricTests('CheckManifestMinorVersion',
+                     {'minor_version': (None, 0, 1, 2, 555),
                       'payload_type': (checker._TYPE_FULL,
                                        checker._TYPE_DELTA)})
 

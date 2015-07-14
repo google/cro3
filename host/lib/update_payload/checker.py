@@ -50,6 +50,12 @@ _DEFAULT_PUBKEY_BASE_NAME = 'update-payload-key.pub.pem'
 _DEFAULT_PUBKEY_FILE_NAME = os.path.join(os.path.dirname(__file__),
                                          _DEFAULT_PUBKEY_BASE_NAME)
 
+# Supported minor version map to payload types allowed to be using them.
+_SUPPORTED_MINOR_VERSIONS = {
+    0: (_TYPE_FULL,),
+    1: (_TYPE_DELTA,),
+    2: (_TYPE_DELTA,),
+}
 
 #
 # Helper functions.
@@ -311,6 +317,7 @@ class PayloadChecker(object):
     self.old_kernel_fs_size = 0
     self.new_rootfs_fs_size = 0
     self.new_kernel_fs_size = 0
+    self.minor_version = None
 
   @staticmethod
   def _CheckElem(msg, name, report, is_mandatory, is_submsg, convert=str,
@@ -494,33 +501,27 @@ class PayloadChecker(object):
           '%s (%d) <= (num %sblocks - 1 (%d)) * block_size (%d).' %
           (length_name, length, block_name or '', num_blocks - 1, block_size))
 
-  def _CheckMinorVersion(self, report, minor_version, payload_type):
-    """Checks that the minor version matches the payload type.
+  def _CheckManifestMinorVersion(self, report):
+    """Checks the payload manifest minor_version field.
 
     Args:
       report: The report object to add to.
-      minor_version: The minor version of the payload.
-      payload_type: The type of payload (full or delta).
 
     Raises:
-      error.PayloadError if any of the checks fails.
+      error.PayloadError if any of the checks fail.
     """
-    report.AddField('minor version', minor_version)
-
-    if minor_version == 0:
-      # Minor version 0 implies a full payload.
-      if payload_type != _TYPE_FULL:
+    self.minor_version = self._CheckOptionalField(self.payload.manifest,
+                                                  'minor_version', report)
+    if self.minor_version in _SUPPORTED_MINOR_VERSIONS:
+      if self.payload_type not in _SUPPORTED_MINOR_VERSIONS[self.minor_version]:
         raise error.PayloadError(
-            'Minor version 0 not compatible with payload type: %s.'
-            % payload_type)
-    elif minor_version in (1, 2):
-      # Minor version 1 or 2 implies a delta payload.
-      if payload_type != _TYPE_DELTA:
-        raise error.PayloadError(
-            'Minor version %d not compatible with payload type: %s.'
-            % (minor_version, payload_type))
+            'Minor version %d not compatible with payload type %s.' %
+            (self.minor_version, self.payload_type))
+    elif self.minor_version is None:
+      raise error.PayloadError('Minor version is not set.')
     else:
-      raise error.PayloadError('Unsupported minor version: %d' % minor_version)
+      raise error.PayloadError('Unsupported minor version: %d' %
+                               self.minor_version)
 
   def _CheckManifest(self, report, rootfs_part_size=0, kernel_part_size=0):
     """Checks the payload manifest.
@@ -623,7 +624,7 @@ class PayloadChecker(object):
 
     # Check: minor_version makes sense for the payload type. This check should
     # run after the payload type has been set.
-    self._CheckMinorVersion(report, manifest.minor_version, self.payload_type)
+    self._CheckManifestMinorVersion(report)
 
   def _CheckLength(self, length, total_blocks, op_name, length_name):
     """Checks whether a length matches the space designated in extents.
@@ -943,23 +944,22 @@ class PayloadChecker(object):
             (op_name, data_offset, prev_data_offset))
 
     # Type-specific checks.
-    minor_version = self.payload.manifest.minor_version
     if op.type in (common.OpType.REPLACE, common.OpType.REPLACE_BZ):
       self._CheckReplaceOperation(op, data_length, total_dst_blocks, op_name)
-    elif op.type == common.OpType.MOVE and minor_version == 1:
+    elif op.type == common.OpType.MOVE and self.minor_version == 1:
       self._CheckMoveOperation(op, data_offset, total_src_blocks,
                                total_dst_blocks, op_name)
-    elif op.type == common.OpType.BSDIFF and minor_version == 1:
+    elif op.type == common.OpType.BSDIFF and self.minor_version == 1:
       self._CheckBsdiffOperation(data_length, total_dst_blocks, op_name)
-    elif op.type == common.OpType.SOURCE_COPY and minor_version == 2:
+    elif op.type == common.OpType.SOURCE_COPY and self.minor_version == 2:
       self._CheckSourceCopyOperation(data_offset, total_src_blocks,
                                      total_dst_blocks, op_name)
-    elif op.type == common.OpType.SOURCE_BSDIFF and minor_version == 2:
+    elif op.type == common.OpType.SOURCE_BSDIFF and self.minor_version == 2:
       self._CheckBsdiffOperation(data_length, total_dst_blocks, op_name)
     else:
       raise error.PayloadError(
           'Operation %s (type %d) not allowed in minor version %d' %
-          (op_name, op.type, minor_version))
+          (op_name, op.type, self.minor_version))
     return data_length if data_length is not None else 0
 
   def _SizeToNumBlocks(self, size):

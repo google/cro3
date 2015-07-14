@@ -208,6 +208,10 @@ class PayloadGenerator(object):
     _SetMsgField(self.manifest, 'signatures_offset', sigs_offset)
     _SetMsgField(self.manifest, 'signatures_size', sigs_size)
 
+  def SetMinorVersion(self, minor_version):
+    """Set the payload's minor version field."""
+    _SetMsgField(self.manifest, 'minor_version', minor_version)
+
   def _WriteHeaderToFile(self, file_obj, manifest_len):
     """Writes a payload heaer to a file."""
     # We need to access protected members in Payload for writing the header.
