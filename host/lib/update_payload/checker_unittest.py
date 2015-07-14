@@ -1085,8 +1085,11 @@ class PayloadCheckerTest(mox.MoxTestBase):
       self.assertRaises(update_payload.PayloadError,
                         payload_checker._CheckManifestMinorVersion, *args)
 
-  def DoRunTest(self, fail_wrong_payload_type, fail_invalid_block_size,
-                fail_mismatched_block_size, fail_excess_data):
+  def DoRunTest(self, rootfs_part_size_provided, kernel_part_size_provided,
+                fail_wrong_payload_type, fail_invalid_block_size,
+                fail_mismatched_block_size, fail_excess_data,
+                fail_rootfs_part_size_exceeded,
+                fail_kernel_part_size_exceeded):
     # Generate a test payload. For this test, we generate a full update that
     # has sample kernel and rootfs operations. Since most testing is done with
     # internal PayloadChecker methods that are tested elsewhere, here we only
@@ -1096,21 +1099,35 @@ class PayloadCheckerTest(mox.MoxTestBase):
     payload_gen = test_utils.EnhancedPayloadGenerator()
     block_size = test_utils.KiB(4)
     payload_gen.SetBlockSize(block_size)
-    kernel_part_size = test_utils.KiB(16)
-    rootfs_part_size = test_utils.MiB(2)
-    payload_gen.SetPartInfo(False, True, rootfs_part_size,
+    kernel_filesystem_size = test_utils.KiB(16)
+    rootfs_filesystem_size = test_utils.MiB(2)
+    payload_gen.SetPartInfo(False, True, rootfs_filesystem_size,
                             hashlib.sha256('fake-new-rootfs-content').digest())
-    payload_gen.SetPartInfo(True, True, kernel_part_size,
+    payload_gen.SetPartInfo(True, True, kernel_filesystem_size,
                             hashlib.sha256('fake-new-kernel-content').digest())
     payload_gen.SetMinorVersion(0)
+
+    rootfs_part_size = 0
+    if rootfs_part_size_provided:
+      rootfs_part_size = rootfs_filesystem_size + block_size
+    rootfs_op_size = rootfs_part_size or rootfs_filesystem_size
+    if fail_rootfs_part_size_exceeded:
+      rootfs_op_size += block_size
     payload_gen.AddOperationWithData(
         False, common.OpType.REPLACE,
-        dst_extents=[(0, rootfs_part_size / block_size)],
-        data_blob=os.urandom(rootfs_part_size))
+        dst_extents=[(0, rootfs_op_size / block_size)],
+        data_blob=os.urandom(rootfs_op_size))
+
+    kernel_part_size = 0
+    if kernel_part_size_provided:
+      kernel_part_size = kernel_filesystem_size + block_size
+    kernel_op_size = kernel_part_size or kernel_filesystem_size
+    if fail_kernel_part_size_exceeded:
+      kernel_op_size += block_size
     payload_gen.AddOperationWithData(
         True, common.OpType.REPLACE,
-        dst_extents=[(0, kernel_part_size / block_size)],
-        data_blob=os.urandom(kernel_part_size))
+        dst_extents=[(0, kernel_op_size / block_size)],
+        data_blob=os.urandom(kernel_op_size))
 
     # Generate payload (complete w/ signature) and create the test object.
     if fail_invalid_block_size:
@@ -1135,9 +1152,14 @@ class PayloadCheckerTest(mox.MoxTestBase):
     else:
       payload_checker = _GetPayloadChecker(payload_gen.WriteToFileWithData,
                                            **kwargs)
-      kwargs = {'pubkey_file_name': test_utils._PUBKEY_FILE_NAME}
+
+      kwargs = {'pubkey_file_name': test_utils._PUBKEY_FILE_NAME,
+                'rootfs_part_size': rootfs_part_size,
+                'kernel_part_size': kernel_part_size}
       should_fail = (fail_wrong_payload_type or fail_mismatched_block_size or
-                     fail_excess_data)
+                     fail_excess_data or
+                     fail_rootfs_part_size_exceeded or
+                     fail_kernel_part_size_exceeded)
       if should_fail:
         self.assertRaises(update_payload.PayloadError, payload_checker.Run,
                           **kwargs)
@@ -1283,10 +1305,14 @@ def AddAllParametricTests():
 
   # Add all Run() test cases.
   AddParametricTests('Run',
-                     {'fail_wrong_payload_type': (True, False),
+                     {'rootfs_part_size_provided': (True, False),
+                      'kernel_part_size_provided': (True, False),
+                      'fail_wrong_payload_type': (True, False),
                       'fail_invalid_block_size': (True, False),
                       'fail_mismatched_block_size': (True, False),
-                      'fail_excess_data': (True, False)})
+                      'fail_excess_data': (True, False),
+                      'fail_rootfs_part_size_exceeded': (True, False),
+                      'fail_kernel_part_size_exceeded': (True, False)})
 
 
 if __name__ == '__main__':

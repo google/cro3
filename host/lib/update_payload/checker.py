@@ -57,6 +57,8 @@ _SUPPORTED_MINOR_VERSIONS = {
     2: (_TYPE_DELTA,),
 }
 
+_OLD_DELTA_USABLE_PART_SIZE = 2 * 1024 * 1024 * 1024
+
 #
 # Helper functions.
 #
@@ -1152,8 +1154,8 @@ class PayloadChecker(object):
     Args:
       pubkey_file_name: Public key used for signature verification.
       metadata_sig_file: Metadata signature, if verification is desired.
-      rootfs_part_size: The size of rootfs partitions in bytes (default: use
-                        reported filesystem size).
+      rootfs_part_size: The size of rootfs partitions in bytes (default: infer
+                        based on payload type and version).
       kernel_part_size: The size of kernel partitions in bytes (default: use
                         reported filesystem size).
       report_out_file: File object to dump the report to.
@@ -1192,6 +1194,18 @@ class PayloadChecker(object):
       self._CheckManifest(report, rootfs_part_size, kernel_part_size)
       assert self.payload_type, 'payload type should be known by now'
 
+      # Infer the usable partition size when validating rootfs operations:
+      # - If rootfs partition size was provided, use that.
+      # - Otherwise, if this is an older delta (minor version < 2), stick with
+      #   a known constant size. This is necessary because older deltas may
+      #   exceed the filesystem size when moving data blocks around.
+      # - Otherwise, use the encoded filesystem size.
+      new_rootfs_usable_size = self.new_rootfs_fs_size
+      if rootfs_part_size:
+        new_rootfs_usable_size = rootfs_part_size
+      elif self.payload_type == _TYPE_DELTA and self.minor_version in (None, 1):
+        new_rootfs_usable_size = _OLD_DELTA_USABLE_PART_SIZE
+
       # Part 3: Examine rootfs operations.
       # TODO(garnold)(chromium:243559) only default to the filesystem size if
       # no explicit size provided *and* the partition size is not embedded in
@@ -1200,9 +1214,7 @@ class PayloadChecker(object):
       total_blob_size = self._CheckOperations(
           self.payload.manifest.install_operations, report,
           'install_operations', self.old_rootfs_fs_size,
-          self.new_rootfs_fs_size,
-          rootfs_part_size if rootfs_part_size else self.new_rootfs_fs_size,
-          0, False)
+          self.new_rootfs_fs_size, new_rootfs_usable_size, 0, False)
 
       # Part 4: Examine kernel operations.
       # TODO(garnold)(chromium:243559) as above.

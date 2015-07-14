@@ -19,14 +19,6 @@ if os.path.exists(lib_dir) and os.path.isdir(lib_dir):
 import update_payload
 
 
-# The default sizes of partitions, based on current partitioning practice.
-# TODO(garnold)(chromium:243559) we should stop using these values once
-# partition sizes are encoded in newly generated payloads; that said, we should
-# allow users to specify partition sizes on the command-line, so as to be able
-# to check older payloads.
-_DEFAULT_ROOTFS_PART_SIZE = 2 * 1024 * 1024 * 1024
-_DEFAULT_KERNEL_PART_SIZE = 16 * 1024 * 1024
-
 _TYPE_FULL = 'full'
 _TYPE_DELTA = 'delta'
 
@@ -85,13 +77,11 @@ def ParseArguments(argv):
   check_opts.add_option('-m', '--meta-sig', metavar='FILE',
                         help='verify metadata against its signature')
   check_opts.add_option('-p', '--root-part-size', metavar='NUM',
-                        default=_DEFAULT_ROOTFS_PART_SIZE, type='int',
-                        help=('override default (%default) rootfs partition '
-                              'size'))
+                        default=0, type='int',
+                        help=('override rootfs partition size auto-inference'))
   check_opts.add_option('-P', '--kern-part-size', metavar='NUM',
-                        default=_DEFAULT_KERNEL_PART_SIZE, type='int',
-                        help=('override default (%default) kernel partition '
-                              'size'))
+                        default=0, type='int',
+                        help=('override kernel partition size auto-inference'))
   parser.add_option_group(check_opts)
 
   trace_opts = optparse.OptionGroup(parser, 'Applying payload')
@@ -135,8 +125,7 @@ def ParseArguments(argv):
   opts.check = (opts.check or opts.report or opts.assert_type or
                 opts.block_size or opts.allow_unhashed or
                 opts.disabled_tests or opts.meta_sig or opts.key or
-                opts.root_part_size != _DEFAULT_ROOTFS_PART_SIZE or
-                opts.kern_part_size != _DEFAULT_KERNEL_PART_SIZE)
+                opts.root_part_size or opts.kern_part_size)
 
   # Check number of arguments, enforce payload type accordingly.
   if len(args) == 3:
