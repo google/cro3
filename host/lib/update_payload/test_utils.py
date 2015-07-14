@@ -4,6 +4,8 @@
 
 """Utilities for unit testing."""
 
+from __future__ import print_function
+
 import cStringIO
 import hashlib
 import struct
@@ -47,9 +49,9 @@ def _WriteInt(file_obj, size, is_unsigned, val):
     size: the integer size in bytes (2, 4 or 8)
     is_unsigned: whether it is signed or not
     val: integer value to encode
+
   Raises:
     PayloadError if a write error occurred.
-
   """
   try:
     file_obj.write(struct.pack(common.IntPackingFmtStr(size, is_unsigned), val))
@@ -72,11 +74,12 @@ def SignSha256(data, privkey_file_name):
   Args:
     data: the data whose SHA256 hash we want to sign
     privkey_file_name: private key used for signing data
+
   Returns:
     The signature string, prepended with an ASN1 header.
+
   Raises:
     TestError if something goes wrong.
-
   """
   # pylint: disable=E1101
   data_sha256_hash = common.SIG_ASN1_HEADER + hashlib.sha256(data).digest()
@@ -103,7 +106,6 @@ class SignaturesGenerator(object):
     Args:
       version: signature version (None means do not assign)
       data: signature binary data (None means do not assign)
-
     """
     # Pylint fails to identify a member of the Signatures message.
     # pylint: disable=E1101
@@ -167,7 +169,6 @@ class PayloadGenerator(object):
       is_new: whether to set old (False) or new (True) info
       part_size: the partition size (in fact, filesystem size)
       part_hash: the partition hash
-
     """
     if is_kernel:
       # pylint: disable=E1101
@@ -225,7 +226,6 @@ class PayloadGenerator(object):
       data_blobs: a list of data blobs to be concatenated to the payload
       sigs_data: a binary Signatures message to be concatenated to the payload
       padding: stuff to dump past the normal data blobs provided (optional)
-
     """
     manifest = self.manifest.SerializeToString()
     if manifest_len < 0:
@@ -247,7 +247,6 @@ class EnhancedPayloadGenerator(PayloadGenerator):
   Attributes:
     data_blobs: a list of blobs, in the order they were added
     curr_offset: the currently consumed offset of blobs added to the payload
-
   """
 
   def __init__(self):
@@ -281,7 +280,6 @@ class EnhancedPayloadGenerator(PayloadGenerator):
       dst_length: size of the dst data in bytes (needed for BSDIFF)
       data_blob: a data blob associated with this operation
       do_hash_data_blob: whether or not to compute and add a data blob hash
-
     """
     data_offset = data_length = data_sha256_hash = None
     if data_blob is not None:
@@ -312,9 +310,9 @@ class EnhancedPayloadGenerator(PayloadGenerator):
       is_pseudo_in_kernel: whether the pseudo-operation should be added to
                            kernel (True) or rootfs (False) operations
       padding: stuff to dump past the normal data blobs provided (optional)
+
     Raises:
       TestError: if arguments are inconsistent or something goes wrong.
-
     """
     sigs_len = len(sigs_data) if sigs_data else 0
 
