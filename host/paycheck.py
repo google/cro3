@@ -1,10 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Command-line tool for checking and applying Chrome OS update payloads."""
+
+from __future__ import print_function
 
 import optparse
 import os
@@ -34,12 +36,12 @@ def ParseArguments(argv):
 
   Args:
     argv: command-line arguments to parse (excluding the program name)
+
   Returns:
     A tuple (opts, payload, extra_args), where `opts' are the options
     returned by the parser, `payload' is the name of the payload file
     (mandatory argument) and `extra_args' are any additional command-line
     arguments.
-
   """
   parser = optparse.OptionParser(
       usage=('Usage: %prog [OPTION...] PAYLOAD [DST_KERN DST_ROOT '
@@ -165,7 +167,7 @@ def ParseArguments(argv):
     default_meta_sig = args[0] + '.metadata-signature'
     if os.path.isfile(default_meta_sig):
       opts.meta_sig = default_meta_sig
-      print >> sys.stderr, 'Using default metadata signature', opts.meta_sig
+      print('Using default metadata signature', opts.meta_sig, file=sys.stderr)
 
   return opts, args[0], args[1:]
 
