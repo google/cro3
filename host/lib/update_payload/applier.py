@@ -491,8 +491,8 @@ class PayloadApplier(object):
     if old_part_file_name:
       # Verify the source partition.
       with open(old_part_file_name, 'rb') as old_part_file:
-        _VerifySha256(old_part_file, old_part_info.hash, part_name,
-                      length=old_part_info.size)
+        _VerifySha256(old_part_file, old_part_info.hash,
+                      'old ' + part_name, length=old_part_info.size)
       new_part_file_mode = 'r+b'
       if self.minor_version == common.INPLACE_MINOR_PAYLOAD_VERSION:
         # Copy the src partition to the dst one; make sure we don't truncate it.
@@ -527,8 +527,8 @@ class PayloadApplier(object):
 
     # Verify the resulting partition.
     with open(new_part_file_name, 'rb') as new_part_file:
-      _VerifySha256(new_part_file, new_part_info.hash, part_name,
-                    length=new_part_info.size)
+      _VerifySha256(new_part_file, new_part_info.hash,
+                    'new ' + part_name, length=new_part_info.size)
 
   def Run(self, new_kernel_part, new_rootfs_part, old_kernel_part=None,
           old_rootfs_part=None):
