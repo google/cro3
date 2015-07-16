@@ -117,7 +117,7 @@ def ParseArguments(argv):
         parser.error('invalid argument to --disabled_tests: %s' % test)
 
   # Ensure consistent use of block tracing options.
-  do_block_trace = opts.root_block or opts.kern_block
+  do_block_trace = not (opts.root_block is None and opts.kern_block is None)
   if opts.skip and not do_block_trace:
     parser.error('--skip must be used with either --root-block or --kern-block')
 

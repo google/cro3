@@ -14,6 +14,8 @@ tracer is as follows:
 
 """
 
+from __future__ import print_function
+
 import common
 
 
@@ -50,7 +52,6 @@ class PayloadBlockTracer(object):
       trace_out_file: a file object to dump the trace to
       operations: the sequence of operations
       base_name: name of the operation sequence
-
     """
     # Traverse operations backwards.
     for op, op_name in common.OperationIter(operations, base_name,
@@ -68,8 +69,9 @@ class PayloadBlockTracer(object):
           else:
             total_block_offset += block - dst_ex.start_block
             trace_out_file.write(
-                '%s: found %s (total block offset: %d)\n' %
-                (dst_ex_name, common.FormatExtent(dst_ex), total_block_offset))
+                '%d: %s: found %s (total block offset: %d)\n' %
+                (block, dst_ex_name, common.FormatExtent(dst_ex),
+                 total_block_offset))
             found = True
             break
 
@@ -100,13 +102,12 @@ class PayloadBlockTracer(object):
       skip: the number of first origin mappings to skip
       trace_out_file: file object to dump the trace to
       is_kernel: trace through kernel (True) or rootfs (False) operations
-
     """
     if is_kernel:
-      self._TraceBlock(block, skip, trace_out_file,
-                       self.payload.manifest.kernel_install_operations,
-                       'kernel_install_operations')
+      operations = self.payload.manifest.kernel_install_operations
+      base_name = 'kernel_install_operations'
     else:
-      self._TraceBlock(block, skip, trace_out_file,
-                       self.payload.manifest.install_operations,
-                       'install_operations')
+      operations = self.payload.manifest.install_operations
+      base_name = 'install_operations'
+
+    self._TraceBlock(block, skip, trace_out_file, operations, base_name)
