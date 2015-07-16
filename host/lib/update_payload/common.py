@@ -67,7 +67,6 @@ def IntPackingFmtStr(size, is_unsigned):
 
   Raises:
     PayloadError if something is wrong with the arguments.
-
   """
   # Determine the base conversion format.
   if size == 2:
@@ -105,7 +104,6 @@ def Read(file_obj, length, offset=None, hasher=None):
 
   Raises:
     PayloadError if a read error occurred or not enough data was read.
-
   """
   if offset is not None:
     if offset >= 0:
@@ -160,9 +158,10 @@ def _ObjNameIter(items, base_name, reverse=False, name_format_func=None):
   Yields:
     An iterator whose i-th invocation returns (items[i], name), where name ==
     base_name + '[i]' (with a formatting function optionally applied to it).
-
   """
   idx, inc = (len(items), -1) if reverse else (1, 1)
+  if reverse:
+    items = reversed(items)
   for item in items:
     item_name = '%s[%d]' % (base_name, idx)
     if name_format_func:
