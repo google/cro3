@@ -43,7 +43,6 @@ def _VerifySha256(file_obj, expected_hash, name, length=-1):
   Raises:
     PayloadError if computed hash doesn't match expected one, or if fails to
     read the specified length of data.
-
   """
   # pylint: disable=E1101
   hasher = hashlib.sha256()
@@ -83,7 +82,6 @@ def _ReadExtents(file_obj, extents, block_size, max_length=-1):
 
   Returns:
     A character array containing the concatenated read data.
-
   """
   data = array.array('c')
   if max_length < 0:
@@ -119,7 +117,6 @@ def _WriteExtents(file_obj, data, extents, block_size, base_name):
 
   Raises:
     PayloadError when things don't add up.
-
   """
   data_offset = 0
   data_length = len(data)
@@ -158,7 +155,6 @@ def _ExtentsToBspatchArg(extents, block_size, base_name, data_length=-1):
 
   Raises:
     PayloadError if data_length is too short or too long.
-
   """
   arg = ''
   pad_off = pad_len = 0
@@ -196,7 +192,6 @@ class PayloadApplier(object):
 
   This is a short-lived object whose purpose is to isolate the logic used for
   applying an update payload.
-
   """
 
   def __init__(self, payload, bsdiff_in_place=True, bspatch_path=None,
@@ -210,7 +205,6 @@ class PayloadApplier(object):
       truncate_to_expected_size: whether to truncate the resulting partitions
                                  to their expected sizes, as specified in the
                                  payload (optional)
-
     """
     assert payload.is_init, 'uninitialized update payload'
     self.payload = payload
@@ -232,7 +226,6 @@ class PayloadApplier(object):
 
     Raises:
       PayloadError if something goes wrong.
-
     """
     block_size = self.block_size
     data_length = len(out_data)
@@ -296,7 +289,6 @@ class PayloadApplier(object):
 
     Raises:
       PayloadError if something goes wrong.
-
     """
     block_size = self.block_size
 
@@ -336,7 +328,6 @@ class PayloadApplier(object):
 
     Raises:
       PayloadError if something goes wrong.
-
     """
     if not old_part_file:
       raise PayloadError(
@@ -365,7 +356,6 @@ class PayloadApplier(object):
 
     Raises:
       PayloadError if something goes wrong.
-
     """
     if not old_part_file:
       raise PayloadError(
@@ -459,7 +449,6 @@ class PayloadApplier(object):
 
     Raises:
       PayloadError if anything goes wrong while processing the payload.
-
     """
     for op, op_name in common.OperationIter(operations, base_name):
       # Read data blob.
@@ -497,7 +486,6 @@ class PayloadApplier(object):
 
     Raises:
       PayloadError if anything goes wrong with the update.
-
     """
     # Do we have a source partition?
     if old_part_file_name:
@@ -554,7 +542,6 @@ class PayloadApplier(object):
 
     Raises:
       PayloadError if payload application failed.
-
     """
     self.payload.ResetFile()
 
