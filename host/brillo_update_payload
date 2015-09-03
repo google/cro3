@@ -1,0 +1,265 @@
+#!/bin/bash
+
+# Copyright 2015 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Script to generate a Brillo update for use by the update engine.
+#
+# usage: brillo_update_payload COMMAND [ARGS]
+# The following commands are supported:
+#  generate    generate an unsigned payload
+#  hash        generate a payload or metadata hash
+#  sign        generate a signed payload
+#
+#  Generate command arguments:
+#  --payload       generated unsigned payload output file
+#  --source_image  if defined, generate a delta payload from the specified
+#                  image to the target_image
+#  --target_image  the target image that should be sent to clients
+#
+#  Hash command arguments:
+#  --unsigned_payload    the input unsigned payload to generate the hash from
+#  --signature_size      signature sizes in bytes in the following format:
+#                        size1:size2[:...]"
+#  --payload_hash_file   if defined, generate a payload hash and output to the
+#                        specified file
+#  --metadata_hash_file  if defined, generate a metadata hash and output to the
+#                        specified file
+#
+#  Sign command arguments:
+#  --unsigned_payload       the input unsigned payload to insert the signatures
+#  --payload                the output signed payload
+#  --signature_size         signature sizes in bytes in the following format:
+#                           size1:size2[:...]"
+#  --payload_signature_file the payload signature files in the following format:
+#                           payload_signature1:payload_signature2[:...]"
+#  Note that the number of signature sizes and payload signatures have to match.
+
+# Load common CrOS utilities.  Inside the chroot this file is installed in
+# /usr/lib/crosutils.  This script may also be called from a zipfile, in which
+# case common.sh will be in the current directory.
+find_common_sh() {
+  local thisdir="$(dirname "$(readlink -f "$0")")"
+  local common_paths=(/usr/lib/crosutils "${thisdir}")
+  local path
+
+  SCRIPT_ROOT="${common_paths[0]}"
+  for path in "${common_paths[@]}"; do
+    if [[ -r "${path}/common.sh" ]]; then
+      SCRIPT_ROOT="${path}"
+      break
+    fi
+  done
+
+  # We have to fake GCLIENT_ROOT in case we're running inside
+  # au_zip enviroment. GCLIENT_ROOT detection became fatal.
+  [[ "${SCRIPT_ROOT}" == "${thisdir}" ]] && export GCLIENT_ROOT="."
+}
+
+find_common_sh
+. "${SCRIPT_ROOT}/common.sh" || exit 1
+
+# Check that a command is specified
+if [[ $# -lt 1 ]]; then
+  echo "Please specify a command [generate|hash|sign]"
+  exit 1
+fi
+
+# Parse command
+case "$1" in
+  generate|hash|sign)
+    COMMAND=$1
+    ;;
+  *)
+    echo "Unrecognized command:" $1
+    exit 1
+    ;;
+esac
+
+shift
+
+# Flags
+DEFINE_string payload "" "Path to output the generated payload file."
+DEFINE_string target_image "" "Path to the target image that should be sent to clients."
+DEFINE_string source_image "" "Optional: Path to a source image. If specified, this makes\
+ a delta update."
+DEFINE_string unsigned_payload "" "Path to the generated unsigned payload."
+DEFINE_string signature_size "" "Signature sizes in bytes in the following format: \
+ size1:size2[:...]"
+DEFINE_string payload_hash_file "" "Optional: Path to output payload hash file."
+DEFINE_string metadata_hash_file "" "Optional: Path to output metadata hash file."
+DEFINE_string payload_signature_file "" "The payload signatures in the \
+  following format: payload_signature1:payload_signature2[:...]"
+DEFINE_string work_dir "/tmp" "Where to dump temporary files."
+
+# Parse command line flag arguments
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+
+SRC_KERNEL=$(mktemp --tmpdir="${FLAGS_work_dir}" old_kern.dat.XXXXXX)
+SRC_ROOT=$(mktemp --tmpdir="${FLAGS_work_dir}" old_root.dat.XXXXXX)
+DST_KERNEL=$(mktemp --tmpdir="${FLAGS_work_dir}" new_kern.dat.XXXXXX)
+DST_ROOT=$(mktemp --tmpdir="${FLAGS_work_dir}" new_root.dat.XXXXXX)
+
+cleanup() {
+  local err=""
+  rm -f "${SRC_KERNEL}" || err=1
+  rm -f "${SRC_ROOT}" || err=1
+  rm -f "${DST_KERNEL}" || err=1
+  rm -f "${DST_ROOT}" || err=1
+
+  # If we are cleaning up after an error, or if we got an error during
+  # cleanup (even if we eventually succeeded) return a non-zero exit
+  # code. This triggers additional logging in most environments that call
+  # this script.
+  if [[ -n "${err}" ]]; then
+    die "Cleanup encountered an error."
+  fi
+}
+
+cleanup_on_error() {
+  trap - INT TERM ERR EXIT
+  cleanup
+  die "Cleanup success after an error."
+}
+
+cleanup_on_exit() {
+  trap - INT TERM ERR EXIT
+  cleanup
+}
+
+trap cleanup_on_error INT TERM ERR
+trap cleanup_on_exit EXIT
+
+validate_generate() {
+  [[ -n "${FLAGS_payload}" ]] ||
+    die "Error: you must specify an output filename with --payload FILENAME"
+
+  [[ -n "${FLAGS_target_image}" ]] ||
+    die "Error: you must specify a target image with --target_image FILENAME"
+}
+
+cmd_generate() {
+  DELTA="${FLAGS_TRUE}"
+  PAYLOAD_TYPE="delta"
+  if [[ -z "${FLAGS_source_image}" ]]; then
+    DELTA="${FLAGS_FALSE}"
+    PAYLOAD_TYPE="full"
+  fi
+
+  echo "Generating ${PAYLOAD_TYPE} update"
+
+  cros_generate_update_payload --extract --image "${FLAGS_target_image}" \
+    --kern_path "${DST_KERNEL}" --root_path "${DST_ROOT}" \
+    --work_dir "${FLAGS_work_dir}" --outside_chroot
+
+  if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
+    cros_generate_update_payload --extract \
+      --src_image "${FLAGS_source_image}" \
+      --src_kern_path "${SRC_KERNEL}" --src_root_path "${SRC_ROOT}" \
+      --work_dir "${FLAGS_work_dir}" --outside_chroot
+
+    echo md5sum of src kernel:
+    md5sum "${SRC_KERNEL}"
+
+    echo md5sum of src root:
+    md5sum "${SRC_ROOT}"
+  fi
+
+  GENERATOR_ARGS=(
+    # Common payload args:
+    -out_file="${FLAGS_payload}"
+    # Target image args:
+    -new_image="${DST_ROOT}"
+    -new_kernel="${DST_KERNEL}"
+  )
+
+  if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
+    GENERATOR_ARGS+=(
+      # Source image args:
+      -old_image="${SRC_ROOT}"
+      -old_kernel="${SRC_KERNEL}"
+    )
+  fi
+
+  echo "Running delta_generator with args: ${GENERATOR_ARGS[@]}"
+    "${GENERATOR}" "${GENERATOR_ARGS[@]}"
+
+  echo "Done generating ${PAYLOAD_TYPE} update."
+}
+
+validate_hash() {
+  [[ -n "${FLAGS_signature_size}" ]] ||
+    die "Error: you must specify signature size with --signature_size SIZES"
+
+  [[ -n "${FLAGS_unsigned_payload}" ]] ||
+    die "Error: you must specify the input unsigned payload with \
+--unsigned_payload FILENAME"
+
+  [[ -n "${FLAGS_metadata_hash_file}" ]] ||
+  [[ -n "${FLAGS_payload_hash_file}" ]] ||
+    die "Error: you must specify --metadata_hash_file FILENAME \
+or --payload_hash_file FILENAME"
+}
+
+cmd_hash() {
+  if [[ -n "${FLAGS_metadata_hash_file}" ]]; then
+    "${GENERATOR}" \
+        -in_file="${FLAGS_unsigned_payload}" \
+        -signature_size="${FLAGS_signature_size}" \
+        -out_metadata_hash_file="${FLAGS_metadata_hash_file}"
+  fi
+
+  if [[ -n "${FLAGS_payload_hash_file}" ]]; then
+    "${GENERATOR}" \
+        -in_file="${FLAGS_unsigned_payload}" \
+        -signature_size="${FLAGS_signature_size}" \
+        -out_hash_file="${FLAGS_payload_hash_file}"
+  fi
+  echo "Done generating hash."
+}
+
+validate_sign() {
+  [[ -n "${FLAGS_signature_size}" ]] ||
+    die "Error: you must specify signature size with --signature_size SIZES"
+
+  [[ -n "${FLAGS_unsigned_payload}" ]] ||
+    die "Error: you must specify the input unsigned payload with \
+--unsigned_payload FILENAME"
+
+  [[ -n "${FLAGS_payload}" ]] ||
+    die "Error: you must specify the output signed payload with \
+--payload FILENAME"
+
+  [[ -n "${FLAGS_payload_signature_file}" ]] ||
+    die "Error: you must specify the payload signature file with \
+--payload_signature_file SIGNATURES"
+}
+
+cmd_sign() {
+  "${GENERATOR}" \
+      -in_file="${FLAGS_unsigned_payload}" \
+      -signature_size="${FLAGS_signature_size}" \
+      -signature_file="${FLAGS_payload_signature_file}" \
+      -out_file="${FLAGS_payload}"
+  echo "Done signing payload."
+}
+
+# TODO: Extract the input zip files once the format is finalized
+
+# Sanity check that the real generator exists:
+GENERATOR="$(which delta_generator)"
+[[ -x "${GENERATOR}" ]] || die "can't find delta_generator"
+
+case "$COMMAND" in
+  generate) validate_generate
+            cmd_generate
+            ;;
+  hash) validate_hash
+        cmd_hash
+        ;;
+  sign) validate_sign
+        cmd_sign
+        ;;
+esac
