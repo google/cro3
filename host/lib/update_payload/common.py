@@ -29,7 +29,7 @@ SOURCE_MINOR_PAYLOAD_VERSION = 2
 #
 class OpType(object):
   """Container for operation type constants."""
-  _CLASS = update_metadata_pb2.DeltaArchiveManifest.InstallOperation
+  _CLASS = update_metadata_pb2.InstallOperation
   # pylint: disable=E1101
   REPLACE = _CLASS.REPLACE
   REPLACE_BZ = _CLASS.REPLACE_BZ
@@ -37,14 +37,21 @@ class OpType(object):
   BSDIFF = _CLASS.BSDIFF
   SOURCE_COPY = _CLASS.SOURCE_COPY
   SOURCE_BSDIFF = _CLASS.SOURCE_BSDIFF
-  ALL = (REPLACE, REPLACE_BZ, MOVE, BSDIFF, SOURCE_COPY, SOURCE_BSDIFF)
+  ZERO = _CLASS.ZERO
+  DISCARD = _CLASS.DISCARD
+  REPLACE_XZ = _CLASS.REPLACE_XZ
+  ALL = (REPLACE, REPLACE_BZ, MOVE, BSDIFF, SOURCE_COPY, SOURCE_BSDIFF, ZERO,
+         DISCARD, REPLACE_XZ)
   NAMES = {
       REPLACE: 'REPLACE',
       REPLACE_BZ: 'REPLACE_BZ',
       MOVE: 'MOVE',
       BSDIFF: 'BSDIFF',
       SOURCE_COPY: 'SOURCE_COPY',
-      SOURCE_BSDIFF: 'SOURCE_BSDIFF'
+      SOURCE_BSDIFF: 'SOURCE_BSDIFF',
+      ZERO: 'ZERO',
+      DISCARD: 'DISCARD',
+      REPLACE_XZ: 'REPLACE_XZ'
   }
 
   def __init__(self):

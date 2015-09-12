@@ -8,6 +8,7 @@ from __future__ import print_function
 
 import cStringIO
 import hashlib
+import os
 import struct
 import subprocess
 
@@ -21,8 +22,10 @@ class TestError(Exception):
 
 
 # Private/public RSA keys used for testing.
-_PRIVKEY_FILE_NAME = 'payload-test-key.pem'
-_PUBKEY_FILE_NAME = 'payload-test-key.pub'
+_PRIVKEY_FILE_NAME = os.path.join(os.path.dirname(__file__),
+                                  'payload-test-key.pem')
+_PUBKEY_FILE_NAME = os.path.join(os.path.dirname(__file__),
+                                 'payload-test-key.pub')
 
 
 def KiB(count):

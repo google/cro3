@@ -35,6 +35,9 @@ def _OpTypeByName(op_name):
       'BSDIFF': common.OpType.BSDIFF,
       'SOURCE_COPY': common.OpType.SOURCE_COPY,
       'SOURCE_BSDIFF': common.OpType.SOURCE_BSDIFF,
+      'ZERO': common.OpType.ZERO,
+      'DISCARD': common.OpType.DISCARD,
+      'REPLACE_XZ': common.OpType.REPLACE_XZ,
   }
   return op_name_to_type[op_name]
 
@@ -157,7 +160,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     subreport = 'fake subreport'
 
     # Create a mock message.
-    msg = self.mox.CreateMock(update_metadata_pb2.message.Message)
+    msg = self.mox.CreateMock(update_metadata_pb2._message.Message)
     msg.HasField(name).AndReturn(is_present)
     setattr(msg, name, val)
 
@@ -560,7 +563,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     data_length = 10000
 
     op = self.mox.CreateMock(
-        update_metadata_pb2.DeltaArchiveManifest.InstallOperation)
+        update_metadata_pb2.InstallOperation)
     op.type = common.OpType.REPLACE
 
     # Pass.
@@ -598,7 +601,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     data_length = block_size * 3
 
     op = self.mox.CreateMock(
-        update_metadata_pb2.DeltaArchiveManifest.InstallOperation)
+        update_metadata_pb2.InstallOperation)
     op.type = common.OpType.REPLACE_BZ
 
     # Pass.
@@ -632,7 +635,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
   def testCheckMoveOperation_Pass(self):
     """Tests _CheckMoveOperation(); pass case."""
     payload_checker = checker.PayloadChecker(self.MockPayload())
-    op = update_metadata_pb2.DeltaArchiveManifest.InstallOperation()
+    op = update_metadata_pb2.InstallOperation()
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
@@ -645,7 +648,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
   def testCheckMoveOperation_FailContainsData(self):
     """Tests _CheckMoveOperation(); fails, message contains data."""
     payload_checker = checker.PayloadChecker(self.MockPayload())
-    op = update_metadata_pb2.DeltaArchiveManifest.InstallOperation()
+    op = update_metadata_pb2.InstallOperation()
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
@@ -660,7 +663,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
   def testCheckMoveOperation_FailInsufficientSrcBlocks(self):
     """Tests _CheckMoveOperation(); fails, not enough actual src blocks."""
     payload_checker = checker.PayloadChecker(self.MockPayload())
-    op = update_metadata_pb2.DeltaArchiveManifest.InstallOperation()
+    op = update_metadata_pb2.InstallOperation()
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
@@ -675,7 +678,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
   def testCheckMoveOperation_FailInsufficientDstBlocks(self):
     """Tests _CheckMoveOperation(); fails, not enough actual dst blocks."""
     payload_checker = checker.PayloadChecker(self.MockPayload())
-    op = update_metadata_pb2.DeltaArchiveManifest.InstallOperation()
+    op = update_metadata_pb2.InstallOperation()
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
@@ -690,7 +693,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
   def testCheckMoveOperation_FailExcessSrcBlocks(self):
     """Tests _CheckMoveOperation(); fails, too many actual src blocks."""
     payload_checker = checker.PayloadChecker(self.MockPayload())
-    op = update_metadata_pb2.DeltaArchiveManifest.InstallOperation()
+    op = update_metadata_pb2.InstallOperation()
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
@@ -713,7 +716,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
   def testCheckMoveOperation_FailExcessDstBlocks(self):
     """Tests _CheckMoveOperation(); fails, too many actual dst blocks."""
     payload_checker = checker.PayloadChecker(self.MockPayload())
-    op = update_metadata_pb2.DeltaArchiveManifest.InstallOperation()
+    op = update_metadata_pb2.InstallOperation()
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
@@ -728,7 +731,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
   def testCheckMoveOperation_FailStagnantBlocks(self):
     """Tests _CheckMoveOperation(); fails, there are blocks that do not move."""
     payload_checker = checker.PayloadChecker(self.MockPayload())
-    op = update_metadata_pb2.DeltaArchiveManifest.InstallOperation()
+    op = update_metadata_pb2.InstallOperation()
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
@@ -743,7 +746,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
   def testCheckMoveOperation_FailZeroStartBlock(self):
     """Tests _CheckMoveOperation(); fails, has extent with start block 0."""
     payload_checker = checker.PayloadChecker(self.MockPayload())
-    op = update_metadata_pb2.DeltaArchiveManifest.InstallOperation()
+    op = update_metadata_pb2.InstallOperation()
     op.type = common.OpType.MOVE
 
     self.AddToMessage(op.src_extents,
@@ -848,7 +851,7 @@ class PayloadCheckerTest(mox.MoxTestBase):
     blob_hash_counts = collections.defaultdict(int)
 
     # Create the operation object for the test.
-    op = update_metadata_pb2.DeltaArchiveManifest.InstallOperation()
+    op = update_metadata_pb2.InstallOperation()
     op.type = op_type
 
     total_src_blocks = 0
