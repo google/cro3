@@ -21,19 +21,23 @@
 #  Hash command arguments:
 #  --unsigned_payload    the input unsigned payload to generate the hash from
 #  --signature_size      signature sizes in bytes in the following format:
-#                        size1:size2[:...]"
+#                        "size1:size2[:...]"
 #  --payload_hash_file   if defined, generate a payload hash and output to the
 #                        specified file
 #  --metadata_hash_file  if defined, generate a metadata hash and output to the
 #                        specified file
 #
 #  Sign command arguments:
-#  --unsigned_payload       the input unsigned payload to insert the signatures
-#  --payload                the output signed payload
-#  --signature_size         signature sizes in bytes in the following format:
-#                           size1:size2[:...]"
-#  --payload_signature_file the payload signature files in the following format:
-#                           payload_signature1:payload_signature2[:...]"
+#  --unsigned_payload        the input unsigned payload to insert the signatures
+#  --payload                 the output signed payload
+#  --signature_size          signature sizes in bytes in the following format:
+#                            "size1:size2[:...]"
+#  --payload_signature_file  the payload signature files in the following
+#                            format:
+#                            "payload_signature1:payload_signature2[:...]"
+#  --metadata_signature_file the metadata signature files in the following
+#                            format:
+#                            "metadata_signature1:metadata_signature2[:...]"
 #  Note that the number of signature sizes and payload signatures have to match.
 
 # Load common CrOS utilities.  Inside the chroot this file is installed in
@@ -81,33 +85,48 @@ shift
 
 # Flags
 DEFINE_string payload "" "Path to output the generated payload file."
-DEFINE_string target_image "" "Path to the target image that should be sent to clients."
-DEFINE_string source_image "" "Optional: Path to a source image. If specified, this makes\
+DEFINE_string target_image "" \
+  "Path to the target image that should be sent to clients."
+DEFINE_string source_image "" \
+  "Optional: Path to a source image. If specified, this makes\
  a delta update."
 DEFINE_string unsigned_payload "" "Path to the generated unsigned payload."
-DEFINE_string signature_size "" "Signature sizes in bytes in the following format: \
- size1:size2[:...]"
+DEFINE_string signature_size "" \
+  "Signature sizes in bytes in the following format: size1:size2[:...]"
 DEFINE_string payload_hash_file "" "Optional: Path to output payload hash file."
-DEFINE_string metadata_hash_file "" "Optional: Path to output metadata hash file."
-DEFINE_string payload_signature_file "" "The payload signatures in the \
-  following format: payload_signature1:payload_signature2[:...]"
+DEFINE_string metadata_hash_file "" \
+  "Optional: Path to output metadata hash file."
+DEFINE_string payload_signature_file "" \
+  "The payload signatures in the following format:\
+ payload_signature1:payload_signature2[:...]"
+DEFINE_string metadata_signature_file "" \
+  "The metatada signatures in the following format:\
+ metadata_signature1:metadata_signature2[:...]"
 DEFINE_string work_dir "/tmp" "Where to dump temporary files."
 
 # Parse command line flag arguments
 FLAGS "$@" || exit 1
 eval set -- "${FLAGS_ARGV}"
+set -e
 
-SRC_KERNEL=$(mktemp --tmpdir="${FLAGS_work_dir}" old_kern.dat.XXXXXX)
-SRC_ROOT=$(mktemp --tmpdir="${FLAGS_work_dir}" old_root.dat.XXXXXX)
-DST_KERNEL=$(mktemp --tmpdir="${FLAGS_work_dir}" new_kern.dat.XXXXXX)
-DST_ROOT=$(mktemp --tmpdir="${FLAGS_work_dir}" new_root.dat.XXXXXX)
+# Associative arrays from partition name to file in the source and target
+# images. The size of the updated area must be the size of the file.
+declare -A SRC_PARTITIONS
+declare -A DST_PARTITIONS
+
+# A list of temporary files to remove during cleanup.
+CLEANUP_FILES=()
+
+# Create a temporary file in the work_dir with an optional pattern name.
+# Prints the name of the newly created file.
+create_tempfile() {
+  local pattern="${1:-tempfile.XXXXXX}"
+  mktemp --tmpdir="${FLAGS_work_dir}" "${pattern}"
+}
 
 cleanup() {
   local err=""
-  rm -f "${SRC_KERNEL}" || err=1
-  rm -f "${SRC_ROOT}" || err=1
-  rm -f "${DST_KERNEL}" || err=1
-  rm -f "${DST_ROOT}" || err=1
+  rm -f "${CLEANUP_FILES[@]}" || err=1
 
   # If we are cleaning up after an error, or if we got an error during
   # cleanup (even if we eventually succeeded) return a non-zero exit
@@ -132,6 +151,39 @@ cleanup_on_exit() {
 trap cleanup_on_error INT TERM ERR
 trap cleanup_on_exit EXIT
 
+# extract_image_cros <image.bin> <partitions_array>
+#
+# Extract Chromium OS recovery images into new temporary files. Add the list
+# of partition names and its files to the associative array passed in
+# partitions_array.
+extract_image_cros() {
+  local image="$1"
+  local partitions_array="$2"
+
+  local kernel root
+  kernel=$(create_tempfile "kernel.bin.XXXXXX")
+  CLEANUP_FILES+=("${kernel}")
+  root=$(create_tempfile "root.bin.XXXXXX")
+  CLEANUP_FILES+=("${root}")
+
+  cros_generate_update_payload --extract \
+    --image "${image}" \
+    --kern_path "${kernel}" --root_path "${root}" \
+    --work_dir "${FLAGS_work_dir}" --outside_chroot
+
+  # When generating legacy Chrome OS images, we need to use "kernel" and "root"
+  # for the partition names.
+  eval ${partitions_array}[kernel]=\""${kernel}"\"
+  eval ${partitions_array}[root]=\""${root}"\"
+
+  local part varname
+  for part in root kernel; do
+    varname="${partitions_array}[${part}]"
+    printf "md5sum of %s: " "${varname}"
+    md5sum "${!varname}"
+  done
+}
+
 validate_generate() {
   [[ -n "${FLAGS_payload}" ]] ||
     die "Error: you must specify an output filename with --payload FILENAME"
@@ -141,52 +193,41 @@ validate_generate() {
 }
 
 cmd_generate() {
-  DELTA="${FLAGS_TRUE}"
-  PAYLOAD_TYPE="delta"
+  local payload_type="delta"
   if [[ -z "${FLAGS_source_image}" ]]; then
-    DELTA="${FLAGS_FALSE}"
-    PAYLOAD_TYPE="full"
+    payload_type="full"
   fi
 
-  echo "Generating ${PAYLOAD_TYPE} update"
+  echo "Generating ${payload_type} update"
 
-  cros_generate_update_payload --extract --image "${FLAGS_target_image}" \
-    --kern_path "${DST_KERNEL}" --root_path "${DST_ROOT}" \
-    --work_dir "${FLAGS_work_dir}" --outside_chroot
-
-  if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
-    cros_generate_update_payload --extract \
-      --src_image "${FLAGS_source_image}" \
-      --src_kern_path "${SRC_KERNEL}" --src_root_path "${SRC_ROOT}" \
-      --work_dir "${FLAGS_work_dir}" --outside_chroot
-
-    echo md5sum of src kernel:
-    md5sum "${SRC_KERNEL}"
-
-    echo md5sum of src root:
-    md5sum "${SRC_ROOT}"
+  # TODO(deymo): Detect the format the image and call the right extract_image
+  # function.
+  extract_image_cros "${FLAGS_target_image}" DST_PARTITIONS
+  if [[ "${payload_type}" == "delta" ]]; then
+    extract_image_cros "${FLAGS_source_image}" SRC_PARTITIONS
   fi
 
   GENERATOR_ARGS=(
     # Common payload args:
     -out_file="${FLAGS_payload}"
     # Target image args:
-    -new_image="${DST_ROOT}"
-    -new_kernel="${DST_KERNEL}"
+    # TODO(deymo): Pass the list of partitions to the generator.
+    -new_image="${DST_PARTITIONS[root]}"
+    -new_kernel="${DST_PARTITIONS[kernel]}"
   )
 
-  if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
+  if [[ "${payload_type}" == "delta" ]]; then
     GENERATOR_ARGS+=(
       # Source image args:
-      -old_image="${SRC_ROOT}"
-      -old_kernel="${SRC_KERNEL}"
+      -old_image="${SRC_PARTITIONS[root]}"
+      -old_kernel="${SRC_PARTITIONS[kernel]}"
     )
   fi
 
   echo "Running delta_generator with args: ${GENERATOR_ARGS[@]}"
     "${GENERATOR}" "${GENERATOR_ARGS[@]}"
 
-  echo "Done generating ${PAYLOAD_TYPE} update."
+  echo "Done generating ${payload_type} update."
 }
 
 validate_hash() {
@@ -235,6 +276,10 @@ validate_sign() {
   [[ -n "${FLAGS_payload_signature_file}" ]] ||
     die "Error: you must specify the payload signature file with \
 --payload_signature_file SIGNATURES"
+
+  [[ -n "${FLAGS_metadata_signature_file}" ]] ||
+    die "Error: you must specify the metadata signature file with \
+--metadata_signature_file SIGNATURES"
 }
 
 cmd_sign() {
@@ -242,6 +287,7 @@ cmd_sign() {
       -in_file="${FLAGS_unsigned_payload}" \
       -signature_size="${FLAGS_signature_size}" \
       -signature_file="${FLAGS_payload_signature_file}" \
+      -metadata_signature_file="${FLAGS_metadata_signature_file}" \
       -out_file="${FLAGS_payload}"
   echo "Done signing payload."
 }
