@@ -117,6 +117,10 @@ declare -A DST_PARTITIONS
 # A list of temporary files to remove during cleanup.
 CLEANUP_FILES=()
 
+# Global options to force the version of the payload.
+FORCE_MAJOR_VERSION=""
+FORCE_MINOR_VERSION=""
+
 # Create a temporary file in the work_dir with an optional pattern name.
 # Prints the name of the newly created file.
 create_tempfile() {
@@ -151,11 +155,39 @@ cleanup_on_exit() {
 trap cleanup_on_error INT TERM ERR
 trap cleanup_on_exit EXIT
 
+
+# extract_image <image> <partitions_array>
+#
+# Detect the format of the |image| file and extract its updatable partitions
+# into new temporary files. Add the list of partition names and its files to the
+# associative array passed in |partitions_array|.
+extract_image() {
+  local image="$1"
+
+  # Brillo images are zip files. We detect the 4-byte magic header of the zip
+  # file.
+  local magic=$(head --bytes=4 "${image}" | hexdump -e '1/1 "%.2x"')
+  if [[ "${magic}" == "504b0304" ]]; then
+    echo "Detected .zip file, extracting Brillo image."
+    extract_image_brillo "$@"
+    return
+  fi
+
+  # Chrome OS images are GPT partitioned disks. We should have the cgpt binary
+  # bundled here and we will use it to extract the partitions, so the GPT
+  # headers must be valid.
+  if cgpt show -q -n "${image}" >/dev/null; then
+    echo "Detected GPT image, extracting Chrome OS image."
+    extract_image_cros "$@"
+    return
+  fi
+
+  die "Couldn't detect the image format of ${image}"
+}
+
 # extract_image_cros <image.bin> <partitions_array>
 #
-# Extract Chromium OS recovery images into new temporary files. Add the list
-# of partition names and its files to the associative array passed in
-# partitions_array.
+# Extract Chromium OS recovery images into new temporary files.
 extract_image_cros() {
   local image="$1"
   local partitions_array="$2"
@@ -171,16 +203,68 @@ extract_image_cros() {
     --kern_path "${kernel}" --root_path "${root}" \
     --work_dir "${FLAGS_work_dir}" --outside_chroot
 
-  # When generating legacy Chrome OS images, we need to use "kernel" and "root"
-  # for the partition names.
-  eval ${partitions_array}[kernel]=\""${kernel}"\"
-  eval ${partitions_array}[root]=\""${root}"\"
+  # When generating legacy Chrome OS images, we need to use "boot" and "system"
+  # for the partition names to be compatible with updating Brillo devices with
+  # Chrome OS images.
+  eval ${partitions_array}[boot]=\""${kernel}"\"
+  eval ${partitions_array}[system]=\""${root}"\"
 
   local part varname
-  for part in root kernel; do
+  for part in boot system; do
     varname="${partitions_array}[${part}]"
     printf "md5sum of %s: " "${varname}"
     md5sum "${!varname}"
+  done
+}
+
+# extract_image_brillo <target_files.zip> <partitions_array>
+#
+# Extract the A/B updated partitions from a Brillo target_files zip file into
+# new temporary files.
+extract_image_brillo() {
+  local image="$1"
+  local partitions_array="$2"
+
+  # TODO(deymo): Read the list of partitions from the metadata. We should
+  # sanitize the list of partition names to be in [a-zA-Z0-9-]+.
+  local partitions=( "boot" "system" )
+
+  if [[ "${partitions_array}" == "SRC_PARTITIONS" ]]; then
+    # TODO(deymo): Read the supported minor version from the .zip metadata.
+    FORCE_MINOR_VERSION="2"
+  fi
+
+  local part part_file temp_raw filesize
+  for part in "${partitions[@]}"; do
+    part_file=$(create_tempfile "${part}.img.XXXXXX")
+    CLEANUP_FILES+=("${part_file}")
+    unzip -p "${image}" "IMAGES/${part}.img" >"${part_file}"
+
+    # If the partition is stored as an Android sparse image file, we need to
+    # convert them to a raw image for the update.
+    local magic=$(head --bytes=4 "${part_file}" | hexdump -e '1/1 "%.2x"')
+    if [[ "${magic}" == "3aff26ed" ]]; then
+      temp_raw=$(create_tempfile "${part}.raw.XXXXXX")
+      CLEANUP_FILES+=("${temp_raw}")
+      echo "Converting Android sparse image ${part}.img to RAW."
+      simg2img "${part_file}" "${temp_raw}"
+      # At this point, we can drop the contents of the old part_file file, but
+      # we can't delete the file because it will be deleted in cleanup.
+      true >"${part_file}"
+      part_file="${temp_raw}"
+    fi
+
+    # delta_generator only supports images multiple of 4 KiB, so we pad with
+    # zeros if needed.
+    filesize=$(stat -c%s "${part_file}")
+    if [[ $(( filesize % 4096 )) -ne 0 ]]; then
+      echo "Rounding up partition ${part}.img to multiple of 4 KiB."
+      : $(( filesize = (filesize + 4095) & -4096 ))
+      truncate --size="${filesize}" "${part_file}"
+    fi
+
+    eval "${partitions_array}[\"${part}\"]=\"${part_file}\""
+    echo "Extracted ${partitions_array}[${part}]: ${filesize} bytes"
   done
 }
 
@@ -198,30 +282,36 @@ cmd_generate() {
     payload_type="full"
   fi
 
-  echo "Generating ${payload_type} update"
+  echo "Extracting images for ${payload_type} update."
 
-  # TODO(deymo): Detect the format the image and call the right extract_image
-  # function.
-  extract_image_cros "${FLAGS_target_image}" DST_PARTITIONS
+  extract_image "${FLAGS_target_image}" DST_PARTITIONS
   if [[ "${payload_type}" == "delta" ]]; then
-    extract_image_cros "${FLAGS_source_image}" SRC_PARTITIONS
+    extract_image "${FLAGS_source_image}" SRC_PARTITIONS
   fi
 
+  echo "Generating ${payload_type} update."
   GENERATOR_ARGS=(
     # Common payload args:
     -out_file="${FLAGS_payload}"
     # Target image args:
     # TODO(deymo): Pass the list of partitions to the generator.
-    -new_image="${DST_PARTITIONS[root]}"
-    -new_kernel="${DST_PARTITIONS[kernel]}"
+    -new_image="${DST_PARTITIONS[system]}"
+    -new_kernel="${DST_PARTITIONS[boot]}"
   )
 
   if [[ "${payload_type}" == "delta" ]]; then
     GENERATOR_ARGS+=(
       # Source image args:
-      -old_image="${SRC_PARTITIONS[root]}"
-      -old_kernel="${SRC_PARTITIONS[kernel]}"
+      -old_image="${SRC_PARTITIONS[system]}"
+      -old_kernel="${SRC_PARTITIONS[boot]}"
     )
+    if [[ -n "${FORCE_MINOR_VERSION}" ]]; then
+      GENERATOR_ARGS+=( --minor_version="${FORCE_MINOR_VERSION}" )
+    fi
+  fi
+
+  if [[ -n "${FORCE_MAJOR_VERSION}" ]]; then
+    GENERATOR_ARGS+=( --major_version="${FORCE_MAJOR_VERSION}" )
   fi
 
   echo "Running delta_generator with args: ${GENERATOR_ARGS[@]}"
