@@ -70,6 +70,27 @@ SYMBOLS = 'symbols'
 # The factory test image.
 FACTORY_IMAGE = 'factory_image'
 
+#### Android artifacts. These are in a different namespace from the above. ####
+
+# Various android images stored in a zip file (including boot and system).
+# For example, shamu-img-2284311.zip contains boot.img, cache.img, recovery.img,
+# system.img and userdata.img. fastboot can use the zip file to update the dut
+# in a single command. Therefore, devserver does not unzip the zip file to avoid
+# unnecessary load on the devserver.
+ANDROID_ZIP_IMAGES = 'zip_images'
+
+# Radio image.
+ANDROID_RADIO_IMAGE = 'radio_image'
+
+# Bootloader image.
+ANDROID_BOOTLOADER_IMAGE = 'bootloader_image'
+
+# fastboot, utility to flash image to Android device.
+ANDROID_FASTBOOT = 'fastboot'
+
+# Test zip file for Android build, e.g., shamu-tests-2284311.zip
+ANDROID_TEST_ZIP = 'test_zip'
+
 # In general, downloading one artifact usually indicates that the caller will
 # want to download other artifacts later. The following map explicitly defines
 # this relationship. Specifically:

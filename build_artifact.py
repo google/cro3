@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -6,7 +6,9 @@
 
 """Module containing classes that wrap artifact downloads."""
 
-import glob
+from __future__ import print_function
+
+import itertools
 import os
 import pickle
 import re
@@ -16,7 +18,6 @@ import subprocess
 import artifact_info
 import common_util
 import devserver_constants
-import gsutil_util
 import log_util
 
 
@@ -42,6 +43,13 @@ BASE_IMAGE_FILE = 'chromiumos_base_image.tar.xz'
 TEST_IMAGE_FILE = 'chromiumos_test_image.tar.xz'
 RECOVERY_IMAGE_FILE = 'recovery_image.tar.xz'
 
+############ Actual filenames of Android build artifacts ############
+
+ANDROID_IMAGE_ZIP = '*-img-*.zip'
+ANDROID_RADIO_IMAGE = 'radio.img'
+ANDROID_BOOTLOADER_IMAGE = 'bootloader.img'
+ANDROID_FASTBOOT = 'fastboot'
+ANDROID_TEST_ZIP = r'[^-]*-tests-.*\.zip'
 
 _build_artifact_locks = common_util.LockDict()
 
@@ -51,8 +59,26 @@ class ArtifactDownloadError(Exception):
   pass
 
 
-class BuildArtifact(log_util.Loggable):
-  """Wrapper around an artifact to download from gsutil.
+class ArtifactMeta(type):
+  """metaclass for an artifact type.
+
+  This metaclass is for class Artifact and its subclasses to have a meaningful
+  string composed of class name and the corresponding artifact name, e.g.,
+  `Artifact_full_payload`. This helps to better logging, refer to logging in
+  method Downloader.Download.
+  """
+
+  ARTIFACT_NAME = None
+
+  def __str__(cls):
+    return '%s_%s' % (cls.__name__, cls.ARTIFACT_NAME)
+
+  def __repr__(cls):
+    return str(cls)
+
+
+class Artifact(log_util.Loggable):
+  """Wrapper around an artifact to download using a fetcher.
 
   The purpose of this class is to download objects from Google Storage
   and install them to a local directory. There are two main functions, one to
@@ -64,7 +90,7 @@ class BuildArtifact(log_util.Loggable):
   between a glob (full name string match) and a regex (partial match).
 
   Class members:
-    archive_url: An archive URL.
+    fetcher: An object which knows how to fetch the artifact.
     name: Name given for artifact; in fact, it is a pattern that captures the
           names of files contained in the artifact. This can either be an
           ordinary shell-style glob (the default), or a regular expression (if
@@ -80,6 +106,8 @@ class BuildArtifact(log_util.Loggable):
                          install_dir will be deleted if the build does not
                          existed.
     install_path: Path to artifact.
+    install_subdir: Directory within install_path where the artifact is actually
+                    stored.
     install_dir: The final location where the artifact should be staged to.
     single_name: If True the name given should only match one item. Note, if not
                  True, self.name will become a list of items returned.
@@ -89,28 +117,30 @@ class BuildArtifact(log_util.Loggable):
                            marker file.
   """
 
-  def __init__(self, install_dir, archive_url, name, build,
+  __metaclass__ = ArtifactMeta
+
+  def __init__(self, name, install_dir, build, install_subdir='',
                is_regex_name=False, optional_name=None):
     """Constructor.
 
     Args:
       install_dir: Where to install the artifact.
-      archive_url: The Google Storage URL or local path to find the artifact.
       name: Identifying name to be used to find/store the artifact.
       build: The name of the build e.g. board/release.
+      install_subdir: Directory within install_path where the artifact is
+                      actually stored.
       is_regex_name: Whether the name pattern is a regex (default: glob).
       optional_name: An alternative name to find the artifact, which can lead
         to faster download. Unlike |name|, there is no guarantee that an
         artifact named |optional_name| is/will be on Google Storage. If it
         exists, we download it. Otherwise, we fall back to wait for |name|.
     """
-    super(BuildArtifact, self).__init__()
+    super(Artifact, self).__init__()
 
     # In-memory lock to keep the devserver from colliding with itself while
     # attempting to stage the same artifact.
     self._process_lock = None
 
-    self.archive_url = archive_url
     self.name = name
     self.optional_name = optional_name
     self.is_regex_name = is_regex_name
@@ -128,6 +158,7 @@ class BuildArtifact(log_util.Loggable):
     self.install_path = None
 
     self.install_dir = install_dir
+    self.install_subdir = install_subdir
 
     self.single_name = True
 
@@ -155,7 +186,7 @@ class BuildArtifact(log_util.Loggable):
     presence of each installed file listed in this marker. Both must hold for
     the artifact to be considered staged. Note that this method is safe for use
     even if the artifacts were not stageed by this instance, as it is assumed
-    that any BuildArtifact instance that did the staging wrote the list of
+    that any Artifact instance that did the staging wrote the list of
     files actually installed into the marker.
     """
     marker_file = os.path.join(self.install_dir, self.marker_name)
@@ -186,86 +217,11 @@ class BuildArtifact(log_util.Loggable):
     with open(os.path.join(self.install_dir, self.marker_name), 'w') as f:
       f.write('\n'.join(self.installed_files))
 
-  def _WaitForArtifactToExist(self, name, timeout):
-    """Waits for artifact to exist and returns the appropriate names.
-
-    Args:
-      name: Name to look at.
-      timeout: How long to wait for artifact to become available. Only matters
-               if self.archive_url is a Google Storage URL.
-
-    Returns:
-      A list of names that match.
-
-    Raises:
-      ArtifactDownloadError: An error occurred when obtaining artifact.
-    """
-    if self.archive_url.startswith('gs://'):
-      return self._WaitForGSArtifactToExist(name, timeout)
-    return self._VerifyLocalArtifactExists(name)
-
-  def _WaitForGSArtifactToExist(self, name, timeout):
-    """Waits for artifact to exist and returns the appropriate names.
-
-    Args:
-      name: Name to look at.
-      timeout: How long to wait for the artifact to become available.
-
-    Returns:
-      A list of names that match.
-
-    Raises:
-      ArtifactDownloadError: An error occurred when obtaining artifact.
-    """
-    names = gsutil_util.GetGSNamesWithWait(
-        name, self.archive_url, str(self), timeout=timeout,
-        is_regex_pattern=self.is_regex_name)
-    if not names:
-      raise ArtifactDownloadError('Could not find %s in Google Storage at %s' %
-                                  (name, self.archive_url))
-    return names
-
-  def _VerifyLocalArtifactExists(self, name):
-    """Verifies the local artifact exists and returns the appropriate names.
-
-    Args:
-      name: Name to look at.
-
-    Returns:
-      A list of names that match.
-
-    Raises:
-      ArtifactDownloadError: An error occurred when obtaining artifact.
-    """
-    local_path = os.path.join(self.archive_url, name)
-    if self.is_regex_name:
-      filter_re = re.compile(name)
-      for filename in os.listdir(self.archive_url):
-        if filter_re.match(filename):
-          return [filename]
-    else:
-      glob_search = glob.glob(local_path)
-      if glob_search and len(glob_search) == 1:
-        return [os.path.basename(glob_search[0])]
-    raise ArtifactDownloadError('Artifact not found.')
-
   def _UpdateName(self, names):
     if self.single_name and len(names) > 1:
       raise ArtifactDownloadError('Too many artifacts match %s' % self.name)
 
     self.name = names[0]
-
-  def _Download(self):
-    """Downloads artifact from Google Storage to a local directory."""
-    self.install_path = os.path.join(self.install_dir, self.name)
-    if self.archive_url.startswith('gs://'):
-      gs_path = '/'.join([self.archive_url, self.name])
-      gsutil_util.DownloadFromGS(gs_path, self.install_path)
-    else:
-      # It's a local path so just copy it into the staged directory.
-      shutil.copyfile(os.path.join(self.archive_url, self.name),
-                      self.install_path)
-
 
   def _Setup(self):
     """Process the downloaded content, update the list of installed files."""
@@ -299,7 +255,7 @@ class BuildArtifact(log_util.Loggable):
     with open(self.exception_file_path, 'r') as f:
       return pickle.load(f)
 
-  def Process(self, no_wait):
+  def Process(self, downloader, no_wait):
     """Main call point to all artifacts. Downloads and Stages artifact.
 
     Downloads and Stages artifact from Google Storage to the install directory
@@ -315,6 +271,8 @@ class BuildArtifact(log_util.Loggable):
     process of being staged.
 
     Args:
+      downloader: A downloader instance containing the logic to download
+                  artifacts.
       no_wait: If True, don't block waiting for artifact to exist if we fail to
                immediately find it.
 
@@ -327,19 +285,20 @@ class BuildArtifact(log_util.Loggable):
       self._process_lock = _build_artifact_locks.lock(
           os.path.join(self.install_dir, self.name))
 
+    real_install_dir = os.path.join(self.install_dir, self.install_subdir)
     with self._process_lock:
-      common_util.MkDirP(self.install_dir)
+      common_util.MkDirP(real_install_dir)
       if not self.ArtifactStaged():
         # Delete any existing exception saved for this artifact.
         self._ClearException()
         found_artifact = False
         if self.optional_name:
           try:
-            # Check if the artifact named |optional_name| exists on GS.
+            # Check if the artifact named |optional_name| exists.
             # Because this artifact may not always exist, don't bother
             # to wait for it (set timeout=1).
-            new_names = self._WaitForArtifactToExist(
-                self.optional_name, timeout=1)
+            new_names = downloader.Wait(
+                self.optional_name, self.is_regex_name, timeout=1)
             self._UpdateName(new_names)
 
           except ArtifactDownloadError:
@@ -353,11 +312,12 @@ class BuildArtifact(log_util.Loggable):
           # cycles waiting around for it to exist.
           if not found_artifact:
             timeout = 1 if no_wait else 10
-            new_names = self._WaitForArtifactToExist(self.name, timeout)
+            new_names = downloader.Wait(
+                self.name, self.is_regex_name, timeout)
             self._UpdateName(new_names)
 
           self._Log('Downloading file %s', self.name)
-          self._Download()
+          self.install_path = downloader.Fetch(self.name, real_install_dir)
           self._Setup()
           self._MarkArtifactStaged()
         except Exception as e:
@@ -374,22 +334,22 @@ class BuildArtifact(log_util.Loggable):
 
   def __str__(self):
     """String representation for the download."""
-    return '->'.join(['%s/%s' % (self.archive_url, self.name),
-                      self.install_dir])
+    return '%s->%s' % (self.name, self.install_dir)
 
   def __repr__(self):
     return str(self)
 
 
-class AUTestPayloadBuildArtifact(BuildArtifact):
+class AUTestPayload(Artifact):
   """Wrapper for AUTest delta payloads which need additional setup."""
 
   def _Setup(self):
-    super(AUTestPayloadBuildArtifact, self)._Setup()
+    super(AUTestPayload, self)._Setup()
 
     # Rename to update.gz.
-    install_path = os.path.join(self.install_dir, self.name)
-    new_install_path = os.path.join(self.install_dir,
+    install_path = os.path.join(self.install_dir, self.install_subdir,
+                                self.name)
+    new_install_path = os.path.join(self.install_dir, self.install_subdir,
                                     devserver_constants.UPDATE_FILE)
     shutil.move(install_path, new_install_path)
 
@@ -398,85 +358,47 @@ class AUTestPayloadBuildArtifact(BuildArtifact):
     self.installed_files = [new_install_path]
 
 
-# TODO(sosa): Change callers to make this artifact more sane.
-class DeltaPayloadsArtifact(BuildArtifact):
+class DeltaPayloadBase(AUTestPayload):
   """Delta payloads from the archive_url.
 
-  This artifact is super strange. It custom handles directories and
-  pulls in all delta payloads. We can't specify exactly what we want
+  These artifacts are super strange. They custom handle directories and
+  pull in all delta payloads. We can't specify exactly what we want
   because unlike other artifacts, this one does not conform to something a
   client might know. The client doesn't know the version of n-1 or whether it
   was even generated.
 
   IMPORTANT! Note that this artifact simply ignores the `name' argument because
-  that name is derived internally in accordance with sub-artifacts. Also note
-  the different types of names (in fact, file name patterns) used for the
-  different sub-artifacts.
+  that name is derived internally.
   """
 
-  def __init__(self, *args):
-    super(DeltaPayloadsArtifact, self).__init__(*args)
-    # Override the name field, we know what it should be.
-    self.name = '*_delta_*'
-    self.is_regex_name = False
-    self.single_name = False  # Expect multiple deltas
-
-    # We use a regular glob for the N-to-N delta payload.
-    nton_name = 'chromeos_%s*_delta_*' % self.build
-    # We use a regular expression for the M-to-N delta payload.
-    mton_name = ('chromeos_(?!%s).*_delta_.*' % re.escape(self.build))
-
-    nton_install_dir = os.path.join(self.install_dir, _AU_BASE,
-                                    self.build + _NTON_DIR_SUFFIX)
-    mton_install_dir = os.path.join(self.install_dir, _AU_BASE,
-                                    self.build + _MTON_DIR_SUFFIX)
-    self._sub_artifacts = [
-        AUTestPayloadBuildArtifact(mton_install_dir, self.archive_url,
-                                   mton_name, self.build, is_regex_name=True),
-        AUTestPayloadBuildArtifact(nton_install_dir, self.archive_url,
-                                   nton_name, self.build)]
-
-  def _Download(self):
-    """With sub-artifacts we do everything in _Setup()."""
-    pass
-
   def _Setup(self):
-    """Process each sub-artifact. Only error out if none can be found."""
-    for artifact in self._sub_artifacts:
-      try:
-        artifact.Process(no_wait=True)
-        # Setup symlink so that AU will work for this payload.
-        stateful_update_symlink = os.path.join(
-            artifact.install_dir, devserver_constants.STATEFUL_FILE)
-        os.symlink(
-            os.path.join(os.pardir, os.pardir,
-                         devserver_constants.STATEFUL_FILE),
-            stateful_update_symlink)
-
-        # Aggregate sub-artifact file lists, including stateful symlink.
-        self.installed_files += artifact.installed_files
-        self.installed_files.append(stateful_update_symlink)
-      except ArtifactDownloadError as e:
-        self._Log('Could not process %s: %s', artifact, e)
-        raise
+    super(DeltaPayloadBase, self)._Setup()
+    # Setup symlink so that AU will work for this payload.
+    stateful_update_symlink = os.path.join(
+        self.install_dir, self.install_subdir,
+        devserver_constants.STATEFUL_FILE)
+    os.symlink(os.path.join(os.pardir, os.pardir,
+                            devserver_constants.STATEFUL_FILE),
+               stateful_update_symlink)
+    self.installed_files.append(stateful_update_symlink)
 
 
-class BundledBuildArtifact(BuildArtifact):
+class BundledArtifact(Artifact):
   """A single build artifact bundle e.g. zip file or tar file."""
 
   def __init__(self, *args, **kwargs):
-    """Takes BuildArtifact args with some additional ones.
+    """Takes Artifact args with some additional ones.
 
     Args:
-      *args: See BuildArtifact documentation.
-      **kwargs: See BuildArtifact documentation.
+      *args: See Artifact documentation.
+      **kwargs: See Artifact documentation.
       files_to_extract: A list of files to extract. If set to None, extract
                         all files.
       exclude: A list of files to exclude. If None, no files are excluded.
     """
     self._files_to_extract = kwargs.pop('files_to_extract', None)
     self._exclude = kwargs.pop('exclude', None)
-    super(BundledBuildArtifact, self).__init__(*args, **kwargs)
+    super(BundledArtifact, self).__init__(*args, **kwargs)
 
     # We modify the marker so that it is unique to what was staged.
     if self._files_to_extract:
@@ -543,18 +465,18 @@ class BundledBuildArtifact(BuildArtifact):
       raise ArtifactDownloadError(str(e))
 
 
-class AutotestTarballBuildArtifact(BundledBuildArtifact):
+class AutotestTarball(BundledArtifact):
   """Wrapper around the autotest tarball to download from gsutil."""
 
   def __init__(self, *args, **kwargs):
-    super(AutotestTarballBuildArtifact, self).__init__(*args, **kwargs)
+    super(AutotestTarball, self).__init__(*args, **kwargs)
     # We don't store/check explicit file lists in Autotest tarball markers;
     # this can get huge and unwieldy, and generally make little sense.
     self.store_installed_files = False
 
   def _Setup(self):
     """Extracts the tarball into the install path excluding test suites."""
-    super(AutotestTarballBuildArtifact, self)._Setup()
+    super(AutotestTarball, self)._Setup()
 
     # Deal with older autotest packages that may not be bundled.
     autotest_dir = os.path.join(self.install_dir,
@@ -575,101 +497,150 @@ class AutotestTarballBuildArtifact(BundledBuildArtifact):
       self._Log('Using pre-generated packages from autotest')
 
 
-class ImplDescription(object):
-  """Data wrapper that describes an artifact's implementation."""
+def _CreateNewArtifact(tag, base, name, *fixed_args, **fixed_kwargs):
+  """Get a data wrapper that describes an artifact's implementation.
 
-  def __init__(self, artifact_class, name, *additional_args,
-               **additional_dargs):
-    """Constructor.
+  Args:
+    tag: Tag of the artifact, defined in artifact_info.
+    base: Class of the artifact, e.g., BundledArtifact.
+    name: Name of the artifact, e.g., image.zip.
+    *fixed_args: Fixed arguments that are additional to the one used in base
+                 class.
+    **fixed_kwargs: Fixed keyword arguments that are additional to the one used
+                    in base class.
 
-    Args:
-      artifact_class: BuildArtifact class to use for the artifact.
-      name: name to use to identify artifact (see BuildArtifact.name)
-      *additional_args: Additional arguments to pass to artifact_class.
-      **additional_dargs: Additional named arguments to pass to artifact_class.
-    """
-    self.artifact_class = artifact_class
-    self.name = name
-    self.additional_args = additional_args
-    self.additional_dargs = additional_dargs
+  Returns:
+    A data wrapper that describes an artifact's implementation.
 
-  def __repr__(self):
-    return '%s_%s' % (self.artifact_class, self.name)
+  """
+  class NewArtifact(base):
+    """A data wrapper that describes an artifact's implementation."""
+    ARTIFACT_TAG = tag
+    ARTIFACT_NAME = name
+
+    def __init__(self, *args, **kwargs):
+      all_args = fixed_args + args
+      all_kwargs = {}
+      all_kwargs.update(fixed_kwargs)
+      all_kwargs.update(kwargs)
+      super(NewArtifact, self).__init__(self.ARTIFACT_NAME,
+                                        *all_args, **all_kwargs)
+
+  NewArtifact.__name__ = base.__name__
+  return NewArtifact
 
 
-# Maps artifact names to their implementation description.
-# Please note, it is good practice to use constants for these names if you're
-# going to re-use the names ANYWHERE else in the devserver code.
-ARTIFACT_IMPLEMENTATION_MAP = {
-    artifact_info.FULL_PAYLOAD:
-    ImplDescription(AUTestPayloadBuildArtifact, ('*_full_*')),
-    artifact_info.DELTA_PAYLOADS:
-    ImplDescription(DeltaPayloadsArtifact, ('DONTCARE')),
-    artifact_info.STATEFUL_PAYLOAD:
-    ImplDescription(BuildArtifact, (devserver_constants.STATEFUL_FILE)),
+# TODO(dshi): Refactor the code here to split out the logic of creating the
+# artifacts mapping to a different module.
+chromeos_artifact_map = {}
 
-    artifact_info.BASE_IMAGE:
-    ImplDescription(BundledBuildArtifact, IMAGE_FILE,
-                    optional_name=BASE_IMAGE_FILE,
-                    files_to_extract=[devserver_constants.BASE_IMAGE_FILE]),
-    artifact_info.RECOVERY_IMAGE:
-    ImplDescription(BundledBuildArtifact, IMAGE_FILE,
-                    optional_name=RECOVERY_IMAGE_FILE,
-                    files_to_extract=[devserver_constants.RECOVERY_IMAGE_FILE]),
-    artifact_info.DEV_IMAGE:
-    ImplDescription(BundledBuildArtifact, IMAGE_FILE,
-                    files_to_extract=[devserver_constants.IMAGE_FILE]),
-    artifact_info.TEST_IMAGE:
-    ImplDescription(BundledBuildArtifact, IMAGE_FILE,
-                    optional_name=TEST_IMAGE_FILE,
-                    files_to_extract=[devserver_constants.TEST_IMAGE_FILE]),
 
-    artifact_info.AUTOTEST:
-    ImplDescription(AutotestTarballBuildArtifact, AUTOTEST_FILE,
-                    files_to_extract=None,
-                    exclude=['autotest/test_suites']),
-    artifact_info.CONTROL_FILES:
-    ImplDescription(BundledBuildArtifact, CONTROL_FILES_FILE),
-    artifact_info.AUTOTEST_PACKAGES:
-    ImplDescription(AutotestTarballBuildArtifact, AUTOTEST_PACKAGES_FILE),
-    artifact_info.TEST_SUITES:
-    ImplDescription(BundledBuildArtifact, TEST_SUITES_FILE),
-    artifact_info.AU_SUITE:
-    ImplDescription(BundledBuildArtifact, AU_SUITE_FILE),
-    artifact_info.AUTOTEST_SERVER_PACKAGE:
-    ImplDescription(BuildArtifact, AUTOTEST_SERVER_PACKAGE_FILE),
+def _AddCrOSArtifact(tag, base, name, *fixed_args, **fixed_kwargs):
+  """Add a data wrapper that describes a ChromeOS artifact's implementation to
+  chromeos_artifact_map.
+  """
+  artifact = _CreateNewArtifact(tag, base, name, *fixed_args, **fixed_kwargs)
+  chromeos_artifact_map.setdefault(tag, []).append(artifact)
 
-    artifact_info.FIRMWARE:
-    ImplDescription(BuildArtifact, FIRMWARE_FILE),
-    artifact_info.SYMBOLS:
-    ImplDescription(BundledBuildArtifact, DEBUG_SYMBOLS_FILE,
-                    files_to_extract=['debug/breakpad']),
 
-    artifact_info.FACTORY_IMAGE:
-    ImplDescription(BundledBuildArtifact, FACTORY_FILE,
-                    files_to_extract=[devserver_constants.FACTORY_IMAGE_FILE])
-}
+_AddCrOSArtifact(artifact_info.FULL_PAYLOAD, AUTestPayload, '*_full_*')
+
+
+class DeltaPayloadNtoN(DeltaPayloadBase):
+  """ChromeOS Delta payload artifact for updating from version N to N."""
+  ARTIFACT_TAG = artifact_info.DELTA_PAYLOADS
+  ARTIFACT_NAME = 'NOT_APPLICABLE'
+
+  def __init__(self, install_dir, build, *args, **kwargs):
+    name = 'chromeos_%s*_delta_*' % build
+    install_subdir = os.path.join(_AU_BASE, build + _NTON_DIR_SUFFIX)
+    super(DeltaPayloadNtoN, self).__init__(name, install_dir, build, *args,
+                                           install_subdir=install_subdir,
+                                           **kwargs)
+
+
+class DeltaPayloadMtoN(DeltaPayloadBase):
+  """ChromeOS Delta payload artifact for updating from version M to N."""
+  ARTIFACT_TAG = artifact_info.DELTA_PAYLOADS
+  ARTIFACT_NAME = 'NOT_APPLICABLE'
+
+  def __init__(self, install_dir, build, *args, **kwargs):
+    name = ('chromeos_(?!%s).*_delta_.*' % re.escape(build))
+    install_subdir = os.path.join(_AU_BASE, build + _MTON_DIR_SUFFIX)
+    super(DeltaPayloadMtoN, self).__init__(name, install_dir, build, *args,
+                                           install_subdir=install_subdir,
+                                           is_regex_name=True, **kwargs)
+
+
+chromeos_artifact_map[artifact_info.DELTA_PAYLOADS] = [DeltaPayloadNtoN,
+                                                       DeltaPayloadMtoN]
+
+
+_AddCrOSArtifact(artifact_info.STATEFUL_PAYLOAD, Artifact,
+                 devserver_constants.STATEFUL_FILE)
+_AddCrOSArtifact(artifact_info.BASE_IMAGE, BundledArtifact, IMAGE_FILE,
+                 optional_name=BASE_IMAGE_FILE,
+                 files_to_extract=[devserver_constants.BASE_IMAGE_FILE])
+_AddCrOSArtifact(artifact_info.RECOVERY_IMAGE, BundledArtifact, IMAGE_FILE,
+                 optional_name=RECOVERY_IMAGE_FILE,
+                 files_to_extract=[devserver_constants.RECOVERY_IMAGE_FILE])
+_AddCrOSArtifact(artifact_info.DEV_IMAGE, BundledArtifact, IMAGE_FILE,
+                 files_to_extract=[devserver_constants.IMAGE_FILE])
+_AddCrOSArtifact(artifact_info.TEST_IMAGE, BundledArtifact, IMAGE_FILE,
+                 optional_name=TEST_IMAGE_FILE,
+                 files_to_extract=[devserver_constants.TEST_IMAGE_FILE])
+_AddCrOSArtifact(artifact_info.AUTOTEST, AutotestTarball, AUTOTEST_FILE,
+                 files_to_extract=None, exclude=['autotest/test_suites'])
+_AddCrOSArtifact(artifact_info.CONTROL_FILES, BundledArtifact,
+                 CONTROL_FILES_FILE)
+_AddCrOSArtifact(artifact_info.AUTOTEST_PACKAGES, AutotestTarball,
+                 AUTOTEST_PACKAGES_FILE)
+_AddCrOSArtifact(artifact_info.TEST_SUITES, BundledArtifact, TEST_SUITES_FILE)
+_AddCrOSArtifact(artifact_info.AU_SUITE, BundledArtifact, AU_SUITE_FILE)
+_AddCrOSArtifact(artifact_info.AUTOTEST_SERVER_PACKAGE, Artifact,
+                 AUTOTEST_SERVER_PACKAGE_FILE)
+_AddCrOSArtifact(artifact_info.FIRMWARE, Artifact, FIRMWARE_FILE)
+_AddCrOSArtifact(artifact_info.SYMBOLS, BundledArtifact, DEBUG_SYMBOLS_FILE,
+                 files_to_extract=['debug/breakpad'])
+_AddCrOSArtifact(artifact_info.FACTORY_IMAGE, BundledArtifact, FACTORY_FILE,
+                 files_to_extract=[devserver_constants.FACTORY_IMAGE_FILE])
 
 # Add all the paygen_au artifacts in one go.
-ARTIFACT_IMPLEMENTATION_MAP.update({
-    artifact_info.PAYGEN_AU_SUITE_TEMPLATE % {'channel': c}:
-    ImplDescription(
-        BundledBuildArtifact, PAYGEN_AU_SUITE_FILE_TEMPLATE % {'channel': c})
-    for c in devserver_constants.CHANNELS
-})
+for c in devserver_constants.CHANNELS:
+  _AddCrOSArtifact(artifact_info.PAYGEN_AU_SUITE_TEMPLATE % {'channel': c},
+                   BundledArtifact,
+                   PAYGEN_AU_SUITE_FILE_TEMPLATE % {'channel': c})
+
+android_artifact_map = {}
 
 
-class ArtifactFactory(object):
+def _AddAndroidArtifact(tag, base, name, *fixed_args, **fixed_kwargs):
+  """Add a data wrapper that describes an Android artifact's implementation to
+  android_artifact_map.
+  """
+  artifact = _CreateNewArtifact(tag, base, name, *fixed_args, **fixed_kwargs)
+  android_artifact_map.setdefault(tag, []).append(artifact)
+
+
+_AddAndroidArtifact(artifact_info.ANDROID_ZIP_IMAGES, BundledArtifact,
+                    ANDROID_IMAGE_ZIP, is_regex_name=True)
+_AddAndroidArtifact(artifact_info.ANDROID_RADIO_IMAGE, Artifact,
+                    ANDROID_RADIO_IMAGE)
+_AddAndroidArtifact(artifact_info.ANDROID_BOOTLOADER_IMAGE, Artifact,
+                    ANDROID_BOOTLOADER_IMAGE)
+_AddAndroidArtifact(artifact_info.ANDROID_FASTBOOT, Artifact, ANDROID_FASTBOOT)
+_AddAndroidArtifact(artifact_info.ANDROID_TEST_ZIP, BundledArtifact,
+                    ANDROID_TEST_ZIP, is_regex_name=True)
+
+class BaseArtifactFactory(object):
   """A factory class that generates build artifacts from artifact names."""
 
-  def __init__(self, download_dir, archive_url, artifacts, files,
-               build):
+  def __init__(self, artifact_map, download_dir, artifacts, files, build):
     """Initalizes the member variables for the factory.
 
     Args:
+      artifact_map: A map from artifact names to ImplDescription objects.
       download_dir: A directory to which artifacts are downloaded.
-      archive_url: the Google Storage url of the bucket where the debug
-                   symbols for the desired build are stored.
       artifacts: List of artifacts to stage. These artifacts must be
                  defined in artifact_info.py and have a mapping in the
                  ARTIFACT_IMPLEMENTATION_MAP.
@@ -677,38 +648,14 @@ class ArtifactFactory(object):
              as files into the download_dir.
       build: The name of the build.
     """
+    self.artifact_map = artifact_map
     self.download_dir = download_dir
-    self.archive_url = archive_url
     self.artifacts = artifacts
     self.files = files
     self.build = build
 
-  @staticmethod
-  def _GetDescriptionComponents(name, is_artifact):
-    """Returns components for constructing a BuildArtifact.
-
-    Args:
-      name: The artifact name / file pattern.
-      is_artifact: Whether this is a named (True) or file (False) artifact.
-
-    Returns:
-      A tuple consisting of the BuildArtifact subclass, name, and additional
-      list- and named-arguments.
-
-    Raises:
-      KeyError: if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
-    """
-
-    if is_artifact:
-      description = ARTIFACT_IMPLEMENTATION_MAP[name]
-    else:
-      description = ImplDescription(BuildArtifact, name)
-
-    return (description.artifact_class, description.name,
-            description.additional_args, description.additional_dargs)
-
   def _Artifacts(self, names, is_artifact):
-    """Returns the BuildArtifacts from |names|.
+    """Returns the Artifacts from |names|.
 
     If is_artifact is true, then these names define artifacts that must exist in
     the ARTIFACT_IMPLEMENTATION_MAP. Otherwise, treat as filenames to stage as
@@ -719,19 +666,17 @@ class ArtifactFactory(object):
       is_artifact: Whether this is a named (True) or file (False) artifact.
 
     Returns:
-      An iterable of BuildArtifacts.
+      An iterable of Artifacts.
 
     Raises:
-      KeyError: if artifact doesn't exist in ARTIFACT_IMPLEMENTATION_MAP.
+      KeyError: if artifact doesn't exist in the artifact map.
     """
-    artifacts = []
-    for name in names:
-      artifact_class, path, args, dargs = self._GetDescriptionComponents(
-          name, is_artifact)
-      artifacts.append(artifact_class(self.download_dir, self.archive_url, path,
-                                      self.build, *args, **dargs))
-
-    return artifacts
+    if is_artifact:
+      classes = itertools.chain(*(self.artifact_map[name] for name in names))
+      return list(cls(self.download_dir, self.build) for cls in classes)
+    else:
+      return list(Artifact(name, self.download_dir, self.build)
+                  for name in names)
 
   def RequiredArtifacts(self):
     """Returns BuildArtifacts for the factory's artifacts.
@@ -771,10 +716,31 @@ class ArtifactFactory(object):
     return self._Artifacts(optional_names - set(self.artifacts), True)
 
 
+class ChromeOSArtifactFactory(BaseArtifactFactory):
+  """A factory class that generates ChromeOS build artifacts from names."""
+
+  def __init__(self, download_dir, artifacts, files, build):
+    """Pass the ChromeOS artifact map to the base class."""
+    super(ChromeOSArtifactFactory, self).__init__(
+        chromeos_artifact_map, download_dir, artifacts, files, build)
+
+
+class AndroidArtifactFactory(BaseArtifactFactory):
+  """A factory class that generates Android build artifacts from names."""
+
+  def __init__(self, download_dir, artifacts, files, build):
+    """Pass the Android artifact map to the base class."""
+    super(AndroidArtifactFactory, self).__init__(
+        android_artifact_map, download_dir, artifacts, files, build)
+
+
 # A simple main to verify correctness of the artifact map when making simple
 # name changes.
 if __name__ == '__main__':
-  print 'ARTIFACT IMPLEMENTATION MAP (for debugging)'
-  print 'FORMAT: ARTIFACT -> IMPLEMENTATION (<class>_file)'
-  for key, value in sorted(ARTIFACT_IMPLEMENTATION_MAP.items()):
-    print '%s -> %s' % (key, value)
+  print('ARTIFACT IMPLEMENTATION MAPs (for debugging)')
+  print('FORMAT: ARTIFACT -> IMPLEMENTATION (<type>_file)')
+  for label, mapping in (('CHROMEOS', chromeos_artifact_map),
+                         ('ANDROID', android_artifact_map)):
+    print('%s:' % label)
+    for key, value in sorted(mapping.items()):
+      print('  %s -> %s' % (key, ', '.join(str(val) for val in value)))

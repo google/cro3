@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -10,6 +10,9 @@ These unit tests take tarball from google storage locations to fully test
 the artifact download process. Please make sure to set up your boto file.
 """
 
+from __future__ import print_function
+
+import itertools
 import os
 import random
 import shutil
@@ -21,6 +24,7 @@ import mox
 
 import build_artifact
 import devserver_constants
+import downloader
 
 
 _VERSION = 'R26-3646.0.0-rc1'
@@ -100,6 +104,7 @@ _TEST_GOLO_FOR_DELTAS = (
 
 # pylint: disable=W0212
 class BuildArtifactTest(mox.MoxTestBase):
+  """Test different BuildArtifact operations."""
 
   def setUp(self):
     mox.MoxTestBase.setUp(self)
@@ -115,20 +120,17 @@ class BuildArtifactTest(mox.MoxTestBase):
   def testBundledArtifactTypes(self):
     """Tests that all known bundled artifacts are either zip or tar files."""
     known_names = ['zip', '.tgz', '.tar', 'tar.bz2', 'tar.xz', 'tar.gz']
-    for d in build_artifact.ARTIFACT_IMPLEMENTATION_MAP.values():
-      if d.artifact_class == build_artifact.BundledBuildArtifact:
-        for name in known_names:
-          if d.name.endswith(name):
-            break
-        else:
-          self.assertTrue('False')
+    for d in itertools.chain(*build_artifact.chromeos_artifact_map.values()):
+      if issubclass(d, build_artifact.BundledArtifact):
+        self.assertTrue(any(d.ARTIFACT_NAME.endswith(name)
+                            for name in known_names))
 
   def testProcessBuildArtifact(self):
     """Processes a real tarball from GSUtil and stages it."""
-    artifact = build_artifact.BuildArtifact(
-        self.work_dir,
-        _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE, _VERSION)
-    artifact.Process(False)
+    artifact = build_artifact.Artifact(
+        build_artifact.TEST_SUITES_FILE, self.work_dir, _VERSION)
+    dl = downloader.GoogleStorageDownloader(self.work_dir, _TEST_GOLO_ARCHIVE)
+    artifact.Process(dl, False)
     self.assertItemsEqual(
         artifact.installed_files,
         [os.path.join(self.work_dir, build_artifact.TEST_SUITES_FILE)])
@@ -138,14 +140,14 @@ class BuildArtifactTest(mox.MoxTestBase):
 
   def testProcessTarball(self):
     """Downloads a real tarball and untars it."""
-    artifact = build_artifact.BundledBuildArtifact(
-        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE,
-        _VERSION)
+    artifact = build_artifact.BundledArtifact(
+        build_artifact.TEST_SUITES_FILE, self.work_dir, _VERSION)
     expected_installed_files = [
         os.path.join(self.work_dir, filename)
         for filename in ([build_artifact.TEST_SUITES_FILE] +
                          _TEST_GOLO_ARCHIVE_TEST_TARBALL_CONTENT)]
-    artifact.Process(False)
+    dl = downloader.GoogleStorageDownloader(self.work_dir, _TEST_GOLO_ARCHIVE)
+    artifact.Process(dl, False)
     self.assertItemsEqual(artifact.installed_files, expected_installed_files)
     self.assertTrue(os.path.isdir(os.path.join(
         self.work_dir, 'autotest', 'test_suites')))
@@ -154,13 +156,14 @@ class BuildArtifactTest(mox.MoxTestBase):
   def testProcessTarballWithFile(self):
     """Downloads a real tarball and only untars one file from it."""
     file_to_download = 'autotest/test_suites/control.au'
-    artifact = build_artifact.BundledBuildArtifact(
-        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE,
-        _VERSION, files_to_extract=[file_to_download])
+    artifact = build_artifact.BundledArtifact(
+        build_artifact.TEST_SUITES_FILE, self.work_dir, _VERSION,
+        files_to_extract=[file_to_download])
     expected_installed_files = [
         os.path.join(self.work_dir, filename)
         for filename in [build_artifact.TEST_SUITES_FILE] + [file_to_download]]
-    artifact.Process(False)
+    dl = downloader.GoogleStorageDownloader(self.work_dir, _TEST_GOLO_ARCHIVE)
+    artifact.Process(dl, False)
     self.assertItemsEqual(artifact.installed_files, expected_installed_files)
     self.assertTrue(os.path.exists(os.path.join(
         self.work_dir, file_to_download)))
@@ -168,24 +171,24 @@ class BuildArtifactTest(mox.MoxTestBase):
 
   def testDownloadAutotest(self):
     """Downloads a real autotest tarball for test."""
-    self.mox.StubOutWithMock(build_artifact.AutotestTarballBuildArtifact,
-                             '_Extract')
-    artifact = build_artifact.AutotestTarballBuildArtifact(
-        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.AUTOTEST_FILE,
-        _VERSION, files_to_extract=None, exclude=['autotest/test_suites'])
+    self.mox.StubOutWithMock(build_artifact.AutotestTarball, '_Extract')
+    artifact = build_artifact.AutotestTarball(
+        build_artifact.AUTOTEST_FILE, self.work_dir, _VERSION,
+        files_to_extract=None, exclude=['autotest/test_suites'])
 
     install_dir = self.work_dir
     artifact.staging_dir = install_dir
     self.mox.StubOutWithMock(subprocess, 'check_call')
     subprocess.check_call(mox.In('autotest/utils/packager.py'), cwd=install_dir)
-    self.mox.StubOutWithMock(artifact, '_WaitForArtifactToExist')
+    self.mox.StubOutWithMock(downloader.GoogleStorageDownloader, 'Wait')
     self.mox.StubOutWithMock(artifact, '_UpdateName')
-    artifact._WaitForArtifactToExist(artifact.name, 1)
+    dl = downloader.GoogleStorageDownloader(self.work_dir, _TEST_GOLO_ARCHIVE)
+    dl.Wait(artifact.name, False, 1)
     artifact._UpdateName(mox.IgnoreArg())
-    artifact._Download()
+    dl.Fetch(artifact.name, install_dir)
     artifact._Extract()
     self.mox.ReplayAll()
-    artifact.Process(True)
+    artifact.Process(dl, True)
     self.mox.VerifyAll()
     self.assertItemsEqual(artifact.installed_files, [])
     self.assertTrue(os.path.isdir(
@@ -194,12 +197,12 @@ class BuildArtifactTest(mox.MoxTestBase):
 
   def testAUTestPayloadBuildArtifact(self):
     """Downloads a real tarball and treats it like an AU payload."""
-    artifact = build_artifact.AUTestPayloadBuildArtifact(
-        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE,
-        _VERSION)
+    artifact = build_artifact.AUTestPayload(
+        build_artifact.TEST_SUITES_FILE, self.work_dir, _VERSION)
     expected_installed_files = [
         os.path.join(self.work_dir, devserver_constants.UPDATE_FILE)]
-    artifact.Process(False)
+    dl = downloader.GoogleStorageDownloader(self.work_dir, _TEST_GOLO_ARCHIVE)
+    artifact.Process(dl, False)
     self.assertItemsEqual(artifact.installed_files, expected_installed_files)
     self.assertTrue(os.path.exists(os.path.join(
         self.work_dir, devserver_constants.UPDATE_FILE)))
@@ -207,31 +210,37 @@ class BuildArtifactTest(mox.MoxTestBase):
 
   def testDeltaPayloadsArtifact(self):
     """Downloads delta paylaods from test bucket."""
-    artifact = build_artifact.DeltaPayloadsArtifact(
-        self.work_dir, _TEST_GOLO_FOR_DELTAS, 'DONTCARE', _DELTA_VERSION)
+    nton = build_artifact.DeltaPayloadNtoN(self.work_dir, _DELTA_VERSION)
+    mton = build_artifact.DeltaPayloadMtoN(self.work_dir, _DELTA_VERSION)
     delta_installed_files = ('update.gz', 'stateful.tgz')
     nton_dir = os.path.join(self.work_dir, 'au', '%s_nton' % _DELTA_VERSION)
     mton_dir = os.path.join(self.work_dir, 'au', '%s_mton' % _DELTA_VERSION)
-    expected_installed_files = ([os.path.join(nton_dir, filename)
-                                 for filename in delta_installed_files] +
-                                [os.path.join(mton_dir, filename)
-                                 for filename in delta_installed_files])
-    artifact.Process(False)
-    self.assertItemsEqual(artifact.installed_files, expected_installed_files)
+    dl = downloader.GoogleStorageDownloader(self.work_dir,
+                                            _TEST_GOLO_FOR_DELTAS)
+    nton.Process(dl, False)
+    mton.Process(dl, False)
+    self.assertItemsEqual(nton.installed_files,
+                          [os.path.join(nton_dir, filename)
+                           for filename in delta_installed_files])
+    self.assertItemsEqual(mton.installed_files,
+                          [os.path.join(mton_dir, filename)
+                           for filename in delta_installed_files])
     self.assertTrue(os.path.exists(os.path.join(nton_dir, 'update.gz')))
     self.assertTrue(os.path.exists(os.path.join(mton_dir, 'update.gz')))
-    self._CheckMarker(artifact.marker_name, artifact.installed_files)
+    self._CheckMarker(nton.marker_name, nton.installed_files)
+    self._CheckMarker(mton.marker_name, mton.installed_files)
 
   def testImageUnzip(self):
     """Downloads and stages a zip file and extracts a test image."""
     files_to_extract = ['chromiumos_test_image.bin']
-    artifact = build_artifact.BundledBuildArtifact(
-        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.IMAGE_FILE,
-        _VERSION, files_to_extract=files_to_extract)
+    artifact = build_artifact.BundledArtifact(
+        build_artifact.IMAGE_FILE, self.work_dir, _VERSION,
+        files_to_extract=files_to_extract)
     expected_installed_files = [
         os.path.join(self.work_dir, filename)
         for filename in [build_artifact.IMAGE_FILE] + files_to_extract]
-    artifact.Process(False)
+    dl = downloader.GoogleStorageDownloader(self.work_dir, _TEST_GOLO_ARCHIVE)
+    artifact.Process(dl, False)
     self.assertItemsEqual(expected_installed_files, artifact.installed_files)
     self.assertTrue(os.path.exists(os.path.join(
         self.work_dir, 'chromiumos_test_image.bin')))
@@ -239,16 +248,16 @@ class BuildArtifactTest(mox.MoxTestBase):
 
   def testImageUnzipWithExcludes(self):
     """Downloads and stages a zip file while excluding all large files."""
-    artifact = build_artifact.BundledBuildArtifact(
-        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.IMAGE_FILE,
-        _VERSION, exclude=['*.bin'])
+    artifact = build_artifact.BundledArtifact(
+        build_artifact.IMAGE_FILE, self.work_dir, _VERSION, exclude=['*.bin'])
     expected_extracted_files = [
         filename for filename in _TEST_GOLO_ARCHIVE_IMAGE_ZIPFILE_CONTENT
         if not filename.endswith('.bin')]
     expected_installed_files = [
         os.path.join(self.work_dir, filename)
         for filename in [build_artifact.IMAGE_FILE] + expected_extracted_files]
-    artifact.Process(False)
+    dl = downloader.GoogleStorageDownloader(self.work_dir, _TEST_GOLO_ARCHIVE)
+    artifact.Process(dl, False)
     self.assertItemsEqual(expected_installed_files, artifact.installed_files)
     self.assertFalse(os.path.exists(os.path.join(
         self.work_dir, 'chromiumos_test_image.bin')))
@@ -256,12 +265,12 @@ class BuildArtifactTest(mox.MoxTestBase):
 
   def testArtifactFactory(self):
     """Tests that BuildArtifact logic works for both named and file artifacts.
+
     """
     name_artifact = 'test_suites' # This file is in every real GS dir.
     file_artifact = 'metadata.json' # This file is in every real GS dir.
-    factory = build_artifact.ArtifactFactory(self.work_dir, _TEST_GOLO_ARCHIVE,
-                                             [name_artifact], [file_artifact],
-                                             _VERSION)
+    factory = build_artifact.ChromeOSArtifactFactory(
+        self.work_dir, [name_artifact], [file_artifact], _VERSION)
     artifacts = factory.RequiredArtifacts()
     self.assertEqual(len(artifacts), 2)
     expected_installed_files_0 = [
@@ -269,8 +278,9 @@ class BuildArtifactTest(mox.MoxTestBase):
         in ([build_artifact.TEST_SUITES_FILE] +
             _TEST_GOLO_ARCHIVE_TEST_TARBALL_CONTENT)]
     expected_installed_files_1 = [os.path.join(self.work_dir, file_artifact)]
-    artifacts[0].Process(False)
-    artifacts[1].Process(False)
+    dl = downloader.GoogleStorageDownloader(self.work_dir, _TEST_GOLO_ARCHIVE)
+    artifacts[0].Process(dl, False)
+    artifacts[1].Process(dl, False)
     self.assertItemsEqual(artifacts[0].installed_files,
                           expected_installed_files_0)
     self.assertItemsEqual(artifacts[1].installed_files,
@@ -286,11 +296,12 @@ class BuildArtifactTest(mox.MoxTestBase):
 
   def testProcessBuildArtifactWithException(self):
     """Test processing a non-existing artifact from GSUtil."""
-    artifact = build_artifact.BuildArtifact(
-        self.work_dir, _TEST_NON_EXISTING_GOLO_ARCHIVE,
-        build_artifact.TEST_SUITES_FILE, _VERSION)
+    artifact = build_artifact.Artifact(
+        build_artifact.TEST_SUITES_FILE, self.work_dir, _VERSION)
     try:
-      artifact.Process(False)
+      dl = downloader.GoogleStorageDownloader(self.work_dir,
+                                              _TEST_NON_EXISTING_GOLO_ARCHIVE)
+      artifact.Process(dl, False)
     except Exception as e:
       expected_exception = e
     exception = artifact.GetException()
@@ -298,14 +309,14 @@ class BuildArtifactTest(mox.MoxTestBase):
 
   def testArtifactStaged(self):
     """Tests the artifact staging verification logic."""
-    artifact = build_artifact.BundledBuildArtifact(
-        self.work_dir, _TEST_GOLO_ARCHIVE, build_artifact.TEST_SUITES_FILE,
-        _VERSION)
+    artifact = build_artifact.BundledArtifact(
+        build_artifact.TEST_SUITES_FILE, self.work_dir, _VERSION)
     expected_installed_files = [
         os.path.join(self.work_dir, filename)
         for filename in ([build_artifact.TEST_SUITES_FILE] +
                          _TEST_GOLO_ARCHIVE_TEST_TARBALL_CONTENT)]
-    artifact.Process(False)
+    dl = downloader.GoogleStorageDownloader(self.work_dir, _TEST_GOLO_ARCHIVE)
+    artifact.Process(dl, False)
 
     # Check that it works when all files are there.
     self.assertTrue(artifact.ArtifactStaged())

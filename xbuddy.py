@@ -16,8 +16,9 @@ import shutil
 import time
 import threading
 
-import build_util
 import artifact_info
+import build_artifact
+import build_util
 import common_util
 import devserver_constants
 import downloader
@@ -643,7 +644,10 @@ class XBuddy(build_util.BuildObject):
       XBuddy._staging_thread_count += 1
     try:
       _Log("Downloading %s from %s", artifacts, gs_url)
-      downloader.Downloader(self.static_dir, gs_url).Download(artifacts, [])
+      dl = downloader.GoogleStorageDownloader(self.static_dir, gs_url)
+      factory = build_artifact.ChromeOSArtifactFactory(
+          dl.GetBuildDir(), artifacts, [], dl.GetBuild())
+      dl.Download(factory)
     finally:
       with XBuddy._staging_thread_count_lock:
         XBuddy._staging_thread_count -= 1

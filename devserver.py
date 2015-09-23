@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # Copyright (c) 2009-2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -39,6 +39,7 @@ For autoupdates, there are many more advanced options that can help specify
 how to update and which payload to give to a requester.
 """
 
+from __future__ import print_function
 
 import json
 import optparse
@@ -119,20 +120,21 @@ class DevServerError(Exception):
 
 
 def require_psutil():
-  """Decorator for functions require psutil to run.
-  """
+  """Decorator for functions require psutil to run."""
   def deco_require_psutil(func):
     """Wrapper of the decorator function.
 
-    @param func: function to be called.
+    Args:
+      func: function to be called.
     """
     def func_require_psutil(*args, **kwargs):
       """Decorator for functions require psutil to run.
 
       If psutil is not installed, skip calling the function.
 
-      @param args: arguments for function to be called.
-      @param kwargs: keyword arguments for function to be called.
+      Args:
+        *args: arguments for function to be called.
+        **kwargs: keyword arguments for function to be called.
       """
       if psutil:
         return func(*args, **kwargs)
@@ -141,6 +143,116 @@ def require_psutil():
              'skipped.' % func)
     return func_require_psutil
   return deco_require_psutil
+
+
+def _canonicalize_archive_url(archive_url):
+  """Canonicalizes archive_url strings.
+
+  Raises:
+    DevserverError: if archive_url is not set.
+  """
+  if archive_url:
+    if not archive_url.startswith('gs://'):
+      raise DevServerError("Archive URL isn't from Google Storage (%s) ." %
+                           archive_url)
+
+    return archive_url.rstrip('/')
+  else:
+    raise DevServerError("Must specify an archive_url in the request")
+
+
+def _canonicalize_local_path(local_path):
+  """Canonicalizes |local_path| strings.
+
+  Raises:
+    DevserverError: if |local_path| is not set.
+  """
+  # Restrict staging of local content to only files within the static
+  # directory.
+  local_path = os.path.abspath(local_path)
+  if not local_path.startswith(updater.static_dir):
+    raise DevServerError('Local path %s must be a subdirectory of the static'
+                         ' directory: %s' % (local_path, updater.static_dir))
+
+  return local_path.rstrip('/')
+
+
+def _get_artifacts(kwargs):
+  """Returns a tuple of named and file artifacts given the stage rpc kwargs.
+
+  Raises:
+    DevserverError if no artifacts would be returned.
+  """
+  artifacts = kwargs.get('artifacts')
+  files = kwargs.get('files')
+  if not artifacts and not files:
+    raise DevServerError('No artifacts specified.')
+
+  # Note we NEED to coerce files to a string as we get raw unicode from
+  # cherrypy and we treat files as strings elsewhere in the code.
+  return (str(artifacts).split(',') if artifacts else [],
+          str(files).split(',') if files else [])
+
+
+def _get_downloader(kwargs):
+  """Returns the downloader based on passed in arguments.
+
+  Args:
+      kwargs: Keyword arguments for the request.
+  """
+  local_path = kwargs.get('local_path')
+  if local_path:
+    local_path = _canonicalize_local_path(local_path)
+
+  dl = None
+  if local_path:
+    dl = downloader.LocalDownloader(updater.static_dir, local_path)
+
+  # Only Android build requires argument build_id. If it's not set, assume
+  # the download request is for ChromeOS.
+  build_id = kwargs.get('build_id', None)
+  if not build_id:
+    archive_url = kwargs.get('archive_url')
+    if not archive_url and not local_path:
+      raise DevServerError('Requires archive_url or local_path to be '
+                           'specified.')
+    if archive_url and local_path:
+      raise DevServerError('archive_url and local_path can not both be '
+                           'specified.')
+    if not dl:
+      archive_url = _canonicalize_archive_url(archive_url)
+      dl = downloader.GoogleStorageDownloader(updater.static_dir, archive_url)
+  elif not dl:
+    target = kwargs.get('target', None)
+    if not target:
+      raise DevServerError('target must be specified for Android build.')
+    dl = downloader.LaunchControlDownloader(updater.static_dir, build_id,
+                                            target)
+
+  return dl
+
+
+def _get_downloader_and_factory(kwargs):
+  """Returns the downloader and artifact factory based on passed in arguments.
+
+  Args:
+      kwargs: Keyword arguments for the request.
+  """
+  artifacts, files = _get_artifacts(kwargs)
+  dl = _get_downloader(kwargs)
+
+  if (isinstance(dl, downloader.GoogleStorageDownloader) or
+      isinstance(dl, downloader.LocalDownloader)):
+    factory_class = build_artifact.ChromeOSArtifactFactory
+  elif isinstance(dl, downloader.LaunchControlDownloader):
+    factory_class = build_artifact.AndroidArtifactFactory
+  else:
+    raise DevServerError('Unrecognized value for downloader type: %s' %
+                         type(dl))
+
+  factory = factory_class(dl.GetBuildDir(), artifacts, files, dl.GetBuild())
+
+  return dl, factory
 
 
 def _LeadingWhiteSpaceCount(string):
@@ -152,7 +264,7 @@ def _LeadingWhiteSpaceCount(string):
   Returns:
     number of white space chars before characters start.
   """
-  matched = re.match('^\s+', string)
+  matched = re.match(r'^\s+', string)
   if matched:
     return len(matched.group())
 
@@ -216,40 +328,39 @@ def _GetConfig(options):
   cherrypy.tools.update_timestamp = cherrypy.Tool(
       'on_end_resource', _GetUpdateTimestampHandler(options.static_dir))
 
-  base_config = { 'global':
-                  { 'server.log_request_headers': True,
-                    'server.protocol_version': 'HTTP/1.1',
-                    'server.socket_host': socket_host,
-                    'server.socket_port': int(options.port),
-                    'response.timeout': 6000,
-                    'request.show_tracebacks': True,
-                    'server.socket_timeout': 60,
-                    'server.thread_pool': 2,
-                    'engine.autoreload.on': False,
-                  },
-                  '/api':
-                  {
-                    # Gets rid of cherrypy parsing post file for args.
-                    'request.process_request_body': False,
-                  },
-                  '/build':
-                  {
-                    'response.timeout': 100000,
-                  },
-                  '/update':
-                  {
-                    # Gets rid of cherrypy parsing post file for args.
-                    'request.process_request_body': False,
-                    'response.timeout': 10000,
-                  },
-                  # Sets up the static dir for file hosting.
-                  '/static':
-                  { 'tools.staticdir.dir': options.static_dir,
-                    'tools.staticdir.on': True,
-                    'response.timeout': 10000,
-                    'tools.update_timestamp.on': True,
-                  },
-                }
+  base_config = {'global':
+                 {'server.log_request_headers': True,
+                  'server.protocol_version': 'HTTP/1.1',
+                  'server.socket_host': socket_host,
+                  'server.socket_port': int(options.port),
+                  'response.timeout': 6000,
+                  'request.show_tracebacks': True,
+                  'server.socket_timeout': 60,
+                  'server.thread_pool': 2,
+                  'engine.autoreload.on': False,
+                 },
+                 '/api':
+                 {
+                  # Gets rid of cherrypy parsing post file for args.
+                  'request.process_request_body': False,
+                 },
+                 '/build':
+                 {'response.timeout': 100000,
+                 },
+                 '/update':
+                 {
+                  # Gets rid of cherrypy parsing post file for args.
+                  'request.process_request_body': False,
+                  'response.timeout': 10000,
+                 },
+                 # Sets up the static dir for file hosting.
+                 '/static':
+                 {'tools.staticdir.dir': options.static_dir,
+                  'tools.staticdir.on': True,
+                  'response.timeout': 10000,
+                  'tools.update_timestamp.on': True,
+                 },
+               }
   if options.production:
     base_config['global'].update({'server.thread_pool': 150})
     # TODO(sosa): Do this more cleanly.
@@ -296,7 +407,7 @@ def _GetExposedMethod(root, nested_member, ignored=None):
   """
   method = (not (ignored and nested_member in ignored) and
             _GetRecursiveMemberObject(root, nested_member.split('/')))
-  if (method and type(method) == types.FunctionType and _IsExposed(method)):
+  if method and type(method) == types.FunctionType and _IsExposed(method):
     return method
 
 
@@ -479,8 +590,7 @@ class DevServerRoot(object):
 
   @require_psutil()
   def _start_io_stat_thread(self):
-    """Start the thread to collect IO stats.
-    """
+    """Start the thread to collect IO stats."""
     thread = threading.Thread(target=self._refresh_io_stats)
     thread.daemon = True
     thread.start()
@@ -500,23 +610,6 @@ class DevServerRoot(object):
     self.network_recv_bytes_per_sec = 0
     self._start_io_stat_thread()
 
-  @staticmethod
-  def _get_artifacts(kwargs):
-    """Returns a tuple of named and file artifacts given the stage rpc kwargs.
-
-    Raises:
-      DevserverError if no artifacts would be returned.
-    """
-    artifacts = kwargs.get('artifacts')
-    files = kwargs.get('files')
-    if not artifacts and not files:
-      raise DevServerError('No artifacts specified.')
-
-    # Note we NEED to coerce files to a string as we get raw unicode from
-    # cherrypy and we treat files as strings elsewhere in the code.
-    return (str(artifacts).split(',') if artifacts else [],
-            str(files).split(',') if files else [])
-
   @cherrypy.expose
   def build(self, board, pkg, **kwargs):
     """Builds the package specified."""
@@ -524,38 +617,6 @@ class DevServerRoot(object):
     if self._builder is None:
       self._builder = builder.Builder()
     return self._builder.Build(board, pkg, kwargs)
-
-  @staticmethod
-  def _canonicalize_archive_url(archive_url):
-    """Canonicalizes archive_url strings.
-
-    Raises:
-      DevserverError: if archive_url is not set.
-    """
-    if archive_url:
-      if not archive_url.startswith('gs://'):
-        raise DevServerError("Archive URL isn't from Google Storage (%s) ." %
-                             archive_url)
-
-      return archive_url.rstrip('/')
-    else:
-      raise DevServerError("Must specify an archive_url in the request")
-
-  @staticmethod
-  def _canonicalize_local_path(local_path):
-    """Canonicalizes |local_path| strings.
-
-    Raises:
-      DevserverError: if |local_path| is not set.
-    """
-    # Restrict staging of local content to only files within the static
-    # directory.
-    local_path = os.path.abspath(local_path)
-    if not local_path.startswith(updater.static_dir):
-      raise DevServerError('Local path %s must be a subdirectory of the static'
-                           ' directory: %s' % (local_path, updater.static_dir))
-
-    return local_path.rstrip('/')
 
   @cherrypy.expose
   def is_staged(self, **kwargs):
@@ -576,10 +637,8 @@ class DevServerRoot(object):
         http://devserver_url:<port>/is_staged?archive_url=gs://your_url/path&
             artifacts=autotest,test_suites
     """
-    archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
-    artifacts, files = self._get_artifacts(kwargs)
-    return str(downloader.Downloader(updater.static_dir, archive_url).IsStaged(
-        artifacts, files))
+    dl, factory = _get_downloader_and_factory(kwargs)
+    return str(dl.IsStaged(factory))
 
   @cherrypy.expose
   def list_image_dir(self, **kwargs):
@@ -597,24 +656,24 @@ class DevServerRoot(object):
     Returns:
       A string with information about the contents of the image directory.
     """
-    archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
-    download_helper = downloader.Downloader(updater.static_dir, archive_url)
+    dl = _get_downloader(kwargs)
     try:
-      image_dir_contents = download_helper.ListBuildDir()
+      image_dir_contents = dl.ListBuildDir()
     except build_artifact.ArtifactDownloadError as e:
       return 'Cannot list the contents of staged artifacts. %s' % e
     if not image_dir_contents:
-      return '%s has not been staged on this devserver.' % archive_url
+      return '%s has not been staged on this devserver.' % dl.DescribeSource()
     return image_dir_contents
 
   @cherrypy.expose
   def stage(self, **kwargs):
-    """Downloads and caches the artifacts from Google Storage URL.
+    """Downloads and caches build artifacts.
 
-    Downloads and caches the artifacts Google Storage URL. Returns once these
-    have been downloaded on the devserver. A call to this will attempt to cache
-    non-specified artifacts in the background for the given from the given URL
-    following the principle of spatial locality. Spatial locality of different
+    Downloads and caches build artifacts, possibly from a Google Storage URL,
+    or from Android's LaunchControl. Returns once these have been downloaded
+    on the devserver. A call to this will attempt to cache non-specified
+    artifacts in the background for the given from the given URL following
+    the principle of spatial locality. Spatial locality of different
     artifacts is explicitly defined in the build_artifact module.
 
     These artifacts will then be available from the static/ sub-directory of
@@ -654,26 +713,13 @@ class DevServerRoot(object):
 
       http://devserver_url:<port>/static/x86-mario-release/R26-3920.0.0
     """
-    archive_url = kwargs.get('archive_url')
-    local_path = kwargs.get('local_path')
-    if not archive_url and not local_path:
-      raise DevServerError('Requires archive_url or local_path to be '
-                           'specified.')
-    if archive_url and local_path:
-      raise DevServerError('archive_url and local_path can not both be '
-                           'specified.')
-    if archive_url:
-      archive_url = self._canonicalize_archive_url(archive_url)
-    if local_path:
-      local_path = self._canonicalize_local_path(local_path)
-    async = kwargs.get('async', False)
-    artifacts, files = self._get_artifacts(kwargs)
+    dl, factory = _get_downloader_and_factory(kwargs)
+
     with DevServerRoot._staging_thread_count_lock:
       DevServerRoot._staging_thread_count += 1
     try:
-      downloader.Downloader(
-          updater.static_dir, (archive_url or local_path)).Download(
-              artifacts, files, async=async)
+      async = kwargs.get('async', False)
+      dl.Download(factory, async=async)
     finally:
       with DevServerRoot._staging_thread_count_lock:
         DevServerRoot._staging_thread_count -= 1
@@ -692,10 +738,9 @@ class DevServerRoot(object):
     Returns:
       Path to the source folder for the telemetry codebase once it is staged.
     """
-    archive_url = kwargs.get('archive_url')
+    dl = _get_downloader(kwargs)
 
-    build = '/'.join(downloader.Downloader.ParseUrl(archive_url))
-    build_path = os.path.join(updater.static_dir, build)
+    build_path = dl.GetBuildDir()
     deps_path = os.path.join(build_path, 'autotest/packages')
     telemetry_path = os.path.join(build_path, TELEMETRY_FOLDER)
     src_folder = os.path.join(telemetry_path, 'src')
@@ -727,8 +772,9 @@ class DevServerRoot(object):
       except shutil.Error:
         # This can occur if src_folder already exists. Remove and retry move.
         shutil.rmtree(src_folder)
-        raise DevServerError('Failure in telemetry setup for build %s. Appears'
-                             ' that the test_src to src move failed.' % build)
+        raise DevServerError(
+            'Failure in telemetry setup for build %s. Appears that the '
+            'test_src to src move failed.' % dl.GetBuild())
 
       return src_folder
 
@@ -745,10 +791,13 @@ class DevServerRoot(object):
       archive_url: Google Storage URL for the build.
       minidump: The binary minidump file to symbolicate.
     """
+    kwargs['artifacts'] = 'symbols'
+    dl = _get_downloader(kwargs)
+
     # Ensure the symbols have been staged.
-    archive_url = self._canonicalize_archive_url(kwargs.get('archive_url'))
-    if self.stage(archive_url=archive_url, artifacts='symbols') != 'Success':
-      raise DevServerError('Failed to stage symbols for %s' % archive_url)
+    if self.stage(**kwargs) != 'Success':
+      raise DevServerError('Failed to stage symbols for %s' %
+                           dl.DescribeSource())
 
     to_return = ''
     with tempfile.NamedTemporaryFile() as local:
@@ -760,8 +809,7 @@ class DevServerRoot(object):
 
       local.flush()
 
-      symbols_directory = os.path.join(downloader.Downloader.GetBuildDir(
-          updater.static_dir, archive_url), 'debug', 'breakpad')
+      symbols_directory = os.path.join(dl.GetBuildDir(), 'debug', 'breakpad')
 
       stackwalk = subprocess.Popen(
           ['minidump_stackwalk', local.name, symbols_directory],
@@ -862,7 +910,7 @@ class DevServerRoot(object):
       or in Google Storage.
     """
     build_id, filename = self._xbuddy.Translate(
-          args, image_dir=kwargs.get('image_dir'))
+        args, image_dir=kwargs.get('image_dir'))
     response = os.path.join(build_id, filename)
     _Log('Path translation requested, returning: %s', response)
     return response
@@ -1069,7 +1117,8 @@ class DevServerRoot(object):
   def _get_io_stats(self):
     """Get the IO stats as a dictionary.
 
-    @return: A dictionary of IO stats collected by psutil.
+    Returns:
+      A dictionary of IO stats collected by psutil.
 
     """
     return {'disk_read_bytes_per_second': self.disk_read_bytes_per_sec,
@@ -1139,7 +1188,7 @@ def _AddTestingOptions(parser):
                    action='store_true', default=False,
                    help='record history of host update events (/api/hostlog)')
   group.add_option('--max_updates',
-                   metavar='NUM', default= -1, type='int',
+                   metavar='NUM', default=-1, type='int',
                    help='maximum number of update checks handled positively '
                         '(default: unlimited)')
   group.add_option('--private_key',
@@ -1173,8 +1222,8 @@ def _AddTestingOptions(parser):
                    'protocol, such as hardware class, being sent.')
   group.add_option('-u', '--urlbase',
                    metavar='URL',
-                     help='base URL for update images, other than the '
-                     'devserver. Use in conjunction with remote_payload.')
+                   help='base URL for update images, other than the '
+                   'devserver. Use in conjunction with remote_payload.')
   parser.add_option_group(group)
 
 
@@ -1333,8 +1382,8 @@ def main():
       board=options.board,
       copy_to_static_root=not options.exit,
       private_key=options.private_key,
-      private_key_for_metadata_hash_signature=
-        options.private_key_for_metadata_hash_signature,
+      private_key_for_metadata_hash_signature=(
+          options.private_key_for_metadata_hash_signature),
       public_key=options.public_key,
       critical_update=options.critical_update,
       remote_payload=options.remote_payload,

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -17,6 +17,8 @@ To just run the short-running "unittests" run:
 To just run the longer-running tests, run:
   ./devserver_integration_tests.py DevserverIntegrationTests
 """
+
+from __future__ import print_function
 
 import devserver_constants
 import json
@@ -176,7 +178,7 @@ class DevserverTestBase(unittest.TestCase):
       try:
         self.port = self._ReadIntValueFromFile(self.portfile, 'portfile')
         self.devserver_url = 'http://127.0.0.1:%d' % self.port
-        self._MakeRPC(CHECK_HEALTH, timeout=0.1)
+        self._MakeRPC(CHECK_HEALTH, timeout=1)
         break
       except Exception:
         time.sleep(DEVSERVER_START_SLEEP)
@@ -434,6 +436,7 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
 
   def testStageAndUpdate(self):
     """Tests core autotest workflow where we stage/update with a test payload.
+
     """
     build_id = 'x86-mario-release/R32-4810.0.0'
     archive_url = 'gs://chromeos-image-archive/%s' % build_id
@@ -463,6 +466,7 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
 
   def testStageAutotestAndGetPackages(self):
     """Another autotest workflow test where we stage/update with a test payload.
+
     """
     build_id = 'x86-mario-release/R32-4810.0.0'
     archive_url = 'gs://chromeos-image-archive/%s' % build_id
@@ -491,6 +495,7 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
 
   def testRemoteXBuddyAlias(self):
     """Another autotest workflow test where we stage/update with a test payload.
+
     """
     build_id = 'x86-mario-release/R32-4810.0.0'
     xbuddy_path = 'remote/x86-mario/R32-4810.0.0/full_payload'
