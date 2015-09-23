@@ -734,12 +734,19 @@ class Autoupdate(build_util.BuildObject):
       dest_path = os.path.join(self.static_dir, label, constants.UPDATE_FILE)
       dest_stateful = os.path.join(self.static_dir, label,
                                    constants.STATEFUL_FILE)
+      dest_meta = os.path.join(self.static_dir, label, constants.METADATA_FILE)
 
       src_path = os.path.abspath(self.payload_path)
       src_stateful = os.path.join(os.path.dirname(src_path),
                                   constants.STATEFUL_FILE)
       common_util.MkDirP(os.path.join(self.static_dir, label))
       common_util.SymlinkFile(src_path, dest_path)
+      # The old metadata file should be regenerated whenever a new payload is
+      # used.
+      try:
+        os.unlink(dest_meta)
+      except OSError:
+        pass
       if os.path.exists(src_stateful):
         # The stateful payload is optional.
         common_util.SymlinkFile(src_stateful, dest_stateful)
