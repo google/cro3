@@ -162,7 +162,7 @@ class Bundle:
                coreboot_elf=None,
                postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None,
                skeleton=None, ecrw=None, ecro=None, pdrw=None,
-               kernel=None, blobs=None, skip_bmpblk=False):
+               kernel=None, blobs=None, skip_bmpblk=False, cbfs_files=None):
     """Set up files required for Bundle.
 
     Args:
@@ -183,6 +183,7 @@ class Bundle:
       kernel: The filename of the kernel file if any.
       blobs: List of (type, filename) of arbitrary blobs.
       skip_bmpblk: True if no bmpblk is required
+      cbfs_files: Root directory of files to be stored in CBFS
     """
     self._board = board
     self.uboot_fname = uboot
@@ -201,6 +202,7 @@ class Bundle:
     self.kernel_fname = kernel
     self.blobs = dict(blobs or ())
     self.skip_bmpblk = skip_bmpblk
+    self.cbfs_files = cbfs_files
 
   def SetOptions(self, small, gbb_flags, force_rw=False, force_efs=False):
     """Set up options supported by Bundle.
@@ -877,6 +879,14 @@ class Bundle:
       raise CmdError("Unknown blob type '%s' required in flash map" %
           blob_type)
 
+  def _AddCbfsFiles(self, bootstub):
+    for dir, subs, files in os.walk(self.cbfs_files):
+      for file in files:
+        file = os.path.join(dir, file)
+        cbfs_name = file.replace(self.cbfs_files, '', 1).strip('/')
+        self._tools.Run('cbfstool', [bootstub, 'add', '-f', file,
+                                '-n', cbfs_name, '-t', '0x50', '-c', 'lzma'])
+
   def _CreateImage(self, gbb, fdt):
     """Create a full firmware image, along with various by-products.
 
@@ -989,6 +999,8 @@ class Bundle:
             '-l', '%#x' % text_base, '-e', '%#x' % entry])
       self._tools.Run('cbfstool', [bootstub, 'add', '-f', fdt.fname,
           '-n', 'u-boot.dtb', '-t', '0xac'])
+      if self.cbfs_files:
+        self._AddCbfsFiles(bootstub)
       data = self._tools.ReadFile(bootstub)
       bootstub_copy = os.path.join(self._tools.outdir, 'coreboot-8mb.rom')
       self._tools.WriteFile(bootstub_copy, data)
