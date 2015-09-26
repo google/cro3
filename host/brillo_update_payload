@@ -121,6 +121,25 @@ CLEANUP_FILES=()
 FORCE_MAJOR_VERSION=""
 FORCE_MINOR_VERSION=""
 
+# read_option_int <file.txt> <option_key> [default_value]
+#
+# Reads the unsigned integer value associated with |option_key| in a key=value
+# file |file.txt|. Prints the read value if found and valid, otherwise prints
+# the |default_value|.
+read_option_uint() {
+  local file_txt="$1"
+  local option_key="$2"
+  local default_value="${3:-}"
+  local value
+  if value=$(look "${option_key}=" "${file_txt}" | tail -n 1); then
+    if value=$(echo "${value}" | cut -f 2- -d "=" | grep -E "^[0-9]+$"); then
+      echo "${value}"
+      return
+    fi
+  fi
+  echo "${default_value}"
+}
+
 # Create a temporary file in the work_dir with an optional pattern name.
 # Prints the name of the newly created file.
 create_tempfile() {
@@ -230,8 +249,15 @@ extract_image_brillo() {
   local partitions=( "boot" "system" )
 
   if [[ "${partitions_array}" == "SRC_PARTITIONS" ]]; then
-    # TODO(deymo): Read the supported minor version from the .zip metadata.
-    FORCE_MINOR_VERSION="2"
+    ue_config=$(create_tempfile "ue_config.XXXXXX")
+    CLEANUP_FILES+=("${ue_config}")
+    if ! unzip -p "${image}" "META/update_engine_config.txt" \
+        >"${ue_config}"; then
+      warn "No update_engine_config.txt found. Assuming pre-release image, \
+using payload minor version 2"
+    fi
+    FORCE_MINOR_VERSION=$(read_option_uint "${ue_config}" \
+      "PAYLOAD_MINOR_VERSION" 2)
   fi
 
   local part part_file temp_raw filesize
