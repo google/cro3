@@ -64,44 +64,83 @@ find_common_sh() {
 find_common_sh
 . "${SCRIPT_ROOT}/common.sh" || exit 1
 
-# Check that a command is specified
+HELP_GENERATE="generate: Generate an unsigned update payload."
+HELP_HASH="hash: Generate the hashes of the unsigned payload and metadata used \
+for signing."
+HELP_SIGN="sign: Insert the signatures into the unsigned payload."
+
+usage() {
+  echo "Supported commands:"
+  echo
+  echo "${HELP_GENERATE}"
+  echo "${HELP_HASH}"
+  echo "${HELP_SIGN}"
+  echo
+  echo "Use: \"$0 <command> --help\" for more options."
+}
+
+# Check that a command is specified.
 if [[ $# -lt 1 ]]; then
   echo "Please specify a command [generate|hash|sign]"
   exit 1
 fi
 
-# Parse command
-case "$1" in
-  generate|hash|sign)
-    COMMAND=$1
+# Parse command.
+COMMAND="${1:-}"
+shift
+
+case "${COMMAND}" in
+  generate)
+    FLAGS_HELP="${HELP_GENERATE}"
+    ;;
+
+  hash)
+    FLAGS_HELP="${HELP_HASH}"
+    ;;
+
+  sign)
+    FLAGS_HELP="${HELP_SIGN}"
     ;;
   *)
-    echo "Unrecognized command:" $1
+    echo "Unrecognized command: \"${COMMAND}\"" >&2
+    usage >&2
     exit 1
     ;;
 esac
 
-shift
-
 # Flags
-DEFINE_string payload "" "Path to output the generated payload file."
-DEFINE_string target_image "" \
-  "Path to the target image that should be sent to clients."
-DEFINE_string source_image "" \
-  "Optional: Path to a source image. If specified, this makes\
- a delta update."
-DEFINE_string unsigned_payload "" "Path to the generated unsigned payload."
-DEFINE_string signature_size "" \
-  "Signature sizes in bytes in the following format: size1:size2[:...]"
-DEFINE_string payload_hash_file "" "Optional: Path to output payload hash file."
-DEFINE_string metadata_hash_file "" \
-  "Optional: Path to output metadata hash file."
-DEFINE_string payload_signature_file "" \
-  "The payload signatures in the following format:\
- payload_signature1:payload_signature2[:...]"
-DEFINE_string metadata_signature_file "" \
-  "The metatada signatures in the following format:\
- metadata_signature1:metadata_signature2[:...]"
+FLAGS_HELP="Usage: $0 ${COMMAND} [flags]
+${FLAGS_HELP}"
+
+if [[ "${COMMAND}" == "generate" ]]; then
+  DEFINE_string payload "" \
+    "Path to output the generated unsigned payload file."
+  DEFINE_string target_image "" \
+    "Path to the target image that should be sent to clients."
+  DEFINE_string source_image "" \
+    "Optional: Path to a source image. If specified, this makes a delta update."
+fi
+if [[ "${COMMAND}" == "hash" || "${COMMAND}" == "sign" ]]; then
+  DEFINE_string unsigned_payload "" "Path to the input unsigned payload."
+  DEFINE_string signature_size "" \
+    "Signature sizes in bytes in the following format: size1:size2[:...]"
+fi
+if [[ "${COMMAND}" == "hash" ]]; then
+  DEFINE_string metadata_hash_file "" \
+    "Optional: Path to output metadata hash file."
+  DEFINE_string payload_hash_file "" \
+    "Optional: Path to output payload hash file."
+fi
+if [[ "${COMMAND}" == "sign" ]]; then
+  DEFINE_string payload "" \
+    "Path to output the generated unsigned payload file."
+  DEFINE_string metadata_signature_file "" \
+    "The metatada signatures in the following format: \
+metadata_signature1:metadata_signature2[:...]"
+  DEFINE_string payload_signature_file "" \
+    "The payload signatures in the following format: \
+payload_signature1:payload_signature2[:...]"
+fi
 DEFINE_string work_dir "/tmp" "Where to dump temporary files."
 
 # Parse command line flag arguments
