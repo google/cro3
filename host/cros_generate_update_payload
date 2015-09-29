@@ -192,12 +192,45 @@ extract_kern() {
   echo "${kern_out}"
 }
 
+# ext2fs_size <rootfs>
+# Prints the size in bytes of the ext2 filesystem passed in |rootfs|. In case of
+# error it returns 1 and doesn't print any output.
+ext2fs_size() {
+  local rootfs="$1"
+
+  # dumpe2fs is normally installed in /sbin but doesn't require root.
+  local PATH="${PATH}:/sbin"
+  dumpe2fs "${rootfs}" >/dev/null 2>&1 || return 1
+  local fs_blocs fs_blocksize
+  fs_blocks=$(dumpe2fs -h "${rootfs}" 2>/dev/null | \
+    grep "^Block count:" | cut -f 2 -d :)
+  fs_blocksize=$(dumpe2fs -h "${rootfs}" 2>/dev/null | \
+    grep "^Block size:" | cut -f 2 -d :)
+  echo $(( fs_blocks * fs_blocksize ))
+}
+
+# extract_root <bin_file> <root_out>
+# Extract the rootfs partition from the gpt image |bin_file| and store it in
+# |root_out|. If |root_out| is empty, a new temp file will be used. Prints the
+# filename where the rootfs was stored.
 extract_root() {
   local bin_file="$1"
   local root_out="$2"
 
-  extract_partition_to_temp_file "${bin_file}" "${ROOTFS_PART_NUM}" \
-    "${root_out}"
+  root_out=$(extract_partition_to_temp_file "${bin_file}" "${ROOTFS_PART_NUM}" \
+    "${root_out}")
+
+  # We only update the filesystem part of the partition, which is stored in the
+  # gpt script.
+  local root_out_size
+  if root_out_size=$(ext2fs_size "${root_out}"); then
+    truncate --size="${root_out_size}" "${root_out}"
+    echo "Truncated root to ${root_out_size} bytes." >&2
+  else
+    die "Error truncating the rootfs to the filesystem size."
+  fi
+
+  echo "${root_out}"
 }
 
 if [[ -n "${FLAGS_src_image}" ]] && \
