@@ -112,16 +112,17 @@ class AndroidDownloaderTestBase(mox.MoxTestBase):
   def setUp(self):
     mox.MoxTestBase.setUp(self)
     self._work_dir = tempfile.mkdtemp('downloader-test')
+    self.branch = 'release'
     self.target = 'shamu-userdebug'
     self.build_id = '123456'
 
   def tearDown(self):
     shutil.rmtree(self._work_dir, ignore_errors=True)
 
-  def testDownloadFromLaunchControl(self):
-    """Basic test to check download from LaunchControl works."""
-    downloader_instance = downloader.LaunchControlDownloader(
-        self._work_dir, self.build_id, self.target)
+  def testDownloadFromAndroidBuildServer(self):
+    """Basic test to check download from Android's build server works."""
+    downloader_instance = downloader.AndroidBuildDownloader(
+        self._work_dir, self.branch, self.build_id, self.target)
     factory = build_artifact.AndroidArtifactFactory(
         downloader_instance.GetBuildDir(), ['fastboot'],
         None, downloader_instance.GetBuild())
@@ -130,17 +131,13 @@ class AndroidDownloaderTestBase(mox.MoxTestBase):
     self.mox.StubOutWithMock(downloader.Downloader,
                              '_DownloadArtifactsInBackground')
 
-    # TODO(dshi): Uncomment following line after Fetch method is implemented in
-    # LaunchControlDownloader.
-    # downloader.Downloader._DownloadArtifactsInBackground(mox.In(mox.IsA(
-    #     build_artifact.ANDROID_FASTBOOT)))
     downloader.Downloader._DownloadArtifactsSerially(
         [mox.IsA(build_artifact.Artifact)], no_wait=True)
     self.mox.ReplayAll()
     downloader_instance.Download(factory)
     # Sanity check the timestamp file exists.
     self.assertTrue(os.path.exists(
-        os.path.join(self._work_dir, self.target, self.build_id,
+        os.path.join(self._work_dir, self.branch, self.target, self.build_id,
                      downloader.Downloader._TIMESTAMP_FILENAME)))
     self.mox.VerifyAll()
 

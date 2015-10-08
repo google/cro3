@@ -21,6 +21,15 @@ import common_util
 import gsutil_util
 import log_util
 
+try:
+  import android_build
+except ImportError as e:
+  # Ignore android_build import failure. This is to support devserver running
+  # inside a ChromeOS device triggered by cros flash. Most ChromeOS test images
+  # do not have google-api-python-client module and they don't need to support
+  # Android updating, therefore, ignore the import failure here.
+  android_build = None
+
 
 class DownloaderException(Exception):
   """Exception that aggregates all exceptions raised during async download.
@@ -51,7 +60,7 @@ class Downloader(log_util.Loggable):
   """Downloader of images to the devsever.
 
   This is the base class for different types of downloaders, including
-  GoogleStorageDownloader, LocalDownloader and LaunchControlDownloader.
+  GoogleStorageDownloader, LocalDownloader and AndroidBuildDownloader.
 
   Given a URL to a build on the archive server:
     - Caches that build and the given artifacts onto the devserver.
@@ -388,24 +397,27 @@ class LocalDownloader(Downloader):
     return self.source_path
 
 
-class LaunchControlDownloader(Downloader):
-  """Downloader of images to the devserver from launch control."""
+class AndroidBuildDownloader(Downloader):
+  """Downloader of images to the devserver from Android's build server."""
 
-  def __init__(self, static_dir, build_id, target):
-    """Initialize LaunchControlDownloader.
+  def __init__(self, static_dir, branch, build_id, target):
+    """Initialize AndroidBuildDownloader.
 
     Args:
       static_dir: Root directory to store the build.
+      branch: Branch for the build. Download will always verify if the given
+              build id is for the branch.
       build_id: Build id of the Android build, e.g., 2155602.
       target: Target of the Android build, e.g., shamu-userdebug.
     """
-    build = '%s/%s' % (target, build_id)
+    build = '%s/%s/%s' % (branch, target, build_id)
     build_dir = os.path.join(static_dir, '', build)
 
+    self.branch = branch
     self.build_id = build_id
     self.target = target
 
-    super(LaunchControlDownloader, self).__init__(static_dir, build_dir, build)
+    super(AndroidBuildDownloader, self).__init__(static_dir, build_dir, build)
 
   def Wait(self, name, is_regex_name, timeout):
     """Verifies the local artifact exists and returns the appropriate names.
@@ -421,12 +433,31 @@ class LaunchControlDownloader(Downloader):
     Raises:
       ArtifactDownloadError: An error occurred when obtaining artifact.
     """
-    raise NotImplementedError()
+    artifacts = android_build.BuildAccessor.GetArtifacts(
+        branch=self.branch, build_id=self.build_id, target=self.target)
+
+    names = []
+    for artifact_name in [a['name'] for a in artifacts]:
+      match = (re.match(name, artifact_name) if is_regex_name
+               else name == artifact_name)
+      if match:
+        names.append(artifact_name)
+
+    if not names:
+      raise build_artifact.ArtifactDownloadError(
+          'No artifact found with given name: %s for %s-%s' %
+          (name, self.target, self.build_id))
+
+    return names
 
   def Fetch(self, remote_name, local_path):
-    """Downloads artifact from LaunchControl to a local directory."""
-    install_path = os.path.join(local_path, remote_name)
-    return install_path
+    """Downloads artifact from Android's build server to a local directory."""
+    dest_file = os.path.join(local_path, remote_name)
+    android_build.BuildAccessor.Download(
+        branch=self.branch, build_id=self.build_id, target=self.target,
+        resource_id=remote_name, dest_file=dest_file)
+    return dest_file
 
   def DescribeSource(self):
-    raise NotImplementedError()
+    return '%s/%s/%s/%s' % (android_build.DEFAULT_BUILDER, self.branch,
+                            self.target, self.build_id)

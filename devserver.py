@@ -91,6 +91,15 @@ except OSError as e:
        'not be collected.', e)
   psutil = None
 
+try:
+  import android_build
+except ImportError as e:
+  # Ignore android_build import failure. This is to support devserver running
+  # inside a ChromeOS device triggered by cros flash. Most ChromeOS test images
+  # do not have google-api-python-client module and they don't need to support
+  # Android updating, therefore, ignore the import failure here.
+  _Log('Import module android_build failed with error: %s', e)
+  android_build = None
 
 CACHED_ENTRIES = 12
 
@@ -224,10 +233,12 @@ def _get_downloader(kwargs):
       dl = downloader.GoogleStorageDownloader(updater.static_dir, archive_url)
   elif not dl:
     target = kwargs.get('target', None)
-    if not target:
-      raise DevServerError('target must be specified for Android build.')
-    dl = downloader.LaunchControlDownloader(updater.static_dir, build_id,
-                                            target)
+    branch = kwargs.get('branch', None)
+    if not target or not branch:
+      raise DevServerError(
+          'Both target and branch must be specified for Android build.')
+    dl = downloader.AndroidBuildDownloader(updater.static_dir, branch, build_id,
+                                           target)
 
   return dl
 
@@ -244,7 +255,7 @@ def _get_downloader_and_factory(kwargs):
   if (isinstance(dl, downloader.GoogleStorageDownloader) or
       isinstance(dl, downloader.LocalDownloader)):
     factory_class = build_artifact.ChromeOSArtifactFactory
-  elif isinstance(dl, downloader.LaunchControlDownloader):
+  elif isinstance(dl, downloader.AndroidBuildDownloader):
     factory_class = build_artifact.AndroidArtifactFactory
   else:
     raise DevServerError('Unrecognized value for downloader type: %s' %
@@ -670,7 +681,7 @@ class DevServerRoot(object):
     """Downloads and caches build artifacts.
 
     Downloads and caches build artifacts, possibly from a Google Storage URL,
-    or from Android's LaunchControl. Returns once these have been downloaded
+    or from Android's build server. Returns once these have been downloaded
     on the devserver. A call to this will attempt to cache non-specified
     artifacts in the background for the given from the given URL following
     the principle of spatial locality. Spatial locality of different
@@ -1325,6 +1336,10 @@ def main():
                     default=False,
                     help='If set, allow xbuddy to manage images in'
                     'build/images.')
+  parser.add_option('-a', '--android_build_credential',
+                    default=None,
+                    help='Path to a json file which contains the credential '
+                    'needed to access Android builds.')
   _AddProductionOptions(parser)
   _AddUpdateOptions(parser)
   _AddTestingOptions(parser)
@@ -1408,6 +1423,9 @@ def main():
   if options.portfile:
     cherrypy_ext.PortFile(cherrypy.engine, options.portfile).subscribe()
 
+  if options.android_build_credential:
+    with open(options.android_build_credential) as f:
+      android_build.BuildAccessor.credential_info = json.load(f)
   cherrypy.quickstart(dev_server, config=_GetConfig(options))
 
 

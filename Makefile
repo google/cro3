@@ -13,6 +13,7 @@ install:
 	install -m 0755 host/start_devserver "${DESTDIR}/usr/bin"
 	install -m 0755 devserver.py "${DESTDIR}/usr/lib/devserver"
 	install -m 0644  \
+		android_build.py \
 		artifact_info.py \
 		autoupdate.py \
 		autoupdate_lib.py \
