@@ -13,10 +13,12 @@
 #  sign        generate a signed payload
 #
 #  Generate command arguments:
-#  --payload       generated unsigned payload output file
-#  --source_image  if defined, generate a delta payload from the specified
-#                  image to the target_image
-#  --target_image  the target image that should be sent to clients
+#  --payload             generated unsigned payload output file
+#  --source_image        if defined, generate a delta payload from the specified
+#                        image to the target_image
+#  --target_image        the target image that should be sent to clients
+#  --metadata_size_file  if defined, generate a file containing the size of the payload
+#                        metadata in bytes to the specified file
 #
 #  Hash command arguments:
 #  --unsigned_payload    the input unsigned payload to generate the hash from
@@ -38,6 +40,9 @@
 #  --metadata_signature_file the metadata signature files in the following
 #                            format:
 #                            "metadata_signature1:metadata_signature2[:...]"
+#  --metadata_size_file      if defined, generate a file containing the size of
+#                            the signed payload metadata in bytes to the
+#                            specified file
 #  Note that the number of signature sizes and payload signatures have to match.
 
 # Load common CrOS utilities.  Inside the chroot this file is installed in
@@ -119,6 +124,8 @@ if [[ "${COMMAND}" == "generate" ]]; then
     "Path to the target image that should be sent to clients."
   DEFINE_string source_image "" \
     "Optional: Path to a source image. If specified, this makes a delta update."
+  DEFINE_string metadata_size_file "" \
+    "Optional: Path to output metadata size."
 fi
 if [[ "${COMMAND}" == "hash" || "${COMMAND}" == "sign" ]]; then
   DEFINE_string unsigned_payload "" "Path to the input unsigned payload."
@@ -140,6 +147,8 @@ metadata_signature1:metadata_signature2[:...]"
   DEFINE_string payload_signature_file "" \
     "The payload signatures in the following format: \
 payload_signature1:payload_signature2[:...]"
+  DEFINE_string metadata_size_file "" \
+    "Optional: Path to output metadata size."
 fi
 DEFINE_string work_dir "/tmp" "Where to dump temporary files."
 
@@ -379,8 +388,12 @@ cmd_generate() {
     GENERATOR_ARGS+=( --major_version="${FORCE_MAJOR_VERSION}" )
   fi
 
+  if [[ -n "${FLAGS_metadata_size_file}" ]]; then
+    GENERATOR_ARGS+=( --out_metadata_size_file="${FLAGS_metadata_size_file}" )
+  fi
+
   echo "Running delta_generator with args: ${GENERATOR_ARGS[@]}"
-    "${GENERATOR}" "${GENERATOR_ARGS[@]}"
+  "${GENERATOR}" "${GENERATOR_ARGS[@]}"
 
   echo "Done generating ${payload_type} update."
 }
@@ -438,12 +451,19 @@ validate_sign() {
 }
 
 cmd_sign() {
-  "${GENERATOR}" \
-      -in_file="${FLAGS_unsigned_payload}" \
-      -signature_size="${FLAGS_signature_size}" \
-      -signature_file="${FLAGS_payload_signature_file}" \
-      -metadata_signature_file="${FLAGS_metadata_signature_file}" \
-      -out_file="${FLAGS_payload}"
+  GENERATOR_ARGS=(
+    -in_file="${FLAGS_unsigned_payload}"
+    -signature_size="${FLAGS_signature_size}"
+    -signature_file="${FLAGS_payload_signature_file}"
+    -metadata_signature_file="${FLAGS_metadata_signature_file}"
+    -out_file="${FLAGS_payload}"
+  )
+
+  if [[ -n "${FLAGS_metadata_size_file}" ]]; then
+    GENERATOR_ARGS+=( --out_metadata_size_file="${FLAGS_metadata_size_file}" )
+  fi
+
+  "${GENERATOR}" "${GENERATOR_ARGS[@]}"
   echo "Done signing payload."
 }
 
