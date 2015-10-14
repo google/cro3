@@ -295,6 +295,7 @@ DST_ROOT=$(extract_root "${FLAGS_image}" "${FLAGS_root_path}")
 
 GENERATOR_ARGS=(
   # Common payload args:
+  -major_version=1
   -out_file="${FLAGS_output}"
   -private_key="${FLAGS_private_key}"
   # Target image args:

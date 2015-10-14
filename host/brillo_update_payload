@@ -267,6 +267,10 @@ extract_image_cros() {
     --kern_path "${kernel}" --root_path "${root}" \
     --work_dir "${FLAGS_work_dir}" --outside_chroot
 
+  # Chrome OS uses major_version 1 payloads for all versions, even if the
+  # updater supports a newer major version.
+  FORCE_MAJOR_VERSION="1"
+
   # When generating legacy Chrome OS images, we need to use "boot" and "system"
   # for the partition names to be compatible with updating Brillo devices with
   # Chrome OS images.
@@ -293,6 +297,9 @@ extract_image_brillo() {
   # sanitize the list of partition names to be in [a-zA-Z0-9-]+.
   local partitions=( "boot" "system" )
 
+  # All Brillo updaters support major version 2.
+  FORCE_MAJOR_VERSION="2"
+
   if [[ "${partitions_array}" == "SRC_PARTITIONS" ]]; then
     ue_config=$(create_tempfile "ue_config.XXXXXX")
     CLEANUP_FILES+=("${ue_config}")
@@ -301,8 +308,12 @@ extract_image_brillo() {
       warn "No update_engine_config.txt found. Assuming pre-release image, \
 using payload minor version 2"
     fi
+    # For delta payloads, we use the major and minor version supported by the
+    # old updater.
     FORCE_MINOR_VERSION=$(read_option_uint "${ue_config}" \
       "PAYLOAD_MINOR_VERSION" 2)
+    FORCE_MAJOR_VERSION=$(read_option_uint "${ue_config}" \
+      "PAYLOAD_MAJOR_VERSION" 2)
   fi
 
   local part part_file temp_raw filesize
