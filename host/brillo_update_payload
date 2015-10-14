@@ -45,29 +45,26 @@
 #                            specified file
 #  Note that the number of signature sizes and payload signatures have to match.
 
-# Load common CrOS utilities.  Inside the chroot this file is installed in
-# /usr/lib/crosutils.  This script may also be called from a zipfile, in which
-# case common.sh will be in the current directory.
-find_common_sh() {
-  local thisdir="$(dirname "$(readlink -f "$0")")"
-  local common_paths=(/usr/lib/crosutils "${thisdir}")
-  local path
-
-  SCRIPT_ROOT="${common_paths[0]}"
-  for path in "${common_paths[@]}"; do
-    if [[ -r "${path}/common.sh" ]]; then
-      SCRIPT_ROOT="${path}"
-      break
-    fi
-  done
-
-  # We have to fake GCLIENT_ROOT in case we're running inside
-  # au_zip enviroment. GCLIENT_ROOT detection became fatal.
-  [[ "${SCRIPT_ROOT}" == "${thisdir}" ]] && export GCLIENT_ROOT="."
+die() {
+  echo "brillo_update_payload: error: $*" >&2
+  exit 1
 }
 
-find_common_sh
-. "${SCRIPT_ROOT}/common.sh" || exit 1
+# Loads shflags. We first look at the default install location; then look for
+# crosutils (chroot); finally check our own directory (au-generator zipfile).
+load_shflags() {
+  local my_dir="$(dirname "$(readlink -f "$0")")"
+  local path
+  for path in /usr/share/misc {/usr/lib/crosutils,"${my_dir}"}/lib/shflags; do
+    if [[ -r "${path}/shflags" ]]; then
+      . "${path}/shflags" || die "Could not load ${path}/shflags."
+      return
+    fi
+  done
+  die "Could not find shflags."
+}
+
+load_shflags
 
 HELP_GENERATE="generate: Generate an unsigned update payload."
 HELP_HASH="hash: Generate the hashes of the unsigned payload and metadata used \
