@@ -49,14 +49,52 @@ class Payload(object):
   class _PayloadHeader(object):
     """Update payload header struct."""
 
-    def __init__(self, version, manifest_len):
-      self.version = version
-      self.manifest_len = manifest_len
+    # Header constants; sizes are in bytes.
+    _MAGIC = 'CrAU'
+    _VERSION_SIZE = 8
+    _MANIFEST_LEN_SIZE = 8
+    _METADATA_SIGNATURE_LEN_SIZE = 4
 
-  # Header constants; sizes are in bytes.
-  _MAGIC = 'CrAU'
-  _VERSION_SIZE = 8
-  _MANIFEST_LEN_SIZE = 8
+    def __init__(self):
+      self.version = None
+      self.manifest_len = None
+      self.metadata_signature_len = None
+      self.size = None
+
+    def ReadFromPayload(self, payload_file, hasher=None):
+      """Reads the payload header from a file.
+
+      Reads the payload header from the |payload_file| and updates the |hasher|
+      if one is passed. The parsed header is stored in the _PayloadHeader
+      instance attributes.
+
+      Args:
+        payload_file: a file object
+        hasher: an optional hasher to pass the value through
+      Returns:
+        None.
+      Raises:
+        PayloadError if a read error occurred or the header is invalid.
+      """
+      # Verify magic
+      magic = common.Read(payload_file, len(self._MAGIC), hasher=hasher)
+      if magic != self._MAGIC:
+        raise PayloadError('invalid payload magic: %s' % magic)
+
+      self.version = _ReadInt(payload_file, self._VERSION_SIZE, True,
+                              hasher=hasher)
+      self.manifest_len = _ReadInt(payload_file, self._MANIFEST_LEN_SIZE, True,
+                                   hasher=hasher)
+      self.size = (len(self._MAGIC) + self._VERSION_SIZE +
+                   self._MANIFEST_LEN_SIZE)
+      self.metadata_signature_len = 0
+
+      if self.version == common.BRILLO_MAJOR_PAYLOAD_VERSION:
+        self.size += self._METADATA_SIGNATURE_LEN_SIZE
+        self.metadata_signature_len = _ReadInt(
+            payload_file, self._METADATA_SIGNATURE_LEN_SIZE, True,
+            hasher=hasher)
+
 
   def __init__(self, payload_file):
     """Initialize the payload object.
@@ -70,7 +108,9 @@ class Payload(object):
     self.is_init = False
     self.header = None
     self.manifest = None
-    self.data_offset = 0
+    self.data_offset = None
+    self.metadata_signature = None
+    self.metadata_size = None
 
   def _ReadHeader(self):
     """Reads and returns the payload header.
@@ -81,17 +121,9 @@ class Payload(object):
       PayloadError if a read error occurred.
 
     """
-    # Verify magic
-    magic = common.Read(self.payload_file, len(self._MAGIC),
-                        hasher=self.manifest_hasher)
-    if magic != self._MAGIC:
-      raise PayloadError('invalid payload magic: %s' % magic)
-
-    return self._PayloadHeader(
-        _ReadInt(self.payload_file, self._VERSION_SIZE, True,
-                 hasher=self.manifest_hasher),
-        _ReadInt(self.payload_file, self._MANIFEST_LEN_SIZE, True,
-                 hasher=self.manifest_hasher))
+    header = self._PayloadHeader()
+    header.ReadFromPayload(self.payload_file, self.manifest_hasher)
+    return header
 
   def _ReadManifest(self):
     """Reads and returns the payload manifest.
@@ -107,6 +139,23 @@ class Payload(object):
 
     return common.Read(self.payload_file, self.header.manifest_len,
                        hasher=self.manifest_hasher)
+
+  def _ReadMetadataSignature(self):
+    """Reads and returns the metadata signatures.
+
+    Returns:
+      A string containing the metadata signatures protobuf in binary form or
+      an empty string if no metadata signature found in the payload.
+    Raises:
+      PayloadError if a read error occurred.
+
+    """
+    if not self.header:
+      raise PayloadError('payload header not present')
+
+    return common.Read(
+        self.payload_file, self.header.metadata_signature_len,
+        offset=self.header.size + self.header.manifest_len)
 
   def ReadDataBlob(self, offset, length):
     """Reads and returns a single data blob from the update payload.
@@ -148,9 +197,14 @@ class Payload(object):
     self.manifest = update_metadata_pb2.DeltaArchiveManifest()
     self.manifest.ParseFromString(manifest_raw)
 
-    # Store data offset.
-    self.data_offset = (len(self._MAGIC) + self._VERSION_SIZE +
-                        self._MANIFEST_LEN_SIZE + self.header.manifest_len)
+    # Read the metadata signature (if any).
+    metadata_signature_raw = self._ReadMetadataSignature()
+    if metadata_signature_raw:
+      self.metadata_signature = update_metadata_pb2.Signatures()
+      self.metadata_signature.ParseFromString(metadata_signature_raw)
+
+    self.metadata_size = self.header.size + self.header.manifest_len
+    self.data_offset = self.metadata_size + self.header.metadata_signature_len
 
     self.is_init = True
 

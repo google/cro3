@@ -566,12 +566,15 @@ class Autoupdate(build_util.BuildObject):
     Returns:
       The size of the payload metadata, as reported in the payload header.
     """
-    # Handle corner-case where unit tests pass in empty payload files.
-    if os.path.getsize(payload_filename) < 20:
+    try:
+      with open(payload_filename) as payload_file:
+        payload = update_payload.Payload(payload_file)
+        payload.Init()
+        return payload.metadata_size
+    except (IOError, update_payload.PayloadError):
+      # For unit tests we may not have real files, so it's ok to ignore these
+      # errors.
       return 0
-    stream = open(payload_filename, 'rb')
-    stream.seek(16)
-    return struct.unpack('>I', stream.read(4))[0] + 20
 
   def GetLocalPayloadAttrs(self, payload_dir):
     """Returns hashes, size and delta flag of a local update payload.
