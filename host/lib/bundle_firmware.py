@@ -795,6 +795,16 @@ class Bundle:
         cb_copy, 'add-payload', '-f', payload_fname,
         '-n', 'fallback/payload', '-c', 'lzma' , '-H', '%d' % base])
 
+    if self.ecrw_fname:
+      self._tools.Run('cbfstool', [
+        cb_copy, 'add', '-f', self.ecrw_fname, '-t', 'raw',
+        '-n', 'ecrw', '-A', 'sha256', '-H', '%d' % base ])
+
+    if self.pdrw_fname:
+      self._tools.Run('cbfstool', [
+        cb_copy, 'add', '-f', self.pdrw_fname, '-t', 'raw',
+        '-n', 'pdrw', '-A', 'sha256', '-H', '%d' % base ])
+
     # And extract the blob for the FW section
     rw_section = os.path.join(self._tools.outdir, '_'.join(part_sections))
     self._tools.WriteFile(rw_section,
