@@ -771,8 +771,15 @@ class Bundle:
     # Base address and size of the desitnation partition
     base, size = self.fdt.GetFlashPart(*part_sections)
 
+    # Check if there's an advanced CBFS configuration request
+    node = self.fdt.GetFlashNode(*part_sections)
+    try:
+      cbfs_config = self.fdt.GetProps(node + '/cbfs-files')
+    except CmdError:
+      cbfs_config = None
+
     # Create a coreboot copy to use as a scratch pad.
-    cb_copy = os.path.join(self._tools.outdir, 'cb_copy')
+    cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_copy'))
     if not os.path.exists(cb_copy):
       self._tools.WriteFile(cb_copy, self._tools.ReadFile(self.coreboot_fname))
 
@@ -804,6 +811,44 @@ class Bundle:
       self._tools.Run('cbfstool', [
         cb_copy, 'add', '-f', self.pdrw_fname, '-t', 'raw',
         '-n', 'pdrw', '-A', 'sha256', '-H', '%d' % base ])
+
+    # add files to CBFS in RW regions more flexibly:
+    # rw-a-boot {
+    #   ...
+    #   cbfs-files {
+    #    ecfoo = "add -n ecrw-copy -f ec.RW.bin -t raw -A sha256";
+    #   };
+    # };
+    # adds a file called "ecrw-copy" of raw type to FW_MAIN_A with the
+    # content of ec.RW.bin in the build root, with a SHA256 hash.
+    # The dts property name ("ecfoo") is ignored but should be unique,
+    # all cbfstool commands that start with "add" are allowed.
+    # The second and third argument need to be "-n <cbfs file name>".
+    if cbfs_config != None:
+      # remove all files slated for addition, in case they already exist
+      for val in cbfs_config.itervalues():
+        f = val.split(' ')
+        command = f[0]
+        if command[:3] != 'add':
+          raise CmdError("first argument in '%s' must start with 'add'", f)
+        if f[1] != '-n':
+          raise CmdError("second argument in '%s' must be '-n'", f)
+        cbfsname = f[2]
+        try:
+          self._tools.Run('cbfstool', [cb_copy, 'remove', '-H', '%d' % base,
+                                       '-n', cbfsname])
+        except CmdError:
+          pass # the most likely error is that the file doesn't already exist
+
+      # now add the files
+      for val in cbfs_config.itervalues():
+        f = val.split(' ')
+        command = f[0]
+        cbfsname = f[2]
+        args = f[3:]
+        self._tools.Run('cbfstool', [cb_copy, command, '-H', '%d' % base,
+                                     '-n', cbfsname] + args,
+                                     self._tools.Filename(self._GetBuildRoot()))
 
     # And extract the blob for the FW section
     rw_section = os.path.join(self._tools.outdir, '_'.join(part_sections))
