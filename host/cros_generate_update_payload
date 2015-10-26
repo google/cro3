@@ -37,6 +37,7 @@ DEFINE_string src_image "" "Optional: a source image. If specified, this makes\
 DEFINE_string output "" "Output file"
 DEFINE_boolean outside_chroot "${FLAGS_FALSE}" "Running outside of chroot."
 DEFINE_string private_key "" "Path to private key in .pem format."
+DEFINE_string out_payload_hash_file "" "Path to output payload hash file."
 DEFINE_string out_metadata_hash_file "" "Path to output metadata hash file."
 DEFINE_boolean extract "${FLAGS_FALSE}" "If set, extract old/new kernel/rootfs \
 to [old|new]_[kern|root].dat. Useful for debugging (default: false)"
@@ -342,7 +343,14 @@ fi
 echo "Running delta_generator with args: ${GENERATOR_ARGS[@]}"
 "${GENERATOR}" "${GENERATOR_ARGS[@]}"
 
-if [[ -n "${FLAGS_out_metadata_hash_file}" ]]; then
+if [[ -n "${FLAGS_out_payload_hash_file}" ||
+      -n "${FLAGS_out_metadata_hash_file}" ]]; then
+    # The out_metadata_hash_file flag requires out_hash_file flag to be set in
+    # delta_generator, if the caller doesn't provide it, we set it to /dev/null.
+    OUT_PAYLOAD_HASH_FILE="${FLAGS_out_payload_hash_file}"
+    if [[ -z "${OUT_PAYLOAD_HASH_FILE}" ]]; then
+      OUT_PAYLOAD_HASH_FILE="/dev/null"
+    fi
     # The manifest - unfortunately - contain two fields called
     # signature_offset and signature_size with data about the how the
     # manifest is signed. This means we have to pass the signature
@@ -351,6 +359,7 @@ if [[ -n "${FLAGS_out_metadata_hash_file}" ]]; then
     "${GENERATOR}" \
         -in_file="${FLAGS_output}" \
         -signature_size=256 \
+        -out_hash_file="${OUT_PAYLOAD_HASH_FILE}" \
         -out_metadata_hash_file="${FLAGS_out_metadata_hash_file}"
 fi
 

@@ -403,26 +403,17 @@ validate_hash() {
     die "Error: you must specify the input unsigned payload with \
 --unsigned_payload FILENAME"
 
-  [[ -n "${FLAGS_metadata_hash_file}" ]] ||
   [[ -n "${FLAGS_payload_hash_file}" ]] ||
-    die "Error: you must specify --metadata_hash_file FILENAME \
-or --payload_hash_file FILENAME"
+    die "Error: you must specify --payload_hash_file FILENAME"
 }
 
 cmd_hash() {
-  if [[ -n "${FLAGS_metadata_hash_file}" ]]; then
-    "${GENERATOR}" \
-        -in_file="${FLAGS_unsigned_payload}" \
-        -signature_size="${FLAGS_signature_size}" \
-        -out_metadata_hash_file="${FLAGS_metadata_hash_file}"
-  fi
+  "${GENERATOR}" \
+      -in_file="${FLAGS_unsigned_payload}" \
+      -signature_size="${FLAGS_signature_size}" \
+      -out_hash_file="${FLAGS_payload_hash_file}" \
+      -out_metadata_hash_file="${FLAGS_metadata_hash_file}"
 
-  if [[ -n "${FLAGS_payload_hash_file}" ]]; then
-    "${GENERATOR}" \
-        -in_file="${FLAGS_unsigned_payload}" \
-        -signature_size="${FLAGS_signature_size}" \
-        -out_hash_file="${FLAGS_payload_hash_file}"
-  fi
   echo "Done generating hash."
 }
 
