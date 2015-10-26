@@ -203,6 +203,23 @@ def _get_artifacts(kwargs):
           str(files).split(',') if files else [])
 
 
+def _is_android_build_request(kwargs):
+  """Check if a devserver call is for Android build, based on the arguments.
+
+  This method exams the request's arguments (os_type) to determine if the
+  request is for Android build. If os_type is set to `android`, returns True.
+  If os_type is not set or has other values, returns False.
+
+  Args:
+    kwargs: Keyword arguments for the request.
+
+  Returns:
+    True if the request is for Android build. False otherwise.
+  """
+  os_type = kwargs.get('os_type', None)
+  return os_type == 'android'
+
+
 def _get_downloader(kwargs):
   """Returns the downloader based on passed in arguments.
 
@@ -217,10 +234,7 @@ def _get_downloader(kwargs):
   if local_path:
     dl = downloader.LocalDownloader(updater.static_dir, local_path)
 
-  # Only Android build requires argument build_id. If it's not set, assume
-  # the download request is for ChromeOS.
-  build_id = kwargs.get('build_id', None)
-  if not build_id:
+  if not _is_android_build_request(kwargs):
     archive_url = kwargs.get('archive_url')
     if not archive_url and not local_path:
       raise DevServerError('Requires archive_url or local_path to be '
@@ -234,9 +248,11 @@ def _get_downloader(kwargs):
   elif not dl:
     target = kwargs.get('target', None)
     branch = kwargs.get('branch', None)
-    if not target or not branch:
+    build_id = kwargs.get('build_id', None)
+    if not target or not branch or not build_id:
       raise DevServerError(
-          'Both target and branch must be specified for Android build.')
+          'target, branch, build ID must all be specified for downloading '
+          'Android build.')
     dl = downloader.AndroidBuildDownloader(updater.static_dir, branch, build_id,
                                            target)
 
@@ -853,6 +869,16 @@ class DevServerRoot(object):
 
     if 'target' not in kwargs:
       raise common_util.DevServerHTTPError(500, 'Error: target= is required!')
+
+    if _is_android_build_request(kwargs):
+      branch = kwargs.get('branch', None)
+      target = kwargs.get('target', None)
+      if not target or not branch:
+        raise DevServerError(
+          'Both target and branch must be specified to query for the latest '
+          'Android build.')
+      return android_build.BuildAccessor.GetLatestBuildID(target, branch)
+
     try:
       return common_util.GetLatestBuildVersion(
           updater.static_dir, kwargs['target'],

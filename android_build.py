@@ -118,3 +118,25 @@ class BuildAccessor(object):
       done = None
       while not done:
         _, done = downloader.next_chunk()
+
+  @classmethod
+  def GetLatestBuildID(cls, target, branch):
+    """Get the latest build ID for the given target and branch.
+
+    Args:
+      branch: branch of the desired build.
+      target: Target of the Android build, e.g., shamu-userdebug.
+
+    Returns:
+      Build id of the latest successful Android build for the given target and
+      branch, e.g., 2155602.
+    """
+    service_obj = cls._GetServiceObject()
+    builds = service_obj.build().list(
+        buildType='submitted', branch=branch, target=target, successful=True,
+        maxResults=1).execute()
+    if not builds or not builds['builds']:
+      raise AndroidBuildFetchError(
+          'Failed to locate build with branch %s and target %s.' %
+          (branch, target))
+    return builds['builds'][0]['buildId']
