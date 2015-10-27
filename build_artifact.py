@@ -45,7 +45,7 @@ RECOVERY_IMAGE_FILE = 'recovery_image.tar.xz'
 
 ############ Actual filenames of Android build artifacts ############
 
-ANDROID_IMAGE_ZIP = '*-img-*.zip'
+ANDROID_IMAGE_ZIP = r'.*-img-[^-]*\.zip'
 ANDROID_RADIO_IMAGE = 'radio.img'
 ANDROID_BOOTLOADER_IMAGE = 'bootloader.img'
 ANDROID_FASTBOOT = 'fastboot'
@@ -622,7 +622,7 @@ def _AddAndroidArtifact(tag, base, name, *fixed_args, **fixed_kwargs):
   android_artifact_map.setdefault(tag, []).append(artifact)
 
 
-_AddAndroidArtifact(artifact_info.ANDROID_ZIP_IMAGES, BundledArtifact,
+_AddAndroidArtifact(artifact_info.ANDROID_ZIP_IMAGES, Artifact,
                     ANDROID_IMAGE_ZIP, is_regex_name=True)
 _AddAndroidArtifact(artifact_info.ANDROID_RADIO_IMAGE, Artifact,
                     ANDROID_RADIO_IMAGE)
