@@ -293,9 +293,22 @@ extract_image_brillo() {
   local image="$1"
   local partitions_array="$2"
 
-  # TODO(deymo): Read the list of partitions from the metadata. We should
-  # sanitize the list of partition names to be in [a-zA-Z0-9-]+.
   local partitions=( "boot" "system" )
+  local ab_partitions_list
+  ab_partitions_list=$(create_tempfile "ab_partitions_list.XXXXXX")
+  CLEANUP_FILES+=("${ab_partitions_list}")
+  if unzip -p "${image}" "META/ab_partitions.txt" >"${ab_partitions_list}"; then
+    if grep -v -E '^[a-zA-Z0-9_-]*$' "${ab_partitions_list}" >&2; then
+      die "Invalid partition names found in the partition list."
+    fi
+    partitions=($(cat "${ab_partitions_list}"))
+    if [[ ${#partitions[@]} -eq 0 ]]; then
+      die "The list of partitions is empty. Can't generate a payload."
+    fi
+  else
+    warn "No ab_partitions.txt found. Using default."
+  fi
+  echo "List of A/B partitions: ${partitions[@]}"
 
   # All Brillo updaters support major version 2.
   FORCE_MAJOR_VERSION="2"
@@ -372,20 +385,31 @@ cmd_generate() {
   fi
 
   echo "Generating ${payload_type} update."
-  GENERATOR_ARGS=(
-    # Common payload args:
-    -out_file="${FLAGS_payload}"
-    # Target image args:
-    # TODO(deymo): Pass the list of partitions to the generator.
-    -new_image="${DST_PARTITIONS[system]}"
-    -new_kernel="${DST_PARTITIONS[boot]}"
+  # Common payload args:
+  GENERATOR_ARGS=( -out_file="${FLAGS_payload}" )
+
+  local part old_partitions="" new_partitions="" partition_names=""
+  for part in "${!DST_PARTITIONS[@]}"; do
+    if [[ -n "${partition_names}" ]]; then
+      partition_names+=":"
+      new_partitions+=":"
+      old_partitions+=":"
+    fi
+    partition_names+="${part}"
+    new_partitions+="${DST_PARTITIONS[${part}]}"
+    old_partitions+="${SRC_PARTITIONS[${part}]:-}"
+  done
+
+  # Target image args:
+  GENERATOR_ARGS+=(
+    -partition_names="${partition_names}"
+    -new_partitions="${new_partitions}"
   )
 
   if [[ "${payload_type}" == "delta" ]]; then
+    # Source image args:
     GENERATOR_ARGS+=(
-      # Source image args:
-      -old_image="${SRC_PARTITIONS[system]}"
-      -old_kernel="${SRC_PARTITIONS[boot]}"
+      -old_partitions="${old_partitions}"
     )
     if [[ -n "${FORCE_MINOR_VERSION}" ]]; then
       GENERATOR_ARGS+=( --minor_version="${FORCE_MINOR_VERSION}" )
@@ -465,8 +489,6 @@ cmd_sign() {
   "${GENERATOR}" "${GENERATOR_ARGS[@]}"
   echo "Done signing payload."
 }
-
-# TODO: Extract the input zip files once the format is finalized
 
 # Sanity check that the real generator exists:
 GENERATOR="$(which delta_generator)"
