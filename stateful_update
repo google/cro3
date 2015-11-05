@@ -39,6 +39,12 @@ remove_quotes() {
   echo "$1" | sed -e "s/^'//; s/'$//"
 }
 
+download_stateful_payload(){
+  # Download and unzip directories onto the stateful partition.
+  eval "wget -qS -T 300 -O - \"${stateful_update_url}\"" |
+      tar --ignore-command-error --overwrite --directory=${STATEFUL_DIR} -xz
+}
+
 update_dev_image () {
   local base_update_url devserver_url
   local local_payload_path
@@ -62,17 +68,32 @@ update_dev_image () {
     base_update_url="${devserver_url}/static"
   # Determine whether the path is local.
   elif [ -f "${path}" ] || [ "${path}" = "-" ]; then
-   local_payload_path=${path}
+    local_payload_path=${path}
   else
-   base_update_url=${path}
+    base_update_url=${path}
   fi
 
   if [ -n "${base_update_url}" ]; then
     local stateful_update_url="${base_update_url}/stateful.tgz"
-    echo >&2 "Downloading stateful payload from ${stateful_update_url}"
-    # Download and unzip directories onto the stateful partition.
-    eval "wget -qS -T 300 -O - \"${stateful_update_url}\"" |
-        tar --ignore-command-error --overwrite --directory=${STATEFUL_DIR} -xz
+    local download_exit_code=0
+    for i in `seq 1 2`; do
+      if [ $i -eq 1 ]; then
+        echo >&2 "Downloading stateful payload from ${stateful_update_url}"
+      else
+        echo >&2 "Downloading failed, retrying."
+      fi
+      if download_stateful_payload; then
+        download_exit_code=$?
+        echo >&2 "Downloading command returns code ${download_exit_code}."
+        break
+      else
+        download_exit_code=$?
+        echo >&2 "Downloading command returns code ${download_exit_code}."
+      fi
+    done
+    if [ ${download_exit_code} -ne 0 ]; then
+      return ${download_exit_code}
+    fi
     echo >&2 "Successfully downloaded update."
   else
     echo >&2 "Reading local payload ${local_payload_path}"
