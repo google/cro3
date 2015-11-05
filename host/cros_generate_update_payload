@@ -185,7 +185,7 @@ extract_kern() {
   local kern_out="$2"
 
   kern_out=$(extract_partition_to_temp_file "${bin_file}" 4 "${kern_out}")
-  if $(cmp /dev/zero "${kern_out}" -n 65536 -s); then
+  if cmp /dev/zero "${kern_out}" -n 65536 -s; then
     warn "${bin_file}: Kernel B is empty, patching kernel A."
     extract_partition_to_temp_file "${bin_file}" 2 "${kern_out}" > /dev/null
     patch_kernel "${bin_file}" "${kern_out}" >&2
