@@ -45,6 +45,10 @@
 #                            specified file
 #  Note that the number of signature sizes and payload signatures have to match.
 
+warn() {
+  echo "brillo_update_payload: warning: $*" >&2
+}
+
 die() {
   echo "brillo_update_payload: error: $*" >&2
   exit 1
@@ -440,6 +444,9 @@ validate_hash() {
 
   [[ -n "${FLAGS_payload_hash_file}" ]] ||
     die "Error: you must specify --payload_hash_file FILENAME"
+
+  [[ -n "${FLAGS_metadata_hash_file}" ]] ||
+    die "Error: you must specify --metadata_hash_file FILENAME"
 }
 
 cmd_hash() {
