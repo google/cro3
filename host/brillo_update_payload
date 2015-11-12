@@ -170,6 +170,9 @@ CLEANUP_FILES=()
 FORCE_MAJOR_VERSION=""
 FORCE_MINOR_VERSION=""
 
+# Path to the postinstall config file in target image if exists.
+POSTINSTALL_CONFIG_FILE=""
+
 # read_option_int <file.txt> <option_key> [default_value]
 #
 # Reads the unsigned integer value associated with |option_key| in a key=value
@@ -318,7 +321,8 @@ extract_image_brillo() {
   FORCE_MAJOR_VERSION="2"
 
   if [[ "${partitions_array}" == "SRC_PARTITIONS" ]]; then
-    ue_config=$(create_tempfile "ue_config.XXXXXX")
+    # Source image
+    local ue_config=$(create_tempfile "ue_config.XXXXXX")
     CLEANUP_FILES+=("${ue_config}")
     if ! unzip -p "${image}" "META/update_engine_config.txt" \
         >"${ue_config}"; then
@@ -331,6 +335,14 @@ using payload minor version 2"
       "PAYLOAD_MINOR_VERSION" 2)
     FORCE_MAJOR_VERSION=$(read_option_uint "${ue_config}" \
       "PAYLOAD_MAJOR_VERSION" 2)
+  else
+    # Target image
+    local postinstall_config=$(create_tempfile "postinstall_config.XXXXXX")
+    CLEANUP_FILES+=("${postinstall_config}")
+    if unzip -p "${image}" "META/postinstall_config.txt" \
+        >"${postinstall_config}"; then
+      POSTINSTALL_CONFIG_FILE="${postinstall_config}"
+    fi
   fi
 
   local part part_file temp_raw filesize
@@ -426,6 +438,12 @@ cmd_generate() {
 
   if [[ -n "${FLAGS_metadata_size_file}" ]]; then
     GENERATOR_ARGS+=( --out_metadata_size_file="${FLAGS_metadata_size_file}" )
+  fi
+
+  if [[ -n "${POSTINSTALL_CONFIG_FILE}" ]]; then
+    GENERATOR_ARGS+=(
+      --new_postinstall_config_file="${POSTINSTALL_CONFIG_FILE}"
+    )
   fi
 
   echo "Running delta_generator with args: ${GENERATOR_ARGS[@]}"
