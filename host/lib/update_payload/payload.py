@@ -4,6 +4,8 @@
 
 """Tools for reading, verifying and applying Chrome OS update payloads."""
 
+from __future__ import print_function
+
 import hashlib
 import struct
 
@@ -30,11 +32,12 @@ def _ReadInt(file_obj, size, is_unsigned, hasher=None):
     size: the integer size in bytes (2, 4 or 8)
     is_unsigned: whether it is signed or not
     hasher: an optional hasher to pass the value through
+
   Returns:
     An "unpacked" (Python) integer value.
+
   Raises:
     PayloadError if an read error occurred.
-
   """
   return struct.unpack(common.IntPackingFmtStr(size, is_unsigned),
                        common.Read(file_obj, size, hasher=hasher))[0]
@@ -71,8 +74,10 @@ class Payload(object):
       Args:
         payload_file: a file object
         hasher: an optional hasher to pass the value through
+
       Returns:
         None.
+
       Raises:
         PayloadError if a read error occurred or the header is invalid.
       """
@@ -101,7 +106,6 @@ class Payload(object):
 
     Args:
       payload_file: update payload file object open for reading
-
     """
     self.payload_file = payload_file
     self.manifest_hasher = None
@@ -117,9 +121,9 @@ class Payload(object):
 
     Returns:
       A payload header object.
+
     Raises:
       PayloadError if a read error occurred.
-
     """
     header = self._PayloadHeader()
     header.ReadFromPayload(self.payload_file, self.manifest_hasher)
@@ -130,9 +134,9 @@ class Payload(object):
 
     Returns:
       A string containing the payload manifest in binary form.
+
     Raises:
       PayloadError if a read error occurred.
-
     """
     if not self.header:
       raise PayloadError('payload header not present')
@@ -146,9 +150,9 @@ class Payload(object):
     Returns:
       A string containing the metadata signatures protobuf in binary form or
       an empty string if no metadata signature found in the payload.
+
     Raises:
       PayloadError if a read error occurred.
-
     """
     if not self.header:
       raise PayloadError('payload header not present')
@@ -163,11 +167,12 @@ class Payload(object):
     Args:
       offset: offset to the beginning of the blob from the end of the manifest
       length: the blob's length
+
     Returns:
       A string containing the raw blob data.
+
     Raises:
       PayloadError if a read error occurred.
-
     """
     return common.Read(self.payload_file, length,
                        offset=self.data_offset + offset)
@@ -180,7 +185,6 @@ class Payload(object):
     Raises:
       PayloadError if object already initialized or fails to initialize
       correctly.
-
     """
     if self.is_init:
       raise PayloadError('payload object already initialized')
@@ -212,9 +216,9 @@ class Payload(object):
     """Emits the payload embedded description data to standard output."""
     def _DescribeImageInfo(description, image_info):
       def _DisplayIndentedValue(name, value):
-        print '  {:<14} {}'.format(name+':', value)
+        print('  {:<14} {}'.format(name+':', value))
 
-      print '%s:' % description
+      print('%s:' % description)
       _DisplayIndentedValue('Channel', image_info.channel)
       _DisplayIndentedValue('Board', image_info.board)
       _DisplayIndentedValue('Version', image_info.version)
@@ -247,7 +251,9 @@ class Payload(object):
     """Returns True iff the payload appears to be a delta."""
     self._AssertInit()
     return (self.manifest.HasField('old_kernel_info') or
-            self.manifest.HasField('old_rootfs_info'))
+            self.manifest.HasField('old_rootfs_info') or
+            any(partition.HasField('old_partition_info')
+                for partition in self.manifest.partitions))
 
   def IsFull(self):
     """Returns True iff the payload appears to be a full."""
@@ -269,9 +275,9 @@ class Payload(object):
       kernel_part_size: the size of (physical) kernel partitions in bytes
       allow_unhashed: allow unhashed operation blobs
       disabled_tests: list of tests to disable
+
     Raises:
       PayloadError if payload verification failed.
-
     """
     self._AssertInit()
 
@@ -300,9 +306,9 @@ class Payload(object):
       truncate_to_expected_size: whether to truncate the resulting partitions
                                  to their expected sizes, as specified in the
                                  payload (optional)
+
     Raises:
       PayloadError if payload application failed.
-
     """
     self._AssertInit()
 
@@ -327,7 +333,6 @@ class Payload(object):
       skip: the number of first origin mappings to skip
       trace_out_file: file object to dump the trace to
       is_kernel: trace through kernel (True) or rootfs (False) operations
-
     """
     self._AssertInit()
 
