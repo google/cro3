@@ -987,6 +987,19 @@ class PackFirmware:
       else:
         offset = entry.offset
 
+  def GetFmap(self):
+    """Get FMAP offset and contents
+
+    Returns:
+      Tuple of (FMAP offset, FMAP data)
+    """
+    for entry in self.entries:
+      if type(entry) != EntryFmap:
+        continue
+      entry.SetEntries(base=0, image_size=self.image_size,
+          entries=self.entries)
+      return (entry.offset, entry.GetData())
+
 def _Test():
   """Run any built-in tests."""
   import doctest

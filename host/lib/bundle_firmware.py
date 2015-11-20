@@ -753,10 +753,19 @@ class Bundle:
 
     # Create a coreboot copy to use as a scratch pad. Order matters. The
     # cbfs_files were added prior to this action. That's so the RW CBFS
-    # regions inherit the files from the RO CBFS region.
-    cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_copy'))
+    # regions inherit the files from the RO CBFS region. Additionally,
+    # include the full FMAP within the file.
+    cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_with_fmap'))
     self._tools.WriteFile(cb_copy, self._tools.ReadFile(bootstub))
-    pack.AddProperty('cb_copy', cb_copy)
+    binary = self._tools.ReadFile(bootstub)
+    fmap_offset, fmap = pack.GetFmap()
+    if len(binary) < fmap_offset + len(fmap):
+        raise CmdError('FMAP will not fit')
+    # Splice in FMAP data.
+    binary = binary[:fmap_offset] + fmap + binary[fmap_offset + len(fmap):]
+    self._tools.WriteFile(cb_copy, binary)
+    # Publish where coreboot is with the FMAP data.
+    pack.AddProperty('cb_with_fmap', cb_copy)
 
     # Add files to to RO CBFS if provided. This done here such that the
     # copy above does not contain the RO CBFS files.
@@ -790,13 +799,13 @@ class Bundle:
       blob_name: a string, blob name describing what FMAP section this CBFS
                  copy is destined to
     Raises:
-      CmdError if base coreboot image does not contain CBFS
+      CmdError if cbfs-files node has incorrect parameters.
       BlobDeferral if coreboot image with fmap is not available yet.
     """
 
-    cb_copy = pack.GetProperty('cb_copy')
+    cb_copy = pack.GetProperty('cb_with_fmap')
     if cb_copy is None:
-      raise BlobDeferral("Waiting for 'cb_copy' property.")
+      raise BlobDeferral("Waiting for 'cb_with_fmap' property")
 
     part_sections = blob_name.split('/')[1:]
 
