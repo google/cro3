@@ -802,12 +802,18 @@ class Bundle:
       CmdError if cbfs-files node has incorrect parameters.
       BlobDeferral if coreboot image with fmap is not available yet.
     """
+    def _FmapNameByPath(path):
+      """ Take list of names to form node path. Return FMAP name. """
+      lbl = self.fdt.GetLabel(self.fdt.GetFlashNode(*path))
+      return re.sub('-', '_', lbl).upper()
 
     cb_copy = pack.GetProperty('cb_with_fmap')
     if cb_copy is None:
       raise BlobDeferral("Waiting for 'cb_with_fmap' property")
 
     part_sections = blob_name.split('/')[1:]
+    fmap_src = _FmapNameByPath('ro-boot'.split('-'))
+    fmap_dst = _FmapNameByPath(part_sections)
 
     # Base address and size of the desitnation partition
     base, size = self.fdt.GetFlashPart(*part_sections)
@@ -820,8 +826,12 @@ class Bundle:
       cbfs_config = None
 
     # Copy CBFS to the required offset
-    self._tools.Run('cbfstool', [cb_copy, 'copy', '-D',
-                                 '%d' % base, '-s', '%d' % size])
+    self._tools.Run('cbfstool', [cb_copy, 'copy', '-r', fmap_dst,
+                                 '-R', fmap_src])
+
+    # Add a CBFS master header for good measure
+    self._tools.Run('cbfstool', [cb_copy, 'add-master-header',
+                                 '-r', fmap_dst])
 
     # Add coreboot payload if so requested. Note that the some images use
     # different payload for the rw sections, which is passed in as the value
@@ -836,17 +846,17 @@ class Bundle:
     if payload_fname:
       self._tools.Run('cbfstool', [
         cb_copy, 'add-payload', '-f', payload_fname,
-        '-n', 'fallback/payload', '-c', 'lzma' , '-H', '%d' % base])
+        '-n', 'fallback/payload', '-c', 'lzma' , '-r', fmap_dst])
 
     if self.ecrw_fname:
       self._tools.Run('cbfstool', [
         cb_copy, 'add', '-f', self.ecrw_fname, '-t', 'raw',
-        '-n', 'ecrw', '-A', 'sha256', '-H', '%d' % base ])
+        '-n', 'ecrw', '-A', 'sha256', '-r', fmap_dst ])
 
     if self.pdrw_fname:
       self._tools.Run('cbfstool', [
         cb_copy, 'add', '-f', self.pdrw_fname, '-t', 'raw',
-        '-n', 'pdrw', '-A', 'sha256', '-H', '%d' % base ])
+        '-n', 'pdrw', '-A', 'sha256', '-r', fmap_dst ])
 
     # add files to CBFS in RW regions more flexibly:
     # rw-a-boot {
@@ -875,7 +885,7 @@ class Bundle:
           # do it to keep operation more similar to the invocation in the next
           # loop.
           self._tools.Run('sh', [ '-c',
-            ' '.join(['cbfstool', cb_copy, 'remove', '-H', '%d' % base,
+            ' '.join(['cbfstool', cb_copy, 'remove', '-r', fmap_dst,
                                        '-n', cbfsname]) ])
         except CmdError:
           pass # the most likely error is that the file doesn't already exist
@@ -891,7 +901,7 @@ class Bundle:
         # cbfstool as -f romstage.elf${COREBOOT_VARIANT} and have that be
         # resolved to romstage.elf.serial when appropriate.
         self._tools.Run('sh', [ '-c',
-            ' '.join(['cbfstool', cb_copy, command, '-H', '%d' % base,
+            ' '.join(['cbfstool', cb_copy, command, '-r', fmap_dst,
                       '-n', cbfsname] + args)],
                       self._tools.Filename(self._GetBuildRoot()))
 
