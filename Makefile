@@ -26,6 +26,7 @@ install:
 		downloader.py \
 		gsutil_util.py \
 		log_util.py \
+		retry.py \
 		strip_package.py \
 		xbuddy.py \
 		xbuddy_config.ini\
