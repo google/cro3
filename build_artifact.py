@@ -50,6 +50,7 @@ ANDROID_RADIO_IMAGE = 'radio.img'
 ANDROID_BOOTLOADER_IMAGE = 'bootloader.img'
 ANDROID_FASTBOOT = 'fastboot'
 ANDROID_TEST_ZIP = r'[^-]*-tests-.*\.zip'
+ANDROID_VENDOR_PARTITION_ZIP = r'[^-]*-vendor_partitions-.*\.zip'
 
 _build_artifact_locks = common_util.LockDict()
 
@@ -631,6 +632,8 @@ _AddAndroidArtifact(artifact_info.ANDROID_BOOTLOADER_IMAGE, Artifact,
 _AddAndroidArtifact(artifact_info.ANDROID_FASTBOOT, Artifact, ANDROID_FASTBOOT)
 _AddAndroidArtifact(artifact_info.ANDROID_TEST_ZIP, BundledArtifact,
                     ANDROID_TEST_ZIP, is_regex_name=True)
+_AddAndroidArtifact(artifact_info.ANDROID_VENDOR_PARTITION_ZIP, Artifact,
+                    ANDROID_VENDOR_PARTITION_ZIP, is_regex_name=True)
 
 class BaseArtifactFactory(object):
   """A factory class that generates build artifacts from artifact names."""

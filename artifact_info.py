@@ -91,6 +91,9 @@ ANDROID_FASTBOOT = 'fastboot'
 # Test zip file for Android build, e.g., shamu-tests-2284311.zip
 ANDROID_TEST_ZIP = 'test_zip'
 
+# Zip file of vendor partitions used by Brillo device.
+ANDROID_VENDOR_PARTITION_ZIP = 'vendor_partitions'
+
 # In general, downloading one artifact usually indicates that the caller will
 # want to download other artifacts later. The following map explicitly defines
 # this relationship. Specifically:
