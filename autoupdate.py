@@ -6,6 +6,7 @@
 
 import base64
 import collections
+import fcntl
 import json
 import os
 import struct
@@ -226,8 +227,11 @@ class Autoupdate(build_util.BuildObject):
     """Returns metadata object from the metadata_file in the payload_dir"""
     metadata_file = os.path.join(payload_dir, constants.METADATA_FILE)
     if os.path.exists(metadata_file):
-      with open(metadata_file, 'r') as metadata_stream:
-        return Autoupdate._ReadMetadataFromStream(metadata_stream)
+      metadata_stream = open(metadata_file, 'r')
+      fcntl.lockf(metadata_stream.fileno(), fcntl.LOCK_SH)
+      metadata = Autoupdate._ReadMetadataFromStream(metadata_stream)
+      fcntl.lockf(metadata_stream.fileno(), fcntl.LOCK_UN)
+      return metadata
 
   @classmethod
   def _StoreMetadataToFile(cls, payload_dir, metadata_obj):
@@ -239,8 +243,10 @@ class Autoupdate(build_util.BuildObject):
                  cls.METADATA_SIZE_ATTR: metadata_obj.metadata_size,
                  cls.METADATA_HASH_ATTR: metadata_obj.metadata_hash}
     metadata_file = os.path.join(payload_dir, constants.METADATA_FILE)
-    with open(metadata_file, 'w') as file_handle:
-      json.dump(file_dict, file_handle)
+    file_handle = open(metadata_file, 'w')
+    fcntl.lockf(file_handle.fileno(), fcntl.LOCK_EX)
+    json.dump(file_dict, file_handle)
+    fcntl.lockf(file_handle.fileno(), fcntl.LOCK_UN)
 
   @staticmethod
   def _GetVersionFromDir(image_dir):
