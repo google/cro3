@@ -97,7 +97,9 @@ PROFILE_OVERRIDE="${FLAGS_profile:-$(get_variable "${SYSROOT_CACHE}" \
 
 if [ ! -z "${PROFILE_OVERRIDE}" ]; then  # profile specified. must exist or we fail
   if [ -d "${PROFILE_OVERRIDE}" ]; then
-    PROFILES_DIR="${PROFILE_OVERRIDE}"
+    # Make sure we get the full path since we'll be creating a symlink to it.
+    # Relative paths won't work. http://crbug.com/567959
+    PROFILES_DIR=$(realpath "${PROFILE_OVERRIDE}")
   else
     PROFILE_NAME="${PROFILE_OVERRIDE}"
   fi
