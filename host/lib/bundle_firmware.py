@@ -836,8 +836,12 @@ class Bundle:
           raise CmdError("second argument in '%s' must be '-n'", f)
         cbfsname = f[2]
         try:
-          self._tools.Run('cbfstool', [cb_copy, 'remove', '-H', '%d' % base,
-                                       '-n', cbfsname])
+          # Calling through shell isn't strictly necessary here, but we still
+          # do it to keep operation more similar to the invocation in the next
+          # loop.
+          self._tools.Run('sh', [ '-c',
+            ' '.join(['cbfstool', cb_copy, 'remove', '-H', '%d' % base,
+                                       '-n', cbfsname]) ])
         except CmdError:
           pass # the most likely error is that the file doesn't already exist
 
@@ -847,9 +851,14 @@ class Bundle:
         command = f[0]
         cbfsname = f[2]
         args = f[3:]
-        self._tools.Run('cbfstool', [cb_copy, command, '-H', '%d' % base,
-                                     '-n', cbfsname] + args,
-                                     self._tools.Filename(self._GetBuildRoot()))
+        # Call through shell so variable expansion can happen. With a change
+        # to the ebuild this enables specifying filename arguments to
+        # cbfstool as -f romstage.elf${COREBOOT_VARIANT} and have that be
+        # resolved to romstage.elf.serial when appropriate.
+        self._tools.Run('sh', [ '-c',
+            ' '.join(['cbfstool', cb_copy, command, '-H', '%d' % base,
+                      '-n', cbfsname] + args)],
+                      self._tools.Filename(self._GetBuildRoot()))
 
     # And extract the blob for the FW section
     rw_section = os.path.join(self._tools.outdir, '_'.join(part_sections))
