@@ -1079,7 +1079,8 @@ class PayloadCheckerTest(mox.MoxTestBase):
     should_succeed = (
         (minor_version == 0 and payload_type == checker._TYPE_FULL) or
         (minor_version == 1 and payload_type == checker._TYPE_DELTA) or
-        (minor_version == 2 and payload_type == checker._TYPE_DELTA))
+        (minor_version == 2 and payload_type == checker._TYPE_DELTA) or
+        (minor_version == 3 and payload_type == checker._TYPE_DELTA))
     args = (report,)
 
     if should_succeed:
@@ -1302,7 +1303,7 @@ def AddAllParametricTests():
 
   # Add all _CheckManifestMinorVersion() test cases.
   AddParametricTests('CheckManifestMinorVersion',
-                     {'minor_version': (None, 0, 1, 2, 555),
+                     {'minor_version': (None, 0, 1, 2, 3, 555),
                       'payload_type': (checker._TYPE_FULL,
                                        checker._TYPE_DELTA)})
 

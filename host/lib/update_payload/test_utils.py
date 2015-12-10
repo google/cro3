@@ -219,9 +219,11 @@ class PayloadGenerator(object):
     """Writes a payload heaer to a file."""
     # We need to access protected members in Payload for writing the header.
     # pylint: disable=W0212
-    file_obj.write(payload.Payload._MAGIC)
-    _WriteInt(file_obj, payload.Payload._VERSION_SIZE, True, self.version)
-    _WriteInt(file_obj, payload.Payload._MANIFEST_LEN_SIZE, True, manifest_len)
+    file_obj.write(payload.Payload._PayloadHeader._MAGIC)
+    _WriteInt(file_obj, payload.Payload._PayloadHeader._VERSION_SIZE, True,
+              self.version)
+    _WriteInt(file_obj, payload.Payload._PayloadHeader._MANIFEST_LEN_SIZE, True,
+              manifest_len)
 
   def WriteToFile(self, file_obj, manifest_len=-1, data_blobs=None,
                   sigs_data=None, padding=None):

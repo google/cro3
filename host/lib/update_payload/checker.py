@@ -55,6 +55,7 @@ _SUPPORTED_MINOR_VERSIONS = {
     0: (_TYPE_FULL,),
     1: (_TYPE_DELTA,),
     2: (_TYPE_DELTA,),
+    3: (_TYPE_DELTA,),
 }
 
 _OLD_DELTA_USABLE_PART_SIZE = 2 * 1024 * 1024 * 1024
@@ -859,6 +860,25 @@ class PayloadChecker(object):
           '%s: total src blocks (%d) != total dst blocks (%d).' %
           (op_name, total_src_blocks, total_dst_blocks))
 
+  def _CheckSourceOperation(self, op, total_src_blocks, op_name):
+    """Specific checks for SOURCE_* operations.
+
+    Args:
+      op: The operation object from the manifest.
+      total_src_blocks: Total number of blocks in src_extents.
+      op_name: Operation name for error reporting.
+
+    Raises:
+      error.PayloadError if any check fails.
+    """
+    # Check: total_src_blocks != 0.
+    if total_src_blocks == 0:
+      raise error.PayloadError('%s: no src blocks in a source op.' % op_name)
+
+    # Check: src_sha256_hash present in minor version 3.
+    if self.minor_version == 3 and op.src_sha256_hash is None:
+      raise error.PayloadError('%s: source hash missing.' % op_name)
+
   def _CheckOperation(self, op, op_name, is_last, old_block_counters,
                       new_block_counters, old_usable_size, new_usable_size,
                       prev_data_offset, allow_signature, blob_hash_counts):
@@ -953,11 +973,14 @@ class PayloadChecker(object):
                                total_dst_blocks, op_name)
     elif op.type == common.OpType.BSDIFF and self.minor_version == 1:
       self._CheckBsdiffOperation(data_length, total_dst_blocks, op_name)
-    elif op.type == common.OpType.SOURCE_COPY and self.minor_version == 2:
+    elif op.type == common.OpType.SOURCE_COPY and self.minor_version in (2, 3):
       self._CheckSourceCopyOperation(data_offset, total_src_blocks,
                                      total_dst_blocks, op_name)
-    elif op.type == common.OpType.SOURCE_BSDIFF and self.minor_version == 2:
+      self._CheckSourceOperation(op, total_src_blocks, op_name)
+    elif (op.type == common.OpType.SOURCE_BSDIFF and
+          self.minor_version in (2, 3)):
       self._CheckBsdiffOperation(data_length, total_dst_blocks, op_name)
+      self._CheckSourceOperation(op, total_src_blocks, op_name)
     else:
       raise error.PayloadError(
           'Operation %s (type %d) not allowed in minor version %d' %
