@@ -860,7 +860,7 @@ class PayloadChecker(object):
           '%s: total src blocks (%d) != total dst blocks (%d).' %
           (op_name, total_src_blocks, total_dst_blocks))
 
-  def _CheckSourceOperation(self, op, total_src_blocks, op_name):
+  def _CheckAnySourceOperation(self, op, total_src_blocks, op_name):
     """Specific checks for SOURCE_* operations.
 
     Args:
@@ -976,11 +976,11 @@ class PayloadChecker(object):
     elif op.type == common.OpType.SOURCE_COPY and self.minor_version in (2, 3):
       self._CheckSourceCopyOperation(data_offset, total_src_blocks,
                                      total_dst_blocks, op_name)
-      self._CheckSourceOperation(op, total_src_blocks, op_name)
+      self._CheckAnySourceOperation(op, total_src_blocks, op_name)
     elif (op.type == common.OpType.SOURCE_BSDIFF and
           self.minor_version in (2, 3)):
       self._CheckBsdiffOperation(data_length, total_dst_blocks, op_name)
-      self._CheckSourceOperation(op, total_src_blocks, op_name)
+      self._CheckAnySourceOperation(op, total_src_blocks, op_name)
     else:
       raise error.PayloadError(
           'Operation %s (type %d) not allowed in minor version %d' %
