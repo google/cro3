@@ -783,6 +783,82 @@ class Bundle:
     """
     self._out.Notice(msg)
 
+  def _FmapNameByPath(self, path):
+    """ Take list of names to form node path. Return FMAP name.
+
+    Obtain the FMAP name described by the node path.
+
+    Args:
+      path: list forming a node path.
+
+    Returns:
+      FMAP name of fdt node.
+
+    Raises:
+      CmdError if path not found.
+    """
+    lbl = self.fdt.GetLabel(self.fdt.GetFlashNode(*path))
+    return re.sub('-', '_', lbl).upper()
+
+  def _PrepareCbfsHash(self, pack, blob_name):
+    """Create blob in rw-{a,b}-boothash with 'cbfstool hashcbfs'.
+
+    When the blob name is defined as cbfshash/<section>/<subsection>, fill the
+    <section>_<subsection> area in the flash map with CBFS hash generated
+    using the 'cbfstool hashcbfs' command.
+
+    Args:
+      pack: a PackFirmware object describing the firmware image to build.
+      blob_name: a string, blob name describing what FMAP section this CBFS
+                 copy is destined to
+    Raises:
+      CmdError if cbfs-files node has incorrect parameters.
+      BlobDeferral if the CBFS region is not populated yet or if the coreboot
+      image with fmap is not available yet.
+    """
+    cb_copy = pack.GetProperty('cb_with_fmap')
+    if cb_copy is None:
+      raise BlobDeferral("Waiting for '%s'" % cb_copy)
+
+    part_sections = blob_name.split('/')[1:]
+    fmap_dst = self._FmapNameByPath(part_sections)
+
+    # Example of FDT ndoes asking for CBFS hash:
+    #  rw-b-boot {
+    #          label = "fw-main-b";
+    #          reg = <0x00700000 0x002dff80>;
+    #          type = "blob cbfs/rw/b-boot";
+    #  };
+    #  rw-b-boothash {
+    #          label = "fw-main-b-hash";
+    #          reg = <0x009dff80 0x00000040>;
+    #          type = "blob cbfshash/rw/b-boothash";
+    #          cbfs-node = "cbfs/rw/b-boot";
+    #  };
+    hash_node = self.fdt.GetFlashNode(*part_sections)
+    cbfs_blob_name =  self.fdt.GetString(hash_node, 'cbfs-node')
+
+    if not pack.GetProperty(cbfs_blob_name):
+      raise BlobDeferral("Waiting for '%s'" % cbfs_blob_name)
+
+    cbfs_node_path = cbfs_blob_name.split('/')[1:]
+    fmap_src = self._FmapNameByPath(cbfs_node_path)
+
+    # Compute CBFS hash and place it in the corect spot.
+    self._tools.Run('cbfstool', [cb_copy, 'hashcbfs', '-r', fmap_dst,
+                                 '-R', fmap_src, '-A', 'sha256'])
+
+    # Base address and size of the desitnation partition
+    base, size = self.fdt.GetFlashPart(*part_sections)
+
+    # And extract the blob for the FW section
+    rw_section = os.path.join(self._tools.outdir, '_'.join(part_sections))
+    self._tools.WriteFile(rw_section,
+                          self._tools.ReadFile(cb_copy)[base:base+size])
+
+    pack.AddProperty(blob_name, rw_section)
+
+
   def _PrepareCbfs(self, pack, blob_name):
     """Create CBFS blob in rw-boot-{a,b} FMAP sections.
 
@@ -802,18 +878,13 @@ class Bundle:
       CmdError if cbfs-files node has incorrect parameters.
       BlobDeferral if coreboot image with fmap is not available yet.
     """
-    def _FmapNameByPath(path):
-      """ Take list of names to form node path. Return FMAP name. """
-      lbl = self.fdt.GetLabel(self.fdt.GetFlashNode(*path))
-      return re.sub('-', '_', lbl).upper()
-
     cb_copy = pack.GetProperty('cb_with_fmap')
     if cb_copy is None:
       raise BlobDeferral("Waiting for 'cb_with_fmap' property")
 
     part_sections = blob_name.split('/')[1:]
-    fmap_src = _FmapNameByPath('ro-boot'.split('-'))
-    fmap_dst = _FmapNameByPath(part_sections)
+    fmap_src = self._FmapNameByPath('ro-boot'.split('-'))
+    fmap_dst = self._FmapNameByPath(part_sections)
 
     # Base address and size of the desitnation partition
     base, size = self.fdt.GetFlashPart(*part_sections)
@@ -978,6 +1049,8 @@ class Bundle:
     elif blob_type.startswith('exynos-bl2'):
       # We need to configure this per node, so do it later
       pass
+    elif blob_type.startswith('cbfshash'):
+      self._PrepareCbfsHash(pack, blob_type)
     elif blob_type.startswith('cbfs'):
       self._PrepareCbfs(pack, blob_type)
     elif pack.GetProperty(blob_type):
