@@ -719,21 +719,29 @@ class Bundle:
 
     return bootstub, signed_postload
 
-  def _CreateCorebootStub(self, coreboot):
-    """Create a coreboot boot stub.
+  def _AddCbfsFiles(self, bootstub):
+    for dir, subs, files in os.walk(self.cbfs_files):
+      for file in files:
+        file = os.path.join(dir, file)
+        cbfs_name = file.replace(self.cbfs_files, '', 1).strip('/')
+        self._tools.Run('cbfstool', [bootstub, 'add', '-f', file,
+                                '-n', cbfs_name, '-t', 'raw', '-c', 'lzma'])
+
+  def _CreateCorebootStub(self, pack, coreboot):
+    """Create a coreboot boot stub and add pack properties.
 
     Args:
       coreboot: Path to coreboot.rom
-
-    Returns:
-      Full path to bootstub (coreboot + uboot).
     """
     bootstub = os.path.join(self._tools.outdir, 'coreboot-full.rom')
     shutil.copyfile(self._tools.Filename(coreboot), bootstub)
 
-    # Don't add the fdt yet since it is not in final form
-    return bootstub
+    pack.AddProperty('coreboot', bootstub)
+    pack.AddProperty('image', bootstub)
 
+    # Add files to to RO CBFS if provided.
+    if self.cbfs_files:
+      self._AddCbfsFiles(bootstub)
 
   def _PackOutput(self, msg):
     """Helper function to write output from PackFirmware (verbose level 2).
@@ -884,9 +892,7 @@ class Bundle:
     # stupid pylint insists that sha256 is not in hashlib.
     # pylint: disable=E1101
     if blob_type == 'coreboot':
-      coreboot = self._CreateCorebootStub(self.coreboot_fname)
-      pack.AddProperty('coreboot', coreboot)
-      pack.AddProperty('image', coreboot)
+      self._CreateCorebootStub(pack, self.coreboot_fname)
     elif blob_type == 'legacy':
       pack.AddProperty('legacy', self.seabios_fname)
     elif blob_type == 'signed':
@@ -943,14 +949,6 @@ class Bundle:
     else:
       raise CmdError("Unknown blob type '%s' required in flash map" %
           blob_type)
-
-  def _AddCbfsFiles(self, bootstub):
-    for dir, subs, files in os.walk(self.cbfs_files):
-      for file in files:
-        file = os.path.join(dir, file)
-        cbfs_name = file.replace(self.cbfs_files, '', 1).strip('/')
-        self._tools.Run('cbfstool', [bootstub, 'add', '-f', file,
-                                '-n', cbfs_name, '-t', '0x50', '-c', 'lzma'])
 
   def _CreateImage(self, gbb, fdt):
     """Create a full firmware image, along with various by-products.
@@ -1064,8 +1062,6 @@ class Bundle:
             '-l', '%#x' % text_base, '-e', '%#x' % entry])
       self._tools.Run('cbfstool', [bootstub, 'add', '-f', fdt.fname,
           '-n', 'u-boot.dtb', '-t', '0xac'])
-      if self.cbfs_files:
-        self._AddCbfsFiles(bootstub)
       data = self._tools.ReadFile(bootstub)
       bootstub_copy = os.path.join(self._tools.outdir, 'coreboot-8mb.rom')
       self._tools.WriteFile(bootstub_copy, data)
