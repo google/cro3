@@ -735,6 +735,7 @@ class Bundle:
     """Create a coreboot boot stub and add pack properties.
 
     Args:
+      pack: a PackFirmware object describing the firmware image to build.
       coreboot: Path to coreboot.rom
     """
     bootstub = os.path.join(self._tools.outdir, 'coreboot-full.rom')
@@ -746,6 +747,14 @@ class Bundle:
     # Add files to to RO CBFS if provided.
     if self.cbfs_files:
       self._AddCbfsFiles(bootstub)
+
+    # Create a coreboot copy to use as a scratch pad. Order matters. The
+    # cbfs_files were added prior to this action. That's so the RW CBFS
+    # regions inherit the files from the RO CBFS region.
+    cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_copy'))
+    self._tools.WriteFile(cb_copy, self._tools.ReadFile(bootstub))
+    pack.AddProperty('cb_copy', cb_copy)
+
 
   def _PackOutput(self, msg):
     """Helper function to write output from PackFirmware (verbose level 2).
@@ -774,10 +783,12 @@ class Bundle:
                  copy is destined to
     Raises:
       CmdError if base coreboot image does not contain CBFS
+      BlobDeferral if coreboot image with fmap is not available yet.
     """
 
-    if not self.coreboot_fname:
-      raise CmdError("coreboot file needed for blob % s", blob_name)
+    cb_copy = pack.GetProperty('cb_copy')
+    if cb_copy is None:
+      raise BlobDeferral("Waiting for 'cb_copy' property.")
 
     part_sections = blob_name.split('/')[1:]
 
@@ -790,11 +801,6 @@ class Bundle:
       cbfs_config = self.fdt.GetProps(node + '/cbfs-files')
     except CmdError:
       cbfs_config = None
-
-    # Create a coreboot copy to use as a scratch pad.
-    cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_copy'))
-    if not os.path.exists(cb_copy):
-      self._tools.WriteFile(cb_copy, self._tools.ReadFile(self.coreboot_fname))
 
     # Copy CBFS to the required offset
     self._tools.Run('cbfstool', [cb_copy, 'copy', '-D',
