@@ -167,7 +167,8 @@ class Bundle:
                coreboot_elf=None,
                postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None,
                skeleton=None, ecrw=None, ecro=None, pdrw=None,
-               kernel=None, blobs=None, skip_bmpblk=False, cbfs_files=None):
+               kernel=None, blobs=None, skip_bmpblk=False, cbfs_files=None,
+               rocbfs_files=None):
     """Set up files required for Bundle.
 
     Args:
@@ -188,7 +189,8 @@ class Bundle:
       kernel: The filename of the kernel file if any.
       blobs: List of (type, filename) of arbitrary blobs.
       skip_bmpblk: True if no bmpblk is required
-      cbfs_files: Root directory of files to be stored in CBFS
+      cbfs_files: Root directory of files to be stored in RO and RW CBFS
+      rocbfs_files: Root directory of files to be stored in RO CBFS
     """
     self._board = board
     self.uboot_fname = uboot
@@ -208,6 +210,7 @@ class Bundle:
     self.blobs = dict(blobs or ())
     self.skip_bmpblk = skip_bmpblk
     self.cbfs_files = cbfs_files
+    self.rocbfs_files = rocbfs_files
 
   def SetOptions(self, small, gbb_flags, force_rw=False, force_efs=False):
     """Set up options supported by Bundle.
@@ -723,11 +726,11 @@ class Bundle:
 
     return bootstub, signed_postload
 
-  def _AddCbfsFiles(self, bootstub):
-    for dir, subs, files in os.walk(self.cbfs_files):
+  def _AddCbfsFiles(self, bootstub, cbfs_files):
+    for dir, subs, files in os.walk(cbfs_files):
       for file in files:
         file = os.path.join(dir, file)
-        cbfs_name = file.replace(self.cbfs_files, '', 1).strip('/')
+        cbfs_name = file.replace(cbfs_files, '', 1).strip('/')
         self._tools.Run('cbfstool', [bootstub, 'add', '-f', file,
                                 '-n', cbfs_name, '-t', 'raw', '-c', 'lzma'])
 
@@ -744,9 +747,9 @@ class Bundle:
     pack.AddProperty('coreboot', bootstub)
     pack.AddProperty('image', bootstub)
 
-    # Add files to to RO CBFS if provided.
+    # Add files to to RO and RW CBFS if provided.
     if self.cbfs_files:
-      self._AddCbfsFiles(bootstub)
+      self._AddCbfsFiles(bootstub, self.cbfs_files)
 
     # Create a coreboot copy to use as a scratch pad. Order matters. The
     # cbfs_files were added prior to this action. That's so the RW CBFS
@@ -754,6 +757,11 @@ class Bundle:
     cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_copy'))
     self._tools.WriteFile(cb_copy, self._tools.ReadFile(bootstub))
     pack.AddProperty('cb_copy', cb_copy)
+
+    # Add files to to RO CBFS if provided. This done here such that the
+    # copy above does not contain the RO CBFS files.
+    if self.rocbfs_files:
+      self._AddCbfsFiles(bootstub, self.rocbfs_files)
 
 
   def _PackOutput(self, msg):
