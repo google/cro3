@@ -1449,9 +1449,14 @@ def main():
   if options.portfile:
     cherrypy_ext.PortFile(cherrypy.engine, options.portfile).subscribe()
 
-  if options.android_build_credential:
-    with open(options.android_build_credential) as f:
-      android_build.BuildAccessor.credential_info = json.load(f)
+  if (options.android_build_credential and
+      os.path.exists(options.android_build_credential)):
+    try:
+      with open(options.android_build_credential) as f:
+        android_build.BuildAccessor.credential_info = json.load(f)
+    except ValueError as e:
+      _Log('Failed to load the android build credential: %s. Error: %s.' %
+           (options.android_build_credential, e))
   cherrypy.quickstart(dev_server, config=_GetConfig(options))
 
 
