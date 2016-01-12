@@ -946,8 +946,8 @@ class Bundle:
       for val in cbfs_config.itervalues():
         f = val.split(' ')
         command = f[0]
-        if command[:3] != 'add':
-          raise CmdError("first argument in '%s' must start with 'add'", f)
+        if command[:3] != 'add' and command != 'remove':
+          raise CmdError("'%s' doesn't add or remove a file", f)
         if f[1] != '-n':
           raise CmdError("second argument in '%s' must be '-n'", f)
         cbfsname = f[2]
@@ -967,6 +967,8 @@ class Bundle:
         command = f[0]
         cbfsname = f[2]
         args = f[3:]
+        if command == 'remove':
+          continue
         # Call through shell so variable expansion can happen. With a change
         # to the ebuild this enables specifying filename arguments to
         # cbfstool as -f romstage.elf${COREBOOT_VARIANT} and have that be
