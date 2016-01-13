@@ -734,6 +734,70 @@ class Bundle:
         self._tools.Run('cbfstool', [bootstub, 'add', '-f', file,
                                 '-n', cbfs_name, '-t', 'raw', '-c', 'lzma'])
 
+  def _ProcessCbfsFileProperty(self, cb_copy, node):
+    """Add files to CBFS in RW regions using a specification in fmap.dts
+
+    rw-a-boot {
+      ...
+      cbfs-files {
+       ecfoo = "add -n ecrw-copy -f ec.RW.bin -t raw -A sha256";
+      };
+    };
+
+    Adds a file called "ecrw-copy" of raw type to FW_MAIN_A with the
+    content of ec.RW.bin in the build root, with a SHA256 hash.
+    The dts property name ("ecfoo") is ignored but should be unique,
+    all cbfstool commands that start with "add" are allowed, as is "remove".
+    The second and third argument need to be "-n <cbfs file name>".
+    """
+    try:
+      cbfs_config = self.fdt.GetProps(node + '/cbfs-files')
+    except CmdError:
+      cbfs_config = None
+
+    # Ignore first character of node string,
+    # so both /flash/foo and flash/foo work.
+    region = node[1:].split('/')[1]
+    part_sections = region.split('-', 1)
+    fmap_dst = self._FmapNameByPath(part_sections)
+
+    if cbfs_config != None:
+      # remove all files slated for addition, in case they already exist
+      for val in cbfs_config.itervalues():
+        f = val.split(' ')
+        command = f[0]
+        if command[:3] != 'add' and command != 'remove':
+          raise CmdError("'%s' doesn't add or remove a file", f)
+        if f[1] != '-n':
+          raise CmdError("second argument in '%s' must be '-n'", f)
+        cbfsname = f[2]
+        try:
+          # Calling through shell isn't strictly necessary here, but we still
+          # do it to keep operation more similar to the invocation in the next
+          # loop.
+          self._tools.Run('sh', [ '-c',
+            ' '.join(['cbfstool', cb_copy, 'remove', '-r', fmap_dst,
+                                       '-n', cbfsname]) ])
+        except CmdError:
+          pass # the most likely error is that the file doesn't already exist
+
+      # now add the files
+      for val in cbfs_config.itervalues():
+        f = val.split(' ')
+        command = f[0]
+        cbfsname = f[2]
+        args = f[3:]
+        if command == 'remove':
+          continue
+        # Call through shell so variable expansion can happen. With a change
+        # to the ebuild this enables specifying filename arguments to
+        # cbfstool as -f romstage.elf${COREBOOT_VARIANT} and have that be
+        # resolved to romstage.elf.serial when appropriate.
+        self._tools.Run('sh', [ '-c',
+            ' '.join(['cbfstool', cb_copy, command, '-r', fmap_dst,
+                      '-n', cbfsname] + args)],
+                      self._tools.Filename(self._GetBuildRoot()))
+
   def _CreateCorebootStub(self, pack, coreboot):
     """Create a coreboot boot stub and add pack properties.
 
@@ -771,6 +835,12 @@ class Bundle:
     # copy above does not contain the RO CBFS files.
     if self.rocbfs_files:
       self._AddCbfsFiles(bootstub, self.rocbfs_files)
+
+    # As a final step, do whatever is requested in /flash/ro-boot/cbfs-files.
+    # It's done after creating the copy for the RW regions so that ro-boot's
+    # cbfs-files property has no side-effects on the RW regions.
+    node = self.fdt.GetFlashNode('ro', 'boot')
+    self._ProcessCbfsFileProperty(os.path.abspath(bootstub), node)
 
 
   def _PackOutput(self, msg):
@@ -889,13 +959,6 @@ class Bundle:
     # Base address and size of the desitnation partition
     base, size = self.fdt.GetFlashPart(*part_sections)
 
-    # Check if there's an advanced CBFS configuration request
-    node = self.fdt.GetFlashNode(*part_sections)
-    try:
-      cbfs_config = self.fdt.GetProps(node + '/cbfs-files')
-    except CmdError:
-      cbfs_config = None
-
     # Copy CBFS to the required offset
     self._tools.Run('cbfstool', [cb_copy, 'copy', '-r', fmap_dst,
                                  '-R', fmap_src])
@@ -929,54 +992,9 @@ class Bundle:
         cb_copy, 'add', '-f', self.pdrw_fname, '-t', 'raw',
         '-n', 'pdrw', '-A', 'sha256', '-r', fmap_dst ])
 
-    # add files to CBFS in RW regions more flexibly:
-    # rw-a-boot {
-    #   ...
-    #   cbfs-files {
-    #    ecfoo = "add -n ecrw-copy -f ec.RW.bin -t raw -A sha256";
-    #   };
-    # };
-    # adds a file called "ecrw-copy" of raw type to FW_MAIN_A with the
-    # content of ec.RW.bin in the build root, with a SHA256 hash.
-    # The dts property name ("ecfoo") is ignored but should be unique,
-    # all cbfstool commands that start with "add" are allowed, as is "remove".
-    # The second and third argument need to be "-n <cbfs file name>".
-    if cbfs_config != None:
-      # remove all files slated for addition, in case they already exist
-      for val in cbfs_config.itervalues():
-        f = val.split(' ')
-        command = f[0]
-        if command[:3] != 'add' and command != 'remove':
-          raise CmdError("'%s' doesn't add or remove a file", f)
-        if f[1] != '-n':
-          raise CmdError("second argument in '%s' must be '-n'", f)
-        cbfsname = f[2]
-        try:
-          # Calling through shell isn't strictly necessary here, but we still
-          # do it to keep operation more similar to the invocation in the next
-          # loop.
-          self._tools.Run('sh', [ '-c',
-            ' '.join(['cbfstool', cb_copy, 'remove', '-r', fmap_dst,
-                                       '-n', cbfsname]) ])
-        except CmdError:
-          pass # the most likely error is that the file doesn't already exist
-
-      # now add the files
-      for val in cbfs_config.itervalues():
-        f = val.split(' ')
-        command = f[0]
-        cbfsname = f[2]
-        args = f[3:]
-        if command == 'remove':
-          continue
-        # Call through shell so variable expansion can happen. With a change
-        # to the ebuild this enables specifying filename arguments to
-        # cbfstool as -f romstage.elf${COREBOOT_VARIANT} and have that be
-        # resolved to romstage.elf.serial when appropriate.
-        self._tools.Run('sh', [ '-c',
-            ' '.join(['cbfstool', cb_copy, command, '-r', fmap_dst,
-                      '-n', cbfsname] + args)],
-                      self._tools.Filename(self._GetBuildRoot()))
+    # Check if there's an advanced CBFS configuration request
+    node = self.fdt.GetFlashNode(*part_sections)
+    self._ProcessCbfsFileProperty(cb_copy, node)
 
     # And extract the blob for the FW section
     rw_section = os.path.join(self._tools.outdir, '_'.join(part_sections))
