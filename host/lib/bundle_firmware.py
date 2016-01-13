@@ -939,7 +939,7 @@ class Bundle:
     # adds a file called "ecrw-copy" of raw type to FW_MAIN_A with the
     # content of ec.RW.bin in the build root, with a SHA256 hash.
     # The dts property name ("ecfoo") is ignored but should be unique,
-    # all cbfstool commands that start with "add" are allowed.
+    # all cbfstool commands that start with "add" are allowed, as is "remove".
     # The second and third argument need to be "-n <cbfs file name>".
     if cbfs_config != None:
       # remove all files slated for addition, in case they already exist
