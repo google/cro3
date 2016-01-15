@@ -716,6 +716,7 @@ class DevServerRoot(object):
       files: Comma separated list of files to stage. These
         will be available as is in the corresponding static directory with no
         custom post-processing.
+      clean: True to remove any previously staged artifacts first.
 
     Example:
       To download the autotest and test suites tarballs:
@@ -745,6 +746,11 @@ class DevServerRoot(object):
     with DevServerRoot._staging_thread_count_lock:
       DevServerRoot._staging_thread_count += 1
     try:
+      boolean_string = kwargs.get('clean')
+      clean = xbuddy.XBuddy.ParseBoolean(boolean_string)
+      if clean and os.path.exists(dl.GetBuildDir()):
+        _Log('Removing %s' % dl.GetBuildDir())
+        shutil.rmtree(dl.GetBuildDir())
       async = kwargs.get('async', False)
       dl.Download(factory, async=async)
     finally:
