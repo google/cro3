@@ -419,7 +419,11 @@ class Bundle:
 
     self._out.Notice("GBB flags value %#x" % gbb_flags)
     self._out.Progress('Creating GBB')
-    sizes = [0x100, 0x1000, gbb_size - 0x2180, 0x1000]
+    if self.skip_bmpblk:
+        bmpfv_size = 0
+    else:
+        bmpfv_size = gbb_size - 0x2180
+    sizes = [0x100, 0x1000, bmpfv_size, 0x1000]
     sizes = ['%#x' % size for size in sizes]
     gbb = 'gbb.bin'
     keydir = self._tools.Filename(self._keydir)
