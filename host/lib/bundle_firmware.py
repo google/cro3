@@ -785,6 +785,11 @@ class Bundle:
         except CmdError:
           pass # the most likely error is that the file doesn't already exist
 
+      # Compact the CBFS image after removing the files so all the non-empty
+      # files are at the beginning of the region.
+      self._tools.Run('sh', [ '-c',
+        ' '.join(['cbfstool', cb_copy, 'compact', '-r', fmap_dst]) ])
+
       # now add the files
       for val in cbfs_config.itervalues():
         f = val.split(' ')
@@ -967,10 +972,6 @@ class Bundle:
     self._tools.Run('cbfstool', [cb_copy, 'copy', '-r', fmap_dst,
                                  '-R', fmap_src])
 
-    # Add a CBFS master header for good measure
-    self._tools.Run('cbfstool', [cb_copy, 'add-master-header',
-                                 '-r', fmap_dst])
-
     # Add coreboot payload if so requested. Note that the some images use
     # different payload for the rw sections, which is passed in as the value
     # of the --uboot option in the command line.
@@ -999,6 +1000,16 @@ class Bundle:
     # Check if there's an advanced CBFS configuration request
     node = self.fdt.GetFlashNode(*part_sections)
     self._ProcessCbfsFileProperty(cb_copy, node)
+
+    # Parse the file list to obtain the last entry. If its empty use its
+    # offset as the size of the CBFS to hash.
+    stdout = self._tools.Run('cbfstool',
+        [ cb_copy, 'print', '-k', '-r', fmap_dst ])
+    # Fields are tab separated in the following order.
+    # Name    Offset  Type    Metadata Size   Data Size       Total Size
+    last_entry = stdout.strip().splitlines()[-1].split('\t')
+    if last_entry[0] == '(empty)' and last_entry[2] == 'null':
+        size = int(last_entry[1], 16)
 
     # And extract the blob for the FW section
     rw_section = os.path.join(self._tools.outdir, '_'.join(part_sections))
