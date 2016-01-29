@@ -1187,10 +1187,22 @@ class DevServerRoot(object):
     # Get free disk space.
     stat = os.statvfs(updater.static_dir)
     free_disk = stat.f_bsize * stat.f_bavail / 1000000000
+    try:
+      apache_client_count = int(subprocess.check_output('pgrep -fc apache',
+                                                        shell=True))
+    except subprocess.CalledProcessError:
+      apache_client_count = 0
+    try:
+      telemetry_test_count = int(subprocess.check_output(
+          'pgrep -fc "python.*telemetry"', shell=True))
+    except subprocess.CalledProcessError:
+      telemetry_test_count = 0
 
     health_data = {
         'free_disk': free_disk,
-        'staging_thread_count': DevServerRoot._staging_thread_count}
+        'staging_thread_count': DevServerRoot._staging_thread_count,
+        'apache_client_count': apache_client_count,
+        'telemetry_test_count': telemetry_test_count}
     health_data.update(self._get_io_stats() or {})
 
     return json.dumps(health_data)
