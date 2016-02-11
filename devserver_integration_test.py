@@ -152,7 +152,7 @@ class DevserverTestBase(unittest.TestCase):
     """Attempts to start devserver on |port|.
 
     In the default case where port == 0, the server will bind to an arbitrary
-    availble port. If successful, this method will set the devserver's pid
+    available port. If successful, this method will set the devserver's pid
     (self.pid), actual listening port (self.port) and URL (self.devserver_url).
 
     Raises:
@@ -418,9 +418,8 @@ class DevserverBasicTests(AutoStartDevserverTestBase):
     """Test that using a pidfile works correctly."""
     with open(self.pidfile, 'r') as f:
       pid = f.read()
-
     # Let's assert some process information about the devserver.
-    self.assertTrue(pid.isdigit())
+    self.assertTrue(pid.strip().isdigit())
     process = psutil.Process(int(pid))
     self.assertTrue(process.is_running())
     self.assertTrue('devserver.py' in process.cmdline)
@@ -438,7 +437,7 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
     """Tests core autotest workflow where we stage/update with a test payload.
 
     """
-    build_id = 'x86-mario-release/R32-4810.0.0'
+    build_id = 'peppy-release/R50-7870.0.0'
     archive_url = 'gs://chromeos-image-archive/%s' % build_id
 
     response = self._MakeRPC(IS_STAGED, archive_url=archive_url,

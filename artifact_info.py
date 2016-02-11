@@ -101,3 +101,8 @@ ANDROID_VENDOR_PARTITION_ZIP = 'vendor_partitions'
 REQUESTED_TO_OPTIONAL_MAP = {
     TEST_SUITES: [CONTROL_FILES, AUTOTEST_PACKAGES],
 }
+
+# Map between the artifact name and the folder after it's unzipped.
+ARTIFACT_UNZIP_FOLDER_MAP = {
+    ANDROID_TEST_ZIP: 'DATA',
+}

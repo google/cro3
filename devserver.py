@@ -60,6 +60,7 @@ from cherrypy import _cplogging as cplogging
 from cherrypy.process import plugins
 
 import autoupdate
+import artifact_info
 import build_artifact
 import cherrypy_ext
 import common_util
@@ -757,6 +758,44 @@ class DevServerRoot(object):
       with DevServerRoot._staging_thread_count_lock:
         DevServerRoot._staging_thread_count -= 1
     return 'Success'
+
+  @cherrypy.expose
+  def locate_file(self, **kwargs):
+    """Get the path to the given file name.
+
+    This method looks up the given file name inside specified build artifacts.
+    One use case is to help caller to locate an apk file inside a build
+    artifact. The location of the apk file could be different based on the
+    branch and target.
+
+    Args:
+      file_name: Name of the file to look for.
+      artifacts: A list of artifact names to search for the file.
+
+    Returns:
+      Path to the file with the given name. It's relative to the folder for the
+      build, e.g., DATA/priv-app/sl4a/sl4a.apk
+
+    """
+    dl, _ = _get_downloader_and_factory(kwargs)
+    try:
+      file_name = kwargs['file_name'].lower()
+      artifacts = kwargs['artifacts']
+    except KeyError:
+      raise DevServerError('`file_name` and `artifacts` are required to search '
+                           'for a file in build artifacts.')
+    build_path = dl.GetBuildDir()
+    for artifact in artifacts:
+      # Get the unzipped folder of the artifact. If it's not defined in
+      # ARTIFACT_UNZIP_FOLDER_MAP, assume the files are unzipped to the build
+      # directory directly.
+      folder = artifact_info.ARTIFACT_UNZIP_FOLDER_MAP.get(artifact, '')
+      artifact_path = os.path.join(build_path, folder)
+      for root, _, filenames in os.walk(artifact_path):
+        if file_name in set([f.lower() for f in filenames]):
+          return os.path.relpath(os.path.join(root, file_name), build_path)
+    raise DevServerError('File `%s` can not be found in artifacts: %s' %
+                         (file_name, artifacts))
 
   @cherrypy.expose
   def setup_telemetry(self, **kwargs):
