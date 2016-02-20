@@ -24,9 +24,6 @@ BUILD_PREFIX="${ROOT}/var/tmp/portage"
 
 CONFIG_PROTECT="/usr/local/share/portage"
 
-# TODO(arkaitzr): Generate this in the ebuild.
-ACCEPT_KEYWORDS="x86 ~x86 arm ~arm"
-
 PORTAGE_WORKDIR_MODE="0700"
 
 EMERGE_DEFAULT_OPTS="--getbinpkg --usepkgonly"
@@ -35,3 +32,11 @@ EMERGE_DEFAULT_OPTS="--getbinpkg --usepkgonly"
 # Name (commondatastorage.googleapis.com for googleusercontent.com)
 FETCHCOMMAND="/usr/bin/curl --connect-timeout 15 -# -o \${DISTDIR}/\${FILE} \${URI}" 
 RESUMECOMMAND="/usr/bin/curl --connect-timeout 15 -# -C - -o \${DISTDIR}/\${FILE}\${URI}"
+
+IUSE_IMPLICIT="@IUSE_IMPLICIT@"
+ARCH="@ARCH@"
+ELIBC="@ELIBC@"
+USERLAND="@USERLAND@"
+KERNEL="@KERNEL@"
+USE_EXPAND_IMPLICIT="@USE_EXPAND_IMPLICIT@"
+ACCEPT_KEYWORDS="~${ARCH} ${ARCH}"
