@@ -51,6 +51,9 @@ ANDROID_BOOTLOADER_IMAGE = 'bootloader.img'
 ANDROID_FASTBOOT = 'fastboot'
 ANDROID_TEST_ZIP = r'[^-]*-tests-.*\.zip'
 ANDROID_VENDOR_PARTITION_ZIP = r'[^-]*-vendor_partitions-.*\.zip'
+ANDROID_AUTOTEST_SERVER_PACKAGE = r'[^-]*-autotest_server_package-.*\.tar.bz2'
+ANDROID_TEST_SUITES = r'[^-]*-test_suites-.*\.tar.bz2'
+ANDROID_CONTROL_FILES = r'[^-]*-autotest_control_files-.*\.tar'
 
 _build_artifact_locks = common_util.LockDict()
 
@@ -634,11 +637,19 @@ _AddAndroidArtifact(artifact_info.ANDROID_TEST_ZIP, BundledArtifact,
                     ANDROID_TEST_ZIP, is_regex_name=True)
 _AddAndroidArtifact(artifact_info.ANDROID_VENDOR_PARTITION_ZIP, Artifact,
                     ANDROID_VENDOR_PARTITION_ZIP, is_regex_name=True)
+_AddAndroidArtifact(artifact_info.AUTOTEST_SERVER_PACKAGE, Artifact,
+                    ANDROID_AUTOTEST_SERVER_PACKAGE, is_regex_name=True)
+_AddAndroidArtifact(artifact_info.TEST_SUITES, BundledArtifact,
+                    ANDROID_TEST_SUITES, is_regex_name=True)
+_AddAndroidArtifact(artifact_info.CONTROL_FILES, BundledArtifact,
+                    ANDROID_CONTROL_FILES, is_regex_name=True)
+
 
 class BaseArtifactFactory(object):
   """A factory class that generates build artifacts from artifact names."""
 
-  def __init__(self, artifact_map, download_dir, artifacts, files, build):
+  def __init__(self, artifact_map, download_dir, artifacts, files, build,
+               requested_to_optional_map):
     """Initalizes the member variables for the factory.
 
     Args:
@@ -650,12 +661,16 @@ class BaseArtifactFactory(object):
       files: List of files to stage. These files are just downloaded and staged
              as files into the download_dir.
       build: The name of the build.
+      requested_to_optional_map: A map between an artifact X to a list of
+              artifacts Y. If X is requested, all items in Y should also get
+              triggered for download.
     """
     self.artifact_map = artifact_map
     self.download_dir = download_dir
     self.artifacts = artifacts
     self.files = files
     self.build = build
+    self.requested_to_optional_map = requested_to_optional_map
 
   def _Artifacts(self, names, is_artifact):
     """Returns the Artifacts from |names|.
@@ -710,8 +725,7 @@ class BaseArtifactFactory(object):
                 artifact_info.REQUESTED_TO_OPTIONAL_MAP.
     """
     optional_names = set()
-    for artifact_name, optional_list in (
-        artifact_info.REQUESTED_TO_OPTIONAL_MAP.iteritems()):
+    for artifact_name, optional_list in self.requested_to_optional_map.items():
       # We are already downloading it.
       if artifact_name in self.artifacts:
         optional_names = optional_names.union(optional_list)
@@ -725,7 +739,8 @@ class ChromeOSArtifactFactory(BaseArtifactFactory):
   def __init__(self, download_dir, artifacts, files, build):
     """Pass the ChromeOS artifact map to the base class."""
     super(ChromeOSArtifactFactory, self).__init__(
-        chromeos_artifact_map, download_dir, artifacts, files, build)
+        chromeos_artifact_map, download_dir, artifacts, files, build,
+        artifact_info.CROS_REQUESTED_TO_OPTIONAL_MAP)
 
 
 class AndroidArtifactFactory(BaseArtifactFactory):
@@ -734,7 +749,8 @@ class AndroidArtifactFactory(BaseArtifactFactory):
   def __init__(self, download_dir, artifacts, files, build):
     """Pass the Android artifact map to the base class."""
     super(AndroidArtifactFactory, self).__init__(
-        android_artifact_map, download_dir, artifacts, files, build)
+        android_artifact_map, download_dir, artifacts, files, build,
+        artifact_info.ANDROID_REQUESTED_TO_OPTIONAL_MAP)
 
 
 # A simple main to verify correctness of the artifact map when making simple

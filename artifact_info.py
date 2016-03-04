@@ -98,8 +98,12 @@ ANDROID_VENDOR_PARTITION_ZIP = 'vendor_partitions'
 # want to download other artifacts later. The following map explicitly defines
 # this relationship. Specifically:
 # If X is requested, all items in Y should also get triggered for download.
-REQUESTED_TO_OPTIONAL_MAP = {
+CROS_REQUESTED_TO_OPTIONAL_MAP = {
     TEST_SUITES: [CONTROL_FILES, AUTOTEST_PACKAGES],
+}
+# Launch Control builds do not support autotest package.
+ANDROID_REQUESTED_TO_OPTIONAL_MAP = {
+    TEST_SUITES: [CONTROL_FILES],
 }
 
 # Map between the artifact name and the folder after it's unzipped.
