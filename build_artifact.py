@@ -54,6 +54,7 @@ ANDROID_VENDOR_PARTITION_ZIP = r'[^-]*-vendor_partitions-.*\.zip'
 ANDROID_AUTOTEST_SERVER_PACKAGE = r'[^-]*-autotest_server_package-.*\.tar.bz2'
 ANDROID_TEST_SUITES = r'[^-]*-test_suites-.*\.tar.bz2'
 ANDROID_CONTROL_FILES = r'[^-]*-autotest_control_files-.*\.tar'
+ANDROID_NATIVETESTS_FILE = r'[^-]*-brillo-tests-.*\.zip'
 
 _build_artifact_locks = common_util.LockDict()
 
@@ -643,6 +644,8 @@ _AddAndroidArtifact(artifact_info.TEST_SUITES, BundledArtifact,
                     ANDROID_TEST_SUITES, is_regex_name=True)
 _AddAndroidArtifact(artifact_info.CONTROL_FILES, BundledArtifact,
                     ANDROID_CONTROL_FILES, is_regex_name=True)
+_AddAndroidArtifact(artifact_info.ANDROID_NATIVETESTS_ZIP, BundledArtifact,
+                    ANDROID_NATIVETESTS_FILE, is_regex_name=True)
 
 
 class BaseArtifactFactory(object):
