@@ -962,15 +962,10 @@ class Bundle:
       raise BlobDeferral("Waiting for 'cb_with_fmap' property")
 
     part_sections = blob_name.split('/')[1:]
-    fmap_src = self._FmapNameByPath('ro-boot'.split('-'))
     fmap_dst = self._FmapNameByPath(part_sections)
 
     # Base address and size of the desitnation partition
     base, size = self.fdt.GetFlashPart(*part_sections)
-
-    # Copy CBFS to the required offset
-    self._tools.Run('cbfstool', [cb_copy, 'copy', '-r', fmap_dst,
-                                 '-R', fmap_src])
 
     # Add coreboot payload if so requested. Note that the some images use
     # different payload for the rw sections, which is passed in as the value
