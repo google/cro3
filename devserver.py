@@ -932,6 +932,43 @@ class DevServerRoot(object):
       raise common_util.DevServerHTTPError(500, str(errmsg))
 
   @cherrypy.expose
+  def list_suite_controls(self, **kwargs):
+    """Return a list of contents of all known control files.
+
+    Example URL:
+      To List all control files' content:
+      http://dev-server/list_suite_controls?suite_name=bvt&
+      build=daisy_spring-release/R29-4279.0.0
+
+    Args:
+      build: The build i.e. x86-alex-release/R18-1514.0.0-a1-b1450.
+      suite_name: List the control files belonging to that suite.
+
+    Returns:
+      A list of contents of all control files are provided.
+    """
+    if not kwargs:
+      return _PrintDocStringAsHTML(self.controlfiles)
+
+    if 'build' not in kwargs:
+      raise common_util.DevServerHTTPError(500, 'Error: build= is required!')
+
+    if 'suite_name' not in kwargs:
+      raise common_util.DevServerHTTPError(500, 'Error: suite_name= is required!')
+
+    control_file_list = [
+        line.rstrip() for line in common_util.GetControlFileListForSuite(
+            updater.static_dir, kwargs['build'],
+            kwargs['suite_name']).splitlines()]
+
+    control_file_content_list = []
+    for control_path in control_file_list:
+      control_file_content_list.append(common_util.GetControlFile(
+          updater.static_dir, kwargs['build'], control_path))
+
+    return json.dumps(control_file_content_list)
+
+  @cherrypy.expose
   def controlfiles(self, **kwargs):
     """Return a control file or a list of all known control files.
 
