@@ -945,7 +945,7 @@ class DevServerRoot(object):
       suite_name: List the control files belonging to that suite.
 
     Returns:
-      A list of contents of all control files are provided.
+      A dictionary of all control files's path to its content for given suite.
     """
     if not kwargs:
       return _PrintDocStringAsHTML(self.controlfiles)
@@ -954,19 +954,20 @@ class DevServerRoot(object):
       raise common_util.DevServerHTTPError(500, 'Error: build= is required!')
 
     if 'suite_name' not in kwargs:
-      raise common_util.DevServerHTTPError(500, 'Error: suite_name= is required!')
+      raise common_util.DevServerHTTPError(500,
+                                           'Error: suite_name= is required!')
 
     control_file_list = [
         line.rstrip() for line in common_util.GetControlFileListForSuite(
             updater.static_dir, kwargs['build'],
             kwargs['suite_name']).splitlines()]
 
-    control_file_content_list = []
+    control_file_content_dict = {}
     for control_path in control_file_list:
-      control_file_content_list.append(common_util.GetControlFile(
+      control_file_content_dict[control_path] = (common_util.GetControlFile(
           updater.static_dir, kwargs['build'], control_path))
 
-    return json.dumps(control_file_content_list)
+    return json.dumps(control_file_content_dict)
 
   @cherrypy.expose
   def controlfiles(self, **kwargs):
