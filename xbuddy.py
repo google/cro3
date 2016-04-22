@@ -435,7 +435,7 @@ class XBuddy(build_util.BuildObject):
       suffix: The location suffix, to be added to board name.
       version: as entered in the original call. can be
         {TBD, 0. some custom alias as defined in a config file}
-        1. fully qualified build version or base version.
+        1. fully qualified build version.
         2. latest
         3. latest-{channel}
         4. latest-official-{board suffix}
@@ -455,8 +455,9 @@ class XBuddy(build_util.BuildObject):
     if re.match(devserver_constants.VERSION_RE, version):
       return self._RemoteBuildId(board, suffix, version)
     elif re.match(devserver_constants.VERSION, version):
-      return self._RemoteBuildId(
-          board, suffix, self._ResolveBuildVersion(board, suffix, version))
+      raise XBuddyException('\'%s\' is not valid. Should provide the fully '
+                            'qualified version with a version prefix \'RX-\' '
+                            'due to crbug.com/585914' % version)
     elif version == LATEST_OFFICIAL:
       # latest-official --> LATEST build in board-release
       return self._LookupOfficial(board, suffix, image_dir=image_dir)
