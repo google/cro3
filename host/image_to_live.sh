@@ -536,8 +536,6 @@ run_once() {
 main() {
   echo "$DEPRECATION_WARNING"
 
-  assert_outside_chroot
-
   cd "${SCRIPTS_DIR}"
 
   FLAGS "$@" || exit 1
