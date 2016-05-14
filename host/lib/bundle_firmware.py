@@ -1147,26 +1147,6 @@ class Bundle:
     if not fdt.GetProp('/flash', 'reg', ''):
       fdt.InsertNodes(default_flashmap)
 
-    # Only check for /iram and /config nodes for boards that require it.
-    if self._board in ('daisy', 'peach'):
-      # Insert default values for any essential properties that are missing.
-      # This should only happen for upstream U-Boot, until our changes are
-      # upstreamed.
-      if not fdt.GetProp('/iram', 'reg', ''):
-        self._out.Warning('Cannot find /iram, using default')
-        fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/iram'])
-
-      # Sadly the pit branch has an invalid /memory node. Work around it
-      # for now. crosbug.com/p/22184
-      if (not fdt.GetProp('/memory', 'reg', '') or
-          fdt.GetIntList('/memory', 'reg')[0] == 0):
-        self._out.Warning('Cannot find /memory, using default')
-        fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/memory'])
-
-      if not fdt.GetProp('/config', 'samsung,bl1-offset', ''):
-        self._out.Warning('Missing properties in /config, using defaults')
-        fdt.InsertNodes([i for i in default_flashmap if i['path'] == '/config'])
-
     # Remember our board type.
     fdt.PutString('/chromeos-config', 'board', self._board)
 
