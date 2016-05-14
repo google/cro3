@@ -29,32 +29,6 @@ from flashmaps import default_flashmaps
 from tools import CmdError
 from exynos import ExynosBl2
 
-# This data is required by bmpblk_utility. Does it ever change?
-# It was stored with the chromeos-bootimage ebuild, but we want
-# this utility to work outside the chroot.
-yaml_data = '''
-bmpblock: 1.0
-
-images:
-    devmode:    DeveloperBmp/DeveloperBmp.bmp
-    recovery:   RecoveryBmp/RecoveryBmp.bmp
-    rec_yuck:   RecoveryNoOSBmp/RecoveryNoOSBmp.bmp
-    rec_insert: RecoveryMissingOSBmp/RecoveryMissingOSBmp.bmp
-
-screens:
-  dev_en:
-    - [0, 0, devmode]
-  rec_en:
-    - [0, 0, recovery]
-  yuck_en:
-    - [0, 0, rec_yuck]
-  ins_en:
-    - [0, 0, rec_insert]
-
-localizations:
-  - [ dev_en, rec_en, yuck_en, ins_en ]
-'''
-
 # Build GBB flags.
 # (src/platform/vboot_reference/firmware/include/gbb_header.h)
 gbb_flag_properties = {
