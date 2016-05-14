@@ -150,7 +150,6 @@ class Bundle:
     self.exynos_bl2 = None      # Filename of Exynos BL2 (SPL)
     self.fdt = None             # Our Fdt object.
     self.kernel_fname = None
-    self.postload_fname = None
     self.seabios_fname = None   # Filename of our SeaBIOS payload.
     self.skeleton_fname = None  # Filename of Coreboot skeleton file
     self.uboot_fname = None     # Filename of our U-Boot binary.
@@ -165,7 +164,7 @@ class Bundle:
 
   def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
                coreboot_elf=None,
-               postload=None, seabios=None, exynos_bl1=None, exynos_bl2=None,
+               seabios=None, exynos_bl1=None, exynos_bl2=None,
                skeleton=None, ecrw=None, ecro=None, pdrw=None,
                kernel=None, blobs=None, skip_bmpblk=False, cbfs_files=None,
                rocbfs_files=None):
@@ -178,7 +177,6 @@ class Bundle:
       bmpblk: The filename of bitmap block file to use.
       coreboot: The filename of the coreboot image to use (on x86).
       coreboot_elf: If not none, the ELF file to add as a Coreboot payload.
-      postload: The filename of the u-boot-post.bin image to use.
       seabios: The filename of the SeaBIOS payload to use if any.
       exynos_bl1: The filename of the exynos BL1 file
       exynos_bl2: The filename of the exynos BL2 file (U-Boot spl)
@@ -198,7 +196,6 @@ class Bundle:
     self.bmpblk_fname = bmpblk
     self.coreboot_fname = coreboot
     self.coreboot_elf = coreboot_elf
-    self.postload_fname = postload
     self.seabios_fname = seabios
     self.exynos_bl1 = exynos_bl1
     self.exynos_bl2 = exynos_bl2
@@ -956,8 +953,7 @@ class Bundle:
     elif blob_type == 'legacy':
       pack.AddProperty('legacy', self.seabios_fname)
     elif blob_type == 'signed':
-      bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt,
-                                              self.postload_fname)
+      bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt, None)
       pack.AddProperty('bootstub', bootstub)
       pack.AddProperty('signed', signed)
       pack.AddProperty('image', signed)
