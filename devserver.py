@@ -41,11 +41,13 @@ how to update and which payload to give to a requester.
 
 from __future__ import print_function
 
+import glob
 import json
 import optparse
 import os
 import re
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -63,6 +65,8 @@ import autoupdate
 import artifact_info
 import build_artifact
 import cherrypy_ext
+import cros_update
+import cros_update_progress
 import common_util
 import devserver_constants
 import downloader
@@ -124,6 +128,15 @@ _LOG_ROTATION_BACKUP = 13
 
 # Number of seconds between the collection of disk and network IO counters.
 STATS_INTERVAL = 10.0
+
+# Auto-update parameters
+
+# Error msg for missing key in CrOS auto-update.
+KEY_ERROR_MSG = 'Key Error in cmd %s: %s= is required'
+
+# Command of running auto-update.
+AUTO_UPDATE_CMD = '/usr/bin/python -u %s -d %s -b %s --static_dir %s'
+
 
 class DevServerError(Exception):
   """Exception class used by this module."""
@@ -465,6 +478,27 @@ def _FindExposedMethods(root, prefix, unlisted=None):
   return method_list
 
 
+def _check_base_args_for_auto_update(kwargs):
+  if 'host_name' not in kwargs:
+    raise common_util.DevServerHTTPError(KEY_ERROR_MSG % 'host_name')
+
+  if 'build_name' not in kwargs:
+    raise common_util.DevServerHTTPError(KEY_ERROR_MSG % 'build_name')
+
+
+def _parse_boolean_arg(kwargs, key):
+  if key in kwargs:
+    if kwargs[key] == 'True':
+      return True
+    elif kwargs[key] == 'False':
+      return False
+    else:
+      raise common_util.DevServerHTTPError(
+          'The value for key %s is not boolean.' % key)
+  else:
+    return False
+
+
 class ApiRoot(object):
   """RESTful API for Dev Server information."""
   exposed = True
@@ -762,6 +796,187 @@ class DevServerRoot(object):
     return 'Success'
 
   @cherrypy.expose
+  def cros_au(self, **kwargs):
+    """Auto-update a CrOS DUT.
+
+    Args:
+      kwargs:
+        host_name: the hostname of the DUT to auto-update.
+        build_name: the build name for update the DUT.
+        force_update: Force an update even if the version installed is the
+          same. Default: False.
+        full_update: If True, do not run stateful update, directly force a full
+          reimage. If False, try stateful update first if the dut is already
+          installed with the same version.
+        async: Whether the auto_update function is ran in the background.
+
+    Returns:
+      A tuple includes two elements:
+          a boolean variable represents whether the auto-update process is
+              successfully started.
+          an integer represents the background auto-update process id.
+    """
+    _check_base_args_for_auto_update(kwargs)
+
+    host_name = kwargs['host_name']
+    build_name = kwargs['build_name']
+    force_update = _parse_boolean_arg(kwargs, 'force_update')
+    full_update = _parse_boolean_arg(kwargs, 'full_update')
+    async = _parse_boolean_arg(kwargs, 'async')
+
+    if async:
+      path = os.path.dirname(os.path.abspath(__file__))
+      execute_file = os.path.join(path, 'cros_update.py')
+      args = (AUTO_UPDATE_CMD % (execute_file, host_name, build_name,
+                                 updater.static_dir))
+      if force_update:
+        args = ('%s --force_update' % args)
+
+      if full_update:
+        args = ('%s --full_update' % args)
+
+      p = subprocess.Popen([args], shell=True)
+
+      # Pre-write status in the track_status_file before the first call of
+      # 'get_au_status' to make sure that the track_status_file exists.
+      progress_tracker = cros_update_progress.AUProgress(host_name, p.pid)
+      progress_tracker.WriteStatus('CrOS update is just started.')
+
+      return json.dumps((True, p.pid))
+    else:
+      cros_update_trigger = cros_update.CrOSUpdateTrigger(
+          host_name, build_name, updater.static_dir)
+      cros_update_trigger.TriggerAU()
+
+  @cherrypy.expose
+  def get_au_status(self, **kwargs):
+    """Check if the auto-update task is finished.
+
+    It handles 4 cases:
+    1. If an error exists in the track_status_file, delete the track file and
+       raise it.
+    2. If cros-update process is finished, delete the file and return the
+       success result.
+    3. If the process is not running, delete the track file and raise an error
+       about 'the process is terminated due to unknown reason'.
+    4. If the track_status_file does not exist, kill the process if it exists,
+       and raise the IOError.
+
+    Args:
+      kwargs:
+        host_name: the hostname of the DUT to auto-update.
+        pid: the background process id of cros-update.
+
+    Returns:
+      A tuple includes two elements:
+          a boolean variable represents whether the auto-update process is
+              finished.
+          a string represents the current auto-update process status.
+              For example, 'Transfer Devserver/Stateful Update Package'.
+    """
+    if 'host_name' not in kwargs:
+      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
+
+    if 'pid' not in kwargs:
+      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'pid'))
+
+    host_name = kwargs['host_name']
+    pid = kwargs['pid']
+    progress_tracker = cros_update_progress.AUProgress(host_name, pid)
+
+    try:
+      result = progress_tracker.ReadStatus()
+      if result.startswith(cros_update_progress.ERROR_TAG):
+        raise DevServerError(result[len(cros_update_progress.ERROR_TAG):])
+
+      if result == cros_update_progress.FINISHED:
+        return json.dumps((True, result))
+
+      if not cros_update_progress.IsProcessAlive(pid):
+        raise DevServerError('Cros_update process terminated midway '
+                             'due to unknown purpose. Last update status '
+                             'was %s' % result)
+
+      return json.dumps((False, result))
+    except IOError:
+      if pid:
+        os.kill(int(pid), signal.SIGKILL)
+
+      raise
+
+  @cherrypy.expose
+  def handler_cleanup(self, **kwargs):
+    """Clean track status log for CrOS auto-update process.
+
+    Args:
+      kwargs:
+        host_name: the hostname of the DUT to auto-update.
+        pid: the background process id of cros-update.
+    """
+    if 'host_name' not in kwargs:
+      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
+
+    if 'pid' not in kwargs:
+      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'pid'))
+
+    host_name = kwargs['host_name']
+    pid = kwargs['pid']
+    cros_update_progress.DelTrackStatusFile(host_name, pid)
+
+  @cherrypy.expose
+  def kill_au_proc(self, **kwargs):
+    """Kill CrOS auto-update process using given process id.
+
+    Args:
+      kwargs:
+        host_name: Kill all the CrOS auto-update process of this host.
+
+    Returns:
+      True if all processes are killed properly.
+    """
+    if 'host_name' not in kwargs:
+      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
+
+    host_name = kwargs['host_name']
+    file_filter = cros_update_progress.TRACK_LOG_FILE_PATH % (host_name, '*')
+    track_log_list = glob.glob(file_filter)
+    for log in track_log_list:
+      # The track log's full path is: path/host_name_pid.log
+      # Use splitext to remove file extension, then parse pid from the
+      # filename.
+      pid = os.path.splitext(os.path.basename(log))[0][len(host_name)+1:]
+      if cros_update_progress.IsProcessAlive(pid):
+        os.kill(int(pid), signal.SIGKILL)
+
+      cros_update_progress.DelTrackStatusFile(host_name, pid)
+
+    return 'True'
+
+  @cherrypy.expose
+  def collect_cros_au_log(self, **kwargs):
+    """Collect CrOS auto-update log.
+
+    Args:
+      kwargs:
+        host_name: the hostname of the DUT to auto-update.
+        pid: the background process id of cros-update.
+
+    Returns:
+      A string contains the whole content of the execute log file.
+    """
+    if 'host_name' not in kwargs:
+      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
+
+    if 'pid' not in kwargs:
+      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'pid'))
+
+    host_name = kwargs['host_name']
+    pid = kwargs['pid']
+    log_file = cros_update_progress.GetExecuteLogFile(host_name, pid)
+    with open(log_file, 'r') as f:
+      return f.read()
+
+  @cherrypy.expose
   def locate_file(self, **kwargs):
     """Get the path to the given file name.
 
@@ -777,7 +992,6 @@ class DevServerRoot(object):
     Returns:
       Path to the file with the given name. It's relative to the folder for the
       build, e.g., DATA/priv-app/sl4a/sl4a.apk
-
     """
     dl, _ = _get_downloader_and_factory(kwargs)
     try:
@@ -922,8 +1136,8 @@ class DevServerRoot(object):
       target = kwargs.get('target', None)
       if not target or not branch:
         raise DevServerError(
-          'Both target and branch must be specified to query for the latest '
-          'Android build.')
+            'Both target and branch must be specified to query for the latest '
+            'Android build.')
       return android_build.BuildAccessor.GetLatestBuildID(target, branch)
 
     try:
@@ -1241,7 +1455,6 @@ class DevServerRoot(object):
 
     Returns:
       A dictionary of IO stats collected by psutil.
-
     """
     return {'disk_read_bytes_per_second': self.disk_read_bytes_per_sec,
             'disk_write_bytes_per_second': self.disk_write_bytes_per_sec,

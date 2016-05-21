@@ -22,6 +22,9 @@ install:
 		builder.py \
 		cherrypy_ext.py \
 		common_util.py \
+		cros_update.py \
+		cros_update_logging.py \
+		cros_update_progress.py \
 		devserver_constants.py \
 		downloader.py \
 		gsutil_util.py \
