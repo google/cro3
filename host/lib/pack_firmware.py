@@ -321,7 +321,24 @@ class EntryIfd(EntryFmapArea):
     # We can assume that the ifd section is at the start of the image.
     if self.offset != 0:
       raise ConfigError('IFD section must be at offset 0 in the image')
-    data = data[self.size:]
+
+    # Calculate start and size of BIOS region based off the IFD descriptor and
+    # not the size in dts node.
+    ifd_layout_tmp = os.path.join(tmpdir, 'ifd-layout-tmp')
+    args = ['-f%s' % ifd_layout_tmp, tools.Filename(self.pack.props['skeleton'])]
+    tools.Run('ifdtool', args)
+    fd = open(ifd_layout_tmp)
+    layout = fd.readlines()
+    for line in layout:
+        line = line.rstrip()
+        if line.find("bios") != -1:
+            addr_range = line.split(' ')[0]
+            start = int(addr_range.split(':')[0], 16)
+            end = int(addr_range.split(':')[1], 16)
+
+    fd.close()
+
+    data = data[start:end+1]
     input_fname = os.path.join(tmpdir, 'ifd-input.bin')
     tools.WriteFile(input_fname, data)
     ifd_output = os.path.join(tmpdir, 'image.ifd')
