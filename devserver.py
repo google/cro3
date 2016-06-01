@@ -1251,6 +1251,23 @@ class DevServerRoot(object):
                                                self.network_recv_bytes_per_sec),
             'cpu_percent': psutil.cpu_percent(),}
 
+
+  def _get_process_count(self, process_cmd_pattern):
+    """Get the count of processes that match the given command pattern.
+
+    Args:
+      process_cmd_pattern: The regex pattern of process command to match.
+
+    Returns:
+      The count of processes that match the given command pattern.
+    """
+    try:
+      return int(subprocess.check_output(
+          'pgrep -fc "%s"' % process_cmd_pattern, shell=True))
+    except subprocess.CalledProcessError:
+      return 0
+
+
   @cherrypy.expose
   def check_health(self):
     """Collect the health status of devserver to see if it's ready for staging.
@@ -1260,26 +1277,23 @@ class DevServerRoot(object):
       free_disk (int):            free disk space in GB
       staging_thread_count (int): number of devserver threads currently staging
                                   an image
+      apache_client_count (int): count of Apache processes.
+      telemetry_test_count (int): count of telemetry tests.
+      gsutil_count (int): count of gsutil processes.
     """
     # Get free disk space.
     stat = os.statvfs(updater.static_dir)
     free_disk = stat.f_bsize * stat.f_bavail / 1000000000
-    try:
-      apache_client_count = int(subprocess.check_output('pgrep -fc apache',
-                                                        shell=True))
-    except subprocess.CalledProcessError:
-      apache_client_count = 0
-    try:
-      telemetry_test_count = int(subprocess.check_output(
-          'pgrep -fc "python.*telemetry"', shell=True))
-    except subprocess.CalledProcessError:
-      telemetry_test_count = 0
+    apache_client_count = self._get_process_count('apache')
+    telemetry_test_count = self._get_process_count('python.*telemetry')
+    gsutil_count = self._get_process_count('gsutil')
 
     health_data = {
         'free_disk': free_disk,
         'staging_thread_count': DevServerRoot._staging_thread_count,
         'apache_client_count': apache_client_count,
-        'telemetry_test_count': telemetry_test_count}
+        'telemetry_test_count': telemetry_test_count,
+        'gsutil_count': gsutil_count}
     health_data.update(self._get_io_stats() or {})
 
     return json.dumps(health_data)
