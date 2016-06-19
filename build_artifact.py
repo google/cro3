@@ -198,6 +198,7 @@ class Artifact(log_util.Loggable):
 
     # If the marker is missing, it's definitely not staged.
     if not os.path.exists(marker_file):
+      self._Log('No marker file, %s is not staged.', self)
       return False
 
     # We want to ensure that every file listed in the marker is actually there.
@@ -213,8 +214,10 @@ class Artifact(log_util.Loggable):
                   'All' if len(files) == len(missing_files) else 'Some',
                   marker_file, '\n'.join(missing_files))
         os.remove(marker_file)
+        self._Log('Missing files, %s is not staged.', self)
         return False
 
+    self._Log('ArtifactStaged() -> yes, %s is staged.', self)
     return True
 
   def _MarkArtifactStaged(self):

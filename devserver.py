@@ -666,7 +666,9 @@ class DevServerRoot(object):
             artifacts=autotest,test_suites
     """
     dl, factory = _get_downloader_and_factory(kwargs)
-    return str(dl.IsStaged(factory))
+    response = str(dl.IsStaged(factory))
+    _Log('Responding to is_staged %s request with %r', kwargs, response)
+    return response
 
   @cherrypy.expose
   def list_image_dir(self, **kwargs):
