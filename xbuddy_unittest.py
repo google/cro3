@@ -165,20 +165,21 @@ class xBuddyTest(mox.MoxTestBase):
                                           image_dir=GS_ALTERNATE_DIR)
     self.mox.VerifyAll()
 
-  def testResolveVersionToBuildId_BaseVersion(self):
-    """Check _ResolveVersionToBuildId handles a base version."""
-    board = 'b'
-    suffix = '-s'
+  # TODO(dgarrett): Re-enable when crbug.com/585914 is fixed.
+  # def testResolveVersionToBuildId_BaseVersion(self):
+  #   """Check _ResolveVersionToBuildId handles a base version."""
+  #   board = 'b'
+  #   suffix = '-s'
 
-    self.mox.StubOutWithMock(self.mock_xb, '_ResolveBuildVersion')
-    self.mock_xb._ResolveBuildVersion(board, suffix, '1.2.3').AndReturn(
-        'R12-1.2.3')
-    self.mox.StubOutWithMock(self.mock_xb, '_RemoteBuildId')
-    self.mock_xb._RemoteBuildId(board, suffix, 'R12-1.2.3')
-    self.mox.ReplayAll()
+  #   self.mox.StubOutWithMock(self.mock_xb, '_ResolveBuildVersion')
+  #   self.mock_xb._ResolveBuildVersion(board, suffix, '1.2.3').AndReturn(
+  #       'R12-1.2.3')
+  #   self.mox.StubOutWithMock(self.mock_xb, '_RemoteBuildId')
+  #   self.mock_xb._RemoteBuildId(board, suffix, 'R12-1.2.3')
+  #   self.mox.ReplayAll()
 
-    self.mock_xb._ResolveVersionToBuildId(board, suffix, '1.2.3')
-    self.mox.VerifyAll()
+  #   self.mock_xb._ResolveVersionToBuildId(board, suffix, '1.2.3')
+  #   self.mox.VerifyAll()
 
   def testBasicInterpretPath(self):
     """Basic checks for splitting a path"""
@@ -297,7 +298,6 @@ class xBuddyTest(mox.MoxTestBase):
     path_a = ('remote', 'a', 'R0', 'test')
     path_b = ('remote', 'b', 'R0', 'test')
     self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
-    self.mox.StubOutWithMock(self.mock_xb, '_Download')
     self.mox.StubOutWithMock(self.mock_xb, '_Download')
     for _ in range(8):
       self.mock_xb._Download(mox.IsA(str), mox.In(mox.IsA(str)))
