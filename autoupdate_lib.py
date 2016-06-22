@@ -4,6 +4,8 @@
 
 """Module containing common autoupdate utilities and protocol dictionaries."""
 
+from __future__ import print_function
+
 import datetime
 import os
 import time

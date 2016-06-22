@@ -20,6 +20,8 @@ import common_util
 import devserver_constants
 import log_util
 
+# We do a number of things with args/kwargs arguments that confuse pylint.
+# pylint: disable=docstring-misnamed-args
 
 _AU_BASE = 'au'
 _NTON_DIR_SUFFIX = '_nton'
@@ -519,8 +521,8 @@ def _CreateNewArtifact(tag, base, name, *fixed_args, **fixed_kwargs):
 
   Returns:
     A data wrapper that describes an artifact's implementation.
-
   """
+  # pylint: disable=super-on-old-class
   class NewArtifact(base):
     """A data wrapper that describes an artifact's implementation."""
     ARTIFACT_TAG = tag
@@ -544,7 +546,9 @@ chromeos_artifact_map = {}
 
 
 def _AddCrOSArtifact(tag, base, name, *fixed_args, **fixed_kwargs):
-  """Add a data wrapper that describes a ChromeOS artifact's implementation to
+  """Add a data wrapper for ChromeOS artifacts.
+
+  Add a data wrapper that describes a ChromeOS artifact's implementation to
   chromeos_artifact_map.
   """
   artifact = _CreateNewArtifact(tag, base, name, *fixed_args, **fixed_kwargs)
@@ -623,7 +627,9 @@ android_artifact_map = {}
 
 
 def _AddAndroidArtifact(tag, base, name, *fixed_args, **fixed_kwargs):
-  """Add a data wrapper that describes an Android artifact's implementation to
+  """Add a data wrapper for android artifacts.
+
+  Add a data wrapper that describes an Android artifact's implementation to
   android_artifact_map.
   """
   artifact = _CreateNewArtifact(tag, base, name, *fixed_args, **fixed_kwargs)

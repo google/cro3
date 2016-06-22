@@ -2,13 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+"""Defines a build related helper class."""
+
+from __future__ import print_function
+
 import os
 import sys
 
 
 class BuildObject(object):
-  """
-  Common base class that defines key paths in the source tree.
+  """Common base class that defines key paths in the source tree.
 
   Classes that inherit from BuildObject can access scripts in the src/scripts
   directory, and have a handle to the static directory of the devserver.

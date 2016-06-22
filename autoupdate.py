@@ -4,12 +4,13 @@
 
 """Devserver module for handling update client requests."""
 
+from __future__ import print_function
+
 import base64
 import collections
 import fcntl
 import json
 import os
-import struct
 import subprocess
 import sys
 import threading
@@ -39,9 +40,9 @@ FORCED_UPDATE = 'ForcedUpdate'
 
 # Files needed to serve an update.
 UPDATE_FILES = (
-  constants.UPDATE_FILE,
-  constants.STATEFUL_FILE,
-  constants.METADATA_FILE
+    constants.UPDATE_FILE,
+    constants.STATEFUL_FILE,
+    constants.METADATA_FILE
 )
 
 # Module-local log function.
@@ -64,7 +65,7 @@ def _ChangeUrlPort(url, new_port):
   else:
     host_port[1] = new_port
 
-  print host_port
+  print(host_port)
   netloc = '%s:%s' % tuple(host_port)
 
   return urlparse.urlunsplit((scheme, netloc, path, query, fragment))
@@ -174,7 +175,7 @@ class Autoupdate(build_util.BuildObject):
                proxy_port=None, src_image='', board=None,
                copy_to_static_root=True, private_key=None,
                private_key_for_metadata_hash_signature=None, public_key=None,
-               critical_update=False, remote_payload=False, max_updates= -1,
+               critical_update=False, remote_payload=False, max_updates=-1,
                host_log=False, *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.xbuddy = xbuddy
@@ -259,8 +260,7 @@ class Autoupdate(build_util.BuildObject):
 
   @staticmethod
   def _CanUpdate(client_version, latest_version):
-    """Returns true if the latest_version is greater than the client_version.
-    """
+    """True if the latest_version is greater than the client_version."""
     _Log('client version %s latest version %s', client_version, latest_version)
 
     client_tokens = client_version.replace('_', '').split('.')
@@ -504,8 +504,8 @@ class Autoupdate(build_util.BuildObject):
     _Log('Pre-generating the update payload')
     # Does not work with labels so just use static dir. (empty label)
     pregenerated_update = self.GetPathToPayload('', FORCED_UPDATE, self.board)
-    print 'PREGENERATED_UPDATE=%s' % _NonePathJoin(pregenerated_update,
-                                                   constants.UPDATE_FILE)
+    print('PREGENERATED_UPDATE=%s' % _NonePathJoin(pregenerated_update,
+                                                   constants.UPDATE_FILE))
     return pregenerated_update
 
   def _GetRemotePayloadAttrs(self, url):
@@ -638,7 +638,7 @@ class Autoupdate(build_util.BuildObject):
       client_version = app.getAttribute('version')
       channel = app.getAttribute('track')
       board = (app.hasAttribute('board') and app.getAttribute('board')
-                  or self.GetDefaultBoardID())
+               or self.GetDefaultBoardID())
       # Add attributes to log message
       log_message['version'] = client_version
       log_message['track'] = channel

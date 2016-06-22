@@ -264,9 +264,7 @@ class BuildArtifactTest(mox.MoxTestBase):
     self._CheckMarker(artifact.marker_name, artifact.installed_files)
 
   def testArtifactFactory(self):
-    """Tests that BuildArtifact logic works for both named and file artifacts.
-
-    """
+    """Tests that BuildArtifact works for both named and file artifacts."""
     name_artifact = 'test_suites' # This file is in every real GS dir.
     file_artifact = 'metadata.json' # This file is in every real GS dir.
     factory = build_artifact.ChromeOSArtifactFactory(

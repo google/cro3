@@ -1,10 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Unit tests for autoupdate.py."""
+
+from __future__ import print_function
 
 import json
 import os
@@ -158,7 +160,7 @@ class AutoupdateTest(mox.MoxTestBase):
 
     # Mock out GenerateUpdateImageWithCache to make an update file in cache
     def mock_fn(_image):
-      print 'mock_fn'
+      print('mock_fn')
       # No good way to introduce an update file during execution.
       cache_dir = os.path.join(self.static_image_dir, 'cache')
       common_util.MkDirP(cache_dir)
@@ -203,7 +205,8 @@ class AutoupdateTest(mox.MoxTestBase):
     au_mock = self._DummyAutoupdateConstructor()
     au_mock.forced_image = "xbuddy:b/v/a"
 
-    self._xbuddy._GetArtifact(['b', 'v', 'a'],
+    self._xbuddy._GetArtifact(
+        ['b', 'v', 'a'],
         image_dir=None).AndReturn(('label', constants.TEST_IMAGE_FILE))
 
     au_mock.GetUpdateForLabel(
@@ -290,7 +293,8 @@ class AutoupdateTest(mox.MoxTestBase):
         attrs['forced_update_label'],
         test_label)
     self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
-    self.assertFalse('forced_update_label' in
+    self.assertFalse(
+        'forced_update_label' in
         au_mock.host_infos.GetHostInfo('127.0.0.1').attrs)
 
   def testGetVersionFromDir(self):
