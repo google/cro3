@@ -96,6 +96,7 @@ ANDROID_VENDOR_PARTITION_ZIP = 'vendor_partitions'
 
 # Zip file of native tests used by Android devices.
 ANDROID_NATIVETESTS_ZIP = 'nativetests'
+ANDROID_CONTINUOUS_NATIVE_TESTS_ZIP = 'continuous_native_tests'
 
 # In general, downloading one artifact usually indicates that the caller will
 # want to download other artifacts later. The following map explicitly defines
