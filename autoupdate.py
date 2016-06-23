@@ -208,10 +208,13 @@ class Autoupdate(build_util.BuildObject):
   @classmethod
   def _ReadMetadataFromStream(cls, stream):
     """Returns metadata obj from input json stream that implements .read()."""
+    data = None
     file_attr_dict = {}
     try:
-      file_attr_dict = json.loads(stream.read())
-    except IOError:
+      data = stream.read()
+      file_attr_dict = json.loads(data)
+    except (IOError, ValueError):
+      _Log('Failed to load metadata:%s' % data)
       return None
 
     sha1 = file_attr_dict.get(cls.SHA1_ATTR)
