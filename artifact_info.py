@@ -98,6 +98,12 @@ ANDROID_VENDOR_PARTITION_ZIP = 'vendor_partitions'
 ANDROID_NATIVETESTS_ZIP = 'nativetests'
 ANDROID_CONTINUOUS_NATIVE_TESTS_ZIP = 'continuous_native_tests'
 
+# Zip file including all target files and images
+ANDROID_TARGET_FILES_ZIP = 'target_files'
+
+# Zip file containing DTB for emulators
+ANDROID_DTB_ZIP = 'dtb'
+
 # In general, downloading one artifact usually indicates that the caller will
 # want to download other artifacts later. The following map explicitly defines
 # this relationship. Specifically:
