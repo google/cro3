@@ -1441,7 +1441,7 @@ def _AddProductionOptions(parser):
   parser.add_option_group(group)
 
 
-def _MakeLogHandler(logfile):
+def MakeLogHandler(logfile):
   """Create a LogHandler instance used to log all messages."""
   hdlr_cls = handlers.TimedRotatingFileHandler
   hdlr = hdlr_cls(logfile, when=_LOG_ROTATION_TIME,
@@ -1492,7 +1492,7 @@ def main():
   else:
     cherrypy.config.update({'log.error_file': '',
                             'log.access_file': ''})
-    hdlr = _MakeLogHandler(options.logfile)
+    hdlr = MakeLogHandler(options.logfile)
     # Pylint can't seem to process these two calls properly
     # pylint: disable=E1101
     cherrypy.log.access_log.addHandler(hdlr)
