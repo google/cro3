@@ -13,6 +13,26 @@ import select
 import subprocess
 import sys
 import time
+import contextlib
+
+
+@contextlib.contextmanager
+def WriterClosedFile(path):
+  """Context manager to watch whether a file is closed by a writer."""
+  inotify_process = subprocess.Popen(
+      ['inotifywait', '-qe', 'close_write', path],
+      stdout=subprocess.PIPE)
+
+  # stdout.read is blocking, so use select.select to detect if input is
+  # available.
+  def IsClosed():
+    read_list, _, _ = select.select([inotify_process.stdout], [], [], 0)
+    return bool(read_list)
+
+  try:
+    yield IsClosed
+  finally:
+    inotify_process.kill()
 
 
 def TailFile(path, sleep_interval, chunk_size,
@@ -28,35 +48,25 @@ def TailFile(path, sleep_interval, chunk_size,
     seek_to_end: Whether to start at the end of the file at |path| when reading.
   """
 
-  writer_closed = subprocess.Popen(['inotifywait', '-qe', 'close_write', path],
-                                   stdout=subprocess.PIPE)
-
-  # stdout.read is blocking, so use select.select to detect if input is
-  # available.
-  def WriterClosedFile():
-    read_list, _, _ = select.select([writer_closed.stdout], [], [], 0)
-    return bool(read_list)
-
   def ReadChunks(fh):
     for chunk in iter(lambda: fh.read(chunk_size), b''):
       print(chunk, end='', file=outfile)
 
-  with open(path) as fh:
-    if seek_to_end == True:
-      fh.seek(0, 2)
-    while True:
-      ReadChunks(fh)
-      if WriterClosedFile():
-        # We need to read the chunks again to avoid a race condition where the
-        # writer finishes writing some output in between the ReadChunks() and
-        # the WriterClosedFile() call.
+  with WriterClosedFile(path) as IsClosed:
+    with open(path) as fh:
+      if seek_to_end == True:
+        fh.seek(0, 2)
+      while True:
         ReadChunks(fh)
-        break
+        if IsClosed():
+          # We need to read the chunks again to avoid a race condition where the
+          # writer finishes writing some output in between the ReadChunks() and
+          # the IsClosed() call.
+          ReadChunks(fh)
+          break
 
-      # Sleep a bit to limit the number of wasted reads.
-      time.sleep(sleep_interval)
-
-  writer_closed.kill()
+        # Sleep a bit to limit the number of wasted reads.
+        time.sleep(sleep_interval)
 
 
 def main():
