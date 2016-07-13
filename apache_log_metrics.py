@@ -12,7 +12,6 @@ We are interested in static file bandwidth, so it parses out GET requests to
 from __future__ import print_function
 
 import argparse
-import logging
 import re
 import sys
 
@@ -20,6 +19,7 @@ from devserver import MakeLogHandler
 
 from chromite.lib import ts_mon_config
 from chromite.lib import metrics
+from chromite.lib import cros_logging as logging
 from infra_libs import ts_mon
 
 
@@ -79,8 +79,10 @@ def EmitStaticRequestMetric(m):
 
 def RunMatchers(stream, matchers):
   """Parses lines of |stream| using patterns and emitters from |matchers|"""
-  for line in stream:
+  for line in iter(stream.readline, ''):
     for matcher, emitter in matchers:
+      logging.debug('Emitting %s for input "%s"',
+                    emitter.__name__, line.strip())
       m = matcher.match(line)
       if m:
         emitter(m)
