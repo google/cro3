@@ -25,7 +25,7 @@ from infra_libs import ts_mon
 
 STATIC_GET_MATCHER = re.compile(
     r'^(?P<ip_addr>\d+\.\d+\.\d+\.\d+) '
-    r'.*GET /static/\S*[^"]*" '
+    r'.*GET /static/(?P<endpoint>\S*)[^"]*" '
     r'200 (?P<size>\S+) .*')
 
 STATIC_GET_METRIC_NAME = 'chromeos/devserver/apache/static_response_size'
@@ -47,10 +47,24 @@ LAB_SUBNETS = (
 )
 
 def IPToNum(ip):
-  return reduce(lambda seed, x: seed * 2**8 + int(x), ip.split('.'), 0)
+  """Returns the integer represented by an IPv4 string.
+
+  Args:
+    ip: An IPv4-formatted string.
+  """
+  return reduce(lambda (seed, x): seed * 2**8 + int(x),
+                ip.split('.'),
+                0)
 
 
 def MatchesSubnet(ip, base, mask):
+  """Whether the ip string |ip| matches the subnet |base|, |mask|.
+
+  Args:
+    ip: An IPv4 string.
+    base: An IPv4 string which is the lowest value in the subnet.
+    mask: The number of bits which are not wildcards in the subnet.
+  """
   ip_value = IPToNum(ip)
   base_value = IPToNum(base)
   mask = (2**mask - 1) << (32 - mask)
@@ -58,27 +72,70 @@ def MatchesSubnet(ip, base, mask):
 
 
 def InLab(ip):
+  """Whether |ip| is an IPv4 address which is in the ChromeOS Lab.
+
+  Args:
+    ip: An IPv4 address to be tested.
+  """
   return any(MatchesSubnet(ip, base, mask)
              for (base, mask) in LAB_SUBNETS)
 
 
-def EmitStaticRequestMetric(m):
-  """Emits a Counter metric for sucessful GETs to /static endpoints."""
-  ipaddr, size = m.groups()
+def ParseStaticEndpoint(endpoint):
+  """Parses a /static/.* URL path into build_config, milestone, and filename.
+
+  Static endpoints are expected to be of the form
+      /static/$BUILD_CONFIG/$MILESTONE-$VERSION/$FILENAME
+
+  This function expects the '/static/' prefix to already be stripped off.
+
+  Args:
+    endpoint: A string which is the matched URL path after /static/
+  """
+  build_config, milestone, filename = [''] * 3
   try:
-    size = int(size)
+    parts = endpoint.split('/')
+    build_config = parts[0]
+    if len(parts) >= 2:
+      version = parts[1]
+      milestone = version[:version.index('-')]
+    if len(parts) >= 3:
+      filename = parts[-1]
+  except IndexError as e:
+    logging.debug('%s failed to parse. Caught %s' % (endpoint, str(e)))
+
+  return build_config, milestone, filename
+
+
+def EmitStaticRequestMetric(m):
+  """Emits a Counter metric for sucessful GETs to /static endpoints.
+
+  Args:
+    m: A regex match object
+  """
+  build_config, milestone, filename = ParseStaticEndpoint(m.group('endpoint'))
+
+  try:
+    size = int(m.group('size'))
   except ValueError:  # Zero is represented by "-"
     size = 0
 
   metrics.Counter(STATIC_GET_METRIC_NAME).increment_by(
       size, fields={
-          'builder': '',
-          'in_lab': InLab(ipaddr),
-          'endpoint': ''})
+          'build_config': build_config,
+          'milestone': milestone,
+          'in_lab': InLab(m.group('ipaddr')),
+          'endpoint': filename})
 
 
 def RunMatchers(stream, matchers):
-  """Parses lines of |stream| using patterns and emitters from |matchers|"""
+  """Parses lines of |stream| using patterns and emitters from |matchers|
+
+  Args:
+    stream: A file object to read from.
+    matchers: A list of pairs of (matcher, emitter), where matcher is a regex
+              and emitter is a function called when the regex matches.
+  """
   for line in iter(stream.readline, ''):
     for matcher, emitter in matchers:
       logging.debug('Emitting %s for input "%s"',
