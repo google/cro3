@@ -18,6 +18,8 @@ MOBLAB_CONFIG = '/usr/local/autotest/moblab_config.ini'
 SHADOW_CONFIG = '/usr/local/autotest/shadow_config.ini'
 
 GSUTIL_TIMEOUT_SEC = 5
+GSUTIL_USER = 'moblab'
+GSUTIL_INTERNAL_BUCKETS = ['gs://chromeos-image-archive']
 MOBLAB_SUBNET_ADDR = '192.168.231.1'
 
 
@@ -67,7 +69,7 @@ class GsBucket(object):
     cmd = ['timeout', '-s', '9', str(GSUTIL_TIMEOUT_SEC),
            'gsutil', 'ls', '-b', gs_url]
     try:
-      cros_build_lib.RunCommand(cmd)
+      cros_build_lib.SudoRunCommand(cmd, user=GSUTIL_USER)
     except cros_build_lib.RunCommandError:
       return False
 
@@ -102,10 +104,17 @@ class GsBucket(object):
       self.bucket = gs_url
       return -2
 
+    if gs_url in GSUTIL_INTERNAL_BUCKETS:
+      self.bucket = gs_url
+      return 1
+
     return 0
 
   def Diagnose(self, errcode):
-    if -1 == errcode:
+    if 1 == errcode:
+      return ('Using an internal Google Storage bucket %s' % self.bucket, [])
+
+    elif -1 == errcode:
       return ('An autotest configuration file is missing.', [])
 
     elif -2 == errcode:
