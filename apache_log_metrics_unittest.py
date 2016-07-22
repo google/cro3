@@ -8,6 +8,7 @@
 
 from __future__ import print_function
 
+import mock
 import unittest
 
 import apache_log_metrics
@@ -34,6 +35,18 @@ class TestParsers(unittest.TestCase):
     self.assertFalse(apache_log_metrics.InLab(ip))
 
     self.assertEqual(match.group('size'), '13805917')
+
+
+class TestEmitters(unittest.TestCase):
+  """Tests the emitter functions in apache_log_metrics."""
+
+  def testEmitStaticResponse(self):
+    match = apache_log_metrics.STATIC_GET_MATCHER.match(
+        STATIC_REQUEST_LINE)
+    # Calling the emitter should not raise any exceptions (for example, by
+    # referencing regex match groups that don't exist.
+    with mock.patch.object(apache_log_metrics, 'metrics'):
+      apache_log_metrics.EmitStaticRequestMetric(match)
 
 
 if __name__ == '__main__':

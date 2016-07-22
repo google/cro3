@@ -52,7 +52,7 @@ def IPToNum(ip):
   Args:
     ip: An IPv4-formatted string.
   """
-  return reduce(lambda (seed, x): seed * 2**8 + int(x),
+  return reduce(lambda seed, x: seed * 2**8 + int(x),
                 ip.split('.'),
                 0)
 
@@ -124,7 +124,7 @@ def EmitStaticRequestMetric(m):
       size, fields={
           'build_config': build_config,
           'milestone': milestone,
-          'in_lab': InLab(m.group('ipaddr')),
+          'in_lab': InLab(m.group('ip_addr')),
           'endpoint': filename})
 
 
