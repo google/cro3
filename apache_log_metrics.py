@@ -81,6 +81,33 @@ def InLab(ip):
              for (base, mask) in LAB_SUBNETS)
 
 
+MILESTONE_PATTERN = re.compile(r'R\d+')
+
+FILENAME_CONSTANTS = [
+    'stateful.tgz',
+    'client-autotest.tar.bz2',
+    'chromiumos_test_image.bin',
+    'autotest_server_package.tar.bz2',
+]
+
+FILENAME_PATTERNS = [(re.compile(s), s) for s in FILENAME_CONSTANTS] + [
+    (re.compile(r'dep-.*\.bz2'), 'dep-*.bz2'),
+    (re.compile(r'chromeos_.*_delta_test\.bin-.*'),
+     'chromeos_*_delta_test.bin-*'),
+    (re.compile(r'chromeos_.*_full_test\.bin-.*'),
+     'chromeos_*_full_test.bin-*'),
+    (re.compile(r'test-.*\.bz2'), 'test-*.bz2'),
+    (re.compile(r'dep-.*\.bz2'), 'dep-*.bz2'),
+]
+
+
+def MatchAny(needle, patterns, default=''):
+  for pattern, value in patterns:
+    if pattern.match(needle):
+      return value
+  return default
+
+
 def ParseStaticEndpoint(endpoint):
   """Parses a /static/.* URL path into build_config, milestone, and filename.
 
@@ -99,8 +126,11 @@ def ParseStaticEndpoint(endpoint):
     if len(parts) >= 2:
       version = parts[1]
       milestone = version[:version.index('-')]
+      if not MILESTONE_PATTERN.match(milestone):
+        milestone = ''
     if len(parts) >= 3:
-      filename = parts[-1]
+      filename = MatchAny(parts[-1], FILENAME_PATTERNS)
+
   except IndexError as e:
     logging.debug('%s failed to parse. Caught %s' % (endpoint, str(e)))
 
