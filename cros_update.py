@@ -151,7 +151,8 @@ class CrOSUpdateTrigger(object):
 
     The auto update includes 4 steps:
     1. if devserver cannot run, restore the stateful partition.
-    2. if possible, do stateful update first, but never raise errors.
+    2. if possible, do stateful update first, but never raise errors, except
+       for timeout_util.TimeoutError caused by system.signal.
     3. If required or stateful_update fails, first do rootfs update, then do
        stateful_update.
     4. Post-check for the whole update.
@@ -193,6 +194,8 @@ class CrOSUpdateTrigger(object):
               self._StatefulUpdate(chromeos_AU)
               stateful_update_complete = True
 
+        except timeout_util.TimeoutError:
+          raise
         except Exception as e:
           logging.debug('Error happens in stateful update: %r', e)
 
