@@ -58,6 +58,8 @@ ANDROID_TEST_SUITES = r'[^-]*-test_suites-.*\.tar.bz2'
 ANDROID_CONTROL_FILES = r'[^-]*-autotest_control_files-.*\.tar'
 ANDROID_NATIVETESTS_FILE = r'[^-]*-brillo-tests-.*\.zip'
 ANDROID_CONTINUOUS_NATIVE_TESTS_FILE = r'[^-]*-continuous_native_tests-.*\.zip'
+ANDROID_CONTINUOUS_INSTRUMENTATION_TESTS_FILE = (
+    r'[^-]*-continuous_instrumentation_tests-.*\.zip')
 ANDROID_TARGET_FILES_ZIP = r'[^-]*-target_files-.*\.zip'
 ANDROID_DTB_ZIP = r'[^-]*-dtb-.*\.zip'
 
@@ -661,6 +663,10 @@ _AddAndroidArtifact(artifact_info.ANDROID_NATIVETESTS_ZIP, BundledArtifact,
 _AddAndroidArtifact(artifact_info.ANDROID_CONTINUOUS_NATIVE_TESTS_ZIP,
                     BundledArtifact,
                     ANDROID_CONTINUOUS_NATIVE_TESTS_FILE,
+                    is_regex_name=True)
+_AddAndroidArtifact(artifact_info.ANDROID_CONTINUOUS_INSTRUMENTATION_TESTS_ZIP,
+                    BundledArtifact,
+                    ANDROID_CONTINUOUS_INSTRUMENTATION_TESTS_FILE,
                     is_regex_name=True)
 _AddAndroidArtifact(artifact_info.ANDROID_TARGET_FILES_ZIP, Artifact,
                     ANDROID_TARGET_FILES_ZIP, is_regex_name=True)
