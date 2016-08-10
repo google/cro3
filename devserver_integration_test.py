@@ -438,8 +438,8 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
       c. 'kill_au_proc'
     """
     host_name = '100.0.0.0'
-    p = subprocess.Popen(['sleep 100'], shell=True)
-    pid = p.pid
+    p = subprocess.Popen(['sleep 100'], shell=True, preexec_fn=os.setsid)
+    pid = os.getpgid(p.pid)
     status = 'updating'
     progress_tracker = cros_update_progress.AUProgress(host_name, pid)
     progress_tracker.WriteStatus(status)

@@ -835,14 +835,15 @@ class DevServerRoot(object):
       if full_update:
         args = ('%s --full_update' % args)
 
-      p = subprocess.Popen([args], shell=True)
+      p = subprocess.Popen([args], shell=True, preexec_fn=os.setsid)
+      pid = os.getpgid(p.pid)
 
       # Pre-write status in the track_status_file before the first call of
       # 'get_au_status' to make sure that the track_status_file exists.
-      progress_tracker = cros_update_progress.AUProgress(host_name, p.pid)
+      progress_tracker = cros_update_progress.AUProgress(host_name, pid)
       progress_tracker.WriteStatus('CrOS update is just started.')
 
-      return json.dumps((True, p.pid))
+      return json.dumps((True, pid))
     else:
       cros_update_trigger = cros_update.CrOSUpdateTrigger(
           host_name, build_name, updater.static_dir)
@@ -900,7 +901,7 @@ class DevServerRoot(object):
       return json.dumps((False, result))
     except IOError:
       if pid:
-        os.kill(int(pid), signal.SIGKILL)
+        os.killpg(int(pid), signal.SIGKILL)
 
       raise
 
@@ -946,7 +947,7 @@ class DevServerRoot(object):
       # filename.
       pid = os.path.splitext(os.path.basename(log))[0][len(host_name)+1:]
       if cros_update_progress.IsProcessAlive(pid):
-        os.kill(int(pid), signal.SIGKILL)
+        os.killpg(int(pid), signal.SIGKILL)
 
       cros_update_progress.DelTrackStatusFile(host_name, pid)
 

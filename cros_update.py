@@ -166,7 +166,9 @@ class CrOSUpdateTrigger(object):
         logging.debug('Remote device %s is connected', self.host_name)
         payload_dir = os.path.join(self.static_dir, self.build_name)
         chromeos_AU = auto_updater.ChromiumOSUpdater(
-            device, self.build_name, payload_dir, log_file=self.log_file,
+            device, self.build_name, payload_dir,
+            dev_dir=os.path.abspath(os.path.dirname(__file__)),
+            log_file=self.log_file,
             yes=True)
         chromeos_AU.CheckPayloads()
 
@@ -244,18 +246,19 @@ def main():
   force_update = AU_parser.options.force_update
   full_update = AU_parser.options.full_update
 
-  # Reset process group id to make current process running on the background.
+  # Use process group id as the unique id in track and log files, since
+  # os.setsid is executed before the current process is run.
   pid = os.getpid()
-  os.setsid()
+  pgid = os.getpgid(pid)
 
   # Setting log files for CrOS auto-update process.
   # Log file:  file to record every details of CrOS auto-update process.
-  log_file = cros_update_progress.GetExecuteLogFile(host_name, pid)
+  log_file = cros_update_progress.GetExecuteLogFile(host_name, pgid)
   logging.info('Writing executing logs into file: %s', log_file)
   logConfig.SetFileHandler(log_file)
 
   # Create a progress_tracker for tracking CrOS auto-update progress.
-  progress_tracker = cros_update_progress.AUProgress(host_name, pid)
+  progress_tracker = cros_update_progress.AUProgress(host_name, pgid)
 
   # Create cros_update instance to run CrOS auto-update.
   cros_updater_trigger = CrOSUpdateTrigger(host_name, build_name, static_dir,
