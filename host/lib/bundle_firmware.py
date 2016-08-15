@@ -25,6 +25,7 @@ from fdt import Fdt
 from pack_firmware import PackFirmware
 import shutil
 import struct
+import fmap
 from tools import CmdError
 from exynos import ExynosBl2
 
@@ -265,8 +266,6 @@ class Bundle:
       self.coreboot_fname = os.path.join(build_root, 'coreboot.rom')
     if not self.skeleton_fname:
       self.skeleton_fname = os.path.join(build_root, 'coreboot.rom')
-    if not self.seabios_fname:
-      self.seabios_fname = 'seabios.cbfs'
     if not self.ecrw_fname:
       self.ecrw_fname = os.path.join(build_root, 'ec.RW.bin')
     if not self.pdrw_fname:
@@ -1150,6 +1149,85 @@ class Bundle:
 
     fdt.Compile(arch_dts)
     fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
+
+    if fdt.GetProp('/flash', 'reg', ''):
+      raise ValueError('fmap.dts /flash is deprecated. Use chromeos.fmd')
+
+    # fill in /flash from binary fmap
+    # ignore "read-only" attribute, that isn't used anywhere
+    fmap_blob = open(self.coreboot_fname).read()
+    f = fmap.fmap_decode(fmap_blob)
+    fdt.PutString('/flash', 'compatible', 'chromeos,flashmap')
+    fdt.PutIntList('/flash', 'reg', [f['base'], f['size']])
+    for area in f['areas']:
+        label = re.sub('_', '-', area['name']).lower()
+        fdt_path = '/flash/' + label
+        slot=label[-1]
+        if label == 'gbb':
+            fdt_path = '/flash/ro-gbb'
+            fdt.PutString(fdt_path, 'type', 'blob gbb')
+        elif label == 'fmap':
+            fdt_path = '/flash/ro-fmap'
+            fdt.PutString(fdt_path, 'type', 'fmap')
+            fdt.PutIntList(fdt_path, 'ver-major', [1])
+            fdt.PutIntList(fdt_path, 'ver-minor', [0])
+        elif label == 'coreboot':
+            fdt_path = '/flash/ro-boot'
+            fdt.PutString(fdt_path, 'type', 'blob coreboot')
+        elif label == 'si-desc':
+            fdt.PutString(fdt_path, 'type', 'ifd')
+        elif label == 'rw-shared':
+            fdt_path = '/flash/shared-section'
+        elif label == 'rw-section-'+slot:
+            fdt_path = '/flash/rw-'+slot
+        elif label == 'rw-legacy' and self.seabios_fname:
+            fdt.PutString(fdt_path, 'type', 'blob legacy')
+        elif label in ['rw-mrc-cache', 'rw-elog', 'rw-legacy',
+                       'rw-vpd', 'rw-unused', 'ro-vpd', 'ro-unused',
+                       'ro-frid-pad', 'bios-unusable', 'device-extension',
+                       'unused-hole', 'rw-gpt-primary', 'rw-gpt-secondary',
+                       'rw-nvram', 'ro-unused-1', 'ro-unused-2']:
+            fdt.PutString(fdt_path, 'type', 'wiped')
+            fdt.PutIntList(fdt_path, 'wipe-value', [0xff])
+        elif label == 'shared-data':
+            fdt.PutString(fdt_path, 'type', 'wiped')
+            fdt.PutIntList(fdt_path, 'wipe-value', [0])
+        elif label == 'vblock-dev':
+            fdt_path = '/flash/rw-vblock-dev'
+            fdt.PutString(fdt_path, 'type', 'wiped')
+            fdt.PutIntList(fdt_path, 'wipe-value', [0xff])
+        elif label[:-1] == 'vblock-':
+            fdt_path = '/flash/rw-'+slot+'-vblock'
+            fdt.PutString(fdt_path, 'type', 'keyblock cbfs/rw/'+slot+'-boot')
+            fdt.PutString(fdt_path, 'keyblock', 'firmware.keyblock')
+            fdt.PutString(fdt_path, 'signprivate', 'firmware_data_key.vbprivk')
+            fdt.PutString(fdt_path, 'kernelkey', 'kernel_subkey.vbpubk')
+            fdt.PutIntList(fdt_path, 'version', [1])
+            fdt.PutIntList(fdt_path, 'preamble-flags', [0])
+        elif label[:-1] == 'fw-main-':
+            fdt_path = '/flash/rw-'+slot+'-boot'
+            fdt.PutString(fdt_path, 'type', 'blob cbfs/rw/'+slot+'-boot')
+        elif label[:-1] == 'rw-fwid-':
+            fdt_path = '/flash/rw-'+slot+'-firmware-id'
+            fdt.PutString(fdt_path, 'type', 'blobstring fwid')
+        elif label == 'ro-frid':
+            fdt_path = '/flash/ro-firmware-id'
+            fdt.PutString(fdt_path, 'type', 'blobstring fwid')
+        elif label == 'ifwi':
+            fdt_path = '/flash/ro-ifwi'
+            fdt.PutString(fdt_path, 'type', 'blob ifwi')
+        elif label == 'sign-cse':
+            fdt_path = '/flash/ro-sig'
+            fdt.PutString(fdt_path, 'type', 'blob sig2')
+        # white list for empty regions
+        elif label in ['bootblock', 'ro-section', 'rw-environment', 'rw-gpt',
+                       'si-all', 'si-bios', 'si-me', 'wp-ro']:
+            pass
+        else:
+            raise ValueError('encountered label "'+label+'" in binary fmap. '+
+                'Check chromeos.fmd')
+        fdt.PutString(fdt_path, 'label', label)
+        fdt.PutIntList(fdt_path, 'reg', [area['offset'], area['size']])
 
     # Remember our board type.
     fdt.PutString('/chromeos-config', 'board', self._board)
