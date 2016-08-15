@@ -25,7 +25,6 @@ from fdt import Fdt
 from pack_firmware import PackFirmware
 import shutil
 import struct
-from flashmaps import default_flashmaps
 from tools import CmdError
 from exynos import ExynosBl2
 
@@ -1151,13 +1150,6 @@ class Bundle:
 
     fdt.Compile(arch_dts)
     fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
-
-    # Get the flashmap so we know what to build. For board variants use the
-    # main board name as the key (drop the _<variant> suffix).
-    default_flashmap = default_flashmaps.get(self._board.split('_')[0], [])
-
-    if not fdt.GetProp('/flash', 'reg', ''):
-      fdt.InsertNodes(default_flashmap)
 
     # Remember our board type.
     fdt.PutString('/chromeos-config', 'board', self._board)
