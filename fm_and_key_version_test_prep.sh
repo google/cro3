@@ -203,7 +203,7 @@ cd ~/trunk/src/platform/vboot_reference
 # Enable firmware update
 scripts/image_signing/tag_image.sh --from="${WORKING_DIR}/${IMAGE_NAME}" \
   --update_firmware 1
-cp tests/devkeys/* "${KEYS_DIR}"
+cp -r tests/devkeys/* "${KEYS_DIR}"
 cp scripts/keygeneration/* "${KEYS_DIR}"
 
 # Load keygeneration helper methods
