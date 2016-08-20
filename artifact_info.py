@@ -99,6 +99,7 @@ ANDROID_NATIVETESTS_ZIP = 'nativetests'
 ANDROID_CONTINUOUS_NATIVE_TESTS_ZIP = 'continuous_native_tests'
 ANDROID_CONTINUOUS_INSTRUMENTATION_TESTS_ZIP = (
     'continuous_instrumentation_tests')
+ANDROID_CTS_ZIP = 'android-cts'
 
 # Zip file including all target files and images
 ANDROID_TARGET_FILES_ZIP = 'target_files'
