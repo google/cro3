@@ -20,9 +20,11 @@ import tail_until_writer_finished
 class TestTailUntilWriterFinished(unittest.TestCase):
   """Tests tail_until_writer_finished."""
 
+  @unittest.skip('crbug.com/640062 Broken test.')
   def testTail(self):
     self.GetsEntireInput(seek_to_end=True)
 
+  @unittest.skip('crbug.com/640062 Broken test.')
   def testRead(self):
     self.GetsEntireInput(seek_to_end=False)
 

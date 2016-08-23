@@ -117,6 +117,7 @@ class BuildArtifactTest(mox.MoxTestBase):
     with open(os.path.join(self.work_dir, marker_file)) as f:
       self.assertItemsEqual(installed_files, [line.strip() for line in f])
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testBundledArtifactTypes(self):
     """Tests that all known bundled artifacts are either zip or tar files."""
     known_names = ['zip', '.tgz', '.tar', 'tar.bz2', 'tar.xz', 'tar.gz']
@@ -125,6 +126,7 @@ class BuildArtifactTest(mox.MoxTestBase):
         self.assertTrue(any(d.ARTIFACT_NAME.endswith(name)
                             for name in known_names))
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testProcessBuildArtifact(self):
     """Processes a real tarball from GSUtil and stages it."""
     artifact = build_artifact.Artifact(
@@ -138,6 +140,7 @@ class BuildArtifactTest(mox.MoxTestBase):
         self.work_dir, build_artifact.TEST_SUITES_FILE)))
     self._CheckMarker(artifact.marker_name, artifact.installed_files)
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testProcessTarball(self):
     """Downloads a real tarball and untars it."""
     artifact = build_artifact.BundledArtifact(
@@ -153,6 +156,7 @@ class BuildArtifactTest(mox.MoxTestBase):
         self.work_dir, 'autotest', 'test_suites')))
     self._CheckMarker(artifact.marker_name, artifact.installed_files)
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testProcessTarballWithFile(self):
     """Downloads a real tarball and only untars one file from it."""
     file_to_download = 'autotest/test_suites/control.au'
@@ -169,6 +173,7 @@ class BuildArtifactTest(mox.MoxTestBase):
         self.work_dir, file_to_download)))
     self._CheckMarker(artifact.marker_name, artifact.installed_files)
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testDownloadAutotest(self):
     """Downloads a real autotest tarball for test."""
     self.mox.StubOutWithMock(build_artifact.AutotestTarball, '_Extract')
@@ -195,6 +200,7 @@ class BuildArtifactTest(mox.MoxTestBase):
         os.path.join(self.work_dir, 'autotest', 'packages')))
     self._CheckMarker(artifact.marker_name, [])
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testAUTestPayloadBuildArtifact(self):
     """Downloads a real tarball and treats it like an AU payload."""
     artifact = build_artifact.AUTestPayload(
@@ -208,6 +214,7 @@ class BuildArtifactTest(mox.MoxTestBase):
         self.work_dir, devserver_constants.UPDATE_FILE)))
     self._CheckMarker(artifact.marker_name, artifact.installed_files)
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testDeltaPayloadsArtifact(self):
     """Downloads delta paylaods from test bucket."""
     nton = build_artifact.DeltaPayloadNtoN(self.work_dir, _DELTA_VERSION)
@@ -230,6 +237,7 @@ class BuildArtifactTest(mox.MoxTestBase):
     self._CheckMarker(nton.marker_name, nton.installed_files)
     self._CheckMarker(mton.marker_name, mton.installed_files)
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testImageUnzip(self):
     """Downloads and stages a zip file and extracts a test image."""
     files_to_extract = ['chromiumos_test_image.bin']
@@ -246,6 +254,7 @@ class BuildArtifactTest(mox.MoxTestBase):
         self.work_dir, 'chromiumos_test_image.bin')))
     self._CheckMarker(artifact.marker_name, artifact.installed_files)
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testImageUnzipWithExcludes(self):
     """Downloads and stages a zip file while excluding all large files."""
     artifact = build_artifact.BundledArtifact(
@@ -263,6 +272,7 @@ class BuildArtifactTest(mox.MoxTestBase):
         self.work_dir, 'chromiumos_test_image.bin')))
     self._CheckMarker(artifact.marker_name, artifact.installed_files)
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testArtifactFactory(self):
     """Tests that BuildArtifact works for both named and file artifacts."""
     name_artifact = 'test_suites' # This file is in every real GS dir.
@@ -292,6 +302,7 @@ class BuildArtifactTest(mox.MoxTestBase):
     self._CheckMarker(artifacts[0].marker_name, artifacts[0].installed_files)
     self._CheckMarker(artifacts[1].marker_name, artifacts[1].installed_files)
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testProcessBuildArtifactWithException(self):
     """Test processing a non-existing artifact from GSUtil."""
     artifact = build_artifact.Artifact(
@@ -305,6 +316,7 @@ class BuildArtifactTest(mox.MoxTestBase):
     exception = artifact.GetException()
     self.assertEqual(str(exception), str(expected_exception))
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testArtifactStaged(self):
     """Tests the artifact staging verification logic."""
     artifact = build_artifact.BundledArtifact(
