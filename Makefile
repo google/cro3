@@ -30,6 +30,7 @@ install:
 		gsutil_util.py \
 		log_util.py \
 		retry.py \
+		setup_chromite.py \
 		strip_package.py \
 		xbuddy.py \
 		xbuddy_config.ini\

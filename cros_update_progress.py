@@ -23,6 +23,8 @@ from __future__ import print_function
 import logging
 import os
 
+# only import setup_chromite before chromite import.
+import setup_chromite # pylint: disable=unused-import
 try:
   from chromite.lib import osutils
 except ImportError as e:

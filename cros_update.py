@@ -30,6 +30,8 @@ import logging
 import os
 import sys
 
+# only import setup_chromite before chromite import.
+import setup_chromite # pylint: disable=unused-import
 try:
   from chromite.lib import auto_updater
   from chromite.lib import remote_access
@@ -38,6 +40,7 @@ except ImportError as e:
   logging.debug('chromite cannot be imported: %r', e)
   auto_updater = None
   remote_access = None
+  timeout_util = None
 
 # Timeout for CrOS auto-update process.
 CROS_UPDATE_TIMEOUT_MIN = 30
