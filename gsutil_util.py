@@ -201,7 +201,7 @@ def GetLatestVersionFromGSDir(gsutil_dir, with_release=True):
     The most recent version number found.
 
   """
-  cmd = 'gsutil ls %s' % gsutil_dir
+  cmd = 'gsutil ls -d %s' % gsutil_dir
   msg = 'Failed to find most recent builds at %s' % gsutil_dir
   dir_names = [p.split('/')[-2] for p in GSUtilRun(cmd, msg).splitlines()]
   try:
