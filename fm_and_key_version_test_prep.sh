@@ -62,6 +62,14 @@ replace_firmware_id() {
   replace_fmap_section "${image}" RW_FWID_B "$new_id"
 }
 
+# (name, expected, actual): Checks if input argument 'actual' is same as
+# 'expected'. Otherwise die with message showing argument 'name'.
+assert_value() {
+  if [[ "$2" != "$3" ]]; then
+    die "Value [$1] incorrect. Expected: [$2], Actual: [$3]."
+  fi
+}
+
 # Need to be inside the chroot to load chromeos-common.sh
 assert_inside_chroot
 
@@ -91,8 +99,13 @@ STATEFUL_FS_DIR="${IMAGE_DIR}/stateful"
 FM_VER_PREFIX=${FLAGS_firmware_ver}
 ITERATIONS=${FLAGS_iterations}
 
+info "Checking input parameters..."
+[ -f "${FLAGS_image}" ] || die "Failed to find test image file: ${FLAGS_image}"
+[ -f "${FLAGS_firmware_src}" ] || die "No firmware file: ${FLAGS_firmware_src}"
+
 # Setup working dir
 if [ -d $WORKING_DIR ]; then
+  info "Cleaning up work directory..."
   rm -rf $WORKING_DIR
 fi
 
@@ -213,6 +226,9 @@ cp scripts/keygeneration/* "${KEYS_DIR}"
 PAYLOAD_DIR="${WORKING_DIR}/payloads"
 mkdir "${PAYLOAD_DIR}"
 
+FW_TEMP_DIR="${WORKING_DIR}/fw_temp"
+mkdir "${FW_TEMP_DIR}"
+
 # Create a copy of the test image that will be convert to a payload.
 for i in $(seq 1 1 ${ITERATIONS})
 do
@@ -233,6 +249,8 @@ do
   info "Contents of the new lsb-release file"
   more "${ROOT_FS_DIR}/etc/lsb-release"
   cleanup
+  expected_data_key_version=1
+  expected_firmware_version=1
   cd "${KEYS_DIR}"
   if [[ ${i} == 1 ]]; then
     load_current_versions "${KEYS_DIR}"
@@ -243,8 +261,11 @@ do
     "${KEYS_DIR}"/increment_kernel_data_key.sh "${KEYS_DIR}"
   elif [[ ${i} == 3  ]]; then
     "${KEYS_DIR}"/increment_kernel_subkey.sh "${KEYS_DIR}"
+    expected_firmware_version=2
   elif [[ ${i} == 4  ]]; then
     "${KEYS_DIR}"/increment_firmware_data_key.sh "${KEYS_DIR}"
+    expected_data_key_version=2
+    expected_firmware_version=2
   elif [[ ${i} == 5  ]]; then
     load_current_versions "${KEYS_DIR}"
     new_kern_ver=$(increment_version "${KEYS_DIR}" "kernel_version")
@@ -252,6 +273,8 @@ do
       ${CURR_KERNKEY_VER} ${new_kern_ver}
     "${KEYS_DIR}"/increment_kernel_subkey_and_key.sh "${KEYS_DIR}"
     "${KEYS_DIR}"/increment_firmware_data_key.sh "${KEYS_DIR}"
+    expected_data_key_version=3
+    expected_firmware_version=3
   fi
 
   SIGNED_IMAGE_NAME="chromiumos-key-image-${CHROMEOS_VER_PREFIX}${i}_signed.bin"
@@ -269,6 +292,31 @@ do
     --image="${WORKING_DIR}/${SIGNED_IMAGE_NAME}" \
     --output="${PAYLOAD_DIR}/chromeos_${CHROMEOS_VER_PREFIX}${i}\
 _${FLAGS_board}_testimage-channel_full_test.bin-000${i}.signed"
+
+  info "Checking signed image"
+  "${SCRIPTS_DIR}/mount_gpt_image.sh" --safe --read_only \
+    -i "${SIGNED_IMAGE_NAME}" -f "${WORKING_DIR}" \
+    -r "${ROOT_FS_DIR}" -s "${STATEFUL_FS_DIR}"
+  sh "${ROOT_FS_DIR}"/usr/sbin/chromeos-firmwareupdate \
+    --sb_extract "${FW_TEMP_DIR}"
+  (cd "${FW_TEMP_DIR}"; dump_fmap -x bios.bin >/dev/null 2>&1)
+  gbb_utility --rootkey="${FW_TEMP_DIR}/rootkey" "${FW_TEMP_DIR}/GBB"
+  # In Alex/ZGB, A is signed with dev keyblock and B is normal block so we want
+  # to check B first.
+  for slot in B A; do
+    key_versions="$(vbutil_firmware --signpubkey "${FW_TEMP_DIR}/rootkey" \
+                    --fv "${FW_TEMP_DIR}/FW_MAIN_${slot}" \
+                    --verify "${FW_TEMP_DIR}/VBLOCK_${slot}")"
+    data_key_version="$(echo "${key_versions}" |
+                        sed -n 's/.*Data key version: *\(.*\)/\1/p')"
+    firmware_version="$(echo "${key_versions}" |
+                        sed -n 's/.*Firmware version: *\(.*\)/\1/p')"
+    assert_value "Data key version in slot ${slot}, iteration ${i}" \
+      "${expected_data_key_version}" "${data_key_version}"
+    assert_value "Firmware version in slot ${slot}, iteration ${i}" \
+      "${expected_firmware_version}" "${firmware_version}"
+  done
+  cleanup
 done
 
 info "All payloads are available at ${PAYLOAD_DIR}"
