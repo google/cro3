@@ -47,6 +47,7 @@ FULL = 'full_payload'
 RECOVERY = 'recovery'
 STATEFUL = 'stateful'
 AUTOTEST = 'autotest'
+FACTORY_SHIM = 'factory_shim'
 
 # Local build constants
 ANY = "ANY"
@@ -66,6 +67,7 @@ LOCAL_ALIASES = [
     DEV,
     BASE,
     RECOVERY,
+    FACTORY_SHIM,
     FULL,
     STATEFUL,
     ANY,
@@ -76,6 +78,7 @@ LOCAL_FILE_NAMES = [
     devserver_constants.IMAGE_FILE,
     devserver_constants.BASE_IMAGE_FILE,
     devserver_constants.RECOVERY_IMAGE_FILE,
+    devserver_constants.FACTORY_SHIM_IMAGE_FILE,
     devserver_constants.UPDATE_FILE,
     devserver_constants.STATEFUL_FILE,
     None, # For ANY.
@@ -88,6 +91,7 @@ GS_ALIASES = [
     TEST,
     BASE,
     RECOVERY,
+    FACTORY_SHIM,
     FULL,
     STATEFUL,
     AUTOTEST,
@@ -97,6 +101,7 @@ GS_FILE_NAMES = [
     devserver_constants.TEST_IMAGE_FILE,
     devserver_constants.BASE_IMAGE_FILE,
     devserver_constants.RECOVERY_IMAGE_FILE,
+    devserver_constants.FACTORY_SHIM_IMAGE_FILE,
     devserver_constants.UPDATE_FILE,
     devserver_constants.STATEFUL_FILE,
     devserver_constants.AUTOTEST_DIR,
@@ -106,6 +111,7 @@ ARTIFACTS = [
     artifact_info.TEST_IMAGE,
     artifact_info.BASE_IMAGE,
     artifact_info.RECOVERY_IMAGE,
+    artifact_info.FACTORY_SHIM_IMAGE,
     artifact_info.FULL_PAYLOAD,
     artifact_info.STATEFUL_PAYLOAD,
     artifact_info.AUTOTEST,

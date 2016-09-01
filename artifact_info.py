@@ -70,6 +70,9 @@ SYMBOLS = 'symbols'
 # The factory test image.
 FACTORY_IMAGE = 'factory_image'
 
+# The factory shim image.
+FACTORY_SHIM_IMAGE = 'factory_shim_image'
+
 #### Android artifacts. These are in a different namespace from the above. ####
 
 # Various android images stored in a zip file (including boot and system).

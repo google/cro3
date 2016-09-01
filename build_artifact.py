@@ -38,6 +38,7 @@ AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
 AUTOTEST_SERVER_PACKAGE_FILE = 'autotest_server_package.tar.bz2'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
 FACTORY_FILE = 'ChromeOS-factory*.zip'
+FACTORY_SHIM_FILE = 'factory_image.zip'
 FIRMWARE_FILE = 'firmware_from_source.tar.bz2'
 IMAGE_FILE = 'image.zip'
 TEST_SUITES_FILE = 'test_suites.tar.bz2'
@@ -622,6 +623,9 @@ _AddCrOSArtifact(artifact_info.SYMBOLS, BundledArtifact, DEBUG_SYMBOLS_FILE,
                  files_to_extract=['debug/breakpad'])
 _AddCrOSArtifact(artifact_info.FACTORY_IMAGE, BundledArtifact, FACTORY_FILE,
                  files_to_extract=[devserver_constants.FACTORY_IMAGE_FILE])
+_AddCrOSArtifact(artifact_info.FACTORY_SHIM_IMAGE, BundledArtifact,
+                 FACTORY_SHIM_FILE,
+                 files_to_extract=[devserver_constants.FACTORY_SHIM_IMAGE_FILE])
 
 # Add all the paygen_au artifacts in one go.
 for c in devserver_constants.CHANNELS:

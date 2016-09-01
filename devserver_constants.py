@@ -27,6 +27,7 @@ AUTOTEST_DIR = 'autotest'
 BASE_IMAGE_FILE = 'chromiumos_base_image.bin'
 IMAGE_FILE = 'chromiumos_image.bin'
 FACTORY_IMAGE_FILE = 'factory_test/chromiumos_factory_image.bin'
+FACTORY_SHIM_IMAGE_FILE = 'factory_shim/factory_install_shim.bin'
 RECOVERY_IMAGE_FILE = 'recovery_image.bin'
 TEST_IMAGE_FILE = 'chromiumos_test_image.bin'
 
