@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -17,13 +17,20 @@ import unittest
 
 import mox
 
-import gsutil_util
 import xbuddy
 
+# Make sure that chromite is available to import.
+import setup_chromite # pylint: disable=unused-import
+
+try:
+  from chromite.lib import gs
+except ImportError as e:
+  gs = None
+
 #pylint: disable=W0212
+#pylint: disable=no-value-for-parameter
 
 GS_ALTERNATE_DIR = 'gs://chromeos-alternate-archive/'
-
 
 class xBuddyTest(mox.MoxTestBase):
   """Regression tests for xbuddy."""
@@ -52,11 +59,40 @@ class xBuddyTest(mox.MoxTestBase):
     self.assertEqual(xbuddy.XBuddy.ParseBoolean('true'), True)
     self.assertEqual(xbuddy.XBuddy.ParseBoolean('y'), True)
 
+  def testGetLatestVersionFromGsDir(self):
+    """Test that we can get the most recent version from gsutil calls."""
+    self.mox.StubOutWithMock(self.mock_xb, '_LS')
+    mock_data1 = """gs://chromeos-releases/stable-channel/parrot/3701.96.0/
+    gs://chromeos-releases/stable-channel/parrot/3701.98.0/
+    gs://chromeos-releases/stable-channel/parrot/3912.100.0/
+    gs://chromeos-releases/stable-channel/parrot/3912.101.0/
+    gs://chromeos-releases/stable-channel/parrot/3912.79.0/
+    gs://chromeos-releases/stable-channel/parrot/3912.79.1/"""
+
+    mock_data2 = """gs://chromeos-image-archive/parrot-release/R26-3912.101.0
+    gs://chromeos-image-archive/parrot-release/R27-3912.101.0
+    gs://chromeos-image-archive/parrot-release/R28-3912.101.0"""
+
+    self.mock_xb._LS(mox.IgnoreArg(), list_subdirectory=False).AndReturn(
+        mock_data1.splitlines())
+    self.mock_xb._LS(mox.IgnoreArg(), list_subdirectory=True).AndReturn(
+        mock_data2.splitlines())
+
+    self.mox.ReplayAll()
+    url = ''
+    self.assertEqual(
+        self.mock_xb._GetLatestVersionFromGsDir(url, with_release=False),
+        '3912.101.0')
+    self.assertEqual(
+        self.mock_xb._GetLatestVersionFromGsDir(url, list_subdirectory=True,
+                                                with_release=True),
+        'R28-3912.101.0')
+    self.mox.VerifyAll()
+
   def testLookupOfficial(self):
     """Basic test of _LookupOfficial. Checks that a given suffix is handled."""
-    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
-    gsutil_util.GSUtilRun(mox.IgnoreArg(),
-                          mox.IgnoreArg()).AndReturn('v')
+    self.mox.StubOutWithMock(gs.GSContext, 'Cat')
+    gs.GSContext.Cat(mox.IgnoreArg()).AndReturn('v')
     expected = 'b-s/v'
     self.mox.ReplayAll()
     self.assertEqual(self.mock_xb._LookupOfficial('b', suffix='-s'), expected)
@@ -64,12 +100,13 @@ class xBuddyTest(mox.MoxTestBase):
 
   def testLookupChannel(self):
     """Basic test of _LookupChannel. Checks that a given suffix is handled."""
-    self.mox.StubOutWithMock(gsutil_util, 'GetLatestVersionFromGSDir')
+    self.mox.StubOutWithMock(self.mock_xb, '_GetLatestVersionFromGsDir')
     mock_data1 = '4100.68.0'
-    gsutil_util.GetLatestVersionFromGSDir(
+    self.mock_xb._GetLatestVersionFromGsDir(
         mox.IgnoreArg(), with_release=False).AndReturn(mock_data1)
     mock_data2 = 'R28-4100.68.0'
-    gsutil_util.GetLatestVersionFromGSDir(mox.IgnoreArg()).AndReturn(mock_data2)
+    self.mock_xb._GetLatestVersionFromGsDir(
+        mox.IgnoreArg(), list_subdirectory=True).AndReturn(mock_data2)
     self.mox.ReplayAll()
     expected = 'b-release/R28-4100.68.0'
     self.assertEqual(self.mock_xb._LookupChannel('b', '-release'),
@@ -297,16 +334,16 @@ class xBuddyTest(mox.MoxTestBase):
     """Caching & replacement of timestamp files."""
     path_a = ('remote', 'a', 'R0', 'test')
     path_b = ('remote', 'b', 'R0', 'test')
-    self.mox.StubOutWithMock(gsutil_util, 'GSUtilRun')
+    self.mox.StubOutWithMock(gs.GSContext, 'LS')
     self.mox.StubOutWithMock(self.mock_xb, '_Download')
     for _ in range(8):
       self.mock_xb._Download(mox.IsA(str), mox.In(mox.IsA(str)))
 
     # All non-release urls are invalid so we can meet expectations.
-    gsutil_util.GSUtilRun(mox.Not(mox.StrContains('-release')),
-                          None).MultipleTimes().AndRaise(
-                              gsutil_util.GSUtilError('bad url'))
-    gsutil_util.GSUtilRun(mox.StrContains('-release'), None).MultipleTimes()
+    gs.GSContext.LS(
+        mox.Not(mox.StrContains('-release'))).MultipleTimes().AndRaise(
+            gs.GSContextException('bad url'))
+    gs.GSContext.LS(mox.StrContains('-release')).MultipleTimes()
 
     self.mox.ReplayAll()
 

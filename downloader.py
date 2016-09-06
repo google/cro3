@@ -1,5 +1,5 @@
-#!/usr/bin/python2
-#
+#!/usr/bin/env python2
+
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -18,8 +18,15 @@ from datetime import datetime
 
 import build_artifact
 import common_util
-import gsutil_util
 import log_util
+
+# Make sure that chromite is available to import.
+import setup_chromite # pylint: disable=unused-import
+
+try:
+  from chromite.lib import gs
+except ImportError as e:
+  gs = None
 
 try:
   import android_build
@@ -167,7 +174,6 @@ class Downloader(log_util.Loggable):
 
     Raises:
       build_artifact.ArtifactDownloadError: If failed to download the artifact.
-
     """
     common_util.MkDirP(self._build_dir)
 
@@ -202,7 +208,6 @@ class Downloader(log_util.Loggable):
     Raises:
       DownloaderException: A wrapper for exceptions raised by any artifact when
                            calling Process.
-
     """
     required_artifacts = factory.RequiredArtifacts()
     exceptions = [artifact.GetException() for artifact in required_artifacts if
@@ -224,7 +229,6 @@ class Downloader(log_util.Loggable):
     Raises:
       build_artifact.ArtifactDownloadError: If we failed to download the
                                             artifact.
-
     """
     try:
       for artifact in artifacts:
@@ -304,6 +308,8 @@ class GoogleStorageDownloader(Downloader):
 
     self._archive_url = archive_url
 
+    self._ctx = gs.GSContext() if gs else None
+
   def Wait(self, name, is_regex_name, timeout):
     """Waits for artifact to exist and returns the appropriate names.
 
@@ -318,8 +324,8 @@ class GoogleStorageDownloader(Downloader):
     Raises:
       ArtifactDownloadError: An error occurred when obtaining artifact.
     """
-    names = gsutil_util.GetGSNamesWithWait(
-        name, self._archive_url, str(self), timeout=timeout,
+    names = self._ctx.GetGsNamesWithWait(
+        name, self._archive_url, timeout=timeout,
         is_regex_pattern=is_regex_name)
     if not names:
       raise build_artifact.ArtifactDownloadError(
@@ -331,7 +337,7 @@ class GoogleStorageDownloader(Downloader):
     """Downloads artifact from Google Storage to a local directory."""
     install_path = os.path.join(local_path, remote_name)
     gs_path = '/'.join([self._archive_url, remote_name])
-    gsutil_util.DownloadFromGS(gs_path, local_path)
+    self._ctx.Copy(gs_path, local_path)
     return install_path
 
   def DescribeSource(self):

@@ -9,6 +9,7 @@ from __future__ import print_function
 import cherrypy
 import ConfigParser
 import datetime
+import distutils.version
 import operator
 import os
 import re
@@ -22,8 +23,15 @@ import build_util
 import common_util
 import devserver_constants
 import downloader
-import gsutil_util
 import log_util
+
+# Make sure that chromite is available to import.
+import setup_chromite # pylint: disable=unused-import
+
+try:
+  from chromite.lib import gs
+except ImportError as e:
+  gs = None
 
 # Module-local log function.
 def _Log(message, *args):
@@ -205,6 +213,8 @@ class XBuddy(build_util.BuildObject):
     else:
       self.images_dir = os.path.join(self.GetSourceRoot(), 'src/build/images')
 
+    self._ctx = gs.GSContext() if gs else None
+
     common_util.MkDirP(self._timestamp_folder)
 
   @classmethod
@@ -339,14 +349,56 @@ class XBuddy(build_util.BuildObject):
                    {'image_dir': image_dir,
                     'board': board,
                     'suffix': suffix})
-    cmd = 'gsutil cat %s' % latest_addr
-    msg = 'Failed to find build at %s' % latest_addr
     # Full release + version is in the LATEST file.
-    version = gsutil_util.GSUtilRun(cmd, msg)
+    version = self._ctx.Cat(latest_addr)
 
     return devserver_constants.IMAGE_DIR % {'board':board,
                                             'suffix':suffix,
                                             'version':version}
+
+  def _LS(self, path, list_subdirectory=False):
+    """Does a directory listing of the given gs path.
+
+    Args:
+      path: directory location on google storage to check.
+      list_subdirectory: whether to only list subdirectory for |path|.
+
+    Returns:
+      A list of paths that matched |path|.
+    """
+    if list_subdirectory:
+      return self._ctx.DoCommand(
+          ['ls', '-d', '--', path]).output.splitlines()
+    else:
+      return self._ctx.LS(path)
+
+  def _GetLatestVersionFromGsDir(self, path, list_subdirectory=False,
+                                 with_release=True):
+    """Returns most recent version number found in a google storage directory.
+
+    This lists out the contents of the given GS bucket or regex to GS buckets,
+    and tries to grab the newest version found in the directory names.
+
+    Args:
+      path: directory location on google storage to check.
+      list_subdirectory: whether to only list subdirectory for |path|.
+      with_release: whether versions include a release milestone (e.g. R12).
+
+    Returns:
+      The most recent version number found.
+    """
+    list_result = self._LS(path, list_subdirectory=list_subdirectory)
+    dir_names = [os.path.basename(p.rstrip('/')) for p in list_result]
+    try:
+      filter_re = re.compile(devserver_constants.VERSION_RE if with_release
+                             else devserver_constants.VERSION)
+      versions = filter(filter_re.match, dir_names)
+      latest_version = max(versions, key=distutils.version.LooseVersion)
+    except ValueError:
+      raise gs.GSContextException(
+          'Failed to find most recent builds at %s' % path)
+
+    return latest_version
 
   def _LookupChannel(self, board, suffix, channel='stable',
                      image_dir=None):
@@ -355,12 +407,12 @@ class XBuddy(build_util.BuildObject):
     _Log("Checking channel '%s' for latest '%s' image", channel, board)
     # Due to historical reasons, gs://chromeos-releases uses
     # daisy-spring as opposed to the board name daisy_spring. Convert
-    # the board name for the lookup.
+    # he board name for the lookup.
     channel_dir = devserver_constants.GS_CHANNEL_DIR % {
         'channel':channel,
         'board':re.sub('_', '-', board)}
-    latest_version = gsutil_util.GetLatestVersionFromGSDir(
-        channel_dir, with_release=False)
+    latest_version = self._GetLatestVersionFromGsDir(channel_dir,
+                                                     with_release=False)
 
     # Figure out release number from the version number.
     image_url = devserver_constants.IMAGE_DIR % {
@@ -371,7 +423,8 @@ class XBuddy(build_util.BuildObject):
     gs_url = os.path.join(image_dir, image_url)
 
     # There should only be one match on cros-image-archive.
-    full_version = gsutil_util.GetLatestVersionFromGSDir(gs_url)
+    full_version = self._GetLatestVersionFromGsDir(gs_url,
+                                                   list_subdirectory=True)
 
     return devserver_constants.IMAGE_DIR % {'board': board,
                                             'suffix': suffix,
@@ -387,7 +440,8 @@ class XBuddy(build_util.BuildObject):
     image_dir = os.path.join(devserver_constants.GS_IMAGE_DIR, image_url)
 
     # Grab the newest version of the ones matched.
-    full_version = gsutil_util.GetLatestVersionFromGSDir(image_dir)
+    full_version = self._GetLatestVersionFromGsDir(image_dir,
+                                                   list_subdirectory=True)
     return devserver_constants.IMAGE_DIR % {'board': board,
                                             'suffix': suffix,
                                             'version': full_version}
@@ -408,11 +462,11 @@ class XBuddy(build_util.BuildObject):
     # is better than with a default suffix added i.e. x86-generic/blah is
     # more valuable than x86-generic-release/blah.
     for build_id in build_id_as_is, build_id_suffix:
-      cmd = 'gsutil ls %s/%s' % (devserver_constants.GS_IMAGE_DIR, build_id)
       try:
-        version = gsutil_util.GSUtilRun(cmd, None)
+        version = self._ctx.LS(
+            '%s/%s' % (devserver_constants.GS_IMAGE_DIR, build_id))
         return build_id
-      except gsutil_util.GSUtilError:
+      except (gs.GSCommandError, gs.GSContextException, gs.GSNoSuchKey):
         continue
 
     raise XBuddyException('Could not find remote build_id for %s %s' % (
@@ -428,10 +482,8 @@ class XBuddy(build_util.BuildObject):
                     'board': board,
                     'suffix': suffix,
                     'base_version': base_version})
-    cmd = 'gsutil cat %s' % latest_addr
-    msg = 'Failed to find build at %s' % latest_addr
     # Full release + version is in the LATEST file.
-    return gsutil_util.GSUtilRun(cmd, msg)
+    return self._ctx.Cat(latest_addr)
 
   def _ResolveVersionToBuildId(self, board, suffix, version, image_dir=None):
     """Handle version aliases for remote payloads in GS.
