@@ -1214,8 +1214,8 @@ class Bundle:
             fdt_path = '/flash/ro-sig'
             fdt.PutString(fdt_path, 'type', 'blob sig2')
         # white list for empty regions
-        elif label in ['bootblock', 'ro-section', 'rw-environment', 'rw-gpt',
-                       'si-all', 'si-bios', 'si-me', 'wp-ro']:
+        elif label in ['bootblock', 'misc-rw', 'ro-section', 'rw-environment',
+		       'rw-gpt', 'si-all', 'si-bios', 'si-me', 'wp-ro']:
             pass
         else:
             raise ValueError('encountered label "'+label+'" in binary fmap. '+
