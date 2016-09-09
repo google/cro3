@@ -1133,15 +1133,7 @@ class Bundle:
     fdt = Fdt(self._tools, fdt_fname)
     self._fdt_fname = fdt_fname
 
-    # For upstream, select the correct architecture .dtsi manually.
-    if self._board == 'link' or 'x86' in self._board:
-      arch_dts = 'coreboot.dtsi'
-    elif self._board == 'daisy':
-      arch_dts = 'exynos5250.dtsi'
-    else:
-      arch_dts = 'tegra124.dtsi'
-
-    fdt.Compile(arch_dts)
+    fdt.Compile(None)
     fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
 
     if fdt.GetProp('/flash', 'reg', ''):
