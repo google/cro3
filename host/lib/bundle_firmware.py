@@ -887,10 +887,8 @@ class Bundle:
     elif blob_type == 'exynos-bl1':
       pack.AddProperty(blob_type, self.exynos_bl1)
 
-    # TODO(sjg@chromium.org): Deprecate ecbin
-    elif blob_type in ['ecrw', 'ecbin']:
+    elif blob_type == 'ecrw':
       pack.AddProperty('ecrw', self.ecrw_fname)
-      pack.AddProperty('ecbin', self.ecrw_fname)
     elif blob_type == 'pdrw':
       pack.AddProperty('pdrw', self.pdrw_fname)
     elif blob_type == 'ecrwhash':
