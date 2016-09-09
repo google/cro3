@@ -113,7 +113,6 @@ class Bundle:
     self._small = False
     self.bct_fname = None       # Filename of our BCT file.
     self.blobs = {}             # Table of (type, filename) of arbitrary blobs
-    self.bmpblk_fname = None    # Filename of our Bitmap Block
     self.coreboot_elf = None
     self.coreboot_fname = None  # Filename of our coreboot binary.
     self.ecro_fname = None      # Filename of EC read-only file
@@ -135,11 +134,11 @@ class Bundle:
     """
     self._keydir = keydir
 
-  def SetFiles(self, board, bct, uboot=None, bmpblk=None, coreboot=None,
+  def SetFiles(self, board, bct, uboot=None, coreboot=None,
                coreboot_elf=None,
                seabios=None, exynos_bl1=None, exynos_bl2=None,
                skeleton=None, ecrw=None, ecro=None, pdrw=None,
-               kernel=None, blobs=None, skip_bmpblk=False, cbfs_files=None,
+               kernel=None, blobs=None, cbfs_files=None,
                rocbfs_files=None):
     """Set up files required for Bundle.
 
@@ -147,7 +146,6 @@ class Bundle:
       board: The name of the board to target (e.g. nyan).
       uboot: The filename of the u-boot.bin image to use.
       bct: The filename of the binary BCT file to use.
-      bmpblk: The filename of bitmap block file to use.
       coreboot: The filename of the coreboot image to use (on x86).
       coreboot_elf: If not none, the ELF file to add as a Coreboot payload.
       seabios: The filename of the SeaBIOS payload to use if any.
@@ -159,14 +157,12 @@ class Bundle:
       pdrw: The filename of the PD (PD embedded controller) read-write file.
       kernel: The filename of the kernel file if any.
       blobs: List of (type, filename) of arbitrary blobs.
-      skip_bmpblk: True if no bmpblk is required
       cbfs_files: Root directory of files to be stored in RO and RW CBFS
       rocbfs_files: Root directory of files to be stored in RO CBFS
     """
     self._board = board
     self.uboot_fname = uboot
     self.bct_fname = bct
-    self.bmpblk_fname = bmpblk
     self.coreboot_fname = coreboot
     self.coreboot_elf = coreboot_elf
     self.seabios_fname = seabios
@@ -178,7 +174,6 @@ class Bundle:
     self.pdrw_fname = pdrw
     self.kernel_fname = kernel
     self.blobs = dict(blobs or ())
-    self.skip_bmpblk = skip_bmpblk
     self.cbfs_files = cbfs_files
     self.rocbfs_files = rocbfs_files
 
@@ -252,8 +247,6 @@ class Bundle:
       self.uboot_fname = os.path.join(build_root, 'u-boot.bin')
     if not self.bct_fname:
       self.bct_fname = os.path.join(build_root, 'bct', 'board.bct')
-    if not self.bmpblk_fname:
-      self.bmpblk_fname = os.path.join(build_root, 'bmpblk.bin')
     if model:
       if not self.exynos_bl1:
         self.exynos_bl1 = os.path.join(build_root, 'u-boot.bl1.bin')
@@ -385,11 +378,7 @@ class Bundle:
 
     self._out.Notice("GBB flags value %#x" % gbb_flags)
     self._out.Progress('Creating GBB')
-    if self.skip_bmpblk:
-        bmpfv_size = 0
-    else:
-        bmpfv_size = gbb_size - 0x2180
-    sizes = [0x100, 0x1000, bmpfv_size, 0x1000]
+    sizes = [0x100, 0x1000, 0, 0x1000]
     sizes = ['%#x' % size for size in sizes]
     gbb = 'gbb.bin'
     keydir = self._tools.Filename(self._keydir)
@@ -400,9 +389,6 @@ class Bundle:
                        '--recoverykey=%s/recovery_key.vbpubk' % keydir,
                        '--flags=%d' % gbb_flags,
                        gbb]
-    if not self.skip_bmpblk:
-      gbb_set_command[-1:-1] = ['--bmpfv=%s' % self._tools.Filename(
-          self.bmpblk_fname),]
 
     self._tools.Run('gbb_utility', ['-c', ','.join(sizes), gbb], cwd=odir)
     self._tools.Run('gbb_utility', gbb_set_command, cwd=odir)

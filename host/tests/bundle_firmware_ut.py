@@ -45,7 +45,6 @@ class TestBundleFirmware(unittest.TestCase):
     self.tools.PrepareOutputDir(None)
     self.bundle = Bundle(self.tools, self.output)
     self.uboot_fname = self.MakeRandomFile(500 * 1024)
-    self.bmpblk_fname = os.path.abspath('bin/bmpblk.bin')
     self.bct_fname = os.path.abspath('bin/board.bct')
     self.bundle.SetDirs('##/usr/share/vboot/devkeys')
     self.bundle.SetOptions(False, None)
@@ -132,8 +131,7 @@ class TestBundleFirmware(unittest.TestCase):
   def test_Defaults(self):
     """Test that default handling works correctly."""
     uboot_fname = self.MakeRandomFile(600 * 1024)
-    self.bundle.SetFiles('robin_hood', bct=self.bct_fname,
-                         uboot=uboot_fname, bmpblk=self.bmpblk_fname)
+    self.bundle.SetFiles('robin_hood', bct=self.bct_fname, uboot=uboot_fname)
 
     # If we don't ask for defaults, we should not get them. This first one
     # raises because it tries to operate on the string None
@@ -150,8 +148,7 @@ class TestBundleFirmware(unittest.TestCase):
   def test_TooLarge(self):
     """Test for failure when U-Boot exceeds the size available for it."""
     uboot_fname = self.MakeRandomFile(900 * 1024)
-    self.bundle.SetFiles('robin_hood', bct=self.bct_fname,
-                         uboot=uboot_fname, bmpblk=self.bmpblk_fname)
+    self.bundle.SetFiles('robin_hood', bct=self.bct_fname, uboot=uboot_fname)
     self.bundle.CheckOptions()
     self.bundle.SelectFdt('dts/tegra-map.dts', True)
     image = os.path.join(self.tmpdir, 'image.bin')
@@ -160,8 +157,7 @@ class TestBundleFirmware(unittest.TestCase):
   def test_Normal(self):
     """Test that we get output for a simple case."""
     uboot_fname = self.MakeRandomFile(600 * 1024)
-    self.bundle.SetFiles('robin_hood', bct=self.bct_fname,
-                         uboot=uboot_fname, bmpblk=self.bmpblk_fname)
+    self.bundle.SetFiles('robin_hood', bct=self.bct_fname, uboot=uboot_fname)
     self.bundle.CheckOptions()
     self.bundle.SelectFdt('dts/tegra-map.dts', True)
     image = os.path.join(self.tmpdir, 'image.bin')
