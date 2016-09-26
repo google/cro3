@@ -655,8 +655,6 @@ class PackFirmware:
         self.upto_offset = offset
       if entry.required:
         self.required_count += 1
-      if entry.key == 'signed':
-        self.first_blob_entry = entry
 
     self.fdt = fdt
     root = '/flash'

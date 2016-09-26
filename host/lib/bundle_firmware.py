@@ -603,43 +603,6 @@ class Bundle:
       fdt_text_base = text_base
     return fdt_text_base
 
-  def _CreateBootStub(self, uboot, base_fdt):
-    """Create a boot stub and a signed boot stub.
-
-    Args:
-      uboot: Path to u-boot.bin (may be chroot-relative).
-      base_fdt: Fdt object containing the flat device tree.
-
-    Returns:
-      Tuple containing:
-        Full path to bootstub (uboot + fdt(-1)).
-        Full path to signed (uboot + fdt(flash pos) + bct).
-
-    Raises:
-      CmdError if a command fails.
-    """
-    bootstub = os.path.join(self._tools.outdir, 'u-boot-fdt.bin')
-    text_base = self.CalcTextBase('', self.fdt, uboot)
-    uboot_data = self._tools.ReadFile(uboot)
-
-    # Make a copy of the fdt for the bootstub
-    fdt = base_fdt.Copy(os.path.join(self._tools.outdir, 'bootstub.dtb'))
-    fdt_data = self._tools.ReadFile(fdt.fname)
-
-    self._tools.WriteFile(bootstub, uboot_data + fdt_data)
-    self._tools.OutputSize('U-Boot binary', self.uboot_fname)
-    self._tools.OutputSize('U-Boot fdt', self._fdt_fname)
-    self._tools.OutputSize('Combined binary', bootstub)
-
-    # Sign the bootstub; this is a combination of the board specific
-    # bct and the stub u-boot image.
-    signed = self._SignBootstub(self._tools.Filename(self.bct_fname),
-        bootstub, text_base)
-
-    self._tools.OutputSize('Final bootstub', signed)
-
-    return bootstub, signed
-
   def _AddCbfsFiles(self, bootstub, cbfs_files):
     for dir, subs, files in os.walk(cbfs_files):
       for file in files:
@@ -865,11 +828,6 @@ class Bundle:
       self._CreateCorebootStub(pack, self.coreboot_fname)
     elif blob_type == 'legacy':
       pack.AddProperty('legacy', self.seabios_fname)
-    elif blob_type == 'signed':
-      bootstub, signed = self._CreateBootStub(self.uboot_fname, fdt, None)
-      pack.AddProperty('bootstub', bootstub)
-      pack.AddProperty('signed', signed)
-      pack.AddProperty('image', signed)
     elif blob_type == 'exynos-bl1':
       pack.AddProperty(blob_type, self.exynos_bl1)
 
