@@ -361,9 +361,8 @@ class EntryBlob(EntryFmapArea):
   def __init__(self, props, params):
     super(EntryBlob, self).__init__(props)
     self.params = params
-    if 'compress' not in self:
-      self.compress = None
-    self.with_index = 'with_index' in props
+    self.compress = None
+    self.with_index = False
 
   def GetData(self):
     return self.pack.tools.ReadFileAndConcat(
@@ -632,26 +631,9 @@ class PackFirmware:
         node: Name of node to read from
         props: Dictionary containing properties of the node
       """
-      align = int(props.get('align', '1'))
-      align_mask = align - 1
-      if align == 0 or (align & align_mask) != 0:
-        raise ValueError("Invalid alignment %d in node '%s'" % props['label'])
       # Read the two cells from the node's /reg property to get entry extent.
       reg = props.get('reg', None)
-      if reg:
-        offset, size = fdt.DecodeIntList(node, 'reg', reg, 2)
-        if (offset & align_mask) or (size & align_mask):
-          raise ValueError("Alignment of %d conflicts with 'reg' setting in"
-                           "node '%s': offset=%#08x, size=%#08x" %
-                           (align, props['label'], offset, size))
-      else:
-        size = props.get('size', None)
-        if not size:
-          raise ValueError("Must specify either 'reg' or 'size' in flash"
-                           "node '%s'" % props['label'])
-        size = int(size)
-        offset = self.upto_offset
-        offset = (offset + align_mask) & ~align_mask
+      offset, size = fdt.DecodeIntList(node, 'reg', reg, 2)
 
       props['node'] = node
       props['offset'] = offset
@@ -697,11 +679,6 @@ class PackFirmware:
       props = fdt.GetProps(node, True)
 
       _AddNode(node, props)
-
-      # If there was only a 'size' property, write a full 'reg' property
-      # based on the offset we calculated
-      if not props.get('reg'):
-        fdt.PutIntList(node, 'reg', [props['offset'], props['size']])
 
   def GetBlobList(self):
     """Generate a list of blob types that we are going to need.
