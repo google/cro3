@@ -17,7 +17,6 @@ to keep these consistent!
 """
 
 import glob
-import hashlib
 import os
 import re
 
@@ -677,65 +676,6 @@ class Bundle:
     lbl = self.fdt.GetLabel(self.fdt.GetFlashNode(*path))
     return re.sub('-', '_', lbl).upper()
 
-  def _PrepareCbfsHash(self, pack, blob_name):
-    """Create blob in rw-{a,b}-boothash with 'cbfstool hashcbfs'.
-
-    When the blob name is defined as cbfshash/<section>/<subsection>, fill the
-    <section>_<subsection> area in the flash map with CBFS hash generated
-    using the 'cbfstool hashcbfs' command.
-
-    Args:
-      pack: a PackFirmware object describing the firmware image to build.
-      blob_name: a string, blob name describing what FMAP section this CBFS
-                 copy is destined to
-    Raises:
-      CmdError if cbfs-files node has incorrect parameters.
-      BlobDeferral if the CBFS region is not populated yet or if the coreboot
-      image with fmap is not available yet.
-    """
-    cb_copy = pack.GetProperty('cb_with_fmap')
-    if cb_copy is None:
-      raise BlobDeferral("Waiting for '%s'" % cb_copy)
-
-    part_sections = blob_name.split('/')[1:]
-    fmap_dst = self._FmapNameByPath(part_sections)
-
-    # Example of FDT ndoes asking for CBFS hash:
-    #  rw-b-boot {
-    #          label = "fw-main-b";
-    #          reg = <0x00700000 0x002dff80>;
-    #          type = "blob cbfs/rw/b-boot";
-    #  };
-    #  rw-b-boothash {
-    #          label = "fw-main-b-hash";
-    #          reg = <0x009dff80 0x00000040>;
-    #          type = "blob cbfshash/rw/b-boothash";
-    #          cbfs-node = "cbfs/rw/b-boot";
-    #  };
-    hash_node = self.fdt.GetFlashNode(*part_sections)
-    cbfs_blob_name =  self.fdt.GetString(hash_node, 'cbfs-node')
-
-    if not pack.GetProperty(cbfs_blob_name):
-      raise BlobDeferral("Waiting for '%s'" % cbfs_blob_name)
-
-    cbfs_node_path = cbfs_blob_name.split('/')[1:]
-    fmap_src = self._FmapNameByPath(cbfs_node_path)
-
-    # Compute CBFS hash and place it in the corect spot.
-    self._tools.Run('cbfstool', [cb_copy, 'hashcbfs', '-r', fmap_dst,
-                                 '-R', fmap_src, '-A', 'sha256'])
-
-    # Base address and size of the desitnation partition
-    base, size = self.fdt.GetFlashPart(*part_sections)
-
-    # And extract the blob for the FW section
-    rw_section = os.path.join(self._tools.outdir, '_'.join(part_sections))
-    self._tools.WriteFile(rw_section,
-                          self._tools.ReadFile(cb_copy)[base:base+size])
-
-    pack.AddProperty(blob_name, rw_section)
-
-
   def _PrepareCbfs(self, pack, blob_name):
     """Create CBFS blob in rw-boot-{a,b} FMAP sections.
 
@@ -822,51 +762,10 @@ class Bundle:
       CmdError if a command fails.
       BlobDeferral if a blob is waiting for a dependency.
     """
-    # stupid pylint insists that sha256 is not in hashlib.
-    # pylint: disable=E1101
     if blob_type == 'coreboot':
       self._CreateCorebootStub(pack, self.coreboot_fname)
     elif blob_type == 'legacy':
       pack.AddProperty('legacy', self.seabios_fname)
-    elif blob_type == 'exynos-bl1':
-      pack.AddProperty(blob_type, self.exynos_bl1)
-
-    elif blob_type == 'ecrw':
-      pack.AddProperty('ecrw', self.ecrw_fname)
-    elif blob_type == 'pdrw':
-      pack.AddProperty('pdrw', self.pdrw_fname)
-    elif blob_type == 'ecrwhash':
-      ec_hash_file = os.path.join(self._tools.outdir, 'ec_hash.bin')
-      ecrw = self._tools.ReadFile(self.ecrw_fname)
-      hasher = hashlib.sha256()
-      hasher.update(ecrw)
-      self._tools.WriteFile(ec_hash_file, hasher.digest())
-      pack.AddProperty(blob_type, ec_hash_file)
-    elif blob_type == 'pdrwhash':
-      pd_hash_file = os.path.join(self._tools.outdir, 'pd_hash.bin')
-      pdrw = self._tools.ReadFile(self.pdrw_fname)
-      hasher = hashlib.sha256()
-      hasher.update(pdrw)
-      self._tools.WriteFile(pd_hash_file, hasher.digest())
-      pack.AddProperty(blob_type, pd_hash_file)
-    elif blob_type == 'ecro':
-      # crosbug.com/p/13143
-      # We cannot have an fmap in the EC image since there can be only one,
-      # which is the main fmap describing the whole image.
-      # Ultimately the EC will not have an fmap, since with software sync
-      # there is no flashrom involvement in updating the EC flash, and thus
-      # no need for the fmap.
-      # For now, mangle the fmap name to avoid problems.
-      updated_ecro = os.path.join(self._tools.outdir, 'updated-ecro.bin')
-      data = self._tools.ReadFile(self.ecro_fname)
-      data = re.sub('__FMAP__', '__fMAP__', data)
-      self._tools.WriteFile(updated_ecro, data)
-      pack.AddProperty(blob_type, updated_ecro)
-    elif blob_type.startswith('exynos-bl2'):
-      # We need to configure this per node, so do it later
-      pass
-    elif blob_type.startswith('cbfshash'):
-      self._PrepareCbfsHash(pack, blob_type)
     elif blob_type.startswith('cbfs'):
       self._PrepareCbfs(pack, blob_type)
     elif pack.GetProperty(blob_type):
@@ -977,27 +876,10 @@ class Bundle:
       pack.AddProperty('fwid', fwid)
       pack.AddProperty('keydir', self._keydir)
 
-    # Some blobs need to be configured according to the node they are in.
-    todo = pack.GetMissingBlobs()
-    for blob in todo:
-      if blob.key.startswith('exynos-bl2'):
-        bl2 = ExynosBl2(self._tools, self._out)
-        pack.AddProperty(blob.key, bl2.MakeSpl(pack, fdt, blob,
-                         self.exynos_bl2))
-
     pack.CheckProperties()
 
     # Record position and size of all blob members in the FDT
     pack.UpdateBlobPositionsAndHashes(fdt)
-
-    # Recalculate the Exynos BL2, since it may have a hash. The call to
-    # UpdateBlobPositionsAndHashes() may have updated the hash-target so we
-    # need to recalculate the hash.
-    for blob in todo:
-      if blob.key.startswith('exynos-bl2'):
-        bl2 = ExynosBl2(self._tools, self._out)
-        pack.AddProperty(blob.key, bl2.MakeSpl(pack, fdt, blob,
-                                               self.exynos_bl2))
 
     # Make a copy of the fdt for the bootstub
     fdt_data = self._tools.ReadFile(fdt.fname)
