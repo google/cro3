@@ -59,10 +59,6 @@ def ListGoogleBinaryBlockFlags():
   for name, value in gbb_flag_properties.iteritems():
     print '   %-30s %02x' % (name, value)
 
-class BlobDeferral(Exception):
-  """An error indicating deferal of blob generation."""
-  pass
-
 class Bundle:
   """This class encapsulates the entire bundle firmware logic.
 
@@ -693,11 +689,8 @@ class Bundle:
                  copy is destined to
     Raises:
       CmdError if cbfs-files node has incorrect parameters.
-      BlobDeferral if coreboot image with fmap is not available yet.
     """
     cb_copy = pack.GetProperty('cb_with_fmap')
-    if cb_copy is None:
-      raise BlobDeferral("Waiting for 'cb_with_fmap' property")
 
     part_sections = blob_name.split('/')[1:]
     fmap_dst = self._FmapNameByPath(part_sections)
@@ -760,7 +753,6 @@ class Bundle:
 
     Raises:
       CmdError if a command fails.
-      BlobDeferral if a blob is waiting for a dependency.
     """
     if blob_type == 'coreboot':
       pass
@@ -774,8 +766,6 @@ class Bundle:
       # Copy IFWI/CSE_SIGN(sig2) regions from coreboot copy and build a blob
       # for the blob_type
       cb_copy = pack.GetProperty('cb_with_fmap')
-      if cb_copy is None:
-        raise BlobDeferral("Waiting for 'cb_with_fmap' property")
       blob_start, blob_size = fdt.GetFlashPart('ro', blob_type)
       blob_file = blob_type + '.bin'
       blob_path = os.path.join(self._tools.outdir, blob_file)
@@ -797,7 +787,6 @@ class Bundle:
 
     Raises:
       CmdError if a command fails.
-      BlobDeferral if dependencies cannot be met because of cycles.
     """
     blob_list = pack.GetBlobList()
     self._out.Info('Building blobs %s\n' % blob_list)
@@ -810,24 +799,8 @@ class Bundle:
     blob_list.remove('coreboot')
     self._CreateCorebootStub(pack, self.coreboot_fname)
 
-    # Build blobs allowing for dependencies between blobs. While this is
-    # an potential O(n^2) operation, in practice most blobs aren't dependent
-    # and should resolve in a few passes.
-    while not complete:
-      orig = set(blob_list)
-      for blob_type in blob_list:
-        try:
-          self._BuildBlob(pack, fdt, blob_type)
-        except (BlobDeferral):
-          deferred_list.append(blob_type)
-      if not deferred_list:
-        complete = True
-      # If deferred is the same as the original no progress is being made.
-      if not orig - set(deferred_list):
-        raise BlobDeferral("Blob cyle '%s'" % orig)
-      # Process the deferred blobs
-      blob_list = deferred_list[:]
-      deferred_list = []
+    for blob_type in blob_list:
+      self._BuildBlob(pack, fdt, blob_type)
 
   def _CreateImage(self, gbb, fdt):
     """Create a full firmware image, along with various by-products.
