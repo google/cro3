@@ -763,7 +763,7 @@ class Bundle:
       BlobDeferral if a blob is waiting for a dependency.
     """
     if blob_type == 'coreboot':
-      self._CreateCorebootStub(pack, self.coreboot_fname)
+      pass
     elif blob_type == 'legacy':
       pack.AddProperty('legacy', self.seabios_fname)
     elif blob_type.startswith('cbfs'):
@@ -804,6 +804,11 @@ class Bundle:
 
     complete = False
     deferred_list = []
+
+    # We always have a coreboot blob, and some other components rely on it, so
+    # make sure it's ready when the others come in.
+    blob_list.remove('coreboot')
+    self._CreateCorebootStub(pack, self.coreboot_fname)
 
     # Build blobs allowing for dependencies between blobs. While this is
     # an potential O(n^2) operation, in practice most blobs aren't dependent
