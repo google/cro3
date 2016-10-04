@@ -1080,11 +1080,18 @@ class DevServerRoot(object):
       archive_url: Google Storage URL for the build.
       minidump: The binary minidump file to symbolicate.
     """
-    kwargs['artifacts'] = 'symbols'
-    dl = _get_downloader(kwargs)
-
     # Ensure the symbols have been staged.
-    if self.stage(**kwargs) != 'Success':
+    # Try debug.tar.xz first, then debug.tgz
+    for artifact in (artifact_info.SYMBOLS_ONLY, artifact_info.SYMBOLS):
+      kwargs['artifacts'] = artifact
+      dl = _get_downloader(kwargs)
+
+      try:
+        if self.stage(**kwargs) == 'Success':
+          break
+      except build_artifact.ArtifactDownloadError:
+        continue
+    else:
       raise DevServerError('Failed to stage symbols for %s' %
                            dl.DescribeSource())
 
