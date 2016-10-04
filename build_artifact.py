@@ -37,6 +37,7 @@ AUTOTEST_PACKAGES_FILE = 'autotest_packages.tar'
 AUTOTEST_COMPRESSED_FILE = 'autotest.tar.bz2'
 AUTOTEST_SERVER_PACKAGE_FILE = 'autotest_server_package.tar.bz2'
 DEBUG_SYMBOLS_FILE = 'debug.tgz'
+DEBUG_SYMBOLS_ONLY_FILE = 'debug_breakpad.tar.xz'
 FACTORY_FILE = 'ChromeOS-factory*.zip'
 FACTORY_SHIM_FILE = 'factory_image.zip'
 FIRMWARE_FILE = 'firmware_from_source.tar.bz2'
@@ -620,6 +621,9 @@ _AddCrOSArtifact(artifact_info.AUTOTEST_SERVER_PACKAGE, Artifact,
                  AUTOTEST_SERVER_PACKAGE_FILE)
 _AddCrOSArtifact(artifact_info.FIRMWARE, Artifact, FIRMWARE_FILE)
 _AddCrOSArtifact(artifact_info.SYMBOLS, BundledArtifact, DEBUG_SYMBOLS_FILE,
+                 files_to_extract=['debug/breakpad'])
+_AddCrOSArtifact(artifact_info.SYMBOLS_ONLY, BundledArtifact,
+                 DEBUG_SYMBOLS_ONLY_FILE,
                  files_to_extract=['debug/breakpad'])
 _AddCrOSArtifact(artifact_info.FACTORY_IMAGE, BundledArtifact, FACTORY_FILE,
                  files_to_extract=[devserver_constants.FACTORY_IMAGE_FILE])

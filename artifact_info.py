@@ -67,6 +67,10 @@ FIRMWARE = 'firmware'
 # Tarball containing debug symbols for the given build.
 SYMBOLS = 'symbols'
 
+# A compressed tarball containing only sym files of debug symbols for the
+# given build.
+SYMBOLS_ONLY = 'symbols_only'
+
 # The factory test image.
 FACTORY_IMAGE = 'factory_image'
 
