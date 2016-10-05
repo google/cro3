@@ -625,16 +625,10 @@ class Bundle:
 
     # Create a coreboot copy to use as a scratch pad. Order matters. The
     # cbfs_files were added prior to this action. That's so the RW CBFS
-    # regions inherit the files from the RO CBFS region. Additionally,
-    # include the full FMAP within the file.
+    # regions inherit the files from the RO CBFS region.
     cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_with_fmap'))
     self._tools.WriteFile(cb_copy, self._tools.ReadFile(bootstub))
     binary = self._tools.ReadFile(bootstub)
-    fmap_offset, fmap = pack.GetFmap()
-    if len(binary) < fmap_offset + len(fmap):
-        raise CmdError('FMAP will not fit')
-    # Splice in FMAP data.
-    binary = binary[:fmap_offset] + fmap + binary[fmap_offset + len(fmap):]
     self._tools.WriteFile(cb_copy, binary)
     # Publish where coreboot is with the FMAP data.
     pack.AddProperty('cb_with_fmap', cb_copy)
