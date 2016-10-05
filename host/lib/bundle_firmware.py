@@ -740,6 +740,22 @@ class Bundle:
 
     pack.AddProperty(blob_name, rw_section)
 
+  def _PrepareBootblock(self, pack):
+    """Copy bootblock into blob file for packaging
+
+    Args:
+      pack: a PackFirmware object describing the firmware image to build.
+    Raises:
+      CmdError if cbfs-files node has incorrect parameters.
+    """
+    cb_copy = pack.GetProperty('cb_with_fmap')
+
+    bootblock_section = os.path.join(self._tools.outdir, 'bootblock.section')
+
+    self._tools.Run('cbfstool', [
+      cb_copy, 'read', '-r', 'BOOTBLOCK', '-f', bootblock_section])
+
+    pack.AddProperty('bootblock', bootblock_section)
 
   def _BuildBlob(self, pack, fdt, blob_type):
     """Build the blob data for a particular blob type.
@@ -760,6 +776,8 @@ class Bundle:
       pack.AddProperty('legacy', self.seabios_fname)
     elif blob_type.startswith('cbfs'):
       self._PrepareCbfs(pack, blob_type)
+    elif blob_type == 'bootblock':
+      self._PrepareBootblock(pack)
     elif pack.GetProperty(blob_type):
       pass
     elif blob_type == 'ifwi' or blob_type == 'sig2':
@@ -943,8 +961,6 @@ class Bundle:
 
     # fill in /flash from binary fmap
     # ignore "read-only" attribute, that isn't used anywhere
-    bootblock_range = None
-    coreboot_range = None
     fmap_blob = open(self.coreboot_fname).read()
     f = fmap.fmap_decode(fmap_blob)
     fdt.PutString('/flash', 'compatible', 'chromeos,flashmap')
@@ -962,11 +978,10 @@ class Bundle:
             fdt.PutIntList(fdt_path, 'ver-major', [1])
             fdt.PutIntList(fdt_path, 'ver-minor', [0])
         elif label == 'bootblock':
-            bootblock_range = [area['offset'], area['size']]
-            continue
+            fdt.PutString(fdt_path, 'type', 'blob bootblock')
         elif label == 'coreboot':
-            coreboot_range = [area['offset'], area['size']]
-            continue
+            fdt_path = '/flash/ro-boot'
+            fdt.PutString(fdt_path, 'type', 'blob coreboot')
         elif label == 'si-desc':
             fdt.PutString(fdt_path, 'type', 'ifd')
         elif label == 'rw-shared':
@@ -1021,17 +1036,6 @@ class Bundle:
                 'Check chromeos.fmd')
         fdt.PutString(fdt_path, 'label', label)
         fdt.PutIntList(fdt_path, 'reg', [area['offset'], area['size']])
-
-    if coreboot_range is not None:
-        if bootblock_range is not None:
-            if bootblock_range[0] + bootblock_range[1] != coreboot_range[0]:
-                raise ValueError('Cannot combine BOOTBLOCK and COREBOOT')
-            coreboot_range[0] = bootblock_range[0]
-            coreboot_range[1] += bootblock_range[1]
-        fdt_path = '/flash/ro-boot'
-        fdt.PutString(fdt_path, 'type', 'blob coreboot')
-        fdt.PutString(fdt_path, 'label', 'coreboot')
-        fdt.PutIntList(fdt_path, 'reg', [coreboot_range[0], coreboot_range[1]])
 
     # Remember our board type.
     fdt.PutString('/chromeos-config', 'board', self._board)
