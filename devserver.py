@@ -869,11 +869,14 @@ class DevServerRoot(object):
         pid: the background process id of cros-update.
 
     Returns:
-      A tuple includes two elements:
+      A dict with three elements:
           a boolean variable represents whether the auto-update process is
               finished.
           a string represents the current auto-update process status.
               For example, 'Transfer Devserver/Stateful Update Package'.
+          a detailed error message paragraph if there exists an Auto-Update
+              error, in which the last line shows the main exception. Empty
+              string otherwise.
     """
     if 'host_name' not in kwargs:
       raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
@@ -885,20 +888,27 @@ class DevServerRoot(object):
     pid = kwargs['pid']
     progress_tracker = cros_update_progress.AUProgress(host_name, pid)
 
+    result_dict = {'finished': False, 'status': '', 'detailed_error_msg': ''}
     try:
       result = progress_tracker.ReadStatus()
       if result.startswith(cros_update_progress.ERROR_TAG):
-        raise DevServerError(result[len(cros_update_progress.ERROR_TAG):])
+        result_dict['detailed_error_msg'] = result[len(
+            cros_update_progress.ERROR_TAG):]
+        return json.dumps(result_dict)
 
       if result == cros_update_progress.FINISHED:
-        return json.dumps((True, result))
+        result_dict['finished'] = True
+        result_dict['status'] = result
+        return json.dumps(result_dict)
 
       if not cros_update_progress.IsProcessAlive(pid):
-        raise DevServerError('Cros_update process terminated midway '
-                             'due to unknown purpose. Last update status '
-                             'was %s' % result)
+        result_dict['detailed_error_msg'] = (
+            'Cros_update process terminated midway due to unknown reason. '
+            'Last update status was %s' % result)
+        return json.dumps(result_dict)
 
-      return json.dumps((False, result))
+      result_dict['status'] = result
+      return json.dumps(result_dict)
     except IOError:
       if pid:
         os.killpg(int(pid), signal.SIGKILL)

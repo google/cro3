@@ -126,4 +126,5 @@ class AUProgress(object):
 
   def ReadStatus(self):
     """Read auto-update progress from status tracking file."""
-    return ReadOneLine(self.track_status_file)
+    with open(self.track_status_file, 'r') as out_log:
+      return out_log.read().rstrip('\n')

@@ -29,6 +29,7 @@ import cros_update_progress
 import logging
 import os
 import sys
+import traceback
 
 # only import setup_chromite before chromite import.
 import setup_chromite # pylint: disable=unused-import
@@ -50,7 +51,7 @@ CROS_PRESERVED_PATH = ('/mnt/stateful_partition/unencrypted/'
                        'preserve/cros-update')
 
 # Standard error tmeplate to be written into status tracking log.
-CROS_ERROR_TEMPLATE = cros_update_progress.ERROR_TAG + ' %r'
+CROS_ERROR_TEMPLATE = cros_update_progress.ERROR_TAG + ' %s'
 
 
 class CrOSAUParser(object):
@@ -223,7 +224,7 @@ class CrOSUpdateTrigger(object):
         self._WriteAUStatus(cros_update_progress.FINISHED)
     except Exception as e:
       logging.debug('Error happens in CrOS auto-update: %r', e)
-      self._WriteAUStatus(CROS_ERROR_TEMPLATE % e)
+      self._WriteAUStatus(CROS_ERROR_TEMPLATE % str(traceback.format_exc()))
       raise
 
 
