@@ -36,7 +36,6 @@ sys.path.append(os.path.join(base, 'lib'))
 
 import bundle_firmware
 from fdt import Fdt
-from pack_firmware import PackFirmware
 import write_firmware
 from bundle_firmware import Bundle
 import cros_output

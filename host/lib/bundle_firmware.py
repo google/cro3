@@ -26,7 +26,6 @@ import shutil
 import struct
 import fmap
 from tools import CmdError
-from exynos import ExynosBl2
 
 # Build GBB flags.
 # (src/platform/vboot_reference/firmware/include/gbb_header.h)
