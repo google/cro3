@@ -175,13 +175,14 @@ class CrOSUpdateTrigger(object):
             yes=True)
         chromeos_AU.CheckPayloads()
 
+        version_match = chromeos_AU.PreSetupCrOSUpdate()
         self._WriteAUStatus('Transfer Devserver/Stateful Update Package')
         chromeos_AU.TransferDevServerPackage()
         chromeos_AU.TransferStatefulUpdate()
 
         restore_stateful = chromeos_AU.CheckRestoreStateful()
         do_stateful_update = (not self.full_update) and (
-            chromeos_AU.PreSetupCrOSUpdate() and self.force_update)
+            version_match and self.force_update)
         stateful_update_complete = False
         logging.debug('Start CrOS update process...')
         try:
