@@ -648,6 +648,9 @@ class Bundle:
     """
     self._out.Notice(msg)
 
+  def _FdtNameToFmap(self, fdtstr):
+    return re.sub('-', '_', fdtstr).upper()
+
   def _FmapNameByPath(self, path):
     """ Take list of names to form node path. Return FMAP name.
 
@@ -663,7 +666,7 @@ class Bundle:
       CmdError if path not found.
     """
     lbl = self.fdt.GetLabel(self.fdt.GetFlashNode(*path))
-    return re.sub('-', '_', lbl).upper()
+    return self._FdtNameToFmap(lbl)
 
   def _PrepareCbfs(self, pack, blob_name):
     """Create CBFS blob in rw-boot-{a,b} FMAP sections.
