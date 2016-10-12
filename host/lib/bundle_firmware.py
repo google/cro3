@@ -686,8 +686,6 @@ class Bundle:
     Raises:
       CmdError if cbfs-files node has incorrect parameters.
     """
-    cb_copy = pack.GetProperty('cb_with_fmap')
-
     part_sections = blob_name.split('/')[1:]
     fmap_dst = self._FmapNameByPath(part_sections)
 
@@ -706,23 +704,23 @@ class Bundle:
 
     if payload_fname:
       self._tools.Run('cbfstool', [
-        cb_copy, 'add-payload', '-f', payload_fname,
+        self.cb_copy, 'add-payload', '-f', payload_fname,
         '-n', 'fallback/payload', '-c', 'lzma' , '-r', fmap_dst])
 
     if self.ecrw_fname:
       self._tools.Run('cbfstool', [
-        cb_copy, 'add', '-f', self.ecrw_fname, '-t', 'raw',
+        self.cb_copy, 'add', '-f', self.ecrw_fname, '-t', 'raw',
         '-n', 'ecrw', '-A', 'sha256', '-r', fmap_dst ])
 
     if self.pdrw_fname:
       self._tools.Run('cbfstool', [
-        cb_copy, 'add', '-f', self.pdrw_fname, '-t', 'raw',
+        self.cb_copy, 'add', '-f', self.pdrw_fname, '-t', 'raw',
         '-n', 'pdrw', '-A', 'sha256', '-r', fmap_dst ])
 
     # Parse the file list to obtain the last entry. If its empty use its
     # offset as the size of the CBFS to hash.
     stdout = self._tools.Run('cbfstool',
-        [ cb_copy, 'print', '-k', '-r', fmap_dst ])
+        [ self.cb_copy, 'print', '-k', '-r', fmap_dst ])
     # Fields are tab separated in the following order.
     # Name    Offset  Type    Metadata Size   Data Size       Total Size
     last_entry = stdout.strip().splitlines()[-1].split('\t')
@@ -732,7 +730,7 @@ class Bundle:
     # And extract the blob for the FW section
     rw_section = os.path.join(self._tools.outdir, '_'.join(part_sections))
     self._tools.WriteFile(rw_section,
-                          self._tools.ReadFile(cb_copy)[base:base+size])
+                          self._tools.ReadFile(self.cb_copy)[base:base+size])
 
     pack.AddProperty(blob_name, rw_section)
 
@@ -744,12 +742,10 @@ class Bundle:
     Raises:
       CmdError if cbfs-files node has incorrect parameters.
     """
-    cb_copy = pack.GetProperty('cb_with_fmap')
-
     bootblock_section = os.path.join(self._tools.outdir, 'bootblock.section')
 
     self._tools.Run('cbfstool', [
-      cb_copy, 'read', '-r', 'BOOTBLOCK', '-f', bootblock_section])
+      self.cb_copy, 'read', '-r', 'BOOTBLOCK', '-f', bootblock_section])
 
     pack.AddProperty('bootblock', bootblock_section)
 
@@ -766,11 +762,10 @@ class Bundle:
     Raises:
       CmdError if a command fails.
     """
-    cb_copy = pack.GetProperty('cb_with_fmap')
     if blob_type == 'coreboot':
       pass
     elif blob_type == 'legacy':
-      self._tools.Run('cbfstool', [cb_copy, 'write',
+      self._tools.Run('cbfstool', [self.cb_copy, 'write',
                       '-f', self.seabios_fname,
                       '--force',
                       '-r', 'RW_LEGACY'])
@@ -787,11 +782,11 @@ class Bundle:
       blob_start, blob_size = fdt.GetFlashPart('ro', blob_type)
       blob_file = blob_type + '.bin'
       blob_path = os.path.join(self._tools.outdir, blob_file)
-      data = self._tools.ReadFile(cb_copy)
+      data = self._tools.ReadFile(self.cb_copy)
       self._tools.WriteFile(blob_path, data[blob_start:blob_start+blob_size])
       pack.AddProperty(blob_type, blob_path)
     elif blob_type in self.blobs:
-      self._tools.Run('cbfstool', [cb_copy, 'write',
+      self._tools.Run('cbfstool', [self.cb_copy, 'write',
                       '--fill-upward',
                       '-f', self.blobs[blob_type],
                       '-r', _FdtNameToFmap(blob_type)])
@@ -823,8 +818,6 @@ class Bundle:
 
     pack.AddProperty('coreboot', self.bootstub)
     pack.AddProperty('image', self.bootstub)
-    # Publish where coreboot is with the FMAP data.
-    pack.AddProperty('cb_with_fmap', self.cb_copy)
 
     for blob_type in blob_list:
       self._BuildBlob(pack, fdt, blob_type)
@@ -833,7 +826,6 @@ class Bundle:
     """Compute vblocks and write them into their FMAP regions.
        Works for the (VBLOCK_?,FW_MAIN_?) pairs
     """
-    cb_copy = pack.GetProperty('cb_with_fmap')
     fmap_blob = open(self.coreboot_fname).read()
     f = fmap.fmap_decode(fmap_blob)
     for area in f['areas']:
@@ -846,12 +838,12 @@ class Bundle:
             input_data = os.path.join(self._tools.outdir, 'input.%s' % region_in)
             output_data = os.path.join(self._tools.outdir, 'vblock.%s' % region_out)
             self._tools.Run('cbfstool', [
-              cb_copy, 'read', '-r', region_in, '-f', input_data])
+              self.cb_copy, 'read', '-r', region_in, '-f', input_data])
 
             # Parse the file list to obtain the last entry. If its empty use
             # its offset as the size of the CBFS to hash.
             stdout = self._tools.Run('cbfstool',
-                [ cb_copy, 'print', '-k', '-r', region_in ])
+                [ self.cb_copy, 'print', '-k', '-r', region_in ])
             # Fields are tab separated in the following order.
             # Name    Offset  Type    Metadata Size   Data Size     Total Size
             last_entry = stdout.strip().splitlines()[-1].split('\t')
@@ -878,7 +870,7 @@ class Bundle:
             except CmdError as err:
               raise PackError('Cannot make key block: vbutil_firmware failed\n%s' %
                               err)
-            self._tools.Run('cbfstool', [cb_copy, 'write',
+            self._tools.Run('cbfstool', [self.cb_copy, 'write',
                             '--fill-upward',
                             '-f', output_data,
                             '-r', label])
