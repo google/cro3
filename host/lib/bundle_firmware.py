@@ -119,6 +119,7 @@ class Bundle:
     self.seabios_fname = None   # Filename of our SeaBIOS payload.
     self.skeleton_fname = None  # Filename of Coreboot skeleton file
     self.uboot_fname = None     # Filename of our U-Boot binary.
+    self.hardware_id = None
     self.bootstub = None
     self.cb_copy = None
 
@@ -352,7 +353,7 @@ class Bundle:
 
     return gbb_flags
 
-  def _CreateGoogleBinaryBlock(self, hardware_id):
+  def _CreateGoogleBinaryBlock(self):
     """Create a GBB for the image.
 
     Args:
@@ -362,9 +363,9 @@ class Bundle:
     Returns:
       Path of the created GBB file.
     """
+    hardware_id = self.hardware_id
     if not hardware_id:
       hardware_id = self.fdt.GetString('/config', 'hwid')
-    gbb_size = self.fdt.GetFlashPartSize('ro', 'gbb')
     odir = self._tools.outdir
 
     gbb_flags = self.DecodeGBBFlagsFromFdt()
@@ -1117,10 +1118,11 @@ class Bundle:
     Returns:
       Filename of the resulting image (not the output_fname copy).
     """
+    self.hardware_id = hardware_id
     if self._small or self.fdt.GetProp('/config', 'nogbb', 'any') != 'any':
       gbb = ''  # Building a small image or `nogbb' is requested in device tree.
     else:
-      gbb = self._CreateGoogleBinaryBlock(hardware_id)
+      gbb = self._CreateGoogleBinaryBlock()
 
     # This creates the actual image.
     image, pack = self._CreateImage(gbb, self.fdt)
