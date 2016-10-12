@@ -958,14 +958,6 @@ class Bundle:
 
     # Make a copy of the fdt for the bootstub
     fdt_data = self._tools.ReadFile(fdt.fname)
-    if self.uboot_fname:
-      uboot_data = self._tools.ReadFile(self.uboot_fname)
-      uboot_copy = os.path.join(self._tools.outdir, 'u-boot.bin')
-      self._tools.WriteFile(uboot_copy, uboot_data)
-
-      uboot_dtb = os.path.join(self._tools.outdir, 'u-boot-dtb.bin')
-      self._tools.WriteFile(uboot_dtb, uboot_data + fdt_data)
-
     # Fix up the coreboot image here, since we can't do this until we have
     # a final device tree binary.
     bootstub = pack.GetProperty('coreboot')
@@ -974,6 +966,13 @@ class Bundle:
       self._tools.Run('cbfstool', [bootstub, 'add-payload', '-f',
           self.coreboot_elf, '-n', 'fallback/payload', '-c', 'lzma'])
     elif self.uboot_fname:
+      uboot_data = self._tools.ReadFile(self.uboot_fname)
+      uboot_copy = os.path.join(self._tools.outdir, 'u-boot.bin')
+      self._tools.WriteFile(uboot_copy, uboot_data)
+
+      uboot_dtb = os.path.join(self._tools.outdir, 'u-boot-dtb.bin')
+      self._tools.WriteFile(uboot_dtb, uboot_data + fdt_data)
+
       text_base = 0x1110000
 
       # This is the the 'movw $GD_FLG_COLD_BOOT, %bx' instruction
