@@ -1067,6 +1067,13 @@ class Bundle:
         if label == 'gbb':
             fdt_path = '/flash/ro-gbb'
             fdt.PutString(fdt_path, 'type', 'blob gbb')
+            gbb = self._CreateGoogleBinaryBlock()
+            gbbdata = (self._tools.ReadFile(gbb) +
+                area['size']*'\x00')[:area['size']]
+            self._tools.WriteFile(gbb, gbbdata)
+            self._tools.Run('cbfstool', [
+              self.cb_copy, 'write',
+              '-r', 'GBB', '-f', gbb])
         elif label == 'fmap':
             fdt_path = '/flash/ro-fmap'
             fdt.PutString(fdt_path, 'type', 'fmap')
