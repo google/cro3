@@ -812,7 +812,6 @@ class Bundle:
     complete = False
     deferred_list = []
 
-    self._CreateCorebootStub(self.coreboot_fname)
     pack.AddProperty('coreboot', self.bootstub)
     pack.AddProperty('image', self.bootstub)
 
@@ -1013,6 +1012,8 @@ class Bundle:
 
     if fdt.GetProp('/flash', 'reg', ''):
       raise ValueError('fmap.dts /flash is deprecated. Use chromeos.fmd')
+
+    self._CreateCorebootStub(self.coreboot_fname)
 
     # fill in /flash from binary fmap
     # ignore "read-only" attribute, that isn't used anywhere
