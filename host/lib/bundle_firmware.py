@@ -119,6 +119,8 @@ class Bundle:
     self.seabios_fname = None   # Filename of our SeaBIOS payload.
     self.skeleton_fname = None  # Filename of Coreboot skeleton file
     self.uboot_fname = None     # Filename of our U-Boot binary.
+    self.bootstub = None
+    self.cb_copy = None
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -605,18 +607,16 @@ class Bundle:
         self._tools.Run('cbfstool', [bootstub, 'add', '-f', file,
                                 '-n', cbfs_name, '-t', 'raw', '-c', 'lzma'])
 
-  def _CreateCorebootStub(self, pack, coreboot):
-    """Create a coreboot boot stub and add pack properties.
+  def _CreateCorebootStub(self, coreboot):
+    """Create a coreboot boot stub.
 
     Args:
-      pack: a PackFirmware object describing the firmware image to build.
       coreboot: Path to coreboot.rom
     """
     bootstub = os.path.join(self._tools.outdir, 'coreboot-full.rom')
     shutil.copyfile(self._tools.Filename(coreboot), bootstub)
 
-    pack.AddProperty('coreboot', bootstub)
-    pack.AddProperty('image', bootstub)
+    self.bootstub = bootstub
 
     # Add files to to RO and RW CBFS if provided.
     if self.cbfs_files:
@@ -629,8 +629,8 @@ class Bundle:
     self._tools.WriteFile(cb_copy, self._tools.ReadFile(bootstub))
     binary = self._tools.ReadFile(bootstub)
     self._tools.WriteFile(cb_copy, binary)
-    # Publish where coreboot is with the FMAP data.
-    pack.AddProperty('cb_with_fmap', cb_copy)
+
+    self.cb_copy = cb_copy
 
     # Add files to to RO CBFS if provided. This done here such that the
     # copy above does not contain the RO CBFS files.
@@ -819,7 +819,12 @@ class Bundle:
     # We always have a coreboot blob, and some other components rely on it, so
     # make sure it's ready when the others come in.
     blob_list.remove('coreboot')
-    self._CreateCorebootStub(pack, self.coreboot_fname)
+    self._CreateCorebootStub(self.coreboot_fname)
+
+    pack.AddProperty('coreboot', self.bootstub)
+    pack.AddProperty('image', self.bootstub)
+    # Publish where coreboot is with the FMAP data.
+    pack.AddProperty('cb_with_fmap', self.cb_copy)
 
     for blob_type in blob_list:
       self._BuildBlob(pack, fdt, blob_type)
