@@ -750,6 +750,23 @@ class Bundle:
 
     pack.AddProperty('bootblock', bootblock_section)
 
+  def _GenerateWiped(self, label, size, value):
+    """Fill a CBFS region in cb_with_fmap with a given value
+
+    Args:
+      label: fdt-style region name
+      size: size of region
+      value: value to fill region with (int)
+    """
+    wipedfile = os.path.join(self._tools.outdir, 'wiped.%s' % label)
+    fmaplabel = self._FdtNameToFmap(label)
+
+    self._tools.WriteFile(wipedfile, size*chr(value))
+    self._tools.Run('cbfstool', [
+      self.cb_copy, 'write',
+      '--force',
+      '-r', fmaplabel, '-f', wipedfile])
+
   def _BuildBlob(self, pack, fdt, blob_type):
     """Build the blob data for a particular blob type.
 
@@ -1053,13 +1070,16 @@ class Bundle:
                        'rw-nvram', 'ro-unused-1', 'ro-unused-2']:
             fdt.PutString(fdt_path, 'type', 'wiped')
             fdt.PutIntList(fdt_path, 'wipe-value', [0xff])
+            self._GenerateWiped(label, area['size'], 0xff)
         elif label == 'shared-data':
             fdt.PutString(fdt_path, 'type', 'wiped')
             fdt.PutIntList(fdt_path, 'wipe-value', [0])
+            self._GenerateWiped(label, area['size'], 0)
         elif label == 'vblock-dev':
             fdt_path = '/flash/rw-vblock-dev'
             fdt.PutString(fdt_path, 'type', 'wiped')
             fdt.PutIntList(fdt_path, 'wipe-value', [0xff])
+            self._GenerateWiped(label, area['size'], 0xff)
         elif label[:-1] == 'vblock-':
             fdt_path = '/flash/rw-'+slot+'-vblock'
             fdt.PutString(fdt_path, 'type', 'keyblock cbfs/rw/'+slot+'-boot')
