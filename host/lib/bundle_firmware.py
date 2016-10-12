@@ -922,8 +922,6 @@ class Bundle:
     self._out.Notice("Model: %s" % fdt.GetString('/', 'model'))
 
     pack = PackFirmware(self._tools, self._out)
-    if self._force_efs:
-      fdt.PutInteger('/chromeos-config', 'early-firmware-selection', 1)
     pack.use_efs = fdt.GetInt('/chromeos-config', 'early-firmware-selection',
                               0)
 
@@ -935,10 +933,6 @@ class Bundle:
     if self.skeleton_fname:
       pack.AddProperty('skeleton', self.skeleton_fname)
     pack.AddProperty('dtb', fdt.fname)
-
-    # If we are writing a kernel, add its offset from TEXT_BASE to the fdt.
-    if self.kernel_fname:
-      fdt.PutInteger('/config', 'kernel-offset', pack.image_size)
 
     if gbb:
       pack.AddProperty('gbb', gbb)
@@ -1041,6 +1035,12 @@ class Bundle:
     fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
     self.fdt = fdt
     fdt.PutString('/chromeos-config', 'board', self._board)
+    if self._force_efs:
+      fdt.PutInteger('/chromeos-config', 'early-firmware-selection', 1)
+    # If we are writing a kernel, add its offset from TEXT_BASE to the fdt.
+    if self.kernel_fname:
+      fdt.PutInteger('/config', 'kernel-offset', pack.image_size)
+
 
     if fdt.GetProp('/flash', 'reg', ''):
       raise ValueError('fmap.dts /flash is deprecated. Use chromeos.fmd')
