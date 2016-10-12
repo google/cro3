@@ -624,21 +624,16 @@ class Bundle:
     if self.cbfs_files:
       self._AddCbfsFiles(bootstub, self.cbfs_files)
 
-    # Create a coreboot copy to use as a scratch pad. Order matters. The
-    # cbfs_files were added prior to this action. That's so the RW CBFS
-    # regions inherit the files from the RO CBFS region.
+    # Add files to to RO CBFS if provided.
+    if self.rocbfs_files:
+      self._AddCbfsFiles(bootstub, self.rocbfs_files)
+
+    # Create a coreboot copy to use as a scratch pad.
     cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_with_fmap'))
     self._tools.WriteFile(cb_copy, self._tools.ReadFile(bootstub))
     binary = self._tools.ReadFile(bootstub)
     self._tools.WriteFile(cb_copy, binary)
-
     self.cb_copy = cb_copy
-
-    # Add files to to RO CBFS if provided. This done here such that the
-    # copy above does not contain the RO CBFS files.
-    if self.rocbfs_files:
-      self._AddCbfsFiles(bootstub, self.rocbfs_files)
-
 
   def _PackOutput(self, msg):
     """Helper function to write output from PackFirmware (verbose level 2).
