@@ -601,13 +601,14 @@ class Bundle:
       fdt_text_base = text_base
     return fdt_text_base
 
-  def _AddCbfsFiles(self, bootstub, cbfs_files):
+  def _AddCbfsFiles(self, bootstub, cbfs_files, regions='COREBOOT'):
     for dir, subs, files in os.walk(cbfs_files):
       for file in files:
         file = os.path.join(dir, file)
         cbfs_name = file.replace(cbfs_files, '', 1).strip('/')
         self._tools.Run('cbfstool', [bootstub, 'add', '-f', file,
-                                '-n', cbfs_name, '-t', 'raw', '-c', 'lzma'])
+                                '-n', cbfs_name, '-t', 'raw', '-c', 'lzma',
+                                '-r', regions])
 
   def _CreateCorebootStub(self, coreboot):
     """Create a coreboot boot stub.
@@ -622,7 +623,8 @@ class Bundle:
 
     # Add files to to RO and RW CBFS if provided.
     if self.cbfs_files:
-      self._AddCbfsFiles(bootstub, self.cbfs_files)
+      self._AddCbfsFiles(bootstub, self.cbfs_files,
+          'COREBOOT,FW_MAIN_A,FW_MAIN_B')
 
     # Add files to to RO CBFS if provided.
     if self.rocbfs_files:
