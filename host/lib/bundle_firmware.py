@@ -812,11 +812,7 @@ class Bundle:
     complete = False
     deferred_list = []
 
-    # We always have a coreboot blob, and some other components rely on it, so
-    # make sure it's ready when the others come in.
-    blob_list.remove('coreboot')
     self._CreateCorebootStub(self.coreboot_fname)
-
     pack.AddProperty('coreboot', self.bootstub)
     pack.AddProperty('image', self.bootstub)
 
