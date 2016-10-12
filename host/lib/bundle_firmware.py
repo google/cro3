@@ -122,6 +122,7 @@ class Bundle:
     self.hardware_id = None
     self.bootstub = None
     self.cb_copy = None
+    self.fwid = None
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -751,7 +752,7 @@ class Bundle:
     pack.AddProperty('bootblock', bootblock_section)
 
   def _GenerateWiped(self, label, size, value):
-    """Fill a CBFS region in cb_with_fmap with a given value
+    """Fill a CBFS region in cb_copy with a given value
 
     Args:
       label: fdt-style region name
@@ -766,6 +767,24 @@ class Bundle:
       self.cb_copy, 'write',
       '--force',
       '-r', fmaplabel, '-f', wipedfile])
+
+  def _GenerateBlobstring(self, label, size, string):
+    """Fill a CBFS region in cb_copy with a given string.
+       The remainder of the region will be filled with \x00
+
+    Args:
+      label: ftd-style region name
+      size: size of region
+      string: string to fill in.
+    """
+    stringfile = os.path.join(self._tools.outdir, 'blobstring.%s' % label)
+    fmaplabel = self._FdtNameToFmap(label)
+
+    self._tools.WriteFile(stringfile, (string + size*chr(0))[:size])
+    self._tools.Run('cbfstool', [
+      self.cb_copy, 'write',
+      '--force',
+      '-r', fmaplabel, '-f', stringfile])
 
   def _BuildBlob(self, pack, fdt, blob_type):
     """Build the blob data for a particular blob type.
@@ -937,11 +956,8 @@ class Bundle:
     self._out.Progress('Packing image')
     if gbb:
       pack.RequireAllEntries()
-      fwid = '.'.join([
-          re.sub('[ ,]+', '_', fdt.GetString('/', 'model')),
-          self._tools.GetChromeosVersion()])
-      self._out.Notice('Firmware ID: %s' % fwid)
-      pack.AddProperty('fwid', fwid)
+      self._out.Notice('Firmware ID: %s' % self.fwid)
+      pack.AddProperty('fwid', self.fwid)
       pack.AddProperty('keydir', self._keydir)
 
     pack.CheckProperties()
@@ -1026,11 +1042,17 @@ class Bundle:
 
     fdt.Compile(None)
     fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
+    self.fdt = fdt
+    fdt.PutString('/chromeos-config', 'board', self._board)
 
     if fdt.GetProp('/flash', 'reg', ''):
       raise ValueError('fmap.dts /flash is deprecated. Use chromeos.fmd')
 
     self._CreateCorebootStub(self.coreboot_fname)
+
+    self.fwid = '.'.join([
+      re.sub('[ ,]+', '_', fdt.GetString('/', 'model')),
+      self._tools.GetChromeosVersion()])
 
     # fill in /flash from binary fmap
     # ignore "read-only" attribute, that isn't used anywhere
@@ -1095,9 +1117,11 @@ class Bundle:
         elif label[:-1] == 'rw-fwid-':
             fdt_path = '/flash/rw-'+slot+'-firmware-id'
             fdt.PutString(fdt_path, 'type', 'blobstring fwid')
+            self._GenerateBlobstring(label, area['size'], self.fwid)
         elif label == 'ro-frid':
             fdt_path = '/flash/ro-firmware-id'
             fdt.PutString(fdt_path, 'type', 'blobstring fwid')
+            self._GenerateBlobstring(label, area['size'], self.fwid)
         elif label == 'ifwi':
             fdt_path = '/flash/ro-ifwi'
             fdt.PutString(fdt_path, 'type', 'blob ifwi')
@@ -1114,11 +1138,6 @@ class Bundle:
                 'Check chromeos.fmd')
         fdt.PutString(fdt_path, 'label', label)
         fdt.PutIntList(fdt_path, 'reg', [area['offset'], area['size']])
-
-    # Remember our board type.
-    fdt.PutString('/chromeos-config', 'board', self._board)
-
-    self.fdt = fdt
     return fdt
 
   def Start(self, hardware_id, output_fname, show_map):
