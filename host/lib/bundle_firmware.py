@@ -824,6 +824,60 @@ class Bundle:
     for blob_type in blob_list:
       self._BuildBlob(pack, fdt, blob_type)
 
+  def _BuildKeyblocks(self, pack):
+    """Compute vblocks and write them into their FMAP regions.
+       Works for the (VBLOCK_?,FW_MAIN_?) pairs
+    """
+    cb_copy = pack.GetProperty('cb_with_fmap')
+    fmap_blob = open(self.coreboot_fname).read()
+    f = fmap.fmap_decode(fmap_blob)
+    for area in f['areas']:
+        label = area['name']
+        slot = label[-1]
+        if label[:-1] == 'VBLOCK_':
+            region_in = 'FW_MAIN_' + slot
+            region_out = label
+
+            input_data = os.path.join(self._tools.outdir, 'input.%s' % region_in)
+            output_data = os.path.join(self._tools.outdir, 'vblock.%s' % region_out)
+            self._tools.Run('cbfstool', [
+              cb_copy, 'read', '-r', region_in, '-f', input_data])
+
+            # Parse the file list to obtain the last entry. If its empty use
+            # its offset as the size of the CBFS to hash.
+            stdout = self._tools.Run('cbfstool',
+                [ cb_copy, 'print', '-k', '-r', region_in ])
+            # Fields are tab separated in the following order.
+            # Name    Offset  Type    Metadata Size   Data Size     Total Size
+            last_entry = stdout.strip().splitlines()[-1].split('\t')
+            if last_entry[0] == '(empty)' and last_entry[2] == 'null':
+                size = int(last_entry[1], 16)
+                self._tools.Run('truncate', [
+                    '--no-create', '--size', str(size), input_data])
+                self._out.Info('truncated FW_MAIN_%s to %d bytes' %
+                    (slot, size))
+
+            try:
+              prefix = self._keydir + '/'
+
+              self._tools.Run('vbutil_firmware', [
+                  '--vblock', output_data,
+                  '--keyblock', prefix + 'firmware.keyblock',
+                  '--signprivate', prefix + 'firmware_data_key.vbprivk',
+                  '--version', '1',
+                  '--fv', input_data,
+                  '--kernelkey', prefix + 'kernel_subkey.vbpubk',
+                  '--flags', '0',
+                ])
+
+            except CmdError as err:
+              raise PackError('Cannot make key block: vbutil_firmware failed\n%s' %
+                              err)
+            self._tools.Run('cbfstool', [cb_copy, 'write',
+                            '--fill-upward',
+                            '-f', output_data,
+                            '-r', label])
+
   def _CreateImage(self, gbb, fdt):
     """Create a full firmware image, along with various by-products.
 
@@ -865,6 +919,10 @@ class Bundle:
 
     # Build the blobs out.
     self._BuildBlobs(pack, fdt)
+
+    # Now that blobs are built (and written into cb_with_fmap),
+    # create the vblocks
+    self._BuildKeyblocks(pack)
 
     self._out.Progress('Packing image')
     if gbb:
