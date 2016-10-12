@@ -910,8 +910,17 @@ class Bundle:
             last_entry = stdout.strip().splitlines()[-1].split('\t')
             if last_entry[0] == '(empty)' and last_entry[2] == 'null':
                 size = int(last_entry[1], 16)
-                self._tools.Run('truncate', [
-                    '--no-create', '--size', str(size), input_data])
+                trunc_data = self._tools.ReadFile(input_data)
+                full_size = len(trunc_data)
+                trunc_data = trunc_data[:size]
+                trunc_data = (trunc_data + full_size*'\x00')[:full_size]
+                self._tools.WriteFile(input_data, trunc_data)
+                self._tools.Run('cbfstool', [
+                  self.cb_copy, 'write',
+                  '--force',
+                  '-r', region_in, '-f', input_data])
+                trunc_data = trunc_data[:size]
+                self._tools.WriteFile(input_data, trunc_data)
                 self._out.Info('truncated FW_MAIN_%s to %d bytes' %
                     (slot, size))
 
