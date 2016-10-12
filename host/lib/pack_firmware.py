@@ -766,56 +766,6 @@ class PackFirmware:
       directory[prop_list[i]] = [offset[i], length[i]]
     return data, directory
 
-# For some weird reason pylint presumes that sha256 is not in hashlib
-#pylint: disable=E1101
-
-  def UpdateBlobPositionsAndHashes(self, fdt):
-    """Record position and size of all blob members in the FDT.
-
-    Some blobs have multiple files within them. We want a way to
-    access these individiually. We do this by adding a subnode for
-    each, and putting the offset and size information in there.
-
-    This function scans for blobs with more than one file and adds
-    a 'reg' property to the subnode for each file. It also adds 'hash'
-    nodes with the sha 256 hash of the file's contents.
-
-    Note: Since one of the members may in fact be the fdt, and we are
-    updating the fdt, we may change the size it. To get around this,
-    we perform two passes of the algorithm. On the second pass we will
-    be writing data that is already there, so the fdt size will not
-    change.
-    """
-    for _ in range(0, 2):
-      for entry in self.entries:
-        if isinstance(entry, EntryBlob) and entry.required:
-          self._out.Info("Updating blob positions in fdt for '%s'" % entry.key)
-          data, directory = self.ConcatPropContents(
-              entry.key.split(','), None, entry.with_index)
-          fdt.PutInteger(entry.node, 'used', len(data))
-          add_hash = fdt.GetBool(entry.node, 'add-hash')
-          if len(directory) > 1 or add_hash:
-            # Deprecate this: crbug.com/254311
-            # In fact entry.with_index should be deprecated - it is not needed
-            # since we can just look at the FDT. Ick.
-            fdt.PutInteger(entry.node, '#address-cells', 1)
-            fdt.PutInteger(entry.node, '#size-cells', 1)
-            for key, item in directory.iteritems():
-              fdt.PutIntList(entry.node + '/' + key, 'reg', item)
-              hasher = hashlib.sha256()
-              offset, size = item
-              hasher.update(data[offset:offset + size])
-              hash_value = hasher.digest()
-              byte_count = struct.unpack('%dB' % len(hash_value), hash_value)
-              fdt.PutBytes(entry.node + '/' + key, 'hash', byte_count)
-              fdt.PutBool(entry.node + '/' + key, 'this-is-deprecated', True)
-          if add_hash:
-            hasher = hashlib.sha256()
-            hasher.update(data)
-            hash_value = hasher.digest()
-            byte_count = struct.unpack('%dB' % len(hash_value), hash_value)
-            fdt.PutBytes(entry.node, 'hash', byte_count)
-
   def CheckProperties(self):
     """Check that each entry has the properties that it needs.
 

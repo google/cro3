@@ -953,9 +953,6 @@ class Bundle:
 
     pack.CheckProperties()
 
-    # Record position and size of all blob members in the FDT
-    pack.UpdateBlobPositionsAndHashes(fdt)
-
     # Make a copy of the fdt for the bootstub
     fdt_data = self._tools.ReadFile(fdt.fname)
     # Fix up the coreboot image here, since we can't do this until we have
