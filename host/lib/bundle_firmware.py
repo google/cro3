@@ -766,9 +766,14 @@ class Bundle:
     Raises:
       CmdError if a command fails.
     """
+    cb_copy = pack.GetProperty('cb_with_fmap')
     if blob_type == 'coreboot':
       pass
     elif blob_type == 'legacy':
+      self._tools.Run('cbfstool', [cb_copy, 'write',
+                      '-f', self.seabios_fname,
+                      '--force',
+                      '-r', 'RW_LEGACY'])
       pack.AddProperty('legacy', self.seabios_fname)
     elif blob_type.startswith('cbfs'):
       self._PrepareCbfs(pack, blob_type)
@@ -779,7 +784,6 @@ class Bundle:
     elif blob_type == 'ifwi' or blob_type == 'sig2':
       # Copy IFWI/CSE_SIGN(sig2) regions from coreboot copy and build a blob
       # for the blob_type
-      cb_copy = pack.GetProperty('cb_with_fmap')
       blob_start, blob_size = fdt.GetFlashPart('ro', blob_type)
       blob_file = blob_type + '.bin'
       blob_path = os.path.join(self._tools.outdir, blob_file)
@@ -787,6 +791,10 @@ class Bundle:
       self._tools.WriteFile(blob_path, data[blob_start:blob_start+blob_size])
       pack.AddProperty(blob_type, blob_path)
     elif blob_type in self.blobs:
+      self._tools.Run('cbfstool', [cb_copy, 'write',
+                      '--fill-upward',
+                      '-f', self.blobs[blob_type],
+                      '-r', _FdtNameToFmap(blob_type)])
       pack.AddProperty(blob_type, self.blobs[blob_type])
     else:
       raise CmdError("Unknown blob type '%s' required in flash map" %
