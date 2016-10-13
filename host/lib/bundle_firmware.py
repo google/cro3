@@ -936,12 +936,14 @@ class Bundle:
                   '--kernelkey', prefix + 'kernel_subkey.vbpubk',
                   '--flags', '0',
                 ])
+              filedata = self._tools.ReadFile(output_data)
+              filedata = (filedata + area['size']*'\x00')[:area['size']]
+              self._tools.WriteFile(output_data, filedata)
 
             except CmdError as err:
               raise PackError('Cannot make key block: vbutil_firmware failed\n%s' %
                               err)
             self._tools.Run('cbfstool', [self.cb_copy, 'write',
-                            '--fill-upward',
                             '-f', output_data,
                             '-r', label])
 
