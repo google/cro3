@@ -855,10 +855,6 @@ class Bundle:
     if blob_type == 'coreboot':
       pass
     elif blob_type == 'legacy':
-      self._tools.Run('cbfstool', [self.cb_copy, 'write',
-                      '-f', self.seabios_fname,
-                      '--force',
-                      '-r', 'RW_LEGACY'])
       pack.AddProperty('legacy', self.seabios_fname)
     elif blob_type.startswith('cbfs'):
       pack.AddProperty(blob_type, self._PrepareCbfs(blob_type))
@@ -1134,6 +1130,10 @@ class Bundle:
             fdt_path = '/flash/rw-'+slot
         elif label == 'rw-legacy' and self.seabios_fname:
             fdt.PutString(fdt_path, 'type', 'blob legacy')
+            self._tools.Run('cbfstool', [self.cb_copy, 'write',
+                            '-f', self.seabios_fname,
+                            '--force',
+                            '-r', 'RW_LEGACY'])
         elif label in ['rw-mrc-cache', 'recovery-mrc-cache', 'rw-elog',
                        'rw-legacy', 'rw-vpd', 'rw-unused', 'ro-vpd',
                        'ro-unused', 'ro-frid-pad', 'bios-unusable',
