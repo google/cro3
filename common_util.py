@@ -387,8 +387,9 @@ def ExtractTarball(tarball_path, install_path, files_to_extract=None,
   if files_to_extract:
     cmd.extend(files_to_extract)
 
+  cmd_output = ''
   try:
-    cmd_output = subprocess.check_output(cmd)
+    cmd_output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     if return_extracted_files:
       return [os.path.join(install_path, filename)
               for filename in cmd_output.strip('\n').splitlines()
@@ -396,8 +397,8 @@ def ExtractTarball(tarball_path, install_path, files_to_extract=None,
     return []
   except subprocess.CalledProcessError, e:
     raise CommonUtilError(
-        'An error occurred when attempting to untar %s:\n%s' %
-        (tarball_path, e))
+        'An error occurred when attempting to untar %s:\n%s\n%s' %
+        (tarball_path, e, e.output))
 
 
 def IsInsideChroot():
