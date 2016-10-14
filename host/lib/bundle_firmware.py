@@ -728,7 +728,7 @@ class Bundle:
     lbl = self.fdt.GetLabel(self.fdt.GetFlashNode(*path))
     return self._FdtNameToFmap(lbl)
 
-  def _PrepareCbfs(self, pack, blob_name):
+  def _PrepareCbfs(self, blob_name):
     """Create CBFS blob in rw-boot-{a,b} FMAP sections.
 
     When the blob name is defined as cbfs#<section>#<subsection>, fill the
@@ -740,7 +740,6 @@ class Bundle:
     CBFS instance.
 
     Args:
-      pack: a PackFirmware object describing the firmware image to build.
       blob_name: a string, blob name describing what FMAP section this CBFS
                  copy is destined to
     Raises:
@@ -791,14 +790,11 @@ class Bundle:
     rw_section = os.path.join(self._tools.outdir, '_'.join(part_sections))
     self._tools.WriteFile(rw_section,
                           self._tools.ReadFile(self.cb_copy)[base:base+size])
+    return rw_section
 
-    pack.AddProperty(blob_name, rw_section)
-
-  def _PrepareBootblock(self, pack):
+  def _PrepareBootblock(self):
     """Copy bootblock into blob file for packaging
 
-    Args:
-      pack: a PackFirmware object describing the firmware image to build.
     Raises:
       CmdError if cbfs-files node has incorrect parameters.
     """
@@ -806,8 +802,7 @@ class Bundle:
 
     self._tools.Run('cbfstool', [
       self.cb_copy, 'read', '-r', 'BOOTBLOCK', '-f', bootblock_section])
-
-    pack.AddProperty('bootblock', bootblock_section)
+    return bootblock_section
 
   def _GenerateWiped(self, label, size, value):
     """Fill a CBFS region in cb_copy with a given value
@@ -866,9 +861,9 @@ class Bundle:
                       '-r', 'RW_LEGACY'])
       pack.AddProperty('legacy', self.seabios_fname)
     elif blob_type.startswith('cbfs'):
-      self._PrepareCbfs(pack, blob_type)
+      pack.AddProperty(blob_type, self._PrepareCbfs(blob_type))
     elif blob_type == 'bootblock':
-      self._PrepareBootblock(pack)
+      pack.AddProperty(blob_type, self._PrepareBootblock())
     elif pack.GetProperty(blob_type):
       pass
     elif blob_type == 'ifwi' or blob_type == 'sig2':
@@ -912,7 +907,7 @@ class Bundle:
     for blob_type in blob_list:
       self._BuildBlob(pack, fdt, blob_type)
 
-  def _BuildKeyblocks(self, pack):
+  def _BuildKeyblocks(self):
     """Compute vblocks and write them into their FMAP regions.
        Works for the (VBLOCK_?,FW_MAIN_?) pairs
     """
@@ -1014,7 +1009,7 @@ class Bundle:
 
     # Now that blobs are built (and written into cb_with_fmap),
     # create the vblocks
-    self._BuildKeyblocks(pack)
+    self._BuildKeyblocks()
 
     self._out.Progress('Packing image')
     if gbb:
