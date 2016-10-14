@@ -85,9 +85,19 @@ def GetTrackStatusFile(host_name, pid):
   return TRACK_LOG_FILE_PATH % (host_name, pid)
 
 
+def ReadExecuteLogFile(host_name, pid):
+  """Return the content of execute log file."""
+  return osutils.ReadFile(GetExecuteLogFile(host_name, pid))
+
+
 def DelTrackStatusFile(host_name, pid):
   """Delete the track status log."""
   osutils.SafeUnlink(GetTrackStatusFile(host_name, pid))
+
+
+def DelExecuteLogFile(host_name, pid):
+  """Delete the track status log."""
+  osutils.SafeUnlink(GetExecuteLogFile(host_name, pid))
 
 
 class AUProgress(object):

@@ -960,6 +960,7 @@ class DevServerRoot(object):
         os.killpg(int(pid), signal.SIGKILL)
 
       cros_update_progress.DelTrackStatusFile(host_name, pid)
+      cros_update_progress.DelExecuteLogFile(host_name, pid)
 
     return 'True'
 
@@ -983,9 +984,10 @@ class DevServerRoot(object):
 
     host_name = kwargs['host_name']
     pid = kwargs['pid']
-    log_file = cros_update_progress.GetExecuteLogFile(host_name, pid)
-    with open(log_file, 'r') as f:
-      return f.read()
+    au_log = cros_update_progress.ReadExecuteLogFile(host_name, pid)
+    cros_update_progress.DelExecuteLogFile(host_name, pid)
+    return au_log
+
 
   @cherrypy.expose
   def locate_file(self, **kwargs):
