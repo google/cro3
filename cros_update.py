@@ -109,12 +109,14 @@ class CrOSUpdateTrigger(object):
   This class is used for running all CrOS auto-update trigger logic.
   """
   def __init__(self, host_name, build_name, static_dir, progress_tracker=None,
-               log_file=None, force_update=False, full_update=False):
+               log_file=None, au_tempdir=None, force_update=False,
+               full_update=False):
     self.host_name = host_name
     self.build_name = build_name
     self.static_dir = static_dir
     self.progress_tracker = progress_tracker
     self.log_file = log_file
+    self.au_tempdir = au_tempdir
     self.force_update = force_update
     self.full_update = full_update
 
@@ -172,6 +174,7 @@ class CrOSUpdateTrigger(object):
         chromeos_AU = auto_updater.ChromiumOSUpdater(
             device, self.build_name, payload_dir,
             dev_dir=os.path.abspath(os.path.dirname(__file__)),
+            tempdir=self.au_tempdir,
             log_file=self.log_file,
             yes=True)
         chromeos_AU.CheckPayloads()
@@ -265,10 +268,14 @@ def main():
   # Create a progress_tracker for tracking CrOS auto-update progress.
   progress_tracker = cros_update_progress.AUProgress(host_name, pgid)
 
+  # Create a dir for temporarily storing devserver codes and logs.
+  au_tempdir = cros_update_progress.GetAUTempDirectory(host_name, pgid)
+
   # Create cros_update instance to run CrOS auto-update.
   cros_updater_trigger = CrOSUpdateTrigger(host_name, build_name, static_dir,
                                            progress_tracker=progress_tracker,
                                            log_file=log_file,
+                                           au_tempdir=au_tempdir,
                                            force_update=force_update,
                                            full_update=full_update)
 

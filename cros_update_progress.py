@@ -20,6 +20,7 @@ the progress of the CrOS auto-update process.
 
 from __future__ import print_function
 
+import glob
 import logging
 import os
 
@@ -32,10 +33,14 @@ except ImportError as e:
   osutils = None
 
 # Path for status tracking log.
-TRACK_LOG_FILE_PATH = '/tmp/auto-update/tracking_log/%s_%s.log'
+_TRACK_LOG_FILE_PATH = '/tmp/auto-update/tracking_log/%s_%s.log'
 
 # Path for executing log.
-EXECUTE_LOG_FILE_PATH = '/tmp/auto-update/executing_log/%s_%s.log'
+_EXECUTE_LOG_FILE_PATH = '/tmp/auto-update/executing_log/%s_%s.log'
+
+# Path and files for temporarily saving devserver codes, devserver and
+# update engine log.
+_CROS_UPDATE_TEMP_PATH = '/tmp/cros-update_%s_%s'
 
 # The string for update process finished
 FINISHED = 'Completed'
@@ -71,18 +76,32 @@ def IsProcessAlive(pid):
 
 def GetExecuteLogFile(host_name, pid):
   """Return the whole path of execute log file."""
-  if not os.path.exists(os.path.dirname(EXECUTE_LOG_FILE_PATH)):
-    osutils.SafeMakedirs(os.path.dirname(EXECUTE_LOG_FILE_PATH))
+  if not os.path.exists(os.path.dirname(_EXECUTE_LOG_FILE_PATH)):
+    osutils.SafeMakedirs(os.path.dirname(_EXECUTE_LOG_FILE_PATH))
 
-  return EXECUTE_LOG_FILE_PATH % (host_name, pid)
+  return _EXECUTE_LOG_FILE_PATH % (host_name, pid)
 
 
 def GetTrackStatusFile(host_name, pid):
   """Return the whole path of track status file."""
-  if not os.path.exists(os.path.dirname(TRACK_LOG_FILE_PATH)):
-    osutils.SafeMakedirs(os.path.dirname(TRACK_LOG_FILE_PATH))
+  if not os.path.exists(os.path.dirname(_TRACK_LOG_FILE_PATH)):
+    osutils.SafeMakedirs(os.path.dirname(_TRACK_LOG_FILE_PATH))
 
-  return TRACK_LOG_FILE_PATH % (host_name, pid)
+  return _TRACK_LOG_FILE_PATH % (host_name, pid)
+
+
+def GetAllTrackStatusFileByHostName(host_name):
+  """Return a list of existing track status files generated for a host."""
+  return glob.glob(_TRACK_LOG_FILE_PATH % (host_name, '*'))
+
+
+def GetAUTempDirectory(host_name, pid):
+  """Return the temp dir for storing codes and logs during auto-update."""
+  au_tempdir = _CROS_UPDATE_TEMP_PATH % (host_name, pid)
+  if not os.path.exists(au_tempdir):
+    osutils.SafeMakedirs(au_tempdir)
+
+  return au_tempdir
 
 
 def ReadExecuteLogFile(host_name, pid):
@@ -98,6 +117,11 @@ def DelTrackStatusFile(host_name, pid):
 def DelExecuteLogFile(host_name, pid):
   """Delete the track status log."""
   osutils.SafeUnlink(GetExecuteLogFile(host_name, pid))
+
+
+def DelAUTempDirectory(host_name, pid):
+  """Delete the directory including auto-update-related logs."""
+  osutils.RmDir(GetAUTempDirectory(host_name, pid))
 
 
 class AUProgress(object):

@@ -41,7 +41,6 @@ how to update and which payload to give to a requester.
 
 from __future__ import print_function
 
-import glob
 import json
 import optparse
 import os
@@ -917,7 +916,7 @@ class DevServerRoot(object):
 
   @cherrypy.expose
   def handler_cleanup(self, **kwargs):
-    """Clean track status log for CrOS auto-update process.
+    """Clean track status log and temp directory for CrOS auto-update process.
 
     Args:
       kwargs:
@@ -933,6 +932,7 @@ class DevServerRoot(object):
     host_name = kwargs['host_name']
     pid = kwargs['pid']
     cros_update_progress.DelTrackStatusFile(host_name, pid)
+    cros_update_progress.DelAUTempDirectory(host_name, pid)
 
   @cherrypy.expose
   def kill_au_proc(self, **kwargs):
@@ -949,8 +949,8 @@ class DevServerRoot(object):
       raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
 
     host_name = kwargs['host_name']
-    file_filter = cros_update_progress.TRACK_LOG_FILE_PATH % (host_name, '*')
-    track_log_list = glob.glob(file_filter)
+    track_log_list = cros_update_progress.GetAllTrackStatusFileByHostName(
+        host_name)
     for log in track_log_list:
       # The track log's full path is: path/host_name_pid.log
       # Use splitext to remove file extension, then parse pid from the
@@ -984,10 +984,11 @@ class DevServerRoot(object):
 
     host_name = kwargs['host_name']
     pid = kwargs['pid']
+
+    # Fetch the execute log recorded by cros_update_progress.
     au_log = cros_update_progress.ReadExecuteLogFile(host_name, pid)
     cros_update_progress.DelExecuteLogFile(host_name, pid)
     return au_log
-
 
   @cherrypy.expose
   def locate_file(self, **kwargs):
