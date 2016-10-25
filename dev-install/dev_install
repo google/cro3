@@ -29,6 +29,8 @@ DEFINE_boolean uninstall "${FLAGS_FALSE}" \
   "Remove all installed packages."
 DEFINE_boolean yes "${FLAGS_FALSE}" \
   "Do not prompt for input. Assumes yes's to all responses." y
+DEFINE_boolean only_bootstrap "${FLAGS_FALSE}" \
+  "Only attempt to install the bootstrap packages."
 
 FLAGS "$@" || exit 1
 
@@ -290,6 +292,10 @@ main() {
   import_lsb_release
   get_binhost
   download_bootstrap_packages
+  if [ ${FLAGS_only_bootstrap} -eq ${FLAGS_TRUE} ]; then
+    echo "dev_install done installing bootstrap packages. Enjoy!"
+    return 0
+  fi
 
   echo "Files downloaded, configuring emerge."
   configure_emerge
