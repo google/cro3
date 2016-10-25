@@ -872,10 +872,6 @@ class Bundle:
       self._tools.WriteFile(blob_path, data[blob_start:blob_start+blob_size])
       pack.AddProperty(blob_type, blob_path)
     elif blob_type in self.blobs:
-      self._tools.Run('cbfstool', [self.cb_copy, 'write',
-                      '--fill-upward',
-                      '-f', self.blobs[blob_type],
-                      '-r', _FdtNameToFmap(blob_type)])
       pack.AddProperty(blob_type, self.blobs[blob_type])
     else:
       raise CmdError("Unknown blob type '%s' required in flash map" %
@@ -999,6 +995,12 @@ class Bundle:
 
     if gbb:
       pack.AddProperty('gbb', gbb)
+
+    for blob_type in self.blobs:
+      self._tools.Run('cbfstool', [self.cb_copy, 'write',
+                      '--fill-upward',
+                      '-f', self.blobs[blob_type],
+                      '-r', _FdtNameToFmap(blob_type)])
 
     # Build the blobs out.
     self._BuildBlobs(pack, fdt)
