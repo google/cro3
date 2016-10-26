@@ -748,9 +748,6 @@ class Bundle:
     part_sections = blob_name.split('/')[1:]
     fmap_dst = self._FmapNameByPath(part_sections)
 
-    # Base address and size of the desitnation partition
-    base, size = self.fdt.GetFlashPart(*part_sections)
-
     # Add coreboot payload if so requested. Note that the some images use
     # different payload for the rw sections, which is passed in as the value
     # of the --uboot option in the command line.
@@ -775,22 +772,6 @@ class Bundle:
       self._tools.Run('cbfstool', [
         self.cb_copy, 'add', '-f', self.pdrw_fname, '-t', 'raw',
         '-n', 'pdrw', '-A', 'sha256', '-r', fmap_dst ])
-
-    # Parse the file list to obtain the last entry. If its empty use its
-    # offset as the size of the CBFS to hash.
-    stdout = self._tools.Run('cbfstool',
-        [ self.cb_copy, 'print', '-k', '-r', fmap_dst ])
-    # Fields are tab separated in the following order.
-    # Name    Offset  Type    Metadata Size   Data Size       Total Size
-    last_entry = stdout.strip().splitlines()[-1].split('\t')
-    if last_entry[0] == '(empty)' and last_entry[2] == 'null':
-        size = int(last_entry[1], 16)
-
-    # And extract the blob for the FW section
-    rw_section = os.path.join(self._tools.outdir, '_'.join(part_sections))
-    self._tools.WriteFile(rw_section,
-                          self._tools.ReadFile(self.cb_copy)[base:base+size])
-    return rw_section
 
   def _GenerateWiped(self, label, size, value):
     """Fill a CBFS region in cb_copy with a given value
@@ -826,26 +807,6 @@ class Bundle:
       self.cb_copy, 'write',
       '--force',
       '-r', fmaplabel, '-f', stringfile])
-
-  def _BuildBlobs(self, pack, fdt):
-    """Build the blob data for the list of blobs in the pack.
-
-    Args:
-      pack: a PackFirmware object describing the firmware image to build.
-      fdt: an fdt object including image layout information
-
-    Raises:
-      CmdError if a command fails.
-    """
-    blob_list = pack.GetBlobList()
-    self._out.Info('Building blobs %s\n' % blob_list)
-
-    complete = False
-    deferred_list = []
-
-    for blob_type in blob_list:
-      if blob_type.startswith('cbfs'):
-        self._PrepareCbfs(blob_type)
 
   def _BuildKeyblocks(self):
     """Compute vblocks and write them into their FMAP regions.
@@ -934,27 +895,15 @@ class Bundle:
 
     pack.SelectFdt(fdt, self._board)
 
-    # Get all our blobs ready
-    if self.uboot_fname:
-      pack.AddProperty('boot', self.uboot_fname)
-    if self.skeleton_fname:
-      pack.AddProperty('skeleton', self.skeleton_fname)
-    pack.AddProperty('dtb', fdt.fname)
-    pack.AddProperty('coreboot', self.bootstub)
-    pack.AddProperty('image', self.bootstub)
-
-
-    if gbb:
-      pack.AddProperty('gbb', gbb)
-
     for blob_type in self.blobs:
       self._tools.Run('cbfstool', [self.cb_copy, 'write',
                       '--fill-upward',
                       '-f', self.blobs[blob_type],
                       '-r', _FdtNameToFmap(blob_type)])
 
-    # Build the blobs out.
-    self._BuildBlobs(pack, fdt)
+    # Build the CBFS regions.
+    self._PrepareCbfs('cbfs/rw/a-boot')
+    self._PrepareCbfs('cbfs/rw/b-boot')
 
     # Now that blobs are built (and written into cb_with_fmap),
     # create the vblocks
