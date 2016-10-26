@@ -46,12 +46,6 @@ gbb_flag_properties = {
   'enable-serial': 0x00004000,
 }
 
-# Maps board name to Exynos product number
-type_to_model = {
-  'peach' : '5420',
-  'daisy' : '5250'
-}
-
 def ListGoogleBinaryBlockFlags():
   """Print out a list of GBB flags."""
   print '   %-30s %s' % ('Available GBB flags:', 'Hex')
@@ -186,77 +180,6 @@ class Bundle:
     self._small = small
     self._gbb_flags = gbb_flags
     self._force_efs = force_efs
-
-  def _GetBuildRoot(self):
-    """Get the path to this board's 'firmware' directory.
-
-    Returns:
-      Path to firmware directory, with ## representing the path to the
-      chroot.
-    """
-    if not self._board:
-      raise ValueError('No board defined - please define a board to use')
-    return os.path.join('##', 'build', self._board, 'firmware')
-
-  def _CheckFdtFilename(self, fname):
-    """Check provided FDT filename and return the correct name if needed.
-
-    Where the filename lacks a path, add a default path for this board.
-    Where no FDT filename is provided, select a default one for this board.
-
-    Args:
-      fname: Proposed FDT filename.
-
-    Returns:
-      Selected FDT filename, after validation.
-    """
-    build_root = self._GetBuildRoot()
-    dir_name = os.path.join(build_root, 'dtb')
-    if not fname:
-      # Figure out where the file should be, and the name we expect.
-      base_name = re.sub('_', '-', self._board)
-
-      # In case the name exists with a prefix or suffix, find it.
-      wildcard = os.path.join(dir_name, '*%s.dtb' % base_name)
-      found_list = glob.glob(self._tools.Filename(wildcard))
-      if len(found_list) == 1:
-        fname = found_list[0]
-      else:
-        # We didn't find anything definite, so set up our expected name.
-        fname = os.path.join(dir_name, '%s.dtb' % base_name)
-
-    # Convert things like 'exynos5250-daisy' into a full path.
-    root, ext = os.path.splitext(fname)
-    if not ext and not os.path.dirname(root):
-      fname = os.path.join(dir_name, '%s.dtb' % root)
-    return fname
-
-  def CheckOptions(self):
-    """Check provided options and select defaults."""
-    build_root = self._GetBuildRoot()
-
-    board_type = self._board.split('_')[0]
-    model = type_to_model.get(board_type)
-
-    if not self.uboot_fname:
-      self.uboot_fname = os.path.join(build_root, 'u-boot.bin')
-    if not self.bct_fname:
-      self.bct_fname = os.path.join(build_root, 'bct', 'board.bct')
-    if model:
-      if not self.exynos_bl1:
-        self.exynos_bl1 = os.path.join(build_root, 'u-boot.bl1.bin')
-      if not self.exynos_bl2:
-        self.exynos_bl2 = os.path.join(build_root, 'u-boot-spl.wrapped.bin')
-    if not self.coreboot_fname:
-      self.coreboot_fname = os.path.join(build_root, 'coreboot.rom')
-    if not self.skeleton_fname:
-      self.skeleton_fname = os.path.join(build_root, 'coreboot.rom')
-    if not self.ecrw_fname:
-      self.ecrw_fname = os.path.join(build_root, 'ec.RW.bin')
-    if not self.pdrw_fname:
-      self.pdrw_fname = os.path.join(build_root, 'pd.RW.bin')
-    if not self.ecro_fname:
-      self.ecro_fname = os.path.join(build_root, 'ec.RO.bin')
 
   def GetFiles(self):
     """Get a list of files that we know about.
@@ -884,7 +807,7 @@ class Bundle:
             '-r', 'COREBOOT',
             '-f', self.bootstub])
 
-  def SelectFdt(self, fdt_fname, use_defaults):
+  def SelectFdt(self, fdt_fname):
     """Select an FDT to control the firmware bundling
 
     We make a copy of this which will include any on-the-fly changes we want
@@ -892,18 +815,13 @@ class Bundle:
 
     Args:
       fdt_fname: The filename of the fdt to use.
-      use_defaults: True to use a default FDT name if available, and to add
-          a full path to the provided filename if necessary.
 
     Returns:
       The Fdt object of the original fdt file, which we will not modify.
 
     Raises:
-      ValueError if no FDT is provided (fdt_fname is None and use_defaults is
-          False).
+      ValueError if no FDT is provided (fdt_fname is None).
     """
-    if use_defaults:
-      fdt_fname = self._CheckFdtFilename(fdt_fname)
     if not fdt_fname:
       raise ValueError('Please provide an FDT filename')
     fdt = Fdt(self._tools, fdt_fname)

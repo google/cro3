@@ -145,28 +145,6 @@ class TestBundleFirmware(unittest.TestCase):
         '/build/robin_hood/firmware/dtb/fred.dtb', self.bundle.SelectFdt,
         'fred', True)
 
-  def test_TooLarge(self):
-    """Test for failure when U-Boot exceeds the size available for it."""
-    uboot_fname = self.MakeRandomFile(900 * 1024)
-    self.bundle.SetFiles('robin_hood', bct=self.bct_fname, uboot=uboot_fname)
-    self.bundle.CheckOptions()
-    self.bundle.SelectFdt('dts/tegra-map.dts', True)
-    image = os.path.join(self.tmpdir, 'image.bin')
-    self.assertRaises(ValueError, self.bundle.Start, 'hwid', image, False)
-
-  def test_Normal(self):
-    """Test that we get output for a simple case."""
-    uboot_fname = self.MakeRandomFile(600 * 1024)
-    self.bundle.SetFiles('robin_hood', bct=self.bct_fname, uboot=uboot_fname)
-    self.bundle.CheckOptions()
-    self.bundle.SelectFdt('dts/tegra-map.dts', True)
-    image = os.path.join(self.tmpdir, 'image.bin')
-    out_fname = self.bundle.Start('hwid', image, False)
-
-    # We expect the size to be 2MB.
-    # TODO(sjg@chromium.org): Read this from the fdt file instead.
-    self.assertEquals(os.stat(image).st_size, 2 * 1024 * 1024)
-
   def test_Flags(self):
     bundle = self.bundle
     self.assertEquals(0, bundle.DecodeGBBFlagsFromOptions(0, None))
