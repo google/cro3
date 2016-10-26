@@ -99,7 +99,7 @@ def _DoBundle(options, output, tools):
     bundle.AddEnableList(options.add_node_enable)
     bundle.spl_source = options.spl_source
 
-    out_fname, props = bundle.Start(options.hardware_id, options.output,
+    out_fname, bootstub = bundle.Start(options.hardware_id, options.output,
         options.show_map)
 
     # Write it to the board if required.
@@ -111,7 +111,7 @@ def _DoBundle(options, output, tools):
       write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
           file_list, out_fname, bundle, dest=options.write,
           flasher_dest=options.flash_dest, kernel=options.kernel,
-          bootstub=props.get('bootstub'), servo=options.servo,
+          bootstub=bootstub, servo=options.servo,
           method=options.method)
 
   except (CmdError, ValueError) as err:

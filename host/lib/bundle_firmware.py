@@ -1018,20 +1018,12 @@ class Bundle:
 
     pack.CheckProperties()
 
-    bootstub = pack.GetProperty('coreboot')
-    shutil.copyfile(bootstub,
+    shutil.copyfile(self.bootstub,
         os.path.join(self._tools.outdir, 'coreboot-8mb.rom'))
 
     self._tools.Run('cbfstool', [self.cb_copy, 'read',
             '-r', 'COREBOOT',
-            '-f', bootstub])
-
-    pack.AddProperty('fdtmap', fdt.fname)
-    image = os.path.join(self._tools.outdir, 'image.bin')
-
-    pack.AddProperty('image', self.cb_copy)
-
-    return self.cb_copy, pack
+            '-f', self.bootstub])
 
   def SelectFdt(self, fdt_fname, use_defaults):
     """Select an FDT to control the firmware bundling
@@ -1198,10 +1190,10 @@ class Bundle:
       gbb = self._CreateGoogleBinaryBlock()
 
     # This creates the actual image.
-    image, pack = self._CreateImage(gbb, self.fdt)
+    self._CreateImage(gbb, self.fdt)
     if show_map:
-      pack.ShowMap()
+      self._tools.Run('cbfstool', [self.cb_copy, 'layout', '-w'])
     if output_fname:
-      shutil.copyfile(image, output_fname)
+      shutil.copyfile(self.cb_copy, output_fname)
       self._out.Notice("Output image '%s'" % output_fname)
-    return image, pack.props
+    return self.cb_copy, self.bootstub
