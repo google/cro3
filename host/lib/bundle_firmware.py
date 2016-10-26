@@ -1030,24 +1030,9 @@ class Bundle:
     pack.AddProperty('fdtmap', fdt.fname)
     image = os.path.join(self._tools.outdir, 'image.bin')
 
-    origImage = self._HashFmapRegions(self.cb_copy)
+    pack.AddProperty('image', self.cb_copy)
 
-    pack.PackImage(self._tools.outdir, image)
-    pack.AddProperty('image', image)
-
-    image = pack.GetProperty('image')
-    self._tools.OutputSize('Final image', image)
-
-    newImage = self._HashFmapRegions(image)
-    fail = False
-    for area in origImage:
-      if origImage[area] != newImage[area]:
-        print area, "differs:", origImage[area], "!=", newImage[area]
-        fail = True
-    if fail:
-      raise ValueError("incomplete refactoring")
-
-    return image, pack
+    return self.cb_copy, pack
 
   def SelectFdt(self, fdt_fname, use_defaults):
     """Select an FDT to control the firmware bundling
