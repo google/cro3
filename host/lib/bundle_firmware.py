@@ -792,18 +792,6 @@ class Bundle:
                           self._tools.ReadFile(self.cb_copy)[base:base+size])
     return rw_section
 
-  def _PrepareBootblock(self):
-    """Copy bootblock into blob file for packaging
-
-    Raises:
-      CmdError if cbfs-files node has incorrect parameters.
-    """
-    bootblock_section = os.path.join(self._tools.outdir, 'bootblock.section')
-
-    self._tools.Run('cbfstool', [
-      self.cb_copy, 'read', '-r', 'BOOTBLOCK', '-f', bootblock_section])
-    return bootblock_section
-
   def _GenerateWiped(self, label, size, value):
     """Fill a CBFS region in cb_copy with a given value
 
@@ -839,44 +827,6 @@ class Bundle:
       '--force',
       '-r', fmaplabel, '-f', stringfile])
 
-  def _BuildBlob(self, pack, fdt, blob_type):
-    """Build the blob data for a particular blob type.
-
-    Args:
-      pack: a PackFirmware object describing the firmware image to build.
-      fdt: an fdt object including image layout information
-      blob_type: The type of blob to create data for. Supported types are:
-          coreboot    A coreboot image (ROM plus U-boot and .dtb payloads).
-          signed      Nvidia T20/T30 signed image (BCT, U-Boot, .dtb).
-
-    Raises:
-      CmdError if a command fails.
-    """
-    if blob_type == 'coreboot':
-      pass
-    elif blob_type == 'legacy':
-      pack.AddProperty('legacy', self.seabios_fname)
-    elif blob_type.startswith('cbfs'):
-      pack.AddProperty(blob_type, self._PrepareCbfs(blob_type))
-    elif blob_type == 'bootblock':
-      pack.AddProperty(blob_type, self._PrepareBootblock())
-    elif pack.GetProperty(blob_type):
-      pass
-    elif blob_type == 'ifwi' or blob_type == 'sig2':
-      # Copy IFWI/CSE_SIGN(sig2) regions from coreboot copy and build a blob
-      # for the blob_type
-      blob_start, blob_size = fdt.GetFlashPart('ro', blob_type)
-      blob_file = blob_type + '.bin'
-      blob_path = os.path.join(self._tools.outdir, blob_file)
-      data = self._tools.ReadFile(self.cb_copy)
-      self._tools.WriteFile(blob_path, data[blob_start:blob_start+blob_size])
-      pack.AddProperty(blob_type, blob_path)
-    elif blob_type in self.blobs:
-      pack.AddProperty(blob_type, self.blobs[blob_type])
-    else:
-      raise CmdError("Unknown blob type '%s' required in flash map" %
-          blob_type)
-
   def _BuildBlobs(self, pack, fdt):
     """Build the blob data for the list of blobs in the pack.
 
@@ -893,11 +843,9 @@ class Bundle:
     complete = False
     deferred_list = []
 
-    pack.AddProperty('coreboot', self.bootstub)
-    pack.AddProperty('image', self.bootstub)
-
     for blob_type in blob_list:
-      self._BuildBlob(pack, fdt, blob_type)
+      if blob_type.startswith('cbfs'):
+        self._PrepareCbfs(blob_type)
 
   def _BuildKeyblocks(self):
     """Compute vblocks and write them into their FMAP regions.
@@ -992,6 +940,9 @@ class Bundle:
     if self.skeleton_fname:
       pack.AddProperty('skeleton', self.skeleton_fname)
     pack.AddProperty('dtb', fdt.fname)
+    pack.AddProperty('coreboot', self.bootstub)
+    pack.AddProperty('image', self.bootstub)
+
 
     if gbb:
       pack.AddProperty('gbb', gbb)
