@@ -1019,13 +1019,12 @@ class Bundle:
     pack.CheckProperties()
 
     bootstub = pack.GetProperty('coreboot')
-    data = self._tools.ReadFile(bootstub)
-    bootstub_copy = os.path.join(self._tools.outdir, 'coreboot-8mb.rom')
-    self._tools.WriteFile(bootstub_copy, data)
+    shutil.copyfile(bootstub,
+        os.path.join(self._tools.outdir, 'coreboot-8mb.rom'))
 
-    # Use offset and size from fmap.dts to extract CBFS area from coreboot.rom
-    cbfs_offset, cbfs_size = fdt.GetFlashPart('ro', 'boot')
-    self._tools.WriteFile(bootstub, data[cbfs_offset:cbfs_offset+cbfs_size])
+    self._tools.Run('cbfstool', [self.cb_copy, 'read',
+            '-r', 'COREBOOT',
+            '-f', bootstub])
 
     pack.AddProperty('fdtmap', fdt.fname)
     image = os.path.join(self._tools.outdir, 'image.bin')
