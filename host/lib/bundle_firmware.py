@@ -21,7 +21,6 @@ import os
 import re
 
 from fdt import Fdt
-from pack_firmware import PackFirmware
 import hashlib
 import shutil
 import struct
@@ -698,16 +697,6 @@ class Bundle:
       result[area['name']] = hasher.hexdigest()
     return result
 
-  def _PackOutput(self, msg):
-    """Helper function to write output from PackFirmware (verbose level 2).
-
-    This is passed to PackFirmware for it to use to write output.
-
-    Args:
-      msg: Message to display.
-    """
-    self._out.Notice(msg)
-
   def _FdtNameToFmap(self, fdtstr):
     return re.sub('-', '_', fdtstr).upper()
 
@@ -939,12 +928,6 @@ class Bundle:
     """
     self._out.Notice("Model: %s" % fdt.GetString('/', 'model'))
 
-    pack = PackFirmware(self._tools, self._out)
-    pack.use_efs = fdt.GetInt('/chromeos-config', 'early-firmware-selection',
-                              0)
-
-    pack.SelectFdt(fdt, self._board)
-
     for blob_type in self.blobs:
       self._tools.Run('cbfstool', [self.cb_copy, 'write',
                       '--fill-upward',
@@ -955,8 +938,7 @@ class Bundle:
     self._PrepareCbfs('cbfs/rw/a-boot')
     self._PrepareCbfs('cbfs/rw/b-boot')
 
-    # Now that blobs are built (and written into cb_with_fmap),
-    # create the vblocks
+    # Now that RW CBFSes are final, create the vblocks
     self._BuildKeyblocks()
 
     if gbb:
@@ -1000,10 +982,6 @@ class Bundle:
     fdt.PutString('/chromeos-config', 'board', self._board)
     if self._force_efs:
       fdt.PutInteger('/chromeos-config', 'early-firmware-selection', 1)
-    # If we are writing a kernel, add its offset from TEXT_BASE to the fdt.
-    if self.kernel_fname:
-      fdt.PutInteger('/config', 'kernel-offset', pack.image_size)
-
 
     if fdt.GetProp('/flash', 'reg', ''):
       raise ValueError('fmap.dts /flash is deprecated. Use chromeos.fmd')
