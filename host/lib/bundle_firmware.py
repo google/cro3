@@ -1009,14 +1009,8 @@ class Bundle:
     # create the vblocks
     self._BuildKeyblocks()
 
-    self._out.Progress('Packing image')
     if gbb:
-      pack.RequireAllEntries()
       self._out.Notice('Firmware ID: %s' % self.fwid)
-      pack.AddProperty('fwid', self.fwid)
-      pack.AddProperty('keydir', self._keydir)
-
-    pack.CheckProperties()
 
     shutil.copyfile(self.bootstub,
         os.path.join(self._tools.outdir, 'coreboot-8mb.rom'))

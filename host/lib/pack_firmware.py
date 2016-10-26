@@ -766,31 +766,6 @@ class PackFirmware:
       directory[prop_list[i]] = [offset[i], length[i]]
     return data, directory
 
-  def CheckProperties(self):
-    """Check that each entry has the properties that it needs.
-
-    Entries with a 'key' use that to look up properties. We need to make
-    sure that there is a property for that key. If not, then the entry will
-    not be able to access the data it needs during the packing stage.
-
-    Raises:
-      ConfigError: The property for a required key is missing
-    """
-    for entry in self.entries:
-      if entry.required and entry.key:
-        if 'value' not in entry:
-          entry.value = []
-        for prop in entry.key.split(','):
-          if not self.props.get(prop):
-            raise ConfigError("%s: Requests property '%s' but we only "
-                "have %s" % (entry.node, prop, self.props.keys()))
-          entry.value.append(self.props[prop])
-
-  def RequireAllEntries(self):
-    """Mark all entries as required, to produce a full image."""
-    for entry in self.entries:
-      entry.required = True
-
   def GetMissingBlobs(self):
     """Returns a list of blobs that do not currently have data assigned.
 
