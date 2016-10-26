@@ -300,58 +300,6 @@ class EntryIfd(EntryFmapArea):
   def __init__(self, props):
     super(EntryIfd, self).__init__(props)
 
-  def ProduceFinalImage(self, tools, out, tmpdir, image_fname):
-    """Produce the final image for an Intel ME system
-
-    Some Intel systems require that an image contains the Management Engine
-    firmware, and also a firmware descriptor.
-
-    This function takes the existing image, removes the front part of it,
-    and replaces it with these required pieces using ifdtool.
-
-    Args:
-      tools: Tools object to use to run tools.
-      out: Output object to send output to
-      tmpdir: Temporary directory to use to create required files.
-      image_fname: Output image filename
-    """
-    out.Progress('Setting up Intel ME')
-    data = tools.ReadFile(image_fname)
-
-    # We can assume that the ifd section is at the start of the image.
-    if self.offset != 0:
-      raise ConfigError('IFD section must be at offset 0 in the image')
-
-    # Calculate start and size of BIOS region based off the IFD descriptor and
-    # not the size in dts node.
-    ifd_layout_tmp = os.path.join(tmpdir, 'ifd-layout-tmp')
-    args = ['-f%s' % ifd_layout_tmp, tools.Filename(self.pack.props['skeleton'])]
-    tools.Run('ifdtool', args)
-    fd = open(ifd_layout_tmp)
-    layout = fd.readlines()
-    for line in layout:
-        line = line.rstrip()
-        if line.find("bios") != -1:
-            addr_range = line.split(' ')[0]
-            start = int(addr_range.split(':')[0], 16)
-            end = int(addr_range.split(':')[1], 16)
-
-    fd.close()
-
-    data = data[start:end+1]
-    input_fname = os.path.join(tmpdir, 'ifd-input.bin')
-    tools.WriteFile(input_fname, data)
-    ifd_output = os.path.join(tmpdir, 'image.ifd')
-
-    # This works by modifying a skeleton file.
-    shutil.copyfile(tools.Filename(self.pack.props['skeleton']), ifd_output)
-    args = ['-i', 'BIOS:%s' % input_fname, ifd_output]
-    tools.Run('ifdtool', args)
-
-    # ifdtool puts the output in a file with '.new' tacked on the end.
-    shutil.move(ifd_output + '.new', image_fname)
-    tools.OutputSize('IFD image', image_fname)
-
 class EntryBlob(EntryFmapArea):
   """This entry contains a binary blob.
 
@@ -816,7 +764,6 @@ class PackFirmware:
         image.write('\0' * self.image_size)
 
       # Pack all the entriess.
-      ifd = None
       for entry in self.entries:
         if not entry.required:
           self._out.Info("Section '%s' is not required, skipping" % entry.name)
@@ -826,8 +773,6 @@ class PackFirmware:
         if type(entry) == EntryFmap:
           entry.SetEntries(base=0, image_size=self.image_size,
               entries=self.entries)
-        elif type(entry) == EntryIfd:
-          ifd = entry
 
         try:
           # First run any required tools.
@@ -860,10 +805,6 @@ class PackFirmware:
 
         except PackError as err:
           raise ValueError('Packing error: %s' % err)
-
-    # If the image contain an IFD section, process it
-    if ifd:
-      ifd.ProduceFinalImage(self.tools, self._out, self.tmpdir, output_path)
 
     self._out.Notice('Image size %#x, data %#x, usage %d%%' %
       (self.image_size, image_used, image_used * 100 / self.image_size))

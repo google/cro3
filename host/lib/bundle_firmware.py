@@ -872,6 +872,56 @@ class Bundle:
                             '-f', output_data,
                             '-r', label])
 
+  def _PrepareIfd(self):
+    """Produce the final image for an Intel ME system
+
+    Some Intel systems require that an image contains the Management Engine
+    firmware, and also a firmware descriptor.
+
+    This function takes the existing image, removes the front part of it,
+    and replaces it with these required pieces using ifdtool.
+
+    Args:
+      image_fname: Output image filename
+    """
+    tools = self._tools
+    out = self._out
+    tmpdir = self._tools.outdir
+    image_fname = self.cb_copy
+
+    out.Progress('Setting up Intel ME')
+    data = tools.ReadFile(image_fname)
+
+    # Calculate start and size of BIOS region based off the IFD descriptor and
+    # not the size in dts node.
+    ifd_layout_tmp = os.path.join(tmpdir, 'ifd-layout-tmp')
+    args = ['-f%s' % ifd_layout_tmp, tools.Filename(self.skeleton_fname)]
+    tools.Run('ifdtool', args)
+    fd = open(ifd_layout_tmp)
+    layout = fd.readlines()
+    for line in layout:
+        line = line.rstrip()
+        if line.find("bios") != -1:
+            addr_range = line.split(' ')[0]
+            start = int(addr_range.split(':')[0], 16)
+            end = int(addr_range.split(':')[1], 16)
+
+    fd.close()
+
+    data = data[start:end+1]
+    input_fname = os.path.join(tmpdir, 'ifd-input.bin')
+    tools.WriteFile(input_fname, data)
+    ifd_output = os.path.join(tmpdir, 'image.ifd')
+
+    # This works by modifying a skeleton file.
+    shutil.copyfile(tools.Filename(self.skeleton_fname), ifd_output)
+    args = ['-i', 'BIOS:%s' % input_fname, ifd_output]
+    tools.Run('ifdtool', args)
+
+    # ifdtool puts the output in a file with '.new' tacked on the end.
+    shutil.move(ifd_output + '.new', image_fname)
+    tools.OutputSize('IFD image', image_fname)
+
   def _CreateImage(self, gbb, fdt):
     """Create a full firmware image, along with various by-products.
 
@@ -995,6 +1045,7 @@ class Bundle:
             fdt_path = '/flash/ro-boot'
             fdt.PutString(fdt_path, 'type', 'blob coreboot')
         elif label == 'si-desc':
+            self._PrepareIfd()
             fdt.PutString(fdt_path, 'type', 'ifd')
         elif label == 'rw-shared':
             fdt_path = '/flash/shared-section'
