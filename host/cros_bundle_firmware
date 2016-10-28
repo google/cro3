@@ -35,7 +35,6 @@ sys.path.append(base)
 sys.path.append(os.path.join(base, 'lib'))
 
 import bundle_firmware
-from fdt import Fdt
 import write_firmware
 from bundle_firmware import Bundle
 import cros_output
@@ -91,8 +90,7 @@ def _DoBundle(options, output, tools):
     bundle.CheckOptions()
 
   try:
-    # Set up the fdt and options that we want.
-    fdt = bundle.SelectFdt(options.fdt, options.use_defaults)
+    bundle.SelectFdt(options.fdt, options.use_defaults)
     bundle.SetBootcmd(options.bootcmd, options.bootsecure)
     bundle.AddConfigList(options.add_config_str)
     bundle.AddConfigList(options.add_config_int, use_int=True)

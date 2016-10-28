@@ -687,25 +687,20 @@ class Bundle:
     lbl = self.fdt.GetLabel(self.fdt.GetFlashNode(*path))
     return self._FdtNameToFmap(lbl)
 
-  def _PrepareCbfs(self, blob_name):
-    """Create CBFS blob in rw-boot-{a,b} FMAP sections.
+  def _PrepareCbfs(self, fmap_dst):
+    """Prepare CBFS in given FMAP section.
 
-    When the blob name is defined as cbfs#<section>#<subsection>, fill the
-    <section>_<subsection> area in the flash map with a CBFS copy, putting the
-    CBFS header of the copy at the base of the section.
+    Add some of our additional RW files: payload and EC firmware.
 
     If --coreboot-elf parameter was specified during cros_bumdle_firmware
     invocation, add the parameter of this option as the payload to the new
     CBFS instance.
 
     Args:
-      blob_name: a string, blob name describing what FMAP section this CBFS
-                 copy is destined to
+      fmap_dst: a string, fmap region to work with.
     Raises:
       CmdError if cbfs-files node has incorrect parameters.
     """
-    part_sections = blob_name.split('/')[1:]
-    fmap_dst = self._FmapNameByPath(part_sections)
 
     # Add coreboot payload if so requested. Note that the some images use
     # different payload for the rw sections, which is passed in as the value
@@ -904,9 +899,8 @@ class Bundle:
                       '-f', self.blobs[blob_type],
                       '-r', _FdtNameToFmap(blob_type)])
 
-    # Build the CBFS regions.
-    self._PrepareCbfs('cbfs/rw/a-boot')
-    self._PrepareCbfs('cbfs/rw/b-boot')
+    self._PrepareCbfs('FW_MAIN_A')
+    self._PrepareCbfs('FW_MAIN_B')
 
     # Now that RW CBFSes are final, create the vblocks
     self._BuildKeyblocks()
@@ -949,10 +943,6 @@ class Bundle:
     fdt.Compile(None)
     fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
     self.fdt = fdt
-    fdt.PutString('/chromeos-config', 'board', self._board)
-    if self._force_efs:
-      fdt.PutInteger('/chromeos-config', 'early-firmware-selection', 1)
-
     if fdt.GetProp('/flash', 'reg', ''):
       raise ValueError('fmap.dts /flash is deprecated. Use chromeos.fmd')
 
@@ -966,15 +956,10 @@ class Bundle:
     # ignore "read-only" attribute, that isn't used anywhere
     fmap_blob = open(self.coreboot_fname).read()
     f = fmap.fmap_decode(fmap_blob)
-    fdt.PutString('/flash', 'compatible', 'chromeos,flashmap')
-    fdt.PutIntList('/flash', 'reg', [f['base'], f['size']])
     for area in f['areas']:
         label = re.sub('_', '-', area['name']).lower()
-        fdt_path = '/flash/' + label
         slot=label[-1]
         if label == 'gbb':
-            fdt_path = '/flash/ro-gbb'
-            fdt.PutString(fdt_path, 'type', 'blob gbb')
             gbb = self._CreateGoogleBinaryBlock()
             gbbdata = (self._tools.ReadFile(gbb) +
                 area['size']*'\x00')[:area['size']]
@@ -982,25 +967,9 @@ class Bundle:
             self._tools.Run('cbfstool', [
               self.cb_copy, 'write',
               '-r', 'GBB', '-f', gbb])
-        elif label == 'fmap':
-            fdt_path = '/flash/ro-fmap'
-            fdt.PutString(fdt_path, 'type', 'fmap')
-            fdt.PutIntList(fdt_path, 'ver-major', [1])
-            fdt.PutIntList(fdt_path, 'ver-minor', [0])
-        elif label == 'bootblock':
-            fdt.PutString(fdt_path, 'type', 'blob bootblock')
-        elif label == 'coreboot':
-            fdt_path = '/flash/ro-boot'
-            fdt.PutString(fdt_path, 'type', 'blob coreboot')
         elif label == 'si-desc':
             self._PrepareIfd()
-            fdt.PutString(fdt_path, 'type', 'ifd')
-        elif label == 'rw-shared':
-            fdt_path = '/flash/shared-section'
-        elif label == 'rw-section-'+slot:
-            fdt_path = '/flash/rw-'+slot
         elif label == 'rw-legacy' and self.seabios_fname:
-            fdt.PutString(fdt_path, 'type', 'blob legacy')
             self._tools.Run('cbfstool', [self.cb_copy, 'write',
                             '-f', self.seabios_fname,
                             '--force',
@@ -1011,54 +980,26 @@ class Bundle:
                        'device-extension', 'unused-hole', 'rw-gpt-primary',
                        'rw-gpt-secondary', 'rw-nvram', 'ro-unused-1',
                        'ro-unused-2', 'rw-var-mrc-cache']:
-            fdt.PutString(fdt_path, 'type', 'wiped')
-            fdt.PutIntList(fdt_path, 'wipe-value', [0xff])
             self._GenerateWiped(label, area['size'], 0xff)
         elif label == 'shared-data':
-            fdt.PutString(fdt_path, 'type', 'wiped')
-            fdt.PutIntList(fdt_path, 'wipe-value', [0])
             self._GenerateWiped(label, area['size'], 0)
         elif label == 'vblock-dev':
-            fdt_path = '/flash/rw-vblock-dev'
-            fdt.PutString(fdt_path, 'type', 'wiped')
-            fdt.PutIntList(fdt_path, 'wipe-value', [0xff])
             self._GenerateWiped(label, area['size'], 0xff)
-        elif label[:-1] == 'vblock-':
-            fdt_path = '/flash/rw-'+slot+'-vblock'
-            fdt.PutString(fdt_path, 'type', 'keyblock cbfs/rw/'+slot+'-boot')
-            fdt.PutString(fdt_path, 'keyblock', 'firmware.keyblock')
-            fdt.PutString(fdt_path, 'signprivate', 'firmware_data_key.vbprivk')
-            fdt.PutString(fdt_path, 'kernelkey', 'kernel_subkey.vbpubk')
-            fdt.PutIntList(fdt_path, 'version', [1])
-            fdt.PutIntList(fdt_path, 'preamble-flags', [0])
-        elif label[:-1] == 'fw-main-':
-            fdt_path = '/flash/rw-'+slot+'-boot'
-            fdt.PutString(fdt_path, 'type', 'blob cbfs/rw/'+slot+'-boot')
         elif label[:-1] == 'rw-fwid-':
-            fdt_path = '/flash/rw-'+slot+'-firmware-id'
-            fdt.PutString(fdt_path, 'type', 'blobstring fwid')
             self._GenerateBlobstring(label, area['size'], self.fwid)
         elif label == 'ro-frid':
-            fdt_path = '/flash/ro-firmware-id'
-            fdt.PutString(fdt_path, 'type', 'blobstring fwid')
             self._GenerateBlobstring(label, area['size'], self.fwid)
-        elif label == 'ifwi':
-            fdt_path = '/flash/ro-ifwi'
-            fdt.PutString(fdt_path, 'type', 'blob ifwi')
-        elif label == 'sign-cse':
-            fdt_path = '/flash/ro-sig'
-            fdt.PutString(fdt_path, 'type', 'blob sig2')
         # white list for empty regions
         elif label in ['bootblock', 'misc-rw', 'ro-section', 'rw-environment',
 		       'rw-gpt', 'si-all', 'si-bios', 'si-me', 'wp-ro',
+                       'sign-cse', 'ifwi', 'fmap', 'bootblock', 'coreboot',
+                       'rw-shared', 'rw-section-a', 'rw-section-b',
+                       'vblock-a', 'vblock-b', 'fw-main-a', 'fw-main-b',
                        'unified-mrc-cache']:
             pass
         else:
             raise ValueError('encountered label "'+label+'" in binary fmap. '+
                 'Check chromeos.fmd')
-        fdt.PutString(fdt_path, 'label', label)
-        fdt.PutIntList(fdt_path, 'reg', [area['offset'], area['size']])
-    return fdt
 
   def Start(self, hardware_id, output_fname, show_map):
     """This creates a firmware bundle according to settings provided.
