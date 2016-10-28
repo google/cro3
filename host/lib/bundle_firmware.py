@@ -535,17 +535,8 @@ class Bundle:
                             '-f', self.seabios_fname,
                             '--force',
                             '-r', 'RW_LEGACY'])
-        elif label in ['RW_MRC_CACHE', 'RECOVERY_MRC_CACHE', 'RW_ELOG',
-                       'RW_LEGACY', 'RW_VPD', 'RW_UNUSED', 'RO_VPD',
-                       'RO_UNUSED', 'RO_FRID_PAD', 'BIOS_UNUSABLE',
-                       'DEVICE_EXTENSION', 'UNUSED_HOLE', 'RW_GPT_PRIMARY',
-                       'RW_GPT_SECONDARY', 'RW_NVRAM', 'RO_UNUSED_1',
-                       'RO_UNUSED_2', 'RW_VAR_MRC_CACHE']:
-            self._GenerateWiped(label, area['size'], 0xff)
         elif label == 'SHARED_DATA':
             self._GenerateWiped(label, area['size'], 0)
-        elif label == 'VBLOCK_DEV':
-            self._GenerateWiped(label, area['size'], 0xff)
         elif label[:-1] == 'RW_FWID_':
             self._GenerateBlobstring(label, area['size'], self.fwid)
         elif label == 'RO_FRID':
@@ -556,7 +547,13 @@ class Bundle:
                        'SIGN_CSE', 'IFWI', 'FMAP', 'BOOTBLOCK', 'COREBOOT',
                        'RW_SHARED', 'RW_SECTION_A', 'RW_SECTION_B',
                        'VBLOCK_A', 'VBLOCK_B', 'FW_MAIN_A', 'FW_MAIN_B',
-                       'UNIFIED_MRC_CACHE', 'SI_DESC']:
+                       'UNIFIED_MRC_CACHE', 'SI_DESC',
+                       'RW_MRC_CACHE', 'RECOVERY_MRC_CACHE', 'RW_ELOG',
+                       'RW_LEGACY', 'RW_VPD', 'RW_UNUSED', 'RO_VPD',
+                       'RO_UNUSED', 'RO_FRID_PAD', 'BIOS_UNUSABLE',
+                       'DEVICE_EXTENSION', 'UNUSED_HOLE', 'RW_GPT_PRIMARY',
+                       'RW_GPT_SECONDARY', 'RW_NVRAM', 'RO_UNUSED_1',
+                       'RO_UNUSED_2', 'RW_VAR_MRC_CACHE', 'VBLOCK_DEV']:
             pass
         else:
             raise ValueError('encountered label "'+label+'" in binary fmap. '+
