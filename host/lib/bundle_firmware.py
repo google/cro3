@@ -226,16 +226,9 @@ class Bundle:
   def _CreateGoogleBinaryBlock(self):
     """Create a GBB for the image.
 
-    Args:
-      hardware_id: Hardware ID to use for this board. If None, then the
-          default from the Fdt will be used
-
     Returns:
       Path of the created GBB file.
     """
-    hardware_id = self.hardware_id
-    if not hardware_id:
-      hardware_id = self.fdt.GetString('/config', 'hwid')
     odir = self._tools.outdir
 
     self._tools.Run('cbfstool', [self.cb_copy, 'read',
@@ -251,10 +244,12 @@ class Bundle:
     gbb = 'gbb.bin'
     keydir = self._tools.Filename(self._keydir)
 
-    gbb_set_command = ['-s',
-                       '--hwid=%s' % hardware_id,
+    gbb_set_command = ['-s']
+    if self.hardware_id:
+      gbb_set_command.append('--hwid=%s' % self.hardware_id)
+    gbb_set_command.extend([
                        '--flags=%d' % gbb_flags,
-                       gbb]
+                       gbb])
 
     self._tools.Run('gbb_utility', gbb_set_command, cwd=odir)
     return os.path.join(odir, gbb)
