@@ -174,32 +174,6 @@ class Bundle:
         raise ValueError('Invalid output from gbb_utility: "%s"' % out)
     return int(out[7:], 16)
 
-  def DecodeGBBFlagsFromFdt(self, gbb_flags = 0):
-    """Get Google Binary Block flags from the FDT.
-
-    These should be in the chromeos-config node, like this:
-
-      chromeos-config {
-                  gbb-flag-dev-screen-short-delay;
-                  gbb-flag-force-dev-switch-on;
-                  gbb-flag-force-dev-boot-usb;
-                  gbb-flag-disable-fw-rollback-check;
-      };
-
-    Returns:
-      GBB flags value from FDT.
-    """
-    chromeos_config = self.fdt.GetProps("/chromeos-config")
-    for name in chromeos_config:
-      if name.startswith('gbb-flag-'):
-        flag_value = gbb_flag_properties.get(name[9:])
-        if flag_value:
-          gbb_flags |= flag_value
-          self._out.Notice("FDT: Enabling %s." % name)
-        else:
-          raise ValueError("FDT contains invalid GBB flags '%s'" % name)
-    return gbb_flags
-
   def DecodeGBBFlagsFromOptions(self, gbb_flags, adjustments):
     """Decode ajustments to the provided GBB flags.
 
@@ -268,7 +242,6 @@ class Bundle:
             '-r', 'GBB',
             '-f', 'gbb.bin'], cwd=odir)
     gbb_flags = self.DecodeGBBFlags(odir, 'gbb.bin')
-    gbb_flags = self.DecodeGBBFlagsFromFdt(gbb_flags)
 
     # Allow command line to override flags
     gbb_flags = self.DecodeGBBFlagsFromOptions(gbb_flags, self._gbb_flags)
