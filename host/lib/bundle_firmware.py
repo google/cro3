@@ -659,8 +659,6 @@ class Bundle:
       self._tools.Run('cbfstool', [bootstub, 'add-flat-binary', '-f',
           uboot_dtb, '-n', 'fallback/payload', '-c', 'lzma',
           '-l', '%#x' % text_base, '-e', '%#x' % entry])
-    self._tools.Run('cbfstool', [bootstub, 'add', '-f', fdt.fname,
-        '-n', 'u-boot.dtb', '-t', '0xac'])
 
     # Create a coreboot copy to use as a scratch pad.
     cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_with_fmap'))
