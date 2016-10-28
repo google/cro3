@@ -664,26 +664,6 @@ class Bundle:
     self._tools.WriteFile(cb_copy, binary)
     self.cb_copy = cb_copy
 
-  def _FdtNameToFmap(self, fdtstr):
-    return re.sub('-', '_', fdtstr).upper()
-
-  def _FmapNameByPath(self, path):
-    """ Take list of names to form node path. Return FMAP name.
-
-    Obtain the FMAP name described by the node path.
-
-    Args:
-      path: list forming a node path.
-
-    Returns:
-      FMAP name of fdt node.
-
-    Raises:
-      CmdError if path not found.
-    """
-    lbl = self.fdt.GetLabel(self.fdt.GetFlashNode(*path))
-    return self._FdtNameToFmap(lbl)
-
   def _PrepareCbfs(self, fmap_dst):
     """Prepare CBFS in given FMAP section.
 
@@ -733,13 +713,12 @@ class Bundle:
       value: value to fill region with (int)
     """
     wipedfile = os.path.join(self._tools.outdir, 'wiped.%s' % label)
-    fmaplabel = self._FdtNameToFmap(label)
 
     self._tools.WriteFile(wipedfile, size*chr(value))
     self._tools.Run('cbfstool', [
       self.cb_copy, 'write',
       '--force',
-      '-r', fmaplabel, '-f', wipedfile])
+      '-r', label, '-f', wipedfile])
 
   def _GenerateBlobstring(self, label, size, string):
     """Fill a CBFS region in cb_copy with a given string.
@@ -751,13 +730,12 @@ class Bundle:
       string: string to fill in.
     """
     stringfile = os.path.join(self._tools.outdir, 'blobstring.%s' % label)
-    fmaplabel = self._FdtNameToFmap(label)
 
     self._tools.WriteFile(stringfile, (string + size*chr(0))[:size])
     self._tools.Run('cbfstool', [
       self.cb_copy, 'write',
       '--force',
-      '-r', fmaplabel, '-f', stringfile])
+      '-r', label, '-f', stringfile])
 
   def _BuildKeyblocks(self):
     """Compute vblocks and write them into their FMAP regions.
@@ -948,9 +926,8 @@ class Bundle:
     fmap_blob = open(self.coreboot_fname).read()
     f = fmap.fmap_decode(fmap_blob)
     for area in f['areas']:
-        label = re.sub('_', '-', area['name']).lower()
-        slot=label[-1]
-        if label == 'gbb':
+        label = area['name']
+        if label == 'GBB':
             gbb = self._CreateGoogleBinaryBlock()
             gbbdata = (self._tools.ReadFile(gbb) +
                 area['size']*'\x00')[:area['size']]
@@ -958,35 +935,35 @@ class Bundle:
             self._tools.Run('cbfstool', [
               self.cb_copy, 'write',
               '-r', 'GBB', '-f', gbb])
-        elif label == 'si-desc':
+        elif label == 'SI_DESC':
             self._PrepareIfd()
-        elif label == 'rw-legacy' and self.seabios_fname:
+        elif label == 'RW_LEGACY' and self.seabios_fname:
             self._tools.Run('cbfstool', [self.cb_copy, 'write',
                             '-f', self.seabios_fname,
                             '--force',
                             '-r', 'RW_LEGACY'])
-        elif label in ['rw-mrc-cache', 'recovery-mrc-cache', 'rw-elog',
-                       'rw-legacy', 'rw-vpd', 'rw-unused', 'ro-vpd',
-                       'ro-unused', 'ro-frid-pad', 'bios-unusable',
-                       'device-extension', 'unused-hole', 'rw-gpt-primary',
-                       'rw-gpt-secondary', 'rw-nvram', 'ro-unused-1',
-                       'ro-unused-2', 'rw-var-mrc-cache']:
+        elif label in ['RW_MRC_CACHE', 'RECOVERY_MRC_CACHE', 'RW_ELOG',
+                       'RW_LEGACY', 'RW_VPD', 'RW_UNUSED', 'RO_VPD',
+                       'RO_UNUSED', 'RO_FRID_PAD', 'BIOS_UNUSABLE',
+                       'DEVICE_EXTENSION', 'UNUSED_HOLE', 'RW_GPT_PRIMARY',
+                       'RW_GPT_SECONDARY', 'RW_NVRAM', 'RO_UNUSED_1',
+                       'RO_UNUSED_2', 'RW_VAR_MRC_CACHE']:
             self._GenerateWiped(label, area['size'], 0xff)
-        elif label == 'shared-data':
+        elif label == 'SHARED_DATA':
             self._GenerateWiped(label, area['size'], 0)
-        elif label == 'vblock-dev':
+        elif label == 'VBLOCK_DEV':
             self._GenerateWiped(label, area['size'], 0xff)
-        elif label[:-1] == 'rw-fwid-':
+        elif label[:-1] == 'RW_FWID_':
             self._GenerateBlobstring(label, area['size'], self.fwid)
-        elif label == 'ro-frid':
+        elif label == 'RO_FRID':
             self._GenerateBlobstring(label, area['size'], self.fwid)
         # white list for empty regions
-        elif label in ['bootblock', 'misc-rw', 'ro-section', 'rw-environment',
-		       'rw-gpt', 'si-all', 'si-bios', 'si-me', 'wp-ro',
-                       'sign-cse', 'ifwi', 'fmap', 'bootblock', 'coreboot',
-                       'rw-shared', 'rw-section-a', 'rw-section-b',
-                       'vblock-a', 'vblock-b', 'fw-main-a', 'fw-main-b',
-                       'unified-mrc-cache']:
+        elif label in ['BOOTBLOCK', 'MISC_RW', 'RO_SECTION', 'RW_ENVIRONMENT',
+		       'RW_GPT', 'SI_ALL', 'SI_BIOS', 'SI_ME', 'WP_RO',
+                       'SIGN_CSE', 'IFWI', 'FMAP', 'BOOTBLOCK', 'COREBOOT',
+                       'RW_SHARED', 'RW_SECTION_A', 'RW_SECTION_B',
+                       'VBLOCK_A', 'VBLOCK_B', 'FW_MAIN_A', 'FW_MAIN_B',
+                       'UNIFIED_MRC_CACHE']:
             pass
         else:
             raise ValueError('encountered label "'+label+'" in binary fmap. '+
