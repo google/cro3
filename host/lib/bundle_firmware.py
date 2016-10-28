@@ -264,20 +264,18 @@ class Bundle:
     gbb_flags = self.DecodeGBBFlagsFromOptions(gbb_flags, self._gbb_flags)
 
     self._out.Notice("GBB flags value %#x" % gbb_flags)
-    self._out.Progress('Creating GBB')
-    sizes = [0x100, 0x1000, 0, 0x1000]
-    sizes = ['%#x' % size for size in sizes]
+    self._out.Progress('Updating GBB')
+    self._tools.Run('cbfstool', [self.cb_copy, 'read',
+            '-r', 'GBB',
+            '-f', 'gbb.bin'], cwd=odir)
     gbb = 'gbb.bin'
     keydir = self._tools.Filename(self._keydir)
 
     gbb_set_command = ['-s',
                        '--hwid=%s' % hardware_id,
-                       '--rootkey=%s/root_key.vbpubk' % keydir,
-                       '--recoverykey=%s/recovery_key.vbpubk' % keydir,
                        '--flags=%d' % gbb_flags,
                        gbb]
 
-    self._tools.Run('gbb_utility', ['-c', ','.join(sizes), gbb], cwd=odir)
     self._tools.Run('gbb_utility', gbb_set_command, cwd=odir)
     return os.path.join(odir, gbb)
 
