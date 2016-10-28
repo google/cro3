@@ -81,7 +81,6 @@ def _DoBundle(options, output, tools):
                   exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2,
                   skeleton=options.skeleton, ecrw=options.ecrw,
                   ecro=options.ecro, pdrw=options.pdrw, kernel=options.kernel,
-                  blobs=options.add_blob,
                   cbfs_files=options.cbfs_files,
                   rocbfs_files=options.rocbfs_files)
   bundle.SetOptions(small=options.small, gbb_flags=options.gbb_flags,
@@ -138,10 +137,6 @@ def main():
   parser.add_option('--bootsecure', dest='bootsecure',
       default=False, action='store_true',
       help='Boot command is simple (no arguments) and not interruptible')
-  parser.add_option('--add-blob', action='append', nargs=2,
-      metavar='BLOB_TYPE FILE', help='''Mark FILE as BLOB_TYPE.
-For this to work, the fmap structure of device tree should have entries of
-BLOB_TYPE.''')
   # TODO(sjg): Support multiple BCT files
   # TODO(sjg): Support source BCT files
   parser.add_option('-c', '--bct', dest='bct', type='string', action='store',

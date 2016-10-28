@@ -106,7 +106,6 @@ class Bundle:
     self._keydir = None
     self._small = False
     self.bct_fname = None       # Filename of our BCT file.
-    self.blobs = {}             # Table of (type, filename) of arbitrary blobs
     self.coreboot_elf = None
     self.coreboot_fname = None  # Filename of our coreboot binary.
     self.ecro_fname = None      # Filename of EC read-only file
@@ -136,7 +135,7 @@ class Bundle:
                coreboot_elf=None,
                seabios=None, exynos_bl1=None, exynos_bl2=None,
                skeleton=None, ecrw=None, ecro=None, pdrw=None,
-               kernel=None, blobs=None, cbfs_files=None,
+               kernel=None, cbfs_files=None,
                rocbfs_files=None):
     """Set up files required for Bundle.
 
@@ -154,7 +153,6 @@ class Bundle:
       ecro: The filename of the EC (Embedded Controller) read-only file.
       pdrw: The filename of the PD (PD embedded controller) read-write file.
       kernel: The filename of the kernel file if any.
-      blobs: List of (type, filename) of arbitrary blobs.
       cbfs_files: Root directory of files to be stored in RO and RW CBFS
       rocbfs_files: Root directory of files to be stored in RO CBFS
     """
@@ -171,7 +169,6 @@ class Bundle:
     self.ecro_fname = ecro
     self.pdrw_fname = pdrw
     self.kernel_fname = kernel
-    self.blobs = dict(blobs or ())
     self.cbfs_files = cbfs_files
     self.rocbfs_files = rocbfs_files
 
@@ -892,12 +889,6 @@ class Bundle:
       Path to image file
     """
     self._out.Notice("Model: %s" % fdt.GetString('/', 'model'))
-
-    for blob_type in self.blobs:
-      self._tools.Run('cbfstool', [self.cb_copy, 'write',
-                      '--fill-upward',
-                      '-f', self.blobs[blob_type],
-                      '-r', _FdtNameToFmap(blob_type)])
 
     self._PrepareCbfs('FW_MAIN_A')
     self._PrepareCbfs('FW_MAIN_B')
