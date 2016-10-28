@@ -669,34 +669,6 @@ class Bundle:
     self._tools.WriteFile(cb_copy, binary)
     self.cb_copy = cb_copy
 
-  def _HashFmapRegions(self, filename):
-    blob = self._tools.ReadFile(filename)
-    f = fmap.fmap_decode(blob)
-    result = {}
-    for area in f['areas']:
-      # There's some liberty in fmap ordering, so don't do a binary
-      # comparison for that one. They're generated from the same source
-      # material (chromeos.fmd), so they are functionally identical.
-      # Also skip the regions that wrap the fmap since their hashes differ,
-      # too.
-      if area['name'] in ['FMAP', 'RO_SECTION', 'WP_RO', 'SI_BIOS']:
-        continue
-      # This is a temporary hack (since this entire function will go away).
-      # Most boards use RW_SHARED as a wrapper for other regions, esp for
-      # SHARED_DATA. Some do not, and pack_firmware defaults to 0 for
-      # untouched bytes, while cbfstool defaults to 0xff.
-      # Since it's sometimes a leaf in the fmap region tree and sometimes
-      # isn't, that makes it a complicated matter to handle cleanly. This is
-      # easier.
-      if area['name'] in ['RW_SHARED']:
-        continue
-      start = area['offset']
-      end = start + area['size']
-      hasher = hashlib.sha256()
-      hasher.update(blob[start:end])
-      result[area['name']] = hasher.hexdigest()
-    return result
-
   def _FdtNameToFmap(self, fdtstr):
     return re.sub('-', '_', fdtstr).upper()
 
