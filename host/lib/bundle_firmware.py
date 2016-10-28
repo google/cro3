@@ -167,7 +167,14 @@ class Bundle:
     self._gbb_flags = gbb_flags
     self._force_efs = force_efs
 
-  def DecodeGBBFlagsFromFdt(self):
+  def DecodeGBBFlags(self, path, filename):
+    out = self._tools.Run('gbb_utility', ['-g', '--flags', filename],
+        cwd=path)
+    if out[0:7] != 'flags: ':
+        raise ValueError('Invalid output from gbb_utility: "%s"' % out)
+    return int(out[7:], 16)
+
+  def DecodeGBBFlagsFromFdt(self, gbb_flags = 0):
     """Get Google Binary Block flags from the FDT.
 
     These should be in the chromeos-config node, like this:
@@ -183,7 +190,6 @@ class Bundle:
       GBB flags value from FDT.
     """
     chromeos_config = self.fdt.GetProps("/chromeos-config")
-    gbb_flags = 0
     for name in chromeos_config:
       if name.startswith('gbb-flag-'):
         flag_value = gbb_flag_properties.get(name[9:])
@@ -258,16 +264,17 @@ class Bundle:
       hardware_id = self.fdt.GetString('/config', 'hwid')
     odir = self._tools.outdir
 
-    gbb_flags = self.DecodeGBBFlagsFromFdt()
+    self._tools.Run('cbfstool', [self.cb_copy, 'read',
+            '-r', 'GBB',
+            '-f', 'gbb.bin'], cwd=odir)
+    gbb_flags = self.DecodeGBBFlags(odir, 'gbb.bin')
+    gbb_flags = self.DecodeGBBFlagsFromFdt(gbb_flags)
 
     # Allow command line to override flags
     gbb_flags = self.DecodeGBBFlagsFromOptions(gbb_flags, self._gbb_flags)
 
     self._out.Notice("GBB flags value %#x" % gbb_flags)
     self._out.Progress('Updating GBB')
-    self._tools.Run('cbfstool', [self.cb_copy, 'read',
-            '-r', 'GBB',
-            '-f', 'gbb.bin'], cwd=odir)
     gbb = 'gbb.bin'
     keydir = self._tools.Filename(self._keydir)
 
