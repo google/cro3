@@ -35,7 +35,6 @@ sys.path.append(base)
 sys.path.append(os.path.join(base, 'lib'))
 
 import bundle_firmware
-import write_firmware
 from bundle_firmware import Bundle
 import cros_output
 from tools import Tools
@@ -91,18 +90,6 @@ def _DoBundle(options, output, tools):
 
     out_fname, bootstub = bundle.Start(options.hardware_id, options.output,
         options.show_map)
-
-    # Write it to the board if required.
-    if options.write:
-      flasher = options.uboot_flasher
-      if not flasher:
-        flasher = bundle.uboot_fname
-      file_list = bundle.GetFiles()
-      write_firmware.DoWriteFirmware(output, tools, fdt, flasher,
-          file_list, out_fname, bundle, dest=options.write,
-          flasher_dest=options.flash_dest, kernel=options.kernel,
-          bootstub=bootstub, servo=options.servo,
-          method=options.method)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
@@ -185,8 +172,6 @@ changes to default flags (e.g.-load-option-roms,+force-dev-boot-usb).
   parser.add_option('-v', '--verbosity', dest='verbosity', default=1,
       type='int', help='Control verbosity: 0=silent, 1=progress, 3=full, '
       '4=debug')
-  parser.add_option('-w', '--write', dest='write', type='string',
-      action='store', help='Write firmware to device (usb, sd)')
   (options, args) = parser.parse_args(sys.argv)
 
   if options.gbb_flags_list:
