@@ -341,11 +341,8 @@ class Bundle:
           '-l', '%#x' % text_base, '-e', '%#x' % entry])
 
     # Create a coreboot copy to use as a scratch pad.
-    cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_with_fmap'))
-    self._tools.WriteFile(cb_copy, self._tools.ReadFile(bootstub))
-    binary = self._tools.ReadFile(bootstub)
-    self._tools.WriteFile(cb_copy, binary)
-    self.cb_copy = cb_copy
+    self.cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_with_fmap'))
+    shutil.copyfile(bootstub, self.cb_copy)
 
   def _PrepareCbfs(self, fmap_dst):
     """Prepare CBFS in given FMAP section.
