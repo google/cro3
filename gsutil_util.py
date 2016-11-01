@@ -55,8 +55,6 @@ def GSUtilRun(cmd, err_msg):
     proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
     stdout, stderr = proc.communicate()
-    _Log('crbug.com/639314 GSUtilRun({0}, {1})={2}, stdout=<<<{3}>>>, stderr=<<<{4}>>>'.format(
-        cmd, err_msg, proc.returncode, stdout, stderr))
     if proc.returncode == 0:
       return stdout
 
@@ -147,23 +145,19 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, timeout=600, delay=10,
                       None))
 
   deadline = time.time() + timeout
-  _Log('crbug.com/639314 GetGSNamesWithWait():')
   while True:
     uploaded_list = []
     for cmd, msg, override_result in get_methods:
       try:
         result = GSUtilRun(cmd, msg)
       except GSUtilError:
-        _Log('crbug.com/639314 GSUtilError, try next method')
         continue  # It didn't work, try the next method.
 
       if override_result:
-        _Log('crbug.com/639314 override_result={0}'.format(override_result))
         result = override_result
 
       # Make sure we're dealing with artifact base names only.
       uploaded_list = [os.path.basename(p) for p in result.splitlines()]
-      _Log('crbug.com/639314 uploaded_list={0}'.format(uploaded_list))
       break
 
     # Only keep files matching the target artifact name/pattern.
@@ -174,8 +168,6 @@ def GetGSNamesWithWait(pattern, archive_url, err_str, timeout=600, delay=10,
     else:
       matching_names = fnmatch.filter(uploaded_list, pattern)
 
-    _Log('crbug.com/639314 matching_names={0}, is_regex_pattern={1}'.format(
-        matching_names, is_regex_pattern))
     if matching_names:
       return matching_names
 
