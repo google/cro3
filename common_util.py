@@ -4,6 +4,8 @@
 
 """Helper class for interacting with the Dev Server."""
 
+from __future__ import print_function
+
 import ast
 import base64
 import binascii
@@ -118,7 +120,7 @@ def PathInDir(directory, path):
   """
   directory = os.path.realpath(directory)
   path = os.path.realpath(path)
-  return (path.startswith(directory) and len(path) != len(directory))
+  return path.startswith(directory) and len(path) != len(directory)
 
 
 def GetControlFile(static_dir, build, control_path):
@@ -243,7 +245,7 @@ def GetFileHashes(file_path, do_sha1=False, do_sha256=False, do_md5=False):
     'md5', respectively.
   """
   hashes = {}
-  if (do_sha1 or do_sha256 or do_md5):
+  if any((do_sha1, do_sha256, do_md5)):
     # Initialize hashers.
     hasher_sha1 = hashlib.sha1() if do_sha1 else None
     hasher_sha256 = hashlib.sha256() if do_sha256 else None
@@ -367,7 +369,9 @@ def ExtractTarball(tarball_path, install_path, files_to_extract=None,
     List of absolute paths of the files extracted (possibly empty).
   """
   # Deal with exclusions.
-  cmd = ['tar', 'xf', tarball_path, '--directory', install_path]
+  # Add 'm' for not extracting file's modified time. All extracted files are
+  # marked with current system time.
+  cmd = ['tar', 'xfm', tarball_path, '--directory', install_path]
 
   # If caller requires the list of extracted files, get verbose.
   if return_extracted_files:
@@ -389,6 +393,8 @@ def ExtractTarball(tarball_path, install_path, files_to_extract=None,
 
   cmd_output = ''
   try:
+    # TODO(xixuan): not merge error msg to stdout to avoid missing error msg.
+    # crbug.com/662793
     cmd_output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     if return_extracted_files:
       return [os.path.join(install_path, filename)
