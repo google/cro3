@@ -1063,11 +1063,12 @@ class Bundle:
             fdt_path = '/flash/rw-'+slot
         elif label == 'rw-legacy' and self.seabios_fname:
             fdt.PutString(fdt_path, 'type', 'blob legacy')
-        elif label in ['rw-mrc-cache', 'rw-elog', 'rw-legacy',
-                       'rw-vpd', 'rw-unused', 'ro-vpd', 'ro-unused',
-                       'ro-frid-pad', 'bios-unusable', 'device-extension',
-                       'unused-hole', 'rw-gpt-primary', 'rw-gpt-secondary',
-                       'rw-nvram', 'ro-unused-1', 'ro-unused-2']:
+        elif label in ['rw-mrc-cache', 'recovery-mrc-cache', 'rw-elog',
+                       'rw-legacy', 'rw-vpd', 'rw-unused', 'ro-vpd',
+                       'ro-unused', 'ro-frid-pad', 'bios-unusable',
+                       'device-extension', 'unused-hole', 'rw-gpt-primary',
+                       'rw-gpt-secondary', 'rw-nvram', 'ro-unused-1',
+                       'ro-unused-2']:
             fdt.PutString(fdt_path, 'type', 'wiped')
             fdt.PutIntList(fdt_path, 'wipe-value', [0xff])
             self._GenerateWiped(label, area['size'], 0xff)
@@ -1105,7 +1106,8 @@ class Bundle:
             fdt.PutString(fdt_path, 'type', 'blob sig2')
         # white list for empty regions
         elif label in ['bootblock', 'misc-rw', 'ro-section', 'rw-environment',
-		       'rw-gpt', 'si-all', 'si-bios', 'si-me', 'wp-ro']:
+		       'rw-gpt', 'si-all', 'si-bios', 'si-me', 'wp-ro',
+                       'unified-mrc-cache']:
             pass
         else:
             raise ValueError('encountered label "'+label+'" in binary fmap. '+
