@@ -105,7 +105,6 @@ class Bundle:
     self.fdt = None             # Our Fdt object.
     self.kernel_fname = None
     self.seabios_fname = None   # Filename of our SeaBIOS payload.
-    self.skeleton_fname = None  # Filename of Coreboot skeleton file
     self.uboot_fname = None     # Filename of our U-Boot binary.
     self.hardware_id = None
     self.bootstub = None
@@ -123,7 +122,7 @@ class Bundle:
   def SetFiles(self, board, uboot=None, coreboot=None,
                coreboot_elf=None,
                seabios=None,
-               skeleton=None, ecrw=None, ecro=None, pdrw=None,
+               ecrw=None, ecro=None, pdrw=None,
                kernel=None, cbfs_files=None,
                rocbfs_files=None):
     """Set up files required for Bundle.
@@ -134,7 +133,6 @@ class Bundle:
       coreboot: The filename of the coreboot image to use (on x86).
       coreboot_elf: If not none, the ELF file to add as a Coreboot payload.
       seabios: The filename of the SeaBIOS payload to use if any.
-      skeleton: The filename of the coreboot skeleton file.
       ecrw: The filename of the EC (Embedded Controller) read-write file.
       ecro: The filename of the EC (Embedded Controller) read-only file.
       pdrw: The filename of the PD (PD embedded controller) read-write file.
@@ -147,7 +145,6 @@ class Bundle:
     self.coreboot_fname = coreboot
     self.coreboot_elf = coreboot_elf
     self.seabios_fname = seabios
-    self.skeleton_fname = skeleton
     self.ecrw_fname = ecrw
     self.ecro_fname = ecro
     self.pdrw_fname = pdrw
@@ -487,56 +484,6 @@ class Bundle:
                             '-f', output_data,
                             '-r', label])
 
-  def _PrepareIfd(self):
-    """Produce the final image for an Intel ME system
-
-    Some Intel systems require that an image contains the Management Engine
-    firmware, and also a firmware descriptor.
-
-    This function takes the existing image, removes the front part of it,
-    and replaces it with these required pieces using ifdtool.
-
-    Args:
-      image_fname: Output image filename
-    """
-    tools = self._tools
-    out = self._out
-    tmpdir = self._tools.outdir
-    image_fname = self.cb_copy
-
-    out.Progress('Setting up Intel ME')
-    data = tools.ReadFile(image_fname)
-
-    # Calculate start and size of BIOS region based off the IFD descriptor and
-    # not the size in dts node.
-    ifd_layout_tmp = os.path.join(tmpdir, 'ifd-layout-tmp')
-    args = ['-f%s' % ifd_layout_tmp, tools.Filename(self.skeleton_fname)]
-    tools.Run('ifdtool', args)
-    fd = open(ifd_layout_tmp)
-    layout = fd.readlines()
-    for line in layout:
-        line = line.rstrip()
-        if line.find("bios") != -1:
-            addr_range = line.split(' ')[0]
-            start = int(addr_range.split(':')[0], 16)
-            end = int(addr_range.split(':')[1], 16)
-
-    fd.close()
-
-    data = data[start:end+1]
-    input_fname = os.path.join(tmpdir, 'ifd-input.bin')
-    tools.WriteFile(input_fname, data)
-    ifd_output = os.path.join(tmpdir, 'image.ifd')
-
-    # This works by modifying a skeleton file.
-    shutil.copyfile(tools.Filename(self.skeleton_fname), ifd_output)
-    args = ['-i', 'BIOS:%s' % input_fname, ifd_output]
-    tools.Run('ifdtool', args)
-
-    # ifdtool puts the output in a file with '.new' tacked on the end.
-    shutil.move(ifd_output + '.new', image_fname)
-    tools.OutputSize('IFD image', image_fname)
-
   def _CreateImage(self, fdt):
     """Create a full firmware image, along with various by-products.
 
@@ -613,8 +560,6 @@ class Bundle:
             self._tools.Run('cbfstool', [
               self.cb_copy, 'write',
               '-r', 'GBB', '-f', gbb])
-        elif label == 'SI_DESC':
-            self._PrepareIfd()
         elif label == 'RW_LEGACY' and self.seabios_fname:
             self._tools.Run('cbfstool', [self.cb_copy, 'write',
                             '-f', self.seabios_fname,
@@ -641,7 +586,7 @@ class Bundle:
                        'SIGN_CSE', 'IFWI', 'FMAP', 'BOOTBLOCK', 'COREBOOT',
                        'RW_SHARED', 'RW_SECTION_A', 'RW_SECTION_B',
                        'VBLOCK_A', 'VBLOCK_B', 'FW_MAIN_A', 'FW_MAIN_B',
-                       'UNIFIED_MRC_CACHE']:
+                       'UNIFIED_MRC_CACHE', 'SI_DESC']:
             pass
         else:
             raise ValueError('encountered label "'+label+'" in binary fmap. '+

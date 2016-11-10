@@ -78,7 +78,7 @@ def _DoBundle(options, output, tools):
                   coreboot=options.coreboot,
                   coreboot_elf=options.coreboot_elf,
                   seabios=options.seabios,
-                  skeleton=options.skeleton, ecrw=options.ecrw,
+                  ecrw=options.ecrw,
                   ecro=options.ecro, pdrw=options.pdrw, kernel=options.kernel,
                   cbfs_files=options.cbfs_files,
                   rocbfs_files=options.rocbfs_files)
@@ -153,8 +153,6 @@ changes to default flags (e.g.-load-option-roms,+force-dev-boot-usb).
   parser.add_option('-k', '--key', dest='key', type='string', action='store',
       help='Path to signing key directory (default to dev key)',
       default='##/usr/share/vboot/devkeys')
-  parser.add_option('-K', '--skeleton', dest='skeleton', type='string',
-        action='store', help='Coreboot skeleton file')
   parser.add_option('--kernel', dest='kernel', type='string',
         action='store', help='Kernel file to ask U-Boot to boot')
   parser.add_option('-I', '--includedir', dest='includedirs', type='string',
