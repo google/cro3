@@ -774,7 +774,7 @@ class Bundle:
     shutil.move(ifd_output + '.new', image_fname)
     tools.OutputSize('IFD image', image_fname)
 
-  def _CreateImage(self, gbb, fdt):
+  def _CreateImage(self, fdt):
     """Create a full firmware image, along with various by-products.
 
     This uses the provided u-boot.bin, fdt and bct to create a firmware
@@ -782,8 +782,6 @@ class Bundle:
     then this will just return a signed U-Boot as the image.
 
     Args:
-      gbb: a string, full path to the GBB file, or empty if a GBB is not
-           required.
       fdt: an fdt object containing required information.
 
     Returns:
@@ -797,8 +795,7 @@ class Bundle:
     # Now that RW CBFSes are final, create the vblocks
     self._BuildKeyblocks()
 
-    if gbb:
-      self._out.Notice('Firmware ID: %s' % self.fwid)
+    self._out.Notice('Firmware ID: %s' % self.fwid)
 
     shutil.copyfile(self.bootstub,
         os.path.join(self._tools.outdir, 'coreboot-8mb.rom'))
@@ -904,13 +901,9 @@ class Bundle:
       Filename of the resulting image (not the output_fname copy).
     """
     self.hardware_id = hardware_id
-    if self._small or self.fdt.GetProp('/config', 'nogbb', 'any') != 'any':
-      gbb = ''  # Building a small image or `nogbb' is requested in device tree.
-    else:
-      gbb = self._CreateGoogleBinaryBlock()
 
     # This creates the actual image.
-    self._CreateImage(gbb, self.fdt)
+    self._CreateImage(self.fdt)
     if show_map:
       self._tools.Run('cbfstool', [self.cb_copy, 'layout', '-w'])
     if output_fname:
