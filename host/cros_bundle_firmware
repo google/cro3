@@ -74,11 +74,10 @@ def _DoBundle(options, output, tools):
 
   bundle = Bundle(tools, output)
   bundle.SetDirs(keydir=options.key)
-  bundle.SetFiles(board=options.board, uboot=options.uboot, bct=options.bct,
+  bundle.SetFiles(board=options.board, uboot=options.uboot,
                   coreboot=options.coreboot,
                   coreboot_elf=options.coreboot_elf,
                   seabios=options.seabios,
-                  exynos_bl1=options.exynos_bl1, exynos_bl2=options.exynos_bl2,
                   skeleton=options.skeleton, ecrw=options.ecrw,
                   ecro=options.ecro, pdrw=options.pdrw, kernel=options.kernel,
                   cbfs_files=options.cbfs_files,
@@ -88,10 +87,6 @@ def _DoBundle(options, output, tools):
 
   try:
     bundle.SelectFdt(options.fdt)
-    bundle.SetBootcmd(options.bootcmd, options.bootsecure)
-    bundle.AddConfigList(options.add_config_str)
-    bundle.AddConfigList(options.add_config_int, use_int=True)
-    bundle.AddEnableList(options.add_node_enable)
     bundle.spl_source = options.spl_source
 
     out_fname, bootstub = bundle.Start(options.hardware_id, options.output,
@@ -120,43 +115,18 @@ def _DoBundle(options, output, tools):
 def main():
   """Main function for cros_bundle_firmware."""
   parser = optparse.OptionParser()
-  parser.add_option('--add-config-str', dest='add_config_str', type='string',
-      nargs=2, action='append', help='Add a /config string to the U-Boot fdt')
-  parser.add_option('--add-config-int', dest='add_config_int', type='string',
-      nargs=2, action='append', help='Add a /config integer to the U-Boot fdt')
   parser.add_option('-b', '--board', dest='board', type='string',
       action='store', help='Board name to use (e.g. tegra2_kaen)',
       default='tegra2_seaboard')
   parser.add_option('-B', '--boot', dest='spl_source', type='string',
       action='store', help='Device for SPL to boot from (straps, spi, emmc)',
       default='straps')
-  parser.add_option('--bootcmd', dest='bootcmd', type='string',
-      help="Set U-Boot boot command (use 'none' for none)")
-  parser.add_option('--bootsecure', dest='bootsecure',
-      default=False, action='store_true',
-      help='Boot command is simple (no arguments) and not interruptible')
-  # TODO(sjg): Support multiple BCT files
-  # TODO(sjg): Support source BCT files
-  parser.add_option('-c', '--bct', dest='bct', type='string', action='store',
-      help='Path to BCT source file: only one can be given')
   parser.add_option('-C', '--coreboot', dest='coreboot', type='string',
       action='store', help='Executable lowlevel init file (coreboot)')
   parser.add_option('--coreboot-elf', type='string',
       action='store', help='Elf file to use as Coreboot payload')
   parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
       help='Path to fdt source .dts or binary blob .dtb file to use')
-  parser.add_option('--bl1', dest='exynos_bl1', type='string',
-      action='store', help='Exynos preboot (BL1) file')
-  parser.add_option('--bl2', dest='exynos_bl2', type='string',
-      action='store', help='Exynos Secondary Program Loader (SPL / BL2) file')
-  parser.add_option('--add-node-enable', dest='add_node_enable',
-      type='string', nargs=2, action='append',
-      help='''Set a node to status = "ok" / "disabled".
-You can refer to the node with /aliases/... also.
-Examples:
-'--set-node-enable /uart@3f8 1' to enable the uart;
-'--set-node-enable console 1' to enable the node pointed to by
-/aliases/console.''')
   parser.add_option('--hwid', dest='hardware_id', type='string',
       action='store', help='Hardware ID string to use')
   parser.add_option('--cbfs-files', dest='cbfs_files', type='string',

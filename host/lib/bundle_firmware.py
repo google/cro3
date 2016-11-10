@@ -21,7 +21,6 @@ import os
 import re
 
 from fdt import Fdt
-import hashlib
 import shutil
 import struct
 import fmap
@@ -70,7 +69,6 @@ class Bundle:
         to it. This is set up by SelectFdt() which must be called before
         bundling starts.
     uboot_fname: Full filename of the U-Boot binary we use.
-    bct_fname: Full filename of the BCT file we use.
     spl_source: Source device to load U-Boot from, in SPL:
         straps: Select device according to CPU strap pins
         spi: Boot from SPI
@@ -99,14 +97,11 @@ class Bundle:
     self._gbb_flags = None
     self._keydir = None
     self._small = False
-    self.bct_fname = None       # Filename of our BCT file.
     self.coreboot_elf = None
     self.coreboot_fname = None  # Filename of our coreboot binary.
     self.ecro_fname = None      # Filename of EC read-only file
     self.ecrw_fname = None      # Filename of EC file
     self.pdrw_fname = None      # Filename of PD file
-    self.exynos_bl1 = None      # Filename of Exynos BL1 (pre-boot)
-    self.exynos_bl2 = None      # Filename of Exynos BL2 (SPL)
     self.fdt = None             # Our Fdt object.
     self.kernel_fname = None
     self.seabios_fname = None   # Filename of our SeaBIOS payload.
@@ -125,9 +120,9 @@ class Bundle:
     """
     self._keydir = keydir
 
-  def SetFiles(self, board, bct, uboot=None, coreboot=None,
+  def SetFiles(self, board, uboot=None, coreboot=None,
                coreboot_elf=None,
-               seabios=None, exynos_bl1=None, exynos_bl2=None,
+               seabios=None,
                skeleton=None, ecrw=None, ecro=None, pdrw=None,
                kernel=None, cbfs_files=None,
                rocbfs_files=None):
@@ -136,12 +131,9 @@ class Bundle:
     Args:
       board: The name of the board to target (e.g. nyan).
       uboot: The filename of the u-boot.bin image to use.
-      bct: The filename of the binary BCT file to use.
       coreboot: The filename of the coreboot image to use (on x86).
       coreboot_elf: If not none, the ELF file to add as a Coreboot payload.
       seabios: The filename of the SeaBIOS payload to use if any.
-      exynos_bl1: The filename of the exynos BL1 file
-      exynos_bl2: The filename of the exynos BL2 file (U-Boot spl)
       skeleton: The filename of the coreboot skeleton file.
       ecrw: The filename of the EC (Embedded Controller) read-write file.
       ecro: The filename of the EC (Embedded Controller) read-only file.
@@ -152,12 +144,9 @@ class Bundle:
     """
     self._board = board
     self.uboot_fname = uboot
-    self.bct_fname = bct
     self.coreboot_fname = coreboot
     self.coreboot_elf = coreboot_elf
     self.seabios_fname = seabios
-    self.exynos_bl1 = exynos_bl1
-    self.exynos_bl2 = exynos_bl2
     self.skeleton_fname = skeleton
     self.ecrw_fname = ecrw
     self.ecro_fname = ecro
@@ -180,23 +169,6 @@ class Bundle:
     self._small = small
     self._gbb_flags = gbb_flags
     self._force_efs = force_efs
-
-  def GetFiles(self):
-    """Get a list of files that we know about.
-
-    This is the opposite of SetFiles except that we may have put in some
-    default names. It returns a dictionary containing the filename for
-    each of a number of pre-defined files.
-
-    Returns:
-      Dictionary, with one entry for each file.
-    """
-    file_list = {
-        'bct' : self.bct_fname,
-        'exynos-bl1' : self.exynos_bl1,
-        'exynos-bl2' : self.exynos_bl2,
-        }
-    return file_list
 
   def DecodeGBBFlagsFromFdt(self):
     """Get Google Binary Block flags from the FDT.
@@ -311,215 +283,6 @@ class Bundle:
     self._tools.Run('gbb_utility', ['-c', ','.join(sizes), gbb], cwd=odir)
     self._tools.Run('gbb_utility', gbb_set_command, cwd=odir)
     return os.path.join(odir, gbb)
-
-  def _SignBootstub(self, bct, bootstub, text_base):
-    """Sign an image so that the Tegra SOC will boot it.
-
-    Args:
-      bct: BCT file to use.
-      bootstub: Boot stub (U-Boot + fdt) file to sign.
-      text_base: Address of text base for image.
-
-    Returns:
-      filename of signed image.
-    """
-    # First create a config file - this is how we instruct cbootimage
-    signed = os.path.join(self._tools.outdir, 'signed.bin')
-    self._out.Progress('Signing Bootstub')
-    config = os.path.join(self._tools.outdir, 'boot.cfg')
-    fd = open(config, 'w')
-    fd.write('Version    = 1;\n')
-    fd.write('Redundancy = 1;\n')
-    fd.write('Bctfile    = %s;\n' % bct)
-
-    # TODO(dianders): Right now, we don't have enough space in our flash map
-    # for two copies of the BCT when we're using NAND, so hack it to 1.  Not
-    # sure what this does for reliability, but at least things will fit...
-    is_nand = "NvBootDevType_Nand" in self._tools.Run('bct_dump', [bct])
-    if is_nand:
-      fd.write('Bctcopy = 1;\n')
-
-    fd.write('BootLoader = %s,%#x,%#x,Complete;\n' % (bootstub, text_base,
-        text_base))
-
-    fd.close()
-
-    self._tools.Run('cbootimage', [config, signed])
-    self._tools.OutputSize('BCT', bct)
-    self._tools.OutputSize('Signed image', signed)
-    return signed
-
-  def SetBootcmd(self, bootcmd, bootsecure):
-    """Set the boot command for U-Boot.
-
-    Args:
-      bootcmd: Boot command to use, as a string (if None this this is a nop).
-      bootsecure: We'll set '/config/bootsecure' to 1 if True and 0 if False.
-    """
-    if bootcmd is not None:
-      if bootcmd == 'none':
-        bootcmd = ''
-      self.fdt.PutString('/config', 'bootcmd', bootcmd)
-      self.fdt.PutInteger('/config', 'bootsecure', int(bootsecure))
-      self._out.Info('Boot command: %s' % bootcmd)
-
-  def SetNodeEnabled(self, node_name, enabled):
-    """Set whether an node is enabled or disabled.
-
-    This simply sets the 'status' property of a node to "ok", or "disabled".
-
-    The node should either be a full path to the node (like '/uart@10200000')
-    or an alias property.
-
-    Aliases are supported like this:
-
-        aliases {
-                console = "/uart@10200000";
-        };
-
-    pointing to a node:
-
-        uart@10200000 {
-                status = "okay";
-        };
-
-    In this case, this function takes the name of the alias ('console' in
-    this case) and updates the status of the node that is pointed to, to
-    either ok or disabled. If the alias does not exist, a warning is
-    displayed.
-
-    Args:
-      node_name: Name of node (e.g. '/uart@10200000') or alias alias
-          (e.g. 'console') to adjust
-      enabled: True to enable, False to disable
-    """
-    # Look up the alias if this is an alias reference
-    if not node_name.startswith('/'):
-      lookup = self.fdt.GetString('/aliases', node_name, '')
-      if not lookup:
-        self._out.Warning("Cannot find alias '%s' - ignoring" % node_name)
-        return
-      node_name = lookup
-    if enabled:
-      status = 'okay'
-    else:
-      status = 'disabled'
-    self.fdt.PutString(node_name, 'status', status)
-
-  def AddEnableList(self, enable_list):
-    """Process a list of nodes to enable/disable.
-
-    Args:
-      enable_list: List of (node, value) tuples to add to the fdt. For each
-          tuple:
-              node: The fdt node to write to will be <node> or pointed to by
-                  /aliases/<node>. We can tell which
-              value: 0 to disable the node, 1 to enable it
-
-    Raises:
-      CmdError if a command fails.
-    """
-    if enable_list:
-      for node_name, enabled in enable_list:
-        try:
-          enabled = int(enabled)
-          if enabled not in (0, 1):
-            raise ValueError
-        except ValueError:
-          raise CmdError("Invalid enable option value '%s' "
-              "(should be 0 or 1)" % str(enabled))
-        self.SetNodeEnabled(node_name, enabled)
-
-  def AddConfigList(self, config_list, use_int=False):
-    """Add a list of config items to the fdt.
-
-    Normally these values are written to the fdt as strings, but integers
-    are also supported, in which case the values will be converted to integers
-    (if necessary) before being stored.
-
-    Args:
-      config_list: List of (config, value) tuples to add to the fdt. For each
-          tuple:
-              config: The fdt node to write to will be /config/<config>.
-              value: An integer or string value to write.
-      use_int: True to only write integer values.
-
-    Raises:
-      CmdError: if a value is required to be converted to integer but can't be.
-    """
-    if config_list:
-      for config in config_list:
-        value = config[1]
-        if use_int:
-          try:
-            value = int(value)
-          except ValueError:
-            raise CmdError("Cannot convert config option '%s' to integer" %
-                str(value))
-        if type(value) == type(1):
-          self.fdt.PutInteger('/config', '%s' % config[0], value)
-        else:
-          self.fdt.PutString('/config', '%s' % config[0], value)
-
-  def DecodeTextBase(self, data):
-    """Look at a U-Boot image and try to decode its TEXT_BASE.
-
-    This works because U-Boot has a header with the value 0x12345678
-    immediately followed by the TEXT_BASE value. We can therefore read this
-    from the image with some certainty. We check only the first 40 words
-    since the header should be within that region.
-
-    Since upstream Tegra has moved to having a 16KB SPL region at the start,
-    and currently this does holds the U-Boot text base (e.g. 0x10c000) instead
-    of the SPL one (e.g. 0x108000), we search in the U-Boot part as well.
-
-    Args:
-      data: U-Boot binary data
-
-    Returns:
-      Text base (integer) or None if none was found
-    """
-    found = False
-    for start in (0, 0x4000):
-      for i in range(start, start + 160, 4):
-        word = data[i:i + 4]
-
-        # TODO(sjg): This does not cope with a big-endian target
-        value = struct.unpack('<I', word)[0]
-        if found:
-          return value - start
-        if value == 0x12345678:
-          found = True
-
-    return None
-
-  def CalcTextBase(self, name, fdt, fname):
-    """Calculate the TEXT_BASE to use for U-Boot.
-
-    Normally this value is in the fdt, so we just read it from there. But as
-    a second check we look at the image itself in case this is different, and
-    switch to that if it is.
-
-    This allows us to flash any U-Boot even if its TEXT_BASE is different.
-    This is particularly useful with upstream U-Boot which uses a different
-    value (which we will move to).
-    """
-    data = self._tools.ReadFile(fname)
-    # The value that comes back from fdt.GetInt is signed, which makes no
-    # sense for an address base.  Force it to unsigned.
-    fdt_text_base = fdt.GetInt('/chromeos-config', 'textbase', 0) & 0xffffffff
-    text_base = self.DecodeTextBase(data)
-    text_base_str = '%#x' % text_base if text_base else 'None'
-    self._out.Info('TEXT_BASE: fdt says %#x, %s says %s' % (fdt_text_base,
-        fname, text_base_str))
-
-    # If they are different, issue a warning and switch over.
-    if text_base and text_base != fdt_text_base:
-      self._out.Warning("TEXT_BASE %x in %sU-Boot doesn't match "
-              "fdt value of %x. Using %x" % (text_base, name,
-                  fdt_text_base, text_base))
-      fdt_text_base = text_base
-    return fdt_text_base
 
   def _AddCbfsFiles(self, bootstub, cbfs_files, regions='COREBOOT'):
     for dir, subs, files in os.walk(cbfs_files):

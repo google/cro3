@@ -45,7 +45,6 @@ class TestBundleFirmware(unittest.TestCase):
     self.tools.PrepareOutputDir(None)
     self.bundle = Bundle(self.tools, self.output)
     self.uboot_fname = self.MakeRandomFile(500 * 1024)
-    self.bct_fname = os.path.abspath('bin/board.bct')
     self.bundle.SetDirs('##/usr/share/vboot/devkeys')
     self.bundle.SetOptions(False, None)
 
@@ -127,23 +126,6 @@ class TestBundleFirmware(unittest.TestCase):
         self.fail('Unexpected exception thrown: %s' % str(e))
     else:
       self.fail('IOError not thrown')
-
-  def test_Defaults(self):
-    """Test that default handling works correctly."""
-    uboot_fname = self.MakeRandomFile(600 * 1024)
-    self.bundle.SetFiles('robin_hood', bct=self.bct_fname, uboot=uboot_fname)
-
-    # If we don't ask for defaults, we should not get them. This first one
-    # raises because it tries to operate on the string None
-    self.assertRaises(ValueError, self.bundle.SelectFdt, None, False)
-
-    # This one raises because the file 'fred' does not exist.
-    self.assertRaises(IOError, self.bundle.SelectFdt, 'fred', False)
-
-    # Same with this one, but we check the filename.
-    self.assertRaisesContains(IOError,
-        '/build/robin_hood/firmware/dtb/fred.dtb', self.bundle.SelectFdt,
-        'fred', True)
 
   def test_Flags(self):
     bundle = self.bundle
