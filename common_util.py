@@ -371,7 +371,7 @@ def ExtractTarball(tarball_path, install_path, files_to_extract=None,
   # Deal with exclusions.
   # Add 'm' for not extracting file's modified time. All extracted files are
   # marked with current system time.
-  cmd = ['tar', 'xfm', tarball_path, '--directory', install_path]
+  cmd = ['tar', 'xf', tarball_path, '--directory', install_path]
 
   # If caller requires the list of extracted files, get verbose.
   if return_extracted_files:
@@ -393,9 +393,13 @@ def ExtractTarball(tarball_path, install_path, files_to_extract=None,
 
   cmd_output = ''
   try:
-    # TODO(xixuan): not merge error msg to stdout to avoid missing error msg.
-    # crbug.com/662793
-    cmd_output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    cmd_output, cmd_error = proc.communicate()
+    if cmd_error:
+      _Log('Error happened while in extracting tarball: %s',
+           cmd_error.rstrip())
+
     if return_extracted_files:
       return [os.path.join(install_path, filename)
               for filename in cmd_output.strip('\n').splitlines()
