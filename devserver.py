@@ -893,26 +893,22 @@ class DevServerRoot(object):
       if result.startswith(cros_update_progress.ERROR_TAG):
         result_dict['detailed_error_msg'] = result[len(
             cros_update_progress.ERROR_TAG):]
-        return json.dumps(result_dict)
-
-      if result == cros_update_progress.FINISHED:
+      elif result == cros_update_progress.FINISHED:
         result_dict['finished'] = True
         result_dict['status'] = result
-        return json.dumps(result_dict)
-
-      if not cros_update_progress.IsProcessAlive(pid):
+      elif not cros_update_progress.IsProcessAlive(pid):
         result_dict['detailed_error_msg'] = (
             'Cros_update process terminated midway due to unknown reason. '
             'Last update status was %s' % result)
-        return json.dumps(result_dict)
-
-      result_dict['status'] = result
-      return json.dumps(result_dict)
-    except IOError:
-      if pid:
+      else:
+        result_dict['status'] = result
+    except IOError as e:
+      if pid and cros_update_progress.IsProcessAlive(pid):
         os.killpg(int(pid), signal.SIGKILL)
 
-      raise
+      result_dict['detailed_error_msg'] = str(e)
+
+    return json.dumps(result_dict)
 
   @cherrypy.expose
   def handler_cleanup(self, **kwargs):
