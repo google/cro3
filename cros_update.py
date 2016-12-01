@@ -43,6 +43,9 @@ except ImportError as e:
   remote_access = None
   timeout_util = None
 
+# The build channel for recovering host's stateful partition
+STABLE_BUILD_CHANNEL = 'stable-channel'
+
 # Timeout for CrOS auto-update process.
 CROS_UPDATE_TIMEOUT_MIN = 30
 
@@ -86,6 +89,10 @@ class CrOSAUParser(object):
                              dest='full_update', default=False,
                              help=('force a rootfs update, skip stateful '
                                    'update'))
+    self.parser.add_argument('--original_build', action='store', type=str,
+                             dest='original_build', default='',
+                             help=('force stateful update with the same '
+                                   'version of previous rootfs partition'))
 
   def ParseArgs(self):
     """Parse and process command line arguments."""
@@ -110,7 +117,7 @@ class CrOSUpdateTrigger(object):
   """
   def __init__(self, host_name, build_name, static_dir, progress_tracker=None,
                log_file=None, au_tempdir=None, force_update=False,
-               full_update=False):
+               full_update=False, original_build=None):
     self.host_name = host_name
     self.build_name = build_name
     self.static_dir = static_dir
@@ -119,6 +126,7 @@ class CrOSUpdateTrigger(object):
     self.au_tempdir = au_tempdir
     self.force_update = force_update
     self.full_update = full_update
+    self.original_build = original_build
 
   def _WriteAUStatus(self, content):
     if self.progress_tracker:
@@ -152,6 +160,19 @@ class CrOSUpdateTrigger(object):
     self._WriteAUStatus('post-check rootfs update')
     cros_updater.PostCheckRootfsUpdate()
 
+  def _GetOriginalPayloadDir(self):
+    """Get the directory of original payload.
+
+    Returns:
+      The directory of original payload, whose format is like:
+          'static/stable-channel/link/3428.210.0'
+    """
+    if self.original_build:
+      return os.path.join(self.static_dir, '%s/%s' % (STABLE_BUILD_CHANNEL,
+                                                      self.original_build))
+    else:
+      return None
+
   def TriggerAU(self):
     """Execute auto update for cros_host.
 
@@ -171,11 +192,14 @@ class CrOSUpdateTrigger(object):
 
         logging.debug('Remote device %s is connected', self.host_name)
         payload_dir = os.path.join(self.static_dir, self.build_name)
+        original_payload_dir = self._GetOriginalPayloadDir()
+
         chromeos_AU = auto_updater.ChromiumOSUpdater(
             device, self.build_name, payload_dir,
             dev_dir=os.path.abspath(os.path.dirname(__file__)),
             tempdir=self.au_tempdir,
             log_file=self.log_file,
+            original_payload_dir=original_payload_dir,
             yes=True)
         chromeos_AU.CheckPayloads()
 
@@ -248,11 +272,7 @@ def main():
     AU_parser.parser.print_help()
     sys.exit(1)
 
-  host_name = AU_parser.options.host_name
-  build_name = AU_parser.options.build_name
-  static_dir = AU_parser.options.static_dir
-  force_update = AU_parser.options.force_update
-  full_update = AU_parser.options.full_update
+  options = AU_parser.options
 
   # Use process group id as the unique id in track and log files, since
   # os.setsid is executed before the current process is run.
@@ -261,23 +281,25 @@ def main():
 
   # Setting log files for CrOS auto-update process.
   # Log file:  file to record every details of CrOS auto-update process.
-  log_file = cros_update_progress.GetExecuteLogFile(host_name, pgid)
+  log_file = cros_update_progress.GetExecuteLogFile(options.host_name, pgid)
   logging.info('Writing executing logs into file: %s', log_file)
   logConfig.SetFileHandler(log_file)
 
   # Create a progress_tracker for tracking CrOS auto-update progress.
-  progress_tracker = cros_update_progress.AUProgress(host_name, pgid)
+  progress_tracker = cros_update_progress.AUProgress(options.host_name, pgid)
 
   # Create a dir for temporarily storing devserver codes and logs.
-  au_tempdir = cros_update_progress.GetAUTempDirectory(host_name, pgid)
+  au_tempdir = cros_update_progress.GetAUTempDirectory(options.host_name, pgid)
 
   # Create cros_update instance to run CrOS auto-update.
-  cros_updater_trigger = CrOSUpdateTrigger(host_name, build_name, static_dir,
-                                           progress_tracker=progress_tracker,
-                                           log_file=log_file,
-                                           au_tempdir=au_tempdir,
-                                           force_update=force_update,
-                                           full_update=full_update)
+  cros_updater_trigger = CrOSUpdateTrigger(
+      options.host_name, options.build_name, options.static_dir,
+      progress_tracker=progress_tracker,
+      log_file=log_file,
+      au_tempdir=au_tempdir,
+      force_update=options.force_update,
+      full_update=options.full_update,
+      original_build=options.original_build)
 
   # Set timeout the cros-update process.
   try:

@@ -64,8 +64,6 @@ import autoupdate
 import artifact_info
 import build_artifact
 import cherrypy_ext
-import cros_update
-import cros_update_progress
 import common_util
 import devserver_constants
 import downloader
@@ -94,6 +92,24 @@ except OSError as e:
   _Log('psutil is failed to be imported, error: %s. devserver load data will '
        'not be collected.', e)
   psutil = None
+
+# Use try-except to skip unneccesary import for simple use case, eg. running
+# devserver on host.
+try:
+  import cros_update
+  import cros_update_progress
+except ImportError as e:
+  _Log('cros_update cannot be imported: %r', e)
+  cros_update = None
+  cros_update_progress = None
+
+# only import setup_chromite before chromite import.
+import setup_chromite # pylint: disable=unused-import
+try:
+  from chromite.lib.paygen import gspaths
+except ImportError as e:
+  _Log('chromite cannot be imported: %r', e)
+  gspaths = None
 
 try:
   import android_build
@@ -478,6 +494,14 @@ def _FindExposedMethods(root, prefix, unlisted=None):
 
 
 def _check_base_args_for_auto_update(kwargs):
+  """Check basic args required for auto-update.
+
+  Args:
+    kwargs: the parameters to be checked.
+
+  Raises:
+    DevServerHTTPError if required parameters don't exist in kwargs.
+  """
   if 'host_name' not in kwargs:
     raise common_util.DevServerHTTPError(KEY_ERROR_MSG % 'host_name')
 
@@ -486,6 +510,18 @@ def _check_base_args_for_auto_update(kwargs):
 
 
 def _parse_boolean_arg(kwargs, key):
+  """Parse boolean arg from kwargs.
+
+  Args:
+    kwargs: the parameters to be checked.
+    key: the key to be parsed.
+
+  Returns:
+    The boolean value of kwargs[key], or False if key doesn't exist in kwargs.
+
+  Raises:
+    DevServerHTTPError if kwargs[key] is not a boolean variable.
+  """
   if key in kwargs:
     if kwargs[key] == 'True':
       return True
@@ -497,6 +533,34 @@ def _parse_boolean_arg(kwargs, key):
   else:
     return False
 
+def _parse_string_arg(kwargs, key):
+  """Parse string arg from kwargs.
+
+  Args:
+    kwargs: the parameters to be checked.
+    key: the key to be parsed.
+
+  Returns:
+    The string value of kwargs[key], or None if key doesn't exist in kwargs.
+  """
+  if key in kwargs:
+    return kwargs[key]
+  else:
+    return None
+
+def _build_uri_from_build_name(build_name):
+  """Get build url from a given build name.
+
+  Args:
+    build_name: the build name to be parsed, whose format is
+        'board/release_version'.
+
+  Returns:
+    The release_archive_url on Google Storage for this build name.
+  """
+  return gspaths.ChromeosReleases.BuildUri(
+      cros_update.STABLE_BUILD_CHANNEL, build_name.split('/')[0],
+      build_name.split('/')[1])
 
 class ApiRoot(object):
   """RESTful API for Dev Server information."""
@@ -822,12 +886,24 @@ class DevServerRoot(object):
     force_update = _parse_boolean_arg(kwargs, 'force_update')
     full_update = _parse_boolean_arg(kwargs, 'full_update')
     async = _parse_boolean_arg(kwargs, 'async')
+    original_build = _parse_string_arg(kwargs, 'original_build')
 
     if async:
       path = os.path.dirname(os.path.abspath(__file__))
       execute_file = os.path.join(path, 'cros_update.py')
       args = (AUTO_UPDATE_CMD % (execute_file, host_name, build_name,
                                  updater.static_dir))
+
+      # The original_build's format is like: link/3428.210.0
+      # The corresponding release_archive_url's format is like:
+      #    gs://chromeos-releases/stable-channel/link/3428.210.0
+      if original_build:
+        release_archive_url = _build_uri_from_build_name(original_build)
+        # First staging the stateful.tgz synchronousely.
+        self.stage(files='stateful.tgz', async=False,
+                   archive_url=release_archive_url)
+        args = ('%s --original_build %s' % (args, original_build))
+
       if force_update:
         args = ('%s --force_update' % args)
 
@@ -845,7 +921,8 @@ class DevServerRoot(object):
       return json.dumps((True, pid))
     else:
       cros_update_trigger = cros_update.CrOSUpdateTrigger(
-          host_name, build_name, updater.static_dir)
+          host_name, build_name, updater.static_dir, force_update=force_update,
+          full_update=full_update, original_build=original_build)
       cros_update_trigger.TriggerAU()
 
   @cherrypy.expose
@@ -1494,8 +1571,18 @@ class DevServerRoot(object):
       The count of processes that match the given command pattern.
     """
     try:
-      return int(subprocess.check_output(
-          'pgrep -fc "%s"' % process_cmd_pattern, shell=True))
+      # Use Popen instead of check_output since the latter cannot run with old
+      # python version (less than 2.7)
+      proc = subprocess.Popen(
+          'pgrep -fc "%s"' % process_cmd_pattern,
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE,
+          shell=True)
+      cmd_output, cmd_error = proc.communicate()
+      if cmd_error:
+        _Log('Error happened when getting process count: %s' % cmd_error)
+
+      return int(cmd_output)
     except subprocess.CalledProcessError:
       return 0
 
