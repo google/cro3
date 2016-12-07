@@ -418,16 +418,12 @@ class Bundle:
             if last_entry[0] == '(empty)' and last_entry[2] == 'null':
                 size = int(last_entry[1], 16)
                 trunc_data = self._tools.ReadFile(input_data)
-                full_size = len(trunc_data)
                 trunc_data = trunc_data[:size]
-                trunc_data = (trunc_data + full_size*'\x00')[:full_size]
                 self._tools.WriteFile(input_data, trunc_data)
                 self._tools.Run('cbfstool', [
                   self.cb_copy, 'write',
-                  '--force',
+                  '--force', '-u', '-i', '0',
                   '-r', region_in, '-f', input_data])
-                trunc_data = trunc_data[:size]
-                self._tools.WriteFile(input_data, trunc_data)
                 self._out.Info('truncated FW_MAIN_%s to %d bytes' %
                     (slot, size))
 
@@ -443,15 +439,12 @@ class Bundle:
                   '--kernelkey', prefix + 'kernel_subkey.vbpubk',
                   '--flags', '0',
                 ])
-              filedata = self._tools.ReadFile(output_data)
-              filedata = (filedata + area['size']*'\x00')[:area['size']]
-              self._tools.WriteFile(output_data, filedata)
 
             except CmdError as err:
               raise PackError('Cannot make key block: vbutil_firmware failed\n%s' %
                               err)
             self._tools.Run('cbfstool', [self.cb_copy, 'write',
-                            '-f', output_data,
+                            '-f', output_data, '-u', '-i', '0',
                             '-r', label])
 
   def _CreateImage(self, fdt):
@@ -524,11 +517,8 @@ class Bundle:
         label = area['name']
         if label == 'GBB':
             gbb = self._CreateGoogleBinaryBlock()
-            gbbdata = (self._tools.ReadFile(gbb) +
-                area['size']*'\x00')[:area['size']]
-            self._tools.WriteFile(gbb, gbbdata)
             self._tools.Run('cbfstool', [
-              self.cb_copy, 'write',
+              self.cb_copy, 'write', '-u', '-i', '0',
               '-r', 'GBB', '-f', gbb])
         elif label == 'RW_LEGACY' and self.seabios_fname:
             self._tools.Run('cbfstool', [self.cb_copy, 'write',
