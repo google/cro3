@@ -12,7 +12,6 @@ to keep these consistent!
   uboot     u-boot.bin (with no device tree)
   fdt       the fdt blob
   bct       the BCT file
-  bootstub  uboot + fdt
   signed    (uboot + fdt + bct) signed blob
 """
 
@@ -55,7 +54,6 @@ class Bundle:
     self.kernel_fname = None
     self.seabios_fname = None   # Filename of our SeaBIOS payload.
     self.uboot_fname = None     # Filename of our U-Boot binary.
-    self.bootstub = None
     self.cb_copy = None
 
   def SetDirs(self, keydir):
@@ -99,12 +97,12 @@ class Bundle:
     self.cbfs_files = cbfs_files
     self.rocbfs_files = rocbfs_files
 
-  def _AddCbfsFiles(self, bootstub, cbfs_files, regions='COREBOOT'):
+  def _AddCbfsFiles(self, cbfs_files, regions='COREBOOT'):
     for dir, subs, files in os.walk(cbfs_files):
       for file in files:
         file = os.path.join(dir, file)
         cbfs_name = file.replace(cbfs_files, '', 1).strip('/')
-        self._tools.Run('cbfstool', [bootstub, 'add', '-f', file,
+        self._tools.Run('cbfstool', [self.cb_copy, 'add', '-f', file,
                                 '-n', cbfs_name, '-t', 'raw', '-c', 'lzma',
                                 '-r', regions])
 
@@ -114,28 +112,23 @@ class Bundle:
     Args:
       coreboot: Path to coreboot.rom
     """
-    bootstub = os.path.join(self._tools.outdir, 'coreboot-full.rom')
-    shutil.copyfile(self._tools.Filename(coreboot), bootstub)
-
-    self.bootstub = bootstub
+    # Create a coreboot copy to use as a scratch pad.
+    shutil.copyfile(self._tools.Filename(coreboot), self.cb_copy)
 
     # Add files to to RO and RW CBFS if provided.
     if self.cbfs_files:
-      self._AddCbfsFiles(bootstub, self.cbfs_files,
+      self._AddCbfsFiles(self.cbfs_files,
           'COREBOOT,FW_MAIN_A,FW_MAIN_B')
 
     # Add files to to RO CBFS if provided.
     if self.rocbfs_files:
-      self._AddCbfsFiles(bootstub, self.rocbfs_files)
+      self._AddCbfsFiles(self.rocbfs_files)
 
     # Fix up the coreboot image here, since we can't do this until we have
     # a final device tree binary.
-    self._tools.Run('cbfstool', [bootstub, 'add-payload', '-f',
+    self._tools.Run('cbfstool', [self.cb_copy, 'add-payload', '-f',
         self.coreboot_elf, '-n', 'fallback/payload', '-c', 'lzma'])
 
-    # Create a coreboot copy to use as a scratch pad.
-    self.cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_with_fmap'))
-    shutil.copyfile(bootstub, self.cb_copy)
 
   def _PrepareCbfs(self, fmap_dst):
     """Prepare CBFS in given FMAP section.
@@ -248,13 +241,6 @@ class Bundle:
     self._BuildKeyblocks('A')
     self._BuildKeyblocks('B')
 
-    shutil.copyfile(self.bootstub,
-        os.path.join(self._tools.outdir, 'coreboot-8mb.rom'))
-
-    self._tools.Run('cbfstool', [self.cb_copy, 'read',
-            '-r', 'COREBOOT',
-            '-f', self.bootstub])
-
   def Start(self, output_fname, show_map):
     """This creates a firmware bundle according to settings provided.
 
@@ -269,6 +255,7 @@ class Bundle:
     Returns:
       Filename of the resulting image (not the output_fname copy).
     """
+    self.cb_copy = output_fname
     self._CreateCorebootStub(self.coreboot_fname)
 
     if self.seabios_fname:
@@ -280,7 +267,4 @@ class Bundle:
     self._CreateImage()
     if show_map:
       self._tools.Run('cbfstool', [self.cb_copy, 'layout', '-w'])
-    if output_fname:
-      shutil.copyfile(self.cb_copy, output_fname)
-      self._out.Notice("Output image '%s'" % output_fname)
-    return self.cb_copy, self.bootstub
+    self._out.Notice("Output image '%s'" % output_fname)

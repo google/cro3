@@ -64,7 +64,7 @@ def _DoBundle(options, output, tools):
                   rocbfs_files=options.rocbfs_files)
 
   try:
-    out_fname, bootstub = bundle.Start(options.output, options.show_map)
+    bundle.Start(options.output, options.show_map)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
