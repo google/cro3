@@ -62,15 +62,9 @@ def _DoBundle(options, output, tools):
                   ecro=options.ecro, pdrw=options.pdrw, kernel=options.kernel,
                   cbfs_files=options.cbfs_files,
                   rocbfs_files=options.rocbfs_files)
-  bundle.SetOptions(small=options.small, gbb_flags=options.gbb_flags,
-                    force_efs=options.force_efs)
 
   try:
-    bundle.SelectFdt()
-    bundle.spl_source = options.spl_source
-
-    out_fname, bootstub = bundle.Start(options.hardware_id, options.output,
-        options.show_map)
+    out_fname, bootstub = bundle.Start(options.output, options.show_map)
 
   except (CmdError, ValueError) as err:
     # For verbosity 4 we want to display all possible information
@@ -86,15 +80,10 @@ def main():
   parser.add_option('-b', '--board', dest='board', type='string',
       action='store', help='Board name to use (e.g. tegra2_kaen)',
       default='tegra2_seaboard')
-  parser.add_option('-B', '--boot', dest='spl_source', type='string',
-      action='store', help='Device for SPL to boot from (straps, spi, emmc)',
-      default='straps')
   parser.add_option('-C', '--coreboot', dest='coreboot', type='string',
       action='store', help='Executable lowlevel init file (coreboot)')
   parser.add_option('--coreboot-elf', type='string',
       action='store', help='Elf file to use as Coreboot payload')
-  parser.add_option('--hwid', dest='hardware_id', type='string',
-      action='store', help='Hardware ID string to use')
   parser.add_option('--cbfs-files', dest='cbfs_files', type='string',
       action='store',
       help='Root directory of the files to be stored in RW and RO CBFS')
@@ -109,13 +98,6 @@ def main():
         help='Force early firmware selection')
   parser.add_option('-F', '--flash', dest='flash_dest', type='string',
       action='store', help='Create a flasher to flash the device (spi, mmc)')
-  parser.add_option('--gbb-flags', type='string',
-      action='store', help='''Set GBB flags:
-Argument is either a hex value like c2, or a list of flags, or a list of
-changes to default flags (e.g.-load-option-roms,+force-dev-boot-usb).
-(see --gbb-flags-list) for available flags)''')
-  parser.add_option('--gbb-flags-list', action='store_true',
-      help='List available GBB flags')
   parser.add_option('-k', '--key', dest='key', type='string', action='store',
       help='Path to signing key directory (default to dev key)',
       default='##/usr/share/vboot/devkeys')
@@ -137,8 +119,6 @@ changes to default flags (e.g.-load-option-roms,+force-dev-boot-usb).
       help='Preserve temporary output directory even if option -O is not given')
   parser.add_option('--pd', dest='pdrw', type='string',
         action='store', help='PD binary file')
-  parser.add_option('-s', '--small', dest='small', action='store_true',
-      help='Create/write only the signed U-Boot binary (not the full image)')
   parser.add_option('-S', '--seabios', dest='seabios', type='string',
         action='store', help='Legacy BIOS (SeaBIOS)')
   parser.add_option('--servo', type='string', default='any',
@@ -152,10 +132,6 @@ changes to default flags (e.g.-load-option-roms,+force-dev-boot-usb).
       type='int', help='Control verbosity: 0=silent, 1=progress, 3=full, '
       '4=debug')
   (options, args) = parser.parse_args(sys.argv)
-
-  if options.gbb_flags_list:
-    bundle_firmware.ListGoogleBinaryBlockFlags()
-    sys.exit()
 
   if len(args) > 1:
     parser.error("Unrecognized arguments '%s'" % ' '.join(args[1:]))

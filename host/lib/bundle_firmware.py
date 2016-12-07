@@ -24,31 +24,6 @@ import shutil
 import struct
 from tools import CmdError
 
-# Build GBB flags.
-# (src/platform/vboot_reference/firmware/include/gbb_header.h)
-gbb_flag_properties = {
-  'dev-screen-short-delay': 0x00000001,
-  'load-option-roms': 0x00000002,
-  'enable-alternate-os': 0x00000004,
-  'force-dev-switch-on': 0x00000008,
-  'force-dev-boot-usb': 0x00000010,
-  'disable-fw-rollback-check': 0x00000020,
-  'enter-triggers-tonorm': 0x00000040,
-  'force-dev-boot-legacy': 0x00000080,
-  'faft-key-overide': 0x00000100,
-  'disable-ec-software-sync': 0x00000200,
-  'default-dev-boot-legacy': 0x00000400,
-  'disable-pd-software-sync': 0x00000800,
-  'force-dev-boot-fastboot-full-cap': 0x00002000,
-  'enable-serial': 0x00004000,
-}
-
-def ListGoogleBinaryBlockFlags():
-  """Print out a list of GBB flags."""
-  print '   %-30s %s' % ('Available GBB flags:', 'Hex')
-  for name, value in gbb_flag_properties.iteritems():
-    print '   %-30s %02x' % (name, value)
-
 class Bundle:
   """This class encapsulates the entire bundle firmware logic.
 
@@ -56,26 +31,7 @@ class Bundle:
     bundle = Bundle(tools.Tools(), cros_output.Output())
     bundle.SetDirs(...)
     bundle.SetFiles(...)
-    bundle.SetOptions(...)
-    bundle.SelectFdt(fdt.Fdt('filename.dtb')
-    .. can call bundle.AddConfigList(), AddEnableList() if required
     bundle.Start(...)
-
-  Public properties:
-    fdt: The fdt object that we use for building our image. This wil be the
-        one specified by the user, except that we might add config options
-        to it. This is set up by SelectFdt() which must be called before
-        bundling starts.
-    uboot_fname: Full filename of the U-Boot binary we use.
-    spl_source: Source device to load U-Boot from, in SPL:
-        straps: Select device according to CPU strap pins
-        spi: Boot from SPI
-        emmc: Boot from eMMC
-
-  Private attributes:
-    _small: True to create a 'small' signed U-Boot, False to produce a
-        full image. The small U-Boot is enough to boot but will not have
-        access to GBB, RW U-Boot, etc.
   """
 
   def __init__(self, tools, output):
@@ -90,10 +46,7 @@ class Bundle:
 
     # Set up the things we need to know in order to operate.
     self._board = None          # Board name, e.g. nyan.
-    self._force_efs = None
-    self._gbb_flags = None
     self._keydir = None
-    self._small = False
     self.coreboot_elf = None
     self.coreboot_fname = None  # Filename of our coreboot binary.
     self.ecro_fname = None      # Filename of EC read-only file
@@ -102,7 +55,6 @@ class Bundle:
     self.kernel_fname = None
     self.seabios_fname = None   # Filename of our SeaBIOS payload.
     self.uboot_fname = None     # Filename of our U-Boot binary.
-    self.hardware_id = None
     self.bootstub = None
     self.cb_copy = None
 
@@ -146,108 +98,6 @@ class Bundle:
     self.kernel_fname = kernel
     self.cbfs_files = cbfs_files
     self.rocbfs_files = rocbfs_files
-
-  def SetOptions(self, small, gbb_flags, force_efs=False):
-    """Set up options supported by Bundle.
-
-    Args:
-      small: Only create a signed U-Boot - don't produce the full packed
-          firmware image. This is useful for devs who want to replace just the
-          U-Boot part while keeping the keys, gbb, etc. the same.
-      gbb_flags: Specification for string containing adjustments to make.
-      force_efs: Force firmware to use 'early firmware selection' feature,
-          where RW firmware is selected before SDRAM is initialized.
-    """
-    self._small = small
-    self._gbb_flags = gbb_flags
-    self._force_efs = force_efs
-
-  def DecodeGBBFlags(self, path, filename):
-    out = self._tools.Run('gbb_utility', ['-g', '--flags', filename],
-        cwd=path)
-    if out[0:7] != 'flags: ':
-        raise ValueError('Invalid output from gbb_utility: "%s"' % out)
-    return int(out[7:], 16)
-
-  def DecodeGBBFlagsFromOptions(self, gbb_flags, adjustments):
-    """Decode ajustments to the provided GBB flags.
-
-    We support three options:
-
-       hex value: c2
-       defined value: force-dev-boot-usb,load-option-roms
-       adjust default value: -load-option-roms,+force-dev-boot-usb
-
-    The last option starts from the passed-in GBB flags and adds or removes
-    flags.
-
-    Args:
-      gbb_flags: Base (default) FDT flags.
-      adjustments: String containing adjustments to make.
-
-    Returns:
-      Updated FDT flags.
-    """
-    use_base_value = True
-    if adjustments:
-      try:
-        return int(adjustments, base=16)
-      except (ValueError, TypeError):
-        pass
-      for flag in adjustments.split(','):
-        oper = None
-        if flag[0] in ['-', '+']:
-          oper = flag[0]
-          flag = flag[1:]
-        value = gbb_flag_properties.get(flag)
-        if not value:
-          raise ValueError("Invalid GBB flag '%s'" % flag)
-        if oper == '+':
-          gbb_flags |= value
-          self._out.Notice("Cmdline: Enabling %s." % flag)
-        elif oper == '-':
-          gbb_flags &= ~value
-          self._out.Notice("Cmdline: Disabling %s." % flag)
-        else:
-          if use_base_value:
-            gbb_flags = 0
-            use_base_value = False
-            self._out.Notice('Cmdline: Resetting flags to 0')
-          gbb_flags |= value
-          self._out.Notice("Cmdline: Enabling %s." % flag)
-
-    return gbb_flags
-
-  def _CreateGoogleBinaryBlock(self):
-    """Create a GBB for the image.
-
-    Returns:
-      Path of the created GBB file.
-    """
-    odir = self._tools.outdir
-
-    self._tools.Run('cbfstool', [self.cb_copy, 'read',
-            '-r', 'GBB',
-            '-f', 'gbb.bin'], cwd=odir)
-    gbb_flags = self.DecodeGBBFlags(odir, 'gbb.bin')
-
-    # Allow command line to override flags
-    gbb_flags = self.DecodeGBBFlagsFromOptions(gbb_flags, self._gbb_flags)
-
-    self._out.Notice("GBB flags value %#x" % gbb_flags)
-    self._out.Progress('Updating GBB')
-    gbb = 'gbb.bin'
-    keydir = self._tools.Filename(self._keydir)
-
-    gbb_set_command = ['-s']
-    if self.hardware_id:
-      gbb_set_command.append('--hwid=%s' % self.hardware_id)
-    gbb_set_command.extend([
-                       '--flags=%d' % gbb_flags,
-                       gbb])
-
-    self._tools.Run('gbb_utility', gbb_set_command, cwd=odir)
-    return os.path.join(odir, gbb)
 
   def _AddCbfsFiles(self, bootstub, cbfs_files, regions='COREBOOT'):
     for dir, subs, files in os.walk(cbfs_files):
@@ -405,34 +255,13 @@ class Bundle:
             '-r', 'COREBOOT',
             '-f', self.bootstub])
 
-  def SelectFdt(self):
-    """Select an FDT to control the firmware bundling
-
-    We make a copy of this which will include any on-the-fly changes we want
-    to make.
-    """
-    self._CreateCorebootStub(self.coreboot_fname)
-
-    gbb = self._CreateGoogleBinaryBlock()
-    self._tools.Run('cbfstool', [
-      self.cb_copy, 'write', '-u', '-i', '0',
-      '-r', 'GBB', '-f', gbb])
-
-    if self.seabios_fname:
-        self._tools.Run('cbfstool', [self.cb_copy, 'write',
-                        '-f', self.seabios_fname,
-                        '--force',
-                        '-r', 'RW_LEGACY'])
-
-  def Start(self, hardware_id, output_fname, show_map):
+  def Start(self, output_fname, show_map):
     """This creates a firmware bundle according to settings provided.
 
       - Checks options, tools, output directory.
       - Creates GBB and image.
 
     Args:
-      hardware_id: Hardware ID to use for this board. If None, then the
-          default from the Fdt will be used
       output_fname: Output filename for the image. If this is not None, then
           the final image will be copied here.
       show_map: Show a flash map, with each area's name and position
@@ -440,8 +269,13 @@ class Bundle:
     Returns:
       Filename of the resulting image (not the output_fname copy).
     """
-    self.hardware_id = hardware_id
+    self._CreateCorebootStub(self.coreboot_fname)
 
+    if self.seabios_fname:
+        self._tools.Run('cbfstool', [self.cb_copy, 'write',
+                        '-f', self.seabios_fname,
+                        '--force',
+                        '-r', 'RW_LEGACY'])
     # This creates the actual image.
     self._CreateImage()
     if show_map:
