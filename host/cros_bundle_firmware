@@ -52,9 +52,9 @@ def _DoBundle(options, output, tools):
   if options.includedirs:
     tools.search_paths += options.includedirs
 
-  bundle = Bundle(tools, output)
-  bundle.SetDirs(keydir=options.key)
-  bundle.SetFiles(board=options.board, uboot=options.uboot,
+  bundle = Bundle(tools=tools, output=output,
+                  keydir=options.key,
+                  board=options.board, uboot=options.uboot,
                   coreboot=options.coreboot,
                   coreboot_elf=options.coreboot_elf,
                   seabios=options.seabios,

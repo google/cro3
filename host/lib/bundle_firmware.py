@@ -27,13 +27,16 @@ class Bundle:
   """This class encapsulates the entire bundle firmware logic.
 
   Sequence of events:
-    bundle = Bundle(tools.Tools(), cros_output.Output())
-    bundle.SetDirs(...)
-    bundle.SetFiles(...)
+    bundle = Bundle(tools.Tools(), cros_output.Output(), ...)
     bundle.Start(...)
   """
 
-  def __init__(self, tools, output):
+  def __init__(self, tools, output, keydir,
+               board, uboot=None, coreboot=None,
+               coreboot_elf=None, seabios=None,
+               ecrw=None, ecro=None, pdrw=None,
+               kernel=None, cbfs_files=None,
+               rocbfs_files=None):
     """Set up a new Bundle object.
 
     Args:
@@ -43,48 +46,8 @@ class Bundle:
     self._tools = tools
     self._out = output
 
-    # Set up the things we need to know in order to operate.
-    self._board = None          # Board name, e.g. nyan.
-    self._keydir = None
-    self.coreboot_elf = None
-    self.coreboot_fname = None  # Filename of our coreboot binary.
-    self.ecro_fname = None      # Filename of EC read-only file
-    self.ecrw_fname = None      # Filename of EC file
-    self.pdrw_fname = None      # Filename of PD file
-    self.kernel_fname = None
-    self.seabios_fname = None   # Filename of our SeaBIOS payload.
-    self.uboot_fname = None     # Filename of our U-Boot binary.
-    self.cb_copy = None
-
-  def SetDirs(self, keydir):
-    """Set up directories required for Bundle.
-
-    Args:
-      keydir: Directory containing keys to use for signing firmware.
-    """
     self._keydir = keydir
 
-  def SetFiles(self, board, uboot=None, coreboot=None,
-               coreboot_elf=None,
-               seabios=None,
-               ecrw=None, ecro=None, pdrw=None,
-               kernel=None, cbfs_files=None,
-               rocbfs_files=None):
-    """Set up files required for Bundle.
-
-    Args:
-      board: The name of the board to target (e.g. nyan).
-      uboot: The filename of the u-boot.bin image to use.
-      coreboot: The filename of the coreboot image to use (on x86).
-      coreboot_elf: If not none, the ELF file to add as a Coreboot payload.
-      seabios: The filename of the SeaBIOS payload to use if any.
-      ecrw: The filename of the EC (Embedded Controller) read-write file.
-      ecro: The filename of the EC (Embedded Controller) read-only file.
-      pdrw: The filename of the PD (PD embedded controller) read-write file.
-      kernel: The filename of the kernel file if any.
-      cbfs_files: Root directory of files to be stored in RO and RW CBFS
-      rocbfs_files: Root directory of files to be stored in RO CBFS
-    """
     self._board = board
     self.uboot_fname = uboot
     self.coreboot_fname = coreboot
@@ -96,6 +59,7 @@ class Bundle:
     self.kernel_fname = kernel
     self.cbfs_files = cbfs_files
     self.rocbfs_files = rocbfs_files
+    self.cb_copy = None
 
   def _AddCbfsFiles(self, cbfs_files, regions='COREBOOT'):
     for dir, subs, files in os.walk(cbfs_files):
@@ -105,30 +69,6 @@ class Bundle:
         self._tools.Run('cbfstool', [self.cb_copy, 'add', '-f', file,
                                 '-n', cbfs_name, '-t', 'raw', '-c', 'lzma',
                                 '-r', regions])
-
-  def _CreateCorebootStub(self, coreboot):
-    """Create a coreboot boot stub.
-
-    Args:
-      coreboot: Path to coreboot.rom
-    """
-    # Create a coreboot copy to use as a scratch pad.
-    shutil.copyfile(self._tools.Filename(coreboot), self.cb_copy)
-
-    # Add files to to RO and RW CBFS if provided.
-    if self.cbfs_files:
-      self._AddCbfsFiles(self.cbfs_files,
-          'COREBOOT,FW_MAIN_A,FW_MAIN_B')
-
-    # Add files to to RO CBFS if provided.
-    if self.rocbfs_files:
-      self._AddCbfsFiles(self.rocbfs_files)
-
-    # Fix up the coreboot image here, since we can't do this until we have
-    # a final device tree binary.
-    self._tools.Run('cbfstool', [self.cb_copy, 'add-payload', '-f',
-        self.coreboot_elf, '-n', 'fallback/payload', '-c', 'lzma'])
-
 
   def _PrepareCbfs(self, fmap_dst):
     """Prepare CBFS in given FMAP section.
@@ -224,23 +164,6 @@ class Bundle:
                     '-f', output_data, '-u', '-i', '0',
                     '-r', 'VBLOCK_'+slot])
 
-  def _CreateImage(self):
-    """Create a full firmware image, along with various by-products.
-
-    This uses the provided files to create a firmware
-    image containing all the required parts. If the GBB is not supplied
-    then this will just return a signed U-Boot as the image.
-
-    Returns:
-      Path to image file
-    """
-    self._PrepareCbfs('FW_MAIN_A')
-    self._PrepareCbfs('FW_MAIN_B')
-
-    # Now that RW CBFSes are final, create the vblocks
-    self._BuildKeyblocks('A')
-    self._BuildKeyblocks('B')
-
   def Start(self, output_fname, show_map):
     """This creates a firmware bundle according to settings provided.
 
@@ -256,15 +179,38 @@ class Bundle:
       Filename of the resulting image (not the output_fname copy).
     """
     self.cb_copy = output_fname
-    self._CreateCorebootStub(self.coreboot_fname)
 
+    # Create a coreboot copy to use as a scratch pad.
+    shutil.copyfile(self._tools.Filename(self.coreboot_fname), self.cb_copy)
+
+    # Add files to to RO and RW CBFS if provided.
+    if self.cbfs_files:
+      self._AddCbfsFiles(self.cbfs_files,
+          'COREBOOT,FW_MAIN_A,FW_MAIN_B')
+
+    # Add files to to RO CBFS if provided.
+    if self.rocbfs_files:
+      self._AddCbfsFiles(self.rocbfs_files)
+
+    # Add payload to RO
+    self._tools.Run('cbfstool', [self.cb_copy, 'add-payload', '-f',
+        self.coreboot_elf, '-n', 'fallback/payload', '-c', 'lzma'])
+
+    # Fill in legacy region
     if self.seabios_fname:
         self._tools.Run('cbfstool', [self.cb_copy, 'write',
                         '-f', self.seabios_fname,
                         '--force',
                         '-r', 'RW_LEGACY'])
-    # This creates the actual image.
-    self._CreateImage()
+
+    # Prepare RW sections: add payload and ecrw/pdrw as configured
+    self._PrepareCbfs('FW_MAIN_A')
+    self._PrepareCbfs('FW_MAIN_B')
+
+    # Now that RW CBFSes are final, create the vblocks
+    self._BuildKeyblocks('A')
+    self._BuildKeyblocks('B')
+
     if show_map:
       self._tools.Run('cbfstool', [self.cb_copy, 'layout', '-w'])
     self._out.Notice("Output image '%s'" % output_fname)
