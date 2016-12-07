@@ -109,7 +109,6 @@ class Bundle:
     self.hardware_id = None
     self.bootstub = None
     self.cb_copy = None
-    self.fwid = None
 
   def SetDirs(self, keydir):
     """Set up directories required for Bundle.
@@ -357,39 +356,6 @@ class Bundle:
         self.cb_copy, 'add', '-f', self.pdrw_fname, '-t', 'raw',
         '-n', 'pdrw', '-A', 'sha256', '-r', fmap_dst ])
 
-  def _GenerateWiped(self, label, size, value):
-    """Fill a CBFS region in cb_copy with a given value
-
-    Args:
-      label: fdt-style region name
-      size: size of region
-      value: value to fill region with (int)
-    """
-    wipedfile = os.path.join(self._tools.outdir, 'wiped.%s' % label)
-
-    self._tools.WriteFile(wipedfile, size*chr(value))
-    self._tools.Run('cbfstool', [
-      self.cb_copy, 'write',
-      '--force',
-      '-r', label, '-f', wipedfile])
-
-  def _GenerateBlobstring(self, label, size, string):
-    """Fill a CBFS region in cb_copy with a given string.
-       The remainder of the region will be filled with \x00
-
-    Args:
-      label: ftd-style region name
-      size: size of region
-      string: string to fill in.
-    """
-    stringfile = os.path.join(self._tools.outdir, 'blobstring.%s' % label)
-
-    self._tools.WriteFile(stringfile, (string + size*chr(0))[:size])
-    self._tools.Run('cbfstool', [
-      self.cb_copy, 'write',
-      '--force',
-      '-r', label, '-f', stringfile])
-
   def _BuildKeyblocks(self):
     """Compute vblocks and write them into their FMAP regions.
        Works for the (VBLOCK_?,FW_MAIN_?) pairs
@@ -468,8 +434,6 @@ class Bundle:
     # Now that RW CBFSes are final, create the vblocks
     self._BuildKeyblocks()
 
-    self._out.Notice('Firmware ID: %s' % self.fwid)
-
     shutil.copyfile(self.bootstub,
         os.path.join(self._tools.outdir, 'coreboot-8mb.rom'))
 
@@ -505,10 +469,6 @@ class Bundle:
 
     self._CreateCorebootStub(self.coreboot_fname)
 
-    self.fwid = '.'.join([
-      re.sub('[ ,]+', '_', fdt.GetString('/', 'model')),
-      self._tools.GetChromeosVersion()])
-
     # fill in /flash from binary fmap
     # ignore "read-only" attribute, that isn't used anywhere
     fmap_blob = open(self.coreboot_fname).read()
@@ -525,12 +485,6 @@ class Bundle:
                             '-f', self.seabios_fname,
                             '--force',
                             '-r', 'RW_LEGACY'])
-        elif label == 'SHARED_DATA':
-            self._GenerateWiped(label, area['size'], 0)
-        elif label[:-1] == 'RW_FWID_':
-            self._GenerateBlobstring(label, area['size'], self.fwid)
-        elif label == 'RO_FRID':
-            self._GenerateBlobstring(label, area['size'], self.fwid)
         # white list for empty regions
         elif label in ['BOOTBLOCK', 'MISC_RW', 'RO_SECTION', 'RW_ENVIRONMENT',
 		       'RW_GPT', 'SI_ALL', 'SI_BIOS', 'SI_ME', 'WP_RO',
@@ -543,7 +497,8 @@ class Bundle:
                        'RO_UNUSED', 'RO_FRID_PAD', 'BIOS_UNUSABLE',
                        'DEVICE_EXTENSION', 'UNUSED_HOLE', 'RW_GPT_PRIMARY',
                        'RW_GPT_SECONDARY', 'RW_NVRAM', 'RO_UNUSED_1',
-                       'RO_UNUSED_2', 'RW_VAR_MRC_CACHE', 'VBLOCK_DEV']:
+                       'RO_UNUSED_2', 'RW_VAR_MRC_CACHE', 'VBLOCK_DEV',
+                       'RW_FWID_A', 'RW_FWID_B', 'RO_FRID', 'SHARED_DATA']:
             pass
         else:
             raise ValueError('encountered label "'+label+'" in binary fmap. '+
