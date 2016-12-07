@@ -15,8 +15,6 @@ from the chroot:
     gbb_utility
     cbootimage
     vbutil_firmware
-    fdtget
-    fdtput
 
   /usr/lib:
     liblzma.so.0*
@@ -40,22 +38,6 @@ import cros_output
 from tools import Tools
 from tools import CmdError
 
-def _CheckTools(tools, options):
-  """Check that all required tools are present.
-
-  This just does a simple presence test on the external tools we thing we
-  might need.
-
-  Args:
-    tools: Tools object to use to check tools.
-    Options: Command line options provided.
-
-  Raises:
-    CmdError if a required tool is not found.
-  """
-  tools.CheckTool('fdtput', 'dtc')
-  tools.CheckTool('fdtget', 'dtc')
-
 def _DoBundle(options, output, tools):
   """The main part of the cros_bundle_firmware code.
 
@@ -66,7 +48,6 @@ def _DoBundle(options, output, tools):
     output: cros_output object to use.
     tools: Tools object to use.
   """
-  _CheckTools(tools, options)
   tools.PrepareOutputDir(options.outdir, options.preserve)
   if options.includedirs:
     tools.search_paths += options.includedirs
@@ -85,7 +66,7 @@ def _DoBundle(options, output, tools):
                     force_efs=options.force_efs)
 
   try:
-    bundle.SelectFdt(options.fdt)
+    bundle.SelectFdt()
     bundle.spl_source = options.spl_source
 
     out_fname, bootstub = bundle.Start(options.hardware_id, options.output,
@@ -112,8 +93,6 @@ def main():
       action='store', help='Executable lowlevel init file (coreboot)')
   parser.add_option('--coreboot-elf', type='string',
       action='store', help='Elf file to use as Coreboot payload')
-  parser.add_option('-d', '--dt', dest='fdt', type='string', action='store',
-      help='Path to fdt source .dts or binary blob .dtb file to use')
   parser.add_option('--hwid', dest='hardware_id', type='string',
       action='store', help='Hardware ID string to use')
   parser.add_option('--cbfs-files', dest='cbfs_files', type='string',

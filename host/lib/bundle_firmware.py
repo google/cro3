@@ -20,10 +20,8 @@ import glob
 import os
 import re
 
-from fdt import Fdt
 import shutil
 import struct
-import fmap
 from tools import CmdError
 
 # Build GBB flags.
@@ -92,7 +90,6 @@ class Bundle:
 
     # Set up the things we need to know in order to operate.
     self._board = None          # Board name, e.g. nyan.
-    self._fdt_fname = None      # Filename of our FDT.
     self._force_efs = None
     self._gbb_flags = None
     self._keydir = None
@@ -102,7 +99,6 @@ class Bundle:
     self.ecro_fname = None      # Filename of EC read-only file
     self.ecrw_fname = None      # Filename of EC file
     self.pdrw_fname = None      # Filename of PD file
-    self.fdt = None             # Our Fdt object.
     self.kernel_fname = None
     self.seabios_fname = None   # Filename of our SeaBIOS payload.
     self.uboot_fname = None     # Filename of our U-Boot binary.
@@ -282,11 +278,8 @@ class Bundle:
     if self.rocbfs_files:
       self._AddCbfsFiles(bootstub, self.rocbfs_files)
 
-    # Make a copy of the fdt for the bootstub
-    fdt_data = self._tools.ReadFile(self.fdt.fname)
     # Fix up the coreboot image here, since we can't do this until we have
     # a final device tree binary.
-    fdt = self.fdt.Copy(os.path.join(self._tools.outdir, 'bootstub.dtb'))
     self._tools.Run('cbfstool', [bootstub, 'add-payload', '-f',
         self.coreboot_elf, '-n', 'fallback/payload', '-c', 'lzma'])
 
@@ -334,83 +327,76 @@ class Bundle:
         self.cb_copy, 'add', '-f', self.pdrw_fname, '-t', 'raw',
         '-n', 'pdrw', '-A', 'sha256', '-r', fmap_dst ])
 
-  def _BuildKeyblocks(self):
+  def _BuildKeyblocks(self, slot):
     """Compute vblocks and write them into their FMAP regions.
        Works for the (VBLOCK_?,FW_MAIN_?) pairs
-    """
-    fmap_blob = open(self.coreboot_fname).read()
-    f = fmap.fmap_decode(fmap_blob)
-    for area in f['areas']:
-        label = area['name']
-        slot = label[-1]
-        if label[:-1] == 'VBLOCK_':
-            region_in = 'FW_MAIN_' + slot
-            region_out = label
-
-            input_data = os.path.join(self._tools.outdir, 'input.%s' % region_in)
-            output_data = os.path.join(self._tools.outdir, 'vblock.%s' % region_out)
-            self._tools.Run('cbfstool', [
-              self.cb_copy, 'read', '-r', region_in, '-f', input_data])
-
-            # Parse the file list to obtain the last entry. If its empty use
-            # its offset as the size of the CBFS to hash.
-            stdout = self._tools.Run('cbfstool',
-                [ self.cb_copy, 'print', '-k', '-r', region_in ])
-            # Fields are tab separated in the following order.
-            # Name    Offset  Type    Metadata Size   Data Size     Total Size
-            last_entry = stdout.strip().splitlines()[-1].split('\t')
-            if last_entry[0] == '(empty)' and last_entry[2] == 'null':
-                size = int(last_entry[1], 16)
-                trunc_data = self._tools.ReadFile(input_data)
-                trunc_data = trunc_data[:size]
-                self._tools.WriteFile(input_data, trunc_data)
-                self._tools.Run('cbfstool', [
-                  self.cb_copy, 'write',
-                  '--force', '-u', '-i', '0',
-                  '-r', region_in, '-f', input_data])
-                self._out.Info('truncated FW_MAIN_%s to %d bytes' %
-                    (slot, size))
-
-            try:
-              prefix = self._keydir + '/'
-
-              self._tools.Run('vbutil_firmware', [
-                  '--vblock', output_data,
-                  '--keyblock', prefix + 'firmware.keyblock',
-                  '--signprivate', prefix + 'firmware_data_key.vbprivk',
-                  '--version', '1',
-                  '--fv', input_data,
-                  '--kernelkey', prefix + 'kernel_subkey.vbpubk',
-                  '--flags', '0',
-                ])
-
-            except CmdError as err:
-              raise PackError('Cannot make key block: vbutil_firmware failed\n%s' %
-                              err)
-            self._tools.Run('cbfstool', [self.cb_copy, 'write',
-                            '-f', output_data, '-u', '-i', '0',
-                            '-r', label])
-
-  def _CreateImage(self, fdt):
-    """Create a full firmware image, along with various by-products.
-
-    This uses the provided u-boot.bin, fdt and bct to create a firmware
-    image containing all the required parts. If the GBB is not supplied
-    then this will just return a signed U-Boot as the image.
 
     Args:
-      fdt: an fdt object containing required information.
+      slot: 'A' or 'B'
+    """
+    region_in = 'FW_MAIN_' + slot
+    region_out = 'VBLOCK_' + slot
+
+    input_data = os.path.join(self._tools.outdir, 'input.%s' % region_in)
+    output_data = os.path.join(self._tools.outdir, 'vblock.%s' % region_out)
+    self._tools.Run('cbfstool', [
+      self.cb_copy, 'read', '-r', region_in, '-f', input_data])
+
+    # Parse the file list to obtain the last entry. If its empty use
+    # its offset as the size of the CBFS to hash.
+    stdout = self._tools.Run('cbfstool',
+        [ self.cb_copy, 'print', '-k', '-r', region_in ])
+    # Fields are tab separated in the following order.
+    # Name    Offset  Type    Metadata Size   Data Size     Total Size
+    last_entry = stdout.strip().splitlines()[-1].split('\t')
+    if last_entry[0] == '(empty)' and last_entry[2] == 'null':
+        size = int(last_entry[1], 16)
+        trunc_data = self._tools.ReadFile(input_data)
+        trunc_data = trunc_data[:size]
+        self._tools.WriteFile(input_data, trunc_data)
+        self._tools.Run('cbfstool', [
+          self.cb_copy, 'write',
+          '--force', '-u', '-i', '0',
+          '-r', region_in, '-f', input_data])
+        self._out.Info('truncated FW_MAIN_%s to %d bytes' %
+            (slot, size))
+
+    try:
+      prefix = self._keydir + '/'
+
+      self._tools.Run('vbutil_firmware', [
+          '--vblock', output_data,
+          '--keyblock', prefix + 'firmware.keyblock',
+          '--signprivate', prefix + 'firmware_data_key.vbprivk',
+          '--version', '1',
+          '--fv', input_data,
+          '--kernelkey', prefix + 'kernel_subkey.vbpubk',
+          '--flags', '0',
+        ])
+
+    except CmdError as err:
+      raise PackError('Cannot make key block: vbutil_firmware failed\n%s' %
+                      err)
+    self._tools.Run('cbfstool', [self.cb_copy, 'write',
+                    '-f', output_data, '-u', '-i', '0',
+                    '-r', 'VBLOCK_'+slot])
+
+  def _CreateImage(self):
+    """Create a full firmware image, along with various by-products.
+
+    This uses the provided files to create a firmware
+    image containing all the required parts. If the GBB is not supplied
+    then this will just return a signed U-Boot as the image.
 
     Returns:
       Path to image file
     """
-    self._out.Notice("Model: %s" % fdt.GetString('/', 'model'))
-
     self._PrepareCbfs('FW_MAIN_A')
     self._PrepareCbfs('FW_MAIN_B')
 
     # Now that RW CBFSes are final, create the vblocks
-    self._BuildKeyblocks()
+    self._BuildKeyblocks('A')
+    self._BuildKeyblocks('B')
 
     shutil.copyfile(self.bootstub,
         os.path.join(self._tools.outdir, 'coreboot-8mb.rom'))
@@ -419,73 +405,29 @@ class Bundle:
             '-r', 'COREBOOT',
             '-f', self.bootstub])
 
-  def SelectFdt(self, fdt_fname):
+  def SelectFdt(self):
     """Select an FDT to control the firmware bundling
 
     We make a copy of this which will include any on-the-fly changes we want
     to make.
-
-    Args:
-      fdt_fname: The filename of the fdt to use.
-
-    Returns:
-      The Fdt object of the original fdt file, which we will not modify.
-
-    Raises:
-      ValueError if no FDT is provided (fdt_fname is None).
     """
-    if not fdt_fname:
-      raise ValueError('Please provide an FDT filename')
-    fdt = Fdt(self._tools, fdt_fname)
-    self._fdt_fname = fdt_fname
-
-    fdt.Compile(None)
-    fdt = fdt.Copy(os.path.join(self._tools.outdir, 'updated.dtb'))
-    self.fdt = fdt
-    if fdt.GetProp('/flash', 'reg', ''):
-      raise ValueError('fmap.dts /flash is deprecated. Use chromeos.fmd')
-
     self._CreateCorebootStub(self.coreboot_fname)
 
-    # fill in /flash from binary fmap
-    # ignore "read-only" attribute, that isn't used anywhere
-    fmap_blob = open(self.coreboot_fname).read()
-    f = fmap.fmap_decode(fmap_blob)
-    for area in f['areas']:
-        label = area['name']
-        if label == 'GBB':
-            gbb = self._CreateGoogleBinaryBlock()
-            self._tools.Run('cbfstool', [
-              self.cb_copy, 'write', '-u', '-i', '0',
-              '-r', 'GBB', '-f', gbb])
-        elif label == 'RW_LEGACY' and self.seabios_fname:
-            self._tools.Run('cbfstool', [self.cb_copy, 'write',
-                            '-f', self.seabios_fname,
-                            '--force',
-                            '-r', 'RW_LEGACY'])
-        # white list for empty regions
-        elif label in ['BOOTBLOCK', 'MISC_RW', 'RO_SECTION', 'RW_ENVIRONMENT',
-		       'RW_GPT', 'SI_ALL', 'SI_BIOS', 'SI_ME', 'WP_RO',
-                       'SIGN_CSE', 'IFWI', 'FMAP', 'BOOTBLOCK', 'COREBOOT',
-                       'RW_SHARED', 'RW_SECTION_A', 'RW_SECTION_B',
-                       'VBLOCK_A', 'VBLOCK_B', 'FW_MAIN_A', 'FW_MAIN_B',
-                       'UNIFIED_MRC_CACHE', 'SI_DESC',
-                       'RW_MRC_CACHE', 'RECOVERY_MRC_CACHE', 'RW_ELOG',
-                       'RW_LEGACY', 'RW_VPD', 'RW_UNUSED', 'RO_VPD',
-                       'RO_UNUSED', 'RO_FRID_PAD', 'BIOS_UNUSABLE',
-                       'DEVICE_EXTENSION', 'UNUSED_HOLE', 'RW_GPT_PRIMARY',
-                       'RW_GPT_SECONDARY', 'RW_NVRAM', 'RO_UNUSED_1',
-                       'RO_UNUSED_2', 'RW_VAR_MRC_CACHE', 'VBLOCK_DEV',
-                       'RW_FWID_A', 'RW_FWID_B', 'RO_FRID', 'SHARED_DATA']:
-            pass
-        else:
-            raise ValueError('encountered label "'+label+'" in binary fmap. '+
-                'Check chromeos.fmd')
+    gbb = self._CreateGoogleBinaryBlock()
+    self._tools.Run('cbfstool', [
+      self.cb_copy, 'write', '-u', '-i', '0',
+      '-r', 'GBB', '-f', gbb])
+
+    if self.seabios_fname:
+        self._tools.Run('cbfstool', [self.cb_copy, 'write',
+                        '-f', self.seabios_fname,
+                        '--force',
+                        '-r', 'RW_LEGACY'])
 
   def Start(self, hardware_id, output_fname, show_map):
     """This creates a firmware bundle according to settings provided.
 
-      - Checks options, tools, output directory, fdt.
+      - Checks options, tools, output directory.
       - Creates GBB and image.
 
     Args:
@@ -501,7 +443,7 @@ class Bundle:
     self.hardware_id = hardware_id
 
     # This creates the actual image.
-    self._CreateImage(self.fdt)
+    self._CreateImage()
     if show_map:
       self._tools.Run('cbfstool', [self.cb_copy, 'layout', '-w'])
     if output_fname:
