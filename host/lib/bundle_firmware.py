@@ -287,30 +287,8 @@ class Bundle:
     # Fix up the coreboot image here, since we can't do this until we have
     # a final device tree binary.
     fdt = self.fdt.Copy(os.path.join(self._tools.outdir, 'bootstub.dtb'))
-    if self.coreboot_elf:
-      self._tools.Run('cbfstool', [bootstub, 'add-payload', '-f',
-          self.coreboot_elf, '-n', 'fallback/payload', '-c', 'lzma'])
-    elif self.uboot_fname:
-      uboot_data = self._tools.ReadFile(self.uboot_fname)
-      uboot_copy = os.path.join(self._tools.outdir, 'u-boot.bin')
-      self._tools.WriteFile(uboot_copy, uboot_data)
-
-      uboot_dtb = os.path.join(self._tools.outdir, 'u-boot-dtb.bin')
-      self._tools.WriteFile(uboot_dtb, uboot_data + fdt_data)
-
-      text_base = 0x1110000
-
-      # This is the the 'movw $GD_FLG_COLD_BOOT, %bx' instruction
-      # 1110015:       66 bb 00 01             mov    $0x100,%bx
-      marker = struct.pack('<L', 0x0100bb66)
-      pos = uboot_data.find(marker)
-      if pos == -1 or pos > 0x100:
-        raise ValueError('Cannot find U-Boot cold boot entry point')
-      entry = text_base + pos
-      self._out.Notice('U-Boot entry point %#08x' % entry)
-      self._tools.Run('cbfstool', [bootstub, 'add-flat-binary', '-f',
-          uboot_dtb, '-n', 'fallback/payload', '-c', 'lzma',
-          '-l', '%#x' % text_base, '-e', '%#x' % entry])
+    self._tools.Run('cbfstool', [bootstub, 'add-payload', '-f',
+        self.coreboot_elf, '-n', 'fallback/payload', '-c', 'lzma'])
 
     # Create a coreboot copy to use as a scratch pad.
     self.cb_copy = os.path.abspath(os.path.join(self._tools.outdir, 'cb_with_fmap'))
