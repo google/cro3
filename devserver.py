@@ -102,7 +102,6 @@ except ImportError as e:
   # inside a ChromeOS device triggered by cros flash. Most ChromeOS test images
   # do not have google-api-python-client module and they don't need to support
   # Android updating, therefore, ignore the import failure here.
-  _Log('Import module android_build failed with error: %s', e)
   android_build = None
 
 CACHED_ENTRIES = 12
