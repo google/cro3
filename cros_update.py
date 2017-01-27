@@ -167,7 +167,7 @@ class CrOSUpdateTrigger(object):
       with remote_access.ChromiumOSDeviceHandler(
           self.host_name, port=None,
           base_dir=CROS_PRESERVED_PATH,
-          ping=True) as device:
+          ping=False) as device:
 
         logging.debug('Remote device %s is connected', self.host_name)
         payload_dir = os.path.join(self.static_dir, self.build_name)
