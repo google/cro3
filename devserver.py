@@ -115,14 +115,15 @@ TELEMETRY_DEPS = ['dep-telemetry_dep.tar.bz2',
 # Sets up global to share between classes.
 updater = None
 
-# Log rotation parameters.  These settings correspond to once a week
-# at midnight between Friday and Saturday, with about three months
-# of old logs kept for backup.
+# Log rotation parameters.  These settings correspond to twice a day once
+# devserver is started, with about two weeks (28 backup files) of old logs
+# kept for backup.
 #
-# For more, see the documentation for
+# For more, see the documentation in standard python library for
 # logging.handlers.TimedRotatingFileHandler
-_LOG_ROTATION_TIME = 'W4'
-_LOG_ROTATION_BACKUP = 13
+_LOG_ROTATION_TIME = 'H'
+_LOG_ROTATION_INTERVAL = 12 # hours
+_LOG_ROTATION_BACKUP = 28 # backup counts
 
 # Number of seconds between the collection of disk and network IO counters.
 STATS_INTERVAL = 10.0
@@ -1674,6 +1675,7 @@ def MakeLogHandler(logfile):
   """Create a LogHandler instance used to log all messages."""
   hdlr_cls = handlers.TimedRotatingFileHandler
   hdlr = hdlr_cls(logfile, when=_LOG_ROTATION_TIME,
+                  interval=_LOG_ROTATION_INTERVAL,
                   backupCount=_LOG_ROTATION_BACKUP)
   hdlr.setFormatter(cplogging.logfmt)
   return hdlr
