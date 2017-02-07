@@ -77,6 +77,14 @@ FACTORY_IMAGE = 'factory_image'
 # The factory shim image.
 FACTORY_SHIM_IMAGE = 'factory_shim_image'
 
+#### Libiota Artifacts. These are in the same namespace as the above. ####
+
+# Archive with test binaries for flashing to the DUT.
+LIBIOTA_TEST_BINARIES = 'libiota_test_binaries'
+
+# Utilities required for managing the DUT.
+LIBIOTA_BOARD_UTILS = 'libiota_board_utils'
+
 #### Android artifacts. These are in a different namespace from the above. ####
 
 # Various android images stored in a zip file (including boot and system).

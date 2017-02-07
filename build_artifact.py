@@ -46,6 +46,8 @@ TEST_SUITES_FILE = 'test_suites.tar.bz2'
 BASE_IMAGE_FILE = 'chromiumos_base_image.tar.xz'
 TEST_IMAGE_FILE = 'chromiumos_test_image.tar.xz'
 RECOVERY_IMAGE_FILE = 'recovery_image.tar.xz'
+LIBIOTA_TEST_BINARIES_FILE = 'test_binaries.tar.gz'
+LIBIOTA_BOARD_UTILS_FILE = 'board_utils.tar.gz'
 
 ############ Actual filenames of Android build artifacts ############
 
@@ -636,6 +638,12 @@ for c in devserver_constants.CHANNELS:
   _AddCrOSArtifact(artifact_info.PAYGEN_AU_SUITE_TEMPLATE % {'channel': c},
                    BundledArtifact,
                    PAYGEN_AU_SUITE_FILE_TEMPLATE % {'channel': c})
+
+#### Libiota Artifacts ####
+_AddCrOSArtifact(artifact_info.LIBIOTA_TEST_BINARIES, Artifact,
+                 LIBIOTA_TEST_BINARIES_FILE)
+_AddCrOSArtifact(artifact_info.LIBIOTA_BOARD_UTILS, Artifact,
+                 LIBIOTA_BOARD_UTILS_FILE)
 
 android_artifact_map = {}
 
