@@ -507,7 +507,7 @@ class AutotestTarball(BundledArtifact):
       os.makedirs(autotest_pkgs_dir)
 
     if not os.path.exists(os.path.join(autotest_pkgs_dir, 'packages.checksum')):
-      cmd = ['autotest/utils/packager.py', 'upload', '--repository',
+      cmd = ['autotest/utils/packager.py', '--action=upload', '--repository',
              autotest_pkgs_dir, '--all']
       try:
         subprocess.check_call(cmd, cwd=self.install_dir)
