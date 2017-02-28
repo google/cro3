@@ -20,20 +20,35 @@ the progress of the CrOS auto-update process.
 
 from __future__ import print_function
 
+import datetime
 import glob
 import logging
 import os
+import re
+
+import log_util
+
+# Module-local log function.
+def _Log(message, *args):
+  return log_util.LogWithTag('CROS_UPDATE_PROGRESS', message, *args)
 
 # only import setup_chromite before chromite import.
 import setup_chromite # pylint: disable=unused-import
 try:
   from chromite.lib import osutils
 except ImportError as e:
-  logging.debug('chromite cannot be imported: %r', e)
+  _Log('chromite cannot be imported: %r', e)
   osutils = None
+
 
 # Path for status tracking log.
 _TRACK_LOG_FILE_PATH = '/tmp/auto-update/tracking_log/%s_%s.log'
+
+# Pattern for status tracking log filename.
+_TRACK_LOG_FILE_NAME_PATTERN = r'([^_]+)_([^_]+).log'
+
+# The gap hour used in checking AU processes' count.
+AU_PROCESS_HOUR_GAP = 3
 
 # Path for executing log.
 _EXECUTE_LOG_FILE_PATH = '/tmp/auto-update/executing_log/%s_%s.log'
@@ -90,9 +105,71 @@ def GetTrackStatusFile(host_name, pid):
   return _TRACK_LOG_FILE_PATH % (host_name, pid)
 
 
+def GetAllTrackStatusFileByTime():
+  """Return all track status files existing in TRACK_LOG_FILE_PATH.
+
+  Returns:
+    A track status file list ordered by created time reversely.
+  """
+  return sorted(glob.glob(_TRACK_LOG_FILE_PATH % ('*', '*')),
+                key=os.path.getctime, reverse=True)
+
+
+def ParsePidFromTrackLogFileName(track_log_filename):
+  """Parse pid from a given track log file's name.
+
+  The track log file's name for auto-update is fixed:
+      hostname_pid.log
+
+  This func is used to parse pid from a given track log file.
+
+  Args:
+    track_log_filename: the filename of the track log to be parsed.
+
+  Returns:
+    the parsed pid (int).
+  """
+  match = re.match(_TRACK_LOG_FILE_NAME_PATTERN, track_log_filename)
+  try:
+    return int(match.groups()[1])
+  except (AttributeError, IndexError, ValueError) as e:
+    _Log('Cannot parse pid from track log file %s: %s', track_log_filename, e)
+    return None
+
+
 def GetAllTrackStatusFileByHostName(host_name):
   """Return a list of existing track status files generated for a host."""
   return glob.glob(_TRACK_LOG_FILE_PATH % (host_name, '*'))
+
+
+def GetAllRunningAUProcess():
+  """Get all the ongoing AU processes' pids from tracking logs.
+
+  This func only checks the tracking logs generated in latest several hours,
+  which is for avoiding the case that 'there's a running process whose id is
+  as the same as a previous AU process'.
+
+  Returns:
+    A list of background AU processes' pids.
+  """
+  pids = []
+  now = datetime.datetime.now()
+  track_log_list = GetAllTrackStatusFileByTime()
+  # Only check log file created in 3 hours.
+  for track_log in track_log_list:
+    try:
+      created_time = datetime.datetime.fromtimestamp(
+          os.path.getctime(track_log))
+      if now - created_time >= datetime.timedelta(hours=AU_PROCESS_HOUR_GAP):
+        break
+
+      pid = ParsePidFromTrackLogFileName(os.path.basename(track_log))
+      if pid and IsProcessAlive(pid):
+        pids.append(pid)
+    except (ValueError, os.error) as e:
+      _Log('Error happened in getting pid from %s: %s', track_log, e)
+
+  return pids
 
 
 def GetAUTempDirectory(host_name, pid):

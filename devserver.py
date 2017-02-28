@@ -533,6 +533,7 @@ def _parse_boolean_arg(kwargs, key):
   else:
     return False
 
+
 def _parse_string_arg(kwargs, key):
   """Parse string arg from kwargs.
 
@@ -548,6 +549,7 @@ def _parse_string_arg(kwargs, key):
   else:
     return None
 
+
 def _build_uri_from_build_name(build_name):
   """Get build url from a given build name.
 
@@ -561,6 +563,26 @@ def _build_uri_from_build_name(build_name):
   return gspaths.ChromeosReleases.BuildUri(
       cros_update.STABLE_BUILD_CHANNEL, build_name.split('/')[0],
       build_name.split('/')[1])
+
+
+def _clear_process(host_name, pid):
+  """Clear AU process for given hostname and pid.
+
+  This clear includes:
+    1. kill process if it's alive.
+    2. delete the track status file of this process.
+    3. delete the executing log file of this process.
+
+  Args:
+    host_name: the host to execute auto-update.
+    pid: the background auto-update process id.
+  """
+  if cros_update_progress.IsProcessAlive(pid):
+    os.killpg(int(pid), signal.SIGKILL)
+
+  cros_update_progress.DelTrackStatusFile(host_name, pid)
+  cros_update_progress.DelExecuteLogFile(host_name, pid)
+
 
 class ApiRoot(object):
   """RESTful API for Dev Server information."""
@@ -1021,6 +1043,8 @@ class DevServerRoot(object):
     if 'host_name' not in kwargs:
       raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
 
+    cur_pid = kwargs.get('pid')
+
     host_name = kwargs['host_name']
     track_log_list = cros_update_progress.GetAllTrackStatusFileByHostName(
         host_name)
@@ -1029,11 +1053,10 @@ class DevServerRoot(object):
       # Use splitext to remove file extension, then parse pid from the
       # filename.
       pid = os.path.splitext(os.path.basename(log))[0][len(host_name)+1:]
-      if cros_update_progress.IsProcessAlive(pid):
-        os.killpg(int(pid), signal.SIGKILL)
+      _clear_process(host_name, pid)
 
-      cros_update_progress.DelTrackStatusFile(host_name, pid)
-      cros_update_progress.DelExecuteLogFile(host_name, pid)
+    if cur_pid:
+      _clear_process(host_name, cur_pid)
 
     return 'True'
 
@@ -1606,13 +1629,16 @@ class DevServerRoot(object):
     apache_client_count = self._get_process_count('apache')
     telemetry_test_count = self._get_process_count('python.*telemetry')
     gsutil_count = self._get_process_count('gsutil')
+    au_process_count = len(cros_update_progress.GetAllRunningAUProcess())
 
     health_data = {
         'free_disk': free_disk,
         'staging_thread_count': DevServerRoot._staging_thread_count,
         'apache_client_count': apache_client_count,
         'telemetry_test_count': telemetry_test_count,
-        'gsutil_count': gsutil_count}
+        'gsutil_count': gsutil_count,
+        'au_process_count': au_process_count,
+    }
     health_data.update(self._get_io_stats() or {})
 
     return json.dumps(health_data)
