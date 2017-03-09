@@ -14,6 +14,7 @@ import pickle
 import re
 import shutil
 import subprocess
+import traceback
 
 import artifact_info
 import common_util
@@ -255,13 +256,13 @@ class Artifact(log_util.Loggable):
       os.remove(self.exception_file_path)
 
   def _SaveException(self, e):
-    """Save the exception to a file for downloader.IsStaged to retrieve.
+    """Save the exception and traceback to a file for downloader.IsStaged.
 
     Args:
       e: Exception object to be saved.
     """
     with open(self.exception_file_path, 'w') as f:
-      pickle.dump(e, f)
+      pickle.dump('%s\n%s' % (e, str(traceback.format_exc())), f)
 
   def GetException(self):
     """Retrieve any exception that was raised in Process method.
