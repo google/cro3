@@ -1105,7 +1105,7 @@ class DevServerRoot(object):
     """
     dl, _ = _get_downloader_and_factory(kwargs)
     try:
-      file_name = kwargs['file_name'].lower()
+      file_name = kwargs['file_name']
       artifacts = kwargs['artifacts']
     except KeyError:
       raise DevServerError('`file_name` and `artifacts` are required to search '
@@ -1118,7 +1118,7 @@ class DevServerRoot(object):
       folder = artifact_info.ARTIFACT_UNZIP_FOLDER_MAP.get(artifact, '')
       artifact_path = os.path.join(build_path, folder)
       for root, _, filenames in os.walk(artifact_path):
-        if file_name in set([f.lower() for f in filenames]):
+        if file_name in set([f for f in filenames]):
           return os.path.relpath(os.path.join(root, file_name), build_path)
     raise DevServerError('File `%s` can not be found in artifacts: %s' %
                          (file_name, artifacts))
