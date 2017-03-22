@@ -414,3 +414,26 @@ def ExtractTarball(tarball_path, install_path, files_to_extract=None,
 def IsInsideChroot():
   """Returns True if we are inside chroot."""
   return os.path.exists('/etc/debian_chroot')
+
+
+def IsRunningOnMoblab():
+  """Returns True if this code is running on a chromiumOS DUT."""
+  cmd = ['cat', '/etc/lsb-release']
+  try:
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    cmd_output, cmd_error = proc.communicate()
+
+    if cmd_error:
+      _Log('Error happened while reading lsb-release file: %s',
+           cmd_error.rstrip())
+      return False
+
+    if '_moblab' in cmd_output:
+      return True
+    else:
+      return False
+  except subprocess.CalledProcessError as e:
+    _Log('Error happened while checking whether devserver package is running '
+         'on a DUT: %s\n%s', e, e.output)
+    return False

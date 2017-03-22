@@ -213,7 +213,10 @@ class XBuddy(build_util.BuildObject):
     else:
       self.images_dir = os.path.join(self.GetSourceRoot(), 'src/build/images')
 
-    self._ctx = gs.GSContext() if gs else None
+    if common_util.IsRunningOnMoblab():
+      self._ctx = gs.GSContext(cache_user='chronos') if gs else None
+    else:
+      self._ctx = gs.GSContext() if gs else None
 
     common_util.MkDirP(self._timestamp_folder)
 

@@ -308,7 +308,10 @@ class GoogleStorageDownloader(Downloader):
 
     self._archive_url = archive_url
 
-    self._ctx = gs.GSContext() if gs else None
+    if common_util.IsRunningOnMoblab():
+      self._ctx = gs.GSContext(cache_user='chronos') if gs else None
+    else:
+      self._ctx = gs.GSContext() if gs else None
 
   def Wait(self, name, is_regex_name, timeout):
     """Waits for artifact to exist and returns the appropriate names.
