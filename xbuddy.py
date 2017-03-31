@@ -30,7 +30,7 @@ import setup_chromite # pylint: disable=unused-import
 
 try:
   from chromite.lib import gs
-except ImportError as e:
+except ImportError:
   gs = None
 
 # Module-local log function.
