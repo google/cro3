@@ -93,6 +93,9 @@ class CrOSAUParser(object):
                              dest='original_build', default='',
                              help=('force stateful update with the same '
                                    'version of previous rootfs partition'))
+    self.parser.add_argument('--payload_filename', action='store', type=str,
+                             dest='payload_filename', default='',
+                             help='A custom payload filename')
 
   def ParseArgs(self):
     """Parse and process command line arguments."""
@@ -117,7 +120,7 @@ class CrOSUpdateTrigger(object):
   """
   def __init__(self, host_name, build_name, static_dir, progress_tracker=None,
                log_file=None, au_tempdir=None, force_update=False,
-               full_update=False, original_build=None):
+               full_update=False, original_build=None, payload_filename=None):
     self.host_name = host_name
     self.build_name = build_name
     self.static_dir = static_dir
@@ -127,6 +130,7 @@ class CrOSUpdateTrigger(object):
     self.force_update = force_update
     self.full_update = full_update
     self.original_build = original_build
+    self.payload_filename = payload_filename
 
   def _WriteAUStatus(self, content):
     if self.progress_tracker:
@@ -200,7 +204,8 @@ class CrOSUpdateTrigger(object):
             tempdir=self.au_tempdir,
             log_file=self.log_file,
             original_payload_dir=original_payload_dir,
-            yes=True)
+            yes=True,
+            payload_filename=self.payload_filename)
         chromeos_AU.CheckPayloads()
 
         version_match = chromeos_AU.PreSetupCrOSUpdate()
@@ -299,7 +304,8 @@ def main():
       au_tempdir=au_tempdir,
       force_update=options.force_update,
       full_update=options.full_update,
-      original_build=options.original_build)
+      original_build=options.original_build,
+      payload_filename=options.payload_filename)
 
   # Set timeout the cros-update process.
   try:

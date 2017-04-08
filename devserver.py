@@ -909,6 +909,7 @@ class DevServerRoot(object):
     full_update = _parse_boolean_arg(kwargs, 'full_update')
     async = _parse_boolean_arg(kwargs, 'async')
     original_build = _parse_string_arg(kwargs, 'original_build')
+    payload_filename = _parse_string_arg(kwargs, 'payload_filename')
 
     if async:
       path = os.path.dirname(os.path.abspath(__file__))
@@ -931,6 +932,9 @@ class DevServerRoot(object):
 
       if full_update:
         args = ('%s --full_update' % args)
+
+      if payload_filename:
+        args = ('%s --payload_filename %s' % (args, payload_filename))
 
       p = subprocess.Popen([args], shell=True, preexec_fn=os.setsid)
       pid = os.getpgid(p.pid)
