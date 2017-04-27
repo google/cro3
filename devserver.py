@@ -1216,8 +1216,9 @@ class DevServerRoot(object):
 
       symbols_directory = os.path.join(dl.GetBuildDir(), 'debug', 'breakpad')
 
+      # The location of minidump_stackwalk is defined in chromeos-admin.
       stackwalk = subprocess.Popen(
-          ['minidump_stackwalk', local.name, symbols_directory],
+          ['/usr/local/bin/minidump_stackwalk', local.name, symbols_directory],
           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
       to_return, error_text = stackwalk.communicate()
