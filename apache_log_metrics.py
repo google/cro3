@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -15,8 +15,12 @@ import argparse
 import re
 import sys
 
-from devserver import MakeLogHandler
+# TODO(ayatane): Fix cros lint pylint to work with virtualenv imports
+# pylint: disable=import-error
+from devserver_lib.devserver import MakeLogHandler
 
+# only import setup_chromite before chromite import.
+import setup_chromite # pylint: disable=unused-import
 from chromite.lib import ts_mon_config
 from chromite.lib import metrics
 from chromite.lib import cros_logging as logging
@@ -188,7 +192,7 @@ def ParseArgs():
   """Parses command line arguments."""
   p = argparse.ArgumentParser(
       description='Parses apache logs and emits metrics to Monarch')
-  p.add_argument('--logfile')
+  p.add_argument('--logfile', required=True)
   return p.parse_args()
 
 
@@ -196,6 +200,7 @@ def main():
   """Sets up logging and runs matchers against stdin"""
   args = ParseArgs()
   root = logging.getLogger()
+
   root.addHandler(MakeLogHandler(args.logfile))
   root.setLevel(logging.DEBUG)
   ts_mon_config.SetupTsMonGlobalState('devserver_apache_log_metrics')
