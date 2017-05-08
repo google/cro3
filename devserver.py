@@ -97,10 +97,14 @@ except OSError as e:
 # devserver on host.
 try:
   import cros_update
-  import cros_update_progress
 except ImportError as e:
   _Log('cros_update cannot be imported: %r', e)
   cros_update = None
+
+try:
+  import cros_update_progress
+except ImportError as e:
+  _Log('cros_update_progress cannot be imported: %r', e)
   cros_update_progress = None
 
 # only import setup_chromite before chromite import.

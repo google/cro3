@@ -1,4 +1,4 @@
-# Copyright (c) 2016 The Chromium OS Authors. All rights reserved.
+# Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -155,6 +155,8 @@ class CrOSUpdateTrigger(object):
     Args:
       cros_updater: The CrOS auto updater for auto-update.
     """
+    self._WriteAUStatus('Check whether devserver can run before rootfs update')
+    cros_updater.CheckDevserverRun()
     self._WriteAUStatus('transfer rootfs update package')
     cros_updater.TransferRootfsUpdate()
     self._WriteAUStatus('pre-setup rootfs update')
