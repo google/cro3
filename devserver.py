@@ -1074,7 +1074,7 @@ class DevServerRoot(object):
         pid: the background process id of cros-update.
 
     Returns:
-      A string contains the whole content of the execute log file.
+      A dictionary containing the execute log file and any hostlog files.
     """
     if 'host_name' not in kwargs:
       raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
@@ -1088,7 +1088,9 @@ class DevServerRoot(object):
     # Fetch the execute log recorded by cros_update_progress.
     au_log = cros_update_progress.ReadExecuteLogFile(host_name, pid)
     cros_update_progress.DelExecuteLogFile(host_name, pid)
-    return au_log
+    # Fetch the cros_au host_logs if they exist
+    au_hostlogs = cros_update_progress.ReadAUHostLogFiles(host_name, pid)
+    return json.dumps({'cros_au_log': au_log, 'host_logs': au_hostlogs})
 
   @cherrypy.expose
   def locate_file(self, **kwargs):

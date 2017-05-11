@@ -57,6 +57,8 @@ _EXECUTE_LOG_FILE_PATH = '/tmp/auto-update/executing_log/%s_%s.log'
 # update engine log.
 _CROS_UPDATE_TEMP_PATH = '/tmp/cros-update_%s_%s'
 
+_CROS_HOSTLOG_PATTERN = 'devserver_hostlog*'
+
 # The string for update process finished
 FINISHED = 'Completed'
 ERROR_TAG = 'Error'
@@ -184,6 +186,16 @@ def GetAUTempDirectory(host_name, pid):
 def ReadExecuteLogFile(host_name, pid):
   """Return the content of execute log file."""
   return osutils.ReadFile(GetExecuteLogFile(host_name, pid))
+
+
+def ReadAUHostLogFiles(host_name, pid):
+  """Returns a dictionary containing the devserver host log files."""
+  au_dir = GetAUTempDirectory(host_name, pid)
+  hostlog_filenames = glob.glob(os.path.join(au_dir, _CROS_HOSTLOG_PATTERN))
+  hostlog_files = {}
+  for f in hostlog_filenames:
+    hostlog_files[os.path.basename(f)] = osutils.ReadFile(f)
+  return hostlog_files
 
 
 def DelTrackStatusFile(host_name, pid):
