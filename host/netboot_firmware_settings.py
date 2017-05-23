@@ -1,39 +1,55 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 #
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+# Copyright 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import fmap
-import optparse
+"""Utility to configure netboot settings."""
+
+from __future__ import print_function
+
+import argparse
 import socket
 import struct
+import sys
 
-parser = optparse.OptionParser()
-parser.add_option("--input", "-i", dest="input", default=None,
-                  help="Path to the firmware to modify; required")
-parser.add_option("--output", "-o", dest="output", default=None,
-                  help="Path to store output; if not specified we will "
-                       "directly modify the input file")
+try:
+  import fmap
+except ImportError:
+  print('Could not find fmap module. If you are running outside the chroot, '
+        'ensure that third_party/flashmap is on your PYTHONPATH.',
+        file=sys.stderr)
+  raise
 
-parser.add_option("--tftpserverip", default=None,
-                  help="Set the TFTP server IP address (defaults to DHCP-"
-                       "provided address)")
-parser.add_option("--bootfile", default=None,
-                  help="Set the path of the TFTP boot file (defaults to "
-                       "DHCP-provided file name)")
-parser.add_option("--argsfile", default=None,
-                  help="Set the path of the TFTP file that provides the kernel "
-                       "command line (overrides default and --arg)")
 
-parser.add_option("--board", default=None,
-                  help="Set the cros_board to be passed into the kernel")
-parser.add_option("--omahaserver", default=None,
-                  help="Set the Omaha server IP address")
-parser.add_option("--arg", "--kernel_arg", default=[], dest='kernel_args',
-                  metavar='kernel_args', action='append',
-                  help="Set extra kernel command line parameters (appended "
-                       "to default string for factory)")
+def _ParseArgs(argv):
+  """Construct an ArgumentParser for this utility script."""
+  parser = argparse.ArgumentParser(description=__doc__)
+  parser.add_argument('--input', '-i', required=True,
+                      help='Path to the firmware to modify; required')
+  parser.add_argument('--output', '-o',
+                      help='Path to store output; if not specified we will '
+                           'directly modify the input file')
+
+  parser.add_argument('--tftpserverip',
+                      help='Set the TFTP server IP address (defaults to DHCP-'
+                           'provided address)')
+  parser.add_argument('--bootfile',
+                      help='Set the path of the TFTP boot file (defaults to '
+                           'DHCP-provided file name)')
+  parser.add_argument('--argsfile',
+                      help='Set the path of the TFTP file that provides the '
+                           'kernel command line (overrides default and --arg)')
+
+  parser.add_argument('--board',
+                      help='Set the cros_board to be passed into the kernel')
+  parser.add_argument('--omahaserver',
+                      help='Set the Omaha server IP address')
+  parser.add_argument('--arg', '--kernel_arg', default=[], dest='kernel_args',
+                      metavar='kernel_args', action='append',
+                      help='Set extra kernel command line parameters (appended '
+                           'to default string for factory)')
+  return parser.parse_args(argv)
 
 
 class Image(object):
@@ -44,7 +60,6 @@ class Image(object):
 
   Attributes:
       data: The data in the entire image.
-
   """
 
   def __init__(self, data):
@@ -81,11 +96,11 @@ class Image(object):
         value: The data to write into the area.
 
     Raises:
-        ValueError: "value" was too large to write into the selected area.
+        ValueError: 'value' was too large to write into the selected area.
     """
     area = self.areas[key]
     if len(value) > area['size']:
-      raise ValueError("Too much data for FMAP area %s" % key)
+      raise ValueError('Too much data for FMAP area %s' % key)
     value = value.ljust(area['size'], '\0')
     self.data = (self.data[:area['offset']] + value +
                  self.data[area['offset'] + area['size']:])
@@ -103,18 +118,20 @@ class Image(object):
     area = self.areas[key]
     return self.data[area['offset']:area['offset'] + area['size']]
 
+
 class Settings(object):
-  """A class which represents a collection of settings which can be updated
-    after a firmware image has been built.
+  """A class which represents a collection of settings.
+
+  The settings can be updated after a firmware image has been built.
 
   Attributes of this class other than the signature constant are stored in
-  the "value" field of each attribute in the attributes dict.
+  the 'value' field of each attribute in the attributes dict.
 
   Attributes:
       signature: A constant which has a signature value at the front of the
         settings when written into the image.
   """
-  signature = "netboot\0"
+  signature = 'netboot\0'
 
   class Attribute(object):
     """A class which represents a particular setting.
@@ -145,11 +162,11 @@ class Settings(object):
       if self.value:
         value = self.value.pack()
       else:
-        value = ""
+        value = ''
       value_len = len(value)
       pad_len = ((value_len + 3) // 4) * 4 - value_len
-      value += "\0" * pad_len
-      format_str = "<II%ds" % (value_len + pad_len)
+      value += '\0' * pad_len
+      format_str = '<II%ds' % (value_len + pad_len)
       return struct.pack(format_str, self.code, value_len, value)
 
   def __init__(self):
@@ -159,12 +176,12 @@ class Settings(object):
         self: The instance to initialize.
     """
     attributes = {
-        "tftp_server_ip": self.Attribute(1, None),
-        "kernel_args": self.Attribute(2, None),
-        "bootfile": self.Attribute(3, None),
-        "argsfile": self.Attribute(4, None),
+        'tftp_server_ip': self.Attribute(1, None),
+        'kernel_args': self.Attribute(2, None),
+        'bootfile': self.Attribute(3, None),
+        'argsfile': self.Attribute(4, None),
     }
-    self.__dict__["attributes"] = attributes
+    self.__dict__['attributes'] = attributes
 
   def __setitem__(self, name, value):
     self.attributes[name].value = value
@@ -173,8 +190,9 @@ class Settings(object):
     return self.attributes[name].value
 
   def pack(self):
-    """Pack a Settings object into a binary representation that can be put
-      into an image.
+    """Pack a Settings object into a binary representation.
+
+    The packed binary representation can be put into an image.
 
     Args:
         self: The instance to pack.
@@ -183,10 +201,11 @@ class Settings(object):
         A binary representation of the settings.
     """
     value = self.signature
-    value += struct.pack("<I", len(self.attributes))
+    value += struct.pack('<I', len(self.attributes))
     for _, attr in self.attributes.iteritems():
       value += attr.pack()
     return value
+
 
 class Setting(object):
   """Class for settings that are stored simply as strings."""
@@ -211,6 +230,7 @@ class Setting(object):
     """
     return str(self.val)
 
+
 class IpAddress(Setting):
   """Class for IP address settings."""
 
@@ -224,34 +244,34 @@ class IpAddress(Setting):
     in_addr = socket.inet_pton(socket.AF_INET, val)
     super(IpAddress, self).__init__(in_addr)
 
-def main():
-  (options, _) = parser.parse_args()
-  if not options.input:
-    raise RuntimeError("No input file specified")
+
+def main(argv):
+  options = _ParseArgs(argv)
   with open(options.input, 'r') as f:
     image = Image(f.read())
 
   settings = Settings()
   if options.tftpserverip:
-    settings["tftp_server_ip"] = IpAddress(options.tftpserverip)
-  kernel_args = ""
+    settings['tftp_server_ip'] = IpAddress(options.tftpserverip)
+  kernel_args = ''
   if options.board:
-    kernel_args += "cros_board=" + options.board + " "
+    kernel_args += 'cros_board=' + options.board + ' '
   if options.omahaserver:
-    kernel_args += "omahaserver=" + options.omahaserver + " "
-  kernel_args += " ".join(options.kernel_args)
-  kernel_args += "\0"
-  settings["kernel_args"] = Setting(kernel_args)
+    kernel_args += 'omahaserver=' + options.omahaserver + ' '
+  kernel_args += ' '.join(options.kernel_args)
+  kernel_args += '\0'
+  settings['kernel_args'] = Setting(kernel_args)
   if options.bootfile:
-    settings["bootfile"] = Setting(options.bootfile + "\0")
+    settings['bootfile'] = Setting(options.bootfile + '\0')
   if options.argsfile:
-    settings["argsfile"] = Setting(options.argsfile + "\0")
+    settings['argsfile'] = Setting(options.argsfile + '\0')
 
-  image["SHARED_DATA"] = settings.pack()
+  image['SHARED_DATA'] = settings.pack()
 
   output_name = options.output or options.input
   with open(output_name, 'w') as f:
     f.write(image.data)
 
+
 if __name__ == '__main__':
-  main()
+  sys.exit(main(sys.argv[1:]))
