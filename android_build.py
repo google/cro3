@@ -116,9 +116,11 @@ class BuildAccessor(object):
     build_type = cls._GetBuildType(build_id)
 
     # Get all artifacts for the given build_id and target.
+    # maxResults is set to 1000 so API returns enough results to include all
+    # artifacts.
     artifacts = service_obj.buildartifact().list(
         buildType=build_type, buildId=build_id, target=target,
-        attemptId='latest', maxResults=0).execute(num_retries=MAX_ATTEMPTS)
+        attemptId='latest', maxResults=1000).execute(num_retries=MAX_ATTEMPTS)
     return artifacts['artifacts']
 
   @classmethod
