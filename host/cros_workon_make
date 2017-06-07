@@ -86,8 +86,12 @@ workpath="/build/${BOARD}/tmp/portage/${workpath}"
 # Export vars that the ebuild env needs from us.
 export SANDBOX_WRITE=~/trunk
 export CROS_WORKON_INPLACE=1
-export FEATURES
 export CROS_WORKON_MAKE_COMPILE_ARGS="$*"
+
+# The ebuild commands we run rely on portage automatically running earlier
+# phases for us.  Append in case there is something already in the env.
+FEATURES+=" -noauto"
+export FEATURES
 
 # Vars that we want to pass through for the user.
 PASS_THROUGH_VARS=(
