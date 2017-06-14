@@ -9,11 +9,16 @@
 from __future__ import print_function
 
 import argparse
+import os
 import socket
 import struct
 import sys
 
 try:
+  _path = os.path.dirname(os.path.abspath(__file__))
+  if _path not in sys.path:
+    sys.path.insert(0, _path)
+  del _path
   import fmap
 except ImportError:
   print('Could not find fmap module. If you are running outside the chroot, '
