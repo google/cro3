@@ -26,7 +26,10 @@ find_common_sh
 . "${SCRIPT_ROOT}/common.sh" || exit 1
 
 cleanup() {
-  "${SCRIPTS_DIR}/mount_gpt_image.sh" -u -r "$ROOT_FS_DIR" -s "$STATEFUL_FS_DIR"
+  if [ $(df "$STATEFUL_FS_DIR" | grep -c "$STATEFUL_FS_DIR") -eq 1 ]; then
+    "${SCRIPTS_DIR}/mount_gpt_image.sh" -u \
+      -i "$IMAGE_NAME" -f "$WORKING_DIR" -r "$ROOT_FS_DIR" -s "$STATEFUL_FS_DIR"
+  fi
 }
 
 on_exit() {
@@ -217,7 +220,7 @@ cd ~/trunk/src/platform/vboot_reference
 scripts/image_signing/tag_image.sh --from="${WORKING_DIR}/${IMAGE_NAME}" \
   --update_firmware 1
 cp -r tests/devkeys/* "${KEYS_DIR}"
-cp scripts/keygeneration/* "${KEYS_DIR}"
+cp -r scripts/keygeneration/* "${KEYS_DIR}"
 
 # Load keygeneration helper methods
 . "${KEYS_DIR}/common.sh"
