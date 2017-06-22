@@ -26,10 +26,9 @@ find_common_sh
 . "${SCRIPT_ROOT}/common.sh" || exit 1
 
 cleanup() {
-  if [ $(df "$STATEFUL_FS_DIR" | grep -c "$STATEFUL_FS_DIR") -eq 1 ]; then
-    "${SCRIPTS_DIR}/mount_gpt_image.sh" -u \
-      -i "$IMAGE_NAME" -f "$WORKING_DIR" -r "$ROOT_FS_DIR" -s "$STATEFUL_FS_DIR"
-  fi
+  "${SCRIPTS_DIR}/mount_gpt_image.sh" -u \
+      -i "${IMAGE_NAME}" -f "${WORKING_DIR}" \
+      -r "${ROOT_FS_DIR}" -s "${STATEFUL_FS_DIR}"
 }
 
 on_exit() {
