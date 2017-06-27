@@ -454,8 +454,10 @@ class AndroidBuildDownloader(Downloader):
 
     if not names:
       raise build_artifact.ArtifactDownloadError(
-          'No artifact found with given name: %s for %s-%s' %
-          (name, self.target, self.build_id))
+          'No artifact found with given name: %s for %s-%s. All available '
+          'artifacts are: %s' %
+          (name, self.target, self.build_id,
+           ','.join([a['name'] for a in artifacts])))
 
     return names
 
