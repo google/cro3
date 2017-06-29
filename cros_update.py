@@ -96,6 +96,9 @@ class CrOSAUParser(object):
     self.parser.add_argument('--payload_filename', action='store', type=str,
                              dest='payload_filename', default='',
                              help='A custom payload filename')
+    self.parser.add_argument('--clobber_stateful', action='store_true',
+                             dest='clobber_stateful', default=False,
+                             help='Whether to clobber stateful')
 
   def ParseArgs(self):
     """Parse and process command line arguments."""
@@ -120,7 +123,8 @@ class CrOSUpdateTrigger(object):
   """
   def __init__(self, host_name, build_name, static_dir, progress_tracker=None,
                log_file=None, au_tempdir=None, force_update=False,
-               full_update=False, original_build=None, payload_filename=None):
+               full_update=False, original_build=None, payload_filename=None,
+               clobber_stateful=True):
     self.host_name = host_name
     self.build_name = build_name
     self.static_dir = static_dir
@@ -131,6 +135,7 @@ class CrOSUpdateTrigger(object):
     self.full_update = full_update
     self.original_build = original_build
     self.payload_filename = payload_filename
+    self.clobber_stateful = clobber_stateful
 
   def _WriteAUStatus(self, content):
     if self.progress_tracker:
@@ -207,7 +212,8 @@ class CrOSUpdateTrigger(object):
             log_file=self.log_file,
             original_payload_dir=original_payload_dir,
             yes=True,
-            payload_filename=self.payload_filename)
+            payload_filename=self.payload_filename,
+            clobber_stateful=self.clobber_stateful)
         chromeos_AU.CheckPayloads()
 
         version_match = chromeos_AU.PreSetupCrOSUpdate()
@@ -307,7 +313,8 @@ def main():
       force_update=options.force_update,
       full_update=options.full_update,
       original_build=options.original_build,
-      payload_filename=options.payload_filename)
+      payload_filename=options.payload_filename,
+      clobber_stateful=options.clobber_stateful)
 
   # Set timeout the cros-update process.
   try:

@@ -914,6 +914,7 @@ class DevServerRoot(object):
     async = _parse_boolean_arg(kwargs, 'async')
     original_build = _parse_string_arg(kwargs, 'original_build')
     payload_filename = _parse_string_arg(kwargs, 'payload_filename')
+    clobber_stateful = _parse_boolean_arg(kwargs, 'clobber_stateful')
 
     if async:
       path = os.path.dirname(os.path.abspath(__file__))
@@ -939,6 +940,9 @@ class DevServerRoot(object):
 
       if payload_filename:
         args = ('%s --payload_filename %s' % (args, payload_filename))
+
+      if clobber_stateful:
+        args = ('%s --clobber_stateful' % args)
 
       p = subprocess.Popen([args], shell=True, preexec_fn=os.setsid)
       pid = os.getpgid(p.pid)
