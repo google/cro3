@@ -94,7 +94,7 @@ class CrOSAUParser(object):
                              help=('force stateful update with the same '
                                    'version of previous rootfs partition'))
     self.parser.add_argument('--payload_filename', action='store', type=str,
-                             dest='payload_filename', default='',
+                             dest='payload_filename', default=None,
                              help='A custom payload filename')
     self.parser.add_argument('--clobber_stateful', action='store_true',
                              dest='clobber_stateful', default=False,
