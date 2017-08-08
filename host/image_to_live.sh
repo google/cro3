@@ -195,7 +195,7 @@ start_dev_server() {
   fi
 
   # Need to inherit environment variables to discover gsutil credentials.
-  if cros_sdk -- cros_workon list --host |
+  if cros_sdk -- cros_workon --host list |
       grep chromeos-base/cros-devutils &> /dev/null; then
     info "cros_workon for devserver detected. Running devserver from source."
     cros_sdk -- sudo -E ../platform/dev/devserver.py ${devserver_flags} \
