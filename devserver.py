@@ -958,6 +958,7 @@ class DevServerRoot(object):
           host_name, build_name, updater.static_dir, force_update=force_update,
           full_update=full_update, original_build=original_build)
       cros_update_trigger.TriggerAU()
+      return json.dumps((True, -1))
 
   @cherrypy.expose
   def get_au_status(self, **kwargs):

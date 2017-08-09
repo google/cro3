@@ -56,6 +56,9 @@ CROS_PRESERVED_PATH = ('/mnt/stateful_partition/unencrypted/'
 # Standard error tmeplate to be written into status tracking log.
 CROS_ERROR_TEMPLATE = cros_update_progress.ERROR_TAG + ' %s'
 
+# Setting logging level
+logConfig = cros_update_logging.loggingConfig()
+logConfig.ConfigureLogging()
 
 class CrOSAUParser(object):
   """Custom command-line options parser for cros-update."""
@@ -269,10 +272,6 @@ class CrOSUpdateTrigger(object):
 
 
 def main():
-  # Setting logging level
-  logConfig = cros_update_logging.loggingConfig()
-  logConfig.ConfigureLogging()
-
   # Create one cros_update_parser instance for parsing CrOS auto-update cmd.
   AU_parser = CrOSAUParser()
   try:
