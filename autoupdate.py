@@ -20,17 +20,20 @@ import urlparse
 
 import cherrypy
 
-# Allow importing from dev/host/lib when running from source tree.
-lib_dir = os.path.join(os.path.dirname(__file__), 'host', 'lib')
-if os.path.exists(lib_dir) and os.path.isdir(lib_dir):
-  sys.path.insert(1, lib_dir)
-
 import build_util
 import autoupdate_lib
 import common_util
 import devserver_constants as constants
 import log_util
 # pylint: disable=F0401
+
+# Allow importing from aosp/system/update_engine/scripts when running from
+# source tree. Used for importing update_payload if it is not in the system
+# path.
+lib_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'aosp',
+                       'system', 'update_engine', 'scripts')
+if os.path.exists(lib_dir) and os.path.isdir(lib_dir):
+  sys.path.insert(1, lib_dir)
 import update_payload
 
 
