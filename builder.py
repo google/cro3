@@ -196,7 +196,7 @@ class Builder(object):
 
     # If it's in the list of possible workon targets, we should be working on it
     return pkg in _OutputOf([
-        'cros_workon', '--board=' + board, 'list', '--all'])
+        'cros_workon', '--board=' + board, '--all', 'list'])
 
   def SetError(self, text):
     cherrypy.response.status = 500
