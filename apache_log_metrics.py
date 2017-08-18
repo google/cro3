@@ -17,14 +17,21 @@ import sys
 
 # TODO(ayatane): Fix cros lint pylint to work with virtualenv imports
 # pylint: disable=import-error
-from devserver_lib.devserver import MakeLogHandler
 
 # only import setup_chromite before chromite import.
 import setup_chromite # pylint: disable=unused-import
 from chromite.lib import ts_mon_config
 from chromite.lib import metrics
 from chromite.lib import cros_logging as logging
-from infra_libs import ts_mon
+
+
+# Log rotation parameters.  Keep about two weeks of old logs.
+#
+# For more, see the documentation in standard python library for
+# logging.handlers.TimedRotatingFileHandler
+_LOG_ROTATION_TIME = 'H'
+_LOG_ROTATION_INTERVAL = 24 # hours
+_LOG_ROTATION_BACKUP = 14 # backup counts
 
 
 STATIC_GET_MATCHER = re.compile(
@@ -177,9 +184,6 @@ def RunMatchers(stream, matchers):
       m = matcher.match(line)
       if m:
         emitter(m)
-  # The input might terminate if the log gets rotated. Make sure that Monarch
-  # flushes any pending metrics before quitting.
-  ts_mon.close()
 
 
 # TODO(phobbs) add a matcher for all requests, not just static files.
@@ -201,10 +205,14 @@ def main():
   args = ParseArgs()
   root = logging.getLogger()
 
-  root.addHandler(MakeLogHandler(args.logfile))
+  root.addHandler(logging.handlers.TimedRotatingFileHandler(
+      args.logfile, when=_LOG_ROTATION_TIME,
+      interval=_LOG_ROTATION_INTERVAL,
+      backupCount=_LOG_ROTATION_BACKUP))
   root.setLevel(logging.DEBUG)
-  ts_mon_config.SetupTsMonGlobalState('devserver_apache_log_metrics')
-  RunMatchers(sys.stdin, MATCHERS)
+  with ts_mon_config.SetupTsMonGlobalState('devserver_apache_log_metrics',
+                                           indirect=True):
+    RunMatchers(sys.stdin, MATCHERS)
 
 
 if __name__ == '__main__':
