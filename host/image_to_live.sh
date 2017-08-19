@@ -482,6 +482,7 @@ run_once() {
   if [ -n "${update_pid}" ] && ! wait ${update_pid}; then
     warn "Update failed. " \
        "Dumping update_engine.log for debugging and/or bug reporting."
+    get_update_log
     tail -n 200 "${FLAGS_update_log}" >&2
     die "Update was not successful."
   fi
