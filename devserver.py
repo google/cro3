@@ -60,6 +60,11 @@ import cherrypy
 from cherrypy import _cplogging as cplogging
 from cherrypy.process import plugins
 
+# This must happen before any local modules get a chance to import
+# anything from chromite.  Otherwise, really bad things will happen, and
+# you will _not_ understand why.
+import setup_chromite # pylint: disable=unused-import
+
 import autoupdate
 import artifact_info
 import build_artifact
@@ -107,8 +112,6 @@ except ImportError as e:
   _Log('cros_update_progress cannot be imported: %r', e)
   cros_update_progress = None
 
-# only import setup_chromite before chromite import.
-import setup_chromite # pylint: disable=unused-import
 try:
   from chromite.lib.paygen import gspaths
 except ImportError as e:
