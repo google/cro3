@@ -12,6 +12,7 @@ We are interested in static file bandwidth, so it parses out GET requests to
 from __future__ import print_function
 
 import argparse
+from logging import handlers
 import re
 import sys
 
@@ -205,7 +206,7 @@ def main():
   args = ParseArgs()
   root = logging.getLogger()
 
-  root.addHandler(logging.handlers.TimedRotatingFileHandler(
+  root.addHandler(handlers.TimedRotatingFileHandler(
       args.logfile, when=_LOG_ROTATION_TIME,
       interval=_LOG_ROTATION_INTERVAL,
       backupCount=_LOG_ROTATION_BACKUP))
