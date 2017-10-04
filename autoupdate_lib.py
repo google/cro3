@@ -40,7 +40,7 @@ _UPDATE_RESPONSE['2.0'] = """<?xml version="1.0" encoding="UTF-8"?>
     <app appid="{%(appid)s}" status="ok">
       <ping status="ok"/>
       <updatecheck
-        ChromeOSVersion="9999.0.0"
+        ChromeOSVersion="999999.0.0"
         codebase="%(url)s"
         hash="%(sha1)s"
         sha256="%(sha256)s"
@@ -60,14 +60,14 @@ _UPDATE_RESPONSE['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
         <urls>
           <url codebase="%(codebase)s/"/>
         </urls>
-        <manifest version="9999.0.0">
+        <manifest version="999999.0.0">
           <packages>
             <package hash="%(sha1)s" name="%(filename)s" size="%(size)s"
                      required="true"/>
           </packages>
           <actions>
             <action event="postinstall"
-              ChromeOSVersion="9999.0.0"
+              ChromeOSVersion="999999.0.0"
               sha256="%(sha256)s"
               needsadmin="false"
               IsDeltaPayload="%(is_delta_format)s"

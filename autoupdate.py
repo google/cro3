@@ -262,7 +262,8 @@ class Autoupdate(build_util.BuildObject):
     parts = latest_version.split('-')
     # If we can't get a version number from the directory, default to a high
     # number to allow the update to happen
-    return parts[1] if len(parts) == 3 else "9999.0.0"
+    # TODO(phobbs) refactor this.
+    return parts[1] if len(parts) == 3 else "999999.0.0"
 
   @staticmethod
   def _CanUpdate(client_version, latest_version):
@@ -272,8 +273,14 @@ class Autoupdate(build_util.BuildObject):
     client_tokens = client_version.replace('_', '').split('.')
     latest_tokens = latest_version.replace('_', '').split('.')
 
+    def _SafeInt(part):
+      try:
+        return int(part)
+      except ValueError:
+        return part
+
     if len(latest_tokens) == len(client_tokens) == 3:
-      return latest_tokens > client_tokens
+      return map(_SafeInt, latest_tokens) > map(_SafeInt, client_tokens)
     else:
       # If the directory name isn't a version number, let it pass.
       return True
