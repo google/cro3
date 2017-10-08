@@ -4,66 +4,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Debug a 32 bit binary on 64 bit linux.
-
-. /usr/lib/crosutils/common.sh || exit 1
-
-# Command line options
-DEFINE_string board "${DEFAULT_BOARD}" "The board to debug for."
-DEFINE_string sysroot "" "Where your target binaries are."
-DEFINE_string debug_file_dir "" "Where your split-out debug symbols are."
-
-# Parse command line and update positional args
-FLAGS "$@" || exit 1
-eval set -- "${FLAGS_ARGV}"
-
-  # Die on any errors
-set -e
-
-if [[ -z "${FLAGS_board}" ]]; then
-  die "Error: --board is required."
-fi
-
-if [ $# -gt 2 -o $# -lt 1 ]; then
-  die "usage $0 [flags] file [core]"
-fi
-
-if [[ -n "${2}" ]]; then
-  CORE_CMD="core ${2}"
-fi
-
-if [[ -z "${FLAGS_sysroot}" ]]; then
-  SYSROOT="/build/${FLAGS_board}"
-  BOARDROOT="${SYSROOT}"
-else
-  SYSROOT="${FLAGS_sysroot}"
-  BOARDROOT="/build/${FLAGS_board}"
-fi
-if [[ -z "${FLAGS_debug_file_dir}" ]]; then
-  DEBUG_FILE_DIR="${SYSROOT}/usr/lib/debug/"
-else
-  DEBUG_FILE_DIR="${FLAGS_debug_file_dir}"
-  DEBUG_FILE="${DEBUG_FILE_DIR}${1#${SYSROOT}}.debug"
-  if [[ -f "${DEBUG_FILE}" ]]; then
-    DEBUG_FILE_CMD="symbol-file -readnow ${DEBUG_FILE}"
-  fi
-fi
-GDB="${BOARDROOT}/usr/bin/gdb"
-
-# Use awk to pull the lib paths out of the board's /etc/ld.so.conf
-LIB_PATHS=$(awk -v b="${BOARDROOT}" '$1 !~ /^#/ { p=p":"b$0 } \
-                                    END{print substr(p,2)}' \
-                   "${BOARDROOT}/etc/ld.so.conf")
-
-export LD_LIBRARY_PATH="${LIB_PATHS}"
-
-# Using --exec, --core, etc makes gdb parse those files before the other
-# settings take effect, causing the user to have to re-import them in order
-# for the correct debug symbols to get used.
-exec $GDB \
-  --eval-command "set sysroot ${SYSROOT}" \
-  --eval-command "set debug-file-directory ${DEBUG_FILE_DIR}" \
-  --eval-command "set prompt (cros-gdb) " \
-  --eval-command "${DEBUG_FILE_CMD}" \
-  --eval-command "file ${1}" \
-  --eval-command "${CORE_CMD}"
+# TODO: Delete after ~May 2018.
+exec cat << EOF
+$0 has been replaced with 'cros_gdb'.  Please update your workflow and
+file any bugs about missing functionality at https://crbug.com/new.
+EOF
