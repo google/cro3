@@ -1,9 +1,0 @@
-#!/bin/bash
-
-# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
-# Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSE file.
-
-# Script that allows ebuilds to ssh without prompting or touching
-# ~/.ssh/known_hosts in the sandbox.
-ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/dev/null $@
