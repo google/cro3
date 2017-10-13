@@ -99,6 +99,9 @@ PASS_THROUGH_VARS=(
   CROS_WORKON_MAKE_COMPILE_ARGS
   # Common test vars.
   GTEST_ARGS
+  # Platform eclass vars.
+  P2_TEST_FILTER
+  P2_VMODULE
 )
 
 # Determine if we're going to do tests, set up commands appropriately.
