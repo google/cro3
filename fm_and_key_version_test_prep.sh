@@ -44,7 +44,7 @@ replace_fmap_section() {
   local data="$3"
 
   # format: NAME OFFSET SIZE
-  local info="$(dump_fmap -p "${image}" "${section}")"
+  local info="$(futility dump_fmap -p "${image}" "${section}")"
   local name offset size
   read name offset size <<<"${info}"
 
@@ -301,12 +301,13 @@ _${FLAGS_board}_testimage-channel_full_test.bin-000${i}.signed"
     -r "${ROOT_FS_DIR}" -s "${STATEFUL_FS_DIR}"
   sh "${ROOT_FS_DIR}"/usr/sbin/chromeos-firmwareupdate \
     --sb_extract "${FW_TEMP_DIR}"
-  (cd "${FW_TEMP_DIR}"; dump_fmap -x bios.bin >/dev/null 2>&1)
-  gbb_utility --rootkey="${FW_TEMP_DIR}/rootkey" "${FW_TEMP_DIR}/GBB"
+  (cd "${FW_TEMP_DIR}"; futility dump_fmap -x bios.bin >/dev/null 2>&1)
+  futility gbb --rootkey="${FW_TEMP_DIR}/rootkey" "${FW_TEMP_DIR}/GBB"
   # In Alex/ZGB, A is signed with dev keyblock and B is normal block so we want
   # to check B first.
   for slot in B A; do
-    key_versions="$(vbutil_firmware --signpubkey "${FW_TEMP_DIR}/rootkey" \
+    key_versions="$(futility vbutil_firmware \
+                    --signpubkey "${FW_TEMP_DIR}/rootkey" \
                     --fv "${FW_TEMP_DIR}/FW_MAIN_${slot}" \
                     --verify "${FW_TEMP_DIR}/VBLOCK_${slot}")"
     data_key_version="$(echo "${key_versions}" |
