@@ -68,6 +68,8 @@ compatibility."
 # Specifying any of the following will cause it to not be cleaned up upon exit.
 DEFINE_string kern_path "" "File path for extracting the kernel partition."
 DEFINE_string root_path "" "File path for extracting the rootfs partition."
+DEFINE_string root_pretruncate_path "" "File path for extracting the rootfs \
+partition, pre-truncation."
 DEFINE_string src_kern_path "" \
   "File path for extracting the source kernel partition."
 DEFINE_string src_root_path "" \
@@ -210,16 +212,23 @@ ext2fs_size() {
   echo $(( fs_blocks * fs_blocksize ))
 }
 
-# extract_root <bin_file> <root_out>
+# extract_root <bin_file> <root_out> <root_pretruncate_out>
 # Extract the rootfs partition from the gpt image |bin_file| and store it in
-# |root_out|. If |root_out| is empty, a new temp file will be used. Prints the
-# filename where the rootfs was stored.
+# |root_out|. If |root_out| is empty, a new temp file will be used. If
+# |root_pretruncate_out| is non-empty, saves the pretruncated rootfs partition
+# there.  Prints the filename where the rootfs was stored.
 extract_root() {
   local bin_file="$1"
   local root_out="$2"
+  local root_pretruncate="$3"
 
   root_out=$(extract_partition_to_temp_file "${bin_file}" "${ROOTFS_PART_NUM}" \
     "${root_out}")
+
+  if [[ -n "${root_pretruncate}" ]]; then
+    echo "Saving pre-truncated root as ${root_pretruncate}." >&2
+    cp "${root_out}" "${root_pretruncate}"
+  fi
 
   # We only update the filesystem part of the partition, which is stored in the
   # gpt script.
@@ -249,13 +258,14 @@ if [[ "${FLAGS_extract}" -eq "${FLAGS_TRUE}" ]]; then
     SRC_KERN_PATH="${FLAGS_src_kern_path:-old_kern.dat}"
     SRC_ROOT_PATH="${FLAGS_src_root_path:-old_root.dat}"
     extract_kern "${FLAGS_src_image}" "${SRC_KERN_PATH}"
-    extract_root "${FLAGS_src_image}" "${SRC_ROOT_PATH}"
+    extract_root "${FLAGS_src_image}" "${SRC_ROOT_PATH}" ""
   fi
   if [[ -n "${FLAGS_image}" ]]; then
     KERN_PATH="${FLAGS_kern_path:-new_kern.dat}"
     ROOT_PATH="${FLAGS_root_path:-new_root.dat}"
     extract_kern "${FLAGS_image}" "${KERN_PATH}"
-    extract_root "${FLAGS_image}" "${ROOT_PATH}"
+    extract_root "${FLAGS_image}" "${ROOT_PATH}" \
+      "${FLAGS_root_pretruncate_path}"
   fi
   echo Done extracting kernel/root
   exit 0
@@ -285,13 +295,14 @@ if [[ "${DELTA}" -eq "${FLAGS_TRUE}" ]]; then
   else
     echo "Generating a full kernel update."
   fi
-  SRC_ROOT=$(extract_root "${FLAGS_src_image}" "${FLAGS_src_root_path}")
+  SRC_ROOT=$(extract_root "${FLAGS_src_image}" "${FLAGS_src_root_path}" "")
   echo md5sum of src root:
   md5sum "${SRC_ROOT}"
 fi
 
 DST_KERNEL=$(extract_kern "${FLAGS_image}" "${FLAGS_kern_path}")
-DST_ROOT=$(extract_root "${FLAGS_image}" "${FLAGS_root_path}")
+DST_ROOT=$(extract_root "${FLAGS_image}" "${FLAGS_root_path}" \
+  "${FLAGS_root_pretruncate_path}")
 
 GENERATOR_ARGS=(
   # Common payload args:
