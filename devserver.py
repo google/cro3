@@ -1027,6 +1027,35 @@ class DevServerRoot(object):
     return json.dumps(result_dict)
 
   @cherrypy.expose
+  def post_au_status(self, status, **kwargs):
+    """Updates the status of an auto-update task.
+
+    Callers will need to POST to this URL with a body of MIME-type
+    "multipart/form-data".
+    The body should include a single argument, 'status', containing the
+    AU status to record.
+
+    Args:
+      status: The updated status.
+      kwargs:
+        host_name: the hostname of the DUT to auto-update.
+        pid: the background process id of cros-update.
+    """
+    if 'host_name' not in kwargs:
+      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
+
+    if 'pid' not in kwargs:
+      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'pid'))
+
+    host_name = kwargs['host_name']
+    pid = kwargs['pid']
+    progress_tracker = cros_update_progress.AUProgress(host_name, pid)
+
+    progress_tracker.WriteStatus(status.rstrip())
+
+    return 'True'
+
+  @cherrypy.expose
   def handler_cleanup(self, **kwargs):
     """Clean track status log and temp directory for CrOS auto-update process.
 
