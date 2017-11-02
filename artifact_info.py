@@ -35,6 +35,9 @@ TEST_IMAGE = 'test_image'
 # The developer image - the base image with developer enhancements.
 DEV_IMAGE = 'dev_image'
 
+# The name of artifact to stage a quick provision payload.
+QUICK_PROVISION = 'quick_provision'
+
 #### Autotest related packages. ####
 
 # Autotest -- the main autotest directory without the test_suites subdir.

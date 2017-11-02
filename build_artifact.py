@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -49,6 +49,7 @@ TEST_IMAGE_FILE = 'chromiumos_test_image.tar.xz'
 RECOVERY_IMAGE_FILE = 'recovery_image.tar.xz'
 LIBIOTA_TEST_BINARIES_FILE = 'test_binaries.tar.gz'
 LIBIOTA_BOARD_UTILS_FILE = 'board_utils.tar.gz'
+QUICK_PROVISION_FILE = 'full_dev_part_*.bin.gz'
 
 ############ Actual filenames of Android build artifacts ############
 
@@ -659,6 +660,8 @@ _AddCrOSArtifact(artifact_info.FACTORY_IMAGE, BundledArtifact, FACTORY_FILE,
 _AddCrOSArtifact(artifact_info.FACTORY_SHIM_IMAGE, BundledArtifact,
                  FACTORY_SHIM_FILE,
                  files_to_extract=[devserver_constants.FACTORY_SHIM_IMAGE_FILE])
+_AddCrOSArtifact(artifact_info.QUICK_PROVISION, MultiArtifact,
+                 QUICK_PROVISION_FILE)
 
 # Add all the paygen_au artifacts in one go.
 for c in devserver_constants.CHANNELS:
