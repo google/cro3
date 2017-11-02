@@ -337,8 +337,11 @@ class Artifact(log_util.Loggable):
                 self.name, self.is_regex_name, timeout)
             self._UpdateName(new_names)
 
-          self._Log('Downloading file %s', self.name)
-          self.install_path = downloader.Fetch(self.name, real_install_dir)
+
+          files = self.name if isinstance(self.name, list) else [self.name]
+          for filename in files:
+            self._Log('Downloading file %s', filename)
+            self.install_path = downloader.Fetch(filename, real_install_dir)
           self._Setup()
           self._MarkArtifactStaged()
         except Exception as e:
@@ -377,6 +380,29 @@ class AUTestPayload(Artifact):
     # Reflect the rename in the list of installed files.
     self.installed_files.remove(install_path)
     self.installed_files = [new_install_path]
+
+
+class MultiArtifact(Artifact):
+  """Wrapper for artifacts where name matches multiple items.."""
+
+  def __init__(self, *args, **kwargs):
+    """Takes Artifact args.
+
+    Args:
+      *args: See Artifact documentation.
+      **kwargs: See Artifact documentation.
+    """
+    super(MultiArtifact, self).__init__(*args, **kwargs)
+    self.single_name = False
+
+  def _UpdateName(self, names):
+    self.name = names if isinstance(names, list) else [names]
+
+  def _Setup(self):
+    super(MultiArtifact, self)._Setup()
+
+    self.installed_files = [os.path.join(self.install_dir, self.install_subdir,
+                                         name) for name in self.name]
 
 
 class DeltaPayloadBase(AUTestPayload):
