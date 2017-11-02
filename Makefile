@@ -42,5 +42,8 @@ install:
 	mkdir -m0777 -p "${DESTDIR}/var/lib/devserver"
 	mkdir -m0777 -p "${DESTDIR}/var/lib/devserver/static"
 	mkdir -m0777 -p "${DESTDIR}/var/lib/devserver/static/cache"
+	install -m 0755 \
+		quick-provision/quick-provision \
+		"${DESTDIR}/var/lib/devserver/static"
 
 .PHONY: all devserver install

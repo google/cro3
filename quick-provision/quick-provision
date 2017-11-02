@@ -1,0 +1,234 @@
+#!/bin/bash
+
+# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+. /usr/share/misc/chromeos-common.sh || exit 1
+. /usr/share/misc/shflags || exit 1
+
+# For PARTITION_NUM_ROOT_A
+. /usr/sbin/write_gpt.sh || exit 1
+
+# Helpful constants.
+LOGFILE_PATH="/var/log/quick-provision.log"
+KERN_IMAGE="full_dev_part_KERN.bin.gz"
+ROOT_IMAGE="full_dev_part_ROOT.bin.gz"
+STATEFUL_TGZ="stateful.tgz"
+STATEFUL_DIR="/mnt/stateful_partition"
+UPDATE_STATE_FILE=".update_available"
+
+PROGRAM="$(basename $0)"
+FLAGS_HELP="Usage:
+  ${PROGRAM} [flags] <build> <url>
+"
+
+DEFINE_string logfile "${LOGFILE_PATH}" "Path to record logs to."
+DEFINE_string status_url "" "URL of devserver to post status to."
+
+# Parse command line.
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+
+usage() {
+  echo "$@"
+  echo
+  flags_help
+  exit 1
+}
+
+# Log an info line.
+info() {
+  local line="$*"
+
+  echo "$(date --rfc-3339=seconds) INFO: ${line}"
+}
+
+# Log an error line.
+error() {
+  local line="$*"
+
+  echo "$(date --rfc-3339=seconds) ERROR: ${line}" >&2
+}
+
+# Fatal with a message, updating status prior to exiting.
+die() {
+  local line="$*"
+
+  error "FATAL: ${line}"
+  post_status "FATAL: ${line}"
+  exit 1
+}
+
+# Attempt to post a status update for the provision process.
+# Requires status_url FLAGS to be set.
+post_status() {
+  local status="$*"
+
+  logger -t quick-provision "Updated status: ${status}"
+  info "Updated status: ${status}"
+
+  if [[ -n "${FLAGS_status_url}" ]]; then
+    # Send status in the background -- don't let an RPC call blockage hold up
+    # provisioning.  Ignore output unless there is an error.
+    curl -sS -o /dev/null -F "status=<-" "${FLAGS_status_url}" <<< "${status}" &
+  fi
+}
+
+# Retrieves a URL to stdout.
+get_url_to_stdout() {
+  local url="$1"
+
+  # TODO(davidriley): Switch to curl once curl has better retry/resume
+  # semantics.  See crbug.com/782416 for details.
+  # TODO(davidriley): Configure timeouts and retries.
+  # TODO(davidriley): curl options: --speed-time, --speed-limit,
+  #   --connect-timeout, --max-time, --retry, --retry-delay, --retry-max-time
+  if type wget >/dev/null 2>&1; then
+    wget --progress=dot:giga -S --retry-connrefused -O - "${url}"
+  else
+    curl "${url}"
+  fi
+}
+
+# Writes to a partition from stdin.
+write_partition() {
+  local part="$1"
+
+  # TODO(davidriley): Use tool that only verifies zero blocks before writing.
+  # conv=sparse assumes that zero blocks were previous zero so is not safe
+  # to use.
+  dd of="${part}" obs=2M
+}
+
+# Updates a partition on disk with a given gzip compressed partition URL.
+# Function will exit script on failure.
+update_partition() {
+  local url="$1"
+  local part="$2"
+
+  # TODO(davidriley): Enable blkdiscard when moving to verifying zero blocks
+  # before writing them.
+  # info blkdiscard ${part}
+  # blkdiscard ${part}
+
+  info Updating "${part}" with "${url}"
+  get_url_to_stdout "${url}" | gzip -d | write_partition "${part}"
+  local pipestatus=("${PIPESTATUS[@]}")
+  if [[ "${pipestatus[0]}" -ne "0" ]]; then
+    die "Retrieving ${url} failed. (statuses ${pipestatus[*]})"
+  elif [[ "${pipestatus[1]}" -ne "0" ]]; then
+    die "Decompressing ${url} failed. (statuses ${pipestatus[*]})"
+  elif [[ "${pipestatus[2]}" -ne "0" ]]; then
+    die "Writing to ${part} failed. (statuses ${pipestatus[*]})"
+  fi
+}
+
+# Performs a stateful update using a specified stateful.tgz URL.
+# Function will exit script on failure.
+stateful_update() {
+  local url="$1"
+
+  # Stateful reset.
+  info "Stateful reset"
+  post_status "DUT: Stateful reset"
+  rm -rf "${STATEFUL_DIR}/${UPDATE_STATE_FILE}" \
+    "${STATEFUL_DIR}/var_new" \
+    "${STATEFUL_DIR}/dev_image_new" || die "Unable to reset stateful."
+
+  # Stateful update.
+  info "Stateful update"
+  post_status "DUT: Stateful update"
+  get_url_to_stdout "${url}" |
+    tar --ignore-command-error --overwrite --directory="${STATEFUL_DIR}" -xzf -
+  local pipestatus=("${PIPESTATUS[@]}")
+  if [[ "${pipestatus[0]}" -ne "0" ]]; then
+    die "Retrieving ${url} failed. (statuses ${pipestatus[*]})"
+  elif [[ "${pipestatus[1]}" -ne "0" ]]; then
+    die "Untarring to ${STATEFUL_DIR} failed. (statuses ${pipestatus[*]})"
+  fi
+
+  # Stateful clean.
+  info "Stateful clean"
+  post_status "DUT: Stateful clean"
+  printf "clobber" > "${STATEFUL_DIR}/${UPDATE_STATE_FILE}" || \
+    die "Unable to clean stateful."
+}
+
+# Performs postinst and sets the next kernel.
+# Function will exit script on failure.
+set_next_kernel() {
+  local part="$1"
+
+  # TODO(davidriley): Fix postinst to avoid unnecessary operations like
+  # rewriting hashes and unnecessary delays.
+  info "Update next kernel to try (via postinst)"
+  local tmpmnt="$(mktemp -d)"
+  mount -o ro "${NEXT_ROOT}" "${tmpmnt}" || die "Unable to mount ${NEXT_ROOT}."
+  "${tmpmnt}/postinst" "${NEXT_ROOT}" || die "postinst failed."
+  umount "${tmpmnt}"
+  rmdir "${tmpmnt}"
+}
+
+main() {
+  if [[ $# -ne 2 ]]; then
+    usage "ERROR: Incorrect number of arguments."
+  fi
+  local build="$1"
+  local static_url="$2"
+
+  info "Provisioning ${build} from ${static_url}"
+
+  load_base_vars
+
+  local current_root="$(rootdev -s)"
+  local root_disk="$(rootdev -s -d)"
+  info "Current root ${current_root}, disk ${root_disk}"
+
+  if [[ "${current_root#${root_disk}}" == "p${PARTITION_NUM_ROOT_A}" ]]; then
+    NEXT_KERN_PART="${PARTITION_NUM_KERN_B}"
+    NEXT_KERN="${root_disk}p${NEXT_KERN_PART}"
+    NEXT_ROOT="${root_disk}p${PARTITION_NUM_ROOT_B}"
+  elif [[ "${current_root#${root_disk}}" == "p${PARTITION_NUM_ROOT_B}" ]]; then
+    NEXT_KERN_PART="${PARTITION_NUM_KERN_A}"
+    NEXT_KERN="${root_disk}p${NEXT_KERN_PART}"
+    NEXT_ROOT="${root_disk}p${PARTITION_NUM_ROOT_A}"
+  else
+    error "Unexpected root partition ${current_root}"
+    exit 1
+  fi
+
+  info "Will update kern ${NEXT_KERN}, root ${NEXT_ROOT}"
+
+  # Shutdown ui, update-engine
+  info "Shutting down ui, update-engine"
+  stop ui
+  stop update-engine
+
+  # Kernel.
+  info "Update kernel ${NEXT_KERN}"
+  post_status "DUT: Updating kernel ${NEXT_KERN}"
+  update_partition "${static_url}/${build}/${KERN_IMAGE}" ${NEXT_KERN}
+
+  # Rootfs.
+  info "Update rootfs ${NEXT_ROOT}"
+  post_status "DUT: Updating rootfs ${NEXT_ROOT}"
+  update_partition "${static_url}/${build}/${ROOT_IMAGE}" ${NEXT_ROOT}
+
+  # Stateful.
+  stateful_update "${static_url}/${build}/${STATEFUL_TGZ}"
+
+  # Boot the next kernel.
+  set_next_kernel "${NEXT_KERN_PART}"
+
+  # Reboot in the background, giving time for the ssh invocation to
+  # cleanly terminate.
+  info "Reboot (into ${build})"
+  post_status "DUT: Reboot"
+  (sleep 2; reboot) &
+}
+
+main "$@" |& tee -a "${FLAGS_logfile}"
+
+# Return the exit status of the main function.
+exit "${PIPESTATUS[0]}"
