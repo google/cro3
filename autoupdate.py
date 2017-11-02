@@ -710,13 +710,19 @@ class Autoupdate(build_util.BuildObject):
       raise common_util.DevServerHTTPError(
           400, 'Omaha requests need a valid update channel')
 
-  def _GetStaticUrl(self):
-    """Returns the static url base that should prefix all payload responses."""
+  def GetDevserverUrl(self):
+    """Returns the devserver url base."""
     x_forwarded_host = cherrypy.request.headers.get('X-Forwarded-Host')
     if x_forwarded_host:
       hostname = 'http://' + x_forwarded_host
     else:
       hostname = cherrypy.request.base
+
+    return hostname
+
+  def GetStaticUrl(self):
+    """Returns the static url base that should prefix all payload responses."""
+    hostname = self.GetDevserverUrl()
 
     if self.urlbase:
       static_urlbase = self.urlbase
@@ -864,7 +870,7 @@ class Autoupdate(build_util.BuildObject):
     """
     # Get the static url base that will form that base of our update url e.g.
     # http://hostname:8080/static/update.gz.
-    static_urlbase = self._GetStaticUrl()
+    static_urlbase = self.GetStaticUrl()
 
     # Parse the XML we got into the components we care about.
     protocol, app, event, update_check = autoupdate_lib.ParseUpdateRequest(data)

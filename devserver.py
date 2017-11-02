@@ -902,6 +902,7 @@ class DevServerRoot(object):
           reimage. If False, try stateful update first if the dut is already
           installed with the same version.
         async: Whether the auto_update function is ran in the background.
+        quick_provision: Whether the quick provision path is attempted first.
 
     Returns:
       A tuple includes two elements:
@@ -919,6 +920,10 @@ class DevServerRoot(object):
     original_build = _parse_string_arg(kwargs, 'original_build')
     payload_filename = _parse_string_arg(kwargs, 'payload_filename')
     clobber_stateful = _parse_boolean_arg(kwargs, 'clobber_stateful')
+    quick_provision = _parse_boolean_arg(kwargs, 'quick_provision')
+
+    devserver_url = updater.GetDevserverUrl()
+    static_url = updater.GetStaticUrl()
 
     if async:
       path = os.path.dirname(os.path.abspath(__file__))
@@ -948,6 +953,15 @@ class DevServerRoot(object):
       if clobber_stateful:
         args = ('%s --clobber_stateful' % args)
 
+      if quick_provision:
+        args = ('%s --quick_provision' % args)
+
+      if devserver_url:
+        args = ('%s --devserver_url %s' % (args, devserver_url))
+
+      if static_url:
+        args = ('%s --static_url %s' % (args, static_url))
+
       p = subprocess.Popen([args], shell=True, preexec_fn=os.setsid)
       pid = os.getpgid(p.pid)
 
@@ -960,7 +974,9 @@ class DevServerRoot(object):
     else:
       cros_update_trigger = cros_update.CrOSUpdateTrigger(
           host_name, build_name, updater.static_dir, force_update=force_update,
-          full_update=full_update, original_build=original_build)
+          full_update=full_update, original_build=original_build,
+          quick_provision=quick_provision, devserver_url=devserver_url,
+          static_url=static_url)
       cros_update_trigger.TriggerAU()
       return json.dumps((True, -1))
 
