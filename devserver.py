@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 
 # Copyright (c) 2009-2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -42,7 +42,7 @@ how to update and which payload to give to a requester.
 from __future__ import print_function
 
 import json
-import optparse
+import optparse  # pylint: disable=deprecated-module
 import os
 import re
 import shutil
@@ -57,8 +57,10 @@ import types
 from logging import handlers
 
 import cherrypy
+# pylint: disable=no-name-in-module
 from cherrypy import _cplogging as cplogging
-from cherrypy.process import plugins
+from cherrypy.process import plugins # pylint: disable=import-error
+# pylint: enable=no-name-in-module
 
 # This must happen before any local modules get a chance to import
 # anything from chromite.  Otherwise, really bad things will happen, and
@@ -391,39 +393,38 @@ def _GetConfig(options):
   cherrypy.tools.update_timestamp = cherrypy.Tool(
       'on_end_resource', _GetUpdateTimestampHandler(options.static_dir))
 
-  base_config = {'global':
-                 {'server.log_request_headers': True,
-                  'server.protocol_version': 'HTTP/1.1',
-                  'server.socket_host': socket_host,
-                  'server.socket_port': int(options.port),
-                  'response.timeout': 6000,
-                  'request.show_tracebacks': True,
-                  'server.socket_timeout': 60,
-                  'server.thread_pool': 2,
-                  'engine.autoreload.on': False,
-                 },
-                 '/api':
-                 {
-                  # Gets rid of cherrypy parsing post file for args.
-                  'request.process_request_body': False,
-                 },
-                 '/build':
-                 {'response.timeout': 100000,
-                 },
-                 '/update':
-                 {
-                  # Gets rid of cherrypy parsing post file for args.
-                  'request.process_request_body': False,
-                  'response.timeout': 10000,
-                 },
-                 # Sets up the static dir for file hosting.
-                 '/static':
-                 {'tools.staticdir.dir': options.static_dir,
-                  'tools.staticdir.on': True,
-                  'response.timeout': 10000,
-                  'tools.update_timestamp.on': True,
-                 },
-               }
+  base_config = {
+      'global': {
+          'server.log_request_headers': True,
+          'server.protocol_version': 'HTTP/1.1',
+          'server.socket_host': socket_host,
+          'server.socket_port': int(options.port),
+          'response.timeout': 6000,
+          'request.show_tracebacks': True,
+          'server.socket_timeout': 60,
+          'server.thread_pool': 2,
+          'engine.autoreload.on': False,
+      },
+      '/api': {
+          # Gets rid of cherrypy parsing post file for args.
+          'request.process_request_body': False,
+      },
+      '/build': {
+          'response.timeout': 100000,
+      },
+      '/update': {
+          # Gets rid of cherrypy parsing post file for args.
+          'request.process_request_body': False,
+          'response.timeout': 10000,
+      },
+      # Sets up the static dir for file hosting.
+      '/static': {
+          'tools.staticdir.dir': options.static_dir,
+          'tools.staticdir.on': True,
+          'response.timeout': 10000,
+          'tools.update_timestamp.on': True,
+      },
+  }
   if options.production:
     base_config['global'].update({'server.thread_pool': 150})
     # TODO(sosa): Do this more cleanly.
