@@ -291,7 +291,7 @@ def ShowIP(unused_args=0):
 def KillChrome(unused_args=0):
   """Kills all chrome processes and prevents restarting of chrome."""
   res = True
-  res &= _RunCommand(["touch", "/var/run/disable_chrome_restart"])
+  res &= _RunCommand(["touch", "/run/disable_chrome_restart"])
   res &= _RunCommand(["sudo", "pkill", "-9", "chrome"])
   return res
 
