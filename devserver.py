@@ -156,7 +156,7 @@ STATS_INTERVAL = 10.0
 # Auto-update parameters
 
 # Error msg for missing key in CrOS auto-update.
-KEY_ERROR_MSG = 'Key Error in cmd %s: %s= is required'
+KEY_ERROR_MSG = 'Key Error in RPC: %s= is required'
 
 # Command of running auto-update.
 AUTO_UPDATE_CMD = '/usr/bin/python -u %s -d %s -b %s --static_dir %s'
