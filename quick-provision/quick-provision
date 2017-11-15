@@ -185,6 +185,7 @@ main() {
   local root_disk="$(rootdev -s -d)"
   info "Current root ${current_root}, disk ${root_disk}"
 
+  # Handle both /dev/mmcblk0pX and /dev/sdaX style partitions.
   if [[ "${current_root#${root_disk}}" == "p${PARTITION_NUM_ROOT_A}" ]]; then
     NEXT_KERN_PART="${PARTITION_NUM_KERN_B}"
     NEXT_KERN="${root_disk}p${NEXT_KERN_PART}"
@@ -193,6 +194,14 @@ main() {
     NEXT_KERN_PART="${PARTITION_NUM_KERN_A}"
     NEXT_KERN="${root_disk}p${NEXT_KERN_PART}"
     NEXT_ROOT="${root_disk}p${PARTITION_NUM_ROOT_A}"
+  elif [[ "${current_root#${root_disk}}" == "${PARTITION_NUM_ROOT_A}" ]]; then
+    NEXT_KERN_PART="${PARTITION_NUM_KERN_B}"
+    NEXT_KERN="${root_disk}${NEXT_KERN_PART}"
+    NEXT_ROOT="${root_disk}${PARTITION_NUM_ROOT_B}"
+  elif [[ "${current_root#${root_disk}}" == "${PARTITION_NUM_ROOT_B}" ]]; then
+    NEXT_KERN_PART="${PARTITION_NUM_KERN_A}"
+    NEXT_KERN="${root_disk}${NEXT_KERN_PART}"
+    NEXT_ROOT="${root_disk}${PARTITION_NUM_ROOT_A}"
   else
     error "Unexpected root partition ${current_root}"
     exit 1
