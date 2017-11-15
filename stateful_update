@@ -41,7 +41,7 @@ remove_quotes() {
 
 download_stateful_payload(){
   # Download and unzip directories onto the stateful partition.
-  eval "wget -qS -T 300 -O - \"${stateful_update_url}\"" |
+  eval "curl --silent --max-time 300 \"${stateful_update_url}\"" |
       tar --ignore-command-error --overwrite --directory=${STATEFUL_DIR} -xz
 }
 
