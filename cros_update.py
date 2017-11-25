@@ -28,6 +28,7 @@ import cros_update_logging
 import cros_update_progress
 import logging # pylint: disable=cros-logging-import
 import os
+import re
 import sys
 import time
 import traceback
@@ -219,7 +220,12 @@ class CrOSUpdateTrigger(object):
     """Performs a quick provision of device.
 
     Returns:
-      A CommandResult of the invocation.
+      A dictionary of extracted key-value pairs returned from the script
+      execution.
+
+    Raises:
+      cros_build_lib.RunCommandError: error executing command or script
+      remote_access.SSHConnectionError: SSH connection error
     """
     pid = os.getpid()
     pgid = os.getpgid(pid)
@@ -235,7 +241,12 @@ class CrOSUpdateTrigger(object):
                dut_script, cros_build_lib.ShellQuote(status_url),
                self.build_name, self.static_url
            )
-    return device.RunCommand(cmd, log_output=True)
+    results = device.RunCommand(cmd, log_output=True, capture_output=True)
+    key_re = re.compile(r'^KEYVAL: ([^\d\W]\w*)=(.*)$')
+    matches = [key_re.match(l) for l in results.output.splitlines()]
+    keyvals = {m.group(1): m.group(2) for m in matches if m}
+    logging.debug("DUT returned keyvals: %s" % keyvals)
+    return keyvals
 
   def TriggerAU(self):
     """Execute auto update for cros_host.

@@ -51,6 +51,13 @@ error() {
   echo "$(date --rfc-3339=seconds) ERROR: ${line}" >&2
 }
 
+# Log a keyval.
+keyval() {
+  local line="$*"
+
+  echo "KEYVAL: ${line}"
+}
+
 # Fatal with a message, updating status prior to exiting.
 die() {
   local line="$*"
@@ -178,12 +185,16 @@ main() {
   local static_url="$2"
 
   info "Provisioning ${build} from ${static_url}"
+  keyval "BOOT_ID=$(</proc/sys/kernel/random/boot_id)"
+  keyval "$(grep CHROMEOS_RELEASE_BUILDER_PATH /etc/lsb-release | \
+            sed -e s/CHROMEOS_RELEASE_BUILDER_PATH/ORIGINAL_BUILD/)"
 
   load_base_vars
 
   local current_root="$(rootdev -s)"
   local root_disk="$(rootdev -s -d)"
   info "Current root ${current_root}, disk ${root_disk}"
+  keyval "CURRENT_ROOT=${current_root}"
 
   # Handle both /dev/mmcblk0pX and /dev/sdaX style partitions.
   if [[ "${current_root#${root_disk}}" == "p${PARTITION_NUM_ROOT_A}" ]]; then
