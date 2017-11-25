@@ -1065,9 +1065,11 @@ class DevServerRoot(object):
 
     host_name = kwargs['host_name']
     pid = kwargs['pid']
+    status = status.rstrip()
+    _Log('Recording status for %s (%s): %s' % (host_name, pid, status))
     progress_tracker = cros_update_progress.AUProgress(host_name, pid)
 
-    progress_tracker.WriteStatus(status.rstrip())
+    progress_tracker.WriteStatus(status)
 
     return 'True'
 
