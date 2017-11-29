@@ -664,9 +664,13 @@ class XBuddy(build_util.BuildObject):
 
     build_ids = []
     for b in os.listdir(self.images_dir):
+      # Ignore random files in the build dir.
+      board_dir = os.path.join(self.images_dir, b)
+      if not os.path.isdir(board_dir):
+        continue
+
       # Ensure we have directories to track all boards in build/images
       common_util.MkDirP(os.path.join(self.static_dir, b))
-      board_dir = os.path.join(self.images_dir, b)
       build_ids.extend(['/'.join([b, v]) for v
                         in os.listdir(board_dir) if not v == LATEST])
 
