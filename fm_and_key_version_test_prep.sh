@@ -76,7 +76,9 @@ assert_value() {
 assert_inside_chroot
 
 DEFINE_integer iterations 5 "Iterations to run" x
-DEFINE_string board "$FLAGS_board" "Board for which the image was built" b
+DEFINE_string board "$FLAGS_board" \
+"Board or family, for which the image was built" b
+DEFINE_string model "$FLAGS_model" "Model of the device under test" m
 DEFINE_string image "$FLAGS_image" "Location of the test image file" i
 DEFINE_string firmware_ver "$FLAGS_firmware_ver" "New firmware version" f
 DEFINE_string firmware_src "$FLAGS_firmware_src" \
@@ -194,10 +196,17 @@ do
   mkdir work
   ./chromeos-firmwareupdate-test$i --sb_extract work/
 
+  if [[ -n ${FLAGS_model} ]]; then
+   EXTRACTED_AP_FIRMWARE="$(. "./work/models/${FLAGS_model}/setvars.sh";
+                            echo "${IMAGE_MAIN}")"
+  else
+    EXTRACTED_AP_FIRMWARE="bios.bin"
+  fi
+
   info "Copying new bios ${SIGNED_BIN} into ${WORKING_UPDATER}-test$i"
-  sudo cp ${SIGNED_BIN} work/bios.bin
+  sudo cp "${SIGNED_BIN}" "work/${EXTRACTED_AP_FIRMWARE}"
   info "Dumping keys of the firmware image:"
-  vbutil_what_keys work/bios.bin
+  vbutil_what_keys "work/${EXTRACTED_AP_FIRMWARE}"
   ./chromeos-firmwareupdate-test$i --sb_repack work/
   rm -r work
 done
@@ -301,7 +310,8 @@ _${FLAGS_board}_testimage-channel_full_test.bin-000${i}.signed"
     -r "${ROOT_FS_DIR}" -s "${STATEFUL_FS_DIR}"
   sh "${ROOT_FS_DIR}"/usr/sbin/chromeos-firmwareupdate \
     --sb_extract "${FW_TEMP_DIR}"
-  (cd "${FW_TEMP_DIR}"; futility dump_fmap -x bios.bin >/dev/null 2>&1)
+  (cd "${FW_TEMP_DIR}"; futility dump_fmap -x "${EXTRACTED_AP_FIRMWARE}" \
+    >/dev/null 2>&1)
   futility gbb --rootkey="${FW_TEMP_DIR}/rootkey" "${FW_TEMP_DIR}/GBB"
   # In Alex/ZGB, A is signed with dev keyblock and B is normal block so we want
   # to check B first.
