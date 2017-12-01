@@ -245,7 +245,7 @@ class CrOSUpdateTrigger(object):
     key_re = re.compile(r'^KEYVAL: ([^\d\W]\w*)=(.*)$')
     matches = [key_re.match(l) for l in results.output.splitlines()]
     keyvals = {m.group(1): m.group(2) for m in matches if m}
-    logging.debug("DUT returned keyvals: %s" % keyvals)
+    logging.info("DUT returned keyvals: %s", keyvals)
     return keyvals
 
   def TriggerAU(self):
@@ -282,14 +282,15 @@ class CrOSUpdateTrigger(object):
         # Allow fall back if the quick provision does not succeed.
         invoke_autoupdate = True
 
-        if self.quick_provision:
+        if (self.quick_provision and self.clobber_stateful and
+            not self.full_update):
           try:
             logging.debug('Start CrOS quick provision process...')
             self._WriteAUStatus('Start Quick Provision')
-            self._QuickProvision(device)
+            keyvals = self._QuickProvision(device)
             logging.debug('Start CrOS check process...')
             self._WriteAUStatus('Finish Quick Provision, post-check')
-            chromeos_AU.PostCheckCrOSUpdate()
+            chromeos_AU.PostCheckCrOSUpdate(keyvals.get('BOOT_ID'))
             self._WriteAUStatus(cros_update_progress.FINISHED)
             invoke_autoupdate = False
           except (cros_build_lib.RunCommandError,
