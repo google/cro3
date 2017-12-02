@@ -18,6 +18,10 @@ STATEFUL_TGZ="stateful.tgz"
 STATEFUL_DIR="/mnt/stateful_partition"
 UPDATE_STATE_FILE=".update_available"
 
+# Persistent file to log the hashes of contents of files downloaded from
+# the devserver to help debug crbug.com/788473.
+HASHES_LOG="/tmp/hashes"
+
 PROGRAM="$(basename $0)"
 FLAGS_HELP="Usage:
   ${PROGRAM} [flags] <build> <url>
@@ -118,7 +122,8 @@ get_url_to_stdout() {
   # TODO(davidriley): curl options: --speed-time, --speed-limit,
   #   --connect-timeout, --max-time, --retry, --retry-delay, --retry-max-time
   if type wget >/dev/null 2>&1; then
-    wget --progress=dot:giga -S --retry-connrefused -O - "${url}"
+    wget --progress=dot:giga -S --retry-connrefused -O - "${url}" | \
+      tee >(md5sum >>"${HASHES_LOG}")
   else
     curl "${url}"
   fi
@@ -203,6 +208,8 @@ set_next_kernel() {
   umount "${tmpmnt}"
   rmdir "${tmpmnt}"
   if [[ "${retval}" -ne "0" ]]; then
+    echo "Downloaded hashes prior to postinst failure:"
+    cat "${HASHES_LOG}"
     die "postinst failed."
   fi
 }
