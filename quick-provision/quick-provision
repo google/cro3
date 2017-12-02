@@ -198,9 +198,13 @@ set_next_kernel() {
   info "Update next kernel to try (via postinst)"
   local tmpmnt="$(mktemp -d)"
   mount -o ro "${NEXT_ROOT}" "${tmpmnt}" || die "Unable to mount ${NEXT_ROOT}."
-  "${tmpmnt}/postinst" "${NEXT_ROOT}" || die "postinst failed."
+  "${tmpmnt}/postinst" "${NEXT_ROOT}"
+  local retval="$?"
   umount "${tmpmnt}"
   rmdir "${tmpmnt}"
+  if [[ "${retval}" -ne "0" ]]; then
+    die "postinst failed."
+  fi
 }
 
 main() {
