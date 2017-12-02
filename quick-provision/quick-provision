@@ -67,6 +67,32 @@ die() {
   exit 1
 }
 
+# Get the current time as a timestamp.
+get_timestamp() {
+  date +%s
+}
+
+# Generate keyvals based on the timing of an event.
+end_timing() {
+  local start_time="$1"
+  local event_name="$2"
+
+  local end_time="$(get_timestamp)"
+  local elapsed_time="$((end_time - start_time))"
+
+  keyval "${event_name}_start=${start_time}"
+  keyval "${event_name}_end=${end_time}"
+  keyval "${event_name}_elapsed=${elapsed_time}"
+}
+
+time_cmd() {
+  local event_name="$1"
+  shift
+  local start_time="$(get_timestamp)"
+  "$@"
+  end_timing "${start_time}" "${event_name}"
+}
+
 # Attempt to post a status update for the provision process.
 # Requires status_url FLAGS to be set.
 post_status() {
@@ -116,8 +142,8 @@ update_partition() {
 
   # TODO(davidriley): Enable blkdiscard when moving to verifying zero blocks
   # before writing them.
-  # info blkdiscard ${part}
-  # blkdiscard ${part}
+  # info blkdiscard "${part}"
+  # blkdiscard "${part}"
 
   info Updating "${part}" with "${url}"
   get_url_to_stdout "${url}" | gzip -d | write_partition "${part}"
@@ -178,11 +204,13 @@ set_next_kernel() {
 }
 
 main() {
-  if [[ $# -ne 2 ]]; then
+  if [[ "$#" -ne 2 ]]; then
     usage "ERROR: Incorrect number of arguments."
   fi
   local build="$1"
   local static_url="$2"
+
+  local script_start_time="$(get_timestamp)"
 
   info "Provisioning ${build} from ${static_url}"
   keyval "BOOT_ID=$(</proc/sys/kernel/random/boot_id)"
@@ -228,24 +256,30 @@ main() {
   # Kernel.
   info "Update kernel ${NEXT_KERN}"
   post_status "DUT: Updating kernel ${NEXT_KERN}"
-  update_partition "${static_url}/${build}/${KERN_IMAGE}" ${NEXT_KERN}
+  time_cmd UPDATE_KERNEL \
+    update_partition "${static_url}/${build}/${KERN_IMAGE}" ${NEXT_KERN}
 
   # Rootfs.
   info "Update rootfs ${NEXT_ROOT}"
   post_status "DUT: Updating rootfs ${NEXT_ROOT}"
-  update_partition "${static_url}/${build}/${ROOT_IMAGE}" ${NEXT_ROOT}
+  time_cmd UPDATE_ROOTFS \
+    update_partition "${static_url}/${build}/${ROOT_IMAGE}" ${NEXT_ROOT}
 
   # Stateful.
-  stateful_update "${static_url}/${build}/${STATEFUL_TGZ}"
+  time_cmd UPDATE_STATEFUL \
+    stateful_update "${static_url}/${build}/${STATEFUL_TGZ}"
 
   # Boot the next kernel.
-  set_next_kernel "${NEXT_KERN_PART}"
+  time_cmd SET_NEXT_KERNEL \
+    set_next_kernel "${NEXT_KERN_PART}"
 
   # Reboot in the background, giving time for the ssh invocation to
   # cleanly terminate.
   info "Reboot (into ${build})"
   post_status "DUT: Reboot"
   (sleep 2; reboot) &
+
+  end_timing "${script_start_time}" QUICK_PROVISION
 }
 
 main "$@" |& tee -a "${FLAGS_logfile}"
