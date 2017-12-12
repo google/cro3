@@ -1,0 +1,828 @@
+#!/bin/bash
+#
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Script to merge upstream tags into chromeos.
+# The command creates a new branch with merge results.
+# If necessary, it also pushes the tag into the remote
+# repository and creates a branch pointing to it.
+
+readonly notify_to="chromeos-kernel@google.com"
+readonly notify_cc="chromium-os-reviews@chromium.org"
+
+# Valid tag pattern.
+PATTERN="^v[2-9](\.[0-9]+)+$"
+PATTERN_RC="^v[2-9](\.[0-9]+)+-rc$"
+GLOB="v[2-9].*[0-9]"
+NUMBER="^[1-9][0-9]*$"
+
+if git help push | grep -q push-option; then
+    git_skip_validation="-o skip-validation"
+fi
+
+# Initial parameter values.
+changeid="" # Get Change-Id from CL or generate new Change-Id.
+bug=""      # Get Bug-Id from CL or provide on on command line.
+tag=""      # Tag to merge; must be provided on command line.
+force=0     # Do not override Change-Id / Bug-Id.
+prepare=0   # Do not prepare for upload.
+upload=0    # Do not upload into Gerrit.
+do_dryrun=0 # If 1, don't push anything upstream, don't send email.
+notify=0    # Do not send notification e-mail.
+deadline=3  # Feedback deadline (in days, default 3).
+changes=()  # List of uncommitted CLs to be applied prior to merge.
+patches=()  # List of patches to apply before committing merge.
+dependency="" # No dependency
+Subject=""  # default subject
+
+# derived parameters
+skip_merge=0    # Skip actual merge and upload.
+                # Will be set if tag has already been merged and force is true.
+
+readonly tmpfile=$(mktemp)
+
+trap 'rm -f "${tmpfile}"' EXIT
+trap 'exit 2' SIGHUP SIGINT SIGQUIT SIGTERM
+
+error() {
+  printf '%b: error: %b\n' "${0##*/}" "$*" >&2
+}
+
+die() {
+  error "$@"
+  exit 1
+}
+
+usage() {
+  cat <<-EOF
+Usage: ${0##*/} [options] tag
+
+Parameters:
+  tag           Tag, branch, or SHA to merge. Must be either a valid stable
+                branch release tag, a valid branch name, or a valid SHA.
+
+Options:
+  -b bug-id[,bug-id] ...
+                Bug-id or list of bug IDs. Must be valid buganizer or chromium
+                bug ID. Mandatory unless the merge branch already exists
+                locally or in Gerrit.
+  -c change-id  Change-Id as used by Gerrit. Optional.
+  -d deadline   Feedback deadline in days (default: ${deadline})
+  -f            Force. Override existing Change-Id and bug number.
+  -h            Display help text and exit.
+  -l change-id  Apply patch extracted from CL:change-id prior to merge.
+                May be repeated multiple times.
+  -n            Send notification e-mail to ${notify_to}.
+  -q dependency Add dependency (CQ-DEPEND=<dependency>)
+  -p            Prepare for upload into Gerrit. Implied if -u is specified.
+  -r            Name of branch to base merge on. Determined from stable
+                release tag or from target branch name if not provided.
+                Must be existing local branch. Will be pushed into gerrit
+                as part of the merge process if not already available in
+                gerrit, and has to follow gerrit commit rules.
+  -s            Simulate, or dry-run. Don't actually push anything into
+                gerrit, and don't send e-mails.
+  -S subject    Replace default subject line with provided string
+  -t            Target branch name. The branch must exist in the Chrome OS
+                repository.
+  -u            Upload merge into Gerrit.
+  -x patchfile	Patch to apply before committing merge. Patch will be applied
+		with "patch -p 1 < patchfile". May be repeated several times.
+EOF
+
+  if [[ $# -gt 0 ]]; then
+    echo
+    die "$@"
+  fi
+  exit 0
+}
+
+# Find and report remote.
+find_remote() {
+  local url="$1"
+  local remote
+
+  for remote in $(git remote 2>/dev/null); do
+    rurl=$(git remote get-url "${remote}")
+    # ignore trailing '/' when comparing repositories
+    if [[ "${rurl%/}" == "${url%/}" ]]; then
+      echo "${remote}"
+      break
+    fi
+  done
+}
+
+# Find remote. If there is no remote pointing to the referenced
+# kernel repository, create one.
+find_create_remote() {
+  local url="$1"
+  local default="$2"
+  local result
+
+  result="$(find_remote "${url}")"
+  if [[ -z "${result}" ]]; then
+    git remote add "${default}" "${url}"
+    result="${default}"
+  fi
+
+  echo "${result}"
+}
+
+# Find and report CrOS remote.
+# This is useful if the command runs on a checked out
+# tree with several remotes.
+find_chromeos() {
+  local url="https://chromium.googlesource.com/chromiumos/third_party/kernel"
+
+  find_remote "${url}"
+}
+
+# Find stable remote. If there is no remote pointing to the stable
+# kernel repository, create one.
+find_stable() {
+  local url="git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git"
+
+  find_create_remote "${url}" "stable"
+}
+
+# Find stable remote. If there is no remote pointing to the stable
+# kernel repository, create one.
+find_stable_rc() {
+  local url="git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable-rc.git"
+
+  find_create_remote "${url}" "stable-rc"
+}
+
+do_getparams() {
+  local bugs="" # List of bugs
+  local nbug="" # Numerical part of bug #, for validation.
+  local _bug
+  local option
+  local vtag
+
+  while getopts "b:c:d:fhl:npq:r:st:uS:x:" option; do
+    case ${option} in
+      b) bugs="${OPTARG}" ;;
+      c) changeid="Change-Id: ${OPTARG}" ;;
+      d) deadline="${OPTARG}"
+         if ! [[ "${deadline}" =~ ${NUMBER} ]]; then
+           die "Deadline must be numeric value > 0 (${deadline})"
+         fi
+         ;;
+      f) force=1 ;;
+      l) changes+=("${OPTARG}") ;;
+      n) notify=1 ;;
+      p) prepare=1 ;;
+      q) dependency="${OPTARG}" ;;
+      r) rbranch="${OPTARG}" ;;
+      t) tbranch="${OPTARG}" ;;
+      s) do_dryrun=1 ;;
+      S) Subject="${OPTARG}" ;;
+      u) upload=1 prepare=1 ;;
+      x) patches+=("${OPTARG}") ;;
+      h|?|*) usage ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+  tag=$1
+  if [[ -z "${tag}" ]]; then
+    usage "tag parameter is mandatory"
+  fi
+  vtag=$(echo "${tag}" | grep -E "${PATTERN}")
+  if [[ "${tag}" != "${vtag}" ]]; then
+    # Not a stable release tag, meaning we can not get it from a stable release.
+    # Maybe it is a stable release candidate.
+    vtag=$(echo "${tag}" | grep -E "${PATTERN_RC}")
+    if [[ "${tag}" != "${vtag}" ]]; then
+      # Make sure that the reference exists and bail out if not.
+      if ! git rev-parse --verify "${tag}" >/dev/null 2>&1; then
+        die "Unknown reference '${tag}'."
+      fi
+    else
+      die "${tag} references a stable release candidate. Not supported yet."
+    fi
+  fi
+  if [[ -n "${rbranch}" ]]; then
+    if ! git rev-parse --verify "${rbranch}" >/dev/null 2>&1; then
+      die "No such branch: ${rbranch}."
+    fi
+  fi
+  if [[ "${bugs}" =~ ${NUMBER} ]]; then  # default to crbug if numeric
+    bugs="chromium:${bugs}"
+  fi
+  if [[ -n "${bugs}" ]]; then
+    for _bug in ${bugs//,/ }; do
+      if [[ "${_bug}" == b:* ]]; then          # buganizer
+        nbug="${_bug##b:}"
+      elif [[ "${_bug}" == b/* ]]; then        # buganizer, alternative
+        nbug="${_bug##b/}"
+      elif [[ "${_bug}" == chromium:* ]]; then # crbug
+        nbug="${_bug##chromium:}"
+      fi
+      if [[ ! "${nbug}" =~ ${NUMBER} ]]; then
+          die "Invalid bug ID '${_bug}'."
+      fi
+    done
+    bug="BUG=${bugs}"
+  fi
+  dependency="${dependency:+CQ-DEPEND=${dependency}}"
+}
+
+# Validate environment and repository.
+# We need a couple of commands, the repository must be
+# a CrOS kernel repository, and it must be clean.
+do_validate() {
+  local gerrit
+  local chromeos
+  local jq
+
+  gerrit=$(which gerrit)
+  if [[ -z "${gerrit}" ]]; then
+    die "gerrit is required. Get from chromite or run from chroot."
+  fi
+  jq=$(which jq)
+  if [[ -z ${jq} ]]; then
+    die "jq is required. Install (apt-get install jq) or run from chroot."
+  fi
+  chromeos=$(find_chromeos)
+  if [[ -z ${chromeos} ]]; then
+    die "$(pwd) is not a Chromium OS kernel repository."
+  fi
+  if [[ -n "$(git status -s)" ]]; then
+    die "Requires clean repository."
+  fi
+  if [[ -n "${tbranch}" ]]; then
+    if ! git rev-parse --verify "${chromeos}/${tbranch}" >/dev/null 2>&1; then
+      die "No such branch: ${chromeos}/${tbranch}."
+    fi
+  fi
+}
+
+# Validate provided Change-IDs.
+do_validate_changeids() {
+  local cl
+  local ref
+
+  for cl in "${changes[@]}"; do
+    ref=$(gerrit --json search "change:${cl}" \
+          | jq ".[].currentPatchSet.ref")
+    if [[ -z "${ref}" ]]; then
+      die "No such Change-Id: ${cl}."
+    fi
+  done
+}
+
+# Initialize global variables, plus some more validation.
+do_setup() {
+  readonly stable=$(find_stable)
+  readonly stable_rc=$(find_stable_rc)
+  local vtag
+  local dvtag
+
+  # If a stable release tag is provided, we need to update stable
+  # at this point to get the tag if it is not already available.
+  vtag=$(echo "${tag}" | grep -E "${PATTERN}")
+  if [[ "${tag}" == "${vtag}" ]]; then
+    if ! git rev-parse --verify "${tag}" >/dev/null 2>&1; then
+      if ! git fetch "${stable}" > /dev/null 2>&1; then
+        die "Failed to update stable release."
+      fi
+      if ! git rev-parse --verify "${tag}" >/dev/null 2>&1; then
+        die "Reference ${tag} not available."
+      fi
+    fi
+  else
+    # This might be a stable release candidate.
+    vtag=$(echo "${tag}" | grep -E "${PATTERN_RC}")
+    if [[ "${tag}" == "${vtag}" ]]; then
+      git fetch "${stable_rc}" > /dev/null 2>&1
+      # The stable release tag is "vX.Y.Z-rc". Stable release candidate
+      # branches are named "remote/linux-X.Y.y".
+      # Extract 'X' and 'Y', create the remote branch name,
+      # clone/update the remote branch, and set a matching tag
+      # on top of it.
+
+      die "Stable release candidates are not yet supported."
+    fi
+  fi
+
+  readonly ctag=$(git describe --match "${GLOB}" --abbrev=0 "${tag}" \
+                     2>/dev/null | cut -f1,2 -d. | sed -e 's/v//')
+  readonly dtag=$(git describe --tags "${tag}")
+
+  # While we accept any valid reference as <tag>, we want it to be based
+  # on an existing release tag.
+  dbtag=${dtag%%-*}
+  dvtag=$(git describe --tags --abbrev=0 "${dtag}")
+  if [[ "${dbtag}" != "${dvtag}" ]]; then
+    die "${tag} (${dtag}) is not based on an existing release tag."
+  fi
+
+  readonly chromeos=$(find_chromeos)
+  if [[ -z "${chromeos}" ]]; then
+    die "Chromium OS kernel repository not found."
+  fi
+
+  # cbranch: Chromeos branch name
+  # mcbranch: local copy (baseline)
+  # ocbranch: remote (target) branch
+  #
+  # Note: This assumes that the target repository is ${chromeos},
+  # even if a remote branch has been specified. It might make sense
+  # to make this configurable.
+  if [[ -n "${tbranch}" ]]; then
+    readonly cbranch="${tbranch}"
+  else
+    readonly cbranch="chromeos-${ctag}"
+  fi
+  if [[ -n "${rbranch}" ]]; then
+    readonly ocbranch="${rbranch}"
+  else
+    readonly ocbranch="${chromeos}/${cbranch}"
+  fi
+
+  readonly mcbranch="merge/${cbranch}"
+
+  # Topic to use.
+  readonly topic="merge-${dtag}"
+
+  if ! git rev-parse --verify "${ocbranch}" >/dev/null 2>&1; then
+    usage "Invalid tag '${tag}': No such branch: '${ocbranch}'"
+  fi
+
+  # mbranch: Local branch used to execute the merge.
+  readonly mbranch="${mcbranch}-${dtag}"
+
+  # obranch: chromeos branch used as reference.
+  # May include local reverts from merge if necessary.
+  # If necessary, a branch with this name will be created locally and
+  # in the chromeos repository. It is necessary to perform the merge.
+  readonly obranch="stable-merge/linux/${dtag}"
+
+  if [[ ${do_dryrun} -ne 0 ]]; then
+    readonly dryrun="--dry-run"
+  fi
+
+  Subject="CHROMIUM: ${Subject:-Merge '${dtag}' into ${cbranch}}"
+}
+
+have_version() {
+  local tag
+  local tot_tag
+  local index
+  local v1
+  local v2
+  local vtag
+
+  tag=$1
+  vtag=$(echo "${tag}" | grep -E "${PATTERN}")
+  if [[ "${tag}" != "${vtag}" ]]; then
+    # Not a release tag, can not evaluate.
+    return 0
+  fi
+
+  tot_tag=$(git describe --match "v[2-9].*[0-9]" --abbrev=0 "${ocbranch}")
+
+  index=1
+  while true; do
+    v1=$(echo "${tag}" | cut -f${index} -d. | sed -e 's/[^0-9]//g')
+    v2=$(echo "${tot_tag}" | cut -f${index} -d. | sed -e 's/[^0-9]//g')
+    # If both version numbers are empty, we reached the end of the
+    # version number string, and the versions are equal.
+    # Return true.
+    if [[ -z "${v1}" && -z "${v2}" ]]; then
+      return 1
+    fi
+    # Interpret empty minor version numbers as version 0.
+    if [[ -z "${v1}" ]]; then
+      v1=0
+    fi
+    if [[ -z "${v2}" ]]; then
+      v2=0
+    fi
+    # If ToT version is larger than tag, return true.
+    if [[ ${v2} -gt ${v1} ]]; then
+      return 1
+    fi
+    # If tag version is targer than ToT, return false.
+    if [[ ${v2} -lt ${v1} ]]; then
+      return 0
+    fi
+    index=$((index + 1))
+  done
+}
+
+# Remove double quotes from beginning and end of a string, and
+# remove the escape character from double quotes within the string.
+dequote() {
+  local tmp="${1#\"}"    # beginning
+  tmp="${tmp%\"}"        # end
+  echo "${tmp//\\\"/\"}" # remove embedded escape characters
+}
+
+# Try to find the merge CL.
+# Walk through all CLs tagged with the merge topic
+# and try to find one with the expected subject line.
+# If found, set merge_cl to the respective value for later use.
+find_merge_cl() {
+  local cls
+  local cl
+  local subject
+
+  cls=($(gerrit --json search "hashtag:${topic}" \
+                    | jq ".[].number" | sed -e 's/"//g'))
+
+  for cl in "${cls[@]}"; do
+    subject=$(dequote "$(gerrit --json search "change:${cl}" \
+                         | jq ".[].subject")")
+    if [[ "${subject}" == "${Subject}" ]]; then
+      merge_cl="${cl}"
+      break
+    fi
+  done
+}
+
+# Prepare for merge.
+# - Update remotes.
+# - Verify that tag exists.
+# - Search for merge in gerrit. If it exists, validate bug ID and Change-Id.
+# - Push tag and reference branch into CrOS repository if necessary.
+do_prepare() {
+  local vtag
+  local obug
+  local ochangeid
+  local odependency
+  local ref
+
+  find_merge_cl
+
+  printf "Updating ${chromeos}..."
+  git fetch "${chromeos}" > /dev/null
+  printf "\nUpdating ${mcbranch} ..."
+  if git rev-parse --verify "${mcbranch}" >/dev/null 2>&1; then
+    if ! git checkout "${mcbranch}" >/dev/null 2>&1; then
+      die "Failed to check out '${mcbranch}'."
+    fi
+    git pull >/dev/null
+  else
+    if ! git checkout -b "${mcbranch}" "${ocbranch}"; then
+      die "Failed to create '${mcbranch}' from '${ocbranch}'."
+    fi
+  fi
+  echo
+
+  # Abort if chromeos already includes the tag unless 'force' is set.
+  if ! have_version "${dtag}"; then
+    if [[ ${force} -eq 0 ]]; then
+      die "Tag or reference '${tag}' already in '${ocbranch}'."
+    fi
+    echo "Warning: Tag '${tag}' already in '${ocbranch}'."
+    echo "Will not merge/notify/prepare/upload."
+    skip_merge=1
+    prepare=0
+    notify=0
+    upload=0
+  fi
+
+  if [[ -n "${merge_cl}" ]]; then
+    ref=$(dequote "$(gerrit --json search "change:${merge_cl}" \
+                     | jq ".[].currentPatchSet.ref")")
+  fi
+  if [[ -n "${ref}" ]]; then
+    if ! git fetch "${chromeos}" "${ref}" >/dev/null 2>&1; then
+      die "Failed to fetch '${ref}' from '${chromeos}'."
+    fi
+    git show -s --format=%B FETCH_HEAD > "${tmpfile}"
+  else
+    # We may have a local merge branch.
+    if git rev-parse --verify "${mbranch}" >/dev/null 2>&1; then
+      local subject
+
+      # Make sure the branch actually includes the merge we are looking for.
+      git show -s --format=%B "${mbranch}" > "${tmpfile}"
+      subject="$(head -n 1 "${tmpfile}")"
+      if [[ "${subject}" != "${Subject}" ]]; then
+        rm -f "${tmpfile}"
+        touch "${tmpfile}"
+      fi
+    else
+      rm -f "${tmpfile}"
+      touch "${tmpfile}"
+    fi
+  fi
+  obug=$(grep "^BUG=" "${tmpfile}")
+  if [[ -n "${bug}" && -n "${obug}" && "${bug}" != "${obug}" \
+          && ${force} -eq 0 ]]; then
+    die "Bug mismatch: '${bug}' <-> '${obug}'. Use -f to override."
+  fi
+  if [[ -z "${bug}" ]]; then
+    bug="${obug}"
+  fi
+  if [[ -z "${bug}" ]]; then
+    die "New merge: must specify bug ID."
+  fi
+  ochangeid=$(grep "^Change-Id:" "${tmpfile}")
+  if [[ -n "${changeid}" && -n "${ochangeid}" \
+          && "${changeid}" != "${ochangeid}" && ${force} -eq 0 ]]; then
+    die "Change-Id mismatch: '${changeid}' <-> '${ochangeid}'. Use -f to override."
+  fi
+  if [[ -z "${changeid}" ]]; then
+    changeid="${ochangeid}"
+  fi
+
+  odependency=$(grep "^CQ-DEPEND=" "${tmpfile}")
+  if [[ -n "${dependency}" && -n "${odependency}" && \
+        "${dependency}" != "${odependency}" && ${force} -eq 0 ]]; then
+    die "Dependency mismatch: '${dependency}' <-> '${odependency}'. Use -f to override."
+  fi
+  if [[ -z "${dependency}" ]]; then
+    dependency="${odependency}"
+  fi
+
+  # Check out local reference branch; create it if needed.
+  # It will be retained since it may be needed to apply reverts
+  # prior to executing the merge.
+  # It is the responsibility of the user to remove it after it is
+  # no longer needed.
+  # Note: git rev-parse returns success if ${obranch} includes an
+  # abbreviated SHA. It also returns success if a _remote_ branch
+  # with the same name exists. So let's use show-ref instead.
+  # if ! git rev-parse --verify --quiet "${obranch}"; then
+  if ! git show-ref --verify --quiet "refs/heads/${obranch}"; then
+    if ! git checkout -b "${obranch}" "${tag}"; then
+      die "Failed to create '${obranch}' from '${tag}'."
+    fi
+  else
+    if ! git checkout "${obranch}"; then
+      die "Failed to check out '${obranch}'."
+    fi
+  fi
+
+  if [[ ${prepare} -ne 0 ]]; then
+    # Push reference branch as well as the tag into the CrOS repository.
+    # Assume linear changes only; if the reference branch is reparented,
+    # the user has to explicitly update or remove the remote branch.
+    # Only push tag if it is a release tag; otherwise we neither want nor
+    # need it in the CrOS repository.
+    vtag=$(echo "${tag}" | grep -E "${PATTERN}")
+    if [[ -n "${vtag}" ]]; then
+      git push ${git_skip_validation} --no-verify ${dryrun} "${chromeos}" "refs/tags/${tag}"
+    else
+      echo "${tag} is not a release tag, not pushed"
+    fi
+    if ! git push ${git_skip_validation} --no-verify ${dryrun} "${chromeos}" "${obranch}"; then
+      die "Failed to upload '${obranch}' into '${chromeos}'."
+    fi
+  fi
+}
+
+gitismerge()
+{
+    local sha="$1"
+    local msha
+
+    msha=$(git rev-list -1 --merges "${sha}"~1.."${sha}")
+    [[ -n "$msha" ]]
+}
+
+# Apply patches from gerrit CLs into merge branch.
+do_apply_changes() {
+  local cl
+  local ref
+
+  for cl in "${changes[@]}"; do
+    echo "Applying CL:${cl}"
+    ref=$(dequote "$(gerrit --json search "change:${cl}" \
+                     | jq ".[].currentPatchSet.ref" | head -n1)")
+    if [[ -z "${ref}" ]]; then
+      die "Patch set for CL:${cl} not found."
+    fi
+    if ! git fetch "${chromeos}" "${ref}" >/dev/null 2>&1; then
+      die "Failed to fetch CL:${cl}."
+    fi
+    if gitismerge FETCH_HEAD; then
+      # git cherry-pick -m <parent> does not work since it pulls in
+      # the merge as single commit. This messes up history and was
+      # seen to result in obscure and avoidable conflicts.
+      if ! git merge --no-edit FETCH_HEAD; then
+        die "Failed to merge CL:${cl} into merge branch."
+      fi
+    else
+      if ! git cherry-pick FETCH_HEAD; then
+        die "Failed to cherry-pick CL:${cl} into merge branch."
+      fi
+    fi
+  done
+}
+
+# Do the merge.
+# - Create merge branch.
+# - Merge.
+# - Handle conflicts [abort if there are unhandled conflicts].
+# - Create detailed merge commit log.
+do_merge() {
+  # xbranch: Name of branch to merge.
+  # ref: Baseline reference for request-pull.
+  local xbranch
+  local ref
+  local patch
+
+  git branch -D "${mbranch}" >/dev/null 2>&1
+  if ! git checkout -b "${mbranch}" "${ocbranch}"; then
+    die "Failed to create merge branch '${mbranch}'."
+  fi
+
+  if [[ ${prepare} -eq 0 ]]; then
+    xbranch="${obranch}"
+  else
+    xbranch="${chromeos}/${obranch}"
+  fi
+
+  do_apply_changes
+  ref=$(git rev-parse HEAD)
+
+  # Do the merge.
+  # Use --no-ff to ensure this is always handled as merge, even for linear
+  # merges. Otherwise linear merges would succeed and move the branch HEAD
+  # forward even though --no-commit is specified. This lets us add an
+  # explicit merge commit log.
+  conflicts=()
+  if ! git merge --no-commit --no-ff "${xbranch}" > "${tmpfile}"; then
+    files=$(git rerere status)
+    if [[ -n "${files}" ]]; then
+      error "Unresolved conflicts: ${files}."
+      die "Please fix, commit, and repeat merge. Make sure you have 'git rerere' enabled."
+    fi
+    echo "All conflicts resolved, continuing"
+    conflicts=($(grep CONFLICT "${tmpfile}" \
+                 | sed -e 's/.*Merge conflict in //'))
+  fi
+
+  # Note: The following is no longer needed in recent versions of git.
+  # Keep it around since it does not hurt.
+  if [[ ${#conflicts[@]} -gt 0 ]]; then
+    git add ${conflicts[*]}
+  fi
+
+  for patch in "${patches[@]}"; do
+    if ! patch -p 1 < "${patch}" >"${tmpfile}"; then
+      die "Failed to apply patch ${patch}"
+    fi
+    if ! git add $(sed -e 's/.* //' "${tmpfile}"); then
+      die "Failed to add patched files to git commit list"
+    fi
+  done
+
+  if ! git commit -s --no-edit; then
+    die "Failed to commit merge."
+  fi
+
+  # Update commit message.
+
+  ( echo "${Subject}"
+    echo
+    echo "Merge of ${tag} into ${cbranch}"
+    echo
+  ) > "${tmpfile}"
+
+  # Add conflicts to description.
+  if [[ ${#conflicts[@]} -gt 0 ]]; then
+    (
+      echo "Conflicts:"
+      for conflict in "${conflicts[@]}"; do
+        echo "    ${conflict}"
+      done
+      echo
+    ) >> "${tmpfile}"
+  fi
+
+  if [[ -n "$(git log --oneline "${tag}..${obranch}")" ]]; then
+    ( echo "Changes applied on top of '${tag}' prior to merge:"
+      git log --oneline --no-decorate "${tag}..${obranch}" | \
+                        sed -e 's/^/    /'
+      echo
+    ) >> "${tmpfile}"
+  fi
+
+  ( echo "Changelog:"
+    git request-pull "${ref}" . | \
+                        sed -n '/^--------------/,$p'
+
+    echo
+
+    if [[ -n "${dependency}" ]]; then
+      echo "${dependency}"
+    fi
+    echo "${bug}"
+    echo "TEST=Build and test on various affected systems"
+    if [[ -n "${changeid}" ]]; then
+      echo
+      echo "${changeid}"
+    fi
+  ) >> "${tmpfile}"
+
+  # Amend commit with the updated description.
+  if ! git commit -s --amend -F "${tmpfile}"; then
+    die "Failed to amend merge with commit log."
+  fi
+}
+
+do_notify() {
+  local cl
+  local email_cc
+  local cc_notify_cc
+  local subject
+  local message
+  local lbug
+  local tdeadline
+
+  if [[ -z "${merge_cl}" ]]; then
+    die "No merge CL, can not send notifications."
+  fi
+
+  gerrit --json search "change:${merge_cl}" > "${tmpfile}"
+
+  cl=$(dequote "$(jq ".[].number" "${tmpfile}")")
+  if [[ -z "${cl}" ]]; then
+    die "Missing CL for topic '${topic}' (upload into gerrit first)."
+  fi
+
+  subject=$(dequote "$(jq ".[].subject" "${tmpfile}")")
+  message=$(dequote "$(jq ".[].commitMessage" "${tmpfile}" \
+                       | sed -e 's/\\n/\n/g')")
+  email_cc=$(dequote "$(jq ".[].owner.email" "${tmpfile}")")
+  if [[ -n "${email_cc}" ]]; then
+    email_cc="-cc=${email_cc}"
+  fi
+
+  if [[ -n "${notify_cc}" ]]; then
+    cc_notify_cc="--cc=${notify_cc}"
+  fi
+
+  if [[ "${bug##BUG=b:}" != "${bug}" ]]; then          # buganizer
+    lbug="https://b.corp.google.com/${bug##BUG=b:}"
+  elif [[ "${bug##BUG=chromium:}" != "${bug}" ]]; then # crbug
+    lbug="https://crbug.com/${bug##BUG=chromium:}"
+  else                                                 # unknown/invalid
+    lbug="${bug##BUG=}"
+  fi
+
+  tdeadline=$(($(date +%s) + deadline * 86400))
+
+  cat <<-EOF > "${tmpfile}"
+Subject: Review request: "${subject}"
+
+This is the start of the review cycle for the merge of stable release
+${tag} into ${cbranch}. If anyone has issues or concerns
+with this stable release being applied, please let me know.
+
+Bug: ${lbug}
+Code review: https://chromium-review.googlesource.com/#/q/${cl}
+
+Responses should be made by $(date --date="@${tdeadline}").
+Anything received after that time might be too late.
+
+Commit message and changelog are as follows.
+
+${message}
+EOF
+
+  if ! git send-email ${dryrun} --to="${notify_to}" "${cc_notify_cc}" "${email_cc}" \
+          --8bit-encoding="UTF-8" \
+          --suppress-cc=all "${tmpfile}"; then
+    die "Failed to send notification e-mail to '${notify_to}'."
+  fi
+}
+
+do_upload() {
+  if [[ ${upload} -ne 0 ]]; then
+    if ! git push --no-verify ${dryrun} "${chromeos}" "${mbranch}:refs/for/${cbranch}%t=${topic}"; then
+      die "Failed to upload changes into '${chromeos}'."
+    fi
+  elif [[ ${prepare} -ne 0 ]]; then
+    echo "Push into ${chromeos} using the following command:"
+    echo "    git push --no-verify ${chromeos} ${mbranch}:refs/for/${cbranch}%t=${topic}"
+  fi
+}
+
+main() {
+  do_getparams "$@"
+  do_validate
+  do_validate_changeids
+  do_setup
+  do_prepare
+  if [[ ${skip_merge} -eq 0 ]]; then
+    do_merge
+    do_upload
+  fi
+  if [[ ${notify} -ne 0 ]]; then
+    find_merge_cl
+    do_notify
+  fi
+
+  exit 0
+}
+
+main "$@"
