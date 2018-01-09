@@ -22,6 +22,13 @@ UPDATE_STATE_FILE=".update_available"
 # the devserver to help debug crbug.com/788473.
 HASHES_LOG="/tmp/hashes"
 
+# Lock file to ensure quick provisioning script isn't run concurrently
+# by SSH retries.
+LOCKFILE="/var/lock/quick-provision.lock"
+
+# File to indicate that quick provision has already successfully completed.
+COMPLETED_FILE="/tmp/quick-provision-complete"
+
 PROGRAM="$(basename $0)"
 FLAGS_HELP="Usage:
   ${PROGRAM} [flags] <build> <url>
@@ -214,19 +221,21 @@ set_next_kernel() {
   fi
 }
 
-main() {
-  if [[ "$#" -ne 2 ]]; then
-    usage "ERROR: Incorrect number of arguments."
-  fi
+provision_device() {
   local build="$1"
   local static_url="$2"
+  local script_start_time="$3"
 
-  local script_start_time="$(get_timestamp)"
-
-  info "Provisioning ${build} from ${static_url}"
-  keyval "BOOT_ID=$(</proc/sys/kernel/random/boot_id)"
-  keyval "$(grep CHROMEOS_RELEASE_BUILDER_PATH /etc/lsb-release | \
-            sed -e s/CHROMEOS_RELEASE_BUILDER_PATH/ORIGINAL_BUILD/)"
+  if [[ -f "${COMPLETED_FILE}" ]]; then
+    if cmp -s <(echo "${build}") "${COMPLETED_FILE}"; then
+      info "Quick provision already complete to desired version: ${build}"
+      exit 0
+    else
+      local other_version="$(<"${COMPLETED_FILE}")"
+      die "Previous quick provision attempt to unexpected version has" \
+          "completed and waiting for reboot: ${other_version}"
+    fi
+  fi
 
   load_base_vars
 
@@ -253,8 +262,7 @@ main() {
     NEXT_KERN="${root_disk}${NEXT_KERN_PART}"
     NEXT_ROOT="${root_disk}${PARTITION_NUM_ROOT_A}"
   else
-    error "Unexpected root partition ${current_root}"
-    exit 1
+    die "Unexpected root partition ${current_root}"
   fi
 
   info "Will update kern ${NEXT_KERN}, root ${NEXT_ROOT}"
@@ -284,6 +292,9 @@ main() {
   time_cmd SET_NEXT_KERNEL \
     set_next_kernel "${NEXT_KERN_PART}"
 
+  # Record that quick provision is complete to avoid another attempt.
+  echo "${build}" >"${COMPLETED_FILE}"
+
   # Reboot in the background, giving time for the ssh invocation to
   # cleanly terminate.
   info "Reboot (into ${build})"
@@ -291,6 +302,28 @@ main() {
   (sleep 2; reboot) &
 
   end_timing "${script_start_time}" QUICK_PROVISION
+}
+
+main() {
+  if [[ "$#" -ne 2 ]]; then
+    usage "ERROR: Incorrect number of arguments."
+  fi
+  local build="$1"
+  local static_url="$2"
+
+  local script_start_time="$(get_timestamp)"
+
+  info "Provisioning ${build} from ${static_url}"
+  keyval "BOOT_ID=$(</proc/sys/kernel/random/boot_id)"
+  keyval "$(grep CHROMEOS_RELEASE_BUILDER_PATH /etc/lsb-release | \
+            sed -e s/CHROMEOS_RELEASE_BUILDER_PATH/ORIGINAL_BUILD/)"
+
+  (
+    # Ensure no concurrent quick provision attempts.
+    time_cmd LOCK_LOCKFILE flock 9
+
+    provision_device "${build}" "${static_url}" "${script_start_time}"
+  ) 9>"${LOCKFILE}"
 }
 
 main "$@" |& tee -a "${FLAGS_logfile}"
