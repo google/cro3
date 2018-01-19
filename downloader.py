@@ -358,10 +358,19 @@ class LocalDownloader(Downloader):
     archive_params: parameters for where to download build artifacts from.
   """
 
-  def __init__(self, static_dir, source_path):
+  def __init__(self, static_dir, source_path, delete_source=False):
+    """Initialize us.
+
+    Args:
+      static_dir: The directory where artifacts are to be staged.
+      source_path: The source path to copy artifacts from.
+      delete_source: If True, delete the source files. This mode is faster than
+          actually copying because it allows us to simply move the files.
+    """
     # The local path is of the form /{path to static dir}/{rel_path}/{build}.
     # local_path must be a subpath of the static directory.
     self.source_path = source_path
+    self._move_files = delete_source
     rel_path = os.path.basename(os.path.dirname(source_path))
     build = os.path.basename(source_path)
     build_dir = os.path.join(static_dir, rel_path, build)
@@ -397,9 +406,11 @@ class LocalDownloader(Downloader):
   def Fetch(self, remote_name, local_path):
     """Downloads artifact from Google Storage to a local directory."""
     install_path = os.path.join(local_path, remote_name)
-    # It's a local path so just copy it into the staged directory.
-    shutil.copyfile(os.path.join(self.source_path, remote_name),
-                    install_path)
+    src_path = os.path.join(self.source_path, remote_name)
+    if self._move_files:
+      shutil.move(src_path, install_path)
+    else:
+      shutil.copyfile(src_path, install_path)
     return install_path
 
   def DescribeSource(self):

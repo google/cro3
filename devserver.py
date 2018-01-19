@@ -270,7 +270,9 @@ def _get_downloader(kwargs):
 
   dl = None
   if local_path:
-    dl = downloader.LocalDownloader(updater.static_dir, local_path)
+    delete_source = _parse_boolean_arg(kwargs, 'delete_source')
+    dl = downloader.LocalDownloader(updater.static_dir, local_path,
+                                    delete_source=delete_source)
 
   if not _is_android_build_request(kwargs):
     archive_url = kwargs.get('archive_url')
@@ -839,6 +841,10 @@ class DevServerRoot(object):
     Args:
       archive_url: Google Storage URL for the build.
       local_path: Local path for the build.
+      delete_source: Only meaningful with local_path. bool to indicate if the
+          source files should be deleted. This is especially useful when staging
+          a file locally in resource constrained environments as it allows us to
+          move the relevant files locally instead of copying them.
       async: True to return without waiting for download to complete.
       artifacts: Comma separated list of named artifacts to download.
         These are defined in artifact_info and have their implementation
