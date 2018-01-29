@@ -73,7 +73,7 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
   # Build list of files to exclude. The tar command uses a slightly
   # different exclude format than gmerge, so it needs to be adjusted
   # appropriately.
-  masks = os.environ['DEFAULT_INSTALL_MASK'].split()
+  masks = os.environ.get('DEFAULT_INSTALL_MASK', '').split()
   # Look for complete paths matching the specified pattern.  Leading slashes
   # are removed so that the paths are relative. Trailing slashes are removed
   # so that we delete the directory itself when the '/usr/include/' path is
@@ -130,20 +130,28 @@ def UpdateGmergeBinhost(sysroot, pkgs, deep):
                                          settings=bintree.settings)
   gmerge_tree.populate()
 
-  gmerge_matches = set()
-  bindb_matches = set()
-  installed_matches = set()
+  # The portage API here is subtle.  Results from these lookups are a pkg_str
+  # object which derive from Python strings but attach some extra metadata
+  # (like package file sizes and build times).  Helpers like __cmp__ aren't
+  # changed, so the set logic can works.  But if you use a pkg_str from one
+  # bintree in another, it can fail to resolve, while stripping off the extra
+  # metadata allows the bintree to do the resolution internally.  Hence we
+  # normalize all results here to strings.
+  strmatches = lambda matches: set(str(x) for x in matches)
   if deep:
     # If we're in deep mode, fill in the binhost completely.
-    gmerge_matches.update(gmerge_tree.dbapi.cpv_all())
-    bindb_matches.update(bintree.dbapi.cpv_all())
-    installed_matches.update(set(vardb.cpv_all()) & bindb_matches)
+    gmerge_matches = strmatches(gmerge_tree.dbapi.cpv_all())
+    bindb_matches = strmatches(bintree.dbapi.cpv_all())
+    installed_matches = strmatches(vardb.cpv_all()) & bindb_matches
   else:
     # Otherwise, just fill in the requested package.
+    gmerge_matches = set()
+    bindb_matches = set()
+    installed_matches = set()
     for pkg in pkgs:
-      gmerge_matches.update(gmerge_tree.dbapi.match(pkg))
-      bindb_matches.update(bintree.dbapi.match(pkg))
-      installed_matches.update(set(vardb.match(pkg)) & bindb_matches)
+      gmerge_matches.update(strmatches(gmerge_tree.dbapi.match(pkg)))
+      bindb_matches.update(strmatches(bintree.dbapi.match(pkg)))
+      installed_matches.update(strmatches(vardb.match(pkg)) & bindb_matches)
 
   # Remove any stale packages that exist in the local binhost but are not
   # installed anymore.
