@@ -39,6 +39,7 @@ DEFINE_boolean outside_chroot "${FLAGS_FALSE}" "Running outside of chroot."
 DEFINE_string private_key "" "Path to private key in .pem format."
 DEFINE_string out_payload_hash_file "" "Path to output payload hash file."
 DEFINE_string out_metadata_hash_file "" "Path to output metadata hash file."
+DEFINE_string out_metadata_size_file "" "Path to output metadata size file."
 DEFINE_boolean extract "${FLAGS_FALSE}" "If set, extract old/new kernel/rootfs \
 to [old|new]_[kern|root].dat. Useful for debugging (default: false)"
 DEFINE_boolean full_kernel "${FLAGS_FALSE}" "Generate a full kernel update \
@@ -372,7 +373,8 @@ if [[ -n "${FLAGS_out_payload_hash_file}" ||
         -in_file="${FLAGS_output}" \
         -signature_size=256 \
         -out_hash_file="${OUT_PAYLOAD_HASH_FILE}" \
-        -out_metadata_hash_file="${FLAGS_out_metadata_hash_file}"
+        -out_metadata_hash_file="${FLAGS_out_metadata_hash_file}" \
+        -out_metadata_size_file="${FLAGS_out_metadata_size_file}"
 fi
 
 echo "Done generating ${PAYLOAD_TYPE} update."
