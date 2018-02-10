@@ -391,17 +391,19 @@ class LocalDownloader(Downloader):
     Raises:
       ArtifactDownloadError: An error occurred when obtaining artifact.
     """
-    local_path = os.path.join(self.source_path, name)
     if is_regex_name:
       filter_re = re.compile(name)
-      for filename in os.listdir(self.source_path):
-        if filter_re.match(filename):
-          return [filename]
+      artifacts = [f for f in os.listdir(self.source_path) if
+                   filter_re.match(f)]
     else:
-      glob_search = glob.glob(local_path)
-      if glob_search and len(glob_search) == 1:
-        return [os.path.basename(glob_search[0])]
-    raise build_artifact.ArtifactDownloadError('Artifact not found.')
+      glob_search = glob.glob(os.path.join(self.source_path, name))
+      artifacts = [os.path.basename(g) for g in glob_search]
+
+    if not artifacts:
+      raise build_artifact.ArtifactDownloadError(
+          'Artifact %s not found at %s(regex_match: %s)'
+          % (name, self.source_path, is_regex_name))
+    return artifacts
 
   def Fetch(self, remote_name, local_path):
     """Downloads artifact from Google Storage to a local directory."""
