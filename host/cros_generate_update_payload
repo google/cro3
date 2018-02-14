@@ -310,6 +310,7 @@ GENERATOR_ARGS=(
   -major_version=1
   -out_file="${FLAGS_output}"
   -private_key="${FLAGS_private_key}"
+  -out_metadata_size_file="${FLAGS_out_metadata_size_file}"
   # Target image args:
   -new_image="${DST_ROOT}"
   -new_kernel="${DST_KERNEL}"
@@ -373,8 +374,7 @@ if [[ -n "${FLAGS_out_payload_hash_file}" ||
         -in_file="${FLAGS_output}" \
         -signature_size=256 \
         -out_hash_file="${OUT_PAYLOAD_HASH_FILE}" \
-        -out_metadata_hash_file="${FLAGS_out_metadata_hash_file}" \
-        -out_metadata_size_file="${FLAGS_out_metadata_size_file}"
+        -out_metadata_hash_file="${FLAGS_out_metadata_hash_file}"
 fi
 
 echo "Done generating ${PAYLOAD_TYPE} update."
