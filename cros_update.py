@@ -289,12 +289,15 @@ class CrOSUpdateTrigger(object):
             self._WriteAUStatus('Start Quick Provision')
             keyvals = self._QuickProvision(device)
             logging.debug('Start CrOS check process...')
+            self._WriteAUStatus('Finish Quick Provision, reboot')
+            chromeos_AU.AwaitReboot(keyvals.get('BOOT_ID'))
             self._WriteAUStatus('Finish Quick Provision, post-check')
-            chromeos_AU.PostCheckCrOSUpdate(keyvals.get('BOOT_ID'))
+            chromeos_AU.PostCheckCrOSUpdate()
             self._WriteAUStatus(cros_update_progress.FINISHED)
             invoke_autoupdate = False
           except (cros_build_lib.RunCommandError,
-                  remote_access.SSHConnectionError) as e:
+                  remote_access.SSHConnectionError,
+                  auto_updater.RebootVerificationError) as e:
             logging.warning('Error during quick provision, falling back: %s', e)
             time.sleep(QUICK_PROVISION_FAILURE_DELAY_SEC)
 
