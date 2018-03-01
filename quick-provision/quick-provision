@@ -294,6 +294,7 @@ provision_device() {
 
   # Record that quick provision is complete to avoid another attempt.
   echo "${build}" >"${COMPLETED_FILE}"
+  keyval "COMPLETED=${build}"
 
   # Reboot in the background, giving time for the ssh invocation to
   # cleanly terminate.

@@ -241,11 +241,25 @@ class CrOSUpdateTrigger(object):
                dut_script, cros_build_lib.ShellQuote(status_url),
                self.build_name, self.static_url
            )
-    results = device.RunCommand(cmd, log_output=True, capture_output=True)
+    # Quick provision script issues a reboot and might result in the SSH
+    # connection being terminated so set ssh_error_ok so that output can
+    # still be captured.
+    results = device.RunCommand(cmd, log_output=True, capture_output=True,
+                                ssh_error_ok=True)
     key_re = re.compile(r'^KEYVAL: ([^\d\W]\w*)=(.*)$')
     matches = [key_re.match(l) for l in results.output.splitlines()]
     keyvals = {m.group(1): m.group(2) for m in matches if m}
     logging.info("DUT returned keyvals: %s", keyvals)
+
+    # If there was an SSH error, check the keyvals to see if it actually
+    # completed and suppress the error if so.
+    if results.returncode == remote_access.SSH_ERROR_CODE:
+      if 'COMPLETED' in keyvals:
+        logging.warning('Quick provision completed with ssh error, ignoring...')
+      else:
+        logging.error('Incomplete quick provision failed with ssh error')
+        raise remote_access.SSHConnectionError(results.error)
+
     return keyvals
 
   def TriggerAU(self):
@@ -298,7 +312,9 @@ class CrOSUpdateTrigger(object):
           except (cros_build_lib.RunCommandError,
                   remote_access.SSHConnectionError,
                   auto_updater.RebootVerificationError) as e:
-            logging.warning('Error during quick provision, falling back: %s', e)
+            logging.warning(
+                'Error during quick provision, falling back to legacy: %s: %s',
+                type(e).__name__, e)
             time.sleep(QUICK_PROVISION_FAILURE_DELAY_SEC)
 
         if invoke_autoupdate:
@@ -350,6 +366,9 @@ class CrOSUpdateTrigger(object):
           self._WriteAUStatus('post-check for CrOS auto-update')
           chromeos_AU.PostCheckCrOSUpdate()
           self._WriteAUStatus(cros_update_progress.FINISHED)
+
+        logging.debug('Provision successfully completed (%s)',
+                      'legacy' if invoke_autoupdate else 'quick provision')
     except Exception as e:
       logging.debug('Error happens in CrOS auto-update: %r', e)
       self._WriteAUStatus(CROS_ERROR_TEMPLATE % str(traceback.format_exc()))
