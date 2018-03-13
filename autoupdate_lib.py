@@ -6,6 +6,8 @@
 
 from __future__ import print_function
 
+import base64
+import binascii
 import datetime
 import os
 import time
@@ -58,7 +60,7 @@ _UPDATE_RESPONSE['3.0'] = """<?xml version="1.0" encoding="UTF-8"?>
         <manifest version="999999.0.0">
           <packages>
             <package hash="%(sha1)s" name="%(filename)s" size="%(size)s"
-                     required="true"/>
+                     hash_sha256="%(hash_sha256)s" required="true"/>
           </packages>
           <actions>
             <action event="postinstall"
@@ -170,6 +172,8 @@ def GetUpdateResponse(sha1, sha256, size, url, is_delta_format, metadata_size,
   response_values = GetCommonResponseValues(appid)
   response_values['sha1'] = sha1
   response_values['sha256'] = sha256
+  # sha256 is base64 encoded, encode it to hex.
+  response_values['hash_sha256'] = binascii.hexlify(base64.b64decode(sha256))
   response_values['size'] = size
   response_values['url'] = url
   (codebase, filename) = os.path.split(url)
