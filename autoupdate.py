@@ -874,6 +874,7 @@ class Autoupdate(build_util.BuildObject):
 
     # Parse the XML we got into the components we care about.
     protocol, app, event, update_check = autoupdate_lib.ParseUpdateRequest(data)
+    appid = app.getAttribute('appid')
 
     # Process attributes of the update check.
     request_attrs = self._ProcessUpdateComponents(app, event)
@@ -892,7 +893,7 @@ class Autoupdate(build_util.BuildObject):
             self.max_updates -= 1
 
       _Log('A non-update event notification received. Returning an ack.')
-      return autoupdate_lib.GetEventResponse(protocol)
+      return autoupdate_lib.GetEventResponse(protocol, appid)
 
     if request_attrs.forced_update_label:
       if label:
@@ -906,7 +907,7 @@ class Autoupdate(build_util.BuildObject):
     # update requests from the same client due to a timeout.
     if self.max_updates == 0:
       _Log('Request received but max number of updates already served.')
-      return autoupdate_lib.GetNoUpdateResponse(protocol)
+      return autoupdate_lib.GetNoUpdateResponse(protocol, appid)
 
     _Log('Update Check Received. Client is using protocol version: %s',
          protocol)
@@ -943,7 +944,7 @@ class Autoupdate(build_util.BuildObject):
     except AutoupdateError as e:
       # Raised if we fail to generate an update payload.
       _Log('Failed to process an update: %r', e)
-      return autoupdate_lib.GetNoUpdateResponse(protocol)
+      return autoupdate_lib.GetNoUpdateResponse(protocol, appid)
 
     # Sign the metadata hash, if requested.
     signed_metadata_hash = None
@@ -960,7 +961,8 @@ class Autoupdate(build_util.BuildObject):
     update_response = autoupdate_lib.GetUpdateResponse(
         metadata_obj.sha1, metadata_obj.sha256, metadata_obj.size, url,
         metadata_obj.is_delta_format, metadata_obj.metadata_size,
-        signed_metadata_hash, public_key_data, protocol, self.critical_update)
+        signed_metadata_hash, public_key_data, protocol, appid,
+        self.critical_update)
 
     _Log('Responding to client to use url %s to get image', url)
     return update_response
