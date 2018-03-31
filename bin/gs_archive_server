@@ -1,0 +1,14 @@
+#!/bin/bash
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Run a archive server of Google Storage inside virtualenv
+set -eu
+
+original=$(pwd)
+cd -- "$(dirname -- "$(readlink -e -- "$0")")"
+. ./find_virtualenv.sh
+cd -- "$original"
+
+exec_python_module gs_archive_server.gs_archive_server "$@"
