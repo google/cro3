@@ -20,7 +20,23 @@ LINUX_URLS = (
     'https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git',
 )
 
-def _pause_for_merge():
+def _get_conflicts():
+    """Report conflicting files."""
+    resolutions = ('DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU')
+    conflicts = []
+    files = subprocess.check_output(['git', 'status', '--porcelain',
+                                     '--untracked-files=no']).split('\n')
+    for file in files:
+        if not file:
+            continue
+        resolution, name = file.split(None, 1)
+        if resolution in resolutions:
+            conflicts.append('   ' + name)
+    if not conflicts:
+        return ""
+    return '\nConflicts:\n%s\n' % '\n'.join(conflicts)
+
+def _pause_for_merge(conflicts):
     """Pause and go in the background till user resolves the conflicts."""
 
     git_root = subprocess.check_output(['git', 'rev-parse',
@@ -33,6 +49,7 @@ def _pause_for_merge():
     for path in paths:
         if os.path.exists(path):
             sys.stderr.write('Found "%s".\n' % path)
+            sys.stderr.write(conflicts)
             sys.stderr.write('Please resolve the conflicts and restart the ' +
                              'shell job when done. Kill this job if you ' +
                              'aborted the conflict.\n')
@@ -193,7 +210,11 @@ def main(args):
             sys.exit(1)
 
         if ret != 0:
-            _pause_for_merge()
+            conflicts = _get_conflicts()
+            args['tag'] = 'BACKPORT: '
+            _pause_for_merge(conflicts)
+        else:
+            conflicts = ""
 
         # extract commit message
         commit_message = subprocess.check_output(
@@ -203,6 +224,7 @@ def main(args):
         # add automatic Change ID, BUG, and TEST (and maybe signoff too) so
         # next commands know where to work on
         commit_message += '\n'
+        commit_message += conflicts
         commit_message += '\n' + 'BUG=' + args['bug']
         commit_message += '\n' + 'TEST=' + args['test']
         if args['signoff']:
