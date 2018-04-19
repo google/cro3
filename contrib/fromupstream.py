@@ -36,6 +36,18 @@ def _get_conflicts():
         return ""
     return '\nConflicts:\n%s\n' % '\n'.join(conflicts)
 
+def _find_linux_remote():
+    """Find a remote pointing to a Linux upstream repository."""
+    git_remote = subprocess.Popen(['git', 'remote'], stdout=subprocess.PIPE)
+    remotes = git_remote.communicate()[0].strip()
+    for remote in remotes.splitlines():
+        rurl = subprocess.Popen(['git', 'remote', 'get-url', remote],
+                                stdout=subprocess.PIPE)
+        url = rurl.communicate()[0].strip()
+        if not rurl.returncode and url in LINUX_URLS:
+            return remote
+    return None
+
 def _pause_for_merge(conflicts):
     """Pause and go in the background till user resolves the conflicts."""
 
@@ -153,17 +165,16 @@ def main(args):
             commit = linux_match.group(1)
 
             # Confirm a 'linux' remote is setup.
-            git_pipe = subprocess.Popen(['git', 'remote', 'get-url', 'linux'],
-                                        stdout=subprocess.PIPE)
-            url = git_pipe.communicate()[0].strip()
-            if url not in LINUX_URLS:
-                sys.stderr.write('Error: need a "linux" remote w/ valid URL\n')
+            linux_remote = _find_linux_remote()
+            if not linux_remote:
+                sys.stderr.write('Error: need a valid upstream remote\n')
                 sys.exit(1)
 
+            linux_master = '%s/master' % linux_remote
             ret = subprocess.call(['git', 'merge-base', '--is-ancestor',
-                                   commit, 'linux/master'])
+                                   commit, linux_master])
             if ret:
-                sys.stderr.write('Error: Commit not in linux/master\n')
+                sys.stderr.write('Error: Commit not in %s\n' % linux_master)
                 sys.exit(1)
 
             if args['source_line'] is None:
