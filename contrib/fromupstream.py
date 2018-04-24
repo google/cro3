@@ -232,6 +232,9 @@ def main(args):
             ['git', 'show', '-s', '--format=%B', 'HEAD']
         ).strip('\n')
 
+        # Remove stray Change-Id, most likely from merge resolution
+        commit_message = re.sub(r'Change-Id:.*\n?', '', commit_message)
+
         # add automatic Change ID, BUG, and TEST (and maybe signoff too) so
         # next commands know where to work on
         commit_message += '\n'
