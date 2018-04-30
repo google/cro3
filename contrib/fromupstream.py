@@ -24,12 +24,12 @@ def _get_conflicts():
     """Report conflicting files."""
     resolutions = ('DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU')
     conflicts = []
-    files = subprocess.check_output(['git', 'status', '--porcelain',
+    lines = subprocess.check_output(['git', 'status', '--porcelain',
                                      '--untracked-files=no']).split('\n')
-    for file in files:
-        if not file:
+    for line in lines:
+        if not line:
             continue
-        resolution, name = file.split(None, 1)
+        resolution, name = line.split(None, 1)
         if resolution in resolutions:
             conflicts.append('   ' + name)
     if not conflicts:
