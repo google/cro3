@@ -222,7 +222,10 @@ def main(args):
 
         if ret != 0:
             conflicts = _get_conflicts()
-            args['tag'] = 'BACKPORT: '
+            if args['tag'] == 'UPSTREAM: ':
+                args['tag'] = 'BACKPORT: '
+            else:
+                args['tag'] = 'BACKPORT: ' + args['tag']
             _pause_for_merge(conflicts)
         else:
             conflicts = ""
