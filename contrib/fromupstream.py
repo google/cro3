@@ -103,7 +103,7 @@ def main(args):
                         help='Overrides the source line, last line, ex: ' +
                         '(am from http://....)')
     parser.add_argument('locations',
-                        nargs='*',
+                        nargs='+',
                         help='Patchwork url (either ' +
                         'https://patchwork.kernel.org/patch/###/ or ' +
                         'pw://###), linux commit like linux://HASH, git ' +
