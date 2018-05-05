@@ -82,9 +82,9 @@ def main(args):
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--bug', '-b',
-                        type=str, default='None', help='BUG= line')
+                        type=str, required=True, help='BUG= line')
     parser.add_argument('--test', '-t',
-                        type=str, default='Build and boot', help='TEST= line')
+                        type=str, required=True, help='TEST= line')
     parser.add_argument('--changeid', '-c',
                         help='Overrides the gerrit generated Change-Id line')
 
