@@ -9,10 +9,4 @@ readonly bindir=$(dirname -- "$(readlink -e -- "$0")")
 readonly homedir=$(cd "$bindir"/../gs_cache; pwd)
 export PYTHONPATH=$homedir
 
-# Run the server, or run tests
-if [[ $(basename "$0") == gs_archive_server_test ]]; then
-  exec vpython -vpython-spec $homedir/.vpython -m pytest \
-      "$homedir"/gs_archive_server_test.py "$@"
-else
-  exec vpython -vpython-spec $homedir/.vpython -m gs_archive_server "$@"
-fi
+exec vpython -vpython-spec $homedir/.vpython -m gs_archive_server "$@"

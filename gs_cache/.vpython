@@ -21,13 +21,28 @@ wheel: <
 >
 
 wheel: <
+  name: "infra/python/wheels/coverage/${vpython_platform}"
+  version: "version:4.5.1"
+>
+
+wheel: <
   name: "infra/python/wheels/funcsigs-py2_py3"
   version: "version:1.0.2"
 >
 
 wheel: <
+  name: "infra/python/wheels/mock-py2_py3"
+  version: "version:2.0.0"
+>
+
+wheel: <
   name: "infra/python/wheels/more-itertools-py2_py3"
   version: "version:4.1.0"
+>
+
+wheel: <
+  name: "infra/python/wheels/pbr-py2_py3"
+  version: "version:3.0.0"
 >
 
 wheel: <
@@ -51,8 +66,18 @@ wheel: <
 >
 
 wheel: <
+  name: "infra/python/wheels/pytest-cov-py2_py3"
+  version: "version:2.5.1"
+>
+
+wheel: <
   name: "infra/python/wheels/pytz-py2_py3"
   version: "version:2018.4"
+>
+
+wheel: <
+  name: "infra/python/wheels/requests-py2_py3"
+  version: "version:2.13.0"
 >
 
 wheel: <
