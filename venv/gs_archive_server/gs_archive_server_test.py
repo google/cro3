@@ -13,8 +13,8 @@ import unittest
 import cherrypy
 from cherrypy.test import helper
 
-import gs_archive_server
 from chromite.lib import gs
+from gs_archive_server import gs_archive_server
 
 _DIR = '/gs_archive_server_test'
 # some REAL files and info on Google Storage
