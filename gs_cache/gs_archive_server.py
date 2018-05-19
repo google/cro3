@@ -287,9 +287,15 @@ def parse_args(argv):
   parser = argparse.ArgumentParser(
       formatter_class=argparse.RawDescriptionHelpFormatter,
       description=__doc__)
-  parser.add_argument('-s', '--socket', help='Unix domain socket to bind')
-  parser.add_argument('-p', '--port', type=int, default=8080,
-                      help='Port number to listen, default: %(default)s.')
+
+  # The service can either bind to a socket or listen to a port, but doesn't do
+  # both.
+  socket_or_port = parser.add_mutually_exclusive_group(required=True)
+  socket_or_port.add_argument('-s', '--socket',
+                              help='Unix domain socket to bind')
+  socket_or_port.add_argument('-p', '--port', type=int,
+                              help='Port number to listen.')
+
   # TODO(guocb): support Unix domain socket
   parser.add_argument(
       '-c', '--caching-server', required=True, type=_url_type,
@@ -321,13 +327,9 @@ def main(argv):
     # should have GID bit set, i.e. g+s
     os.umask(0002)
 
-    # pylint:disable=protected-access
-    domain_server = cherrypy._cpserver.Server()
-    domain_server.socket_file = args.socket
-    domain_server.subscribe()
+  cherrypy.server.socket_port = args.port
+  cherrypy.server.socket_file = args.socket
 
-  cherrypy.config.update({'server.socket_port': args.port,
-                          'server.socket_host': '127.0.0.1'})
   cherrypy.quickstart(GsArchiveServer(_CachingServer(args.caching_server)))
 
 
