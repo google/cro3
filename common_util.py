@@ -14,6 +14,7 @@ import distutils.version
 import errno
 import hashlib
 import os
+import re
 import shutil
 import tempfile
 import threading
@@ -429,7 +430,7 @@ def IsRunningOnMoblab():
            cmd_error.rstrip())
       return False
 
-    if '_moblab' in cmd_output:
+    if re.search("r[_-]+moblab", cmd_output):
       return True
     else:
       return False
