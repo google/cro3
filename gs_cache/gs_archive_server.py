@@ -35,9 +35,12 @@ from chromite.lib import cros_logging as logging
 from chromite.lib import gs
 
 # some http status codes
+_HTTP_OK = 200
+_HTTP_PARTIAL_CONTENT = 206
 _HTTP_BAD_REQUEST = 400
 _HTTP_UNAUTHORIZED = 401
 _HTTP_NOT_FOUND = 404
+_HTTP_INTERNAL_SERVER_ERROR = 500
 _HTTP_SERVICE_UNAVAILABLE = 503
 
 _READ_BUFFER_SIZE_BYTES = 1024 * 1024  # 1 MB
@@ -53,6 +56,12 @@ def _log(*args, **kwargs):
   """A wrapper function of logging.debug/info, etc."""
   level = kwargs.pop('level', logging.DEBUG)
   _logger.log(level, extra=cherrypy.request.headers, *args, **kwargs)
+
+
+def _log_filtered_headers(all_headers, filtered_headers, level=logging.DEBUG):
+  """Log the filtered headers only."""
+  _log('Filtered headers: %s', {k: all_headers.get(k) for k in
+                                filtered_headers}, level=level)
 
 
 def _check_file_extension(filename, ext_names=None):
@@ -78,6 +87,26 @@ def _check_file_extension(filename, ext_names=None):
       raise ValueError("Extension name of '%s' isn't in %s" % (filename,
                                                                ext_names))
   return filename
+
+
+def _safe_get_param(all_params, param_name):
+  """Check if |param_name| is in |all_params|.
+
+  Args:
+    all_params: A dict of all parameters of the call.
+    param_name: The parameter name to be checked.
+
+  Returns:
+    The value of |param_name|.
+
+  Raises:
+    Raise HTTP 400 error when the required parameter isn't in |all_params|.
+  """
+  try:
+    return all_params[param_name]
+  except KeyError:
+    raise cherrypy.HTTPError(_HTTP_BAD_REQUEST,
+                             'Parameter "%s" is required!' % param_name)
 
 
 def _to_cherrypy_error(func):
@@ -133,15 +162,23 @@ class _CachingServer(object):
     """Helper function to generate all RPC calls to the proxy server."""
     url = urlparse.urlunsplit(self._url + ('%s/%s' % (action, path),
                                            urllib.urlencode(args or {}), None))
-    _log('Sending request to proxy: %s', url)
+    _log('Sending request to caching server: %s', url)
+    # The header to control using or bypass cache.
+    _log_filtered_headers(headers, ('X-No-Cache',))
     rsp = requests.get(url, headers=headers, stream=True)
-    _log('Proxy response %s', rsp.status_code)
+    _log('Caching server response %s', rsp.status_code)
+    _log_filtered_headers(rsp.headers, ('Content-Type', 'Content-Length',
+                                        'X-Cache', 'Cache-Control', 'Date'))
     rsp.raise_for_status()
     return rsp
 
   def download(self, path, headers=None):
     """Call download RPC."""
     return self._call('download', path, headers=headers)
+
+  def list_member(self, path, headers=None):
+    """Call list_member RPC."""
+    return self._call('list_member', path, headers=headers)
 
 
 class GsArchiveServer(object):
@@ -202,14 +239,11 @@ class GsArchiveServer(object):
       with tar_tv, contextlib.closing(StringIO.StringIO()) as stream:
         tar_tv.seek(0)
         for info in tarfile_utils.list_tar_members(tar_tv):
-          # some pre-computation for easier use of clients
-          content_end = info.content_start + info.size - 1
-          record_end = info.record_start + info.record_size - 1
-
-          # encode file name using URL percent encoding, so ',' => '%2C'
-          stream.write('%s,%d,%d,%d,%d,%d,%d\n' % (
+          # Encode file name using URL percent encoding, so ',' in file name
+          # becomes to '%2C'.
+          stream.write('%s,%d,%d,%d,%d\n' % (
               urllib.quote(info.filename), info.record_start, info.record_size,
-              record_end, info.content_start, info.size, content_end))
+              info.content_start, info.size))
 
           if stream.tell() > _WRITE_BUFFER_SIZE_BYTES:
             yield stream.getvalue()
@@ -261,9 +295,84 @@ class GsArchiveServer(object):
 
     return content
 
+  @cherrypy.expose
+  @_to_cherrypy_error
+  def extract(self, *args, **kwargs):
+    """Extract a file from a Tar archive.
+
+    Examples:
+      GET /extract/chromeos-image-archive/release/files.tar?file=path/to/file
+
+    Args:
+      *args: All parts of the GS path of the archive, without gs:// prefix.
+      kwargs: file: The URL ENCODED path of file to be extracted.
+
+    Returns:
+      The stream of extracted file.
+    """
+    # TODO(guocb): support compressed format of tar
+    archive = _check_file_extension('/'.join(args), ext_names=['.tar'])
+    filename = _safe_get_param(kwargs, 'file')
+    _log('Extracting "%s" from "%s".', filename, archive)
+    return self._extract_file_from_tar(filename, archive)
+
+  def _extract_file_from_tar(self, filename, archive):
+    """Extract file of |filename| from |archive|."""
+    # Call `list_member` and search |filename| in it. If found, create another
+    # "Range Request" to download that range of bytes.
+    all_files = self._caching_server.list_member(
+        archive, headers=cherrypy.request.headers)
+    # The format of each line is '<filename>,<data1>,<data2>...'. And the
+    # filename is encoded by URL percent encoding, so no ',' in filename. Thus
+    # search '<filename>,' is good enough for looking up the file information.
+    target_str = '%s,' % filename
+
+    for l in all_files.iter_lines(chunk_size=_READ_BUFFER_SIZE_BYTES):
+      # TODO(guocb): Seems the searching performance is OK: for a 60K lines
+      # list, searching a file in very last takes about 0.1 second. But it
+      # would be better if there's a better and not very complex way.
+
+      # We don't split the line by ',' and compare the filename part is because
+      # of performance.
+      if l.startswith(target_str):
+        _log('The line for the file found: %s', l)
+        file_info = tarfile_utils.TarMemberInfo._make(l.split(','))
+        rsp = self._send_range_request(archive, file_info.content_start,
+                                       file_info.size)
+        rsp.raise_for_status()
+        return rsp.iter_content(_WRITE_BUFFER_SIZE_BYTES)
+
+    raise cherrypy.HTTPError(
+        _HTTP_BAD_REQUEST,
+        'File "%s" is not in archive "%s"!' % (filename, archive))
+
+  def _send_range_request(self, archive, start, size):
+    """Create and send a "Range Request" to caching server.
+
+    Set HTTP Range header and just download the bytes in that "range".
+    https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
+    """
+    headers = cherrypy.request.headers.copy()
+    headers['Range'] = 'bytes=%s-%d' % (start, int(start) + int(size) - 1)
+    rsp = self._caching_server.download(archive, headers=headers)
+
+    if rsp.status_code == _HTTP_PARTIAL_CONTENT:
+      # Although this is a partial response, it has full content of
+      # extracted file. Thus reset the status code and content-length.
+      cherrypy.response.status = _HTTP_OK
+      cherrypy.response.headers['Content-Length'] = size
+    else:
+      _log('Expect HTTP_PARTIAL_CONTENT (206), but got %s', rsp.status_code,
+           level=logging.ERROR)
+      rsp.status_code = _HTTP_INTERNAL_SERVER_ERROR
+      rsp.reason = 'Range request failed for "%s"' % archive
+
+    return rsp
+
   # pylint:disable=protected-access
   download._cp_config = {'response.stream': True}
   list_member._cp_config = {'response.stream': True}
+  extract._cp_config = {'response.stream': True}
 
 
 def _url_type(input_string):
