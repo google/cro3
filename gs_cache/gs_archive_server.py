@@ -80,13 +80,15 @@ def _check_file_extension(filename, ext_names=None):
   if not filename:
     raise ValueError('File name is required.')
 
-  for ext_name in ext_names or []:
+  if not ext_names:
+    return filename
+
+  for ext_name in ext_names:
     if filename.endswith(ext_name):
-      break
-    else:
-      raise ValueError("Extension name of '%s' isn't in %s" % (filename,
-                                                               ext_names))
-  return filename
+      return filename
+
+  raise ValueError("Extension name of '%s' isn't in %s" % (filename,
+                                                           ext_names))
 
 
 def _safe_get_param(all_params, param_name):
@@ -189,6 +191,7 @@ class GsArchiveServer(object):
     self._caching_server = caching_server
 
   @cherrypy.expose
+  @cherrypy.config(**{'response.stream': True})
   @_to_cherrypy_error
   def list_member(self, *args):
     """Get file list of an tar archive in CSV format.
@@ -257,6 +260,7 @@ class GsArchiveServer(object):
     return _tar_member_list()
 
   @cherrypy.expose
+  @cherrypy.config(**{'response.stream': True})
   @_to_cherrypy_error
   def download(self, *args):
     """Download a file from Google Storage.
@@ -296,6 +300,7 @@ class GsArchiveServer(object):
     return content
 
   @cherrypy.expose
+  @cherrypy.config(**{'response.stream': True})
   @_to_cherrypy_error
   def extract(self, *args, **kwargs):
     """Extract a file from a Tar archive.
@@ -369,10 +374,70 @@ class GsArchiveServer(object):
 
     return rsp
 
-  # pylint:disable=protected-access
-  download._cp_config = {'response.stream': True}
-  list_member._cp_config = {'response.stream': True}
-  extract._cp_config = {'response.stream': True}
+  @cherrypy.expose
+  @cherrypy.config(**{'response.stream': True})
+  @_to_cherrypy_error
+  def decompress(self, *args):
+    """Decompress the compressed TAR archive.
+
+    Args:
+      *args: All parts of the GS path of the compressed archive, without gs://
+          prefix.
+
+    Returns:
+      The content generator of decompressed TAR archive.
+    """
+    zarchive = _check_file_extension(
+        '/'.join(args), ext_names=['.tar.gz', '.tar.bz2', '.tar.xz', '.tgz'])
+    _log('Decompressing "%s"', zarchive)
+
+    rsp = self._caching_server.download(zarchive,
+                                        headers=cherrypy.request.headers)
+    cherrypy.response.headers['Content-Type'] = 'application/x-tar'
+
+    basename = os.path.basename(zarchive)
+    _, extname = os.path.splitext(basename)
+
+    # Command lines used to decompress file.
+    commands = {
+        '.gz': ['gzip', '-d', '-c'],
+        '.tgz': ['gzip', '-d', '-c'],
+        '.xz': ['xz', '-d', '-c'],
+        '.bz2': ['bzip2', '-d', '-c'],
+    }
+    decompressed_file = tempfile.SpooledTemporaryFile(
+        max_size=_SPOOL_FILE_SIZE_BYTES)
+    proc = subprocess.Popen(commands[extname], stdin=subprocess.PIPE,
+                            stdout=decompressed_file)
+    _log('Decompress process id: %s.', proc.pid)
+    for chunk in rsp.iter_content(_READ_BUFFER_SIZE_BYTES):
+      proc.stdin.write(chunk)
+    proc.stdin.close()
+    _log('Decompression done.')
+    proc.wait()
+
+    # The header of Content-Length is necessary for supporting range request.
+    # So we have to decompress the file locally to get the size. This may cause
+    # connection timeout issue if the decompression take too long time (e.g. 90
+    # seconds). As a reference, it takes about 10 seconds to decompress a 400MB
+    # tgz file.
+    decompressed_file.seek(0, os.SEEK_END)
+    content_length = decompressed_file.tell()
+    _log('Decompressed content length is %d bytes.', content_length)
+    cherrypy.response.headers['Content-Length'] = str(content_length)
+    decompressed_file.seek(0)
+
+    def decompressed_content():
+      _log('Streaming decompressed content of "%s" begin.', zarchive)
+      while True:
+        data = decompressed_file.read(_READ_BUFFER_SIZE_BYTES)
+        if not data:
+          break
+        yield data
+      decompressed_file.close()
+      _log('Streaming of "%s" done.', zarchive)
+
+    return decompressed_content()
 
 
 def _url_type(input_string):

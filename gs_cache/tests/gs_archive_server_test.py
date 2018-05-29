@@ -43,6 +43,31 @@ _TEST_DATA = {
         'from': '%s/control_files.tar' % _DIR,
         'md5': '31c71c463eb44aaae37e3f2c92423291',
     },
+    'a_zip_file': {
+        'path': '%s/au-generator.zip' % _DIR,
+        'mime': 'application/zip',
+        'size': 6431255,
+        'md5': 'd13af876bf8e383f39729a97c4e68f5d'
+    },
+    # TODO(guocb): find a smaller tgz file for testing
+    'a_tgz_file': {
+        'path': '%s/stateful.tgz' % _DIR,
+        'mime': 'application/gzip',
+        'size': 422480062,
+        'md5': '4d264876b52b35302f724a227d232165',
+        'z_size': 1231759360,
+        'z_md5': 'ffdea48f11866130df0e774dccb6684b',
+    },
+    'a_bz2_file': {
+        'path': '%s/paygen_au_canary_control.tar.bz2' % _DIR,
+        'z_size': 40960,
+        'z_md5': '8b3654f7b056f016182888ccfff7bf33',
+    },
+    'a_xz_file': {
+        'path': '%s/image_scripts.tar.xz' % _DIR,
+        'z_size': 51200,
+        'z_md5': 'baa91444d9a1d8e173c42dfa776b1b98',
+    },
 }
 
 # a tgz file with only one file "bar" which content is "foo\n"
@@ -52,6 +77,19 @@ _A_TGZ_FILE = base64.b64decode(
     'AAAAAAAAAAAAAAAAAPzuBWP9bg8AKAAA'
 )
 _A_TAR_FILE = gzip.GzipFile(fileobj=StringIO.StringIO(_A_TGZ_FILE)).read()
+
+_A_BZ2_FILE = base64.b64decode(
+    'QlpoOTFBWSZTWUshPJoAAHb7hMEQAIFAAH+AAAJ5ot4gAIAACCAAdBqDJPSAZAGJ6gkpogANAG'
+    'gI/Sqk9CCicBIxvwCiBc5JA0mH1s0BZvi4a8OCJE5TugRAxDV79gdzYHEouEq075mqpvY1sTqW'
+    'FfnEr0VMGMYB+LuSKcKEglkJ5NA='
+)
+
+_A_XZ_FILE = base64.b64decode(
+    '/Td6WFoAAATm1rRGAgAhARYAAAB0L+Wj4Cf/AH5dADEYSqQU1AHJap4MgGYINsXfDuS78Jr4gw'
+    'kCk2yRJASEGw9VHGsDGIq8Ciuq0Jk21NnOqMTuhaxViAM0mRq/wjYK0XYkx+tChPKveCLlizo4'
+    'PgNcUFEpFWlJWnAiEdRpu0onD3dLX9IE/ehO9ylcdhiyq85LnlQludOjNxW3AAAAAG1LUyfA4L'
+    '6gAAGaAYBQAADDUC3DscRn+wIAAAAABFla'
+)
 
 
 @pytest.mark.network
@@ -130,6 +168,27 @@ class MockedGSArchiveServerTest(unittest.TestCase):
       with self.assertRaises(cherrypy.HTTPError):
         self.server.extract('bar.tar', file='footar')
 
+  def test_decompress_tgz(self):
+    """Test decompress a tgz file."""
+    with mock.patch.object(self.server, '_caching_server') as cache_server:
+      cache_server.download.return_value.iter_content.return_value = _A_TGZ_FILE
+      rsp = self.server.decompress('baz.tgz')
+      self.assertEquals(''.join(rsp), _A_TAR_FILE)
+
+  def test_decompress_bz2(self):
+    """Test decompress a bz2 file."""
+    with mock.patch.object(self.server, '_caching_server') as cache_server:
+      cache_server.download.return_value.iter_content.return_value = _A_BZ2_FILE
+      rsp = self.server.decompress('baz.tar.bz2')
+      self.assertEquals(''.join(rsp), _A_TAR_FILE)
+
+  def test_decompress_xz(self):
+    """Test decompress a xz file."""
+    with mock.patch.object(self.server, '_caching_server') as cache_server:
+      cache_server.download.return_value.iter_content.return_value = _A_XZ_FILE
+      rsp = self.server.decompress('baz.tar.xz')
+      self.assertEquals(''.join(rsp), _A_TAR_FILE)
+
 
 def testing_server_setup():
   """Check if testing server is setup."""
@@ -176,6 +235,15 @@ class GsCacheBackendIntegrationTest(unittest.TestCase):
     rsp = self._get_page('/download%(path)s' % tested_file)
     self.assertEquals(rsp.headers['Content-Length'], str(tested_file['size']))
 
+  def test_download_compressed_file(self):
+    """Download a compressed file which won't be decompressed."""
+    for k in ('a_zip_file', 'a_tgz_file'):
+      tested_file = _TEST_DATA[k]
+      rsp = self._get_page('/download%(path)s' % tested_file)
+      self.assertEquals(rsp.headers['Content-Length'], str(tested_file['size']))
+      self.assertEquals(rsp.headers['Content-Type'], tested_file['mime'])
+      self._verify_md5(rsp.content, tested_file['md5'])
+
   def test_list_member(self):
     """Test list member of a tar file."""
     tested_file = _TEST_DATA['a_tar_file']
@@ -189,6 +257,14 @@ class GsCacheBackendIntegrationTest(unittest.TestCase):
       tested_file = _TEST_DATA[k]
       rsp = self._get_page('/extract/%(from)s?file=%(path)s' % tested_file)
       self._verify_md5(rsp.content, tested_file['md5'])
+
+  def test_decompress(self):
+    """Test decompress RPC."""
+    for k in ('a_tgz_file', 'a_bz2_file', 'a_xz_file'):
+      tested_file = _TEST_DATA[k]
+      rsp = self._get_page('/decompress%(path)s' % tested_file)
+      self.assertEquals(rsp.headers['Content-Type'], 'application/x-tar')
+      self._verify_md5(rsp.content, tested_file['z_md5'])
 
 
 if __name__ == "__main__":
