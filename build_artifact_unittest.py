@@ -82,7 +82,6 @@ _TEST_GOLO_ARCHIVE_TEST_TARBALL_CONTENT = [
 ]
 
 _TEST_GOLO_ARCHIVE_IMAGE_ZIPFILE_CONTENT = [
-    'au-generator.zip',
     'boot.config',
     'boot.desc',
     'chromiumos_qemu_image.bin',

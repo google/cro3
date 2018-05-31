@@ -91,9 +91,6 @@ SRC_ROOT=""
 DST_KERNEL=""
 DST_ROOT=""
 
-# We include cgpt in the au-generator.zip, so we can call it directly here. We
-# don't use chromeos-common.sh versions because we need to not run them as root.
-
 # Usage: gpt_part_offset <image> <partition_number>
 # Return the start sector number of the partition number |partition_number| in
 # the GPT image |image|.
