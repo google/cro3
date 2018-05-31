@@ -430,7 +430,7 @@ def IsRunningOnMoblab():
            cmd_error.rstrip())
       return False
 
-    if re.search("r[_-]+moblab", cmd_output):
+    if re.search(r"[_-]+moblab", cmd_output):
       return True
     else:
       return False
