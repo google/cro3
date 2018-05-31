@@ -9,7 +9,10 @@ a TCP port and/or an Unix domain socket. The latter performs better when work
 with a local hosted reverse proxy server, e.g. Nginx.
 
 The server accepts below requests:
-  - GET /download/<bucket>/path/to/file: download the file from google storage
+  - GET /download/<bucket>/path/to/file
+      Download the file from google storage.
+  - GET /extract/<bucket>/path/to/archive?file=path/to/file
+      Extract a file form a compressed/uncompressed TAR archive.
 """
 
 from __future__ import absolute_import
@@ -45,6 +48,17 @@ _HTTP_SERVICE_UNAVAILABLE = 503
 
 _READ_BUFFER_SIZE_BYTES = 1024 * 1024  # 1 MB
 _WRITE_BUFFER_SIZE_BYTES = 1024 * 1024  # 1 MB
+
+# When extract files from TAR (either compressed or uncompressed), we suppose
+# the TAR exists, so we can call `download` RPC to get it. It's straightforward
+# for uncompressed TAR. But for compressed TAR, we cannot `download` it from
+# GS because it doesn't exist there at all. In this case, we call `decompress`
+# RPC internally to download and decompress. In order to tell if invoke of
+# `download` RPC is a real download, or download+decompress, we use below HTTP
+# header as a flag. It can also tell use what's the extension name of the
+# compressed tar, e.g. '.tar.gz', etc. We use this information to get the file
+# name on GS.
+_HTTP_HEADER_COMPRESSED_TAR_EXT = 'X-Compressed-Tar-Ext'
 
 # The max size of temporary spool file in memory.
 _SPOOL_FILE_SIZE_BYTES = 100 * 1024 * 1024  # 100 MB
@@ -166,17 +180,41 @@ class _CachingServer(object):
                                            urllib.urlencode(args or {}), None))
     _log('Sending request to caching server: %s', url)
     # The header to control using or bypass cache.
-    _log_filtered_headers(headers, ('X-No-Cache',))
+    _log_filtered_headers(headers, ('Range', 'X-No-Cache',
+                                    _HTTP_HEADER_COMPRESSED_TAR_EXT))
     rsp = requests.get(url, headers=headers, stream=True)
-    _log('Caching server response %s', rsp.status_code)
+    _log('Caching server response %s: %s', rsp.status_code, url)
     _log_filtered_headers(rsp.headers, ('Content-Type', 'Content-Length',
-                                        'X-Cache', 'Cache-Control', 'Date'))
+                                        'Content-Range', 'X-Cache',
+                                        'Cache-Control', 'Date'))
     rsp.raise_for_status()
     return rsp
 
+  def _download_and_decompress_tar(self, path, ext_name, headers=None):
+    """Helper function to download and decompress compressed TAR."""
+    # The |path| we have is like foo.tar. Combine with |ext_name| we can get
+    # the compressed file name on Google storage, e.g.
+    # 'foo.tar' + '.gz' => foo.tar.gz
+    # But it's special for '.tgz', i.e. 'foo.tar' + '.tgz' => 'foo.tgz'
+    if ext_name == '.tgz':
+      path, _ = os.path.splitext(path)
+
+    path = '%s%s' % (path, ext_name)
+    _log('Download and decompress %s', path)
+    return self._call('decompress', path, headers=headers)
+
   def download(self, path, headers=None):
-    """Call download RPC."""
-    return self._call('download', path, headers=headers)
+    """Download file |path| from the caching server."""
+    # When the request comes with header _HTTP_HEADER_COMPRESSED_TAR_EXT, we
+    # internally call `decompress` instead of `download` because Google storage
+    # only has the compressed version of the file to be "downloaded".
+    ext_name = headers.pop(_HTTP_HEADER_COMPRESSED_TAR_EXT, None)
+
+    # RPC `decompress` validates ext_name, so doesn't do that here.
+    if ext_name:
+      return self._download_and_decompress_tar(path, ext_name, headers=headers)
+    else:
+      return self._call('download', path, headers=headers)
 
   def list_member(self, path, headers=None):
     """Call list_member RPC."""
@@ -198,8 +236,8 @@ class GsArchiveServer(object):
 
     An example, GET /list_member/bucket/path/to/file.tar
     The output is in format of:
-      <file name>,<data1>,<data2>,...<data6>
-      <file name>,<data1>,<data2>,...<data6>
+      <file name>,<data1>,<data2>,...<data4>
+      <file name>,<data1>,<data2>,...<data4>
       ...
 
     Details:
@@ -207,10 +245,8 @@ class GsArchiveServer(object):
         path/to/file,name  -> path/to/file%2Cname.
       <data1>: File record start offset, in bytes.
       <data2>: File record size, in bytes.
-      <data3>: File record end offset, in bytes.
-      <data4>: File content start offset, in bytes.
-      <data5>: File content size, in bytes.
-      <data6>: File content end offset, in bytes.
+      <data3>: File content start offset, in bytes.
+      <data4>: File content size, in bytes.
 
     This is an internal RPC and shouldn't be called by end user!
 
@@ -303,10 +339,10 @@ class GsArchiveServer(object):
   @cherrypy.config(**{'response.stream': True})
   @_to_cherrypy_error
   def extract(self, *args, **kwargs):
-    """Extract a file from a Tar archive.
+    """Extract a file from a compressed/uncompressed Tar archive.
 
     Examples:
-      GET /extract/chromeos-image-archive/release/files.tar?file=path/to/file
+      GET /extract/chromeos-image-archive/release/files.tgz?file=path/to/file
 
     Args:
       *args: All parts of the GS path of the archive, without gs:// prefix.
@@ -315,18 +351,40 @@ class GsArchiveServer(object):
     Returns:
       The stream of extracted file.
     """
-    # TODO(guocb): support compressed format of tar
-    archive = _check_file_extension('/'.join(args), ext_names=['.tar'])
+    archive = _check_file_extension(
+        '/'.join(args),
+        ext_names=['.tar', '.tar.gz', '.tgz', '.tar.bz2', '.tar.xz'])
     filename = _safe_get_param(kwargs, 'file')
     _log('Extracting "%s" from "%s".', filename, archive)
-    return self._extract_file_from_tar(filename, archive)
+    archive_basename, archive_extname = os.path.splitext(archive)
 
-  def _extract_file_from_tar(self, filename, archive):
-    """Extract file of |filename| from |archive|."""
+    headers = cherrypy.request.headers.copy()
+    if archive_extname == '.tar':
+      decompressed_archive_name = archive
+    else:
+      # Compressed tar archives: we don't decompress them here. Instead, we
+      # suppose they have been decompressed, and continue the routine to extract
+      # from the supposed decompressed archive name.
+      # The magic is, we set a special HTTP header, and pass it to caching
+      # server. Eventually, caching server loops it back to `download` RPC.
+      # In `download`, we check this header. If it exists, then call
+      # `decompress` RPC other than a normal `download` RPC.
+      headers[_HTTP_HEADER_COMPRESSED_TAR_EXT] = archive_extname
+      # Get the name of decompressed archive, e.g. foo.tgz => foo.tar,
+      # bar.tar.xz => bar.tar, etc.
+      if archive_extname == '.tgz':
+        decompressed_archive_name = '%s.tar' % archive_basename
+      else:
+        decompressed_archive_name = archive_basename
+
+    return self._extract_file_from_tar(filename, decompressed_archive_name,
+                                       headers)
+
+  def _extract_file_from_tar(self, filename, archive, headers=None):
+    """Extract file of |filename| from |archive| with http headers |headers|."""
     # Call `list_member` and search |filename| in it. If found, create another
     # "Range Request" to download that range of bytes.
-    all_files = self._caching_server.list_member(
-        archive, headers=cherrypy.request.headers)
+    all_files = self._caching_server.list_member(archive, headers=headers)
     # The format of each line is '<filename>,<data1>,<data2>...'. And the
     # filename is encoded by URL percent encoding, so no ',' in filename. Thus
     # search '<filename>,' is good enough for looking up the file information.
@@ -343,7 +401,7 @@ class GsArchiveServer(object):
         _log('The line for the file found: %s', l)
         file_info = tarfile_utils.TarMemberInfo._make(l.split(','))
         rsp = self._send_range_request(archive, file_info.content_start,
-                                       file_info.size)
+                                       file_info.size, headers)
         rsp.raise_for_status()
         return rsp.iter_content(_WRITE_BUFFER_SIZE_BYTES)
 
@@ -351,13 +409,12 @@ class GsArchiveServer(object):
         _HTTP_BAD_REQUEST,
         'File "%s" is not in archive "%s"!' % (filename, archive))
 
-  def _send_range_request(self, archive, start, size):
+  def _send_range_request(self, archive, start, size, headers):
     """Create and send a "Range Request" to caching server.
 
     Set HTTP Range header and just download the bytes in that "range".
     https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
     """
-    headers = cherrypy.request.headers.copy()
     headers['Range'] = 'bytes=%s-%d' % (start, int(start) + int(size) - 1)
     rsp = self._caching_server.download(archive, headers=headers)
 
@@ -394,6 +451,7 @@ class GsArchiveServer(object):
     rsp = self._caching_server.download(zarchive,
                                         headers=cherrypy.request.headers)
     cherrypy.response.headers['Content-Type'] = 'application/x-tar'
+    cherrypy.response.headers['Accept-Ranges'] = 'bytes'
 
     basename = os.path.basename(zarchive)
     _, extname = os.path.splitext(basename)

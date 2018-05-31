@@ -68,6 +68,22 @@ _TEST_DATA = {
         'z_size': 51200,
         'z_md5': 'baa91444d9a1d8e173c42dfa776b1b98',
     },
+    'a_file_from_tgz': {
+        'path': 'dev_image_new/autotest/tools/common.py',
+        'from': '%s/stateful.tgz' % _DIR,
+        'md5': '634ac656b484758491674530ebe9fbc3'
+    },
+    'a_file_from_bz2': {
+        'path':
+            'autotest/au_control_files/control.paygen_au_canary_full_10500.0.0',
+        'from': '%s/paygen_au_canary_control.tar.bz2' % _DIR,
+        'md5': '5491d80aa4788084d974bd92df67815d'
+    },
+    'a_file_from_xz': {
+        'path': 'mount_image.sh',
+        'from': '%s/image_scripts.tar.xz' % _DIR,
+        'md5': 'e89dd3eb2fa386c3b0eef538a5ab57c3',
+    },
 }
 
 # a tgz file with only one file "bar" which content is "foo\n"
@@ -189,6 +205,19 @@ class MockedGSArchiveServerTest(unittest.TestCase):
       rsp = self.server.decompress('baz.tar.xz')
       self.assertEquals(''.join(rsp), _A_TAR_FILE)
 
+  def test_extract_ztar(self):
+    """Test extract a file from a compressed tar archive."""
+    with mock.patch.object(self.server, '_caching_server') as cache_server:
+      cache_server.list_member.return_value.iter_lines.return_value = [
+          'foobar,_,_,0,123']
+      self.server.extract('baz.tar.gz', file='foobar')
+      self.server.extract('baz.tar.bz2', file='foobar')
+      self.server.extract('baz.tar.xz', file='foobar')
+      self.server.extract('baz.tgz', file='foobar')
+
+      self.assertTrue(cache_server.list_member.called)
+      self.assertTrue(cache_server.download.called)
+
 
 def testing_server_setup():
   """Check if testing server is setup."""
@@ -265,6 +294,13 @@ class GsCacheBackendIntegrationTest(unittest.TestCase):
       rsp = self._get_page('/decompress%(path)s' % tested_file)
       self.assertEquals(rsp.headers['Content-Type'], 'application/x-tar')
       self._verify_md5(rsp.content, tested_file['z_md5'])
+
+  def test_extract_from_compressed_tar(self):
+    """Test extracting a file from a compressed tar file."""
+    for k in ('a_file_from_tgz', 'a_file_from_xz', 'a_file_from_bz2'):
+      tested_file = _TEST_DATA[k]
+      rsp = self._get_page('/extract/%(from)s?file=%(path)s' % tested_file)
+      self._verify_md5(rsp.content, tested_file['md5'])
 
 
 if __name__ == "__main__":
