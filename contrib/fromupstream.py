@@ -238,6 +238,9 @@ def main(args):
         # Remove stray Change-Id, most likely from merge resolution
         commit_message = re.sub(r'Change-Id:.*\n?', '', commit_message)
 
+        # Note the source location before tagging anything else
+        commit_message += '\n' + args['source_line']
+
         # add automatic Change ID, BUG, and TEST (and maybe signoff too) so
         # next commands know where to work on
         commit_message += '\n'
@@ -266,7 +269,6 @@ def main(args):
 
         # decorate it that it's from outside
         commit_message = args['tag'] + commit_message
-        commit_message += '\n' + args['source_line']
 
         # commit everything
         commit = subprocess.Popen(
