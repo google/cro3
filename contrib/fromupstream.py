@@ -7,6 +7,7 @@
 
 from __future__ import print_function
 
+import ConfigParser
 import argparse
 import os
 import re
@@ -19,6 +20,8 @@ LINUX_URLS = (
     'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
     'https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git',
 )
+
+_PWCLIENTRC = os.path.expanduser('~/.pwclientrc')
 
 def _get_conflicts():
     """Report conflicting files."""
@@ -70,6 +73,32 @@ def _pause_for_merge(conflicts):
     # that (should we abort? skip? continue?)
     # Perhaps check last commit message to see if it's the one we were using.
 
+def _get_pw_url(project):
+    """Retrieve the patchwork server URL from .pwclientrc.
+
+    @param project: patchwork project name; if None, we retrieve the default
+        from pwclientrc
+    """
+    config = ConfigParser.ConfigParser()
+    config.read([_PWCLIENTRC])
+
+    if project is None:
+        try:
+            project = config.get('options', 'default')
+        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+            sys.stderr.write(
+                    'Error: no default patchwork project found in %s.\n'
+                    % _PWCLIENTRC)
+            sys.exit(1)
+
+    if not config.has_option(project, 'url'):
+        sys.stderr.write('Error: patchwork URL not found for project \'%s\'\n'
+                         % project)
+        sys.exit(1)
+
+    url = config.get(project, 'url')
+    return re.sub('(/xmlrpc/)$', '', url)
+
 def main(args):
     """This is the main entrypoint for fromupstream.
 
@@ -104,8 +133,11 @@ def main(args):
                         '(am from http://....)')
     parser.add_argument('locations',
                         nargs='+',
-                        help='Patchwork ID (pw://###), ' +
-                        'linux commit like linux://HASH, ' +
+                        help='Patchwork ID (pw://### or pw://PROJECT/###, ' +
+                        'where PROJECT is defined in ~/.pwclientrc; if no ' +
+                        'PROJECT is specified, the default is retrieved from ' +
+                        '~/.pwclientrc), ' +
+                        'linux commit like linux://HASH, or ' +
                         'git reference like fromgit://remote/branch/HASH')
 
     args = vars(parser.parse_args(args))
@@ -131,7 +163,7 @@ def main(args):
         location = args['locations'].pop(0)
 
         patchwork_match = re.match(
-            r'pw://(\d+)', location
+            r'pw://(([-A-z]+)/)?(\d+)', location
         )
         linux_match = re.match(
             r'linux://([0-9a-f]+)', location
@@ -141,17 +173,22 @@ def main(args):
         )
 
         if patchwork_match is not None:
-            patch_id = int(patchwork_match.group(1))
+            pw_project = patchwork_match.group(2)
+            patch_id = int(patchwork_match.group(3))
 
             if args['source_line'] is None:
-                args['source_line'] = \
-                    '(am from https://patchwork.kernel.org/patch/%d/)' % \
-                    patch_id
+                url = _get_pw_url(pw_project)
+                args['source_line'] = '(am from %s/patch/%d/)' % (url, patch_id)
+
             if args['tag'] is None:
                 args['tag'] = 'FROMLIST: '
 
-            pw_pipe = subprocess.Popen(['pwclient', 'view', str(patch_id)],
-                                       stdout=subprocess.PIPE)
+            pw_args = []
+            if pw_project is not None:
+                pw_args += ['-p', pw_project]
+
+            pw_pipe = subprocess.Popen(['pwclient', 'view'] + pw_args +
+                                       [str(patch_id)], stdout=subprocess.PIPE)
             s = pw_pipe.communicate()[0]
 
             if not s:
