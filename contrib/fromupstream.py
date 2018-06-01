@@ -104,10 +104,9 @@ def main(args):
                         '(am from http://....)')
     parser.add_argument('locations',
                         nargs='+',
-                        help='Patchwork url (either ' +
-                        'https://patchwork.kernel.org/patch/###/ or ' +
-                        'pw://###), linux commit like linux://HASH, git ' +
-                        'refrerence like fromgit://remote/branch/HASH')
+                        help='Patchwork ID (pw://###), ' +
+                        'linux commit like linux://HASH, ' +
+                        'git reference like fromgit://remote/branch/HASH')
 
     args = vars(parser.parse_args(args))
 
@@ -132,7 +131,7 @@ def main(args):
         location = args['locations'].pop(0)
 
         patchwork_match = re.match(
-            r'((pw://)|(https?://patchwork.kernel.org/patch/))(\d+)/?', location
+            r'pw://(\d+)', location
         )
         linux_match = re.match(
             r'linux://([0-9a-f]+)', location
@@ -142,7 +141,7 @@ def main(args):
         )
 
         if patchwork_match is not None:
-            patch_id = int(patchwork_match.group(4))
+            patch_id = int(patchwork_match.group(1))
 
             if args['source_line'] is None:
                 args['source_line'] = \
