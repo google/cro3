@@ -36,6 +36,7 @@ FLAGS_HELP="Usage:
 
 DEFINE_string logfile "${LOGFILE_PATH}" "Path to record logs to."
 DEFINE_string status_url "" "URL of devserver to post status to."
+DEFINE_boolean reboot "${FLAGS_TRUE}" "Whether to reboot at completion"
 
 # Parse command line.
 FLAGS "$@" || exit 1
@@ -296,11 +297,13 @@ provision_device() {
   echo "${build}" >"${COMPLETED_FILE}"
   keyval "COMPLETED=${build}"
 
-  # Reboot in the background, giving time for the ssh invocation to
-  # cleanly terminate.
-  info "Reboot (into ${build})"
-  post_status "DUT: Reboot"
-  (sleep 2; reboot) &
+  if [[ ${FLAGS_reboot} -eq ${FLAGS_TRUE} ]]; then
+    # Reboot in the background, giving time for the ssh invocation to
+    # cleanly terminate.
+    info "Reboot (into ${build})"
+    post_status "DUT: Reboot"
+    (sleep 2; reboot) &
+  fi
 
   end_timing "${script_start_time}" QUICK_PROVISION
 }
