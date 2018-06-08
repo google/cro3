@@ -22,6 +22,7 @@ from __future__ import print_function
 
 import argparse
 import contextlib
+import fnmatch
 import functools
 import httplib
 import os
@@ -35,11 +36,12 @@ import urlparse
 import cherrypy
 import requests
 
+import constants
+import range_response
 import tarfile_utils
 from chromite.lib import cros_logging as logging
 from chromite.lib import gs
 
-_READ_BUFFER_SIZE_BYTES = 1024 * 1024  # 1 MB
 _WRITE_BUFFER_SIZE_BYTES = 1024 * 1024  # 1 MB
 
 # When extract files from TAR (either compressed or uncompressed), we suppose
@@ -99,23 +101,30 @@ def _check_file_extension(filename, ext_names=None):
 
 
 def _safe_get_param(all_params, param_name):
-  """Check if |param_name| is in |all_params|.
+  """Check if |param_name| is in |all_params| and has non-empty value.
 
   Args:
     all_params: A dict of all parameters of the call.
     param_name: The parameter name to be checked.
 
   Returns:
-    The value of |param_name|.
+    A set of all non-empty value.
 
   Raises:
-    Raise HTTP 400 error when the required parameter isn't in |all_params|.
+    Raise HTTP 400 error if no valid parameter in |all_params|.
   """
+  result = set()
   try:
-    return all_params[param_name]
+    value = all_params[param_name]
   except KeyError:
     raise cherrypy.HTTPError(httplib.BAD_REQUEST,
                              'Parameter "%s" is required!' % param_name)
+
+  if isinstance(value, list):
+    result |= set(value)
+  else:
+    result.add(value)
+  return result
 
 
 def _to_cherrypy_error(func):
@@ -135,6 +144,24 @@ def _to_cherrypy_error(func):
       # cherrypy.HTTPError to have necessary HTML tags
       raise cherrypy.HTTPError(httplib.BAD_REQUEST, err.message)
   return func_wrapper
+
+
+def _search_lines_by_pattern(all_lines, patterns):
+  """Search plain text lines which matches one of shell style glob |patterns|.
+
+  Args:
+    all_lines: A list or an iterable object of all plain text lines to be
+      searched.
+    patterns: A list of pattern that the target lines matched.
+
+  Returns:
+    A set of found lines.
+  """
+  found_lines = set()
+  for pattern in patterns:
+    found_lines |= set(fnmatch.filter(all_lines, pattern))
+
+  return found_lines
 
 
 class _CachingServer(object):
@@ -249,8 +276,6 @@ class GsArchiveServer(object):
     Returns:
       The generator of CSV stream.
     """
-    # TODO(guocb): new parameter to filter the list
-
     archive = _check_file_extension('/'.join(args), ext_names=['.tar'])
     rsp = self._caching_server.download(archive, cherrypy.request.headers)
     cherrypy.response.headers['Content-Type'] = 'text/csv'
@@ -262,7 +287,7 @@ class GsArchiveServer(object):
     tar_tv = tempfile.SpooledTemporaryFile(max_size=_SPOOL_FILE_SIZE_BYTES)
     tar = subprocess.Popen(['tar', 'tv', '--block-number'],
                            stdin=subprocess.PIPE, stdout=tar_tv)
-    for chunk in rsp.iter_content(_READ_BUFFER_SIZE_BYTES):
+    for chunk in rsp.iter_content(constants.READ_BUFFER_SIZE_BYTES):
       tar.stdin.write(chunk)
 
     tar.wait()
@@ -332,23 +357,43 @@ class GsArchiveServer(object):
   @cherrypy.config(**{'response.stream': True})
   @_to_cherrypy_error
   def extract(self, *args, **kwargs):
-    """Extract a file from a compressed/uncompressed Tar archive.
+    """Extract files from a compressed/uncompressed Tar archive.
+
+    The RPC accepts query 'file=' which is either a file name or a glob pattern.
+    The query can be specified multiple times.
+
+    It's optional to encode the file name or pattern in 'percent-encoding', i.e.
+    '/' -> '%2F', '*' -> '%2A', etc.
+
+    The RPC accepts two type of queries, i.e. 'file=' and 'pattern=' (accepts
+    shell-style wildcards). They can be used mixed and either of them can be
+    used multiple times.
+
+    The query can be encoded using 'percent-encoding', i.e. '/' -> '%2F',
+    '*' -> '%2A', etc.
 
     Examples:
-      GET /extract/chromeos-image-archive/release/files.tgz?file=path/to/file
+      Extracting file 'path/to/file' from files.tgz:
+      GET /extract/<bucket>/files.tgz?file=path%2Fto%2Ffile
+
+      Extracting all files in pattern of '*/control' or '*/control.*':
+      GET /extract/<bucket>/files.tgz?file=*/control&file=*/control.*
 
     Args:
       *args: All parts of the GS path of the archive, without gs:// prefix.
-      kwargs: file: The URL ENCODED path of file to be extracted.
+      kwargs: file: The path or pattern of file to be extracted.
 
     Returns:
-      The stream of extracted file.
+      The JSON stream of extracted file, in details:
+        1. No file match the pattern, return empty json, i.e. '{}'.
+        2. One or more files match the pattern, return
+          '{filename: content, filename: content, ...}'.
     """
     archive = _check_file_extension(
         '/'.join(args),
         ext_names=['.tar', '.tar.gz', '.tgz', '.tar.bz2', '.tar.xz'])
-    filename = _safe_get_param(kwargs, 'file')
-    _log('Extracting "%s" from "%s".', filename, archive)
+    files = _safe_get_param(kwargs, 'file')
+    _log('Extracting "%s" from "%s".', files, archive)
     archive_basename, archive_extname = os.path.splitext(archive)
 
     headers = cherrypy.request.headers.copy()
@@ -370,58 +415,73 @@ class GsArchiveServer(object):
       else:
         decompressed_archive_name = archive_basename
 
-    return self._extract_file_from_tar(filename, decompressed_archive_name,
-                                       headers)
+    return self._extract_files_from_tar(files, decompressed_archive_name,
+                                        headers)
 
-  def _extract_file_from_tar(self, filename, archive, headers=None):
-    """Extract file of |filename| from |archive| with http headers |headers|."""
+  def _extract_files_from_tar(self, files, archive, headers=None):
+    """Extract files from |archive| with http headers |headers|."""
     # Call `list_member` and search |filename| in it. If found, create another
     # "Range Request" to download that range of bytes.
+
     all_files = self._caching_server.list_member(archive, headers=headers)
+
     # The format of each line is '<filename>,<data1>,<data2>...'. And the
-    # filename is encoded by URL percent encoding, so no ',' in filename. Thus
-    # search '<filename>,' is good enough for looking up the file information.
-    target_str = '%s,' % filename
+    # filename is encoded by URL percent encoding, so no ',' in it. Thus
+    # we can match the line using the pattern of '<input pattern>,*'
+    target_files = ['%s,*' % urllib.unquote(f) for f in files]
 
-    for l in all_files.iter_lines(chunk_size=_READ_BUFFER_SIZE_BYTES):
-      # TODO(guocb): Seems the searching performance is OK: for a 60K lines
-      # list, searching a file in very last takes about 0.1 second. But it
-      # would be better if there's a better and not very complex way.
+    # Loading the file list into memory doesn't consume too much memory (usually
+    # just a few MBs), but which is very helpful for us to search.
+    found_lines = _search_lines_by_pattern(
+        list(all_files.iter_lines(chunk_size=constants.READ_BUFFER_SIZE_BYTES)),
+        target_files
+    )
+    if not found_lines:
+      return '{}'
 
-      # We don't split the line by ',' and compare the filename part is because
-      # of performance.
-      if l.startswith(target_str):
-        _log('The line for the file found: %s', l)
-        file_info = tarfile_utils.TarMemberInfo._make(l.split(','))
-        rsp = self._send_range_request(archive, file_info.content_start,
-                                       file_info.size, headers)
-        rsp.raise_for_status()
-        return rsp.iter_content(_WRITE_BUFFER_SIZE_BYTES)
+    found_files = [
+        tarfile_utils.TarMemberInfo._make(urllib.unquote(line).rsplit(
+            ',', len(tarfile_utils.TarMemberInfo._fields) - 1))
+        for line in found_lines
+    ]
+    ranges = [(int(f.content_start), int(f.content_start) + int(f.size) - 1)
+              for f in found_files]
+    rsp = self._send_range_request(archive, ranges, headers)
 
-    raise cherrypy.HTTPError(
-        httplib.BAD_REQUEST,
-        'File "%s" is not in archive "%s"!' % (filename, archive))
+    streamer = range_response.JsonStreamer()
+    streamer.queue_response(rsp, found_files)
+    return streamer.stream()
 
-  def _send_range_request(self, archive, start, size, headers):
+  def _send_range_request(self, archive, ranges, headers):
     """Create and send a "Range Request" to caching server.
 
     Set HTTP Range header and just download the bytes in that "range".
     https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
+
+    Args:
+      archive: The archive file this range request against to.
+      ranges: A list of ranges to be downloaded. Each range is a tuple of
+        (start, end).
+      headers: Http headers of the request.
+
+    Returns:
+      An instance of requests.Response if the status code from caching server is
+        httplib.PARTIAL_CONTENT.
     """
-    headers['Range'] = 'bytes=%s-%d' % (start, int(start) + int(size) - 1)
+    ranges = ['%d-%d' % r for r in ranges]
+    headers['Range'] = 'bytes=%s' % (','.join(ranges))
     rsp = self._caching_server.download(archive, headers=headers)
 
     if rsp.status_code == httplib.PARTIAL_CONTENT:
       # Although this is a partial response, it has full content of
       # extracted file. Thus reset the status code and content-length.
       cherrypy.response.status = httplib.OK
-      cherrypy.response.headers['Content-Length'] = size
     else:
       _log('Expect HTTP_PARTIAL_CONTENT (206), but got %s', rsp.status_code,
            level=logging.ERROR)
       rsp.status_code = httplib.INTERNAL_SERVER_ERROR
       rsp.reason = 'Range request failed for "%s"' % archive
-
+    rsp.raise_for_status()
     return rsp
 
   @cherrypy.expose
@@ -461,7 +521,7 @@ class GsArchiveServer(object):
     proc = subprocess.Popen(commands[extname], stdin=subprocess.PIPE,
                             stdout=decompressed_file)
     _log('Decompress process id: %s.', proc.pid)
-    for chunk in rsp.iter_content(_READ_BUFFER_SIZE_BYTES):
+    for chunk in rsp.iter_content(constants.READ_BUFFER_SIZE_BYTES):
       proc.stdin.write(chunk)
     proc.stdin.close()
     _log('Decompression done.')
@@ -481,7 +541,7 @@ class GsArchiveServer(object):
     def decompressed_content():
       _log('Streaming decompressed content of "%s" begin.', zarchive)
       while True:
-        data = decompressed_file.read(_READ_BUFFER_SIZE_BYTES)
+        data = decompressed_file.read(constants.READ_BUFFER_SIZE_BYTES)
         if not data:
           break
         yield data

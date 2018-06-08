@@ -12,10 +12,12 @@ from __future__ import print_function
 import base64
 import gzip
 import httplib
+import json
 import md5
 import os
 import StringIO
 import unittest
+import urllib
 
 import cherrypy
 import mock
@@ -176,15 +178,16 @@ class MockedGSArchiveServerTest(unittest.TestCase):
     with mock.patch.object(self.server, '_caching_server') as cache_server:
       cache_server.list_member.return_value.iter_lines.return_value = [
           'foo,_,_,0,3', 'bar,_,_,3,10', 'baz,_,_,13,5']
+      cache_server.download.return_value.headers = {
+          'Content-Range': 'bytes 3-12/*'}
 
-      # extract an existing file.
+      # Extract an existing file.
       self.server.extract('bar.tar', file='bar')
       cache_server.download.assert_called_with('bar.tar',
                                                headers={'Range': 'bytes=3-12'})
 
-      # extract an non-exist file.
-      with self.assertRaises(cherrypy.HTTPError):
-        self.server.extract('bar.tar', file='footar')
+      # Extract an non-exist file. Should return '{}'
+      self.assertEqual('{}', self.server.extract('bar.tar', file='footar'))
 
   def test_decompress_tgz(self):
     """Test decompress a tgz file."""
@@ -212,6 +215,8 @@ class MockedGSArchiveServerTest(unittest.TestCase):
     with mock.patch.object(self.server, '_caching_server') as cache_server:
       cache_server.list_member.return_value.iter_lines.return_value = [
           'foobar,_,_,0,123']
+      cache_server.download.return_value.headers = {
+          'Content-Range': 'bytes 0-122/*'}
       self.server.extract('baz.tar.gz', file='foobar')
       self.server.extract('baz.tar.bz2', file='foobar')
       self.server.extract('baz.tar.xz', file='foobar')
@@ -254,11 +259,11 @@ class GsCacheBackendIntegrationTest(unittest.TestCase):
     self.assertEqual(rsp.status_code, expect_status)
     return rsp
 
-  def _verify_md5(self, content, expected_md5):
+  def _verify_md5(self, content, expected_md5, filename=None):
     """Verify the md5 sum of input content equals to expteced value."""
     m = md5.new()
     m.update(content)
-    self.assertEqual(m.hexdigest(), expected_md5)
+    self.assertEqual(m.hexdigest(), expected_md5, msg=filename)
 
   def test_download_plain_file(self):
     """Test download RPC."""
@@ -287,7 +292,28 @@ class GsCacheBackendIntegrationTest(unittest.TestCase):
     for k in ('a_file_from_tar',):
       tested_file = _TEST_DATA[k]
       rsp = self._get_page('/extract/%(from)s?file=%(path)s' % tested_file)
-      self._verify_md5(rsp.content, tested_file['md5'])
+      result = json.loads(rsp.content)
+      self.assertEqual(len(result), 1)
+      self.assertEqual(result.keys()[0], unicode(tested_file['path']))
+      self._verify_md5(result.values()[0], tested_file['md5'])
+
+  def test_extract_files_duplicated(self):
+    """Test extracting two duplicated files which should just return one."""
+    tested_file = _TEST_DATA['a_file_from_tar']
+    rsp = self._get_page('/extract/%(from)s?file=%(path)s&file=%(path)s' %
+                         tested_file)
+    result = json.loads(rsp.content)
+    self.assertEqual(len(result), 1)
+    self.assertEqual(result.keys()[0], unicode(tested_file['path']))
+    self._verify_md5(result.values()[0], tested_file['md5'])
+
+  def test_extract_non_existing_from_tar(self):
+    """Test extracting non-existing file from a tar."""
+    tested_file = _TEST_DATA['a_file_from_tar']
+    # pylint: disable=protected-access
+    response = self._get_page('/extract/%(from)s?file=non-existing-file' %
+                              tested_file)
+    self.assertEqual(response.content, '{}')
 
   def test_decompress(self):
     """Test decompress RPC."""
@@ -302,7 +328,72 @@ class GsCacheBackendIntegrationTest(unittest.TestCase):
     for k in ('a_file_from_tgz', 'a_file_from_xz', 'a_file_from_bz2'):
       tested_file = _TEST_DATA[k]
       rsp = self._get_page('/extract/%(from)s?file=%(path)s' % tested_file)
-      self._verify_md5(rsp.content, tested_file['md5'])
+      result = json.loads(rsp.content)
+      self.assertEqual(len(result), 1)
+      self.assertEqual(result.keys()[0], unicode(tested_file['path']))
+      self._verify_md5(result.values()[0], tested_file['md5'])
+
+  def test_extract_two_files_by_name(self):
+    """Test extracting two files from a compressed tar file by their name."""
+    tested_data = {
+        'from': '%s/stateful.tgz' % _DIR,
+        'file': {
+            'var_new/cache/edb/vdb_metadata_delta.json':
+                'b085190192bb878efa86cbefd5e81979',
+            'dev_image_new/autotest/tools/common.py':
+                '634ac656b484758491674530ebe9fbc3',
+        }
+    }
+    tested_data['query'] = urllib.urlencode({'file': tested_data['file']},
+                                            doseq=True)
+    rsp = self._get_page('/extract/%(from)s?%(query)s' % tested_data)
+    result = json.loads(rsp.content)
+    self.assertListEqual(sorted(tested_data['file']), sorted(result.keys()))
+    for filename, file_content in result.items():
+      self._verify_md5(file_content, tested_data['file'][filename], filename)
+
+  def test_extract_one_file_by_pattern(self):
+    """Extracting one file by pattern will result in JSON format output."""
+    tested_data = {
+        'from': '%s/control_files.tar' % _DIR,
+        'pattern': '*/dummy_Fail/control',
+        'path': 'autotest/client/site_tests/dummy_Fail/control',
+        'md5': '2cf8eb4e9384ee66ac56abdf9426a591',
+    }
+    rsp = self._get_page('/extract/%(from)s?file=%(pattern)s' % tested_data)
+    result = json.loads(rsp.content)
+    self.assertEqual(len(result), 1)
+    filename, file_content = result.items()[0]
+    self.assertEqual(filename, unicode(tested_data['path']))
+    self._verify_md5(file_content, tested_data['md5'], filename)
+
+  def test_extract_files_by_pattern(self):
+    """Test extracting files by pattern."""
+    tested_data = {
+        'from': '%s/control_files.tar' % _DIR,
+        'pattern': '*/dummy_Fail/control*',
+        'files': {
+            'autotest/client/site_tests/dummy_Fail/control':
+                '2cf8eb4e9384ee66ac56abdf9426a591',
+            'autotest/client/site_tests/dummy_Fail/control.retry_alwaysfail':
+                'ce06ffa9635e02e5908123c31d45c1c5',
+            'autotest/client/site_tests/dummy_Fail/control.retry_alwaysflake':
+                '43ab0c2961b0e4721f905ea52fde64fd',
+            'autotest/client/site_tests/dummy_Fail/control.dependency':
+                'e967a894016dcd5bdb6d0b0ace4f8465',
+        },
+    }
+    rsp = self._get_page('/extract/%(from)s?file=%(pattern)s' % tested_data)
+    result = json.loads(rsp.content)
+    self.assertEqual(len(result), len(tested_data['files']))
+    for filename, file_content in result.items():
+      self._verify_md5(file_content, tested_data['files'][filename], filename)
+
+  def test_extract_non_existing_files_by_pattern(self):
+    """Extract non-existing files by pattern results in '{}'."""
+    archive = '%s/control_files.tar' % _DIR,
+    rsp = self._get_page('/extract/%s?file=non.existing*files' % archive)
+    self.assertEqual(rsp.content, '{}')
 
 
 if __name__ == "__main__":
