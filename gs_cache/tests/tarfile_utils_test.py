@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -36,7 +37,7 @@ class TarfileUtilsTest(unittest.TestCase):
         'block 6: ** Block of NULs **\n'
     )
     result = list(tarfile_utils.list_tar_members(tar_tvR))
-    self.assertEquals(result, [
+    self.assertEqual(result, [
         ('filename', 0, 1024, 512, 1),
         ('file name with spaces', 512 * 2, 1024, 512 * 3, 123),
         ('directory/', 512 * 4, 512, 512 * 5, 0),
@@ -61,9 +62,9 @@ class TarfileUtilsTest(unittest.TestCase):
         if tar_info.issym():
           name = '%s -> %s' % (tar_info.name, tar_info.linkname)
 
-        self.assertEquals(name, result.filename)
-        self.assertEquals(tar_info.offset_data, result.content_start)
-        self.assertEquals(tar_info.size, result.size)
+        self.assertEqual(name, result.filename)
+        self.assertEqual(tar_info.offset_data, result.content_start)
+        self.assertEqual(tar_info.size, result.size)
 
 
 if __name__ == '__main__':

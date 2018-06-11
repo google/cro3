@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -122,7 +123,7 @@ class UnmockedGSArchiveServerTest(helper.CPWebCase):
     self.getPage('/download%(path)s' % tested_file)
     self.assertStatus(200)
     self.assertHeader('Content-Type', tested_file['mime'])
-    self.assertEquals(len(self.body), tested_file['size'])
+    self.assertEqual(len(self.body), tested_file['size'])
 
   def test_download_a_non_existing_file(self):
     """Test downloading non-existing files."""
@@ -149,14 +150,14 @@ class MockedGSArchiveServerTest(unittest.TestCase):
       caching_server.download.return_value = rsp
       rsp.iter_content.return_value = (_A_TAR_FILE[:100], _A_TAR_FILE[100:])
       csv = list(self.server.list_member('baz.tar'))
-      self.assertEquals(len(csv), 1)
+      self.assertEqual(len(csv), 1)
       file_info = tarfile_utils.TarMemberInfo._make(
           csv[0].rstrip('\n').split(','))
-      self.assertEquals(file_info.filename, 'bar')
-      self.assertEquals(file_info.record_start, '0')
-      self.assertEquals(file_info.record_size, '1024')
-      self.assertEquals(file_info.content_start, '512')
-      self.assertEquals(file_info.size, '4')
+      self.assertEqual(file_info.filename, 'bar')
+      self.assertEqual(file_info.record_start, '0')
+      self.assertEqual(file_info.record_size, '1024')
+      self.assertEqual(file_info.content_start, '512')
+      self.assertEqual(file_info.size, '4')
 
       # test char quoting in file name
       with gzip.open(os.path.join(os.path.dirname(__file__),
@@ -189,21 +190,21 @@ class MockedGSArchiveServerTest(unittest.TestCase):
     with mock.patch.object(self.server, '_caching_server') as cache_server:
       cache_server.download.return_value.iter_content.return_value = _A_TGZ_FILE
       rsp = self.server.decompress('baz.tgz')
-      self.assertEquals(''.join(rsp), _A_TAR_FILE)
+      self.assertEqual(''.join(rsp), _A_TAR_FILE)
 
   def test_decompress_bz2(self):
     """Test decompress a bz2 file."""
     with mock.patch.object(self.server, '_caching_server') as cache_server:
       cache_server.download.return_value.iter_content.return_value = _A_BZ2_FILE
       rsp = self.server.decompress('baz.tar.bz2')
-      self.assertEquals(''.join(rsp), _A_TAR_FILE)
+      self.assertEqual(''.join(rsp), _A_TAR_FILE)
 
   def test_decompress_xz(self):
     """Test decompress a xz file."""
     with mock.patch.object(self.server, '_caching_server') as cache_server:
       cache_server.download.return_value.iter_content.return_value = _A_XZ_FILE
       rsp = self.server.decompress('baz.tar.xz')
-      self.assertEquals(''.join(rsp), _A_TAR_FILE)
+      self.assertEqual(''.join(rsp), _A_TAR_FILE)
 
   def test_extract_ztar(self):
     """Test extract a file from a compressed tar archive."""
@@ -249,35 +250,35 @@ class GsCacheBackendIntegrationTest(unittest.TestCase):
 
     rsp = requests.get('%s%s' % (_TESTING_SERVER, url), headers=headers,
                        stream=True)
-    self.assertEquals(rsp.status_code, expect_status)
+    self.assertEqual(rsp.status_code, expect_status)
     return rsp
 
   def _verify_md5(self, content, expected_md5):
     """Verify the md5 sum of input content equals to expteced value."""
     m = md5.new()
     m.update(content)
-    self.assertEquals(m.hexdigest(), expected_md5)
+    self.assertEqual(m.hexdigest(), expected_md5)
 
   def test_download_plain_file(self):
     """Test download RPC."""
     tested_file = _TEST_DATA['a_plain_file']
     rsp = self._get_page('/download%(path)s' % tested_file)
-    self.assertEquals(rsp.headers['Content-Length'], str(tested_file['size']))
+    self.assertEqual(rsp.headers['Content-Length'], str(tested_file['size']))
 
   def test_download_compressed_file(self):
     """Download a compressed file which won't be decompressed."""
     for k in ('a_zip_file', 'a_tgz_file'):
       tested_file = _TEST_DATA[k]
       rsp = self._get_page('/download%(path)s' % tested_file)
-      self.assertEquals(rsp.headers['Content-Length'], str(tested_file['size']))
-      self.assertEquals(rsp.headers['Content-Type'], tested_file['mime'])
+      self.assertEqual(rsp.headers['Content-Length'], str(tested_file['size']))
+      self.assertEqual(rsp.headers['Content-Type'], tested_file['mime'])
       self._verify_md5(rsp.content, tested_file['md5'])
 
   def test_list_member(self):
     """Test list member of a tar file."""
     tested_file = _TEST_DATA['a_tar_file']
     rsp = self._get_page('/list_member%(path)s' % tested_file)
-    self.assertEquals(rsp.headers['Content-Type'], 'text/csv;charset=utf-8')
+    self.assertEqual(rsp.headers['Content-Type'], 'text/csv;charset=utf-8')
     self._verify_md5(rsp.content, tested_file['members_md5'])
 
   def test_extract_from_tar(self):
@@ -292,7 +293,7 @@ class GsCacheBackendIntegrationTest(unittest.TestCase):
     for k in ('a_tgz_file', 'a_bz2_file', 'a_xz_file'):
       tested_file = _TEST_DATA[k]
       rsp = self._get_page('/decompress%(path)s' % tested_file)
-      self.assertEquals(rsp.headers['Content-Type'], 'application/x-tar')
+      self.assertEqual(rsp.headers['Content-Type'], 'application/x-tar')
       self._verify_md5(rsp.content, tested_file['z_md5'])
 
   def test_extract_from_compressed_tar(self):
