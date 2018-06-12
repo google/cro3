@@ -1,5 +1,5 @@
-#!/usr/bin/python2
-#
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -67,7 +67,10 @@ class DownloaderTestBase(mox.MoxTestBase):
     downloaded and the autotest tarball is attempted in the background.
     """
     self._SimpleDownloadOfTestSuites(
-        downloader.GoogleStorageDownloader(self._work_dir, self.archive_url))
+        downloader.GoogleStorageDownloader(
+            self._work_dir, self.archive_url,
+            downloader.GoogleStorageDownloader.GetBuildIdFromArchiveURL(
+                self.archive_url)))
 
   def testSimpleDownloadOfTestSuitesFromLocal(self):
     """Basic test_suites test.
@@ -98,7 +101,10 @@ class DownloaderTestBase(mox.MoxTestBase):
   def testDownloadSymbolsFromGS(self):
     """Basic symbols download from Google Storage."""
     self._DownloadSymbolsHelper(
-        downloader.GoogleStorageDownloader(self._work_dir, self.archive_url))
+        downloader.GoogleStorageDownloader(
+            self._work_dir, self.archive_url,
+            downloader.GoogleStorageDownloader.GetBuildIdFromArchiveURL(
+                self.archive_url)))
 
   def testDownloadSymbolsFromLocal(self):
     """Basic symbols download from a Local Path."""

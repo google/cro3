@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -47,6 +47,7 @@ TEST_SUITES_FILE = 'test_suites.tar.bz2'
 BASE_IMAGE_FILE = 'chromiumos_base_image.tar.xz'
 TEST_IMAGE_FILE = 'chromiumos_test_image.tar.xz'
 RECOVERY_IMAGE_FILE = 'recovery_image.tar.xz'
+SIGNED_IMAGE_FILE = 'chromeos_*mp*.bin'
 LIBIOTA_TEST_BINARIES_FILE = 'test_binaries.tar.gz'
 LIBIOTA_BOARD_UTILS_FILE = 'board_utils.tar.gz'
 QUICK_PROVISION_FILE = 'full_dev_part_*.bin.gz'
@@ -545,6 +546,24 @@ class AutotestTarball(BundledArtifact):
       self._Log('Using pre-generated packages from autotest')
 
 
+class SignedArtifact(Artifact):
+  """Wrapper for signed artifacts which need a path translation."""
+
+  def _Setup(self):
+    super(SignedArtifact, self)._Setup()
+
+    # Rename to signed_image.bin.
+    install_path = os.path.join(self.install_dir, self.install_subdir,
+                                self.name)
+    new_install_path = os.path.join(self.install_dir, self.install_subdir,
+                                    devserver_constants.SIGNED_IMAGE_FILE)
+    shutil.move(install_path, new_install_path)
+
+    # Reflect the rename in the list of installed files.
+    self.installed_files.remove(install_path)
+    self.installed_files = [new_install_path]
+
+
 def _CreateNewArtifact(tag, base, name, *fixed_args, **fixed_kwargs):
   """Get a data wrapper that describes an artifact's implementation.
 
@@ -634,6 +653,7 @@ _AddCrOSArtifact(artifact_info.BASE_IMAGE, BundledArtifact, IMAGE_FILE,
 _AddCrOSArtifact(artifact_info.RECOVERY_IMAGE, BundledArtifact, IMAGE_FILE,
                  optional_name=RECOVERY_IMAGE_FILE,
                  files_to_extract=[devserver_constants.RECOVERY_IMAGE_FILE])
+_AddCrOSArtifact(artifact_info.SIGNED_IMAGE, SignedArtifact, SIGNED_IMAGE_FILE)
 _AddCrOSArtifact(artifact_info.DEV_IMAGE, BundledArtifact, IMAGE_FILE,
                  files_to_extract=[devserver_constants.IMAGE_FILE])
 _AddCrOSArtifact(artifact_info.TEST_IMAGE, BundledArtifact, IMAGE_FILE,

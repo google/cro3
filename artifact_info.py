@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -28,6 +29,9 @@ BASE_IMAGE = 'base_image'
 
 # The recovery image - the image used to recover a chromiumos device.
 RECOVERY_IMAGE = 'recovery_image'
+
+# The image that has been signed and can be pushed to regular Chrome OS users.
+SIGNED_IMAGE = 'signed_image'
 
 # The test image - the base image with both develolper and test enhancements.
 TEST_IMAGE = 'test_image'

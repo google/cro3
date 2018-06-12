@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -152,8 +152,8 @@ class xBuddyTest(mox.MoxTestBase):
                      self.mock_xb.LookupAlias(alias, board='parrot',
                                               version='1.2.3'))
 
-  def testResolveVersionToBuildId_Official(self):
-    """Check _ResolveVersionToBuildId recognizes aliases for official builds."""
+  def testResolveVersionToBuildIdAndChannel_Official(self):
+    """Check _ResolveVersionToBuildIdAndChannel support for official build."""
     board = 'b'
     suffix = '-s'
 
@@ -169,17 +169,17 @@ class xBuddyTest(mox.MoxTestBase):
 
     self.mox.ReplayAll()
     version = 'latest-official'
-    self.mock_xb._ResolveVersionToBuildId(board, suffix, version)
-    self.mock_xb._ResolveVersionToBuildId(board, suffix, version,
-                                          image_dir=GS_ALTERNATE_DIR)
+    self.mock_xb._ResolveVersionToBuildIdAndChannel(board, suffix, version)
+    self.mock_xb._ResolveVersionToBuildIdAndChannel(board, suffix, version,
+                                                    image_dir=GS_ALTERNATE_DIR)
     version = 'latest-official-paladin'
-    self.mock_xb._ResolveVersionToBuildId(board, suffix, version)
-    self.mock_xb._ResolveVersionToBuildId(board, suffix, version,
-                                          image_dir=GS_ALTERNATE_DIR)
+    self.mock_xb._ResolveVersionToBuildIdAndChannel(board, suffix, version)
+    self.mock_xb._ResolveVersionToBuildIdAndChannel(board, suffix, version,
+                                                    image_dir=GS_ALTERNATE_DIR)
     self.mox.VerifyAll()
 
-  def testResolveVersionToBuildId_Channel(self):
-    """Check _ResolveVersionToBuildId recognizes aliases for channels."""
+  def testResolveVersionToBuildIdAndChannel_Channel(self):
+    """Check _ResolveVersionToBuildIdAndChannel support for channels."""
     board = 'b'
     suffix = '-s'
 
@@ -193,13 +193,13 @@ class xBuddyTest(mox.MoxTestBase):
 
     self.mox.ReplayAll()
     version = 'latest'
-    self.mock_xb._ResolveVersionToBuildId(board, suffix, version)
-    self.mock_xb._ResolveVersionToBuildId(board, suffix, version,
-                                          image_dir=GS_ALTERNATE_DIR)
+    self.mock_xb._ResolveVersionToBuildIdAndChannel(board, suffix, version)
+    self.mock_xb._ResolveVersionToBuildIdAndChannel(board, suffix, version,
+                                                    image_dir=GS_ALTERNATE_DIR)
     version = 'latest-dev'
-    self.mock_xb._ResolveVersionToBuildId(board, suffix, version)
-    self.mock_xb._ResolveVersionToBuildId(board, suffix, version,
-                                          image_dir=GS_ALTERNATE_DIR)
+    self.mock_xb._ResolveVersionToBuildIdAndChannel(board, suffix, version)
+    self.mock_xb._ResolveVersionToBuildIdAndChannel(board, suffix, version,
+                                                    image_dir=GS_ALTERNATE_DIR)
     self.mox.VerifyAll()
 
   # TODO(dgarrett): Re-enable when crbug.com/585914 is fixed.
@@ -337,7 +337,7 @@ class xBuddyTest(mox.MoxTestBase):
     self.mox.StubOutWithMock(gs.GSContext, 'LS')
     self.mox.StubOutWithMock(self.mock_xb, '_Download')
     for _ in range(8):
-      self.mock_xb._Download(mox.IsA(str), mox.In(mox.IsA(str)))
+      self.mock_xb._Download(mox.IsA(str), mox.In(mox.IsA(str)), mox.IsA(str))
 
     # All non-release urls are invalid so we can meet expectations.
     gs.GSContext.LS(

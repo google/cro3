@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -294,15 +294,9 @@ class GoogleStorageDownloader(Downloader):
     archive_url: Google Storage URL to download build artifacts from.
   """
 
-  def __init__(self, static_dir, archive_url):
-    # The archive_url is of the form gs://server/[some_path/target]/...]/build
-    # This function discards 'gs://server/' and extracts the [some_path/target]
-    # as rel_path and the build as build.
-    sub_url = archive_url.partition('://')[2]
-    split_sub_url = sub_url.split('/')
-    rel_path = '/'.join(split_sub_url[1:-1])
-    build = split_sub_url[-1]
-    build_dir = os.path.join(static_dir, rel_path, build)
+  def __init__(self, static_dir, archive_url, build_id):
+    build = build_id.split('/')[-1]
+    build_dir = os.path.join(static_dir, build_id)
 
     super(GoogleStorageDownloader, self).__init__(static_dir, build_dir, build)
 
@@ -345,6 +339,18 @@ class GoogleStorageDownloader(Downloader):
 
   def DescribeSource(self):
     return self._archive_url
+
+  @staticmethod
+  def GetBuildIdFromArchiveURL(archive_url):
+    """Extracts the build ID from the archive URL.
+
+    The archive_url is of the form gs://server/[some_path/target]/...]/build
+    This function discards 'gs://server/' and extracts the [some_path/target]
+    as rel_path and the build as build.
+    """
+    sub_url = archive_url.partition('://')[2]
+    split_sub_url = sub_url.split('/')
+    return '/'.join(split_sub_url[1:])
 
 
 class LocalDownloader(Downloader):

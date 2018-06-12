@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -52,6 +53,7 @@ TEST = 'test'
 BASE = 'base'
 DEV = 'dev'
 FULL = 'full_payload'
+SIGNED = 'signed'
 RECOVERY = 'recovery'
 STATEFUL = 'stateful'
 AUTOTEST = 'autotest'
@@ -99,6 +101,7 @@ GS_ALIASES = [
     TEST,
     BASE,
     RECOVERY,
+    SIGNED,
     FACTORY_SHIM,
     FULL,
     STATEFUL,
@@ -109,6 +112,7 @@ GS_FILE_NAMES = [
     devserver_constants.TEST_IMAGE_FILE,
     devserver_constants.BASE_IMAGE_FILE,
     devserver_constants.RECOVERY_IMAGE_FILE,
+    devserver_constants.SIGNED_IMAGE_FILE,
     devserver_constants.FACTORY_SHIM_IMAGE_FILE,
     devserver_constants.UPDATE_FILE,
     devserver_constants.STATEFUL_FILE,
@@ -119,6 +123,7 @@ ARTIFACTS = [
     artifact_info.TEST_IMAGE,
     artifact_info.BASE_IMAGE,
     artifact_info.RECOVERY_IMAGE,
+    artifact_info.SIGNED_IMAGE,
     artifact_info.FACTORY_SHIM_IMAGE,
     artifact_info.FULL_PAYLOAD,
     artifact_info.STATEFUL_PAYLOAD,
@@ -488,7 +493,8 @@ class XBuddy(build_util.BuildObject):
     # Full release + version is in the LATEST file.
     return self._ctx.Cat(latest_addr)
 
-  def _ResolveVersionToBuildId(self, board, suffix, version, image_dir=None):
+  def _ResolveVersionToBuildIdAndChannel(self, board, suffix, version,
+                                         image_dir=None):
     """Handle version aliases for remote payloads in GS.
 
     Args:
@@ -505,7 +511,8 @@ class XBuddy(build_util.BuildObject):
         the default bucket is used.
 
     Returns:
-      Location where the image dir is actually found on GS (build_id)
+      Tuple of (Location where the image dir is actually found on GS (build_id),
+      best guess for the channel).
 
     Raises:
       XBuddyException: If we failed to resolve the version to a valid url.
@@ -514,29 +521,29 @@ class XBuddy(build_util.BuildObject):
     version_tuple = version.rsplit('-', 1)
 
     if re.match(devserver_constants.VERSION_RE, version):
-      return self._RemoteBuildId(board, suffix, version)
+      return self._RemoteBuildId(board, suffix, version), None
     elif re.match(devserver_constants.VERSION, version):
       raise XBuddyException('\'%s\' is not valid. Should provide the fully '
                             'qualified version with a version prefix \'RX-\' '
                             'due to crbug.com/585914' % version)
     elif version == LATEST_OFFICIAL:
       # latest-official --> LATEST build in board-release
-      return self._LookupOfficial(board, suffix, image_dir=image_dir)
+      return self._LookupOfficial(board, suffix, image_dir=image_dir), None
     elif version_tuple[0] == LATEST_OFFICIAL:
       # latest-official-{suffix} --> LATEST build in board-{suffix}
       return self._LookupOfficial(board, version_tuple[1],
-                                  image_dir=image_dir)
+                                  image_dir=image_dir), None
     elif version == LATEST:
       # latest --> latest build on stable channel
-      return self._LookupChannel(board, suffix, image_dir=image_dir)
+      return self._LookupChannel(board, suffix, image_dir=image_dir), 'stable'
     elif version_tuple[0] == LATEST:
       if re.match(devserver_constants.VERSION_RE, version_tuple[1]):
         # latest-R* --> most recent qualifying build
-        return self._LookupVersion(board, suffix, version_tuple[1])
+        return self._LookupVersion(board, suffix, version_tuple[1]), None
       else:
         # latest-{channel} --> latest build within that channel
         return self._LookupChannel(board, suffix, channel=version_tuple[1],
-                                   image_dir=image_dir)
+                                   image_dir=image_dir), version_tuple[1]
     else:
       # The given version doesn't match any known patterns.
       raise XBuddyException("Version %s unknown. Can't find on GS." % version)
@@ -699,7 +706,7 @@ class XBuddy(build_util.BuildObject):
     return_tup = sorted(build_dict.iteritems(), key=operator.itemgetter(1))
     return return_tup
 
-  def _Download(self, gs_url, artifacts):
+  def _Download(self, gs_url, artifacts, build_id):
     """Download the artifacts from the given gs_url.
 
     Raises:
@@ -710,7 +717,7 @@ class XBuddy(build_util.BuildObject):
       XBuddy._staging_thread_count += 1
     try:
       _Log("Downloading %s from %s", artifacts, gs_url)
-      dl = downloader.GoogleStorageDownloader(self.static_dir, gs_url)
+      dl = downloader.GoogleStorageDownloader(self.static_dir, gs_url, build_id)
       factory = build_artifact.ChromeOSArtifactFactory(
           dl.GetBuildDir(), artifacts, [], dl.GetBuild())
       dl.Download(factory)
@@ -749,7 +756,47 @@ class XBuddy(build_util.BuildObject):
       except Exception as err:
         raise XBuddyException('Failed to clear %s: %s' % (clear_dir, err))
 
-  def _GetFromGS(self, build_id, image_type, image_dir=None):
+  def _TranslateSignedGSUrl(self, build_id, channel=None):
+    """Translate the GS URL to be able to find signed images.
+
+    Args:
+      build_id: Path to the image or update directory on the devserver or
+        in Google Storage. e.g. 'x86-generic/R26-4000.0.0'
+      channel: The channel for the image. If none, it tries to guess it in
+        order of stability.
+
+    Returns:
+      The GS URL for the directory where the signed image can be found.
+
+    Raises:
+      build_artifact.ArtifactDownloadError: If we failed to download the
+                                            artifact.
+    """
+    match = re.match(r'^([^/]+?)(?:-release)?/R\d+-(.*)$', build_id)
+
+    channels = []
+    if channel:
+      channels.append(channel)
+    else:
+      # Attempt to enumerate all channels, in order of stability.
+      channels.extend(devserver_constants.CHANNELS[::-1])
+
+    for channel in channels:
+      image_dir = devserver_constants.GS_CHANNEL_DIR % {
+          'channel': channel,
+          'board': match.group(1),
+      }
+      gs_url = os.path.join(image_dir, match.group(2))
+      try:
+        self._LS(gs_url)
+        return gs_url
+      except gs.GSNoSuchKey:
+        continue
+    raise build_artifact.ArtifactDownloadError(
+        'Could not find signed image URL for %s in Google Storage' %
+        build_id)
+
+  def _GetFromGS(self, build_id, image_type, image_dir=None, channel=None):
     """Check if the artifact is available locally. Download from GS if not.
 
     Args:
@@ -759,14 +806,13 @@ class XBuddy(build_util.BuildObject):
         options.
       image_dir: Google Storage image archive to search in if requesting a
         remote artifact. If none uses the default bucket.
+      channel: The channel for the image. If none, it tries to guess it in
+        order of stability.
 
     Raises:
         build_artifact.ArtifactDownloadError: If we failed to download the
                                               artifact.
     """
-    image_dir = XBuddy._ResolveImageDir(image_dir)
-    gs_url = os.path.join(image_dir, build_id)
-
     # Stage image if not found in cache.
     file_name = GS_ALIAS_TO_FILENAME[image_type]
     file_loc = os.path.join(self.static_dir, build_id, file_name)
@@ -774,7 +820,12 @@ class XBuddy(build_util.BuildObject):
 
     if not cached:
       artifact = GS_ALIAS_TO_ARTIFACT[image_type]
-      self._Download(gs_url, [artifact])
+      if image_type == SIGNED:
+        gs_url = self._TranslateSignedGSUrl(build_id, channel=channel)
+      else:
+        image_dir = XBuddy._ResolveImageDir(image_dir)
+        gs_url = os.path.join(image_dir, build_id)
+      self._Download(gs_url, [artifact], build_id)
     else:
       _Log('Image already cached.')
 
@@ -837,12 +888,13 @@ class XBuddy(build_util.BuildObject):
       if image_type not in GS_ALIASES:
         raise XBuddyException('Bad remote image type: %s. Use one of: %s' %
                               (image_type, GS_ALIASES))
-      build_id = self._ResolveVersionToBuildId(board, suffix, version,
-                                               image_dir=image_dir)
+      build_id, channel = self._ResolveVersionToBuildIdAndChannel(
+          board, suffix, version, image_dir=image_dir)
       _Log('Resolved version %s to %s.', version, build_id)
       file_name = GS_ALIAS_TO_FILENAME[image_type]
       if not lookup_only:
-        self._GetFromGS(build_id, image_type, image_dir=image_dir)
+        self._GetFromGS(build_id, image_type, image_dir=image_dir,
+                        channel=channel)
 
     return build_id, file_name
 
@@ -911,7 +963,7 @@ class XBuddy(build_util.BuildObject):
       gs_url = os.path.join(devserver_constants.GS_IMAGE_DIR,
                             build_id)
       artifacts = [FULL, STATEFUL]
-      self._Download(gs_url, artifacts)
+      self._Download(gs_url, artifacts, build_id)
       return build_id
 
   def Get(self, path_list, image_dir=None):

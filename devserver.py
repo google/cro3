@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2009-2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -284,7 +284,10 @@ def _get_downloader(kwargs):
                            'specified.')
     if not dl:
       archive_url = _canonicalize_archive_url(archive_url)
-      dl = downloader.GoogleStorageDownloader(updater.static_dir, archive_url)
+      dl = downloader.GoogleStorageDownloader(
+          updater.static_dir, archive_url,
+          downloader.GoogleStorageDownloader.GetBuildIdFromArchiveURL(
+              archive_url))
   elif not dl:
     target = kwargs.get('target', None)
     branch = kwargs.get('branch', None)

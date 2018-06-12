@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -29,6 +30,7 @@ IMAGE_FILE = 'chromiumos_image.bin'
 FACTORY_IMAGE_FILE = 'factory_test/chromiumos_factory_image.bin'
 FACTORY_SHIM_IMAGE_FILE = 'factory_shim/factory_install_shim.bin'
 RECOVERY_IMAGE_FILE = 'recovery_image.bin'
+SIGNED_IMAGE_FILE = 'signed_image.bin'
 TEST_IMAGE_FILE = 'chromiumos_test_image.bin'
 
 ALL_IMAGES = (
