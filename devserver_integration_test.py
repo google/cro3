@@ -1,5 +1,5 @@
-#!/usr/bin/python2
-
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -18,7 +18,6 @@ from __future__ import print_function
 import cros_update_progress
 import devserver_constants
 import json
-import logging
 from xml.dom import minidom
 import os
 import psutil
@@ -30,6 +29,8 @@ import tempfile
 import time
 import unittest
 import urllib2
+
+from chromite.lib import cros_logging as logging
 
 
 # Paths are relative to this script's base directory.
@@ -418,7 +419,7 @@ class DevserverBasicTests(AutoStartDevserverTestBase):
     self.assertTrue(pid.strip().isdigit())
     process = psutil.Process(int(pid))
     self.assertTrue(process.is_running())
-    self.assertTrue('devserver.py' in process.cmdline)
+    self.assertTrue('devserver.py' in process.cmdline())
 
 
 class DevserverExtendedTests(AutoStartDevserverTestBase):
@@ -446,14 +447,15 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
 
     logging.info('Retrieving auto-update status for process %d', pid)
     response = self._MakeRPC('get_au_status', host_name=host_name, pid=pid)
-    self.assertFalse(json.loads(response)[0])
-    self.assertEqual(json.loads(response)[1], status)
+    self.assertFalse(json.loads(response)['finished'])
+    self.assertEqual(json.loads(response)['status'], status)
 
     progress_tracker.WriteStatus(cros_update_progress.FINISHED)
     logging.info('Mock auto-update process is finished')
     response = self._MakeRPC('get_au_status', host_name=host_name, pid=pid)
-    self.assertTrue(json.loads(response)[0])
-    self.assertEqual(json.loads(response)[1], cros_update_progress.FINISHED)
+    self.assertTrue(json.loads(response)['finished'])
+    self.assertEqual(json.loads(response)['status'],
+                     cros_update_progress.FINISHED)
 
     logging.info('Delete auto-update track status file')
     self.assertTrue(os.path.exists(progress_tracker.track_status_file))
@@ -469,10 +471,8 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
 
 
   def testStageAndUpdate(self):
-    """Tests core autotest workflow where we stage/update with a test payload.
-
-    """
-    build_id = 'peppy-release/R50-7870.0.0'
+    """Tests core stage/update autotest workflow where with a test payload."""
+    build_id = 'eve-release/R69-10782.0.0'
     archive_url = 'gs://chromeos-image-archive/%s' % build_id
 
     response = self._MakeRPC(IS_STAGED, archive_url=archive_url,
@@ -498,11 +498,10 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
     logging.info('Verifying we can update using the stage update artifacts.')
     self.VerifyHandleUpdate(build_id, use_test_payload=False)
 
+  @unittest.skip('crbug.com/640063 Broken test.')
   def testStageAutotestAndGetPackages(self):
-    """Another autotest workflow test where we stage/update with a test payload.
-
-    """
-    build_id = 'x86-mario-release/R32-4810.0.0'
+    """Another stage/update autotest workflow test with a test payload."""
+    build_id = 'eve-release/R69-10782.0.0'
     archive_url = 'gs://chromeos-image-archive/%s' % build_id
     autotest_artifacts = 'autotest,test_suites,au_suite'
     logging.info('Staging autotest artifacts (may take a while).')
@@ -528,12 +527,10 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
                     'control' in control_files)
 
   def testRemoteXBuddyAlias(self):
-    """Another autotest workflow test where we stage/update with a test payload.
-
-    """
-    build_id = 'x86-mario-release/R32-4810.0.0'
-    xbuddy_path = 'remote/x86-mario/R32-4810.0.0/full_payload'
-    xbuddy_bad_path = 'remote/x86-mario/R32-9999.9999.9999'
+    """Another stage/update autotest workflow test with a test payload."""
+    build_id = 'eve-release/R69-10782.0.0'
+    xbuddy_path = 'remote/eve/R69-10782.0.0/full_payload'
+    xbuddy_bad_path = 'remote/eve/R32-9999.9999.9999'
     logging.info('Staging artifacts using xbuddy.')
     response = self._MakeRPC('/'.join([XBUDDY, xbuddy_path]), return_dir=True)
 

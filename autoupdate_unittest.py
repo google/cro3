@@ -1,5 +1,5 @@
-#!/usr/bin/python2
-
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -187,7 +187,7 @@ class AutoupdateTest(mox.MoxTestBase):
                                                     'cache')
     autoupdate_lib.GetUpdateResponse(
         self.sha1, self.sha256, self.size, forced_url, False, 0, None, None,
-        '3.0', False).AndReturn(self.payload)
+        u'3.0', '', False).AndReturn(self.payload)
 
     self.mox.ReplayAll()
     au_mock.forced_image = forced_image
@@ -284,7 +284,7 @@ class AutoupdateTest(mox.MoxTestBase):
                                  mox.IsA(autoupdate.UpdateMetadata))
     autoupdate_lib.GetUpdateResponse(
         self.sha1, self.sha256, self.size, new_url, False, 0, None, None,
-        '3.0', False).AndReturn(self.payload)
+        u'3.0', '', False).AndReturn(self.payload)
 
     self.mox.ReplayAll()
     au_mock.HandleSetUpdatePing('127.0.0.1', test_label)
@@ -335,7 +335,7 @@ class AutoupdateTest(mox.MoxTestBase):
                                   0, ''))
     autoupdate_lib.GetUpdateResponse(
         self.sha1, self.sha256, self.size, remote_url, False, 0, None, None,
-        '3.0', False).AndReturn(self.payload)
+        u'3.0', '', False).AndReturn(self.payload)
 
     self.mox.ReplayAll()
     # This should fail because of missing fields.
