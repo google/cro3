@@ -11,6 +11,7 @@ from __future__ import print_function
 
 import base64
 import gzip
+import httplib
 import md5
 import os
 import StringIO
@@ -121,19 +122,19 @@ class UnmockedGSArchiveServerTest(helper.CPWebCase):
     """Test normal files downloading."""
     tested_file = _TEST_DATA['a_plain_file']
     self.getPage('/download%(path)s' % tested_file)
-    self.assertStatus(200)
+    self.assertStatus(httplib.OK)
     self.assertHeader('Content-Type', tested_file['mime'])
     self.assertEqual(len(self.body), tested_file['size'])
 
   def test_download_a_non_existing_file(self):
     """Test downloading non-existing files."""
     self.getPage('/download/chromeos-images-archive/existing/file')
-    self.assertStatus(404)
+    self.assertStatus(httplib.NOT_FOUND)
 
   def test_download_against_unauthorized_bucket(self):
     """Test downloading from unauthorized bucket."""
     self.getPage('/download/another_bucket/file')
-    self.assertStatus(401)
+    self.assertStatus(httplib.UNAUTHORIZED)
 
 
 class MockedGSArchiveServerTest(unittest.TestCase):
@@ -224,7 +225,7 @@ def testing_server_setup():
   """Check if testing server is setup."""
   try:
     rsp = requests.get(_TESTING_SERVER)
-    if rsp.status_code >= 500:
+    if rsp.status_code >= httplib.INTERNAL_SERVER_ERROR:
       logging.warn(
           'Testing server %s has internal errors. Some tests are skipped!',
           _TESTING_SERVER)
@@ -243,7 +244,7 @@ class GsCacheBackendIntegrationTest(unittest.TestCase):
   If either of they is not available, all tests in this class are skipped.
   """
 
-  def _get_page(self, url, headers=None, expect_status=200):
+  def _get_page(self, url, headers=None, expect_status=httplib.OK):
     headers = headers.copy() if headers else {}
     if not os.environ.get('WITH_CACHE', None):
       headers['x-no-cache'] = '1'  # bypass all caching to test the whole flow

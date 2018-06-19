@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -22,6 +23,7 @@ from __future__ import print_function
 import argparse
 import contextlib
 import functools
+import httplib
 import os
 import StringIO
 import subprocess
@@ -36,15 +38,6 @@ import requests
 import tarfile_utils
 from chromite.lib import cros_logging as logging
 from chromite.lib import gs
-
-# some http status codes
-_HTTP_OK = 200
-_HTTP_PARTIAL_CONTENT = 206
-_HTTP_BAD_REQUEST = 400
-_HTTP_UNAUTHORIZED = 401
-_HTTP_NOT_FOUND = 404
-_HTTP_INTERNAL_SERVER_ERROR = 500
-_HTTP_SERVICE_UNAVAILABLE = 503
 
 _READ_BUFFER_SIZE_BYTES = 1024 * 1024  # 1 MB
 _WRITE_BUFFER_SIZE_BYTES = 1024 * 1024  # 1 MB
@@ -121,7 +114,7 @@ def _safe_get_param(all_params, param_name):
   try:
     return all_params[param_name]
   except KeyError:
-    raise cherrypy.HTTPError(_HTTP_BAD_REQUEST,
+    raise cherrypy.HTTPError(httplib.BAD_REQUEST,
                              'Parameter "%s" is required!' % param_name)
 
 
@@ -140,7 +133,7 @@ def _to_cherrypy_error(func):
     except ValueError as err:
       # The exception message is just a plain text, so wrap it with
       # cherrypy.HTTPError to have necessary HTML tags
-      raise cherrypy.HTTPError(_HTTP_BAD_REQUEST, err.message)
+      raise cherrypy.HTTPError(httplib.BAD_REQUEST, err.message)
   return func_wrapper
 
 
@@ -317,12 +310,12 @@ class GsArchiveServer(object):
       stat = self._gsutil.Stat(path)
       content = self._gsutil.StreamingCat(path)
     except gs.GSNoSuchKey as err:
-      raise cherrypy.HTTPError(_HTTP_NOT_FOUND, err.message)
+      raise cherrypy.HTTPError(httplib.NOT_FOUND, err.message)
     except gs.GSCommandError as err:
       if "You aren't authorized to read" in err.result.error:
-        status = _HTTP_UNAUTHORIZED
+        status = httplib.UNAUTHORIZED
       else:
-        status = _HTTP_SERVICE_UNAVAILABLE
+        status = httplib.SERVICE_UNAVAILABLE
       raise cherrypy.HTTPError(status, '%s: %s' % (err.message,
                                                    err.result.error))
 
@@ -406,7 +399,7 @@ class GsArchiveServer(object):
         return rsp.iter_content(_WRITE_BUFFER_SIZE_BYTES)
 
     raise cherrypy.HTTPError(
-        _HTTP_BAD_REQUEST,
+        httplib.BAD_REQUEST,
         'File "%s" is not in archive "%s"!' % (filename, archive))
 
   def _send_range_request(self, archive, start, size, headers):
@@ -418,15 +411,15 @@ class GsArchiveServer(object):
     headers['Range'] = 'bytes=%s-%d' % (start, int(start) + int(size) - 1)
     rsp = self._caching_server.download(archive, headers=headers)
 
-    if rsp.status_code == _HTTP_PARTIAL_CONTENT:
+    if rsp.status_code == httplib.PARTIAL_CONTENT:
       # Although this is a partial response, it has full content of
       # extracted file. Thus reset the status code and content-length.
-      cherrypy.response.status = _HTTP_OK
+      cherrypy.response.status = httplib.OK
       cherrypy.response.headers['Content-Length'] = size
     else:
       _log('Expect HTTP_PARTIAL_CONTENT (206), but got %s', rsp.status_code,
            level=logging.ERROR)
-      rsp.status_code = _HTTP_INTERNAL_SERVER_ERROR
+      rsp.status_code = httplib.INTERNAL_SERVER_ERROR
       rsp.reason = 'Range request failed for "%s"' % archive
 
     return rsp
