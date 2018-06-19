@@ -25,6 +25,7 @@ import contextlib
 import fnmatch
 import functools
 import httplib
+import itertools
 import os
 import StringIO
 import subprocess
@@ -43,6 +44,7 @@ from chromite.lib import cros_logging as logging
 from chromite.lib import gs
 
 _WRITE_BUFFER_SIZE_BYTES = 1024 * 1024  # 1 MB
+_MAX_RANGES_PER_REQUEST = 100
 
 # When extract files from TAR (either compressed or uncompressed), we suppose
 # the TAR exists, so we can call `download` RPC to get it. It's straightforward
@@ -162,6 +164,22 @@ def _search_lines_by_pattern(all_lines, patterns):
     found_lines |= set(fnmatch.filter(all_lines, pattern))
 
   return found_lines
+
+
+def _split_into_chunks(iterable, size):
+  """Split the iterable into chunks of |size|.
+
+  Examples:
+    >>> list(_split_into_chunks(range(10), 3))
+    [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9]]
+    >>> list(_split_into_chunks(xrange(8), 4))
+    [[0, 1, 2, 3], [4, 5, 6, 7]]
+  """
+  iter_ = iter(iterable)
+  chunk = list(itertools.islice(iter_, size))
+  while chunk:
+    yield chunk
+    chunk = list(itertools.islice(iter_, size))
 
 
 class _CachingServer(object):
@@ -439,17 +457,21 @@ class GsArchiveServer(object):
     if not found_lines:
       return '{}'
 
-    found_files = [
-        tarfile_utils.TarMemberInfo._make(urllib.unquote(line).rsplit(
+    # Too many ranges may result in error of 'request header too long'. So we
+    # split the files into chunks and request one by one.
+    found_files = _split_into_chunks(
+        [tarfile_utils.TarMemberInfo._make(urllib.unquote(line).rsplit(
             ',', len(tarfile_utils.TarMemberInfo._fields) - 1))
-        for line in found_lines
-    ]
-    ranges = [(int(f.content_start), int(f.content_start) + int(f.size) - 1)
-              for f in found_files]
-    rsp = self._send_range_request(archive, ranges, headers)
+         for line in found_lines],
+        _MAX_RANGES_PER_REQUEST)
 
     streamer = range_response.JsonStreamer()
-    streamer.queue_response(rsp, found_files)
+    for part_of_found_files in found_files:
+      ranges = [(int(f.content_start), int(f.content_start) + int(f.size) - 1)
+                for f in part_of_found_files]
+      rsp = self._send_range_request(archive, ranges, headers)
+      streamer.queue_response(rsp, part_of_found_files)
+
     return streamer.stream()
 
   def _send_range_request(self, archive, ranges, headers):
@@ -469,6 +491,7 @@ class GsArchiveServer(object):
         httplib.PARTIAL_CONTENT.
     """
     ranges = ['%d-%d' % r for r in ranges]
+    headers = headers.copy()
     headers['Range'] = 'bytes=%s' % (','.join(ranges))
     rsp = self._caching_server.download(archive, headers=headers)
 

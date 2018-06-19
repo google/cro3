@@ -145,6 +145,9 @@ class MockedGSArchiveServerTest(unittest.TestCase):
   def setUp(self):
     """Setup method."""
     self.server = gs_archive_server.GsArchiveServer('')
+    self.list_member_mock = mock.MagicMock()
+    self.list_member_mock.return_value.iter_lines.return_value = [
+        'foo,,,0,3', 'bar,,,3,10', 'baz,,,13,5', 'foo%2Cbar,,,20,10']
 
   def test_list_member(self):
     """Test list_member RPC."""
@@ -174,10 +177,9 @@ class MockedGSArchiveServerTest(unittest.TestCase):
           _ = [int(d) for d in file_info[1:]]
 
   def test_extract_from_tar(self):
-    """Test extract a file from a TAR archive."""
+    """Test extracting a file from a TAR archive."""
     with mock.patch.object(self.server, '_caching_server') as cache_server:
-      cache_server.list_member.return_value.iter_lines.return_value = [
-          'foo,_,_,0,3', 'bar,_,_,3,10', 'baz,_,_,13,5']
+      cache_server.list_member = self.list_member_mock
       cache_server.download.return_value.headers = {
           'Content-Range': 'bytes 3-12/*'}
 
@@ -188,6 +190,40 @@ class MockedGSArchiveServerTest(unittest.TestCase):
 
       # Extract an non-exist file. Should return '{}'
       self.assertEqual('{}', self.server.extract('bar.tar', file='footar'))
+
+  def test_extract_two_files_from_tar(self):
+    """Test extracting two files from a TAR archive."""
+    with mock.patch.object(self.server, '_caching_server') as cache_server:
+      cache_server.list_member = self.list_member_mock
+      cache_server.download.return_value.headers = {
+          'Content-Type': 'multipart/byteranges; boundary=xxx'}
+      cache_server.download.return_value.status_code = httplib.PARTIAL_CONTENT
+      # pylint: disable=protected-access
+      gs_archive_server._MAX_RANGES_PER_REQUEST = 100
+
+      with mock.patch('range_response.JsonStreamer'):
+        self.server.extract('bar.tar', file=['bar', 'foo'])
+
+      cache_server.download.assert_called_with(
+          'bar.tar', headers={'Range': 'bytes=0-2,3-12'})
+
+  def test_extract_many_files_from_tar(self):
+    """Test extracting many files which result in a series of range requests."""
+    with mock.patch.object(self.server, '_caching_server') as cache_server:
+      cache_server.list_member = self.list_member_mock
+      cache_server.download.return_value.headers = {
+          'Content-Type': 'multipart/byteranges; boundary=xxx'}
+      cache_server.download.return_value.status_code = httplib.PARTIAL_CONTENT
+
+      # pylint: disable=protected-access
+      gs_archive_server._MAX_RANGES_PER_REQUEST = 1
+      with mock.patch('range_response.JsonStreamer'):
+        self.server.extract('bar.tar', file=['bar', 'foo'])
+
+      cache_server.download.assert_any_call(
+          'bar.tar', headers={'Range': 'bytes=0-2'})
+      cache_server.download.assert_any_call(
+          'bar.tar', headers={'Range': 'bytes=3-12'})
 
   def test_decompress_tgz(self):
     """Test decompress a tgz file."""
