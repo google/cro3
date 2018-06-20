@@ -90,8 +90,8 @@ class MultiPartResponseTest(unittest.TestCase):
     """Test streaming empty response."""
     self.response.iter_content.return_value = iter([''])
     self.streamer.queue_response(self.response, self.file_info_list)
-    result = ''.join(self.streamer.stream())
-    self.assertEqual(result, '')
+    with self.assertRaises(range_response.FormatError):
+      ''.join(self.streamer.stream())
 
   def test_stream__multipart_ranges(self):
     """Test streaming files in one response."""
@@ -105,10 +105,11 @@ class MultiPartResponseTest(unittest.TestCase):
     self.response.iter_content.return_value = iter(self.good_response)
     self.streamer.queue_response(self.response, self.file_info_list)
 
-    # Queue the same response but with different file name map.
-    self.response.iter_content.return_value = iter(self.good_response)
+    response2 = mock.MagicMock()
+    response2.headers = self.response.headers
+    response2.iter_content.return_value = iter(self.good_response)
     self.streamer.queue_response(
-        self.response,
+        response2,
         [tarfile_utils.TarMemberInfo('FOO', '', '', '10', '10'),
          tarfile_utils.TarMemberInfo('BAR', '', '', '123', '1000')])
 
