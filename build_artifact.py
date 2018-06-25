@@ -70,6 +70,7 @@ ANDROID_CONTINUOUS_INSTRUMENTATION_TESTS_FILE = (
 ANDROID_CTS_FILE = 'android-cts.zip'
 ANDROID_TARGET_FILES_ZIP = r'[^-]*-target_files-.*\.zip'
 ANDROID_DTB_ZIP = r'[^-]*-dtb-.*\.zip'
+ANDROID_PUSH_TO_DEVICE_ZIP = 'push_to_device.zip'
 
 _build_artifact_locks = common_util.LockDict()
 
@@ -741,6 +742,8 @@ _AddAndroidArtifact(artifact_info.ANDROID_TARGET_FILES_ZIP, Artifact,
                     ANDROID_TARGET_FILES_ZIP, is_regex_name=True)
 _AddAndroidArtifact(artifact_info.ANDROID_DTB_ZIP, Artifact,
                     ANDROID_DTB_ZIP, is_regex_name=True)
+_AddAndroidArtifact(artifact_info.ANDROID_PUSH_TO_DEVICE_ZIP,
+                    Artifact, ANDROID_PUSH_TO_DEVICE_ZIP)
 
 class BaseArtifactFactory(object):
   """A factory class that generates build artifacts from artifact names."""
