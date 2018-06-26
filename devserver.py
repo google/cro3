@@ -74,7 +74,6 @@ import cherrypy_ext
 import common_util
 import devserver_constants
 import downloader
-import gsutil_util
 import log_util
 import xbuddy
 
@@ -432,8 +431,6 @@ def _GetConfig(options):
   }
   if options.production:
     base_config['global'].update({'server.thread_pool': 150})
-    # TODO(sosa): Do this more cleanly.
-    gsutil_util.GSUTIL_ATTEMPTS = 5
 
   return base_config
 
