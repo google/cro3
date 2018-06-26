@@ -4,11 +4,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# Used by these public docs:
+# https://www.chromium.org/developers/design-documents/encrypted-partition-recovery
+
 # This grows a signed recovery image's stateful partition to
 # --statefulfs_sectors, and adds the decryption flag file. It is designed
 # to be run from outside of the chroot.
 
-SCRIPT_ROOT=$(readlink -f $(dirname $(readlink -f "$0"))/../../../../scripts)
+SCRIPT_ROOT=$(readlink -f $(dirname $(readlink -f "$0"))/../../../scripts)
 . "${SCRIPT_ROOT}/build_library/build_common.sh" || exit 1
 . "${SCRIPT_ROOT}/build_library/disk_layout_util.sh" || exit 1
 
