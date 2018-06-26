@@ -132,6 +132,9 @@ ANDROID_DTB_ZIP = 'dtb'
 # Zip file containing push_to_device.py and tools it depends on
 ANDROID_PUSH_TO_DEVICE_ZIP = 'push_to_device_zip'
 
+# Zip file containing selinux policy files.
+ANDROID_SEPOLICY_ZIP = 'sepolicy.zip'
+
 # In general, downloading one artifact usually indicates that the caller will
 # want to download other artifacts later. The following map explicitly defines
 # this relationship. Specifically:
