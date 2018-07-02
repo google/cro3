@@ -195,7 +195,7 @@ def main(args):
                 sys.stderr.write('Error: No patch content found\n')
                 sys.exit(1)
             git_am = subprocess.Popen(['git', 'am', '-3'], stdin=subprocess.PIPE)
-            git_am.communicate(unicode(s).encode('utf-8'))
+            git_am.communicate(s)
             ret = git_am.returncode
         elif linux_match:
             commit = linux_match.group(1)
