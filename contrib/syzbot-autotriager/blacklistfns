@@ -1,0 +1,23 @@
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+dump_stack
+__lock_acquire
+__dump_stack
+lock_acquire
+__mutex_lock_common
+rtnl_lock
+mutex_lock_nested
+SyS_setsockopt
+SYSC_setsockopt
+sock_common_setsockopt
+check_prevs_add
+print_circular_bug
+validate_chain
+kthread
+schedule_preempt_disabled
+worker_thread
+ret_from_fork
+schedule
+cleanup_net
+process_one_work
