@@ -1,8 +1,9 @@
 #!/usr/bin/env python2
-#
+# -*- coding: utf-8 -*-
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """This is a tool for picking patches from upstream and applying them."""
 
 from __future__ import print_function
@@ -76,8 +77,9 @@ def _pause_for_merge(conflicts):
 def _get_pw_url(project):
     """Retrieve the patchwork server URL from .pwclientrc.
 
-    @param project: patchwork project name; if None, we retrieve the default
-        from pwclientrc
+    Args:
+        project: patchwork project name; if None, we retrieve the default
+            from pwclientrc
     """
     config = ConfigParser.ConfigParser()
     config.read([_PWCLIENTRC])
