@@ -59,6 +59,14 @@ class AutoTriager(object):
             self.blacklistfns = set([i.strip() for i in contents])
         except IOError as _:
             self.blacklistfns = []
+
+        try:
+            contents = open('known_mismatch', 'r').readlines()
+            contents = [i.strip().split() for i in contents]
+            self.known_mismatch = {i[0]:i[1] for i in contents}
+        except IOError as _:
+            self.known_mismatch = {}
+
         print('[+] Autotriager initialized.')
 
     def use_mst(self):
@@ -68,6 +76,10 @@ class AutoTriager(object):
     def is_triaged(self, bugid):
         """Returns true if bugid if listed as already triaged."""
         return bugid in self.triaged_bugs
+
+    def is_mismatch(self, bugid, url):
+        """Returns true if |url| is known to not be the fix for |bugid|."""
+        return self.known_mismatch.get(bugid, '') == url
 
     def generate_report(self, cid, cmsg, url):
         """Generate a report with commit information.
@@ -123,6 +135,16 @@ class AutoTriager(object):
                 return True
         return False
 
+    def add_to_triaged(self, bugid):
+        """Add |bugid| to the list of triaged bugs."""
+        self.triaged_bugs.append(bugid)
+        open('triaged_bugs', 'a').write(bugid+'\n')
+
+    def add_mismatch(self, bugid, syzurl):
+        """Avoid false positives in the future with |bugid| and |syzurl|."""
+        self.known_mismatch[bugid] = syzurl
+        open('known_mismatch', 'a').write('%s %s\n' %(bugid, syzurl))
+
     def _triage(self, title):
         """Correlate issuetracker against syzweb for a bug |title|."""
         it_bugs = self.it_db.find(title=title)
@@ -134,6 +156,12 @@ class AutoTriager(object):
                                             syzbug['stacktrace']):
                     continue
 
+                if self.is_triaged(itbug['bugid']):
+                    continue
+
+                if self.is_mismatch(itbug['bugid'], syzbug['url']):
+                    continue
+
                 utils.hit_summary(itbug['bugid'], syzbug['url'],
                                   syzbug['commitmsg'])
 
@@ -142,6 +170,11 @@ class AutoTriager(object):
                     cid = cid['commitid'] if cid else ''
                     self.generate_report(cid, syzbug['commitmsg'],
                                          syzbug['url'])
+                    self.add_to_triaged(itbug['bugid'])
+
+                else:
+                    self.add_mismatch(itbug['bugid'], syzbug['url'])
+
                 utils.endbanner()
 
     def triage(self):
