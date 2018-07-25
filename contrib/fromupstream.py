@@ -159,7 +159,6 @@ def main(args):
                                                      old_commit_message,
                                                      re.MULTILINE))
         # TODO: deal with multiline BUG/TEST better
-        subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
 
     while len(args['locations']) > 0:
         location = args['locations'].pop(0)
@@ -196,6 +195,10 @@ def main(args):
             if not s:
                 sys.stderr.write('Error: No patch content found\n')
                 sys.exit(1)
+
+            if args['replace']:
+                subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
+
             git_am = subprocess.Popen(['git', 'am', '-3'], stdin=subprocess.PIPE)
             git_am.communicate(s)
             ret = git_am.returncode
@@ -225,6 +228,9 @@ def main(args):
             if args['tag'] is None:
                 args['tag'] = 'UPSTREAM: '
 
+            if args['replace']:
+                subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
+
             ret = subprocess.call(['git', 'cherry-pick', commit])
         elif fromgit_match is not None:
             remote = fromgit_match.group(1)
@@ -252,6 +258,9 @@ def main(args):
                     (commit, url, branch)
             if args['tag'] is None:
                 args['tag'] = 'FROMGIT: '
+
+            if args['replace']:
+                subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
 
             ret = subprocess.call(['git', 'cherry-pick', commit])
         else:
