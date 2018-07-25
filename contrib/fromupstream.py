@@ -113,9 +113,9 @@ def main(args):
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--bug', '-b',
-                        type=str, required=True, help='BUG= line')
+                        type=str, help='BUG= line')
     parser.add_argument('--test', '-t',
-                        type=str, required=True, help='TEST= line')
+                        type=str, help='TEST= line')
     parser.add_argument('--changeid', '-c',
                         help='Overrides the gerrit generated Change-Id line')
 
@@ -150,15 +150,20 @@ def main(args):
         ).strip('\n')
         args['changeid'] = re.findall('Change-Id: (.*)$',
                                       old_commit_message, re.MULTILINE)[0]
-        if args['bug'] == parser.get_default('bug'):
+        if args['bug'] == parser.get_default('bug') and \
+           re.findall('BUG=(.*)$', old_commit_message, re.MULTILINE):
             args['bug'] = '\nBUG='.join(re.findall('BUG=(.*)$',
                                                    old_commit_message,
                                                    re.MULTILINE))
-        if args['test'] == parser.get_default('test'):
+        if args['test'] == parser.get_default('test') and \
+           re.findall('TEST=(.*)$', old_commit_message, re.MULTILINE):
             args['test'] = '\nTEST='.join(re.findall('TEST=(.*)$',
                                                      old_commit_message,
                                                      re.MULTILINE))
         # TODO: deal with multiline BUG/TEST better
+
+    if args['bug'] is None or args['test'] is None:
+        parser.error('BUG=/TEST= lines are required; --replace can help automate, or set via --bug/--test')
 
     while len(args['locations']) > 0:
         location = args['locations'].pop(0)
