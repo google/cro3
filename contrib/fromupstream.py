@@ -148,8 +148,9 @@ def main(args):
         old_commit_message = subprocess.check_output(
             ['git', 'show', '-s', '--format=%B', 'HEAD']
         ).strip('\n')
-        args['changeid'] = re.findall('Change-Id: (.*)$',
-                                      old_commit_message, re.MULTILINE)[0]
+        changeid = re.findall('Change-Id: (.*)$', old_commit_message, re.MULTILINE)
+        if changeid:
+            args['changeid'] = changeid[0]
         if args['bug'] == parser.get_default('bug') and \
            re.findall('BUG=(.*)$', old_commit_message, re.MULTILINE):
             args['bug'] = '\nBUG='.join(re.findall('BUG=(.*)$',
