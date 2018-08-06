@@ -1,0 +1,77 @@
+#!/bin/bash
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Based on http://go/termina-care-and-feeding
+#
+# Pushes the lastest local build of tatl to your test device.
+# Usage: ./deploy_termina.sh device_ip
+
+IMAGE="/mnt/host/source/src/build/images/tatl/latest/chromiumos_test_image.bin"
+STATEFUL_PARTITION="/mnt/stateful_partition/"
+RUN_PATH="/run/imageloader/cros-termina/99999.0.0"
+TEST_SSH_KEY="/mnt/host/source/chromite/ssh_keys/testing_rsa"
+
+die() {
+  echo "$0: error: $*" >&2
+  exit 1
+}
+
+usage() {
+  echo "Usage: $0 -d=device_ip_addr [-v]" >&2
+  exit 1
+}
+
+main() {
+  local device_ip_addr=""
+  local install_script=""
+  local out_dir=""
+  local verbose="false"
+  while getopts vd: name; do
+    case "${name}" in
+      d) device_ip_addr="${OPTARG}" ;;
+      v) verbose="true" ;;
+      ?) usage ;;
+    esac
+  done
+  if [[ -z "${device_ip_addr}" ]]; then
+    die "Missing -d flag"
+  fi
+
+  if [[ ${verbose} == "true" ]]; then
+    echo "Pushing termina to '${device_ip_addr}'" >&2
+  fi
+
+  if [[ ${verbose} == "true" ]]; then
+    echo "Repacking the termina image..." >&2
+  fi
+
+  out_dir="$(mktemp -d)/tatl"
+  ./termina_build_image --image "${IMAGE}" -t --output "${out_dir}"
+
+  if [[ ${verbose} == "true" ]]; then
+    echo "Copying image to device:" >&2
+  fi
+  rsync -a "${out_dir}" -e "ssh -i ${TEST_SSH_KEY}" \
+    "root@${device_ip_addr}:${STATEFUL_PARTITION}" \
+    || die "Failed to copy to device."
+  rm -rf "${out_dir}"
+
+  if [[ ${verbose} == "true" ]]; then
+    echo "Install image onto to device:" >&2
+  fi
+  read -r -d '' install_script <<EOF
+  dbus-send --system --type=method_call --print-reply \
+    --dest=org.chromium.ComponentUpdaterService \
+    /org/chromium/ComponentUpdaterService \
+    org.chromium.ComponentUpdaterService.LoadComponent 'string:cros-termina' &&
+  mkdir -p "${RUN_PATH}" &&
+  mount --bind "${STATEFUL_PARTITION}/tatl" "${RUN_PATH}" &&
+  restart vm_concierge
+EOF
+  ssh -i "${TEST_SSH_KEY}" "root@${device_ip_addr}" "${install_script}" \
+    || die "Failed to deploy to device."
+}
+
+main "$@"
