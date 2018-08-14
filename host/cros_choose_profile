@@ -24,16 +24,12 @@ if [ -z "${COMMON_SH}" ] ; then
 fi
 
 . "${COMMON_SH}"
-. "${SRC_ROOT}/platform/dev/toolchain_utils.sh"
 
 # Flags
 DEFINE_string board "$DEFAULT_BOARD" "The name of the board to set up."
-# TODO(bsimonnet): Remove this once setup_board has been updated.
-DEFINE_string board_overlay "" "Deprecated. DO NOT USE THIS."
 DEFINE_string variant "" "Board variant."
 DEFINE_string profile "" "The portage configuration profile to use."
 DEFINE_string board_root "" "Board root where the profile should be created."
-DEFINE_string brick "" "Brick to set up."
 
 # Parse command line flags
 FLAGS "$@" || exit 1
@@ -43,16 +39,12 @@ eval set -- "${FLAGS_ARGV}"
 # so will die prematurely if 'set -e' is specified before now.
 set -e
 
-if [[ -z "${FLAGS_board}" ]] && [[ -z "${FLAGS_brick}" ]] && \
-  [[ -z "${FLAGS_board_root}" ]]; then
-  error "--board, --brick or --board_root required."
-  exit 1
-elif [[ -n "${FLAGS_board}" ]] && [[ -n "${FLAGS_brick}" ]]; then
-  error "--board and --brick are incompatible."
+if [[ -z "${FLAGS_board}" ]] && [[ -z "${FLAGS_board_root}" ]]; then
+  error "--board or --board_root required."
   exit 1
 fi
 
-get_board_and_variant "${FLAGS_board}" "${FLAGS_variant}" "${FLAGS_brick}"
+get_board_and_variant "${FLAGS_board}" "${FLAGS_variant}"
 
 BOARD_ROOT="${FLAGS_board_root:-/build/${BOARD_VARIANT}}"
 CHROMIUMOS_OVERLAY="/usr/local/portage/chromiumos"
@@ -64,9 +56,6 @@ if [ -e "${MAKE_PROFILE}" -a ! -L "${MAKE_PROFILE}" ]; then
   error "${MAKE_PROFILE} is not a symbolic link, it should be."
   exit 1
 fi
-# Clean old profile paths.  No need to migrate since we're creating it.
-# http://brbug.com/1098
-sudo rm -f "${BOARD_ROOT}/etc/make.profile"
 
 #
 # Get board overlay list.
