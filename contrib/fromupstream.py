@@ -15,6 +15,7 @@ import re
 import signal
 import subprocess
 import sys
+import urllib
 
 LINUX_URLS = (
     'git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
@@ -99,7 +100,8 @@ def _get_pw_url(project):
         sys.exit(1)
 
     url = config.get(project, 'url')
-    return re.sub('(/xmlrpc/)$', '', url)
+    # Strip trailing 'xmlrpc' and/or trailing slash.
+    return re.sub('/(xmlrpc/)?$', '', url)
 
 def main(args):
     """This is the main entrypoint for fromupstream.
@@ -183,30 +185,29 @@ def main(args):
             pw_project = patchwork_match.group(2)
             patch_id = int(patchwork_match.group(3))
 
-            if args['source_line'] is None:
-                url = _get_pw_url(pw_project)
-                args['source_line'] = '(am from %s/patch/%d/)' % (url, patch_id)
-
             if args['tag'] is None:
                 args['tag'] = 'FROMLIST: '
 
-            pw_args = []
-            if pw_project is not None:
-                pw_args += ['-p', pw_project]
+            url = _get_pw_url(pw_project)
+            opener = urllib.urlopen("%s/patch/%d/mbox" % (url, patch_id))
+            if opener.getcode() != 200:
+                sys.stderr.write('Error: could not download patch - error code %d\n' \
+                                 % opener.getcode())
+                sys.exit(1)
+            patch_contents = opener.read()
 
-            pw_pipe = subprocess.Popen(['pwclient', 'view'] + pw_args +
-                                       [str(patch_id)], stdout=subprocess.PIPE)
-            s = pw_pipe.communicate()[0]
-
-            if not s:
+            if not patch_contents:
                 sys.stderr.write('Error: No patch content found\n')
                 sys.exit(1)
+
+            if args['source_line'] is None:
+                args['source_line'] = '(am from %s/patch/%d/)' % (url, patch_id)
 
             if args['replace']:
                 subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
 
             git_am = subprocess.Popen(['git', 'am', '-3'], stdin=subprocess.PIPE)
-            git_am.communicate(s)
+            git_am.communicate(patch_contents)
             ret = git_am.returncode
         elif linux_match:
             commit = linux_match.group(1)
