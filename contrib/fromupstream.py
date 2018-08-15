@@ -10,6 +10,7 @@ from __future__ import print_function
 
 import ConfigParser
 import argparse
+import mailbox
 import os
 import re
 import signal
@@ -202,6 +203,11 @@ def main(args):
 
             if args['source_line'] is None:
                 args['source_line'] = '(am from %s/patch/%d/)' % (url, patch_id)
+                message_id = mailbox.Message(patch_contents)['Message-Id']
+                message_id = re.sub('^<|>$', '', message_id.strip())
+                args['source_line'] += \
+                        '\n(also found at https://lkml.kernel.org/r/%s)' % \
+                        message_id
 
             if args['replace']:
                 subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
