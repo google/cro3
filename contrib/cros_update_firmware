@@ -1,0 +1,118 @@
+#!/bin/bash
+# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Loads script libraries.
+CONTRIB_DIR=$(dirname "$(readlink -f "$0")")
+. "${CONTRIB_DIR}/common.sh" || exit 1
+
+FLAGS_HELP="
+Command to rebuild firmware after a config change.
+
+After you make a change to the firmware version in the master configuration,
+run this script to test it. It will rebuild the master configuration, update
+the Manifest and build the new firmware. You can then submit your CL to update
+the master configuration, safe in the knowledge that you have tested it.
+
+Usage:
+   cros_update_firmware <board>
+
+where <board> is the board whose firmware needs updating (e.g. 'coral').
+"
+
+# Flags
+DEFINE_string board "${DEFAULT_BOARD}" "Which board the firmware is for" b
+
+# Parse command line.
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+set -e
+
+# Script must be run inside the chroot.
+assert_inside_chroot
+
+start_workon() {
+  local board="$1"
+  local pkg item
+  if [[ -z "$2" ]]; then
+    echo "Empty package.  Skipping..."
+    return 1
+  fi
+  pkg=$(cros_workon --board="${board}" info "$2" | cut -d ' ' -f 1)
+  shift 2
+  for item in "$@"; do
+    if [[ "${pkg}" == "${item}" ]]; then
+      echo "Already workon ${pkg}.  Skipping..."
+      return 1
+    fi
+  done
+  cros_workon --board="${board}" start "${pkg}"
+  return $?
+}
+
+stop_workon() {
+  cros_workon --board="$1" stop "$2"
+}
+
+update_firmware() {
+  local board="$1"
+  local base ebuild srcuris cfg_bsp_pkg cfg_bsp_baseboard_pkg
+  local current_workon_pkg_list start_pkg result i
+
+  set -e
+
+  # query the current working package
+  mapfile -t current_workon_pkg_list < <(cros_workon --board="${board}" list)
+
+  # check if chromeos-config-bsp is a virtual package
+  cfg_bsp_pkg="chromeos-config-bsp"
+  equery-"${board}" w chromeos-base/chromeos-config-bsp > /dev/null 2>&1 \
+    || cfg_bsp_pkg="chromeos-config-bsp-${board}-private"
+  # check if chromeos-config-bsp-baseboard is in use
+  cfg_bsp_baseboard_pkg="chromeos-config-bsp-baseboard"
+  equery-"${board}" w chromeos-base/chromeos-config-bsp-baseboard \
+    > /dev/null 2>&1 || cfg_bsp_baseboard_pkg=
+
+  start_pkg=("${cfg_bsp_pkg}")
+  start_pkg+=("chromeos-firmware-${board}")
+  start_pkg+=("${cfg_bsp_baseboard_pkg}")
+
+  for i in "${!start_pkg[@]}"; do
+    result[i]=0
+    start_workon "${board}" "${start_pkg[i]}" "${current_workon_pkg_list[@]}" \
+       || result[i]=$?
+  done
+
+  base="${GCLIENT_ROOT}/src/private-overlays/overlay-${board}-private/chromeos-base"
+  ebuild="${base}/chromeos-firmware-${board}/chromeos-firmware-${board}-9999.ebuild"
+  srcuris="${base}/chromeos-firmware-${board}/files/srcuris"
+  yaml_config="/build/${board}/usr/share/chromeos-config/yaml/config.yaml"
+
+  "emerge-${board}" ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}" chromeos-config
+  if [[ -e "${yaml_config}" ]]; then
+    cros_config_host -c "${yaml_config}" get-firmware-uris > "${srcuris}"
+  else
+    cros_config_host -c "/build/${board}/usr/share/chromeos-config/config.dtb" \
+      get-firmware-uris > "${srcuris}"
+  fi
+  touch "${ebuild}"
+  "ebuild-${board}" "${ebuild}" manifest
+  "emerge-${board}" "chromeos-firmware-${board}"
+
+  for i in "${!result[@]}"; do
+    if [[ "${result[i]}" -eq "0" ]]; then
+      stop_workon "${board}" "${start_pkg[i]}"
+    fi
+  done
+}
+
+main() {
+  if [[ -z "${FLAGS_board}" ]]; then
+    die "-b or --board required."
+  fi
+
+  update_firmware "${FLAGS_board}"
+}
+
+main "$@"
