@@ -1,0 +1,141 @@
+#!/bin/bash
+# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Loads script libraries.
+CONTRIB_DIR=$(dirname "$(readlink -f "$0")")
+. "${CONTRIB_DIR}/common.sh" || exit 1
+
+BIG_WARNING="
+You are about to uprev the arm-trusted-firmware repository's master branch to a
+new upstream commit. This should generally be safe since ARM already runs
+compile tests upstream, but there is a rare chance that something like a
+dependency from coreboot code on ARM TF may lead to build breakage. Since this
+script bypasses the CQ, it is your responsibilty to monitor the next canary run
+and confirm that the uprev did not cause any problems.
+
+You should now go on http://go/crosoncall and paste the following statement:
+===========================================================================
+Hi crosoncall. FYI I am about to push an uprev to arm-trusted-firmware. This
+should not be an issue but if you start seeing any build errors for the coreboot
+ebuild, please let me know.
+(See https://chromium.googlesource.com/chromiumos/platform/dev-util/+/master/contrib/arm_trusted_firmware_uprev for details.)
+===========================================================================
+
+Now, *after* you have coordinated with sheriffs and received no objections,
+please confirm the uprev to the following commit:
+"
+
+DEFINE_boolean master_only ${FLAGS_FALSE} \
+  "Only uprev master, not prev1...5. Only use to repair a broken uprev!"
+
+FLAGS_HELP="usage: ${SCRIPT_NAME} [flags] [commit]
+
+Uprevs the arm-trusted-firmware repository's master branch to a new HEAD. Will
+uprev to upstream_mirror/master by default, or [commit] if specified. Can only
+be run by members of mdb/arm-trusted-firmware-pushers (ask jwerner@ if you want
+to be added).
+
+NOTE TO SHERIFFS: This script fast-forwards refs/heads/master in the
+arm-trusted-firmware repo without going through the CQ. In the rare cases (e.g.
+bad coreboot dependency) that this breaks the build, you can *not* just revert
+this action because you would be rewriting history. Instead, this script
+automatically saves the previous (known-good) master revisions as the branches
+refs/heads/prev1 through refs/heads/prev5. In order to revert to the last
+known-good state, you have to replace refs/heads/master with refs/heads/prev1
+in the arm-trusted-firmware repository definition of the manifest.
+
+Once the breakage has been identified and resolved with a new upstream commit,
+you should uprev to that commit with the --master-only flag of this script,
+and then change the manifest back to refs/heads/master.
+
+Note that circular dependencies between coreboot and arm-trusted-firmware
+cannot be handled cleanly. They require the use of this script with a
+simultaneous CHUMP to the coreboot repository. (Reverting that action would
+require CHUMPing a revert to coreboot in addition to the above steps.)
+"
+
+# Parse command line flags.
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+set -e
+
+# Script must run inside the chroot.
+assert_inside_chroot
+
+ARM_TF_PATH="${GCLIENT_ROOT}/src/third_party/arm-trusted-firmware/"
+UPSTREAM_REMOTE="refs/remotes/cros/upstream_mirror/master"
+MASTER="refs/heads/master"
+MASTER_REMOTE="refs/remotes/cros/master"
+PREV="refs/heads/prev"
+PREV_REMOTE="refs/remotes/cros/prev"
+
+run_git() {
+  git --no-pager -C "${ARM_TF_PATH}" "$@"
+}
+
+# True iff $1 and $2 are different commits and $1 cannot fast-forward to $2.
+no_fast_forward() {
+  [[ -n "$(run_git rev-list -n 1 "$2..$1")" ]]
+}
+
+main() {
+  local commit sure
+
+  run_git fetch cros
+
+  if [[ "$#" -gt 1 ]]; then
+    die "Too many arguments"
+  elif [[ "$#" -gt 0 ]]; then
+    commit="$1"
+  else
+    commit="${UPSTREAM_REMOTE}"
+  fi
+
+  if no_fast_forward "${MASTER_REMOTE}" "${commit}"; then
+    die "Cannot fast-forward cros/master to ${commit}"
+  fi
+
+  echo "${BIG_WARNING}"
+  if no_fast_forward "${commit}" "${UPSTREAM_REMOTE}"; then
+    if no_fast_forward "${UPSTREAM_REMOTE}" "${commit}"; then
+      die "Don't uprev to a branch that diverges from upstream master!"
+    fi
+    warn "
+You are about to uprev to a commit that is ahead of upstream master (presumably
+one in upstream integration). This is dangerous and should not be done without
+urgency. If the commit you're uprevving to does not later land with the exact
+same SHA in upstream master, you will need manual intervention from cros-infra
+to fix this repository.
+"
+    echo
+  fi
+
+  run_git log -n1 --pretty=format:"%h %ad %<(15,trunc)%an %s%n" \
+    --date=short "${commit}"
+  read -p "Uprev to this commit [y/N]? " sure
+  if [[ "${sure:0:1}" != "y" ]]; then
+    die "Aborting"
+  fi
+
+  if [[ "${FLAGS_master_only}" -eq "${FLAGS_TRUE}" ]]; then
+    run_git push cros "${commit}":"${MASTER}" || \
+      die "Push failed (see above)"
+  else
+    run_git push --atomic cros \
+      "${PREV_REMOTE}4":"${PREV}5" \
+      "${PREV_REMOTE}3":"${PREV}4" \
+      "${PREV_REMOTE}2":"${PREV}3" \
+      "${PREV_REMOTE}1":"${PREV}2" \
+      "${MASTER_REMOTE}":"${PREV}1" \
+      "${commit}":"${MASTER}" || die "Push failed (see above).
+If you are seeing authorization errors ('update access denied'), you are
+probably not a member of the chromeos-arm-trusted-firmware-pushers Ganpati
+group. You can reach out to any current member of the group to add you."
+  fi
+
+  echo "Push successful!"
+}
+
+main "$@"
