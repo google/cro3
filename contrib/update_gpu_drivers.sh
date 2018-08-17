@@ -3,9 +3,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This script builds gpu drivers (mali-drivers, img-ddk) for a list of boards.
-# It uploads the binaries to Google storage and makes them available in the
-# public repository.
+# This script builds gpu drivers (mali-drivers[-bifrost], img-ddk) for a list
+# of boards. It uploads the binaries to Google storage and makes them available
+# in the public repository.
 
 # Loads script libraries.
 CONTRIB_DIR=$(dirname "$(readlink -f "$0")")
@@ -24,7 +24,7 @@ eval set -- "${FLAGS_ARGV}"
 assert_inside_chroot
 
 # List of supported drivers
-DRIVERS="mali-drivers img-ddk"
+DRIVERS="mali-drivers mali-drivers-bifrost img-ddk"
 
 # List of parameters to pass to build_board, for a given package $pn:
 #  - Build board names.
@@ -39,6 +39,10 @@ PARAMS_mali_drivers=(
   "kevin gru gru baseboard-gru"
   "peach_pit peach peach overlay-peach"
   "veyron_jerry veyron veyron overlay-veyron"
+)
+
+PARAMS_mali_drivers_bifrost=(
+  "kukui kukui kukui chipset-mt8183"
 )
 
 PARAMS_img_ddk=(
