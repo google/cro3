@@ -33,6 +33,7 @@ def fetch_commits():
         config.SRC_LINUX_DB, config.SRC_V414_DB, config.SRC_V44_DB,
         config.SRC_V318_DB, config.SRC_V314_DB, config.SRC_V310_DB,
         config.SRC_V38_DB,
+        config.SRC_LINUX_STABLE_414_DB, config.SRC_LINUX_STABLE_44_DB,
     )
 
     tfiles = [tempfile.NamedTemporaryFile() for _ in xrange(len(dbs))]
@@ -43,6 +44,7 @@ def fetch_commits():
     try:
         env['CROS_ROOT'] = os.path.expanduser(config.CROS_ROOT)
         env['LINUX'] = os.path.expanduser(config.LINUX)
+        env['LINUXSTABLE'] = os.path.expanduser(config.LINUX_STABLE)
 
         subprocess.check_call(['./dump_git_log.sh'], env=env)
 

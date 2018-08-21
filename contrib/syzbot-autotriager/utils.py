@@ -113,3 +113,41 @@ def hit_summary(bbugid, url, cmsg):
     TITLE="%s"
     """ % (bbugid, url, cmsg)
     print(summary)
+
+
+def commitstr(fixestag):
+    """Gives |fixestag| tag from a commit message return the commit message."""
+    if '"' in fixestag:
+        return fixestag.split('"')[1]
+    if '\'' in fixestag:
+        return fixestag.split('\'')[1]
+    if '(' in fixestag:
+        return fixestag.split('(')[1]
+
+    print('Check manually: fixestag=%s' %(repr(fixestag)))
+    return None
+
+
+def incstats(statsobj, s):
+    """Increment stats property |s| in |statsobj|."""
+    statsobj[s] = statsobj.get(s, 0) + 1
+
+
+def interesting_keyword_in(body):
+    """Returns true if a keyword is present in |body|"""
+    keywords = ['overflow', 'oob', 'uaf', 'use after free',
+                'use-after-free', 'kasan', 'kmsan', 'syzkaller',
+                'reported-by: syzbot',
+                ]
+    for keyword in keywords:
+        if keyword in body.lower():
+            return True
+    return False
+
+
+def fixes_stmt(body):
+    """Returns the "Fixes: " statement if found in a commit body."""
+    for line in body.splitlines():
+        if line.startswith('Fixes: '):
+            return line
+    return None

@@ -18,5 +18,9 @@ SRC_V314_DB = 'v314.db'
 SRC_V310_DB = 'v310.db'
 SRC_V38_DB = 'v38.db'
 
+SRC_LINUX_STABLE_414_DB = 'linux-414-stable.db'
+SRC_LINUX_STABLE_44_DB = 'linux-44-stable.db'
+
 CROS_ROOT = '~/chromiumos'
 LINUX = '~/repos/kernels/linux'   # Change this.
+LINUX_STABLE = '~/repos/kernels/linux-stable' # Change this.

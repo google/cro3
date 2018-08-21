@@ -39,3 +39,36 @@ $ ./run4.py
 ```bash
 $ ./run4.py --mst
 ```
+
+# Patchfinder
+
+A script that locates potentially security related commits that are present
+in the upstream kernel, but not in the stable kernels.
+
+## Library dependencies
+
+* Python dataset([Link](https://dataset.readthedocs.io/en/latest/))
+* Utility functions from Autotriager(see above)
+
+## Usage
+
+* Build your desired kernel(eg: coral) and fetch the object files created as part
+  of the build process.
+```bash
+$ find . -name "*.o" >> OBJFILES
+```
+
+* Inside config.py update LINUX_STABLE with the correct path to your linux stable tree.
+
+* Run patchfinder. Use the `--cachestable` flag only on your first run, or
+  whenever you wish to refresh the cache.
+```bash
+$ ./patchfinder.py --kver 44 --objfiles <path/to/OBJFILES> --cachestable
+```
+
+Patchfinder will print out commits that:
+* are present in the upstream kernel but not in stable
+* affect source files corresponding to the object files listed in
+  OBJFILES
+* have a "Fixes:" tag corresponding to a commit that is already present in
+  the stable kernel

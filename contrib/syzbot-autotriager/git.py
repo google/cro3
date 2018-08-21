@@ -15,10 +15,11 @@ import utils
 
 class Gitcommit(object):
     """Gitcommit represents a parsed git commit message."""
-    def __init__(self, commitid, title, body):
+    def __init__(self, commitid, title, body, files=''):
         self.commitid = commitid
         self.title = title
         self.body = body
+        self.files = files.strip()
 
     def __repr__(self):
         return '%s: %s' % (self.commitid, self.title)
@@ -56,11 +57,24 @@ class Gitlog(object):
 
                 i += 2
                 body = ''
-                while i < len(self.contents) and not \
-                      is_commit_start(self.contents[i]):
+                while (i < len(self.contents) and not
+                       is_commit_start(self.contents[i])):
+                    if not self.contents[i].startswith(' '):
+                        i += 1
+                        break
                     body += self.contents[i].strip() + '\n'
                     i += 1
-                gc = Gitcommit(commitid, title, body)
+
+                files = ''
+                while (i < len(self.contents) and not
+                       is_commit_start(self.contents[i])):
+                    if not self.contents[i].strip():
+                        i += 1
+                        continue
+                    files += self.contents[i]
+                    i += 1
+
+                gc = Gitcommit(commitid, title, body, files)
                 self.commits.append(gc)
                 continue
             i += 1
@@ -72,7 +86,8 @@ class Gitlog(object):
         self.db.begin()
         for commit in self.commits:
             self.db.insert(commitid=commit.commitid, title=commit.title,
-                           body=base64.b64encode(commit.body))
+                           body=base64.b64encode(commit.body),
+                           files=base64.b64encode(commit.files))
             i += 1
             if i % 100000 == 0:
                 print('---', i)

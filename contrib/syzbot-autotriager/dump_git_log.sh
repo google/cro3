@@ -10,16 +10,20 @@ PATH_314="${CROS_ROOT}/src/third_party/kernel/v3.14"
 PATH_310="${CROS_ROOT}/src/third_party/kernel/v3.10"
 PATH_38="${CROS_ROOT}/src/third_party/kernel/v3.8"
 
-cd "${LINUX}" || exit
-git checkout master
-git pull origin master
-git log > "${TFILE_0}"
+checkout_pull() {
+  cd "$1" || exit
+  git checkout "$2"
+  git pull origin "$2"
+  git log --name-only > "$3"
+}
+
+checkout_pull "${LINUX}" master "${TFILE_0}"
 
 checkout_sync() {
   cd "$1" || exit
   git checkout "$2"
   repo sync .
-  git log > "$3"
+  git log --name-only > "$3"
 }
 
 checkout_sync "${PATH_414}" cros/chromeos-4.14 "${TFILE_1}"
@@ -28,3 +32,6 @@ checkout_sync "${PATH_318}" cros/chromeos-3.18 "${TFILE_3}"
 checkout_sync "${PATH_314}" cros/chromeos-3.14 "${TFILE_4}"
 checkout_sync "${PATH_310}" cros/chromeos-3.10 "${TFILE_5}"
 checkout_sync "${PATH_38}"  cros/chromeos-3.8  "${TFILE_6}"
+
+checkout_pull "${LINUXSTABLE}" linux-4.14.y "${TFILE_7}"
+checkout_pull "${LINUXSTABLE}" linux-4.4.y "${TFILE_8}"
