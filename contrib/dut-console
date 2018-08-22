@@ -1,0 +1,72 @@
+#!/bin/bash
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# This opens various servo consoles using cu, from outside the chroot,
+# automatically getting the correct console from dut-control. This
+# also tees the output to a secondary logfile.
+#
+# The recommended way to use this is to setup an alias, e.g. add this in
+# your .bashrc:
+# alias dut-console="~/chromiumos/src/platform/dev/contrib/dut-console"
+# And then simply run:
+# dut-console ec
+
+# Script is stored in $CROS_SDK/src/platform/dev/contrib
+CROS_SDK="$(readlink -f "$(dirname "$0")/../../../..")"
+PYTHONPATH="${CROS_SDK}/chroot/usr/lib64/python2.7/site-packages"
+
+# TODO: Figure out how to change port (e.g. for dual-servo setup on hammer)
+get_pty() {
+  PYTHONPATH="${PYTHONPATH}" \
+    python "${PYTHONPATH}/servo/dut_control.py" -- "$1" | cut -d : -f 2
+}
+
+find_cu() {
+  if ! hash cu; then
+    echo "Please install cu first:" >&2
+    echo "sudo apt-get install cu" >&2
+    exit 1
+  fi
+}
+
+main() {
+  local type="$1"
+  local pty
+  local pty_name
+
+  find_cu
+
+  case "${type}" in
+  cpu)
+    pty_name=cpu_uart_pty
+    ;;
+  ec)
+    pty_name=ec_uart_pty
+    ;;
+  cr50)
+    pty_name=cr50_console_pty
+    ;;
+  fpmcu)
+    pty_name=fpmcu_uart_pty
+    ;;
+  *)
+    echo "Unknown parameter '${type}' (cpu, ec, cr50, fpmcu are supported)" >&2
+    exit 1
+    ;;
+  esac
+
+  pty="$(get_pty ${pty_name})"
+
+  if [[ ! -e "${pty}" ]]; then
+    echo "Cannot find pty ${pty_name}." >&2
+    exit 1
+  fi
+
+  echo "Opening ${pty_name}:${pty} (type ~.<enter> to exit)..."
+
+  cu --nostop -l "${pty}" | tee "log-${type}"
+}
+
+main "$@"
