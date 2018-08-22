@@ -149,14 +149,17 @@ build_board() {
     die "Emerging ${pn} for ${board} failed."
   fi
 
-  local pv=$("equery-${board}" -q list -p -o --format="\$fullversion" ${pn} | sort | head -n 1)
-  local category=$("equery-${board}" -q list -p -o --format="\$category" ${pn} | sort | head -n 1)
-  local inputtarball="/build/${board}/packages/${category}/${pn}-${pv}.tbz2"
+  # Source PVR (e.g. 13.0-r6)
+  local pvr="$("equery-${board}" -q list -p -o --format="\$fullversion" ${pn} | sort | head -n 1)"
+  # Binary PV (e.g. 13.0_p6)
+  local pv="${pvr/-r/_p}"
+  local category="$("equery-${board}" -q list -p -o --format="\$category" ${pn} | sort | head -n 1)"
+  local inputtarball="/build/${board}/packages/${category}/${pn}-${pvr}.tbz2"
   local outputtarball="${pn}-${suffix}-${pv}.tbz2"
   local script="${pn}-${suffix}-${pv}.run"
   local gspath="gs://chromeos-localmirror/distfiles"
 
-  echo "Current version is ${pv}"
+  echo "Current version is ${pvr}"
   echo "Input tarball is ${inputtarball}"
   echo "Output tarball is ${outputtarball}"
   echo "Script is ${script}"
@@ -195,13 +198,13 @@ build_board() {
 
   if [[ "${oboard}" != "X11" ]]; then
     local pvbin=$("equery-${board}" -q list -p -o --format="\$fullversion" ${pnbin} | sort | head -n 1)
-    echo "Current version is ${pv} current binary version is ${pvbin}"
+    echo "New binary version: ${pv} (current binary version: ${pvbin})"
     # Uprev ebuild in git if it exists.
     if [[ -d "${SRC_ROOT}/overlays/${opath}/${category}/${pnbin}" ]]; then
       cd "${SRC_ROOT}/overlays/${opath}/${category}/${pnbin}"
 
       # following git commands may fail if they have been issued previously
-      git checkout -b "gpudriverbinupdate-${pv}" m/master
+      git checkout -b "gpudriverbinupdate-${pv}"
       git mv "${pnbin}-${pvbin}.ebuild" "${pnbin}-${pv}.ebuild"
 
       "ebuild-${oboard}" "${pnbin}-${pv}.ebuild" manifest
