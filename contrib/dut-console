@@ -8,19 +8,30 @@
 # also tees the output to a secondary logfile.
 #
 # The recommended way to use this is to setup an alias, e.g. add this in
-# your .bashrc:
+# your .bashrc (outside the chroot):
 # alias dut-console="~/chromiumos/src/platform/dev/contrib/dut-console"
 # And then simply run:
 # dut-console ec
+#
+# The script also allows to connect to different servod port, e.g.
+# dut-control cpu 9999
 
 # Script is stored in $CROS_SDK/src/platform/dev/contrib
 CROS_SDK="$(readlink -f "$(dirname "$0")/../../../..")"
 PYTHONPATH="${CROS_SDK}/chroot/usr/lib64/python2.7/site-packages"
 
-# TODO: Figure out how to change port (e.g. for dual-servo setup on hammer)
 get_pty() {
+  local pty_name="$1"
+  local port="$2"
+  local args=()
+
+  if [[ -n "${port}" ]]; then
+    args+=( --port "${port}" )
+  fi
+
   PYTHONPATH="${PYTHONPATH}" \
-    python "${PYTHONPATH}/servo/dut_control.py" -- "$1" | cut -d : -f 2
+    python "${PYTHONPATH}/servo/dut_control.py" "${pty_name}" "${args[@]}" | \
+      cut -d : -f 2
 }
 
 find_cu() {
@@ -31,10 +42,25 @@ find_cu() {
   fi
 }
 
+usage() {
+  cat <<EOF
+dut-control type [port]
+
+Opens CPU/EC servo console using "cu", outputs to both terminal, and an output
+file named "log-\${type}[-\${port}]" in the current directory.
+
+  type      One of cpu, ec, cr50, fpmcu
+  [port]    servod port (optional, uses default if not specified)
+EOF
+  exit 2
+}
+
 main() {
   local type="$1"
+  local port="$2"
   local pty
   local pty_name
+  local outlog
 
   find_cu
 
@@ -52,21 +78,27 @@ main() {
     pty_name=fpmcu_uart_pty
     ;;
   *)
-    echo "Unknown parameter '${type}' (cpu, ec, cr50, fpmcu are supported)" >&2
-    exit 1
+    usage
     ;;
   esac
 
-  pty="$(get_pty ${pty_name})"
+  pty="$(get_pty "${pty_name}" "${port}")"
 
   if [[ ! -e "${pty}" ]]; then
     echo "Cannot find pty ${pty_name}." >&2
     exit 1
   fi
 
-  echo "Opening ${pty_name}:${pty} (type ~.<enter> to exit)..."
+  outlog="log-${type}"
 
-  cu --nostop -l "${pty}" | tee "log-${type}"
+  if [[ -n "${port}" ]]; then
+    outlog="${outlog}-${port}"
+  fi
+
+  echo "Opening ${pty_name}:${pty}..."
+  echo "Log in ${outlog}, type ~.<enter> to exit."
+
+  cu --nostop -l "${pty}" | tee "${outlog}"
 }
 
 main "$@"
