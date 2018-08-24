@@ -49,7 +49,7 @@ dut-control type [port]
 Opens CPU/EC servo console using "cu", outputs to both terminal, and an output
 file named "log-\${type}[-\${port}]" in the current directory.
 
-  type      One of cpu, ec, cr50, fpmcu
+  type      One of cpu, ec, cr50, fpmcu, servo, servo_v4
   [port]    servod port (optional, uses default if not specified)
 EOF
   exit 2
@@ -72,10 +72,16 @@ main() {
     pty_name=ec_uart_pty
     ;;
   cr50)
-    pty_name=cr50_console_pty
+    pty_name=cr50_uart_pty
     ;;
   fpmcu)
     pty_name=fpmcu_uart_pty
+    ;;
+  servo)
+    pty_name=servo_console_pty
+    ;;
+  servo_v4)
+    pty_name=servo_v4_console_pty
     ;;
   *)
     usage
