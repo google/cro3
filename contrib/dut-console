@@ -162,7 +162,7 @@ main() {
   echo "Opening ${pty_name}:${pty}..."
   echo "Log in ${outlog}, type ~.<enter> to exit."
 
-  cu --nostop -l "${pty}" | tee "${outlog}"
+  stdbuf -oL cu --nostop -l "${pty}" | tee "${outlog}"
 }
 
 main "$@"
