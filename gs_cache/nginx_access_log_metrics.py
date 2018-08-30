@@ -110,8 +110,8 @@ def parse_args(argv):
             "(use '-' to indicate reading from sys.stdin).")
   )
   parser.add_argument(
-      "-l", "--log-file", required=True,
-      help="Log file of this script."
+      "-l", "--log-file", default=sys.stdout,
+      help="Log file of this script (default is sys.stdout)."
   )
   return parser.parse_args(argv)
 
@@ -121,10 +121,13 @@ def main(argv):
   args = parse_args(argv)
 
   logger = logging.getLogger()
-  logger.addHandler(handlers.TimedRotatingFileHandler(
-      args.log_file, when=_LOG_ROTATION_TIME,
-      interval=_LOG_ROTATION_INTERVAL,
-      backupCount=_LOG_ROTATION_BACKUP))
+  if args.log_file is sys.stdout:
+    logger.addHandler(logging.StreamHandler(stream=sys.stdout))
+  else:
+    logger.addHandler(handlers.TimedRotatingFileHandler(
+        args.log_file, when=_LOG_ROTATION_TIME,
+        interval=_LOG_ROTATION_INTERVAL,
+        backupCount=_LOG_ROTATION_BACKUP))
   logger.setLevel(logging.DEBUG)
 
   with ts_mon_config.SetupTsMonGlobalState('gs_cache_nginx_log_metrics',

@@ -61,6 +61,16 @@ wheel: <
 >
 
 wheel: <
+  name: "infra/python/wheels/pyasn1-py2_py3"
+  version: "version:0.2.3"
+>
+
+wheel: <
+  name: "infra/python/wheels/pyasn1_modules-py2_py3"
+  version: "version:0.0.8"
+>
+
+wheel: <
   name: "infra/python/wheels/pytest-py2_py3"
   version: "version:3.5.0"
 >
@@ -78,6 +88,11 @@ wheel: <
 wheel: <
   name: "infra/python/wheels/requests-py2_py3"
   version: "version:2.13.0"
+>
+
+wheel: <
+  name: "infra/python/wheels/rsa-py2_py3"
+  version: "version:3.4.2"
 >
 
 wheel: <
