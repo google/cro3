@@ -47,8 +47,6 @@ fi
 get_board_and_variant "${FLAGS_board}" "${FLAGS_variant}"
 
 BOARD_ROOT="${FLAGS_board_root:-/build/${BOARD_VARIANT}}"
-CHROMIUMOS_OVERLAY="/usr/local/portage/chromiumos"
-CHROMIUMOS_PROFILES="${CHROMIUMOS_OVERLAY}/profiles"
 MAKE_PROFILE="${BOARD_ROOT}/etc/portage/make.profile"
 SYSROOT_CACHE="${BOARD_ROOT}/${SYSROOT_SETTINGS_FILE}"
 
@@ -73,7 +71,6 @@ ARCH=$(get_sysroot_config "${BOARD_ROOT}" "ARCH") || exit 1
 #  * relative profile name from --profile in <overlay>/profiles/<name>
 #  * absolute profile path from --profile
 #  * <overlay>/profiles/base
-#  * ${CHROMIUMOS_PROFILES}/default/linux/${ARCH}/10.0/chromeos
 #
 # If --profile is non-null and does not exist the script will error
 # If none of the directories exist the script will error as well
@@ -100,14 +97,6 @@ if [ -z "${PROFILES_DIR}" ]; then
   for overlay in ${BOARD_OVERLAY_LIST}; do
     PROFILES_LIST="${overlay}/profiles/${PROFILE_NAME} ${PROFILES_LIST}"
   done
-
-  # Then, if we are looking for the default profile, we look in the
-  # chromiumos-overlay as well.
-  CHROMEOS_PROFILE="${CHROMIUMOS_PROFILES}/default/linux/${ARCH}/10.0/chromeos/"
-
-  if [ "${PROFILE_NAME}" == "base" ]; then
-    PROFILES_LIST="${PROFILES_LIST} ${CHROMEOS_PROFILE}"
-  fi
 
   # Search for the most specific profile.  Stop looking once we've found the
   # first one.
