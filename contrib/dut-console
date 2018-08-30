@@ -11,18 +11,52 @@
 # your .bashrc (outside the chroot):
 # alias dut-console="~/chromiumos/src/platform/dev/contrib/dut-console"
 # And then simply run:
-# dut-console ec
+# dut-console -c ec
 #
 # The script also allows to connect to different servod port, e.g.
-# dut-control cpu 9999
+# dut-console -c cpu -p 9998
 
-set -e
-
+CONTRIB_DIR="$(dirname "$(readlink -f "$0")")"
 # Script is stored in $CROS_SDK/src/platform/dev/contrib
-CROS_SDK="$(readlink -f "$(dirname "$0")/../../../..")"
+CROS_SDK="${CONTRIB_DIR}/../../../.."
 PYTHONPATH="${CROS_SDK}/chroot/usr/lib64/python2.7/site-packages"
 
 kdmx_pid=
+
+# Loads script libraries.
+. "${CONTRIB_DIR}/common.sh" || exit 1
+
+FLAGS_HELP='dut-control [flags]
+
+Opens CPU/EC servo console using "cu", outputs to both terminal, and an output
+file named "log-${type}[-${port}]" in the current directory.
+
+The recommended way to use this is to setup an alias, e.g. add this in your
+.bashrc (outside the chroot):
+# alias dut-console="~/chromiumos/src/platform/dev/contrib/dut-console"
+And then simply run:
+# dut-console -c ec
+'
+
+DEFINE_string console "cpu" \
+  "Opens a console, one of cpu, ec, cr50, fpmcu, servo, servo_v4" c
+DEFINE_integer port "" "Servod port" p
+DEFINE_boolean kdmx "${FLAGS_FALSE}" \
+  "Start kdmx proxy for kgdb (only makes sense for cpu console)" k
+
+# Parse command line.
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+
+if [[ "$#" -ne 0 ]]; then
+  echo "Extraneous arguments on command line: $@"
+  flags_help
+  exit 2
+fi
+
+# Only now can we die on error.  shflags functions leak non-zero error codes,
+# so will die prematurely if 'set -e' is specified before now.
+set -e
 
 cleanup() {
   trap - INT TERM ERR EXIT
@@ -54,22 +88,7 @@ find_cu() {
   fi
 }
 
-usage() {
-  cat <<EOF
-dut-control type [port]
-
-Opens CPU/EC servo console using "cu", outputs to both terminal, and an output
-file named "log-\${type}[-\${port}]" in the current directory.
-
-  type      One of cpu, cpudbg, ec, cr50, fpmcu, servo, servo_v4
-  [port]    servod port (optional, uses default if not specified)
-EOF
-  exit 2
-}
-
 main() {
-  local type="$1"
-  local port="$2"
   local kdmx
   local pty
   local pty_name
@@ -79,13 +98,9 @@ main() {
 
   trap cleanup INT TERM ERR EXIT
 
-  case "${type}" in
+  case "${FLAGS_console}" in
   cpu)
     pty_name=cpu_uart_pty
-    ;;
-  cpudbg)
-    pty_name=cpu_uart_pty
-    kdmx='y'
     ;;
   ec)
     pty_name=ec_uart_pty
@@ -103,24 +118,24 @@ main() {
     pty_name=servo_v4_console_pty
     ;;
   *)
-    usage
+    flags_help
+    exit 1
     ;;
   esac
 
-  pty="$(get_pty "${pty_name}" "${port}")"
+  pty="$(get_pty "${pty_name}" "${FLAGS_port}")"
 
   if [[ ! -e "${pty}" ]]; then
     echo "Cannot find pty ${pty_name}." >&2
     exit 1
   fi
 
-  outlog="log-${type}"
-
-  if [[ -n "${port}" ]]; then
-    outlog="${outlog}-${port}"
+  outlog="log-${FLAGS_console}"
+  if [[ -n "${FLAGS_port}" ]]; then
+    outlog="${outlog}-${FLAGS_port}"
   fi
 
-  if [[ "${kdmx}" == 'y' ]]; then
+  if [[ "${FLAGS_kdmx}" -eq "${FLAGS_TRUE}" ]]; then
     if ! hash kdmx; then
       echo "Please build and put kdmx in your PATH first." >&2
       echo "See https://www.chromium.org/chromium-os/how-tos-and-troubleshooting/kernel-faq" >&2
@@ -130,9 +145,9 @@ main() {
     # Note that we hardcode kdmx pty file location in the /tmp directory of the
     # chroot. This should be ok as there is normally only one user, and only
     # a single instance of dut-console/kdmx can run per console/servod instance.
-    local spath_in="/tmp/kdmx_${type}"
-    if [[ -n "${port}" ]]; then
-      spath_in="${spath_in}_${port}"
+    local spath_in="/tmp/kdmx_${FLAGS_console}"
+    if [[ -n "${FLAGS_port}" ]]; then
+      spath_in="${spath_in}_${FLAGS_port}"
     fi
     local spath="${CROS_SDK}/chroot${spath_in}"
     local spath_pty="${spath}_trm"
@@ -165,4 +180,4 @@ main() {
   stdbuf -oL cu --nostop -l "${pty}" | tee "${outlog}"
 }
 
-main "$@"
+main
