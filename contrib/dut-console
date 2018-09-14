@@ -175,7 +175,7 @@ main() {
   fi
 
   echo "Opening ${pty_name}:${pty}..."
-  echo "Log in ${outlog}, type ~.<enter> to exit."
+  echo "Log in ${outlog}, type <enter>~. to exit."
 
   stdbuf -oL cu --nostop -l "${pty}" | tee "${outlog}"
 }
