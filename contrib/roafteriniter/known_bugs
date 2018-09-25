@@ -1,0 +1,13 @@
+Bugs:
+[ ] idt_descr is already marked __ro_after_init. However, the plugin is unable to detect this section
+    name, and as a result flags it for annotation.
+	- There are objects that are already annotated that are successfully ignored. For eg:
+	"notes_attr"(struct bin_attribute).
+[ ] The plugin has trouble iterating over the field of certain struct types. This was noticed in the case
+    of "gro_cells".
+[ ] Writes via a pointer are ignored.  For eg: instance "mtrr_state" seems to have writes but does not
+    get flagged
+
+Improvements:
+[ ] Currently the number of pages in the cache is hardcoded. It would be better to just dynamically
+    truncate the cache size when necessary.
