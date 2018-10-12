@@ -1,0 +1,61 @@
+#!/bin/bash
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Script for batch processing (setting flags necessary for merging) of large
+# stacks of gerrit patches.
+
+TMPF=$(mktemp -t "$(basename "$0").XXXXXX")
+trap 'rm -f "${TMPF}"' EXIT
+
+usage() {
+  printf "one parameter is required, " >&2
+  printf "the number of the CL on the top of the stack of patches\n" >&2
+  exit 1
+}
+
+if [[ $# != 1 ]]; then
+  usage
+fi
+
+if ! gerrit deps $1 > "${TMPF}" 2>&1; then
+  echo "gerrit error:" >&2
+  cat "${TMPF}" >&2
+  exit 1
+fi
+
+cat "${TMPF}"
+printf "Those are the patches which will be marked, looks right?(y[es]/no):"
+read answer
+case "${answer}" in
+  (y|Y|yes|YES)
+    :
+    ;;
+  (*) echo "ok, doing nothing"
+      exit 1
+      ;;
+esac
+
+# each line is expected to be of the following format:
+#
+# <url>/<cl number>[/] <cl description>
+#
+# First eliminate escape sequence at the end of the url, if any, and then drop
+# the rest of the line after the first space, potentially prepeneded by a
+# backslash, and then eliminate the beginning of the string up to the last
+# backslash, thus leaving just the patch number.
+patch_list="$(sed -e 's|\x1b.\{1,5\} | |' -e 's|/\? .*||;s|.*/||' "${TMPF}" |
+    xargs)"
+
+commands=('ready:1' 'verify:1' 'review:2')
+for cmd in "${commands[@]}"; do
+  action="${cmd/:*}"
+  value="${cmd/*:}"
+  gcmd=(gerrit "${action}" "${patch_list}" "${value}")
+  echo "running ${gcmd[*]}"
+  if ! "${gcmd[@]}"; then
+    echo "failed!!" >&2
+    exit 1
+  fi
+done
