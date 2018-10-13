@@ -42,7 +42,7 @@ if [[ $# > 0 ]]; then
 fi
 
 # Invoke unit test scripts.
-for unittest_script in *_unittest.py; do
+for unittest_script in *_unittest.py nebraska/*_unittest.py; do
   echo "Running $unittest_script":
   ./${unittest_script} || test ${force_all} || break
 done
