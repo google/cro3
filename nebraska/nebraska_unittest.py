@@ -4,7 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Unittests for Nebraska server"""
+"""Unittests for Nebraska server."""
 
 from __future__ import print_function
 
@@ -12,29 +12,13 @@ import mock
 import unittest
 
 import nebraska
+from unittest_common import NebraskaHandler, NebraskaGenerator
 
 _NEBRASKA_PORT = 11235
 
 
-class NebraskaHandler(nebraska.NebraskaHandler):
-  """Subclass NebraskaHandler to facilitate testing
-
-  Because of the complexity of the socket handling super class init functions,
-  the easiest way to test NebraskaHandler is to just subclass it and mock
-  whatever we need from its superclasses.
-  """
-  # pylint: disable=super-init-not-called
-  def __init__(self):
-    self.headers = None
-    self.rfile = None
-
-
-def NebraskaGenerator(port):
-  return nebraska.NebraskaServer(port)
-
-
 class NebraskaHandlerTest(unittest.TestCase):
-  """Test NebraskaHandler"""
+  """Test NebraskaHandler."""
 
   def testGetRequestString(self):
     """Test GetRequestString."""
@@ -50,20 +34,41 @@ class NebraskaHandlerTest(unittest.TestCase):
     nebraska_handler.rfile.read.assert_called_once_with(42)
     self.assertTrue(result == "foobar")
 
-  def testDoPost(self):
-    """Test do_POST."""
-    nebraska_handler = NebraskaHandler()
-    nebraska_handler.headers = mock.MagicMock()
-    nebraska_handler.rfile = mock.MagicMock()
-    nebraska_handler.rfile.read.return_value = "foobar"
-    nebraska_handler.send_error = mock.MagicMock()
+  def testDoPostSuccess(self):
+    """Test do_POST success."""
 
-    nebraska_handler.do_POST()
-    nebraska_handler.send_error.assert_called_once_with(500, "foobar")
+    nebraska_handler = NebraskaHandler()
+
+    with mock.patch('nebraska.Request') as request_mock:
+      nebraska_handler.GetRequestString = mock.MagicMock(return_value="foo")
+      nebraska_handler.send_error = mock.MagicMock()
+      request_instance = request_mock.return_value
+
+      nebraska_handler.do_POST()
+      request_mock.assert_called_once_with("foo")
+      request_instance.ParseRequest.assert_called_once()
+      nebraska_handler.send_error.assert_called_once_with(
+          500, "Not implemented!")
+
+  def testDoPostInvalidRequest(self):
+    """Test do_POST invalid request."""
+
+    nebraska_handler = NebraskaHandler()
+
+    with mock.patch('nebraska.Request') as request_mock:
+      request_mock.return_value.ParseRequest.side_effect = ValueError()
+
+      nebraska_handler.GetRequestString = mock.MagicMock()
+      nebraska_handler.send_error = mock.MagicMock()
+
+      nebraska_handler.do_POST()
+
+      nebraska_handler.send_error.assert_called_once_with(
+          400, "Invalid update or install request")
 
 
 class NebraskaServerTest(unittest.TestCase):
-  """Test NebraskaServer"""
+  """Test NebraskaServer."""
 
   def testStart(self):
     """Test Start"""
