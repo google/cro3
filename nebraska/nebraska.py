@@ -10,7 +10,9 @@ from __future__ import print_function
 
 # pylint: disable=cros-logging-import
 import argparse
+import json
 import logging
+import os
 import sys
 import threading
 
@@ -161,6 +163,119 @@ class Request(object):
       """Returns true if an AppRequest is valid, False otherwise."""
       return None not in (self.request_type, self.appid, self.version)
 
+class AppData(object):
+  """Data about an available app.
+
+  Data about an available app that can be either installed or upgraded to. This
+  information is compiled into XML format and returned to the client in an app
+  tag in the server's response to an update or install request.
+  """
+
+  APPID_KEY = 'appid'
+  NAME_KEY = 'name'
+  IS_DELTA_KEY = 'is_delta'
+  SIZE_KEY = 'size'
+  METADATA_SIG_KEY = 'metadata_sig'
+  METADATA_SIZE_KEY = 'metadata_size'
+  VERSION_KEY = 'version'
+  SRC_VERSION_KEY = 'source_ver'
+  MD5_HASH_KEY = 'hash_md5'
+  SHA1_HASH_KEY = 'hash_sha1'
+  SHA256_HASH_KEY = 'hash_sha256'
+
+  def __init__(self, app_data):
+    """Initialize AppData
+
+    Args:
+      app_data: Dictionary containing attributes used to init AppData instance.
+
+    Attributes:
+      template: Defines the format of an app element in the XML response.
+      appid: appid of the requested app.
+      name: Filename of requested app on the mock Lorry server.
+      is_delta: True iff the payload is a delta update.
+      size: Size of the payload.
+      md5_hash: md5 hash of the payload.
+      metadata_sig: Metadata signature.
+      metadata_size: Metadata size.
+      sha1_hash: SHA1 hash of the payload.
+      sha256_hash: SHA256 hash of the payload.
+      version: ChromeOS version the payload is tied to.
+      src_version: Source version for delta updates.
+    """
+    self.appid = app_data[self.APPID_KEY]
+    self.name = app_data[self.NAME_KEY]
+    self.version = app_data[self.VERSION_KEY]
+    self.is_delta = app_data[self.IS_DELTA_KEY]
+    self.src_version = (
+        app_data[self.SRC_VERSION_KEY] if self.is_delta else None)
+    self.size = app_data[self.SIZE_KEY]
+    self.metadata_sig = app_data[self.METADATA_SIG_KEY]
+    self.metadata_size = app_data[self.METADATA_SIZE_KEY]
+    self.md5_hash = app_data[self.MD5_HASH_KEY]
+    self.sha1_hash = app_data[self.SHA1_HASH_KEY]
+    self.sha256_hash = app_data[self.SHA256_HASH_KEY]
+    self.url = None # Determined per-request
+
+  def __str__(self):
+    if self.is_delta:
+      return "{} v{}: delta update from base v{}".format(
+          self.appid, self.version, self.src_version)
+    return "{} v{}: full update/install".format(
+        self.appid, self.version)
+
+
+  def SetURL(self, url):
+    """Set the URL."""
+    self.url = url
+
+
+class AppIndex(object):
+  """An index of available app payload information.
+
+  Index of available apps used to generate responses to Omaha requests. The
+  index consists of lists of payload information associated with a given appid,
+  since we can have multiple payloads for a given app (different versions,
+  delta/full payloads). The index is built by scanning a given directory for
+  json files that describe the available payloads.
+  """
+
+  def __init__(self, directory):
+    """Initializes an AppIndex instance.
+
+    Attributes:
+      directory: Directory containing metdata and payloads, can be None.
+      index: Dictionary of metadata describing payloads for a given appid.
+    """
+    self._directory = directory
+    self._index = {}
+
+  def Scan(self):
+    """Invalidates the current cache and scans the directory.
+
+    Clears the cached index and rescans the directory.
+    """
+    self._index.clear()
+
+    if self._directory is None:
+      return
+
+    for f in os.listdir(self._directory):
+      if f.endswith('.json'):
+        try:
+          with open(os.path.join(self._directory, f), 'r') as metafile:
+            metadata_str = metafile.read()
+            metadata = json.loads(metadata_str)
+            app = AppData(metadata)
+
+            if app.appid not in self._index:
+              self._index[app.appid] = []
+            self._index[app.appid].append(app)
+        except (IOError, KeyError, ValueError) as err:
+          logging.error("Failed to read app data from %s (%s)", f, str(err))
+          raise
+        logging.debug("Found app data: %s", str(app))
+
 
 class NebraskaHandler(BaseHTTPRequestHandler):
   """HTTP request handler for Omaha requests."""
@@ -189,24 +304,36 @@ class NebraskaHandler(BaseHTTPRequestHandler):
 class NebraskaServer(object):
   """A simple Omaha server instance.
 
-  A simple mock of an Omaha server. Responds to XML-formatted install/update
-  requests based on the contents of metadata files in source and target
+  A simple mock of an Omaha server. Responds to XML-formatted update/install
+  requests based on the contents of metadata files in target and source
   directories, respectively. These metadata files are used to configure
-  responses to Omaha requests from Update Engine.
+  responses to Omaha requests from Update Engine and describe update and install
+  payloads provided by another server.
   """
 
-  def __init__(self, port=0):
+  def __init__(self, target_dir, source_dir=None, port=0):
     """Initializes a server instance.
 
     Args:
+      target_dir: Directory to index for information about target payloads.
+      source_dir: Directory to index for information about source payloads.
       port: Port the server should run on, 0 if the OS should assign a port.
+
+  Attributes:
+    target_index: Index of metadata files in the target directory.
+    source_index: Index of metadata files in the source directory.
     """
     self._port = port
     self._httpd = None
     self._server_thread = None
+    self.target_index = AppIndex(target_dir)
+    self.source_index = AppIndex(source_dir)
 
   def Start(self):
     """Starts a mock Omaha HTTP server."""
+    self.target_index.Scan()
+    self.source_index.Scan()
+
     self._httpd = HTTPServer(('', self.Port()), NebraskaHandler)
     self._port = self._httpd.server_port
     self._httpd.owner = self
@@ -233,8 +360,18 @@ def ParseArguments(argv):
     Namespace object containing parsed arguments
   """
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('--port', metavar='PORT', type=int, default=0,
-                      help='Port to run the server on')
+
+  required_args = parser.add_argument_group('Required Arguments')
+  required_args.add_argument('--target-dir', metavar='DIR', help='Directory '
+                             'containing payloads for updates.', required=True)
+
+  optional_args = parser.add_argument_group('Optional Arguments')
+  optional_args.add_argument('--source-dir', metavar='DIR', default=None,
+                             help='Directory containing payloads for '
+                             'installation.', required=False)
+  optional_args.add_argument('--port', metavar='PORT', type=int, default=0,
+                             help='Port to run the server on')
+
   return parser.parse_args(argv[1:])
 
 
@@ -242,7 +379,9 @@ def main(argv):
   logging.basicConfig(level=logging.DEBUG)
   opts = ParseArguments(argv)
 
-  nebraska = NebraskaServer(port=opts.port)
+  nebraska = NebraskaServer(source_dir=opts.source_dir,
+                            target_dir=opts.target_dir,
+                            port=opts.port)
 
   nebraska.Start()
   logging.info("Running on port %d. Press 'q' to quit.", nebraska.Port())

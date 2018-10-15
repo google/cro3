@@ -15,6 +15,8 @@ import nebraska
 from unittest_common import NebraskaHandler, NebraskaGenerator
 
 _NEBRASKA_PORT = 11235
+_SOURCE_DIR = "test_source_dir"
+_TARGET_DIR = "test_target_dir"
 
 
 class NebraskaHandlerTest(unittest.TestCase):
@@ -72,10 +74,13 @@ class NebraskaServerTest(unittest.TestCase):
 
   def testStart(self):
     """Test Start"""
-    server = nebraska.NebraskaServer(_NEBRASKA_PORT)
+    server = nebraska.NebraskaServer(_SOURCE_DIR, _TARGET_DIR, _NEBRASKA_PORT)
 
     with mock.patch('nebraska.HTTPServer') as server_mock:
       with mock.patch('nebraska.threading.Thread') as thread_mock:
+        server.source_index = mock.MagicMock()
+        server.target_index = mock.MagicMock()
+
         server.Start()
 
         server_mock.assert_called_once_with(
@@ -86,9 +91,13 @@ class NebraskaServerTest(unittest.TestCase):
             mock.call(target=server._httpd.serve_forever),
             mock.call().start()))
 
+        server.source_index.Scan.assert_called_once()
+        server.target_index.Scan.assert_called_once()
+
   def testStop(self):
     """Test Stop"""
-    nebraska_server = NebraskaGenerator(_NEBRASKA_PORT)
+    nebraska_server = NebraskaGenerator(
+        _SOURCE_DIR, _TARGET_DIR, _NEBRASKA_PORT)
 
     # pylint: disable=protected-access
     nebraska_server._httpd = mock.MagicMock(name="_httpd")
