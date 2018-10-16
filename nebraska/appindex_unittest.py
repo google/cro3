@@ -11,6 +11,8 @@ from __future__ import print_function
 import mock
 import unittest
 
+from xml.etree import ElementTree
+
 import nebraska
 from unittest_common import AppDataGenerator
 
@@ -234,6 +236,161 @@ class AppIndexTest(unittest.TestCase):
         with self.assertRaises(KeyError):
           app_index = nebraska.AppIndex(_SOURCE_DIR)
           app_index.Scan()
+
+
+class AppDataTest(unittest.TestCase):
+  """Test AppData"""
+
+  def testMatchRequestInstall(self):
+    """Tests MatchRequest for matching install request."""
+    app_data = AppDataGenerator(
+        appid="foo",
+        is_delta=False,
+        version="1.2.0",
+        src_version=None)
+    request = nebraska.Request.AppRequest(
+        request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
+        appid="foo",
+        version="1.2.0")
+    self.assertTrue(app_data.MatchRequest(request))
+
+  def testMatchRequestDelta(self):
+    """Tests MatchRequest for matching delta update request."""
+    app_data = AppDataGenerator(
+        appid="foo",
+        is_delta=True,
+        version="1.3.0",
+        src_version="1.2.0")
+    request = nebraska.Request.AppRequest(
+        request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+        appid="foo",
+        version="1.2.0",
+        delta_okay=True)
+    self.assertTrue(app_data.MatchRequest(request))
+
+  def testMatchRequestUpdate(self):
+    """Tests MatchRequest for matching full update request."""
+    app_data = AppDataGenerator(
+        appid="foo",
+        is_delta=False,
+        version="1.3.0",
+        src_version=None)
+    request = nebraska.Request.AppRequest(
+        request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+        appid="foo",
+        version="1.2.0",
+        delta_okay=False)
+    self.assertTrue(app_data.MatchRequest(request))
+
+  def testMatchRequestAppidMismatch(self):
+    """Tests MatchRequest for appid mismatch."""
+    app_data = AppDataGenerator(
+        appid="bar",
+        is_delta=False,
+        version="1.2.0",
+        src_version=None)
+    request = nebraska.Request.AppRequest(
+        request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
+        appid="foo",
+        version="1.2.0")
+    self.assertFalse(app_data.MatchRequest(request))
+
+  def testMatchRequestVersionMismatch(self):
+    """Tests MatchRequest for install version mismatch."""
+
+    app_data = AppDataGenerator(
+        appid="foo",
+        is_delta=False,
+        version="2.2.0",
+        src_version=None)
+    request = nebraska.Request.AppRequest(
+        request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
+        appid="foo",
+        version="1.2.0")
+    self.assertFalse(app_data.MatchRequest(request))
+
+  def testMatchRequestDeltaVersionMismatch(self):
+    """Test MatchRequest for delta version mismatch"""
+    app_data = AppDataGenerator(
+        appid="foo",
+        is_delta=False,
+        version="1.2.0",
+        src_version="1.0.0")
+    request = nebraska.Request.AppRequest(
+        request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+        appid="foo",
+        version="1.2.0",
+        delta_okay=True)
+    self.assertFalse(app_data.MatchRequest(request))
+
+  def testMatchRequestDeltaMismatch(self):
+    """Tests MatchRequest for delta mismatch."""
+    app_data = AppDataGenerator(
+        appid="foo",
+        is_delta=True,
+        version="2.3.0",
+        src_version="2.2.0")
+    request = nebraska.Request.AppRequest(
+        request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+        appid="foo",
+        version="2.2.0",
+        delta_okay=False)
+    self.assertFalse(app_data.MatchRequest(request))
+
+    app_data = AppDataGenerator(
+        appid="foo",
+        is_delta=True,
+        version="1.3.0",
+        src_version="1.2.0")
+    request = nebraska.Request.AppRequest(
+        request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
+        appid="foo",
+        version="1.3.0")
+    self.assertFalse(app_data.MatchRequest(request))
+
+  def testMatchRequestSourceMismatch(self):
+    """Tests MatchRequest for delta source mismatch."""
+    app_data = AppDataGenerator(
+        appid="foo",
+        is_delta=True,
+        version="2.3.0",
+        src_version="2.2.0")
+    request = nebraska.Request.AppRequest(
+        request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+        appid="foo",
+        version="1.2.0",
+        delta_okay=True)
+    self.assertFalse(app_data.MatchRequest(request))
+
+  def testMatchRequestInvalidVersion(self):
+    """Tests MatchRequest on invalid version string."""
+    with mock.patch('nebraska.logging') as mock_log:
+      app_data = AppDataGenerator(
+          appid="foo",
+          is_delta=True,
+          version="2.3.0",
+          src_version="2.2.0")
+      request = nebraska.Request.AppRequest(
+          request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+          appid="foo",
+          version="0xc0ffee",
+          delta_okay=True)
+      self.assertFalse(app_data.MatchRequest(request))
+      mock_log.error.assert_called_once()
+
+    with mock.patch('nebraska.logging') as mock_log:
+      app_data = AppDataGenerator(
+          appid="foo",
+          is_delta=True,
+          version="2,3,0",
+          src_version="2.2.0")
+      request = nebraska.Request.AppRequest(
+          request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+          appid="foo",
+          version="2.2.0",
+          delta_okay=True)
+      self.assertFalse(app_data.MatchRequest(request))
+      mock_log.error.assert_called_once()
 
 
 if __name__ == '__main__':

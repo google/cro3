@@ -10,6 +10,7 @@ from __future__ import print_function
 
 # pylint: disable=cros-logging-import
 import argparse
+import copy
 import json
 import logging
 import os
@@ -19,6 +20,37 @@ import threading
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from enum import Enum
 from xml.etree import ElementTree
+
+
+def VersionCmp(version_a_str, version_b_str):
+  """Compare two version strings.
+
+  Currently we only match on major/minor versions.
+
+  Args:
+    version_a_str: String representing first version number.
+    version_b_str: String representing second version number.
+
+  Returns:
+    < 0 if version_a is less than version_b
+    > 0 if version_a is greater than version_b
+    0 if the version numbers are equal
+
+  Raises:
+    ValueError if either version string is not valid
+  """
+
+  try:
+    version_a = tuple([int(i) for i in version_a_str.split('.')[0:2]])
+    version_b = tuple([int(i) for i in version_b_str.split('.')[0:2]])
+
+    if version_a[0] != version_b[0]:
+      return version_a[0] - version_b[0]
+
+    return version_a[1] - version_b[1]
+
+  except (IndexError, ValueError):
+    raise ValueError("Not a valid version string")
 
 
 class Request(object):
@@ -224,10 +256,48 @@ class AppData(object):
     return "{} v{}: full update/install".format(
         self.appid, self.version)
 
+  def MatchRequest(self, request):
+    """Returns true iff the app matches a given client request.
 
-  def SetURL(self, url):
-    """Set the URL."""
-    self.url = url
+    An app matches a request if the appid matches the requested appid.
+    Additionally, if the app describes a delta update payload, the request
+    must be able to accept delta payloads, and the source versions must match.
+    If the request is not an update, the versions must match.
+
+    Args:
+      request: A request object describing a client request.
+
+    Returns:
+      True if the app matches the given request, False otherwise.
+    """
+
+    # TODO(chowes): We only account for tip/branch versions. We need to be able
+    # to handle full version strings as well as developer builds that don't have
+    # a "real" final version component.
+
+    if self.appid != request.appid:
+      return False
+
+    try:
+      if request.request_type == request.RequestType.UPDATE:
+        if self.is_delta:
+          if not request.delta_okay:
+            return False
+          if VersionCmp(request.version, self.src_version) != 0:
+            return False
+        return VersionCmp(request.version, self.version) < 0
+
+      if request.request_type == request.RequestType.INSTALL:
+        if self.is_delta:
+          return False
+        return VersionCmp(request.version, self.version) == 0
+
+      else:
+        return False
+
+    except ValueError as err:
+      logging.error("Unable to compare version strings (%s)", str(err))
+      return False
 
 
 class AppIndex(object):
@@ -276,6 +346,62 @@ class AppIndex(object):
           raise
         logging.debug("Found app data: %s", str(app))
 
+  def Find(self, request):
+    """Search the index for a given appid.
+
+    Searches the index for the payloads matching a client request. Matching is
+    based on appid, version, and whether the client is searching for an update
+    and can handle delta payloads.
+
+    Args:
+      request: AppRequest describing the client request
+
+    Returns:
+      An AppData object describing an available payload matching the client
+      request, or None if no matches are found. Prefer delta payloads if the
+      client can accept them and if one is available.
+    """
+    # Find a list of payloads matching the client request
+    matches = [app for app in self._index.get(request.appid, []) if
+               app.MatchRequest(request)]
+
+    if not matches:
+      return None
+
+    # Find the highest version out of the matching payloads
+    max_version = reduce(
+        lambda a, b: a if VersionCmp(a.version, b.version) > 0
+        else b, matches).version
+
+    matches = [app for app in matches if app.version == max_version]
+
+    # If the client can handle a delta, prefer to send a delta
+    if request.delta_okay:
+      match = next((x for x in matches if x.is_delta), None)
+      match = match if match else next(iter(matches), None)
+    else:
+      match = next(iter(matches), None)
+
+    # Since we set the URL per-request, we have to return a copy
+    return copy.copy(match)
+
+  def Contains(self, request):
+    """Checks if the AppIndex contains any apps matching a given request appid.
+
+    Checks the index for an appid matching the appid in the given request. This
+    is necessary because it allows us to differentiate between the case where we
+    have no new versions of an app and the case where we have no information
+    about an app at all.
+
+    Args:
+      request: Describes the client request
+
+    Returns:
+      True if the index contains any appids matching the appid given in the
+      request.
+    """
+    return request.appid in self._index
+
 
 class NebraskaHandler(BaseHTTPRequestHandler):
   """HTTP request handler for Omaha requests."""
@@ -292,8 +418,25 @@ class NebraskaHandler(BaseHTTPRequestHandler):
 
     request = Request(request_str)
     try:
+      matches = []
       for app in request.ParseRequest():
         logging.debug("Received request: %s", str(app))
+
+        if app.request_type == app.RequestType.INSTALL:
+          match = self.server.owner.source_index.Find(app)
+        elif app.request_type == app.RequestType.UPDATE:
+          match = self.server.owner.target_index.Find(app)
+        else:
+          continue
+
+        if match:
+          matches.append(match)
+          logging.debug("Found matching payload: %s", str(match))
+        elif self.server.owner.target_index.Contains(app):
+          logging.debug("No updates available for %s", app.appid)
+        else:
+          logging.debug("No matching payloads")
+
     except ValueError:
       self.send_error(400, "Invalid update or install request")
       return
