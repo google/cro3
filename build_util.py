@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2009-2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -20,6 +21,7 @@ class BuildObject(object):
     self.devserver_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     self.static_dir = static_dir
     self.scripts_dir = os.path.join(self.GetSourceRoot(), 'src/scripts')
+    self.images_dir = os.path.join(self.GetSourceRoot(), 'src/build/images')
 
   @staticmethod
   def GetSourceRoot():
@@ -32,8 +34,7 @@ class BuildObject(object):
 
   def GetLatestImageDir(self, board):
     """Returns the latest image dir based on shell script."""
-    cmd = '%s/get_latest_image.sh --board %s' % (self.scripts_dir, board)
-    return os.popen(cmd).read().strip()
+    return os.path.join(self.images_dir, board, 'latest')
 
   def GetDefaultBoardID(self):
     """Returns the default board id stored in .default_board.

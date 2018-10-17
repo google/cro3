@@ -165,7 +165,10 @@ start_dev_server() {
     # IMAGE_PATH should be the newest image and learn the board from
     # the target.
     learn_board
-    IMAGE_PATH="$(${SCRIPTS_DIR}/get_latest_image.sh --board="${FLAGS_board}")"
+    IMAGE_PATH="${IMAGES_DIR}/${FLAGS_board}/latest"
+    if [[ ! -L ${IMAGE_PATH} ]]; then
+      die "No image found; have you run build_image?"
+    fi
     IMAGE_PATH="${IMAGE_PATH}/chromiumos_image.bin"
     devserver_flags="${devserver_flags} \
         --image=$(reinterpret_path_for_chroot ${IMAGE_PATH})"
