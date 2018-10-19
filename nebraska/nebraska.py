@@ -16,10 +16,66 @@ import logging
 import os
 import sys
 import threading
+import traceback
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from enum import Enum
+from datetime import datetime, time
 from xml.etree import ElementTree
+
+
+class XMLResponseTemplates(object):
+  """XML Templates"""
+
+  RESPONSE_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
+<response protocol="3.0" server="nebraska">
+  <daystart elapsed_days="" elapsed_seconds=""/>
+</response>
+"""
+
+  APP_TEMPLATE = """
+  <app appid="" status="">
+  </app>
+"""
+
+  PING_RESPONSE = """
+    <ping status="ok"/>
+  """
+
+  EVENT_RESPONSE = """
+    <event status="ok"/>
+  """
+
+  UPDATE_CHECK_TEMPLATE = """
+    <updatecheck status="ok">
+      <urls>
+      </urls>
+      <manifest version="">
+        <actions>
+          <action event="update" run=""/>
+          <action ChromeOSVersion=""
+                  ChromeVersion="1.0.0.0"
+                  IsDeltaPayload=""
+                  MaxDaysToScatter="14"
+                  MetadataSignatureRsa=""
+                  MetadataSize=""
+                  event="postinstall"
+                  sha256=""/>
+        </actions>
+        <packages>
+          <package fp=""
+                   hash=""
+                   hash_sha256=""
+                   name=""
+                   required="true"
+                   size=""/>
+        </packages>
+      </manifest>
+    </updatecheck>
+  """
+
+  NO_UPDATE = "noupdate"
+
+  ERROR_NOT_FOUND = "error-unknownApplication"
 
 
 def VersionCmp(version_a_str, version_b_str):
@@ -32,12 +88,12 @@ def VersionCmp(version_a_str, version_b_str):
     version_b_str: String representing second version number.
 
   Returns:
-    < 0 if version_a is less than version_b
-    > 0 if version_a is greater than version_b
-    0 if the version numbers are equal
+    < 0 if version_a is less than version_b.
+    > 0 if version_a is greater than version_b.
+    0 if the version numbers are equal.
 
   Raises:
-    ValueError if either version string is not valid
+    ValueError if either version string is not valid.
   """
 
   try:
@@ -155,7 +211,11 @@ class Request(object):
     An app request can also send pings and event result information.
     """
 
-    RequestType = Enum("RequestType", "INSTALL UPDATE NO_OP")
+    class RequestType(object):
+      """Simple enumeration for encoding request type."""
+      INSTALL = 1 # Request installation of a new app.
+      UPDATE = 2 # Request update for an existing app.
+      NO_OP = 3 # Request does not require a payload response.
 
     def __init__(self, request_type, appid, ping=False, version=None,
                  delta_okay=None, event_type=None, event_result=None):
@@ -194,6 +254,167 @@ class Request(object):
     def IsValid(self):
       """Returns true if an AppRequest is valid, False otherwise."""
       return None not in (self.request_type, self.appid, self.version)
+
+class Response(object):
+  """An update/install response.
+
+  A response to an update or install request consists of an XML-encoded list
+  of responses for each appid in the client request. This class takes a list of
+  responses for update/install requests and compiles them into a single element
+  constituting an aggregate response that can be returned to the client in XML
+  format based on the format of an XML response template.
+  """
+
+  def __init__(self, request, target_index, source_index, payload_addr):
+    """Initialize a reponse from a list of matching apps.
+
+    Args:
+      request: Request instance describing client requests.
+      target_index: Index of update payloads.
+      source_index: Index of install payloads.
+      payload_addr: Address of payload server.
+    """
+    self._request = request
+    self._target_index = target_index
+    self._source_index = source_index
+    self._payload_addr = payload_addr
+
+    curr = datetime.now()
+    self._elapsed_days = (curr - datetime(2007, 1, 1)).days
+    self._elapsed_seconds = int((
+        curr - datetime.combine(curr.date(), time.min)).total_seconds())
+
+  def GetXMLString(self):
+    """Generates a response to a set of client requests.
+
+    Given a client request consisting of one or more app requests, generate a
+    response to each of these requests and combine them into a single
+    XML-formatted response.
+
+    Returns:
+      XML-formatted response string consisting of a response to each app request
+      in the incoming request from the client.
+    """
+    try:
+      response_xml = ElementTree.fromstring(
+          XMLResponseTemplates.RESPONSE_TEMPLATE)
+      response_xml.find("daystart").set("elapsed_days", str(self._elapsed_days))
+      response_xml.find(
+          "daystart").set("elapsed_seconds", str(self._elapsed_seconds))
+
+      for app_request in self._request.ParseRequest():
+        logging.debug("Request for appid %s", str(app_request))
+        response_xml.append(self.AppResponse(
+            app_request,
+            self._target_index,
+            self._source_index,
+            self._payload_addr).Compile())
+
+    except Exception as err:
+      logging.error("Failed to compile response (%s)", str(err))
+      raise
+
+    return ElementTree.tostring(
+        response_xml, encoding='UTF-8', method='xml')
+
+  class AppResponse(object):
+    """Response to an app request.
+
+    If the request was an update or install request, the response should include
+    a matching app if one was found. Addionally, the response should include
+    responses to pings and events as appropriate.
+    """
+
+    def __init__(self, app_request, target_index, source_index, payload_addr):
+      """Initialize an AppResponse.
+
+      Attributes:
+        app_request: AppRequest representing a client request.
+        target_index: Index of update payloads.
+        source_index: Index of install payloads.
+        payload_addr: Address serving payloads.
+      """
+      _SOURCE_PATH = "/source/"
+      _TARGET_PATH = "/target/"
+
+      self._app_request = app_request
+      self._app_data = None
+      self._payload_url = None
+      self._err_not_found = False
+
+      if self._app_request.request_type == \
+          self._app_request.RequestType.INSTALL:
+        self._app_data = source_index.Find(self._app_request)
+        self._payload_url = payload_addr + _SOURCE_PATH
+        self._err_not_found = self._app_data is None
+      elif self._app_request.request_type == \
+          self._app_request.RequestType.UPDATE:
+        self._app_data = target_index.Find(self._app_request)
+        self._payload_url = payload_addr + _TARGET_PATH
+        # This differentiates between apps that are not in the index and apps
+        # that are available, but do not have an update available. Omaha treats
+        # the former as an error, whereas the latter case should result in a
+        # response containing a "noupdate" tag.
+        self._err_not_found = self._app_data is None and \
+            not target_index.Contains(app_request)
+
+      if self._app_data:
+        logging.debug("Found matching payload: %s", str(self._app_data))
+      elif self._err_not_found:
+        logging.debug("No matches for appid %s", self._app_request.appid)
+      elif self._app_request.request_type == \
+          self._app_request.RequestType.UPDATE:
+        logging.debug("No updates available for %s", self._app_request.appid)
+
+    def Compile(self):
+      """Compiles an app description into XML format.
+
+      Compiles the app description into an ElementTree Element that can be used
+      to compile a response to a client request, and ultimately converted into
+      XML.
+
+      Returns:
+        An ElementTree Element instance describing an update or install payload.
+      """
+      app_response = ElementTree.fromstring(XMLResponseTemplates.APP_TEMPLATE)
+      app_response.set('appid', self._app_request.appid)
+
+      if self._app_request.ping:
+        app_response.append(
+            ElementTree.fromstring(XMLResponseTemplates.PING_RESPONSE))
+      if self._app_request.event_type is not None:
+        app_response.append(
+            ElementTree.fromstring(XMLResponseTemplates.EVENT_RESPONSE))
+
+      if self._app_data is not None:
+        app_response.set('status', 'ok')
+        app_response.append(
+            ElementTree.fromstring(XMLResponseTemplates.UPDATE_CHECK_TEMPLATE))
+        urls = app_response.find('./updatecheck/urls')
+        urls.append(
+            ElementTree.Element('url', attrib={'codebase': self._payload_url}))
+        manifest = app_response.find('./updatecheck/manifest')
+        manifest.set('version', self._app_data.version)
+        actions = manifest.findall('./actions/action')
+        actions[0].set('run', self._app_data.name)
+        actions[1].set('ChromeOSVersion', self._app_data.version)
+        actions[1].set(
+            'IsDeltaPayload', 'true' if self._app_data.is_delta else 'false')
+        actions[1].set('MetadataSignatureRsa', self._app_data.metadata_sig)
+        actions[1].set('MetadataSize', str(self._app_data.metadata_size))
+        actions[1].set('sha256', self._app_data.sha256_hash)
+        package = manifest.find('./packages/package')
+        package.set('hash_sha256', self._app_data.sha256_hash)
+        package.set('name', self._app_data.name)
+        package.set('size', str(self._app_data.size))
+      elif self._err_not_found:
+        app_response.set('status', XMLResponseTemplates.ERROR_NOT_FOUND)
+      elif self._app_request.request_type == \
+          self._app_request.RequestType.UPDATE:
+        app_response.set('status', XMLResponseTemplates.NO_UPDATE)
+
+      return app_response
+
 
 class AppData(object):
   """Data about an available app.
@@ -247,7 +468,7 @@ class AppData(object):
     self.md5_hash = app_data[self.MD5_HASH_KEY]
     self.sha1_hash = app_data[self.SHA1_HASH_KEY]
     self.sha256_hash = app_data[self.SHA256_HASH_KEY]
-    self.url = None # Determined per-request
+    self.url = None # Determined per-request.
 
   def __str__(self):
     if self.is_delta:
@@ -270,7 +491,6 @@ class AppData(object):
     Returns:
       True if the app matches the given request, False otherwise.
     """
-
     # TODO(chowes): We only account for tip/branch versions. We need to be able
     # to handle full version strings as well as developer builds that don't have
     # a "real" final version component.
@@ -354,35 +574,34 @@ class AppIndex(object):
     and can handle delta payloads.
 
     Args:
-      request: AppRequest describing the client request
+      request: AppRequest describing the client request.
 
     Returns:
       An AppData object describing an available payload matching the client
       request, or None if no matches are found. Prefer delta payloads if the
       client can accept them and if one is available.
     """
-    # Find a list of payloads matching the client request
+    # Find a list of payloads matching the client request.
     matches = [app for app in self._index.get(request.appid, []) if
                app.MatchRequest(request)]
 
     if not matches:
       return None
 
-    # Find the highest version out of the matching payloads
+    # Find the highest version out of the matching payloads.
     max_version = reduce(
         lambda a, b: a if VersionCmp(a.version, b.version) > 0
         else b, matches).version
 
     matches = [app for app in matches if app.version == max_version]
 
-    # If the client can handle a delta, prefer to send a delta
+    # If the client can handle a delta, prefer to send a delta.
     if request.delta_okay:
       match = next((x for x in matches if x.is_delta), None)
       match = match if match else next(iter(matches), None)
     else:
       match = next(iter(matches), None)
 
-    # Since we set the URL per-request, we have to return a copy
     return copy.copy(match)
 
   def Contains(self, request):
@@ -394,7 +613,7 @@ class AppIndex(object):
     about an app at all.
 
     Args:
-      request: Describes the client request
+      request: Describes the client request.
 
     Returns:
       True if the index contains any appids matching the appid given in the
@@ -406,42 +625,31 @@ class AppIndex(object):
 class NebraskaHandler(BaseHTTPRequestHandler):
   """HTTP request handler for Omaha requests."""
 
-  def GetRequestString(self):
-    """Extracts the request string from an HTML POST request"""
-    request_len = int(self.headers.getheader('content-length'))
-    return self.rfile.read(request_len)
-
   def do_POST(self):
     """Responds to XML-formatted Omaha requests."""
-    request_str = self.GetRequestString()
+    request_len = int(self.headers.getheader('content-length'))
+    request_str = self.rfile.read(request_len)
     logging.debug("Received request: %s", request_str)
 
     request = Request(request_str)
+
     try:
-      matches = []
-      for app in request.ParseRequest():
-        logging.debug("Received request: %s", str(app))
-
-        if app.request_type == app.RequestType.INSTALL:
-          match = self.server.owner.source_index.Find(app)
-        elif app.request_type == app.RequestType.UPDATE:
-          match = self.server.owner.target_index.Find(app)
-        else:
-          continue
-
-        if match:
-          matches.append(match)
-          logging.debug("Found matching payload: %s", str(match))
-        elif self.server.owner.target_index.Contains(app):
-          logging.debug("No updates available for %s", app.appid)
-        else:
-          logging.debug("No matching payloads")
-
-    except ValueError:
-      self.send_error(400, "Invalid update or install request")
+      response = Response(
+          request,
+          self.server.owner.target_index,
+          self.server.owner.source_index,
+          self.server.owner.payload_addr)
+      response_str = response.GetXMLString()
+    except Exception as err:
+      logging.error("Failed to handle request (%s)", str(err))
+      traceback.print_exc()
+      self.send_error(500, "Failed to handle incoming request")
       return
 
-    self.send_error(500, "Not implemented!")
+    self.send_response(200)
+    self.send_header('Content-Type', 'application/xml')
+    self.end_headers()
+    self.wfile.write(response_str)
 
 
 class NebraskaServer(object):
@@ -454,23 +662,25 @@ class NebraskaServer(object):
   payloads provided by another server.
   """
 
-  def __init__(self, target_dir, source_dir=None, port=0):
+  def __init__(self, payload_addr, target_dir, source_dir=None, port=0):
     """Initializes a server instance.
 
     Args:
+      payload_addr: Address and port of the payload server.
       target_dir: Directory to index for information about target payloads.
       source_dir: Directory to index for information about source payloads.
       port: Port the server should run on, 0 if the OS should assign a port.
 
-  Attributes:
-    target_index: Index of metadata files in the target directory.
-    source_index: Index of metadata files in the source directory.
+    Attributes:
+      target_index: Index of metadata files in the target directory.
+      source_index: Index of metadata files in the source directory.
     """
     self._port = port
     self._httpd = None
     self._server_thread = None
-    self.target_index = AppIndex(target_dir)
+    self.payload_addr = payload_addr.strip('/')
     self.source_index = AppIndex(source_dir)
+    self.target_index = AppIndex(target_dir)
 
   def Start(self):
     """Starts a mock Omaha HTTP server."""
@@ -497,23 +707,25 @@ def ParseArguments(argv):
   """Parses command line arguments.
 
   Args:
-    argv: List of commandline arguments
+    argv: List of commandline arguments.
 
   Returns:
-    Namespace object containing parsed arguments
+    Namespace object containing parsed arguments.
   """
   parser = argparse.ArgumentParser(description=__doc__)
 
-  required_args = parser.add_argument_group('Required Arguments')
-  required_args.add_argument('--target-dir', metavar='DIR', help='Directory '
-                             'containing payloads for updates.', required=True)
-
   optional_args = parser.add_argument_group('Optional Arguments')
+  optional_args.add_argument('--target-dir', metavar='DIR', default=None,
+                             help='Directory containing payloads for updates.',
+                             required=False)
   optional_args.add_argument('--source-dir', metavar='DIR', default=None,
                              help='Directory containing payloads for '
                              'installation.', required=False)
   optional_args.add_argument('--port', metavar='PORT', type=int, default=0,
-                             help='Port to run the server on')
+                             help='Port to run the server on', required=False)
+  optional_args.add_argument('--payload-addr', metavar='ADDRESS',
+                             help='Address and port of the payload server',
+                             default="http://127.0.0.1:8080")
 
   return parser.parse_args(argv[1:])
 
@@ -522,8 +734,13 @@ def main(argv):
   logging.basicConfig(level=logging.DEBUG)
   opts = ParseArguments(argv)
 
-  nebraska = NebraskaServer(source_dir=opts.source_dir,
+  if not opts.target_dir and not opts.source_dir:
+    logging.error("Need to specify at least one payload directory.")
+    return os.EX_USAGE
+
+  nebraska = NebraskaServer(payload_addr=opts.payload_addr,
                             target_dir=opts.target_dir,
+                            source_dir=opts.source_dir,
                             port=opts.port)
 
   nebraska.Start()
@@ -537,6 +754,8 @@ def main(argv):
 
   logging.info("Exiting...")
   nebraska.Stop()
+
+  return os.EX_OK
 
 
 if __name__ == "__main__":

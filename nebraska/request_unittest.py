@@ -95,7 +95,7 @@ class XMLStrings(object):
 """
 
 class RequestTest(unittest.TestCase):
-  """Tests for Request class"""
+  """Tests for Request class."""
 
   def testParseRequestInvalidXML(self):
     """Tests ParseRequest handling of invalid XML."""

@@ -17,64 +17,61 @@ from unittest_common import NebraskaHandler, NebraskaGenerator
 _NEBRASKA_PORT = 11235
 _SOURCE_DIR = "test_source_dir"
 _TARGET_DIR = "test_target_dir"
+_PAYLOAD_ADDR = "111.222.212:2357"
 
 
 class NebraskaHandlerTest(unittest.TestCase):
   """Test NebraskaHandler."""
 
-  def testGetRequestString(self):
-    """Test GetRequestString."""
-    nebraska_handler = NebraskaHandler()
-    nebraska_handler.headers = mock.MagicMock()
-    nebraska_handler.rfile = mock.MagicMock()
-    nebraska_handler.headers.getheader.return_value = 42
-    nebraska_handler.rfile.read.return_value = "foobar"
-
-    result = nebraska_handler.GetRequestString()
-
-    nebraska_handler.headers.getheader.assert_called_once_with('content-length')
-    nebraska_handler.rfile.read.assert_called_once_with(42)
-    self.assertTrue(result == "foobar")
-
   def testDoPostSuccess(self):
-    """Test do_POST success."""
-
+    """Tests do_POST success."""
     nebraska_handler = NebraskaHandler()
+    test_response = "foobar"
 
-    with mock.patch('nebraska.Request') as request_mock:
-      nebraska_handler.GetRequestString = mock.MagicMock(return_value="foo")
-      nebraska_handler.send_error = mock.MagicMock()
-      request_instance = request_mock.return_value
-
+    with mock.patch('nebraska.Response') as response_mock:
+      response_instance = response_mock.return_value
+      response_instance.GetXMLString.return_value = test_response
       nebraska_handler.do_POST()
-      request_mock.assert_called_once_with("foo")
-      request_instance.ParseRequest.assert_called_once()
-      nebraska_handler.send_error.assert_called_once_with(
-          500, "Not implemented!")
+
+    nebraska_handler.send_response.assert_called_once_with(200)
+    nebraska_handler.send_header.assert_called_once()
+    nebraska_handler.end_headers.assert_called_once()
+    nebraska_handler.wfile.write.assert_called_once_with(test_response)
 
   def testDoPostInvalidRequest(self):
     """Test do_POST invalid request."""
 
     nebraska_handler = NebraskaHandler()
 
-    with mock.patch('nebraska.Request') as request_mock:
-      request_mock.return_value.ParseRequest.side_effect = ValueError()
-
-      nebraska_handler.GetRequestString = mock.MagicMock()
-      nebraska_handler.send_error = mock.MagicMock()
+    with mock.patch('nebraska.Response') as response_mock:
+      response_mock.side_effect = ValueError
 
       nebraska_handler.do_POST()
 
       nebraska_handler.send_error.assert_called_once_with(
-          400, "Invalid update or install request")
+          500, "Failed to handle incoming request")
 
+  def testDoPostInvalidResponse(self):
+    """Tests do_POST invalid response handling."""
+
+    nebraska_handler = NebraskaHandler()
+
+    with mock.patch('nebraska.traceback') as traceback_mock:
+      with mock.patch('nebraska.Response') as response_mock:
+        response_instance = response_mock.return_value
+        response_instance.GetXMLString.side_effect = Exception
+        nebraska_handler.do_POST()
+        traceback_mock.print_exc.assert_called_once()
+        nebraska_handler.send_error.assert_called_once_with(
+            500, "Failed to handle incoming request")
 
 class NebraskaServerTest(unittest.TestCase):
   """Test NebraskaServer."""
 
   def testStart(self):
-    """Test Start"""
-    server = nebraska.NebraskaServer(_SOURCE_DIR, _TARGET_DIR, _NEBRASKA_PORT)
+    """Tests Start."""
+    server = nebraska.NebraskaServer(
+        _SOURCE_DIR, _TARGET_DIR, _PAYLOAD_ADDR, _NEBRASKA_PORT)
 
     with mock.patch('nebraska.HTTPServer') as server_mock:
       with mock.patch('nebraska.threading.Thread') as thread_mock:
@@ -95,9 +92,9 @@ class NebraskaServerTest(unittest.TestCase):
         server.target_index.Scan.assert_called_once()
 
   def testStop(self):
-    """Test Stop"""
+    """Tests Stop."""
     nebraska_server = NebraskaGenerator(
-        _SOURCE_DIR, _TARGET_DIR, _NEBRASKA_PORT)
+        _PAYLOAD_ADDR, _TARGET_DIR, _SOURCE_DIR, _NEBRASKA_PORT)
 
     # pylint: disable=protected-access
     nebraska_server._httpd = mock.MagicMock(name="_httpd")

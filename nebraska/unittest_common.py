@@ -8,6 +8,8 @@
 
 from __future__ import print_function
 
+import mock
+
 from nebraska import AppData, NebraskaServer, \
                      NebraskaHandler as RealNebraskaHandler
 
@@ -21,12 +23,19 @@ class NebraskaHandler(RealNebraskaHandler):
   """
   # pylint: disable=super-init-not-called
   def __init__(self):
-    self.headers = None
-    self.rfile = None
+    self.headers = mock.MagicMock()
+    self.send_response = mock.MagicMock()
+    self.send_error = mock.MagicMock()
+    self.send_header = mock.MagicMock()
+    self.end_headers = mock.MagicMock()
+    self.rfile = mock.MagicMock()
+    self.wfile = mock.MagicMock()
+    self.server = mock.MagicMock()
 
-def NebraskaGenerator(source_dir, target_dir, port):
+
+def NebraskaGenerator(source_dir, target_dir, payload_addr, port):
   """Generates a Nebraska server instance."""
-  return NebraskaServer(source_dir, target_dir, port)
+  return NebraskaServer(source_dir, target_dir, payload_addr, port)
 
 
 def AppDataGenerator(appid, is_delta, version, src_version):

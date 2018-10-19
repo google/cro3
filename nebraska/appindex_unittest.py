@@ -11,8 +11,6 @@ from __future__ import print_function
 import mock
 import unittest
 
-from xml.etree import ElementTree
-
 import nebraska
 from unittest_common import AppDataGenerator
 
@@ -133,7 +131,7 @@ class JSONStrings(object):
 
 
 class AppIndexTest(unittest.TestCase):
-  """Test AppIndex"""
+  """Test AppIndex."""
 
   def testScanEmpty(self):
     """Tests Scan on an empty directory."""
@@ -158,7 +156,7 @@ class AppIndexTest(unittest.TestCase):
         open_mock.assert_not_called()
 
   def testScanMultiple(self):
-    """Tests Scan on a directory with multiple appids"""
+    """Tests Scan on a directory with multiple appids."""
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
         listdir_mock.return_value = [
@@ -188,7 +186,7 @@ class AppIndexTest(unittest.TestCase):
         self.assertTrue(len(app_index._index['foobar']) == 1)
 
   def testScanInvalidJson(self):
-    """Tests Scan with invalid JSON files"""
+    """Tests Scan with invalid JSON files."""
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
         listdir_mock.return_value = [
@@ -213,7 +211,7 @@ class AppIndexTest(unittest.TestCase):
           app_index.Scan()
 
   def testScanInvalidApp(self):
-    """Tests Scan on JSON files lacking required keys"""
+    """Tests Scan on JSON files lacking required keys."""
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
         listdir_mock.return_value = [
@@ -239,7 +237,7 @@ class AppIndexTest(unittest.TestCase):
 
 
 class AppDataTest(unittest.TestCase):
-  """Test AppData"""
+  """Test AppData."""
 
   def testMatchRequestInstall(self):
     """Tests MatchRequest for matching install request."""
@@ -310,7 +308,7 @@ class AppDataTest(unittest.TestCase):
     self.assertFalse(app_data.MatchRequest(request))
 
   def testMatchRequestDeltaVersionMismatch(self):
-    """Test MatchRequest for delta version mismatch"""
+    """Test MatchRequest for delta version mismatch."""
     app_data = AppDataGenerator(
         appid="foo",
         is_delta=False,
