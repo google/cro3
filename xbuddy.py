@@ -572,13 +572,13 @@ class XBuddy(build_util.BuildObject):
       XBuddyException if neither test nor dev image was found in latest built
       directory.
     """
-    latest_local_dir = self.GetLatestImageDir(board)
+    latest_local_dir = self.GetLatestImageLink(board)
     if not latest_local_dir or not os.path.exists(latest_local_dir):
       raise XBuddyException('No builds found for %s. Did you run build_image?' %
                             board)
 
     # Assume that the version number is the name of the directory.
-    return os.path.basename(latest_local_dir.rstrip('/'))
+    return os.path.basename(os.path.realpath(latest_local_dir))
 
   @staticmethod
   def _FindAny(local_dir):
@@ -810,8 +810,8 @@ class XBuddy(build_util.BuildObject):
         order of stability.
 
     Raises:
-        build_artifact.ArtifactDownloadError: If we failed to download the
-                                              artifact.
+      build_artifact.ArtifactDownloadError: If we failed to download the
+        artifact.
     """
     # Stage image if not found in cache.
     file_name = GS_ALIAS_TO_FILENAME[image_type]

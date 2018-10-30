@@ -32,8 +32,8 @@ class BuildObject(object):
 
     return os.path.realpath(src_root)
 
-  def GetLatestImageDir(self, board):
-    """Returns the latest image dir based on shell script."""
+  def GetLatestImageLink(self, board):
+    """Returns the latest image symlink."""
     return os.path.join(self.images_dir, board, 'latest')
 
   def GetDefaultBoardID(self):
