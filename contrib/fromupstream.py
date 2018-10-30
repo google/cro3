@@ -147,7 +147,9 @@ def main(args):
                         'PROJECT is specified, the default is retrieved from ' +
                         '~/.pwclientrc), ' +
                         'linux commit like linux://HASH, or ' +
-                        'git reference like fromgit://remote/branch/HASH')
+                        'git reference like git://remote/branch/HASH or ' +
+                        'git://repoURL#branch/HASH or ' +
+                        'https://repoURL#branch/HASH')
 
     args = vars(parser.parse_args(args))
 
@@ -191,7 +193,10 @@ def main(args):
             r'linux://([0-9a-f]+)', location
         )
         fromgit_match = re.match(
-            r'fromgit://([^/]+)/(.+)/([0-9a-f]+)$', location
+            r'(from)?git://([^/\#]+)/([^#]+)/([0-9a-f]+)$', location
+        )
+        gitfetch_match = re.match(
+            r'((git|https)://.+)#(.+)/([0-9a-f]+)$', location
         )
 
         if patchwork_match is not None:
@@ -258,9 +263,9 @@ def main(args):
 
             ret = subprocess.call(['git', 'cherry-pick', commit])
         elif fromgit_match is not None:
-            remote = fromgit_match.group(1)
-            branch = fromgit_match.group(2)
-            commit = fromgit_match.group(3)
+            remote = fromgit_match.group(2)
+            branch = fromgit_match.group(3)
+            commit = fromgit_match.group(4)
 
             ret = subprocess.call(['git', 'merge-base', '--is-ancestor',
                                    commit, '%s/%s' % (remote, branch)])
@@ -286,6 +291,30 @@ def main(args):
 
             if args['replace']:
                 subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
+
+            ret = subprocess.call(['git', 'cherry-pick', commit])
+        elif gitfetch_match is not None:
+            remote = gitfetch_match.group(1)
+            branch = gitfetch_match.group(3)
+            commit = gitfetch_match.group(4)
+
+            ret = subprocess.call(['git', 'fetch', remote, branch])
+            if ret:
+                sys.stderr.write('Error: Branch not in %s\n' % remote)
+                sys.exit(1)
+
+            url = remote
+
+            if args['source_line'] is None:
+                git_pipe = subprocess.Popen(['git', 'rev-parse', commit],
+                                            stdout=subprocess.PIPE)
+                commit = git_pipe.communicate()[0].strip()
+
+                args['source_line'] = \
+                    '(cherry picked from commit %s\n %s %s)' % \
+                    (commit, url, branch)
+            if args['tag'] is None:
+                args['tag'] = 'FROMGIT: '
 
             ret = subprocess.call(['git', 'cherry-pick', commit])
         else:
