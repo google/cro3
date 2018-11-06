@@ -90,12 +90,7 @@ update_firmware() {
   yaml_config="/build/${board}/usr/share/chromeos-config/yaml/config.yaml"
 
   "emerge-${board}" ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}" chromeos-config
-  if [[ -e "${yaml_config}" ]]; then
-    cros_config_host -c "${yaml_config}" get-firmware-uris > "${srcuris}"
-  else
-    cros_config_host -c "/build/${board}/usr/share/chromeos-config/config.dtb" \
-      get-firmware-uris > "${srcuris}"
-  fi
+  cros_config_host -c "${yaml_config}" get-firmware-uris > "${srcuris}"
   touch "${ebuild}"
   "ebuild-${board}" "${ebuild}" manifest
   "emerge-${board}" "chromeos-firmware-${board}"
