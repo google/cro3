@@ -119,6 +119,10 @@ def main(args):
                         type=str, help='BUG= line')
     parser.add_argument('--test', '-t',
                         type=str, help='TEST= line')
+    parser.add_argument('--crbug', action='append',
+                        type=int, help='BUG=chromium: line')
+    parser.add_argument('--buganizer', action='append',
+                        type=int, help='BUG=b: line')
     parser.add_argument('--changeid', '-c',
                         help='Overrides the gerrit generated Change-Id line')
 
@@ -146,6 +150,13 @@ def main(args):
                         'git reference like fromgit://remote/branch/HASH')
 
     args = vars(parser.parse_args(args))
+
+    buglist = [args['bug']] if args['bug'] else []
+    if args['buganizer']:
+        buglist += ['b:{0}'.format(x) for x in args['buganizer']]
+    if args['crbug']:
+        buglist += ['chromium:{0}'.format(x) for x in args['crbug']]
+    args['bug'] = ', '.join(buglist)
 
     if args['replace']:
         old_commit_message = subprocess.check_output(
