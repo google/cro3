@@ -167,7 +167,8 @@ def main(args):
         # TODO: deal with multiline BUG/TEST better
 
     if args['bug'] is None or args['test'] is None:
-        parser.error('BUG=/TEST= lines are required; --replace can help automate, or set via --bug/--test')
+        parser.error('BUG=/TEST= lines are required; --replace can help ' +
+                     'automate, or set via --bug/--test')
 
     while len(args['locations']) > 0:
         location = args['locations'].pop(0)
