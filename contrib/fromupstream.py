@@ -311,7 +311,7 @@ def main(args):
             extra = ['-s']
         else:
             extra = []
-        commit = subprocess.Popen(
+        subprocess.Popen(
             ['git', 'commit'] + extra + ['--amend', '-F', '-'],
             stdin=subprocess.PIPE
         ).communicate(commit_message)
@@ -331,7 +331,7 @@ def main(args):
         commit_message = args['tag'] + commit_message
 
         # commit everything
-        commit = subprocess.Popen(
+        subprocess.Popen(
             ['git', 'commit', '--amend', '-F', '-'], stdin=subprocess.PIPE
         ).communicate(commit_message)
 
