@@ -79,7 +79,6 @@ invalid xml!!
         </actions>
         <packages>
           <package fp="null"
-                   hash="null"
                    hash_sha256=""
                    name=""
                    required="true"
@@ -362,6 +361,7 @@ class AppResponseTest(unittest.TestCase):
     self.assertTrue(url_tag.attrib['codebase'] == payload_addr + "/source/")
     self.assertTrue(manifest_tag.attrib['version'] == match.version)
     self.assertTrue(package_tag.attrib['hash_sha256'] == match.sha256_hash)
+    self.assertTrue(package_tag.attrib['fp'] == "1.%s" % match.sha256_hash)
     self.assertTrue(package_tag.attrib['name'] == match.name)
     self.assertTrue(package_tag.attrib['size'] == match.size)
     self.assertTrue(action_tag.attrib['ChromeOSVersion'] == match.version)

@@ -51,13 +51,18 @@ def GenAppJson(appid='appid_foo', name='foobar', is_delta='False',
   return {
       AppData.APPID_KEY: appid,
       AppData.NAME_KEY: name,
-      AppData.IS_DELTA_KEY: is_delta,
-      AppData.SIZE_KEY: '9001',
-      AppData.MD5_HASH_KEY: '0xc0ffee',
-      AppData.METADATA_SIG_KEY: '0xcafefood',
-      AppData.METADATA_SIZE_KEY: '42',
-      AppData.SHA1_HASH_KEY: '0x1337c0de',
-      AppData.SHA256_HASH_KEY: '0xdeadbeef',
       AppData.VERSION_KEY: version,
-      AppData.SRC_VERSION_KEY: src_version
+      AppData.IS_DELTA_KEY: is_delta,
+      AppData.SRC_VERSION_KEY: src_version,
+      AppData.SIZE_KEY: '9001',
+      AppData.METADATA_SIG_KEY: \
+          'Dr4RFXYgcfvFHV/0VRQs+SCQmz15Sk04LLEDswtvng8BqNbBXA7VvPUhpCgX5T/t7cwP'
+          'xTUHJVtxIREuBZpyIQxJQFZATspaClelpKBwadQzj7dpfShLpcbdlfM8qbLjIbXfC2Vy'
+          'mw03Mwf38lm0Fm75SANSTW9S4arPDf3sy9YGuqesnEJXyT3ZSGyK+Xto79zlURUXCgmi'
+          'a6t7MaJE3ZbCdeF4EiEMPDsipqj9ggmKwiCdUl2+RxTznX/015XFiBhogLrx9RCPHTR8'
+          'nLz0H9RcRhIvMd+8g4kHUZTDvjCvG5EZHpIKk8FK8z0zY/LWVr738evwuNNwyKIazkQB'
+          'TA==',
+      AppData.METADATA_SIZE_KEY: '42',
+      AppData.SHA256_HASH_KEY: "886fd274745b4fa8d1f253cff11242fac07a29522b1bb9e"
+                               "028ab1480353d3160"
   }

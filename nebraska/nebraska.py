@@ -58,12 +58,10 @@ class XMLResponseTemplates(object):
                   MaxDaysToScatter="14"
                   MetadataSignatureRsa=""
                   MetadataSize=""
-                  event="postinstall"
-                  sha256=""/>
+                  event="postinstall"/>
         </actions>
         <packages>
           <package fp=""
-                   hash=""
                    hash_sha256=""
                    name=""
                    required="true"
@@ -369,7 +367,7 @@ class Response(object):
     def Compile(self):
       """Compiles an app description into XML format.
 
-      Compiles the app description into an ElementTree Element that can be used
+      Compile the app description into an ElementTree Element that can be used
       to compile a response to a client request, and ultimately converted into
       XML.
 
@@ -402,8 +400,8 @@ class Response(object):
             'IsDeltaPayload', 'true' if self._app_data.is_delta else 'false')
         actions[1].set('MetadataSignatureRsa', self._app_data.metadata_sig)
         actions[1].set('MetadataSize', str(self._app_data.metadata_size))
-        actions[1].set('sha256', self._app_data.sha256_hash)
         package = manifest.find('./packages/package')
+        package.set('fp', "1.%s" % self._app_data.sha256_hash)
         package.set('hash_sha256', self._app_data.sha256_hash)
         package.set('name', self._app_data.name)
         package.set('size', str(self._app_data.size))
@@ -432,8 +430,6 @@ class AppData(object):
   METADATA_SIZE_KEY = 'metadata_size'
   VERSION_KEY = 'version'
   SRC_VERSION_KEY = 'source_ver'
-  MD5_HASH_KEY = 'hash_md5'
-  SHA1_HASH_KEY = 'hash_sha1'
   SHA256_HASH_KEY = 'hash_sha256'
 
   def __init__(self, app_data):
@@ -448,11 +444,9 @@ class AppData(object):
       name: Filename of requested app on the mock Lorry server.
       is_delta: True iff the payload is a delta update.
       size: Size of the payload.
-      md5_hash: md5 hash of the payload.
       metadata_sig: Metadata signature.
       metadata_size: Metadata size.
-      sha1_hash: SHA1 hash of the payload.
-      sha256_hash: SHA256 hash of the payload.
+      sha256_hash: SHA256 hash of the payload encoded in hexadecimal.
       version: ChromeOS version the payload is tied to.
       src_version: Source version for delta updates.
     """
@@ -465,8 +459,6 @@ class AppData(object):
     self.size = app_data[self.SIZE_KEY]
     self.metadata_sig = app_data[self.METADATA_SIG_KEY]
     self.metadata_size = app_data[self.METADATA_SIZE_KEY]
-    self.md5_hash = app_data[self.MD5_HASH_KEY]
-    self.sha1_hash = app_data[self.SHA1_HASH_KEY]
     self.sha256_hash = app_data[self.SHA256_HASH_KEY]
     self.url = None # Determined per-request.
 
