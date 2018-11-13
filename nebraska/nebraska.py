@@ -71,7 +71,9 @@ class XMLResponseTemplates(object):
     </updatecheck>
   """
 
-  NO_UPDATE = "noupdate"
+  UPDATE_CHECK_NO_UPDATE = """
+    <updatecheck status="noupdate"/>
+  """
 
   ERROR_NOT_FOUND = "error-unknownApplication"
 
@@ -409,7 +411,9 @@ class Response(object):
         app_response.set('status', XMLResponseTemplates.ERROR_NOT_FOUND)
       elif self._app_request.request_type == \
           self._app_request.RequestType.UPDATE:
-        app_response.set('status', XMLResponseTemplates.NO_UPDATE)
+        app_response.set('status', "ok")
+        app_response.append(ElementTree.fromstring(
+            XMLResponseTemplates.UPDATE_CHECK_NO_UPDATE))
 
       return app_response
 
