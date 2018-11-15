@@ -51,6 +51,22 @@ class XMLStrings(object):
 </request>
 """
 
+  INVALID_NOOP_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="true">
+    <ping active="1" a="1" r="1"></ping>
+  </app>
+  <app appid="foo" version="1.0.0" delta_okay="true">
+    <ping active="1" a="1" r="1"></ping>
+  </app>
+  <app appid="bar" version="1.0.0" delta_okay="false">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+</request>
+"""
+
   EVENT_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
@@ -115,6 +131,12 @@ class RequestTest(unittest.TestCase):
       request = nebraska.Request(XMLStrings.INVALID_INSTALL_REQUEST)
       request.ParseRequest()
 
+  def testParseRequestInvalidNoop(self):
+    """Tests ParseRequest handling of invalid mixed no-op request."""
+    with self.assertRaises(ValueError):
+      request = nebraska.Request(XMLStrings.INVALID_NOOP_REQUEST)
+      request.ParseRequest()
+
   def testParseRequestInstall(self):
     """Tests ParseRequest handling of install requests."""
     request = nebraska.Request(XMLStrings.INSTALL_REQUEST)
@@ -135,7 +157,7 @@ class RequestTest(unittest.TestCase):
     self.assertTrue(app_requests[2].version == "1.0.0")
 
   def testParseRequestUpdate(self):
-    """Tests ParseRequest handling of install requests."""
+    """Tests ParseRequest handling of update requests."""
     request = nebraska.Request(XMLStrings.UPDATE_REQUEST)
     app_requests = request.ParseRequest()
 

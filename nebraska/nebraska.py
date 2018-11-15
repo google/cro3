@@ -152,18 +152,26 @@ class Request(object):
       logging.error("Request string is not valid XML (%s)", str(err))
       raise ValueError
 
+    # TODO(chowes): It would be better to specifically check the platform app.
     # An install is signalled by omitting the update check for the platform
     # app, which can be found based on the presense of a hardware_class tag,
-    # which is absent on DLC update and install requests.
-    platform_app = next(iter([x for x in request_root.findall(self.APP_TAG) if
-                              x.get(self.HW_CLASS_ATTR) is not None]), None)
-    if platform_app is not None:
-      is_install = platform_app.find(self.UPDATE_CHECK_TAG) is None
-    else:
-      is_install = False
+    # which is absent on DLC update and install requests. UE does not currently
+    # omit hardware_class for DLCs, so we assume that if we have one appid for
+    # which the update_check tag is omitted, it is the platform app and this is
+    # an install request. This assumption should be fine since we never mix
+    # updates with requests that do not include an update_check tag.
+    app_elements = request_root.findall(self.APP_TAG)
+    noop_count = len(
+        [x for x in app_elements if x.find(self.UPDATE_CHECK_TAG) is None])
+
+    if noop_count > 1 and noop_count < len(app_elements):
+      raise ValueError("Client request omits update_check tag for more than "
+                       "one, but not all app requests.")
+
+    is_install = noop_count == 1
 
     app_requests = []
-    for app in request_root.findall(self.APP_TAG):
+    for app in app_elements:
       appid = app.get(self.APPID_ATTR)
       version = app.get(self.VERSION_ATTR)
       delta_okay = app.get(self.DELTA_OKAY_ATTR) == "true"
