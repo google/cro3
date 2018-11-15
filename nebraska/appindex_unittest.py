@@ -15,8 +15,8 @@ import nebraska
 from unittest_common import AppDataGenerator
 
 _NEBRASKA_PORT = 11235
-_SOURCE_DIR = "test_source_dir"
-_TARGET_DIR = "test_target_dir"
+_INSTALL_DIR = "test_install_dir"
+_UPDATE_DIR = "test_update_dir"
 
 # pylint: disable=protected-access
 
@@ -124,10 +124,10 @@ class AppIndexTest(unittest.TestCase):
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
         listdir_mock.return_value = []
-        app_index = nebraska.AppIndex(_SOURCE_DIR)
+        app_index = nebraska.AppIndex(_INSTALL_DIR)
         app_index.Scan()
         self.assertFalse(app_index._index)
-        listdir_mock.assert_called_once_with(_SOURCE_DIR)
+        listdir_mock.assert_called_once_with(_INSTALL_DIR)
         open_mock.assert_not_called()
 
   def testScanNoJson(self):
@@ -135,10 +135,10 @@ class AppIndexTest(unittest.TestCase):
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
         listdir_mock.return_value = ["foo.bin", "bar.bin", "json"]
-        app_index = nebraska.AppIndex(_SOURCE_DIR)
+        app_index = nebraska.AppIndex(_INSTALL_DIR)
         app_index.Scan()
         self.assertFalse(app_index._index)
-        listdir_mock.assert_called_once_with(_SOURCE_DIR)
+        listdir_mock.assert_called_once_with(_INSTALL_DIR)
         open_mock.assert_not_called()
 
   def testScanMultiple(self):
@@ -162,9 +162,9 @@ class AppIndexTest(unittest.TestCase):
             mock.mock_open(read_data=JSONStrings.app_foobar).return_value
         ]
 
-        app_index = nebraska.AppIndex(_SOURCE_DIR)
+        app_index = nebraska.AppIndex(_INSTALL_DIR)
         app_index.Scan()
-        listdir_mock.assert_called_once_with(_SOURCE_DIR)
+        listdir_mock.assert_called_once_with(_INSTALL_DIR)
         self.assertTrue(set(app_index._index.keys()) ==
                         set(['foo', 'bar', 'foobar']))
         self.assertTrue(len(app_index._index['foo']) == 2)
@@ -193,7 +193,7 @@ class AppIndexTest(unittest.TestCase):
         ]
 
         with self.assertRaises(IOError):
-          app_index = nebraska.AppIndex(_SOURCE_DIR)
+          app_index = nebraska.AppIndex(_INSTALL_DIR)
           app_index.Scan()
 
   def testScanInvalidApp(self):
@@ -218,7 +218,7 @@ class AppIndexTest(unittest.TestCase):
         ]
 
         with self.assertRaises(KeyError):
-          app_index = nebraska.AppIndex(_SOURCE_DIR)
+          app_index = nebraska.AppIndex(_INSTALL_DIR)
           app_index.Scan()
 
 

@@ -273,18 +273,18 @@ class Response(object):
   format based on the format of an XML response template.
   """
 
-  def __init__(self, request, target_index, source_index, payload_addr):
+  def __init__(self, request, update_index, install_index, payload_addr):
     """Initialize a reponse from a list of matching apps.
 
     Args:
       request: Request instance describing client requests.
-      target_index: Index of update payloads.
-      source_index: Index of install payloads.
+      update_index: Index of update payloads.
+      install_index: Index of install payloads.
       payload_addr: Address of payload server.
     """
     self._request = request
-    self._target_index = target_index
-    self._source_index = source_index
+    self._update_index = update_index
+    self._install_index = install_index
     self._payload_addr = payload_addr
 
     curr = datetime.now()
@@ -314,8 +314,8 @@ class Response(object):
         logging.debug("Request for appid %s", str(app_request))
         response_xml.append(self.AppResponse(
             app_request,
-            self._target_index,
-            self._source_index,
+            self._update_index,
+            self._install_index,
             self._payload_addr).Compile())
 
     except Exception as err:
@@ -333,17 +333,17 @@ class Response(object):
     responses to pings and events as appropriate.
     """
 
-    def __init__(self, app_request, target_index, source_index, payload_addr):
+    def __init__(self, app_request, update_index, install_index, payload_addr):
       """Initialize an AppResponse.
 
       Attributes:
         app_request: AppRequest representing a client request.
-        target_index: Index of update payloads.
-        source_index: Index of install payloads.
+        update_index: Index of update payloads.
+        install_index: Index of install payloads.
         payload_addr: Address serving payloads.
       """
-      _SOURCE_PATH = "/source/"
-      _TARGET_PATH = "/target/"
+      _INSTALL_PATH = "/install/"
+      _UPDATE_PATH = "/update/"
 
       self._app_request = app_request
       self._app_data = None
@@ -352,19 +352,19 @@ class Response(object):
 
       if self._app_request.request_type == \
           self._app_request.RequestType.INSTALL:
-        self._app_data = source_index.Find(self._app_request)
-        self._payload_url = payload_addr + _SOURCE_PATH
+        self._app_data = install_index.Find(self._app_request)
+        self._payload_url = payload_addr + _INSTALL_PATH
         self._err_not_found = self._app_data is None
       elif self._app_request.request_type == \
           self._app_request.RequestType.UPDATE:
-        self._app_data = target_index.Find(self._app_request)
-        self._payload_url = payload_addr + _TARGET_PATH
+        self._app_data = update_index.Find(self._app_request)
+        self._payload_url = payload_addr + _UPDATE_PATH
         # This differentiates between apps that are not in the index and apps
         # that are available, but do not have an update available. Omaha treats
         # the former as an error, whereas the latter case should result in a
         # response containing a "noupdate" tag.
         self._err_not_found = self._app_data is None and \
-            not target_index.Contains(app_request)
+            not update_index.Contains(app_request)
 
       if self._app_data:
         logging.debug("Found matching payload: %s", str(self._app_data))
@@ -640,8 +640,8 @@ class NebraskaHandler(BaseHTTPRequestHandler):
     try:
       response = Response(
           request,
-          self.server.owner.target_index,
-          self.server.owner.source_index,
+          self.server.owner.update_index,
+          self.server.owner.install_index,
           self.server.owner.payload_addr)
       response_str = response.GetXMLString()
     except Exception as err:
@@ -660,36 +660,36 @@ class NebraskaServer(object):
   """A simple Omaha server instance.
 
   A simple mock of an Omaha server. Responds to XML-formatted update/install
-  requests based on the contents of metadata files in target and source
+  requests based on the contents of metadata files in update and install
   directories, respectively. These metadata files are used to configure
   responses to Omaha requests from Update Engine and describe update and install
   payloads provided by another server.
   """
 
-  def __init__(self, payload_addr, target_dir, source_dir=None, port=0):
+  def __init__(self, payload_addr, update_dir, install_dir, port=0):
     """Initializes a server instance.
 
     Args:
       payload_addr: Address and port of the payload server.
-      target_dir: Directory to index for information about target payloads.
-      source_dir: Directory to index for information about source payloads.
+      update_dir: Directory to index for information about update payloads.
+      install_dir: Directory to index for information about install payloads.
       port: Port the server should run on, 0 if the OS should assign a port.
 
     Attributes:
-      target_index: Index of metadata files in the target directory.
-      source_index: Index of metadata files in the source directory.
+      update_index: Index of metadata files in the update directory.
+      install_index: Index of metadata files in the install directory.
     """
     self._port = port
     self._httpd = None
     self._server_thread = None
     self.payload_addr = payload_addr.strip('/')
-    self.source_index = AppIndex(source_dir)
-    self.target_index = AppIndex(target_dir)
+    self.update_index = AppIndex(update_dir)
+    self.install_index = AppIndex(install_dir)
 
   def Start(self):
     """Starts a mock Omaha HTTP server."""
-    self.target_index.Scan()
-    self.source_index.Scan()
+    self.update_index.Scan()
+    self.install_index.Scan()
 
     self._httpd = HTTPServer(('', self.Port()), NebraskaHandler)
     self._port = self._httpd.server_port
@@ -718,18 +718,17 @@ def ParseArguments(argv):
   """
   parser = argparse.ArgumentParser(description=__doc__)
 
-  optional_args = parser.add_argument_group('Optional Arguments')
-  optional_args.add_argument('--target-dir', metavar='DIR', default=None,
-                             help='Directory containing payloads for updates.',
-                             required=False)
-  optional_args.add_argument('--source-dir', metavar='DIR', default=None,
-                             help='Directory containing payloads for '
-                             'installation.', required=False)
-  optional_args.add_argument('--port', metavar='PORT', type=int, default=0,
-                             help='Port to run the server on', required=False)
-  optional_args.add_argument('--payload-addr', metavar='ADDRESS',
-                             help='Address and port of the payload server',
-                             default="http://127.0.0.1:8080")
+  parser.add_argument('--update-payloads', metavar='DIR', default=None,
+                      help='Directory containing payloads for updates.',
+                      required=False)
+  parser.add_argument('--install-payloads', metavar='DIR', default=None,
+                      help='Directory containing payloads for installation.',
+                      required=False)
+  parser.add_argument('--port', metavar='PORT', type=int, default=0,
+                      help='Port to run the server on', required=False)
+  parser.add_argument('--payload-addr', metavar='URL',
+                      help='Base payload URL.',
+                      default="http://127.0.0.1:8080")
 
   return parser.parse_args(argv[1:])
 
@@ -738,13 +737,13 @@ def main(argv):
   logging.basicConfig(level=logging.DEBUG)
   opts = ParseArguments(argv)
 
-  if not opts.target_dir and not opts.source_dir:
+  if not opts.update_payloads and not opts.install_payloads:
     logging.error("Need to specify at least one payload directory.")
     return os.EX_USAGE
 
   nebraska = NebraskaServer(payload_addr=opts.payload_addr,
-                            target_dir=opts.target_dir,
-                            source_dir=opts.source_dir,
+                            update_dir=opts.update_payloads,
+                            install_dir=opts.install_payloads,
                             port=opts.port)
 
   nebraska.Start()

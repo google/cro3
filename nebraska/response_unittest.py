@@ -140,13 +140,13 @@ class ResponseTest(unittest.TestCase):
 
     payload_addr = "www.google.com"
 
-    target_index = mock.MagicMock()
-    source_index = mock.MagicMock()
+    update_index = mock.MagicMock()
+    install_index = mock.MagicMock()
 
-    target_index.Find.side_effect = app_list
+    update_index.Find.side_effect = app_list
 
     response = nebraska.Response(
-        request, target_index, source_index, payload_addr)
+        request, update_index, install_index, payload_addr)
 
     response = response.GetXMLString()
 
@@ -177,19 +177,19 @@ class AppResponseTest(unittest.TestCase):
 
     payload_addr = "www.google.com"
 
-    target_index = mock.MagicMock()
-    source_index = mock.MagicMock()
-    target_index.Find.return_value = match
+    update_index = mock.MagicMock()
+    install_index = mock.MagicMock()
+    update_index.Find.return_value = match
 
     response = nebraska.Response.AppResponse(
-        app_request, target_index, source_index, payload_addr)
+        app_request, update_index, install_index, payload_addr)
 
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is match)
 
-    target_index.Find.assert_called_once_with(app_request)
-    source_index.Find.assert_not_called()
+    update_index.Find.assert_called_once_with(app_request)
+    install_index.Find.assert_not_called()
 
   def testAppResponseInstall(self):
     """Tests AppResponse generation for install request with match."""
@@ -206,19 +206,19 @@ class AppResponseTest(unittest.TestCase):
 
     payload_addr = "www.google.com"
 
-    target_index = mock.MagicMock()
-    source_index = mock.MagicMock()
-    source_index.Find.return_value = match
+    update_index = mock.MagicMock()
+    install_index = mock.MagicMock()
+    install_index.Find.return_value = match
 
     response = nebraska.Response.AppResponse(
-        app_request, target_index, source_index, payload_addr)
+        app_request, update_index, install_index, payload_addr)
 
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is match)
 
-    source_index.Find.assert_called_once_with(app_request)
-    target_index.Find.assert_not_called()
+    install_index.Find.assert_called_once_with(app_request)
+    update_index.Find.assert_not_called()
 
   def testAppResponseNoMatch(self):
     """Tests AppResponse generation for update request with an unknown appid."""
@@ -230,20 +230,20 @@ class AppResponseTest(unittest.TestCase):
 
     payload_addr = "www.google.com"
 
-    target_index = mock.MagicMock()
-    source_index = mock.MagicMock()
-    target_index.Find.return_value = None
-    target_index.Contains.return_value = False
+    update_index = mock.MagicMock()
+    install_index = mock.MagicMock()
+    update_index.Find.return_value = None
+    update_index.Contains.return_value = False
 
     response = nebraska.Response.AppResponse(
-        app_request, target_index, source_index, payload_addr)
+        app_request, update_index, install_index, payload_addr)
 
     self.assertTrue(response._app_request == app_request)
     self.assertTrue(response._err_not_found)
     self.assertTrue(response._app_data is None)
 
-    target_index.Find.assert_called_once_with(app_request)
-    source_index.Find.assert_not_called()
+    update_index.Find.assert_called_once_with(app_request)
+    install_index.Find.assert_not_called()
 
   def testAppResponseNoUpdate(self):
     """Tests AppResponse generation for update request with no new versions."""
@@ -255,20 +255,20 @@ class AppResponseTest(unittest.TestCase):
 
     payload_addr = "www.google.com"
 
-    target_index = mock.MagicMock()
-    source_index = mock.MagicMock()
-    target_index.Find.return_value = None
-    target_index.Contains.return_value = True
+    update_index = mock.MagicMock()
+    install_index = mock.MagicMock()
+    update_index.Find.return_value = None
+    update_index.Contains.return_value = True
 
     response = nebraska.Response.AppResponse(
-        app_request, target_index, source_index, payload_addr)
+        app_request, update_index, install_index, payload_addr)
 
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is None)
 
-    target_index.Find.assert_called_once_with(app_request)
-    source_index.Find.assert_not_called()
+    update_index.Find.assert_called_once_with(app_request)
+    install_index.Find.assert_not_called()
 
   def testAppResponsePing(self):
     """Tests AppResponse generation for no-op with a ping request."""
@@ -280,20 +280,20 @@ class AppResponseTest(unittest.TestCase):
 
     payload_addr = "www.google.com"
 
-    target_index = mock.MagicMock()
-    source_index = mock.MagicMock()
-    target_index.Find.return_value = None
-    target_index.Contains.return_value = True
+    update_index = mock.MagicMock()
+    install_index = mock.MagicMock()
+    update_index.Find.return_value = None
+    update_index.Contains.return_value = True
 
     response = nebraska.Response.AppResponse(
-        app_request, target_index, source_index, payload_addr)
+        app_request, update_index, install_index, payload_addr)
 
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is None)
 
-    target_index.Find.assert_not_called()
-    source_index.Find.assert_not_called()
+    update_index.Find.assert_not_called()
+    install_index.Find.assert_not_called()
 
   def testAppResponseEvent(self):
     """Tests AppResponse generation for requests with events."""
@@ -306,20 +306,20 @@ class AppResponseTest(unittest.TestCase):
 
     payload_addr = "www.google.com"
 
-    target_index = mock.MagicMock()
-    source_index = mock.MagicMock()
-    target_index.Find.return_value = None
-    target_index.Contains.return_value = True
+    update_index = mock.MagicMock()
+    install_index = mock.MagicMock()
+    update_index.Find.return_value = None
+    update_index.Contains.return_value = True
 
     response = nebraska.Response.AppResponse(
-        app_request, target_index, source_index, payload_addr)
+        app_request, update_index, install_index, payload_addr)
 
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is None)
 
-    target_index.Find.assert_not_called()
-    source_index.Find.assert_not_called()
+    update_index.Find.assert_not_called()
+    install_index.Find.assert_not_called()
 
   def testCompileSuccess(self):
     """Tests successful compilation of an AppData instance."""
@@ -336,12 +336,12 @@ class AppResponseTest(unittest.TestCase):
 
     payload_addr = "www.google.com"
 
-    target_index = mock.MagicMock()
-    source_index = mock.MagicMock()
-    source_index.Find.return_value = match
+    update_index = mock.MagicMock()
+    install_index = mock.MagicMock()
+    install_index.Find.return_value = match
 
     response = nebraska.Response.AppResponse(
-        app_request, target_index, source_index, payload_addr)
+        app_request, update_index, install_index, payload_addr)
 
     compiled_response = response.Compile()
 
@@ -358,7 +358,7 @@ class AppResponseTest(unittest.TestCase):
     self.assertTrue(action_tag is not None)
 
     self.assertTrue(compiled_response.attrib['appid'] == match.appid)
-    self.assertTrue(url_tag.attrib['codebase'] == payload_addr + "/source/")
+    self.assertTrue(url_tag.attrib['codebase'] == payload_addr + "/install/")
     self.assertTrue(manifest_tag.attrib['version'] == match.version)
     self.assertTrue(package_tag.attrib['hash_sha256'] == match.sha256_hash)
     self.assertTrue(package_tag.attrib['fp'] == "1.%s" % match.sha256_hash)
@@ -385,11 +385,11 @@ class AppResponseTest(unittest.TestCase):
 
         payload_addr = "www.google.com"
 
-        target_index = mock.MagicMock()
-        source_index = mock.MagicMock()
+        update_index = mock.MagicMock()
+        install_index = mock.MagicMock()
 
         response = nebraska.Response.AppResponse(
-            app_request, target_index, source_index, payload_addr)
+            app_request, update_index, install_index, payload_addr)
 
         response.Compile()
 
@@ -416,12 +416,12 @@ class AppResponseTest(unittest.TestCase):
 
         payload_addr = "www.google.com"
 
-        target_index = mock.MagicMock()
-        source_index = mock.MagicMock()
-        source_index.Find.return_value = match
+        update_index = mock.MagicMock()
+        install_index = mock.MagicMock()
+        install_index.Find.return_value = match
 
         response = nebraska.Response.AppResponse(
-            app_request, target_index, source_index, payload_addr)
+            app_request, update_index, install_index, payload_addr)
 
         response.Compile()
 
@@ -446,12 +446,12 @@ class AppResponseTest(unittest.TestCase):
 
         payload_addr = "www.google.com"
 
-        target_index = mock.MagicMock()
-        source_index = mock.MagicMock()
-        source_index.Find.return_value = match
+        update_index = mock.MagicMock()
+        install_index = mock.MagicMock()
+        install_index.Find.return_value = match
 
         response = nebraska.Response.AppResponse(
-            app_request, target_index, source_index, payload_addr)
+            app_request, update_index, install_index, payload_addr)
 
         response.Compile()
 
