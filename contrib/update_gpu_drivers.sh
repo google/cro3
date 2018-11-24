@@ -23,6 +23,8 @@ eval set -- "${FLAGS_ARGV}"
 # Script must run inside the chroot.
 assert_inside_chroot
 
+# All drivers are in media-libs/ portage category.
+CATEGORY="media-libs"
 # List of supported drivers
 DRIVERS="mali-drivers mali-drivers-bifrost img-ddk"
 
@@ -142,8 +144,7 @@ build_board() {
   local pvr="$("equery-${board}" -q list -p -o --format="\$fullversion" ${pn} | sort | head -n 1)"
   # Binary PV (e.g. 13.0_p6)
   local pv="${pvr/-r/_p}"
-  local category="$("equery-${board}" -q list -p -o --format="\$category" ${pn} | sort | head -n 1)"
-  local inputtarball="/build/${board}/packages/${category}/${pn}-${pvr}.tbz2"
+  local inputtarball="/build/${board}/packages/${CATEGORY}/${pn}-${pvr}.tbz2"
   local outputtarball="${pn}-${suffix}-${pv}.tbz2"
   local script="${pn}-${suffix}-${pv}.run"
   local gspath="gs://chromeos-localmirror/distfiles"
@@ -185,17 +186,21 @@ build_board() {
     rm -rf "${temp}"
   fi
 
-  local pvbin=$("equery-${board}" -q list -p -o --format="\$fullversion" ${pnbin} | sort | head -n 1)
-  echo "New binary version: ${pv} (current binary version: ${pvbin})"
   # Uprev ebuild in git if it exists.
-  if [[ -d "${SRC_ROOT}/overlays/${opath}/${category}/${pnbin}" ]]; then
-    cd "${SRC_ROOT}/overlays/${opath}/${category}/${pnbin}"
+  if [[ -d "${SRC_ROOT}/overlays/${opath}/${CATEGORY}/${pnbin}" ]]; then
+    cd "${SRC_ROOT}/overlays/${opath}/${CATEGORY}/${pnbin}"
+
+    # Grab the version of the current release of the binary package.
+    local pvbin="$(printf '%s\n' *.ebuild | \
+                   sed -nE "s/^${pnbin}-(.*)\.ebuild\$/\1/p" | \
+                   sort -V | tail -n 1)"
+    echo "New binary version: ${pv} (current binary version: ${pvbin})"
 
     # following git commands may fail if they have been issued previously
-    git checkout -b "gpudriverbinupdate-${pv}"
+    git checkout -b "gpudriverbinupdate-${pnbin}-${pv}"
     git mv "${pnbin}-${pvbin}.ebuild" "${pnbin}-${pv}.ebuild"
 
-    "ebuild-${board}" "${pnbin}-${pv}.ebuild" manifest
+    ebuild "${pnbin}-${pv}.ebuild" manifest
   fi
 
   popd >& /dev/null
