@@ -15,6 +15,8 @@ DEFINE_string package "" \
   "selects which gpu drivers package to build"
 DEFINE_boolean dryrun ${FLAGS_FALSE} \
   "dry run, don't upload anything and don't delete temporary dirs" n
+DEFINE_boolean usebinpkg ${FLAGS_TRUE} \
+  "use prebuilt binaries, instead of building driver locally" b
 
 # Parse command line.
 FLAGS "$@" || exit 1
@@ -125,26 +127,62 @@ build_board() {
   local opath=$3
   echo "Board is ${board}"
 
-  "${SRC_ROOT}/scripts/setup_board" --board="${board}"
-  if [[ $? != 0 ]]; then
-    die "Setting up board ${board} failed."
-  fi
-
-  # Make sure we are not building -9999 ebuild.
-  # This could fail if cros_workon is already stopped so ignore return code.
-  cros_workon --board="${board}" stop ${pn}
-
-  emerge-${board} ${pn}
-
-  if [[ $? != 0 ]]; then
-    die "Emerging ${pn} for ${board} failed."
-  fi
-
   # Source PVR (e.g. 13.0-r6)
-  local pvr="$("equery-${board}" -q list -p -o --format="\$fullversion" ${pn} | sort | head -n 1)"
+  local pvr
+  local inputtarball
+
+  local temp=$(mktemp -d)
+  echo "Temp dir is ${temp}"
+  pushd "${temp}" > /dev/null
+
+  if [[ ${FLAGS_usebinpkg} -eq ${FLAGS_TRUE} ]]; then
+    # Fetch binary package from Google Storage.
+    local partner_overlay="${SRC_ROOT}/private-overlays/chromeos-partner-overlay"
+
+    # Fetch latest preflight prebuilt version.
+    git --git-dir "${partner_overlay}/.git" fetch --all
+    local binhost_gs="$(git --git-dir "${partner_overlay}/.git" show \
+        "m/master:chromeos/binhost/target/${board}-PREFLIGHT_BINHOST.conf" | \
+      sed -nE 's/PREFLIGHT_BINHOST=\"(.*)\"/\1/p')"
+
+    # Parse Packages file to find GS path of the latest ${pn} prebuilt.
+    local prebuilt_path="$(gsutil cat "${binhost_gs}Packages" | \
+      awk '
+        $1 == "CPV:" && $2 ~ /'"${CATEGORY}"'\/'"${pn}"'-[0-9]/ { m = 1 }
+        m && $1 == "PATH:" { print $2 }
+        m && $1 == "" { exit }
+      ')"
+    local package_gs="gs://chromeos-prebuilt/${prebuilt_path}"
+
+    gsutil cp "${package_gs}" .
+
+    inputtarball="${temp}/${package_gs##*/}"
+    pvr="${package_gs%.*}"
+    pvr="${pvr##*${pn}-}"
+  else
+    # Build from source.
+    "${SRC_ROOT}/scripts/setup_board" --board="${board}"
+    if [[ $? != 0 ]]; then
+      die "Setting up board ${board} failed."
+    fi
+
+    # Make sure we are not building -9999 ebuild.
+    # This could fail if cros_workon is already stopped so ignore return code.
+    cros_workon --board="${board}" stop "${pn}"
+
+    "emerge-${board}" "${pn}"
+
+    if [[ $? != 0 ]]; then
+      die "Emerging ${pn} for ${board} failed."
+    fi
+
+    pvr="$("equery-${board}" -q list -p -o --format="\$fullversion" "${pn}" | \
+           sort -V | head -n 1)"
+    inputtarball="/build/${board}/packages/${CATEGORY}/${pn}-${pvr}.tbz2"
+  fi
+
   # Binary PV (e.g. 13.0_p6)
   local pv="${pvr/-r/_p}"
-  local inputtarball="/build/${board}/packages/${CATEGORY}/${pn}-${pvr}.tbz2"
   local outputtarball="${pn}-${suffix}-${pv}.tbz2"
   local script="${pn}-${suffix}-${pv}.run"
   local gspath="gs://chromeos-localmirror/distfiles"
@@ -153,10 +191,6 @@ build_board() {
   echo "Input tarball is ${inputtarball}"
   echo "Output tarball is ${outputtarball}"
   echo "Script is ${script}"
-
-  local temp=$(mktemp -d)
-  echo "Temp dir is ${temp}"
-  pushd "${temp}" >& /dev/null
 
   mkdir work
   if [[ $? != 0 ]]; then
@@ -203,7 +237,7 @@ build_board() {
     ebuild "${pnbin}-${pv}.ebuild" manifest
   fi
 
-  popd >& /dev/null
+  popd > /dev/null
 }
 
 main() {
