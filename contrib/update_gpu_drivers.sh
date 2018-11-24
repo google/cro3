@@ -29,24 +29,23 @@ DRIVERS="mali-drivers mali-drivers-bifrost img-ddk"
 # List of parameters to pass to build_board, for a given package $pn:
 #  - Build board names.
 #  - Suffixes for tarball name.
-#  - Board names for overlay with mali-drivers-bin.ebuild.
 #  - Overlay paths for each board.
 #
 # Variable name: "PARAMS_${pn//-/_}"
 
 PARAMS_mali_drivers=(
-  "daisy daisy daisy overlay-daisy"
-  "kevin gru gru baseboard-gru"
-  "peach_pit peach peach overlay-peach"
-  "veyron_jerry veyron veyron overlay-veyron"
+  "daisy daisy overlay-daisy"
+  "kevin gru baseboard-gru"
+  "peach_pit peach overlay-peach"
+  "veyron_jerry veyron overlay-veyron"
 )
 
 PARAMS_mali_drivers_bifrost=(
-  "kukui kukui kukui chipset-mt8183"
+  "kukui kukui chipset-mt8183"
 )
 
 PARAMS_img_ddk=(
-  "elm oak oak chipset-mt8173"
+  "elm oak chipset-mt8173"
 )
 
 create_run_script() {
@@ -116,19 +115,14 @@ __BODYEOF__
 # arguments:
 # $1 board name (Chrome OS board name to build)
 # $2 binary package suffix (suffix added to tar package name)
-# $3 overlay board name
-# $4 overlay path
+# $3 overlay path
 
 build_board() {
   local board=$1
   local suffix=$2
-  local oboard=$3
-  local opath=$4
+  local opath=$3
   echo "Board is ${board}"
 
-  if [[ "$oboard" != "X11" ]]; then
-    "${SRC_ROOT}/scripts/setup_board" --board="${oboard}"
-  fi
   "${SRC_ROOT}/scripts/setup_board" --board="${board}"
   if [[ $? != 0 ]]; then
     die "Setting up board ${board} failed."
@@ -138,12 +132,7 @@ build_board() {
   # This could fail if cros_workon is already stopped so ignore return code.
   cros_workon --board="${board}" stop ${pn}
 
-  if [[ "$oboard" == "X11" ]]; then
-    echo "Building special X11 package"
-    USE=X emerge-${board} ${pn}
-  else
-    emerge-${board} ${pn}
-  fi
+  emerge-${board} ${pn}
 
   if [[ $? != 0 ]]; then
     die "Emerging ${pn} for ${board} failed."
@@ -196,19 +185,17 @@ build_board() {
     rm -rf "${temp}"
   fi
 
-  if [[ "${oboard}" != "X11" ]]; then
-    local pvbin=$("equery-${board}" -q list -p -o --format="\$fullversion" ${pnbin} | sort | head -n 1)
-    echo "New binary version: ${pv} (current binary version: ${pvbin})"
-    # Uprev ebuild in git if it exists.
-    if [[ -d "${SRC_ROOT}/overlays/${opath}/${category}/${pnbin}" ]]; then
-      cd "${SRC_ROOT}/overlays/${opath}/${category}/${pnbin}"
+  local pvbin=$("equery-${board}" -q list -p -o --format="\$fullversion" ${pnbin} | sort | head -n 1)
+  echo "New binary version: ${pv} (current binary version: ${pvbin})"
+  # Uprev ebuild in git if it exists.
+  if [[ -d "${SRC_ROOT}/overlays/${opath}/${category}/${pnbin}" ]]; then
+    cd "${SRC_ROOT}/overlays/${opath}/${category}/${pnbin}"
 
-      # following git commands may fail if they have been issued previously
-      git checkout -b "gpudriverbinupdate-${pv}"
-      git mv "${pnbin}-${pvbin}.ebuild" "${pnbin}-${pv}.ebuild"
+    # following git commands may fail if they have been issued previously
+    git checkout -b "gpudriverbinupdate-${pv}"
+    git mv "${pnbin}-${pvbin}.ebuild" "${pnbin}-${pv}.ebuild"
 
-      "ebuild-${oboard}" "${pnbin}-${pv}.ebuild" manifest
-    fi
+    "ebuild-${board}" "${pnbin}-${pv}.ebuild" manifest
   fi
 
   popd >& /dev/null
