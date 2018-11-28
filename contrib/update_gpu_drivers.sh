@@ -25,6 +25,9 @@ eval set -- "${FLAGS_ARGV}"
 # Script must run inside the chroot.
 assert_inside_chroot
 
+# The temp dir to use for scratch space.
+TEMP_DIR=""
+
 # All drivers are in media-libs/ portage category.
 CATEGORY="media-libs"
 # List of supported drivers
@@ -131,8 +134,8 @@ build_board() {
   local pvr
   local inputtarball
 
-  local temp=$(mktemp -d)
-  echo "Temp dir is ${temp}"
+  local temp="${TEMP_DIR}/${suffix}"
+  mkdir "${temp}"
   pushd "${temp}" > /dev/null
 
   if [[ ${FLAGS_usebinpkg} -eq ${FLAGS_TRUE} ]]; then
@@ -217,7 +220,6 @@ build_board() {
     if [[ $? != 0 ]]; then
       die "Couldn't upload ${script} to ${gspath}/${script}."
     fi
-    rm -rf "${temp}"
   fi
 
   # Uprev ebuild in git if it exists.
@@ -240,6 +242,12 @@ build_board() {
   popd > /dev/null
 }
 
+cleanup() {
+  trap - INT TERM ERR EXIT
+
+  rm -rf "${TEMP_DIR}"
+}
+
 main() {
   if [[ -z ${FLAGS_package} ]]; then
     die "Please select a package using --package [${DRIVERS// /|}]"
@@ -247,18 +255,25 @@ main() {
 
   local params
   local typed
+
+  trap cleanup INT TERM ERR EXIT
+
   echo 'This script builds gpu drivers for a list of boards. It uploads the'
   echo 'binaries to Google storage and makes them available in the public'
   echo 'repository. It expects you have configured gsutil.'
   echo
 
-  printf 'Type "y" if you know what you are doing and want to go ahead: '
-  read typed
+  if [[ ${FLAGS_dryrun} -eq ${FLAGS_TRUE} ]]; then
+    echo "Running with --dryrun, moving forward."
+  else
+    printf 'Type "y" if you know what you are doing and want to go ahead: '
+    read typed
 
-  if [[ "${typed}" != y ]]; then
-    echo
-    echo "Good choice."
-    exit 2
+    if [[ "${typed}" != y ]]; then
+      echo
+      echo "Good choice."
+      exit 2
+    fi
   fi
 
   if [[ ! -f "${HOME}/.boto" ]]; then
@@ -276,6 +291,9 @@ main() {
     echo "Supported packages: ${DRIVERS}"
     exit 1
   fi
+
+  TEMP_DIR="$(mktemp -d)"
+  echo "Temp dir is ${TEMP_DIR}"
 
   for params in "${!array}"; do
     build_board ${params}
