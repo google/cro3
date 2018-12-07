@@ -158,7 +158,8 @@ def main(args):
         buglist += ['b:{0}'.format(x) for x in args['buganizer']]
     if args['crbug']:
         buglist += ['chromium:{0}'.format(x) for x in args['crbug']]
-    args['bug'] = ', '.join(buglist)
+    if buglist:
+        args['bug'] = ', '.join(buglist)
 
     if args['replace']:
         old_commit_message = subprocess.check_output(
