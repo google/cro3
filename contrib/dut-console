@@ -39,7 +39,7 @@ And then simply run:
 '
 
 DEFINE_string console "cpu" \
-  "Opens a console, one of cpu, ec, cr50, fpmcu, servo, servo_v4" c
+  "Opens a console, one of cpu, ec, cr50, fpmcu, servo_micro, servo_v4" c
 DEFINE_integer port "" "Servod port" p
 DEFINE_boolean kdmx "${FLAGS_FALSE}" \
   "Start kdmx proxy for kgdb (only makes sense for cpu console)" k
@@ -98,31 +98,7 @@ main() {
 
   trap cleanup INT TERM ERR EXIT
 
-  case "${FLAGS_console}" in
-  cpu)
-    pty_name=cpu_uart_pty
-    ;;
-  ec)
-    pty_name=ec_uart_pty
-    ;;
-  cr50)
-    pty_name=cr50_uart_pty
-    ;;
-  fpmcu)
-    pty_name=fpmcu_uart_pty
-    ;;
-  servo)
-    pty_name=servo_console_pty
-    ;;
-  servo_v4)
-    pty_name=servo_v4_console_pty
-    ;;
-  *)
-    flags_help
-    exit 1
-    ;;
-  esac
-
+  pty_name="${FLAGS_console}_uart_pty"
   pty="$(get_pty "${pty_name}" "${FLAGS_port}")"
 
   if [[ ! -e "${pty}" ]]; then
