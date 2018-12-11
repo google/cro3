@@ -97,9 +97,14 @@ update_dev_image () {
     echo >&2 "Successfully downloaded update."
   else
     echo >&2 "Reading local payload ${local_payload_path}"
-    # Set timeout to two minutes to avoid waiting on stdin indefinitely.
-    timeout 120s tar --ignore-command-error --overwrite \
+    # Set timeout to four minutes to avoid waiting on stdin indefinitely.
+    timeout 240s tar --ignore-command-error --overwrite \
         --directory=${STATEFUL_DIR} -xzf ${local_payload_path}
+    exit_code=$?
+    if [ "${exit_code}" -ne 0 ]; then
+      echo >&2 "Failed to unzip and write the stateful update."
+      return "${exit_code}"
+    fi
     echo >&2 "Successfully retrieved update."
   fi
 
