@@ -152,10 +152,10 @@ class Request(object):
       logging.error("Request string is not valid XML (%s)", str(err))
       raise ValueError
 
-    # TODO(chowes): It would be better to specifically check the platform app.
-    # An install is signalled by omitting the update check for the platform
-    # app, which can be found based on the presense of a hardware_class tag,
-    # which is absent on DLC update and install requests. UE does not currently
+    # TODO(http://crbug.com/914936): It would be better to specifically check
+    # the platform app. An install is signalled by omitting the update check
+    # for the platform app, which can be found based on the presense of a
+    # hardware_class tag, which is absent for DLC appids. UE does not currently
     # omit hardware_class for DLCs, so we assume that if we have one appid for
     # which the update_check tag is omitted, it is the platform app and this is
     # an install request. This assumption should be fine since we never mix
@@ -495,9 +495,9 @@ class AppData(object):
     Returns:
       True if the app matches the given request, False otherwise.
     """
-    # TODO(chowes): We only account for tip/branch versions. We need to be able
-    # to handle full version strings as well as developer builds that don't have
-    # a "real" final version component.
+    # TODO(http://crbug.com/914939): We only account for tip/branch versions. We
+    # need to be able to handle full version strings as well as developer builds
+    # that don't have a "real" final version component.
 
     if self.appid != request.appid:
       return False
