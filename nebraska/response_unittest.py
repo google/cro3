@@ -98,18 +98,18 @@ class ResponseTest(unittest.TestCase):
         AppDataGenerator(
             appid="foo",
             is_delta=True,
-            version="1.0.0",
-            src_version="0.9.0"),
+            target_version="1.0.0",
+            source_version="0.9.0"),
         AppDataGenerator(
             appid="bar",
             is_delta=True,
-            version="2.0.0",
-            src_version="1.9.0"),
+            target_version="2.0.0",
+            source_version="1.9.0"),
         AppDataGenerator(
             appid="foobar",
             is_delta=False,
-            version="4.0.0",
-            src_version=None)]
+            target_version="4.0.0",
+            source_version=None)]
 
     request = mock.MagicMock()
     request.ParseRequest.return_value = [
@@ -172,8 +172,8 @@ class AppResponseTest(unittest.TestCase):
     match = AppDataGenerator(
         appid="foo",
         is_delta=False,
-        version="1.0.0",
-        src_version=None)
+        target_version="1.0.0",
+        source_version=None)
 
     payload_addr = "www.google.com"
 
@@ -201,8 +201,8 @@ class AppResponseTest(unittest.TestCase):
     match = AppDataGenerator(
         appid="foo",
         is_delta=False,
-        version="1.0.0",
-        src_version=None)
+        target_version="1.0.0",
+        source_version=None)
 
     payload_addr = "www.google.com"
 
@@ -331,8 +331,8 @@ class AppResponseTest(unittest.TestCase):
     match = AppDataGenerator(
         appid="foo",
         is_delta=False,
-        version="1.0.0",
-        src_version=None)
+        target_version="1.0.0",
+        source_version=None)
 
     payload_addr = "www.google.com"
 
@@ -359,12 +359,13 @@ class AppResponseTest(unittest.TestCase):
 
     self.assertTrue(compiled_response.attrib['appid'] == match.appid)
     self.assertTrue(url_tag.attrib['codebase'] == payload_addr + "/install/")
-    self.assertTrue(manifest_tag.attrib['version'] == match.version)
-    self.assertTrue(package_tag.attrib['hash_sha256'] == match.sha256_hash)
-    self.assertTrue(package_tag.attrib['fp'] == "1.%s" % match.sha256_hash)
+    self.assertTrue(manifest_tag.attrib['version'] == match.target_version)
+    self.assertTrue(package_tag.attrib['hash_sha256'] == match.sha256_hex)
+    self.assertTrue(package_tag.attrib['fp'] == "1.%s" % match.sha256_hex)
     self.assertTrue(package_tag.attrib['name'] == match.name)
     self.assertTrue(package_tag.attrib['size'] == match.size)
-    self.assertTrue(action_tag.attrib['ChromeOSVersion'] == match.version)
+    self.assertTrue(
+        action_tag.attrib['ChromeOSVersion'] == match.target_version)
     self.assertTrue(action_tag.attrib['IsDeltaPayload'] == "true" if
                     match.is_delta else "false")
 
@@ -411,8 +412,8 @@ class AppResponseTest(unittest.TestCase):
         match = AppDataGenerator(
             appid="foo",
             is_delta=False,
-            version="1.0.0",
-            src_version=None)
+            target_version="1.0.0",
+            source_version=None)
 
         payload_addr = "www.google.com"
 
@@ -441,8 +442,8 @@ class AppResponseTest(unittest.TestCase):
         match = AppDataGenerator(
             appid="foo",
             is_delta=False,
-            version="1.0.0",
-            src_version=None)
+            target_version="1.0.0",
+            source_version=None)
 
         payload_addr = "www.google.com"
 

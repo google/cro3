@@ -38,22 +38,22 @@ def NebraskaGenerator(source_dir, target_dir, payload_addr, port):
   return NebraskaServer(source_dir, target_dir, payload_addr, port)
 
 
-def AppDataGenerator(appid, is_delta, version, src_version):
+def AppDataGenerator(appid, is_delta, target_version, source_version):
   """Generates and AppData test instance."""
   return AppData(
-      GenAppJson(appid=appid, is_delta=is_delta, version=version,
-                 src_version=src_version))
+      GenAppJson(appid=appid, is_delta=is_delta, target_version=target_version,
+                 source_version=source_version))
 
 
 def GenAppJson(appid='appid_foo', name='foobar', is_delta='False',
-               version="2.0.0", src_version="1.0.0"):
+               target_version="2.0.0", source_version="1.0.0"):
   """Mocks JSON parsing functionality for testing."""
   return {
       AppData.APPID_KEY: appid,
       AppData.NAME_KEY: name,
-      AppData.VERSION_KEY: version,
+      AppData.TARGET_VERSION_KEY: target_version,
       AppData.IS_DELTA_KEY: is_delta,
-      AppData.SRC_VERSION_KEY: src_version,
+      AppData.SOURCE_VERSION_KEY: source_version,
       AppData.SIZE_KEY: '9001',
       AppData.METADATA_SIG_KEY: \
           'Dr4RFXYgcfvFHV/0VRQs+SCQmz15Sk04LLEDswtvng8BqNbBXA7VvPUhpCgX5T/t7cwP'
@@ -63,6 +63,6 @@ def GenAppJson(appid='appid_foo', name='foobar', is_delta='False',
           'nLz0H9RcRhIvMd+8g4kHUZTDvjCvG5EZHpIKk8FK8z0zY/LWVr738evwuNNwyKIazkQB'
           'TA==',
       AppData.METADATA_SIZE_KEY: '42',
-      AppData.SHA256_HASH_KEY: "886fd274745b4fa8d1f253cff11242fac07a29522b1bb9e"
-                               "028ab1480353d3160"
+      AppData.SHA256_HEX_KEY: "886fd274745b4fa8d1f253cff11242fac07a29522b1bb9e"
+                              "028ab1480353d3160"
   }

@@ -402,17 +402,18 @@ class Response(object):
         urls.append(
             ElementTree.Element('url', attrib={'codebase': self._payload_url}))
         manifest = app_response.find('./updatecheck/manifest')
-        manifest.set('version', self._app_data.version)
+        manifest.set('version', self._app_data.target_version)
         actions = manifest.findall('./actions/action')
         actions[0].set('run', self._app_data.name)
-        actions[1].set('ChromeOSVersion', self._app_data.version)
-        actions[1].set(
-            'IsDeltaPayload', 'true' if self._app_data.is_delta else 'false')
-        actions[1].set('MetadataSignatureRsa', self._app_data.metadata_sig)
+        actions[1].set('ChromeOSVersion', self._app_data.target_version)
+        actions[1].set('IsDeltaPayload',
+                       'true' if self._app_data.is_delta else 'false')
+        actions[1].set('MetadataSignatureRsa',
+                       self._app_data.metadata_signature)
         actions[1].set('MetadataSize', str(self._app_data.metadata_size))
         package = manifest.find('./packages/package')
-        package.set('fp', "1.%s" % self._app_data.sha256_hash)
-        package.set('hash_sha256', self._app_data.sha256_hash)
+        package.set('fp', "1.%s" % self._app_data.sha256_hex)
+        package.set('hash_sha256', self._app_data.sha256_hex)
         package.set('name', self._app_data.name)
         package.set('size', str(self._app_data.size))
       elif self._err_not_found:
@@ -438,11 +439,11 @@ class AppData(object):
   NAME_KEY = 'name'
   IS_DELTA_KEY = 'is_delta'
   SIZE_KEY = 'size'
-  METADATA_SIG_KEY = 'metadata_sig'
+  METADATA_SIG_KEY = 'metadata_signature'
   METADATA_SIZE_KEY = 'metadata_size'
-  VERSION_KEY = 'version'
-  SRC_VERSION_KEY = 'source_ver'
-  SHA256_HASH_KEY = 'hash_sha256'
+  TARGET_VERSION_KEY = 'target_version'
+  SOURCE_VERSION_KEY = 'source_version'
+  SHA256_HEX_KEY = 'sha256_hex'
 
   def __init__(self, app_data):
     """Initialize AppData
@@ -456,30 +457,30 @@ class AppData(object):
       name: Filename of requested app on the mock Lorry server.
       is_delta: True iff the payload is a delta update.
       size: Size of the payload.
-      metadata_sig: Metadata signature.
+      metadata_signature: Metadata signature.
       metadata_size: Metadata size.
-      sha256_hash: SHA256 hash of the payload encoded in hexadecimal.
-      version: ChromeOS version the payload is tied to.
-      src_version: Source version for delta updates.
+      sha256_hex: SHA256 hash of the payload encoded in hexadecimal.
+      target_version: ChromeOS version the payload is tied to.
+      source_version: Source version for delta updates.
     """
     self.appid = app_data[self.APPID_KEY]
     self.name = app_data[self.NAME_KEY]
-    self.version = app_data[self.VERSION_KEY]
+    self.target_version = app_data[self.TARGET_VERSION_KEY]
     self.is_delta = app_data[self.IS_DELTA_KEY]
-    self.src_version = (
-        app_data[self.SRC_VERSION_KEY] if self.is_delta else None)
+    self.source_version = (
+        app_data[self.SOURCE_VERSION_KEY] if self.is_delta else None)
     self.size = app_data[self.SIZE_KEY]
-    self.metadata_sig = app_data[self.METADATA_SIG_KEY]
+    self.metadata_signature = app_data[self.METADATA_SIG_KEY]
     self.metadata_size = app_data[self.METADATA_SIZE_KEY]
-    self.sha256_hash = app_data[self.SHA256_HASH_KEY]
+    self.sha256_hex = app_data[self.SHA256_HEX_KEY]
     self.url = None # Determined per-request.
 
   def __str__(self):
     if self.is_delta:
       return "{} v{}: delta update from base v{}".format(
-          self.appid, self.version, self.src_version)
+          self.appid, self.target_version, self.source_version)
     return "{} v{}: full update/install".format(
-        self.appid, self.version)
+        self.appid, self.target_version)
 
   def MatchRequest(self, request):
     """Returns true iff the app matches a given client request.
@@ -507,14 +508,14 @@ class AppData(object):
         if self.is_delta:
           if not request.delta_okay:
             return False
-          if VersionCmp(request.version, self.src_version) != 0:
+          if VersionCmp(request.version, self.source_version) != 0:
             return False
-        return VersionCmp(request.version, self.version) < 0
+        return VersionCmp(request.version, self.target_version) < 0
 
       if request.request_type == request.RequestType.INSTALL:
         if self.is_delta:
           return False
-        return VersionCmp(request.version, self.version) == 0
+        return VersionCmp(request.version, self.target_version) == 0
 
       else:
         return False
@@ -574,8 +575,8 @@ class AppIndex(object):
     """Search the index for a given appid.
 
     Searches the index for the payloads matching a client request. Matching is
-    based on appid, version, and whether the client is searching for an update
-    and can handle delta payloads.
+    based on appid, target_version, and whether the client is searching for an
+    update and can handle delta payloads.
 
     Args:
       request: AppRequest describing the client request.
@@ -594,10 +595,10 @@ class AppIndex(object):
 
     # Find the highest version out of the matching payloads.
     max_version = reduce(
-        lambda a, b: a if VersionCmp(a.version, b.version) > 0
-        else b, matches).version
+        lambda a, b: a if VersionCmp(a.target_version, b.target_version) > 0
+        else b, matches).target_version
 
-    matches = [app for app in matches if app.version == max_version]
+    matches = [app for app in matches if app.target_version == max_version]
 
     # If the client can handle a delta, prefer to send a delta.
     if request.delta_okay:

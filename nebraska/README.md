@@ -36,13 +36,13 @@ an example.
 ```
 appid: The appid of the app provided by the payload.
 name: Payload file name.
-version: App version.
+target_version: App target version.
 is_delta: True iff the payload is a delta update.
-src_version: The source version if the payload is a delta update.
+source_version: The source version if the payload is a delta update.
 size: Total size of the payload.
-metadata_sig: Metadata signature.
+metadata_signature: Metadata signature.
 metadata_size: Metadata size.
-hash_sha256: SHA256 of the payload.
+sha256_hex: SHA256 of the payload.
 ```
 
 ## Payload URLs

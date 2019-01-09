@@ -29,11 +29,11 @@ class JSONStrings(object):
   "name": "foo",
   "is_delta": "false",
   "size": "9001",
-  "metadata_sig": "0xdeadbeef",
+  "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "hash_sha256": "0xcafef00d",
-  "version": "1.0.0",
-  "source_ver": "null"
+  "sha256_hex": "0xcafef00d",
+  "target_version": "1.0.0",
+  "source_version": "null"
 }
 """
 
@@ -42,11 +42,11 @@ class JSONStrings(object):
   "name": "foo",
   "is_delta": "true",
   "size": "9001",
-  "metadata_sig": "0xdeadbeef",
+  "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "hash_sha256": "0xcafef00d",
-  "version": "2.0.0",
-  "source_ver": "1.0.0"
+  "sha256_hex": "0xcafef00d",
+  "target_version": "2.0.0",
+  "source_version": "1.0.0"
 }
 """
 
@@ -55,11 +55,11 @@ class JSONStrings(object):
   "name": "bar",
   "is_delta": "false",
   "size": "9001",
-  "metadata_sig": "0xdeadbeef",
+  "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "hash_sha256": "0xcafef00d",
-  "version": "1.0.0",
-  "source_ver": "null"
+  "sha256_hex": "0xcafef00d",
+  "target_version": "1.0.0",
+  "source_version": "null"
 }
 """
 
@@ -68,11 +68,11 @@ class JSONStrings(object):
   "name": "bar",
   "is_delta": "true",
   "size": "9001",
-  "metadata_sig": "0xdeadbeef",
+  "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "hash_sha256": "0xcafef00d",
-  "version": "2.0.0",
-  "source_ver": "1.0.0"
+  "sha256_hex": "0xcafef00d",
+  "target_version": "2.0.0",
+  "source_version": "1.0.0"
 }
 """
 
@@ -81,11 +81,11 @@ class JSONStrings(object):
   "name": "foobar",
   "is_delta": "false",
   "size": "9001",
-  "metadata_sig": "0xdeadbeef",
+  "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "hash_sha256": "0xcafef00d",
-  "version": "1.0.0",
-  "source_ver": "null"
+  "sha256_hex": "0xcafef00d",
+  "target_version": "1.0.0",
+  "source_version": "null"
 }
 """
 
@@ -93,11 +93,11 @@ class JSONStrings(object):
   "appid": "bar",
   "name": "bar",
   "size": "9001",
-  "metadata_sig": "0xdeadbeef",
+  "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "hash_sha256": "0xcafef00d",
-  "version": "1.0.0",
-  "source_ver": "null"
+  "sha256_hex": "0xcafef00d",
+  "target_version": "1.0.0",
+  "source_version": "null"
 }
 """
 
@@ -107,11 +107,11 @@ class JSONStrings(object):
   "name": "bar",
   "is_delta": "false",
   "size": "9001",
-  "metadata_sig": "0xdeadbeef",
+  "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "hash_sha256": "0xcafef00d",
-  "version": "1.0.0",
-  "source_ver": "null"
+  "sha256_hex": "0xcafef00d",
+  "target_version": "1.0.0",
+  "source_version": "null"
 }
 """
 
@@ -230,8 +230,8 @@ class AppDataTest(unittest.TestCase):
     app_data = AppDataGenerator(
         appid="foo",
         is_delta=False,
-        version="1.2.0",
-        src_version=None)
+        target_version="1.2.0",
+        source_version=None)
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
         appid="foo",
@@ -243,8 +243,8 @@ class AppDataTest(unittest.TestCase):
     app_data = AppDataGenerator(
         appid="foo",
         is_delta=True,
-        version="1.3.0",
-        src_version="1.2.0")
+        target_version="1.3.0",
+        source_version="1.2.0")
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
         appid="foo",
@@ -257,8 +257,8 @@ class AppDataTest(unittest.TestCase):
     app_data = AppDataGenerator(
         appid="foo",
         is_delta=False,
-        version="1.3.0",
-        src_version=None)
+        target_version="1.3.0",
+        source_version=None)
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
         appid="foo",
@@ -271,8 +271,8 @@ class AppDataTest(unittest.TestCase):
     app_data = AppDataGenerator(
         appid="bar",
         is_delta=False,
-        version="1.2.0",
-        src_version=None)
+        target_version="1.2.0",
+        source_version=None)
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
         appid="foo",
@@ -285,8 +285,8 @@ class AppDataTest(unittest.TestCase):
     app_data = AppDataGenerator(
         appid="foo",
         is_delta=False,
-        version="2.2.0",
-        src_version=None)
+        target_version="2.2.0",
+        source_version=None)
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
         appid="foo",
@@ -298,8 +298,8 @@ class AppDataTest(unittest.TestCase):
     app_data = AppDataGenerator(
         appid="foo",
         is_delta=False,
-        version="1.2.0",
-        src_version="1.0.0")
+        target_version="1.2.0",
+        source_version="1.0.0")
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
         appid="foo",
@@ -312,8 +312,8 @@ class AppDataTest(unittest.TestCase):
     app_data = AppDataGenerator(
         appid="foo",
         is_delta=True,
-        version="2.3.0",
-        src_version="2.2.0")
+        target_version="2.3.0",
+        source_version="2.2.0")
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
         appid="foo",
@@ -324,8 +324,8 @@ class AppDataTest(unittest.TestCase):
     app_data = AppDataGenerator(
         appid="foo",
         is_delta=True,
-        version="1.3.0",
-        src_version="1.2.0")
+        target_version="1.3.0",
+        source_version="1.2.0")
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
         appid="foo",
@@ -337,8 +337,8 @@ class AppDataTest(unittest.TestCase):
     app_data = AppDataGenerator(
         appid="foo",
         is_delta=True,
-        version="2.3.0",
-        src_version="2.2.0")
+        target_version="2.3.0",
+        source_version="2.2.0")
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
         appid="foo",
@@ -352,8 +352,8 @@ class AppDataTest(unittest.TestCase):
       app_data = AppDataGenerator(
           appid="foo",
           is_delta=True,
-          version="2.3.0",
-          src_version="2.2.0")
+          target_version="2.3.0",
+          source_version="2.2.0")
       request = nebraska.Request.AppRequest(
           request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
           appid="foo",
@@ -366,8 +366,8 @@ class AppDataTest(unittest.TestCase):
       app_data = AppDataGenerator(
           appid="foo",
           is_delta=True,
-          version="2,3,0",
-          src_version="2.2.0")
+          target_version="2,3,0",
+          source_version="2.2.0")
       request = nebraska.Request.AppRequest(
           request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
           appid="foo",
