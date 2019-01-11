@@ -164,7 +164,7 @@ build_board() {
     pvr="${pvr##*${pn}-}"
   else
     # Build from source.
-    "${SRC_ROOT}/scripts/setup_board" --board="${board}"
+    setup_board --board="${board}"
     if [[ $? != 0 ]]; then
       die "Setting up board ${board} failed."
     fi
