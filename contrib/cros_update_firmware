@@ -86,6 +86,7 @@ update_firmware() {
 
   overlay="${GCLIENT_ROOT}/src/private-overlays/overlay-${board}-private"
   metadata="${overlay}/metadata"
+  edb_cache="/var/cache/edb/dep/mnt/host/source/src/private-overlays/overlay-${board}-private"
   base="${overlay}/chromeos-base"
   ebuild="${base}/chromeos-firmware-${board}/chromeos-firmware-${board}-9999.ebuild"
   srcuris="${base}/chromeos-firmware-${board}/files/srcuris"
@@ -94,12 +95,14 @@ update_firmware() {
   "emerge-${board}" ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}" chromeos-config
   cros_config_host -c "${yaml_config}" get-firmware-uris > "${srcuris}"
   touch "${ebuild}"
-  # clean metadata cache to make sure SRC_URI is fetched from ${srcuris}
-  # instead from portage cache which maybe out of sync
+  # Clean metadata cache to make sure SRC_URI is fetched from ${srcuris}
+  # instead from portage cache which maybe out of sync.
   # Note: this workaround is needed because we break the SRC_URI API contract
   # which is supposed to be a static (see
-  # https://devmanual.gentoo.org/general-concepts/portage-cache/index.html)
-  rm -rf "${metadata}/cache" "${metadata}/md5-cache"
+  # https://devmanual.gentoo.org/general-concepts/portage-cache/index.html).
+  # TODO(crbug.com/927917): find a different way to generate SRC_URI and remove
+  # these cache cleanup code.
+  rm -rf "${metadata}/cache" "${metadata}/md5-cache" "${edb_cache}"
   "ebuild-${board}" "${ebuild}" manifest
   "emerge-${board}" "chromeos-firmware-${board}"
 
