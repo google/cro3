@@ -132,7 +132,7 @@ def main(argv):
 
   with ts_mon_config.SetupTsMonGlobalState('gs_cache_nginx_log_metrics',
                                            indirect=True):
-    for line in args.input_fd:
+    for line in iter(args.input_fd.readline, b''):
       logging.debug('Parsing line: %s', line.strip())
       emit_successful_response_metric(_SUCCESS_RESPONSE_MATCHER.match(line))
 
