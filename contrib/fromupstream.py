@@ -16,6 +16,7 @@ import re
 import signal
 import subprocess
 import sys
+import textwrap
 import urllib
 
 LINUX_URLS = (
@@ -23,6 +24,8 @@ LINUX_URLS = (
     'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
     'https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git',
 )
+
+COMMIT_MESSAGE_WIDTH = 75
 
 _PWCLIENTRC = os.path.expanduser('~/.pwclientrc')
 
@@ -103,6 +106,11 @@ def _get_pw_url(project):
     url = config.get(project, 'url')
     # Strip trailing 'xmlrpc' and/or trailing slash.
     return re.sub('/(xmlrpc/)?$', '', url)
+
+def _wrap_commit_line(prefix, content):
+    line = prefix + '=' + content
+    indent = ' ' * (len(prefix) + 1)
+    return textwrap.fill(line, COMMIT_MESSAGE_WIDTH, subsequent_indent=indent)
 
 def main(args):
     """This is the main entrypoint for fromupstream.
@@ -348,7 +356,7 @@ def main(args):
         commit_message += '\n'
         commit_message += conflicts
         commit_message += '\n' + 'BUG=' + args['bug']
-        commit_message += '\n' + 'TEST=' + args['test']
+        commit_message += '\n' + _wrap_commit_line('TEST', args['test'])
         if args['signoff']:
             extra = ['-s']
         else:
