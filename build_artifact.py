@@ -614,7 +614,7 @@ def _AddCrOSArtifact(tag, base, name, *fixed_args, **fixed_kwargs):
   chromeos_artifact_map.setdefault(tag, []).append(artifact)
 
 
-_AddCrOSArtifact(artifact_info.FULL_PAYLOAD, AUTestPayload, '*_full_*')
+_AddCrOSArtifact(artifact_info.FULL_PAYLOAD, AUTestPayload, '*_full_*bin')
 
 
 class DeltaPayloadNtoN(DeltaPayloadBase):
