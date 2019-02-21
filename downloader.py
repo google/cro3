@@ -9,10 +9,12 @@
 from __future__ import print_function
 
 import collections
+import errno
 import glob
 import os
 import re
 import shutil
+import subprocess
 import threading
 from datetime import datetime
 
@@ -169,13 +171,24 @@ class Downloader(log_util.Loggable):
     the background following the principle of spatial locality.
 
     Args:
-     factory: The artifact factory.
-     async: If True, return without waiting for download to complete.
+      factory: The artifact factory.
+      async: If True, return without waiting for download to complete.
 
     Raises:
       build_artifact.ArtifactDownloadError: If failed to download the artifact.
     """
-    common_util.MkDirP(self._build_dir)
+    try:
+      common_util.MkDirP(self._build_dir)
+    except OSError as e:
+      if e.errno != errno.EACCES:
+        raise
+      self._Log('Could not create build dir due to permissions issue. '
+                'Attempting to fix permissions.')
+      subprocess.Popen(['sudo', 'chown', '-R',
+                        '%s:%s' % (os.getuid(), os.getgid()),
+                        self._static_dir]).wait()
+      # Then try to create the build dir again.
+      common_util.MkDirP(self._build_dir)
 
     # We are doing some work on this build -- let's touch it to indicate that
     # we shouldn't be cleaning it up anytime soon.
