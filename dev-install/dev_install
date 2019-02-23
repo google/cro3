@@ -10,7 +10,7 @@
 # Constant definitions.
 P_CONFIG_CROS=/etc/portage
 P_CONFIG_DEVELOPER=/usr/local/etc/portage
-EMERGE_PACKAGES="${P_CONFIG_CROS}/bootstrap.packages"
+EMERGE_PACKAGES="/usr/share/dev-install/bootstrap.packages"
 
 # The base URL of the repository holding our portage prebuilt binpkgs.
 PREFIX_BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board"
