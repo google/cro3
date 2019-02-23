@@ -137,7 +137,6 @@ download_bootstrap_packages() {
 configure_emerge() {
   # Copy emerge configuration to /usr/local.
   mkdir -p -m 0755 "${P_CONFIG_DEVELOPER}"
-  cp "${P_CONFIG_CROS}/make.profile/make.conf" "${P_CONFIG_DEVELOPER}"
   # The source files might be symlinks, and we'll probably clobber/update things
   # ourselves locally, so dereference all the symlinks for our local copy.
   cp -rfL "${P_CONFIG_CROS}/make.profile" "${P_CONFIG_DEVELOPER}/make.profile"
@@ -158,7 +157,7 @@ configure_emerge() {
   mkdir -p -m 0755 "${RPMDIR}"
   mkdir -p -m 0755 "${PORTAGE_TMPDIR}"
   mkdir -p -m 0755 "${BUILD_PREFIX}"
-  echo "PORTAGE_BINHOST=${BINHOST}" >> "${P_CONFIG_DEVELOPER}/make.conf"
+  echo "PORTAGE_BINHOST=${BINHOST}" > "${P_CONFIG_DEVELOPER}/make.conf"
 
   # Add LD_LIBRARY_PATH within ebuild.sh.
   # TODO(arkaitzr): find out a cleaner way to do this.
