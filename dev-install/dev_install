@@ -192,13 +192,6 @@ import_lsb_release() {
 }
 
 main() {
-  # Check if we are root.
-  if [ $(id -u) -ne 0 ]; then
-    error "Can not run dev_install."
-    error "You are not root or you did not use sudo."
-    return 1
-  fi
-
   # Sanity check.  People often run `su` or `sudo su` and leave off that final
   # - which means they don't get a proper environment.  Catch them here rather
   # than fail randomly midway through the process.
