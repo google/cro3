@@ -12,6 +12,9 @@ P_CONFIG_CROS=/etc/portage
 P_CONFIG_DEVELOPER=/usr/local/etc/portage
 EMERGE_PACKAGES="${P_CONFIG_CROS}/bootstrap.packages"
 
+# The base URL of the repository holding our portage prebuilt binpkgs.
+PREFIX_BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board"
+
 # Global variables.
 BINHOST=
 CHROMEOS_DEVSERVER=
@@ -90,9 +93,6 @@ get_binhost() {
   fi
   if [ -z "${BINHOST}" ]; then
     local release_number
-    # Get prefix for binhost.
-    . "${P_CONFIG_CROS}/repository.conf"
-
     if [ -n "${FLAGS_binhost_version}" ]; then
       release_number="${FLAGS_binhost_version}"
     else
@@ -104,7 +104,7 @@ get_binhost() {
       local version="$(get_lsb_var /etc/lsb-release CHROMEOS_RELEASE_VERSION)"
       release_number="R${cr_branch}-${version}"
     fi
-    BINHOST="${PREFIX_BINHOST}canary-${release_number}/packages"
+    BINHOST="${PREFIX_BINHOST}/${CHROMEOS_RELEASE_BOARD}/canary-${release_number}/packages"
   fi
 }
 
@@ -207,6 +207,9 @@ import_lsb_release() {
     override=$(get_lsb_var /usr/local/etc/lsb-release CHROMEOS_RELEASE_BOARD)
     [ -n "${override}" ] && CHROMEOS_RELEASE_BOARD="${override}"
   fi
+
+  # The board might have signed information appended to it, so filter that out.
+  CHROMEOS_RELEASE_BOARD=${CHROMEOS_RELEASE_BOARD%-signed-*keys}
 }
 
 main() {
