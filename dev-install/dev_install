@@ -157,28 +157,6 @@ configure_emerge() {
   # TODO(arkaitzr): find out a cleaner way to do this.
   sed -i "3 a\export LD_LIBRARY_PATH=\"${LD_LIBRARY_PATH}\"" \
       /usr/local/lib/portage/*/ebuild.sh
-
-  # Check for package.provided from $BINHOST.
-  local package_provided="${BINHOST}/package.provided"
-  local tmp_provided="$(mktemp)"
-
-  if ! curl --fail -o "${tmp_provided}" "${package_provided}" &&
-     [ -n "${CHROMEOS_DEVSERVER}" ]; then
-    echo "${package_provided} not found"
-
-    package_provided="${CHROMEOS_DEVSERVER}/"\
-"static/pkgroot/${CHROMEOS_RELEASE_BOARD}/"\
-"/etc/portage/profile/package.provided"
-    echo "Fall back to search ${package_provided}"
-
-    if ! curl --fail -o "${tmp_provided}" "${package_provided}"; then
-      echo "${package_provided} not found"
-    fi
-  fi
-  if [ -s ${tmp_provided} ]; then
-    mv "${tmp_provided}" \
-        "${P_CONFIG_DEVELOPER}/make.profile/package.provided/gsutil_provided"
-  fi
 }
 
 install_optional_packages() {
