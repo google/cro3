@@ -136,10 +136,9 @@ download_bootstrap_packages() {
 # Configure emerge in /usr/local.
 configure_emerge() {
   # Copy emerge configuration to /usr/local.
-  mkdir -p -m 0755 "${P_CONFIG_DEVELOPER}"
-  # The source files might be symlinks, and we'll probably clobber/update things
-  # ourselves locally, so dereference all the symlinks for our local copy.
-  cp -rfL "${P_CONFIG_CROS}/make.profile" "${P_CONFIG_DEVELOPER}/make.profile"
+  mkdir -p -m 0755 "${P_CONFIG_DEVELOPER}/make.profile"
+  # Point our local profile to the rootfs one.  This allows us to stack.
+  echo "${P_CONFIG_CROS}" > "${P_CONFIG_DEVELOPER}/make.profile/parent"
 
   # Install the package.provided entries for the rootfs.
   mkdir -p -m 0755 "${P_CONFIG_DEVELOPER}/make.profile/package.provided"
