@@ -24,16 +24,7 @@ works in the Chromium OS chroot as it uses build tools only present in the
 chroot (emerge, cros_generate_update_payload, etc.). By default, when a device
 requests an update from this form of devserver, the devserver will attempt to
 discover if a more recent build of the board has been built by the developer
-and generate a payload that the requested system can autoupdate to. In addition,
-it accepts gmerge requests from devices that will stage the newest version of
-a particular package from a developer's chroot onto a requesting device.
-
-For example:
-gmerge gmerge -d <devserver_url>
-
-devserver will see if a newer package of gmerge is available. If gmerge is
-cros_work'd on, it will re-build gmerge. After this, gmerge will install that
-version of gmerge that the devserver just created/found.
+and generate a payload that the requested system can autoupdate to.
 
 For autoupdates, there are many more advanced options that can help specify
 how to update and which payload to give to a requester.
