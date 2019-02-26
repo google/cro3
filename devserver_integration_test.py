@@ -41,7 +41,7 @@ EXPECTED_HASH = 'kGcOinJ0vA8vdYX53FN0F5BdwfY='
 
 # Update request based on Omaha v3 protocol format.
 UPDATE_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
-<request version="ChromeOSUpdateEngine-0.1.0.0" updaterversion="ChromeOSUpdateEngine-0.1.0.0" protocol="3.0" ismachine="1">
+<request protocol="3.0" updater="ChromeOSUpdateEngine" updaterversion="0.1.0.0" ismachine="1">
     <os version="Indy" platform="Chrome OS" sp="0.11.254.2011_03_09_1814_i686"></os>
     <app appid="{DEV-BUILD}" version="11.254.2011_03_09_1814" lang="en-US" track="developer-build" board="x86-generic" hardware_class="BETA DVT" delta_okay="true">
         <updatecheck></updatecheck>
