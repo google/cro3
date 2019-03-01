@@ -725,22 +725,33 @@ def ParseArguments(argv):
   parser.add_argument('--install-payloads', metavar='DIR', default=None,
                       help='Directory containing payloads for installation.',
                       required=False)
-  parser.add_argument('--port', metavar='PORT', type=int, default=0,
-                      help='Port to run the server on', required=False)
   parser.add_argument('--payload-addr', metavar='URL',
                       help='Base payload URL.',
                       default="http://127.0.0.1:8080")
+
+  parser.add_argument('--port', metavar='PORT', type=int, default=0,
+                      help='Port to run the server on.')
+  parser.add_argument('--runtime-root', metavar='DIR',
+                      default='/run/nebraska',
+                      help='The root directory in which nebraska will write its'
+                      ' pid and port files.')
+  parser.add_argument('--log-file', metavar='FILE',
+                      help='The file to write the logs.')
 
   return parser.parse_args(argv[1:])
 
 
 def main(argv):
-  logging.basicConfig(level=logging.DEBUG)
+  """Main function."""
   opts = ParseArguments(argv)
 
-  if not opts.update_payloads and not opts.install_payloads:
-    logging.error("Need to specify at least one payload directory.")
-    return os.EX_USAGE
+  # Reset the log file.
+  if opts.log_file:
+    with open(opts.log_file, 'w') as _:
+      pass
+
+  logging.basicConfig(filename=opts.log_file if opts.log_file else None,
+                      level=logging.DEBUG)
 
   nebraska = NebraskaServer(payload_addr=opts.payload_addr,
                             update_dir=opts.update_payloads,
@@ -748,7 +759,21 @@ def main(argv):
                             port=opts.port)
 
   nebraska.Start()
-  logging.info("Running on port %d. Press 'q' to quit.", nebraska.GetPort())
+
+  if not os.path.exists(opts.runtime_root):
+    os.makedirs(opts.runtime_root)
+
+  runtime_files = {
+      os.path.join(opts.runtime_root, 'port'): str(nebraska.GetPort()),
+      os.path.join(opts.runtime_root, 'pid'): str(os.getpid()),
+  }
+
+  for k, v in runtime_files.items():
+    with open(k, 'w') as f:
+      f.write(v)
+
+  logging.info('Starting nebraska on port %d and pid %d. Press 'q' to quit.',
+               nebraska.GetPort(), os.getpid())
 
   try:
     while raw_input() != 'q':
@@ -756,8 +781,15 @@ def main(argv):
   except(EOFError, KeyboardInterrupt, SystemExit):
     pass
 
-  logging.info("Exiting...")
   nebraska.Stop()
+  logging.info("Exiting...")
+
+  # Remove the pid and port files.
+  for f in runtime_files:
+    try:
+      os.remove(f)
+    except Exception as e:
+      logging.warn('Failed to remove file %s with error %s', f, e)
 
   return os.EX_OK
 
