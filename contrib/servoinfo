@@ -1,0 +1,210 @@
+#!/bin/bash
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+VERSION="0.01"
+
+#Flags & Parameters
+SHOW_USAGE="" # Show the usage for the tool
+VERBOSE=""    # Show verbose output
+
+# Servo USB Device ID values
+GOOGLE_VENDOR_ID="18d1"
+SERVO_V2_DEVICE_ID="5002"
+SERVO_V4_DEVICE_ID="501b"
+SERVO_MICRO_DEVICE_ID="501a"
+SUZY_Q_CABLE_DEVICE_ID="501f"
+SUZY_Q_DEVICE_ID="5014" # Actually CR50, but report as Suzy Q-connected to CR50
+
+# Text STYLE variables
+RED='\033[38;5;9m'
+GREEN='\033[38;5;2m'
+ORANGE_RED="\033[38;5;202m"
+C_DODGERBLUE2="\033[38;5;27m"
+NC='\033[0m' # No Color
+
+_printf_color() {
+  printf "${1}%s" "$2"
+}
+
+_echo_color() {
+  printf "${1}%s${NC}\n" "$2"
+}
+
+_echo_error() {
+  (_echo_color >&2 "${RED}" "$*")
+}
+
+_echo_debug() {
+  if [ -n "${VERBOSE}" ]; then
+    (_echo_color >&2 "${ORANGE_RED}" "$*")
+  fi
+}
+
+# Checks that a program is installed.  Prints an optional message on failure.
+_checkutil() {
+  local util="$1"
+  local printstring="$2"
+
+  if ! command -v "${util}" >/dev/null 2>&1; then
+    _echo_error "Error: ${util} not found in path."
+    if [ -n "$printstring" ]; then
+      _echo_error "$printstring"
+    fi
+    exit 1
+  fi
+}
+
+_show_dev() {
+  local servo_type="$1"
+  local portnum="$2"
+  local serialnum="$3"
+  local fw_version="$4"
+
+  if [ -n "${portnum}" ]; then
+    _printf_color "${GREEN}" "  ${servo_type} running servod."
+  else
+    _printf_color "${C_DODGERBLUE2}" "  ${servo_type} -"
+  fi
+
+  if [ -n "${fw_version}" ]; then
+    _printf_color "" " Firmware Version: ${fw_version}"
+  fi
+
+  if [ -n "${portnum}" ]; then
+    _printf_color "" "  --port ${portnum}"
+  fi
+
+  if [ -n "${serialnum}" ]; then
+    _printf_color "" " --serialname ${serialnum}"
+  fi
+
+  _echo_color "${NC}" ""
+}
+
+get_servo_info() {
+  local lsusb_output
+  local servod_running
+
+  # Verify that lsusb is installed
+  _checkutil lsusb "Please install with your package manager before continuing." || exit 127
+
+  # Get USB attached devices
+  lsusb_output="$(lsusb | grep "ID ${GOOGLE_VENDOR_ID}:")"
+  servod_running="$(pgrep -a servod)"
+  _echo_debug "Debug Output:"
+  _echo_debug "${lsusb_output}"
+  _echo_debug "${servod_running}"
+
+  servo_v2_attached="$(echo -n "${lsusb_output}" | grep ":${SERVO_V2_DEVICE_ID}" | grep -c "^")"
+  servo_micro_attached="$(echo -n "${lsusb_output}" | grep ":${SERVO_MICRO_DEVICE_ID}" | grep -c "^")"
+  servo_v4_attached="$(echo -n "${lsusb_output}" | grep ":${SERVO_V4_DEVICE_ID}" | grep -c "^")"
+  suzy_q_attached="$(echo -n "${lsusb_output}" | grep ":${SUZY_Q_DEVICE_ID}" | grep -c "^")"
+  suzy_q_cables="$(echo -n "${lsusb_output}" | grep ":${SUZY_Q_CABLE_DEVICE_ID}" | grep -c "^")"
+  suzy_q_detached=$((suzy_q_cables - suzy_q_attached))
+  SERVOS_ATTACHED=$((servo_v2_attached + servo_micro_attached + servo_v4_attached + suzy_q_attached))
+
+  if [ "${suzy_q_detached}" -ne 0 ]; then
+    _echo_error "Detected ${suzy_q_detached} SuzyQables not attached to a device."
+  fi
+  if [ "${SERVOS_ATTACHED}" -eq 0 ]; then
+    _echo_error "No servos detected"
+    exit 0
+  else
+    echo "Found ${SERVOS_ATTACHED} servo devices."
+  fi
+  echo
+
+  # Loop through all the servo types and see if any are detected.
+  # If any are, see if they match the current port or serialnumber (serialname?)
+  for servo_vals in "servo_v2:${SERVO_V2_DEVICE_ID}" "servo_micro:${SERVO_MICRO_DEVICE_ID}" \
+    "suzy-q:${SUZY_Q_DEVICE_ID}" "servo_v4:${SERVO_V4_DEVICE_ID}"; do
+    local servo_device_id=${servo_vals#*:}
+    local servo_type=${servo_vals%:*}
+
+    # Move on to next servo type if none of this type are detected.
+    if [ "$(echo -n "${lsusb_output}" | grep ":${servo_device_id}" | grep -c "^")" -eq 0 ]; then
+      continue
+    fi
+
+    echo "Detected ${servo_type}.  (Vendor/Device = ${GOOGLE_VENDOR_ID}:${servo_device_id})"
+    # Loop through all detected devices of this type
+    for dev in $(echo "${lsusb_output}" | grep ":${servo_device_id}" | sed 's/://' | awk '{ print $2 ":" $4 }'); do
+      local portnum
+      local serialnum
+      local firmware_version
+      local devinfo
+
+      devinfo="$(lsusb -v -s "${dev}")"
+      serialnum="$(echo "${devinfo}" | grep iSerial | awk '{ print $3 }')"
+      portnum="$(echo -n "${servod_running}" | grep "${serialnum}" | head -n 1 | sed 's/.*--port.//' | cut -f1 -d ' ')"
+      firmware_version="$(echo "${devinfo}" | grep iConfiguration | awk '{ print $3 }')"
+      _show_dev "${servo_type}" "${portnum}" "${serialnum}" "${firmware_version}"
+      _echo_debug "${devinfo}"
+    done
+    echo
+  done
+
+  if [ "$(printf "%s" "${servod_running}" | wc -l)" -ne 0 ]; then
+    echo
+    echo "Running servod instances"
+    echo "${servod_running}"
+  fi
+  echo
+}
+
+myversion() {
+  echo "servoinfo version ${VERSION}"
+}
+
+usage() {
+  echo "${0} [options]"
+  echo
+  echo "Options:"
+  echo "  V | version            - Print version and exit"
+  echo "  h | help               - Print help and exit"
+  echo "  d | debug              - Set verbose output"
+  echo
+}
+
+################################################################################
+# Get arguments
+args=$(getopt -l version,help,debug -o Vhd -- "$@")
+getopt_ret=$?
+eval set -- "${args}"
+
+if [ ${getopt_ret} != 0 ]; then
+  SHOW_USAGE=1
+fi
+
+while true; do
+  case "$1" in
+  -V | --version)
+    shift
+    myversion
+    exit 0
+    ;;
+  -h | --help)
+    shift
+    SHOW_USAGE=1
+    ;;
+
+  -d | --debug)
+    shift
+    VERBOSE=1
+    ;;
+  --)
+    shift
+    break
+    ;;
+  *) break ;;
+  esac
+done
+
+if [ "${SHOW_USAGE}" ]; then
+  usage
+  exit 0
+fi
+
+get_servo_info
