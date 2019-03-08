@@ -14,6 +14,7 @@ import copy
 import json
 import logging
 import os
+import signal
 import sys
 import threading
 import traceback
@@ -758,6 +759,13 @@ def main(argv):
                             install_dir=opts.install_payloads,
                             port=opts.port)
 
+  def handler(signum, _):
+    logging.info('Exiting Nebraska with signal %d ...', signum)
+    nebraska_server.Stop()
+
+  signal.signal(signal.SIGINT, handler)
+  signal.signal(signal.SIGTERM, handler)
+
   nebraska.Start()
 
   if not os.path.exists(opts.runtime_root):
@@ -772,17 +780,10 @@ def main(argv):
     with open(k, 'w') as f:
       f.write(v)
 
-  logging.info('Starting nebraska on port %d and pid %d. Press 'q' to quit.',
+  logging.info('Starting nebraska on port %d and pid %d.',
                nebraska.GetPort(), os.getpid())
 
-  try:
-    while raw_input() != 'q':
-      pass
-  except(EOFError, KeyboardInterrupt, SystemExit):
-    pass
-
-  nebraska.Stop()
-  logging.info("Exiting...")
+  signal.pause()
 
   # Remove the pid and port files.
   for f in runtime_files:
