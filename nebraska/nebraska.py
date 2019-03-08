@@ -692,7 +692,7 @@ class NebraskaServer(object):
     self.update_index.Scan()
     self.install_index.Scan()
 
-    self._httpd = HTTPServer(('', self.Port()), NebraskaHandler)
+    self._httpd = HTTPServer(('', self.GetPort()), NebraskaHandler)
     self._port = self._httpd.server_port
     self._httpd.owner = self
     self._server_thread = threading.Thread(target=self._httpd.serve_forever)
@@ -703,7 +703,7 @@ class NebraskaServer(object):
     self._httpd.shutdown()
     self._server_thread.join()
 
-  def Port(self):
+  def GetPort(self):
     """Returns the server's port."""
     return self._port
 
@@ -748,7 +748,7 @@ def main(argv):
                             port=opts.port)
 
   nebraska.Start()
-  logging.info("Running on port %d. Press 'q' to quit.", nebraska.Port())
+  logging.info("Running on port %d. Press 'q' to quit.", nebraska.GetPort())
 
   try:
     while raw_input() != 'q':
