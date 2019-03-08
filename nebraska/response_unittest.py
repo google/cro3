@@ -18,6 +18,8 @@ from unittest_common import AppDataGenerator
 
 # pylint: disable=protected-access
 
+_UPDATE_PAYLOADS_ADDRESS = 'www.google.com/update'
+_INSTALL_PAYLOADS_ADDRESS = 'www.google.com/install'
 
 class XMLResponseTemplates(object):
   """XML Templates for testing."""
@@ -138,15 +140,14 @@ class ResponseTest(unittest.TestCase):
             version="4.0.0",
             delta_okay=False)]
 
-    payload_addr = "www.google.com"
-
     update_index = mock.MagicMock()
     install_index = mock.MagicMock()
 
     update_index.Find.side_effect = app_list
 
     response = nebraska.Response(
-        request, update_index, install_index, payload_addr)
+        request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
+        _INSTALL_PAYLOADS_ADDRESS)
 
     response = response.GetXMLString()
 
@@ -175,15 +176,16 @@ class AppResponseTest(unittest.TestCase):
         target_version="1.0.0",
         source_version=None)
 
-    payload_addr = "www.google.com"
-
     update_index = mock.MagicMock()
     install_index = mock.MagicMock()
     update_index.Find.return_value = match
 
     response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, payload_addr)
+        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
+        _INSTALL_PAYLOADS_ADDRESS)
 
+    self.assertTrue(_UPDATE_PAYLOADS_ADDRESS in
+                    ElementTree.tostring(response.Compile()))
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is match)
@@ -204,15 +206,16 @@ class AppResponseTest(unittest.TestCase):
         target_version="1.0.0",
         source_version=None)
 
-    payload_addr = "www.google.com"
-
     update_index = mock.MagicMock()
     install_index = mock.MagicMock()
     install_index.Find.return_value = match
 
     response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, payload_addr)
+        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
+        _INSTALL_PAYLOADS_ADDRESS)
 
+    self.assertTrue(_INSTALL_PAYLOADS_ADDRESS in
+                    ElementTree.tostring(response.Compile()))
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is match)
@@ -228,15 +231,14 @@ class AppResponseTest(unittest.TestCase):
         version="1.0.0",
         delta_okay=False)
 
-    payload_addr = "www.google.com"
-
     update_index = mock.MagicMock()
     install_index = mock.MagicMock()
     update_index.Find.return_value = None
     update_index.Contains.return_value = False
 
     response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, payload_addr)
+        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
+        _INSTALL_PAYLOADS_ADDRESS)
 
     self.assertTrue(response._app_request == app_request)
     self.assertTrue(response._err_not_found)
@@ -253,15 +255,14 @@ class AppResponseTest(unittest.TestCase):
         version="1.0.0",
         delta_okay=False)
 
-    payload_addr = "www.google.com"
-
     update_index = mock.MagicMock()
     install_index = mock.MagicMock()
     update_index.Find.return_value = None
     update_index.Contains.return_value = True
 
     response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, payload_addr)
+        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
+        _INSTALL_PAYLOADS_ADDRESS)
 
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
@@ -278,15 +279,14 @@ class AppResponseTest(unittest.TestCase):
         ping=True,
         version="1.0.0")
 
-    payload_addr = "www.google.com"
-
     update_index = mock.MagicMock()
     install_index = mock.MagicMock()
     update_index.Find.return_value = None
     update_index.Contains.return_value = True
 
     response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, payload_addr)
+        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
+        _INSTALL_PAYLOADS_ADDRESS)
 
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
@@ -304,15 +304,14 @@ class AppResponseTest(unittest.TestCase):
         event_result="1",
         version="1.0.0")
 
-    payload_addr = "www.google.com"
-
     update_index = mock.MagicMock()
     install_index = mock.MagicMock()
     update_index.Find.return_value = None
     update_index.Contains.return_value = True
 
     response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, payload_addr)
+        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
+        _INSTALL_PAYLOADS_ADDRESS)
 
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
@@ -334,14 +333,13 @@ class AppResponseTest(unittest.TestCase):
         target_version="1.0.0",
         source_version=None)
 
-    payload_addr = "www.google.com"
-
     update_index = mock.MagicMock()
     install_index = mock.MagicMock()
     install_index.Find.return_value = match
 
     response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, payload_addr)
+        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
+        _INSTALL_PAYLOADS_ADDRESS)
 
     compiled_response = response.Compile()
 
@@ -358,7 +356,7 @@ class AppResponseTest(unittest.TestCase):
     self.assertTrue(action_tag is not None)
 
     self.assertTrue(compiled_response.attrib['appid'] == match.appid)
-    self.assertTrue(url_tag.attrib['codebase'] == payload_addr + "/install/")
+    self.assertTrue(url_tag.attrib['codebase'] == _INSTALL_PAYLOADS_ADDRESS)
     self.assertTrue(manifest_tag.attrib['version'] == match.target_version)
     self.assertTrue(package_tag.attrib['hash_sha256'] == match.sha256_hex)
     self.assertTrue(package_tag.attrib['fp'] == "1.%s" % match.sha256_hex)
@@ -384,13 +382,12 @@ class AppResponseTest(unittest.TestCase):
             event_result="1",
             version="1.0.0")
 
-        payload_addr = "www.google.com"
-
         update_index = mock.MagicMock()
         install_index = mock.MagicMock()
 
         response = nebraska.Response.AppResponse(
-            app_request, update_index, install_index, payload_addr)
+            app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
+            _INSTALL_PAYLOADS_ADDRESS)
 
         response.Compile()
 
@@ -415,14 +412,13 @@ class AppResponseTest(unittest.TestCase):
             target_version="1.0.0",
             source_version=None)
 
-        payload_addr = "www.google.com"
-
         update_index = mock.MagicMock()
         install_index = mock.MagicMock()
         install_index.Find.return_value = match
 
         response = nebraska.Response.AppResponse(
-            app_request, update_index, install_index, payload_addr)
+            app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
+            _INSTALL_PAYLOADS_ADDRESS)
 
         response.Compile()
 
@@ -445,14 +441,13 @@ class AppResponseTest(unittest.TestCase):
             target_version="1.0.0",
             source_version=None)
 
-        payload_addr = "www.google.com"
-
         update_index = mock.MagicMock()
         install_index = mock.MagicMock()
         install_index.Find.return_value = match
 
         response = nebraska.Response.AppResponse(
-            app_request, update_index, install_index, payload_addr)
+            app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
+            _INSTALL_PAYLOADS_ADDRESS)
 
         response.Compile()
 

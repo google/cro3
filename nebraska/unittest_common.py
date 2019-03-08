@@ -33,11 +33,6 @@ class NebraskaHandler(RealNebraskaHandler):
     self.server = mock.MagicMock()
 
 
-def NebraskaGenerator(source_dir, target_dir, payload_addr, port):
-  """Generates a Nebraska server instance."""
-  return NebraskaServer(source_dir, target_dir, payload_addr, port)
-
-
 def AppDataGenerator(appid, is_delta, target_version, source_version):
   """Generates and AppData test instance."""
   return AppData(

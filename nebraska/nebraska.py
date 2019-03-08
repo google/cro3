@@ -274,19 +274,22 @@ class Response(object):
   format based on the format of an XML response template.
   """
 
-  def __init__(self, request, update_index, install_index, payload_addr):
+  def __init__(self, request, update_index, install_index,
+               update_payloads_address, install_payloads_address):
     """Initialize a reponse from a list of matching apps.
 
     Args:
       request: Request instance describing client requests.
       update_index: Index of update payloads.
       install_index: Index of install payloads.
-      payload_addr: Address of payload server.
+      update_payloads_address: Address of update payload server.
+      install_payloads_address: Address of install payload server.
     """
     self._request = request
     self._update_index = update_index
     self._install_index = install_index
-    self._payload_addr = payload_addr
+    self._update_payloads_address = update_payloads_address
+    self._install_payloads_address = install_payloads_address
 
     curr = datetime.now()
     self._elapsed_days = (curr - datetime(2007, 1, 1)).days
@@ -317,7 +320,8 @@ class Response(object):
             app_request,
             self._update_index,
             self._install_index,
-            self._payload_addr).Compile())
+            self._update_payloads_address,
+            self._install_payloads_address).Compile())
 
     except Exception as err:
       logging.error("Failed to compile response (%s)", str(err))
@@ -334,32 +338,31 @@ class Response(object):
     responses to pings and events as appropriate.
     """
 
-    def __init__(self, app_request, update_index, install_index, payload_addr):
+    def __init__(self, app_request, update_index, install_index,
+                 update_payloads_address, install_payloads_address):
       """Initialize an AppResponse.
 
       Attributes:
         app_request: AppRequest representing a client request.
         update_index: Index of update payloads.
         install_index: Index of install payloads.
-        payload_addr: Address serving payloads.
+        update_payloads_address: Address serving update payloads.
+        install_payloads_address: Address serving install payloads.
       """
-      _INSTALL_PATH = "/install/"
-      _UPDATE_PATH = "/update/"
-
       self._app_request = app_request
       self._app_data = None
-      self._payload_url = None
       self._err_not_found = False
+      self._payloads_address = None
 
-      if self._app_request.request_type == \
-          self._app_request.RequestType.INSTALL:
+      if (self._app_request.request_type ==
+          self._app_request.RequestType.INSTALL):
         self._app_data = install_index.Find(self._app_request)
-        self._payload_url = payload_addr + _INSTALL_PATH
         self._err_not_found = self._app_data is None
-      elif self._app_request.request_type == \
-          self._app_request.RequestType.UPDATE:
+        self._payloads_address = install_payloads_address
+      elif (self._app_request.request_type ==
+            self._app_request.RequestType.UPDATE):
         self._app_data = update_index.Find(self._app_request)
-        self._payload_url = payload_addr + _UPDATE_PATH
+        self._payloads_address = update_payloads_address
         # This differentiates between apps that are not in the index and apps
         # that are available, but do not have an update available. Omaha treats
         # the former as an error, whereas the latter case should result in a
@@ -401,7 +404,8 @@ class Response(object):
             ElementTree.fromstring(XMLResponseTemplates.UPDATE_CHECK_TEMPLATE))
         urls = app_response.find('./updatecheck/urls')
         urls.append(
-            ElementTree.Element('url', attrib={'codebase': self._payload_url}))
+            ElementTree.Element('url', attrib={'codebase':
+                                               self._payloads_address}))
         manifest = app_response.find('./updatecheck/manifest')
         manifest.set('version', self._app_data.target_version)
         actions = manifest.findall('./actions/action')
@@ -644,7 +648,8 @@ class NebraskaHandler(BaseHTTPRequestHandler):
           request,
           self.server.owner.update_index,
           self.server.owner.install_index,
-          self.server.owner.payload_addr)
+          self.server.owner.update_payloads_address,
+          self.server.owner.install_payloads_address)
       response_str = response.GetXMLString()
     except Exception as err:
       logging.error("Failed to handle request (%s)", str(err))
@@ -668,12 +673,14 @@ class NebraskaServer(object):
   payloads provided by another server.
   """
 
-  def __init__(self, payload_addr, update_metadata_dir=None,
+  def __init__(self, update_payloads_address, install_payloads_address,
+               update_metadata_dir=None,
                install_metadata_dir=None, port=0):
     """Initializes a server instance.
 
     Args:
-      payload_addr: Address and port of the payload server.
+      update_payloads_address: Address of the update payload server.
+      install_payloads_address: Address of the install payload server.
       update_metadata_dir: Update payloads metadata directory.
       install_metadata_dir: Install payloads metadata directory.
       port: Port the server should run on, 0 if the OS should assign a port.
@@ -685,7 +692,8 @@ class NebraskaServer(object):
     self._port = port
     self._httpd = None
     self._server_thread = None
-    self.payload_addr = payload_addr.strip('/')
+    self.update_payloads_address = update_payloads_address
+    self.install_payloads_address = install_payloads_address
     self.update_index = AppIndex(update_metadata_dir)
     self.install_index = AppIndex(install_metadata_dir)
 
@@ -725,9 +733,12 @@ def ParseArguments(argv):
                       help='Payloads metadata directory for update.')
   parser.add_argument('--install-metadata', metavar='DIR', default=None,
                       help='Payloads metadata directory for install.')
-  parser.add_argument('--payload-addr', metavar='URL',
-                      help='Base payload URL.',
+  parser.add_argument('--update-payloads-address', metavar='URL',
+                      help='Base payload URI for update payloads',
                       default="http://127.0.0.1:8080")
+  parser.add_argument('--install-payloads-address', metavar='URL',
+                      help='Base payload URI for install payloads. If not '
+                      'passed it will default to --update-payloads-address')
 
   parser.add_argument('--port', metavar='PORT', type=int, default=0,
                       help='Port to run the server on.')
@@ -753,10 +764,14 @@ def main(argv):
   logging.basicConfig(filename=opts.log_file if opts.log_file else None,
                       level=logging.DEBUG)
 
-  nebraska = NebraskaServer(payload_addr=opts.payload_addr,
-                            update_metadata_dir=opts.update_metadata,
-                            install_metadata_dir=opts.install_metadata,
-                            port=opts.port)
+  nebraska = NebraskaServer(
+      update_payloads_address=opts.update_payloads_address,
+      install_payloads_address=(opts.install_payloads_address
+                                if opts.install_payloads_address is not None
+                                else opts.update_payloads_address),
+      update_metadata_dir=opts.update_metadata,
+      install_metadata_dir=opts.install_metadata,
+      port=opts.port)
 
   def handler(signum, _):
     logging.info('Exiting Nebraska with signal %d ...', signum)

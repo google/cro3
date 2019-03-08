@@ -12,12 +12,12 @@ import mock
 import unittest
 
 import nebraska
-from unittest_common import NebraskaHandler, NebraskaGenerator
+from unittest_common import NebraskaHandler
 
 _NEBRASKA_PORT = 11235
 _INSTALL_DIR = "test_install_dir"
 _UPDATE_DIR = "test_update_dir"
-_PAYLOAD_ADDR = "111.222.212:2357"
+_PAYLOAD_ADDRESS = "111.222.212:2357"
 
 
 class NebraskaHandlerTest(unittest.TestCase):
@@ -71,7 +71,8 @@ class NebraskaServerTest(unittest.TestCase):
   def testStart(self):
     """Tests Start."""
     server = nebraska.NebraskaServer(
-        _INSTALL_DIR, _UPDATE_DIR, _PAYLOAD_ADDR, _NEBRASKA_PORT)
+        _PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS, _INSTALL_DIR, _UPDATE_DIR,
+        _NEBRASKA_PORT)
 
     with mock.patch('nebraska.HTTPServer') as server_mock:
       with mock.patch('nebraska.threading.Thread') as thread_mock:
@@ -93,8 +94,9 @@ class NebraskaServerTest(unittest.TestCase):
 
   def testStop(self):
     """Tests Stop."""
-    nebraska_server = NebraskaGenerator(
-        _PAYLOAD_ADDR, _UPDATE_DIR, _INSTALL_DIR, _NEBRASKA_PORT)
+    nebraska_server = nebraska.NebraskaServer(
+        _PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS, _UPDATE_DIR, _INSTALL_DIR,
+        _NEBRASKA_PORT)
 
     # pylint: disable=protected-access
     nebraska_server._httpd = mock.MagicMock(name="_httpd")
