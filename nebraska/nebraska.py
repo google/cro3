@@ -668,13 +668,14 @@ class NebraskaServer(object):
   payloads provided by another server.
   """
 
-  def __init__(self, payload_addr, update_dir, install_dir, port=0):
+  def __init__(self, payload_addr, update_metadata_dir=None,
+               install_metadata_dir=None, port=0):
     """Initializes a server instance.
 
     Args:
       payload_addr: Address and port of the payload server.
-      update_dir: Directory to index for information about update payloads.
-      install_dir: Directory to index for information about install payloads.
+      update_metadata_dir: Update payloads metadata directory.
+      install_metadata_dir: Install payloads metadata directory.
       port: Port the server should run on, 0 if the OS should assign a port.
 
     Attributes:
@@ -685,8 +686,8 @@ class NebraskaServer(object):
     self._httpd = None
     self._server_thread = None
     self.payload_addr = payload_addr.strip('/')
-    self.update_index = AppIndex(update_dir)
-    self.install_index = AppIndex(install_dir)
+    self.update_index = AppIndex(update_metadata_dir)
+    self.install_index = AppIndex(install_metadata_dir)
 
   def Start(self):
     """Starts a mock Omaha HTTP server."""
@@ -720,12 +721,10 @@ def ParseArguments(argv):
   """
   parser = argparse.ArgumentParser(description=__doc__)
 
-  parser.add_argument('--update-payloads', metavar='DIR', default=None,
-                      help='Directory containing payloads for updates.',
-                      required=False)
-  parser.add_argument('--install-payloads', metavar='DIR', default=None,
-                      help='Directory containing payloads for installation.',
-                      required=False)
+  parser.add_argument('--update-metadata', metavar='DIR', default=None,
+                      help='Payloads metadata directory for update.')
+  parser.add_argument('--install-metadata', metavar='DIR', default=None,
+                      help='Payloads metadata directory for install.')
   parser.add_argument('--payload-addr', metavar='URL',
                       help='Base payload URL.',
                       default="http://127.0.0.1:8080")
@@ -755,8 +754,8 @@ def main(argv):
                       level=logging.DEBUG)
 
   nebraska = NebraskaServer(payload_addr=opts.payload_addr,
-                            update_dir=opts.update_payloads,
-                            install_dir=opts.install_payloads,
+                            update_metadata_dir=opts.update_metadata,
+                            install_metadata_dir=opts.install_metadata,
                             port=opts.port)
 
   def handler(signum, _):
