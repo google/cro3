@@ -138,7 +138,8 @@ configure_emerge() {
   # Copy emerge configuration to /usr/local.
   mkdir -p -m 0755 "${P_CONFIG_DEVELOPER}/make.profile"
   # Point our local profile to the rootfs one.  This allows us to stack.
-  echo "${P_CONFIG_CROS}" > "${P_CONFIG_DEVELOPER}/make.profile/parent"
+  echo "${P_CONFIG_CROS}/make.profile" \
+    >"${P_CONFIG_DEVELOPER}/make.profile/parent"
 
   # Install the package.provided entries for the rootfs.
   mkdir -p -m 0755 "${P_CONFIG_DEVELOPER}/make.profile/package.provided"
