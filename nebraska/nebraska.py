@@ -632,25 +632,63 @@ class AppIndex(object):
     return request.appid in self._index
 
 
+class Nebraska(object):
+  """An instance of this class allows responding to incoming Omaha requests.
+
+    This class has the responsibility to manufacture Omaha responses based on
+    the input update requests. This should be the main point of use of the
+    Nebraska. If any changes to the behavior of Nebraska is intended, like
+    creating critical update responses, or messing up with firmware and kernel
+    versions, new flags should be added here to add that feature.
+  """
+  def __init__(self, update_payloads_address, install_payloads_address=None,
+               update_metadata_dir=None, install_metadata_dir=None):
+    """Initializes the Nebraska instance.
+
+    Args:
+      update_payloads_address: Address of the update payload server.
+      install_payloads_address: Address of the install payload server. If None
+           is passed it will default to update_payloads_address.
+      update_metadata_dir: Update payloads metadata directory.
+      install_metadata_dir: Install payloads metadata directory.
+    """
+    self._update_payloads_address = update_payloads_address
+    self._install_payloads_address = (install_payloads_address
+                                      if install_payloads_address is not None
+                                      else update_payloads_address)
+    self._update_index = AppIndex(update_metadata_dir)
+    self._install_index = AppIndex(install_metadata_dir)
+
+    self._update_index.Scan()
+    self._install_index.Scan()
+
+  def GetResponseToRequest(self, request):
+    """Returns the response corresponding to a request.
+
+    Args:
+      request: The string representation of the incoming request.
+
+    Returns:
+      The string representation of the created response.
+    """
+    return Response(Request(request),
+                    self._update_index,
+                    self._install_index,
+                    self._update_payloads_address,
+                    self._install_payloads_address).GetXMLString()
+
+
 class NebraskaHandler(BaseHTTPRequestHandler):
   """HTTP request handler for Omaha requests."""
 
   def do_POST(self):
     """Responds to XML-formatted Omaha requests."""
     request_len = int(self.headers.getheader('content-length'))
-    request_str = self.rfile.read(request_len)
-    logging.debug("Received request: %s", request_str)
-
-    request = Request(request_str)
+    request = self.rfile.read(request_len)
+    logging.debug("Received request: %s", request)
 
     try:
-      response = Response(
-          request,
-          self.server.owner.update_index,
-          self.server.owner.install_index,
-          self.server.owner.update_payloads_address,
-          self.server.owner.install_payloads_address)
-      response_str = response.GetXMLString()
+      response = self.server.owner.nebraska.GetResponseToRequest(request)
     except Exception as err:
       logging.error("Failed to handle request (%s)", str(err))
       traceback.print_exc()
@@ -660,7 +698,7 @@ class NebraskaHandler(BaseHTTPRequestHandler):
     self.send_response(200)
     self.send_header('Content-Type', 'application/xml')
     self.end_headers()
-    self.wfile.write(response_str)
+    self.wfile.write(response)
 
 
 class NebraskaServer(object):
@@ -673,35 +711,20 @@ class NebraskaServer(object):
   payloads provided by another server.
   """
 
-  def __init__(self, update_payloads_address, install_payloads_address,
-               update_metadata_dir=None,
-               install_metadata_dir=None, port=0):
+  def __init__(self, nebraska, port=0):
     """Initializes a server instance.
 
     Args:
-      update_payloads_address: Address of the update payload server.
-      install_payloads_address: Address of the install payload server.
-      update_metadata_dir: Update payloads metadata directory.
-      install_metadata_dir: Install payloads metadata directory.
+      nebraska: The Nebraska instance to process requests and responses.
       port: Port the server should run on, 0 if the OS should assign a port.
-
-    Attributes:
-      update_index: Index of metadata files in the update directory.
-      install_index: Index of metadata files in the install directory.
     """
     self._port = port
     self._httpd = None
     self._server_thread = None
-    self.update_payloads_address = update_payloads_address
-    self.install_payloads_address = install_payloads_address
-    self.update_index = AppIndex(update_metadata_dir)
-    self.install_index = AppIndex(install_metadata_dir)
+    self.nebraska = nebraska
 
   def Start(self):
     """Starts a mock Omaha HTTP server."""
-    self.update_index.Scan()
-    self.install_index.Scan()
-
     self._httpd = HTTPServer(('', self.GetPort()), NebraskaHandler)
     self._port = self._httpd.server_port
     self._httpd.owner = self
@@ -764,14 +787,14 @@ def main(argv):
   logging.basicConfig(filename=opts.log_file if opts.log_file else None,
                       level=logging.DEBUG)
 
-  nebraska = NebraskaServer(
+  logging.info('Starting nebraska ...')
+
+  nebraska = Nebraska(
       update_payloads_address=opts.update_payloads_address,
-      install_payloads_address=(opts.install_payloads_address
-                                if opts.install_payloads_address is not None
-                                else opts.update_payloads_address),
+      install_payloads_address=opts.install_payloads_address,
       update_metadata_dir=opts.update_metadata,
-      install_metadata_dir=opts.install_metadata,
-      port=opts.port)
+      install_metadata_dir=opts.install_metadata)
+  nebraska_server = NebraskaServer(nebraska, port=opts.port)
 
   def handler(signum, _):
     logging.info('Exiting Nebraska with signal %d ...', signum)
@@ -780,13 +803,13 @@ def main(argv):
   signal.signal(signal.SIGINT, handler)
   signal.signal(signal.SIGTERM, handler)
 
-  nebraska.Start()
+  nebraska_server.Start()
 
   if not os.path.exists(opts.runtime_root):
     os.makedirs(opts.runtime_root)
 
   runtime_files = {
-      os.path.join(opts.runtime_root, 'port'): str(nebraska.GetPort()),
+      os.path.join(opts.runtime_root, 'port'): str(nebraska_server.GetPort()),
       os.path.join(opts.runtime_root, 'pid'): str(os.getpid()),
   }
 
@@ -794,8 +817,8 @@ def main(argv):
     with open(k, 'w') as f:
       f.write(v)
 
-  logging.info('Starting nebraska on port %d and pid %d.',
-               nebraska.GetPort(), os.getpid())
+  logging.info('Started nebraska on port %d and pid %d.',
+               nebraska_server.GetPort(), os.getpid())
 
   signal.pause()
 

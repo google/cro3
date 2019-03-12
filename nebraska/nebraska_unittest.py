@@ -12,20 +12,53 @@ import mock
 import unittest
 
 import nebraska
-from unittest_common import NebraskaHandler
 
 _NEBRASKA_PORT = 11235
 _INSTALL_DIR = "test_install_dir"
 _UPDATE_DIR = "test_update_dir"
 _PAYLOAD_ADDRESS = "111.222.212:2357"
 
+class MockNebraskaHandler(nebraska.NebraskaHandler):
+  """Subclass NebraskaHandler to facilitate testing.
+
+  Because of the complexity of the socket handling super class init functions,
+  the easiest way to test NebraskaHandler is to just subclass it and mock
+  whatever we need from its super classes.
+  """
+  # pylint: disable=super-init-not-called
+  def __init__(self):
+    self.headers = mock.MagicMock()
+    self.send_response = mock.MagicMock()
+    self.send_error = mock.MagicMock()
+    self.send_header = mock.MagicMock()
+    self.end_headers = mock.MagicMock()
+    self.rfile = mock.MagicMock()
+    self.wfile = mock.MagicMock()
+    self.server = mock.MagicMock()
+    self.server.owner = nebraska.NebraskaServer(nebraska.Nebraska(
+        _PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS))
+
+
+class NebraskaTest(unittest.TestCase):
+  """Test Nebraska."""
+
+  def testDefaultInstallPayloadsAddress(self):
+    """Tests the default install_payloads_address is correctly set."""
+    update_addr = 'foo/update'
+    install_addr = 'foo/install'
+    # pylint: disable=protected-access
+    n = nebraska.Nebraska(update_addr, install_addr)
+    self.assertEqual(n._install_payloads_address, install_addr)
+
+    n = nebraska.Nebraska(update_addr)
+    self.assertEqual(n._install_payloads_address, update_addr)
 
 class NebraskaHandlerTest(unittest.TestCase):
   """Test NebraskaHandler."""
 
   def testDoPostSuccess(self):
     """Tests do_POST success."""
-    nebraska_handler = NebraskaHandler()
+    nebraska_handler = MockNebraskaHandler()
     test_response = "foobar"
 
     with mock.patch('nebraska.Response') as response_mock:
@@ -41,7 +74,7 @@ class NebraskaHandlerTest(unittest.TestCase):
   def testDoPostInvalidRequest(self):
     """Test do_POST invalid request."""
 
-    nebraska_handler = NebraskaHandler()
+    nebraska_handler = MockNebraskaHandler()
 
     with mock.patch('nebraska.Response') as response_mock:
       response_mock.side_effect = ValueError
@@ -54,7 +87,7 @@ class NebraskaHandlerTest(unittest.TestCase):
   def testDoPostInvalidResponse(self):
     """Tests do_POST invalid response handling."""
 
-    nebraska_handler = NebraskaHandler()
+    nebraska_handler = MockNebraskaHandler()
 
     with mock.patch('nebraska.traceback') as traceback_mock:
       with mock.patch('nebraska.Response') as response_mock:
@@ -70,15 +103,11 @@ class NebraskaServerTest(unittest.TestCase):
 
   def testStart(self):
     """Tests Start."""
-    server = nebraska.NebraskaServer(
-        _PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS, _INSTALL_DIR, _UPDATE_DIR,
-        _NEBRASKA_PORT)
+    nebraska_instance = nebraska.Nebraska(_PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS)
+    server = nebraska.NebraskaServer(nebraska_instance, _NEBRASKA_PORT)
 
     with mock.patch('nebraska.HTTPServer') as server_mock:
       with mock.patch('nebraska.threading.Thread') as thread_mock:
-        server.install_index = mock.MagicMock()
-        server.update_index = mock.MagicMock()
-
         server.Start()
 
         server_mock.assert_called_once_with(
@@ -89,22 +118,19 @@ class NebraskaServerTest(unittest.TestCase):
             mock.call(target=server._httpd.serve_forever),
             mock.call().start()))
 
-        server.install_index.Scan.assert_called_once()
-        server.update_index.Scan.assert_called_once()
-
   def testStop(self):
     """Tests Stop."""
-    nebraska_server = nebraska.NebraskaServer(
-        _PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS, _UPDATE_DIR, _INSTALL_DIR,
-        _NEBRASKA_PORT)
+    nebraska_instance = nebraska.Nebraska(
+        _PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS)
+    server = nebraska.NebraskaServer(nebraska_instance, _NEBRASKA_PORT)
 
     # pylint: disable=protected-access
-    nebraska_server._httpd = mock.MagicMock(name="_httpd")
-    nebraska_server._server_thread = mock.MagicMock(name="_server_thread")
-    nebraska_server.Stop()
+    server._httpd = mock.MagicMock(name="_httpd")
+    server._server_thread = mock.MagicMock(name="_server_thread")
+    server.Stop()
     # pylint: disable=protected-access
-    nebraska_server._httpd.shutdown.assert_called_once_with()
-    nebraska_server._server_thread.join.assert_called_once_with()
+    server._httpd.shutdown.assert_called_once_with()
+    server._server_thread.join.assert_called_once_with()
 
 
 if __name__ == '__main__':
