@@ -18,7 +18,7 @@ _INSTALL_DIR = "test_install_dir"
 _UPDATE_DIR = "test_update_dir"
 _PAYLOAD_ADDRESS = "111.222.212:2357"
 
-class MockNebraskaHandler(nebraska.NebraskaHandler):
+class MockNebraskaHandler(nebraska.NebraskaServer.NebraskaHandler):
   """Subclass NebraskaHandler to facilitate testing.
 
   Because of the complexity of the socket handling super class init functions,
@@ -111,7 +111,7 @@ class NebraskaServerTest(unittest.TestCase):
         server.Start()
 
         server_mock.assert_called_once_with(
-            ('', _NEBRASKA_PORT), nebraska.NebraskaHandler)
+            ('', _NEBRASKA_PORT), nebraska.NebraskaServer.NebraskaHandler)
 
         # pylint: disable=protected-access
         thread_mock.assert_has_calls((

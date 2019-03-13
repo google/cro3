@@ -668,29 +668,6 @@ class Nebraska(object):
                     self._install_payloads_address).GetXMLString()
 
 
-class NebraskaHandler(BaseHTTPRequestHandler):
-  """HTTP request handler for Omaha requests."""
-
-  def do_POST(self):
-    """Responds to XML-formatted Omaha requests."""
-    request_len = int(self.headers.getheader('content-length'))
-    request = self.rfile.read(request_len)
-    logging.debug("Received request: %s", request)
-
-    try:
-      response = self.server.owner.nebraska.GetResponseToRequest(request)
-    except Exception as err:
-      logging.error("Failed to handle request (%s)", str(err))
-      traceback.print_exc()
-      self.send_error(500, "Failed to handle incoming request")
-      return
-
-    self.send_response(200)
-    self.send_header('Content-Type', 'application/xml')
-    self.end_headers()
-    self.wfile.write(response)
-
-
 class NebraskaServer(object):
   """A simple Omaha server instance.
 
@@ -713,9 +690,32 @@ class NebraskaServer(object):
     self._server_thread = None
     self.nebraska = nebraska
 
+  class NebraskaHandler(BaseHTTPRequestHandler):
+    """HTTP request handler for Omaha requests."""
+
+    def do_POST(self):
+      """Responds to XML-formatted Omaha requests."""
+      request_len = int(self.headers.getheader('content-length'))
+      request = self.rfile.read(request_len)
+      logging.debug("Received request: %s", request)
+
+      try:
+        response = self.server.owner.nebraska.GetResponseToRequest(request)
+      except Exception as err:
+        logging.error("Failed to handle request (%s)", str(err))
+        traceback.print_exc()
+        self.send_error(500, "Failed to handle incoming request")
+        return
+
+      self.send_response(200)
+      self.send_header('Content-Type', 'application/xml')
+      self.end_headers()
+      self.wfile.write(response)
+
   def Start(self):
     """Starts a mock Omaha HTTP server."""
-    self._httpd = HTTPServer(('', self.GetPort()), NebraskaHandler)
+    self._httpd = HTTPServer(('', self.GetPort()),
+                             NebraskaServer.NebraskaHandler)
     self._port = self._httpd.server_port
     self._httpd.owner = self
     self._server_thread = threading.Thread(target=self._httpd.serve_forever)
