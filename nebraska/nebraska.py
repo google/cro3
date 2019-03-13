@@ -24,61 +24,6 @@ from datetime import datetime, time
 from xml.etree import ElementTree
 
 
-class XMLResponseTemplates(object):
-  """XML Templates"""
-
-  RESPONSE_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
-<response protocol="3.0" server="nebraska">
-  <daystart elapsed_days="" elapsed_seconds=""/>
-</response>
-"""
-
-  APP_TEMPLATE = """
-  <app appid="" status="">
-  </app>
-"""
-
-  PING_RESPONSE = """
-    <ping status="ok"/>
-  """
-
-  EVENT_RESPONSE = """
-    <event status="ok"/>
-  """
-
-  UPDATE_CHECK_TEMPLATE = """
-    <updatecheck status="ok">
-      <urls>
-      </urls>
-      <manifest version="">
-        <actions>
-          <action event="update" run=""/>
-          <action ChromeOSVersion=""
-                  ChromeVersion="1.0.0.0"
-                  IsDeltaPayload=""
-                  MaxDaysToScatter="14"
-                  MetadataSignatureRsa=""
-                  MetadataSize=""
-                  event="postinstall"/>
-        </actions>
-        <packages>
-          <package fp=""
-                   hash_sha256=""
-                   name=""
-                   required="true"
-                   size=""/>
-        </packages>
-      </manifest>
-    </updatecheck>
-  """
-
-  UPDATE_CHECK_NO_UPDATE = """
-    <updatecheck status="noupdate"/>
-  """
-
-  ERROR_NOT_FOUND = "error-unknownApplication"
-
-
 def VersionCmp(version_a_str, version_b_str):
   """Compare two version strings.
 
@@ -296,6 +241,49 @@ class Response(object):
     self._elapsed_seconds = int((
         curr - datetime.combine(curr.date(), time.min)).total_seconds())
 
+  class XMLResponseTemplates(object):
+    """XML Templates"""
+
+    RESPONSE_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
+      <response protocol="3.0" server="nebraska">
+        <daystart elapsed_days="" elapsed_seconds=""/>
+      </response>"""
+
+    APP_TEMPLATE = """<app appid="" status=""></app>"""
+
+    PING_RESPONSE = """<ping status="ok"/>"""
+
+    EVENT_RESPONSE = """<event status="ok"/>"""
+
+    UPDATE_CHECK_TEMPLATE = """
+      <updatecheck status="ok">
+        <urls>
+        </urls>
+        <manifest version="">
+          <actions>
+            <action event="update" run=""/>
+            <action ChromeOSVersion=""
+                    ChromeVersion="1.0.0.0"
+                    IsDeltaPayload=""
+                    MaxDaysToScatter="14"
+                    MetadataSignatureRsa=""
+                    MetadataSize=""
+                    event="postinstall"/>
+          </actions>
+          <packages>
+            <package fp=""
+                     hash_sha256=""
+                     name=""
+                     required="true"
+                     size=""/>
+          </packages>
+        </manifest>
+      </updatecheck>"""
+
+    UPDATE_CHECK_NO_UPDATE = """<updatecheck status="noupdate"/>"""
+
+    ERROR_NOT_FOUND = "error-unknownApplication"
+
   def GetXMLString(self):
     """Generates a response to a set of client requests.
 
@@ -309,7 +297,7 @@ class Response(object):
     """
     try:
       response_xml = ElementTree.fromstring(
-          XMLResponseTemplates.RESPONSE_TEMPLATE)
+          Response.XMLResponseTemplates.RESPONSE_TEMPLATE)
       response_xml.find("daystart").set("elapsed_days", str(self._elapsed_days))
       response_xml.find(
           "daystart").set("elapsed_seconds", str(self._elapsed_seconds))
@@ -388,20 +376,21 @@ class Response(object):
       Returns:
         An ElementTree Element instance describing an update or install payload.
       """
-      app_response = ElementTree.fromstring(XMLResponseTemplates.APP_TEMPLATE)
+      app_response = ElementTree.fromstring(
+          Response.XMLResponseTemplates.APP_TEMPLATE)
       app_response.set('appid', self._app_request.appid)
 
       if self._app_request.ping:
         app_response.append(
-            ElementTree.fromstring(XMLResponseTemplates.PING_RESPONSE))
+            ElementTree.fromstring(Response.XMLResponseTemplates.PING_RESPONSE))
       if self._app_request.event_type is not None:
-        app_response.append(
-            ElementTree.fromstring(XMLResponseTemplates.EVENT_RESPONSE))
+        app_response.append(ElementTree.fromstring(
+            Response.XMLResponseTemplates.EVENT_RESPONSE))
 
       if self._app_data is not None:
         app_response.set('status', 'ok')
-        app_response.append(
-            ElementTree.fromstring(XMLResponseTemplates.UPDATE_CHECK_TEMPLATE))
+        app_response.append(ElementTree.fromstring(
+            Response.XMLResponseTemplates.UPDATE_CHECK_TEMPLATE))
         urls = app_response.find('./updatecheck/urls')
         urls.append(
             ElementTree.Element('url', attrib={'codebase':
@@ -422,12 +411,13 @@ class Response(object):
         package.set('name', self._app_data.name)
         package.set('size', str(self._app_data.size))
       elif self._err_not_found:
-        app_response.set('status', XMLResponseTemplates.ERROR_NOT_FOUND)
+        app_response.set('status',
+                         Response.XMLResponseTemplates.ERROR_NOT_FOUND)
       elif self._app_request.request_type == \
           self._app_request.RequestType.UPDATE:
         app_response.set('status', "ok")
         app_response.append(ElementTree.fromstring(
-            XMLResponseTemplates.UPDATE_CHECK_NO_UPDATE))
+            Response.XMLResponseTemplates.UPDATE_CHECK_NO_UPDATE))
 
       return app_response
 

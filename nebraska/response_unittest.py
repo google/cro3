@@ -369,7 +369,7 @@ class AppResponseTest(unittest.TestCase):
 
   def testCompileParseInvalidXML(self):
     """Tests Compile handling of invalid XML templates."""
-    with mock.patch('nebraska.XMLResponseTemplates') as template_mock:
+    with mock.patch('nebraska.Response.XMLResponseTemplates') as template_mock:
       with self.assertRaises(ElementTree.ParseError):
 
         template_mock.APP_TEMPLATE = \
@@ -393,7 +393,7 @@ class AppResponseTest(unittest.TestCase):
 
   def testCompileParseMissingURL(self):
     """Tests Compile handling of missing tags."""
-    with mock.patch('nebraska.XMLResponseTemplates') as template_mock:
+    with mock.patch('nebraska.Response.XMLResponseTemplates') as template_mock:
       with self.assertRaises(AttributeError):
 
         template_mock.APP_TEMPLATE = \
@@ -422,7 +422,7 @@ class AppResponseTest(unittest.TestCase):
 
         response.Compile()
 
-    with mock.patch('nebraska.XMLResponseTemplates') as template_mock:
+    with mock.patch('nebraska.Response.XMLResponseTemplates') as template_mock:
       with self.assertRaises(AttributeError):
 
         template_mock.APP_TEMPLATE = \
