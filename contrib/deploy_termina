@@ -15,6 +15,12 @@ CONTRIB_DIR=$(dirname "$(readlink -f "$0")")
 STATEFUL_PARTITION="/mnt/stateful_partition/"
 RUN_PATH="/run/imageloader/cros-termina/99999.0.0"
 TEST_SSH_KEY="${GCLIENT_ROOT}/chromite/ssh_keys/testing_rsa"
+SSH_OPTS=(
+  "-i" "${TEST_SSH_KEY}"
+  "-o" "ConnectTimeout=10"
+  "-o" "StrictHostKeyChecking=no"
+  "-o" "UserKnownHostsFile=/dev/null"
+)
 
 # Define flags.
 DEFINE_string 'board' 'tatl' 'Specify the board to build for.' 'b'
@@ -30,6 +36,24 @@ main() {
 
   # The script will only work inside the chroot.
   assert_inside_chroot
+
+  if [[ -n "${FLAGS_device_ip_addr}" ]]; then
+    # Remove '=' if the user typed -d=<ip> rather than -d <ip>.
+    FLAGS_device_ip_addr=$(echo "${FLAGS_device_ip_addr}" | sed "s/=//g")
+
+    if [[ ${FLAGS_verbose} -eq ${FLAGS_TRUE} ]]; then
+      echo "Detecting device architecture..." >&2
+    fi
+    uname_m=$(ssh "${SSH_OPTS[@]}" "root@${FLAGS_device_ip_addr}" "uname -m")
+    case "${uname_m}" in
+      x86_64) FLAGS_board='tatl' ;;
+      aarch64) FLAGS_board='tael' ;;
+      *) die "Unknown target uname -m ${uname_m}" ;;
+    esac
+    if [[ ${FLAGS_verbose} -eq ${FLAGS_TRUE} ]]; then
+      echo "Using board ${FLAGS_board} based on device architecture ${uname_m}." >&2
+    fi
+  fi
 
   case "${FLAGS_board}" in
     tatl) arch='amd64' ;;
@@ -64,13 +88,10 @@ main() {
     --arch "${arch}"
 
   if [[ -n "${FLAGS_device_ip_addr}" ]]; then
-    # Remove '=' if the user typed -d=<ip> rather than -d <ip>.
-    FLAGS_device_ip_addr=$(echo "${FLAGS_device_ip_addr}" | sed "s/=//g")
-
     if [[ ${FLAGS_verbose} -eq ${FLAGS_TRUE} ]]; then
       echo "Copying image to device:" >&2
     fi
-    rsync -a "${out_dir}" -e "ssh -i ${TEST_SSH_KEY}" \
+    rsync -a "${out_dir}" -e "ssh ${SSH_OPTS[*]}" \
       "root@${FLAGS_device_ip_addr}:${STATEFUL_PARTITION}" \
       || die "Failed to copy to device."
     rm -rf "${out_dir}"
@@ -89,7 +110,7 @@ main() {
     restart vm_cicerone
     restart vm_concierge
 EOF
-    ssh -i "${TEST_SSH_KEY}" "root@${FLAGS_device_ip_addr}" \
+    ssh "${SSH_OPTS[@]}" "root@${FLAGS_device_ip_addr}" \
       "${install_script}" \
       || die "Failed to deploy to device."
   fi
