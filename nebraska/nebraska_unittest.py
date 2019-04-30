@@ -44,8 +44,8 @@ class NebraskaTest(unittest.TestCase):
 
   def testDefaultInstallPayloadsAddress(self):
     """Tests the default install_payloads_address is correctly set."""
-    update_addr = 'foo/update'
-    install_addr = 'foo/install'
+    update_addr = 'foo/update/'
+    install_addr = 'foo/install/'
     # pylint: disable=protected-access
     n = nebraska.Nebraska(update_addr, install_addr)
     self.assertEqual(n._install_payloads_address, install_addr)

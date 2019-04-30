@@ -10,6 +10,7 @@ from __future__ import print_function
 
 # pylint: disable=cros-logging-import
 import argparse
+import base64
 import copy
 import json
 import logging
@@ -355,15 +356,15 @@ class Response(object):
         # that are available, but do not have an update available. Omaha treats
         # the former as an error, whereas the latter case should result in a
         # response containing a "noupdate" tag.
-        self._err_not_found = self._app_data is None and \
-            not update_index.Contains(app_request)
+        self._err_not_found = (self._app_data is None and
+                               not update_index.Contains(self._app_request))
 
       if self._app_data:
         logging.debug("Found matching payload: %s", str(self._app_data))
       elif self._err_not_found:
         logging.debug("No matches for appid %s", self._app_request.appid)
-      elif self._app_request.request_type == \
-          self._app_request.RequestType.UPDATE:
+      elif (self._app_request.request_type ==
+            self._app_request.RequestType.UPDATE):
         logging.debug("No updates available for %s", self._app_request.appid)
 
     def Compile(self):
@@ -413,8 +414,8 @@ class Response(object):
       elif self._err_not_found:
         app_response.set('status',
                          Response.XMLResponseTemplates.ERROR_NOT_FOUND)
-      elif self._app_request.request_type == \
-          self._app_request.RequestType.UPDATE:
+      elif (self._app_request.request_type ==
+            self._app_request.RequestType.UPDATE):
         app_response.set('status', "ok")
         app_response.append(ElementTree.fromstring(
             Response.XMLResponseTemplates.UPDATE_CHECK_NO_UPDATE))
@@ -465,9 +466,18 @@ class AppData(object):
     self.source_version = (
         app_data[self.SOURCE_VERSION_KEY] if self.is_delta else None)
     self.size = app_data[self.SIZE_KEY]
-    self.metadata_signature = app_data[self.METADATA_SIG_KEY]
+    # Sometimes the payload is not signed, hence the matadata signature is null,
+    # but we should pass empty string instead of letting the value be null (the
+    # XML element tree will break).
+    self.metadata_signature = app_data[self.METADATA_SIG_KEY] or ''
     self.metadata_size = app_data[self.METADATA_SIZE_KEY]
-    self.sha256_hex = app_data[self.SHA256_HEX_KEY]
+    # Unfortunately the sha256_hex that paygen generates is actually a base64
+    # sha256 hash of the payload for some unknown historical reason. But the
+    # Omaha response contains the hex value of that hash. So here convert the
+    # value from base64 to hex so nebraska can send the correct version to the
+    # client. See b/131762584.
+    self.sha256_hex = base64.b64decode(
+        app_data[self.SHA256_HEX_KEY]).encode('hex')
     self.url = None # Determined per-request.
 
   def __str__(self):
@@ -642,10 +652,13 @@ class Nebraska(object):
       update_metadata_dir: Update payloads metadata directory.
       install_metadata_dir: Install payloads metadata directory.
     """
-    self._update_payloads_address = update_payloads_address
-    self._install_payloads_address = (install_payloads_address
+    # Attach '/' at the end of the addresses if they don't have any. The update
+    # engine just concatenates the base address with the payload file name and
+    # if there is no '/' the path will be invalid.
+    self._update_payloads_address = os.path.join(update_payloads_address, '')
+    self._install_payloads_address = (os.path.join(install_payloads_address, '')
                                       if install_payloads_address is not None
-                                      else update_payloads_address)
+                                      else self._update_payloads_address)
     self._update_index = AppIndex(update_metadata_dir)
     self._install_index = AppIndex(install_metadata_dir)
 

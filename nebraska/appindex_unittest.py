@@ -31,7 +31,7 @@ class JSONStrings(object):
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "sha256_hex": "0xcafef00d",
+  "sha256_hex": "0xcafef00d==",
   "target_version": "1.0.0",
   "source_version": "null"
 }
@@ -44,7 +44,7 @@ class JSONStrings(object):
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "sha256_hex": "0xcafef00d",
+  "sha256_hex": "0xcafef00d==",
   "target_version": "2.0.0",
   "source_version": "1.0.0"
 }
@@ -57,7 +57,7 @@ class JSONStrings(object):
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "sha256_hex": "0xcafef00d",
+  "sha256_hex": "0xcafef00d==",
   "target_version": "1.0.0",
   "source_version": "null"
 }
@@ -70,7 +70,7 @@ class JSONStrings(object):
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "sha256_hex": "0xcafef00d",
+  "sha256_hex": "0xcafef00d==",
   "target_version": "2.0.0",
   "source_version": "1.0.0"
 }
@@ -83,7 +83,7 @@ class JSONStrings(object):
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "sha256_hex": "0xcafef00d",
+  "sha256_hex": "0xcafef00d==",
   "target_version": "1.0.0",
   "source_version": "null"
 }
@@ -95,7 +95,7 @@ class JSONStrings(object):
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "sha256_hex": "0xcafef00d",
+  "sha256_hex": "0xcafef00d==",
   "target_version": "1.0.0",
   "source_version": "null"
 }
@@ -109,7 +109,7 @@ class JSONStrings(object):
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
-  "sha256_hex": "0xcafef00d",
+  "sha256_hex": "0xcafef00d==",
   "target_version": "1.0.0",
   "source_version": "null"
 }
