@@ -41,13 +41,6 @@ import update_payload
 # to the client regardless of the relative versions of the payload and client.
 FORCED_UPDATE = 'ForcedUpdate'
 
-# Files needed to serve an update.
-UPDATE_FILES = (
-    constants.UPDATE_FILE,
-    constants.STATEFUL_FILE,
-    constants.METADATA_FILE
-)
-
 # Module-local log function.
 def _Log(message, *args):
   return log_util.LogWithTag('UPDATE', message, *args)
@@ -454,10 +447,11 @@ class Autoupdate(build_util.BuildObject):
     if link_dir == target_dir:
       _Log('Cannot symlink into the same directory.')
       return
-    for f in UPDATE_FILES:
-      link = os.path.join(link_dir, f)
-      target = os.path.join(target_dir, f)
-      common_util.SymlinkFile(target, link)
+    for _, _, files in os.walk(target_dir):
+      for target in files:
+        link = os.path.join(link_dir, target)
+        target = os.path.join(target_dir, target)
+        common_util.SymlinkFile(target, link)
 
   def GetUpdateForLabel(self, client_version, label,
                         image_name=constants.TEST_IMAGE_FILE):
