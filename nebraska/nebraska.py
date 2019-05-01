@@ -25,37 +25,6 @@ from datetime import datetime, time
 from xml.etree import ElementTree
 
 
-def VersionCmp(version_a_str, version_b_str):
-  """Compare two version strings.
-
-  Currently we only match on major/minor versions.
-
-  Args:
-    version_a_str: String representing first version number.
-    version_b_str: String representing second version number.
-
-  Returns:
-    < 0 if version_a is less than version_b.
-    > 0 if version_a is greater than version_b.
-    0 if the version numbers are equal.
-
-  Raises:
-    ValueError if either version string is not valid.
-  """
-
-  try:
-    version_a = tuple([int(i) for i in version_a_str.split('.')[0:2]])
-    version_b = tuple([int(i) for i in version_b_str.split('.')[0:2]])
-
-    if version_a[0] != version_b[0]:
-      return version_a[0] - version_b[0]
-
-    return version_a[1] - version_b[1]
-
-  except (IndexError, ValueError):
-    raise ValueError("Not a valid version string")
-
-
 class Request(object):
   """Request consisting of a list of apps to update/install."""
 
@@ -491,9 +460,8 @@ class AppData(object):
     """Returns true iff the app matches a given client request.
 
     An app matches a request if the appid matches the requested appid.
-    Additionally, if the app describes a delta update payload, the request
-    must be able to accept delta payloads, and the source versions must match.
-    If the request is not an update, the versions must match.
+    Additionally, if the app describes a delta update payload, the request must
+    be able to accept delta payloads.
 
     Args:
       request: A request object describing a client request.
@@ -501,33 +469,19 @@ class AppData(object):
     Returns:
       True if the app matches the given request, False otherwise.
     """
-    # TODO(http://crbug.com/914939): We only account for tip/branch versions. We
-    # need to be able to handle full version strings as well as developer builds
-    # that don't have a "real" final version component.
-
     if self.appid != request.appid:
       return False
 
-    try:
-      if request.request_type == request.RequestType.UPDATE:
-        if self.is_delta:
-          if not request.delta_okay:
-            return False
-          if VersionCmp(request.version, self.source_version) != 0:
-            return False
-        return VersionCmp(request.version, self.target_version) < 0
-
-      if request.request_type == request.RequestType.INSTALL:
-        if self.is_delta:
-          return False
-        return VersionCmp(request.version, self.target_version) == 0
-
+    if request.request_type == request.RequestType.UPDATE:
+      if self.is_delta:
+        return request.delta_okay
       else:
-        return False
+        return True
 
-    except ValueError as err:
-      logging.error("Unable to compare version strings (%s)", str(err))
-      return False
+    if request.request_type == request.RequestType.INSTALL:
+      return not self.is_delta
+
+    return False
 
 
 class AppIndex(object):
@@ -535,9 +489,9 @@ class AppIndex(object):
 
   Index of available apps used to generate responses to Omaha requests. The
   index consists of lists of payload information associated with a given appid,
-  since we can have multiple payloads for a given app (different versions,
-  delta/full payloads). The index is built by scanning a given directory for
-  json files that describe the available payloads.
+  since we can have multiple payloads for a given app (delta/full payloads). The
+  index is built by scanning a given directory for json files that describe the
+  available payloads.
   """
 
   def __init__(self, directory):
@@ -580,8 +534,8 @@ class AppIndex(object):
     """Search the index for a given appid.
 
     Searches the index for the payloads matching a client request. Matching is
-    based on appid, target_version, and whether the client is searching for an
-    update and can handle delta payloads.
+    based on appid, and whether the client is searching for an update and can
+    handle delta payloads.
 
     Args:
       request: AppRequest describing the client request.
@@ -597,13 +551,6 @@ class AppIndex(object):
 
     if not matches:
       return None
-
-    # Find the highest version out of the matching payloads.
-    max_version = reduce(
-        lambda a, b: a if VersionCmp(a.target_version, b.target_version) > 0
-        else b, matches).target_version
-
-    matches = [app for app in matches if app.target_version == max_version]
 
     # If the client can handle a delta, prefer to send a delta.
     if request.delta_okay:
