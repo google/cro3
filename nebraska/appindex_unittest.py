@@ -26,7 +26,6 @@ class JSONStrings(object):
 
   app_foo = """{
   "appid": "foo",
-  "name": "foo",
   "is_delta": "false",
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
@@ -39,7 +38,6 @@ class JSONStrings(object):
 
   app_foo_update = """{
   "appid": "foo",
-  "name": "foo",
   "is_delta": "true",
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
@@ -52,7 +50,6 @@ class JSONStrings(object):
 
   app_bar = """{
   "appid": "bar",
-  "name": "bar",
   "is_delta": "false",
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
@@ -65,7 +62,6 @@ class JSONStrings(object):
 
   app_bar_update = """{
   "appid": "bar",
-  "name": "bar",
   "is_delta": "true",
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
@@ -78,7 +74,6 @@ class JSONStrings(object):
 
   app_foobar = """{
   "appid": "foobar",
-  "name": "foobar",
   "is_delta": "false",
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
@@ -91,7 +86,6 @@ class JSONStrings(object):
 
   invalid_app = """{
   "appid": "bar",
-  "name": "bar",
   "size": "9001",
   "metadata_signature": "0xdeadbeef",
   "metadata_size": "42",
@@ -104,7 +98,6 @@ class JSONStrings(object):
   invalid_json = """blah
 {
   "appid": "bar",
-  "name": "bar",
   "is_delta": "false",
   "size": "9001",
   "metadata_signature": "0xdeadbeef",

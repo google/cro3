@@ -35,7 +35,6 @@ an example.
 
 ```
 appid: The appid of the app provided by the payload.
-name: Payload file name.
 target_version: App target version.
 is_delta: True iff the payload is a delta update.
 source_version: The source version if the payload is a delta update.

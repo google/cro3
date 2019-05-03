@@ -520,6 +520,9 @@ class AppIndex(object):
           with open(os.path.join(self._directory, f), 'r') as metafile:
             metadata_str = metafile.read()
             metadata = json.loads(metadata_str)
+            # Get the name from file name itself, assuming the metadata file
+            # ends with '.json'.
+            metadata[AppIndex.AppData.NAME_KEY] = f[:-len('.json')]
             app = AppData(metadata)
 
             if app.appid not in self._index:
