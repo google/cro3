@@ -47,7 +47,7 @@ TEST_SUITES_FILE = 'test_suites.tar.bz2'
 BASE_IMAGE_FILE = 'chromiumos_base_image.tar.xz'
 TEST_IMAGE_FILE = 'chromiumos_test_image.tar.xz'
 RECOVERY_IMAGE_FILE = 'recovery_image.tar.xz'
-SIGNED_IMAGE_FILE = 'chromeos_*mp*.bin'
+SIGNED_RECOVERY_IMAGE_FILE = 'chromeos_*recovery*mp*.bin'
 LIBIOTA_TEST_BINARIES_FILE = 'test_binaries.tar.gz'
 LIBIOTA_BOARD_UTILS_FILE = 'board_utils.tar.gz'
 QUICK_PROVISION_FILE = 'full_dev_part_*.bin.gz'
@@ -655,7 +655,8 @@ _AddCrOSArtifact(artifact_info.BASE_IMAGE, BundledArtifact, IMAGE_FILE,
 _AddCrOSArtifact(artifact_info.RECOVERY_IMAGE, BundledArtifact, IMAGE_FILE,
                  optional_name=RECOVERY_IMAGE_FILE,
                  files_to_extract=[devserver_constants.RECOVERY_IMAGE_FILE])
-_AddCrOSArtifact(artifact_info.SIGNED_IMAGE, SignedArtifact, SIGNED_IMAGE_FILE)
+_AddCrOSArtifact(artifact_info.SIGNED_IMAGE, SignedArtifact,
+                 SIGNED_RECOVERY_IMAGE_FILE)
 _AddCrOSArtifact(artifact_info.DEV_IMAGE, BundledArtifact, IMAGE_FILE,
                  files_to_extract=[devserver_constants.IMAGE_FILE])
 _AddCrOSArtifact(artifact_info.TEST_IMAGE, BundledArtifact, IMAGE_FILE,
