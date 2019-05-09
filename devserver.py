@@ -1690,7 +1690,7 @@ class DevServerRoot(object):
     # Get free disk space.
     stat = os.statvfs(updater.static_dir)
     free_disk = stat.f_bsize * stat.f_bavail / 1000000000
-    apache_client_count = self._get_process_count('apache')
+    apache_client_count = self._get_process_count('bin/apache2? -k start')
     telemetry_test_count = self._get_process_count('python.*telemetry')
     gsutil_count = self._get_process_count('gsutil')
     au_process_count = len(cros_update_progress.GetAllRunningAUProcess())
