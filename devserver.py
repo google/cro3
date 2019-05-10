@@ -1661,10 +1661,10 @@ class DevServerRoot(object):
       # Use Popen instead of check_output since the latter cannot run with old
       # python version (less than 2.7)
       proc = subprocess.Popen(
-          'pgrep -fc "%s"' % process_cmd_pattern,
+          ['pgrep', '-fc', process_cmd_pattern],
           stdout=subprocess.PIPE,
           stderr=subprocess.PIPE,
-          shell=True)
+      )
       cmd_output, cmd_error = proc.communicate()
       if cmd_error:
         _Log('Error happened when getting process count: %s' % cmd_error)
