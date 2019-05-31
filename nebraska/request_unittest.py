@@ -75,7 +75,7 @@ class XMLStrings(object):
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
   <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="true"
        track="stable-channel" board="eve">
-    <event eventtype="3" eventresult="1"></event>
+    <event eventtype="3" eventresult="1" previousversion="1"></event>
   </app>
 </request>
 """
@@ -230,6 +230,7 @@ class RequestTest(unittest.TestCase):
     self.assertTrue(app_requests[0].appid == 'platform')
     self.assertTrue(app_requests[0].event_type == '3')
     self.assertTrue(app_requests[0].event_result == '1')
+    self.assertTrue(app_requests[0].previous_version == '1')
 
 
 if __name__ == '__main__':

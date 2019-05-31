@@ -56,6 +56,7 @@ class Request(object):
   EVENT_TAG = 'event'
   EVENT_TYPE_ATTR = 'eventtype'
   EVENT_RESULT_ATTR = 'eventresult'
+  EVENT_PREVIOUS_VERSION_ATTR = 'previousversion'
 
   class RequestType(object):
     """Simple enumeration for encoding request type."""
@@ -192,6 +193,7 @@ class Request(object):
       self.delta_okay = None
       self.event_type = None
       self.event_result = None
+      self.previous_version = None
 
       self.ParseApp(app)
 
@@ -227,6 +229,7 @@ class Request(object):
           raise NebraskaErrorInvalidRequest('Invalid event request was passed.')
         self.event_type = event.get(Request.EVENT_TYPE_ATTR)
         self.event_result = event.get(Request.EVENT_RESULT_ATTR, 0)
+        self.previous_version = event.get(Request.EVENT_PREVIOUS_VERSION_ATTR)
 
       self.ping = app.find(Request.PING_TAG) is not None
 
