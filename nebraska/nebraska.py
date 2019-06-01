@@ -58,6 +58,19 @@ class Request(object):
   EVENT_RESULT_ATTR = 'eventresult'
   EVENT_PREVIOUS_VERSION_ATTR = 'previousversion'
 
+  # Update events and result codes.
+  EVENT_TYPE_UNKNOWN = 0
+  EVENT_TYPE_DOWNLOAD_COMPLETE = 1
+  EVENT_TYPE_INSTALL_COMPLETE = 2
+  EVENT_TYPE_UPDATE_COMPLETE = 3
+  EVENT_TYPE_UPDATE_DOWNLOAD_STARTED = 13
+  EVENT_TYPE_UPDATE_DOWNLOAD_FINISHED = 14
+
+  EVENT_RESULT_ERROR = 0
+  EVENT_RESULT_SUCCESS = 1
+  EVENT_RESULT_SUCCESS_REBOOT = 2
+  EVENT_RESULT_UPDATE_DEFERRED = 9
+
   class RequestType(object):
     """Simple enumeration for encoding request type."""
     INSTALL = 1 # Request installation of a new app.
