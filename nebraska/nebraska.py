@@ -661,8 +661,11 @@ class Nebraska(object):
     versions, new flags should be added here to add that feature.
   """
 
-  def __init__(self, update_payloads_address, install_payloads_address=None,
-               update_metadata_dir=None, install_metadata_dir=None):
+  def __init__(self,
+               update_payloads_address=None,
+               install_payloads_address=None,
+               update_metadata_dir=None,
+               install_metadata_dir=None):
     """Initializes the Nebraska instance.
 
     Args:
@@ -675,7 +678,7 @@ class Nebraska(object):
     # Attach '/' at the end of the addresses if they don't have any. The update
     # engine just concatenates the base address with the payload file name and
     # if there is no '/' the path will be invalid.
-    upa = os.path.join(update_payloads_address, '')
+    upa = os.path.join(update_payloads_address or '', '')
     ipa = (os.path.join(install_payloads_address, '')
            if install_payloads_address is not None else upa)
     uai = AppIndex(update_metadata_dir)
