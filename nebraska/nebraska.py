@@ -382,6 +382,10 @@ class Response(object):
       self._payloads_address = None
       self._critical_update = False
 
+      # If no update was requested, don't process anything anymore.
+      if properties.no_update:
+        return
+
       if self._app_request.request_type == Request.RequestType.INSTALL:
         self._app_data = properties.install_app_index.Find(self._app_request)
         self._err_not_found = self._app_data is None
@@ -649,6 +653,7 @@ class NebraskaProperties(object):
     self.update_app_index = update_app_index
     self.install_app_index = install_app_index
     self.critical_update = False
+    self.no_update = False
 
 
 class Nebraska(object):
@@ -688,19 +693,22 @@ class Nebraska(object):
 
     self._properties = NebraskaProperties(upa, ipa, uai, iai)
 
-  def GetResponseToRequest(self, request, critical_update=False):
+  def GetResponseToRequest(self, request, critical_update=False,
+                           no_update=False):
     """Returns the response corresponding to a request.
 
     Args:
       request: The Request object representation of the incoming request.
       critical_update: If true, the response will include 'deadline=now' which
           indicates the update is critical.
+      no_update: If true, it will return a noupdate response regardless.
 
     Returns:
       The string representation of the created response.
     """
     properties = copy.copy(self._properties)
     properties.critical_update = critical_update
+    properties.no_update = no_update
     return Response(request, properties).GetXMLString()
 
 

@@ -214,6 +214,22 @@ class AppResponseTest(unittest.TestCase):
     self._properties.update_app_index.Find.assert_called_once_with(app_request)
     self._properties.install_app_index.Find.assert_not_called()
 
+    update_check_tag = response.Compile().findall('updatecheck')[0]
+    self.assertTrue(update_check_tag.attrib['status'] == 'noupdate')
+
+  def testAppResponseNoUpdateFlag(self):
+    """Tests status="noupdate" is included in the response."""
+    app_request = unittest_common.GenerateAppRequest()
+    match = unittest_common.GenerateAppData()
+    self._properties.update_app_index.Find.return_value = match
+    self._properties.update_app_index.Contains.return_value = True
+    self._properties.no_update = True
+
+    response = nebraska.Response.AppResponse(
+        app_request, self._properties).Compile()
+    update_check_tag = response.findall('updatecheck')[0]
+    self.assertTrue(update_check_tag.attrib['status'] == 'noupdate')
+
   def testAppResponsePing(self):
     """Tests AppResponse generation for no-op with a ping request."""
     app_request = unittest_common.GenerateAppRequest(
@@ -256,6 +272,7 @@ class AppResponseTest(unittest.TestCase):
     response = nebraska.Response.AppResponse(app_request, self._properties)
     compiled_response = response.Compile()
 
+    update_check_tag = compiled_response.find('updatecheck')
     url_tag = compiled_response.find('updatecheck/urls/url')
     manifest_tag = compiled_response.find('updatecheck/manifest')
     package_tag = compiled_response.find(
@@ -267,6 +284,9 @@ class AppResponseTest(unittest.TestCase):
     self.assertTrue(manifest_tag is not None)
     self.assertTrue(package_tag is not None)
     self.assertTrue(action_tag is not None)
+
+    self.assertTrue(compiled_response.attrib['status'] == 'ok')
+    self.assertTrue(update_check_tag.attrib['status'] == 'ok')
 
     self.assertTrue(compiled_response.attrib['appid'] == match.appid)
     self.assertTrue(url_tag.attrib['codebase'] == _INSTALL_PAYLOADS_ADDRESS)
