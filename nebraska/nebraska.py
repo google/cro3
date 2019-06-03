@@ -179,6 +179,34 @@ class Request(object):
       """Returns true if an AppRequest is valid, False otherwise."""
       return None not in (self.request_type, self.appid, self.version)
 
+    def MatchAppData(self, app_data):
+      """Returns true iff the app matches a given client request.
+
+      An app matches a request if the appid matches the requested appid.
+      Additionally, if the app describes a delta update payload, the request
+      must be able to accept delta payloads.
+
+      Args:
+        app_data: An AppData object describing a valid app data.
+
+      Returns:
+        True if the request matches the given app, False otherwise.
+      """
+      if self.appid != app_data.appid:
+        return False
+
+      if self.request_type == self.RequestType.UPDATE:
+        if app_data.is_delta:
+          return self.delta_okay
+        else:
+          return True
+
+      if self.request_type == self.RequestType.INSTALL:
+        return not app_data.is_delta
+
+      return False
+
+
 class Response(object):
   """An update/install response.
 
@@ -456,33 +484,6 @@ class AppData(object):
     return "{} v{}: full update/install".format(
         self.appid, self.target_version)
 
-  def MatchRequest(self, request):
-    """Returns true iff the app matches a given client request.
-
-    An app matches a request if the appid matches the requested appid.
-    Additionally, if the app describes a delta update payload, the request must
-    be able to accept delta payloads.
-
-    Args:
-      request: A request object describing a client request.
-
-    Returns:
-      True if the app matches the given request, False otherwise.
-    """
-    if self.appid != request.appid:
-      return False
-
-    if request.request_type == request.RequestType.UPDATE:
-      if self.is_delta:
-        return request.delta_okay
-      else:
-        return True
-
-    if request.request_type == request.RequestType.INSTALL:
-      return not self.is_delta
-
-    return False
-
 
 class AppIndex(object):
   """An index of available app payload information.
@@ -549,8 +550,8 @@ class AppIndex(object):
       client can accept them and if one is available.
     """
     # Find a list of payloads matching the client request.
-    matches = [app for app in self._index.get(request.appid, []) if
-               app.MatchRequest(request)]
+    matches = [app_data for app_data in self._index.get(request.appid, []) if
+               request.MatchAppData(app_data)]
 
     if not matches:
       return None
