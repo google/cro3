@@ -196,7 +196,7 @@ def main(args):
         location = args['locations'].pop(0)
 
         patchwork_match = re.match(
-            r'pw://(([-A-z]+)/)?(\d+)', location
+            r'pw://(([^/]+)/)?(\d+)', location
         )
         linux_match = re.match(
             r'linux://([0-9a-f]+)', location
