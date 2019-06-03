@@ -55,6 +55,10 @@ class Request(object):
     """
     self.request_str = request_str
 
+    self.app_requests = []
+
+    self.ParseRequest()
+
   def ParseRequest(self):
     """Parse an XML request string into a list of app requests.
 
@@ -96,7 +100,6 @@ class Request(object):
 
     is_install = noop_count == 1
 
-    app_requests = []
     for app in app_elements:
       appid = app.get(self.APPID_ATTR)
       version = app.get(self.VERSION_ATTR)
@@ -133,9 +136,7 @@ class Request(object):
         raise NebraskaErrorInvalidRequest(
             'Invalid request: {}'.format(str(app_request)))
 
-      app_requests.append(app_request)
-
-    return app_requests
+      self.app_requests.append(app_request)
 
   class AppRequest(object):
     """An app request.
@@ -304,7 +305,7 @@ class Response(object):
       response_xml.find('daystart').set('elapsed_seconds',
                                         str(self._elapsed_seconds))
 
-      for app_request in self._request.ParseRequest():
+      for app_request in self._request.app_requests:
         logging.debug('Request for appid %s', str(app_request))
         response_xml.append(
             self.AppResponse(app_request, self._properties).Compile())
@@ -635,12 +636,12 @@ class Nebraska(object):
     """Returns the response corresponding to a request.
 
     Args:
-      request: The string representation of the incoming request.
+      request: The Request object representation of the incoming request.
 
     Returns:
       The string representation of the created response.
     """
-    return Response(Request(request), self._properties).GetXMLString()
+    return Response(request, self._properties).GetXMLString()
 
 
 class NebraskaServer(object):
@@ -675,7 +676,8 @@ class NebraskaServer(object):
       logging.debug('Received request: %s', request)
 
       try:
-        response = self.server.owner.nebraska.GetResponseToRequest(request)
+        request_obj = Request(request)
+        response = self.server.owner.nebraska.GetResponseToRequest(request_obj)
       except Exception as err:
         logging.error('Failed to handle request (%s)', str(err))
         traceback.print_exc()

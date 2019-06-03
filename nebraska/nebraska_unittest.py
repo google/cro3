@@ -61,32 +61,31 @@ class NebraskaHandlerTest(unittest.TestCase):
     nebraska_handler = MockNebraskaHandler()
     test_response = "foobar"
 
-    with mock.patch('nebraska.Response') as response_mock:
-      response_instance = response_mock.return_value
-      response_instance.GetXMLString.return_value = test_response
-      nebraska_handler.do_POST()
+    with mock.patch('nebraska.Nebraska.GetResponseToRequest') as response_mock:
+      with mock.patch('nebraska.Request') as _:
+        response_mock.return_value = test_response
+        nebraska_handler.do_POST()
 
-    nebraska_handler.send_response.assert_called_once_with(200)
-    nebraska_handler.send_header.assert_called_once()
-    nebraska_handler.end_headers.assert_called_once()
-    nebraska_handler.wfile.write.assert_called_once_with(test_response)
+        nebraska_handler.send_response.assert_called_once_with(200)
+        nebraska_handler.send_header.assert_called_once()
+        nebraska_handler.end_headers.assert_called_once()
+        nebraska_handler.wfile.write.assert_called_once_with(test_response)
 
   def testDoPostInvalidRequest(self):
     """Test do_POST invalid request."""
-
     nebraska_handler = MockNebraskaHandler()
 
-    with mock.patch('nebraska.Response') as response_mock:
-      response_mock.side_effect = ValueError
+    with mock.patch('nebraska.traceback') as traceback_mock:
+      with mock.patch('nebraska.Request.ParseRequest') as parse_mock:
+        parse_mock.side_effect = nebraska.NebraskaErrorInvalidRequest
+        nebraska_handler.do_POST()
 
-      nebraska_handler.do_POST()
-
-      nebraska_handler.send_error.assert_called_once_with(
-          500, "Failed to handle incoming request")
+        traceback_mock.print_exc.assert_called_once()
+        nebraska_handler.send_error.assert_called_once_with(
+            500, "Failed to handle incoming request")
 
   def testDoPostInvalidResponse(self):
     """Tests do_POST invalid response handling."""
-
     nebraska_handler = MockNebraskaHandler()
 
     with mock.patch('nebraska.traceback') as traceback_mock:
@@ -94,6 +93,7 @@ class NebraskaHandlerTest(unittest.TestCase):
         response_instance = response_mock.return_value
         response_instance.GetXMLString.side_effect = Exception
         nebraska_handler.do_POST()
+
         traceback_mock.print_exc.assert_called_once()
         nebraska_handler.send_error.assert_called_once_with(
             500, "Failed to handle incoming request")

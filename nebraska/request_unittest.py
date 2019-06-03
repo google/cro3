@@ -86,7 +86,7 @@ class XMLStrings(object):
 </request>
 """
 
-  # No appid
+  # No appid.
   INVALID_APP_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
@@ -96,7 +96,7 @@ class XMLStrings(object):
 </request>
 """
 
-  # No version number
+  # No version number.
   INVALID_INSTALL_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
@@ -116,31 +116,26 @@ class RequestTest(unittest.TestCase):
   def testParseRequestInvalidXML(self):
     """Tests ParseRequest handling of invalid XML."""
     with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
-      request = nebraska.Request(XMLStrings.INVALID_XML_REQUEST)
-      request.ParseRequest()
+      nebraska.Request(XMLStrings.INVALID_XML_REQUEST)
 
   def testParseRequestInvalidApp(self):
     """Tests ParseRequest handling of invalid app requests."""
     with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
-      request = nebraska.Request(XMLStrings.INVALID_APP_REQUEST)
-      request.ParseRequest()
+      nebraska.Request(XMLStrings.INVALID_APP_REQUEST)
 
   def testParseRequestInvalidInstall(self):
     """Tests ParseRequest handling of invalid app requests."""
     with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
-      request = nebraska.Request(XMLStrings.INVALID_INSTALL_REQUEST)
-      request.ParseRequest()
+      nebraska.Request(XMLStrings.INVALID_INSTALL_REQUEST)
 
   def testParseRequestInvalidNoop(self):
     """Tests ParseRequest handling of invalid mixed no-op request."""
     with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
-      request = nebraska.Request(XMLStrings.INVALID_NOOP_REQUEST)
-      request.ParseRequest()
+      nebraska.Request(XMLStrings.INVALID_NOOP_REQUEST)
 
   def testParseRequestInstall(self):
     """Tests ParseRequest handling of install requests."""
-    request = nebraska.Request(XMLStrings.INSTALL_REQUEST)
-    app_requests = request.ParseRequest()
+    app_requests = nebraska.Request(XMLStrings.INSTALL_REQUEST).app_requests
 
     self.assertTrue(app_requests[0].request_type ==
                     nebraska.Request.AppRequest.RequestType.NO_OP)
@@ -158,8 +153,7 @@ class RequestTest(unittest.TestCase):
 
   def testParseRequestUpdate(self):
     """Tests ParseRequest handling of update requests."""
-    request = nebraska.Request(XMLStrings.UPDATE_REQUEST)
-    app_requests = request.ParseRequest()
+    app_requests = nebraska.Request(XMLStrings.UPDATE_REQUEST).app_requests
 
     self.assertTrue(app_requests[0].request_type ==
                     nebraska.Request.AppRequest.RequestType.UPDATE)
@@ -182,8 +176,7 @@ class RequestTest(unittest.TestCase):
 
   def testParseRequestEventPing(self):
     """Tests ParseRequest handling of event ping requests."""
-    request = nebraska.Request(XMLStrings.EVENT_REQUEST)
-    app_requests = request.ParseRequest()
+    app_requests = nebraska.Request(XMLStrings.EVENT_REQUEST).app_requests
 
     self.assertTrue(app_requests[0].request_type ==
                     nebraska.Request.AppRequest.RequestType.NO_OP)
