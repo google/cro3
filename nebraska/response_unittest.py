@@ -98,46 +98,46 @@ class ResponseTest(unittest.TestCase):
     """Tests GetXMLString success."""
     app_list = [
         AppDataGenerator(
-            appid="foo",
+            appid='foo',
             is_delta=True,
-            target_version="1.0.0",
-            source_version="0.9.0"),
+            target_version='1.0.0',
+            source_version='0.9.0'),
         AppDataGenerator(
-            appid="bar",
+            appid='bar',
             is_delta=True,
-            target_version="2.0.0",
-            source_version="1.9.0"),
+            target_version='2.0.0',
+            source_version='1.9.0'),
         AppDataGenerator(
-            appid="foobar",
+            appid='foobar',
             is_delta=False,
-            target_version="4.0.0",
+            target_version='4.0.0',
             source_version=None)]
 
     request = mock.MagicMock()
     request.ParseRequest.return_value = [
         nebraska.Request.AppRequest(
             request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-            appid="foo",
+            appid='foo',
             ping=True,
-            event_type="1",
-            event_result="1",
-            version="1.0.0",
+            event_type='1',
+            event_result='1',
+            version='1.0.0',
             delta_okay=False),
         nebraska.Request.AppRequest(
             request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-            appid="bar",
+            appid='bar',
             ping=True,
-            event_type="1",
-            event_result="1",
-            version="2.0.0",
+            event_type='1',
+            event_result='1',
+            version='2.0.0',
             delta_okay=False),
         nebraska.Request.AppRequest(
             request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-            appid="foobar",
+            appid='foobar',
             ping=True,
-            event_type="1",
-            event_result="1",
-            version="4.0.0",
+            event_type='1',
+            event_result='1',
+            version='4.0.0',
             delta_okay=False)]
 
     properties = nebraska.NebraskaProperties(
@@ -174,13 +174,13 @@ class AppResponseTest(unittest.TestCase):
     """Tests AppResponse for an update request with matching payload."""
     app_request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-        appid="foo",
-        version="1.0.0",
+        appid='foo',
+        version='1.0.0',
         delta_okay=False)
     match = AppDataGenerator(
-        appid="foo",
+        appid='foo',
         is_delta=False,
-        target_version="1.0.0",
+        target_version='1.0.0',
         source_version=None)
     self._properties.update_app_index.Find.return_value = match
 
@@ -199,13 +199,13 @@ class AppResponseTest(unittest.TestCase):
     """Tests AppResponse generation for install request with match."""
     app_request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
-        appid="foo",
-        version="1.0.0",
+        appid='foo',
+        version='1.0.0',
         delta_okay=False)
     match = AppDataGenerator(
-        appid="foo",
+        appid='foo',
         is_delta=False,
-        target_version="1.0.0",
+        target_version='1.0.0',
         source_version=None)
     self._properties.install_app_index.Find.return_value = match
 
@@ -224,8 +224,8 @@ class AppResponseTest(unittest.TestCase):
     """Tests AppResponse generation for update request with an unknown appid."""
     app_request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-        appid="foo",
-        version="1.0.0",
+        appid='foo',
+        version='1.0.0',
         delta_okay=False)
     self._properties.update_app_index.Find.return_value = None
     self._properties.update_app_index.Contains.return_value = False
@@ -243,8 +243,8 @@ class AppResponseTest(unittest.TestCase):
     """Tests AppResponse generation for update request with no new versions."""
     app_request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-        appid="foo",
-        version="1.0.0",
+        appid='foo',
+        version='1.0.0',
         delta_okay=False)
     self._properties.update_app_index.Find.return_value = None
     self._properties.update_app_index.Contains.return_value = True
@@ -262,9 +262,9 @@ class AppResponseTest(unittest.TestCase):
     """Tests AppResponse generation for no-op with a ping request."""
     app_request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.NO_OP,
-        appid="foo",
+        appid='foo',
         ping=True,
-        version="1.0.0")
+        version='1.0.0')
     self._properties.update_app_index.Find.return_value = None
     self._properties.update_app_index.Contains.return_value = True
 
@@ -281,10 +281,10 @@ class AppResponseTest(unittest.TestCase):
     """Tests AppResponse generation for requests with events."""
     app_request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.NO_OP,
-        appid="foo",
-        event_type="1",
-        event_result="1",
-        version="1.0.0")
+        appid='foo',
+        event_type='1',
+        event_result='1',
+        version='1.0.0')
     self._properties.update_app_index.Find.return_value = None
     self._properties.update_app_index.Contains.return_value = True
 
@@ -301,13 +301,13 @@ class AppResponseTest(unittest.TestCase):
     """Tests successful compilation of an AppData instance."""
     app_request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
-        appid="foo",
-        version="1.0.0",
+        appid='foo',
+        version='1.0.0',
         delta_okay=False)
     match = AppDataGenerator(
-        appid="foo",
+        appid='foo',
         is_delta=False,
-        target_version="1.0.0",
+        target_version='1.0.0',
         source_version=None)
     self._properties.install_app_index.Find.return_value = match
 
@@ -330,13 +330,13 @@ class AppResponseTest(unittest.TestCase):
     self.assertTrue(url_tag.attrib['codebase'] == _INSTALL_PAYLOADS_ADDRESS)
     self.assertTrue(manifest_tag.attrib['version'] == match.target_version)
     self.assertTrue(package_tag.attrib['hash_sha256'] == match.sha256_hex)
-    self.assertTrue(package_tag.attrib['fp'] == "1.%s" % match.sha256_hex)
+    self.assertTrue(package_tag.attrib['fp'] == '1.%s' % match.sha256_hex)
     self.assertTrue(package_tag.attrib['name'] == match.name)
     self.assertTrue(package_tag.attrib['size'] == match.size)
     self.assertTrue(
         action_tag.attrib['ChromeOSVersion'] == match.target_version)
-    self.assertTrue(action_tag.attrib['IsDeltaPayload'] == "true" if
-                    match.is_delta else "false")
+    self.assertTrue(action_tag.attrib['IsDeltaPayload'] == 'true' if
+                    match.is_delta else 'false')
 
   def testCompileParseInvalidXML(self):
     """Tests Compile handling of invalid XML templates."""
@@ -348,10 +348,10 @@ class AppResponseTest(unittest.TestCase):
 
         app_request = nebraska.Request.AppRequest(
             request_type=nebraska.Request.AppRequest.RequestType.NO_OP,
-            appid="foo",
-            event_type="1",
-            event_result="1",
-            version="1.0.0")
+            appid='foo',
+            event_type='1',
+            event_result='1',
+            version='1.0.0')
         response = nebraska.Response.AppResponse(app_request, self._properties)
         response.Compile()
 
@@ -367,13 +367,13 @@ class AppResponseTest(unittest.TestCase):
 
         app_request = nebraska.Request.AppRequest(
             request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
-            appid="foo",
-            version="1.0.0",
+            appid='foo',
+            version='1.0.0',
             delta_okay=False)
         match = AppDataGenerator(
-            appid="foo",
+            appid='foo',
             is_delta=False,
-            target_version="1.0.0",
+            target_version='1.0.0',
             source_version=None)
         self._properties.install_app_index.Find.return_value = match
 
@@ -390,13 +390,13 @@ class AppResponseTest(unittest.TestCase):
 
         app_request = nebraska.Request.AppRequest(
             request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
-            appid="foo",
-            version="1.0.0",
+            appid='foo',
+            version='1.0.0',
             delta_okay=False)
         match = AppDataGenerator(
-            appid="foo",
+            appid='foo',
             is_delta=False,
-            target_version="1.0.0",
+            target_version='1.0.0',
             source_version=None)
         self._properties.install_app_index.Find.return_value = match
 

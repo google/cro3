@@ -149,12 +149,12 @@ class RequestTest(unittest.TestCase):
     self.assertTrue(app_requests[2].request_type ==
                     nebraska.Request.AppRequest.RequestType.INSTALL)
 
-    self.assertTrue(app_requests[0].appid == "platform")
-    self.assertTrue(app_requests[1].appid == "foo")
-    self.assertTrue(app_requests[2].appid == "bar")
+    self.assertTrue(app_requests[0].appid == 'platform')
+    self.assertTrue(app_requests[1].appid == 'foo')
+    self.assertTrue(app_requests[2].appid == 'bar')
 
-    self.assertTrue(app_requests[1].version == "1.0.0")
-    self.assertTrue(app_requests[2].version == "1.0.0")
+    self.assertTrue(app_requests[1].version == '1.0.0')
+    self.assertTrue(app_requests[2].version == '1.0.0')
 
   def testParseRequestUpdate(self):
     """Tests ParseRequest handling of update requests."""
@@ -168,13 +168,13 @@ class RequestTest(unittest.TestCase):
     self.assertTrue(app_requests[2].request_type ==
                     nebraska.Request.AppRequest.RequestType.UPDATE)
 
-    self.assertTrue(app_requests[0].appid == "platform")
-    self.assertTrue(app_requests[1].appid == "foo")
-    self.assertTrue(app_requests[2].appid == "bar")
+    self.assertTrue(app_requests[0].appid == 'platform')
+    self.assertTrue(app_requests[1].appid == 'foo')
+    self.assertTrue(app_requests[2].appid == 'bar')
 
-    self.assertTrue(app_requests[0].version == "1.0.0")
-    self.assertTrue(app_requests[1].version == "1.0.0")
-    self.assertTrue(app_requests[2].version == "1.0.0")
+    self.assertTrue(app_requests[0].version == '1.0.0')
+    self.assertTrue(app_requests[1].version == '1.0.0')
+    self.assertTrue(app_requests[2].version == '1.0.0')
 
     self.assertTrue(app_requests[0].delta_okay)
     self.assertTrue(app_requests[1].delta_okay)
@@ -187,9 +187,9 @@ class RequestTest(unittest.TestCase):
 
     self.assertTrue(app_requests[0].request_type ==
                     nebraska.Request.AppRequest.RequestType.NO_OP)
-    self.assertTrue(app_requests[0].appid == "platform")
-    self.assertTrue(app_requests[0].event_type == "3")
-    self.assertTrue(app_requests[0].event_result == "1")
+    self.assertTrue(app_requests[0].appid == 'platform')
+    self.assertTrue(app_requests[0].event_type == '3')
+    self.assertTrue(app_requests[0].event_result == '1')
 
 
 if __name__ == '__main__':

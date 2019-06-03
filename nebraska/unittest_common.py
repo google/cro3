@@ -18,7 +18,7 @@ def AppDataGenerator(appid, is_delta, target_version, source_version):
 
 
 def GenAppJson(appid='appid_foo', name='foobar', is_delta='False',
-               target_version="2.0.0", source_version="1.0.0"):
+               target_version='2.0.0', source_version='1.0.0'):
   """Mocks JSON parsing functionality for testing."""
   return {
       nebraska.AppIndex.AppData.APPID_KEY: appid,

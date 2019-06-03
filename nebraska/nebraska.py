@@ -91,8 +91,8 @@ class Request(object):
 
     if noop_count > 1 and noop_count < len(app_elements):
       raise NebraskaErrorInvalidRequest(
-          "Client request omits update_check tag for more than one, but not all"
-          " app requests.")
+          'Client request omits update_check tag for more than one, but not all'
+          ' app requests.')
 
     is_install = noop_count == 1
 
@@ -100,7 +100,7 @@ class Request(object):
     for app in app_elements:
       appid = app.get(self.APPID_ATTR)
       version = app.get(self.VERSION_ATTR)
-      delta_okay = app.get(self.DELTA_OKAY_ATTR) == "true"
+      delta_okay = app.get(self.DELTA_OKAY_ATTR) == 'true'
 
       event = app.find(self.EVENT_TAG)
       if event is not None:
@@ -179,12 +179,12 @@ class Request(object):
     def __str__(self):
       """Returns a string representation of an AppRequest."""
       if self.request_type == self.RequestType.NO_OP:
-        return "{}".format(self.appid)
+        return '{}'.format(self.appid)
       elif self.request_type == self.RequestType.INSTALL:
-        return "install {} v{}".format(self.appid, self.version)
+        return 'install {} v{}'.format(self.appid, self.version)
       elif self.request_type == self.RequestType.UPDATE:
-        return "{} update {} from v{}".format(
-            "delta" if self.delta_okay else "full", self.appid, self.version)
+        return '{} update {} from v{}'.format(
+            'delta' if self.delta_okay else 'full', self.appid, self.version)
 
     def IsValid(self):
       """Returns true if an AppRequest is valid, False otherwise."""
@@ -284,7 +284,7 @@ class Response(object):
 
     UPDATE_CHECK_NO_UPDATE = """<updatecheck status="noupdate"/>"""
 
-    ERROR_NOT_FOUND = "error-unknownApplication"
+    ERROR_NOT_FOUND = 'error-unknownApplication'
 
   def GetXMLString(self):
     """Generates a response to a set of client requests.
@@ -300,12 +300,12 @@ class Response(object):
     try:
       response_xml = ElementTree.fromstring(
           Response.XMLResponseTemplates.RESPONSE_TEMPLATE)
-      response_xml.find("daystart").set("elapsed_days", str(self._elapsed_days))
-      response_xml.find(
-          "daystart").set("elapsed_seconds", str(self._elapsed_seconds))
+      response_xml.find('daystart').set('elapsed_days', str(self._elapsed_days))
+      response_xml.find('daystart').set('elapsed_seconds',
+                                        str(self._elapsed_seconds))
 
       for app_request in self._request.ParseRequest():
-        logging.debug("Request for appid %s", str(app_request))
+        logging.debug('Request for appid %s', str(app_request))
         response_xml.append(
             self.AppResponse(app_request, self._properties).Compile())
 
@@ -353,12 +353,12 @@ class Response(object):
                                    self._app_request))
 
       if self._app_data:
-        logging.debug("Found matching payload: %s", str(self._app_data))
+        logging.debug('Found matching payload: %s', str(self._app_data))
       elif self._err_not_found:
-        logging.debug("No matches for appid %s", self._app_request.appid)
+        logging.debug('No matches for appid %s', self._app_request.appid)
       elif (self._app_request.request_type ==
             self._app_request.RequestType.UPDATE):
-        logging.debug("No updates available for %s", self._app_request.appid)
+        logging.debug('No updates available for %s', self._app_request.appid)
 
     def Compile(self):
       """Compiles an app description into XML format.
@@ -400,7 +400,7 @@ class Response(object):
                        self._app_data.metadata_signature)
         actions[1].set('MetadataSize', str(self._app_data.metadata_size))
         package = manifest.find('./packages/package')
-        package.set('fp', "1.%s" % self._app_data.sha256_hex)
+        package.set('fp', '1.%s' % self._app_data.sha256_hex)
         package.set('hash_sha256', self._app_data.sha256_hex)
         package.set('name', self._app_data.name)
         package.set('size', str(self._app_data.size))
@@ -409,7 +409,7 @@ class Response(object):
                          Response.XMLResponseTemplates.ERROR_NOT_FOUND)
       elif (self._app_request.request_type ==
             self._app_request.RequestType.UPDATE):
-        app_response.set('status', "ok")
+        app_response.set('status', 'ok')
         app_response.append(ElementTree.fromstring(
             Response.XMLResponseTemplates.UPDATE_CHECK_NO_UPDATE))
 
@@ -461,9 +461,9 @@ class AppIndex(object):
               self._index[app.appid] = []
             self._index[app.appid].append(app)
         except (IOError, KeyError, ValueError) as err:
-          logging.error("Failed to read app data from %s (%s)", f, str(err))
+          logging.error('Failed to read app data from %s (%s)', f, str(err))
           raise
-        logging.debug("Found app data: %s", str(app))
+        logging.debug('Found app data: %s', str(app))
 
   def Find(self, request):
     """Search the index for a given appid.
@@ -573,9 +573,9 @@ class AppIndex(object):
 
     def __str__(self):
       if self.is_delta:
-        return "{} v{}: delta update from base v{}".format(
+        return '{} v{}: delta update from base v{}'.format(
             self.appid, self.target_version, self.source_version)
-      return "{} v{}: full update/install".format(
+      return '{} v{}: full update/install'.format(
           self.appid, self.target_version)
 
 
@@ -672,14 +672,14 @@ class NebraskaServer(object):
       """Responds to XML-formatted Omaha requests."""
       request_len = int(self.headers.getheader('content-length'))
       request = self.rfile.read(request_len)
-      logging.debug("Received request: %s", request)
+      logging.debug('Received request: %s', request)
 
       try:
         response = self.server.owner.nebraska.GetResponseToRequest(request)
       except Exception as err:
-        logging.error("Failed to handle request (%s)", str(err))
+        logging.error('Failed to handle request (%s)', str(err))
         traceback.print_exc()
-        self.send_error(500, "Failed to handle incoming request")
+        self.send_error(500, 'Failed to handle incoming request')
         return
 
       self.send_response(200)
@@ -723,7 +723,7 @@ def ParseArguments(argv):
                       help='Payloads metadata directory for install.')
   parser.add_argument('--update-payloads-address', metavar='URL',
                       help='Base payload URI for update payloads',
-                      default="http://127.0.0.1:8080")
+                      default='http://127.0.0.1:8080')
   parser.add_argument('--install-payloads-address', metavar='URL',
                       help='Base payload URI for install payloads. If not '
                       'passed it will default to --update-payloads-address')
@@ -797,5 +797,5 @@ def main(argv):
   return os.EX_OK
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   sys.exit(main(sys.argv))

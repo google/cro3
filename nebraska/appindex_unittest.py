@@ -15,8 +15,8 @@ import nebraska
 from unittest_common import AppDataGenerator
 
 _NEBRASKA_PORT = 11235
-_INSTALL_DIR = "test_install_dir"
-_UPDATE_DIR = "test_update_dir"
+_INSTALL_DIR = 'test_install_dir'
+_UPDATE_DIR = 'test_update_dir'
 
 # pylint: disable=protected-access
 
@@ -127,7 +127,7 @@ class AppIndexTest(unittest.TestCase):
     """Tests Scan on a directory with no JSON files."""
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
-        listdir_mock.return_value = ["foo.bin", "bar.bin", "json"]
+        listdir_mock.return_value = ['foo.bin', 'bar.bin', 'json']
         app_index = nebraska.AppIndex(_INSTALL_DIR)
         app_index.Scan()
         self.assertFalse(app_index._index)
@@ -139,12 +139,12 @@ class AppIndexTest(unittest.TestCase):
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
         listdir_mock.return_value = [
-            "foo_install.json",
-            "foo_update.json",
-            "bar_install.json",
-            "bar_update.json",
-            "foobar.json",
-            "foobar.blah"
+            'foo_install.json',
+            'foo_update.json',
+            'bar_install.json',
+            'bar_update.json',
+            'foobar.json',
+            'foobar.blah'
         ]
 
         open_mock.side_effect = [
@@ -169,18 +169,18 @@ class AppIndexTest(unittest.TestCase):
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
         listdir_mock.return_value = [
-            "foo_install.json",
-            "foo_update.json",
-            "bar_install.json",
-            "bar_update.json",
-            "foobar.json",
-            "foobar.blah"
+            'foo_install.json',
+            'foo_update.json',
+            'bar_install.json',
+            'bar_update.json',
+            'foobar.json',
+            'foobar.blah'
         ]
 
         open_mock.side_effect = [
             mock.mock_open(read_data=JSONStrings.app_foo).return_value,
             mock.mock_open(read_data=JSONStrings.app_foo_update).return_value,
-            IOError("File not found!"),
+            IOError('File not found!'),
             mock.mock_open(read_data=JSONStrings.invalid_json).return_value,
             mock.mock_open(read_data=JSONStrings.app_foobar).return_value
         ]
@@ -194,12 +194,12 @@ class AppIndexTest(unittest.TestCase):
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
         listdir_mock.return_value = [
-            "foo_install.json",
-            "foo_update.json",
-            "bar_install.json",
-            "bar_update.json",
-            "foobar.json",
-            "foobar.blah"
+            'foo_install.json',
+            'foo_update.json',
+            'bar_install.json',
+            'bar_update.json',
+            'foobar.json',
+            'foobar.blah'
         ]
 
         open_mock.side_effect = [
@@ -221,80 +221,80 @@ class AppDataTest(unittest.TestCase):
   def testMatchAppDataInstall(self):
     """Tests MatchAppData for matching install request."""
     app_data = AppDataGenerator(
-        appid="foo",
+        appid='foo',
         is_delta=False,
-        target_version="1.2.0",
+        target_version='1.2.0',
         source_version=None)
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
-        appid="foo",
-        version="1.2.0")
+        appid='foo',
+        version='1.2.0')
     self.assertTrue(request.MatchAppData(app_data))
 
   def testMatchAppDataDelta(self):
     """Tests MatchAppData for matching delta update request."""
     app_data = AppDataGenerator(
-        appid="foo",
+        appid='foo',
         is_delta=True,
-        target_version="1.3.0",
-        source_version="1.2.0")
+        target_version='1.3.0',
+        source_version='1.2.0')
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-        appid="foo",
-        version="1.2.0",
+        appid='foo',
+        version='1.2.0',
         delta_okay=True)
     self.assertTrue(request.MatchAppData(app_data))
 
   def testMatchAppDataUpdate(self):
     """Tests MatchAppData for matching full update request."""
     app_data = AppDataGenerator(
-        appid="foo",
+        appid='foo',
         is_delta=False,
-        target_version="1.3.0",
+        target_version='1.3.0',
         source_version=None)
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-        appid="foo",
-        version="1.2.0",
+        appid='foo',
+        version='1.2.0',
         delta_okay=False)
     self.assertTrue(request.MatchAppData(app_data))
 
   def testMatchAppDataAppidMismatch(self):
     """Tests MatchAppData for appid mismatch."""
     app_data = AppDataGenerator(
-        appid="bar",
+        appid='bar',
         is_delta=False,
-        target_version="1.2.0",
+        target_version='1.2.0',
         source_version=None)
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
-        appid="foo",
-        version="1.2.0")
+        appid='foo',
+        version='1.2.0')
     self.assertFalse(request.MatchAppData(app_data))
 
   def testMatchAppDataDeltaMismatch(self):
     """Tests MatchAppData for delta mismatch."""
     app_data = AppDataGenerator(
-        appid="foo",
+        appid='foo',
         is_delta=True,
-        target_version="2.3.0",
-        source_version="2.2.0")
+        target_version='2.3.0',
+        source_version='2.2.0')
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-        appid="foo",
-        version="2.2.0",
+        appid='foo',
+        version='2.2.0',
         delta_okay=False)
     self.assertFalse(request.MatchAppData(app_data))
 
     app_data = AppDataGenerator(
-        appid="foo",
+        appid='foo',
         is_delta=True,
-        target_version="1.3.0",
-        source_version="1.2.0")
+        target_version='1.3.0',
+        source_version='1.2.0')
     request = nebraska.Request.AppRequest(
         request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
-        appid="foo",
-        version="1.3.0")
+        appid='foo',
+        version='1.3.0')
     self.assertFalse(request.MatchAppData(app_data))
 
 if __name__ == '__main__':

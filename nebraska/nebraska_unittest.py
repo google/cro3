@@ -14,9 +14,9 @@ import unittest
 import nebraska
 
 _NEBRASKA_PORT = 11235
-_INSTALL_DIR = "test_install_dir"
-_UPDATE_DIR = "test_update_dir"
-_PAYLOAD_ADDRESS = "111.222.212:2357"
+_INSTALL_DIR = 'test_install_dir'
+_UPDATE_DIR = 'test_update_dir'
+_PAYLOAD_ADDRESS = '111.222.212:2357'
 
 class MockNebraskaHandler(nebraska.NebraskaServer.NebraskaHandler):
   """Subclass NebraskaHandler to facilitate testing.
