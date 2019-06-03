@@ -37,15 +37,31 @@ class Request(object):
   """Request consisting of a list of apps to update/install."""
 
   APP_TAG = 'app'
-  APPID_ATTR = 'appid'
-  VERSION_ATTR = 'version'
-  DELTA_OKAY_ATTR = 'delta_okay'
-  HW_CLASS_ATTR = 'hardware_class'
+  APP_APPID_ATTR = 'appid'
+  APP_DELTA_OKAY_ATTR = 'delta_okay'
+  # The following app attributes should be the same for all incoming apps if
+  # they exist. 'version' should be repeated in all apps, but other attributes
+  # can be omited in non-platform apps. Or at least they should be present in
+  # one of the apps. For this reason we keep these values in the Request
+  # object itself and not the AppRequest (except for 'version').
+  APP_VERSION_ATTR = 'version'
+  APP_HW_CLASS_ATTR = 'hardware_class'
+  APP_CHANNEL_ATTR = 'track'
+  APP_BOARD_ATTR = 'board'
+
   UPDATE_CHECK_TAG = 'updatecheck'
+
   PING_TAG = 'ping'
+
   EVENT_TAG = 'event'
   EVENT_TYPE_ATTR = 'eventtype'
   EVENT_RESULT_ATTR = 'eventresult'
+
+  class RequestType(object):
+    """Simple enumeration for encoding request type."""
+    INSTALL = 1 # Request installation of a new app.
+    UPDATE = 2 # Request update for an existing app.
+    EVENT = 3 # Just an event request.
 
   def __init__(self, request_str):
     """Initializes a request instance.
@@ -54,6 +70,12 @@ class Request(object):
       request_str: XML-formatted request string.
     """
     self.request_str = request_str
+
+    self.version = None
+    self.hardware_class = None
+    self.track = None
+    self.board = None
+    self.request_type = None
 
     self.app_requests = []
 
@@ -82,61 +104,64 @@ class Request(object):
           'Request string is not valid XML: {}'.format(str(err)))
 
     # TODO(http://crbug.com/914936): It would be better to specifically check
-    # the platform app. An install is signalled by omitting the update check
-    # for the platform app, which can be found based on the presense of a
-    # hardware_class tag, which is absent for DLC appids. UE does not currently
-    # omit hardware_class for DLCs, so we assume that if we have one appid for
-    # which the update_check tag is omitted, it is the platform app and this is
-    # an install request. This assumption should be fine since we never mix
-    # updates with requests that do not include an update_check tag.
+    # the platform app. An install is signalled by omitting the update_check for
+    # the platform app, so we assume that if we have one appid for which the
+    # update_check tag is omitted, it is the platform app and this is an install
+    # request. This assumption should be fine since we never mix updates with
+    # requests that do not include an update_check tag.
     app_elements = request_root.findall(self.APP_TAG)
-    noop_count = len(
-        [x for x in app_elements if x.find(self.UPDATE_CHECK_TAG) is None])
-
-    if noop_count > 1 and noop_count < len(app_elements):
+    update_check_count = len(
+        [x for x in app_elements if x.find(self.UPDATE_CHECK_TAG) is not None])
+    if update_check_count == 0:
+      self.request_type = Request.RequestType.EVENT
+    elif update_check_count == len(app_elements) - 1:
+      self.request_type = Request.RequestType.INSTALL
+    elif update_check_count == len(app_elements):
+      self.request_type = Request.RequestType.UPDATE
+    else:
       raise NebraskaErrorInvalidRequest(
           'Client request omits update_check tag for more than one, but not all'
           ' app requests.')
 
-    is_install = noop_count == 1
-
     for app in app_elements:
-      appid = app.get(self.APPID_ATTR)
-      version = app.get(self.VERSION_ATTR)
-      delta_okay = app.get(self.DELTA_OKAY_ATTR) == 'true'
-
-      event = app.find(self.EVENT_TAG)
-      if event is not None:
-        event_type = event.get(self.EVENT_TYPE_ATTR)
-        event_result = event.get(self.EVENT_RESULT_ATTR, 0)
-      else:
-        event_type = None
-        event_result = None
-
-      ping = app.find(self.PING_TAG) is not None
-
-      if app.find(self.UPDATE_CHECK_TAG) is not None:
-        if is_install:
-          request_type = Request.AppRequest.RequestType.INSTALL
-        else:
-          request_type = Request.AppRequest.RequestType.UPDATE
-      else:
-        request_type = Request.AppRequest.RequestType.NO_OP
-
-      app_request = Request.AppRequest(
-          request_type=request_type,
-          appid=appid,
-          ping=ping,
-          version=version,
-          delta_okay=delta_okay,
-          event_type=event_type,
-          event_result=event_result)
-
-      if not app_request.IsValid():
-        raise NebraskaErrorInvalidRequest(
-            'Invalid request: {}'.format(str(app_request)))
-
+      app_request = Request.AppRequest(app, self.request_type)
       self.app_requests.append(app_request)
+
+    def _CheckAttributesAndReturnIt(attribute, in_all=False):
+      """Checks the attribute integrity among all apps and return its value.
+
+      The assumption is that the value of the attribute is the same for all apps
+      if existed. It can optionally be in one or more apps, but they are all
+      equal.
+
+      Args:
+        attribute: An attribute of the app tag.
+        in_all: If true, the attribute should exist among all apps.
+
+      Returns:
+        The value of the attribute (which is same among all app tags).
+      """
+      all_attrs = [getattr(x, attribute) for x in self.app_requests]
+      if in_all and None in all_attrs:
+        raise NebraskaErrorInvalidRequest(
+            'All apps should have "{}" attribute.'.format(attribute))
+
+      # Filter out the None elements into a set.
+      unique_attrs = set(filter(None, all_attrs))
+      if len(unique_attrs) == 0:
+        raise NebraskaErrorInvalidRequest('"{}" attribute should appear in at '
+                                          'least one app.'.format(attribute))
+      if len(unique_attrs) > 1:
+        raise NebraskaErrorInvalidRequest(
+            'Attribute "{}" is not the same in all app tags.'.format(attribute))
+      return unique_attrs.pop()
+
+    self.version = _CheckAttributesAndReturnIt(self.APP_VERSION_ATTR,
+                                               in_all=True)
+    self.hardware_class = _CheckAttributesAndReturnIt(self.APP_HW_CLASS_ATTR)
+    self.track = _CheckAttributesAndReturnIt(self.APP_CHANNEL_ATTR)
+    self.board = _CheckAttributesAndReturnIt(self.APP_BOARD_ATTR)
+
 
   class AppRequest(object):
     """An app request.
@@ -147,49 +172,66 @@ class Request(object):
     An app request can also send pings and event result information.
     """
 
-    class RequestType(object):
-      """Simple enumeration for encoding request type."""
-      INSTALL = 1 # Request installation of a new app.
-      UPDATE = 2 # Request update for an existing app.
-      NO_OP = 3 # Request does not require a payload response.
-
-    def __init__(self, request_type, appid, ping=False, version=None,
-                 delta_okay=None, event_type=None, event_result=None):
+    def __init__(self, app, request_type):
       """Initializes a Request.
 
       Args:
-        request_type: install, update, or no-op.
-        appid: The requested appid.
-        ping: True if the server should respond to a ping.
-        version: Current Chrome OS version.
-        delta_okay: True if an update request can accept a delta update.
-        event_type: Type of event.
-        event_result: Event result.
+        app: The request app XML element.
+        request_type: install, update, or event.
 
         More on event pings:
         https://github.com/google/omaha/blob/master/doc/ServerProtocolV3.md
       """
       self.request_type = request_type
-      self.appid = appid
-      self.ping = ping
-      self.version = version
-      self.delta_okay = delta_okay
-      self.event_type = event_type
-      self.event_result = event_result
+      self.appid = None
+      self.version = None
+      self.hardware_class = None
+      self.track = None
+      self.board = None
+      self.ping = None
+      self.delta_okay = None
+      self.event_type = None
+      self.event_result = None
+
+      self.ParseApp(app)
 
     def __str__(self):
       """Returns a string representation of an AppRequest."""
-      if self.request_type == self.RequestType.NO_OP:
+      if self.request_type == Request.RequestType.EVENT:
         return '{}'.format(self.appid)
-      elif self.request_type == self.RequestType.INSTALL:
+      elif self.request_type == Request.RequestType.INSTALL:
         return 'install {} v{}'.format(self.appid, self.version)
-      elif self.request_type == self.RequestType.UPDATE:
+      elif self.request_type == Request.RequestType.UPDATE:
         return '{} update {} from v{}'.format(
             'delta' if self.delta_okay else 'full', self.appid, self.version)
 
-    def IsValid(self):
-      """Returns true if an AppRequest is valid, False otherwise."""
-      return None not in (self.request_type, self.appid, self.version)
+    def ParseApp(self, app):
+      """Parses the app XML element and populates the self object.
+
+      Args:
+        app: The request app XML element.
+
+      Raises NebraskaErrorInvalidRequest if the input request string is in
+          invalid format.
+      """
+      self.appid = app.get(Request.APP_APPID_ATTR)
+      self.version = app.get(Request.APP_VERSION_ATTR)
+      self.hardware_class = app.get(Request.APP_HW_CLASS_ATTR)
+      self.track = app.get(Request.APP_CHANNEL_ATTR)
+      self.board = app.get(Request.APP_BOARD_ATTR)
+      self.delta_okay = app.get(Request.APP_DELTA_OKAY_ATTR) == 'true'
+
+      event = app.find(Request.EVENT_TAG)
+      if event is not None:
+        if self.request_type != Request.RequestType.EVENT:
+          raise NebraskaErrorInvalidRequest('Invalid event request was passed.')
+        self.event_type = event.get(Request.EVENT_TYPE_ATTR)
+        self.event_result = event.get(Request.EVENT_RESULT_ATTR, 0)
+
+      self.ping = app.find(Request.PING_TAG) is not None
+
+      if None in (self.request_type, self.appid, self.version):
+        raise NebraskaErrorInvalidRequest('Invalid app request.')
 
     def MatchAppData(self, app_data):
       """Returns true iff the app matches a given client request.
@@ -207,13 +249,13 @@ class Request(object):
       if self.appid != app_data.appid:
         return False
 
-      if self.request_type == self.RequestType.UPDATE:
+      if self.request_type == Request.RequestType.UPDATE:
         if app_data.is_delta:
           return self.delta_okay
         else:
           return True
 
-      if self.request_type == self.RequestType.INSTALL:
+      if self.request_type == Request.RequestType.INSTALL:
         return not app_data.is_delta
 
       return False
@@ -336,13 +378,11 @@ class Response(object):
       self._err_not_found = False
       self._payloads_address = None
 
-      if (self._app_request.request_type ==
-          self._app_request.RequestType.INSTALL):
+      if self._app_request.request_type == Request.RequestType.INSTALL:
         self._app_data = properties.install_app_index.Find(self._app_request)
         self._err_not_found = self._app_data is None
         self._payloads_address = properties.install_payloads_address
-      elif (self._app_request.request_type ==
-            self._app_request.RequestType.UPDATE):
+      elif self._app_request.request_type == Request.RequestType.UPDATE:
         self._app_data = properties.update_app_index.Find(self._app_request)
         self._payloads_address = properties.update_payloads_address
         # This differentiates between apps that are not in the index and apps
@@ -357,8 +397,7 @@ class Response(object):
         logging.debug('Found matching payload: %s', str(self._app_data))
       elif self._err_not_found:
         logging.debug('No matches for appid %s', self._app_request.appid)
-      elif (self._app_request.request_type ==
-            self._app_request.RequestType.UPDATE):
+      elif self._app_request.request_type == Request.RequestType.UPDATE:
         logging.debug('No updates available for %s', self._app_request.appid)
 
     def Compile(self):
@@ -408,8 +447,7 @@ class Response(object):
       elif self._err_not_found:
         app_response.set('status',
                          Response.XMLResponseTemplates.ERROR_NOT_FOUND)
-      elif (self._app_request.request_type ==
-            self._app_request.RequestType.UPDATE):
+      elif self._app_request.request_type == Request.RequestType.UPDATE:
         app_response.set('status', 'ok')
         app_response.append(ElementTree.fromstring(
             Response.XMLResponseTemplates.UPDATE_CHECK_NO_UPDATE))

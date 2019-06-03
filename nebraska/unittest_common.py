@@ -8,6 +8,8 @@
 
 from __future__ import print_function
 
+from xml.etree import ElementTree
+
 import nebraska
 
 def AppDataGenerator(appid, is_delta, target_version, source_version):
@@ -38,3 +40,30 @@ def GenAppJson(appid='appid_foo', name='foobar', is_delta='False',
       nebraska.AppIndex.AppData.SHA256_HEX_KEY: \
           '886fd274745b4fa8d1f253cff11242fac07a29522b1bb9e028ab1480353d3160'
   }
+
+def GenerateAppRequest(request_type=nebraska.Request.RequestType.UPDATE,
+                       appid='foo', version='1.2.0', delta_okay=False,
+                       event=False, event_type='1', event_result='1',
+                       update_check=True, ping=False):
+  APP_TEMPLATE = """<app appid="" version="" delta_okay=""
+hardware_class="foo-hardware" track="foo-channel" board="foo-board"> </app>"""
+  PING_TEMPLATE = """<ping active="1" a="1" r="1"></ping>"""
+  UPDATE_CHECK_TEMPLATE = """<updatecheck></updatecheck>"""
+  EVENT_TEMPLATE = """<event eventtype="3" eventresult="1"></event>"""
+
+  app = ElementTree.fromstring(APP_TEMPLATE)
+  app.set('appid', appid)
+  app.set('version', version)
+  app.set('delta_okay', 'true' if delta_okay else 'false')
+
+  if ping:
+    app.append(ElementTree.fromstring(PING_TEMPLATE))
+  if update_check:
+    app.append(ElementTree.fromstring(UPDATE_CHECK_TEMPLATE))
+  if event:
+    event_tag = ElementTree.fromstring(EVENT_TEMPLATE)
+    event_tag.set('eventtype', event_type)
+    event_tag.set('eventresult', event_result)
+    app.append(event_tag)
+
+  return nebraska.Request.AppRequest(app, request_type)

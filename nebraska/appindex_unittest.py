@@ -13,6 +13,7 @@ import unittest
 
 import nebraska
 from unittest_common import AppDataGenerator
+import unittest_common
 
 _NEBRASKA_PORT = 11235
 _INSTALL_DIR = 'test_install_dir'
@@ -225,10 +226,8 @@ class AppDataTest(unittest.TestCase):
         is_delta=False,
         target_version='1.2.0',
         source_version=None)
-    request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
-        appid='foo',
-        version='1.2.0')
+    request = unittest_common.GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.INSTALL)
     self.assertTrue(request.MatchAppData(app_data))
 
   def testMatchAppDataDelta(self):
@@ -238,11 +237,7 @@ class AppDataTest(unittest.TestCase):
         is_delta=True,
         target_version='1.3.0',
         source_version='1.2.0')
-    request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-        appid='foo',
-        version='1.2.0',
-        delta_okay=True)
+    request = unittest_common.GenerateAppRequest(delta_okay=True)
     self.assertTrue(request.MatchAppData(app_data))
 
   def testMatchAppDataUpdate(self):
@@ -252,11 +247,7 @@ class AppDataTest(unittest.TestCase):
         is_delta=False,
         target_version='1.3.0',
         source_version=None)
-    request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-        appid='foo',
-        version='1.2.0',
-        delta_okay=False)
+    request = unittest_common.GenerateAppRequest()
     self.assertTrue(request.MatchAppData(app_data))
 
   def testMatchAppDataAppidMismatch(self):
@@ -266,10 +257,8 @@ class AppDataTest(unittest.TestCase):
         is_delta=False,
         target_version='1.2.0',
         source_version=None)
-    request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
-        appid='foo',
-        version='1.2.0')
+    request = unittest_common.GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.INSTALL)
     self.assertFalse(request.MatchAppData(app_data))
 
   def testMatchAppDataDeltaMismatch(self):
@@ -278,12 +267,8 @@ class AppDataTest(unittest.TestCase):
         appid='foo',
         is_delta=True,
         target_version='2.3.0',
-        source_version='2.2.0')
-    request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
-        appid='foo',
-        version='2.2.0',
-        delta_okay=False)
+        source_version='1.2.0')
+    request = unittest_common.GenerateAppRequest()
     self.assertFalse(request.MatchAppData(app_data))
 
     app_data = AppDataGenerator(
@@ -291,10 +276,8 @@ class AppDataTest(unittest.TestCase):
         is_delta=True,
         target_version='1.3.0',
         source_version='1.2.0')
-    request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
-        appid='foo',
-        version='1.3.0')
+    request = unittest_common.GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.INSTALL)
     self.assertFalse(request.MatchAppData(app_data))
 
 if __name__ == '__main__':

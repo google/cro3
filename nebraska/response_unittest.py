@@ -15,6 +15,7 @@ from xml.etree import ElementTree
 
 import nebraska
 from unittest_common import AppDataGenerator
+import unittest_common
 
 # pylint: disable=protected-access
 
@@ -115,24 +116,24 @@ class ResponseTest(unittest.TestCase):
 
     request = mock.MagicMock()
     request.ParseRequest.return_value = [
-        nebraska.Request.AppRequest(
-            request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+        unittest_common.GenerateAppRequest(
+            request_type=nebraska.Request.RequestType.UPDATE,
             appid='foo',
             ping=True,
             event_type='1',
             event_result='1',
             version='1.0.0',
             delta_okay=False),
-        nebraska.Request.AppRequest(
-            request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+        unittest_common.GenerateAppRequest(
+            request_type=nebraska.Request.RequestType.UPDATE,
             appid='bar',
             ping=True,
             event_type='1',
             event_result='1',
             version='2.0.0',
             delta_okay=False),
-        nebraska.Request.AppRequest(
-            request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+        unittest_common.GenerateAppRequest(
+            request_type=nebraska.Request.RequestType.UPDATE,
             appid='foobar',
             ping=True,
             event_type='1',
@@ -172,8 +173,8 @@ class AppResponseTest(unittest.TestCase):
 
   def testAppResponseUpdate(self):
     """Tests AppResponse for an update request with matching payload."""
-    app_request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+    app_request = unittest_common.GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.UPDATE,
         appid='foo',
         version='1.0.0',
         delta_okay=False)
@@ -197,8 +198,8 @@ class AppResponseTest(unittest.TestCase):
 
   def testAppResponseInstall(self):
     """Tests AppResponse generation for install request with match."""
-    app_request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
+    app_request = unittest_common.GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.INSTALL,
         appid='foo',
         version='1.0.0',
         delta_okay=False)
@@ -222,8 +223,8 @@ class AppResponseTest(unittest.TestCase):
 
   def testAppResponseNoMatch(self):
     """Tests AppResponse generation for update request with an unknown appid."""
-    app_request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+    app_request = unittest_common.GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.UPDATE,
         appid='foo',
         version='1.0.0',
         delta_okay=False)
@@ -241,8 +242,8 @@ class AppResponseTest(unittest.TestCase):
 
   def testAppResponseNoUpdate(self):
     """Tests AppResponse generation for update request with no new versions."""
-    app_request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.UPDATE,
+    app_request = unittest_common.GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.UPDATE,
         appid='foo',
         version='1.0.0',
         delta_okay=False)
@@ -260,8 +261,8 @@ class AppResponseTest(unittest.TestCase):
 
   def testAppResponsePing(self):
     """Tests AppResponse generation for no-op with a ping request."""
-    app_request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.NO_OP,
+    app_request = unittest_common.GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.EVENT,
         appid='foo',
         ping=True,
         version='1.0.0')
@@ -279,8 +280,8 @@ class AppResponseTest(unittest.TestCase):
 
   def testAppResponseEvent(self):
     """Tests AppResponse generation for requests with events."""
-    app_request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.NO_OP,
+    app_request = unittest_common.GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.EVENT,
         appid='foo',
         event_type='1',
         event_result='1',
@@ -299,8 +300,8 @@ class AppResponseTest(unittest.TestCase):
 
   def testCompileSuccess(self):
     """Tests successful compilation of an AppData instance."""
-    app_request = nebraska.Request.AppRequest(
-        request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
+    app_request = unittest_common.GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.INSTALL,
         appid='foo',
         version='1.0.0',
         delta_okay=False)
@@ -346,8 +347,8 @@ class AppResponseTest(unittest.TestCase):
         template_mock.APP_TEMPLATE = \
             XMLResponseTemplates.APP_TEMPLATE_INVALID
 
-        app_request = nebraska.Request.AppRequest(
-            request_type=nebraska.Request.AppRequest.RequestType.NO_OP,
+        app_request = unittest_common.GenerateAppRequest(
+            request_type=nebraska.Request.RequestType.EVENT,
             appid='foo',
             event_type='1',
             event_result='1',
@@ -365,8 +366,8 @@ class AppResponseTest(unittest.TestCase):
         template_mock.UPDATE_CHECK_TEMPLATE = \
             XMLResponseTemplates.UPDATE_CHECK_TEMPLATE_NO_URL
 
-        app_request = nebraska.Request.AppRequest(
-            request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
+        app_request = unittest_common.GenerateAppRequest(
+            request_type=nebraska.Request.RequestType.INSTALL,
             appid='foo',
             version='1.0.0',
             delta_okay=False)
@@ -388,8 +389,8 @@ class AppResponseTest(unittest.TestCase):
         template_mock.UPDATE_CHECK_TEMPLATE = \
             XMLResponseTemplates.UPDATE_CHECK_TEMPLATE_NO_PACKAGE
 
-        app_request = nebraska.Request.AppRequest(
-            request_type=nebraska.Request.AppRequest.RequestType.INSTALL,
+        app_request = unittest_common.GenerateAppRequest(
+            request_type=nebraska.Request.RequestType.INSTALL,
             appid='foo',
             version='1.0.0',
             delta_okay=False)

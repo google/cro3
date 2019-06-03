@@ -19,7 +19,8 @@ class XMLStrings(object):
   INSTALL_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="false">
+  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="false"
+       track="stable-channel" board="eve">
     <ping active="1" a="1" r="1"></ping>
   </app>
   <app appid="foo" version="1.0.0" delta_okay="false">
@@ -36,7 +37,8 @@ class XMLStrings(object):
   UPDATE_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="true">
+  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="true"
+       track="stable-channel" board="eve">
     <ping active="1" a="1" r="1"></ping>
     <updatecheck targetversionprefix=""></updatecheck>
   </app>
@@ -54,7 +56,8 @@ class XMLStrings(object):
   INVALID_NOOP_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="true">
+  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="true"
+       track="stable-channel" board="eve">
     <ping active="1" a="1" r="1"></ping>
   </app>
   <app appid="foo" version="1.0.0" delta_okay="true">
@@ -70,7 +73,8 @@ class XMLStrings(object):
   EVENT_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" hardware_class="c">
+  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="true"
+       track="stable-channel" board="eve">
     <event eventtype="3" eventresult="1"></event>
   </app>
 </request>
@@ -80,7 +84,8 @@ class XMLStrings(object):
 <?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="foo" version="1.0.0" delta_okay="false">
+  <app appid="foo" version="1.0.0" delta_okay="false" track="stable-channel"
+       board="eve">
     <ping active="1" a="1" r="1"></ping>
   </app>
 </request>
@@ -90,7 +95,8 @@ class XMLStrings(object):
   INVALID_APP_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app version="1.0.0" hardware_class="caroline" delta_okay="true">
+  <app version="1.0.0" hardware_class="caroline" delta_okay="true"
+       track="stable-channel" board="eve">
     <ping active="1" a="1" r="1"></ping>
   </app>
 </request>
@@ -100,10 +106,40 @@ class XMLStrings(object):
   INVALID_INSTALL_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="false">
+  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="false"
+       track="stable-channel" board="eve">
     <ping active="1" a="1" r="1"></ping>
   </app>
   <app appid="foo" delta_okay="false">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+</request>
+"""
+
+  # Missing all hardware_class.
+  MISSING_REQUIRED_ATTR_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" delta_okay="false">
+    <ping active="1" a="1" r="1"></ping>
+  </app>
+  <app appid="foo" version="1.0.0" delta_okay="false">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+</request>
+"""
+
+  # Mismatched versions.
+  MISMATCHED_VERSION_ATTR_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="false"
+       track="stable-channel" board="eve">
+    <ping active="1" a="1" r="1"></ping>
+  </app>
+  <app appid="foo" version="2.0.0" delta_okay="false">
     <ping active="1" a="1" r="1"></ping>
     <updatecheck targetversionprefix=""></updatecheck>
   </app>
@@ -133,21 +169,32 @@ class RequestTest(unittest.TestCase):
     with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
       nebraska.Request(XMLStrings.INVALID_NOOP_REQUEST)
 
+  def testParseRequestMissingAtLeastOneRequiredAttr(self):
+    """Tests ParseRequest handling of missing required attributes in request."""
+    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
+      nebraska.Request(XMLStrings.MISSING_REQUIRED_ATTR_REQUEST)
+
+  def testParseRequestMismatchedVersion(self):
+    """Tests ParseRequest handling of mismatched version numbers."""
+    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
+      nebraska.Request(XMLStrings.MISMATCHED_VERSION_ATTR_REQUEST)
+
   def testParseRequestInstall(self):
     """Tests ParseRequest handling of install requests."""
     app_requests = nebraska.Request(XMLStrings.INSTALL_REQUEST).app_requests
 
     self.assertTrue(app_requests[0].request_type ==
-                    nebraska.Request.AppRequest.RequestType.NO_OP)
+                    nebraska.Request.RequestType.INSTALL)
     self.assertTrue(app_requests[1].request_type ==
-                    nebraska.Request.AppRequest.RequestType.INSTALL)
+                    nebraska.Request.RequestType.INSTALL)
     self.assertTrue(app_requests[2].request_type ==
-                    nebraska.Request.AppRequest.RequestType.INSTALL)
+                    nebraska.Request.RequestType.INSTALL)
 
     self.assertTrue(app_requests[0].appid == 'platform')
     self.assertTrue(app_requests[1].appid == 'foo')
     self.assertTrue(app_requests[2].appid == 'bar')
 
+    self.assertTrue(app_requests[0].version == '1.0.0')
     self.assertTrue(app_requests[1].version == '1.0.0')
     self.assertTrue(app_requests[2].version == '1.0.0')
 
@@ -156,11 +203,11 @@ class RequestTest(unittest.TestCase):
     app_requests = nebraska.Request(XMLStrings.UPDATE_REQUEST).app_requests
 
     self.assertTrue(app_requests[0].request_type ==
-                    nebraska.Request.AppRequest.RequestType.UPDATE)
+                    nebraska.Request.RequestType.UPDATE)
     self.assertTrue(app_requests[1].request_type ==
-                    nebraska.Request.AppRequest.RequestType.UPDATE)
+                    nebraska.Request.RequestType.UPDATE)
     self.assertTrue(app_requests[2].request_type ==
-                    nebraska.Request.AppRequest.RequestType.UPDATE)
+                    nebraska.Request.RequestType.UPDATE)
 
     self.assertTrue(app_requests[0].appid == 'platform')
     self.assertTrue(app_requests[1].appid == 'foo')
@@ -179,7 +226,7 @@ class RequestTest(unittest.TestCase):
     app_requests = nebraska.Request(XMLStrings.EVENT_REQUEST).app_requests
 
     self.assertTrue(app_requests[0].request_type ==
-                    nebraska.Request.AppRequest.RequestType.NO_OP)
+                    nebraska.Request.RequestType.EVENT)
     self.assertTrue(app_requests[0].appid == 'platform')
     self.assertTrue(app_requests[0].event_type == '3')
     self.assertTrue(app_requests[0].event_result == '1')
