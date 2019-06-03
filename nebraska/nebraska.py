@@ -377,6 +377,7 @@ class Response(object):
       self._app_data = None
       self._err_not_found = False
       self._payloads_address = None
+      self._critical_update = False
 
       if self._app_request.request_type == Request.RequestType.INSTALL:
         self._app_data = properties.install_app_index.Find(self._app_request)
@@ -392,6 +393,7 @@ class Response(object):
         self._err_not_found = (self._app_data is None and
                                not properties.update_app_index.Contains(
                                    self._app_request))
+        self._critical_update = properties.critical_update
 
       if self._app_data:
         logging.debug('Found matching payload: %s', str(self._app_data))
@@ -439,6 +441,8 @@ class Response(object):
         actions[1].set('MetadataSignatureRsa',
                        self._app_data.metadata_signature)
         actions[1].set('MetadataSize', str(self._app_data.metadata_size))
+        if self._critical_update:
+          actions[1].set('deadline', 'now')
         package = manifest.find('./packages/package')
         package.set('fp', '1.%s' % self._app_data.sha256_hex)
         package.set('hash_sha256', self._app_data.sha256_hex)
@@ -635,6 +639,7 @@ class NebraskaProperties(object):
     self.install_payloads_address = install_payloads_address
     self.update_app_index = update_app_index
     self.install_app_index = install_app_index
+    self.critical_update = False
 
 
 class Nebraska(object):
@@ -646,6 +651,7 @@ class Nebraska(object):
     creating critical update responses, or messing up with firmware and kernel
     versions, new flags should be added here to add that feature.
   """
+
   def __init__(self, update_payloads_address, install_payloads_address=None,
                update_metadata_dir=None, install_metadata_dir=None):
     """Initializes the Nebraska instance.
@@ -670,16 +676,20 @@ class Nebraska(object):
 
     self._properties = NebraskaProperties(upa, ipa, uai, iai)
 
-  def GetResponseToRequest(self, request):
+  def GetResponseToRequest(self, request, critical_update=False):
     """Returns the response corresponding to a request.
 
     Args:
       request: The Request object representation of the incoming request.
+      critical_update: If true, the response will include 'deadline=now' which
+          indicates the update is critical.
 
     Returns:
       The string representation of the created response.
     """
-    return Response(request, self._properties).GetXMLString()
+    properties = copy.copy(self._properties)
+    properties.critical_update = critical_update
+    return Response(request, properties).GetXMLString()
 
 
 class NebraskaServer(object):

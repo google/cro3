@@ -279,6 +279,7 @@ class AppResponseTest(unittest.TestCase):
         action_tag.attrib['ChromeOSVersion'] == match.target_version)
     self.assertTrue(action_tag.attrib['IsDeltaPayload'] == 'true' if
                     match.is_delta else 'false')
+    self.assertFalse('deadline' in action_tag.attrib)
 
   def testCompileParseInvalidXML(self):
     """Tests Compile handling of invalid XML templates."""
@@ -323,6 +324,18 @@ class AppResponseTest(unittest.TestCase):
 
         response = nebraska.Response.AppResponse(app_request, self._properties)
         response.Compile()
+
+  def testCriticalUpdate(self):
+    """Tests correct response for critical updates."""
+    app_request = unittest_common.GenerateAppRequest()
+    match = unittest_common.GenerateAppData()
+    self._properties.update_app_index.Find.return_value = match
+    self._properties.critical_update = True
+    response = nebraska.Response.AppResponse(
+        app_request, self._properties).Compile()
+    action_tag = response.findall(
+        'updatecheck/manifest/actions/action')[1]
+    self.assertTrue(action_tag.attrib['deadline'] == 'now')
 
 
 if __name__ == '__main__':
