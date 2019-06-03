@@ -147,8 +147,6 @@ class Autoupdate(build_util.BuildObject):
                      through.
     board:           board for the image. Needed for pre-generating of updates.
     copy_to_static_root:  copies images generated from the cache to ~/static.
-    private_key:          path to private key in PEM format.
-    private_key_for_metadata_hash_signature: path to private key in PEM format.
     public_key:       path to public key in PEM format.
     critical_update:  whether provisioned payload is critical.
     remote_payload:   whether provisioned payload is remotely staged.
@@ -169,8 +167,7 @@ class Autoupdate(build_util.BuildObject):
 
   def __init__(self, xbuddy, urlbase=None, forced_image=None, payload_path=None,
                proxy_port=None, src_image='', board=None,
-               copy_to_static_root=True, private_key=None,
-               private_key_for_metadata_hash_signature=None, public_key=None,
+               copy_to_static_root=True, public_key=None,
                critical_update=False, remote_payload=False, max_updates=-1,
                host_log=False, *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
@@ -182,9 +179,6 @@ class Autoupdate(build_util.BuildObject):
     self.proxy_port = proxy_port
     self.board = board or self.GetDefaultBoardID()
     self.copy_to_static_root = copy_to_static_root
-    self.private_key = private_key
-    self.private_key_for_metadata_hash_signature = \
-      private_key_for_metadata_hash_signature
     self.public_key = public_key
     self.critical_update = critical_update
     self.remote_payload = remote_payload
@@ -316,9 +310,6 @@ class Autoupdate(build_util.BuildObject):
     if src_image:
       update_command.extend(['--src_image', src_image])
 
-    if self.private_key:
-      update_command.extend(['--private_key', self.private_key])
-
     _Log('Running %s', ' '.join(update_command))
     subprocess.check_call(update_command)
 
@@ -354,16 +345,12 @@ class Autoupdate(build_util.BuildObject):
           CACHE_DIR/<dest_hash>
         Delta updates:
           CACHE_DIR/<src_hash>_<dest_hash>
-        Signed updates (self.private_key):
-          CACHE_DIR/<src_hash>_<dest_hash>+<private_key_hash>
     """
     update_dir = ''
     if src_image:
       update_dir += common_util.GetFileMd5(src_image) + '_'
 
     update_dir += common_util.GetFileMd5(dest_image)
-    if self.private_key:
-      update_dir += '+' + common_util.GetFileMd5(self.private_key)
 
     return os.path.join(constants.CACHE_DIR, update_dir)
 
@@ -828,30 +815,6 @@ class Autoupdate(build_util.BuildObject):
     else:
       return path_to_payload
 
-  @staticmethod
-  def _SignMetadataHash(private_key_path, metadata_hash):
-    """Signs metadata hash.
-
-    Signs a metadata hash with a private key. This includes padding the
-    hash with PKCS#1 v1.5 padding as well as an ASN.1 header.
-
-    Args:
-      private_key_path: The path to a private key to use for signing.
-      metadata_hash: A raw SHA-256 hash (32 bytes).
-
-    Returns:
-      The raw signature.
-    """
-    args = ['openssl', 'rsautl', '-pkcs', '-sign', '-inkey', private_key_path]
-    padded_metadata_hash = ('\x30\x31\x30\x0d\x06\x09\x60\x86'
-                            '\x48\x01\x65\x03\x04\x02\x01\x05'
-                            '\x00\x04\x20') + metadata_hash
-    child = subprocess.Popen(args,
-                             stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE)
-    signature, _ = child.communicate(input=padded_metadata_hash)
-    return signature
-
   def HandleUpdatePing(self, data, label=''):
     """Handles an update ping from an update client.
 
@@ -940,13 +903,6 @@ class Autoupdate(build_util.BuildObject):
       _Log('Failed to process an update: %r', e)
       return autoupdate_lib.GetNoUpdateResponse(protocol, appid)
 
-    # Sign the metadata hash, if requested.
-    signed_metadata_hash = None
-    if self.private_key_for_metadata_hash_signature:
-      signed_metadata_hash = base64.b64encode(Autoupdate._SignMetadataHash(
-          self.private_key_for_metadata_hash_signature,
-          base64.b64decode(metadata_obj.metadata_hash)))
-
     # Include public key, if requested.
     public_key_data = None
     if self.public_key:
@@ -955,7 +911,7 @@ class Autoupdate(build_util.BuildObject):
     update_response = autoupdate_lib.GetUpdateResponse(
         metadata_obj.sha1, metadata_obj.sha256, metadata_obj.size, url,
         metadata_obj.is_delta_format, metadata_obj.metadata_size,
-        signed_metadata_hash, public_key_data, protocol, appid,
+        None, public_key_data, protocol, appid,
         self.critical_update)
 
     _Log('Responding to client to use url %s to get image', url)

@@ -91,26 +91,22 @@ class AutoupdateTest(mox.MoxTestBase):
                                   **kwargs)
     return dummy
 
-  def testGetRightSignedDeltaPayloadDir(self):
-    """Test that our directory is what we expect it to be for signed updates."""
+  def testGetRightDeltaPayloadDir(self):
+    """Test that our directory is what we expect it to be for updates."""
     self.mox.StubOutWithMock(common_util, 'GetFileMd5')
-    key_path = 'test_key_path'
     src_image = 'test_src_image'
     target_image = 'test_target_image'
     src_hash = '12345'
     target_hash = '67890'
-    key_hash = 'abcde'
 
     common_util.GetFileMd5(src_image).AndReturn(src_hash)
     common_util.GetFileMd5(target_image).AndReturn(target_hash)
-    common_util.GetFileMd5(key_path).AndReturn(key_hash)
 
     self.mox.ReplayAll()
     au_mock = self._DummyAutoupdateConstructor()
-    au_mock.private_key = key_path
     update_dir = au_mock.FindCachedUpdateImageSubDir(src_image, target_image)
     self.assertEqual(os.path.basename(update_dir),
-                     '%s_%s+%s' % (src_hash, target_hash, key_hash))
+                     '%s_%s' % (src_hash, target_hash))
     self.mox.VerifyAll()
 
   def testGenerateLatestUpdateImage(self):
@@ -166,9 +162,6 @@ class AutoupdateTest(mox.MoxTestBase):
       common_util.MkDirP(cache_dir)
       update_image = os.path.join(cache_dir, constants.UPDATE_FILE)
       with open(update_image, 'w') as fh:
-        fh.write('')
-      metadata_hash = os.path.join(cache_dir, constants.METADATA_HASH_FILE)
-      with open(metadata_hash, 'w') as fh:
         fh.write('')
 
     common_util.IsInsideChroot().AndReturn(True)
@@ -269,9 +262,6 @@ class AutoupdateTest(mox.MoxTestBase):
     common_util.MkDirP(new_image_dir)
     update_gz = os.path.join(new_image_dir, constants.UPDATE_FILE)
     with open(update_gz, 'w') as fh:
-      fh.write('')
-    metadata_hash = os.path.join(new_image_dir, constants.METADATA_HASH_FILE)
-    with open(metadata_hash, 'w') as fh:
       fh.write('')
 
     common_util.GetFileSha1(os.path.join(

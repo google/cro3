@@ -1761,16 +1761,6 @@ def _AddTestingOptions(parser):
                    metavar='NUM', default=-1, type='int',
                    help='maximum number of update checks handled positively '
                         '(default: unlimited)')
-  group.add_option('--private_key',
-                   metavar='PATH', default=None,
-                   help='path to the private key in pem format. If this is set '
-                   'the devserver will generate update payloads that are '
-                   'signed with this key.')
-  group.add_option('--private_key_for_metadata_hash_signature',
-                   metavar='PATH', default=None,
-                   help='path to the private key in pem format. If this is set '
-                   'the devserver will sign the metadata hash with the given '
-                   'key and transmit in the Omaha-style XML response.')
   group.add_option('--public_key',
                    metavar='PATH', default=None,
                    help='path to the public key in pem format. If this is set '
@@ -1956,9 +1946,6 @@ def main():
       src_image=options.src_image,
       board=options.board,
       copy_to_static_root=not options.exit,
-      private_key=options.private_key,
-      private_key_for_metadata_hash_signature=(
-          options.private_key_for_metadata_hash_signature),
       public_key=options.public_key,
       critical_update=options.critical_update,
       remote_payload=options.remote_payload,
