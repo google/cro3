@@ -32,6 +32,7 @@ how to update and which payload to give to a requester.
 
 from __future__ import print_function
 
+import httplib
 import json
 import optparse  # pylint: disable=deprecated-module
 import os
@@ -103,12 +104,6 @@ try:
 except ImportError as e:
   _Log('cros_update_progress cannot be imported: %r', e)
   cros_update_progress = None
-
-try:
-  from chromite.lib.paygen import gspaths
-except ImportError as e:
-  _Log('chromite cannot be imported: %r', e)
-  gspaths = None
 
 try:
   import android_build
@@ -252,7 +247,7 @@ def _get_downloader(kwargs):
   """Returns the downloader based on passed in arguments.
 
   Args:
-      kwargs: Keyword arguments for the request.
+    kwargs: Keyword arguments for the request.
   """
   local_path = kwargs.get('local_path')
   if local_path:
@@ -296,7 +291,7 @@ def _get_downloader_and_factory(kwargs):
   """Returns the downloader and artifact factory based on passed in arguments.
 
   Args:
-      kwargs: Keyword arguments for the request.
+    kwargs: Keyword arguments for the request.
   """
   artifacts, files = _get_artifacts(kwargs)
   dl = _get_downloader(kwargs)
@@ -362,7 +357,7 @@ def _GetUpdateTimestampHandler(static_dir):
     static_dir: Directory from which static content is being staged.
 
   Returns:
-      A cherrypy handler to update the timestamp of accessed content.
+    A cherrypy handler to update the timestamp of accessed content.
   """
   def UpdateTimestampHandler():
     if not '404' in cherrypy.response.status:
@@ -464,7 +459,7 @@ def _GetExposedMethod(root, nested_member, ignored=None):
   """
   method = (not (ignored and nested_member in ignored) and
             _GetRecursiveMemberObject(root, nested_member.split('/')))
-  if method and type(method) == types.FunctionType and _IsExposed(method):
+  if method and isinstance(method, types.FunctionType) and _IsExposed(method):
     return method
 
 
@@ -486,7 +481,7 @@ def _FindExposedMethods(root, prefix, unlisted=None):
       continue
     member_obj = root.__class__.__dict__[member]
     if _IsExposed(member_obj):
-      if type(member_obj) == types.FunctionType:
+      if isinstance(member_obj, types.FunctionType):
         method_list.append(prefixed_member)
       else:
         method_list += _FindExposedMethods(
@@ -504,10 +499,12 @@ def _check_base_args_for_auto_update(kwargs):
     DevServerHTTPError if required parameters don't exist in kwargs.
   """
   if 'host_name' not in kwargs:
-    raise common_util.DevServerHTTPError(KEY_ERROR_MSG % 'host_name')
+    raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                         KEY_ERROR_MSG % 'host_name')
 
   if 'build_name' not in kwargs:
-    raise common_util.DevServerHTTPError(KEY_ERROR_MSG % 'build_name')
+    raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                         KEY_ERROR_MSG % 'build_name')
 
 
 def _parse_boolean_arg(kwargs, key):
@@ -530,6 +527,7 @@ def _parse_boolean_arg(kwargs, key):
       return False
     else:
       raise common_util.DevServerHTTPError(
+          httplib.INTERNAL_SERVER_ERROR,
           'The value for key %s is not boolean.' % key)
   else:
     return False
@@ -561,9 +559,11 @@ def _build_uri_from_build_name(build_name):
   Returns:
     The release_archive_url on Google Storage for this build name.
   """
-  return gspaths.ChromeosReleases.BuildUri(
-      cros_update.STABLE_BUILD_CHANNEL, build_name.split('/')[0],
-      build_name.split('/')[1])
+  # TODO(ahassani): This function doesn't seem to be used anywhere since its
+  # previous use of lib.paygen.gspath was broken and it doesn't seem to be
+  # causing any runtime issues. So deprecate this in the future.
+  tokens = build_name.split('/')
+  return 'gs://chromeos-releases/stable-channel/%s/%s' % (tokens[0], tokens[1])
 
 
 def _clear_process(host_name, pid):
@@ -643,7 +643,8 @@ class ApiRoot(object):
       label = label.strip()
       if label:
         return updater.HandleSetUpdatePing(ip, label)
-    raise common_util.DevServerHTTPError(400, 'No label provided.')
+    raise common_util.DevServerHTTPError(httplib.BAD_REQUEST,
+                                         'No label provided.')
 
 
   @cherrypy.expose
@@ -770,6 +771,7 @@ class DevServerRoot(object):
   def is_staged(self, **kwargs):
     """Check if artifacts have been downloaded.
 
+    Args:
       async: True to return without waiting for download to complete.
       artifacts: Comma separated list of named artifacts to download.
         These are defined in artifact_info and have their implementation
@@ -778,9 +780,9 @@ class DevServerRoot(object):
         will be available as is in the corresponding static directory with no
         custom post-processing.
 
-    returns: True of all artifacts are staged.
+    Returns: True of all artifacts are staged.
 
-    Example:
+    Examples:
       To check if autotest and test_suites are staged:
         http://devserver_url:<port>/is_staged?archive_url=gs://your_url/path&
             artifacts=autotest,test_suites
@@ -795,10 +797,9 @@ class DevServerRoot(object):
     """Take an archive url and list the contents in its staged directory.
 
     Args:
-      kwargs:
-        archive_url: Google Storage URL for the build.
+      archive_url: Google Storage URL for the build.
 
-    Example:
+    Examples:
       To list the contents of where this devserver should have staged
       gs://image-archive/<board>-release/<build> call:
       http://devserver_url:<port>/list_image_dir?archive_url=<gs://..>
@@ -845,7 +846,7 @@ class DevServerRoot(object):
         custom post-processing.
       clean: True to remove any previously staged artifacts first.
 
-    Example:
+    Examples:
       To download the autotest and test suites tarballs:
         http://devserver_url:<port>/stage?archive_url=gs://your_url/path&
             artifacts=autotest,test_suites
@@ -1007,10 +1008,12 @@ class DevServerRoot(object):
               string otherwise.
     """
     if 'host_name' not in kwargs:
-      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           KEY_ERROR_MSG % 'host_name')
 
     if 'pid' not in kwargs:
-      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'pid'))
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           KEY_ERROR_MSG % 'pid')
 
     host_name = kwargs['host_name']
     pid = kwargs['pid']
@@ -1055,10 +1058,12 @@ class DevServerRoot(object):
         pid: the background process id of cros-update.
     """
     if 'host_name' not in kwargs:
-      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           KEY_ERROR_MSG % 'host_name')
 
     if 'pid' not in kwargs:
-      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'pid'))
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           KEY_ERROR_MSG % 'pid')
 
     host_name = kwargs['host_name']
     pid = kwargs['pid']
@@ -1080,10 +1085,12 @@ class DevServerRoot(object):
         pid: the background process id of cros-update.
     """
     if 'host_name' not in kwargs:
-      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           KEY_ERROR_MSG % 'host_name')
 
     if 'pid' not in kwargs:
-      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'pid'))
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           KEY_ERROR_MSG % 'pid')
 
     host_name = kwargs['host_name']
     pid = kwargs['pid']
@@ -1102,7 +1109,8 @@ class DevServerRoot(object):
       True if all processes are killed properly.
     """
     if 'host_name' not in kwargs:
-      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           KEY_ERROR_MSG % 'host_name')
 
     cur_pid = kwargs.get('pid')
 
@@ -1134,10 +1142,12 @@ class DevServerRoot(object):
       A dictionary containing the execute log file and any hostlog files.
     """
     if 'host_name' not in kwargs:
-      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'host_name'))
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           KEY_ERROR_MSG % 'host_name')
 
     if 'pid' not in kwargs:
-      raise common_util.DevServerHTTPError((KEY_ERROR_MSG % 'pid'))
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           KEY_ERROR_MSG % 'pid')
 
     host_name = kwargs['host_name']
     pid = kwargs['pid']
@@ -1310,7 +1320,8 @@ class DevServerRoot(object):
       return _PrintDocStringAsHTML(self.latestbuild)
 
     if 'target' not in kwargs:
-      raise common_util.DevServerHTTPError(500, 'Error: target= is required!')
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           'Error: target= is required!')
 
     if _is_android_build_request(kwargs):
       branch = kwargs.get('branch', None)
@@ -1326,7 +1337,8 @@ class DevServerRoot(object):
           updater.static_dir, kwargs['target'],
           milestone=kwargs.get('milestone'))
     except common_util.CommonUtilError as errmsg:
-      raise common_util.DevServerHTTPError(500, str(errmsg))
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           str(errmsg))
 
   @cherrypy.expose
   def list_suite_controls(self, **kwargs):
@@ -1348,10 +1360,11 @@ class DevServerRoot(object):
       return _PrintDocStringAsHTML(self.controlfiles)
 
     if 'build' not in kwargs:
-      raise common_util.DevServerHTTPError(500, 'Error: build= is required!')
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           'Error: build= is required!')
 
     if 'suite_name' not in kwargs:
-      raise common_util.DevServerHTTPError(500,
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
                                            'Error: suite_name= is required!')
 
     control_file_list = [
@@ -1396,7 +1409,8 @@ class DevServerRoot(object):
       return _PrintDocStringAsHTML(self.controlfiles)
 
     if 'build' not in kwargs:
-      raise common_util.DevServerHTTPError(500, 'Error: build= is required!')
+      raise common_util.DevServerHTTPError(httplib.INTERNAL_SERVER_ERROR,
+                                           'Error: build= is required!')
 
     if 'control_path' not in kwargs:
       if 'suite_name' in kwargs and kwargs['suite_name']:
@@ -1490,7 +1504,8 @@ class DevServerRoot(object):
 
     if return_dir and relative_path:
       raise common_util.DevServerHTTPError(
-          500, 'Cannot specify both return_dir and relative_path')
+          httplib.INTERNAL_SERVER_ERROR,
+          'Cannot specify both return_dir and relative_path')
 
     # For updates, we optimize downloading of test images.
     file_name = None
@@ -1560,7 +1575,7 @@ class DevServerRoot(object):
   def doc(self, *args):
     """Shows the documentation for available methods / URLs.
 
-    Example:
+    Examples:
       http://myhost/doc/update
     """
     name = '/'.join(args)
