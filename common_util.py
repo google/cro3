@@ -8,7 +8,6 @@
 from __future__ import print_function
 
 import ast
-import base64
 import binascii
 import distutils.version  # pylint: disable=no-name-in-module,import-error
 import errno
@@ -226,20 +225,14 @@ def GetControlFileList(static_dir, build):
   return '\n'.join(control_files)
 
 
-def GetFileSize(file_path):
-  """Returns the size in bytes of the file given."""
-  return os.path.getsize(file_path)
-
-
 # Hashlib is strange and doesn't actually define these in a sane way that
 # pylint can find them. Disable checks for them.
 # pylint: disable=E1101,W0106
-def GetFileHashes(file_path, do_sha1=False, do_sha256=False, do_md5=False):
+def GetFileHashes(file_path, do_sha256=False, do_md5=False):
   """Computes and returns a list of requested hashes.
 
   Args:
     file_path: path to file to be hashed
-    do_sha1: whether or not to compute a SHA1 hash
     do_sha256: whether or not to compute a SHA256 hash
     do_md5: whether or not to compute a MD5 hash
 
@@ -248,9 +241,8 @@ def GetFileHashes(file_path, do_sha1=False, do_sha256=False, do_md5=False):
     'md5', respectively.
   """
   hashes = {}
-  if any((do_sha1, do_sha256, do_md5)):
+  if any((do_sha256, do_md5)):
     # Initialize hashers.
-    hasher_sha1 = hashlib.sha1() if do_sha1 else None
     hasher_sha256 = hashlib.sha256() if do_sha256 else None
     hasher_md5 = hashlib.md5() if do_md5 else None
 
@@ -260,29 +252,16 @@ def GetFileHashes(file_path, do_sha1=False, do_sha256=False, do_md5=False):
         block = fd.read(_HASH_BLOCK_SIZE)
         if not block:
           break
-        hasher_sha1 and hasher_sha1.update(block)
         hasher_sha256 and hasher_sha256.update(block)
         hasher_md5 and hasher_md5.update(block)
 
     # Update return values.
-    if hasher_sha1:
-      hashes['sha1'] = hasher_sha1.digest()
     if hasher_sha256:
       hashes['sha256'] = hasher_sha256.digest()
     if hasher_md5:
       hashes['md5'] = hasher_md5.digest()
 
   return hashes
-
-
-def GetFileSha1(file_path):
-  """Returns the SHA1 checksum of the file given (base64 encoded)."""
-  return base64.b64encode(GetFileHashes(file_path, do_sha1=True)['sha1'])
-
-
-def GetFileSha256(file_path):
-  """Returns the SHA256 checksum of the file given (base64 encoded)."""
-  return base64.b64encode(GetFileHashes(file_path, do_sha256=True)['sha256'])
 
 
 def GetFileMd5(file_path):

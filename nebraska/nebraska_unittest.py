@@ -841,8 +841,8 @@ class RequestTest(NebraskaUnitTest):
     self.assertTrue(app_requests[0].request_type ==
                     nebraska.Request.RequestType.EVENT)
     self.assertTrue(app_requests[0].appid == 'platform')
-    self.assertTrue(app_requests[0].event_type == '3')
-    self.assertTrue(app_requests[0].event_result == '1')
+    self.assertTrue(app_requests[0].event_type == 3)
+    self.assertTrue(app_requests[0].event_result == 1)
     self.assertTrue(app_requests[0].previous_version == '1')
 
 class ResponseTest(NebraskaUnitTest):

@@ -259,8 +259,8 @@ class Request(object):
 
       event = app.find(Request.EVENT_TAG)
       if event is not None:
-        self.event_type = event.get(Request.EVENT_TYPE_ATTR)
-        self.event_result = event.get(Request.EVENT_RESULT_ATTR, 0)
+        self.event_type = int(event.get(Request.EVENT_TYPE_ATTR))
+        self.event_result = int(event.get(Request.EVENT_RESULT_ATTR, 0))
         self.previous_version = event.get(Request.EVENT_PREVIOUS_VERSION_ATTR)
 
       self.ping = app.find(Request.PING_TAG) is not None

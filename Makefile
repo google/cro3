@@ -17,7 +17,6 @@ install:
 		android_build.py \
 		artifact_info.py \
 		autoupdate.py \
-		autoupdate_lib.py \
 		build_artifact.py \
 		build_util.py \
 		builder.py \
@@ -31,6 +30,7 @@ install:
 		downloader.py \
 		health_checker.py \
 		log_util.py \
+		nebraska/nebraska.py \
 		retry.py \
 		setup_chromite.py \
 		xbuddy.py \

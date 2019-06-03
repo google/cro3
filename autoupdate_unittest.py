@@ -19,27 +19,20 @@ import cherrypy
 import mox
 
 import autoupdate
-import autoupdate_lib
 import common_util
 import devserver_constants as constants
 import xbuddy
 
+from nebraska import nebraska
 
-_TEST_REQUEST = """
-<client_test xmlns:o="http://www.google.com/update2/request" updaterversion="%(client)s" protocol="3.0">
-  <app version="%(version)s" track="%(track)s" board="%(board)s" />
-  <updatecheck />
-  <event eventresult="%(event_result)d" eventtype="%(event_type)d" />
-</client_test>"""
 
-# Test request with additional fields needed for full Omaha protocol.
-_FULL_TEST_REQUEST = """
-<client_test xmlns:o="http://www.google.com/update2/request" updaterversion="%(client)s" protocol="3.0">
-  <app version="%(version)s" track="%(track)s" board="%(board)s"
-    hardware_class="Test Device" />
-  <updatecheck />
-  <event eventresult="%(event_result)d" eventtype="%(event_type)d" />
-</client_test>"""
+_TEST_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0" updater="ChromeOSUpdateEngine" updaterversion="0.1.0.0">
+  <app appid="test-appid" version="%(version)s" track="%(track)s"
+       board="%(board)s" hardware_class="%(hwclass)s">
+    <updatecheck />
+  </app>
+</request>"""
 
 #pylint: disable=W0212
 class AutoupdateTest(mox.MoxTestBase):
@@ -47,11 +40,6 @@ class AutoupdateTest(mox.MoxTestBase):
 
   def setUp(self):
     mox.MoxTestBase.setUp(self)
-    self.mox.StubOutWithMock(common_util, 'GetFileSize')
-    self.mox.StubOutWithMock(common_util, 'GetFileSha1')
-    self.mox.StubOutWithMock(common_util, 'GetFileSha256')
-    self.mox.StubOutWithMock(common_util, 'IsInsideChroot')
-    self.mox.StubOutWithMock(autoupdate_lib, 'GetUpdateResponse')
     self.port = 8080
     self.test_board = 'test-board'
     self.build_root = tempfile.mkdtemp('autoupdate_build_root')
@@ -60,19 +48,13 @@ class AutoupdateTest(mox.MoxTestBase):
     self.static_image_dir = tempfile.mkdtemp('autoupdate_static_dir')
     self.hostname = '%s:%s' % (socket.gethostname(), self.port)
     self.test_dict = {
-        'client': 'ChromeOSUpdateEngine-1.0',
         'version': 'ForcedUpdate',
         'track': 'test-channel',
         'board': self.test_board,
-        'event_result': 2,
-        'event_type': 3
+        'hwclass': 'test-hardware-class',
     }
     self.test_data = _TEST_REQUEST % self.test_dict
-    self.sha1 = 12345
-    self.size = 54321
-    self.url = 'http://%s/static/update.gz' % self.hostname
     self.payload = 'My payload'
-    self.sha256 = 'SHA LA LA'
     cherrypy.request.base = 'http://%s' % self.hostname
     common_util.MkDirP(self.static_image_dir)
     self._xbuddy = xbuddy.XBuddy(False,
@@ -110,6 +92,11 @@ class AutoupdateTest(mox.MoxTestBase):
 
   def testGenerateLatestUpdateImage(self):
     """Test default behavior in response to plain update call."""
+    self.mox.StubOutWithMock(common_util, 'IsInsideChroot')
+    self.mox.StubOutWithMock(nebraska.Nebraska, 'GetResponseToRequest')
+    self.mox.StubOutWithMock(autoupdate.Autoupdate,
+                             'GenerateUpdateImageWithCache')
+
     latest_label = os.path.join(self.test_board, self.latest_dir)
     # Generate a fake latest image
     latest_image_dir = os.path.join(self.static_image_dir, latest_label)
@@ -118,8 +105,6 @@ class AutoupdateTest(mox.MoxTestBase):
     with open(image, 'w') as fh:
       fh.write('')
 
-    self.mox.StubOutWithMock(autoupdate.Autoupdate,
-                             'GenerateUpdateImageWithCache')
     au_mock = self._DummyAutoupdateConstructor()
 
     common_util.IsInsideChroot().AndReturn(True)
@@ -127,22 +112,24 @@ class AutoupdateTest(mox.MoxTestBase):
         [''], board=self.test_board, lookup_only=True, image_dir=None,
         version=None).AndReturn((latest_label, constants.TEST_IMAGE_FILE))
 
+    nebraska.Nebraska.GetResponseToRequest(
+        mox.IgnoreArg(), critical_update=False).AndReturn(self.payload)
+
     au_mock.GenerateUpdateImageWithCache(
         os.path.join(self.static_image_dir, self.test_board, self.latest_dir,
                      constants.TEST_IMAGE_FILE)).AndReturn('update.gz')
 
     self.mox.ReplayAll()
-    test_data = _TEST_REQUEST % self.test_dict
-    self.assertTrue(au_mock.HandleUpdatePing(test_data))
+    self.assertTrue(au_mock.HandleUpdatePing(self.test_data))
     self.mox.VerifyAll()
 
   def testHandleUpdatePingForForcedImage(self):
     """Test update response to having a forced image."""
+    self.mox.StubOutWithMock(common_util, 'IsInsideChroot')
     self.mox.StubOutWithMock(autoupdate.Autoupdate,
                              'GenerateUpdateImageWithCache')
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_StoreMetadataToFile')
+    self.mox.StubOutWithMock(nebraska.Nebraska, 'GetResponseToRequest')
     au_mock = self._DummyAutoupdateConstructor()
-    test_data = _TEST_REQUEST % self.test_dict
 
     # Generate a fake image
     forced_image_dir = '/tmp/path_to_force/'
@@ -150,8 +137,6 @@ class AutoupdateTest(mox.MoxTestBase):
     common_util.MkDirP(forced_image_dir)
     with open(forced_image, 'w') as fh:
       fh.write('')
-
-    cache_image_dir = os.path.join(self.static_image_dir, 'cache')
 
     # Mock out GenerateUpdateImageWithCache to make an update file in cache
     def mock_fn(_image):
@@ -166,24 +151,12 @@ class AutoupdateTest(mox.MoxTestBase):
     common_util.IsInsideChroot().AndReturn(True)
     au_mock.GenerateUpdateImageWithCache(forced_image).WithSideEffects(
         mock_fn).AndReturn('cache')
-
-    common_util.GetFileSha1(os.path.join(
-        cache_image_dir, 'update.gz')).AndReturn(self.sha1)
-    common_util.GetFileSha256(os.path.join(
-        cache_image_dir, 'update.gz')).AndReturn(self.sha256)
-    common_util.GetFileSize(os.path.join(
-        cache_image_dir, 'update.gz')).AndReturn(self.size)
-    au_mock._StoreMetadataToFile(cache_image_dir,
-                                 mox.IsA(autoupdate.UpdateMetadata))
-    forced_url = 'http://%s/static/%s/update.gz' % (self.hostname,
-                                                    'cache')
-    autoupdate_lib.GetUpdateResponse(
-        self.sha1, self.sha256, self.size, forced_url, False, 0, None, None,
-        u'3.0', '', False).AndReturn(self.payload)
+    nebraska.Nebraska.GetResponseToRequest(
+        mox.IgnoreArg(), critical_update=False).AndReturn(self.payload)
 
     self.mox.ReplayAll()
     au_mock.forced_image = forced_image
-    self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
+    self.assertEqual(au_mock.HandleUpdatePing(self.test_data), self.payload)
     self.mox.VerifyAll()
 
   def testHandleForcePregenerateXBuddy(self):
@@ -192,10 +165,9 @@ class AutoupdateTest(mox.MoxTestBase):
     A forced image that starts with 'xbuddy:' uses the following path to
     obtain an update.
     """
-    self.mox.StubOutWithMock(autoupdate.Autoupdate,
-                             'GetUpdateForLabel')
+    self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GetUpdateForLabel')
     au_mock = self._DummyAutoupdateConstructor()
-    au_mock.forced_image = "xbuddy:b/v/a"
+    au_mock.forced_image = 'xbuddy:b/v/a'
 
     self._xbuddy._GetArtifact(
         ['b', 'v', 'a'],
@@ -249,13 +221,12 @@ class AutoupdateTest(mox.MoxTestBase):
 
   def testHandleUpdatePingWithSetUpdate(self):
     """If update is set, it should use the update found in that directory."""
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_StoreMetadataToFile')
     au_mock = self._DummyAutoupdateConstructor()
+    self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GetPathToPayload')
+    self.mox.StubOutWithMock(nebraska.Nebraska, 'GetResponseToRequest')
 
-    test_data = _TEST_REQUEST % self.test_dict
     test_label = 'new_update-test/the-new-update'
     new_image_dir = os.path.join(self.static_image_dir, test_label)
-    new_url = self.url.replace('update.gz', test_label + '/update.gz')
 
     # Generate a fake payload.
     common_util.MkDirP(new_image_dir)
@@ -263,17 +234,9 @@ class AutoupdateTest(mox.MoxTestBase):
     with open(update_gz, 'w') as fh:
       fh.write('')
 
-    common_util.GetFileSha1(os.path.join(
-        new_image_dir, 'update.gz')).AndReturn(self.sha1)
-    common_util.GetFileSha256(os.path.join(
-        new_image_dir, 'update.gz')).AndReturn(self.sha256)
-    common_util.GetFileSize(os.path.join(
-        new_image_dir, 'update.gz')).AndReturn(self.size)
-    au_mock._StoreMetadataToFile(new_image_dir,
-                                 mox.IsA(autoupdate.UpdateMetadata))
-    autoupdate_lib.GetUpdateResponse(
-        self.sha1, self.sha256, self.size, new_url, False, 0, None, None,
-        u'3.0', '', False).AndReturn(self.payload)
+    nebraska.Nebraska.GetResponseToRequest(
+        mox.IgnoreArg(), critical_update=False).AndReturn(self.payload)
+    au_mock.GetPathToPayload(mox.IgnoreArg(), 'ForcedUpdate', self.test_board)
 
     self.mox.ReplayAll()
     au_mock.HandleSetUpdatePing('127.0.0.1', test_label)
@@ -281,7 +244,7 @@ class AutoupdateTest(mox.MoxTestBase):
         au_mock.host_infos.GetHostInfo('127.0.0.1').
         attrs['forced_update_label'],
         test_label)
-    self.assertEqual(au_mock.HandleUpdatePing(test_data), self.payload)
+    self.assertEqual(au_mock.HandleUpdatePing(self.test_data), self.payload)
     self.assertFalse(
         'forced_update_label' in
         au_mock.host_infos.GetHostInfo('127.0.0.1').attrs)

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,35 +7,29 @@
 
 from __future__ import print_function
 
-import base64
 import collections
-import fcntl
 import json
 import os
 import subprocess
-import sys
 import threading
 import time
-import urllib2
 import urlparse
 
 import cherrypy
 
 import build_util
-import autoupdate_lib
 import common_util
 import devserver_constants as constants
 import log_util
-# pylint: disable=F0401
 
-# Allow importing from aosp/system/update_engine/scripts when running from
-# source tree. Used for importing update_payload if it is not in the system
-# path.
-lib_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'aosp',
-                       'system', 'update_engine', 'scripts')
-if os.path.exists(lib_dir) and os.path.isdir(lib_dir):
-  sys.path.insert(1, lib_dir)
-import update_payload
+# TODO(crbug.com/872441): We try to import nebraska from different places
+# because when we install the devserver, we copy the nebraska.py into the main
+# directory. Once this bug is resolved, we can always import from nebraska
+# directory.
+try:
+  from nebraska import nebraska
+except ImportError:
+  import nebraska
 
 
 # If used by client in place of an pre-update version string, forces an update
@@ -122,19 +117,6 @@ class HostInfoTable(object):
     return self.table.get(host_id)
 
 
-class UpdateMetadata(object):
-  """Object containing metadata about an update payload."""
-
-  def __init__(self, sha1, sha256, size, is_delta_format, metadata_size,
-               metadata_hash):
-    self.sha1 = sha1
-    self.sha256 = sha256
-    self.size = size
-    self.is_delta_format = is_delta_format
-    self.metadata_size = metadata_size
-    self.metadata_hash = metadata_hash
-
-
 class Autoupdate(build_util.BuildObject):
   """Class that contains functionality that handles Chrome OS update pings.
 
@@ -152,16 +134,7 @@ class Autoupdate(build_util.BuildObject):
     host_log:         record full history of host update events.
   """
 
-  _OLD_PAYLOAD_URL_PREFIX = '/static/archive'
   _PAYLOAD_URL_PREFIX = '/static/'
-  _FILEINFO_URL_PREFIX = '/api/fileinfo/'
-
-  SHA1_ATTR = 'sha1'
-  SHA256_ATTR = 'sha256'
-  SIZE_ATTR = 'size'
-  ISDELTA_ATTR = 'is_delta'
-  METADATA_SIZE_ATTR = 'metadata_size'
-  METADATA_HASH_ATTR = 'metadata_hash'
 
   def __init__(self, xbuddy, forced_image=None, payload_path=None,
                proxy_port=None, src_image='', board=None,
@@ -191,53 +164,6 @@ class Autoupdate(build_util.BuildObject):
 
     self._update_count_lock = threading.Lock()
 
-  @classmethod
-  def _ReadMetadataFromStream(cls, stream):
-    """Returns metadata obj from input json stream that implements .read()."""
-    data = None
-    file_attr_dict = {}
-    try:
-      data = stream.read()
-      file_attr_dict = json.loads(data)
-    except (IOError, ValueError):
-      _Log('Failed to load metadata:%s' % data)
-      return None
-
-    sha1 = file_attr_dict.get(cls.SHA1_ATTR)
-    sha256 = file_attr_dict.get(cls.SHA256_ATTR)
-    size = file_attr_dict.get(cls.SIZE_ATTR)
-    is_delta = file_attr_dict.get(cls.ISDELTA_ATTR)
-    metadata_size = file_attr_dict.get(cls.METADATA_SIZE_ATTR)
-    metadata_hash = file_attr_dict.get(cls.METADATA_HASH_ATTR)
-    return UpdateMetadata(sha1, sha256, size, is_delta, metadata_size,
-                          metadata_hash)
-
-  @staticmethod
-  def _ReadMetadataFromFile(payload_dir):
-    """Returns metadata object from the metadata_file in the payload_dir"""
-    metadata_file = os.path.join(payload_dir, constants.METADATA_FILE)
-    if os.path.exists(metadata_file):
-      metadata_stream = open(metadata_file, 'r')
-      fcntl.lockf(metadata_stream.fileno(), fcntl.LOCK_SH)
-      metadata = Autoupdate._ReadMetadataFromStream(metadata_stream)
-      fcntl.lockf(metadata_stream.fileno(), fcntl.LOCK_UN)
-      return metadata
-
-  @classmethod
-  def _StoreMetadataToFile(cls, payload_dir, metadata_obj):
-    """Stores metadata object into the metadata_file of the payload_dir"""
-    file_dict = {cls.SHA1_ATTR: metadata_obj.sha1,
-                 cls.SHA256_ATTR: metadata_obj.sha256,
-                 cls.SIZE_ATTR: metadata_obj.size,
-                 cls.ISDELTA_ATTR: metadata_obj.is_delta_format,
-                 cls.METADATA_SIZE_ATTR: metadata_obj.metadata_size,
-                 cls.METADATA_HASH_ATTR: metadata_obj.metadata_hash}
-    metadata_file = os.path.join(payload_dir, constants.METADATA_FILE)
-    file_handle = open(metadata_file, 'w')
-    fcntl.lockf(file_handle.fileno(), fcntl.LOCK_EX)
-    json.dump(file_dict, file_handle)
-    fcntl.lockf(file_handle.fileno(), fcntl.LOCK_UN)
-
   @staticmethod
   def _GetVersionFromDir(image_dir):
     """Returns the version of the image based on the name of the directory."""
@@ -246,7 +172,7 @@ class Autoupdate(build_util.BuildObject):
     # If we can't get a version number from the directory, default to a high
     # number to allow the update to happen
     # TODO(phobbs) refactor this.
-    return parts[1] if len(parts) == 3 else "999999.0.0"
+    return parts[1] if len(parts) == 3 else '999999.0.0'
 
   @staticmethod
   def _CanUpdate(client_version, latest_version):
@@ -268,18 +194,6 @@ class Autoupdate(build_util.BuildObject):
       # If the directory name isn't a version number, let it pass.
       return True
 
-  @staticmethod
-  def IsDeltaFormatFile(filename):
-    try:
-      with open(filename) as payload_file:
-        payload = update_payload.Payload(payload_file)
-        payload.Init()
-        return payload.IsDelta()
-    except (IOError, update_payload.PayloadError):
-      # For unit tests we may not have real files, so it's ok to ignore these
-      # errors.
-      return False
-
   def GenerateUpdateFile(self, src_image, image_path, output_dir):
     """Generates an update gz given a full path to an image.
 
@@ -289,8 +203,8 @@ class Autoupdate(build_util.BuildObject):
       output_dir: Path to the generated update file.
 
     Raises:
-      subprocess.CalledProcessError if the update generator fails to generate a
-      stateful payload.
+      subprocess.CalledProcessError if the update generator fails to generate an
+      update payload.
     """
     update_path = os.path.join(output_dir, constants.UPDATE_FILE)
     _Log('Generating update image %s', update_path)
@@ -298,8 +212,6 @@ class Autoupdate(build_util.BuildObject):
     update_command = [
         'cros_generate_update_payload',
         '--image', image_path,
-        '--out_metadata_hash_file', os.path.join(output_dir,
-                                                 constants.METADATA_HASH_FILE),
         '--output', update_path,
     ]
 
@@ -411,9 +323,6 @@ class Autoupdate(build_util.BuildObject):
     # Don't regenerate the image for this devserver instance.
     self.pregenerated_path = cache_sub_dir
 
-    # Generate the cache file.
-    self.GetLocalPayloadAttrs(cache_dir)
-
     return cache_sub_dir
 
   def _SymlinkUpdateFiles(self, target_dir, link_dir):
@@ -498,78 +407,11 @@ class Autoupdate(build_util.BuildObject):
                                                    constants.UPDATE_FILE))
     return pregenerated_update
 
-  @staticmethod
-  def _GetMetadataHash(payload_dir):
-    """Gets the metadata hash, if it exists.
-
-    Args:
-      payload_dir: The payload directory.
-
-    Returns:
-      The metadata hash, base-64 encoded or None if there is no metadata hash.
-    """
-    path = os.path.join(payload_dir, constants.METADATA_HASH_FILE)
-    if os.path.exists(path):
-      return base64.b64encode(open(path, 'rb').read())
-    else:
-      return None
-
-  @staticmethod
-  def _GetMetadataSize(payload_filename):
-    """Gets the size of the metadata in a payload file.
-
-    Args:
-      payload_filename: Path to the payload file.
-
-    Returns:
-      The size of the payload metadata, as reported in the payload header.
-    """
-    try:
-      with open(payload_filename) as payload_file:
-        payload = update_payload.Payload(payload_file)
-        payload.Init()
-        return payload.metadata_size
-    except (IOError, update_payload.PayloadError):
-      # For unit tests we may not have real files, so it's ok to ignore these
-      # errors.
-      return 0
-
-  def GetLocalPayloadAttrs(self, payload_dir):
-    """Returns hashes, size and delta flag of a local update payload.
-
-    Args:
-      payload_dir: Path to the directory the payload is in.
-
-    Returns:
-      A UpdateMetadata object.
-    """
-    filename = os.path.join(payload_dir, constants.UPDATE_FILE)
-    if not os.path.exists(filename):
-      raise AutoupdateError('update.gz not present in payload dir %s' %
-                            payload_dir)
-
-    metadata_obj = Autoupdate._ReadMetadataFromFile(payload_dir)
-    if not metadata_obj or not (metadata_obj.sha1 and
-                                metadata_obj.sha256 and
-                                metadata_obj.size):
-      sha1 = common_util.GetFileSha1(filename)
-      sha256 = common_util.GetFileSha256(filename)
-      size = common_util.GetFileSize(filename)
-      is_delta_format = self.IsDeltaFormatFile(filename)
-      metadata_size = self._GetMetadataSize(filename)
-      metadata_hash = self._GetMetadataHash(payload_dir)
-      metadata_obj = UpdateMetadata(sha1, sha256, size, is_delta_format,
-                                    metadata_size, metadata_hash)
-      Autoupdate._StoreMetadataToFile(payload_dir, metadata_obj)
-
-    return metadata_obj
-
-  def _ProcessUpdateComponents(self, app, event):
+  def _ProcessUpdateComponents(self, request):
     """Processes the components of an update request.
 
     Args:
-      app: An app component of an update request.
-      event: An event component of an update request.
+      request: A nebraska.Request object representing the update request.
 
     Returns:
       A named tuple containing attributes of the update requests as the
@@ -586,25 +428,22 @@ class Autoupdate(build_util.BuildObject):
 
     client_version = FORCED_UPDATE
     board = None
-    if app:
-      client_version = app.getAttribute('version')
-      channel = app.getAttribute('track')
-      board = (app.hasAttribute('board') and app.getAttribute('board')
-               or self.GetDefaultBoardID())
+    event_result = None
+    event_type = None
+    if request.request_type != nebraska.Request.RequestType.EVENT:
+      client_version = request.version
+      channel = request.track
+      board = request.board or self.GetDefaultBoardID()
       # Add attributes to log message
       log_message['version'] = client_version
       log_message['track'] = channel
       log_message['board'] = board
       curr_host_info.attrs['last_known_version'] = client_version
 
-    event_result = None
-    event_type = None
-    if event:
-      event_result = int(event[0].getAttribute('eventresult'))
-      event_type = int(event[0].getAttribute('eventtype'))
-      client_previous_version = (event[0].getAttribute('previousversion')
-                                 if event[0].hasAttribute('previousversion')
-                                 else None)
+    else:
+      event_result = request.app_requests[0].event_result
+      event_type = request.app_requests[0].event_type
+      client_previous_version = request.app_requests[0].previous_version
       # Store attributes to legacy host info structure
       curr_host_info.attrs['last_event_status'] = event_result
       curr_host_info.attrs['last_event_type'] = event_type
@@ -626,28 +465,6 @@ class Autoupdate(build_util.BuildObject):
     return UpdateRequestAttrs(
         curr_host_info.attrs.pop('forced_update_label', None),
         client_version, board, event_result, event_type)
-
-  @classmethod
-  def _CheckOmahaRequest(cls, app):
-    """Checks |app| component of Omaha Request for correctly formed data.
-
-    Raises:
-      common_util.DevServerHTTPError: if any check fails. All 400 error codes to
-          indicate a bad HTTP request.
-    """
-    if not app:
-      raise common_util.DevServerHTTPError(
-          400, 'Missing app component in Omaha Request')
-
-    hardware_class = app.getAttribute('hardware_class')
-    if not hardware_class:
-      raise common_util.DevServerHTTPError(
-          400, 'hardware_class is required in Omaha Request')
-
-    track = app.getAttribute('track')
-    if not (track and track.endswith('-channel')):
-      raise common_util.DevServerHTTPError(
-          400, 'Omaha requests need a valid update channel')
 
   def GetDevserverUrl(self):
     """Returns the devserver url base."""
@@ -697,7 +514,8 @@ class Autoupdate(build_util.BuildObject):
       dest_path = os.path.join(self.static_dir, label, constants.UPDATE_FILE)
       dest_stateful = os.path.join(self.static_dir, label,
                                    constants.STATEFUL_FILE)
-      dest_meta = os.path.join(self.static_dir, label, constants.METADATA_FILE)
+      dest_meta = os.path.join(self.static_dir, label,
+                               constants.UPDATE_METADATA_FILE)
 
       src_path = os.path.abspath(self.payload_path)
       src_stateful = os.path.join(os.path.dirname(src_path),
@@ -753,7 +571,7 @@ class Autoupdate(build_util.BuildObject):
         x_label, image_name = self.xbuddy.Translate(label_list, board=board)
         if image_name not in constants.ALL_IMAGES:
           raise AutoupdateError(
-              "Use an image alias: dev, base, test, or recovery.")
+              'Use an image alias: dev, base, test, or recovery.')
         # Path has been resolved, try to get the image.
         path_to_payload = self.GetUpdateForLabel(client_version, x_label,
                                                  image_name)
@@ -766,8 +584,8 @@ class Autoupdate(build_util.BuildObject):
     # One of the above options should have gotten us a relative path.
     if path_to_payload is None:
       raise AutoupdateError('Failed to get an update for: %s' % label)
-    else:
-      return path_to_payload
+
+    return path_to_payload
 
   def HandleUpdatePing(self, data, label=''):
     """Handles an update ping from an update client.
@@ -783,17 +601,14 @@ class Autoupdate(build_util.BuildObject):
     # http://hostname:8080/static/update.gz.
     static_urlbase = self.GetStaticUrl()
 
-    # Parse the XML we got into the components we care about.
-    protocol, app, event, update_check = autoupdate_lib.ParseUpdateRequest(data)
-    appid = app.getAttribute('appid')
-
     # Process attributes of the update check.
-    request_attrs = self._ProcessUpdateComponents(app, event)
+    request = nebraska.Request(data)
+    request_attrs = self._ProcessUpdateComponents(request)
 
-    if not update_check:
+    if request.request_type == nebraska.Request.RequestType.EVENT:
       if ((request_attrs.event_type ==
-           autoupdate_lib.EVENT_TYPE_UPDATE_DOWNLOAD_STARTED) and
-          request_attrs.event_result == autoupdate_lib.EVENT_RESULT_SUCCESS):
+           nebraska.Request.EVENT_TYPE_UPDATE_DOWNLOAD_STARTED) and
+          request_attrs.event_result == nebraska.Request.EVENT_RESULT_SUCCESS):
         with self._update_count_lock:
           if self.max_updates == 0:
             _Log('Received too many download_started notifications. This '
@@ -804,13 +619,8 @@ class Autoupdate(build_util.BuildObject):
             self.max_updates -= 1
 
       _Log('A non-update event notification received. Returning an ack.')
-      return autoupdate_lib.GetEventResponse(protocol, appid)
-
-    if request_attrs.forced_update_label:
-      if label:
-        _Log('Label: %s set but being overwritten to %s by request', label,
-             request_attrs.forced_update_label)
-      label = request_attrs.forced_update_label
+      nebraska_obj = nebraska.Nebraska()
+      return nebraska_obj.GetResponseToRequest(request)
 
     # Make sure that we did not already exceed the max number of allowed update
     # responses. Note that the counter is only decremented when the client
@@ -818,40 +628,32 @@ class Autoupdate(build_util.BuildObject):
     # update requests from the same client due to a timeout.
     if self.max_updates == 0:
       _Log('Request received but max number of updates already served.')
-      return autoupdate_lib.GetNoUpdateResponse(protocol, appid)
+      nebraska_obj = nebraska.Nebraska()
+      return nebraska_obj.GetResponseToRequest(request, no_update=True)
 
-    _Log('Update Check Received. Client is using protocol version: %s',
-         protocol)
+    if request_attrs.forced_update_label:
+      if label:
+        _Log('Label: %s set but being overwritten to %s by request', label,
+             request_attrs.forced_update_label)
+      label = request_attrs.forced_update_label
 
-    # Finally its time to generate the omaha response to give to client that
-    # lets them know where to find the payload and its associated metadata.
-    metadata_obj = None
+    _Log('Update Check Received.')
 
     try:
       path_to_payload = self.GetPathToPayload(
           label, request_attrs.client_version, request_attrs.board)
-      url = _NonePathJoin(static_urlbase, path_to_payload,
-                          constants.UPDATE_FILE)
+      base_url = _NonePathJoin(static_urlbase, path_to_payload)
       local_payload_dir = _NonePathJoin(self.static_dir, path_to_payload)
-      metadata_obj = self.GetLocalPayloadAttrs(local_payload_dir)
     except AutoupdateError as e:
       # Raised if we fail to generate an update payload.
-      _Log('Failed to process an update: %r', e)
-      return autoupdate_lib.GetNoUpdateResponse(protocol, appid)
+      _Log('Failed to process an update request, but we will defer to '
+           'nebraska to respond with no-update. The error was %s', e)
 
-    # Include public key, if requested.
-    public_key_data = None
-    if self.public_key:
-      public_key_data = base64.b64encode(open(self.public_key, 'r').read())
-
-    update_response = autoupdate_lib.GetUpdateResponse(
-        metadata_obj.sha1, metadata_obj.sha256, metadata_obj.size, url,
-        metadata_obj.is_delta_format, metadata_obj.metadata_size,
-        None, public_key_data, protocol, appid,
-        self.critical_update)
-
-    _Log('Responding to client to use url %s to get image', url)
-    return update_response
+    _Log('Responding to client to use url %s to get image', base_url)
+    nebraska_obj = nebraska.Nebraska(update_payloads_address=base_url,
+                                     update_metadata_dir=local_payload_dir)
+    return nebraska_obj.GetResponseToRequest(
+        request, critical_update=self.critical_update)
 
   def HandleHostInfoPing(self, ip):
     """Returns host info dictionary for the given IP in JSON format."""
