@@ -48,10 +48,10 @@ class NebraskaTest(unittest.TestCase):
     install_addr = 'foo/install/'
     # pylint: disable=protected-access
     n = nebraska.Nebraska(update_addr, install_addr)
-    self.assertEqual(n._install_payloads_address, install_addr)
+    self.assertEqual(n._properties.install_payloads_address, install_addr)
 
     n = nebraska.Nebraska(update_addr)
-    self.assertEqual(n._install_payloads_address, update_addr)
+    self.assertEqual(n._properties.install_payloads_address, update_addr)
 
 class NebraskaHandlerTest(unittest.TestCase):
   """Test NebraskaHandler."""

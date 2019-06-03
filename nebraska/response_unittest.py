@@ -140,15 +140,14 @@ class ResponseTest(unittest.TestCase):
             version="4.0.0",
             delta_okay=False)]
 
-    update_index = mock.MagicMock()
-    install_index = mock.MagicMock()
+    properties = nebraska.NebraskaProperties(
+        _UPDATE_PAYLOADS_ADDRESS,
+        _INSTALL_PAYLOADS_ADDRESS,
+        mock.MagicMock(),
+        mock.MagicMock())
+    properties.update_app_index.Find.side_effect = app_list
 
-    update_index.Find.side_effect = app_list
-
-    response = nebraska.Response(
-        request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
-        _INSTALL_PAYLOADS_ADDRESS)
-
+    response = nebraska.Response(request, properties)
     response = response.GetXMLString()
 
     response_root = ElementTree.fromstring(response)
@@ -163,6 +162,14 @@ class ResponseTest(unittest.TestCase):
 class AppResponseTest(unittest.TestCase):
   """Tests for AppResponse class."""
 
+  def setUp(self):
+    """Setting up common parameters."""
+    self._properties = nebraska.NebraskaProperties(
+        _UPDATE_PAYLOADS_ADDRESS,
+        _INSTALL_PAYLOADS_ADDRESS,
+        mock.MagicMock(),
+        mock.MagicMock())
+
   def testAppResponseUpdate(self):
     """Tests AppResponse for an update request with matching payload."""
     app_request = nebraska.Request.AppRequest(
@@ -175,14 +182,9 @@ class AppResponseTest(unittest.TestCase):
         is_delta=False,
         target_version="1.0.0",
         source_version=None)
+    self._properties.update_app_index.Find.return_value = match
 
-    update_index = mock.MagicMock()
-    install_index = mock.MagicMock()
-    update_index.Find.return_value = match
-
-    response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
-        _INSTALL_PAYLOADS_ADDRESS)
+    response = nebraska.Response.AppResponse(app_request, self._properties)
 
     self.assertTrue(_UPDATE_PAYLOADS_ADDRESS in
                     ElementTree.tostring(response.Compile()))
@@ -190,8 +192,8 @@ class AppResponseTest(unittest.TestCase):
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is match)
 
-    update_index.Find.assert_called_once_with(app_request)
-    install_index.Find.assert_not_called()
+    self._properties.update_app_index.Find.assert_called_once_with(app_request)
+    self._properties.install_app_index.Find.assert_not_called()
 
   def testAppResponseInstall(self):
     """Tests AppResponse generation for install request with match."""
@@ -205,14 +207,9 @@ class AppResponseTest(unittest.TestCase):
         is_delta=False,
         target_version="1.0.0",
         source_version=None)
+    self._properties.install_app_index.Find.return_value = match
 
-    update_index = mock.MagicMock()
-    install_index = mock.MagicMock()
-    install_index.Find.return_value = match
-
-    response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
-        _INSTALL_PAYLOADS_ADDRESS)
+    response = nebraska.Response.AppResponse(app_request, self._properties)
 
     self.assertTrue(_INSTALL_PAYLOADS_ADDRESS in
                     ElementTree.tostring(response.Compile()))
@@ -220,8 +217,8 @@ class AppResponseTest(unittest.TestCase):
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is match)
 
-    install_index.Find.assert_called_once_with(app_request)
-    update_index.Find.assert_not_called()
+    self._properties.install_app_index.Find.assert_called_once_with(app_request)
+    self._properties.update_app_index.Find.assert_not_called()
 
   def testAppResponseNoMatch(self):
     """Tests AppResponse generation for update request with an unknown appid."""
@@ -230,22 +227,17 @@ class AppResponseTest(unittest.TestCase):
         appid="foo",
         version="1.0.0",
         delta_okay=False)
+    self._properties.update_app_index.Find.return_value = None
+    self._properties.update_app_index.Contains.return_value = False
 
-    update_index = mock.MagicMock()
-    install_index = mock.MagicMock()
-    update_index.Find.return_value = None
-    update_index.Contains.return_value = False
-
-    response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
-        _INSTALL_PAYLOADS_ADDRESS)
+    response = nebraska.Response.AppResponse(app_request, self._properties)
 
     self.assertTrue(response._app_request == app_request)
     self.assertTrue(response._err_not_found)
     self.assertTrue(response._app_data is None)
 
-    update_index.Find.assert_called_once_with(app_request)
-    install_index.Find.assert_not_called()
+    self._properties.update_app_index.Find.assert_called_once_with(app_request)
+    self._properties.install_app_index.Find.assert_not_called()
 
   def testAppResponseNoUpdate(self):
     """Tests AppResponse generation for update request with no new versions."""
@@ -254,22 +246,17 @@ class AppResponseTest(unittest.TestCase):
         appid="foo",
         version="1.0.0",
         delta_okay=False)
+    self._properties.update_app_index.Find.return_value = None
+    self._properties.update_app_index.Contains.return_value = True
 
-    update_index = mock.MagicMock()
-    install_index = mock.MagicMock()
-    update_index.Find.return_value = None
-    update_index.Contains.return_value = True
-
-    response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
-        _INSTALL_PAYLOADS_ADDRESS)
+    response = nebraska.Response.AppResponse(app_request, self._properties)
 
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is None)
 
-    update_index.Find.assert_called_once_with(app_request)
-    install_index.Find.assert_not_called()
+    self._properties.update_app_index.Find.assert_called_once_with(app_request)
+    self._properties.install_app_index.Find.assert_not_called()
 
   def testAppResponsePing(self):
     """Tests AppResponse generation for no-op with a ping request."""
@@ -278,22 +265,17 @@ class AppResponseTest(unittest.TestCase):
         appid="foo",
         ping=True,
         version="1.0.0")
+    self._properties.update_app_index.Find.return_value = None
+    self._properties.update_app_index.Contains.return_value = True
 
-    update_index = mock.MagicMock()
-    install_index = mock.MagicMock()
-    update_index.Find.return_value = None
-    update_index.Contains.return_value = True
-
-    response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
-        _INSTALL_PAYLOADS_ADDRESS)
+    response = nebraska.Response.AppResponse(app_request, self._properties)
 
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is None)
 
-    update_index.Find.assert_not_called()
-    install_index.Find.assert_not_called()
+    self._properties.update_app_index.Find.assert_not_called()
+    self._properties.install_app_index.Find.assert_not_called()
 
   def testAppResponseEvent(self):
     """Tests AppResponse generation for requests with events."""
@@ -303,22 +285,17 @@ class AppResponseTest(unittest.TestCase):
         event_type="1",
         event_result="1",
         version="1.0.0")
+    self._properties.update_app_index.Find.return_value = None
+    self._properties.update_app_index.Contains.return_value = True
 
-    update_index = mock.MagicMock()
-    install_index = mock.MagicMock()
-    update_index.Find.return_value = None
-    update_index.Contains.return_value = True
-
-    response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
-        _INSTALL_PAYLOADS_ADDRESS)
+    response = nebraska.Response.AppResponse(app_request, self._properties)
 
     self.assertTrue(response._app_request == app_request)
     self.assertFalse(response._err_not_found)
     self.assertTrue(response._app_data is None)
 
-    update_index.Find.assert_not_called()
-    install_index.Find.assert_not_called()
+    self._properties.update_app_index.Find.assert_not_called()
+    self._properties.install_app_index.Find.assert_not_called()
 
   def testCompileSuccess(self):
     """Tests successful compilation of an AppData instance."""
@@ -332,15 +309,9 @@ class AppResponseTest(unittest.TestCase):
         is_delta=False,
         target_version="1.0.0",
         source_version=None)
+    self._properties.install_app_index.Find.return_value = match
 
-    update_index = mock.MagicMock()
-    install_index = mock.MagicMock()
-    install_index.Find.return_value = match
-
-    response = nebraska.Response.AppResponse(
-        app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
-        _INSTALL_PAYLOADS_ADDRESS)
-
+    response = nebraska.Response.AppResponse(app_request, self._properties)
     compiled_response = response.Compile()
 
     url_tag = compiled_response.find('updatecheck/urls/url')
@@ -381,14 +352,7 @@ class AppResponseTest(unittest.TestCase):
             event_type="1",
             event_result="1",
             version="1.0.0")
-
-        update_index = mock.MagicMock()
-        install_index = mock.MagicMock()
-
-        response = nebraska.Response.AppResponse(
-            app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
-            _INSTALL_PAYLOADS_ADDRESS)
-
+        response = nebraska.Response.AppResponse(app_request, self._properties)
         response.Compile()
 
   def testCompileParseMissingURL(self):
@@ -411,15 +375,9 @@ class AppResponseTest(unittest.TestCase):
             is_delta=False,
             target_version="1.0.0",
             source_version=None)
+        self._properties.install_app_index.Find.return_value = match
 
-        update_index = mock.MagicMock()
-        install_index = mock.MagicMock()
-        install_index.Find.return_value = match
-
-        response = nebraska.Response.AppResponse(
-            app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
-            _INSTALL_PAYLOADS_ADDRESS)
-
+        response = nebraska.Response.AppResponse(app_request, self._properties)
         response.Compile()
 
     with mock.patch('nebraska.Response.XMLResponseTemplates') as template_mock:
@@ -440,15 +398,9 @@ class AppResponseTest(unittest.TestCase):
             is_delta=False,
             target_version="1.0.0",
             source_version=None)
+        self._properties.install_app_index.Find.return_value = match
 
-        update_index = mock.MagicMock()
-        install_index = mock.MagicMock()
-        install_index.Find.return_value = match
-
-        response = nebraska.Response.AppResponse(
-            app_request, update_index, install_index, _UPDATE_PAYLOADS_ADDRESS,
-            _INSTALL_PAYLOADS_ADDRESS)
-
+        response = nebraska.Response.AppResponse(app_request, self._properties)
         response.Compile()
 
 

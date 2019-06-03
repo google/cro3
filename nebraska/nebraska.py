@@ -217,22 +217,15 @@ class Response(object):
   format based on the format of an XML response template.
   """
 
-  def __init__(self, request, update_index, install_index,
-               update_payloads_address, install_payloads_address):
+  def __init__(self, request, properties):
     """Initialize a reponse from a list of matching apps.
 
     Args:
       request: Request instance describing client requests.
-      update_index: Index of update payloads.
-      install_index: Index of install payloads.
-      update_payloads_address: Address of update payload server.
-      install_payloads_address: Address of install payload server.
+      properties: An instance of NebraskaProperties.
     """
     self._request = request
-    self._update_index = update_index
-    self._install_index = install_index
-    self._update_payloads_address = update_payloads_address
-    self._install_payloads_address = install_payloads_address
+    self._properties = properties
 
     curr = datetime.now()
     self._elapsed_days = (curr - datetime(2007, 1, 1)).days
@@ -302,12 +295,8 @@ class Response(object):
 
       for app_request in self._request.ParseRequest():
         logging.debug("Request for appid %s", str(app_request))
-        response_xml.append(self.AppResponse(
-            app_request,
-            self._update_index,
-            self._install_index,
-            self._update_payloads_address,
-            self._install_payloads_address).Compile())
+        response_xml.append(
+            self.AppResponse(app_request, self._properties).Compile())
 
     except Exception as err:
       logging.error("Failed to compile response (%s)", str(err))
@@ -324,16 +313,12 @@ class Response(object):
     responses to pings and events as appropriate.
     """
 
-    def __init__(self, app_request, update_index, install_index,
-                 update_payloads_address, install_payloads_address):
+    def __init__(self, app_request, properties):
       """Initialize an AppResponse.
 
       Attributes:
         app_request: AppRequest representing a client request.
-        update_index: Index of update payloads.
-        install_index: Index of install payloads.
-        update_payloads_address: Address serving update payloads.
-        install_payloads_address: Address serving install payloads.
+        properties: An instance of NebraskaProperties.
       """
       self._app_request = app_request
       self._app_data = None
@@ -342,19 +327,20 @@ class Response(object):
 
       if (self._app_request.request_type ==
           self._app_request.RequestType.INSTALL):
-        self._app_data = install_index.Find(self._app_request)
+        self._app_data = properties.install_app_index.Find(self._app_request)
         self._err_not_found = self._app_data is None
-        self._payloads_address = install_payloads_address
+        self._payloads_address = properties.install_payloads_address
       elif (self._app_request.request_type ==
             self._app_request.RequestType.UPDATE):
-        self._app_data = update_index.Find(self._app_request)
-        self._payloads_address = update_payloads_address
+        self._app_data = properties.update_app_index.Find(self._app_request)
+        self._payloads_address = properties.update_payloads_address
         # This differentiates between apps that are not in the index and apps
         # that are available, but do not have an update available. Omaha treats
         # the former as an error, whereas the latter case should result in a
         # response containing a "noupdate" tag.
         self._err_not_found = (self._app_data is None and
-                               not update_index.Contains(self._app_request))
+                               not properties.update_app_index.Contains(
+                                   self._app_request))
 
       if self._app_data:
         logging.debug("Found matching payload: %s", str(self._app_data))
@@ -583,6 +569,25 @@ class AppIndex(object):
           self.appid, self.target_version)
 
 
+class NebraskaProperties(object):
+  """An instance of this class contains some Nebraska properties."""
+
+  def __init__(self, update_payloads_address, install_payloads_address,
+               update_app_index, install_app_index):
+    """Initializes the NebraskaProperties instance.
+
+    Args:
+      update_payloads_address: Address serving update payloads.
+      install_payloads_address: Address serving install payloads.
+      update_app_index: Index of update payloads.
+      install_app_index: Index of install payloads.
+    """
+    self.update_payloads_address = update_payloads_address
+    self.install_payloads_address = install_payloads_address
+    self.update_app_index = update_app_index
+    self.install_app_index = install_app_index
+
+
 class Nebraska(object):
   """An instance of this class allows responding to incoming Omaha requests.
 
@@ -606,15 +611,15 @@ class Nebraska(object):
     # Attach '/' at the end of the addresses if they don't have any. The update
     # engine just concatenates the base address with the payload file name and
     # if there is no '/' the path will be invalid.
-    self._update_payloads_address = os.path.join(update_payloads_address, '')
-    self._install_payloads_address = (os.path.join(install_payloads_address, '')
-                                      if install_payloads_address is not None
-                                      else self._update_payloads_address)
-    self._update_index = AppIndex(update_metadata_dir)
-    self._install_index = AppIndex(install_metadata_dir)
+    upa = os.path.join(update_payloads_address, '')
+    ipa = (os.path.join(install_payloads_address, '')
+           if install_payloads_address is not None else upa)
+    uai = AppIndex(update_metadata_dir)
+    iai = AppIndex(install_metadata_dir)
+    uai.Scan()
+    iai.Scan()
 
-    self._update_index.Scan()
-    self._install_index.Scan()
+    self._properties = NebraskaProperties(upa, ipa, uai, iai)
 
   def GetResponseToRequest(self, request):
     """Returns the response corresponding to a request.
@@ -625,11 +630,7 @@ class Nebraska(object):
     Returns:
       The string representation of the created response.
     """
-    return Response(Request(request),
-                    self._update_index,
-                    self._install_index,
-                    self._update_payloads_address,
-                    self._install_payloads_address).GetXMLString()
+    return Response(Request(request), self._properties).GetXMLString()
 
 
 class NebraskaServer(object):
