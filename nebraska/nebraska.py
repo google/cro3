@@ -420,71 +420,6 @@ class Response(object):
       return app_response
 
 
-class AppData(object):
-  """Data about an available app.
-
-  Data about an available app that can be either installed or upgraded to. This
-  information is compiled into XML format and returned to the client in an app
-  tag in the server's response to an update or install request.
-  """
-
-  APPID_KEY = 'appid'
-  NAME_KEY = 'name'
-  IS_DELTA_KEY = 'is_delta'
-  SIZE_KEY = 'size'
-  METADATA_SIG_KEY = 'metadata_signature'
-  METADATA_SIZE_KEY = 'metadata_size'
-  TARGET_VERSION_KEY = 'target_version'
-  SOURCE_VERSION_KEY = 'source_version'
-  SHA256_HEX_KEY = 'sha256_hex'
-
-  def __init__(self, app_data):
-    """Initialize AppData
-
-    Args:
-      app_data: Dictionary containing attributes used to init AppData instance.
-
-    Attributes:
-      template: Defines the format of an app element in the XML response.
-      appid: appid of the requested app.
-      name: Filename of requested app on the mock Lorry server.
-      is_delta: True iff the payload is a delta update.
-      size: Size of the payload.
-      metadata_signature: Metadata signature.
-      metadata_size: Metadata size.
-      sha256_hex: SHA256 hash of the payload encoded in hexadecimal.
-      target_version: ChromeOS version the payload is tied to.
-      source_version: Source version for delta updates.
-    """
-    self.appid = app_data[self.APPID_KEY]
-    self.name = app_data[self.NAME_KEY]
-    self.target_version = app_data[self.TARGET_VERSION_KEY]
-    self.is_delta = app_data[self.IS_DELTA_KEY]
-    self.source_version = (
-        app_data[self.SOURCE_VERSION_KEY] if self.is_delta else None)
-    self.size = app_data[self.SIZE_KEY]
-    # Sometimes the payload is not signed, hence the matadata signature is null,
-    # but we should pass empty string instead of letting the value be null (the
-    # XML element tree will break).
-    self.metadata_signature = app_data[self.METADATA_SIG_KEY] or ''
-    self.metadata_size = app_data[self.METADATA_SIZE_KEY]
-    # Unfortunately the sha256_hex that paygen generates is actually a base64
-    # sha256 hash of the payload for some unknown historical reason. But the
-    # Omaha response contains the hex value of that hash. So here convert the
-    # value from base64 to hex so nebraska can send the correct version to the
-    # client. See b/131762584.
-    self.sha256_hex = base64.b64decode(
-        app_data[self.SHA256_HEX_KEY]).encode('hex')
-    self.url = None # Determined per-request.
-
-  def __str__(self):
-    if self.is_delta:
-      return "{} v{}: delta update from base v{}".format(
-          self.appid, self.target_version, self.source_version)
-    return "{} v{}: full update/install".format(
-        self.appid, self.target_version)
-
-
 class AppIndex(object):
   """An index of available app payload information.
 
@@ -524,7 +459,7 @@ class AppIndex(object):
             # Get the name from file name itself, assuming the metadata file
             # ends with '.json'.
             metadata[AppIndex.AppData.NAME_KEY] = f[:-len('.json')]
-            app = AppData(metadata)
+            app = AppIndex.AppData(metadata)
 
             if app.appid not in self._index:
               self._index[app.appid] = []
@@ -581,6 +516,71 @@ class AppIndex(object):
       request.
     """
     return request.appid in self._index
+
+  class AppData(object):
+    """Data about an available app.
+
+    Data about an available app that can be either installed or upgraded
+    to. This information is compiled into XML format and returned to the client
+    in an app tag in the server's response to an update or install request.
+    """
+
+    APPID_KEY = 'appid'
+    NAME_KEY = 'name'
+    IS_DELTA_KEY = 'is_delta'
+    SIZE_KEY = 'size'
+    METADATA_SIG_KEY = 'metadata_signature'
+    METADATA_SIZE_KEY = 'metadata_size'
+    TARGET_VERSION_KEY = 'target_version'
+    SOURCE_VERSION_KEY = 'source_version'
+    SHA256_HEX_KEY = 'sha256_hex'
+
+    def __init__(self, app_data):
+      """Initialize AppData.
+
+      Args:
+        app_data: Dictionary containing attributes used to initialize AppData
+            instance.
+
+      Attributes:
+        template: Defines the format of an app element in the XML response.
+        appid: appid of the requested app.
+        name: Filename of requested app on the mock Lorry server.
+        is_delta: True iff the payload is a delta update.
+        size: Size of the payload.
+        metadata_signature: Metadata signature.
+        metadata_size: Metadata size.
+        sha256_hex: SHA256 hash of the payload encoded in hexadecimal.
+        target_version: ChromeOS version the payload is tied to.
+        source_version: Source version for delta updates.
+      """
+      self.appid = app_data[self.APPID_KEY]
+      self.name = app_data[self.NAME_KEY]
+      self.target_version = app_data[self.TARGET_VERSION_KEY]
+      self.is_delta = app_data[self.IS_DELTA_KEY]
+      self.source_version = (
+          app_data[self.SOURCE_VERSION_KEY] if self.is_delta else None)
+      self.size = app_data[self.SIZE_KEY]
+      # Sometimes the payload is not signed, hence the matadata signature is
+      # null, but we should pass empty string instead of letting the value be
+      # null (the XML element tree will break).
+      self.metadata_signature = app_data[self.METADATA_SIG_KEY] or ''
+      self.metadata_size = app_data[self.METADATA_SIZE_KEY]
+      # Unfortunately the sha256_hex that paygen generates is actually a base64
+      # sha256 hash of the payload for some unknown historical reason. But the
+      # Omaha response contains the hex value of that hash. So here convert the
+      # value from base64 to hex so nebraska can send the correct version to the
+      # client. See b/131762584.
+      self.sha256_hex = base64.b64decode(
+          app_data[self.SHA256_HEX_KEY]).encode('hex')
+      self.url = None # Determined per-request.
+
+    def __str__(self):
+      if self.is_delta:
+        return "{} v{}: delta update from base v{}".format(
+            self.appid, self.target_version, self.source_version)
+      return "{} v{}: full update/install".format(
+          self.appid, self.target_version)
 
 
 class Nebraska(object):
