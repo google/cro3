@@ -12,17 +12,10 @@ from xml.etree import ElementTree
 
 import nebraska
 
-def AppDataGenerator(appid, is_delta, target_version, source_version):
-  """Generates and AppData test instance."""
-  return nebraska.AppIndex.AppData(
-      GenAppJson(appid=appid, is_delta=is_delta, target_version=target_version,
-                 source_version=source_version))
-
-
-def GenAppJson(appid='appid_foo', name='foobar', is_delta='False',
-               target_version='2.0.0', source_version='1.0.0'):
-  """Mocks JSON parsing functionality for testing."""
-  return {
+def GenerateAppData(appid='foo', name='foobar', is_delta=False,
+                    target_version='2.0.0', source_version=None):
+  """Generates an AppData test instance."""
+  data = {
       nebraska.AppIndex.AppData.APPID_KEY: appid,
       nebraska.AppIndex.AppData.NAME_KEY: name,
       nebraska.AppIndex.AppData.TARGET_VERSION_KEY: target_version,
@@ -40,11 +33,13 @@ def GenAppJson(appid='appid_foo', name='foobar', is_delta='False',
       nebraska.AppIndex.AppData.SHA256_HEX_KEY: \
           '886fd274745b4fa8d1f253cff11242fac07a29522b1bb9e028ab1480353d3160'
   }
+  return nebraska.AppIndex.AppData(data)
 
 def GenerateAppRequest(request_type=nebraska.Request.RequestType.UPDATE,
-                       appid='foo', version='1.2.0', delta_okay=False,
+                       appid='foo', version='1.0.0', delta_okay=False,
                        event=False, event_type='1', event_result='1',
                        update_check=True, ping=False):
+  """Generates an app request test instance."""
   APP_TEMPLATE = """<app appid="" version="" delta_okay=""
 hardware_class="foo-hardware" track="foo-channel" board="foo-board"> </app>"""
   PING_TEMPLATE = """<ping active="1" a="1" r="1"></ping>"""

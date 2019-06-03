@@ -12,7 +12,6 @@ import mock
 import unittest
 
 import nebraska
-from unittest_common import AppDataGenerator
 import unittest_common
 
 _NEBRASKA_PORT = 11235
@@ -221,63 +220,44 @@ class AppDataTest(unittest.TestCase):
 
   def testMatchAppDataInstall(self):
     """Tests MatchAppData for matching install request."""
-    app_data = AppDataGenerator(
-        appid='foo',
-        is_delta=False,
-        target_version='1.2.0',
-        source_version=None)
+    app_data = unittest_common.GenerateAppData(source_version=None)
     request = unittest_common.GenerateAppRequest(
         request_type=nebraska.Request.RequestType.INSTALL)
     self.assertTrue(request.MatchAppData(app_data))
 
   def testMatchAppDataDelta(self):
     """Tests MatchAppData for matching delta update request."""
-    app_data = AppDataGenerator(
-        appid='foo',
-        is_delta=True,
-        target_version='1.3.0',
-        source_version='1.2.0')
+    app_data = unittest_common.GenerateAppData(is_delta=True,
+                                               source_version='1.0.0')
     request = unittest_common.GenerateAppRequest(delta_okay=True)
     self.assertTrue(request.MatchAppData(app_data))
 
   def testMatchAppDataUpdate(self):
     """Tests MatchAppData for matching full update request."""
-    app_data = AppDataGenerator(
-        appid='foo',
-        is_delta=False,
-        target_version='1.3.0',
-        source_version=None)
+    app_data = unittest_common.GenerateAppData()
     request = unittest_common.GenerateAppRequest()
     self.assertTrue(request.MatchAppData(app_data))
 
   def testMatchAppDataAppidMismatch(self):
     """Tests MatchAppData for appid mismatch."""
-    app_data = AppDataGenerator(
-        appid='bar',
-        is_delta=False,
-        target_version='1.2.0',
-        source_version=None)
+    app_data = unittest_common.GenerateAppData(appid='bar')
     request = unittest_common.GenerateAppRequest(
+        appid='foo',
         request_type=nebraska.Request.RequestType.INSTALL)
     self.assertFalse(request.MatchAppData(app_data))
 
   def testMatchAppDataDeltaMismatch(self):
     """Tests MatchAppData for delta mismatch."""
-    app_data = AppDataGenerator(
-        appid='foo',
-        is_delta=True,
-        target_version='2.3.0',
-        source_version='1.2.0')
-    request = unittest_common.GenerateAppRequest()
+    app_data = unittest_common.GenerateAppData(is_delta=True,
+                                               source_version='1.2.0')
+    request = unittest_common.GenerateAppRequest(delta_okay=False)
     self.assertFalse(request.MatchAppData(app_data))
 
-    app_data = AppDataGenerator(
-        appid='foo',
-        is_delta=True,
-        target_version='1.3.0',
-        source_version='1.2.0')
+    app_data = unittest_common.GenerateAppData(is_delta=True,
+                                               source_version='1.2.0')
     request = unittest_common.GenerateAppRequest(
-        request_type=nebraska.Request.RequestType.INSTALL)
+        request_type=nebraska.Request.RequestType.INSTALL,
+        delta_okay=True)
     self.assertFalse(request.MatchAppData(app_data))
 
 if __name__ == '__main__':
