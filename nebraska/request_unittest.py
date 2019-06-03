@@ -115,25 +115,25 @@ class RequestTest(unittest.TestCase):
 
   def testParseRequestInvalidXML(self):
     """Tests ParseRequest handling of invalid XML."""
-    with self.assertRaises(ValueError):
+    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
       request = nebraska.Request(XMLStrings.INVALID_XML_REQUEST)
       request.ParseRequest()
 
   def testParseRequestInvalidApp(self):
     """Tests ParseRequest handling of invalid app requests."""
-    with self.assertRaises(ValueError):
+    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
       request = nebraska.Request(XMLStrings.INVALID_APP_REQUEST)
       request.ParseRequest()
 
   def testParseRequestInvalidInstall(self):
     """Tests ParseRequest handling of invalid app requests."""
-    with self.assertRaises(ValueError):
+    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
       request = nebraska.Request(XMLStrings.INVALID_INSTALL_REQUEST)
       request.ParseRequest()
 
   def testParseRequestInvalidNoop(self):
     """Tests ParseRequest handling of invalid mixed no-op request."""
-    with self.assertRaises(ValueError):
+    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
       request = nebraska.Request(XMLStrings.INVALID_NOOP_REQUEST)
       request.ParseRequest()
 

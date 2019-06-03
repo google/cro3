@@ -25,6 +25,14 @@ from datetime import datetime, time
 from xml.etree import ElementTree
 
 
+class NebraskaError(Exception):
+  """The base class for failures raised by Nebraska."""
+
+
+class NebraskaErrorInvalidRequest(NebraskaError):
+  """Raised for invalid requests."""
+
+
 class Request(object):
   """Request consisting of a list of apps to update/install."""
 
@@ -60,13 +68,14 @@ class Request(object):
       A list of AppRequest instances.
 
     Raises:
-      ValueError if the request string is not a valid XML request.
+      NebrakaErrorInvalidRequest if the request string is not a valid XML
+          request.
     """
     try:
       request_root = ElementTree.fromstring(self.request_str)
     except ElementTree.ParseError as err:
-      logging.error("Request string is not valid XML (%s)", str(err))
-      raise ValueError
+      raise NebraskaErrorInvalidRequest(
+          'Request string is not valid XML: {}'.format(str(err)))
 
     # TODO(http://crbug.com/914936): It would be better to specifically check
     # the platform app. An install is signalled by omitting the update check
@@ -81,8 +90,9 @@ class Request(object):
         [x for x in app_elements if x.find(self.UPDATE_CHECK_TAG) is None])
 
     if noop_count > 1 and noop_count < len(app_elements):
-      raise ValueError("Client request omits update_check tag for more than "
-                       "one, but not all app requests.")
+      raise NebraskaErrorInvalidRequest(
+          "Client request omits update_check tag for more than one, but not all"
+          " app requests.")
 
     is_install = noop_count == 1
 
@@ -120,7 +130,8 @@ class Request(object):
           event_result=event_result)
 
       if not app_request.IsValid():
-        raise ValueError("Invalid request: %s", str(app_request))
+        raise NebraskaErrorInvalidRequest(
+            'Invalid request: {}'.format(str(app_request)))
 
       app_requests.append(app_request)
 
@@ -299,8 +310,7 @@ class Response(object):
             self.AppResponse(app_request, self._properties).Compile())
 
     except Exception as err:
-      logging.error("Failed to compile response (%s)", str(err))
-      raise
+      raise NebraskaError('Failed to compile response: {}'.format(str(err)))
 
     return ElementTree.tostring(
         response_xml, encoding='UTF-8', method='xml')
