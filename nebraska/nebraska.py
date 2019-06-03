@@ -443,6 +443,8 @@ class Response(object):
         actions[1].set('MetadataSize', str(self._app_data.metadata_size))
         if self._critical_update:
           actions[1].set('deadline', 'now')
+        if self._app_data.public_key is not None:
+          actions[1].set('PublicKeyRsa', self._app_data.public_key)
         package = manifest.find('./packages/package')
         package.set('fp', '1.%s' % self._app_data.sha256_hex)
         package.set('hash_sha256', self._app_data.sha256_hex)
@@ -573,6 +575,7 @@ class AppIndex(object):
     TARGET_VERSION_KEY = 'target_version'
     SOURCE_VERSION_KEY = 'source_version'
     SHA256_HEX_KEY = 'sha256_hex'
+    PUBLIC_KEY_RSA_KEY = 'public_key'
 
     def __init__(self, app_data):
       """Initialize AppData.
@@ -592,6 +595,8 @@ class AppIndex(object):
         sha256_hex: SHA256 hash of the payload encoded in hexadecimal.
         target_version: ChromeOS version the payload is tied to.
         source_version: Source version for delta updates.
+        public_key: The public key for signature verification. It should be in
+            base64 format.
       """
       self.appid = app_data[self.APPID_KEY]
       self.name = app_data[self.NAME_KEY]
@@ -605,6 +610,7 @@ class AppIndex(object):
       # null (the XML element tree will break).
       self.metadata_signature = app_data[self.METADATA_SIG_KEY] or ''
       self.metadata_size = app_data[self.METADATA_SIZE_KEY]
+      self.public_key = app_data.get(self.PUBLIC_KEY_RSA_KEY)
       # Unfortunately the sha256_hex that paygen generates is actually a base64
       # sha256 hash of the payload for some unknown historical reason. But the
       # Omaha response contains the hex value of that hash. So here convert the

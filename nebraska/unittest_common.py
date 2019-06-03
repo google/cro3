@@ -13,7 +13,8 @@ from xml.etree import ElementTree
 import nebraska
 
 def GenerateAppData(appid='foo', name='foobar', is_delta=False,
-                    target_version='2.0.0', source_version=None):
+                    target_version='2.0.0', source_version=None,
+                    include_public_key=False):
   """Generates an AppData test instance."""
   data = {
       nebraska.AppIndex.AppData.APPID_KEY: appid,
@@ -33,6 +34,8 @@ def GenerateAppData(appid='foo', name='foobar', is_delta=False,
       nebraska.AppIndex.AppData.SHA256_HEX_KEY: \
           '886fd274745b4fa8d1f253cff11242fac07a29522b1bb9e028ab1480353d3160'
   }
+  if include_public_key:
+    data[nebraska.AppIndex.AppData.PUBLIC_KEY_RSA_KEY] = 'foo-public-key'
   return nebraska.AppIndex.AppData(data)
 
 def GenerateAppRequest(request_type=nebraska.Request.RequestType.UPDATE,

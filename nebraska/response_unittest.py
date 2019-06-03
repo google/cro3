@@ -280,6 +280,7 @@ class AppResponseTest(unittest.TestCase):
     self.assertTrue(action_tag.attrib['IsDeltaPayload'] == 'true' if
                     match.is_delta else 'false')
     self.assertFalse('deadline' in action_tag.attrib)
+    self.assertFalse('PublicKeyRsa' in action_tag.attrib)
 
   def testCompileParseInvalidXML(self):
     """Tests Compile handling of invalid XML templates."""
@@ -336,6 +337,17 @@ class AppResponseTest(unittest.TestCase):
     action_tag = response.findall(
         'updatecheck/manifest/actions/action')[1]
     self.assertTrue(action_tag.attrib['deadline'] == 'now')
+
+  def testPublicKey(self):
+    """Tests public key is included in the response."""
+    app_request = unittest_common.GenerateAppRequest()
+    match = unittest_common.GenerateAppData(include_public_key=True)
+    self._properties.update_app_index.Find.return_value = match
+    response = nebraska.Response.AppResponse(
+        app_request, self._properties).Compile()
+    action_tag = response.findall(
+        'updatecheck/manifest/actions/action')[1]
+    self.assertTrue(action_tag.attrib['PublicKeyRsa'] == match.public_key)
 
 
 if __name__ == '__main__':
