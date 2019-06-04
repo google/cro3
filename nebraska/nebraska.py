@@ -22,6 +22,7 @@ import traceback
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from datetime import datetime, time
+from xml.dom import minidom
 from xml.etree import ElementTree
 
 
@@ -684,7 +685,10 @@ class Nebraska(object):
     properties = copy.copy(self._properties)
     properties.critical_update = critical_update
     properties.no_update = no_update
-    return Response(request, properties).GetXMLString()
+    response = Response(request, properties).GetXMLString()
+    # Make the XML response look pretty.
+    return minidom.parseString(response).toprettyxml(indent='  ',
+                                                     encoding='UTF-8')
 
 
 class NebraskaServer(object):
