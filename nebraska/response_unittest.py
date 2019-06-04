@@ -21,76 +21,6 @@ import unittest_common
 _UPDATE_PAYLOADS_ADDRESS = 'www.google.com/update'
 _INSTALL_PAYLOADS_ADDRESS = 'www.google.com/install'
 
-class XMLResponseTemplates(object):
-  """XML Templates for testing."""
-
-  RESPONSE_TEMPLATE_INVALID = """
-invalid xml!!
-<?xml version="1.0" encoding="UTF-8"?>
-<response protocol="3.0" server="nebraska">
-  <daystart elapsed_days="" elapsed_seconds=""/>
-</response>
-"""
-
-  APP_TEMPLATE = """
-  <app appid="" status="">
-  </app>
-"""
-
-  APP_TEMPLATE_INVALID = """
-  invalid xml!!
-  <app appid="" status="">
-  </app>
-"""
-
-  UPDATE_CHECK_TEMPLATE_NO_PACKAGE = """
-    <updatecheck status="ok">
-      <urls>
-      </urls>
-      <manifest version="">
-        <actions>
-          <action event="update" run=""/>
-          <action ChromeOSVersion=""
-                  ChromeVersion="1.0.0.0"
-                  IsDelta=""
-                  IsDeltaPayload=""
-                  MaxDaysToScatter="14"
-                  MetadataSignatureRsa=""
-                  MetadataSize=""
-                  event="postinstall"
-                  sha256=""/>
-        </actions>
-      </manifest>
-    </updatecheck>
-  """
-
-  UPDATE_CHECK_TEMPLATE_NO_URL = """
-    <updatecheck status="ok">
-      <manifest version="">
-        <actions>
-          <action event="update" run=""/>
-          <action ChromeOSVersion=""
-                  ChromeVersion="1.0.0.0"
-                  IsDelta=""
-                  IsDeltaPayload=""
-                  MaxDaysToScatter="14"
-                  MetadataSignatureRsa=""
-                  MetadataSize=""
-                  event="postinstall"
-                  sha256=""/>
-        </actions>
-        <packages>
-          <package fp="null"
-                   hash_sha256=""
-                   name=""
-                   required="true"
-                   size=""/>
-        </packages>
-      </manifest>
-    </updatecheck>
-  """
-
-
 class ResponseTest(unittest.TestCase):
   """Tests for Response class."""
 
@@ -301,50 +231,6 @@ class AppResponseTest(unittest.TestCase):
                     match.is_delta else 'false')
     self.assertFalse('deadline' in action_tag.attrib)
     self.assertFalse('PublicKeyRsa' in action_tag.attrib)
-
-  def testCompileParseInvalidXML(self):
-    """Tests Compile handling of invalid XML templates."""
-    with mock.patch('nebraska.Response.XMLResponseTemplates') as template_mock:
-      with self.assertRaises(ElementTree.ParseError):
-
-        template_mock.APP_TEMPLATE = XMLResponseTemplates.APP_TEMPLATE_INVALID
-
-        app_request = unittest_common.GenerateAppRequest(
-            request_type=nebraska.Request.RequestType.EVENT)
-        response = nebraska.Response.AppResponse(app_request, self._properties)
-        response.Compile()
-
-  def testCompileParseMissingURL(self):
-    """Tests Compile handling of missing tags."""
-    with mock.patch('nebraska.Response.XMLResponseTemplates') as template_mock:
-      with self.assertRaises(AttributeError):
-
-        template_mock.APP_TEMPLATE = XMLResponseTemplates.APP_TEMPLATE
-        template_mock.UPDATE_CHECK_TEMPLATE = \
-            XMLResponseTemplates.UPDATE_CHECK_TEMPLATE_NO_URL
-
-        app_request = unittest_common.GenerateAppRequest(
-            request_type=nebraska.Request.RequestType.INSTALL)
-        match = unittest_common.GenerateAppData()
-        self._properties.install_app_index.Find.return_value = match
-
-        response = nebraska.Response.AppResponse(app_request, self._properties)
-        response.Compile()
-
-    with mock.patch('nebraska.Response.XMLResponseTemplates') as template_mock:
-      with self.assertRaises(AttributeError):
-
-        template_mock.APP_TEMPLATE = XMLResponseTemplates.APP_TEMPLATE
-        template_mock.UPDATE_CHECK_TEMPLATE = \
-            XMLResponseTemplates.UPDATE_CHECK_TEMPLATE_NO_PACKAGE
-
-        app_request = unittest_common.GenerateAppRequest(
-            request_type=nebraska.Request.RequestType.INSTALL)
-        match = unittest_common.GenerateAppData()
-        self._properties.install_app_index.Find.return_value = match
-
-        response = nebraska.Response.AppResponse(app_request, self._properties)
-        response.Compile()
 
   def testCriticalUpdate(self):
     """Tests correct response for critical updates."""

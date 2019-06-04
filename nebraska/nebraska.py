@@ -302,49 +302,6 @@ class Response(object):
     self._elapsed_seconds = int((
         curr - datetime.combine(curr.date(), time.min)).total_seconds())
 
-  class XMLResponseTemplates(object):
-    """XML Templates"""
-
-    RESPONSE_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
-      <response protocol="3.0" server="nebraska">
-        <daystart elapsed_days="" elapsed_seconds=""/>
-      </response>"""
-
-    APP_TEMPLATE = """<app appid="" status=""></app>"""
-
-    PING_RESPONSE = """<ping status="ok"/>"""
-
-    EVENT_RESPONSE = """<event status="ok"/>"""
-
-    UPDATE_CHECK_TEMPLATE = """
-      <updatecheck status="ok">
-        <urls>
-        </urls>
-        <manifest version="">
-          <actions>
-            <action event="update" run=""/>
-            <action ChromeOSVersion=""
-                    ChromeVersion="1.0.0.0"
-                    IsDeltaPayload=""
-                    MaxDaysToScatter="14"
-                    MetadataSignatureRsa=""
-                    MetadataSize=""
-                    event="postinstall"/>
-          </actions>
-          <packages>
-            <package fp=""
-                     hash_sha256=""
-                     name=""
-                     required="true"
-                     size=""/>
-          </packages>
-        </manifest>
-      </updatecheck>"""
-
-    UPDATE_CHECK_NO_UPDATE = """<updatecheck status="noupdate"/>"""
-
-    ERROR_NOT_FOUND = 'error-unknownApplication'
-
   def GetXMLString(self):
     """Generates a response to a set of client requests.
 
@@ -357,11 +314,12 @@ class Response(object):
       in the incoming request from the client.
     """
     try:
-      response_xml = ElementTree.fromstring(
-          Response.XMLResponseTemplates.RESPONSE_TEMPLATE)
-      response_xml.find('daystart').set('elapsed_days', str(self._elapsed_days))
-      response_xml.find('daystart').set('elapsed_seconds',
-                                        str(self._elapsed_seconds))
+      response_xml = ElementTree.Element(
+          'response', attrib={'protocol': '3.0', 'server': 'nebraska'})
+      ElementTree.SubElement(
+          response_xml, 'daystart',
+          attrib={'elapsed_days': str(self._elapsed_days),
+                  'elapsed_seconds': str(self._elapsed_seconds)})
 
       for app_request in self._request.app_requests:
         logging.debug('Request for appid %s', str(app_request))
@@ -432,51 +390,55 @@ class Response(object):
       Returns:
         An ElementTree Element instance describing an update or install payload.
       """
-      app_response = ElementTree.fromstring(
-          Response.XMLResponseTemplates.APP_TEMPLATE)
-      app_response.set('appid', self._app_request.appid)
+      app_response = ElementTree.Element(
+          'app', attrib={'appid': self._app_request.appid, 'status': 'ok'})
 
       if self._app_request.ping:
-        app_response.append(
-            ElementTree.fromstring(Response.XMLResponseTemplates.PING_RESPONSE))
+        ElementTree.SubElement(app_response, 'ping', attrib={'status': 'ok'})
       if self._app_request.event_type is not None:
-        app_response.append(ElementTree.fromstring(
-            Response.XMLResponseTemplates.EVENT_RESPONSE))
+        ElementTree.SubElement(app_response, 'event', attrib={'status': 'ok'})
 
       if self._app_data is not None:
-        app_response.set('status', 'ok')
-        app_response.append(ElementTree.fromstring(
-            Response.XMLResponseTemplates.UPDATE_CHECK_TEMPLATE))
-        urls = app_response.find('./updatecheck/urls')
-        urls.append(
-            ElementTree.Element('url', attrib={'codebase':
-                                               self._payloads_address}))
-        manifest = app_response.find('./updatecheck/manifest')
-        manifest.set('version', self._app_data.target_version)
-        actions = manifest.findall('./actions/action')
-        actions[0].set('run', self._app_data.name)
-        actions[1].set('ChromeOSVersion', self._app_data.target_version)
-        actions[1].set('IsDeltaPayload',
-                       'true' if self._app_data.is_delta else 'false')
-        actions[1].set('MetadataSignatureRsa',
-                       self._app_data.metadata_signature)
-        actions[1].set('MetadataSize', str(self._app_data.metadata_size))
+        update_check = ElementTree.SubElement(
+            app_response, 'updatecheck', attrib={'status': 'ok'})
+        urls = ElementTree.SubElement(update_check, 'urls')
+        ElementTree.SubElement(
+            urls, 'url', attrib={'codebase': self._payloads_address})
+        manifest = ElementTree.SubElement(
+            update_check, 'manifest',
+            attrib={'version': self._app_data.target_version})
+        actions = ElementTree.SubElement(manifest, 'actions')
+        ElementTree.SubElement(
+            actions, 'action',
+            attrib={'event': 'update', 'run': self._app_data.name})
+        action = ElementTree.SubElement(
+            actions, 'action',
+            attrib={'ChromeOSVersion': self._app_data.target_version,
+                    'ChromeVersion': '1.0.0.0',
+                    'IsDeltaPayload': str(self._app_data.is_delta).lower(),
+                    'MaxDaysToScatter': '14',
+                    'MetadataSignatureRsa': self._app_data.metadata_signature,
+                    'MetadataSize': str(self._app_data.metadata_size),
+                    'event': 'postinstall'})
         if self._critical_update:
-          actions[1].set('deadline', 'now')
+          action.set('deadline', 'now')
         if self._app_data.public_key is not None:
-          actions[1].set('PublicKeyRsa', self._app_data.public_key)
-        package = manifest.find('./packages/package')
-        package.set('fp', '1.%s' % self._app_data.sha256_hex)
-        package.set('hash_sha256', self._app_data.sha256_hex)
-        package.set('name', self._app_data.name)
-        package.set('size', str(self._app_data.size))
+          action.set('PublicKeyRsa', self._app_data.public_key)
+        packages = ElementTree.SubElement(manifest, 'packages')
+        ElementTree.SubElement(
+            packages, 'package',
+            attrib={'fp': '1.%s' % self._app_data.sha256_hex,
+                    'hash_sha256': self._app_data.sha256_hex,
+                    'name': self._app_data.name,
+                    'required': 'true',
+                    'size': str(self._app_data.size)})
+
       elif self._err_not_found:
-        app_response.set('status',
-                         Response.XMLResponseTemplates.ERROR_NOT_FOUND)
+        app_response.set('status', 'error-unknownApplication')
+
       elif self._app_request.request_type == Request.RequestType.UPDATE:
-        app_response.set('status', 'ok')
-        app_response.append(ElementTree.fromstring(
-            Response.XMLResponseTemplates.UPDATE_CHECK_NO_UPDATE))
+        ElementTree.SubElement(app_response, 'updatecheck',
+                               attrib={'status': 'noupdate'})
 
       return app_response
 
