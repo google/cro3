@@ -658,7 +658,6 @@ class ApiRoot(object):
       A JSON encoded dictionary with information about the said file, which may
       contain the following keys/values:
         size (int):      the file size in bytes
-        sha1 (string):   a base64 encoded SHA1 hash
         sha256 (string): a base64 encoded SHA256 hash
 
     Example URL:
@@ -669,19 +668,14 @@ class ApiRoot(object):
       raise DevServerError('file not found: %s' % file_path)
     try:
       file_size = os.path.getsize(file_path)
-      file_sha1 = common_util.GetFileSha1(file_path)
       file_sha256 = common_util.GetFileSha256(file_path)
     except os.error, e:
       raise DevServerError('failed to get info for file %s: %s' %
                            (file_path, e))
 
-    is_delta = autoupdate.Autoupdate.IsDeltaFormatFile(file_path)
-
     return json.dumps({
         autoupdate.Autoupdate.SIZE_ATTR: file_size,
-        autoupdate.Autoupdate.SHA1_ATTR: file_sha1,
         autoupdate.Autoupdate.SHA256_ATTR: file_sha256,
-        autoupdate.Autoupdate.ISDELTA_ATTR: is_delta
     })
 
 
