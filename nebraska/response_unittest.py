@@ -131,19 +131,18 @@ class AppResponseTest(unittest.TestCase):
 
   def testAppResponseNoUpdate(self):
     """Tests AppResponse generation for update request with no new versions."""
-    app_request = unittest_common.GenerateAppRequest()
+    # GIVEN an update request.
+    app_request = unittest_common.GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.UPDATE)
+    # GIVEN Nebraska does not find an update.
     self._properties.update_app_index.Find.return_value = None
+    # GIVEN it is a valid app.
     self._properties.update_app_index.Contains.return_value = True
 
+    # WHEN Nebraska sends a response.
     response = nebraska.Response.AppResponse(app_request, self._properties)
 
-    self.assertTrue(response._app_request == app_request)
-    self.assertFalse(response._err_not_found)
-    self.assertTrue(response._app_data is None)
-
-    self._properties.update_app_index.Find.assert_called_once_with(app_request)
-    self._properties.install_app_index.Find.assert_not_called()
-
+    # THEN the response contains <updatecheck status="noupdate"/>.
     update_check_tag = response.Compile().findall('updatecheck')[0]
     self.assertTrue(update_check_tag.attrib['status'] == 'noupdate')
 
