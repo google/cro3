@@ -239,8 +239,6 @@ class Request(object):
 
       event = app.find(Request.EVENT_TAG)
       if event is not None:
-        if self.request_type != Request.RequestType.EVENT:
-          raise NebraskaErrorInvalidRequest('Invalid event request was passed.')
         self.event_type = event.get(Request.EVENT_TYPE_ATTR)
         self.event_result = event.get(Request.EVENT_RESULT_ATTR, 0)
         self.previous_version = event.get(Request.EVENT_PREVIOUS_VERSION_ATTR)

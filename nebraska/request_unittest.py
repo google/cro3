@@ -45,6 +45,7 @@ class XMLStrings(object):
   <app appid="foo" version="1.0.0" delta_okay="true">
     <ping active="1" a="1" r="1"></ping>
     <updatecheck targetversionprefix=""></updatecheck>
+    <event eventtype="3" eventresult="1" previousversion="1"></event>
   </app>
   <app appid="bar" version="1.0.0" delta_okay="false">
     <ping active="1" a="1" r="1"></ping>
