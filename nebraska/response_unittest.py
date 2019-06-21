@@ -37,8 +37,7 @@ class ResponseTest(unittest.TestCase):
         unittest_common.GenerateAppData(appid='bar', is_delta=True,
                                         source_version='1.9.0'),
         unittest_common.GenerateAppData(appid='foobar'))
-    properties.update_app_index._index = dict(zip(('foo', 'bar', 'foobar'),
-                                                  ([x] for x in app_list)))
+    properties.update_app_index._index = app_list
 
     request = mock.MagicMock()
     request.app_requests = [

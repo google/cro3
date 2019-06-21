@@ -84,6 +84,18 @@ class JSONStrings(object):
 }
 """
 
+  app_empty = """{
+  "appid": "",
+  "is_delta": "false",
+  "size": "9001",
+  "metadata_signature": "0xdeadbeef",
+  "metadata_size": "42",
+  "sha256_hex": "0xcafef00d==",
+  "target_version": "1.0.0",
+  "source_version": "null"
+}
+"""
+
   invalid_app = """{
   "appid": "bar",
   "size": "9001",
@@ -136,6 +148,7 @@ class AppIndexTest(unittest.TestCase):
 
   def testScanMultiple(self):
     """Tests Scan on a directory with multiple appids."""
+    # Providing some mock properties and non-properties files.
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
         listdir_mock.return_value = [
@@ -147,6 +160,7 @@ class AppIndexTest(unittest.TestCase):
             'foobar.blah'
         ]
 
+        # Mock loading the properties files.
         open_mock.side_effect = [
             mock.mock_open(read_data=JSONStrings.app_foo).return_value,
             mock.mock_open(read_data=JSONStrings.app_foo_update).return_value,
@@ -155,17 +169,18 @@ class AppIndexTest(unittest.TestCase):
             mock.mock_open(read_data=JSONStrings.app_foobar).return_value
         ]
 
+        # Make sure the Scan() scans all the files and at least correct App IDs
+        # are generated.
         app_index = nebraska.AppIndex(_INSTALL_DIR)
         app_index.Scan()
         listdir_mock.assert_called_once_with(_INSTALL_DIR)
-        self.assertTrue(set(app_index._index.keys()) ==
-                        set(['foo', 'bar', 'foobar']))
-        self.assertTrue(len(app_index._index['foo']) == 2)
-        self.assertTrue(len(app_index._index['bar']) == 2)
-        self.assertTrue(len(app_index._index['foobar']) == 1)
+        self.assertEqual(
+            [x.appid for x in app_index._index],
+            ['foo', 'foo', 'bar', 'bar', 'foobar'])
 
   def testScanInvalidJson(self):
     """Tests Scan with invalid JSON files."""
+    # Providing some mock properties and non-properties files.
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
         listdir_mock.return_value = [
@@ -177,6 +192,7 @@ class AppIndexTest(unittest.TestCase):
             'foobar.blah'
         ]
 
+        # Mock loading the properties files.
         open_mock.side_effect = [
             mock.mock_open(read_data=JSONStrings.app_foo).return_value,
             mock.mock_open(read_data=JSONStrings.app_foo_update).return_value,
@@ -185,12 +201,14 @@ class AppIndexTest(unittest.TestCase):
             mock.mock_open(read_data=JSONStrings.app_foobar).return_value
         ]
 
+        # Make sure we raise error when loading files raises one.
         with self.assertRaises(IOError):
           app_index = nebraska.AppIndex(_INSTALL_DIR)
           app_index.Scan()
 
   def testScanInvalidApp(self):
     """Tests Scan on JSON files lacking required keys."""
+    # Providing some mock properties and non-properties files.
     with mock.patch('nebraska.os.listdir') as listdir_mock:
       with mock.patch('nebraska.open') as open_mock:
         listdir_mock.return_value = [
@@ -202,6 +220,7 @@ class AppIndexTest(unittest.TestCase):
             'foobar.blah'
         ]
 
+        # Mock loading the properties files.
         open_mock.side_effect = [
             mock.mock_open(read_data=JSONStrings.app_foo).return_value,
             mock.mock_open(read_data=JSONStrings.app_foo_update).return_value,
@@ -210,10 +229,61 @@ class AppIndexTest(unittest.TestCase):
             mock.mock_open(read_data=JSONStrings.app_foobar).return_value
         ]
 
+        # Make sure we raise error when properties files are invalid.
         with self.assertRaises(KeyError):
           app_index = nebraska.AppIndex(_INSTALL_DIR)
           app_index.Scan()
 
+  def testContains(self):
+    """Tests Constains() correctly finds matching AppData."""
+    # Providing some mock properties files.
+    with mock.patch('nebraska.os.listdir') as listdir_mock:
+      with mock.patch('nebraska.open') as open_mock:
+        listdir_mock.return_value = [
+            'foo.json',
+        ]
+        # Mock loading the properties files.
+        open_mock.side_effect = [
+            mock.mock_open(read_data=JSONStrings.app_foo).return_value,
+            mock.mock_open(read_data=JSONStrings.app_empty).return_value,
+        ]
+
+        app_index = nebraska.AppIndex(_UPDATE_DIR)
+        app_index.Scan()
+
+        no_match_request = unittest_common.GenerateAppRequest(appid='random')
+        self.assertFalse(app_index.Contains(no_match_request))
+
+        # Matches against the AppData with exact appid 'foo'.
+        match_request = unittest_common.GenerateAppRequest(appid='foo')
+        self.assertTrue(app_index.Contains(match_request))
+
+        # Partially matches against the AppData with appid 'foo'.
+        partial_match_request = unittest_common.GenerateAppRequest(
+            appid='mefoolme')
+        self.assertTrue(app_index.Contains(partial_match_request))
+
+  def testContainsEmpty(self):
+    """Tests Constains() correctly finds matching AppData with empty appid."""
+    # Providing some mock properties files.
+    with mock.patch('nebraska.os.listdir') as listdir_mock:
+      with mock.patch('nebraska.open') as open_mock:
+        listdir_mock.return_value = [
+            'foo.json',
+            'empty.json'
+        ]
+        # Mock loading the properties files.
+        open_mock.side_effect = [
+            mock.mock_open(read_data=JSONStrings.app_foo).return_value,
+            mock.mock_open(read_data=JSONStrings.app_empty).return_value,
+        ]
+
+        app_index = nebraska.AppIndex(_UPDATE_DIR)
+        app_index.Scan()
+
+        request = unittest_common.GenerateAppRequest(appid='random')
+        # It will match against the AppData with an empty appid.
+        self.assertTrue(app_index.Contains(request))
 
 class AppDataTest(unittest.TestCase):
   """Test AppData."""
@@ -259,6 +329,27 @@ class AppDataTest(unittest.TestCase):
         request_type=nebraska.Request.RequestType.INSTALL,
         delta_okay=True)
     self.assertFalse(request.MatchAppData(app_data))
+
+  def testMatchAppDataWildCardMatchingEmptyAppId(self):
+    """Tests MatchAppData for matching update request with empty appid."""
+    app_data = unittest_common.GenerateAppData(appid='')
+    request = unittest_common.GenerateAppRequest(appid='foobar')
+    self.assertFalse(request.MatchAppData(app_data))
+    self.assertTrue(request.MatchAppData(app_data, partial_match_appid=True))
+
+  def testMatchAppDataWildCardMatchingPartialAppId(self):
+    """Tests MatchAppData for matching update request with partial appid."""
+    app_data = unittest_common.GenerateAppData(appid='oob')
+    request = unittest_common.GenerateAppRequest(appid='foobar')
+    self.assertFalse(request.MatchAppData(app_data))
+    self.assertTrue(request.MatchAppData(app_data, partial_match_appid=True))
+
+  def testNoMatchAppDataWildCardMatchingPartialAppId(self):
+    """Tests MatchAppData for not matching update request with partial appid."""
+    app_data = unittest_common.GenerateAppData(appid='foo')
+    request = unittest_common.GenerateAppRequest(appid='bar')
+    self.assertFalse(request.MatchAppData(app_data))
+    self.assertFalse(request.MatchAppData(app_data, partial_match_appid=True))
 
 if __name__ == '__main__':
   unittest.main()

@@ -116,7 +116,7 @@ class Request(object):
       request_root = ElementTree.fromstring(self.request_str)
     except ElementTree.ParseError as err:
       raise NebraskaErrorInvalidRequest(
-          'Request string is not valid XML: {}'.format(str(err)))
+          'Request string is not valid XML: {}'.format(err))
 
     # TODO(http://crbug.com/914936): It would be better to specifically check
     # the platform app. An install is signalled by omitting the update_check for
@@ -248,7 +248,7 @@ class Request(object):
       if None in (self.request_type, self.appid, self.version):
         raise NebraskaErrorInvalidRequest('Invalid app request.')
 
-    def MatchAppData(self, app_data):
+    def MatchAppData(self, app_data, partial_match_appid=False):
       """Returns true iff the app matches a given client request.
 
       An app matches a request if the appid matches the requested appid.
@@ -257,12 +257,17 @@ class Request(object):
 
       Args:
         app_data: An AppData object describing a valid app data.
+        partial_match_appid: If true, it will partially check the app_data's
+            appid.  Which means that if app_data's appid is a substring of
+            request's appid, it will be a match.
 
       Returns:
         True if the request matches the given app, False otherwise.
       """
       if self.appid != app_data.appid:
-        return False
+        if not partial_match_appid or (app_data.appid is not None and
+                                       app_data.appid not in self.appid):
+          return False
 
       if self.request_type == Request.RequestType.UPDATE:
         if app_data.is_delta:
@@ -326,7 +331,8 @@ class Response(object):
             self.AppResponse(app_request, self._properties).Compile())
 
     except Exception as err:
-      raise NebraskaError('Failed to compile response: {}'.format(str(err)))
+      logging.error(traceback.format_exc())
+      raise NebraskaError('Failed to compile response: {}'.format(err))
 
     return ElementTree.tostring(
         response_xml, encoding='UTF-8', method='xml')
@@ -457,18 +463,13 @@ class AppIndex(object):
 
     Attributes:
       directory: Directory containing metdata and payloads, can be None.
-      index: Dictionary of metadata describing payloads for a given appid.
+      index: A list of AppData describing payloads.
     """
     self._directory = directory
-    self._index = {}
+    self._index = []
 
   def Scan(self):
-    """Invalidates the current cache and scans the directory.
-
-    Clears the cached index and rescans the directory.
-    """
-    self._index.clear()
-
+    """Scans the directory and loads all available properties files."""
     if self._directory is None:
       return
 
@@ -482,10 +483,7 @@ class AppIndex(object):
             # ends with '.json'.
             metadata[AppIndex.AppData.NAME_KEY] = f[:-len('.json')]
             app = AppIndex.AppData(metadata)
-
-            if app.appid not in self._index:
-              self._index[app.appid] = []
-            self._index[app.appid].append(app)
+            self._index.append(app)
         except (IOError, KeyError, ValueError) as err:
           logging.error('Failed to read app data from %s (%s)', f, str(err))
           raise
@@ -506,9 +504,21 @@ class AppIndex(object):
       request, or None if no matches are found. Prefer delta payloads if the
       client can accept them and if one is available.
     """
-    # Find a list of payloads matching the client request.
-    matches = [app_data for app_data in self._index.get(request.appid, []) if
+    # Find a list of payloads exactly matching the client request.
+    matches = [app_data for app_data in self._index if
                request.MatchAppData(app_data)]
+
+    if not matches:
+      # Look to see if there is any AppData with empty or partial App ID. Then
+      # return the first one you find. This basically will work as a wild card
+      # to allow AppDatas that don't have an AppID or their AppID is incomplete
+      # (e.g. empty platform App ID + _ + DLC App ID) to work just fine.
+      #
+      # The reason we just don't do this in one pass is that we want to find all
+      # the matches with exact appid and iif there was no match, we do the appid
+      # partial match.
+      matches = [app_data for app_data in self._index if
+                 request.MatchAppData(app_data, partial_match_appid=True)]
 
     if not matches:
       return None
@@ -525,10 +535,10 @@ class AppIndex(object):
   def Contains(self, request):
     """Checks if the AppIndex contains any apps matching a given request appid.
 
-    Checks the index for an appid matching the appid in the given request. This
-    is necessary because it allows us to differentiate between the case where we
-    have no new versions of an app and the case where we have no information
-    about an app at all.
+    Checks the index for an appid (partially) matching the appid in the given
+    request. This is necessary because it allows us to differentiate between the
+    case where we have no new versions of an app and the case where we have no
+    information about an app at all.
 
     Args:
       request: Describes the client request.
@@ -537,7 +547,7 @@ class AppIndex(object):
       True if the index contains any appids matching the appid given in the
       request.
     """
-    return request.appid in self._index
+    return any(app_data.appid in request.appid for app_data in self._index)
 
   class AppData(object):
     """Data about an available app.
@@ -725,7 +735,7 @@ class NebraskaServer(object):
         response = self.server.owner.nebraska.GetResponseToRequest(request_obj)
       except Exception as err:
         logging.error('Failed to handle request (%s)', str(err))
-        traceback.print_exc()
+        logging.error(traceback.format_exc())
         self.send_error(500, 'Failed to handle incoming request')
         return
 
