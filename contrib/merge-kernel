@@ -75,7 +75,7 @@ Options:
   -l change-id  Apply patch extracted from CL:change-id prior to merge.
                 May be repeated multiple times.
   -n            Send notification e-mail to ${notify_to}.
-  -q dependency Add dependency (CQ-DEPEND=<dependency>)
+  -q dependency Add dependency (Cq-Depend: <dependency>)
   -p            Prepare for upload into Gerrit. Implied if -u is specified.
   -r            Name of branch to base merge on. Determined from stable
                 release tag or from target branch name if not provided.
@@ -227,7 +227,7 @@ do_getparams() {
     done
     bug="BUG=${bugs}"
   fi
-  dependency="${dependency:+CQ-DEPEND=${dependency}}"
+  dependency="${dependency:+Cq-Depend: ${dependency}}"
 }
 
 # Validate environment and repository.
@@ -532,7 +532,7 @@ do_prepare() {
     changeid="${ochangeid}"
   fi
 
-  odependency=$(grep "^CQ-DEPEND=" "${tmpfile}")
+  odependency=$(grep "^Cq-Depend:" "${tmpfile}")
   if [[ -n "${dependency}" && -n "${odependency}" && \
         "${dependency}" != "${odependency}" && ${force} -eq 0 ]]; then
     die "Dependency mismatch: '${dependency}' <-> '${odependency}'. Use -f to override."
@@ -712,13 +712,13 @@ do_merge() {
 
     echo
 
+    echo "${bug}"
+    echo "TEST=Build and test on various affected systems"
+    echo
     if [[ -n "${dependency}" ]]; then
       echo "${dependency}"
     fi
-    echo "${bug}"
-    echo "TEST=Build and test on various affected systems"
     if [[ -n "${changeid}" ]]; then
-      echo
       echo "${changeid}"
     fi
   ) >> "${tmpfile}"
