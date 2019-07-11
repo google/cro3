@@ -1767,17 +1767,6 @@ def _AddTestingOptions(parser):
                    'from a different port that will proxy the request back to '
                    'the devserver. The proxy must be managed outside the '
                    'devserver.')
-  group.add_option('--remote_payload',
-                   action='store_true', default=False,
-                   help='Payload is being served from a remote machine. With '
-                   'this setting enabled, this devserver instance serves as '
-                   'just an Omaha server instance. In this mode, the '
-                   'devserver enforces a few extra components of the Omaha '
-                   'protocol, such as hardware class, being sent.')
-  group.add_option('-u', '--urlbase',
-                   metavar='URL',
-                   help='base URL for update images, other than the '
-                   'devserver. Use in conjunction with remote_payload.')
   parser.add_option_group(group)
 
 
@@ -1933,7 +1922,6 @@ def main():
   updater = autoupdate.Autoupdate(
       _xbuddy,
       static_dir=options.static_dir,
-      urlbase=options.urlbase,
       forced_image=options.image,
       payload_path=options.payload,
       proxy_port=options.proxy_port,
@@ -1942,7 +1930,6 @@ def main():
       copy_to_static_root=not options.exit,
       public_key=options.public_key,
       critical_update=options.critical_update,
-      remote_payload=options.remote_payload,
       max_updates=options.max_updates,
       host_log=options.host_log,
   )

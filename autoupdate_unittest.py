@@ -52,7 +52,6 @@ class AutoupdateTest(mox.MoxTestBase):
     self.mox.StubOutWithMock(common_util, 'GetFileSha256')
     self.mox.StubOutWithMock(common_util, 'IsInsideChroot')
     self.mox.StubOutWithMock(autoupdate_lib, 'GetUpdateResponse')
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, '_GetRemotePayloadAttrs')
     self.port = 8080
     self.test_board = 'test-board'
     self.build_root = tempfile.mkdtemp('autoupdate_build_root')
@@ -308,33 +307,6 @@ class AutoupdateTest(mox.MoxTestBase):
         au._CanUpdate('1098.0.2011_09_28_1635', '1098.0.2011_09_26_0000'))
     self.assertFalse(
         au._CanUpdate('1098.0.2011_09_28_1635', '1096.0.2011_09_30_0000'))
-
-  def testHandleUpdatePingRemotePayload(self):
-    remote_urlbase = 'http://remotehost:6666'
-    remote_payload_path = 'static/path/to/update.gz'
-    remote_url = '/'.join([remote_urlbase, remote_payload_path, 'update.gz'])
-    au_mock = self._DummyAutoupdateConstructor(urlbase=remote_urlbase,
-                                               payload_path=remote_payload_path,
-                                               remote_payload=True)
-
-    incomplete_test_data = _TEST_REQUEST % self.test_dict
-    complete_test_data = _FULL_TEST_REQUEST % self.test_dict
-
-    au_mock._GetRemotePayloadAttrs(remote_url).AndReturn(
-        autoupdate.UpdateMetadata(self.sha1, self.sha256, self.size, False,
-                                  0, ''))
-    autoupdate_lib.GetUpdateResponse(
-        self.sha1, self.sha256, self.size, remote_url, False, 0, None, None,
-        u'3.0', '', False).AndReturn(self.payload)
-
-    self.mox.ReplayAll()
-    # This should fail because of missing fields.
-    self.assertRaises(common_util.DevServerHTTPError,
-                      au_mock.HandleUpdatePing, incomplete_test_data)
-    # This should have enough information.
-    self.assertEqual(au_mock.HandleUpdatePing(complete_test_data), self.payload)
-    self.mox.VerifyAll()
-
 
 if __name__ == '__main__':
   unittest.main()

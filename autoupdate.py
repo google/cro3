@@ -139,7 +139,6 @@ class Autoupdate(build_util.BuildObject):
   """Class that contains functionality that handles Chrome OS update pings.
 
   Members:
-    urlbase:         base URL, other than devserver, for update images.
     forced_image:    path to an image to use for all updates.
     payload_path:    path to pre-generated payload to serve.
     src_image:       if specified, creates a delta payload from this image.
@@ -149,7 +148,6 @@ class Autoupdate(build_util.BuildObject):
     copy_to_static_root:  copies images generated from the cache to ~/static.
     public_key:       path to public key in PEM format.
     critical_update:  whether provisioned payload is critical.
-    remote_payload:   whether provisioned payload is remotely staged.
     max_updates:      maximum number of updates we'll try to provision.
     host_log:         record full history of host update events.
   """
@@ -165,14 +163,13 @@ class Autoupdate(build_util.BuildObject):
   METADATA_SIZE_ATTR = 'metadata_size'
   METADATA_HASH_ATTR = 'metadata_hash'
 
-  def __init__(self, xbuddy, urlbase=None, forced_image=None, payload_path=None,
+  def __init__(self, xbuddy, forced_image=None, payload_path=None,
                proxy_port=None, src_image='', board=None,
                copy_to_static_root=True, public_key=None,
-               critical_update=False, remote_payload=False, max_updates=-1,
-               host_log=False, *args, **kwargs):
+               critical_update=False, max_updates=-1, host_log=False,
+               *args, **kwargs):
     super(Autoupdate, self).__init__(*args, **kwargs)
     self.xbuddy = xbuddy
-    self.urlbase = urlbase or None
     self.forced_image = forced_image
     self.payload_path = payload_path
     self.src_image = src_image
@@ -181,7 +178,6 @@ class Autoupdate(build_util.BuildObject):
     self.copy_to_static_root = copy_to_static_root
     self.public_key = public_key
     self.critical_update = critical_update
-    self.remote_payload = remote_payload
     self.max_updates = max_updates
     self.host_log = host_log
 
@@ -502,44 +498,6 @@ class Autoupdate(build_util.BuildObject):
                                                    constants.UPDATE_FILE))
     return pregenerated_update
 
-  def _GetRemotePayloadAttrs(self, url):
-    """Returns hashes, size and delta flag of a remote update payload.
-
-    Obtain attributes of a payload file available on a remote devserver. This
-    is based on the assumption that the payload URL uses the /static prefix. We
-    need to make sure that both clients (requests) and remote devserver
-    (provisioning) preserve this invariant.
-
-    Args:
-      url: URL of statically staged remote file (http://host:port/static/...)
-
-    Returns:
-      A UpdateMetadata object.
-    """
-    if self._PAYLOAD_URL_PREFIX not in url:
-      raise AutoupdateError(
-          'Payload URL does not have the expected prefix (%s)' %
-          self._PAYLOAD_URL_PREFIX)
-
-    if self._OLD_PAYLOAD_URL_PREFIX in url:
-      fileinfo_url = url.replace(self._OLD_PAYLOAD_URL_PREFIX,
-                                 self._FILEINFO_URL_PREFIX)
-    else:
-      fileinfo_url = url.replace(self._PAYLOAD_URL_PREFIX,
-                                 self._FILEINFO_URL_PREFIX)
-
-    _Log('Retrieving file info for remote payload via %s', fileinfo_url)
-    try:
-      conn = urllib2.urlopen(fileinfo_url)
-      metadata_obj = Autoupdate._ReadMetadataFromStream(conn)
-      # These fields are required for remote calls.
-      if not metadata_obj:
-        raise AutoupdateError('Failed to obtain remote payload info')
-
-      return metadata_obj
-    except IOError as e:
-      raise AutoupdateError('Failed to obtain remote payload info: %s', e)
-
   @staticmethod
   def _GetMetadataHash(payload_dir):
     """Gets the metadata hash, if it exists.
@@ -705,11 +663,7 @@ class Autoupdate(build_util.BuildObject):
     """Returns the static url base that should prefix all payload responses."""
     hostname = self.GetDevserverUrl()
 
-    if self.urlbase:
-      static_urlbase = self.urlbase
-    else:
-      static_urlbase = '%s/static' % hostname
-
+    static_urlbase = '%s/static' % hostname
     # If we have a proxy port, adjust the URL we instruct the client to
     # use to go through the proxy.
     if self.proxy_port:
@@ -874,30 +828,12 @@ class Autoupdate(build_util.BuildObject):
     metadata_obj = None
 
     try:
-      # Are we provisioning a remote or local payload?
-      if self.remote_payload:
-
-        self._CheckOmahaRequest(app)
-
-        # If no explicit label was provided, use the value of --payload.
-        if not label:
-          label = self.payload_path
-
-        # TODO(sosa): Remove backwards-compatible hack.
-        if not '.bin' in label:
-          url = _NonePathJoin(static_urlbase, label, 'update.gz')
-        else:
-          url = _NonePathJoin(static_urlbase, label)
-
-        # Get remote payload attributes.
-        metadata_obj = self._GetRemotePayloadAttrs(url)
-      else:
-        path_to_payload = self.GetPathToPayload(
-            label, request_attrs.client_version, request_attrs.board)
-        url = _NonePathJoin(static_urlbase, path_to_payload,
-                            constants.UPDATE_FILE)
-        local_payload_dir = _NonePathJoin(self.static_dir, path_to_payload)
-        metadata_obj = self.GetLocalPayloadAttrs(local_payload_dir)
+      path_to_payload = self.GetPathToPayload(
+          label, request_attrs.client_version, request_attrs.board)
+      url = _NonePathJoin(static_urlbase, path_to_payload,
+                          constants.UPDATE_FILE)
+      local_payload_dir = _NonePathJoin(self.static_dir, path_to_payload)
+      metadata_obj = self.GetLocalPayloadAttrs(local_payload_dir)
     except AutoupdateError as e:
       # Raised if we fail to generate an update payload.
       _Log('Failed to process an update: %r', e)
