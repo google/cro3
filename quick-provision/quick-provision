@@ -31,7 +31,7 @@ COMPLETED_FILE="/tmp/quick-provision-complete"
 
 PROGRAM="$(basename $0)"
 FLAGS_HELP="Usage:
-  ${PROGRAM} [flags] <build> <url>
+  ${PROGRAM} [flags] <build> <url> [<url> ...]
 "
 
 DEFINE_string logfile "${LOGFILE_PATH}" "Path to record logs to."
@@ -132,6 +132,7 @@ get_url_to_stdout() {
   if type wget >/dev/null 2>&1; then
     wget --progress=dot:giga -S --retry-connrefused -O - "${url}" | \
       tee >(md5sum >>"${HASHES_LOG}")
+    return "${PIPESTATUS[0]}"
   else
     curl "${url}"
   fi
@@ -150,30 +151,42 @@ write_partition() {
 # Updates a partition on disk with a given gzip compressed partition URL.
 # Function will exit script on failure.
 update_partition() {
-  local url="$1"
-  local part="$2"
+  local file_servers="$1"
+  local file_path="$2"
+  local part="$3"
 
   # TODO(davidriley): Enable blkdiscard when moving to verifying zero blocks
   # before writing them.
   # info blkdiscard "${part}"
   # blkdiscard "${part}"
 
-  info Updating "${part}" with "${url}"
-  get_url_to_stdout "${url}" | gzip -d | write_partition "${part}"
-  local pipestatus=("${PIPESTATUS[@]}")
-  if [[ "${pipestatus[0]}" -ne "0" ]]; then
-    die "Retrieving ${url} failed. (statuses ${pipestatus[*]})"
-  elif [[ "${pipestatus[1]}" -ne "0" ]]; then
-    die "Decompressing ${url} failed. (statuses ${pipestatus[*]})"
-  elif [[ "${pipestatus[2]}" -ne "0" ]]; then
-    die "Writing to ${part} failed. (statuses ${pipestatus[*]})"
+  local rc=1
+  for file_server in ${file_servers[@]}; do
+    local url="${file_server}/${file_path}"
+    info Updating "${part}" with "${url}"
+    get_url_to_stdout "${url}" | gzip -d | write_partition "${part}"
+    local pipestatus=("${PIPESTATUS[@]}")
+    if [[ "${pipestatus[0]}" -ne "0" ]]; then
+      error "Retrieving ${url} failed. (statuses ${pipestatus[*]})"
+      info "Retry with next file server."
+      continue
+    elif [[ "${pipestatus[1]}" -ne "0" ]]; then
+      die "Decompressing ${url} failed. (statuses ${pipestatus[*]})"
+    elif [[ "${pipestatus[2]}" -ne "0" ]]; then
+      die "Writing to ${part} failed. (statuses ${pipestatus[*]})"
+    fi
+    rc=0
+  done
+  if [[ "${rc}" -ne "0" ]]; then
+    die "Retrieving ${file_path} failed with all file servers."
   fi
 }
 
 # Performs a stateful update using a specified stateful.tgz URL.
 # Function will exit script on failure.
 stateful_update() {
-  local url="$1"
+  local file_servers="$1"
+  local file_path="$2"
 
   # Stateful reset.
   info "Stateful reset"
@@ -185,13 +198,25 @@ stateful_update() {
   # Stateful update.
   info "Stateful update"
   post_status "DUT: Stateful update"
-  get_url_to_stdout "${url}" |
-    tar --ignore-command-error --overwrite --directory="${STATEFUL_DIR}" -xzf -
-  local pipestatus=("${PIPESTATUS[@]}")
-  if [[ "${pipestatus[0]}" -ne "0" ]]; then
-    die "Retrieving ${url} failed. (statuses ${pipestatus[*]})"
-  elif [[ "${pipestatus[1]}" -ne "0" ]]; then
-    die "Untarring to ${STATEFUL_DIR} failed. (statuses ${pipestatus[*]})"
+
+  local rc=1
+  for file_server in ${file_servers[@]}; do
+    local url="${file_server}/${file_path}"
+    get_url_to_stdout "${url}" |
+      tar --ignore-command-error --overwrite \
+        --directory="${STATEFUL_DIR}" -xzf -
+    local pipestatus=("${PIPESTATUS[@]}")
+    if [[ "${pipestatus[0]}" -ne "0" ]]; then
+      error "Retrieving ${url} failed. (statuses ${pipestatus[*]})"
+      info "Retry with next file server."
+      continue
+    elif [[ "${pipestatus[1]}" -ne "0" ]]; then
+      die "Untarring to ${STATEFUL_DIR} failed. (statuses ${pipestatus[*]})"
+    fi
+    rc=0
+  done
+  if [[ "${rc}" -ne "0" ]]; then
+    die "Retrieving ${file_path} failed with all file servers."
   fi
 
   # Stateful clean.
@@ -224,7 +249,7 @@ set_next_kernel() {
 
 provision_device() {
   local build="$1"
-  local static_url="$2"
+  local file_servers="$2"
   local script_start_time="$3"
 
   if [[ -f "${COMPLETED_FILE}" ]]; then
@@ -277,17 +302,17 @@ provision_device() {
   info "Update kernel ${NEXT_KERN}"
   post_status "DUT: Updating kernel ${NEXT_KERN}"
   time_cmd UPDATE_KERNEL \
-    update_partition "${static_url}/${build}/${KERN_IMAGE}" ${NEXT_KERN}
+    update_partition "${file_servers}" "${build}/${KERN_IMAGE}" ${NEXT_KERN}
 
   # Rootfs.
   info "Update rootfs ${NEXT_ROOT}"
   post_status "DUT: Updating rootfs ${NEXT_ROOT}"
   time_cmd UPDATE_ROOTFS \
-    update_partition "${static_url}/${build}/${ROOT_IMAGE}" ${NEXT_ROOT}
+    update_partition "${file_servers}" "${build}/${ROOT_IMAGE}" ${NEXT_ROOT}
 
   # Stateful.
   time_cmd UPDATE_STATEFUL \
-    stateful_update "${static_url}/${build}/${STATEFUL_TGZ}"
+    stateful_update "${file_servers}" "${build}/${STATEFUL_TGZ}"
 
   # Boot the next kernel.
   time_cmd SET_NEXT_KERNEL \
@@ -309,15 +334,16 @@ provision_device() {
 }
 
 main() {
-  if [[ "$#" -ne 2 ]]; then
+  if [[ "$#" -lt 2 ]]; then
     usage "ERROR: Incorrect number of arguments."
   fi
   local build="$1"
-  local static_url="$2"
+  shift
+  local file_servers="$@"
 
   local script_start_time="$(get_timestamp)"
 
-  info "Provisioning ${build} from ${static_url}"
+  info "Provisioning ${build} from ${file_servers}"
   keyval "BOOT_ID=$(</proc/sys/kernel/random/boot_id)"
   keyval "$(grep CHROMEOS_RELEASE_BUILDER_PATH /etc/lsb-release | \
             sed -e s/CHROMEOS_RELEASE_BUILDER_PATH/ORIGINAL_BUILD/)"
@@ -326,7 +352,7 @@ main() {
     # Ensure no concurrent quick provision attempts.
     time_cmd LOCK_LOCKFILE flock 9
 
-    provision_device "${build}" "${static_url}" "${script_start_time}"
+    provision_device "${build}" "${file_servers}" "${script_start_time}"
   ) 9>"${LOCKFILE}"
 }
 
