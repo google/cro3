@@ -86,6 +86,7 @@ class Request(object):
       request_str: XML-formatted request string.
     """
     self.request_str = request_str
+    logging.debug('Received request: %s', self.request_str)
 
     self.version = None
     self.hardware_class = None
@@ -696,8 +697,10 @@ class Nebraska(object):
     properties.no_update = no_update
     response = Response(request, properties).GetXMLString()
     # Make the XML response look pretty.
-    return minidom.parseString(response).toprettyxml(indent='  ',
-                                                     encoding='UTF-8')
+    response_str = minidom.parseString(response).toprettyxml(indent='  ',
+                                                             encoding='UTF-8')
+    logging.debug('Sent response: %s', response_str)
+    return response_str
 
 
 class NebraskaServer(object):
@@ -734,7 +737,6 @@ class NebraskaServer(object):
       """
       request_len = int(self.headers.getheader('content-length'))
       request = self.rfile.read(request_len)
-      logging.debug('Received request: %s', request)
 
       parsed_query = urlparse.parse_qs(urlparse.urlparse(self.path).query)
       critical_update = parsed_query.get('critical_update', []) == ['true']
