@@ -28,6 +28,7 @@ class MockNebraskaHandler(nebraska.NebraskaServer.NebraskaHandler):
   # pylint: disable=super-init-not-called
   def __init__(self):
     self.headers = mock.MagicMock()
+    self.path = mock.MagicMock()
     self.send_response = mock.MagicMock()
     self.send_error = mock.MagicMock()
     self.send_header = mock.MagicMock()
@@ -64,17 +65,29 @@ class NebraskaHandlerTest(unittest.TestCase):
   def testDoPostSuccess(self):
     """Tests do_POST success."""
     nebraska_handler = MockNebraskaHandler()
-    test_response = "foobar"
+    test_response = 'foobar'
 
     with mock.patch('nebraska.Nebraska.GetResponseToRequest') as response_mock:
       with mock.patch('nebraska.Request') as _:
         response_mock.return_value = test_response
         nebraska_handler.do_POST()
 
+        response_mock.assert_called_once_with(mock.ANY, critical_update=False)
         nebraska_handler.send_response.assert_called_once_with(200)
         nebraska_handler.send_header.assert_called_once()
         nebraska_handler.end_headers.assert_called_once()
         nebraska_handler.wfile.write.assert_called_once_with(test_response)
+
+  def testDoPostSuccessWithCriticalUpdate(self):
+    """Tests do_POST success with critical update."""
+    nebraska_handler = MockNebraskaHandler()
+    nebraska_handler.path = '/?critical_update=true'
+
+    with mock.patch('nebraska.Nebraska.GetResponseToRequest') as response_mock:
+      with mock.patch('nebraska.Request') as _:
+        nebraska_handler.do_POST()
+
+        response_mock.assert_called_once_with(mock.ANY, critical_update=True)
 
   def testDoPostInvalidRequest(self):
     """Test do_POST invalid request."""

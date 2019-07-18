@@ -19,6 +19,7 @@ import signal
 import sys
 import threading
 import traceback
+import urlparse
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from datetime import datetime, time
@@ -725,14 +726,23 @@ class NebraskaServer(object):
     """HTTP request handler for Omaha requests."""
 
     def do_POST(self):
-      """Responds to XML-formatted Omaha requests."""
+      """Responds to XML-formatted Omaha requests.
+
+      The URL path can be like:
+        - https://<ip>:<port>/?critical_update=true # For requesting a critical
+          update response
+      """
       request_len = int(self.headers.getheader('content-length'))
       request = self.rfile.read(request_len)
       logging.debug('Received request: %s', request)
 
+      parsed_query = urlparse.parse_qs(urlparse.urlparse(self.path).query)
+      critical_update = parsed_query.get('critical_update', []) == ['true']
+
       try:
         request_obj = Request(request)
-        response = self.server.owner.nebraska.GetResponseToRequest(request_obj)
+        response = self.server.owner.nebraska.GetResponseToRequest(
+            request_obj, critical_update=critical_update)
       except Exception as err:
         logging.error('Failed to handle request (%s)', str(err))
         logging.error(traceback.format_exc())
