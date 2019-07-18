@@ -85,7 +85,7 @@ class NebraskaHandlerTest(unittest.TestCase):
         parse_mock.side_effect = nebraska.NebraskaErrorInvalidRequest
         nebraska_handler.do_POST()
 
-        traceback_mock.print_exc.assert_called_once()
+        traceback_mock.format_exc.assert_called_once()
         nebraska_handler.send_error.assert_called_once_with(
             500, "Failed to handle incoming request")
 
@@ -99,7 +99,7 @@ class NebraskaHandlerTest(unittest.TestCase):
         response_instance.GetXMLString.side_effect = Exception
         nebraska_handler.do_POST()
 
-        traceback_mock.print_exc.assert_called_once()
+        traceback_mock.format_exc.assert_called_once()
         nebraska_handler.send_error.assert_called_once_with(
             500, "Failed to handle incoming request")
 
