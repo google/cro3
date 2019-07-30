@@ -147,7 +147,7 @@ main() {
     echo "You can now use kdbg inside the chroot with a command like:"
     echo '${CROSS_ARCH}-gdb \
         /build/${BOARD}/usr/lib/debug/boot/vmlinux \
-        -ex "target remote $(cat '"${spath_in}"'_gdb)'
+        -ex "target remote $(cat '"${spath_in}"'_gdb)"'
   fi
 
   echo "Opening ${pty_name}:${pty}..."
