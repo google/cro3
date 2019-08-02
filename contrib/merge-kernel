@@ -88,8 +88,8 @@ Options:
   -t            Target branch name. The branch must exist in the Chrome OS
                 repository.
   -u            Upload merge into Gerrit.
-  -x patchfile	Patch to apply before committing merge. Patch will be applied
-		with "patch -p 1 < patchfile". May be repeated several times.
+  -x patchfile  Patch to apply before committing merge. Patch will be applied
+                with "patch -p 1 < patchfile". May be repeated several times.
 EOF
 
   if [[ $# -gt 0 ]]; then
@@ -363,7 +363,7 @@ do_setup() {
     readonly dryrun="--dry-run"
   fi
 
-  Subject="CHROMIUM: ${Subject:-Merge '${dtag}' into ${cbranch}}"
+  Subject="CHROMIUM: ${Subject:-Merge '${tag}' into ${cbranch}}"
 }
 
 have_version() {
@@ -626,6 +626,8 @@ do_merge() {
   local xbranch
   local ref
   local patch
+  local file
+  local files
 
   git branch -D "${mbranch}" >/dev/null 2>&1
   if ! git checkout -b "${mbranch}" "${ocbranch}"; then
@@ -650,8 +652,11 @@ do_merge() {
   if ! git merge --no-commit --no-ff "${xbranch}" > "${tmpfile}"; then
     files=$(git rerere status)
     if [[ -n "${files}" ]]; then
-      error "Unresolved conflicts: ${files}."
-      die "Please fix, commit, and repeat merge. Make sure you have 'git rerere' enabled."
+      error "Unresolved conflicts:"
+      for file in ${files}; do
+        echo "    ${file}"
+      done
+      die "Please resolve conflicts, commit changes, and then rerun the merge script.\nMake sure you have 'git rerere' enabled."
     fi
     echo "All conflicts resolved, continuing"
     conflicts=($(grep CONFLICT "${tmpfile}" \
