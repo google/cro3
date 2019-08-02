@@ -34,6 +34,8 @@ notify=0    # Do not send notification e-mail.
 deadline=3  # Feedback deadline (in days, default 3).
 changes=()  # List of uncommitted CLs to be applied prior to merge.
 patches=()  # List of patches to apply before committing merge.
+reverts=()  # List of patches to revert as part of merge, after merge
+prereverts=() # List of patches to revert as part of merge, prior to merge
 dependency="" # No dependency
 Subject=""  # default subject
 
@@ -82,6 +84,10 @@ Options:
                 Must be existing local branch. Will be pushed into gerrit
                 as part of the merge process if not already available in
                 gerrit, and has to follow gerrit commit rules.
+  -P sha        Revert patch <sha> as part of merge, pre-merge
+                May be repeated multiple times.
+  -R sha        Revert patch <sha> as part of merge, post-merge
+                May be repeated multiple times.
   -s            Simulate, or dry-run. Don't actually push anything into
                 gerrit, and don't send e-mails.
   -S subject    Replace default subject line with provided string
@@ -162,7 +168,7 @@ do_getparams() {
   local option
   local vtag
 
-  while getopts "b:c:d:fhl:npq:r:st:uS:x:" option; do
+  while getopts "b:c:d:fhl:nP:pq:r:R:st:uS:x:" option; do
     case ${option} in
       b) bugs="${OPTARG}" ;;
       c) changeid="Change-Id: ${OPTARG}" ;;
@@ -177,6 +183,8 @@ do_getparams() {
       p) prepare=1 ;;
       q) dependency="${OPTARG}" ;;
       r) rbranch="${OPTARG}" ;;
+      P) prereverts+=("${OPTARG}") ;;
+      R) reverts+=("${OPTARG}") ;;
       t) tbranch="${OPTARG}" ;;
       s) do_dryrun=1 ;;
       S) Subject="${OPTARG}" ;;
@@ -615,6 +623,19 @@ do_apply_changes() {
   done
 }
 
+# Apply reverts from list of SHAs from merge branch prior to
+# the actual merge
+do_apply_reverts() {
+  local revert
+
+  for revert in $*; do
+    echo "Reverting commit ${revert}"
+    if ! git revert --no-commit "${revert}"; then
+      die "Failed to revert commit ${revert} in merge branch."
+    fi
+  done
+}
+
 # Do the merge.
 # - Create merge branch.
 # - Merge.
@@ -628,6 +649,7 @@ do_merge() {
   local patch
   local file
   local files
+  local revert
 
   git branch -D "${mbranch}" >/dev/null 2>&1
   if ! git checkout -b "${mbranch}" "${ocbranch}"; then
@@ -638,6 +660,10 @@ do_merge() {
     xbranch="${obranch}"
   else
     xbranch="${chromeos}/${obranch}"
+  fi
+
+  if [[ -n "${prereverts[@]}" ]]; then
+    do_apply_reverts ${prereverts[@]}
   fi
 
   do_apply_changes
@@ -682,6 +708,13 @@ do_merge() {
     die "Failed to commit merge."
   fi
 
+  if [[ -n "${reverts[@]}" ]]; then
+    do_apply_reverts ${reverts[@]}
+    if ! git commit --amend --no-edit; then
+      die "Failed to commit merge after post-commit reverts."
+    fi
+  fi
+
   # Update commit message.
 
   ( echo "${Subject}"
@@ -696,6 +729,19 @@ do_merge() {
       echo "Conflicts:"
       for conflict in "${conflicts[@]}"; do
         echo "    ${conflict}"
+      done
+      echo
+    ) >> "${tmpfile}"
+  fi
+
+  # Add reverts to description.
+  if [[ -n "${prereverts[@]}${reverts[@]}" ]]; then
+    (
+      echo "The following patches have been reverted as part of the merge"
+      echo "to remove code which is obsolete or no longer applicable."
+      echo
+      for revert in ${prereverts[@]} ${reverts[@]}; do
+        echo "    $(git show --oneline --no-decorate -s ${revert})"
       done
       echo
     ) >> "${tmpfile}"
