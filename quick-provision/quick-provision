@@ -132,6 +132,7 @@ get_url_to_stdout() {
   if type wget >/dev/null 2>&1; then
     wget --progress=dot:giga -S --retry-connrefused -O - "${url}" | \
       tee >(md5sum >>"${HASHES_LOG}")
+    return "${PIPESTATUS[0]}"
   else
     curl "${url}"
   fi
