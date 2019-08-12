@@ -42,7 +42,7 @@ def _get_conflicts():
         if resolution in resolutions:
             conflicts.append('   ' + name)
     if not conflicts:
-        return ""
+        return ''
     return '\nConflicts:\n%s\n' % '\n'.join(conflicts)
 
 def _find_linux_remote():
@@ -99,7 +99,7 @@ def _get_pw_url(project):
             sys.exit(1)
 
     if not config.has_option(project, 'url'):
-        sys.stderr.write('Error: patchwork URL not found for project \'%s\'\n'
+        sys.stderr.write("Error: patchwork URL not found for project '%s'\n"
                          % project)
         sys.exit(1)
 
@@ -216,7 +216,7 @@ def main(args):
                 args['tag'] = 'FROMLIST: '
 
             url = _get_pw_url(pw_project)
-            opener = urllib.urlopen("%s/patch/%d/mbox" % (url, patch_id))
+            opener = urllib.urlopen('%s/patch/%d/mbox' % (url, patch_id))
             if opener.getcode() != 200:
                 sys.stderr.write('Error: could not download patch - error code %d\n' \
                                  % opener.getcode())
@@ -338,7 +338,7 @@ def main(args):
                 args['tag'] = 'BACKPORT: ' + args['tag']
             _pause_for_merge(conflicts)
         else:
-            conflicts = ""
+            conflicts = ''
 
         # extract commit message
         commit_message = subprocess.check_output(
