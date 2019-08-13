@@ -44,28 +44,28 @@ import subprocess
 import sys
 import tempfile
 import threading
-import time
 import types
 from logging import handlers
 
 import cherrypy
 # pylint: disable=no-name-in-module
 from cherrypy import _cplogging as cplogging
-from cherrypy.process import plugins # pylint: disable=import-error
+from cherrypy.process import plugins  # pylint: disable=import-error
 # pylint: enable=no-name-in-module
 
 # This must happen before any local modules get a chance to import
 # anything from chromite.  Otherwise, really bad things will happen, and
 # you will _not_ understand why.
-import setup_chromite # pylint: disable=unused-import
+import setup_chromite  # pylint: disable=unused-import
 
-import autoupdate
 import artifact_info
+import autoupdate
 import build_artifact
 import cherrypy_ext
 import common_util
 import devserver_constants
 import downloader
+import health_checker
 import log_util
 import xbuddy
 
@@ -73,23 +73,6 @@ import xbuddy
 def _Log(message, *args):
   return log_util.LogWithTag('DEVSERVER', message, *args)
 
-try:
-  import psutil
-except ImportError:
-  # Ignore psutil import failure. This is for backwards compatibility, so
-  # "cros flash" can still update duts with build without psutil installed.
-  # The reason is that, during cros flash, local devserver code is copied over
-  # to DUT, and devserver will be running inside DUT to stage the build.
-  _Log('Python module psutil is not installed, devserver load data will not be '
-       'collected')
-  psutil = None
-except OSError as e:
-  # Ignore error like following. psutil may not work properly in builder. Ignore
-  # the error as load information of devserver is not used in builder.
-  # OSError: [Errno 2] No such file or directory: '/dev/pts/0'
-  _Log('psutil is failed to be imported, error: %s. devserver load data will '
-       'not be collected.', e)
-  psutil = None
 
 # Use try-except to skip unneccesary import for simple use case, eg. running
 # devserver on host.
@@ -132,11 +115,8 @@ updater = None
 # For more, see the documentation in standard python library for
 # logging.handlers.TimedRotatingFileHandler
 _LOG_ROTATION_TIME = 'H'
-_LOG_ROTATION_INTERVAL = 12 # hours
-_LOG_ROTATION_BACKUP = 28 # backup counts
-
-# Number of seconds between the collection of disk and network IO counters.
-STATS_INTERVAL = 10.0
+_LOG_ROTATION_INTERVAL = 12  # hours
+_LOG_ROTATION_BACKUP = 28  # backup counts
 
 # Auto-update parameters
 
@@ -149,32 +129,6 @@ AUTO_UPDATE_CMD = '/usr/bin/python -u %s -d %s -b %s --static_dir %s'
 
 class DevServerError(Exception):
   """Exception class used by this module."""
-
-
-def require_psutil():
-  """Decorator for functions require psutil to run."""
-  def deco_require_psutil(func):
-    """Wrapper of the decorator function.
-
-    Args:
-      func: function to be called.
-    """
-    def func_require_psutil(*args, **kwargs):
-      """Decorator for functions require psutil to run.
-
-      If psutil is not installed, skip calling the function.
-
-      Args:
-        *args: arguments for function to be called.
-        **kwargs: keyword arguments for function to be called.
-      """
-      if psutil:
-        return func(*args, **kwargs)
-      else:
-        _Log('Python module psutil is not installed. Function call %s is '
-             'skipped.' % func)
-    return func_require_psutil
-  return deco_require_psutil
 
 
 def _canonicalize_archive_url(archive_url):
@@ -646,7 +600,6 @@ class ApiRoot(object):
     raise common_util.DevServerHTTPError(httplib.BAD_REQUEST,
                                          'No label provided.')
 
-
   @cherrypy.expose
   def fileinfo(self, *args):
     """Returns information about a given staged file.
@@ -700,58 +653,15 @@ class DevServerRoot(object):
   # Lock used to lock increasing/decreasing count.
   _staging_thread_count_lock = threading.Lock()
 
-  @require_psutil()
-  def _refresh_io_stats(self):
-    """A call running in a thread to update IO stats periodically."""
-    prev_disk_io_counters = psutil.disk_io_counters()
-    prev_network_io_counters = psutil.net_io_counters()
-    prev_read_time = time.time()
-    while True:
-      time.sleep(STATS_INTERVAL)
-      now = time.time()
-      interval = now - prev_read_time
-      prev_read_time = now
-      # Disk IO is for all disks.
-      disk_io_counters = psutil.disk_io_counters()
-      network_io_counters = psutil.net_io_counters()
-
-      self.disk_read_bytes_per_sec = (
-          disk_io_counters.read_bytes -
-          prev_disk_io_counters.read_bytes)/interval
-      self.disk_write_bytes_per_sec = (
-          disk_io_counters.write_bytes -
-          prev_disk_io_counters.write_bytes)/interval
-      prev_disk_io_counters = disk_io_counters
-
-      self.network_sent_bytes_per_sec = (
-          network_io_counters.bytes_sent -
-          prev_network_io_counters.bytes_sent)/interval
-      self.network_recv_bytes_per_sec = (
-          network_io_counters.bytes_recv -
-          prev_network_io_counters.bytes_recv)/interval
-      prev_network_io_counters = network_io_counters
-
-  @require_psutil()
-  def _start_io_stat_thread(self):
-    """Start the thread to collect IO stats."""
-    thread = threading.Thread(target=self._refresh_io_stats)
-    thread.daemon = True
-    thread.start()
-
   def __init__(self, _xbuddy):
     self._builder = None
     self._telemetry_lock_dict = common_util.LockDict()
     self._xbuddy = _xbuddy
 
-    # Cache of disk IO stats, a thread refresh the stats every 10 seconds.
-    # lock is not used for these variables as the only thread writes to these
-    # variables is _refresh_io_stats.
-    self.disk_read_bytes_per_sec = 0
-    self.disk_write_bytes_per_sec = 0
-    # Cache of network IO stats.
-    self.network_sent_bytes_per_sec = 0
-    self.network_recv_bytes_per_sec = 0
-    self._start_io_stat_thread()
+  @property
+  def staging_thread_count(self):
+    """Get the staging thread count."""
+    return self._staging_thread_count
 
   @cherrypy.expose
   def build(self, board, pkg, **kwargs):
@@ -765,6 +675,11 @@ class DevServerRoot(object):
   def is_staged(self, **kwargs):
     """Check if artifacts have been downloaded.
 
+    Examples:
+      To check if autotest and test_suites are staged:
+        http://devserver_url:<port>/is_staged?archive_url=gs://your_url/path&
+            artifacts=autotest,test_suites
+
     Args:
       async: True to return without waiting for download to complete.
       artifacts: Comma separated list of named artifacts to download.
@@ -774,12 +689,8 @@ class DevServerRoot(object):
         will be available as is in the corresponding static directory with no
         custom post-processing.
 
-    Returns: True of all artifacts are staged.
-
-    Examples:
-      To check if autotest and test_suites are staged:
-        http://devserver_url:<port>/is_staged?archive_url=gs://your_url/path&
-            artifacts=autotest,test_suites
+    Returns:
+      True of all artifacts are staged.
     """
     dl, factory = _get_downloader_and_factory(kwargs)
     response = str(dl.IsStaged(factory))
@@ -790,13 +701,13 @@ class DevServerRoot(object):
   def list_image_dir(self, **kwargs):
     """Take an archive url and list the contents in its staged directory.
 
-    Args:
-      archive_url: Google Storage URL for the build.
-
     Examples:
       To list the contents of where this devserver should have staged
       gs://image-archive/<board>-release/<build> call:
       http://devserver_url:<port>/list_image_dir?archive_url=<gs://..>
+
+    Args:
+      archive_url: Google Storage URL for the build.
 
     Returns:
       A string with information about the contents of the image directory.
@@ -824,22 +735,6 @@ class DevServerRoot(object):
     These artifacts will then be available from the static/ sub-directory of
     the devserver.
 
-    Args:
-      archive_url: Google Storage URL for the build.
-      local_path: Local path for the build.
-      delete_source: Only meaningful with local_path. bool to indicate if the
-          source files should be deleted. This is especially useful when staging
-          a file locally in resource constrained environments as it allows us to
-          move the relevant files locally instead of copying them.
-      async: True to return without waiting for download to complete.
-      artifacts: Comma separated list of named artifacts to download.
-        These are defined in artifact_info and have their implementation
-        in build_artifact.py.
-      files: Comma separated list of files to stage. These
-        will be available as is in the corresponding static directory with no
-        custom post-processing.
-      clean: True to remove any previously staged artifacts first.
-
     Examples:
       To download the autotest and test suites tarballs:
         http://devserver_url:<port>/stage?archive_url=gs://your_url/path&
@@ -862,6 +757,22 @@ class DevServerRoot(object):
       Will get staged to:
 
       http://devserver_url:<port>/static/x86-mario-release/R26-3920.0.0
+
+    Args:
+      archive_url: Google Storage URL for the build.
+      local_path: Local path for the build.
+      delete_source: Only meaningful with local_path. bool to indicate if the
+          source files should be deleted. This is especially useful when staging
+          a file locally in resource constrained environments as it allows us to
+          move the relevant files locally instead of copying them.
+      async: True to return without waiting for download to complete.
+      artifacts: Comma separated list of named artifacts to download.
+        These are defined in artifact_info and have their implementation
+        in build_artifact.py.
+      files: Comma separated list of files to stage. These
+        will be available as is in the corresponding static directory with no
+        custom post-processing.
+      clean: True to remove any previously staged artifacts first.
     """
     dl, factory = _get_downloader_and_factory(kwargs)
 
@@ -1115,7 +1026,7 @@ class DevServerRoot(object):
       # The track log's full path is: path/host_name_pid.log
       # Use splitext to remove file extension, then parse pid from the
       # filename.
-      pid = os.path.splitext(os.path.basename(log))[0][len(host_name)+1:]
+      pid = os.path.splitext(os.path.basename(log))[0][len(host_name) + 1:]
       _clear_process(host_name, pid)
 
     if cur_pid:
@@ -1639,83 +1550,6 @@ class DevServerRoot(object):
 
     return updater.HandleUpdatePing(data, label)
 
-  @require_psutil()
-  def _get_io_stats(self):
-    """Get the IO stats as a dictionary.
-
-    Returns:
-      A dictionary of IO stats collected by psutil.
-    """
-    return {'disk_read_bytes_per_second': self.disk_read_bytes_per_sec,
-            'disk_write_bytes_per_second': self.disk_write_bytes_per_sec,
-            'disk_total_bytes_per_second': (self.disk_read_bytes_per_sec +
-                                            self.disk_write_bytes_per_sec),
-            'network_sent_bytes_per_second': self.network_sent_bytes_per_sec,
-            'network_recv_bytes_per_second': self.network_recv_bytes_per_sec,
-            'network_total_bytes_per_second': (self.network_sent_bytes_per_sec +
-                                               self.network_recv_bytes_per_sec),
-            'cpu_percent': psutil.cpu_percent(),}
-
-
-  def _get_process_count(self, process_cmd_pattern):
-    """Get the count of processes that match the given command pattern.
-
-    Args:
-      process_cmd_pattern: The regex pattern of process command to match.
-
-    Returns:
-      The count of processes that match the given command pattern.
-    """
-    try:
-      # Use Popen instead of check_output since the latter cannot run with old
-      # python version (less than 2.7)
-      proc = subprocess.Popen(
-          ['pgrep', '-fc', process_cmd_pattern],
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-      )
-      cmd_output, cmd_error = proc.communicate()
-      if cmd_error:
-        _Log('Error happened when getting process count: %s' % cmd_error)
-
-      return int(cmd_output)
-    except subprocess.CalledProcessError:
-      return 0
-
-
-  @cherrypy.expose
-  def check_health(self):
-    """Collect the health status of devserver to see if it's ready for staging.
-
-    Returns:
-      A JSON dictionary containing all or some of the following fields:
-      free_disk (int):            free disk space in GB
-      staging_thread_count (int): number of devserver threads currently staging
-                                  an image
-      apache_client_count (int): count of Apache processes.
-      telemetry_test_count (int): count of telemetry tests.
-      gsutil_count (int): count of gsutil processes.
-    """
-    # Get free disk space.
-    stat = os.statvfs(updater.static_dir)
-    free_disk = stat.f_bsize * stat.f_bavail / 1000000000
-    apache_client_count = self._get_process_count('bin/apache2? -k start')
-    telemetry_test_count = self._get_process_count('python.*telemetry')
-    gsutil_count = self._get_process_count('gsutil')
-    au_process_count = len(cros_update_progress.GetAllRunningAUProcess())
-
-    health_data = {
-        'free_disk': free_disk,
-        'staging_thread_count': DevServerRoot._staging_thread_count,
-        'apache_client_count': apache_client_count,
-        'telemetry_test_count': telemetry_test_count,
-        'gsutil_count': gsutil_count,
-        'au_process_count': au_process_count,
-    }
-    health_data.update(self._get_io_stats() or {})
-
-    return json.dumps(health_data)
-
 
 def _CleanCache(cache_dir, wipe):
   """Wipes any excess cached items in the cache_dir.
@@ -1941,6 +1775,7 @@ def main():
     return
 
   dev_server = DevServerRoot(_xbuddy)
+  health_checker_app = health_checker.Root(dev_server, options.static_dir)
 
   # Patch CherryPy to support binding to any available port (--port=0).
   cherrypy_ext.ZeroPortPatcher.DoPatch(cherrypy)
@@ -1959,6 +1794,9 @@ def main():
     except ValueError as e:
       _Log('Failed to load the android build credential: %s. Error: %s.' %
            (options.android_build_credential, e))
+
+  cherrypy.tree.mount(health_checker_app, '/check_health',
+                      config=health_checker.get_config())
   cherrypy.quickstart(dev_server, config=_GetConfig(options))
 
 
