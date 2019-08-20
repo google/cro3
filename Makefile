@@ -28,6 +28,7 @@ install:
 		cros_update_progress.py \
 		devserver_constants.py \
 		downloader.py \
+		health_checker.py \
 		log_util.py \
 		retry.py \
 		setup_chromite.py \
