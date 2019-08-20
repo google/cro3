@@ -64,6 +64,7 @@ import build_artifact
 import cherrypy_ext
 import common_util
 import devserver_constants
+import devserver_exceptions
 import downloader
 import health_checker
 import log_util
@@ -127,10 +128,6 @@ KEY_ERROR_MSG = 'Key Error in RPC: %s= is required'
 AUTO_UPDATE_CMD = '/usr/bin/python -u %s -d %s -b %s --static_dir %s'
 
 
-class DevServerError(Exception):
-  """Exception class used by this module."""
-
-
 def _canonicalize_archive_url(archive_url):
   """Canonicalizes archive_url strings.
 
@@ -139,12 +136,13 @@ def _canonicalize_archive_url(archive_url):
   """
   if archive_url:
     if not archive_url.startswith('gs://'):
-      raise DevServerError("Archive URL isn't from Google Storage (%s) ." %
-                           archive_url)
+      raise devserver_exceptions.DevServerError(
+          "Archive URL isn't from Google Storage (%s) ." % archive_url)
 
     return archive_url.rstrip('/')
   else:
-    raise DevServerError("Must specify an archive_url in the request")
+    raise devserver_exceptions.DevServerError(
+        "Must specify an archive_url in the request")
 
 
 def _canonicalize_local_path(local_path):
@@ -157,8 +155,9 @@ def _canonicalize_local_path(local_path):
   # directory.
   local_path = os.path.abspath(local_path)
   if not local_path.startswith(updater.static_dir):
-    raise DevServerError('Local path %s must be a subdirectory of the static'
-                         ' directory: %s' % (local_path, updater.static_dir))
+    raise devserver_exceptions.DevServerError(
+        'Local path %s must be a subdirectory of the static'
+        ' directory: %s' % (local_path, updater.static_dir))
 
   return local_path.rstrip('/')
 
@@ -172,7 +171,7 @@ def _get_artifacts(kwargs):
   artifacts = kwargs.get('artifacts')
   files = kwargs.get('files')
   if not artifacts and not files:
-    raise DevServerError('No artifacts specified.')
+    raise devserver_exceptions.DevServerError('No artifacts specified.')
 
   # Note we NEED to coerce files to a string as we get raw unicode from
   # cherrypy and we treat files as strings elsewhere in the code.
@@ -216,11 +215,11 @@ def _get_downloader(kwargs):
   if not _is_android_build_request(kwargs):
     archive_url = kwargs.get('archive_url')
     if not archive_url and not local_path:
-      raise DevServerError('Requires archive_url or local_path to be '
-                           'specified.')
+      raise devserver_exceptions.DevServerError(
+          'Requires archive_url or local_path to be specified.')
     if archive_url and local_path:
-      raise DevServerError('archive_url and local_path can not both be '
-                           'specified.')
+      raise devserver_exceptions.DevServerError(
+          'archive_url and local_path can not both be specified.')
     if not dl:
       archive_url = _canonicalize_archive_url(archive_url)
       dl = downloader.GoogleStorageDownloader(
@@ -232,7 +231,7 @@ def _get_downloader(kwargs):
     branch = kwargs.get('branch', None)
     build_id = kwargs.get('build_id', None)
     if not target or not branch or not build_id:
-      raise DevServerError(
+      raise devserver_exceptions.DevServerError(
           'target, branch, build ID must all be specified for downloading '
           'Android build.')
     dl = downloader.AndroidBuildDownloader(updater.static_dir, branch, build_id,
@@ -256,8 +255,8 @@ def _get_downloader_and_factory(kwargs):
   elif isinstance(dl, downloader.AndroidBuildDownloader):
     factory_class = build_artifact.AndroidArtifactFactory
   else:
-    raise DevServerError('Unrecognized value for downloader type: %s' %
-                         type(dl))
+    raise devserver_exceptions.DevServerError(
+        'Unrecognized value for downloader type: %s' % type(dl))
 
   factory = factory_class(dl.GetBuildDir(), artifacts, files, dl.GetBuild())
 
@@ -618,13 +617,14 @@ class ApiRoot(object):
     """
     file_path = os.path.join(updater.static_dir, *args)
     if not os.path.exists(file_path):
-      raise DevServerError('file not found: %s' % file_path)
+      raise devserver_exceptions.DevServerError(
+          'file not found: %s' % file_path)
     try:
       file_size = os.path.getsize(file_path)
       file_sha256 = common_util.GetFileSha256(file_path)
     except os.error, e:
-      raise DevServerError('failed to get info for file %s: %s' %
-                           (file_path, e))
+      raise devserver_exceptions.DevServerError(
+          'failed to get info for file %s: %s' % (file_path, e))
 
     return json.dumps({
         autoupdate.Autoupdate.SIZE_ATTR: file_size,
@@ -1086,8 +1086,9 @@ class DevServerRoot(object):
       file_name = kwargs['file_name']
       artifacts = kwargs['artifacts']
     except KeyError:
-      raise DevServerError('`file_name` and `artifacts` are required to search '
-                           'for a file in build artifacts.')
+      raise devserver_exceptions.DevServerError(
+          '`file_name` and `artifacts` are required to search '
+          'for a file in build artifacts.')
     build_path = dl.GetBuildDir()
     for artifact in artifacts:
       # Get the unzipped folder of the artifact. If it's not defined in
@@ -1098,8 +1099,8 @@ class DevServerRoot(object):
       for root, _, filenames in os.walk(artifact_path):
         if file_name in set([f for f in filenames]):
           return os.path.relpath(os.path.join(root, file_name), build_path)
-    raise DevServerError('File `%s` can not be found in artifacts: %s' %
-                         (file_name, artifacts))
+    raise devserver_exceptions.DevServerError(
+        'File `%s` can not be found in artifacts: %s' % (file_name, artifacts))
 
   @cherrypy.expose
   def setup_telemetry(self, **kwargs):
@@ -1138,7 +1139,7 @@ class DevServerRoot(object):
           common_util.ExtractTarball(dep_path, telemetry_path)
         except common_util.CommonUtilError as e:
           shutil.rmtree(telemetry_path)
-          raise DevServerError(str(e))
+          raise devserver_exceptions.DevServerError(str(e))
 
       # By default all the tarballs extract to test_src but some parts of
       # the telemetry code specifically hardcoded to exist inside of 'src'.
@@ -1148,7 +1149,7 @@ class DevServerRoot(object):
       except shutil.Error:
         # This can occur if src_folder already exists. Remove and retry move.
         shutil.rmtree(src_folder)
-        raise DevServerError(
+        raise devserver_exceptions.DevServerError(
             'Failure in telemetry setup for build %s. Appears that the '
             'test_src to src move failed.' % dl.GetBuild())
 
@@ -1179,8 +1180,8 @@ class DevServerRoot(object):
       except build_artifact.ArtifactDownloadError:
         continue
     else:
-      raise DevServerError('Failed to stage symbols for %s' %
-                           dl.DescribeSource())
+      raise devserver_exceptions.DevServerError(
+          'Failed to stage symbols for %s' % dl.DescribeSource())
 
     to_return = ''
     with tempfile.NamedTemporaryFile() as local:
@@ -1201,8 +1202,9 @@ class DevServerRoot(object):
 
       to_return, error_text = stackwalk.communicate()
       if stackwalk.returncode != 0:
-        raise DevServerError("Can't generate stack trace: %s (rc=%d)" % (
-            error_text, stackwalk.returncode))
+        raise devserver_exceptions.DevServerError(
+            "Can't generate stack trace: %s (rc=%d)" % (error_text,
+                                                        stackwalk.returncode))
 
     return to_return
 
@@ -1232,7 +1234,7 @@ class DevServerRoot(object):
       branch = kwargs.get('branch', None)
       target = kwargs.get('target', None)
       if not target or not branch:
-        raise DevServerError(
+        raise devserver_exceptions.DevServerError(
             'Both target and branch must be specified to query for the latest '
             'Android build.')
       return android_build.BuildAccessor.GetLatestBuildID(target, branch)
@@ -1486,9 +1488,11 @@ class DevServerRoot(object):
     name = '/'.join(args)
     method = _GetExposedMethod(self, name)
     if not method:
-      raise DevServerError("No exposed method named `%s'" % name)
+      raise devserver_exceptions.DevServerError(
+          "No exposed method named `%s'" % name)
     if not method.__doc__:
-      raise DevServerError("No documentation for exposed method `%s'" % name)
+      raise devserver_exceptions.DevServerError(
+          "No documentation for exposed method `%s'" % name)
     return '<pre>\n%s</pre>' % method.__doc__
 
   @cherrypy.expose
