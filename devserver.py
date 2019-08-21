@@ -397,23 +397,24 @@ def _IsExposed(name):
   return hasattr(name, 'exposed') and name.exposed
 
 
-def _GetExposedMethod(root, nested_member, ignored=None):
+def _GetExposedMethod(nested_member):
   """Returns a CherryPy-exposed method, if such exists.
 
   Args:
-    root: the root object for searching
     nested_member: a slash-joined path to the nested member
-    ignored: method paths to be ignored
 
   Returns:
-    A function object corresponding to the path defined by |member_list| from
-    the |root| object, if the function is exposed and not ignored; None
-    otherwise.
+    A function object corresponding to the path defined by |nested_member| from
+    the app root object registered, if the function is exposed; None otherwise.
   """
-  method = (not (ignored and nested_member in ignored) and
-            _GetRecursiveMemberObject(root, nested_member.split('/')))
-  if method and isinstance(method, types.FunctionType) and _IsExposed(method):
-    return method
+  for app in cherrypy.tree.apps.values():
+    # Use the 'index' function doc as the doc of the app.
+    if nested_member == app.script_name.lstrip('/'):
+      nested_member = 'index'
+
+    method = _GetRecursiveMemberObject(app.root, nested_member.split('/'))
+    if method and isinstance(method, types.FunctionType) and _IsExposed(method):
+      return method
 
 
 def _FindExposedMethods(root, prefix, unlisted=None):
@@ -428,14 +429,19 @@ def _FindExposedMethods(root, prefix, unlisted=None):
     List of exposed URLs that are not unlisted.
   """
   method_list = []
-  for member in sorted(root.__class__.__dict__.keys()):
+  for member in root.__class__.__dict__.keys():
     prefixed_member = prefix + '/' + member if prefix else member
     if unlisted and prefixed_member in unlisted:
       continue
     member_obj = root.__class__.__dict__[member]
     if _IsExposed(member_obj):
       if isinstance(member_obj, types.FunctionType):
-        method_list.append(prefixed_member)
+        # Regard the app name as exposed "method" name if it exposed 'index'
+        # function.
+        if prefix and member == 'index':
+          method_list.append(prefix)
+        else:
+          method_list.append(prefixed_member)
       else:
         method_list += _FindExposedMethods(
             member_obj, prefixed_member, unlisted)
@@ -1468,15 +1474,22 @@ class DevServerRoot(object):
   @cherrypy.expose
   def index(self):
     """Presents a welcome message and documentation links."""
-    return ('Welcome to the Dev Server!<br>\n'
-            '<br>\n'
-            'Here are the available methods, click for documentation:<br>\n'
-            '<br>\n'
-            '%s' %
-            '<br>\n'.join(
-                [('<a href=doc/%s>%s</a>' % (name, name))
-                 for name in _FindExposedMethods(
-                     self, '', unlisted=self._UNLISTED_METHODS)]))
+    html_template = (
+        'Welcome to the Dev Server!<br>\n'
+        '<br>\n'
+        'Here are the available methods, click for documentation:<br>\n'
+        '<br>\n'
+        '%s')
+
+    exposed_methods = []
+    for app in cherrypy.tree.apps.values():
+      exposed_methods += _FindExposedMethods(
+          app.root, app.script_name.lstrip('/'),
+          unlisted=self._UNLISTED_METHODS)
+
+    return html_template % '<br>\n'.join(
+        ['<a href=doc/%s>%s</a>' % (name, name)
+         for name in sorted(exposed_methods)])
 
   @cherrypy.expose
   def doc(self, *args):
@@ -1486,7 +1499,7 @@ class DevServerRoot(object):
       http://myhost/doc/update
     """
     name = '/'.join(args)
-    method = _GetExposedMethod(self, name)
+    method = _GetExposedMethod(name)
     if not method:
       raise devserver_exceptions.DevServerError(
           "No exposed method named `%s'" % name)
