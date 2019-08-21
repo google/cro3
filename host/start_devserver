@@ -14,21 +14,5 @@ fi
 
 export DEFAULT_INSTALL_MASK
 
-# Trap various signals (but do nothing about it).
-trap : INT TERM QUIT
-
-# Spawn devserver in the background, record its pid.
-if [ -f /usr/lib/devserver/devserver.py ]; then
-  python /usr/lib/devserver/devserver.py "$@" &
-else
-  python /usr/bin/devserver.py "$@" &
-fi
-devserver_pid=$!
-
-# Wait for devserver to terminate. If we're interrupted by a signal, kill the
-# devserver and wait for it to die.
-wait
-while [ $? -ge 128 ]; do
-  kill ${devserver_pid}
-  wait
-done
+# Exec the devserver, replacing this shell process.
+exec /usr/lib/devserver/devserver.py "$@"
