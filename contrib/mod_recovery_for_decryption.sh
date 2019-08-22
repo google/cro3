@@ -106,5 +106,5 @@ install_decryption_flag
 okboat
 
 echo "Decryption recovery image created at ${RECOVERY_IMAGE}"
-print_time_elapsed
+command_completed
 trap - EXIT
