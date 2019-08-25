@@ -212,13 +212,6 @@ main() {
     ;;
   esac
 
-  # This script should only run in developer mode or for developer images.
-  if crossystem "cros_debug?0"; then
-    error "Can not run dev_install."
-    error "Chrome OS is not in developer mode."
-    return 1
-  fi
-
   if [ ${FLAGS_uninstall} -eq ${FLAGS_TRUE} \
        -o ${FLAGS_reinstall} -eq ${FLAGS_TRUE} ]; then
     remove_installed_packages
