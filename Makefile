@@ -12,7 +12,7 @@ install:
 	mkdir -p "${DESTDIR}/usr/lib/devserver"
 	mkdir -p "${DESTDIR}/usr/lib/devserver/dut-scripts"
 	install -m 0755 host/start_devserver "${DESTDIR}/usr/bin"
-	install -m 0755 devserver.py "${DESTDIR}/usr/lib/devserver"
+	install -m 0755 devserver.py strip_package.py "${DESTDIR}/usr/lib/devserver"
 	install -m 0644  \
 		android_build.py \
 		artifact_info.py \
@@ -33,7 +33,6 @@ install:
 		log_util.py \
 		retry.py \
 		setup_chromite.py \
-		strip_package.py \
 		xbuddy.py \
 		xbuddy_config.ini\
 		"${DESTDIR}/usr/lib/devserver"
