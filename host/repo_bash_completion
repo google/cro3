@@ -85,7 +85,8 @@ __git_m_branch() {
 __git_branch_ps1() {
   local format_str="${1:- (%s)}"
   local m_branch=$(__git_m_branch)
-  if [ "${m_branch}" != "master" -a -n "${m_branch}" ]; then
+  # Do not print the branch name if it includes 'master'.
+  if [[ "${m_branch}" != *master* && -n "${m_branch}" ]]; then
     format_str=$(printf "${format_str}" "${m_branch}/%s")
   fi
   # for subshells, prefix the prompt with the shell nesting level
