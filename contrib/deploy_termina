@@ -32,7 +32,6 @@ DEFINE_boolean 'verbose' false 'Turns on verbose logging.' 'v'
 main() {
   local install_script=""
   local out_dir=""
-  local arch=""
 
   # The script will only work inside the chroot.
   assert_inside_chroot
@@ -54,12 +53,6 @@ main() {
       echo "Using board ${FLAGS_board} based on device architecture ${uname_m}." >&2
     fi
   fi
-
-  case "${FLAGS_board}" in
-    tatl) arch='amd64' ;;
-    tael) arch='arm' ;;
-    *) die "Unknown board ${FLAGS_board}" ;;
-  esac
 
   if [[ ${FLAGS_build_packages} -eq ${FLAGS_TRUE} ]]; then
     if [[ ${FLAGS_verbose} -eq ${FLAGS_TRUE} ]]; then
@@ -84,8 +77,8 @@ main() {
   out_dir="$(mktemp -d)/${FLAGS_board}"
   image_dir="${GCLIENT_ROOT}/src/build/images/${FLAGS_board}/"
   image="${image_dir}/latest/chromiumos_test_image.bin"
-  ./termina_build_image --image "${image}" --output "${out_dir}" \
-    --arch "${arch}"
+  termina_build_image="${GCLIENT_ROOT}/src/platform/container-guest-tools/termina/termina_build_image.py"
+  sudo "${termina_build_image}" "${image}" "${out_dir}"
 
   if [[ -n "${FLAGS_device_ip_addr}" ]]; then
     if [[ ${FLAGS_verbose} -eq ${FLAGS_TRUE} ]]; then
@@ -94,7 +87,7 @@ main() {
     rsync -a "${out_dir}" -e "ssh ${SSH_OPTS[*]}" \
       "root@${FLAGS_device_ip_addr}:${STATEFUL_PARTITION}" \
       || die "Failed to copy to device."
-    rm -rf "${out_dir}"
+    sudo rm -rf "${out_dir}"
 
     if [[ ${FLAGS_verbose} -eq ${FLAGS_TRUE} ]]; then
       echo "Install image onto to device:" >&2
