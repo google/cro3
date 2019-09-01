@@ -176,9 +176,14 @@ def main(args):
         old_commit_message = subprocess.check_output(
             ['git', 'show', '-s', '--format=%B', 'HEAD']
         ).strip('\n')
-        changeid = re.findall('Change-Id: (.*)$', old_commit_message, re.MULTILINE)
-        if changeid:
-            args['changeid'] = changeid[0]
+
+        # It is possible that multiple Change-Ids are in the commit message
+        # (due to cherry picking).  We only want to pull out the first one.
+        changeid_match = re.search('^Change-Id: (.*)$',
+                                   old_commit_message, re.MULTILINE)
+        if changeid_match:
+            args['changeid'] = changeid_match.group(1)
+
         if args['bug'] == parser.get_default('bug') and \
            re.findall('BUG=(.*)$', old_commit_message, re.MULTILINE):
             args['bug'] = '\nBUG='.join(re.findall('BUG=(.*)$',
