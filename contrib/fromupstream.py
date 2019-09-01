@@ -71,8 +71,8 @@ def _pause_for_merge(conflicts):
         if os.path.exists(path):
             sys.stderr.write('Found "%s".\n' % path)
             sys.stderr.write(conflicts)
-            sys.stderr.write('Please resolve the conflicts and restart the ' +
-                             'shell job when done. Kill this job if you ' +
+            sys.stderr.write('Please resolve the conflicts and restart the '
+                             'shell job when done. Kill this job if you '
                              'aborted the conflict.\n')
             os.kill(os.getpid(), signal.SIGTSTP)
     # TODO: figure out what the state is after the merging, and go based on
@@ -136,8 +136,8 @@ def main(args):
 
     parser.add_argument('--replace',
                         action='store_true',
-                        help='Replaces the HEAD commit with this one, taking ' +
-                        'its properties(BUG, TEST, Change-Id). Useful for ' +
+                        help='Replaces the HEAD commit with this one, taking '
+                        'its properties(BUG, TEST, Change-Id). Useful for '
                         'updating commits.')
     parser.add_argument('--nosignoff',
                         dest='signoff', action='store_false')
@@ -146,17 +146,17 @@ def main(args):
                         help='Overrides the tag from the title')
     parser.add_argument('--source', '-s',
                         dest='source_line', type=str,
-                        help='Overrides the source line, last line, ex: ' +
+                        help='Overrides the source line, last line, ex: '
                         '(am from http://....)')
     parser.add_argument('locations',
                         nargs='+',
-                        help='Patchwork ID (pw://### or pw://PROJECT/###, ' +
-                        'where PROJECT is defined in ~/.pwclientrc; if no ' +
-                        'PROJECT is specified, the default is retrieved from ' +
-                        '~/.pwclientrc), ' +
-                        'linux commit like linux://HASH, or ' +
-                        'git reference like git://remote/branch/HASH or ' +
-                        'git://repoURL#branch/HASH or ' +
+                        help='Patchwork ID (pw://### or pw://PROJECT/###, '
+                        'where PROJECT is defined in ~/.pwclientrc; if no '
+                        'PROJECT is specified, the default is retrieved from '
+                        '~/.pwclientrc), '
+                        'linux commit like linux://HASH, or '
+                        'git reference like git://remote/branch/HASH or '
+                        'git://repoURL#branch/HASH or '
                         'https://repoURL#branch/HASH')
 
     args = vars(parser.parse_args(args))
@@ -189,7 +189,7 @@ def main(args):
         # TODO: deal with multiline BUG/TEST better
 
     if args['bug'] is None or args['test'] is None:
-        parser.error('BUG=/TEST= lines are required; --replace can help ' +
+        parser.error('BUG=/TEST= lines are required; --replace can help '
                      'automate, or set via --bug/--test')
 
     while len(args['locations']) > 0:
