@@ -322,11 +322,11 @@ def main(args):
         if changeid_match:
             args['changeid'] = changeid_match.group(1)
 
-        bugs = re.findall('BUG=(.*)$', old_commit_message, re.MULTILINE)
+        bugs = re.findall('^BUG=(.*)$', old_commit_message, re.MULTILINE)
         if args['bug'] is None and bugs:
             args['bug'] = '\nBUG='.join(bugs)
 
-        tests = re.findall('TEST=(.*)$', old_commit_message, re.MULTILINE)
+        tests = re.findall('^TEST=(.*)$', old_commit_message, re.MULTILINE)
         if args['test'] is None and tests:
             args['test'] = '\nTEST='.join(tests)
         # TODO: deal with multiline BUG/TEST better
@@ -339,11 +339,11 @@ def main(args):
         pprint.pprint(args)
 
     re_matches = (
-        (re.compile(r'pw://(([^/]+)/)?(\d+)'), _match_patchwork),
-        (re.compile(r'linux://([0-9a-f]+)'), _match_linux),
-        (re.compile(r'(from)?git://([^/\#]+)/([^#]+)/([0-9a-f]+)$'),
+        (re.compile(r'^pw://(([^/]+)/)?(\d+)'), _match_patchwork),
+        (re.compile(r'^linux://([0-9a-f]+)'), _match_linux),
+        (re.compile(r'^(from)?git://([^/\#]+)/([^#]+)/([0-9a-f]+)$'),
          _match_fromgit),
-        (re.compile(r'((git|https)://.+)#(.+)/([0-9a-f]+)$'), _match_gitfetch),
+        (re.compile(r'^((git|https)://.+)#(.+)/([0-9a-f]+)$'), _match_gitfetch),
     )
 
     for location in args['locations']:
