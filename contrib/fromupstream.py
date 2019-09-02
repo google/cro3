@@ -113,6 +113,147 @@ def _wrap_commit_line(prefix, content):
     indent = ' ' * (len(prefix) + 1)
     return textwrap.fill(line, COMMIT_MESSAGE_WIDTH, subsequent_indent=indent)
 
+def _match_patchwork(match, args):
+    """Match location: pw://### or pw://PROJECT/###."""
+    pw_project = match.group(2)
+    patch_id = int(match.group(3))
+
+    if args['debug']:
+        print('_match_patchwork: pw_project=%s, patch_id=%d' %
+              (pw_project, patch_id))
+
+    if args['tag'] is None:
+        args['tag'] = 'FROMLIST: '
+
+    url = _get_pw_url(pw_project)
+    opener = urllib.urlopen('%s/patch/%d/mbox' % (url, patch_id))
+    if opener.getcode() != 200:
+        sys.stderr.write('Error: could not download patch - error code %d\n' \
+                         % opener.getcode())
+        sys.exit(1)
+    patch_contents = opener.read()
+
+    if not patch_contents:
+        sys.stderr.write('Error: No patch content found\n')
+        sys.exit(1)
+
+    if args['source_line'] is None:
+        args['source_line'] = '(am from %s/patch/%d/)' % (url, patch_id)
+        message_id = mailbox.Message(patch_contents)['Message-Id']
+        message_id = re.sub('^<|>$', '', message_id.strip())
+        args['source_line'] += \
+                '\n(also found at https://lkml.kernel.org/r/%s)' % \
+                message_id
+
+    if args['replace']:
+        subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
+
+    git_am = subprocess.Popen(['git', 'am', '-3'], stdin=subprocess.PIPE)
+    git_am.communicate(patch_contents)
+    return git_am.returncode
+
+def _match_linux(match, args):
+    """Match location: linux://HASH."""
+    commit = match.group(1)
+
+    if args['debug']:
+        print('_match_linux: commit=%s' % commit)
+
+    # Confirm a 'linux' remote is setup.
+    linux_remote = _find_linux_remote()
+    if not linux_remote:
+        sys.stderr.write('Error: need a valid upstream remote\n')
+        sys.exit(1)
+
+    linux_master = '%s/master' % linux_remote
+    ret = subprocess.call(['git', 'merge-base', '--is-ancestor',
+                           commit, linux_master])
+    if ret:
+        sys.stderr.write('Error: Commit not in %s\n' % linux_master)
+        sys.exit(1)
+
+    if args['source_line'] is None:
+        git_pipe = subprocess.Popen(['git', 'rev-parse', commit],
+                                    stdout=subprocess.PIPE)
+        commit = git_pipe.communicate()[0].strip()
+
+        args['source_line'] = ('(cherry picked from commit %s)' %
+                               (commit))
+    if args['tag'] is None:
+        args['tag'] = 'UPSTREAM: '
+
+    if args['replace']:
+        subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
+
+    return subprocess.call(['git', 'cherry-pick', commit])
+
+def _match_fromgit(match, args):
+    """Match location: git://remote/branch/HASH."""
+    remote = match.group(2)
+    branch = match.group(3)
+    commit = match.group(4)
+
+    if args['debug']:
+        print('_match_fromgit: remote=%s branch=%s commit=%s' %
+              (remote, branch, commit))
+
+    ret = subprocess.call(['git', 'merge-base', '--is-ancestor',
+                           commit, '%s/%s' % (remote, branch)])
+    if ret:
+        sys.stderr.write('Error: Commit not in %s/%s\n' %
+                         (remote, branch))
+        sys.exit(1)
+
+    git_pipe = subprocess.Popen(['git', 'remote', 'get-url', remote],
+                                stdout=subprocess.PIPE)
+    url = git_pipe.communicate()[0].strip()
+
+    if args['source_line'] is None:
+        git_pipe = subprocess.Popen(['git', 'rev-parse', commit],
+                                    stdout=subprocess.PIPE)
+        commit = git_pipe.communicate()[0].strip()
+
+        args['source_line'] = \
+            '(cherry picked from commit %s\n %s %s)' % \
+            (commit, url, branch)
+    if args['tag'] is None:
+        args['tag'] = 'FROMGIT: '
+
+    if args['replace']:
+        subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
+
+    return subprocess.call(['git', 'cherry-pick', commit])
+
+def _match_gitfetch(match, args):
+    """Match location: (git|https)://repoURL#branch/HASH."""
+    remote = match.group(1)
+    branch = match.group(3)
+    commit = match.group(4)
+
+    if args['debug']:
+        print('_match_gitfetch: remote=%s branch=%s commit=%s' %
+              (remote, branch, commit))
+
+    ret = subprocess.call(['git', 'fetch', remote, branch])
+    if ret:
+        sys.stderr.write('Error: Branch not in %s\n' % remote)
+        sys.exit(1)
+
+    url = remote
+
+    if args['source_line'] is None:
+        git_pipe = subprocess.Popen(['git', 'rev-parse', commit],
+                                    stdout=subprocess.PIPE)
+        commit = git_pipe.communicate()[0].strip()
+
+        args['source_line'] = \
+            '(cherry picked from commit %s\n %s %s)' % \
+            (commit, url, branch)
+    if args['tag'] is None:
+        args['tag'] = 'FROMGIT: '
+
+    return subprocess.call(['git', 'cherry-pick', commit])
+
 def main(args):
     """This is the main entrypoint for fromupstream.
 
@@ -200,158 +341,23 @@ def main(args):
     if args['debug']:
         pprint.pprint(args)
 
-    while len(args['locations']) > 0:
-        location = args['locations'].pop(0)
+    re_matches = (
+        (re.compile(r'pw://(([^/]+)/)?(\d+)'), _match_patchwork),
+        (re.compile(r'linux://([0-9a-f]+)'), _match_linux),
+        (re.compile(r'(from)?git://([^/\#]+)/([^#]+)/([0-9a-f]+)$'),
+         _match_fromgit),
+        (re.compile(r'((git|https)://.+)#(.+)/([0-9a-f]+)$'), _match_gitfetch),
+    )
 
+    for location in args['locations']:
         if args['debug']:
             print('location=%s' % location)
 
-        patchwork_match = re.match(
-            r'pw://(([^/]+)/)?(\d+)', location
-        )
-        linux_match = re.match(
-            r'linux://([0-9a-f]+)', location
-        )
-        fromgit_match = re.match(
-            r'(from)?git://([^/\#]+)/([^#]+)/([0-9a-f]+)$', location
-        )
-        gitfetch_match = re.match(
-            r'((git|https)://.+)#(.+)/([0-9a-f]+)$', location
-        )
-
-        if patchwork_match is not None:
-            pw_project = patchwork_match.group(2)
-            patch_id = int(patchwork_match.group(3))
-
-            if args['debug']:
-                print('patchwork match: pw_project=%s, patch_id=%d' %
-                      (pw_project, patch_id))
-
-            if args['tag'] is None:
-                args['tag'] = 'FROMLIST: '
-
-            url = _get_pw_url(pw_project)
-            opener = urllib.urlopen('%s/patch/%d/mbox' % (url, patch_id))
-            if opener.getcode() != 200:
-                sys.stderr.write('Error: could not download patch - error code %d\n' \
-                                 % opener.getcode())
-                sys.exit(1)
-            patch_contents = opener.read()
-
-            if not patch_contents:
-                sys.stderr.write('Error: No patch content found\n')
-                sys.exit(1)
-
-            if args['source_line'] is None:
-                args['source_line'] = '(am from %s/patch/%d/)' % (url, patch_id)
-                message_id = mailbox.Message(patch_contents)['Message-Id']
-                message_id = re.sub('^<|>$', '', message_id.strip())
-                args['source_line'] += \
-                        '\n(also found at https://lkml.kernel.org/r/%s)' % \
-                        message_id
-
-            if args['replace']:
-                subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
-
-            git_am = subprocess.Popen(['git', 'am', '-3'], stdin=subprocess.PIPE)
-            git_am.communicate(patch_contents)
-            ret = git_am.returncode
-        elif linux_match:
-            commit = linux_match.group(1)
-
-            if args['debug']:
-                print('linux match: commit=%s' % commit)
-
-            # Confirm a 'linux' remote is setup.
-            linux_remote = _find_linux_remote()
-            if not linux_remote:
-                sys.stderr.write('Error: need a valid upstream remote\n')
-                sys.exit(1)
-
-            linux_master = '%s/master' % linux_remote
-            ret = subprocess.call(['git', 'merge-base', '--is-ancestor',
-                                   commit, linux_master])
-            if ret:
-                sys.stderr.write('Error: Commit not in %s\n' % linux_master)
-                sys.exit(1)
-
-            if args['source_line'] is None:
-                git_pipe = subprocess.Popen(['git', 'rev-parse', commit],
-                                            stdout=subprocess.PIPE)
-                commit = git_pipe.communicate()[0].strip()
-
-                args['source_line'] = ('(cherry picked from commit %s)' %
-                                       (commit))
-            if args['tag'] is None:
-                args['tag'] = 'UPSTREAM: '
-
-            if args['replace']:
-                subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
-
-            ret = subprocess.call(['git', 'cherry-pick', commit])
-        elif fromgit_match is not None:
-            remote = fromgit_match.group(2)
-            branch = fromgit_match.group(3)
-            commit = fromgit_match.group(4)
-
-            if args['debug']:
-                print('fromgit match: remote=%s branch=%s commit=%s' %
-                      (remote, branch, commit))
-
-            ret = subprocess.call(['git', 'merge-base', '--is-ancestor',
-                                   commit, '%s/%s' % (remote, branch)])
-            if ret:
-                sys.stderr.write('Error: Commit not in %s/%s\n' %
-                                 (remote, branch))
-                sys.exit(1)
-
-            git_pipe = subprocess.Popen(['git', 'remote', 'get-url', remote],
-                                        stdout=subprocess.PIPE)
-            url = git_pipe.communicate()[0].strip()
-
-            if args['source_line'] is None:
-                git_pipe = subprocess.Popen(['git', 'rev-parse', commit],
-                                            stdout=subprocess.PIPE)
-                commit = git_pipe.communicate()[0].strip()
-
-                args['source_line'] = \
-                    '(cherry picked from commit %s\n %s %s)' % \
-                    (commit, url, branch)
-            if args['tag'] is None:
-                args['tag'] = 'FROMGIT: '
-
-            if args['replace']:
-                subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
-
-            ret = subprocess.call(['git', 'cherry-pick', commit])
-        elif gitfetch_match is not None:
-            remote = gitfetch_match.group(1)
-            branch = gitfetch_match.group(3)
-            commit = gitfetch_match.group(4)
-
-            if args['debug']:
-                print('gitfetch match: remote=%s branch=%s commit=%s' %
-                      (remote, branch, commit))
-
-            ret = subprocess.call(['git', 'fetch', remote, branch])
-            if ret:
-                sys.stderr.write('Error: Branch not in %s\n' % remote)
-                sys.exit(1)
-
-            url = remote
-
-            if args['source_line'] is None:
-                git_pipe = subprocess.Popen(['git', 'rev-parse', commit],
-                                            stdout=subprocess.PIPE)
-                commit = git_pipe.communicate()[0].strip()
-
-                args['source_line'] = \
-                    '(cherry picked from commit %s\n %s %s)' % \
-                    (commit, url, branch)
-            if args['tag'] is None:
-                args['tag'] = 'FROMGIT: '
-
-            ret = subprocess.call(['git', 'cherry-pick', commit])
+        for reg, handler in re_matches:
+            match = reg.match(location)
+            if match:
+                ret = handler(match, args)
+                break
         else:
             sys.stderr.write('Don\'t know what "%s" means.\n' % location)
             sys.exit(1)
