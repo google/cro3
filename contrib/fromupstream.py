@@ -184,16 +184,13 @@ def main(args):
         if changeid_match:
             args['changeid'] = changeid_match.group(1)
 
-        if args['bug'] == parser.get_default('bug') and \
-           re.findall('BUG=(.*)$', old_commit_message, re.MULTILINE):
-            args['bug'] = '\nBUG='.join(re.findall('BUG=(.*)$',
-                                                   old_commit_message,
-                                                   re.MULTILINE))
-        if args['test'] == parser.get_default('test') and \
-           re.findall('TEST=(.*)$', old_commit_message, re.MULTILINE):
-            args['test'] = '\nTEST='.join(re.findall('TEST=(.*)$',
-                                                     old_commit_message,
-                                                     re.MULTILINE))
+        bugs = re.findall('BUG=(.*)$', old_commit_message, re.MULTILINE)
+        if args['bug'] is None and bugs:
+            args['bug'] = '\nBUG='.join(bugs)
+
+        tests = re.findall('TEST=(.*)$', old_commit_message, re.MULTILINE)
+        if args['test'] is None and tests:
+            args['test'] = '\nTEST='.join(tests)
         # TODO: deal with multiline BUG/TEST better
 
     if args['bug'] is None or args['test'] is None:
