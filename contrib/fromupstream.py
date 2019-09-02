@@ -135,7 +135,7 @@ def main(args):
     parser.add_argument('--changeid', '-c',
                         help='Overrides the gerrit generated Change-Id line')
 
-    parser.add_argument('--replace',
+    parser.add_argument('--replace', '-r',
                         action='store_true',
                         help='Replaces the HEAD commit with this one, taking '
                         'its properties(BUG, TEST, Change-Id). Useful for '
