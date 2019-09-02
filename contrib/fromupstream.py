@@ -12,6 +12,7 @@ import ConfigParser
 import argparse
 import mailbox
 import os
+import pprint
 import re
 import signal
 import subprocess
@@ -141,6 +142,8 @@ def main(args):
                         'updating commits.')
     parser.add_argument('--nosignoff',
                         dest='signoff', action='store_false')
+    parser.add_argument('--debug', '-d', action='store_true',
+                        help='Prints more verbose logs.')
 
     parser.add_argument('--tag',
                         help='Overrides the tag from the title')
@@ -192,8 +195,14 @@ def main(args):
         parser.error('BUG=/TEST= lines are required; --replace can help '
                      'automate, or set via --bug/--test')
 
+    if args['debug']:
+        pprint.pprint(args)
+
     while len(args['locations']) > 0:
         location = args['locations'].pop(0)
+
+        if args['debug']:
+            print('location=%s' % location)
 
         patchwork_match = re.match(
             r'pw://(([^/]+)/)?(\d+)', location
@@ -211,6 +220,10 @@ def main(args):
         if patchwork_match is not None:
             pw_project = patchwork_match.group(2)
             patch_id = int(patchwork_match.group(3))
+
+            if args['debug']:
+                print('patchwork match: pw_project=%s, patch_id=%d' %
+                      (pw_project, patch_id))
 
             if args['tag'] is None:
                 args['tag'] = 'FROMLIST: '
@@ -244,6 +257,9 @@ def main(args):
         elif linux_match:
             commit = linux_match.group(1)
 
+            if args['debug']:
+                print('linux match: commit=%s' % commit)
+
             # Confirm a 'linux' remote is setup.
             linux_remote = _find_linux_remote()
             if not linux_remote:
@@ -276,6 +292,10 @@ def main(args):
             branch = fromgit_match.group(3)
             commit = fromgit_match.group(4)
 
+            if args['debug']:
+                print('fromgit match: remote=%s branch=%s commit=%s' %
+                      (remote, branch, commit))
+
             ret = subprocess.call(['git', 'merge-base', '--is-ancestor',
                                    commit, '%s/%s' % (remote, branch)])
             if ret:
@@ -306,6 +326,10 @@ def main(args):
             remote = gitfetch_match.group(1)
             branch = gitfetch_match.group(3)
             commit = gitfetch_match.group(4)
+
+            if args['debug']:
+                print('gitfetch match: remote=%s branch=%s commit=%s' %
+                      (remote, branch, commit))
 
             ret = subprocess.call(['git', 'fetch', remote, branch])
             if ret:
