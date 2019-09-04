@@ -135,14 +135,15 @@ class NebraskaHandlerTest(NebraskaUnitTest):
         response_mock.return_value = test_response
         nebraska_handler.do_POST()
 
-        response_mock.assert_called_once_with(mock.ANY, critical_update=False)
+        response_mock.assert_called_once_with(mock.ANY, critical_update=False,
+                                              no_update=False)
         nebraska_handler.send_response.assert_called_once_with(200)
         nebraska_handler.send_header.assert_called_once()
         nebraska_handler.end_headers.assert_called_once()
         nebraska_handler.wfile.write.assert_called_once_with(test_response)
 
   def testDoPostSuccessWithCriticalUpdate(self):
-    """Tests do_POST success with critical update."""
+    """Tests do_POST success with critical_update query string in URL."""
     nebraska_handler = MockNebraskaHandler()
     nebraska_handler.path = '/?critical_update=true'
 
@@ -150,7 +151,20 @@ class NebraskaHandlerTest(NebraskaUnitTest):
       with mock.patch('nebraska.Request') as _:
         nebraska_handler.do_POST()
 
-        response_mock.assert_called_once_with(mock.ANY, critical_update=True)
+        response_mock.assert_called_once_with(mock.ANY, critical_update=True,
+                                              no_update=False)
+
+  def testDoPostSuccessWithNoUpdate(self):
+    """Tests do_POST success with no_update query string in URL."""
+    nebraska_handler = MockNebraskaHandler()
+    nebraska_handler.path = '/?no_update=true'
+
+    with mock.patch('nebraska.Nebraska.GetResponseToRequest') as response_mock:
+      with mock.patch('nebraska.Request') as _:
+        nebraska_handler.do_POST()
+
+        response_mock.assert_called_once_with(mock.ANY, critical_update=False,
+                                              no_update=True)
 
   def testDoPostInvalidRequest(self):
     """Test do_POST invalid request."""

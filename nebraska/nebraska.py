@@ -732,19 +732,24 @@ class NebraskaServer(object):
       """Responds to XML-formatted Omaha requests.
 
       The URL path can be like:
-        - https://<ip>:<port>/?critical_update=true # For requesting a critical
-          update response
+          https://<ip>:<port>/?key1=value1&key2=value2...
+
+      The keys in query strings can be:
+      - critical_update: (boolean) For requesting a critical update response.
+      - no_update: (boolean) For requesting a response that indicates there is
+          no update (even if there is).
       """
       request_len = int(self.headers.getheader('content-length'))
       request = self.rfile.read(request_len)
 
       parsed_query = urlparse.parse_qs(urlparse.urlparse(self.path).query)
       critical_update = parsed_query.get('critical_update', []) == ['true']
+      no_update = parsed_query.get('no_update', []) == ['true']
 
       try:
         request_obj = Request(request)
         response = self.server.owner.nebraska.GetResponseToRequest(
-            request_obj, critical_update=critical_update)
+            request_obj, critical_update=critical_update, no_update=no_update)
       except Exception as err:
         logging.error('Failed to handle request (%s)', str(err))
         logging.error(traceback.format_exc())
