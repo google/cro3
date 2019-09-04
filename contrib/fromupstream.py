@@ -142,9 +142,8 @@ def _match_patchwork(match, args):
         args['source_line'] = '(am from %s/patch/%d/)' % (url, patch_id)
         message_id = mailbox.Message(patch_contents)['Message-Id']
         message_id = re.sub('^<|>$', '', message_id.strip())
-        args['source_line'] += \
-                '\n(also found at https://lkml.kernel.org/r/%s)' % \
-                message_id
+        args['source_line'] += (
+            '\n(also found at https://lkml.kernel.org/r/%s)' % message_id)
 
     if args['replace']:
         subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
@@ -213,9 +212,8 @@ def _match_fromgit(match, args):
                                     stdout=subprocess.PIPE)
         commit = git_pipe.communicate()[0].strip()
 
-        args['source_line'] = \
-            '(cherry picked from commit %s\n %s %s)' % \
-            (commit, url, branch)
+        args['source_line'] = (
+            '(cherry picked from commit %s\n %s %s)' % (commit, url, branch))
     if args['tag'] is None:
         args['tag'] = 'FROMGIT: '
 
@@ -246,9 +244,8 @@ def _match_gitfetch(match, args):
                                     stdout=subprocess.PIPE)
         commit = git_pipe.communicate()[0].strip()
 
-        args['source_line'] = \
-            '(cherry picked from commit %s\n %s %s)' % \
-            (commit, url, branch)
+        args['source_line'] = (
+            '(cherry picked from commit %s\n %s %s)' % (commit, url, branch))
     if args['tag'] is None:
         args['tag'] = 'FROMGIT: '
 
