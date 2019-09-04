@@ -328,7 +328,6 @@ class Response(object):
                   'elapsed_seconds': str(self._elapsed_seconds)})
 
       for app_request in self._request.app_requests:
-        logging.debug('Request for appid %s', str(app_request))
         response_xml.append(
             self.AppResponse(app_request, self._properties).Compile())
 
@@ -383,9 +382,10 @@ class Response(object):
       if self._app_data:
         logging.debug('Found matching payload: %s', str(self._app_data))
       elif self._err_not_found:
-        logging.debug('No matches for appid %s', self._app_request.appid)
+        logging.debug('No matches for App ID %s', self._app_request.appid)
       elif self._app_request.request_type == Request.RequestType.UPDATE:
-        logging.debug('No updates available for %s', self._app_request.appid)
+        logging.debug('No updates available for App ID %s',
+                      self._app_request.appid)
 
     def Compile(self):
       """Compiles an app description into XML format.
