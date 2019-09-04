@@ -12,6 +12,7 @@ from __future__ import print_function
 import argparse
 import base64
 import copy
+import httplib
 import json
 import logging
 import os
@@ -93,6 +94,7 @@ class Request(object):
     self.track = None
     self.board = None
     self.request_type = None
+    self.timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     self.app_requests = []
 
@@ -179,6 +181,25 @@ class Request(object):
     self.track = _CheckAttributesAndReturnIt(self.APP_CHANNEL_ATTR)
     self.board = _CheckAttributesAndReturnIt(self.APP_BOARD_ATTR)
 
+  def GetDict(self):
+    """Returns a dictionary with some parameters of the request.
+
+    This is mostly used by the auto update tests to capture the flow of requests
+    from update_engine to analyze them (Simply in JSON format).
+    """
+    if not self.app_requests:
+      return {}
+
+    # TODO(ahassani): Extend this to return an object for all App Requests. For
+    # now only can return the first one to be backward compatible with auto
+    # update auto tests.
+    result = self.app_requests[0].__dict__
+
+    # Auto tests require an additional timestamp value which can be considered
+    # as a Request wide varable and not App Request one. So set it here.
+    result['timestamp'] = self.timestamp
+
+    return result
 
   class AppRequest(object):
     """An app request.
@@ -679,6 +700,8 @@ class Nebraska(object):
 
     self._properties = NebraskaProperties(upa, ipa, uai, iai)
 
+    self._request_log = []
+
   def GetResponseToRequest(self, request, critical_update=False,
                            no_update=False):
     """Returns the response corresponding to a request.
@@ -692,6 +715,8 @@ class Nebraska(object):
     Returns:
       The string representation of the created response.
     """
+    self._request_log.append(request.GetDict())
+
     properties = copy.copy(self._properties)
     properties.critical_update = critical_update
     properties.no_update = no_update
@@ -702,6 +727,9 @@ class Nebraska(object):
     logging.debug('Sent response: %s', response_str)
     return response_str
 
+  def GetRequestLog(self):
+    """Returns the request logs in JSON format."""
+    return json.dumps(self._request_log)
 
 class NebraskaServer(object):
   """A simple Omaha server instance.
@@ -728,38 +756,98 @@ class NebraskaServer(object):
   class NebraskaHandler(BaseHTTPRequestHandler):
     """HTTP request handler for Omaha requests."""
 
+    def _SendResponse(self, content_type, response, code=httplib.OK):
+      """Sends a given response back to the client.
+
+      Args:
+        content_type: The content type of the response data: xml, json, etc.
+        response: The response content in string format.
+        code: The HTTP code to send back to the client.
+      """
+      self.send_response(code)
+      self.send_header('Content-Type', content_type)
+      self.end_headers()
+      self.wfile.write(response)
+
+    def _ParseURL(self, url):
+      """Parses a URL into usable components.
+
+      Args:
+        url: The input URL to parse.
+
+      Returns:
+        A tuple of parsed path and parsed query. The parsed query is a
+        dictionary of keys to list of values. e.g:
+        - http://goo.gle/path/?key=value1&key=value2 ->
+          ('path', {'key': ['value1', 'value2']})
+      """
+      parsed_result = urlparse.urlparse(url)
+      parsed_path = parsed_result.path.strip('/')
+      parsed_query = urlparse.parse_qs(parsed_result.query)
+      return parsed_path, parsed_query
+
     def do_POST(self):
       """Responds to XML-formatted Omaha requests.
 
       The URL path can be like:
-          https://<ip>:<port>/?key1=value1&key2=value2...
+          https://<ip>:<port>/update/?key1=value1&key2=value2...
 
       The keys in query strings can be:
       - critical_update: (boolean) For requesting a critical update response.
       - no_update: (boolean) For requesting a response that indicates there is
           no update (even if there is).
       """
-      request_len = int(self.headers.getheader('content-length'))
-      request = self.rfile.read(request_len)
-
-      parsed_query = urlparse.parse_qs(urlparse.urlparse(self.path).query)
-      critical_update = parsed_query.get('critical_update', []) == ['true']
-      no_update = parsed_query.get('no_update', []) == ['true']
-
       try:
-        request_obj = Request(request)
-        response = self.server.owner.nebraska.GetResponseToRequest(
-            request_obj, critical_update=critical_update, no_update=no_update)
+        request_len = int(self.headers.getheader('content-length'))
+        request = self.rfile.read(request_len)
       except Exception as err:
-        logging.error('Failed to handle request (%s)', str(err))
-        logging.error(traceback.format_exc())
-        self.send_error(500, 'Failed to handle incoming request')
+        self.send_error(httplib.BAD_REQUEST, 'Invalid request (header).')
         return
 
-      self.send_response(200)
-      self.send_header('Content-Type', 'application/xml')
-      self.end_headers()
-      self.wfile.write(response)
+      parsed_path, parsed_query = self._ParseURL(self.path)
+
+      if parsed_path == 'update':
+        critical_update = parsed_query.get('critical_update', []) == ['True']
+        no_update = parsed_query.get('no_update', []) == ['True']
+
+        try:
+          request_obj = Request(request)
+          response = self.server.owner.nebraska.GetResponseToRequest(
+              request_obj, critical_update=critical_update, no_update=no_update)
+          self._SendResponse('application/xml', response)
+        except Exception as err:
+          logging.error('Failed to handle request (%s)', str(err))
+          logging.error(traceback.format_exc())
+          self.send_error(httplib.INTERNAL_SERVER_ERROR, traceback.format_exc())
+
+      else:
+        logging.error('The requested path "%s" was not found!', parsed_path)
+        self.send_error(httplib.BAD_REQUEST,
+                        'The requested path "%s" was not found!' % parsed_path)
+
+    def do_GET(self):
+      """Responds to Get requests.
+
+      The use cases are:
+      - requestlog: For getting the list of request logs in a JSON format.
+
+      The URL path can be like:
+          https://<ip>:<port>/requestlog
+      """
+      parsed_path, _ = self._ParseURL(self.path)
+
+      if parsed_path == 'requestlog':
+        try:
+          response = self.server.owner.nebraska.GetRequestLog()
+          self._SendResponse('application/json', response)
+        except Exception as err:
+          logging.error('Failed to get request logs (%s)', str(err))
+          logging.error(traceback.format_exc())
+          self.send_error(httplib.INTERNAL_SERVER_ERROR, traceback.format_exc())
+      else:
+        logging.error('The requested path "%s" was not found!', parsed_path)
+        self.send_error(httplib.BAD_REQUEST,
+                        'The requested path "%s" was not found!' % parsed_path)
 
   def Start(self):
     """Starts a mock Omaha HTTP server."""
