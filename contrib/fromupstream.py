@@ -10,6 +10,7 @@ from __future__ import print_function
 
 import ConfigParser
 import argparse
+import functools
 import mailbox
 import os
 import pprint
@@ -19,6 +20,8 @@ import subprocess
 import sys
 import textwrap
 import urllib
+
+errprint = functools.partial(print, file=sys.stderr)
 
 LINUX_URLS = (
     'git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
@@ -70,11 +73,11 @@ def _pause_for_merge(conflicts):
     )
     for path in paths:
         if os.path.exists(path):
-            sys.stderr.write('Found "%s".\n' % path)
-            sys.stderr.write(conflicts)
-            sys.stderr.write('Please resolve the conflicts and restart the '
-                             'shell job when done. Kill this job if you '
-                             'aborted the conflict.\n')
+            errprint('Found "%s".' % path)
+            errprint(conflicts)
+            errprint('Please resolve the conflicts and restart the '
+                     'shell job when done. Kill this job if you '
+                     'aborted the conflict.')
             os.kill(os.getpid(), signal.SIGTSTP)
     # TODO: figure out what the state is after the merging, and go based on
     # that (should we abort? skip? continue?)
@@ -94,14 +97,12 @@ def _get_pw_url(project):
         try:
             project = config.get('options', 'default')
         except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
-            sys.stderr.write(
-                    'Error: no default patchwork project found in %s.\n'
-                    % _PWCLIENTRC)
+            errprint('Error: no default patchwork project found in %s.'
+                     % _PWCLIENTRC)
             sys.exit(1)
 
     if not config.has_option(project, 'url'):
-        sys.stderr.write("Error: patchwork URL not found for project '%s'\n"
-                         % project)
+        errprint("Error: patchwork URL not found for project '%s'" % project)
         sys.exit(1)
 
     url = config.get(project, 'url')
@@ -128,13 +129,13 @@ def _match_patchwork(match, args):
     url = _get_pw_url(pw_project)
     opener = urllib.urlopen('%s/patch/%d/mbox' % (url, patch_id))
     if opener.getcode() != 200:
-        sys.stderr.write('Error: could not download patch - error code %d\n' \
-                         % opener.getcode())
+        errprint('Error: could not download patch - error code %d'
+                 % opener.getcode())
         sys.exit(1)
     patch_contents = opener.read()
 
     if not patch_contents:
-        sys.stderr.write('Error: No patch content found\n')
+        errprint('Error: No patch content found')
         sys.exit(1)
 
     if args['source_line'] is None:
@@ -162,14 +163,14 @@ def _match_linux(match, args):
     # Confirm a 'linux' remote is setup.
     linux_remote = _find_linux_remote()
     if not linux_remote:
-        sys.stderr.write('Error: need a valid upstream remote\n')
+        errprint('Error: need a valid upstream remote')
         sys.exit(1)
 
     linux_master = '%s/master' % linux_remote
     ret = subprocess.call(['git', 'merge-base', '--is-ancestor',
                            commit, linux_master])
     if ret:
-        sys.stderr.write('Error: Commit not in %s\n' % linux_master)
+        errprint('Error: Commit not in %s' % linux_master)
         sys.exit(1)
 
     if args['source_line'] is None:
@@ -200,8 +201,7 @@ def _match_fromgit(match, args):
     ret = subprocess.call(['git', 'merge-base', '--is-ancestor',
                            commit, '%s/%s' % (remote, branch)])
     if ret:
-        sys.stderr.write('Error: Commit not in %s/%s\n' %
-                         (remote, branch))
+        errprint('Error: Commit not in %s/%s' % (remote, branch))
         sys.exit(1)
 
     git_pipe = subprocess.Popen(['git', 'remote', 'get-url', remote],
@@ -236,7 +236,7 @@ def _match_gitfetch(match, args):
 
     ret = subprocess.call(['git', 'fetch', remote, branch])
     if ret:
-        sys.stderr.write('Error: Branch not in %s\n' % remote)
+        errprint('Error: Branch not in %s' % remote)
         sys.exit(1)
 
     url = remote
@@ -359,7 +359,7 @@ def main(args):
                 ret = handler(match, args)
                 break
         else:
-            sys.stderr.write('Don\'t know what "%s" means.\n' % location)
+            errprint('Don\'t know what "%s" means.' % location)
             sys.exit(1)
 
         if ret != 0:
