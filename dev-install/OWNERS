@@ -1,0 +1,2 @@
+set noparent
+include chromiumos/platform2:/dev-install/OWNERS
