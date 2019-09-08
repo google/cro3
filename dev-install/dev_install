@@ -64,21 +64,6 @@ get_lsb_var() {
   sed -n "s/^$2=//p" "$1"
 }
 
-# Here we simply wipe /usr/local/* since that it's the only directory in which
-# packages are installed to.
-remove_installed_packages() {
-  echo "To clean up, we will run:"
-  echo "  rm -rf /usr/local/"
-  echo "Any content you have stored in there will be deleted."
-  if yes_or_no "Remove all installed packages now"; then
-    rm -rf --one-file-system /usr/local/*
-    echo "Removed all installed packages."
-  else
-    echo "Operation cancelled."
-    exit 0
-  fi
-}
-
 # Parses flags to return the binhost or if none set, use the default binhost
 # set up from installation.
 get_binhost() {
@@ -218,26 +203,6 @@ main() {
     return 1
     ;;
   esac
-
-  if [ ${FLAGS_uninstall} -eq ${FLAGS_TRUE} \
-       -o ${FLAGS_reinstall} -eq ${FLAGS_TRUE} ]; then
-    remove_installed_packages
-    if [ ${FLAGS_uninstall} -eq ${FLAGS_TRUE} ]; then
-      if [ ${FLAGS_reinstall} -eq ${FLAGS_TRUE} ]; then
-        error "Reinstall specified but ignored as uninstall was also specified."
-      fi
-      return 0
-    else
-      echo "Reinstalling emerge."
-    fi
-  fi
-
-  # Check if packages are already installed.
-  if [ -d "${P_CONFIG_DEVELOPER}" ]; then
-    error "Directory ${P_CONFIG_DEVELOPER} exists."
-    error "Did you mean dev_install --reinstall?"
-    return 1
-  fi
 
   # Create this loop so uncompressed files in /usr/local/usr/* will be reachable
   # through /usr/local*.
