@@ -21,6 +21,14 @@ STATIC_REQUEST_LINE = (
     ' HTTP/1.1" 200 13805917 "-" "Wget/1.15    (linux-gnu)'
 )
 
+RPC_REQUEST_LINE = (
+    '100.115.245.193 - - [08/Sep/2019:07:30:29 -0700] '
+    '"GET /list_suite_controls?suite_name=cros_test_platform'
+    '&build=candy-release/R78-12493.0.0 HTTP/1.1" 200 2724761 "-" "curl/7.35"',
+    '100.115.196.119 - - [08/Sep/2019:07:14:38 -0700] '
+    '"POST /update/nyan_big-release/R77-12371.46.0 HTTP/1.1" 200 416 "-" "-"',
+)
+
 
 class TestParsers(unittest.TestCase):
   """Tests the parsing functions in apache_log_metrics."""
@@ -47,6 +55,12 @@ class TestEmitters(unittest.TestCase):
     # referencing regex match groups that don't exist.
     with mock.patch.object(apache_log_metrics, 'metrics'):
       apache_log_metrics.EmitStaticRequestMetric(match)
+
+  def testEmitRpcUsageMetric(self):
+    for line in RPC_REQUEST_LINE:
+      match = apache_log_metrics.RPC_USAGE_MATCHER.match(line)
+      with mock.patch.object(apache_log_metrics, 'metrics'):
+        apache_log_metrics.EmitRpcUsageMetric(match)
 
 
 if __name__ == '__main__':

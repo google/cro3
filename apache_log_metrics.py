@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-
+# -*- coding: utf-8 -*-
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -26,7 +26,6 @@ from chromite.lib import ts_mon_config
 from chromite.lib import metrics
 from chromite.lib import cros_logging as logging
 
-
 # Log rotation parameters.  Keep about two weeks of old logs.
 #
 # For more, see the documentation in standard python library for
@@ -40,8 +39,15 @@ STATIC_GET_MATCHER = re.compile(
     r'^(?P<ip_addr>\d+\.\d+\.\d+\.\d+) '
     r'.*GET /static/(?P<endpoint>\S*)[^"]*" '
     r'200 (?P<size>\S+) .*')
+# Matcher of all RPC calls log lines, e.g.
+# <ipv4 addr> - - [datetime] "GET /list_suite_controls?key=val HTTP/1.1" 200...
+RPC_USAGE_MATCHER = re.compile(
+    r'^(?P<ip_addr>\d+\.\d+\.\d+\.\d+) '
+    r'.*"(?P<http_method>\S+) /(?P<rpc_name>(?:api/)?[^/?]+)[^"]*" '
+    r'2\d\d (?P<size>\S+) .*')
 
 STATIC_GET_METRIC_NAME = 'chromeos/devserver/apache/static_response_size'
+DEVSERVER_RPC_USAGE_METRIC_NAME = 'chromeos/devserver/rpc_usage'
 
 
 LAB_SUBNETS = (
@@ -151,7 +157,7 @@ def ParseStaticEndpoint(endpoint):
 
 
 def EmitStaticRequestMetric(m):
-  """Emits a Counter metric for sucessful GETs to /static endpoints.
+  """Emits a Counter metric for successful GETs to /static endpoints.
 
   Args:
     m: A regex match object
@@ -169,6 +175,25 @@ def EmitStaticRequestMetric(m):
           'milestone': milestone,
           'in_lab': InLab(m.group('ip_addr')),
           'endpoint': filename})
+
+
+def EmitRpcUsageMetric(m):
+  """Emits a Counter metric for successful RPC requests.
+
+  Args:
+    m: A regex match object
+  """
+  try:
+    size = int(m.group('size'))
+  except ValueError:  # Zero is represented by "-"
+    size = 0
+
+  metrics.Counter(STATIC_GET_METRIC_NAME).increment_by(
+      size, fields={
+          'http_method': m.group('http_method'),
+          'rpc_name': m.group('rpc_name'),
+          'in_lab': InLab(m.group('ip_addr')),
+      })
 
 
 def RunMatchers(stream, matchers):
@@ -191,6 +216,7 @@ def RunMatchers(stream, matchers):
 # TODO(phobbs) add a matcher for all requests, not just static files.
 MATCHERS = [
     (STATIC_GET_MATCHER, EmitStaticRequestMetric),
+    (RPC_USAGE_MATCHER, EmitRpcUsageMetric),
 ]
 
 
