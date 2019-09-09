@@ -12,6 +12,7 @@ We are interested in static file bandwidth, so it parses out GET requests to
 from __future__ import print_function
 
 import argparse
+import functools
 from logging import handlers
 import re
 import sys
@@ -64,9 +65,9 @@ def IPToNum(ip):
   Args:
     ip: An IPv4-formatted string.
   """
-  return reduce(lambda seed, x: seed * 2**8 + int(x),
-                ip.split('.'),
-                0)
+  return functools.reduce(lambda seed, x: seed * 2**8 + int(x),
+                          ip.split('.'),
+                          0)
 
 
 def MatchesSubnet(ip, base, mask):
@@ -144,7 +145,7 @@ def ParseStaticEndpoint(endpoint):
       filename = MatchAny(parts[-1], FILENAME_PATTERNS)
 
   except IndexError as e:
-    logging.debug('%s failed to parse. Caught %s' % (endpoint, str(e)))
+    logging.debug('%s failed to parse. Caught %s', endpoint, str(e))
 
   return build_config, milestone, filename
 
