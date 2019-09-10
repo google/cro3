@@ -877,7 +877,9 @@ def ParseArguments(argv):
   Returns:
     Namespace object containing parsed arguments.
   """
-  parser = argparse.ArgumentParser(description=__doc__)
+  parser = argparse.ArgumentParser(
+      description=__doc__,
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
   parser.add_argument('--update-metadata', metavar='DIR', default=None,
                       help='Payloads metadata directory for update.')
@@ -896,8 +898,9 @@ def ParseArguments(argv):
                       default='/run/nebraska',
                       help='The root directory in which nebraska will write its'
                       ' pid and port files.')
-  parser.add_argument('--log-file', metavar='FILE',
-                      help='The file to write the logs.')
+  parser.add_argument('--log-file', metavar='FILE', default='/tmp/nebraska.log',
+                      help='The file to write the logs.'
+                      ' pass "stdout" to write to standard output.')
 
   return parser.parse_args(argv[1:])
 
@@ -907,11 +910,13 @@ def main(argv):
   opts = ParseArguments(argv)
 
   # Reset the log file.
-  if opts.log_file:
+  if opts.log_file != 'stdout':
     with open(opts.log_file, 'w') as _:
       pass
+    print('Logging to %s' % opts.log_file)
 
-  logging.basicConfig(filename=opts.log_file if opts.log_file else None,
+  logging.basicConfig(filename=(opts.log_file if opts.log_file != 'stdout'
+                                else None),
                       level=logging.DEBUG)
 
   logging.info('Starting nebraska ...')

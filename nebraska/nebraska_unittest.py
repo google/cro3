@@ -8,7 +8,9 @@
 
 from __future__ import print_function
 
+# pylint: disable=cros-logging-import
 import httplib
+import logging
 import unittest
 
 from xml.etree import ElementTree
@@ -1043,4 +1045,8 @@ class AppResponseTest(NebraskaUnitTest):
     self.assertTrue(action_tag.attrib['PublicKeyRsa'] == match.public_key)
 
 if __name__ == '__main__':
+  # Disable logging so it doesn't pollute the unit test output. Failures and
+  # exceptions are still shown.
+  logging.disable(logging.CRITICAL)
+
   unittest.main()
