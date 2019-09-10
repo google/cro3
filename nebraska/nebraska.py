@@ -12,10 +12,12 @@ from __future__ import print_function
 import argparse
 import base64
 import copy
+import errno
 import httplib
 import json
 import logging
 import os
+import shutil
 import signal
 import sys
 import threading
@@ -741,17 +743,26 @@ class NebraskaServer(object):
   payloads provided by another server.
   """
 
-  def __init__(self, nebraska, port=0):
+  def __init__(self, nebraska, runtime_root=None, port=0):
     """Initializes a server instance.
 
     Args:
       nebraska: The Nebraska instance to process requests and responses.
+      runtime_root: The root directory in which nebraska will write its PID and
+        port files.
       port: Port the server should run on, 0 if the OS should assign a port.
     """
+    self.nebraska = nebraska
+    self._runtime_root = runtime_root
     self._port = port
+
+    if self._runtime_root:
+      self._port_file = os.path.join(self._runtime_root, 'port')
+      self._pid_file = os.path.join(self._runtime_root, 'pid')
+
     self._httpd = None
     self._server_thread = None
-    self.nebraska = nebraska
+    self._created_runtime_root = False
 
   class NebraskaHandler(BaseHTTPRequestHandler):
     """HTTP request handler for Omaha requests."""
@@ -850,18 +861,53 @@ class NebraskaServer(object):
                         'The requested path "%s" was not found!' % parsed_path)
 
   def Start(self):
-    """Starts a mock Omaha HTTP server."""
+    """Starts the nebraska server."""
     self._httpd = HTTPServer(('', self.GetPort()),
                              NebraskaServer.NebraskaHandler)
     self._port = self._httpd.server_port
+
+    if self._runtime_root:
+      try:
+        if not os.path.exists(self._runtime_root):
+          os.makedirs(self._runtime_root)
+          self._created_runtime_root = True
+        with open(self._port_file, 'w') as port_file:
+          port_file.write(str(self._port))
+        with open(self._pid_file, 'w') as pid_file:
+          pid_file.write(str(os.getpid()))
+      except IOError as err:
+        if err.errno == errno.EACCES:
+          print('Permission error: You need to run the script as root/sudo or '
+                'change the --runtime-root to point to a non-root accessible '
+                'location.')
+        raise
+
     self._httpd.owner = self
     self._server_thread = threading.Thread(target=self._httpd.serve_forever)
     self._server_thread.start()
+
+    logging.info('Started nebraska on port %d and pid %d.',
+                 self._port, os.getpid())
 
   def Stop(self):
     """Stops the mock Omaha server."""
     self._httpd.shutdown()
     self._server_thread.join()
+
+    if not self._runtime_root:
+      return
+    for f in {self._port_file, self._pid_file}:
+      try:
+        os.remove(f)
+      except Exception as e:
+        logging.warn('Failed to remove file %s with error %s', f, e)
+      if self._created_runtime_root:
+        try:
+          shutil.rmtree(self._runtime_root)
+        except Exception as e:
+          logging.warn('Failed to remove directory %s with error %s',
+                       self._runtime_root, e)
+
 
   def GetPort(self):
     """Returns the server's port."""
@@ -926,7 +972,8 @@ def main(argv):
       install_payloads_address=opts.install_payloads_address,
       update_metadata_dir=opts.update_metadata,
       install_metadata_dir=opts.install_metadata)
-  nebraska_server = NebraskaServer(nebraska, port=opts.port)
+  nebraska_server = NebraskaServer(nebraska, runtime_root=opts.runtime_root,
+                                   port=opts.port)
 
   def handler(signum, _):
     logging.info('Exiting Nebraska with signal %d ...', signum)
@@ -937,29 +984,7 @@ def main(argv):
 
   nebraska_server.Start()
 
-  if not os.path.exists(opts.runtime_root):
-    os.makedirs(opts.runtime_root)
-
-  runtime_files = {
-      os.path.join(opts.runtime_root, 'port'): str(nebraska_server.GetPort()),
-      os.path.join(opts.runtime_root, 'pid'): str(os.getpid()),
-  }
-
-  for k, v in runtime_files.items():
-    with open(k, 'w') as f:
-      f.write(v)
-
-  logging.info('Started nebraska on port %d and pid %d.',
-               nebraska_server.GetPort(), os.getpid())
-
   signal.pause()
-
-  # Remove the pid and port files.
-  for f in runtime_files:
-    try:
-      os.remove(f)
-    except Exception as e:
-      logging.warn('Failed to remove file %s with error %s', f, e)
 
   return os.EX_OK
 

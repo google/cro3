@@ -11,6 +11,9 @@ from __future__ import print_function
 # pylint: disable=cros-logging-import
 import httplib
 import logging
+import os
+import shutil
+import tempfile
 import unittest
 
 from xml.etree import ElementTree
@@ -83,6 +86,7 @@ hardware_class="foo-hardware" track="foo-channel" board="foo-board"> </app>"""
 
 class NebraskaUnitTest(unittest.TestCase):
   """Parent class for all unit test classes here."""
+
 
 class MockNebraskaHandler(nebraska.NebraskaServer.NebraskaHandler):
   """Subclass NebraskaHandler to facilitate testing.
@@ -239,7 +243,7 @@ class NebraskaServerTest(NebraskaUnitTest):
   def testStart(self):
     """Tests Start."""
     nebraska_instance = nebraska.Nebraska(_PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS)
-    server = nebraska.NebraskaServer(nebraska_instance, _NEBRASKA_PORT)
+    server = nebraska.NebraskaServer(nebraska_instance, port=_NEBRASKA_PORT)
 
     with mock.patch('nebraska.HTTPServer') as server_mock:
       with mock.patch('nebraska.threading.Thread') as thread_mock:
@@ -255,9 +259,8 @@ class NebraskaServerTest(NebraskaUnitTest):
 
   def testStop(self):
     """Tests Stop."""
-    nebraska_instance = nebraska.Nebraska(
-        _PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS)
-    server = nebraska.NebraskaServer(nebraska_instance, _NEBRASKA_PORT)
+    nebraska_instance = nebraska.Nebraska(_PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS)
+    server = nebraska.NebraskaServer(nebraska_instance, port=_NEBRASKA_PORT)
 
     # pylint: disable=protected-access
     server._httpd = mock.MagicMock(name='_httpd')
@@ -266,6 +269,35 @@ class NebraskaServerTest(NebraskaUnitTest):
     # pylint: disable=protected-access
     server._httpd.shutdown.assert_called_once_with()
     server._server_thread.join.assert_called_once_with()
+
+  def testMiscFiles(self):
+    """Tests PID and port files are correctly written."""
+    temp_dir = tempfile.mkdtemp()
+    runtime_root = os.path.join(temp_dir, 'runtime_root')
+    nebraska_instance = nebraska.Nebraska(_PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS)
+    server = nebraska.NebraskaServer(nebraska_instance, port=_NEBRASKA_PORT,
+                                     runtime_root=runtime_root)
+
+    port_file = os.path.join(runtime_root, 'port')
+    pid_file = os.path.join(runtime_root, 'pid')
+
+    with mock.patch('nebraska.HTTPServer') as _:
+      with mock.patch('nebraska.threading.Thread') as _:
+        server.Start()
+
+        # Make sure files are created and written with correct values.
+        with open(port_file, 'r') as f:
+          self.assertEqual(f.read(), str(server.GetPort()))
+        with open(pid_file, 'r') as f:
+          self.assertEqual(f.read(), str(os.getpid()))
+
+        server.Stop()
+
+        # Make sure files are deleted correctly.
+        self.assertFalse(os.path.exists(runtime_root))
+
+    # Delete the temp directory.
+    shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 class JSONStrings(object):
