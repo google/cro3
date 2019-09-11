@@ -26,10 +26,6 @@ DEFINE_string binhost "" \
   "URL of the binhost that emerge will use." b
 DEFINE_string binhost_version "" \
   "Version number to use instead of the one in /etc/lsb-release."
-DEFINE_boolean reinstall "${FLAGS_FALSE}" \
-  "Remove all installed packages and re-bootstrap emerge."
-DEFINE_boolean uninstall "${FLAGS_FALSE}" \
-  "Remove all installed packages."
 DEFINE_boolean yes "${FLAGS_FALSE}" \
   "Do not prompt for input. Assumes yes's to all responses." y
 DEFINE_boolean only_bootstrap "${FLAGS_FALSE}" \
@@ -203,30 +199,6 @@ main() {
     return 1
     ;;
   esac
-
-  # Create this loop so uncompressed files in /usr/local/usr/* will be reachable
-  # through /usr/local*.
-  # Note: /usr/local is mount-binded onto the /mnt/stateful_partition/dev_mode
-  # during chromeos_startup during boot for machines in dev_mode.
-  if [ ! -d /usr/local/usr ]; then
-    ln -s . /usr/local/usr
-  fi
-
-  if [ ! -d /usr/local/local ]; then
-    ln -s . /usr/local/local
-  fi
-
-  # Set up symlinks for etc/{group,passwd}, so that packages can look up users
-  # and groups correctly.
-  if [ ! -d /usr/local/etc ]; then
-    mkdir -p /usr/local/etc
-  fi
-  if [ ! -f /usr/local/etc/group ]; then
-    ln -s ../../../etc/group /usr/local/etc/group
-  fi
-  if [ ! -f /usr/local/etc/passwd ]; then
-    ln -s ../../../etc/passwd /usr/local/etc/passwd
-  fi
 
   echo "Starting installation of developer packages."
   echo "First, we download the necessary files."
