@@ -12,20 +12,13 @@ P_CONFIG_CROS=/etc/portage
 P_CONFIG_DEVELOPER=/usr/local/etc/portage
 EMERGE_PACKAGES="/usr/share/dev-install/bootstrap.packages"
 
-# The base URL of the repository holding our portage prebuilt binpkgs.
-PREFIX_BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board"
-
 # Global variables.
 BINHOST=
-CHROMEOS_DEVSERVER=
-CHROMEOS_RELEASE_BOARD=
 
 # Process flags.
 . /usr/share/misc/shflags || exit 1
 DEFINE_string binhost "" \
   "URL of the binhost that emerge will use." b
-DEFINE_string binhost_version "" \
-  "Version number to use instead of the one in /etc/lsb-release."
 DEFINE_boolean yes "${FLAGS_FALSE}" \
   "Do not prompt for input. Assumes yes's to all responses." y
 DEFINE_boolean only_bootstrap "${FLAGS_FALSE}" \
@@ -50,43 +43,6 @@ yes_or_no() {
   local reply
   read -p "$*? (y/N) " reply
   [ "${reply}" = "y" ]
-}
-
-# Returns value of variable $2 from /etc/lsb-like file $1.
-# $1 - Path to the /etc/lsb-like file.
-# $2 - Variable name.
-# Returns value or an empty string.
-get_lsb_var() {
-  sed -n "s/^$2=//p" "$1"
-}
-
-# Parses flags to return the binhost or if none set, use the default binhost
-# set up from installation.
-get_binhost() {
-  if [ -n "${FLAGS_binhost}" ]; then
-    BINHOST="${FLAGS_binhost}"
-  elif [ -n "${CHROMEOS_DEVSERVER}" ]; then
-    echo "Devserver URL set to:  ${CHROMEOS_DEVSERVER}"
-    if yes_or_no "Use it as the binhost"; then
-      local packages_path="static/pkgroot/${CHROMEOS_RELEASE_BOARD}/packages"
-      BINHOST="${CHROMEOS_DEVSERVER}/${packages_path}"
-    fi
-  fi
-  if [ -z "${BINHOST}" ]; then
-    local release_number
-    if [ -n "${FLAGS_binhost_version}" ]; then
-      release_number="${FLAGS_binhost_version}"
-    else
-      # Get the release number.
-      local cr_version="$(/opt/google/chrome/chrome --version)"
-      # Chrome version looks like (Google Chrome/Chromium) branch.0.a.b
-      local cr_branch="$(echo "${cr_version}" |
-          sed -r 's/.*[[:space:]]([0-9]+)\..*/\1/')"
-      local version="$(get_lsb_var /etc/lsb-release CHROMEOS_RELEASE_VERSION)"
-      release_number="R${cr_branch}-${version}"
-    fi
-    BINHOST="${PREFIX_BINHOST}/${CHROMEOS_RELEASE_BOARD}/canary-${release_number}/packages"
-  fi
 }
 
 # Get the static Python binary and portage (emerge script and python modules).
@@ -164,23 +120,6 @@ install_optional_packages() {
   fi
 }
 
-import_lsb_release() {
-  local override
-  CHROMEOS_DEVSERVER=$(get_lsb_var /etc/lsb-release CHROMEOS_DEVSERVER)
-  CHROMEOS_RELEASE_BOARD=$(get_lsb_var /etc/lsb-release CHROMEOS_RELEASE_BOARD)
-
-  # Check local overrides.
-  if [ -f /usr/local/etc/lsb-release ]; then
-    override=$(get_lsb_var /usr/local/etc/lsb-release CHROMEOS_DEVSERVER)
-    [ -n "${override}" ] && CHROMEOS_DEVSERVER="${override}"
-    override=$(get_lsb_var /usr/local/etc/lsb-release CHROMEOS_RELEASE_BOARD)
-    [ -n "${override}" ] && CHROMEOS_RELEASE_BOARD="${override}"
-  fi
-
-  # The board might have signed information appended to it, so filter that out.
-  CHROMEOS_RELEASE_BOARD=${CHROMEOS_RELEASE_BOARD%-signed-*keys}
-}
-
 main() {
   # Sanity check.  People often run `su` or `sudo su` and leave off that final
   # - which means they don't get a proper environment.  Catch them here rather
@@ -197,8 +136,7 @@ main() {
 
   echo "Starting installation of developer packages."
   echo "First, we download the necessary files."
-  import_lsb_release
-  get_binhost
+  BINHOST="${FLAGS_binhost}"
   download_bootstrap_packages
   if [ ${FLAGS_only_bootstrap} -eq ${FLAGS_TRUE} ]; then
     echo "dev_install done installing bootstrap packages. Enjoy!"
