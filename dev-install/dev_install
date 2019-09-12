@@ -131,6 +131,20 @@ download_bootstrap_packages() {
       return 1
     fi
   done < "${EMERGE_PACKAGES}"
+
+  # The python ebuilds set up symlinks in pkg_postinst, but we don't run those
+  # phases (we just run untar above).  Plus that logic depends on eselect that
+  # we currently stub out.  Hand create the symlinks https://crbug.com/955147.
+  if [ ! -e "/usr/local/usr/bin/python" ]; then
+    ln -sfT "python-wrapper" "/usr/local/usr/bin/python"
+  fi
+  if [ ! -e "/usr/local/usr/bin/python2" ]; then
+    ln -sfT "python2.7" "/usr/local/usr/bin/python2"
+  fi
+  if [ ! -e "/usr/local/usr/bin/python3" ]; then
+    ln -sfT "$(cd /usr/local/usr/bin; echo python3.?)" \
+      "/usr/local/usr/bin/python3"
+  fi
 }
 
 # Configure emerge in /usr/local.
