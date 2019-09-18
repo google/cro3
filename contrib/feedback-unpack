@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+#
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Maintainer: Ross Zwisler <zwisler@google.com>
+#
+# feedback-unpack: Unpack a zipped feedback report into individual log files
+# for easy viewing.
+#
+# Usage: feedback-unpack <${feedback_report}.zip>
+#
+# This will create a ${feedback_report} directory and fill it with the log
+# files found in the zipped feedback report.
+
+use strict;
+use warnings;
+use IO::Uncompress::Unzip qw(unzip $UnzipError);
+
+my $zip_file = $ARGV[0];
+
+die "'$zip_file' is not a file\n" if ( ! -f $zip_file );
+
+my $output_dir = $zip_file;
+$output_dir =~ s/.zip$//;
+
+die "$output_dir already exists\n" if -e $output_dir;
+mkdir $output_dir;
+
+my $z = new IO::Uncompress::Unzip $zip_file or die "unzip failed: $UnzipError\n";
+
+while (my $line = $z->getline()) {
+    if ($line =~ /^(Profile\[.*\] )?(.*)=<multiline>$/) {
+        my $new_log = "$output_dir/$2";
+        open (my $fh, ">", $new_log) or die "Cannot open $new_log: $!";
+        while (my $line = $z->getline()) {
+            next if ($line =~ /---------- START ----------/);
+            last if ($line =~ /---------- END ----------/);
+            print $fh $line;
+        }
+        close ($fh) or warn "Couldn't close $new_log: $!";
+    }
+}
+
+$z->close() or die "close failed: $UnzipError\n";
