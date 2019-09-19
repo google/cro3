@@ -7,16 +7,17 @@
 
 from __future__ import print_function
 
-import cherrypy
-import ConfigParser
 import datetime
-import distutils.version
+import distutils.version  # pylint: disable=import-error,no-name-in-module
 import operator
 import os
 import re
 import shutil
 import time
 import threading
+
+import cherrypy  # pylint: disable=import-error
+from six.moves import configparser
 
 import artifact_info
 import build_artifact
@@ -60,10 +61,10 @@ AUTOTEST = 'autotest'
 FACTORY_SHIM = 'factory_shim'
 
 # Local build constants
-ANY = "ANY"
-LATEST = "latest"
-LOCAL = "local"
-REMOTE = "remote"
+ANY = 'ANY'
+LATEST = 'latest'
+LOCAL = 'local'
+REMOTE = 'remote'
 
 # TODO(sosa): Fix a lot of assumptions about these aliases. There is too much
 # implicit logic here that's unnecessary. What should be done:
@@ -133,9 +134,9 @@ ARTIFACTS = [
 GS_ALIAS_TO_FILENAME = dict(zip(GS_ALIASES, GS_FILE_NAMES))
 GS_ALIAS_TO_ARTIFACT = dict(zip(GS_ALIASES, ARTIFACTS))
 
-LATEST_OFFICIAL = "latest-official"
+LATEST_OFFICIAL = 'latest-official'
 
-RELEASE = "-release"
+RELEASE = '-release'
 
 
 class XBuddyException(Exception):
@@ -143,8 +144,6 @@ class XBuddyException(Exception):
   pass
 
 
-# no __init__ method
-#pylint: disable=W0232
 class Timestamp(object):
   """Class to translate build path strings and timestamp filenames."""
 
@@ -163,12 +162,11 @@ class Timestamp(object):
   def UpdateTimestamp(timestamp_dir, build_id):
     """Update timestamp file of build with build_id."""
     common_util.MkDirP(timestamp_dir)
-    _Log("Updating timestamp for %s", build_id)
+    _Log('Updating timestamp for %s', build_id)
     time_file = os.path.join(timestamp_dir,
                              Timestamp.BuildToTimestamp(build_id))
-    with file(time_file, 'a'):
+    with open(time_file, 'a'):
       os.utime(time_file, None)
-#pylint: enable=W0232
 
 
 class XBuddy(build_util.BuildObject):
@@ -245,7 +243,7 @@ class XBuddy(build_util.BuildObject):
     Raises:
       XBuddyException if the config file is missing.
     """
-    xbuddy_config = ConfigParser.ConfigParser()
+    xbuddy_config = configparser.ConfigParser()
     config_file = os.path.join(self.devserver_dir, CONFIG_FILE)
     if os.path.exists(config_file):
       xbuddy_config.read(config_file)
@@ -263,7 +261,7 @@ class XBuddy(build_util.BuildObject):
 
     _Log('Using shadow config file stored at %s', shadow_config_file)
     if os.path.exists(shadow_config_file):
-      shadow_xbuddy_config = ConfigParser.ConfigParser()
+      shadow_xbuddy_config = configparser.ConfigParser()
       shadow_xbuddy_config.read(shadow_config_file)
 
       # Merge shadow config in.
@@ -282,14 +280,14 @@ class XBuddy(build_util.BuildObject):
     """Checks if xBuddy is managing local builds using the current config."""
     try:
       return self.ParseBoolean(self.config.get(GENERAL, 'manage_builds'))
-    except ConfigParser.Error:
+    except configparser.Error:
       return False
 
   def _Capacity(self):
     """Gets the xbuddy capacity from the current config."""
     try:
       return int(self.config.get(GENERAL, 'capacity'))
-    except ConfigParser.Error:
+    except configparser.Error:
       return 5
 
   def LookupAlias(self, alias, board=None, version=None):
@@ -312,12 +310,12 @@ class XBuddy(build_util.BuildObject):
     """
     try:
       suffix = self.config.get(LOCATION_SUFFIXES, alias)
-    except ConfigParser.Error:
+    except configparser.Error:
       suffix = RELEASE
 
     try:
       val = self.config.get(PATH_REWRITES, alias)
-    except ConfigParser.Error:
+    except configparser.Error:
       # No alias lookup found. Return original path.
       val = None
 
@@ -326,12 +324,12 @@ class XBuddy(build_util.BuildObject):
     else:
       # The found value is not an empty string.
       # Fill in the board and version.
-      val = val.replace("BOARD", "%(board)s")
-      val = val.replace("VERSION", "%(version)s")
+      val = val.replace('BOARD', '%(board)s')
+      val = val.replace('VERSION', '%(version)s')
       val = val % {'board': board or self._board,
                    'version': version or self._version or LATEST}
 
-    _Log("Path is %s, location suffix is %s", val, suffix)
+    _Log('Path is %s, location suffix is %s', val, suffix)
     return val, suffix
 
   @staticmethod
@@ -351,7 +349,7 @@ class XBuddy(build_util.BuildObject):
 
   def _LookupOfficial(self, board, suffix, image_dir=None):
     """Check LATEST-master for the version number of interest."""
-    _Log("Checking gs for latest %s-%s image", board, suffix)
+    _Log('Checking gs for latest %s-%s image', board, suffix)
     image_dir = XBuddy._ResolveImageDir(image_dir)
     latest_addr = (devserver_constants.GS_LATEST_MASTER %
                    {'image_dir': image_dir,
@@ -398,9 +396,9 @@ class XBuddy(build_util.BuildObject):
     list_result = self._LS(path, list_subdirectory=list_subdirectory)
     dir_names = [os.path.basename(p.rstrip('/')) for p in list_result]
     try:
-      filter_re = re.compile(devserver_constants.VERSION_RE if with_release
-                             else devserver_constants.VERSION)
-      versions = filter(filter_re.match, dir_names)
+      versions_re = re.compile(devserver_constants.VERSION_RE if with_release
+                               else devserver_constants.VERSION)
+      versions = [d for d in dir_names if versions_re.match(d)]
       latest_version = max(versions, key=distutils.version.LooseVersion)
     except ValueError:
       raise gs.GSContextException(
@@ -523,8 +521,8 @@ class XBuddy(build_util.BuildObject):
     if re.match(devserver_constants.VERSION_RE, version):
       return self._RemoteBuildId(board, suffix, version), None
     elif re.match(devserver_constants.VERSION, version):
-      raise XBuddyException('\'%s\' is not valid. Should provide the fully '
-                            'qualified version with a version prefix \'RX-\' '
+      raise XBuddyException('"%s" is not valid. Should provide the fully '
+                            'qualified version with a version prefix "RX-" '
                             'due to crbug.com/585914' % version)
     elif version == LATEST_OFFICIAL:
       # latest-official --> LATEST build in board-release
@@ -551,7 +549,7 @@ class XBuddy(build_util.BuildObject):
   @staticmethod
   def _Symlink(link, target):
     """Symlinks link to target, and removes whatever link was there before."""
-    _Log("Linking to %s from %s", link, target)
+    _Log('Linking to %s from %s', link, target)
     if os.path.lexists(link):
       os.unlink(link)
     os.symlink(target, link)
@@ -609,7 +607,7 @@ class XBuddy(build_util.BuildObject):
     Raises:
       XBuddyException: if the path can't be resolved into valid components
     """
-    path_list = filter(None, path.split('/'))
+    path_list = [p for p in path.split('/') if p]
 
     # Do the stuff that is well known first. We know that if paths have a
     # image_type, it must be one of the GS/LOCAL aliases and it must be at the
@@ -647,8 +645,8 @@ class XBuddy(build_util.BuildObject):
       version = path_list.pop(0)
 
     if path_list:
-      raise XBuddyException("Path isn't valid. Could not figure out how to "
-                            "parse remaining components: %s." % path_list)
+      raise XBuddyException('Path is not valid. Could not figure out how to '
+                            'parse remaining components: %s.' % path_list)
 
     _Log("Get artifact '%s' with board %s and version %s'. Locally? %s",
          image_type, board, version, is_local)
@@ -703,7 +701,7 @@ class XBuddy(build_util.BuildObject):
       build_id = Timestamp.TimestampToBuild(f)
       stale_time = datetime.timedelta(seconds=(time.time() - last_accessed))
       build_dict[build_id] = stale_time
-    return_tup = sorted(build_dict.iteritems(), key=operator.itemgetter(1))
+    return_tup = sorted(build_dict.items(), key=operator.itemgetter(1))
     return return_tup
 
   def _Download(self, gs_url, artifacts, build_id):
@@ -716,7 +714,7 @@ class XBuddy(build_util.BuildObject):
     with XBuddy._staging_thread_count_lock:
       XBuddy._staging_thread_count += 1
     try:
-      _Log("Downloading %s from %s", artifacts, gs_url)
+      _Log('Downloading %s from %s', artifacts, gs_url)
       dl = downloader.GoogleStorageDownloader(self.static_dir, gs_url, build_id)
       factory = build_artifact.ChromeOSArtifactFactory(
           dl.GetBuildDir(), artifacts, [], dl.GetBuild())
