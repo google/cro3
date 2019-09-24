@@ -62,7 +62,7 @@ def GenerateAppRequest(request_type=nebraska.Request.RequestType.UPDATE,
                        update_check=True, ping=False):
   """Generates an app request test instance."""
   APP_TEMPLATE = """<app appid="" version="" delta_okay=""
-hardware_class="foo-hardware" track="foo-channel" board="foo-board"> </app>"""
+track="foo-channel" board="foo-board"> </app>"""
   PING_TEMPLATE = """<ping active="1" a="1" r="1"></ping>"""
   UPDATE_CHECK_TEMPLATE = """<updatecheck></updatecheck>"""
   EVENT_TEMPLATE = """<event eventtype="3" eventresult="1"></event>"""
@@ -631,7 +631,7 @@ class XMLStrings(object):
   INSTALL_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="false"
+  <app appid="platform" version="1.0.0" delta_okay="false"
        track="stable-channel" board="eve">
     <ping active="1" a="1" r="1"></ping>
   </app>
@@ -649,7 +649,7 @@ class XMLStrings(object):
   UPDATE_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="true"
+  <app appid="platform" version="1.0.0" delta_okay="true"
        track="stable-channel" board="eve">
     <ping active="1" a="1" r="1"></ping>
     <updatecheck targetversionprefix=""></updatecheck>
@@ -669,7 +669,7 @@ class XMLStrings(object):
   INVALID_NOOP_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="true"
+  <app appid="platform" version="1.0.0" delta_okay="true"
        track="stable-channel" board="eve">
     <ping active="1" a="1" r="1"></ping>
   </app>
@@ -686,7 +686,7 @@ class XMLStrings(object):
   EVENT_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="true"
+  <app appid="platform" version="1.0.0" delta_okay="true"
        track="stable-channel" board="eve">
     <event eventtype="3" eventresult="1" previousversion="1"></event>
   </app>
@@ -708,7 +708,7 @@ class XMLStrings(object):
   INVALID_APP_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app version="1.0.0" hardware_class="caroline" delta_okay="true"
+  <app version="1.0.0" delta_okay="true"
        track="stable-channel" board="eve">
     <ping active="1" a="1" r="1"></ping>
   </app>
@@ -719,7 +719,7 @@ class XMLStrings(object):
   INVALID_INSTALL_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="false"
+  <app appid="platform" version="1.0.0" delta_okay="false"
        track="stable-channel" board="eve">
     <ping active="1" a="1" r="1"></ping>
   </app>
@@ -730,14 +730,14 @@ class XMLStrings(object):
 </request>
 """
 
-  # Missing all hardware_class.
+  # Missing all board attributes.
   MISSING_REQUIRED_ATTR_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
   <app appid="platform" version="1.0.0" delta_okay="false">
     <ping active="1" a="1" r="1"></ping>
   </app>
-  <app appid="foo" version="1.0.0" delta_okay="false">
+  <app appid="foo" version="1.0.0" track="stable-channel" delta_okay="false">
     <ping active="1" a="1" r="1"></ping>
     <updatecheck targetversionprefix=""></updatecheck>
   </app>
@@ -748,7 +748,7 @@ class XMLStrings(object):
   MISMATCHED_VERSION_ATTR_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" hardware_class="c" delta_okay="false"
+  <app appid="platform" version="1.0.0" delta_okay="false"
        track="stable-channel" board="eve">
     <ping active="1" a="1" r="1"></ping>
   </app>

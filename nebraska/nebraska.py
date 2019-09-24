@@ -50,7 +50,6 @@ class Request(object):
   # one of the apps. For this reason we keep these values in the Request
   # object itself and not the AppRequest (except for 'version').
   APP_VERSION_ATTR = 'version'
-  APP_HW_CLASS_ATTR = 'hardware_class'
   APP_CHANNEL_ATTR = 'track'
   APP_BOARD_ATTR = 'board'
 
@@ -92,7 +91,6 @@ class Request(object):
     logging.debug('Received request: %s', self.request_str)
 
     self.version = None
-    self.hardware_class = None
     self.track = None
     self.board = None
     self.request_type = None
@@ -179,7 +177,6 @@ class Request(object):
 
     self.version = _CheckAttributesAndReturnIt(self.APP_VERSION_ATTR,
                                                in_all=True)
-    self.hardware_class = _CheckAttributesAndReturnIt(self.APP_HW_CLASS_ATTR)
     self.track = _CheckAttributesAndReturnIt(self.APP_CHANNEL_ATTR)
     self.board = _CheckAttributesAndReturnIt(self.APP_BOARD_ATTR)
 
@@ -225,7 +222,6 @@ class Request(object):
       self.request_type = request_type
       self.appid = None
       self.version = None
-      self.hardware_class = None
       self.track = None
       self.board = None
       self.ping = None
@@ -257,7 +253,6 @@ class Request(object):
       """
       self.appid = app.get(Request.APP_APPID_ATTR)
       self.version = app.get(Request.APP_VERSION_ATTR)
-      self.hardware_class = app.get(Request.APP_HW_CLASS_ATTR)
       self.track = app.get(Request.APP_CHANNEL_ATTR)
       self.board = app.get(Request.APP_BOARD_ATTR)
       self.delta_okay = app.get(Request.APP_DELTA_OKAY_ATTR) == 'true'
