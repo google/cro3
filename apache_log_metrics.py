@@ -188,7 +188,7 @@ def EmitRpcUsageMetric(m):
   except ValueError:  # Zero is represented by "-"
     size = 0
 
-  metrics.Counter(STATIC_GET_METRIC_NAME).increment_by(
+  metrics.Counter(DEVSERVER_RPC_USAGE_METRIC_NAME).increment_by(
       size, fields={
           'http_method': m.group('http_method'),
           'rpc_name': m.group('rpc_name'),
