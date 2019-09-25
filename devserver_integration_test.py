@@ -15,10 +15,7 @@ To run the integration test for devserver:
 
 from __future__ import print_function
 
-import cros_update_progress
-import devserver_constants
 import json
-from xml.dom import minidom
 import os
 import psutil
 import shutil
@@ -30,24 +27,31 @@ import time
 import unittest
 import urllib2
 
+from string import Template
+
+from xml.dom import minidom
+
+import cros_update_progress
+import devserver_constants
+
 from chromite.lib import cros_logging as logging
 
 
 # Paths are relative to this script's base directory.
 LABEL = 'devserver'
 TEST_IMAGE_PATH = 'testdata/devserver'
-TEST_IMAGE_NAME = 'update.gz'
-EXPECTED_HASH = 'kGcOinJ0vA8vdYX53FN0F5BdwfY='
+TEST_UPDATE_PAYLOAD_NAME = 'update.gz'
+TEST_UPDATE_PAYLOAD_METADATA_NAME = 'update.gz.json'
 
 # Update request based on Omaha v3 protocol format.
-UPDATE_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
+UPDATE_REQUEST = Template("""<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0" updater="ChromeOSUpdateEngine" updaterversion="0.1.0.0" ismachine="1">
     <os version="Indy" platform="Chrome OS" sp="0.11.254.2011_03_09_1814_i686"></os>
-    <app appid="{DEV-BUILD}" version="11.254.2011_03_09_1814" lang="en-US" track="developer-build" board="x86-generic" hardware_class="BETA DVT" delta_okay="true">
+    <app appid="$appid" version="11.254.2011_03_09_1814" lang="en-US" track="developer-build" board="x86-generic" hardware_class="BETA DVT" delta_okay="true">
         <updatecheck></updatecheck>
     </app>
 </request>
-"""
+""")
 
 # RPC constants.
 STAGE = 'stage'
@@ -82,14 +86,11 @@ class DevserverTestBase(unittest.TestCase):
     self.test_data_path = tempfile.mkdtemp()
     self.src_dir = os.path.dirname(__file__)
 
-    # Current location of testdata payload.
-    image_src = os.path.join(self.src_dir, TEST_IMAGE_PATH, TEST_IMAGE_NAME)
-
     # Copy the payload to the location of the update label.
-    self._CreateLabelAndCopyImage(LABEL, image_src)
+    self._CreateLabelAndCopyUpdatePayloadFiles(LABEL)
 
     # Copy the payload to the location of forced label.
-    self._CreateLabelAndCopyImage(API_SET_UPDATE_REQUEST, image_src)
+    self._CreateLabelAndCopyUpdatePayloadFiles(API_SET_UPDATE_REQUEST)
 
     # Allocate temporary files for various devserver outputs.
     self.pidfile = self._MakeTempFile('pid')
@@ -111,11 +112,13 @@ class DevserverTestBase(unittest.TestCase):
 
   # Helper methods begin here.
 
-  def _CreateLabelAndCopyImage(self, label, image):
+  def _CreateLabelAndCopyUpdatePayloadFiles(self, label):
     """Creates a label location and copies an image to it."""
+    update_dir = os.path.join(self.src_dir, TEST_IMAGE_PATH)
     label_dir = os.path.join(self.test_data_path, label)
     os.makedirs(label_dir)
-    shutil.copy(image, os.path.join(label_dir, TEST_IMAGE_NAME))
+    for name in (TEST_UPDATE_PAYLOAD_NAME, TEST_UPDATE_PAYLOAD_METADATA_NAME):
+      shutil.copy(os.path.join(update_dir, name), label_dir)
 
   def _MakeTempFile(self, suffix):
     """Return path of a newly created temporary file."""
@@ -186,7 +189,8 @@ class DevserverTestBase(unittest.TestCase):
     # Retrieve PID.
     self.pid = self._ReadIntValueFromFile(self.pidfile, 'pidfile')
 
-  def VerifyHandleUpdate(self, label, use_test_payload=True):
+  def VerifyHandleUpdate(self, label, use_test_payload=True,
+                         appid='{DEV-BUILD}'):
     """Verifies that we can send an update request to the devserver.
 
     This method verifies (using a fake update_request blob) that the devserver
@@ -202,16 +206,15 @@ class DevserverTestBase(unittest.TestCase):
       url of the update payload if we verified the update.
     """
     update_label = '/'.join([UPDATE, label])
-    response = self._MakeRPC(update_label, data=UPDATE_REQUEST)
+    response = self._MakeRPC(
+        update_label, data=UPDATE_REQUEST.substitute({'appid': appid}))
     self.assertNotEqual('', response)
 
     # Parse the response and check if it contains the right result.
     dom = minidom.parseString(response)
     update = dom.getElementsByTagName('updatecheck')[0]
     expected_static_url = '/'.join([self.devserver_url, STATIC, label])
-    expected_hash = EXPECTED_HASH if use_test_payload else None
-    url = self.VerifyV3Response(update, expected_static_url,
-                                expected_hash=expected_hash)
+    url = self.VerifyV3Response(update, expected_static_url)
 
     # Verify the image we download is correct since we already know what it is.
     if use_test_payload:
@@ -222,7 +225,7 @@ class DevserverTestBase(unittest.TestCase):
 
     return url
 
-  def VerifyV3Response(self, update, expected_static_url, expected_hash):
+  def VerifyV3Response(self, update, expected_static_url):
     """Verifies the update DOM from a v3 response and returns the url."""
     # Parse the response and check if it contains the right result.
     urls = update.getElementsByTagName('urls')[0]
@@ -236,11 +239,7 @@ class DevserverTestBase(unittest.TestCase):
     packages = manifest.getElementsByTagName('packages')[0]
     package = packages.getElementsByTagName('package')[0]
     filename = package.getAttribute('name')
-    self.assertEqual(TEST_IMAGE_NAME, filename)
-
-    if expected_hash:
-      hash_value = package.getAttribute('hash')
-      self.assertEqual(EXPECTED_HASH, hash_value)
+    self.assertEqual(TEST_UPDATE_PAYLOAD_NAME, filename)
 
     url = os.path.join(static_url, filename)
     return url
@@ -362,27 +361,31 @@ class DevserverBasicTests(AutoStartDevserverTestBase):
     This test verifies all the local xbuddy logic by creating a new local folder
     with the necessary update items and verifies we can use all of them.
     """
-    update_data = 'TEST UPDATE'
-    image_data = 'TEST IMAGE'
-    stateful_data = 'STATEFUL STUFFS'
     build_id = 'x86-generic/R32-9999.0.0-a1'
     xbuddy_path = 'x86-generic/R32-9999.0.0-a1/test'
     build_dir = os.path.join(self.test_data_path, build_id)
     os.makedirs(build_dir)
+
+    # Writing dummy files.
+    image_data = 'TEST IMAGE'
     test_image_file = os.path.join(build_dir,
                                    devserver_constants.TEST_IMAGE_FILE)
-    update_file = os.path.join(build_dir, devserver_constants.UPDATE_FILE)
+    with open(test_image_file, 'w') as f:
+      f.write(image_data)
+
+    stateful_data = 'STATEFUL STUFFS'
     stateful_file = os.path.join(build_dir, devserver_constants.STATEFUL_FILE)
+    with open(stateful_file, 'w') as f:
+      f.write(stateful_data)
 
-    logging.info('Creating dummy files')
+    update_dir = os.path.join(self.src_dir, TEST_IMAGE_PATH)
+    for name in (TEST_UPDATE_PAYLOAD_NAME, TEST_UPDATE_PAYLOAD_METADATA_NAME):
+      shutil.copy(os.path.join(update_dir, name), build_dir)
+    with open(os.path.join(build_dir, TEST_UPDATE_PAYLOAD_NAME), 'r') as f:
+      update_data = f.read()
 
-    for item, filename, data in zip(
-        ['full_payload', 'test', 'stateful'],
-        [update_file, test_image_file, stateful_file],
-        [update_data, image_data, stateful_data]):
-      logging.info('Creating file %s', filename)
-      with open(filename, 'w') as fh:
-        fh.write(data)
+    for item, data in zip(['full_payload', 'test', 'stateful'],
+                          [update_data, image_data, stateful_data]):
 
       xbuddy_path = '/'.join([build_id, item])
       logging.info('Testing xbuddy path %s', xbuddy_path)
@@ -472,7 +475,7 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
 
   def testStageAndUpdate(self):
     """Tests core stage/update autotest workflow where with a test payload."""
-    build_id = 'eve-release/R69-10782.0.0'
+    build_id = 'eve-release/R78-12499.0.0'
     archive_url = 'gs://chromeos-image-archive/%s' % build_id
 
     response = self._MakeRPC(IS_STAGED, archive_url=archive_url,
@@ -493,10 +496,13 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
     self.assertTrue(os.path.exists(
         os.path.join(staged_dir, devserver_constants.UPDATE_FILE)))
     self.assertTrue(os.path.exists(
+        os.path.join(staged_dir, devserver_constants.UPDATE_METADATA_FILE)))
+    self.assertTrue(os.path.exists(
         os.path.join(staged_dir, devserver_constants.STATEFUL_FILE)))
 
     logging.info('Verifying we can update using the stage update artifacts.')
-    self.VerifyHandleUpdate(build_id, use_test_payload=False)
+    self.VerifyHandleUpdate(build_id, use_test_payload=False,
+                            appid='{01906EA2-3EB2-41F1-8F62-F0B7120EFD2E}')
 
   @unittest.skip('crbug.com/640063 Broken test.')
   def testStageAutotestAndGetPackages(self):

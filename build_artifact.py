@@ -369,24 +369,6 @@ class Artifact(log_util.Loggable):
     return str(self)
 
 
-class AUTestPayload(Artifact):
-  """Wrapper for AUTest delta payloads which need additional setup."""
-
-  def _Setup(self):
-    super(AUTestPayload, self)._Setup()
-
-    # Rename to update.gz.
-    install_path = os.path.join(self.install_dir, self.install_subdir,
-                                self.name)
-    new_install_path = os.path.join(self.install_dir, self.install_subdir,
-                                    devserver_constants.UPDATE_FILE)
-    shutil.move(install_path, new_install_path)
-
-    # Reflect the rename in the list of installed files.
-    self.installed_files.remove(install_path)
-    self.installed_files = [new_install_path]
-
-
 class MultiArtifact(Artifact):
   """Wrapper for artifacts where name matches multiple items.."""
 
@@ -408,6 +390,31 @@ class MultiArtifact(Artifact):
 
     self.installed_files = [os.path.join(self.install_dir, self.install_subdir,
                                          name) for name in self.name]
+
+
+class AUTestPayload(MultiArtifact):
+  """Wrapper for AUTest delta payloads which need additional setup."""
+
+  def _Setup(self):
+    super(AUTestPayload, self)._Setup()
+
+    # Rename to update.gz.
+    # TODO(crbug.com/1008058): Change the devserver such that this renaming is
+    # not needed anymore.
+    for name in self.name:
+      dest_name = (devserver_constants.UPDATE_METADATA_FILE
+                   if name.endswith('.json')
+                   else devserver_constants.UPDATE_FILE)
+
+      install_path = os.path.join(self.install_dir, self.install_subdir, name)
+      new_install_path = os.path.join(self.install_dir, self.install_subdir,
+                                      dest_name)
+      self._Log('moving %s to %s', install_path, new_install_path)
+      shutil.move(install_path, new_install_path)
+
+      # Reflect the rename in the list of installed files.
+      self.installed_files.remove(install_path)
+      self.installed_files.append(new_install_path)
 
 
 class DeltaPayloadBase(AUTestPayload):
@@ -615,7 +622,8 @@ def _AddCrOSArtifact(tag, base, name, *fixed_args, **fixed_kwargs):
   chromeos_artifact_map.setdefault(tag, []).append(artifact)
 
 
-_AddCrOSArtifact(artifact_info.FULL_PAYLOAD, AUTestPayload, '*_full_*bin')
+_AddCrOSArtifact(artifact_info.FULL_PAYLOAD, AUTestPayload,
+                 '.*full.*bin(\.json)?\\Z', is_regex_name=True)
 
 
 class DeltaPayloadNtoN(DeltaPayloadBase):

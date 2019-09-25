@@ -46,6 +46,7 @@ METADATA_FILE = 'update.meta'
 METADATA_HASH_FILE = 'metadata_hash'
 STATEFUL_FILE = 'stateful.tgz'
 UPDATE_FILE = 'update.gz'
+UPDATE_METADATA_FILE = 'update.gz.json'
 
 #### Android files
 ANDROID_BOOT_IMAGE_FILE = 'boot.img'
