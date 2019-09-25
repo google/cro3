@@ -138,12 +138,17 @@ def _match_patchwork(match, args):
         errprint('Error: No patch content found')
         sys.exit(1)
 
+    message_id = mailbox.Message(patch_contents)['Message-Id']
+    message_id = re.sub('^<|>$', '', message_id.strip())
     if args['source_line'] is None:
         args['source_line'] = '(am from %s/patch/%d/)' % (url, patch_id)
-        message_id = mailbox.Message(patch_contents)['Message-Id']
-        message_id = re.sub('^<|>$', '', message_id.strip())
         args['source_line'] += (
             '\n(also found at https://lkml.kernel.org/r/%s)' % message_id)
+
+    # Auto-snarf the Change-Id if it was encoded into the Message-Id.
+    mo = re.match(r'.*(I[a-f0-9]{40})@changeid$', message_id)
+    if mo and args['changeid'] is None:
+        args['changeid'] = mo.group(1)
 
     if args['replace']:
         subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
@@ -399,6 +404,13 @@ def main(args):
         commit_message = subprocess.check_output(
             ['git', 'show', '-s', '--format=%B', 'HEAD']
         ).strip('\n')
+
+        # If we see a "Link: " that seems to point to a Message-Id with an
+        # automatic Change-Id we'll snarf it out.
+        mo = re.search(r'^Link:.*(I[a-f0-9]{40})@changeid', commit_message,
+                       re.MULTILINE)
+        if mo and args['changeid'] is None:
+            args['changeid'] = mo.group(1)
 
         # replace changeid if needed
         if args['changeid'] is not None:
