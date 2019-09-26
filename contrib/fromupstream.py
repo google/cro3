@@ -20,6 +20,7 @@ import subprocess
 import sys
 import textwrap
 import urllib
+import xmlrpclib
 
 errprint = functools.partial(print, file=sys.stderr)
 
@@ -27,6 +28,14 @@ LINUX_URLS = (
     'git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
     'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
     'https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git',
+)
+
+PATCHWORK_URLS = (
+    'https://lore.kernel.org/patchwork',
+    'https://patchwork.kernel.org',
+    'https://patchwork.ozlabs.org',
+    'https://patchwork.freedesktop.org',
+    'https://patchwork.linux-mips.org',
 )
 
 COMMIT_MESSAGE_WIDTH = 75
@@ -114,19 +123,10 @@ def _wrap_commit_line(prefix, content):
     indent = ' ' * (len(prefix) + 1)
     return textwrap.fill(line, COMMIT_MESSAGE_WIDTH, subsequent_indent=indent)
 
-def _match_patchwork(match, args):
-    """Match location: pw://### or pw://PROJECT/###."""
-    pw_project = match.group(2)
-    patch_id = int(match.group(3))
-
-    if args['debug']:
-        print('_match_patchwork: pw_project=%s, patch_id=%d' %
-              (pw_project, patch_id))
-
+def _pick_patchwork(url, patch_id, args):
     if args['tag'] is None:
         args['tag'] = 'FROMLIST: '
 
-    url = _get_pw_url(pw_project)
     opener = urllib.urlopen('%s/patch/%d/mbox' % (url, patch_id))
     if opener.getcode() != 200:
         errprint('Error: could not download patch - error code %d'
@@ -156,6 +156,40 @@ def _match_patchwork(match, args):
     git_am = subprocess.Popen(['git', 'am', '-3'], stdin=subprocess.PIPE)
     git_am.communicate(patch_contents)
     return git_am.returncode
+
+def _match_patchwork(match, args):
+    """Match location: pw://### or pw://PROJECT/###."""
+    pw_project = match.group(2)
+    patch_id = int(match.group(3))
+
+    if args['debug']:
+        print('_match_patchwork: pw_project=%s, patch_id=%d' %
+              (pw_project, patch_id))
+
+    url = _get_pw_url(pw_project)
+    return _pick_patchwork(url, patch_id, args)
+
+def _match_msgid(match, args):
+    """Match location: msgid://MSGID."""
+    msgid = match.group(1)
+
+    if args['debug']:
+        print('_match_msgid: message_id=%s' % (msgid))
+
+    # Patchwork requires the brackets so force it
+    msgid = '<' + msgid + '>'
+    url = None
+    for url in PATCHWORK_URLS:
+        rpc = xmlrpclib.ServerProxy(url + '/xmlrpc/')
+        res = rpc.patch_list({'msgid': msgid})
+        if res:
+            patch_id = res[0]['id']
+            break
+    else:
+        errprint('Error: could not find patch based on message id')
+        sys.exit(1)
+
+    return _pick_patchwork(url, patch_id, args)
 
 def _match_linux(match, args):
     """Match location: linux://HASH."""
@@ -300,6 +334,7 @@ def main(args):
                         'where PROJECT is defined in ~/.pwclientrc; if no '
                         'PROJECT is specified, the default is retrieved from '
                         '~/.pwclientrc), '
+                        'Message-ID (msgid://MSGID), '
                         'linux commit like linux://HASH, or '
                         'git reference like git://remote/branch/HASH or '
                         'git://repoURL#branch/HASH or '
@@ -345,6 +380,7 @@ def main(args):
 
     re_matches = (
         (re.compile(r'^pw://(([^/]+)/)?(\d+)'), _match_patchwork),
+        (re.compile(r'^msgid://<?([^>]*)>?'), _match_msgid),
         (re.compile(r'^linux://([0-9a-f]+)'), _match_linux),
         (re.compile(r'^(from)?git://([^/\#]+)/([^#]+)/([0-9a-f]+)$'),
          _match_fromgit),
