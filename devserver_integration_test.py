@@ -64,7 +64,6 @@ XBUDDY = 'xbuddy'
 LIST_IMAGE_DIR = 'list_image_dir'
 
 # API rpcs and constants.
-API_HOST_INFO = 'api/hostinfo'
 API_SET_UPDATE_REQUEST = 'new_update-test/the-new-update'
 API_TEST_IP_ADDR = '127.0.0.1'
 
@@ -322,12 +321,6 @@ class DevserverBasicTests(AutoStartDevserverTestBase):
 
   def testHandleUpdateV3(self):
     self.VerifyHandleUpdate(label=LABEL)
-
-  def testApiBadHostInfoURL(self):
-    """Tests contacting a bad hostinfo url."""
-    # Host info should be invalid without a specified address.
-    self.assertRaises(urllib2.URLError,
-                      self._MakeRPC, API_HOST_INFO)
 
   def testXBuddyLocalAlias(self):
     """Extensive local image xbuddy unittest.

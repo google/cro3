@@ -541,27 +541,6 @@ class ApiRoot(object):
   exposed = True
 
   @cherrypy.expose
-  def hostinfo(self, ip):
-    """Returns a JSON dictionary containing information about the given ip.
-
-    Args:
-      ip: address of host whose info is requested
-
-    Returns:
-      A JSON dictionary containing all or some of the following fields:
-        last_event_type (int):        last update event type received
-        last_event_status (int):      last update event status received
-        last_known_version (string):  last known version reported in update ping
-      See the OmahaEvent class in update_engine/omaha_request_action.h for
-      event type and status code definitions. If the ip does not exist an empty
-      string is returned.
-
-    Example URL:
-      http://myhost/api/hostinfo?ip=192.168.1.5
-    """
-    return updater.HandleHostInfoPing(ip)
-
-  @cherrypy.expose
   def hostlog(self, ip):
     """Returns a JSON object containing a log of host event.
 
@@ -569,9 +548,14 @@ class ApiRoot(object):
       ip: address of host whose event log is requested, or `all'
 
     Returns:
-      A JSON encoded list (log) of dictionaries (events), each of which
-      containing a `timestamp' and other event fields, as described under
-      /api/hostinfo.
+      A JSON dictionary containing all or some of the following fields:
+        last_event_type (int):        last update event type received
+        last_event_status (int):      last update event status received
+        last_known_version (string):  last known version reported in update ping
+        timestamp:                    The timestamp the event was received.
+      See the OmahaEvent class in update_engine/omaha_request_action.h for
+      event type and status code definitions. If the ip does not exist an empty
+      string is returned.
 
     Example URL:
       http://myhost/api/hostlog?ip=192.168.1.5
