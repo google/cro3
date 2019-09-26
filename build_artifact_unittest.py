@@ -16,11 +16,10 @@ import itertools
 import os
 import random
 import shutil
-import subprocess
 import tempfile
 import unittest
 
-import mox
+import mock
 
 import build_artifact
 import devserver_constants
@@ -103,12 +102,10 @@ _TEST_GOLO_FOR_DELTAS = (
     'gs://chromeos-image-archive/' + _TEST_GOLO_FOR_DELTAS_BUILD_ID)
 
 
-# pylint: disable=W0212
-class BuildArtifactTest(mox.MoxTestBase):
+class BuildArtifactTest(unittest.TestCase):
   """Test different BuildArtifact operations."""
 
   def setUp(self):
-    mox.MoxTestBase.setUp(self)
     self.work_dir = tempfile.mkdtemp('build_artifact_unittest')
 
   def tearDown(self):
@@ -177,33 +174,37 @@ class BuildArtifactTest(mox.MoxTestBase):
         self.work_dir, file_to_download)))
     self._CheckMarker(artifact.marker_name, artifact.installed_files)
 
-  @unittest.skip('crbug.com/640063 Broken test.')
-  def testDownloadAutotest(self):
+  @mock.patch('build_artifact.AutotestTarball._Extract')
+  @mock.patch('build_artifact.AutotestTarball._UpdateName')
+  @mock.patch('subprocess.check_call')
+  @mock.patch('downloader.GoogleStorageDownloader.Fetch')
+  @mock.patch('downloader.GoogleStorageDownloader.Wait')
+  def testDownloadAutotest(self, wait_mock, fetch_mock, check_call_mock,
+                           update_name_mock, extract_mock):
     """Downloads a real autotest tarball for test."""
-    self.mox.StubOutWithMock(build_artifact.AutotestTarball, '_Extract')
     artifact = build_artifact.AutotestTarball(
         build_artifact.AUTOTEST_FILE, self.work_dir, _VERSION,
         files_to_extract=None, exclude=['autotest/test_suites'])
 
     install_dir = self.work_dir
     artifact.staging_dir = install_dir
-    self.mox.StubOutWithMock(subprocess, 'check_call')
-    subprocess.check_call(mox.In('autotest/utils/packager.py'), cwd=install_dir)
-    self.mox.StubOutWithMock(downloader.GoogleStorageDownloader, 'Wait')
-    self.mox.StubOutWithMock(artifact, '_UpdateName')
+
     dl = downloader.GoogleStorageDownloader(self.work_dir, _TEST_GOLO_ARCHIVE,
                                             _TEST_GOLO_BUILD_ID)
-    dl.Wait(artifact.name, False, 1)
-    artifact._UpdateName(mox.IgnoreArg())
-    dl.Fetch(artifact.name, install_dir)
-    artifact._Extract()
-    self.mox.ReplayAll()
     artifact.Process(dl, True)
-    self.mox.VerifyAll()
     self.assertItemsEqual(artifact.installed_files, [])
     self.assertTrue(os.path.isdir(
         os.path.join(self.work_dir, 'autotest', 'packages')))
     self._CheckMarker(artifact.marker_name, [])
+
+    wait_mock.assert_called_with('autotest.tar', False, 1)
+    fetch_mock.assert_called_with('autotest.tar', install_dir + '/')
+    check_call_mock.assert_called_with(
+        ['autotest/utils/packager.py', '--action=upload', '--repository',
+         os.path.join(install_dir, 'autotest/packages'), '--all'],
+        cwd=install_dir)
+    update_name_mock.assert_called()
+    extract_mock.assert_called()
 
   @unittest.skip('crbug.com/640063 Broken test.')
   def testAUTestPayloadBuildArtifact(self):

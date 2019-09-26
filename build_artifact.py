@@ -16,6 +16,8 @@ import shutil
 import subprocess
 import traceback
 
+import six
+
 import artifact_info
 import common_util
 import devserver_constants
@@ -99,6 +101,7 @@ class ArtifactMeta(type):
     return str(cls)
 
 
+@six.add_metaclass(ArtifactMeta)
 class Artifact(log_util.Loggable):
   """Wrapper around an artifact to download using a fetcher.
 
@@ -138,8 +141,6 @@ class Artifact(log_util.Loggable):
     store_installed_files: Whether the list of installed files is stored in the
                            marker file.
   """
-
-  __metaclass__ = ArtifactMeta
 
   def __init__(self, name, install_dir, build, install_subdir='',
                is_regex_name=False, optional_name=None):
@@ -353,7 +354,7 @@ class Artifact(log_util.Loggable):
           self._SaveException(e)
 
           # Convert an unknown exception into an ArtifactDownloadError.
-          if type(e) is ArtifactDownloadError:
+          if isinstance(e, ArtifactDownloadError):
             raise
           else:
             raise ArtifactDownloadError('An error occurred: %s' % e)
