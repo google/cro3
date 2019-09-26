@@ -8,23 +8,15 @@
 
 This devserver can be used to perform system-wide autoupdate and update
 of specific portage packages on devices running Chromium OS derived operating
-systems. It mainly operates in two modes:
+systems.
 
-1) archive mode: In this mode, the devserver is configured to stage and
+The devserver is configured to stage and
 serve artifacts from Google Storage using the credentials provided to it before
 it is run. The easiest way to understand this is that the devserver is
 functioning as a local cache for artifacts produced and uploaded by build
 servers. Users of this form of devserver can either download the artifacts
 from the devservers static directory OR use the update RPC to perform a
 system-wide autoupdate. Archive mode is always active.
-
-2) artifact-generation mode: in this mode, the devserver will attempt to
-generate update payloads and build artifacts when requested. This mode only
-works in the Chromium OS chroot as it uses build tools only present in the
-chroot (emerge, cros_generate_update_payload, etc.). By default, when a device
-requests an update from this form of devserver, the devserver will attempt to
-discover if a more recent build of the board has been built by the developer
-and generate a payload that the requested system can autoupdate to.
 
 For autoupdates, there are many more advanced options that can help specify
 how to update and which payload to give to a requester.
@@ -1384,7 +1376,7 @@ class DevServerRoot(object):
 
     Kwargs:
       for_update: {true|false}
-                  if true, pregenerates the update payloads for the image,
+                  if true, prepares the update payloads for the image,
                   and returns the update uri to pass to the
                   update_engine_client.
       return_dir: {true|false}
@@ -1433,10 +1425,9 @@ class DevServerRoot(object):
       build_id, file_name = self._xbuddy.Get(args)
 
     if for_update:
-      _Log('Payload generation triggered by request')
+      _Log('Payloads requested.')
       # Forces payload to be in cache and symlinked into build_id dir.
-      updater.GetUpdateForLabel(autoupdate.FORCED_UPDATE, build_id,
-                                image_name=file_name)
+      updater.GetUpdateForLabel(build_id)
 
     response = None
     if return_dir:
@@ -1518,10 +1509,7 @@ class DevServerRoot(object):
     This request can be handled in one of 4 ways, depending on the devsever
     settings and intermediate path.
 
-    1. No intermediate path
-    If no intermediate path is given, the default behavior is to generate an
-    update payload from the latest test image locally built for the board
-    specified in the xml. Devserver serves the generated payload.
+    1. No intermediate path. DEPRECATED
 
     2. Path explicitly invokes XBuddy
     If there is a path given, it can explicitly invoke xbuddy by prefixing it
@@ -1533,18 +1521,7 @@ class DevServerRoot(object):
     If the path given doesn't explicitly invoke xbuddy, devserver will attempt
     to generate a payload from the test image in that directory and serve it.
 
-    4. The devserver is in a 'forced' mode. TO BE DEPRECATED
-    This comes from the usage of --forced_payload or --image when starting the
-    devserver. No matter what path (or no path) gets passed in, devserver will
-    serve the update payload (--forced_payload) or generate an update payload
-    from the image (--image).
-
     Examples:
-      1. No intermediate path
-      update_engine_client --omaha_url=http://myhost/update
-      This generates an update payload from the latest test image locally built
-      for the board specified in the xml.
-
       2. Explicitly invoke xbuddy
       update_engine_client --omaha_url=
       http://myhost/update/xbuddy/remote/board/version/dev
@@ -1598,7 +1575,7 @@ def _AddTestingOptions(parser):
       'knowledgable about the test.')
   group.add_option('--exit',
                    action='store_true',
-                   help='do not start the server (yet pregenerate/clear cache)')
+                   help='do not start the server (yet clear cache)')
   group.add_option('--host_log',
                    action='store_true', default=False,
                    help='record history of host update events (/api/hostlog)')
@@ -1606,11 +1583,6 @@ def _AddTestingOptions(parser):
                    metavar='NUM', default=-1, type='int',
                    help='maximum number of update checks handled positively '
                         '(default: unlimited)')
-  group.add_option('--public_key',
-                   metavar='PATH', default=None,
-                   help='path to the public key in pem format. If this is set '
-                   'the devserver will transmit a base64 encoded version of '
-                   'the content in the Omaha-style XML response.')
   group.add_option('--proxy_port',
                    metavar='PORT', default=None, type='int',
                    help='port to have the client connect to -- basically the '
@@ -1624,41 +1596,16 @@ def _AddTestingOptions(parser):
 def _AddUpdateOptions(parser):
   group = optparse.OptionGroup(
       parser, 'Autoupdate Options', 'These options can be used to change '
-      'how the devserver either generates or serve update payloads. Please '
+      'how the devserver serve update payloads. Please '
       'note that all of these option affect how a payload is generated and so '
       'do not work in archive-only mode.')
-  group.add_option('--board',
-                   help='By default the devserver will create an update '
-                   'payload from the latest image built for the board '
-                   'a device that is requesting an update has. When we '
-                   'pre-generate an update (see below) and we do not specify '
-                   'another update_type option like image or payload, the '
-                   'devserver needs to know the board to generate the latest '
-                   'image for. This is that board.')
   group.add_option('--critical_update',
                    action='store_true', default=False,
                    help='Present update payload as critical')
-  group.add_option('--image',
-                   metavar='FILE',
-                   help='Generate and serve an update using this image to any '
-                   'device that requests an update.')
   group.add_option('--payload',
                    metavar='PATH',
                    help='use the update payload from specified directory '
                    '(update.gz).')
-  group.add_option('-p', '--pregenerate_update',
-                   action='store_true', default=False,
-                   help='pre-generate the update payload before accepting '
-                   'update requests. Useful to help debug payload generation '
-                   'issues quickly. Also if an update payload will take a '
-                   'long time to generate, a client may timeout if you do not'
-                   'pregenerate the update.')
-  group.add_option('--src_image',
-                   metavar='PATH', default='',
-                   help='If specified, delta updates will be generated using '
-                   'this image as the source image. Delta updates are when '
-                   'you are updating from a "source image" to a another '
-                   'image.')
   parser.add_option_group(group)
 
 
@@ -1761,8 +1708,7 @@ def main():
   _Log('Using cache directory %s' % cache_dir)
   _Log('Serving from %s' % options.static_dir)
 
-  _xbuddy = xbuddy.XBuddy(options.xbuddy_manage_builds,
-                          options.board,
+  _xbuddy = xbuddy.XBuddy(manage_builds=options.xbuddy_manage_builds,
                           static_dir=options.static_dir)
   if options.clear_cache and options.xbuddy_manage_builds:
     _xbuddy.CleanCache()
@@ -1773,20 +1719,12 @@ def main():
   updater = autoupdate.Autoupdate(
       _xbuddy,
       static_dir=options.static_dir,
-      forced_image=options.image,
       payload_path=options.payload,
       proxy_port=options.proxy_port,
-      src_image=options.src_image,
-      board=options.board,
-      copy_to_static_root=not options.exit,
-      public_key=options.public_key,
       critical_update=options.critical_update,
       max_updates=options.max_updates,
       host_log=options.host_log,
   )
-
-  if options.pregenerate_update:
-    updater.PreGenerateUpdate()
 
   if options.exit:
     return

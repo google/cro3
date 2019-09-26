@@ -72,114 +72,6 @@ class AutoupdateTest(mox.MoxTestBase):
                                   **kwargs)
     return dummy
 
-  def testGetRightDeltaPayloadDir(self):
-    """Test that our directory is what we expect it to be for updates."""
-    self.mox.StubOutWithMock(common_util, 'GetFileMd5')
-    src_image = 'test_src_image'
-    target_image = 'test_target_image'
-    src_hash = '12345'
-    target_hash = '67890'
-
-    common_util.GetFileMd5(src_image).AndReturn(src_hash)
-    common_util.GetFileMd5(target_image).AndReturn(target_hash)
-
-    self.mox.ReplayAll()
-    au_mock = self._DummyAutoupdateConstructor()
-    update_dir = au_mock.FindCachedUpdateImageSubDir(src_image, target_image)
-    self.assertEqual(os.path.basename(update_dir),
-                     '%s_%s' % (src_hash, target_hash))
-    self.mox.VerifyAll()
-
-  def testGenerateLatestUpdateImage(self):
-    """Test default behavior in response to plain update call."""
-    self.mox.StubOutWithMock(common_util, 'IsInsideChroot')
-    self.mox.StubOutWithMock(nebraska.Nebraska, 'GetResponseToRequest')
-    self.mox.StubOutWithMock(autoupdate.Autoupdate,
-                             'GenerateUpdateImageWithCache')
-
-    latest_label = os.path.join(self.test_board, self.latest_dir)
-    # Generate a fake latest image
-    latest_image_dir = os.path.join(self.static_image_dir, latest_label)
-    common_util.MkDirP(latest_image_dir)
-    image = os.path.join(latest_image_dir, constants.TEST_IMAGE_FILE)
-    with open(image, 'w') as fh:
-      fh.write('')
-
-    au_mock = self._DummyAutoupdateConstructor()
-
-    common_util.IsInsideChroot().AndReturn(True)
-    self._xbuddy._GetArtifact(
-        [''], board=self.test_board, lookup_only=True, image_dir=None,
-        version=None).AndReturn((latest_label, constants.TEST_IMAGE_FILE))
-
-    nebraska.Nebraska.GetResponseToRequest(
-        mox.IgnoreArg(), critical_update=False).AndReturn(self.payload)
-
-    au_mock.GenerateUpdateImageWithCache(
-        os.path.join(self.static_image_dir, self.test_board, self.latest_dir,
-                     constants.TEST_IMAGE_FILE)).AndReturn('update.gz')
-
-    self.mox.ReplayAll()
-    self.assertTrue(au_mock.HandleUpdatePing(self.test_data))
-    self.mox.VerifyAll()
-
-  def testHandleUpdatePingForForcedImage(self):
-    """Test update response to having a forced image."""
-    self.mox.StubOutWithMock(common_util, 'IsInsideChroot')
-    self.mox.StubOutWithMock(autoupdate.Autoupdate,
-                             'GenerateUpdateImageWithCache')
-    self.mox.StubOutWithMock(nebraska.Nebraska, 'GetResponseToRequest')
-    au_mock = self._DummyAutoupdateConstructor()
-
-    # Generate a fake image
-    forced_image_dir = '/tmp/path_to_force/'
-    forced_image = forced_image_dir + constants.IMAGE_FILE
-    common_util.MkDirP(forced_image_dir)
-    with open(forced_image, 'w') as fh:
-      fh.write('')
-
-    # Mock out GenerateUpdateImageWithCache to make an update file in cache
-    def mock_fn(_image):
-      print('mock_fn')
-      # No good way to introduce an update file during execution.
-      cache_dir = os.path.join(self.static_image_dir, 'cache')
-      common_util.MkDirP(cache_dir)
-      update_image = os.path.join(cache_dir, constants.UPDATE_FILE)
-      with open(update_image, 'w') as fh:
-        fh.write('')
-
-    common_util.IsInsideChroot().AndReturn(True)
-    au_mock.GenerateUpdateImageWithCache(forced_image).WithSideEffects(
-        mock_fn).AndReturn('cache')
-    nebraska.Nebraska.GetResponseToRequest(
-        mox.IgnoreArg(), critical_update=False).AndReturn(self.payload)
-
-    self.mox.ReplayAll()
-    au_mock.forced_image = forced_image
-    self.assertEqual(au_mock.HandleUpdatePing(self.test_data), self.payload)
-    self.mox.VerifyAll()
-
-  def testHandleForcePregenerateXBuddy(self):
-    """Check pregenerating an xbuddy path.
-
-    A forced image that starts with 'xbuddy:' uses the following path to
-    obtain an update.
-    """
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GetUpdateForLabel')
-    au_mock = self._DummyAutoupdateConstructor()
-    au_mock.forced_image = 'xbuddy:b/v/a'
-
-    self._xbuddy._GetArtifact(
-        ['b', 'v', 'a'],
-        image_dir=None).AndReturn(('label', constants.TEST_IMAGE_FILE))
-
-    au_mock.GetUpdateForLabel(
-        autoupdate.FORCED_UPDATE, 'b/v/a').AndReturn('p')
-    self.mox.ReplayAll()
-
-    au_mock.PreGenerateUpdate()
-    self.mox.VerifyAll()
-
   def testChangeUrlPort(self):
     r = autoupdate._ChangeUrlPort('http://fuzzy:8080/static', 8085)
     self.assertEqual(r, 'http://fuzzy:8085/static')
@@ -236,7 +128,7 @@ class AutoupdateTest(mox.MoxTestBase):
 
     nebraska.Nebraska.GetResponseToRequest(
         mox.IgnoreArg(), critical_update=False).AndReturn(self.payload)
-    au_mock.GetPathToPayload(mox.IgnoreArg(), 'ForcedUpdate', self.test_board)
+    au_mock.GetPathToPayload(test_label, self.test_board)
 
     self.mox.ReplayAll()
     au_mock.HandleSetUpdatePing('127.0.0.1', test_label)
@@ -248,28 +140,6 @@ class AutoupdateTest(mox.MoxTestBase):
     self.assertFalse(
         'forced_update_label' in
         au_mock.host_infos.GetHostInfo('127.0.0.1').attrs)
-
-  def testGetVersionFromDir(self):
-    au = self._DummyAutoupdateConstructor()
-
-    # New-style version number.
-    self.assertEqual(
-        au._GetVersionFromDir('/foo/x86-alex/R16-1102.0.2011_09_30_0806-a1'),
-        '1102.0.2011_09_30_0806')
-
-  def testCanUpdate(self):
-    au = self._DummyAutoupdateConstructor()
-
-    # When both the client and the server have new-style versions, we should
-    # just compare the tokens directly.
-    self.assertTrue(
-        au._CanUpdate('1098.0.2011_09_28_1635', '1098.0.2011_09_30_0806'))
-    self.assertTrue(
-        au._CanUpdate('1098.0.2011_09_28_1635', '1100.0.2011_09_26_0000'))
-    self.assertFalse(
-        au._CanUpdate('1098.0.2011_09_28_1635', '1098.0.2011_09_26_0000'))
-    self.assertFalse(
-        au._CanUpdate('1098.0.2011_09_28_1635', '1096.0.2011_09_30_0000'))
 
 if __name__ == '__main__':
   unittest.main()
