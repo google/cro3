@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -9,8 +10,7 @@ from __future__ import print_function
 import ast
 import base64
 import binascii
-import cherrypy
-import distutils.version
+import distutils.version  # pylint: disable=no-name-in-module,import-error
 import errno
 import hashlib
 import os
@@ -19,6 +19,8 @@ import shutil
 import tempfile
 import threading
 import subprocess
+
+import cherrypy  # pylint: disable=import-error
 
 import log_util
 
@@ -101,7 +103,7 @@ def GetLatestBuildVersion(static_dir, target, milestone=None):
 
   if milestone and builds:
     # Check if milestone Rxx is in the string representation of the build.
-    builds = filter(lambda x: milestone.upper() in str(x), builds)
+    builds = [build for build in builds if milestone.upper() in str(build)]
 
   if not builds:
     raise CommonUtilError('Could not determine build for %s' % target)
@@ -315,7 +317,7 @@ def SymlinkFile(target, link):
     # directory as the required |link| to ensure the created symlink is in the
     # same file system as |link|.
     link_name = os.path.join(os.path.dirname(link),
-                             os.path.basename(link_base) + "-link")
+                             os.path.basename(link_base) + '-link')
 
     # Create the symlink and then rename it to the final position. This ensures
     # the symlink creation is atomic.
@@ -430,10 +432,7 @@ def IsRunningOnMoblab():
            cmd_error.rstrip())
       return False
 
-    if re.search(r"[_-]+moblab", cmd_output):
-      return True
-    else:
-      return False
+    return bool(re.search(r'[_-]+moblab', cmd_output))
   except subprocess.CalledProcessError as e:
     _Log('Error happened while checking whether devserver package is running '
          'on a DUT: %s\n%s', e, e.output)

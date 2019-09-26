@@ -6,12 +6,12 @@
 
 """Unit tests for common_util module."""
 
+from __future__ import print_function
+
 import os
 import shutil
 import tempfile
 import unittest
-
-import mox
 
 import common_util
 import devserver_constants
@@ -25,28 +25,29 @@ TEST_LAYOUT = {
 }
 
 
-class CommonUtilTest(mox.MoxTestBase):
+
+class CommonUtilTest(unittest.TestCase):
+  """Base class for CommonUtil tests."""
 
   def setUp(self):
-    mox.MoxTestBase.setUp(self)
     self._static_dir = tempfile.mkdtemp('common_util_unittest')
     self._outside_sandbox_dir = tempfile.mkdtemp('common_util_unittest')
 
     # Set up some basic existing structure used by GetLatest* tests.
-    for board, builds in TEST_LAYOUT.iteritems():
+    for board, builds in TEST_LAYOUT.items():
       board_path = os.path.join(self._static_dir, board)
       os.mkdir(board_path)
       for build in builds:
         build_path = os.path.join(board_path, build)
         os.mkdir(build_path)
         with open(os.path.join(
-          build_path, devserver_constants.TEST_IMAGE_FILE), 'w') as f:
+            build_path, devserver_constants.TEST_IMAGE_FILE), 'w') as f:
           f.write('TEST_IMAGE_FILE')
         with open(os.path.join(
-          build_path, devserver_constants.STATEFUL_FILE), 'w') as f:
+            build_path, devserver_constants.STATEFUL_FILE), 'w') as f:
           f.write('STATEFUL_FILE')
         with open(os.path.join(
-          build_path, devserver_constants.UPDATE_FILE), 'w') as f:
+            build_path, devserver_constants.UPDATE_FILE), 'w') as f:
           f.write('UPDATE_FILE')
 
   def tearDown(self):
@@ -65,9 +66,8 @@ class CommonUtilTest(mox.MoxTestBase):
         common_util.PathInDir(self._static_dir, self._static_dir))
 
     # Path is outside the sandbox.
-    self.assertFalse(
-        common_util.PathInDir(
-          self._static_dir, self._outside_sandbox_dir))
+    self.assertFalse(common_util.PathInDir(
+        self._static_dir, self._outside_sandbox_dir))
 
     # Path contains '..'.
     self.assertFalse(
@@ -122,7 +122,7 @@ class CommonUtilTest(mox.MoxTestBase):
     self.assertEqual(control_content, 'hello!')
 
   def testSymlinkFile(self):
-    link_fd, link_base = tempfile.mkstemp(prefix="common-symlink-test")
+    link_fd, link_base = tempfile.mkstemp(prefix='common-symlink-test')
     link_a = link_base + '-link-a'
     link_b = link_base + '-link-b'
 
@@ -156,7 +156,7 @@ class CommonUtilTest(mox.MoxTestBase):
     except common_util.CommonUtilError as e:
       # Check to see that tar's error message is printed in the exception.
       self.assertTrue('Cannot open: No such file or directory' in e.args[0],
-                      ('tar\'s stderr is missing from the exception.\n%s' %
+                      ("tar's stderr is missing from the exception.\n%s" %
                        e.args[0]))
 
 
