@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -18,6 +17,15 @@ import subprocess
 import threading
 from datetime import datetime
 
+try:
+  import android_build
+except ImportError:
+  # Ignore android_build import failure. This is to support devserver running
+  # inside a ChromeOS device triggered by cros flash. Most ChromeOS test images
+  # do not have google-api-python-client module and they don't need to support
+  # Android updating, therefore, ignore the import failure here.
+  android_build = None
+
 import build_artifact
 import common_util
 import log_util
@@ -27,18 +35,8 @@ import setup_chromite # pylint: disable=unused-import
 
 try:
   from chromite.lib import gs
-except ImportError as e:
+except ImportError:
   gs = None
-
-try:
-  import android_build
-except ImportError as e:
-  # Ignore android_build import failure. This is to support devserver running
-  # inside a ChromeOS device triggered by cros flash. Most ChromeOS test images
-  # do not have google-api-python-client module and they don't need to support
-  # Android updating, therefore, ignore the import failure here.
-  android_build = None
-
 
 class DownloaderException(Exception):
   """Exception that aggregates all exceptions raised during async download.
@@ -107,7 +105,7 @@ class Downloader(log_util.Loggable):
   def TouchTimestampForStaged(directory_path):
     file_name = os.path.join(directory_path, Downloader._TIMESTAMP_FILENAME)
     # Easiest python version of |touch file_name|
-    with file(file_name, 'a'):
+    with open(file_name, 'a'):
       os.utime(file_name, None)
 
   @staticmethod

@@ -8,22 +8,22 @@
 
 from __future__ import print_function
 
-import mox
 import os
 import shutil
 import tempfile
 import unittest
 
+import mock
+
 import build_artifact
 import downloader
 
 
-# pylint: disable=W0212,E1120
-class DownloaderTestBase(mox.MoxTestBase):
+# pylint: disable=protected-access,no-value-for-parameter
+class DownloaderTestBase(unittest.TestCase):
   """Downloader Unittests."""
 
   def setUp(self):
-    mox.MoxTestBase.setUp(self)
     self._work_dir = tempfile.mkdtemp('downloader-test')
     self.board = 'x86-mario-release'
     self.build = 'R17-1413.0.0-a1-b1346'
@@ -34,31 +34,28 @@ class DownloaderTestBase(mox.MoxTestBase):
   def tearDown(self):
     shutil.rmtree(self._work_dir, ignore_errors=True)
 
-  def _SimpleDownloadOfTestSuites(self, downloader_instance):
+  @mock.patch('downloader.Downloader._DownloadArtifactsSerially')
+  @mock.patch('downloader.Downloader._DownloadArtifactsInBackground')
+  def _SimpleDownloadOfTestSuites(self, downloader_instance, bg_mock,
+                                  serial_mock):
     """Helper to verify test_suites are downloaded correctly.
 
     Args:
       downloader_instance: Downloader object to test with.
+      bg_mock: background download method mock.
+      serial_mock: serial download method mock.
     """
     factory = build_artifact.ChromeOSArtifactFactory(
         downloader_instance.GetBuildDir(), ['test_suites'],
         None, downloader_instance.GetBuild())
-    self.mox.StubOutWithMock(downloader.Downloader,
-                             '_DownloadArtifactsSerially')
-    self.mox.StubOutWithMock(downloader.Downloader,
-                             '_DownloadArtifactsInBackground')
 
-    downloader.Downloader._DownloadArtifactsInBackground(mox.In(mox.IsA(
-        build_artifact.AutotestTarball)))
-    downloader.Downloader._DownloadArtifactsSerially(
-        [mox.IsA(build_artifact.BundledArtifact)], no_wait=True)
-    self.mox.ReplayAll()
     downloader_instance.Download(factory)
     # Sanity check the timestamp file exists.
+    install_dir = os.path.join(self._work_dir, self.board, self.build)
     self.assertTrue(os.path.exists(
-        os.path.join(self._work_dir, self.board, self.build,
-                     downloader.Downloader._TIMESTAMP_FILENAME)))
-    self.mox.VerifyAll()
+        os.path.join(install_dir, downloader.Downloader._TIMESTAMP_FILENAME)))
+    serial_mock.assert_called()
+    bg_mock.assert_called()
 
   def testSimpleDownloadOfTestSuitesFromGS(self):
     """Basic test_suites test.
@@ -81,22 +78,18 @@ class DownloaderTestBase(mox.MoxTestBase):
     self._SimpleDownloadOfTestSuites(
         downloader.LocalDownloader(self._work_dir, self.local_path))
 
-  def _DownloadSymbolsHelper(self, downloader_instance):
+  @mock.patch('downloader.Downloader._DownloadArtifactsSerially')
+  @mock.patch('downloader.Downloader._DownloadArtifactsInBackground')
+  def _DownloadSymbolsHelper(self, downloader_instance, bg_mock, serial_mock):
     """Basic symbols download."""
     factory = build_artifact.ChromeOSArtifactFactory(
         downloader_instance.GetBuildDir(), ['symbols'],
         None, downloader_instance.GetBuild())
 
-    self.mox.StubOutWithMock(downloader.Downloader,
-                             '_DownloadArtifactsSerially')
     # Should not get called but mocking so that we know it wasn't called.
-    self.mox.StubOutWithMock(downloader.Downloader,
-                             '_DownloadArtifactsInBackground')
-    downloader.Downloader._DownloadArtifactsSerially(
-        [mox.IsA(build_artifact.BundledArtifact)], no_wait=True)
-    self.mox.ReplayAll()
     downloader_instance.Download(factory)
-    self.mox.VerifyAll()
+    serial_mock.assert_called()
+    bg_mock.assert_not_called()
 
   def testDownloadSymbolsFromGS(self):
     """Basic symbols download from Google Storage."""
@@ -112,11 +105,10 @@ class DownloaderTestBase(mox.MoxTestBase):
         downloader.LocalDownloader(self._work_dir, self.local_path))
 
 
-class AndroidDownloaderTestBase(mox.MoxTestBase):
+class AndroidDownloaderTestBase(unittest.TestCase):
   """Android Downloader Unittests."""
 
   def setUp(self):
-    mox.MoxTestBase.setUp(self)
     self._work_dir = tempfile.mkdtemp('downloader-test')
     self.branch = 'release'
     self.target = 'shamu-userdebug'
@@ -125,27 +117,23 @@ class AndroidDownloaderTestBase(mox.MoxTestBase):
   def tearDown(self):
     shutil.rmtree(self._work_dir, ignore_errors=True)
 
-  def testDownloadFromAndroidBuildServer(self):
+  @mock.patch('downloader.Downloader._DownloadArtifactsSerially')
+  @mock.patch('downloader.Downloader._DownloadArtifactsInBackground')
+  def testDownloadFromAndroidBuildServer(self, bg_mock, serial_mock):
     """Basic test to check download from Android's build server works."""
     downloader_instance = downloader.AndroidBuildDownloader(
         self._work_dir, self.branch, self.build_id, self.target)
     factory = build_artifact.AndroidArtifactFactory(
         downloader_instance.GetBuildDir(), ['fastboot'],
         None, downloader_instance.GetBuild())
-    self.mox.StubOutWithMock(downloader.Downloader,
-                             '_DownloadArtifactsSerially')
-    self.mox.StubOutWithMock(downloader.Downloader,
-                             '_DownloadArtifactsInBackground')
 
-    downloader.Downloader._DownloadArtifactsSerially(
-        [mox.IsA(build_artifact.Artifact)], no_wait=True)
-    self.mox.ReplayAll()
     downloader_instance.Download(factory)
     # Sanity check the timestamp file exists.
     self.assertTrue(os.path.exists(
         os.path.join(self._work_dir, self.branch, self.target, self.build_id,
                      downloader.Downloader._TIMESTAMP_FILENAME)))
-    self.mox.VerifyAll()
+    serial_mock.assert_called()
+    bg_mock.assert_not_called()
 
 
 if __name__ == '__main__':
