@@ -182,8 +182,7 @@ class Autoupdate(build_util.BuildObject):
 
     Returns:
       A named tuple containing attributes of the update requests as the
-      following fields: 'forced_update_label', 'board',
-      'event_result' and 'event_type'.
+      following fields: 'board', 'event_result' and 'event_type'.
     """
     # Initialize an empty dictionary for event attributes to log.
     log_message = {}
@@ -226,12 +225,9 @@ class Autoupdate(build_util.BuildObject):
 
     UpdateRequestAttrs = collections.namedtuple(
         'UpdateRequestAttrs',
-        ('forced_update_label', 'client_version', 'board', 'event_result',
-         'event_type'))
+        ('client_version', 'board', 'event_result', 'event_type'))
 
-    return UpdateRequestAttrs(
-        curr_host_info.attrs.pop('forced_update_label', None),
-        client_version, board, event_result, event_type)
+    return UpdateRequestAttrs(client_version, board, event_result, event_type)
 
   def GetDevserverUrl(self):
     """Returns the devserver url base."""
@@ -371,12 +367,6 @@ class Autoupdate(build_util.BuildObject):
       nebraska_obj = nebraska.Nebraska()
       return nebraska_obj.GetResponseToRequest(request, no_update=True)
 
-    if request_attrs.forced_update_label:
-      if label:
-        _Log('Label: %s set but being overwritten to %s by request', label,
-             request_attrs.forced_update_label)
-      label = request_attrs.forced_update_label
-
     _Log('Update Check Received.')
 
     try:
@@ -414,9 +404,3 @@ class Autoupdate(build_util.BuildObject):
 
     # If no events were logged for this IP, return an empty log.
     return json.dumps([])
-
-  def HandleSetUpdatePing(self, ip, label):
-    """Sets forced_update_label for a given host."""
-    assert ip, 'No ip provided.'
-    assert label, 'No label provided.'
-    self.host_infos.GetInitHostInfo(ip).attrs['forced_update_label'] = label

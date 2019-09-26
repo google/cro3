@@ -65,7 +65,6 @@ LIST_IMAGE_DIR = 'list_image_dir'
 
 # API rpcs and constants.
 API_HOST_INFO = 'api/hostinfo'
-API_SET_NEXT_UPDATE = 'api/setnextupdate'
 API_SET_UPDATE_REQUEST = 'new_update-test/the-new-update'
 API_TEST_IP_ADDR = '127.0.0.1'
 
@@ -324,36 +323,11 @@ class DevserverBasicTests(AutoStartDevserverTestBase):
   def testHandleUpdateV3(self):
     self.VerifyHandleUpdate(label=LABEL)
 
-  def testApiBadSetNextUpdateRequest(self):
-    """Tests sending a bad setnextupdate request."""
-    # Send bad request and ensure it fails...
-    self.assertRaises(urllib2.URLError,
-                      self._MakeRPC,
-                      '/'.join([API_SET_NEXT_UPDATE, API_TEST_IP_ADDR]))
-
-  def testApiBadSetNextUpdateURL(self):
-    """Tests contacting a bad setnextupdate url."""
-    # Send bad request and ensure it fails...
-    self.assertRaises(urllib2.URLError,
-                      self._MakeRPC, API_SET_NEXT_UPDATE)
-
   def testApiBadHostInfoURL(self):
     """Tests contacting a bad hostinfo url."""
     # Host info should be invalid without a specified address.
     self.assertRaises(urllib2.URLError,
                       self._MakeRPC, API_HOST_INFO)
-
-  def testApiHostInfoAndSetNextUpdate(self):
-    """Tests using the setnextupdate and hostinfo api commands."""
-    # Send setnextupdate command.
-    self._MakeRPC('/'.join([API_SET_NEXT_UPDATE, API_TEST_IP_ADDR]),
-                  data=API_SET_UPDATE_REQUEST)
-
-    # Send hostinfo command and verify the setnextupdate worked.
-    response = self._MakeRPC('/'.join([API_HOST_INFO, API_TEST_IP_ADDR]))
-
-    self.assertEqual(
-        json.loads(response)['forced_update_label'], API_SET_UPDATE_REQUEST)
 
   def testXBuddyLocalAlias(self):
     """Extensive local image xbuddy unittest.

@@ -95,51 +95,6 @@ class AutoupdateTest(mox.MoxTestBase):
     self.assertEqual(
         json.loads(au_mock.HandleHostInfoPing(test_ip)), self.test_dict)
 
-  def testHandleSetUpdatePing(self):
-    au_mock = self._DummyAutoupdateConstructor()
-    test_ip = '1.2.3.4'
-    test_label = 'test/old-update'
-    self.assertRaises(
-        AssertionError, au_mock.HandleSetUpdatePing, test_ip, None)
-    self.assertRaises(
-        AssertionError, au_mock.HandleSetUpdatePing, None, test_label)
-    self.assertRaises(
-        AssertionError, au_mock.HandleSetUpdatePing, None, None)
-
-    au_mock.HandleSetUpdatePing(test_ip, test_label)
-    self.assertEqual(
-        au_mock.host_infos.GetHostInfo(test_ip).attrs['forced_update_label'],
-        test_label)
-
-  def testHandleUpdatePingWithSetUpdate(self):
-    """If update is set, it should use the update found in that directory."""
-    au_mock = self._DummyAutoupdateConstructor()
-    self.mox.StubOutWithMock(autoupdate.Autoupdate, 'GetPathToPayload')
-    self.mox.StubOutWithMock(nebraska.Nebraska, 'GetResponseToRequest')
-
-    test_label = 'new_update-test/the-new-update'
-    new_image_dir = os.path.join(self.static_image_dir, test_label)
-
-    # Generate a fake payload.
-    common_util.MkDirP(new_image_dir)
-    update_gz = os.path.join(new_image_dir, constants.UPDATE_FILE)
-    with open(update_gz, 'w') as fh:
-      fh.write('')
-
-    nebraska.Nebraska.GetResponseToRequest(
-        mox.IgnoreArg(), critical_update=False).AndReturn(self.payload)
-    au_mock.GetPathToPayload(test_label, self.test_board)
-
-    self.mox.ReplayAll()
-    au_mock.HandleSetUpdatePing('127.0.0.1', test_label)
-    self.assertEqual(
-        au_mock.host_infos.GetHostInfo('127.0.0.1').
-        attrs['forced_update_label'],
-        test_label)
-    self.assertEqual(au_mock.HandleUpdatePing(self.test_data), self.payload)
-    self.assertFalse(
-        'forced_update_label' in
-        au_mock.host_infos.GetHostInfo('127.0.0.1').attrs)
 
 if __name__ == '__main__':
   unittest.main()

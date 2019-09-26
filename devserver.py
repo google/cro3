@@ -552,8 +552,6 @@ class ApiRoot(object):
         last_event_type (int):        last update event type received
         last_event_status (int):      last update event status received
         last_known_version (string):  last known version reported in update ping
-        forced_update_label (string): update label to force next update ping to
-                                      use, set by setnextupdate
       See the OmahaEvent class in update_engine/omaha_request_action.h for
       event type and status code definitions. If the ip does not exist an empty
       string is returned.
@@ -579,23 +577,6 @@ class ApiRoot(object):
       http://myhost/api/hostlog?ip=192.168.1.5
     """
     return updater.HandleHostLogPing(ip)
-
-  @cherrypy.expose
-  def setnextupdate(self, ip):
-    """Allows the response to the next update ping from a host to be set.
-
-    Takes the IP of the host and an update label as normally provided to the
-    /update command.
-    """
-    body_length = int(cherrypy.request.headers['Content-Length'])
-    label = cherrypy.request.rfile.read(body_length)
-
-    if label:
-      label = label.strip()
-      if label:
-        return updater.HandleSetUpdatePing(ip, label)
-    raise common_util.DevServerHTTPError(httplib.BAD_REQUEST,
-                                         'No label provided.')
 
   @cherrypy.expose
   def fileinfo(self, *args):
