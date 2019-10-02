@@ -9,7 +9,6 @@
 from __future__ import print_function
 
 # pylint: disable=cros-logging-import
-import httplib
 import logging
 import os
 import shutil
@@ -18,6 +17,8 @@ import unittest
 
 from xml.etree import ElementTree
 import mock
+
+from six.moves import http_client
 
 import nebraska
 
@@ -189,7 +190,8 @@ class NebraskaHandlerTest(NebraskaUnitTest):
     nebraska_handler.do_POST()
 
     nebraska_handler.send_error.assert_called_once_with(
-        httplib.BAD_REQUEST, 'The requested path "invalid-path" was not found!')
+        http_client.BAD_REQUEST,
+        'The requested path "invalid-path" was not found!')
 
   def testDoPostInvalidRequest(self):
     """Test do_POST invalid request."""
@@ -203,7 +205,7 @@ class NebraskaHandlerTest(NebraskaUnitTest):
 
         self.assertEqual(traceback_mock.format_exc.call_count, 2)
         nebraska_handler.send_error.assert_called_once_with(
-            httplib.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
+            http_client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
 
   def testDoPostInvalidResponse(self):
     """Tests do_POST invalid response handling."""
@@ -218,7 +220,7 @@ class NebraskaHandlerTest(NebraskaUnitTest):
 
         self.assertEqual(traceback_mock.format_exc.call_count, 2)
         nebraska_handler.send_error.assert_called_once_with(
-            httplib.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
+            http_client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
 
   def testDoGetSuccess(self):
     """Tests do_GET success."""
@@ -235,7 +237,7 @@ class NebraskaHandlerTest(NebraskaUnitTest):
     nebraska_handler.path = 'http://test.com/invalid-path'
 
     nebraska_handler.do_GET()
-    nebraska_handler.send_error(httplib.BAD_REQUEST, mock.ANY)
+    nebraska_handler.send_error(http_client.BAD_REQUEST, mock.ANY)
 
 class NebraskaServerTest(NebraskaUnitTest):
   """Test NebraskaServer."""

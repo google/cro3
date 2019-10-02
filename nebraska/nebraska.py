@@ -13,7 +13,6 @@ import argparse
 import base64
 import copy
 import errno
-import httplib
 import json
 import logging
 import os
@@ -22,12 +21,14 @@ import signal
 import sys
 import threading
 import traceback
-import urlparse
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from datetime import datetime, time
 from xml.dom import minidom
 from xml.etree import ElementTree
+
+from six.moves import http_client
+from six.moves import urllib
 
 
 class NebraskaError(Exception):
@@ -166,7 +167,7 @@ class Request(object):
             'All apps should have "{}" attribute.'.format(attribute))
 
       # Filter out the None elements into a set.
-      unique_attrs = set(filter(None, all_attrs))
+      unique_attrs = set(x for x in all_attrs if x is not None)
       if len(unique_attrs) == 0:
         raise NebraskaErrorInvalidRequest('"{}" attribute should appear in at '
                                           'least one app.'.format(attribute))
@@ -367,7 +368,7 @@ class Response(object):
     def __init__(self, app_request, properties):
       """Initialize an AppResponse.
 
-      Attributes:
+      Args:
         app_request: AppRequest representing a client request.
         properties: An instance of NebraskaProperties.
       """
@@ -476,15 +477,14 @@ class AppIndex(object):
   since we can have multiple payloads for a given app (delta/full payloads). The
   index is built by scanning a given directory for json files that describe the
   available payloads.
+
+  Attributes:
+    _directory: Directory containing metdata and payloads, can be None.
+    _index: A list of AppData describing payloads.
   """
 
   def __init__(self, directory):
-    """Initializes an AppIndex instance.
-
-    Attributes:
-      directory: Directory containing metdata and payloads, can be None.
-      index: A list of AppData describing payloads.
-    """
+    """Initializes an AppIndex instance."""
     self._directory = directory
     self._index = []
 
@@ -575,8 +575,20 @@ class AppIndex(object):
     Data about an available app that can be either installed or upgraded
     to. This information is compiled into XML format and returned to the client
     in an app tag in the server's response to an update or install request.
-    """
 
+    Attributes:
+      appid: appid of the requested app.
+      name: Filename of requested app on the mock Lorry server.
+      is_delta: True iff the payload is a delta update.
+      size: Size of the payload.
+      metadata_signature: Metadata signature.
+      metadata_size: Metadata size.
+      sha256_hex: SHA256 hash of the payload encoded in hexadecimal.
+      target_version: ChromeOS version the payload is tied to.
+      source_version: Source version for delta updates.
+      public_key: The public key for signature verification. It should be in
+                  base64 format.
+    """
     APPID_KEY = 'appid'
     NAME_KEY = 'name'
     IS_DELTA_KEY = 'is_delta'
@@ -594,20 +606,6 @@ class AppIndex(object):
       Args:
         app_data: Dictionary containing attributes used to initialize AppData
             instance.
-
-      Attributes:
-        template: Defines the format of an app element in the XML response.
-        appid: appid of the requested app.
-        name: Filename of requested app on the mock Lorry server.
-        is_delta: True iff the payload is a delta update.
-        size: Size of the payload.
-        metadata_signature: Metadata signature.
-        metadata_size: Metadata size.
-        sha256_hex: SHA256 hash of the payload encoded in hexadecimal.
-        target_version: ChromeOS version the payload is tied to.
-        source_version: Source version for delta updates.
-        public_key: The public key for signature verification. It should be in
-            base64 format.
       """
       self.appid = app_data[self.APPID_KEY]
       self.name = app_data[self.NAME_KEY]
@@ -728,6 +726,7 @@ class Nebraska(object):
     """Returns the request logs in JSON format."""
     return json.dumps(self._request_log)
 
+
 class NebraskaServer(object):
   """A simple Omaha server instance.
 
@@ -762,7 +761,7 @@ class NebraskaServer(object):
   class NebraskaHandler(BaseHTTPRequestHandler):
     """HTTP request handler for Omaha requests."""
 
-    def _SendResponse(self, content_type, response, code=httplib.OK):
+    def _SendResponse(self, content_type, response, code=http_client.OK):
       """Sends a given response back to the client.
 
       Args:
@@ -787,9 +786,9 @@ class NebraskaServer(object):
         - http://goo.gle/path/?key=value1&key=value2 ->
           ('path', {'key': ['value1', 'value2']})
       """
-      parsed_result = urlparse.urlparse(url)
+      parsed_result = urllib.parse.urlparse(url)
       parsed_path = parsed_result.path.strip('/')
-      parsed_query = urlparse.parse_qs(parsed_result.query)
+      parsed_query = urllib.parse.parse_qs(parsed_result.query)
       return parsed_path, parsed_query
 
     def do_POST(self):
@@ -807,7 +806,7 @@ class NebraskaServer(object):
         request_len = int(self.headers.getheader('content-length'))
         request = self.rfile.read(request_len)
       except Exception as err:
-        self.send_error(httplib.BAD_REQUEST, 'Invalid request (header).')
+        self.send_error(http_client.BAD_REQUEST, 'Invalid request (header).')
         return
 
       parsed_path, parsed_query = self._ParseURL(self.path)
@@ -824,11 +823,12 @@ class NebraskaServer(object):
         except Exception as err:
           logging.error('Failed to handle request (%s)', str(err))
           logging.error(traceback.format_exc())
-          self.send_error(httplib.INTERNAL_SERVER_ERROR, traceback.format_exc())
+          self.send_error(http_client.INTERNAL_SERVER_ERROR,
+                          traceback.format_exc())
 
       else:
         logging.error('The requested path "%s" was not found!', parsed_path)
-        self.send_error(httplib.BAD_REQUEST,
+        self.send_error(http_client.BAD_REQUEST,
                         'The requested path "%s" was not found!' % parsed_path)
 
     def do_GET(self):
@@ -849,10 +849,11 @@ class NebraskaServer(object):
         except Exception as err:
           logging.error('Failed to get request logs (%s)', str(err))
           logging.error(traceback.format_exc())
-          self.send_error(httplib.INTERNAL_SERVER_ERROR, traceback.format_exc())
+          self.send_error(http_client.INTERNAL_SERVER_ERROR,
+                          traceback.format_exc())
       else:
         logging.error('The requested path "%s" was not found!', parsed_path)
-        self.send_error(httplib.BAD_REQUEST,
+        self.send_error(http_client.BAD_REQUEST,
                         'The requested path "%s" was not found!' % parsed_path)
 
   def Start(self):
