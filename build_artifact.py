@@ -623,7 +623,7 @@ def _AddCrOSArtifact(tag, base, name, *fixed_args, **fixed_kwargs):
 
 
 _AddCrOSArtifact(artifact_info.FULL_PAYLOAD, AUTestPayload,
-                 '.*full.*bin(\.json)?\\Z', is_regex_name=True)
+                 r'.*full.*bin(\.json)?\Z', is_regex_name=True)
 
 
 class DeltaPayloadNtoN(DeltaPayloadBase):
