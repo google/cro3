@@ -12,9 +12,10 @@ import json
 import os
 import threading
 import time
-import urlparse
 
-import cherrypy
+from six.moves import urllib
+
+import cherrypy  # pylint: disable=import-error
 
 import build_util
 import common_util
@@ -43,7 +44,7 @@ class AutoupdateError(Exception):
 
 def _ChangeUrlPort(url, new_port):
   """Return the URL passed in with a different port"""
-  scheme, netloc, path, query, fragment = urlparse.urlsplit(url)
+  scheme, netloc, path, query, fragment = urllib.parse.urlsplit(url)
   host_port = netloc.split(':')
 
   if len(host_port) == 1:
@@ -54,11 +55,12 @@ def _ChangeUrlPort(url, new_port):
   print(host_port)
   netloc = '%s:%s' % tuple(host_port)
 
-  return urlparse.urlunsplit((scheme, netloc, path, query, fragment))
+  # pylint: disable=too-many-function-args
+  return urllib.parse.urlunsplit((scheme, netloc, path, query, fragment))
 
 def _NonePathJoin(*args):
   """os.path.join that filters None's from the argument list."""
-  return os.path.join(*filter(None, args))
+  return os.path.join(*[x for x in args if x is not None])
 
 
 class HostInfo(object):

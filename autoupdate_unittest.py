@@ -9,21 +9,17 @@
 from __future__ import print_function
 
 import json
-import os
 import shutil
 import socket
 import tempfile
 import unittest
 
-import cherrypy
-import mox
+import cherrypy  # pylint: disable=import-error
+import mock
 
 import autoupdate
 import common_util
-import devserver_constants as constants
 import xbuddy
-
-from nebraska import nebraska
 
 
 _TEST_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
@@ -34,12 +30,10 @@ _TEST_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
   </app>
 </request>"""
 
-#pylint: disable=W0212
-class AutoupdateTest(mox.MoxTestBase):
+class AutoupdateTest(unittest.TestCase):
   """Tests for the autoupdate.Autoupdate class."""
 
   def setUp(self):
-    mox.MoxTestBase.setUp(self)
     self.port = 8080
     self.test_board = 'test-board'
     self.build_root = tempfile.mkdtemp('autoupdate_build_root')
@@ -59,7 +53,7 @@ class AutoupdateTest(mox.MoxTestBase):
     common_util.MkDirP(self.static_image_dir)
     self._xbuddy = xbuddy.XBuddy(False,
                                  static_dir=self.static_image_dir)
-    self.mox.StubOutWithMock(xbuddy.XBuddy, '_GetArtifact')
+    mock.patch.object(xbuddy.XBuddy, '_GetArtifact')
 
   def tearDown(self):
     shutil.rmtree(self.build_root)
@@ -73,6 +67,7 @@ class AutoupdateTest(mox.MoxTestBase):
     return dummy
 
   def testChangeUrlPort(self):
+    # pylint: disable=protected-access
     r = autoupdate._ChangeUrlPort('http://fuzzy:8080/static', 8085)
     self.assertEqual(r, 'http://fuzzy:8085/static')
 
