@@ -1,4 +1,5 @@
-# Copyright (c) 2016 The Chromium OS Authors. All rights reserved.
+# -*- coding: utf-8 -*-
+# Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -22,24 +23,23 @@ from __future__ import print_function
 
 import datetime
 import glob
-import logging
+import logging  # pylint: disable=cros-logging-import
 import os
 import re
 
 import log_util
 
-# Module-local log function.
-def _Log(message, *args):
-  return log_util.LogWithTag('CROS_UPDATE_PROGRESS', message, *args)
-
 # only import setup_chromite before chromite import.
-import setup_chromite # pylint: disable=unused-import
+import setup_chromite  # pylint: disable=unused-import
 try:
   from chromite.lib import osutils
 except ImportError as e:
   _Log('chromite cannot be imported: %r', e)
   osutils = None
 
+# Module-local log function.
+def _Log(message, *args):
+  return log_util.LogWithTag('CROS_UPDATE_PROGRESS', message, *args)
 
 # Path for status tracking log.
 _TRACK_LOG_FILE_PATH = '/tmp/auto-update/tracking_log/%s_%s.log'

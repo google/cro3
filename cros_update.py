@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -24,17 +25,18 @@ It includes two classes:
 from __future__ import print_function
 
 import argparse
-import cros_update_logging
-import cros_update_progress
-import logging # pylint: disable=cros-logging-import
 import os
 import re
 import sys
 import time
 import traceback
+import logging  # pylint: disable=cros-logging-import
+
+import cros_update_logging
+import cros_update_progress
 
 # only import setup_chromite before chromite import.
-import setup_chromite # pylint: disable=unused-import
+import setup_chromite  # pylint: disable=unused-import
 try:
   from chromite.lib import auto_updater
   from chromite.lib import cros_build_lib
@@ -249,7 +251,7 @@ class CrOSUpdateTrigger(object):
     key_re = re.compile(r'^KEYVAL: ([^\d\W]\w*)=(.*)$')
     matches = [key_re.match(l) for l in results.output.splitlines()]
     keyvals = {m.group(1): m.group(2) for m in matches if m}
-    logging.info("DUT returned keyvals: %s", keyvals)
+    logging.info('DUT returned keyvals: %s', keyvals)
 
     # If there was an SSH error, check the keyvals to see if it actually
     # completed and suppress the error if so.
