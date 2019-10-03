@@ -14,7 +14,7 @@ import subprocess
 import threading
 import time
 
-import cherrypy
+import cherrypy  # pylint: disable=import-error
 
 import cros_update_progress
 import log_util

@@ -26,7 +26,6 @@ install:
 		cros_update_logging.py \
 		cros_update_progress.py \
 		devserver_constants.py \
-		devserver_exceptions.py \
 		downloader.py \
 		health_checker.py \
 		log_util.py \
