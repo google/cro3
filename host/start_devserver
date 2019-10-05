@@ -1,16 +1,7 @@
-#!/bin/bash
-
+#!/bin/sh
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
-# Start the Dev Server after making sure we are running under a chroot.
-. /usr/lib/crosutils/common.sh || exit 1
-
-# Script must be run inside the chroot if not in 'always serve' mode.
-if [[ "$1" != "--archive_dir" ]]; then
-  restart_in_chroot_if_needed "$@"
-fi
 
 export DEFAULT_INSTALL_MASK
 
