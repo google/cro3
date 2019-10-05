@@ -7,7 +7,15 @@
 # Simple wrapper script to build a cros_workon package incrementally.
 # You must already be cros_workon'ing the package in question.
 
-. /usr/lib/crosutils/common.sh || exit 1
+. /usr/share/misc/shflags || exit 1
+
+GCLIENT_ROOT="/mnt/host/source"
+DEFAULT_BOARD="$(cat "${GCLIENT_ROOT}"/src/scripts/.default_board 2>/dev/null)"
+
+info() { echo "INFO: $*"; }
+warn() { echo "WARN: $*"; }
+error() { echo "ERROR: $*"; }
+die() { error "$@"; exit 1; }
 
 DEFINE_string board "${DEFAULT_BOARD}" \
     "Board for which to build the package."
@@ -30,8 +38,11 @@ if [ $# -lt 1 ]; then
   exit 1
 fi
 
+if [ -z "${FLAGS_board}" ]; then
+  die "--board is required"
+fi
+
 if [ -n "${FLAGS_board}" ]; then
-  BOARD_DIR=/build/"${FLAGS_board}"
   EBUILDCMD=ebuild-"${FLAGS_board}"
   EMERGECMD=emerge-"${FLAGS_board}"
   EQUERYCMD=equery-"${FLAGS_board}"
@@ -66,8 +77,7 @@ if [ "${FLAGS_scrub}" = "${FLAGS_TRUE}" ]; then
   if egrep -qi "^y(es)?$" <(echo -n "${resp}"); then
     eval $(${EBUILDCMD} $(${EQUERYCMD} which ${workon_name}) info)
     srcdir=$(readlink -m ${CROS_WORKON_SRCDIR})
-    trunkdir=$(readlink -m ${CHROOT_TRUNK_DIR})
-    project_path=${srcdir#${trunkdir}/}
+    project_path=${srcdir#${GCLIENT_ROOT}/}
     if ! (cd "${GCLIENT_ROOT}/${project_path}" && git clean -dxf); then
       die "Could not scrub source directory"
     fi
