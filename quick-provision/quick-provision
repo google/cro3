@@ -11,26 +11,26 @@
 . /usr/sbin/write_gpt.sh || exit 1
 
 # Helpful constants.
-LOGFILE_PATH="/var/log/quick-provision.log"
-KERN_IMAGE="full_dev_part_KERN.bin.gz"
-ROOT_IMAGE="full_dev_part_ROOT.bin.gz"
-STATEFUL_TGZ="stateful.tgz"
-STATEFUL_DIR="/mnt/stateful_partition"
-UPDATE_STATE_FILE=".update_available"
+readonly LOGFILE_PATH="/var/log/quick-provision.log"
+readonly KERN_IMAGE="full_dev_part_KERN.bin.gz"
+readonly ROOT_IMAGE="full_dev_part_ROOT.bin.gz"
+readonly STATEFUL_TGZ="stateful.tgz"
+readonly STATEFUL_DIR="/mnt/stateful_partition"
+readonly UPDATE_STATE_FILE=".update_available"
 
 # Persistent file to log the hashes of contents of files downloaded from
 # the devserver to help debug crbug.com/788473.
-HASHES_LOG="/tmp/hashes"
+readonly HASHES_LOG="/tmp/hashes"
 
 # Lock file to ensure quick provisioning script isn't run concurrently
 # by SSH retries.
-LOCKFILE="/var/lock/quick-provision.lock"
+readonly LOCKFILE="/var/lock/quick-provision.lock"
 
 # File to indicate that quick provision has already successfully completed.
-COMPLETED_FILE="/tmp/quick-provision-complete"
+readonly COMPLETED_FILE="/tmp/quick-provision-complete"
 
-PROGRAM="$(basename $0)"
-FLAGS_HELP="Usage:
+readonly PROGRAM="$(basename $0)"
+readonly FLAGS_HELP="Usage:
   ${PROGRAM} [flags] <build> <url>
 "
 
