@@ -7,7 +7,6 @@
 
 from __future__ import print_function
 
-import collections
 import json
 import os
 import threading
@@ -66,7 +65,7 @@ def _NonePathJoin(*args):
 class HostInfo(object):
   """Records information about an individual host.
 
-  Members:
+  Attributes:
     attrs: Static attributes (legacy)
     log: Complete log of recorded client entries
   """
@@ -94,7 +93,7 @@ class HostInfo(object):
 class HostInfoTable(object):
   """Records information about a set of hosts who engage in update activity.
 
-  Members:
+  Attributes:
     table: Table of information on hosts.
   """
 
@@ -176,8 +175,8 @@ class Autoupdate(build_util.BuildObject):
     _Log('Did not found any update payload for label %s.', label)
     return None
 
-  def _ProcessUpdateComponents(self, request):
-    """Processes the components of an update request.
+  def _LogRequest(self, request):
+    """Logs the incoming request in the hostlog.
 
     Args:
       request: A nebraska.Request object representing the update request.
@@ -186,50 +185,26 @@ class Autoupdate(build_util.BuildObject):
       A named tuple containing attributes of the update requests as the
       following fields: 'board', 'event_result' and 'event_type'.
     """
-    # Initialize an empty dictionary for event attributes to log.
-    log_message = {}
+    if not self.host_log:
+      return
+
+    # Add attributes to log message. Some of these values might be None.
+    log_message = {
+        'version': request.version,
+        'track': request.track,
+        'board': request.board or self.GetDefaultBoardID(),
+        'event_result': request.app_requests[0].event_result,
+        'event_type': request.app_requests[0].event_type,
+        'previous_version': request.app_requests[0].previous_version,
+    }
+    if log_message['previous_version'] is None:
+      del log_message['previous_version']
 
     # Determine request IP, strip any IPv6 data for simplicity.
     client_ip = cherrypy.request.remote.ip.split(':')[-1]
     # Obtain (or init) info object for this client.
     curr_host_info = self.host_infos.GetInitHostInfo(client_ip)
-
-    client_version = 'ForcedUpdate'
-    board = None
-    event_result = None
-    event_type = None
-    if request.request_type != nebraska.Request.RequestType.EVENT:
-      client_version = request.version
-      channel = request.track
-      board = request.board or self.GetDefaultBoardID()
-      # Add attributes to log message
-      log_message['version'] = client_version
-      log_message['track'] = channel
-      log_message['board'] = board
-      curr_host_info.attrs['last_known_version'] = client_version
-
-    else:
-      event_result = request.app_requests[0].event_result
-      event_type = request.app_requests[0].event_type
-      client_previous_version = request.app_requests[0].previous_version
-      # Store attributes to legacy host info structure
-      curr_host_info.attrs['last_event_status'] = event_result
-      curr_host_info.attrs['last_event_type'] = event_type
-      # Add attributes to log message
-      log_message['event_result'] = event_result
-      log_message['event_type'] = event_type
-      if client_previous_version is not None:
-        log_message['previous_version'] = client_previous_version
-
-    # Log host event, if so instructed.
-    if self.host_log:
-      curr_host_info.AddLogEntry(log_message)
-
-    UpdateRequestAttrs = collections.namedtuple(
-        'UpdateRequestAttrs',
-        ('client_version', 'board', 'event_result', 'event_type'))
-
-    return UpdateRequestAttrs(client_version, board, event_result, event_type)
+    curr_host_info.AddLogEntry(log_message)
 
   def GetDevserverUrl(self):
     """Returns the devserver url base."""
@@ -341,12 +316,12 @@ class Autoupdate(build_util.BuildObject):
 
     # Process attributes of the update check.
     request = nebraska.Request(data)
-    request_attrs = self._ProcessUpdateComponents(request)
+    self._LogRequest(request)
 
     if request.request_type == nebraska.Request.RequestType.EVENT:
-      if ((request_attrs.event_type ==
+      if ((request.event_type ==
            nebraska.Request.EVENT_TYPE_UPDATE_DOWNLOAD_STARTED) and
-          request_attrs.event_result == nebraska.Request.EVENT_RESULT_SUCCESS):
+          request.event_result == nebraska.Request.EVENT_RESULT_SUCCESS):
         with self._update_count_lock:
           if self.max_updates == 0:
             _Log('Received too many download_started notifications. This '
@@ -372,7 +347,7 @@ class Autoupdate(build_util.BuildObject):
     _Log('Update Check Received.')
 
     try:
-      path_to_payload = self.GetPathToPayload(label, request_attrs.board)
+      path_to_payload = self.GetPathToPayload(label, request.board)
       base_url = _NonePathJoin(static_urlbase, path_to_payload)
       local_payload_dir = _NonePathJoin(self.static_dir, path_to_payload)
     except AutoupdateError as e:

@@ -551,10 +551,13 @@ class ApiRoot(object):
 
     Returns:
       A JSON dictionary containing all or some of the following fields:
-        last_event_type (int):        last update event type received
-        last_event_status (int):      last update event status received
-        last_known_version (string):  last known version reported in update ping
-        timestamp:                    The timestamp the event was received.
+        version: The Chromium OS version the device is running.
+        track: The channel the device is running on.
+        board: The device's board.
+        event_result: The event result of Omaha request.
+        event_type: The event type of Omaha request.
+        previous_version: The Chromium OS version we updated and rebooted from.
+        timestamp: The timestamp the event was received.
       See the OmahaEvent class in update_engine/omaha_request_action.h for
       event type and status code definitions. If the ip does not exist an empty
       string is returned.
