@@ -11,8 +11,7 @@ if [ ! -e /etc/debian_chroot ]; then
   echo "Script needs to be run from within the chroot!" && exit 1
 fi
 
-SCRIPT_ROOT="/usr/lib/crosutils"
-. "${SCRIPT_ROOT}/common.sh" || exit 1
+. "/mnt/host/source/src/scripts/common.sh" || exit 1
 
 export DEFAULT_INSTALL_MASK
 /usr/lib/devserver/strip_package.py "$@"
