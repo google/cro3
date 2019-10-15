@@ -22,11 +22,11 @@ import sys
 import threading
 import traceback
 
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from datetime import datetime, time
 from xml.dom import minidom
 from xml.etree import ElementTree
 
+from six.moves import BaseHTTPServer
 from six.moves import http_client
 from six.moves import urllib
 
@@ -168,7 +168,7 @@ class Request(object):
 
       # Filter out the None elements into a set.
       unique_attrs = set(x for x in all_attrs if x is not None)
-      if len(unique_attrs) == 0:
+      if not unique_attrs:
         raise NebraskaErrorInvalidRequest('"{}" attribute should appear in at '
                                           'least one app.'.format(attribute))
       if len(unique_attrs) > 1:
@@ -627,9 +627,8 @@ class AppIndex(object):
       # Omaha response contains the hex value of that hash. So here convert the
       # value from base64 to hex so nebraska can send the correct version to the
       # client. See b/131762584.
-      self.sha256_hex = base64.b64decode(
-          app_data[self.SHA256_HEX_KEY]).encode('hex')
       self.sha256 = app_data[self.SHA256_HEX_KEY]
+      self.sha256_hex = base64.b16encode(base64.b64decode(self.sha256))
       self.url = None # Determined per-request.
 
     def __str__(self):
@@ -761,7 +760,7 @@ class NebraskaServer(object):
     self._server_thread = None
     self._created_runtime_root = False
 
-  class NebraskaHandler(BaseHTTPRequestHandler):
+  class NebraskaHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     """HTTP request handler for Omaha requests."""
 
     def _SendResponse(self, content_type, response, code=http_client.OK):
@@ -861,8 +860,8 @@ class NebraskaServer(object):
 
   def Start(self):
     """Starts the nebraska server."""
-    self._httpd = HTTPServer(('', self.GetPort()),
-                             NebraskaServer.NebraskaHandler)
+    self._httpd = BaseHTTPServer.HTTPServer(('', self.GetPort()),
+                                            NebraskaServer.NebraskaHandler)
     self._port = self._httpd.server_port
 
     if self._runtime_root:

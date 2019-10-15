@@ -18,6 +18,7 @@ import unittest
 from xml.etree import ElementTree
 import mock
 
+from six.moves import builtins
 from six.moves import http_client
 
 import nebraska
@@ -148,8 +149,9 @@ class NebraskaHandlerTest(NebraskaUnitTest):
     nebraska_handler.path = 'http://test.com/update'
     test_response = 'foobar'
 
-    with mock.patch('nebraska.Nebraska.GetResponseToRequest') as response_mock:
-      with mock.patch('nebraska.Request') as _:
+    with mock.patch.object(nebraska.Nebraska,
+                           'GetResponseToRequest') as response_mock:
+      with mock.patch.object(nebraska, 'Request'):
         response_mock.return_value = test_response
         nebraska_handler.do_POST()
 
@@ -163,8 +165,9 @@ class NebraskaHandlerTest(NebraskaUnitTest):
     nebraska_handler = MockNebraskaHandler()
     nebraska_handler.path = 'http://test.com/update/?critical_update=True'
 
-    with mock.patch('nebraska.Nebraska.GetResponseToRequest') as response_mock:
-      with mock.patch('nebraska.Request') as _:
+    with mock.patch.object(nebraska.Nebraska,
+                           'GetResponseToRequest') as response_mock:
+      with mock.patch.object(nebraska, 'Request'):
         nebraska_handler.do_POST()
 
         response_mock.assert_called_once_with(mock.ANY, critical_update=True,
@@ -175,8 +178,9 @@ class NebraskaHandlerTest(NebraskaUnitTest):
     nebraska_handler = MockNebraskaHandler()
     nebraska_handler.path = 'http://test.com/update/?no_update=True'
 
-    with mock.patch('nebraska.Nebraska.GetResponseToRequest') as response_mock:
-      with mock.patch('nebraska.Request') as _:
+    with mock.patch.object(nebraska.Nebraska,
+                           'GetResponseToRequest') as response_mock:
+      with mock.patch.object(nebraska, 'Request'):
         nebraska_handler.do_POST()
 
         response_mock.assert_called_once_with(mock.ANY, critical_update=False,
@@ -198,8 +202,8 @@ class NebraskaHandlerTest(NebraskaUnitTest):
     nebraska_handler = MockNebraskaHandler()
     nebraska_handler.path = 'http://test.com/update'
 
-    with mock.patch('nebraska.traceback') as traceback_mock:
-      with mock.patch('nebraska.Request.ParseRequest') as parse_mock:
+    with mock.patch.object(nebraska, 'traceback') as traceback_mock:
+      with mock.patch.object(nebraska.Request, 'ParseRequest') as parse_mock:
         parse_mock.side_effect = nebraska.NebraskaErrorInvalidRequest
         nebraska_handler.do_POST()
 
@@ -212,8 +216,8 @@ class NebraskaHandlerTest(NebraskaUnitTest):
     nebraska_handler = MockNebraskaHandler()
     nebraska_handler.path = 'http://test.com/update'
 
-    with mock.patch('nebraska.traceback') as traceback_mock:
-      with mock.patch('nebraska.Response') as response_mock:
+    with mock.patch.object(nebraska, 'traceback') as traceback_mock:
+      with mock.patch.object(nebraska, 'Response') as response_mock:
         response_instance = response_mock.return_value
         response_instance.GetXMLString.side_effect = Exception
         nebraska_handler.do_POST()
@@ -247,17 +251,18 @@ class NebraskaServerTest(NebraskaUnitTest):
     nebraska_instance = nebraska.Nebraska(_PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS)
     server = nebraska.NebraskaServer(nebraska_instance, port=_NEBRASKA_PORT)
 
-    with mock.patch('nebraska.HTTPServer') as server_mock:
-      with mock.patch('nebraska.threading.Thread') as thread_mock:
+    with mock.patch.object(nebraska.BaseHTTPServer,
+                           'HTTPServer') as server_mock:
+      with mock.patch.object(nebraska.threading, 'Thread') as thread_mock:
         server.Start()
 
         server_mock.assert_called_once_with(
             ('', _NEBRASKA_PORT), nebraska.NebraskaServer.NebraskaHandler)
 
         # pylint: disable=protected-access
-        thread_mock.assert_has_calls((
+        thread_mock.assert_has_calls([
             mock.call(target=server._httpd.serve_forever),
-            mock.call().start()))
+            mock.call().start()])
 
   def testStop(self):
     """Tests Stop."""
@@ -283,8 +288,8 @@ class NebraskaServerTest(NebraskaUnitTest):
     port_file = os.path.join(runtime_root, 'port')
     pid_file = os.path.join(runtime_root, 'pid')
 
-    with mock.patch('nebraska.HTTPServer') as _:
-      with mock.patch('nebraska.threading.Thread') as _:
+    with mock.patch.object(nebraska.BaseHTTPServer, 'HTTPServer'):
+      with mock.patch.object(nebraska.threading, 'Thread'):
         server.Start()
 
         # Make sure files are created and written with correct values.
@@ -406,8 +411,8 @@ class AppIndexTest(NebraskaUnitTest):
 
   def testScanEmpty(self):
     """Tests Scan on an empty directory."""
-    with mock.patch('nebraska.os.listdir') as listdir_mock:
-      with mock.patch('nebraska.open') as open_mock:
+    with mock.patch('os.listdir') as listdir_mock:
+      with mock.patch.object(builtins, 'open') as open_mock:
         listdir_mock.return_value = []
         app_index = nebraska.AppIndex(_INSTALL_DIR)
         app_index.Scan()
@@ -417,8 +422,8 @@ class AppIndexTest(NebraskaUnitTest):
 
   def testScanNoJson(self):
     """Tests Scan on a directory with no JSON files."""
-    with mock.patch('nebraska.os.listdir') as listdir_mock:
-      with mock.patch('nebraska.open') as open_mock:
+    with mock.patch('os.listdir') as listdir_mock:
+      with mock.patch.object(builtins, 'open') as open_mock:
         listdir_mock.return_value = ['foo.bin', 'bar.bin', 'json']
         app_index = nebraska.AppIndex(_INSTALL_DIR)
         app_index.Scan()
@@ -429,8 +434,8 @@ class AppIndexTest(NebraskaUnitTest):
   def testScanMultiple(self):
     """Tests Scan on a directory with multiple appids."""
     # Providing some mock properties and non-properties files.
-    with mock.patch('nebraska.os.listdir') as listdir_mock:
-      with mock.patch('nebraska.open') as open_mock:
+    with mock.patch('os.listdir') as listdir_mock:
+      with mock.patch.object(builtins, 'open') as open_mock:
         listdir_mock.return_value = [
             'foo_install.json',
             'foo_update.json',
@@ -461,8 +466,8 @@ class AppIndexTest(NebraskaUnitTest):
   def testScanInvalidJson(self):
     """Tests Scan with invalid JSON files."""
     # Providing some mock properties and non-properties files.
-    with mock.patch('nebraska.os.listdir') as listdir_mock:
-      with mock.patch('nebraska.open') as open_mock:
+    with mock.patch('os.listdir') as listdir_mock:
+      with mock.patch.object(builtins, 'open') as open_mock:
         listdir_mock.return_value = [
             'foo_install.json',
             'foo_update.json',
@@ -489,8 +494,8 @@ class AppIndexTest(NebraskaUnitTest):
   def testScanInvalidApp(self):
     """Tests Scan on JSON files lacking required keys."""
     # Providing some mock properties and non-properties files.
-    with mock.patch('nebraska.os.listdir') as listdir_mock:
-      with mock.patch('nebraska.open') as open_mock:
+    with mock.patch('os.listdir') as listdir_mock:
+      with mock.patch.object(builtins, 'open') as open_mock:
         listdir_mock.return_value = [
             'foo_install.json',
             'foo_update.json',
@@ -517,8 +522,8 @@ class AppIndexTest(NebraskaUnitTest):
   def testContains(self):
     """Tests Constains() correctly finds matching AppData."""
     # Providing some mock properties files.
-    with mock.patch('nebraska.os.listdir') as listdir_mock:
-      with mock.patch('nebraska.open') as open_mock:
+    with mock.patch('os.listdir') as listdir_mock:
+      with mock.patch.object(builtins, 'open') as open_mock:
         listdir_mock.return_value = [
             'foo.json',
         ]
@@ -546,8 +551,8 @@ class AppIndexTest(NebraskaUnitTest):
   def testContainsEmpty(self):
     """Tests Constains() correctly finds matching AppData with empty appid."""
     # Providing some mock properties files.
-    with mock.patch('nebraska.os.listdir') as listdir_mock:
-      with mock.patch('nebraska.open') as open_mock:
+    with mock.patch('os.listdir') as listdir_mock:
+      with mock.patch.object(builtins, 'open') as open_mock:
         listdir_mock.return_value = [
             'foo.json',
             'empty.json'
