@@ -445,6 +445,7 @@ class Response(object):
                     'MaxDaysToScatter': '14',
                     'MetadataSignatureRsa': self._app_data.metadata_signature,
                     'MetadataSize': str(self._app_data.metadata_size),
+                    'sha256': self._app_data.sha256,
                     'event': 'postinstall'})
         if self._critical_update:
           action.set('deadline', 'now')
@@ -584,6 +585,7 @@ class AppIndex(object):
       metadata_signature: Metadata signature.
       metadata_size: Metadata size.
       sha256_hex: SHA256 hash of the payload encoded in hexadecimal.
+      sha256: SHA256 hash of the payload encoded in base64 format.
       target_version: ChromeOS version the payload is tied to.
       source_version: Source version for delta updates.
       public_key: The public key for signature verification. It should be in
@@ -627,6 +629,7 @@ class AppIndex(object):
       # client. See b/131762584.
       self.sha256_hex = base64.b64decode(
           app_data[self.SHA256_HEX_KEY]).encode('hex')
+      self.sha256 = app_data[self.SHA256_HEX_KEY]
       self.url = None # Determined per-request.
 
     def __str__(self):

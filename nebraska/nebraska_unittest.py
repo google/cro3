@@ -1037,6 +1037,7 @@ class AppResponseTest(NebraskaUnitTest):
     self.assertTrue(manifest_tag is not None)
     self.assertTrue(package_tag is not None)
     self.assertTrue(action_tag is not None)
+    self.assertTrue(action_tag.attrib['sha256'] == match.sha256)
 
     self.assertTrue(compiled_response.attrib['status'] == 'ok')
     self.assertTrue(update_check_tag.attrib['status'] == 'ok')
