@@ -319,9 +319,10 @@ class Autoupdate(build_util.BuildObject):
     self._LogRequest(request)
 
     if request.request_type == nebraska.Request.RequestType.EVENT:
-      if ((request.event_type ==
-           nebraska.Request.EVENT_TYPE_UPDATE_DOWNLOAD_STARTED) and
-          request.event_result == nebraska.Request.EVENT_RESULT_SUCCESS):
+      if (request.app_requests[0].event_type ==
+          nebraska.Request.EVENT_TYPE_UPDATE_DOWNLOAD_STARTED and
+          request.app_requests[0].event_result ==
+          nebraska.Request.EVENT_RESULT_SUCCESS):
         with self._update_count_lock:
           if self.max_updates == 0:
             _Log('Received too many download_started notifications. This '
