@@ -24,7 +24,6 @@ It includes two classes:
 
 from __future__ import print_function
 
-import argparse
 import os
 import re
 import sys
@@ -35,18 +34,13 @@ import logging  # pylint: disable=cros-logging-import
 import cros_update_logging
 import cros_update_progress
 
-# only import setup_chromite before chromite import.
 import setup_chromite  # pylint: disable=unused-import
-try:
-  from chromite.lib import auto_updater
-  from chromite.lib import cros_build_lib
-  from chromite.lib import remote_access
-  from chromite.lib import timeout_util
-except ImportError as e:
-  logging.debug('chromite cannot be imported: %r', e)
-  auto_updater = None
-  remote_access = None
-  timeout_util = None
+from chromite.lib import auto_updater
+from chromite.lib import commandline
+from chromite.lib import cros_build_lib
+from chromite.lib import remote_access
+from chromite.lib import timeout_util
+
 
 # The build channel for recovering host's stateful partition
 STABLE_BUILD_CHANNEL = 'stable-channel'
@@ -68,68 +62,6 @@ QUICK_PROVISION_FAILURE_DELAY_SEC = 45
 # Setting logging level
 logConfig = cros_update_logging.loggingConfig()
 logConfig.ConfigureLogging()
-
-class CrOSAUParser(object):
-  """Custom command-line options parser for cros-update."""
-  def __init__(self):
-    self.args = sys.argv[1:]
-    self.parser = argparse.ArgumentParser(
-        usage='%(prog)s [options] [control-file]')
-    self.SetupOptions()
-    self.removed_args = []
-
-    # parse an empty list of arguments in order to set self.options
-    # to default values.
-    self.options = self.parser.parse_args(args=[])
-
-  def SetupOptions(self):
-    """Setup options to call cros-update command."""
-    self.parser.add_argument('-d', action='store', type=str,
-                             dest='host_name',
-                             help='host_name of a DUT')
-    self.parser.add_argument('-b', action='store', type=str,
-                             dest='build_name',
-                             help='build name to be auto-updated')
-    self.parser.add_argument('--static_dir', action='store', type=str,
-                             help='static directory of the devserver')
-    self.parser.add_argument('--force_update', action='store_true',
-                             default=False,
-                             help=('force an update even if the version '
-                                   'installed is the same'))
-    self.parser.add_argument('--full_update', action='store_true',
-                             default=False,
-                             help='force a rootfs update, skip stateful update')
-    self.parser.add_argument('--original_build', action='store', type=str,
-                             default='',
-                             help=('force stateful update with the same '
-                                   'version of previous rootfs partition'))
-    self.parser.add_argument('--payload_filename', action='store', type=str,
-                             default=None, help='A custom payload filename')
-    self.parser.add_argument('--clobber_stateful', action='store_true',
-                             default=False, help='Whether to clobber stateful')
-    self.parser.add_argument('--quick_provision', action='store_true',
-                             default=False,
-                             help='Whether to attempt quick provisioning path')
-    self.parser.add_argument('--devserver_url', action='store', type=str,
-                             default=None, help='Devserver URL base for RPCs')
-    self.parser.add_argument('--static_url', action='store', type=str,
-                             default=None,
-                             help='Devserver URL base for static files')
-
-  def ParseArgs(self):
-    """Parse and process command line arguments."""
-    # Positional arguments from the end of the command line will be included
-    # in the list of unknown_args.
-    self.options, unknown_args = self.parser.parse_known_args()
-    # Filter out none-positional arguments
-    while unknown_args and unknown_args[0][0] == '-':
-      self.removed_args.append(unknown_args.pop(0))
-      # Always assume the argument has a value.
-      if unknown_args:
-        self.removed_args.append(unknown_args.pop(0))
-    if self.removed_args:
-      logging.warn('Unknown arguments are removed from the options: %s',
-                   self.removed_args)
 
 
 class CrOSUpdateTrigger(object):
@@ -377,20 +309,42 @@ class CrOSUpdateTrigger(object):
       raise
 
 
-def main():
-  # Create one cros_update_parser instance for parsing CrOS auto-update cmd.
-  AU_parser = CrOSAUParser()
-  try:
-    AU_parser.ParseArgs()
-  except Exception as e:
-    logging.error('Error in Parsing Args: %r', e)
-    raise
+def ParseArguments(argv):
+  """Returns a namespace for the CLI arguments."""
+  parser = commandline.ArgumentParser(description=__doc__)
+  parser.add_argument('-d', action='store', type=str, dest='host_name',
+                      help='host_name of a DUT')
+  parser.add_argument('-b', action='store', type=str, dest='build_name',
+                      help='build name to be auto-updated')
+  parser.add_argument('--static_dir', action='store', type='path',
+                      help='static directory of the devserver')
+  parser.add_argument('--force_update', action='store_true', default=False,
+                      help=('force an update even if the version installed is '
+                            'the same'))
+  parser.add_argument('--full_update', action='store_true', default=False,
+                      help='force a rootfs update, skip stateful update')
+  parser.add_argument('--original_build', action='store', type=str, default='',
+                      help=('force stateful update with the same version of '
+                            'previous rootfs partition'))
+  parser.add_argument('--payload_filename', action='store', type=str,
+                      default=None, help='A custom payload filename')
+  parser.add_argument('--clobber_stateful', action='store_true', default=False,
+                      help='Whether to clobber stateful')
+  parser.add_argument('--quick_provision', action='store_true', default=False,
+                      help='Whether to attempt quick provisioning path')
+  parser.add_argument('--devserver_url', action='store', type=str, default=None,
+                      help='Devserver URL base for RPCs')
+  parser.add_argument('--static_url', action='store', type=str, default=None,
+                      help='Devserver URL base for static files')
 
-  if len(sys.argv) == 1:
-    AU_parser.parser.print_help()
-    sys.exit(1)
+  opts = parser.parse_args(argv)
+  opts.Freeze()
 
-  options = AU_parser.options
+  return opts
+
+
+def main(argv):
+  options = ParseArguments(argv)
 
   # Use process group id as the unique id in track and log files, since
   # os.setsid is executed before the current process is run.
@@ -435,4 +389,4 @@ def main():
 
 
 if __name__ == '__main__':
-  main()
+  main(sys.argv)

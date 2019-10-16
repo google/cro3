@@ -29,13 +29,8 @@ import re
 
 import log_util
 
-# only import setup_chromite before chromite import.
 import setup_chromite  # pylint: disable=unused-import
-try:
-  from chromite.lib import osutils
-except ImportError as e:
-  _Log('chromite cannot be imported: %r', e)
-  osutils = None
+from chromite.lib import osutils
 
 # Module-local log function.
 def _Log(message, *args):
