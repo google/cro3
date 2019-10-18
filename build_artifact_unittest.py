@@ -174,12 +174,12 @@ class BuildArtifactTest(unittest.TestCase):
         self.work_dir, file_to_download)))
     self._CheckMarker(artifact.marker_name, artifact.installed_files)
 
-  @mock.patch('build_artifact.AutotestTarball._Extract')
-  @mock.patch('build_artifact.AutotestTarball._UpdateName')
+  @mock.patch.object(build_artifact.AutotestTarball, '_Extract')
+  @mock.patch.object(build_artifact.AutotestTarball, '_UpdateName')
+  @mock.patch.object(downloader.GoogleStorageDownloader, 'Fetch')
+  @mock.patch.object(downloader.GoogleStorageDownloader, 'Wait')
   @mock.patch('subprocess.check_call')
-  @mock.patch('downloader.GoogleStorageDownloader.Fetch')
-  @mock.patch('downloader.GoogleStorageDownloader.Wait')
-  def testDownloadAutotest(self, wait_mock, fetch_mock, check_call_mock,
+  def testDownloadAutotest(self, check_call_mock, wait_mock, fetch_mock,
                            update_name_mock, extract_mock):
     """Downloads a real autotest tarball for test."""
     artifact = build_artifact.AutotestTarball(

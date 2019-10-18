@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,20 +7,19 @@
 
 from __future__ import print_function
 
-import apiclient
-import httplib2
 import io
 import subprocess
 
-from apiclient import discovery
-from oauth2client.client import SignedJwtAssertionCredentials
-
+import apiclient
+import httplib2  # pylint: disable=import-error
 import retry
+
+from oauth2client.client import SignedJwtAssertionCredentials
 
 
 CREDENTIAL_SCOPE = 'https://www.googleapis.com/auth/androidbuild.internal'
 DEFAULT_BUILDER = 'androidbuildinternal'
-DEFAULT_CHUNKSIZE = 20*1024*1024
+DEFAULT_CHUNKSIZE = 20 * 1024 * 1024
 # Maximum attempts to interact with Launch Control API.
 MAX_ATTEMPTS = 10
 # Timeout in minutes for downloading attempt.
@@ -31,12 +31,13 @@ QUERY_TIMEOUT_MINS = 1
 class AndroidBuildFetchError(Exception):
   """Exception to raise when failed to make calls to Android build server."""
 
+
 class BuildAccessor(object):
   """Wrapper class to make Google API call to query Android build server."""
 
   # Credential information is required to access Android builds. The values will
   # be set when the devserver starts.
-  credential_info = None
+  credential_info = {}
 
   @classmethod
   @retry.retry(Exception, timeout_min=QUERY_TIMEOUT_MINS)
@@ -49,7 +50,7 @@ class BuildAccessor(object):
         cls.credential_info['client_email'],
         cls.credential_info['private_key'], CREDENTIAL_SCOPE)
     http_auth = credentials.authorize(httplib2.Http())
-    return discovery.build(DEFAULT_BUILDER, 'v1', http=http_auth)
+    return apiclient.discovery.build(DEFAULT_BUILDER, 'v1', http=http_auth)
 
   @staticmethod
   def _GetBuildType(build_id):

@@ -34,8 +34,8 @@ class DownloaderTestBase(unittest.TestCase):
   def tearDown(self):
     shutil.rmtree(self._work_dir, ignore_errors=True)
 
-  @mock.patch('downloader.Downloader._DownloadArtifactsSerially')
-  @mock.patch('downloader.Downloader._DownloadArtifactsInBackground')
+  @mock.patch.object(downloader.Downloader, '_DownloadArtifactsSerially')
+  @mock.patch.object(downloader.Downloader, '_DownloadArtifactsInBackground')
   def _SimpleDownloadOfTestSuites(self, downloader_instance, bg_mock,
                                   serial_mock):
     """Helper to verify test_suites are downloaded correctly.
@@ -78,8 +78,8 @@ class DownloaderTestBase(unittest.TestCase):
     self._SimpleDownloadOfTestSuites(
         downloader.LocalDownloader(self._work_dir, self.local_path))
 
-  @mock.patch('downloader.Downloader._DownloadArtifactsSerially')
-  @mock.patch('downloader.Downloader._DownloadArtifactsInBackground')
+  @mock.patch.object(downloader.Downloader, '_DownloadArtifactsSerially')
+  @mock.patch.object(downloader.Downloader, '_DownloadArtifactsInBackground')
   def _DownloadSymbolsHelper(self, downloader_instance, bg_mock, serial_mock):
     """Basic symbols download."""
     factory = build_artifact.ChromeOSArtifactFactory(
@@ -117,8 +117,8 @@ class AndroidDownloaderTestBase(unittest.TestCase):
   def tearDown(self):
     shutil.rmtree(self._work_dir, ignore_errors=True)
 
-  @mock.patch('downloader.Downloader._DownloadArtifactsSerially')
-  @mock.patch('downloader.Downloader._DownloadArtifactsInBackground')
+  @mock.patch.object(downloader.Downloader, '_DownloadArtifactsSerially')
+  @mock.patch.object(downloader.Downloader, '_DownloadArtifactsInBackground')
   def testDownloadFromAndroidBuildServer(self, bg_mock, serial_mock):
     """Basic test to check download from Android's build server works."""
     downloader_instance = downloader.AndroidBuildDownloader(

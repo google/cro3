@@ -243,8 +243,8 @@ def _get_downloader_and_factory(kwargs):
   artifacts, files = _get_artifacts(kwargs)
   dl = _get_downloader(kwargs)
 
-  if (isinstance(dl, downloader.GoogleStorageDownloader) or
-      isinstance(dl, downloader.LocalDownloader)):
+  if (isinstance(dl, (downloader.GoogleStorageDownloader,
+                      downloader.LocalDownloader))):
     factory_class = build_artifact.ChromeOSArtifactFactory
   elif isinstance(dl, downloader.AndroidBuildDownloader):
     factory_class = build_artifact.AndroidArtifactFactory
@@ -751,8 +751,8 @@ class DevServerRoot(object):
       if clean and os.path.exists(dl.GetBuildDir()):
         _Log('Removing %s' % dl.GetBuildDir())
         shutil.rmtree(dl.GetBuildDir())
-      async = kwargs.get('async', False)
-      dl.Download(factory, async=async)
+      is_async = kwargs.get('async', False)
+      dl.Download(factory, is_async=is_async)
     finally:
       with DevServerRoot._staging_thread_count_lock:
         DevServerRoot._staging_thread_count -= 1
@@ -786,7 +786,7 @@ class DevServerRoot(object):
     build_name = kwargs['build_name']
     force_update = _parse_boolean_arg(kwargs, 'force_update')
     full_update = _parse_boolean_arg(kwargs, 'full_update')
-    async = _parse_boolean_arg(kwargs, 'async')
+    is_async = _parse_boolean_arg(kwargs, 'async')
     original_build = _parse_string_arg(kwargs, 'original_build')
     payload_filename = _parse_string_arg(kwargs, 'payload_filename')
     clobber_stateful = _parse_boolean_arg(kwargs, 'clobber_stateful')
@@ -795,7 +795,7 @@ class DevServerRoot(object):
     devserver_url = updater.GetDevserverUrl()
     static_url = updater.GetStaticUrl()
 
-    if async:
+    if is_async:
       path = os.path.dirname(os.path.abspath(__file__))
       execute_file = os.path.join(path, 'cros_update.py')
       args = (AUTO_UPDATE_CMD % (execute_file, host_name, build_name,

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -12,10 +13,11 @@ off by cherrypy, so timeotu can't be supported.
 
 from __future__ import print_function
 
-import cherrypy
 import random
 import sys
 import time
+
+import cherrypy  # pylint: disable=import-error
 
 
 def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None):

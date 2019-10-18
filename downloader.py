@@ -38,6 +38,7 @@ try:
 except ImportError:
   gs = None
 
+
 class DownloaderException(Exception):
   """Exception that aggregates all exceptions raised during async download.
 
@@ -62,6 +63,7 @@ class DownloaderException(Exception):
   def __str__(self):
     """Return a custom exception message with all exceptions merged."""
     return '--------\n'.join([str(exception) for exception in self.exceptions])
+
 
 class Downloader(log_util.Loggable):
   """Downloader of images to the devsever.
@@ -161,7 +163,7 @@ class Downloader(log_util.Loggable):
       build_dir_info += output_format % ls_info._asdict()
     return build_dir_info
 
-  def Download(self, factory, async=False):
+  def Download(self, factory, is_async=False):
     """Downloads and caches the |artifacts|.
 
     Downloads and caches the |artifacts|. Returns once these are present on the
@@ -170,7 +172,7 @@ class Downloader(log_util.Loggable):
 
     Args:
       factory: The artifact factory.
-      async: If True, return without waiting for download to complete.
+      is_async: If True, return without waiting for download to complete.
 
     Raises:
       build_artifact.ArtifactDownloadError: If failed to download the artifact.
@@ -201,7 +203,7 @@ class Downloader(log_util.Loggable):
     str_repr = [str(a) for a in required_artifacts]
     self._Log('Downloading artifacts %s.', ' '.join(str_repr))
 
-    if async:
+    if is_async:
       self._DownloadArtifactsInBackground(required_artifacts)
     else:
       self._DownloadArtifactsSerially(required_artifacts, no_wait=True)
@@ -313,10 +315,8 @@ class GoogleStorageDownloader(Downloader):
 
     self._archive_url = archive_url
 
-    if common_util.IsRunningOnMoblab():
-      self._ctx = gs.GSContext(cache_user='chronos') if gs else None
-    else:
-      self._ctx = gs.GSContext() if gs else None
+    cache_user = 'chronos' if common_util.IsRunningOnMoblab() else None
+    self._ctx = gs.GSContext(cache_user=cache_user) if gs else None
 
   def Wait(self, name, is_regex_name, timeout):
     """Waits for artifact to exist and returns the appropriate names.
