@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.0"
+VERSION="1.0.1"
 SCRIPT=$(basename -- "${0}")
 
 export LC_ALL=C
@@ -90,7 +90,7 @@ cat <<EOF >>"${YAML}"
         - \$key-id: "${BASE_UPPER}"
       skus:
         - \$sku-id: 255
-          config: *common_config
+          config: *base_config
 EOF
 git add "${YAML}"
 
