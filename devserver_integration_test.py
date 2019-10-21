@@ -17,7 +17,6 @@ from __future__ import print_function
 
 import json
 import os
-import psutil
 import shutil
 import signal
 import socket
@@ -25,15 +24,19 @@ import subprocess
 import tempfile
 import time
 import unittest
-import urllib2
 
 from string import Template
 
 from xml.dom import minidom
 
+from six.moves import urllib
+
+import psutil  # pylint: disable=import-error
+
 import cros_update_progress
 import devserver_constants
 
+import setup_chromite  # pylint: disable=unused-import
 from chromite.lib import cros_logging as logging
 
 
@@ -216,7 +219,7 @@ class DevserverTestBase(unittest.TestCase):
 
     # Verify the image we download is correct since we already know what it is.
     if use_test_payload:
-      connection = urllib2.urlopen(url)
+      connection = urllib.request.urlopen(url)
       contents = connection.read()
       connection.close()
       self.assertEqual('Developers, developers, developers!\n', contents)
@@ -257,7 +260,7 @@ class DevserverTestBase(unittest.TestCase):
     request = '/'.join([self.devserver_url, rpc])
     if kwargs:
       # Join the kwargs to the URL.
-      request += '?' + '&'.join('%s=%s' % item for item in kwargs.iteritems())
+      request += '?' + '&'.join('%s=%s' % item for item in kwargs.items())
 
     output = None
     try:
@@ -267,10 +270,11 @@ class DevserverTestBase(unittest.TestCase):
       if not timeout:
         logging.info('Making request using %s', request)
 
-      connection = urllib2.urlopen(request, data=data, timeout=timeout)
+      # pylint: disable=redundant-keyword-arg
+      connection = urllib.request.urlopen(request, data=data, timeout=timeout)
       output = connection.read()
       connection.close()
-    except urllib2.HTTPError:
+    except urllib.error.HTTPError:
       raise
 
     return output
@@ -376,7 +380,7 @@ class DevserverBasicTests(AutoStartDevserverTestBase):
     logging.info('Verifying the actual payload data')
     url = self.VerifyHandleUpdate(build_id, use_test_payload=False)
     logging.info('Verify the actual content of the update payload')
-    connection = urllib2.urlopen(url)
+    connection = urllib.request.urlopen(url)
     contents = connection.read()
     connection.close()
     self.assertEqual(update_data, contents)
@@ -518,7 +522,7 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
     self.assertEqual(response, expected_update_url)
 
     logging.info('Now give xbuddy a bad path.')
-    self.assertRaises(urllib2.HTTPError,
+    self.assertRaises(urllib.error.HTTPError,
                       self._MakeRPC,
                       '/'.join([XBUDDY, xbuddy_bad_path]))
 

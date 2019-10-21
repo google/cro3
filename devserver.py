@@ -116,9 +116,6 @@ _LOG_ROTATION_BACKUP = 28  # backup counts
 # Error msg for missing key in CrOS auto-update.
 KEY_ERROR_MSG = 'Key Error in RPC: %s= is required'
 
-# Command of running auto-update.
-AUTO_UPDATE_CMD = '/usr/bin/python -u %s -d %s -b %s --static_dir %s'
-
 
 class DevServerError(Exception):
   """Exception class used by DevServer."""
@@ -589,7 +586,7 @@ class ApiRoot(object):
     try:
       file_size = os.path.getsize(file_path)
       file_sha256 = common_util.GetFileSha256(file_path)
-    except os.error, e:
+    except os.error as e:
       raise DevServerError(
           'failed to get info for file %s: %s' % (file_path, e))
 
@@ -796,10 +793,9 @@ class DevServerRoot(object):
     static_url = updater.GetStaticUrl()
 
     if is_async:
-      path = os.path.dirname(os.path.abspath(__file__))
-      execute_file = os.path.join(path, 'cros_update.py')
-      args = (AUTO_UPDATE_CMD % (execute_file, host_name, build_name,
-                                 updater.static_dir))
+      # Command of running auto-update.
+      cmd = ['cros_update', '-d', host_name, '-b', build_name, '--static_dir',
+             updater.static_dir]
 
       # The original_build's format is like: link/3428.210.0
       # The corresponding release_archive_url's format is like:
@@ -807,32 +803,32 @@ class DevServerRoot(object):
       if original_build:
         release_archive_url = _build_uri_from_build_name(original_build)
         # First staging the stateful.tgz synchronousely.
-        self.stage(files='stateful.tgz', async=False,
+        self.stage(files='stateful.tgz', is_async=False,
                    archive_url=release_archive_url)
-        args = ('%s --original_build %s' % (args, original_build))
+        cmd += ['--original_build', original_build]
 
       if force_update:
-        args = ('%s --force_update' % args)
+        cmd += ['--force_update']
 
       if full_update:
-        args = ('%s --full_update' % args)
+        cmd += ['--full_update']
 
       if payload_filename:
-        args = ('%s --payload_filename %s' % (args, payload_filename))
+        cmd += ['--payload_filename', payload_filename]
 
       if clobber_stateful:
-        args = ('%s --clobber_stateful' % args)
+        cmd += ['--clobber_stateful']
 
       if quick_provision:
-        args = ('%s --quick_provision' % args)
+        cmd += ['--quick_provision']
 
       if devserver_url:
-        args = ('%s --devserver_url %s' % (args, devserver_url))
+        cmd += ['--devserver_url', devserver_url]
 
       if static_url:
-        args = ('%s --static_url %s' % (args, static_url))
+        cmd += ['--static_url', static_url]
 
-      p = subprocess.Popen([args], shell=True, preexec_fn=os.setsid)
+      p = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid)
       pid = os.getpgid(p.pid)
 
       # Pre-write status in the track_status_file before the first call of
