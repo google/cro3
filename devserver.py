@@ -1694,9 +1694,6 @@ def main():
   dev_server = DevServerRoot(_xbuddy)
   health_checker_app = health_checker.Root(dev_server, options.static_dir)
 
-  # Patch CherryPy to support binding to any available port (--port=0).
-  cherrypy_ext.ZeroPortPatcher.DoPatch(cherrypy)
-
   if options.pidfile:
     plugins.PIDFile(cherrypy.engine, options.pidfile).subscribe()
 
