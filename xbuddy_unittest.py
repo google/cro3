@@ -92,8 +92,8 @@ class xBuddyTest(unittest.TestCase):
       cat_mock.assert_called_with(
           'gs://chromeos-image-archive/b-s/LATEST-master')
 
-  @mock.patch('xbuddy.XBuddy._GetLatestVersionFromGsDir',
-              side_effect=['4100.68.0', 'R28-4100.68.0'])
+  @mock.patch.object(xbuddy.XBuddy, '_GetLatestVersionFromGsDir',
+                     side_effect=['4100.68.0', 'R28-4100.68.0'])
   def testLookupChannel(self, version_mock):
     """Basic test of _LookupChannel. Checks that a given suffix is handled."""
     self.assertEqual(self.mock_xb._LookupChannel('b', '-release'),
@@ -134,7 +134,7 @@ class xBuddyTest(unittest.TestCase):
                                                 version='1.2.3'))
       get_mock.assert_called_with('PATH_REWRITES', 'foobar')
 
-  @mock.patch('xbuddy.XBuddy._LookupOfficial')
+  @mock.patch.object(xbuddy.XBuddy, '_LookupOfficial')
   def testResolveVersionToBuildIdAndChannel_Official(self, lookup_mock):
     """Check _ResolveVersionToBuildIdAndChannel support for official build."""
     board = 'chell'
@@ -158,7 +158,7 @@ class xBuddyTest(unittest.TestCase):
     lookup_mock.assert_called_with('chell', 'paladin',
                                    image_dir='gs://chromeos-alternate-archive/')
 
-  @mock.patch('xbuddy.XBuddy._LookupChannel')
+  @mock.patch.object(xbuddy.XBuddy, '_LookupChannel')
   def testResolveVersionToBuildIdAndChannel_Channel(self, lookup_mock):
     """Check _ResolveVersionToBuildIdAndChannel support for channels."""
     board = 'chell'

@@ -216,10 +216,8 @@ class XBuddy(build_util.BuildObject):
     else:
       self.images_dir = os.path.join(self.GetSourceRoot(), 'src/build/images')
 
-    if common_util.IsRunningOnMoblab():
-      self._ctx = gs.GSContext(cache_user='chronos') if gs else None
-    else:
-      self._ctx = gs.GSContext() if gs else None
+    cache_user = 'chronos' if common_util.IsRunningOnMoblab() else None
+    self._ctx = gs.GSContext(cache_user=cache_user) if gs else None
 
     common_util.MkDirP(self._timestamp_folder)
 
@@ -779,9 +777,9 @@ class XBuddy(build_util.BuildObject):
       # Attempt to enumerate all channels, in order of stability.
       channels.extend(devserver_constants.CHANNELS[::-1])
 
-    for channel in channels:
+    for c in channels:
       image_dir = devserver_constants.GS_CHANNEL_DIR % {
-          'channel': channel,
+          'channel': c,
           'board': match.group(1),
       }
       gs_url = os.path.join(image_dir, match.group(2))
@@ -992,7 +990,7 @@ class XBuddy(build_util.BuildObject):
     self._SyncRegistryWithBuildImages()
     build_id, file_name = self._GetArtifact(path_list, image_dir=image_dir)
     Timestamp.UpdateTimestamp(self._timestamp_folder, build_id)
-    #TODO (joyc): run in sep thread
+    # TODO(joyc): Run in separate thread.
     self.CleanCache()
 
     _Log('Returning path to payload: %s/%s', build_id, file_name)
