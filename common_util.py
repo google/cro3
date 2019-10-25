@@ -8,7 +8,7 @@
 from __future__ import print_function
 
 import ast
-import binascii
+import base64
 import distutils.version  # pylint: disable=no-name-in-module,import-error
 import errno
 import hashlib
@@ -264,9 +264,9 @@ def GetFileHashes(file_path, do_sha256=False, do_md5=False):
   return hashes
 
 
-def GetFileMd5(file_path):
-  """Returns the MD5 checksum of the file given (hex encoded)."""
-  return binascii.hexlify(GetFileHashes(file_path, do_md5=True)['md5'])
+def GetFileSha256(file_path):
+  """Returns the SHA256 checksum of the file given (base64 encoded)."""
+  return base64.b64encode(GetFileHashes(file_path, do_sha256=True)['sha256'])
 
 
 def CopyFile(source, dest):
