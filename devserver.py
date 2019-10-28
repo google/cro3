@@ -580,6 +580,10 @@ class ApiRoot(object):
     Example URL:
       http://myhost/api/fileinfo/some/path/to/file
     """
+    # TODO(ahassani): A better way of doing this is to just return the the
+    # content of the payloads' property file instead. That has all this info
+    # except that the key for sha256 is 'sha256_hex', but still base64 encdoed.
+
     file_path = os.path.join(updater.static_dir, *args)
     if not os.path.exists(file_path):
       raise DevServerError('file not found: %s' % file_path)
@@ -591,9 +595,9 @@ class ApiRoot(object):
           'failed to get info for file %s: %s' % (file_path, e))
 
     return json.dumps({
-        autoupdate.Autoupdate.SIZE_ATTR: file_size,
-        autoupdate.Autoupdate.SHA256_ATTR: file_sha256,
-    })
+        'size': file_size,
+        'sha256': file_sha256,
+    }, sort_keys=True)
 
 
 class DevServerRoot(object):
