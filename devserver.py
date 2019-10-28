@@ -49,14 +49,13 @@ from cherrypy.process import plugins
 
 import autoupdate
 import cherrypy_ext
-import cros_update
-import cros_update_progress
 import health_checker
 
 # This must happen before any local modules get a chance to import
 # anything from chromite.  Otherwise, really bad things will happen, and
 # you will _not_ understand why.
 import setup_chromite  # pylint: disable=unused-import
+from chromite.lib import cros_update_progress
 from chromite.lib.xbuddy import android_build
 from chromite.lib.xbuddy import artifact_info
 from chromite.lib.xbuddy import build_artifact
@@ -65,7 +64,7 @@ from chromite.lib.xbuddy import common_util
 from chromite.lib.xbuddy import devserver_constants
 from chromite.lib.xbuddy import downloader
 from chromite.lib.xbuddy import xbuddy
-
+from chromite.scripts import cros_update
 
 # Module-local log function.
 def _Log(message, *args):
@@ -779,10 +778,8 @@ class DevServerRoot(object):
 
     if is_async:
       # Command of running auto-update.
-      path = os.path.dirname(os.path.abspath(__file__))
-      execute_file = os.path.join(path, 'cros_update.py')
-      cmd = ['/usr/bin/python', '-u', execute_file, '-d', host_name,
-             '-b', build_name, '--static_dir', updater.static_dir]
+      cmd = ['cros_update', '--hostname', host_name, '-b', build_name,
+             '--static_dir', updater.static_dir]
 
       # The original_build's format is like: link/3428.210.0
       # The corresponding release_archive_url's format is like:

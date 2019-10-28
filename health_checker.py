@@ -15,25 +15,11 @@ import threading
 import time
 
 import cherrypy  # pylint: disable=import-error
-
-import cros_update_progress
+import psutil  # pylint: disable=import-error
 
 import setup_chromite  # pylint: disable=unused-import
+from chromite.lib import cros_update_progress
 from chromite.lib.xbuddy import cherrypy_log_util
-
-try:
-  import psutil
-except ImportError:
-  # Ignore psutil import failure. This is for backwards compatibility, so
-  # "cros flash" can still update duts with build without psutil installed.
-  # The reason is that, during cros flash, local devserver code is copied over
-  # to DUT, and devserver will be running inside DUT to stage the build.
-  psutil = None
-except OSError:
-  # Ignore error like following. psutil may not work properly in builder. Ignore
-  # the error as load information of devserver is not used in builder.
-  # OSError: [Errno 2] No such file or directory: '/dev/pts/0'
-  psutil = None
 
 
 def _Log(message, *args):

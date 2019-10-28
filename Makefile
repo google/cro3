@@ -17,9 +17,6 @@ install:
 		autoupdate.py \
 		builder.py \
 		cherrypy_ext.py \
-		cros_update.py \
-		cros_update_logging.py \
-		cros_update_progress.py \
 		health_checker.py \
 		nebraska/nebraska.py \
 		setup_chromite.py \

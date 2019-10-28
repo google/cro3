@@ -33,10 +33,9 @@ from six.moves import urllib
 
 import psutil  # pylint: disable=import-error
 
-import cros_update_progress
-
 import setup_chromite  # pylint: disable=unused-import
 from chromite.lib import cros_logging as logging
+from chromite.lib import cros_update_progress
 from chromite.lib.xbuddy import devserver_constants
 
 
