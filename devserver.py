@@ -794,8 +794,10 @@ class DevServerRoot(object):
 
     if is_async:
       # Command of running auto-update.
-      cmd = ['cros_update', '-d', host_name, '-b', build_name, '--static_dir',
-             updater.static_dir]
+      path = os.path.dirname(os.path.abspath(__file__))
+      execute_file = os.path.join(path, 'cros_update.py')
+      cmd = ['/usr/bin/python', '-u', execute_file, '-d', host_name,
+             '-b', build_name, '--static_dir', updater.static_dir]
 
       # The original_build's format is like: link/3428.210.0
       # The corresponding release_archive_url's format is like:
@@ -828,7 +830,7 @@ class DevServerRoot(object):
       if static_url:
         cmd += ['--static_url', static_url]
 
-      p = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid)
+      p = subprocess.Popen(cmd, preexec_fn=os.setsid)
       pid = os.getpgid(p.pid)
 
       # Pre-write status in the track_status_file before the first call of
@@ -841,8 +843,8 @@ class DevServerRoot(object):
       cros_update_trigger = cros_update.CrOSUpdateTrigger(
           host_name, build_name, updater.static_dir, force_update=force_update,
           full_update=full_update, original_build=original_build,
-          quick_provision=quick_provision, devserver_url=devserver_url,
-          static_url=static_url)
+          payload_filename=payload_filename, quick_provision=quick_provision,
+          devserver_url=devserver_url, static_url=static_url)
       cros_update_trigger.TriggerAU()
       return json.dumps((True, -1))
 
