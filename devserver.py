@@ -46,49 +46,29 @@ from cherrypy import _cplogging as cplogging
 from cherrypy.process import plugins
 # pylint: enable=no-name-in-module, import-error
 
+import autoupdate
+import cherrypy_ext
+import cros_update
+import cros_update_progress
+import health_checker
+
 # This must happen before any local modules get a chance to import
 # anything from chromite.  Otherwise, really bad things will happen, and
 # you will _not_ understand why.
 import setup_chromite  # pylint: disable=unused-import
+from chromite.lib.xbuddy import android_build
+from chromite.lib.xbuddy import artifact_info
+from chromite.lib.xbuddy import build_artifact
+from chromite.lib.xbuddy import cherrypy_log_util
+from chromite.lib.xbuddy import common_util
+from chromite.lib.xbuddy import devserver_constants
+from chromite.lib.xbuddy import downloader
+from chromite.lib.xbuddy import xbuddy
 
-import artifact_info
-import autoupdate
-import build_artifact
-import cherrypy_ext
-import common_util
-import devserver_constants
-import downloader
-import health_checker
-import log_util
-import xbuddy
 
 # Module-local log function.
 def _Log(message, *args):
-  return log_util.LogWithTag('DEVSERVER', message, *args)
-
-
-# Use try-except to skip unneccesary import for simple use case, eg. running
-# devserver on host.
-try:
-  import cros_update
-except ImportError as e:
-  _Log('cros_update cannot be imported: %r', e)
-  cros_update = None
-
-try:
-  import cros_update_progress
-except ImportError as e:
-  _Log('cros_update_progress cannot be imported: %r', e)
-  cros_update_progress = None
-
-try:
-  import android_build
-except ImportError:
-  # Ignore android_build import failure. This is to support devserver running
-  # inside a ChromeOS device triggered by cros flash. Most ChromeOS test images
-  # do not have google-api-python-client module and they don't need to support
-  # Android updating, therefore, ignore the import failure here.
-  android_build = None
+  return cherrypy_log_util.LogWithTag('DEVSERVER', message, *args)
 
 CACHED_ENTRIES = 12
 

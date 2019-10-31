@@ -27,14 +27,14 @@ import logging  # pylint: disable=cros-logging-import
 import os
 import re
 
-import log_util
-
 import setup_chromite  # pylint: disable=unused-import
 from chromite.lib import osutils
+from chromite.lib.xbuddy import cherrypy_log_util
+
 
 # Module-local log function.
 def _Log(message, *args):
-  return log_util.LogWithTag('CROS_UPDATE_PROGRESS', message, *args)
+  return cherrypy_log_util.LogWithTag('CROS_UPDATE_PROGRESS', message, *args)
 
 # Path for status tracking log.
 _TRACK_LOG_FILE_PATH = '/tmp/auto-update/tracking_log/%s_%s.log'

@@ -14,26 +14,15 @@ install:
 	install -m 0755 host/start_devserver "${DESTDIR}/usr/bin"
 	install -m 0755 devserver.py strip_package.py "${DESTDIR}/usr/lib/devserver"
 	install -m 0644  \
-		android_build.py \
-		artifact_info.py \
 		autoupdate.py \
-		build_artifact.py \
-		build_util.py \
 		builder.py \
 		cherrypy_ext.py \
-		common_util.py \
 		cros_update.py \
 		cros_update_logging.py \
 		cros_update_progress.py \
-		devserver_constants.py \
-		downloader.py \
 		health_checker.py \
-		log_util.py \
 		nebraska/nebraska.py \
-		retry.py \
 		setup_chromite.py \
-		xbuddy.py \
-		xbuddy_config.ini\
 		"${DESTDIR}/usr/lib/devserver"
 
 	install -m 0755 stateful_update "${DESTDIR}/usr/bin"

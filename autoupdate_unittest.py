@@ -14,12 +14,14 @@ import socket
 import tempfile
 import unittest
 
-import cherrypy  # pylint: disable=import-error
 import mock
+import cherrypy  # pylint: disable=import-error
 
 import autoupdate
-import common_util
-import xbuddy
+
+import setup_chromite  # pylint: disable=unused-import
+from chromite.lib.xbuddy import common_util
+from chromite.lib.xbuddy import xbuddy
 
 
 _TEST_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>

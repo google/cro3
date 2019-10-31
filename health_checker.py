@@ -17,13 +17,9 @@ import time
 import cherrypy  # pylint: disable=import-error
 
 import cros_update_progress
-import log_util
 
-
-def _Log(message, *args):
-  """Module-local log function."""
-  return log_util.LogWithTag('HEALTHCHECKER', message, *args)
-
+import setup_chromite  # pylint: disable=unused-import
+from chromite.lib.xbuddy import cherrypy_log_util
 
 try:
   import psutil
@@ -32,17 +28,17 @@ except ImportError:
   # "cros flash" can still update duts with build without psutil installed.
   # The reason is that, during cros flash, local devserver code is copied over
   # to DUT, and devserver will be running inside DUT to stage the build.
-  _Log('Python module psutil is not installed, devserver load data will not be '
-       'collected')
   psutil = None
-except OSError as e:
+except OSError:
   # Ignore error like following. psutil may not work properly in builder. Ignore
   # the error as load information of devserver is not used in builder.
   # OSError: [Errno 2] No such file or directory: '/dev/pts/0'
-  _Log('psutil is failed to be imported, error: %s. devserver load data will '
-       'not be collected.', e)
   psutil = None
 
+
+def _Log(message, *args):
+  """Module-local log function."""
+  return cherrypy_log_util.LogWithTag('HEALTHCHECKER', message, *args)
 
 # Number of seconds between the collection of disk and network IO counters.
 STATS_INTERVAL = 10.0

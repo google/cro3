@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2009-2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -10,12 +11,11 @@ import os
 import subprocess
 import tempfile
 
-from portage import dbapi
-from portage import xpak
-import cherrypy
-import portage
+import portage  # pylint: disable=import-error
+import cherrypy  # pylint: disable=import-error
 
-import log_util
+import setup_chromite  # pylint: disable=unused-import
+from chromite.lib.xbuddy import cherrypy_log_util
 
 
 # Relative path to the wrapper directory inside the sysroot.
@@ -34,7 +34,7 @@ def _SysrootCmd(sysroot, cmd):
 
 # Module-local log function.
 def _Log(message, *args):
-  return log_util.LogWithTag('BUILD', message, *args)
+  return cherrypy_log_util.LogWithTag('BUILD', message, *args)
 
 
 def _OutputOf(command):
@@ -68,7 +68,7 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
   """
 
   # Grab metadata about package in xpak format.
-  my_xpak = xpak.xpak_mem(xpak.tbz2(in_path).get_data())
+  my_xpak = portage.xpak.xpak_mem(portage.xpak.tbz2(in_path).get_data())
 
   # Build list of files to exclude. The tar command uses a slightly
   # different exclude format than gmerge, so it needs to be adjusted
@@ -99,7 +99,7 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
     subprocess.check_call(['sudo', 'rm', '-rf', tmpd])
 
   # Copy package metadata over to new package file.
-  xpak.tbz2(out_path).recompose_mem(my_xpak)
+  portage.xpak.tbz2(out_path).recompose_mem(my_xpak)
 
 
 def UpdateGmergeBinhost(sysroot, pkgs, deep):
@@ -126,8 +126,8 @@ def UpdateGmergeBinhost(sysroot, pkgs, deep):
   vardb = trees[sysroot]['vartree'].dbapi
   bintree = trees[sysroot]['bintree']
   bintree.populate()
-  gmerge_tree = dbapi.bintree.binarytree(sysroot, gmerge_pkgdir,
-                                         settings=bintree.settings)
+  gmerge_tree = portage.dbapi.bintree.binarytree(sysroot, gmerge_pkgdir,
+                                                 settings=bintree.settings)
   gmerge_tree.populate()
 
   # The portage API here is subtle.  Results from these lookups are a pkg_str
@@ -230,7 +230,7 @@ class Builder(object):
       if (not additional_args.get('accept_stable')
           and self._ShouldBeWorkedOn(board, pkg)):
         return self.SetError(
-            'Package is not cros_workon\'d on the devserver machine.\n'
+            "Package is not cros_workon'd on the devserver machine.\n"
             'Either start working on the package or pass --accept_stable '
             'to gmerge')
 

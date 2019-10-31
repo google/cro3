@@ -16,11 +16,6 @@ from six.moves import urllib
 
 import cherrypy  # pylint: disable=import-error
 
-import build_util
-import common_util
-import devserver_constants as constants
-import log_util
-
 # TODO(crbug.com/872441): We try to import nebraska from different places
 # because when we install the devserver, we copy the nebraska.py into the main
 # directory. Once this bug is resolved, we can always import from nebraska
@@ -30,11 +25,16 @@ try:
 except ImportError:
   import nebraska
 
+import setup_chromite  # pylint: disable=unused-import
+from chromite.lib.xbuddy import build_util
+from chromite.lib.xbuddy import cherrypy_log_util
+from chromite.lib.xbuddy import common_util
+from chromite.lib.xbuddy import devserver_constants as constants
+
 
 # Module-local log function.
 def _Log(message, *args):
-  return log_util.LogWithTag('UPDATE', message, *args)
-
+  return cherrypy_log_util.LogWithTag('UPDATE', message, *args)
 
 class AutoupdateError(Exception):
   """Exception classes used by this module."""

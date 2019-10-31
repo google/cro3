@@ -34,10 +34,10 @@ from six.moves import urllib
 import psutil  # pylint: disable=import-error
 
 import cros_update_progress
-import devserver_constants
 
 import setup_chromite  # pylint: disable=unused-import
 from chromite.lib import cros_logging as logging
+from chromite.lib.xbuddy import devserver_constants
 
 
 # Paths are relative to this script's base directory.
