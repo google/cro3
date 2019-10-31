@@ -145,11 +145,11 @@ build_board() {
     # Fetch latest preflight prebuilt version.
     git --git-dir "${partner_overlay}/.git" fetch --all
     local binhost_gs="$(git --git-dir "${partner_overlay}/.git" show \
-        "m/master:chromeos/binhost/target/${board}-PREFLIGHT_BINHOST.conf" | \
-      sed -nE 's/PREFLIGHT_BINHOST=\"(.*)\"/\1/p')"
+        "m/master:chromeos/binhost/target/${board}-POSTSUBMIT_BINHOST.conf" | \
+      sed -nE 's/POSTSUBMIT_BINHOST=\"(.*)\"/\1/p')"
 
     # Parse Packages file to find GS path of the latest ${pn} prebuilt.
-    local prebuilt_path="$(gsutil cat "${binhost_gs}Packages" | \
+    local prebuilt_path="$(gsutil cat "${binhost_gs}/Packages" | \
       awk '
         $1 == "CPV:" && $2 ~ /'"${CATEGORY}"'\/'"${pn}"'-[0-9]/ { m = 1 }
         m && $1 == "PATH:" { print $2 }
