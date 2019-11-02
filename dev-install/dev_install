@@ -10,7 +10,6 @@
 # Constant definitions.
 P_CONFIG_CROS=/etc/portage
 P_CONFIG_DEVELOPER=/usr/local/etc/portage
-EMERGE_PACKAGES="/usr/share/dev-install/bootstrap.packages"
 
 # Global variables.
 BINHOST=
@@ -21,8 +20,6 @@ DEFINE_string binhost "" \
   "URL of the binhost that emerge will use." b
 DEFINE_boolean yes "${FLAGS_FALSE}" \
   "Do not prompt for input. Assumes yes's to all responses." y
-DEFINE_boolean only_bootstrap "${FLAGS_FALSE}" \
-  "Only attempt to install the bootstrap packages."
 
 FLAGS "$@" || exit 1
 
@@ -43,45 +40,6 @@ yes_or_no() {
   local reply
   read -p "$*? (y/N) " reply
   [ "${reply}" = "y" ]
-}
-
-# Get the static Python binary and portage (emerge script and python modules).
-download_bootstrap_packages() {
-  # Download packages that python/emerge require into /usr/local/bootsrap.
-  while read line; do
-    local package_url="${BINHOST}/${line}.tbz2"
-    local directory="$(echo "${line}" | cut -d "/" -f 1)"
-    local package_file="${PKGDIR}/${line}.tbz2"
-    mkdir -p -m 0755 "${PKGDIR}/${directory}"
-    echo "Downloading ${package_url}"
-    if ! curl --fail -o "${package_file}" "${package_url}"; then
-      error "Could not download package."
-      error "Command curl --fail -o ${package_file} ${package_url} failed."
-      return 1
-    fi
-    echo "Extracting ${package_file}"
-    # TODO(sosa): pipeline our download/unpack cycles.
-    # Ignore std error output about trailing garbage after EOF.
-    if ! tar -C /usr/local/ -xjkf "${package_file}" 2>/dev/null; then
-      error "Could not extract package."
-      error "Command tar -C /usr/local -xjf ${package_file} failed."
-      return 1
-    fi
-  done < "${EMERGE_PACKAGES}"
-
-  # The python ebuilds set up symlinks in pkg_postinst, but we don't run those
-  # phases (we just run untar above).  Plus that logic depends on eselect that
-  # we currently stub out.  Hand create the symlinks https://crbug.com/955147.
-  if [ ! -e "/usr/local/usr/bin/python" ]; then
-    ln -sfT "python-wrapper" "/usr/local/usr/bin/python"
-  fi
-  if [ ! -e "/usr/local/usr/bin/python2" ]; then
-    ln -sfT "python2.7" "/usr/local/usr/bin/python2"
-  fi
-  if [ ! -e "/usr/local/usr/bin/python3" ]; then
-    ln -sfT "$(cd /usr/local/usr/bin; echo python3.?)" \
-      "/usr/local/usr/bin/python3"
-  fi
 }
 
 # Configure emerge in /usr/local.
@@ -134,14 +92,7 @@ main() {
     ;;
   esac
 
-  echo "Starting installation of developer packages."
-  echo "First, we download the necessary files."
   BINHOST="${FLAGS_binhost}"
-  download_bootstrap_packages
-  if [ ${FLAGS_only_bootstrap} -eq ${FLAGS_TRUE} ]; then
-    echo "dev_install done installing bootstrap packages. Enjoy!"
-    return 0
-  fi
 
   echo "Files downloaded, configuring emerge."
   configure_emerge
