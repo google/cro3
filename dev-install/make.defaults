@@ -18,9 +18,9 @@ DISTDIR="${ROOT}/portage/distfiles"
 
 RPMDIR="${ROOT}/portage/rpm"
 
-PORTAGE_TMPDIR="${ROOT}/var/tmp"
+PORTAGE_TMPDIR="${ROOT}/tmp"
 
-BUILD_PREFIX="${ROOT}/var/tmp/portage"
+BUILD_PREFIX="${ROOT}/tmp/portage"
 
 CONFIG_PROTECT="/usr/local/share/portage"
 
