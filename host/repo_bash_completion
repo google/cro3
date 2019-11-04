@@ -16,10 +16,7 @@ _list_repo_branches() {
 
 _list_repo_projects() {
   local repo=${COMP_WORDS[0]}
-  local manifest=$(mktemp)
-  "${repo}" manifest -o "${manifest}" >& /dev/null
-  grep 'project name=' "${manifest}" | sed 's/.\+name="\([^"]\+\)".\+/\1/'
-  rm -f "${manifest}" >& /dev/null
+  "${repo}" list -n
 }
 
 # Complete the repo <command> argument.
