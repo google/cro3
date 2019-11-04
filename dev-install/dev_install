@@ -9,15 +9,9 @@
 
 # Constant definitions.
 P_CONFIG_CROS=/etc/portage
-P_CONFIG_DEVELOPER=/usr/local/etc/portage
-
-# Global variables.
-BINHOST=
 
 # Process flags.
 . /usr/share/misc/shflags || exit 1
-DEFINE_string binhost "" \
-  "URL of the binhost that emerge will use." b
 DEFINE_boolean yes "${FLAGS_FALSE}" \
   "Do not prompt for input. Assumes yes's to all responses." y
 
@@ -40,33 +34,6 @@ yes_or_no() {
   local reply
   read -p "$*? (y/N) " reply
   [ "${reply}" = "y" ]
-}
-
-# Configure emerge in /usr/local.
-configure_emerge() {
-  # Copy emerge configuration to /usr/local.
-  mkdir -p -m 0755 "${P_CONFIG_DEVELOPER}/make.profile"
-  # Point our local profile to the rootfs one.  This allows us to stack.
-  echo "${P_CONFIG_CROS}/make.profile" \
-    >"${P_CONFIG_DEVELOPER}/make.profile/parent"
-
-  # Install the package.provided entries for the rootfs.
-  mkdir -p -m 0755 "${P_CONFIG_DEVELOPER}/make.profile/package.provided"
-  local f
-  for f in /usr/share/dev-install/rootfs.provided/*; do
-    ln -sf "${f}" "${P_CONFIG_DEVELOPER}/make.profile/package.provided/"
-  done
-
-  # Create the directories defined in the portage config files. Permissions are
-  # consistent with the other directories in /usr/local, which is a bind mount
-  # for /mnt/stateful_partition/dev_image.
-  mkdir -p -m 01777 /usr/local/tmp
-  echo "PORTAGE_BINHOST=${BINHOST}" > "${P_CONFIG_DEVELOPER}/make.conf"
-
-  # Add LD_LIBRARY_PATH within ebuild.sh.
-  # TODO(arkaitzr): find out a cleaner way to do this.
-  sed -i "3 a\export LD_LIBRARY_PATH=\"${LD_LIBRARY_PATH}\"" \
-      /usr/local/lib/portage/*/ebuild.sh
 }
 
 install_optional_packages() {
@@ -92,12 +59,6 @@ main() {
     ;;
   esac
 
-  BINHOST="${FLAGS_binhost}"
-
-  echo "Files downloaded, configuring emerge."
-  configure_emerge
-
-  echo "Emerge installation complete. Installing additional optional packages."
   install_optional_packages
 
   echo "dev_install done. Enjoy!"
