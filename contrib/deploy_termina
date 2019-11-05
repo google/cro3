@@ -26,6 +26,7 @@ SSH_OPTS=(
 DEFINE_string 'board' 'tatl' 'Specify the board to build for.' 'b'
 DEFINE_boolean 'build_packages' false 'Builds packages.' 'p'
 DEFINE_boolean 'build_image' false 'Builds the image.' 'i'
+DEFINE_boolean 'test_image' true 'Use a testing termina image instead of a base image.' 't'
 DEFINE_string 'device_ip_addr' '' 'The ip of the device to deploy to.' 'd'
 DEFINE_boolean 'verbose' false 'Turns on verbose logging.' 'v'
 
@@ -76,7 +77,11 @@ main() {
 
   out_dir="$(mktemp -d)/${FLAGS_board}"
   image_dir="${GCLIENT_ROOT}/src/build/images/${FLAGS_board}/"
-  image="${image_dir}/latest/chromiumos_test_image.bin"
+  if [[ ${FLAGS_test_image} -eq ${FLAGS_TRUE} ]]; then
+    image="${image_dir}/latest/chromiumos_test_image.bin"
+  else
+    image="${image_dir}/latest/chromiumos_base_image.bin"
+  fi
   termina_build_image="${GCLIENT_ROOT}/src/platform/container-guest-tools/termina/termina_build_image.py"
   sudo "${termina_build_image}" "${image}" "${out_dir}"
 
