@@ -103,8 +103,6 @@ resize_stateful
 
 install_decryption_flag
 
-okboat
-
 echo "Decryption recovery image created at ${RECOVERY_IMAGE}"
 command_completed
 trap - EXIT
