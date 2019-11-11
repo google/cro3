@@ -23,6 +23,7 @@ from six.moves import http_client
 
 import nebraska
 
+
 _NEBRASKA_PORT = 11235
 _INSTALL_DIR = 'test_install_dir'
 _UPDATE_DIR = 'test_update_dir'
@@ -43,7 +44,7 @@ def GenerateAppData(appid='foo', name='foobar', is_delta=False,
       nebraska.AppIndex.AppData.IS_DELTA_KEY: is_delta,
       nebraska.AppIndex.AppData.SOURCE_VERSION_KEY: source_version,
       nebraska.AppIndex.AppData.SIZE_KEY: '9001',
-      nebraska.AppIndex.AppData.METADATA_SIG_KEY: \
+      nebraska.AppIndex.AppData.METADATA_SIG_KEY:
           'Dr4RFXYgcfvFHV/0VRQs+SCQmz15Sk04LLEDswtvng8BqNbBXA7VvPUhpCgX5T/t7cwP'
           'xTUHJVtxIREuBZpyIQxJQFZATspaClelpKBwadQzj7dpfShLpcbdlfM8qbLjIbXfC2Vy'
           'mw03Mwf38lm0Fm75SANSTW9S4arPDf3sy9YGuqesnEJXyT3ZSGyK+Xto79zlURUXCgmi'
@@ -51,12 +52,13 @@ def GenerateAppData(appid='foo', name='foobar', is_delta=False,
           'nLz0H9RcRhIvMd+8g4kHUZTDvjCvG5EZHpIKk8FK8z0zY/LWVr738evwuNNwyKIazkQB'
           'TA==',
       nebraska.AppIndex.AppData.METADATA_SIZE_KEY: '42',
-      nebraska.AppIndex.AppData.SHA256_HEX_KEY: \
-          '886fd274745b4fa8d1f253cff11242fac07a29522b1bb9e028ab1480353d3160'
+      nebraska.AppIndex.AppData.SHA256_HEX_KEY:
+      '886fd274745b4fa8d1f253cff11242fac07a29522b1bb9e028ab1480353d3160',
   }
   if include_public_key:
     data[nebraska.AppIndex.AppData.PUBLIC_KEY_RSA_KEY] = 'foo-public-key'
   return nebraska.AppIndex.AppData(data)
+
 
 def GenerateAppRequest(request_type=nebraska.Request.RequestType.UPDATE,
                        appid='foo', version='1.0.0', delta_okay=False,
@@ -72,7 +74,7 @@ track="foo-channel" board="foo-board"> </app>"""
   app = ElementTree.fromstring(APP_TEMPLATE)
   app.set('appid', appid)
   app.set('version', version)
-  app.set('delta_okay', 'true' if delta_okay else 'false')
+  app.set('delta_okay', str(bool(delta_okay)).lower())
 
   if ping:
     app.append(ElementTree.fromstring(PING_TEMPLATE))
@@ -85,9 +87,6 @@ track="foo-channel" board="foo-board"> </app>"""
     app.append(event_tag)
 
   return nebraska.Request.AppRequest(app, request_type)
-
-class NebraskaUnitTest(unittest.TestCase):
-  """Parent class for all unit test classes here."""
 
 
 class MockNebraskaHandler(nebraska.NebraskaServer.NebraskaHandler):
@@ -109,7 +108,7 @@ class MockNebraskaHandler(nebraska.NebraskaServer.NebraskaHandler):
         _PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS))
 
 
-class NebraskaTest(NebraskaUnitTest):
+class NebraskaTest(unittest.TestCase):
   """Test Nebraska."""
 
   def testDefaultInstallPayloadsAddress(self):
@@ -128,7 +127,8 @@ class NebraskaTest(NebraskaUnitTest):
     self.assertEqual(n._properties.update_payloads_address, '')
     self.assertEqual(n._properties.install_payloads_address, '')
 
-class NebraskaHandlerTest(NebraskaUnitTest):
+
+class NebraskaHandlerTest(unittest.TestCase):
   """Test NebraskaHandler."""
 
   def testParseURL(self):
@@ -204,7 +204,7 @@ class NebraskaHandlerTest(NebraskaUnitTest):
 
     with mock.patch.object(nebraska, 'traceback') as traceback_mock:
       with mock.patch.object(nebraska.Request, 'ParseRequest') as parse_mock:
-        parse_mock.side_effect = nebraska.NebraskaErrorInvalidRequest
+        parse_mock.side_effect = nebraska.InvalidRequestError
         nebraska_handler.do_POST()
 
         self.assertEqual(traceback_mock.format_exc.call_count, 2)
@@ -243,7 +243,8 @@ class NebraskaHandlerTest(NebraskaUnitTest):
     nebraska_handler.do_GET()
     nebraska_handler.send_error(http_client.BAD_REQUEST, mock.ANY)
 
-class NebraskaServerTest(NebraskaUnitTest):
+
+class NebraskaServerTest(unittest.TestCase):
   """Test NebraskaServer."""
 
   def testStart(self):
@@ -406,7 +407,8 @@ class JSONStrings(object):
 }
 """
 
-class AppIndexTest(NebraskaUnitTest):
+
+class AppIndexTest(unittest.TestCase):
   """Test AppIndex."""
 
   def testScanEmpty(self):
@@ -570,7 +572,8 @@ class AppIndexTest(NebraskaUnitTest):
         # It will match against the AppData with an empty appid.
         self.assertTrue(app_index.Contains(request))
 
-class AppDataTest(NebraskaUnitTest):
+
+class AppDataTest(unittest.TestCase):
   """Test AppData."""
 
   def testMatchAppDataInstall(self):
@@ -631,6 +634,7 @@ class AppDataTest(NebraskaUnitTest):
     request = GenerateAppRequest(appid='bar')
     self.assertFalse(request.MatchAppData(app_data))
     self.assertFalse(request.MatchAppData(app_data, partial_match_appid=True))
+
 
 class XMLStrings(object):
   """Collection of XML request strings for testing."""
@@ -766,76 +770,77 @@ class XMLStrings(object):
 </request>
 """
 
-class RequestTest(NebraskaUnitTest):
+
+class RequestTest(unittest.TestCase):
   """Tests for Request class."""
 
   def testParseRequestInvalidXML(self):
     """Tests ParseRequest handling of invalid XML."""
-    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
+    with self.assertRaises(nebraska.InvalidRequestError):
       nebraska.Request(XMLStrings.INVALID_XML_REQUEST)
 
   def testParseRequestInvalidApp(self):
     """Tests ParseRequest handling of invalid app requests."""
-    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
+    with self.assertRaises(nebraska.InvalidRequestError):
       nebraska.Request(XMLStrings.INVALID_APP_REQUEST)
 
   def testParseRequestInvalidInstall(self):
     """Tests ParseRequest handling of invalid app requests."""
-    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
+    with self.assertRaises(nebraska.InvalidRequestError):
       nebraska.Request(XMLStrings.INVALID_INSTALL_REQUEST)
 
   def testParseRequestInvalidNoop(self):
     """Tests ParseRequest handling of invalid mixed no-op request."""
-    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
+    with self.assertRaises(nebraska.InvalidRequestError):
       nebraska.Request(XMLStrings.INVALID_NOOP_REQUEST)
 
   def testParseRequestMissingAtLeastOneRequiredAttr(self):
     """Tests ParseRequest handling of missing required attributes in request."""
-    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
+    with self.assertRaises(nebraska.InvalidRequestError):
       nebraska.Request(XMLStrings.MISSING_REQUIRED_ATTR_REQUEST)
 
   def testParseRequestMismatchedVersion(self):
     """Tests ParseRequest handling of mismatched version numbers."""
-    with self.assertRaises(nebraska.NebraskaErrorInvalidRequest):
+    with self.assertRaises(nebraska.InvalidRequestError):
       nebraska.Request(XMLStrings.MISMATCHED_VERSION_ATTR_REQUEST)
 
   def testParseRequestInstall(self):
     """Tests ParseRequest handling of install requests."""
     app_requests = nebraska.Request(XMLStrings.INSTALL_REQUEST).app_requests
 
-    self.assertTrue(app_requests[0].request_type ==
-                    nebraska.Request.RequestType.INSTALL)
-    self.assertTrue(app_requests[1].request_type ==
-                    nebraska.Request.RequestType.INSTALL)
-    self.assertTrue(app_requests[2].request_type ==
-                    nebraska.Request.RequestType.INSTALL)
+    self.assertEqual(app_requests[0].request_type,
+                     nebraska.Request.RequestType.INSTALL)
+    self.assertEqual(app_requests[1].request_type,
+                     nebraska.Request.RequestType.INSTALL)
+    self.assertEqual(app_requests[2].request_type,
+                     nebraska.Request.RequestType.INSTALL)
 
-    self.assertTrue(app_requests[0].appid == 'platform')
-    self.assertTrue(app_requests[1].appid == 'foo')
-    self.assertTrue(app_requests[2].appid == 'bar')
+    self.assertEqual(app_requests[0].appid, 'platform')
+    self.assertEqual(app_requests[1].appid, 'foo')
+    self.assertEqual(app_requests[2].appid, 'bar')
 
-    self.assertTrue(app_requests[0].version == '1.0.0')
-    self.assertTrue(app_requests[1].version == '1.0.0')
-    self.assertTrue(app_requests[2].version == '1.0.0')
+    self.assertEqual(app_requests[0].version, '1.0.0')
+    self.assertEqual(app_requests[1].version, '1.0.0')
+    self.assertEqual(app_requests[2].version, '1.0.0')
 
   def testParseRequestUpdate(self):
     """Tests ParseRequest handling of update requests."""
     app_requests = nebraska.Request(XMLStrings.UPDATE_REQUEST).app_requests
 
-    self.assertTrue(app_requests[0].request_type ==
-                    nebraska.Request.RequestType.UPDATE)
-    self.assertTrue(app_requests[1].request_type ==
-                    nebraska.Request.RequestType.UPDATE)
-    self.assertTrue(app_requests[2].request_type ==
-                    nebraska.Request.RequestType.UPDATE)
+    self.assertEqual(app_requests[0].request_type,
+                     nebraska.Request.RequestType.UPDATE)
+    self.assertEqual(app_requests[1].request_type,
+                     nebraska.Request.RequestType.UPDATE)
+    self.assertEqual(app_requests[2].request_type,
+                     nebraska.Request.RequestType.UPDATE)
 
-    self.assertTrue(app_requests[0].appid == 'platform')
-    self.assertTrue(app_requests[1].appid == 'foo')
-    self.assertTrue(app_requests[2].appid == 'bar')
+    self.assertEqual(app_requests[0].appid, 'platform')
+    self.assertEqual(app_requests[1].appid, 'foo')
+    self.assertEqual(app_requests[2].appid, 'bar')
 
-    self.assertTrue(app_requests[0].version == '1.0.0')
-    self.assertTrue(app_requests[1].version == '1.0.0')
-    self.assertTrue(app_requests[2].version == '1.0.0')
+    self.assertEqual(app_requests[0].version, '1.0.0')
+    self.assertEqual(app_requests[1].version, '1.0.0')
+    self.assertEqual(app_requests[2].version, '1.0.0')
 
     self.assertTrue(app_requests[0].delta_okay)
     self.assertTrue(app_requests[1].delta_okay)
@@ -845,14 +850,15 @@ class RequestTest(NebraskaUnitTest):
     """Tests ParseRequest handling of event ping requests."""
     app_requests = nebraska.Request(XMLStrings.EVENT_REQUEST).app_requests
 
-    self.assertTrue(app_requests[0].request_type ==
-                    nebraska.Request.RequestType.EVENT)
-    self.assertTrue(app_requests[0].appid == 'platform')
-    self.assertTrue(app_requests[0].event_type == 3)
-    self.assertTrue(app_requests[0].event_result == 1)
-    self.assertTrue(app_requests[0].previous_version == '1')
+    self.assertEqual(app_requests[0].request_type,
+                     nebraska.Request.RequestType.EVENT)
+    self.assertEqual(app_requests[0].appid, 'platform')
+    self.assertEqual(app_requests[0].event_type, 3)
+    self.assertEqual(app_requests[0].event_result, 1)
+    self.assertEqual(app_requests[0].previous_version, '1')
 
-class ResponseTest(NebraskaUnitTest):
+
+class ResponseTest(unittest.TestCase):
   """Tests for Response class."""
 
   def testGetXMLStringSuccess(self):
@@ -891,13 +897,13 @@ class ResponseTest(NebraskaUnitTest):
     response_root = ElementTree.fromstring(response)
     app_responses = response_root.findall('app')
 
-    self.assertTrue(len(app_responses), 3)
+    self.assertEqual(len(app_responses), 3)
     for response, app in zip(app_responses, app_list):
-      self.assertTrue(response.attrib['appid'] == app.appid)
-      self.assertTrue(response.find('ping') is not None)
+      self.assertEqual(response.attrib['appid'], app.appid)
+      self.assertIsNotNone(response.find('ping'))
 
 
-class AppResponseTest(NebraskaUnitTest):
+class AppResponseTest(unittest.TestCase):
   """Tests for AppResponse class."""
 
   def setUp(self):
@@ -916,11 +922,11 @@ class AppResponseTest(NebraskaUnitTest):
 
     response = nebraska.Response.AppResponse(app_request, self._properties)
 
-    self.assertTrue(_UPDATE_PAYLOADS_ADDRESS in
-                    ElementTree.tostring(response.Compile()))
-    self.assertTrue(response._app_request == app_request)
+    self.assertIn(_UPDATE_PAYLOADS_ADDRESS.encode('utf-8'),
+                  ElementTree.tostring(response.Compile()))
+    self.assertEqual(response._app_request, app_request)
     self.assertFalse(response._err_not_found)
-    self.assertTrue(response._app_data is match)
+    self.assertIs(response._app_data, match)
 
     self._properties.update_app_index.Find.assert_called_once_with(app_request)
     self._properties.install_app_index.Find.assert_not_called()
@@ -934,11 +940,11 @@ class AppResponseTest(NebraskaUnitTest):
 
     response = nebraska.Response.AppResponse(app_request, self._properties)
 
-    self.assertTrue(_INSTALL_PAYLOADS_ADDRESS in
-                    ElementTree.tostring(response.Compile()))
-    self.assertTrue(response._app_request == app_request)
+    self.assertIn(_INSTALL_PAYLOADS_ADDRESS.encode('utf-8'),
+                  ElementTree.tostring(response.Compile()))
+    self.assertEqual(response._app_request, app_request)
     self.assertFalse(response._err_not_found)
-    self.assertTrue(response._app_data is match)
+    self.assertIs(response._app_data, match)
 
     self._properties.install_app_index.Find.assert_called_once_with(app_request)
     self._properties.update_app_index.Find.assert_not_called()
@@ -951,9 +957,9 @@ class AppResponseTest(NebraskaUnitTest):
 
     response = nebraska.Response.AppResponse(app_request, self._properties)
 
-    self.assertTrue(response._app_request == app_request)
+    self.assertEqual(response._app_request, app_request)
     self.assertTrue(response._err_not_found)
-    self.assertTrue(response._app_data is None)
+    self.assertIsNone(response._app_data)
 
     self._properties.update_app_index.Find.assert_called_once_with(app_request)
     self._properties.install_app_index.Find.assert_not_called()
@@ -973,7 +979,7 @@ class AppResponseTest(NebraskaUnitTest):
 
     # THEN the response contains <updatecheck status="noupdate"/>.
     update_check_tag = response.Compile().findall('updatecheck')[0]
-    self.assertTrue(update_check_tag.attrib['status'] == 'noupdate')
+    self.assertEqual(update_check_tag.attrib['status'], 'noupdate')
 
   def testAppResponseNoUpdateFlag(self):
     """Tests status="noupdate" is included in the response."""
@@ -986,7 +992,7 @@ class AppResponseTest(NebraskaUnitTest):
     response = nebraska.Response.AppResponse(
         app_request, self._properties).Compile()
     update_check_tag = response.findall('updatecheck')[0]
-    self.assertTrue(update_check_tag.attrib['status'] == 'noupdate')
+    self.assertEqual(update_check_tag.attrib['status'], 'noupdate')
 
   def testAppResponsePing(self):
     """Tests AppResponse generation for no-op with a ping request."""
@@ -997,9 +1003,9 @@ class AppResponseTest(NebraskaUnitTest):
 
     response = nebraska.Response.AppResponse(app_request, self._properties)
 
-    self.assertTrue(response._app_request == app_request)
+    self.assertEqual(response._app_request, app_request)
     self.assertFalse(response._err_not_found)
-    self.assertTrue(response._app_data is None)
+    self.assertIsNone(response._app_data)
 
     self._properties.update_app_index.Find.assert_not_called()
     self._properties.install_app_index.Find.assert_not_called()
@@ -1013,9 +1019,9 @@ class AppResponseTest(NebraskaUnitTest):
 
     response = nebraska.Response.AppResponse(app_request, self._properties)
 
-    self.assertTrue(response._app_request == app_request)
+    self.assertEqual(response._app_request, app_request)
     self.assertFalse(response._err_not_found)
-    self.assertTrue(response._app_data is None)
+    self.assertIsNone(response._app_data)
 
     self._properties.update_app_index.Find.assert_not_called()
     self._properties.install_app_index.Find.assert_not_called()
@@ -1038,28 +1044,29 @@ class AppResponseTest(NebraskaUnitTest):
     action_tag = compiled_response.findall(
         'updatecheck/manifest/actions/action')[1]
 
-    self.assertTrue(url_tag is not None)
-    self.assertTrue(manifest_tag is not None)
-    self.assertTrue(package_tag is not None)
-    self.assertTrue(action_tag is not None)
-    self.assertTrue(action_tag.attrib['sha256'] == match.sha256)
+    self.assertIsNotNone(url_tag)
+    self.assertIsNotNone(manifest_tag)
+    self.assertIsNotNone(package_tag)
+    self.assertIsNotNone(action_tag)
+    self.assertEqual(action_tag.attrib['sha256'], match.sha256)
 
-    self.assertTrue(compiled_response.attrib['status'] == 'ok')
-    self.assertTrue(update_check_tag.attrib['status'] == 'ok')
+    self.assertEqual(compiled_response.attrib['status'], 'ok')
+    self.assertEqual(update_check_tag.attrib['status'], 'ok')
 
-    self.assertTrue(compiled_response.attrib['appid'] == match.appid)
-    self.assertTrue(url_tag.attrib['codebase'] == _INSTALL_PAYLOADS_ADDRESS)
-    self.assertTrue(manifest_tag.attrib['version'] == match.target_version)
-    self.assertTrue(package_tag.attrib['hash_sha256'] == match.sha256_hex)
-    self.assertTrue(package_tag.attrib['fp'] == '1.%s' % match.sha256_hex)
-    self.assertTrue(package_tag.attrib['name'] == match.name)
-    self.assertTrue(package_tag.attrib['size'] == match.size)
-    self.assertTrue(
-        action_tag.attrib['ChromeOSVersion'] == match.target_version)
-    self.assertTrue(action_tag.attrib['IsDeltaPayload'] == 'true' if
-                    match.is_delta else 'false')
-    self.assertFalse('deadline' in action_tag.attrib)
-    self.assertFalse('PublicKeyRsa' in action_tag.attrib)
+    self.assertEqual(compiled_response.attrib['appid'], match.appid)
+    self.assertEqual(url_tag.attrib['codebase'], _INSTALL_PAYLOADS_ADDRESS)
+    self.assertEqual(manifest_tag.attrib['version'], match.target_version)
+    self.assertEqual(package_tag.attrib['hash_sha256'].encode('utf-8'),
+                     match.sha256_hex)
+    self.assertEqual(package_tag.attrib['fp'], '1.%s' % match.sha256_hex)
+    self.assertEqual(package_tag.attrib['name'], match.name)
+    self.assertEqual(package_tag.attrib['size'], match.size)
+    self.assertEqual(
+        action_tag.attrib['ChromeOSVersion'], match.target_version)
+    self.assertEqual(action_tag.attrib['IsDeltaPayload'],
+                     str(match.is_delta).lower())
+    self.assertNotIn('deadline', action_tag.attrib)
+    self.assertNotIn('PublicKeyRsa', action_tag.attrib)
 
   def testCriticalUpdate(self):
     """Tests correct response for critical updates."""
@@ -1071,7 +1078,7 @@ class AppResponseTest(NebraskaUnitTest):
         app_request, self._properties).Compile()
     action_tag = response.findall(
         'updatecheck/manifest/actions/action')[1]
-    self.assertTrue(action_tag.attrib['deadline'] == 'now')
+    self.assertEqual(action_tag.attrib['deadline'], 'now')
 
   def testPublicKey(self):
     """Tests public key is included in the response."""
@@ -1082,7 +1089,8 @@ class AppResponseTest(NebraskaUnitTest):
         app_request, self._properties).Compile()
     action_tag = response.findall(
         'updatecheck/manifest/actions/action')[1]
-    self.assertTrue(action_tag.attrib['PublicKeyRsa'] == match.public_key)
+    self.assertEqual(action_tag.attrib['PublicKeyRsa'], match.public_key)
+
 
 if __name__ == '__main__':
   # Disable logging so it doesn't pollute the unit test output. Failures and

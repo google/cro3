@@ -12,6 +12,7 @@ from __future__ import print_function
 import argparse
 import base64
 import copy
+import datetime
 import errno
 import json
 import logging
@@ -22,7 +23,6 @@ import sys
 import threading
 import traceback
 
-from datetime import datetime, time
 from xml.dom import minidom
 from xml.etree import ElementTree
 
@@ -31,11 +31,11 @@ from six.moves import http_client
 from six.moves import urllib
 
 
-class NebraskaError(Exception):
+class Error(Exception):
   """The base class for failures raised by Nebraska."""
 
 
-class NebraskaErrorInvalidRequest(NebraskaError):
+class InvalidRequestError(Error):
   """Raised for invalid requests."""
 
 
@@ -95,7 +95,7 @@ class Request(object):
     self.track = None
     self.board = None
     self.request_type = None
-    self.timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    self.timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     self.app_requests = []
 
@@ -114,14 +114,13 @@ class Request(object):
       A list of AppRequest instances.
 
     Raises:
-      NebrakaErrorInvalidRequest if the request string is not a valid XML
-          request.
+      InvalidRequestError if the request string is not a valid XML request.
     """
     try:
       request_root = ElementTree.fromstring(self.request_str)
     except ElementTree.ParseError as err:
-      raise NebraskaErrorInvalidRequest(
-          'Request string is not valid XML: {}'.format(err))
+      raise InvalidRequestError(
+          'Request string is not valid XML: %s' % err)
 
     # TODO(http://crbug.com/914936): It would be better to specifically check
     # the platform app. An install is signalled by omitting the update_check for
@@ -139,7 +138,7 @@ class Request(object):
     elif update_check_count == len(app_elements):
       self.request_type = Request.RequestType.UPDATE
     else:
-      raise NebraskaErrorInvalidRequest(
+      raise InvalidRequestError(
           'Client request omits update_check tag for more than one, but not all'
           ' app requests.')
 
@@ -163,17 +162,17 @@ class Request(object):
       """
       all_attrs = [getattr(x, attribute) for x in self.app_requests]
       if in_all and None in all_attrs:
-        raise NebraskaErrorInvalidRequest(
-            'All apps should have "{}" attribute.'.format(attribute))
+        raise InvalidRequestError(
+            'All apps should have "%s" attribute.' % attribute)
 
       # Filter out the None elements into a set.
       unique_attrs = set(x for x in all_attrs if x is not None)
       if not unique_attrs:
-        raise NebraskaErrorInvalidRequest('"{}" attribute should appear in at '
-                                          'least one app.'.format(attribute))
+        raise InvalidRequestError('"%s" attribute should appear in at '
+                                  'least one app.' % attribute)
       if len(unique_attrs) > 1:
-        raise NebraskaErrorInvalidRequest(
-            'Attribute "{}" is not the same in all app tags.'.format(attribute))
+        raise InvalidRequestError(
+            'Attribute "%s" is not the same in all app tags.' % attribute)
       return unique_attrs.pop()
 
     self.version = _CheckAttributesAndReturnIt(self.APP_VERSION_ATTR,
@@ -236,11 +235,11 @@ class Request(object):
     def __str__(self):
       """Returns a string representation of an AppRequest."""
       if self.request_type == Request.RequestType.EVENT:
-        return '{}'.format(self.appid)
+        return str(self.appid)
       elif self.request_type == Request.RequestType.INSTALL:
-        return 'install {} v{}'.format(self.appid, self.version)
+        return 'install %s v%s' % (self.appid, self.version)
       elif self.request_type == Request.RequestType.UPDATE:
-        return '{} update {} from v{}'.format(
+        return '%s update %s from v%s' % (
             'delta' if self.delta_okay else 'full', self.appid, self.version)
 
     def ParseApp(self, app):
@@ -249,7 +248,7 @@ class Request(object):
       Args:
         app: The request app XML element.
 
-      Raises NebraskaErrorInvalidRequest if the input request string is in
+      Raises InvalidRequestError if the input request string is in
           invalid format.
       """
       self.appid = app.get(Request.APP_APPID_ATTR)
@@ -267,7 +266,7 @@ class Request(object):
       self.ping = app.find(Request.PING_TAG) is not None
 
       if None in (self.request_type, self.appid, self.version):
-        raise NebraskaErrorInvalidRequest('Invalid app request.')
+        raise InvalidRequestError('Invalid app request.')
 
     def MatchAppData(self, app_data, partial_match_appid=False):
       """Returns true iff the app matches a given client request.
@@ -322,10 +321,13 @@ class Response(object):
     self._request = request
     self._properties = properties
 
-    curr = datetime.now()
-    self._elapsed_days = (curr - datetime(2007, 1, 1)).days
+    curr = datetime.datetime.now()
+    # Jan 1 2007 is the start of Omaha v3 epoch:
+    # https://github.com/google/omaha/blob/master/doc/ServerProtocolV3.md#attributes-12
+    self._elapsed_days = (curr - datetime.datetime(2007, 1, 1)).days
     self._elapsed_seconds = int((
-        curr - datetime.combine(curr.date(), time.min)).total_seconds())
+        curr - datetime.datetime.combine(curr.date(),
+                                         datetime.time.min)).total_seconds())
 
   def GetXMLString(self):
     """Generates a response to a set of client requests.
@@ -352,7 +354,7 @@ class Response(object):
 
     except Exception as err:
       logging.error(traceback.format_exc())
-      raise NebraskaError('Failed to compile response: {}'.format(err))
+      raise Error('Failed to compile response: %s' % err)
 
     return ElementTree.tostring(
         response_xml, encoding='UTF-8', method='xml')
@@ -455,7 +457,7 @@ class Response(object):
         ElementTree.SubElement(
             packages, 'package',
             attrib={'fp': '1.%s' % self._app_data.sha256_hex,
-                    'hash_sha256': self._app_data.sha256_hex,
+                    'hash_sha256': self._app_data.sha256_hex.decode('utf-8'),
                     'name': self._app_data.name,
                     'required': 'true',
                     'size': str(self._app_data.size)})
@@ -633,9 +635,9 @@ class AppIndex(object):
 
     def __str__(self):
       if self.is_delta:
-        return '{} v{}: delta update from base v{}'.format(
+        return '%s v%s: delta update from base v%s' % (
             self.appid, self.target_version, self.source_version)
-      return '{} v{}: full update/install'.format(
+      return '%s v%s: full update/install' % (
           self.appid, self.target_version)
 
 
@@ -898,13 +900,13 @@ class NebraskaServer(object):
       try:
         os.remove(f)
       except Exception as e:
-        logging.warn('Failed to remove file %s with error %s', f, e)
+        logging.warning('Failed to remove file %s with error %s', f, e)
       if self._created_runtime_root:
         try:
           shutil.rmtree(self._runtime_root)
         except Exception as e:
-          logging.warn('Failed to remove directory %s with error %s',
-                       self._runtime_root, e)
+          logging.warning('Failed to remove directory %s with error %s',
+                          self._runtime_root, e)
 
 
   def GetPort(self):
