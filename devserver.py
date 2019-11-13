@@ -24,6 +24,7 @@ how to update and which payload to give to a requester.
 
 from __future__ import print_function
 
+import distutils.version  # pylint: disable=import-error,no-name-in-module
 import json
 import optparse  # pylint: disable=deprecated-module
 import os
@@ -1679,6 +1680,18 @@ def main():
 
   dev_server = DevServerRoot(_xbuddy)
   health_checker_app = health_checker.Root(dev_server, options.static_dir)
+
+  # Patch CherryPy to support binding to any available port (--port=0) only for
+  # cherrypy versions smaller or equal to 3.2.2.
+  #
+  # TODO(crbug/1006305): Remove this once we have deprecated omaha_devserver.py
+  # in the autotests as that is the only use case.
+  #
+  # pylint: disable=no-member
+  if (distutils.version.StrictVersion(cherrypy.__version__) <=
+      distutils.version.StrictVersion('3.2.2')):
+    cherrypy_ext.ZeroPortPatcher.DoPatch(cherrypy)
+  # pylint: enable=no-member
 
   if options.pidfile:
     plugins.PIDFile(cherrypy.engine, options.pidfile).subscribe()
