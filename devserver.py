@@ -101,6 +101,19 @@ class DevServerError(Exception):
   """Exception class used by DevServer."""
 
 
+class DevServerHTTPError(cherrypy.HTTPError):
+  """Exception class to log the HTTPResponse before routing it to cherrypy."""
+  def __init__(self, status, message):
+    """CherryPy error with logging.
+
+    Args:
+      status: HTTPResponse status.
+      message: Message associated with the response.
+    """
+    cherrypy.HTTPError.__init__(self, status, message)
+    _Log('HTTPError status: %s message: %s', status, message)
+
+
 def _canonicalize_archive_url(archive_url):
   """Canonicalizes archive_url strings.
 
@@ -429,12 +442,12 @@ def _check_base_args_for_auto_update(kwargs):
     DevServerHTTPError if required parameters don't exist in kwargs.
   """
   if 'host_name' not in kwargs:
-    raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                         KEY_ERROR_MSG % 'host_name')
+    raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                             KEY_ERROR_MSG % 'host_name')
 
   if 'build_name' not in kwargs:
-    raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                         KEY_ERROR_MSG % 'build_name')
+    raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                             KEY_ERROR_MSG % 'build_name')
 
 
 def _parse_boolean_arg(kwargs, key):
@@ -456,9 +469,8 @@ def _parse_boolean_arg(kwargs, key):
     elif kwargs[key] == 'False':
       return False
     else:
-      raise common_util.DevServerHTTPError(
-          http_client.INTERNAL_SERVER_ERROR,
-          'The value for key %s is not boolean.' % key)
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               'The value for key %s is not boolean.' % key)
   else:
     return False
 
@@ -860,12 +872,12 @@ class DevServerRoot(object):
               string otherwise.
     """
     if 'host_name' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           KEY_ERROR_MSG % 'host_name')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               KEY_ERROR_MSG % 'host_name')
 
     if 'pid' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           KEY_ERROR_MSG % 'pid')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               KEY_ERROR_MSG % 'pid')
 
     host_name = kwargs['host_name']
     pid = kwargs['pid']
@@ -910,12 +922,12 @@ class DevServerRoot(object):
         pid: the background process id of cros-update.
     """
     if 'host_name' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           KEY_ERROR_MSG % 'host_name')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               KEY_ERROR_MSG % 'host_name')
 
     if 'pid' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           KEY_ERROR_MSG % 'pid')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               KEY_ERROR_MSG % 'pid')
 
     host_name = kwargs['host_name']
     pid = kwargs['pid']
@@ -937,12 +949,12 @@ class DevServerRoot(object):
         pid: the background process id of cros-update.
     """
     if 'host_name' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           KEY_ERROR_MSG % 'host_name')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               KEY_ERROR_MSG % 'host_name')
 
     if 'pid' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           KEY_ERROR_MSG % 'pid')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               KEY_ERROR_MSG % 'pid')
 
     host_name = kwargs['host_name']
     pid = kwargs['pid']
@@ -961,8 +973,8 @@ class DevServerRoot(object):
       True if all processes are killed properly.
     """
     if 'host_name' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           KEY_ERROR_MSG % 'host_name')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               KEY_ERROR_MSG % 'host_name')
 
     cur_pid = kwargs.get('pid')
 
@@ -994,12 +1006,12 @@ class DevServerRoot(object):
       A dictionary containing the execute log file and any hostlog files.
     """
     if 'host_name' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           KEY_ERROR_MSG % 'host_name')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               KEY_ERROR_MSG % 'host_name')
 
     if 'pid' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           KEY_ERROR_MSG % 'pid')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               KEY_ERROR_MSG % 'pid')
 
     host_name = kwargs['host_name']
     pid = kwargs['pid']
@@ -1174,8 +1186,8 @@ class DevServerRoot(object):
       return _PrintDocStringAsHTML(self.latestbuild)
 
     if 'target' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           'Error: target= is required!')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               'Error: target= is required!')
 
     if _is_android_build_request(kwargs):
       branch = kwargs.get('branch', None)
@@ -1190,8 +1202,8 @@ class DevServerRoot(object):
           updater.static_dir, kwargs['target'],
           milestone=kwargs.get('milestone'))
     except common_util.CommonUtilError as errmsg:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           str(errmsg))
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               str(errmsg))
 
   @cherrypy.expose
   def list_suite_controls(self, **kwargs):
@@ -1213,12 +1225,12 @@ class DevServerRoot(object):
       return _PrintDocStringAsHTML(self.controlfiles)
 
     if 'build' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           'Error: build= is required!')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               'Error: build= is required!')
 
     if 'suite_name' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           'Error: suite_name= is required!')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               'Error: suite_name= is required!')
 
     control_file_list = [
         line.rstrip() for line in common_util.GetControlFileListForSuite(
@@ -1262,8 +1274,8 @@ class DevServerRoot(object):
       return _PrintDocStringAsHTML(self.controlfiles)
 
     if 'build' not in kwargs:
-      raise common_util.DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
-                                           'Error: build= is required!')
+      raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
+                               'Error: build= is required!')
 
     if 'control_path' not in kwargs:
       if 'suite_name' in kwargs and kwargs['suite_name']:
@@ -1356,7 +1368,7 @@ class DevServerRoot(object):
     relative_path = xbuddy.XBuddy.ParseBoolean(boolean_string)
 
     if return_dir and relative_path:
-      raise common_util.DevServerHTTPError(
+      raise DevServerHTTPError(
           http_client.INTERNAL_SERVER_ERROR,
           'Cannot specify both return_dir and relative_path')
 
