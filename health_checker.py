@@ -15,7 +15,15 @@ import threading
 import time
 
 import cherrypy  # pylint: disable=import-error
-import psutil  # pylint: disable=import-error
+
+try:
+  import psutil
+except ImportError:
+  # Ignore psutil import failure. lakitu doesn't have psutil installed
+  # and for auto-update test, lakitu copies the devserver code and uses
+  # that to run the devserver. This results in failure of devserver
+  # and the auto-update test fails.
+  psutil = None
 
 import setup_chromite  # pylint: disable=unused-import
 from chromite.lib import cros_update_progress
