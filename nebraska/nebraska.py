@@ -378,7 +378,9 @@ class Response(object):
       self._app_data = None
       self._err_not_found = False
       self._payloads_address = None
-      self._critical_update = False
+      # Although, for installs the update_engine probably should not care about
+      # critical updates and should install even if OOBE has not been passed.
+      self._critical_update = properties.critical_update
 
       # If no update was requested, don't process anything anymore.
       if properties.no_update:
@@ -398,7 +400,6 @@ class Response(object):
         self._err_not_found = (self._app_data is None and
                                not properties.update_app_index.Contains(
                                    self._app_request))
-        self._critical_update = properties.critical_update
 
       if self._app_data:
         logging.debug('Found matching payload: %s', str(self._app_data))

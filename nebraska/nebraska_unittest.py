@@ -1080,6 +1080,19 @@ class AppResponseTest(unittest.TestCase):
         'updatecheck/manifest/actions/action')[1]
     self.assertEqual(action_tag.attrib['deadline'], 'now')
 
+  def testCriticalInstall(self):
+    """Tests correct response for critical installs."""
+    app_request = GenerateAppRequest(
+        request_type=nebraska.Request.RequestType.INSTALL)
+    match = GenerateAppData()
+    self._properties.update_app_index.Find.return_value = match
+    self._properties.critical_update = True
+    response = nebraska.Response.AppResponse(
+        app_request, self._properties).Compile()
+    action_tag = response.findall(
+        'updatecheck/manifest/actions/action')[1]
+    self.assertEqual(action_tag.attrib['deadline'], 'now')
+
   def testPublicKey(self):
     """Tests public key is included in the response."""
     app_request = GenerateAppRequest()
