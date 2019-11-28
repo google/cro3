@@ -808,9 +808,10 @@ class NebraskaServer(object):
           no update (even if there is).
       """
       try:
-        request_len = int(self.headers.getheader('content-length'))
+        request_len = int(self.headers.get('content-length'))
         request = self.rfile.read(request_len)
       except Exception as err:
+        logging.error('Failed to read request in do_POST %s', str(err))
         self.send_error(http_client.BAD_REQUEST, 'Invalid request (header).')
         return
 
