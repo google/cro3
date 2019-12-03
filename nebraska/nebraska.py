@@ -31,6 +31,16 @@ from six.moves import http_client
 from six.moves import urllib
 
 
+# TODO(crbug/999047): Add these functionalities from nano_omaha_devserver.py to
+# nebraska:
+#
+# - is_rollback: Passed to Nebraska (default False)
+# - failures_per_url: Passed to Nebraska (default 1)
+# - disable_backoff: Passed to Nebraska (default False)
+# - num_urls: Passed to Nebraska (default 2)
+# - eol_date: Passed to Nebraska (default None)
+
+
 class Error(Exception):
   """The base class for failures raised by Nebraska."""
 
