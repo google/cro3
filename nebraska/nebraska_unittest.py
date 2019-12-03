@@ -857,6 +857,20 @@ class RequestTest(unittest.TestCase):
     self.assertEqual(app_requests[0].event_result, 1)
     self.assertEqual(app_requests[0].previous_version, '1')
 
+  def testDetectingPlatformAppRequest(self):
+    """Tests we correctly identify platform VS. DLC requests"""
+    request = GenerateAppRequest(appid='foo-platform')
+    self.assertTrue(request.is_platform)
+
+    request = GenerateAppRequest(appid='')
+    self.assertTrue(request.is_platform)
+
+    request = GenerateAppRequest(appid='foo-platform_dlc')
+    self.assertFalse(request.is_platform)
+
+    request = GenerateAppRequest(appid='_dlc')
+    self.assertFalse(request.is_platform)
+
 
 class ResponseTest(unittest.TestCase):
   """Tests for Response class."""

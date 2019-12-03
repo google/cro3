@@ -239,6 +239,7 @@ class Request(object):
       self.event_type = None
       self.event_result = None
       self.previous_version = None
+      self.is_platform = None
 
       self.ParseApp(app)
 
@@ -277,6 +278,11 @@ class Request(object):
 
       if None in (self.request_type, self.appid, self.version):
         raise InvalidRequestError('Invalid app request.')
+
+      # This is a weak indication of whether a request is for a platform update
+      # (platform App IDs don't have underscore, but DLCs have). But for now it
+      # robustly gets what we want.
+      self.is_platform = '_' not in self.appid
 
     def MatchAppData(self, app_data, partial_match_appid=False):
       """Returns true iff the app matches a given client request.
