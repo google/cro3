@@ -34,11 +34,14 @@ from six.moves import urllib
 # TODO(crbug/999047): Add these functionalities from nano_omaha_devserver.py to
 # nebraska:
 #
-# - is_rollback: Passed to Nebraska (default False)
 # - failures_per_url: Passed to Nebraska (default 1)
 # - disable_backoff: Passed to Nebraska (default False)
 # - num_urls: Passed to Nebraska (default 2)
 # - eol_date: Passed to Nebraska (default None)
+
+# '5' and '7' are just default values for testing.
+_FIRMWARE_VER = '5'
+_KERNEL_VER = '7'
 
 
 class Error(Exception):
@@ -65,6 +68,7 @@ class Request(object):
   APP_BOARD_ATTR = 'board'
 
   UPDATE_CHECK_TAG = 'updatecheck'
+  ROLLBACK_ALLOWED_ATTR = 'rollback_allowed'
 
   PING_TAG = 'ping'
 
@@ -240,6 +244,7 @@ class Request(object):
       self.event_result = None
       self.previous_version = None
       self.is_platform = None
+      self.rollback_allowed = None
 
       self.ParseApp(app)
 
@@ -267,6 +272,11 @@ class Request(object):
       self.track = app.get(Request.APP_CHANNEL_ATTR)
       self.board = app.get(Request.APP_BOARD_ATTR)
       self.delta_okay = app.get(Request.APP_DELTA_OKAY_ATTR) == 'true'
+
+      update_check = app.find(Request.UPDATE_CHECK_TAG)
+      self.rollback_allowed = (
+          update_check is not None and
+          update_check.get(Request.ROLLBACK_ALLOWED_ATTR) == 'true')
 
       event = app.find(Request.EVENT_TAG)
       if event is not None:
@@ -395,15 +405,16 @@ class Response(object):
         response_props: An instance of ResponseProperties.
       """
       self._app_request = app_request
+      self._response_props = response_props
       self._app_data = None
       self._err_not_found = False
       self._payloads_address = None
       # Although, for installs the update_engine probably should not care about
       # critical updates and should install even if OOBE has not been passed.
-      self._critical_update = response_props.critical_update
+      self._critical_update = self._response_props.critical_update
 
       # If no update was requested, don't process anything anymore.
-      if response_props.no_update:
+      if self._response_props.no_update:
         return
 
       if self._app_request.request_type == Request.RequestType.INSTALL:
@@ -449,8 +460,22 @@ class Response(object):
         ElementTree.SubElement(app_response, 'event', attrib={'status': 'ok'})
 
       if self._app_data is not None:
+        update_check_attribs = {'status': 'ok'}
+        if (self._response_props.is_rollback and
+            self._app_request.rollback_allowed):
+          update_check_attribs['_is_rollback'] = 'true'
+          # Techincally we have to always send _firmware_version and
+          # _kernel_version attributes regardless of the rollback situation. But
+          # for the sake of simplicity, we can just send it when rollback was
+          # requested.
+          index_strs = ['', '_0', '_1', '_2', '_3', '_4']
+          for idx in index_strs:
+            update_check_attribs['_firmware_version' + idx] = _FIRMWARE_VER
+            update_check_attribs['_kernel_version' + idx] = _KERNEL_VER
+        if self._response_props.eol_date is not None:
+          update_check_attribs['_eol_date'] = str(self._response_props.eol_date)
         update_check = ElementTree.SubElement(
-            app_response, 'updatecheck', attrib={'status': 'ok'})
+            app_response, 'updatecheck', attrib=update_check_attribs)
         urls = ElementTree.SubElement(update_check, 'urls')
         ElementTree.SubElement(
             urls, 'url', attrib={'codebase': self._payloads_address})
@@ -484,7 +509,7 @@ class Response(object):
                     'required': 'true',
                     'size': str(self._app_data.size)})
 
-      elif self._err_not_found:
+      elif self._err_not_found and not self._app_request.rollback_allowed:
         app_response.set('status', 'error-unknownApplication')
 
       elif self._app_request.request_type == Request.RequestType.UPDATE:
@@ -702,16 +727,18 @@ class ResponseProperties(object):
 
   These properties might change during the lifetime of the nebraska.
   """
-  def __init__(self, critical_update=False, no_update=False):
+  def __init__(self, critical_update=False, no_update=False, is_rollback=False):
     """Initliazes the response properties.
 
     Args:
       critical_update: If true, the response will include 'deadline=now' which
           indicates the update is critical.
       no_update: If true, it will return a noupdate response regardless.
+      is_rollback: Whether the update request will be a rollback or not.
     """
     self.critical_update = critical_update
     self.no_update = no_update
+    self.is_rollback = is_rollback
 
 
 class Nebraska(object):

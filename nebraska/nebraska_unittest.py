@@ -63,7 +63,7 @@ def GenerateAppData(appid='foo', name='foobar', is_delta=False,
 def GenerateAppRequest(request_type=nebraska.Request.RequestType.UPDATE,
                        appid='foo', version='1.0.0', delta_okay=False,
                        event=False, event_type='1', event_result='1',
-                       update_check=True, ping=False):
+                       update_check=True, ping=False, rollback_allowed=False):
   """Generates an app request test instance."""
   APP_TEMPLATE = """<app appid="" version="" delta_okay=""
 track="foo-channel" board="foo-board"> </app>"""
@@ -79,7 +79,10 @@ track="foo-channel" board="foo-board"> </app>"""
   if ping:
     app.append(ElementTree.fromstring(PING_TEMPLATE))
   if update_check:
-    app.append(ElementTree.fromstring(UPDATE_CHECK_TEMPLATE))
+    update_check = ElementTree.fromstring(UPDATE_CHECK_TEMPLATE)
+    app.append(update_check)
+    if rollback_allowed:
+      update_check.set('rollback_allowed', 'true')
   if event:
     event_tag = ElementTree.fromstring(EVENT_TEMPLATE)
     event_tag.set('eventtype', event_type)
@@ -1085,6 +1088,7 @@ class AppResponseTest(unittest.TestCase):
                      str(match.is_delta).lower())
     self.assertNotIn('deadline', action_tag.attrib)
     self.assertNotIn('PublicKeyRsa', action_tag.attrib)
+    self.assertNotIn('_is_rollback', update_check_tag.attrib)
 
   @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
   # pylint: disable=unused-argument
@@ -1128,6 +1132,36 @@ class AppResponseTest(unittest.TestCase):
         'updatecheck/manifest/actions/action')[1]
     self.assertEqual(action_tag.attrib['PublicKeyRsa'],
                      find_mock.return_value.public_key)
+
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  def testRollback(self, _):
+    """Tests rollback parametes are setup correctly."""
+    app_request = GenerateAppRequest(rollback_allowed=True)
+    self._response_props.is_rollback = True
+
+    response = nebraska.Response.AppResponse(
+        app_request, self._nebraska_props, self._response_props).Compile()
+
+    update_check_tag = response.find('updatecheck')
+    index_strs = ['', '_0', '_1', '_2', '_3', '_4']
+    self.assertEqual(update_check_tag.attrib['_is_rollback'], 'true')
+    for idx in index_strs:
+      self.assertEqual(update_check_tag.attrib['_firmware_version' + idx],
+                       nebraska._FIRMWARE_VER)
+      self.assertEqual(update_check_tag.attrib['_kernel_version' + idx],
+                       nebraska._KERNEL_VER)
+
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  def testNotRollback(self, _):
+    """Tests that we should not do rollback if it was not requested."""
+    app_request = GenerateAppRequest(rollback_allowed=False)
+    self._response_props.is_rollback = True
+
+    response = nebraska.Response.AppResponse(
+        app_request, self._nebraska_props, self._response_props).Compile()
+
+    update_check_tag = response.find('updatecheck')
+    self.assertNotIn('_is_rollback', update_check_tag.attrib)
 
 
 if __name__ == '__main__':
