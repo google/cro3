@@ -39,6 +39,7 @@ class AutoupdateTest(unittest.TestCase):
     self.port = 8080
     self.test_board = 'test-board'
     self.build_root = tempfile.mkdtemp('autoupdate_build_root')
+    self.tempdir = tempfile.mkdtemp('tempdir')
     self.latest_dir = '12345_af_12-a1'
     self.latest_verision = '12345_af_12'
     self.static_image_dir = tempfile.mkdtemp('autoupdate_static_dir')
@@ -59,6 +60,7 @@ class AutoupdateTest(unittest.TestCase):
 
   def tearDown(self):
     shutil.rmtree(self.build_root)
+    shutil.rmtree(self.tempdir)
     shutil.rmtree(self.static_image_dir)
 
   def _DummyAutoupdateConstructor(self, **kwargs):
@@ -92,6 +94,22 @@ class AutoupdateTest(unittest.TestCase):
     self.assertEqual(
         json.loads(au_mock.HandleHostInfoPing(test_ip)), self.test_dict)
 
+  @mock.patch.object(autoupdate.Autoupdate, 'GetPathToPayload')
+  def testHandleUpdatePing(self, path_to_payload_mock):
+    """Tests HandleUpdatePing"""
+    au_mock = self._DummyAutoupdateConstructor()
+    path_to_payload_mock.return_value = self.tempdir
+    request = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" delta_okay="true"
+       track="stable-channel" board="eve">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+</request>"""
+
+    self.assertIn('error-unknownApplication', au_mock.HandleUpdatePing(request))
 
 if __name__ == '__main__':
   unittest.main()

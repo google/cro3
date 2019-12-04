@@ -343,7 +343,9 @@ class Autoupdate(build_util.BuildObject):
     if self.max_updates == 0:
       _Log('Request received but max number of updates already served.')
       nebraska_obj = nebraska.Nebraska()
-      return nebraska_obj.GetResponseToRequest(request, no_update=True)
+      response_props = nebraska.ResponseProperties(no_update=True)
+      return nebraska_obj.GetResponseToRequest(request,
+                                               response_props=response_props)
 
     _Log('Update Check Received.')
 
@@ -357,10 +359,14 @@ class Autoupdate(build_util.BuildObject):
            'nebraska to respond with no-update. The error was %s', e)
 
     _Log('Responding to client to use url %s to get image', base_url)
-    nebraska_obj = nebraska.Nebraska(update_payloads_address=base_url,
-                                     update_metadata_dir=local_payload_dir)
-    return nebraska_obj.GetResponseToRequest(
-        request, critical_update=self.critical_update)
+    nebraska_props = nebraska.NebraskaProperties(
+        update_payloads_address=base_url,
+        update_metadata_dir=local_payload_dir)
+    response_props = nebraska.ResponseProperties(
+        critical_update=self.critical_update)
+    nebraska_obj = nebraska.Nebraska(nebraska_props=nebraska_props)
+    return nebraska_obj.GetResponseToRequest(request,
+                                             response_props=response_props)
 
   def HandleHostInfoPing(self, ip):
     """Returns host info dictionary for the given IP in JSON format."""

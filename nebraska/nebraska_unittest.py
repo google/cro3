@@ -28,8 +28,8 @@ _NEBRASKA_PORT = 11235
 _INSTALL_DIR = 'test_install_dir'
 _UPDATE_DIR = 'test_update_dir'
 _PAYLOAD_ADDRESS = '111.222.212:2357'
-_UPDATE_PAYLOADS_ADDRESS = 'www.google.com/update'
-_INSTALL_PAYLOADS_ADDRESS = 'www.google.com/install'
+_UPDATE_PAYLOADS_ADDRESS = 'www.google.com/update/'
+_INSTALL_PAYLOADS_ADDRESS = 'www.google.com/install/'
 
 # pylint: disable=protected-access
 
@@ -104,8 +104,10 @@ class MockNebraskaHandler(nebraska.NebraskaServer.NebraskaHandler):
     self.send_error = mock.MagicMock()
     self.rfile = mock.MagicMock()
     self.server = mock.MagicMock()
-    self.server.owner = nebraska.NebraskaServer(nebraska.Nebraska(
-        _PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS))
+    nebraska_props = nebraska.NebraskaProperties(
+        update_payloads_address=_PAYLOAD_ADDRESS)
+    nebraska_obj = nebraska.Nebraska(nebraska_props=nebraska_props)
+    self.server.owner = nebraska.NebraskaServer(nebraska_obj)
 
 
 class NebraskaTest(unittest.TestCase):
@@ -116,16 +118,21 @@ class NebraskaTest(unittest.TestCase):
     update_addr = 'foo/update/'
     install_addr = 'foo/install/'
     # pylint: disable=protected-access
-    n = nebraska.Nebraska(update_addr, install_addr)
-    self.assertEqual(n._properties.install_payloads_address, install_addr)
-    self.assertEqual(n._properties.update_payloads_address, update_addr)
+    nebraska_props = nebraska.NebraskaProperties(
+        update_payloads_address=update_addr,
+        install_payloads_address=install_addr)
+    n = nebraska.Nebraska(nebraska_props=nebraska_props)
+    self.assertEqual(n._nebraska_props.install_payloads_address, install_addr)
+    self.assertEqual(n._nebraska_props.update_payloads_address, update_addr)
 
-    n = nebraska.Nebraska(update_addr)
-    self.assertEqual(n._properties.install_payloads_address, update_addr)
+    nebraska_props = nebraska.NebraskaProperties(
+        update_payloads_address=update_addr)
+    n = nebraska.Nebraska(nebraska_props=nebraska_props)
+    self.assertEqual(n._nebraska_props.install_payloads_address, update_addr)
 
     n = nebraska.Nebraska()
-    self.assertEqual(n._properties.update_payloads_address, '')
-    self.assertEqual(n._properties.install_payloads_address, '')
+    self.assertEqual(n._nebraska_props.update_payloads_address, '')
+    self.assertEqual(n._nebraska_props.install_payloads_address, '')
 
 
 class NebraskaHandlerTest(unittest.TestCase):
@@ -143,88 +150,82 @@ class NebraskaHandlerTest(unittest.TestCase):
 
     self.assertEqual(nebraska_handler._ParseURL('http://goo.gle/'), ('', {}))
 
-  def testDoPostSuccess(self):
+  @mock.patch.object(nebraska.Nebraska, 'GetResponseToRequest',
+                     return_value='foobar')
+  @mock.patch.object(nebraska, 'Request')
+  def testDoPostSuccess(self, _, response_mock):
     """Tests do_POST success."""
     nebraska_handler = MockNebraskaHandler()
     nebraska_handler.path = 'http://test.com/update'
-    test_response = 'foobar'
 
-    with mock.patch.object(nebraska.Nebraska,
-                           'GetResponseToRequest') as response_mock:
-      with mock.patch.object(nebraska, 'Request'):
-        response_mock.return_value = test_response
-        nebraska_handler.do_POST()
+    nebraska_handler.do_POST()
 
-        response_mock.assert_called_once_with(mock.ANY, critical_update=False,
-                                              no_update=False)
-        nebraska_handler._SendResponse.assert_called_once_with(
-            'application/xml', test_response)
+    response_mock.assert_called_once()
+    nebraska_handler._SendResponse.assert_called_once_with(
+        'application/xml', response_mock.return_value)
 
-  def testDoPostSuccessWithCriticalUpdate(self):
+  @mock.patch.object(nebraska.Nebraska, 'GetResponseToRequest')
+  @mock.patch.object(nebraska, 'Request')
+  def testDoPostSuccessWithCriticalUpdate(self, _, response_mock):
     """Tests do_POST success with critical_update query string in URL."""
     nebraska_handler = MockNebraskaHandler()
     nebraska_handler.path = 'http://test.com/update/?critical_update=True'
 
-    with mock.patch.object(nebraska.Nebraska,
-                           'GetResponseToRequest') as response_mock:
-      with mock.patch.object(nebraska, 'Request'):
-        nebraska_handler.do_POST()
+    nebraska_handler.do_POST()
 
-        response_mock.assert_called_once_with(mock.ANY, critical_update=True,
-                                              no_update=False)
+    response_mock.assert_called_once()
+    self.assertTrue(
+        response_mock.call_args_list[0].response_props.critical_update)
 
-  def testDoPostSuccessWithNoUpdate(self):
+  @mock.patch.object(nebraska.Nebraska, 'GetResponseToRequest')
+  @mock.patch.object(nebraska, 'Request')
+  def testDoPostSuccessWithNoUpdate(self, _, response_mock):
     """Tests do_POST success with no_update query string in URL."""
     nebraska_handler = MockNebraskaHandler()
     nebraska_handler.path = 'http://test.com/update/?no_update=True'
 
-    with mock.patch.object(nebraska.Nebraska,
-                           'GetResponseToRequest') as response_mock:
-      with mock.patch.object(nebraska, 'Request'):
-        nebraska_handler.do_POST()
+    nebraska_handler.do_POST()
 
-        response_mock.assert_called_once_with(mock.ANY, critical_update=False,
-                                              no_update=True)
+    response_mock.assert_called_once()
+    self.assertTrue(response_mock.call_args_list[0].response_props.no_update)
 
   def testDoPostInvalidPath(self):
     """Test do_POST invalid path."""
     nebraska_handler = MockNebraskaHandler()
     nebraska_handler.path = 'http://test.com/invalid-path'
-
     nebraska_handler.do_POST()
 
     nebraska_handler.send_error.assert_called_once_with(
         http_client.BAD_REQUEST,
         'The requested path "invalid-path" was not found!')
 
-  def testDoPostInvalidRequest(self):
+  @mock.patch.object(nebraska, 'traceback')
+  @mock.patch.object(nebraska.Request, 'ParseRequest',
+                     side_effect=nebraska.InvalidRequestError)
+  def testDoPostInvalidRequest(self, _, traceback_mock):
     """Test do_POST invalid request."""
     nebraska_handler = MockNebraskaHandler()
     nebraska_handler.path = 'http://test.com/update'
+    nebraska_handler.do_POST()
 
-    with mock.patch.object(nebraska, 'traceback') as traceback_mock:
-      with mock.patch.object(nebraska.Request, 'ParseRequest') as parse_mock:
-        parse_mock.side_effect = nebraska.InvalidRequestError
-        nebraska_handler.do_POST()
+    self.assertEqual(traceback_mock.format_exc.call_count, 2)
+    nebraska_handler.send_error.assert_called_once_with(
+        http_client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
 
-        self.assertEqual(traceback_mock.format_exc.call_count, 2)
-        nebraska_handler.send_error.assert_called_once_with(
-            http_client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
-
-  def testDoPostInvalidResponse(self):
+  @mock.patch.object(nebraska, 'traceback')
+  @mock.patch.object(nebraska, 'Response')
+  def testDoPostInvalidResponse(self, response_mock, traceback_mock):
     """Tests do_POST invalid response handling."""
     nebraska_handler = MockNebraskaHandler()
     nebraska_handler.path = 'http://test.com/update'
 
-    with mock.patch.object(nebraska, 'traceback') as traceback_mock:
-      with mock.patch.object(nebraska, 'Response') as response_mock:
-        response_instance = response_mock.return_value
-        response_instance.GetXMLString.side_effect = Exception
-        nebraska_handler.do_POST()
+    response_instance = response_mock.return_value
+    response_instance.GetXMLString.side_effect = Exception
+    nebraska_handler.do_POST()
 
-        self.assertEqual(traceback_mock.format_exc.call_count, 2)
-        nebraska_handler.send_error.assert_called_once_with(
-            http_client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
+    self.assertEqual(traceback_mock.format_exc.call_count, 2)
+    nebraska_handler.send_error.assert_called_once_with(
+        http_client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
 
   def testDoGetSuccess(self):
     """Tests do_GET success."""
@@ -249,7 +250,8 @@ class NebraskaServerTest(unittest.TestCase):
 
   def testStart(self):
     """Tests Start."""
-    nebraska_instance = nebraska.Nebraska(_PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS)
+    nebraska_props = nebraska.NebraskaProperties(_PAYLOAD_ADDRESS)
+    nebraska_instance = nebraska.Nebraska(nebraska_props=nebraska_props)
     server = nebraska.NebraskaServer(nebraska_instance, port=_NEBRASKA_PORT)
 
     with mock.patch.object(nebraska.BaseHTTPServer,
@@ -267,7 +269,8 @@ class NebraskaServerTest(unittest.TestCase):
 
   def testStop(self):
     """Tests Stop."""
-    nebraska_instance = nebraska.Nebraska(_PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS)
+    nebraska_props = nebraska.NebraskaProperties(_PAYLOAD_ADDRESS)
+    nebraska_instance = nebraska.Nebraska(nebraska_props=nebraska_props)
     server = nebraska.NebraskaServer(nebraska_instance, port=_NEBRASKA_PORT)
 
     # pylint: disable=protected-access
@@ -282,7 +285,8 @@ class NebraskaServerTest(unittest.TestCase):
     """Tests PID and port files are correctly written."""
     temp_dir = tempfile.mkdtemp()
     runtime_root = os.path.join(temp_dir, 'runtime_root')
-    nebraska_instance = nebraska.Nebraska(_PAYLOAD_ADDRESS, _PAYLOAD_ADDRESS)
+    nebraska_props = nebraska.NebraskaProperties(_PAYLOAD_ADDRESS)
+    nebraska_instance = nebraska.Nebraska(nebraska_props=nebraska_props)
     server = nebraska.NebraskaServer(nebraska_instance, port=_NEBRASKA_PORT,
                                      runtime_root=runtime_root)
 
@@ -417,7 +421,6 @@ class AppIndexTest(unittest.TestCase):
       with mock.patch.object(builtins, 'open') as open_mock:
         listdir_mock.return_value = []
         app_index = nebraska.AppIndex(_INSTALL_DIR)
-        app_index.Scan()
         self.assertFalse(app_index._index)
         listdir_mock.assert_called_once_with(_INSTALL_DIR)
         open_mock.assert_not_called()
@@ -428,7 +431,6 @@ class AppIndexTest(unittest.TestCase):
       with mock.patch.object(builtins, 'open') as open_mock:
         listdir_mock.return_value = ['foo.bin', 'bar.bin', 'json']
         app_index = nebraska.AppIndex(_INSTALL_DIR)
-        app_index.Scan()
         self.assertFalse(app_index._index)
         listdir_mock.assert_called_once_with(_INSTALL_DIR)
         open_mock.assert_not_called()
@@ -459,7 +461,6 @@ class AppIndexTest(unittest.TestCase):
         # Make sure the Scan() scans all the files and at least correct App IDs
         # are generated.
         app_index = nebraska.AppIndex(_INSTALL_DIR)
-        app_index.Scan()
         listdir_mock.assert_called_once_with(_INSTALL_DIR)
         self.assertEqual(
             [x.appid for x in app_index._index],
@@ -490,8 +491,7 @@ class AppIndexTest(unittest.TestCase):
 
         # Make sure we raise error when loading files raises one.
         with self.assertRaises(IOError):
-          app_index = nebraska.AppIndex(_INSTALL_DIR)
-          app_index.Scan()
+          nebraska.AppIndex(_INSTALL_DIR)
 
   def testScanInvalidApp(self):
     """Tests Scan on JSON files lacking required keys."""
@@ -518,8 +518,7 @@ class AppIndexTest(unittest.TestCase):
 
         # Make sure we raise error when properties files are invalid.
         with self.assertRaises(KeyError):
-          app_index = nebraska.AppIndex(_INSTALL_DIR)
-          app_index.Scan()
+          nebraska.AppIndex(_INSTALL_DIR)
 
   def testContains(self):
     """Tests Constains() correctly finds matching AppData."""
@@ -536,7 +535,6 @@ class AppIndexTest(unittest.TestCase):
         ]
 
         app_index = nebraska.AppIndex(_UPDATE_DIR)
-        app_index.Scan()
 
         no_match_request = GenerateAppRequest(appid='random')
         self.assertFalse(app_index.Contains(no_match_request))
@@ -566,7 +564,6 @@ class AppIndexTest(unittest.TestCase):
         ]
 
         app_index = nebraska.AppIndex(_UPDATE_DIR)
-        app_index.Scan()
 
         request = GenerateAppRequest(appid='random')
         # It will match against the AppData with an empty appid.
@@ -877,17 +874,15 @@ class ResponseTest(unittest.TestCase):
 
   def testGetXMLStringSuccess(self):
     """Tests GetXMLString success."""
-    properties = nebraska.NebraskaProperties(
-        _UPDATE_PAYLOADS_ADDRESS,
-        _INSTALL_PAYLOADS_ADDRESS,
-        nebraska.AppIndex(mock.MagicMock()),
-        nebraska.AppIndex(mock.MagicMock()))
+    nebraska_props = nebraska.NebraskaProperties(
+        update_payloads_address=_UPDATE_PAYLOADS_ADDRESS,
+        install_payloads_address=_INSTALL_PAYLOADS_ADDRESS)
 
     app_list = (
         GenerateAppData(is_delta=True, source_version='0.9.0'),
         GenerateAppData(appid='bar', is_delta=True, source_version='1.9.0'),
         GenerateAppData(appid='foobar'))
-    properties.update_app_index._index = app_list
+    nebraska_props.update_app_index._index = app_list
 
     request = mock.MagicMock()
     request.app_requests = [
@@ -907,7 +902,8 @@ class ResponseTest(unittest.TestCase):
             ping=True,
             delta_okay=False)]
 
-    response = nebraska.Response(request, properties).GetXMLString()
+    response = nebraska.Response(request, nebraska_props,
+                                 nebraska.ResponseProperties()).GetXMLString()
     response_root = ElementTree.fromstring(response)
     app_responses = response_root.findall('app')
 
@@ -922,132 +918,142 @@ class AppResponseTest(unittest.TestCase):
 
   def setUp(self):
     """Setting up common parameters."""
-    self._properties = nebraska.NebraskaProperties(
-        _UPDATE_PAYLOADS_ADDRESS,
-        _INSTALL_PAYLOADS_ADDRESS,
-        mock.MagicMock(),
-        mock.MagicMock())
+    self._nebraska_props = nebraska.NebraskaProperties(
+        update_payloads_address=_UPDATE_PAYLOADS_ADDRESS,
+        install_payloads_address=_INSTALL_PAYLOADS_ADDRESS)
+    self._response_props = nebraska.ResponseProperties()
 
-  def testAppResponseUpdate(self):
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  def testAppResponseUpdate(self, find_mock):
     """Tests AppResponse for an update request with matching payload."""
     app_request = GenerateAppRequest()
-    match = GenerateAppData()
-    self._properties.update_app_index.Find.return_value = match
+    match = find_mock.return_value
+    # Setting the install app index object to None to make sure it is not being
+    # called.
+    self._nebraska_props.install_app_index.Find = None
 
-    response = nebraska.Response.AppResponse(app_request, self._properties)
+    response = nebraska.Response.AppResponse(app_request,
+                                             self._nebraska_props,
+                                             self._response_props)
 
     self.assertIn(_UPDATE_PAYLOADS_ADDRESS.encode('utf-8'),
                   ElementTree.tostring(response.Compile()))
     self.assertEqual(response._app_request, app_request)
     self.assertFalse(response._err_not_found)
     self.assertIs(response._app_data, match)
+    find_mock.assert_called_once_with(app_request)
 
-    self._properties.update_app_index.Find.assert_called_once_with(app_request)
-    self._properties.install_app_index.Find.assert_not_called()
-
-  def testAppResponseInstall(self):
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  def testAppResponseInstall(self, find_mock):
     """Tests AppResponse generation for install request with match."""
     app_request = GenerateAppRequest(
         request_type=nebraska.Request.RequestType.INSTALL)
-    match = GenerateAppData()
-    self._properties.install_app_index.Find.return_value = match
+    match = find_mock.return_value
+    # Setting the update app index object to None to make sure it is not being
+    # called.
+    self._nebraska_props.update_app_index.Find = None
 
-    response = nebraska.Response.AppResponse(app_request, self._properties)
+    response = nebraska.Response.AppResponse(app_request,
+                                             self._nebraska_props,
+                                             self._response_props)
 
     self.assertIn(_INSTALL_PAYLOADS_ADDRESS.encode('utf-8'),
                   ElementTree.tostring(response.Compile()))
     self.assertEqual(response._app_request, app_request)
     self.assertFalse(response._err_not_found)
     self.assertIs(response._app_data, match)
+    find_mock.assert_called_once_with(app_request)
 
-    self._properties.install_app_index.Find.assert_called_once_with(app_request)
-    self._properties.update_app_index.Find.assert_not_called()
-
-  def testAppResponseNoMatch(self):
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=None)
+  @mock.patch.object(nebraska.AppIndex, 'Contains', return_value=False)
+  def testAppResponseNoMatch(self, contains_mock, find_mock):
     """Tests AppResponse generation for update request with an unknown appid."""
     app_request = GenerateAppRequest()
-    self._properties.update_app_index.Find.return_value = None
-    self._properties.update_app_index.Contains.return_value = False
-
-    response = nebraska.Response.AppResponse(app_request, self._properties)
+    response = nebraska.Response.AppResponse(app_request,
+                                             self._nebraska_props,
+                                             self._response_props)
 
     self.assertEqual(response._app_request, app_request)
     self.assertTrue(response._err_not_found)
     self.assertIsNone(response._app_data)
+    find_mock.assert_called_once_with(app_request)
+    contains_mock.assert_called_once_with(app_request)
 
-    self._properties.update_app_index.Find.assert_called_once_with(app_request)
-    self._properties.install_app_index.Find.assert_not_called()
-
-  def testAppResponseNoUpdate(self):
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=None)
+  @mock.patch.object(nebraska.AppIndex, 'Contains', return_value=True)
+  # pylint: disable=unused-argument
+  def testAppResponseNoUpdate(self, contains_mock, find_mock):
     """Tests AppResponse generation for update request with no new versions."""
     # GIVEN an update request.
     app_request = GenerateAppRequest(
         request_type=nebraska.Request.RequestType.UPDATE)
-    # GIVEN Nebraska does not find an update.
-    self._properties.update_app_index.Find.return_value = None
-    # GIVEN it is a valid app.
-    self._properties.update_app_index.Contains.return_value = True
 
     # WHEN Nebraska sends a response.
-    response = nebraska.Response.AppResponse(app_request, self._properties)
+    response = nebraska.Response.AppResponse(app_request,
+                                             self._nebraska_props,
+                                             self._response_props)
 
     # THEN the response contains <updatecheck status="noupdate"/>.
     update_check_tag = response.Compile().findall('updatecheck')[0]
     self.assertEqual(update_check_tag.attrib['status'], 'noupdate')
 
-  def testAppResponseNoUpdateFlag(self):
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  @mock.patch.object(nebraska.AppIndex, 'Contains', return_value=True)
+  # pylint: disable=unused-argument
+  def testAppResponseNoUpdateFlag(self, contains_mock, find_mock):
     """Tests status="noupdate" is included in the response."""
     app_request = GenerateAppRequest()
-    match = GenerateAppData()
-    self._properties.update_app_index.Find.return_value = match
-    self._properties.update_app_index.Contains.return_value = True
-    self._properties.no_update = True
+    self._response_props.no_update = True
 
     response = nebraska.Response.AppResponse(
-        app_request, self._properties).Compile()
+        app_request, self._nebraska_props, self._response_props).Compile()
+
     update_check_tag = response.findall('updatecheck')[0]
     self.assertEqual(update_check_tag.attrib['status'], 'noupdate')
 
-  def testAppResponsePing(self):
+  @mock.patch.object(nebraska.AppIndex, 'Find')
+  @mock.patch.object(nebraska.AppIndex, 'Contains', return_value=True)
+  def testAppResponsePing(self, contains_mock, find_mock):
     """Tests AppResponse generation for no-op with a ping request."""
     app_request = GenerateAppRequest(
         request_type=nebraska.Request.RequestType.EVENT, ping=True)
-    self._properties.update_app_index.Find.return_value = None
-    self._properties.update_app_index.Contains.return_value = True
-
-    response = nebraska.Response.AppResponse(app_request, self._properties)
+    response = nebraska.Response.AppResponse(app_request,
+                                             self._nebraska_props,
+                                             self._response_props)
 
     self.assertEqual(response._app_request, app_request)
     self.assertFalse(response._err_not_found)
     self.assertIsNone(response._app_data)
+    find_mock.assert_not_called()
+    contains_mock.assert_not_called()
 
-    self._properties.update_app_index.Find.assert_not_called()
-    self._properties.install_app_index.Find.assert_not_called()
-
-  def testAppResponseEvent(self):
+  @mock.patch.object(nebraska.AppIndex, 'Find')
+  @mock.patch.object(nebraska.AppIndex, 'Contains')
+  def testAppResponseEvent(self, contains_mock, find_mock):
     """Tests AppResponse generation for requests with events."""
     app_request = GenerateAppRequest(
         request_type=nebraska.Request.RequestType.EVENT)
-    self._properties.update_app_index.Find.return_value = None
-    self._properties.update_app_index.Contains.return_value = True
 
-    response = nebraska.Response.AppResponse(app_request, self._properties)
+    response = nebraska.Response.AppResponse(app_request,
+                                             self._nebraska_props,
+                                             self._response_props)
 
     self.assertEqual(response._app_request, app_request)
     self.assertFalse(response._err_not_found)
     self.assertIsNone(response._app_data)
+    find_mock.assert_not_called()
+    contains_mock.assert_not_called()
 
-    self._properties.update_app_index.Find.assert_not_called()
-    self._properties.install_app_index.Find.assert_not_called()
-
-  def testCompileSuccess(self):
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  def testCompileSuccess(self, find_mock):
     """Tests successful compilation of an AppData instance."""
     app_request = GenerateAppRequest(
         request_type=nebraska.Request.RequestType.INSTALL)
-    match = GenerateAppData()
-    self._properties.install_app_index.Find.return_value = match
+    match = find_mock.return_value
 
-    response = nebraska.Response.AppResponse(app_request, self._properties)
+    response = nebraska.Response.AppResponse(app_request,
+                                             self._nebraska_props,
+                                             self._response_props)
     compiled_response = response.Compile()
 
     update_check_tag = compiled_response.find('updatecheck')
@@ -1063,11 +1069,9 @@ class AppResponseTest(unittest.TestCase):
     self.assertIsNotNone(package_tag)
     self.assertIsNotNone(action_tag)
     self.assertEqual(action_tag.attrib['sha256'], match.sha256)
-
     self.assertEqual(compiled_response.attrib['status'], 'ok')
-    self.assertEqual(update_check_tag.attrib['status'], 'ok')
-
     self.assertEqual(compiled_response.attrib['appid'], match.appid)
+    self.assertEqual(update_check_tag.attrib['status'], 'ok')
     self.assertEqual(url_tag.attrib['codebase'], _INSTALL_PAYLOADS_ADDRESS)
     self.assertEqual(manifest_tag.attrib['version'], match.target_version)
     self.assertEqual(package_tag.attrib['hash_sha256'].encode('utf-8'),
@@ -1082,41 +1086,48 @@ class AppResponseTest(unittest.TestCase):
     self.assertNotIn('deadline', action_tag.attrib)
     self.assertNotIn('PublicKeyRsa', action_tag.attrib)
 
-  def testCriticalUpdate(self):
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  # pylint: disable=unused-argument
+  def testCriticalUpdate(self, find_mock):
     """Tests correct response for critical updates."""
     app_request = GenerateAppRequest()
-    match = GenerateAppData()
-    self._properties.update_app_index.Find.return_value = match
-    self._properties.critical_update = True
+    self._response_props.critical_update = True
+
     response = nebraska.Response.AppResponse(
-        app_request, self._properties).Compile()
+        app_request, self._nebraska_props, self._response_props).Compile()
+
     action_tag = response.findall(
         'updatecheck/manifest/actions/action')[1]
     self.assertEqual(action_tag.attrib['deadline'], 'now')
 
-  def testCriticalInstall(self):
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  # pylint: disable=unused-argument
+  def testCriticalInstall(self, find_mock):
     """Tests correct response for critical installs."""
     app_request = GenerateAppRequest(
         request_type=nebraska.Request.RequestType.INSTALL)
-    match = GenerateAppData()
-    self._properties.update_app_index.Find.return_value = match
-    self._properties.critical_update = True
+    self._response_props.critical_update = True
+
     response = nebraska.Response.AppResponse(
-        app_request, self._properties).Compile()
+        app_request, self._nebraska_props, self._response_props).Compile()
+
     action_tag = response.findall(
         'updatecheck/manifest/actions/action')[1]
     self.assertEqual(action_tag.attrib['deadline'], 'now')
 
-  def testPublicKey(self):
+  @mock.patch.object(nebraska.AppIndex, 'Find',
+                     return_value=GenerateAppData(include_public_key=True))
+  def testPublicKey(self, find_mock):
     """Tests public key is included in the response."""
     app_request = GenerateAppRequest()
-    match = GenerateAppData(include_public_key=True)
-    self._properties.update_app_index.Find.return_value = match
+
     response = nebraska.Response.AppResponse(
-        app_request, self._properties).Compile()
+        app_request, self._nebraska_props, self._response_props).Compile()
+
     action_tag = response.findall(
         'updatecheck/manifest/actions/action')[1]
-    self.assertEqual(action_tag.attrib['PublicKeyRsa'], match.public_key)
+    self.assertEqual(action_tag.attrib['PublicKeyRsa'],
+                     find_mock.return_value.public_key)
 
 
 if __name__ == '__main__':

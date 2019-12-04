@@ -327,15 +327,17 @@ class Response(object):
   format based on the format of an XML response template.
   """
 
-  def __init__(self, request, properties):
+  def __init__(self, request, nebraska_props, response_props):
     """Initialize a reponse from a list of matching apps.
 
     Args:
       request: Request instance describing client requests.
-      properties: An instance of NebraskaProperties.
+      nebraska_props: An instance of NebraskaProperties.
+      response_props: An instance of ResponseProperties.
     """
     self._request = request
-    self._properties = properties
+    self._nebraska_props = nebraska_props
+    self._response_props = response_props
 
     curr = datetime.datetime.now()
     # Jan 1 2007 is the start of Omaha v3 epoch:
@@ -366,7 +368,8 @@ class Response(object):
 
       for app_request in self._request.app_requests:
         response_xml.append(
-            self.AppResponse(app_request, self._properties).Compile())
+            self.AppResponse(app_request, self._nebraska_props,
+                             self._response_props).Compile())
 
     except Exception as err:
       logging.error(traceback.format_exc())
@@ -383,12 +386,13 @@ class Response(object):
     responses to pings and events as appropriate.
     """
 
-    def __init__(self, app_request, properties):
+    def __init__(self, app_request, nebraska_props, response_props):
       """Initialize an AppResponse.
 
       Args:
         app_request: AppRequest representing a client request.
-        properties: An instance of NebraskaProperties.
+        nebraska_props: An instance of NebraskaProperties.
+        response_props: An instance of ResponseProperties.
       """
       self._app_request = app_request
       self._app_data = None
@@ -396,25 +400,26 @@ class Response(object):
       self._payloads_address = None
       # Although, for installs the update_engine probably should not care about
       # critical updates and should install even if OOBE has not been passed.
-      self._critical_update = properties.critical_update
+      self._critical_update = response_props.critical_update
 
       # If no update was requested, don't process anything anymore.
-      if properties.no_update:
+      if response_props.no_update:
         return
 
       if self._app_request.request_type == Request.RequestType.INSTALL:
-        self._app_data = properties.install_app_index.Find(self._app_request)
+        self._app_data = nebraska_props.install_app_index.Find(
+            self._app_request)
         self._err_not_found = self._app_data is None
-        self._payloads_address = properties.install_payloads_address
+        self._payloads_address = nebraska_props.install_payloads_address
       elif self._app_request.request_type == Request.RequestType.UPDATE:
-        self._app_data = properties.update_app_index.Find(self._app_request)
-        self._payloads_address = properties.update_payloads_address
+        self._app_data = nebraska_props.update_app_index.Find(self._app_request)
+        self._payloads_address = nebraska_props.update_payloads_address
         # This differentiates between apps that are not in the index and apps
         # that are available, but do not have an update available. Omaha treats
         # the former as an error, whereas the latter case should result in a
         # response containing a "noupdate" tag.
         self._err_not_found = (self._app_data is None and
-                               not properties.update_app_index.Contains(
+                               not nebraska_props.update_app_index.Contains(
                                    self._app_request))
 
       if self._app_data:
@@ -508,7 +513,9 @@ class AppIndex(object):
     self._directory = directory
     self._index = []
 
-  def Scan(self):
+    self._Scan()
+
+  def _Scan(self):
     """Scans the directory and loads all available properties files."""
     if self._directory is None:
       return
@@ -659,34 +666,9 @@ class AppIndex(object):
 
 
 class NebraskaProperties(object):
-  """An instance of this class contains some Nebraska properties."""
+  """An instance of this class contains Nebraska properties.
 
-  def __init__(self, update_payloads_address, install_payloads_address,
-               update_app_index, install_app_index):
-    """Initializes the NebraskaProperties instance.
-
-    Args:
-      update_payloads_address: Address serving update payloads.
-      install_payloads_address: Address serving install payloads.
-      update_app_index: Index of update payloads.
-      install_app_index: Index of install payloads.
-    """
-    self.update_payloads_address = update_payloads_address
-    self.install_payloads_address = install_payloads_address
-    self.update_app_index = update_app_index
-    self.install_app_index = install_app_index
-    self.critical_update = False
-    self.no_update = False
-
-
-class Nebraska(object):
-  """An instance of this class allows responding to incoming Omaha requests.
-
-    This class has the responsibility to manufacture Omaha responses based on
-    the input update requests. This should be the main point of use of the
-    Nebraska. If any changes to the behavior of Nebraska is intended, like
-    creating critical update responses, or messing up with firmware and kernel
-    versions, new flags should be added here to add that feature.
+  These properties are valid and unchanged during the lifetime of the nebraska.
   """
 
   def __init__(self,
@@ -694,7 +676,7 @@ class Nebraska(object):
                install_payloads_address=None,
                update_metadata_dir=None,
                install_metadata_dir=None):
-    """Initializes the Nebraska instance.
+    """Initializes the NebraskaProperties instance.
 
     Args:
       update_payloads_address: Address of the update payload server.
@@ -706,37 +688,67 @@ class Nebraska(object):
     # Attach '/' at the end of the addresses if they don't have any. The update
     # engine just concatenates the base address with the payload file name and
     # if there is no '/' the path will be invalid.
-    upa = os.path.join(update_payloads_address or '', '')
-    ipa = (os.path.join(install_payloads_address, '')
-           if install_payloads_address is not None else upa)
-    uai = AppIndex(update_metadata_dir)
-    iai = AppIndex(install_metadata_dir)
-    uai.Scan()
-    iai.Scan()
+    self.update_payloads_address = os.path.join(update_payloads_address or '',
+                                                '')
+    self.install_payloads_address = (
+        os.path.join(install_payloads_address or '', '') or
+        self.update_payloads_address)
+    self.update_app_index = AppIndex(update_metadata_dir)
+    self.install_app_index = AppIndex(install_metadata_dir)
 
-    self._properties = NebraskaProperties(upa, ipa, uai, iai)
 
+class ResponseProperties(object):
+  """An instance of this class contains properties applied for each response.
+
+  These properties might change during the lifetime of the nebraska.
+  """
+  def __init__(self, critical_update=False, no_update=False):
+    """Initliazes the response properties.
+
+    Args:
+      critical_update: If true, the response will include 'deadline=now' which
+          indicates the update is critical.
+      no_update: If true, it will return a noupdate response regardless.
+    """
+    self.critical_update = critical_update
+    self.no_update = no_update
+
+
+class Nebraska(object):
+  """An instance of this class allows responding to incoming Omaha requests.
+
+    This class has the responsibility to manufacture Omaha responses based on
+    the input update requests. This should be the main point of use of the
+    Nebraska. If any changes to the behavior of Nebraska is intended, like
+    creating critical update responses, or messing up with firmware and kernel
+    versions, new flags should be added here to add that feature.
+  """
+  def __init__(self, nebraska_props=None, response_props=None):
+    """Initializes the Nebraska instance.
+
+    Args:
+      nebraska_props: An instance of NebraskaProperties.
+      response_props: An instance of ResponseProperties.
+    """
+    self._nebraska_props = nebraska_props or NebraskaProperties()
+    self._response_props = response_props or ResponseProperties()
     self._request_log = []
 
-  def GetResponseToRequest(self, request, critical_update=False,
-                           no_update=False):
+  def GetResponseToRequest(self, request, response_props=None):
     """Returns the response corresponding to a request.
 
     Args:
       request: The Request object representation of the incoming request.
-      critical_update: If true, the response will include 'deadline=now' which
-          indicates the update is critical.
-      no_update: If true, it will return a noupdate response regardless.
+      response_props: An instance of ResponseProperties. If passed, it will
+        override the internal Nebraska version (default).
 
     Returns:
       The string representation of the created response.
     """
     self._request_log.append(request.GetDict())
 
-    properties = copy.copy(self._properties)
-    properties.critical_update = critical_update
-    properties.no_update = no_update
-    response = Response(request, properties).GetXMLString()
+    response = Response(request, self._nebraska_props,
+                        response_props or self._nebraska_props).GetXMLString()
     # Make the XML response look pretty.
     response_str = minidom.parseString(response).toprettyxml(indent='  ',
                                                              encoding='UTF-8')
@@ -836,11 +848,13 @@ class NebraskaServer(object):
       if parsed_path == 'update':
         critical_update = parsed_query.get('critical_update', []) == ['True']
         no_update = parsed_query.get('no_update', []) == ['True']
+        response_props = ResponseProperties(critical_update=critical_update,
+                                            no_update=no_update)
 
         try:
           request_obj = Request(request)
           response = self.server.owner.nebraska.GetResponseToRequest(
-              request_obj, critical_update=critical_update, no_update=no_update)
+              request_obj, response_props)
           self._SendResponse('application/xml', response)
         except Exception as err:
           logging.error('Failed to handle request (%s)', str(err))
@@ -985,11 +999,12 @@ def main(argv):
 
   logging.info('Starting nebraska ...')
 
-  nebraska = Nebraska(
+  nebraska_props = NebraskaProperties(
       update_payloads_address=opts.update_payloads_address,
       install_payloads_address=opts.install_payloads_address,
       update_metadata_dir=opts.update_metadata,
       install_metadata_dir=opts.install_metadata)
+  nebraska = Nebraska(nebraska_props)
   nebraska_server = NebraskaServer(nebraska, runtime_root=opts.runtime_root,
                                    port=opts.port)
 
