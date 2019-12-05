@@ -20,7 +20,7 @@ except ImportError:
   try:
     import chromite.lib.git
   except ImportError:
-    print 'Failed to import chromite library'
+    print('Failed to import chromite library')
     sys.exit(1)
 
 import chromite.lib.terminal
@@ -88,8 +88,8 @@ class Result(object):
 
     if self.fast_report:
       return
-    print '\n%c[1AStarted threads: %3d, remaining threads: %3d' % (
-        27, self.started_threads, self.thread_count),
+    print('\n%c[1AStarted threads: %3d, remaining threads: %3d' % (
+        27, self.started_threads, self.thread_count), end=' ')
 
   def ReportStartedThread(self):
     '''Increment started thread count.
@@ -121,7 +121,7 @@ class Result(object):
       self.not_existing += 1
     elif result:
       if self.fast_report:
-        print result
+        print(result)
       else:
         self.results.append(result)
     self.thread_count = self.thread_count - 1
@@ -130,7 +130,7 @@ class Result(object):
     if self.thread_count == 0:
       if not self.fast_report:
         # Erase the status line.
-        print '\n%c[1A%c[K%c[1A' % (27, 27, 27),
+        print('\n%c[1A%c[K%c[1A' % (27, 27, 27), end=' ')
       self.finished_lock.release()
 
   def GetResults(self):
@@ -148,10 +148,8 @@ class Result(object):
 
 def RunCommand(path, command):
   """Run a command in a given directory, return stdout."""
-
-  return subprocess.Popen(command,
-                          cwd=path,
-                          stdout=subprocess.PIPE).communicate()[0].rstrip()
+  return subprocess.run(command,
+      cwd=path, stdout=subprocess.PIPE, encoding='utf-8').stdout.rstrip()
 
 
 def GetBranches(full_name, color, revision):
@@ -345,7 +343,7 @@ def main():
         args=(p, root, color, options, result))
     t.start()
 
-  print '\n'.join(result.GetResults())
+  print('\n'.join(result.GetResults()))
 
 
 if __name__ == '__main__':
