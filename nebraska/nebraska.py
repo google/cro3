@@ -34,7 +34,6 @@ from six.moves import urllib
 # TODO(crbug/999047): Add these functionalities from nano_omaha_devserver.py to
 # nebraska:
 #
-# - disable_backoff: Passed to Nebraska (default False)
 # - num_urls: Passed to Nebraska (default 2)
 # - eol_date: Passed to Nebraska (default None)
 
@@ -489,6 +488,8 @@ class Response(object):
             actions, 'action',
             attrib={'ChromeOSVersion': self._app_data.target_version,
                     'ChromeVersion': '1.0.0.0',
+                    'DisablePayloadBackoff': str(
+                        self._response_props.disable_payload_backoff).lower(),
                     'IsDeltaPayload': str(self._app_data.is_delta).lower(),
                     'MaxDaysToScatter': '14',
                     'MetadataSignatureRsa': self._app_data.metadata_signature,
@@ -730,7 +731,7 @@ class ResponseProperties(object):
   These properties might change during the lifetime of the nebraska.
   """
   def __init__(self, critical_update=False, no_update=False, is_rollback=False,
-               failures_per_url=None):
+               failures_per_url=None, disable_payload_backoff=False):
     """Initliazes the response properties.
 
     Args:
@@ -739,11 +740,14 @@ class ResponseProperties(object):
       no_update: If true, it will return a noupdate response regardless.
       is_rollback: Whether the update request will be a rollback or not.
       failures_per_url: How many times each url can fail.
+      disable_payload_backoff: Instruct update_engine to disable the back-off
+        logic on the client altogether.
     """
     self.critical_update = critical_update
     self.no_update = no_update
     self.is_rollback = is_rollback
     self.failures_per_url = failures_per_url
+    self.disable_payload_backoff = disable_payload_backoff
 
 
 class Nebraska(object):

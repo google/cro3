@@ -1072,6 +1072,7 @@ class AppResponseTest(unittest.TestCase):
     self.assertIsNotNone(package_tag)
     self.assertIsNotNone(action_tag)
     self.assertEqual(action_tag.attrib['sha256'], match.sha256)
+    self.assertEqual(action_tag.attrib['DisablePayloadBackoff'], 'false')
     self.assertEqual(compiled_response.attrib['status'], 'ok')
     self.assertEqual(compiled_response.attrib['appid'], match.appid)
     self.assertEqual(update_check_tag.attrib['status'], 'ok')
@@ -1176,6 +1177,19 @@ class AppResponseTest(unittest.TestCase):
     action_tag = response.findall(
         'updatecheck/manifest/actions/action')[1]
     self.assertEqual(action_tag.attrib['MaxFailureCountPerUrl'], 1)
+
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  def testDisablePayloadBackoff(self, _):
+    """Tests disabling payload backoff on the client."""
+    app_request = GenerateAppRequest()
+    self._response_props.disable_payload_backoff = True
+
+    response = nebraska.Response.AppResponse(
+        app_request, self._nebraska_props, self._response_props).Compile()
+
+    action_tag = response.findall(
+        'updatecheck/manifest/actions/action')[1]
+    self.assertEqual(action_tag.attrib['DisablePayloadBackoff'], 'true')
 
 
 if __name__ == '__main__':
