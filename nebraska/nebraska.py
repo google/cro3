@@ -34,7 +34,6 @@ from six.moves import urllib
 # TODO(crbug/999047): Add these functionalities from nano_omaha_devserver.py to
 # nebraska:
 #
-# - num_urls: Passed to Nebraska (default 2)
 # - eol_date: Passed to Nebraska (default None)
 
 # '5' and '7' are just default values for testing.
@@ -475,8 +474,9 @@ class Response(object):
         update_check = ElementTree.SubElement(
             app_response, 'updatecheck', attrib=update_check_attribs)
         urls = ElementTree.SubElement(update_check, 'urls')
-        ElementTree.SubElement(
-            urls, 'url', attrib={'codebase': self._payloads_address})
+        for _ in range(self._response_props.num_urls):
+          ElementTree.SubElement(
+              urls, 'url', attrib={'codebase': self._payloads_address})
         manifest = ElementTree.SubElement(
             update_check, 'manifest',
             attrib={'version': self._app_data.target_version})
@@ -731,7 +731,8 @@ class ResponseProperties(object):
   These properties might change during the lifetime of the nebraska.
   """
   def __init__(self, critical_update=False, no_update=False, is_rollback=False,
-               failures_per_url=None, disable_payload_backoff=False):
+               failures_per_url=None, disable_payload_backoff=False,
+               num_urls=1):
     """Initliazes the response properties.
 
     Args:
@@ -742,12 +743,14 @@ class ResponseProperties(object):
       failures_per_url: How many times each url can fail.
       disable_payload_backoff: Instruct update_engine to disable the back-off
         logic on the client altogether.
+      num_urls: Number of URLs should be returned in the response.
     """
     self.critical_update = critical_update
     self.no_update = no_update
     self.is_rollback = is_rollback
     self.failures_per_url = failures_per_url
     self.disable_payload_backoff = disable_payload_backoff
+    self.num_urls = num_urls
 
 
 class Nebraska(object):

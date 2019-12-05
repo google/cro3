@@ -1060,14 +1060,15 @@ class AppResponseTest(unittest.TestCase):
     compiled_response = response.Compile()
 
     update_check_tag = compiled_response.find('updatecheck')
-    url_tag = compiled_response.find('updatecheck/urls/url')
+    url_tags = compiled_response.findall('updatecheck/urls/url')
     manifest_tag = compiled_response.find('updatecheck/manifest')
     package_tag = compiled_response.find(
         'updatecheck/manifest/packages/package')
     action_tag = compiled_response.findall(
         'updatecheck/manifest/actions/action')[1]
 
-    self.assertIsNotNone(url_tag)
+    self.assertEqual(len(url_tags), 1)
+    self.assertEqual(url_tags[0].attrib['codebase'], _INSTALL_PAYLOADS_ADDRESS)
     self.assertIsNotNone(manifest_tag)
     self.assertIsNotNone(package_tag)
     self.assertIsNotNone(action_tag)
@@ -1076,7 +1077,6 @@ class AppResponseTest(unittest.TestCase):
     self.assertEqual(compiled_response.attrib['status'], 'ok')
     self.assertEqual(compiled_response.attrib['appid'], match.appid)
     self.assertEqual(update_check_tag.attrib['status'], 'ok')
-    self.assertEqual(url_tag.attrib['codebase'], _INSTALL_PAYLOADS_ADDRESS)
     self.assertEqual(manifest_tag.attrib['version'], match.target_version)
     self.assertEqual(package_tag.attrib['hash_sha256'].encode('utf-8'),
                      match.sha256_hex)
@@ -1191,6 +1191,17 @@ class AppResponseTest(unittest.TestCase):
         'updatecheck/manifest/actions/action')[1]
     self.assertEqual(action_tag.attrib['DisablePayloadBackoff'], 'true')
 
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  def testNumUrls(self, _):
+    """Tests the number of URLs are passed correctly."""
+    app_request = GenerateAppRequest()
+    self._response_props.num_urls = 2
+
+    response = nebraska.Response.AppResponse(
+        app_request, self._nebraska_props, self._response_props).Compile()
+
+    url_tags = response.findall('updatecheck/urls/url')
+    self.assertEqual(len(url_tags), 2)
 
 if __name__ == '__main__':
   # Disable logging so it doesn't pollute the unit test output. Failures and
