@@ -34,7 +34,6 @@ from six.moves import urllib
 # TODO(crbug/999047): Add these functionalities from nano_omaha_devserver.py to
 # nebraska:
 #
-# - failures_per_url: Passed to Nebraska (default 1)
 # - disable_backoff: Passed to Nebraska (default False)
 # - num_urls: Passed to Nebraska (default 2)
 # - eol_date: Passed to Nebraska (default None)
@@ -496,6 +495,9 @@ class Response(object):
                     'MetadataSize': str(self._app_data.metadata_size),
                     'sha256': self._app_data.sha256,
                     'event': 'postinstall'})
+        if self._response_props.failures_per_url is not None:
+          action.set('MaxFailureCountPerUrl',
+                     self._response_props.failures_per_url)
         if self._critical_update:
           action.set('deadline', 'now')
         if self._app_data.public_key is not None:
@@ -727,7 +729,8 @@ class ResponseProperties(object):
 
   These properties might change during the lifetime of the nebraska.
   """
-  def __init__(self, critical_update=False, no_update=False, is_rollback=False):
+  def __init__(self, critical_update=False, no_update=False, is_rollback=False,
+               failures_per_url=None):
     """Initliazes the response properties.
 
     Args:
@@ -735,10 +738,12 @@ class ResponseProperties(object):
           indicates the update is critical.
       no_update: If true, it will return a noupdate response regardless.
       is_rollback: Whether the update request will be a rollback or not.
+      failures_per_url: How many times each url can fail.
     """
     self.critical_update = critical_update
     self.no_update = no_update
     self.is_rollback = is_rollback
+    self.failures_per_url = failures_per_url
 
 
 class Nebraska(object):

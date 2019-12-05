@@ -1088,6 +1088,7 @@ class AppResponseTest(unittest.TestCase):
                      str(match.is_delta).lower())
     self.assertNotIn('deadline', action_tag.attrib)
     self.assertNotIn('PublicKeyRsa', action_tag.attrib)
+    self.assertNotIn('MaxFailureCountPerUrl', action_tag)
     self.assertNotIn('_is_rollback', update_check_tag.attrib)
 
   @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
@@ -1162,6 +1163,19 @@ class AppResponseTest(unittest.TestCase):
 
     update_check_tag = response.find('updatecheck')
     self.assertNotIn('_is_rollback', update_check_tag.attrib)
+
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  def testFailuresPerUrl(self, _):
+    """Tests response for number of failures allowed per URL."""
+    app_request = GenerateAppRequest()
+
+    self._response_props.failures_per_url = 1
+    response = nebraska.Response.AppResponse(
+        app_request, self._nebraska_props, self._response_props).Compile()
+
+    action_tag = response.findall(
+        'updatecheck/manifest/actions/action')[1]
+    self.assertEqual(action_tag.attrib['MaxFailureCountPerUrl'], 1)
 
 
 if __name__ == '__main__':
