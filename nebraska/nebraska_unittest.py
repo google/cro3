@@ -1091,6 +1091,7 @@ class AppResponseTest(unittest.TestCase):
     self.assertNotIn('PublicKeyRsa', action_tag.attrib)
     self.assertNotIn('MaxFailureCountPerUrl', action_tag)
     self.assertNotIn('_is_rollback', update_check_tag.attrib)
+    self.assertNotIn('_eol_date', update_check_tag.attrib)
 
   @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
   # pylint: disable=unused-argument
@@ -1202,6 +1203,19 @@ class AppResponseTest(unittest.TestCase):
 
     url_tags = response.findall('updatecheck/urls/url')
     self.assertEqual(len(url_tags), 2)
+
+  @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
+  def testEolDate(self, _):
+    """Tests the number of URLs are passed correctly."""
+    app_request = GenerateAppRequest()
+    self._response_props.eol_date = 1000
+
+    response = nebraska.Response.AppResponse(
+        app_request, self._nebraska_props, self._response_props).Compile()
+
+    update_check_tag = response.find('updatecheck')
+    self.assertEqual(update_check_tag.attrib['_eol_date'], '1000')
+
 
 if __name__ == '__main__':
   # Disable logging so it doesn't pollute the unit test output. Failures and

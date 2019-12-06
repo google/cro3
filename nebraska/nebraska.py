@@ -31,11 +31,6 @@ from six.moves import http_client
 from six.moves import urllib
 
 
-# TODO(crbug/999047): Add these functionalities from nano_omaha_devserver.py to
-# nebraska:
-#
-# - eol_date: Passed to Nebraska (default None)
-
 # '5' and '7' are just default values for testing.
 _FIRMWARE_VER = '5'
 _KERNEL_VER = '7'
@@ -732,18 +727,20 @@ class ResponseProperties(object):
   """
   def __init__(self, critical_update=False, no_update=False, is_rollback=False,
                failures_per_url=None, disable_payload_backoff=False,
-               num_urls=1):
+               num_urls=1, eol_date=None):
     """Initliazes the response properties.
 
     Args:
       critical_update: If true, the response will include 'deadline=now' which
-          indicates the update is critical.
+        indicates the update is critical.
       no_update: If true, it will return a noupdate response regardless.
       is_rollback: Whether the update request will be a rollback or not.
       failures_per_url: How many times each url can fail.
       disable_payload_backoff: Instruct update_engine to disable the back-off
         logic on the client altogether.
       num_urls: Number of URLs should be returned in the response.
+      eol_date: The number of days from unix epoch which device goes end of
+        life.
     """
     self.critical_update = critical_update
     self.no_update = no_update
@@ -751,6 +748,7 @@ class ResponseProperties(object):
     self.failures_per_url = failures_per_url
     self.disable_payload_backoff = disable_payload_backoff
     self.num_urls = num_urls
+    self.eol_date = eol_date
 
 
 class Nebraska(object):
