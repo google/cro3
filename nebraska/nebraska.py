@@ -745,7 +745,7 @@ class Nebraska(object):
 
   def GetRequestLog(self):
     """Returns the request logs in JSON format."""
-    return json.dumps(self._request_log)
+    return json.dumps(self._request_log).encode('utf-8')
 
 
 class NebraskaServer(object):
