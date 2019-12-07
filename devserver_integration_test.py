@@ -18,9 +18,9 @@ from __future__ import print_function
 import json
 import os
 import shutil
-import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -99,14 +99,21 @@ class DevserverTestBase(unittest.TestCase):
 
     # Initialize various runtime values.
     self.devserver_url = self.port = self.pid = None
+    self.devserver = None
 
   def tearDown(self):
     """Kill the server, remove the test directory and temporary files."""
-    if self.pid:
-      os.kill(self.pid, signal.SIGKILL)
+
+    self._StopServer()
 
     self._RemoveFile(self.pidfile)
     self._RemoveFile(self.portfile)
+    # If the unittest did not succeed, print out the devserver log.
+    if sys.exc_info() != (None, None, None):
+      with open(self.logfile, 'r') as f:
+        logging.info('--- BEGINNING OF DEVSERVER LOG ---')
+        logging.info(f.read())
+        logging.info('--- ENDING OF DEVSERVER LOG ---')
     self._RemoveFile(self.logfile)
     shutil.rmtree(self.test_data_path)
 
@@ -159,35 +166,55 @@ class DevserverTestBase(unittest.TestCase):
       DevserverFailedToStart: If the devserver could not be started.
     """
     cmd = [
-        'python',
         os.path.join(self.src_dir, 'devserver.py'),
-        'devserver.py',
         '--static_dir', self.test_data_path,
         '--pidfile', self.pidfile,
         '--portfile', self.portfile,
         '--port', str(port),
-        '--logfile', self.logfile]
+        '--logfile', self.logfile,
+    ]
 
     # Pipe all output. Use logfile to get devserver log.
-    subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    self.devserver = subprocess.Popen(cmd, stderr=subprocess.PIPE,
+                                      stdout=subprocess.PIPE)
 
     # Wait for devserver to start, determining its actual serving port and URL.
     current_time = time.time()
     deadline = current_time + DEVSERVER_START_TIMEOUT
+    error = None
     while current_time < deadline:
       try:
         self.port = self._ReadIntValueFromFile(self.portfile, 'portfile')
         self.devserver_url = 'http://127.0.0.1:%d' % self.port
         self._MakeRPC(CHECK_HEALTH, timeout=1)
         break
-      except Exception:
+      except Exception as e:
+        error = e
         time.sleep(DEVSERVER_START_SLEEP)
         current_time = time.time()
     else:
-      raise DevserverFailedToStart('Devserver failed to start within timeout.')
+      raise DevserverFailedToStart(
+          'Devserver failed to start within timeout with error: %s' % error)
 
     # Retrieve PID.
     self.pid = self._ReadIntValueFromFile(self.pidfile, 'pidfile')
+
+  def _StopServer(self):
+    """Stops the current running devserver."""
+    if not self.pid:
+      return
+
+    self.devserver.terminate()
+
+    # Just to flush the stdout/stderr so python3 doesn't complain about the
+    # unclosed file.
+    self.devserver.communicate()
+
+    self.devserver.wait()
+
+    self.pid = None
+    self.devserver = None
+
 
   def VerifyHandleUpdate(self, label, use_test_payload=True,
                          appid='{DEV-BUILD}'):
@@ -201,6 +228,7 @@ class DevserverTestBase(unittest.TestCase):
       use_test_payload: If set to true, expects to serve payload under
         testdata/ and does extra checks i.e. compares hash and content of
         payload.
+      appid: The APP ID of the board.
 
     Returns:
       url of the update payload if we verified the update.
@@ -219,7 +247,7 @@ class DevserverTestBase(unittest.TestCase):
     # Verify the image we download is correct since we already know what it is.
     if use_test_payload:
       connection = urllib.request.urlopen(url)
-      contents = connection.read()
+      contents = connection.read().decode('utf-8')
       connection.close()
       self.assertEqual('Developers, developers, developers!\n', contents)
 
@@ -241,8 +269,7 @@ class DevserverTestBase(unittest.TestCase):
     filename = package.getAttribute('name')
     self.assertEqual(TEST_UPDATE_PAYLOAD_NAME, filename)
 
-    url = os.path.join(static_url, filename)
-    return url
+    return os.path.join(static_url, filename)
 
   def _MakeRPC(self, rpc, data=None, timeout=None, **kwargs):
     """Makes an RPC call to the devserver.
@@ -261,21 +288,16 @@ class DevserverTestBase(unittest.TestCase):
       # Join the kwargs to the URL.
       request += '?' + '&'.join('%s=%s' % item for item in kwargs.items())
 
-    output = None
-    try:
-      # Let's log output for all rpc's without timeouts because we only
-      # use timeouts to check to see if something is up and these checks tend
-      # to be small and so logging it will be extremely repetitive.
-      if not timeout:
-        logging.info('Making request using %s', request)
+    # Let's log output for all rpc's without timeouts because we only
+    # use timeouts to check to see if something is up and these checks tend
+    # to be small and so logging it will be extremely repetitive.
+    if not timeout:
+      logging.info('Making request using %s', request)
 
-      # pylint: disable=redundant-keyword-arg
-      connection = urllib.request.urlopen(request, data=data, timeout=timeout)
-      output = connection.read()
-      connection.close()
-    except urllib.error.HTTPError:
-      raise
-
+    connection = urllib.request.urlopen(
+        request, data=data.encode('utf-8') if data else None, timeout=timeout)
+    output = connection.read().decode('utf-8')
+    connection.close()
     return output
 
 
@@ -306,12 +328,11 @@ class DevserverStartTests(DevserverTestBase):
       # retry loop.
       s = socket.socket()
       s.bind(('', 0))
-      # s.getsockname() is definitely callable.
-      # pylint: disable=E1102
       _, port = s.getsockname()
       s.close()
 
       self._StartServer(port=port)
+      self._StopServer()
 
 
 class DevserverBasicTests(AutoStartDevserverTestBase):
@@ -380,7 +401,7 @@ class DevserverBasicTests(AutoStartDevserverTestBase):
     url = self.VerifyHandleUpdate(build_id, use_test_payload=False)
     logging.info('Verify the actual content of the update payload')
     connection = urllib.request.urlopen(url)
-    contents = connection.read()
+    contents = connection.read().decode('utf-8')
     connection.close()
     self.assertEqual(update_data, contents)
 
@@ -392,7 +413,7 @@ class DevserverBasicTests(AutoStartDevserverTestBase):
     self.assertTrue(pid.strip().isdigit())
     process = psutil.Process(int(pid))
     self.assertTrue(process.is_running())
-    self.assertTrue('devserver.py' in process.cmdline())
+    self.assertIn('./devserver.py', process.cmdline())
 
   def testFileInfo(self):
     """Verifies the fileinfo API."""
@@ -451,6 +472,8 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
     self.assertFalse(os.path.exists(progress_tracker.track_status_file))
     self.assertFalse(cros_update_progress.IsProcessAlive(pid))
 
+    p.terminate()
+    p.wait()
 
   def testStageAndUpdate(self):
     """Tests core stage/update autotest workflow where with a test payload."""
@@ -508,8 +531,7 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
     control_files = self._MakeRPC(CONTROL_FILES, build=build_id,
                                   suite_name='bvt')
     logging.info('Checking for known control file in bvt suite.')
-    self.assertTrue('client/site_tests/platform_FilePerms/'
-                    'control' in control_files)
+    self.assertIn('client/site_tests/platform_FilePerms/control', control_files)
 
   def testRemoteXBuddyAlias(self):
     """Another stage/update autotest workflow test with a test payload."""
@@ -543,7 +565,8 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
 
     logging.info('checking for %s on an unstaged build.', LIST_IMAGE_DIR)
     response = self._MakeRPC(LIST_IMAGE_DIR, archive_url=archive_url)
-    self.assertTrue(archive_url in response and 'not been staged' in response)
+    self.assertIn(archive_url, response)
+    self.assertIn('not been staged', response)
 
     logging.info('Checking for %s on a staged build.', LIST_IMAGE_DIR)
     fake_file_name = 'fake_file'
@@ -555,7 +578,7 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
                     'Build dir %s, file %s', build_dir, fake_file_name)
       raise
     response = self._MakeRPC(LIST_IMAGE_DIR, archive_url=archive_url)
-    self.assertTrue(fake_file_name in response)
+    self.assertIn(fake_file_name, response)
     shutil.rmtree(build_dir, ignore_errors=True)
 
 
