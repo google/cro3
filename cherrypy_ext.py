@@ -73,7 +73,7 @@ class PortFile(cherrypy.process.plugins.SimplePlugin):
     port = self.get_port_from_httpserver()
     if not port:
       return
-    with open(self.portfile, 'wb') as f:
+    with open(self.portfile, 'w') as f:
       f.write(str(port))
     self.written = True
     self.bus.log('Port %r written to %r.' % (port, self.portfile))
@@ -101,7 +101,7 @@ class PortFile(cherrypy.process.plugins.SimplePlugin):
         self.bus.log('Port file removed: %r.' % self.portfile)
       except (KeyboardInterrupt, SystemExit):
         raise
-      except:
+      except Exception:
         self.bus.log('Failed to remove port file: %r.' % self.portfile)
 
 
