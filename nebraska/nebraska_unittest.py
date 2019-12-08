@@ -233,7 +233,7 @@ class NebraskaHandlerTest(unittest.TestCase):
 
     nebraska_handler.do_GET()
     nebraska_handler._SendResponse.assert_called_once_with(
-        'application/json', '[]')
+        'application/json', b'[]')
 
   def testDoGetFailureBadPath(self):
     """Tests do_GET failure on bad path."""
