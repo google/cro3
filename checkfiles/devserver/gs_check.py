@@ -69,7 +69,7 @@ class GsBucket(object):
     cmd = ['timeout', '-s', '9', str(GSUTIL_TIMEOUT_SEC),
            'gsutil', 'ls', '-b', gs_url]
     try:
-      cros_build_lib.SudoRunCommand(cmd, user=GSUTIL_USER)
+      cros_build_lib.sudo_run(cmd, user=GSUTIL_USER)
     except cros_build_lib.RunCommandError:
       return False
 
