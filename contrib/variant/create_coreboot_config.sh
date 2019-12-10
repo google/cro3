@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.1"
+VERSION="1.0.2"
 SCRIPT=$(basename -- "${0}")
 
 export LC_ALL=C
@@ -63,9 +63,15 @@ repo start "create_${VARIANT}_${DATE}" . || exit 1
 # Another possibility for the IFD is that the baseboard doesn't use a
 # hyphenated name, so we also need to search for descriptor.bin, e.g.
 #   CONFIG_IFD_BIN_PATH="3rdparty/blobs/baseboard-octopus/descriptor.bin"
+#
+# We also need to update the me.bin name, so that each board has its own binary
+#   CONFIG_ME_BIN_PATH="3rdparty/blobs/baseboard/hatch/me-hatch.bin"
+#   ---
+#   CONFIG_ME_BIN_PATH="3rdparty/blobs/baseboard/hatch/me-kohaku.bin"
 sed -e "s/${BASE_UPPER}/${VARIANT_UPPER}/" \
     -e "s/descriptor-${BASE}\.bin/descriptor-${VARIANT}.bin/" \
     -e "s/descriptor\.bin/descriptor-${VARIANT}.bin/" \
+    -e "s/me-${BASE}\.bin/me-${VARIANT}.bin/" \
     "config.${BASE}" > "config.${VARIANT}"
 git add "config.${VARIANT}"
 
