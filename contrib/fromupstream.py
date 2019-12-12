@@ -1,15 +1,12 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """This is a tool for picking patches from upstream and applying them."""
 
-from __future__ import print_function
-
-import ConfigParser
 import argparse
+import configparser
 import functools
 import mailbox
 import os
@@ -19,8 +16,8 @@ import signal
 import subprocess
 import sys
 import textwrap
-import urllib
-import xmlrpclib
+import urllib.request
+import xmlrpc.client
 
 errprint = functools.partial(print, file=sys.stderr)
 
@@ -42,13 +39,52 @@ COMMIT_MESSAGE_WIDTH = 75
 
 _PWCLIENTRC = os.path.expanduser('~/.pwclientrc')
 
+def _git(args, stdin=None, encoding='utf-8'):
+    """Calls a git subcommand.
+
+    Similar to subprocess.check_output.
+
+    Args:
+        stdin: a string or bytes (depending on encoding) that will be passed
+            to the git subcommand.
+        encoding: either 'utf-8' (default) or None. Override it to None if
+            you want both stdin and stdout to be raw bytes.
+
+    Returns:
+        the stdout of the git subcommand, same type as stdin. The output is
+        also run through strip to make sure there's no extra whitespace.
+
+    Raises:
+        subprocess.CalledProcessError: when return code is not zero.
+            The exception has a .returncode attribute.
+    """
+    return subprocess.run(
+        ['git'] + args,
+        encoding=encoding,
+        input=stdin,
+        stdout=subprocess.PIPE,
+        check=True,
+    ).stdout.strip()
+
+def _git_returncode(*args, **kwargs):
+    """Same as _git, but return returncode instead of stdout.
+
+    Similar to subprocess.call.
+
+    Never raises subprocess.CalledProcessError.
+    """
+    try:
+        _git(*args, **kwargs)
+        return 0
+    except subprocess.CalledProcessError as e:
+        return e.returncode
+
 def _get_conflicts():
     """Report conflicting files."""
     resolutions = ('DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU')
     conflicts = []
-    lines = subprocess.check_output(['git', 'status', '--porcelain',
-                                     '--untracked-files=no']).split('\n')
-    for line in lines:
+    output = _git(['status', '--porcelain', '--untracked-files=no'])
+    for line in output.splitlines():
         if not line:
             continue
         resolution, name = line.split(None, 1)
@@ -60,21 +96,19 @@ def _get_conflicts():
 
 def _find_linux_remote():
     """Find a remote pointing to a Linux upstream repository."""
-    git_remote = subprocess.Popen(['git', 'remote'], stdout=subprocess.PIPE)
-    remotes = git_remote.communicate()[0].strip()
-    for remote in remotes.splitlines():
-        rurl = subprocess.Popen(['git', 'remote', 'get-url', remote],
-                                stdout=subprocess.PIPE)
-        url = rurl.communicate()[0].strip()
-        if not rurl.returncode and url in LINUX_URLS:
-            return remote
+    for remote in _git(['remote']).splitlines():
+        try:
+            if _git(['remote', 'get-url', remote]) in LINUX_URLS:
+                return remote
+        except subprocess.CalledProcessError:
+            # Kinda weird, get-url failing on an item that git just gave us.
+            continue
     return None
 
 def _pause_for_merge(conflicts):
     """Pause and go in the background till user resolves the conflicts."""
 
-    git_root = subprocess.check_output(['git', 'rev-parse',
-                                        '--show-toplevel']).strip('\n')
+    git_root = _git(['rev-parse', '--show-toplevel'])
 
     paths = (
         os.path.join(git_root, '.git', 'rebase-apply'),
@@ -99,15 +133,15 @@ def _get_pw_url(project):
         project: patchwork project name; if None, we retrieve the default
             from pwclientrc
     """
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read([_PWCLIENTRC])
 
     if project is None:
         try:
             project = config.get('options', 'default')
-        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
-            errprint('Error: no default patchwork project found in %s.'
-                     % _PWCLIENTRC)
+        except (configparser.NoSectionError, configparser.NoOptionError) as e:
+            errprint('Error: no default patchwork project found in %s. (%r)'
+                     % (_PWCLIENTRC, e))
             sys.exit(1)
 
     if not config.has_option(project, 'url'):
@@ -127,7 +161,7 @@ def _pick_patchwork(url, patch_id, args):
     if args['tag'] is None:
         args['tag'] = 'FROMLIST: '
 
-    opener = urllib.urlopen('%s/patch/%d/mbox' % (url, patch_id))
+    opener = urllib.request.urlopen('%s/patch/%d/mbox' % (url, patch_id))
     if opener.getcode() != 200:
         errprint('Error: could not download patch - error code %d'
                  % opener.getcode())
@@ -151,11 +185,9 @@ def _pick_patchwork(url, patch_id, args):
         args['changeid'] = mo.group(1)
 
     if args['replace']:
-        subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
+        _git(['reset', '--hard', 'HEAD~1'])
 
-    git_am = subprocess.Popen(['git', 'am', '-3'], stdin=subprocess.PIPE)
-    git_am.communicate(patch_contents)
-    return git_am.returncode
+    return _git_returncode(['am', '-3'], stdin=patch_contents, encoding=None)
 
 def _match_patchwork(match, args):
     """Match location: pw://### or pw://PROJECT/###."""
@@ -180,7 +212,7 @@ def _match_msgid(match, args):
     msgid = '<' + msgid + '>'
     url = None
     for url in PATCHWORK_URLS:
-        rpc = xmlrpclib.ServerProxy(url + '/xmlrpc/')
+        rpc = xmlrpc.client.ServerProxy(url + '/xmlrpc/')
         res = rpc.patch_list({'msgid': msgid})
         if res:
             patch_id = res[0]['id']
@@ -205,26 +237,23 @@ def _match_linux(match, args):
         sys.exit(1)
 
     linux_master = '%s/master' % linux_remote
-    ret = subprocess.call(['git', 'merge-base', '--is-ancestor',
-                           commit, linux_master])
-    if ret:
+    try:
+        _git(['merge-base', '--is-ancestor', commit, linux_master])
+    except subprocess.CalledProcessError:
         errprint('Error: Commit not in %s' % linux_master)
         sys.exit(1)
 
     if args['source_line'] is None:
-        git_pipe = subprocess.Popen(['git', 'rev-parse', commit],
-                                    stdout=subprocess.PIPE)
-        commit = git_pipe.communicate()[0].strip()
-
+        commit = _git(['rev-parse', commit])
         args['source_line'] = ('(cherry picked from commit %s)' %
                                (commit))
     if args['tag'] is None:
         args['tag'] = 'UPSTREAM: '
 
     if args['replace']:
-        subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
+        _git(['reset', '--hard', 'HEAD~1'])
 
-    return subprocess.call(['git', 'cherry-pick', commit])
+    return _git_returncode(['cherry-pick', commit])
 
 def _match_fromgit(match, args):
     """Match location: git://remote/branch/HASH."""
@@ -236,30 +265,26 @@ def _match_fromgit(match, args):
         print('_match_fromgit: remote=%s branch=%s commit=%s' %
               (remote, branch, commit))
 
-    ret = subprocess.call(['git', 'merge-base', '--is-ancestor',
-                           commit, '%s/%s' % (remote, branch)])
-    if ret:
+    try:
+        _git(['merge-base', '--is-ancestor', commit,
+              '%s/%s' % (remote, branch)])
+    except subprocess.CalledProcessError:
         errprint('Error: Commit not in %s/%s' % (remote, branch))
         sys.exit(1)
 
-    git_pipe = subprocess.Popen(['git', 'remote', 'get-url', remote],
-                                stdout=subprocess.PIPE)
-    url = git_pipe.communicate()[0].strip()
+    url = _git(['remote', 'get-url', remote])
 
     if args['source_line'] is None:
-        git_pipe = subprocess.Popen(['git', 'rev-parse', commit],
-                                    stdout=subprocess.PIPE)
-        commit = git_pipe.communicate()[0].strip()
-
+        commit = _git(['rev-parse', commit])
         args['source_line'] = (
             '(cherry picked from commit %s\n %s %s)' % (commit, url, branch))
     if args['tag'] is None:
         args['tag'] = 'FROMGIT: '
 
     if args['replace']:
-        subprocess.call(['git', 'reset', '--hard', 'HEAD~1'])
+        _git(['reset', '--hard', 'HEAD~1'])
 
-    return subprocess.call(['git', 'cherry-pick', commit])
+    return _git_returncode(['cherry-pick', commit])
 
 def _match_gitfetch(match, args):
     """Match location: (git|https)://repoURL#branch/HASH."""
@@ -271,24 +296,22 @@ def _match_gitfetch(match, args):
         print('_match_gitfetch: remote=%s branch=%s commit=%s' %
               (remote, branch, commit))
 
-    ret = subprocess.call(['git', 'fetch', remote, branch])
-    if ret:
+    try:
+        _git(['fetch', remote, branch])
+    except subprocess.CalledProcessError:
         errprint('Error: Branch not in %s' % remote)
         sys.exit(1)
 
     url = remote
 
     if args['source_line'] is None:
-        git_pipe = subprocess.Popen(['git', 'rev-parse', commit],
-                                    stdout=subprocess.PIPE)
-        commit = git_pipe.communicate()[0].strip()
-
+        commit = _git(['rev-parse', commit])
         args['source_line'] = (
             '(cherry picked from commit %s\n %s %s)' % (commit, url, branch))
     if args['tag'] is None:
         args['tag'] = 'FROMGIT: '
 
-    return subprocess.call(['git', 'cherry-pick', commit])
+    return _git_returncode(['cherry-pick', commit])
 
 def main(args):
     """This is the main entrypoint for fromupstream.
@@ -351,9 +374,7 @@ def main(args):
         args['bug'] = ', '.join(buglist)
 
     if args['replace']:
-        old_commit_message = subprocess.check_output(
-            ['git', 'show', '-s', '--format=%B', 'HEAD']
-        ).strip('\n')
+        old_commit_message = _git(['show', '-s', '--format=%B', 'HEAD'])
 
         # It is possible that multiple Change-Ids are in the commit message
         # (due to cherry picking).  We only want to pull out the first one.
@@ -411,9 +432,7 @@ def main(args):
             conflicts = ''
 
         # extract commit message
-        commit_message = subprocess.check_output(
-            ['git', 'show', '-s', '--format=%B', 'HEAD']
-        ).strip('\n')
+        commit_message = _git(['show', '-s', '--format=%B', 'HEAD'])
 
         # Remove stray Change-Id, most likely from merge resolution
         commit_message = re.sub(r'Change-Id:.*\n?', '', commit_message)
@@ -431,15 +450,10 @@ def main(args):
             extra = ['-s']
         else:
             extra = []
-        subprocess.Popen(
-            ['git', 'commit'] + extra + ['--amend', '-F', '-'],
-            stdin=subprocess.PIPE
-        ).communicate(commit_message)
+        _git(['commit'] + extra + ['--amend', '-F', '-'], stdin=commit_message)
 
         # re-extract commit message
-        commit_message = subprocess.check_output(
-            ['git', 'show', '-s', '--format=%B', 'HEAD']
-        ).strip('\n')
+        commit_message = _git(['show', '-s', '--format=%B', 'HEAD'])
 
         # If we see a "Link: " that seems to point to a Message-Id with an
         # automatic Change-Id we'll snarf it out.
@@ -458,9 +472,7 @@ def main(args):
         commit_message = args['tag'] + commit_message
 
         # commit everything
-        subprocess.Popen(
-            ['git', 'commit', '--amend', '-F', '-'], stdin=subprocess.PIPE
-        ).communicate(commit_message)
+        _git(['commit', '--amend', '-F', '-'], stdin=commit_message)
 
     return 0
 
