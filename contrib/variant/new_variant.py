@@ -394,7 +394,7 @@ def create_coreboot_variant(status):
 
     create_coreboot_variant_sh = os.path.join(
         os.path.expanduser('~/trunk/src/third_party/coreboot'),
-        'util/mainboard/google/', status.board, 'create_coreboot_variant.sh')
+        'util/mainboard/google/create_coreboot_variant.sh')
     return run_process(
         [create_coreboot_variant_sh,
         status.variant,
