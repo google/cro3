@@ -238,7 +238,25 @@ def get_status(board, variant, bug, continue_flag):
         status.board = board
         status.variant = variant
         status.bug = bug
-        status.stage = 'cb_variant'
+
+        if board not in ['hatch', 'volteer']:
+            print('Unsupported baseboard "' + board + '"')
+            sys.exit(1)
+
+        # Depending on the board, we can have different values here
+        if board == 'hatch':
+            status.stage = 'cb_variant'
+            status.stage_list = [CB_VARIANT, CB_CONFIG, ADD_FIT, GEN_FIT,
+                COMMIT_FIT, EC_IMAGE, EC_BUILDALL, ADD_YAML, BUILD_YAML,
+                EMERGE, PUSH, UPLOAD, FIND, CQ_DEPEND, CLEAN_UP]
+
+        if board == 'volteer':
+            # TODO(pfagerburg) this list of stages will change
+            status.stage = 'cb_variant'
+            status.stage_list = [CB_VARIANT, CB_CONFIG, ADD_FIT, GEN_FIT,
+                COMMIT_FIT, EC_IMAGE, EC_BUILDALL, ADD_YAML, BUILD_YAML,
+                EMERGE, PUSH, UPLOAD, FIND, CQ_DEPEND, CLEAN_UP]
+
         status.save()
 
     return status
@@ -302,40 +320,20 @@ def perform_stage(status):
 
 
 def move_to_next_stage(status):
-    """Move to the next state
+    """Move to the next stage in the list
 
     Params:
         status      variant_status object tracking our board, variant, etc.
     """
-
-    # Stage to move to if the current one is successful
-    # TODO(pfagerburg) instead of using a map, have a list of stages that
-    # is saved to the yaml file. Create logic to populate that list at
-    # the beginning of the process, based on the --board argument; hatch
-    # can have a different list of stages compared to e.g. volteer.
-    next_stage = {
-        CB_VARIANT:     CB_CONFIG,
-        CB_CONFIG:      ADD_FIT,
-        ADD_FIT:        GEN_FIT,
-        GEN_FIT:        COMMIT_FIT,
-        COMMIT_FIT:     EC_IMAGE,
-        EC_IMAGE:       EC_BUILDALL,
-        EC_BUILDALL:    ADD_YAML,
-        ADD_YAML:       BUILD_YAML,
-        BUILD_YAML:     EMERGE,
-        EMERGE:         PUSH,
-        PUSH:           UPLOAD,
-        UPLOAD:         FIND,
-        FIND:           CQ_DEPEND,
-        CQ_DEPEND:      CLEAN_UP,
-        CLEAN_UP:       None
-    }
-
-    if status.stage not in next_stage:
+    if status.stage not in status.stage_list:
         logging.error('Unknown stage "%s", aborting...', status.stage)
         sys.exit(1)
 
-    status.stage = next_stage[status.stage]
+    idx = status.stage_list.index(status.stage)
+    if idx == len(status.stage_list)-1:
+        status.stage = None
+    else:
+        status.stage = status.stage_list[idx+1]
 
 
 def run_process(args, *, cwd=None, env=None):
@@ -397,6 +395,7 @@ def create_coreboot_variant(status):
         'util/mainboard/google/create_coreboot_variant.sh')
     return run_process(
         [create_coreboot_variant_sh,
+        status.board,
         status.variant,
         status.bug]) == 0
 
