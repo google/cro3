@@ -441,8 +441,16 @@ def add_fitimage(status):
         True if the script succeeded, False otherwise
     """
     logging.info('Running stage add_fitimage')
-    status.workon += ['intel-cmlfsp']
-    status.emerge += ['intel-cmlfsp']
+    pkg = 'coreboot-private-files-' + status.board
+    # The FSP depends on the baseboard model. We don't have to check for
+    # the baseboard not being in this hash because we already checked
+    # for an unsupported baseboard when the script started.
+    fsp = {
+        'hatch': 'intel-cmlfsp',
+        'volteer': 'intel-tglfsp'
+    }
+    status.workon += [fsp[status.board], pkg]
+    status.emerge += [fsp[status.board], pkg]
     add_fitimage_sh = os.path.expanduser(os.path.join(
         '~/trunk/src/private-overlays',
         'baseboard-' + status.board + '-private',
@@ -675,10 +683,15 @@ def add_variant_to_yaml(status):
         True if the scripts and build succeeded, False is something failed
     """
     logging.info('Running stage add_variant_to_yaml')
-    status.workon += ['chromeos-config-bsp-hatch-private']
+    # TODO(pfagerburg) these can change in response to firmware changes
+    # or new board-specific support scripts that might handle the entire
+    # build or at least specify the packages so that this program doesn't
+    # have to know.
+    status.workon += ['chromeos-config-bsp-' + status.board + '-private']
     status.emerge += ['chromeos-config', 'chromeos-config-bsp',
-        'chromeos-config-bsp-hatch', 'chromeos-config-bsp-hatch-private',
-        'coreboot-private-files', 'coreboot-private-files-hatch']
+        'chromeos-config-bsp-' + status.board,
+        'chromeos-config-bsp-' + status.board + '-private',
+        'coreboot-private-files', 'coreboot-private-files-' + status.board]
     add_variant_to_yaml_sh = os.path.expanduser(
         '~/trunk/src/platform/dev/contrib/variant/add_variant_to_yaml.sh')
     if run_process(
