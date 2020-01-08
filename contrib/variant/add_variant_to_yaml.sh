@@ -40,6 +40,11 @@ BUG=${3:-None}
 
 YAML=model.yaml
 
+if [[ "${BASE}" -eq "volteer" ]]; then
+  echo "Volteer does not need changes to public yaml, exitting ..."
+  exit 0
+fi
+
 # Can't put the ~ inside the "" but I need the "" to avoid spaces and globbing
 # for ${BASE}, so it's two separate commands.
 cd ~ || exit 1
