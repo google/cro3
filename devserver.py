@@ -1458,7 +1458,7 @@ class DevServerRoot(object):
     return '<pre>\n%s</pre>' % method.__doc__
 
   @cherrypy.expose
-  def update(self, *args):
+  def update(self, *args, **kwargs):
     """Handles an update check from a Chrome OS client.
 
     The HTTP request should contain the standard Omaha-style XML blob. The URL
@@ -1500,7 +1500,7 @@ class DevServerRoot(object):
     body_length = int(cherrypy.request.headers.get('Content-Length', 0))
     data = cherrypy.request.rfile.read(body_length)
 
-    return updater.HandleUpdatePing(data, label)
+    return updater.HandleUpdatePing(data, label, **kwargs)
 
 
 def _CleanCache(cache_dir, wipe):
@@ -1557,6 +1557,7 @@ def _AddUpdateOptions(parser):
       'how the devserver serve update payloads. Please '
       'note that all of these option affect how a payload is generated and so '
       'do not work in archive-only mode.')
+  # TODO(crbug/1004487): Deprecate critical_update.
   group.add_option('--critical_update',
                    action='store_true', default=False,
                    help='Present update payload as critical')

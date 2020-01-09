@@ -29,6 +29,8 @@ from string import Template
 
 from xml.dom import minidom
 
+import requests
+
 from six.moves import urllib
 
 import psutil  # pylint: disable=import-error
@@ -235,8 +237,10 @@ class DevserverTestBase(unittest.TestCase):
     """
     update_label = '/'.join([UPDATE, label])
     response = self._MakeRPC(
-        update_label, data=UPDATE_REQUEST.substitute({'appid': appid}))
+        update_label, data=UPDATE_REQUEST.substitute({'appid': appid}),
+        critical_update=True)
     self.assertNotEqual('', response)
+    self.assertIn('deadline="now"', response)
 
     # Parse the response and check if it contains the right result.
     dom = minidom.parseString(response)
@@ -286,19 +290,12 @@ class DevserverTestBase(unittest.TestCase):
     request = '/'.join([self.devserver_url, rpc])
     if kwargs:
       # Join the kwargs to the URL.
-      request += '?' + '&'.join('%s=%s' % item for item in kwargs.items())
+      request += '?' + '&'.join('%s=%s' % (k, v) for k, v in kwargs.items())
 
-    # Let's log output for all rpc's without timeouts because we only
-    # use timeouts to check to see if something is up and these checks tend
-    # to be small and so logging it will be extremely repetitive.
-    if not timeout:
-      logging.info('Making request using %s', request)
-
-    connection = urllib.request.urlopen(
-        request, data=data.encode('utf-8') if data else None, timeout=timeout)
-    output = connection.read().decode('utf-8')
-    connection.close()
-    return output
+    response = (requests.post(request, data=data, timeout=timeout) if data
+                else requests.get(request, timeout=timeout))
+    response.raise_for_status()
+    return response.text
 
 
 class AutoStartDevserverTestBase(DevserverTestBase):
@@ -552,7 +549,7 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
     self.assertEqual(response, expected_update_url)
 
     logging.info('Now give xbuddy a bad path.')
-    self.assertRaises(urllib.error.HTTPError,
+    self.assertRaises(requests.exceptions.RequestException,
                       self._MakeRPC,
                       '/'.join([XBUDDY, xbuddy_bad_path]))
 
@@ -583,6 +580,4 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
 
 
 if __name__ == '__main__':
-  logging_format = '%(levelname)-8s: %(message)s'
-  logging.basicConfig(level=logging.DEBUG, format=logging_format)
   unittest.main()

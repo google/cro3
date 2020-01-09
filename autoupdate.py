@@ -300,12 +300,13 @@ class Autoupdate(build_util.BuildObject):
 
     return path_to_payload
 
-  def HandleUpdatePing(self, data, label=''):
+  def HandleUpdatePing(self, data, label='', **kwargs):
     """Handles an update ping from an update client.
 
     Args:
       data: XML blob from client.
       label: optional label for the update.
+      kwargs: The map of query strings passed to the /update API.
 
     Returns:
       Update payload message for client.
@@ -358,13 +359,15 @@ class Autoupdate(build_util.BuildObject):
       _Log('Failed to process an update request, but we will defer to '
            'nebraska to respond with no-update. The error was %s', e)
 
+    if self.critical_update:
+      kwargs['critical_update'] = True
+
     _Log('Responding to client to use url %s to get image', base_url)
     nebraska_props = nebraska.NebraskaProperties(
         update_payloads_address=base_url,
         update_metadata_dir=local_payload_dir)
-    response_props = nebraska.ResponseProperties(
-        critical_update=self.critical_update)
     nebraska_obj = nebraska.Nebraska(nebraska_props=nebraska_props)
+    response_props = nebraska.ResponseProperties(**kwargs)
     return nebraska_obj.GetResponseToRequest(request,
                                              response_props=response_props)
 
