@@ -111,5 +111,69 @@ class AutoupdateTest(unittest.TestCase):
 
     self.assertIn('error-unknownApplication', au_mock.HandleUpdatePing(request))
 
+
+class MaxUpdatesTableTest(unittest.TestCase):
+  """Tests MaxUpdatesTable"""
+
+  def testSessionTable(self):
+    """Tests that SessionData() method correctly returns requested data."""
+    table = autoupdate.SessionTable()
+    g_data = {'foo': 0}
+
+    table.SetSessionData('id-1', g_data)
+    with table.SessionData('id-1') as data:
+      data.update({'foo': data.get('foo') + 1})
+    # Value of the global data should be increased by now.
+    self.assertTrue(g_data['foo'], 1)
+
+    # Increase again.
+    with table.SessionData('id-1') as data:
+      data.update({'foo': data.get('foo') + 1})
+    self.assertTrue(g_data['foo'], 2)
+
+    # Make sure multiple sessions can be set and used.
+    g_data2 = {'foo': 10}
+    table.SetSessionData('id-2', g_data2)
+    with table.SessionData('id-2') as data:
+      data.update({'foo': data.get('foo') + 1})
+    self.assertTrue(g_data2['foo'], 11)
+
+  def testNoneSession(self):
+    """Tests if a session is not set, it should be returned as None."""
+    table = autoupdate.SessionTable()
+    # A session ID that has never been set should not return anything.
+    with table.SessionData('foo-id') as data:
+      self.assertDictEqual(data, {})
+
+  def testOverrideSession(self):
+    """Tests that a session can be overriden.."""
+    table = autoupdate.SessionTable()
+
+    table.SetSessionData('id-1', {'foo': 0})
+    table.SetSessionData('id-1', {'bar': 1})
+    with table.SessionData('id-1') as data:
+      self.assertEqual(data.get('bar'), 1)
+
+  @mock.patch.object(autoupdate.SessionTable, '_IsSessionExpired',
+                     side_effect=lambda s: 'foo' in s.data)
+  @mock.patch.object(autoupdate.SessionTable, '_ShouldPurge',
+                     return_value=True)
+  # pylint: disable=unused-argument
+  def testPurge(self, p, ps):
+    """Tests that data is being purged correctly."""
+    table = autoupdate.SessionTable()
+
+    table.SetSessionData('id-1', {'foo': 1})
+    table.SetSessionData('id-2', {'bar': 2})
+
+    # Set a random session to make _Purge() be called.
+    table.SetSessionData('blah', {'blah': 1})
+    # Only id-1 should be purged by now.
+    with table.SessionData('id-1') as data:
+      self.assertDictEqual(data, {})
+    with table.SessionData('id-2') as data:
+      self.assertDictEqual(data, {'bar': 2})
+
+
 if __name__ == '__main__':
   unittest.main()
