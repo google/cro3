@@ -7,6 +7,7 @@ import argparse
 import subprocess
 import sys
 from os import path
+import time
 import json
 
 # This script retreives the specified trace file's information and outputs it
@@ -42,6 +43,8 @@ try:
   data_results['report_version'] = TRACEINFO_REPORT_VERSION
   data_results['trace_file_version'] = res['FileVersion']
   data_results['trace_frames_count'] = res['FramesCount']
+  data_results['file_size'] = path.getsize(args.trace_file)
+  data_results['file_ctime'] = time.ctime(path.getctime(args.trace_file))
   print(json.dumps(data_results, indent=2, sort_keys=True))
 except Exception as err:
   panic('Unable to decode apitrace info output: <%s>' % str(err), -1)
