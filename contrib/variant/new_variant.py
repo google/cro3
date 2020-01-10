@@ -6,7 +6,7 @@ This program will call all of the scripts that create the various pieces
 of a new variant. For example to create a new variant of the hatch base
 board, the following scripts are called:
 
-* third_party/coreboot/util/mainboard/google/hatch/create_coreboot_variant.sh
+* third_party/coreboot/util/mainboard/google/create_coreboot_variant.sh
 * platform/dev/contrib/variant/create_coreboot_config.sh
 * private-overlays/baseboard-hatch-private/sys-boot/
  * coreboot-private-files-hatch/files/add_fitimage.sh
@@ -26,19 +26,24 @@ Once the scripts are done, the following repos have changes
 * private-overlays/overlay-hatch-private
 * overlays
 
-Copyright 2019 The Chromium OS Authors. All rights reserved.
+The program has support for multiple baseboards, so the repos, directories,
+and scripts above can change depending on what the baseboard is.
+
+Copyright 2020 The Chromium OS Authors. All rights reserved.
 Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 """
 
 from __future__ import print_function
 import argparse
+import importlib
 import logging
 import os
 import re
 import shutil
 import subprocess
 import sys
+import step_names
 import variant_status
 
 
@@ -46,7 +51,7 @@ def main():
     """Create a new variant of an existing base board
 
     This program automates the creation of a new variant of an existing
-    base board by calling various scripts that clone the base board, modify
+    base board by calling various scripts that copy the base board, modify
     files for the new variant, stage commits, and upload to gerrit.
 
     Note that one of the following is required:
@@ -64,13 +69,13 @@ def main():
 
     status.load()
 
-    while status.stage is not None:
+    while status.step is not None:
         status.save()
-        if not perform_stage(status):
-            logging.debug('perform_stage returned False; exiting ...')
+        if not perform_step(status):
+            logging.debug('perform_step returned False; exiting ...')
             return False
 
-        move_to_next_stage(status)
+        move_to_next_step(status)
 
     return True
 
@@ -186,26 +191,45 @@ def get_status(board, variant, bug, continue_flag):
     This program can stop at several places as we have to wait for CLs
     to work through CQ or be upstreamed into the chromiumos tree, so just
     like a git cherry-pick, there is a --continue option to pick up where
-    you left off.
+    you left off by reading a specially-named status file.
 
-    If the --continue flag is present, make sure that the status file
-    exists, and fail if it doesn't.
+    If --continue is specified, the status file must exist.
+    If the status file exists, then --continue must be specified.
+    When --continue is specified, we read the status file and return
+    with the contents.
 
-    If the --continue flag is not present, then create the status file
-    with the board, variant, and bug details. If the status file already
-    exists, this is an error case.
+    If the status file does not exist, we will create the state file with
+    the board, variant, and (optional) bug details.
 
-    The function returns an object with several fields:
+    To decouple the list of boards supported from this main program, we
+    try to import a module with the same name as the baseboard,
+    so --board=hatch means that we import hatch.py. If we can't import
+    the file, then we don't support that baseboard.
+
+    The board-specific module will set several variables, which we will
+    copy into the object that we return.
+
+    * step_list - list of steps (named in step_names.py) to run in sequence
+        to create the new variant of the baseboard
+    * fsp - package name for FSP. This may be empty, depending on the
+        processor on the baseboard
+    * fitimage_pkg - package name for the fitimage
+    * fitimage_dir - directory for fitimage; prepend '~/trunk/src/' in chroot,
+        prepend '~/chromiumos/src' outside the chroot
+    * workon_pkgs - list of packages to cros_workon
+    * emerge_cmd - the emerge command, e.g. 'emerge-hatch'
+    * emerge_pkgs - list of packages to emerge
+    * yaml_emerge_pkgs - list of packages to emerge just to build the yaml
+    * private_yaml_dir - directory for the private yaml file
+
+    Additionally, the following fields will be set:
+
     * board - the name of the baseboard, e.g. 'hatch'
     * variant - the name of the variant, e.g. 'sushi'
     * bug - optional text for a bug ID, used in the git commit messages.
         Could be 'None' (as text, not the python None), or something like
         'b:12345' for buganizer, or 'chromium:12345'
-    * workon - list of packages that will need `cros_workon start` before
-        we can `emerge`. Each function can add package names to this list.
-    * emerge - list of packages that we need to `emerge` at the end. Each
-        functions can add package names to this list.
-    * stage - internal state tracking, what stage of the variant creation
+    * step - internal state tracking, what step of the variant creation
         we are at.
     * yaml_file - internal, just the name of the file where all this data
         gets saved.
@@ -221,7 +245,7 @@ def get_status(board, variant, bug, continue_flag):
         continue_flag     Flag if --continue was specified
 
     Returns:
-        variant_status object that points to the yaml file
+        variant_status object with all the data mentioned above
     """
     status = variant_status.variant_status()
     if continue_flag:
@@ -239,122 +263,137 @@ def get_status(board, variant, bug, continue_flag):
         status.variant = variant
         status.bug = bug
 
-        if board not in ['hatch', 'volteer']:
+        # We're just starting out, so load the appropriate module and copy
+        # all the data from it.
+        try:
+            module = importlib.import_module(board)
+        except ImportError:
             print('Unsupported baseboard "' + board + '"')
             sys.exit(1)
 
-        # Depending on the board, we can have different values here
-        if board == 'hatch':
-            status.stage = 'cb_variant'
-            status.stage_list = [CB_VARIANT, CB_CONFIG, ADD_FIT, GEN_FIT,
-                COMMIT_FIT, EC_IMAGE, EC_BUILDALL, ADD_YAML, BUILD_YAML,
-                EMERGE, PUSH, UPLOAD, FIND, CQ_DEPEND, CLEAN_UP]
+        # pylint: disable=bad-whitespace
+        # Allow extra spaces around = so that we can line things up nicely
+        status.emerge_cmd           = module.emerge_cmd
+        status.emerge_pkgs          = module.emerge_pkgs
+        status.fitimage_dir         = module.fitimage_dir
+        status.fitimage_pkg         = module.fitimage_pkg
+        status.fsp                  = module.fsp
+        status.private_yaml_dir     = module.private_yaml_dir
+        status.step_list            = module.step_list
+        status.workon_pkgs          = module.workon_pkgs
+        status.yaml_emerge_pkgs     = module.yaml_emerge_pkgs
+        # pylint: enable=bad-whitespace
 
-        if board == 'volteer':
-            # TODO(pfagerburg) this list of stages will change
-            status.stage = 'cb_variant'
-            status.stage_list = [CB_VARIANT, CB_CONFIG, ADD_FIT, GEN_FIT,
-                COMMIT_FIT, EC_IMAGE, EC_BUILDALL, ADD_YAML, BUILD_YAML,
-                EMERGE, PUSH, UPLOAD, FIND, CQ_DEPEND, CLEAN_UP]
+        # Start at the first entry in the step list
+        status.step = status.step_list[0]
 
         status.save()
 
     return status
 
 
-# Constants for the stages, so we don't have to worry about misspelling them
-# pylint: disable=bad-whitespace
-# Allow extra spaces around = so that we can line things up nicely
-CB_VARIANT    = 'cb_variant'
-CB_CONFIG     = 'cb_config'
-ADD_FIT       = 'add_fit'
-GEN_FIT       = 'gen_fit'
-COMMIT_FIT    = 'commit_fit'
-EC_IMAGE      = 'ec_image'
-EC_BUILDALL   = 'ec_buildall'
-ADD_YAML      = 'add_yaml'
-BUILD_YAML    = 'build_yaml'
-EMERGE        = 'emerge'
-PUSH          = 'push'
-UPLOAD        = 'upload'
-FIND          = 'find'
-CQ_DEPEND     = 'cq_depend'
-CLEAN_UP      = 'clean_up'
-# pylint: enable=bad-whitespace
-
-
-def perform_stage(status):
-    """Call the appropriate function for the current stage
+def perform_step(status):
+    """Call the appropriate function for the current step
 
     Params:
-        st  dictionary that provides details including
-            the board name, variant name, and bug ID
+        status      variant_status object tracking our board, variant, etc.
 
     Returns:
-        True if the stage succeeded, False if it failed
+        True if the step succeeded, False if it failed
     """
-    # Function to call based on the stage
+    # Function to call based on the step
     dispatch = {
-        CB_VARIANT:     create_coreboot_variant,
-        CB_CONFIG:      create_coreboot_config,
-        ADD_FIT:        add_fitimage,
-        GEN_FIT:        gen_fit_image_outside_chroot,
-        COMMIT_FIT:     commit_fitimage,
-        EC_IMAGE:       create_initial_ec_image,
-        EC_BUILDALL:    ec_buildall,
-        ADD_YAML:       add_variant_to_yaml,
-        BUILD_YAML:     build_yaml,
-        EMERGE:         emerge_all,
-        PUSH:           push_coreboot,
-        UPLOAD:         upload_CLs,
-        FIND:           find_coreboot_upstream,
-        CQ_DEPEND:      add_cq_depends,
-        CLEAN_UP:       clean_up,
+        step_names.CB_VARIANT:      create_coreboot_variant,
+        step_names.CB_CONFIG:       create_coreboot_config,
+        step_names.ADD_FIT:         add_fitimage,
+        step_names.GEN_FIT:         gen_fit_image_outside_chroot,
+        step_names.COMMIT_FIT:      commit_fitimage,
+        step_names.EC_IMAGE:        create_initial_ec_image,
+        step_names.EC_BUILDALL:     ec_buildall,
+        step_names.ADD_YAML:        add_variant_to_yaml,
+        step_names.BUILD_YAML:      build_yaml,
+        step_names.EMERGE:          emerge_all,
+        step_names.PUSH:            push_coreboot,
+        step_names.UPLOAD:          upload_CLs,
+        step_names.FIND:            find_coreboot_upstream,
+        step_names.CQ_DEPEND:       add_cq_depends,
+        step_names.CLEAN_UP:        clean_up,
     }
 
-    if status.stage not in dispatch:
-        logging.error('Unknown stage "%s", aborting...', status.stage)
+    if status.step not in dispatch:
+        logging.error('Unknown step "%s", aborting...', status.step)
         sys.exit(1)
 
-    return dispatch[status.stage](status)
+    return dispatch[status.step](status)
 
 
-def move_to_next_stage(status):
-    """Move to the next stage in the list
+def move_to_next_step(status):
+    """Move to the next step in the list
 
     Params:
         status      variant_status object tracking our board, variant, etc.
     """
-    if status.stage not in status.stage_list:
-        logging.error('Unknown stage "%s", aborting...', status.stage)
+    if status.step not in status.step_list:
+        logging.error('Unknown step "%s", aborting...', status.step)
         sys.exit(1)
 
-    idx = status.stage_list.index(status.stage)
-    if idx == len(status.stage_list)-1:
-        status.stage = None
+    idx = status.step_list.index(status.step)
+    if idx == len(status.step_list)-1:
+        status.step = None
     else:
-        status.stage = status.stage_list[idx+1]
+        status.step = status.step_list[idx+1]
 
 
-def run_process(args, *, cwd=None, env=None):
-    """Wrapper for subprocess.run that will produce debug-level messages
+def run_process(args, cwd=None, env=None, capture_output=False):
+    """Run a process, log debug messages, return text output of process
+
+    The capture_output parameter allows us to capture the output when we
+    care about it (and not sending it to the screen), or ignoring it when
+    we don't care, and letting the user see the output so they know that
+    the build is still running, etc.
 
     Params:
-        LImited subset, same as for subprocess.run
+        args            List of the command and its params
+        cwd             If not None, cd to this directory before running
+        env             Environment to use for execution; if needed, get
+                        os.environ.copy() and add variables. If None, just
+                        use the current environment
+        capture_output  True if we should capture the stdout, false
+                        if we just care about success or not.
 
     Returns:
-        Return value from subprocess.run
+        If capture_output == True, we return the text output from running
+        the subprocess as a list of lines, or None if the process failed.
+        If capture_output == False, we return a True if it successed, or
+        None if the process failed.
+
+        The caller can evaluate as a bool, because bool(None) == False, and
+        bool() of a non-empty list is True, or the caller can use the returned
+        text for further processing.
     """
     logging.debug('Run %s', str(args))
-    retval = subprocess.run(args, cwd=cwd, env=env).returncode
-    logging.debug('process returns %s', str(retval))
-    return retval
+    try:
+        if capture_output:
+            output = subprocess.check_output(args, cwd=cwd, env=env,
+                stderr=subprocess.STDOUT)
+        else:
+            subprocess.run(args, cwd=cwd, env=env, check=True)
+            # Just something to decode so we don't get an empty list
+            output = b'True'
+
+        logging.debug('process returns 0')
+        # Convert from byte string to ASCII
+        decoded = output.decode('utf-8')
+        # Split into array of individual lines
+        lines = decoded.split('\n')
+        return lines
+    except subprocess.CalledProcessError as err:
+        logging.debug('process returns %s', str(err.returncode))
+        return None
 
 
 def cros_workon(status, action):
     """Call cros_workon for all the 9999 ebuilds we'll be touching
-
-    TODO(pfagerburg) detect 9999 ebuild to know if we have to workon the package
 
     Params:
         status      variant_status object tracking our board, variant, etc.
@@ -365,8 +404,8 @@ def cros_workon(status, action):
     """
 
     # Build up the command from all the packages in the list
-    workon_cmd = ['cros_workon', '--board=' + status.board, action] + status.workon
-    return run_process(workon_cmd) == 0
+    workon_cmd = ['cros_workon', '--board=' + status.board, action] + status.workon_pkgs
+    return bool(run_process(workon_cmd))
 
 
 def create_coreboot_variant(status):
@@ -381,23 +420,15 @@ def create_coreboot_variant(status):
     Returns:
         True if everything succeeded, False if something failed
     """
-    logging.info('Running stage create_coreboot_variant')
-    status.workon += ['coreboot', 'libpayload', 'vboot_reference',
-        'depthcharge']
-    # Despite doing the workon here, we don't add this to emerge, because
-    # without the configuration (create_coreboot_config), `emerge coreboot`
-    # won't build the new variant.
-    status.emerge += ['libpayload', 'vboot_reference', 'depthcharge',
-        'chromeos-bootimage']
-
+    logging.info('Running step create_coreboot_variant')
     create_coreboot_variant_sh = os.path.join(
         os.path.expanduser('~/trunk/src/third_party/coreboot'),
         'util/mainboard/google/create_coreboot_variant.sh')
-    return run_process(
+    return bool(run_process(
         [create_coreboot_variant_sh,
         status.board,
         status.variant,
-        status.bug]) == 0
+        status.bug]))
 
 
 def create_coreboot_config(status):
@@ -412,15 +443,14 @@ def create_coreboot_config(status):
     Returns:
         True if the script and test build succeeded, False if something failed
     """
-    logging.info('Running stage create_coreboot_config')
-    status.emerge += ['coreboot']
+    logging.info('Running step create_coreboot_config')
     create_coreboot_config_sh = os.path.expanduser(
         '~/trunk/src/platform/dev/contrib/variant/create_coreboot_config.sh')
-    return run_process(
+    return bool(run_process(
         [create_coreboot_config_sh,
         status.board,
         status.variant,
-        status.bug]) == 0
+        status.bug]))
 
 
 def add_fitimage(status):
@@ -440,27 +470,13 @@ def add_fitimage(status):
     Returns:
         True if the script succeeded, False otherwise
     """
-    logging.info('Running stage add_fitimage')
-    pkg = 'coreboot-private-files-' + status.board
-    # The FSP depends on the baseboard model. We don't have to check for
-    # the baseboard not being in this hash because we already checked
-    # for an unsupported baseboard when the script started.
-    fsp = {
-        'hatch': 'intel-cmlfsp',
-        'volteer': 'intel-tglfsp'
-    }
-    status.workon += [fsp[status.board], pkg]
-    status.emerge += [fsp[status.board], pkg]
+    logging.info('Running step add_fitimage')
     add_fitimage_sh = os.path.expanduser(os.path.join(
-        '~/trunk/src/private-overlays',
-        'baseboard-' + status.board + '-private',
-        'sys-boot',
-        'coreboot-private-files-' + status.board,
-        'files/add_fitimage.sh'))
-    return run_process(
+        '~/trunk/src', status.fitimage_dir, 'files/add_fitimage.sh'))
+    return bool(run_process(
         [add_fitimage_sh,
         status.variant,
-        status.bug]) == 0
+        status.bug]))
 
 
 def gen_fit_image_outside_chroot(status):
@@ -477,7 +493,7 @@ def gen_fit_image_outside_chroot(status):
     Returns:
         True
     """
-    logging.info('Running stage gen_fit_image_outside_chroot')
+    logging.info('Running step gen_fit_image_outside_chroot')
     fit_image_files = check_fit_image_files(status)
     # If the list is empty, then `not` of the list is True, so the files
     # we need are all present and we can continue.
@@ -493,15 +509,14 @@ def gen_fit_image_outside_chroot(status):
     logging.info('./gen_fit_image.sh %s [location of FIT] -b', status.variant)
     logging.info('Then re-start this program with --continue.')
     logging.info('If your chroot is based in ~/chromiumos, then the folder you want is')
-    logging.info('~/chromiumos/src/private-overlays/baseboard-%s-private/sys-boot'
-        '/coreboot-private-files-%s/asset_generation', status.board, status.board)
+    logging.info('~/chromiumos/src/%s/asset_generation', status.fitimage_dir)
     return False
 
 
 def check_fit_image_files(status):
     """Check if the fitimage has been generated
 
-    This function is not called directly as a stage, and so it doesn't need
+    This function is not called directly as a step, and so it doesn't need
     to produce any error messages to the user (except with --verbose).
     gen_fit_image_outside_chroot will call this function to see if the
     fitimage files exist, and if not, then that function will print the
@@ -515,23 +530,19 @@ def check_fit_image_files(status):
         List of files that *DO NOT* exist and need to be created, [] if
         all files are present.
     """
-    fitimage_dir = os.path.expanduser(os.path.join(
-        '~/trunk/src/private-overlays',
-        'baseboard-' + status.board + '-private',
-        'sys-boot',
-        'coreboot-private-files-' + status.board,
-        'asset_generation/outputs'))
-    logging.debug('fitimage_dir = "%s"', fitimage_dir)
+    outputs_dir = os.path.expanduser(os.path.join(
+        '~/trunk/src', status.fitimage_dir, 'asset_generation/outputs'))
+    logging.debug('outputs_dir = "%s"', outputs_dir)
 
     files = []
-    if not file_exists(fitimage_dir, 'fitimage-' + status.variant + '.bin'):
+    if not file_exists(outputs_dir, 'fitimage-' + status.variant + '.bin'):
         files.append('fitimage-' + status.variant + '.bin')
 
-    if not file_exists(fitimage_dir,
+    if not file_exists(outputs_dir,
                        'fitimage-' + status.variant + '-versions.txt'):
         files.append('fitimage-' + status.variant + '-versions.txt')
 
-    if not file_exists(fitimage_dir, 'fit.log'):
+    if not file_exists(outputs_dir, 'fit.log'):
         files.append('fit.log')
 
     return files
@@ -579,12 +590,8 @@ def commit_fitimage(status):
         True if the copy, git add, and git commit --amend all succeeded.
         False if something failed.
     """
-    logging.info('Running stage commit_fitimage')
-    fitimage_dir = os.path.expanduser(os.path.join(
-        '~/trunk/src/private-overlays',
-        'baseboard-' + status.board + '-private',
-        'sys-boot',
-        'coreboot-private-files-' + status.board))
+    logging.info('Running step commit_fitimage')
+    fitimage_dir = os.path.expanduser(os.path.join('~/trunk/src', status.fitimage_dir))
     logging.debug('fitimage_dir  = "%s"', fitimage_dir)
 
     # The copy operation will check that the source file exists, so no
@@ -599,17 +606,17 @@ def commit_fitimage(status):
         logging.error('Moving fitimage versions.txt failed')
         return False
 
-    if run_process(
+    if not bool(run_process(
         ['git', 'add',
         'asset_generation/outputs/fit.log',
         'files/fitimage-' + status.variant + '.bin',
         'files/fitimage-' + status.variant + '-versions.txt'
         ],
-        cwd=fitimage_dir) != 0:
+        cwd=fitimage_dir)):
         return False
 
-    return run_process(['git', 'commit', '--amend', '--no-edit'],
-        cwd=fitimage_dir) == 0
+    return bool(run_process(['git', 'commit', '--amend', '--no-edit'],
+        cwd=fitimage_dir))
 
 
 def create_initial_ec_image(status):
@@ -627,16 +634,14 @@ def create_initial_ec_image(status):
     Returns:
         True if the script and test build succeeded, False if something failed
     """
-    logging.info('Running stage create_initial_ec_image')
-    status.workon += ['chromeos-ec']
-    status.emerge += ['chromeos-ec']
+    logging.info('Running step create_initial_ec_image')
     create_initial_ec_image_sh = os.path.expanduser(
         '~/trunk/src/platform/dev/contrib/variant/create_initial_ec_image.sh')
-    if run_process(
+    if not bool(run_process(
         [create_initial_ec_image_sh,
         status.board,
         status.variant,
-        status.bug]) != 0:
+        status.bug])):
         return False
 
     # create_initial_ec_image.sh will build the ec.bin for this variant
@@ -661,11 +666,11 @@ def ec_buildall(status):
     Returns:
         True if the script and test build succeeded, False if something failed
     """
-    logging.info('Running stage ec_buildall')
+    logging.info('Running step ec_buildall')
     del status  # unused parameter
     ec = os.path.expanduser('~/trunk/src/platform/ec')
     logging.debug('ec = "%s"', ec)
-    return run_process(['make', 'buildall', '-j'], cwd=ec) == 0
+    return bool(run_process(['make', 'buildall', '-j'], cwd=ec))
 
 
 def add_variant_to_yaml(status):
@@ -676,46 +681,26 @@ def add_variant_to_yaml(status):
     the yaml files.
 
     Params:
-        st  dictionary that provides details including
-            the board name, variant name, and bug ID
+        status      variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the scripts and build succeeded, False is something failed
     """
-    logging.info('Running stage add_variant_to_yaml')
-    # TODO(pfagerburg) these can change in response to firmware changes
-    # or new board-specific support scripts that might handle the entire
-    # build or at least specify the packages so that this program doesn't
-    # have to know.
-    status.workon += ['chromeos-config-bsp-' + status.board + '-private']
-    status.emerge += ['chromeos-config', 'chromeos-config-bsp',
-        'chromeos-config-bsp-' + status.board,
-        'chromeos-config-bsp-' + status.board + '-private',
-        'coreboot-private-files', 'coreboot-private-files-' + status.board]
+    logging.info('Running step add_variant_to_yaml')
     add_variant_to_yaml_sh = os.path.expanduser(
         '~/trunk/src/platform/dev/contrib/variant/add_variant_to_yaml.sh')
-    if run_process(
+    if not bool(run_process(
         [add_variant_to_yaml_sh,
         status.board,
         status.variant,
-        status.bug
-        ]) != 0:
+        status.bug])):
         return False
 
-    add_variant_sh = os.path.expanduser(os.path.join(
-        '~/trunk/src/private-overlays',
-        'overlay-' + status.board + '-private',
-        'chromeos-base',
-        'chromeos-config-bsp-' + status.board + '-private',
-        'add_variant.sh'))
-    if run_process(
+    add_variant_sh = os.path.expanduser(os.path.join(status.private_yaml_dir, 'add_variant.sh'))
+    return bool(run_process(
         [add_variant_sh,
         status.variant,
-        status.bug
-        ]) != 0:
-        return False
-
-    return True
+        status.bug]))
 
 
 def build_yaml(status):
@@ -731,13 +716,8 @@ def build_yaml(status):
     Returns:
         True if the scripts and build succeeded, False is something failed
     """
-    logging.info('Running stage build_yaml')
-    if run_process(
-        ['emerge-' + status.board,
-        'chromeos-config-bsp-' + status.board,
-        'chromeos-config-bsp-' + status.board + '-private',
-        'chromeos-config-bsp',
-        'chromeos-config']) != 0:
+    logging.info('Running step build_yaml')
+    if not bool(run_process([status.emerge_cmd] + status.yaml_emerge_pkgs)):
         return False
 
     # Check generated files for occurences of the variant name.
@@ -752,15 +732,13 @@ def build_yaml(status):
     # If the variant name doesn't show up in the file, then the count
     # will be 0, so we would see, e.g.
     #   config.json:0
-    # We gather the output from grep, decode as UTF-8, split along newlines,
-    # and then look for any of the strings ending in :0. If none of them
-    # match, then we're good, but if even one of them ends with :0 then
-    # there was a problem with generating the files from the yaml.
+    # We gather the output from grep, then look for any of the strings
+    # ending in :0. If none of them match, then we're good, but if even
+    # one of them ends with :0 then there was a problem with generating
+    # the files from the yaml.
     chromeos_config = '/build/' + status.board + '/usr/share/chromeos-config'
     logging.debug('chromeos_config = "%s"', chromeos_config)
-    # Can't use run because we need to capture the output instead
-    # of a status code.
-    grep = subprocess.check_output(
+    grep = run_process(
         ['grep',
         '-c',
         status.variant,
@@ -768,11 +746,11 @@ def build_yaml(status):
         'yaml/config.c',
         'yaml/config.yaml',
         'yaml/model.yaml',
-        'yaml/private-model.yaml'], cwd=chromeos_config)
-    # Convert from byte string to ASCII
-    grep = grep.decode('utf-8')
-    # Split into array of individual lines
-    grep = grep.split('\n')
+        'yaml/private-model.yaml'], cwd=chromeos_config, capture_output=True)
+
+    if grep is None:
+        return False
+
     return not bool([s for s in grep if re.search(r':0$', s)])
 
 
@@ -785,13 +763,13 @@ def emerge_all(status):
     Returns:
         True if the build succeeded, False if something failed
     """
-    logging.info('Running stage emerge_all')
+    logging.info('Running step emerge_all')
     cros_workon(status, 'start')
     environ = os.environ.copy()
     environ['FW_NAME'] = status.variant
     # Build up the command for emerge from all the packages in the list
-    emerge_cmd_and_params = ['emerge-' + status.board] + status.emerge
-    if run_process(emerge_cmd_and_params, env=environ) != 0:
+    emerge_cmd_and_params = [status.emerge_cmd] + status.emerge_pkgs
+    if not bool(run_process(emerge_cmd_and_params, env=environ)):
         return False
 
     cros_workon(status, 'stop')
@@ -829,7 +807,7 @@ def push_coreboot(status):
     Returns:
         True if the build succeeded, False if something failed
     """
-    logging.info('Running stage push_coreboot')
+    logging.info('Running step push_coreboot')
     del status  # unused parameter
     logging.error('TODO (pfagerburg): implement push_coreboot')
     return True
@@ -844,7 +822,7 @@ def upload_CLs(status):
     Returns:
         True if the build succeeded, False if something failed
     """
-    logging.info('Running stage upload_CLs')
+    logging.info('Running step upload_CLs')
     del status  # unused parameter
     logging.error('TODO (pfagerburg): implement upload_CLs')
     return True
@@ -859,7 +837,7 @@ def find_coreboot_upstream(status):
     Returns:
         True if the build succeeded, False if something failed
     """
-    logging.info('Running stage find_coreboot_upstream')
+    logging.info('Running step find_coreboot_upstream')
     del status  # unused parameter
     logging.error('TODO (pfagerburg): implement find_coreboot_upstream')
     return True
@@ -878,7 +856,7 @@ def add_cq_depends(status):
     Returns:
         True if the build succeeded, False if something failed
     """
-    logging.info('Running stage add_cq_depends')
+    logging.info('Running step add_cq_depends')
     del status  # unused parameter
     logging.error('TODO (pfagerburg): implement add_cq_depends')
     return True
@@ -893,7 +871,7 @@ def clean_up(status):
     Returns:
         True
     """
-    logging.info('Running stage clean_up')
+    logging.info('Running step clean_up')
     status.rm()
     return True
 

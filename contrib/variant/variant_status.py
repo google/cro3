@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Class to manage saving the state of the new_variant process
 
-Copyright 2019 The Chromium OS Authors. All rights reserved.
+Copyright 2020 The Chromium OS Authors. All rights reserved.
 Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 """
@@ -39,15 +39,13 @@ class variant_status(yaml.YAMLObject):
         self.board = None
         self.variant = None
         self.bug = None
-        self.stage = None
-        self.workon = []
-        self.emerge = []
+        self.step = None
 
 
     def __repr__(self):
         return '{!s}(board={!r}, variant={!r}, bug={!r}, state={!r})'.format(
             self.__class__.__name__, self.board, self.variant, self.bug,
-            self.stage)
+            self.step)
 
 
     def save(self):

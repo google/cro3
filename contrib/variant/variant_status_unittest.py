@@ -5,7 +5,7 @@
 To avoid disrupting any work in progress, this unit test will set the name
 of the yaml file to variant_status_unittest.yaml
 
-Copyright 2019 The Chromium OS Authors. All rights reserved.
+Copyright 2020 The Chromium OS Authors. All rights reserved.
 Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 """
@@ -52,7 +52,7 @@ class TestVariantStatus(unittest.TestCase):
         self.status.board = 'hatch'
         self.status.variant = 'sushi'
         self.status.bug = 'b:12345'
-        self.status.stage = 'initial'
+        self.status.step = 'initial'
         self.status.save()
 
         self.status.bug = 'FooBar'
@@ -67,7 +67,7 @@ class TestVariantStatus(unittest.TestCase):
         self.status.board = 'hatch'
         self.status.variant = 'sushi'
         self.status.bug = 'b:12345'
-        self.status.stage = 'initial'
+        self.status.step = 'initial'
         self.status.save()
 
         self.status.packages = 'chromeos-ec'
@@ -89,15 +89,20 @@ class TestVariantStatus(unittest.TestCase):
 
     def test_when_field_is_empty_list_then_append_to_list_is_still_correct(self):
         """If the list is empty, appending to it works correctly"""
-        self.status.emerge.append('chromeos-ec')
-        self.status.emerge.append('chromeos-config-bsp')
+        self.status.emerge = []
         self.status.save()
 
         new_status = variant_status.variant_status('variant_status_unittest.yaml')
         new_status.load()
 
-        self.assertTrue(new_status.emerge[0] == 'chromeos-ec')
-        self.assertTrue(new_status.emerge[1] == 'chromeos-config-bsp')
+        new_status.emerge.append('chromeos-ec')
+        new_status.emerge.append('chromeos-config-bsp')
+        new_status.save()
+
+        newest_status = variant_status.variant_status('variant_status_unittest.yaml')
+        newest_status.load()
+        self.assertTrue(newest_status.emerge[0] == 'chromeos-ec')
+        self.assertTrue(newest_status.emerge[1] == 'chromeos-config-bsp')
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -40,7 +40,7 @@ BUG=${3:-None}
 
 YAML=model.yaml
 
-if [[ "${BASE}" -eq "volteer" ]]; then
+if [[ "${BASE}" == "volteer" ]]; then
   echo "Volteer does not need changes to public yaml, exitting ..."
   exit 0
 fi
