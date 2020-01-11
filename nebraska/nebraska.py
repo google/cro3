@@ -785,7 +785,7 @@ class Nebraska(object):
     self._request_log.append(request.GetDict())
 
     response = Response(request, self._nebraska_props,
-                        response_props or self._nebraska_props).GetXMLString()
+                        response_props or self._response_props).GetXMLString()
     # Make the XML response look pretty.
     response_str = minidom.parseString(response).toprettyxml(indent='  ',
                                                              encoding='UTF-8')
