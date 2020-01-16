@@ -983,12 +983,12 @@ class NebraskaServer(object):
         os.remove(f)
       except Exception as e:
         logging.warning('Failed to remove file %s with error %s', f, e)
-      if self._created_runtime_root:
-        try:
-          shutil.rmtree(self._runtime_root)
-        except Exception as e:
-          logging.warning('Failed to remove directory %s with error %s',
-                          self._runtime_root, e)
+    if self._created_runtime_root:
+      try:
+        shutil.rmtree(self._runtime_root)
+      except Exception as e:
+        logging.warning('Failed to remove directory %s with error %s',
+                        self._runtime_root, e)
 
 
   def GetPort(self):
