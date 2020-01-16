@@ -247,6 +247,14 @@ class NebraskaHandlerTest(unittest.TestCase):
     nebraska_handler.do_GET()
     nebraska_handler.send_error(http_client.BAD_REQUEST, mock.ANY)
 
+  def testDoGetHealthCheck(self):
+    """Tests do_GET with health_check path."""
+    nebraska_handler = MockNebraskaHandler()
+    nebraska_handler.path = 'http://test.com/health_check'
+
+    nebraska_handler.do_GET()
+    nebraska_handler._SendResponse.assert_called_once_with(
+        'text/plain', 'Nebraska is alive!')
 
 class NebraskaServerTest(unittest.TestCase):
   """Test NebraskaServer."""
@@ -990,15 +998,18 @@ class AppResponseTest(unittest.TestCase):
     # GIVEN an update request.
     app_request = GenerateAppRequest(
         request_type=nebraska.Request.RequestType.UPDATE)
+    self._response_props.eol_date = 10
 
     # WHEN Nebraska sends a response.
     response = nebraska.Response.AppResponse(app_request,
                                              self._nebraska_props,
                                              self._response_props)
 
-    # THEN the response contains <updatecheck status="noupdate"/>.
+    # THEN the response contains <updatecheck status="noupdate"
+    #                                         _eol_date="10"/>.
     update_check_tag = response.Compile().findall('updatecheck')[0]
     self.assertEqual(update_check_tag.attrib['status'], 'noupdate')
+    self.assertEqual(update_check_tag.attrib['_eol_date'], '10')
 
   @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
   @mock.patch.object(nebraska.AppIndex, 'Contains', return_value=True)

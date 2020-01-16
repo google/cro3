@@ -511,8 +511,11 @@ class Response(object):
         app_response.set('status', 'error-unknownApplication')
 
       elif self._app_request.request_type == Request.RequestType.UPDATE:
+        update_check_attribs = {'status': 'noupdate'}
+        if self._response_props.eol_date is not None:
+          update_check_attribs['_eol_date'] = str(self._response_props.eol_date)
         ElementTree.SubElement(app_response, 'updatecheck',
-                               attrib={'status': 'noupdate'})
+                               attrib=update_check_attribs)
 
       return app_response
 
@@ -881,12 +884,20 @@ class NebraskaServer(object):
         return
 
       parsed_path, parsed_query = self._ParseURL(self.path)
-
       if parsed_path == 'update':
-        critical_update = parsed_query.get('critical_update', []) == ['True']
-        no_update = parsed_query.get('no_update', []) == ['True']
-        response_props = ResponseProperties(critical_update=critical_update,
-                                            no_update=no_update)
+        true_lambda = lambda a: a == 'True'
+        kwargs = {}
+        for k, t in {'critical_update': true_lambda,
+                     'disable_payload_backoff':  true_lambda,
+                     'eol_date': int,
+                     'failures_per_url': int,
+                     'no_update': true_lambda,
+                     'num_urls': int}.items():
+          value = parsed_query.get(k)
+          if value:
+            kwargs[k] = t(value[0])
+
+        response_props = ResponseProperties(**kwargs)
 
         try:
           request_obj = Request(request)
@@ -924,6 +935,8 @@ class NebraskaServer(object):
           logging.error(traceback.format_exc())
           self.send_error(http_client.INTERNAL_SERVER_ERROR,
                           traceback.format_exc())
+      elif parsed_path == 'health_check':
+        self._SendResponse('text/plain', 'Nebraska is alive!')
       else:
         logging.error('The requested path "%s" was not found!', parsed_path)
         self.send_error(http_client.BAD_REQUEST,
