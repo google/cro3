@@ -4,20 +4,32 @@
 # found in the LICENSE file.
 from __future__ import print_function
 import argparse
+from datetime import datetime
+import json
+import hashlib
+from os import path
 import subprocess
 import sys
-from os import path
-import time
-import json
+from time import mktime
 
 # This script retreives the specified trace file's information and outputs it
 # in JSON format
 
-TRACEINFO_REPORT_VERSION = '1'
+TRACEINFO_REPORT_VERSION = '2'
 
 def panic(msg, exit_code):
   print('ERROR: %s' % msg, file=sys.stderr)
   exit(exit_code)
+
+def get_file_md5(file_name):
+  file_hash = hashlib.md5()
+  with open(file_name, 'rb') as f:
+    while True:
+      chunk = f.read(1024 * 1024)
+      if not chunk:
+        break;
+      file_hash.update(chunk)
+  return file_hash.hexdigest()
 
 if sys.version_info[0] < 3:
   panic("Must run script using python3", -1)
@@ -27,15 +39,16 @@ parser = argparse.ArgumentParser(description=
 parser.add_argument('trace_file', help='.trace file name')
 args = parser.parse_args()
 
-if path.isfile(args.trace_file) != True:
-  panic('Unable to open <%s>. File not found.' % args.trace_file, -1)
+trace_fname = args.trace_file
+if path.isfile(trace_fname) != True:
+  panic('Unable to open <%s>. File not found.' % trace_fname, -1)
 
 try:
-  cmd = 'apitrace info --json %s' % args.trace_file
+  cmd = 'apitrace info --json %s' % trace_fname
   output = subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE, encoding='utf-8').stdout
 except subprocess.CalledProcessError as err:
-  panic('Unable to retreive <%s> information.' % args.trace_file, -1)
+  panic('Unable to retreive <%s> information.' % trace_fname, -1)
 
 try:
   res = json.loads(output)
@@ -43,8 +56,11 @@ try:
   data_results['report_version'] = TRACEINFO_REPORT_VERSION
   data_results['trace_file_version'] = res['FileVersion']
   data_results['trace_frames_count'] = res['FramesCount']
-  data_results['file_size'] = path.getsize(args.trace_file)
-  data_results['file_ctime'] = time.ctime(path.getctime(args.trace_file))
+  data_results['file_size'] = path.getsize(trace_fname)
+  file_time = datetime.fromtimestamp(
+                path.getmtime(trace_fname)).astimezone().replace(microsecond=0)
+  data_results['file_time'] = file_time.isoformat()
+  data_results['file_md5'] = get_file_md5(trace_fname)
   print(json.dumps(data_results, indent=2, sort_keys=True))
 except Exception as err:
   panic('Unable to decode apitrace info output: <%s>' % str(err), -1)
