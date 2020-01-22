@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 SCRIPT=$(basename -- "${0}")
 
 export LC_ALL=C
@@ -41,7 +41,12 @@ BUG=${3:-None}
 YAML=model.yaml
 
 if [[ "${BASE}" == "volteer" ]]; then
-  echo "Volteer does not need changes to public yaml, exitting ..."
+  echo "Volteer does not need changes to public yaml, exiting ..."
+  exit 0
+fi
+
+if [[ "${BASE}" == "zork" ]]; then
+  echo "Zork does not need changes to public yaml, exiting ..."
   exit 0
 fi
 
