@@ -12,6 +12,7 @@ from __future__ import print_function
 # Allow extra spaces around = so that we can line things up nicely
 CB_VARIANT    = 'cb_variant'
 CB_CONFIG     = 'cb_config'
+COPY_CONFIG   = 'copy_config'
 ADD_FIT       = 'add_fit'
 GEN_FIT       = 'gen_fit'
 COMMIT_FIT    = 'commit_fit'

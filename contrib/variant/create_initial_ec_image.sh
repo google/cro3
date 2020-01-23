@@ -55,7 +55,7 @@ cp "${BASE}"/* "${VARIANT}"
 
 # Build the code; exit if it fails.
 pushd .. || exit 1
-make BOARD="${VARIANT}" || exit 1
+make -j BOARD="${VARIANT}" || exit 1
 popd || exit 1
 
 git add "${VARIANT}"/*

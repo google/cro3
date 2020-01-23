@@ -9,6 +9,9 @@ found in the LICENSE file.
 from __future__ import print_function
 import step_names
 
+# Name of the baseboard
+base = 'volteer'
+
 # List of steps (named in step_names.py) to run in sequence to create
 # the new variant of the baseboard
 step_list = [

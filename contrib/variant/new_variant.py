@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Create a new variant of an existing base board
+"""Create a new variant of an existing reference board
 
 This program will call all of the scripts that create the various pieces
 of a new variant. For example to create a new variant of the hatch base
@@ -26,8 +26,8 @@ Once the scripts are done, the following repos have changes
 * private-overlays/overlay-hatch-private
 * overlays
 
-The program has support for multiple baseboards, so the repos, directories,
-and scripts above can change depending on what the baseboard is.
+The program has support for multiple reference boards, so the repos, directories,
+and scripts above can change depending on what the reference board is.
 
 Copyright 2020 The Chromium OS Authors. All rights reserved.
 Use of this source code is governed by a BSD-style license that can be
@@ -48,11 +48,11 @@ import variant_status
 
 
 def main():
-    """Create a new variant of an existing base board
+    """Create a new variant of an existing reference board
 
     This program automates the creation of a new variant of an existing
-    base board by calling various scripts that copy the base board, modify
-    files for the new variant, stage commits, and upload to gerrit.
+    reference board by calling various scripts that copy the reference board,
+    modify files for the new variant, stage commits, and upload to gerrit.
 
     Note that one of the following is required:
     * --continue
@@ -89,7 +89,7 @@ def get_args():
     to check if there is an illegal combination of arguments.
 
     Returns a list of:
-        board             Name of the base board
+        board             Name of the reference board
         variant           Name of the variant being created
         bug               Text for bug number, if any ('None' otherwise)
         continue_flag     Flag if --continue was specified
@@ -97,7 +97,7 @@ def get_args():
     parser = argparse.ArgumentParser(
         description=main.__doc__,
         formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--board', type=str, help='Name of the base board')
+    parser.add_argument('--board', type=str, help='Name of the reference board')
     parser.add_argument(
         '--variant', type=str, help='Name of the new variant to create')
     parser.add_argument(
@@ -141,7 +141,7 @@ def check_flags(board, variant, bug, continue_flag):
     argument, so we have to use this function to do the checking.
 
     Params:
-        board             Name of the base board
+        board             Name of the reference board
         variant           Name of the variant being created
         bug               Text for bug number, if any ('None' otherwise)
         continue_flag     Flag if --continue was specified
@@ -202,17 +202,20 @@ def get_status(board, variant, bug, continue_flag):
     the board, variant, and (optional) bug details.
 
     To decouple the list of boards supported from this main program, we
-    try to import a module with the same name as the baseboard,
+    try to import a module with the same name as the reference board,
     so --board=hatch means that we import hatch.py. If we can't import
-    the file, then we don't support that baseboard.
+    the file, then we don't support that reference board.
 
     The board-specific module will set several variables, which we will
     copy into the object that we return.
 
+    * base - the name of the base board, such as Hatch, Volteer, or Zork.
+        This can be different from the reference board, e.g. the Trembyle
+        reference board in the Zork project.
     * step_list - list of steps (named in step_names.py) to run in sequence
-        to create the new variant of the baseboard
-    * fsp - package name for FSP. This may be empty, depending on the
-        processor on the baseboard
+        to create the new variant of the reference board
+    * fsp - package name for FSP. This may be None, depending on the
+        processor on the reference board
     * fitimage_pkg - package name for the fitimage
     * fitimage_dir - directory for fitimage; prepend '~/trunk/src/' in chroot,
         prepend '~/chromiumos/src' outside the chroot
@@ -224,7 +227,7 @@ def get_status(board, variant, bug, continue_flag):
 
     Additionally, the following fields will be set:
 
-    * board - the name of the baseboard, e.g. 'hatch'
+    * board - the name of the reference board, e.g. 'hatch'
     * variant - the name of the variant, e.g. 'sushi'
     * bug - optional text for a bug ID, used in the git commit messages.
         Could be 'None' (as text, not the python None), or something like
@@ -239,7 +242,7 @@ def get_status(board, variant, bug, continue_flag):
     it did not already exist).
 
     Params:
-        board             Name of the base board
+        board             Name of the reference board
         variant           Name of the variant being created
         bug               Text for bug number, if any ('None' otherwise)
         continue_flag     Flag if --continue was specified
@@ -268,11 +271,12 @@ def get_status(board, variant, bug, continue_flag):
         try:
             module = importlib.import_module(board)
         except ImportError:
-            print('Unsupported baseboard "' + board + '"')
+            print('Unsupported board "' + board + '"')
             sys.exit(1)
 
         # pylint: disable=bad-whitespace
         # Allow extra spaces around = so that we can line things up nicely
+        status.base                 = module.base
         status.emerge_cmd           = module.emerge_cmd
         status.emerge_pkgs          = module.emerge_pkgs
         status.fitimage_dir         = module.fitimage_dir
@@ -305,6 +309,7 @@ def perform_step(status):
     dispatch = {
         step_names.CB_VARIANT:      create_coreboot_variant,
         step_names.CB_CONFIG:       create_coreboot_config,
+        step_names.COPY_CONFIG:     copy_coreboot_config,
         step_names.ADD_FIT:         add_fitimage,
         step_names.GEN_FIT:         gen_fit_image_outside_chroot,
         step_names.COMMIT_FIT:      commit_fitimage,
@@ -404,15 +409,15 @@ def cros_workon(status, action):
     """
 
     # Build up the command from all the packages in the list
-    workon_cmd = ['cros_workon', '--board=' + status.board, action] + status.workon_pkgs
+    workon_cmd = ['cros_workon', '--board=' + status.base, action] + status.workon_pkgs
     return bool(run_process(workon_cmd))
 
 
 def create_coreboot_variant(status):
-    """Create source files for a new variant of the base board in coreboot
+    """Create source files for a new variant of the reference board in coreboot
 
     This function calls create_coreboot_variant.sh to set up a new variant
-    of the base board.
+    of the reference board.
 
     Params:
         status      variant_status object tracking our board, variant, etc.
@@ -426,7 +431,7 @@ def create_coreboot_variant(status):
         'util/mainboard/google/create_coreboot_variant.sh')
     return bool(run_process(
         [create_coreboot_variant_sh,
-        status.board,
+        status.base,
         status.variant,
         status.bug]))
 
@@ -448,6 +453,34 @@ def create_coreboot_config(status):
         '~/trunk/src/platform/dev/contrib/variant/create_coreboot_config.sh')
     return bool(run_process(
         [create_coreboot_config_sh,
+        status.base,
+        status.board,
+        status.variant,
+        status.bug]))
+
+
+def copy_coreboot_config(status):
+    """Copy the coreboot configuration for a new variant
+
+    This is only necessary for the Zork baseboard right now.
+    This function calls copy_coreboot_config.sh, which will copy
+    coreboot.${VARIANT} from
+    third_party/chromiumos-overlay/sys-boot/coreboot/files/configs
+    to
+    src/overlays/overlay-${BASE}/sys-boot/coreboot-${BASE}/files/configs
+
+    Params:
+        status      variant_status object tracking our board, variant, etc.
+
+    Returns:
+        True if the script and test build succeeded, False if something failed
+    """
+    logging.info('Running step copy_coreboot_config')
+    copy_coreboot_config_sh = os.path.expanduser(
+        '~/trunk/src/platform/dev/contrib/variant/copy_coreboot_config.sh')
+    return bool(run_process(
+        [copy_coreboot_config_sh,
+        status.base,
         status.board,
         status.variant,
         status.bug]))
@@ -457,8 +490,8 @@ def add_fitimage(status):
     """Add the source files for a fitimage for the new variant
 
     This function calls add_fitimage.sh to create a new XSL file for the
-    variant's fitimage, which can override settings from the base board's XSL.
-    When this is done, the user will have to build the fitimage by running
+    variant's fitimage, which can override settings from the reference board's
+    XSL. When this is done, the user will have to build the fitimage by running
     gen_fit_image.sh outside of the chroot (and outside of this program's
     control) because gen_fit_image.sh uses WINE, which is not installed in
     the chroot. (There is a linux version of FIT, but it requires Open GL,
@@ -620,10 +653,10 @@ def commit_fitimage(status):
 
 
 def create_initial_ec_image(status):
-    """Create an EC image for the variant as a clone of the base board
+    """Create an EC image for the variant as a clone of the reference board
 
     This function calls create_initial_ec_image.sh, which will clone the
-    base board to create the variant. The shell script will build the
+    reference board to create the variant. The shell script will build the
     EC code for the variant, but the repo upload hook insists that we
     have done a `make buildall` before it will allow an upload, so this
     function does the buildall.
@@ -691,7 +724,7 @@ def add_variant_to_yaml(status):
         '~/trunk/src/platform/dev/contrib/variant/add_variant_to_yaml.sh')
     if not bool(run_process(
         [add_variant_to_yaml_sh,
-        status.board,
+        status.base,
         status.variant,
         status.bug])):
         return False
@@ -732,20 +765,21 @@ def build_yaml(status):
     # If the variant name doesn't show up in the file, then the count
     # will be 0, so we would see, e.g.
     #   config.json:0
+    # Note that we leave out yaml/model.yaml (the public one) because for
+    # some boards, there is nothing in the public yaml file.
     # We gather the output from grep, then look for any of the strings
     # ending in :0. If none of them match, then we're good, but if even
     # one of them ends with :0 then there was a problem with generating
     # the files from the yaml.
-    chromeos_config = '/build/' + status.board + '/usr/share/chromeos-config'
+    chromeos_config = '/build/' + status.base + '/usr/share/chromeos-config'
     logging.debug('chromeos_config = "%s"', chromeos_config)
     grep = run_process(
         ['grep',
-        '-c',
+        '-ci',
         status.variant,
         'config.json',
         'yaml/config.c',
         'yaml/config.yaml',
-        'yaml/model.yaml',
         'yaml/private-model.yaml'], cwd=chromeos_config, capture_output=True)
 
     if grep is None:
@@ -773,7 +807,7 @@ def emerge_all(status):
         return False
 
     cros_workon(status, 'stop')
-    build_path = '/build/' + status.board + '/firmware'
+    build_path = '/build/' + status.base + '/firmware'
     logging.debug('build_path = "%s"', build_path)
     if not file_exists(build_path, 'image-' + status.variant + '.bin'):
         logging.error('emerge failed because image-%s.bin does not exist',
