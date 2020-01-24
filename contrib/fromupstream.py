@@ -311,6 +311,9 @@ def _match_gitfetch(match, args):
     if args['tag'] is None:
         args['tag'] = 'FROMGIT: '
 
+    if args['replace']:
+        _git(['reset', '--hard', 'HEAD~1'])
+
     return _git_returncode(['cherry-pick', commit])
 
 def main(args):
