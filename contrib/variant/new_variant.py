@@ -212,6 +212,11 @@ def get_status(board, variant, bug, continue_flag):
     * base - the name of the base board, such as Hatch, Volteer, or Zork.
         This can be different from the reference board, e.g. the Trembyle
         reference board in the Zork project.
+    * coreboot_dir - base directory for coreboot, usually third_party/coreboot
+        but could differ for processors that use a private repo
+    * cb_config_dir - base directory for coreboot configs, usually
+        third_party/chromiumos-overlay/sys-boot/coreboot/files/configs but
+        could differ for processors that use a private repo
     * step_list - list of steps (named in step_names.py) to run in sequence
         to create the new variant of the reference board
     * fsp - package name for FSP. This may be None, depending on the
@@ -277,6 +282,8 @@ def get_status(board, variant, bug, continue_flag):
         # pylint: disable=bad-whitespace
         # Allow extra spaces around = so that we can line things up nicely
         status.base                 = module.base
+        status.coreboot_dir         = module.coreboot_dir
+        status.cb_config_dir        = module.cb_config_dir
         status.emerge_cmd           = module.emerge_cmd
         status.emerge_pkgs          = module.emerge_pkgs
         status.fitimage_dir         = module.fitimage_dir
@@ -428,7 +435,8 @@ def create_coreboot_variant(status):
     """
     logging.info('Running step create_coreboot_variant')
     create_coreboot_variant_sh = os.path.join(
-        os.path.expanduser('~/trunk/src/third_party/coreboot'),
+        os.path.expanduser('~/trunk/src/'),
+        status.coreboot_dir,
         'util/mainboard/google/create_coreboot_variant.sh')
     return bool(run_process(
         [create_coreboot_variant_sh,
@@ -450,6 +458,9 @@ def create_coreboot_config(status):
         True if the script and test build succeeded, False if something failed
     """
     logging.info('Running step create_coreboot_config')
+    environ = os.environ.copy()
+    if status.cb_config_dir is not None:
+        environ['CB_CONFIG_DIR'] = status.cb_config_dir
     create_coreboot_config_sh = os.path.expanduser(
         '~/trunk/src/platform/dev/contrib/variant/create_coreboot_config.sh')
     return bool(run_process(
@@ -457,7 +468,7 @@ def create_coreboot_config(status):
         status.base,
         status.board,
         status.variant,
-        status.bug]))
+        status.bug], env=environ))
 
 
 def copy_coreboot_config(status):

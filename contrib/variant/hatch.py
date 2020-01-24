@@ -31,6 +31,12 @@ step_list = [
     step_names.CQ_DEPEND,
     step_names.CLEAN_UP]
 
+# Base directory for coreboot
+coreboot_dir = 'third_party/coreboot'
+
+# Base directory for coreboot configs (None=use default)
+cb_config_dir = None
+
 # Package name for FSP
 fsp = 'intel-cmlfsp'
 

@@ -16,8 +16,7 @@ base = 'volteer'
 # the new variant of the baseboard
 step_list = [
     step_names.CB_VARIANT,
-    # TODO(b/147483696)
-    # step_names.CB_CONFIG,
+    step_names.CB_CONFIG,
     step_names.ADD_FIT,
     step_names.GEN_FIT,
     step_names.COMMIT_FIT,
@@ -31,6 +30,12 @@ step_list = [
     step_names.FIND,
     step_names.CQ_DEPEND,
     step_names.CLEAN_UP]
+
+# Base directory for coreboot
+coreboot_dir = 'third_party/coreboot-intel-private/jsl-tgl'
+
+# Base directory for coreboot configs (None=use default)
+cb_config_dir = 'private-overlays/chipset-tgl-private/sys-boot/coreboot/files/configs'
 
 # Package name for FSP
 fsp = 'intel-tglfsp'

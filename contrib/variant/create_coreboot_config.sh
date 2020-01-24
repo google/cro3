@@ -31,7 +31,6 @@ REFERENCE="${2,,}"
 # This is the name of the variant that is being cloned.
 VARIANT="${3,,}"
 # We need all uppercase version, too, so ${var^^}
-BASE_UPPER="${BASE^^}"
 REFERENCE_UPPER="${REFERENCE^^}"
 VARIANT_UPPER="${VARIANT^^}"
 
@@ -39,7 +38,9 @@ VARIANT_UPPER="${VARIANT^^}"
 BUG=${4:-None}
 
 # Work in third_party/chromiumos-overlay/sys-boot/coreboot/files/configs
-cd ~/trunk/src/third_party/chromiumos-overlay/sys-boot/coreboot/files/configs || exit 1
+# unless CB_CONFIG_DIR is set, in which case work in that dir
+DEFAULT_CB_CONFIG_DIR="third_party/chromiumos-overlay/sys-boot/coreboot/files/configs"
+cd "${HOME}/trunk/src/${CB_CONFIG_DIR:-${DEFAULT_CB_CONFIG_DIR}}" || exit 1
 
 # Make sure the variant doesn't already exist.
 if [[ -e "config.${VARIANT}" ]]; then
