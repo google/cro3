@@ -763,8 +763,26 @@ class XMLStrings(object):
 </request>
 """
 
-  # Mismatched versions.
-  MISMATCHED_VERSION_ATTR_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
+  # Mismatched versions UPDATE.
+  MISMATCHED_VERSION_ATTR_UPDATE_REQUEST = \
+  """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" delta_okay="false"
+       track="stable-channel" board="eve">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+  <app appid="foo" version="2.0.0" delta_okay="false">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+</request>
+"""
+
+  # Mismatched versions INSTALL.
+  MISMATCHED_VERSION_ATTR_INSTALL_REQUEST = \
+  """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
   <app appid="platform" version="1.0.0" delta_okay="false"
@@ -807,10 +825,15 @@ class RequestTest(unittest.TestCase):
     with self.assertRaises(nebraska.InvalidRequestError):
       nebraska.Request(XMLStrings.MISSING_REQUIRED_ATTR_REQUEST)
 
-  def testParseRequestMismatchedVersion(self):
-    """Tests ParseRequest handling of mismatched version numbers."""
+  def testParseRequestMismatchedVersionUpdate(self):
+    """Tests ParseRequest handling of mismatched update version numbers."""
     with self.assertRaises(nebraska.InvalidRequestError):
-      nebraska.Request(XMLStrings.MISMATCHED_VERSION_ATTR_REQUEST)
+      nebraska.Request(XMLStrings.MISMATCHED_VERSION_ATTR_UPDATE_REQUEST)
+
+  def testParseRequestMismatchedVersionInstall(self):
+    """Tests ParseRequest handling of mismatched install version numbers."""
+    # Not raises |nebraska.InvalidRequestError|.
+    nebraska.Request(XMLStrings.MISMATCHED_VERSION_ATTR_INSTALL_REQUEST)
 
   def testParseRequestInstall(self):
     """Tests ParseRequest handling of install requests."""

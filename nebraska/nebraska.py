@@ -181,8 +181,9 @@ class Request(object):
             'Attribute "%s" is not the same in all app tags.' % attribute)
       return unique_attrs.pop()
 
-    self.version = _CheckAttributesAndReturnIt(self.APP_VERSION_ATTR,
-                                               in_all=True)
+    if self.request_type == Request.RequestType.UPDATE:
+      self.version = _CheckAttributesAndReturnIt(self.APP_VERSION_ATTR,
+                                                 in_all=True)
     self.track = _CheckAttributesAndReturnIt(self.APP_CHANNEL_ATTR)
     self.board = _CheckAttributesAndReturnIt(self.APP_BOARD_ATTR)
 
