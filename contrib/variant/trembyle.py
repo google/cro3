@@ -38,6 +38,9 @@ fitimage_pkg = None
 # Directory for fitimage (None, because Zork doesn't use FIT)
 fitimage_dir = None
 
+# Explanation of gen_fit_image command (None, because Zork doesn't use FIT)
+fitimage_cmd = None
+
 # List of packages to cros_workon
 workon_pkgs = ['coreboot-zork', 'libpayload', 'vboot_reference', 'depthcharge',
     'chromeos-ec', 'chromeos-config-bsp-zork-private']

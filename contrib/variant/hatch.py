@@ -40,6 +40,9 @@ fitimage_pkg = 'coreboot-private-files-hatch'
 # Directory for fitimage; append '~/trunk/src/'' in chroot, '~/chromiumos/src' outside
 fitimage_dir = 'private-overlays/baseboard-hatch-private/sys-boot/coreboot-private-files-hatch'
 
+# Explanation of gen_fit_image command
+fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> [-b]'
+
 # List of packages to cros_workon
 workon_pkgs = ['coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
     fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-hatch-private']

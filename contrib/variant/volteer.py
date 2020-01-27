@@ -42,6 +42,9 @@ fitimage_pkg = 'coreboot-private-files-baseboard-volteer'
 fitimage_dir = 'private-overlays/baseboard-volteer-private/sys-boot/'\
     'coreboot-private-files-baseboard-volteer'
 
+# Explanation of gen_fit_image command
+fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> <path_to_inputs_folder> [-b]'
+
 # List of packages to cros_workon
 workon_pkgs = ['coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
     fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-volteer-private']

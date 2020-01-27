@@ -281,6 +281,7 @@ def get_status(board, variant, bug, continue_flag):
         status.emerge_pkgs          = module.emerge_pkgs
         status.fitimage_dir         = module.fitimage_dir
         status.fitimage_pkg         = module.fitimage_pkg
+        status.fitimage_cmd         = module.fitimage_cmd
         status.fsp                  = module.fsp
         status.private_yaml_dir     = module.private_yaml_dir
         status.step_list            = module.step_list
@@ -539,7 +540,7 @@ def gen_fit_image_outside_chroot(status):
     logging.info('The fitimage sources are ready for gen_fit_image.sh to process.')
     logging.info('gen_fit_image.sh cannot run inside the chroot. Please open a new terminal')
     logging.info('window, change to the directory where gen_fit_image.sh is located, and run')
-    logging.info('./gen_fit_image.sh %s [location of FIT] -b', status.variant)
+    logging.info(status.fitimage_cmd, status.variant)
     logging.info('Then re-start this program with --continue.')
     logging.info('If your chroot is based in ~/chromiumos, then the folder you want is')
     logging.info('~/chromiumos/src/%s/asset_generation', status.fitimage_dir)
