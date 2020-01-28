@@ -30,7 +30,7 @@ step_list = [
     step_names.CLEAN_UP]
 
 # Base directory for coreboot
-coreboot_dir = 'third_party/coreboot'
+coreboot_dir = 'third_party/coreboot-zork'
 
 # Base directory for coreboot configs (None=use default)
 cb_config_dir = None
