@@ -1211,7 +1211,7 @@ class AppResponseTest(unittest.TestCase):
 
     action_tag = response.findall(
         'updatecheck/manifest/actions/action')[1]
-    self.assertEqual(action_tag.attrib['MaxFailureCountPerUrl'], 1)
+    self.assertEqual(action_tag.attrib['MaxFailureCountPerUrl'], '1')
 
   @mock.patch.object(nebraska.AppIndex, 'Find', return_value=GenerateAppData())
   def testDisablePayloadBackoff(self, _):

@@ -494,7 +494,7 @@ class Response(object):
                     'event': 'postinstall'})
         if self._response_props.failures_per_url is not None:
           action.set('MaxFailureCountPerUrl',
-                     self._response_props.failures_per_url)
+                     str(self._response_props.failures_per_url))
         if self._critical_update:
           action.set('deadline', 'now')
         if self._app_data.public_key is not None:
