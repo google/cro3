@@ -53,6 +53,11 @@ cp "${BASE}"/* "${VARIANT}"
 # TODO (pfagerburg@) replace the base name with the variant name in the
 # copied files, except for the BASEBOARD=${BASE^^} line in build.mk.
 
+# Update copyright notice to current year.
+YEAR=$(date +%Y)
+find "${VARIANT}" -type f -exec \
+    sed -i -e "s/Copyright.*20[0-9][0-9]/Copyright ${YEAR}/" {} +
+
 # Build the code; exit if it fails.
 pushd .. || exit 1
 make -j BOARD="${VARIANT}" || exit 1
