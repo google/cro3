@@ -20,7 +20,7 @@ step_list = [
     step_names.CRAS_CONFIG,
     step_names.EC_IMAGE,
     step_names.EC_BUILDALL,
-    step_names.ADD_YAML,
+    step_names.ADD_PRIV_YAML,
     step_names.BUILD_YAML,
     step_names.EMERGE,
     step_names.PUSH,

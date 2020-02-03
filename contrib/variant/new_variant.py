@@ -43,6 +43,7 @@ import re
 import shutil
 import subprocess
 import sys
+from chromite.lib import git
 import step_names
 import variant_status
 
@@ -299,6 +300,9 @@ def get_status(board, variant, bug, continue_flag):
         # Start at the first entry in the step list
         status.step = status.step_list[0]
 
+        # Start a blank map for tracking CL data
+        status.commits = {}
+
         status.save()
 
     return status
@@ -323,7 +327,8 @@ def perform_step(status):
         step_names.COMMIT_FIT:      commit_fitimage,
         step_names.EC_IMAGE:        create_initial_ec_image,
         step_names.EC_BUILDALL:     ec_buildall,
-        step_names.ADD_YAML:        add_variant_to_yaml,
+        step_names.ADD_PUB_YAML:    add_variant_to_public_yaml,
+        step_names.ADD_PRIV_YAML:   add_variant_to_private_yaml,
         step_names.BUILD_YAML:      build_yaml,
         step_names.EMERGE:          emerge_all,
         step_names.PUSH:            push_coreboot,
@@ -405,6 +410,39 @@ def run_process(args, cwd=None, env=None, capture_output=False):
         return None
 
 
+def get_git_commit_data(cwd):
+    """Get the branch name and change id of the current commit
+
+    Params:
+        cwd     The current working directory, where we want to get the
+                branch name and change id
+
+    Returns:
+        Map with 'dir', 'branch_name' and 'change_id' keys. The 'dir'
+        key maps to the value of os.path.expanduser(cwd)
+    """
+    cwd = os.path.expanduser(cwd)
+    logging.debug('get_git_commit_data(%s)', cwd)
+
+    branch_name = git.GetCurrentBranch(cwd)
+    if branch_name is None:
+        logging.error('Cannot determine git branch name in %s; exiting', cwd)
+        sys.exit(1)
+    logging.debug('git current branch is %s', branch_name)
+
+    change_id = git.GetChangeId(cwd)
+    if change_id is None:
+        logging.error('Cannot determine Change-Id in %s; exiting', cwd)
+        sys.exit(1)
+    logging.debug('git Change-Id is %s', change_id)
+
+    return {
+        'dir': cwd,
+        'branch_name': branch_name,
+        'change_id': change_id
+    }
+
+
 def cros_workon(status, action):
     """Call cros_workon for all the 9999 ebuilds we'll be touching
 
@@ -434,16 +472,19 @@ def create_coreboot_variant(status):
         True if everything succeeded, False if something failed
     """
     logging.info('Running step create_coreboot_variant')
-    create_coreboot_variant_sh = os.path.join(
-        os.path.expanduser('~/trunk/src/'),
-        status.coreboot_dir,
+    cb_src_dir = os.path.join(os.path.expanduser('~/trunk/src/'),
+        status.coreboot_dir)
+    create_coreboot_variant_sh = os.path.join(cb_src_dir,
         'util/mainboard/google/create_coreboot_variant.sh')
-    return bool(run_process(
+    rc = bool(run_process(
         [create_coreboot_variant_sh,
         status.base,
         status.board,
         status.variant,
         status.bug]))
+    if rc:
+        status.commits['cb_variant'] = get_git_commit_data(cb_src_dir)
+    return rc
 
 
 def create_coreboot_config(status):
@@ -464,12 +505,21 @@ def create_coreboot_config(status):
         environ['CB_CONFIG_DIR'] = status.cb_config_dir
     create_coreboot_config_sh = os.path.expanduser(
         '~/trunk/src/platform/dev/contrib/variant/create_coreboot_config.sh')
-    return bool(run_process(
+    rc = bool(run_process(
         [create_coreboot_config_sh,
         status.base,
         status.board,
         status.variant,
         status.bug], env=environ))
+    if rc:
+        # Use status.cb_config_dir if defined, or if not, use
+        # '~/trunk/src/third_party/chromiumos-overlay'
+        if status.cb_config_dir is not None:
+            cb_config_dir = os.path.join('~/trunk/src/', status.cb_config_dir)
+        else:
+            cb_config_dir = '~/trunk/src/third_party/chromiumos-overlay'
+        status.commits['cb_config'] = get_git_commit_data(cb_config_dir)
+    return rc
 
 
 def copy_cras_config(status):
@@ -490,12 +540,15 @@ def copy_cras_config(status):
     logging.info('Running step copy_cras_config')
     copy_cras_config_sh = os.path.expanduser(
         '~/trunk/src/platform/dev/contrib/variant/copy_cras_config.sh')
-    return bool(run_process(
+    rc = bool(run_process(
         [copy_cras_config_sh,
         status.base,
         status.board,
         status.variant,
         status.bug]))
+    if rc:
+        status.commits['copy_cras_config'] = get_git_commit_data('~/trunk/src/overlays')
+    return rc
 
 
 def add_fitimage(status):
@@ -518,10 +571,14 @@ def add_fitimage(status):
     logging.info('Running step add_fitimage')
     add_fitimage_sh = os.path.expanduser(os.path.join(
         '~/trunk/src', status.fitimage_dir, 'files/add_fitimage.sh'))
-    return bool(run_process(
+    rc = bool(run_process(
         [add_fitimage_sh,
         status.variant,
         status.bug]))
+    if rc:
+        fitimage_dir = os.path.join('~/trunk/src', status.fitimage_dir)
+        status.commits['fitimage'] = get_git_commit_data(fitimage_dir)
+    return rc
 
 
 def gen_fit_image_outside_chroot(status):
@@ -651,6 +708,7 @@ def commit_fitimage(status):
         logging.error('Moving fitimage versions.txt failed')
         return False
 
+    # TODO(pfagerburg) volteer also needs files/blobs/descriptor-${VARIANT}.bin
     if not bool(run_process(
         ['git', 'add',
         'asset_generation/outputs/fit.log',
@@ -689,6 +747,10 @@ def create_initial_ec_image(status):
         status.bug])):
         return False
 
+    ec_src_dir = os.path.expanduser('~/trunk/src/platform/ec/board')
+    # No need to `if rc:` because we already tested the run_process result above
+    status.commits['ec_image'] = get_git_commit_data(ec_src_dir)
+
     # create_initial_ec_image.sh will build the ec.bin for this variant
     # if successful.
     ec = os.path.expanduser('~/trunk/src/platform/ec')
@@ -718,34 +780,53 @@ def ec_buildall(status):
     return bool(run_process(['make', 'buildall', '-j'], cwd=ec))
 
 
-def add_variant_to_yaml(status):
-    """Add the new variant to the public and private model.yaml files
+def add_variant_to_public_yaml(status):
+    """Add the new variant to the public model.yaml file
 
-    This function calls add_variant_to_yaml.sh (the public yaml) and
-    add_variant.sh (the private yaml) to add the new variant to
-    the yaml files.
+    This function calls add_variant_to_yaml.sh to add the new variant to
+    the public model.yaml file.
 
     Params:
         status      variant_status object tracking our board, variant, etc.
 
     Returns:
-        True if the scripts and build succeeded, False is something failed
+        True if the script succeeded, False is something failed
     """
-    logging.info('Running step add_variant_to_yaml')
+    logging.info('Running step add_variant_to_public_yaml')
     add_variant_to_yaml_sh = os.path.expanduser(
         '~/trunk/src/platform/dev/contrib/variant/add_variant_to_yaml.sh')
-    if not bool(run_process(
+    rc = bool(run_process(
         [add_variant_to_yaml_sh,
         status.base,
         status.variant,
-        status.bug])):
-        return False
+        status.bug]))
+    if rc:
+        status.commits['public_yaml'] = get_git_commit_data('~/trunk/src/overlays')
+    return rc
 
+
+def add_variant_to_private_yaml(status):
+    """Add the new variant to the private model.yaml file
+
+    This function calls add_variant.sh to add the new variant to
+    the private model.yaml file.
+
+    Params:
+        status      variant_status object tracking our board, variant, etc.
+
+    Returns:
+        True if the script succeeded, False is something failed
+    """
+    logging.info('Running step add_variant_to_private_yaml')
     add_variant_sh = os.path.expanduser(os.path.join(status.private_yaml_dir, 'add_variant.sh'))
-    return bool(run_process(
+    rc = bool(run_process(
         [add_variant_sh,
         status.variant,
         status.bug]))
+    if rc:
+        status.commits['private_yaml'] = get_git_commit_data(status.private_yaml_dir)
+    return rc
+
 
 
 def build_yaml(status):
