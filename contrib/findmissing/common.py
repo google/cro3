@@ -33,10 +33,13 @@ def chromeosdb(version):
     return os.path.join(DBDIR, 'chromeos-%s.db' % version)
 
 
-def patchdb(version):
-    """Path of patchdb for each chromeosdb"""
-    return os.path.join(DBDIR, '/patch-%s.db' % version)
+def patchdb_stable(version):
+    """Path of patchdb for stable versions."""
+    return os.path.join(DBDIR, 'patch-stable-%s.db' % version)
 
+def patchdb_chromeos(version):
+    """Path of patchdb for chromeos versions."""
+    return os.path.join(DBDIR, 'patch-chromeos-%s.db' % version)
 
 def stable_branch(version):
     """Stable branch name"""
@@ -65,7 +68,7 @@ def make_downstream_table(c):
     """Create database table storing information about chrome/stable git logs"""
 
     c.execute('CREATE TABLE commits (sha text, usha text, '
-            'patchid text, description text)')
+            'patchid text, description text, changeid text)')
     c.execute('CREATE UNIQUE INDEX commit_sha ON commits (sha)')
     c.execute('CREATE INDEX upstream_sha ON commits (usha)')
     c.execute('CREATE INDEX patch_id ON commits (patchid)')

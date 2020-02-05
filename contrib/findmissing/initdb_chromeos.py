@@ -19,6 +19,25 @@ from common import stabledb, chromeosdb, chromeos_branch, createdb
 
 UPSTREAM = re.compile(r'(ANDROID: *|UPSTREAM: *|FROMGIT: *|BACKPORT: *)+(.*)')
 CHROMIUM = re.compile(r'(CHROMIUM: *|FROMLIST: *)+(.*)')
+CHANGEID = re.compile(r'^( )*Change-Id: [a-zA-Z0-9]*$')
+
+
+def parse_changeID(chromeos_sha):
+    """String searches for Change-Id in a chromeos git commit.
+
+    Returns Change-Id or None if commit doesn't have associated Change-Id
+    """
+    commit = subprocess.check_output(['git', 'show', \
+            chromeos_sha]).decode('utf-8', errors='ignore')
+
+    for line in commit.splitlines():
+        if CHANGEID.match(line):
+            # removes whitespace prefixing Change-Id
+            line = line.lstrip()
+            commit_changeID = line[(line.index(' ') + 1):]
+            return commit_changeID
+
+    return None
 
 
 def search_usha(sha, description):
@@ -97,10 +116,11 @@ def update_commits(start, cdb, sdb):
             last = sha
 
             usha = search_usha(sha, description)
+            changeid = parse_changeID(sha)
 
             c.execute('INSERT INTO commits(sha, usha, patchid,' \
-                      'description) VALUES (?, ?, ?, ?)',
-                      (sha, usha, patchid, description))
+                      'description, changeid) VALUES (?, ?, ?, ?, ?)',
+                      (sha, usha, patchid, description, changeid))
     if last:
         c.execute("UPDATE tip set sha='%s' where ref=1" % last)
 

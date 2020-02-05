@@ -12,15 +12,12 @@ import os
 import subprocess
 import sys
 import sqlite3
-import re
 from enum import Enum
 
 import config
-from common import stabledb, UPSTREAMDB, \
-     stable_branch, chromeosdb, chromeos_branch
-
-
-CHANGEID = re.compile(r'^( )*Change-Id: [a-zA-Z0-9]*$')
+from common import stabledb, UPSTREAMDB, stable_branch, chromeosdb, \
+        chromeos_branch, patch_link, patchdb_stable, patchdb_chromeos, createdb
+from patch import PatchEntry, Status, make_patch_table
 
 
 class Path(Enum):
@@ -80,28 +77,11 @@ def usha_to_downstream_sha(sdb, usha):
     return row[0] if row else None
 
 
-def parse_changeID(chromeos_sha):
-    """String searches for Change-Id in a chromeos git commit.
-
-    Returns Change-Id or None if commit doesn't have associated Change-Id
-    """
-    commit = subprocess.check_output(['git', 'show', \
-            chromeos_sha]).decode('utf-8', errors='ignore')
-
-    for line in commit.splitlines():
-        if CHANGEID.match(line):
-            # removes whitespace prefixing Change-Id
-            line = line.lstrip()
-            commit_changeID = line[(line.index(' ') + 1):]
-            return commit_changeID
-
-    return None
-
-
-def get_context(bname, sdb, udb, usha, recursive):
+def get_context(bname, sdb, udb, pdb, usha, recursive):
     """Outputs dependency of patches and fixes needed in chromeOS."""
     cs = sdb.cursor()
     cu = udb.cursor()
+    cp = pdb.cursor()
 
     cu.execute("select sha, description from commits where sha is '%s'" % usha)
     found = False
@@ -127,22 +107,55 @@ def get_context(bname, sdb, udb, usha, recursive):
             if not fix:
                 status = get_status(fsha)
                 if status != 0:
+                    patch = PatchEntry(None, usha, fsha, None, None, None)
                     if not printed:
                         downstream_sha = usha_to_downstream_sha(sdb, usha)
                         print("\n[downstream_sha %s] [usha %s] ('%s')"
                                 % (downstream_sha, usha, description))
                         printed = True
+
+                        # Retrieve downstream changeid (stable will return None)
+                        cs.execute("select changeid from commits \
+                                    where sha is '%s'" % downstream_sha)
+                        downstream_changeid = cs.fetchone()
+                        downstream_link = patch_link(downstream_changeid)
+
+                        patch.set_downstream_sha(downstream_sha)
+
+                        # Set the downstream link if dealing with chromeos branches
+                        #  since chromeos commits should have associated changeid
+                        is_chromeos_branch = bname.startswith('chromeos')
+
+                        # pylint: disable=expression-not-assigned
+                        patch.set_downstream_link(downstream_link) if is_chromeos_branch else None
+
                     space_str = '    ' if recursive else '  '
                     print('%sCommit (upstream) %s fixed by commit (upstream) %s' %
                             (space_str, usha, fsha))
                     if status == 1:
                         print('  %sFix is missing from %s and applies cleanly'
                                     % (space_str, bname))
+                        # Create gerrit change ticket here
+                        #  if succesfully created set status to OPEN
+                        fix_changeid = 0
+                        fix_link = patch_link(fix_changeid)
+
+                        patch.set_fix_link(fix_link)
+                        patch.set_status(Status.NEW)
                     else:
                         print('  %sFix may be missing from %s; '
                                 'trying to apply it results in conflicts/errors' %
                                     (space_str, bname))
-                    get_context(bname, sdb, udb, fsha, True)
+
+                        patch.set_status(Status.CONF)
+
+                    cp.execute('INSERT INTO patches(downstream_sha, usha,' \
+                            'fix_usha, downstream_link, fix_link, status)' \
+                            ' VALUES (?, ?, ?, ?, ?, ?)',
+                            (patch.downstream_sha, patch.usha,
+                                patch.fsha, patch.downstream_link,
+                                patch.fix_link, patch.status.name))
+                    get_context(bname, sdb, udb, pdb, fsha, True)
 
 
 def missing(version, release):
@@ -156,15 +169,25 @@ def missing(version, release):
     subprocess.check_output(['git', 'checkout', bname], stderr=subprocess.DEVNULL)
 
     chosen_db = stabledb(version) if release == Path.stable \
-                            else chromeosdb(version)
+            else chromeosdb(version)
+
+    patch_db = patchdb_stable(version) if release == Path.stable \
+            else patchdb_chromeos(version)
+
+    # resets patch table data since data may have changed
+    createdb(patch_db, make_patch_table)
 
     sdb = sqlite3.connect(chosen_db)
+    pdb = sqlite3.connect(patch_db)
     cs = sdb.cursor()
     udb = sqlite3.connect(UPSTREAMDB)
 
     cs.execute("select usha from commits where usha != ''")
     for usha in cs.fetchall():
-        get_context(bname, sdb, udb, usha[0], False)
+        get_context(bname, sdb, udb, pdb, usha[0], False)
+
+    pdb.commit()
+    pdb.close()
 
     udb.close()
     sdb.close()

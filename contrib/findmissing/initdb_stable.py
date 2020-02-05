@@ -76,8 +76,8 @@ def update_commits(start, db):
             usha = search_usha(sha)
 
             c.execute('INSERT INTO commits(sha, usha,' \
-                                'patchid, description) VALUES (?, ?, ?, ?)',
-                                (sha, usha, patchid, description))
+                                'patchid, description, changeid) VALUES (?, ?, ?, ?, ?)',
+                                (sha, usha, patchid, description, None))
     if last:
         c.execute("UPDATE tip set sha='%s' where ref=1" % last)
 

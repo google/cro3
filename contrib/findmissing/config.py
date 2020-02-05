@@ -12,6 +12,7 @@ STABLE_REPO = KERNEL_SITE + 'pub/scm/linux/kernel/git/stable/linux-stable'
 
 CHROMIUM_SITE = 'https://chromium.googlesource.com/'
 CHROMEOS_REPO = CHROMIUM_SITE + 'chromiumos/third_party/kernel'
+CHROMIUM_REVIEW_BASEURL = 'https://chromium-review.googlesource.com/'
 
 STABLE_BRANCHES = ('4.4', '4.14', '4.19', '5.4')
 STABLE_PATTERN = 'linux-%s.y'
