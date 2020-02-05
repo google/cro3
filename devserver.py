@@ -96,9 +96,26 @@ _LOG_ROTATION_BACKUP = 28  # backup counts
 # Error msg for missing key in CrOS auto-update.
 KEY_ERROR_MSG = 'Key Error in RPC: %s= is required'
 
+# Error msg for deprecated RPC usage.
+DEPRECATED_RPC_ERROR_MSG = ('The %s RPC has been deprecated. Usage of this '
+                            'RPC is discouraged. Please go to '
+                            'go/devserver-deprecation for more information.')
+
 
 class DevServerError(Exception):
   """Exception class used by DevServer."""
+
+
+class DeprecatedRPCError(DevServerError):
+  """Exception class used when an RPC is deprecated but is still being used."""
+
+  def __init__(self, rpc_name):
+    """Constructor for DeprecatedRPCError class.
+
+    :param rpc_name: (str) name of the RPC that has been deprecated.
+    """
+    super(DeprecatedRPCError, self).__init__(DEPRECATED_RPC_ERROR_MSG % rpc_name)
+    self.rpc_name = rpc_name
 
 
 class DevServerHTTPError(cherrypy.HTTPError):
@@ -527,6 +544,11 @@ def _clear_process(host_name, pid):
   cros_update_progress.DelExecuteLogFile(host_name, pid)
 
 
+def is_deprecated_server():
+  """Gets whether the devserver has deprecated RPCs."""
+  return cherrypy.config.get('infra_removal', False)
+
+
 class ApiRoot(object):
   """RESTful API for Dev Server information."""
   exposed = True
@@ -554,6 +576,8 @@ class ApiRoot(object):
     Example URL:
       http://myhost/api/hostlog?ip=192.168.1.5
     """
+    if is_deprecated_server():
+      raise DeprecatedRPCError('hostlog')
     return updater.HandleHostLogPing(ip)
 
   @cherrypy.expose
@@ -572,6 +596,9 @@ class ApiRoot(object):
     Example URL:
       http://myhost/api/fileinfo/some/path/to/file
     """
+    if is_deprecated_server():
+      raise DeprecatedRPCError('fileinfo')
+
     # TODO(ahassani): A better way of doing this is to just return the the
     # content of the payloads' property file instead. That has all this info
     # except that the key for sha256 is 'sha256_hex', but still base64 encdoed.
@@ -626,6 +653,9 @@ class DevServerRoot(object):
   @cherrypy.expose
   def build(self, board, pkg, **kwargs):
     """Builds the package specified."""
+    if is_deprecated_server():
+      raise DeprecatedRPCError('build')
+
     import builder
     if self._builder is None:
       self._builder = builder.Builder()
@@ -1040,6 +1070,9 @@ class DevServerRoot(object):
       Path to the file with the given name. It's relative to the folder for the
       build, e.g., DATA/priv-app/sl4a/sl4a.apk
     """
+    if is_deprecated_server():
+      raise DeprecatedRPCError('locate_file')
+
     dl, _ = _get_downloader_and_factory(kwargs)
     try:
       file_name = kwargs['file_name']
@@ -1127,6 +1160,9 @@ class DevServerRoot(object):
       archive_url: Google Storage URL for the build.
       minidump: The binary minidump file to symbolicate.
     """
+    if is_deprecated_server():
+      raise DeprecatedRPCError('symbolicate_dump')
+
     # Ensure the symbols have been staged.
     # Try debug.tar.xz first, then debug.tgz
     for artifact in (artifact_info.SYMBOLS_ONLY, artifact_info.SYMBOLS):
@@ -1182,6 +1218,9 @@ class DevServerRoot(object):
           R19-1993.0.0-a1-b1480.
       An empty string if no latest could be found.
     """
+    if is_deprecated_server():
+      raise DeprecatedRPCError('latestbuild')
+
     if not kwargs:
       return _PrintDocStringAsHTML(self.latestbuild)
 
@@ -1221,6 +1260,9 @@ class DevServerRoot(object):
     Returns:
       A dictionary of all control files's path to its content for given suite.
     """
+    if is_deprecated_server():
+      raise DeprecatedRPCError('list_suite_controls')
+
     if not kwargs:
       return _PrintDocStringAsHTML(self.controlfiles)
 
@@ -1270,6 +1312,9 @@ class DevServerRoot(object):
       Contents of a control file if control_path is provided.
       A list of control files if no control_path is provided.
     """
+    if is_deprecated_server():
+      raise DeprecatedRPCError('controlfiles')
+
     if not kwargs:
       return _PrintDocStringAsHTML(self.controlfiles)
 
@@ -1305,6 +1350,9 @@ class DevServerRoot(object):
       String in the format of build_id/artifact as stored on the local server
       or in Google Storage.
     """
+    if is_deprecated_server():
+      raise DeprecatedRPCError('xbuddy_translate')
+
     build_id, filename = self._xbuddy.Translate(
         args, image_dir=kwargs.get('image_dir'))
     response = os.path.join(build_id, filename)
@@ -1360,6 +1408,9 @@ class DevServerRoot(object):
       payloads are. E.g.,
         archive/x86-generic-release/R26-4000.0.0
     """
+    if is_deprecated_server():
+      raise DeprecatedRPCError('xbuddy')
+
     boolean_string = kwargs.get('for_update')
     for_update = xbuddy.XBuddy.ParseBoolean(boolean_string)
     boolean_string = kwargs.get('return_dir')
@@ -1415,16 +1466,25 @@ class DevServerRoot(object):
       A string representation of a list of tuples [(build_id, time since last
       access),...]
     """
+    if is_deprecated_server():
+      raise DeprecatedRPCError('xbuddy')
+
     return self._xbuddy.List()
 
   @cherrypy.expose
   def xbuddy_capacity(self):
     """Returns the number of images cached by xBuddy."""
+    if is_deprecated_server():
+      raise DeprecatedRPCError('xbuddy_capacity')
+
     return self._xbuddy.Capacity()
 
   @cherrypy.expose
   def index(self):
     """Presents a welcome message and documentation links."""
+    if is_deprecated_server():
+      raise DeprecatedRPCError('index')
+
     html_template = (
         'Welcome to the Dev Server!<br>\n'
         '<br>\n'
@@ -1449,6 +1509,9 @@ class DevServerRoot(object):
     Examples:
       http://myhost/doc/update
     """
+    if is_deprecated_server():
+      raise DeprecatedRPCError('doc')
+
     name = '/'.join(args)
     method = _GetExposedMethod(name)
     if not method:
@@ -1651,6 +1714,11 @@ def main():
                     default=None,
                     help='Path to a json file which contains the credential '
                     'needed to access Android builds.')
+  parser.add_option('--infra_removal',
+                    action='store_true', default=False,
+                    help='If option is present, some RPCs will be disabled to '
+                         'help with infra removal efforts. See '
+                         'go/devserver-deprecation')
   _AddProductionOptions(parser)
   _AddUpdateOptions(parser)
   _AddTestingOptions(parser)
@@ -1661,6 +1729,7 @@ def main():
   # initialization.
   if options.production:
     cherrypy.config.update({'environment': 'production'})
+  cherrypy.config.update({'infra_removal': options.infra_removal})
   if not options.logfile:
     cherrypy.config.update({'log.screen': True})
   else:
