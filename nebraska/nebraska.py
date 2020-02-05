@@ -729,30 +729,35 @@ class ResponseProperties(object):
 
   These properties might change during the lifetime of the nebraska.
   """
-  def __init__(self, critical_update=False, no_update=False, is_rollback=False,
-               failures_per_url=None, disable_payload_backoff=False,
-               num_urls=1, eol_date=None):
+  def __init__(self, **kwargs):
     """Initliazes the response properties.
 
     Args:
-      critical_update: If true, the response will include 'deadline=now' which
-        indicates the update is critical.
-      no_update: If true, it will return a noupdate response regardless.
-      is_rollback: Whether the update request will be a rollback or not.
-      failures_per_url: How many times each url can fail.
-      disable_payload_backoff: Instruct update_engine to disable the back-off
-        logic on the client altogether.
-      num_urls: Number of URLs should be returned in the response.
-      eol_date: The number of days from unix epoch which device goes end of
-        life.
+      kwargs: A dictionary of key values to initialize the response
+        properties. A list of acceptable values are defined below. Any key other
+        than the list below is simply ignored. The reason for this is that
+        sometimes the client sends extra values that are only valuable to the
+        devserver, but not to Nebraska. That way devserver can just pass through
+        the args to Nebraska without picking the valuable ones.
+
+        - critical_update: If true, the response will include 'deadline=now'
+          which indicates the update is critical.
+        - no_update: If true, it will return a noupdate response regardless.
+        - is_rollback: Whether the update request will be a rollback or not.
+        - failures_per_url: How many times each url can fail.
+        - disable_payload_backoff: Instruct update_engine to disable the
+          back-off logic on the client altogether.
+        - num_urls: Number of URLs that should be returned in the response.
+        - eol_date: The number of days from unix epoch which device goes end of
+          life.
     """
-    self.critical_update = critical_update
-    self.no_update = no_update
-    self.is_rollback = is_rollback
-    self.failures_per_url = failures_per_url
-    self.disable_payload_backoff = disable_payload_backoff
-    self.num_urls = num_urls
-    self.eol_date = eol_date
+    self.critical_update = kwargs.get('critical_update', False)
+    self.no_update = kwargs.get('no_update', False)
+    self.is_rollback = kwargs.get('is_rollback', False)
+    self.failures_per_url = kwargs.get('failures_per_url', None)
+    self.disable_payload_backoff = kwargs.get('disable_payload_backoff', False)
+    self.num_urls = kwargs.get('num_urls', 1)
+    self.eol_date = kwargs.get('eol_date', None)
 
 
 class Nebraska(object):
@@ -871,10 +876,7 @@ class NebraskaServer(object):
       The URL path can be like:
           https://<ip>:<port>/update/?key1=value1&key2=value2...
 
-      The keys in query strings can be:
-      - critical_update: (boolean) For requesting a critical update response.
-      - no_update: (boolean) For requesting a response that indicates there is
-          no update (even if there is).
+      Look at ResponseProperties for a list of available attributes.
       """
       try:
         request_len = int(self.headers.get('content-length'))
