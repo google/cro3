@@ -317,7 +317,6 @@ def perform_step(status):
     dispatch = {
         step_names.CB_VARIANT:      create_coreboot_variant,
         step_names.CB_CONFIG:       create_coreboot_config,
-        step_names.COPY_CONFIG:     copy_coreboot_config,
         step_names.ADD_FIT:         add_fitimage,
         step_names.GEN_FIT:         gen_fit_image_outside_chroot,
         step_names.COMMIT_FIT:      commit_fitimage,
@@ -469,33 +468,6 @@ def create_coreboot_config(status):
         status.board,
         status.variant,
         status.bug], env=environ))
-
-
-def copy_coreboot_config(status):
-    """Copy the coreboot configuration for a new variant
-
-    This is only necessary for the Zork baseboard right now.
-    This function calls copy_coreboot_config.sh, which will copy
-    coreboot.${VARIANT} from
-    third_party/chromiumos-overlay/sys-boot/coreboot/files/configs
-    to
-    src/overlays/overlay-${BASE}/sys-boot/coreboot-${BASE}/files/configs
-
-    Params:
-        status      variant_status object tracking our board, variant, etc.
-
-    Returns:
-        True if the script and test build succeeded, False if something failed
-    """
-    logging.info('Running step copy_coreboot_config')
-    copy_coreboot_config_sh = os.path.expanduser(
-        '~/trunk/src/platform/dev/contrib/variant/copy_coreboot_config.sh')
-    return bool(run_process(
-        [copy_coreboot_config_sh,
-        status.base,
-        status.board,
-        status.variant,
-        status.bug]))
 
 
 def add_fitimage(status):

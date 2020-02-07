@@ -17,7 +17,6 @@ base = 'zork'
 step_list = [
     step_names.CB_VARIANT,
     step_names.CB_CONFIG,
-    step_names.COPY_CONFIG,
     step_names.EC_IMAGE,
     step_names.EC_BUILDALL,
     step_names.ADD_YAML,
@@ -33,7 +32,7 @@ step_list = [
 coreboot_dir = 'third_party/coreboot-zork'
 
 # Base directory for coreboot configs (None=use default)
-cb_config_dir = None
+cb_config_dir = 'overlays/overlay-zork/sys-boot/coreboot-zork/files/configs'
 
 # Package name for FSP
 fsp = None
