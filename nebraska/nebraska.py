@@ -181,7 +181,7 @@ class Request(object):
             'Attribute "%s" is not the same in all app tags.' % attribute)
       return unique_attrs.pop()
 
-    if self.request_type == Request.RequestType.UPDATE:
+    if self.request_type != Request.RequestType.INSTALL:
       self.version = _CheckAttributesAndReturnIt(self.APP_VERSION_ATTR,
                                                  in_all=True)
     self.track = _CheckAttributesAndReturnIt(self.APP_CHANNEL_ATTR)
