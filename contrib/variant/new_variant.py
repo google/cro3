@@ -825,16 +825,6 @@ def emerge_all(status):
             status.variant)
         return False
 
-    if not file_exists(build_path, 'image-' + status.variant + '.dev.bin'):
-        logging.error('emerge failed because image-%s.dev.bin does not exist',
-            status.variant)
-        return False
-
-    if not file_exists(build_path, 'image-' + status.variant + '.net.bin'):
-        logging.error('emerge failed because image-%s.net.bin does not exist',
-            status.variant)
-        return False
-
     if not file_exists(build_path, 'image-' + status.variant + '.serial.bin'):
         logging.error('emerge failed because image-%s.serial.bin does not exist',
             status.variant)
