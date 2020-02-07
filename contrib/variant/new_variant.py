@@ -317,6 +317,7 @@ def perform_step(status):
     dispatch = {
         step_names.CB_VARIANT:      create_coreboot_variant,
         step_names.CB_CONFIG:       create_coreboot_config,
+        step_names.CRAS_CONFIG:     copy_cras_config,
         step_names.ADD_FIT:         add_fitimage,
         step_names.GEN_FIT:         gen_fit_image_outside_chroot,
         step_names.COMMIT_FIT:      commit_fitimage,
@@ -468,6 +469,32 @@ def create_coreboot_config(status):
         status.board,
         status.variant,
         status.bug], env=environ))
+
+
+def copy_cras_config(status):
+    """Copy the cras config for a new variant
+
+    This is only necessary for the Zork baseboard right now.
+    This function calls copy_cras_config.sh, which will copy the
+    cras config in
+    overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE}/files/cras-config/${BASE}
+    to .../${VARIANT}
+
+    Params:
+        status      variant_status object tracking our board, variant, etc.
+
+    Returns:
+        True if the script and test build succeeded, False if something failed
+    """
+    logging.info('Running step copy_cras_config')
+    copy_cras_config_sh = os.path.expanduser(
+        '~/trunk/src/platform/dev/contrib/variant/copy_cras_config.sh')
+    return bool(run_process(
+        [copy_cras_config_sh,
+        status.base,
+        status.board,
+        status.variant,
+        status.bug]))
 
 
 def add_fitimage(status):

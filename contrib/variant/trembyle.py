@@ -17,6 +17,7 @@ base = 'zork'
 step_list = [
     step_names.CB_VARIANT,
     step_names.CB_CONFIG,
+    step_names.CRAS_CONFIG,
     step_names.EC_IMAGE,
     step_names.EC_BUILDALL,
     step_names.ADD_YAML,
