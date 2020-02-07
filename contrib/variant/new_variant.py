@@ -441,6 +441,7 @@ def create_coreboot_variant(status):
     return bool(run_process(
         [create_coreboot_variant_sh,
         status.base,
+        status.board,
         status.variant,
         status.bug]))
 
