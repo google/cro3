@@ -48,14 +48,14 @@ fitimage_dir = None
 fitimage_cmd = None
 
 # List of packages to cros_workon
-workon_pkgs = ['coreboot-zork', 'libpayload', 'vboot_reference', 'depthcharge',
-    'chromeos-ec', 'chromeos-config-bsp-zork-private']
+workon_pkgs = ['coreboot-zork', 'chromeos-ec',
+    'chromeos-config-bsp-zork-private']
 
 # The emerge command
 emerge_cmd = 'emerge-zork'
 
 # List of packages to emerge
-emerge_pkgs = ['coreboot-zork', 'libpayload', 'vboot_reference', 'depthcharge',
+emerge_pkgs = ['coreboot-zork', 'vboot_reference',
     'chromeos-ec', 'chromeos-config-bsp-zork-private',
     'chromeos-config', 'chromeos-config-bsp', 'chromeos-config-bsp-zork',
     'coreboot-private-files', 'chromeos-bootimage']
