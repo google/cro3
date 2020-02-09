@@ -3,6 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 from __future__ import print_function
+import html
 import http.client
 import re
 import argparse
@@ -35,9 +36,9 @@ conn.close()
 data_results = {}
 data_results['gameid'] = args.gameid
 try:
-  data_results['game_name'] = re.findall(r'\<td itemprop\=\"name\"\>(.*)\<\/td\>',
-                                         data, re.MULTILINE)[0]
-  data_results['platforms'] = re.findall(r'operatingSystem\" content\="(.*)\"\>',
+  data_results['game_name'] = html.unescape(re.findall(r'\<td itemprop\=\"name\"\>(.*?)\<\/td\>',
+                                                       data, re.MULTILINE)[0])
+  data_results['platforms'] = re.findall(r'operatingSystem\" content\="(.*?)\"\>',
                                          data, re.MULTILINE)[0]
 except Exception:
   print('Unable to parse steamdb.info response')

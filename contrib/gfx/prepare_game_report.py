@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import json
 import os
 from os import path
+import re
 import shutil
 import subprocess
 import sys
@@ -54,9 +55,20 @@ args = parser.parse_args()
 
 try:
   cur_time = datetime.now(timezone.utc).astimezone().replace(microsecond=0)
-  result_name = '%s-%s' % (cur_time.strftime('%Y-%m-%d-%H%M%S'), args.gameid)
-  result_fname = '%s.tar.bz2' % result_name
   items_in_archive = [game_info_fname, system_info_fname]
+
+  # Retrieving the game information from Steam
+  print('Retrieving the game information from Steam...')
+  game_info = parse_script_stdout_json('steam_game_info.py', [args.gameid])
+  print('Steam game id: %s' % game_info['gameid'])
+  print('Game name: %s' % game_info['game_name'])
+  if yes_or_no('Is it correct?') != True:
+    exit(0)
+
+  # Format the output file name
+  game_name_safe = re.sub('[^a-z0-9]', '_', game_info['game_name'].lower())
+  result_name = 'steam_%s-%s-%s' % (args.gameid, game_name_safe, cur_time.strftime('%Y%m%d_%H%M%S'))
+  result_fname = '%s.tar' % result_name
 
   # Sanity check file/directory paths for collisions.
   if path.exists(result_fname):
@@ -66,12 +78,6 @@ try:
       exit(0)
 
   # Collect the game info report.
-  print('Retreiving the game information...')
-  game_info = parse_script_stdout_json('steam_game_info.py', [args.gameid])
-  print('Steam game id: %s' % game_info['gameid'])
-  print('Game name: %s' % game_info['game_name'])
-  if yes_or_no('Is it correct?') != True:
-    exit(0)
   game_info['report_date'] = cur_time.isoformat()
   game_info['version'] = input("Game version (if available): ")
   game_info['can_start'] = yes_or_no('Does the game start?')
@@ -99,17 +105,20 @@ try:
       game_info['can_start']
       and yes_or_no('Did you manage to create the trace file?') == True
   ):
-    shutil.move(path.join(tmp_dir, game_trace_fname),
-                path.join(tmp_dir, game_trace_fname))
     print('Preparing the trace file information for %s...' % game_trace_fname)
     trace_info = parse_script_stdout_json('trace_file_info.py',
                    [path.join(tmp_dir, game_trace_fname)])
     save_json(trace_info, path.join(tmp_dir, trace_info_fname))
-    items_in_archive = items_in_archive + [trace_info_fname, game_trace_fname]
+    print('Compressing the trace file...')
+    zstd_cmd = 'zstd -19 -T0 -f %s' % path.join(tmp_dir, game_trace_fname)
+    subprocess.run(zstd_cmd, shell=True, check=True)
+    items_in_archive = items_in_archive + [trace_info_fname, game_trace_fname + '.zst']
 
-  # Finally compress everything.
+  # Finally put everything in a tarball. The --transform option is used to replace
+  # initial ./ prefix with {$result_name}/
   print('Archiving the result to %s ...' % path.join(tmp_dir, result_fname))
-  tar_cmd = 'tar -cjf %s --transform "s,^,%s/," %s' % (result_fname, result_name, ' '.join(items_in_archive))
+  tar_cmd = 'tar -cf %s --transform "s,^,%s/," %s' % (result_fname, result_name,
+                                                      ' '.join(items_in_archive))
   subprocess.run(tar_cmd, shell=True, check=True, cwd=tmp_dir)
 
 except Exception as e:
