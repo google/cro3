@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.0"
+VERSION="1.0.1"
 SCRIPT=$(basename -- "${0}")
 
 export LC_ALL=C
@@ -21,6 +21,10 @@ if [[ "$#" -lt 3 ]]; then
   exit 1
 fi
 
+# shellcheck source=revbump_ebuild.sh
+# shellcheck disable=SC1091
+source "${BASH_SOURCE%/*}/revbump_ebuild.sh"
+
 # This is the name of the base board.
 # ${var,,} converts to all lowercase.
 BASE="${1,,}"
@@ -33,7 +37,6 @@ REFERENCE_CAPITALIZED="${REFERENCE^}"
 VARIANT="${3,,}"
 VARIANT_CAPITALIZED="${VARIANT^}"
 
-
 # Assign BUG= text, or "None" if that parameter wasn't specified.
 BUG=${4:-None}
 
@@ -42,6 +45,11 @@ cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)
 repo start "create_${VARIANT}_${DATE}" . || exit 1
+
+# ebuild will be located 2 directories up.
+pushd ../.. || exit 1
+revbump_ebuild
+popd || exit 1
 
 mkdir "${VARIANT_CAPITALIZED}"
 cp "${REFERENCE_CAPITALIZED}"/* "${VARIANT_CAPITALIZED}"

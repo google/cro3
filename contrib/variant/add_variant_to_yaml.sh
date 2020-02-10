@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.2.0"
+VERSION="1.2.1"
 SCRIPT=$(basename -- "${0}")
 
 export LC_ALL=C
@@ -20,6 +20,10 @@ if [[ "$#" -lt 2 ]]; then
   echo "the variant being created. Revbump the ebuild."
   exit 1
 fi
+
+# shellcheck source=revbump_ebuild.sh
+# shellcheck disable=SC1091
+source "${BASH_SOURCE%/*}/revbump_ebuild.sh"
 
 # This is the name of the base board that we're using to make the variant.
 # ${var,,} converts to all lowercase.
@@ -46,10 +50,7 @@ if [[ "${BASE}" == "zork" ]]; then
   exit 0
 fi
 
-# Can't put the ~ inside the "" but I need the "" to avoid spaces and globbing
-# for ${BASE}, so it's two separate commands.
-cd ~ || exit 1
-cd "trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-config-bsp-${BASE}/files" || exit 1
+cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-config-bsp-${BASE}/files" || exit 1
 
 if [[ ! -e "${YAML}" ]]; then
   echo "${YAML} does not exist."
@@ -67,26 +68,10 @@ fi
 DATE=$(date +%Y%m%d)
 repo start "create_${VARIANT}_${DATE}" . || exit 1
 
-# We need to revbump the ebuild file. It has the version number in
-# its name, and furthermore, it's a symlink to another ebuild file.
-#
-# Find a symlink named *.ebuild, should be only one.
-EBUILD=$(find .. -name "*.ebuild" -type l)
-# Remove the extension
-F=${EBUILD%.ebuild}
-# Get the numeric suffix after the 'r'.
-# If $F == ./coreboot-private-files-hatch-0.0.1-r30
-# then we want '30'.
-# We need to reverse the string because cut only supports cutting specific
-# fields from the start a string (you can't say N-1, N-2 in general) and
-# we need the last fields.
-REVISION=$(echo "${F}" | rev | cut -d- -f 1 | cut -dr -f 1 | rev)
-# Incremement
-NEWREV=$((REVISION + 1))
-# Replace e.g. 'r30' with 'r31' in the file name
-NEWEBUILD="${EBUILD/r${REVISION}.ebuild/r${NEWREV}.ebuild}"
-# Rename
-git mv "${EBUILD}" "${NEWEBUILD}"
+# ebuild is located 1 directory up.
+pushd .. || exit 1
+revbump_ebuild
+popd || exit 1
 
 # Append a new device-name to the end of the model.yaml file.
 cat <<EOF >>"${YAML}"
