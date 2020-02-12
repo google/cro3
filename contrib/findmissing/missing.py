@@ -14,7 +14,7 @@ import sys
 import sqlite3
 from enum import Enum
 
-import config
+import common
 from common import stabledb, UPSTREAMDB, stable_branch, chromeosdb, \
         chromeos_branch, patch_link, patchdb_stable, patchdb_chromeos, createdb
 from patch import PatchEntry, Status, make_patch_table
@@ -198,11 +198,10 @@ def findmissing_helper(release):
     if len(sys.argv) > 1:
         branches = sys.argv[1:]
     else:
-        branches = config.STABLE_BRANCHES if release == Path.stable \
-                else config.CHROMEOS_BRANCHES
+        branches = common.SUPPORTED_KERNELS
 
-    path = config.STABLE_PATH if release == Path.stable \
-            else config.CHROMEOS_PATH
+    path = common.STABLE_PATH if release == Path.stable \
+            else common.CHROMEOS_PATH
     os.chdir(path)
 
     for b in branches:

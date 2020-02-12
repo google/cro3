@@ -11,11 +11,10 @@ i.e Create new bugfix change tickets, and reading metadata about a specific chan
 """
 
 from __future__ import print_function
-
 import json
 import requests
 
-from config import CHROMIUM_REVIEW_BASEURL
+from common import CHROMIUM_REVIEW_BASEURL
 
 
 def get_commit(changeid):

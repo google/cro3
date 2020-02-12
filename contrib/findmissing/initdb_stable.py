@@ -8,13 +8,12 @@
 """Module parses and stores data from stable linux patch."""
 
 from __future__ import print_function
-
 import sqlite3
 import os
 import subprocess
-from config import STABLE_PATH, STABLE_BRANCHES
-from common import WORKDIR, CHERRYPICK, STABLE, STABLE2, make_downstream_table
-from common import stabledb, stable_branch, createdb
+from common import STABLE_PATH, SUPPORTED_KERNELS, \
+        WORKDIR, CHERRYPICK, STABLE, STABLE2, make_downstream_table, \
+        stabledb, stable_branch, createdb
 
 
 def search_usha(sha):
@@ -89,7 +88,7 @@ def update_stabledb():
     """Updates the stabledb index for all stable branches."""
     os.chdir(STABLE_PATH)
 
-    for branch in STABLE_BRANCHES:
+    for branch in SUPPORTED_KERNELS:
         start = 'v%s' % branch
         db = stabledb(branch)
         bname = stable_branch(branch)

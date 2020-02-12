@@ -8,14 +8,13 @@
 """Module rebuilding database with metadata about chromeos patches."""
 
 from __future__ import print_function
-
 import sqlite3
 import os
 import re
 import subprocess
-from config import CHROMEOS_PATH, CHROMEOS_BRANCHES
-from common import WORKDIR, CHERRYPICK, STABLE, STABLE2, make_downstream_table
-from common import stabledb, chromeosdb, chromeos_branch, createdb
+from common import CHROMEOS_PATH, SUPPORTED_KERNELS, \
+        WORKDIR, CHERRYPICK, STABLE, STABLE2, make_downstream_table, \
+        stabledb, chromeosdb, chromeos_branch, createdb
 
 UPSTREAM = re.compile(r'(ANDROID: *|UPSTREAM: *|FROMGIT: *|BACKPORT: *)+(.*)')
 CHROMIUM = re.compile(r'(CHROMIUM: *|FROMLIST: *)+(.*)')
@@ -133,7 +132,7 @@ def update_chromeosdb():
     """Updates the chromeosdb for all chromeos branches."""
     os.chdir(CHROMEOS_PATH)
 
-    for branch in CHROMEOS_BRANCHES:
+    for branch in SUPPORTED_KERNELS:
         start = 'v%s' % branch
         cdb = chromeosdb(branch)
         sdb = stabledb(branch)

@@ -8,10 +8,24 @@
 """Module containing shared helper methods."""
 
 from __future__ import print_function
-
 import os
 import sqlite3
 import re
+
+
+KERNEL_SITE = 'https://git.kernel.org/'
+UPSTREAM_REPO = KERNEL_SITE + 'pub/scm/linux/kernel/git/torvalds/linux'
+STABLE_REPO = KERNEL_SITE + 'pub/scm/linux/kernel/git/stable/linux-stable'
+
+CHROMIUM_SITE = 'https://chromium.googlesource.com/'
+CHROMEOS_REPO = CHROMIUM_SITE + 'chromiumos/third_party/kernel'
+CHROMIUM_REVIEW_BASEURL = 'https://chromium-review.googlesource.com/'
+
+SUPPORTED_KERNELS = ('4.4', '4.14', '4.19', '5.4')
+
+CHROMEOS_PATH = 'linux-chrome'
+STABLE_PATH = 'linux-stable'
+UPSTREAM_PATH = 'linux-upstream'
 
 WORKDIR = os.getcwd()
 DBDIR = os.path.join(WORKDIR, 'database')
@@ -37,9 +51,11 @@ def patchdb_stable(version):
     """Path of patchdb for stable versions."""
     return os.path.join(DBDIR, 'patch-stable-%s.db' % version)
 
+
 def patchdb_chromeos(version):
     """Path of patchdb for chromeos versions."""
     return os.path.join(DBDIR, 'patch-chromeos-%s.db' % version)
+
 
 def stable_branch(version):
     """Stable branch name"""

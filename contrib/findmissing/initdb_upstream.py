@@ -8,16 +8,15 @@
 """Module parses and stores mainline linux patches to be easily accessible."""
 
 from __future__ import print_function
-
 import os
 import re
 import sqlite3
 import subprocess
-from config import UPSTREAM_PATH, STABLE_BRANCHES
-from common import WORKDIR, UPSTREAMDB, createdb
+
+from common import WORKDIR, UPSTREAMDB, createdb, UPSTREAM_PATH, SUPPORTED_KERNELS
 
 
-UPSTREAM_BASE = 'v' + STABLE_BRANCHES[0]
+UPSTREAM_BASE = 'v' + SUPPORTED_KERNELS[0]
 
 RF = re.compile(r'^\s*Fixes: (?:commit )*([0-9a-f]+).*')
 RDESC = re.compile(r'.* \("([^"]+)"\).*')
