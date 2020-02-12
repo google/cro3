@@ -6,7 +6,7 @@ This program will call all of the scripts that create the various pieces
 of a new variant. For example to create a new variant of the hatch base
 board, the following scripts are called:
 
-* third_party/coreboot/util/mainboard/google/create_coreboot_variant.sh
+* platform/dev/contrib/variant/create_coreboot_variant.sh
 * platform/dev/contrib/variant/create_coreboot_config.sh
 * private-overlays/baseboard-hatch-private/sys-boot/
  * coreboot-private-files-hatch/files/add_fitimage.sh
@@ -69,6 +69,9 @@ def main():
         return False
 
     status.load()
+
+    # Where is new_variant.py located?
+    status.my_loc = os.path.dirname(os.path.abspath(__file__))
 
     while status.step is not None:
         status.save()
@@ -223,8 +226,8 @@ def get_status(board, variant, bug, continue_flag):
     * fsp - package name for FSP. This may be None, depending on the
         processor on the reference board
     * fitimage_pkg - package name for the fitimage
-    * fitimage_dir - directory for fitimage; prepend '~/trunk/src/' in chroot,
-        prepend '~/chromiumos/src' outside the chroot
+    * fitimage_dir - directory for fitimage; prepend '/mnt/host/source/src/'
+        in chroot, prepend '~/chromiumos/src' outside the chroot
     * workon_pkgs - list of packages to cros_workon
     * emerge_cmd - the emerge command, e.g. 'emerge-hatch'
     * emerge_pkgs - list of packages to emerge
@@ -472,16 +475,17 @@ def create_coreboot_variant(status):
         True if everything succeeded, False if something failed
     """
     logging.info('Running step create_coreboot_variant')
-    cb_src_dir = os.path.join(os.path.expanduser('~/trunk/src/'),
-        status.coreboot_dir)
-    create_coreboot_variant_sh = os.path.join(cb_src_dir,
-        'util/mainboard/google/create_coreboot_variant.sh')
+    cb_src_dir = os.path.join('/mnt/host/source/src/', status.coreboot_dir)
+    environ = os.environ.copy()
+    environ['CB_SRC_DIR'] = cb_src_dir
+    create_coreboot_variant_sh = os.path.join(status.my_loc,
+        'create_coreboot_variant.sh')
     rc = bool(run_process(
         [create_coreboot_variant_sh,
         status.base,
         status.board,
         status.variant,
-        status.bug]))
+        status.bug], env=environ))
     if rc:
         status.commits['cb_variant'] = get_git_commit_data(cb_src_dir)
     return rc
@@ -503,8 +507,8 @@ def create_coreboot_config(status):
     environ = os.environ.copy()
     if status.cb_config_dir is not None:
         environ['CB_CONFIG_DIR'] = status.cb_config_dir
-    create_coreboot_config_sh = os.path.expanduser(
-        '~/trunk/src/platform/dev/contrib/variant/create_coreboot_config.sh')
+    create_coreboot_config_sh = os.path.join(status.my_loc,
+        'create_coreboot_config.sh')
     rc = bool(run_process(
         [create_coreboot_config_sh,
         status.base,
@@ -513,11 +517,11 @@ def create_coreboot_config(status):
         status.bug], env=environ))
     if rc:
         # Use status.cb_config_dir if defined, or if not, use
-        # '~/trunk/src/third_party/chromiumos-overlay'
+        # '/mnt/host/source/src/third_party/chromiumos-overlay'
         if status.cb_config_dir is not None:
-            cb_config_dir = os.path.join('~/trunk/src/', status.cb_config_dir)
+            cb_config_dir = os.path.join('/mnt/host/source/src/', status.cb_config_dir)
         else:
-            cb_config_dir = '~/trunk/src/third_party/chromiumos-overlay'
+            cb_config_dir = '/mnt/host/source/src/third_party/chromiumos-overlay'
         status.commits['cb_config'] = get_git_commit_data(cb_config_dir)
     return rc
 
@@ -538,8 +542,7 @@ def copy_cras_config(status):
         True if the script and test build succeeded, False if something failed
     """
     logging.info('Running step copy_cras_config')
-    copy_cras_config_sh = os.path.expanduser(
-        '~/trunk/src/platform/dev/contrib/variant/copy_cras_config.sh')
+    copy_cras_config_sh = os.path.join(status.my_loc, 'copy_cras_config.sh')
     rc = bool(run_process(
         [copy_cras_config_sh,
         status.base,
@@ -547,7 +550,8 @@ def copy_cras_config(status):
         status.variant,
         status.bug]))
     if rc:
-        status.commits['copy_cras_config'] = get_git_commit_data('~/trunk/src/overlays')
+        status.commits['copy_cras_config'] = get_git_commit_data(
+            '/mnt/host/source/src/overlays')
     return rc
 
 
@@ -570,13 +574,13 @@ def add_fitimage(status):
     """
     logging.info('Running step add_fitimage')
     add_fitimage_sh = os.path.expanduser(os.path.join(
-        '~/trunk/src', status.fitimage_dir, 'files/add_fitimage.sh'))
+        '/mnt/host/source/src', status.fitimage_dir, 'files/add_fitimage.sh'))
     rc = bool(run_process(
         [add_fitimage_sh,
         status.variant,
         status.bug]))
     if rc:
-        fitimage_dir = os.path.join('~/trunk/src', status.fitimage_dir)
+        fitimage_dir = os.path.join('/mnt/host/source/src', status.fitimage_dir)
         status.commits['fitimage'] = get_git_commit_data(fitimage_dir)
     return rc
 
@@ -632,8 +636,8 @@ def check_fit_image_files(status):
         List of files that *DO NOT* exist and need to be created, [] if
         all files are present.
     """
-    outputs_dir = os.path.expanduser(os.path.join(
-        '~/trunk/src', status.fitimage_dir, 'asset_generation/outputs'))
+    outputs_dir = os.path.join('/mnt/host/source/src', status.fitimage_dir,
+        'asset_generation/outputs')
     logging.debug('outputs_dir = "%s"', outputs_dir)
 
     files = []
@@ -693,7 +697,7 @@ def commit_fitimage(status):
         False if something failed.
     """
     logging.info('Running step commit_fitimage')
-    fitimage_dir = os.path.expanduser(os.path.join('~/trunk/src', status.fitimage_dir))
+    fitimage_dir = os.path.join('/mnt/host/source/src', status.fitimage_dir)
     logging.debug('fitimage_dir  = "%s"', fitimage_dir)
 
     # The copy operation will check that the source file exists, so no
@@ -738,8 +742,8 @@ def create_initial_ec_image(status):
         True if the script and test build succeeded, False if something failed
     """
     logging.info('Running step create_initial_ec_image')
-    create_initial_ec_image_sh = os.path.expanduser(
-        '~/trunk/src/platform/dev/contrib/variant/create_initial_ec_image.sh')
+    create_initial_ec_image_sh = os.path.join(status.my_loc,
+        'create_initial_ec_image.sh')
     if not bool(run_process(
         [create_initial_ec_image_sh,
         status.board,
@@ -747,15 +751,15 @@ def create_initial_ec_image(status):
         status.bug])):
         return False
 
-    ec_src_dir = os.path.expanduser('~/trunk/src/platform/ec/board')
     # No need to `if rc:` because we already tested the run_process result above
-    status.commits['ec_image'] = get_git_commit_data(ec_src_dir)
+    status.commits['ec_image'] = get_git_commit_data(
+        '/mnt/host/source/src/platform/ec/board')
 
     # create_initial_ec_image.sh will build the ec.bin for this variant
     # if successful.
-    ec = os.path.expanduser('~/trunk/src/platform/ec')
+    ec = '/mnt/host/source/src/platform/ec'
     logging.debug('ec = "%s"', ec)
-    ec_bin = 'build/' + status.variant + '/ec.bin'
+    ec_bin = os.path.join('/build', status.variant, 'ec.bin')
     logging.debug('ec.bin = "%s"', ec_bin)
 
     return file_exists(ec, ec_bin)
@@ -775,7 +779,7 @@ def ec_buildall(status):
     """
     logging.info('Running step ec_buildall')
     del status  # unused parameter
-    ec = os.path.expanduser('~/trunk/src/platform/ec')
+    ec = '/mnt/host/source/src/platform/ec'
     logging.debug('ec = "%s"', ec)
     return bool(run_process(['make', 'buildall', '-j'], cwd=ec))
 
@@ -793,15 +797,16 @@ def add_variant_to_public_yaml(status):
         True if the script succeeded, False is something failed
     """
     logging.info('Running step add_variant_to_public_yaml')
-    add_variant_to_yaml_sh = os.path.expanduser(
-        '~/trunk/src/platform/dev/contrib/variant/add_variant_to_yaml.sh')
+    add_variant_to_yaml_sh = os.path.join(status.my_loc,
+        'add_variant_to_yaml.sh')
     rc = bool(run_process(
         [add_variant_to_yaml_sh,
         status.base,
         status.variant,
         status.bug]))
     if rc:
-        status.commits['public_yaml'] = get_git_commit_data('~/trunk/src/overlays')
+        status.commits['public_yaml'] = get_git_commit_data(
+            '/mnt/host/source/src/overlays')
     return rc
 
 
