@@ -22,19 +22,12 @@ install:
 		setup_chromite.py \
 		"${DESTDIR}/usr/lib/devserver"
 
-	install -m 0755 stateful_update "${DESTDIR}/usr/bin"
-
 	# The content in /var/lib is only meaningful for installation in
 	# a chroot, not for Moblab.
 	mkdir -m0777 -p "${DESTDIR}/var/lib/devserver"
 	mkdir -m0777 -p "${DESTDIR}/var/lib/devserver/static"
 	mkdir -m0777 -p "${DESTDIR}/var/lib/devserver/static/cache"
 
-	# The dut-scripts content is only used when installed on Moblab.
-	# Mode 0644 for these files because they're for serving to DUTs
-	# over HTTP, not for local execution.
-	install -m 0644 stateful_update \
-		"${DESTDIR}/usr/lib/devserver/dut-scripts"
 	install -m 0644 quick-provision/quick-provision \
 		"${DESTDIR}/usr/lib/devserver/dut-scripts"
 
