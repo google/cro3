@@ -437,8 +437,8 @@ class Autoupdate(build_util.BuildObject):
               _Log(err_msg)
 
       _Log('A non-update event notification received. Returning an ack.')
-      nebraska_obj = nebraska.Nebraska()
-      return nebraska_obj.GetResponseToRequest(request)
+      return nebraska.Nebraska().GetResponseToRequest(
+          request, response_props=nebraska.ResponseProperties(**kwargs))
 
     # Make sure that we did not already exceed the max number of allowed update
     # responses. Note that the counter is only decremented when the client
@@ -450,10 +450,10 @@ class Autoupdate(build_util.BuildObject):
 
     if self.max_updates == 0 or max_updates == 0:
       _Log('Request received but max number of updates already served.')
-      nebraska_obj = nebraska.Nebraska()
-      response_props = nebraska.ResponseProperties(no_update=True)
-      return nebraska_obj.GetResponseToRequest(request,
-                                               response_props=response_props)
+      kwargs['no_update'] = True
+      # Override the noupdate to make sure the response is noupdate.
+      return nebraska.Nebraska().GetResponseToRequest(
+          request, response_props=nebraska.ResponseProperties(**kwargs))
 
     _Log('Update Check Received.')
 
@@ -474,9 +474,8 @@ class Autoupdate(build_util.BuildObject):
         update_payloads_address=base_url,
         update_metadata_dir=local_payload_dir)
     nebraska_obj = nebraska.Nebraska(nebraska_props=nebraska_props)
-    response_props = nebraska.ResponseProperties(**kwargs)
-    return nebraska_obj.GetResponseToRequest(request,
-                                             response_props=response_props)
+    return nebraska_obj.GetResponseToRequest(
+        request, response_props=nebraska.ResponseProperties(**kwargs))
 
   def HandleHostInfoPing(self, ip):
     """Returns host info dictionary for the given IP in JSON format."""
