@@ -2,3 +2,9 @@ linux-stable
 linux-upstream
 linux-chrome
 database
+
+# Environments
+.env
+.venv
+env/
+venv/
