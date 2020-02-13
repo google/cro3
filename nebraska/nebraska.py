@@ -287,7 +287,8 @@ class Request(object):
       # robustly gets what we want.
       self.is_platform = '_' not in self.appid
 
-    def MatchAppData(self, app_data, partial_match_appid=False):
+    def MatchAppData(self, app_data, partial_match_appid=False,
+                     check_against_canary=False):
       """Returns true iff the app matches a given client request.
 
       An app matches a request if the appid matches the requested appid.
@@ -299,15 +300,27 @@ class Request(object):
         partial_match_appid: If true, it will partially check the app_data's
             appid.  Which means that if app_data's appid is a substring of
             request's appid, it will be a match.
+        check_against_canary: If the DUT was on a canary channel, the App ID
+            update_engine provides is from the canary channel, which is
+            different from the release App ID that we use for generating payload
+            properties file. But the good news is that there is only one canary
+            App ID for all devices. Turning this flag on, checks the incoming
+            request against the presumed canary App ID.
 
       Returns:
         True if the request matches the given app, False otherwise.
       """
       if self.appid != app_data.appid:
-        if not partial_match_appid or (app_data.appid is not None and
-                                       app_data.appid not in self.appid):
+        if partial_match_appid:
+          if app_data.appid not in self.appid:
+            return False
+        elif check_against_canary:
+          if app_data.canary_appid != self.appid:
+            return False
+        else:
           return False
 
+      # At this point, there was a match.
       if self.request_type == Request.RequestType.UPDATE:
         if app_data.is_delta:
           return self.delta_okay
@@ -582,6 +595,12 @@ class AppIndex(object):
     matches = [app_data for app_data in self._index if
                request.MatchAppData(app_data)]
 
+    # Check to see if the incoming requests where from a canary channel (mostly
+    # a test image).
+    if not matches:
+      matches = [app_data for app_data in self._index if
+                 request.MatchAppData(app_data, check_against_canary=True)]
+
     if not matches:
       # Look to see if there is any AppData with empty or partial App ID. Then
       # return the first one you find. This basically will work as a wild card
@@ -631,7 +650,8 @@ class AppIndex(object):
     in an app tag in the server's response to an update or install request.
 
     Attributes:
-      appid: appid of the requested app.
+      appid: App ID of the requested app.
+      canary_appid: canary version App ID of the requested app.
       name: Filename of requested app on the mock Lorry server.
       is_delta: True iff the payload is a delta update.
       size: Size of the payload.
@@ -642,7 +662,7 @@ class AppIndex(object):
       target_version: ChromeOS version the payload is tied to.
       source_version: Source version for delta updates.
       public_key: The public key for signature verification. It should be in
-                  base64 format.
+          base64 format.
     """
     APPID_KEY = 'appid'
     NAME_KEY = 'name'
@@ -655,6 +675,9 @@ class AppIndex(object):
     SHA256_HEX_KEY = 'sha256_hex'
     PUBLIC_KEY_RSA_KEY = 'public_key'
 
+    # This is the same for all images on canary channel.
+    CANARY_APP_ID = '{90F229CE-83E2-4FAF-8479-E368A34938B1}'
+
     def __init__(self, app_data):
       """Initialize AppData.
 
@@ -663,6 +686,11 @@ class AppIndex(object):
             instance.
       """
       self.appid = app_data[self.APPID_KEY]
+      # Replace the begining of the App ID with the canary version.
+      self.canary_appid = ''
+      if len(self.appid) >= len(self.CANARY_APP_ID):
+        self.canary_appid = (self.CANARY_APP_ID +
+                             self.appid[len(self.CANARY_APP_ID):])
       self.name = app_data[self.NAME_KEY]
       self.target_version = app_data[self.TARGET_VERSION_KEY]
       self.is_delta = app_data[self.IS_DELTA_KEY]

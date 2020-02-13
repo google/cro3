@@ -643,6 +643,25 @@ class AppDataTest(unittest.TestCase):
     self.assertFalse(request.MatchAppData(app_data))
     self.assertFalse(request.MatchAppData(app_data, partial_match_appid=True))
 
+  def testMatchAppDataMatchingCanaryAppId(self):
+    """Tests MatchAppData for matching update request with canary appid."""
+    app_data = GenerateAppData(
+        appid='1' * len(nebraska.AppIndex.AppData.CANARY_APP_ID) + 'foo')
+    request = GenerateAppRequest(
+        appid=nebraska.AppIndex.AppData.CANARY_APP_ID + 'foo')
+    self.assertFalse(request.MatchAppData(app_data))
+    self.assertTrue(request.MatchAppData(app_data, check_against_canary=True))
+
+  def testNoMatchAppDataMatchingCanaryAppId(self):
+    """Tests MatchAppData for matching update request with canary appid."""
+    app_data = GenerateAppData(
+        appid='1' * len(nebraska.AppIndex.AppData.CANARY_APP_ID) + 'foo')
+    request = GenerateAppRequest(
+        appid='0' * len(nebraska.AppIndex.AppData.CANARY_APP_ID) + 'foo')
+    self.assertFalse(request.MatchAppData(app_data))
+    self.assertFalse(request.MatchAppData(app_data, check_against_canary=True))
+
+
 
 class XMLStrings(object):
   """Collection of XML request strings for testing."""
