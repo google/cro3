@@ -11,8 +11,10 @@ curl -sSO https://dl.google.com/cloudagents/install-logging-agent.sh
 sudo bash install-logging-agent.sh
 
 # Install or update needed software
-apt-get update
-apt-get install -yq git supervisor python3 python3-pip python3-venv
+apt-get update && apt-get dist-upgrade
+apt-get install -yq git supervisor python3 python3-pip python3-venv \
+  python3-dev mysql-client default-libmysqlclient-dev
+
 pip install --upgrade pip virtualenv
 
 # Account to own server process

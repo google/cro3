@@ -66,7 +66,3 @@ def post_daily_stat():
     else:
         # remove day 1 and add another entry
         pass
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)

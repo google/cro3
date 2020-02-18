@@ -2,6 +2,7 @@ linux-stable
 linux-upstream
 linux-chrome
 database
+secrets/
 
 # Environments
 .env
