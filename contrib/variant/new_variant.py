@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+#
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
 """Create a new variant of an existing reference board
 
 This program will call all of the scripts that create the various pieces
@@ -28,10 +33,6 @@ Once the scripts are done, the following repos have changes
 
 The program has support for multiple reference boards, so the repos, directories,
 and scripts above can change depending on what the reference board is.
-
-Copyright 2020 The Chromium OS Authors. All rights reserved.
-Use of this source code is governed by a BSD-style license that can be
-found in the LICENSE file.
 """
 
 from __future__ import print_function
@@ -144,11 +145,11 @@ def check_flags(board, variant, bug, continue_flag):
     combination of --board and --variant as a single mutually-exclusive
     argument, so we have to use this function to do the checking.
 
-    Params:
-        board             Name of the reference board
-        variant           Name of the variant being created
-        bug               Text for bug number, if any ('None' otherwise)
-        continue_flag     Flag if --continue was specified
+    Args:
+        board: Name of the reference board
+        variant: Name of the variant being created
+        bug: Text for bug number, if any ('None' otherwise)
+        continue_flag: Flag if --continue was specified
 
     Returns:
         True if the arguments are acceptable, False otherwise
@@ -176,11 +177,10 @@ def check_flags(board, variant, bug, continue_flag):
 def file_exists(filepath, filename):
     """Determine if a path and file exists
 
-    Params:
-        filepath      Path where build outputs should be found, e.g.
-                      /build/hatch/firmware
-        filename      File that should exist in that path, e.g.
-                      image-sushi.bin
+    Args:
+        filepath: Path where build outputs should be found, e.g.
+            /build/hatch/firmware
+        filename: File that should exist in that path, e.g. image-sushi.bin
 
     Returns:
         True if file exists in that path, False otherwise
@@ -250,11 +250,11 @@ def get_status(board, variant, bug, continue_flag):
     they might be the initial values after we created the file (because
     it did not already exist).
 
-    Params:
-        board             Name of the reference board
-        variant           Name of the variant being created
-        bug               Text for bug number, if any ('None' otherwise)
-        continue_flag     Flag if --continue was specified
+    Args:
+        board: Name of the reference board
+        variant: Name of the variant being created
+        bug: Text for bug number, if any ('None' otherwise)
+        continue_flag: Flag if --continue was specified
 
     Returns:
         variant_status object with all the data mentioned above
@@ -314,8 +314,8 @@ def get_status(board, variant, bug, continue_flag):
 def perform_step(status):
     """Call the appropriate function for the current step
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the step succeeded, False if it failed
@@ -351,8 +351,8 @@ def perform_step(status):
 def move_to_next_step(status):
     """Move to the next step in the list
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
     """
     if status.step not in status.step_list:
         logging.error('Unknown step "%s", aborting...', status.step)
@@ -373,14 +373,13 @@ def run_process(args, cwd=None, env=None, capture_output=False):
     we don't care, and letting the user see the output so they know that
     the build is still running, etc.
 
-    Params:
-        args            List of the command and its params
-        cwd             If not None, cd to this directory before running
-        env             Environment to use for execution; if needed, get
-                        os.environ.copy() and add variables. If None, just
-                        use the current environment
-        capture_output  True if we should capture the stdout, false
-                        if we just care about success or not.
+    Args:
+        args: List of the command and its params
+        cwd: If not None, cd to this directory before running
+        env: Environment to use for execution; if needed, get os.environ.copy()
+            and add variables. If None, just use the current environment
+        capture_output: True if we should capture the stdout, false if we
+            just care about success or not.
 
     Returns:
         If capture_output == True, we return the text output from running
@@ -395,7 +394,7 @@ def run_process(args, cwd=None, env=None, capture_output=False):
     logging.debug('Run %s', str(args))
     try:
         if capture_output:
-            output = subprocess.check_output(args, cwd=cwd, env=env,
+            output = subprocess.check_output(args, cwd=cwd, env=env
                 stderr=subprocess.STDOUT)
         else:
             subprocess.run(args, cwd=cwd, env=env, check=True)
@@ -416,9 +415,9 @@ def run_process(args, cwd=None, env=None, capture_output=False):
 def get_git_commit_data(cwd):
     """Get the branch name and change id of the current commit
 
-    Params:
-        cwd     The current working directory, where we want to get the
-                branch name and change id
+    Args:
+        cwd: The current working directory, where we want to get the branch
+            name and change id
 
     Returns:
         Map with 'dir', 'branch_name' and 'change_id' keys. The 'dir'
@@ -449,9 +448,9 @@ def get_git_commit_data(cwd):
 def cros_workon(status, action):
     """Call cros_workon for all the 9999 ebuilds we'll be touching
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
-        action      'start' or 'stop'
+    Args:
+        status: variant_status object tracking our board, variant, etc.
+        action: 'start' or 'stop'
 
     Returns:
         True if the call to cros_workon was successful, False if failed
@@ -468,8 +467,8 @@ def create_coreboot_variant(status):
     This function calls create_coreboot_variant.sh to set up a new variant
     of the reference board.
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if everything succeeded, False if something failed
@@ -497,8 +496,8 @@ def create_coreboot_config(status):
     This function calls create_coreboot_config.sh, which will make a copy
     of coreboot.${BOARD} into coreboot.${VARIANT}.
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the script and test build succeeded, False if something failed
@@ -535,8 +534,8 @@ def copy_cras_config(status):
     overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE}/files/cras-config/${BASE}
     to .../${VARIANT}
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the script and test build succeeded, False if something failed
@@ -566,8 +565,8 @@ def add_fitimage(status):
     the chroot. (There is a linux version of FIT, but it requires Open GL,
     which is also not installed in the chroot.)
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the script succeeded, False otherwise
@@ -593,8 +592,8 @@ def gen_fit_image_outside_chroot(status):
     their normal environment, and then come back (--continue) when that
     is done.
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True
@@ -629,8 +628,8 @@ def check_fit_image_files(status):
     message about how the user needs to run gen_fit_image.sh outside the
     chroot.
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         List of files that *DO NOT* exist and need to be created, [] if
@@ -661,9 +660,9 @@ def move_fitimage_file(fitimage_dir, filename):
     they were created to a different directory in the tree. This utility
     function handles joining paths and calling a file move function.
 
-    Params:
-        fitimage_dir    Directory where the fitimage files are
-        filename        Name of the file being moved
+    Args:
+        fitimage_dir: Directory where the fitimage files are
+        filename: Name of the file being moved
 
     Returns:
         True if the move succeeded, False if it failed
@@ -689,8 +688,8 @@ def commit_fitimage(status):
     asset_generation/outputs to files/ and then adds those files and
     fit.log to the existing git commit.
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the copy, git add, and git commit --amend all succeeded.
@@ -735,8 +734,8 @@ def create_initial_ec_image(status):
     have done a `make buildall` before it will allow an upload, so this
     function does the buildall.
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the script and test build succeeded, False if something failed
@@ -771,8 +770,8 @@ def ec_buildall(status):
     The upload hook checks to ensure that the entire EC codebase builds
     without error, so we have to run make buildall -j before uploading.
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the script and test build succeeded, False if something failed
@@ -790,8 +789,8 @@ def add_variant_to_public_yaml(status):
     This function calls add_variant_to_yaml.sh to add the new variant to
     the public model.yaml file.
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the script succeeded, False is something failed
@@ -816,8 +815,8 @@ def add_variant_to_private_yaml(status):
     This function calls add_variant.sh to add the new variant to
     the private model.yaml file.
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the script succeeded, False is something failed
@@ -841,8 +840,8 @@ def build_yaml(status):
     mosys and other tools use, then verifies that the new variant's name
     shows up in all of the output files.
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the scripts and build succeeded, False is something failed
@@ -889,8 +888,8 @@ def build_yaml(status):
 def emerge_all(status):
     """Build the coreboot BIOS and EC code for the new variant
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the build succeeded, False if something failed
@@ -923,8 +922,8 @@ def emerge_all(status):
 def push_coreboot(status):
     """Push the coreboot CL to coreboot.org
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the build succeeded, False if something failed
@@ -938,8 +937,8 @@ def push_coreboot(status):
 def upload_CLs(status):
     """Upload all CLs to chromiumos
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the build succeeded, False if something failed
@@ -953,8 +952,8 @@ def upload_CLs(status):
 def find_coreboot_upstream(status):
     """Find the coreboot CL after it has been upstreamed to chromiumos
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the build succeeded, False if something failed
@@ -972,8 +971,8 @@ def add_cq_depends(status):
     and then get upstreamed into the chromiumos tree before the other
     CLs can cq-depend on it and pass CQ.
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True if the build succeeded, False if something failed
@@ -987,8 +986,8 @@ def add_cq_depends(status):
 def clean_up(status):
     """Final clean-up, including delete the status file
 
-    Params:
-        status      variant_status object tracking our board, variant, etc.
+    Args:
+        status: variant_status object tracking our board, variant, etc.
 
     Returns:
         True
