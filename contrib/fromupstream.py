@@ -109,6 +109,7 @@ def _pause_for_merge(conflicts):
     """Pause and go in the background till user resolves the conflicts."""
 
     git_root = _git(['rev-parse', '--show-toplevel'])
+    previous_head_hash = _git(['rev-parse', 'HEAD'])
 
     paths = (
         os.path.join(git_root, '.git', 'rebase-apply'),
@@ -122,9 +123,15 @@ def _pause_for_merge(conflicts):
                      'shell job when done. Kill this job if you '
                      'aborted the conflict.')
             os.kill(os.getpid(), signal.SIGTSTP)
-    # TODO: figure out what the state is after the merging, and go based on
-    # that (should we abort? skip? continue?)
-    # Perhaps check last commit message to see if it's the one we were using.
+
+    # Check the conflicts actually got resolved. Otherwise we'll end up
+    # modifying the wrong commit message and probably confusing people.
+    while previous_head_hash == _git(['rev-parse', 'HEAD']):
+        errprint('Error: no new commit has been made. Did you forget to run '
+                 '`git am --continue` or `git cherry-pick --continue`?')
+        errprint('Please create a new commit and restart the shell job (or kill'
+                 ' it if you aborted the conflict).')
+        os.kill(os.getpid(), signal.SIGTSTP)
 
 def _get_pw_url(project):
     """Retrieve the patchwork server URL from .pwclientrc.
