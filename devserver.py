@@ -1562,29 +1562,9 @@ class DevServerRoot(object):
     label = '/'.join(args)
     body_length = int(cherrypy.request.headers.get('Content-Length', 0))
     data = cherrypy.request.rfile.read(body_length)
+
     return updater.HandleUpdatePing(data, label, **kwargs)
 
-  @cherrypy.expose
-  def session(self, *args):
-    """Adds a new Session for a unique session ID with POST body as data.
-
-    Calling this API establishes a configuration by keeping a piece of data (in
-    JSON format) for this specific session ID. Users can later send requests to
-    devserver identifying this session ID to have different responses. The
-    session ID is a unique identifier string (can be in any format)
-
-    To use, call this API like:
-    curl -X POST -d '{"foo": "bar"}' \
-        http://127.0.0.1:8080/session/some-random-string
-
-    The users of this API will send the session ID as a query string with any
-    other parameters they like:
-
-    curl http://127.0.0.1:8080/some-api?session=some-random-string
-    """
-    content_length = int(cherrypy.request.headers.get('Content-Length', 0))
-    content = cherrypy.request.rfile.read(content_length)
-    return updater.SetSessionData(args[0], json.loads(content))
 
 def _CleanCache(cache_dir, wipe):
   """Wipes any excess cached items in the cache_dir.
@@ -1620,7 +1600,6 @@ def _AddTestingOptions(parser):
   group.add_option('--host_log',
                    action='store_true', default=False,
                    help='record history of host update events (/api/hostlog)')
-  # TODO(crbug/1004489): Deperecate max_updates.
   group.add_option('--max_updates',
                    metavar='NUM', default=-1, type='int',
                    help='maximum number of update checks handled positively '

@@ -56,14 +56,6 @@ UPDATE_REQUEST = Template("""<?xml version="1.0" encoding="UTF-8"?>
     </app>
 </request>
 """)
-DOWNLOAD_STARTED_REQUEST = Template("""<?xml version="1.0" encoding="UTF-8"?>
-<request protocol="3.0" updater="ChromeOSUpdateEngine" updaterversion="0.1.0.0" ismachine="1">
-    <os version="Indy" platform="Chrome OS" sp="0.11.254.2011_03_09_1814_i686"></os>
-    <app appid="$appid" version="11.254.2011_03_09_1814" lang="en-US" track="developer-build" board="x86-generic" hardware_class="BETA DVT" delta_okay="true">
-      <event eventtype="13" eventresult="1"></event>
-    </app>
-</request>
-""")
 
 # RPC constants.
 STAGE = 'stage'
@@ -409,38 +401,6 @@ class DevserverBasicTests(AutoStartDevserverTestBase):
     contents = connection.read().decode('utf-8')
     connection.close()
     self.assertEqual(update_data, contents)
-
-  def testMaxUpdates(self):
-    """Tests MaxUpdates functionality of autoupdate."""
-    update_label = '/'.join([UPDATE, LABEL])
-    update_request = UPDATE_REQUEST.substitute({'appid': '{DEV-BUILD}'})
-    download_started_request = DOWNLOAD_STARTED_REQUEST.substitute(
-        {'appid': '{DEV-BUILD}'})
-
-    session = 'foo-id'
-    post_data = json.dumps({'max_updates': 2})
-    self._MakeRPC('session/%s' % session, data=post_data)
-
-    # The first request should provide an actual update.
-    response = self._MakeRPC(update_label, data=update_request)
-    self.assertIn('updatecheck status="ok"', response)
-    # Tell devserver we started to download.
-    response = self._MakeRPC(update_label, data=download_started_request,
-                             session=session)
-
-    # Another update request also should go fine.
-    response = self._MakeRPC(update_label, data=update_request,
-                             session=session)
-    self.assertIn('updatecheck status="ok"', response)
-    # Tell devserver we started to download.
-    response = self._MakeRPC(update_label, data=download_started_request,
-                             session=session)
-
-    # But the third update request should not be valid anymore since we hit the
-    # max updates ceiling.
-    response = self._MakeRPC(update_label, data=update_request,
-                             session=session)
-    self.assertIn('updatecheck status="noupdate"', response)
 
   def testPidFile(self):
     """Test that using a pidfile works correctly."""
