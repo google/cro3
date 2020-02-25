@@ -45,6 +45,7 @@ import shutil
 import subprocess
 import sys
 from chromite.lib import git
+from chromite.lib import gerrit
 import step_names
 import variant_status
 
@@ -233,6 +234,11 @@ def get_status(board, variant, bug, continue_flag):
     * emerge_pkgs - list of packages to emerge
     * yaml_emerge_pkgs - list of packages to emerge just to build the yaml
     * private_yaml_dir - directory for the private yaml file
+    * commits - map of commits for the various steps. Indexed by step name,
+        and the step names used are the same ones in step_names.py
+    * repo_upload_list - list of commits to upload using `repo upload`
+    * coreboot_push_list - list of commits to upload using `git push` to
+        coreboot
 
     Additionally, the following fields will be set:
 
@@ -298,6 +304,8 @@ def get_status(board, variant, bug, continue_flag):
         status.step_list            = module.step_list
         status.workon_pkgs          = module.workon_pkgs
         status.yaml_emerge_pkgs     = module.yaml_emerge_pkgs
+        status.coreboot_push_list   = module.coreboot_push_list
+        status.repo_upload_list     = module.repo_upload_list
         # pylint: enable=bad-whitespace
 
         # Start at the first entry in the step list
@@ -392,10 +400,12 @@ def run_process(args, cwd=None, env=None, capture_output=False):
         text for further processing.
     """
     logging.debug('Run %s', str(args))
+    if cwd is not None:
+        logging.debug('cwd = %s', cwd)
     try:
         if capture_output:
-            output = subprocess.check_output(args, cwd=cwd, env=env
-                stderr=subprocess.STDOUT)
+            output = subprocess.run(args, cwd=cwd, env=env, check=True,
+                stderr=subprocess.STDOUT, stdout=subprocess.PIPE).stdout
         else:
             subprocess.run(args, cwd=cwd, env=env, check=True)
             # Just something to decode so we don't get an empty list
@@ -423,7 +433,7 @@ def get_git_commit_data(cwd):
         Map with 'dir', 'branch_name' and 'change_id' keys. The 'dir'
         key maps to the value of os.path.expanduser(cwd)
     """
-    cwd = os.path.expanduser(cwd)
+    cwd = git.FindGitTopLevel(os.path.expanduser(cwd))
     logging.debug('get_git_commit_data(%s)', cwd)
 
     branch_name = git.GetCurrentBranch(cwd)
@@ -486,7 +496,7 @@ def create_coreboot_variant(status):
         status.variant,
         status.bug], env=environ))
     if rc:
-        status.commits['cb_variant'] = get_git_commit_data(cb_src_dir)
+        status.commits[step_names.CB_VARIANT] = get_git_commit_data(cb_src_dir)
     return rc
 
 
@@ -521,7 +531,7 @@ def create_coreboot_config(status):
             cb_config_dir = os.path.join('/mnt/host/source/src/', status.cb_config_dir)
         else:
             cb_config_dir = '/mnt/host/source/src/third_party/chromiumos-overlay'
-        status.commits['cb_config'] = get_git_commit_data(cb_config_dir)
+        status.commits[step_names.CB_CONFIG] = get_git_commit_data(cb_config_dir)
     return rc
 
 
@@ -549,7 +559,7 @@ def copy_cras_config(status):
         status.variant,
         status.bug]))
     if rc:
-        status.commits['copy_cras_config'] = get_git_commit_data(
+        status.commits[step_names.CRAS_CONFIG] = get_git_commit_data(
             '/mnt/host/source/src/overlays')
     return rc
 
@@ -580,7 +590,7 @@ def add_fitimage(status):
         status.bug]))
     if rc:
         fitimage_dir = os.path.join('/mnt/host/source/src', status.fitimage_dir)
-        status.commits['fitimage'] = get_git_commit_data(fitimage_dir)
+        status.commits[step_names.COMMIT_FIT] = get_git_commit_data(fitimage_dir)
     return rc
 
 
@@ -751,17 +761,21 @@ def create_initial_ec_image(status):
         return False
 
     # No need to `if rc:` because we already tested the run_process result above
-    status.commits['ec_image'] = get_git_commit_data(
+    status.commits[step_names.EC_IMAGE] = get_git_commit_data(
         '/mnt/host/source/src/platform/ec/board')
 
     # create_initial_ec_image.sh will build the ec.bin for this variant
     # if successful.
     ec = '/mnt/host/source/src/platform/ec'
     logging.debug('ec = "%s"', ec)
-    ec_bin = os.path.join('/build', status.variant, 'ec.bin')
+    ec_bin = os.path.join('/build', status.base, 'firmware', status.variant,
+        'ec.bin')
     logging.debug('ec.bin = "%s"', ec_bin)
 
-    return file_exists(ec, ec_bin)
+    if not file_exists(ec, ec_bin):
+        logging.error('EC binary %s not found', ec_bin)
+        return False
+    return True
 
 
 def ec_buildall(status):
@@ -804,7 +818,7 @@ def add_variant_to_public_yaml(status):
         status.variant,
         status.bug]))
     if rc:
-        status.commits['public_yaml'] = get_git_commit_data(
+        status.commits[step_names.ADD_PUB_YAML] = get_git_commit_data(
             '/mnt/host/source/src/overlays')
     return rc
 
@@ -828,7 +842,7 @@ def add_variant_to_private_yaml(status):
         status.variant,
         status.bug]))
     if rc:
-        status.commits['private_yaml'] = get_git_commit_data(status.private_yaml_dir)
+        status.commits[step_names.ADD_PRIV_YAML] = get_git_commit_data(status.private_yaml_dir)
     return rc
 
 
@@ -934,6 +948,97 @@ def push_coreboot(status):
     return True
 
 
+def query_gerrit(instance, change_id):
+    """Search a gerrit instance for a specific change_id
+
+    Args:
+        instance: gerrit instance to query. Suitable values come from
+            gerrit.GetCrosInternal() and gerrit.GetCrosExternal()
+        change_id: The change_id to search for
+
+    Returns:
+        CL number if found, None if not
+    """
+    raw = instance.Query(change=change_id, raw=True)
+    if raw:
+        # If the CL was found by change_id, there will be only one,
+        # because the change_id is used to recognize a new patchset
+        # on an existing CL.
+        return raw[0]['number']
+
+    return None
+
+
+def find_change_id(change_id):
+    """Search the public and private ChromeOS gerrit instances for a change-id
+
+    Args:
+        change_id: Change-Id to search for in both gerrit instances
+
+    Returns:
+        Tuple of the gerrit instance ('chromium' or 'chrome-internal') and
+        the CL number if the Change-Id is found.
+        None if not found.
+    """
+    cl_number = query_gerrit(gerrit.GetCrosExternal(), change_id)
+    if cl_number:
+        return 'chromium', cl_number
+    cl_number = query_gerrit(gerrit.GetCrosInternal(), change_id)
+    if cl_number:
+        return 'chrome-internal', cl_number
+    return None
+
+
+def save_cl_data(status, commit_key, cl):
+    """Save the gerrit instance and CL number to the yaml file
+
+    Args:
+        status: variant_status object tracking our board, variant, etc.
+        commit_key: Which key in the commits map we're processing
+        cl: Value returned by find_change_id, should be a tuple
+            of instance_name, cl_number
+    """
+    instance_name, cl_number = cl
+    print(f'Found ({instance_name}, {cl_number}), saving to yaml')
+    status.commits[commit_key]['gerrit'] = instance_name
+    status.commits[commit_key]['cl_number'] = cl_number
+    status.save()
+
+
+def repo_upload(branch_name, cwd):
+    """Upload a branch to gerrit
+
+    This function runs `repo upload` in the specified directory to upload
+    a branch to gerrit. Because it's operating in a directory and with a
+    branch name, it could upload more than one commit, which is OK because
+    we'll look for each commit by change-id before trying to upload in that
+    directory. For example, this happens in Zork, where the cb_config step
+    and the cras_config step both have a commit in src/overlays. When we're
+    processing the cb_config step and we `repo upload` in src/overlays, it
+    will also upload the commit for cras_config. Then we come around to the
+    cras_config step, and since we can find a CL with the change-id, we don't
+    try to upload again.
+
+    Args:
+        branch_name: the name of the branch to upload. Gets passed to
+            repo upload with the --br flag
+        cwd: directory where we want to upload. Gets set as the working
+            directory for executing repo upload.
+
+    Returns:
+        True if repo upload exits with a successful error code, false otherwise
+    """
+    return bool(run_process(
+        ['repo',
+        'upload',
+        '.',
+        '--br=' + branch_name,
+        '--wip',
+        '--verify',
+        '--yes'],
+        cwd=cwd))
+
+
 def upload_CLs(status):
     """Upload all CLs to chromiumos
 
@@ -944,8 +1049,33 @@ def upload_CLs(status):
         True if the build succeeded, False if something failed
     """
     logging.info('Running step upload_CLs')
-    del status  # unused parameter
-    logging.error('TODO (pfagerburg): implement upload_CLs')
+
+    for commit_key in status.repo_upload_list:
+        logging.debug(f'Processing key {commit_key}')
+        commit = status.commits[commit_key]
+        if 'gerrit' not in commit or 'cl_number' not in commit:
+            change_id = commit['change_id']
+            cl = find_change_id(change_id)
+            if cl is not None:
+                save_cl_data(status, commit_key, cl)
+            else:
+                logging.debug(f'Not found {change_id}, need to upload')
+                if not repo_upload(commit['branch_name'], commit['dir']):
+                    branch_name = commit['branch_name']
+                    dirname = commit['dir']
+                    logging.error(f'Repo upload {branch_name} in {dirname} failed!')
+                    return False
+                cl = find_change_id(change_id)
+                if cl is None:
+                    logging.error(f'repo upload {commit_key} succeeded, ' \
+                        'but change_id is not found!')
+                    return False
+                save_cl_data(status, commit_key, cl)
+        else:
+            instance_name = commit['gerrit']
+            cl_number = commit['cl_number']
+            logging.debug(f'Already uploaded ({instance_name}, {cl_number})')
+
     return True
 
 

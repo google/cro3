@@ -70,3 +70,10 @@ yaml_emerge_pkgs = ['chromeos-config-bsp', 'chromeos-config',
 # Directory for the private yaml file
 private_yaml_dir = '~/trunk/src/private-overlays/overlay-hatch-private/'\
     'chromeos-base/chromeos-config-bsp-hatch-private'
+
+# List of commits that will be uploaded with `repo upload`
+repo_upload_list = [step_names.CB_CONFIG, step_names.COMMIT_FIT,
+    step_names.EC_IMAGE, step_names.ADD_PUB_YAML, step_names.ADD_PRIV_YAML]
+
+# List of commits that will be pushed to review.coreboot.org
+coreboot_push_list = [step_names.CB_VARIANT]

@@ -23,9 +23,7 @@ step_list = [
     step_names.ADD_PRIV_YAML,
     step_names.BUILD_YAML,
     step_names.EMERGE,
-    step_names.PUSH,
     step_names.UPLOAD,
-    step_names.FIND,
     step_names.CQ_DEPEND,
     step_names.CLEAN_UP]
 
@@ -67,3 +65,10 @@ yaml_emerge_pkgs = ['chromeos-config-bsp', 'chromeos-config',
 # Directory for the private yaml file
 private_yaml_dir = '~/trunk/src/private-overlays/overlay-zork-private/'\
     'chromeos-base/chromeos-config-bsp-zork-private'
+
+# List of commits that will be uploaded with `repo upload`
+repo_upload_list = [step_names.CB_VARIANT, step_names.CB_CONFIG,
+    step_names.CRAS_CONFIG, step_names.EC_IMAGE, step_names.ADD_PRIV_YAML]
+
+# List of commits that will be pushed to review.coreboot.org
+coreboot_push_list = None
