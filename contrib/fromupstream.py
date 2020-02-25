@@ -316,6 +316,36 @@ def _match_gitfetch(match, args):
 
     return _git_returncode(['cherry-pick', commit])
 
+def _match_gitweb(match, args):
+    """Match location: https://repoURL/commit/?h=branch&id=HASH."""
+    remote = match.group(1)
+    branch = match.group(2)
+    commit = match.group(3)
+
+    if args['debug']:
+        print('_match_gitweb: remote=%s branch=%s commit=%s' %
+              (remote, branch, commit))
+
+    try:
+        _git(['fetch', remote, branch])
+    except subprocess.CalledProcessError:
+        errprint('Error: Branch not in %s' % remote)
+        sys.exit(1)
+
+    url = remote
+
+    if args['source_line'] is None:
+        commit = _git(['rev-parse', commit])
+        args['source_line'] = (
+            '(cherry picked from commit %s\n %s %s)' % (commit, url, branch))
+    if args['tag'] is None:
+        args['tag'] = 'FROMGIT: '
+
+    if args['replace']:
+        _git(['reset', '--hard', 'HEAD~1'])
+
+    return _git_returncode(['cherry-pick', commit])
+
 def main(args):
     """This is the main entrypoint for fromupstream.
 
@@ -364,7 +394,8 @@ def main(args):
                         'linux commit like linux://HASH, or '
                         'git reference like git://remote/branch/HASH or '
                         'git://repoURL#branch/HASH or '
-                        'https://repoURL#branch/HASH')
+                        'https://repoURL#branch/HASH or '
+                        'https://repoURL/commit/?h=branch&id=HASH')
 
     args = vars(parser.parse_args(args))
 
@@ -409,6 +440,7 @@ def main(args):
         (re.compile(r'^(from)?git://([^/\#]+)/([^#]+)/([0-9a-f]+)$'),
          _match_fromgit),
         (re.compile(r'^((git|https)://.+)#(.+)/([0-9a-f]+)$'), _match_gitfetch),
+        (re.compile(r'^(https://.+)/commit/\?h=(.+)\&id=([0-9a-f]+)$'), _match_gitweb),
     )
 
     for location in args['locations']:
