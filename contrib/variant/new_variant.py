@@ -38,6 +38,7 @@ and scripts above can change depending on what the reference board is.
 from __future__ import print_function
 import argparse
 import importlib
+import json
 import logging
 import os
 import re
@@ -46,6 +47,7 @@ import subprocess
 import sys
 from chromite.lib import git
 from chromite.lib import gerrit
+import requests
 import step_names
 import variant_status
 
@@ -943,9 +945,36 @@ def push_coreboot(status):
         True if the build succeeded, False if something failed
     """
     logging.info('Running step push_coreboot')
-    del status  # unused parameter
-    logging.error('TODO (pfagerburg): implement push_coreboot')
-    return True
+
+    # Set up a return code that may change to False if we find that a
+    # coreboot CL has not been uploaded.
+    rc = True
+
+    for commit_key in status.coreboot_push_list:
+        logging.debug(f'Processing key {commit_key}')
+        commit = status.commits[commit_key]
+        if 'gerrit' not in commit or 'cl_number' not in commit:
+            change_id = commit['change_id']
+            cl = find_change_id(change_id)
+            if cl is not None:
+                save_cl_data(status, commit_key, cl)
+            else:
+                logging.debug(f'Not found {change_id}, need to upload')
+                logging.info('The following commit needs to be pushed to coreboot.org:')
+                logging.info('  Branch "%s"', commit['branch_name'])
+                logging.info('  in directory "%s"', commit['dir'])
+                logging.info('  with change-id "%s"', commit['change_id'])
+                logging.info('Please push the branch to review.coreboot.org, '\
+                    'and then re-start this program with --continue')
+                # Since this commit needs to be uploaded, do not continue after
+                # this step returns.
+                rc = False
+        else:
+            instance_name = commit['gerrit']
+            cl_number = commit['cl_number']
+            logging.debug(f'Already uploaded ({instance_name}, {cl_number})')
+
+    return rc
 
 
 def query_gerrit(instance, change_id):
@@ -969,6 +998,37 @@ def query_gerrit(instance, change_id):
     return None
 
 
+def query_coreboot_gerrit(change_id):
+    """Search the coreboot gerrit for a specific change_id
+
+    Use the REST API to look for the change_id. See
+    https://gerrit-review.googlesource.com/Documentation/rest-api-changes.html
+    for details on the REST API to search for a change-id.
+
+    We can't use query_gerrit with a manually constructed GerritHelper
+    because we need the user's private SSH key to access review.coreboot.org,
+    but these are not available inside the chroot.
+
+    Args:
+        change_id: The change_id to search for
+
+    Returns:
+        CL number if found, None if not
+    """
+    r = requests.get('https://review.coreboot.org/changes/' + change_id)
+    response = r.content.decode('utf-8')
+    # Check if the response starts with 'Not found', in which case return None
+    if response.startswith('Not found:'):
+        return None
+    # Strip off the initial )]}'\n that is used as XSS protections, see
+    # https://gerrit-review.googlesource.com/Documentation/rest-api.html#output
+    # and decode as JSON.
+    data = json.loads(response[5:])
+    if '_number' in data:
+        return data['_number']
+    return None
+
+
 def find_change_id(change_id):
     """Search the public and private ChromeOS gerrit instances for a change-id
 
@@ -986,6 +1046,9 @@ def find_change_id(change_id):
     cl_number = query_gerrit(gerrit.GetCrosInternal(), change_id)
     if cl_number:
         return 'chrome-internal', cl_number
+    cl_number = query_coreboot_gerrit(change_id)
+    if cl_number:
+        return 'coreboot', cl_number
     return None
 
 
