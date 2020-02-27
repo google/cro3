@@ -1,0 +1,95 @@
+!variant_status
+base: hatch
+board: hatch
+bug: None
+cb_config_dir: null
+commits:
+  add_priv_yaml:
+    branch_name: kindred
+    change_id: I76071e08e495b9c4bbc37e9f173c63e37b1ce7a4
+    cl_number: '1331261'
+    dir: /mnt/host/source/src/private-overlays/overlay-hatch-private
+    gerrit: chrome-internal
+  add_pub_yaml:
+    branch_name: kindred
+    change_id: I721ad038ecc1f5accd84a971fb425a9db1cdd790
+    cl_number: '1629121'
+    dir: /mnt/host/source/src/overlays
+    gerrit: chromium
+  cb_config:
+    branch_name: kindred
+    change_id: I2d0d796c1f3883c5f29c22af1a8bd38ee2a1b139
+    cl_number: '1638243'
+    dir: /mnt/host/source/src/third_party/chromiumos-overlay
+    gerrit: chromium
+  cb_variant:
+    branch_name: kindred
+    change_id: I09ad3da0505d599fc3797d7fa24b4dc170dcd18b
+    cl_number: '32936'
+    dir: /mnt/host/source/src/third_party/coreboot
+    gerrit: coreboot
+  commit_fit:
+    branch_name: kindred
+    change_id: I2816a3bb60920c323e64a9e248930a255f9938ea
+    cl_number: '1364967'
+    dir: /mnt/host/source/src/private-overlays/baseboard-hatch-private
+    gerrit: chrome-internal
+  ec_image:
+    branch_name: kindred
+    change_id: Ie5e976f426537fc0994c43d033a1b595d21095fc
+    cl_number: '1648602'
+    dir: /mnt/host/source/src/platform/ec
+    gerrit: chromium
+coreboot_dir: third_party/coreboot
+coreboot_push_list:
+- cb_variant
+emerge_cmd: emerge-hatch
+emerge_pkgs:
+- coreboot
+- libpayload
+- vboot_reference
+- depthcharge
+- intel-cmlfsp
+- coreboot-private-files-hatch
+- chromeos-ec
+- chromeos-config-bsp-hatch-private
+- chromeos-config
+- chromeos-config-bsp
+- chromeos-config-bsp-hatch
+- coreboot-private-files
+- coreboot-private-files-hatch
+- chromeos-bootimage
+fitimage_cmd: ./gen_fit_image.sh %s <path_to_fit_kit> [-b]
+fitimage_dir: private-overlays/baseboard-hatch-private/sys-boot/coreboot-private-files-hatch
+fitimage_pkg: coreboot-private-files-hatch
+fsp: intel-cmlfsp
+my_loc: /mnt/host/source/src/platform/dev/contrib/variant
+private_yaml_dir: ~/trunk/src/private-overlays/overlay-hatch-private/chromeos-base/chromeos-config-bsp-hatch-private
+repo_upload_list:
+- add_priv_yaml
+- add_pub_yaml
+- cb_config
+- commit_fit
+- ec_image
+step: push
+step_list:
+- push
+- upload
+- find
+- cq_depend
+- clean_up
+variant: kindred
+workon_pkgs:
+- coreboot
+- libpayload
+- vboot_reference
+- depthcharge
+- intel-cmlfsp
+- coreboot-private-files-hatch
+- chromeos-ec
+- chromeos-config-bsp-hatch-private
+yaml_emerge_pkgs:
+- chromeos-config-bsp
+- chromeos-config
+- chromeos-config-bsp-hatch
+- chromeos-config-bsp-hatch-private

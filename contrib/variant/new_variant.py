@@ -253,6 +253,25 @@ def get_status(board, variant, bug, continue_flag):
         we are at.
     * yaml_file - internal, just the name of the file where all this data
         gets saved.
+    * commit - a map of maps that tracks all of the git commit and gerrit CL
+        data for each of the steps in the process. For example,
+        status.commit['add_priv_yaml'] is a map that has all the information
+        about the 'add_priv_yaml' step. The keys in the maps allow us to
+        determine where the commit is, the change_id, if it has been uploaded
+        to gerrit and where.
+
+            branch_name - the name of the git branch
+            change_id - the change-id assigned by the commit hook. Gerrit
+                uses the change_id to track new patchsets in the CL
+            dir - the directory where the commit has been created
+            gerrit - the name of the gerrit instance to which the CL has
+                been uploaded, one of 'chromium', 'chrome-internal', or
+                'coreboot'
+            cl_number - the CL number on the gerrit instance
+
+        When the commit is created, branch_name, change_id, and dir are all
+        set. The gerrit and cl_number keys are not set until the CL has been
+        uploaded to a gerrit instance.
 
     These data might come from the status file (because we read it), or
     they might be the initial values after we created the file (because
@@ -617,16 +636,16 @@ def gen_fit_image_outside_chroot(status):
     if not fit_image_files:
         return True
 
-    logging.info('The following files need to be generated:')
+    logging.error('The following files need to be generated:')
     for filename in fit_image_files:
-        logging.info('* %s', filename)
-    logging.info('The fitimage sources are ready for gen_fit_image.sh to process.')
-    logging.info('gen_fit_image.sh cannot run inside the chroot. Please open a new terminal')
-    logging.info('window, change to the directory where gen_fit_image.sh is located, and run')
-    logging.info(status.fitimage_cmd, status.variant)
-    logging.info('Then re-start this program with --continue.')
-    logging.info('If your chroot is based in ~/chromiumos, then the folder you want is')
-    logging.info('~/chromiumos/src/%s/asset_generation', status.fitimage_dir)
+        logging.error('* %s', filename)
+    logging.error('The fitimage sources are ready for gen_fit_image.sh to process.')
+    logging.error('gen_fit_image.sh cannot run inside the chroot. Please open a new terminal')
+    logging.error('window, change to the directory where gen_fit_image.sh is located, and run')
+    logging.error(status.fitimage_cmd, status.variant)
+    logging.error('Then re-start this program with --continue.')
+    logging.error('If your chroot is based in ~/chromiumos, then the folder you want is')
+    logging.error('~/chromiumos/src/%s/asset_generation', status.fitimage_dir)
     return False
 
 
@@ -960,12 +979,12 @@ def push_coreboot(status):
                 save_cl_data(status, commit_key, cl)
             else:
                 logging.debug(f'Not found {change_id}, need to upload')
-                logging.info('The following commit needs to be pushed to coreboot.org:')
-                logging.info('  Branch "%s"', commit['branch_name'])
-                logging.info('  in directory "%s"', commit['dir'])
-                logging.info('  with change-id "%s"', commit['change_id'])
-                logging.info('Please push the branch to review.coreboot.org, '\
-                    'and then re-start this program with --continue')
+                logging.error('The following commit needs to be pushed to coreboot.org:')
+                logging.error('  Branch "%s"', commit['branch_name'])
+                logging.error('  in directory "%s"', commit['dir'])
+                logging.error('  with change-id "%s"', commit['change_id'])
+                logging.error('Please push the branch to review.coreboot.org, '
+                              'and then re-start this program with --continue')
                 # Since this commit needs to be uploaded, do not continue after
                 # this step returns.
                 rc = False
@@ -1025,7 +1044,7 @@ def query_coreboot_gerrit(change_id):
     # and decode as JSON.
     data = json.loads(response[5:])
     if '_number' in data:
-        return data['_number']
+        return str(data['_number'])
     return None
 
 
@@ -1145,6 +1164,21 @@ def upload_CLs(status):
 def find_coreboot_upstream(status):
     """Find the coreboot CL after it has been upstreamed to chromiumos
 
+    When the coreboot variant CL is first uploaded to review.coreboot.org,
+    it is not visible in the chromiumos tree (and also cannot be used as
+    a target for cq-depend). There is a process for upstreaming CLs from
+    coreboot after they have been reviewed, approved, and merged. We can
+    track a specific coreboot CL if we know the change-id that it used on
+    the coreboot gerrit instance, by looking for that change-id as
+    'original-change-id' in the public chromium gerrit instance.
+
+    The change-id for the coreboot variant will be under the 'cb_variant' key,
+    but this is for the 'coreboot' gerrit instance.
+
+    When we find the upstreamed CL, we will record the gerrit instance and
+    CL number in the yaml file under the 'find' key ("find upstream coreboot")
+    so that we don't need to search coreboot again.
+
     Args:
         status: variant_status object tracking our board, variant, etc.
 
@@ -1152,8 +1186,67 @@ def find_coreboot_upstream(status):
         True if the build succeeded, False if something failed
     """
     logging.info('Running step find_coreboot_upstream')
-    del status  # unused parameter
-    logging.error('TODO (pfagerburg): implement find_coreboot_upstream')
+
+    # If we have already found the upstream coreboot CL, then exit with success
+    if step_names.FIND in status.commits:
+        commit = status.commits[step_names.FIND]
+        if 'gerrit' in commit and 'cl_number' in commit:
+            instance_name = commit['gerrit']
+            cl_number = commit['cl_number']
+            logging.debug(f'Already found ({instance_name}, {cl_number})')
+            return True
+
+    # Make sure we have a CB_VARIANT commit and a change_id for it
+    if step_names.CB_VARIANT not in status.commits:
+        logging.error('Key %s not found in status.commits',
+            step_names.CB_VARIANT)
+        return False
+    if 'change_id' not in status.commits[step_names.CB_VARIANT]:
+        logging.error('Key change_id not found in status.commits[%s]',
+            step_names.CB_VARIANT)
+        return False
+
+    # Find the CL by the Original-Change-Id
+    original_change_id = status.commits[step_names.CB_VARIANT]['change_id']
+    gerrit_query_args = {
+        'Original-Change-Id': original_change_id
+    }
+    cros = gerrit.GetCrosExternal()
+    upstream = cros.Query(**gerrit_query_args)
+    # If nothing is found, the patch hasn't been upstreamed yet
+    if not upstream:
+        logging.error('Program cannot continue until coreboot CL is upstreamed.')
+        logging.error('(coreboot:%s, change-id %s)',
+            status.commits[step_names.CB_VARIANT]['cl_number'],
+            status.commits[step_names.CB_VARIANT]['change_id'])
+        logging.error('Please wait for the CL to be upstreamed, then run this'
+                      ' program again with --continue')
+        return False
+
+    # If more than one CL is found, something is very wrong
+    if len(upstream) != 1:
+        logging.error('More than one CL was found with Original-Change-Id %s',
+                      original_change_id)
+        return False
+
+    # At this point, we know there is only one CL and we can get the
+    # repo and CL number by splitting on the colon between them.
+    patchlink = upstream[0].PatchLink()
+    instance_name, cl_number = patchlink.split(':')
+
+    # Can't use get_git_commit_data because we're not pulling this
+    # information from a git commit, but rather from gerrit.
+    # We only need the gerrit instance and the CL number so we can have
+    # other CLs cq-depend on this CL. The other keys are not needed because:
+    # dir - not needed because we're not going to `cd` there to `repo upload`
+    # branch_name - not valid; the CL is already merged
+    # change_id - we use the change_id to find a CL number, and since we
+    #   just found the CL number via original-change-id, this is moot.
+    status.commits[step_names.FIND] = {
+        'gerrit': instance_name,
+        'cl_number': str(cl_number)
+    }
+
     return True
 
 
