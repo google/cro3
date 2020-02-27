@@ -1,0 +1,101 @@
+#!/bin/bash
+# Copyright 2020 The Chromium OS Authors.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Download a local_manifest file from a private overlay into the
+# .repo/local_manifests directory
+
+set -e
+
+readonly OVERLAY="$1"
+readonly MANIFEST="$2"
+readonly LOCAL_MANIFEST_DIR=".repo/local_manifests"
+readonly LOCAL_MANIFEST_FILE="${MANIFEST:-local_manifest.xml}"
+readonly PRIVATE_OVERLAY="chromeos/overlays/overlay-${OVERLAY}-private"
+readonly URL="https://chrome-internal.googlesource.com/${PRIVATE_OVERLAY}"
+ROOTDIR=""
+
+usage() {
+  local exitval=$1
+  echo "  Usage:"
+  echo "  $0 <overlay> [local_manifest_file]"
+  echo "  Example: $0 zork"
+  exit "${exitval}"
+}
+
+# Find the .repo directory in any directory above the current
+find_repo_dir() {
+  local path="${PWD}"
+  while [[ -n ${path} && ! -e "${path}/.repo" ]]; do
+    path=${path%/*}
+  done
+  ROOTDIR="${path}"
+}
+
+echo_error() {
+  echo "Error: $1" >&2
+  exit 1
+}
+
+main() {
+  if [[ -z ${OVERLAY} || "${OVERLAY}" = "--help" ]]; then
+    usage 1
+  fi
+
+  find_repo_dir
+
+  if [[ ! -d "${ROOTDIR}/.repo" ]]; then
+    echo "Error: No .repo directory found." >&2
+    echo "Run this script from inside the chroot directory structure." >&2
+    exit 1
+  fi
+
+  mkdir -p "${ROOTDIR}/${LOCAL_MANIFEST_DIR}" ||
+    echo_error "Could not create ${ROOTDIR}/${LOCAL_MANIFEST_DIR}"
+  cd "${ROOTDIR}/${LOCAL_MANIFEST_DIR}" ||
+    echo_error "Could not cd to ${ROOTDIR}/${LOCAL_MANIFEST_DIR}"
+  local tmp_repo_dir
+  tmp_repo_dir="$(mktemp -d)" ||
+    echo_error "Could not create temp directory"
+
+  # We can have only one manifest file - either internal or not. So move any
+  # preexisting xml files to backup_file copies.  In theory, there should only
+  # be one file to save, so just keep track of the last file that was
+  # preserved
+  local backup_file
+  declare -a targets=("$(find . -maxdepth 1 -name "*.xml")")
+  for oldfile in "${targets[@]}"; do
+    if [[ -n ${oldfile} && -f ${oldfile} ]]; then
+      oldfile="$(basename "${oldfile}")"
+      backup_file=$(mktemp -p . -t "old_${oldfile}.XXXX")
+      echo "Backing up existing manifest to ${backup_file}"
+      mv -f "${oldfile}" "${backup_file}" ||
+        echo_error "could not back up exisiting manifest"
+    fi
+  done
+
+  echo "Downloading local manifest for ${OVERLAY}"
+  git clone -qn "${URL}" --depth 1 -- "${tmp_repo_dir}" ||
+    echo_error "clone of private overlay failed.  Do you have access rights?"
+  git --git-dir="${tmp_repo_dir}/.git" checkout HEAD "${LOCAL_MANIFEST_FILE}" ||
+    echo_error "checkout failed."
+  rm -rf "${tmp_repo_dir}"
+
+  if [[ -f ${backup_file} ]] && \
+      cmp "${LOCAL_MANIFEST_FILE}" "${backup_file}" >/dev/null; then
+    echo "No update needed. Old manifest was identical to new."
+    echo "Removing backup."
+    rm "${backup_file}"
+    exit 0
+  fi
+
+  if [[ -f ${LOCAL_MANIFEST_FILE} ]]; then
+    echo "${LOCAL_MANIFEST_FILE} downloaded successfully."
+    echo "Please run 'repo sync' to refresh the tree."
+  else
+    echo_error "${LOCAL_MANIFEST_FILE} not downloaded correctly."
+  fi
+}
+
+main
