@@ -57,6 +57,21 @@ class Kernel(Enum):
     linux_upstream = 3
 
 
+class KernelMetadata(object):
+    """Object to group kernel Metadata."""
+    local_kernel_path = None
+    kernel_table = None
+    kernel_fixes_table = None
+    get_kernel_branch = None
+
+    def __init__(self, _local_path, _kernel_table, _kernel_fixes_table,
+            _get_kernel_branch):
+        self.local_kernel_path = _local_path
+        self.kernel_table = _kernel_table
+        self.kernel_fixes_table = _kernel_fixes_table
+        self.get_kernel_branch = _get_kernel_branch
+
+
 def stable_branch(version):
     """Stable branch name"""
     return 'linux-%s.y' % version
@@ -128,3 +143,19 @@ def update_kernel_db(db, kernel):
         update_commits(branch, start, db)
 
     os.chdir(WORKDIR)
+
+def get_kernel_metadata(release):
+    """Returns KernelMetadata for a release (linux-stable, or linux-chrome"""
+    kernel_metadata = None
+    if release == Kernel.linux_stable:
+        kernel_metadata = KernelMetadata(STABLE_PATH, 'linux_stable',
+                'stable_fixes', stable_branch)
+    elif release == Kernel.linux_chrome:
+        kernel_metadata = KernelMetadata(CHROMEOS_PATH, 'linux_chrome',
+                'chrome_fixes', chromeos_branch)
+    elif release == Kernel.linux_upstream:
+        kernel_metadata = KernelMetadata(UPSTREAM_PATH, 'linux_upstream_commits',
+                'linux_upstream_fixes', None)
+    else:
+        raise ValueError('Conditionals should match Kernel Enum release types.')
+    return kernel_metadata
