@@ -82,6 +82,10 @@ class Request(object):
   EVENT_RESULT_SUCCESS_REBOOT = 2
   EVENT_RESULT_UPDATE_DEFERRED = 9
 
+  # update_engine sends this version for all non-platform Apps when the
+  # operation is install (or event for an install).
+  _VERSION_ZERO = '0.0.0.0'
+
   class RequestType(object):
     """Simple enumeration for encoding request type."""
     INSTALL = 1 # Request installation of a new app.
@@ -152,40 +156,56 @@ class Request(object):
       app_request = Request.AppRequest(app, self.request_type)
       self.app_requests.append(app_request)
 
-    def _CheckAttributesAndReturnIt(attribute, in_all=False):
+    def _CheckAttributesAndReturnIt(attribute, in_all=False, ignore_value=None):
       """Checks the attribute integrity among all apps and return its value.
 
-      The assumption is that the value of the attribute is the same for all apps
-      if existed. It can optionally be in one or more apps, but they are all
-      equal.
+      The most likely scenario is that the value of the attribute is the same
+      for all apps if existed. It can optionally be in one or more apps, but
+      they are all equal.
 
       Args:
         attribute: An attribute of the app tag.
         in_all: If true, the attribute should exist among all apps.
+        ignore_value: The attribute value that we want to omit from the list of
+          attributes.
 
       Returns:
-        The value of the attribute (which is same among all app tags).
+        The value of the attribute. If no valid attribute value is found,
+        ignore_value will be returned.
       """
       all_attrs = [getattr(x, attribute) for x in self.app_requests]
-      if in_all and None in all_attrs:
+      if in_all and (ignore_value in all_attrs):
         raise InvalidRequestError(
             'All apps should have "%s" attribute.' % attribute)
 
-      # Filter out the None elements into a set.
-      unique_attrs = set(x for x in all_attrs if x is not None)
+      # Filter out non-ignore_value elements into a set.
+      unique_attrs = set(x for x in all_attrs if x != ignore_value)
       if not unique_attrs:
-        raise InvalidRequestError('"%s" attribute should appear in at '
-                                  'least one app.' % attribute)
+        # If no app had the attribute, we can just return the invalid one as it
+        # was the only one.
+        return ignore_value
+
       if len(unique_attrs) > 1:
         raise InvalidRequestError(
             'Attribute "%s" is not the same in all app tags.' % attribute)
       return unique_attrs.pop()
 
-    if self.request_type != Request.RequestType.INSTALL:
+    if self.request_type == Request.RequestType.UPDATE:
+      # Update requests should have the same version for all Apps.
       self.version = _CheckAttributesAndReturnIt(self.APP_VERSION_ATTR,
                                                  in_all=True)
+    else:
+      # Install requests should have non-zero version for the platform App and
+      # zero for all others. Event requests can be either for install or update
+      # so they can have different combinations of versions.
+      self.version = _CheckAttributesAndReturnIt(
+          self.APP_VERSION_ATTR, ignore_value=self._VERSION_ZERO)
+
     self.track = _CheckAttributesAndReturnIt(self.APP_CHANNEL_ATTR)
     self.board = _CheckAttributesAndReturnIt(self.APP_BOARD_ATTR)
+    if self.track is None or self.board is None:
+      raise InvalidRequestError('Either track(%s) or board(%s) attributes are '
+                                'empty in all apps.' % (self.track, self.board))
 
   def GetDict(self):
     """Returns a dictionary with some parameters of the request.

@@ -681,76 +681,12 @@ class AppDataTest(unittest.TestCase):
     self.assertFalse(request.MatchAppData(app_data, check_against_canary=True))
 
 
+class RequestTest(unittest.TestCase):
+  """Tests for Request class."""
 
-class XMLStrings(object):
-  """Collection of XML request strings for testing."""
-
-  INSTALL_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
-<request protocol="3.0">
-  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" delta_okay="false"
-       track="stable-channel" board="eve">
-    <ping active="1" a="1" r="1"></ping>
-  </app>
-  <app appid="foo" version="1.0.0" delta_okay="false">
-    <ping active="1" a="1" r="1"></ping>
-    <updatecheck targetversionprefix=""></updatecheck>
-  </app>
-  <app appid="bar" version="1.0.0" delta_okay="false">
-    <ping active="1" a="1" r="1"></ping>
-    <updatecheck targetversionprefix=""></updatecheck>
-  </app>
-</request>
-"""
-
-  UPDATE_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
-<request protocol="3.0">
-  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" delta_okay="true"
-       track="stable-channel" board="eve">
-    <ping active="1" a="1" r="1"></ping>
-    <updatecheck targetversionprefix=""></updatecheck>
-  </app>
-  <app appid="foo" version="1.0.0" delta_okay="true">
-    <ping active="1" a="1" r="1"></ping>
-    <updatecheck targetversionprefix=""></updatecheck>
-    <event eventtype="3" eventresult="1" previousversion="1"></event>
-  </app>
-  <app appid="bar" version="1.0.0" delta_okay="false">
-    <ping active="1" a="1" r="1"></ping>
-    <updatecheck targetversionprefix=""></updatecheck>
-  </app>
-</request>
-"""
-
-  INVALID_NOOP_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
-<request protocol="3.0">
-  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" delta_okay="true"
-       track="stable-channel" board="eve">
-    <ping active="1" a="1" r="1"></ping>
-  </app>
-  <app appid="foo" version="1.0.0" delta_okay="true">
-    <ping active="1" a="1" r="1"></ping>
-  </app>
-  <app appid="bar" version="1.0.0" delta_okay="false">
-    <ping active="1" a="1" r="1"></ping>
-    <updatecheck targetversionprefix=""></updatecheck>
-  </app>
-</request>
-"""
-
-  EVENT_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
-<request protocol="3.0">
-  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" delta_okay="true"
-       track="stable-channel" board="eve">
-    <event eventtype="3" eventresult="1" previousversion="1"></event>
-  </app>
-</request>
-"""
-
-  INVALID_XML_REQUEST = """invalid xml!
+  def testParseRequestInvalidXML(self):
+    """Tests ParseRequest handling of invalid XML."""
+    request = """invalid xml!
 <?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
@@ -760,9 +696,12 @@ class XMLStrings(object):
   </app>
 </request>
 """
+    with self.assertRaises(nebraska.InvalidRequestError):
+      nebraska.Request(request)
 
-  # No appid.
-  INVALID_APP_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
+  def testParseRequestInvalidApp(self):
+    """Tests ParseRequest handling of invalid app requests."""
+    request = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
   <app version="1.0.0" delta_okay="true"
@@ -771,9 +710,12 @@ class XMLStrings(object):
   </app>
 </request>
 """
+    with self.assertRaises(nebraska.InvalidRequestError):
+      nebraska.Request(request)
 
-  # No version number.
-  INVALID_INSTALL_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
+  def testParseRequestInvalidInstall(self):
+    """Tests ParseRequest handling of invalid app requests."""
+    request = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
   <app appid="platform" version="1.0.0" delta_okay="false"
@@ -786,9 +728,33 @@ class XMLStrings(object):
   </app>
 </request>
 """
+    with self.assertRaises(nebraska.InvalidRequestError):
+      nebraska.Request(request)
 
-  # Missing all board attributes.
-  MISSING_REQUIRED_ATTR_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
+  def testParseRequestInvalidNoop(self):
+    """Tests ParseRequest handling of invalid mixed no-op request."""
+    request = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" delta_okay="true"
+       track="stable-channel" board="eve">
+    <ping active="1" a="1" r="1"></ping>
+  </app>
+  <app appid="foo" version="1.0.0" delta_okay="true">
+    <ping active="1" a="1" r="1"></ping>
+  </app>
+  <app appid="bar" version="1.0.0" delta_okay="false">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+</request>
+"""
+    with self.assertRaises(nebraska.InvalidRequestError):
+      nebraska.Request(request)
+
+  def testParseRequestMissingAtLeastOneRequiredAttr(self):
+    """Tests ParseRequest handling of missing required attributes in request."""
+    request = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
   <app appid="platform" version="1.0.0" delta_okay="false">
@@ -800,108 +766,107 @@ class XMLStrings(object):
   </app>
 </request>
 """
-
-  # Mismatched versions UPDATE.
-  MISMATCHED_VERSION_ATTR_UPDATE_REQUEST = \
-  """<?xml version="1.0" encoding="UTF-8"?>
-<request protocol="3.0">
-  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" delta_okay="false"
-       track="stable-channel" board="eve">
-    <ping active="1" a="1" r="1"></ping>
-    <updatecheck targetversionprefix=""></updatecheck>
-  </app>
-  <app appid="foo" version="2.0.0" delta_okay="false">
-    <ping active="1" a="1" r="1"></ping>
-    <updatecheck targetversionprefix=""></updatecheck>
-  </app>
-</request>
-"""
-
-  # Mismatched versions INSTALL.
-  MISMATCHED_VERSION_ATTR_INSTALL_REQUEST = \
-  """<?xml version="1.0" encoding="UTF-8"?>
-<request protocol="3.0">
-  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
-  <app appid="platform" version="1.0.0" delta_okay="false"
-       track="stable-channel" board="eve">
-    <ping active="1" a="1" r="1"></ping>
-  </app>
-  <app appid="foo" version="2.0.0" delta_okay="false">
-    <ping active="1" a="1" r="1"></ping>
-    <updatecheck targetversionprefix=""></updatecheck>
-  </app>
-</request>
-"""
-
-
-class RequestTest(unittest.TestCase):
-  """Tests for Request class."""
-
-  def testParseRequestInvalidXML(self):
-    """Tests ParseRequest handling of invalid XML."""
     with self.assertRaises(nebraska.InvalidRequestError):
-      nebraska.Request(XMLStrings.INVALID_XML_REQUEST)
-
-  def testParseRequestInvalidApp(self):
-    """Tests ParseRequest handling of invalid app requests."""
-    with self.assertRaises(nebraska.InvalidRequestError):
-      nebraska.Request(XMLStrings.INVALID_APP_REQUEST)
-
-  def testParseRequestInvalidInstall(self):
-    """Tests ParseRequest handling of invalid app requests."""
-    with self.assertRaises(nebraska.InvalidRequestError):
-      nebraska.Request(XMLStrings.INVALID_INSTALL_REQUEST)
-
-  def testParseRequestInvalidNoop(self):
-    """Tests ParseRequest handling of invalid mixed no-op request."""
-    with self.assertRaises(nebraska.InvalidRequestError):
-      nebraska.Request(XMLStrings.INVALID_NOOP_REQUEST)
-
-  def testParseRequestMissingAtLeastOneRequiredAttr(self):
-    """Tests ParseRequest handling of missing required attributes in request."""
-    with self.assertRaises(nebraska.InvalidRequestError):
-      nebraska.Request(XMLStrings.MISSING_REQUIRED_ATTR_REQUEST)
+      nebraska.Request(request)
 
   def testParseRequestMismatchedVersionUpdate(self):
     """Tests ParseRequest handling of mismatched update version numbers."""
+    request = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" delta_okay="false"
+       track="stable-channel" board="eve">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+  <app appid="foo" version="2.0.0" delta_okay="false">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+</request>
+"""
     with self.assertRaises(nebraska.InvalidRequestError):
-      nebraska.Request(XMLStrings.MISMATCHED_VERSION_ATTR_UPDATE_REQUEST)
+      nebraska.Request(request)
 
   def testParseRequestMismatchedVersionInstall(self):
     """Tests ParseRequest handling of mismatched install version numbers."""
-    # Not raises |nebraska.InvalidRequestError|.
-    nebraska.Request(XMLStrings.MISMATCHED_VERSION_ATTR_INSTALL_REQUEST)
+    request = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" delta_okay="false"
+       track="stable-channel" board="eve">
+    <ping active="1" a="1" r="1"></ping>
+  </app>
+  <app appid="foo" version="2.0.0" delta_okay="false">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+</request>
+"""
+    with self.assertRaises(nebraska.InvalidRequestError):
+      nebraska.Request(request)
 
   def testParseRequestInstall(self):
     """Tests ParseRequest handling of install requests."""
-    app_requests = nebraska.Request(XMLStrings.INSTALL_REQUEST).app_requests
+    request_str = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" delta_okay="false"
+       track="stable-channel" board="eve">
+    <ping active="1" a="1" r="1"></ping>
+  </app>
+  <app appid="foo" version="0.0.0.0" delta_okay="false">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+  <app appid="bar" version="0.0.0.0" delta_okay="false">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+</request>
+"""
+    request = nebraska.Request(request_str)
+    app_requests = request.app_requests
 
-    self.assertEqual(app_requests[0].request_type,
+    self.assertEqual(request.request_type,
                      nebraska.Request.RequestType.INSTALL)
-    self.assertEqual(app_requests[1].request_type,
-                     nebraska.Request.RequestType.INSTALL)
-    self.assertEqual(app_requests[2].request_type,
-                     nebraska.Request.RequestType.INSTALL)
+    self.assertEqual(request.version, '1.0.0')
 
     self.assertEqual(app_requests[0].appid, 'platform')
     self.assertEqual(app_requests[1].appid, 'foo')
     self.assertEqual(app_requests[2].appid, 'bar')
 
     self.assertEqual(app_requests[0].version, '1.0.0')
-    self.assertEqual(app_requests[1].version, '1.0.0')
-    self.assertEqual(app_requests[2].version, '1.0.0')
+    self.assertEqual(app_requests[1].version, '0.0.0.0')
+    self.assertEqual(app_requests[2].version, '0.0.0.0')
 
   def testParseRequestUpdate(self):
     """Tests ParseRequest handling of update requests."""
-    app_requests = nebraska.Request(XMLStrings.UPDATE_REQUEST).app_requests
+    request_str = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" delta_okay="true"
+       track="stable-channel" board="eve">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+  <app appid="foo" version="1.0.0" delta_okay="true">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+    <event eventtype="3" eventresult="1" previousversion="1"></event>
+  </app>
+  <app appid="bar" version="1.0.0" delta_okay="false">
+    <ping active="1" a="1" r="1"></ping>
+    <updatecheck targetversionprefix=""></updatecheck>
+  </app>
+</request>
+"""
+    request = nebraska.Request(request_str)
+    app_requests = request.app_requests
 
-    self.assertEqual(app_requests[0].request_type,
+    self.assertEqual(request.request_type,
                      nebraska.Request.RequestType.UPDATE)
-    self.assertEqual(app_requests[1].request_type,
-                     nebraska.Request.RequestType.UPDATE)
-    self.assertEqual(app_requests[2].request_type,
-                     nebraska.Request.RequestType.UPDATE)
+    self.assertEqual(request.version, '1.0.0')
 
     self.assertEqual(app_requests[0].appid, 'platform')
     self.assertEqual(app_requests[1].appid, 'foo')
@@ -915,16 +880,58 @@ class RequestTest(unittest.TestCase):
     self.assertTrue(app_requests[1].delta_okay)
     self.assertFalse(app_requests[2].delta_okay)
 
-  def testParseRequestEventPing(self):
-    """Tests ParseRequest handling of event ping requests."""
-    app_requests = nebraska.Request(XMLStrings.EVENT_REQUEST).app_requests
+  def testParseRequestUpdateEventPing(self):
+    """Tests ParseRequest handling of update event ping requests."""
+    request_str = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" delta_okay="true"
+       track="stable-channel" board="eve">
+    <event eventtype="3" eventresult="1" previousversion="1"></event>
+  </app>
+  <app appid="platform2" version="1.0.0" delta_okay="true"
+       track="stable-channel" board="eve">
+    <event eventtype="3" eventresult="2" previousversion="1"></event>
+  </app>
+</request>
+"""
+    request = nebraska.Request(request_str)
+    app_requests = request.app_requests
 
-    self.assertEqual(app_requests[0].request_type,
+    self.assertEqual(request.request_type,
                      nebraska.Request.RequestType.EVENT)
+    self.assertEqual(request.version, '1.0.0')
+
     self.assertEqual(app_requests[0].appid, 'platform')
     self.assertEqual(app_requests[0].event_type, 3)
     self.assertEqual(app_requests[0].event_result, 1)
     self.assertEqual(app_requests[0].previous_version, '1')
+
+    self.assertEqual(app_requests[1].appid, 'platform2')
+    self.assertEqual(app_requests[1].event_type, 3)
+    self.assertEqual(app_requests[1].event_result, 2)
+    self.assertEqual(app_requests[1].previous_version, '1')
+
+  def testParseRequestInstallEventPing(self):
+    """Tests ParseRequest handling of install event ping requests."""
+    request_str = """<?xml version="1.0" encoding="UTF-8"?>
+<request protocol="3.0">
+  <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
+  <app appid="platform" version="1.0.0" delta_okay="true"
+       track="stable-channel" board="eve">
+    <event eventtype="3" eventresult="1" previousversion="1"></event>
+  </app>
+  <app appid="platform2" version="0.0.0.0" delta_okay="true"
+       track="stable-channel" board="eve">
+    <event eventtype="3" eventresult="2" previousversion="1"></event>
+  </app>
+</request>
+"""
+    request = nebraska.Request(request_str)
+
+    self.assertEqual(request.version, '1.0.0')
+    self.assertEqual(request.request_type,
+                     nebraska.Request.RequestType.EVENT)
 
   def testDetectingPlatformAppRequest(self):
     """Tests we correctly identify platform VS. DLC requests"""
