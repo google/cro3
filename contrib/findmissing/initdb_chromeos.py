@@ -19,24 +19,6 @@ CHROMIUM = re.compile(r'(CHROMIUM: *|FROMLIST: *)+(.*)')
 CHANGEID = re.compile(r'^( )*Change-Id: [a-zA-Z0-9]*$')
 
 
-def parse_changeID(chromeos_sha):
-    """String searches for Change-Id in a chromeos git commit.
-
-    Returns Change-Id or None if commit doesn't have associated Change-Id
-    """
-    commit = subprocess.check_output(['git', 'show', \
-            chromeos_sha]).decode('utf-8', errors='ignore')
-
-    for line in commit.splitlines():
-        if CHANGEID.match(line):
-            # removes whitespace prefixing Change-Id
-            line = line.lstrip()
-            commit_changeID = line[(line.index(' ') + 1):]
-            return commit_changeID
-
-    return None
-
-
 def search_usha(sha, description):
     """Search for upstream SHA.
 

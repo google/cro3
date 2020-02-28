@@ -23,8 +23,8 @@ def get_commit(changeid):
     May add some additional information to the fix patch for tracking purposes.
     i.e attaching a tag
     """
-    get_commit_endpoint = (f'{CHROMIUM_REVIEW_BASEURL}/changes/{changeid}/'
-            'revisions/current/commit')
+    get_commit_endpoint = '%s/changes/%s/revisions/current/commit/' % (
+            CHROMIUM_REVIEW_BASEURL, changeid)
 
     resp = requests.get(get_commit_endpoint)
     resp_json = json.loads(resp.text[5:])
@@ -34,8 +34,8 @@ def get_commit(changeid):
 
 def get_reviewers(changeid):
     """Retrieves list of reviewers from gerrit given a chromeos changeid."""
-    list_reviewers_endpoint = (f'{CHROMIUM_REVIEW_BASEURL}/changes/{changeid}/'
-            'reviewers/')
+
+    list_reviewers_endpoint = '%s/changes/%s/reviewers/' % (CHROMIUM_REVIEW_BASEURL, changeid)
 
     resp = requests.get(list_reviewers_endpoint)
     resp_json = json.loads(resp.text[5:])
@@ -45,7 +45,7 @@ def get_reviewers(changeid):
 
 def get_change(changeid):
     """Retrieves ChangeInfo from gerrit using its changeid"""
-    get_change_endpoint = (f'{CHROMIUM_REVIEW_BASEURL}/changes/{changeid}/')
+    get_change_endpoint = '%s/changes/%s/' % (CHROMIUM_REVIEW_BASEURL, changeid)
 
     resp = requests.get(get_change_endpoint)
     resp_json = json.loads(resp.text[5:])

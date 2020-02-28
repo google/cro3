@@ -9,14 +9,15 @@
 # Script copies local findmissing changes to GCE web server directory
 # To see test results, restart web server by ssh'ing into the instance.
 
+# Script will not work if run from chroot environment
+
+
 ./clean_generated_files.sh
 
 FINDMISSING_DIR=~/chromiumos/src/platform/dev/contrib/findmissing/
 if [[ -n "$1" ]]; then
   FINDMISSING_DIR=$1
 fi
-
-echo "${GCE_EXTERNAL_IP}"
 
 if [[ -z "${GCE_EXTERNAL_IP}" ]]; then
   echo "ERROR: 'export GCE_EXTERNAL_IP=<...>' to define the GCE instances external ip."

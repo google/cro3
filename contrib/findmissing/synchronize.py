@@ -10,14 +10,11 @@
 from __future__ import print_function
 import os
 import subprocess
+import MySQLdb
 
 from common import UPSTREAM_PATH, CHROMEOS_PATH, STABLE_PATH, \
-        UPSTREAM_REPO, CHROMEOS_REPO, STABLE_REPO, \
-        SUPPORTED_KERNELS, stable_branch, chromeos_branch
-
-from initdb_upstream import update_upstreamdb
-from initdb_stable import update_stabledb
-from initdb_chromeos import update_chromeosdb
+        UPSTREAM_REPO, CHROMEOS_REPO, STABLE_REPO, SUPPORTED_KERNELS, \
+        stable_branch, chromeos_branch, update_kernel_db, Kernel
 
 
 def synchronize_upstream():
@@ -29,15 +26,15 @@ def synchronize_upstream():
     print(destdir, repo, cwd)
 
     if not os.path.exists(destdir):
-        print(f'Cloning {repo} into {destdir}')
-        cmd = f'git clone {repo} {destdir}'.split(' ')
+        print('Cloning %s into %s' % (repo, destdir))
+        cmd = ('git clone %s %s' % (repo, destdir)).split(' ')
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         p.wait()
 
     else:
         os.chdir(destdir)
 
-        print(f'Updating {repo} into {destdir}')
+        print('Updating %s into %s' % (repo, destdir))
         cmd = 'git checkout master; git pull'.split(' ')
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         p.wait()
@@ -54,38 +51,39 @@ def synchronize_custom(path, repo):
     get_branch = stable_branch if path == 'linux_stable' else chromeos_branch
 
     if not os.path.exists(destdir):
-        print(f'Cloning {repo} into {destdir}')
-        cmd = f'git clone {repo} {destdir}'.split(' ')
+        print('Cloning %s into %s' % (repo, destdir))
+        cmd = ('git clone %s %s' % (repo, destdir)).split(' ')
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         p.wait()
 
         os.chdir(destdir)
         for kernel in SUPPORTED_KERNELS:
-            cmd = f'git checkout -b {get_branch(kernel)} origin/{get_branch(kernel)}'.split(' ')
+            bname = get_branch(kernel)
+            cmd = ('git checkout -b %s origin/%s' % (bname, bname)).split(' ')
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
             p.wait()
 
-        cmd = f'git remote add upstream {upstream_destdir}; git fetch upstream'
+        cmd = 'git remote add upstream %s; git fetch upstream' % (upstream_destdir)
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         p.wait()
 
     else:
         os.chdir(destdir)
 
-        print(f'Updating {repo} into {destdir}')
+        print('Updating %s into %s' % (repo, destdir))
         cmd = 'git reset --hard HEAD; git fetch origin'
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         p.wait()
 
         for kernel in SUPPORTED_KERNELS:
             branch = get_branch(kernel)
-            cmd = f'git rev-parse --verify {branch}'.split(' ')
+            cmd = ('git rev-parse --verify %s' % (branch)).split(' ')
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
             p.wait()
 
             output, _ = p.communicate()
             if output:
-                cmd = f'git checkout {branch}'.split(' ')
+                cmd = ('git checkout %s' % (branch)).split(' ')
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
                 p.wait()
 
@@ -95,11 +93,11 @@ def synchronize_custom(path, repo):
 
                 output, _ = p.communicate()
                 if not output:
-                    cmd = f'git reset --hard origin/{branch}'.split(' ')
+                    cmd = ('git reset --hard origin/%s' % (branch)).split(' ')
                     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
                     p.wait()
             else:
-                cmd = f'git checkout -b {branch} origin/{branch}'.split(' ')
+                cmd = ('git checkout -b %s origin/%s' % (branch, branch)).split(' ')
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
                 p.wait()
 
@@ -114,9 +112,15 @@ def synchronize_repositories():
 
 def synchronize_database():
     """Synchronizes the databases for upstream, stable, and chromeos."""
-    update_upstreamdb()
-    update_stabledb()
-    update_chromeosdb()
+    db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    print('updating upstreamdb')
+    update_kernel_db(db, Kernel.linux_upstream)
+    print('updating stabledb')
+    update_kernel_db(db, Kernel.linux_stable)
+    print('updating chromeosdb')
+    update_kernel_db(db, Kernel.linux_chrome)
+    db.close()
+    print('FINISHED UPDATING DBS')
 
 
 if __name__ == '__main__':

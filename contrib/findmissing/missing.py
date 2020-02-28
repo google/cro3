@@ -17,9 +17,8 @@ import MySQLdb
 import common
 
 
-# TODO(hirthanan): give function a better name detailing cherrypick
-def get_status(sha):
-    """Check if patch needs to be applied to current branch.
+def get_status_from_cherrypicking_sha(sha):
+    """Attempt to cherrypick sha into working directory to retrieve it's Status.
 
     The working directory and branch must be set when calling
     this function.
@@ -125,7 +124,7 @@ def insert_fixes_gerrit(db, fixes_table, branch, kernel_sha, fixedby_upstream_sh
     c = db.cursor()
 
     # Try applying patch and get status
-    status = get_status(fixedby_upstream_sha)
+    status = get_status_from_cherrypicking_sha(fixedby_upstream_sha)
     cl_status = status.name
 
     entry_time = get_current_time()
@@ -208,7 +207,7 @@ def update_fixes_gerrit(db, fixes_table, kernel_sha, upstream_sha, fixedby_upstr
                     (fixes_table, kernel_sha, upstream_sha, fixedby_upstream_sha))
     elif prev_cl_status == common.Status.CONFLICT.name:
         # Check to see if fix patch can be applied again, if not do nothing
-        status = get_status(fixedby_upstream_sha)
+        status = get_status_from_cherrypicking_sha(fixedby_upstream_sha)
         if status == common.Status.MERGED:
             # Patch is already in linux_chrome
             cl_status = common.Status.MERGED.name
