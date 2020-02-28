@@ -137,6 +137,25 @@ class NebraskaTest(unittest.TestCase):
     self.assertEqual(n._nebraska_props.update_payloads_address, '')
     self.assertEqual(n._nebraska_props.install_payloads_address, '')
 
+  def testQueryDictToDict(self):
+    """Tests QueryDictToDict() function"""
+    self.assertEqual(nebraska.QueryDictToDict({
+        'critical_update': 'True',
+        'disable_payload_backoff': 'False',
+        'eol_date': '10',
+        'failures_per_url': '1',
+        'no_update': 'True',
+        'num_urls': ['0', '1'],
+        'foo': 'bar',
+    }), {
+        'critical_update': True,
+        'disable_payload_backoff': False,
+        'eol_date': 10,
+        'failures_per_url': 1,
+        'no_update': True,
+        'num_urls': 0,
+    })
+
 
 class NebraskaHandlerTest(unittest.TestCase):
   """Test NebraskaHandler."""

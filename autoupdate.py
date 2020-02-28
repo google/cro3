@@ -314,6 +314,10 @@ class Autoupdate(build_util.BuildObject):
     # Get the static url base that will form that base of our update url e.g.
     # http://hostname:8080/static/update.gz.
     static_urlbase = self.GetStaticUrl()
+    # Change the URL's string query dictionary provided by cherrypy to a valid
+    # dictionary that has proper values for its keys. e.g. True instead of
+    # 'True'.
+    kwargs = nebraska.QueryDictToDict(kwargs)
 
     # Process attributes of the update check.
     request = nebraska.Request(data)
