@@ -8,133 +8,134 @@
 """Module parses and stores mainline linux patches to be easily accessible."""
 
 from __future__ import print_function
-import os
 import re
-import sqlite3
 import subprocess
+import MySQLdb
+import common
 
-from common import WORKDIR, UPSTREAMDB, createdb, UPSTREAM_PATH, SUPPORTED_KERNELS
-
-
-UPSTREAM_BASE = 'v' + SUPPORTED_KERNELS[0]
 
 RF = re.compile(r'^\s*Fixes: (?:commit )*([0-9a-f]+).*')
 RDESC = re.compile(r'.* \("([^"]+)"\).*')
 
 
-def make_tables(c):
-    """Initializes the upstreamdb tables."""
-    # Upstream commits
-    c.execute('CREATE TABLE commits (sha text, description text)')
-    c.execute('CREATE UNIQUE INDEX commit_sha ON commits (sha)')
+class Fix(object):
+    """Structure to store linux_upstream_fixes object.
 
-    # Fixes associated with upstream commits. sha is the commit, fsha is its fix.
-    # Each sha may have multiple fixes associated with it.
-    c.execute('CREATE TABLE fixes \
-                        (sha text, fsha text, patchid text, ignore integer)')
-    c.execute('CREATE INDEX sha ON fixes (sha)')
+    TODO(hirthanan) write method to produce insert query for better encapsulation
+    """
+    upstream_sha = fixedby_upstream_sha = None
+
+    def __init__(self, _upstream_sha, _fixedby_upstream_sha):
+        self.upstream_sha = _upstream_sha
+        self.fixedby_upstream_sha = _fixedby_upstream_sha
 
 
-def handle(start):
-    """Parses git logs and builds upstreamdb tables."""
-    conn = sqlite3.connect(UPSTREAMDB)
-    conn.text_factory = str
-    c = conn.cursor()
-    c2 = conn.cursor()
+def update_upstream_table(branch, start, db):
+    """Updates the linux upstream commits and linux upstream fixes tables.
 
+    Also keep a reference of last parsed SHA so we don't have to index the
+        entire commit log on each run.
+    """
+    print('Linux upstream on branch %s' % branch)
+    cursor = db.cursor()
+
+    print('Pulling all the latest linux-upstream commits')
+    subprocess.check_output(['git', 'pull'])
+
+    print('Loading all linux-upstream commit logs from %s' % start)
     commits = subprocess.check_output(['git', 'log', '--abbrev=12', '--oneline',
-                                       '--no-merges', '--reverse', start+'..'])
-    for commit in commits.decode('utf-8').splitlines():
+                                       '--no-merges', '--reverse', start + '..HEAD'])
+
+    fixes = []
+    last = None
+    print('Analyzing upstream commits to build linux_upstream_commits and fixes tables.')
+
+    for commit in commits.decode('utf-8', errors='ignore').splitlines():
         if commit != '':
             elem = commit.split(' ', 1)
             sha = elem[0]
             last = sha
 
-            # skip if SHA is already in database. This will happen
-            # for the first SHA when the script is re-run.
-            c.execute("select sha from commits where sha is '%s'" % sha)
-            if c.fetchone():
+            description = elem[1].rstrip('\n')
+
+            # Calculate patch ID
+            ps = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
+            spid = subprocess.check_output(['git', 'patch-id'],
+                    stdin=ps.stdout).decode('utf-8', errors='ignore')
+            patch_id = spid.split(' ', 1)[0]
+
+            try:
+                q = """INSERT INTO linux_upstream_commits
+                        (sha, description, patch_id)
+                        VALUES (%s, %s, %s)"""
+                cursor.execute(q, [sha, description, patch_id])
+                print('Inserted sha %s into linux_upstream_commits' % sha)
+            except MySQLdb.Error as e: # pylint: disable=no-member
+                print('Issue inserting (sha, description, patch_id) %s %s %s'
+                    % (sha, description, patch_id), e)
+                continue
+            except UnicodeEncodeError as e:
+                print('Failed to INSERT upstream sha %s with desciption %s'
+                        % (sha, description), e)
                 continue
 
-            description = elem[1].rstrip('\n')
-            c.execute('INSERT INTO commits(sha, description) VALUES (?, ?)',
-                                (sha, description))
             # check if this patch fixes a previous patch.
             subprocess_cmd = ['git', 'show', '-s', '--pretty=format:%b', sha]
-            description = subprocess.check_output(subprocess_cmd).decode('utf-8')
+            description = subprocess.check_output(subprocess_cmd).decode('utf-8', errors='ignore')
             for d in description.splitlines():
                 m = RF.search(d)
                 fsha = None
                 if m and m.group(1):
                     try:
                         # Normalize fsha to 12 characters
-                        cmd = 'git show -s --pretty=format:%%H %s' % m.group(1)
+                        cmd = 'git show -s --pretty=format:%h ' + m.group(1)
                         fsha = subprocess.check_output(cmd.split(' '),
-                                stderr=subprocess.DEVNULL).decode('utf-8')
+                                stderr=subprocess.DEVNULL).decode('utf-8', errors='ignore')
                     except subprocess.CalledProcessError:
-                        print("Commit '%s' for SHA '%s': "
-                                'Not found' % (m.group(0), sha))
+                        print('SHA %s fixes commit %s: Not found' % (sha, m.group(0)))
                         m = RDESC.search(d)
                         if m:
                             desc = m.group(1)
                             desc = desc.replace("'", "''")
-                            c2.execute('select sha from commits where '
-                                    "description is '%s'" % desc)
-                            fsha = c2.fetchone()
+                            q = """SELECT sha
+                                    FROM linux_upstream_commits
+                                    WHERE description = %s"""
+                            cursor.execute(q, [desc])
+                            fsha = cursor.fetchone()
                             if fsha:
                                 fsha = fsha[0]
-                                print("  Real SHA may be '%s'" % fsha)
+                                print('  Description matches with SHA %s' % fsha)
                         # The Fixes: tag may be wrong. The sha may not be in the
                         # upstream kernel, or the format may be completely wrong
                         # and m.group(1) may not be a sha in the first place.
                         # In that case, do nothing.
                 if fsha:
                     print('Commit %s fixed by %s' % (fsha[0:12], sha))
-                    # Calculate patch ID for fixing commit.
-                    ps = subprocess.Popen(['git', 'show', sha],
-                            stdout=subprocess.PIPE)
-                    spid = subprocess.check_output(['git', 'patch-id'],
-                            stdin=ps.stdout).decode('utf-8', errors='ignore')
-                    patchid = spid.split(' ', 1)[0]
 
-                    # Insert in reverse order: sha is fixed by fsha.
-                    # patchid is the patch ID associated with fsha (in the db).
-                    c.execute('INSERT into fixes (sha, fsha, patchid, ignore) '
-                            'VALUES (?, ?, ?, ?)',
-                            (fsha[0:12], sha, patchid, 0))
+                    # Add fixes to list to be added after linux_upstream_commits
+                    #  table is fully contructed to avoid Foreign key errors in SQL
+                    fix_obj = Fix(_upstream_sha=fsha[0:12], _fixedby_upstream_sha=sha)
+                    fixes.append(fix_obj)
 
+    for fix in fixes:
+        # Update sha, fsha pairs
+        q = """INSERT INTO linux_upstream_fixes (upstream_sha, fixedby_upstream_sha)
+                VALUES (%s, %s)"""
+        try:
+            cursor.execute(q, [fix.upstream_sha, fix.fixedby_upstream_sha])
+        except MySQLdb.IntegrityError as e: # pylint: disable=no-member
+            # TODO(hirthanan): Email mailing list that one of usha or fix_usha is missing
+            print('CANNOT FIND commit %s fixed by %s' %
+                    (fix.upstream_sha, fix.fixedby_upstream_sha), e)
+
+    # Update previous fetch database
     if last:
-        c.execute("UPDATE tip set sha='%s' where ref=1" % last)
+        common.update_previous_fetch(db, common.Kernel.linux_upstream, branch, last)
 
-    conn.commit()
-    conn.close()
-
-
-def update_upstreamdb():
-    """Updates the upstreamdb database."""
-    start = UPSTREAM_BASE
-
-    try:
-        # see if we previously handled anything. If yes, use it.
-        # Otherwise re-create database
-        conn = sqlite3.connect(UPSTREAMDB)
-        conn.text_factory = str
-        c = conn.cursor()
-        c.execute('select sha from tip')
-        sha = c.fetchone()
-        conn.close()
-        if sha and sha[0] != '':
-            start = sha[0]
-    except sqlite3.Error:
-        createdb(UPSTREAMDB, make_tables)
-
-    os.chdir(UPSTREAM_PATH)
-    subprocess.check_output(['git', 'pull'])
-
-    handle(start)
-
-    os.chdir(WORKDIR)
+    db.commit()
 
 
 if __name__ == '__main__':
-    update_upstreamdb()
+    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    common.update_kernel_db(cloudsql_db, common.Kernel.linux_upstream)
+    cloudsql_db.close()

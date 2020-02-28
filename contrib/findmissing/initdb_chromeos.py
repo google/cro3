@@ -8,13 +8,11 @@
 """Module rebuilding database with metadata about chromeos patches."""
 
 from __future__ import print_function
-import sqlite3
-import os
 import re
 import subprocess
-from common import CHROMEOS_PATH, SUPPORTED_KERNELS, \
-        WORKDIR, CHERRYPICK, STABLE, STABLE2, make_downstream_table, \
-        stabledb, chromeosdb, chromeos_branch, createdb
+import MySQLdb
+import common
+
 
 UPSTREAM = re.compile(r'(ANDROID: *|UPSTREAM: *|FROMGIT: *|BACKPORT: *)+(.*)')
 CHROMIUM = re.compile(r'(CHROMIUM: *|FROMLIST: *)+(.*)')
@@ -45,16 +43,17 @@ def search_usha(sha, description):
     If found, return upstream sha associated with this commit sha.
     """
 
-    usha = ''
+    usha = None
     if not CHROMIUM.match(description):
         desc = subprocess.check_output(['git', 'show',
             '-s', sha]).decode('utf-8', errors='ignore')
+        # TODO(hirthanan) change regex to parse entire description not line by line
         for d in desc.splitlines():
-            m = CHERRYPICK.search(d)
+            m = common.CHERRYPICK.search(d)
             if not m:
-                m = STABLE.search(d)
+                m = common.STABLE.search(d)
                 if not m:
-                    m = STABLE2.search(d)
+                    m = common.STABLE2.search(d)
             if m:
                 # The patch may have been picked multiple times; only record
                 # the first entry.
@@ -63,51 +62,40 @@ def search_usha(sha, description):
     return usha
 
 
+def update_chrome_table(branch, start, db):
+    """Updates the linux chrome commits table.
 
-def update_commits(start, cdb, sdb):
-    """Get list of commits from selected branch, starting with commit 'start'.
-
-    Branch must be checked out in current directory.
-    Skip commit if it is contained in sdb, otherwise add to cdb if it isn't
-    already there.
+    Also keep a reference of last parsed SHA so we don't have to index the
+        entire commit log on each run.
+    Skip commit if it is contained in the linux stable db, add to linux_chrome
     """
-
-    try:
-        conn = sqlite3.connect(cdb)
-        conn.text_factory = str
-        c = conn.cursor()
-
-        sconn = sqlite3.connect(sdb)
-        sconn.text_factory = str
-        sc = sconn.cursor()
-    except sqlite3.Error as e:
-        print('Could not update chromeos commits, raising error: ', e)
-        raise
+    subprocess.run(['git', 'checkout', common.chromeos_branch(branch)])
+    subprocess.run(['git', 'pull'])
 
     subprocess_cmd = ['git', 'log', '--no-merges', '--abbrev=12',
                       '--oneline', '--reverse', '%s..' % start]
-    commits = subprocess.check_output(subprocess_cmd).decode('utf-8')
+    commits = subprocess.check_output(subprocess_cmd).decode('utf-8', errors='ignore')
 
+    c = db.cursor()
     last = None
     for commit in commits.splitlines():
         if commit:
             elem = commit.split(' ', 1)
             sha = elem[0]
+
             description = elem[1].rstrip('\n')
-            ps = subprocess.Popen(['git', 'show', sha],
-                    stdout=subprocess.PIPE, encoding='utf-8')
+
+            ps = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
             spid = subprocess.check_output(['git', 'patch-id', '--stable'],
                     stdin=ps.stdout).decode('utf-8', errors='ignore')
             patchid = spid.split(' ', 1)[0]
 
-            # Do nothing if sha is in stable database
-            sc.execute("select sha from commits where sha='%s'" % sha)
-            found = sc.fetchone()
-            if found:
-                continue
-
-            # Do nothing if sha is already in database
-            c.execute("select sha from commits where sha='%s'" % sha)
+            # Do nothing if sha is in linux_chrome or linux_stable since we
+            #  don't want to track linux_stable sha's that are merged into linux_chrome
+            q = """SELECT 1 FROM linux_chrome
+                    JOIN linux_stable
+                    WHERE linux_chrome.sha = %s OR linux_stable.sha = %s"""
+            c.execute(q, [sha, sha])
             found = c.fetchone()
             if found:
                 continue
@@ -115,51 +103,28 @@ def update_commits(start, cdb, sdb):
             last = sha
 
             usha = search_usha(sha, description)
-            changeid = parse_changeID(sha)
 
-            c.execute('INSERT INTO commits(sha, usha, patchid,' \
-                      'description, changeid) VALUES (?, ?, ?, ?, ?)',
-                      (sha, usha, patchid, description, changeid))
+            try:
+                q = """INSERT INTO linux_chrome
+                        (sha, branch, upstream_sha, patch_id, description)
+                        VALUES (%s, %s, %s, %s, %s)"""
+                c.execute(q, [sha, branch, usha, patchid, description])
+            except MySQLdb.Error as e: # pylint: disable=no-member
+                print('Error in insertion into linux_chrome with values: ',
+                        [sha, branch, usha, patchid, description], e)
+            except UnicodeDecodeError as e:
+                print('Failed to INSERT stable sha %s with desciption %s'
+                        % (sha, description), e)
+
+    # Update previous fetch database
     if last:
-        c.execute("UPDATE tip set sha='%s' where ref=1" % last)
+        common.update_previous_fetch(db, common.Kernel.linux_chrome, branch, last)
 
-    conn.commit()
-    conn.close()
-    sconn.close()
+    db.commit()
 
-
-def update_chromeosdb():
-    """Updates the chromeosdb for all chromeos branches."""
-    os.chdir(CHROMEOS_PATH)
-
-    for branch in SUPPORTED_KERNELS:
-        start = 'v%s' % branch
-        cdb = chromeosdb(branch)
-        sdb = stabledb(branch)
-        bname = chromeos_branch(branch)
-
-        print('Handling %s' % bname)
-
-        try:
-            conn = sqlite3.connect(cdb)
-            conn.text_factory = str
-
-            c = conn.cursor()
-            c.execute('select sha from tip')
-            sha = c.fetchone()
-            conn.close()
-            if sha and sha[0]:
-                start = sha[0]
-        except sqlite3.Error:
-            createdb(cdb, make_downstream_table)
-
-        subprocess.run(['git', 'checkout', bname])
-        subprocess.run(['git', 'pull'])
-
-        update_commits(start, cdb, sdb)
-
-    os.chdir(WORKDIR)
 
 
 if __name__ == '__main__':
-    update_chromeosdb()
+    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    common.update_kernel_db(cloudsql_db, common.Kernel.linux_chrome)
+    cloudsql_db.close()

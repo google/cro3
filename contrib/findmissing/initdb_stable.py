@@ -8,12 +8,9 @@
 """Module parses and stores data from stable linux patch."""
 
 from __future__ import print_function
-import sqlite3
-import os
 import subprocess
-from common import STABLE_PATH, SUPPORTED_KERNELS, \
-        WORKDIR, CHERRYPICK, STABLE, STABLE2, make_downstream_table, \
-        stabledb, stable_branch, createdb
+import MySQLdb
+import common
 
 
 def search_usha(sha):
@@ -26,11 +23,11 @@ def search_usha(sha):
     desc = subprocess.check_output(['git', 'show',
         '-s', sha]).decode('utf-8', errors='ignore')
     for d in desc.splitlines():
-        m = CHERRYPICK.search(d)
+        m = common.CHERRYPICK.search(d)
         if not m:
-            m = STABLE.search(d)
+            m = common.STABLE.search(d)
             if not m:
-                m = STABLE2.search(d)
+                m = common.STABLE2.search(d)
         if m:
             # The patch may have been picked multiple times; only record
             # the first entry.
@@ -39,15 +36,17 @@ def search_usha(sha):
     return usha
 
 
-def update_commits(start, db):
-    """Get complete list of commits from stable branch.
+def update_stable_table(branch, start, db):
+    """Updates the linux stable commits table.
 
-    Assume that stable branch exists and has been checked out.
+    Also keep a reference of last parsed SHA so we don't have to index the
+        entire commit log on each run.
     """
+    cursor = db.cursor()
 
-    conn = sqlite3.connect(db)
-    conn.text_factory = str
-    c = conn.cursor()
+    # Pull latest changes in repository
+    subprocess.check_output(['git', 'checkout', common.stable_branch(branch)])
+    subprocess.check_output(['git', 'pull'])
 
     cmd = ['git', 'log', '--no-merges', '--abbrev=12', '--oneline',
                  '--reverse', '%s..' % start]
@@ -58,63 +57,45 @@ def update_commits(start, db):
         if commit:
             elem = commit.split(' ', 1)
             sha = elem[0]
+
             description = elem[1].rstrip('\n')
 
             ps = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
             spid = subprocess.check_output(['git', 'patch-id', '--stable'],
                             stdin=ps.stdout).decode('utf-8', errors='ignore')
-            patchid = spid.split(' ', 1)[0]
+            patch_id = spid.split(' ', 1)[0]
 
             # Do nothing if the sha is already in the database
-            c.execute("select sha from commits where sha='%s'" % sha)
-            found = c.fetchone()
+            q = """SELECT sha FROM linux_stable
+                    WHERE sha = %s"""
+            cursor.execute(q, [sha])
+            found = cursor.fetchone()
             if found:
                 continue
 
             last = sha
             usha = search_usha(sha)
 
-            c.execute('INSERT INTO commits(sha, usha,' \
-                                'patchid, description, changeid) VALUES (?, ?, ?, ?, ?)',
-                                (sha, usha, patchid, description, None))
+            try:
+                q = """INSERT INTO linux_stable
+                        (sha, branch, upstream_sha, patch_id, description)
+                        VALUES (%s, %s, %s, %s, %s)"""
+                cursor.execute(q, [sha, branch, usha, patch_id, description])
+            except MySQLdb.Error as e: # pylint: disable=no-member
+                print('Error in insertion into linux_stable with values: ',
+                        [sha, branch, usha, patch_id, description], e)
+            except UnicodeDecodeError as e:
+                print('Failed to INSERT stable sha %s with desciption %s'
+                        % (sha, description), e)
+
+    # Update previous fetch database
     if last:
-        c.execute("UPDATE tip set sha='%s' where ref=1" % last)
+        common.update_previous_fetch(db, common.Kernel.linux_stable, branch, last)
 
-    conn.commit()
-    conn.close()
-
-
-def update_stabledb():
-    """Updates the stabledb index for all stable branches."""
-    os.chdir(STABLE_PATH)
-
-    for branch in SUPPORTED_KERNELS:
-        start = 'v%s' % branch
-        db = stabledb(branch)
-        bname = stable_branch(branch)
-
-        print('Handling %s' % bname)
-
-        try:
-            conn = sqlite3.connect(db)
-            conn.text_factory = str
-
-            c = conn.cursor()
-            c.execute('select sha from tip')
-            sha = c.fetchone()
-            conn.close()
-            if sha and sha[0] != '':
-                start = sha[0]
-        except sqlite3.Error:
-            createdb(db, make_downstream_table)
-
-        subprocess.check_output(['git', 'checkout', bname])
-        subprocess.check_output(['git', 'pull'])
-
-        update_commits(start, db)
-
-    os.chdir(WORKDIR)
+    db.commit()
 
 
 if __name__ == '__main__':
-    update_stabledb()
+    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    common.update_kernel_db(cloudsql_db, common.Kernel.linux_stable)
+    cloudsql_db.close()

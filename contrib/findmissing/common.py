@@ -9,8 +9,13 @@
 
 from __future__ import print_function
 import os
-import sqlite3
 import re
+from enum import Enum
+import MySQLdb
+
+import initdb_upstream
+import initdb_stable
+import initdb_chromeos
 
 
 KERNEL_SITE = 'https://git.kernel.org/'
@@ -21,15 +26,15 @@ CHROMIUM_SITE = 'https://chromium.googlesource.com/'
 CHROMEOS_REPO = CHROMIUM_SITE + 'chromiumos/third_party/kernel'
 CHROMIUM_REVIEW_BASEURL = 'https://chromium-review.googlesource.com/'
 
+# Order SUPPORTED_KERNELS from oldest to newest
 SUPPORTED_KERNELS = ('4.4', '4.14', '4.19', '5.4')
+UPSTREAM_START_TAG = 'v%s' % SUPPORTED_KERNELS[0]
 
 CHROMEOS_PATH = 'linux_chrome'
 STABLE_PATH = 'linux_stable'
 UPSTREAM_PATH = 'linux_upstream'
 
 WORKDIR = os.getcwd()
-DBDIR = os.path.join(WORKDIR, 'database')
-UPSTREAMDB = os.path.join(DBDIR, 'upstream.db')
 
 # "commit" is sometimes seen multiple times, such as with commit 6093aabdd0ee
 CHERRYPICK = re.compile(r'cherry picked from (commit )+([0-9a-f]+)')
@@ -37,24 +42,11 @@ STABLE = re.compile(r'^\s*(commit )+([a-f0-9]+) upstream')
 STABLE2 = re.compile(r'^\s*\[\s*Upstream (commit )+([0-9a-f]+)\s*\]')
 
 
-def stabledb(version):
-    """Path of stabledb"""
-    return os.path.join(DBDIR, 'stable-%s.db' % version)
-
-
-def chromeosdb(version):
-    """Path of chromeosdb"""
-    return os.path.join(DBDIR, 'chromeos-%s.db' % version)
-
-
-def patchdb_stable(version):
-    """Path of patchdb for stable versions."""
-    return os.path.join(DBDIR, 'patch-stable-%s.db' % version)
-
-
-def patchdb_chromeos(version):
-    """Path of patchdb for chromeos versions."""
-    return os.path.join(DBDIR, 'patch-chromeos-%s.db' % version)
+class Kernel(Enum):
+    """Enum representing which Kernel we are representing."""
+    linux_stable = 1
+    linux_chrome = 2
+    linux_upstream = 3
 
 
 def stable_branch(version):
@@ -71,42 +63,60 @@ def patch_link(changeID):
     """Link to patch on gerrit"""
     return 'https://chromium-review.googlesource.com/q/%s' % changeID
 
+def update_previous_fetch(db, kernel, branch, last_sha):
+    """Updates the previous_fetch table for a kernel branch."""
+    c = db.cursor()
+    q = """UPDATE previous_fetch
+            SET sha_tip = %s
+            WHERE linux = %s AND branch = %s"""
+    c.execute(q, [last_sha, kernel.name, branch])
 
-def doremove(filepath):
-    """remove file if it exists"""
-    try:
-        os.remove(filepath)
-    except OSError:
-        pass
-
-
-def make_downstream_table(c):
-    """Create database table storing information about chrome/stable git logs"""
-
-    c.execute('CREATE TABLE commits (sha text, usha text, '
-            'patchid text, description text, changeid text)')
-    c.execute('CREATE UNIQUE INDEX commit_sha ON commits (sha)')
-    c.execute('CREATE INDEX upstream_sha ON commits (usha)')
-    c.execute('CREATE INDEX patch_id ON commits (patchid)')
+    db.commit()
 
 
-def createdb(db, op):
-    """remove and recreate database"""
-    newdbdir = os.path.dirname(db)
-    os.makedirs(newdbdir, exist_ok=True)
+def update_kernel_db(db, kernel):
+    """Update (upstream/stable/chrome) previous_fetch, fixes and commits SQL tables."""
+    get_branch_name = start = update_commits = None
 
-    doremove(db)
+    if kernel == Kernel.linux_chrome:
+        get_branch_name = chromeos_branch
+        update_commits = initdb_chromeos.update_chrome_table
+    elif kernel == Kernel.linux_stable:
+        get_branch_name = stable_branch
+        update_commits = initdb_stable.update_stable_table
+    else:
+        get_branch_name = lambda *args: 'master'
+        update_commits = initdb_upstream.update_upstream_table
 
-    conn = sqlite3.connect(db)
-    c = conn.cursor()
+    path = kernel.name
+    branches = [UPSTREAM_START_TAG] if kernel == Kernel.linux_upstream else SUPPORTED_KERNELS
+    start_template = '%s' if kernel == Kernel.linux_upstream else 'v%s'
 
-    op(c)
+    os.chdir(path)
 
-    # Convention: table 'tip' ref 1 contains the most recently processed SHA.
-    # Use this to avoid re-processing SHAs already in the database.
-    c.execute('CREATE TABLE tip (ref integer, sha text)')
-    c.execute('INSERT INTO tip (ref, sha) VALUES (?, ?)', (1, ''))
+    for branch in branches:
+        start = start_template % branch
 
-    # Save (commit) the changes
-    conn.commit()
-    conn.close()
+        print('Handling %s' % get_branch_name(branch))
+
+        try:
+            c = db.cursor()
+            q = """SELECT sha_tip
+                    FROM previous_fetch
+                    WHERE linux = %s AND branch = %s"""
+            c.execute(q, [path, branch])
+            sha = c.fetchone()
+            if sha and sha[0]:
+                start = sha[0]
+            else:
+                q = """INSERT INTO previous_fetch (linux, branch, sha_tip)
+                        VALUES (%s, %s, %s)"""
+                c.execute(q, [path, branch, start])
+        except MySQLdb.Error as e: # pylint: disable=no-member
+            print('Make sure the tables have been initialized in \
+                    ./scripts/sql/initialize_sql_tables.sql', e)
+
+
+        update_commits(branch, start, db)
+
+    os.chdir(WORKDIR)
