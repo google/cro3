@@ -64,7 +64,6 @@ from chromite.lib.xbuddy import common_util
 from chromite.lib.xbuddy import devserver_constants
 from chromite.lib.xbuddy import downloader
 from chromite.lib.xbuddy import xbuddy
-from chromite.scripts import cros_update
 
 # Module-local log function.
 def _Log(message, *args):
@@ -816,42 +815,42 @@ class DevServerRoot(object):
     devserver_url = updater.GetDevserverUrl()
     static_url = updater.GetStaticUrl()
 
+    # Command of running auto-update.
+    cmd = ['cros_update', '--hostname', host_name, '-b', build_name,
+           '--static_dir', updater.static_dir]
+
+    # The original_build's format is like: link/3428.210.0
+    # The corresponding release_archive_url's format is like:
+    #    gs://chromeos-releases/stable-channel/link/3428.210.0
+    if original_build:
+      release_archive_url = _build_uri_from_build_name(original_build)
+      # First staging the stateful.tgz synchronousely.
+      self.stage(files='stateful.tgz', is_async=False,
+                 archive_url=release_archive_url)
+      cmd += ['--original_build', original_build]
+
+    if force_update:
+      cmd += ['--force_update']
+
+    if full_update:
+      cmd += ['--full_update']
+
+    if payload_filename:
+      cmd += ['--payload_filename', payload_filename]
+
+    if clobber_stateful:
+      cmd += ['--clobber_stateful']
+
+    if quick_provision:
+      cmd += ['--quick_provision']
+
+    if devserver_url:
+      cmd += ['--devserver_url', devserver_url]
+
+    if static_url:
+      cmd += ['--static_url', static_url]
+
     if is_async:
-      # Command of running auto-update.
-      cmd = ['cros_update', '--hostname', host_name, '-b', build_name,
-             '--static_dir', updater.static_dir]
-
-      # The original_build's format is like: link/3428.210.0
-      # The corresponding release_archive_url's format is like:
-      #    gs://chromeos-releases/stable-channel/link/3428.210.0
-      if original_build:
-        release_archive_url = _build_uri_from_build_name(original_build)
-        # First staging the stateful.tgz synchronousely.
-        self.stage(files='stateful.tgz', is_async=False,
-                   archive_url=release_archive_url)
-        cmd += ['--original_build', original_build]
-
-      if force_update:
-        cmd += ['--force_update']
-
-      if full_update:
-        cmd += ['--full_update']
-
-      if payload_filename:
-        cmd += ['--payload_filename', payload_filename]
-
-      if clobber_stateful:
-        cmd += ['--clobber_stateful']
-
-      if quick_provision:
-        cmd += ['--quick_provision']
-
-      if devserver_url:
-        cmd += ['--devserver_url', devserver_url]
-
-      if static_url:
-        cmd += ['--static_url', static_url]
-
       p = subprocess.Popen(cmd, preexec_fn=os.setsid)
       pid = os.getpgid(p.pid)
 
@@ -862,12 +861,7 @@ class DevServerRoot(object):
 
       return json.dumps((True, pid))
     else:
-      cros_update_trigger = cros_update.CrOSUpdateTrigger(
-          host_name, build_name, updater.static_dir, force_update=force_update,
-          full_update=full_update, original_build=original_build,
-          payload_filename=payload_filename, quick_provision=quick_provision,
-          devserver_url=devserver_url, static_url=static_url)
-      cros_update_trigger.TriggerAU()
+      subprocess.check_call(cmd)
       return json.dumps((True, -1))
 
   @cherrypy.expose
