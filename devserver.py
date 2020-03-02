@@ -1212,9 +1212,6 @@ class DevServerRoot(object):
           R19-1993.0.0-a1-b1480.
       An empty string if no latest could be found.
     """
-    if is_deprecated_server():
-      raise DeprecatedRPCError('latestbuild')
-
     if not kwargs:
       return _PrintDocStringAsHTML(self.latestbuild)
 
