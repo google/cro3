@@ -72,14 +72,14 @@ def update_chrome_table(branch, start, db):
                     stdin=ps.stdout).decode('utf-8', errors='ignore')
             patchid = spid.split(' ', 1)[0]
 
-            # Do nothing if sha is in linux_chrome or linux_stable since we
-            #  don't want to track linux_stable sha's that are merged into linux_chrome
-            q = """SELECT 1 FROM linux_chrome
-                    JOIN linux_stable
-                    WHERE linux_chrome.sha = %s OR linux_stable.sha = %s"""
-            c.execute(q, [sha, sha])
-            found = c.fetchone()
-            if found:
+            # Do nothing if sha is in linux_stable since we
+            #  don't want to duplicate tracking linux_stable sha's
+            q = """SELECT 1 FROM linux_stable
+                    WHERE sha = %s"""
+            c.execute(q, [sha])
+            stable_found = c.fetchone()
+
+            if stable_found:
                 continue
 
             last = sha
