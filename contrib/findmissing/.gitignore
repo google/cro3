@@ -1,6 +1,6 @@
-linux-stable
-linux-upstream
-linux-chrome
+linux_stable
+linux_upstream
+linux_chrome
 database
 secrets/
 

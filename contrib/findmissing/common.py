@@ -23,9 +23,9 @@ CHROMIUM_REVIEW_BASEURL = 'https://chromium-review.googlesource.com/'
 
 SUPPORTED_KERNELS = ('4.4', '4.14', '4.19', '5.4')
 
-CHROMEOS_PATH = 'linux-chrome'
-STABLE_PATH = 'linux-stable'
-UPSTREAM_PATH = 'linux-upstream'
+CHROMEOS_PATH = 'linux_chrome'
+STABLE_PATH = 'linux_stable'
+UPSTREAM_PATH = 'linux_upstream'
 
 WORKDIR = os.getcwd()
 DBDIR = os.path.join(WORKDIR, 'database')

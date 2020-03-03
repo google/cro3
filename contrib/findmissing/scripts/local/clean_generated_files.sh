@@ -4,5 +4,5 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-rm -rf ../database/ ../__pycache__/ ../linux-upstream/ \
-  ../linux-stable/ ../linux-chrome/ ../env/
+rm -rf ../database/ ../__pycache__/ ../linux_upstream/ \
+  ../linux_stable/ ../linux_chrome/ ../env/

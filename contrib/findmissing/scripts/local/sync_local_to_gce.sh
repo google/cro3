@@ -25,6 +25,6 @@ fi
 
 USER="$(whoami)"
 
-rsync -O -rltvz --exclude=linux-upstream --exclude=linux-stable \
-  --exclude=linux-chrome --delete \
+rsync -O -rltvz --exclude=linux_upstream --exclude=linux_stable \
+  --exclude=linux_chrome --delete \
   "${FINDMISSING_DIR}" "${USER}"@"${GCE_EXTERNAL_IP}":/home/chromeos_patches

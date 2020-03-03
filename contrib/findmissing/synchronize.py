@@ -51,7 +51,7 @@ def synchronize_custom(path, repo):
     destdir = os.path.join(cwd, path)
     upstream_destdir = os.path.join(cwd, UPSTREAM_PATH)
 
-    get_branch = stable_branch if path == 'linux-stable' else chromeos_branch
+    get_branch = stable_branch if path == 'linux_stable' else chromeos_branch
 
     if not os.path.exists(destdir):
         print(f'Cloning {repo} into {destdir}')
@@ -107,7 +107,7 @@ def synchronize_custom(path, repo):
 
 
 def synchronize_repositories():
-    """Deep clones linux-upstream, linux-stable, and linux-chromeos repositories"""
+    """Deep clones linux_upstream, linux_stable, and linux_chromeos repositories"""
     synchronize_upstream()
     synchronize_custom(STABLE_PATH, STABLE_REPO)
     synchronize_custom(CHROMEOS_PATH, CHROMEOS_REPO)

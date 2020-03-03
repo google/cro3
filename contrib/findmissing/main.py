@@ -42,7 +42,7 @@ def sync_patches(version):
 
 @app.route('/sync/linux-cloudsource', methods=['POST'])
 def post_sync_linux():
-    """Syncs linux-upstream, linux-stable, and linux-chromeos.
+    """Syncs linux_upstream, linux_stable, and linux_chromeos.
 
     These repositories are mirrored on cloudsource to avoid fully
     cloning the repositories every time we need to parse logs.

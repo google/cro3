@@ -12,7 +12,7 @@
 git -C /opt/dev-util pull
 
 # Replaces last running webserver code with latest pulled changes
-# Note that we are not deleting the large linux git repositories (linux-*)
+# Note that we are not deleting the large linux git repositories (linux_*)
 rsync -O -avu \
-  --exclude=linux-upstream --exclude=linux-stable --exclude=linux-chrome --delete \
+  --exclude=linux_upstream --exclude=linux_stable --exclude=linux_chrome --delete \
   "/opt/dev-util/contrib/findmissing/" "/home/chromeos_patches"
