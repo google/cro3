@@ -42,6 +42,14 @@ STABLE = re.compile(r'^\s*(commit )+([a-f0-9]+) upstream')
 STABLE2 = re.compile(r'^\s*\[\s*Upstream (commit )+([0-9a-f]+)\s*\]')
 
 
+class Status(Enum):
+    """Text representation of database enum to track status of gerrit CL."""
+    OPEN = 1 # Gerrit ticket was created for clean fix patch
+    MERGED = 2 # Gerrit ticket was merged and closed
+    ABANDONED = 3 # Gerrit ticket was abandoned
+    CONFLICT = 4 # Gerrit ticket NOT created since patch doesn't apply properly
+
+
 class Kernel(Enum):
     """Enum representing which Kernel we are representing."""
     linux_stable = 1
