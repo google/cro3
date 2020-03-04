@@ -57,7 +57,7 @@ def get_status_from_cherrypicking_sha(sha):
     return ret
 
 
-def upstream_sha_to_kernel_sha(db, linux_table, branch, upstream_sha):
+def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
     """Retrieves chromeos/stable sha by indexing db.
 
     Returns sha or None if upstream sha doesn't exist downstream.
@@ -65,9 +65,9 @@ def upstream_sha_to_kernel_sha(db, linux_table, branch, upstream_sha):
     c = db.cursor()
 
     q = """SELECT sha
-            FROM %s
-            WHERE upstream_sha = %s AND branch = %s"""
-    c.execute(q, [linux_table, upstream_sha, branch])
+            FROM {chosen_table}
+            WHERE upstream_sha = %s AND branch = %s""".format(chosen_table=chosen_table)
+    c.execute(q, [upstream_sha, branch])
     row = c.fetchone()
 
     return row[0] if row else None
@@ -87,11 +87,11 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
 
     # Commit sha may have been modified in cherry-pick, backport, etc.
     # Retrieve SHA in linux_chrome by patch-id by checking for fixedby_upstream_sha
-    q = """SELECT linux_chrome.sha
+    q = """SELECT lc.sha
             FROM linux_chrome AS lc
-            JOIN linux_upstream_commits as LUC
+            JOIN linux_upstream_commits AS luc
             ON lc.patch_id = luc.patch_id
-            WHERE linux_chrome.upstream_sha = %s AND branch = %s"""
+            WHERE lc.upstream_sha = %s AND branch = %s"""
     c.execute(q, [fixedby_upstream_sha, branch])
     sha_row = c.fetchone()
 
@@ -114,8 +114,8 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
     return False
 
 
-def insert_fixes_gerrit(db, fixes_table, branch, kernel_sha, fixedby_upstream_sha):
-    """Inserts fixes_table rows by checking status of applying a fix change."""
+def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstream_sha):
+    """Inserts fix row by checking status of applying a fix change."""
     # Check if fix has been merged using it's patch-id since sha's might've changed
     success = insert_by_patch_id(db, branch, fixedby_upstream_sha)
     if success:
@@ -131,25 +131,29 @@ def insert_fixes_gerrit(db, fixes_table, branch, kernel_sha, fixedby_upstream_sh
 
     close_time = fix_change_id = reason = None
 
-    q = """INSERT INTO %s
+    q = """INSERT INTO {chosen_fixes}
             (kernel_sha, fixedby_upstream_sha, branch,
             entry_time, close_time, fix_change_id, status, reason)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""".format(chosen_fixes=chosen_fixes)
 
     if status == common.Status.MERGED:
         # Create a row for the merged CL (we don't need to track this), but can be stored
         # to indicate that the changes of this patch are already merged
         # entry_time and close_time are the same since we weren't tracking when it was merged
-        print('Bug fix patch [fixes_table_name, kernel_sha, fixedby_upstream_sha] \
-                (%s, %s, %s) already merged.' % (
-                    fixes_table, kernel_sha, fixedby_upstream_sha))
+        fixedby_kernel_sha = upstream_sha_to_kernel_sha(db, chosen_table,
+                branch, fixedby_upstream_sha)
+        print("""%s SHA [%s] already merged bugfix patch [kernel: %s] [upstream: %s]"""
+                % (chosen_fixes, kernel_sha, fixedby_kernel_sha, fixedby_upstream_sha))
 
-        reason = 'Patch was not missing (already applied)'
+        reason = 'Patch had already been applied to linux_chome'
         close_time = entry_time
 
+        # TODO(hirthanan): gerrit api call to retrieve change-id for merged commit
+        fix_change_id = 1
+
     elif status == common.Status.OPEN:
-        print('TODO(hirthanan) create gerrit ticket for entry \
-                kernel_sha:fixedby_upstream_sha', kernel_sha, fixedby_upstream_sha)
+        print("""TODO(hirthanan) create gerrit ticket for entry
+                kernel_sha:fixedby_upstream_sha""", kernel_sha, fixedby_upstream_sha)
 
         fix_change_id = 0
     elif status == common.Status.CONFLICT:
@@ -158,121 +162,18 @@ def insert_fixes_gerrit(db, fixes_table, branch, kernel_sha, fixedby_upstream_sh
         pass
 
     try:
-        c.execute(q, [fixes_table, kernel_sha, fixedby_upstream_sha,
+        c.execute(q, [kernel_sha, fixedby_upstream_sha,
+                        branch, entry_time, close_time,
+                        fix_change_id, cl_status, reason])
+        print('Inserted row into fixes table', [chosen_fixes, kernel_sha, fixedby_upstream_sha,
                         branch, entry_time, entry_time, close_time,
                         fix_change_id, cl_status, reason])
-        db.commit()
+
     except MySQLdb.Error as e: # pylint: disable=no-member
-        print('Error inserting fix CL into fixes_table',
-                [fixes_table, kernel_sha, fixedby_upstream_sha,
-                    branch, entry_time, entry_time, close_time, cl_status, reason], e)
-
-
-def update_fixes_gerrit(db, fixes_table, kernel_sha, upstream_sha, fixedby_upstream_sha):
-    """Updates fixes_table rows by attempting to apply a fix change when needed.
-
-    Currently the only way to assign ABANDONED status is to manually do it in DB.
-    todo(hirthanan): write process to pull status of CL and update tables
-    """
-    c = db.cursor()
-    q = """SELECT status FROM %s
-            WHERE kernel_sha = %s
-            AND fixedby_upstream_sha = %s"""
-    c.execute(q, [fixes_table, kernel_sha, fixedby_upstream_sha])
-
-    cl_status_row = c.fetchone()
-    if not cl_status_row:
-        raise ValueError('Database table [%s] should have kernel_sha \
-                fixedby_upstream_sha pair row, (%s, %s)' % (
-                    fixes_table, kernel_sha, fixedby_upstream_sha))
-
-    prev_cl_status = cl_status_row[0]
-    if prev_cl_status == common.Status.OPEN.name:
-        # Check to see if upstream sha is merged into linux_chrome already
-        q = """SELECT 1 FROM linux_chrome WHERE upstream_sha = %s"""
-        c.execute(q, [upstream_sha])
-        if c.fetchone():
-            cl_status = common.Status.MERGED.name
-            close_time = get_current_time()
-            reason = 'Closed OPEN CL after merging bugfix patch into linux_chrome'
-            q = """UPDATE %s
-                    SET status = %s, close_time = %s, reason = %s
-                    WHERE kernel_sha = %s
-                    AND fixedby_upstream_sha = %s"""
-            c.execute(q, [fixes_table, cl_status, close_time, reason,
-                            kernel_sha, fixedby_upstream_sha])
-        else:
-            print('CL [fixes_table, kernel_sha, upstream_sha, fix_usha] \
-                    (%s %s %s %s) has not been reviewed yet.' %
-                    (fixes_table, kernel_sha, upstream_sha, fixedby_upstream_sha))
-    elif prev_cl_status == common.Status.CONFLICT.name:
-        # Check to see if fix patch can be applied again, if not do nothing
-        status = get_status_from_cherrypicking_sha(fixedby_upstream_sha)
-        if status == common.Status.MERGED:
-            # Patch is already in linux_chrome
-            cl_status = common.Status.MERGED.name
-            close_time = get_current_time()
-            reason = 'Patch had already been applied to linux_chome'
-
-            q = """UPDATE %s
-                    SET status = %s, close_time = %s, reason = %s
-                    WHERE kernel_sha = %s
-                    AND fixedby_upstream_sha = %s"""
-            c.execute(q, [fixes_table, cl_status, close_time, reason,
-                            kernel_sha, fixedby_upstream_sha])
-        elif status == common.Status.OPEN:
-            cl_status = common.Status.OPEN.name
-            entry_time = get_current_time()
-
-            # TODO(hirthanan): add api call to gerrit to create ticket
-            fix_change_id = 0
-            reason = 'Patch is missing and applied cleanly'
-
-            q = """UPDATE %s
-                    SET status = %s, entry_time = %s, fix_change_id = %s, reason = %s
-                    WHERE kernel_sha = %s
-                    AND fixedby_upstream_sha = %s"""
-            c.execute(q, [fixes_table, cl_status, entry_time, fix_change_id,
-                        reason, kernel_sha, fixedby_upstream_sha])
-    elif prev_cl_status == common.Status.MERGED.name or \
-            prev_cl_status == common.Status.ABANDONED.name:
-        # Nothing needs to be updated
-        # todo(hirthanan) handling ABANDONED status extra work if time permits
-        return
-    else:
-        raise ValueError('ERROR, Unknown status type %s' % prev_cl_status)
-
-    db.commit()
-
-
-def update_fixes(db, fixes_table, branch, kernel_sha, upstream_sha):
-    """Keeps track of missing bugfix patches in chrome and stable.
-
-    TODO(hirthanan): Refactor using SQL queries to update conflict, open gerrit statuses.
-    """
-    c = db.cursor()
-
-    q = """SELECT fixedby_upstream_sha
-            FROM linux_upstream_fixes
-            WHERE upstream_sha = %s"""
-    c.execute(q, [upstream_sha])
-
-    for fix_row in c.fetchall():
-        fixedby_upstream_sha = fix_row[0]
-
-        q = """SELECT 1 FROM %s
-                WHERE kernel_sha = %s
-                AND fixedby_upstream_sha = %s"""
-        c.execute(q, [fixes_table, kernel_sha, fixedby_upstream_sha])
-        is_sha_fixsha_tracked = c.fetchone()
-
-        # Check if we are already tracking the bugfix
-        if is_sha_fixsha_tracked:
-            # Update columns if needed
-            update_fixes_gerrit(db, fixes_table, kernel_sha, upstream_sha, fixedby_upstream_sha)
-        else:
-            # Insert new row into table
-            insert_fixes_gerrit(db, fixes_table, branch, kernel_sha, fixedby_upstream_sha)
+        print('Error inserting fix CL into fixes table',
+                [chosen_fixes, kernel_sha, fixedby_upstream_sha,
+                        branch, entry_time, entry_time, close_time,
+                        fix_change_id, cl_status, reason], e)
 
 
 def missing_branch(db, branch, kernel_metadata):
@@ -283,14 +184,55 @@ def missing_branch(db, branch, kernel_metadata):
     print('Checking branch %s' % bname)
     subprocess.check_output(['git', 'checkout', bname], stderr=subprocess.DEVNULL)
 
-    # TODO(hirthanan) modify to not load entire table
-    q = """SELECT sha, upstream_sha
-            FROM %s
-            WHERE branch = %s"""
-    c.execute(q, [kernel_metadata.kernel_table, branch])
+    # chosen_table is either linux_stable or linux_chrome
+    chosen_table = kernel_metadata.kernel_table
+    chosen_fixes = kernel_metadata.kernel_fixes_table
 
-    for (sha, upstream_sha) in c.fetchall():
-        update_fixes(db, kernel_metadata.kernel_fixes_table, branch, sha, upstream_sha)
+    # New rows to insert
+    # Note: MySQLdb doesn't support inserting table names as parameters
+    #   due to sql injection
+    q = """SELECT chosen_table.sha, luf.fixedby_upstream_sha
+            FROM {chosen_table} AS chosen_table
+            JOIN linux_upstream_fixes AS luf
+            ON chosen_table.upstream_sha = luf.upstream_sha
+            WHERE branch = %s
+            AND chosen_table.upstream_sha
+            NOT IN (
+                SELECT chosen_fixes.fixedby_upstream_sha
+                FROM {chosen_fixes} AS chosen_fixes
+                WHERE branch = %s
+            )""".format(chosen_table=chosen_table, chosen_fixes=chosen_fixes)
+    try:
+        c.execute(q, [branch, branch])
+        print('Finding new rows to insert into fixes table',
+                [chosen_table, chosen_fixes, branch])
+    except MySQLdb.Error as e: # pylint: disable=no-member
+        print('Error finding new rows to insert',
+                [chosen_table, chosen_fixes, branch], e)
+
+    for (kernel_sha, fixedby_upstream_sha) in c.fetchall():
+        insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstream_sha)
+
+    # Old rows to Update
+    q = """UPDATE {chosen_fixes} AS fixes
+            JOIN linux_chrome AS lc
+            ON fixes.fixedby_upstream_sha = lc.upstream_sha
+            SET status = 'MERGED', close_time = %s, reason = %s
+            WHERE fixes.branch = %s
+            AND lc.branch = %s
+            AND (fixes.status = 'OPEN' OR fixes.status = 'CONFLICT')
+            """.format(chosen_fixes=chosen_fixes)
+
+    close_time = get_current_time()
+    reason = 'Patch had already been applied to linux_chome'
+
+    try:
+        c.execute(q, [close_time, reason, branch, branch])
+        print('Updating rows that have been merged into linux_chrome on table/branch',
+                [chosen_fixes, branch])
+    except MySQLdb.Error as e: # pylint: disable=no-member
+        print('Error updating fixes table for merged commits',
+                [chosen_fixes, close_time, reason, branch, branch], e)
 
     db.commit()
 
