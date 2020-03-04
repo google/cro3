@@ -5,23 +5,28 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Setup module containing script to Synchronize kernel repositories + database."""
+"""Setup module containing script to Synchronize kernel repositories + database.
+
+TODO(hirthanan): abstract out subprocess calls to function to take cmd + block
+"""
 
 from __future__ import print_function
 import os
 import subprocess
 import MySQLdb
+import common
+import missing
 
-from common import UPSTREAM_PATH, CHROMEOS_PATH, STABLE_PATH, \
-        UPSTREAM_REPO, CHROMEOS_REPO, STABLE_REPO, SUPPORTED_KERNELS, \
-        stable_branch, chromeos_branch, update_kernel_db, Kernel
+UPSTREAM_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_upstream)
+STABLE_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_stable)
+CHROME_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_chrome)
 
-
-def synchronize_upstream():
+def synchronize_upstream(upstream_kernel_metadata):
     """Synchronizes locally cloned repo with linux upstream remote."""
     cwd = os.getcwd()
-    destdir = os.path.join(cwd, UPSTREAM_PATH)
-    repo = UPSTREAM_REPO
+    path = upstream_kernel_metadata.path
+    destdir = os.path.join(cwd, path)
+    repo = upstream_kernel_metadata.repo
 
     print(destdir, repo, cwd)
 
@@ -42,13 +47,16 @@ def synchronize_upstream():
     os.chdir(cwd)
 
 
-def synchronize_custom(path, repo):
+def synchronize_custom(custom_kernel_metadata):
     """Synchronizes locally cloned repo with linux stable/chromeos remote."""
+    path = custom_kernel_metadata.path
+    repo = custom_kernel_metadata.repo
+
     cwd = os.getcwd()
     destdir = os.path.join(cwd, path)
-    upstream_destdir = os.path.join(cwd, UPSTREAM_PATH)
+    upstream_destdir = os.path.join(cwd, common.UPSTREAM_PATH)
 
-    get_branch = stable_branch if path == 'linux_stable' else chromeos_branch
+    get_branch_name = custom_kernel_metadata.get_kernel_branch
 
     if not os.path.exists(destdir):
         print('Cloning %s into %s' % (repo, destdir))
@@ -57,9 +65,9 @@ def synchronize_custom(path, repo):
         p.wait()
 
         os.chdir(destdir)
-        for kernel in SUPPORTED_KERNELS:
-            bname = get_branch(kernel)
-            cmd = ('git checkout -b %s origin/%s' % (bname, bname)).split(' ')
+        for branch in custom_kernel_metadata.branches:
+            branch_name = get_branch_name(branch)
+            cmd = ('git checkout -b %s origin/%s' % (branch_name, branch_name)).split(' ')
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
             p.wait()
 
@@ -75,15 +83,15 @@ def synchronize_custom(path, repo):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         p.wait()
 
-        for kernel in SUPPORTED_KERNELS:
-            branch = get_branch(kernel)
-            cmd = ('git rev-parse --verify %s' % (branch)).split(' ')
+        for branch in custom_kernel_metadata.branches:
+            branch_name = get_branch_name(branch)
+            cmd = ('git rev-parse --verify %s' % (branch_name)).split(' ')
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
             p.wait()
 
             output, _ = p.communicate()
             if output:
-                cmd = ('git checkout %s' % (branch)).split(' ')
+                cmd = ('git checkout %s' % (branch_name)).split(' ')
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
                 p.wait()
 
@@ -93,11 +101,11 @@ def synchronize_custom(path, repo):
 
                 output, _ = p.communicate()
                 if not output:
-                    cmd = ('git reset --hard origin/%s' % (branch)).split(' ')
+                    cmd = ('git reset --hard origin/%s' % (branch_name)).split(' ')
                     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
                     p.wait()
             else:
-                cmd = ('git checkout -b %s origin/%s' % (branch, branch)).split(' ')
+                cmd = ('git checkout -b %s origin/%s' % (branch_name, branch_name)).split(' ')
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
                 p.wait()
 
@@ -106,21 +114,19 @@ def synchronize_custom(path, repo):
 
 def synchronize_repositories():
     """Deep clones linux_upstream, linux_stable, and linux_chromeos repositories"""
-    synchronize_upstream()
-    synchronize_custom(STABLE_PATH, STABLE_REPO)
-    synchronize_custom(CHROMEOS_PATH, CHROMEOS_REPO)
+    synchronize_upstream(UPSTREAM_KERNEL_METADATA)
+    synchronize_custom(STABLE_KERNEL_METADATA)
+    synchronize_custom(CHROME_KERNEL_METADATA)
+
 
 def synchronize_database():
     """Synchronizes the databases for upstream, stable, and chromeos."""
     db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
-    print('updating upstreamdb')
-    update_kernel_db(db, Kernel.linux_upstream)
-    print('updating stabledb')
-    update_kernel_db(db, Kernel.linux_stable)
-    print('updating chromeosdb')
-    update_kernel_db(db, Kernel.linux_chrome)
+    common.update_kernel_db(db, UPSTREAM_KERNEL_METADATA)
+    common.update_kernel_db(db, STABLE_KERNEL_METADATA)
+    common.update_kernel_db(db, CHROME_KERNEL_METADATA)
+    missing.missing(db)
     db.close()
-    print('FINISHED UPDATING DBS')
 
 
 if __name__ == '__main__':

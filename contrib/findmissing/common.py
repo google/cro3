@@ -26,9 +26,9 @@ CHROMIUM_SITE = 'https://chromium.googlesource.com/'
 CHROMEOS_REPO = CHROMIUM_SITE + 'chromiumos/third_party/kernel'
 CHROMIUM_REVIEW_BASEURL = 'https://chromium-review.googlesource.com/'
 
-# Order SUPPORTED_KERNELS from oldest to newest
-SUPPORTED_KERNELS = ('4.4', '4.14', '4.19', '5.4')
-UPSTREAM_START_TAG = 'v%s' % SUPPORTED_KERNELS[0]
+# Order SUPPORTED_BRANCHES from oldest to newest
+SUPPORTED_BRANCHES = ['4.4', '4.14', '4.19', '5.4']
+UPSTREAM_START_BRANCH = 'v%s' % SUPPORTED_BRANCHES[0]
 
 CHROMEOS_PATH = 'linux_chrome'
 STABLE_PATH = 'linux_stable'
@@ -59,17 +59,23 @@ class Kernel(Enum):
 
 class KernelMetadata(object):
     """Object to group kernel Metadata."""
-    local_kernel_path = None
-    kernel_table = None
+    path = None
+    repo = None
     kernel_fixes_table = None
+    branches = None
+    tag_template = None
     get_kernel_branch = None
+    update_table = None
 
-    def __init__(self, _local_path, _kernel_table, _kernel_fixes_table,
-            _get_kernel_branch):
-        self.local_kernel_path = _local_path
-        self.kernel_table = _kernel_table
+    def __init__(self, _path, _repo, _kernel_fixes_table, _branches, _tag_template,
+            _get_kernel_branch, _update_table):
+        self.path = _path
+        self.repo = _repo
         self.kernel_fixes_table = _kernel_fixes_table
+        self.branches = _branches
+        self.tag_template = _tag_template
         self.get_kernel_branch = _get_kernel_branch
+        self.update_table = _update_table
 
 
 def stable_branch(version):
@@ -97,30 +103,16 @@ def update_previous_fetch(db, kernel, branch, last_sha):
     db.commit()
 
 
-def update_kernel_db(db, kernel):
+def update_kernel_db(db, kernel_metadata):
     """Update (upstream/stable/chrome) previous_fetch, fixes and commits SQL tables."""
-    get_branch_name = start = update_commits = None
-
-    if kernel == Kernel.linux_chrome:
-        get_branch_name = chromeos_branch
-        update_commits = initdb_chromeos.update_chrome_table
-    elif kernel == Kernel.linux_stable:
-        get_branch_name = stable_branch
-        update_commits = initdb_stable.update_stable_table
-    else:
-        get_branch_name = lambda *args: 'master'
-        update_commits = initdb_upstream.update_upstream_table
-
-    path = kernel.name
-    branches = [UPSTREAM_START_TAG] if kernel == Kernel.linux_upstream else SUPPORTED_KERNELS
-    start_template = '%s' if kernel == Kernel.linux_upstream else 'v%s'
+    path = kernel_metadata.path
 
     os.chdir(path)
 
-    for branch in branches:
-        start = start_template % branch
+    for branch in kernel_metadata.branches:
+        start = kernel_metadata.tag_template % branch
 
-        print('Handling %s' % get_branch_name(branch))
+        print('Handling %s' % kernel_metadata.get_kernel_branch(branch))
 
         try:
             c = db.cursor()
@@ -137,25 +129,32 @@ def update_kernel_db(db, kernel):
                 c.execute(q, [path, branch, start])
         except MySQLdb.Error as e: # pylint: disable=no-member
             print('Make sure the tables have been initialized in \
-                    ./scripts/sql/initialize_sql_tables.sql', e)
+                    ./scripts/sql/initialize_sql_tables.sql')
+            raise e
 
 
-        update_commits(branch, start, db)
+        kernel_metadata.update_table(branch, start, db)
+        db.commit()
 
     os.chdir(WORKDIR)
 
-def get_kernel_metadata(release):
-    """Returns KernelMetadata for a release (linux-stable, or linux-chrome"""
-    kernel_metadata = None
-    if release == Kernel.linux_stable:
-        kernel_metadata = KernelMetadata(STABLE_PATH, 'linux_stable',
-                'stable_fixes', stable_branch)
-    elif release == Kernel.linux_chrome:
-        kernel_metadata = KernelMetadata(CHROMEOS_PATH, 'linux_chrome',
-                'chrome_fixes', chromeos_branch)
-    elif release == Kernel.linux_upstream:
-        kernel_metadata = KernelMetadata(UPSTREAM_PATH, 'linux_upstream_commits',
-                'linux_upstream_fixes', None)
-    else:
-        raise ValueError('Conditionals should match Kernel Enum release types.')
-    return kernel_metadata
+def get_kernel_metadata(kernel):
+    """Returns KernelMetadata for each Kernel Enum"""
+    stable_kernel_metadata = KernelMetadata(STABLE_PATH, STABLE_REPO, 'stable_fixes',
+            SUPPORTED_BRANCHES, 'v%s', stable_branch, initdb_stable.update_stable_table)
+    chrome_kernel_metadata = KernelMetadata(CHROMEOS_PATH, CHROMEOS_REPO, 'chrome_fixes',
+            SUPPORTED_BRANCHES, 'v%s', chromeos_branch, initdb_chromeos.update_chrome_table)
+    upstream_kernel_metadata = KernelMetadata(UPSTREAM_PATH, 'upstream_fixes', UPSTREAM_REPO,
+            [UPSTREAM_START_BRANCH], '%s', lambda *args: 'master',
+            initdb_upstream.update_upstream_table)
+
+    kernel_metadata_lookup = {
+            Kernel.linux_stable: stable_kernel_metadata,
+            Kernel.linux_chrome: chrome_kernel_metadata,
+            Kernel.linux_upstream: upstream_kernel_metadata
+    }
+
+    try:
+        return kernel_metadata_lookup[kernel]
+    except KeyError as e:
+        raise KeyError('Conditionals should match Kernel Enum types.', e)

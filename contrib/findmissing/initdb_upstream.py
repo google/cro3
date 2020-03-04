@@ -19,7 +19,7 @@ RDESC = re.compile(r'.* \("([^"]+)"\).*')
 
 
 class Fix(object):
-    """Structure to store linux_upstream_fixes object.
+    """Structure to store upstream_fixes object.
 
     TODO(hirthanan) write method to produce insert query for better encapsulation
     """
@@ -48,7 +48,7 @@ def update_upstream_table(branch, start, db):
 
     fixes = []
     last = None
-    print('Analyzing upstream commits to build linux_upstream_commits and fixes tables.')
+    print('Analyzing upstream commits to build linux_upstream and fixes tables.')
 
     for commit in commits.decode('utf-8', errors='ignore').splitlines():
         if commit != '':
@@ -65,11 +65,11 @@ def update_upstream_table(branch, start, db):
             patch_id = spid.split(' ', 1)[0]
 
             try:
-                q = """INSERT INTO linux_upstream_commits
+                q = """INSERT INTO linux_upstream
                         (sha, description, patch_id)
                         VALUES (%s, %s, %s)"""
                 cursor.execute(q, [sha, description, patch_id])
-                print('Inserted sha %s into linux_upstream_commits' % sha)
+                print('Inserted sha %s into linux_upstream' % sha)
             except MySQLdb.Error as e: # pylint: disable=no-member
                 print('Issue inserting (sha, description, patch_id) %s %s %s'
                     % (sha, description, patch_id), e)
@@ -98,7 +98,7 @@ def update_upstream_table(branch, start, db):
                             desc = m.group(1)
                             desc = desc.replace("'", "''")
                             q = """SELECT sha
-                                    FROM linux_upstream_commits
+                                    FROM linux_upstream
                                     WHERE description = %s"""
                             cursor.execute(q, [desc])
                             fsha = cursor.fetchone()
@@ -112,14 +112,14 @@ def update_upstream_table(branch, start, db):
                 if fsha:
                     print('Commit %s fixed by %s' % (fsha[0:12], sha))
 
-                    # Add fixes to list to be added after linux_upstream_commits
+                    # Add fixes to list to be added after linux_upstream
                     #  table is fully contructed to avoid Foreign key errors in SQL
                     fix_obj = Fix(_upstream_sha=fsha[0:12], _fixedby_upstream_sha=sha)
                     fixes.append(fix_obj)
 
     for fix in fixes:
         # Update sha, fsha pairs
-        q = """INSERT INTO linux_upstream_fixes (upstream_sha, fixedby_upstream_sha)
+        q = """INSERT INTO upstream_fixes (upstream_sha, fixedby_upstream_sha)
                 VALUES (%s, %s)"""
         try:
             cursor.execute(q, [fix.upstream_sha, fix.fixedby_upstream_sha])
@@ -137,5 +137,6 @@ def update_upstream_table(branch, start, db):
 
 if __name__ == '__main__':
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
-    common.update_kernel_db(cloudsql_db, common.Kernel.linux_upstream)
+    kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_upstream)
+    common.update_kernel_db(cloudsql_db, kernel_metadata)
     cloudsql_db.close()

@@ -60,6 +60,9 @@ def update_chrome_table(branch, start, db):
 
     c = db.cursor()
     last = None
+    print('Parsing git logs from %s .. HEAD on branch %s' %
+            (start, common.chromeos_branch(branch)))
+
     for commit in commits.splitlines():
         if commit:
             elem = commit.split(' ', 1)
@@ -91,6 +94,7 @@ def update_chrome_table(branch, start, db):
                         (sha, branch, upstream_sha, patch_id, description)
                         VALUES (%s, %s, %s, %s, %s)"""
                 c.execute(q, [sha, branch, usha, patchid, description])
+                print('Insert into linux_chrome', [sha, branch, usha, patchid, description])
             except MySQLdb.Error as e: # pylint: disable=no-member
                 print('Error in insertion into linux_chrome with values: ',
                         [sha, branch, usha, patchid, description], e)
@@ -108,5 +112,6 @@ def update_chrome_table(branch, start, db):
 
 if __name__ == '__main__':
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
-    common.update_kernel_db(cloudsql_db, common.Kernel.linux_chrome)
+    kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
+    common.update_kernel_db(cloudsql_db, kernel_metadata)
     cloudsql_db.close()

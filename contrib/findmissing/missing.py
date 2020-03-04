@@ -5,7 +5,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Find missing stable and backported mainline fix patches in chromeos."""
+"""Find missing stable and backported mainline fix patches in chromeos.
+
+TODO(hirthanan): rename functions to be representative of what code is doing
+"""
 
 from __future__ import print_function
 import os
@@ -89,8 +92,8 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
     # Retrieve SHA in linux_chrome by patch-id by checking for fixedby_upstream_sha
     q = """SELECT lc.sha
             FROM linux_chrome AS lc
-            JOIN linux_upstream_commits AS luc
-            ON lc.patch_id = luc.patch_id
+            JOIN linux_upstream AS lu
+            ON lc.patch_id = lu.patch_id
             WHERE lc.upstream_sha = %s AND branch = %s"""
     c.execute(q, [fixedby_upstream_sha, branch])
     sha_row = c.fetchone()
@@ -179,22 +182,22 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
 def missing_branch(db, branch, kernel_metadata):
     """Look for missing Fixup commits in provided chromeos or stable release."""
     c = db.cursor()
-    bname = kernel_metadata.get_kernel_branch(branch)
+    branch_name = kernel_metadata.get_kernel_branch(branch)
 
-    print('Checking branch %s' % bname)
-    subprocess.check_output(['git', 'checkout', bname], stderr=subprocess.DEVNULL)
+    print('Checking branch %s' % branch_name)
+    subprocess.check_output(['git', 'checkout', branch_name], stderr=subprocess.DEVNULL)
 
     # chosen_table is either linux_stable or linux_chrome
-    chosen_table = kernel_metadata.kernel_table
+    chosen_table = kernel_metadata.path
     chosen_fixes = kernel_metadata.kernel_fixes_table
 
     # New rows to insert
     # Note: MySQLdb doesn't support inserting table names as parameters
     #   due to sql injection
-    q = """SELECT chosen_table.sha, luf.fixedby_upstream_sha
+    q = """SELECT chosen_table.sha, uf.fixedby_upstream_sha
             FROM {chosen_table} AS chosen_table
-            JOIN linux_upstream_fixes AS luf
-            ON chosen_table.upstream_sha = luf.upstream_sha
+            JOIN upstream_fixes AS uf
+            ON chosen_table.upstream_sha = uf.upstream_sha
             WHERE branch = %s
             AND chosen_table.upstream_sha
             NOT IN (
@@ -242,9 +245,9 @@ def missing_helper(db, kernel_metadata):
     if len(sys.argv) > 1:
         branches = sys.argv[1:]
     else:
-        branches = common.SUPPORTED_KERNELS
+        branches = kernel_metadata.branches
 
-    os.chdir(kernel_metadata.local_kernel_path)
+    os.chdir(kernel_metadata.path)
 
     for b in branches:
         missing_branch(db, b, kernel_metadata)
