@@ -35,6 +35,9 @@ from six.moves import urllib
 _FIRMWARE_VER = '5'
 _KERNEL_VER = '7'
 
+# This is the same for all images on canary channel.
+_CANARY_APP_ID = '{90F229CE-83E2-4FAF-8479-E368A34938B1}'
+
 
 class Error(Exception):
   """The base class for failures raised by Nebraska."""
@@ -256,8 +259,8 @@ class Request(object):
       self.event_type = None
       self.event_result = None
       self.previous_version = None
-      self.is_platform = None
       self.rollback_allowed = None
+      self.has_update_check = False
 
       self.ParseApp(app)
 
@@ -287,8 +290,9 @@ class Request(object):
       self.delta_okay = app.get(Request.APP_DELTA_OKAY_ATTR) == 'true'
 
       update_check = app.find(Request.UPDATE_CHECK_TAG)
+      self.has_update_check = update_check is not None
       self.rollback_allowed = (
-          update_check is not None and
+          self.has_update_check and
           update_check.get(Request.ROLLBACK_ALLOWED_ATTR) == 'true')
 
       event = app.find(Request.EVENT_TAG)
@@ -301,11 +305,6 @@ class Request(object):
 
       if None in (self.request_type, self.appid, self.version):
         raise InvalidRequestError('Invalid app request.')
-
-      # This is a weak indication of whether a request is for a platform update
-      # (platform App IDs don't have underscore, but DLCs have). But for now it
-      # robustly gets what we want.
-      self.is_platform = '_' not in self.appid
 
     def MatchAppData(self, app_data, partial_match_appid=False,
                      check_against_canary=False):
@@ -433,7 +432,6 @@ class Response(object):
       self._app_request = app_request
       self._response_props = response_props
       self._app_data = None
-      self._err_not_found = False
       self._payloads_address = None
       # Although, for installs the update_engine probably should not care about
       # critical updates and should install even if OOBE has not been passed.
@@ -444,27 +442,25 @@ class Response(object):
         return
 
       if self._app_request.request_type == Request.RequestType.INSTALL:
-        self._app_data = nebraska_props.install_app_index.Find(
-            self._app_request)
-        self._err_not_found = self._app_data is None
+        # Platform requests for install should not have any payload associated
+        # with them.
+        if self._app_request.has_update_check:
+          self._app_data = nebraska_props.install_app_index.Find(
+              self._app_request)
         self._payloads_address = nebraska_props.install_payloads_address
+
       elif self._app_request.request_type == Request.RequestType.UPDATE:
         self._app_data = nebraska_props.update_app_index.Find(self._app_request)
         self._payloads_address = nebraska_props.update_payloads_address
-        # This differentiates between apps that are not in the index and apps
-        # that are available, but do not have an update available. Omaha treats
-        # the former as an error, whereas the latter case should result in a
-        # response containing a "noupdate" tag.
-        self._err_not_found = (self._app_data is None and
-                               not nebraska_props.update_app_index.Contains(
-                                   self._app_request))
 
       if self._app_data:
         logging.debug('Found matching payload: %s', str(self._app_data))
-      elif self._err_not_found:
-        logging.debug('No matches for App ID %s', self._app_request.appid)
       elif self._app_request.request_type == Request.RequestType.UPDATE:
-        logging.debug('No updates available for App ID %s',
+        logging.debug('No matching updates payload available for App ID %s',
+                      self._app_request.appid)
+      elif (self._app_request.has_update_check and
+            self._app_request.request_type == Request.RequestType.INSTALL):
+        logging.debug('No matching install payload available for App ID %s',
                       self._app_request.appid)
 
     def Compile(self):
@@ -536,14 +532,16 @@ class Response(object):
         ElementTree.SubElement(
             packages, 'package',
             attrib={'fp': '1.%s' % self._app_data.sha256_hex,
-                    'hash_sha256': self._app_data.sha256_hex.decode('utf-8'),
+                    'hash_sha256': self._app_data.sha256_hex,
                     'name': self._app_data.name,
                     'required': 'true',
                     'size': str(self._app_data.size)})
 
-      elif self._err_not_found and not self._app_request.rollback_allowed:
-        app_response.set('status', 'error-unknownApplication')
-
+      # For installs, if there was no updatecheck, there will be no updatecheck
+      # response. Just a no update in the app tag's status attribute.
+      elif (self._app_request.request_type == Request.RequestType.INSTALL and
+            not self._app_request.has_update_check):
+        app_response.attrib['status'] = 'noupdate'
       elif self._app_request.request_type == Request.RequestType.UPDATE:
         update_check_attribs = {'status': 'noupdate'}
         if self._response_props.eol_date is not None:
@@ -695,9 +693,6 @@ class AppIndex(object):
     SHA256_HEX_KEY = 'sha256_hex'
     PUBLIC_KEY_RSA_KEY = 'public_key'
 
-    # This is the same for all images on canary channel.
-    CANARY_APP_ID = '{90F229CE-83E2-4FAF-8479-E368A34938B1}'
-
     def __init__(self, app_data):
       """Initialize AppData.
 
@@ -708,9 +703,9 @@ class AppIndex(object):
       self.appid = app_data[self.APPID_KEY]
       # Replace the begining of the App ID with the canary version.
       self.canary_appid = ''
-      if len(self.appid) >= len(self.CANARY_APP_ID):
-        self.canary_appid = (self.CANARY_APP_ID +
-                             self.appid[len(self.CANARY_APP_ID):])
+      if len(self.appid) >= len(_CANARY_APP_ID):
+        self.canary_appid = (_CANARY_APP_ID +
+                             self.appid[len(_CANARY_APP_ID):])
       self.name = app_data[self.NAME_KEY]
       self.target_version = app_data[self.TARGET_VERSION_KEY]
       self.is_delta = app_data[self.IS_DELTA_KEY]
@@ -729,7 +724,8 @@ class AppIndex(object):
       # value from base64 to hex so nebraska can send the correct version to the
       # client. See b/131762584.
       self.sha256 = app_data[self.SHA256_HEX_KEY]
-      self.sha256_hex = base64.b16encode(base64.b64decode(self.sha256))
+      self.sha256_hex = base64.b16encode(
+          base64.b64decode(self.sha256)).decode('utf-8')
       self.url = None # Determined per-request.
 
     def __str__(self):
