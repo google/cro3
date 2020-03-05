@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type project struct {
@@ -453,6 +454,7 @@ func main() {
 
 	stillRunning := true
 	for stillRunning {
+		time.Sleep(time.Second)
 		countMtx.Lock()
 		reportProgress(startedCounter, runningCounter)
 		if runningCounter == 0 {
