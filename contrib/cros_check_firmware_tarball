@@ -1,0 +1,166 @@
+#!/bin/bash
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Loads script libraries.
+CONTRIB_DIR=$(dirname "$(readlink -f "$0")")
+. "${CONTRIB_DIR}/common.sh" || exit 1
+
+FLAGS_HELP="
+Command to check firmware tarballs after srcuris change.
+
+After you make a change to the firmware version in the master configuration and
+update srcuris, run this script to check if all firmware tarballs exist on BCS.
+
+If all firmware tarballs exist on BCS, return success (0). Otherwise, generate
+the missing firmware tarballs and return error (1).
+
+Usage:
+    cros_check_firmware_tarball -b <board>
+"
+
+# Flags
+DEFINE_string board "${DEFAULT_BOARD}" "Which board the firmware is for" b
+
+# Parse command line.
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+set -e
+
+NAME_PATTERN='^\([a-zA-Z0-9]*\)\([_a-zA-Z0-9]*\)\.\([0-9\.]*\)\..*$'
+name_to_tar_path() {
+  local file_name="$1"
+  local board="$2"
+  local version tar_path_pattern
+
+  version=$(echo "${file_name}" | sed "s/${NAME_PATTERN}/\3/g")
+  tar_path_pattern="gs://chromeos-releases/canary-channel/${board}/${version}*/ChromeOS-firmware-*"
+
+  gsutil ls "${tar_path_pattern}" 2>/dev/null || echo ""
+}
+
+name_to_bin_path() {
+  local file_name="$1"
+  local device firmware_type bin_path=""
+
+  device=$(echo "${file_name}" | sed "s/${NAME_PATTERN}/\1/g" | \
+                 tr '[:upper:]' '[:lower:]')
+  firmware_type=$(echo "${file_name}" | sed "s/${NAME_PATTERN}/\2/g")
+
+  case "${firmware_type}" in
+  "" ) # AP firmware
+    bin_path="image-${device}.bin"
+    ;;
+  "_EC" ) # EC firmware
+    bin_path="${device}/ec.bin"
+    ;;
+  *) # Unknown
+    ;;
+  esac
+
+  echo "${bin_path}"
+}
+
+check_firmware_tarball() {
+  local board="$1"
+  local srcuris i uri TMP_WORK TMP_OUT
+  local uris=() unknown_uris=() known_uris=() known_uris_source=()
+
+  # Check srcuris exist
+  srcuris="${GCLIENT_ROOT}/src/private-overlays/overlay-${board}-private/chromeos-base/chromeos-firmware-${board}/files/srcuris"
+  [[ ! -f "${srcuris}" ]] && die "${srcuris} doesn't exist."
+
+  # Get Missing URIs in srcuris
+  for uri in $(cat "${srcuris}"); do
+    gsutil ls "${uri}" > /dev/null 2>&1 || uris+=("${uri}")
+  done
+
+  # Return success if no missing URIs.
+  [[ "${#uris[@]}" -eq 0 ]] && return 0
+
+  echo "Missing URIs. Fixing it..."
+
+  TMP_WORK=$(mktemp -d --suffix=".${board}.check_firmware_work")
+  TMP_OUT=$(mktemp -d --suffix=".${board}.check_firmware_out")
+
+  for uri in "${uris[@]}"; do
+    local uri_basename tar_path bin_path
+    local tar_basename download_tar_path untar_dir bin_dirname bin_basename
+
+    # Parse URI name to get tarball and binary path.
+    uri_basename=$(basename "${uri}")
+    tar_path=$(name_to_tar_path "${uri_basename}" "${board}")
+    bin_path=$(name_to_bin_path "${uri_basename}")
+
+    # Skip if URI name is unknown format.
+    if [[ -z "${tar_path}" || -z "${bin_path}" ]]; then
+      unknown_uris+=("${uri}")
+      continue
+    fi
+
+    # Download the firmware tarball.
+    tar_basename=$(basename "${tar_path}")
+    download_tar_path="${TMP_WORK}/${tar_basename}"
+    if [[ ! -f "${download_tar_path}" ]]; then
+      gsutil cp "${tar_path}" "${download_tar_path}"
+    fi
+
+    untar_dir="${TMP_WORK}/${tar_basename//./_}"
+    if [[ ! -d "${untar_dir}" ]]; then
+      mkdir "${untar_dir}"
+      tar -xf "${download_tar_path}" -C "${untar_dir}"
+    fi
+
+    # Skip if binary file does not exist.
+    if [[ ! -f "${untar_dir}/${bin_path}" ]]; then
+      unknown_uris+=("${uri}")
+      continue
+    fi
+
+    # Make new tarballs.
+    bin_dirname=$(dirname "${bin_path}")
+    bin_basename=$(basename "${bin_path}")
+    tar -jcf "${TMP_OUT}/${uri_basename}" -C "${untar_dir}/${bin_dirname}" \
+      "${bin_basename}"
+
+    known_uris+=("${uri}")
+    known_uris_source+=("${tar_path}:${bin_path}")
+  done
+
+  rm -rf "${TMP_WORK}"
+  [[ -z "$(ls -A ${TMP_OUT})" ]] && rm -rf "${TMP_OUT}"
+
+  if [[ "${#unknown_uris[@]}" -ne 0 ]]; then
+    for i in "${!unknown_uris[@]}"; do
+      echo "Skip ${unknown_uris[i]}"
+    done
+    echo
+  fi
+
+  if [[ "${#known_uris[@]}" -ne 0 ]]; then
+    for i in "${!known_uris[@]}"; do
+      echo "Generate ${known_uris[i]}"
+      echo "    from ${known_uris_source[i]}"
+    done
+    echo
+    echo "Your tarballs are ready at"
+    echo "  ${TMP_OUT}"
+    echo "To continue, please upload them to BCS manually through CPFE:"
+    echo "https://www.google.com/chromeos/partner/fe/#bcUpload:type=PRIVATE"
+  else
+    echo "No tarballs generated."
+  fi
+
+  return 1
+}
+
+main() {
+  [[ -z "${FLAGS_board}" ]] && die "-b or --board required."
+
+  check_firmware_tarball "${FLAGS_board}"
+
+  return $?
+}
+
+main "$@"
