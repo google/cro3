@@ -576,8 +576,6 @@ class ApiRoot(object):
     Example URL:
       http://myhost/api/hostlog?ip=192.168.1.5
     """
-    if is_deprecated_server():
-      raise DeprecatedRPCError('hostlog')
     return updater.HandleHostLogPing(ip)
 
   @cherrypy.expose
