@@ -401,10 +401,13 @@ class Response(object):
           attrib={'elapsed_days': str(self._elapsed_days),
                   'elapsed_seconds': str(self._elapsed_seconds)})
 
+      # The list of app data that we have already matched. This is populated
+      # during the for loop below.
+      matched_apps = set()
       for app_request in self._request.app_requests:
         response_xml.append(
             self.AppResponse(app_request, self._nebraska_props,
-                             self._response_props).Compile())
+                             self._response_props, matched_apps).Compile())
 
     except Exception as err:
       logging.error(traceback.format_exc())
@@ -421,13 +424,15 @@ class Response(object):
     responses to pings and events as appropriate.
     """
 
-    def __init__(self, app_request, nebraska_props, response_props):
+    def __init__(self, app_request, nebraska_props, response_props,
+                 matched_apps):
       """Initialize an AppResponse.
 
       Args:
         app_request: AppRequest representing a client request.
         nebraska_props: An instance of NebraskaProperties.
         response_props: An instance of ResponseProperties.
+        matched_apps: The set of app data that have been matched already.
       """
       self._app_request = app_request
       self._response_props = response_props
@@ -446,11 +451,12 @@ class Response(object):
         # with them.
         if self._app_request.has_update_check:
           self._app_data = nebraska_props.install_app_index.Find(
-              self._app_request)
+              self._app_request, matched_apps)
         self._payloads_address = nebraska_props.install_payloads_address
 
       elif self._app_request.request_type == Request.RequestType.UPDATE:
-        self._app_data = nebraska_props.update_app_index.Find(self._app_request)
+        self._app_data = nebraska_props.update_app_index.Find(self._app_request,
+                                                              matched_apps)
         self._payloads_address = nebraska_props.update_payloads_address
 
       if self._app_data:
@@ -594,7 +600,7 @@ class AppIndex(object):
           raise
         logging.debug('Found app data: %s', str(app))
 
-  def Find(self, request):
+  def Find(self, request, matched_apps):
     """Search the index for a given appid.
 
     Searches the index for the payloads matching a client request. Matching is
@@ -603,6 +609,7 @@ class AppIndex(object):
 
     Args:
       request: AppRequest describing the client request.
+      matched_apps: The set of app data that have been matched already.
 
     Returns:
       An AppData object describing an available payload matching the client
@@ -631,6 +638,11 @@ class AppIndex(object):
       matches = [app_data for app_data in self._index if
                  request.MatchAppData(app_data, partial_match_appid=True)]
 
+    # Now remove App ID matches that have already been matched by other
+    # requests.
+    matches = [app_data for app_data in matches
+               if app_data not in matched_apps]
+
     if not matches:
       return None
 
@@ -640,6 +652,9 @@ class AppIndex(object):
       match = match if match else next(iter(matches), None)
     else:
       match = next(iter(matches), None)
+
+    # Add this App data to the list of already matched ones.
+    matched_apps.add(match)
 
     return copy.copy(match)
 

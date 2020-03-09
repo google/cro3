@@ -615,8 +615,8 @@ class NebraskaTest(NebraskaBaseTest):
     action = root.findall('app/updatecheck/manifest/actions/action')[1]
     self.assertEqual(action.attrib['IsDeltaPayload'], 'true')
 
-  def testMatchAppDataAppidMismatch(self):
-    """Tests MatchAppData for appid mismatch."""
+  def testMismatchAppDataAppID(self):
+    """Tests appid mismatch."""
     self.GenerateAppData(appid='bar')
     neb_props = nebraska.NebraskaProperties(
         update_metadata_dir=self.tempdir,
@@ -641,6 +641,24 @@ class NebraskaTest(NebraskaBaseTest):
 
     update_check = ElementTree.fromstring(response).find('app/updatecheck')
     self.assertEqual(update_check.attrib['status'], 'ok')
+
+  def testAlreadyMatched(self):
+    """Tests not matching an already matched app."""
+    self.GenerateAppData()
+    neb_props = nebraska.NebraskaProperties(
+        update_metadata_dir=self.tempdir,
+        update_payloads_address=_UPDATE_PAYLOADS_ADDRESS)
+    neb = nebraska.Nebraska(nebraska_props=neb_props)
+
+    # Two identical requests.
+    request = GenerateXMLRequest([
+        GenerateXMLAppRequest(),
+        GenerateXMLAppRequest()
+    ])
+    response = neb.GetResponseToRequest(nebraska.Request(request))
+    update_checks = ElementTree.fromstring(response).findall('app/updatecheck')
+    self.assertEqual(update_checks[0].attrib['status'], 'ok')
+    self.assertEqual(update_checks[1].attrib['status'], 'noupdate')
 
   def testInvalidXMLRequest(self):
     """Tests ParseRequest() handling of invalid XML."""
