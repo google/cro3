@@ -24,7 +24,7 @@ STABLE_REPO = KERNEL_SITE + 'pub/scm/linux/kernel/git/stable/linux-stable'
 
 CHROMIUM_SITE = 'https://chromium.googlesource.com/'
 CHROMEOS_REPO = CHROMIUM_SITE + 'chromiumos/third_party/kernel'
-CHROMIUM_REVIEW_BASEURL = 'https://chromium-review.googlesource.com/'
+CHROMIUM_REVIEW_BASEURL = 'https://chromium-review.googlesource.com/a'
 
 # Order SUPPORTED_BRANCHES from oldest to newest
 SUPPORTED_BRANCHES = ['4.4', '4.14', '4.19', '5.4']
@@ -35,6 +35,8 @@ STABLE_PATH = 'linux_stable'
 UPSTREAM_PATH = 'linux_upstream'
 
 WORKDIR = os.getcwd()
+GIT_COOKIE_PATH = os.path.join(WORKDIR, '.git-credential-cache/cookie')
+
 
 # "commit" is sometimes seen multiple times, such as with commit 6093aabdd0ee
 CHERRYPICK = re.compile(r'cherry picked from (commit )+([0-9a-f]+)')
