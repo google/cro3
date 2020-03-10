@@ -90,29 +90,42 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
 
     # Commit sha may have been modified in cherry-pick, backport, etc.
     # Retrieve SHA in linux_chrome by patch-id by checking for fixedby_upstream_sha
+    #  removes entries that are already tracked in chrome_fixes
     q = """SELECT lc.sha
             FROM linux_chrome AS lc
             JOIN linux_upstream AS lu
             ON lc.patch_id = lu.patch_id
-            WHERE lc.upstream_sha = %s AND branch = %s"""
-    c.execute(q, [fixedby_upstream_sha, branch])
-    sha_row = c.fetchone()
+            JOIN upstream_fixes as uf
+            ON lc.upstream_sha = uf.upstream_sha
+            WHERE uf.fixedby_upstream_sha = %s AND branch = %s
+            AND (lc.sha, uf.fixedby_upstream_sha)
+            NOT IN (
+                SELECT kernel_sha, fixedby_upstream_sha
+                FROM chrome_fixes
+                WHERE branch = %s
+            )"""
+    c.execute(q, [fixedby_upstream_sha, branch, branch])
+    chrome_shas = c.fetchall()
 
-    if sha_row:
-        entry_time = get_current_time()
-        cl_status = common.Status.MERGED.name
-        reason = 'Found bugfix patch in linux_chrome for sha %s' % fixedby_upstream_sha
+    # fixedby_upstream_sha has already been merged into linux_chrome
+    #  chrome shas represent kernel sha for the upstream_sha fixedby_upstream_sha
+    if chrome_shas:
+        for chrome_sha in chrome_shas:
+            entry_time = get_current_time()
+            cl_status = common.Status.MERGED.name
+            reason = 'Already merged into linux_chrome [upstream sha %s]' % fixedby_upstream_sha
 
-        try:
-            q = """INSERT INTO chrome_fixes
-                    (kernel_sha, fixedby_upstream_sha, branch, entry_time, close_time, status, reason)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)"""
-            c.execute(q, [sha_row[0], fixedby_upstream_sha,
-                            branch, entry_time, entry_time, cl_status, reason])
-            db.commit()
-            return True
-        except MySQLdb.Error as e: # pylint: disable=no-member
-            print('Failed to insert an already merged entry into chrome_fixes.', e)
+            try:
+                q = """INSERT INTO chrome_fixes
+                        (kernel_sha, fixedby_upstream_sha,
+                        branch, entry_time, close_time, status, reason)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+                c.execute(q, [chrome_sha, fixedby_upstream_sha,
+                                branch, entry_time, entry_time, cl_status, reason])
+                db.commit()
+            except MySQLdb.Error as e: # pylint: disable=no-member
+                print('Failed to insert an already merged entry into chrome_fixes.', e)
+        return True
 
     return False
 
