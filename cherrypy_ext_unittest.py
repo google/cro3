@@ -48,32 +48,6 @@ class CherrypyExtTest(mox.MoxTestBase):
 
     self.mox.VerifyAll()
 
-  def testZeroPortPatcherSuccess(self):
-    """Make sure that ZeroPatcher successfully patches CherryPy.
-
-    This merely ensures that the patcher applies cleanly to the CherryPy
-    version available to the test environment, giving us some assurance that
-    it's still compatible with the range of versions that we might be using it
-    with.  The actual testing of the arbitrary port binding feature is covered
-    by integration tests.
-    """
-    self.assertIsNone(cherrypy_ext.ZeroPortPatcher.DoPatch(cherrypy))
-
-  def testZeroPortPatcherFailure(self):
-    """Make sure that ZeroPatcher fails with an incompatible CherryPy.
-
-    This ensures that the patcher fails when applied to a CherryPy version that
-    does not have the desired properties.
-    """
-    module = cherrypy.process.servers
-    func_name = 'wait_for_free_port'
-    orig_func = getattr(module, func_name, None)
-    self.assertTrue(orig_func)
-    delattr(module, func_name)
-    self.assertRaises(AttributeError, cherrypy_ext.ZeroPortPatcher.DoPatch,
-                      cherrypy)
-    setattr(module, func_name, orig_func)
-
 
 if __name__ == '__main__':
   unittest.main()
