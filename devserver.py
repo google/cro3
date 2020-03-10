@@ -112,7 +112,8 @@ class DeprecatedRPCError(DevServerError):
 
     :param rpc_name: (str) name of the RPC that has been deprecated.
     """
-    super(DeprecatedRPCError, self).__init__(DEPRECATED_RPC_ERROR_MSG % rpc_name)
+    super(DeprecatedRPCError, self).__init__(
+        DEPRECATED_RPC_ERROR_MSG % rpc_name)
     self.rpc_name = rpc_name
 
 
@@ -575,45 +576,6 @@ class ApiRoot(object):
       http://myhost/api/hostlog?ip=192.168.1.5
     """
     return updater.HandleHostLogPing(ip)
-
-  @cherrypy.expose
-  def fileinfo(self, *args):
-    """Returns information about a given staged file.
-
-    Args:
-      args: path to the file inside the server's static staging directory
-
-    Returns:
-      A JSON encoded dictionary with information about the said file, which may
-      contain the following keys/values:
-        size (int):      the file size in bytes
-        sha256 (string): a base64 encoded SHA256 hash
-
-    Example URL:
-      http://myhost/api/fileinfo/some/path/to/file
-    """
-    if is_deprecated_server():
-      raise DeprecatedRPCError('fileinfo')
-
-    # TODO(ahassani): A better way of doing this is to just return the the
-    # content of the payloads' property file instead. That has all this info
-    # except that the key for sha256 is 'sha256_hex', but still base64 encdoed.
-
-    file_path = os.path.join(updater.static_dir, *args)
-    if not os.path.exists(file_path):
-      raise DevServerError('file not found: %s' % file_path)
-    try:
-      file_size = os.path.getsize(file_path)
-      file_sha256 = common_util.GetFileSha256(file_path)
-    except os.error as e:
-      raise DevServerError(
-          'failed to get info for file %s: %s' % (file_path, e))
-
-    return json.dumps({
-        'size': file_size,
-        'sha256': file_sha256,
-    }, sort_keys=True)
-
 
 class DevServerRoot(object):
   """The Root Class for the Dev Server.

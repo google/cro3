@@ -412,16 +412,6 @@ class DevserverBasicTests(AutoStartDevserverTestBase):
     self.assertTrue(process.is_running())
     self.assertIn('./devserver.py', process.cmdline())
 
-  def testFileInfo(self):
-    """Verifies the fileinfo API."""
-    response = self._MakeRPC('/'.join(['api', 'fileinfo', LABEL,
-                                       TEST_UPDATE_PAYLOAD_NAME]))
-    self.assertEqual(
-        response,
-        '{"sha256": "hgfZ19hcsA5OGUN3f4SDtoO0kzT24o+JsGgjNVCVEy0=", '
-        '"size": 36}')
-
-
 class DevserverExtendedTests(AutoStartDevserverTestBase):
   """Longer running integration tests that test interaction with Google Storage.
 
