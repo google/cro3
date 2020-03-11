@@ -23,6 +23,7 @@ from __future__ import print_function
 import json
 import http
 import requests
+import os
 
 from common import CHROMIUM_REVIEW_BASEURL, GIT_COOKIE_PATH
 
@@ -36,15 +37,29 @@ def get_auth_cookie():
 
 def retrieve_and_parse_endpoint(endpoint_url):
     """Retrieves Gerrit endpoint response and removes XSSI prefix )]}'"""
-    resp = requests.get(endpoint_url, cookies=get_auth_cookie())
-
     try:
+        resp = requests.get(endpoint_url, cookies=get_auth_cookie())
+        resp.raise_for_status()
         resp_json = json.loads(resp.text[5:])
+    except requests.exceptions.HTTPError as e:
+        raise type(e)('Endpoint %s should have HTTP response 200' % endpoint_url) from e
     except json.decoder.JSONDecodeError as e:
-        raise ValueError('Response should contain json )]} prefix to prevent XSSI attacks', e)
+        raise ValueError('Response should contain json )]} prefix to prevent XSSI attacks') from e
 
     return resp_json
 
+def set_and_parse_endpoint(endpoint_url, payload):
+    """POST request to gerrit endpoint with specified payload."""
+    try:
+        resp = requests.post(endpoint_url, json=payload, cookies=get_auth_cookie())
+        resp.raise_for_status()
+        resp_json = json.loads(resp.text[5:])
+    except requests.exceptions.HTTPError as e:
+        raise type(e)('Endpoint %s should have HTTP response 200' % endpoint_url) from e
+    except json.decoder.JSONDecodeError as e:
+        raise ValueError('Response should contain json )]} prefix to prevent XSSI attacks') from e
+
+    return resp_json
 
 def get_commit(changeid):
     """Retrieves current commit message for a change.
@@ -52,20 +67,36 @@ def get_commit(changeid):
     May add some additional information to the fix patch for tracking purposes.
     i.e attaching a tag
     """
-    get_commit_endpoint = '%s/changes/%s/revisions/current/commit/' % (
-            CHROMIUM_REVIEW_BASEURL, changeid)
+    get_commit_endpoint = os.path.join(CHROMIUM_REVIEW_BASEURL, 'changes',
+                                        changeid, 'revisions/current/commit')
     return retrieve_and_parse_endpoint(get_commit_endpoint)
 
 
-def get_reviewers(changeid):
-    """Retrieves list of reviewers from gerrit given a chromeos changeid."""
-    list_reviewers_endpoint = '%s/changes/%s/reviewers/' % (CHROMIUM_REVIEW_BASEURL, changeid)
-    return retrieve_and_parse_endpoint(list_reviewers_endpoint)
+def get_changeid_reviewers(changeid):
+    """Retrieves list of reviewer emails from gerrit given a chromeos changeid."""
+    list_reviewers_endpoint = os.path.join(CHROMIUM_REVIEW_BASEURL, 'changes',
+                                        changeid, 'reviewers')
+
+    resp = retrieve_and_parse_endpoint(list_reviewers_endpoint)
+
+    try:
+        return [reviewer_resp['email'] for reviewer_resp in resp]
+    except KeyError as e:
+        raise type(e)('Gerrit API endpoint to list reviewers should contain key email') from e
+
+def set_changeid_reviewers(changeid, reviewer_emails):
+    """Adds reviewers to a Gerrit CL."""
+    add_reviewer_endpoint = os.path.join(CHROMIUM_REVIEW_BASEURL, 'changes',
+                                        changeid, 'reviewers')
+
+    for email in reviewer_emails:
+        payload = {'reviewer': email}
+        set_and_parse_endpoint(add_reviewer_endpoint, payload)
 
 
 def get_change(changeid):
     """Retrieves ChangeInfo from gerrit using its changeid"""
-    get_change_endpoint = '%s/changes/%s/' % (CHROMIUM_REVIEW_BASEURL, changeid)
+    get_change_endpoint = os.path.join(CHROMIUM_REVIEW_BASEURL, 'changes', changeid)
     return retrieve_and_parse_endpoint(get_change_endpoint)
 
 
