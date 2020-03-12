@@ -23,7 +23,8 @@ UPSTREAM_REPO = KERNEL_SITE + 'pub/scm/linux/kernel/git/torvalds/linux'
 STABLE_REPO = KERNEL_SITE + 'pub/scm/linux/kernel/git/stable/linux-stable'
 
 CHROMIUM_SITE = 'https://chromium.googlesource.com/'
-CHROMEOS_REPO = CHROMIUM_SITE + 'chromiumos/third_party/kernel'
+CHROMEOS_KERNEL_DIR = 'chromiumos/third_party/kernel'
+CHROMEOS_REPO = os.path.join(CHROMIUM_SITE, CHROMEOS_KERNEL_DIR)
 CHROMIUM_REVIEW_BASEURL = 'https://chromium-review.googlesource.com/a'
 
 # Order SUPPORTED_BRANCHES from oldest to newest
