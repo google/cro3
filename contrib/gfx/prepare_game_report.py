@@ -16,6 +16,7 @@ import sys
 # This script prepares an archive which includes all the necessary information
 # for a game report along with its trace file.
 
+game_report_version = '2'
 python_bin = 'python3'
 tmp_dir = '/tmp'
 game_trace_fname = 'game.trace'
@@ -78,8 +79,9 @@ try:
       exit(0)
 
   # Collect the game info report.
+  game_info['report_version'] = game_report_version
   game_info['report_date'] = cur_time.isoformat()
-  game_info['version'] = input("Game version (if available): ")
+  game_info['game_version'] = input("Game version (if available): ")
   game_info['can_start'] = yes_or_no('Does the game start?')
   game_info['bug_id'] = input('Issue id in buganizer: ')
   if game_info['can_start'] == True:
@@ -87,8 +89,13 @@ try:
     game_info['fps_main_menu'] = input('Main menu fps: ')
     game_info['start_time'] = input('Game start time from main menu in seconds: ')
     game_info['playable'] = yes_or_no('Is game playable?')
+    game_info['stutters'] = yes_or_no('Does game stutter?')
     game_info['average_fps'] = input('Average game fps: ')
     game_info['full_screen'] = yes_or_no('Is game fullscreen?')
+  else:
+    game_info['can_install'] = yes_or_no('Does the game install?')
+    if game_info['can_install'] != True:
+      game_info['not_enough_space'] = yes_or_no('Is the installation error caused by insufficient disk space?')
   save_json(game_info, path.join(tmp_dir, game_info_fname))
 
   # Collect system/machine info report.
@@ -108,9 +115,13 @@ try:
     print('Preparing the trace file information for %s...' % game_trace_fname)
     trace_info = parse_script_stdout_json('trace_file_info.py',
                    [path.join(tmp_dir, game_trace_fname)])
+    trace_info['can_replay'] = yes_or_no('Does the trace file can be replayed without crashes?')
+    if trace_info['can_replay']:
+      trace_info['replay_artifacts'] = yes_or_no('Is there any visual differences in trace replay compared to the game?')
+      trace_info['replay_fps'] = input('Trace replay fps: ')
     save_json(trace_info, path.join(tmp_dir, trace_info_fname))
     print('Compressing the trace file...')
-    zstd_cmd = 'zstd -19 -T0 -f %s' % path.join(tmp_dir, game_trace_fname)
+    zstd_cmd = 'zstd -T0 -f %s' % path.join(tmp_dir, game_trace_fname)
     subprocess.run(zstd_cmd, shell=True, check=True)
     items_in_archive = items_in_archive + [trace_info_fname, game_trace_fname + '.zst']
 
