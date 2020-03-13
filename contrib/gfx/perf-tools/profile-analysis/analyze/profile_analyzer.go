@@ -249,12 +249,29 @@ func GatherCallDataForFrame(prof *ProfileData, frameNum int) []CallInfo {
 
 // GatherFrameTiming returns the total GPU and CPU time spent in the given frame.
 func GatherFrameTiming(
-	prof *ProfileData, frameNum int) (totalGPUTimeNs int, totalCPUTimeNs int) {
+	prof *ProfileData, frameNum int, callNameRegEx string) (totalGPUTimeNs int, totalCPUTimeNs int) {
 	r := prof.GetCallRangeForFrame(frameNum)
-	for i := r.firstIndex; i <= r.lastIndex; i++ {
-		call := prof.GetCallRecordByIndex(i)
-		totalGPUTimeNs += call.gpuDurationNs
-		totalCPUTimeNs += call.cpuDurationNs
+	if callNameRegEx == "" || callNameRegEx == "*" {
+		for i := r.firstIndex; i <= r.lastIndex; i++ {
+			call := prof.GetCallRecordByIndex(i)
+			totalGPUTimeNs += call.gpuDurationNs
+			totalCPUTimeNs += call.cpuDurationNs
+		}
+	} else {
+		var re *regexp.Regexp
+		var err error
+		if re, err = regexp.Compile(callNameRegEx); err != nil {
+			return
+		}
+
+		for i := r.firstIndex; i <= r.lastIndex; i++ {
+			call := prof.GetCallRecordByIndex(i)
+			callName := prof.GetCallDataByIndex(i).callName
+			if re.MatchString(callName) {
+				totalGPUTimeNs += call.gpuDurationNs
+				totalCPUTimeNs += call.cpuDurationNs
+			}
+		}
 	}
 	return
 }
@@ -262,7 +279,7 @@ func GatherFrameTiming(
 // GatherTimingForAllFrames returns the timing information for all the frames
 // in the profile. Timing info includes the total GPU and CPU time in each
 // frame.
-func GatherTimingForAllFrames(prof *ProfileData) (timing []FrameTiming) {
+func GatherTimingForAllFrames(prof *ProfileData, callNameRegEx string) (timing []FrameTiming) {
 	numCoroutines := runtime.NumCPU()
 	timing = make([]FrameTiming, prof.GetFrameCount())
 	limiter := make(chan int, numCoroutines)
@@ -271,7 +288,7 @@ func GatherTimingForAllFrames(prof *ProfileData) (timing []FrameTiming) {
 		limiter <- 1
 		go func(f int) {
 			r := prof.GetCallRangeForFrame(f)
-			gpuNs, cpuNs := GatherFrameTiming(prof, f)
+			gpuNs, cpuNs := GatherFrameTiming(prof, f, callNameRegEx)
 			timing[f].frameNum = f
 			timing[f].gpuTimeNs += gpuNs
 			timing[f].cpuTimeNs += cpuNs

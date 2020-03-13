@@ -108,3 +108,128 @@ When analyzing two related profiles, it is even more important to use option
 without it, `glretrace` will filter out different calls on each platform. You will
 likely end up with non-matching subsets of GL calls in each profile. They will
 still load in analyze successfully, but they will be harder to compare accurately.
+
+### Examples
+
+**Show the 10 most expensive frames:**
+```
+-> show-frames n=10
+Profile: 040117_KOTOR2.trace.crostini.prof
+  frame num   calls           GPU total            CPU total
+---------------------------------------------------------------------
+        405   14576              31.9 mS             242.1 mS
+        404   14216              33.1 mS             209.9 mS
+        435   14691              32.3 mS             160.4 mS
+       1774    7613              26.6 mS             147.8 mS
+        665   15730              30.5 mS             132.3 mS
+        467   14691              34.3 mS             131.0 mS
+        601   13677              28.7 mS             130.7 mS
+       1583    7685              24.4 mS             130.5 mS
+       1481    7278              23.5 mS             129.8 mS
+        534   15213              34.2 mS             128.5 mS
+```
+
+**Show the 10 most expensive frames for function glMapBufferARB:**
+```
+-> show-frames n=10 f=glMapBufferARB
+Profile: 040117_KOTOR2.trace.crostini.prof
+  frame num   calls           GPU total            CPU total
+---------------------------------------------------------------------
+        405   14576               0.0 nS             223.1 mS
+        404   14216               0.0 nS             193.1 mS
+        435   14691               0.0 nS             156.7 mS
+       1774    7613               0.0 nS             144.2 mS
+        665   15730               0.0 nS             128.2 mS
+       1583    7685               0.0 nS             126.6 mS
+        467   14691               0.0 nS             121.5 mS
+       1387   10275               0.0 nS             120.3 mS
+       1481    7278               0.0 nS             119.1 mS
+        534   15213               0.0 nS             118.5 mS
+```
+
+**Show details for frame #1774, showing only the calls that spend at
+least 10mS in the CPU:**
+```
+-> show-frame-details 1774 ct=10000000 gt=0
+Frame details for frames #1774 to 1774
+                                                   GPU       CPU     GPU 1  CPU 1         GPU       CPU      GPU 2   CPU 2
+ frame                      call name    call #    Prof 1    Prof 1    %      %           Prof 2    Prof 2     %       %
+----------------------------------------------------------------------------------------------------------------------------
+  1774                 glMapBufferARB  17262871    0.0 nS   20.3 mS   0.0%  13.7%         0.0 nS    5.7 uS   0.0%   0.0%
+  1774                 glMapBufferARB  17263521    0.0 nS   10.3 mS   0.0%   7.0%         0.0 nS  152.9 uS   0.0%   0.7%
+  1774                 glMapBufferARB  17263569    0.0 nS   29.0 mS   0.0%  19.6%         0.0 nS  135.4 uS   0.0%   0.6%
+1 frames out of 1 shown, or 100.0%
+```
+**Show statistics for call glMapBufferARB:**
+```
+-> call-stats f=glMapBufferARB
+GPU timing statistics for 040117_KOTOR2.trace.crostini.prof:
+  Sample count:       202492
+  Average call time:  0.0 nS
+  Max call time:      0.0 nS
+  Min call time:      0.0 nS
+  Standard dev:       0.0 nS
+  Total time in call: 0.0 nS
+  % of time in call: 0.0
+CPU timing statistics for 040117_KOTOR2.trace.crostini.prof:
+  Sample count:       202492
+  Average call time:  599.5 uS
+  Max call time:      142.1 mS
+  Min call time:      87.0 nS
+  Standard dev:       1.9 mS
+  Total time in call: 121.4 S
+  % of time in call: 86.4
+```
+
+**Show the 10 most expensive calls, by average CPU time, in profile 1 and 2:**
+```
+-> show-calls n=10
+Profile: 040117_KOTOR2.trace.crostini.prof
+                          call   count       GPU|CPU avg          GPU|CPU max          GPU|CPU min         GPU|CPU % total
+-------------------------------------------------------------------------------------------------------------------------
+               glTexSubImage2D      92    0.0 nS |   7.4 mS    0.0 nS |  37.4 mS    0.0 nS |   3.0 uS      0.0% |    0.5%
+             glBlitFramebuffer    2438    2.4 mS |   2.4 mS    2.7 mS | 103.4 mS    1.0 mS |  13.9 uS      9.8% |    4.2%
+               glCompileShader       6    0.0 nS |   1.6 mS    0.0 nS |   4.4 mS    0.0 nS | 384.5 uS      0.0% |    0.0%
+              glCopyTexImage2D       6    0.0 nS |   1.1 mS    0.0 nS |   1.7 mS    0.0 nS | 759.6 uS      0.0% |    0.0%
+                 glLinkProgram       3    0.0 nS |   1.1 mS    0.0 nS |   1.4 mS    0.0 nS | 510.4 uS      0.0% |    0.0%
+                  glBufferData      96    0.0 nS | 747.8 uS    0.0 nS |   3.2 mS    0.0 nS |   9.3 uS      0.0% |    0.1%
+                glMapBufferARB  202492    0.0 nS | 599.5 uS    0.0 nS | 142.1 mS    0.0 nS |  87.0 nS      0.0% |   86.4%
+               glDeleteBuffers       6    0.0 nS | 148.0 uS    0.0 nS | 356.4 uS    0.0 nS |   3.1 uS      0.0% |    0.0%
+                  glTexImage2D     731    0.0 nS | 126.7 uS    0.0 nS |  17.2 mS    0.0 nS | 622.0 nS      0.0% |    0.1%
+              glDeleteTextures     597    0.0 nS | 108.9 uS    0.0 nS |  11.3 mS    0.0 nS |  62.0 nS      0.0% |    0.0%
+```
+```
+-> show-calls n=10 p2
+Profile: 040117_KOTOR2.trace.crouton.prof
+                          call   count       GPU|CPU avg          GPU|CPU max          GPU|CPU min         GPU|CPU % total
+-------------------------------------------------------------------------------------------------------------------------
+            glProgramStringARB     179    0.0 nS |   3.3 mS    0.0 nS |  26.8 mS    0.0 nS | 270.3 uS      0.0% |    2.0%
+              glCopyTexImage2D       6    0.0 nS |   3.1 mS    0.0 nS |   5.4 mS    0.0 nS |   1.1 mS      0.0% |    0.1%
+                  glTexImage3D       6    0.0 nS | 178.7 uS    0.0 nS | 319.4 uS    0.0 nS |  77.9 uS      0.0% |    0.0%
+                 glLinkProgram       3    0.0 nS |  94.5 uS    0.0 nS | 106.8 uS    0.0 nS |  79.7 uS      0.0% |    0.0%
+                  glTexImage2D     731    0.0 nS |  94.3 uS    0.0 nS |   8.0 mS    0.0 nS | 849.0 nS      0.0% |    0.2%
+                glMapBufferARB  202492    0.0 nS |  90.9 uS    0.0 nS |  56.0 mS    0.0 nS | 655.0 nS      0.0% |   63.1%
+                       glFlush       3    0.0 nS |  78.4 uS    0.0 nS | 161.7 uS    0.0 nS |  31.3 uS      0.0% |    0.0%
+                  glPushAttrib    8347    0.0 nS |  45.8 uS    0.0 nS |   4.5 mS    0.0 nS | 372.0 nS      0.0% |    1.3%
+           glDeleteProgramsARB     269    0.0 nS |  39.6 uS    0.0 nS |   1.3 mS    0.0 nS |  27.0 nS      0.0% |    0.0%
+               glTexSubImage2D      92    0.0 nS |  34.0 uS    0.0 nS | 134.9 uS    0.0 nS |   8.6 uS      0.0% |    0.0%
+```
+
+**Compare the 10 most expensive calls, by average CPU time, in two profiles:**
+```
+-> compare-profiles n=10 s=bycpuavg
+Compare statistics: 040117_KOTOR2.trace.crostini.prof / 040117_KOTOR2.trace.crouton.prof
+                                                Prof 1               Prof 2             Ratio p1/p2           Diff p1-p2
+                          call   count        GPU|CPU              GPU|CPU              GPU|CPU              GPU|CPU
+----------------------------------------------------------------------------------------------------------------------------
+               glTexSubImage2D      92    0.0 nS |   7.4 mS    0.0 nS |  34.0 uS      INF! |   218.06    0.0 nS |   7.4 mS
+             glBlitFramebuffer    2438    2.4 mS |   2.4 mS    2.2 mS |   9.7 uS      1.07 |   248.80  155.8 uS |   2.4 mS
+               glCompileShader       6    0.0 nS |   1.6 mS    0.0 nS |   3.7 uS      INF! |   417.54    0.0 nS |   1.6 mS
+              glCopyTexImage2D       6    0.0 nS |   1.1 mS    0.0 nS |   3.1 mS      INF! |  0.36137    0.0 nS |  -1.9 mS
+                 glLinkProgram       3    0.0 nS |   1.1 mS    0.0 nS |  94.5 uS      INF! |    11.17    0.0 nS | 960.5 uS
+                  glBufferData      96    0.0 nS | 747.8 uS    0.0 nS |  14.4 uS      INF! |    51.77    0.0 nS | 733.4 uS
+                glMapBufferARB  202492    0.0 nS | 599.5 uS    0.0 nS |  90.9 uS      INF! |     6.59    0.0 nS | 508.6 uS
+               glDeleteBuffers       6    0.0 nS | 148.0 uS    0.0 nS |   7.3 uS      INF! |    20.28    0.0 nS | 140.7 uS
+                  glTexImage2D     731    0.0 nS | 126.7 uS    0.0 nS |  94.3 uS      INF! |     1.34    0.0 nS |  32.3 uS
+              glDeleteTextures     597    0.0 nS | 108.9 uS    0.0 nS |   5.4 uS      INF! |    20.09    0.0 nS | 103.5 uS
+```

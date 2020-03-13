@@ -68,7 +68,7 @@ var cmdDispatchTable = map[string]cmdDispatch{
 		doShowCalls,
 		moreHelpForShowCalls},
 	"show-frames": cmdDispatch{
-		"(show-frames [p1|p2]  [n=xx] [s=byGpuAvg|byCpuAvg]) Show information for xx\n" +
+		"(show-frames [p1|p2]  [n=xx] [s=byGpuAvg|byCpuAvg] [f=regex]) Show information for xx\n" +
 			"        most expensive frames for the selected profile",
 		doShowFrames,
 		moreHelpForShowFrame},
@@ -349,7 +349,7 @@ func doShowFrames(args []string, profiles *Profiles) error {
 		return err
 	}
 
-	timing := GatherTimingForAllFrames(options.prof)
+	timing := GatherTimingForAllFrames(options.prof, options.filterRegex)
 	sortFunc := func(i int, j int) bool {
 		return timing[i].cpuTimeNs > timing[j].cpuTimeNs
 	}
@@ -409,13 +409,13 @@ func doShowFrameDetail(args []string, profiles *Profiles) error {
 	for frameNum := firstFrame; frameNum <= lastFrame; frameNum++ {
 		var addToFrameCount = 1
 		var frameData1 []CallInfo = GatherCallDataForFrame(profiles.p1, frameNum)
-		var totGPUTime1, totCPUTime1 int = GatherFrameTiming(profiles.p1, frameNum)
+		var totGPUTime1, totCPUTime1 int = GatherFrameTiming(profiles.p1, frameNum, "")
 
 		var frameData2 []CallInfo
 		var totGPUTime2, totCPUTime2 int
 		if profiles.p2 != nil {
 			frameData2 = GatherCallDataForFrame(profiles.p2, frameNum)
-			totGPUTime2, totCPUTime2 = GatherFrameTiming(profiles.p2, frameNum)
+			totGPUTime2, totCPUTime2 = GatherFrameTiming(profiles.p2, frameNum, "")
 		}
 
 		var callCount = len(frameData1)
@@ -621,10 +621,11 @@ func moreHelpForShowCalls(args []string) {
 func moreHelpForShowFrame(args []string) {
 	fmt.Println("\nHelp for show-frames command:\n" +
 		"Print the xx most expensive frames in profile p1 or p2, sorted in decreasing order.\n" +
-		"Syntax: show-frames [p1 | p2] n=xx [s=byGpuAvg|byCpuAvg]\n" +
+		"Optionally gather the timing in for only the calls filtered by regex." +
+		"Syntax: show-frames [p1 | p2] n=xx [s=byGpuAvg|byCpuAvg] [f=regex]\n" +
 		helpForProfileOption +
 		helpForSortOption +
-		"\nExamples: show-frames p2 n=30 s=byCpuAvg,  show-frames n=20\n")
+		"\nExamples: show-frames p2 n=30 s=byCpuAvg f=glDraw,  show-frames n=20\n")
 }
 
 func moreHelpForShowFrameDetails(args []string) {
