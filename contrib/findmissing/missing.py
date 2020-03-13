@@ -260,25 +260,24 @@ def missing_helper(db, kernel_metadata):
     else:
         branches = kernel_metadata.branches
 
-    os.chdir(kernel_metadata.path)
+    os.chdir(common.get_kernel_absolute_path(kernel_metadata.path))
 
     for b in branches:
         missing_branch(db, b, kernel_metadata)
 
+    os.chdir(common.WORKDIR)
+
 
 def missing(db):
     """Finds missing patches in stable and chromeos releases."""
-    cur_wd = os.getcwd()
-
     print('--Missing patches from baseline -> stable.--')
     kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
     missing_helper(db, kernel_metadata)
 
-    os.chdir(cur_wd)
-
     print('--Missing patches from baseline -> chromeos.--')
     kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
     missing_helper(db, kernel_metadata)
+
 
 if __name__ == '__main__':
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')

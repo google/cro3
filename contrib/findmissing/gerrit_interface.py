@@ -23,10 +23,14 @@ from __future__ import print_function
 import json
 import http
 import os
+import re
+import subprocess
 import requests
 
 import common
 
+BUG_REGEX = re.compile(r'^BUG=(.*)$')
+TEST_REGEX = re.compile(r'^TEST=(.*)$')
 
 def get_auth_cookie():
     """Load cookies in order to authenticate requests with gerrit/googlesource."""
@@ -78,7 +82,7 @@ def get_commit(changeid):
         raise type(e)('Gerrit API endpoint to get commit should contain message key') from e
 
 
-def get_changeid_reviewers(changeid):
+def get_reviewers(changeid):
     """Retrieves list of reviewer emails from gerrit given a chromeos changeid."""
     list_reviewers_endpoint = os.path.join(common.CHROMIUM_REVIEW_BASEURL, 'changes',
                                         changeid, 'reviewers')
@@ -113,8 +117,65 @@ def set_hashtag(changeid):
     set_and_parse_endpoint(set_hashtag_endpoint, hashtag_input_payload)
 
 
-# TODO(hirthanan) implement in seperate CL
-def generate_fix_message(fixer_upstream_message):
+def get_upstream_fullsha(abbrev_sha):
+    """Returns the full upstream sha for an abbreviated 12 digit sha using git cli"""
+    upstream_absolute_path = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
+    try:
+        cmd = ['git', '-C', upstream_absolute_path, 'rev-parse', abbrev_sha]
+        full_sha = subprocess.check_output(cmd).decode('utf-8')
+        return full_sha.rstrip()
+    except subprocess.CalledProcessError as e:
+        raise type(e)('Could not find full upstream sha for %s' % abbrev_sha, e.cmd) from e
+
+
+def get_upstream_commit_message(upstream_sha):
+    """Returns the commit message for a given upstream sha using git cli."""
+    upstream_absolute_path = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
+    try:
+        cmd = ['git', '-C', upstream_absolute_path, 'log',
+                '--format=%B', '-n', '1', upstream_sha]
+        commit_message = subprocess.check_output(cmd).decode('utf-8', errors='ignore')
+        return commit_message
+    except subprocess.CalledProcessError as e:
+        raise type(e)('Couldnt retrieve commit for upstream sha %s'
+                        % upstream_sha, e.cmd) from e
+
+def get_commit_changeid_linux_chrome(kernel_sha):
+    """Returns the changeid of the most recent local commit by parsing linux_chrome git log."""
+    chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
+    try:
+        cmd = ['git', '-C', chrome_absolute_path, 'log', '--format=%B', '-n', '1', kernel_sha]
+        commit_message = subprocess.check_output(cmd).decode('utf-8', errors='ignore')
+
+        m = re.findall('^Change-Id: (I[a-z0-9]{40})$', commit_message, re.M)
+
+        # Get last change-id in case chrome sha cherry-picked/reverted into new commit
+        return m[-1]
+    except subprocess.CalledProcessError as e:
+        raise type(e)('Couldnt retrieve changeid for most recent local commit', e.cmd) from e
+    except IndexError as e:
+        raise type(e)('Did not find Change-Id line for linux chrome sha %s' % kernel_sha) from e
+
+
+def get_bug_test_line(fixee_changeid):
+    """Retrieve BUG and TEST lines from the fixee changeid."""
+    # stable fixes don't have a fixee changeid
+    bug_test_line = 'BUG=%s\nTEST=%s'
+    bug = test = None
+    if not fixee_changeid:
+        return bug_test_line % (bug, test)
+
+    chrome_commit_msg = get_commit(fixee_changeid)
+
+    bug_matches = re.findall('^BUG=(.*)$', chrome_commit_msg, re.M)
+    test_matches = re.findall('^TEST=(.*)$', chrome_commit_msg, re.M)
+
+    bug = bug_matches[0] if bug_matches else None
+    test = test_matches[0] if test_matches else None
+
+    return bug_test_line % (bug, test)
+
+def generate_fix_message(fixer_upstream_sha, bug_test_line):
     """Generates new commit message for a fix change.
 
     Use script ./contrib/from_upstream.py to generate new commit msg
@@ -126,32 +187,84 @@ def generate_fix_message(fixer_upstream_message):
         TEST=...
         tag for Fixes: <upstream-sha>
     """
-    print(fixer_upstream_message)
-    commit_message = ''
+    fix_upstream_commit_msg = get_upstream_commit_message(fixer_upstream_sha)
+
+    upstream_full_sha = get_upstream_fullsha(fixer_upstream_sha)
+    cherry_picked = '(cherry picked from commit %s)\n\n'% upstream_full_sha
+
+
+    commit_message = ('UPSTREAM: {fix_commit_msg}'
+                      '{cherry_picked}'
+                      '{bug_test_line}').format(fix_commit_msg=fix_upstream_commit_msg,
+                        cherry_picked=cherry_picked, bug_test_line=bug_test_line)
+
     return commit_message
+
+def get_last_commit_sha_linux_chrome():
+    """Retrieves the last SHA in linux_chrome repository."""
+    chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
+    cmd = ['git', '-C', chrome_absolute_path, 'rev-parse', 'HEAD']
+    last_commit = subprocess.check_output(cmd).decode('utf-8')
+    return last_commit.rstrip()
+
+def cherry_pick_and_push_fix(fixer_upstream_sha, chromeos_branch, fix_commit_message):
+    """Cherry picks upstream commit into chrome repo."""
+    chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
+
+    # reset linux_chrome repo to remove local changes
+    try:
+        os.chdir(chrome_absolute_path)
+        subprocess.run(['git', 'checkout', chromeos_branch])
+        subprocess.run(['git', 'reset', '--hard', 'origin/%s' % chromeos_branch])
+        subprocess.run(['git', 'cherry-pick', '-n', fixer_upstream_sha])
+        subprocess.run(['git', 'commit', '-s', '-m', fix_commit_message])
+
+        # commit has been cherry-picked and committed locally, precommit hook
+        #  in git repository adds changeid to the commit message
+        last_commit = get_last_commit_sha_linux_chrome()
+        fixer_changeid = get_commit_changeid_linux_chrome(last_commit)
+
+        subprocess.run(['git', 'push', 'origin',
+                            'HEAD:refs/for/%s%%t=autogenerated' % chromeos_branch])
+        subprocess.run(['git', 'reset', '--hard', 'origin/%s' % chromeos_branch])
+
+        return fixer_changeid
+    except subprocess.CalledProcessError as e:
+        raise ValueError('Failed to cherrypick and push upstream fix %s on branch %s'
+                        % (fixer_upstream_sha, chromeos_branch)) from e
+    finally:
+        subprocess.run(['git', 'reset', '--hard', 'origin/%s' % chromeos_branch])
+        os.chdir(common.WORKDIR)
 
 
 # Note: Stable patches won't have a fixee_change_id since they come into chromeos as merges
-def create_change(fixer_upstream_commit_message, branch, fixee_changeid=None):
-    """Creates a Patch in gerrit given a ChangeInput object."""
-    create_change_endpoint = os.path.join(common.CHROMIUM_REVIEW_BASEURL, 'changes')
+def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
+    """Creates a Patch in gerrit given a ChangeInput object.
 
-    change_input_payload = {'project': common.CHROMEOS_KERNEL_DIR,
-                            'subject': generate_fix_message(fixer_upstream_commit_message),
-                            'branch': common.chromeos_branch(branch)}
+    Determines whether a change for a fix has already been created,
+    and avoids duplicate creations.
+    """
+    chromeos_branch = common.chromeos_branch(branch)
 
-    resp = set_and_parse_endpoint(create_change_endpoint, change_input_payload)
+    fixee_changeid = get_commit_changeid_linux_chrome(fixee_kernel_sha)
+    bug_test_line = get_bug_test_line(fixee_changeid)
+    fix_commit_message = generate_fix_message(fixer_upstream_sha, bug_test_line)
 
-    fixer_changeid = None
     try:
-        fixer_changeid = resp['_number']
-    except KeyError as e:
-        raise type(e)('Gerrit API endpoint to create CL should contain key: _number') from e
+        # Cherry pick changes and generate commit message indicating fix from upstream
+        fixer_changeid = cherry_pick_and_push_fix(fixer_upstream_sha,
+                                                    chromeos_branch, fix_commit_message)
+    except ValueError:
+        print('Failed to create gerrit ticket for [fixee_kernel_sha, fixer_upstream_sha]',
+                (fixee_kernel_sha, fixer_upstream_sha))
+        raise
+
 
     reviewers = None
     if fixee_changeid:
+        # todo(hirthanan) change back to function call to retrieve reviewers
         # retrieve reviewers from gerrit for the relevant change
-        reviewers = get_changeid_reviewers(fixee_changeid)
+        reviewers = get_reviewers(fixee_changeid)
     else:
         # TODO(hirthanan): find relevant mailing list/reviewers
         # For now we will assign it to a default user like Guenter?
@@ -160,18 +273,5 @@ def create_change(fixer_upstream_commit_message, branch, fixee_changeid=None):
         reviewers = ['groeck@chromium.org']
 
     set_reviewers(fixer_changeid, reviewers)
-    set_hashtag(fixer_changeid)
 
-
-def create_gerrit_change(reviewers, commit_msg):
-    """Uses gerrit api to handle creating gerrit change.
-
-    Determines whether a change for a fix has already been created,
-    and avoids duplicate creations.
-
-    May add some additional information to the fix patch for tracking purposes.
-    i.e attaching a tag,
-    """
-
-    # Call gerrit api to create new change if neccessary
-    print('Calling gerrit api', reviewers, commit_msg)
+    return fixer_changeid

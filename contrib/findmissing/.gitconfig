@@ -1,0 +1,6 @@
+[user]
+  name = Linux Patches Robot
+  email = linux-patches-robot@chromeos-missing-patches.google.com.iam.gserviceaccount.com
+
+[http]
+  cookiefile = /home/chromeos_patches/.git-credential-cache/cookie

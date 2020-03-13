@@ -23,12 +23,8 @@ CHROME_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_chrome)
 
 def synchronize_upstream(upstream_kernel_metadata):
     """Synchronizes locally cloned repo with linux upstream remote."""
-    cwd = os.getcwd()
-    path = upstream_kernel_metadata.path
-    destdir = os.path.join(cwd, path)
+    destdir = common.get_kernel_absolute_path(upstream_kernel_metadata.path)
     repo = upstream_kernel_metadata.repo
-
-    print(destdir, repo, cwd)
 
     if not os.path.exists(destdir):
         print('Cloning %s into %s' % (repo, destdir))
@@ -44,17 +40,14 @@ def synchronize_upstream(upstream_kernel_metadata):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         p.wait()
 
-    os.chdir(cwd)
+    os.chdir(common.WORKDIR)
 
 
 def synchronize_custom(custom_kernel_metadata):
     """Synchronizes locally cloned repo with linux stable/chromeos remote."""
-    path = custom_kernel_metadata.path
+    destdir = common.get_kernel_absolute_path(custom_kernel_metadata.path)
+    upstream_destdir = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
     repo = custom_kernel_metadata.repo
-
-    cwd = os.getcwd()
-    destdir = os.path.join(cwd, path)
-    upstream_destdir = os.path.join(cwd, common.UPSTREAM_PATH)
 
     get_branch_name = custom_kernel_metadata.get_kernel_branch
 
@@ -109,7 +102,7 @@ def synchronize_custom(custom_kernel_metadata):
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
                 p.wait()
 
-    os.chdir(cwd)
+    os.chdir(common.WORKDIR)
 
 
 def synchronize_repositories():

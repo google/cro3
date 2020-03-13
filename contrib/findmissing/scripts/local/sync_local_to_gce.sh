@@ -12,8 +12,6 @@
 # Script will not work if run from chroot environment
 
 
-./clean_generated_files.sh
-
 FINDMISSING_DIR=~/chromiumos/src/platform/dev/contrib/findmissing/
 if [[ -n "$1" ]]; then
   FINDMISSING_DIR=$1
@@ -24,8 +22,8 @@ if [[ -z "${GCE_EXTERNAL_IP}" ]]; then
   exit 1
 fi
 
-USER="$(whoami)"
-
-rsync -O -rltvz --exclude=linux_upstream --exclude=linux_stable \
-  --exclude=linux_chrome --exclude=.git-credential-cache --delete \
-  "${FINDMISSING_DIR}" "${USER}"@"${GCE_EXTERNAL_IP}":/home/chromeos_patches
+rsync -O -rltvz \
+  --exclude=.ssh/ --exclude=secrets/ --exclude=kernel_repositories/ \
+  --exclude=env/ --exclude=.git-credential-cache/ \
+  --delete "${FINDMISSING_DIR}" \
+  chromeos_patches@"${GCE_EXTERNAL_IP}":/home/chromeos_patches

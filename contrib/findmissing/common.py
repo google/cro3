@@ -105,12 +105,15 @@ def update_previous_fetch(db, kernel, branch, last_sha):
 
     db.commit()
 
+def get_kernel_absolute_path(repo_name):
+    """Returns absolute path to kernel repositories"""
+    return os.path.join(WORKDIR, 'kernel_repositories', repo_name)
+
 
 def update_kernel_db(db, kernel_metadata):
     """Update (upstream/stable/chrome) previous_fetch, fixes and commits SQL tables."""
     path = kernel_metadata.path
-
-    os.chdir(path)
+    os.chdir(get_kernel_absolute_path(path))
 
     for branch in kernel_metadata.branches:
         start = kernel_metadata.tag_template % branch
@@ -147,7 +150,7 @@ def get_kernel_metadata(kernel):
             SUPPORTED_BRANCHES, 'v%s', stable_branch, initdb_stable.update_stable_table)
     chrome_kernel_metadata = KernelMetadata(CHROMEOS_PATH, CHROMEOS_REPO, 'chrome_fixes',
             SUPPORTED_BRANCHES, 'v%s', chromeos_branch, initdb_chromeos.update_chrome_table)
-    upstream_kernel_metadata = KernelMetadata(UPSTREAM_PATH, 'upstream_fixes', UPSTREAM_REPO,
+    upstream_kernel_metadata = KernelMetadata(UPSTREAM_PATH, UPSTREAM_REPO, 'upstream_fixes',
             [UPSTREAM_START_BRANCH], '%s', lambda *args: 'master',
             initdb_upstream.update_upstream_table)
 
