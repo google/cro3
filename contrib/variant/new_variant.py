@@ -47,6 +47,8 @@ import subprocess
 import sys
 from chromite.lib import git
 from chromite.lib import gerrit
+from chromite.lib import workon_helper
+from chromite.lib.build_target_lib import BuildTarget
 import requests
 import step_names
 import variant_status
@@ -476,19 +478,20 @@ def get_git_commit_data(cwd):
     }
 
 
-def cros_workon(status, action):
+def cros_workon(status, action, workon_pkgs):
     """Call cros_workon for all the 9999 ebuilds we'll be touching
 
     Args:
         status: variant_status object tracking our board, variant, etc.
         action: 'start' or 'stop'
+        workon_pkgs: list of packages to start or stop
 
     Returns:
         True if the call to cros_workon was successful, False if failed
     """
 
     # Build up the command from all the packages in the list
-    workon_cmd = ['cros_workon', '--board=' + status.base, action] + status.workon_pkgs
+    workon_cmd = ['cros_workon', '--board=' + status.base, action] + workon_pkgs
     return bool(run_process(workon_cmd))
 
 
@@ -923,6 +926,20 @@ def build_yaml(status):
 def emerge_all(status):
     """Build the coreboot BIOS and EC code for the new variant
 
+    This build step will cros_workon start a list of packages provided by
+    the reference board data as status.workon_pkgs, then emerge a list of
+    packages (status.emerge_pkgs), and then cros_workon stop any packages
+    that it started, as opposed to ones that were already being worked on.
+
+    To determine which packages this program started and which ones were
+    already started, we query the list of packages being worked on, then
+    cros_workon start the entire list (which will produce a "package already
+    being worked on" type of message for anything already started), and then
+    query the list of packages being worked on again. The difference between
+    the before and after lists are the packages that this program started,
+    and so that's the list of packages to cros_workon stop after the emerge
+    is done.
+
     Args:
         status: variant_status object tracking our board, variant, etc.
 
@@ -930,15 +947,33 @@ def emerge_all(status):
         True if the build succeeded, False if something failed
     """
     logging.info('Running step emerge_all')
-    cros_workon(status, 'start')
+    # Get the list of packages that are already cros_workon started.
+    build_target = BuildTarget(status.base)
+    workon = workon_helper.WorkonHelper(build_target.root, build_target.name)
+    before_workon = workon.ListAtoms()
+
+    # Start working on the list of packages specified by the reference board.
+    cros_workon(status, 'start', status.workon_pkgs)
+
+    # Get the list of packages that are cros_workon started now.
+    after_workon = workon.ListAtoms()
+    # Determine which packages we need to cros_workon stop.
+    stop_packages = list(set(after_workon) - set(before_workon))
+
+    # Build up the command for emerge from all the packages in the list.
     environ = os.environ.copy()
     environ['FW_NAME'] = status.variant
-    # Build up the command for emerge from all the packages in the list
     emerge_cmd_and_params = [status.emerge_cmd] + status.emerge_pkgs
-    if not bool(run_process(emerge_cmd_and_params, env=environ)):
+    emerge_result = bool(run_process(emerge_cmd_and_params, env=environ))
+
+    # cros_workon stop before possibly returning an error code.
+    cros_workon(status, 'stop', stop_packages)
+
+    # Check if emerge failed, and then check if the expected build outputs
+    # exist.
+    if not emerge_result:
         return False
 
-    cros_workon(status, 'stop')
     build_path = '/build/' + status.base + '/firmware'
     logging.debug('build_path = "%s"', build_path)
     if not file_exists(build_path, 'image-' + status.variant + '.bin'):
