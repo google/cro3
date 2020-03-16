@@ -569,7 +569,7 @@ class NebraskaTest(NebraskaBaseTest):
     self.assertEqual(update_check.attrib['status'], 'ok')
 
   def testMatchInstall(self):
-    """Tests MatchAppData for matching install request."""
+    """Tests matching install requests."""
     self.GenerateAppData('foo.json')
     self.GenerateAppData('bar.json', appid='bar')
     neb_props = nebraska.NebraskaProperties(
@@ -577,19 +577,21 @@ class NebraskaTest(NebraskaBaseTest):
         install_payloads_address=_PAYLOADS_ADDRESS)
     neb = nebraska.Nebraska(nebraska_props=neb_props)
     request = GenerateXMLRequest([
-        # Not haveing an updatecheck tag in the platform App causes this to be
-        # an install request.
-        GenerateXMLAppRequest(update_check=False),
+        # Not having an updatecheck tag in the platform App causes this to be an
+        # install request.
+        GenerateXMLAppRequest(appid='foo', update_check=False),
         GenerateXMLAppRequest(appid='bar', version='0.0.0.0')
     ])
     response = neb.GetResponseToRequest(nebraska.Request(request))
 
-    update_check = ElementTree.fromstring(response).find('app/updatecheck')
+    apps = ElementTree.fromstring(response).findall('app')
+    self.assertEqual(apps[0].attrib['status'], 'noupdate')
+    update_check = apps[1].find('updatecheck')
     self.assertEqual(update_check.attrib['status'], 'ok')
 
   def testMatchDeltaAndFull(self):
-    """Tests MatchAppData for matching delta update request."""
-    # Two properties file with the same App ID but one delta, one ful.
+    """Tests matching delta update request."""
+    # Two properties file with the same App ID but one delta, one full.
     self.GenerateAppData('foo.json')
     self.GenerateAppData('bar.json', is_delta=True, source_version='1.0.0')
     neb_props = nebraska.NebraskaProperties(
@@ -610,6 +612,31 @@ class NebraskaTest(NebraskaBaseTest):
     root = ElementTree.fromstring(response)
     action = root.findall('app/updatecheck/manifest/actions/action')[1]
     self.assertEqual(action.attrib['IsDeltaPayload'], 'true')
+
+    # Forced full payload should return full payload.
+    response_props = nebraska.ResponseProperties(full_payload=True)
+    response = neb.GetResponseToRequest(nebraska.Request(request),
+                                        response_props)
+    root = ElementTree.fromstring(response)
+    action = root.findall('app/updatecheck/manifest/actions/action')[1]
+    self.assertEqual(action.attrib['IsDeltaPayload'], 'false')
+
+    # Delta payload should return delta payload.
+    response_props = nebraska.ResponseProperties(full_payload=False)
+    response = neb.GetResponseToRequest(nebraska.Request(request),
+                                        response_props)
+    root = ElementTree.fromstring(response)
+    action = root.findall('app/updatecheck/manifest/actions/action')[1]
+    self.assertEqual(action.attrib['IsDeltaPayload'], 'true')
+
+    # Forced delta payload when client can't get delta should be noupdate.
+    request = GenerateXMLRequest([GenerateXMLAppRequest(delta_okay=False)])
+    response_props = nebraska.ResponseProperties(full_payload=False)
+    response = neb.GetResponseToRequest(nebraska.Request(request),
+                                        response_props)
+    root = ElementTree.fromstring(response)
+    update_check = root.find('app/updatecheck')
+    self.assertEqual(update_check.attrib['status'], 'noupdate')
 
   def testMismatchAppDataAppID(self):
     """Tests appid mismatch."""

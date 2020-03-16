@@ -451,12 +451,12 @@ class Response(object):
         # with them.
         if self._app_request.has_update_check:
           self._app_data = nebraska_props.install_app_index.Find(
-              self._app_request, matched_apps)
+              self._app_request, matched_apps, True)
         self._payloads_address = nebraska_props.install_payloads_address
 
       elif self._app_request.request_type == Request.RequestType.UPDATE:
-        self._app_data = nebraska_props.update_app_index.Find(self._app_request,
-                                                              matched_apps)
+        self._app_data = nebraska_props.update_app_index.Find(
+            self._app_request, matched_apps, self._response_props.full_payload)
         self._payloads_address = nebraska_props.update_payloads_address
 
       if self._app_data:
@@ -600,7 +600,7 @@ class AppIndex(object):
           raise
         logging.debug('Found app data: %s', str(app))
 
-  def Find(self, request, matched_apps):
+  def Find(self, request, matched_apps, full_payload):
     """Search the index for a given appid.
 
     Searches the index for the payloads matching a client request. Matching is
@@ -610,6 +610,8 @@ class AppIndex(object):
     Args:
       request: AppRequest describing the client request.
       matched_apps: The set of app data that have been matched already.
+      full_payload: True if we want full payload, False if delta payload, None
+        if we don't care.
 
     Returns:
       An AppData object describing an available payload matching the client
@@ -643,37 +645,28 @@ class AppIndex(object):
     matches = [app_data for app_data in matches
                if app_data not in matched_apps]
 
-    if not matches:
+    if full_payload is False and not request.delta_okay:
+      logging.error('The update client indicated that it can not accept a delta'
+                    ' payload, but the Nebraska is instructed to only serve'
+                    ' delta payload. This is a bug.')
       return None
 
-    # If the client can handle a delta, prefer to send a delta.
-    if request.delta_okay:
-      match = next((x for x in matches if x.is_delta), None)
-      match = match if match else next(iter(matches), None)
+    full_match = next((x for x in matches if not x.is_delta), None)
+    delta_match = next((x for x in matches if x.is_delta), None)
+
+    if full_payload or not request.delta_okay:
+      match = full_match
     else:
-      match = next(iter(matches), None)
+      match = (delta_match if full_payload is False or delta_match
+               else full_match)
+
+    if not match:
+      return None
 
     # Add this App data to the list of already matched ones.
     matched_apps.add(match)
 
     return copy.copy(match)
-
-  def Contains(self, request):
-    """Checks if the AppIndex contains any apps matching a given request appid.
-
-    Checks the index for an appid (partially) matching the appid in the given
-    request. This is necessary because it allows us to differentiate between the
-    case where we have no new versions of an app and the case where we have no
-    information about an app at all.
-
-    Args:
-      request: Describes the client request.
-
-    Returns:
-      True if the index contains any appids matching the appid given in the
-      request.
-    """
-    return any(app_data.appid in request.appid for app_data in self._index)
 
   class AppData(object):
     """Data about an available app.
@@ -809,6 +802,8 @@ class ResponseProperties(object):
         - num_urls: Number of URLs that should be returned in the response.
         - eol_date: The number of days from unix epoch which device goes end of
           life.
+        - full_payload: Indicates whether we want a full payload or not. None
+          means we don't care.
     """
     self.critical_update = kwargs.get('critical_update', False)
     self.no_update = kwargs.get('no_update', False)
@@ -817,6 +812,7 @@ class ResponseProperties(object):
     self.disable_payload_backoff = kwargs.get('disable_payload_backoff', False)
     self.num_urls = kwargs.get('num_urls', 1)
     self.eol_date = kwargs.get('eol_date', None)
+    self.full_payload = kwargs.get('full_payload', None)
 
 
 class Nebraska(object):
@@ -885,12 +881,15 @@ def QueryDictToDict(query):
   """
   true_lambda = lambda a: a == 'True'
   kwargs = {}
-  for k, t in {'critical_update': true_lambda,
-               'disable_payload_backoff':  true_lambda,
-               'eol_date': int,
-               'failures_per_url': int,
-               'no_update': true_lambda,
-               'num_urls': int}.items():
+  for k, t in {
+      'critical_update': true_lambda,
+      'disable_payload_backoff':  true_lambda,
+      'eol_date': int,
+      'failures_per_url': int,
+      'no_update': true_lambda,
+      'num_urls': int,
+      'full_payload': true_lambda,
+  }.items():
     value = query.get(k)
     if value:
       kwargs[k] = t(value[0] if isinstance(value, list) else value)
