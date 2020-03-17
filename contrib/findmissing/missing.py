@@ -161,7 +161,7 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
         print("""%s SHA [%s] already merged bugfix patch [kernel: %s] [upstream: %s]"""
                 % (chosen_fixes, kernel_sha, fixedby_kernel_sha, fixedby_upstream_sha))
 
-        reason = 'Patch had already been applied to linux_chome'
+        reason = 'Patch applied to %s before this robot was run' % chosen_table
         close_time = entry_time
 
         # TODO(hirthanan): gerrit api call to retrieve change-id for merged commit
@@ -212,9 +212,9 @@ def missing_branch(db, branch, kernel_metadata):
             JOIN upstream_fixes AS uf
             ON chosen_table.upstream_sha = uf.upstream_sha
             WHERE branch = %s
-            AND chosen_table.upstream_sha
+            AND (chosen_table.sha, uf.fixedby_upstream_sha)
             NOT IN (
-                SELECT chosen_fixes.fixedby_upstream_sha
+                SELECT chosen_fixes.kernel_sha, chosen_fixes.fixedby_upstream_sha
                 FROM {chosen_fixes} AS chosen_fixes
                 WHERE branch = %s
             )""".format(chosen_table=chosen_table, chosen_fixes=chosen_fixes)
@@ -240,7 +240,7 @@ def missing_branch(db, branch, kernel_metadata):
             """.format(chosen_fixes=chosen_fixes)
 
     close_time = get_current_time()
-    reason = 'Patch had already been applied to linux_chome'
+    reason = 'Patch has been applied to linux_chrome'
 
     try:
         c.execute(q, [close_time, reason, branch, branch])
