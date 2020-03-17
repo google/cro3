@@ -65,12 +65,12 @@ def main():
     * --continue
     * --board=BOARD --variant=VARIANT [--bug=BUG]
     """
-    board, variant, bug, continue_flag = get_args()
+    board, variant, bug, continue_flag, abort_flag = get_args()
 
-    if not check_flags(board, variant, bug, continue_flag):
+    if not check_flags(board, variant, bug, continue_flag, abort_flag):
         return False
 
-    status = get_status(board, variant, bug, continue_flag)
+    status = get_status(board, variant, bug, continue_flag, abort_flag)
     if status is None:
         return False
 
@@ -78,6 +78,10 @@ def main():
 
     # Where is new_variant.py located?
     status.my_loc = os.path.dirname(os.path.abspath(__file__))
+
+    # If the user specified --abort, override the current step.
+    if abort_flag:
+        status.step = step_names.ABORT
 
     while status.step is not None:
         status.save()
@@ -116,6 +120,9 @@ def get_args():
         '--continue', action='store_true',
         dest='continue_flag', help='Continue the process from where it paused')
     parser.add_argument(
+        '--abort', action='store_true',
+        dest='abort_flag', help='Cancel the process and abandon all commits')
+    parser.add_argument(
         '--verbose', action='store_true',
         dest='verbose_flag', help='Enable verbose output of progress')
     args = parser.parse_args()
@@ -135,13 +142,14 @@ def get_args():
 
     bug = args.bug or 'None'
 
-    return (board, variant, bug, args.continue_flag)
+    return (board, variant, bug, args.continue_flag, args.abort_flag)
 
 
-def check_flags(board, variant, bug, continue_flag):
+def check_flags(board, variant, bug, continue_flag, abort_flag):
     """Check the flags to ensure no invalid combinations
 
     We allow any of the following:
+    --abort
     --continue
     --board=board_name --variant=variant_name
     --board=board_name --variant=variant_name --bug=bug_text
@@ -155,26 +163,29 @@ def check_flags(board, variant, bug, continue_flag):
         variant: Name of the variant being created
         bug: Text for bug number, if any ('None' otherwise)
         continue_flag: Flag if --continue was specified
+        abort_flag: Flag if --abort was specified
 
     Returns:
         True if the arguments are acceptable, False otherwise
     """
-    if continue_flag:
-        if board is not None or variant is not None:
-            logging.error('--continue cannot have other options')
-            return False
+    if continue_flag and abort_flag:
+        logging.error('Do not use --continue and --abort at the same time')
+        return False
 
-        if bug != 'None':
-            logging.error('--continue cannot have other options')
+    # If either --abort or --continue is set, then disallow any of the
+    # board name, variant name, or bug number to be set.
+    if continue_flag or abort_flag:
+        if board is not None or variant is not None or bug != 'None':
+            logging.error('Do not use --board, --variant, or --bug with '
+                          '--continue or --abort')
             return False
-    else:
-        if board is None:
-            logging.error('--board must be specified')
-            return False
+        return True
 
-        if variant is None:
-            logging.error('--variant must be specified')
-            return False
+    # At this point, neither --continue nor --abort are set, so we must have
+    # both --board and --variant values.
+    if board is None or variant is None:
+        logging.error('Both --board and --variant must be specified')
+        return False
 
     return True
 
@@ -194,7 +205,7 @@ def file_exists(filepath, filename):
     return os.path.exists(fullname) and os.path.isfile(fullname)
 
 
-def get_status(board, variant, bug, continue_flag):
+def get_status(board, variant, bug, continue_flag, abort_flag):
     """Create the status file or get the previous status
 
     This program can stop at several places as we have to wait for CLs
@@ -284,60 +295,72 @@ def get_status(board, variant, bug, continue_flag):
         variant: Name of the variant being created
         bug: Text for bug number, if any ('None' otherwise)
         continue_flag: Flag if --continue was specified
+        abort_flag: Flag if --abort was specified
 
     Returns:
         variant_status object with all the data mentioned above
     """
     status = variant_status.variant_status()
-    if continue_flag:
-        if not status.yaml_file_exists():
-            logging.error(
-                'new_variant is not in progress; nothing to --continue')
-            return None
-    else:
+    if continue_flag or abort_flag:
         if status.yaml_file_exists():
-            logging.error(
-                'new_variant already in progress; did you forget --continue?')
+            return status
+        else:
+            if continue_flag:
+                op = '--continue'
+            if abort_flag:
+                op = '--abort'
+            logging.error('%s does not exist; cannot %s', status.yaml_file, op)
             return None
 
-        status.board = board
-        status.variant = variant
-        status.bug = bug
+    # If we get here, the user provided --board and --variant (because
+    # check_flags() returned Trued), but the yaml file already exists,
+    # so we print an error message and bail.
+    if status.yaml_file_exists():
+        logging.error(
+            'new_variant already in progress; did you forget --continue?')
+        return None
 
-        # We're just starting out, so load the appropriate module and copy
-        # all the data from it.
-        try:
-            module = importlib.import_module(board)
-        except ImportError:
-            print('Unsupported board "' + board + '"')
-            sys.exit(1)
+    # At this point, it's not --continue, not --abort, the yaml file doesn't
+    # exist, and we have valid values for --board, --variant, and --bug (bug
+    # might be the default value of "None"). Create the yaml file with data
+    # from the reference board's loadable module.
+    status.board = board
+    status.variant = variant
+    status.bug = bug
 
-        # pylint: disable=bad-whitespace
-        # Allow extra spaces around = so that we can line things up nicely
-        status.base                 = module.base
-        status.coreboot_dir         = module.coreboot_dir
-        status.cb_config_dir        = module.cb_config_dir
-        status.emerge_cmd           = module.emerge_cmd
-        status.emerge_pkgs          = module.emerge_pkgs
-        status.fitimage_dir         = module.fitimage_dir
-        status.fitimage_pkg         = module.fitimage_pkg
-        status.fitimage_cmd         = module.fitimage_cmd
-        status.fsp                  = module.fsp
-        status.private_yaml_dir     = module.private_yaml_dir
-        status.step_list            = module.step_list
-        status.workon_pkgs          = module.workon_pkgs
-        status.yaml_emerge_pkgs     = module.yaml_emerge_pkgs
-        status.coreboot_push_list   = module.coreboot_push_list
-        status.repo_upload_list     = module.repo_upload_list
-        # pylint: enable=bad-whitespace
+    # Load the appropriate module and copy all the data from it.
+    try:
+        module = importlib.import_module(board)
+    except ImportError:
+        print('Unsupported board "' + board + '"')
+        sys.exit(1)
 
-        # Start at the first entry in the step list
-        status.step = status.step_list[0]
+    # pylint: disable=bad-whitespace
+    # Allow extra spaces around = so that we can line things up nicely
+    status.base                 = module.base
+    status.coreboot_dir         = module.coreboot_dir
+    status.cb_config_dir        = module.cb_config_dir
+    status.emerge_cmd           = module.emerge_cmd
+    status.emerge_pkgs          = module.emerge_pkgs
+    status.fitimage_dir         = module.fitimage_dir
+    status.fitimage_pkg         = module.fitimage_pkg
+    status.fitimage_cmd         = module.fitimage_cmd
+    status.fsp                  = module.fsp
+    status.private_yaml_dir     = module.private_yaml_dir
+    status.step_list            = module.step_list
+    status.workon_pkgs          = module.workon_pkgs
+    status.yaml_emerge_pkgs     = module.yaml_emerge_pkgs
+    status.coreboot_push_list   = module.coreboot_push_list
+    status.repo_upload_list     = module.repo_upload_list
+    # pylint: enable=bad-whitespace
 
-        # Start a blank map for tracking CL data
-        status.commits = {}
+    # Start at the first entry in the step list
+    status.step = status.step_list[0]
 
-        status.save()
+    # Start an empty map for tracking CL data
+    status.commits = {}
+
+    status.save()
 
     return status
 
@@ -370,6 +393,7 @@ def perform_step(status):
         step_names.FIND:            find_coreboot_upstream,
         step_names.CQ_DEPEND:       add_cq_depends,
         step_names.CLEAN_UP:        clean_up,
+        step_names.ABORT:           abort,
     }
 
     if status.step not in dispatch:
@@ -385,6 +409,11 @@ def move_to_next_step(status):
     Args:
         status: variant_status object tracking our board, variant, etc.
     """
+    # Special case: the next step after 'abort' is 'clean_up'. Always.
+    if status.step == step_names.ABORT:
+        status.step = step_names.CLEAN_UP
+        return
+
     if status.step not in status.step_list:
         logging.error('Unknown step "%s", aborting...', status.step)
         sys.exit(1)
@@ -492,7 +521,7 @@ def cros_workon(status, action, workon_pkgs):
 
     # Build up the command from all the packages in the list
     workon_cmd = ['cros_workon', '--board=' + status.base, action] + workon_pkgs
-    return bool(run_process(workon_cmd))
+    return run_process(workon_cmd)
 
 
 def create_coreboot_variant(status):
@@ -513,12 +542,12 @@ def create_coreboot_variant(status):
     environ['CB_SRC_DIR'] = cb_src_dir
     create_coreboot_variant_sh = os.path.join(status.my_loc,
         'create_coreboot_variant.sh')
-    rc = bool(run_process(
+    rc = run_process(
         [create_coreboot_variant_sh,
         status.base,
         status.board,
         status.variant,
-        status.bug], env=environ))
+        status.bug], env=environ)
     if rc:
         status.commits[step_names.CB_VARIANT] = get_git_commit_data(cb_src_dir)
     return rc
@@ -542,12 +571,12 @@ def create_coreboot_config(status):
         environ['CB_CONFIG_DIR'] = status.cb_config_dir
     create_coreboot_config_sh = os.path.join(status.my_loc,
         'create_coreboot_config.sh')
-    rc = bool(run_process(
+    rc = run_process(
         [create_coreboot_config_sh,
         status.base,
         status.board,
         status.variant,
-        status.bug], env=environ))
+        status.bug], env=environ)
     if rc:
         # Use status.cb_config_dir if defined, or if not, use
         # '/mnt/host/source/src/third_party/chromiumos-overlay'
@@ -576,12 +605,12 @@ def copy_cras_config(status):
     """
     logging.info('Running step copy_cras_config')
     copy_cras_config_sh = os.path.join(status.my_loc, 'copy_cras_config.sh')
-    rc = bool(run_process(
+    rc = run_process(
         [copy_cras_config_sh,
         status.base,
         status.board,
         status.variant,
-        status.bug]))
+        status.bug])
     if rc:
         status.commits[step_names.CRAS_CONFIG] = get_git_commit_data(
             '/mnt/host/source/src/overlays')
@@ -608,10 +637,10 @@ def add_fitimage(status):
     logging.info('Running step add_fitimage')
     add_fitimage_sh = os.path.expanduser(os.path.join(
         '/mnt/host/source/src', status.fitimage_dir, 'files/add_fitimage.sh'))
-    rc = bool(run_process(
+    rc = run_process(
         [add_fitimage_sh,
         status.variant,
-        status.bug]))
+        status.bug])
     if rc:
         fitimage_dir = os.path.join('/mnt/host/source/src', status.fitimage_dir)
         status.commits[step_names.COMMIT_FIT] = get_git_commit_data(fitimage_dir)
@@ -746,17 +775,17 @@ def commit_fitimage(status):
         return False
 
     # TODO(pfagerburg) volteer also needs files/blobs/descriptor-${VARIANT}.bin
-    if not bool(run_process(
+    if not run_process(
         ['git', 'add',
         'asset_generation/outputs/fit.log',
         'files/fitimage-' + status.variant + '.bin',
         'files/fitimage-' + status.variant + '-versions.txt'
         ],
-        cwd=fitimage_dir)):
+        cwd=fitimage_dir):
         return False
 
-    return bool(run_process(['git', 'commit', '--amend', '--no-edit'],
-        cwd=fitimage_dir))
+    return run_process(['git', 'commit', '--amend', '--no-edit'],
+        cwd=fitimage_dir)
 
 
 def create_initial_ec_image(status):
@@ -777,11 +806,11 @@ def create_initial_ec_image(status):
     logging.info('Running step create_initial_ec_image')
     create_initial_ec_image_sh = os.path.join(status.my_loc,
         'create_initial_ec_image.sh')
-    if not bool(run_process(
+    if not run_process(
         [create_initial_ec_image_sh,
         status.board,
         status.variant,
-        status.bug])):
+        status.bug]):
         return False
 
     # No need to `if rc:` because we already tested the run_process result above
@@ -818,7 +847,7 @@ def ec_buildall(status):
     del status  # unused parameter
     ec = '/mnt/host/source/src/platform/ec'
     logging.debug('ec = "%s"', ec)
-    return bool(run_process(['make', 'buildall', '-j'], cwd=ec))
+    return run_process(['make', 'buildall', '-j'], cwd=ec)
 
 
 def add_variant_to_public_yaml(status):
@@ -836,11 +865,11 @@ def add_variant_to_public_yaml(status):
     logging.info('Running step add_variant_to_public_yaml')
     add_variant_to_yaml_sh = os.path.join(status.my_loc,
         'add_variant_to_yaml.sh')
-    rc = bool(run_process(
+    rc = run_process(
         [add_variant_to_yaml_sh,
         status.base,
         status.variant,
-        status.bug]))
+        status.bug])
     if rc:
         status.commits[step_names.ADD_PUB_YAML] = get_git_commit_data(
             '/mnt/host/source/src/overlays')
@@ -861,10 +890,10 @@ def add_variant_to_private_yaml(status):
     """
     logging.info('Running step add_variant_to_private_yaml')
     add_variant_sh = os.path.expanduser(os.path.join(status.private_yaml_dir, 'add_variant.sh'))
-    rc = bool(run_process(
+    rc = run_process(
         [add_variant_sh,
         status.variant,
-        status.bug]))
+        status.bug])
     if rc:
         status.commits[step_names.ADD_PRIV_YAML] = get_git_commit_data(status.private_yaml_dir)
     return rc
@@ -885,7 +914,7 @@ def build_yaml(status):
         True if the scripts and build succeeded, False is something failed
     """
     logging.info('Running step build_yaml')
-    if not bool(run_process([status.emerge_cmd] + status.yaml_emerge_pkgs)):
+    if not run_process([status.emerge_cmd] + status.yaml_emerge_pkgs):
         return False
 
     # Check generated files for occurences of the variant name.
@@ -920,7 +949,7 @@ def build_yaml(status):
     if grep is None:
         return False
 
-    return not bool([s for s in grep if re.search(r':0$', s)])
+    return not [s for s in grep if re.search(r':0$', s)]
 
 
 def emerge_all(status):
@@ -964,7 +993,7 @@ def emerge_all(status):
     environ = os.environ.copy()
     environ['FW_NAME'] = status.variant
     emerge_cmd_and_params = [status.emerge_cmd] + status.emerge_pkgs
-    emerge_result = bool(run_process(emerge_cmd_and_params, env=environ))
+    emerge_result = run_process(emerge_cmd_and_params, env=environ)
 
     # cros_workon stop before possibly returning an error code.
     cros_workon(status, 'stop', stop_packages)
@@ -1145,7 +1174,7 @@ def repo_upload(branch_name, cwd):
     Returns:
         True if repo upload exits with a successful error code, false otherwise
     """
-    return bool(run_process(
+    return run_process(
         ['repo',
         'upload',
         '.',
@@ -1153,7 +1182,7 @@ def repo_upload(branch_name, cwd):
         '--wip',
         '--verify',
         '--yes'],
-        cwd=cwd))
+        cwd=cwd)
 
 
 def upload_CLs(status):
@@ -1315,6 +1344,47 @@ def clean_up(status):
     """
     logging.info('Running step clean_up')
     status.rm()
+    return True
+
+
+def abort(status):
+    """Abort the creation of a new variant by abandoning commits
+
+    When the user specifies the --abort flag, we override status.step to
+    be 'abort' and there is no transition from 'abort' to anything else.
+    We look at status.commits and for each key, see if we have already
+    been in that directory and abandoned that specific branch. If not,
+    abandon the commit and then add the branch+dir to a list of abandoned
+    commits. We do this because some boards (such as Zork) can have multiple
+    commits in the same directory and with the same branch name, and we only
+    want to repo abandon that branch once.
+
+    Args:
+        status: variant_status object tracking our board, variant, etc.
+
+    Returns:
+        True
+    """
+    logging.info('Running step abort')
+    # Use the set 'abandoned' to keep track of each branch+dir abandoned.
+    abandoned = set()
+    for step in status.commits:
+        logging.debug('Processing step %s', step)
+        commit = status.commits[step]
+        branch = commit['branch_name']
+        cwd = commit['dir']
+        if (branch, cwd) in abandoned:
+            logging.debug('Branch %s in directory %s already abandoned',
+                          branch, cwd)
+        else:
+            logging.info('Abandoning branch %s in directory %s',
+                         branch, cwd)
+            if run_process(['repo', 'abandon', branch, '.'], cwd=cwd):
+                abandoned.add((branch, cwd))
+            else:
+                logging.error('Error while abandoning branch %s', branch)
+                return False
+
     return True
 
 

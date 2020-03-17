@@ -27,4 +27,5 @@ UPLOAD        = 'upload'
 FIND          = 'find'
 CQ_DEPEND     = 'cq_depend'
 CLEAN_UP      = 'clean_up'
+ABORT         = 'abort'
 # pylint: enable=bad-whitespace
