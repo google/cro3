@@ -33,7 +33,7 @@ step_list = [
 coreboot_dir = 'third_party/coreboot-intel-private/jsl-tgl'
 
 # Base directory for coreboot configs (None=use default)
-cb_config_dir = 'private-overlays/chipset-tgl-private/sys-boot/coreboot/files/configs'
+cb_config_dir = None
 
 # Package name for FSP
 fsp = 'intel-tglfsp'
