@@ -15,7 +15,6 @@ import os
 import subprocess
 import MySQLdb
 import common
-import missing
 
 UPSTREAM_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_upstream)
 STABLE_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_stable)
@@ -112,16 +111,15 @@ def synchronize_repositories():
     synchronize_custom(CHROME_KERNEL_METADATA)
 
 
-def synchronize_database():
+def synchronize_databases():
     """Synchronizes the databases for upstream, stable, and chromeos."""
     db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
     common.update_kernel_db(db, UPSTREAM_KERNEL_METADATA)
     common.update_kernel_db(db, STABLE_KERNEL_METADATA)
     common.update_kernel_db(db, CHROME_KERNEL_METADATA)
-    missing.missing(db)
     db.close()
 
 
 if __name__ == '__main__':
     synchronize_repositories()
-    synchronize_database()
+    synchronize_databases()

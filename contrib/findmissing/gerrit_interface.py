@@ -152,9 +152,10 @@ def get_commit_changeid_linux_chrome(kernel_sha):
         # Get last change-id in case chrome sha cherry-picked/reverted into new commit
         return m[-1]
     except subprocess.CalledProcessError as e:
-        raise type(e)('Couldnt retrieve changeid for most recent local commit', e.cmd) from e
+        raise type(e)('Couldnt retrieve log for kernel_sha %s' % kernel_sha, e.cmd) from e
     except IndexError as e:
-        raise type(e)('Did not find Change-Id line for linux chrome sha %s' % kernel_sha) from e
+        # Stable kernel_sha's do not have an associated ChangeID
+        return None
 
 
 def get_bug_test_line(fixee_changeid):
@@ -244,6 +245,7 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
     Determines whether a change for a fix has already been created,
     and avoids duplicate creations.
     """
+    cwd = os.getcwd()
     chromeos_branch = common.chromeos_branch(branch)
 
     fixee_changeid = get_commit_changeid_linux_chrome(fixee_kernel_sha)
@@ -274,4 +276,5 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
 
     set_reviewers(fixer_changeid, reviewers)
 
+    os.chdir(cwd)
     return fixer_changeid

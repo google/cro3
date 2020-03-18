@@ -7,62 +7,27 @@
 
 """Web server performing operations on our systems.
 
-Systems will include: CloudSQL, CloudSource, and AppEngine.
+Systems will include: Cloud Scheduler, CloudSQL, and Compute Engine
 """
 
 from __future__ import print_function
 
-# if you are getting a linter error when uploading to gerrit from chroot env
-#  run command: `sudo emerge flask` and reupload your changes.
-from flask import Flask
+import synchronize
+import missing
 
-
-app = Flask(__name__)
-
-GERRIT_CHROMIUM_URL = 'https://chromium-review.googlesource.com/'
-GERRIT_CHROMIUM_KERNEL_URL = ('https://chromium-review.googlesource.com/admin/'
-        'repos/chromiumos/third_party/kernel,branches')
-
-@app.route('/', methods=['GET'])
 def home():
     """Test route for status check on compute engine"""
-    return 'hello, compute engine are you there?'
+    return 'hello, compute engine are you there?\n'
 
-@app.route('/sync/<string:version>', methods=['POST'])
-def sync_version_table(version):
-    """Updates the table for a kernel version."""
-    print(version)
+def sync_repositories_and_databases():
+    """Synchronizes state of repositories, databases, and missing patches."""
+    synchronize.synchronize_repositories()
+    synchronize.synchronize_databases()
 
+def create_new_patches():
+    """Creates up to number of new patches in gerrit."""
+    missing.new_missing_patches()
 
-@app.route('/sync/patch-table/<string:version>', methods=['POST'])
-def sync_patches(version):
-    """Updates the patches table with new data for a kernel version."""
-    print(version)
-
-
-@app.route('/sync/linux-cloudsource', methods=['POST'])
-def post_sync_linux():
-    """Syncs linux_upstream, linux_stable, and linux_chromeos.
-
-    These repositories are mirrored on cloudsource to avoid fully
-    cloning the repositories every time we need to parse logs.
-    """
-    pass
-
-
-@app.route('/statistics/daily', methods=['POST'])
-def post_daily_stat():
-    """Add daily statistics entry to patchesdb (statistics table)."""
-
-    # Check number of entries in database
-    day = 0
-
-    if day < 1:
-        # no entries in db yet
-        pass
-    elif 1 <= day < 366:
-        # db contains less than a years worth of statistics
-        pass
-    else:
-        # remove day 1 and add another entry
-        pass
+def update_patches():
+    """Updates fixes table entries on regular basis."""
+    missing.update_missing_patches()

@@ -5,10 +5,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Find missing stable and backported mainline fix patches in chromeos.
-
-TODO(hirthanan): rename functions to be representative of what code is doing
-"""
+"""Find missing stable and backported mainline fix patches in chromeos."""
 
 from __future__ import print_function
 import os
@@ -20,6 +17,8 @@ import MySQLdb
 import common
 import gerrit_interface
 
+# Constant representing number CL's we want created on single new missing patch run
+NEW_CL_DAILY_LIMIT_PER_BRANCH = 1
 
 def get_status_from_cherrypicking_sha(sha):
     """Attempt to cherrypick sha into working directory to retrieve it's Status.
@@ -132,11 +131,15 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
 
 
 def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstream_sha):
-    """Inserts fix row by checking status of applying a fix change."""
+    """Inserts fix row by checking status of applying a fix change.
+
+    Return True if we create a new Gerrit CL, otherwise return False.
+    """
     # Check if fix has been merged using it's patch-id since sha's might've changed
     success = insert_by_patch_id(db, branch, fixedby_upstream_sha)
+    created_new_change = False
     if success:
-        return
+        return created_new_change
 
     c = db.cursor()
 
@@ -171,6 +174,7 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
             fix_change_id = gerrit_interface.get_commit_changeid_linux_chrome(fixedby_kernel_sha)
     elif status == common.Status.OPEN:
         fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch)
+        created_new_change = True
     elif status == common.Status.CONFLICT:
         # Register conflict entry_time, do not create gerrit CL
         # Requires engineer to manually explore why CL doesn't apply cleanly
@@ -189,9 +193,38 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
                 [chosen_fixes, kernel_sha, fixedby_upstream_sha,
                         branch, entry_time, entry_time, close_time,
                         fix_change_id, cl_status, reason], e)
+    return created_new_change
+
+def update_fixes_in_branch(db, branch, kernel_metadata):
+    """Updates fix patch table row by determining if CL merged into linux_chrome."""
+    c = db.cursor()
+    chosen_fixes = kernel_metadata.kernel_fixes_table
+
+    # Old rows to Update
+    q = """UPDATE {chosen_fixes} AS fixes
+           JOIN linux_chrome AS lc
+           ON fixes.fixedby_upstream_sha = lc.upstream_sha
+           SET status = 'MERGED', close_time = %s, reason = %s
+           WHERE fixes.branch = %s
+           AND lc.branch = %s
+           AND (fixes.status = 'OPEN' OR fixes.status = 'CONFLICT')
+           """.format(chosen_fixes=chosen_fixes)
+
+    close_time = get_current_time()
+    reason = 'Patch has been applied to linux_chome'
+
+    try:
+        c.execute(q, [close_time, reason, branch, branch])
+        print('Updating rows that have been merged into linux_chrome on table/branch',
+                [chosen_fixes, branch])
+    except MySQLdb.Error as e: # pylint: disable=no-member
+        print('Error updating fixes table for merged commits',
+                [chosen_fixes, close_time, reason, branch, branch], e)
+
+    db.commit()
 
 
-def missing_branch(db, branch, kernel_metadata):
+def create_new_fixes_in_branch(db, branch, kernel_metadata):
     """Look for missing Fixup commits in provided chromeos or stable release."""
     c = db.cursor()
     branch_name = kernel_metadata.get_kernel_branch(branch)
@@ -225,35 +258,25 @@ def missing_branch(db, branch, kernel_metadata):
         print('Error finding new rows to insert',
                 [chosen_table, chosen_fixes, branch], e)
 
+    count_new_changes = 0
+    # todo(hirthanan): Create an intermediate state in Status that allows us to
+    #   create all the patches in chrome/stable fixes tables but does not add reviewers
+    #   until quota is available. This should decouple the creation of gerrit CL's
+    #   and adding reviewers to those CL's.
     for (kernel_sha, fixedby_upstream_sha) in c.fetchall():
-        insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstream_sha)
-
-    # Old rows to Update
-    q = """UPDATE {chosen_fixes} AS fixes
-            JOIN linux_chrome AS lc
-            ON fixes.fixedby_upstream_sha = lc.upstream_sha
-            SET status = 'MERGED', close_time = %s, reason = %s
-            WHERE fixes.branch = %s
-            AND lc.branch = %s
-            AND (fixes.status = 'OPEN' OR fixes.status = 'CONFLICT')
-            """.format(chosen_fixes=chosen_fixes)
-
-    close_time = get_current_time()
-    reason = 'Patch has been applied to linux_chrome'
-
-    try:
-        c.execute(q, [close_time, reason, branch, branch])
-        print('Updating rows that have been merged into linux_chrome on table/branch',
-                [chosen_fixes, branch])
-    except MySQLdb.Error as e: # pylint: disable=no-member
-        print('Error updating fixes table for merged commits',
-                [chosen_fixes, close_time, reason, branch, branch], e)
+        new_change = insert_fix_gerrit(db, chosen_table, chosen_fixes,
+                                        branch, kernel_sha, fixedby_upstream_sha)
+        if new_change:
+            count_new_changes += 1
+        if count_new_changes >= NEW_CL_DAILY_LIMIT_PER_BRANCH:
+            break
 
     db.commit()
+    return count_new_changes
 
 
-def missing_helper(db, kernel_metadata):
-    """Helper to find missing patches in the stable and chromeos releases."""
+def missing_patches_sync(db, kernel_metadata, sync_branch_method):
+    """Helper to create or update fix patches in stable and chromeos releases."""
     if len(sys.argv) > 1:
         branches = sys.argv[1:]
     else:
@@ -262,23 +285,28 @@ def missing_helper(db, kernel_metadata):
     os.chdir(common.get_kernel_absolute_path(kernel_metadata.path))
 
     for b in branches:
-        missing_branch(db, b, kernel_metadata)
+        sync_branch_method(db, b, kernel_metadata)
 
     os.chdir(common.WORKDIR)
 
 
-def missing(db):
-    """Finds missing patches in stable and chromeos releases."""
-    print('--Missing patches from baseline -> stable.--')
-    kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
-    missing_helper(db, kernel_metadata)
-
-    print('--Missing patches from baseline -> chromeos.--')
-    kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
-    missing_helper(db, kernel_metadata)
-
-
-if __name__ == '__main__':
+def new_missing_patches():
+    """Rate limit calling create_new_fixes_in_branch."""
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
-    missing(cloudsql_db)
+    kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
+    missing_patches_sync(cloudsql_db, kernel_metadata, create_new_fixes_in_branch)
+
+    kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
+    missing_patches_sync(cloudsql_db, kernel_metadata, create_new_fixes_in_branch)
+    cloudsql_db.close()
+
+
+def update_missing_patches():
+    """Updates fixes table entries on regular basis."""
+    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
+    missing_patches_sync(cloudsql_db, kernel_metadata, update_fixes_in_branch)
+
+    kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
+    missing_patches_sync(cloudsql_db, kernel_metadata, update_fixes_in_branch)
     cloudsql_db.close()
