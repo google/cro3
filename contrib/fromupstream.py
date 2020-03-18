@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -45,6 +47,7 @@ def _git(args, stdin=None, encoding='utf-8'):
     Similar to subprocess.check_output.
 
     Args:
+        args: subcommand + args passed to 'git'.
         stdin: a string or bytes (depending on encoding) that will be passed
             to the git subcommand.
         encoding: either 'utf-8' (default) or None. Override it to None if
