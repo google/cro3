@@ -171,10 +171,10 @@ def _pick_patchwork(url, patch_id, args):
     if args['tag'] is None:
         args['tag'] = 'FROMLIST: '
 
-    opener = urllib.request.urlopen('%s/patch/%d/mbox' % (url, patch_id))
-    if opener.getcode() != 200:
-        errprint('Error: could not download patch - error code %d'
-                 % opener.getcode())
+    try:
+        opener = urllib.request.urlopen('%s/patch/%d/mbox' % (url, patch_id))
+    except urllib.error.HTTPError as e:
+        errprint('Error: could not download patch: %s' % e)
         sys.exit(1)
     patch_contents = opener.read()
 
@@ -186,8 +186,37 @@ def _pick_patchwork(url, patch_id, args):
     message_id = re.sub('^<|>$', '', message_id.strip())
     if args['source_line'] is None:
         args['source_line'] = '(am from %s/patch/%d/)' % (url, patch_id)
-        args['source_line'] += (
-            '\n(also found at https://lkml.kernel.org/r/%s)' % message_id)
+        for url_template in [
+            'https://lkml.kernel.org/r/%s',
+            # hostap project (and others) are here, but not kernel.org.
+            'https://marc.info/?i=%s',
+            # public-inbox comes last as a "default"; it has a nice error page
+            # pointing to other redirectors, even if it doesn't have what
+            # you're looking for directly.
+            'https://public-inbox.org/git/%s',
+        ]:
+            alt_url = url_template % message_id
+            if args['debug']:
+                print('Probing archive for message at: %s' % alt_url)
+            try:
+                urllib.request.urlopen(alt_url)
+            except urllib.error.HTTPError as e:
+                # Skip all HTTP errors. We can expect 404 for archives that
+                # don't have this MessageId, or 300 for public-inbox ("not
+                # found, but try these other redirects"). It's less clear what
+                # to do with transitory (or is it permanent?) server failures.
+                if args['debug']:
+                    print('Skipping URL %s, error: %s' % (alt_url, e))
+                continue
+            # Success!
+            if args['debug']:
+                print('Found at %s' % alt_url)
+            break
+        else:
+            errprint(
+                "WARNING: couldn't find working MessageId URL; "
+                'defaulting to "%s"' % alt_url)
+        args['source_line'] += '\n(also found at %s)' % alt_url
 
     # Auto-snarf the Change-Id if it was encoded into the Message-Id.
     mo = re.match(r'.*(I[a-f0-9]{40})@changeid$', message_id)
