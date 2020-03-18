@@ -16,13 +16,15 @@ the Manifest and build the new firmware. You can then submit your CL to update
 the master configuration, safe in the knowledge that you have tested it.
 
 Usage:
-   cros_update_firmware <board>
+   cros_update_firmware <board> [project]
 
 where <board> is the board whose firmware needs updating (e.g. 'coral').
+      [project] is the project the board belongs to.
 "
 
 # Flags
 DEFINE_string board "${DEFAULT_BOARD}" "Which board the firmware is for" b
+DEFINE_string project "${DEFAULT_PROJECT}" "Which project this board is for" p
 
 # Parse command line.
 FLAGS "$@" || exit 1
@@ -57,6 +59,7 @@ stop_workon() {
 
 update_firmware() {
   local board="$1"
+  local project="$2"
   local base ebuild srcuris cfg_bsp_pkg cfg_bsp_baseboard_pkg
   local current_workon_pkg_list start_pkg result i
 
@@ -92,9 +95,19 @@ update_firmware() {
   srcuris="${base}/chromeos-firmware-${board}/files/srcuris"
   yaml_config="/build/${board}/usr/share/chromeos-config/yaml/config.yaml"
 
+  # Check project config repo exists -- if so generate the config first.
+  if [ -d ${GCLIENT_ROOT}/src/project/${project}/${board} ]; then
+    pushd ${GCLIENT_ROOT}/src/project/${project}/${board} > /dev/null
+    if [[ -x ./config/bin/gen_config && -f ./config.star ]]; then
+      ./config/bin/gen_config config.star
+    fi
+    popd > /dev/null
+  fi
+
   "emerge-${board}" ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}" chromeos-config
   cros_config_host -c "${yaml_config}" get-firmware-uris > "${srcuris}"
   touch "${ebuild}"
+
   # Clean metadata cache to make sure SRC_URI is fetched from ${srcuris}
   # instead from portage cache which maybe out of sync.
   # Note: this workaround is needed because we break the SRC_URI API contract
@@ -118,7 +131,7 @@ main() {
     die "-b or --board required."
   fi
 
-  update_firmware "${FLAGS_board}"
+  update_firmware "${FLAGS_board}" "${FLAGS_project}"
 }
 
 main "$@"
