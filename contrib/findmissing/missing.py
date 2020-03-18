@@ -18,6 +18,7 @@ import sys
 
 import MySQLdb
 import common
+import gerrit_interface
 
 
 def get_status_from_cherrypicking_sha(sha):
@@ -164,14 +165,12 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
         reason = 'Patch applied to %s before this robot was run' % chosen_table
         close_time = entry_time
 
-        # TODO(hirthanan): gerrit api call to retrieve change-id for merged commit
-        fix_change_id = 1
-
-    elif status == common.Status.OPEN:
-        print("""TODO(hirthanan) create gerrit ticket for entry
-                kernel_sha:fixedby_upstream_sha""", kernel_sha, fixedby_upstream_sha)
-
+        # linux_chrome will have change-id's but stable merged fixes will not
         fix_change_id = 0
+        if chosen_table == 'linux_chrome':
+            fix_change_id = gerrit_interface.get_commit_changeid_linux_chrome(fixedby_kernel_sha)
+    elif status == common.Status.OPEN:
+        fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch)
     elif status == common.Status.CONFLICT:
         # Register conflict entry_time, do not create gerrit CL
         # Requires engineer to manually explore why CL doesn't apply cleanly
