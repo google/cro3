@@ -69,8 +69,14 @@ def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
 
     q = """SELECT sha
             FROM {chosen_table}
-            WHERE upstream_sha = %s AND branch = %s""".format(chosen_table=chosen_table)
-    c.execute(q, [upstream_sha, branch])
+            WHERE branch = %s
+            AND (upstream_sha = %s
+                OR patch_id IN (
+                    SELECT patch_id
+                    FROM linux_upstream
+                    WHERE sha = %s
+                ))""".format(chosen_table=chosen_table)
+    c.execute(q, [branch, upstream_sha, upstream_sha])
     row = c.fetchone()
 
     return row[0] if row else None
