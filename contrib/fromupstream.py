@@ -29,6 +29,10 @@ LINUX_URLS = (
     'https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git',
 )
 
+HOSTAP_URLS = (
+    'git://w1.fi/srv/git/hostap.git',
+)
+
 PATCHWORK_URLS = (
     'https://lore.kernel.org/patchwork',
     'https://patchwork.kernel.org',
@@ -97,11 +101,11 @@ def _get_conflicts():
         return ''
     return '\nConflicts:\n%s\n' % '\n'.join(conflicts)
 
-def _find_linux_remote():
-    """Find a remote pointing to a Linux upstream repository."""
+def _find_upstream_remote(urls):
+    """Find a remote pointing to an upstream repository."""
     for remote in _git(['remote']).splitlines():
         try:
-            if _git(['remote', 'get-url', remote]) in LINUX_URLS:
+            if _git(['remote', 'get-url', remote]) in urls:
                 return remote
         except subprocess.CalledProcessError:
             # Kinda weird, get-url failing on an item that git just gave us.
@@ -262,24 +266,21 @@ def _match_msgid(match, args):
 
     return _pick_patchwork(url, patch_id, args)
 
-def _match_linux(match, args):
-    """Match location: linux://HASH."""
-    commit = match.group(1)
-
+def _match_upstream(commit, urls, args):
     if args['debug']:
-        print('_match_linux: commit=%s' % commit)
+        print('_match_upstream: commit=%s' % commit)
 
-    # Confirm a 'linux' remote is setup.
-    linux_remote = _find_linux_remote()
-    if not linux_remote:
+    # Confirm an upstream remote is setup.
+    remote = _find_upstream_remote(urls)
+    if not remote:
         errprint('Error: need a valid upstream remote')
         sys.exit(1)
 
-    linux_master = '%s/master' % linux_remote
+    remote_ref = '%s/master' % remote
     try:
-        _git(['merge-base', '--is-ancestor', commit, linux_master])
+        _git(['merge-base', '--is-ancestor', commit, remote_ref])
     except subprocess.CalledProcessError:
-        errprint('Error: Commit not in %s' % linux_master)
+        errprint('Error: Commit not in %s' % remote_ref)
         sys.exit(1)
 
     if args['source_line'] is None:
@@ -293,6 +294,16 @@ def _match_linux(match, args):
         _git(['reset', '--hard', 'HEAD~1'])
 
     return _git_returncode(['cherry-pick', commit])
+
+def _match_linux(match, args):
+    """Match location: linux://HASH."""
+    commit = match.group(1)
+    return _match_upstream(commit, urls=LINUX_URLS, args=args)
+
+def _match_hostap(match, args):
+    """Match location: hostap://HASH."""
+    commit = match.group(1)
+    return _match_upstream(commit, urls=HOSTAP_URLS, args=args)
 
 def _match_fromgit(match, args):
     """Match location: git://remote/branch/HASH."""
@@ -430,7 +441,8 @@ def main(args):
                         'PROJECT is specified, the default is retrieved from '
                         '~/.pwclientrc), '
                         'Message-ID (msgid://MSGID), '
-                        'linux commit like linux://HASH, or '
+                        'linux commit like linux://HASH, '
+                        'hostap commit like hostap://HASH, or '
                         'git reference like git://remote/branch/HASH or '
                         'git://repoURL#branch/HASH or '
                         'https://repoURL#branch/HASH or '
@@ -476,6 +488,7 @@ def main(args):
         (re.compile(r'^pw://(([^/]+)/)?(\d+)'), _match_patchwork),
         (re.compile(r'^msgid://<?([^>]*)>?'), _match_msgid),
         (re.compile(r'^linux://([0-9a-f]+)'), _match_linux),
+        (re.compile(r'^hostap://([0-9a-f]+)'), _match_hostap),
         (re.compile(r'^(from)?git://([^/\#]+)/([^#]+)/([0-9a-f]+)$'),
          _match_fromgit),
         (re.compile(r'^((git|https)://.+)#(.+)/([0-9a-f]+)$'), _match_gitfetch),
