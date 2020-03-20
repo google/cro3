@@ -16,6 +16,7 @@ import sys
 import MySQLdb
 import common
 import gerrit_interface
+import git_interface
 
 # Constant representing number CL's we want created on single new missing patch run
 NEW_CL_DAILY_LIMIT_PER_BRANCH = 1
@@ -206,7 +207,7 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
 
         # Correctly located fixedby_kernel_sha in linux_chrome
         if chosen_table == 'linux_chrome' and fixedby_kernel_sha:
-            fix_change_id = gerrit_interface.get_commit_changeid_linux_chrome(fixedby_kernel_sha)
+            fix_change_id = git_interface.get_commit_changeid_linux_chrome(fixedby_kernel_sha)
     elif status == common.Status.OPEN:
         fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch)
         created_new_change = True
