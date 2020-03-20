@@ -48,7 +48,8 @@ def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
             ret = common.Status.CONFLICT
         else:
             diff = subprocess.check_output(['git', 'diff', 'HEAD'])
-            if diff:
+            fix_in_chrome = search_upstream_subject_in_linux_chrome(fixer_upstream_sha)
+            if diff and not fix_in_chrome:
                 ret = common.Status.OPEN
             else:
                 ret = common.Status.MERGED
@@ -60,6 +61,30 @@ def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
     # Set directory back to where we started before function called
     os.chdir(cwd)
     return ret
+
+
+def search_upstream_subject_in_linux_chrome(upstream_sha):
+    """Check if upstream_sha subject line is in linux_chrome.
+
+    Assumes function is run from correct directory/branch.
+    """
+    subject = None
+    try:
+        # Retrieve subject line of upstream_sha.
+        cmd = ['git', 'log', '--pretty=format:%s', '-n', '1', upstream_sha]
+        subject = subprocess.check_output(cmd,
+                stderr=subprocess.DEVNULL, encoding='utf-8', errors='ignore')
+    except subprocess.CalledProcessError:
+        print('Error locating subject line of upstream sha %s' % upstream_sha)
+        raise
+
+    try:
+        cmd = ['git', 'log', '--no-merges', '--grep', subject]
+        result = subprocess.check_output(cmd)
+        return bool(result)
+    except subprocess.CalledProcessError:
+        print('Error while searching for subject line %s in linux_chrome' % subject)
+        raise
 
 
 def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
