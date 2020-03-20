@@ -248,7 +248,9 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
     cwd = os.getcwd()
     chromeos_branch = common.chromeos_branch(branch)
 
+    # fixee_changeid will be None for stable fixee_kernel_sha's
     fixee_changeid = get_commit_changeid_linux_chrome(fixee_kernel_sha)
+
     bug_test_line = get_bug_test_line(fixee_changeid)
     fix_commit_message = generate_fix_message(fixer_upstream_sha, bug_test_line)
 
@@ -260,7 +262,6 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
         print('Failed to create gerrit ticket for [fixee_kernel_sha, fixer_upstream_sha]',
                 (fixee_kernel_sha, fixer_upstream_sha))
         raise
-
 
     reviewers = None
     if fixee_changeid:

@@ -20,25 +20,27 @@ import gerrit_interface
 # Constant representing number CL's we want created on single new missing patch run
 NEW_CL_DAILY_LIMIT_PER_BRANCH = 1
 
-def get_status_from_cherrypicking_sha(sha):
-    """Attempt to cherrypick sha into working directory to retrieve it's Status.
-
-    The working directory and branch must be set when calling
-    this function.
+def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
+    """Cherrypick fixer sha into it's linux_chrome branch and determine its Status.
 
     Return Status Enum:
     MERGED if the patch has already been applied,
     OPEN if the patch is missing and applies cleanly,
     CONFLICT if the patch is missing and fails to apply.
     """
+    # Save current working directory
+    cwd = os.getcwd()
+
+    # Switch to chrome directory to apply cherry-pick
+    chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
+    os.chdir(chrome_absolute_path)
+
+    subprocess.run(['git', 'checkout', common.chromeos_branch(branch)])
+    subprocess.run(['git', 'reset', '--hard', 'HEAD'])
+
     ret = None
-
-    cmd = 'git reset --hard HEAD'
-    subprocess.run(cmd.split(' '), stdout=subprocess.DEVNULL,
-                                   stderr=subprocess.DEVNULL)
-
     try:
-        result = subprocess.call(['git', 'cherry-pick', '-n', sha],
+        result = subprocess.call(['git', 'cherry-pick', '-n', fixer_upstream_sha],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL)
 
@@ -53,10 +55,10 @@ def get_status_from_cherrypicking_sha(sha):
     except subprocess.CalledProcessError:
         ret = common.Status.CONFLICT
 
-    cmd = 'git reset --hard HEAD'
-    subprocess.run(cmd.split(' '), stdout=subprocess.DEVNULL,
-                                   stderr=subprocess.DEVNULL)
+    subprocess.run(['git', 'reset', '--hard', 'HEAD'])
 
+    # Set directory back to where we started before function called
+    os.chdir(cwd)
     return ret
 
 
@@ -150,7 +152,7 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
     c = db.cursor()
 
     # Try applying patch and get status
-    status = get_status_from_cherrypicking_sha(fixedby_upstream_sha)
+    status = get_status_from_cherrypicking_sha(branch, fixedby_upstream_sha)
     cl_status = status.name
 
     entry_time = get_current_time()
@@ -176,7 +178,9 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
 
         # linux_chrome will have change-id's but stable merged fixes will not
         fix_change_id = 0
-        if chosen_table == 'linux_chrome':
+
+        # Correctly located fixedby_kernel_sha in linux_chrome
+        if chosen_table == 'linux_chrome' and fixedby_kernel_sha:
             fix_change_id = gerrit_interface.get_commit_changeid_linux_chrome(fixedby_kernel_sha)
     elif status == common.Status.OPEN:
         fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch)
