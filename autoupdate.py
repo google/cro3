@@ -26,7 +26,6 @@ except ImportError:
   import nebraska
 
 import setup_chromite  # pylint: disable=unused-import
-from chromite.lib.xbuddy import build_util
 from chromite.lib.xbuddy import cherrypy_log_util
 from chromite.lib.xbuddy import common_util
 from chromite.lib.xbuddy import devserver_constants as constants
@@ -113,18 +112,19 @@ class HostInfoTable(object):
     return self.table.get(host_id)
 
 
-class Autoupdate(build_util.BuildObject):
+class Autoupdate(object):
   """Class that contains functionality that handles Chrome OS update pings."""
 
   _PAYLOAD_URL_PREFIX = '/static/'
 
-  def __init__(self, xbuddy, payload_path=None, proxy_port=None,
-               critical_update=False, max_updates=-1, host_log=False,
-               *args, **kwargs):
+  def __init__(self, xbuddy, static_dir=None, payload_path=None,
+               proxy_port=None, critical_update=False, max_updates=-1,
+               host_log=False):
     """Initializes the class.
 
     Args:
       xbuddy: The xbuddy path.
+      static_dir: The path to the devserver static directory.
       payload_path: The path to pre-generated payload to serve.
       proxy_port: The port of local proxy to tell client to connect to you
         through.
@@ -132,8 +132,8 @@ class Autoupdate(build_util.BuildObject):
       max_updates: The maximum number of updates we'll try to provision.
       host_log: Record full history of host update events.
     """
-    super(Autoupdate, self).__init__(*args, **kwargs)
     self.xbuddy = xbuddy
+    self.static_dir = static_dir
     self.payload_path = payload_path
     self.proxy_port = proxy_port
     self.critical_update = critical_update
@@ -192,7 +192,7 @@ class Autoupdate(build_util.BuildObject):
     log_message = {
         'version': request.version,
         'track': request.track,
-        'board': request.board or self.GetDefaultBoardID(),
+        'board': request.board,
         'event_result': request.app_requests[0].event_result,
         'event_type': request.app_requests[0].event_type,
         'previous_version': request.app_requests[0].previous_version,
