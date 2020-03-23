@@ -24,6 +24,8 @@ NEW_CL_DAILY_LIMIT_PER_BRANCH = 1
 def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
     """Cherrypick fixer sha into it's linux_chrome branch and determine its Status.
 
+    Assumes branch and repository directory are set when function is called.
+
     Return Status Enum:
     MERGED if the patch has already been applied,
     OPEN if the patch is missing and applies cleanly,
@@ -36,14 +38,15 @@ def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
     chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
     os.chdir(chrome_absolute_path)
 
-    subprocess.run(['git', 'checkout', common.chromeos_branch(branch)])
-    subprocess.run(['git', 'reset', '--hard', 'HEAD'])
+    checkout_branch_cmd = ['git', 'checkout', common.chromeos_branch(branch)]
+    reset_head_cmd = ['git', 'reset', '--hard', 'HEAD']
+    subprocess.run(checkout_branch_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(reset_head_cmd, stdout=subprocess.DEVNULL)
 
     ret = None
     try:
         result = subprocess.call(['git', 'cherry-pick', '-n', fixer_upstream_sha],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL)
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         if result:
             ret = common.Status.CONFLICT
@@ -57,7 +60,7 @@ def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
     except subprocess.CalledProcessError:
         ret = common.Status.CONFLICT
 
-    subprocess.run(['git', 'reset', '--hard', 'HEAD'])
+    subprocess.run(reset_head_cmd, stdout=subprocess.DEVNULL)
 
     # Set directory back to where we started before function called
     os.chdir(cwd)
@@ -73,8 +76,7 @@ def search_upstream_subject_in_linux_chrome(upstream_sha):
     try:
         # Retrieve subject line of upstream_sha.
         cmd = ['git', 'log', '--pretty=format:%s', '-n', '1', upstream_sha]
-        subject = subprocess.check_output(cmd,
-                stderr=subprocess.DEVNULL, encoding='utf-8', errors='ignore')
+        subject = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
     except subprocess.CalledProcessError:
         print('Error locating subject line of upstream sha %s' % upstream_sha)
         raise
@@ -199,12 +201,10 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
         print("""%s SHA [%s] already merged bugfix patch [kernel: %s] [upstream: %s]"""
                 % (chosen_fixes, kernel_sha, fixedby_kernel_sha, fixedby_upstream_sha))
 
-        reason = 'Patch applied to %s before this robot was run' % chosen_table
+        reason = 'Patch applied to linux_chrome before this robot was run'
         close_time = entry_time
 
         # linux_chrome will have change-id's but stable merged fixes will not
-        fix_change_id = 0
-
         # Correctly located fixedby_kernel_sha in linux_chrome
         if chosen_table == 'linux_chrome' and fixedby_kernel_sha:
             fix_change_id = git_interface.get_commit_changeid_linux_chrome(fixedby_kernel_sha)
@@ -266,7 +266,8 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata):
     branch_name = kernel_metadata.get_kernel_branch(branch)
 
     print('Checking branch %s' % branch_name)
-    subprocess.check_output(['git', 'checkout', branch_name], stderr=subprocess.DEVNULL)
+    subprocess.run(['git', 'checkout', branch_name],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # chosen_table is either linux_stable or linux_chrome
     chosen_table = kernel_metadata.path

@@ -28,21 +28,35 @@ def get_upstream_fullsha(abbrev_sha):
         raise type(e)('Could not find full upstream sha for %s' % abbrev_sha, e.cmd) from e
 
 
-def get_upstream_commit_message(upstream_sha):
-    """Returns the commit message for a given upstream sha using git cli."""
-    upstream_absolute_path = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
+def get_commit_message(kernel_path, sha):
+    """Returns the commit message for a sha in a given local path to kernel."""
     try:
-        cmd = ['git', '-C', upstream_absolute_path, 'log',
-                '--format=%B', '-n', '1', upstream_sha]
+        cmd = ['git', '-C', kernel_path, 'log',
+                '--format=%B', '-n', '1', sha]
         commit_message = subprocess.check_output(cmd).decode('utf-8', errors='ignore')
         return commit_message
     except subprocess.CalledProcessError as e:
-        raise type(e)('Couldnt retrieve commit for upstream sha %s'
-                        % upstream_sha, e.cmd) from e
+        raise type(e)('Couldnt retrieve commit in kernel path %s for sha %s'
+                        % (kernel_path, sha), e.cmd) from e
+
+
+def get_upstream_commit_message(upstream_sha):
+    """Returns the commit message for a given upstream sha using git cli."""
+    upstream_absolute_path = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
+    return get_commit_message(upstream_absolute_path, upstream_sha)
+
+
+def get_chrome_commit_message(chrome_sha):
+    """Returns the commit message for a given chrome sha using git cli."""
+    chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
+    return get_commit_message(chrome_absolute_path, chrome_sha)
 
 
 def get_commit_changeid_linux_chrome(kernel_sha):
-    """Returns the changeid of the most recent local commit by parsing linux_chrome git log."""
+    """Returns the changeid of the kernel_sha commit by parsing linux_chrome git log.
+
+    kernel_sha will be one of linux_stable or linux_chrome commits.
+    """
     chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
     try:
         cmd = ['git', '-C', chrome_absolute_path, 'log', '--format=%B', '-n', '1', kernel_sha]
@@ -53,9 +67,10 @@ def get_commit_changeid_linux_chrome(kernel_sha):
         # Get last change-id in case chrome sha cherry-picked/reverted into new commit
         return m[-1]
     except subprocess.CalledProcessError as e:
-        raise type(e)('Couldnt retrieve changeid for most recent local commit', e.cmd) from e
+        raise type(e)('Couldnt retrieve changeid for commit %s' % kernel_sha, e.cmd) from e
     except IndexError as e:
-        raise type(e)('Did not find Change-Id line for linux chrome sha %s' % kernel_sha) from e
+        # linux_stable kernel_sha's do not have an associated ChangeID
+        return None
 
 
 def get_last_commit_sha_linux_chrome():

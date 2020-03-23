@@ -66,22 +66,6 @@ def set_and_parse_endpoint(endpoint_url, payload):
     return resp_json
 
 
-def get_commit(changeid):
-    """Retrieves current commit message for a change.
-
-    May add some additional information to the fix patch for tracking purposes.
-    i.e attaching a tag
-    """
-    get_commit_endpoint = os.path.join(common.CHROMIUM_REVIEW_BASEURL, 'changes',
-                                        changeid, 'revisions/current/commit')
-    resp = retrieve_and_parse_endpoint(get_commit_endpoint)
-
-    try:
-        return resp['message']
-    except KeyError as e:
-        raise type(e)('Gerrit API endpoint to get commit should contain message key') from e
-
-
 def get_reviewers(changeid):
     """Retrieves list of reviewer emails from gerrit given a chromeos changeid."""
     list_reviewers_endpoint = os.path.join(common.CHROMIUM_REVIEW_BASEURL, 'changes',
@@ -117,15 +101,15 @@ def set_hashtag(changeid):
     set_and_parse_endpoint(set_hashtag_endpoint, hashtag_input_payload)
 
 
-def get_bug_test_line(fixee_changeid):
-    """Retrieve BUG and TEST lines from the fixee changeid."""
+def get_bug_test_line(chrome_sha):
+    """Retrieve BUG and TEST lines from the chrome sha."""
     # stable fixes don't have a fixee changeid
     bug_test_line = 'BUG=%s\nTEST=%s'
     bug = test = None
-    if not fixee_changeid:
+    if not chrome_sha:
         return bug_test_line % (bug, test)
 
-    chrome_commit_msg = get_commit(fixee_changeid)
+    chrome_commit_msg = git_interface.get_chrome_commit_message(chrome_sha)
 
     bug_matches = re.findall('^BUG=(.*)$', chrome_commit_msg, re.M)
     test_matches = re.findall('^TEST=(.*)$', chrome_commit_msg, re.M)
@@ -174,7 +158,10 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
     # fixee_changeid will be None for stable fixee_kernel_sha's
     fixee_changeid = git_interface.get_commit_changeid_linux_chrome(fixee_kernel_sha)
 
-    bug_test_line = get_bug_test_line(fixee_changeid)
+    # if fixee_changeid is set, the fixee_kernel_sha represents a chrome sha
+    chrome_kernel_sha = fixee_kernel_sha if fixee_changeid else None
+
+    bug_test_line = get_bug_test_line(chrome_kernel_sha)
     fix_commit_message = generate_fix_message(fixer_upstream_sha, bug_test_line)
 
     try:
@@ -186,17 +173,17 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
                 (fixee_kernel_sha, fixer_upstream_sha))
         raise
 
-    reviewers = None
-    if fixee_changeid:
-        # todo(hirthanan) change back to function call to retrieve reviewers
-        # retrieve reviewers from gerrit for the relevant change
-        reviewers = get_reviewers(fixee_changeid)
-    else:
-        # TODO(hirthanan): find relevant mailing list/reviewers
-        # For now we will assign it to a default user like Guenter?
-        # This is for stable bug fix patches that don't have a direct fixee changeid
-        #  since groups of stable commits get merged as one changeid
-        reviewers = ['groeck@chromium.org']
+    # TODO(hirthanan): find relevant mailing list/reviewers
+    # For now we will assign it to a default user like Guenter?
+    # This is for stable bug fix patches that don't have a direct fixee changeid
+    #  since groups of stable commits get merged as one changeid
+    reviewers = ['groeck@chromium.org']
+    try:
+        if fixee_changeid:
+            cl_reviewers = get_reviewers(fixee_changeid)
+            reviewers = cl_reviewers if cl_reviewers else reviewers
+    except requests.exceptions.HTTPError:
+        print('Error getting reviewers from gerrit for fixee_changeid', fixee_changeid)
 
     set_reviewers(fixer_changeid, reviewers)
 
