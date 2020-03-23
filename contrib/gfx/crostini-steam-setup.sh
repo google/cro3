@@ -18,31 +18,15 @@ grep ^deb /etc/apt/sources.list | \
   sed -e 's/main/contrib non-free/' | \
   sudo tee -a /etc/apt/sources.list.d/steam.list
 
-# Add sources for apitrace.
-echo "Adding sources and preferences for apitrace"
-sudo tee -a /etc/apt/preferences.d/testing.pref << EOF
-Package: *
-Pin: release a=testing
-Pin-Priority: 400
-EOF
-
-sudo tee -a /etc/apt/preferences.d/waffle.pref << EOF
-Package: libwaffle-1-0
-Pin: release a=testing
-Pin-Priority: 505
-
-Package: libwaffle-dev
-Pin: release a=testing
-Pin-Priority: 505
-EOF
-
-sudo tee -a /etc/apt/sources.list.d/testing.list << EOF
-deb https://deb.debian.org/debian testing main
-EOF
-
 # Reload after configuring apt configuration.
 echo "Updating APT"
 sudo apt update
+
+# TODO(davidriley): Remove this hack once a newer version of waffle has
+# been published.
+wget http://commondatastorage.googleapis.com/crosvm-apt-sandbox/waffle/libwaffle-1-0_1.6.0-4+b1_amd64.deb
+wget http://commondatastorage.googleapis.com/crosvm-apt-sandbox/waffle/libwaffle-1-0_1.6.0-4+b1_i386.deb
+sudo apt install -y ./libwaffle*.deb
 
 # Install packages.
 echo "Installing glxinfo, glxgears, steam, and apitrace"
