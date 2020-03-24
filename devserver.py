@@ -1550,10 +1550,6 @@ def _AddTestingOptions(parser):
   group.add_option('--host_log',
                    action='store_true', default=False,
                    help='record history of host update events (/api/hostlog)')
-  group.add_option('--max_updates',
-                   metavar='NUM', default=-1, type='int',
-                   help='maximum number of update checks handled positively '
-                        '(default: unlimited)')
   group.add_option('--proxy_port',
                    metavar='PORT', default=None, type='int',
                    help='port to have the client connect to -- basically the '
@@ -1700,7 +1696,6 @@ def main():
       payload_path=options.payload,
       proxy_port=options.proxy_port,
       critical_update=options.critical_update,
-      max_updates=options.max_updates,
       host_log=options.host_log,
   )
 

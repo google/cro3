@@ -118,8 +118,7 @@ class Autoupdate(object):
   _PAYLOAD_URL_PREFIX = '/static/'
 
   def __init__(self, xbuddy, static_dir=None, payload_path=None,
-               proxy_port=None, critical_update=False, max_updates=-1,
-               host_log=False):
+               proxy_port=None, critical_update=False, host_log=False):
     """Initializes the class.
 
     Args:
@@ -129,7 +128,6 @@ class Autoupdate(object):
       proxy_port: The port of local proxy to tell client to connect to you
         through.
       critical_update: Whether provisioned payload is critical.
-      max_updates: The maximum number of updates we'll try to provision.
       host_log: Record full history of host update events.
     """
     self.xbuddy = xbuddy
@@ -137,7 +135,6 @@ class Autoupdate(object):
     self.payload_path = payload_path
     self.proxy_port = proxy_port
     self.critical_update = critical_update
-    self.max_updates = max_updates
     self.host_log = host_log
 
     # Initialize empty host info cache. Used to keep track of various bits of
@@ -324,31 +321,7 @@ class Autoupdate(object):
     self._LogRequest(request)
 
     if request.request_type == nebraska.Request.RequestType.EVENT:
-      if (request.app_requests[0].event_type ==
-          nebraska.Request.EVENT_TYPE_UPDATE_DOWNLOAD_STARTED and
-          request.app_requests[0].event_result ==
-          nebraska.Request.EVENT_RESULT_SUCCESS):
-        with self._update_count_lock:
-          if self.max_updates == 0:
-            _Log('Received too many download_started notifications. This '
-                 'probably means a bug in the test environment, such as too '
-                 'many clients running concurrently. Alternatively, it could '
-                 'be a bug in the update client.')
-          elif self.max_updates > 0:
-            self.max_updates -= 1
-
       _Log('A non-update event notification received. Returning an ack.')
-      return nebraska.Nebraska().GetResponseToRequest(
-          request, response_props=nebraska.ResponseProperties(**kwargs))
-
-    # Make sure that we did not already exceed the max number of allowed update
-    # responses. Note that the counter is only decremented when the client
-    # reports an actual download, to avoid race conditions between concurrent
-    # update requests from the same client due to a timeout.
-    if self.max_updates == 0:
-      _Log('Request received but max number of updates already served.')
-      kwargs['no_update'] = True
-      # Override the noupdate to make sure the response is noupdate.
       return nebraska.Nebraska().GetResponseToRequest(
           request, response_props=nebraska.ResponseProperties(**kwargs))
 
