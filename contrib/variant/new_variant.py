@@ -116,10 +116,15 @@ def get_args():
         '--variant', type=str, help='Name of the new variant to create')
     parser.add_argument(
         '--bug', type=str, help='Bug number to reference in commits')
-    parser.add_argument(
+    # Use a group so that we can enforce mutually-exclusive argurments.
+    # argparse does not support nesting groups, so we can't put board,
+    # variant, and bug into a group and have that group as another mutually
+    # exclusive option.
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         '--continue', action='store_true',
         dest='continue_flag', help='Continue the process from where it paused')
-    parser.add_argument(
+    group.add_argument(
         '--abort', action='store_true',
         dest='abort_flag', help='Cancel the process and abandon all commits')
     parser.add_argument(
@@ -168,10 +173,6 @@ def check_flags(board, variant, bug, continue_flag, abort_flag):
     Returns:
         True if the arguments are acceptable, False otherwise
     """
-    if continue_flag and abort_flag:
-        logging.error('Do not use --continue and --abort at the same time')
-        return False
-
     # If either --abort or --continue is set, then disallow any of the
     # board name, variant name, or bug number to be set.
     if continue_flag or abort_flag:
