@@ -15,8 +15,6 @@ from time import mktime
 # This script retreives the specified trace file's information and outputs it
 # in JSON format
 
-TRACEINFO_REPORT_VERSION = '2'
-
 def panic(msg, exit_code):
   print('ERROR: %s' % msg, file=sys.stderr)
   exit(exit_code)
@@ -53,14 +51,14 @@ except subprocess.CalledProcessError as err:
 try:
   res = json.loads(output)
   data_results = {}
-  data_results['report_version'] = TRACEINFO_REPORT_VERSION
   data_results['trace_file_version'] = res['FileVersion']
   data_results['trace_frames_count'] = res['FramesCount']
-  data_results['file_size'] = path.getsize(trace_fname)
+  data_results['trace_file_name'] = trace_fname
+  data_results['trace_file_size'] = path.getsize(trace_fname)
   file_time = datetime.fromtimestamp(
                 path.getmtime(trace_fname)).astimezone().replace(microsecond=0)
-  data_results['file_time'] = file_time.isoformat()
-  data_results['file_md5'] = get_file_md5(trace_fname)
+  data_results['trace_file_time'] = file_time.isoformat()
+  data_results['trace_file_md5'] = get_file_md5(trace_fname)
   print(json.dumps(data_results, indent=2, sort_keys=True))
 except Exception as err:
   panic('Unable to decode apitrace info output: <%s>' % str(err), -1)

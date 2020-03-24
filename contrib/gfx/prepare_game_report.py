@@ -6,6 +6,7 @@ from __future__ import print_function
 import argparse
 from datetime import datetime, timezone
 import json
+import hashlib
 import os
 from os import path
 import re
@@ -17,6 +18,7 @@ import sys
 # for a game report along with its trace file.
 
 game_report_version = '2'
+trace_storage_report_version = '3'
 python_bin = 'python3'
 tmp_dir = '/tmp'
 game_trace_fname = 'game.trace'
@@ -35,6 +37,16 @@ def yes_or_no(question):
 def panic(msg, exit_code):
   print('ERROR: %s' % msg, file=sys.stderr)
   exit(exit_code)
+
+def get_file_sha256(file_name):
+  file_hash = hashlib.sha256()
+  with open(file_name, 'rb') as f:
+    while True:
+      chunk = f.read(1024 * 1024)
+      if not chunk:
+        break;
+      file_hash.update(chunk)
+  return file_hash.hexdigest()
 
 def save_json(data, file_name):
   with open(file_name, 'w') as f:
@@ -115,15 +127,20 @@ try:
     print('Preparing the trace file information for %s...' % game_trace_fname)
     trace_info = parse_script_stdout_json('trace_file_info.py',
                    [path.join(tmp_dir, game_trace_fname)])
-    trace_info['can_replay'] = yes_or_no('Does the trace file can be replayed without crashes?')
-    if trace_info['can_replay']:
-      trace_info['replay_artifacts'] = yes_or_no('Is there any visual differences in trace replay compared to the game?')
-      trace_info['replay_fps'] = input('Trace replay fps: ')
-    save_json(trace_info, path.join(tmp_dir, trace_info_fname))
+    trace_info['trace_can_replay'] = yes_or_no('Does the trace file can be replayed without crashes?')
+    if trace_info['trace_can_replay']:
+      trace_info['trace_replay_artifacts'] = yes_or_no('Is there any visual differences in trace replay compared to the game?')
+      trace_info['trace_replay_fps'] = input('Trace replay fps: ')
     print('Compressing the trace file...')
     zstd_cmd = 'zstd -T0 -f %s' % path.join(tmp_dir, game_trace_fname)
     subprocess.run(zstd_cmd, shell=True, check=True)
-    items_in_archive = items_in_archive + [trace_info_fname, game_trace_fname + '.zst']
+    game_trace_storage_fname = game_trace_fname + '.zst'
+    trace_info['report_version'] = trace_storage_report_version
+    trace_info['storage_file_name'] = game_trace_fname + game_trace_storage_fname
+    trace_info['storage_file_size'] = path.getsize(path.join(tmp_dir, game_trace_storage_fname))
+    trace_info['storage_file_sha256sum'] = get_file_sha256(path.join(tmp_dir,game_trace_storage_fname))
+    save_json(trace_info, path.join(tmp_dir, trace_info_fname))
+    items_in_archive = items_in_archive + [trace_info_fname, game_trace_storage_fname]
 
   # Finally put everything in a tarball. The --transform option is used to replace
   # initial ./ prefix with {$result_name}/
