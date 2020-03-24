@@ -822,8 +822,7 @@ def create_initial_ec_image(status):
     # if successful.
     ec = '/mnt/host/source/src/platform/ec'
     logging.debug('ec = "%s"', ec)
-    ec_bin = os.path.join('/build', status.base, 'firmware', status.variant,
-        'ec.bin')
+    ec_bin = os.path.join('build', status.variant, 'ec.bin')
     logging.debug('ec.bin = "%s"', ec_bin)
 
     if not file_exists(ec, ec_bin):
