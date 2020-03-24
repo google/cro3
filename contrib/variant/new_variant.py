@@ -41,12 +41,12 @@ import importlib
 import json
 import logging
 import os
-import re
 import shutil
 import subprocess
 import sys
 from chromite.lib import git
 from chromite.lib import gerrit
+from chromite.lib import osutils
 from chromite.lib import workon_helper
 from chromite.lib.build_target_lib import BuildTarget
 import requests
@@ -917,39 +917,21 @@ def build_yaml(status):
     if not run_process([status.emerge_cmd] + status.yaml_emerge_pkgs):
         return False
 
-    # Check generated files for occurences of the variant name.
-    # Each file should have at least one occurence, so use `grep -c` to
-    # count the occurrences of the variant name in each file.
-    # The results will be something like this:
-    #   config.json:10
-    #   yaml/config.c:6
-    #   yaml/config.yaml:27
-    #   yaml/model.yaml:6
-    #   yaml/private-model.yaml:10
-    # If the variant name doesn't show up in the file, then the count
-    # will be 0, so we would see, e.g.
-    #   config.json:0
-    # Note that we leave out yaml/model.yaml (the public one) because for
-    # some boards, there is nothing in the public yaml file.
-    # We gather the output from grep, then look for any of the strings
-    # ending in :0. If none of them match, then we're good, but if even
-    # one of them ends with :0 then there was a problem with generating
-    # the files from the yaml.
-    chromeos_config = '/build/' + status.base + '/usr/share/chromeos-config'
-    logging.debug('chromeos_config = "%s"', chromeos_config)
-    grep = run_process(
-        ['grep',
-        '-ci',
-        status.variant,
-        'config.json',
-        'yaml/config.c',
-        'yaml/config.yaml',
-        'yaml/private-model.yaml'], cwd=chromeos_config, capture_output=True)
-
-    if grep is None:
+    # Check the generated config.yaml file for occurences of the variant
+    # name to determine if the emerge was successful.
+    config_yaml = os.path.join(
+        '/build', status.base, 'usr/share/chromeos-config/yaml/config.yaml')
+    logging.debug('config_yaml = "%s"', config_yaml)
+    if not os.path.exists(config_yaml) or not os.path.isfile(config_yaml):
+        logging.error('%s does not exist', config_yaml)
         return False
 
-    return not [s for s in grep if re.search(r':0$', s)]
+    if not status.variant in osutils.ReadFile(config_yaml):
+        logging.error('variant name %s not found in yaml file %s',
+                      status.variant, config_yaml)
+        return False
+
+    return True
 
 
 def emerge_all(status):
