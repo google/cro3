@@ -1512,13 +1512,6 @@ def _AddTestingOptions(parser):
   group.add_option('--exit',
                    action='store_true',
                    help='do not start the server (yet clear cache)')
-  group.add_option('--proxy_port',
-                   metavar='PORT', default=None, type='int',
-                   help='port to have the client connect to -- basically the '
-                   'devserver lies to the update to tell it to get the payload '
-                   'from a different port that will proxy the request back to '
-                   'the devserver. The proxy must be managed outside the '
-                   'devserver.')
   parser.add_option_group(group)
 
 
@@ -1634,11 +1627,7 @@ def main():
   # We allow global use here to share with cherrypy classes.
   # pylint: disable=W0603
   global updater
-  updater = autoupdate.Autoupdate(
-      _xbuddy,
-      static_dir=options.static_dir,
-      proxy_port=options.proxy_port,
-  )
+  updater = autoupdate.Autoupdate(_xbuddy, static_dir=options.static_dir)
 
   if options.exit:
     return

@@ -60,18 +60,15 @@ def _NonePathJoin(*args):
 class Autoupdate(object):
   """Class that contains functionality that handles Chrome OS update pings."""
 
-  def __init__(self, xbuddy, static_dir=None, proxy_port=None):
+  def __init__(self, xbuddy, static_dir=None):
     """Initializes the class.
 
     Args:
       xbuddy: The xbuddy path.
       static_dir: The path to the devserver static directory.
-      proxy_port: The port of local proxy to tell client to connect to you
-        through.
     """
     self.xbuddy = xbuddy
     self.static_dir = static_dir
-    self.proxy_port = proxy_port
 
   def GetUpdateForLabel(self, label):
     """Given a label, get an update from the directory.
@@ -113,15 +110,10 @@ class Autoupdate(object):
   def GetStaticUrl(self):
     """Returns the static url base that should prefix all payload responses."""
     hostname = self.GetDevserverUrl()
+    _Log('Handling update ping as %s', hostname)
 
     static_urlbase = '%s/static' % hostname
-    # If we have a proxy port, adjust the URL we instruct the client to
-    # use to go through the proxy.
-    if self.proxy_port:
-      static_urlbase = _ChangeUrlPort(static_urlbase, self.proxy_port)
-
     _Log('Using static url base %s', static_urlbase)
-    _Log('Handling update ping as %s', hostname)
     return static_urlbase
 
   def GetPathToPayload(self, label, board):
