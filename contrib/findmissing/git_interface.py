@@ -22,7 +22,7 @@ def get_upstream_fullsha(abbrev_sha):
     upstream_absolute_path = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
     try:
         cmd = ['git', '-C', upstream_absolute_path, 'rev-parse', abbrev_sha]
-        full_sha = subprocess.check_output(cmd).decode('utf-8')
+        full_sha = subprocess.check_output(cmd, encoding='utf-8')
         return full_sha.rstrip()
     except subprocess.CalledProcessError as e:
         raise type(e)('Could not find full upstream sha for %s' % abbrev_sha, e.cmd) from e
@@ -33,7 +33,7 @@ def get_commit_message(kernel_path, sha):
     try:
         cmd = ['git', '-C', kernel_path, 'log',
                 '--format=%B', '-n', '1', sha]
-        commit_message = subprocess.check_output(cmd).decode('utf-8', errors='ignore')
+        commit_message = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
         return commit_message
     except subprocess.CalledProcessError as e:
         raise type(e)('Couldnt retrieve commit in kernel path %s for sha %s'
@@ -60,7 +60,7 @@ def get_commit_changeid_linux_chrome(kernel_sha):
     chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
     try:
         cmd = ['git', '-C', chrome_absolute_path, 'log', '--format=%B', '-n', '1', kernel_sha]
-        commit_message = subprocess.check_output(cmd).decode('utf-8', errors='ignore')
+        commit_message = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
 
         m = re.findall('^Change-Id: (I[a-z0-9]{40})$', commit_message, re.M)
 
@@ -78,7 +78,7 @@ def get_last_commit_sha_linux_chrome():
     chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
     try:
         cmd = ['git', '-C', chrome_absolute_path, 'rev-parse', 'HEAD']
-        last_commit = subprocess.check_output(cmd).decode('utf-8')
+        last_commit = subprocess.check_output(cmd, encoding='utf-8')
         return last_commit.rstrip()
     except subprocess.CalledProcessError as e:
         raise type(e)('Couldnt retrieve most recent commit in linux_chrome', e.cmd) from e

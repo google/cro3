@@ -20,8 +20,7 @@ def search_usha(sha):
     """
 
     usha = ''
-    desc = subprocess.check_output(['git', 'show',
-        '-s', sha]).decode('utf-8', errors='ignore')
+    desc = subprocess.check_output(['git', 'show', '-s', sha], encoding='utf-8', errors='ignore')
     for d in desc.splitlines():
         m = common.CHERRYPICK.search(d)
         if not m:
@@ -50,7 +49,7 @@ def update_stable_table(branch, start, db):
 
     cmd = ['git', 'log', '--no-merges', '--abbrev=12', '--oneline',
                  '--reverse', '%s..' % start]
-    commits = subprocess.check_output(cmd).decode('utf-8', errors='ignore')
+    commits = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
 
     last = None
     for commit in commits.splitlines():
@@ -62,7 +61,7 @@ def update_stable_table(branch, start, db):
 
             ps = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
             spid = subprocess.check_output(['git', 'patch-id', '--stable'],
-                            stdin=ps.stdout).decode('utf-8', errors='ignore')
+                            stdin=ps.stdout, encoding='utf-8', errors='ignore')
             patch_id = spid.split(' ', 1)[0]
 
             # Do nothing if the sha is already in the database

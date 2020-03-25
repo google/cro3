@@ -43,14 +43,15 @@ def update_upstream_table(branch, start, db):
     subprocess.check_output(['git', 'pull'])
 
     print('Loading all linux-upstream commit logs from %s' % start)
-    commits = subprocess.check_output(['git', 'log', '--abbrev=12', '--oneline',
-                                       '--no-merges', '--reverse', start + '..HEAD'])
+    cmd = ['git', 'log', '--abbrev=12', '--oneline',
+            '--no-merges', '--reverse', start + '..HEAD']
+    commits = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
 
     fixes = []
     last = None
     print('Analyzing upstream commits to build linux_upstream and fixes tables.')
 
-    for commit in commits.decode('utf-8', errors='ignore').splitlines():
+    for commit in commits.splitlines():
         if commit != '':
             elem = commit.split(' ', 1)
             sha = elem[0]
@@ -61,7 +62,7 @@ def update_upstream_table(branch, start, db):
             # Calculate patch ID
             ps = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
             spid = subprocess.check_output(['git', 'patch-id'],
-                    stdin=ps.stdout).decode('utf-8', errors='ignore')
+                    stdin=ps.stdout, encoding='utf-8', errors='ignore')
             patch_id = spid.split(' ', 1)[0]
 
             try:
@@ -81,7 +82,8 @@ def update_upstream_table(branch, start, db):
 
             # check if this patch fixes a previous patch.
             subprocess_cmd = ['git', 'show', '-s', '--pretty=format:%b', sha]
-            description = subprocess.check_output(subprocess_cmd).decode('utf-8', errors='ignore')
+            description = subprocess.check_output(subprocess_cmd,
+                                                    encoding='utf-8', errors='ignore')
             for d in description.splitlines():
                 m = RF.search(d)
                 fsha = None
@@ -90,7 +92,7 @@ def update_upstream_table(branch, start, db):
                         # Normalize fsha to 12 characters
                         cmd = 'git show -s --pretty=format:%h ' + m.group(1)
                         fsha = subprocess.check_output(cmd.split(' '),
-                                stderr=subprocess.DEVNULL).decode('utf-8', errors='ignore')
+                                stderr=subprocess.DEVNULL, encoding='utf-8', errors='ignore')
                     except subprocess.CalledProcessError:
                         print('SHA %s fixes commit %s: Not found' % (sha, m.group(0)))
                         m = RDESC.search(d)

@@ -28,7 +28,7 @@ def search_usha(sha, description):
     usha = None
     if not CHROMIUM.match(description):
         desc = subprocess.check_output(['git', 'show',
-            '-s', sha]).decode('utf-8', errors='ignore')
+            '-s', sha], encoding='utf-8', errors='ignore')
         # TODO(hirthanan) change regex to parse entire description not line by line
         for d in desc.splitlines():
             m = common.CHERRYPICK.search(d)
@@ -56,7 +56,7 @@ def update_chrome_table(branch, start, db):
 
     subprocess_cmd = ['git', 'log', '--no-merges', '--abbrev=12',
                       '--oneline', '--reverse', '%s..' % start]
-    commits = subprocess.check_output(subprocess_cmd).decode('utf-8', errors='ignore')
+    commits = subprocess.check_output(subprocess_cmd, encoding='utf-8', errors='ignore')
 
     c = db.cursor()
     last = None
@@ -72,7 +72,7 @@ def update_chrome_table(branch, start, db):
 
             ps = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
             spid = subprocess.check_output(['git', 'patch-id', '--stable'],
-                    stdin=ps.stdout).decode('utf-8', errors='ignore')
+                    stdin=ps.stdout, encoding='utf-8', errors='ignore')
             patchid = spid.split(' ', 1)[0]
 
             # Do nothing if sha is in linux_stable since we
