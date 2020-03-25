@@ -7,10 +7,7 @@
 
 from __future__ import print_function
 
-import json
 import os
-import threading
-import time
 
 from six.moves import urllib
 
@@ -61,64 +58,13 @@ def _NonePathJoin(*args):
   return os.path.join(*[x for x in args if x is not None])
 
 
-class HostInfo(object):
-  """Records information about an individual host.
-
-  Attributes:
-    attrs: Static attributes (legacy)
-    log: Complete log of recorded client entries
-  """
-
-  def __init__(self):
-    # A dictionary of current attributes pertaining to the host.
-    self.attrs = {}
-
-    # A list of pairs consisting of a timestamp and a dictionary of recorded
-    # attributes.
-    self.log = []
-
-  def __repr__(self):
-    return 'attrs=%s, log=%s' % (self.attrs, self.log)
-
-  def AddLogEntry(self, entry):
-    """Append a new log entry."""
-    # Append a timestamp.
-    assert not 'timestamp' in entry, 'Oops, timestamp field already in use'
-    entry['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S')
-    # Add entry to hosts' message log.
-    self.log.append(entry)
-
-
-class HostInfoTable(object):
-  """Records information about a set of hosts who engage in update activity.
-
-  Attributes:
-    table: Table of information on hosts.
-  """
-
-  def __init__(self):
-    # A dictionary of host information. Keys are normally IP addresses.
-    self.table = {}
-
-  def __repr__(self):
-    return '%s' % self.table
-
-  def GetInitHostInfo(self, host_id):
-    """Return a host's info object, or create a new one if none exists."""
-    return self.table.setdefault(host_id, HostInfo())
-
-  def GetHostInfo(self, host_id):
-    """Return an info object for given host, if such exists."""
-    return self.table.get(host_id)
-
-
 class Autoupdate(object):
   """Class that contains functionality that handles Chrome OS update pings."""
 
   _PAYLOAD_URL_PREFIX = '/static/'
 
   def __init__(self, xbuddy, static_dir=None, payload_path=None,
-               proxy_port=None, critical_update=False, host_log=False):
+               proxy_port=None, critical_update=False):
     """Initializes the class.
 
     Args:
@@ -128,22 +74,12 @@ class Autoupdate(object):
       proxy_port: The port of local proxy to tell client to connect to you
         through.
       critical_update: Whether provisioned payload is critical.
-      host_log: Record full history of host update events.
     """
     self.xbuddy = xbuddy
     self.static_dir = static_dir
     self.payload_path = payload_path
     self.proxy_port = proxy_port
     self.critical_update = critical_update
-    self.host_log = host_log
-
-    # Initialize empty host info cache. Used to keep track of various bits of
-    # information about a given host.  A host is identified by its IP address.
-    # The info stored for each host includes a complete log of events for this
-    # host, as well as a dictionary of current attributes derived from events.
-    self.host_infos = HostInfoTable()
-
-    self._update_count_lock = threading.Lock()
 
   def GetUpdateForLabel(self, label):
     """Given a label, get an update from the directory.
@@ -171,37 +107,6 @@ class Autoupdate(object):
     # The label didn't resolve.
     _Log('Did not found any update payload for label %s.', label)
     return None
-
-  def _LogRequest(self, request):
-    """Logs the incoming request in the hostlog.
-
-    Args:
-      request: A nebraska.Request object representing the update request.
-
-    Returns:
-      A named tuple containing attributes of the update requests as the
-      following fields: 'board', 'event_result' and 'event_type'.
-    """
-    if not self.host_log:
-      return
-
-    # Add attributes to log message. Some of these values might be None.
-    log_message = {
-        'version': request.version,
-        'track': request.track,
-        'board': request.board,
-        'event_result': request.app_requests[0].event_result,
-        'event_type': request.app_requests[0].event_type,
-        'previous_version': request.app_requests[0].previous_version,
-    }
-    if log_message['previous_version'] is None:
-      del log_message['previous_version']
-
-    # Determine request IP, strip any IPv6 data for simplicity.
-    client_ip = cherrypy.request.remote.ip.split(':')[-1]
-    # Obtain (or init) info object for this client.
-    curr_host_info = self.host_infos.GetInitHostInfo(client_ip)
-    curr_host_info.AddLogEntry(log_message)
 
   def GetDevserverUrl(self):
     """Returns the devserver url base."""
@@ -318,8 +223,6 @@ class Autoupdate(object):
 
     # Process attributes of the update check.
     request = nebraska.Request(data)
-    self._LogRequest(request)
-
     if request.request_type == nebraska.Request.RequestType.EVENT:
       _Log('A non-update event notification received. Returning an ack.')
       return nebraska.Nebraska().GetResponseToRequest(
@@ -346,24 +249,3 @@ class Autoupdate(object):
     nebraska_obj = nebraska.Nebraska(nebraska_props=nebraska_props)
     return nebraska_obj.GetResponseToRequest(
         request, response_props=nebraska.ResponseProperties(**kwargs))
-
-  def HandleHostInfoPing(self, ip):
-    """Returns host info dictionary for the given IP in JSON format."""
-    assert ip, 'No ip provided.'
-    if ip in self.host_infos.table:
-      return json.dumps(self.host_infos.GetHostInfo(ip).attrs)
-
-  def HandleHostLogPing(self, ip):
-    """Returns a complete log of events for host in JSON format."""
-    # If all events requested, return a dictionary of logs keyed by IP address.
-    if ip == 'all':
-      return json.dumps(
-          dict([(key, self.host_infos.table[key].log)
-                for key in self.host_infos.table]))
-
-    # Otherwise we're looking for a specific IP address, so find its log.
-    if ip in self.host_infos.table:
-      return json.dumps(self.host_infos.GetHostInfo(ip).log)
-
-    # If no events were logged for this IP, return an empty log.
-    return json.dumps([])

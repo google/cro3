@@ -348,10 +348,6 @@ def _GetConfig(options):
           'server.thread_pool': 2,
           'engine.autoreload.on': False,
       },
-      '/api': {
-          # Gets rid of cherrypy parsing post file for args.
-          'request.process_request_body': False,
-      },
       '/build': {
           'response.timeout': 100000,
       },
@@ -548,35 +544,6 @@ def is_deprecated_server():
   return cherrypy.config.get('infra_removal', False)
 
 
-class ApiRoot(object):
-  """RESTful API for Dev Server information."""
-  exposed = True
-
-  @cherrypy.expose
-  def hostlog(self, ip):
-    """Returns a JSON object containing a log of host event.
-
-    Args:
-      ip: address of host whose event log is requested, or `all'
-
-    Returns:
-      A JSON dictionary containing all or some of the following fields:
-        version: The Chromium OS version the device is running.
-        track: The channel the device is running on.
-        board: The device's board.
-        event_result: The event result of Omaha request.
-        event_type: The event type of Omaha request.
-        previous_version: The Chromium OS version we updated and rebooted from.
-        timestamp: The timestamp the event was received.
-      See the OmahaEvent class in update_engine/omaha_request_action.h for
-      event type and status code definitions. If the ip does not exist an empty
-      string is returned.
-
-    Example URL:
-      http://myhost/api/hostlog?ip=192.168.1.5
-    """
-    return updater.HandleHostLogPing(ip)
-
 class DevServerRoot(object):
   """The Root Class for the Dev Server.
 
@@ -590,8 +557,6 @@ class DevServerRoot(object):
   """
   # Method names that should not be listed on the index page.
   _UNLISTED_METHODS = ['index', 'doc']
-
-  api = ApiRoot()
 
   # Number of threads that devserver is staging images.
   _staging_thread_count = 0
@@ -1547,9 +1512,6 @@ def _AddTestingOptions(parser):
   group.add_option('--exit',
                    action='store_true',
                    help='do not start the server (yet clear cache)')
-  group.add_option('--host_log',
-                   action='store_true', default=False,
-                   help='record history of host update events (/api/hostlog)')
   group.add_option('--proxy_port',
                    metavar='PORT', default=None, type='int',
                    help='port to have the client connect to -- basically the '
@@ -1696,7 +1658,6 @@ def main():
       payload_path=options.payload,
       proxy_port=options.proxy_port,
       critical_update=options.critical_update,
-      host_log=options.host_log,
   )
 
   if options.exit:
