@@ -64,7 +64,7 @@ class Autoupdate(object):
   _PAYLOAD_URL_PREFIX = '/static/'
 
   def __init__(self, xbuddy, static_dir=None, payload_path=None,
-               proxy_port=None, critical_update=False):
+               proxy_port=None):
     """Initializes the class.
 
     Args:
@@ -73,13 +73,11 @@ class Autoupdate(object):
       payload_path: The path to pre-generated payload to serve.
       proxy_port: The port of local proxy to tell client to connect to you
         through.
-      critical_update: Whether provisioned payload is critical.
     """
     self.xbuddy = xbuddy
     self.static_dir = static_dir
     self.payload_path = payload_path
     self.proxy_port = proxy_port
-    self.critical_update = critical_update
 
   def GetUpdateForLabel(self, label):
     """Given a label, get an update from the directory.
@@ -238,9 +236,6 @@ class Autoupdate(object):
       # Raised if we fail to generate an update payload.
       _Log('Failed to process an update request, but we will defer to '
            'nebraska to respond with no-update. The error was %s', e)
-
-    if self.critical_update:
-      kwargs['critical_update'] = True
 
     _Log('Responding to client to use url %s to get image', base_url)
     nebraska_props = nebraska.NebraskaProperties(

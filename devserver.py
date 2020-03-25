@@ -1528,10 +1528,6 @@ def _AddUpdateOptions(parser):
       'how the devserver serve update payloads. Please '
       'note that all of these option affect how a payload is generated and so '
       'do not work in archive-only mode.')
-  # TODO(crbug/1004487): Deprecate critical_update.
-  group.add_option('--critical_update',
-                   action='store_true', default=False,
-                   help='Present update payload as critical')
   group.add_option('--payload',
                    metavar='PATH',
                    help='use the update payload from specified directory '
@@ -1657,7 +1653,6 @@ def main():
       static_dir=options.static_dir,
       payload_path=options.payload,
       proxy_port=options.proxy_port,
-      critical_update=options.critical_update,
   )
 
   if options.exit:
