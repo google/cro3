@@ -1,5 +1,9 @@
-These instructions show how to test the operation of finding the coreboot
-CL when:
+Test data for new\_variant.py
+============================
+
+Finding the coreboot CL
+-----------------------
+Test the following cases:
 * the CL hasn't been pushed to review.coreboot.org yet
 * the CL has been pushed, but has not been upstreamed into the chromiumos tree yet
 * the CL has been upstreamed into chromiumos
@@ -47,4 +51,24 @@ INFO:root:Running step push_coreboot
 INFO:root:Running step upload_CLs
 INFO:root:Running step find_coreboot_upstream
 INFO:root:Running step clean_up
+```
+
+Determining Cq-Depend
+---------------------
+The test data for Cq-Depend uses old commits for Kindred, and has a step\_list
+that prevents the CLs from being modified or uploaded. The intent here is to
+show that the Cq-Depend line is determined correctly for each CL that has
+dependencies.
+
+```
+(cr) $ cp testdata/cqdepend.yaml ~/.new_variant.yaml
+(cr) $ ./new_variant.py --continue --verbose
+INFO:root:Running step calc_cq_depend
+DEBUG:root:Processing add_priv_yaml to add dependencies
+DEBUG:root:Add to commit add_priv_yaml Cq-Depend: chromium:1629121, chromium:1638243, chrome-internal:1364967, chromium:1648602
+DEBUG:root:Processing add_pub_yaml to add dependencies
+DEBUG:root:Add to commit add_pub_yaml Cq-Depend: chrome-internal:1331261, chromium:1638243, chrome-internal:1364967, chromium:1648602
+DEBUG:root:Processing cb_config to add dependencies
+DEBUG:root:Add to commit cb_config Cq-Depend: chromium:1641906
+(cr) $ rm ~/.new_variant.yaml
 ```

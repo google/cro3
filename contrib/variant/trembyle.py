@@ -24,7 +24,9 @@ step_list = [
     step_names.BUILD_YAML,
     step_names.EMERGE,
     step_names.UPLOAD,
-    step_names.CQ_DEPEND,
+    step_names.CALC_CQ_DEPEND,
+    step_names.ADD_CQ_DEPEND,
+    step_names.RE_UPLOAD,
     step_names.CLEAN_UP]
 
 # Base directory for coreboot
@@ -72,3 +74,11 @@ repo_upload_list = [step_names.CB_VARIANT, step_names.CB_CONFIG,
 
 # List of commits that will be pushed to review.coreboot.org
 coreboot_push_list = None
+
+# List of steps that depend on other steps, and what those are.
+# This list gets used for setting up Cq-Depend on the uploaded CLs.
+depends = {
+    step_names.CB_CONFIG: [step_names.CB_VARIANT],
+    step_names.ADD_PRIV_YAML: [step_names.CB_CONFIG, step_names.CRAS_CONFIG,
+        step_names.EC_IMAGE],
+}

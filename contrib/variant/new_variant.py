@@ -44,11 +44,12 @@ import os
 import shutil
 import subprocess
 import sys
+from chromite.lib import build_target_lib
+from chromite.lib import cros_build_lib
 from chromite.lib import git
 from chromite.lib import gerrit
 from chromite.lib import osutils
 from chromite.lib import workon_helper
-from chromite.lib.build_target_lib import BuildTarget
 import requests
 import step_names
 import variant_status
@@ -86,7 +87,8 @@ def main():
     while status.step is not None:
         status.save()
         if not perform_step(status):
-            logging.debug('perform_step returned False; exiting ...')
+            logging.debug('perform_step %s returned False; exiting ...',
+                          status.step)
             return False
 
         move_to_next_step(status)
@@ -240,6 +242,10 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     * repo_upload_list - list of commits to upload using `repo upload`
     * coreboot_push_list - list of commits to upload using `git push` to
         coreboot
+    * depends - maps a step to a list of steps on which it depends, e.g.
+        depends[step_names.ADD_PRIV_YAML] is a list of other steps that
+        the 'add_priv_yaml' step depends on. This map is used to amend
+        the commits with CL numbers for Cq-Depend.
 
     Additionally, the following fields will be set:
 
@@ -338,6 +344,7 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     status.yaml_emerge_pkgs     = module.yaml_emerge_pkgs
     status.coreboot_push_list   = module.coreboot_push_list
     status.repo_upload_list     = module.repo_upload_list
+    status.depends              = module.depends
     # pylint: enable=bad-whitespace
 
     # Start at the first entry in the step list
@@ -377,7 +384,9 @@ def perform_step(status):
         step_names.PUSH:            push_coreboot,
         step_names.UPLOAD:          upload_CLs,
         step_names.FIND:            find_coreboot_upstream,
-        step_names.CQ_DEPEND:       add_cq_depends,
+        step_names.CALC_CQ_DEPEND:  calc_cq_depend,
+        step_names.ADD_CQ_DEPEND:   add_cq_depend,
+        step_names.RE_UPLOAD:       re_upload,
         step_names.CLEAN_UP:        clean_up,
         step_names.ABORT:           abort,
     }
@@ -493,6 +502,50 @@ def get_git_commit_data(cwd):
     }
 
 
+def change_id_to_sha(git_repo, change_id):
+    """Find the SHA for a given Change-Id.
+
+    Args:
+        git_repo: Directory of git repository.
+        change_id: The Change-Id to search for.
+
+    Returns:
+        The SHA hash for the Change-Id if only one commit is found.
+        None if the Change-Id was not found.
+        Raises a ValueError if more than one commit is found with the
+        same Change-Id.
+    """
+    output = git.Log(git_repo, max_count=1, format='format:%H',
+                     grep=fr'^Change-Id: {change_id}$')
+    sha_hashes = output.splitlines()
+    if not sha_hashes:
+        return None
+    if len(sha_hashes) > 1:
+        raise ValueError('More than one SHA with that Change-Id found')
+    return sha_hashes[0]
+
+
+def get_commit_msg(git_repo, rev):
+    """Get the commit message for a given revision.
+
+    Because git.Log doesn't allow specifying check=False or getting the
+    returncode, we have to catch the CalledProcessError instead.
+
+    Args:
+        git_repo: Directory of git repository.
+        rev: The revision to search for, a SHA or a label.
+
+    Returns:
+        The commit message as a list of strings, if the revision exists.
+        None if the revision was not found.
+    """
+    try:
+        msg = git.Log(git_repo, max_count=1, format='format:%B', rev=rev)
+        return msg.splitlines()
+    except cros_build_lib.CalledProcessError:
+        raise ValueError('SHA was not found')
+
+
 def cros_workon(status, action, workon_pkgs):
     """Call cros_workon for all the 9999 ebuilds we'll be touching
 
@@ -524,8 +577,7 @@ def create_coreboot_variant(status):
     """
     logging.info('Running step create_coreboot_variant')
     cb_src_dir = os.path.join('/mnt/host/source/src/', status.coreboot_dir)
-    environ = os.environ.copy()
-    environ['CB_SRC_DIR'] = cb_src_dir
+    environ = {**os.environ, 'CB_SRC_DIR': cb_src_dir}
     create_coreboot_variant_sh = os.path.join(status.my_loc,
         'create_coreboot_variant.sh')
     rc = run_process(
@@ -552,6 +604,8 @@ def create_coreboot_config(status):
         True if the script and test build succeeded, False if something failed
     """
     logging.info('Running step create_coreboot_config')
+    # Only set CB_CONFIG_DIR if it's not None, so here we have to copy
+    # the environment first and then optionally add a key.
     environ = os.environ.copy()
     if status.cb_config_dir is not None:
         environ['CB_CONFIG_DIR'] = status.cb_config_dir
@@ -945,7 +999,7 @@ def emerge_all(status):
     """
     logging.info('Running step emerge_all')
     # Get the list of packages that are already cros_workon started.
-    build_target = BuildTarget(status.base)
+    build_target = build_target_lib.BuildTarget(status.base)
     workon = workon_helper.WorkonHelper(build_target.root, build_target.name)
     before_workon = workon.ListAtoms()
 
@@ -958,8 +1012,7 @@ def emerge_all(status):
     stop_packages = list(set(after_workon) - set(before_workon))
 
     # Build up the command for emerge from all the packages in the list.
-    environ = os.environ.copy()
-    environ['FW_NAME'] = status.variant
+    environ = {**os.environ, 'FW_NAME': status.variant}
     emerge_cmd_and_params = [status.emerge_cmd] + status.emerge_pkgs
     emerge_result = run_process(emerge_cmd_and_params, env=environ)
 
@@ -1175,9 +1228,9 @@ def upload_CLs(status):
             else:
                 logging.debug(f'Not found {change_id}, need to upload')
                 if not repo_upload(commit['branch_name'], commit['dir']):
-                    branch_name = commit['branch_name']
-                    dirname = commit['dir']
-                    logging.error(f'Repo upload {branch_name} in {dirname} failed!')
+                    logging.error('Repo upload %s in %s failed!',
+                                  commit['branch_name'],
+                                  commit['dir'])
                     return False
                 cl = find_change_id(change_id)
                 if cl is None:
@@ -1282,22 +1335,156 @@ def find_coreboot_upstream(status):
     return True
 
 
-def add_cq_depends(status):
-    """Add Cq-Depends to all of the CLs in chromiumos
+def calc_cq_depend(status):
+    """Determine the list of CLs for each commit that has dependencies.
 
-    The CL in coreboot needs to be pushed to coreboot.org, get merged,
-    and then get upstreamed into the chromiumos tree before the other
-    CLs can cq-depend on it and pass CQ.
+    status.depends is a map of dependencies from step name to a list of
+    steps that the step depends on. For each step, find the SHA of the
+    commit, then find the gerrit instance and CL number of the commits
+    that it depends on. Construct the Cq-Depends list and save it under
+    the 'cq_depend' key, i.e. commit['add_priv_yaml']['cq_depend'] or
+    as it will be stored in the yaml:
+        commits:
+          add_priv_yaml:
+            cq_depend: 'chromium:1629121, chromium:1638243'
 
     Args:
         status: variant_status object tracking our board, variant, etc.
 
     Returns:
-        True if the build succeeded, False if something failed
+        True if all dependencies have been calculated. False if something
+        failed, usually a commit not found by Change-Id.
     """
-    logging.info('Running step add_cq_depends')
-    del status  # unused parameter
-    logging.error('TODO (pfagerburg): implement add_cq_depends')
+    logging.info('Running step calc_cq_depend')
+    # Iterate through the commits that have dependencies.
+    for key in status.depends:
+        logging.debug('Processing %s to add dependencies', key)
+        # For every commit that has dependencies, find the gerrit instance
+        # and CL number of the dependencies.
+        cq_depend_list = []
+        for depend_key in status.depends[key]:
+            depend_commit = status.commits[depend_key]
+            if not 'gerrit' in depend_commit:
+                logging.error('Commit %s does not have a gerrit instance',
+                              depend_key)
+                return False
+            if not 'cl_number' in depend_commit:
+                logging.error('Commit %s does not have a CL number',
+                              depend_key)
+                return False
+
+            instance_name = depend_commit['gerrit']
+            cl_number = depend_commit['cl_number']
+            cq_depend_list.append(f'{instance_name}:{cl_number}')
+
+        # Add the 'cq_depend' key to the commit.
+        cq_depend_str = 'Cq-Depend: %s' % ', '.join(cq_depend_list)
+        logging.debug('Add to commit %s %s', key, cq_depend_str)
+        status.commits[key]['cq_depend'] = cq_depend_str
+
+    return True
+
+
+def add_cq_depend_to_commit_msg(git_repo, change_id, cq_depend_str):
+    """Update the commit message with a Cq-Depends line.
+
+    Find the SHA of the commit, then use git filter-branch --msg-filter
+    to add the Cq-Depend line just before the Change-Id line. See
+    https://chromium.googlesource.com/chromiumos/docs/+/HEAD/contributing.md#cq-depend
+    for details about Cq-Depend format and location.
+
+    Args:
+        git_repo: Directory of git repository.
+        change_id: The Change-Id to search for.
+        cq_depend_str: The Cq-Depend string. It must be in the correct format
+            per chromeos documentation, ready to insert into the commit msg
+            on the line before Change-Id.
+
+    Returns:
+        True if `git filter-branch` was successful. False if the command
+        failed.
+    """
+    logging.debug('find SHA of Change-Id %s in %s', change_id, git_repo)
+    sha = change_id_to_sha(git_repo, change_id)
+    if sha is None:
+        logging.error('Cannot find the SHA for Change-Id %s in %s',
+                      change_id, git_repo)
+        return False
+    logging.debug('SHA = %s', sha)
+
+    # Check if the commit message already has a Cq-Depend line.
+    msg = get_commit_msg(git_repo, sha)
+    if any('Cq-Depend' in tmpstr for tmpstr in msg):
+        logging.debug('Already has Cq-Depend')
+        return True
+
+    # Use git filter-branch --msg-filter to add the Cq-Depend line just
+    # before the Change-Id line.
+    environ = {**os.environ, 'FILTER_BRANCH_SQUELCH_WARNING': '1'}
+    cmd = [
+        'git',
+        'filter-branch',
+        '--msg-filter',
+        f'sed -E "s/^(Change-Id: {change_id})$/{cq_depend_str}\\n\\1/"',
+        '--',
+        f'{sha}^..']
+    return run_process(cmd, cwd=git_repo, env=environ)
+
+
+def add_cq_depend(status):
+    """Add Cq-Depend to commits and flag them for re-upload.
+
+    Args:
+        status: variant_status object tracking our board, variant, etc.
+
+    Returns:
+        True if the commit messages have been successfully amended, False if
+        something failed.
+    """
+    logging.info('Running step add_cq_depend')
+    for key in status.commits:
+        commit = status.commits[key]
+        if 'cq_depend' in commit:
+            logging.debug('%s has %s', key, commit['cq_depend'])
+            # Make sure the commit has a working directory and a change_id
+            # before trying to amend its commit message.
+            if 'dir' not in commit or 'change_id' not in commit:
+                logging.error('Missing dir and/or change_id from %s', key)
+                return False
+
+            if not add_cq_depend_to_commit_msg(commit['dir'],
+                                               commit['change_id'],
+                                               commit['cq_depend']):
+                return False
+            commit['needs_re_upload'] = True
+        else:
+            logging.debug('%s no dependencies', key)
+
+    return True
+
+
+def re_upload(status):
+    """Re-upload commits that have changed.
+
+    Args:
+        status: variant_status object tracking our board, variant, etc.
+
+    Returns:
+        True if the uploads succeeded. False if a repo upload failed.
+    """
+    logging.info('Running step re_upload')
+    for key in status.commits:
+        commit = status.commits[key]
+        if commit.get('needs_re_upload'):
+            logging.debug('Re-upload branch %s in %s', commit['branch_name'],
+                          commit['dir'])
+            if not repo_upload(commit['branch_name'], commit['dir']):
+                logging.error('Repo upload %s in %s failed!',
+                              commit['branch_name'],
+                              commit['dir'])
+                return False
+            commit['needs_re_upload'] = False
+
     return True
 
 
