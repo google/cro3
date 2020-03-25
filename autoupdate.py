@@ -24,7 +24,6 @@ except ImportError:
 
 import setup_chromite  # pylint: disable=unused-import
 from chromite.lib.xbuddy import cherrypy_log_util
-from chromite.lib.xbuddy import common_util
 from chromite.lib.xbuddy import devserver_constants as constants
 
 
@@ -61,22 +60,17 @@ def _NonePathJoin(*args):
 class Autoupdate(object):
   """Class that contains functionality that handles Chrome OS update pings."""
 
-  _PAYLOAD_URL_PREFIX = '/static/'
-
-  def __init__(self, xbuddy, static_dir=None, payload_path=None,
-               proxy_port=None):
+  def __init__(self, xbuddy, static_dir=None, proxy_port=None):
     """Initializes the class.
 
     Args:
       xbuddy: The xbuddy path.
       static_dir: The path to the devserver static directory.
-      payload_path: The path to pre-generated payload to serve.
       proxy_port: The port of local proxy to tell client to connect to you
         through.
     """
     self.xbuddy = xbuddy
     self.static_dir = static_dir
-    self.payload_path = payload_path
     self.proxy_port = proxy_port
 
   def GetUpdateForLabel(self, label):
@@ -145,54 +139,26 @@ class Autoupdate(object):
     Raises:
       AutoupdateError: If the update could not be found.
     """
-    path_to_payload = None
-    # TODO(crbug.com/1006305): deprecate --payload flag
-    if self.payload_path:
-      # Copy the image from the path to '/forced_payload'
-      label = 'forced_payload'
-      dest_path = os.path.join(self.static_dir, label, constants.UPDATE_FILE)
-      dest_stateful = os.path.join(self.static_dir, label,
-                                   constants.STATEFUL_FILE)
-      dest_meta = os.path.join(self.static_dir, label,
-                               constants.UPDATE_METADATA_FILE)
-
-      src_path = os.path.abspath(self.payload_path)
-      src_meta = os.path.abspath(self.payload_path + '.json')
-      src_stateful = os.path.join(os.path.dirname(src_path),
-                                  constants.STATEFUL_FILE)
-      common_util.MkDirP(os.path.join(self.static_dir, label))
-      common_util.SymlinkFile(src_path, dest_path)
-      common_util.SymlinkFile(src_meta, dest_meta)
-      if os.path.exists(src_stateful):
-        # The stateful payload is optional.
-        common_util.SymlinkFile(src_stateful, dest_stateful)
-      else:
-        _Log('WARN: %s not found. Expected for dev and test builds',
-             constants.STATEFUL_FILE)
-        if os.path.exists(dest_stateful):
-          os.remove(dest_stateful)
-      path_to_payload = self.GetUpdateForLabel(label)
-    else:
-      label = label or ''
-      label_list = label.split('/')
-      # Suppose that the path follows old protocol of indexing straight
-      # into static_dir with board/version label.
-      # Attempt to get the update in that directory, generating if necc.
-      path_to_payload = self.GetUpdateForLabel(label)
+    label = label or ''
+    label_list = label.split('/')
+    # Suppose that the path follows old protocol of indexing straight
+    # into static_dir with board/version label.
+    # Attempt to get the update in that directory, generating if necc.
+    path_to_payload = self.GetUpdateForLabel(label)
+    if path_to_payload is None:
+      # There was no update found in the directory. Let XBuddy find the
+      # payloads.
+      if label_list[0] == 'xbuddy':
+        # If path explicitly calls xbuddy, pop off the tag.
+        label_list.pop()
+      x_label, _ = self.xbuddy.Translate(label_list, board=board)
+      # Path has been resolved, try to get the payload.
+      path_to_payload = self.GetUpdateForLabel(x_label)
       if path_to_payload is None:
-        # There was no update found in the directory. Let XBuddy find the
-        # payloads.
-        if label_list[0] == 'xbuddy':
-          # If path explicitly calls xbuddy, pop off the tag.
-          label_list.pop()
-        x_label, _ = self.xbuddy.Translate(label_list, board=board)
-        # Path has been resolved, try to get the payload.
-        path_to_payload = self.GetUpdateForLabel(x_label)
-        if path_to_payload is None:
-          # No update payload found after translation. Try to get an update to
-          # a test image from GS using the label.
-          path_to_payload, _image_name = self.xbuddy.Get(
-              ['remote', label, 'full_payload'])
+        # No update payload found after translation. Try to get an update to
+        # a test image from GS using the label.
+        path_to_payload, _image_name = self.xbuddy.Get(
+            ['remote', label, 'full_payload'])
 
     # One of the above options should have gotten us a relative path.
     if path_to_payload is None:

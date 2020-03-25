@@ -1522,19 +1522,6 @@ def _AddTestingOptions(parser):
   parser.add_option_group(group)
 
 
-def _AddUpdateOptions(parser):
-  group = optparse.OptionGroup(
-      parser, 'Autoupdate Options', 'These options can be used to change '
-      'how the devserver serve update payloads. Please '
-      'note that all of these option affect how a payload is generated and so '
-      'do not work in archive-only mode.')
-  group.add_option('--payload',
-                   metavar='PATH',
-                   help='use the update payload from specified directory '
-                   '(update.gz).')
-  parser.add_option_group(group)
-
-
 def _AddProductionOptions(parser):
   group = optparse.OptionGroup(
       parser, 'Advanced Server Options', 'These options can be used to changed '
@@ -1603,7 +1590,6 @@ def main():
                          'help with infra removal efforts. See '
                          'go/devserver-deprecation')
   _AddProductionOptions(parser)
-  _AddUpdateOptions(parser)
   _AddTestingOptions(parser)
   (options, _) = parser.parse_args()
 
@@ -1651,7 +1637,6 @@ def main():
   updater = autoupdate.Autoupdate(
       _xbuddy,
       static_dir=options.static_dir,
-      payload_path=options.payload,
       proxy_port=options.proxy_port,
   )
 
