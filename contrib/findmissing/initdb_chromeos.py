@@ -19,31 +19,6 @@ CHROMIUM = re.compile(r'(CHROMIUM: *|FROMLIST: *)+(.*)')
 CHANGEID = re.compile(r'^( )*Change-Id: [a-zA-Z0-9]*$')
 
 
-def search_usha(sha, description):
-    """Search for upstream SHA.
-
-    If found, return upstream sha associated with this commit sha.
-    """
-
-    usha = None
-    if not CHROMIUM.match(description):
-        desc = subprocess.check_output(['git', 'show',
-            '-s', sha], encoding='utf-8', errors='ignore')
-        # TODO(hirthanan) change regex to parse entire description not line by line
-        for d in desc.splitlines():
-            m = common.CHERRYPICK.search(d)
-            if not m:
-                m = common.STABLE.search(d)
-                if not m:
-                    m = common.STABLE2.search(d)
-            if m:
-                # The patch may have been picked multiple times; only record
-                # the first entry.
-                usha = m.group(2)[:12]
-                return usha
-    return usha
-
-
 def update_chrome_table(branch, start, db):
     """Updates the linux chrome commits table.
 
@@ -87,7 +62,9 @@ def update_chrome_table(branch, start, db):
 
             last = sha
 
-            usha = search_usha(sha, description)
+            usha = None
+            if not CHROMIUM.match(description):
+                usha = common.search_upstream_sha(sha)
 
             try:
                 q = """INSERT INTO linux_chrome

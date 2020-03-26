@@ -11,6 +11,7 @@ from __future__ import print_function
 import os
 import re
 from enum import Enum
+import subprocess
 import MySQLdb
 
 import initdb_upstream
@@ -37,12 +38,6 @@ UPSTREAM_PATH = 'linux_upstream'
 
 WORKDIR = os.getcwd()
 GIT_COOKIE_PATH = os.path.join(WORKDIR, '.git-credential-cache/cookie')
-
-
-# "commit" is sometimes seen multiple times, such as with commit 6093aabdd0ee
-CHERRYPICK = re.compile(r'cherry picked from (commit )+([0-9a-f]+)')
-STABLE = re.compile(r'^\s*(commit )+([a-f0-9]+) upstream')
-STABLE2 = re.compile(r'^\s*\[\s*Upstream (commit )+([0-9a-f]+)\s*\]')
 
 
 class Status(Enum):
@@ -90,6 +85,26 @@ def chromeos_branch(version):
     """Chromeos branch name"""
     return 'chromeos-%s' % version
 
+def search_upstream_sha(kernel_sha):
+    """Search for upstream sha that kernel_sha is cherry-picked from.
+
+    If found, return upstream_sha, otherwise return None.
+    """
+    usha = None
+    desc = subprocess.check_output(['git', 'show', '-s', kernel_sha],
+                                        encoding='utf-8', errors='ignore')
+
+    # "commit" is sometimes seen multiple times, such as with commit 6093aabdd0ee
+    m = re.findall(r'cherry picked from (commit )+([0-9a-f]+)', desc, re.M)
+    if not m:
+        m = re.findall(r'^\s*(commit )+([a-f0-9]+) upstream', desc, re.M)
+        if not m:
+            m = re.findall(r'^\s*\[\s*Upstream (commit )+([0-9a-f]+)\s*\]', desc, re.M)
+    if m:
+        # The patch may have been picked multiple times; only record the first entry.
+        usha = m.group(2)[:12]
+        return usha
+    return usha
 
 def patch_link(changeID):
     """Link to patch on gerrit"""

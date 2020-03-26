@@ -29,8 +29,6 @@ import requests
 import common
 import git_interface
 
-BUG_REGEX = re.compile(r'^BUG=(.*)$')
-TEST_REGEX = re.compile(r'^TEST=(.*)$')
 
 def get_auth_cookie():
     """Load cookies in order to authenticate requests with gerrit/googlesource."""

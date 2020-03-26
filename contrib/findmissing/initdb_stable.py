@@ -13,28 +13,6 @@ import MySQLdb
 import common
 
 
-def search_usha(sha):
-    """Search for upstream SHA.
-
-    If found, return upstream SHA associated with this commit sha.
-    """
-
-    usha = ''
-    desc = subprocess.check_output(['git', 'show', '-s', sha], encoding='utf-8', errors='ignore')
-    for d in desc.splitlines():
-        m = common.CHERRYPICK.search(d)
-        if not m:
-            m = common.STABLE.search(d)
-            if not m:
-                m = common.STABLE2.search(d)
-        if m:
-            # The patch may have been picked multiple times; only record
-            # the first entry.
-            usha = m.group(2)[:12]
-            return usha
-    return usha
-
-
 def update_stable_table(branch, start, db):
     """Updates the linux stable commits table.
 
@@ -73,7 +51,7 @@ def update_stable_table(branch, start, db):
                 continue
 
             last = sha
-            usha = search_usha(sha)
+            usha = common.search_upstream_sha(sha)
 
             try:
                 q = """INSERT INTO linux_stable
