@@ -5,7 +5,7 @@
 # found in the LICENSE file.
 
 
-# Script transfers latest pulled findmissing work to GCE web server directory
+# Script transfers latest pulled findmissing changes into workdirectory
 # Note: to see test results, restart web server by ssh'ing into the instance.
 
 # navigate to dev-util git directory and pull latest changes
@@ -14,5 +14,6 @@ git -C /opt/dev-util pull
 # Replaces last running webserver code with latest pulled changes
 # Note that we are not deleting the large linux git repositories (linux_*)
 rsync -O -avu \
-  --exclude=linux_upstream --exclude=linux_stable --exclude=linux_chrome --delete \
+  --exclude=".*" --exclude=secrets/ \
+  --exclude=kernel_repositories/ --exclude=logs/ --delete \
   "/opt/dev-util/contrib/findmissing/" "/home/chromeos_patches"

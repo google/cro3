@@ -1,6 +1,2 @@
-flask==1.0.4
 requests
-gunicorn
-virtualenv
-honcho
 mysqlclient
