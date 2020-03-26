@@ -191,21 +191,6 @@ def check_flags(board, variant, bug, continue_flag, abort_flag):
     return True
 
 
-def file_exists(filepath, filename):
-    """Determine if a path and file exists
-
-    Args:
-        filepath: Path where build outputs should be found, e.g.
-            /build/hatch/firmware
-        filename: File that should exist in that path, e.g. image-sushi.bin
-
-    Returns:
-        True if file exists in that path, False otherwise
-    """
-    fullname = os.path.join(filepath, filename)
-    return os.path.exists(fullname) and os.path.isfile(fullname)
-
-
 def get_status(board, variant, bug, continue_flag, abort_flag):
     """Create the status file or get the previous status
 
@@ -703,18 +688,20 @@ def check_fit_image_files(status):
         'asset_generation/outputs')
     logging.debug('outputs_dir = "%s"', outputs_dir)
 
-    files = []
-    if not file_exists(outputs_dir, 'fitimage-' + status.variant + '.bin'):
-        files.append('fitimage-' + status.variant + '.bin')
+    files_not_found = []
+    fitimage_bin = 'fitimage-' + status.variant + '.bin'
+    if not os.path.isfile(os.path.join(outputs_dir, fitimage_bin)):
+        files_not_found.append(fitimage_bin)
 
-    if not file_exists(outputs_dir,
-                       'fitimage-' + status.variant + '-versions.txt'):
-        files.append('fitimage-' + status.variant + '-versions.txt')
+    fitimage_versions = 'fitimage-' + status.variant + '-versions.txt'
+    if not os.path.isfile(os.path.join(outputs_dir, fitimage_versions)):
+        files_not_found.append(fitimage_versions)
 
-    if not file_exists(outputs_dir, 'fit.log'):
-        files.append('fit.log')
+    fit_log = 'fit.log'
+    if not os.path.isfile(os.path.join(outputs_dir, fit_log)):
+        files_not_found.append(fit_log)
 
-    return files
+    return files_not_found
 
 
 def move_fitimage_file(fitimage_dir, filename):
@@ -736,7 +723,7 @@ def move_fitimage_file(fitimage_dir, filename):
     dest_dir = os.path.join(fitimage_dir, 'files')
     dest = os.path.join(dest_dir, filename)
     # If src does not exist and dest does, the move is already done => success!
-    if not file_exists(src_dir, filename) and file_exists(dest_dir, filename):
+    if not os.path.isfile(src) and os.path.isfile(dest):
         logging.debug('move "%s", "%s" unnecessary because dest exists and'
             ' src does not exist', src, dest)
         return True
@@ -820,12 +807,11 @@ def create_initial_ec_image(status):
 
     # create_initial_ec_image.sh will build the ec.bin for this variant
     # if successful.
-    ec = '/mnt/host/source/src/platform/ec'
-    logging.debug('ec = "%s"', ec)
-    ec_bin = os.path.join('build', status.variant, 'ec.bin')
+    ec_dir = '/mnt/host/source/src/platform/ec'
+    ec_bin = os.path.join(ec_dir, 'build', status.variant, 'ec.bin')
     logging.debug('ec.bin = "%s"', ec_bin)
 
-    if not file_exists(ec, ec_bin):
+    if not os.path.isfile(ec_bin):
         logging.error('EC binary %s not found', ec_bin)
         return False
     return True
@@ -922,7 +908,7 @@ def build_yaml(status):
     config_yaml = os.path.join(
         '/build', status.base, 'usr/share/chromeos-config/yaml/config.yaml')
     logging.debug('config_yaml = "%s"', config_yaml)
-    if not os.path.exists(config_yaml) or not os.path.isfile(config_yaml):
+    if not os.path.isfile(config_yaml):
         logging.error('%s does not exist', config_yaml)
         return False
 
@@ -987,14 +973,14 @@ def emerge_all(status):
 
     build_path = '/build/' + status.base + '/firmware'
     logging.debug('build_path = "%s"', build_path)
-    if not file_exists(build_path, 'image-' + status.variant + '.bin'):
-        logging.error('emerge failed because image-%s.bin does not exist',
-            status.variant)
+    image_bin = 'image-' + status.variant + '.bin'
+    if not os.path.isfile(os.path.join(build_path, image_bin)):
+        logging.error('emerge failed because %s does not exist', image_bin)
         return False
 
-    if not file_exists(build_path, 'image-' + status.variant + '.serial.bin'):
-        logging.error('emerge failed because image-%s.serial.bin does not exist',
-            status.variant)
+    serial_bin = 'image-' + status.variant + '.serial.bin'
+    if not os.path.isfile(os.path.join(build_path, serial_bin)):
+        logging.error('emerge failed because %s does not exist', serial_bin)
         return False
 
     return True
