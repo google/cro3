@@ -5,29 +5,72 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Web server performing operations on our systems.
+"""Main interface for users/automated systems to run commands.
 
 Systems will include: Cloud Scheduler, CloudSQL, and Compute Engine
 """
 
 from __future__ import print_function
 
+import os
+import subprocess
+
 import synchronize
 import missing
 
-def home():
-    """Test route for status check on compute engine"""
-    return 'hello, compute engine are you there?\n'
+def check_service_key_secret_exists():
+    """Raises an error if the service account secret key file doesn't exist
 
+    This can be generated on GCP under service accounts (Generate service token)
+    This file should automatically be generated when running the gce-startup.sh script.
+    """
+    cwd = os.getcwd()
+    secret_file_path = os.path.join(cwd, 'secrets/linux_patches_robot_key.json')
+
+    if not os.path.exists(secret_file_path):
+        raise FileNotFoundError('Service token secret file %s not found' % secret_file_path)
+
+def check_service_running(keyword):
+    """Raises an error if there is no running process commands that match `keyword`."""
+    process_grep = ['pgrep', '-f', keyword]
+    pid = subprocess.check_output(process_grep, encoding='utf-8', errors='ignore')
+
+    if not pid:
+        raise ProcessLookupError('Service %s is not running.' % keyword)
+
+def check_cloud_sql_proxy_running():
+    """Raises an error if cloud_sql_proxy service is not running."""
+    check_service_running('cloud_sql_proxy')
+
+def check_git_cookie_authdaemon_running():
+    """Raises an error if git-cookie-authdaemon service is not running."""
+    check_service_running('git-cookie-authdaemon')
+
+def preliminary_check(func):
+    """Decorator used to check credentials and services are running as expected."""
+    def preliminary_check_wrapper():
+        """Sanity checks on state of environment before executing function."""
+        # Ensures we have service account credentials to connect to cloudsql (GCP)
+        check_service_key_secret_exists()
+        # Ensure cloudsql proxy is running to allow connection
+        check_cloud_sql_proxy_running()
+        # Ensure we have token to allow service account to perform Gerrit API operations
+        check_git_cookie_authdaemon_running()
+        func()
+    return preliminary_check_wrapper
+
+@preliminary_check
 def sync_repositories_and_databases():
     """Synchronizes state of repositories, databases, and missing patches."""
     synchronize.synchronize_repositories()
     synchronize.synchronize_databases()
 
+@preliminary_check
 def create_new_patches():
     """Creates up to number of new patches in gerrit."""
     missing.new_missing_patches()
 
+@preliminary_check
 def update_patches():
     """Updates fixes table entries on regular basis."""
     missing.update_missing_patches()
