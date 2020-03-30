@@ -9,7 +9,6 @@
 
 from __future__ import print_function
 import os
-import time
 import subprocess
 import sys
 
@@ -20,6 +19,7 @@ import git_interface
 
 # Constant representing number CL's we want created on single new missing patch run
 NEW_CL_DAILY_LIMIT_PER_BRANCH = 1
+
 
 def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
     """Cherrypick fixer sha into it's linux_chrome branch and determine its Status.
@@ -112,11 +112,6 @@ def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
     return row[0] if row else None
 
 
-def get_current_time():
-    """Returns DATETIME in specific time format required by SQL."""
-    return time.strftime('%Y-%m-%d %H:%M:%S')
-
-
 def insert_by_patch_id(db, branch, fixedby_upstream_sha):
     """Handles case where fixedby_upstream_sha may have changed in kernels.
 
@@ -147,7 +142,7 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
     #  chrome shas represent kernel sha for the upstream_sha fixedby_upstream_sha
     if chrome_shas:
         for chrome_sha in chrome_shas:
-            entry_time = get_current_time()
+            entry_time = common.get_current_time()
             cl_status = common.Status.MERGED.name
             reason = 'Already merged into linux_chrome [upstream sha %s]' % fixedby_upstream_sha
 
@@ -183,7 +178,7 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
     status = get_status_from_cherrypicking_sha(branch, fixedby_upstream_sha)
     cl_status = status.name
 
-    entry_time = get_current_time()
+    entry_time = common.get_current_time()
 
     close_time = fix_change_id = reason = None
 
@@ -230,6 +225,7 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
                         fix_change_id, cl_status, reason], e)
     return created_new_change
 
+
 def update_fixes_in_branch(db, branch, kernel_metadata):
     """Updates fix patch table row by determining if CL merged into linux_chrome."""
     c = db.cursor()
@@ -245,7 +241,7 @@ def update_fixes_in_branch(db, branch, kernel_metadata):
            AND (fixes.status = 'OPEN' OR fixes.status = 'CONFLICT')
            """.format(chosen_fixes=chosen_fixes)
 
-    close_time = get_current_time()
+    close_time = common.get_current_time()
     reason = 'Patch has been applied to linux_chome'
 
     try:

@@ -10,6 +10,7 @@
 from __future__ import print_function
 import os
 import re
+import time
 from enum import Enum
 import subprocess
 import MySQLdb
@@ -76,6 +77,11 @@ class KernelMetadata(object):
         self.update_table = _update_table
 
 
+def get_current_time():
+    """Returns DATETIME in specific time format required by SQL."""
+    return time.strftime('%Y-%m-%d %H:%M%:%S')
+
+
 def stable_branch(version):
     """Stable branch name"""
     return 'linux-%s.y' % version
@@ -84,6 +90,7 @@ def stable_branch(version):
 def chromeos_branch(version):
     """Chromeos branch name"""
     return 'chromeos-%s' % version
+
 
 def search_upstream_sha(kernel_sha):
     """Search for upstream sha that kernel_sha is cherry-picked from.
@@ -106,9 +113,11 @@ def search_upstream_sha(kernel_sha):
         return usha
     return usha
 
+
 def patch_link(changeID):
     """Link to patch on gerrit"""
     return 'https://chromium-review.googlesource.com/q/%s' % changeID
+
 
 def update_previous_fetch(db, kernel, branch, last_sha):
     """Updates the previous_fetch table for a kernel branch."""
@@ -119,6 +128,7 @@ def update_previous_fetch(db, kernel, branch, last_sha):
     c.execute(q, [last_sha, kernel.name, branch])
 
     db.commit()
+
 
 def get_kernel_absolute_path(repo_name):
     """Returns absolute path to kernel repositories"""
@@ -158,6 +168,7 @@ def update_kernel_db(db, kernel_metadata):
         db.commit()
 
     os.chdir(WORKDIR)
+
 
 def get_kernel_metadata(kernel):
     """Returns KernelMetadata for each Kernel Enum"""

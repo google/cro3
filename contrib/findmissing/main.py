@@ -14,9 +14,14 @@ from __future__ import print_function
 
 import os
 import subprocess
+import MySQLdb
 
-import synchronize
+import cloudsql_interface
+import common
+import gerrit_interface
 import missing
+import synchronize
+
 
 def check_service_key_secret_exists():
     """Raises an error if the service account secret key file doesn't exist
@@ -30,6 +35,7 @@ def check_service_key_secret_exists():
     if not os.path.exists(secret_file_path):
         raise FileNotFoundError('Service token secret file %s not found' % secret_file_path)
 
+
 def check_service_running(keyword):
     """Raises an error if there is no running process commands that match `keyword`."""
     process_grep = ['pgrep', '-f', keyword]
@@ -38,16 +44,20 @@ def check_service_running(keyword):
     if not pid:
         raise ProcessLookupError('Service %s is not running.' % keyword)
 
+
 def check_cloud_sql_proxy_running():
     """Raises an error if cloud_sql_proxy service is not running."""
     check_service_running('cloud_sql_proxy')
+
 
 def check_git_cookie_authdaemon_running():
     """Raises an error if git-cookie-authdaemon service is not running."""
     check_service_running('git-cookie-authdaemon')
 
+
 def preliminary_check(func):
     """Decorator used to check credentials and services are running as expected."""
+
     def preliminary_check_wrapper():
         """Sanity checks on state of environment before executing function."""
         # Ensures we have service account credentials to connect to cloudsql (GCP)
@@ -59,18 +69,62 @@ def preliminary_check(func):
         func()
     return preliminary_check_wrapper
 
+
 @preliminary_check
 def sync_repositories_and_databases():
     """Synchronizes state of repositories, databases, and missing patches."""
     synchronize.synchronize_repositories()
     synchronize.synchronize_databases()
 
+
 @preliminary_check
 def create_new_patches():
     """Creates up to number of new patches in gerrit."""
     missing.new_missing_patches()
 
+
 @preliminary_check
 def update_patches():
     """Updates fixes table entries on regular basis."""
     missing.update_missing_patches()
+
+
+@preliminary_check
+def abandon_fix_cl(fixes_table, kernel_sha, fixedby_upstream_sha):
+    """Abandons an fix CL + updates database fix table."""
+    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    try:
+        row = cloudsql_interface.get_fix_status_and_changeid(cloudsql_db, fixes_table,
+                                                    kernel_sha, fixedby_upstream_sha)
+        if row['status'] == common.Status.OPEN.name:
+            fix_change_id = row['fix_change_id']
+            gerrit_interface.abandon_change(fix_change_id)
+        cloudsql_interface.update_change_abandoned(cloudsql_db, fixes_table,
+                                                    kernel_sha, fixedby_upstream_sha)
+    except KeyError:
+        print("""Could not retrieve fix row with primary key kernel_sha %s
+                    and fixedby_upstream_sha %s""" % (kernel_sha, fixedby_upstream_sha))
+        raise
+    finally:
+        cloudsql_db.close()
+
+
+@preliminary_check
+def restore_fix_cl(fixes_table, kernel_sha, fixedby_upstream_sha):
+    """Restores an abandoned change + updates database fix table."""
+    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    try:
+        row = cloudsql_interface.get_fix_status_and_changeid(cloudsql_db, fixes_table,
+                                                    kernel_sha, fixedby_upstream_sha)
+        if row['status'] == common.Status.ABANDONED.name:
+            if row['initial_status'] == common.Status.OPEN.name:
+                fix_change_id = row['fix_change_id']
+                gerrit_interface.restore_change(fix_change_id)
+            cloudsql_interface.update_change_restored(cloudsql_db, fixes_table,
+                                            kernel_sha, fixedby_upstream_sha)
+    except KeyError:
+        print("""Could not retrieve fix row with primary key kernel_sha %s
+                    and fixedby_upstream_sha %s""" % (kernel_sha, fixedby_upstream_sha))
+        raise
+    finally:
+        cloudsql_db.close()
