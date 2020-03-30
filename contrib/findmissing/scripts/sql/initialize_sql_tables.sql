@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS stable_fixes (
   entry_time DATETIME NOT NULL,
   close_time DATETIME,
   fix_change_id CHAR(41),
+  initial_status ENUM('OPEN', 'MERGED', 'CONFLICT') NOT NULL,
   status ENUM('OPEN', 'MERGED', 'ABANDONED', 'CONFLICT') NOT NULL,
   reason VARCHAR(120),
   FOREIGN KEY (kernel_sha) REFERENCES linux_stable(sha),

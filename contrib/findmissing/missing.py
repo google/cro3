@@ -153,11 +153,11 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
 
             try:
                 q = """INSERT INTO chrome_fixes
-                        (kernel_sha, fixedby_upstream_sha,
-                        branch, entry_time, close_time, status, reason)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)"""
-                c.execute(q, [chrome_sha, fixedby_upstream_sha,
-                                branch, entry_time, entry_time, cl_status, reason])
+                        (kernel_sha, fixedby_upstream_sha, branch, entry_time,
+                        close_time, initial_status, status, reason)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+                c.execute(q, [chrome_sha, fixedby_upstream_sha, branch, entry_time,
+                                entry_time, cl_status, cl_status, reason])
                 db.commit()
             except MySQLdb.Error as e: # pylint: disable=no-member
                 print('Failed to insert an already merged entry into chrome_fixes.', e)
@@ -188,9 +188,9 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
     close_time = fix_change_id = reason = None
 
     q = """INSERT INTO {chosen_fixes}
-            (kernel_sha, fixedby_upstream_sha, branch,
-            entry_time, close_time, fix_change_id, status, reason)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""".format(chosen_fixes=chosen_fixes)
+            (kernel_sha, fixedby_upstream_sha, branch, entry_time, close_time,
+            fix_change_id, initial_status, status, reason)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""".format(chosen_fixes=chosen_fixes)
 
     if status == common.Status.MERGED:
         # Create a row for the merged CL (we don't need to track this), but can be stored
@@ -217,9 +217,8 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
         pass
 
     try:
-        c.execute(q, [kernel_sha, fixedby_upstream_sha,
-                        branch, entry_time, close_time,
-                        fix_change_id, cl_status, reason])
+        c.execute(q, [kernel_sha, fixedby_upstream_sha, branch, entry_time,
+                        close_time, fix_change_id, cl_status, cl_status, reason])
         print('Inserted row into fixes table', [chosen_fixes, kernel_sha, fixedby_upstream_sha,
                         branch, entry_time, entry_time, close_time,
                         fix_change_id, cl_status, reason])
