@@ -28,6 +28,7 @@ DEFINE_boolean 'build_packages' false 'Builds packages.' 'p'
 DEFINE_boolean 'build_image' false 'Builds the image.' 'i'
 DEFINE_boolean 'test_image' true 'Use a testing termina image instead of a base image.' 't'
 DEFINE_string 'device_ip_addr' '' 'The ip of the device to deploy to.' 'd'
+DEFINE_integer 'device_port' 22 'The ssh port number of the device to deploy to.' 'P'
 DEFINE_boolean 'verbose' false 'Turns on verbose logging.' 'v'
 
 main() {
@@ -44,7 +45,8 @@ main() {
     if [[ ${FLAGS_verbose} -eq ${FLAGS_TRUE} ]]; then
       echo "Detecting device architecture..." >&2
     fi
-    uname_m=$(ssh "${SSH_OPTS[@]}" "root@${FLAGS_device_ip_addr}" "uname -m")
+    uname_m=$(ssh "${SSH_OPTS[@]}" "-p" "${FLAGS_device_port}" \
+      "root@${FLAGS_device_ip_addr}" "uname -m")
     case "${uname_m}" in
       x86_64) FLAGS_board='tatl' ;;
       aarch64) FLAGS_board='tael' ;;
@@ -89,7 +91,7 @@ main() {
     if [[ ${FLAGS_verbose} -eq ${FLAGS_TRUE} ]]; then
       echo "Copying image to device:" >&2
     fi
-    rsync -a "${out_dir}" -e "ssh ${SSH_OPTS[*]}" \
+    rsync -a "${out_dir}" -e "ssh ${SSH_OPTS[*]} -p ${FLAGS_device_port} " \
       "root@${FLAGS_device_ip_addr}:${STATEFUL_PARTITION}" \
       || die "Failed to copy to device."
     sudo rm -rf "${out_dir}"
@@ -108,8 +110,8 @@ main() {
     restart vm_cicerone
     restart vm_concierge
 EOF
-    ssh "${SSH_OPTS[@]}" "root@${FLAGS_device_ip_addr}" \
-      "${install_script}" \
+    ssh "${SSH_OPTS[@]}" "-p" "${FLAGS_device_port}" \
+      "root@${FLAGS_device_ip_addr}" "${install_script}" \
       || die "Failed to deploy to device."
   fi
 }
