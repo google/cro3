@@ -19,7 +19,8 @@ sudo apt-get update
 sudo apt-get dist-upgrade
 sudo apt-get install -yq \
   git mysql-client default-libmysqlclient-dev build-essential \
-  python python3.7 python3-dev python3-venv python3.7-venv
+  python python3.7 python3-dev python3-venv python3.7-venv \
+  libssl-dev libffi-dev python3-setuptools nginx
 
 # Fetch git-cookie-authdaemon to authenticate gerrit api requests
 sudo git -C /opt/ clone https://gerrit.googlesource.com/gcompute-tools
@@ -39,20 +40,6 @@ sudo gcloud iam service-accounts keys \
 sudo wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O /usr/bin/cloud_sql_proxy
 sudo chmod a+x /usr/bin/cloud_sql_proxy
 
-# Put systemd configurations in correct location
-sudo cp /home/chromeos_patches/config/systemd/cloud-sql-proxy.service /etc/systemd/system/
-sudo cp /home/chromeos_patches/config/systemd/git-cookie-authdaemon.service /etc/systemd/system/
-sudo chmod 644 /etc/systemd/system/cloud-sql-proxy.service
-sudo chmod 644 /etc/systemd/system/git-cookie-authdaemon.service
-
-# Start service now
-sudo systemctl start cloud-sql-proxy
-sudo systemctl start git-cookie-authdaemon
-
-# Start everytime on boot
-sudo systemctl enable cloud-sql-proxy
-sudo systemctl enable git-cookie-authdaemon
-
 sudo mkdir -p /home/chromeos_patches/kernel_repositories/
 sudo mount -o discard,defaults /dev/sdb /home/chromeos_patches/kernel_repositories/
 sudo chmod a+w /home/chromeos_patches/kernel_repositories/
@@ -67,4 +54,18 @@ sudo chown -R chromeos_patches:chromeos_patches /home/chromeos_patches/
 # Python environment setup
 python3 -m venv /home/chromeos_patches/env
 source /home/chromeos_patches/env/bin/activate
-/home/chromeos_patches/env/bin/pip3 install -r /home/chromeos_patches/requirements.txt
+/home/chromeos_patches/env/bin/pip install -r /home/chromeos_patches/requirements.txt
+
+# Put systemd configurations in correct location
+sudo cp /home/chromeos_patches/config/systemd/cloud-sql-proxy.service /etc/systemd/system/
+sudo cp /home/chromeos_patches/config/systemd/git-cookie-authdaemon.service /etc/systemd/system/
+sudo chmod 644 /etc/systemd/system/cloud-sql-proxy.service
+sudo chmod 644 /etc/systemd/system/git-cookie-authdaemon.service
+
+# Start service now
+sudo systemctl start cloud-sql-proxy
+sudo systemctl start git-cookie-authdaemon
+
+# Start everytime on boot
+sudo systemctl enable cloud-sql-proxy
+sudo systemctl enable git-cookie-authdaemon

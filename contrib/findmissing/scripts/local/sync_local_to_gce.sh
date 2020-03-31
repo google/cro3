@@ -23,6 +23,6 @@ if [[ -z "${GCE_EXTERNAL_IP}" ]]; then
 fi
 
 rsync -O -rltvz \
-  --exclude=".*" --exclude=secrets/ \
+  --exclude=".*" --exclude=secrets/ --exclude=env/ \
   --exclude=kernel_repositories/ --exclude=logs/ --delete \
   "${FINDMISSING_DIR}" chromeos_patches@"${GCE_EXTERNAL_IP}":/home/chromeos_patches
