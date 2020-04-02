@@ -11,6 +11,7 @@ Systems will include: Cloud Scheduler, CloudSQL, and Compute Engine
 """
 
 from __future__ import print_function
+from datetime import datetime
 
 import os
 import subprocess
@@ -70,24 +71,32 @@ def preliminary_check(func):
     return preliminary_check_wrapper
 
 
-@preliminary_check
 def sync_repositories_and_databases():
     """Synchronizes repositories, databases, missing patches, and status with gerrit."""
     synchronize.synchronize_repositories()
     synchronize.synchronize_databases()
     synchronize.synchronize_fixes_tables_with_gerrit()
 
+    # Updates fixes table entries on regular basis by checking
+    #  if any OPEN/CONFL fixes have been merged.
+    missing.update_missing_patches()
 
-@preliminary_check
+
 def create_new_patches():
-    """Creates up to number of new patches in gerrit."""
+    """Creates a new patch for each branch in chrome and stable linux."""
     missing.new_missing_patches()
 
 
 @preliminary_check
-def update_patches():
-    """Updates fixes table entries on regular basis."""
-    missing.update_missing_patches()
+def synchronize_and_create_patches():
+    """Synchronize repositories/databases + create new fixes."""
+    current_time = datetime.now()
+    sync_repositories_and_databases()
+
+    # This depends on cron jobs starting at 0 UTC
+    #  Ensures that we only create new patches once a day
+    if current_time.hour == 0:
+        create_new_patches()
 
 
 @preliminary_check
