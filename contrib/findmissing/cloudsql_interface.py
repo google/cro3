@@ -14,6 +14,19 @@ import MySQLdb
 import common
 
 
+def get_fixes_table_primary_key(db, fixes_table, fix_change_id):
+    """Retrieves the primary keys from a fixes table using changeid."""
+    c = db.cursor(MySQLdb.cursors.DictCursor)
+
+    q = """SELECT kernel_sha, fixedby_upstream_sha
+            FROM {fixes_table}
+            WHERE fix_change_id = %s""".format(fixes_table=fixes_table)
+
+    c.execute(q, [fix_change_id])
+    row = c.fetchone()
+    return (row['kernel_sha'], row['fixedby_upstream_sha'])
+
+
 def get_fix_status_and_changeid(db, fixes_table, kernel_sha, fixedby_upstream_sha):
     """Get initial_status, status, and fix_change_id row from fixes table."""
     c = db.cursor(MySQLdb.cursors.DictCursor)
@@ -58,3 +71,32 @@ def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha):
     close_time = None
     c.execute(q, [initial_status, close_time, kernel_sha, fixedby_upstream_sha])
     db.commit()
+
+
+def update_change_merged(db, fixes_table, kernel_sha, fixedby_upstream_sha):
+    """Updates fixes_table unique fix row to indicate fix cl has been merged."""
+    c = db.cursor()
+    q = """UPDATE {fixes_table}
+            SET status = 'MERGED', close_time = %s
+            WHERE kernel_sha = %s
+            AND fixedby_upstream_sha = %s""".format(fixes_table=fixes_table)
+    close_time = common.get_current_time()
+    c.execute(q, [close_time, kernel_sha, fixedby_upstream_sha])
+    db.commit()
+
+
+def update_change_status(db, fixes_table, fix_change_id, status):
+    """Updates fixes_table with the latest status from Gerrit API.
+
+    This is done to synchronize CL's that are
+    abandoned/restored on Gerrit with our database state
+    """
+    kernel_sha, fixedby_upstream_sha = get_fixes_table_primary_key(db, fixes_table, fix_change_id)
+    if status == common.Status.OPEN:
+        update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha)
+    elif status == common.Status.ABANDONED:
+        update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha)
+    elif status == common.Status.MERGED:
+        update_change_merged(db, fixes_table, kernel_sha, fixedby_upstream_sha)
+    else:
+        raise ValueError('Change should be either OPEN, ABANDONED, or MERGED')

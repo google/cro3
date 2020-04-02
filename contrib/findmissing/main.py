@@ -72,9 +72,10 @@ def preliminary_check(func):
 
 @preliminary_check
 def sync_repositories_and_databases():
-    """Synchronizes state of repositories, databases, and missing patches."""
+    """Synchronizes repositories, databases, missing patches, and status with gerrit."""
     synchronize.synchronize_repositories()
     synchronize.synchronize_databases()
+    synchronize.synchronize_fixes_tables_with_gerrit()
 
 
 @preliminary_check
