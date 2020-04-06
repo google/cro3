@@ -102,15 +102,15 @@ def search_upstream_sha(kernel_sha):
                                         encoding='utf-8', errors='ignore')
 
     # "commit" is sometimes seen multiple times, such as with commit 6093aabdd0ee
-    m = re.findall(r'cherry picked from (commit )+([0-9a-f]+)', desc, re.M)
+    m = re.findall(r'cherry picked from (?:commit )+([0-9a-f]+)', desc, re.M)
     if not m:
-        m = re.findall(r'^\s*(commit )+([a-f0-9]+) upstream', desc, re.M)
+        m = re.findall(r'^\s*(?:commit )+([a-f0-9]+) upstream', desc, re.M)
         if not m:
-            m = re.findall(r'^\s*\[\s*Upstream (commit )+([0-9a-f]+)\s*\]', desc, re.M)
+            m = re.findall(r'^\s*\[\s*Upstream (?:commit )+([0-9a-f]+)\s*\]', desc, re.M)
     if m:
-        # The patch may have been picked multiple times; only record the first entry.
-        usha = m.group(2)[:12]
-        return usha
+        # The patch may have been picked multiple times; only record the last entry.
+        usha = m[-1]
+        return usha[:12]
     return usha
 
 

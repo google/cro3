@@ -58,6 +58,7 @@ def update_stable_table(branch, start, db):
                         (sha, branch, upstream_sha, patch_id, description)
                         VALUES (%s, %s, %s, %s, %s)"""
                 cursor.execute(q, [sha, branch, usha, patch_id, description])
+                print('Insert into linux_stable', [sha, branch, usha, patch_id, description])
             except MySQLdb.Error as e: # pylint: disable=no-member
                 print('Error in insertion into linux_stable with values: ',
                         [sha, branch, usha, patch_id, description], e)
