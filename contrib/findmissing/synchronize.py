@@ -73,8 +73,10 @@ def synchronize_custom(custom_kernel_metadata):
         print('Updating %s into %s' % (repo, destdir))
         hard_reset = ['git', 'reset', '-q', '--hard', 'HEAD']
         fetch_origin = ['git', 'fetch', '-q', 'origin']
+        fetch_upstream = ['git', 'fetch', '-q', 'upstream']
         subprocess.run(hard_reset, check=True)
         subprocess.run(fetch_origin, check=True)
+        subprocess.run(fetch_upstream, check=True)
 
         for branch in custom_kernel_metadata.branches:
             branch_name = get_branch_name(branch)
