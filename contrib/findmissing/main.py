@@ -108,7 +108,8 @@ def abandon_fix_cl(fixes_table, kernel_sha, fixedby_upstream_sha):
                                                     kernel_sha, fixedby_upstream_sha)
         if row['status'] == common.Status.OPEN.name:
             fix_change_id = row['fix_change_id']
-            gerrit_interface.abandon_change(fix_change_id)
+            branch = row['branch']
+            gerrit_interface.abandon_change(fix_change_id, branch)
         cloudsql_interface.update_change_abandoned(cloudsql_db, fixes_table,
                                                     kernel_sha, fixedby_upstream_sha)
     except KeyError:
@@ -129,7 +130,8 @@ def restore_fix_cl(fixes_table, kernel_sha, fixedby_upstream_sha):
         if row['status'] == common.Status.ABANDONED.name:
             if row['initial_status'] == common.Status.OPEN.name:
                 fix_change_id = row['fix_change_id']
-                gerrit_interface.restore_change(fix_change_id)
+                branch = row['branch']
+                gerrit_interface.restore_change(fix_change_id, branch)
             cloudsql_interface.update_change_restored(cloudsql_db, fixes_table,
                                             kernel_sha, fixedby_upstream_sha)
     except KeyError:

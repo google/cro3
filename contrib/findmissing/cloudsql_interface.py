@@ -29,10 +29,10 @@ def get_fixes_table_primary_key(db, fixes_table, fix_change_id):
 
 
 def get_fix_status_and_changeid(db, fixes_table, kernel_sha, fixedby_upstream_sha):
-    """Get initial_status, status, and fix_change_id row from fixes table."""
+    """Get branch, fix_change_id, initial_status and status for a unique row in fixes table."""
     c = db.cursor(MySQLdb.cursors.DictCursor)
 
-    q = """SELECT initial_status, status, fix_change_id
+    q = """SELECT branch, fix_change_id, initial_status, status
             FROM {fixes_table}
             WHERE kernel_sha = %s
             AND fixedby_upstream_sha = %s""".format(fixes_table=fixes_table)

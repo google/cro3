@@ -266,7 +266,7 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
         elif new_status == 'MERGED':
             reason = 'Fix was merged externally and detected by robot.'
             if fix_change_id:
-                gerrit_interface.abandon_change(fix_change_id, reason)
+                gerrit_interface.abandon_change(fix_change_id, branch, reason)
             cloudsql_interface.update_change_merged(db, fixes_table,
                                         kernel_sha, fixedby_upstream_sha, reason)
 
