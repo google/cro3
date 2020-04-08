@@ -40,8 +40,9 @@ def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
 
     checkout_branch_cmd = ['git', 'checkout', common.chromeos_branch(branch)]
     reset_head_cmd = ['git', 'reset', '--hard', 'HEAD']
-    subprocess.run(checkout_branch_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run(reset_head_cmd, stdout=subprocess.DEVNULL)
+    subprocess.run(checkout_branch_cmd, check=True,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(reset_head_cmd, check=True, stdout=subprocess.DEVNULL)
 
     ret = None
     try:
@@ -60,7 +61,7 @@ def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
     except subprocess.CalledProcessError:
         ret = common.Status.CONFLICT
 
-    subprocess.run(reset_head_cmd, stdout=subprocess.DEVNULL)
+    subprocess.run(reset_head_cmd, check=True, stdout=subprocess.DEVNULL)
 
     # Set directory back to where we started before function called
     os.chdir(cwd)
@@ -308,7 +309,7 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata):
     branch_name = kernel_metadata.get_kernel_branch(branch)
 
     print('Checking branch %s' % branch_name)
-    subprocess.run(['git', 'checkout', branch_name],
+    subprocess.run(['git', 'checkout', branch_name], check=True,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # chosen_table is either linux_stable or linux_chrome

@@ -128,5 +128,5 @@ def cherry_pick_and_push_fix(fixer_upstream_sha, chromeos_branch,
         raise ValueError('Failed to cherrypick and push upstream fix %s on branch %s'
                         % (fixer_upstream_sha, chromeos_branch)) from e
     finally:
-        subprocess.run(['git', 'reset', '--hard', 'origin/%s' % chromeos_branch])
+        subprocess.run(['git', 'reset', '--hard', 'origin/%s' % chromeos_branch], check=True)
         os.chdir(cwd)

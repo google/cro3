@@ -28,15 +28,15 @@ def synchronize_upstream(upstream_kernel_metadata):
     if not os.path.exists(destdir):
         print('Cloning %s into %s' % (repo, destdir))
         clone = ['git', 'clone', '-q', repo, destdir]
-        subprocess.run(clone)
+        subprocess.run(clone, check=True)
     else:
         os.chdir(destdir)
 
         print('Pulling latest changes in %s into %s' % (repo, destdir))
         checkout_master = ['git', 'checkout', '-q', 'master']
         pull = ['git', 'pull', '-q']
-        subprocess.run(checkout_master)
-        subprocess.run(pull)
+        subprocess.run(checkout_master, check=True)
+        subprocess.run(pull, check=True)
 
     os.chdir(common.WORKDIR)
 
@@ -52,7 +52,7 @@ def synchronize_custom(custom_kernel_metadata):
     if not os.path.exists(destdir):
         print('Cloning %s into %s' % (repo, destdir))
         clone = ['git', 'clone', '-q', repo, destdir]
-        subprocess.run(clone)
+        subprocess.run(clone, check=True)
 
         os.chdir(destdir)
         for branch in custom_kernel_metadata.branches:
@@ -60,29 +60,29 @@ def synchronize_custom(custom_kernel_metadata):
 
             print('Creating local branch %s in destdir %s' % (branch_name, destdir))
             checkout_branch = ['git', 'checkout', '-q', branch_name]
-            subprocess.run(checkout_branch)
+            subprocess.run(checkout_branch, check=True)
 
         print('Add remote upstream %s to destdir %s' % (upstream_destdir, destdir))
         add_upstream_remote = ['git', 'remote', 'add', 'upstream', upstream_destdir]
         fetch_upstream = ['git', 'fetch', '-q', 'upstream']
-        subprocess.run(add_upstream_remote)
-        subprocess.run(fetch_upstream)
+        subprocess.run(add_upstream_remote, check=True)
+        subprocess.run(fetch_upstream, check=True)
     else:
         os.chdir(destdir)
 
         print('Updating %s into %s' % (repo, destdir))
         hard_reset = ['git', 'reset', '-q', '--hard', 'HEAD']
         fetch_origin = ['git', 'fetch', '-q', 'origin']
-        subprocess.run(hard_reset)
-        subprocess.run(fetch_origin)
+        subprocess.run(hard_reset, check=True)
+        subprocess.run(fetch_origin, check=True)
 
         for branch in custom_kernel_metadata.branches:
             branch_name = get_branch_name(branch)
             print('Updating local branch %s in destdir %s' % (branch_name, destdir))
             checkout_branch = ['git', 'checkout', '-q', branch_name]
             pull = ['git', 'pull', '-q']
-            subprocess.run(checkout_branch)
-            subprocess.run(pull)
+            subprocess.run(checkout_branch, check=True)
+            subprocess.run(pull, check=True)
 
     os.chdir(common.WORKDIR)
 
