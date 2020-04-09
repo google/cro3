@@ -14,6 +14,7 @@ import sys
 
 import MySQLdb
 import common
+import cloudsql_interface
 import gerrit_interface
 import git_interface
 
@@ -226,6 +227,41 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
     return created_new_change
 
 
+def fixup_unmerged_patches(db, branch, kernel_metadata):
+    """Fixup script that attempts to reapply unmerged fixes to get latest status.
+
+    2 main actions performed by script include:
+        1) Handle case where a conflicting CL later can be applied cleanly without merge conflicts
+        2) Detect if the fix has been applied to linux_chrome externally
+            (i.e not merging through a fix created by this robot)
+    """
+    c = db.cursor()
+    fixes_table = kernel_metadata.kernel_fixes_table
+
+    q = """SELECT kernel_sha, fixedby_upstream_sha, status, fix_change_id
+            FROM {fixes_table}
+            WHERE status != 'MERGED'
+            AND branch = %s""".format(fixes_table=fixes_table)
+    c.execute(q, [branch])
+    rows = c.fetchall()
+    for row in rows:
+        kernel_sha, fixedby_upstream_sha, status, fix_change_id = row
+
+        new_status_enum = get_status_from_cherrypicking_sha(branch, fixedby_upstream_sha)
+        new_status = new_status_enum.name
+
+        if status == 'CONFLICT' and new_status == 'OPEN':
+            fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch)
+            cloudsql_interface.update_conflict_to_open(db, fixes_table,
+                                        kernel_sha, fixedby_upstream_sha, fix_change_id)
+        elif new_status == 'MERGED':
+            reason = 'Fix was merged externally and detected by robot.'
+            if fix_change_id:
+                gerrit_interface.abandon_change(fix_change_id, reason)
+            cloudsql_interface.update_change_merged(db, fixes_table,
+                                        kernel_sha, fixedby_upstream_sha, reason)
+
+
 def update_fixes_in_branch(db, branch, kernel_metadata):
     """Updates fix patch table row by determining if CL merged into linux_chrome."""
     c = db.cursor()
@@ -238,8 +274,9 @@ def update_fixes_in_branch(db, branch, kernel_metadata):
            SET status = 'MERGED', close_time = %s, reason = %s
            WHERE fixes.branch = %s
            AND lc.branch = %s
-           AND (fixes.status = 'OPEN' OR fixes.status = 'CONFLICT')
-           """.format(chosen_fixes=chosen_fixes)
+           AND (fixes.status = 'OPEN'
+                OR fixes.status = 'CONFLICT'
+                OR fixes.status = 'ABANDONED')""".format(chosen_fixes=chosen_fixes)
 
     close_time = common.get_current_time()
     reason = 'Patch has been applied to linux_chome'
@@ -251,8 +288,10 @@ def update_fixes_in_branch(db, branch, kernel_metadata):
     except MySQLdb.Error as e: # pylint: disable=no-member
         print('Error updating fixes table for merged commits',
                 [chosen_fixes, close_time, reason, branch, branch], e)
-
     db.commit()
+
+    # Sync status of unmerged patches in a branch
+    fixup_unmerged_patches(db, branch, kernel_metadata)
 
 
 def create_new_fixes_in_branch(db, branch, kernel_metadata):

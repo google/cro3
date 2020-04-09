@@ -58,8 +58,6 @@ def set_and_parse_endpoint(endpoint_url, payload=None):
         resp = requests.post(endpoint_url, json=payload, cookies=get_auth_cookie())
         resp.raise_for_status()
         resp_json = json.loads(resp.text[5:])
-    except requests.exceptions.HTTPError as e:
-        raise type(e)('Endpoint %s should have HTTP response 200' % endpoint_url) from e
     except json.decoder.JSONDecodeError as e:
         raise ValueError('Response should contain json )]} prefix to prevent XSSI attacks') from e
 
@@ -89,11 +87,20 @@ def set_reviewers(changeid, reviewer_emails):
         set_and_parse_endpoint(add_reviewer_endpoint, payload)
 
 
-def abandon_change(changeid):
+def abandon_change(changeid, reason=None):
     """Abandons a change."""
     abandon_change_endpoint = os.path.join(common.CHROMIUM_REVIEW_BASEURL, 'changes',
                                             changeid, 'abandon')
-    set_and_parse_endpoint(abandon_change_endpoint)
+
+    abandon_payload = {'message': reason} if reason else None
+
+    try:
+        set_and_parse_endpoint(abandon_change_endpoint, abandon_payload)
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 409:
+            print('Change %s has already been abandoned' % changeid)
+        else:
+            raise
 
 
 def restore_change(changeid):
