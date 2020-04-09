@@ -18,14 +18,13 @@ import cloudsql_interface
 import gerrit_interface
 import git_interface
 
+
 # Constant representing number CL's we want created on single new missing patch run
 NEW_CL_DAILY_LIMIT_PER_BRANCH = 1
 
 
 def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
     """Cherrypick fixer sha into it's linux_chrome branch and determine its Status.
-
-    Assumes branch and repository directory are set when function is called.
 
     Return Status Enum:
     MERGED if the patch has already been applied,
@@ -375,9 +374,11 @@ def new_missing_patches():
 def update_missing_patches():
     """Updates fixes table entries on regular basis."""
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+
     kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
     missing_patches_sync(cloudsql_db, kernel_metadata, update_fixes_in_branch)
 
     kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
     missing_patches_sync(cloudsql_db, kernel_metadata, update_fixes_in_branch)
+
     cloudsql_db.close()
