@@ -77,16 +77,6 @@ def get_reviewers(changeid):
         raise type(e)('Gerrit API endpoint to list reviewers should contain key email') from e
 
 
-def set_reviewers(changeid, reviewer_emails):
-    """Adds reviewers to a Gerrit CL."""
-    add_reviewer_endpoint = os.path.join(common.CHROMIUM_REVIEW_BASEURL, 'changes',
-                                        changeid, 'reviewers')
-
-    for email in reviewer_emails:
-        payload = {'reviewer': email}
-        set_and_parse_endpoint(add_reviewer_endpoint, payload)
-
-
 def abandon_change(changeid, reason=None):
     """Abandons a change."""
     abandon_change_endpoint = os.path.join(common.CHROMIUM_REVIEW_BASEURL, 'changes',
