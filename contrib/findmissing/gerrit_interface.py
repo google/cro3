@@ -97,19 +97,30 @@ def abandon_change(changeid, branch, reason=None):
 
     try:
         set_and_parse_endpoint(abandon_change_endpoint, abandon_payload)
+        print('Abandoned changeid %s on Gerrit' % changeid)
     except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 409:
+        if e.response.status_code == http.HTTPStatus.CONFLICT:
             print('Change %s has already been abandoned' % changeid)
         else:
             raise
 
 
-def restore_change(changeid, branch):
+def restore_change(changeid, branch, reason=None):
     """Restores an abandoned change."""
     unique_changeid = get_full_changeid(changeid, branch)
     restore_change_endpoint = os.path.join(common.CHROMIUM_REVIEW_BASEURL, 'changes',
                                             unique_changeid, 'restore')
-    set_and_parse_endpoint(restore_change_endpoint)
+
+    restore_payload = {'message': reason} if reason else None
+
+    try:
+        set_and_parse_endpoint(restore_change_endpoint, restore_payload)
+        print('Restored changeid %s on Gerrit' % changeid)
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == http.HTTPStatus.CONFLICT:
+            print('Change %s has already been restored' % changeid)
+        else:
+            raise
 
 
 def get_change(changeid, branch):

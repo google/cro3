@@ -42,35 +42,35 @@ def get_fix_status_and_changeid(db, fixes_table, kernel_sha, fixedby_upstream_sh
     return row
 
 
-def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha):
+def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha, reason=None):
     """Updates fixes_table unique fix row to indicate fix cl has been abandoned.
 
     Function will only abandon rows in the table which have status OPEN or CONFLICT.
     """
     c = db.cursor()
     q = """UPDATE {fixes_table}
-            SET status = 'ABANDONED', close_time = %s
+            SET status = 'ABANDONED', close_time = %s, reason = %s
             WHERE kernel_sha = %s
             AND fixedby_upstream_sha = %s
             AND (status = 'OPEN' OR status = 'CONFLICT')""".format(fixes_table=fixes_table)
     close_time = common.get_current_time()
-    c.execute(q, [close_time, kernel_sha, fixedby_upstream_sha])
+    c.execute(q, [close_time, reason, kernel_sha, fixedby_upstream_sha])
     db.commit()
 
 
-def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha):
+def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha, reason=None):
     """Updates fixes_table unique fix row to indicate fix cl has been reopened."""
     row = get_fix_status_and_changeid(db, fixes_table, kernel_sha, fixedby_upstream_sha)
     status = 'OPEN' if row['fix_change_id'] else row['initial_status']
 
     c = db.cursor()
     q = """UPDATE {fixes_table}
-            SET status = %s, close_time = %s
+            SET status = %s, close_time = %s, reason = %s
             WHERE kernel_sha = %s
             AND fixedby_upstream_sha = %s
             AND status = 'ABANDONED'""".format(fixes_table=fixes_table)
     close_time = None
-    c.execute(q, [status, close_time, kernel_sha, fixedby_upstream_sha])
+    c.execute(q, [status, close_time, reason, kernel_sha, fixedby_upstream_sha])
     db.commit()
 
 
