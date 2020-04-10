@@ -205,7 +205,13 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
             fix_change_id = git_interface.get_commit_changeid_linux_chrome(fixedby_kernel_sha)
     elif status == common.Status.OPEN:
         fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch)
-        created_new_change = True
+        created_new_change = bool(fix_change_id)
+
+        # Checks if change was created successfully
+        if not created_new_change:
+            print('Failed to create change for kernel_sha %s fixed by %s'
+                                    % (kernel_sha, fixedby_upstream_sha))
+            return False
     elif status == common.Status.CONFLICT:
         # Register conflict entry_time, do not create gerrit CL
         # Requires engineer to manually explore why CL doesn't apply cleanly
@@ -251,7 +257,10 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
 
         if status == 'CONFLICT' and new_status == 'OPEN':
             fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch)
-            cloudsql_interface.update_conflict_to_open(db, fixes_table,
+
+            # Check if we successfully created the fix patch before performing update
+            if fix_change_id:
+                cloudsql_interface.update_conflict_to_open(db, fixes_table,
                                         kernel_sha, fixedby_upstream_sha, fix_change_id)
         elif new_status == 'MERGED':
             reason = 'Fix was merged externally and detected by robot.'

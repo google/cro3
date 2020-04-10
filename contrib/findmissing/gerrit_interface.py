@@ -193,15 +193,6 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
     bug_test_line = get_bug_test_line(chrome_kernel_sha)
     fix_commit_message = generate_fix_message(fixer_upstream_sha, bug_test_line)
 
-    try:
-        # Cherry pick changes and generate commit message indicating fix from upstream
-        fixer_changeid = git_interface.cherry_pick_and_push_fix(fixer_upstream_sha,
-                                                    chromeos_branch, fix_commit_message)
-    except ValueError:
-        print('Failed to create gerrit ticket for [fixee_kernel_sha, fixer_upstream_sha]',
-                (fixee_kernel_sha, fixer_upstream_sha))
-        raise
-
     # TODO(hirthanan): find relevant mailing list/reviewers
     # For now we will assign it to a default user like Guenter?
     # This is for stable bug fix patches that don't have a direct fixee changeid
@@ -214,7 +205,13 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
     except requests.exceptions.HTTPError:
         print('Error getting reviewers from gerrit for fixee_changeid', fixee_changeid)
 
-    set_reviewers(fixer_changeid, reviewers)
+    try:
+        # Cherry pick changes and generate commit message indicating fix from upstream
+        fixer_changeid = git_interface.cherry_pick_and_push_fix(fixer_upstream_sha,
+                                                    chromeos_branch, fix_commit_message, reviewers)
+    except ValueError:
+        # Error cherry-picking and pushing fix patch
+        return None
 
     os.chdir(cwd)
     return fixer_changeid
