@@ -40,9 +40,9 @@ def check_service_key_secret_exists():
 def check_service_running(keyword):
     """Raises an error if there is no running process commands that match `keyword`."""
     process_grep = ['pgrep', '-f', keyword]
-    pid = subprocess.check_output(process_grep, encoding='utf-8', errors='ignore')
-
-    if not pid:
+    try:
+        subprocess.run(process_grep, check=True, encoding='utf-8', errors='ignore')
+    except subprocess.CalledProcessError:
         raise ProcessLookupError('Service %s is not running.' % keyword)
 
 
