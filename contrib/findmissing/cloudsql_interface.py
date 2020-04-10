@@ -61,7 +61,7 @@ def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha):
 def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha):
     """Updates fixes_table unique fix row to indicate fix cl has been reopened."""
     row = get_fix_status_and_changeid(db, fixes_table, kernel_sha, fixedby_upstream_sha)
-    initial_status = row['initial_status']
+    status = 'OPEN' if row['fix_change_id'] else row['initial_status']
 
     c = db.cursor()
     q = """UPDATE {fixes_table}
@@ -70,7 +70,7 @@ def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha):
             AND fixedby_upstream_sha = %s
             AND status = 'ABANDONED'""".format(fixes_table=fixes_table)
     close_time = None
-    c.execute(q, [initial_status, close_time, kernel_sha, fixedby_upstream_sha])
+    c.execute(q, [status, close_time, kernel_sha, fixedby_upstream_sha])
     db.commit()
 
 
