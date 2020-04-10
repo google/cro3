@@ -34,7 +34,9 @@ def get_commit_message(kernel_path, sha):
         cmd = ['git', '-C', kernel_path, 'log',
                 '--format=%B', '-n', '1', sha]
         commit_message = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
-        return commit_message
+
+        # Single newline following commit message
+        return commit_message.rstrip() + '\n'
     except subprocess.CalledProcessError as e:
         raise type(e)('Couldnt retrieve commit in kernel path %s for sha %s'
                         % (kernel_path, sha), e.cmd) from e
