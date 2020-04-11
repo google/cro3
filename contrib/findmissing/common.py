@@ -38,7 +38,8 @@ STABLE_PATH = 'linux_stable'
 UPSTREAM_PATH = 'linux_upstream'
 
 WORKDIR = os.getcwd()
-GIT_COOKIE_PATH = os.path.join(WORKDIR, '.git-credential-cache/cookie')
+GCE_GIT_COOKIE_PATH = os.path.join(WORKDIR, '.git-credential-cache/cookie')
+LOCAL_GIT_COOKIE_PATH = os.path.join(os.path.expanduser('~'), '.gitcookies')
 
 
 class Status(Enum):

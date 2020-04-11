@@ -32,10 +32,23 @@ import git_interface
 
 def get_auth_cookie():
     """Load cookies in order to authenticate requests with gerrit/googlesource."""
-    # This cookie should exist on GCE in order to perform GAIA authenticated requests
-    gerrit_credentials_cookies = http.cookiejar.MozillaCookieJar(common.GIT_COOKIE_PATH, None, None)
-    gerrit_credentials_cookies.load()
-    return gerrit_credentials_cookies
+    # This cookie should exist in order to perform GAIA authenticated requests
+    try:
+        gerrit_credentials_cookies = \
+                http.cookiejar.MozillaCookieJar(common.GCE_GIT_COOKIE_PATH, None, None)
+        gerrit_credentials_cookies.load()
+        return gerrit_credentials_cookies
+    except FileNotFoundError:
+        try:
+            gerrit_credentials_cookies = \
+                    http.cookiejar.MozillaCookieJar(common.LOCAL_GIT_COOKIE_PATH, None, None)
+            gerrit_credentials_cookies.load()
+            return gerrit_credentials_cookies
+        except FileNotFoundError:
+            print('Could not locate gitcookies file. Generate cookie file and try again')
+            print('If running locally, ensure gitcookies file is located at ~/.gitcookies')
+            print('Learn more by visiting go/gob-dev#testing-user-authentication')
+            raise
 
 
 def retrieve_and_parse_endpoint(endpoint_url):
