@@ -32,8 +32,7 @@ def check_service_key_secret_exists():
     This can be generated on GCP under service accounts (Generate service token)
     This file should automatically be generated when running the gce-startup.sh script.
     """
-    cwd = os.getcwd()
-    secret_file_path = os.path.join(cwd, 'secrets/linux_patches_robot_key.json')
+    secret_file_path = os.path.join(common.HOMEDIR, 'secrets/linux_patches_robot_key.json')
 
     if not os.path.exists(secret_file_path):
         raise FileNotFoundError('Service token secret file %s not found' % secret_file_path)

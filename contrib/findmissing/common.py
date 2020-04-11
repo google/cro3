@@ -38,8 +38,9 @@ STABLE_PATH = 'linux_stable'
 UPSTREAM_PATH = 'linux_upstream'
 
 WORKDIR = os.getcwd()
-GCE_GIT_COOKIE_PATH = os.path.join(WORKDIR, '.git-credential-cache/cookie')
-LOCAL_GIT_COOKIE_PATH = os.path.join(os.path.expanduser('~'), '.gitcookies')
+HOMEDIR = os.path.expanduser('~')
+GCE_GIT_COOKIE_PATH = os.path.join(HOMEDIR, '.git-credential-cache/cookie')
+LOCAL_GIT_COOKIE_PATH = os.path.join(HOMEDIR, '.gitcookies')
 
 
 class Status(Enum):
@@ -133,7 +134,7 @@ def update_previous_fetch(db, kernel, branch, last_sha):
 
 def get_kernel_absolute_path(repo_name):
     """Returns absolute path to kernel repositories"""
-    return os.path.join(WORKDIR, 'kernel_repositories', repo_name)
+    return os.path.join(HOMEDIR, 'kernel_repositories', repo_name)
 
 
 def update_kernel_db(db, kernel_metadata):
