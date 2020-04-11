@@ -12,17 +12,15 @@
 # Script will not work if run from chroot environment
 
 
-FINDMISSING_DIR=~/chromiumos/src/platform/dev/contrib/findmissing/
-if [[ -n "$1" ]]; then
-  FINDMISSING_DIR=$1
-fi
+FINDMISSING_DIR=$(cd $(dirname $0)/../..; pwd)
+cd "${FINDMISSING_DIR}"
 
 if [[ -z "${GCE_EXTERNAL_IP}" ]]; then
   echo "ERROR: 'export GCE_EXTERNAL_IP=<...>' to define the GCE instances external ip."
   exit 1
 fi
 
-rsync -O -rltvz \
-  --exclude=".*" --exclude=secrets/ --exclude=env/ \
-  --exclude=kernel_repositories/ --exclude=logs/ --delete \
+./scripts/local/clean_generated_files.sh
+
+rsync -O -rltvz --exclude=".*" --delete \
   "${FINDMISSING_DIR}" chromeos_patches@"${GCE_EXTERNAL_IP}":/home/chromeos_patches

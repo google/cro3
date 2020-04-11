@@ -4,5 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-rm -rf ../database/ ../__pycache__/ ../linux_upstream/ \
-  ../linux_stable/ ../linux_chrome/ ../env/
+FINDMISSING_DIR=$(cd $(dirname $0)/../..; pwd)
+cd "${FINDMISSING_DIR}"
+
+rm -rf __pycache__/ env/
