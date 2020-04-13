@@ -96,11 +96,15 @@ update_firmware() {
   yaml_config="/build/${board}/usr/share/chromeos-config/yaml/config.yaml"
 
   # Check project config repo exists -- if so generate the config first.
-  if [ -d ${GCLIENT_ROOT}/src/project/${project}/${board} ]; then
-    pushd ${GCLIENT_ROOT}/src/project/${project}/${board} > /dev/null
-    if [[ -x ./config/bin/gen_config && -f ./config.star ]]; then
-      ./config/bin/gen_config config.star
-    fi
+  if [[ -d "${GCLIENT_ROOT}/src/project/${project}" ]]; then
+    pushd "${GCLIENT_ROOT}/src/project/${project}" > /dev/null
+    for brd in *; do
+      if [[ -d "${brd}" && -x "${brd}/config/bin/gen_config" && -f "${brd}/config.star" ]]; then
+        pushd "${brd}" > /dev/null
+        ./config/bin/gen_config config.star
+        popd > /dev/null
+      fi
+    done
     popd > /dev/null
   fi
 
