@@ -22,8 +22,6 @@ step_list = [
     step_names.COMMIT_FIT,
     step_names.EC_IMAGE,
     step_names.EC_BUILDALL,
-    step_names.ADD_PRIV_YAML,
-    step_names.BUILD_YAML,
     step_names.EMERGE,
     step_names.PUSH,
     step_names.UPLOAD,
@@ -66,12 +64,12 @@ emerge_pkgs = ['coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
     'coreboot-private-files', fitimage_pkg, 'chromeos-bootimage']
 
 # List of packages to emerge just to build the yaml
-yaml_emerge_pkgs = ['chromeos-config-bsp', 'chromeos-config',
-    'chromeos-config-bsp-volteer', 'chromeos-config-bsp-volteer-private']
+# Empty; volteer doesn't use model.yaml
+yaml_emerge_pkgs = []
 
 # Directory for the private yaml file
-private_yaml_dir = '~/trunk/src/private-overlays/overlay-volteer-private/'\
-    'chromeos-base/chromeos-config-bsp-volteer-private'
+# None; volteer doesn't use model.yaml
+private_yaml_dir = None
 
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [step_names.CB_CONFIG, step_names.COMMIT_FIT,
@@ -84,6 +82,4 @@ coreboot_push_list = [step_names.CB_VARIANT]
 # This list gets used for setting up Cq-Depend on the uploaded CLs.
 depends = {
     step_names.CB_CONFIG: [step_names.FIND],
-    step_names.ADD_PRIV_YAML: [step_names.CB_CONFIG, step_names.COMMIT_FIT,
-        step_names.EC_IMAGE],
 }
