@@ -76,8 +76,7 @@ get_pty() {
   fi
 
   PYTHONPATH="${PYTHONPATH}" \
-    python "${PYTHONPATH}/servo/dut_control.py" "${pty_name}" "${args[@]}" | \
-      cut -d : -f 2
+    python -m "servo.dut_control" "${pty_name}" "${args[@]}" | cut -d : -f 2
 }
 
 find_cu() {
