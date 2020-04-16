@@ -253,3 +253,22 @@ def get_cherrypick_status(repository, merge_base, branch, sha):
         os.chdir(cwd)
 
     return ret
+
+
+# match "vX.Y[.Z][.rcN]"
+version = re.compile(r'(v[0-9]+(?:\.[0-9]+)+(?:-rc[0-9]+)?)\s*')
+
+def get_integrated_tag(sha):
+    """For a given SHA, find the first tag that includes it."""
+
+    try:
+        path = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
+        cmd = ['git', '-C', path, 'describe', '--match', 'v*',
+               '--contains', sha]
+        tag = subprocess.check_output(cmd, encoding='utf-8',
+                                      stderr=subprocess.DEVNULL)
+        return version.match(tag).group()
+    except AttributeError:
+        return None
+    except subprocess.CalledProcessError:
+        return None
