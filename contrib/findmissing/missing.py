@@ -25,79 +25,6 @@ NEW_CL_DAILY_LIMIT_PER_STABLE_BRANCH = 2
 NEW_CL_DAILY_LIMIT_PER_BRANCH = 1
 
 
-def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
-    """Cherrypick fixer sha into it's linux_chrome branch and determine its Status.
-
-    Return Status Enum:
-    MERGED if the patch has already been applied,
-    OPEN if the patch is missing and applies cleanly,
-    CONFLICT if the patch is missing and fails to apply.
-    """
-    # Save current working directory
-    cwd = os.getcwd()
-
-    # Switch to chrome directory to apply cherry-pick
-    chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
-    chromeos_branch = common.chromeos_branch(branch)
-
-    os.chdir(chrome_absolute_path)
-    git_interface.checkout_and_clean(chrome_absolute_path, chromeos_branch)
-
-    ret = None
-    try:
-        fix_in_chrome = search_upstream_subject_in_linux_chrome(branch, fixer_upstream_sha)
-        if fix_in_chrome:
-            ret = common.Status.MERGED
-            raise ValueError
-
-        result = subprocess.call(['git', 'cherry-pick', '-n', fixer_upstream_sha],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if result:
-            ret = common.Status.CONFLICT
-            raise ValueError
-
-        diff = subprocess.check_output(['git', 'diff', 'HEAD'])
-        if diff:
-            ret = common.Status.OPEN
-            raise ValueError
-
-        ret = common.Status.MERGED
-    except ValueError:
-        pass
-    except subprocess.CalledProcessError:
-        ret = common.Status.CONFLICT
-    finally:
-        git_interface.checkout_and_clean(chrome_absolute_path, chromeos_branch)
-        os.chdir(cwd)
-
-    return ret
-
-
-def search_upstream_subject_in_linux_chrome(branch, upstream_sha):
-    """Check if upstream_sha subject line is in linux_chrome.
-
-    Assumes function is run from correct directory/branch.
-    TODO(*): Add more complicated matching between upstream sha's that are merged into chromeos
-        i.e fuzzy matching descriptions
-    """
-    subject = None
-    try:
-        # Retrieve subject line of upstream_sha.
-        cmd = ['git', 'log', '--pretty=format:%s', '-n', '1', upstream_sha]
-        subject = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
-    except subprocess.CalledProcessError:
-        logging.error('Error locating subject line of upstream sha %s', upstream_sha)
-        raise
-
-    try:
-        cmd = ['git', 'log', '--no-merges', '--grep', subject, 'v%s..' % branch]
-        result = subprocess.check_output(cmd)
-        return bool(result)
-    except subprocess.CalledProcessError:
-        logging.error('Error while searching for subject line %s in linux_chrome', subject)
-        raise
-
-
 def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
     """Retrieves chromeos/stable sha by indexing db.
 
@@ -185,7 +112,10 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
     c = db.cursor()
 
     # Try applying patch and get status
-    status = get_status_from_cherrypicking_sha(branch, fixedby_upstream_sha)
+    status = git_interface.get_cherrypick_status(common.CHROMEOS_PATH,
+                                                 'v%s' % branch,
+                                                 'chromeos-%s' % branch,
+                                                 fixedby_upstream_sha)
     cl_status = status.name
 
     entry_time = common.get_current_time()
@@ -263,7 +193,10 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
     for row in rows:
         kernel_sha, fixedby_upstream_sha, status, fix_change_id = row
 
-        new_status_enum = get_status_from_cherrypicking_sha(branch, fixedby_upstream_sha)
+        new_status_enum = git_interface.get_cherrypick_status(common.CHROMEOS_PATH,
+                                                              'v%s' % branch,
+                                                              'chromeos-%s' % branch,
+                                                              fixedby_upstream_sha)
         new_status = new_status_enum.name
 
         if status == 'CONFLICT' and new_status == 'OPEN':

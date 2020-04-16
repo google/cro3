@@ -11,6 +11,7 @@ i.e Parsing git logs for change-id, full commit sha's, etc.
 """
 
 from __future__ import print_function
+import logging
 import os
 import re
 import subprocess
@@ -177,3 +178,78 @@ def cherry_pick_and_push_fix(fixer_upstream_sha, chromeos_branch,
     finally:
         checkout_and_clean(chrome_absolute_path, chromeos_branch)
         os.chdir(cwd)
+
+
+def search_subject_in_branch(merge_base, sha):
+    """Check if sha subject line is in the current branch.
+
+    Assumes function is run from correct directory/branch.
+    """
+
+    try:
+        # Retrieve subject line of provided SHA
+        cmd = ['git', 'log', '--pretty=format:%s', '-n', '1', sha]
+        subject = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
+    except subprocess.CalledProcessError:
+        logging.error('Error locating subject for sha %s', sha)
+        raise
+
+    try:
+        cmd = ['git', 'log', '--no-merges', '--grep', subject,
+               '%s..' % merge_base]
+        result = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+        return bool(result)
+    except subprocess.CalledProcessError:
+        logging.error('Error while searching for subject "%s"', subject)
+        raise
+
+
+def get_cherrypick_status(repository, merge_base, branch, sha):
+    """cherry-pick provided sha into provided repository and branch.
+
+    Return Status Enum:
+    MERGED if the patch has already been applied,
+    OPEN if the patch is missing and applies cleanly,
+    CONFLICT if the patch is missing and fails to apply.
+    """
+    # Save current working directory
+    cwd = os.getcwd()
+
+    # Switch to repository directory to apply cherry-pick
+    absolute_path = common.get_kernel_absolute_path(repository)
+
+    os.chdir(absolute_path)
+    checkout_and_clean(absolute_path, branch)
+
+    ret = None
+    try:
+        applied = search_subject_in_branch(merge_base, sha)
+        if applied:
+            ret = common.Status.MERGED
+            raise ValueError
+
+        result = subprocess.call(['git', 'cherry-pick', '-n', sha],
+                                 stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL)
+        if result:
+            ret = common.Status.CONFLICT
+            raise ValueError
+
+        diff = subprocess.check_output(['git', 'diff', 'HEAD'])
+        if diff:
+            ret = common.Status.OPEN
+            raise ValueError
+
+        ret = common.Status.MERGED
+
+    except ValueError:
+        pass
+
+    except subprocess.CalledProcessError:
+        ret = common.Status.CONFLICT
+
+    finally:
+        checkout_and_clean(absolute_path, branch)
+        os.chdir(cwd)
+
+    return ret
