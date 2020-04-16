@@ -360,7 +360,7 @@ def missing_patches_sync(db, kernel_metadata, sync_branch_method):
     if len(sys.argv) > 1:
         branches = sys.argv[1:]
     else:
-        branches = kernel_metadata.branches
+        branches = common.CHROMEOS_BRANCHES
 
     os.chdir(common.get_kernel_absolute_path(kernel_metadata.path))
 

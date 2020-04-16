@@ -29,9 +29,11 @@ CHROMEOS_KERNEL_DIR = 'chromiumos/third_party/kernel'
 CHROMEOS_REPO = os.path.join(CHROMIUM_SITE, CHROMEOS_KERNEL_DIR)
 CHROMIUM_REVIEW_BASEURL = 'https://chromium-review.googlesource.com/a'
 
-# Order SUPPORTED_BRANCHES from oldest to newest
-SUPPORTED_BRANCHES = ['4.4', '4.14', '4.19', '5.4']
-UPSTREAM_START_BRANCH = 'v%s' % SUPPORTED_BRANCHES[0]
+# Order BRANCHES from oldest to newest
+CHROMEOS_BRANCHES = ['4.4', '4.14', '4.19', '5.4']
+STABLE_BRANCHES = ['4.4', '4.9', '4,14', '4.19', '5.4', '5.5', '5.6']
+
+UPSTREAM_START_BRANCH = 'v%s' % CHROMEOS_BRANCHES[0]
 
 CHROMEOS_PATH = 'linux_chrome'
 STABLE_PATH = 'linux_stable'
@@ -175,9 +177,9 @@ def update_kernel_db(db, kernel_metadata):
 def get_kernel_metadata(kernel):
     """Returns KernelMetadata for each Kernel Enum"""
     stable_kernel_metadata = KernelMetadata(STABLE_PATH, STABLE_REPO, 'stable_fixes',
-            SUPPORTED_BRANCHES, 'v%s', stable_branch, initdb_stable.update_stable_table)
+            STABLE_BRANCHES, 'v%s', stable_branch, initdb_stable.update_stable_table)
     chrome_kernel_metadata = KernelMetadata(CHROMEOS_PATH, CHROMEOS_REPO, 'chrome_fixes',
-            SUPPORTED_BRANCHES, 'v%s', chromeos_branch, initdb_chromeos.update_chrome_table)
+            CHROMEOS_BRANCHES, 'v%s', chromeos_branch, initdb_chromeos.update_chrome_table)
     upstream_kernel_metadata = KernelMetadata(UPSTREAM_PATH, UPSTREAM_REPO, 'upstream_fixes',
             [UPSTREAM_START_BRANCH], '%s', lambda *args: 'master',
             initdb_upstream.update_upstream_table)
