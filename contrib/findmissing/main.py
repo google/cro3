@@ -12,6 +12,7 @@ Systems will include: Cloud Scheduler, CloudSQL, and Compute Engine
 
 from __future__ import print_function
 
+import logging
 import os
 import subprocess
 import sys
@@ -64,8 +65,13 @@ def preliminary_check_decorator(is_gce):
         def wrapped_preliminary_check(*args):
             """Sanity checks on state of environment before executing decorated function."""
             if is_gce:
+                level = logging.INFO
                 # Ensures we have service account credentials to connect to cloudsql (GCP)
                 check_service_key_secret_exists()
+            else:
+                level = logging.WARNING
+
+            logging.basicConfig(format='%(levelname)s: %(message)s', level=level)
 
             # Ensure cloudsql proxy is running to allow connection
             check_cloud_sql_proxy_running()

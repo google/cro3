@@ -8,6 +8,8 @@
 """Setup module containing script to Synchronize kernel repositories + database."""
 
 from __future__ import print_function
+
+import logging
 import os
 import subprocess
 import MySQLdb
@@ -27,13 +29,13 @@ def synchronize_upstream(upstream_kernel_metadata):
     repo = upstream_kernel_metadata.repo
 
     if not os.path.exists(destdir):
-        print('Cloning %s into %s' % (repo, destdir))
+        logging.info('Cloning %s into %s', repo, destdir)
         clone = ['git', 'clone', '-q', repo, destdir]
         subprocess.run(clone, check=True)
     else:
         os.chdir(destdir)
 
-        print('Pulling latest changes in %s into %s' % (repo, destdir))
+        logging.info('Pulling latest changes in %s into %s', repo, destdir)
         pull = ['git', 'pull', '-q']
         git_interface.checkout_and_clean(destdir, 'master')
         subprocess.run(pull, check=True)
@@ -50,7 +52,7 @@ def synchronize_custom(custom_kernel_metadata):
     get_branch_name = custom_kernel_metadata.get_kernel_branch
 
     if not os.path.exists(destdir):
-        print('Cloning %s into %s' % (repo, destdir))
+        logging.info('Cloning %s into %s', repo, destdir)
         clone = ['git', 'clone', '-q', repo, destdir]
         subprocess.run(clone, check=True)
 
@@ -58,11 +60,11 @@ def synchronize_custom(custom_kernel_metadata):
         for branch in custom_kernel_metadata.branches:
             branch_name = get_branch_name(branch)
 
-            print('Creating local branch %s in destdir %s' % (branch_name, destdir))
+            logging.info('Creating local branch %s in destdir %s', branch_name, destdir)
             checkout_branch = ['git', 'checkout', '-q', branch_name]
             subprocess.run(checkout_branch, check=True)
 
-        print('Add remote upstream %s to destdir %s' % (upstream_destdir, destdir))
+        logging.info('Add remote upstream %s to destdir %s', upstream_destdir, destdir)
         add_upstream_remote = ['git', 'remote', 'add', 'upstream', upstream_destdir]
         fetch_upstream = ['git', 'fetch', '-q', 'upstream']
         subprocess.run(add_upstream_remote, check=True)
@@ -70,7 +72,7 @@ def synchronize_custom(custom_kernel_metadata):
     else:
         os.chdir(destdir)
 
-        print('Updating %s into %s' % (repo, destdir))
+        logging.info('Updating %s into %s', repo, destdir)
         fetch_origin = ['git', 'fetch', '-q', 'origin']
         fetch_upstream = ['git', 'fetch', '-q', 'upstream']
         subprocess.run(fetch_origin, check=True)
@@ -78,7 +80,7 @@ def synchronize_custom(custom_kernel_metadata):
 
         for branch in custom_kernel_metadata.branches:
             branch_name = get_branch_name(branch)
-            print('Updating local branch %s in destdir %s' % (branch_name, destdir))
+            logging.info('Updating local branch %s in destdir %s', branch_name, destdir)
             pull = ['git', 'pull', '-q']
             git_interface.checkout_and_clean(destdir, branch_name)
             subprocess.run(pull, check=True)
@@ -133,7 +135,8 @@ def synchronize_fixes_tables_with_gerrit():
                 status = gerrit_status_to_db_status(gerrit_status)
                 cloudsql_interface.update_change_status(db, fixes_table, fix_change_id, status)
             except KeyError as e:
-                print('Skipping syncing change-id %s with gerrit' % fix_change_id, e)
+                logging.warning('Skipping syncing change-id %s with gerrit (%s)',
+                                fix_change_id, e)
 
     db.close()
 
