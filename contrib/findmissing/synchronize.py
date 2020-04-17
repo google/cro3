@@ -32,12 +32,10 @@ def synchronize_upstream(upstream_kernel_metadata):
         subprocess.run(clone, check=True)
     else:
         os.chdir(destdir)
-        git_interface.reset_and_clean_kernel(destdir)
 
         print('Pulling latest changes in %s into %s' % (repo, destdir))
-        checkout_master = ['git', 'checkout', '-q', 'master']
         pull = ['git', 'pull', '-q']
-        subprocess.run(checkout_master, check=True)
+        git_interface.checkout_and_clean(destdir, 'master')
         subprocess.run(pull, check=True)
 
     os.chdir(common.WORKDIR)
@@ -75,16 +73,14 @@ def synchronize_custom(custom_kernel_metadata):
         print('Updating %s into %s' % (repo, destdir))
         fetch_origin = ['git', 'fetch', '-q', 'origin']
         fetch_upstream = ['git', 'fetch', '-q', 'upstream']
-        git_interface.reset_and_clean_kernel(destdir)
         subprocess.run(fetch_origin, check=True)
         subprocess.run(fetch_upstream, check=True)
 
         for branch in custom_kernel_metadata.branches:
             branch_name = get_branch_name(branch)
             print('Updating local branch %s in destdir %s' % (branch_name, destdir))
-            checkout_branch = ['git', 'checkout', '-q', branch_name]
             pull = ['git', 'pull', '-q']
-            subprocess.run(checkout_branch, check=True)
+            git_interface.checkout_and_clean(destdir, branch_name)
             subprocess.run(pull, check=True)
 
     os.chdir(common.WORKDIR)

@@ -17,12 +17,16 @@ import subprocess
 import common
 
 
-def reset_and_clean_kernel(kernel_path):
-    """Reset kernel_path repository back to HEAD and delete untracked files."""
-    reset_head_cmd = ['git', '-C', kernel_path, 'reset', '-q', '--hard', 'HEAD']
-    clean_untracked_cmd = ['git', '-C', kernel_path, 'clean', '-d', '-x', '-f', '-q']
-    subprocess.run(reset_head_cmd, check=True)
-    subprocess.run(clean_untracked_cmd, check=True)
+def checkout_and_clean(kernel_path, branch):
+    """Cleanup uncommitted files in branch and checkout to be up to date with origin."""
+    reset_head = ['git', '-C', kernel_path, 'reset', '-q', '--hard', 'HEAD']
+    clean_untracked = ['git', '-C', kernel_path, 'clean', '-d', '-x', '-f', '-q']
+    checkout = ['git', '-C', kernel_path, 'checkout', '-q', branch]
+    reset_origin = ['git', '-C', kernel_path, 'reset', '-q', '--hard', 'origin/%s' % branch]
+    subprocess.run(reset_head, check=True)
+    subprocess.run(clean_untracked, check=True)
+    subprocess.run(checkout, check=True)
+    subprocess.run(reset_origin, check=True)
 
 
 def get_upstream_fullsha(abbrev_sha):
@@ -119,8 +123,7 @@ def cherry_pick_and_push_fix(fixer_upstream_sha, chromeos_branch,
     # reset linux_chrome repo to remove local changes
     try:
         os.chdir(chrome_absolute_path)
-        reset_and_clean_kernel(chrome_absolute_path)
-        subprocess.run(['git', 'checkout', chromeos_branch], check=True)
+        checkout_and_clean(chrome_absolute_path, chromeos_branch)
         subprocess.run(['git', 'cherry-pick', '-n', fixer_upstream_sha], check=True)
         subprocess.run(['git', 'commit', '-s', '-m', fix_commit_message], check=True)
 
@@ -137,5 +140,5 @@ def cherry_pick_and_push_fix(fixer_upstream_sha, chromeos_branch,
         raise ValueError('Failed to cherrypick and push upstream fix %s on branch %s'
                         % (fixer_upstream_sha, chromeos_branch)) from e
     finally:
-        reset_and_clean_kernel(chrome_absolute_path)
+        checkout_and_clean(chrome_absolute_path, chromeos_branch)
         os.chdir(cwd)

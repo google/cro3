@@ -36,12 +36,10 @@ def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
 
     # Switch to chrome directory to apply cherry-pick
     chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
-    os.chdir(chrome_absolute_path)
+    chromeos_branch = common.chromeos_branch(branch)
 
-    git_interface.reset_and_clean_kernel(chrome_absolute_path)
-    checkout_branch_cmd = ['git', 'checkout', common.chromeos_branch(branch)]
-    subprocess.run(checkout_branch_cmd, check=True,
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    os.chdir(chrome_absolute_path)
+    git_interface.checkout_and_clean(chrome_absolute_path, chromeos_branch)
 
     ret = None
     try:
@@ -59,11 +57,10 @@ def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
                 ret = common.Status.MERGED
     except subprocess.CalledProcessError:
         ret = common.Status.CONFLICT
+    finally:
+        git_interface.checkout_and_clean(chrome_absolute_path, chromeos_branch)
+        os.chdir(cwd)
 
-    git_interface.reset_and_clean_kernel(chrome_absolute_path)
-
-    # Set directory back to where we started before function called
-    os.chdir(cwd)
     return ret
 
 
