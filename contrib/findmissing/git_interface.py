@@ -17,6 +17,14 @@ import subprocess
 import common
 
 
+def reset_and_clean_kernel(kernel_path):
+    """Reset kernel_path repository back to HEAD and delete untracked files."""
+    reset_head_cmd = ['git', '-C', kernel_path, 'reset', '-q', '--hard', 'HEAD']
+    clean_untracked_cmd = ['git', '-C', kernel_path, 'clean', '-d', '-x', '-f', '-q']
+    subprocess.run(reset_head_cmd, check=True)
+    subprocess.run(clean_untracked_cmd, check=True)
+
+
 def get_upstream_fullsha(abbrev_sha):
     """Returns the full upstream sha for an abbreviated 12 digit sha using git cli"""
     upstream_absolute_path = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
@@ -111,8 +119,8 @@ def cherry_pick_and_push_fix(fixer_upstream_sha, chromeos_branch,
     # reset linux_chrome repo to remove local changes
     try:
         os.chdir(chrome_absolute_path)
+        reset_and_clean_kernel(chrome_absolute_path)
         subprocess.run(['git', 'checkout', chromeos_branch], check=True)
-        subprocess.run(['git', 'reset', '--hard', 'origin/%s' % chromeos_branch], check=True)
         subprocess.run(['git', 'cherry-pick', '-n', fixer_upstream_sha], check=True)
         subprocess.run(['git', 'commit', '-s', '-m', fix_commit_message], check=True)
 
@@ -123,12 +131,11 @@ def cherry_pick_and_push_fix(fixer_upstream_sha, chromeos_branch,
 
         git_push_cmd = get_git_push_cmd(chromeos_branch, reviewers)
         subprocess.run(git_push_cmd.split(' '), check=True)
-        subprocess.run(['git', 'reset', '--hard', 'origin/%s' % chromeos_branch], check=True)
 
         return fixer_changeid
     except subprocess.CalledProcessError as e:
         raise ValueError('Failed to cherrypick and push upstream fix %s on branch %s'
                         % (fixer_upstream_sha, chromeos_branch)) from e
     finally:
-        subprocess.run(['git', 'reset', '--hard', 'origin/%s' % chromeos_branch], check=True)
+        reset_and_clean_kernel(chrome_absolute_path)
         os.chdir(cwd)

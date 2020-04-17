@@ -15,6 +15,7 @@ import common
 
 import cloudsql_interface
 import gerrit_interface
+import git_interface
 
 UPSTREAM_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_upstream)
 STABLE_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_stable)
@@ -31,6 +32,7 @@ def synchronize_upstream(upstream_kernel_metadata):
         subprocess.run(clone, check=True)
     else:
         os.chdir(destdir)
+        git_interface.reset_and_clean_kernel(destdir)
 
         print('Pulling latest changes in %s into %s' % (repo, destdir))
         checkout_master = ['git', 'checkout', '-q', 'master']
@@ -71,10 +73,9 @@ def synchronize_custom(custom_kernel_metadata):
         os.chdir(destdir)
 
         print('Updating %s into %s' % (repo, destdir))
-        hard_reset = ['git', 'reset', '-q', '--hard', 'HEAD']
         fetch_origin = ['git', 'fetch', '-q', 'origin']
         fetch_upstream = ['git', 'fetch', '-q', 'upstream']
-        subprocess.run(hard_reset, check=True)
+        git_interface.reset_and_clean_kernel(destdir)
         subprocess.run(fetch_origin, check=True)
         subprocess.run(fetch_upstream, check=True)
 

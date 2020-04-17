@@ -38,11 +38,10 @@ def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
     chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
     os.chdir(chrome_absolute_path)
 
+    git_interface.reset_and_clean_kernel(chrome_absolute_path)
     checkout_branch_cmd = ['git', 'checkout', common.chromeos_branch(branch)]
-    reset_head_cmd = ['git', 'reset', '--hard', 'HEAD']
     subprocess.run(checkout_branch_cmd, check=True,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run(reset_head_cmd, check=True, stdout=subprocess.DEVNULL)
 
     ret = None
     try:
@@ -61,7 +60,7 @@ def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
     except subprocess.CalledProcessError:
         ret = common.Status.CONFLICT
 
-    subprocess.run(reset_head_cmd, check=True, stdout=subprocess.DEVNULL)
+    git_interface.reset_and_clean_kernel(chrome_absolute_path)
 
     # Set directory back to where we started before function called
     os.chdir(cwd)
