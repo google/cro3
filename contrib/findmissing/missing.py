@@ -43,18 +43,25 @@ def get_status_from_cherrypicking_sha(branch, fixer_upstream_sha):
 
     ret = None
     try:
+        fix_in_chrome = search_upstream_subject_in_linux_chrome(branch, fixer_upstream_sha)
+        if fix_in_chrome:
+            ret = common.Status.MERGED
+            raise ValueError
+
         result = subprocess.call(['git', 'cherry-pick', '-n', fixer_upstream_sha],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
         if result:
             ret = common.Status.CONFLICT
-        else:
-            diff = subprocess.check_output(['git', 'diff', 'HEAD'])
-            fix_in_chrome = search_upstream_subject_in_linux_chrome(branch, fixer_upstream_sha)
-            if diff and not fix_in_chrome:
-                ret = common.Status.OPEN
-            else:
-                ret = common.Status.MERGED
+            raise ValueError
+
+        diff = subprocess.check_output(['git', 'diff', 'HEAD'])
+        if diff:
+            ret = common.Status.OPEN
+            raise ValueError
+
+        ret = common.Status.MERGED
+    except ValueError:
+        pass
     except subprocess.CalledProcessError:
         ret = common.Status.CONFLICT
     finally:
@@ -68,6 +75,8 @@ def search_upstream_subject_in_linux_chrome(branch, upstream_sha):
     """Check if upstream_sha subject line is in linux_chrome.
 
     Assumes function is run from correct directory/branch.
+    TODO(*): Add more complicated matching between upstream sha's that are merged into chromeos
+        i.e fuzzy matching descriptions
     """
     subject = None
     try:
