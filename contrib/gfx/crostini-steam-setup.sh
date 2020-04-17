@@ -30,4 +30,4 @@ sudo apt install -y ./libwaffle*.deb
 
 # Install packages.
 echo "Installing glxinfo, glxgears, steam, and apitrace"
-sudo apt install -y mesa-utils steam apitrace apitrace-tracers:i386
+sudo apt install -y zstd mesa-utils steam apitrace apitrace-tracers:i386
