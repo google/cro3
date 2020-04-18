@@ -21,6 +21,7 @@ import git_interface
 
 UPSTREAM_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_upstream)
 STABLE_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_stable)
+STABLE_RC_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_stable_rc)
 CHROME_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_chrome)
 
 def synchronize_upstream(upstream_kernel_metadata):
@@ -88,11 +89,13 @@ def synchronize_custom(custom_kernel_metadata):
     os.chdir(common.WORKDIR)
 
 
-def synchronize_repositories():
+def synchronize_repositories(local=False):
     """Deep clones linux_upstream, linux_stable, and linux_chromeos repositories"""
     synchronize_upstream(UPSTREAM_KERNEL_METADATA)
     synchronize_custom(STABLE_KERNEL_METADATA)
     synchronize_custom(CHROME_KERNEL_METADATA)
+    if local:
+        synchronize_custom(STABLE_RC_KERNEL_METADATA)
 
 
 def synchronize_databases():

@@ -24,6 +24,7 @@ import initdb_chromeos
 KERNEL_SITE = 'https://git.kernel.org/'
 UPSTREAM_REPO = KERNEL_SITE + 'pub/scm/linux/kernel/git/torvalds/linux'
 STABLE_REPO = KERNEL_SITE + 'pub/scm/linux/kernel/git/stable/linux-stable'
+STABLE_RC_REPO = KERNEL_SITE + 'pub/scm/linux/kernel/git/stable/linux-stable-rc'
 
 CHROMIUM_SITE = 'https://chromium.googlesource.com/'
 CHROMEOS_KERNEL_DIR = 'chromiumos/third_party/kernel'
@@ -38,6 +39,7 @@ UPSTREAM_START_BRANCH = 'v%s' % CHROMEOS_BRANCHES[0]
 
 CHROMEOS_PATH = 'linux_chrome'
 STABLE_PATH = 'linux_stable'
+STABLE_RC_PATH = 'linux_stable_rc'
 UPSTREAM_PATH = 'linux_upstream'
 
 WORKDIR = os.getcwd()
@@ -57,8 +59,9 @@ class Status(Enum):
 class Kernel(Enum):
     """Enum representing which Kernel we are representing."""
     linux_stable = 1
-    linux_chrome = 2
-    linux_upstream = 3
+    linux_stable_rc = 2
+    linux_chrome = 3
+    linux_upstream = 4
 
 
 class KernelMetadata(object):
@@ -179,6 +182,8 @@ def get_kernel_metadata(kernel):
     """Returns KernelMetadata for each Kernel Enum"""
     stable_kernel_metadata = KernelMetadata(STABLE_PATH, STABLE_REPO, 'stable_fixes',
             STABLE_BRANCHES, 'v%s', stable_branch, initdb_stable.update_stable_table)
+    stable_rc_kernel_metadata = KernelMetadata(STABLE_RC_PATH, STABLE_RC_REPO, 'stable_fixes',
+            STABLE_BRANCHES, 'v%s', stable_branch, initdb_stable.update_stable_table)
     chrome_kernel_metadata = KernelMetadata(CHROMEOS_PATH, CHROMEOS_REPO, 'chrome_fixes',
             CHROMEOS_BRANCHES, 'v%s', chromeos_branch, initdb_chromeos.update_chrome_table)
     upstream_kernel_metadata = KernelMetadata(UPSTREAM_PATH, UPSTREAM_REPO, 'upstream_fixes',
@@ -187,6 +192,7 @@ def get_kernel_metadata(kernel):
 
     kernel_metadata_lookup = {
             Kernel.linux_stable: stable_kernel_metadata,
+            Kernel.linux_stable_rc: stable_rc_kernel_metadata,
             Kernel.linux_chrome: chrome_kernel_metadata,
             Kernel.linux_upstream: upstream_kernel_metadata
     }
