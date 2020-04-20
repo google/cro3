@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,7 +9,6 @@ from __future__ import print_function
 
 import argparse
 import datetime
-import html
 import http
 import http.client
 import json
@@ -17,17 +17,23 @@ import re
 import subprocess
 import sys
 import urllib.request
+import utils
 
 REPORT_VERSION = '1'
 MAX_CHART_PAGE = 25
 
+# Disable Bad indentation error in repo upload.
+# pylint: disable-msg=W0311
+
+# Disable catching too general exception Exception.
+# pylint: disable-msg=W0703
 
 def get_games_on_page(page):
   """Returns the list of game  identifiers from the given page of the top steam games chart"""
   data = ''
   try:
     req = urllib.request.Request(
-        'https://steamcharts.com/top/p.1',
+        f'https://steamcharts.com/top/p.{page}',
         headers={'User-Agent': 'Magic Browser'})
     with urllib.request.urlopen(req) as resp:
       if resp.status != http.HTTPStatus.OK:
@@ -35,21 +41,15 @@ def get_games_on_page(page):
                         (resp.reason, resp.status))
       data = resp.read().decode('utf-8')
   except Exception as e:
-    panic('Unable to retrieve the steam charts data: %s' % str(e))
+    utils.panic('Unable to retrieve the steam charts data: %s' % str(e))
 
   result = []
   try:
     re_res = re.findall(r'<td id="spark_(\d+)"', data, re.MULTILINE)
     result.extend(re_res)
   except Exception:
-    panic('Unable to parse steamdb.info response')
+    utils.panic('Unable to parse steamdb.info response')
   return result
-
-
-def panic(msg, exit_code=1):
-  print('ERROR: %s' % msg, file=sys.stderr)
-  sys.exit(exit_code)
-
 
 def parse_script_stdout_json(script, args):
   """Parses script's standart output JSON and returns as a dictionary object"""
@@ -60,10 +60,12 @@ def parse_script_stdout_json(script, args):
         cmd, check=True, encoding='utf-8', capture_output=True)
     return json.loads(output.stdout)
   except Exception as e:
+    print(f'failed to run {script}: {e}')
     return None
 
 
 def main(args):
+  """main function."""
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('games_count', type=int, help='Number of games to print')
   parser.add_argument(
@@ -71,7 +73,7 @@ def main(args):
   opts = parser.parse_args(args)
 
   out_file_type = os.path.splitext(opts.out_file)[1]
-  if out_file_type != '.json' and out_file_type != '.csv':
+  if out_file_type not in ('.json', '.csv'):
     parser.error('Output file must have .csv or .json extension')
 
   try:
@@ -111,10 +113,10 @@ def main(args):
       elif out_file_type == '.csv':
 
         def support(platform_list, platform):
+          """Return formatted True/False if platform is in platform_list"""
           if platform in platform_list:
             return 'TRUE'
-          else:
-            return 'FALSE'
+          return 'FALSE'
 
         out_file.write('gameid,game_name,chart_pos,linux,windows,macos\n')
         for game in games:
@@ -127,7 +129,7 @@ def main(args):
           ]) + '\n')
 
   except Exception as e:
-    panic(str(e))
+    utils.panic(str(e))
 
 
 if __name__ == '__main__':
