@@ -41,7 +41,6 @@ import importlib
 import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 from chromite.lib import build_target_lib
@@ -758,76 +757,26 @@ def check_fit_image_files(status):
     return files_not_found
 
 
-def move_fitimage_file(fitimage_dir, filename):
-    """Move fitimage files from create-place to commit-place
-
-    commit_fitimage needs to move the fitimage files from the place where
-    they were created to a different directory in the tree. This utility
-    function handles joining paths and calling a file move function.
-
-    Args:
-        fitimage_dir: Directory where the fitimage files are
-        filename: Name of the file being moved
-
-    Returns:
-        True if the move succeeded, False if it failed
-    """
-    src_dir = os.path.join(fitimage_dir, 'asset_generation/outputs')
-    src = os.path.join(src_dir, filename)
-    dest_dir = os.path.join(fitimage_dir, 'files')
-    dest = os.path.join(dest_dir, filename)
-    # If src does not exist and dest does, the move is already done => success!
-    if not os.path.isfile(src) and os.path.isfile(dest):
-        logging.debug('move "%s", "%s" unnecessary because dest exists and'
-            ' src does not exist', src, dest)
-        return True
-
-    logging.debug('move "%s", "%s"', src, dest)
-    return shutil.move(src, dest)
-
-
 def commit_fitimage(status):
-    """Move the fitimage files and add them to a git commit
+    """Add the fitimage files to the git commit
 
-    This function moves the fitimage binary and -versions files from
-    asset_generation/outputs to files/ and then adds those files and
-    fit.log to the existing git commit.
+    This function calls commit_fitimage.sh to move the fitimage binary and
+    -versions files from asset_generation/outputs to files/ and then adds
+    those files and fit.log to the existing git commit.
+    Depending on the baseboard, there may be different file names (such
+    as fit-${VARIANT}.log for volteer) and/or additional files (such as
+    files/blobs/description-${VARIANT}.bin for volteer)
 
     Args:
         status: variant_status object tracking our board, variant, etc.
 
     Returns:
-        True if the copy, git add, and git commit --amend all succeeded.
-        False if something failed.
+        True if the script succeeded, False if something failed
     """
     logging.info('Running step commit_fitimage')
-    fitimage_dir = os.path.join('/mnt/host/source/src', status.fitimage_dir)
-    logging.debug('fitimage_dir  = "%s"', fitimage_dir)
-
-    # The copy operation will check that the source file exists, so no
-    # need to check separately.
-    if not move_fitimage_file(fitimage_dir,
-                              'fitimage-' + status.variant + '.bin'):
-        logging.error('Moving fitimage binary failed')
-        return False
-
-    if not move_fitimage_file(fitimage_dir,
-                              'fitimage-' + status.variant + '-versions.txt'):
-        logging.error('Moving fitimage versions.txt failed')
-        return False
-
-    # TODO(pfagerburg) volteer also needs files/blobs/descriptor-${VARIANT}.bin
-    if not run_process(
-        ['git', 'add',
-        'asset_generation/outputs/fit.log',
-        'files/fitimage-' + status.variant + '.bin',
-        'files/fitimage-' + status.variant + '-versions.txt'
-        ],
-        cwd=fitimage_dir):
-        return False
-
-    return run_process(['git', 'commit', '--amend', '--no-edit'],
-        cwd=fitimage_dir)
+    commit_fitimage_sh = os.path.expanduser(os.path.join(
+        '/mnt/host/source/src', status.fitimage_dir, 'files/commit_fitimage.sh'))
+    return run_process([commit_fitimage_sh, status.variant])
 
 
 def create_initial_ec_image(status):
