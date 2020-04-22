@@ -31,7 +31,7 @@ CHROMIUM_REVIEW_BASEURL = 'https://chromium-review.googlesource.com/a'
 
 # Order BRANCHES from oldest to newest
 CHROMEOS_BRANCHES = ['4.4', '4.14', '4.19', '5.4']
-STABLE_BRANCHES = ['4.4', '4.9', '4.14', '4.19', '5.4', '5.5', '5.6']
+STABLE_BRANCHES = ['4.4', '4.9', '4.14', '4.19', '5.4', '5.6']
 
 UPSTREAM_START_BRANCH = 'v%s' % CHROMEOS_BRANCHES[0]
 
