@@ -520,10 +520,14 @@ def main(args):
         commit_message += conflicts
         commit_message += '\n' + 'BUG=' + args['bug']
         commit_message += '\n' + _wrap_commit_line('TEST', args['test'])
+
+        extra = []
         if args['signoff']:
-            extra = ['-s']
-        else:
-            extra = []
+            signoff = 'Signed-off-by: %s <%s>' % (
+                    _git(['config', 'user.name']),
+                    _git(['config', 'user.email']))
+            if not signoff in commit_message.splitlines():
+                extra += ['-s']
         _git(['commit'] + extra + ['--amend', '-F', '-'], stdin=commit_message)
 
         # re-extract commit message
