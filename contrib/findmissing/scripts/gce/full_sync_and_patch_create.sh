@@ -20,5 +20,8 @@ else
     source env/bin/activate
 fi
 
+# Rotate name of findmissing log file by day of week
+DOW=$(date +"%a")
+
 # Run main synchronize_and_create_patches() and log to daily.log
-env/bin/python3 -c 'import main; main.synchronize_and_create_patches()' > ../logs/daily.log 2>&1
+env/bin/python3 -c 'import main; main.synchronize_and_create_patches()' > ../logs/findmissing-${DOW}.log 2>&1
