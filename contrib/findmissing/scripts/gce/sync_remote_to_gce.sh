@@ -16,5 +16,5 @@ git -C /opt/dev-util pull
 
 # Replaces last running webserver code with latest pulled changes
 # Note that we are not deleting the large linux git repositories (linux_*)
-rsync -avu --exclude=".*" \
+rsync -cav --exclude=".*" \
   "/opt/dev-util/contrib/findmissing/" "${FINDMISSING_DIR}" --delete

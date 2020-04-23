@@ -22,5 +22,5 @@ fi
 
 ./scripts/local/clean_generated_files.sh
 
-rsync -O -rltvz --exclude=".*" --delete \
+rsync -O -cav --exclude=".*" --delete \
   "${FINDMISSING_DIR}" chromeos_patches@"${GCE_EXTERNAL_IP}":/home/chromeos_patches
