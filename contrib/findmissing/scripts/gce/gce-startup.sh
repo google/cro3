@@ -45,9 +45,11 @@ sudo mount -o discard,defaults /dev/sdb /home/chromeos_patches/kernel_repositori
 sudo chmod a+w /home/chromeos_patches/kernel_repositories/
 
 # Logs for chromeos_patches
-sudo mkdir /home/chromeos_patches/logs/
+sudo mkdir -p /var/log/findmissing/
+sudo touch /var/log/findmissing/findmissing.log
 
 # Set ownership to newly created account
+sudo chown -R chromeos_patches:chromeos_patches /var/log/findmissing/
 sudo chown -R chromeos_patches:chromeos_patches /opt/dev-util/
 sudo chown -R chromeos_patches:chromeos_patches /home/chromeos_patches/
 
@@ -61,6 +63,8 @@ sudo cp /home/chromeos_patches/config/systemd/cloud-sql-proxy.service /etc/syste
 sudo cp /home/chromeos_patches/config/systemd/git-cookie-authdaemon.service /etc/systemd/system/
 sudo chmod 644 /etc/systemd/system/cloud-sql-proxy.service
 sudo chmod 644 /etc/systemd/system/git-cookie-authdaemon.service
+
+sudo cp /home/chromeos_patches/config/logrotate/findmissing /etc/logrotate.d/
 
 # Start service now
 sudo systemctl start cloud-sql-proxy
