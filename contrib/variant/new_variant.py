@@ -750,10 +750,6 @@ def check_fit_image_files(status):
     if not os.path.isfile(os.path.join(outputs_dir, fitimage_versions)):
         files_not_found.append(fitimage_versions)
 
-    fit_log = 'fit.log'
-    if not os.path.isfile(os.path.join(outputs_dir, fit_log)):
-        files_not_found.append(fit_log)
-
     return files_not_found
 
 
