@@ -20,7 +20,7 @@ else
     source env/bin/activate
 fi
 
-LOG_FILE=/var/log/findmissing.log
+LOG_FILE=/var/log/findmissing/findmissing.log
 
 echo "Triggered full synchronization at $(date)\n" >> ${LOG_FILE}
 env/bin/python3 -c 'import main; main.synchronize_and_create_patches()' >> ${LOG_FILE} 2>&1
