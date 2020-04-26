@@ -11,7 +11,6 @@ Systems will include: Cloud Scheduler, CloudSQL, and Compute Engine
 """
 
 from __future__ import print_function
-from datetime import datetime
 
 import os
 import subprocess
@@ -97,14 +96,11 @@ def create_new_patches():
 
 
 @preliminary_check_decorator(True)
-def synchronize_and_create_patches():
+def synchronize_and_create_patches(create_patches=False):
     """Synchronize repositories/databases + create new fixes."""
-    current_time = datetime.now()
     sync_repositories_and_databases()
 
-    # This depends on cron jobs starting at 0 UTC
-    #  Ensures that we only create new patches once a day
-    if current_time.hour == 0:
+    if create_patches:
         create_new_patches()
 
 

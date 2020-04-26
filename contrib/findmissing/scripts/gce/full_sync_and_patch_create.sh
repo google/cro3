@@ -20,8 +20,22 @@ else
     source env/bin/activate
 fi
 
-LOG_FILE=/var/log/findmissing/findmissing.log
+LOG_FILE="/var/log/findmissing/findmissing.log"
+LAST_CREATE="/tmp/synchronize-lastrun"
 
-echo "Triggered full synchronization at $(date)\n" >> ${LOG_FILE}
-env/bin/python3 -c 'import main; main.synchronize_and_create_patches()' >> ${LOG_FILE} 2>&1
+day="$(date +%e)"
+create="False"
+if [[ ! -e "${LAST_CREATE}" ]]; then
+    create="True"
+else
+    last="$(cat ${LAST_CREATE})"
+    if [[ "${last}" != "${day}" ]]; then
+        create="True"
+    fi
+fi
+
+echo "${day}" > "${LAST_CREATE}"
+
+echo "Triggered full synchronization at $(date)" >> ${LOG_FILE}
+env/bin/python3 -c "import main; main.synchronize_and_create_patches(${create})" >> ${LOG_FILE} 2>&1
 echo -e "\n" >> ${LOG_FILE}
