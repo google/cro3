@@ -15,6 +15,7 @@ base = 'volteer'
 # List of steps (named in step_names.py) to run in sequence to create
 # the new variant of the baseboard
 step_list = [
+    step_names.PROJECT_CONFIG,
     step_names.CB_VARIANT,
     step_names.CB_CONFIG,
     step_names.ADD_FIT,
@@ -62,8 +63,8 @@ emerge_cmd = 'emerge-volteer'
 emerge_pkgs = [
     'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
     fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-volteer-private',
-    'chromeos-config', 'chromeos-config-bsp', 'chromeos-config-bsp-volteer',
-    'coreboot-private-files', fitimage_pkg, 'chromeos-bootimage']
+    'chromeos-config', 'chromeos-config-bsp', 'coreboot-private-files',
+    'chromeos-bootimage']
 
 # List of packages to cros_workon to build the project config
 config_workon_pkgs = ['chromeos-config-bsp-volteer-private']

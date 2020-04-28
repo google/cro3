@@ -372,6 +372,7 @@ def perform_step(status):
     """
     # Function to call based on the step
     dispatch = {
+        step_names.PROJECT_CONFIG:  project_config,
         step_names.CB_VARIANT:      create_coreboot_variant,
         step_names.CB_CONFIG:       create_coreboot_config,
         step_names.CRAS_CONFIG:     copy_cras_config,
@@ -595,6 +596,51 @@ def emerge_with_workon(status, workon_pkgs, emerge_cmd, emerge_pkgs, env=None):
     workon.StopWorkingOnPackages(stop_packages)
 
     return emerge_result
+
+
+def project_config(status):
+    """Check if the project config is correct and complete
+
+    For programs that use the new project/config structure with starlark
+    configuration files, this function will check that emerging the
+    project's configuration will result in a project-config.json that
+    includes the new name of the new hwdesign (a.k.a. "variant").
+
+    Args:
+        status: variant_status object tracking our board, variant, etc.
+
+    Returns:
+        True if everything succeeded, False if something failed
+    """
+    logging.info('Running step project_config')
+    try:
+        if not emerge_with_workon(status, status.config_workon_pkgs,
+                                  status.emerge_cmd, status.config_emerge_pkgs):
+            raise RuntimeError(f'Building the configuration failed.')
+
+        # Make sure project-config.json exists in the /build tree
+        emerged_json = os.path.join(
+            '/build',
+            status.base,
+            'usr/share/chromeos-config/yaml/project-config.json')
+        if not os.path.isfile(emerged_json):
+            raise RuntimeError(
+                f'project-config.json {emerged_json} does not exist.')
+
+        # Search emerged_json to see if the new variant's name shows up there.
+        if not status.variant in osutils.ReadFile(emerged_json):
+            raise RuntimeError(
+                f'variant name {status.variant} not found in {emerged_json}')
+
+    except RuntimeError as e:
+        logging.error(str(e))
+        logging.error('Please file a bug in Infra > ChromeOS > Product > Device'
+                      ' to have the project configuration updated.')
+        logging.error('(https://bugs.chromium.org/p/chromium/issues/list?'
+                      'q=component:Infra%3EChromeOS%3EProduct%3EDevice)')
+        return False
+
+    return True
 
 
 def create_coreboot_variant(status):

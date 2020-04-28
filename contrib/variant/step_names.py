@@ -10,6 +10,7 @@ from __future__ import print_function
 
 # pylint: disable=bad-whitespace
 # Allow extra spaces around = so that we can line things up nicely
+PROJECT_CONFIG  = 'project_config'
 CB_VARIANT      = 'cb_variant'
 CB_CONFIG       = 'cb_config'
 CRAS_CONFIG     = 'cras_config'
