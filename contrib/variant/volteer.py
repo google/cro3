@@ -51,28 +51,33 @@ fitimage_dir = 'private-overlays/baseboard-volteer-private/sys-boot/'\
 fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> -b'
 
 # List of packages to cros_workon
-workon_pkgs = ['coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
+workon_pkgs = [
+    'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
     fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-volteer-private']
 
 # The emerge command
 emerge_cmd = 'emerge-volteer'
 
 # List of packages to emerge
-emerge_pkgs = ['coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
+emerge_pkgs = [
+    'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
     fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-volteer-private',
     'chromeos-config', 'chromeos-config-bsp', 'chromeos-config-bsp-volteer',
     'coreboot-private-files', fitimage_pkg, 'chromeos-bootimage']
 
-# List of packages to emerge just to build the yaml
-# Empty; volteer doesn't use model.yaml
-yaml_emerge_pkgs = []
+# List of packages to cros_workon to build the project config
+config_workon_pkgs = ['chromeos-config-bsp-volteer-private']
+
+# List of packages to emerge to build the project config
+config_emerge_pkgs = ['chromeos-config-bsp-volteer-private']
 
 # Directory for the private yaml file
 # None; volteer doesn't use model.yaml
 private_yaml_dir = None
 
 # List of commits that will be uploaded with `repo upload`
-repo_upload_list = [step_names.CB_CONFIG, step_names.COMMIT_FIT,
+repo_upload_list = [
+    step_names.CB_CONFIG, step_names.COMMIT_FIT,
     step_names.EC_IMAGE, step_names.ADD_PRIV_YAML]
 
 # List of commits that will be pushed to review.coreboot.org

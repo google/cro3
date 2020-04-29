@@ -234,7 +234,10 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     * workon_pkgs - list of packages to cros_workon
     * emerge_cmd - the emerge command, e.g. 'emerge-hatch'
     * emerge_pkgs - list of packages to emerge
-    * yaml_emerge_pkgs - list of packages to emerge just to build the yaml
+    * config_workon_pkgs - list of packages to cros_workon to build the
+        project config
+    * config_emerge_pkgs - list of packages to emerge to build the project
+        config
     * private_yaml_dir - directory for the private yaml file
     * commits - map of commits for the various steps. Indexed by step name,
         and the step names used are the same ones in step_names.py
@@ -340,7 +343,8 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     status.private_yaml_dir     = module.private_yaml_dir
     status.step_list            = module.step_list
     status.workon_pkgs          = module.workon_pkgs
-    status.yaml_emerge_pkgs     = module.yaml_emerge_pkgs
+    status.config_workon_pkgs   = module.config_workon_pkgs
+    status.config_emerge_pkgs   = module.config_emerge_pkgs
     status.coreboot_push_list   = module.coreboot_push_list
     status.repo_upload_list     = module.repo_upload_list
     status.depends              = module.depends
@@ -378,7 +382,7 @@ def perform_step(status):
         step_names.EC_BUILDALL:     ec_buildall,
         step_names.ADD_PUB_YAML:    add_variant_to_public_yaml,
         step_names.ADD_PRIV_YAML:   add_variant_to_private_yaml,
-        step_names.BUILD_YAML:      build_yaml,
+        step_names.BUILD_CONFIG:    build_config,
         step_names.EMERGE:          emerge_all,
         step_names.PUSH:            push_coreboot,
         step_names.UPLOAD:          upload_CLs,
@@ -545,21 +549,52 @@ def get_commit_msg(git_repo, rev):
         raise ValueError('SHA was not found')
 
 
-def cros_workon(status, action, workon_pkgs):
-    """Call cros_workon for all the 9999 ebuilds we'll be touching
+def emerge_with_workon(status, workon_pkgs, emerge_cmd, emerge_pkgs, env=None):
+    """Emerge a list of packages after `cros_workon start`ing them
+
+    This function will `cros_workon start` a list of packages, then `emerge`
+    another list of packages, and finally, `cros_workon stop` only those
+    packages that were actually started by the `cros_workon start` command.
+    Any package already in a `cros_workon start` state prior to this function
+    will still be in that state when this function exits.
+
+    To determine which packages this program started and which ones were
+    already started, we query the list of packages being worked on, then
+    cros_workon start the entire list (which will produce a "package already
+    being worked on" type of message for anything already started), and then
+    query the list of packages being worked on again. The difference between
+    the before and after lists are the packages that this program started,
+    and so that's the list of packages to cros_workon stop after the emerge
+    is done.
 
     Args:
         status: variant_status object tracking our board, variant, etc.
-        action: 'start' or 'stop'
-        workon_pkgs: list of packages to start or stop
+        workon_pkgs: list of packages to `cros_workon start`
+        emerge_cmd: the emerge command to run, e.g. 'emerge-volteer'
+        emerge_pkgs: list of packages to `emerge`
+        env: environment to pass to run_process, or None to pass default
 
     Returns:
-        True if the call to cros_workon was successful, False if failed
+        True if everything succeeded, False if something failed
     """
+    # Get the list of packages that are already cros_workon started.
+    build_target = build_target_lib.BuildTarget(status.base)
+    workon = workon_helper.WorkonHelper(build_target.root, build_target.name)
+    before_workon = workon.ListAtoms()
 
-    # Build up the command from all the packages in the list
-    workon_cmd = ['cros_workon', '--board=' + status.base, action] + workon_pkgs
-    return run_process(workon_cmd)
+    workon.StartWorkingOnPackages(workon_pkgs)
+
+    # Determine which packages we need to cros_workon stop.
+    after_workon = workon.ListAtoms()
+    stop_packages = list(set(after_workon) - set(before_workon))
+
+    # Run the emerge command.
+    emerge_result = run_process([emerge_cmd] + emerge_pkgs, env=env)
+
+    # cros_workon stop before returning the result.
+    workon.StopWorkingOnPackages(stop_packages)
+
+    return emerge_result
 
 
 def create_coreboot_variant(status):
@@ -885,12 +920,13 @@ def add_variant_to_private_yaml(status):
 
 
 
-def build_yaml(status):
-    """Build config files from the yaml files
+def build_config(status):
+    """Build project config files, from yaml or starlark
 
-    This function builds the yaml files into the JSON and C code that
-    mosys and other tools use, then verifies that the new variant's name
-    shows up in all of the output files.
+    This function builds the project config files that mosys and other tools
+    use, then verifies that the new variant's name shows up in all of the
+    output files. Depending on the baseboard, the input may be the model.yaml
+    files, or the starlark configuration files.
 
     Args:
         status: variant_status object tracking our board, variant, etc.
@@ -899,7 +935,8 @@ def build_yaml(status):
         True if the scripts and build succeeded, False is something failed
     """
     logging.info('Running step build_yaml')
-    if not run_process([status.emerge_cmd] + status.yaml_emerge_pkgs):
+    if not emerge_with_workon(status, status.config_workon_pkgs,
+                              status.emerge_cmd, status.config_emerge_pkgs):
         return False
 
     # Check the generated config.yaml file for occurences of the variant
@@ -925,16 +962,8 @@ def emerge_all(status):
     This build step will cros_workon start a list of packages provided by
     the reference board data as status.workon_pkgs, then emerge a list of
     packages (status.emerge_pkgs), and then cros_workon stop any packages
-    that it started, as opposed to ones that were already being worked on.
-
-    To determine which packages this program started and which ones were
-    already started, we query the list of packages being worked on, then
-    cros_workon start the entire list (which will produce a "package already
-    being worked on" type of message for anything already started), and then
-    query the list of packages being worked on again. The difference between
-    the before and after lists are the packages that this program started,
-    and so that's the list of packages to cros_workon stop after the emerge
-    is done.
+    that it started. Any packages that were already being worked on will
+    not be stopped.
 
     Args:
         status: variant_status object tracking our board, variant, etc.
@@ -943,32 +972,13 @@ def emerge_all(status):
         True if the build succeeded, False if something failed
     """
     logging.info('Running step emerge_all')
-    # Get the list of packages that are already cros_workon started.
-    build_target = build_target_lib.BuildTarget(status.base)
-    workon = workon_helper.WorkonHelper(build_target.root, build_target.name)
-    before_workon = workon.ListAtoms()
-
-    # Start working on the list of packages specified by the reference board.
-    cros_workon(status, 'start', status.workon_pkgs)
-
-    # Get the list of packages that are cros_workon started now.
-    after_workon = workon.ListAtoms()
-    # Determine which packages we need to cros_workon stop.
-    stop_packages = list(set(after_workon) - set(before_workon))
-
-    # Build up the command for emerge from all the packages in the list.
     environ = {**os.environ, 'FW_NAME': status.variant}
-    emerge_cmd_and_params = [status.emerge_cmd] + status.emerge_pkgs
-    emerge_result = run_process(emerge_cmd_and_params, env=environ)
-
-    # cros_workon stop before possibly returning an error code.
-    cros_workon(status, 'stop', stop_packages)
-
-    # Check if emerge failed, and then check if the expected build outputs
-    # exist.
-    if not emerge_result:
+    if not emerge_with_workon(status, status.workon_pkgs,
+                              status.emerge_cmd, status.emerge_pkgs,
+                              env=environ):
         return False
 
+    # Check if the expected build outputs exist.
     build_path = '/build/' + status.base + '/firmware'
     logging.debug('build_path = "%s"', build_path)
     image_bin = 'image-' + status.variant + '.bin'

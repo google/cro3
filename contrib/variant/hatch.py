@@ -24,7 +24,7 @@ step_list = [
     step_names.EC_BUILDALL,
     step_names.ADD_PUB_YAML,
     step_names.ADD_PRIV_YAML,
-    step_names.BUILD_YAML,
+    step_names.BUILD_CONFIG,
     step_names.EMERGE,
     step_names.PUSH,
     step_names.UPLOAD,
@@ -53,20 +53,26 @@ fitimage_dir = 'private-overlays/baseboard-hatch-private/sys-boot/coreboot-priva
 fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> -b'
 
 # List of packages to cros_workon
-workon_pkgs = ['coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
+workon_pkgs = [
+    'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
     fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-hatch-private']
 
 # The emerge command
 emerge_cmd = 'emerge-hatch'
 
 # List of packages to emerge
-emerge_pkgs = ['coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
+emerge_pkgs = [
+    'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
     fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-hatch-private',
     'chromeos-config', 'chromeos-config-bsp', 'chromeos-config-bsp-hatch',
     'coreboot-private-files', fitimage_pkg, 'chromeos-bootimage']
 
-# List of packages to emerge just to build the yaml
-yaml_emerge_pkgs = ['chromeos-config-bsp', 'chromeos-config',
+# List of packages to cros_workon to build the project config
+config_workon_pkgs = ['chromeos-config', 'chromeos-config-bsp-hatch-private']
+
+# List of packages to emerge to build the project config
+config_emerge_pkgs = [
+    'chromeos-config-bsp', 'chromeos-config',
     'chromeos-config-bsp-hatch', 'chromeos-config-bsp-hatch-private']
 
 # Directory for the private yaml file
@@ -74,7 +80,8 @@ private_yaml_dir = '~/trunk/src/private-overlays/overlay-hatch-private/'\
     'chromeos-base/chromeos-config-bsp-hatch-private'
 
 # List of commits that will be uploaded with `repo upload`
-repo_upload_list = [step_names.CB_CONFIG, step_names.COMMIT_FIT,
+repo_upload_list = [
+    step_names.CB_CONFIG, step_names.COMMIT_FIT,
     step_names.EC_IMAGE, step_names.ADD_PUB_YAML, step_names.ADD_PRIV_YAML]
 
 # List of commits that will be pushed to review.coreboot.org
@@ -84,8 +91,10 @@ coreboot_push_list = [step_names.CB_VARIANT]
 # This list gets used for setting up Cq-Depend on the uploaded CLs.
 depends = {
     step_names.CB_CONFIG: [step_names.FIND],
-    step_names.ADD_PUB_YAML: [step_names.ADD_PRIV_YAML, step_names.CB_CONFIG,
+    step_names.ADD_PUB_YAML: [
+        step_names.ADD_PRIV_YAML, step_names.CB_CONFIG,
         step_names.COMMIT_FIT, step_names.EC_IMAGE],
-    step_names.ADD_PRIV_YAML: [step_names.ADD_PUB_YAML, step_names.CB_CONFIG,
+    step_names.ADD_PRIV_YAML: [
+        step_names.ADD_PUB_YAML, step_names.CB_CONFIG,
         step_names.COMMIT_FIT, step_names.EC_IMAGE],
 }

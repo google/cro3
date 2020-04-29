@@ -21,7 +21,7 @@ step_list = [
     step_names.EC_IMAGE,
     step_names.EC_BUILDALL,
     step_names.ADD_PRIV_YAML,
-    step_names.BUILD_YAML,
+    step_names.BUILD_CONFIG,
     step_names.EMERGE,
     step_names.UPLOAD,
     step_names.CALC_CQ_DEPEND,
@@ -48,20 +48,24 @@ fitimage_dir = None
 fitimage_cmd = None
 
 # List of packages to cros_workon
-workon_pkgs = ['coreboot-zork', 'chromeos-ec',
-    'chromeos-config-bsp-zork-private']
+workon_pkgs = ['coreboot-zork', 'chromeos-ec', 'chromeos-config-bsp-zork-private']
 
 # The emerge command
 emerge_cmd = 'emerge-zork'
 
 # List of packages to emerge
-emerge_pkgs = ['coreboot-zork', 'vboot_reference',
+emerge_pkgs = [
+    'coreboot-zork', 'vboot_reference',
     'chromeos-ec', 'chromeos-config-bsp-zork-private',
     'chromeos-config', 'chromeos-config-bsp', 'chromeos-config-bsp-zork',
     'coreboot-private-files', 'chromeos-bootimage']
 
-# List of packages to emerge just to build the yaml
-yaml_emerge_pkgs = ['chromeos-config-bsp', 'chromeos-config',
+# List of packages to cros_workon to build the project config
+config_workon_pkgs = ['chromeos-config', 'chromeos-config-bsp-zork-private']
+
+# List of packages to emerge to build the project config
+config_emerge_pkgs = [
+    'chromeos-config-bsp', 'chromeos-config',
     'chromeos-config-bsp-zork', 'chromeos-config-bsp-zork-private']
 
 # Directory for the private yaml file
@@ -69,7 +73,8 @@ private_yaml_dir = '~/trunk/src/private-overlays/overlay-zork-private/'\
     'chromeos-base/chromeos-config-bsp-zork-private'
 
 # List of commits that will be uploaded with `repo upload`
-repo_upload_list = [step_names.CB_VARIANT, step_names.CB_CONFIG,
+repo_upload_list = [
+    step_names.CB_VARIANT, step_names.CB_CONFIG,
     step_names.CRAS_CONFIG, step_names.EC_IMAGE, step_names.ADD_PRIV_YAML]
 
 # List of commits that will be pushed to review.coreboot.org
@@ -79,6 +84,7 @@ coreboot_push_list = None
 # This list gets used for setting up Cq-Depend on the uploaded CLs.
 depends = {
     step_names.CB_CONFIG: [step_names.CB_VARIANT],
-    step_names.ADD_PRIV_YAML: [step_names.CB_CONFIG, step_names.CRAS_CONFIG,
+    step_names.ADD_PRIV_YAML: [
+        step_names.CB_CONFIG, step_names.CRAS_CONFIG,
         step_names.EC_IMAGE],
 }
