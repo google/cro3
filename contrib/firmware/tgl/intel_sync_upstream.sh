@@ -44,9 +44,9 @@ case $DIR in
     ;;
 esac
 
-case $VERSION in
+case ${VERSION} in
   master | EDK2_Trunk_Intel)
-    UPREV_BRANCH=remotes/$STAGING_PREFIX-staging/upstream/${VERSION}
+    UPREV_BRANCH=remotes/${STAGING_PREFIX}-staging/upstream/${VERSION}
     ;;
 
   *)
@@ -54,52 +54,56 @@ case $VERSION in
     ;;
 esac
 
-if [ -z "$CHROMIUM_TOT_ROOT" ]; then
+if [ -z "${CHROMIUM_TOT_ROOT}" ]; then
   die 1 "CHROMIUM_TOT_ROOT environment variable is not set"
   exit -1
 fi
 
 # Clone the repo where the staging changes need to be pushed
-pushd "$CHROMIUM_TOT_ROOT/src/third_party/fsp/tgl/$DIR/$LOCAL_DIR" > /dev/null
-die $? "Can't find $CHROMIUM_TOT_ROOT/src/third_party/fsp/tgl/$DIR/$LOCAL_DIR"
+pushd "${CHROMIUM_TOT_ROOT}/src/third_party/fsp/tgl/$DIR/$LOCAL_DIR" > /dev/null
+die $? "Can't find ${CHROMIUM_TOT_ROOT}/src/third_party/fsp/tgl/$DIR/$LOCAL_DIR"
 
 # Add staging repo as remote repo to my local repo
-git remote add $STAGING_PREFIX-staging https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/$STAGING_PREFIX-staging
+git remote add ${STAGING_PREFIX}-staging https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/${STAGING_PREFIX}-staging
 err=$?
 
 # If remote already exists, that's ok, but otherwise, exit on error
 if [ $err -ne 0 ] && [ $err -ne 128 ]; then
-  die $err "Can't add remote $STAGING_PREFIX-staging"
+  die $err "Can't add remote ${STAGING_PREFIX}-staging"
 elif [ $err -eq 0 ]; then
-  echo "Created remote $STAGING_PREFIX-staging"
+  echo "Created remote ${STAGING_PREFIX}-staging"
 else
-  echo "Remote $STAGING_PREFIX-staging already exists"
+  echo "Remote ${STAGING_PREFIX}-staging already exists"
 fi;
 
-git fetch --force $STAGING_PREFIX-staging
-die $? "Can't fetch $STAGING_PREFIX-staging"
+git fetch --force ${STAGING_PREFIX}-staging
+die $? "Can't fetch ${STAGING_PREFIX}-staging"
 
 # Detach from any branch before deleting
 git checkout --detach
 
 # Removing a stale branch
-git branch -D $STAGING_PREFIX-staging-$VERSION
+git branch -D ${STAGING_PREFIX}-staging-${VERSION}
 
 # Set up remote branch
-git checkout $UPREV_BRANCH -b $STAGING_PREFIX-staging-$VERSION
+git checkout ${UPREV_BRANCH} -b ${STAGING_PREFIX}-staging-${VERSION}
 die $? "Can't checkout upstream/${VERSION}"
-echo "Checked out upstream/${VERSION} to branch $STAGING_PREFIX-staging-$VERSION"
+echo "Checked out upstream/${VERSION} to branch ${STAGING_PREFIX}-staging-${VERSION}"
 
-# Checkout a local branch from remotes/cros-internal/$CHROMEOS_BRANCH
+echo "Pushing to a staging repo to avoid 'forge commiter' permission issues"
+git push -o skip-validation cros-internal HEAD:refs/heads/staging/${STAGING_PREFIX}-${VERSION}
+die $? "Could not push to a staging repo"
+
+# Checkout a local branch from remotes/cros-internal/${CHROMEOS_BRANCH}
 git branch -D chrome-internal-tot
-git checkout -b chrome-internal-tot cros-internal/$CHROMEOS_BRANCH
-die $? "Error checking out cros-internal/$CHROMEOS_BRANCH"
-echo "Checked out cros-internal/$CHROMEOS_BRANCH to branch chrome-internal-tot"
+git checkout -b chrome-internal-tot cros-internal/${CHROMEOS_BRANCH}
+die $? "Error checking out cros-internal/${CHROMEOS_BRANCH}"
+echo "Checked out cros-internal/${CHROMEOS_BRANCH} to branch chrome-internal-tot"
 
 # Merge from staging branch
-git merge $STAGING_PREFIX-staging-$VERSION --strategy-option theirs --log
+git merge ${STAGING_PREFIX}-staging-${VERSION} --strategy-option theirs --no-ff --log
 if [ $? -ne 0 ]; then
-  echo "Didn't merge cleanly to $STAGING_PREFIX-staging-${VERSION}"
+  echo "Didn't merge cleanly to ${STAGING_PREFIX}-staging-${VERSION}"
 
   while true
   do
@@ -117,7 +121,7 @@ if [ $? -ne 0 ]; then
         # No signoff used in FSP repo
         git commit
 
-        git diff -a chrome-internal-tot..$STAGING_PREFIX-staging-$VERSION > /tmp/merge-to-tag.patch
+        git diff -a chrome-internal-tot..${STAGING_PREFIX}-staging-${VERSION} > /tmp/merge-to-tag.patch
         patch -p1 < /tmp/merge-to-tag.patch
         rm /tmp/merge-to-tag.patch
         git add .
@@ -139,7 +143,7 @@ if [ $? -ne 0 ]; then
     esac
   done
 fi;
-echo "Merge of $STAGING_PREFIX-staging-${VERSION} complete, ready for upload."
+echo "Merge of ${STAGING_PREFIX}-staging-${VERSION} complete, ready for upload."
 
 while true
 do
@@ -147,14 +151,14 @@ do
 
   case $input in
     [yY][eE][sS]|[yY])
-      git push cros-internal HEAD:refs/for/$CHROMEOS_BRANCH
-      echo "Pushed merge of $STAGING_PREFIX-staging-${VERSION}, ready for review."
+      git push cros-internal HEAD:refs/for/${CHROMEOS_BRANCH}
+      echo "Pushed merge of ${STAGING_PREFIX}-staging-${VERSION}, ready for review."
       break
       ;;
 
     [nN][oO]|[nN])
-      echo "Ready to push merge of $STAGING_PREFIX-staging-${VERSION}."
-      echo "Execute 'git push cros-internal HEAD:refs/for/$CHROMEOS_BRANCH' to push change."
+      echo "Ready to push merge of ${STAGING_PREFIX}-staging-${VERSION}."
+      echo "Execute 'git push cros-internal HEAD:refs/for/${CHROMEOS_BRANCH}' to push change."
       break
       ;;
 
