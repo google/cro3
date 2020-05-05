@@ -171,8 +171,12 @@ def get_bug_test_line(chrome_sha):
     bug_matches = re.findall('^BUG=(.*)$', chrome_commit_msg, re.M)
     test_matches = re.findall('^TEST=(.*)$', chrome_commit_msg, re.M)
 
-    bug = bug_matches[0] if bug_matches else None
-    test = test_matches[0] if test_matches else None
+    if bug_matches:
+        bug = bug_matches[-1]
+    if bug is None or bug == 'None':
+        bug = 'None (see commit %s)' % chrome_sha
+    if test_matches:
+        test = test_matches[-1]
 
     return bug_test_line % (bug, test)
 
