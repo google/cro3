@@ -20,6 +20,7 @@ import git_interface
 
 
 # Constant representing number CL's we want created on single new missing patch run
+NEW_CL_DAILY_LIMIT_PER_STABLE_BRANCH = 2
 NEW_CL_DAILY_LIMIT_PER_BRANCH = 1
 
 
@@ -276,8 +277,10 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
                                         kernel_sha, fixedby_upstream_sha, reason)
 
 
-def update_fixes_in_branch(db, branch, kernel_metadata):
+def update_fixes_in_branch(db, branch, kernel_metadata, limit):
     """Updates fix patch table row by determining if CL merged into linux_chrome."""
+    del limit # unused here
+
     c = db.cursor()
     chosen_fixes = kernel_metadata.kernel_fixes_table
 
@@ -308,7 +311,7 @@ def update_fixes_in_branch(db, branch, kernel_metadata):
     fixup_unmerged_patches(db, branch, kernel_metadata)
 
 
-def create_new_fixes_in_branch(db, branch, kernel_metadata):
+def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
     """Look for missing Fixup commits in provided chromeos or stable release."""
     c = db.cursor()
     branch_name = kernel_metadata.get_kernel_branch(branch)
@@ -353,14 +356,14 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata):
                                         branch, kernel_sha, fixedby_upstream_sha)
         if new_change:
             count_new_changes += 1
-        if count_new_changes >= NEW_CL_DAILY_LIMIT_PER_BRANCH:
+        if count_new_changes >= limit:
             break
 
     db.commit()
     return count_new_changes
 
 
-def missing_patches_sync(db, kernel_metadata, sync_branch_method):
+def missing_patches_sync(db, kernel_metadata, sync_branch_method, limit=None):
     """Helper to create or update fix patches in stable and chromeos releases."""
     if len(sys.argv) > 1:
         branches = sys.argv[1:]
@@ -370,7 +373,7 @@ def missing_patches_sync(db, kernel_metadata, sync_branch_method):
     os.chdir(common.get_kernel_absolute_path(kernel_metadata.path))
 
     for b in branches:
-        sync_branch_method(db, b, kernel_metadata)
+        sync_branch_method(db, b, kernel_metadata, limit)
 
     os.chdir(common.WORKDIR)
 
@@ -379,10 +382,12 @@ def new_missing_patches():
     """Rate limit calling create_new_fixes_in_branch."""
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
     kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
-    missing_patches_sync(cloudsql_db, kernel_metadata, create_new_fixes_in_branch)
+    missing_patches_sync(cloudsql_db, kernel_metadata, create_new_fixes_in_branch,
+                         NEW_CL_DAILY_LIMIT_PER_STABLE_BRANCH)
 
     kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
-    missing_patches_sync(cloudsql_db, kernel_metadata, create_new_fixes_in_branch)
+    missing_patches_sync(cloudsql_db, kernel_metadata, create_new_fixes_in_branch,
+                         NEW_CL_DAILY_LIMIT_PER_BRANCH)
     cloudsql_db.close()
 
 
