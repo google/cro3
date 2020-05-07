@@ -72,8 +72,11 @@ def update_upstream_table(branch, start, db):
                 cursor.execute(q, [sha, description, patch_id])
                 print('Inserted sha %s into linux_upstream' % sha)
             except MySQLdb.Error as e: # pylint: disable=no-member
-                print('Issue inserting (sha, description, patch_id) %s %s %s'
-                    % (sha, description, patch_id), e)
+                # Don't complain about duplicate entries; those are seen all the time
+                # due to git idiosyncrasies (non-linearity).
+                if e.args[0] != MySQLdb.constants.ER.DUP_ENTRY:
+                    print('Issue inserting (sha, description, patch_id) %s %s %s'
+                            % (sha, description, patch_id), e)
                 continue
             except UnicodeEncodeError as e:
                 print('Failed to INSERT upstream sha %s with description %s'
