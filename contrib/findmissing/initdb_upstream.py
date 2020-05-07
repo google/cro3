@@ -76,7 +76,7 @@ def update_upstream_table(branch, start, db):
                     % (sha, description, patch_id), e)
                 continue
             except UnicodeEncodeError as e:
-                print('Failed to INSERT upstream sha %s with desciption %s'
+                print('Failed to INSERT upstream sha %s with description %s'
                         % (sha, description), e)
                 continue
 
