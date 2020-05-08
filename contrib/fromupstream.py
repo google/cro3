@@ -191,7 +191,7 @@ def _pick_patchwork(url, patch_id, args):
     if args['source_line'] is None:
         args['source_line'] = '(am from %s/patch/%d/)' % (url, patch_id)
         for url_template in [
-            'https://lkml.kernel.org/r/%s',
+            'https://lore.kernel.org/r/%s',
             # hostap project (and others) are here, but not kernel.org.
             'https://marc.info/?i=%s',
             # public-inbox comes last as a "default"; it has a nice error page
