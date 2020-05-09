@@ -8,6 +8,7 @@
 """Module containing shared helper methods."""
 
 from __future__ import print_function
+import logging
 import os
 import re
 import time
@@ -147,7 +148,7 @@ def update_kernel_db(db, kernel_metadata):
     for branch in kernel_metadata.branches:
         start = kernel_metadata.tag_template % branch
 
-        print('Handling %s' % kernel_metadata.get_kernel_branch(branch))
+        logging.info('Handling %s', kernel_metadata.get_kernel_branch(branch))
 
         try:
             c = db.cursor()
@@ -163,8 +164,8 @@ def update_kernel_db(db, kernel_metadata):
                         VALUES (%s, %s, %s)"""
                 c.execute(q, [path, branch, start])
         except MySQLdb.Error as e: # pylint: disable=no-member
-            print('Make sure the tables have been initialized in \
-                    ./scripts/sql/initialize_sql_tables.sql')
+            logging.error('Make sure the tables have been initialized in \
+                           ./scripts/sql/initialize_sql_tables.sql')
             raise e
 
 
