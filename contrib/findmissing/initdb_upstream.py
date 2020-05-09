@@ -8,6 +8,7 @@
 """Module parses and stores mainline linux patches to be easily accessible."""
 
 from __future__ import print_function
+import logging
 import re
 import subprocess
 import MySQLdb
@@ -36,20 +37,20 @@ def update_upstream_table(branch, start, db):
     Also keep a reference of last parsed SHA so we don't have to index the
         entire commit log on each run.
     """
-    print('Linux upstream on branch %s' % branch)
+    logging.info('Linux upstream on branch %s', branch)
     cursor = db.cursor()
 
-    print('Pulling all the latest linux-upstream commits')
+    logging.info('Pulling all the latest linux-upstream commits')
     subprocess.check_output(['git', 'pull'])
 
-    print('Loading all linux-upstream commit logs from %s' % start)
+    logging.info('Loading all linux-upstream commit logs from %s', start)
     cmd = ['git', 'log', '--abbrev=12', '--oneline',
             '--no-merges', '--reverse', start + '..HEAD']
     commits = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
 
     fixes = []
     last = None
-    print('Analyzing upstream commits to build linux_upstream and fixes tables.')
+    logging.info('Analyzing upstream commits to build linux_upstream and fixes tables.')
 
     for commit in commits.splitlines():
         if commit != '':
@@ -70,17 +71,18 @@ def update_upstream_table(branch, start, db):
                         (sha, description, patch_id)
                         VALUES (%s, %s, %s)"""
                 cursor.execute(q, [sha, description, patch_id])
-                print('Inserted sha %s into linux_upstream' % sha)
+                logging.info('Inserted sha %s into linux_upstream', sha)
             except MySQLdb.Error as e: # pylint: disable=no-member
                 # Don't complain about duplicate entries; those are seen all the time
                 # due to git idiosyncrasies (non-linearity).
                 if e.args[0] != MySQLdb.constants.ER.DUP_ENTRY:
-                    print('Issue inserting (sha, description, patch_id) %s %s %s'
-                            % (sha, description, patch_id), e)
+                    logging.error(
+                        'Issue inserting sha "%s", description "%s", patch_id "%s": error %d(%s)',
+                        sha, description, patch_id, e.args[0], e.args[1])
                 continue
             except UnicodeEncodeError as e:
-                print('Failed to INSERT upstream sha %s with description %s'
-                        % (sha, description), e)
+                logging.error('Failed to INSERT upstream sha %s with description %s: error %s',
+                        sha, description, e)
                 continue
 
             # check if this patch fixes a previous patch.
@@ -97,7 +99,7 @@ def update_upstream_table(branch, start, db):
                         fsha = subprocess.check_output(cmd.split(' '),
                                 stderr=subprocess.DEVNULL, encoding='utf-8', errors='ignore')
                     except subprocess.CalledProcessError:
-                        print('SHA %s fixes commit %s: Not found' % (sha, m.group(0)))
+                        logging.error('SHA %s fixes commit %s: Not found', sha, m.group(0))
                         m = RDESC.search(d)
                         if m:
                             desc = m.group(1)
@@ -109,13 +111,13 @@ def update_upstream_table(branch, start, db):
                             fsha = cursor.fetchone()
                             if fsha:
                                 fsha = fsha[0]
-                                print('  Description matches with SHA %s' % fsha)
+                                logging.info('  Description matches with SHA %s', fsha)
                         # The Fixes: tag may be wrong. The sha may not be in the
                         # upstream kernel, or the format may be completely wrong
                         # and m.group(1) may not be a sha in the first place.
                         # In that case, do nothing.
                 if fsha:
-                    print('Commit %s fixed by %s' % (fsha[0:12], sha))
+                    logging.info('Commit %s fixed by %s', fsha[0:12], sha)
 
                     # Add fixes to list to be added after linux_upstream
                     #  table is fully contructed to avoid Foreign key errors in SQL
@@ -130,8 +132,8 @@ def update_upstream_table(branch, start, db):
             cursor.execute(q, [fix.upstream_sha, fix.fixedby_upstream_sha])
         except MySQLdb.IntegrityError as e: # pylint: disable=no-member
             # TODO(hirthanan): Email mailing list that one of usha or fix_usha is missing
-            print('CANNOT FIND commit %s fixed by %s' %
-                    (fix.upstream_sha, fix.fixedby_upstream_sha), e)
+            logging.error('CANNOT FIND commit %s fixed by %s: error %d(%s)',
+                    fix.upstream_sha, fix.fixedby_upstream_sha, e.args[0], e.args[1])
 
     # Update previous fetch database
     if last:
