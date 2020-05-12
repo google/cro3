@@ -8,6 +8,7 @@
 """Module parses and stores data from stable linux patch."""
 
 from __future__ import print_function
+import logging
 import subprocess
 import MySQLdb
 import common
@@ -58,13 +59,16 @@ def update_stable_table(branch, start, db):
                         (sha, branch, upstream_sha, patch_id, description)
                         VALUES (%s, %s, %s, %s, %s)"""
                 cursor.execute(q, [sha, branch, usha, patch_id, description])
-                print('Insert into linux_stable', [sha, branch, usha, patch_id, description])
+                logging.info('Insert into linux_stable %s %s %s %s %s',
+                             sha, branch, usha, patch_id, description)
             except MySQLdb.Error as e: # pylint: disable=no-member
-                print('Error in insertion into linux_stable with values: ',
-                        [sha, branch, usha, patch_id, description], e)
+                logging.error(
+                    'Error inserting into linux_stable with values %s %s %s %s %s: error %d(%s)',
+                    sha, branch, usha, patch_id, description, e.args[0], e.args[1])
             except UnicodeDecodeError as e:
-                print('Failed to INSERT stable sha %s with desciption %s'
-                        % (sha, description), e)
+                logging.error(
+                    'Failed to INSERT stable sha %s with description %s: error %s',
+                    sha, description, e)
 
     # Update previous fetch database
     if last:
