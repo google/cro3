@@ -20,6 +20,7 @@ curl -b /home/chromeos_patches/.git-credential-cache/cookie \
 """
 
 from __future__ import print_function
+import logging
 import json
 import http
 import os
@@ -45,9 +46,9 @@ def get_auth_cookie():
             gerrit_credentials_cookies.load()
             return gerrit_credentials_cookies
         except FileNotFoundError:
-            print('Could not locate gitcookies file. Generate cookie file and try again')
-            print('If running locally, ensure gitcookies file is located at ~/.gitcookies')
-            print('Learn more by visiting go/gob-dev#testing-user-authentication')
+            logging.error('Could not locate gitcookies file. Generate cookie file and try again')
+            logging.error('If running locally, ensure gitcookies file is located at ~/.gitcookies')
+            logging.error('Learn more by visiting go/gob-dev#testing-user-authentication')
             raise
 
 
@@ -110,10 +111,10 @@ def abandon_change(changeid, branch, reason=None):
 
     try:
         set_and_parse_endpoint(abandon_change_endpoint, abandon_payload)
-        print('Abandoned changeid %s on Gerrit' % changeid)
+        logging.info('Abandoned changeid %s on Gerrit', changeid)
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == http.HTTPStatus.CONFLICT:
-            print('Change %s has already been abandoned' % changeid)
+            logging.info('Change %s has already been abandoned', changeid)
         else:
             raise
 
@@ -128,10 +129,10 @@ def restore_change(changeid, branch, reason=None):
 
     try:
         set_and_parse_endpoint(restore_change_endpoint, restore_payload)
-        print('Restored changeid %s on Gerrit' % changeid)
+        logging.info('Restored changeid %s on Gerrit', changeid)
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == http.HTTPStatus.CONFLICT:
-            print('Change %s has already been restored' % changeid)
+            logging.info('Change %s has already been restored', changeid)
         else:
             raise
 
@@ -235,7 +236,7 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
         # There is a Change-Id in the commit log, but Gerrit does not have a
         # matching entry. Fall back to list of e-mails found in tags after
         # the last "cherry picked" message.
-        print('Failed to get reviewer(s) from gerrit for Change-Id %s' % fixee_changeid)
+        logging.warning('Failed to get reviewer(s) from gerrit for Change-Id %s', fixee_changeid)
         emails = git_interface.get_tag_emails_linux_chrome(fixee_kernel_sha)
         if emails:
             reviewers = emails
