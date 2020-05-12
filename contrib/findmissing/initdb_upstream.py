@@ -12,6 +12,7 @@ import logging
 import re
 import subprocess
 import MySQLdb
+import MySQLdb.constants.ER
 import common
 
 
