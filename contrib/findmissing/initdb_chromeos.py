@@ -8,6 +8,7 @@
 """Module rebuilding database with metadata about chromeos patches."""
 
 from __future__ import print_function
+import logging
 import re
 import subprocess
 import MySQLdb
@@ -35,8 +36,8 @@ def update_chrome_table(branch, start, db):
 
     c = db.cursor()
     last = None
-    print('Parsing git logs from %s .. HEAD on branch %s' %
-            (start, common.chromeos_branch(branch)))
+    logging.info('Parsing git logs from %s .. HEAD on branch %s',
+                 start, common.chromeos_branch(branch))
 
     for commit in commits.splitlines():
         if commit:
@@ -71,13 +72,15 @@ def update_chrome_table(branch, start, db):
                         (sha, branch, upstream_sha, patch_id, description)
                         VALUES (%s, %s, %s, %s, %s)"""
                 c.execute(q, [sha, branch, usha, patchid, description])
-                print('Insert into linux_chrome', [sha, branch, usha, patchid, description])
+                logging.info('Insert into linux_chrome %s %s %s %s %s',
+                             sha, branch, usha, patchid, description)
             except MySQLdb.Error as e: # pylint: disable=no-member
-                print('Error in insertion into linux_chrome with values: ',
-                        [sha, branch, usha, patchid, description], e)
+                logging.error(
+                    'Error inserting into linux_chrome with values %s %s %s %s %s: error %d(%s)',
+                    sha, branch, usha, patchid, description, e.args[0], e.args[1])
             except UnicodeDecodeError as e:
-                print('Failed to INSERT stable sha %s with desciption %s'
-                        % (sha, description), e)
+                logging.error('Failed to INSERT stable sha %s with description %s: error %s',
+                              sha, description, e)
 
     # Update previous fetch database
     if last:
