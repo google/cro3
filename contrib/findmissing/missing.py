@@ -8,6 +8,7 @@
 """Find missing stable and backported mainline fix patches in chromeos."""
 
 from __future__ import print_function
+import logging
 import os
 import subprocess
 import sys
@@ -85,7 +86,7 @@ def search_upstream_subject_in_linux_chrome(branch, upstream_sha):
         cmd = ['git', 'log', '--pretty=format:%s', '-n', '1', upstream_sha]
         subject = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
     except subprocess.CalledProcessError:
-        print('Error locating subject line of upstream sha %s' % upstream_sha)
+        logging.error('Error locating subject line of upstream sha %s', upstream_sha)
         raise
 
     try:
@@ -93,7 +94,7 @@ def search_upstream_subject_in_linux_chrome(branch, upstream_sha):
         result = subprocess.check_output(cmd)
         return bool(result)
     except subprocess.CalledProcessError:
-        print('Error while searching for subject line %s in linux_chrome' % subject)
+        logging.error('Error while searching for subject line %s in linux_chrome', subject)
         raise
 
 
@@ -162,7 +163,9 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
                                 entry_time, cl_status, cl_status, reason])
                 db.commit()
             except MySQLdb.Error as e: # pylint: disable=no-member
-                print('Failed to insert an already merged entry into chrome_fixes.', e)
+                logging.error(
+                    'Failed to insert an already merged entry into chrome_fixes: error %d(%s)',
+                    e.args[0], e.args[1])
         return True
 
     return False
@@ -200,8 +203,8 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
         # entry_time and close_time are the same since we weren't tracking when it was merged
         fixedby_kernel_sha = upstream_sha_to_kernel_sha(db, chosen_table,
                 branch, fixedby_upstream_sha)
-        print("""%s SHA [%s] already merged bugfix patch [kernel: %s] [upstream: %s]"""
-                % (chosen_fixes, kernel_sha, fixedby_kernel_sha, fixedby_upstream_sha))
+        logging.info('%s SHA [%s] already merged bugfix patch [kernel: %s] [upstream: %s]',
+                     chosen_fixes, kernel_sha, fixedby_kernel_sha, fixedby_upstream_sha)
 
         reason = 'Patch applied to linux_chrome before this robot was run'
         close_time = entry_time
@@ -216,8 +219,8 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
 
         # Checks if change was created successfully
         if not created_new_change:
-            print('Failed to create change for kernel_sha %s fixed by %s'
-                                    % (kernel_sha, fixedby_upstream_sha))
+            logging.error('Failed to create change for kernel_sha %s fixed by %s',
+                          kernel_sha, fixedby_upstream_sha)
             return False
     elif status == common.Status.CONFLICT:
         # Register conflict entry_time, do not create gerrit CL
@@ -227,15 +230,16 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
     try:
         c.execute(q, [kernel_sha, fixedby_upstream_sha, branch, entry_time,
                         close_time, fix_change_id, cl_status, cl_status, reason])
-        print('Inserted row into fixes table', [chosen_fixes, kernel_sha, fixedby_upstream_sha,
-                        branch, entry_time, entry_time, close_time,
-                        fix_change_id, cl_status, reason])
+        logging.info('Inserted row into fixes table %s %s %s %s %s %s %s %s %s',
+                     chosen_fixes, kernel_sha, fixedby_upstream_sha, branch,
+                     entry_time, close_time, fix_change_id, cl_status, reason)
 
     except MySQLdb.Error as e: # pylint: disable=no-member
-        print('Error inserting fix CL into fixes table',
-                [chosen_fixes, kernel_sha, fixedby_upstream_sha,
-                        branch, entry_time, entry_time, close_time,
-                        fix_change_id, cl_status, reason], e)
+        logging.error(
+            'Error inserting fix CL into fixes table %s %s %s %s %s %s %s %s %s: error %d(%s)',
+            chosen_fixes, kernel_sha, fixedby_upstream_sha, branch,
+            entry_time, close_time, fix_change_id, cl_status, reason,
+            e.args[0], e.args[1])
     return created_new_change
 
 
@@ -300,11 +304,12 @@ def update_fixes_in_branch(db, branch, kernel_metadata, limit):
 
     try:
         c.execute(q, [close_time, reason, branch, branch])
-        print('Updating rows that have been merged into linux_chrome on table/branch',
-                [chosen_fixes, branch])
+        logging.info(
+            'Updating rows that have been merged into linux_chrome in table %s / branch %s',
+            chosen_fixes, branch)
     except MySQLdb.Error as e: # pylint: disable=no-member
-        print('Error updating fixes table for merged commits',
-                [chosen_fixes, close_time, reason, branch, branch], e)
+        logging.error('Error updating fixes table for merged commits %s %s %s %s: %d(%s)',
+                      chosen_fixes, close_time, reason, branch, e.args[0], e.args[1])
     db.commit()
 
     # Sync status of unmerged patches in a branch
@@ -316,7 +321,7 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
     c = db.cursor()
     branch_name = kernel_metadata.get_kernel_branch(branch)
 
-    print('Checking branch %s' % branch_name)
+    logging.info('Checking branch %s', branch_name)
     subprocess.run(['git', 'checkout', branch_name], check=True,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -340,11 +345,11 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
             )""".format(chosen_table=chosen_table, chosen_fixes=chosen_fixes)
     try:
         c.execute(q, [branch, branch])
-        print('Finding new rows to insert into fixes table',
-                [chosen_table, chosen_fixes, branch])
+        logging.info('Finding new rows to insert into fixes table %s %s %s',
+                     chosen_table, chosen_fixes, branch)
     except MySQLdb.Error as e: # pylint: disable=no-member
-        print('Error finding new rows to insert',
-                [chosen_table, chosen_fixes, branch], e)
+        logging.error('Error finding new rows to insert %s %s %s: error %d(%s)',
+                      chosen_table, chosen_fixes, branch, e.args[0], e.args[1])
 
     count_new_changes = 0
     # todo(hirthanan): Create an intermediate state in Status that allows us to
