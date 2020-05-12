@@ -231,7 +231,13 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
             cl_reviewers = get_reviewers(fixee_changeid, branch)
             reviewers = cl_reviewers if cl_reviewers else reviewers
     except requests.exceptions.HTTPError:
-        print('Error getting reviewers from gerrit for fixee_changeid', fixee_changeid)
+        # There is a Change-Id in the commit log, but Gerrit does not have a
+        # matching entry. Fall back to list of e-mails found in tags after
+        # the last "cherry picked" message.
+        print('Failed to get reviewer(s) from gerrit for Change-Id %s' % fixee_changeid)
+        emails = git_interface.get_tag_emails_linux_chrome(fixee_kernel_sha)
+        if emails:
+            reviewers = emails
 
     try:
         # Cherry pick changes and generate commit message indicating fix from upstream
