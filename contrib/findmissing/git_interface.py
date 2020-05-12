@@ -87,6 +87,41 @@ def get_commit_changeid_linux_chrome(kernel_sha):
         return None
 
 
+def get_tag_emails_linux_chrome(sha):
+    """Returns unique list of chromium.org or google.com e-mails.
+
+    The returned lust of e-mails is associated with tags found after
+    the last 'cherry picked from commit' message in the commit identified
+    by sha. Tags and e-mails are found by parsing the commit log.
+
+    sha is expected to be be a commit in linux_stable or in linux_chrome.
+    """
+    absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
+    try:
+        cmd = ['git', '-C', absolute_path, 'log', '--format=%B', '-n', '1', sha]
+        commit_message = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
+        # If the commit has been cherry-picked, use subsequent tags to create
+        # list of reviewers. Otherwise, use all tags. Either case, only return
+        # e-mail addresses from Google domains.
+        s = commit_message.split('cherry picked from commit')
+        tags = 'Signed-off-by|Reviewed-by|Tested-by|Commit-Queue'
+        domains = 'chromium.org|google.com'
+        m = '^(?:%s): .* <(.*@(?:%s))>$' % (tags, domains)
+        emails = re.findall(m, s[-1], re.M)
+        if not emails:
+            # Final fallback: In some situations, "cherry picked from"
+            # is at the very end of the commit description, with no
+            # subsequent tags. If that happens, look for tags in the
+            # entire description.
+            emails = re.findall(m, commit_message, re.M)
+        return list(set(emails))
+    except subprocess.CalledProcessError as e:
+        raise type(e)('Could not retrieve tag e-mails for commit %s' % sha, e.cmd) from e
+    except IndexError:
+        # sha does do not have a recognized tag
+        return None
+
+
 def get_last_commit_sha_linux_chrome():
     """Retrieves the last SHA in linux_chrome repository."""
     chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
