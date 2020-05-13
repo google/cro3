@@ -130,7 +130,7 @@ get_url_to_stdout() {
   # TODO(davidriley): curl options: --speed-time, --speed-limit,
   #   --connect-timeout, --max-time, --retry, --retry-delay, --retry-max-time
   if type wget >/dev/null 2>&1; then
-    wget --progress=dot:giga -S --retry-connrefused -O - "${url}" | \
+    wget --progress=dot:giga -S --tries=1 -O - "${url}" | \
       tee >(md5sum >>"${HASHES_LOG}")
     return "${PIPESTATUS[0]}"
   else
