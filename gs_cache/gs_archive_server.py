@@ -347,11 +347,13 @@ class GsArchiveServer(object):
       The stream of downloaded file.
     """
     path = 'gs://%s' % _check_file_extension('/'.join(args))
+    content = None
 
-    _log('Downloading %s', path, level=logging.INFO)
     try:
       stat = self._gsutil.Stat(path)
-      content = self._gsutil.StreamingCat(path)
+      if cherrypy.request.method == 'GET':
+        _log('Downloading %s', path, level=logging.INFO)
+        content = self._gsutil.StreamingCat(path)
     except gs.GSNoSuchKey as err:
       raise cherrypy.HTTPError(httplib.NOT_FOUND, err.message)
     except gs.GSCommandError as err:
@@ -367,7 +369,6 @@ class GsArchiveServer(object):
         'Accept-Ranges': 'bytes',
         'Content-Length': stat.content_length,
     })
-    _log('Download complete.')
 
     return content
 
