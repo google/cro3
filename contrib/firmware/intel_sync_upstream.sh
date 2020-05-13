@@ -3,6 +3,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+SOC_LIST=(tgl jsl)
+declare -A SOC_EDK_LOCAL_DIR_MAP=( ["tgl"]="branch2-private" ["jsl"]="branch1-private" )
+
 function die()
 {
   if [ $1 -ne 0 ]; then
@@ -15,28 +18,33 @@ function die()
 function usage()
 {
   echo "Error: missing parameter."
-  echo "Usage: $0 [fsp|edk2|edk2-platforms] version_string"
-  echo "Example: $0 fsp 'TGL.2527_17'"
+  echo "Usage: $0 SOC [fsp|edk2|edk2-platforms] version_string"
+  echo "Example: $0 tgl fsp 'TGL.2527_17'"
   exit -42
 }
 
 # Verify param count
-if [ "$#" -ne "2" ]; then
+if [ "$#" -ne "3" ]; then
   usage
 fi;
-DIR="$1"
-VERSION="$2"
+SOC="$1"
+DIR="$2"
+VERSION="$3"
+
+if [[ ! "${SOC_LIST[*]}" =~ ${SOC} ]]; then
+  die 1 "SoC is not supported"
+fi
 
 case $DIR in
   fsp)
-    STAGING_PREFIX="tgl"
+    STAGING_PREFIX=${SOC}
     CHROMEOS_BRANCH=chromeos
     ;;
 
   edk2 | edk2-platforms)
     STAGING_PREFIX=$DIR
-    LOCAL_DIR=branch2-private
-    CHROMEOS_BRANCH=chromeos-tgl-$LOCAL_DIR
+    LOCAL_DIR="${SOC_EDK_LOCAL_DIR_MAP[${SOC}]}"
+    CHROMEOS_BRANCH=chromeos-${SOC}-$LOCAL_DIR
     ;;
 
   *)
@@ -60,8 +68,8 @@ if [ -z "${CHROMIUM_TOT_ROOT}" ]; then
 fi
 
 # Clone the repo where the staging changes need to be pushed
-pushd "${CHROMIUM_TOT_ROOT}/src/third_party/fsp/tgl/$DIR/$LOCAL_DIR" > /dev/null
-die $? "Can't find ${CHROMIUM_TOT_ROOT}/src/third_party/fsp/tgl/$DIR/$LOCAL_DIR"
+pushd "${CHROMIUM_TOT_ROOT}/src/third_party/fsp/${SOC}/$DIR/$LOCAL_DIR" > /dev/null
+die $? "Can't find ${CHROMIUM_TOT_ROOT}/src/third_party/fsp/${SOC}/$DIR/$LOCAL_DIR"
 
 # Add staging repo as remote repo to my local repo
 git remote add ${STAGING_PREFIX}-staging https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/${STAGING_PREFIX}-staging
