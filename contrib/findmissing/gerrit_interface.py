@@ -229,7 +229,8 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
     try:
         if fixee_changeid:
             cl_reviewers = get_reviewers(fixee_changeid, branch)
-            reviewers = cl_reviewers if cl_reviewers else reviewers
+            if cl_reviewers:
+                reviewers = cl_reviewers
     except requests.exceptions.HTTPError:
         # There is a Change-Id in the commit log, but Gerrit does not have a
         # matching entry. Fall back to list of e-mails found in tags after
