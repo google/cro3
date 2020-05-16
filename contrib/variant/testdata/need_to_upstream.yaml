@@ -40,9 +40,30 @@ commits:
     cl_number: '1648602'
     dir: /mnt/host/source/src/platform/ec
     gerrit: chromium
+config_emerge_pkgs:
+- chromeos-config-bsp
+- chromeos-config
+- chromeos-config-bsp-hatch
+- chromeos-config-bsp-hatch-private
+config_workon_pkgs:
+- chromeos-config
+- chromeos-config-bsp-hatch-private
 coreboot_dir: third_party/coreboot
 coreboot_push_list:
 - cb_variant
+depends:
+  add_priv_yaml:
+  - add_pub_yaml
+  - cb_config
+  - commit_fit
+  - ec_image
+  add_pub_yaml:
+  - add_priv_yaml
+  - cb_config
+  - commit_fit
+  - ec_image
+  cb_config:
+  - find
 emerge_cmd: emerge-hatch
 emerge_pkgs:
 - coreboot
@@ -59,7 +80,7 @@ emerge_pkgs:
 - coreboot-private-files
 - coreboot-private-files-hatch
 - chromeos-bootimage
-fitimage_cmd: ./gen_fit_image.sh %s <path_to_fit_kit> [-b]
+fitimage_cmd: ./gen_fit_image.sh %s <path_to_fit_kit> -b
 fitimage_dir: private-overlays/baseboard-hatch-private/sys-boot/coreboot-private-files-hatch
 fitimage_pkg: coreboot-private-files-hatch
 fsp: intel-cmlfsp
@@ -86,9 +107,4 @@ workon_pkgs:
 - intel-cmlfsp
 - coreboot-private-files-hatch
 - chromeos-ec
-- chromeos-config-bsp-hatch-private
-yaml_emerge_pkgs:
-- chromeos-config-bsp
-- chromeos-config
-- chromeos-config-bsp-hatch
 - chromeos-config-bsp-hatch-private
