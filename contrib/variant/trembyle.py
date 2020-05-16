@@ -15,13 +15,12 @@ base = 'zork'
 # List of steps (named in step_names.py) to run in sequence to create
 # the new variant of the baseboard
 step_list = [
+    step_names.PROJECT_CONFIG,
     step_names.CB_VARIANT,
     step_names.CB_CONFIG,
     step_names.CRAS_CONFIG,
     step_names.EC_IMAGE,
     step_names.EC_BUILDALL,
-    step_names.ADD_PRIV_YAML,
-    step_names.BUILD_CONFIG,
     step_names.EMERGE,
     step_names.UPLOAD,
     step_names.CALC_CQ_DEPEND,
@@ -57,7 +56,7 @@ emerge_cmd = 'emerge-zork'
 emerge_pkgs = [
     'coreboot-zork', 'vboot_reference',
     'chromeos-ec', 'chromeos-config-bsp-zork-private',
-    'chromeos-config', 'chromeos-config-bsp', 'chromeos-config-bsp-zork',
+    'chromeos-config', 'chromeos-config-bsp',
     'coreboot-private-files', 'chromeos-bootimage']
 
 # List of packages to cros_workon to build the project config
@@ -66,7 +65,7 @@ config_workon_pkgs = ['chromeos-config', 'chromeos-config-bsp-zork-private']
 # List of packages to emerge to build the project config
 config_emerge_pkgs = [
     'chromeos-config-bsp', 'chromeos-config',
-    'chromeos-config-bsp-zork', 'chromeos-config-bsp-zork-private']
+    'chromeos-config-bsp-zork-private']
 
 # Directory for the private yaml file
 private_yaml_dir = '~/trunk/src/private-overlays/overlay-zork-private/'\

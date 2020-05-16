@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.2.2"
+VERSION="1.2.3"
 SCRIPT=$(basename -- "${0}")
 
 export LC_ALL=C
@@ -39,11 +39,6 @@ BASE_UPPER="${BASE^^}"
 BUG=${3:-None}
 
 YAML=model.yaml
-
-if [[ "${BASE}" == "zork" ]]; then
-  echo "Zork does not need changes to public yaml, exiting ..."
-  exit 0
-fi
 
 cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-config-bsp-${BASE}/files" || exit 1
 
