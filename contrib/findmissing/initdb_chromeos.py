@@ -12,6 +12,7 @@ import logging
 import re
 import subprocess
 import MySQLdb
+import MySQLdb.constants.ER
 import common
 
 
@@ -75,12 +76,18 @@ def update_chrome_table(branch, start, db):
                 logging.info('Insert into linux_chrome %s %s %s %s %s',
                              sha, branch, usha, patchid, description)
             except MySQLdb.Error as e: # pylint: disable=no-member
-                logging.error(
-                    'Error inserting into linux_chrome with values %s %s %s %s %s: error %d(%s)',
-                    sha, branch, usha, patchid, description, e.args[0], e.args[1])
+                # We'll see duplicates if the last commit handled previously was
+                # the tip of a merge. In that case, all commits from the tail of
+                # that merge up to the time when it was integrated will be handled
+                # again. Let's ignore that situation.
+                if e.args[0] != MySQLdb.constants.ER.DUP_ENTRY:
+                    logging.error(
+                        'Error inserting [%s %s %s %s %s] into linux_chrome: error %d (%s)',
+                        sha, branch, usha, patchid, description, e.args[0], e.args[1])
             except UnicodeDecodeError as e:
-                logging.error('Failed to INSERT stable sha %s with description %s: error %s',
-                              sha, description, e)
+                logging.error(
+                        'Unicode error inserting [%s %s %s %s %s] into linux_chrome: error %s',
+                        sha, branch, usha, patchid, description, e)
 
     # Update previous fetch database
     if last:
