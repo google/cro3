@@ -31,9 +31,8 @@ def update_chrome_table(branch, start, db):
     subprocess.run(['git', 'checkout', common.chromeos_branch(branch)], check=True)
     subprocess.run(['git', 'pull'], check=True)
 
-    subprocess_cmd = ['git', 'log', '--no-merges', '--abbrev=12',
-                      '--oneline', '--reverse', '%s..' % start]
-    commits = subprocess.check_output(subprocess_cmd, encoding='utf-8', errors='ignore')
+    cmd = ['git', 'log', '--abbrev=12', '--oneline', '--reverse', '%s..' % start]
+    commits = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
 
     c = db.cursor()
     last = None
@@ -46,6 +45,15 @@ def update_chrome_table(branch, start, db):
             sha = elem[0]
 
             description = elem[1].rstrip('\n')
+
+            # Always mark as handled since we don't want to look at this commit again
+            last = sha
+
+            # Nothing else to do if the commit is a merge
+            l = subprocess.check_output(['git', 'rev-list', '--parents', '-n', '1', sha],
+                                        encoding='utf-8', errors='ignore')
+            if len(l.split(' ')) > 2:
+                continue
 
             ps = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
             spid = subprocess.check_output(['git', 'patch-id', '--stable'],
@@ -61,8 +69,6 @@ def update_chrome_table(branch, start, db):
 
             if stable_found:
                 continue
-
-            last = sha
 
             usha = None
             if not CHROMIUM.match(description):
