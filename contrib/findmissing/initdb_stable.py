@@ -23,8 +23,8 @@ def update_stable_table(branch, start, db):
     cursor = db.cursor()
 
     # Pull latest changes in repository
-    subprocess.check_output(['git', 'checkout', common.stable_branch(branch)])
-    subprocess.check_output(['git', 'pull'])
+    subprocess.check_output(['git', 'checkout', '-q', common.stable_branch(branch)])
+    subprocess.check_output(['git', 'pull', '-q'])
 
     cmd = ['git', 'log', '--no-merges', '--abbrev=12', '--oneline',
                  '--reverse', '%s..' % start]
