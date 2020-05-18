@@ -45,8 +45,7 @@ def update_upstream_table(branch, start, db):
     subprocess.check_output(['git', 'pull'])
 
     logging.info('Loading all linux-upstream commit logs from %s', start)
-    cmd = ['git', 'log', '--abbrev=12', '--oneline',
-            '--no-merges', '--reverse', start + '..HEAD']
+    cmd = ['git', 'log', '--abbrev=12', '--oneline', '--reverse', start + '..HEAD']
     commits = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
 
     fixes = []
@@ -58,6 +57,12 @@ def update_upstream_table(branch, start, db):
             elem = commit.split(' ', 1)
             sha = elem[0]
             last = sha
+
+            # Nothing else to do if the commit is a merge
+            l = subprocess.check_output(['git', 'rev-list', '--parents', '-n', '1', sha],
+                                        encoding='utf-8', errors='ignore')
+            if len(l.split(' ')) > 2:
+                continue
 
             description = elem[1].rstrip('\n')
 
@@ -78,7 +83,7 @@ def update_upstream_table(branch, start, db):
                 # due to git idiosyncrasies (non-linearity).
                 if e.args[0] != MySQLdb.constants.ER.DUP_ENTRY:
                     logging.error(
-                        'Issue inserting sha "%s", description "%s", patch_id "%s": error %d(%s)',
+                        'Issue inserting sha "%s", description "%s", patch_id "%s": error %d (%s)',
                         sha, description, patch_id, e.args[0], e.args[1])
                 continue
             except UnicodeEncodeError as e:
@@ -133,7 +138,7 @@ def update_upstream_table(branch, start, db):
             cursor.execute(q, [fix.upstream_sha, fix.fixedby_upstream_sha])
         except MySQLdb.IntegrityError as e: # pylint: disable=no-member
             # TODO(hirthanan): Email mailing list that one of usha or fix_usha is missing
-            logging.error('CANNOT FIND commit %s fixed by %s: error %d(%s)',
+            logging.error('CANNOT FIND commit %s fixed by %s: error %d (%s)',
                     fix.upstream_sha, fix.fixedby_upstream_sha, e.args[0], e.args[1])
 
     # Update previous fetch database
