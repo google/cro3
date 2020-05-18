@@ -34,11 +34,10 @@ import tempfile
 import urllib
 import urlparse
 
-import cherrypy
 import requests
+import cherrypy
 
 import constants
-import range_response
 import tarfile_utils
 from chromite.lib import cros_logging as logging
 from chromite.lib import gs
@@ -115,18 +114,13 @@ def _safe_get_param(all_params, param_name):
   Raises:
     Raise HTTP 400 error if no valid parameter in |all_params|.
   """
-  result = set()
   try:
     value = all_params[param_name]
   except KeyError:
     raise cherrypy.HTTPError(httplib.BAD_REQUEST,
                              'Parameter "%s" is required!' % param_name)
 
-  if isinstance(value, list):
-    result |= set(value)
-  else:
-    result.add(value)
-  return result
+  return set(value) if isinstance(value, list) else {value}
 
 
 def _to_cherrypy_error(func):
@@ -148,20 +142,19 @@ def _to_cherrypy_error(func):
   return func_wrapper
 
 
-def _search_lines_by_pattern(all_lines, patterns):
+def _search_lines_by_pattern(all_lines, pattern):
   """Search plain text lines which matches one of shell style glob |patterns|.
 
   Args:
     all_lines: A list or an iterable object of all plain text lines to be
       searched.
-    patterns: A list of pattern that the target lines matched.
+    pattern: A pattern that the target lines matched.
 
   Returns:
     A set of found lines.
   """
   found_lines = set()
-  for pattern in patterns:
-    found_lines |= set(fnmatch.filter(all_lines, pattern))
+  found_lines |= set(fnmatch.filter(all_lines, pattern))
 
   return found_lines
 
@@ -257,6 +250,10 @@ class _CachingServer(object):
   def list_member(self, path, headers=None):
     """Call list_member RPC."""
     return self._call('list_member', path, headers=headers)
+
+
+class GsArchiveServerError(Exception):
+  """Standard exception class for GsArchiveServer."""
 
 
 class GsArchiveServer(object):
@@ -412,7 +409,10 @@ class GsArchiveServer(object):
         '/'.join(args),
         ext_names=['.tar', '.tar.gz', '.tgz', '.tar.bz2', '.tar.xz'])
     files = _safe_get_param(kwargs, 'file')
-    _log('Extracting "%s" from "%s".', files, archive)
+    if len(files) != 1:
+      raise GsArchiveServerError('Cannot extract more than one file at a time.')
+    file_to_be_extracted = files.pop()
+    _log('Extracting "%s" from "%s".', file_to_be_extracted, archive)
     archive_basename, archive_extname = os.path.splitext(archive)
 
     headers = cherrypy.request.headers.copy()
@@ -434,29 +434,26 @@ class GsArchiveServer(object):
       else:
         decompressed_archive_name = archive_basename
 
-    return self._extract_files_from_tar(files, decompressed_archive_name,
-                                        headers)
+    return self._extract_file_from_tar(file_to_be_extracted,
+                                       decompressed_archive_name, headers)
 
-  def _extract_files_from_tar(self, files, archive, headers=None):
-    """Extract files from |archive| with http headers |headers|."""
+  def _extract_file_from_tar(self, target_file, archive, headers=None):
+    """Extract file from |archive| with http headers |headers|."""
     # Call `list_member` and search |filename| in it. If found, create another
     # "Range Request" to download that range of bytes.
 
     all_files = self._caching_server.list_member(archive, headers=headers)
 
-    # The format of each line is '<filename>,<data1>,<data2>...'. And the
-    # filename is encoded by URL percent encoding, so no ',' in it. Thus
-    # we can match the line using the pattern of '<input pattern>,*'
-    target_files = ['%s,*' % urllib.unquote(f) for f in files]
-
     # Loading the file list into memory doesn't consume too much memory (usually
     # just a few MBs), but which is very helpful for us to search.
     found_lines = _search_lines_by_pattern(
         list(all_files.iter_lines(chunk_size=constants.READ_BUFFER_SIZE_BYTES)),
-        target_files
+        '%s,*' % target_file
     )
     if not found_lines:
-      return '{}'
+      _log('No matching files found for %s.', target_file,
+           level=logging.WARNING)
+      yield None
 
     # Too many ranges may result in error of 'request header too long'. So we
     # split the files into chunks and request one by one.
@@ -466,14 +463,11 @@ class GsArchiveServer(object):
          for line in found_lines],
         _MAX_RANGES_PER_REQUEST)
 
-    streamer = range_response.JsonStreamer()
     for part_of_found_files in found_files:
       ranges = [(int(f.content_start), int(f.content_start) + int(f.size) - 1)
                 for f in part_of_found_files]
       rsp = self._send_range_request(archive, ranges, headers)
-      streamer.queue_response(rsp, part_of_found_files)
-
-    return streamer.stream()
+      yield rsp.content
 
   def _send_range_request(self, archive, ranges, headers):
     """Create and send a "Range Request" to caching server.
