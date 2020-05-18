@@ -28,8 +28,8 @@ def update_chrome_table(branch, start, db):
         entire commit log on each run.
     Skip commit if it is contained in the linux stable db, add to linux_chrome
     """
-    subprocess.run(['git', 'checkout', common.chromeos_branch(branch)], check=True)
-    subprocess.run(['git', 'pull'], check=True)
+    subprocess.run(['git', 'checkout', '-q', common.chromeos_branch(branch)], check=True)
+    subprocess.run(['git', 'pull', '-q'], check=True)
 
     cmd = ['git', 'log', '--abbrev=12', '--oneline', '--reverse', '%s..' % start]
     commits = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
