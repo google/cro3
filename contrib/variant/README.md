@@ -1,5 +1,7 @@
 # Creating Firmware for a New Variant of a Baseboard
 
+[TOC]
+
 Contact `chromeos-scale-taskforce@google.com` for questions.
 
 # Background
