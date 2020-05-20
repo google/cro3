@@ -312,6 +312,67 @@ INFO:root:Running step re_upload
 INFO:root:Running step clean_up
 ```
 
+## New variant of Zork
+
+The Zork baseboard has two reference boards: Trembyle and Dalboz. This example
+will show creation of a variant of Trembyle, but the process for Dalboz is
+identical except for the name.
+
+Zork uses the new per-project configuration repository (in
+src/project/zork/${VARIANT}).
+
+A new variant for Zork involves the following steps:
+1. Build project configuration and verify new variant exists
+2. Create coreboot variant
+3. Create coreboot configuration
+4. Create the CRAS (ChromeOS Audio Server) configuration
+5. Create EC image
+6. Build firmware image for new variant
+
+### Per-project configuration repository
+
+A gerrit administrator must create the project configuration repository before
+you can begin the process to create a new variant of Zork. Please file a bug
+in [Infra > ChromeOS > Product > Device](https://bugs.chromium.org/p/chromium/issues/list?q=component:Infra%3EChromeOS%3EProduct%3EDevice)
+to have the project configuration updated.
+
+This example shows how to create the "Grue" variant of the Trembyle
+reference board. Note that there is no project configuration repository
+for grue, but this example proceeds as if it does exist.
+
+### Create the new variant and upload the CLs
+
+```
+(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ ./new_variant.py --board=trembyle --variant=grue --bug=b:12345
+[... the project config builds (using emerge) ... ]
+[... messages about creating a new coreboot variant ...]
+[... messages about creating a new coreboot configuration ...]
+[... messages about creating a new CRAS configuration ...]
+[... the EC code builds ...]
+[... the firmware boot image builds (using emerge) ...]
+INFO:root:Running step upload_CLs
+INFO:root:Running step calc_cq_depend
+INFO:root:Running step add_cq_depend
+INFO:root:Running step re_upload
+INFO:root:Running step clean_up
+```
+
+Because Zork is using a firmware branch in coreboot (trembyle-bringup), there
+is no need to exit the program and ask the user to push the coreboot variant
+to review.coreboot.org. The coreboot CL can be directly uploaded to the
+chromium gerrit instance. This will of course change when the trembyle-bringup
+branch is merged into coreboot upstream. (TODO b/157570490)
+
+### Using Dalboz as the reference board
+
+Note that using Dalboz as the reference board only requires using
+`--board=dalboz` instead of `--board=trembyle`:
+
+```
+./new_variant.py --board=dalboz --variant=grue --bug=b:12345
+```
+
 # Additional Information
 
 ## Program state
