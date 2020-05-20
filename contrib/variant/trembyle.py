@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Define steps, package names, and directories for creating a Trembyle variant
+"""Define steps, package names, and directories for creating a Zork variant
 
 Copyright 2020 The Chromium OS Authors. All rights reserved.
 Use of this source code is governed by a BSD-style license that can be

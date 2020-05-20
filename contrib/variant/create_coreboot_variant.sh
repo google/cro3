@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="3.0.0"
+VERSION="4.0.0"
 SCRIPT="$(basename -- "$0")"
 
 if [[ -z "${CB_SRC_DIR}" ]]; then
@@ -52,8 +52,8 @@ pushd "${BASH_SOURCE%/*}"
 SRC=$(pwd)
 popd
 
-# The template files are in ${CB_SRC_DIR}/util/mainboard/google/${BASE}/template
-TEMPLATE="${CB_SRC_DIR}/util/mainboard/google/${BASE}/template"
+# The template files are in ${CB_SRC_DIR}/util/mainboard/google/${REFERENCE}/template
+TEMPLATE="${CB_SRC_DIR}/util/mainboard/google/${REFERENCE}/template"
 
 # We need to create files in ${CB_SRC_DIR}/src/mainboard/google/${BASE}/variants/${VARIANT}
 if [[ ! -e "${CB_SRC_DIR}/src/mainboard/google/${BASE}" ]]; then
