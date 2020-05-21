@@ -32,7 +32,8 @@ def main(argv):
     """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--board', type=str, required=True,
-                        choices=('hatch', 'volteer', 'trembyle', 'dalboz'),
+                        choices=('hatch', 'volteer', 'trembyle', 'dalboz',
+                                 'waddledee', 'waddledoo'),
                         help='Name of the baseboard')
     parser.add_argument('--variant', type=str, required=True,
                         help='Name of the board variant')
@@ -135,6 +136,21 @@ def add_to_kconfig_name(baseboard_name, variant_name):
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
             print('\tbool "-> ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_DALBOZ', file=outfile)
+        elif baseboard_name == 'waddledee':
+            print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
+            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE', file=outfile)
+            print('\tselect BASEBOARD_DEDEDE_LAPTOP', file=outfile)
+            print('\tselect BOARD_ROMSIZE_KB_32768', file=outfile)
+        elif baseboard_name == 'waddledoo':
+            print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
+            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE', file=outfile)
+            print('\tselect BASEBOARD_DEDEDE_LAPTOP', file=outfile)
+            print('\tselect BOARD_ROMSIZE_KB_32768', file=outfile)
+            print('\tselect DRIVERS_GENERIC_MAX98357A', file=outfile)
+            print('\tselect DRIVERS_I2C_DA7219', file=outfile)
+            print('\tselect VARIANT_HAS_CAMERA_ACPI', file=outfile)
         else:
             raise ValueError(f'Unsupported board {baseboard_name}')
 
