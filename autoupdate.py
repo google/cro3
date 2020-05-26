@@ -101,6 +101,9 @@ class Autoupdate(object):
     """Returns the devserver url base."""
     x_forwarded_host = cherrypy.request.headers.get('X-Forwarded-Host')
     if x_forwarded_host:
+      # Select the left most <ip>:<port> value so that the request is
+      # forwarded correctly.
+      x_forwarded_host = [x.strip() for x in x_forwarded_host.split(',')][0]
       hostname = 'http://' + x_forwarded_host
     else:
       hostname = cherrypy.request.base
