@@ -15,6 +15,25 @@ import common
 
 DEFAULT_MERGED_REASON = 'Fix merged into linux chrome'
 
+
+def upstream_fixes_for_shas(db, upstream_shas):
+    """Returns list of fixer sha's for a given upstream sha.
+
+    TODO(*): remove this after build_ordered_fixes_table_map moved to SQL CTE
+    Note: above todo is blocked by migration to MySQL 5.7, once upgraded then we can switch
+    """
+    upstream_shas = ["\'" + sha + "\'" for sha in upstream_shas]
+    c = db.cursor()
+
+    # format string here since we are inserting n elements
+    q = """SELECT fixedby_upstream_sha
+            FROM upstream_fixes
+            WHERE upstream_sha IN ({})""".format(', '.join(upstream_shas))
+    c.execute(q)
+
+    return [a[0] for a in c.fetchall()]
+
+
 def get_fixes_table_primary_key(db, fixes_table, fix_change_id):
     """Retrieves the primary keys from a fixes table using changeid."""
     c = db.cursor(MySQLdb.cursors.DictCursor)
