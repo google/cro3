@@ -29,8 +29,10 @@ from __future__ import print_function
 import argparse
 import re
 import MySQLdb
+
 import common
 import git_interface
+import missing
 import synchronize
 import util
 
@@ -188,6 +190,24 @@ def report_integration_status_branch(db, metadata, handled_shas, branch, conflic
                 merge_base = 'v%s' % affected_branch
                 branch_name = branch_name_pattern % affected_branch
                 report_integration_status_sha(metadata.path, merge_base, branch_name, fixedby_sha)
+
+        # Check if this commit has been fixed as well and, if so, report it
+        subsequent_fixes = missing.get_subsequent_fixes(db, fixedby_sha)
+        # remove initial fix
+        subsequent_fixes.pop(0)
+        if subsequent_fixes:
+            subsequent_fixes = ["\'" + sha + "\'" for sha in subsequent_fixes]
+            parsed_fixes = ', '.join(subsequent_fixes)
+            # format query here since we are inserting n values
+            q = """SELECT sha, description
+                   FROM linux_upstream
+                   WHERE sha in ({})
+                   ORDER BY FIELD(sha, {})""".format(parsed_fixes, parsed_fixes)
+            c.execute(q)
+            fixes = c.fetchall()
+            print('    Fixed by:')
+            for fix in fixes:
+                print('      %s ("%s")' % fix)
 
 
 @util.cloud_sql_proxy_decorator
