@@ -195,7 +195,7 @@ def search_subject_in_branch(merge_base, sha):
         raise
 
     try:
-        cmd = ['git', 'log', '--no-merges', '--grep', subject,
+        cmd = ['git', 'log', '--no-merges', '-F', '--grep', subject,
                '%s..' % merge_base]
         result = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
         return bool(result)
