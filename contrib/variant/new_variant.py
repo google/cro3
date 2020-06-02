@@ -298,13 +298,13 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     if continue_flag or abort_flag:
         if status.yaml_file_exists():
             return status
-        else:
-            if continue_flag:
-                op = '--continue'
-            if abort_flag:
-                op = '--abort'
-            logging.error('%s does not exist; cannot %s', status.yaml_file, op)
-            return None
+
+        if continue_flag:
+            op = '--continue'
+        if abort_flag:
+            op = '--abort'
+        logging.error('%s does not exist; cannot %s', status.yaml_file, op)
+        return None
 
     # If we get here, the user provided --board and --variant (because
     # check_flags() returned Trued), but the yaml file already exists,
@@ -333,14 +333,14 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     # Allow extra spaces around = so that we can line things up nicely
     status.base                 = module.base
     status.coreboot_dir         = module.coreboot_dir
-    status.cb_config_dir        = module.cb_config_dir
+    status.cb_config_dir        = getattr(module, 'cb_config_dir', None)
     status.emerge_cmd           = module.emerge_cmd
     status.emerge_pkgs          = module.emerge_pkgs
-    status.fitimage_dir         = module.fitimage_dir
-    status.fitimage_pkg         = module.fitimage_pkg
-    status.fitimage_cmd         = module.fitimage_cmd
-    status.fsp                  = module.fsp
-    status.private_yaml_dir     = module.private_yaml_dir
+    status.fitimage_dir         = getattr(module, 'fitimage_dir', None)
+    status.fitimage_pkg         = getattr(module, 'fitimage_pkg', None)
+    status.fitimage_cmd         = getattr(module, 'fitimage_cmd', None)
+    status.fsp                  = getattr(module, 'fsp', None)
+    status.private_yaml_dir     = getattr(module, 'private_yaml_dir', None)
     status.step_list            = module.step_list
     status.workon_pkgs          = module.workon_pkgs
     status.config_workon_pkgs   = module.config_workon_pkgs
@@ -1056,7 +1056,7 @@ def push_coreboot(status):
     rc = True
 
     for commit_key in status.coreboot_push_list:
-        logging.debug(f'Processing key {commit_key}')
+        logging.debug('Processing key %s', commit_key)
         commit = status.commits[commit_key]
         if 'gerrit' not in commit or 'cl_number' not in commit:
             change_id = commit['change_id']
@@ -1064,7 +1064,7 @@ def push_coreboot(status):
             if cl is not None:
                 save_cl_data(status, commit_key, cl)
             else:
-                logging.debug(f'Not found {change_id}, need to upload')
+                logging.debug('Not found %s, need to upload', change_id)
                 logging.error('The following commit needs to be pushed to coreboot.org:')
                 logging.error('  Branch "%s"', commit['branch_name'])
                 logging.error('  in directory "%s"', commit['dir'])
@@ -1077,7 +1077,7 @@ def push_coreboot(status):
         else:
             instance_name = commit['gerrit']
             cl_number = commit['cl_number']
-            logging.debug(f'Already uploaded ({instance_name}, {cl_number})')
+            logging.debug('Already uploaded (%s, %s)', instance_name, cl_number)
 
     return rc
 
@@ -1219,7 +1219,7 @@ def upload_CLs(status):
     logging.info('Running step upload_CLs')
 
     for commit_key in status.repo_upload_list:
-        logging.debug(f'Processing key {commit_key}')
+        logging.debug('Processing key %s', commit_key)
         commit = status.commits[commit_key]
         if 'gerrit' not in commit or 'cl_number' not in commit:
             change_id = commit['change_id']
@@ -1227,7 +1227,7 @@ def upload_CLs(status):
             if cl is not None:
                 save_cl_data(status, commit_key, cl)
             else:
-                logging.debug(f'Not found {change_id}, need to upload')
+                logging.debug('Not found %s, need to upload', change_id)
                 if not repo_upload(commit['branch_name'], commit['dir']):
                     logging.error('Repo upload %s in %s failed!',
                                   commit['branch_name'],
@@ -1235,14 +1235,14 @@ def upload_CLs(status):
                     return False
                 cl = find_change_id(change_id)
                 if cl is None:
-                    logging.error(f'repo upload {commit_key} succeeded, ' \
-                        'but change_id is not found!')
+                    logging.error('repo upload %s succeeded, but change_id is not found!',
+                                  commit_key)
                     return False
                 save_cl_data(status, commit_key, cl)
         else:
             instance_name = commit['gerrit']
             cl_number = commit['cl_number']
-            logging.debug(f'Already uploaded ({instance_name}, {cl_number})')
+            logging.debug('Already uploaded (%s, %s)', instance_name, cl_number)
 
     return True
 
@@ -1279,7 +1279,7 @@ def find_coreboot_upstream(status):
         if 'gerrit' in commit and 'cl_number' in commit:
             instance_name = commit['gerrit']
             cl_number = commit['cl_number']
-            logging.debug(f'Already found ({instance_name}, {cl_number})')
+            logging.debug('Already found (%s, %s)', instance_name, cl_number)
             return True
 
     # Make sure we have a CB_VARIANT commit and a change_id for it

@@ -35,9 +35,6 @@ step_list = [
 # Base directory for coreboot
 coreboot_dir = 'third_party/coreboot'
 
-# Base directory for coreboot configs (None=use default)
-cb_config_dir = None
-
 # Package name for FSP
 fsp = 'intel-tglfsp'
 
@@ -71,10 +68,6 @@ config_workon_pkgs = ['chromeos-config-bsp-volteer-private']
 
 # List of packages to emerge to build the project config
 config_emerge_pkgs = ['chromeos-config-bsp-volteer-private']
-
-# Directory for the private yaml file
-# None; volteer doesn't use model.yaml
-private_yaml_dir = None
 
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [

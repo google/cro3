@@ -37,9 +37,6 @@ step_list = [
 # Base directory for coreboot
 coreboot_dir = 'third_party/coreboot'
 
-# Base directory for coreboot configs (None=use default)
-cb_config_dir = None
-
 # Package name for FSP
 fsp = 'intel-cmlfsp'
 
@@ -65,7 +62,7 @@ emerge_pkgs = [
     'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
     fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-hatch-private',
     'chromeos-config', 'chromeos-config-bsp', 'chromeos-config-bsp-hatch',
-    'coreboot-private-files', fitimage_pkg, 'chromeos-bootimage']
+    'coreboot-private-files', 'chromeos-bootimage']
 
 # List of packages to cros_workon to build the project config
 config_workon_pkgs = ['chromeos-config', 'chromeos-config-bsp-hatch-private']

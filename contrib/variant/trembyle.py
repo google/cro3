@@ -34,18 +34,6 @@ coreboot_dir = 'third_party/coreboot-zork'
 # Base directory for coreboot configs (None=use default)
 cb_config_dir = 'overlays/overlay-zork/sys-boot/coreboot-zork/files/configs'
 
-# Package name for FSP
-fsp = None
-
-# Package name for the fitimage (None, because Zork doesn't use FIT)
-fitimage_pkg = None
-
-# Directory for fitimage (None, because Zork doesn't use FIT)
-fitimage_dir = None
-
-# Explanation of gen_fit_image command (None, because Zork doesn't use FIT)
-fitimage_cmd = None
-
 # List of packages to cros_workon
 workon_pkgs = ['coreboot-zork', 'chromeos-ec', 'chromeos-config-bsp-zork-private']
 
@@ -67,14 +55,10 @@ config_emerge_pkgs = [
     'chromeos-config-bsp', 'chromeos-config',
     'chromeos-config-bsp-zork-private']
 
-# Directory for the private yaml file
-private_yaml_dir = '~/trunk/src/private-overlays/overlay-zork-private/'\
-    'chromeos-base/chromeos-config-bsp-zork-private'
-
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [
     step_names.CB_VARIANT, step_names.CB_CONFIG,
-    step_names.CRAS_CONFIG, step_names.EC_IMAGE, step_names.ADD_PRIV_YAML]
+    step_names.CRAS_CONFIG, step_names.EC_IMAGE]
 
 # List of commits that will be pushed to review.coreboot.org
 coreboot_push_list = None
