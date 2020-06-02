@@ -33,7 +33,7 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--board', type=str, required=True,
                         choices=('hatch', 'volteer', 'trembyle', 'dalboz',
-                                 'waddledee', 'waddledoo'),
+                                 'waddledee', 'waddledoo', 'puff'),
                         help='Name of the baseboard')
     parser.add_argument('--variant', type=str, required=True,
                         help='Name of the board variant')
@@ -151,6 +151,10 @@ def add_to_kconfig_name(baseboard_name, variant_name):
             print('\tselect DRIVERS_GENERIC_MAX98357A', file=outfile)
             print('\tselect DRIVERS_I2C_DA7219', file=outfile)
             print('\tselect VARIANT_HAS_CAMERA_ACPI', file=outfile)
+        elif baseboard_name == 'puff':
+            print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
+            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tselect BOARD_GOOGLE_BASEBOARD_PUFF', file=outfile)
         else:
             raise ValueError(f'Unsupported board {baseboard_name}')
 

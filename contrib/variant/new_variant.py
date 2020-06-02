@@ -219,6 +219,9 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     * base - the name of the base board, such as Hatch, Volteer, or Zork.
         This can be different from the reference board, e.g. the Trembyle
         reference board in the Zork project.
+    * coreboot_base - the name of the base board in coreboot. Usually the same
+        as base, but can differ, e.g. for Puff, the base is Puff, but the
+        coreboot_base is Hatch because Puff is based on Hatch.
     * coreboot_dir - base directory for coreboot, usually third_party/coreboot
         but could differ for processors that use a private repo
     * cb_config_dir - base directory for coreboot configs, usually
@@ -332,6 +335,7 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     # pylint: disable=bad-whitespace
     # Allow extra spaces around = so that we can line things up nicely
     status.base                 = module.base
+    status.coreboot_base        = getattr(module, 'coreboot_base', module.base)
     status.coreboot_dir         = module.coreboot_dir
     status.cb_config_dir        = getattr(module, 'cb_config_dir', None)
     status.emerge_cmd           = module.emerge_cmd
@@ -662,7 +666,7 @@ def create_coreboot_variant(status):
         'create_coreboot_variant.sh')
     rc = run_process(
         [create_coreboot_variant_sh,
-        status.base,
+        status.coreboot_base,
         status.board,
         status.variant,
         status.bug], env=environ)
