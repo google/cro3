@@ -38,6 +38,7 @@ import requests
 import cherrypy
 
 import constants
+import fake_omaha
 import tarfile_utils
 from chromite.lib import cros_logging as logging
 from chromite.lib import gs
@@ -632,6 +633,11 @@ def main(argv):
 
   cherrypy.server.socket_port = args.port
   cherrypy.server.socket_file = args.socket
+
+  # TODO(crbug.com/1063420) Remove the fake Omaha app once we have the long
+  # term solution rolls out.
+  cherrypy.tree.mount(fake_omaha.FakeOmaha(), '/update',
+                      config=fake_omaha.get_config())
 
   cherrypy.quickstart(GsArchiveServer(_CachingServer(args.caching_server)))
 
