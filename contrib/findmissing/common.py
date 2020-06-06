@@ -14,7 +14,7 @@ import re
 import time
 from enum import Enum
 import subprocess
-import MySQLdb
+import MySQLdb # pylint: disable=import-error
 
 import initdb_upstream
 import initdb_stable
@@ -33,7 +33,7 @@ CHROMIUM_REVIEW_BASEURL = 'https://chromium-review.googlesource.com/a'
 
 # Order BRANCHES from oldest to newest
 CHROMEOS_BRANCHES = ['4.4', '4.14', '4.19', '5.4']
-STABLE_BRANCHES = ['4.4', '4.9', '4.14', '4.19', '5.4', '5.6']
+STABLE_BRANCHES = ['4.4', '4.9', '4.14', '4.19', '5.4', '5.6', '5.7']
 
 UPSTREAM_START_BRANCH = 'v%s' % CHROMEOS_BRANCHES[0]
 
@@ -64,7 +64,7 @@ class Kernel(Enum):
     linux_upstream = 4
 
 
-class KernelMetadata(object):
+class KernelMetadata():
     """Object to group kernel Metadata."""
     path = None
     repo = None
