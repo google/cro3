@@ -68,7 +68,7 @@ new FIT image. The program will then ask you to generate the FIT image
 outside the chroot environment.
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --board=hatch --variant=sushi --bug=None
 [... some messages about creating a new coreboot variant and configuation ...]
 [... the source files for the new FIT image are created, and then the ...]
@@ -108,7 +108,7 @@ for a new EC image and to modify the public and private `model.yaml` files.
 It will then ask you to push the coreboot CL to review.coreboot.org.
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --continue
 [... lots of messages about various commits being created ...]
 [... the EC code builds ...]
@@ -138,7 +138,7 @@ The program will determine that the coreboot CL has been pushed, and then move
 on to uploading the other CLs by calling `repo upload`.
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --continue
 INFO:root:Running step push_coreboot
 INFO:root:Running step upload_CLs
@@ -164,7 +164,7 @@ the program will clean up some internal housekeeping information and you are
 ready to get the CLs reviewed, approved, and merged.
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --continue
 INFO:root:Running step find_coreboot_upstream
 INFO:root:Running step add_cq_depend
@@ -235,7 +235,7 @@ for gnastygnorc, but this example proceeds as if it does exist.
 ### Start the new variant
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --board=volteer --variant=gnastygnorc --bug=b:12345
 [... some messages about creating a new coreboot variant and configuation ...]
 [... the source files for the new FIT image are created, and then the ...]
@@ -266,7 +266,7 @@ $ ./gen_fit_image.sh gnastygnorc ~/TXE1166 -b
 ### Continue creating the variant
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --continue
 [... lots of messages about various commits being created ...]
 [... the EC code builds ...]
@@ -288,7 +288,7 @@ Gnastygnorc CLs have not been (and will not be) uploaded.
 ### Upload the rest of the CLs
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --continue
 INFO:root:Running step push_coreboot
 INFO:root:Running step upload_CLs
@@ -304,7 +304,7 @@ because the Gnastygnorc CLs have not been (and will not be) uploaded.
 ### Add Cq-Depend information, re-upload, and clean up
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --continue
 INFO:root:Running step find_coreboot_upstream
 INFO:root:Running step add_cq_depend
@@ -339,7 +339,7 @@ for Acro, but this example proceeds as if it does exist.
 ### Start the new variant
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --board=waddledee --variant=acro --bug=b:157183582
 [... some messages about creating a new coreboot variant and configuation ...]
 [... the source files for the new FIT image are created, and then the ...]
@@ -370,7 +370,7 @@ $ ./gen_fit_image.sh acro ~/TXE_JSL -b
 ### Continue creating the variant
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --continue
 [... lots of messages about various commits being created ...]
 [... the EC code builds ...]
@@ -392,7 +392,7 @@ acro CLs have not been (and will not be) uploaded.
 ### Upload the rest of the CLs
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --continue
 INFO:root:Running step push_coreboot
 INFO:root:Running step upload_CLs
@@ -408,7 +408,7 @@ because the acro CLs have not been (and will not be) uploaded.
 ### Add Cq-Depend information, re-upload, and clean up
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --continue
 INFO:root:Running step find_coreboot_upstream
 INFO:root:Running step add_cq_depend
@@ -447,7 +447,7 @@ for grue, but this example proceeds as if it does exist.
 ### Create the new variant and upload the CLs
 
 ```
-(cr) $ cd ~/trunk/src/platform/src/contrib/variant
+(cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --board=trembyle --variant=grue --bug=b:12345
 [... the project config builds (using emerge) ... ]
 [... messages about creating a new coreboot variant ...]
