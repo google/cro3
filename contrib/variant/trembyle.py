@@ -16,6 +16,7 @@ base = 'zork'
 # the new variant of the baseboard
 step_list = [
     step_names.PROJECT_CONFIG,
+    step_names.FW_BUILD_CONFIG,
     step_names.CB_VARIANT,
     step_names.CB_CONFIG,
     step_names.CRAS_CONFIG,
@@ -67,7 +68,7 @@ coreboot_push_list = None
 # This list gets used for setting up Cq-Depend on the uploaded CLs.
 depends = {
     step_names.CB_CONFIG: [step_names.CB_VARIANT],
-    step_names.ADD_PRIV_YAML: [
-        step_names.CB_CONFIG, step_names.CRAS_CONFIG,
-        step_names.EC_IMAGE],
+    step_names.FW_BUILD_CONFIG: [
+        step_names.FIND, step_names.CB_VARIANT, step_names.CB_CONFIG,
+        step_names.CRAS_CONFIG, step_names.EC_IMAGE, step_names.COMMIT_FIT]
 }

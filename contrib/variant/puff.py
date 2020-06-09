@@ -19,6 +19,7 @@ coreboot_base = 'hatch'
 # the new variant of the baseboard
 step_list = [
     step_names.PROJECT_CONFIG,
+    step_names.FW_BUILD_CONFIG,
     step_names.CB_VARIANT,
     step_names.CB_CONFIG,
     step_names.ADD_FIT,
@@ -87,4 +88,7 @@ coreboot_push_list = [step_names.CB_VARIANT]
 # This list gets used for setting up Cq-Depend on the uploaded CLs.
 depends = {
     step_names.CB_CONFIG: [step_names.FIND],
+    step_names.FW_BUILD_CONFIG: [
+        step_names.FIND, step_names.CB_VARIANT, step_names.CB_CONFIG,
+        step_names.COMMIT_FIT]
 }

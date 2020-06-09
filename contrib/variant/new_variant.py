@@ -377,6 +377,7 @@ def perform_step(status):
     # Function to call based on the step
     dispatch = {
         step_names.PROJECT_CONFIG:  project_config,
+        step_names.FW_BUILD_CONFIG: fw_build_config,
         step_names.CB_VARIANT:      create_coreboot_variant,
         step_names.CB_CONFIG:       create_coreboot_config,
         step_names.CRAS_CONFIG:     copy_cras_config,
@@ -645,6 +646,32 @@ def project_config(status):
         return False
 
     return True
+
+
+def fw_build_config(status):
+    """Add the _FW_BUILD_CONFIG setting to the project config
+
+    For programs that use the new project/config structure with starlark
+    configuration files, this function calls fw_build_config.sh, which will
+    modify the config.star file to have a default _FW_BUILD_CONFIG entry.
+
+    Args:
+        status: variant_status object tracking our board, variant, etc.
+
+    Returns:
+        True if everything succeeded, False if something failed
+    """
+    logging.info('Running step fw_build_config')
+    fw_build_config_sh = os.path.join(status.my_loc, 'fw_build_config.sh')
+    rc = run_process(
+        [fw_build_config_sh,
+        status.base,
+        status.variant,
+        status.bug])
+    if rc:
+        status.commits[step_names.FW_BUILD_CONFIG] = get_git_commit_data(
+            os.path.join('/mnt/host/source/src/project', status.base, status.variant))
+    return rc
 
 
 def create_coreboot_variant(status):
