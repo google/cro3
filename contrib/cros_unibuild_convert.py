@@ -89,19 +89,12 @@ def generate_vpackage(depends):
   return gen_cros_copyright() + """
 EAPI=7
 
-# cros_workon applies only to ebuild and files directory. Use the
-# canonical empty project.
-CROS_WORKON_PROJECT="chromiumos/infra/build/empty-project"
-CROS_WORKON_LOCALNAME="../platform/empty-project"
-
-inherit cros-workon
-
 DESCRIPTION="ChromeOS Unibuild Config virtual package"
 HOMEPAGE="https://chromium.googlesource.com/chromiumos/platform2/+/master/chromeos-config/README.md"
 
 LICENSE="BSD-Google"
 SLOT="0"
-KEYWORDS="~*"
+KEYWORDS="*"
 
 DEPEND="%(depends)s"
 RDEPEND="${DEPEND}"
@@ -119,7 +112,7 @@ EAPI=7
 # cros_workon applies only to ebuild and files directory. Use the
 # canonical empty project.
 CROS_WORKON_PROJECT="chromiumos/infra/build/empty-project"
-CROS_WORKON_LOCALNAME="../platform/empty-project"
+CROS_WORKON_LOCALNAME="platform/empty-project"
 
 inherit cros-workon cros-unibuild
 
@@ -205,11 +198,19 @@ def sh_getvar(script, varname):
   return res.stdout.strip() or None
 
 
-def write_file(fullpath, file_contents):
+def write_file(fullpath, file_contents, make_ebuild_symlink=False):
   os.makedirs(fullpath.parent, exist_ok=True)
   log('Writing {}...'.format(fullpath))
   with open(fullpath, 'w') as f:
     f.write(file_contents)
+  if make_ebuild_symlink:
+    if not fullpath.name.endswith('.ebuild'):
+      raise ValueError(
+          'make_ebuild_symlink specified, but path does not look like an ebuild')
+    prefix, _, _ = fullpath.name.rpartition('.')
+    linkname = fullpath.parent / '{}-r1.ebuild'.format(prefix)
+    log('Creating symlink {} -> {}...'.format(linkname, fullpath))
+    os.symlink(fullpath.name, linkname)
 
 
 def generate_make_defaults(contents):
@@ -324,14 +325,16 @@ class BoardOverlays:
     self.ec_extras_build_target = sorted(list(self.ec_firmware_extras
                                               | self.pd_firmwares)) or None
 
-  def write_file(self, overlay_flags, path, file_contents):
+  def write_file(self, overlay_flags, path, file_contents,
+                 make_ebuild_symlink=False):
     dirs = []
     if overlay_flags & M_PUBLIC:
       dirs += [self.public_overlay]
     if overlay_flags & M_PRIVATE:
       dirs += [self.private_overlay]
     for d in dirs:
-      write_file(d / path, file_contents)
+      write_file(d / path, file_contents,
+                 make_ebuild_symlink=make_ebuild_symlink)
 
 
 class Dut:
@@ -696,11 +699,11 @@ def main(argv):
       M_PRIVATE, 'chromeos-base/chromeos-config-bsp-private/files/model.yaml',
       private_config_yaml)
   overlays.write_file(
-      M_PUBLIC, 'virtual/chromeos-config-bsp/chromeos-config-bsp-9999.ebuild',
-      public_vpackage)
+      M_PUBLIC, 'virtual/chromeos-config-bsp/chromeos-config-bsp-2.ebuild',
+      public_vpackage, make_ebuild_symlink=True)
   overlays.write_file(
-      M_PRIVATE, 'virtual/chromeos-config-bsp/chromeos-config-bsp-9999.ebuild',
-      private_vpackage)
+      M_PRIVATE, 'virtual/chromeos-config-bsp/chromeos-config-bsp-3.ebuild',
+      private_vpackage, make_ebuild_symlink=True)
   overlays.write_file(
       M_PUBLIC,
       'chromeos-base/chromeos-config-bsp/chromeos-config-bsp-9999.ebuild',
