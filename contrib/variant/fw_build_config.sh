@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.0"
+VERSION="1.0.1"
 SCRIPT=$(basename -- "${0}")
 set -e
 

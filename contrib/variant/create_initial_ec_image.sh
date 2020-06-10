@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.2"
+VERSION="1.0.3"
 SCRIPT=$(basename -- "${0}")
 
 export LC_ALL=C

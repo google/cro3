@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="4.0.0"
+VERSION="4.0.1"
 SCRIPT="$(basename -- "$0")"
 
 if [[ -z "${CB_SRC_DIR}" ]]; then
