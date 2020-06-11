@@ -513,6 +513,14 @@ def genconf_powerd_settings(device, overlay):
   return d
 
 
+def genconf_whitelabel_tag(device, _):
+  # Devices with a Customization ID are not compatible with whitelabel
+  # tags.
+  if device.customization_id:
+    return None
+  return device.whitelabel_tag or None
+
+
 M_PUBLIC = (1 << 0)
 M_PRIVATE = (1 << 1)
 
@@ -575,6 +583,9 @@ genconf_schema = {
         'smbios-name-match': (M_PUBLIC | M_PRIVATE, lambda d, _: d.smbios_name),
         'device-tree-compatible-match': (M_PUBLIC | M_PRIVATE,
                                          genconf_dt_compatible_match),
+        'customization-id': (M_PUBLIC | M_PRIVATE,
+                             lambda d, _: d.customization_id or None),
+        'whitelabel-tag': (M_PUBLIC | M_PRIVATE, genconf_whitelabel_tag),
     },
     'power': (M_PUBLIC, genconf_powerd_settings),
 }
