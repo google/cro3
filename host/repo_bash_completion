@@ -62,7 +62,13 @@ _complete_repo() {
 
 complete -F _complete_repo repo
 
-source /usr/share/git/git-prompt.sh 2>/dev/null
+if [[ -f /usr/share/git/git-prompt.sh ]]; then
+  # Path in the cros_sdk chroot
+  source /usr/share/git/git-prompt.sh
+elif [[ -f /usr/share/bash-completion/completions/git ]]; then
+  # Path on Ubuntu 19.10
+  source /usr/share/bash-completion/completions/git
+fi
 
 # Add a way to get the "m" branch from repo easily; used by __git_branch_ps1()
 #
