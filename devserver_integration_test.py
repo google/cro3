@@ -15,7 +15,6 @@ To run the integration test for devserver:
 
 from __future__ import print_function
 
-import json
 import os
 import shutil
 import socket
@@ -37,7 +36,6 @@ import psutil  # pylint: disable=import-error
 
 import setup_chromite  # pylint: disable=unused-import
 from chromite.lib import cros_logging as logging
-from chromite.lib import cros_update_progress
 from chromite.lib.xbuddy import devserver_constants
 
 
@@ -419,48 +417,6 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
   1) runner has access to the Google Storage bucket where builders store builds.
   2) time. These tests actually download the artifacts needed.
   """
-
-  def testCrosAU(self):
-    """Tests core autotest workflow where we trigger CrOS auto-update.
-
-    It mainly tests the following API:
-      a. 'get_au_status'
-      b. 'handler_cleanup'
-      c. 'kill_au_proc'
-    """
-    host_name = '100.0.0.0'
-    p = subprocess.Popen(['sleep 100'], shell=True, preexec_fn=os.setsid)
-    pid = os.getpgid(p.pid)
-    status = 'updating'
-    progress_tracker = cros_update_progress.AUProgress(host_name, pid)
-    progress_tracker.WriteStatus(status)
-
-    logging.info('Retrieving auto-update status for process %d', pid)
-    response = self._MakeRPC('get_au_status', host_name=host_name, pid=pid)
-    self.assertFalse(json.loads(response)['finished'])
-    self.assertEqual(json.loads(response)['status'], status)
-
-    progress_tracker.WriteStatus(cros_update_progress.FINISHED)
-    logging.info('Mock auto-update process is finished')
-    response = self._MakeRPC('get_au_status', host_name=host_name, pid=pid)
-    self.assertTrue(json.loads(response)['finished'])
-    self.assertEqual(json.loads(response)['status'],
-                     cros_update_progress.FINISHED)
-
-    logging.info('Delete auto-update track status file')
-    self.assertTrue(os.path.exists(progress_tracker.track_status_file))
-    self._MakeRPC('handler_cleanup', host_name=host_name, pid=pid)
-    self.assertFalse(os.path.exists(progress_tracker.track_status_file))
-
-    logging.info('Kill the left auto-update processes for host %s', host_name)
-    progress_tracker.WriteStatus(cros_update_progress.FINISHED)
-    response = self._MakeRPC('kill_au_proc', host_name=host_name)
-    self.assertEqual(response, 'True')
-    self.assertFalse(os.path.exists(progress_tracker.track_status_file))
-    self.assertFalse(cros_update_progress.IsProcessAlive(pid))
-
-    p.terminate()
-    p.wait()
 
   def testStageAndUpdate(self):
     """Tests core stage/update autotest workflow where with a test payload."""
