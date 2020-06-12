@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="2.0.1"
+VERSION="2.1.1"
 SCRIPT=$(basename -- "${0}")
 
 export LC_ALL=C
@@ -77,8 +77,10 @@ repo start "create_${VARIANT}_${DATE}" . || exit 1
 #   CONFIG_ME_BIN_PATH="3rdparty/blobs/baseboard/hatch/me-kohaku.bin"
 sed -e "s/${REFERENCE_UPPER}/${VARIANT_UPPER}/" \
     -e "s/descriptor-${BASE}\.bin/descriptor-${VARIANT}.bin/" \
+    -e "s/descriptor-${REFERENCE}\.bin/descriptor-${VARIANT}.bin/" \
     -e "s/descriptor\.bin/descriptor-${VARIANT}.bin/" \
     -e "s/me-${BASE}\.bin/me-${VARIANT}.bin/" \
+    -e "s/me-${REFERENCE}\.bin/me-${VARIANT}.bin/" \
     "config.${REFERENCE}" > "config.${VARIANT}"
 git add "config.${VARIANT}"
 
