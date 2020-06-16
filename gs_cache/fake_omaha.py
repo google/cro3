@@ -11,7 +11,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import cherrypy
+import cherrypy  # pylint: disable=import-error
+import nebraska_wrapper
 
 
 def get_config():
@@ -28,7 +29,11 @@ class FakeOmaha(object):
   """An application to handle fake Omaha requests."""
   def POST(self, *args, **kwargs):
     """A URL handler to handle update check ping."""
+    label = '/'.join(args)
+    full_update = kwargs.pop('full_update', 'unspecified')
+    server_addr = cherrypy.request.headers.get('X-Server-Addr')
     body_length = int(cherrypy.request.headers.get('Content-Length', 0))
     data = cherrypy.request.rfile.read(body_length)
-    return 'Fake Omaha: To be implemented\nArgs: %s\nkwargs: %s\nData: %s\n' % (
-        args, kwargs, data)
+    with nebraska_wrapper.NebraskaWrapper(label, server_addr,
+                                          full_update) as nb:
+      return nb.HandleUpdatePing(data, **kwargs)
