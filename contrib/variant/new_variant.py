@@ -588,7 +588,9 @@ def emerge_with_workon(status, workon_pkgs, emerge_cmd, emerge_pkgs, env=None):
     workon = workon_helper.WorkonHelper(build_target.root, build_target.name)
     before_workon = workon.ListAtoms()
 
-    workon.StartWorkingOnPackages(workon_pkgs)
+    # Only cros_workon start if the list is non-empty
+    if workon_pkgs:
+        workon.StartWorkingOnPackages(workon_pkgs)
 
     # Determine which packages we need to cros_workon stop.
     after_workon = workon.ListAtoms()
@@ -597,8 +599,9 @@ def emerge_with_workon(status, workon_pkgs, emerge_cmd, emerge_pkgs, env=None):
     # Run the emerge command.
     emerge_result = run_process([emerge_cmd] + emerge_pkgs, env=env)
 
-    # cros_workon stop before returning the result.
-    workon.StopWorkingOnPackages(stop_packages)
+    # If the list is non-empty, cros_workon stop before returning the result.
+    if stop_packages:
+        workon.StopWorkingOnPackages(stop_packages)
 
     return emerge_result
 
@@ -1011,7 +1014,7 @@ def build_config(status):
     Returns:
         True if the scripts and build succeeded, False is something failed
     """
-    logging.info('Running step build_yaml')
+    logging.info('Running step build_config')
     if not emerge_with_workon(status, status.config_workon_pkgs,
                               status.emerge_cmd, status.config_emerge_pkgs):
         return False
