@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="4.0.1"
+VERSION="4.1.1"
 SCRIPT="$(basename -- "$0")"
 
 if [[ -z "${CB_SRC_DIR}" ]]; then
@@ -71,9 +71,18 @@ fi
 
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE="$(date +%Y%m%d)"
-git checkout -b "coreboot_${VARIANT}_${DATE}"
+BRANCH="coreboot_${VARIANT}_${DATE}"
+repo start "${BRANCH}" .
 
-# TODO(b/149701259): trap a function at exit that cleans this up
+abandon() {
+  # If there is an error after the `repo start` and before we start adding
+  # changes to git, then delete the new variant directory and `repo abandon`
+  # the new branch.
+  rm -Rf "variants/$1"
+  repo abandon "$2" .
+}
+trap 'abandon "${VARIANT}" "${BRANCH}"' ERR
+
 # Copy the template tree to the target.
 mkdir -p "variants/${VARIANT}/"
 cp -pr "${TEMPLATE}/." "variants/${VARIANT}/"
@@ -81,7 +90,22 @@ if [[ -e "variants/${VARIANT}/Kconfig" ]]; then
   sed -i -e "s/BOARD_GOOGLE_TEMPLATE/BOARD_GOOGLE_${VARIANT_UPPER}/" \
     "variants/${VARIANT}/Kconfig"
 fi
+
 git add "variants/${VARIANT}/"
+
+restore_git() {
+  # After adding changes to git, now to recover from an error we need to
+  # remove the variant from the git commit, restore Kconfig and Kconfig.name,
+  # and delete the .new files if they exist.
+  rm -Rf "variants/$1"
+  git restore --staged "variants/$1"
+  git restore --staged Kconfig Kconfig.name
+  git restore Kconfig Kconfig.name
+  rm -f Kconfig.new Kconfig.name.new
+  # And call the previous trap function.
+  abandon "$1" "$2"
+}
+trap 'restore_git "${VARIANT}" "${BRANCH}"' ERR
 
 # Now add the new variant to Kconfig and Kconfig.name
 # These files are in the current directory, e.g. src/mainboard/google/hatch
