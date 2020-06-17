@@ -241,28 +241,31 @@ provision_device() {
 
   load_base_vars
 
+  # Example 1: "/dev/nvme0n1p3"
+  # Example 2: "/dev/sda3"
   local current_root="$(rootdev -s)"
   local root_disk="$(rootdev -s -d)"
   info "Current root ${current_root}, disk ${root_disk}"
   keyval "CURRENT_ROOT=${current_root}"
 
-  # Handle both /dev/mmcblk0pX and /dev/sdaX style partitions.
-  if [[ "${current_root#${root_disk}}" == "p${PARTITION_NUM_ROOT_A}" ]]; then
+  # Handle /dev/mmcblk0pX, /dev/sdaX, etc style partitions.
+  # Example 1: "3"
+  # Example 2: "3"
+  local root_part_num="$(get_partition_number ${current_root})"
+  # Example 1: "p3"
+  # Example 2: "3"
+  local root_part_num_with_delim="${current_root#${root_disk}}"
+  # Example 1: "p"
+  # Example 2: ""
+  local root_part_delim="${root_part_num_with_delim%${root_part_num}}"
+  if [[ "${root_part_num}" == "${PARTITION_NUM_ROOT_A}" ]]; then
     NEXT_KERN_PART="${PARTITION_NUM_KERN_B}"
-    NEXT_KERN="${root_disk}p${NEXT_KERN_PART}"
-    NEXT_ROOT="${root_disk}p${PARTITION_NUM_ROOT_B}"
-  elif [[ "${current_root#${root_disk}}" == "p${PARTITION_NUM_ROOT_B}" ]]; then
+    NEXT_KERN="${root_disk}${root_part_delim}${NEXT_KERN_PART}"
+    NEXT_ROOT="${root_disk}${root_part_delim}${PARTITION_NUM_ROOT_B}"
+  elif [[ "${root_part_num}" == "${PARTITION_NUM_ROOT_B}" ]]; then
     NEXT_KERN_PART="${PARTITION_NUM_KERN_A}"
-    NEXT_KERN="${root_disk}p${NEXT_KERN_PART}"
-    NEXT_ROOT="${root_disk}p${PARTITION_NUM_ROOT_A}"
-  elif [[ "${current_root#${root_disk}}" == "${PARTITION_NUM_ROOT_A}" ]]; then
-    NEXT_KERN_PART="${PARTITION_NUM_KERN_B}"
-    NEXT_KERN="${root_disk}${NEXT_KERN_PART}"
-    NEXT_ROOT="${root_disk}${PARTITION_NUM_ROOT_B}"
-  elif [[ "${current_root#${root_disk}}" == "${PARTITION_NUM_ROOT_B}" ]]; then
-    NEXT_KERN_PART="${PARTITION_NUM_KERN_A}"
-    NEXT_KERN="${root_disk}${NEXT_KERN_PART}"
-    NEXT_ROOT="${root_disk}${PARTITION_NUM_ROOT_A}"
+    NEXT_KERN="${root_disk}${root_part_delim}${NEXT_KERN_PART}"
+    NEXT_ROOT="${root_disk}${root_part_delim}${PARTITION_NUM_ROOT_A}"
   else
     die "Unexpected root partition ${current_root}"
   fi
