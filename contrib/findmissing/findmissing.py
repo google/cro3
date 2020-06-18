@@ -19,6 +19,7 @@ All abandon/restore findmissing commands must be run in this directory's
 from __future__ import print_function
 
 import argparse
+import sys
 import main
 
 
@@ -35,17 +36,20 @@ def findmissing():
                         help='Function to either abandon/restore changes.')
     parser.add_argument('fix', type=str, choices=('stable', 'chrome'),
                         help='Table that contains primary key you want to update.')
-    parser.add_argument('patch', type=str,
-                        help='kernel_sha of row you want to update.')
-    parser.add_argument('fixed_by', type=str,
-                        help='fixedby_upstream_sha of row you want to update.')
-    parser.add_argument('reason', type=str, help='Reason for performing action.')
+    parser.add_argument('-f', '--force', action='store_true',
+        help='Force action if only one SHA provided and more than one database entry is affected.')
+    parser.add_argument('-r', '--reason', type=str, required=True,
+                        help='Reason for performing action.')
+    parser.add_argument('sha', type=str, nargs='+',
+                        help='To-be-fixed and/or fixing SHA for row you want to update.')
     args = parser.parse_args()
 
-    fixes_table = args.fix + '_fixes'
-    abandon_restore_function_map[args.command](fixes_table, args.patch,
-                                                args.fixed_by, args.reason)
+    if len(args.sha) > 2:
+        print('Must specify one or two SHAs.')
+        sys.exit(1)
 
+    fixes_table = args.fix + '_fixes'
+    abandon_restore_function_map[args.command](fixes_table, args.sha, args.reason, args.force)
 
 
 if __name__ == '__main__':

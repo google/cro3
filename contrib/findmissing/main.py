@@ -13,7 +13,7 @@ Systems will include: Cloud Scheduler, CloudSQL, and Compute Engine
 from __future__ import print_function
 
 import sys
-import MySQLdb
+import MySQLdb # pylint: disable=import-error
 
 import cloudsql_interface
 import common
@@ -48,27 +48,48 @@ def synchronize_and_create_patches(create_patches=False):
         create_new_patches()
 
 
+def print_rows(rows):
+    """Print list of SHAs in database"""
+    print('Branch  SHA             Fixed by SHA    Status')
+    for row in rows:
+        print('%-8s%-16s%-16s%s' %
+              (row['branch'], row['kernel_sha'], row['fixedby_upstream_sha'], row['status']))
+
+
 @util.cloud_sql_proxy_decorator
 @util.preliminary_check_decorator(False)
-def abandon_fix_cl(fixes_table, kernel_sha, fixedby_upstream_sha, reason):
+def abandon_fix_cl(fixes_table, sha_list, reason, force):
     """Abandons an fix CL + updates database fix table."""
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
     try:
-        row = cloudsql_interface.get_fix_status_and_changeid(cloudsql_db, fixes_table,
-                                                    kernel_sha, fixedby_upstream_sha)
-        if not row:
-            print('Patch %s Fixed By %s doesnt exist in list of fixes in %s'
-                                % (kernel_sha, fixedby_upstream_sha, fixes_table))
+        rows = cloudsql_interface.get_fix_status_and_changeid_from_list(cloudsql_db,
+                                                                        fixes_table, sha_list)
+        if not rows:
+            print('Patch identified by "%s" not found in %s' % (sha_list, fixes_table))
             sys.exit(1)
-        if row['status'] == common.Status.OPEN.name:
-            fix_change_id = row['fix_change_id']
+        if len(rows) > 1 and not force:
+            print('More than one database entry. Force flag needed to continue.')
+            print_rows(rows)
+            sys.exit(1)
+        for row in rows:
             branch = row['branch']
-            gerrit_interface.abandon_change(fix_change_id, branch, reason)
-            print('Abandoned Change %s on Gerrit with reason %s' % (fix_change_id, reason))
-        cloudsql_interface.update_change_abandoned(cloudsql_db, fixes_table,
-                                                    kernel_sha, fixedby_upstream_sha, reason)
-        print('Updated status to abandoned for Patch %s Fixed by %s'
-                % (kernel_sha, fixedby_upstream_sha))
+            fixedby_upstream_sha = row['fixedby_upstream_sha']
+            kernel_sha = row['kernel_sha']
+            status = row['status']
+            if status == common.Status.ABANDONED.name:
+                continue
+            if status not in (common.Status.OPEN.name, common.Status.CONFLICT.name):
+                print('Status for SHA %s fixed by %s is %s, can not abandon' %
+                      (kernel_sha, fixedby_upstream_sha, status))
+                continue
+            if status == common.Status.OPEN.name:
+                fix_change_id = row['fix_change_id']
+                gerrit_interface.abandon_change(fix_change_id, branch, reason)
+                print('Abandoned Change %s on Gerrit with reason %s' % (fix_change_id, reason))
+            cloudsql_interface.update_change_abandoned(cloudsql_db, fixes_table,
+                                                       kernel_sha, fixedby_upstream_sha, reason)
+            print('Updated status to abandoned for patch %s in %s, fixed by %s' %
+                  (kernel_sha, branch, fixedby_upstream_sha))
         sys.exit(0)
     except KeyError:
         print("""Could not retrieve fix row with primary key kernel_sha %s
@@ -80,27 +101,34 @@ def abandon_fix_cl(fixes_table, kernel_sha, fixedby_upstream_sha, reason):
 
 @util.cloud_sql_proxy_decorator
 @util.preliminary_check_decorator(False)
-def restore_fix_cl(fixes_table, kernel_sha, fixedby_upstream_sha, reason):
+def restore_fix_cl(fixes_table, sha_list, reason, force):
     """Restores an abandoned change + updates database fix table."""
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
     try:
-        row = cloudsql_interface.get_fix_status_and_changeid(cloudsql_db, fixes_table,
-                                                    kernel_sha, fixedby_upstream_sha)
-        if not row:
-            print('Patch %s Fixed By %s doesnt exist in list of fixes in %s'
-                                % (kernel_sha, fixedby_upstream_sha, fixes_table))
+        rows = cloudsql_interface.get_fix_status_and_changeid_from_list(cloudsql_db,
+                                                                        fixes_table, sha_list)
+        if not rows:
+            print('Patch identified by "%s" not found in %s' % (sha_list, fixes_table))
             sys.exit(1)
-        if row['status'] == common.Status.ABANDONED.name:
-            fix_change_id = row.get('fix_change_id')
+        if len(rows) > 1 and not force:
+            print('More than one database entry. Force flag needed to continue.')
+            print_rows(rows)
+            sys.exit(1)
+        for row in rows:
+            if row['status'] != common.Status.ABANDONED.name:
+                continue
+            fix_change_id = row['fix_change_id']
+            branch = row['branch']
+            fixedby_upstream_sha = row['fixedby_upstream_sha']
+            kernel_sha = row['kernel_sha']
             if fix_change_id:
-                branch = row['branch']
                 gerrit_interface.restore_change(fix_change_id, branch, reason)
                 print('Restored Change %s on Gerrit with reason %s' % (fix_change_id, reason))
             cloudsql_interface.update_change_restored(cloudsql_db, fixes_table,
-                                                    kernel_sha, fixedby_upstream_sha, reason)
-            print('Updated status to restored for Patch %s Fixed by %s'
-                    % (kernel_sha, fixedby_upstream_sha))
-            sys.exit(0)
+                                                      kernel_sha, fixedby_upstream_sha, reason)
+            print('Updated status to restored for patch %s in %s, fixed by %s'
+                  % (kernel_sha, branch, fixedby_upstream_sha))
+        sys.exit(0)
     except KeyError:
         print("""Could not retrieve fix row with primary key kernel_sha %s
                     and fixedby_upstream_sha %s""" % (kernel_sha, fixedby_upstream_sha))
