@@ -7,9 +7,15 @@ import subprocess
 import sys
 import os
 
-def get_sha(kernel_path):
-    """Returns most recent commit sha"""
+from cvelib import common
 
+
+class PatchApplierException(Exception):
+    """Exception raised from patchapplier."""
+
+
+def get_sha(kernel_path):
+    """Returns most recent commit sha."""
     try:
         sha = subprocess.check_output(['git', 'log', '-1', '--format=%H'],
                                       stderr=subprocess.DEVNULL, cwd=kernel_path,
@@ -19,9 +25,9 @@ def get_sha(kernel_path):
 
     return sha.rstrip('\n')
 
-def get_commit_message(kernel_path, sha):
-    """Returns commit message"""
 
+def get_commit_message(kernel_path, sha):
+    """Returns commit message."""
     try:
         cmd = ['git', '-C', kernel_path, 'log', '--format=%B', '-n', '1', sha]
         commit_message = subprocess.check_output(cmd, encoding='utf-8')
@@ -31,9 +37,9 @@ def get_commit_message(kernel_path, sha):
         raise PatchApplierException('Could not retrieve commit in kernal path %s for sha %s'
                                     % (kernel_path, sha))
 
-def create_commit_message(kernel_path, sha, bug_id):
-    """Generates new commit message"""
 
+def create_commit_message(kernel_path, sha, bug_id):
+    """Generates new commit message."""
     bug_test_line = f'BUG=chromium:{bug_id}\nTEST=CQ\n\n'
 
     org_msg = get_commit_message(kernel_path, sha)
@@ -42,9 +48,9 @@ def create_commit_message(kernel_path, sha, bug_id):
 
     return f'UPSTREAM: {org_msg}{cherry_picked}{bug_test_line}'
 
-def fetch_linux_kernel(kernel_path):
-    """Fetch LINUX repo in CHROMIUMOS_KERNEL"""
 
+def fetch_linux_kernel(kernel_path):
+    """Fetch LINUX repo in CHROMIUMOS_KERNEL."""
     if os.getenv('LINUX') == '':
         raise PatchApplierException('Environment variable LINUX is not set')
 
@@ -58,22 +64,9 @@ def fetch_linux_kernel(kernel_path):
     except FileNotFoundError:
         raise PatchApplierException('Kernel is non-existent')
 
-def checkout_branch(kernel, kernel_path):
-    """Checking into appropriate branch"""
-
-    try:
-        branch = 'cros/chromeos-' + kernel[1:]
-        subprocess.check_call(['git', 'checkout', branch], stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL, cwd=kernel_path)
-        subprocess.check_call(['git', 'pull', 'cros', 'chromeos-' + kernel[1:]],
-                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                              cwd=kernel_path)
-    except subprocess.CalledProcessError:
-        raise PatchApplierException('Checkout failed for %s' % kernel)
 
 def cherry_pick(kernel_path, sha, bug_id):
-    """Cherry-picking commit into kernel"""
-
+    """Cherry-picking commit into kernel."""
     fix_commit_message = create_commit_message(kernel_path, sha, bug_id)
 
     try:
@@ -90,9 +83,9 @@ def cherry_pick(kernel_path, sha, bug_id):
                           cwd=kernel_path)
     return True
 
-def apply_patch(sha, bug_id, kernel_versions):
-    """Applies patch from LINUX to Chromium OS kernel"""
 
+def apply_patch(sha, bug_id, kernel_versions):
+    """Applies patch from LINUX to Chromium OS kernel."""
     cp_status = {}
 
     if os.getenv('CHROMIUMOS_KERNEL') == '':
@@ -104,11 +97,9 @@ def apply_patch(sha, bug_id, kernel_versions):
 
         fetch_linux_kernel(kernel_path)
 
-        checkout_branch(kernel, kernel_path)
+        branch = common.get_cros_branch(kernel)
+        common.checkout_branch(kernel, f'cros/{branch}', 'cros', branch, kernel_path)
 
         cp_status[kernel] = cherry_pick(kernel_path, sha, bug_id)
 
     return cp_status
-
-class PatchApplierException(Exception):
-    """Exception raised from PatchApplier."""
