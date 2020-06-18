@@ -25,6 +25,7 @@ where <board> is the board whose firmware needs updating (e.g. 'coral').
 # Flags
 DEFINE_string board "${DEFAULT_BOARD}" "Which board the firmware is for" b
 DEFINE_string project "${DEFAULT_PROJECT}" "Which project this board is for" p
+DEFINE_boolean quiet "${FLAGS_FALSE}" "Reduce emerge build output" q
 
 # Parse command line.
 FLAGS "$@" || exit 1
@@ -61,7 +62,8 @@ update_firmware() {
   local board="$1"
   local project="$2"
   local base ebuild srcuris cfg_bsp_pkg cfg_bsp_baseboard_pkg
-  local current_workon_pkg_list start_pkg result i
+  local current_workon_pkg_list start_pkg result i quiet
+  [[ "$3" == "${FLAGS_TRUE}" ]] && quiet="--quiet-build"
 
   set -e
 
@@ -108,7 +110,7 @@ update_firmware() {
     popd > /dev/null
   fi
 
-  "emerge-${board}" ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}" chromeos-config
+  "emerge-${board}" ${quiet} ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}" chromeos-config
   cros_config_host -c "${yaml_config}" get-firmware-uris > "${srcuris}"
   touch "${ebuild}"
 
@@ -121,7 +123,7 @@ update_firmware() {
   # these cache cleanup code.
   rm -rf "${metadata}/cache" "${metadata}/md5-cache" "${edb_cache}"
   "ebuild-${board}" "${ebuild}" manifest
-  "emerge-${board}" "chromeos-firmware-${board}"
+  "emerge-${board}" ${quiet} "chromeos-firmware-${board}"
 
   for i in "${!result[@]}"; do
     if [[ "${result[i]}" -eq "0" ]]; then
@@ -135,7 +137,7 @@ main() {
     die "-b or --board required."
   fi
 
-  update_firmware "${FLAGS_board}" "${FLAGS_project}"
+  update_firmware "${FLAGS_board}" "${FLAGS_project}" "${FLAGS_quiet}"
 }
 
 main "$@"
