@@ -580,12 +580,10 @@ genconf_schema = {
     },
     'identity': {
         'platform-name': (M_PUBLIC, lambda _, b: b.mosys_platform),
-        'smbios-name-match': (M_PUBLIC | M_PRIVATE, lambda d, _: d.smbios_name),
-        'device-tree-compatible-match': (M_PUBLIC | M_PRIVATE,
-                                         genconf_dt_compatible_match),
-        'customization-id': (M_PUBLIC | M_PRIVATE,
-                             lambda d, _: d.customization_id or None),
-        'whitelabel-tag': (M_PUBLIC | M_PRIVATE, genconf_whitelabel_tag),
+        'smbios-name-match': (M_PUBLIC, lambda d, _: d.smbios_name),
+        'device-tree-compatible-match': (M_PUBLIC, genconf_dt_compatible_match),
+        'customization-id': (M_PUBLIC, lambda d, _: d.customization_id or None),
+        'whitelabel-tag': (M_PUBLIC, genconf_whitelabel_tag),
     },
     'power': (M_PUBLIC, genconf_powerd_settings),
 }
