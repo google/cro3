@@ -19,7 +19,6 @@
 CONTRIB_DIR="$(dirname "$(readlink -f "$0")")"
 # Script is stored in $CROS_SDK/src/platform/dev/contrib
 CROS_SDK="${CONTRIB_DIR}/../../../.."
-PYTHONPATH="${CROS_SDK}/chroot/usr/lib64/python2.7/site-packages"
 
 kdmx_pid=
 
@@ -72,11 +71,13 @@ get_pty() {
   local args=()
 
   if [[ -n "${port}" ]]; then
-    args+=( --port "${port}" )
+    port=":${port}"
   fi
 
-  PYTHONPATH="${PYTHONPATH}" \
-    python -m "servo.dut_control" "${pty_name}" "${args[@]}" | cut -d : -f 2
+  python3 -c \
+"import xmlrpc.client;
+servo = xmlrpc.client.ServerProxy('http://localhost${port}');
+print('%s' % servo.get('${pty_name}'))"
 }
 
 find_cu() {
