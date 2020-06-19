@@ -59,7 +59,8 @@ config_emerge_pkgs = [
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [
     step_names.CB_VARIANT, step_names.CB_CONFIG,
-    step_names.CRAS_CONFIG, step_names.EC_IMAGE]
+    step_names.CRAS_CONFIG, step_names.EC_IMAGE,
+    step_names.FW_BUILD_CONFIG]
 
 # List of commits that will be pushed to review.coreboot.org
 coreboot_push_list = None
