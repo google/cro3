@@ -67,16 +67,12 @@ cleanup() {
 
 get_pty() {
   local pty_name="$1"
-  local port="$2"
+  local port="${2:-9999}"
   local args=()
-
-  if [[ -n "${port}" ]]; then
-    port=":${port}"
-  fi
 
   python3 -c \
 "import xmlrpc.client;
-servo = xmlrpc.client.ServerProxy('http://localhost${port}');
+servo = xmlrpc.client.ServerProxy('http://localhost:${port}');
 print('%s' % servo.get('${pty_name}'))"
 }
 
