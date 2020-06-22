@@ -3,32 +3,54 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
-# TODO(amcrae): Refactor to use common.sh
-#
 # Script to update base firmware in a program's config, and then
 # regenerate the configs of projects that are part of the program.
 # Also updates the firmware manifest, and uploads all of the changes
 # for review.
 #
 # Usage:
-#   ./update_program_fw program release [ reviewer ]
+#   ./update_program_fw --board=program --release=NNNNN [ --reviewer=reviewer ]
+#                       [ --project=proj... ]
 # E.g:
-#   ./update_program_fw puff 13291 amcrae@google.com
+#   ./update_program_fw --board=puff --release=13291 --reviewer=amcrae@google.com
 #
-# Environment variables:
-# SRC = base of repo tree (default is ~/trunk/src)
-# HOME = home directory
+CONTRIB_DIR=$(dirname "$(readlink -f "$0")")
+. "${CONTRIB_DIR}/common.sh" || exit 1
+
+FLAGS_HELP="
+Command to update the firmware version for a board.
+
+Updates the master_version firmware configuration for a board's
+master configuration (program.star) and for selected projects
+that include the master configuration.
+
+If no projects are specified, all projects for that board are selected.
+
+The configurations for the selected projects are regenerated,
+and the firmware manifest are updated for the projects.
+
+The necessary CLs for these changes are created and uploaded for review.
+An optional reviewer can be specified to send all the CLs to.
+"
+# Flags
+DEFINE_string board "${DEFAULT_BOARD}" "Which board (program) the firmware is for" b
+DEFINE_integer release 0  "The firmware release to update to" r
+DEFINE_string project "${DEFAULT_PROJECT}" "Which projects this release is for (defaults to all)" p
+DEFINE_string reviewer "${DEFAULT_REVIEWER}" "The reviewer to send the CLs to (optional)"
+
+# Parse command line
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+set -e
+
+# Script must be run inside the chroot.
+assert_inside_chroot
 #
 # Variables
 #
-TEMPDIR=$(mktemp -d -t fw-XXXXXXXXXX)
-CMDNAME=$(basename "$0")
-SRC="${SRC:-/mnt/host/source/src}"
-PATH="${PATH}:${SRC}/config/bin"
+PATH="${PATH}:${GCLIENT_ROOT}/src/config/bin"
 DIGITS="[1-9][0-9][0-9][0-9][0-9]"
-PROG=""
 BRANCH=""
-REVIEWER=""
 PROGRAM_CL=""
 PROGRAM="program.star"
 EDITOR="ex -s"; export EDITOR
@@ -36,36 +58,23 @@ EDITOR="ex -s"; export EDITOR
 # Common functions
 #
 cleanup() {
-  rm -rf "${TEMPDIR}"
-}
-
-trap "exit 1"           HUP INT PIPE QUIT TERM
-trap 'cleanup' EXIT
-
-usage() {
-  if [[ "$#" -ge 1 ]]; then
-    echo "$*"
+  if [[ -d "${TEMPDIR}" ]]; then
+    rm -rf "${TEMPDIR}"
   fi
-  echo "Usage: ${CMDNAME} program-name release [ reviewer ]"
-  echo "e.g:"
-  echo "    ${CMDNAME} puff 13271 amcrae@google.com"
-  exit 1
 }
 #
 # Abort the update, and clean up branches and CLs
 #
 abort() {
-  echo "$*"
-  echo "Aborting..."
   CLS=$(gerrit -i --raw search "owner:me status:open hashtag:${BRANCH}")
   if [[ -n "${CLS}" ]]; then
     echo "Abandoning uploaded CLs"
     gerrit -i abandon "${CLS}"
   fi
-  "cros_workon-${PROG}" stop "chromeos-base/chromeos-firmware-${PROG}"
-  "cros_workon-${PROG}" stop "chromeos-base/chromeos-config-bsp-${PROG}-private"
+  "cros_workon-${FLAGS_board}" stop "chromeos-base/chromeos-firmware-${FLAGS_board}"
+  "cros_workon-${FLAGS_board}" stop "chromeos-base/chromeos-config-bsp-${FLAGS_board}-private"
   repo abandon "${BRANCH}"
-  exit 1
+  die "$*"
 }
 #
 # Extract a CL number from the file containing
@@ -110,37 +119,61 @@ EOF
 #
 # Validate arguments
 #
-if [[ "$#" -lt 2 ]] || [[ "$#" -gt 3 ]]; then
-  usage
+if [[ -z "${FLAGS_board}" ]]; then
+  die "-b or --board required."
+fi
+if [[ -z "${FLAGS_release}" ]]; then
+  die "-r or --release required."
 fi
 #
 # Program must exist as a directory
 #
-PROG="$1"
-PROGDIR="${SRC}/program/${PROG}"
+PROGDIR="${GCLIENT_ROOT}/src/program/${FLAGS_board}"
 if [[ ! -d "${PROGDIR}" ]]; then
-  usage "${PROG} is not a valid program (${PROGDIR} missing)"
+  die "${FLAGS_board} is not a valid program (${PROGDIR} missing)"
 fi
 # Release must be a 5 digit number
-RELEASE="$2"
-if [[ ! "${RELEASE}" =~ ^${DIGITS}$ ]]; then
-      usage "release must be a 5 digit number"
+if [[ ! "${FLAGS_release}" =~ ^${DIGITS}$ ]]; then
+      die "release must be a 5 digit number"
 fi
 #
-# Check for reviewer argument.
+# Build the project list.
+# If no projects are specified, use all in the program's directory.
 #
-if [[ "$#" -eq 3 ]]; then
-  REVIEWER=$3
+if [[ -n "${FLAGS_project}" ]]; then
+  IFS=',' read -r -a PROJECTS <<< "${FLAGS_project}"
+else
+  BDIR="${GCLIENT_ROOT}/src/project/${FLAGS_board}"
+  cd "${BDIR}" || die "${BDIR} does not exist"
+  mapfile -t PROJECTS < <(ls)
 fi
-BRANCH="update_${PROG}_fw_${RELEASE}"
+#
+# Validate project list
+#
+for P in "${PROJECTS[@]}"; do
+  PDIR="${GCLIENT_ROOT}/src/project/${FLAGS_board}/${P}"
+  if [[ ! -d "${PDIR}" ]]; then
+    die "${P} is not a valid project (${PDIR} missing)"
+  fi
+done
+#
+# Create a temp directory.
+TEMPDIR=$(mktemp -d -t fw-XXXXXXXXXX)
+# Use a common git branch name.
+BRANCH="update_${FLAGS_board}_fw_${FLAGS_release}"
+
+trap "exit 1"           HUP INT PIPE QUIT TERM
+trap 'cleanup' EXIT
+
 #
 # Update the firmware version in the program config
 # From now on, all errors should invoke 'abort'
-# so that the branches and CLs are cleaned up.
+# so that the branches and CLs are cleaned up on exit.
 #
-cd "${PROGDIR}" || exit 1
+cd "${PROGDIR}" || die "Missing ${PROGDIR}"
+echo "Updating ${PROGRAM} for board ${FLAGS_board}"
 branch
-sed "/^  *major_version = ${DIGITS}$/s/${DIGITS}/${RELEASE}/" "${PROGRAM}" > "${TEMPDIR}/new-${PROGRAM}"
+sed "/^  *major_version = ${DIGITS}$/s/${DIGITS}/${FLAGS_release}/" "${PROGRAM}" > "${TEMPDIR}/new-${PROGRAM}"
 #
 # Verify that only 1-5 characters have changed.
 #
@@ -148,7 +181,6 @@ DIFF=$(cmp -l "${PROGRAM}" "${TEMPDIR}/new-${PROGRAM}" | wc -l)
 if [[ "${DIFF}" -gt 5 ]]; then
   diff "${PROGRAM}" "new-${TEMPDIR}/${PROGRAM}"
   abort "${PROGDIR}/${PROGRAM} update error"
-  exit 1
 fi
 #
 # If program config has changed, create a CL.
@@ -157,13 +189,13 @@ if [[ "${DIFF}" -ne 0 ]]; then
   cp "${TEMPDIR}/new-${PROGRAM}" "${PROGRAM}"
   git add .
   git commit -F - <<EOF
-${PROG}: Update firmware to ${RELEASE}
+${FLAGS_board}: Update firmware to ${FLAGS_release}
 
 BUG=none
-TEST=FAFT tests on ${PROG}
+TEST=FAFT tests on ${FLAGS_board}
 EOF
   repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.output" 2>&1
-  PROGRAM_CL=$(getcl "program/${PROG}" "${TEMPDIR}/upload.output")
+  PROGRAM_CL=$(getcl "program/${FLAGS_board}" "${TEMPDIR}/upload.output")
 fi
 #
 # Now walk through the projects and regenerate the configs.
@@ -172,9 +204,10 @@ fi
 #
 PROJ_CLS=()
 PROJ_DIRS=()
-for PDIR in "${SRC}/project/${PROG}"/*; do
-  PROJ=$(basename "${PDIR}")
-  cd "${PDIR}" || abort "Missing directory: ${PDIR}"
+for PROJ in "${PROJECTS[@]}"; do
+  echo "Updating configs for project ${PROJ}"
+  PDIR="${GCLIENT_ROOT}/src/project/${FLAGS_board}/${PROJ}"
+  cd "${PDIR}" || abort "${PROJ}: Missing directory: ${PDIR}"
   branch
   ./config.star || abort "Generate config failed for ${PROJ}"
   check_config > "${TEMPDIR}/check_config-${PROJ}.output" || abort "check_config failed for ${PROJ}"
@@ -184,12 +217,12 @@ for PDIR in "${SRC}/project/${PROG}"/*; do
   if changed; then
     git add .
     git commit -F - <<EOF
-${PROJ}: Update firmware to ${RELEASE}
+${PROJ}: Update firmware to ${FLAGS_release}
 BUG=none
-TEST=FAFT tests on ${PROG}
+TEST=FAFT tests on ${FLAGS_board}
 EOF
     repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1
-    P_CL=$(getcl "project/${PROG}/${PROJ}" "${TEMPDIR}/upload.${PROJ}.output")
+    P_CL=$(getcl "project/${FLAGS_board}/${PROJ}" "${TEMPDIR}/upload.${PROJ}.output")
     PROJ_CLS+=("${P_CL}")
     PROJ_DIRS+=("${PDIR}")
   fi
@@ -219,25 +252,24 @@ fi
 # TODO: Should be selective here.
 #
 echo "Running emerge for coreboot. This may take a while..."
-if ! ("emerge-${PROG}" --quiet-build chromeos-ec coreboot depthcharge vboot_reference \
+if ! ("emerge-${FLAGS_board}" --quiet-build chromeos-ec coreboot depthcharge vboot_reference \
                  libpayload chromeos-bootimage coreboot-private-files \
-                 "coreboot-private-files-${PROG}"); then
+                 "coreboot-private-files-${FLAGS_board}"); then
   abort "emerge for coreboot failed!"
 fi
 echo "emerge of coreboot successful"
-OVERLAY="${SRC}/private-overlays/overlay-${PROG}-private/chromeos-base/chromeos-firmware-${PROG}"
-EB9999="chromeos-firmware-${PROG}-9999.ebuild"
+OVERLAY="${GCLIENT_ROOT}/src/private-overlays/overlay-${FLAGS_board}-private/chromeos-base/chromeos-firmware-${FLAGS_board}"
+EB9999="chromeos-firmware-${FLAGS_board}-9999.ebuild"
 #
 # Remove any previous attempts to build the firmware.
 #
-"cros_workon-${PROG}" stop "chromeos-base/chromeos-firmware-${PROG}"
-"cros_workon-${PROG}" stop "chromeos-base/chromeos-config-bsp-${PROG}-private"
+"cros_workon-${FLAGS_board}" stop "chromeos-base/chromeos-firmware-${FLAGS_board}"
+"cros_workon-${FLAGS_board}" stop "chromeos-base/chromeos-config-bsp-${FLAGS_board}-private"
 cd "${OVERLAY}" || abort "Missing directory: ${OVERLAY}"
 branch
-cd "${SRC}/platform/dev/contrib" || abort "Missing directory: ${SRC}/platform/dev/contrib"
-if ! (./cros_update_firmware -q "--board=${PROG}"); then
-  abort "cros_update_firmware failed for ${PROG}"
-  exit 1
+cd "${GCLIENT_ROOT}/src/platform/dev/contrib" || abort "Missing directory: ${GCLIENT_ROOT}/src/platform/dev/contrib"
+if ! (./cros_update_firmware -q "--board=${FLAGS_board}"); then
+  abort "cros_update_firmware failed for ${FLAGS_board}"
 fi
 cd "${OVERLAY}" || abort "Missing directory: ${OVERLAY}"
 #
@@ -255,10 +287,10 @@ if changed; then
   cp "${TEMPDIR}/new-${EB9999}" "${EB9999}"
   git add .
   git commit -F - <<EOF
-${PROG}: Update firmware to ${RELEASE}
+${FLAGS_board}: Update firmware to ${FLAGS_release}
 
 BUG=none
-TEST=FAFT tests on ${PROG}
+TEST=FAFT tests on ${FLAGS_board}
 
 ${CQD}
 EOF
@@ -266,7 +298,7 @@ EOF
   # Upload with no-verify since the file lines are too long.
   #
   repo upload "--ht=${BRANCH}" -y --no-verify --cbr . > "${TEMPDIR}/overlay.output" 2>&1
-  OVERLAY_CL=$(getcl "overlays/overlay-${PROG}-private" "${TEMPDIR}/overlay.output")
+  OVERLAY_CL=$(getcl "overlays/overlay-${FLAGS_board}-private" "${TEMPDIR}/overlay.output")
   #
   # Go back and amend all the project commit messages with a Cq-Depend on
   # the program and overlay CLs.
@@ -286,7 +318,7 @@ fi
 #
 ALL_CLS=$(gerrit -i --raw search "owner:me status:open hashtag:${BRANCH}")
 if [[ -z "${ALL_CLS}" ]]; then
-  echo "No changes required for program ${PROG}"
+  echo "No changes required for program ${FLAGS_board}"
   repo abandon "${BRANCH}"
   exit 0
 fi
@@ -298,10 +330,10 @@ done
 #
 # If reviewer is set, then add them to the CLs
 #
-if [[ -n "${REVIEWER}" ]]; then
-  echo "Sending CLs ${ALL_CLS} to ${REVIEWER} for review"
+if [[ -n "${FLAGS_reviewer}" ]]; then
+  echo "Sending CLs ${ALL_CLS} to ${FLAGS_reviewer} for review"
   for cl in ${ALL_CLS}; do
-    gerrit -i reviewers "${cl}" "${REVIEWER}"
+    gerrit -i reviewers "${cl}" "${FLAGS_reviewer}"
   done
 else
   echo "Send CLs for review by running:"
@@ -311,7 +343,7 @@ fi
 # Final instructions.
 #
 echo "Run:"
-echo "  /build/${PROG}/usr/sbin/chromeos-firmwareupdate --manifest"
+echo "  /build/${FLAGS_board}/usr/sbin/chromeos-firmwareupdate --manifest"
 echo "to verify firmware update"
 echo "When submitted, cleanup by running:"
 echo "repo abandon ${BRANCH}"
