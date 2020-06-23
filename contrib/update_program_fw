@@ -25,6 +25,7 @@ master configuration (program.star) and for selected projects
 that include the master configuration.
 
 If no projects are specified, all projects for that board are selected.
+An optional skip list can be specified to skip selected boards.
 
 The configurations for the selected projects are regenerated,
 and the firmware manifest are updated for the projects.
@@ -36,6 +37,7 @@ An optional reviewer can be specified to send all the CLs to.
 DEFINE_string board "${DEFAULT_BOARD}" "Which board (program) the firmware is for" b
 DEFINE_integer release 0  "The firmware release to update to" r
 DEFINE_string project "${DEFAULT_PROJECT}" "Which projects this release is for (defaults to all)" p
+DEFINE_string skip "${DEFAULT_SKIP}" "Skip these projects" s
 DEFINE_string reviewer "${DEFAULT_REVIEWER}" "The reviewer to send the CLs to (optional)"
 
 # Parse command line
@@ -53,7 +55,6 @@ DIGITS="[1-9][0-9][0-9][0-9][0-9]"
 BRANCH=""
 PROGRAM_CL=""
 PROGRAM="program.star"
-EDITOR="ex -s"; export EDITOR
 #
 # Common functions
 #
@@ -69,7 +70,9 @@ abort() {
   CLS=$(gerrit -i --raw search "owner:me status:open hashtag:${BRANCH}")
   if [[ -n "${CLS}" ]]; then
     echo "Abandoning uploaded CLs"
-    gerrit -i abandon "${CLS}"
+    for cl in ${CLS}; do
+      gerrit -i abandon "${cl}"
+    done
   fi
   "cros_workon-${FLAGS_board}" stop "chromeos-base/chromeos-firmware-${FLAGS_board}"
   "cros_workon-${FLAGS_board}" stop "chromeos-base/chromeos-config-bsp-${FLAGS_board}-private"
@@ -105,16 +108,22 @@ changed() {
 }
 #
 # Add a Cq-Depend line to a commit.
-# Use ex as a line editor to insert it.
 #
 amend() {
-  git commit --amend <<EOF
-/^Change-Id/
-i
-$1
-.
-wq
-EOF
+  git log -1 --pretty=%B > "${TEMPDIR}/amend-msg"
+  sed -i "/^Change-Id/ i ${1}" "${TEMPDIR}/amend-msg"
+  git commit -q --amend -F "${TEMPDIR}/amend-msg"
+}
+#
+# Return true if $1 is in list $2
+#
+in_list() {
+  for S in ${2}; do
+     if [[ "$1" == "${S}" ]]; then
+       return 0
+     fi
+  done
+  return 1
 }
 #
 # Validate arguments
@@ -134,21 +143,38 @@ if [[ ! -d "${PROGDIR}" ]]; then
 fi
 # Release must be a 5 digit number
 if [[ ! "${FLAGS_release}" =~ ^${DIGITS}$ ]]; then
-      die "release must be a 5 digit number"
+  die "release must be a 5 digit number"
 fi
+# Use a common git branch name.
+BRANCH="update_${FLAGS_board}_fw_${FLAGS_release}"
 #
 # Build the project list.
-# If no projects are specified, use all in the program's directory.
+# If no projects are specified, use all in the programs directory.
 #
-if [[ -n "${FLAGS_project}" ]]; then
-  IFS=',' read -r -a PROJECTS <<< "${FLAGS_project}"
-else
+if [[ -z "${FLAGS_project}" ]]; then
   BDIR="${GCLIENT_ROOT}/src/project/${FLAGS_board}"
-  cd "${BDIR}" || die "${BDIR} does not exist"
-  mapfile -t PROJECTS < <(ls)
+  cd "${BDIR}"
+  mapfile -t PROJLIST < <(ls)
+else
+  IFS=',' read -r -a PROJLIST <<< "${FLAGS_project}"
 fi
 #
-# Validate project list
+# Filter out the projects that are to be skipped.
+#
+if [[ -n "${FLAGS_skip}" ]]; then
+  PROJECTS=()
+  IFS=',' read -r -a SKIP_ARRAY <<< "${FLAGS_skip}"
+  SKIPPED="${SKIP_ARRAY[*]}"
+  for P in "${PROJLIST[@]}"; do
+    if ! (in_list "${P}" "${SKIPPED}"); then
+      PROJECTS+=("${P}")
+    fi
+  done
+else
+  PROJECTS=("${PROJLIST[@]}")
+fi
+#
+# Validate project list and file locations.
 #
 for P in "${PROJECTS[@]}"; do
   PDIR="${GCLIENT_ROOT}/src/project/${FLAGS_board}/${P}"
@@ -156,11 +182,24 @@ for P in "${PROJECTS[@]}"; do
     die "${P} is not a valid project (${PDIR} missing)"
   fi
 done
+# Validate project overlay location
+OVERLAY="${GCLIENT_ROOT}/src/private-overlays/overlay-${FLAGS_board}-private/chromeos-base/chromeos-firmware-${FLAGS_board}"
+if [[ ! -d "${OVERLAY}" ]]; then
+  die "${OVERLAY}: invalid directory"
+fi
+# Validate ebuild file
+EB9999="chromeos-firmware-${FLAGS_board}-9999.ebuild"
+if [[ ! -f "${OVERLAY}/${EB9999}" ]]; then
+  die "${OVERLAY}/${EB9999}: missing file"
+fi
+# Make sure dev/contrib is accessible
+DEVCONTRIB="${GCLIENT_ROOT}/src/platform/dev/contrib"
+if [[ ! -d "${DEVCONTRIB}" ]]; then
+  die "${DEVCONTRIB}: invalid directory"
+fi
 #
 # Create a temp directory.
 TEMPDIR=$(mktemp -d -t fw-XXXXXXXXXX)
-# Use a common git branch name.
-BRANCH="update_${FLAGS_board}_fw_${FLAGS_release}"
 
 trap "exit 1"           HUP INT PIPE QUIT TERM
 trap 'cleanup' EXIT
@@ -170,7 +209,7 @@ trap 'cleanup' EXIT
 # From now on, all errors should invoke 'abort'
 # so that the branches and CLs are cleaned up on exit.
 #
-cd "${PROGDIR}" || die "Missing ${PROGDIR}"
+cd "${PROGDIR}"
 echo "Updating ${PROGRAM} for board ${FLAGS_board}"
 branch
 sed "/^  *major_version = ${DIGITS}$/s/${DIGITS}/${FLAGS_release}/" "${PROGRAM}" > "${TEMPDIR}/new-${PROGRAM}"
@@ -188,13 +227,16 @@ fi
 if [[ "${DIFF}" -ne 0 ]]; then
   cp "${TEMPDIR}/new-${PROGRAM}" "${PROGRAM}"
   git add .
-  git commit -F - <<EOF
+  git commit -q -F - <<EOF
 ${FLAGS_board}: Update firmware to ${FLAGS_release}
 
 BUG=none
 TEST=FAFT tests on ${FLAGS_board}
 EOF
-  repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.output" 2>&1
+  if ! repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.output" 2>&1 ;then
+    cat  "${TEMPDIR}/upload.output"
+    abort "repo upload failed"
+  fi
   PROGRAM_CL=$(getcl "program/${FLAGS_board}" "${TEMPDIR}/upload.output")
 fi
 #
@@ -207,7 +249,7 @@ PROJ_DIRS=()
 for PROJ in "${PROJECTS[@]}"; do
   echo "Updating configs for project ${PROJ}"
   PDIR="${GCLIENT_ROOT}/src/project/${FLAGS_board}/${PROJ}"
-  cd "${PDIR}" || abort "${PROJ}: Missing directory: ${PDIR}"
+  cd "${PDIR}"
   branch
   ./config.star || abort "Generate config failed for ${PROJ}"
   check_config > "${TEMPDIR}/check_config-${PROJ}.output" || abort "check_config failed for ${PROJ}"
@@ -215,13 +257,18 @@ for PROJ in "${PROJECTS[@]}"; do
   # Check if any files changed.
   #
   if changed; then
+    echo "Creating CL for changes to project ${PROJ}"
     git add .
-    git commit -F - <<EOF
+    git commit -q -F - <<EOF
 ${PROJ}: Update firmware to ${FLAGS_release}
+
 BUG=none
 TEST=FAFT tests on ${FLAGS_board}
 EOF
-    repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1
+    if ! repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1 ;then
+      cat  "${TEMPDIR}/upload.${PROJ}.output"
+      abort "repo upload failed"
+    fi
     P_CL=$(getcl "project/${FLAGS_board}/${PROJ}" "${TEMPDIR}/upload.${PROJ}.output")
     PROJ_CLS+=("${P_CL}")
     PROJ_DIRS+=("${PDIR}")
@@ -238,11 +285,16 @@ if [[ -n "${PROJ_CLS[*]}" ]];then
     SEP=", "
   done
   #
-  # Add the Cq-Depend line to the program CL commit message.
+  # If a program CL exists, add the Cq-Depend line to it.
   #
-  cd "${PROGDIR}" || abort "Missing directory: ${PROGDIR}"
-  amend "${PROG_CQD}"
-  repo upload --cbr .
+  if [[ -n "${PROGRAM_CL}" ]]; then
+    cd "${PROGDIR}"
+    amend "${PROG_CQD}"
+    if ! repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.amend.output" 2>&1 ;then
+      cat  "${TEMPDIR}/upload.amend.output"
+      abort "repo upload failed"
+    fi
+  fi
 fi
 #
 # All the boxster configs have been uploaded.
@@ -258,20 +310,19 @@ if ! ("emerge-${FLAGS_board}" --quiet-build chromeos-ec coreboot depthcharge vbo
   abort "emerge for coreboot failed!"
 fi
 echo "emerge of coreboot successful"
-OVERLAY="${GCLIENT_ROOT}/src/private-overlays/overlay-${FLAGS_board}-private/chromeos-base/chromeos-firmware-${FLAGS_board}"
 EB9999="chromeos-firmware-${FLAGS_board}-9999.ebuild"
 #
 # Remove any previous attempts to build the firmware.
 #
 "cros_workon-${FLAGS_board}" stop "chromeos-base/chromeos-firmware-${FLAGS_board}"
 "cros_workon-${FLAGS_board}" stop "chromeos-base/chromeos-config-bsp-${FLAGS_board}-private"
-cd "${OVERLAY}" || abort "Missing directory: ${OVERLAY}"
+cd "${OVERLAY}"
 branch
-cd "${GCLIENT_ROOT}/src/platform/dev/contrib" || abort "Missing directory: ${GCLIENT_ROOT}/src/platform/dev/contrib"
+cd "${DEVCONTRIB}"
 if ! (./cros_update_firmware -q "--board=${FLAGS_board}"); then
   abort "cros_update_firmware failed for ${FLAGS_board}"
 fi
-cd "${OVERLAY}" || abort "Missing directory: ${OVERLAY}"
+cd "${OVERLAY}"
 #
 # If files have been updated, then create a CL for the changes.
 #
@@ -283,21 +334,23 @@ if changed; then
   #
   CURVERS=$(grep "VERSION=REVBUMP" "${EB9999}" | grep -o "[0-9][0-9]*$")
   NEXTVERS=$((CURVERS + 1))
-  sed "/VERSION=REVBUMP/s/${CURVERS}$/${NEXTVERS}/" "${EB9999}" > "${TEMPDIR}/new-${EB9999}"
-  cp "${TEMPDIR}/new-${EB9999}" "${EB9999}"
+  sed -i "/VERSION=REVBUMP/s/${CURVERS}$/${NEXTVERS}/" "${EB9999}"
   git add .
-  git commit -F - <<EOF
+  git commit -q -F - <<EOF
 ${FLAGS_board}: Update firmware to ${FLAGS_release}
 
 BUG=none
 TEST=FAFT tests on ${FLAGS_board}
 
-${CQD}
+${PROG_CQD}
 EOF
   #
   # Upload with no-verify since the file lines are too long.
   #
-  repo upload "--ht=${BRANCH}" -y --no-verify --cbr . > "${TEMPDIR}/overlay.output" 2>&1
+  if ! repo upload "--ht=${BRANCH}" -y --no-verify --cbr . > "${TEMPDIR}/overlay.output" 2>&1 ;then
+    cat  "${TEMPDIR}/overlay.output"
+    abort "repo upload failed"
+  fi
   OVERLAY_CL=$(getcl "overlays/overlay-${FLAGS_board}-private" "${TEMPDIR}/overlay.output")
   #
   # Go back and amend all the project commit messages with a Cq-Depend on
@@ -308,9 +361,12 @@ EOF
     CQD="${CQD}, chrome-internal:${PROGRAM_CL}"
   fi
   for DIR in "${PROJ_DIRS[@]}"; do
-    cd "${DIR}" || abort "Missing directory: ${DIR}"
+    cd "${DIR}"
     amend "${CQD}"
-    repo upload --cbr .
+    if ! repo upload -y --cbr . > "${TEMPDIR}/cqd.output" 2>&1 ;then
+      cat  "${TEMPDIR}/cqd.output"
+      abort "repo upload failed"
+    fi
   done
 fi
 #
