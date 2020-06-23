@@ -11,6 +11,18 @@ import os
 from cvelib import patchapplier as pa
 
 
+def get_sha(kernel_path):
+    """Returns most recent commit sha."""
+    try:
+        sha = subprocess.check_output(['git', 'log', '-1', '--format=%H'],
+                                      stderr=subprocess.DEVNULL, cwd=kernel_path,
+                                      encoding='utf-8')
+    except subprocess.CalledProcessError:
+        raise Exception('Sha was not found')
+
+    return sha.rstrip('\n')
+
+
 class TestPatchApplier(unittest.TestCase):
     """Test class for cvelib/patchapplier.py."""
 
@@ -23,25 +35,43 @@ class TestPatchApplier(unittest.TestCase):
         self.linux_temp = tempfile.mkdtemp()
         os.environ['LINUX'] = self.linux_temp
         subprocess.check_call(['git', 'init'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                              cwd=os.getenv('LINUX'))
+                              cwd=self.linux_temp)
 
         for i in range(1, 4):
-            subprocess.check_call(['touch', str(i)], cwd=os.getenv('LINUX'))
-            subprocess.check_call(['git', 'add', str(i)], cwd=os.getenv('LINUX'))
+            subprocess.check_call(['touch', str(i)], cwd=self.linux_temp)
+            subprocess.check_call(['git', 'add', str(i)], cwd=self.linux_temp)
             subprocess.check_call(['git', 'commit', '-m', str(i)], stdout=subprocess.DEVNULL,
-                                  stderr=subprocess.DEVNULL, cwd=os.getenv('LINUX'))
+                                  stderr=subprocess.DEVNULL, cwd=self.linux_temp)
 
-        # Clone LINUX to CHROMIUMOS_KERNEL.
+        # Create temporary directory for $CHROMIUMOS_KERNEL
         self.cros_temp = tempfile.mkdtemp()
         os.environ['CHROMIUMOS_KERNEL'] = self.cros_temp
-        subprocess.check_call(['git', 'clone', self.linux_temp], stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL, cwd=os.getenv('CHROMIUMOS_KERNEL'))
+        subprocess.check_call(['git', 'init'], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, cwd=self.cros_temp)
 
-        # Add extra commit to LINUX.
-        subprocess.check_call(['touch', '4'], cwd=os.getenv('LINUX'))
-        subprocess.check_call(['git', 'add', '4'], cwd=os.getenv('LINUX'))
+        # # Creates branch that represents a mock of a kernel version
+        branch = 'v' + os.path.basename(self.linux_temp)
+
+        subprocess.check_call(['git', 'checkout', '-b', branch], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, cwd=self.cros_temp)
+
+        # Create a commit for branch to be recognized in computer
+        subprocess.check_call(['touch', 'file'], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, cwd=self.cros_temp)
+        subprocess.check_call(['git', 'add', 'file'], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, cwd=self.cros_temp)
+        subprocess.check_call(['git', 'commit', '-m', 'random'], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, cwd=self.cros_temp)
+
+        # Clone LINUX to CHROMIUMOS_KERNEL
+        subprocess.check_call(['git', 'clone', self.linux_temp], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, cwd=self.cros_temp)
+
+        # Add extra commit to LINUX
+        subprocess.check_call(['touch', '4'], cwd=self.linux_temp)
+        subprocess.check_call(['git', 'add', '4'], cwd=self.linux_temp)
         subprocess.check_call(['git', 'commit', '-m', '4'], stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL, cwd=os.getenv('LINUX'))
+                              stderr=subprocess.DEVNULL, cwd=self.linux_temp)
 
     def tearDown(self):
         if self.linux:
@@ -59,8 +89,8 @@ class TestPatchApplier(unittest.TestCase):
 
     @mock.patch('cvelib.common.checkout_branch')
     def test_apply_patch(self, _):
-        """Unit test for apply_patch."""
-        sha = pa.get_sha(self.linux_temp)
+        """Unit test for apply_patch"""
+        sha = get_sha(self.linux_temp)
         bug_id = '123'
         kernel_versions = [os.path.basename(self.linux_temp)]
 
@@ -71,17 +101,17 @@ class TestPatchApplier(unittest.TestCase):
     def test_create_commit_message(self):
         """Unit test for create_commit_message."""
         kernel = os.path.basename(self.linux_temp)
-        kernel_path = os.path.join(os.getenv('CHROMIUMOS_KERNEL'), kernel)
+        kernel_path = os.path.join(self.cros_temp, kernel)
 
-        sha = pa.get_sha(self.linux_temp)
+        sha = get_sha(self.linux_temp)
         bug_id = '123'
 
         pa.fetch_linux_kernel(kernel_path)
 
         pa.cherry_pick(kernel_path, sha, bug_id)
 
-        # Retrieves new cherry-picked message.
-        msg = pa.get_commit_message(kernel_path, pa.get_sha(kernel_path))
+        # Retrieves new cherry-picked message
+        msg = pa.get_commit_message(kernel_path, get_sha(kernel_path))
 
         check = False
         if 'UPSTREAM:' in msg and 'BUG=' in msg and 'TEST=' in msg:
@@ -92,7 +122,7 @@ class TestPatchApplier(unittest.TestCase):
     def test_fetch_linux_kernel(self):
         """Unit test for fetch_linux_kernel."""
         kernel = os.path.basename(self.linux_temp)
-        kernel_path = os.path.join(os.getenv('CHROMIUMOS_KERNEL'), kernel)
+        kernel_path = os.path.join(self.cros_temp, kernel)
 
         linux_expected = self.linux_temp
 
@@ -104,9 +134,9 @@ class TestPatchApplier(unittest.TestCase):
     def test_cherry_pick(self):
         """Unit test for cherry_pick."""
         kernel = os.path.basename(self.linux_temp)
-        kernel_path = os.path.join(os.getenv('CHROMIUMOS_KERNEL'), kernel)
+        kernel_path = os.path.join(self.cros_temp, kernel)
 
-        sha = pa.get_sha(self.linux_temp)
+        sha = get_sha(self.linux_temp)
         bug_id = '123'
 
         pa.fetch_linux_kernel(kernel_path)
@@ -114,6 +144,21 @@ class TestPatchApplier(unittest.TestCase):
         check = pa.cherry_pick(kernel_path, sha, bug_id)
 
         self.assertTrue(check)
+
+    def test_create_new_cherry_pick_branch(self):
+        """Unit test for create_new_cherry_pick_branch"""
+        kernel = os.path.basename(self.linux_temp)
+        bug_id = '123'
+
+        pa.create_new_cherry_pick_branch(kernel, bug_id, self.cros_temp)
+
+        # Outputs the current branch
+        branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                                         stderr=subprocess.DEVNULL, cwd=self.cros_temp)
+
+        expected_branch = f'b{bug_id}-{kernel}'
+
+        self.assertEqual(branch.rstrip(), bytes(expected_branch, encoding='utf-8'))
 
     @mock.patch('cvelib.common.checkout_branch')
     def test_invalid_sha(self, _):
@@ -126,12 +171,12 @@ class TestPatchApplier(unittest.TestCase):
                           sha, bug, kernel_versions)
 
     def test_invalid_linux_path(self):
-        """Test for invalid LINUX directory."""
-        linux = os.getenv('LINUX')
+        """Test for invalid LINUX directory"""
+        linux = self.linux_temp
         os.environ['LINUX'] = '/tmp/tmp'
 
         kernel = os.path.basename(self.linux_temp)
-        kernel_path = os.path.join(os.getenv('CHROMIUMOS_KERNEL'), kernel)
+        kernel_path = os.path.join(self.cros_temp, kernel)
 
         self.assertRaises(pa.PatchApplierException, pa.fetch_linux_kernel,
                           kernel_path)
@@ -139,11 +184,11 @@ class TestPatchApplier(unittest.TestCase):
         os.environ['LINUX'] = linux
 
     def test_empty_env_variables(self):
-        """Test for empty LINUX or CHROMIUMOS_KERNEL environement variables."""
-        linux = os.getenv('LINUX')
-        chros_kernel = os.getenv('CHROMIUMOS_KERNEL')
+        """Test for empty LINUX or CHROMIUMOS_KERNEL environement variables"""
+        linux = self.linux_temp
+        chros_kernel = self.cros_temp
 
-        sha = pa.get_sha(self.linux_temp)
+        sha = get_sha(self.linux_temp)
         bug = '123'
         kernel_versions = [os.path.basename(self.linux_temp)]
 
@@ -161,8 +206,8 @@ class TestPatchApplier(unittest.TestCase):
         os.environ['CHROMIUMOS_KERNEL'] = chros_kernel
 
     def test_invalid_kernel(self):
-        """Test for passing of invalid kernel."""
-        sha = pa.get_sha(self.linux_temp)
+        """Test for passing of invalid kernel"""
+        sha = get_sha(self.linux_temp)
         bug = '123'
         kernel_versions = ['not_a_kernel']
 

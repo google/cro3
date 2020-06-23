@@ -14,18 +14,6 @@ class PatchApplierException(Exception):
     """Exception raised from patchapplier."""
 
 
-def get_sha(kernel_path):
-    """Returns most recent commit sha."""
-    try:
-        sha = subprocess.check_output(['git', 'log', '-1', '--format=%H'],
-                                      stderr=subprocess.DEVNULL, cwd=kernel_path,
-                                      encoding='utf-8')
-    except subprocess.CalledProcessError:
-        raise PatchApplierException('Sha was not found')
-
-    return sha.rstrip('\n')
-
-
 def get_commit_message(kernel_path, sha):
     """Returns commit message."""
     try:
@@ -65,6 +53,17 @@ def fetch_linux_kernel(kernel_path):
         raise PatchApplierException('Kernel is non-existent')
 
 
+def create_new_cherry_pick_branch(kernel, bug_id, kernel_path):
+    """Creates and checks into new branch for cherry-picking"""
+    branch = f'b{bug_id}-{kernel}'
+
+    try:
+        subprocess.check_call(['git', 'checkout', '-b', branch], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, cwd=kernel_path)
+    except subprocess.CalledProcessError:
+        raise PatchApplierException('Creating branch %s failed' % branch)
+
+
 def cherry_pick(kernel_path, sha, bug_id):
     """Cherry-picking commit into kernel."""
     fix_commit_message = create_commit_message(kernel_path, sha, bug_id)
@@ -99,6 +98,8 @@ def apply_patch(sha, bug_id, kernel_versions):
 
         branch = common.get_cros_branch(kernel)
         common.checkout_branch(kernel, f'cros/{branch}', 'cros', branch, kernel_path)
+
+        create_new_cherry_pick_branch(kernel, bug_id, kernel_path)
 
         cp_status[kernel] = cherry_pick(kernel_path, sha, bug_id)
 
