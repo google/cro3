@@ -263,6 +263,7 @@ class BoardOverlays:
   ]
 
   def __init__(self, board_name, checkout, mosys_platform):
+    self.checkout = checkout
     self.board_name = board_name
     self.mosys_platform = mosys_platform
     self.public_overlay = (checkout / 'src' / 'overlays'
@@ -521,6 +522,16 @@ def genconf_whitelabel_tag(device, _):
   return device.whitelabel_tag or None
 
 
+def genconf_wallpaper_id(device, overlay):
+  wallpapers_dir = (overlay.checkout / 'src' / 'platform' / 'chromeos-assets'
+                    / 'wallpaper' / 'large')
+  assert wallpapers_dir.is_dir()
+  for wallpaper_id in (overlay.board_name, device.model):
+    if (wallpapers_dir / f'{wallpaper_id}.jpg').is_file():
+      return wallpaper_id
+  return None
+
+
 M_PUBLIC = (1 << 0)
 M_PRIVATE = (1 << 1)
 
@@ -586,6 +597,7 @@ genconf_schema = {
         'whitelabel-tag': (M_PUBLIC, genconf_whitelabel_tag),
     },
     'power': (M_PUBLIC, genconf_powerd_settings),
+    'wallpaper': (M_PRIVATE, genconf_wallpaper_id),
 }
 
 
