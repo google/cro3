@@ -1459,6 +1459,7 @@ def add_cq_depend_to_commit_msg(git_repo, change_id, cq_depend_str):
     cmd = [
         'git',
         'filter-branch',
+        '-f',
         '--msg-filter',
         f'sed -E "s/^(Change-Id: {change_id})$/{cq_depend_str}\\n\\1/"',
         '--',

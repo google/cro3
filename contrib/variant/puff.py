@@ -90,6 +90,5 @@ coreboot_push_list = [step_names.CB_VARIANT]
 depends = {
     step_names.CB_CONFIG: [step_names.FIND],
     step_names.FW_BUILD_CONFIG: [
-        step_names.FIND, step_names.CB_VARIANT, step_names.CB_CONFIG,
-        step_names.COMMIT_FIT]
+        step_names.FIND, step_names.CB_CONFIG, step_names.COMMIT_FIT]
 }

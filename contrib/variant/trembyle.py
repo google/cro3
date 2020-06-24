@@ -70,6 +70,6 @@ coreboot_push_list = None
 depends = {
     step_names.CB_CONFIG: [step_names.CB_VARIANT],
     step_names.FW_BUILD_CONFIG: [
-        step_names.FIND, step_names.CB_VARIANT, step_names.CB_CONFIG,
+        step_names.CB_VARIANT, step_names.CB_CONFIG,
         step_names.CRAS_CONFIG, step_names.EC_IMAGE, step_names.COMMIT_FIT]
 }
