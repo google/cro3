@@ -52,7 +52,7 @@ def prepend_all_lines(text, prepend):
 def gen_cros_copyright(line_comment='# '):
   return prepend_all_lines(
       """Copyright {} The Chromium OS Authors. All rights reserved.
-Use of this source code is coverned by a BSD-style license that can be
+Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.""".format(datetime.datetime.now().strftime('%Y')),
       line_comment)
 
