@@ -14,13 +14,16 @@
 # E.g:
 #   ./update_program_fw --board=puff --release=13291 --reviewer=amcrae@google.com
 #
+# TODO:
+#   - Handle minor version
+#
 CONTRIB_DIR=$(dirname "$(readlink -f "$0")")
 . "${CONTRIB_DIR}/common.sh" || exit 1
 
 FLAGS_HELP="
 Command to update the firmware version for a board.
 
-Updates the master_version firmware configuration for a board's
+Updates the firmware version configuration for a board's
 master configuration (program.star) and for selected projects
 that include the master configuration.
 
@@ -34,12 +37,20 @@ The necessary CLs for these changes are created and uploaded for review.
 An optional reviewer can be specified to send all the CLs to.
 "
 # Flags
-DEFINE_string board "${DEFAULT_BOARD}" "Which board (program) the firmware is for" b
-DEFINE_integer release 0  "The firmware release to update to" r
-DEFINE_string project "${DEFAULT_PROJECT}" "Which projects this release is for (defaults to all)" p
+DEFINE_string board "${DEFAULT_BOARD}" "Which board (program) the firmware is for (e.g 'puff')" b
+DEFINE_integer release 0  "The firmware release to update to (e.g 13310)" r
+DEFINE_string project "${DEFAULT_PROJECT}" "Which projects this release is for (defaults to all), e.g 'duffy'" p
 DEFINE_string bug "none" "The bug to reference in the CL e.g b:12345"
-DEFINE_string skip "${DEFAULT_SKIP}" "Skip these projects" s
+DEFINE_string skip "${DEFAULT_SKIP}" "Skip these projects (comma separated list)" s
+DEFINE_boolean build "${FLAGS_TRUE}" "Attempt to build coreboot"
+DEFINE_boolean program "${FLAGS_TRUE}" "Update the version in the base program.star"
 DEFINE_string reviewer "${DEFAULT_REVIEWER}" "The reviewer to send the CLs to (optional)"
+DEFINE_string test "none" "The 'TEST=' string added to the commit message"
+DEFINE_boolean dryrun "${FLAGS_FALSE}" "Do not perform any actions, just validate and print arguments"
+
+# Set before flag processing
+COMMAND=$(basename "$0")
+CMDARGS="$*"
 
 # Parse command line
 FLAGS "$@" || exit 1
@@ -55,9 +66,9 @@ PATH="${PATH}:${GCLIENT_ROOT}/src/config/bin"
 DIGITS="[1-9][0-9][0-9][0-9][0-9]"
 BRANCH=""
 PROGRAM_CL=""
-PROGRAM="program.star"
-BASENAME=$(basename "$0")
-COMMAND="${BASENAME} $@"
+MAJORV=" major_version = "
+ANY_MV="${MAJORV}${DIGITS}"
+NEW_MV="${MAJORV}${FLAGS_release}"
 #
 # Common functions
 #
@@ -83,8 +94,7 @@ abort() {
   die "$*"
 }
 #
-# Extract a CL number from the file containing
-# the output of repo upload
+# Extract a CL number from the file containing the output of repo upload
 #
 getcl() {
   CL=$(grep -o "https://chrome-internal-review.googlesource.com/c/chromeos/$1/+/[0-9][0-9]*" "$2")
@@ -106,6 +116,7 @@ branch() {
 }
 #
 # Return true if repo has changes.
+#
 changed() {
   [[ -n $(git status -s) ]]
 }
@@ -118,6 +129,15 @@ amend() {
   git commit -q --amend -F "${TEMPDIR}/amend-msg"
 }
 #
+# Confirm that $1 is a valid project
+#
+check_project() {
+  PDIR="${GCLIENT_ROOT}/src/project/${FLAGS_board}/${1}"
+  if [[ ! -d "${PDIR}" ]]; then
+    die "${P} is not a valid project (${PDIR} missing)"
+  fi
+}
+#
 # Return true if $1 is in list $2
 #
 in_list() {
@@ -127,6 +147,38 @@ in_list() {
      fi
   done
   return 1
+}
+#
+# Return 0 if file has version in it.
+#
+has_version() {
+  (grep -q "${ANY_MV}" "${1}")
+}
+#
+# Update the major version in the file passed.
+# return 0 if version updated.
+# return 1 if version not in file, or unchanged.
+#
+update_version() {
+  # Check for major_version in file.
+  if ! (has_version "${1}") ;then
+    return 1
+  fi
+  local nf="${TEMPDIR}/new-${1}"
+  sed "/${ANY_MV}/s/${ANY_MV}/${NEW_MV}/" "${1}" > "${nf}"
+  #
+  # Verify that only 1-5 characters have changed.
+  #
+  DIFF=$(cmp -l "${1}" "${nf}" | wc -l)
+  if [[ "${DIFF}" -gt 5 ]]; then
+    diff "${1}" "{nf}}"
+    abort "${1} update error"
+  fi
+  if [[ "${DIFF}" == 0 ]]; then
+    return 1
+  fi
+  cp "${nf}" "${1}"
+  return 0
 }
 #
 # Validate arguments
@@ -167,6 +219,10 @@ fi
 if [[ -n "${FLAGS_skip}" ]]; then
   PROJECTS=()
   IFS=',' read -r -a SKIP_ARRAY <<< "${FLAGS_skip}"
+  # Validate skipped projects
+  for S in "${SKIP_ARRAY[@]}"; do
+    check_project "${S}"
+  done
   SKIPPED="${SKIP_ARRAY[*]}"
   for P in "${PROJLIST[@]}"; do
     if ! (in_list "${P}" "${SKIPPED}"); then
@@ -177,28 +233,73 @@ else
   PROJECTS=("${PROJLIST[@]}")
 fi
 #
+# Valid bug number (if any).
+# Must be of the form b:nnnnn or chromium:nnnnn
+#
+if [[ "${FLAGS_bug}" != "none" ]]; then
+  BG="b:[0-9]+|chromium:[0-9]+"
+  BGRE="^(${BG})(,(${BG}))*$"
+  if [[ ! "${FLAGS_bug}" =~ ${BGRE} ]]; then
+    echo "Bug must be of the form b:nnn or chromium:nnn"
+    die "A comma separated list is allowed"
+  fi
+fi
+#
 # Validate project list and file locations.
 #
 for P in "${PROJECTS[@]}"; do
-  PDIR="${GCLIENT_ROOT}/src/project/${FLAGS_board}/${P}"
-  if [[ ! -d "${PDIR}" ]]; then
-    die "${P} is not a valid project (${PDIR} missing)"
-  fi
+  check_project "${P}"
 done
-# Validate project overlay location
 OVERLAY="${GCLIENT_ROOT}/src/private-overlays/overlay-${FLAGS_board}-private/chromeos-base/chromeos-firmware-${FLAGS_board}"
-if [[ ! -d "${OVERLAY}" ]]; then
-  die "${OVERLAY}: invalid directory"
-fi
-# Validate ebuild file
+# Validate project overlay and ebuild file
 EB9999="chromeos-firmware-${FLAGS_board}-9999.ebuild"
 if [[ ! -f "${OVERLAY}/${EB9999}" ]]; then
-  die "${OVERLAY}/${EB9999}: missing file"
+  die "${OVERLAY}/${EB9999}: overlay error"
 fi
 # Make sure dev/contrib is accessible
 DEVCONTRIB="${GCLIENT_ROOT}/src/platform/dev/contrib"
 if [[ ! -d "${DEVCONTRIB}" ]]; then
   die "${DEVCONTRIB}: invalid directory"
+fi
+#
+# If requesting dry run, dump arguments and exit.
+#
+if [[ "${FLAGS_dryrun}" -eq  "${FLAGS_TRUE}" ]]; then
+  echo "Dry run requested, invoked as:"
+  echo "${COMMAND} ${CMDARGS}"
+  echo "Program (board) to be updated: ${FLAGS_board}"
+  echo -n "Projects to be updated are:   "
+  for PROJ in "${PROJECTS[@]}"; do
+    echo -n " ${PROJ}"
+  done
+  if [[ -n "${SKIPPED}" ]]; then
+    echo -n " (skipped:"
+    for S in "${SKIPPED[@]}"; do
+      echo -n " ${S}"
+    done
+    echo -n ")"
+  fi
+  echo
+  echo "Release number of upgrade:     ${FLAGS_release}"
+  echo "BUG string used in commit:     ${FLAGS_bug}"
+  echo "TEST string used in commit:    ${FLAGS_test}"
+  echo "Reviewer assigned to CLs:      ${FLAGS_reviewer:-None}"
+  echo -n "Coreboot build enabled:        "
+  if [[ "${FLAGS_build}" -eq  "${FLAGS_FALSE}" ]]; then
+    echo "no"
+  else
+    echo "yes"
+  fi
+  echo "repo branch to be used is:     ${BRANCH}"
+  exit 0
+fi
+if [[ "${FLAGS_build}" -eq  "${FLAGS_FALSE}" ]]; then
+  echo
+  echo "******************************************"
+  echo "* You have elected not to build coreboot *"
+  echo "* This assumes coreboot is already built *"
+  echo "******************************************"
+  echo
 fi
 #
 # Create a temp directory.
@@ -208,44 +309,39 @@ trap "exit 1"           HUP INT PIPE QUIT TERM
 trap 'cleanup' EXIT
 
 #
-# Update the firmware version in the program config
 # From now on, all errors should invoke 'abort'
 # so that the branches and CLs are cleaned up on exit.
 #
-cd "${PROGDIR}"
-echo "Updating ${PROGRAM} for board ${FLAGS_board}"
-branch
-sed "/^  *major_version = ${DIGITS}$/s/${DIGITS}/${FLAGS_release}/" "${PROGRAM}" > "${TEMPDIR}/new-${PROGRAM}"
+# If required, update the firmware version in the program's program.star file
 #
-# Verify that only 1-5 characters have changed.
-#
-DIFF=$(cmp -l "${PROGRAM}" "${TEMPDIR}/new-${PROGRAM}" | wc -l)
-if [[ "${DIFF}" -gt 5 ]]; then
-  diff "${PROGRAM}" "new-${TEMPDIR}/${PROGRAM}"
-  abort "${PROGDIR}/${PROGRAM} update error"
-fi
-#
-# If program config has changed, create a CL.
-#
-if [[ "${DIFF}" -ne 0 ]]; then
-  cp "${TEMPDIR}/new-${PROGRAM}" "${PROGRAM}"
-  git add .
-  git commit -q -F - <<EOF
-${FLAGS_board}: Update firmware to ${FLAGS_release}
+if [[ "${FLAGS_program}" -eq "${FLAGS_TRUE}" ]]; then
+  cd "${PROGDIR}"
+  echo "Updating program.star for board ${FLAGS_board}"
+  branch
+  if (update_version "program.star") ;then
+    #
+    # If config has changed, create a CL.
+    #
+    git add .
+    git commit -q -F - <<EOF
+${FLAGS_board}: Update program firmware to ${FLAGS_release}
 
-Autogenerated by: ${COMMAND}
+Autogenerated by:
+${COMMAND} ${CMDARGS}
 
 BUG=${FLAGS_bug}
-TEST=FAFT tests on ${FLAGS_board}
+TEST=${FLAGS_test}
 EOF
-  if ! repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.output" 2>&1 ;then
-    cat  "${TEMPDIR}/upload.output"
-    abort "repo upload failed"
+    if ! repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.output" 2>&1 ;then
+      cat  "${TEMPDIR}/upload.output"
+      abort "repo upload failed"
+    fi
+    PROGRAM_CL=$(getcl "program/${FLAGS_board}" "${TEMPDIR}/upload.output")
   fi
-  PROGRAM_CL=$(getcl "program/${FLAGS_board}" "${TEMPDIR}/upload.output")
 fi
 #
-# Now walk through the projects and regenerate the configs.
+# Now walk through the projects and update the version (if present)
+# and regenerate the configs.
 # Create and upload a CL and capture the CL number and project directory
 # if the project has changed.
 #
@@ -256,6 +352,7 @@ for PROJ in "${PROJECTS[@]}"; do
   PDIR="${GCLIENT_ROOT}/src/project/${FLAGS_board}/${PROJ}"
   cd "${PDIR}"
   branch
+  update_version "config.star" || true
   ./config.star || abort "Generate config failed for ${PROJ}"
   check_config > "${TEMPDIR}/check_config-${PROJ}.output" || abort "check_config failed for ${PROJ}"
   #
@@ -267,10 +364,11 @@ for PROJ in "${PROJECTS[@]}"; do
     git commit -q -F - <<EOF
 ${PROJ}: Update firmware to ${FLAGS_release}
 
-Autogenerated by: ${COMMAND}
+Autogenerated by:
+${COMMAND} ${CMDARGS}
 
 BUG=${FLAGS_bug}
-TEST=FAFT tests on ${FLAGS_board}
+TEST=${FLAGS_test}
 EOF
     if ! repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1 ;then
       cat  "${TEMPDIR}/upload.${PROJ}.output"
@@ -308,15 +406,33 @@ fi
 # Now run the update script and update the firmware manifest.
 #
 # Build base coreboot files
-# TODO: Should be selective here.
 #
-echo "Running emerge for coreboot. This may take a while..."
-if ! ("emerge-${FLAGS_board}" --quiet-build chromeos-ec coreboot depthcharge vboot_reference \
-                 libpayload chromeos-bootimage coreboot-private-files \
-                 "coreboot-private-files-${FLAGS_board}"); then
-  abort "emerge for coreboot failed!"
+if [[ "${FLAGS_build}" -eq  "${FLAGS_TRUE}" ]]; then
+  echo "Running coreboot build. This may take a while..."
+  #
+  # Attempt to customise the coreboot build depending on the platform.
+  #
+  case "${FLAGS_board}" in
+  "zork")
+    PACKAGES=(coreboot-zork chromeos-bootimage)
+    ;;
+  "puff")
+    PACKAGES=(chromeos-ec coreboot depthcharge vboot_reference libpayload chromeos-bootimage coreboot-private-files intel-cmlfsp coreboot-private-files-puff)
+    ;;
+  *)
+    # Use general packages
+    echo "Taking a guess at coreboot packages for ${FLAGS_board}"
+    echo "If the coreboot build fails, this script may have to be customized for this board"
+    PACKAGES=(coreboot depthcharge vboot_reference libpayload chromeos-bootimage)
+    ;;
+  esac
+  if ! ("emerge-${FLAGS_board}" --quiet-build "${PACKAGES[@]}"); then
+    abort "coreboot build failed!"
+  fi
+  echo "coreboot build successful"
+else
+  echo "Coreboot build not attempted"
 fi
-echo "emerge of coreboot successful"
 EB9999="chromeos-firmware-${FLAGS_board}-9999.ebuild"
 #
 # Remove any previous attempts to build the firmware.
@@ -346,10 +462,11 @@ if changed; then
   git commit -q -F - <<EOF
 ${FLAGS_board}: Update firmware to ${FLAGS_release}
 
-Autogenerated by: ${COMMAND}
+Autogenerated by:
+${COMMAND} ${CMDARGS}
 
 BUG=${FLAGS_bug}
-TEST=FAFT tests on ${FLAGS_board}
+TEST=${FLAGS_test}
 
 ${PROG_CQD}
 EOF
