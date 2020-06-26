@@ -1,4 +1,4 @@
-# Creating Firmware for a New Variant of a Baseboard
+# Creating Firmware for a New Variant of a Reference Board
 
 [TOC]
 
@@ -51,7 +51,11 @@ toolchain is up-to-date:
 * A bug number to track the creation of the firmware for the new variant,
 e.g. b/133181366 to create the Kindred variant of Hatch.
 
-# Tutorial
+# Tutorials
+
+The tutorials cover the process of creating the firmware for a new variant
+of a reference board. There are examples for Hatch, Volteer, Dedede, and
+Zork.
 
 ## New variant of Hatch
 
@@ -178,13 +182,15 @@ The `clean_up` step will remove all of the state information that
 ### Uploaded CLs for "Sushi" variant
 
 The following CLs were created and uplodaded by `new_variant.py`:
-* [39892](https://review.coreboot.org/c/coreboot/+/39892) hatch: Create sushi variant
-* [2126753](https://chromium-review.googlesource.com/c/chromiumos/third_party/coreboot/+/2126753) UPSTREAM: hatch: Create sushi variant
-* [2125270](https://chromium-review.googlesource.com/c/chromiumos/overlays/chromiumos-overlay/+/2125270) hatch: Add sushi coreboot configuration
-* [2819185](https://chrome-internal-review.googlesource.com/c/chromeos/overlays/baseboard-hatch-private/+/2819185) hatch: Add fitimage for sushi
-* [2125163](https://chromium-review.googlesource.com/c/chromiumos/platform/ec/+/2125163) sushi: Initial EC image
-* [2820196](https://chrome-internal-review.googlesource.com/c/chromeos/overlays/overlay-hatch-private/+/2820196) model.yaml: Add sushi variant
-* [2125164](https://chromium-review.googlesource.com/c/chromiumos/overlays/board-overlays/+/2125164) model.yaml: Add sushi variant
+* [39892](https://review.coreboot.org/c/coreboot/+/39892) hatch: Create sushi
+variant
+  * The Upstream CL is [2126753](https://crrev.com/c/2126753), which was not
+  created by `new_variant.py`.
+* [2125270](https://crrev.com/c/2125270) hatch: Add sushi coreboot configuration
+* [2819185](https://crrev.com/i/2819185) hatch: Add fitimage for sushi
+* [2125163](https://crrev.com/c/2125163) sushi: Initial EC image
+* [2820196](https://crrev.com/i/2820196) model.yaml: Add sushi variant
+* [2125164](https://crrev.com/c/2125164) model.yaml: Add sushi variant
 
 ## New variant of Volteer
 
