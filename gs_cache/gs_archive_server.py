@@ -265,6 +265,19 @@ class GsArchiveServer(object):
     self._caching_server = caching_server
 
   @cherrypy.expose
+  @_to_cherrypy_error
+  def list_dir(self, *args):
+    """Lists contents of specified GS bucket/<board>/version."""
+    path = 'gs://%s' % _check_file_extension('/'.join(args))
+    gs_cmd = ['gsutil', 'ls', path]
+    try:
+      proc = subprocess.Popen(gs_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      content, error = proc.communicate()
+    except subprocess.CalledProcessError as e:
+      raise cherrypy.HTTPError(httplib.NOT_FOUND, e.output)
+    return content
+
+  @cherrypy.expose
   @cherrypy.config(**{'response.stream': True})
   @_to_cherrypy_error
   def list_member(self, *args):
