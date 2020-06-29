@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This script builds gpu drivers (mali-drivers[-bifrost], img-ddk) for a list
+# This script builds gpu drivers (mali-drivers[-*], img-ddk) for a list
 # of boards. It uploads the binaries to Google storage and makes them available
 # in the public repository.
 
@@ -31,7 +31,7 @@ TEMP_DIR=""
 # All drivers are in media-libs/ portage category.
 CATEGORY="media-libs"
 # List of supported drivers
-DRIVERS="mali-drivers mali-drivers-bifrost img-ddk"
+DRIVERS="mali-drivers mali-drivers-bifrost mali-drivers-valhall img-ddk"
 
 # List of parameters to pass to build_board, for a given package $pn:
 #  - Build board names.
@@ -49,6 +49,10 @@ PARAMS_mali_drivers=(
 
 PARAMS_mali_drivers_bifrost=(
   "kukui kukui chipset-mt8183"
+)
+
+PARAMS_mali_drivers_valhall=(
+  "asurada asurada chipset-mt8192"
 )
 
 PARAMS_img_ddk=(
