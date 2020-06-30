@@ -28,13 +28,13 @@ class TestContextGenerator(unittest.TestCase):
     """Test class for cvelib/contextgenerator.py."""
 
     # Refers to commit in the linux kernel.
-    linux_sha = '54e200ab40fc14c863bcc80a51e20b7906608fce'
+    LINUX_SHA = '54e200ab40fc14c863bcc80a51e20b7906608fce'
 
-    # Subject of linux_sha.
-    linux_subject = 'kernel/relay.c: handle alloc_percpu returning NULL in relay_open'
+    # Subject of LINUX_SHA.
+    LINUX_SUBJECT = 'kernel/relay.c: handle alloc_percpu returning NULL in relay_open'
 
-    # Subject of commit given by fixes tag in linux_sha.
-    fixes_subject = 'relay: Use per CPU constructs for the relay channel buffer pointers'
+    # Subject of commit given by fixes tag in LINUX_SHA.
+    FIXES_SUBJECT = 'relay: Use per CPU constructs for the relay channel buffer pointers'
 
     def setUp(self):
         # Backup $CHROMIUMOS_KERNEL, $STABLE, $STABLE_RC.
@@ -55,10 +55,10 @@ class TestContextGenerator(unittest.TestCase):
                               stderr=subprocess.DEVNULL, cwd=self.kernel_temp2)
 
         create_branch_and_commit_file(self.kernel_temp1, 'cros/chromeos-1.0', 'new_file',
-                                      TestContextGenerator.fixes_subject)
+                                      TestContextGenerator.FIXES_SUBJECT)
 
         create_branch_and_commit_file(self.kernel_temp2, 'cros/chromeos-2.0', 'new_file2',
-                                      TestContextGenerator.linux_subject)
+                                      TestContextGenerator.LINUX_SUBJECT)
 
         # Helps test if commit is in $STABLE.
         self.stable_temp = tempfile.mkdtemp()
@@ -69,7 +69,7 @@ class TestContextGenerator(unittest.TestCase):
         create_branch_and_commit_file(self.stable_temp, 'linux-1.0.y', 'file1', 'random subject')
 
         create_branch_and_commit_file(self.stable_temp, 'linux-2.0.y', 'file2',
-                                      TestContextGenerator.linux_subject)
+                                      TestContextGenerator.LINUX_SUBJECT)
 
         # Helps test if commit is in $STABLE_RC.
         self.stable_rc_temp = tempfile.mkdtemp()
@@ -80,7 +80,7 @@ class TestContextGenerator(unittest.TestCase):
         create_branch_and_commit_file(self.stable_rc_temp, 'linux-1.0.y', 'file', 'random subject')
 
         create_branch_and_commit_file(self.stable_rc_temp, 'linux-2.0.y', 'file2',
-                                      TestContextGenerator.linux_subject)
+                                      TestContextGenerator.LINUX_SUBJECT)
 
     def tearDown(self):
         if self.cros_kernel:
@@ -107,7 +107,7 @@ class TestContextGenerator(unittest.TestCase):
         """Unit test for generate_context."""
         cg = contextgenerator.ContextGenerator(['v1.0', 'v2.0'])
 
-        cg.generate_context(TestContextGenerator.linux_sha)
+        cg.generate_context(TestContextGenerator.LINUX_SHA)
 
         self.assertIn('v1.0', cg.kernels)
         self.assertNotIn('v2.0', cg.kernels)
@@ -116,27 +116,27 @@ class TestContextGenerator(unittest.TestCase):
         """Tests that correct subject of given commit is returned."""
         cg = contextgenerator.ContextGenerator([])
 
-        subject = cg.get_subject_line(TestContextGenerator.linux_sha)
+        subject = cg.get_subject_line(TestContextGenerator.LINUX_SHA)
 
-        self.assertEqual(subject, TestContextGenerator.linux_subject)
+        self.assertEqual(subject, TestContextGenerator.LINUX_SUBJECT)
 
     def test_get_fixes_commit(self):
         """Tests if correct sha from Fixes: tag is returned."""
         cg = contextgenerator.ContextGenerator([])
 
-        fixes_sha = cg.get_fixes_commit(TestContextGenerator.linux_sha)
+        fixes_sha = cg.get_fixes_commit(TestContextGenerator.LINUX_SHA)
 
-        # Commit that is refered to by linux_sha in fixes tag.
+        # Commit that is refered to by LINUX_SHA in fixes tag.
         expected_sha = '017c59c042d0'
 
         self.assertEqual(fixes_sha, expected_sha)
 
     @mock.patch('cvelib.common.do_pull')
     def test_filter_fixed_kernels(self, _):
-        """Tests that kernels with same commit as linux_sha are filtered out."""
+        """Tests that kernels with same commit as LINUX_SHA are filtered out."""
         cg = contextgenerator.ContextGenerator(['v1.0', 'v2.0'])
 
-        cg.filter_fixed_kernels(TestContextGenerator.linux_sha)
+        cg.filter_fixed_kernels(TestContextGenerator.LINUX_SHA)
 
         self.assertIn('v1.0', cg.kernels)
         self.assertNotIn('v2.0', cg.kernels)
@@ -146,7 +146,7 @@ class TestContextGenerator(unittest.TestCase):
         """Tests that kernels without specific fix commit are filtered out."""
         cg = contextgenerator.ContextGenerator(['v1.0', 'v2.0'])
 
-        cg.find_kernels_with_fixes_subj(TestContextGenerator.linux_sha)
+        cg.find_kernels_with_fixes_subj(TestContextGenerator.LINUX_SHA)
 
         self.assertIn('v1.0', cg.kernels)
         self.assertNotIn('v2.0', cg.kernels)
@@ -169,13 +169,13 @@ class TestContextGenerator(unittest.TestCase):
         # Tests with $STABLE.
         cg = contextgenerator.ContextGenerator(['v1.0', 'v2.0'])
 
-        cg.filter_based_on_stable(TestContextGenerator.linux_sha, os.getenv('STABLE'))
+        cg.filter_based_on_stable(TestContextGenerator.LINUX_SHA, os.getenv('STABLE'))
 
         self.assertIn('v1.0', cg.kernels)
         self.assertNotIn('v2.0', cg.kernels)
 
         # Tests with $STABLE_RC.
-        cg.filter_based_on_stable(TestContextGenerator.linux_sha, os.getenv('STABLE_RC'))
+        cg.filter_based_on_stable(TestContextGenerator.LINUX_SHA, os.getenv('STABLE_RC'))
 
         self.assertIn('v1.0', cg.kernels)
         self.assertNotIn('v2.0', cg.kernels)
@@ -184,10 +184,10 @@ class TestContextGenerator(unittest.TestCase):
         """Tests for properly checking if a given commit is in a given kernel."""
         cg = contextgenerator.ContextGenerator([])
 
-        check = cg.is_in_kernel(self.kernel_temp1, TestContextGenerator.fixes_subject, True)
+        check = cg.is_in_kernel(self.kernel_temp1, TestContextGenerator.FIXES_SUBJECT, True)
 
         self.assertTrue(check)
 
-        check = cg.is_in_kernel(self.kernel_temp2, TestContextGenerator.fixes_subject, True)
+        check = cg.is_in_kernel(self.kernel_temp2, TestContextGenerator.FIXES_SUBJECT, True)
 
         self.assertFalse(check)

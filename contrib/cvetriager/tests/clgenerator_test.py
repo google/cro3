@@ -14,10 +14,10 @@ from cvelib import clgenerator
 class TestCLGenerator(unittest.TestCase):
     """Test class for cvelib/clgenerator.py."""
 
-    cl_links = ['https://chromium-review.googlesource.com/c/chromiumos/platform/dev-util/+/2268097',
+    CL_LINKS = ['https://chromium-review.googlesource.com/c/chromiumos/platform/dev-util/+/2268097',
                 'https://chromium-review.googlesource.com/c/chromiumos/platform/dev-util/+/1234567']
 
-    sample_push_msg = ('Enumerating objects: 33, done.\n'
+    SAMPLE_PUSH_MSG = ('Enumerating objects: 33, done.\n'
                        'Counting objects: 100% (33/33), done.\n'
                        'Delta compression using up to 16 threads\n'
                        'Compressing objects: 100% (24/24), done.\n'
@@ -28,8 +28,8 @@ class TestCLGenerator(unittest.TestCase):
                        'remote: \n'
                        'remote: SUCCESS\n'
                        'remote: \n'
-                       'remote:   ' + cl_links[0] + ' only made to get sample push output [NEW]\n'
-                       'remote:   ' + cl_links[1] + ' fake second CL\n'
+                       'remote:   ' + CL_LINKS[0] + ' only made to get sample push output [NEW]\n'
+                       'remote:   ' + CL_LINKS[1] + ' fake second CL\n'
                        'remote: \n'
                        'To https://chromium.googlesource.com/chromiumos/platform/dev-util\n'
                        '* [new branch]                HEAD -> refs/for/master\n')
@@ -64,7 +64,7 @@ class TestCLGenerator(unittest.TestCase):
 
         subprocess.check_call(['rm', '-rf', self.cros_temp])
 
-    @mock.patch('cvelib.clgenerator.do_push', return_value=sample_push_msg)
+    @mock.patch('cvelib.clgenerator.do_push', return_value=SAMPLE_PUSH_MSG)
     def test_create_cls(self, _):
         """Tests that CL was properly created."""
         bug_id = '123'
@@ -72,7 +72,7 @@ class TestCLGenerator(unittest.TestCase):
 
         output = clgenerator.create_cls(bug_id, kernels)
 
-        expected_map = {'v1.0': TestCLGenerator.cl_links}
+        expected_map = {'v1.0': TestCLGenerator.CL_LINKS}
 
         self.assertEqual(output, expected_map)
 
@@ -86,6 +86,6 @@ class TestCLGenerator(unittest.TestCase):
 
     def test_parse_cls_output(self):
         """Tests if CL link was properly picked from push output."""
-        links = clgenerator.parse_cls_output(TestCLGenerator.sample_push_msg)
+        links = clgenerator.parse_cls_output(TestCLGenerator.SAMPLE_PUSH_MSG)
 
-        self.assertEqual(links, TestCLGenerator.cl_links)
+        self.assertEqual(links, TestCLGenerator.CL_LINKS)
