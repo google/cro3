@@ -8,7 +8,6 @@ import os
 import re
 
 from cvelib import common
-from cvelib import patchapplier
 
 
 class ContextGeneratorException(Exception):
@@ -24,7 +23,7 @@ class ContextGenerator():
 
     def get_fixes_commit(self, linux_sha):
         """Returns Fixes: tag's commit sha."""
-        commit_message = patchapplier.get_commit_message(os.getenv('LINUX'), linux_sha)
+        commit_message = common.get_commit_message(os.getenv('LINUX'), linux_sha)
 
         # Collects 'Fixes: {sha}' string from commit_message.
         m = re.findall('^Fixes: [a-z0-9]{12}', commit_message, re.M)

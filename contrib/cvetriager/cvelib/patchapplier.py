@@ -14,23 +14,11 @@ class PatchApplierException(Exception):
     """Exception raised from patchapplier."""
 
 
-def get_commit_message(kernel_path, sha):
-    """Returns commit message."""
-    try:
-        cmd = ['git', '-C', kernel_path, 'log', '--format=%B', '-n', '1', sha]
-        commit_message = subprocess.check_output(cmd, encoding='utf-8')
-
-        return commit_message.rstrip() +'\n'
-    except subprocess.CalledProcessError:
-        raise PatchApplierException('Could not retrieve commit in kernal path %s for sha %s'
-                                    % (kernel_path, sha))
-
-
 def create_commit_message(kernel_path, sha, bug_id):
     """Generates new commit message."""
     bug_test_line = f'BUG=chromium:{bug_id}\nTEST=CQ\n\n'
 
-    org_msg = get_commit_message(kernel_path, sha)
+    org_msg = common.get_commit_message(kernel_path, sha)
 
     cherry_picked = f'(cherry picked from commit {sha})\n\n'
 
@@ -55,7 +43,7 @@ def fetch_linux_kernel(kernel_path):
 
 def create_new_cherry_pick_branch(kernel, bug_id, kernel_path):
     """Creates and checks into new branch for cherry-picking"""
-    branch = f'b{bug_id}-{kernel}'
+    branch = common.get_cherry_pick_branch(bug_id, kernel)
 
     try:
         subprocess.check_call(['git', 'checkout', '-b', branch], stdout=subprocess.DEVNULL,

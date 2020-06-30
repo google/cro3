@@ -9,6 +9,7 @@ import subprocess
 import os
 
 from cvelib import patchapplier as pa
+from cvelib import common
 
 
 def get_sha(kernel_path):
@@ -111,7 +112,7 @@ class TestPatchApplier(unittest.TestCase):
         pa.cherry_pick(kernel_path, sha, bug_id)
 
         # Retrieves new cherry-picked message
-        msg = pa.get_commit_message(kernel_path, get_sha(kernel_path))
+        msg = common.get_commit_message(kernel_path, get_sha(kernel_path))
 
         check = False
         if 'UPSTREAM:' in msg and 'BUG=' in msg and 'TEST=' in msg:
@@ -167,7 +168,7 @@ class TestPatchApplier(unittest.TestCase):
         bug = '123'
         kernel_versions = [os.path.basename(self.linux_temp)]
 
-        self.assertRaises(pa.PatchApplierException, pa.apply_patch,
+        self.assertRaises(common.CommonException, pa.apply_patch,
                           sha, bug, kernel_versions)
 
     def test_invalid_linux_path(self):

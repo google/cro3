@@ -21,6 +21,11 @@ def get_cros_branch(kernel):
     return f'chromeos-{branch}'
 
 
+def get_cherry_pick_branch(bug_id, kernel):
+    """Returns branch name to cherry-pick on."""
+    return f'b{bug_id}-{kernel}'
+
+
 def checkout_branch(kernel, branch, remote, remote_branch, kernel_path):
     """Checks into appropriate branch and keeps it up to date."""
     do_checkout(kernel, branch, kernel_path)
@@ -44,3 +49,16 @@ def do_pull(kernel, remote, remote_branch, kernel_path):
                               cwd=kernel_path)
     except subprocess.CalledProcessError:
         raise CommonException('Pull failed for %s' % kernel)
+
+
+def get_commit_message(kernel_path, sha):
+    """Returns commit message."""
+    try:
+        cmd = ['git', '-C', kernel_path, 'log', '--format=%B', '-n', '1', sha]
+        commit_message = subprocess.check_output(cmd, stderr=subprocess.DEVNULL,
+                                                 encoding='utf-8')
+
+        return commit_message.rstrip() +'\n'
+    except subprocess.CalledProcessError:
+        raise CommonException('Could not retrieve commit in kernal path %s for sha %s'
+                                    % (kernel_path, sha))

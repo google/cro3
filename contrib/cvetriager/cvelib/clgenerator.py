@@ -17,7 +17,7 @@ def create_cls(bug_id, kernels):
     cl_map = {}
 
     for kern in kernels:
-        branch = f'b{bug_id}-{kern}'
+        branch = common.get_cherry_pick_branch(bug_id, kern)
         kernel_path = os.path.join(os.getenv('CHROMIUMOS_KERNEL'), kern)
 
         common.do_checkout(kern, branch, kernel_path)
