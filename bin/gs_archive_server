@@ -6,7 +6,8 @@
 # Run Google Storage archive server from inside virtual environment.
 set -eu
 readonly bindir=$(dirname -- "$(readlink -e -- "$0")")
-readonly homedir=$(cd "$bindir"/../gs_cache; pwd)
-export PYTHONPATH=$homedir
+readonly homedir=$(cd "${bindir}"/../gs_cache; pwd)
+readonly nebraska_dir=$(cd "${bindir}"/../nebraska; pwd)
+export PYTHONPATH=${homedir}:${nebraska_dir}
 
-exec vpython -vpython-spec $homedir/.vpython -m gs_archive_server "$@"
+exec vpython -vpython-spec "${homedir}"/.vpython -m gs_archive_server "$@"
