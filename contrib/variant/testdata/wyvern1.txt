@@ -1,0 +1,116 @@
+pfagerburg@pfagerburg2:~$ cd ~/chromiumos
+pfagerburg@pfagerburg2:~/chromiumos$ cros_sdk
+(cr) ((431cf23...)) pfagerburg@pfagerburg2 ~/trunk/src/scripts $ cd ../platform/dev/contrib/variant
+(cr) ((9ec0ecd...)) pfagerburg@pfagerburg2 ~/trunk/src/platform/dev/contrib/variant $ ./new_variant.py --board=puff --variant=wyvern --bug=b:158269582
+INFO:root:Running step project_config
+INFO:root:Started working on 'chromeos-base/chromeos-config-bsp-puff-private' for 'puff'
+Calculating dependencies... done!
+
+>>> 21:05:51 Emerging (1 of 1) chromeos-base/chromeos-config-bsp-puff-private-9999::puff-private for /build/puff/
+ * Running stacked hooks for pre_pkg_setup
+ *    sysroot_build_bin_dir ...                                                                                              [ ok ]
+ * Running stacked hooks for post_pkg_setup
+ *    python_eclass_hack ...                                                                                                 [ ok ]
+21:05:52 >>> Unpacking source...
+ * CROS_WORKON_SUBTREE: sw_build_config/platform/chromeos-config sw_build_config/platform/chromeos-config sw_build_config/platform/chromeos-config sw_build_config/platform/chromeos-config sw_build_config/platform/chromeos-config
+ * CROS_WORKON_REPO: https://chrome-internal.googlesource.com https://chrome-internal.googlesource.com https://chrome-internal.googlesource.com https://chrome-internal.googlesource.com https://chrome-internal.googlesource.com
+ * CROS_WORKON_PROJECT: chromeos/project/puff/duffy chromeos/project/puff/kaisa chromeos/project/puff/noibat chromeos/project/puff/puff chromeos/project/puff/wyvern
+ * CROS_WORKON_LOCALNAME: project/puff/duffy project/puff/kaisa project/puff/noibat project/puff/puff project/puff/wyvern
+ * CROS_WORKON_DESTDIR: /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999/duffy /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999/kaisa /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999/noibat /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999/puff /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999/wyvern
+ * CROS_WORKON_COMMIT: master master master master master
+ * CROS_WORKON_SRCPATH:
+ * CROS_WORKON_EGIT_BRANCH:
+ * CROS_WORKON_OPTIONAL_CHECKOUT: use project_all || use project_duffy use project_all || use project_kaisa use project_all || use project_noibat use project_all || use project_puff use project_all || use project_wyvern
+ * Using local source dir(s): /mnt/host/source/src/project/puff/duffy /mnt/host/source/src/project/puff/kaisa /mnt/host/source/src/project/puff/noibat /mnt/host/source/src/project/puff/puff /mnt/host/source/src/project/puff/wyvern
+ * path: /mnt/host/source/src/project/puff/duffy /mnt/host/source/src/project/puff/kaisa /mnt/host/source/src/project/puff/noibat /mnt/host/source/src/project/puff/puff /mnt/host/source/src/project/puff/wyvern
+ * destdir: /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999/duffy /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999/kaisa /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999/noibat /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999/puff /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999/wyvern
+ * Copying sources from /mnt/host/source/src/project/puff/duffy
+ * Copying sources from /mnt/host/source/src/project/puff/kaisa
+ * Copying sources from /mnt/host/source/src/project/puff/noibat
+ * Copying sources from /mnt/host/source/src/project/puff/puff
+ * Copying sources from /mnt/host/source/src/project/puff/wyvern
+21:05:52 >>> Source unpacked in /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work
+ * Running stacked hooks for post_src_unpack
+ *    asan_init ...                                                                                                          [ ok ]
+21:05:53 >>> Preparing source in /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999 ...
+21:05:53 >>> Source prepared.
+21:05:53 >>> Configuring source in /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999 ...
+21:05:53 >>> Source configured.
+21:05:54 >>> Compiling source in /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/chromeos-config-bsp-puff-private-9999 ...
+ * Compiling platform json file project-config.json.
+21:05:55 >>> Source compiled.
+ * Running stacked hooks for post_src_compile
+ *    python_eclass_hack ...                                                                                                 [ ok ]
+21:05:55 >>> Test phase [not enabled]: chromeos-base/chromeos-config-bsp-puff-private-9999
+ * Running stacked hooks for pre_src_install
+ *    tidy_setup ...                                                                                                         [ ok ]
+21:05:55
+21:05:55 >>> Install chromeos-base/chromeos-config-bsp-puff-private-9999 into /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/image
+ * Installing platform json file project-config.json.
+ * unibuild: Installing get-arc-files based on /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/work/project-config.json
+ *    - ./duffy/sw_build_config/platform/chromeos-config/generated/arc/hardware_features_duffy.xml
+ *    - ./duffy/sw_build_config/platform/chromeos-config/generated/arc/hardware_features_duffy_legacy.xml
+ *    - ./kaisa/sw_build_config/platform/chromeos-config/generated/arc/hardware_features_kaisa.xml
+ *    - ./kaisa/sw_build_config/platform/chromeos-config/generated/arc/hardware_features_kaisa_legacy.xml
+ *    - ./noibat/sw_build_config/platform/chromeos-config/generated/arc/hardware_features_noibat.xml
+ *    - ./puff/sw_build_config/platform/chromeos-config/generated/arc/hardware_features_puff.xml
+ *    - ./wyvern/sw_build_config/platform/chromeos-config/generated/arc/hardware_features_wyvern.xml
+21:06:02 >>> Completed installing chromeos-base/chromeos-config-bsp-puff-private-9999 into /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999/image
+21:06:02
+ * Running stacked hooks for post_src_install
+ *    coverage_logs ...                                                                                                      [ ok ]
+ * Final size of build directory: 344 KiB
+ * Final size of installed tree:  140 KiB
+21:06:02
+ * Generating license for chromeos-base/chromeos-config-bsp-puff-private-9999 in /build/puff/tmp/portage/chromeos-base/chromeos-config-bsp-puff-private-9999
+21:06:03: INFO: Read licenses for chromeos-base/chromeos-config-bsp-puff-private-9999: BSD-Google
+21:06:03: INFO: chromeos-base/chromeos-config-bsp-puff-private-9999: using stock|cust license(s) BSD-Google
+21:06:05 >>> Done.
+
+>>> 21:06:05 Installing (1 of 1) chromeos-base/chromeos-config-bsp-puff-private-9999::puff-private to /build/puff/
+ * Running stacked hooks for pre_pkg_preinst
+ *    wrap_old_config_scripts ...                                                                                            [ ok ]
+
+>>> 21:06:09 Completed (1 of 1) chromeos-base/chromeos-config-bsp-puff-private-9999::puff-private to /build/puff/
+
+>>> Using system located in ROOT tree /build/puff/
+
+>>> No outdated packages were found on your system.
+INFO:root:Stopped working on 'chromeos-base/chromeos-config-bsp-puff-private' for 'puff'
+INFO:root:Running step fw_build_config
+Formatting .star files with buildifier...
+[P2791 21:06:15.676 generate.go:94 I] Generating configs...
+[create_wyvern_20200618 46d455a] wyvern: enable default firmware build
+ 3 files changed, 19 insertions(+), 1 deletion(-)
+INFO:root:Running step create_coreboot_variant
+/mnt/host/source/src/platform/dev/contrib/variant ~/trunk/src/platform/dev/contrib/variant
+~/trunk/src/platform/dev/contrib/variant
+/mnt/host/source/src/third_party/coreboot/src/mainboard/google/hatch ~/trunk/src/platform/dev/contrib/variant
+[coreboot_wyvern_20200618 c83e73afc8] hatch: Create wyvern variant
+ 7 files changed, 35 insertions(+)
+ create mode 100644 src/mainboard/google/hatch/variants/wyvern/Makefile.inc
+ create mode 100644 src/mainboard/google/hatch/variants/wyvern/include/variant/acpi/dptf.asl
+ create mode 100644 src/mainboard/google/hatch/variants/wyvern/include/variant/ec.h
+ create mode 100644 src/mainboard/google/hatch/variants/wyvern/include/variant/gpio.h
+ create mode 100644 src/mainboard/google/hatch/variants/wyvern/overridetree.cb
+INFO:root:Running step create_coreboot_config
+[create_wyvern_20200618 646dc060f1f] puff: Add wyvern coreboot configuration
+ 1 file changed, 46 insertions(+)
+ create mode 100644 sys-boot/coreboot/files/configs/config.wyvern
+INFO:root:Running step add_fitimage
+/mnt/host/source/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff ~/trunk/src/platform/dev/contrib/variant
+[create_wyvern_20200618 45e22cf] puff: Add fitimage for wyvern
+ 1 file changed, 16 insertions(+)
+ create mode 100644 sys-boot/coreboot-private-files-puff/asset_generation/wyvern_overrides.xsl
+INFO:root:Running step gen_fit_image_outside_chroot
+ERROR:root:The following files need to be generated:
+ERROR:root:* fitimage-wyvern.bin
+ERROR:root:* fitimage-wyvern-versions.txt
+ERROR:root:The fitimage sources are ready for gen_fit_image.sh to process.
+ERROR:root:gen_fit_image.sh cannot run inside the chroot. Please open a new terminal
+ERROR:root:window, change to the directory where gen_fit_image.sh is located, and run
+ERROR:root:./gen_fit_image.sh wyvern <path_to_fit_kit> -b
+ERROR:root:Then re-start this program with --continue.
+ERROR:root:If your chroot is based in ~/chromiumos, then the folder you want is
+ERROR:root:~/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation
+(cr) ((9ec0ecd...)) pfagerburg@pfagerburg2 ~/trunk/src/platform/dev/contrib/variant $ 

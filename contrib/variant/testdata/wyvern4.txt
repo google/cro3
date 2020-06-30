@@ -1,0 +1,45 @@
+pfagerburg@pfagerburg2:~$ cd ~/devel/coreboot
+pfagerburg@pfagerburg2:~/devel/coreboot$ git remote update
+Fetching upstream
+Fetching cros-coreboot
+remote: Enumerating objects: 228168, done.
+remote: Counting objects: 100% (228104/228104), done.
+remote: Compressing objects: 100% (72312/72312), done.
+Receiving objects: 100% (222023/222023), 62.53 MiB | 32.16 MiB/s, done.
+remote: Total 222023 (delta 170729), reused 194739 (delta 144771), pack-reused 0
+Resolving deltas: 100% (170729/170729), completed with 4804 local objects.
+From /home/pfagerburg/chromiumos/src/third_party/coreboot
+ * [new branch]              coreboot_wyvern_20200618 -> cros-coreboot/coreboot_wyvern_20200618
+pfagerburg@pfagerburg2:~/devel/coreboot$ git checkout upstream_master
+M	3rdparty/libgfxinit
+M	3rdparty/vboot
+Already on 'upstream_master'
+Your branch is up to date with 'upstream/master'.
+pfagerburg@pfagerburg2:~/devel/coreboot$ git pull
+Already up to date.
+pfagerburg@pfagerburg2:~/devel/coreboot$ git cherry-pick cros-coreboot/coreboot_wyvern_20200618
+[upstream_master 992130a17a3] hatch: Create wyvern variant
+ Date: Thu Jun 18 21:06:18 2020 -0600
+ 7 files changed, 35 insertions(+)
+ create mode 100644 src/mainboard/google/hatch/variants/wyvern/Makefile.inc
+ create mode 100644 src/mainboard/google/hatch/variants/wyvern/include/variant/acpi/dptf.asl
+ create mode 100644 src/mainboard/google/hatch/variants/wyvern/include/variant/ec.h
+ create mode 100644 src/mainboard/google/hatch/variants/wyvern/include/variant/gpio.h
+ create mode 100644 src/mainboard/google/hatch/variants/wyvern/overridetree.cb
+pfagerburg@pfagerburg2:~/devel/coreboot$ git push upstream HEAD:refs/for/master
+Enumerating objects: 26, done.
+Counting objects: 100% (26/26), done.
+Delta compression using up to 72 threads
+Compressing objects: 100% (16/16), done.
+Writing objects: 100% (18/18), 1.81 KiB | 1.81 MiB/s, done.
+Total 18 (delta 8), reused 3 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (8/8)
+remote: Processing changes: refs: 1, new: 1, done    
+remote: 
+remote: SUCCESS
+remote: 
+remote:   https://review.coreboot.org/c/coreboot/+/42551 hatch: Create wyvern variant [NEW]
+remote: 
+To ssh://review.coreboot.org:29418/coreboot.git
+ * [new branch]              HEAD -> refs/for/master
+pfagerburg@pfagerburg2:~/devel/coreboot$ 

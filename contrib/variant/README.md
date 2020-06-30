@@ -500,7 +500,10 @@ in [Infra > ChromeOS > Product > Device](https://bugs.chromium.org/p/chromium/is
 to have the project configuration updated.
 
 This example shows how to create the "Wyvern" variant of the Puff reference
-board.
+board. Since Wyvern is a real product, unlike Gnastygnorc (Volteer), Acro
+(Dedede), and Grue (Zork), the project configuration repository actually
+exists. [CL 3078802](https://crrev.com/i/3078802) created the project
+configuration repository.
 
 ### Start the new variant
 
@@ -526,6 +529,8 @@ ERROR:root:If your chroot is based in ~/chromiumos, then the folder you want is
 ERROR:root:~/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation
 ```
 
+[Full console log - start the new variant](./testdata/wyvern1.txt)
+
 ### Generate the FIT image
 
 Puff uses version 14.0.40.1206 of Intel's FIT tools, so this example assumes
@@ -541,6 +546,8 @@ Copyright (c) 2013 - 2020, Intel Corporation. All rights reserved.
 ===============================================================================
 [... messages about processing attributes and generating output files ...]
 ```
+
+[Full console log - generate the FIT image](./testdata/wyvern2.txt)
 
 ### Continue creating the variant
 
@@ -560,6 +567,8 @@ ERROR:root:  in directory "/mnt/host/source/src/third_party/coreboot"
 ERROR:root:  with change-id "Id7a090058d2926707495387f7e90b3b8ed83dac7"
 ERROR:root:Please push the branch to review.coreboot.org, and then re-start this program with --continue
 ```
+
+[Full console log - continue the variant](./testdata/wyvern3.txt)
 
 ### Push the coreboot CL
 
@@ -612,6 +621,8 @@ remote:
 To ssh://review.coreboot.org:29418/coreboot.git
  * [new branch]              HEAD -> refs/for/master
 ```
+
+[Full console log - push to coreboot](./testdata/wyvern4.txt)
 
 ### Upload the rest of the CLs
 
@@ -684,6 +695,8 @@ ERROR:root:(coreboot:42551, change-id Id7a090058d2926707495387f7e90b3b8ed83dac7)
 ERROR:root:Please wait for the CL to be upstreamed, then run this program again with --continue
 ```
 
+[Full console log - upload the rest of the CLs](./testdata/wyvern5.txt)
+
 ### Add Cq-Depend information, re-upload, and clean up
 
 ```
@@ -736,6 +749,8 @@ To https://chrome-internal-review.googlesource.com/chromeos/project/puff/wyvern
 INFO:root:Running step clean_up
 (cr) $
 ```
+
+[Full console log - cq-depend and re-upload](./testdata/wyvern6.txt)
 
 ### Uploaded CLs for "Wyvern" variant
 

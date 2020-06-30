@@ -1,0 +1,86 @@
+pfagerburg@pfagerburg2:~$ cd ~/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation
+pfagerburg@pfagerburg2:~/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation$ ./gen_fit_image.sh wyvern ~/TXE/puff -b
+===============================================================================
+Intel (R) Flash Image Tool. Version: 14.0.40.1206
+Copyright (c) 2013 - 2020, Intel Corporation. All rights reserved.
+6/18/2020 - 9:09:50 pm
+===============================================================================
+
+Using vsccommn.bin with timestamp 19:06:41 03/20/2020 GMT
+
+
+Command Line: /home/pfagerburg/TXE/puff/Tools/System_Tools/FIT/Linux64/fit -b -f outputs/fit_config_wyvern.xml 
+
+Log file written to fit.log
+
+Loading XML file: /home/pfagerburg/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation/outputs/fit_config_wyvern.xml
+Warning: Invalid value specified for "IA SVID VR Offset Enabled": Above 1.52v Not Allowed, reverting to previous/default value: Yes
+Loading XML file: /home/pfagerburg/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation/outputs/fit_config_wyvern.xml
+Warning: Invalid value specified for "IA SVID VR Offset Enabled": Above 1.52v Not Allowed, reverting to previous/default value: Yes
+Start Building  Image 
+
+
+Executing pre-build actions
+
+
+Committing ME configuration.
+
+Unable to set Platform Id in ME configuration. ME provided image does not have support for Platform Id configuration.
+
+Committing ME configuration.
+
+Building objects
+
+Processing attribute: BuildSettings
+
+Processing attribute: FlashLayout
+
+Processing attribute: FlashSettings
+
+Processing attribute: IntelMeKernel
+
+Processing attribute: IntelAmt
+
+Processing attribute: PlatformProtection
+
+Processing attribute: Icc
+
+Processing attribute: NetworkingConnectivity
+
+Processing attribute: InternalPchBuses
+
+Processing attribute: Power
+
+Processing attribute: IntegratedSensorHub
+
+Processing attribute: Camera
+
+Processing attribute: Debug
+
+Processing attribute: CpuStraps
+
+Processing attribute: IfwiBinaryLayout
+
+Processing attribute: StrapsDifferences
+
+Processing attribute: FlexIO
+
+Processing attribute: Gpio
+
+Processing attribute: IntelPreciseTouchAndStylus
+
+Processing attribute: (Disabled) FWUpdateImage
+
+Executing post-build actions
+
+
+Full Flash Image written to /home/pfagerburg/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation/outputs/fitimage-wyvern.bin
+
+Writing map file /home/pfagerburg/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation/outputs/fitimage-wyvern.map
+
+
+
+
+Program terminated.
+-------------------
+pfagerburg@pfagerburg2:~/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation$ 
