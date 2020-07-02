@@ -208,7 +208,7 @@ def generate_fix_message(fixer_upstream_sha, bug_test_line):
 
 
 # Note: Stable patches won't have a fixee_change_id since they come into chromeos as merges
-def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
+def create_change(fixee_kernel_sha, fixer_upstream_sha, branch, fixer_changeid=None):
     """Creates a Patch in gerrit given a ChangeInput object.
 
     Determines whether a change for a fix has already been created,
@@ -247,7 +247,7 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch):
 
     try:
         # Cherry pick changes and generate commit message indicating fix from upstream
-        fixer_changeid = git_interface.cherry_pick_and_push_fix(fixer_upstream_sha,
+        fixer_changeid = git_interface.cherry_pick_and_push_fix(fixer_upstream_sha, fixer_changeid,
                                                     chromeos_branch, fix_commit_message, reviewers)
     except ValueError:
         # Error cherry-picking and pushing fix patch

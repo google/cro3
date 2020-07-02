@@ -136,7 +136,7 @@ def get_git_push_cmd(chromeos_branch, reviewers):
     return git_push_head + '%' + tags
 
 
-def cherry_pick_and_push_fix(fixer_upstream_sha, chromeos_branch,
+def cherry_pick_and_push_fix(fixer_upstream_sha, fixer_changeid, chromeos_branch,
                                 fix_commit_message, reviewers):
     """Cherry picks upstream commit into chrome repo.
 
@@ -153,15 +153,19 @@ def cherry_pick_and_push_fix(fixer_upstream_sha, chromeos_branch,
         subprocess.run(['git', 'commit', '-s', '-m', fix_commit_message], check=True)
 
         # commit has been cherry-picked and committed locally, precommit hook
-        #  in git repository adds changeid to the commit message
-        fixer_changeid = get_commit_changeid_linux_chrome('HEAD')
+        # in git repository adds changeid to the commit message. Pick it unless
+        # we already have one passed as parameter.
+        if not fixer_changeid:
+            fixer_changeid = get_commit_changeid_linux_chrome('HEAD')
 
         # Sometimes the commit hook doesn't attach the Change-Id to the last
         # paragraph in the commit message. This seems to happen if the commit
         # message includes '---' which would normally identify the start of
         # comments. If the Change-Id is not in the last paragraph, uploading
         # the patch is rejected by Gerrit. Force-move the Change-Id to the end
-        # of the commit message to solve the problem.
+        # of the commit message to solve the problem. This conveniently also
+        # replaces the auto-generated Change-Id with the optional Change-Id
+        # passed as parameter.
         commit_message = get_chrome_commit_message('HEAD')
         commit_message = re.sub(r'Change-Id:.*\n?', '', commit_message)
         commit_message = commit_message.rstrip()
