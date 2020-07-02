@@ -13,7 +13,7 @@ import os
 import subprocess
 import sys
 
-import MySQLdb
+import MySQLdb # pylint: disable=import-error
 import common
 import cloudsql_interface
 import gerrit_interface
@@ -95,12 +95,67 @@ def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
     return row[0] if row else None
 
 
+def find_duplicate(db, branch, upstream_sha):
+    """Find and report dupplicate entry in chrome_fixes table.
+
+    Return [kernel_sha, fixedby_upstream_sha, status] if patch is already
+    in chrome_fixes table using a different upstream SHA with same patch_id,
+    None otherwise.
+    """
+
+    c = db.cursor()
+
+    # Check if the commit is already in the fixes table using a different SHA
+    # (the same commit may be listed upstream under multiple SHAs).
+    q = """SELECT c.kernel_sha, c.fixedby_upstream_sha, c.status
+        FROM chrome_fixes AS c
+        JOIN linux_upstream AS l1
+        ON c.fixedby_upstream_sha = l1.sha
+        JOIN linux_upstream AS l2
+        ON l1.patch_id = l2.patch_id
+        WHERE l1.sha != l2.sha
+        AND c.branch = %s
+        AND l2.sha = %s"""
+
+    c.execute(q, [branch, upstream_sha])
+    return c.fetchone()
+
+
 def insert_by_patch_id(db, branch, fixedby_upstream_sha):
     """Handles case where fixedby_upstream_sha may have changed in kernels.
 
     Returns True if successful patch_id insertion and False if patch_id not found.
     """
     c = db.cursor()
+
+    duplicate = find_duplicate(db, branch, fixedby_upstream_sha)
+    if duplicate:
+        # This commit is already queued or known under a different upstream SHA.
+        # Mark it as abandoned and point to the other entry as reason.
+        kernel_sha, recorded_upstream_sha, status = duplicate
+        entry_time = common.get_current_time()
+        reason = 'Already merged/queued into linux_chrome [upstream sha %s]' % recorded_upstream_sha
+        logging.info('SHA %s fixed by %s: %s', kernel_sha, fixedby_upstream_sha, reason)
+        try:
+            q = """INSERT INTO chrome_fixes
+                        (kernel_sha, fixedby_upstream_sha, branch, entry_time,
+                        close_time, initial_status, status, reason)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+            # Status must be OPEN, MERGED or ABANDONED since we don't have
+            # entries with CONFLICT in the fixes table.
+            # Change OPEN to ABANDONED for final status, but keep MERGED.
+            final_status = status
+            if final_status == common.Status.OPEN.name:
+                final_status = common.Status.ABANDONED.name
+            c.execute(q, [kernel_sha, fixedby_upstream_sha,
+                              branch, entry_time, entry_time,
+                              status, final_status, reason])
+            db.commit()
+        except MySQLdb.Error as e: # pylint: disable=no-member
+            logging.error(
+                'Failed to insert an already merged/queued entry into chrome_fixes: error %d (%s)',
+                e.args[0], e.args[1])
+        return True
 
     # Commit sha may have been modified in cherry-pick, backport, etc.
     # Retrieve SHA in linux_chrome by patch-id by checking for fixedby_upstream_sha
