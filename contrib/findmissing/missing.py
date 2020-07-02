@@ -13,6 +13,8 @@ import os
 import subprocess
 import sys
 
+import requests
+
 import MySQLdb # pylint: disable=import-error
 import common
 import cloudsql_interface
@@ -93,6 +95,71 @@ def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
     row = c.fetchone()
 
     return row[0] if row else None
+
+
+def get_change_id(db, sha):
+    """Get Change-Id associated with provided upstream SHA.
+
+    Returns Gerrit Change-Id for a provided SHA if available in either
+    the chrome_fixes or the stable_fixes table as well as in Gerrit.
+    None otherwise.
+
+    If multiple Change IDs are available, pick one that has not been abandoned.
+    """
+
+    c = db.cursor()
+    change_id = None
+    status = None
+
+    q = """SELECT c.fix_change_id, c.branch, s.fix_change_id, s.branch
+        FROM linux_upstream AS l1
+        JOIN linux_upstream AS l2
+        ON l1.patch_id = l2.patch_id
+        LEFT JOIN chrome_fixes AS c
+        ON c.fixedby_upstream_sha = l2.sha
+        LEFT JOIN stable_fixes as s
+        ON s.fixedby_upstream_sha = l2.sha
+        WHERE l1.sha = %s"""
+
+    c.execute(q, [sha])
+    for chrome_change_id, chrome_branch, stable_change_id, stable_branch in c.fetchall():
+        # Some entries in fixes_table do not have a change id attached.
+        # This will be seen if a patch was identified as already merged
+        # or as duplicate.  Skip those. Also skip empty entries returned
+        # by the query above.
+        # Return Change-Ids associated with abandoned CLs only if no other
+        # Change-Ids are found.
+        if chrome_change_id and chrome_branch:
+            try:
+                # Change-IDs stored in in chrome_fixes are not always available
+                # in Gerrit. This can happen, for example, if a commit was
+                # created using a git instance with pre-commit hook, and the
+                # commit was uploaded into Gerrit using a merge. We can not use
+                # such Change-Ids. To verify, try to get the status from Gerrit
+                # and skip if the Change-Id is not found.
+                _status = gerrit_interface.get_status(chrome_change_id, chrome_branch)
+                if not change_id or _status != common.Status.ABANDONED.name:
+                    change_id = chrome_change_id
+                    status = _status
+                if status != common.Status.ABANDONED.name:
+                    break
+            except requests.exceptions.HTTPError:
+                # Change-Id was not found in Gerrit
+                pass
+
+        if stable_change_id and stable_branch:
+            try:
+                _status = gerrit_interface.get_status(stable_change_id, stable_branch)
+                if not change_id or _status != common.Status.ABANDONED.name:
+                    change_id = stable_change_id
+                    status = _status
+            except requests.exceptions.HTTPError:
+                pass
+
+        if status and status != common.Status.ABANDONED.name:
+            break
+
+    return change_id
 
 
 def find_duplicate(db, branch, upstream_sha):
@@ -247,7 +314,8 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
         if chosen_table == 'linux_chrome' and fixedby_kernel_sha:
             fix_change_id = git_interface.get_commit_changeid_linux_chrome(fixedby_kernel_sha)
     elif status == common.Status.OPEN:
-        fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch)
+        fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch,
+                                                       get_change_id(db, fixedby_upstream_sha))
         created_new_change = bool(fix_change_id)
 
         # Checks if change was created successfully
@@ -303,7 +371,8 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
         new_status = new_status_enum.name
 
         if status == 'CONFLICT' and new_status == 'OPEN':
-            fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch)
+            fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch,
+                                                           get_change_id(db, fixedby_upstream_sha))
 
             # Check if we successfully created the fix patch before performing update
             if fix_change_id:
