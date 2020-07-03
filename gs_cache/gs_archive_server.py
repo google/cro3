@@ -44,7 +44,6 @@ from chromite.lib import cros_logging as logging
 from chromite.lib import gs
 
 _WRITE_BUFFER_SIZE_BYTES = 1024 * 1024  # 1 MB
-_MAX_RANGES_PER_REQUEST = 100
 
 # When extract files from TAR (either compressed or uncompressed), we suppose
 # the TAR exists, so we can call `download` RPC to get it. It's straightforward
@@ -470,20 +469,23 @@ class GsArchiveServer(object):
       cherrypy.response.status = httplib.NOT_FOUND
       return None
 
-    # Too many ranges may result in error of 'request header too long'. So we
-    # split the files into chunks and request one by one.
-    found_files = _split_into_chunks(
-        [tarfile_utils.TarMemberInfo._make(urllib.unquote(line).rsplit(
+    if len(found_lines) > 1:
+      _log('Extracting of multi files are not supported. Pattern: %s. '
+           'Results: %s', target_file, found_lines)
+      cherrypy.response.status = httplib.BAD_REQUEST
+      return None
+
+    line = list(found_lines)[0]
+    f = tarfile_utils.TarMemberInfo._make(
+        urllib.unquote(line).rsplit(
             ',', len(tarfile_utils.TarMemberInfo._fields) - 1))
-         for line in found_lines],
-        _MAX_RANGES_PER_REQUEST)
+    cherrypy.response.headers['Content-Length'] = f.size
+    cherrypy.response.headers['Content-Type'] = 'application/octet-stream'
+    download_range = (int(f.content_start),
+                      int(f.content_start) + int(f.size) - 1)
+    return self._send_range_request(archive, download_range, headers)
 
-    for part_of_found_files in found_files:
-      ranges = [(int(f.content_start), int(f.content_start) + int(f.size) - 1)
-                for f in part_of_found_files]
-      return self._send_range_request(archive, ranges, headers)
-
-  def _send_range_request(self, archive, ranges, headers):
+  def _send_range_request(self, archive, download_range, headers):
     """Create and send a "Range Request" to caching server.
 
     Set HTTP Range header and just download the bytes in that "range".
@@ -491,7 +493,7 @@ class GsArchiveServer(object):
 
     Args:
       archive: The archive file this range request against to.
-      ranges: A list of ranges to be downloaded. Each range is a tuple of
+      download_range: A list of range to be downloaded. Each range is a tuple of
         (start, end).
       headers: Http headers of the request.
 
@@ -499,9 +501,8 @@ class GsArchiveServer(object):
       An instance of requests.Response if the status code from caching server is
         httplib.PARTIAL_CONTENT.
     """
-    ranges = ['%d-%d' % r for r in ranges]
     headers = headers.copy()
-    headers['Range'] = 'bytes=%s' % (','.join(ranges))
+    headers['Range'] = 'bytes=%d-%d' % download_range
     rsp = self._caching_server.download(archive, headers=headers)
 
     if rsp.status_code == httplib.PARTIAL_CONTENT:
