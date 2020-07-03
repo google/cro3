@@ -467,7 +467,8 @@ class GsArchiveServer(object):
     if not found_lines:
       _log('No matching files found for %s.', target_file,
            level=logging.WARNING)
-      yield None
+      cherrypy.response.status = httplib.NOT_FOUND
+      return None
 
     # Too many ranges may result in error of 'request header too long'. So we
     # split the files into chunks and request one by one.
@@ -480,8 +481,7 @@ class GsArchiveServer(object):
     for part_of_found_files in found_files:
       ranges = [(int(f.content_start), int(f.content_start) + int(f.size) - 1)
                 for f in part_of_found_files]
-      rsp = self._send_range_request(archive, ranges, headers)
-      yield rsp.content
+      return self._send_range_request(archive, ranges, headers)
 
   def _send_range_request(self, archive, ranges, headers):
     """Create and send a "Range Request" to caching server.
@@ -514,7 +514,7 @@ class GsArchiveServer(object):
       rsp.status_code = httplib.INTERNAL_SERVER_ERROR
       rsp.reason = 'Range request failed for "%s"' % archive
     rsp.raise_for_status()
-    return rsp
+    return rsp.iter_content(chunk_size=_WRITE_BUFFER_SIZE_BYTES)
 
   @cherrypy.expose
   @cherrypy.config(**{'response.stream': True})
