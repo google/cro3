@@ -1305,6 +1305,9 @@ def main():
   else:
     os.makedirs(cache_dir)
 
+  pkgroot_dir = os.path.join(options.static_dir, 'pkgroot')
+  common_util.SymlinkFile('/build', pkgroot_dir)
+
   _Log('Using cache directory %s' % cache_dir)
   _Log('Serving from %s' % options.static_dir)
 
