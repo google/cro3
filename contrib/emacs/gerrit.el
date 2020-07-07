@@ -4,12 +4,18 @@
 ;; Use of this source code is governed by a BSD-style license that can be
 ;; found in the LICENSE file.
 (require 'request)
+(require 'xml)
 
 ;; TODO this is test code to be removed in future CL.
 (setq test-user "jrosenth")
 (setq test-host "chromium-review.googlesource.com")
 (setq test-repo-root (file-name-as-directory "~/chromiumos"))
 (setq test-repo-manifest-path (expand-file-name ".repo/manifests/default.xml" test-repo-root))
+
+(defvar gerrit--change-to-path-comments-map nil
+  "Map containing change and related comment info.
+Multi-dimensional map where (change-id . project) => filepath
+(from nearest git root) => Sequence of CommentInfo hashtables")
 
 (cl-defun gerrit--fetch-recent-changeid-project-pairs (host user &optional (count 3))
   "Fetches recent changes as changeid project dotted pairs.
@@ -29,8 +35,8 @@ of the form (change-id . project)."
            :sync t
            :parser 'gerrit--request-response-json-parser
            :success (lambda (&key data error-thrown &allow-other-keys)
-                       (when error-thrown
-                         (message "%s" error-thrown))))))
+                      (when error-thrown
+                        (message "%s" error-thrown))))))
     (loop for change across (request-response-data response)
           collect `(,(gethash "change_id" change) . ,(gethash "project" change)))))
 
@@ -77,3 +83,24 @@ where filepath is from the nearest git root for a file."
           (setf (gethash pair out-map)
                 (gerrit--get-unresolved-comments host (cdr pair) (car pair))))
     out-map))
+
+
+(defun gerrit--init-global-comment-map (host user)
+  "Inits `gerrit--change-to-path-comments-map`."
+  (setf gerrit--change-to-path-comments-map
+        (gerrit--fetch-map-changeid-project-pair-to-unresolved-comments
+         host user)))
+
+
+(defun gerrit--create-project-to-abspath-map (abs-path-to-manifest)
+  "Returns a map of Gerrit project => absolute path on this system.
+Parses repo manifest to create a map of project to respective absolute path.
+Note: This is incredibly slow, the value should be cached."
+  (let ((out-map (make-hash-table :test 'equal))
+        (project-elems (xml-get-children (car (xml-parse-file abs-path-to-manifest)) 'project)))
+    (loop for project-elem in project-elems do
+          (setf (gethash (cdr (assoc 'name (cadr project-elem))) out-map)
+                (expand-file-name
+                 (cdr assoc 'path (cadr project-elem)))
+                test-repo-root)))
+  out-map))
