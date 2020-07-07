@@ -23,6 +23,8 @@ step_list = [
     step_names.EC_IMAGE,
     step_names.EC_BUILDALL,
     step_names.EMERGE,
+    step_names.PUSH,
+    step_names.FIND,
     step_names.UPLOAD,
     step_names.CALC_CQ_DEPEND,
     step_names.ADD_CQ_DEPEND,
@@ -30,20 +32,17 @@ step_list = [
     step_names.CLEAN_UP]
 
 # Base directory for coreboot
-coreboot_dir = 'third_party/coreboot-zork'
-
-# Base directory for coreboot configs (None=use default)
-cb_config_dir = 'overlays/overlay-zork/sys-boot/coreboot-zork/files/configs'
+coreboot_dir = 'third_party/coreboot'
 
 # List of packages to cros_workon
-workon_pkgs = ['coreboot-zork', 'chromeos-ec', 'chromeos-config-bsp-zork-private']
+workon_pkgs = ['coreboot', 'chromeos-ec', 'chromeos-config-bsp-zork-private']
 
 # The emerge command
 emerge_cmd = 'emerge-zork'
 
 # List of packages to emerge
 emerge_pkgs = [
-    'coreboot-zork', 'vboot_reference',
+    'coreboot', 'vboot_reference',
     'chromeos-ec', 'chromeos-config-bsp-zork-private',
     'chromeos-config', 'chromeos-config-bsp',
     'coreboot-private-files', 'chromeos-bootimage']
@@ -58,18 +57,17 @@ config_emerge_pkgs = [
 
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [
-    step_names.CB_VARIANT, step_names.CB_CONFIG,
-    step_names.CRAS_CONFIG, step_names.EC_IMAGE,
+    step_names.CB_CONFIG, step_names.CRAS_CONFIG, step_names.EC_IMAGE,
     step_names.FW_BUILD_CONFIG]
 
 # List of commits that will be pushed to review.coreboot.org
-coreboot_push_list = None
+coreboot_push_list = [step_names.CB_VARIANT]
 
 # List of steps that depend on other steps, and what those are.
 # This list gets used for setting up Cq-Depend on the uploaded CLs.
 depends = {
-    step_names.CB_CONFIG: [step_names.CB_VARIANT],
+    step_names.CB_CONFIG: [step_names.FIND],
     step_names.FW_BUILD_CONFIG: [
-        step_names.CB_VARIANT, step_names.CB_CONFIG,
+        step_names.FIND, step_names.CB_CONFIG,
         step_names.CRAS_CONFIG, step_names.EC_IMAGE, step_names.COMMIT_FIT]
 }
