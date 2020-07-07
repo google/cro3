@@ -101,6 +101,6 @@ Note: This is incredibly slow, the value should be cached."
     (loop for project-elem in project-elems do
           (setf (gethash (cdr (assoc 'name (cadr project-elem))) out-map)
                 (expand-file-name
-                 (cdr assoc 'path (cadr project-elem)))
-                test-repo-root)))
-  out-map))
+                 (cdr (assoc 'path (cadr project-elem)))
+                 test-repo-root)))
+    out-map))
