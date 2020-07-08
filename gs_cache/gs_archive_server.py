@@ -35,10 +35,11 @@ import urllib
 import urlparse
 
 import requests
-import cherrypy
+import cherrypy  # pylint: disable=import-error
 
 import constants
 import fake_omaha
+import fake_telemetry
 import tarfile_utils
 from chromite.lib import cros_logging as logging
 from chromite.lib import gs
@@ -270,8 +271,9 @@ class GsArchiveServer(object):
     path = 'gs://%s' % _check_file_extension('/'.join(args))
     gs_cmd = ['gsutil', 'ls', path]
     try:
-      proc = subprocess.Popen(gs_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      content, error = proc.communicate()
+      proc = subprocess.Popen(gs_cmd, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+      content, _ = proc.communicate()
     except subprocess.CalledProcessError as e:
       raise cherrypy.HTTPError(httplib.NOT_FOUND, e.output)
     return content
@@ -652,6 +654,11 @@ def main(argv):
   # term solution rolls out.
   cherrypy.tree.mount(fake_omaha.FakeOmaha(), '/update',
                       config=fake_omaha.get_config())
+
+  # TODO(crbug.com/1063420) Remove the fake Telemetry app once we have the long
+  # term solution rolls out.
+  cherrypy.tree.mount(fake_telemetry.FakeTelemetry(), '/setup_telemetry',
+                      config=fake_telemetry.get_config())
 
   cherrypy.quickstart(GsArchiveServer(_CachingServer(args.caching_server)))
 
