@@ -1,0 +1,82 @@
+#!/bin/bash
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Loads script libraries.
+CONTRIB_DIR=$(dirname "$(readlink -f "$0")")
+. "${CONTRIB_DIR}/common.sh" || exit 1
+
+FLAGS_HELP="
+Decode kernel stack trace from kernel logs.
+
+Read kernel logs from stdin, and print the decoded stack trace to stdout.
+
+Usage:
+   kernel_decode_stack -b <board>
+"
+
+# Flags
+DEFINE_string board "${DEFAULT_BOARD}" "Which board to decode stack trace" b
+
+# Parse command line.
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+set -e
+
+# Script must be run inside the chroot.
+assert_inside_chroot
+
+decode_stacktrace() {
+  local board="$1"
+  shift
+
+  local CHOST
+  CHOST=$("portageq-${board}" envvar CHOST)
+
+  local ARCH
+  ARCH=$("portageq-${board}" envvar ARCH)
+
+  # cros-kernel2.eclass falls back to tc-arch-kernel when CHROMEOS_KERNEL_ARCH
+  # is not set, but since tc-arch-kernel parse the arch from CHOST, we can just
+  # ignnore kernel_arch and use the original CHOST as CROSS_COMPILE in this
+  # case.
+  local kernel_arch
+  kernel_arch=$("portageq-${board}" envvar CHROMEOS_KERNEL_ARCH || true)
+
+  # This part is from cros-kernel2.eclass
+  # Support 64bit kernels w/32bit userlands.
+  local cross=${CHOST}
+  if [[ "${ARCH}:${kernel_arch}" == "arm:arm64" ]]; then
+    cross="aarch64-cros-linux-gnu"
+  fi
+
+  # Note: This would point to some temporary path if the kernel is not worked
+  # on, but it's ok since the decode_stacktrace.sh only use this path to strip
+  # the output.
+  #
+  # This is also why we always use the decode_stacktrace.sh from
+  # kernel/upstream instead of using the one in kernel_source_path.
+  local kernel_source_path
+  kernel_source_path=$(
+    objdump -WL "/build/${board}/usr/lib/debug/boot/vmlinux" |
+      grep 'include/linux/compiler.h:$' |
+      head -1 |
+      sed 's|\(.*\)/include/linux/compiler.h:$|\1|')
+
+  CROSS_COMPILE="${cross}-" \
+    "${SRC_ROOT}/third_party/kernel/upstream/scripts/decode_stacktrace.sh" \
+    "/build/${board}/usr/lib/debug/boot/vmlinux" \
+    "${kernel_source_path}" \
+    "/build/${board}/usr/lib/debug/lib/modules/"*/
+}
+
+main() {
+  if [[ -z "${FLAGS_board}" ]]; then
+    die "-b or --board required."
+  fi
+
+  decode_stacktrace "${FLAGS_board}" "$@"
+}
+
+main "$@"
