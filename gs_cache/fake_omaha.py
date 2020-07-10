@@ -31,7 +31,7 @@ class FakeOmaha(object):
     """A URL handler to handle update check ping."""
     label = '/'.join(args)
     full_update = kwargs.pop('full_update', 'unspecified')
-    server_addr = cherrypy.request.headers.get('X-Server-Addr')
+    server_addr, _ = cherrypy.request.headers.get('X-Forwarded-Host').split(':')
     body_length = int(cherrypy.request.headers.get('Content-Length', 0))
     data = cherrypy.request.rfile.read(body_length)
     with nebraska_wrapper.NebraskaWrapper(label, server_addr,
