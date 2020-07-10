@@ -23,14 +23,12 @@ import xmlrpc.client
 
 errprint = functools.partial(print, file=sys.stderr)
 
-LINUX_URLS = (
+UPSTREAM_URLS = (
     'git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
     'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
     'https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git',
-)
-
-HOSTAP_URLS = (
     'git://w1.fi/srv/git/hostap.git',
+    'git://git.kernel.org/pub/scm/bluetooth/bluez.git',
 )
 
 PATCHWORK_URLS = (
@@ -266,9 +264,9 @@ def _match_msgid(match, args):
 
     return _pick_patchwork(url, patch_id, args)
 
-def _match_upstream(commit, urls, args):
+def _upstream(commit, urls, args):
     if args['debug']:
-        print('_match_upstream: commit=%s' % commit)
+        print('_upstream: commit=%s' % commit)
 
     # Confirm an upstream remote is setup.
     remote = _find_upstream_remote(urls)
@@ -295,15 +293,10 @@ def _match_upstream(commit, urls, args):
 
     return _git_returncode(['cherry-pick', commit])
 
-def _match_linux(match, args):
-    """Match location: linux://HASH."""
+def _match_upstream(match, args):
+    """Match location: linux://HASH and upstream://HASH."""
     commit = match.group(1)
-    return _match_upstream(commit, urls=LINUX_URLS, args=args)
-
-def _match_hostap(match, args):
-    """Match location: hostap://HASH."""
-    commit = match.group(1)
-    return _match_upstream(commit, urls=HOSTAP_URLS, args=args)
+    return _upstream(commit, urls=UPSTREAM_URLS, args=args)
 
 def _match_fromgit(match, args):
     """Match location: git://remote/branch/HASH."""
@@ -442,7 +435,7 @@ def main(args):
                         '~/.pwclientrc), '
                         'Message-ID (msgid://MSGID), '
                         'linux commit like linux://HASH, '
-                        'hostap commit like hostap://HASH, or '
+                        'upstream commit like upstream://HASH, or '
                         'git reference like git://remote/branch/HASH or '
                         'git://repoURL#branch/HASH or '
                         'https://repoURL#branch/HASH or '
@@ -487,8 +480,8 @@ def main(args):
     re_matches = (
         (re.compile(r'^pw://(([^/]+)/)?(\d+)'), _match_patchwork),
         (re.compile(r'^msgid://<?([^>]*)>?'), _match_msgid),
-        (re.compile(r'^linux://([0-9a-f]+)'), _match_linux),
-        (re.compile(r'^hostap://([0-9a-f]+)'), _match_hostap),
+        (re.compile(r'^linux://([0-9a-f]+)'), _match_upstream),
+        (re.compile(r'^upstream://([0-9a-f]+)'), _match_upstream),
         (re.compile(r'^(from)?git://([^/\#]+)/([^#]+)/([0-9a-f]+)$'),
          _match_fromgit),
         (re.compile(r'^((git|https)://.+)#(.+)/([0-9a-f]+)$'), _match_gitfetch),
