@@ -7,8 +7,12 @@
 import subprocess
 import sys
 import os
+import logging
 
-from cvelib import common
+from cvelib import common, logutils
+
+
+LOGGER = logutils.setuplogging(loglvl=logging.DEBUG, name='PatchApplier')
 
 
 class PatchApplierException(Exception):
@@ -50,7 +54,7 @@ def create_new_cherry_pick_branch(kernel, bug_id, kernel_path):
         subprocess.check_call(['git', 'checkout', '-b', branch], stdout=subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL, cwd=kernel_path)
     except subprocess.CalledProcessError:
-        raise PatchApplierException('Creating branch %s failed' % branch)
+        raise PatchApplierException(f'Creating branch {branch} failed')
 
 
 def cherry_pick(kernel_path, sha, bug_id):
@@ -62,7 +66,7 @@ def cherry_pick(kernel_path, sha, bug_id):
                                 stderr=subprocess.PIPE, cwd=kernel_path)
     except subprocess.CalledProcessError as e:
         if 'bad revision' in e.stderr.decode(sys.getfilesystemencoding()):
-            raise PatchApplierException('invalid sha %s' % sha)
+            raise PatchApplierException(f'Invalid sha: {sha}')
         subprocess.check_call(['git', 'cherry-pick', '--abort'], cwd=kernel_path)
         return False
 
@@ -80,6 +84,7 @@ def apply_patch(sha, bug_id, kernel_versions):
         raise PatchApplierException('Environment variable CHROMIUMOS_KERNEL is not set')
 
     for kernel in kernel_versions:
+        LOGGER.debug(f'Trying to apply patch {sha} to {kernel}')
 
         kernel_path = os.path.join(os.getenv('CHROMIUMOS_KERNEL'), kernel)
 

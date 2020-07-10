@@ -7,8 +7,9 @@
 import subprocess
 import os
 import re
+import logging
 
-from cvelib import common
+from cvelib import common, logutils
 
 
 class ContextGeneratorException(Exception):
@@ -18,7 +19,8 @@ class ContextGeneratorException(Exception):
 class ContextGenerator():
     """Determines which kernels a commit should be applied to."""
 
-    def __init__(self, kernels):
+    def __init__(self, kernels, loglvl=logging.DEBUG):
+        self.logger = logutils.setuplogging(loglvl, self.__class__.__name__)
         self.kernels = kernels
         self.relevant_commits = []
 
@@ -44,7 +46,7 @@ class ContextGenerator():
                                               linux_sha], stderr=subprocess.DEVNULL,
                                               cwd=os.getenv('LINUX'), encoding='utf-8')
         except subprocess.CalledProcessError:
-            raise ContextGeneratorException('Error locating subject for sha %s' % linux_sha)
+            raise ContextGeneratorException(f'Error locating subject for sha {linux_sha}')
 
         return subject
 
@@ -68,14 +70,14 @@ class ContextGenerator():
             subprocess.check_call(['git', 'checkout', branch], stdout=subprocess.DEVNULL,
                                   stderr=subprocess.DEVNULL, cwd=os.getenv('STABLE'))
         except subprocess.CalledProcessError:
-            raise ContextGeneratorException('Checkout failed for %s' % branch)
+            raise ContextGeneratorException(f'Checkout failed for {branch}')
 
         try:
             subprocess.check_call(['git', 'pull', branch],
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                   cwd=os.getenv('STABLE'))
         except subprocess.CalledProcessError:
-            raise ContextGeneratorException('Remote branch %s does not exist' % branch)
+            raise ContextGeneratorException(f'Remote branch {branch} does not exist')
 
     def filter_fixed_kernels(self, sha):
         """Filters out kernels that are already fixed."""
@@ -84,6 +86,8 @@ class ContextGenerator():
         subject = self.get_subject_line(sha)
 
         for kernel in self.kernels:
+            self.logger.debug(f'Checking if {kernel} is fixed with {sha}')
+
             kernel_path = os.path.join(os.getenv('CHROMIUMOS_KERNEL'), kernel)
 
             branch = common.get_cros_branch(kernel)
@@ -95,12 +99,17 @@ class ContextGenerator():
         self.kernels = valid_kernels
 
     def filter_based_on_stable(self, linux_sha, environment):
-        """Filters out kernels with linux commit already in linux-stable."""
+        """Filters out stable or stable-rc kernels with linux commit."""
         valid_kernels = []
 
         subject = self.get_subject_line(linux_sha)
 
+        # Records whether the function is checking linux-stable or linux-stable-rc.
+        stable = os.path.basename(environment)
+
         for kernel in self.kernels:
+            self.logger.debug(f'Checking if {kernel} on {stable} contains {linux_sha}')
+
             branch = common.get_stable_branch(kernel)
 
             common.checkout_branch(kernel, branch, 'origin', branch, environment)
@@ -117,12 +126,13 @@ class ContextGenerator():
         fixes_sha = self.get_fixes_commit(linux_sha)
 
         if fixes_sha == '':
-            print('Commit %s does not have a Fixes tag' % linux_sha)
+            self.logger.debug(f'Commit {linux_sha} does not have a Fixes tag')
             return
 
         subject = self.get_subject_line(fixes_sha)
 
         for kernel in self.kernels:
+            self.logger.debug(f'Checking if {kernel} contains fixes commit: {fixes_sha}')
 
             kernel_path = os.path.join(os.getenv('CHROMIUMOS_KERNEL'), kernel)
 
@@ -158,10 +168,10 @@ class ContextGenerator():
             except ContextGeneratorException:
                 # Given sha contains fixes tag from another working tree.
                 # Ex: 1bb0fa189c6a is refered to by a7868323c2638a7c6c5b30b37831b73cbdf0dc15.
-                pass
+                self.logger.error(f'{linux_sha} contains a fix commit from another working tree.')
 
             if fixes_subj == linux_subj:
-                print(f'Sha {sha} is a relevant commit')
+                self.logger.info(f'Sha {sha} is a relevant commit.')
                 self.relevant_commits.append(sha)
                 return
 

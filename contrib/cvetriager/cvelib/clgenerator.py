@@ -6,8 +6,12 @@
 
 import subprocess
 import os
+import logging
 
-from cvelib import common
+from cvelib import common, logutils
+
+
+LOGGER = logutils.setuplogging(loglvl=logging.DEBUG, name='CLGenerator')
 
 
 class CLGeneratorException(Exception):
@@ -19,6 +23,8 @@ def create_cls(bug_id, kernels):
     cl_map = {}
 
     for kern in kernels:
+        LOGGER.debug(f'Generating CL for {kern}')
+
         branch = common.get_cherry_pick_branch(bug_id, kern)
         kernel_path = os.path.join(os.getenv('CHROMIUMOS_KERNEL'), kern)
 
@@ -45,7 +51,7 @@ def do_push(push_cmd, kernel, kernel_path):
     try:
         output = subprocess.check_output(push_cmd, stderr=subprocess.DEVNULL, cwd=kernel_path)
     except:
-        raise CLGeneratorException('Push failed for %s' % kernel)
+        raise CLGeneratorException(f'Push failed for {kernel}')
 
     return output
 

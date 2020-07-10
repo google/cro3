@@ -40,7 +40,7 @@ def do_checkout(kernel, branch, kernel_path):
         subprocess.check_call(['git', 'checkout', branch], stdout=subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL, cwd=kernel_path)
     except subprocess.CalledProcessError:
-        raise CommonException('Checkout failed for %s' % kernel)
+        raise CommonException(f'Checkout failed for {kernel}')
 
 
 def do_pull(kernel, remote, remote_branch, kernel_path):
@@ -50,7 +50,7 @@ def do_pull(kernel, remote, remote_branch, kernel_path):
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                               cwd=kernel_path)
     except subprocess.CalledProcessError:
-        raise CommonException('Pull failed for %s' % kernel)
+        raise CommonException(f'Pull failed for {kernel}')
 
 
 def get_commit_message(kernel_path, sha):
@@ -62,5 +62,4 @@ def get_commit_message(kernel_path, sha):
 
         return commit_message.rstrip() +'\n'
     except subprocess.CalledProcessError:
-        raise CommonException('Could not retrieve commit in kernal path %s for sha %s'
-                                    % (kernel_path, sha))
+        raise CommonException(f'Could not retrieve commit in {kernel_path} for {sha}')

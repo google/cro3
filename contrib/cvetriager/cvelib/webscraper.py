@@ -7,10 +7,14 @@
 from urllib.parse import urlparse, parse_qs
 import os
 import string
+import logging
 
+from cvelib import logutils
 from bs4 import BeautifulSoup
 import requests
 
+
+LOGGER = logutils.setuplogging(loglvl=logging.DEBUG, name='WebScraper')
 
 CVE_URL = 'https://cve.mitre.org/cgi-bin/cvename.cgi'
 KERNEL_ORG = 'git.kernel.org'
@@ -84,7 +88,7 @@ def find_sha_from_link(link):
         try:
             sha = parse_qs(parsed_link.query)['id'][0]
         except KeyError:
-            pass
+            LOGGER.error(f'Sha not found in {link}')
 
     elif netloc == GITHUB_COM and path.startswith(GITHUB_PATH):
         sha = os.path.basename(path)
@@ -101,6 +105,8 @@ def find_relevant_commits(cve_number):
 
     # Collects fix commit sha(s) from links.
     for link in commit_links:
+        LOGGER.debug(f'Looking for sha in {link}')
+
         sha = find_sha_from_link(link)
         if sha:
             commits.add(sha)

@@ -163,7 +163,7 @@ class TestContextGenerator(unittest.TestCase):
         cg.detect_relevant_commits(sha)
 
         # Commit's fixes tag refers to 14fceff4771e51.
-        self.assertIn('4d3da2d8d91f66988a829a18a0ce59945e8ae4fb', cg.relevant_commits)
+        self.assertIn('03e62fd67d3ab33f39573fc8787d89dc9b4d7255', cg.relevant_commits)
 
     @mock.patch('cvelib.common.do_pull')
     def test_filter_based_on_stable(self, _):
