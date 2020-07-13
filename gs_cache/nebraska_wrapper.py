@@ -17,7 +17,18 @@ from six.moves import urllib
 
 import cherrypy  # pylint: disable=import-error
 
-from nebraska import nebraska
+# Nebraska.py has been added to PYTHONPATH, so gs_archive_server should be able
+# to import nebraska.py directly. But if gs_archive_server is triggered from
+# ~/chromiumos/src/platform/dev, it will import nebraska, the python package,
+# instead of nebraska.py, thus throwing an AttributeError when the module is
+# eventually used. To mitigate this, catch the exception and import nebraska.py
+# from the nebraska package directly.
+try:
+  import nebraska
+  nebraska.QueryDictToDict({})
+except AttributeError as e:
+  from nebraska import nebraska
+
 from chromite.lib import cros_logging as logging
 
 
