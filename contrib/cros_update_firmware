@@ -110,7 +110,7 @@ update_firmware() {
     popd > /dev/null
   fi
 
-  "emerge-${board}" ${quiet} ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}" chromeos-config
+  "emerge-${board}" -j ${quiet} ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}" chromeos-config
   cros_config_host -c "${yaml_config}" get-firmware-uris > "${srcuris}"
   touch "${ebuild}"
 
@@ -123,7 +123,7 @@ update_firmware() {
   # these cache cleanup code.
   rm -rf "${metadata}/cache" "${metadata}/md5-cache" "${edb_cache}"
   "ebuild-${board}" "${ebuild}" manifest
-  "emerge-${board}" ${quiet} "chromeos-firmware-${board}"
+  "emerge-${board}" -j ${quiet} "chromeos-firmware-${board}"
 
   for i in "${!result[@]}"; do
     if [[ "${result[i]}" -eq "0" ]]; then
