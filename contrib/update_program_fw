@@ -426,7 +426,7 @@ if [[ "${FLAGS_build}" -eq  "${FLAGS_TRUE}" ]]; then
     PACKAGES=(coreboot depthcharge vboot_reference libpayload chromeos-bootimage)
     ;;
   esac
-  if ! ("emerge-${FLAGS_board}" --quiet-build "${PACKAGES[@]}"); then
+  if ! ("emerge-${FLAGS_board}" -j --quiet-build "${PACKAGES[@]}"); then
     abort "coreboot build failed!"
   fi
   echo "coreboot build successful"
