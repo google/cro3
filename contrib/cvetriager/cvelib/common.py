@@ -6,6 +6,8 @@
 
 import subprocess
 
+DO_PULL = False
+
 
 class CommonException(Exception):
     """Exception raised from common."""
@@ -31,7 +33,8 @@ def get_cherry_pick_branch(bug_id, kernel):
 def checkout_branch(kernel, branch, remote, remote_branch, kernel_path):
     """Checks into appropriate branch and keeps it up to date."""
     do_checkout(kernel, branch, kernel_path)
-    do_pull(kernel, remote, remote_branch, kernel_path)
+    if DO_PULL:
+        do_pull(kernel, remote, remote_branch, kernel_path)
 
 
 def do_checkout(kernel, branch, kernel_path):
