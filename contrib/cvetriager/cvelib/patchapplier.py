@@ -47,14 +47,18 @@ def fetch_linux_kernel(kernel_path):
 
 
 def create_new_cherry_pick_branch(kernel, bug_id, kernel_path):
-    """Creates and checks into new branch for cherry-picking"""
+    """Creates and checks into new branch for cherry-picking."""
     branch = common.get_cherry_pick_branch(bug_id, kernel)
 
     try:
-        subprocess.check_call(['git', 'checkout', '-b', branch], stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL, cwd=kernel_path)
-    except subprocess.CalledProcessError:
-        raise PatchApplierException(f'Creating branch {branch} failed')
+        subprocess.check_output(['git', 'checkout', '-b', branch], stderr=subprocess.PIPE,
+                                cwd=kernel_path)
+    except subprocess.CalledProcessError as e:
+        # Checkouts to branch if it exists already.
+        if 'already exists' in e.stderr.decode(sys.getfilesystemencoding()):
+            common.do_checkout(kernel, branch, kernel_path)
+        else:
+            raise PatchApplierException(f'Creating branch {branch} failed')
 
 
 def cherry_pick(kernel_path, sha, bug_id):
