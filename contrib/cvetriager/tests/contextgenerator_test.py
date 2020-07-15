@@ -155,7 +155,7 @@ class TestContextGenerator(unittest.TestCase):
 
     def test_detect_relevant_commits(self):
         """Unit test for detect_relevant_commits."""
-        cg = contextgenerator.ContextGenerator([])
+        cg = contextgenerator.ContextGenerator([], check_rel_commits=True)
 
         # From Linux kernel, used for finding commits whose fixes tag refers to it.
         sha = '14fceff4771e51'

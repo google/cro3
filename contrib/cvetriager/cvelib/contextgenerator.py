@@ -19,9 +19,10 @@ class ContextGeneratorException(Exception):
 class ContextGenerator():
     """Determines which kernels a commit should be applied to."""
 
-    def __init__(self, kernels, loglvl=logging.DEBUG):
+    def __init__(self, kernels, check_rel_commits=False, loglvl=logging.DEBUG):
         self.logger = logutils.setuplogging(loglvl, self.__class__.__name__)
         self.kernels = kernels
+        self.check_rel_commits = check_rel_commits
         self.relevant_commits = []
 
     def get_fixes_commit(self, linux_sha):
@@ -62,22 +63,6 @@ class ContextGenerator():
             pass
 
         return False
-
-    def checkout_branch(self, branch_name, kernel):
-        """Checking into appropriate branch."""
-        try:
-            branch = branch_name % kernel[1:]
-            subprocess.check_call(['git', 'checkout', branch], stdout=subprocess.DEVNULL,
-                                  stderr=subprocess.DEVNULL, cwd=os.getenv('STABLE'))
-        except subprocess.CalledProcessError:
-            raise ContextGeneratorException(f'Checkout failed for {branch}')
-
-        try:
-            subprocess.check_call(['git', 'pull', branch],
-                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                  cwd=os.getenv('STABLE'))
-        except subprocess.CalledProcessError:
-            raise ContextGeneratorException(f'Remote branch {branch} does not exist')
 
     def filter_fixed_kernels(self, sha):
         """Filters out kernels that are already fixed."""
@@ -168,7 +153,7 @@ class ContextGenerator():
             except ContextGeneratorException:
                 # Given sha contains fixes tag from another working tree.
                 # Ex: 1bb0fa189c6a is refered to by a7868323c2638a7c6c5b30b37831b73cbdf0dc15.
-                self.logger.error(f'{linux_sha} contains a fix commit from another working tree.')
+                self.logger.error(f'{sha} contains a fix commit from another working tree.')
 
             if fixes_subj == linux_subj:
                 self.logger.info(f'Sha {sha} is a relevant commit.')
@@ -185,4 +170,5 @@ class ContextGenerator():
 
         self.filter_based_on_stable(linux_sha, os.getenv('STABLE_RC'))
 
-        self.detect_relevant_commits(linux_sha)
+        if self.check_rel_commits:
+            self.detect_relevant_commits(linux_sha)
