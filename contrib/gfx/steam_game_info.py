@@ -42,7 +42,7 @@ conn.close()
 data_results = {}
 data_results['gameid'] = args.gameid
 try:
-  data_results['game_name'] = html.unescape(re.findall(r'\<td itemprop\=\"name\"\>(.*?)\<\/td\>',
+  data_results['game_name'] = html.unescape(re.findall(r'\<h1 itemprop\=\"name\"\>(.*?)\<\/h1\>',
                                                        data, re.MULTILINE)[0])
   data_results['platforms'] = re.findall(r'operatingSystem\" content\="(.*?)\"\>',
                                          data, re.MULTILINE)[0]
