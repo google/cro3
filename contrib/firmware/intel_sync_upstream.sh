@@ -84,7 +84,7 @@ else
   echo "Remote ${STAGING_PREFIX}-staging already exists"
 fi;
 
-git fetch --force ${STAGING_PREFIX}-staging
+git fetch --tags --force ${STAGING_PREFIX}-staging
 die $? "Can't fetch ${STAGING_PREFIX}-staging"
 
 # Detach from any branch before deleting
