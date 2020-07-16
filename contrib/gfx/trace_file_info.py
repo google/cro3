@@ -31,7 +31,7 @@ def main(args):
 
     res = json.loads(result.stdout)
     data_results = {
-        'trace_file_version': res['FileVersion'],
+        'trace_file_version': res['ContainerVersion'],
         'trace_frames_count': res['FramesCount'],
     }
     print(json.dumps(data_results, indent=2, sort_keys=True))
