@@ -9,13 +9,10 @@
 # for review.
 #
 # Usage:
-#   ./update_program_fw --board=program --release=NNNNN [ --reviewer=reviewer ]
+#   ./update_program_fw --board=program --release=NNNNN.nn [ --reviewer=reviewer ]
 #                       [ --project=proj... ]
 # E.g:
 #   ./update_program_fw --board=puff --release=13291 --reviewer=amcrae@google.com
-#
-# TODO:
-#   - Handle minor version
 #
 CONTRIB_DIR=$(dirname "$(readlink -f "$0")")
 . "${CONTRIB_DIR}/common.sh" || exit 1
@@ -38,7 +35,7 @@ An optional reviewer can be specified to send all the CLs to.
 "
 # Flags
 DEFINE_string board "${DEFAULT_BOARD}" "Which board (program) the firmware is for (e.g 'puff')" b
-DEFINE_integer release 0  "The firmware release to update to (e.g 13310)" r
+DEFINE_string release "${DEFAULT_RELEASE}"  "The firmware release to update to (e.g 13310.3)" r
 DEFINE_string project "${DEFAULT_PROJECT}" "Which projects this release is for (defaults to all), e.g 'duffy'" p
 DEFINE_string bug "none" "The bug to reference in the CL e.g b:12345"
 DEFINE_string skip "${DEFAULT_SKIP}" "Skip these projects (comma separated list)" s
@@ -63,12 +60,14 @@ assert_inside_chroot
 # Variables
 #
 PATH="${PATH}:${GCLIENT_ROOT}/src/config/bin"
-DIGITS="[1-9][0-9][0-9][0-9][0-9]"
+MAJOR_RE="[1-9][0-9]{4}"
+MINOR_RE="(0|[1-9][0-9]*)"
 BRANCH=""
 PROGRAM_CL=""
-MAJORV=" major_version = "
-ANY_MV="${MAJORV}${DIGITS}"
-NEW_MV="${MAJORV}${FLAGS_release}"
+MAJOR_PREFIX="major_version = "
+MINOR_PREFIX="minor_version = "
+ANY_MAJOR="${MAJOR_PREFIX}${MAJOR_RE}"
+ANY_MINOR="${MINOR_PREFIX}${MINOR_RE}"
 #
 # Common functions
 #
@@ -149,32 +148,27 @@ in_list() {
   return 1
 }
 #
-# Return 0 if file has version in it.
+# Return 0 if file has major or minor version in it.
 #
 has_version() {
-  (grep -q "${ANY_MV}" "${1}")
+  (grep -E -q "(${ANY_MAJOR}|${ANY_MINOR})" "${1}")
 }
 #
-# Update the major version in the file passed.
+# Update the version in the file passed.
 # return 0 if version updated.
 # return 1 if version not in file, or unchanged.
 #
 update_version() {
-  # Check for major_version in file.
+  # Check for major or minor version in file.
   if ! (has_version "${1}") ;then
     return 1
   fi
   local nf="${TEMPDIR}/new-${1}"
-  sed "/${ANY_MV}/s/${ANY_MV}/${NEW_MV}/" "${1}" > "${nf}"
-  #
-  # Verify that only 1-5 characters have changed.
-  #
-  DIFF=$(cmp -l "${1}" "${nf}" | wc -l)
-  if [[ "${DIFF}" -gt 5 ]]; then
-    diff "${1}" "{nf}}"
-    abort "${1} update error"
-  fi
-  if [[ "${DIFF}" == 0 ]]; then
+  echo "Replace ${ANY_MAJOR} with ${NEW_MAJOR}"
+  echo "Replace ${ANY_MINOR} with ${NEW_MINOR}"
+  sed -E "s/${ANY_MAJOR}/${NEW_MAJOR}/" "${1}" >  "${nf}"
+  sed -i -E "s/${ANY_MINOR}/${NEW_MINOR}/" "${nf}"
+  if cmp -s "${1}" "${nf}"; then
     return 1
   fi
   cp "${nf}" "${1}"
@@ -196,12 +190,24 @@ PROGDIR="${GCLIENT_ROOT}/src/program/${FLAGS_board}"
 if [[ ! -d "${PROGDIR}" ]]; then
   die "${FLAGS_board} is not a valid program (${PROGDIR} missing)"
 fi
-# Release must be a 5 digit number
-if [[ ! "${FLAGS_release}" =~ ^${DIGITS}$ ]]; then
-  die "release must be a 5 digit number"
+#
+# Validate release
+# Major must be a 5 digit number
+# Optional minor release must be a number.
+#
+if [[ "${FLAGS_release}" =~ ^${MAJOR_RE}$ ]]; then
+  MAJOR_VERSION=${FLAGS_release}
+  MINOR_VERSION="0"
+elif [[ "${FLAGS_release}" =~ ^${MAJOR_RE}\.${MINOR_RE}$ ]]; then
+  MAJOR_VERSION=$(echo "${FLAGS_release}" | cut -d. -f1)
+  MINOR_VERSION=$(echo "${FLAGS_release}" | cut -d. -f2)
+else
+  die "Unknown release format (must be NNNNN[.n])"
 fi
+NEW_MAJOR="${MAJOR_PREFIX}${MAJOR_VERSION}"
+NEW_MINOR="${MINOR_PREFIX}${MINOR_VERSION}"
 # Use a common git branch name.
-BRANCH="update_${FLAGS_board}_fw_${FLAGS_release}"
+BRANCH="update_${FLAGS_board}_fw_${MAJOR_VERSION}_${MINOR_VERSION}"
 #
 # Build the project list.
 # If no projects are specified, use all in the programs directory.
@@ -281,6 +287,8 @@ if [[ "${FLAGS_dryrun}" -eq  "${FLAGS_TRUE}" ]]; then
   fi
   echo
   echo "Release number of upgrade:     ${FLAGS_release}"
+  echo "Major version of release:      ${MAJOR_VERSION}"
+  echo "Minor version of release:      ${MINOR_VERSION}"
   echo "BUG string used in commit:     ${FLAGS_bug}"
   echo "TEST string used in commit:    ${FLAGS_test}"
   echo "Reviewer assigned to CLs:      ${FLAGS_reviewer:-None}"
