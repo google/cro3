@@ -16,6 +16,12 @@ setup(
     license='BSD-Google',
     packages=['cvelib'],
     zip_safe=False,
-    install_requires=['bs4', 'requests'],
+    install_requires=[
+        'bs4',
+        'requests'
+        ],
     test_suite='tests',
+    scripts=[
+        'bin/triage'
+    ],
 )
