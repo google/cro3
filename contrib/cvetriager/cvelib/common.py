@@ -13,10 +13,13 @@ class CommonException(Exception):
     """Exception raised from common."""
 
 
-def get_stable_branch(kernel):
+def get_stable_branch(kernel, is_rc=False):
     """Returns stable branch name."""
     branch = kernel[1:]
-    return f'linux-{branch}.y'
+    remote = f'linux-{branch}.y'
+    if is_rc:
+        return kernel, remote
+    return remote, remote
 
 
 def get_cros_branch(kernel):

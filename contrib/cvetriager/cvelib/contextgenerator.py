@@ -83,21 +83,20 @@ class ContextGenerator():
 
         self.kernels = valid_kernels
 
-    def filter_based_on_stable(self, linux_sha, environment):
+    def filter_based_on_stable(self, linux_sha, env_var):
         """Filters out stable or stable-rc kernels with linux commit."""
         valid_kernels = []
+        environment = os.getenv(env_var)
+        is_rc = bool(env_var == 'STABLE_RC')
 
         subject = self.get_subject_line(linux_sha)
 
-        # Records whether the function is checking linux-stable or linux-stable-rc.
-        stable = os.path.basename(environment)
-
         for kernel in self.kernels:
-            self.logger.debug(f'Checking if {kernel} on {stable} contains {linux_sha}')
+            self.logger.debug(f'Checking if {kernel} on {env_var} contains {linux_sha}')
 
-            branch = common.get_stable_branch(kernel)
+            branch, remote = common.get_stable_branch(kernel, is_rc)
 
-            common.checkout_branch(kernel, branch, 'origin', branch, environment)
+            common.checkout_branch(kernel, branch, 'origin', remote, environment)
 
             if self.is_in_kernel(environment, subject, False):
                 valid_kernels.append(kernel)
@@ -166,9 +165,9 @@ class ContextGenerator():
 
         self.find_kernels_with_fixes_subj(linux_sha)
 
-        self.filter_based_on_stable(linux_sha, os.getenv('STABLE'))
+        self.filter_based_on_stable(linux_sha, 'STABLE')
 
-        self.filter_based_on_stable(linux_sha, os.getenv('STABLE_RC'))
+        self.filter_based_on_stable(linux_sha, 'STABLE_RC')
 
         if self.check_rel_commits:
             self.detect_relevant_commits(linux_sha)

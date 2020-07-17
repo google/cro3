@@ -79,9 +79,9 @@ class TestContextGenerator(unittest.TestCase):
         subprocess.check_call(['git', 'init'], stdout=subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL, cwd=self.stable_rc_temp)
 
-        create_branch_and_commit_file(self.stable_rc_temp, 'linux-1.0.y', 'file', 'random subject')
+        create_branch_and_commit_file(self.stable_rc_temp, 'v1.0', 'file', 'random subject')
 
-        create_branch_and_commit_file(self.stable_rc_temp, 'linux-2.0.y', 'file2',
+        create_branch_and_commit_file(self.stable_rc_temp, 'v2.0', 'file2',
                                       TestContextGenerator.LINUX_SUBJECT)
 
     def tearDown(self):
@@ -171,13 +171,13 @@ class TestContextGenerator(unittest.TestCase):
         # Tests with $STABLE.
         cg = contextgenerator.ContextGenerator(['v1.0', 'v2.0'])
 
-        cg.filter_based_on_stable(TestContextGenerator.LINUX_SHA, os.getenv('STABLE'))
+        cg.filter_based_on_stable(TestContextGenerator.LINUX_SHA, 'STABLE')
 
         self.assertIn('v1.0', cg.kernels)
         self.assertNotIn('v2.0', cg.kernels)
 
         # Tests with $STABLE_RC.
-        cg.filter_based_on_stable(TestContextGenerator.LINUX_SHA, os.getenv('STABLE_RC'))
+        cg.filter_based_on_stable(TestContextGenerator.LINUX_SHA, 'STABLE_RC')
 
         self.assertIn('v1.0', cg.kernels)
         self.assertNotIn('v2.0', cg.kernels)
