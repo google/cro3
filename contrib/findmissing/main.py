@@ -101,6 +101,22 @@ def abandon_fix_cl(fixes_table, sha_list, reason, force):
 
 @util.cloud_sql_proxy_decorator
 @util.preliminary_check_decorator(False)
+def status_fix_cl(fixes_table, sha_list, reason, force): # pylint: disable=unused-argument
+    """Lists status for a fix CL."""
+    db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    rows = []
+    for sha in sha_list:
+        rows += cloudsql_interface.get_fix_status_and_changeid_from_list(db, fixes_table, [sha])
+    if not rows:
+        print('No patches identified by "%s" in %s' % (sha_list, fixes_table))
+    else:
+        print_rows(rows)
+
+    db.close()
+
+
+@util.cloud_sql_proxy_decorator
+@util.preliminary_check_decorator(False)
 def restore_fix_cl(fixes_table, sha_list, reason, force):
     """Restores an abandoned change + updates database fix table."""
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')

@@ -30,7 +30,8 @@ def findmissing():
     ./findmissing abandon stable_fixes <kernel_sha> <fixedby_upstream_sha> reason
     """
     abandon_restore_function_map = {'abandon': main.abandon_fix_cl,
-                                    'restore': main.restore_fix_cl}
+                                    'restore': main.restore_fix_cl,
+                                    'status': main.status_fix_cl}
     parser = argparse.ArgumentParser(description='Local functions to update database')
     parser.add_argument('command', type=str, choices=tuple(abandon_restore_function_map.keys()),
                         help='Function to either abandon/restore changes.')
@@ -38,15 +39,14 @@ def findmissing():
                         help='Table that contains primary key you want to update.')
     parser.add_argument('-f', '--force', action='store_true',
         help='Force action if only one SHA provided and more than one database entry is affected.')
-    parser.add_argument('-r', '--reason', type=str, required=True,
+    parser.add_argument('-r', '--reason', required='status' not in sys.argv, type=str,
                         help='Reason for performing action.')
     parser.add_argument('sha', type=str, nargs='+',
                         help='To-be-fixed and/or fixing SHA for row you want to update.')
     args = parser.parse_args()
 
-    if len(args.sha) > 2:
-        print('Must specify one or two SHAs.')
-        sys.exit(1)
+    if args.command != 'status' and len(args.sha) > 2:
+        parser.error('Must specify one or two SHAs.')
 
     fixes_table = args.fix + '_fixes'
     abandon_restore_function_map[args.command](fixes_table, args.sha, args.reason, args.force)
