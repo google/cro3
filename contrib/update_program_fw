@@ -44,6 +44,7 @@ DEFINE_boolean program "${FLAGS_TRUE}" "Update the version in the base program.s
 DEFINE_string reviewer "${DEFAULT_REVIEWER}" "The reviewer to send the CLs to (optional)"
 DEFINE_string test "none" "The 'TEST=' string added to the commit message"
 DEFINE_boolean dryrun "${FLAGS_FALSE}" "Do not perform any actions, just validate and print arguments"
+DEFINE_boolean verify "${FLAGS_TRUE}" "Ask for verification before proceeding"
 
 # Set before flag processing
 COMMAND=$(basename "$0")
@@ -114,6 +115,15 @@ branch() {
   fi
 }
 #
+# return 'yes' or 'no' for boolean true or false
+yes_no() {
+  if [[ "${1}" -eq  "${FLAGS_FALSE}" ]]; then
+    echo -n "no"
+  else
+    echo -n "yes"
+  fi
+}
+#
 # Return true if repo has changes.
 #
 changed() {
@@ -164,8 +174,6 @@ update_version() {
     return 1
   fi
   local nf="${TEMPDIR}/new-${1}"
-  echo "Replace ${ANY_MAJOR} with ${NEW_MAJOR}"
-  echo "Replace ${ANY_MINOR} with ${NEW_MINOR}"
   sed -E "s/${ANY_MAJOR}/${NEW_MAJOR}/" "${1}" >  "${nf}"
   sed -i -E "s/${ANY_MINOR}/${NEW_MINOR}/" "${nf}"
   if cmp -s "${1}" "${nf}"; then
@@ -268,38 +276,42 @@ if [[ ! -d "${DEVCONTRIB}" ]]; then
   die "${DEVCONTRIB}: invalid directory"
 fi
 #
-# If requesting dry run, dump arguments and exit.
+# Display arguments.
+#
+echo "Invoked as:"
+echo "${COMMAND} ${CMDARGS}"
+echo "Program (board) to be updated: ${FLAGS_board}"
+echo -n "Projects to be updated are:   "
+for PROJ in "${PROJECTS[@]}"; do
+  echo -n " ${PROJ}"
+done
+if [[ -n "${SKIPPED}" ]]; then
+  echo -n " (skipped:"
+  for S in "${SKIPPED[@]}"; do
+    echo -n " ${S}"
+  done
+  echo -n ")"
+fi
+echo
+echo "Release number of upgrade:     ${FLAGS_release}"
+echo "Major version of release:      ${MAJOR_VERSION}"
+echo "Minor version of release:      ${MINOR_VERSION}"
+echo "BUG string used in commit:     ${FLAGS_bug}"
+echo "TEST string used in commit:    ${FLAGS_test}"
+echo "Reviewer assigned to CLs:      ${FLAGS_reviewer:-None}"
+echo "repo branch to be used is:     ${BRANCH}"
+echo "Update program.star version:   $(yes_no ${FLAGS_program})"
+echo "Coreboot build enabled:        $(yes_no ${FLAGS_build})"
+echo "Dry run requested:             $(yes_no ${FLAGS_dryrun})"
+echo "Verify before proceeding:      $(yes_no ${FLAGS_verify})"
 #
 if [[ "${FLAGS_dryrun}" -eq  "${FLAGS_TRUE}" ]]; then
-  echo "Dry run requested, invoked as:"
-  echo "${COMMAND} ${CMDARGS}"
-  echo "Program (board) to be updated: ${FLAGS_board}"
-  echo -n "Projects to be updated are:   "
-  for PROJ in "${PROJECTS[@]}"; do
-    echo -n " ${PROJ}"
-  done
-  if [[ -n "${SKIPPED}" ]]; then
-    echo -n " (skipped:"
-    for S in "${SKIPPED[@]}"; do
-      echo -n " ${S}"
-    done
-    echo -n ")"
-  fi
-  echo
-  echo "Release number of upgrade:     ${FLAGS_release}"
-  echo "Major version of release:      ${MAJOR_VERSION}"
-  echo "Minor version of release:      ${MINOR_VERSION}"
-  echo "BUG string used in commit:     ${FLAGS_bug}"
-  echo "TEST string used in commit:    ${FLAGS_test}"
-  echo "Reviewer assigned to CLs:      ${FLAGS_reviewer:-None}"
-  echo -n "Coreboot build enabled:        "
-  if [[ "${FLAGS_build}" -eq  "${FLAGS_FALSE}" ]]; then
-    echo "no"
-  else
-    echo "yes"
-  fi
-  echo "repo branch to be used is:     ${BRANCH}"
+  echo "Dry run requested, exiting"
   exit 0
+fi
+read -p "Proceed with updating firmware (y/N)? " -r
+if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+  die "Not verified, exiting..."
 fi
 if [[ "${FLAGS_build}" -eq  "${FLAGS_FALSE}" ]]; then
   echo
