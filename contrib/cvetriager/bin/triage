@@ -10,6 +10,7 @@ import argparse
 import logging
 import sys
 import os
+import json
 
 from cvelib import logutils, patchapplier, contextgenerator, clgenerator, webscraper, common
 
@@ -27,6 +28,7 @@ def get_parser():
     parser.add_argument('-rc', '--relevant_commit', help='Display commits referring to CVE fix.',
                         action='store_true')
     parser.add_argument('--pull', help='Update kernel repositories.', action='store_true')
+    parser.add_argument('--json', help='Print results as JSON string.', action='store_true')
     return parser
 
 
@@ -70,27 +72,43 @@ def main(argv):
         cg.generate_context(commit)
         patches[commit] = cg.kernels
 
+    # Dictionary for JSON string conversion.
+    commit_status = {
+        'cve': cve_num,
+        'status': {}
+    }
+
     for commit in commits:
         logger.info(f'Trying to apply patch: {commit}')
         kernels = patchapplier.apply_patch(commit, opts.bug, patches[commit])
 
         patched_kernels = []
 
+        # Records patch status for JSON string.
+        commit_status['status'][commit] = {}
+
         # Displays status of kernels after attempting to patch each one.
         for kern in KERNELS:
             cros_branch = common.get_cros_branch(kern)
             if kern not in patches[commit]:
+                commit_status['status'][commit][kern] = 'FIXED'
                 logger.info(f'{cros_branch}: FIXED')
             else:
                 if kernels[kern]:
+                    commit_status['status'][commit][kern] = 'MISSING, applies cleanly'
                     patched_kernels.append(kern)
                     logger.info(f'{cros_branch}: MISSING, applies cleanly')
                 else:
+                    commit_status['status'][commit][kern] = 'MISSING, conflict'
                     logger.info(f'{cros_branch}: MISSING, conflict')
 
         if len(patched_kernels) != 0:
             logger.info(f'Generating CLs for {commit}')
             clgenerator.create_cls(opts.bug, patched_kernels)
+
+    if opts.json:
+        json_out = json.dumps(commit_status, indent=4)
+        print(json_out)
 
     return 0
 
