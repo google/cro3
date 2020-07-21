@@ -352,7 +352,7 @@ ${COMMAND} ${CMDARGS}
 BUG=${FLAGS_bug}
 TEST=${FLAGS_test}
 EOF
-    if ! repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.output" 2>&1 ;then
+    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.output" 2>&1 ;then
       cat  "${TEMPDIR}/upload.output"
       abort "repo upload failed"
     fi
@@ -390,7 +390,7 @@ ${COMMAND} ${CMDARGS}
 BUG=${FLAGS_bug}
 TEST=${FLAGS_test}
 EOF
-    if ! repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1 ;then
+    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1 ;then
       cat  "${TEMPDIR}/upload.${PROJ}.output"
       abort "repo upload failed"
     fi
@@ -415,7 +415,7 @@ if [[ -n "${PROJ_CLS[*]}" ]];then
   if [[ -n "${PROGRAM_CL}" ]]; then
     cd "${PROGDIR}"
     amend "${PROG_CQD}"
-    if ! repo upload -y "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.amend.output" 2>&1 ;then
+    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.amend.output" 2>&1 ;then
       cat  "${TEMPDIR}/upload.amend.output"
       abort "repo upload failed"
     fi
@@ -509,7 +509,7 @@ EOF
   for DIR in "${PROJ_DIRS[@]}"; do
     cd "${DIR}"
     amend "${CQD}"
-    if ! repo upload -y --cbr . > "${TEMPDIR}/cqd.output" 2>&1 ;then
+    if ! repo upload -y --verify --cbr . > "${TEMPDIR}/cqd.output" 2>&1 ;then
       cat  "${TEMPDIR}/cqd.output"
       abort "repo upload failed"
     fi
