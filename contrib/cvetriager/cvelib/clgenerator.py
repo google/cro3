@@ -49,8 +49,8 @@ def get_git_push_cmd(kernel):
 def do_push(push_cmd, kernel, kernel_path):
     """Pushes to branch."""
     try:
-        output = subprocess.check_output(push_cmd.split(' '), stderr=subprocess.DEVNULL,
-                                         cwd=kernel_path)
+        output = subprocess.check_output(push_cmd.split(' '), stderr=subprocess.STDOUT,
+                                         cwd=kernel_path, encoding='utf-8')
     except subprocess.CalledProcessError:
         raise CLGeneratorException(f'{kernel} repository needs to be refreshed before pushing.')
 

@@ -104,7 +104,9 @@ def main(argv):
 
         if len(patched_kernels) != 0:
             logger.info(f'Generating CLs for {commit}')
-            clgenerator.create_cls(opts.bug, patched_kernels)
+            cl_links = clgenerator.create_cls(opts.bug, patched_kernels)
+            for kernel in cl_links:
+                logger.info(f'{kernel} CL Link: {cl_links[kernel]}')
 
     if opts.json:
         json_out = json.dumps(commit_status, indent=4)
