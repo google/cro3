@@ -12,6 +12,7 @@ from __future__ import division
 from __future__ import print_function
 
 import cherrypy  # pylint: disable=import-error
+import telemetry_setup
 
 
 def get_config():
@@ -29,4 +30,5 @@ class FakeTelemetry(object):
   def GET(self, **kwargs):
     """A URL handler for setting up telemetry."""
     archive_url = kwargs.get('archive_url')
-    return 'Fake Telemetry: To be implemented. Archive URL: %s\n' % archive_url
+    with telemetry_setup.TelemetrySetup(archive_url) as tlm:
+      return tlm.Setup()
