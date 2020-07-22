@@ -5,6 +5,7 @@
 """Testing script for cvelib/webscraper.py."""
 
 import unittest
+from urllib.parse import urlparse
 
 from cvelib import webscraper
 
@@ -24,6 +25,13 @@ class TestWebScraper(unittest.TestCase):
         f'https://github.com/torvalds/linux/commit/{SHA}'
     ]
 
+    CVE_DESCRIPTION = (
+        'The tcpmss_mangle_packet function in net/netfilter/xt_TCPMSS.c in the Linux kernel before '
+        '4.11, and 4.9.x before 4.9.36, allows remote attackers to cause a denial of service '
+        '(use-after-free and memory corruption) or possibly have unspecified other impact by '
+        'leveraging the presence of xt_TCPMSS in an iptables action.'
+    )
+
     def test_make_cve_request(self):
         """Tests that url request was made."""
         req = webscraper.make_cve_request(TestWebScraper.CVE_NUMBER)
@@ -32,6 +40,14 @@ class TestWebScraper(unittest.TestCase):
 
         # Check if proper url was fetched.
         self.assertEqual(req.url, expected)
+
+    def test_find_cve_description(self):
+        """Tests that CVE description was returned."""
+        req = webscraper.make_cve_request(TestWebScraper.CVE_NUMBER)
+
+        description = webscraper.find_cve_description(req.text)
+
+        self.assertEqual(description, TestWebScraper.CVE_DESCRIPTION)
 
     def test_find_commit_links(self):
         """Tests that correct commit links were found."""
@@ -112,3 +128,24 @@ class TestWebScraper(unittest.TestCase):
     def test_valid_sha(self):
         """Tests that the sha found is a hexidecimal string."""
         self.assertTrue(webscraper.is_valid(TestWebScraper.SHA))
+
+    def test_is_kernel_org(self):
+        """Unit test for is_kernel_org."""
+        parsed_link = urlparse(TestWebScraper.LINKS[0])
+        netloc, path = parsed_link.netloc, parsed_link.path
+
+        self.assertTrue(webscraper.is_kernel_org(netloc, path))
+
+        pub_scm_torvalds_link = ('https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/'
+                                 'linux.git/commit/?id=f2d67fec0b43edce8c416101cdc52e71145b5fef')
+
+        parsed_link2 = urlparse(pub_scm_torvalds_link)
+        netloc2, path2 = parsed_link2.netloc, parsed_link2.path
+        self.assertTrue(webscraper.is_kernel_org(netloc2, path2))
+
+    def test_is_github_com(self):
+        """Unit test for is_github_com."""
+        parsed_link = urlparse(TestWebScraper.LINKS[1])
+        netloc, path = parsed_link.netloc, parsed_link.path
+
+        self.assertTrue(webscraper.is_github_com(netloc, path))

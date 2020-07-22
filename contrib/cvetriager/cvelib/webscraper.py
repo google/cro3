@@ -18,7 +18,7 @@ LOGGER = logutils.setuplogging(loglvl=logging.DEBUG, name='WebScraper')
 
 CVE_URL = 'https://cve.mitre.org/cgi-bin/cvename.cgi'
 KERNEL_ORG = 'git.kernel.org'
-KERNEL_PATH = '/cgit/linux/kernel/git/torvalds'
+KERNEL_PATH = ['/cgit/linux/kernel/git/torvalds', '/pub/scm/linux/kernel/git/torvalds/']
 GITHUB_COM = 'github.com'
 GITHUB_PATH = '/torvalds/linux/'
 
@@ -48,8 +48,40 @@ def make_cve_request(cve_number):
     return r
 
 
+def is_kernel_org(netloc, path):
+    """Check if is useful git.kernel.org link."""
+    if netloc != KERNEL_ORG:
+        return False
+
+    for link_path in KERNEL_PATH:
+        if path.startswith(link_path):
+            return True
+
+    return False
+
+
+def is_github_com(netloc, path):
+    """Check if is useful github.com link."""
+    return netloc == GITHUB_COM and path.startswith(GITHUB_PATH)
+
+
+def find_cve_description(cve_html):
+    """Returns given CVE's description."""
+    soup = BeautifulSoup(cve_html, 'html.parser')
+
+    tag = soup.find('div', attrs={'id': 'GeneratedTable'})
+
+    for t in tag.descendants:
+        if t.name == 'th' and t.text == 'Description':
+            description = t.parent.find_next_sibling().get_text()
+
+    return description.replace('\n', '')
+
+
 def find_commit_links(cve_html):
     """Returns commit links from given CVE's webpage."""
+    # TODO: Additional pattern to look for might be:
+    # https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-19076
     commits = []
     soup = BeautifulSoup(cve_html, 'html.parser')
 
@@ -61,10 +93,10 @@ def find_commit_links(cve_html):
             parsed_link = urlparse(link)
             netloc, path = parsed_link.netloc, parsed_link.path
 
-            if netloc == KERNEL_ORG and path.startswith(KERNEL_PATH):
+            if is_kernel_org(netloc, path):
                 commits.append(link)
 
-            elif netloc == GITHUB_COM and path.startswith(GITHUB_PATH):
+            elif is_github_com(netloc, path):
                 commits.append(link)
 
     return commits
@@ -84,13 +116,13 @@ def find_sha_from_link(link):
 
     sha = None
 
-    if netloc == KERNEL_ORG and path.startswith(KERNEL_PATH):
+    if is_kernel_org(netloc, path):
         try:
             sha = parse_qs(parsed_link.query)['id'][0]
         except KeyError:
             LOGGER.error(f'Sha not found in {link}')
 
-    elif netloc == GITHUB_COM and path.startswith(GITHUB_PATH):
+    elif is_github_com(netloc, path):
         sha = os.path.basename(path)
 
     return sha if is_valid(sha) else None
@@ -101,6 +133,10 @@ def find_relevant_commits(cve_number):
     commits = set()
 
     req = make_cve_request(cve_number)
+
+    cve_description = find_cve_description(req.text)
+    LOGGER.info(f'CVE Description: {cve_description}')
+
     commit_links = find_commit_links(req.text)
 
     # Collects fix commit sha(s) from links.
