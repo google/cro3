@@ -8,20 +8,21 @@
 
 ;; TODO this is test code to be removed in future CL.
 ;; The following will become user configuration options.
-(setq test-user "jrosenth")
+(setq test-user "aaronmassey@chromium.org")
 (setq test-host "chromium-review.googlesource.com")
 (setq test-repo-root (file-name-as-directory "~/chromiumos"))
 (setq test-repo-manifest-path (expand-file-name ".repo/manifests/default.xml" test-repo-root))
-
 ;; TODO Make our parser self-discoverable by project instead of a parameter.
 (setq test-manifest-parser (expand-file-name "src/platform/dev/contrib/emacs/manifest_parser"
                                              test-repo-root))
+(defun gerrit--test-init-all ()
+  (gerrit--init-global-comment-map test-host test-user)
+  (gerrit--init-global-repo-project-path-map test-manifest-parser test-repo-manifest-path))
 
 
 (defvar gerrit--change-to-filepath-comments nil
-  "Map containing change and related comment info.
-Multi-dimensional map where (change-id . (project . dest-branch)) => filepath
-(from project root) => Sequence of CommentInfo hashtables")
+  "Map containing with change => filepath => comments.
+filepath is from git project root, for the given change.")
 
 
 (defvar gerrit--project-branch-pair-to-projectpath nil
@@ -29,29 +30,23 @@ Multi-dimensional map where (change-id . (project . dest-branch)) => filepath
 Is of the form (project . dest-branch) => path-from-repo-root.")
 
 
-(cl-defun gerrit--fetch-recent-changeid-project-branch-pairs (host user &optional (count 3))
-  "Fetches recent changes as changeid project branch dotted pairs.
+(cl-defun gerrit--fetch-recent-changes (host user &optional (count 3))
+  "Fetches recent changes as ChangeInfo entities.
 host - Gerrit server address
 user - the user who owns the recent changes
 count (optional) - the number of recent changes, default is 3
 Fetch recent changes that are not abandoned/merged, and
-thus are actionable, returns a list of dotted pairs
-of the form (change-id . (project . branch))."
-  (let ((response
-         (request
-           (format "https://%s/changes/" host)
-           ;; We don't use "status:reviewed" because that only counts reviews after latest patch,
-           ;; but we may want reviews before the latest patch too.
-           :params `(("q" . ,(format "owner:%s status:open" user))
-                     ("n" . ,(format "%d" count)))
-           :sync t
-           :parser 'gerrit--request-response-json-parser
-           :success (lambda (&key data error-thrown &allow-other-keys)
-                      (when error-thrown
-                        (message "%s" error-thrown))))))
-    (loop for change across (request-response-data response)
-          collect `(,(gethash "change_id" change)
-                    ,(gethash "project" change) . ,(gethash "branch" change)))))
+thus are actionable, returns an array of hashtables that
+represent Gerrit ChangeInfo entities."
+  (request-response-data
+   (request
+     (format "https://%s/changes/" host)
+     ;; We don't use "status:reviewed" because that only counts reviews after latest patch,
+     ;; but we may want reviews before the latest patch too.
+     :params `(("q" . ,(format "owner:%s status:open" user))
+               ("n" . ,(format "%d" count)))
+     :sync t
+     :parser 'gerrit--request-response-json-parser)))
 
 
 (defun gerrit--request-response-json-parser ()
@@ -61,7 +56,7 @@ embedded XSS protection string before using a real json parser."
   (json-parse-string (replace-regexp-in-string "^[[:space:]]*)]}'" "" (buffer-string))))
 
 
-(defun gerrit--get-unresolved-comments (host project change-id)
+(defun gerrit--fetch-unresolved-comments (host change)
   "Gets recent unresolved comments for open Gerrit CLs.
 Returns a map of the form path => sequence of comments,
 where path is the filepath from the gerrit project root
@@ -70,13 +65,10 @@ and each comment represents a CommentInfo entity from Gerrit"
           (request
             (format "https://%s/changes/%s~master~%s/comments"
                     host
-                    (url-hexify-string project)
-                    change-id)
+                    (url-hexify-string (gethash "project" change))
+                    (gethash "change_id" change))
             :sync t
-            :parser 'gerrit--request-response-json-parser
-            :success (lambda (&key data error-thrown &allow-other-keys)
-                       (when error-thrown
-                         (message "%s" error-thrown)))))
+            :parser 'gerrit--request-response-json-parser))
          (out-map (request-response-data response)))
     ;; We only want the user to see unresolved comments.
     (loop for key in (hash-table-keys out-map) do
@@ -87,22 +79,22 @@ and each comment represents a CommentInfo entity from Gerrit"
     out-map))
 
 
-(defun gerrit--fetch-map-changeid-project-branch-pair-to-unresolved-comments (host user)
+(defun gerrit--fetch-change-to-file-to-unresolved-comments (host user)
   "Returns a map of maps of the form:
-(change-id . (project . branch)) => filepath => Sequence(CommentInfo Map),
-where filepath is from the nearest git root for a file."
-  ;; The return value is intended as a local cache of comments for user's recent changes.
+change => filepath => array(CommentInfo Map),
+where filepath is from the nearest git root for a file.
+Only fetches recent changes for open CLs."
   (let ((out-map (make-hash-table :test 'equal)))
-    (loop for pair in (gerrit--fetch-recent-changeid-project-branch-pairs host user) do
-          (setf (gethash pair out-map)
-                (gerrit--get-unresolved-comments host (cadr pair) (car pair))))
+    (loop for change across (gerrit--fetch-recent-changes host user) do
+          (setf (gethash change out-map)
+                (gerrit--fetch-unresolved-comments host change)))
     out-map))
 
 
 (defun gerrit--init-global-comment-map (host user)
   "Inits `gerrit--change-to-filepath-comments`."
   (setf gerrit--change-to-filepath-comments
-        (gerrit--fetch-map-changeid-project-branch-pair-to-unresolved-comments
+        (gerrit--fetch-change-to-file-to-unresolved-comments
          host user)))
 
 
@@ -141,6 +133,7 @@ Assumes that stdout of parser is a Lisp alist of the form:
 (defun gerrit--init-global-repo-project-path-map (path-to-manifest-parser-exec
                                                   abs-path-to-manifest)
   "Initializes `gerrit--project-branch-pair-to-projectpath`."
+  ;; Here we use Python expat sax parser as it's considerably faster.
   (setf gerrit--project-branch-pair-to-projectpath (gerrit--project-branch-pair-to-path-map
                                                     path-to-manifest-parser-exec
                                                     abs-path-to-manifest)))
@@ -155,7 +148,10 @@ Assumes that stdout of parser is a Lisp alist of the form:
    filepath-from-project-git-root
    (directory-file-name
     (expand-file-name
-     (gethash project-branch-pair gerrit--project-branch-pair-to-projectpath)
+     (gethash (cons (gethash "project" project-branch-pair)
+                    (gethash "branch" project-branch-pair))
+              gerrit--project-branch-pair-to-projectpath)
      abs-path-to-repo-root))))
+
 
 (provide 'repo-gerrit)
