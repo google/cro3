@@ -94,6 +94,24 @@ abort() {
   die "$*"
 }
 #
+# Return 0 if file has major or minor version in it.
+#
+has_version() {
+  (grep -E -q "(${ANY_MAJOR}|${ANY_MINOR})" "${1}")
+}
+#
+# Return 0 if file has major version in it.
+#
+has_major_version() {
+  (grep -E -q "${ANY_MAJOR}" "${1}")
+}
+#
+# Return 0 if file has minor version in it.
+#
+has_minor_version() {
+  (grep -E -q "${ANY_MINOR}" "${1}")
+}
+#
 # Extract a CL number from the file containing the output of repo upload
 #
 getcl() {
@@ -154,9 +172,21 @@ amend() {
 # Confirm that $1 is a valid project
 #
 check_project() {
-  PDIR="${GCLIENT_ROOT}/src/project/${FLAGS_board}/${1}"
-  if [[ ! -d "${PDIR}" ]]; then
-    die "${P} is not a valid project (${PDIR} missing)"
+  PFILE="${GCLIENT_ROOT}/src/project/${FLAGS_board}/${1}/config.star"
+  if [[ ! -f "${PFILE}" ]]; then
+    die "${P} is not a valid project (${PFILE} missing)"
+  fi
+  #
+  # If the board's program.star is not being updated, check that the
+  # project has the right config lines to update.
+  #
+  if  [[ "${FLAGS_program}" -eq  "${FLAGS_FALSE}" ]]; then
+    if ! (has_major_version "${PFILE}") ;then
+      version_error "${PFILE} requires major_version"
+    fi
+    if [[ "${MINOR_VERSION}" -ne  "0" ]] && ! (has_minor_version "${PFILE}"); then
+      version_error "${PFILE} requires minor_version"
+    fi
   fi
 }
 #
@@ -171,10 +201,40 @@ in_list() {
   return 1
 }
 #
-# Return 0 if file has major or minor version in it.
+# Dump a message about the version expectations and quit.
 #
-has_version() {
-  (grep -E -q "(${ANY_MAJOR}|${ANY_MINOR})" "${1}")
+version_error() {
+echo "ERROR: ${1}"
+cat << EOF
+
+To correctly update the version, the config files must have existing version
+configuration lines in them that the script can find and replace.
+These lines are in the form of (e.g):
+
+...
+   major_version = 12345,
+   minor_version = 10
+...
+
+The regular expressions used to find and replace these configuration lines are
+"/${ANY_MAJOR}/" and "/${ANY_MINOR}/".
+The version configuration lines must match these regular expressions.
+
+These configuration lines may appear in the board's base program.star file, or in
+the projects' config.star file. If the minor version is not 0, a 'minor_version' line
+must exist in the files to be updated.
+
+If the board's program.star file is updated (the default --program option), then carefully
+check that the inherited project configs are correct, especially if projects are skipped.
+
+If the --noprogram option is selected, then a config line of 'major_version' (and
+'minor_version' if the minor version is not 0) must exist in the project config.star files.
+
+Since the project's config is inherited from the board's program.star file, and can override
+the version of the config, ensure that selectively updating either the program.star or
+the project versions will not leave projects in an inconsistent state.
+EOF
+exit 1
 }
 #
 # Update the version in the file passed.
@@ -211,6 +271,7 @@ PROGDIR="${GCLIENT_ROOT}/src/program/${FLAGS_board}"
 if [[ ! -d "${PROGDIR}" ]]; then
   die "${FLAGS_board} is not a valid program (${PROGDIR} missing)"
 fi
+PROGFILE="${PROGDIR}/program.star"
 #
 # Validate release
 # Major must be a 5 digit number
@@ -227,6 +288,21 @@ else
 fi
 NEW_MAJOR="${MAJOR_PREFIX}${MAJOR_VERSION}"
 NEW_MINOR="${MINOR_PREFIX}${MINOR_VERSION}"
+#
+# If updating the board config, check for program.star
+# and for version strings.
+#
+if [[ "${FLAGS_program}" -eq "${FLAGS_TRUE}" ]]; then
+  if [[ ! -f "${PROGFILE}" ]]; then
+    die "${FLAGS_board} is not a valid program (${PROGFILE} missing)"
+  fi
+  if ! (has_major_version "${PROGFILE}") ;then
+    version_error "${PROGFILE} requires major_version"
+  fi
+  if [[ "${MINOR_VERSION}" -ne  "0" ]] && ! (has_minor_version "${PROGFILE}"); then
+    version_error "${PROGFILE} requires minor_version"
+  fi
+fi
 # Use a common git branch name.
 BRANCH="update_${FLAGS_board}_fw_${MAJOR_VERSION}_${MINOR_VERSION}"
 #
