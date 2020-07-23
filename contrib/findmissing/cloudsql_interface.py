@@ -51,8 +51,8 @@ def get_fix_status_and_changeid(db, fixes_table, kernel_sha, fixedby_upstream_sh
     """Get branch, fix_change_id, initial_status and status for one or more rows in fixes table."""
     c = db.cursor(MySQLdb.cursors.DictCursor)
 
-    q = """SELECT branch, kernel_sha, fixedby_upstream_sha, fix_change_id,
-                  initial_status, status
+    q = """SELECT '{fixes_table}' AS 'table', branch, kernel_sha, fixedby_upstream_sha,
+                  fix_change_id, initial_status, status
            FROM {fixes_table}""".format(fixes_table=fixes_table)
 
     if kernel_sha and fixedby_upstream_sha:

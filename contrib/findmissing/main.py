@@ -50,10 +50,24 @@ def synchronize_and_create_patches(create_patches=False):
 
 def print_rows(rows):
     """Print list of SHAs in database"""
-    print('Branch  SHA             Fixed by SHA    Status')
+    print('Table   Branch  SHA             Fixed by SHA    Status')
     for row in rows:
-        print('%-8s%-16s%-16s%s' %
-              (row['branch'], row['kernel_sha'], row['fixedby_upstream_sha'], row['status']))
+        print('%-8s%-8s%-16s%-16s%s' %
+              (row['table'].replace('_fixes', ''),
+               row['branch'], row['kernel_sha'], row['fixedby_upstream_sha'], row['status']))
+
+
+def get_fixes_rows(cloudsql_db, fixes_table, sha_list):
+    """Get all table rows for provided fixes table, or for both tables if none is proviced."""
+
+    if not fixes_table:
+        rows = get_fixes_rows(cloudsql_db, 'stable_fixes', sha_list)
+        rows += get_fixes_rows(cloudsql_db, 'chrome_fixes', sha_list)
+    else:
+        rows = cloudsql_interface.get_fix_status_and_changeid_from_list(cloudsql_db,
+                                                                        fixes_table, sha_list)
+
+    return rows
 
 
 @util.cloud_sql_proxy_decorator
@@ -61,11 +75,11 @@ def print_rows(rows):
 def abandon_fix_cl(fixes_table, sha_list, reason, force):
     """Abandons an fix CL + updates database fix table."""
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+
     try:
-        rows = cloudsql_interface.get_fix_status_and_changeid_from_list(cloudsql_db,
-                                                                        fixes_table, sha_list)
+        rows = get_fixes_rows(cloudsql_db, fixes_table, sha_list)
         if not rows:
-            print('Patch identified by "%s" not found in %s' % (sha_list, fixes_table))
+            print('Patch identified by "%s" not found in fixes table(s)' % sha_list)
             sys.exit(1)
         if len(rows) > 1 and not force:
             print('More than one database entry. Force flag needed to continue.')
@@ -86,7 +100,7 @@ def abandon_fix_cl(fixes_table, sha_list, reason, force):
                 fix_change_id = row['fix_change_id']
                 gerrit_interface.abandon_change(fix_change_id, branch, reason)
                 print('Abandoned Change %s on Gerrit with reason %s' % (fix_change_id, reason))
-            cloudsql_interface.update_change_abandoned(cloudsql_db, fixes_table,
+            cloudsql_interface.update_change_abandoned(cloudsql_db, row['table'],
                                                        kernel_sha, fixedby_upstream_sha, reason)
             print('Updated status to abandoned for patch %s in %s, fixed by %s' %
                   (kernel_sha, branch, fixedby_upstream_sha))
@@ -105,10 +119,12 @@ def status_fix_cl(fixes_table, sha_list, reason, force): # pylint: disable=unuse
     """Lists status for a fix CL."""
     db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
     rows = []
+    # Remove duplicate SHAs
+    sha_list = list(set(sha_list))
     for sha in sha_list:
-        rows += cloudsql_interface.get_fix_status_and_changeid_from_list(db, fixes_table, [sha])
+        rows += get_fixes_rows(db, fixes_table, [sha])
     if not rows:
-        print('No patches identified by "%s" in %s' % (sha_list, fixes_table))
+        print('No patches identified by "%s" found in fixes table(s)' % sha_list)
     else:
         print_rows(rows)
 
@@ -121,10 +137,9 @@ def restore_fix_cl(fixes_table, sha_list, reason, force):
     """Restores an abandoned change + updates database fix table."""
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
     try:
-        rows = cloudsql_interface.get_fix_status_and_changeid_from_list(cloudsql_db,
-                                                                        fixes_table, sha_list)
+        rows = get_fixes_rows(cloudsql_db, fixes_table, sha_list)
         if not rows:
-            print('Patch identified by "%s" not found in %s' % (sha_list, fixes_table))
+            print('Patch identified by "%s" not found in fixes table(s)' % sha_list)
             sys.exit(1)
         if len(rows) > 1 and not force:
             print('More than one database entry. Force flag needed to continue.')
@@ -140,7 +155,7 @@ def restore_fix_cl(fixes_table, sha_list, reason, force):
             if fix_change_id:
                 gerrit_interface.restore_change(fix_change_id, branch, reason)
                 print('Restored Change %s on Gerrit with reason %s' % (fix_change_id, reason))
-            cloudsql_interface.update_change_restored(cloudsql_db, fixes_table,
+            cloudsql_interface.update_change_restored(cloudsql_db, row['table'],
                                                       kernel_sha, fixedby_upstream_sha, reason)
             print('Updated status to restored for patch %s in %s, fixed by %s'
                   % (kernel_sha, branch, fixedby_upstream_sha))

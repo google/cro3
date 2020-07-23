@@ -35,7 +35,7 @@ def findmissing():
     parser = argparse.ArgumentParser(description='Local functions to update database')
     parser.add_argument('command', type=str, choices=tuple(abandon_restore_function_map.keys()),
                         help='Function to either abandon/restore changes.')
-    parser.add_argument('fix', type=str, choices=('stable', 'chrome'),
+    parser.add_argument('-t', '--table', type=str, choices=('stable', 'chrome'),
                         help='Table that contains primary key you want to update.')
     parser.add_argument('-f', '--force', action='store_true',
         help='Force action if only one SHA provided and more than one database entry is affected.')
@@ -48,7 +48,7 @@ def findmissing():
     if args.command != 'status' and len(args.sha) > 2:
         parser.error('Must specify one or two SHAs.')
 
-    fixes_table = args.fix + '_fixes'
+    fixes_table = args.table + '_fixes' if args.table else None
     abandon_restore_function_map[args.command](fixes_table, args.sha, args.reason, args.force)
 
 
