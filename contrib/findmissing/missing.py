@@ -24,7 +24,7 @@ import git_interface
 
 # Constant representing number CL's we want created on single new missing patch run
 NEW_CL_DAILY_LIMIT_PER_STABLE_BRANCH = 2
-NEW_CL_DAILY_LIMIT_PER_BRANCH = 1
+NEW_CL_DAILY_LIMIT_PER_BRANCH = 2
 
 
 def get_subsequent_fixes(db, fixer_upstream_sha):
@@ -268,7 +268,8 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
     return False
 
 
-def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstream_sha):
+def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstream_sha,
+                      recursion=False):
     """Inserts fix row by checking status of applying a fix change.
 
     Return True if we create a new Gerrit CL, otherwise return False.
@@ -342,6 +343,14 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
             chosen_fixes, kernel_sha, fixedby_upstream_sha, branch,
             entry_time, close_time, fix_change_id, cl_status, reason,
             e.args[0], e.args[1])
+
+    if created_new_change and not recursion:
+        subsequent_fixes = get_subsequent_fixes(db, fixedby_upstream_sha)
+        if subsequent_fixes:
+            subsequent_fixes.pop(0) # 1st returned SHA is fixedby_upstream_sha
+            for fix in subsequent_fixes:
+                insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fix, True)
+
     return created_new_change
 
 
