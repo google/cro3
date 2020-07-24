@@ -61,13 +61,12 @@ def get_fixes_rows(cloudsql_db, fixes_table, sha_list):
     """Get all table rows for provided fixes table, or for both tables if none is proviced."""
 
     if not fixes_table:
-        rows = get_fixes_rows(cloudsql_db, 'stable_fixes', sha_list)
-        rows += get_fixes_rows(cloudsql_db, 'chrome_fixes', sha_list)
+        fixes_tables = ['stable_fixes', 'chrome_fixes']
     else:
-        rows = cloudsql_interface.get_fix_status_and_changeid_from_list(cloudsql_db,
-                                                                        fixes_table, sha_list)
+        fixes_tables = [fixes_table]
 
-    return rows
+    return cloudsql_interface.get_fix_status_and_changeid_from_list(cloudsql_db, fixes_tables,
+                                                                    sha_list)
 
 
 @util.cloud_sql_proxy_decorator

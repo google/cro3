@@ -47,29 +47,32 @@ def get_fixes_table_primary_key(db, fixes_table, fix_change_id):
     return (row['kernel_sha'], row['fixedby_upstream_sha'])
 
 
-def get_fix_status_and_changeid(db, fixes_table, kernel_sha, fixedby_upstream_sha):
+def get_fix_status_and_changeid(db, fixes_tables, kernel_sha, fixedby_upstream_sha):
     """Get branch, fix_change_id, initial_status and status for one or more rows in fixes table."""
     c = db.cursor(MySQLdb.cursors.DictCursor)
 
-    q = """SELECT '{fixes_table}' AS 'table', branch, kernel_sha, fixedby_upstream_sha,
-                  fix_change_id, initial_status, status
-           FROM {fixes_table}""".format(fixes_table=fixes_table)
+    pre_q = """SELECT '{fixes_table}' AS 'table', branch, kernel_sha, fixedby_upstream_sha,
+                      fix_change_id, initial_status, status
+               FROM {fixes_table}
+               WHERE """
 
-    if kernel_sha and fixedby_upstream_sha:
-        q += ' WHERE kernel_sha = %s AND fixedby_upstream_sha = %s'
-        sha_list = [kernel_sha, fixedby_upstream_sha]
-    elif fixedby_upstream_sha:
-        q += ' WHERE fixedby_upstream_sha = %s'
-        sha_list = [fixedby_upstream_sha]
-    else:
-        q += ' WHERE kernel_sha = %s'
-        sha_list = [kernel_sha]
+    if kernel_sha:
+        pre_q += ' kernel_sha = "%s"' % kernel_sha
+        if fixedby_upstream_sha:
+            pre_q += ' AND'
+    if fixedby_upstream_sha:
+        pre_q += ' fixedby_upstream_sha = "%s"' % fixedby_upstream_sha
 
-    c.execute(q, sha_list)
+    q = pre_q.format(fixes_table=fixes_tables.pop(0))
+    while fixes_tables:
+        q += ' UNION '
+        q += pre_q.format(fixes_table=fixes_tables.pop(0))
+
+    c.execute(q)
     return c.fetchall()
 
 
-def get_fix_status_and_changeid_from_list(db, fixes_table, sha_list):
+def get_fix_status_and_changeid_from_list(db, fixes_tables, sha_list):
     """Get branch, fix_change_id, initial_status and status for one or more rows in fixes table.
 
     The SHA or SHAs to identify commits are provided as anonymous SHA list. SHAs may either
@@ -95,7 +98,7 @@ def get_fix_status_and_changeid_from_list(db, fixes_table, sha_list):
         if len(sha_list) > 1:
             fixedby_upstream_sha = sha_list[1]
 
-    return get_fix_status_and_changeid(db, fixes_table, kernel_sha, fixedby_upstream_sha)
+    return get_fix_status_and_changeid(db, fixes_tables, kernel_sha, fixedby_upstream_sha)
 
 
 def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha, reason=None):
@@ -116,7 +119,7 @@ def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha, r
 
 def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha, reason=None):
     """Updates fixes_table unique fix row to indicate fix cl has been reopened."""
-    rows = get_fix_status_and_changeid(db, fixes_table, kernel_sha, fixedby_upstream_sha)
+    rows = get_fix_status_and_changeid(db, [fixes_table], kernel_sha, fixedby_upstream_sha)
     row = rows[0]
     status = 'OPEN' if row['fix_change_id'] else row['initial_status']
 
