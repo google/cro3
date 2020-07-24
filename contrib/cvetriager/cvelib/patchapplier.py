@@ -8,6 +8,7 @@ import subprocess
 import sys
 import os
 import logging
+import re
 
 from cvelib import common, logutils
 
@@ -80,7 +81,26 @@ def cherry_pick(kernel_path, sha, bug_id):
     return True
 
 
-def apply_patch(sha, bug_id, kernel_versions):
+def modify_change_id(msg, kernel, kernel_path, test_change_ids):
+    """Modifes change id of commit to point to a test CL."""
+    m = re.findall('^Change-Id: (I[a-z0-9]{40})$', msg, re.M)
+
+    if not m:
+        LOGGER.error('No change id found.')
+        return
+
+    change_id = m[0]
+    new_msg = msg.replace(change_id, test_change_ids[kernel])
+
+    try:
+        subprocess.check_call(['git', 'commit', '--amend', '-m', new_msg],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              cwd=kernel_path)
+    except subprocess.CalledProcessError:
+        raise PatchApplierException(f'Failed to modify the change id for {kernel}')
+
+
+def apply_patch(sha, bug_id, kernel_versions, test_change_ids=None):
     """Applies patch from LINUX to Chromium OS kernel."""
     cp_status = {}
 
@@ -100,5 +120,11 @@ def apply_patch(sha, bug_id, kernel_versions):
         create_new_cherry_pick_branch(kernel, bug_id, kernel_path)
 
         cp_status[kernel] = cherry_pick(kernel_path, sha, bug_id)
+
+        # Only not None when triage is in test mode.
+        if test_change_ids and cp_status[kernel]:
+            new_patch_sha = common.get_sha(kernel_path)
+            modify_change_id(common.get_commit_message(kernel_path, new_patch_sha), kernel,
+                             kernel_path, test_change_ids)
 
     return cp_status

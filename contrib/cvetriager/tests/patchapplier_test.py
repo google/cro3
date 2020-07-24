@@ -14,18 +14,6 @@ from cvelib import patchapplier as pa
 from cvelib import common
 
 
-def get_sha(kernel_path):
-    """Returns most recent commit sha."""
-    try:
-        sha = subprocess.check_output(['git', 'log', '-1', '--format=%H'],
-                                      stderr=subprocess.DEVNULL, cwd=kernel_path,
-                                      encoding='utf-8')
-    except subprocess.CalledProcessError:
-        raise Exception('Sha was not found')
-
-    return sha.rstrip('\n')
-
-
 class TestPatchApplier(unittest.TestCase):
     """Test class for cvelib/patchapplier.py."""
 
@@ -93,7 +81,7 @@ class TestPatchApplier(unittest.TestCase):
     @mock.patch('cvelib.common.checkout_branch')
     def test_apply_patch(self, _):
         """Unit test for apply_patch."""
-        sha = get_sha(self.linux_temp)
+        sha = common.get_sha(self.linux_temp)
         bug_id = '123'
         kernel_versions = [os.path.basename(self.linux_temp)]
 
@@ -106,7 +94,7 @@ class TestPatchApplier(unittest.TestCase):
         kernel = os.path.basename(self.linux_temp)
         kernel_path = os.path.join(self.cros_temp, kernel)
 
-        sha = get_sha(self.linux_temp)
+        sha = common.get_sha(self.linux_temp)
         bug_id = '123'
 
         pa.fetch_linux_kernel(kernel_path)
@@ -114,7 +102,7 @@ class TestPatchApplier(unittest.TestCase):
         pa.cherry_pick(kernel_path, sha, bug_id)
 
         # Retrieves new cherry-picked message.
-        msg = common.get_commit_message(kernel_path, get_sha(kernel_path))
+        msg = common.get_commit_message(kernel_path, common.get_sha(kernel_path))
 
         check = False
         if 'UPSTREAM:' in msg and 'BUG=' in msg and 'TEST=' in msg:
@@ -139,7 +127,7 @@ class TestPatchApplier(unittest.TestCase):
         kernel = os.path.basename(self.linux_temp)
         kernel_path = os.path.join(self.cros_temp, kernel)
 
-        sha = get_sha(self.linux_temp)
+        sha = common.get_sha(self.linux_temp)
         bug_id = '123'
 
         pa.fetch_linux_kernel(kernel_path)
@@ -211,7 +199,7 @@ class TestPatchApplier(unittest.TestCase):
         linux = self.linux_temp
         chros_kernel = self.cros_temp
 
-        sha = get_sha(self.linux_temp)
+        sha = common.get_sha(self.linux_temp)
         bug = '123'
         kernel_versions = [os.path.basename(self.linux_temp)]
 
@@ -230,7 +218,7 @@ class TestPatchApplier(unittest.TestCase):
 
     def test_invalid_kernel(self):
         """Test for passing of invalid kernel."""
-        sha = get_sha(self.linux_temp)
+        sha = common.get_sha(self.linux_temp)
         bug = '123'
         kernel_versions = ['not_a_kernel']
 

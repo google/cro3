@@ -18,6 +18,18 @@ from cvelib import logutils, patchapplier, contextgenerator, clgenerator, webscr
 KERNELS = ['v5.4', 'v4.19', 'v4.14', 'v4.4', 'v3.18', 'v3.14', 'v3.10', 'v3.8']
 ENV_VARS = ['CHROMIUMOS_KERNEL', 'LINUX', 'STABLE', 'STABLE_RC']
 
+# Used for testing CL generation, points to CLs made for testing.
+TEST_CHANGE_IDS = {
+    'v5.4': 'Ie13a5c55f80b12a5033ccb1bba349499a3900056',
+    'v4.19': 'I28fcec6f20969a3b0bda37dfb86ffce9b47127f5',
+    'v4.14': 'I708d5d3a6dd424fd7edc08eb94e8714d130bfb7b',
+    'v4.4': 'I80cbb53cfc1be86a7ae87f8f57adca6efc2d464a',
+    'v3.18': 'I2fb39ee806b858d5f283f5196af18b944c5e3bcf',
+    'v3.14': 'Id4918063ab5f92687c72c4a54d74209764f6ad6b',
+    'v3.10': 'Ie53785ca0aebafc54aca91ccb43f16f548cd6fce',
+    'v3.8': 'I501ce8f12992e3ef8d9d051354d4b2870737018e'
+}
+
 
 def get_parser():
     """Returns an ArgumentParser instance."""
@@ -29,6 +41,7 @@ def get_parser():
                         action='store_true')
     parser.add_argument('--pull', help='Update kernel repositories.', action='store_true')
     parser.add_argument('--json', help='Print results as JSON string.', action='store_true')
+    parser.add_argument('--test', help='Run triage in test mode.', action='store_true')
     return parser
 
 
@@ -80,7 +93,13 @@ def main(argv):
 
     for commit in commits:
         logger.info(f'Trying to apply patch: {commit}')
-        kernels = patchapplier.apply_patch(commit, opts.bug, patches[commit])
+
+        # Only passes TEST_CHANGE_IDS if in testing mode.
+        change_ids = {}
+        if opts.test:
+            change_ids = TEST_CHANGE_IDS
+
+        kernels = patchapplier.apply_patch(commit, opts.bug, patches[commit], change_ids)
 
         patched_kernels = []
 

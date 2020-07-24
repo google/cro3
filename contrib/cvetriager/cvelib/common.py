@@ -69,3 +69,15 @@ def get_commit_message(kernel_path, sha):
         return commit_message.rstrip() +'\n'
     except subprocess.CalledProcessError:
         raise CommonException(f'Could not retrieve commit in {kernel_path} for {sha}')
+
+
+def get_sha(kernel_path):
+    """Returns most recent commit sha."""
+    try:
+        sha = subprocess.check_output(['git', 'log', '-1', '--format=%H'],
+                                      stderr=subprocess.DEVNULL, cwd=kernel_path,
+                                      encoding='utf-8')
+    except subprocess.CalledProcessError:
+        raise Exception('Sha was not found')
+
+    return sha.rstrip('\n')
