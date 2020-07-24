@@ -83,7 +83,7 @@ def get_fix_status_and_changeid_from_list(db, fixes_table, sha_list):
     kernel_sha = None
     fixedby_upstream_sha = None
     q = """SELECT sha FROM linux_upstream
-            WHERE sha = %s""".format(fixes_table=fixes_table)
+            WHERE sha = %s"""
     c.execute(q, [sha_list[0]])
     if c.fetchone():
         # First SHA is upstream SHA
