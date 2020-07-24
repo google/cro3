@@ -162,9 +162,10 @@ def cherry_pick_and_push_fix(fixer_upstream_sha, chromeos_branch,
         # comments. If the Change-Id is not in the last paragraph, uploading
         # the patch is rejected by Gerrit. Force-move the Change-Id to the end
         # of the commit message to solve the problem.
-        commit_message = get_chrome_commit_message('HEAD').rstrip()
+        commit_message = get_chrome_commit_message('HEAD')
         commit_message = re.sub(r'Change-Id:.*\n?', '', commit_message)
-        commit_message += '\nChange-Id: %s\n' % fixer_changeid
+        commit_message = commit_message.rstrip()
+        commit_message += '\nChange-Id: %s' % fixer_changeid
         subprocess.run(['git', 'commit', '--amend', '-m', commit_message], check=True)
 
         git_push_cmd = get_git_push_cmd(chromeos_branch, reviewers)
