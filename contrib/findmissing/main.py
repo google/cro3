@@ -57,7 +57,7 @@ def print_rows(rows):
                row['branch'], row['kernel_sha'], row['fixedby_upstream_sha'], row['status']))
 
 
-def get_fixes_rows(cloudsql_db, fixes_table, sha_list):
+def get_fixes_rows(cloudsql_db, fixes_table, sha_list, strict):
     """Get all table rows for provided fixes table, or for both tables if none is proviced."""
 
     if not fixes_table:
@@ -65,8 +65,8 @@ def get_fixes_rows(cloudsql_db, fixes_table, sha_list):
     else:
         fixes_tables = [fixes_table]
 
-    return cloudsql_interface.get_fix_status_and_changeid_from_list(cloudsql_db, fixes_tables,
-                                                                    sha_list)
+    return cloudsql_interface.get_fix_status_and_changeid(cloudsql_db, fixes_tables, sha_list,
+                                                          strict)
 
 
 @util.cloud_sql_proxy_decorator
@@ -76,7 +76,7 @@ def abandon_fix_cl(fixes_table, sha_list, reason, force):
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
 
     try:
-        rows = get_fixes_rows(cloudsql_db, fixes_table, sha_list)
+        rows = get_fixes_rows(cloudsql_db, fixes_table, sha_list, True)
         if not rows:
             print('Patch identified by "%s" not found in fixes table(s)' % sha_list)
             sys.exit(1)
@@ -120,8 +120,7 @@ def status_fix_cl(fixes_table, sha_list, reason, force): # pylint: disable=unuse
     rows = []
     # Remove duplicate SHAs
     sha_list = list(set(sha_list))
-    for sha in sha_list:
-        rows += get_fixes_rows(db, fixes_table, [sha])
+    rows = get_fixes_rows(db, fixes_table, sha_list, False)
     if not rows:
         print('No patches identified by "%s" found in fixes table(s)' % sha_list)
     else:
@@ -136,7 +135,7 @@ def restore_fix_cl(fixes_table, sha_list, reason, force):
     """Restores an abandoned change + updates database fix table."""
     cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
     try:
-        rows = get_fixes_rows(cloudsql_db, fixes_table, sha_list)
+        rows = get_fixes_rows(cloudsql_db, fixes_table, sha_list, True)
         if not rows:
             print('Patch identified by "%s" not found in fixes table(s)' % sha_list)
             sys.exit(1)

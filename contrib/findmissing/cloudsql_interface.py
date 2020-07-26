@@ -47,21 +47,25 @@ def get_fixes_table_primary_key(db, fixes_table, fix_change_id):
     return (row['kernel_sha'], row['fixedby_upstream_sha'])
 
 
-def get_fix_status_and_changeid(db, fixes_tables, kernel_sha, fixedby_upstream_sha):
+def get_fix_status_and_changeid(db, fixes_tables, sha_list, strict):
     """Get branch, fix_change_id, initial_status and status for one or more rows in fixes table."""
     c = db.cursor(MySQLdb.cursors.DictCursor)
+
+    # If sha_list has only one entry, there will be only one database match.
+    # Use OR in the query if this is the case.
+    if len(sha_list) < 2:
+        strict = False
 
     pre_q = """SELECT '{fixes_table}' AS 'table', branch, kernel_sha, fixedby_upstream_sha,
                       fix_change_id, initial_status, status
                FROM {fixes_table}
                WHERE """
 
-    if kernel_sha:
-        pre_q += ' kernel_sha = "%s"' % kernel_sha
-        if fixedby_upstream_sha:
-            pre_q += ' AND'
-    if fixedby_upstream_sha:
-        pre_q += ' fixedby_upstream_sha = "%s"' % fixedby_upstream_sha
+    joined_list = str(tuple(sha_list))
+
+    pre_q += ' kernel_sha IN  %s' % joined_list
+    pre_q += ' AND' if strict else ' OR'
+    pre_q += ' fixedby_upstream_sha IN %s' % joined_list
 
     q = pre_q.format(fixes_table=fixes_tables.pop(0))
     while fixes_tables:
@@ -70,35 +74,6 @@ def get_fix_status_and_changeid(db, fixes_tables, kernel_sha, fixedby_upstream_s
 
     c.execute(q)
     return c.fetchall()
-
-
-def get_fix_status_and_changeid_from_list(db, fixes_tables, sha_list):
-    """Get branch, fix_change_id, initial_status and status for one or more rows in fixes table.
-
-    The SHA or SHAs to identify commits are provided as anonymous SHA list. SHAs may either
-    be from the upstream kernel or from the ChromeOS kernel. One or two SHAs must be provided.
-    If there is one SHA, it must ieither be from the upstream kernel or from a ChromeOS branch.
-    If there are two SHAs, one must be from the upstream kernel, the other must be from a ChromeOS
-    branch.
-    """
-    c = db.cursor(MySQLdb.cursors.DictCursor)
-    # find out which SHA is which
-    kernel_sha = None
-    fixedby_upstream_sha = None
-    q = """SELECT sha FROM linux_upstream
-            WHERE sha = %s"""
-    c.execute(q, [sha_list[0]])
-    if c.fetchone():
-        # First SHA is upstream SHA
-        fixedby_upstream_sha = sha_list[0]
-        if len(sha_list) > 1:
-            kernel_sha = sha_list[1]
-    else:
-        kernel_sha = sha_list[0]
-        if len(sha_list) > 1:
-            fixedby_upstream_sha = sha_list[1]
-
-    return get_fix_status_and_changeid(db, fixes_tables, kernel_sha, fixedby_upstream_sha)
 
 
 def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha, reason=None):
@@ -119,7 +94,7 @@ def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha, r
 
 def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha, reason=None):
     """Updates fixes_table unique fix row to indicate fix cl has been reopened."""
-    rows = get_fix_status_and_changeid(db, [fixes_table], kernel_sha, fixedby_upstream_sha)
+    rows = get_fix_status_and_changeid(db, [fixes_table], [kernel_sha, fixedby_upstream_sha], True)
     row = rows[0]
     status = 'OPEN' if row['fix_change_id'] else row['initial_status']
 
