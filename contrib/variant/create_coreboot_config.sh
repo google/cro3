@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="2.1.1"
+VERSION="2.1.2"
 SCRIPT=$(basename -- "${0}")
 
 export LC_ALL=C
@@ -21,6 +21,10 @@ if [[ "$#" -lt 3 ]]; then
   echo "baseboard config file and replaces the names in the config file."
   exit 1
 fi
+
+# shellcheck source=check_standalone.sh
+# shellcheck disable=SC1091
+source "${BASH_SOURCE%/*}/check_standalone.sh"
 
 # This is the name of the base board.
 # ${var,,} converts to all lowercase.
@@ -51,7 +55,8 @@ fi
 
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)
-repo start "create_${VARIANT}_${DATE}" . || exit 1
+BRANCH="create_${VARIANT}_${DATE}"
+repo start "${BRANCH}" . || exit 1
 
 # There are multiple usages of the reference board name that we want to change,
 # using the Hatch reference board and the Kohaku variant in this example.
@@ -97,3 +102,5 @@ replaced by the name of the variant where applicable.
 BUG=${BUG}
 TEST=FW_NAME=${VARIANT} emerge-${BASE} coreboot chromeos-bootimage
 Ensure that image-${VARIANT}.*.bin are created"
+
+check_standalone "$(pwd)" "${BRANCH}"

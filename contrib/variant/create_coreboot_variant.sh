@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="4.1.1"
+VERSION="4.1.2"
 SCRIPT="$(basename -- "$0")"
 
 if [[ -z "${CB_SRC_DIR}" ]]; then
@@ -33,6 +33,10 @@ to_upper() {
   LC_ALL=C UPPER="${1^^}"
   echo "${UPPER}"
 }
+
+# shellcheck source=check_standalone.sh
+# shellcheck disable=SC1091
+source "${BASH_SOURCE%/*}/check_standalone.sh"
 
 # This is the name of the base board
 BASE="$(to_lower "$1")"
@@ -132,3 +136,5 @@ BRANCH=None
 TEST=util/abuild/abuild -p none -t google/${BASE} -x -a
 make sure the build includes GOOGLE_${VARIANT_UPPER}"
 # TODO(b/149702214): verify that it builds correctly
+
+check_standalone "$(pwd)" "${BRANCH}"

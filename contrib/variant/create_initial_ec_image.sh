@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.3"
+VERSION="1.0.4"
 SCRIPT=$(basename -- "${0}")
 
 export LC_ALL=C
@@ -20,6 +20,10 @@ if [[ "$#" -lt 2 ]]; then
   exit 1
 fi
 
+# shellcheck source=check_standalone.sh
+# shellcheck disable=SC1091
+source "${BASH_SOURCE%/*}/check_standalone.sh"
+
 # This is the name of the reference board that we copying to make the variant.
 # ${var,,} converts to all lowercase.
 REF="${1,,}"
@@ -30,7 +34,7 @@ VARIANT="${2,,}"
 BUG=${3:-None}
 
 # All of the necessary files are in platform/ec/board
-cd ~/trunk/src/platform/ec/board || exit 1
+cd "${HOME}/trunk/src/platform/ec/board" || exit 1
 
 # Make sure that the reference board exists.
 if [[ ! -e "${REF}" ]]; then
@@ -46,7 +50,8 @@ fi
 
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)
-repo start "create_${VARIANT}_${DATE}" . || exit 1
+BRANCH="create_${VARIANT}_${DATE}"
+repo start "${BRANCH}" . || exit 1
 
 mkdir "${VARIANT}"
 cp "${REF}"/* "${VARIANT}"
@@ -77,3 +82,5 @@ ${MSG}
 BUG=${BUG}
 BRANCH=none
 TEST=make BOARD=${VARIANT}"
+
+check_standalone "$(pwd)" "${BRANCH}"

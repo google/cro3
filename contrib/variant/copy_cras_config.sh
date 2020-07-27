@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.1"
+VERSION="1.0.2"
 SCRIPT=$(basename -- "${0}")
 
 export LC_ALL=C
@@ -25,6 +25,10 @@ fi
 # shellcheck disable=SC1091
 source "${BASH_SOURCE%/*}/revbump_ebuild.sh"
 
+# shellcheck source=check_standalone.sh
+# shellcheck disable=SC1091
+source "${BASH_SOURCE%/*}/check_standalone.sh"
+
 # This is the name of the base board.
 # ${var,,} converts to all lowercase.
 BASE="${1,,}"
@@ -44,7 +48,8 @@ cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE
 
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)
-repo start "create_${VARIANT}_${DATE}" . || exit 1
+BRANCH="create_${VARIANT}_${DATE}"
+repo start "${BRANCH}" . || exit 1
 
 # ebuild will be located 2 directories up.
 pushd ../.. || exit 1
@@ -64,3 +69,4 @@ copy of the ${REFERENCE} reference board's cras config.
 BUG=${BUG}
 TEST=N/A"
 
+check_standalone "$(pwd)" "${BRANCH}"

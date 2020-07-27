@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.1"
+VERSION="1.0.2"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -20,6 +20,10 @@ if [[ "$#" -lt 2 ]]; then
   echo "Updates the config.star to add a default _FW_BUILD_CONFIG"
   exit 1
 fi
+
+# shellcheck source=check_standalone.sh
+# shellcheck disable=SC1091
+source "${BASH_SOURCE%/*}/check_standalone.sh"
 
 # This is the name of the base board.
 # ${var,,} converts to all lowercase.
@@ -75,3 +79,5 @@ Add a default _FW_BUILD_CONFIG.
 
 BUG=${BUG}
 TEST=Verify the ${VARIANT} firmware builds"
+
+check_standalone "$(pwd)" "${BRANCH}"
