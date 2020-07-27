@@ -22,6 +22,7 @@ setup(
         ],
     test_suite='tests',
     scripts=[
-        'bin/triage'
+        'bin/triage',
+        'bin/triage_test'
     ],
 )
