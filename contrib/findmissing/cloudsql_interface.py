@@ -61,7 +61,7 @@ def get_fix_status_and_changeid(db, fixes_tables, sha_list, strict):
                FROM {fixes_table}
                WHERE """
 
-    joined_list = str(tuple(sha_list))
+    joined_list = '("'+'","'.join(sha_list)+'")'
 
     pre_q += ' kernel_sha IN  %s' % joined_list
     pre_q += ' AND' if strict else ' OR'
