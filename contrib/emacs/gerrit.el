@@ -15,7 +15,7 @@
 ;; TODO Make our parser self-discoverable by project instead of a parameter.
 (setq test-manifest-parser (expand-file-name "src/platform/dev/contrib/emacs/manifest_parser"
                                              test-repo-root))
-(defun gerrit--test-init-all ()
+(defun gerrit-init ()
   (gerrit--init-global-comment-map test-host test-user)
   (gerrit--init-global-repo-project-path-map test-manifest-parser test-repo-manifest-path))
 
@@ -56,30 +56,22 @@ embedded XSS protection string before using a real json parser."
   (json-parse-string (replace-regexp-in-string "^[[:space:]]*)]}'" "" (buffer-string))))
 
 
-(defun gerrit--fetch-unresolved-comments (host change)
-  "Gets recent unresolved comments for open Gerrit CLs.
+(defun gerrit--fetch-comments (host change)
+  "Gets recent comments for open Gerrit CLs.
 Returns a map of the form path => sequence of comments,
 where path is the filepath from the gerrit project root
 and each comment represents a CommentInfo entity from Gerrit"
-  (let* ((response
-          (request
-            (format "https://%s/changes/%s~master~%s/comments"
-                    host
-                    (url-hexify-string (gethash "project" change))
-                    (gethash "change_id" change))
-            :sync t
-            :parser 'gerrit--request-response-json-parser))
-         (out-map (request-response-data response)))
-    ;; We only want the user to see unresolved comments.
-    (loop for key in (hash-table-keys out-map) do
-          ;; We explicitly check if not true because the value may be ':false'
-          ;; which is technically evals to true as it is not nil.
-          (delete-if (lambda (comment) (not (eql t (gethash "unresolved" comment))))
-                     (gethash key out-map)))
-    out-map))
+  (request-response-data
+   (request
+     (format "https://%s/changes/%s~master~%s/comments"
+             host
+             (url-hexify-string (gethash "project" change))
+             (gethash "change_id" change))
+     :sync t
+     :parser 'gerrit--request-response-json-parser)))
 
 
-(defun gerrit--fetch-change-to-file-to-unresolved-comments (host user)
+(defun gerrit--fetch-change-to-file-to-comments (host user)
   "Returns a map of maps of the form:
 change => filepath => array(CommentInfo Map),
 where filepath is from the nearest git root for a file.
@@ -87,14 +79,14 @@ Only fetches recent changes for open CLs."
   (let ((out-map (make-hash-table :test 'equal)))
     (loop for change across (gerrit--fetch-recent-changes host user) do
           (setf (gethash change out-map)
-                (gerrit--fetch-unresolved-comments host change)))
+                (gerrit--fetch-comments host change)))
     out-map))
 
 
 (defun gerrit--init-global-comment-map (host user)
   "Inits `gerrit--change-to-filepath-comments`."
   (setf gerrit--change-to-filepath-comments
-        (gerrit--fetch-change-to-file-to-unresolved-comments
+        (gerrit--fetch-change-to-file-to-comments
          host user)))
 
 

@@ -8,10 +8,6 @@
 (require 'magit-section)
 (require 'repo-gerrit)
 
-(defface gerrit-patch
-  `((t :inherit magit-section-heading))
-  "patch")
-
 
 (defface gerrit-filepath
   `((t :inherit magit-branch-remote))
@@ -39,19 +35,20 @@ We don't currently use this functionality.")
     (evil-set-initial-state 'gerrit-section-mode 'emacs)))
 
 
-
 (defun gerrit-refresh ()
   "Refreshes Gerrit data from hosts."
   (interactive)
   (setf gerrit--refreshed t)
   (gerrit-init)
-  (when (get-buffer gerrit-buffer-name)
-    (save-excursion
-      (switch-to-buffer gerrit-buffer-name)
-      (setf inhibit-read-only t)
-      (erase-buffer)
-      (setf inhibit-read-only t)))
-  (gerrit-comments t))
+  (if (get-buffer gerrit-buffer-name)
+      (save-excursion
+        (let ((inhibit-read-only t))
+          (unless (equal (current-buffer)
+                         (get-buffer gerrit-buffer-name))
+            (switch-to-buffer-other-window gerrit-buffer-name))
+          (erase-buffer)
+          (gerrit-comments t)))
+    (gerrit-comments)))
 
 
 (defun gerrit-comments (&optional refresh)
@@ -88,16 +85,18 @@ This comment is idempotent."
 
       (goto-char (point-min))
       (gerrit-section-mode)
-      (setf word-wrap t)
-      (setf truncate-lines nil)))
 
-  (if refresh
-      (switch-to-buffer gerrit-buffer-name)
-    (pop-to-buffer gerrit-buffer-name)))
+      (if refresh
+          (switch-to-buffer gerrit-buffer-name)
+        (pop-to-buffer gerrit-buffer-name))
+
+      (setf word-wrap t)
+      (setf truncate-lines nil))))
 
 
 (define-button-type 'gerrit--filepath
   'face 'gerrit-filepath)
+
 
 (defun gerrit--navigate-to-comment (project-branch-pair
                                     line
@@ -105,7 +104,7 @@ This comment is idempotent."
                                     section-symbol)
   "Navigates the user to a comment."
 
-  ;; Keep section open for user's to refer back to during edits.
+  ;; Open a closed section for a user to refer back to after click.
   (when (oref section-symbol hidden)
     (magit-section-toggle section-symbol))
 
@@ -122,24 +121,27 @@ This comment is idempotent."
 (defun gerrit--insert-comment-header (change
                                       filepath-from-project-root
                                       line
+                                      author
                                       section-symbol)
-  "Inserts comments for the given change and system filepath."
+  "Inserts section header for a comment in the summary buffer."
   (let (header-text
         button-p
         (begin-pos (point)))
     (cond ((equal "/PATCHSET_LEVEL" filepath-from-project-root)
            (setf header-text
                  (propertize
-                  "Patch Comment"
+                  (format
+                   "Patch Comment - %s"
+                   author)
                   'face 'gerrit-filepath)))
           ((equal "/COMMIT_MSG" filepath-from-project-root)
            ;; TODO future CL for navigating
            ;; to commit message lines.
            (setf header-text
                  (propertize
-                  (format "Commit Message:%s\n"
-                          filepath-from-project-root
-                          line)
+                  (format "Commit Message:%s - %s\n"
+                          line
+                          author)
                   'face 'gerrit-filepath)))
           ((equal "MERGE_LIST" filepath-from-project-root)
            (message "There are merge list comments which we don't support"))
@@ -147,9 +149,10 @@ This comment is idempotent."
           (t (progn
                (setf header-text
                      (propertize
-                      (format "%s:%s\n"
+                      (format "%s:%s - %s\n"
                               filepath-from-project-root
-                              line)
+                              line
+                              author)
                       'face 'gerrit-filepath))
                (setf button-p t))))
 
@@ -169,6 +172,7 @@ This comment is idempotent."
 
 (defun gerrit--insert-section-comments (change
                                         filepath-from-project-root)
+  "Inserts the comments for a given change and filepath."
   ;; We want the smaller lines first.
   (sort (gethash filepath-from-project-root
                  (gethash change gerrit--change-to-filepath-comments))
@@ -181,31 +185,46 @@ This comment is idempotent."
         (gethash filepath-from-project-root
                  (gethash change gerrit--change-to-filepath-comments))
         do
-        ;; We don't care about our own comments.
-        (unless (equal
-                 test-user ;; FIXME when test code is removed
-                 (gethash "email" (gethash "author" comment-info)))
-          (let ((section-symbol (gensym))
-                (line (gethash "line" comment-info))
-                (begin-pos (point)))
+        (let ((section-symbol (gensym))
+              (line (gethash "line" comment-info))
+              (begin-pos (point)))
 
-            (magit-insert-section
-              ;; We use section symbols to toggle when navigating.
-              section-symbol
-              (gerrit-section-type nil t)
+          (magit-insert-section
+            ;; We use section symbols to toggle when navigating.
+            section-symbol
+            (gerrit-section-type nil t)
 
-              (gerrit--insert-comment-header
-               change
-               filepath-from-project-root
-               line
-               section-symbol)
-              (gerrit--section-insert-comment comment-info))))))
+            (gerrit--insert-comment-header
+             change
+             filepath-from-project-root
+             line
+             (gethash "name" (gethash "author" comment-info))
+             section-symbol)
+            (gerrit--section-insert-comment change filepath-from-project-root comment-info)))))
 
 
-(defun gerrit--section-insert-comment (comment-info)
-  "Inserts the author, email, and body of a comment."
+(defun gerrit--section-insert-comment (change filepath-from-project-root comment-info)
+  "Inserts the author, link to, and body of a comment."
   (magit-insert-section-body
-    (insert (format "Author: %s\nEmail: %s\nComment: %s\n"
-                    (gethash "name" (gethash "author" comment-info))
-                    (gethash "email" (gethash "author" comment-info))
-                    (gethash "message" comment-info)))))
+    (insert
+     (format "Author: %s\nLink: %s\nComment: %s\n"
+             (format
+              "%s - %s"
+              (gethash "name" (gethash "author" comment-info))
+              (gethash "email" (gethash "author" comment-info)))
+
+             ;; TODO buttonize link.
+             (propertize
+              (format
+               "https://chromium-review.googlesource.com/c/%s/+/%s/%s/%s#%s"
+               (url-hexify-string (gethash "project" change))
+               (gethash "_number" change)
+               ;; Default is nil if comments only on a single patch.
+               (or (gethash "patch_set" comment-info) "1")
+               (url-hexify-string filepath-from-project-root)
+               ;; Here we default to going to the top of the file.
+               ;; if there is no line with a comment.
+               (or (gethash "line" comment-info) "1"))
+              'face 'link)
+
+             (gethash "message" comment-info)))))
