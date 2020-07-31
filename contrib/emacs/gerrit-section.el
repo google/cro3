@@ -216,7 +216,8 @@ This comment is idempotent."
              ;; TODO buttonize link.
              (propertize
               (format
-               "https://chromium-review.googlesource.com/c/%s/+/%s/%s/%s#%s"
+               "https://%s/c/%s/+/%s/%s/%s#%s"
+               (gethash (gethash "change_id" change) gerrit--change-to-host)
                (url-hexify-string (gethash "project" change))
                (gethash "_number" change)
                ;; Default is nil if comments only on a single patch.

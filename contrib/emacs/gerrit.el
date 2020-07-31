@@ -40,6 +40,12 @@
 Default is repo_root_path/.repo/manifests/default.xml")
 
 
+(defvar gerrit--change-to-host
+  (make-hash-table :test 'equal)
+  "Map showing => host.
+Needed for generating links.")
+
+
 (defun gerrit-init ()
   "Initialize Repo Gerrit state."
   (unless gerrit-repo-manifest
@@ -117,6 +123,9 @@ where filepath is from the nearest git root for a file.
 Only fetches recent changes for open CLs."
   (let ((out-map (make-hash-table :test 'equal)))
     (loop for change across (gerrit--fetch-recent-changes host) do
+          (setf (gethash (gethash "change_id" change)
+                         gerrit--change-to-host)
+                host)
           (setf (gethash change out-map)
                 (gerrit--fetch-comments host change)))
     out-map))
