@@ -10,16 +10,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import contextlib
 import errno
+import fcntl
 import os
 import shutil
 import subprocess
 import tempfile
-import threading
 
 import requests
 
 import cherrypy  # pylint: disable=import-error
+
+import constants
 
 from chromite.lib import cros_logging as logging
 
@@ -58,38 +61,25 @@ def _GetBucketAndBuild(archive_url):
   return parts[0], '/'.join(parts[1:])
 
 
+@contextlib.contextmanager
+def lock_dir(dir_name):
+  """Lock a directory exclusively by placing a file lock in it.
+
+  Args:
+    dir_name: the directory name to be locked.
+  """
+  lock_file = os.path.join(dir_name, '.lock')
+  with open(lock_file, 'w+') as f:
+    fcntl.flock(f, fcntl.LOCK_EX)
+    try:
+      yield
+    finally:
+      fcntl.flock(f, fcntl.LOCK_UN)
+
+
 class TelemetrySetupError(Exception):
   """Exception class used by this module."""
   pass
-
-
-class LockDict(object):
-  """A dictionary of locks.
-
-  This class provides a thread-safe store of threading.Lock objects, which can
-  be used to regulate access to any set of hashable resources.
-
-  Usage:
-    foo_lock_dict = LockDict()
-    ...
-    with foo_lock_dict.lock('bar'):
-      # Critical section for 'bar'
-  """
-  def __init__(self):
-    self._lock = self._new_lock()
-    self._dict = {}
-
-  @staticmethod
-  def _new_lock():
-    return threading.Lock()
-
-  def lock(self, key):
-    with self._lock:
-      lock = self._dict.get(key)
-      if not lock:
-        lock = self._new_lock()
-        self._dict[key] = lock
-      return lock
 
 
 class TelemetrySetup(object):
@@ -124,7 +114,6 @@ class TelemetrySetup(object):
     self._temp_dir_path = tempfile.mkdtemp(prefix='gsc-telemetry')
     self._tlm_src_dir_path = os.path.join(self._build_dir,
                                           self._TELEMETRY_SRC_DIR_NAME)
-    self._telemetry_lock_dict = LockDict()
 
   def __enter__(self):
     """Called while entering context manager; does nothing."""
@@ -151,9 +140,9 @@ class TelemetrySetup(object):
     src_folder = os.path.join(self._tlm_src_dir_path, self._SRC_DIR_NAME)
     test_src = os.path.join(self._tlm_src_dir_path, self._TEST_SRC_DIR_NAME)
 
-    with self._telemetry_lock_dict.lock(self._tlm_src_dir_path):
+    self._MkDirP(self._tlm_src_dir_path)
+    with lock_dir(self._tlm_src_dir_path):
       if not os.path.exists(src_folder):
-        self._MkDirP(self._tlm_src_dir_path)
 
         # Download the required dependency tarballs.
         for dep in self._DEPENDENCIES:
@@ -197,7 +186,7 @@ class TelemetrySetup(object):
     try:
       resp.raise_for_status()
       with open(dep_path, 'w') as f:
-        for content in resp.iter_content():
+        for content in resp.iter_content(constants.READ_BUFFER_SIZE_BYTES):
           f.write(content)
     except Exception as e:
       if (isinstance(e, requests.exceptions.HTTPError)
