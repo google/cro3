@@ -22,10 +22,12 @@
   "Path to gitcookies associated with your Gerrit account."
   :type 'string)
 
-(defcustom gerrit-host
+(defcustom gerrit-hosts
+  ;; TODO extract this variable from the
+  ;; repo manifest instead of user configuration.
   nil
-  "Gerrit host you're interested in reviewing comments."
-  :type 'string)
+  "Gerrit hosts you're interested in reviewing comments."
+  :type '(string))
 
 (defconst gerrit--manifest-parser
   (expand-file-name
@@ -60,7 +62,7 @@ Needed for generating links.")
   (let ((request-curl-options
          `("-b" ,gerrit-git-cookies)))
 
-    (gerrit--init-global-comment-map gerrit-host)
+    (gerrit--init-global-comment-map)
     (gerrit--init-global-repo-project-path-map gerrit--manifest-parser
                                                gerrit-repo-manifest)))
 
@@ -88,7 +90,7 @@ represent Gerrit ChangeInfo entities."
      ;; We don't use "status:reviewed" because that
      ;; only counts reviews after latest patch,
      ;; but we may want reviews before the latest patch too.
-     :params `(("q" . "owner:self+status:open")
+     :params `(("q" . "owner:self status:open")
                ("n" . ,(format "%d" count)))
      :sync t
      :parser 'gerrit--request-response-json-parser)))
@@ -116,25 +118,26 @@ and each comment represents a CommentInfo entity from Gerrit"
      :parser 'gerrit--request-response-json-parser)))
 
 
-(defun gerrit--fetch-change-to-file-to-comments (host)
+(defun gerrit--fetch-change-to-file-to-comments ()
   "Returns a map of maps of the form:
 change => filepath => array(CommentInfo Map),
 where filepath is from the nearest git root for a file.
 Only fetches recent changes for open CLs."
   (let ((out-map (make-hash-table :test 'equal)))
-    (loop for change across (gerrit--fetch-recent-changes host) do
-          (setf (gethash (gethash "change_id" change)
-                         gerrit--change-to-host)
-                host)
-          (setf (gethash change out-map)
-                (gerrit--fetch-comments host change)))
+    (loop for host in gerrit-hosts do
+          (loop for change across (gerrit--fetch-recent-changes host) do
+                (setf (gethash (gethash "change_id" change)
+                               gerrit--change-to-host)
+                      host)
+                (setf (gethash change out-map)
+                      (gerrit--fetch-comments host change))))
     out-map))
 
 
-(defun gerrit--init-global-comment-map (host)
+(defun gerrit--init-global-comment-map ()
   "Inits `gerrit--change-to-filepath-comments`."
   (setf gerrit--change-to-filepath-comments
-        (gerrit--fetch-change-to-file-to-comments host)))
+        (gerrit--fetch-change-to-file-to-comments)))
 
 
 (cl-defun gerrit--project-branch-pair-to-path-map (path-to-manifest-parser-exec
