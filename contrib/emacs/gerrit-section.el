@@ -6,7 +6,7 @@
 
 (require 'magit)
 (require 'magit-section)
-(require 'repo-gerrit)
+(require 'gerrit)
 
 
 (defface gerrit-filepath
@@ -112,7 +112,7 @@ This comment is idempotent."
    (find-file-noselect (gerrit--get-abs-path-to-file
                         filepath-from-project-root
                         project-branch-pair
-                        test-repo-root)))
+                        gerrit-repo-root)))
 
   (goto-char (point-min))
   (beginning-of-line line))
@@ -228,3 +228,7 @@ This comment is idempotent."
               'face 'link)
 
              (gethash "message" comment-info)))))
+
+
+(provide 'gerrit-section)
+(require 'gerrit-section)

@@ -6,18 +6,51 @@
 (require 'request)
 (require 'xml)
 
-;; TODO this is test code to be removed in future CL.
-;; The following will become user configuration options.
-(setq test-user "aaronmassey@chromium.org")
-(setq test-host "chromium-review.googlesource.com")
-(setq test-repo-root (file-name-as-directory "~/chromiumos"))
-(setq test-repo-manifest-path (expand-file-name ".repo/manifests/default.xml" test-repo-root))
-;; TODO Make our parser self-discoverable by project instead of a parameter.
-(setq test-manifest-parser (expand-file-name "src/platform/dev/contrib/emacs/manifest_parser"
-                                             test-repo-root))
+
+(defcustom gerrit-repo-root
+  nil
+  "The system path to the repo project root."
+  :type 'string)
+
+(defcustom gerrit-repo-manifest
+  nil
+  "The system path path to repo manifest file."
+  :type 'string)
+
+(defcustom gerrit-user
+  nil
+  "The username associated with your account on Gerrit."
+  :type 'string)
+
+(defcustom gerrit-host
+  nil
+  "The Gerrit host you're interested in reviewing comments from."
+  :type 'string)
+
+(defconst gerrit--manifest-parser
+  (expand-file-name
+   "manifest_parser"
+   (file-name-directory load-file-name))
+  "The executable used to parse the repo manifest as an alist.")
+
+
+(defvar gerrit-repo-manifest
+  nil
+  "The system path path to repo manifest file.
+Default is repo_root_path/.repo/manifests/default.xml")
+
+
 (defun gerrit-init ()
-  (gerrit--init-global-comment-map test-host test-user)
-  (gerrit--init-global-repo-project-path-map test-manifest-parser test-repo-manifest-path))
+  "Initialize Repo Gerrit state."
+  (unless gerrit-repo-manifest
+    (setq gerrit-repo-manifest
+          (expand-file-name
+           ".repo/manifests/default.xml"
+           gerrit-repo-root)))
+
+  (gerrit--init-global-comment-map gerrit-host gerrit-user)
+  (gerrit--init-global-repo-project-path-map gerrit--manifest-parser
+                                             gerrit-repo-manifest))
 
 
 (defvar gerrit--change-to-filepath-comments nil
@@ -146,4 +179,5 @@ Assumes that stdout of parser is a Lisp alist of the form:
      abs-path-to-repo-root))))
 
 
-(provide 'repo-gerrit)
+(provide 'gerrit)
+(require 'gerrit)
