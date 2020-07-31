@@ -17,14 +17,14 @@
   "The system path path to repo manifest file."
   :type 'string)
 
-(defcustom gerrit-user
-  nil
-  "The username associated with your account on Gerrit."
+(defcustom gerrit-git-cookies
+  (expand-file-name ".gitcookies" "~/")
+  "Path to gitcookies associated with your Gerrit account."
   :type 'string)
 
 (defcustom gerrit-host
   nil
-  "The Gerrit host you're interested in reviewing comments from."
+  "Gerrit host you're interested in reviewing comments."
   :type 'string)
 
 (defconst gerrit--manifest-parser
@@ -48,9 +48,15 @@ Default is repo_root_path/.repo/manifests/default.xml")
            ".repo/manifests/default.xml"
            gerrit-repo-root)))
 
-  (gerrit--init-global-comment-map gerrit-host gerrit-user)
-  (gerrit--init-global-repo-project-path-map gerrit--manifest-parser
-                                             gerrit-repo-manifest))
+  ;; Authenticate using cURL with gitcookies.
+  ;; Use let to shadow dynamic scoped var to avoid
+  ;; side effects with other users of request.el
+  (let ((request-curl-options
+         `("-b" ,gerrit-git-cookies)))
+
+    (gerrit--init-global-comment-map gerrit-host)
+    (gerrit--init-global-repo-project-path-map gerrit--manifest-parser
+                                               gerrit-repo-manifest)))
 
 
 (defvar gerrit--change-to-filepath-comments nil
@@ -63,10 +69,9 @@ filepath is from git project root, for the given change.")
 Is of the form (project . dest-branch) => path-from-repo-root.")
 
 
-(cl-defun gerrit--fetch-recent-changes (host user &optional (count 3))
+(cl-defun gerrit--fetch-recent-changes (host &optional (count 3))
   "Fetches recent changes as ChangeInfo entities.
 host - Gerrit server address
-user - the user who owns the recent changes
 count (optional) - the number of recent changes, default is 3
 Fetch recent changes that are not abandoned/merged, and
 thus are actionable, returns an array of hashtables that
@@ -74,9 +79,10 @@ represent Gerrit ChangeInfo entities."
   (request-response-data
    (request
      (format "https://%s/changes/" host)
-     ;; We don't use "status:reviewed" because that only counts reviews after latest patch,
+     ;; We don't use "status:reviewed" because that
+     ;; only counts reviews after latest patch,
      ;; but we may want reviews before the latest patch too.
-     :params `(("q" . ,(format "owner:%s status:open" user))
+     :params `(("q" . "owner:self+status:open")
                ("n" . ,(format "%d" count)))
      :sync t
      :parser 'gerrit--request-response-json-parser)))
@@ -104,26 +110,26 @@ and each comment represents a CommentInfo entity from Gerrit"
      :parser 'gerrit--request-response-json-parser)))
 
 
-(defun gerrit--fetch-change-to-file-to-comments (host user)
+(defun gerrit--fetch-change-to-file-to-comments (host)
   "Returns a map of maps of the form:
 change => filepath => array(CommentInfo Map),
 where filepath is from the nearest git root for a file.
 Only fetches recent changes for open CLs."
   (let ((out-map (make-hash-table :test 'equal)))
-    (loop for change across (gerrit--fetch-recent-changes host user) do
+    (loop for change across (gerrit--fetch-recent-changes host) do
           (setf (gethash change out-map)
                 (gerrit--fetch-comments host change)))
     out-map))
 
 
-(defun gerrit--init-global-comment-map (host user)
+(defun gerrit--init-global-comment-map (host)
   "Inits `gerrit--change-to-filepath-comments`."
   (setf gerrit--change-to-filepath-comments
-        (gerrit--fetch-change-to-file-to-comments
-         host user)))
+        (gerrit--fetch-change-to-file-to-comments host)))
 
 
-(cl-defun gerrit--project-branch-pair-to-path-map (path-to-manifest-parser-exec abs-path-to-manifest)
+(cl-defun gerrit--project-branch-pair-to-path-map (path-to-manifest-parser-exec
+                                                   abs-path-to-manifest)
   "Return map (project . dest-branch) => path-from-repo-root.
 Parses the manifest given manifest file using the given parser executable.
 Assumes that stdout of parser is a Lisp alist of the form:
