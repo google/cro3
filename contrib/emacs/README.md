@@ -37,21 +37,20 @@ Add the following to your `init.el` script.
 (setq gerrit-hosts
   '( "chrome-internal-review.googlesource.com"
   "chromium-review.googlesource.com"))
-
-(gerrit-init)
 ```
 
 ## Usage
 
-Invoking the `gerrit-comments` command will show a buffer wiith changes that
-contain comments on recent CLs.  The buffer is similar to any `magit` style
+Invoking the `gerrit-comments` command will fetch comments and
+show a buffer wiith changes that contain comments on recent CLs.
+The buffer is similar to any `magit` style
 buffer, with the same navigation key bindings, see
 [magit-section](https://magit.vc/manual/magit.html#Sections).
 
 Every highlighted filepath is also a button that navigates you to the location
 under comment.
 
-The comments can be refreshed at any point by invoking `gerrit-refresh`.
+The comments can be refreshed at any point by invoking `gerrit-comments` again.
 
 ![Gerrit Comments Buffer](gerrit-comments.png)
 

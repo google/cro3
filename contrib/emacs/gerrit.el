@@ -175,11 +175,14 @@ Assumes that stdout of parser is a Lisp alist of the form:
 
 (defun gerrit--init-global-repo-project-path-map (path-to-manifest-parser-exec
                                                   abs-path-to-manifest)
-  "Initializes `gerrit--project-branch-pair-to-projectpath`."
+  "Initializes `gerrit--project-branch-pair-to-projectpath`.
+This function is idempotent."
   ;; Here we use Python expat sax parser as it's considerably faster.
-  (setf gerrit--project-branch-pair-to-projectpath (gerrit--project-branch-pair-to-path-map
-                                                    path-to-manifest-parser-exec
-                                                    abs-path-to-manifest)))
+  (unless gerrit--project-branch-pair-to-projectpath
+    (setf gerrit--project-branch-pair-to-projectpath
+          (gerrit--project-branch-pair-to-path-map
+           path-to-manifest-parser-exec
+           abs-path-to-manifest))))
 
 
 (defun gerrit--get-abs-path-to-file (filepath-from-project-git-root

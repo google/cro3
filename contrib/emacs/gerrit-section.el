@@ -34,64 +34,49 @@ We don't currently use this functionality.")
     ;; Evil Mode doesn't always play nice with the keymaps.
     (evil-set-initial-state 'gerrit-section-mode 'emacs)))
 
-
-(defun gerrit-refresh ()
-  "Refreshes Gerrit data from hosts."
-  (interactive)
-  (setf gerrit--refreshed t)
-  (gerrit-init)
-  (if (get-buffer gerrit-buffer-name)
-      (save-excursion
-        (let ((inhibit-read-only t))
-          (unless (equal (current-buffer)
-                         (get-buffer gerrit-buffer-name))
-            (switch-to-buffer-other-window gerrit-buffer-name))
-          (erase-buffer)
-          (gerrit-comments t)))
-    (gerrit-comments)))
-
-
-(defun gerrit-comments (&optional refresh)
+(defun gerrit-comments ()
   "Display buffer that shows comments for recent open changes.
 This comment is idempotent."
   (interactive)
-  (when (or (not (get-buffer gerrit-buffer-name))
-            refresh)
-    (save-excursion
-      (set-buffer (get-buffer-create gerrit-buffer-name))
-      (magit-insert-section (root)
-        (magit-insert-heading "Gerrit Comments\n\n")
-        (loop for change in
-              (hash-table-keys gerrit--change-to-filepath-comments) do
-              (unless (hash-table-empty-p
-                       (gethash change gerrit--change-to-filepath-comments))
-                (magit-insert-section (file)
-                  (magit-insert-heading
-                    (format "%s - %s"
-                            (gethash "subject" change)
-                            (gethash "change_id" change)))
 
-                  (loop for filepath in
-                        (hash-table-keys
-                         (gethash
-                          change
-                          gerrit--change-to-filepath-comments))
-                        do
-                        (gerrit--insert-section-comments change
-                                                         filepath))))))
+  (when (get-buffer gerrit-buffer-name)
+    (kill-buffer gerrit-buffer-name))
 
-      (when (hash-table-empty-p gerrit--change-to-filepath-comments)
-        (insert "No open changes!"))
+  (gerrit-init)
+  (save-excursion
+    (set-buffer (get-buffer-create gerrit-buffer-name))
+    (magit-insert-section
+     (root)
+     (magit-insert-heading "Gerrit Comments\n\n")
+     (loop for change in
+           (hash-table-keys gerrit--change-to-filepath-comments) do
+           (unless (hash-table-empty-p
+                    (gethash change gerrit--change-to-filepath-comments))
+             (magit-insert-section (file)
+                                   (magit-insert-heading
+                                    (format "%s - %s"
+                                            (gethash "subject" change)
+                                            (gethash "change_id" change)))
 
-      (goto-char (point-min))
-      (gerrit-section-mode)
+                                   (loop for filepath in
+                                         (hash-table-keys
+                                          (gethash
+                                           change
+                                           gerrit--change-to-filepath-comments))
+                                         do
+                                         (gerrit--insert-section-comments change
+                                                                          filepath))))))
 
-      (if refresh
-          (switch-to-buffer gerrit-buffer-name)
-        (pop-to-buffer gerrit-buffer-name))
+    (when (hash-table-empty-p gerrit--change-to-filepath-comments)
+      (insert "No open changes!"))
 
-      (setf word-wrap t)
-      (setf truncate-lines nil))))
+    (goto-char (point-min))
+    (gerrit-section-mode)
+
+    (pop-to-buffer gerrit-buffer-name)
+
+    (setf word-wrap t)
+    (setf truncate-lines nil)))
 
 
 (define-button-type 'gerrit--filepath
