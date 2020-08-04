@@ -80,4 +80,4 @@ Try uploading a CL
 
 Any questions or feedback is greatly appreciated!
 
-[Chromacs Group](https://groups.google.com/a/google.com/g/repo-gerrit)
+[Chromacs Group](https://groups.google.com/a/google.com/g/chromacs)
