@@ -320,6 +320,7 @@ class GsArchiveServer(object):
     for chunk in rsp.iter_content(constants.READ_BUFFER_SIZE_BYTES):
       tar.stdin.write(chunk)
 
+    tar.stdin.close()
     tar.wait()
 
     def _tar_member_list():
