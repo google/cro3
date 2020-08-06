@@ -42,7 +42,7 @@ start_workon() {
     echo "Empty package.  Skipping..."
     return 1
   fi
-  pkg=$(cros_workon --board="${board}" info "$2" | cut -d ' ' -f 1)
+  pkg=$(cros workon --board="${board}" info "$2" | cut -d ' ' -f 1)
   shift 2
   for item in "$@"; do
     if [[ "${pkg}" == "${item}" ]]; then
@@ -50,12 +50,12 @@ start_workon() {
       return 1
     fi
   done
-  cros_workon --board="${board}" start "${pkg}"
+  cros workon --board="${board}" start "${pkg}"
   return $?
 }
 
 stop_workon() {
-  cros_workon --board="$1" stop "$2"
+  cros workon --board="$1" stop "$2"
 }
 
 update_firmware() {
@@ -68,7 +68,7 @@ update_firmware() {
   set -e
 
   # query the current working package
-  mapfile -t current_workon_pkg_list < <(cros_workon --board="${board}" list)
+  mapfile -t current_workon_pkg_list < <(cros workon --board="${board}" list)
 
   # check if chromeos-config-bsp is a virtual package
   cfg_bsp_pkg="chromeos-config-bsp"
