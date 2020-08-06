@@ -385,14 +385,9 @@ func main() {
 
 	repoList := strings.Split(repos, "\n")
 
-	throttlingNeeded := maxGoCount < len(repoList)
-	var ch chan bool
-	if throttlingNeeded {
-		// Create a channel to use it as a throttle to prevent from starting
-		// too many git queries concurrently.
-		ch = make(chan bool, maxGoCount)
-		fmt.Printf("Throttling at %d concurrent checks\n", maxGoCount)
-	}
+	// Create a channel to use it as a throttle to prevent from starting
+	// too many git queries concurrently.
+	ch := make(chan bool, maxGoCount)
 
 	var wg sync.WaitGroup
 	for _, line := range repoList {
@@ -402,14 +397,10 @@ func main() {
 			defer func() {
 				runningCounter--
 				countMtx.Unlock()
-				if throttlingNeeded {
-					<-ch
-				}
+				<-ch
 				wg.Done()
 			}()
-			if throttlingNeeded {
-				ch <- true
-			}
+			ch <- true
 			countMtx.Lock()
 			startedCounter++
 			runningCounter++
