@@ -309,7 +309,10 @@ func checkGitTree(gitPath string, tracking string) gitTreeReport {
 }
 
 func reportProgress(startedCounter, runningCounter int) {
-	fmt.Printf("Started %3d still going %3d\r", startedCounter, runningCounter)
+	// Use unbuffered write so that output is updated even without
+	// a \n.
+	os.Stdout.WriteString(fmt.Sprintf("Started %3d still going %3d\r", startedCounter, runningCounter))
+
 }
 
 func printResults(results map[string]gitTreeReport) {
@@ -420,21 +423,34 @@ func main() {
 
 			countMtx.Lock()
 			results[relpath] = report
-			reportProgress(startedCounter, runningCounter)
 		}()
 	}
 
-	stillRunning := true
-	for stillRunning {
-		time.Sleep(time.Second)
-		countMtx.Lock()
-		reportProgress(startedCounter, runningCounter)
-		if runningCounter == 0 {
-			stillRunning = false
+	// Update the progress 30 times a second.
+	finishProgressReporting := make(chan bool)
+	progressReportingFinished := make(chan struct{})
+	go func() {
+		for {
+			countMtx.Lock()
+			reportProgress(startedCounter, runningCounter)
+			select {
+			case <-finishProgressReporting:
+				// Finish.
+				close(progressReportingFinished)
+				countMtx.Unlock()
+				return
+			default:
+				// Keep on running if chan is still open.
+				countMtx.Unlock()
+			}
+			time.Sleep(time.Second / 30)
 		}
-		countMtx.Unlock()
-	}
+	}()
+
 	wg.Wait()
+
+	finishProgressReporting <- true
+	<-progressReportingFinished
 
 	printResults(results)
 }
