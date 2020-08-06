@@ -27,8 +27,8 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -344,24 +344,6 @@ func printResults(results map[string]gitTreeReport) {
 
 }
 
-// getMaxGoCount - suggest maximum number of concurrent go routines.
-// Determine current limit of number of open files and return the suggested
-// maximum number of concurrent go routines. Conservatively keep it at 10% of
-// the number of open files limit.
-func getMaxGoCount() (int, error) {
-	stdout, _, err := runCommand("sh", "-c", "ulimit -Sn")
-	if err != nil {
-		return 0, err
-	}
-	limit, err := strconv.Atoi(stdout)
-	if err != nil {
-		return 0, err
-	}
-	// This asssumes that the max number of opened files limit exceeds 10,
-	// which is deemed a very reasonable assumption.
-	return (limit / 10), nil
-}
-
 func main() {
 	repoRoot, err := findRepoRoot()
 	if err != nil {
@@ -396,11 +378,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	maxGoCount, err := getMaxGoCount()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to get max go routine count: %v\n", err)
-		os.Exit(1)
-	}
+	// Use the number of cores as number of goroutines. Because we
+	// are fork/exec multiple instances, exceeding the number of
+	// cores does not give us much gain.
+	maxGoCount := runtime.NumCPU()
 
 	repoList := strings.Split(repos, "\n")
 
