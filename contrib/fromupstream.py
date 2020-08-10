@@ -478,10 +478,19 @@ def main(args):
         if args['bug'] is None and bugs:
             args['bug'] = '\nBUG='.join(bugs)
 
-        tests = re.findall('^TEST=(.*)$', old_commit_message, re.MULTILINE)
+        # Note: use (?=...) to avoid to consume the source string
+        tests = re.findall(r"""
+            ^TEST=(.*?)     # Match start from TEST= until
+            \n              # (to remove the tailing newlines)
+            (?=^$|          # a blank line
+               ^Cq-Depend:| # or Cq-Depend:
+               ^Change-Id:| # or Change-Id:
+               ^BUG=|       # or following BUG=
+               ^TEST=)      # or another TEST=
+            """,
+            old_commit_message, re.MULTILINE | re.DOTALL | re.VERBOSE)
         if args['test'] is None and tests:
             args['test'] = '\nTEST='.join(tests)
-        # TODO: deal with multiline BUG/TEST better
 
     if args['bug'] is None or args['test'] is None:
         parser.error('BUG=/TEST= lines are required; --replace can help '
