@@ -36,9 +36,9 @@ def parse_manifest_projects_to_lisp_alist(manifest_path):
             attrs: A dictionary of the handled xml element's attributes.
         """
         if name == 'project':
-            project_path = attrs['path']
             project_name = attrs['name']
-            dest_branch = attrs['dest-branch'] if 'dest-branch' in attrs else None
+            project_path = attrs.get('path', project_name)
+            dest_branch = attrs.get('dest-branch')
             if not dest_branch:
                 # We skip anything without a dest-branch
                 return
