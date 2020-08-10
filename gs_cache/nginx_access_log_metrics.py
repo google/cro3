@@ -34,15 +34,15 @@ _METRIC_NAME = 'chromeos/gs_cache/nginx/response'
 _SUCCESS_RESPONSE_MATCHER = re.compile(
     r'^(?P<ip_addr>\d+\.\d+\.\d+\.\d+) '
     r'(?P<timestamp>\d+\-\d+\-\d+T\d+:\d+:\d+[+\-]\d+:\d+) '
-    r'"GET (?P<url_path>\S*)[^"]*" '
-    r'2\d\d (?P<size>\S+) "[^"]+" (?P<cache_status>\S+)')
+    r'"(?P<http_method>\S+) (?P<url_path>\S*)[^"]*" '
+    r'(?P<status_code>\d+) (?P<size>\S+) "[^"]+" (?P<cache_status>\S+)')
 
 # The format of URL is like:
 #   /$ACTION/$BUCKET/$BUILD/$MILESTONE-$VERSION/$FILENAME?params
 # We want ACTION, BUCKET, BUILD, MILESTONE, and FILENAME.
 _URL_PATH_MATCHER = re.compile(
     r'^/(?P<action>[^/]+)/(?P<bucket>[^/]+)/(?P<build>[^/]+)/'
-    r'(?P<milestone>\S+)\-(?P<version>[^/]+)/(?P<filename>[^\?]+)'
+    r'(?P<milestone>\S\d+)\-(?P<version>[^/]+)/(?P<filename>[^\?]+)'
 )
 
 
@@ -72,8 +72,8 @@ def emit_successful_response_metric(m):
       'bucket': '',
       'build': '',
       'milestone': '',
-      'version': '',
       'endpoint': '',
+      'status_code': m.group('status_code'),
   }
   requested_file_info = _URL_PATH_MATCHER.match(m.group('url_path'))
   if requested_file_info:
@@ -82,7 +82,6 @@ def emit_successful_response_metric(m):
         'bucket': requested_file_info.group('bucket'),
         'build': requested_file_info.group('build'),
         'milestone': requested_file_info.group('milestone'),
-        'version': requested_file_info.group('version'),
         'endpoint': requested_file_info.group('filename'),
     })
   metrics.Counter(_METRIC_NAME).increment_by(int(m.group('size')),
