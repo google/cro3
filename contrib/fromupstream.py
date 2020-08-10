@@ -167,7 +167,9 @@ def _get_pw_url(project):
 def _wrap_commit_line(prefix, content):
     line = prefix + '=' + content
     indent = ' ' * (len(prefix) + 1)
-    return textwrap.fill(line, COMMIT_MESSAGE_WIDTH, subsequent_indent=indent)
+
+    ret = textwrap.fill(line, COMMIT_MESSAGE_WIDTH, subsequent_indent=indent)
+    return ret[len(prefix) + 1:]
 
 def _pick_patchwork(url, patch_id, args):
     if args['tag'] is None:
@@ -452,6 +454,9 @@ def main(args):
     if buglist:
         args['bug'] = ', '.join(buglist)
 
+    if args['test']:
+        args['test'] = _wrap_commit_line('TEST', args['test'])
+
     if args['replace']:
         old_commit_message = _git(['show', '-s', '--format=%B', 'HEAD'])
 
@@ -526,7 +531,7 @@ def main(args):
         commit_message += '\n'
         commit_message += conflicts
         commit_message += '\n' + 'BUG=' + args['bug']
-        commit_message += '\n' + _wrap_commit_line('TEST', args['test'])
+        commit_message += '\n' + 'TEST=' + args['test']
 
         extra = []
         if args['signoff']:
