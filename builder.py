@@ -250,5 +250,5 @@ class Builder(object):
         return self.SetError('Package %s is not installed' % pkg)
 
       return 'Success\n'
-    except OSError, e:
+    except OSError as e:
       return self.SetError('Could not execute build command: ' + str(e))
