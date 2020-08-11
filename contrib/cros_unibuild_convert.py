@@ -467,6 +467,11 @@ def genconf_psu_type(device, _):
   return None
 
 
+def genconf_has_backlight(device, _):
+  devicetype = device.lsb_val('DEVICETYPE')
+  return devicetype not in ('CHROMEBIT', 'CHROMEBOX')
+
+
 def genconf_fp_board(_, overlay):
   if overlay.fpmcu_firmware:
     return ' '.join(overlay.fpmcu_firmware)
@@ -572,6 +577,9 @@ genconf_schema = {
             'cras-config-dir': (M_PUBLIC, genconf_cras_config_dir),
             'ucm-suffix': (M_PUBLIC, lambda d, _: d.internal_ucm_suffix),
         },
+    },
+    'cros-healthd': {
+        'has-backlight': (M_PUBLIC, genconf_has_backlight),
     },
     'fingerprint': {
         'board': (M_PUBLIC, genconf_fp_board),
