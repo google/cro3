@@ -12,11 +12,6 @@
   "The system path to the repo project root."
   :type 'string)
 
-(defcustom gerrit-repo-manifest
-  nil
-  "The system path path to repo manifest file."
-  :type 'string)
-
 (defcustom gerrit-git-cookies
   (expand-file-name ".gitcookies" "~/")
   "Path to gitcookies associated with your Gerrit account."
@@ -36,12 +31,6 @@
   "The executable used to parse the repo manifest as an alist.")
 
 
-(defvar gerrit-repo-manifest
-  nil
-  "The system path path to repo manifest file.
-Default is repo_root_path/.repo/manifests/default.xml")
-
-
 (defvar gerrit--change-to-host
   (make-hash-table :test 'equal)
   "Map showing => host.
@@ -50,12 +39,6 @@ Needed for generating links.")
 
 (defun gerrit-init ()
   "Initialize Repo Gerrit state."
-  (unless gerrit-repo-manifest
-    (setq gerrit-repo-manifest
-          (expand-file-name
-           ".repo/manifests/default.xml"
-           gerrit-repo-root)))
-
   ;; Authenticate using cURL with gitcookies.
   ;; Use let to shadow dynamic scoped var to avoid
   ;; side effects with other users of request.el
@@ -64,7 +47,7 @@ Needed for generating links.")
 
     (gerrit--init-global-comment-map)
     (gerrit--init-global-repo-project-path-map gerrit--manifest-parser
-                                               gerrit-repo-manifest)))
+                                               gerrit-repo-root)))
 
 
 (defvar gerrit--change-to-filepath-comments nil
@@ -141,9 +124,9 @@ Only fetches recent changes for open CLs."
 
 
 (cl-defun gerrit--project-branch-pair-to-path-map (path-to-manifest-parser-exec
-                                                   abs-path-to-manifest)
+                                                   path-to-repo-root)
   "Return map (project . dest-branch) => path-from-repo-root.
-Parses the manifest given manifest file using the given parser executable.
+Parses the repo manifest using the given parser executable.
 Assumes that stdout of parser is a Lisp alist of the form:
 ((project . dest-branch) . path-from-repo-root)."
   (let (parsed-alist
@@ -157,8 +140,8 @@ Assumes that stdout of parser is a Lisp alist of the form:
                                nil
                                tmp-buffer-name
                                nil
-                               abs-path-to-manifest))
-      (message "Error parsing manifest file investigate %s" tmp-buffer-name)
+                               path-to-repo-root))
+      (message "Error parsing manifest investigate %s" tmp-buffer-name)
       (cl-return-from gerrit--project-branch-pair-to-path-map nil))
 
     (save-excursion
@@ -174,7 +157,7 @@ Assumes that stdout of parser is a Lisp alist of the form:
 
 
 (defun gerrit--init-global-repo-project-path-map (path-to-manifest-parser-exec
-                                                  abs-path-to-manifest)
+                                                  path-to-repo-root)
   "Initializes `gerrit--project-branch-pair-to-projectpath`.
 This function is idempotent."
   ;; Here we use Python expat sax parser as it's considerably faster.
@@ -182,12 +165,12 @@ This function is idempotent."
     (setf gerrit--project-branch-pair-to-projectpath
           (gerrit--project-branch-pair-to-path-map
            path-to-manifest-parser-exec
-           abs-path-to-manifest))))
+           path-to-repo-root))))
 
 
 (defun gerrit--get-abs-path-to-file (filepath-from-project-git-root
                                      project-branch-pair
-                                     abs-path-to-repo-root)
+                                     path-to-repo-root)
   "Returns full system path of the first argument.
 `gerrit--project-branch-pair-to-projectpath` must be initialized."
   (expand-file-name
@@ -197,7 +180,7 @@ This function is idempotent."
      (gethash (cons (gethash "project" project-branch-pair)
                     (gethash "branch" project-branch-pair))
               gerrit--project-branch-pair-to-projectpath)
-     abs-path-to-repo-root))))
+     path-to-repo-root))))
 
 
 (provide 'gerrit)

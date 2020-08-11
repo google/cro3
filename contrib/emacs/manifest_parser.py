@@ -4,25 +4,27 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""This is a utility script for parsing repo manifest files used by gerrit.el"""
+"""This is a utility script for parsing the repo manifest used by gerrit.el"""
 
 import xml.parsers.expat as xml
 import sys
 import argparse
 import pathlib
+import subprocess
 
-def parse_manifest_projects_to_lisp_alist(manifest_path):
-    """Parse manifest xml to Lisp alist.
+def parse_manifest_projects_to_lisp_alist(repo_root_path):
+    """Parse repo manifest to Lisp alist.
 
     Any project without a dest-branch attribute is skipped.
 
     Args:
-        manifest_path: The path to a trusted repo manifest file to parse project elements.
+        repo_root_path: The path to a repo root.
 
     Returns:
         Lisp readable alist with elements of the form ((name . dest-branch) . path)
 
     Raises:
+        CalledProcessError: The repo tool threw an error getting the manifest.
         ExpatError: An error occured when attempting to parse.
     """
 
@@ -52,21 +54,26 @@ def parse_manifest_projects_to_lisp_alist(manifest_path):
 
     p = xml.ParserCreate()
     p.StartElementHandler = _project_elem_handler
-    with open(manifest_path, 'rb') as manifest_fd:
-        p.ParseFile(manifest_fd)
-        return '({})'.format(''.join(assoc_list_entries))
+
+    repo_cmd = ['repo', '--no-pager', 'manifest']
+    repo_cmd_result = subprocess.run(repo_cmd,
+                                     cwd=repo_root_path.expanduser().resolve(),
+                                     capture_output=True,
+                                     check=True)
+    p.Parse(repo_cmd_result.stdout)
+    return '({})'.format(''.join(assoc_list_entries))
 
 
 def main(argv):
     """main."""
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('repo_manifest_path',
+    arg_parser.add_argument('repo_root_path',
                             type=pathlib.Path,
-                            help='System path to repo manifest xml file.')
+                            help='System path to repo root.')
     args = arg_parser.parse_args(argv)
 
     try:
-        print(parse_manifest_projects_to_lisp_alist(args.repo_manifest_path))
+        print(parse_manifest_projects_to_lisp_alist(args.repo_root_path))
         return 0
 
     except xml.ExpatError as err:
