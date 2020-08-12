@@ -24,6 +24,12 @@
   "Gerrit hosts you're interested in reviewing comments."
   :type '(string))
 
+(defcustom gerrit-curl-exec
+  "curl"
+  "The curl-like executable for making requests to Gerrit.
+Defaults to curl."
+  :type 'string)
+
 (defconst gerrit--manifest-parser
   (expand-file-name
    "manifest_parser"
@@ -39,11 +45,15 @@ Needed for generating links.")
 
 (defun gerrit-init ()
   "Initialize Repo Gerrit state."
+  ;; If using cURL use special options.
   ;; Authenticate using cURL with gitcookies.
   ;; Use let to shadow dynamic scoped var to avoid
   ;; side effects with other users of request.el
-  (let ((request-curl-options
-         `("-b" ,gerrit-git-cookies)))
+  (let ((request-curl gerrit-curl-exec)
+        (request-curl-options
+         (unless (string-suffix-p "gob-curl" gerrit-curl-exec)
+           ;; Follow links and use git cookies.
+           `("-Lb" ,gerrit-git-cookies))))
 
     (gerrit--init-global-comment-map)
     (gerrit--init-global-repo-project-path-map gerrit--manifest-parser
@@ -69,7 +79,7 @@ thus are actionable, returns an array of hashtables that
 represent Gerrit ChangeInfo entities."
   (request-response-data
    (request
-     (format "https://%s/changes/" host)
+     (format "https://%s/a/changes/" host)
      ;; We don't use "status:reviewed" because that
      ;; only counts reviews after latest patch,
      ;; but we may want reviews before the latest patch too.
@@ -93,7 +103,7 @@ where path is the filepath from the gerrit project root
 and each comment represents a CommentInfo entity from Gerrit"
   (request-response-data
    (request
-     (format "https://%s/changes/%s~master~%s/comments"
+     (format "https://%s/a/changes/%s~master~%s/comments"
              host
              (url-hexify-string (gethash "project" change))
              (gethash "change_id" change))
