@@ -413,6 +413,8 @@ def main(args):
                         type=int, help='BUG=b: line')
     parser.add_argument('--changeid', '-c',
                         help='Overrides the gerrit generated Change-Id line')
+    parser.add_argument('--cqdepend',
+                        type=str, help='Cq-Depend: line')
 
     parser.add_argument('--replace', '-r',
                         action='store_true',
@@ -557,6 +559,11 @@ def main(args):
             commit_message = re.sub(r'(Change-Id: )(\w+)', r'\1%s' %
                                     args['changeid'], commit_message)
             args['changeid'] = None
+
+        if args['cqdepend'] is not None:
+            commit_message = re.sub(
+                r'(Change-Id: \w+)', r'Cq-Depend: %s\n\1' % args['cqdepend'],
+                commit_message)
 
         # decorate it that it's from outside
         commit_message = args['tag'] + commit_message
