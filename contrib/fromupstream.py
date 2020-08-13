@@ -469,6 +469,11 @@ def main(args):
         if changeid_match:
             args['changeid'] = changeid_match.group(1)
 
+        cq_depends = re.findall(r'^Cq-Depend:\s+(.*)$',
+                                old_commit_message, re.MULTILINE)
+        if args['cqdepend'] is None and cq_depends:
+            args['cqdepend'] = '\nCq-Depend: '.join(cq_depends)
+
         bugs = re.findall('^BUG=(.*)$', old_commit_message, re.MULTILINE)
         if args['bug'] is None and bugs:
             args['bug'] = '\nBUG='.join(bugs)
