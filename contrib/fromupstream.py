@@ -466,7 +466,7 @@ def main(args):
         # (due to cherry picking).  We only want to pull out the first one.
         changeid_match = re.search('^Change-Id: (.*)$',
                                    old_commit_message, re.MULTILINE)
-        if changeid_match:
+        if args['changeid'] is None and changeid_match:
             args['changeid'] = changeid_match.group(1)
 
         cq_depends = re.findall(r'^Cq-Depend:\s+(.*)$',
