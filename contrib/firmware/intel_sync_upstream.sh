@@ -18,7 +18,7 @@ function die()
 function usage()
 {
   echo "Error: missing parameter."
-  echo "Usage: $0 SOC [fsp|edk2|edk2-platforms] version_string"
+  echo "Usage: $0 SOC [fsp|edk2|edk2-platforms|coreboot] version_string"
   echo "Example: $0 tgl fsp 'TGL.2527_17'"
   exit -42
 }
@@ -39,12 +39,23 @@ case $DIR in
   fsp)
     STAGING_PREFIX=${SOC}
     CHROMEOS_BRANCH=chromeos
+    SRC_DIR="${CHROMIUM_TOT_ROOT}/src/third_party/fsp/${SOC}/$DIR/$LOCAL_DIR"
+    STAGING_REPO="https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/${STAGING_PREFIX}-staging"
     ;;
 
   edk2 | edk2-platforms)
     STAGING_PREFIX=$DIR
     LOCAL_DIR="${SOC_EDK_LOCAL_DIR_MAP[${SOC}]}"
     CHROMEOS_BRANCH=chromeos-${SOC}-$LOCAL_DIR
+    SRC_DIR="${CHROMIUM_TOT_ROOT}/src/third_party/fsp/${SOC}/$DIR/$LOCAL_DIR"
+    STAGING_REPO="https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/${STAGING_PREFIX}-staging"
+    ;;
+
+  coreboot)
+    STAGING_PREFIX=${SOC}
+    CHROMEOS_BRANCH=chromeos
+    SRC_DIR="${CHROMIUM_TOT_ROOT}/src/third_party/coreboot-intel-private/${SOC}"
+    STAGING_REPO="https://chrome-internal.googlesource.com/chromeos/third_party/coreboot-intel-private/${STAGING_PREFIX}-staging"
     ;;
 
   *)
@@ -53,7 +64,7 @@ case $DIR in
 esac
 
 case ${VERSION} in
-  master | EDK2_Trunk_Intel)
+  master | EDK2_Trunk_Intel | main)
     UPREV_BRANCH=remotes/${STAGING_PREFIX}-staging/upstream/${VERSION}
     ;;
 
@@ -68,11 +79,11 @@ if [ -z "${CHROMIUM_TOT_ROOT}" ]; then
 fi
 
 # Clone the repo where the staging changes need to be pushed
-pushd "${CHROMIUM_TOT_ROOT}/src/third_party/fsp/${SOC}/$DIR/$LOCAL_DIR" > /dev/null
-die $? "Can't find ${CHROMIUM_TOT_ROOT}/src/third_party/fsp/${SOC}/$DIR/$LOCAL_DIR"
+pushd "$SRC_DIR" > /dev/null
+die $? "Can't find $SRC_DIR"
 
 # Add staging repo as remote repo to my local repo
-git remote add ${STAGING_PREFIX}-staging https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/${STAGING_PREFIX}-staging
+git remote add ${STAGING_PREFIX}-staging "$STAGING_REPO"
 err=$?
 
 # If remote already exists, that's ok, but otherwise, exit on error
