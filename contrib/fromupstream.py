@@ -448,16 +448,16 @@ def main(args):
 
     args = vars(parser.parse_args(args))
 
+    cq_depends = [args['cqdepend']] if args['cqdepend'] else []
+
     buglist = [args['bug']] if args['bug'] else []
     if args['buganizer']:
         buglist += ['b:{0}'.format(x) for x in args['buganizer']]
     if args['crbug']:
         buglist += ['chromium:{0}'.format(x) for x in args['crbug']]
-    if buglist:
-        args['bug'] = ', '.join(buglist)
+    bug_lines = [', '.join(buglist)] if buglist else []
 
-    if args['test']:
-        args['test'] = _wrap_commit_line('TEST', args['test'])
+    test_lines = [_wrap_commit_line('TEST', args['test'])] if args['test'] else []
 
     if args['replace']:
         old_commit_message = _git(['show', '-s', '--format=%B', 'HEAD'])
@@ -469,30 +469,28 @@ def main(args):
         if args['changeid'] is None and changeid_match:
             args['changeid'] = changeid_match.group(1)
 
-        cq_depends = re.findall(r'^Cq-Depend:\s+(.*)$',
-                                old_commit_message, re.MULTILINE)
-        if args['cqdepend'] is None and cq_depends:
-            args['cqdepend'] = '\nCq-Depend: '.join(cq_depends)
+        if not cq_depends:
+            cq_depends = re.findall(r'^Cq-Depend:\s+(.*)$',
+                                    old_commit_message, re.MULTILINE)
 
-        bugs = re.findall('^BUG=(.*)$', old_commit_message, re.MULTILINE)
-        if args['bug'] is None and bugs:
-            args['bug'] = '\nBUG='.join(bugs)
+        if not bug_lines:
+            bug_lines = re.findall(r'^BUG=(.*)$',
+                                   old_commit_message, re.MULTILINE)
 
-        # Note: use (?=...) to avoid to consume the source string
-        tests = re.findall(r"""
-            ^TEST=(.*?)     # Match start from TEST= until
-            \n              # (to remove the tailing newlines)
-            (?=^$|          # a blank line
-               ^Cq-Depend:| # or Cq-Depend:
-               ^Change-Id:| # or Change-Id:
-               ^BUG=|       # or following BUG=
-               ^TEST=)      # or another TEST=
-            """,
-            old_commit_message, re.MULTILINE | re.DOTALL | re.VERBOSE)
-        if args['test'] is None and tests:
-            args['test'] = '\nTEST='.join(tests)
+        if not test_lines:
+            # Note: use (?=...) to avoid to consume the source string
+            test_lines = re.findall(r"""
+                ^TEST=(.*?)     # Match start from TEST= until
+                \n              # (to remove the tailing newlines)
+                (?=^$|          # a blank line
+                   ^Cq-Depend:| # or Cq-Depend:
+                   ^Change-Id:| # or Change-Id:
+                   ^BUG=|       # or following BUG=
+                   ^TEST=)      # or another TEST=
+                """,
+                old_commit_message, re.MULTILINE | re.DOTALL | re.VERBOSE)
 
-    if args['bug'] is None or args['test'] is None:
+    if not bug_lines or not test_lines:
         parser.error('BUG=/TEST= lines are required; --replace can help '
                      'automate, or set via --bug/--test')
 
@@ -546,8 +544,10 @@ def main(args):
         # next commands know where to work on
         commit_message += '\n'
         commit_message += conflicts
-        commit_message += '\n' + 'BUG=' + args['bug']
-        commit_message += '\n' + 'TEST=' + args['test']
+        commit_message += '\n'
+        commit_message += '\n'.join('BUG=%s' % bug for bug in bug_lines)
+        commit_message += '\n'
+        commit_message += '\n'.join('TEST=%s' % t for t in test_lines)
 
         extra = []
         if args['signoff']:
@@ -574,9 +574,10 @@ def main(args):
                                     args['changeid'], commit_message)
             args['changeid'] = None
 
-        if args['cqdepend'] is not None:
+        if cq_depends:
             commit_message = re.sub(
-                r'(Change-Id: \w+)', r'Cq-Depend: %s\n\1' % args['cqdepend'],
+                r'(Change-Id: \w+)',
+                r'%s\n\1' % '\n'.join('Cq-Depend: %s' % c for c in cq_depends),
                 commit_message)
 
         # decorate it that it's from outside
