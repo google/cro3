@@ -165,11 +165,11 @@ def _get_pw_url(project):
     return re.sub('/(xmlrpc/)?$', '', url)
 
 def _wrap_commit_line(prefix, content):
-    line = prefix + '=' + content
-    indent = ' ' * (len(prefix) + 1)
+    line = prefix + content
+    indent = ' ' * len(prefix)
 
     ret = textwrap.fill(line, COMMIT_MESSAGE_WIDTH, subsequent_indent=indent)
-    return ret[len(prefix) + 1:]
+    return ret[len(prefix):]
 
 def _pick_patchwork(url, patch_id, args):
     if args['tag'] is None:
@@ -450,14 +450,18 @@ def main(args):
 
     cq_depends = [args['cqdepend']] if args['cqdepend'] else []
 
-    buglist = [args['bug']] if args['bug'] else []
+    bug_lines = []
+    if args['bug']:
+        # un-wrap intentionally
+        bug_lines += [args['bug']]
     if args['buganizer']:
-        buglist += ['b:{0}'.format(x) for x in args['buganizer']]
+        buganizers = ', '.join('b:%d' % x for x in args['buganizer'])
+        bug_lines += [x.strip(' ,') for x in _wrap_commit_line('BUG=', buganizers).split('\n')]
     if args['crbug']:
-        buglist += ['chromium:{0}'.format(x) for x in args['crbug']]
-    bug_lines = [', '.join(buglist)] if buglist else []
+        crbugs = ', '.join('chromium:%d' % x for x in args['crbug'])
+        bug_lines += [x.strip(' ,') for x in _wrap_commit_line('BUG=', crbugs).split('\n')]
 
-    test_lines = [_wrap_commit_line('TEST', args['test'])] if args['test'] else []
+    test_lines = [_wrap_commit_line('TEST=', args['test'])] if args['test'] else []
 
     if args['replace']:
         old_commit_message = _git(['show', '-s', '--format=%B', 'HEAD'])
