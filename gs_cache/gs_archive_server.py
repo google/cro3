@@ -21,18 +21,14 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
-import contextlib
-import fnmatch
 import functools
-import httplib
-import itertools
+import httplib  # pylint: disable=deprecated-module, bad-python3-import
 import os
-import StringIO
 import subprocess
 import sys
 import tempfile
 import urllib
-import urlparse
+import urlparse  # pylint: disable=deprecated-module,  bad-python3-import
 
 import requests
 import cherrypy  # pylint: disable=import-error
@@ -40,7 +36,6 @@ import cherrypy  # pylint: disable=import-error
 import constants
 import fake_omaha
 import fake_telemetry
-import tarfile_utils
 from chromite.lib import cros_logging as logging
 from chromite.lib import gs
 
@@ -139,41 +134,8 @@ def _to_cherrypy_error(func):
     except ValueError as err:
       # The exception message is just a plain text, so wrap it with
       # cherrypy.HTTPError to have necessary HTML tags
-      raise cherrypy.HTTPError(httplib.BAD_REQUEST, err.message)
+      raise cherrypy.HTTPError(httplib.BAD_REQUEST, err.message)  # pylint: disable=exception-message-attribute
   return func_wrapper
-
-
-def _search_lines_by_pattern(all_lines, pattern):
-  """Search plain text lines which matches one of shell style glob |patterns|.
-
-  Args:
-    all_lines: A list or an iterable object of all plain text lines to be
-      searched.
-    pattern: A pattern that the target lines matched.
-
-  Returns:
-    A set of found lines.
-  """
-  found_lines = set()
-  found_lines |= set(fnmatch.filter(all_lines, pattern))
-
-  return found_lines
-
-
-def _split_into_chunks(iterable, size):
-  """Split the iterable into chunks of |size|.
-
-  Examples:
-    >>> list(_split_into_chunks(range(10), 3))
-    [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9]]
-    >>> list(_split_into_chunks(xrange(8), 4))
-    [[0, 1, 2, 3], [4, 5, 6, 7]]
-  """
-  iter_ = iter(iterable)
-  chunk = list(itertools.islice(iter_, size))
-  while chunk:
-    yield chunk
-    chunk = list(itertools.islice(iter_, size))
 
 
 class _CachingServer(object):
@@ -248,10 +210,6 @@ class _CachingServer(object):
     else:
       return self._call('download', path, headers=headers)
 
-  def list_member(self, path, headers=None):
-    """Call list_member RPC."""
-    return self._call('list_member', path, headers=headers)
-
 
 class GsArchiveServerError(Exception):
   """Standard exception class for GsArchiveServer."""
@@ -278,71 +236,6 @@ class GsArchiveServer(object):
       raise cherrypy.HTTPError(httplib.NOT_FOUND, e.output)
     return content
 
-  @cherrypy.expose
-  @cherrypy.config(**{'response.stream': True})
-  @_to_cherrypy_error
-  def list_member(self, *args):
-    """Get file list of an tar archive in CSV format.
-
-    An example, GET /list_member/bucket/path/to/file.tar
-    The output is in format of:
-      <file name>,<data1>,<data2>,...<data4>
-      <file name>,<data1>,<data2>,...<data4>
-      ...
-
-    Details:
-      <file name>: The file name of the member, in URL percent encoding, e.g.
-        path/to/file,name  -> path/to/file%2Cname.
-      <data1>: File record start offset, in bytes.
-      <data2>: File record size, in bytes.
-      <data3>: File content start offset, in bytes.
-      <data4>: File content size, in bytes.
-
-    This is an internal RPC and shouldn't be called by end user!
-
-    Args:
-      *args: All parts of tar file name (must end with '.tar').
-
-    Returns:
-      The generator of CSV stream.
-    """
-    archive = _check_file_extension('/'.join(args), ext_names=['.tar'])
-    rsp = self._caching_server.download(archive, cherrypy.request.headers)
-    cherrypy.response.headers['Content-Type'] = 'text/csv'
-
-    # We run tar command to get member list of a tar file (python tarfile module
-    # is too slow). Option '--block-number/-R' of tar prints out the starting
-    # block number for each file record.
-    _log('list member of the tar %s', archive)
-    tar_tv = tempfile.SpooledTemporaryFile(max_size=_SPOOL_FILE_SIZE_BYTES)
-    tar = subprocess.Popen(['tar', 'tv', '--block-number'],
-                           stdin=subprocess.PIPE, stdout=tar_tv)
-    for chunk in rsp.iter_content(constants.READ_BUFFER_SIZE_BYTES):
-      tar.stdin.write(chunk)
-
-    tar.stdin.close()
-    tar.wait()
-
-    def _tar_member_list():
-      with tar_tv, contextlib.closing(StringIO.StringIO()) as stream:
-        tar_tv.seek(0)
-        for info in tarfile_utils.list_tar_members(tar_tv):
-          # Encode file name using URL percent encoding, so ',' in file name
-          # becomes to '%2C'.
-          stream.write('%s,%d,%d,%d,%d\n' % (
-              urllib.quote(info.filename), info.record_start, info.record_size,
-              info.content_start, info.size))
-
-          if stream.tell() > _WRITE_BUFFER_SIZE_BYTES:
-            yield stream.getvalue()
-            stream.seek(0)
-
-        if stream.tell():
-          yield stream.getvalue()
-
-      _log('list_member done')
-
-    return _tar_member_list()
 
   @cherrypy.expose
   @cherrypy.config(**{'response.stream': True})
@@ -368,13 +261,13 @@ class GsArchiveServer(object):
         _log('Downloading %s', path, level=logging.INFO)
         content = self._gsutil.StreamingCat(path)
     except gs.GSNoSuchKey as err:
-      raise cherrypy.HTTPError(httplib.NOT_FOUND, err.message)
+      raise cherrypy.HTTPError(httplib.NOT_FOUND, err.message)  # pylint: disable=exception-message-attribute
     except gs.GSCommandError as err:
       if "You aren't authorized to read" in err.result.error:
         status = httplib.UNAUTHORIZED
       else:
         status = httplib.SERVICE_UNAVAILABLE
-      raise cherrypy.HTTPError(status, '%s: %s' % (err.message,
+      raise cherrypy.HTTPError(status, '%s: %s' % (err.message,  # pylint: disable=exception-message-attribute
                                                    err.result.error))
 
     cherrypy.response.headers.update({
@@ -392,34 +285,20 @@ class GsArchiveServer(object):
     """Extract files from a compressed/uncompressed Tar archive.
 
     The RPC accepts query 'file=' which is either a file name or a glob pattern.
-    The query can be specified multiple times.
 
     It's optional to encode the file name or pattern in 'percent-encoding', i.e.
     '/' -> '%2F', '*' -> '%2A', etc.
 
-    The RPC accepts two type of queries, i.e. 'file=' and 'pattern=' (accepts
-    shell-style wildcards). They can be used mixed and either of them can be
-    used multiple times.
-
-    The query can be encoded using 'percent-encoding', i.e. '/' -> '%2F',
-    '*' -> '%2A', etc.
-
     Examples:
       Extracting file 'path/to/file' from files.tgz:
       GET /extract/<bucket>/files.tgz?file=path%2Fto%2Ffile
-
-      Extracting all files in pattern of '*/control' or '*/control.*':
-      GET /extract/<bucket>/files.tgz?file=*/control&file=*/control.*
 
     Args:
       *args: All parts of the GS path of the archive, without gs:// prefix.
       kwargs: file: The path or pattern of file to be extracted.
 
     Returns:
-      The JSON stream of extracted file, in details:
-        1. No file match the pattern, return empty json, i.e. '{}'.
-        2. One or more files match the pattern, return
-          '{filename: content, filename: content, ...}'.
+      Extracted file content (Binary data).
     """
     archive = _check_file_extension(
         '/'.join(args),
@@ -430,7 +309,6 @@ class GsArchiveServer(object):
     file_to_be_extracted = files.pop()
     _log('Extracting "%s" from "%s".', file_to_be_extracted, archive)
     archive_basename, archive_extname = os.path.splitext(archive)
-
     headers = cherrypy.request.headers.copy()
     if archive_extname == '.tar':
       decompressed_archive_name = archive
@@ -454,71 +332,38 @@ class GsArchiveServer(object):
                                        decompressed_archive_name, headers)
 
   def _extract_file_from_tar(self, target_file, archive, headers=None):
-    """Extract file from |archive| with http headers |headers|."""
-    # Call `list_member` and search |filename| in it. If found, create another
-    # "Range Request" to download that range of bytes.
-
-    all_files = self._caching_server.list_member(archive, headers=headers)
-
-    # Loading the file list into memory doesn't consume too much memory (usually
-    # just a few MBs), but which is very helpful for us to search.
-    found_lines = _search_lines_by_pattern(
-        list(all_files.iter_lines(chunk_size=constants.READ_BUFFER_SIZE_BYTES)),
-        '%s,*' % target_file
-    )
-    if not found_lines:
-      _log('No matching files found for %s.', target_file,
-           level=logging.WARNING)
-      cherrypy.response.status = httplib.NOT_FOUND
-      return None
-
-    if len(found_lines) > 1:
-      _log('Extracting of multi files are not supported. Pattern: %s. '
-           'Results: %s', target_file, found_lines)
-      cherrypy.response.status = httplib.BAD_REQUEST
-      return None
-
-    line = list(found_lines)[0]
-    f = tarfile_utils.TarMemberInfo._make(
-        urllib.unquote(line).rsplit(
-            ',', len(tarfile_utils.TarMemberInfo._fields) - 1))
-    cherrypy.response.headers['Content-Length'] = f.size
-    cherrypy.response.headers['Content-Type'] = 'application/octet-stream'
-    download_range = (int(f.content_start),
-                      int(f.content_start) + int(f.size) - 1)
-    return self._send_range_request(archive, download_range, headers)
-
-  def _send_range_request(self, archive, download_range, headers):
-    """Create and send a "Range Request" to caching server.
-
-    Set HTTP Range header and just download the bytes in that "range".
-    https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
+    """Extracts the target file from the given archive.
 
     Args:
-      archive: The archive file this range request against to.
-      download_range: A list of range to be downloaded. Each range is a tuple of
-        (start, end).
-      headers: Http headers of the request.
+      target_file: The file to be extracted.
+      archive: The archive from which the file should be extracted.
+      headers: headers for the request that will get the archive.
 
     Returns:
-      An instance of requests.Response if the status code from caching server is
-        httplib.PARTIAL_CONTENT.
+      Extracted file content (Binary data).
     """
-    headers = headers.copy()
-    headers['Range'] = 'bytes=%d-%d' % download_range
     rsp = self._caching_server.download(archive, headers=headers)
+    cmd = ['tar', '-O', '-x', target_file]
 
-    if rsp.status_code == httplib.PARTIAL_CONTENT:
-      # Although this is a partial response, it has full content of
-      # extracted file. Thus reset the status code and content-length.
-      cherrypy.response.status = httplib.OK
-    else:
-      _log('Expect HTTP_PARTIAL_CONTENT (206), but got %s', rsp.status_code,
-           level=logging.ERROR)
-      rsp.status_code = httplib.INTERNAL_SERVER_ERROR
-      rsp.reason = 'Range request failed for "%s"' % archive
-    rsp.raise_for_status()
-    return rsp.iter_content(chunk_size=_WRITE_BUFFER_SIZE_BYTES)
+    with tempfile.SpooledTemporaryFile(max_size=_SPOOL_FILE_SIZE_BYTES) as df:
+      proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=df)
+      for chunk in rsp.iter_content(constants.READ_BUFFER_SIZE_BYTES):
+        proc.stdin.write(chunk)
+      proc.stdin.close()
+      proc.wait()
+
+      # Update the response's content type to support yielding binary data.
+      cherrypy.response.headers['Content-Type'] = 'application/octet-stream'
+
+      # Go to the beginning of the file.
+      df.seek(0)
+
+      # Read the SpooledFile in chunks and yield the data.
+      while True:
+        data = df.read(constants.READ_BUFFER_SIZE_BYTES)
+        if not data:
+          break
+        yield data
 
   @cherrypy.expose
   @cherrypy.config(**{'response.stream': True})
@@ -646,7 +491,7 @@ def main(argv):
   if args.socket:
     # in order to allow group user writing to domain socket, the directory
     # should have GID bit set, i.e. g+s
-    os.umask(0002)
+    os.umask(0002)  # pylint: disable=old-octal-literal
 
   cherrypy.server.socket_port = args.port
   cherrypy.server.socket_file = args.socket
