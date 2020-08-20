@@ -405,7 +405,7 @@ def main(args):
 
     parser.add_argument('--bug', '-b',
                         type=str, help='BUG= line')
-    parser.add_argument('--test', '-t',
+    parser.add_argument('--test', '-t', action='append', default=[],
                         type=str, help='TEST= line')
     parser.add_argument('--crbug', action='append',
                         type=int, help='BUG=chromium: line')
@@ -461,7 +461,7 @@ def main(args):
         crbugs = ', '.join('chromium:%d' % x for x in args['crbug'])
         bug_lines += [x.strip(' ,') for x in _wrap_commit_line('BUG=', crbugs).split('\n')]
 
-    test_lines = [_wrap_commit_line('TEST=', args['test'])] if args['test'] else []
+    test_lines = [_wrap_commit_line('TEST=', x) for x in args['test']]
 
     if args['replace']:
         old_commit_message = _git(['show', '-s', '--format=%B', 'HEAD'])
