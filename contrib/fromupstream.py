@@ -23,6 +23,7 @@ import xmlrpc.client
 
 errprint = functools.partial(print, file=sys.stderr)
 
+# pylint: disable=line-too-long
 UPSTREAM_URLS = (
     'git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
     'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
@@ -456,10 +457,12 @@ def main(args):
         bug_lines += [args['bug']]
     if args['buganizer']:
         buganizers = ', '.join('b:%d' % x for x in args['buganizer'])
-        bug_lines += [x.strip(' ,') for x in _wrap_commit_line('BUG=', buganizers).split('\n')]
+        bug_lines += [x.strip(' ,') for x in
+                      _wrap_commit_line('BUG=', buganizers).split('\n')]
     if args['crbug']:
         crbugs = ', '.join('chromium:%d' % x for x in args['crbug'])
-        bug_lines += [x.strip(' ,') for x in _wrap_commit_line('BUG=', crbugs).split('\n')]
+        bug_lines += [x.strip(' ,') for x in
+                      _wrap_commit_line('BUG=', crbugs).split('\n')]
 
     test_lines = [_wrap_commit_line('TEST=', x) for x in args['test']]
 
