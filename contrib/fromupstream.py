@@ -231,8 +231,7 @@ def _pick_patchwork(url, patch_id, args):
     if args['replace']:
         _git(['reset', '--hard', 'HEAD~1'])
 
-    return _git_returncode(['am', '-3', '--reject'], stdin=patch_contents,
-                           encoding=None)
+    return _git_returncode(['am', '-3'], stdin=patch_contents, encoding=None)
 
 def _match_patchwork(match, args):
     """Match location: pw://### or pw://PROJECT/###."""
