@@ -578,9 +578,6 @@ genconf_schema = {
             'ucm-suffix': (M_PUBLIC, lambda d, _: d.internal_ucm_suffix),
         },
     },
-    'cros-healthd': {
-        'has-backlight': (M_PUBLIC, genconf_has_backlight),
-    },
     'fingerprint': {
         'board': (M_PUBLIC, genconf_fp_board),
         'fingerprint-sensor-type': (M_PUBLIC, genconf_fp_type),
@@ -608,6 +605,7 @@ genconf_schema = {
         'signature-id': (M_PRIVATE, genconf_signature_id),
     },
     'hardware-properties': {
+        'has-backlight': (M_PUBLIC, genconf_has_backlight),
         'psu-type': (M_PUBLIC, genconf_psu_type),
     },
     'identity': {
