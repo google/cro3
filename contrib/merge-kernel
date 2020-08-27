@@ -38,6 +38,7 @@ reverts=()  # List of patches to revert as part of merge, after merge
 prereverts=() # List of patches to revert as part of merge, prior to merge
 dependency="" # No dependency
 Subject=""  # default subject
+namespace="" # default namespace
 
 # derived parameters
 skip_merge=0    # Skip actual merge and upload.
@@ -77,6 +78,8 @@ Options:
   -l change-id  Apply patch extracted from CL:change-id prior to merge.
                 May be repeated multiple times.
   -n            Send notification e-mail to ${notify_to}.
+  -N namespace  Namespace (branch prefix) to use
+                Default 'stable-merge/linux' or 'merge', depending on context
   -q dependency Add dependency (Cq-Depend: <dependency>)
   -p            Prepare for upload into Gerrit. Implied if -u is specified.
   -r            Name of branch to base merge on. Determined from stable
@@ -168,7 +171,7 @@ do_getparams() {
   local option
   local vtag
 
-  while getopts "b:c:d:fhl:nP:pq:r:R:st:uS:x:" option; do
+  while getopts "b:c:d:fhl:N:nP:pq:r:R:st:uS:x:" option; do
     case ${option} in
       b) bugs="${OPTARG}" ;;
       c) changeid="Change-Id: ${OPTARG}" ;;
@@ -180,6 +183,7 @@ do_getparams() {
       f) force=1 ;;
       l) changes+=("${OPTARG}") ;;
       n) notify=1 ;;
+      N) namespace="${OPTARG}" ;;
       p) prepare=1 ;;
       q) dependency="${OPTARG}" ;;
       r) rbranch="${OPTARG}" ;;
@@ -361,11 +365,20 @@ do_setup() {
   # mbranch: Local branch used to execute the merge.
   readonly mbranch="${mcbranch}-${dtag}"
 
+  # Determine namespace to use if not provided
+  if [[ -z "${namespace}" ]]; then
+    if [[ "${tag}" == "${vtag}" ]]; then
+      namespace="stable-merge/linux"
+    else
+      namespace="merge"
+    fi
+  fi
+
   # obranch: chromeos branch used as reference.
   # May include local reverts from merge if necessary.
   # If necessary, a branch with this name will be created locally and
   # in the chromeos repository. It is necessary to perform the merge.
-  readonly obranch="stable-merge/linux/${dtag}"
+  readonly obranch="${namespace}/${dtag}"
 
   if [[ ${do_dryrun} -ne 0 ]]; then
     readonly dryrun="--dry-run"
