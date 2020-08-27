@@ -36,12 +36,21 @@ GS_CACHE_PORT = '8888'
 GS_CACHE_EXRTACT_RPC = 'extract'
 GS_CACHE_BASE_URL = ('http://%s:%s/%s' %
                      (GS_CACHE_HOSTNAME, GS_CACHE_PORT, GS_CACHE_EXRTACT_RPC))
+_TIMESTAMP_FILE = 'staged.timestamp'
 
 
 def _log(*args, **kwargs):
   """A wrapper function of logging.debug/info, etc."""
   level = kwargs.pop('level', logging.DEBUG)
   _logger.log(level, extra=cherrypy.request.headers, *args, **kwargs)
+
+
+def _touch_timestamp(dir_name):
+  """Timestamp the directory to allow other jobs to clean it."""
+  file_name = os.path.join(dir_name, _TIMESTAMP_FILE)
+  # Easiest python version of |touch file_name|.
+  with open(file_name, 'a'):
+    os.utime(file_name, None)
 
 
 def _GetBucketAndBuild(archive_url):
@@ -141,6 +150,7 @@ class TelemetrySetup(object):
     test_src = os.path.join(self._tlm_src_dir_path, self._TEST_SRC_DIR_NAME)
 
     self._MkDirP(self._tlm_src_dir_path)
+    _touch_timestamp(self._build_dir)
     with lock_dir(self._tlm_src_dir_path):
       if not os.path.exists(src_folder):
 
