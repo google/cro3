@@ -1237,7 +1237,8 @@ def repo_upload(branch_name, cwd):
         '--br=' + branch_name,
         '--wip',
         '--verify',
-        '--yes'],
+        '--yes',
+        '--hashtag=new_variant'],
         cwd=cwd)
 
 
