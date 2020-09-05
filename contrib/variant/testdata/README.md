@@ -72,3 +72,105 @@ DEBUG:root:Processing cb_config to add dependencies
 DEBUG:root:Add to commit cb_config Cq-Depend: chromium:1641906
 (cr) $ rm ~/.new_variant.yaml
 ```
+
+End-to-End Test
+===============
+`testdata/e2e.sh` is an end-to-end test of `new_variant.py`. The script takes
+the name of a reference board as a parameter, and creates a new variant of
+that reference board. The script ensures that `new_variant.py` will not
+upload the CLs for the new variant to gerrit, so the script can be run
+multiple times to test functionality.
+
+The supported reference boards are:
+* hatch
+* puff
+* volteer
+* trembyle (zork)
+* dalboz (zork)
+* waddledee (dedede)
+* waddledoo (dedede)
+
+For example, to test that creating a variant of the Waddledee reference board
+still works,
+
+```
+cd /mnt/host/source/src/platform/dev/contrib/variant/testdata
+./e2e.sh waddledee
+```
+
+When the build finishes, all of the branches and commits for the new variant
+will be `repo abandon`ed. The output at the end of a successful test looks
+something like this:
+
+```
+[Lots of build messages not included here]
+
+>>> Using system located in ROOT tree /build/dedede/
+
+>>> No outdated packages were found on your system.
+DEBUG:root:process returns 0
+DEBUG:root:Symlink /build/dedede/etc/portage/package.mask/cros-workon already exists. Don't recreate it.
+DEBUG:root:Symlink /build/dedede/etc/portage/package.unmask/cros-workon already exists. Don't recreate it.
+DEBUG:root:Symlink /build/dedede/etc/portage/package.keywords/cros-workon already exists. Don't recreate it.
+INFO:root:Stopped working on 'chromeos-base/chromeos-config-bsp-dedede-private chromeos-base/chromeos-ec sys-boot/coreboot-private-files-baseboard-dedede sys-boot/intel-jslfsp sys-boot/coreboot sys-boot/libpayload chromeos-base/vboot_reference sys-boot/depthcharge' for 'dedede'
+DEBUG:root:build_path = "/build/dedede/firmware"
+INFO:root:Running step abort
+DEBUG:root:Processing step cb_variant
+INFO:root:Abandoning branch coreboot_kingitchy_20200904 in directory /mnt/host/source/src/third_party/coreboot
+DEBUG:root:Run ['repo', 'abandon', 'coreboot_kingitchy_20200904', '.']
+DEBUG:root:cwd = /mnt/host/source/src/third_party/coreboot
+Abandoned branches:
+coreboot_kingitchy_20200904| src/third_party/coreboot
+
+DEBUG:root:process returns 0
+DEBUG:root:Processing step cb_config
+INFO:root:Abandoning branch create_kingitchy_20200904 in directory /mnt/host/source/src/third_party/chromiumos-overlay
+DEBUG:root:Run ['repo', 'abandon', 'create_kingitchy_20200904', '.']
+DEBUG:root:cwd = /mnt/host/source/src/third_party/chromiumos-overlay
+Abandoned branches:
+create_kingitchy_20200904| src/third_party/chromiumos-overlay
+
+DEBUG:root:process returns 0
+DEBUG:root:Processing step commit_fit
+INFO:root:Abandoning branch create_kingitchy_20200904 in directory /mnt/host/source/src/private-overlays/baseboard-dedede-private
+DEBUG:root:Run ['repo', 'abandon', 'create_kingitchy_20200904', '.']
+DEBUG:root:cwd = /mnt/host/source/src/private-overlays/baseboard-dedede-private
+Abandoned branches:
+create_kingitchy_20200904| src/private-overlays/baseboard-dedede-private
+
+DEBUG:root:process returns 0
+DEBUG:root:Processing step ec_image
+INFO:root:Abandoning branch create_kingitchy_20200904 in directory /mnt/host/source/src/platform/ec
+DEBUG:root:Run ['repo', 'abandon', 'create_kingitchy_20200904', '.']
+DEBUG:root:cwd = /mnt/host/source/src/platform/ec
+Abandoned branches:
+create_kingitchy_20200904| src/platform/ec
+
+DEBUG:root:process returns 0
+INFO:root:Running step clean_up
+/mnt/host/source/src/platform/dev/contrib/variant /mnt/host/source/src/platform/dev/contrib/variant ~/trunk/src/platform/dev/contrib/variant
+/mnt/host/source/src/platform/dev/contrib/variant ~/trunk/src/platform/dev/contrib/variant
+/mnt/host/source/src/private-overlays/overlay-dedede-private/chromeos-base/chromeos-config-bsp-dedede-private /mnt/host/source/src/platform/dev/contrib/variant ~/trunk/src/platform/dev/contrib/variant
+/mnt/host/source/src/platform/dev/contrib/variant ~/trunk/src/platform/dev/contrib/variant
+/mnt/host/source/src/project/dedede /mnt/host/source/src/platform/dev/contrib/variant ~/trunk/src/platform/dev/contrib/variant
+/mnt/host/source/src/platform/dev/contrib/variant ~/trunk/src/platform/dev/contrib/variant
+/mnt/host/source/src/private-overlays/baseboard-dedede-private/sys-boot/coreboot-private-files-baseboard-dedede/asset_generation/outputs /mnt/host/source/src/platform/dev/contrib/variant ~/trunk/src/platform/dev/contrib/variant
+/mnt/host/source/src/platform/dev/contrib/variant ~/trunk/src/platform/dev/contrib/variant
+(cr) $
+```
+
+For boards that require a fitimage, `e2e.sh` will create a fake fitimage for
+the new variant by copying the reference board's fitimage. Obviously this
+won't be bootable, but since the purpose is just to ensure that the build
+works, this is OK, and prevents the tester from having to create the fitimage
+outside the chroot (by running `gen_fit_image.sh`) and then restarting
+`new_variant.py`.
+
+Similarly, for boards that use the project configuration repositories (all
+of the boards this test supports except for Hatch), `e2e.sh` creates a
+configuration directory that will suffice for building, but it is not an
+actual repo.
+
+When `e2e.sh` is done, it will clean up the temporary files it created and
+revert the changes it made to checked-in files. If the build fails, the user
+will have to clean it up for now; improved error handling is planned.
