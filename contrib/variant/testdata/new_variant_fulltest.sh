@@ -196,14 +196,14 @@ if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
 fi
 
 
-# Now create the new variant.
+# Now create the new variant. Output will be captured as a side-effect of
+# running in CQ, or it will be in the scrollback buffer on the user's terminal
+# when executed locally.
 ./new_variant.py --board="${REFERENCE}" --variant="${NEW}" --verbose
-# TODO(b/167305316) capture output of new_variant.py.
 
-# TODO(b/167305316) parse output and/or check [-e ~/.new_variant.yaml] to
-#   determine success/failure.
-
-# If new_variant didn't clean up after itself, then --abort.
+# If new_variant didn't clean up after itself, the build must have failed.
+# Clean up with --abort and exit this script with an error code.
 if [[ ! "${HOME}/.new_variant.yaml" ]] ; then
   ./new_variant.py --abort --verbose
+  exit 1
 fi
