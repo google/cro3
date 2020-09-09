@@ -15,6 +15,7 @@ import os
 import pprint
 import re
 import signal
+import ssl
 import subprocess
 import sys
 import textwrap
@@ -257,7 +258,11 @@ def _match_msgid(match, args):
     url = None
     for url in PATCHWORK_URLS:
         rpc = xmlrpc.client.ServerProxy(url + '/xmlrpc/')
-        res = rpc.patch_list({'msgid': msgid})
+        try:
+            res = rpc.patch_list({'msgid': msgid})
+        except ssl.SSLCertVerificationError:
+            errprint('Error: server "%s" gave an SSL error, skipping' % url)
+            continue
         if res:
             patch_id = res[0]['id']
             break
