@@ -25,7 +25,7 @@ def main(args):
     utils.panic('Unable to open <%s>. File not found.' % trace_fname)
 
   try:
-    cmd = ['apitrace', 'info', '--json', trace_fname]
+    cmd = ['apitrace', 'info', trace_fname]
     result = subprocess.run(
         cmd, check=True, encoding='utf-8', capture_output=True)
 

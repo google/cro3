@@ -6,6 +6,7 @@
 
 from __future__ import print_function
 
+import apt
 import argparse
 import datetime
 import hashlib
@@ -20,10 +21,11 @@ import utils
 GAME_REPORT_VERSION = '2'
 TRACE_STORAGE_REPORT_VERSION = '3'
 TMP_DIR = '/tmp'
-GAME_TRACE_FNAME = 'game.trace'
+DEFAULT_TRACE_FNAME = 'game.trace'
 TRACE_INFO_FNAME = 'trace_info.json'
 GAME_INFO_FNAME = 'game_info.json'
 SYSTEM_INFO_FNAME = 'system_info.json'
+REQUIRED_PACKAGES = ['apitrace', 'tar', 'zstd']
 
 
 def yes_or_no(question):
@@ -63,8 +65,17 @@ def save_json(data, file_name):
     f.write(json.dumps(data, indent=2))
 
 
+def parse_json_file(file_name):
+  """Parses the given JSON file and returns the result as a dictionary object"""
+  try:
+    with open(file_name) as json_file:
+      return json.loads(json_file)
+  except Exception as e:
+    return None
+
+
 def parse_script_stdout_json(script, args):
-  """Parses script's standart output JSON and returns as a dictionary object"""
+  """Parses script's standart output JSON and returns the result as a dictionary object"""
   try:
     cmd = [os.path.join(os.path.dirname(os.path.realpath(__file__)), script)
           ] + args
@@ -76,9 +87,44 @@ def parse_script_stdout_json(script, args):
 
 
 def main(args):
+  defaultTraceFileName = os.path.join(TMP_DIR, DEFAULT_TRACE_FNAME)
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('gameid')
+  parser.add_argument('gameid', help='steam game id')
+  parser.add_argument(
+      '--temp-dir',
+      default=TMP_DIR,
+      dest='temp_dir',
+      help=f'working directory for temp files (default: {TMP_DIR})')
+  parser.add_argument(
+      '--sysinfo-file',
+      dest='sysinfo_file',
+      help='override the system info with the given json file')
+  parser.add_argument(
+      '--output-dir',
+      default=TMP_DIR,
+      dest='output_dir',
+      help=f'the output directory for the result file (default: {TMP_DIR})'
+  )
+  parser.add_argument(
+      '--trace-file',
+      default=defaultTraceFileName,
+      dest='trace_file',
+      help=f'game trace file name (default: {defaultTraceFileName})')
   opts = parser.parse_args(args)
+
+  if opts.sysinfo_file and not os.path.exists(opts.sysinfo_file):
+    utils.panic(
+        f'Unable to open system info file {opts.sysinfo_file}. File not found.')
+
+  if opts.trace_file != defaultTraceFileName and not os.path.exists(
+      opts.trace_file):
+    utils.panic(f'Unable to open trace file {opts.trace_file}. File not found.')
+
+  # Check for missing packages
+  cache = apt.Cache()
+  for p in REQUIRED_PACKAGES:
+    if not p in cache or not cache[p].is_installed:
+      utils.panic(f'The required package "{p}" isn\'t installed.')
 
   try:
     cur_time = datetime.datetime.now(
@@ -101,13 +147,15 @@ def main(args):
     game_name_safe = re.sub('[^a-z0-9]', '_', game_info['game_name'].lower())
     result_name = 'steam_%s-%s-%s' % (opts.gameid, game_name_safe,
                                       cur_time.strftime('%Y%m%d_%H%M%S'))
-    result_fname = f'{result_name}.tar'
+    result_file_name = f'{result_name}.tar'
+    result_full_name = os.path.join(opts.output_dir, result_file_name)
 
     # Sanity check file/directory paths for collisions.
-    if os.path.exists(result_fname):
+    if os.path.exists(result_full_name):
       if yes_or_no(
-          f'The file {result_fname} already exists. Do you want to delete it?'):
-        os.remove(result_fname)
+          f'The file {result_full_name} already exists. Do you want to delete it?'
+      ):
+        os.remove(result_full_name)
       else:
         sys.exit(0)
 
@@ -134,38 +182,44 @@ def main(args):
       if not game_info['can_install']:
         game_info['not_enough_space'] = yes_or_no(
             'Is the installation error caused by insufficient disk space?')
-    save_json(game_info, os.path.join(TMP_DIR, GAME_INFO_FNAME))
+    save_json(game_info, os.path.join(opts.temp_dir, GAME_INFO_FNAME))
 
     # Collect system/machine info report.
-    system_info = {}
-    system_info['host'] = {
-        'chrome': input('Paste "Google Chrome" string from chrome://version: '),
-        'platform': input('Paste "Platform" string from chrome://version: ')
-    }
-    print('Collecting cros container system information...')
-    system_info['guest'] = parse_script_stdout_json('cros_container_info.py',
-                                                    [])
-    save_json(system_info, os.path.join(TMP_DIR, SYSTEM_INFO_FNAME))
+    if opts.sysinfo_file:
+      print(f'Using system information from {opts.sysinfo_file}')
+      shutil.copyfile(opts.sysinfo_file,
+                      os.path.join(opts.temp_dir, SYSTEM_INFO_FNAME))
+    else:
+      system_info = {}
+      system_info['host'] = {
+          'chrome':
+              input('Paste "Google Chrome" string from chrome://version: '),
+          'platform':
+              input('Paste "Platform" string from chrome://version: ')
+      }
+      print('Collecting cros container system information...')
+      system_info['guest'] = parse_script_stdout_json('cros_container_info.py',
+                                                      [])
+      save_json(system_info, os.path.join(opts.temp_dir, SYSTEM_INFO_FNAME))
 
     if (game_info['can_start'] and
         yes_or_no('Did you manage to create the trace file?')):
-      print('Preparing the trace file information for %s...' % GAME_TRACE_FNAME)
-      trace_info = parse_script_stdout_json(
-          'trace_file_info.py', [os.path.join(TMP_DIR, GAME_TRACE_FNAME)])
+      print(f'Preparing the trace file information for {opts.trace_file}...')
+      trace_info = parse_script_stdout_json('trace_file_info.py',
+                                            [opts.trace_file])
       if trace_info == None:
         utils.panic('Unable to retrieve the game trace information')
       file_time = datetime.datetime.fromtimestamp(
-          os.path.getmtime(os.path.join(
-              TMP_DIR, GAME_TRACE_FNAME))).astimezone().replace(microsecond=0)
+          os.path.getmtime(opts.trace_file)).astimezone().replace(microsecond=0)
       trace_info.update({
           'trace_file_name':
-              GAME_TRACE_FNAME,
+              DEFAULT_TRACE_FNAME,
           'trace_file_size':
-              os.path.getsize(os.path.join(TMP_DIR, GAME_TRACE_FNAME)),
+              os.path.getsize(opts.trace_file),
           'trace_file_time':
               file_time.isoformat(),
           'trace_file_md5':
-              get_file_md5(os.path.join(TMP_DIR, GAME_TRACE_FNAME)),
+              get_file_md5(opts.trace_file),
           'trace_can_replay':
               yes_or_no('Does the trace file can be replayed without crashes?'),
       })
@@ -175,34 +229,33 @@ def main(args):
         )
         trace_info['trace_replay_fps'] = input('Trace replay fps: ')
       print('Compressing the trace file...')
-      zstd_cmd = ['zstd', '-T0', '-f', os.path.join(TMP_DIR, GAME_TRACE_FNAME)]
+      trace_storage_file_name = DEFAULT_TRACE_FNAME + '.zst'
+      trace_storage_full_name = os.path.join(opts.temp_dir,
+                                             trace_storage_file_name)
+      zstd_cmd = [
+          'zstd', '-T0', '-f', opts.trace_file, '-o', trace_storage_full_name
+      ]
       subprocess.run(zstd_cmd, check=True)
-      game_trace_storage_fname = GAME_TRACE_FNAME + '.zst'
       trace_info.update({
-          'report_version':
-              TRACE_STORAGE_REPORT_VERSION,
-          'storage_file_name':
-              game_trace_storage_fname,
-          'storage_file_size':
-              os.path.getsize(os.path.join(TMP_DIR, game_trace_storage_fname)),
-          'storage_file_sha256':
-              get_file_sha256(os.path.join(TMP_DIR, game_trace_storage_fname)),
-          'storage_file_md5':
-              get_file_md5(os.path.join(TMP_DIR, game_trace_storage_fname)),
+          'report_version': TRACE_STORAGE_REPORT_VERSION,
+          'storage_file_name': trace_storage_file_name,
+          'storage_file_size': os.path.getsize(trace_storage_full_name),
+          'storage_file_sha256': get_file_sha256(trace_storage_full_name),
+          'storage_file_md5': get_file_md5(trace_storage_full_name),
       })
-      save_json(trace_info, os.path.join(TMP_DIR, TRACE_INFO_FNAME))
+      save_json(trace_info, os.path.join(opts.temp_dir, TRACE_INFO_FNAME))
       items_in_archive = items_in_archive + [
-          TRACE_INFO_FNAME, game_trace_storage_fname
+          TRACE_INFO_FNAME, trace_storage_file_name
       ]
 
     # Finally put everything in a tarball. The --transform option is used to replace
     # initial ./ prefix with {$result_name}/
-    print(f'Archiving the result to {os.path.join(TMP_DIR, result_fname)}...')
+    print(f'Archiving the result to {result_full_name}...')
 
     tar_cmd = [
-        'tar', '-cf', result_fname, '--transform', f's,^,{result_name}/,'
+        'tar', '-cf', result_full_name, '--transform', f's,^,{result_name}/,'
     ] + items_in_archive
-    subprocess.run(tar_cmd, check=True, cwd=TMP_DIR)
+    subprocess.run(tar_cmd, check=True, cwd=opts.temp_dir)
   except Exception as e:
     utils.panic(str(e))
 
