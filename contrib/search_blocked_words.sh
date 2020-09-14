@@ -8,25 +8,18 @@
 #
 # Usage: search_blocked_words.sh [/path/to/word_list.txt]
 #
-# Use case 1: Search all globally blocked words.
-#
-#   $ search_blocked_words.sh ~/trunk/src/repohooks/blocked_terms.txt
-#
-# - This is useful when first introducing unblocked_terms.txt to a repo.
-# - This is also useful to verify the blocked words indeed do not exist.
-#   Some CLs may have checked in blocked words using '--no-verify' flag
-#   circumventing the repo check.
-#
-# Use case 2: Search all words in the local unblock list.
+# You can search the current directory for globally blocked words:
 #
 #   $ search_blocked_words.sh
 #
-# - This is useful to learn the current COIL status.
+# You can pass the project's unblocked_terms.txt to narrow the search scope:
+#
+#   $ search_blocked_words.sh ./unblocked_terms.txt
 
-input_file=${1:-unblocked_terms.txt}
+input_file=${1:-~/trunk/src/repohooks/blocked_terms.txt}
 if [[ ! -r "${input_file}" ]]; then
   echo "Error: '${input_file}' not found."
-  echo "Have you copied repohooks/unblocked_terms.txt?"
+  echo "This script is expected to run in CrOS SDK chroot."
   echo "Read repohooks/README.md for more information."
   exit 1
 fi
