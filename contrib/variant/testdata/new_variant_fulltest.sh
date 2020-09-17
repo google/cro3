@@ -4,7 +4,7 @@
 # found in the LICENSE file.
 
 # End-to-end test of creating firmware for a new variant of a reference board
-VERSION="1.0.0"
+VERSION="1.0.1"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -145,6 +145,12 @@ cleanup() {
     fi
     popd
   fi
+  # If new_variant didn't clean up after itself, the build must have failed.
+  # Clean up with --abort and exit this script with an error code.
+  if [[ -e "${HOME}/.new_variant.yaml" ]] ; then
+    ./new_variant.py --abort --verbose
+    exit 1
+  fi
 }
 trap 'cleanup' EXIT
 
@@ -199,11 +205,6 @@ fi
 # Now create the new variant. Output will be captured as a side-effect of
 # running in CQ, or it will be in the scrollback buffer on the user's terminal
 # when executed locally.
+# If the build fails, the cleanup handler will call new_variant.py --abort
+# to clean up.
 ./new_variant.py --board="${REFERENCE}" --variant="${NEW}" --verbose
-
-# If new_variant didn't clean up after itself, the build must have failed.
-# Clean up with --abort and exit this script with an error code.
-if [[ ! "${HOME}/.new_variant.yaml" ]] ; then
-  ./new_variant.py --abort --verbose
-  exit 1
-fi
