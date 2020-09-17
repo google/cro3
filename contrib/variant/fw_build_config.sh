@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.2"
+VERSION="1.0.3"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -44,7 +44,7 @@ DATE=$(date +%Y%m%d)
 BRANCH="create_${VARIANT}_${DATE}"
 repo start "${BRANCH}" .
 
-function catch() {
+cleanup() {
   # If there is an error after the `repo start`, then restore modified files
   # to clean up. `git restore --staged` will remove files added to a commit,
   # and `git restore` will restore the file to its unmodified state. Then
@@ -57,7 +57,7 @@ function catch() {
   git restore sw_build_config/platform/chromeos-config/generated/project-config.json
   repo abandon "$1" .
 }
-trap 'catch "${BRANCH}"' ERR
+trap 'cleanup "${BRANCH}"' ERR
 
 # Change the _FW_BUILD_CONFIG from None to _${VARIANT_UPPER}.
 sed -i -e "s/_FW_BUILD_CONFIG = None/_FW_BUILD_CONFIG = program.firmware_build_config(_${VARIANT_UPPER})/" config.star

@@ -3,8 +3,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.4"
+VERSION="1.1.0"
 SCRIPT=$(basename -- "${0}")
+set -e
 
 export LC_ALL=C
 
@@ -34,7 +35,7 @@ VARIANT="${2,,}"
 BUG=${3:-None}
 
 # All of the necessary files are in platform/ec/board
-cd "${HOME}/trunk/src/platform/ec/board" || exit 1
+cd "${HOME}/trunk/src/platform/ec/board"
 
 # Make sure that the reference board exists.
 if [[ ! -e "${REF}" ]]; then
@@ -51,7 +52,21 @@ fi
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)
 BRANCH="create_${VARIANT}_${DATE}"
-repo start "${BRANCH}" . || exit 1
+repo start "${BRANCH}" .
+
+cleanup() {
+  # If there is an error after the `repo start`, then remove the added files
+  # and `repo abandon` the new branch.
+  cd "${HOME}/trunk/src/platform/ec/board"
+  if [[ -e "${VARIANT}" ]] ; then
+    rm -Rf "${VARIANT}"
+    # Use || true so that if the new files haven't been added yet, the error
+    # won't terminate the script before we can finish cleaning up.
+    git restore --staged "${VARIANT}" || true
+  fi
+  repo abandon "${BRANCH}" .
+}
+trap 'cleanup' ERR
 
 mkdir "${VARIANT}"
 cp "${REF}"/* "${VARIANT}"
@@ -62,9 +77,9 @@ find "${VARIANT}" -type f -exec \
     sed -i -e "s/Copyright.*20[0-9][0-9]/Copyright ${YEAR}/" {} +
 
 # Build the code; exit if it fails.
-pushd .. || exit 1
-make -j BOARD="${VARIANT}" || exit 1
-popd || exit 1
+pushd ..
+make -j BOARD="${VARIANT}"
+popd
 
 git add "${VARIANT}"/*
 

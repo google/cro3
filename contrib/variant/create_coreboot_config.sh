@@ -3,8 +3,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="2.1.2"
+VERSION="2.2.0"
 SCRIPT=$(basename -- "${0}")
+set -e
 
 export LC_ALL=C
 
@@ -44,7 +45,8 @@ BUG=${4:-None}
 # Work in third_party/chromiumos-overlay/sys-boot/coreboot/files/configs
 # unless CB_CONFIG_DIR is set, in which case work in that dir
 DEFAULT_CB_CONFIG_DIR="third_party/chromiumos-overlay/sys-boot/coreboot/files/configs"
-cd "${HOME}/trunk/src/${CB_CONFIG_DIR:-${DEFAULT_CB_CONFIG_DIR}}" || exit 1
+CB="${HOME}/trunk/src/${CB_CONFIG_DIR:-${DEFAULT_CB_CONFIG_DIR}}"
+cd "${CB}"
 
 # Make sure the variant doesn't already exist.
 if [[ -e "config.${VARIANT}" ]]; then
@@ -56,7 +58,21 @@ fi
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)
 BRANCH="create_${VARIANT}_${DATE}"
-repo start "${BRANCH}" . || exit 1
+repo start "${BRANCH}" .
+
+cleanup() {
+  # If there is an error after the `repo start`, then remove the added files
+  # and `repo abandon` the new branch.
+  cd "${CB}"
+  if [[ -e "config.${VARIANT}" ]] ; then
+    rm "config.${VARIANT}"
+    # Use || true so that if the new files haven't been added yet, the error
+    # won't terminate the script before we can finish cleaning up.
+    git restore --staged "config.${VARIANT}" || true
+  fi
+  repo abandon "${BRANCH}" .
+}
+trap 'cleanup' ERR
 
 # There are multiple usages of the reference board name that we want to change,
 # using the Hatch reference board and the Kohaku variant in this example.

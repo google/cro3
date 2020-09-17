@@ -3,8 +3,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.2"
+VERSION="1.1.0"
 SCRIPT=$(basename -- "${0}")
+set -e
 
 export LC_ALL=C
 
@@ -35,30 +36,47 @@ BASE="${1,,}"
 # This is the name of the reference board that we're using to make the variant.
 # ${var,,} converts to all lowercase.
 REFERENCE="${2,,}"
-# ${var^} capitalizes first letter only.
-REFERENCE_CAPITALIZED="${REFERENCE^}"
 # This is the name of the variant that is being cloned.
 VARIANT="${3,,}"
-VARIANT_CAPITALIZED="${VARIANT^}"
 
 # Assign BUG= text, or "None" if that parameter wasn't specified.
 BUG=${4:-None}
 
-cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE}/files/cras-config" || exit 1
+cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE}/files/cras-config"
 
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)
 BRANCH="create_${VARIANT}_${DATE}"
-repo start "${BRANCH}" . || exit 1
+repo start "${BRANCH}" .
+
+cleanup() {
+  # If there is an error after the `repo start`, then restore modified files
+  # to clean up and `repo abandon` the new branch.
+  cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE}"
+  git restore --staged "*.ebuild"
+  git restore "*.ebuild"
+  if [[ ! -z "${NEWEBUILD}" ]] ; then
+    rm -f "${NEWEBUILD}"
+  fi
+  cd "files/cras-config"
+  if [[ -e "${VARIANT}" ]] ; then
+    rm -Rf "${VARIANT}"
+    # Use || true so that if the new files haven't been added yet, the error
+    # won't terminate the script before we can finish cleaning up.
+    git restore --staged "${VARIANT}" || true
+  fi
+  repo abandon "${BRANCH}" .
+}
+trap 'cleanup' ERR
 
 # ebuild will be located 2 directories up.
-pushd ../.. || exit 1
+pushd ../..
 revbump_ebuild
-popd || exit 1
+popd
 
-mkdir "${VARIANT_CAPITALIZED}"
-cp "${REFERENCE_CAPITALIZED}"/* "${VARIANT_CAPITALIZED}"
-git add "${VARIANT_CAPITALIZED}"
+mkdir "${VARIANT}"
+cp "${REFERENCE}"/* "${VARIANT}"
+git add "${VARIANT}"
 git commit -m "${BASE}: Add ${VARIANT} cras config
 
 Create a new cras config for the ${VARIANT} variant as a

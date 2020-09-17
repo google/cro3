@@ -3,8 +3,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.2.4"
+VERSION="1.3.0"
 SCRIPT=$(basename -- "${0}")
+set -e
 
 export LC_ALL=C
 
@@ -44,7 +45,7 @@ BUG=${3:-None}
 
 YAML=model.yaml
 
-cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-config-bsp-${BASE}/files" || exit 1
+cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-config-bsp-${BASE}/files"
 
 if [[ ! -e "${YAML}" ]]; then
   echo "${YAML} does not exist."
@@ -61,12 +62,28 @@ fi
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)
 BRANCH="create_${VARIANT}_${DATE}"
-repo start "${BRANCH}" . || exit 1
+repo start "${BRANCH}" .
+
+cleanup() {
+  # If there is an error after the `repo start`, then restore modified files
+  # to clean up and `repo abandon` the new branch.
+  cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-config-bsp-${BASE}"
+  git restore --staged "*.ebuild"
+  git restore "*.ebuild"
+  if [[ ! -z "${NEWEBUILD}" ]] ; then
+    rm -f "${NEWEBUILD}"
+  fi
+  cd files
+  git restore --staged "${YAML}"
+  git restore "${YAML}"
+  repo abandon "${BRANCH}" .
+}
+trap 'cleanup' ERR
 
 # ebuild is located 1 directory up.
-pushd .. || exit 1
+pushd ..
 revbump_ebuild
-popd || exit 1
+popd
 
 # Append a new device-name to the end of the model.yaml file.
 cat <<EOF >>"${YAML}"
@@ -79,7 +96,6 @@ cat <<EOF >>"${YAML}"
           config: *base_config
 EOF
 git add "${YAML}"
-
 # Building the config.json and other files from the yaml requires that the
 # changes have been made to both the public and private yaml files, which
 # we can't guarantee here, so we will not automate the steps in the TEST=
