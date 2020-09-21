@@ -31,6 +31,7 @@ UPSTREAM_URLS = (
     'https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git',
     'git://w1.fi/srv/git/hostap.git',
     'git://git.kernel.org/pub/scm/bluetooth/bluez.git',
+    'https://github.com/andersson/qrtr.git',
 )
 
 PATCHWORK_URLS = (
