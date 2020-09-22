@@ -75,10 +75,10 @@ DEBUG:root:Add to commit cb_config Cq-Depend: chromium:1641906
 
 End-to-End Test
 ===============
-`testdata/e2e.sh` is an end-to-end test of `new_variant.py`. The script takes
-the name of a reference board as a parameter, and creates a new variant of
-that reference board. The script ensures that `new_variant.py` will not
-upload the CLs for the new variant to gerrit, so the script can be run
+`testdata/new_variant_fulltest.sh` is an end-to-end test of `new_variant.py`.
+The script takes the name of a reference board as a parameter, and creates a
+new variant of that reference board. The script ensures that `new_variant.py`
+will not upload the CLs for the new variant to gerrit, so the script can be run
 multiple times to test functionality.
 
 The supported reference boards are:
@@ -95,7 +95,7 @@ still works,
 
 ```
 cd /mnt/host/source/src/platform/dev/contrib/variant/testdata
-./e2e.sh waddledee
+./new_variant_fulltest.sh waddledee
 ```
 
 When the build finishes, all of the branches and commits for the new variant
@@ -159,18 +159,42 @@ INFO:root:Running step clean_up
 (cr) $
 ```
 
-For boards that require a fitimage, `e2e.sh` will create a fake fitimage for
-the new variant by copying the reference board's fitimage. Obviously this
-won't be bootable, but since the purpose is just to ensure that the build
-works, this is OK, and prevents the tester from having to create the fitimage
-outside the chroot (by running `gen_fit_image.sh`) and then restarting
+For boards that require a fitimage, `new_variant_fulltest.sh` will create a
+fake fitimage for the new variant by copying the reference board's fitimage.
+Obviously this won't be bootable, but since the purpose is just to ensure that
+the build works, this is OK, and prevents the tester from having to create the
+fitimage outside the chroot (by running `gen_fit_image.sh`) and then restarting
 `new_variant.py`.
 
 Similarly, for boards that use the project configuration repositories (all
-of the boards this test supports except for Hatch), `e2e.sh` creates a
-configuration directory that will suffice for building, but it is not an
-actual repo.
+of the boards this test supports except for Hatch), `new_variant_fulltest.sh`
+creates a configuration directory that will suffice for building, but it is not
+an actual repo.
 
-When `e2e.sh` is done, it will clean up the temporary files it created and
-revert the changes it made to checked-in files. If the build fails, the user
-will have to clean it up for now; improved error handling is planned.
+When `new_variant_fulltest.sh` is done, it will clean up the temporary files it
+created and revert the changes it made to checked-in files.
+
+Work-in-Progress
+----------------
+
+The scripts that create new CLs use `repo start`, which will begin a new branch
+off of `m/master`. This is almost always what we want to do, except when we
+don't. For example, if you are editing the coreboot template files (in
+`third_party/coreboot/util/mainboard/google`) on a branch, when
+`create_coreboot_variant.sh` runs, it will start a new branch based on
+`m/master` and the changes you had on your branch will not be visible. The
+script will copy the previous versions of the files (from `m/master`) without
+your updates. This same problem can happen with the EC baseboard sources that
+are copied to make a new variant, or when fixing bugs in the private fitimage
+scripts.
+
+To force the scripts to use `HEAD` instead of `m/master` as the basis for a
+new branch, set `NEW_VARIANT_WIP=1` in the environment:
+
+```
+NEW_VARIANT_WIP=1 ./new_variant_fulltest.sh waddledoo
+```
+
+When the branches are abandoned as part of clean-up, your repo will go back
+to `m/master`, so you will need to manually `git checkout` the branch where
+you were making changes.

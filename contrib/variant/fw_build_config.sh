@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.0.3"
+VERSION="1.1.0"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -42,7 +42,9 @@ cd "${HOME}/trunk/src/project/${BASE}/${VARIANT}"
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)
 BRANCH="create_${VARIANT}_${DATE}"
-repo start "${BRANCH}" .
+repo start "${BRANCH}" . "${NEW_VARIANT_WIP:+--head}"
+# ${parameter:+word}" substitutes "word" if $parameter is set to a non-null
+# value, or substitutes null if $parameter is null or unset.
 
 cleanup() {
   # If there is an error after the `repo start`, then restore modified files
