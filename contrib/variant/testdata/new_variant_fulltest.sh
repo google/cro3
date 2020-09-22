@@ -43,6 +43,12 @@ REFERENCE="${1,,}"
 #
 # Intel-based reference boards only:
 #
+# FITIMAGE - the base name of the fitimage binary to copy for making a
+#   fake fitimage for the new board. This will almost always be the same
+#   as REFERENCE, but for Waddledee and Waddledoo, it will be Drawcia,
+#   because Waddledee and Waddledoo have a 32 MB SPI ROM, while all the
+#   other variants use 16 MB, so we need to use a 16 MB fitimage for
+#   the build to succeed.
 # FITIMAGE_OUTPUTS_DIR - the directory where gen_fit_image.sh will place
 #   the fitimage files.
 # FITIMAGE_FILES_DIR - the directory where commit_fitimage.sh moves (or copies)
@@ -54,6 +60,7 @@ case "${REFERENCE}" in
   hatch)
     BASE=hatch
     NEW=tiamat
+    FITIMAGE=hatch
     FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-hatch-private/sys-boot/coreboot-private-files-hatch/asset_generation/outputs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-hatch-private/sys-boot/coreboot-private-files-hatch/files
     ;;
@@ -64,6 +71,7 @@ case "${REFERENCE}" in
     CONFIG_DIR=/mnt/host/source/src/project/puff
     OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-puff-private/chromeos-base/chromeos-config-bsp-puff-private
     EBUILD=chromeos-config-bsp-puff-private-9999.ebuild
+    FITIMAGE=puff
     FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation/outputs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/files
     ;;
@@ -74,6 +82,7 @@ case "${REFERENCE}" in
     CONFIG_DIR=/mnt/host/source/src/project/volteer
     OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-volteer-private/chromeos-base/chromeos-config-bsp-volteer-private
     EBUILD=chromeos-config-bsp-volteer-private-9999.ebuild
+    FITIMAGE=volteer
     FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/asset_generation/outputs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/files
     ;;
@@ -84,6 +93,7 @@ case "${REFERENCE}" in
     CONFIG_DIR=/mnt/host/source/src/project/dedede
     OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-dedede-private/chromeos-base/chromeos-config-bsp-dedede-private
     EBUILD=chromeos-config-bsp-dedede-private-9999.ebuild
+    FITIMAGE=drawcia
     FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-dedede-private/sys-boot/coreboot-private-files-baseboard-dedede/asset_generation/outputs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-dedede-private/sys-boot/coreboot-private-files-baseboard-dedede/files/blobs
     ;;
@@ -186,17 +196,17 @@ fi
 # the chroot.
 if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
   pushd "${FITIMAGE_OUTPUTS_DIR}"
-  cp "${FITIMAGE_FILES_DIR}/fitimage-${REFERENCE}.bin" "fitimage-${NEW}.bin"
-  cp "${FITIMAGE_FILES_DIR}/fitimage-${REFERENCE}-versions.txt" "fitimage-${NEW}-versions.txt"
+  cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}.bin" "fitimage-${NEW}.bin"
+  cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}-versions.txt" "fitimage-${NEW}-versions.txt"
   # Volteer requires some extra files; the FIT log is named after the
   # variant, and there are two other blobs that are customized to the
   # variant and have names to reflect it.
   if [[ "${REFERENCE}" == "volteer" ]] ; then
-    cp "fit-${REFERENCE}.log" "fit-${NEW}.log"
+    cp "fit-${FITIMAGE}.log" "fit-${NEW}.log"
     popd
     pushd "${FITIMAGE_FILES_DIR}/blobs"
-    cp "csme-${REFERENCE}.bin" "csme-${NEW}.bin"
-    cp "descriptor-${REFERENCE}.bin" "descriptor-${NEW}.bin"
+    cp "csme-${FITIMAGE}.bin" "csme-${NEW}.bin"
+    cp "descriptor-${FITIMAGE}.bin" "descriptor-${NEW}.bin"
   fi
   popd
 fi

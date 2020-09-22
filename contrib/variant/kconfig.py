@@ -141,16 +141,13 @@ def add_to_kconfig_name(baseboard_name, variant_name):
             print('\tbool "-> ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE', file=outfile)
             print('\tselect BASEBOARD_DEDEDE_LAPTOP', file=outfile)
-            print('\tselect BOARD_ROMSIZE_KB_32768', file=outfile)
         elif baseboard_name == 'waddledoo':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
             print('\tbool "-> ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE', file=outfile)
             print('\tselect BASEBOARD_DEDEDE_LAPTOP', file=outfile)
-            print('\tselect BOARD_ROMSIZE_KB_32768', file=outfile)
             print('\tselect DRIVERS_GENERIC_MAX98357A', file=outfile)
             print('\tselect DRIVERS_I2C_DA7219', file=outfile)
-            print('\tselect VARIANT_HAS_CAMERA_ACPI', file=outfile)
         elif baseboard_name == 'puff':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
             print('\tbool "-> ' + capitalized + '"', file=outfile)
