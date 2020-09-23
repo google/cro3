@@ -26,6 +26,10 @@ where <board> is the board whose firmware needs updating (e.g. 'coral').
 DEFINE_string board "${DEFAULT_BOARD}" "Which board the firmware is for" b
 DEFINE_string project "${DEFAULT_PROJECT}" "Which project this board is for" p
 DEFINE_boolean quiet "${FLAGS_FALSE}" "Reduce emerge build output" q
+DEFINE_boolean append_srcuris "${FLAGS_TRUE}" "Only applicable when the project
+flag is set. Append firmware uris to srcuris instead of overwriting. This is
+usually needed if you have limited access to project config repos, so
+overwriting would delete some uris."
 
 # Parse command line.
 FLAGS "$@" || exit 1
@@ -64,6 +68,7 @@ update_firmware() {
   local base ebuild srcuris cfg_bsp_pkg cfg_bsp_baseboard_pkg
   local current_workon_pkg_list start_pkg result i quiet
   [[ "$3" == "${FLAGS_TRUE}" ]] && quiet="--quiet-build"
+  local append_srcuris="$4"
 
   set -e
 
@@ -111,7 +116,21 @@ update_firmware() {
   fi
 
   "emerge-${board}" -j ${quiet} ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}" chromeos-config
-  cros_config_host -c "${yaml_config}" get-firmware-uris > "${srcuris}"
+
+  # If the append_srcuris and project flags are set, append uris that aren't
+  # already in srcuris. Otherwise, overwrite srcuris.
+  if [[ -n "${project}" && "${append_srcuris}" == "${FLAGS_TRUE}" ]]; then
+    for uri in $(cros_config_host -c "${yaml_config}" get-firmware-uris); do
+      if ! grep -q "${uri}" "${srcuris}"; then
+        # Append uri to the last line of srcuris (srcuris should be a file with
+        # a single line). Escape slashes in uri.
+        sed -i "$ s/$/ ${uri//\//\\/}/" "${srcuris}"
+      fi
+    done
+  else
+    cros_config_host -c "${yaml_config}" get-firmware-uris > "${srcuris}"
+  fi
+
   touch "${ebuild}"
 
   # Clean metadata cache to make sure SRC_URI is fetched from ${srcuris}
@@ -137,7 +156,7 @@ main() {
     die "-b or --board required."
   fi
 
-  update_firmware "${FLAGS_board}" "${FLAGS_project}" "${FLAGS_quiet}"
+  update_firmware "${FLAGS_board}" "${FLAGS_project}" "${FLAGS_quiet}" "${FLAGS_append_srcuris}"
 }
 
 main "$@"
