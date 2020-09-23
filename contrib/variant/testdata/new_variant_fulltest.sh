@@ -211,6 +211,15 @@ if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
   popd
 fi
 
+# This test uses Kingitchy as a new variant name for both Waddledee and
+# Waddledoo. The EC build fails if you test creating a variant of one of
+# those reference boards and then the other without cleaning up the build
+# directory first, because the outputs in platform/ec/build/kingitchy don't
+# match up with the "new" source files that are under the same name.
+# To prevent old build outputs from colliding, just clean the EC build.
+pushd /mnt/host/source/src/platform/ec
+make clobber
+popd
 
 # Now create the new variant. Output will be captured as a side-effect of
 # running in CQ, or it will be in the scrollback buffer on the user's terminal
