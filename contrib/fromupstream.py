@@ -27,9 +27,17 @@ errprint = functools.partial(print, file=sys.stderr)
 # pylint: disable=line-too-long
 # Note: Do not include trailing / in any of these
 UPSTREAM_URLS = (
+    # Acceptable Linux URLs
     'git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
     'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
     'https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git',
+
+    # Acceptible Linux Firmware URLs
+    'git://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git',
+    'https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git',
+    'https://kernel.googlesource.com/pub/scm/linux/kernel/git/firmware/linux-firmware.git',
+
+    # Upstream for various other projects
     'git://w1.fi/srv/git/hostap.git',
     'git://git.kernel.org/pub/scm/bluetooth/bluez.git',
     'https://github.com/andersson/qrtr.git',
@@ -47,7 +55,7 @@ COMMIT_MESSAGE_WIDTH = 75
 
 _PWCLIENTRC = os.path.expanduser('~/.pwclientrc')
 
-def _git(args, stdin=None, encoding='utf-8'):
+def _git(args, stdin=None, encoding='utf-8', no_stderr=False):
     """Calls a git subcommand.
 
     Similar to subprocess.check_output.
@@ -58,6 +66,7 @@ def _git(args, stdin=None, encoding='utf-8'):
             to the git subcommand.
         encoding: either 'utf-8' (default) or None. Override it to None if
             you want both stdin and stdout to be raw bytes.
+        no_stderr: If True, we'll eat stderr
 
     Returns:
         the stdout of the git subcommand, same type as stdin. The output is
@@ -72,6 +81,7 @@ def _git(args, stdin=None, encoding='utf-8'):
         encoding=encoding,
         input=stdin,
         stdout=subprocess.PIPE,
+        stderr=(subprocess.PIPE if no_stderr else None),
         check=True,
     ).stdout.strip()
 
@@ -284,11 +294,18 @@ def _upstream(commit, urls, args):
         errprint('Error: need a valid upstream remote')
         sys.exit(1)
 
-    remote_ref = '%s/master' % remote
-    try:
-        _git(['merge-base', '--is-ancestor', commit, remote_ref])
-    except subprocess.CalledProcessError:
-        errprint('Error: Commit not in %s' % remote_ref)
+    branches = ['main', 'master']
+    for branch in branches:
+        remote_ref = '%s/%s' % (remote, branch)
+        try:
+            _git(['merge-base', '--is-ancestor', commit, remote_ref],
+                 no_stderr=True)
+        except subprocess.CalledProcessError:
+            continue
+        break
+    else:
+        errprint('Error: Commit not in %s, branches: %s' % (
+                 remote, ', '.join(branches)))
         sys.exit(1)
 
     if args['source_line'] is None:
