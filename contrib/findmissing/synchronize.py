@@ -12,7 +12,7 @@ from __future__ import print_function
 import logging
 import os
 import subprocess
-import MySQLdb
+import MySQLdb # pylint: disable=import-error
 import common
 
 import cloudsql_interface
@@ -100,7 +100,8 @@ def synchronize_repositories(local=False):
 
 def synchronize_databases():
     """Synchronizes the databases for upstream, stable, and chromeos."""
-    db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb',
+                         charset='utf8mb4')
     common.update_kernel_db(db, UPSTREAM_KERNEL_METADATA)
     common.update_kernel_db(db, STABLE_KERNEL_METADATA)
     common.update_kernel_db(db, CHROME_KERNEL_METADATA)
@@ -116,7 +117,8 @@ def gerrit_status_to_db_status(gerrit_status):
 
 def synchronize_fixes_tables_with_gerrit():
     """Synchronizes the state of all OPEN/ABANDONED CL's with Gerrit."""
-    db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb',
+                         charset='utf8mb4')
     c = db.cursor(MySQLdb.cursors.DictCursor)
 
     # Find all OPEN/ABANDONED CL's in chrome_fixes

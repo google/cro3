@@ -11,8 +11,8 @@ from __future__ import print_function
 import logging
 import re
 import subprocess
-import MySQLdb
-import MySQLdb.constants.ER
+import MySQLdb # pylint: disable=import-error
+import MySQLdb.constants.ER # pylint: disable=import-error
 import common
 
 
@@ -104,7 +104,8 @@ def update_chrome_table(branch, start, db):
 
 
 if __name__ == '__main__':
-    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb',
+                                  charset='utf8mb4')
     kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
     common.update_kernel_db(cloudsql_db, kernel_metadata)
     cloudsql_db.close()

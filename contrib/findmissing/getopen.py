@@ -224,7 +224,8 @@ def report_integration_status(branch, conflicts, is_chromium):
 
     synchronize.synchronize_repositories(True)
 
-    db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb',
+                         charset='utf8mb4')
 
     if branch:
         report_integration_status_branch(db, metadata, handled_shas, branch, conflicts)

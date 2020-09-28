@@ -73,7 +73,8 @@ def get_fixes_rows(cloudsql_db, fixes_table, sha_list, strict):
 @util.preliminary_check_decorator(False)
 def abandon_fix_cl(fixes_table, sha_list, reason, force):
     """Abandons an fix CL + updates database fix table."""
-    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb',
+                                  charset='utf8mb4')
 
     try:
         rows = get_fixes_rows(cloudsql_db, fixes_table, sha_list, True)
@@ -116,7 +117,8 @@ def abandon_fix_cl(fixes_table, sha_list, reason, force):
 @util.preliminary_check_decorator(False)
 def status_fix_cl(fixes_table, sha_list, reason, force): # pylint: disable=unused-argument
     """Lists status for a fix CL."""
-    db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb')
+    db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb',
+                         charset='utf8mb4')
     rows = []
     # Remove duplicate SHAs
     sha_list = list(set(sha_list))
