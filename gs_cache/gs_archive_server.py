@@ -469,6 +469,12 @@ def parse_args(argv):
       '[http://]{<hostname>|<IP>}[:<port_number>]. When skipped, the default '
       'scheme is http and port number is 80. Any other components in URL are '
       'ignored.')
+
+  parser.add_argument(
+      '-b', '--bind', default='127.0.0.1', type=str,
+      help='Option to specify alternate bind address. By default, '
+      'gs_archive_server starts on 127.0.0.1.')
+
   return parser.parse_args(argv)
 
 
@@ -495,6 +501,7 @@ def main(argv):
 
   cherrypy.server.socket_port = args.port
   cherrypy.server.socket_file = args.socket
+  cherrypy.server.socket_host = args.bind
 
   # TODO(crbug.com/1063420) Remove the fake Omaha app once we have the long
   # term solution rolls out.
