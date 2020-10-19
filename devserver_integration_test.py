@@ -386,12 +386,6 @@ class DevserverBasicTests(AutoStartDevserverTestBase):
                                relative_path=True)
       self.assertEqual(response, build_id)
 
-    xbuddy_path = '/'.join([build_id, 'test'])
-    logging.info('Testing for_update for %s', xbuddy_path)
-    response = self._MakeRPC('/'.join([XBUDDY, xbuddy_path]), for_update=True)
-    expected_path = '/'.join([self.devserver_url, UPDATE, build_id])
-    self.assertTrue(response, expected_path)
-
     logging.info('Verifying the actual payload data')
     url = self.VerifyHandleUpdate(build_id, use_test_payload=False)
     logging.info('Verify the actual content of the update payload')
@@ -487,12 +481,6 @@ class DevserverExtendedTests(AutoStartDevserverTestBase):
     logging.info('Verifying static url returned is valid.')
     expected_static_url = '/'.join([self.devserver_url, STATIC, build_id])
     self.assertEqual(response, expected_static_url)
-
-    logging.info('Checking for_update returns an update_url for what we just '
-                 'staged.')
-    expected_update_url = '/'.join([self.devserver_url, UPDATE, build_id])
-    response = self._MakeRPC('/'.join([XBUDDY, xbuddy_path]), for_update=True)
-    self.assertEqual(response, expected_update_url)
 
     logging.info('Now give xbuddy a bad path.')
     self.assertRaises(requests.exceptions.RequestException,

@@ -990,10 +990,6 @@ class DevServerRoot(object):
           xbuddy, defined in xbuddy:ALIASES. Defaults to test.
 
     Kwargs:
-      for_update: {true|false}
-                  if true, prepares the update payloads for the image,
-                  and returns the update uri to pass to the
-                  update_engine_client.
       return_dir: {true|false}
                   if set to true, returns the url to the update.gz
       relative_path: {true|false}
@@ -1005,10 +1001,6 @@ class DevServerRoot(object):
       http://host:port/xbuddy/x86-generic/R26-4000.0.0/test?return_dir=true
 
     Returns:
-      If |for_update|, returns a redirect to the image or update file
-      on the devserver. E.g.,
-        http://host:port/static/archive/x86-generic-release/R26-4000.0.0/
-            chromium-test-image.bin
       If |return_dir|, return a uri to the folder where the artifact is. E.g.,
         http://host:port/static/x86-generic-release/R26-4000.0.0/
       If |relative_path| is true, return a relative path the folder where the
@@ -1018,8 +1010,6 @@ class DevServerRoot(object):
     if is_deprecated_server():
       raise DeprecatedRPCError('xbuddy')
 
-    boolean_string = kwargs.get('for_update')
-    for_update = xbuddy.XBuddy.ParseBoolean(boolean_string)
     boolean_string = kwargs.get('return_dir')
     return_dir = xbuddy.XBuddy.ParseBoolean(boolean_string)
     boolean_string = kwargs.get('relative_path')
@@ -1030,22 +1020,7 @@ class DevServerRoot(object):
           http_client.INTERNAL_SERVER_ERROR,
           'Cannot specify both return_dir and relative_path')
 
-    # For updates, we optimize downloading of test images.
-    file_name = None
-    build_id = None
-    if for_update:
-      try:
-        build_id = self._xbuddy.StageTestArtifactsForUpdate(args)
-      except build_artifact.ArtifactDownloadError:
-        build_id = None
-
-    if not build_id:
-      build_id, file_name = self._xbuddy.Get(args)
-
-    if for_update:
-      _Log('Payloads requested.')
-      # Forces payload to be in cache and symlinked into build_id dir.
-      updater.GetUpdateForLabel(build_id)
+    build_id, file_name = self._xbuddy.Get(args)
 
     response = None
     if return_dir:
@@ -1054,9 +1029,6 @@ class DevServerRoot(object):
     elif relative_path:
       response = build_id
       _Log('Relative path requested, returning: %s', response)
-    elif for_update:
-      response = os.path.join(cherrypy.request.base, 'update', build_id)
-      _Log('Update URI requested, returning: %s', response)
     else:
       # Redirect to download the payload if no kwargs are set.
       build_id = '/' + os.path.join('static', build_id, file_name)
@@ -1064,19 +1036,6 @@ class DevServerRoot(object):
       raise cherrypy.HTTPRedirect(build_id, 302)
 
     return response
-
-  @cherrypy.expose
-  def xbuddy_list(self):
-    """Lists the currently available images & time since last access.
-
-    Returns:
-      A string representation of a list of tuples [(build_id, time since last
-      access),...]
-    """
-    if is_deprecated_server():
-      raise DeprecatedRPCError('xbuddy')
-
-    return self._xbuddy.List()
 
   @cherrypy.expose
   def xbuddy_capacity(self):
