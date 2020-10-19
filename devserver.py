@@ -4,22 +4,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Chromium OS development server that can be used for all forms of update.
+"""Chromium OS development server that can be used for caching files.
 
-This devserver can be used to perform system-wide autoupdate and update
-of specific portage packages on devices running Chromium OS derived operating
-systems.
-
-The devserver is configured to stage and
-serve artifacts from Google Storage using the credentials provided to it before
-it is run. The easiest way to understand this is that the devserver is
-functioning as a local cache for artifacts produced and uploaded by build
-servers. Users of this form of devserver can either download the artifacts
-from the devservers static directory OR use the update RPC to perform a
-system-wide autoupdate. Archive mode is always active.
-
-For autoupdates, there are many more advanced options that can help specify
-how to update and which payload to give to a requester.
+The devserver is configured to stage and serve artifacts from Google Storage
+using the credentials provided to it before it is run. The easiest way to
+understand this is that the devserver is functioning as a local cache for
+artifacts produced and uploaded by build servers. Users of this form of
+devserver can download the artifacts from the devservers static directory.
+Archive mode is always active.
 """
 
 from __future__ import print_function
@@ -45,7 +37,6 @@ from cherrypy import _cplogging as cplogging
 from cherrypy.process import plugins
 # pylint: enable=no-name-in-module, import-error
 
-import autoupdate
 import cherrypy_ext
 import health_checker
 
@@ -73,9 +64,6 @@ TELEMETRY_DEPS = ['dep-telemetry_dep.tar.bz2',
                   'dep-page_cycler_dep.tar.bz2',
                   'dep-chrome_test.tar.bz2',
                   'dep-perf_data_dep.tar.bz2']
-
-# Sets up global to share between classes.
-updater = None
 
 # Log rotation parameters.  These settings correspond to twice a day once
 # devserver is started, with about two weeks (28 backup files) of old logs
@@ -139,8 +127,12 @@ def _canonicalize_archive_url(archive_url):
     raise DevServerError('Must specify an archive_url in the request')
 
 
-def _canonicalize_local_path(local_path):
+def _canonicalize_local_path(local_path, static_dir):
   """Canonicalizes |local_path| strings.
+
+  Args:
+    local_path: The input path.
+    static_dir: Devserver's static cache directory.
 
   Raises:
     DevserverError: if |local_path| is not set.
@@ -148,10 +140,10 @@ def _canonicalize_local_path(local_path):
   # Restrict staging of local content to only files within the static
   # directory.
   local_path = os.path.abspath(local_path)
-  if not local_path.startswith(updater.static_dir):
+  if not local_path.startswith(static_dir):
     raise DevServerError(
         'Local path %s must be a subdirectory of the static'
-        ' directory: %s' % (local_path, updater.static_dir))
+        ' directory: %s' % (local_path, static_dir))
 
   return local_path.rstrip('/')
 
@@ -190,20 +182,21 @@ def _is_android_build_request(kwargs):
   return os_type == 'android'
 
 
-def _get_downloader(kwargs):
+def _get_downloader(static_dir, kwargs):
   """Returns the downloader based on passed in arguments.
 
   Args:
+    static_dir: Devserver's static cache directory.
     kwargs: Keyword arguments for the request.
   """
   local_path = kwargs.get('local_path')
   if local_path:
-    local_path = _canonicalize_local_path(local_path)
+    local_path = _canonicalize_local_path(local_path, static_dir)
 
   dl = None
   if local_path:
     delete_source = _parse_boolean_arg(kwargs, 'delete_source')
-    dl = downloader.LocalDownloader(updater.static_dir, local_path,
+    dl = downloader.LocalDownloader(static_dir, local_path,
                                     delete_source=delete_source)
 
   if not _is_android_build_request(kwargs):
@@ -217,7 +210,7 @@ def _get_downloader(kwargs):
     if not dl:
       archive_url = _canonicalize_archive_url(archive_url)
       dl = downloader.GoogleStorageDownloader(
-          updater.static_dir, archive_url,
+          static_dir, archive_url,
           downloader.GoogleStorageDownloader.GetBuildIdFromArchiveURL(
               archive_url))
   elif not dl:
@@ -227,20 +220,21 @@ def _get_downloader(kwargs):
     if not target or not branch or not build_id:
       raise DevServerError('target, branch, build ID must all be specified for '
                            'downloading Android build.')
-    dl = downloader.AndroidBuildDownloader(updater.static_dir, branch, build_id,
+    dl = downloader.AndroidBuildDownloader(static_dir, branch, build_id,
                                            target)
 
   return dl
 
 
-def _get_downloader_and_factory(kwargs):
+def _get_downloader_and_factory(static_dir, kwargs):
   """Returns the downloader and artifact factory based on passed in arguments.
 
   Args:
+    static_dir: Devserver's static cache directory.
     kwargs: Keyword arguments for the request.
   """
   artifacts, files = _get_artifacts(kwargs)
-  dl = _get_downloader(kwargs)
+  dl = _get_downloader(static_dir, kwargs)
 
   if (isinstance(dl, (downloader.GoogleStorageDownloader,
                       downloader.LocalDownloader))):
@@ -343,11 +337,6 @@ def _GetConfig(options):
       },
       '/build': {
           'response.timeout': 100000,
-      },
-      '/update': {
-          # Gets rid of cherrypy parsing post file for args.
-          'request.process_request_body': False,
-          'response.timeout': 10000,
       },
       # Sets up the static dir for file hosting.
       '/static': {
@@ -519,10 +508,11 @@ class DevServerRoot(object):
   # Lock used to lock increasing/decreasing count.
   _staging_thread_count_lock = threading.Lock()
 
-  def __init__(self, _xbuddy):
+  def __init__(self, _xbuddy, static_dir):
     self._builder = None
     self._telemetry_lock_dict = common_util.LockDict()
     self._xbuddy = _xbuddy
+    self._static_dir = static_dir
 
   @property
   def staging_thread_count(self):
@@ -561,7 +551,7 @@ class DevServerRoot(object):
     Returns:
       True of all artifacts are staged.
     """
-    dl, factory = _get_downloader_and_factory(kwargs)
+    dl, factory = _get_downloader_and_factory(self._static_dir, kwargs)
     response = str(dl.IsStaged(factory))
     _Log('Responding to is_staged %s request with %r', kwargs, response)
     return response
@@ -581,7 +571,7 @@ class DevServerRoot(object):
     Returns:
       A string with information about the contents of the image directory.
     """
-    dl = _get_downloader(kwargs)
+    dl = _get_downloader(self._static_dir, kwargs)
     try:
       image_dir_contents = dl.ListBuildDir()
     except build_artifact.ArtifactDownloadError as e:
@@ -643,7 +633,7 @@ class DevServerRoot(object):
         custom post-processing.
       clean: True to remove any previously staged artifacts first.
     """
-    dl, factory = _get_downloader_and_factory(kwargs)
+    dl, factory = _get_downloader_and_factory(self._static_dir, kwargs)
 
     with DevServerRoot._staging_thread_count_lock:
       DevServerRoot._staging_thread_count += 1
@@ -680,7 +670,7 @@ class DevServerRoot(object):
     if is_deprecated_server():
       raise DeprecatedRPCError('locate_file')
 
-    dl, _ = _get_downloader_and_factory(kwargs)
+    dl, _ = _get_downloader_and_factory(self._static_dir, kwargs)
     try:
       file_name = kwargs['file_name']
       artifacts = kwargs['artifacts']
@@ -714,7 +704,7 @@ class DevServerRoot(object):
     Returns:
       Path to the source folder for the telemetry codebase once it is staged.
     """
-    dl = _get_downloader(kwargs)
+    dl = _get_downloader(self._static_dir, kwargs)
 
     build_path = dl.GetBuildDir()
     deps_path = os.path.join(build_path, 'autotest/packages')
@@ -774,7 +764,7 @@ class DevServerRoot(object):
     # Try debug.tar.xz first, then debug.tgz
     for artifact in (artifact_info.SYMBOLS_ONLY, artifact_info.SYMBOLS):
       kwargs['artifacts'] = artifact
-      dl = _get_downloader(kwargs)
+      dl = _get_downloader(self._static_dir, kwargs)
 
       try:
         if self.stage(**kwargs) == 'Success':
@@ -845,7 +835,7 @@ class DevServerRoot(object):
 
     try:
       return common_util.GetLatestBuildVersion(
-          updater.static_dir, kwargs['target'],
+          self._static_dir, kwargs['target'],
           milestone=kwargs.get('milestone'))
     except common_util.CommonUtilError as errmsg:
       raise DevServerHTTPError(http_client.INTERNAL_SERVER_ERROR,
@@ -883,13 +873,13 @@ class DevServerRoot(object):
 
     control_file_list = [
         line.rstrip() for line in common_util.GetControlFileListForSuite(
-            updater.static_dir, kwargs['build'],
+            self._static_dir, kwargs['build'],
             kwargs['suite_name']).splitlines()]
 
     control_file_content_dict = {}
     for control_path in control_file_list:
       control_file_content_dict[control_path] = (common_util.GetControlFile(
-          updater.static_dir, kwargs['build'], control_path))
+          self._static_dir, kwargs['build'], control_path))
 
     return json.dumps(control_file_content_dict)
 
@@ -932,13 +922,13 @@ class DevServerRoot(object):
     if 'control_path' not in kwargs:
       if 'suite_name' in kwargs and kwargs['suite_name']:
         return common_util.GetControlFileListForSuite(
-            updater.static_dir, kwargs['build'], kwargs['suite_name'])
+            self._static_dir, kwargs['build'], kwargs['suite_name'])
       else:
         return common_util.GetControlFileList(
-            updater.static_dir, kwargs['build'])
+            self._static_dir, kwargs['build'])
     else:
       return common_util.GetControlFile(
-          updater.static_dir, kwargs['build'], kwargs['control_path'])
+          self._static_dir, kwargs['build'], kwargs['control_path'])
 
   @cherrypy.expose
   def xbuddy_translate(self, *args, **kwargs):
@@ -1073,7 +1063,7 @@ class DevServerRoot(object):
     """Shows the documentation for available methods / URLs.
 
     Examples:
-      http://myhost/doc/update
+      http://myhost/doc/xbuddy
     """
     if is_deprecated_server():
       raise DeprecatedRPCError('doc')
@@ -1085,51 +1075,6 @@ class DevServerRoot(object):
     if not method.__doc__:
       raise DevServerError("No documentation for exposed method `%s'" % name)
     return '<pre>\n%s</pre>' % method.__doc__
-
-  @cherrypy.expose
-  def update(self, *args, **kwargs):
-    """Handles an update check from a Chrome OS client.
-
-    The HTTP request should contain the standard Omaha-style XML blob. The URL
-    line may contain an additional intermediate path to the update payload.
-
-    This request can be handled in one of 4 ways, depending on the devsever
-    settings and intermediate path.
-
-    1. No intermediate path. DEPRECATED
-
-    2. Path explicitly invokes XBuddy
-    If there is a path given, it can explicitly invoke xbuddy by prefixing it
-    with 'xbuddy'. This path is then used to acquire an image binary for the
-    devserver to generate an update payload from. Devserver then serves this
-    payload.
-
-    3. Path is left for the devserver to interpret.
-    If the path given doesn't explicitly invoke xbuddy, devserver will attempt
-    to generate a payload from the test image in that directory and serve it.
-
-    Examples:
-      2. Explicitly invoke xbuddy
-      update_engine_client --omaha_url=
-      http://myhost/update/xbuddy/remote/board/version/dev
-      This would go to GS to download the dev image for the board, from which
-      the devserver would generate a payload to serve.
-
-      3. Give a path for devserver to interpret
-      update_engine_client --omaha_url=http://myhost/update/some/random/path
-      This would attempt, in order to:
-        a) Generate an update from a test image binary if found in
-           static_dir/some/random/path.
-        b) Serve an update payload found in static_dir/some/random/path.
-        c) Hope that some/random/path takes the form "board/version" and
-           and attempt to download an update payload for that board/version
-           from GS.
-    """
-    label = '/'.join(args)
-    body_length = int(cherrypy.request.headers.get('Content-Length', 0))
-    data = cherrypy.request.rfile.read(body_length)
-
-    return updater.HandleUpdatePing(data, label, **kwargs)
 
 
 def _CleanCache(cache_dir, wipe):
@@ -1278,15 +1223,10 @@ def main():
   if options.clear_cache and options.xbuddy_manage_builds:
     _xbuddy.CleanCache()
 
-  # We allow global use here to share with cherrypy classes.
-  # pylint: disable=W0603
-  global updater
-  updater = autoupdate.Autoupdate(_xbuddy, static_dir=options.static_dir)
-
   if options.exit:
     return
 
-  dev_server = DevServerRoot(_xbuddy)
+  dev_server = DevServerRoot(_xbuddy, options.static_dir)
   health_checker_app = health_checker.Root(dev_server, options.static_dir)
 
   if options.pidfile:
