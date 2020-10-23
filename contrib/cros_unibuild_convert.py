@@ -753,7 +753,7 @@ def main(argv):
       'chromeos-base/chromeos-config-bsp-private/chromeos-config-bsp-private-9999.ebuild',
       private_bsp_ebuild)
   write_file(overlays.firmware_ebuild_path, firmware_ebuild)
-  write_file(firmware_srcuris_path, firmware_srcuris)
+  write_file(firmware_srcuris_path, ''.join('{}\n'.format(uri) for uri in firmware_srcuris.split()))
   write_file(overlays.public_make_defaults_file, public_make_defaults)
   write_file(overlays.private_make_defaults_file, private_make_defaults)
 

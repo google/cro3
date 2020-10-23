@@ -123,12 +123,13 @@ update_firmware() {
     for uri in $(cros_config_host -c "${yaml_config}" get-firmware-uris); do
       if ! grep -q "${uri}" "${srcuris}"; then
         # Append uri to the last line of srcuris (srcuris should be a file with
-        # a single line). Escape slashes in uri.
-        sed -i "$ s/$/ ${uri//\//\\/}/" "${srcuris}"
+        # one line per-uri).
+        echo "${uri}" >> "${srcuris}"
       fi
     done
   else
-    cros_config_host -c "${yaml_config}" get-firmware-uris > "${srcuris}"
+    # Put each uri on its own line for easier merging in git.
+    cros_config_host -c "${yaml_config}" get-firmware-uris | tr ' ' '\n' > "${srcuris}"
   fi
 
   touch "${ebuild}"
