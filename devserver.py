@@ -44,6 +44,7 @@ import health_checker
 # anything from chromite.  Otherwise, really bad things will happen, and
 # you will _not_ understand why.
 import setup_chromite  # pylint: disable=unused-import
+from chromite.lib import cros_build_lib
 from chromite.lib.xbuddy import android_build
 from chromite.lib.xbuddy import artifact_info
 from chromite.lib.xbuddy import build_artifact
@@ -724,8 +725,8 @@ class DevServerRoot(object):
           # This dep does not exist (could be new), do not extract it.
           continue
         try:
-          common_util.ExtractTarball(dep_path, telemetry_path)
-        except common_util.CommonUtilError as e:
+          cros_build_lib.ExtractTarball(dep_path, telemetry_path)
+        except cros_build_lib.TarballError as e:
           shutil.rmtree(telemetry_path)
           raise DevServerError(str(e))
 
