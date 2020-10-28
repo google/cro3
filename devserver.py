@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright (c) 2009-2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -643,8 +643,7 @@ class DevServerRoot(object):
       if clean and os.path.exists(dl.GetBuildDir()):
         _Log('Removing %s' % dl.GetBuildDir())
         shutil.rmtree(dl.GetBuildDir())
-      is_async = kwargs.get('async', False)
-      dl.Download(factory, is_async=is_async)
+      dl.Download(factory)
     finally:
       with DevServerRoot._staging_thread_count_lock:
         DevServerRoot._staging_thread_count -= 1
