@@ -151,7 +151,7 @@ def main(args):
 
     print()
     print('BRANCH=none')
-    bugs = [f'b:{bug}' if bug >= 1e9 else f'chromium:{bug}'
+    bugs = [f'b:{bug}' if bug >= 1e8 else f'chromium:{bug}'
             for bug in sorted(bugs)]
     line_bugs = []
     length = len('BUG=')
