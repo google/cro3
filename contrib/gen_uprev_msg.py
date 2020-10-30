@@ -122,7 +122,7 @@ def main(args):
     # Output
     if changes:
         title = (f'chromeos-firmware-{board}: '
-                 'Uprev firmware to {changes[1]} for {board}')
+                 f'Uprev firmware to {changes[1]} for {board}')
         print(title)
         print()
 
