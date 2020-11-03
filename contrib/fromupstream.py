@@ -25,6 +25,7 @@ import xmlrpc.client
 errprint = functools.partial(print, file=sys.stderr)
 
 # pylint: disable=line-too-long
+# Note: Do not include trailing / in any of these
 UPSTREAM_URLS = (
     'git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
     'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
@@ -106,7 +107,7 @@ def _find_upstream_remote(urls):
     """Find a remote pointing to an upstream repository."""
     for remote in _git(['remote']).splitlines():
         try:
-            if _git(['remote', 'get-url', remote]) in urls:
+            if _git(['remote', 'get-url', remote]).rstrip('/') in urls:
                 return remote
         except subprocess.CalledProcessError:
             # Kinda weird, get-url failing on an item that git just gave us.
