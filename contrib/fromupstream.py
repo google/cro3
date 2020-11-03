@@ -521,7 +521,17 @@ def main(args):
         (re.compile(r'^(https://.+)/commit/\?h=(.+)\&id=([0-9a-f]+)$'), _match_gitweb),
     )
 
+    # Backup user provided parameters
+    user_source_line = args['source_line']
+    user_tag = args['tag']
+    user_changeid = args['changeid']
+
     for location in args['locations']:
+        # Restore user parameters
+        args['source_line'] = user_source_line
+        args['tag'] = user_tag
+        args['changeid'] = user_changeid
+
         if args['debug']:
             print('location=%s' % location)
 
