@@ -14,6 +14,13 @@ if [[ ! -e /etc/cros_chroot_version ]]; then
   exit 1
 fi
 
+if ! hash gen_config 2>/dev/null; then
+  echo "gen_config is not on your PATH."
+  echo "Run the following before continuing:"
+  echo "echo 'export PATH=\$PATH:~/trunk/src/config/bin' >> ~/.bashrc && source ~/.bashrc"
+  exit 1
+fi
+
 if [[ "$#" -lt 2 ]]; then
   echo "Usage: ${SCRIPT} base_name variant_name [bug_number]"
   echo "e.g. ${SCRIPT} puff wyvern b:158269582"
