@@ -224,6 +224,9 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
         coreboot_base is Hatch because Puff is based on Hatch.
     * coreboot_dir - base directory for coreboot, usually third_party/coreboot
         but could differ for processors that use a private repo
+    * coreboot_reference - the name of the reference board that we're using to
+        make the variant. This can be different from base (e.g. Ambassador is
+        its own board, but uses Puff as a coreboot reference).
     * cb_config_dir - base directory for coreboot configs, usually
         third_party/chromiumos-overlay/sys-boot/coreboot/files/configs but
         could differ for processors that use a private repo
@@ -337,6 +340,7 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     status.base                 = module.base
     status.coreboot_base        = getattr(module, 'coreboot_base', module.base)
     status.coreboot_dir         = module.coreboot_dir
+    status.coreboot_reference   = getattr(module, 'coreboot_reference', status.board)
     status.cb_config_dir        = getattr(module, 'cb_config_dir', None)
     status.emerge_cmd           = module.emerge_cmd
     status.emerge_pkgs          = module.emerge_pkgs
@@ -697,7 +701,7 @@ def create_coreboot_variant(status):
     rc = run_process(
         [create_coreboot_variant_sh,
         status.coreboot_base,
-        status.board,
+        status.coreboot_reference,
         status.variant,
         status.bug], env=environ)
     if rc:
@@ -728,7 +732,7 @@ def create_coreboot_config(status):
     rc = run_process(
         [create_coreboot_config_sh,
         status.base,
-        status.board,
+        status.coreboot_reference,
         status.variant,
         status.bug], env=environ)
     if rc:
