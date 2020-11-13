@@ -651,6 +651,19 @@ class NebraskaTest(NebraskaBaseTest):
     update_check = ElementTree.fromstring(response).find('app/updatecheck')
     self.assertEqual(update_check.attrib['status'], 'noupdate')
 
+  def testIgnoreAppDataAppID(self):
+    """Tests ignoring appid."""
+    self.GenerateAppData(appid='bar')
+    neb_props = nebraska.NebraskaProperties(
+        update_metadata_dir=self.tempdir,
+        update_payloads_address=_PAYLOADS_ADDRESS, ignore_appid=True)
+    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    request = GenerateXMLRequest([GenerateXMLAppRequest(appid='foo')])
+    response = neb.GetResponseToRequest(nebraska.Request(request))
+
+    update_check = ElementTree.fromstring(response).find('app/updatecheck')
+    self.assertEqual(update_check.attrib['status'], 'ok')
+
   def testMatchCanaryAppId(self):
     """Tests matching update request with canary appid."""
     self.GenerateAppData(appid='1' * len(nebraska._CANARY_APP_ID) + 'foo')

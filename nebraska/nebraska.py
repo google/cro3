@@ -307,7 +307,7 @@ class Request(object):
         raise InvalidRequestError('Invalid app request.')
 
     def MatchAppData(self, app_data, partial_match_appid=False,
-                     check_against_canary=False):
+                     check_against_canary=False, ignore_appid=False):
       """Returns true iff the app matches a given client request.
 
       An app matches a request if the appid matches the requested appid.
@@ -325,11 +325,12 @@ class Request(object):
             properties file. But the good news is that there is only one canary
             App ID for all devices. Turning this flag on, checks the incoming
             request against the presumed canary App ID.
+        ignore_appid: If true, don't check the App ID and assume a match.
 
       Returns:
         True if the request matches the given app, False otherwise.
       """
-      if self.appid != app_data.appid:
+      if not ignore_appid and self.appid != app_data.appid:
         if partial_match_appid:
           if app_data.appid not in self.appid:
             return False
@@ -456,7 +457,8 @@ class Response(object):
 
       elif self._app_request.request_type == Request.RequestType.UPDATE:
         self._app_data = nebraska_props.update_app_index.Find(
-            self._app_request, matched_apps, self._response_props.full_payload)
+            self._app_request, matched_apps, self._response_props.full_payload,
+            nebraska_props.ignore_appid)
         self._payloads_address = nebraska_props.update_payloads_address
 
       if self._app_data:
@@ -600,7 +602,7 @@ class AppIndex(object):
           raise
         logging.debug('Found app data: %s', str(app))
 
-  def Find(self, request, matched_apps, full_payload):
+  def Find(self, request, matched_apps, full_payload, ignore_appid=False):
     """Search the index for a given appid.
 
     Searches the index for the payloads matching a client request. Matching is
@@ -612,6 +614,8 @@ class AppIndex(object):
       matched_apps: The set of app data that have been matched already.
       full_payload: True if we want full payload, False if delta payload, None
         if we don't care.
+      ignore_appid: True to ignore the request's App ID and use the first
+        available app.
 
     Returns:
       An AppData object describing an available payload matching the client
@@ -639,6 +643,10 @@ class AppIndex(object):
       # partial match.
       matches = [app_data for app_data in self._index if
                  request.MatchAppData(app_data, partial_match_appid=True)]
+
+    if not matches and ignore_appid:
+      matches = [app_data for app_data in self._index if
+                 request.MatchAppData(app_data, ignore_appid=True)]
 
     # Now remove App ID matches that have already been matched by other
     # requests.
@@ -754,7 +762,8 @@ class NebraskaProperties(object):
                update_payloads_address=None,
                install_payloads_address=None,
                update_metadata_dir=None,
-               install_metadata_dir=None):
+               install_metadata_dir=None,
+               ignore_appid=False):
     """Initializes the NebraskaProperties instance.
 
     Args:
@@ -763,6 +772,8 @@ class NebraskaProperties(object):
            is passed it will default to update_payloads_address.
       update_metadata_dir: Update payloads metadata directory.
       install_metadata_dir: Install payloads metadata directory.
+      ignore_appid: True to ignore the request's App ID and use the first
+        available app.
     """
     # Attach '/' at the end of the addresses if they don't have any. The update
     # engine just concatenates the base address with the payload file name and
@@ -774,6 +785,7 @@ class NebraskaProperties(object):
         self.update_payloads_address)
     self.update_app_index = AppIndex(update_metadata_dir)
     self.install_app_index = AppIndex(install_metadata_dir)
+    self.ignore_appid = ignore_appid
 
 
 class ResponseProperties(object):
@@ -1100,6 +1112,9 @@ def ParseArguments(argv):
   parser.add_argument('--install-payloads-address', metavar='URL',
                       help='Base payload URI for install payloads. If not '
                       'passed it will default to --update-payloads-address')
+  parser.add_argument('--ignore-appid', action='store_true',
+                      help='Ignore the App ID field of incoming requests and '
+                      'use whichever app is available.')
 
   parser.add_argument('--port', metavar='PORT', type=int, default=0,
                       help='Port to run the server on.')
@@ -1134,7 +1149,8 @@ def main(argv):
       update_payloads_address=opts.update_payloads_address,
       install_payloads_address=opts.install_payloads_address,
       update_metadata_dir=opts.update_metadata,
-      install_metadata_dir=opts.install_metadata)
+      install_metadata_dir=opts.install_metadata,
+      ignore_appid=opts.ignore_appid)
   nebraska = Nebraska(nebraska_props)
   nebraska_server = NebraskaServer(nebraska, runtime_root=opts.runtime_root,
                                    port=opts.port)
