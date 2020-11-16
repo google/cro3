@@ -180,7 +180,7 @@ def _pick_patchwork(url, patch_id, args):
         args['tag'] = 'FROMLIST: '
 
     try:
-        opener = urllib.request.urlopen('%s/patch/%d/mbox' % (url, patch_id))
+        opener = urllib.request.urlopen('%s/patch/%s/mbox' % (url, patch_id))
     except urllib.error.HTTPError as e:
         errprint('Error: could not download patch: %s' % e)
         sys.exit(1)
@@ -193,7 +193,7 @@ def _pick_patchwork(url, patch_id, args):
     message_id = mailbox.Message(patch_contents)['Message-Id']
     message_id = re.sub('^<|>$', '', message_id.strip())
     if args['source_line'] is None:
-        args['source_line'] = '(am from %s/patch/%d/)' % (url, patch_id)
+        args['source_line'] = '(am from %s/patch/%s/)' % (url, patch_id)
         for url_template in [
             'https://lore.kernel.org/r/%s',
             # hostap project (and others) are here, but not kernel.org.
@@ -239,10 +239,10 @@ def _pick_patchwork(url, patch_id, args):
 def _match_patchwork(match, args):
     """Match location: pw://### or pw://PROJECT/###."""
     pw_project = match.group(2)
-    patch_id = int(match.group(3))
+    patch_id = match.group(3)
 
     if args['debug']:
-        print('_match_patchwork: pw_project=%s, patch_id=%d' %
+        print('_match_patchwork: pw_project=%s, patch_id=%s' %
               (pw_project, patch_id))
 
     url = _get_pw_url(pw_project)
@@ -511,7 +511,7 @@ def main(args):
         pprint.pprint(args)
 
     re_matches = (
-        (re.compile(r'^pw://(([^/]+)/)?(\d+)'), _match_patchwork),
+        (re.compile(r'^pw://(([^/]+)/)?(.+)'), _match_patchwork),
         (re.compile(r'^msgid://<?([^>]*)>?'), _match_msgid),
         (re.compile(r'^linux://([0-9a-f]+)'), _match_upstream),
         (re.compile(r'^upstream://([0-9a-f]+)'), _match_upstream),
