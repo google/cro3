@@ -28,7 +28,7 @@ kdmx_pid=
 FLAGS_HELP='dut-control [flags]
 
 Opens CPU/EC servo console using "cu", outputs to both terminal, and an output
-file named "log-${type}[-${port}]" in the current directory.
+file named "log-${type}[-${port}].log" in the current directory.
 
 The recommended way to use this is to setup an alias, e.g. add this in your
 .bashrc (outside the chroot):
@@ -106,6 +106,7 @@ main() {
   if [[ -n "${FLAGS_port}" ]]; then
     outlog="${outlog}-${FLAGS_port}"
   fi
+  outlog="${outlog}.log"
 
   if [[ "${FLAGS_kdmx}" -eq "${FLAGS_TRUE}" ]]; then
     if ! hash kdmx; then
