@@ -31,8 +31,9 @@ Once the scripts are done, the following repos have changes
 * private-overlays/overlay-hatch-private
 * overlays
 
-The program has support for multiple reference boards, so the repos, directories,
-and scripts above can change depending on what the reference board is.
+The program has support for multiple reference boards, so the repos,
+directories, and scripts above can change depending on what the reference
+board is.
 """
 
 from __future__ import print_function
@@ -117,7 +118,7 @@ def get_args():
         '--variant', type=str, help='Name of the new variant to create')
     parser.add_argument(
         '--bug', type=str, help='Bug number to reference in commits')
-    # Use a group so that we can enforce mutually-exclusive argurments.
+    # Use a group so that we can enforce mutually-exclusive arguments.
     # argparse does not support nesting groups, so we can't put board,
     # variant, and bug into a group and have that group as another mutually
     # exclusive option.
@@ -335,12 +336,11 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
         print('Unsupported board "' + board + '"')
         sys.exit(1)
 
-    # pylint: disable=bad-whitespace
-    # Allow extra spaces around = so that we can line things up nicely
     status.base                 = module.base
     status.coreboot_base        = getattr(module, 'coreboot_base', module.base)
     status.coreboot_dir         = module.coreboot_dir
-    status.coreboot_reference   = getattr(module, 'coreboot_reference', status.board)
+    status.coreboot_reference   = getattr(module, 'coreboot_reference',
+                                          status.board)
     status.cb_config_dir        = getattr(module, 'cb_config_dir', None)
     status.emerge_cmd           = module.emerge_cmd
     status.emerge_pkgs          = module.emerge_pkgs
@@ -356,7 +356,6 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     status.coreboot_push_list   = module.coreboot_push_list
     status.repo_upload_list     = module.repo_upload_list
     status.depends              = module.depends
-    # pylint: enable=bad-whitespace
 
     # Start at the first entry in the step list
     status.step = status.step_list[0]
@@ -555,8 +554,8 @@ def get_commit_msg(git_repo, rev):
     try:
         msg = git.Log(git_repo, max_count=1, format='format:%B', rev=rev)
         return msg.splitlines()
-    except cros_build_lib.CalledProcessError:
-        raise ValueError('SHA was not found')
+    except cros_build_lib.CalledProcessError as err:
+        raise ValueError('SHA was not found') from err
 
 
 def emerge_with_workon(status, workon_pkgs, emerge_cmd, emerge_pkgs, env=None):
@@ -628,7 +627,7 @@ def project_config(status):
     try:
         if not emerge_with_workon(status, status.config_workon_pkgs,
                                   status.emerge_cmd, status.config_emerge_pkgs):
-            raise RuntimeError(f'Building the configuration failed.')
+            raise RuntimeError('Building the configuration failed.')
 
         # Make sure project-config.json exists in the /build tree
         emerged_json = os.path.join(
@@ -677,7 +676,8 @@ def fw_build_config(status):
         status.bug])
     if rc:
         status.commits[step_names.FW_BUILD_CONFIG] = get_git_commit_data(
-            os.path.join('/mnt/host/source/src/project', status.base, status.variant))
+            os.path.join('/mnt/host/source/src/project',
+                         status.base, status.variant))
     return rc
 
 
@@ -738,11 +738,11 @@ def create_coreboot_config(status):
     if rc:
         # Use status.cb_config_dir if defined, or if not, use
         # '/mnt/host/source/src/third_party/chromiumos-overlay'
-        if status.cb_config_dir is not None:
-            cb_config_dir = os.path.join('/mnt/host/source/src/', status.cb_config_dir)
-        else:
-            cb_config_dir = '/mnt/host/source/src/third_party/chromiumos-overlay'
-        status.commits[step_names.CB_CONFIG] = get_git_commit_data(cb_config_dir)
+        cb_config_dir = os.path.join(
+            '/mnt/host/source/src/',
+            status.cb_config_dir or 'third_party/chromiumos-overlay')
+        status.commits[step_names.CB_CONFIG] = get_git_commit_data(
+            cb_config_dir)
     return rc
 
 
@@ -751,9 +751,8 @@ def copy_cras_config(status):
 
     This is only necessary for the Zork baseboard right now.
     This function calls copy_cras_config.sh, which will copy the
-    cras config in
-    overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE}/files/cras-config/${BASE}
-    to .../${VARIANT}
+    cras config in overlays/overlay-${BASE}/chromeos-base/\
+    chromeos-bsp-${BASE}/files/cras-config/${BASE} to .../${VARIANT}
 
     Args:
         status: variant_status object tracking our board, variant, etc.
@@ -801,7 +800,8 @@ def add_fitimage(status):
         status.bug])
     if rc:
         fitimage_dir = os.path.join('/mnt/host/source/src', status.fitimage_dir)
-        status.commits[step_names.COMMIT_FIT] = get_git_commit_data(fitimage_dir)
+        status.commits[step_names.COMMIT_FIT] = get_git_commit_data(
+            fitimage_dir)
     return rc
 
 
@@ -829,12 +829,16 @@ def gen_fit_image_outside_chroot(status):
     logging.error('The following files need to be generated:')
     for filename in fit_image_files:
         logging.error('* %s', filename)
-    logging.error('The fitimage sources are ready for gen_fit_image.sh to process.')
-    logging.error('gen_fit_image.sh cannot run inside the chroot. Please open a new terminal')
-    logging.error('window, change to the directory where gen_fit_image.sh is located, and run')
+    logging.error(
+        'The fitimage sources are ready for gen_fit_image.sh to process.')
+    logging.error(
+        'gen_fit_image.sh cannot run inside the chroot. Open a new terminal,')
+    logging.error(
+        'change to the directory where gen_fit_image.sh is located, and run')
     logging.error(status.fitimage_cmd, status.variant)
     logging.error('Then re-start this program with --continue.')
-    logging.error('If your chroot is based in ~/chromiumos, then the folder you want is')
+    logging.error(
+        'If your chroot is based in ~/chromiumos, then the folder you want is')
     logging.error('~/chromiumos/src/%s/asset_generation', status.fitimage_dir)
     return False
 
@@ -890,7 +894,8 @@ def commit_fitimage(status):
     """
     logging.info('Running step commit_fitimage')
     commit_fitimage_sh = os.path.expanduser(os.path.join(
-        '/mnt/host/source/src', status.fitimage_dir, 'files/commit_fitimage.sh'))
+        '/mnt/host/source/src', status.fitimage_dir,
+        'files/commit_fitimage.sh'))
     return run_process([commit_fitimage_sh, status.variant])
 
 
@@ -993,13 +998,15 @@ def add_variant_to_private_yaml(status):
         True if the script succeeded, False is something failed
     """
     logging.info('Running step add_variant_to_private_yaml')
-    add_variant_sh = os.path.expanduser(os.path.join(status.private_yaml_dir, 'add_variant.sh'))
+    add_variant_sh = os.path.expanduser(os.path.join(status.private_yaml_dir,
+                                                     'add_variant.sh'))
     rc = run_process(
         [add_variant_sh,
         status.variant,
         status.bug])
     if rc:
-        status.commits[step_names.ADD_PRIV_YAML] = get_git_commit_data(status.private_yaml_dir)
+        status.commits[step_names.ADD_PRIV_YAML] = get_git_commit_data(
+            status.private_yaml_dir)
     return rc
 
 
@@ -1103,7 +1110,8 @@ def push_coreboot(status):
                 save_cl_data(status, commit_key, cl)
             else:
                 logging.debug('Not found %s, need to upload', change_id)
-                logging.error('The following commit needs to be pushed to coreboot.org:')
+                logging.error(
+                    'The following commit needs to be pushed to coreboot.org:')
                 logging.error('  Branch "%s"', commit['branch_name'])
                 logging.error('  in directory "%s"', commit['dir'])
                 logging.error('  with change-id "%s"', commit['change_id'])
@@ -1274,8 +1282,9 @@ def upload_CLs(status):
                     return False
                 cl = find_change_id(change_id)
                 if cl is None:
-                    logging.error('repo upload %s succeeded, but change_id is not found!',
-                                  commit_key)
+                    logging.error(
+                        'repo upload %s succeeded, but change_id is not found!',
+                        commit_key)
                     return False
                 save_cl_data(status, commit_key, cl)
         else:
@@ -1287,11 +1296,11 @@ def upload_CLs(status):
 
 
 def find_coreboot_upstream(status):
-    """Find the coreboot CL after it has been upstreamed to chromiumos
+    """Find the upstream coreboot CL in chromiumos
 
     When the coreboot variant CL is first uploaded to review.coreboot.org,
     it is not visible in the chromiumos tree (and also cannot be used as
-    a target for cq-depend). There is a process for upstreaming CLs from
+    a target for cq-depend). There is a process for upstream CLs from
     coreboot after they have been reviewed, approved, and merged. We can
     track a specific coreboot CL if we know the change-id that it used on
     the coreboot gerrit instance, by looking for that change-id as
@@ -1340,12 +1349,12 @@ def find_coreboot_upstream(status):
     upstream = cros.Query(**gerrit_query_args)
     # If nothing is found, the patch hasn't been upstreamed yet
     if not upstream:
-        logging.error('Program cannot continue until coreboot CL is upstreamed.')
+        logging.error('Program cannot continue without upstream coreboot CL.')
         logging.error('(coreboot:%s, change-id %s)',
             status.commits[step_names.CB_VARIANT]['cl_number'],
             status.commits[step_names.CB_VARIANT]['change_id'])
-        logging.error('Please wait for the CL to be upstreamed, then run this'
-                      ' program again with --continue')
+        logging.error('Please wait for the upstream CL, then run this program'
+                      ' again with --continue')
         return False
 
     # If more than one CL is found, something is very wrong

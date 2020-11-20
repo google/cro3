@@ -42,7 +42,8 @@ fsp = 'intel-jslfsp'
 # Package name for the fitimage
 fitimage_pkg = 'coreboot-private-files-baseboard-dedede'
 
-# Directory for fitimage; append '~/trunk/src/'' in chroot, '~/chromiumos/src' outside
+# Directory for fitimage; append '~/trunk/src/'' in chroot, '~/chromiumos/src'
+# outside
 fitimage_dir = 'private-overlays/baseboard-dedede-private/sys-boot/'\
     'coreboot-private-files-baseboard-dedede'
 
