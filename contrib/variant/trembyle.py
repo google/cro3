@@ -21,7 +21,6 @@ step_list = [
     step_names.CB_CONFIG,
     step_names.CRAS_CONFIG,
     step_names.EC_IMAGE,
-    step_names.EC_BUILDALL,
     step_names.EMERGE,
     step_names.PUSH,
     step_names.FIND,

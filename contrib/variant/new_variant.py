@@ -904,9 +904,7 @@ def create_initial_ec_image(status):
 
     This function calls create_initial_ec_image.sh, which will clone the
     reference board to create the variant. The shell script will build the
-    EC code for the variant, but the repo upload hook insists that we
-    have done a `make buildall` before it will allow an upload, so this
-    function does the buildall.
+    EC code for the variant.
 
     Args:
         status: variant_status object tracking our board, variant, etc.
@@ -941,22 +939,25 @@ def create_initial_ec_image(status):
 
 
 def ec_buildall(status):
-    """Do a make buildall -j for the EC, which is required for repo upload
+    """Deprecated function that used to do a make buildall -j for the EC
 
-    The upload hook checks to ensure that the entire EC codebase builds
-    without error, so we have to run make buildall -j before uploading.
+    The EC repo upload hook used to require a make buildall -j before
+    uploading. As of crrev.com/c/2436379 this requirement has been removed,
+    so this step is no longer necessary.
+
+    This function still exists so that if someone has a new variant already
+    in progress and they update new_variant.py, it won't break. Eventually,
+    this function will be removed completely.
 
     Args:
         status: variant_status object tracking our board, variant, etc.
 
     Returns:
-        True if the script and test build succeeded, False if something failed
+        True
     """
-    logging.info('Running step ec_buildall')
+    logging.info('Running deprecated step ec_buildall')
     del status  # unused parameter
-    ec = '/mnt/host/source/src/platform/ec'
-    logging.debug('ec = "%s"', ec)
-    return run_process(['make', 'buildall', '-j'], cwd=ec)
+    return True
 
 
 def add_variant_to_public_yaml(status):

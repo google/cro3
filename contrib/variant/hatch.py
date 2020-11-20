@@ -21,7 +21,6 @@ step_list = [
     step_names.GEN_FIT,
     step_names.COMMIT_FIT,
     step_names.EC_IMAGE,
-    step_names.EC_BUILDALL,
     step_names.ADD_PUB_YAML,
     step_names.ADD_PRIV_YAML,
     step_names.BUILD_CONFIG,
