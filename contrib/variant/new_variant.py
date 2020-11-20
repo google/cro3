@@ -66,12 +66,12 @@ def main():
     * --continue
     * --board=BOARD --variant=VARIANT [--bug=BUG]
     """
-    board, variant, bug, continue_flag, abort_flag = get_args()
+    board, variant, bug, branch, continue_flag, abort_flag = get_args()
 
     if not check_flags(board, variant, bug, continue_flag, abort_flag):
         return False
 
-    status = get_status(board, variant, bug, continue_flag, abort_flag)
+    status = get_status(board, variant, bug, branch, continue_flag, abort_flag)
     if status is None:
         return False
 
@@ -118,6 +118,8 @@ def get_args():
         '--variant', type=str, help='Name of the new variant to create')
     parser.add_argument(
         '--bug', type=str, help='Bug number to reference in commits')
+    parser.add_argument(
+        '--branch', type=str, help='Value for BRANCH= in commit messages')
     # Use a group so that we can enforce mutually-exclusive arguments.
     # argparse does not support nesting groups, so we can't put board,
     # variant, and bug into a group and have that group as another mutually
@@ -148,8 +150,9 @@ def get_args():
         variant = variant.lower()
 
     bug = args.bug or 'None'
+    branch = args.branch or 'None'
 
-    return (board, variant, bug, args.continue_flag, args.abort_flag)
+    return (board, variant, bug, branch, args.continue_flag, args.abort_flag)
 
 
 def check_flags(board, variant, bug, continue_flag, abort_flag):
@@ -193,7 +196,7 @@ def check_flags(board, variant, bug, continue_flag, abort_flag):
     return True
 
 
-def get_status(board, variant, bug, continue_flag, abort_flag):
+def get_status(board, variant, bug, branch, continue_flag, abort_flag):
     """Create the status file or get the previous status
 
     This program can stop at several places as we have to wait for CLs
@@ -263,6 +266,9 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     * bug - optional text for a bug ID, used in the git commit messages.
         Could be 'None' (as text, not the python None), or something like
         'b:12345' for buganizer, or 'chromium:12345'
+    * branch - optional text for a BRANCH= value in the commit message for
+        repos that use the BRANCH field (coreboot and EC). If not specified,
+        then None.
     * step - internal state tracking, what step of the variant creation
         we are at.
     * yaml_file - internal, just the name of the file where all this data
@@ -295,6 +301,7 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
         board: Name of the reference board
         variant: Name of the variant being created
         bug: Text for bug number, if any ('None' otherwise)
+        branch: Text for a BRANCH= value in the commit message (or 'None')
         continue_flag: Flag if --continue was specified
         abort_flag: Flag if --abort was specified
 
@@ -328,6 +335,7 @@ def get_status(board, variant, bug, continue_flag, abort_flag):
     status.board = board
     status.variant = variant
     status.bug = bug
+    status.branch = branch
 
     # Load the appropriate module and copy all the data from it.
     try:
@@ -695,7 +703,8 @@ def create_coreboot_variant(status):
     """
     logging.info('Running step create_coreboot_variant')
     cb_src_dir = os.path.join('/mnt/host/source/src/', status.coreboot_dir)
-    environ = {**os.environ, 'CB_SRC_DIR': cb_src_dir}
+    environ = {**os.environ, 'CB_SRC_DIR': cb_src_dir,
+               'NEW_VARIANT_BRANCH': status.branch}
     create_coreboot_variant_sh = os.path.join(status.my_loc,
         'create_coreboot_variant.sh')
     rc = run_process(
@@ -913,13 +922,14 @@ def create_initial_ec_image(status):
         True if the script and test build succeeded, False if something failed
     """
     logging.info('Running step create_initial_ec_image')
+    environ = {**os.environ, 'NEW_VARIANT_BRANCH': status.branch}
     create_initial_ec_image_sh = os.path.join(status.my_loc,
         'create_initial_ec_image.sh')
     if not run_process(
         [create_initial_ec_image_sh,
         status.board,
         status.variant,
-        status.bug]):
+        status.bug], env=environ):
         return False
 
     # No need to `if rc:` because we already tested the run_process result above
