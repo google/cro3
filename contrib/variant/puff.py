@@ -49,6 +49,9 @@ fitimage_pkg = 'coreboot-private-files-puff'
 # Directory for fitimage; append '~/trunk/src/'' in chroot, '~/chromiumos/src' outside
 fitimage_dir = 'private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff'
 
+# Directory under fitimage_dir where gen_fit_image.sh leaves its outputs
+fitimage_outputs_dir = 'asset_generation/outputs'
+
 # Explanation of gen_fit_image command
 fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> -b'
 

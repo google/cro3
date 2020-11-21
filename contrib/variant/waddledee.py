@@ -46,6 +46,9 @@ fitimage_pkg = 'coreboot-private-files-baseboard-dedede'
 fitimage_dir = 'private-overlays/baseboard-dedede-private/sys-boot/'\
     'coreboot-private-files-baseboard-dedede'
 
+# Directory under fitimage_dir where gen_fit_image.sh leaves its outputs
+fitimage_outputs_dir = 'files/blobs'
+
 # Explanation of gen_fit_image command
 fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> -b'
 

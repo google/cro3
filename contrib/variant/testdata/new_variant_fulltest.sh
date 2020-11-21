@@ -94,7 +94,11 @@ case "${REFERENCE}" in
     OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-dedede-private/chromeos-base/chromeos-config-bsp-dedede-private
     EBUILD=chromeos-config-bsp-dedede-private-9999.ebuild
     FITIMAGE=drawcia
-    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-dedede-private/sys-boot/coreboot-private-files-baseboard-dedede/asset_generation/outputs
+    # FITIMAGE_OUTPUTS_DIR and FITIMAGE_FILES_DIR are supposed to be the same;
+    # gen_fit_image.sh moves the generated files from asset_generation/outputs
+    # to files/blobs, so we have to put our fake fitimage files in files/blobs
+    # for commit_fitimage.sh to find there.
+    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-dedede-private/sys-boot/coreboot-private-files-baseboard-dedede/files/blobs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-dedede-private/sys-boot/coreboot-private-files-baseboard-dedede/files/blobs
     ;;
 

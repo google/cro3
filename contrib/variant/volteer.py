@@ -46,6 +46,9 @@ fitimage_pkg = 'coreboot-private-files-baseboard-volteer'
 fitimage_dir = 'private-overlays/baseboard-volteer-private/sys-boot/'\
     'coreboot-private-files-baseboard-volteer'
 
+# Directory under fitimage_dir where gen_fit_image.sh leaves its outputs
+fitimage_outputs_dir = 'asset_generation/outputs'
+
 # Explanation of gen_fit_image command
 fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> -b'
 

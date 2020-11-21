@@ -241,6 +241,8 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
     * fitimage_pkg - package name for the fitimage
     * fitimage_dir - directory for fitimage; prepend '/mnt/host/source/src/'
         in chroot, prepend '~/chromiumos/src' outside the chroot
+    * fitimage_outputs_dir - directory under fitimage_dir where gen_fit_image.sh
+        leaves its outputs
     * workon_pkgs - list of packages to cros_workon
     * emerge_cmd - the emerge command, e.g. 'emerge-hatch'
     * emerge_pkgs - list of packages to emerge
@@ -353,6 +355,7 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
     status.emerge_cmd           = module.emerge_cmd
     status.emerge_pkgs          = module.emerge_pkgs
     status.fitimage_dir         = getattr(module, 'fitimage_dir', None)
+    status.fitimage_outputs_dir = getattr(module, 'fitimage_outputs_dir', None)
     status.fitimage_pkg         = getattr(module, 'fitimage_pkg', None)
     status.fitimage_cmd         = getattr(module, 'fitimage_cmd', None)
     status.fsp                  = getattr(module, 'fsp', None)
@@ -870,7 +873,7 @@ def check_fit_image_files(status):
         all files are present.
     """
     outputs_dir = os.path.join('/mnt/host/source/src', status.fitimage_dir,
-        'asset_generation/outputs')
+        status.fitimage_outputs_dir)
     logging.debug('outputs_dir = "%s"', outputs_dir)
 
     files_not_found = []

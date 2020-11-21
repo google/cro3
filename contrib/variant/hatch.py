@@ -47,6 +47,9 @@ fitimage_pkg = 'coreboot-private-files-hatch'
 fitimage_dir = ('private-overlays/baseboard-hatch-private/'
     'sys-boot/coreboot-private-files-hatch')
 
+# Directory under fitimage_dir where gen_fit_image.sh leaves its outputs
+fitimage_outputs_dir = 'asset_generation/outputs'
+
 # Explanation of gen_fit_image command
 fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> -b'
 
