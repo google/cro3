@@ -115,7 +115,8 @@ update_firmware() {
     popd > /dev/null
   fi
 
-  "emerge-${board}" -j ${quiet} ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}" chromeos-config
+  "emerge-${board}" -j ${quiet} ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}"
+  "emerge-${board}" ${quiet} chromeos-config
 
   # If the append_srcuris and project flags are set, append uris that aren't
   # already in srcuris. Otherwise, overwrite srcuris.
