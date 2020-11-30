@@ -87,7 +87,7 @@ git remote add ${STAGING_PREFIX}-staging "$STAGING_REPO"
 err=$?
 
 # If remote already exists, that's ok, but otherwise, exit on error
-if [ $err -ne 0 ] && [ $err -ne 128 ]; then
+if [ $err -ne 0 ] && [ $err -ne 3 ] && [ $err -ne 128 ]; then
   die $err "Can't add remote ${STAGING_PREFIX}-staging"
 elif [ $err -eq 0 ]; then
   echo "Created remote ${STAGING_PREFIX}-staging"
