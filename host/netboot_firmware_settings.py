@@ -64,15 +64,14 @@ class Image(object):
   the area name as its key.
 
   Attributes:
-      data: The data in the entire image.
+    data: The data in the entire image.
   """
 
   def __init__(self, data):
     """Initialize an instance of Image
 
     Args:
-        self: The instance of Image.
-        data: The data contianed within the image.
+      data: The data contianed within the image.
     """
     try:
       # FMAP identifier used by the cros_bundle_firmware family of utilities.
@@ -96,12 +95,11 @@ class Image(object):
     will be raised.
 
     Args:
-        self: The image instance.
-        key: The name of the area to overwrite.
-        value: The data to write into the area.
+      key: The name of the area to overwrite.
+      value: The data to write into the area.
 
     Raises:
-        ValueError: 'value' was too large to write into the selected area.
+      ValueError: 'value' was too large to write into the selected area.
     """
     area = self.areas[key]
     if len(value) > area['size']:
@@ -114,11 +112,10 @@ class Image(object):
     """Retrieve the data in an area of the image.
 
     Args:
-        self: The image instance.
-        key: The area to retrieve.
+      key: The area to retrieve.
 
     Returns:
-        The data in that area of the image.
+      The data in that area of the image.
     """
     area = self.areas[key]
     return self.data[area['offset']:area['offset'] + area['size']]
@@ -133,7 +130,7 @@ class Settings(object):
   the 'value' field of each attribute in the attributes dict.
 
   Attributes:
-      signature: A constant which has a signature value at the front of the
+    signature: A constant which has a signature value at the front of the
         settings when written into the image.
   """
   signature = 'netboot\0'
@@ -142,15 +139,15 @@ class Settings(object):
     """A class which represents a particular setting.
 
     Attributes:
-        code: An enum value which identifies which setting this is.
-        value: The value the setting has been set to.
+      code: An enum value which identifies which setting this is.
+      value: The value the setting has been set to.
     """
     def __init__(self, code, value):
       """Initialize an Attribute instance.
 
       Args:
-          code: The code for this attribute.
-          value: The initial value of this attribute.
+        code: The code for this attribute.
+        value: The initial value of this attribute.
       """
       self.code = code
       self.value = value
@@ -158,28 +155,21 @@ class Settings(object):
     def pack(self):
       """Pack an attribute into a binary representation.
 
-      Args:
-          self: The Attribute to pack.
-
       Returns:
-          The binary representation.
+        The binary representation.
       """
       if self.value:
         value = self.value.pack()
       else:
-        value = ''
+        value = b''
       value_len = len(value)
       pad_len = ((value_len + 3) // 4) * 4 - value_len
-      value += '\0' * pad_len
+      value += b'\0' * pad_len
       format_str = '<II%ds' % (value_len + pad_len)
       return struct.pack(format_str, self.code, value_len, value)
 
   def __init__(self):
-    """Initialize an instance of Settings.
-
-    Args:
-        self: The instance to initialize.
-    """
+    """Initialize an instance of Settings."""
     attributes = {
         'tftp_server_ip': self.Attribute(1, None),
         'kernel_args': self.Attribute(2, None),
@@ -199,11 +189,8 @@ class Settings(object):
 
     The packed binary representation can be put into an image.
 
-    Args:
-        self: The instance to pack.
-
     Returns:
-        A binary representation of the settings.
+      A binary representation of the settings.
     """
     value = self.signature
     value += struct.pack('<I', len(self.attributes))
@@ -219,19 +206,15 @@ class Setting(object):
     """Initialize an instance of Setting.
 
     Args:
-        self: The instance to initialize.
-        val: The value of the setting.
+      val: The value of the setting.
     """
     self.val = val
 
   def pack(self):
     """Pack the setting by returning its value as a string.
 
-    Args:
-        self: The instance to pack.
-
     Returns:
-        The val field as a string.
+      The val field as bytes.
     """
     return str(self.val)
 
@@ -243,8 +226,7 @@ class IpAddress(Setting):
     """Initialize an IpAddress Setting instance.
 
     Args:
-        self: The instance to initialize.
-        val: A string representation of the IP address to be set to.
+      val: A string representation of the IP address to be set to.
     """
     in_addr = socket.inet_pton(socket.AF_INET, val)
     super(IpAddress, self).__init__(in_addr)
