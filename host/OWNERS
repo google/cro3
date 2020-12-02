@@ -1,1 +1,4 @@
 include chromiumos/chromite:/OWNERS.build
+
+# Used by sys-boot/chromeos-bootimage.
+per-file netboot_firmware_settings.py = jwerner@chromium.org, kitching@chromium.org
