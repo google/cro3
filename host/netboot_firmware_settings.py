@@ -1,24 +1,16 @@
-#!/usr/bin/env python2
-#
+#!/usr/bin/env python3
 # Copyright 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Utility to configure netboot settings."""
 
-from __future__ import print_function
-
 import argparse
-import os
 import socket
 import struct
 import sys
 
 try:
-  _path = os.path.dirname(os.path.abspath(__file__))
-  if _path not in sys.path:
-    sys.path.insert(0, _path)
-  del _path
   import fmap
 except ImportError:
   print('Could not find fmap module. If you are running outside the chroot, '
@@ -104,7 +96,7 @@ class Image(object):
     area = self.areas[key]
     if len(value) > area['size']:
       raise ValueError('Too much data for FMAP area %s' % key)
-    value = value.ljust(area['size'], '\0')
+    value = value.ljust(area['size'], b'\0')
     self.data = (self.data[:area['offset']] + value +
                  self.data[area['offset'] + area['size']:])
 
@@ -133,7 +125,7 @@ class Settings(object):
     signature: A constant which has a signature value at the front of the
         settings when written into the image.
   """
-  signature = 'netboot\0'
+  signature = b'netboot\0'
 
   class Attribute(object):
     """A class which represents a particular setting.
@@ -194,7 +186,10 @@ class Settings(object):
     """
     value = self.signature
     value += struct.pack('<I', len(self.attributes))
-    for _, attr in self.attributes.iteritems():
+    # This doesn't need to be sorted, but it provides for stable outputs
+    # rather than relying on Python dictionary ordering, and is what the
+    # code has historically done.
+    for _, attr in sorted(self.attributes.items()):
       value += attr.pack()
     return value
 
@@ -216,7 +211,7 @@ class Setting(object):
     Returns:
       The val field as bytes.
     """
-    return str(self.val)
+    return self.val.encode()
 
 
 class IpAddress(Setting):
@@ -234,7 +229,7 @@ class IpAddress(Setting):
 
 def main(argv):
   options = _ParseArgs(argv)
-  with open(options.input, 'r') as f:
+  with open(options.input, 'rb') as f:
     image = Image(f.read())
 
   settings = Settings()
@@ -256,7 +251,7 @@ def main(argv):
   image['SHARED_DATA'] = settings.pack()
 
   output_name = options.output or options.input
-  with open(output_name, 'w') as f:
+  with open(output_name, 'wb') as f:
     f.write(image.data)
 
 
