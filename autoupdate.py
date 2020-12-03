@@ -24,7 +24,6 @@ except ImportError:
 
 import setup_chromite  # pylint: disable=unused-import
 from chromite.lib.xbuddy import cherrypy_log_util
-from chromite.lib.xbuddy import devserver_constants as constants
 
 
 # Module-local log function.
@@ -70,33 +69,6 @@ class Autoupdate(object):
     self.xbuddy = xbuddy
     self.static_dir = static_dir
 
-  def GetUpdateForLabel(self, label):
-    """Given a label, get an update from the directory.
-
-    Args:
-      label: the relative directory inside the static dir
-
-    Returns:
-      A relative path to the directory with the update payload.
-      This is the label if an update did not need to be generated, but can
-      be label/cache/hashed_dir_for_update.
-
-    Raises:
-      AutoupdateError: If client version is higher than available update found
-        at the directory given by the label.
-    """
-    _Log('Update label: %s', label)
-    static_update_path = _NonePathJoin(self.static_dir, label,
-                                       constants.UPDATE_FILE)
-
-    if label and os.path.exists(static_update_path):
-      # An update payload was found for the given label, return it.
-      return label
-
-    # The label didn't resolve.
-    _Log('Did not found any update payload for label %s.', label)
-    return None
-
   def GetDevserverUrl(self):
     """Returns the devserver url base."""
     x_forwarded_host = cherrypy.request.headers.get('X-Forwarded-Host')
@@ -136,30 +108,14 @@ class Autoupdate(object):
     """
     label = label or ''
     label_list = label.split('/')
-    # Suppose that the path follows old protocol of indexing straight
-    # into static_dir with board/version label.
-    # Attempt to get the update in that directory, generating if necc.
-    path_to_payload = self.GetUpdateForLabel(label)
-    if path_to_payload is None:
-      # There was no update found in the directory. Let XBuddy find the
-      # payloads.
-      if label_list[0] == 'xbuddy':
-        # If path explicitly calls xbuddy, pop off the tag.
-        label_list.pop()
-      x_label, _ = self.xbuddy.Translate(label_list, board=board)
-      # Path has been resolved, try to get the payload.
-      path_to_payload = self.GetUpdateForLabel(x_label)
-      if path_to_payload is None:
-        # No update payload found after translation. Try to get an update to
-        # a test image from GS using the label.
-        path_to_payload, _image_name = self.xbuddy.Get(
-            ['remote', label, 'full_payload'])
-
-    # One of the above options should have gotten us a relative path.
-    if path_to_payload is None:
-      raise AutoupdateError('Failed to get an update for: %s' % label)
-
-    return path_to_payload
+    # There was no update found in the directory. Let XBuddy find the
+    # payloads.
+    if label_list[0] == 'xbuddy':
+      # If path explicitly calls xbuddy, pop off the tag.
+      label_list.pop()
+    x_label, _ = self.xbuddy.Translate(label_list, board=board)
+    # Path has been resolved, try to get the payload.
+    return _NonePathJoin(self.static_dir, x_label)
 
   def HandleUpdatePing(self, data, label='', **kwargs):
     """Handles an update ping from an update client.

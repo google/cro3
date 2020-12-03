@@ -8,7 +8,6 @@
 
 from __future__ import print_function
 
-import json
 import shutil
 import socket
 import tempfile
@@ -84,16 +83,6 @@ class AutoupdateTest(unittest.TestCase):
     r = autoupdate._ChangeUrlPort('ftp://fuzzy', 8085)
     self.assertEqual(r, 'ftp://fuzzy:8085')
 
-  def testHandleHostInfoPing(self):
-    au_mock = self._DummyAutoupdateConstructor()
-    self.assertRaises(AssertionError, au_mock.HandleHostInfoPing, None)
-
-    # Setup fake host_infos entry and ensure it comes back to us in one piece.
-    test_ip = '1.2.3.4'
-    au_mock.host_infos.GetInitHostInfo(test_ip).attrs = self.test_dict
-    self.assertEqual(
-        json.loads(au_mock.HandleHostInfoPing(test_ip)), self.test_dict)
-
   @mock.patch.object(autoupdate.Autoupdate, 'GetPathToPayload')
   def testHandleUpdatePing(self, path_to_payload_mock):
     """Tests HandleUpdatePing"""
@@ -109,7 +98,8 @@ class AutoupdateTest(unittest.TestCase):
   </app>
 </request>"""
 
-    self.assertIn('error-unknownApplication', au_mock.HandleUpdatePing(request))
+    self.assertIn('<updatecheck status="noupdate"',
+                  au_mock.HandleUpdatePing(request))
 
 if __name__ == '__main__':
   unittest.main()
