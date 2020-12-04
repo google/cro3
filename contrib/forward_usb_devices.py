@@ -5,10 +5,10 @@
 
 """Forward USB devices from the caller to the target device.
 
-Automates the process of forwading specified USB devices to a target device.
+Automates the process of forwarding specified USB devices to a target device.
 This involves:
 
-  1) Loading the prerequiste kernel modules (both locally and on the target
+  1) Loading the prerequisite kernel modules (both locally and on the target
      device).
   2) Running and cleaning up `usbipd`.
   3) Setting up a SSH tunnel for the `usbipd` TCP port.
@@ -20,6 +20,16 @@ For example:
   ./forward_usb_devices.py --log-level=debug -d test-device.local 1-3.1 1-3.2
 will forward two USB devices (the ones at bus ids 1-3.1 and 1-3.2) to the device
 with the hostname `test-device.local`.
+
+Requires usbip installed in the chroot:
+
+(chroot) $ sudo emerge usbip
+
+To list USB bus ids:
+
+(chroot) $ usbip list --local
+
+
 """
 
 from __future__ import print_function
@@ -75,7 +85,7 @@ def forward_devices(hostname, port, usb_devices):
             'You need to emerge the `%s` package in the chroot: sudo emerge %s',
             USBIP_PACKAGE, USBIP_PACKAGE)
 
-    logging.debug('Connectiong to root@%s:%s`', hostname, port)
+    logging.debug('Connecting to root@%s:%s`', hostname, port)
     with contextlib.ExitStack() as stack:
         device = stack.enter_context(
             remote_access.ChromiumOSDeviceHandler(hostname=hostname, port=port,
@@ -84,7 +94,7 @@ def forward_devices(hostname, port, usb_devices):
             logging.debug('`%s` found on the device', USBIP_COMMAND)
         else:
             logging.error(
-                'You need to emerge and deploy the `%s` packge to the test '
+                'You need to emerge and deploy the `%s` package to the test '
                 'device: emerge-${{BOARD}} %s && cros deploy '
                 '--board=${{BOARD}} %s',
                 USBIP_PACKAGE, USBIP_PACKAGE, USBIP_PACKAGE)
@@ -141,10 +151,10 @@ def get_opts(argv):
 
 
 def load_modules(device=None):
-    """Load prerequiste kernel modules.
+    """Load prerequisite kernel modules.
 
     The modules will first be loaded on the calling machine. If device is set,
-    the prerequiste kernel for the target device will also be loaded.
+    the prerequisite kernel for the target device will also be loaded.
     """
     for module in HOST_MODULES:
         try:
