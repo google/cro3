@@ -91,31 +91,26 @@ class Autoupdate(object):
     _Log('Using static url base %s', static_urlbase)
     return static_urlbase
 
-  def GetPathToPayload(self, label, board):
-    """Find a payload locally.
-
-    See devserver's update rpc for documentation.
+  def GetBuildID(self, label, board):
+    """Find the build id of the given lable and board.
 
     Args:
       label: from update request
       board: from update request
 
     Returns:
-      The relative path to an update from the static_dir
+      The build id of given label and board. e.g. reef-release/R88-13591.0.0
 
     Raises:
       AutoupdateError: If the update could not be found.
     """
     label = label or ''
     label_list = label.split('/')
-    # There was no update found in the directory. Let XBuddy find the
-    # payloads.
     if label_list[0] == 'xbuddy':
       # If path explicitly calls xbuddy, pop off the tag.
       label_list.pop()
     x_label, _ = self.xbuddy.Translate(label_list, board=board)
-    # Path has been resolved, try to get the payload.
-    return _NonePathJoin(self.static_dir, x_label)
+    return x_label
 
   def HandleUpdatePing(self, data, label='', **kwargs):
     """Handles an update ping from an update client.
@@ -128,9 +123,6 @@ class Autoupdate(object):
     Returns:
       Update payload message for client.
     """
-    # Get the static url base that will form that base of our update url e.g.
-    # http://hostname:8080/static/update.gz.
-    static_urlbase = self.GetStaticUrl()
     # Change the URL's string query dictionary provided by cherrypy to a valid
     # dictionary that has proper values for its keys. e.g. True instead of
     # 'True'.
@@ -146,9 +138,9 @@ class Autoupdate(object):
     _Log('Update Check Received.')
 
     try:
-      path_to_payload = self.GetPathToPayload(label, request.board)
-      base_url = _NonePathJoin(static_urlbase, path_to_payload)
-      local_payload_dir = _NonePathJoin(self.static_dir, path_to_payload)
+      build_id = self.GetBuildID(label, request.board)
+      base_url = '/'.join((self.GetStaticUrl(), build_id))
+      local_payload_dir = _NonePathJoin(self.static_dir, build_id)
     except AutoupdateError as e:
       # Raised if we fail to generate an update payload.
       _Log('Failed to process an update request, but we will defer to '
