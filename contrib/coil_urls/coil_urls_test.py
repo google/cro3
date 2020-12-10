@@ -47,6 +47,26 @@ class TestRegex(unittest.TestCase):
             'https://github.com/google/googletest/blob/master/googlemock/docs/cook_book.md#delegating-calls-to-a-parent-class'),
             'https://github.com/google/googletest/blob/HEAD/googlemock/docs/cook_book.md#delegating-calls-to-a-parent-class')
 
+    def test_chromium_source_url(self):
+        self.assertEqual(fix_line(
+            'https://source.chromium.org/chromium/chromium/src/+/master:chromeos/services/machine_learning/public/cpp/service_connection.h'),
+            'https://source.chromium.org/chromium/chromium/src/+/HEAD:chromeos/services/machine_learning/public/cpp/service_connection.h')
+
+    def test_chromium_source_alt_url(self):
+        self.assertEqual(fix_line(
+            'https://source.chromium.org/chromium/chromium/src/+/refs/heads/master:chromeos/services/machine_learning/public/cpp/service_connection.h'),
+            'https://source.chromium.org/chromium/chromium/src/+/HEAD:chromeos/services/machine_learning/public/cpp/service_connection.h')
+
+    def test_android_url(self):
+        self.assertEqual(fix_line(
+            'https://android.googlesource.com/platform/external/qemu/+/master/docs/ANDROID-QEMUD.TXT#158'),
+            'https://android.googlesource.com/platform/external/qemu/+/HEAD/docs/ANDROID-QEMUD.TXT#158')
+
+    def test_chrome_internal_url(self):
+        self.assertEqual(fix_line(
+            'https://chrome-internal.googlesource.com/foo/bar/+/master/test.h'),
+            'https://chrome-internal.googlesource.com/foo/bar/+/HEAD/test.h')
+
 
 class TestFindFiles(unittest.TestCase):
     def test_find_files(self):

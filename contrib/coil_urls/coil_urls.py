@@ -21,18 +21,30 @@ class Pattern:
         self.repl_pattern = repl_pattern
 
 
-CHROMIUM_REGEX = r'(chromium.googlesource.com[^\s]*\/\+\/)(master)'
-CHROMIUM_REGEX_ALT =\
-    r'(chromium.googlesource.com[^\s]*\/\+\/)(refs\/heads\/master)'
+DEFAULT_REGEX_PATTERN = r'({DOMAIN}[^\s]*\/\+\/)(master)'
+ALT_REGEX_PATTERN = r'({DOMAIN}[^\s]*\/\+\/)(refs\/heads\/master)'
+
+GOOGLESOURCE = 'googlesource.com'
+SOURCE_CHROMIUM_ORG = 'source.chromium.org'
+
+GOOGLESOURCE_REGEX = DEFAULT_REGEX_PATTERN.format(DOMAIN=GOOGLESOURCE)
+GOOGLESOURCE_REGEX_ALT = ALT_REGEX_PATTERN.format(DOMAIN=GOOGLESOURCE)
+CHROMIUM_SOURCE_REGEX = DEFAULT_REGEX_PATTERN.format(DOMAIN=SOURCE_CHROMIUM_ORG)
+CHROMIUM_SOURCE_REGEX_ALT = ALT_REGEX_PATTERN.format(DOMAIN=SOURCE_CHROMIUM_ORG)
 GITHUB_REGEX = r'(github.com[^\s]*\/)(master)'
 DEFAULT_REPL_PATTERN = r'\1HEAD'
 
-PATTERNS = [
-    Pattern(match_pattern=CHROMIUM_REGEX, repl_pattern=DEFAULT_REPL_PATTERN),
-    Pattern(match_pattern=CHROMIUM_REGEX_ALT,
-            repl_pattern=DEFAULT_REPL_PATTERN),
-    Pattern(match_pattern=GITHUB_REGEX, repl_pattern=DEFAULT_REPL_PATTERN),
+DOMAINS = [
+    GOOGLESOURCE_REGEX,
+    GOOGLESOURCE_REGEX_ALT,
+    CHROMIUM_SOURCE_REGEX,
+    CHROMIUM_SOURCE_REGEX_ALT,
+    GITHUB_REGEX,
 ]
+
+PATTERNS = [
+    Pattern(match_pattern=x,
+            repl_pattern=DEFAULT_REPL_PATTERN) for x in DOMAINS]
 
 
 def fix_line(text: str):
