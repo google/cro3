@@ -69,21 +69,19 @@ class NebraskaWrapper(object):
 
     Args:
       label: Label (string) for the update, typically in the format
-          <board>-<XXXX>/Rxx-xxxxx.x.x-<unique string>[/au_nton].
+          <board>-<XXXX>/Rxx-xxxxx.x.x-<unique string>.
       server_addr: IP address (string) for the server on which gs cache is
           running.
       full_update: Indicates whether the requested update is full or delta. The
           string values for this argument can be 'True', 'False', or
           'unspecified'.
     """
-    self._label, au_nton = self._GetLabelAndNToN(label)
+    self._label = self._GetLabel(label)
     self._gs_cache_base_url = 'http://%s:%s' % (server_addr, GS_CACHE_PORT)
 
-    full_update = full_update.lower().strip()
     # When full_update parameter is not specified in the request, the update
-    # type is 'delta' when au_nton is True and 'full' when au_nton is False.
-    self._is_full_update = (not au_nton if full_update == 'unspecified'
-                            else full_update == 'true')
+    # type is 'delta'.
+    self._is_full_update = full_update.lower().strip() == 'true'
 
     self._props_dir = tempfile.mkdtemp(prefix='gsc-update')
     self._payload_props_file = None
@@ -147,24 +145,20 @@ class NebraskaWrapper(object):
         'determine the name of the properties file.' %
         (url, resp.status_code))
 
-  def _GetLabelAndNToN(self, label):
-    """Gets the label for the request and whether the update is N-to-N.
+  def _GetLabel(self, label):
+    """Gets the label for the request.
 
-    Removes a trailing /au_nton from the label argument which determines whether
-    this specific request is an N-to-N update or not.
+    Removes a trailing /au_nton from the label argument.
 
     Args:
       label: A string obtained from the request.
 
     Returns:
       A string in the format <board>-<XXXX>/Rxx-xxxxx.x.x-<unique string>.
-      A boolean that indicates whether the update is N-to-N or not.
     """
-    # TODO(crbug.com/1102552): Remove this logic once au_nton is removed from
-    # the request.
-    if label.endswith('/au_nton'):
-      return label[:-len('/au_nton')], True
-    return label, False
+    # TODO(crbug.com/1102552): Remove this logic once all clients stopped
+    # sending au_nton in the request.
+    return label[:-len('/au_nton')] if label.endswith('/au_nton') else label
 
   def _GetDownloadURL(self):
     """Returns the static url base that should prefix all payload responses."""
