@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Define steps, package names, and directories for creating a Volteer variant
+"""Define steps, package names, and directories for creating a Volteer2 variant
+
+Volteer2 uses QS revision silicon, while Volteer uses ES2 revision. This
+matters when we generate a fitimage, but everywhere else, we just want to
+use the same stuff as Volteer.
 
 Copyright 2020 The Chromium OS Authors. All rights reserved.
 Use of this source code is governed by a BSD-style license that can be
@@ -11,6 +15,9 @@ import step_names
 
 # Name of the baseboard
 base = 'volteer'
+
+# Name of the reference board
+board = 'volteer'
 
 # List of steps (named in step_names.py) to run in sequence to create
 # the new variant of the baseboard
@@ -53,7 +60,7 @@ fitimage_outputs_dir = 'asset_generation/outputs'
 fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> -b'
 
 # Script to add fitimage sources
-fitimage_script = 'files/add_fitimage_es2.sh'
+fitimage_script = 'files/add_fitimage_qs.sh'
 
 # List of packages to cros_workon
 workon_pkgs = [

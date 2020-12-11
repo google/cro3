@@ -17,7 +17,7 @@ fi
 
 if [[ "$#" -lt 1 ]]; then
   echo "Usage: ${SCRIPT} reference_name"
-  echo "e.g. ${SCRIPT} hatch | puff | volteer | waddledee | waddledoo | trembyle | dalboz"
+  echo "e.g. ${SCRIPT} hatch | puff | volteer | volteer2 | waddledee | waddledoo | trembyle | dalboz"
   echo "End-to-end test to create a new variant of a reference board"
   echo "Script version ${VERSION}"
   exit 1
@@ -87,6 +87,17 @@ case "${REFERENCE}" in
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/files
     ;;
 
+  volteer2)
+    BASE=volteer
+    NEW=gnastygnorc
+    CONFIG_DIR=/mnt/host/source/src/project/volteer
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-volteer-private/chromeos-base/chromeos-config-bsp-volteer-private
+    EBUILD=chromeos-config-bsp-volteer-private-9999.ebuild
+    FITIMAGE=volteer2
+    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/asset_generation/outputs
+    FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/files
+    ;;
+
   waddledee|waddledoo)
     BASE=dedede
     NEW=kingitchy
@@ -151,7 +162,7 @@ cleanup() {
     pushd "${FITIMAGE_OUTPUTS_DIR}"
     rm -f "fitimage-${NEW}.bin" "fitimage-${NEW}-versions.txt"
     # Clean up the extra Volteer fitimage files, too.
-    if [[ "${REFERENCE}" == "volteer" ]] ; then
+    if [[ "${REFERENCE}" == "volteer" || "${REFERENCE}" == "volteer2" ]] ; then
       rm -f "fit-${NEW}.log"
       popd
       pushd "${FITIMAGE_FILES_DIR}/blobs"
@@ -205,7 +216,7 @@ if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
   # Volteer requires some extra files; the FIT log is named after the
   # variant, and there are two other blobs that are customized to the
   # variant and have names to reflect it.
-  if [[ "${REFERENCE}" == "volteer" ]] ; then
+  if [[ "${REFERENCE}" == "volteer" || "${REFERENCE}" == "volteer2" ]] ; then
     cp "fit-${FITIMAGE}.log" "fit-${NEW}.log"
     popd
     pushd "${FITIMAGE_FILES_DIR}/blobs"

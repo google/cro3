@@ -243,6 +243,11 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
         in chroot, prepend '~/chromiumos/src' outside the chroot
     * fitimage_outputs_dir - directory under fitimage_dir where gen_fit_image.sh
         leaves its outputs
+    * fitimage_cmd - explanation of gen_fit_image command, i.e. tell the user
+        how to run gen_fit_image.sh
+    * fitimage_script - script to add fitimage sources, defaults
+        to 'files/add_fitimage.sh' if not present. Only volteer and volteer2
+        currently need to use this.
     * workon_pkgs - list of packages to cros_workon
     * emerge_cmd - the emerge command, e.g. 'emerge-hatch'
     * emerge_pkgs - list of packages to emerge
@@ -263,7 +268,10 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
 
     Additionally, the following fields will be set:
 
-    * board - the name of the reference board, e.g. 'hatch'
+    * board - the name of the reference board, e.g. 'hatch'. The --board
+        command line flag specifies this value, and new_variant derives the
+        the name of the python module to load from this value. However, in
+        certain cases (volteer2), the python module may override this value
     * variant - the name of the variant, e.g. 'sushi'
     * bug - optional text for a bug ID, used in the git commit messages.
         Could be 'None' (as text, not the python None), or something like
@@ -346,6 +354,13 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
         print('Unsupported board "' + board + '"')
         sys.exit(1)
 
+    # Special case: allow the module to override the name of the reference
+    # board. Almost always, you want the module name (e.g. puff.py) and the
+    # name of the reference board (e.g. puff) to match. However, for some
+    # boards (volteer2), you want to have the reference board name still
+    # be 'volteer'.
+    status.board                = getattr(module, 'board', status.board)
+
     status.base                 = module.base
     status.coreboot_base        = getattr(module, 'coreboot_base', module.base)
     status.coreboot_dir         = module.coreboot_dir
@@ -358,6 +373,8 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
     status.fitimage_outputs_dir = getattr(module, 'fitimage_outputs_dir', None)
     status.fitimage_pkg         = getattr(module, 'fitimage_pkg', None)
     status.fitimage_cmd         = getattr(module, 'fitimage_cmd', None)
+    status.fitimage_script      = getattr(module, 'fitimage_script',
+                                          'files/add_fitimage.sh')
     status.fsp                  = getattr(module, 'fsp', None)
     status.private_yaml_dir     = getattr(module, 'private_yaml_dir', None)
     status.step_list            = module.step_list
@@ -805,7 +822,7 @@ def add_fitimage(status):
     """
     logging.info('Running step add_fitimage')
     add_fitimage_sh = os.path.expanduser(os.path.join(
-        '/mnt/host/source/src', status.fitimage_dir, 'files/add_fitimage.sh'))
+        '/mnt/host/source/src', status.fitimage_dir, status.fitimage_script))
     rc = run_process(
         [add_fitimage_sh,
         status.variant,

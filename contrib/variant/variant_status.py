@@ -26,26 +26,29 @@ class variant_status(yaml.YAMLObject):
     """
     yaml_loader = yaml.SafeLoader
     yaml_tag = u'!variant_status'
-    def __init__(self, yaml_name='.new_variant.yaml'):
+    def __init__(self, yaml_name='.new_variant.yaml', soc_type='qs'):
         """Initialize the class
 
         yaml_name will be the full path and name of the yaml file in the
         current user's home directory.
 
-        Params:
-            Name of the yaml file, defaults to 'new_variant.yaml'
+        Args:
+            yaml_name: Name of the yaml file, defaults to 'new_variant.yaml'
+            soc_type: SoC Type, defaults to "qs"
         """
         self.yaml_file = os.path.expanduser(os.path.join('~', yaml_name))
         self.board = None
         self.variant = None
+        self.soctype = soc_type
         self.bug = None
         self.step = None
 
 
     def __repr__(self):
-        return '{!s}(board={!r}, variant={!r}, bug={!r}, state={!r})'.format(
-            self.__class__.__name__, self.board, self.variant, self.bug,
-            self.step)
+        return '{!s}(board={!r}, variant={!r}, soctype={!r}, bug={!r}, ' \
+            'state={!r})'.format(self.__class__.__name__, self.board,
+                                 self.variant, self.soctype, self.bug,
+                                 self.step)
 
 
     def save(self):
