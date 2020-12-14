@@ -528,6 +528,9 @@ if [[ "${FLAGS_build}" -eq  "${FLAGS_TRUE}" ]]; then
   "zork")
     PACKAGES=(coreboot-zork chromeos-bootimage)
     ;;
+  "ambassador")
+    # Ambassador firmware needs the same set of packages as Puff
+    ;&
   "puff")
     PACKAGES=(chromeos-ec coreboot depthcharge vboot_reference libpayload chromeos-bootimage coreboot-private-files intel-cmlfsp coreboot-private-files-puff)
     ;;
