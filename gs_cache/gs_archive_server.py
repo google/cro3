@@ -343,57 +343,27 @@ class GsArchiveServer(object):
       Extracted file content (Binary data).
     """
     rsp = self._caching_server.download(archive, headers=headers)
-    # --to-command pipes the extracted file contents to the provided command.
-    # See https://www.gnu.org/software/tar/manual/html_node/
-    # Writing-to-an-External-Program.html
-    cmd = ['tar', '-x', target_file, '--to-command',
-           "sh -c 'echo $TAR_SIZE; cat'"]
-    ef = tempfile.TemporaryFile()
-    try:
-      proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=ef)
+    cmd = ['tar', '-O', '-x', target_file]
+
+    with tempfile.SpooledTemporaryFile(max_size=_SPOOL_FILE_SIZE_BYTES) as df:
+      proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=df)
       for chunk in rsp.iter_content(constants.READ_BUFFER_SIZE_BYTES):
         proc.stdin.write(chunk)
       proc.stdin.close()
-      returncode = proc.wait()
-      if returncode:
-        raise cherrypy.HTTPError(
-            httplib.INTERNAL_SERVER_ERROR,
-            'Tar command to extract the %s from %s finished with exit code: '
-            '%d.', target_file, archive, returncode)
-
-      # Go to the beginning of the file. The first line will contain the file
-      # size. Beyond that will be contents of the extracted file.
-      ef.seek(0)
-      extracted_content_length = ef.readline().strip()
-      _log('Extracted content length is %s bytes.', extracted_content_length)
-      cherrypy.response.headers['Content-Length'] = extracted_content_length
+      proc.wait()
 
       # Update the response's content type to support yielding binary data.
       cherrypy.response.headers['Content-Type'] = 'application/octet-stream'
-    except Exception as e:
-      ef.close()
-      raise cherrypy.HTTPError(
-          httplib.INTERNAL_SERVER_ERROR,
-          'An exception occurred while extracting %s from %s: %s' %
-          (target_file, archive, e))
 
-    def extracted_content():
-      _log('Begin streaming extracted contents of "%s".', target_file)
-      try:
-        # Read the TemporaryFile in chunks and yield the data.
-        while True:
-          data = ef.read(constants.READ_BUFFER_SIZE_BYTES)
-          if not data:
-            break
-          yield data
-        _log('Streaming of "%s" done.', target_file)
-      except Exception as e:
-        raise cherrypy.HTTPError(
-            httplib.INTERNAL_SERVER_ERROR,
-            'An exception occurred while reading extracted data: %s' % e)
-      finally:
-        ef.close()
-    return extracted_content()
+      # Go to the beginning of the file.
+      df.seek(0)
+
+      # Read the SpooledFile in chunks and yield the data.
+      while True:
+        data = df.read(constants.READ_BUFFER_SIZE_BYTES)
+        if not data:
+          break
+        yield data
 
   @cherrypy.expose
   @cherrypy.config(**{'response.stream': True})
@@ -427,48 +397,37 @@ class GsArchiveServer(object):
         '.xz': ['xz', '-d', '-c'],
         '.bz2': ['bzip2', '-d', '-c'],
     }
-    decompressed_file = tempfile.TemporaryFile()
-    try:
-      proc = subprocess.Popen(commands[extname], stdin=subprocess.PIPE,
-                              stdout=decompressed_file)
-      _log('Decompress process id: %s.', proc.pid)
-      for chunk in rsp.iter_content(constants.READ_BUFFER_SIZE_BYTES):
-        proc.stdin.write(chunk)
-      proc.stdin.close()
-      _log('Decompression done.')
-      proc.wait()
+    decompressed_file = tempfile.SpooledTemporaryFile(
+        max_size=_SPOOL_FILE_SIZE_BYTES)
+    proc = subprocess.Popen(commands[extname], stdin=subprocess.PIPE,
+                            stdout=decompressed_file)
+    _log('Decompress process id: %s.', proc.pid)
+    for chunk in rsp.iter_content(constants.READ_BUFFER_SIZE_BYTES):
+      proc.stdin.write(chunk)
+    proc.stdin.close()
+    _log('Decompression done.')
+    proc.wait()
 
-      # The header of Content-Length is necessary for supporting range request.
-      # So we have to decompress the file locally to get the size. This may
-      # cause connection timeout issue if the decompression take too long time
-      # (e.g. 90 seconds). As a reference, it takes about 10 seconds to
-      # decompress a 400MB tgz file.
-      decompressed_file.seek(0, os.SEEK_END)
-      content_length = decompressed_file.tell()
-      _log('Decompressed content length is %d bytes.', content_length)
-      cherrypy.response.headers['Content-Length'] = str(content_length)
-      decompressed_file.seek(0)
-    except Exception as e:
-      decompressed_file.close()
-      raise cherrypy.HTTPError(
-          httplib.INTERNAL_SERVER_ERROR,
-          'An exception occurred while decompressing %s: %s' % (zarchive, e))
+    # The header of Content-Length is necessary for supporting range request.
+    # So we have to decompress the file locally to get the size. This may cause
+    # connection timeout issue if the decompression take too long time (e.g. 90
+    # seconds). As a reference, it takes about 10 seconds to decompress a 400MB
+    # tgz file.
+    decompressed_file.seek(0, os.SEEK_END)
+    content_length = decompressed_file.tell()
+    _log('Decompressed content length is %d bytes.', content_length)
+    cherrypy.response.headers['Content-Length'] = str(content_length)
+    decompressed_file.seek(0)
 
     def decompressed_content():
-      _log('Begin streaming decompressed content of "%s".', zarchive)
-      try:
-        while True:
-          data = decompressed_file.read(constants.READ_BUFFER_SIZE_BYTES)
-          if not data:
-            break
-          yield data
-        _log('Streaming of "%s" done.', zarchive)
-      except Exception as e:
-        raise cherrypy.HTTPError(
-            httplib.INTERNAL_SERVER_ERROR,
-            'An exception occurred while reading decompressed data: %s' % e)
-      finally:
-        decompressed_file.close()
+      _log('Streaming decompressed content of "%s" begin.', zarchive)
+      while True:
+        data = decompressed_file.read(constants.READ_BUFFER_SIZE_BYTES)
+        if not data:
+          break
+        yield data
+      decompressed_file.close()
+      _log('Streaming of "%s" done.', zarchive)
 
     return decompressed_content()
 
