@@ -666,8 +666,12 @@ def project_config(status):
             raise RuntimeError(
                 f'project-config.json {emerged_json} does not exist.')
 
-        # Search emerged_json to see if the new variant's name shows up there.
-        if not status.variant in osutils.ReadFile(emerged_json):
+        # Search the JSON for a config with the new variant's name
+        with open(emerged_json, 'r') as fp:
+            pc = json.load(fp)
+
+        names = {config['name'] for config in pc['chromeos']['configs']}
+        if status.variant not in names:
             raise RuntimeError(
                 f'variant name {status.variant} not found in {emerged_json}')
 
