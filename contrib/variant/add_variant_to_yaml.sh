@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.4.0"
+VERSION="1.5.0"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -29,6 +29,10 @@ source "${BASH_SOURCE%/*}/revbump_ebuild.sh"
 # shellcheck source=check_standalone.sh
 # shellcheck disable=SC1091
 source "${BASH_SOURCE%/*}/check_standalone.sh"
+
+# shellcheck source=check_pending_changes.sh
+# shellcheck disable=SC1091
+source "${BASH_SOURCE%/*}/check_pending_changes.sh"
 
 # This is the name of the base board that we're using to make the variant.
 # ${var,,} converts to all lowercase.
@@ -58,6 +62,9 @@ if grep -qi "${VARIANT}" "${YAML}" ; then
   echo "Have you already created this variant?"
   exit 1
 fi
+
+# If there are pending changes, exit the script (unless overridden)
+check_pending_changes "$(pwd)"
 
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)

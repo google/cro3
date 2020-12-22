@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.2.0"
+VERSION="1.3.0"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -30,6 +30,10 @@ source "${BASH_SOURCE%/*}/revbump_ebuild.sh"
 # shellcheck disable=SC1091
 source "${BASH_SOURCE%/*}/check_standalone.sh"
 
+# shellcheck source=check_pending_changes.sh
+# shellcheck disable=SC1091
+source "${BASH_SOURCE%/*}/check_pending_changes.sh"
+
 # This is the name of the base board.
 # ${var,,} converts to all lowercase.
 BASE="${1,,}"
@@ -43,6 +47,9 @@ VARIANT="${3,,}"
 BUG=${4:-None}
 
 cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE}/files/cras-config"
+
+# If there are pending changes, exit the script (unless overridden)
+check_pending_changes "$(pwd)"
 
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)

@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -32,6 +32,10 @@ fi
 # shellcheck disable=SC1091
 source "${BASH_SOURCE%/*}/check_standalone.sh"
 
+# shellcheck source=check_pending_changes.sh
+# shellcheck disable=SC1091
+source "${BASH_SOURCE%/*}/check_pending_changes.sh"
+
 # This is the name of the base board.
 # ${var,,} converts to all lowercase.
 BASE="${1,,}"
@@ -45,6 +49,9 @@ BUG="${3:-None}"
 
 # The config.star file will be located here
 cd "${HOME}/trunk/src/project/${BASE}/${VARIANT}"
+
+# If there are pending changes, exit the script (unless overridden)
+check_pending_changes "$(pwd)"
 
 # Start a branch. Use YMD timestamp to avoid collisions.
 DATE=$(date +%Y%m%d)

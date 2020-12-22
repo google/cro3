@@ -198,3 +198,42 @@ NEW_VARIANT_WIP=1 ./new_variant_fulltest.sh waddledoo
 When the branches are abandoned as part of clean-up, your repo will go back
 to `m/master`, so you will need to manually `git checkout` the branch where
 you were making changes.
+
+
+Testing pending changes detection
+=================================
+The automation scripts will exit with an error if any pending changes are
+detected. "Pending changes" means any uncommitted changes, or any commits
+that are ahead of upstream.
+
+To test detection of uncommitted changes, first pick a tracked file in any
+of the repositories (listed below) where new_variant.py will run scripts and
+make a benign modification (e.g. add a comment). Do not commit the change.
+
+All boards:
+* third_party/coreboot
+* third_party/chromiumos-overlay
+* platform/ec
+* overlays
+
+Board-specific:
+* private-overlays/overlay-hatch-private
+* private-overlays/baseboard-hatch-private
+* private-overlays/baseboard-puff-private
+* private-overlays/baseboard-volteer-private
+* private-overlays/baseboard-dedede-private
+
+Now run the end-to-end test. The test should report that there are pending
+changes and exit.
+
+To test detection of commits ahead of upstream, revisit any of the
+aforementioned repositories. In the repository, run `repo start pending .`,
+create a new throwaway file, `git add` it, and `git commit`. `git status`
+should report
+```
+Your branch is ahead of 'cros/main' by 1 commit.
+  (use "git push" to publish your local commits)
+```
+
+Now run the end-to-end test. The test should report that there are pending
+changes and exit.
