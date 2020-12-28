@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="2.4.0"
+VERSION="2.5.0"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -26,6 +26,7 @@ fi
 # shellcheck source=check_standalone.sh
 # shellcheck disable=SC1091
 source "${BASH_SOURCE%/*}/check_standalone.sh"
+check_standalone
 
 # shellcheck source=check_pending_changes.sh
 # shellcheck disable=SC1091
@@ -127,5 +128,3 @@ replaced by the name of the variant where applicable.
 BUG=${BUG}
 TEST=FW_NAME=${VARIANT} emerge-${BASE} coreboot chromeos-bootimage
 Ensure that image-${VARIANT}.*.bin are created"
-
-check_standalone "$(pwd)" "${BRANCH}"

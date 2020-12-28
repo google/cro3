@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.5.0"
+VERSION="1.6.0"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -29,6 +29,7 @@ source "${BASH_SOURCE%/*}/revbump_ebuild.sh"
 # shellcheck source=check_standalone.sh
 # shellcheck disable=SC1091
 source "${BASH_SOURCE%/*}/check_standalone.sh"
+check_standalone
 
 # shellcheck source=check_pending_changes.sh
 # shellcheck disable=SC1091
@@ -125,5 +126,3 @@ TEST=emerge-${BASE} chromeos-config-bsp-${BASE}
 chromeos-config-bsp-${BASE}-private chromeos-config-bsp chromeos-config
  Check /build/${BASE}/usr/share/chromeos-config for '${VARIANT}' in
  config.json, yaml/config.c, and yaml/*.yaml"
-
-check_standalone "$(pwd)" "${BRANCH}"

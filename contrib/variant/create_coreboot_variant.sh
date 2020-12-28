@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="4.4.0"
+VERSION="4.5.0"
 SCRIPT="$(basename -- "$0")"
 set -e
 
@@ -39,6 +39,7 @@ to_upper() {
 # shellcheck source=check_standalone.sh
 # shellcheck disable=SC1091
 source "${BASH_SOURCE%/*}/check_standalone.sh"
+check_standalone
 
 # shellcheck source=check_pending_changes.sh
 # shellcheck disable=SC1091
@@ -151,5 +152,3 @@ BRANCH=${COMMIT_MSG_BRANCH}
 TEST=util/abuild/abuild -p none -t google/${BASE} -x -a
 make sure the build includes GOOGLE_${VARIANT_UPPER}"
 # TODO(b/149702214): verify that it builds correctly
-
-check_standalone "$(pwd)" "${BRANCH}"

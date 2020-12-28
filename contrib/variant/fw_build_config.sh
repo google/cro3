@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.2.0"
+VERSION="1.3.0"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -31,6 +31,7 @@ fi
 # shellcheck source=check_standalone.sh
 # shellcheck disable=SC1091
 source "${BASH_SOURCE%/*}/check_standalone.sh"
+check_standalone
 
 # shellcheck source=check_pending_changes.sh
 # shellcheck disable=SC1091
@@ -95,5 +96,3 @@ Add a default _FW_BUILD_CONFIG.
 
 BUG=${BUG}
 TEST=Verify the ${VARIANT} firmware builds"
-
-check_standalone "$(pwd)" "${BRANCH}"
