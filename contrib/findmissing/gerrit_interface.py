@@ -208,7 +208,7 @@ def generate_fix_message(fixer_upstream_sha, bug_test_line):
 
 
 # Note: Stable patches won't have a fixee_change_id since they come into chromeos as merges
-def create_change(fixee_kernel_sha, fixer_upstream_sha, branch, fixer_changeid=None):
+def create_change(fixee_kernel_sha, fixer_upstream_sha, branch, is_chromeos, fixer_changeid=None):
     """Creates a Patch in gerrit given a ChangeInput object.
 
     Determines whether a change for a fix has already been created,
@@ -220,8 +220,8 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch, fixer_changeid=N
     # fixee_changeid will be None for stable fixee_kernel_sha's
     fixee_changeid = git_interface.get_commit_changeid_linux_chrome(fixee_kernel_sha)
 
-    # if fixee_changeid is set, the fixee_kernel_sha represents a chrome sha
-    chrome_kernel_sha = fixee_kernel_sha if fixee_changeid else None
+    # Get BUG/TEST lines if fixee_kernel_sha is from Chrome OS
+    chrome_kernel_sha = fixee_kernel_sha if is_chromeos else None
 
     bug_test_line = get_bug_test_line(chrome_kernel_sha)
     fix_commit_message = generate_fix_message(fixer_upstream_sha, bug_test_line)

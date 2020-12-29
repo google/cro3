@@ -315,6 +315,7 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
             fix_change_id = git_interface.get_commit_changeid_linux_chrome(fixedby_kernel_sha)
     elif status == common.Status.OPEN:
         fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch,
+                                                       chosen_table == 'linux_chrome',
                                                        get_change_id(db, fixedby_upstream_sha))
         created_new_change = bool(fix_change_id)
 
@@ -372,6 +373,7 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
 
         if status == 'CONFLICT' and new_status == 'OPEN':
             fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch,
+                                                           kernel_metadata.path == 'linux_chrome',
                                                            get_change_id(db, fixedby_upstream_sha))
 
             # Check if we successfully created the fix patch before performing update
