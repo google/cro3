@@ -28,7 +28,7 @@ from __future__ import print_function
 
 import argparse
 import re
-import MySQLdb
+import MySQLdb # pylint: disable=import-error
 
 import common
 import git_interface
@@ -159,6 +159,11 @@ def report_integration_status_branch(db, metadata, handled_shas, branch, conflic
         handled_shas += [fixedby_sha]
 
         print('Upstream commit %s ("%s")' % (fixedby_sha, fixedby_description))
+
+        changeid = missing.get_change_id(db, fixedby_sha)
+        if changeid:
+            print('  CL:%s' % changeid)
+
         integrated = git_interface.get_integrated_tag(fixedby_sha)
         end = integrated
         if not integrated:
@@ -201,8 +206,8 @@ def report_integration_status_branch(db, metadata, handled_shas, branch, conflic
             # format query here since we are inserting n values
             q = """SELECT sha, description
                    FROM linux_upstream
-                   WHERE sha in ({})
-                   ORDER BY FIELD(sha, {})""".format(parsed_fixes, parsed_fixes)
+                   WHERE sha in ({sha})
+                   ORDER BY FIELD(sha, {sha})""".format(sha=parsed_fixes)
             c.execute(q)
             fixes = c.fetchall()
             print('    Fixed by:')
