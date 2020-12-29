@@ -67,6 +67,39 @@ def get_chrome_commit_message(chrome_sha):
     return get_commit_message(chrome_absolute_path, chrome_sha)
 
 
+def get_merge_sha(branch, sha):
+    """Returns SHA of merge commit for provided SHA if available"""
+
+    chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
+
+    try:
+        # Get list of merges in <branch> since <sha>
+        cmd = ['git', '-C', chrome_absolute_path, 'log', '--format=%h', '--abbrev=12',
+               '--ancestry-path', '--merges', '%s..%s' % (sha, branch)]
+        sha_list = subprocess.check_output(cmd, encoding='utf-8', errors='ignore',
+                                           stderr=subprocess.DEVNULL)
+        if not sha_list:
+            logging.info('No merge commit for sha %s in branch %s', sha, branch)
+            return None
+        # merge_sha is our presumed merge commit
+        merge_sha = sha_list.splitlines()[-1]
+        # Verify if <sha> is indeed part of the merge
+        cmd = ['git', '-C', chrome_absolute_path, 'log', '--format=%h', '--abbrev=12',
+               '%s~1..%s' % (merge_sha, merge_sha)]
+        sha_list = subprocess.check_output(cmd, encoding='utf-8', errors='ignore',
+                                           stderr=subprocess.DEVNULL)
+        if sha_list and sha in sha_list.splitlines():
+            return merge_sha
+        logging.info('Merge commit for sha %s found as %s, but sha is missing in merge',
+                     sha, merge_sha)
+
+    except subprocess.CalledProcessError as e:
+        logging.info('Error "%s" while trying to find merge commit for sha %s in branch %s',
+                     e, sha, branch)
+
+    return None
+
+
 def get_commit_changeid_linux_chrome(kernel_sha):
     """Returns the changeid of the kernel_sha commit by parsing linux_chrome git log.
 
