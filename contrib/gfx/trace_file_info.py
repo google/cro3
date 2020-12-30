@@ -27,7 +27,11 @@ def main(args):
   try:
     cmd = ['apitrace', 'info', trace_fname]
     result = subprocess.run(
-        cmd, check=True, encoding='utf-8', capture_output=True)
+        cmd,
+        check=True,
+        encoding='utf-8',
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
 
     res = json.loads(result.stdout)
     data_results = {

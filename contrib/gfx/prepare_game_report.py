@@ -65,27 +65,6 @@ def save_json(data, file_name):
     f.write(json.dumps(data, indent=2))
 
 
-def parse_json_file(file_name):
-  """Parses the given JSON file and returns the result as a dictionary object"""
-  try:
-    with open(file_name) as json_file:
-      return json.loads(json_file)
-  except Exception as e:
-    return None
-
-
-def parse_script_stdout_json(script, args):
-  """Parses script's standart output JSON and returns the result as a dictionary object"""
-  try:
-    cmd = [os.path.join(os.path.dirname(os.path.realpath(__file__)), script)
-          ] + args
-    result = subprocess.run(
-        cmd, check=True, encoding='utf-8', capture_output=True)
-    return json.loads(result.stdout)
-  except Exception as e:
-    return None
-
-
 def main(args):
   defaultTraceFileName = os.path.join(TMP_DIR, DEFAULT_TRACE_FNAME)
   parser = argparse.ArgumentParser(description=__doc__)
@@ -103,8 +82,7 @@ def main(args):
       '--output-dir',
       default=TMP_DIR,
       dest='output_dir',
-      help=f'the output directory for the result file (default: {TMP_DIR})'
-  )
+      help=f'the output directory for the result file (default: {TMP_DIR})')
   parser.add_argument(
       '--trace-file',
       default=defaultTraceFileName,
@@ -133,7 +111,8 @@ def main(args):
 
     # Retrieving the game information from Steam.
     print('Retrieving the game information from Steam...')
-    game_info = parse_script_stdout_json('steam_game_info.py', [opts.gameid])
+    game_info = utils.parse_script_stdout_json('steam_game_info.py',
+                                               [opts.gameid])
     if not game_info:
       utils.panic(
           f'Unable to retrieve information for the game with steamid {opts.gameid}'
@@ -198,15 +177,15 @@ def main(args):
               input('Paste "Platform" string from chrome://version: ')
       }
       print('Collecting cros container system information...')
-      system_info['guest'] = parse_script_stdout_json('cros_container_info.py',
-                                                      [])
+      system_info['guest'] = utils.parse_script_stdout_json(
+          'cros_container_info.py', [])
       save_json(system_info, os.path.join(opts.temp_dir, SYSTEM_INFO_FNAME))
 
     if (game_info['can_start'] and
         yes_or_no('Did you manage to create the trace file?')):
       print(f'Preparing the trace file information for {opts.trace_file}...')
-      trace_info = parse_script_stdout_json('trace_file_info.py',
-                                            [opts.trace_file])
+      trace_info = utils.parse_script_stdout_json('trace_file_info.py',
+                                                  [opts.trace_file])
       if trace_info == None:
         utils.panic('Unable to retrieve the game trace information')
       file_time = datetime.datetime.fromtimestamp(
