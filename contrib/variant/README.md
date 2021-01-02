@@ -59,7 +59,7 @@ and Puff.
 
 ## New variant of Hatch
 
-This example shows how to ceate the "Sushi" variant of the Hatch reference
+This example shows how to create the "Sushi" variant of the Hatch reference
 board.
 
 ### Start the new variant
@@ -74,7 +74,7 @@ outside the chroot environment.
 ```
 (cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --board=hatch --variant=sushi --bug=None
-[... some messages about creating a new coreboot variant and configuation ...]
+[... some messages about creating a new coreboot variant and configuration ...]
 [... the source files for the new FIT image are created, and then the ...]
 [... program exits with a message about building the FIT image ...]
 ERROR:root:The following files need to be generated:
@@ -181,7 +181,7 @@ The `clean_up` step will remove all of the state information that
 
 ### Uploaded CLs for "Sushi" variant
 
-The following CLs were created and uplodaded by `new_variant.py`:
+The following CLs were created and uploaded by `new_variant.py`:
 * [39892](https://review.coreboot.org/c/coreboot/+/39892) hatch: Create sushi
 variant
   * The Upstream CL is [2126753](https://crrev.com/c/2126753), which was not
@@ -243,7 +243,7 @@ for gnastygnorc, but this example proceeds as if it does exist.
 ```
 (cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --board=volteer --variant=gnastygnorc --bug=b:12345
-[... some messages about creating a new coreboot variant and configuation ...]
+[... some messages about creating a new coreboot variant and configuration ...]
 [... the source files for the new FIT image are created, and then the ...]
 [... program exits with a message about building the FIT image ...]
 ERROR:root:The following files need to be generated:
@@ -347,7 +347,7 @@ for Acro, but this example proceeds as if it does exist.
 ```
 (cr) $ cd ~/trunk/src/platform/dev/contrib/variant
 (cr) $ ./new_variant.py --board=waddledee --variant=acro --bug=b:157183582
-[... some messages about creating a new coreboot variant and configuation ...]
+[... some messages about creating a new coreboot variant and configuration ...]
 [... the source files for the new FIT image are created, and then the ...]
 [... program exits with a message about building the FIT image ...]
 ERROR:root:The following files need to be generated:
@@ -550,7 +550,7 @@ configuration repository.
 INFO:root:Running step project_config
 INFO:root:Started working on 'chromeos-base/chromeos-config-bsp-puff-private' for 'puff'
 Calculating dependencies... done!
-[... some messages about creating a new coreboot variant and configuation ...]
+[... some messages about creating a new coreboot variant and configuration ...]
 [... the source files for the new FIT image are created, and then the ...]
 [... program exits with a message about building the FIT image ...]
 INFO:root:Running step gen_fit_image_outside_chroot
@@ -794,7 +794,7 @@ INFO:root:Running step clean_up
 A screen capture video of the process to create Wyvern is available:
 [Wyvern_tutorial_with_subtitles](https://drive.google.com/file/d/1t-JWTSfCyvL-oHmykyi1i5rdSYAyANmm/view?usp=sharing)
 
-The following CLs were created and uplodaded by `new_variant.py`:
+The following CLs were created and uploaded by `new_variant.py`:
 * [42551](https://review.coreboot.org/c/coreboot/+/42551) hatch: Create wyvern
 variant
   * The Upstream CL is [2260221](https://crrev.com/c/2260221), which was not
