@@ -4,7 +4,7 @@
 # found in the LICENSE file.
 
 # End-to-end test of creating firmware for a new variant of a reference board
-VERSION="1.0.1"
+VERSION="1.1.0"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -166,14 +166,14 @@ cleanup() {
       rm -f "fit-${NEW}.log"
       popd
       pushd "${FITIMAGE_FILES_DIR}/blobs"
-      rm -f "csme-${NEW}.bin" "descriptor-${NEW}.bin"
+      rm -f "csme-${NEW}.bin" "descriptor-${NEW}.bin" "me_rw-${NEW}.bin"
     fi
     popd
   fi
   # If new_variant didn't clean up after itself, the build must have failed.
   # Clean up with --abort and exit this script with an error code.
   if [[ -e "${HOME}/.new_variant.yaml" ]] ; then
-    ./new_variant.py --abort --verbose
+    "${VARIANT_DIR}/new_variant.py" --abort --verbose
     exit 1
   fi
 }
@@ -214,7 +214,7 @@ if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
   cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}.bin" "fitimage-${NEW}.bin"
   cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}-versions.txt" "fitimage-${NEW}-versions.txt"
   # Volteer requires some extra files; the FIT log is named after the
-  # variant, and there are two other blobs that are customized to the
+  # variant, and there are other blobs that are customized to the
   # variant and have names to reflect it.
   if [[ "${REFERENCE}" == "volteer" || "${REFERENCE}" == "volteer2" ]] ; then
     cp "fit-${FITIMAGE}.log" "fit-${NEW}.log"
@@ -222,6 +222,9 @@ if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
     pushd "${FITIMAGE_FILES_DIR}/blobs"
     cp "csme-${FITIMAGE}.bin" "csme-${NEW}.bin"
     cp "descriptor-${FITIMAGE}.bin" "descriptor-${NEW}.bin"
+    # me_rw-volteer.bin does not exist, and since the fitmage isn't being used
+    # on an actual board, it's OK to just use volteer2 for either reference.
+    cp "me_rw-volteer2.bin" "me_rw-${NEW}.bin"
   fi
   popd
 fi
