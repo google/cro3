@@ -17,6 +17,8 @@ DEFINE_boolean dryrun ${FLAGS_FALSE} \
   "dry run, don't upload anything and don't delete temporary dirs" n
 DEFINE_boolean usebinpkg ${FLAGS_TRUE} \
   "use prebuilt binaries, instead of building driver locally" b
+DEFINE_boolean clobber ${FLAGS_FALSE} \
+  "overwrites the existing binaries when uploading" c
 
 # Parse command line.
 FLAGS "$@" || exit 1
@@ -218,9 +220,20 @@ build_board() {
 
   echo "Uploading tarball to ${gspath}/${script}"
   if [[ ${FLAGS_dryrun} -eq ${FLAGS_TRUE} ]]; then
-    echo "Would run: gsutil cp -a public-read \"${script}\" \"${gspath}/${script}\""
+    echo "Would run: gsutil cp -n -a public-read \"${script}\" \"${gspath}/${script}\""
   else
-    gsutil cp -a public-read "${script}" "${gspath}/${script}"
+    local extra_args=""
+
+    if [[ ${FLAGS_clobber} -eq ${FLAGS_FALSE} ]]; then
+      if gsutil ls -a "${gspath}/${script}" 2>/dev/null; then
+        echo "WARNING: ${gspath}/${script} exists."
+        echo "Retry with -c or --clobber to overwrite the existing binaries."
+        exit 1
+      fi
+      extra_args="${extra_args} -n"
+    fi
+
+    gsutil cp ${extra_args} -a public-read "${script}" "${gspath}/${script}"
     if [[ $? != 0 ]]; then
       die "Couldn't upload ${script} to ${gspath}/${script}."
     fi
