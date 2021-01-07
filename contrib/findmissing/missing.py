@@ -214,6 +214,10 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
             final_status = status
             if final_status == common.Status.OPEN.name:
                 final_status = common.Status.ABANDONED.name
+            # ABANDONED is not a valid initial status. Change it to OPEN
+            # if encountered.
+            if status == common.Status.ABANDONED.name:
+                status = common.Status.OPEN.name
             c.execute(q, [kernel_sha, fixedby_upstream_sha,
                               branch, entry_time, entry_time,
                               status, final_status, reason])
