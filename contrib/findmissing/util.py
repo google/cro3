@@ -42,8 +42,8 @@ def check_service_running(keyword):
     try:
         subprocess.run(process_grep, check=True, stdout=subprocess.DEVNULL,
                         encoding='utf-8', errors='ignore')
-    except subprocess.CalledProcessError:
-        raise ProcessLookupError('Service %s is not running.' % keyword)
+    except subprocess.CalledProcessError as e:
+        raise ProcessLookupError('Service %s is not running.' % keyword) from e
 
 
 def check_cloud_sql_proxy_running():
@@ -76,7 +76,8 @@ def preliminary_check_decorator(is_gce):
             else:
                 level = logging.WARNING
 
-            logging.basicConfig(format='%(levelname)s: %(message)s', level=level)
+            logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=level,
+                                datefmt='%Y-%m-%d %H:%M:%S')
 
             f(*args)
         return wrapped_preliminary_check
