@@ -188,7 +188,7 @@ def find_duplicate(db, branch, upstream_sha):
     return c.fetchone()
 
 
-def insert_by_patch_id(db, branch, fixedby_upstream_sha):
+def insert_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
     """Handles case where fixedby_upstream_sha may have changed in kernels.
 
     Returns True if successful patch_id insertion and False if patch_id not found.
@@ -200,9 +200,15 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
         # This commit is already queued or known under a different upstream SHA.
         # Mark it as abandoned and point to the other entry as reason.
         kernel_sha, recorded_upstream_sha, status = duplicate
-        entry_time = common.get_current_time()
+        # kernel_sha is the SHA in the database.
+        # fixed_sha is the SHA we are trying to fix, which matches kernel_sha
+        # (meaning both have the same patch ID).
+        # The entry we need to add to the fixes table is for fixed_sha, not for
+        # kernel_sha (because kernel_sha is already in the database).
         reason = 'Already merged/queued into linux_chrome [upstream sha %s]' % recorded_upstream_sha
-        logging.info('SHA %s fixed by %s: %s', kernel_sha, fixedby_upstream_sha, reason)
+        logging.info('SHA %s [%s] fixed by %s: %s',
+                     fixed_sha, kernel_sha, fixedby_upstream_sha, reason)
+
         try:
             q = """INSERT INTO chrome_fixes
                         (kernel_sha, fixedby_upstream_sha, branch, entry_time,
@@ -218,7 +224,8 @@ def insert_by_patch_id(db, branch, fixedby_upstream_sha):
             # if encountered.
             if status == common.Status.ABANDONED.name:
                 status = common.Status.OPEN.name
-            c.execute(q, [kernel_sha, fixedby_upstream_sha,
+            entry_time = common.get_current_time()
+            c.execute(q, [fixed_sha, fixedby_upstream_sha,
                               branch, entry_time, entry_time,
                               status, final_status, reason])
             db.commit()
@@ -279,7 +286,7 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
     Return True if we create a new Gerrit CL, otherwise return False.
     """
     # Check if fix has been merged using it's patch-id since sha's might've changed
-    success = insert_by_patch_id(db, branch, fixedby_upstream_sha)
+    success = insert_by_patch_id(db, branch, kernel_sha, fixedby_upstream_sha)
     created_new_change = False
     if success:
         return created_new_change
