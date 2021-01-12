@@ -134,3 +134,111 @@ class Git:
             return True
 
         return False
+
+    def cherry_pick(self, commit, skip_empty=False):
+        """Cherry picks a commit into the local branch.
+
+        Args:
+            commit: The hash of the commit to be cherry-picked.
+            skip_empty: Detect if the cherry-pick is empty and skip it.
+
+        Returns:
+            (ret, skipped) ret will be True on success, skipped will be True if
+            the patch is skipped.
+        """
+        ret, _, err = self._run(['cherry-pick', '-s', '-x', commit])
+        if ret == 0:
+            return (True, False)
+
+        if not skip_empty:
+            return (False, False)
+
+        if 'The previous cherry-pick is now empty' not in err:
+            return (False, False)
+
+        # Double check we don't have any local changes
+        ret, files, _ = self._run(['status', '-s', '-uno'])
+        if ret != 0 or files != '':
+            return (False, False)
+
+        ret, *_ = self._run(['cherry-pick', '--skip'])
+        return (ret == 0, ret == 0)
+
+    def get_conflicting_files(self):
+        """Returns a list of conflicting files in the local git tree.
+
+        Returns:
+            A list of files with conflicts.
+        """
+        ret, files, _ = self._run(['status', '-s'])
+        if ret != 0:
+            return []
+
+        conflicts = []
+        for f in files.splitlines():
+            if not f.startswith('UU'):
+                continue
+            conflicts.append(f.split(' ')[1])
+
+        return conflicts
+
+    def get_commit_message(self, commit='HEAD'):
+        """Returns the commit message for the given commit.
+
+        Args:
+            commit: The hash of the commit to be shown
+
+        Returns:
+            (ret, message) ret will be True on success, message will have the
+            commit message.
+        """
+        ret, message, _ = self._run(['show', '--quiet', '--format=%B', commit])
+        return (ret == 0, message)
+
+    def set_commit_message(self, message):
+        """Amends the commit at HEAD with the given commit message.
+
+        Args:
+            message: Message to use for the commit at HEAD.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        ret, *_ = self._run(['commit', '--amend', '-F', '-'], stdin=message)
+        return (ret == 0, message)
+
+    def generate_change_id(self, commit='HEAD'):
+        """Generates the Change-Id value for the commit at HEAD
+
+        Args:
+            commit: The hash of the commit to generate the Change-Id for.
+
+        Returns:
+            (ret, change_id) ret will be True on success, change_id is the
+            Change-Id for the commit at HEAD.
+        """
+        obj = ''
+
+        ret, stdout, _ = self._run(['write-tree'])
+        if ret == 0 and stdout:
+            obj += f'tree {stdout}'
+
+        ret, stdout, _ = self._run(['rev-parse', f'{commit}^0'])
+        if ret == 0 and stdout:
+            obj += f'parent {stdout}'
+
+        ret, stdout, _ = self._run(['var', 'GIT_AUTHOR_IDENT'])
+        if ret == 0 and stdout:
+            obj += f'author {stdout}'
+
+        ret, stdout, _ = self._run(['var', 'GIT_COMMITTER_IDENT'])
+        if ret == 0 and stdout:
+            obj += f'committer {stdout}'
+
+        ret, commit_msg = self.get_commit_message(commit)
+        if ret:
+            obj += f'\n{commit_msg}'
+
+        ret, stdout, _ = self._run(['hash-object', '-t', 'commit', '--stdin'],
+                                   stdin=obj)
+        return (ret == 0, f'I{stdout.strip()}')
