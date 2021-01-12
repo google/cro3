@@ -7,7 +7,61 @@
 """Entry point for the forklift utility."""
 
 import argparse
+import json
 import sys
+
+from git import Git
+from pull_request import PullRequest
+
+class ForkliftReport:
+    """Encapsulates a forklift report.
+
+    Attributes:
+        bug: The value of BUG= field in the commit messages.
+        test: The value of TEST= field in the commit messages.
+        commits: A list of the commits in the report.
+    """
+    class Commit:
+        """Encapsulates a commit within the forklift report.
+
+        Attributes:
+            sha: The git hash used to identify the commit.
+            backported: True if the patch is present in the local branch.
+        """
+        def __init__(self, sha, backported):
+            self.sha = sha
+            self.backported = backported
+
+    def __init__(self, report_path, bug=None, test=None):
+        """Initializes the forklift report.
+
+        Args:
+            report_path: The patch of the report file.
+            bug: The value of BUG= field in the commit messages.
+            test: The value of TEST= field in the commit messages.
+        """
+        self._path = report_path
+        self.bug = bug
+        self.test = test
+        self.commits = []
+
+    def save(self):
+        """Saves the report to the path given at init."""
+        output = {'bug': self.bug, 'test': self.test, 'commits': []}
+        for c in self.commits:
+            output['commits'].append(c.__dict__)
+
+        with open(self._path, mode='w') as f:
+            json.dump(output, f, indent=2)
+
+    def add_commit(self, sha, backported=False):
+        """Adds a commit to the report.
+
+        Args:
+            sha: The git hash of the commit to be added.
+            backported: True if the commit already exists in the local branch.
+        """
+        self.commits.append(ForkliftReport.Commit(sha, backported))
 
 def command_gen_report(args):
     """Generates the commits missing between local and remote.
@@ -18,7 +72,29 @@ def command_gen_report(args):
     Returns:
         0 if successful, non-zero otherwise.
     """
-    raise NotImplementedError(args)
+    report = ForkliftReport(args.report_path, args.bug, args.test)
+    pull_request = PullRequest(args.list, args.msg_id)
+    git = Git(args.git_path)
+    if not git.fetch_refspec_from_remote(pull_request.source_tree,
+                                         pull_request.source_ref):
+        print(f'Failed to fetch {pull_request.source_ref} from '
+              f'{pull_request.source_tree}')
+        return 1
+
+    commits = git.get_commits_in_range(pull_request.base_commit,
+                                       pull_request.end_commit)
+    print(f'Found {len(commits)} total commits in the pull request')
+
+    commits.reverse()
+
+    for c in commits:
+        b = git.commit_in_local_branch(c, args.common_ancestor, False)
+        print(f'Adding commit={c} backported={b}')
+        report.add_commit(c, b)
+
+    report.save()
+
+    return 0
 
 def command_cherry_pick(args):
     """Cherry-picks the commits in the forklift report to the local branch.
