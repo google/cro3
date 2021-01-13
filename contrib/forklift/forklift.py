@@ -116,6 +116,21 @@ def menu(instruction, options):
 
         return (choice, options[choice])
 
+def confirm(prompt='Are you sure?'):
+    """Asks the user to confirm the action they're about to undertake.
+
+    Returns:
+        True if the answer is yes, False if the answer is no.
+    """
+    while True:
+        # pylint: disable=input-builtin
+        choice = input(f'{prompt} [Y/n]')
+        print('')
+        if choice.lower() in ['y', 'yes', '']:
+            return True
+        if choice.lower() in ['n', 'no']:
+            return False
+
 def command_gen_report(args):
     """Generates the commits missing between local and remote.
 
@@ -263,7 +278,30 @@ def command_complete_cherry_pick(args):
     Returns:
         0 if successful, non-zero otherwise.
     """
-    raise NotImplementedError(args)
+    report = ForkliftReport(args.report_path)
+
+    if not report.load():
+        print(f'Could not load the report at {args.report_path}')
+        return 1
+
+    commit = None
+    for c in report.commits:
+        if args.commit:
+            if c.sha.startswith(args.commit):
+                commit = c
+                break
+        else:
+            if not c.backported:
+                if confirm(f'Would you like to complete {c.sha}?'):
+                    commit = c
+                    break
+
+                return 1
+
+    if commit:
+        commit.backported = True
+        report.save()
+    return 0
 
 def command_resolve_conflict(args):
     """Help the user resolve the current conflict in the local tree.
