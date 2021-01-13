@@ -97,7 +97,7 @@ def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
     return row[0] if row else None
 
 
-def get_change_id(db, sha):
+def get_change_id(db, branch, sha):
     """Get Change-Id associated with provided upstream SHA.
 
     Returns Gerrit Change-Id for a provided SHA if available in either
@@ -110,6 +110,7 @@ def get_change_id(db, sha):
     c = db.cursor()
     change_id = None
     status = None
+    reject_list = []
 
     q = """SELECT c.fix_change_id, c.branch, s.fix_change_id, s.branch
         FROM linux_upstream AS l1
@@ -137,10 +138,17 @@ def get_change_id(db, sha):
                 # commit was uploaded into Gerrit using a merge. We can not use
                 # such Change-Ids. To verify, try to get the status from Gerrit
                 # and skip if the Change-Id is not found.
-                _status = gerrit_interface.get_status(chrome_change_id, chrome_branch)
-                if not change_id or _status != common.Status.ABANDONED.name:
+                gerrit_status = gerrit_interface.get_status(chrome_change_id, chrome_branch)
+                # We can not use a Change-ID which exists in Gerrit but is marked
+                # as abandoned for the target branch.
+                if chrome_change_id in reject_list:
+                    continue
+                if chrome_branch == branch and gerrit_status == common.Status.ABANDONED.name:
+                    reject_list += [chrome_change_id]
+                    continue
+                if not change_id or gerrit_status != common.Status.ABANDONED.name:
                     change_id = chrome_change_id
-                    status = _status
+                    status = gerrit_status
                 if status != common.Status.ABANDONED.name:
                     break
             except requests.exceptions.HTTPError:
@@ -149,17 +157,25 @@ def get_change_id(db, sha):
 
         if stable_change_id and stable_branch:
             try:
-                _status = gerrit_interface.get_status(stable_change_id, stable_branch)
-                if not change_id or _status != common.Status.ABANDONED.name:
+                gerrit_status = gerrit_interface.get_status(stable_change_id, stable_branch)
+                if stable_change_id in reject_list:
+                    continue
+                if stable_branch == branch and gerrit_status == common.Status.ABANDONED.name:
+                    reject_list += [stable_change_id]
+                    continue
+                if not change_id or gerrit_status != common.Status.ABANDONED.name:
                     change_id = stable_change_id
-                    status = _status
+                    status = gerrit_status
             except requests.exceptions.HTTPError:
                 pass
 
         if status and status != common.Status.ABANDONED.name:
             break
 
-    return change_id
+        if change_id in reject_list:
+            change_id = None
+
+    return change_id, status == common.Status.ABANDONED.name and bool(reject_list)
 
 
 def find_duplicate(db, branch, upstream_sha):
@@ -298,7 +314,8 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
                                                  'v%s' % branch,
                                                  'chromeos-%s' % branch,
                                                  fixedby_upstream_sha)
-    cl_status = status.name
+    initial_status = status.name
+    current_status = status.name
 
     entry_time = common.get_current_time()
 
@@ -326,16 +343,23 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
         if chosen_table == 'linux_chrome' and fixedby_kernel_sha:
             fix_change_id = git_interface.get_commit_changeid_linux_chrome(fixedby_kernel_sha)
     elif status == common.Status.OPEN:
-        fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch,
-                                                       chosen_table == 'linux_chrome',
-                                                       get_change_id(db, fixedby_upstream_sha))
-        created_new_change = bool(fix_change_id)
+        change_id, rejected = get_change_id(db, branch, fixedby_upstream_sha)
+        if rejected:
+            # A change-Id for this commit exists in the target branch, but it is marked
+            # as ABANDONED and we can not use it. Create a database entry and mark the commit
+            # as abandoned to prevent it from being retried over and over again.
+            current_status = common.Status.ABANDONED.name
+        else:
+            fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch,
+                                                           chosen_table == 'linux_chrome',
+                                                           change_id)
+            created_new_change = bool(fix_change_id)
 
-        # Checks if change was created successfully
-        if not created_new_change:
-            logging.error('Failed to create change for kernel_sha %s fixed by %s',
-                          kernel_sha, fixedby_upstream_sha)
-            return False
+            # Checks if change was created successfully
+            if not created_new_change:
+                logging.error('Failed to create change for kernel_sha %s fixed by %s',
+                              kernel_sha, fixedby_upstream_sha)
+                return False
     elif status == common.Status.CONFLICT:
         # Register conflict entry_time, do not create gerrit CL
         # Requires engineer to manually explore why CL doesn't apply cleanly
@@ -343,16 +367,16 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
 
     try:
         c.execute(q, [kernel_sha, fixedby_upstream_sha, branch, entry_time,
-                        close_time, fix_change_id, cl_status, cl_status, reason])
-        logging.info('Inserted row into fixes table %s %s %s %s %s %s %s %s %s',
+                        close_time, fix_change_id, initial_status, current_status, reason])
+        logging.info('Inserted row into fixes table %s %s %s %s %s %s %s %s %s %s',
                      chosen_fixes, kernel_sha, fixedby_upstream_sha, branch,
-                     entry_time, close_time, fix_change_id, cl_status, reason)
+                     entry_time, close_time, fix_change_id, initial_status, current_status, reason)
 
     except MySQLdb.Error as e: # pylint: disable=no-member
         logging.error(
-            'Error inserting fix CL into fixes table %s %s %s %s %s %s %s %s %s: error %d(%s)',
+            'Error inserting fix CL into fixes table %s %s %s %s %s %s %s %s %s %s: error %d(%s)',
             chosen_fixes, kernel_sha, fixedby_upstream_sha, branch,
-            entry_time, close_time, fix_change_id, cl_status, reason,
+            entry_time, close_time, fix_change_id, initial_status, current_status, reason,
             e.args[0], e.args[1])
 
     if created_new_change and not recursion:
@@ -396,15 +420,24 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
         new_status = new_status_enum.name
 
         if status == 'CONFLICT' and new_status == 'OPEN':
-            fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch,
-                                                           kernel_metadata.path == 'linux_chrome',
-                                                           get_change_id(db, fixedby_upstream_sha))
+            change_id, rejected = get_change_id(db, branch, fixedby_upstream_sha)
+            if rejected:
+                # The cherry-pick was successful, but the commit is marked as abandoned
+                # in gerrit. Mark it accordingly.
+                reason = 'Fix abandoned in Gerrit'
+                cloudsql_interface.update_change_abandoned(db, fixes_table, kernel_sha,
+                                                           fixedby_upstream_sha, reason)
+            else:
+                fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha,
+                                        branch, kernel_metadata.path == 'linux_chrome', change_id)
 
-            # Check if we successfully created the fix patch before performing update
-            if fix_change_id:
-                cloudsql_interface.update_conflict_to_open(db, fixes_table,
+                # Check if we successfully created the fix patch before performing update
+                if fix_change_id:
+                    cloudsql_interface.update_conflict_to_open(db, fixes_table,
                                         kernel_sha, fixedby_upstream_sha, fix_change_id)
         elif new_status == 'MERGED':
+            # This specifically includes situations where a patch marked ABANDONED
+            # in the database was merged at some point anyway.
             reason = 'Fix was merged externally and detected by robot.'
             if fix_change_id:
                 gerrit_interface.abandon_change(fix_change_id, branch, reason)
