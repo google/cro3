@@ -8,10 +8,12 @@
 
 import argparse
 import json
+import pathlib
 import sys
 
 from git import Git
 from pull_request import PullRequest
+from resolver import Resolver
 
 class ForkliftReport:
     """Encapsulates a forklift report.
@@ -312,7 +314,81 @@ def command_resolve_conflict(args):
     Returns:
         0 if successful, non-zero otherwise.
     """
-    raise NotImplementedError(args)
+    git = Git(args.git_path)
+    conflict_files = git.get_conflicting_files()
+
+    if not conflict_files:
+        print('No conflicting files found.')
+        return 1
+
+    while True:
+        options = [(str(i + 1), x) for i, x in enumerate(conflict_files)]
+        idx, choice = menu('Choose a file to resolve',
+                           (options + [('q', 'Quit')]) if len(conflict_files) > 1 else options)
+        if choice == 'q':
+            return 0
+
+        path = options[idx][1]
+        while True:
+            print(f'Attempting to resolve conflicts in {path}')
+            resolver = Resolver(git, str(pathlib.Path(args.git_path, path)))
+            conflicts = resolver.get_conflicts()
+
+            if not conflicts:
+                print('No conflicts found!')
+                return 1
+
+            line_choices = [(str(i + 1), f'Line {x.head()}')
+                            for i, x in enumerate(conflicts)]
+
+            idx, choice = menu('Choose a conflict to resolve',
+                               line_choices +
+                               [('bh', 'Blame file HEAD'),
+                                ('br', 'Blame file remote'),
+                                ('b', 'Back'),
+                                ('q', 'Quit')])
+            if choice[0] == 'b':
+                break
+            if choice[0] == 'q':
+                return 0
+            if choice[0] == 'bh':
+                print(git.blame(path, 'HEAD'))
+                continue
+            if choice[0] == 'br':
+                print(git.blame(path, f'{conflicts[0].sha}'))
+                continue
+
+            conflict = conflicts[idx]
+
+            while True:
+                _, choice = menu('Choose an action',
+                                 [('c', 'Print conflict'),
+                                  ('h', 'Print head'),
+                                  ('r', 'Print remote'),
+                                  ('rc', 'Print remote commit'),
+                                  ('bh', 'Blame head'),
+                                  ('br', 'Blame remote'),
+                                  ('b', 'Back'),
+                                  ('q', 'Quit')])
+                if choice[0] == 'c':
+                    print(resolver.format_conflict(conflict))
+                elif choice[0] == 'h':
+                    print(resolver.format_conflict(conflict,
+                                                   print_remote=False))
+                elif choice[0] == 'r':
+                    print(resolver.format_conflict(conflict, print_head=False))
+                elif choice[0] == 'rc':
+                    print(git.show(conflict.sha))
+                elif choice[0] == 'bh':
+                    print(resolver.blame_head(conflict))
+                elif choice[0] == 'br':
+                    print(resolver.blame_remote(conflict))
+                elif choice[0] == 'b':
+                    break
+                elif choice[0] == 'q':
+                    return 0
+
+    return 0
 
 def main(args):
     """Main function for forklift utility.

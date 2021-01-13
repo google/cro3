@@ -242,3 +242,49 @@ class Git:
         ret, stdout, _ = self._run(['hash-object', '-t', 'commit', '--stdin'],
                                    stdin=obj)
         return (ret == 0, f'I{stdout.strip()}')
+
+    def show(self, commit):
+        """Returns the 'git show' output for the given commit.
+
+        Args:
+            commit: The commit to show.
+
+        Returns:
+            A string with the 'git show' output.
+        """
+        _, output, _ = self._run(['show', commit])
+        return output
+
+    def commit_diff(self, commit, path):
+        """Returns the changes to a given file in the given commit.
+
+        Args:
+            commit: The commit to return the diff for.
+            path: The file path to limit the diff with.
+
+        Returns:
+            The diff introduced in commit.
+        """
+        ret, output, _ = self._run(['diff-tree', '-p', commit, '--', path])
+        if ret != 0:
+            return ''
+
+        # Split out the header goop in the first 5 lines
+        return '\n'.join(output.splitlines()[5:])
+
+    def blame(self, path, refspec=None):
+        """Returns the 'git blame' output for the given path at refspec.
+
+        Args:
+            path: The path of the file being blamed.
+            refspec: The git refspec to inspect the file at.
+
+        Returns:
+            A string with the 'git blame' output.
+        """
+        cmd = ['blame']
+        if refspec:
+            cmd += [refspec]
+        cmd += ['--', path]
+        _, output, _ = self._run(cmd)
+        return output
