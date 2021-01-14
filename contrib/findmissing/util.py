@@ -97,7 +97,7 @@ def cloud_sql_proxy_decorator(func):
         try:
             set_gcloud_project_config()
             sql_instance_cmd = ['gcloud', 'sql', 'instances', 'describe',
-                                'linux-patches-sql', '--format=value[](connectionName)']
+                                'linux-patches-mysql-8', '--format=value[](connectionName)']
             sql_instance = subprocess.check_output(sql_instance_cmd, encoding='utf-8').rstrip()
 
             cloudsql_cmd = ['cloud_sql_proxy', '-instances=%s=tcp:3306' % sql_instance]

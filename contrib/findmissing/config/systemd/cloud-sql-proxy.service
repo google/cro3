@@ -8,7 +8,7 @@ After=syslog.target network-online.target
 User=root
 Type=simple
 Environment="HOME=/home/chromeos_patches"
-ExecStart=/usr/bin/cloud_sql_proxy -instances=google.com:chromeos-missing-patches:us-central1:linux-patches-sql=tcp:3306 -credential_file=/home/chromeos_patches/secrets/linux_patches_robot_key.json
+ExecStart=/usr/bin/cloud_sql_proxy -instances=google.com:chromeos-missing-patches:us-central1:linux-patches-mysql-8=tcp:3306 -credential_file=/home/chromeos_patches/secrets/linux_patches_robot_key.json
 Restart=on-failure
 RestartSec=10
 KillMode=process
