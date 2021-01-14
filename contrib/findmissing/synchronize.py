@@ -38,7 +38,7 @@ def synchronize_upstream(upstream_kernel_metadata):
 
         logging.info('Pulling latest changes in %s into %s', repo, destdir)
         pull = ['git', 'pull', '-q']
-        git_interface.checkout_and_clean(destdir, 'master')
+        git_interface.checkout_and_clean('master')
         subprocess.run(pull, check=True)
 
     os.chdir(common.WORKDIR)
@@ -83,7 +83,7 @@ def synchronize_custom(custom_kernel_metadata):
             branch_name = get_branch_name(branch)
             logging.info('Updating local branch %s in destdir %s', branch_name, destdir)
             pull = ['git', 'pull', '-q']
-            git_interface.checkout_and_clean(destdir, branch_name)
+            git_interface.checkout_and_clean(branch_name)
             subprocess.run(pull, check=True)
 
     os.chdir(common.WORKDIR)

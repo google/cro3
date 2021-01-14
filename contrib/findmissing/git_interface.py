@@ -18,12 +18,12 @@ import subprocess
 import common
 
 
-def checkout_and_clean(kernel_path, branch):
+def checkout_and_clean(branch):
     """Cleanup uncommitted files in branch and checkout to be up to date with origin."""
-    reset_head = ['git', '-C', kernel_path, 'reset', '-q', '--hard', 'HEAD']
-    clean_untracked = ['git', '-C', kernel_path, 'clean', '-d', '-x', '-f', '-q']
-    checkout = ['git', '-C', kernel_path, 'checkout', '-q', branch]
-    reset_origin = ['git', '-C', kernel_path, 'reset', '-q', '--hard', 'origin/%s' % branch]
+    reset_head = ['git', 'reset', '-q', '--hard', 'HEAD']
+    clean_untracked = ['git', 'clean', '-d', '-x', '-f', '-q']
+    checkout = ['git', 'checkout', '-q', branch]
+    reset_origin = ['git', 'reset', '-q', '--hard', 'origin/%s' % branch]
     subprocess.run(reset_head, check=True)
     subprocess.run(clean_untracked, check=True)
     subprocess.run(checkout, check=True)
@@ -181,7 +181,7 @@ def cherry_pick_and_push_fix(fixer_upstream_sha, fixer_changeid, chromeos_branch
     # reset linux_chrome repo to remove local changes
     try:
         os.chdir(chrome_absolute_path)
-        checkout_and_clean(chrome_absolute_path, chromeos_branch)
+        checkout_and_clean(chromeos_branch)
         subprocess.run(['git', 'cherry-pick', '-n', fixer_upstream_sha], check=True)
         subprocess.run(['git', 'commit', '-s', '-m', fix_commit_message], check=True)
 
@@ -256,7 +256,7 @@ def get_cherrypick_status(repository, merge_base, branch, sha):
     absolute_path = common.get_kernel_absolute_path(repository)
 
     os.chdir(absolute_path)
-    checkout_and_clean(absolute_path, branch)
+    checkout_and_clean(branch)
 
     ret = None
     try:
