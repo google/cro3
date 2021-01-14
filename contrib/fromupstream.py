@@ -427,13 +427,13 @@ def main(args):
     """
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--bug', '-b',
+    parser.add_argument('--bug', '-b', action='append', default=[],
                         type=str, help='BUG= line')
     parser.add_argument('--test', '-t', action='append', default=[],
                         type=str, help='TEST= line')
-    parser.add_argument('--crbug', action='append',
+    parser.add_argument('--crbug', action='append', default=[],
                         type=int, help='BUG=chromium: line')
-    parser.add_argument('--buganizer', action='append',
+    parser.add_argument('--buganizer', action='append', default=[],
                         type=int, help='BUG=b: line')
     parser.add_argument('--changeid', '-c',
                         help='Overrides the gerrit generated Change-Id line')
@@ -474,18 +474,12 @@ def main(args):
 
     cq_depends = [args['cqdepend']] if args['cqdepend'] else []
 
-    bug_lines = []
-    if args['bug']:
-        # un-wrap intentionally
-        bug_lines += [args['bug']]
-    if args['buganizer']:
-        buganizers = ', '.join('b:%d' % x for x in args['buganizer'])
-        bug_lines += [x.strip(' ,') for x in
-                      _wrap_commit_line('BUG=', buganizers).split('\n')]
-    if args['crbug']:
-        crbugs = ', '.join('chromium:%d' % x for x in args['crbug'])
-        bug_lines += [x.strip(' ,') for x in
-                      _wrap_commit_line('BUG=', crbugs).split('\n')]
+    bugs = args['bug']
+    bugs += ['b:%d' % x for x in args['buganizer']]
+    bugs += ['chromium:%d' % x for x in args['crbug']]
+    bugs = ', '.join(bugs)
+    bug_lines = [x.strip(' ,') for x in
+                 _wrap_commit_line('BUG=', bugs).split('\n')]
 
     test_lines = [_wrap_commit_line('TEST=', x) for x in args['test']]
 
