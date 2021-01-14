@@ -1,0 +1,73 @@
+#!/bin/bash
+# Copyright 2021 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# See the help string below.
+
+# The input ebuild (must be a cros-rust ebuild). sync was chosen because it is
+# a first party crate that sets CROS_WORKON_OUTOFTREE_BUILD so unpack is fast.
+: "${CATEGORY:="dev-rust"}"
+: "${PN:="sync"}"
+: "${PVR:="9999"}"
+
+: "${CARGO_HOME:="${HOME}/.cargo"}"
+: "${CARGO_HOME_BACKUP:="${HOME}/cargo.backup"}"
+
+# Help string.
+read -r -d '' HELP_STRING <<EOF
+Copy the cargo_home used by cros-rust.eclass to \$CARGO_HOME, by unpacking:
+    ${CATEGORY}/${PN}-${PVR}  (\${CATEGORY}/\${PN}-\${PVR})
+and copying its cargo_home to:
+    ${CARGO_HOME}
+If the above directory already exists it will be moved to (\$CARGO_HOME_BACKUP):
+    ${CARGO_HOME_BACKUP}
+replacing any previous copy.
+
+NOTE: If the BOARD environment variable is set, its registry will be used.
+Otherwise, the cros_rust_registry from the host is used. Currently,
+    BOARD="${BOARD}"
+Also, stale Cargo.lock files will need to be deleted for local builds to work
+properly.
+
+If any arguments are set, this help string is displayed.
+EOF
+
+if [[ "$#" -gt 0 ]]; then
+  echo "${HELP_STRING}"
+  exit 1
+fi
+
+set -x
+set -e
+
+SRC_PATH="/mnt/host/source"
+
+
+PF="${PN}-${PVR}"
+
+
+if [[ -z "${BOARD}" ]]; then
+  # pkg_setup needs root.
+  EBUILD=( "sudo" "ebuild" )
+  NEW_CARGO_HOME="/var/tmp/portage/${CATEGORY}/${PF}/work/cargo_home"
+else
+  EBUILD=( "ebuild-${BOARD}" )
+  NEW_CARGO_HOME="/build/${BOARD}/tmp/portage/${CATEGORY}/${PF}/work/cargo_home"
+fi
+
+"${EBUILD[@]}" "${SRC_PATH}/src/third_party/chromiumos-overlay/${CATEGORY}/${PN}/${PF}.ebuild" clean unpack || die
+
+if [[ ! -d "${NEW_CARGO_HOME}" ]]; then
+  echo "Failed to generate new cargo home: '${NEW_CARGO_HOME}'" >&2
+  exit 1
+fi
+
+rm -rf "${CARGO_HOME_BACKUP}"
+if [[ -e "${CARGO_HOME}" ]]; then
+  mv "${CARGO_HOME}" "${CARGO_HOME_BACKUP}"
+fi
+
+mv "${NEW_CARGO_HOME}" "${CARGO_HOME}"
+
+echo "done"
