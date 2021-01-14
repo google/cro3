@@ -29,10 +29,15 @@ def checkout_and_clean(branch):
     clean_untracked = ['git', 'clean', '-d', '-x', '-f', '-q']
     checkout = ['git', 'checkout', '-q', branch]
     reset_origin = ['git', 'reset', '-q', '--hard', 'origin/%s' % branch]
+    current = ['git', 'symbolic-ref', '-q', '--short', 'HEAD']
 
     reset_head_hard()
     subprocess.run(clean_untracked, check=True)
-    subprocess.run(checkout, check=True)
+
+    current_branch = subprocess.check_output(current, encoding='utf-8', errors='ignore').rstrip()
+    if current_branch != branch:
+        subprocess.run(checkout, check=True)
+
     subprocess.run(reset_origin, check=True)
 
 
