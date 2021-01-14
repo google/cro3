@@ -18,13 +18,19 @@ import subprocess
 import common
 
 
+def reset_head_hard():
+    """Force reset to git head"""
+    reset_head_cmd = ['git', 'reset', '-q', '--hard', 'HEAD']
+    subprocess.run(reset_head_cmd, check=True)
+
+
 def checkout_and_clean(branch):
     """Cleanup uncommitted files in branch and checkout to be up to date with origin."""
-    reset_head = ['git', 'reset', '-q', '--hard', 'HEAD']
     clean_untracked = ['git', 'clean', '-d', '-x', '-f', '-q']
     checkout = ['git', 'checkout', '-q', branch]
     reset_origin = ['git', 'reset', '-q', '--hard', 'origin/%s' % branch]
-    subprocess.run(reset_head, check=True)
+
+    reset_head_hard()
     subprocess.run(clean_untracked, check=True)
     subprocess.run(checkout, check=True)
     subprocess.run(reset_origin, check=True)
@@ -213,7 +219,7 @@ def cherry_pick_and_push_fix(fixer_upstream_sha, fixer_changeid, chromeos_branch
         raise ValueError('Failed to cherrypick and push upstream fix %s on branch %s'
                         % (fixer_upstream_sha, chromeos_branch)) from e
     finally:
-        checkout_and_clean(chrome_absolute_path, chromeos_branch)
+        reset_head_hard()
         os.chdir(cwd)
 
 
@@ -286,7 +292,7 @@ def get_cherrypick_status(repository, merge_base, branch, sha):
         ret = common.Status.CONFLICT
 
     finally:
-        checkout_and_clean(absolute_path, branch)
+        reset_head_hard()
         os.chdir(cwd)
 
     return ret
