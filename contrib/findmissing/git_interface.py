@@ -252,7 +252,7 @@ def search_subject_in_branch(merge_base, sha):
         raise
 
 
-def get_cherrypick_status(repository, merge_base, branch, sha):
+def get_cherrypick_status(repository, merge_base, branch, sha, apply=True):
     """cherry-pick provided sha into provided repository and branch.
 
     Return Status Enum:
@@ -274,6 +274,9 @@ def get_cherrypick_status(repository, merge_base, branch, sha):
         applied = search_subject_in_branch(merge_base, sha)
         if applied:
             ret = common.Status.MERGED
+            raise ValueError
+
+        if not apply:
             raise ValueError
 
         result = subprocess.call(['git', 'cherry-pick', '-n', sha],

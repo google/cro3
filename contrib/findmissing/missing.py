@@ -388,7 +388,11 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
         new_status_enum = git_interface.get_cherrypick_status(common.CHROMEOS_PATH,
                                                               'v%s' % branch,
                                                               'chromeos-%s' % branch,
-                                                              fixedby_upstream_sha)
+                                                              fixedby_upstream_sha,
+                                                              status != 'ABANDONED')
+        if not new_status_enum:
+            continue
+
         new_status = new_status_enum.name
 
         if status == 'CONFLICT' and new_status == 'OPEN':
