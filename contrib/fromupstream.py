@@ -8,6 +8,7 @@
 """This is a tool for picking patches from upstream and applying them."""
 
 import argparse
+from collections import OrderedDict
 import configparser
 import functools
 import mailbox
@@ -416,6 +417,23 @@ def _match_gitweb(match, args):
 
     return _git_returncode(['cherry-pick', commit])
 
+def _remove_dup_bugs(bugs):
+    """Remove the duplicated bugs from a string keeping the original order."""
+
+    # Standardize all the spacing around bugs
+    bugs = re.sub(r'\s*,\s*', ', ', bugs)
+
+    # Create a list of bugs
+    bugs = bugs.split(', ')
+
+    # Remove duplicates keeping order
+    bugs = list(OrderedDict.fromkeys(bugs).keys())
+
+    # Convert into a string again
+    bugs = ', '.join(bugs)
+
+    return bugs
+
 def main(args):
     """This is the main entrypoint for fromupstream.
 
@@ -478,6 +496,7 @@ def main(args):
     bugs += ['b:%d' % x for x in args['buganizer']]
     bugs += ['chromium:%d' % x for x in args['crbug']]
     bugs = ', '.join(bugs)
+    bugs = _remove_dup_bugs(bugs)
     bug_lines = [x.strip(' ,') for x in
                  _wrap_commit_line('BUG=', bugs).split('\n')]
 
