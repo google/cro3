@@ -254,8 +254,9 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch, is_chromeos, fix
 
     try:
         # Cherry pick changes and generate commit message indicating fix from upstream
-        fixer_changeid = git_interface.cherry_pick_and_push_fix(fixer_upstream_sha, fixer_changeid,
-                                                    chromeos_branch, fix_commit_message, reviewers)
+        handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch)
+        fixer_changeid = handler.cherry_pick_and_push(fixer_upstream_sha, fixer_changeid,
+                                                      fix_commit_message, reviewers)
     except ValueError:
         # Error cherry-picking and pushing fix patch
         return None

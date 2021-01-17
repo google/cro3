@@ -21,7 +21,6 @@ import git_interface
 
 UPSTREAM_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_upstream)
 STABLE_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_stable)
-STABLE_RC_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_stable_rc)
 CHROME_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_chrome)
 
 def synchronize_upstream(upstream_kernel_metadata):
@@ -34,23 +33,20 @@ def synchronize_upstream(upstream_kernel_metadata):
         clone = ['git', 'clone', '-q', repo, destdir]
         subprocess.run(clone, check=True)
     else:
-        os.chdir(destdir)
-
         logging.info('Pulling latest changes in %s into %s', repo, destdir)
-        pull = ['git', 'pull', '-q']
-        git_interface.checkout_and_clean('master')
-        subprocess.run(pull, check=True)
+        handler = git_interface.commitHandler(common.Kernel.linux_upstream, 'master')
+        handler.pull()
 
     os.chdir(common.WORKDIR)
 
 
-def synchronize_custom(custom_kernel_metadata):
+def synchronize_custom(kernel):
     """Synchronizes locally cloned repo with linux stable/chromeos remote."""
-    destdir = common.get_kernel_absolute_path(custom_kernel_metadata.path)
-    upstream_destdir = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
-    repo = custom_kernel_metadata.repo
 
-    get_branch_name = custom_kernel_metadata.get_kernel_branch
+    metadata = common.get_kernel_metadata(kernel)
+    destdir = common.get_kernel_absolute_path(metadata.path)
+    upstream_destdir = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
+    repo = metadata.repo
 
     if not os.path.exists(destdir):
         logging.info('Cloning %s into %s', repo, destdir)
@@ -58,8 +54,8 @@ def synchronize_custom(custom_kernel_metadata):
         subprocess.run(clone, check=True)
 
         os.chdir(destdir)
-        for branch in custom_kernel_metadata.branches:
-            branch_name = get_branch_name(branch)
+        for branch in metadata.branches:
+            branch_name = metadata.get_kernel_branch(branch)
 
             logging.info('Creating local branch %s in destdir %s', branch_name, destdir)
             checkout_branch = ['git', 'checkout', '-q', branch_name]
@@ -79,12 +75,11 @@ def synchronize_custom(custom_kernel_metadata):
         subprocess.run(fetch_origin, check=True)
         subprocess.run(fetch_upstream, check=True)
 
-        for branch in custom_kernel_metadata.branches:
-            branch_name = get_branch_name(branch)
+        handler = git_interface.commitHandler(kernel)
+        for branch in metadata.branches:
+            branch_name = metadata.get_kernel_branch(branch)
             logging.info('Updating local branch %s in destdir %s', branch_name, destdir)
-            pull = ['git', 'pull', '-q']
-            git_interface.checkout_and_clean(branch_name)
-            subprocess.run(pull, check=True)
+            handler.pull(branch)
 
     os.chdir(common.WORKDIR)
 
@@ -92,10 +87,10 @@ def synchronize_custom(custom_kernel_metadata):
 def synchronize_repositories(local=False):
     """Deep clones linux_upstream, linux_stable, and linux_chromeos repositories"""
     synchronize_upstream(UPSTREAM_KERNEL_METADATA)
-    synchronize_custom(STABLE_KERNEL_METADATA)
-    synchronize_custom(CHROME_KERNEL_METADATA)
+    synchronize_custom(common.Kernel.linux_stable)
+    synchronize_custom(common.Kernel.linux_chrome)
     if local:
-        synchronize_custom(STABLE_RC_KERNEL_METADATA)
+        synchronize_custom(common.Kernel.linux_stable_rc)
 
 
 def synchronize_databases():

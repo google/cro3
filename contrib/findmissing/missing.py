@@ -309,11 +309,9 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
 
     c = db.cursor()
 
+    handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch)
     # Try applying patch and get status
-    status = git_interface.get_cherrypick_status(common.CHROMEOS_PATH,
-                                                 'v%s' % branch,
-                                                 'chromeos-%s' % branch,
-                                                 fixedby_upstream_sha)
+    status = handler.cherrypick_status(fixedby_upstream_sha)
     initial_status = status.name
     current_status = status.name
 
@@ -406,14 +404,12 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
             AND branch = %s""".format(fixes_table=fixes_table)
     c.execute(q, [branch])
     rows = c.fetchall()
+    handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch)
     for row in rows:
         kernel_sha, fixedby_upstream_sha, status, fix_change_id = row
 
-        new_status_enum = git_interface.get_cherrypick_status(common.CHROMEOS_PATH,
-                                                              'v%s' % branch,
-                                                              'chromeos-%s' % branch,
-                                                              fixedby_upstream_sha,
-                                                              status != 'ABANDONED')
+        new_status_enum = handler.cherrypick_status(fixedby_upstream_sha,
+                                                    apply=status != 'ABANDONED')
         if not new_status_enum:
             continue
 

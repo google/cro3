@@ -103,20 +103,19 @@ def mysort(elem):
     return branch_order(branch)
 
 
-def report_integration_status_sha(repository, merge_base, branch_name, sha):
+def report_integration_status_sha(handler, rc_handler, branch, branch_name, sha):
     """Report integration status for given repository, branch, and sha"""
 
-    if repository is common.STABLE_PATH:
+    if rc_handler:
         # It is possible that the patch has not yet been applied but is queued
         # in a stable release candidate. Try to find it there as well. We use
         # this information to override the final status if appropriate.
-        rc_metadata = common.get_kernel_metadata(common.Kernel.linux_stable_rc)
-        rc_status = git_interface.get_cherrypick_status(rc_metadata.path, merge_base,
-                                                        branch_name, sha)
+        # Try applying patch and get status
+        rc_status = rc_handler.cherrypick_status(sha, branch=branch)
     else:
         rc_status = common.Status.OPEN
 
-    status = git_interface.get_cherrypick_status(repository, merge_base, branch_name, sha)
+    status = handler.cherrypick_status(sha, branch=branch)
     if status == common.Status.CONFLICT:
         disposition = ' (queued)' if rc_status == common.Status.MERGED \
                                   else ' (conflicts - backport needed)'
@@ -132,10 +131,10 @@ def report_integration_status_branch(db, metadata, handled_shas, branch, conflic
 
     if metadata.kernel_fixes_table == 'stable_fixes':
         table = 'linux_stable'
-        branch_name_pattern = 'linux-%s.y'
+        kernel = common.Kernel.linux_stable
     else:
         table = 'linux_chrome'
-        branch_name_pattern = 'chromeos-%s'
+        kernel = common.Kernel.linux_chrome
 
     c = db.cursor()
 
@@ -180,7 +179,7 @@ def report_integration_status_branch(db, metadata, handled_shas, branch, conflic
         for fix_sha, fix_branch in fix_rows:
             if fix_branch in metadata.branches:
                 affected_branches += [fix_branch]
-                branch_name = branch_name_pattern % fix_branch
+                branch_name = metadata.get_kernel_branch(fix_branch)
                 print('      in %s: %s' % (branch_name, fix_sha))
 
         start = git_interface.get_integrated_tag(fixes_sha)
@@ -190,11 +189,16 @@ def report_integration_status_branch(db, metadata, handled_shas, branch, conflic
         affected_branches += version_list(metadata.branches, start, end)
         affected_branches = sorted(list(set(affected_branches)), key=branch_order)
         if affected_branches:
+            handler = git_interface.commitHandler(kernel)
+            if kernel == common.Kernel.linux_stable:
+                rc_handler = git_interface.commitHandler(common.Kernel.linux_stable_rc)
+            else:
+                rc_handler = None
             print('    Affected branches:')
             for affected_branch in affected_branches:
-                merge_base = 'v%s' % affected_branch
-                branch_name = branch_name_pattern % affected_branch
-                report_integration_status_sha(metadata.path, merge_base, branch_name, fixedby_sha)
+                branch_name = metadata.get_kernel_branch(affected_branch)
+                report_integration_status_sha(handler, rc_handler, affected_branch, branch_name,
+                                              fixedby_sha)
 
         # Check if this commit has been fixed as well and, if so, report it
         subsequent_fixes = missing.get_subsequent_fixes(db, fixedby_sha)
