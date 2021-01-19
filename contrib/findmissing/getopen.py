@@ -160,7 +160,7 @@ def report_integration_status_branch(db, metadata, handled_shas, branch, conflic
 
         print('Upstream commit %s ("%s")' % (fixedby_sha, fixedby_description))
 
-        changeid = missing.get_change_id(db, fixedby_sha)
+        changeid, _ = missing.get_change_id(db, branch, fixedby_sha)
         if changeid:
             print('  CL:%s' % changeid)
 
