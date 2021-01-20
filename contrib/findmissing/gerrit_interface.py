@@ -114,7 +114,7 @@ def abandon_change(changeid, branch, reason=None):
         logging.info('Abandoned changeid %s on Gerrit', changeid)
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == http.HTTPStatus.CONFLICT:
-            logging.info('Change %s has already been abandoned', changeid)
+            logging.info('Change %s for branch %s has already been abandoned', changeid, branch)
         else:
             raise
 
@@ -132,7 +132,7 @@ def restore_change(changeid, branch, reason=None):
         logging.info('Restored changeid %s on Gerrit', changeid)
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == http.HTTPStatus.CONFLICT:
-            logging.info('Change %s has already been restored', changeid)
+            logging.info('Change %s for branch %s has already been restored', changeid, branch)
         else:
             raise
 
