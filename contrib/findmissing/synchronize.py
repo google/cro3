@@ -66,22 +66,17 @@ def synchronize_custom(kernel):
         fetch_upstream = ['git', 'fetch', '-q', 'upstream']
         subprocess.run(add_upstream_remote, check=True)
         subprocess.run(fetch_upstream, check=True)
+        os.chdir(common.WORKDIR)
     else:
-        os.chdir(destdir)
-
         logging.info('Updating %s into %s', repo, destdir)
-        fetch_origin = ['git', 'fetch', '-q', 'origin']
-        fetch_upstream = ['git', 'fetch', '-q', 'upstream']
-        subprocess.run(fetch_origin, check=True)
-        subprocess.run(fetch_upstream, check=True)
 
         handler = git_interface.commitHandler(kernel)
+        handler.fetch()
+        handler.fetch('upstream')
         for branch in metadata.branches:
             branch_name = metadata.get_kernel_branch(branch)
             logging.info('Updating local branch %s in destdir %s', branch_name, destdir)
             handler.pull(branch)
-
-    os.chdir(common.WORKDIR)
 
 
 def synchronize_repositories(local=False):
