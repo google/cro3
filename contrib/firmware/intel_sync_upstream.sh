@@ -6,6 +6,10 @@
 SOC_LIST=(tgl jsl adl)
 declare -A SOC_EDK_LOCAL_DIR_MAP=( ["tgl"]="branch2-private" ["jsl"]="branch1-private" ["adl"]="branch1-private" )
 
+# If FSP is using a staging repo that does not follow the format ${SOC}-staging,
+# then add the mapping here.
+declare -A SOC_FSP_STAGING_REPO_MAP=( ["adl"]="ccg-adl-generic-full" )
+
 function die()
 {
   if [ $1 -ne 0 ]; then
@@ -37,7 +41,11 @@ fi
 
 case $DIR in
   fsp)
-    STAGING_NAME="${SOC}-staging"
+    if [ -v SOC_FSP_STAGING_REPO_MAP["${SOC}"] ]; then
+        STAGING_NAME="${SOC_FSP_STAGING_REPO_MAP[${SOC}]}"
+    else
+        STAGING_NAME="${SOC}-staging"
+    fi
     CHROMEOS_BRANCH=chromeos
     SRC_DIR="${CHROMIUM_TOT_ROOT}/src/third_party/fsp/${SOC}/$DIR/$LOCAL_DIR"
     STAGING_REPO="https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/${STAGING_NAME}"
