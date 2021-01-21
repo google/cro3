@@ -37,25 +37,25 @@ fi
 
 case $DIR in
   fsp)
-    STAGING_PREFIX=${SOC}
+    STAGING_NAME="${SOC}-staging"
     CHROMEOS_BRANCH=chromeos
     SRC_DIR="${CHROMIUM_TOT_ROOT}/src/third_party/fsp/${SOC}/$DIR/$LOCAL_DIR"
-    STAGING_REPO="https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/${STAGING_PREFIX}-staging"
+    STAGING_REPO="https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/${STAGING_NAME}"
     ;;
 
   edk2 | edk2-platforms)
-    STAGING_PREFIX=$DIR
+    STAGING_NAME="${DIR}-staging"
     LOCAL_DIR="${SOC_EDK_LOCAL_DIR_MAP[${SOC}]}"
     CHROMEOS_BRANCH=chromeos-${SOC}-$LOCAL_DIR
     SRC_DIR="${CHROMIUM_TOT_ROOT}/src/third_party/fsp/${SOC}/$DIR/$LOCAL_DIR"
-    STAGING_REPO="https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/${STAGING_PREFIX}-staging"
+    STAGING_REPO="https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/${STAGING_NAME}"
     ;;
 
   coreboot)
-    STAGING_PREFIX=${SOC}
+    STAGING_NAME="${SOC}-staging"
     CHROMEOS_BRANCH=chromeos
     SRC_DIR="${CHROMIUM_TOT_ROOT}/src/third_party/coreboot-intel-private/${SOC}"
-    STAGING_REPO="https://chrome-internal.googlesource.com/chromeos/third_party/coreboot-intel-private/${STAGING_PREFIX}-staging"
+    STAGING_REPO="https://chrome-internal.googlesource.com/chromeos/third_party/coreboot-intel-private/${STAGING_NAME}"
     ;;
 
   *)
@@ -63,9 +63,10 @@ case $DIR in
     ;;
 esac
 
+# Assumption is that the staging repo mirrors tags and heads under upstream/
 case ${VERSION} in
   master | EDK2_Trunk_Intel | main)
-    UPREV_BRANCH=remotes/${STAGING_PREFIX}-staging/upstream/${VERSION}
+    UPREV_BRANCH=remotes/${STAGING_NAME}/upstream/${VERSION}
     ;;
 
   *)
@@ -83,31 +84,31 @@ pushd "$SRC_DIR" > /dev/null
 die $? "Can't find $SRC_DIR"
 
 # Add staging repo as remote repo to my local repo
-git remote add ${STAGING_PREFIX}-staging "$STAGING_REPO"
+git remote add ${STAGING_NAME} "$STAGING_REPO"
 err=$?
 
 # If remote already exists, that's ok, but otherwise, exit on error
 if [ $err -ne 0 ] && [ $err -ne 3 ] && [ $err -ne 128 ]; then
-  die $err "Can't add remote ${STAGING_PREFIX}-staging"
+  die $err "Can't add remote ${STAGING_NAME}"
 elif [ $err -eq 0 ]; then
-  echo "Created remote ${STAGING_PREFIX}-staging"
+  echo "Created remote ${STAGING_NAME}"
 else
-  echo "Remote ${STAGING_PREFIX}-staging already exists"
+  echo "Remote ${STAGING_NAME} already exists"
 fi;
 
-git fetch --tags --force ${STAGING_PREFIX}-staging
-die $? "Can't fetch ${STAGING_PREFIX}-staging"
+git fetch --tags --force ${STAGING_NAME}
+die $? "Can't fetch ${STAGING_NAME}"
 
 # Detach from any branch before deleting
 git checkout --detach
 
 # Removing a stale branch
-git branch -D ${STAGING_PREFIX}-staging-${VERSION}
+git branch -D ${STAGING_NAME}-${VERSION}
 
 # Set up remote branch
-git checkout ${UPREV_BRANCH} -b ${STAGING_PREFIX}-staging-${VERSION}
+git checkout ${UPREV_BRANCH} -b ${STAGING_NAME}-${VERSION}
 die $? "Can't checkout upstream/${VERSION}"
-echo "Checked out upstream/${VERSION} to branch ${STAGING_PREFIX}-staging-${VERSION}"
+echo "Checked out upstream/${VERSION} to branch ${STAGING_NAME}-${VERSION}"
 
 echo "Pushing to a staging repo to avoid 'forge commiter' permission issues"
 git push -o skip-validation cros-internal HEAD:refs/heads/staging/${STAGING_PREFIX}-${VERSION}
@@ -120,9 +121,9 @@ die $? "Error checking out cros-internal/${CHROMEOS_BRANCH}"
 echo "Checked out cros-internal/${CHROMEOS_BRANCH} to branch chrome-internal-tot"
 
 # Merge from staging branch
-git merge ${STAGING_PREFIX}-staging-${VERSION} --strategy-option theirs --no-ff --log
+git merge ${STAGING_NAME}-${VERSION} --strategy-option theirs --no-ff --log
 if [ $? -ne 0 ]; then
-  echo "Didn't merge cleanly to ${STAGING_PREFIX}-staging-${VERSION}"
+  echo "Didn't merge cleanly to ${STAGING_NAME}-${VERSION}"
 
   while true
   do
@@ -140,7 +141,7 @@ if [ $? -ne 0 ]; then
         # No signoff used in FSP repo
         git commit
 
-        git diff -a chrome-internal-tot..${STAGING_PREFIX}-staging-${VERSION} > /tmp/merge-to-tag.patch
+        git diff -a chrome-internal-tot..${STAGING_NAME}-${VERSION} > /tmp/merge-to-tag.patch
         patch -p1 < /tmp/merge-to-tag.patch
         rm /tmp/merge-to-tag.patch
         git add .
@@ -162,7 +163,7 @@ if [ $? -ne 0 ]; then
     esac
   done
 fi;
-echo "Merge of ${STAGING_PREFIX}-staging-${VERSION} complete, ready for upload."
+echo "Merge of ${STAGING_NAME}-${VERSION} complete, ready for upload."
 
 while true
 do
@@ -171,12 +172,12 @@ do
   case $input in
     [yY][eE][sS]|[yY])
       git push cros-internal HEAD:refs/for/${CHROMEOS_BRANCH}
-      echo "Pushed merge of ${STAGING_PREFIX}-staging-${VERSION}, ready for review."
+      echo "Pushed merge of ${STAGING_NAME}-${VERSION}, ready for review."
       break
       ;;
 
     [nN][oO]|[nN])
-      echo "Ready to push merge of ${STAGING_PREFIX}-staging-${VERSION}."
+      echo "Ready to push merge of ${STAGING_NAME}-${VERSION}."
       echo "Execute 'git push cros-internal HEAD:refs/for/${CHROMEOS_BRANCH}' to push change."
       break
       ;;
