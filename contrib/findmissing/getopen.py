@@ -131,10 +131,12 @@ def report_integration_status_branch(db, metadata, handled_shas, branch, conflic
 
     if metadata.kernel_fixes_table == 'stable_fixes':
         table = 'linux_stable'
-        kernel = common.Kernel.linux_stable
+        handler = git_interface.commitHandler(common.Kernel.linux_stable)
+        rc_handler = git_interface.commitHandler(common.Kernel.linux_stable_rc)
     else:
         table = 'linux_chrome'
-        kernel = common.Kernel.linux_chrome
+        handler = git_interface.commitHandler(common.Kernel.linux_chrome)
+        rc_handler = None
 
     c = db.cursor()
 
@@ -189,11 +191,6 @@ def report_integration_status_branch(db, metadata, handled_shas, branch, conflic
         affected_branches += version_list(metadata.branches, start, end)
         affected_branches = sorted(list(set(affected_branches)), key=branch_order)
         if affected_branches:
-            handler = git_interface.commitHandler(kernel)
-            if kernel == common.Kernel.linux_stable:
-                rc_handler = git_interface.commitHandler(common.Kernel.linux_stable_rc)
-            else:
-                rc_handler = None
             print('    Affected branches:')
             for affected_branch in affected_branches:
                 branch_name = metadata.get_kernel_branch(affected_branch)
