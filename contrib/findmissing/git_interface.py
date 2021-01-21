@@ -17,12 +17,18 @@ import subprocess
 import common
 
 
+def _git_check_output(path, command):
+    git_cmd = ['git', '-C', path] + command
+    return subprocess.check_output(git_cmd, encoding='utf-8', errors='ignore',
+                                   stderr=subprocess.DEVNULL)
+
+
 def get_upstream_fullsha(abbrev_sha):
     """Returns the full upstream sha for an abbreviated 12 digit sha using git cli"""
     upstream_absolute_path = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
     try:
-        cmd = ['git', '-C', upstream_absolute_path, 'rev-parse', abbrev_sha]
-        full_sha = subprocess.check_output(cmd, encoding='utf-8')
+        cmd = ['rev-parse', abbrev_sha]
+        full_sha = _git_check_output(upstream_absolute_path, cmd)
         return full_sha.rstrip()
     except subprocess.CalledProcessError as e:
         raise type(e)('Could not find full upstream sha for %s' % abbrev_sha, e.cmd) from e
@@ -31,9 +37,8 @@ def get_upstream_fullsha(abbrev_sha):
 def _get_commit_message(kernel_path, sha):
     """Returns the commit message for a sha in a given local path to kernel."""
     try:
-        cmd = ['git', '-C', kernel_path, 'log',
-                '--format=%B', '-n', '1', sha]
-        commit_message = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
+        cmd = ['log', '--format=%B', '-n', '1', sha]
+        commit_message = _git_check_output(kernel_path, cmd)
 
         # Single newline following commit message
         return commit_message.rstrip() + '\n'
@@ -61,20 +66,17 @@ def get_merge_sha(branch, sha):
 
     try:
         # Get list of merges in <branch> since <sha>
-        cmd = ['git', '-C', chrome_absolute_path, 'log', '--format=%h', '--abbrev=12',
-               '--ancestry-path', '--merges', '%s..%s' % (sha, branch)]
-        sha_list = subprocess.check_output(cmd, encoding='utf-8', errors='ignore',
-                                           stderr=subprocess.DEVNULL)
+        cmd = ['log', '--format=%h', '--abbrev=12', '--ancestry-path', '--merges',
+               '%s..%s' % (sha, branch)]
+        sha_list = _git_check_output(chrome_absolute_path, cmd)
         if not sha_list:
             logging.info('No merge commit for sha %s in branch %s', sha, branch)
             return None
         # merge_sha is our presumed merge commit
         merge_sha = sha_list.splitlines()[-1]
         # Verify if <sha> is indeed part of the merge
-        cmd = ['git', '-C', chrome_absolute_path, 'log', '--format=%h', '--abbrev=12',
-               '%s~1..%s' % (merge_sha, merge_sha)]
-        sha_list = subprocess.check_output(cmd, encoding='utf-8', errors='ignore',
-                                           stderr=subprocess.DEVNULL)
+        cmd = ['log', '--format=%h', '--abbrev=12', '%s~1..%s' % (merge_sha, merge_sha)]
+        sha_list = _git_check_output(chrome_absolute_path, cmd)
         if sha_list and sha in sha_list.splitlines():
             return merge_sha
         logging.info('Merge commit for sha %s found as %s, but sha is missing in merge',
@@ -94,8 +96,8 @@ def get_commit_changeid_linux_chrome(kernel_sha):
     """
     chrome_absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
     try:
-        cmd = ['git', '-C', chrome_absolute_path, 'log', '--format=%B', '-n', '1', kernel_sha]
-        commit_message = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
+        cmd = ['log', '--format=%B', '-n', '1', kernel_sha]
+        commit_message = _git_check_output(chrome_absolute_path, cmd)
 
         m = re.findall('^Change-Id: (I[a-z0-9]{40})$', commit_message, re.M)
 
@@ -119,8 +121,8 @@ def get_tag_emails_linux_chrome(sha):
     """
     absolute_path = common.get_kernel_absolute_path(common.CHROMEOS_PATH)
     try:
-        cmd = ['git', '-C', absolute_path, 'log', '--format=%B', '-n', '1', sha]
-        commit_message = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
+        cmd = ['log', '--format=%B', '-n', '1', sha]
+        commit_message = _git_check_output(absolute_path, cmd)
         # If the commit has been cherry-picked, use subsequent tags to create
         # list of reviewers. Otherwise, use all tags. Either case, only return
         # e-mail addresses from Google domains.
@@ -151,10 +153,8 @@ def get_integrated_tag(sha):
 
     try:
         path = common.get_kernel_absolute_path(common.UPSTREAM_PATH)
-        cmd = ['git', '-C', path, 'describe', '--match', 'v*',
-               '--contains', sha]
-        tag = subprocess.check_output(cmd, encoding='utf-8',
-                                      stderr=subprocess.DEVNULL)
+        cmd = ['describe', '--match', 'v*', '--contains', sha]
+        tag = _git_check_output(path, cmd)
         return version.match(tag).group()
     except AttributeError:
         return None
