@@ -190,14 +190,6 @@ class commitHandler:
         cmd = self.__git_command(command)
         subprocess.run(cmd, check=True)
 
-    def __set_branch(self, branch):
-        """Set the active branch"""
-        if branch != self.branch:
-            self.branch = branch
-            self.merge_base = self.metadata.tag_template % branch
-            self.branchname = self.metadata.get_kernel_branch(branch)
-            self.status = 'unknown'
-
     def __reset_hard_ref(self, reference):
         """Force reset to provided reference"""
         reset_cmd = ['reset', '-q', '--hard', reference]
@@ -225,8 +217,17 @@ class commitHandler:
 
         self.__reset_hard_origin()
 
-    def __setup(self):
-        """Local setup function, to be called for each access"""
+    def __setup(self, branch=None):
+        """Local setup function, to be called for each access.
+
+        Also sets the active branch if provided.
+        """
+        if branch and branch != self.branch:
+            self.branch = branch
+            self.merge_base = self.metadata.tag_template % branch
+            self.branchname = self.metadata.get_kernel_branch(branch)
+            self.status = 'unknown'
+
         if self.status == 'unknown':
             self.__checkout_and_clean()
         elif self.status == 'changed':
@@ -279,9 +280,7 @@ class commitHandler:
 
     def pull(self, branch=None):
         """Pull changes from remote repository into provided or default branch"""
-        if branch:
-            self.__set_branch(branch)
-        self.__setup()
+        self.__setup(branch)
         pull_cmd = ['pull', '-q']
         self.__git_run(pull_cmd)
 
@@ -338,10 +337,7 @@ class commitHandler:
         CONFLICT if the patch is missing and fails to apply.
         """
 
-        if branch:
-            self.__set_branch(branch)
-
-        self.__setup()
+        self.__setup(branch)
 
         ret = None
         try:
