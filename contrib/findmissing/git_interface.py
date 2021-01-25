@@ -165,7 +165,7 @@ def get_integrated_tag(sha):
 class commitHandler:
     """Class to control active accesses on a git repository"""
 
-    def __init__(self, kernel, branch=None):
+    def __init__(self, kernel, branch=None, full_reset=True):
         self.metadata = common.get_kernel_metadata(kernel)
         if not branch:
             branch = self.metadata.branches[0]
@@ -175,6 +175,7 @@ class commitHandler:
         self.path = common.get_kernel_absolute_path(self.metadata.path)
         self.status = 'unknown'
         self.commit_list = { }  # indexed by merge_base
+        self.full_reset = full_reset
 
         current_branch_cmd = ['symbolic-ref', '-q', '--short', 'HEAD']
         self.current_branch = self.__git_check_output(current_branch_cmd).rstrip()
@@ -215,7 +216,8 @@ class commitHandler:
             self.__git_run(checkout)
             self.current_branch = self.branchname
 
-        self.__reset_hard_origin()
+        if self.full_reset:
+            self.__reset_hard_origin()
 
     def __setup(self, branch=None):
         """Local setup function, to be called for each access.

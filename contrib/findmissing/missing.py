@@ -309,7 +309,8 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
 
     c = db.cursor()
 
-    handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch)
+    handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch=branch,
+                                          full_reset=not recursion)
     # Try applying patch and get status
     status = handler.cherrypick_status(fixedby_upstream_sha)
     initial_status = status.name
