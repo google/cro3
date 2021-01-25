@@ -16,6 +16,7 @@ import os
 import pprint
 import re
 import signal
+import socket
 import ssl
 import subprocess
 import sys
@@ -276,6 +277,8 @@ def _match_msgid(match, args):
         except ssl.SSLCertVerificationError:
             errprint('Error: server "%s" gave an SSL error, skipping' % url)
             continue
+        except socket.gaierror as e:
+            errprint('Error: server "%s" gave socket error "%s", skipping' % (url, e))
         if res:
             patch_id = res[0]['id']
             break
