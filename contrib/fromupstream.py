@@ -50,7 +50,6 @@ PATCHWORK_URLS = (
     'https://patchwork.kernel.org',
     'https://patchwork.ozlabs.org',
     'https://patchwork.freedesktop.org',
-    'https://patchwork.linux-mips.org',
 )
 
 COMMIT_MESSAGE_WIDTH = 75
