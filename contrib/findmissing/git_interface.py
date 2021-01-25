@@ -173,7 +173,6 @@ class commitHandler:
         if not branch:
             branch = self.metadata.branches[0]
         self.branch = branch
-        self.merge_base = self.metadata.tag_template % branch
         self.branchname = self.metadata.get_kernel_branch(branch)
         self.path = common.get_kernel_absolute_path(self.metadata.path)
         self.status = 'unknown'
@@ -184,6 +183,19 @@ class commitHandler:
 
         current_branch_cmd = ['symbolic-ref', '-q', '--short', 'HEAD']
         self.current_branch = self.__git_check_output(current_branch_cmd).rstrip()
+
+    def __base_tag(self):
+        """Return base tag for selected branch
+
+        The base tag is derived from the tag template in metadata or,
+        if the tag template is empty, from the most recent tag in the
+        selected branch.
+        """
+        if self.metadata.tag_template:
+            return self.metadata.tag_template % self.branch
+        # Pick base tag from most recent tag in branch (self.branchname)
+        cmd = ['describe', '--abbrev=0', self.branchname]
+        return self.__git_check_output(cmd).rstrip()
 
     def __git_command(self, command):
         return ['git', '-C', self.path] + command
@@ -231,7 +243,6 @@ class commitHandler:
         """
         if branch and branch != self.branch:
             self.branch = branch
-            self.merge_base = self.metadata.tag_template % branch
             self.branchname = self.metadata.get_kernel_branch(branch)
             self.status = 'unknown'
 
@@ -256,7 +267,7 @@ class commitHandler:
         commit_list = self.commit_list[self.kernel]
         if self.branch not in commit_list:
             cmd = ['log', '--no-merges', '--format=%s',
-                   '%s..%s' % (self.merge_base, self.branchname)]
+                   '%s..%s' % (self.__base_tag(), self.branchname)]
             subjects = self.__git_check_output(cmd)
             commit_list[self.branch] = subjects.splitlines()
 

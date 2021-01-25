@@ -183,7 +183,7 @@ def get_kernel_metadata(kernel):
     stable_kernel_metadata = KernelMetadata(STABLE_PATH, STABLE_REPO, 'stable_fixes',
             STABLE_BRANCHES, 'v%s', stable_branch, initdb_stable.update_stable_table)
     stable_rc_kernel_metadata = KernelMetadata(STABLE_RC_PATH, STABLE_RC_REPO, 'stable_fixes',
-            STABLE_BRANCHES, 'v%s', stable_branch, initdb_stable.update_stable_table)
+            STABLE_BRANCHES, None, stable_branch, initdb_stable.update_stable_table)
     chrome_kernel_metadata = KernelMetadata(CHROMEOS_PATH, CHROMEOS_REPO, 'chrome_fixes',
             CHROMEOS_BRANCHES, 'v%s', chromeos_branch, initdb_chromeos.update_chrome_table)
     upstream_kernel_metadata = KernelMetadata(UPSTREAM_PATH, UPSTREAM_REPO, 'upstream_fixes',
