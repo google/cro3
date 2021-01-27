@@ -165,7 +165,10 @@ def get_integrated_tag(sha):
 class commitHandler:
     """Class to control active accesses on a git repository"""
 
+    commit_list = { }
+
     def __init__(self, kernel, branch=None, full_reset=True):
+        self.kernel = kernel
         self.metadata = common.get_kernel_metadata(kernel)
         if not branch:
             branch = self.metadata.branches[0]
@@ -174,8 +177,10 @@ class commitHandler:
         self.branchname = self.metadata.get_kernel_branch(branch)
         self.path = common.get_kernel_absolute_path(self.metadata.path)
         self.status = 'unknown'
-        self.commit_list = { }  # indexed by merge_base
         self.full_reset = full_reset
+
+        if kernel not in self.commit_list:
+            self.commit_list[kernel] = { }
 
         current_branch_cmd = ['symbolic-ref', '-q', '--short', 'HEAD']
         self.current_branch = self.__git_check_output(current_branch_cmd).rstrip()
@@ -248,15 +253,16 @@ class commitHandler:
             logging.error('Failed to get subject for sha %s', sha)
             return False
 
-        if self.branch not in self.commit_list:
+        commit_list = self.commit_list[self.kernel]
+        if self.branch not in commit_list:
             cmd = ['log', '--no-merges', '--format=%s',
                    '%s..%s' % (self.merge_base, self.branchname)]
             subjects = self.__git_check_output(cmd)
-            self.commit_list[self.branch] = subjects.splitlines()
+            commit_list[self.branch] = subjects.splitlines()
 
         # The following is a raw search which will match, for example, a revert of a commit.
         # A better method to check if commits have been applied would be desirable.
-        subjects = self.commit_list[self.branch]
+        subjects = commit_list[self.branch]
         return any(subject in s for s in subjects)
 
     def __get_git_push_cmd(self, reviewers):
