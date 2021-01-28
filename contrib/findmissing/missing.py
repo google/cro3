@@ -27,52 +27,27 @@ NEW_CL_DAILY_LIMIT_PER_STABLE_BRANCH = 2
 NEW_CL_DAILY_LIMIT_PER_BRANCH = 2
 
 
-def get_subsequent_fixes(db, fixer_upstream_sha):
-    """Recursively builds a Dictionary of fixes for a fixer upstream sha.
+def get_subsequent_fixes(db, upstream_sha):
+    """Finds all fixes that might be needed to fix the incoming commit"""
 
-    Table will be following format given fixer_upstream_sha A:
-    {'A': ['B','C', 'H'],
-     'B': ['D', 'E'],
-     'C': ['F','G'],
-     'D': [],
-     'E': ['H'],
-     'F': [],
-     'G': [],
-     'H': []
-    }  where B Fixes A, C fixes A, D Fixes B, E Fixes B, etc.
+    c = db.cursor()
 
-    This would end up return a list
-    ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-    Note that H is a fix for A but is scheduled till after E since it also fixes E
-
-    TODO(*): modify this to use common table expressions (CTE) to avoid
-        building dependency table in python. Changing it to use CTE will
-        remove the use of this function.
-        Note: This change is blocked by infra: It requires mysql >= 8.0, but
-        CloudSQL currently only supports mysql version 5.7.
+    q = """
+    WITH RECURSIVE sha_graph (sha, ord) AS (
+      SELECT %s as sha, 1 as ord
+      UNION DISTINCT
+      SELECT fixedby_upstream_sha, ord + 1
+      FROM sha_graph
+      JOIN upstream_fixes
+      ON upstream_sha = sha
+    )
+    SELECT sha
+    FROM sha_graph
+    GROUP BY sha
+    ORDER BY MAX(ord);
     """
-    fixes = {}
-    fixes[fixer_upstream_sha] = 0
-    iteration = 0
-    new_shas = set()
-    new_shas.add(fixer_upstream_sha)
-
-    while new_shas:
-        iteration += 1
-        seen_shas = set(fixes.keys())
-        fixes_for_new_shas = cloudsql_interface.upstream_fixes_for_shas(db, list(new_shas))
-        for sha in fixes_for_new_shas:
-            # if new fixes fix previous fixes then we want to grab them last
-            current_iteration = fixes[sha] if fixes.get(sha) else 0
-            fixes[sha] = max(current_iteration, iteration)
-        new_shas = set(fixes_for_new_shas) - set(seen_shas)
-
-    # sort fixes into list
-    fixing_shas = list(fixes.items())
-    fixing_shas.sort(key=lambda x: x[1])
-    # remove order information
-    fixing_shas = [sha[0] for sha in fixing_shas]
-    return fixing_shas
+    c.execute(q, [upstream_sha])
+    return list(sum(c.fetchall(), ()))
 
 
 def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
