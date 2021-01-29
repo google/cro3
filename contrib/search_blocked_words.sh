@@ -46,11 +46,11 @@ while read -r regex; do
   [[ "${regex}" == "#"* ]] && continue
 
   # Count matching lines.
-  line_count=$(echo "${paths[@]}" | xargs grep -E -i -I -c "${regex}" \
+  line_count=$(printf '%s\n' "${paths[@]}" | xargs -d '\n' grep -E -i -I -c "${regex}" \
       | awk -F: '{ s+=$2 } END { print s }')
 
   # Count matching paths.
-  path_count=$(echo "${paths[@]}" | xargs grep -E -i -I -l "${regex}" | wc -l)
+  path_count=$(printf '%s\n' "${paths[@]}" | xargs -d '\n' grep -E -i -I -l "${regex}" | wc -l)
 
   # Count matching file & dir names.
   name_count=$(echo "${files}" "${dirs}" | grep -E -i "${regex}" | wc -l)
