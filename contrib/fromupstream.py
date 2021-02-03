@@ -7,6 +7,9 @@
 
 """This is a tool for picking patches from upstream and applying them."""
 
+"""echo""" "This is a python script! Don't interpret it with bash."
+"""exit"""
+
 import argparse
 from collections import OrderedDict
 import configparser
