@@ -503,8 +503,11 @@ def main(args):
     bugs += ['chromium:%d' % x for x in args['crbug']]
     bugs = ', '.join(bugs)
     bugs = _remove_dup_bugs(bugs)
-    bug_lines = [x.strip(' ,') for x in
-                 _wrap_commit_line('BUG=', bugs).split('\n')]
+    if bugs:
+        bug_lines = [x.strip(' ,') for x in
+                     _wrap_commit_line('BUG=', bugs).split('\n')]
+    else:
+        bug_lines = []
 
     test_lines = [_wrap_commit_line('TEST=', x) for x in args['test']]
 
