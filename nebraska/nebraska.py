@@ -928,11 +928,8 @@ class NebraskaServer(object):
     """
     self.nebraska = nebraska
     self._runtime_root = runtime_root
+    self._runtime_files = {}
     self._port = port
-
-    if self._runtime_root:
-      self._port_file = os.path.join(self._runtime_root, 'port')
-      self._pid_file = os.path.join(self._runtime_root, 'pid')
 
     self._httpd = None
     self._server_thread = None
@@ -1042,14 +1039,26 @@ class NebraskaServer(object):
     self._port = self._httpd.server_port
 
     if self._runtime_root:
+      self._runtime_files = {
+          os.path.join(self._runtime_root, 'port'): self._port,
+          os.path.join(self._runtime_root, 'pid'): os.getpid(),
+      }
+
       try:
         if not os.path.exists(self._runtime_root):
           os.makedirs(self._runtime_root)
           self._created_runtime_root = True
-        with open(self._port_file, 'w') as port_file:
-          port_file.write(str(self._port))
-        with open(self._pid_file, 'w') as pid_file:
-          pid_file.write(str(os.getpid()))
+        # Because the port and pid files might have been created but not written
+        # into, we create them in as temporary files and then move them to their
+        # final location so there won't be no race condition on the content of
+        # them.
+        for f, c in self._runtime_files.items():
+          with open(f + '.partial', 'w') as fp:
+            fp.write(str(c))
+
+        for f in self._runtime_files:
+          shutil.move(f + '.partial', f)
+
       except IOError as err:
         if err.errno == errno.EACCES:
           print('Permission error: You need to run the script as root/sudo or '
@@ -1071,7 +1080,7 @@ class NebraskaServer(object):
 
     if not self._runtime_root:
       return
-    for f in {self._port_file, self._pid_file}:
+    for f in self._runtime_files:
       try:
         os.remove(f)
       except Exception as e:
