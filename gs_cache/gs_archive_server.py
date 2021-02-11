@@ -211,6 +211,49 @@ class _CachingServer(object):
       return self._call('download', path, headers=headers)
 
 
+_SERVICE_ACCOUNT_BOTO_FILE = os.path.expanduser("~/.boto.service_account")
+
+
+class _GSContext(object):
+  """A wrapper class of gs.GSContext for service account migration purpose."""
+
+  def __init__(self):
+    self._ctx_default = gs.GSContext()
+    if os.path.isfile(_SERVICE_ACCOUNT_BOTO_FILE):
+      self._ctx_service_account = gs.GSContext(
+            boto_file=_SERVICE_ACCOUNT_BOTO_FILE)
+    else:
+      self._ctx_service_account = None
+
+  def fetch_file(self, path, want_content=True):
+    """Fetch the file stat and/or content from GS bucket.
+
+    Args:
+      path: The GS path of the file to fetch.
+      want_content: A boolean of whether fetch the content (as an iterator).
+    Returns:
+      A tuple of (stat, content) which is the GS file stat and content
+      iterator (or None).
+    """
+    try:
+      stat = self._ctx_default.Stat(path)
+      ctx = self._ctx_default
+    except gs.GSCommandError as err:
+      if not self._ctx_service_account:
+        raise
+      if not err.stderr.startswith("You aren't authorized to read "):
+        raise
+      _log("Not authorized by default. Trying service account.")
+      stat = self._ctx_service_account.Stat(path)
+      ctx = self._ctx_service_account
+
+    if want_content:
+        _log('Downloading %s', path, level=logging.INFO)
+        return stat, ctx.StreamingCat(path)
+
+    return stat, None
+
+
 class GsArchiveServerError(Exception):
   """Standard exception class for GsArchiveServer."""
 
@@ -219,7 +262,7 @@ class GsArchiveServer(object):
   """The backend of Google Storage Cache server."""
 
   def __init__(self, caching_server):
-    self._gsutil = gs.GSContext()
+    self._gsutil = _GSContext()
     self._caching_server = caching_server
 
   @cherrypy.expose
@@ -253,13 +296,9 @@ class GsArchiveServer(object):
       The stream of downloaded file.
     """
     path = 'gs://%s' % _check_file_extension('/'.join(args))
-    content = None
-
     try:
-      stat = self._gsutil.Stat(path)
-      if cherrypy.request.method == 'GET':
-        _log('Downloading %s', path, level=logging.INFO)
-        content = self._gsutil.StreamingCat(path)
+      want_content = cherrypy.request.method != 'HEAD'
+      stat, content = self._gsutil.fetch_file(path, want_content)
     except gs.GSNoSuchKey as err:
       raise cherrypy.HTTPError(httplib.NOT_FOUND, err.message)  # pylint: disable=exception-message-attribute
     except gs.GSCommandError as err:
