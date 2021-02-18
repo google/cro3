@@ -239,10 +239,15 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
     * fsp - package name for FSP. This may be None, depending on the
         processor on the reference board
     * fitimage_pkg - package name for the fitimage
-    * fitimage_dir - directory for fitimage; prepend '/mnt/host/source/src/'
-        in chroot, prepend '~/chromiumos/src' outside the chroot
-    * fitimage_outputs_dir - directory under fitimage_dir where gen_fit_image.sh
-        leaves its outputs
+    * fitimage_dir - base directory for fitimage; prepend
+        '/mnt/host/source/src/' in chroot, prepend '~/chromiumos/src' outside
+        the chroot
+    * fitimage_bin_dir - directory under fitimage_dir where the fitimage
+        binary will be
+    * fitimage_versions_dir - directory under fitimage_dir where the fitimage
+        versions file will be, defaults to the value of fitimage_bin_dir
+    * fitimage_bin - name of the fitimage binary to format with the variant
+        name, default of `fitimage-%s.bin`
     * fitimage_cmd - explanation of gen_fit_image command, i.e. tell the user
         how to run gen_fit_image.sh
     * fitimage_script - script to add fitimage sources, defaults
@@ -369,8 +374,12 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
     status.cb_config_dir        = getattr(module, 'cb_config_dir', None)
     status.emerge_cmd           = module.emerge_cmd
     status.emerge_pkgs          = module.emerge_pkgs
+    status.fitimage_bin         = getattr(module, 'fitimage_bin',
+                                          'fitimage-%s.bin')
     status.fitimage_dir         = getattr(module, 'fitimage_dir', None)
-    status.fitimage_outputs_dir = getattr(module, 'fitimage_outputs_dir', None)
+    status.fitimage_bin_dir     = getattr(module, 'fitimage_bin_dir', None)
+    status.fitimage_versions_dir= getattr(module, 'fitimage_versions_dir',
+                                          status.fitimage_bin_dir)
     status.fitimage_pkg         = getattr(module, 'fitimage_pkg', None)
     status.fitimage_cmd         = getattr(module, 'fitimage_cmd', None)
     status.fitimage_script      = getattr(module, 'fitimage_script',
@@ -893,17 +902,21 @@ def check_fit_image_files(status):
         List of files that *DO NOT* exist and need to be created, [] if
         all files are present.
     """
-    outputs_dir = os.path.join('/mnt/host/source/src', status.fitimage_dir,
-        status.fitimage_outputs_dir)
-    logging.debug('outputs_dir = "%s"', outputs_dir)
+    fitimage_bin_dir = os.path.join('/mnt/host/source/src',
+        status.fitimage_dir, status.fitimage_bin_dir)
+    logging.debug('fitimage_bin_dir = "%s"', fitimage_bin_dir)
+    fitimage_versions_dir = os.path.join('/mnt/host/source/src',
+        status.fitimage_dir, status.fitimage_versions_dir)
+    logging.debug('fitimage_versions_dir = "%s"', fitimage_versions_dir)
 
     files_not_found = []
-    fitimage_bin = 'fitimage-' + status.variant + '.bin'
-    if not os.path.isfile(os.path.join(outputs_dir, fitimage_bin)):
+    fitimage_bin = status.fitimage_bin % status.variant
+    if not os.path.isfile(os.path.join(fitimage_bin_dir, fitimage_bin)):
         files_not_found.append(fitimage_bin)
 
     fitimage_versions = 'fitimage-' + status.variant + '-versions.txt'
-    if not os.path.isfile(os.path.join(outputs_dir, fitimage_versions)):
+    if not os.path.isfile(os.path.join(fitimage_versions_dir,
+        fitimage_versions)):
         files_not_found.append(fitimage_versions)
 
     return files_not_found

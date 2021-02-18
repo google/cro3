@@ -46,11 +46,17 @@ fitimage_pkg = 'coreboot-private-files-baseboard-volteer'
 fitimage_dir = 'private-overlays/baseboard-volteer-private/sys-boot/'\
     'coreboot-private-files-baseboard-volteer'
 
-# Directory under fitimage_dir where gen_fit_image.sh leaves its outputs
-fitimage_outputs_dir = 'asset_generation/outputs'
+# Volteer fitimages use csme-${VARIANT}.bin, not fitimage-${VARIANT}.bin
+fitimage_bin = 'csme-%s.bin'
+
+# Directory under fitimage_dir where the fitimage binary will be
+fitimage_bin_dir = 'files/blobs'
+
+# Directory under fitimage_dir where the fitimage versions file will be
+fitimage_versions_dir = 'files/versions'
 
 # Explanation of gen_fit_image command
-fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> -b'
+fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> es2 -b'
 
 # Script to add fitimage sources
 fitimage_script = 'files/add_fitimage_es2.sh'

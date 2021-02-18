@@ -83,7 +83,7 @@ case "${REFERENCE}" in
     OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-volteer-private/chromeos-base/chromeos-config-bsp-volteer-private
     EBUILD=chromeos-config-bsp-volteer-private-9999.ebuild
     FITIMAGE=volteer
-    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/asset_generation/outputs
+    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/files/blobs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/files
     ;;
 
@@ -94,7 +94,7 @@ case "${REFERENCE}" in
     OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-volteer-private/chromeos-base/chromeos-config-bsp-volteer-private
     EBUILD=chromeos-config-bsp-volteer-private-9999.ebuild
     FITIMAGE=volteer2
-    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/asset_generation/outputs
+    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/files/blobs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/files
     ;;
 
@@ -167,6 +167,15 @@ cleanup() {
       popd
       pushd "${FITIMAGE_FILES_DIR}/blobs"
       rm -f "csme-${NEW}.bin" "descriptor-${NEW}.bin" "me_rw-${NEW}.bin"
+      popd
+      pushd "${FITIMAGE_FILES_DIR}/versions"
+      rm -f "fitimage-${NEW}-versions.txt"
+      popd
+      pushd "${FITIMAGE_FILES_DIR}/logs"
+      rm -f "fit-${NEW}-ro.log" "fit-${NEW}-rw.log"
+      popd
+      pushd "${FITIMAGE_FILES_DIR}/maps"
+      rm "fitimage-${NEW}.map"
     fi
     popd
   fi
@@ -210,21 +219,32 @@ fi
 # the new variant's name so that we don't have to generate the fitimage outside
 # the chroot.
 if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
-  pushd "${FITIMAGE_OUTPUTS_DIR}"
-  cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}.bin" "fitimage-${NEW}.bin"
-  cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}-versions.txt" "fitimage-${NEW}-versions.txt"
   # Volteer requires some extra files; the FIT log is named after the
   # variant, and there are other blobs that are customized to the
-  # variant and have names to reflect it.
+  # variant and have names to reflect it. Volteer also does not use
+  # fitimage-${VARIANT}.bin.
   if [[ "${REFERENCE}" == "volteer" || "${REFERENCE}" == "volteer2" ]] ; then
-    cp "fit-${FITIMAGE}.log" "fit-${NEW}.log"
-    popd
     pushd "${FITIMAGE_FILES_DIR}/blobs"
     cp "csme-${FITIMAGE}.bin" "csme-${NEW}.bin"
     cp "descriptor-${FITIMAGE}.bin" "descriptor-${NEW}.bin"
     # me_rw-volteer.bin does not exist, and since the fitmage isn't being used
     # on an actual board, it's OK to just use volteer2 for either reference.
     cp "me_rw-volteer2.bin" "me_rw-${NEW}.bin"
+    popd
+    pushd "${FITIMAGE_FILES_DIR}/versions"
+    cp "fitimage-${REFERENCE}-versions.txt" "fitimage-${NEW}-versions.txt"
+    popd
+    pushd "${FITIMAGE_FILES_DIR}/logs"
+    cp "fit-${REFERENCE}-ro.log" "fit-${NEW}-ro.log"
+    cp "fit-${REFERENCE}-rw.log" "fit-${NEW}-rw.log"
+    popd
+    pushd "${FITIMAGE_FILES_DIR}/maps"
+    cp "fitimage-${REFERENCE}.map" "fitimage-${NEW}.map"
+  else
+    pushd "${FITIMAGE_OUTPUTS_DIR}"
+    # All boards that have fitimages and are not volteer use a fitimage binary.
+    cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}.bin" "fitimage-${NEW}.bin"
+    cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}-versions.txt" "fitimage-${NEW}-versions.txt"
   fi
   popd
 fi
