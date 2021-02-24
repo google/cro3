@@ -805,6 +805,41 @@ class NebraskaTest(NebraskaBaseTest):
       self.assertEqual(manifest.attrib['version'],
                        app_datas[i + 1].target_version)
 
+  def testReturnNoUpdateStarting(self):
+    """Tests return_noupdate_starting  with multiple apps."""
+    self.GenerateAppData('foo.json', appid='foo')
+    self.GenerateAppData('bar.json', appid='bar')
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
+    request = GenerateXMLRequest([
+        GenerateXMLAppRequest(appid='foo'),
+        GenerateXMLAppRequest(appid='bar'),
+    ])
+
+    def TestHasUpdate(has_update_check):
+      response = neb.GetResponseToRequest(nebraska.Request(request))
+      root = ElementTree.fromstring(response)
+      update_checks = root.findall('app/updatecheck')
+      for update_check in update_checks:
+        self.assertEqual(update_check.attrib['status'],
+                         'ok' if has_update_check else 'noupdate')
+
+    # With default value (0), it should always return an update.
+    TestHasUpdate(True)
+    TestHasUpdate(True)
+    TestHasUpdate(True)
+
+    # With value 1, it should start returning noupdate from the beginning.
+    neb.UpdateConfig(return_noupdate_starting=1)
+    TestHasUpdate(False)
+
+    # With value N greater than 1, it should return update for first N-1.
+    neb.UpdateConfig(return_noupdate_starting=3, no_update=False)
+    TestHasUpdate(True)
+    TestHasUpdate(True)
+    TestHasUpdate(False)
+
   def testEvent(self):
     """Tests event requests."""
     neb = nebraska.Nebraska()

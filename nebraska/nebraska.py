@@ -361,6 +361,13 @@ class Response(object):
         curr - datetime.datetime.combine(curr.date(),
                                          datetime.time.min)).total_seconds())
 
+    if self._request.request_type in (Request.RequestType.INSTALL,
+                                      Request.RequestType.UPDATE):
+      if self._config.return_noupdate_starting > 1:
+        self._config.return_noupdate_starting -= 1
+      elif self._config.return_noupdate_starting == 1:
+        self._config.no_update = True
+
   def GetXMLString(self):
     """Generates a response to a set of client requests.
 
@@ -779,6 +786,13 @@ class Config(object):
     # Ignore the App ID field of incoming requests and use whichever app is
     # available.
     self.ignore_appid = False
+
+    # When set to 0 (the default value), disables returning noupdate (it will
+    # return an update if there is any). If set to a positive integer N, returns
+    # noupdate for the Nth check and for every check thereafter.  For example,
+    # if set to 1, returns noupdate starting from the first check, i.e., always
+    # returns noupdate.
+    self.return_noupdate_starting = 0
 
   def Update(self, **kwargs):
     """Updates the attributes of this class.
