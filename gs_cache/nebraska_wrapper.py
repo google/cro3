@@ -50,6 +50,7 @@ def _log(*args, **kwargs):
 
 class NebraskaWrapperError(Exception):
   """Exception class used by this module."""
+  # pylint: disable=unnecessary-pass
   pass
 
 
@@ -243,8 +244,9 @@ class NebraskaWrapper(object):
       if request.request_type == nebraska.Request.RequestType.EVENT:
         _log('A non-update event notification received. Returning an ack.',
              level=logging.INFO)
-        return nebraska.Nebraska().GetResponseToRequest(
-            request, response_props=nebraska.ResponseProperties(**kwargs))
+        n = nebraska.Nebraska()
+        n.UpdateConfig(**kwargs)
+        return n.GetResponseToRequest(request)
 
       _log('Update Check Received.')
 
@@ -256,13 +258,10 @@ class NebraskaWrapper(object):
       _log('Using %s as the update_metadata_dir for NebraskaProperties.',
            local_payload_dir)
 
-      nebraska_props = nebraska.NebraskaProperties(
-          update_payloads_address=base_url,
-          update_metadata_dir=local_payload_dir)
-      nebraska_obj = nebraska.Nebraska(nebraska_props=nebraska_props)
-
-      return nebraska_obj.GetResponseToRequest(
-          request, response_props=nebraska.ResponseProperties(**kwargs))
+      n = nebraska.Nebraska()
+      n.UpdateConfig(update_payloads_address=base_url,
+                     update_app_index=nebraska.AppIndex(local_payload_dir))
+      return n.GetResponseToRequest(request)
 
     except Exception as e:
       raise NebraskaWrapperError('An error occurred while processing the '

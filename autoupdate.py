@@ -32,6 +32,7 @@ def _Log(message, *args):
 
 class AutoupdateError(Exception):
   """Exception classes used by this module."""
+  # pylint: disable=unnecessary-pass
   pass
 
 
@@ -132,8 +133,9 @@ class Autoupdate(object):
     request = nebraska.Request(data)
     if request.request_type == nebraska.Request.RequestType.EVENT:
       _Log('A non-update event notification received. Returning an ack.')
-      return nebraska.Nebraska().GetResponseToRequest(
-          request, response_props=nebraska.ResponseProperties(**kwargs))
+      n = nebraska.Nebraska()
+      n.UpdateConfig(**kwargs)
+      return n.GetResponseToRequest(request)
 
     _Log('Update Check Received.')
 
@@ -147,9 +149,7 @@ class Autoupdate(object):
            'nebraska to respond with no-update. The error was %s', e)
 
     _Log('Responding to client to use url %s to get image', base_url)
-    nebraska_props = nebraska.NebraskaProperties(
-        update_payloads_address=base_url,
-        update_metadata_dir=local_payload_dir)
-    nebraska_obj = nebraska.Nebraska(nebraska_props=nebraska_props)
-    return nebraska_obj.GetResponseToRequest(
-        request, response_props=nebraska.ResponseProperties(**kwargs))
+    n = nebraska.Nebraska()
+    n.UpdateConfig(update_payloads_address=base_url,
+                   update_app_index=nebraska.AppIndex(local_payload_dir))
+    return n.GetResponseToRequest(request)

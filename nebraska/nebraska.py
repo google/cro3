@@ -17,6 +17,7 @@ import errno
 import json
 import logging
 import os
+import pprint
 import shutil
 import signal
 import sys
@@ -342,17 +343,15 @@ class Response(object):
   format based on the format of an XML response template.
   """
 
-  def __init__(self, request, nebraska_props, response_props):
+  def __init__(self, request, config):
     """Initialize a reponse from a list of matching apps.
 
     Args:
       request: Request instance describing client requests.
-      nebraska_props: An instance of NebraskaProperties.
-      response_props: An instance of ResponseProperties.
+      config: An instance of Config class.
     """
     self._request = request
-    self._nebraska_props = nebraska_props
-    self._response_props = response_props
+    self._config = config
 
     curr = datetime.datetime.now()
     # Jan 1 2007 is the start of Omaha v3 epoch:
@@ -386,8 +385,7 @@ class Response(object):
       matched_apps = set()
       for app_request in self._request.app_requests:
         response_xml.append(
-            self.AppResponse(app_request, self._nebraska_props,
-                             self._response_props, matched_apps).Compile())
+            self.AppResponse(app_request, self._config, matched_apps).Compile())
 
     except Exception as err:
       logging.error(traceback.format_exc())
@@ -404,41 +402,36 @@ class Response(object):
     responses to pings and events as appropriate.
     """
 
-    def __init__(self, app_request, nebraska_props, response_props,
-                 matched_apps):
+    def __init__(self, app_request, config, matched_apps):
       """Initialize an AppResponse.
 
       Args:
         app_request: AppRequest representing a client request.
-        nebraska_props: An instance of NebraskaProperties.
-        response_props: An instance of ResponseProperties.
+        config: An instance of Config class.
         matched_apps: The set of app data that have been matched already.
       """
       self._app_request = app_request
-      self._response_props = response_props
+      self._config = config
       self._app_data = None
       self._payloads_address = None
-      # Although, for installs the update_engine probably should not care about
-      # critical updates and should install even if OOBE has not been passed.
-      self._critical_update = self._response_props.critical_update
 
       # If no update was requested, don't process anything anymore.
-      if self._response_props.no_update:
+      if self._config.no_update:
         return
 
       if self._app_request.request_type == Request.RequestType.INSTALL:
         # Platform requests for install should not have any payload associated
         # with them.
         if self._app_request.has_update_check:
-          self._app_data = nebraska_props.install_app_index.Find(
+          self._app_data = self._config.install_app_index.Find(
               self._app_request, matched_apps, True)
-        self._payloads_address = nebraska_props.install_payloads_address
+        self._payloads_address = self._config.install_payloads_address
 
       elif self._app_request.request_type == Request.RequestType.UPDATE:
-        self._app_data = nebraska_props.update_app_index.Find(
-            self._app_request, matched_apps, self._response_props.full_payload,
-            nebraska_props.ignore_appid)
-        self._payloads_address = nebraska_props.update_payloads_address
+        self._app_data = self._config.update_app_index.Find(
+            self._app_request, matched_apps, self._config.full_payload,
+            self._config.ignore_appid)
+        self._payloads_address = self._config.update_payloads_address
 
       if self._app_data:
         logging.debug('Found matching payload: %s', str(self._app_data))
@@ -470,7 +463,7 @@ class Response(object):
 
       if self._app_data is not None:
         update_check_attribs = {'status': 'ok'}
-        if (self._response_props.is_rollback and
+        if (self._config.is_rollback and
             self._app_request.rollback_allowed):
           update_check_attribs['_is_rollback'] = 'true'
           # Techincally we have to always send _firmware_version and
@@ -481,12 +474,12 @@ class Response(object):
           for idx in index_strs:
             update_check_attribs['_firmware_version' + idx] = _FIRMWARE_VER
             update_check_attribs['_kernel_version' + idx] = _KERNEL_VER
-        if self._response_props.eol_date is not None:
-          update_check_attribs['_eol_date'] = str(self._response_props.eol_date)
+        if self._config.eol_date is not None:
+          update_check_attribs['_eol_date'] = str(self._config.eol_date)
         update_check = ElementTree.SubElement(
             app_response, 'updatecheck', attrib=update_check_attribs)
         urls = ElementTree.SubElement(update_check, 'urls')
-        for _ in range(self._response_props.num_urls):
+        for _ in range(self._config.num_urls):
           ElementTree.SubElement(
               urls, 'url', attrib={'codebase': self._payloads_address})
         manifest = ElementTree.SubElement(
@@ -501,17 +494,17 @@ class Response(object):
             attrib={'ChromeOSVersion': self._app_data.target_version,
                     'ChromeVersion': '1.0.0.0',
                     'DisablePayloadBackoff': str(
-                        self._response_props.disable_payload_backoff).lower(),
+                        self._config.disable_payload_backoff).lower(),
                     'IsDeltaPayload': str(self._app_data.is_delta).lower(),
                     'MaxDaysToScatter': '14',
                     'MetadataSignatureRsa': self._app_data.metadata_signature,
                     'MetadataSize': str(self._app_data.metadata_size),
                     'sha256': self._app_data.sha256,
                     'event': 'postinstall'})
-        if self._response_props.failures_per_url is not None:
+        if self._config.failures_per_url is not None:
           action.set('MaxFailureCountPerUrl',
-                     str(self._response_props.failures_per_url))
-        if self._critical_update:
+                     str(self._config.failures_per_url))
+        if self._config.critical_update:
           action.set('deadline', 'now')
         if self._app_data.public_key is not None:
           action.set('PublicKeyRsa', self._app_data.public_key)
@@ -531,8 +524,8 @@ class Response(object):
         app_response.attrib['status'] = 'noupdate'
       elif self._app_request.request_type == Request.RequestType.UPDATE:
         update_check_attribs = {'status': 'noupdate'}
-        if self._response_props.eol_date is not None:
-          update_check_attribs['_eol_date'] = str(self._response_props.eol_date)
+        if self._config.eol_date is not None:
+          update_check_attribs['_eol_date'] = str(self._config.eol_date)
         ElementTree.SubElement(app_response, 'updatecheck',
                                attrib=update_check_attribs)
 
@@ -731,79 +724,76 @@ class AppIndex(object):
           self.appid, self.target_version)
 
 
-class NebraskaProperties(object):
-  """An instance of this class contains Nebraska properties.
+class Config(object):
+  """The configs that can change the behavior/value of responses.
 
-  These properties are valid and unchanged during the lifetime of the nebraska.
+  If a new feature needs to be added to nebraska that needs to be controlled
+  from the test, a attribute should be added here with a proper default value
+  with corresponding logic based on that value to the rest of nebraska's
+  code. Then these values can be changed using the `update_config` API of the
+  nebraska.
   """
 
-  def __init__(self,
-               update_payloads_address=None,
-               install_payloads_address=None,
-               update_metadata_dir=None,
-               install_metadata_dir=None,
-               ignore_appid=False):
-    """Initializes the NebraskaProperties instance.
+  def __init__(self):
+    """Initliazes the response properties."""
+
+    # The base address for update payload URLs.
+    self.update_payloads_address = None
+
+    # The base address for install payload URLs.
+    self.install_payloads_address = None
+
+    # An instance of AppIndex class to be used for update requests.
+    self.update_app_index = None
+
+    # An instance of AppIndex class to be used for install requests.
+    self.install_app_index = None
+
+    # If true, the response will include 'deadline=now' which indicates the
+    # update is critical.
+    self.critical_update = False
+
+    # If true, it will return a noupdate response regardless.
+    self.no_update = False
+
+    # Whether the update request will be a rollback or not.
+    self.is_rollback = False
+
+    # How many times each url can fail.
+    self.failures_per_url = None
+
+    # Instruct update_engine to disable the back-off logic on the client
+    # altogether.
+    self.disable_payload_backoff = False
+
+    # Number of URLs that should be returned in the response.
+    self.num_urls = 1
+
+    # The number of days from unix epoch which device goes end of life.
+    self.eol_date = None
+
+    # Indicates whether we want a full payload or not. None means we don't
+    # care. Can be set a boolean value.
+    self.full_payload = None
+
+    # Ignore the App ID field of incoming requests and use whichever app is
+    # available.
+    self.ignore_appid = False
+
+  def Update(self, **kwargs):
+    """Updates the attributes of this class.
 
     Args:
-      update_payloads_address: Address of the update payload server.
-      install_payloads_address: Address of the install payload server. If None
-           is passed it will default to update_payloads_address.
-      update_metadata_dir: Update payloads metadata directory.
-      install_metadata_dir: Install payloads metadata directory.
-      ignore_appid: True to ignore the request's App ID and use the first
-        available app.
+      kwargs: A dictionary of args that will update the default attributes of
+        this class.
     """
-    # Attach '/' at the end of the addresses if they don't have any. The update
-    # engine just concatenates the base address with the payload file name and
-    # if there is no '/' the path will be invalid.
-    self.update_payloads_address = os.path.join(update_payloads_address or '',
-                                                '')
-    self.install_payloads_address = (
-        os.path.join(install_payloads_address or '', '') or
-        self.update_payloads_address)
-    self.update_app_index = AppIndex(update_metadata_dir)
-    self.install_app_index = AppIndex(install_metadata_dir)
-    self.ignore_appid = ignore_appid
+    for key, value in kwargs.items():
+      if not hasattr(self, key):
+        logging.error('Invalid config attributed %s is passed.', key)
+        continue
+      setattr(self, key, value)
 
-
-class ResponseProperties(object):
-  """An instance of this class contains properties applied for each response.
-
-  These properties might change during the lifetime of the nebraska.
-  """
-  def __init__(self, **kwargs):
-    """Initliazes the response properties.
-
-    Args:
-      kwargs: A dictionary of key values to initialize the response
-        properties. A list of acceptable values are defined below. Any key other
-        than the list below is simply ignored. The reason for this is that
-        sometimes the client sends extra values that are only valuable to the
-        devserver, but not to Nebraska. That way devserver can just pass through
-        the args to Nebraska without picking the valuable ones.
-
-        - critical_update: If true, the response will include 'deadline=now'
-          which indicates the update is critical.
-        - no_update: If true, it will return a noupdate response regardless.
-        - is_rollback: Whether the update request will be a rollback or not.
-        - failures_per_url: How many times each url can fail.
-        - disable_payload_backoff: Instruct update_engine to disable the
-          back-off logic on the client altogether.
-        - num_urls: Number of URLs that should be returned in the response.
-        - eol_date: The number of days from unix epoch which device goes end of
-          life.
-        - full_payload: Indicates whether we want a full payload or not. None
-          means we don't care.
-    """
-    self.critical_update = kwargs.get('critical_update', False)
-    self.no_update = kwargs.get('no_update', False)
-    self.is_rollback = kwargs.get('is_rollback', False)
-    self.failures_per_url = kwargs.get('failures_per_url', None)
-    self.disable_payload_backoff = kwargs.get('disable_payload_backoff', False)
-    self.num_urls = kwargs.get('num_urls', 1)
-    self.eol_date = kwargs.get('eol_date', None)
-    self.full_payload = kwargs.get('full_payload', None)
+    logging.debug('Config updated to: %s', pprint.pprint(self.__dict__))
 
 
 class Nebraska(object):
@@ -815,36 +805,33 @@ class Nebraska(object):
     creating critical update responses, or messing up with firmware and kernel
     versions, new flags should be added here to add that feature.
   """
-  def __init__(self, nebraska_props=None, response_props=None):
-    """Initializes the Nebraska instance.
+  def __init__(self):
+    """Initializes the Nebraska instance."""
+    self._config = Config()
 
-    Args:
-      nebraska_props: An instance of NebraskaProperties.
-      response_props: An instance of ResponseProperties.
-    """
-    self._nebraska_props = nebraska_props or NebraskaProperties()
-    self._response_props = response_props or ResponseProperties()
-
-  def GetResponseToRequest(self, request, response_props=None):
+  def GetResponseToRequest(self, request):
     """Returns the response corresponding to a request.
 
     Args:
       request: The Request object representation of the incoming request.
-      response_props: An instance of ResponseProperties. If passed, it will
-        override the internal Nebraska version (default).
 
     Returns:
       The string representation of the created response.
     """
-
-    response = Response(request, self._nebraska_props,
-                        response_props or self._response_props).GetXMLString()
+    response = Response(request, self._config).GetXMLString()
     # Make the XML response look pretty.
     response_str = minidom.parseString(response).toprettyxml(indent='  ',
                                                              encoding='UTF-8')
     logging.debug('Sent response: %s', response_str)
     return response_str
 
+  def UpdateConfig(self, **kwargs):
+    """Updates the config.
+
+    Args:
+      kwargs: Look at Config.Update().
+    """
+    self._config.Update(**kwargs)
 
 
 def QueryDictToDict(query):
@@ -952,32 +939,38 @@ class NebraskaServer(object):
       """
       try:
         request_len = int(self.headers.get('content-length'))
-        request = self.rfile.read(request_len)
+        data = self.rfile.read(request_len)
       except Exception as err:
         logging.error('Failed to read request in do_POST %s', str(err))
         self.send_error(http_client.BAD_REQUEST, 'Invalid request (header).')
         return
 
       parsed_path, parsed_query = self._ParseURL(self.path)
-      if parsed_path == 'update':
-        kwargs = QueryDictToDict(parsed_query)
-        response_props = ResponseProperties(**kwargs)
+      try:
+        if parsed_path == 'update':
+          # TODO(b/181064515): Deprecate search query parsing after all users of
+          # nebraska changed to use `update_config` API instead.
+          self.server.owner.nebraska.UpdateConfig(
+              **QueryDictToDict(parsed_query))
 
-        try:
-          request_obj = Request(request)
           response = self.server.owner.nebraska.GetResponseToRequest(
-              request_obj, response_props)
+              Request(data))
           self._SendResponse('application/xml', response)
-        except Exception as err:
-          logging.error('Failed to handle request (%s)', str(err))
-          logging.error(traceback.format_exc())
-          self.send_error(http_client.INTERNAL_SERVER_ERROR,
-                          traceback.format_exc())
 
-      else:
-        logging.error('The requested path "%s" was not found!', parsed_path)
-        self.send_error(http_client.BAD_REQUEST,
-                        'The requested path "%s" was not found!' % parsed_path)
+        elif parsed_path == 'update_config':
+          self.server.owner.nebraska.UpdateConfig(**json.loads(data))
+          self._SendResponse('text/plain', 'Config set!')
+
+        else:
+          error_str = 'The requested path "%s" was not found!' % parsed_path
+          logging.error(error_str)
+          self.send_error(http_client.BAD_REQUEST, error_str)
+
+      except Exception as err:
+        logging.error('Failed to handle request (%s)', str(err))
+        logging.error(traceback.format_exc())
+        self.send_error(http_client.INTERNAL_SERVER_ERROR,
+                        traceback.format_exc())
 
     def do_GET(self):
       """Responds to Get requests.
@@ -1086,6 +1079,8 @@ def ParseArguments(argv):
   parser.add_argument('--install-payloads-address', metavar='URL',
                       help='Base payload URI for install payloads. If not '
                       'passed it will default to --update-payloads-address')
+  # TODO(b/181064515): Deprecate this argument after changing all users of
+  # nebraska to use `update_config` API.
   parser.add_argument('--ignore-appid', action='store_true',
                       help='Ignore the App ID field of incoming requests and '
                       'use whichever app is available.')
@@ -1119,13 +1114,22 @@ def main(argv):
 
   logging.info('Starting nebraska ...')
 
-  nebraska_props = NebraskaProperties(
-      update_payloads_address=opts.update_payloads_address,
-      install_payloads_address=opts.install_payloads_address,
-      update_metadata_dir=opts.update_metadata,
-      install_metadata_dir=opts.install_metadata,
-      ignore_appid=opts.ignore_appid)
-  nebraska = Nebraska(nebraska_props)
+  nebraska = Nebraska()
+
+  # Attach '/' at the end of the addresses if they don't have any. The update
+  # engine just concatenates the base address with the payload file name and
+  # if there is no '/' the path will be invalid.
+  update_payloads_address = os.path.join(opts.update_payloads_address or '', '')
+  install_payloads_address = (os.path.join(opts.install_payloads_address or '',
+                                           '') or update_payloads_address)
+
+  nebraska.UpdateConfig(
+      update_payloads_address=update_payloads_address,
+      install_payloads_address=install_payloads_address,
+      update_app_index=AppIndex(opts.update_metadata),
+      install_app_index=AppIndex(opts.install_metadata),
+      ignore_appid=opts.ignore_appid,
+  )
   nebraska_server = NebraskaServer(nebraska, runtime_root=opts.runtime_root,
                                    port=opts.port)
 

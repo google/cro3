@@ -179,9 +179,8 @@ class MockNebraskaHandler(nebraska.NebraskaServer.NebraskaHandler):
     self.send_error = mock.MagicMock()
     self.rfile = mock.MagicMock()
     self.server = mock.MagicMock()
-    nebraska_props = nebraska.NebraskaProperties(
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    nebraska_obj = nebraska.Nebraska(nebraska_props=nebraska_props)
+    nebraska_obj = nebraska.Nebraska()
+    nebraska_obj.UpdateConfig(update_payloads_address=_PAYLOADS_ADDRESS)
     self.server.owner = nebraska.NebraskaServer(nebraska_obj)
 
 class NebraskaHandlerTest(unittest.TestCase):
@@ -225,7 +224,7 @@ class NebraskaHandlerTest(unittest.TestCase):
 
     response_mock.assert_called_once()
     self.assertTrue(
-        response_mock.call_args_list[0].response_props.critical_update)
+        nebraska_handler.server.owner.nebraska._config.critical_update)
 
   @mock.patch.object(nebraska.Nebraska, 'GetResponseToRequest')
   @mock.patch.object(nebraska, 'Request')
@@ -237,7 +236,7 @@ class NebraskaHandlerTest(unittest.TestCase):
     nebraska_handler.do_POST()
 
     response_mock.assert_called_once()
-    self.assertTrue(response_mock.call_args_list[0].response_props.no_update)
+    self.assertTrue(nebraska_handler.server.owner.nebraska._config.no_update)
 
   def testDoPostInvalidPath(self):
     """Test do_POST invalid path."""
@@ -277,6 +276,23 @@ class NebraskaHandlerTest(unittest.TestCase):
     nebraska_handler.send_error.assert_called_once_with(
         http_client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
 
+  def testDoPostUpdateConfig(self):
+    """Tests do_POST success for update_config API."""
+    nebraska_handler = MockNebraskaHandler()
+    nebraska_handler.path = 'http://test.com/update_config'
+    nebraska_handler.rfile.read = lambda x: json.dumps(
+        {'critical_update': True})
+
+    self.assertFalse(
+        nebraska_handler.server.owner.nebraska._config.critical_update)
+
+    nebraska_handler.do_POST()
+
+    self.assertTrue(
+        nebraska_handler.server.owner.nebraska._config.critical_update)
+    nebraska_handler._SendResponse.assert_called_once_with(
+        'text/plain', 'Config set!')
+
   def testDoGetFailureBadPath(self):
     """Tests do_GET failure on bad path."""
     nebraska_handler = MockNebraskaHandler()
@@ -299,8 +315,8 @@ class NebraskaServerTest(NebraskaBaseTest):
 
   def testStart(self):
     """Tests start of server."""
-    nebraska_props = nebraska.NebraskaProperties(_PAYLOADS_ADDRESS)
-    nebraska_instance = nebraska.Nebraska(nebraska_props=nebraska_props)
+    nebraska_instance = nebraska.Nebraska()
+    nebraska_instance.UpdateConfig(update_payloads_address=_PAYLOADS_ADDRESS)
     server = nebraska.NebraskaServer(nebraska_instance, port=_NEBRASKA_PORT)
 
     with mock.patch.object(nebraska.BaseHTTPServer,
@@ -318,8 +334,8 @@ class NebraskaServerTest(NebraskaBaseTest):
 
   def testStop(self):
     """Tests Stop."""
-    nebraska_props = nebraska.NebraskaProperties(_PAYLOADS_ADDRESS)
-    nebraska_instance = nebraska.Nebraska(nebraska_props=nebraska_props)
+    nebraska_instance = nebraska.Nebraska()
+    nebraska_instance.UpdateConfig(update_payloads_address=_PAYLOADS_ADDRESS)
     server = nebraska.NebraskaServer(nebraska_instance, port=_NEBRASKA_PORT)
 
     # pylint: disable=protected-access
@@ -334,8 +350,8 @@ class NebraskaServerTest(NebraskaBaseTest):
     """Tests PID and port files are correctly written."""
     temp_dir = tempfile.mkdtemp()
     runtime_root = os.path.join(temp_dir, 'runtime_root')
-    nebraska_props = nebraska.NebraskaProperties(_PAYLOADS_ADDRESS)
-    nebraska_instance = nebraska.Nebraska(nebraska_props=nebraska_props)
+    nebraska_instance = nebraska.Nebraska()
+    nebraska_instance.UpdateConfig(update_payloads_address=_PAYLOADS_ADDRESS)
     server = nebraska.NebraskaServer(nebraska_instance, port=_NEBRASKA_PORT,
                                      runtime_root=runtime_root)
 
@@ -367,22 +383,12 @@ class NebraskaTest(NebraskaBaseTest):
     """Tests the default install_payloads_address is correctly set."""
     update_addr = 'foo/update/'
     install_addr = 'foo/install/'
-    # pylint: disable=protected-access
-    nebraska_props = nebraska.NebraskaProperties(
-        update_payloads_address=update_addr,
-        install_payloads_address=install_addr)
-    n = nebraska.Nebraska(nebraska_props=nebraska_props)
-    self.assertEqual(n._nebraska_props.install_payloads_address, install_addr)
-    self.assertEqual(n._nebraska_props.update_payloads_address, update_addr)
-
-    nebraska_props = nebraska.NebraskaProperties(
-        update_payloads_address=update_addr)
-    n = nebraska.Nebraska(nebraska_props=nebraska_props)
-    self.assertEqual(n._nebraska_props.install_payloads_address, update_addr)
-
     n = nebraska.Nebraska()
-    self.assertEqual(n._nebraska_props.update_payloads_address, '')
-    self.assertEqual(n._nebraska_props.install_payloads_address, '')
+    n.UpdateConfig(update_payloads_address=update_addr,
+                   install_payloads_address=install_addr)
+    # pylint: disable=protected-access
+    self.assertEqual(n._config.install_payloads_address, install_addr)
+    self.assertEqual(n._config.update_payloads_address, update_addr)
 
   def testQueryDictToDict(self):
     """Tests QueryDictToDict() function"""
@@ -406,10 +412,9 @@ class NebraskaTest(NebraskaBaseTest):
   def testDefaultRequestResponseXML(self):
     """Tests the default response to a request for an update check."""
     app_data = self.GenerateAppData()
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([GenerateXMLAppRequest()])
     response = neb.GetResponseToRequest(nebraska.Request(request))
 
@@ -520,10 +525,9 @@ class NebraskaTest(NebraskaBaseTest):
     """Tests different scenarios for correctly matching AppData."""
     # Providing some properties files.
     self.GenerateAppData('foo_install.json')
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
 
     # Nothing found.
     request = GenerateXMLRequest([GenerateXMLAppRequest(appid='random')])
@@ -546,10 +550,9 @@ class NebraskaTest(NebraskaBaseTest):
   def testMatchEmpty(self):
     """Tests Constains() correctly finds matching AppData with empty appid."""
     self.GenerateAppData('foo_update.json', appid='')
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([GenerateXMLAppRequest()])
     response = neb.GetResponseToRequest(nebraska.Request(request))
 
@@ -563,10 +566,9 @@ class NebraskaTest(NebraskaBaseTest):
     """Tests matching install requests."""
     self.GenerateAppData('foo.json')
     self.GenerateAppData('bar.json', appid='bar')
-    neb_props = nebraska.NebraskaProperties(
-        install_metadata_dir=self.tempdir,
-        install_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(install_app_index=nebraska.AppIndex(self.tempdir),
+                     install_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([
         # Not having an updatecheck tag in the platform App causes this to be an
         # install request.
@@ -585,10 +587,9 @@ class NebraskaTest(NebraskaBaseTest):
     # Two properties file with the same App ID but one delta, one full.
     self.GenerateAppData('foo.json')
     self.GenerateAppData('bar.json', is_delta=True, source_version='1.0.0')
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
 
     # Full payload.
     request = GenerateXMLRequest([GenerateXMLAppRequest(delta_okay=False)])
@@ -605,26 +606,22 @@ class NebraskaTest(NebraskaBaseTest):
     self.assertEqual(action.attrib['IsDeltaPayload'], 'true')
 
     # Forced full payload should return full payload.
-    response_props = nebraska.ResponseProperties(full_payload=True)
-    response = neb.GetResponseToRequest(nebraska.Request(request),
-                                        response_props)
+    neb.UpdateConfig(full_payload=True)
+    response = neb.GetResponseToRequest(nebraska.Request(request))
     root = ElementTree.fromstring(response)
     action = root.findall('app/updatecheck/manifest/actions/action')[1]
     self.assertEqual(action.attrib['IsDeltaPayload'], 'false')
 
     # Delta payload should return delta payload.
-    response_props = nebraska.ResponseProperties(full_payload=False)
-    response = neb.GetResponseToRequest(nebraska.Request(request),
-                                        response_props)
+    neb.UpdateConfig(full_payload=False)
+    response = neb.GetResponseToRequest(nebraska.Request(request))
     root = ElementTree.fromstring(response)
     action = root.findall('app/updatecheck/manifest/actions/action')[1]
     self.assertEqual(action.attrib['IsDeltaPayload'], 'true')
 
     # Forced delta payload when client can't get delta should be noupdate.
     request = GenerateXMLRequest([GenerateXMLAppRequest(delta_okay=False)])
-    response_props = nebraska.ResponseProperties(full_payload=False)
-    response = neb.GetResponseToRequest(nebraska.Request(request),
-                                        response_props)
+    response = neb.GetResponseToRequest(nebraska.Request(request))
     root = ElementTree.fromstring(response)
     update_check = root.find('app/updatecheck')
     self.assertEqual(update_check.attrib['status'], 'noupdate')
@@ -632,10 +629,9 @@ class NebraskaTest(NebraskaBaseTest):
   def testMismatchAppDataAppID(self):
     """Tests appid mismatch."""
     self.GenerateAppData(appid='bar')
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([GenerateXMLAppRequest(appid='foo')])
     response = neb.GetResponseToRequest(nebraska.Request(request))
 
@@ -645,10 +641,10 @@ class NebraskaTest(NebraskaBaseTest):
   def testIgnoreAppDataAppID(self):
     """Tests ignoring appid."""
     self.GenerateAppData(appid='bar')
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS, ignore_appid=True)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS,
+                     ignore_appid=True)
     request = GenerateXMLRequest([GenerateXMLAppRequest(appid='foo')])
     response = neb.GetResponseToRequest(nebraska.Request(request))
 
@@ -658,10 +654,9 @@ class NebraskaTest(NebraskaBaseTest):
   def testMatchCanaryAppId(self):
     """Tests matching update request with canary appid."""
     self.GenerateAppData(appid='1' * len(nebraska._CANARY_APP_ID) + 'foo')
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([
         GenerateXMLAppRequest(appid=nebraska._CANARY_APP_ID + 'foo')])
     response = neb.GetResponseToRequest(nebraska.Request(request))
@@ -672,10 +667,9 @@ class NebraskaTest(NebraskaBaseTest):
   def testAlreadyMatched(self):
     """Tests not matching an already matched app."""
     self.GenerateAppData()
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
 
     # Two identical requests.
     request = GenerateXMLRequest([
@@ -751,10 +745,9 @@ class NebraskaTest(NebraskaBaseTest):
         self.GenerateAppData('bar.json', appid='bar'),
         self.GenerateAppData('test.json', appid='test'),
     ]
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([
         GenerateXMLAppRequest(appid='foo'),
         GenerateXMLAppRequest(appid='bar'),
@@ -785,10 +778,9 @@ class NebraskaTest(NebraskaBaseTest):
         self.GenerateAppData('bar.json', appid='bar'),
         self.GenerateAppData('test.json', appid='test'),
     ]
-    neb_props = nebraska.NebraskaProperties(
-        install_metadata_dir=self.tempdir,
-        install_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(install_app_index=nebraska.AppIndex(self.tempdir),
+                     install_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([
         GenerateXMLAppRequest(appid='foo', version='1.0.0', update_check=None),
         GenerateXMLAppRequest(appid='bar', version='0.0.0.0'),
@@ -815,10 +807,9 @@ class NebraskaTest(NebraskaBaseTest):
 
   def testEvent(self):
     """Tests event requests."""
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([
         GenerateXMLAppRequest(appid='foo', event=True, previous_version='1'),
         GenerateXMLAppRequest(appid='test', event=True, previous_version='1'),
@@ -837,10 +828,9 @@ class NebraskaTest(NebraskaBaseTest):
 
   def testPing(self):
     """Tests ping requests."""
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([
         GenerateXMLAppRequest(appid='foo', ping=True),
         GenerateXMLAppRequest(appid='test', ping=True),
@@ -861,15 +851,13 @@ class NebraskaTest(NebraskaBaseTest):
   def testCriticalUpdate(self):
     """Tests correct response for critical updates."""
     self.GenerateAppData()
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([GenerateXMLAppRequest()])
 
-    response_props = nebraska.ResponseProperties(critical_update=True)
-    response = neb.GetResponseToRequest(nebraska.Request(request),
-                                        response_props)
+    neb.UpdateConfig(critical_update=True)
+    response = neb.GetResponseToRequest(nebraska.Request(request))
     root = ElementTree.fromstring(response)
     action_tag = root.findall(
         'app/updatecheck/manifest/actions/action')[1]
@@ -878,15 +866,12 @@ class NebraskaTest(NebraskaBaseTest):
   def testPublicKey(self):
     """Tests public key is included in the response."""
     app_data = self.GenerateAppData(include_public_key=True)
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([GenerateXMLAppRequest()])
 
-    response_props = nebraska.ResponseProperties()
-    response = neb.GetResponseToRequest(nebraska.Request(request),
-                                        response_props)
+    response = neb.GetResponseToRequest(nebraska.Request(request))
     root = ElementTree.fromstring(response)
     action_tag = root.findall(
         'app/updatecheck/manifest/actions/action')[1]
@@ -896,15 +881,13 @@ class NebraskaTest(NebraskaBaseTest):
   def testRollback(self,):
     """Tests rollback parametes are setup correctly."""
     self.GenerateAppData()
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([GenerateXMLAppRequest(rollback_allowed=True)])
 
-    response_props = nebraska.ResponseProperties(is_rollback=True)
-    response = neb.GetResponseToRequest(nebraska.Request(request),
-                                        response_props)
+    neb.UpdateConfig(is_rollback=True)
+    response = neb.GetResponseToRequest(nebraska.Request(request))
     root = ElementTree.fromstring(response)
     update_check_tag = root.find('app/updatecheck')
     index_strs = ['', '_0', '_1', '_2', '_3', '_4']
@@ -918,15 +901,13 @@ class NebraskaTest(NebraskaBaseTest):
   def testFailuresPerUrl(self):
     """Tests response for number of failures allowed per URL."""
     self.GenerateAppData()
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([GenerateXMLAppRequest()])
 
-    response_props = nebraska.ResponseProperties(failures_per_url=10)
-    response = neb.GetResponseToRequest(nebraska.Request(request),
-                                        response_props)
+    neb.UpdateConfig(failures_per_url=10)
+    response = neb.GetResponseToRequest(nebraska.Request(request))
     root = ElementTree.fromstring(response)
     action_tag = root.findall(
         'app/updatecheck/manifest/actions/action')[1]
@@ -935,15 +916,13 @@ class NebraskaTest(NebraskaBaseTest):
   def testDisablePayloadBackoff(self):
     """Tests disabling payload backoff on the client."""
     self.GenerateAppData()
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([GenerateXMLAppRequest()])
 
-    response_props = nebraska.ResponseProperties(disable_payload_backoff=True)
-    response = neb.GetResponseToRequest(nebraska.Request(request),
-                                        response_props)
+    neb.UpdateConfig(disable_payload_backoff=True)
+    response = neb.GetResponseToRequest(nebraska.Request(request))
     root = ElementTree.fromstring(response)
     action_tag = root.findall(
         'app/updatecheck/manifest/actions/action')[1]
@@ -952,15 +931,13 @@ class NebraskaTest(NebraskaBaseTest):
   def testNumUrls(self):
     """Tests the number of URLs are passed correctly."""
     self.GenerateAppData()
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([GenerateXMLAppRequest()])
 
-    response_props = nebraska.ResponseProperties(num_urls=2)
-    response = neb.GetResponseToRequest(nebraska.Request(request),
-                                        response_props)
+    neb.UpdateConfig(num_urls=2)
+    response = neb.GetResponseToRequest(nebraska.Request(request))
     root = ElementTree.fromstring(response)
     urls = root.findall('app/updatecheck/urls/url')
     self.assertEqual(len(urls), 2)
@@ -968,15 +945,13 @@ class NebraskaTest(NebraskaBaseTest):
   def testEolDate(self):
     """Tests the EOL date are passed correctly."""
     self.GenerateAppData()
-    neb_props = nebraska.NebraskaProperties(
-        update_metadata_dir=self.tempdir,
-        update_payloads_address=_PAYLOADS_ADDRESS)
-    neb = nebraska.Nebraska(nebraska_props=neb_props)
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS)
     request = GenerateXMLRequest([GenerateXMLAppRequest()])
 
-    response_props = nebraska.ResponseProperties(eol_date=1000)
-    response = neb.GetResponseToRequest(nebraska.Request(request),
-                                        response_props)
+    neb.UpdateConfig(eol_date=1000)
+    response = neb.GetResponseToRequest(nebraska.Request(request))
     root = ElementTree.fromstring(response)
     update_check = root.find('app/updatecheck')
     self.assertEqual(update_check.attrib['_eol_date'], '1000')
