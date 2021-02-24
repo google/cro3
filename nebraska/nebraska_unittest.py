@@ -277,15 +277,6 @@ class NebraskaHandlerTest(unittest.TestCase):
     nebraska_handler.send_error.assert_called_once_with(
         http_client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
 
-  def testDoGetSuccess(self):
-    """Tests do_GET success."""
-    nebraska_handler = MockNebraskaHandler()
-    nebraska_handler.path = 'http://test.com/requestlog'
-
-    nebraska_handler.do_GET()
-    nebraska_handler._SendResponse.assert_called_once_with(
-        'application/json', b'[]')
-
   def testDoGetFailureBadPath(self):
     """Tests do_GET failure on bad path."""
     nebraska_handler = MockNebraskaHandler()

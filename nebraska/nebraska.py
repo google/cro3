@@ -108,7 +108,6 @@ class Request(object):
     self.track = None
     self.board = None
     self.request_type = None
-    self.timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     self.app_requests = []
 
@@ -209,26 +208,6 @@ class Request(object):
     if self.track is None or self.board is None:
       raise InvalidRequestError('Either track(%s) or board(%s) attributes are '
                                 'empty in all apps.' % (self.track, self.board))
-
-  def GetDict(self):
-    """Returns a dictionary with some parameters of the request.
-
-    This is mostly used by the auto update tests to capture the flow of requests
-    from update_engine to analyze them (Simply in JSON format).
-    """
-    if not self.app_requests:
-      return {}
-
-    # TODO(ahassani): Extend this to return an object for all App Requests. For
-    # now only can return the first one to be backward compatible with auto
-    # update auto tests.
-    result = self.app_requests[0].__dict__
-
-    # Auto tests require an additional timestamp value which can be considered
-    # as a Request wide varable and not App Request one. So set it here.
-    result['timestamp'] = self.timestamp
-
-    return result
 
   class AppRequest(object):
     """An app request.
@@ -845,7 +824,6 @@ class Nebraska(object):
     """
     self._nebraska_props = nebraska_props or NebraskaProperties()
     self._response_props = response_props or ResponseProperties()
-    self._request_log = []
 
   def GetResponseToRequest(self, request, response_props=None):
     """Returns the response corresponding to a request.
@@ -858,7 +836,6 @@ class Nebraska(object):
     Returns:
       The string representation of the created response.
     """
-    self._request_log.append(request.GetDict())
 
     response = Response(request, self._nebraska_props,
                         response_props or self._response_props).GetXMLString()
@@ -868,9 +845,6 @@ class Nebraska(object):
     logging.debug('Sent response: %s', response_str)
     return response_str
 
-  def GetRequestLog(self):
-    """Returns the request logs in JSON format."""
-    return json.dumps(self._request_log).encode('utf-8')
 
 
 def QueryDictToDict(query):
@@ -1009,23 +983,14 @@ class NebraskaServer(object):
       """Responds to Get requests.
 
       The use cases are:
-      - requestlog: For getting the list of request logs in a JSON format.
+      - health_check: For health checking the Nebraska server.
 
       The URL path can be like:
-          https://<ip>:<port>/requestlog
+          https://<ip>:<port>/health_check
       """
       parsed_path, _ = self._ParseURL(self.path)
 
-      if parsed_path == 'requestlog':
-        try:
-          response = self.server.owner.nebraska.GetRequestLog()
-          self._SendResponse('application/json', response)
-        except Exception as err:
-          logging.error('Failed to get request logs (%s)', str(err))
-          logging.error(traceback.format_exc())
-          self.send_error(http_client.INTERNAL_SERVER_ERROR,
-                          traceback.format_exc())
-      elif parsed_path == 'health_check':
+      if parsed_path == 'health_check':
         self._SendResponse('text/plain', 'Nebraska is alive!')
       else:
         logging.error('The requested path "%s" was not found!', parsed_path)
