@@ -7,8 +7,6 @@
 
 This is a short term solution in order to deprecation devserver.py from labs.
 """
-from __future__ import absolute_import
-from __future__ import division
 from __future__ import print_function
 
 import cherrypy  # pylint: disable=import-error

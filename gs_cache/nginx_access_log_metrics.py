@@ -10,8 +10,6 @@ It parses the Nginx access log file of Gs Cache, e.g.
 Cache performance.
 """
 
-from __future__ import absolute_import
-from __future__ import division
 from __future__ import print_function
 
 import argparse

@@ -16,19 +16,17 @@ The server accepts below requests:
       Extract a file form a compressed/uncompressed TAR archive.
 """
 
-from __future__ import absolute_import
-from __future__ import division
 from __future__ import print_function
 
 import argparse
 import functools
-import httplib  # pylint: disable=deprecated-module, bad-python3-import
 import os
 import subprocess
 import sys
 import tempfile
-import urllib
-import urlparse  # pylint: disable=deprecated-module,  bad-python3-import
+
+from six.moves import http_client
+from six.moves import urllib
 
 import requests
 import cherrypy  # pylint: disable=import-error
@@ -113,7 +111,7 @@ def _safe_get_param(all_params, param_name):
   try:
     value = all_params[param_name]
   except KeyError:
-    raise cherrypy.HTTPError(httplib.BAD_REQUEST,
+    raise cherrypy.HTTPError(http_client.BAD_REQUEST,
                              'Parameter "%s" is required!' % param_name)
 
   return set(value) if isinstance(value, list) else {value}
@@ -134,7 +132,7 @@ def _to_cherrypy_error(func):
     except ValueError as err:
       # The exception message is just a plain text, so wrap it with
       # cherrypy.HTTPError to have necessary HTML tags
-      raise cherrypy.HTTPError(httplib.BAD_REQUEST, err.message)  # pylint: disable=exception-message-attribute
+      raise cherrypy.HTTPError(http_client.BAD_REQUEST, err.message)  # pylint: disable=exception-message-attribute
   return func_wrapper
 
 
@@ -170,8 +168,10 @@ class _CachingServer(object):
 
   def _call(self, action, path, args=None, headers=None):
     """Helper function to generate all RPC calls to the proxy server."""
-    url = urlparse.urlunsplit(self._url + ('%s/%s' % (action, path),
-                                           urllib.urlencode(args or {}), None))
+    url = urllib.parse.urlunsplit(
+        self._url + ('%s/%s' % (action, path),
+                     urllib.parse.urlencode(args or {}),
+                     None))
     _log('Sending request to caching server: %s', url)
     # The header to control using or bypass cache.
     _log_filtered_headers(headers, ('Range', 'X-No-Cache',
@@ -211,7 +211,7 @@ class _CachingServer(object):
       return self._call('download', path, headers=headers)
 
 
-_SERVICE_ACCOUNT_BOTO_FILE = os.path.expanduser("~/.boto.service_account")
+_SERVICE_ACCOUNT_BOTO_FILE = os.path.expanduser('~/.boto.service_account')
 
 
 class _GSContext(object):
@@ -221,7 +221,7 @@ class _GSContext(object):
     self._ctx_default = gs.GSContext()
     if os.path.isfile(_SERVICE_ACCOUNT_BOTO_FILE):
       self._ctx_service_account = gs.GSContext(
-            boto_file=_SERVICE_ACCOUNT_BOTO_FILE)
+          boto_file=_SERVICE_ACCOUNT_BOTO_FILE)
     else:
       self._ctx_service_account = None
 
@@ -231,6 +231,7 @@ class _GSContext(object):
     Args:
       path: The GS path of the file to fetch.
       want_content: A boolean of whether fetch the content (as an iterator).
+
     Returns:
       A tuple of (stat, content) which is the GS file stat and content
       iterator (or None).
@@ -243,13 +244,13 @@ class _GSContext(object):
         raise
       if not err.stderr.startswith("You aren't authorized to read "):
         raise
-      _log("Not authorized by default. Trying service account.")
+      _log('Not authorized by default. Trying service account.')
       stat = self._ctx_service_account.Stat(path)
       ctx = self._ctx_service_account
 
     if want_content:
-        _log('Downloading %s', path, level=logging.INFO)
-        return stat, ctx.StreamingCat(path)
+      _log('Downloading %s', path, level=logging.INFO)
+      return stat, ctx.StreamingCat(path)
 
     return stat, None
 
@@ -276,7 +277,7 @@ class GsArchiveServer(object):
                               stderr=subprocess.PIPE)
       content, _ = proc.communicate()
     except subprocess.CalledProcessError as e:
-      raise cherrypy.HTTPError(httplib.NOT_FOUND, e.output)
+      raise cherrypy.HTTPError(http_client.NOT_FOUND, e.output)
     return content
 
 
@@ -300,12 +301,12 @@ class GsArchiveServer(object):
       want_content = cherrypy.request.method != 'HEAD'
       stat, content = self._gsutil.fetch_file(path, want_content)
     except gs.GSNoSuchKey as err:
-      raise cherrypy.HTTPError(httplib.NOT_FOUND, err.message)  # pylint: disable=exception-message-attribute
+      raise cherrypy.HTTPError(http_client.NOT_FOUND, err.message)  # pylint: disable=exception-message-attribute
     except gs.GSCommandError as err:
       if "You aren't authorized to read" in err.result.error:
-        status = httplib.UNAUTHORIZED
+        status = http_client.UNAUTHORIZED
       else:
-        status = httplib.SERVICE_UNAVAILABLE
+        status = http_client.SERVICE_UNAVAILABLE
       raise cherrypy.HTTPError(status, '%s: %s' % (err.message,  # pylint: disable=exception-message-attribute
                                                    err.result.error))
 
@@ -476,11 +477,11 @@ def _url_type(input_string):
 
   The target type is a tuple of (scheme, netloc).
   """
-  split_result = urlparse.urlsplit(input_string)
+  split_result = urllib.parse.urlsplit(input_string)
   if not split_result.scheme:
     input_string = 'http://%s' % input_string
 
-  split_result = urlparse.urlsplit(input_string)
+  split_result = urllib.parse.urlsplit(input_string)
   if not split_result.scheme or not split_result.netloc:
     raise argparse.ArgumentTypeError('Wrong URL format: %s' % input_string)
 
@@ -536,7 +537,7 @@ def main(argv):
   if args.socket:
     # in order to allow group user writing to domain socket, the directory
     # should have GID bit set, i.e. g+s
-    os.umask(0002)  # pylint: disable=old-octal-literal
+    os.umask(0o002)
 
   cherrypy.server.socket_port = args.port
   cherrypy.server.socket_file = args.socket

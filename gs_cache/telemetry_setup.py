@@ -5,9 +5,6 @@
 
 """A class that sets up the environment for telemetry testing."""
 
-
-from __future__ import absolute_import
-from __future__ import division
 from __future__ import print_function
 
 import contextlib
@@ -88,7 +85,6 @@ def lock_dir(dir_name):
 
 class TelemetrySetupError(Exception):
   """Exception class used by this module."""
-  pass
 
 
 class TelemetrySetup(object):
@@ -195,7 +191,7 @@ class TelemetrySetup(object):
     resp = requests.get(url)
     try:
       resp.raise_for_status()
-      with open(dep_path, 'w') as f:
+      with open(dep_path, 'wb') as f:
         for content in resp.iter_content(constants.READ_BUFFER_SIZE_BYTES):
           f.write(content)
     except Exception as e:

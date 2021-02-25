@@ -50,8 +50,6 @@ def _log(*args, **kwargs):
 
 class NebraskaWrapperError(Exception):
   """Exception class used by this module."""
-  # pylint: disable=unnecessary-pass
-  pass
 
 
 class NebraskaWrapper(object):
@@ -212,7 +210,7 @@ class NebraskaWrapper(object):
       # We are not worried about multiple threads writing to the same file as
       # we are creating a different directory for each initialization of this
       # class anyway.
-      with open(file_path, 'w') as f:
+      with open(file_path, 'wb') as f:
         f.write(resp.content)
     except Exception as e:
       raise NebraskaWrapperError('An error occurred while trying to complete '

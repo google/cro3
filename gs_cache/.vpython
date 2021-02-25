@@ -1,4 +1,4 @@
-python_version: "2.7"
+python_version: "3.8"
 
 wheel: <
   name: "infra/python/wheels/attrs-py2_py3"
@@ -18,11 +18,6 @@ wheel: <
 wheel: <
   name: "infra/python/wheels/cherrypy-py2_py3"
   version: "version:14.2.0"
->
-
-wheel: <
-  name: "infra/python/wheels/coverage/${vpython_platform}"
-  version: "version:4.5.1"
 >
 
 wheel: <
@@ -73,11 +68,6 @@ wheel: <
 wheel: <
   name: "infra/python/wheels/pytest-py2_py3"
   version: "version:3.5.0"
->
-
-wheel: <
-  name: "infra/python/wheels/pytest-cov-py2_py3"
-  version: "version:2.5.1"
 >
 
 wheel: <
