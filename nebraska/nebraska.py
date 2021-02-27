@@ -923,6 +923,7 @@ class NebraskaServer(object):
       """
       self.send_response(code)
       self.send_header('Content-Type', content_type)
+      self.send_header('Content-length', str(len(response)))
       self.end_headers()
       self.wfile.write(response)
 
