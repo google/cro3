@@ -807,7 +807,7 @@ class Config(object):
         continue
       setattr(self, key, value)
 
-    logging.debug('Config updated to: %s', pprint.pprint(self.__dict__))
+    logging.debug('Config updated to:\n%s', pprint.pformat(self.__dict__))
 
 
 class Nebraska(object):
