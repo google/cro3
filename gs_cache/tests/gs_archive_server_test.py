@@ -267,13 +267,13 @@ def testing_server_setup():
   try:
     rsp = requests.get(_TESTING_SERVER)
     if rsp.status_code >= httplib.INTERNAL_SERVER_ERROR:
-      logging.warn(
+      logging.warning(
           'Testing server %s has internal errors. Some tests are skipped!',
           _TESTING_SERVER)
       return False
     return True
   except Exception:
-    logging.warn('No testings server detected. Some tests are skipped!')
+    logging.warning('No testings server detected. Some tests are skipped!')
     return False
 
 
