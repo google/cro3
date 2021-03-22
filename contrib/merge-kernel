@@ -65,7 +65,7 @@ Parameters:
 
 Options:
   -b bug-id[,bug-id] ...
-                Bug-id or list of bug IDs. Must be valid buganizer or chromium
+                Bug-id or list of bug IDs. Must be valid buganizer
                 bug ID. Mandatory unless the merge branch already exists
                 locally or in Gerrit.
   -c change-id  Change-Id as used by Gerrit. Optional.
@@ -209,17 +209,15 @@ do_getparams() {
       die "No such branch: ${rbranch}."
     fi
   fi
-  if [[ "${bugs}" =~ ${NUMBER} ]]; then  # default to crbug if numeric
-    bugs="chromium:${bugs}"
-  fi
+
   if [[ -n "${bugs}" ]]; then
     for _bug in ${bugs//,/ }; do
       if [[ "${_bug}" == b:* ]]; then          # buganizer
         nbug="${_bug##b:}"
       elif [[ "${_bug}" == b/* ]]; then        # buganizer, alternative
         nbug="${_bug##b/}"
-      elif [[ "${_bug}" == chromium:* ]]; then # crbug
-        nbug="${_bug##chromium:}"
+      else                                     # crbug etc are not allowed.
+        die "Invalid bug ID '${_bug}'."
       fi
       if [[ ! "${nbug}" =~ ${NUMBER} ]]; then
           die "Invalid bug ID '${_bug}'."
