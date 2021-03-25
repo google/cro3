@@ -1378,7 +1378,7 @@ def find_coreboot_upstream(status):
     # Find the CL by the Original-Change-Id
     original_change_id = status.commits[step_names.CB_VARIANT]['change_id']
     gerrit_query_args = {
-        'Original-Change-Id': original_change_id
+        'message': f'Original-Change-Id:{original_change_id}'
     }
     cros = gerrit.GetCrosExternal()
     upstream = cros.Query(**gerrit_query_args)
