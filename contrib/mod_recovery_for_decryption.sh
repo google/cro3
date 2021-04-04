@@ -31,6 +31,9 @@ DEFINE_boolean verbose ${FLAGS_FALSE} \
 FLAGS "$@" || exit 1
 eval set -- "${FLAGS_ARGV}"
 
+# A bash array of files to clean up on EXIT if they still exist.
+cleanup_files=()
+
 # Only now can we die on error.  shflags functions leak non-zero error codes,
 # so will die prematurely if 'switch_to_strict_mode' is specified before now.
 switch_to_strict_mode
@@ -45,7 +48,13 @@ resize_stateful() {
   local err=0
   local large_stateful=$(mktemp)
   truncate --size $(( $FLAGS_statefulfs_sectors * 512 )) "${large_stateful}"
-  trap "rm ${large_stateful}" RETURN
+  # NOTE: We can't use `trap ... RETURN` here because common.sh, sourced
+  # above, calls `shopt -s extdebug` which causes the RETURN trap to be
+  # inherited by called functions. We also can't `trap ... EXIT` since
+  # that would replace the call to cleanup. Thus we just add the file to
+  # the cleanup list. Because cleanup is only called on premature EXIT,
+  # this function explicitly removes the file before returning.
+  cleanup_files+=("${large_stateful}")
   /sbin/mkfs.ext4 -F -b 4096 "${large_stateful}" 1>&2
 
   # Create a recovery image of the right size
@@ -53,6 +62,7 @@ resize_stateful() {
   # just the kernel image and stateful.
   update_partition_table "${FLAGS_image}" "${large_stateful}" \
                          "${FLAGS_statefulfs_sectors}" "${RECOVERY_IMAGE}" 1>&2
+  rm "${large_stateful}"
   return $err
 }
 
@@ -71,6 +81,7 @@ cleanup() {
   if [[ "${FLAGS_image}" != "${RECOVERY_IMAGE}" ]]; then
     rm "${RECOVERY_IMAGE}"
   fi
+  rm -f "${cleanup_files[@]}"
 }
 
 
