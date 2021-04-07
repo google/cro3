@@ -161,6 +161,7 @@ cleanup() {
   if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
     pushd "${FITIMAGE_OUTPUTS_DIR}"
     rm -f "fitimage-${NEW}.bin" "fitimage-${NEW}-versions.txt"
+    rm -f "me_rw-${NEW}.bin"
     # Clean up the extra Volteer fitimage files, too.
     if [[ "${REFERENCE}" == "volteer" || "${REFERENCE}" == "volteer2" ]] ; then
       rm -f "fit-${NEW}.log"
@@ -175,7 +176,7 @@ cleanup() {
       rm -f "fit-${NEW}-ro.log" "fit-${NEW}-rw.log"
       popd
       pushd "${FITIMAGE_FILES_DIR}/maps"
-      rm "fitimage-${NEW}.map"
+      rm -f "fitimage-${NEW}.map"
     fi
     popd
   fi
@@ -245,6 +246,10 @@ if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
     # All boards that have fitimages and are not volteer use a fitimage binary.
     cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}.bin" "fitimage-${NEW}.bin"
     cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}-versions.txt" "fitimage-${NEW}-versions.txt"
+    # Dedede boards also need an me_rw-${VARIANT}.bin
+    if [[ "${REFERENCE}" == "waddledee" || "${REFERENCE}" == "waddledoo" ]] ; then
+      cp "${FITIMAGE_FILES_DIR}/me_rw-${FITIMAGE}.bin" "me_rw-${NEW}.bin"
+    fi
   fi
   popd
 fi
