@@ -23,6 +23,7 @@ import shutil
 import signal
 import sys
 import threading
+import time
 import traceback
 import urllib
 
@@ -1107,13 +1108,44 @@ def ParseArguments(argv):
   parser.add_argument('--log-file', metavar='FILE', default='/tmp/nebraska.log',
                       help='The file to write the logs.'
                       ' pass "stdout" to write to standard output.')
+  parser.add_argument('--poll', action='store_true',
+                      help='Wait for a previous run of nebraska.py to write '
+                      'its port and pid files and exit immediately once found. '
+                      'Otherwise exist with non-zero value after 3 seconds.')
 
   return parser.parse_args(argv[1:])
+
+
+def WaitForRuntimeFiles(runtime_root, seconds=3):
+  """Wait for pid and port file of a previous run of nebraska.py.
+
+  And exist with non-zero code after certain time.
+
+  Args:
+    runtime_root: The runtime root path of previous nebraska.py.
+    seconds: The number of seconds to wait before giving up.
+
+  Returns:
+    os.EX_OK for success and raises Error for failure.
+  """
+  runtime_files = [os.path.join(runtime_root, x) for x in ('port', 'pid')]
+  check_interval = 0.05
+  count = int(seconds // check_interval)
+  while count:
+    if all(os.path.exists(x) for x in runtime_files):
+      return os.EX_OK
+    time.sleep(0.05)
+    count -= 1
+
+  raise Error('Were not able to locate files: %s' % runtime_files)
 
 
 def main(argv):
   """Main function."""
   opts = ParseArguments(argv)
+
+  if opts.poll:
+    return WaitForRuntimeFiles(opts.runtime_root)
 
   # Reset the log file.
   if opts.log_file != 'stdout':
