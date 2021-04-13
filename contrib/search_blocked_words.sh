@@ -36,8 +36,8 @@ done <<< "${all}"
 # Create lists of dirs, files, symlinks. Must be basename and have no duplicate.
 # We use xargs (instead of directly feeding to dirname or basename) to avoid
 # exceeding argument size limit.
-dirs=$(echo ${all} | xargs dirname | sort -u | xargs basename -a)
-files=$(echo ${all} | xargs basename -a)
+dirs=$(echo "${all}" | xargs dirname | sort -u | xargs basename -a)
+files=$(echo "${all}" | xargs basename -a)
 
 results=("reg_exp #lines #files #filenames")
 while read -r regex; do
@@ -46,14 +46,15 @@ while read -r regex; do
   [[ "${regex}" == "#"* ]] && continue
 
   # Count matching lines.
-  line_count=$(printf '%s\n' "${paths[@]}" | xargs -d '\n' grep -E -i -I -c "${regex}" \
-      | awk -F: '{ s+=$2 } END { print s }')
+  line_count=$(printf '%s\n' "${paths[@]}" | xargs -d '\n' \
+      grep -E -i -I -c "${regex}" | awk -F: '{ s+=$2 } END { print s }')
 
   # Count matching paths.
-  path_count=$(printf '%s\n' "${paths[@]}" | xargs -d '\n' grep -E -i -I -l "${regex}" | wc -l)
+  path_count=$(printf '%s\n' "${paths[@]}" | xargs -d '\n' \
+      grep -E -i -I -l "${regex}" | wc -l)
 
   # Count matching file & dir names.
-  name_count=$(echo "${files}" "${dirs}" | grep -E -i "${regex}" | wc -l)
+  name_count=$(echo "${files}" "${dirs}" | grep -E -i -c "${regex}")
 
   # Save result.
   results+=("${regex} ${line_count} ${path_count} ${name_count}")
@@ -61,4 +62,3 @@ done < "${input_file}"
 
 # Present results.
 printf '%s\n' "${results[@]}" | column --table --table-right 2,3,4
-
