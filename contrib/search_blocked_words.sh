@@ -39,7 +39,8 @@ done <<< "${all}"
 dirs=$(echo "${all}" | xargs dirname | sort -u | xargs basename -a)
 files=$(echo "${all}" | xargs basename -a)
 
-results=("reg_exp #lines #files #filenames")
+results_ok=()
+results_nok=()
 total_count=0
 while read -r regex; do
   # Skip blank and comment lines.
@@ -58,10 +59,19 @@ while read -r regex; do
   name_count=$(echo "${files}" "${dirs}" | grep -E -i -c "${regex}")
 
   # Save result.
-  results+=("${regex} ${line_count} ${path_count} ${name_count}")
-  total_count=$(($total_count + $line_count + $path_count + $name_count))
+  current_result="${regex} ${line_count} ${path_count} ${name_count}"
+  if [[ $(($line_count + $name_count)) -eq 0 ]]; then
+    results_ok+=("${current_result}");
+  else
+    results_nok+=("${current_result}");
+  fi
+
+  # Increment total counter
+  total_count=$(($total_count + $line_count + $name_count))
 done < "${input_file}"
 
+results=("reg_exp #lines #files #filenames" "${results_ok[@]}" \
+         "${results_nok[@]}")
 # Present results.
 printf '%s\n' "${results[@]}" | column --table --table-right 2,3,4
 printf '=%.0s' {1..50}
