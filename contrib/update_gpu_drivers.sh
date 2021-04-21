@@ -42,6 +42,14 @@ DRIVERS="mali-drivers mali-drivers-bifrost mali-drivers-valhall img-ddk"
 #
 # Variable name: "PARAMS_${pn//-/_}"
 
+PARAMS_arc_mali_drivers_bifrost=(
+  "kukui kukui chipset-mt8183"
+)
+
+PARAMS_arc_mali_drivers_valhall=(
+  "asurada asurada chipset-mt8192"
+)
+
 PARAMS_mali_drivers=(
   "daisy daisy overlay-daisy"
   "kevin gru baseboard-gru"
