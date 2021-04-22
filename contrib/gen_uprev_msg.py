@@ -63,6 +63,21 @@ def parse_cl(line):
     return CL(commit, int(cl) if cl else None, int(bug) if bug else None, title)
 
 
+def wrap_line(s, max_length):
+    """Wrap a line."""
+    # Assume words are separated by one space
+    words = s.split()
+    lines = [[]]
+    length = 0
+    for word in words:
+        if length + 1 + len(word) > max_length:
+            lines.append([])
+            length = 0
+        lines[-1].append(word)
+        length += 1 + len(word)
+    return [' '.join(line) for line in lines]
+
+
 def main(args):
     """Parse ChangeLog and print commit message."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -137,20 +152,19 @@ def main(args):
             if not cl.cl:
                 continue
             cl_str = f'CL:*{cl.cl}' if private else f'CL:{cl.cl}'
-            title_max_len = MAX_LENGTH - len(cl_str) - 1 - 4
             title = cl.title
-            while len(title) > title_max_len:
-                tokens = title.rsplit(None, 1)
-                if len(tokens) <= 1:
-                    break
-                title = tokens[0]
-            line = f' {cl_str}\t{title}'
-            print(line)
+            indentation = 1 + len(cl_str) + 4
+            for i, title_line in enumerate(
+                    wrap_line(cl.title, MAX_LENGTH - indentation)):
+                if i == 0:
+                    line = f' {cl_str}    {title_line}'
+                else:
+                    line = ' ' * indentation + f'{title_line}'
+                print(line)
             if cl.bug:
                 bugs.add(cl.bug)
 
     print()
-    print('BRANCH=none')
     bugs = [f'b:{bug}' if bug >= 1e8 else f'chromium:{bug}'
             for bug in sorted(bugs)]
     line_bugs = []
@@ -174,6 +188,8 @@ def main(args):
         logger.warning('Ignore repo %s', repo)
     for line in skipped_lines:
         logger.warning('Skipping line: %s', line)
+
+    return 0
 
 
 if __name__ == '__main__':
