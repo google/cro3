@@ -1,1 +1,6 @@
 include ../../config/proto/chromiumos/test/OWNERS.testservice
+
+# Owners supporting the initial migration from TLS/phosphorus
+# into cros-platform as TestService
+ayatane@chromium.org
+nya@chromium.org
