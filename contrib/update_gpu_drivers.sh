@@ -48,6 +48,7 @@ PARAMS_arc_mali_drivers_bifrost=(
 
 PARAMS_arc_mali_drivers_valhall=(
   "asurada asurada chipset-mt8192"
+  "cherry cherry chipset-mt8195"
 )
 
 PARAMS_mali_drivers=(
@@ -63,6 +64,7 @@ PARAMS_mali_drivers_bifrost=(
 
 PARAMS_mali_drivers_valhall=(
   "asurada asurada chipset-mt8192"
+  "cherry cherry chipset-mt8195"
 )
 
 PARAMS_img_ddk=(
