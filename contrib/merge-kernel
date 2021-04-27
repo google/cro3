@@ -663,6 +663,8 @@ do_merge() {
   local file
   local files
   local revert
+  local content_conflicts
+  local delete_conflicts
 
   git branch -D "${mbranch}" >/dev/null 2>&1
   if ! git checkout -b "${mbranch}" "${ocbranch}"; then
@@ -687,7 +689,8 @@ do_merge() {
   # merges. Otherwise linear merges would succeed and move the branch HEAD
   # forward even though --no-commit is specified. This lets us add an
   # explicit merge commit log.
-  conflicts=()
+  content_conflicts=()
+  delete_conflicts=()
   if ! git merge --no-commit --no-ff "${xbranch}" > "${tmpfile}"; then
     files=$(git rerere status)
     if [[ -n "${files}" ]]; then
@@ -698,14 +701,21 @@ do_merge() {
       die "Please resolve conflicts, commit changes, and then rerun the merge script.\nMake sure you have 'git rerere' enabled."
     fi
     echo "All conflicts resolved, continuing"
-    conflicts=($(grep CONFLICT "${tmpfile}" \
+    content_conflicts=($(grep -e 'CONFLICT.*content' "${tmpfile}" \
                  | sed -e 's/.*Merge conflict in //'))
+    delete_conflicts=($(grep -e 'CONFLICT.*delete' "${tmpfile}" \
+                 | awk '{print $3;}'  ))
   fi
 
   # Note: The following is no longer needed in recent versions of git.
   # Keep it around since it does not hurt.
-  if [[ ${#conflicts[@]} -gt 0 ]]; then
-    git add ${conflicts[*]}
+  if [[ ${#content_conflicts[@]} -gt 0 ]]; then
+    git add ${content_conflicts[*]}
+  fi
+  # Now handle deleted files
+  if [[ ${#delete_conflicts[@]} -gt 0 ]]; then
+    echo removing ${delete_conflicts[*]}
+    git rm ${delete_conflicts[*]}
   fi
 
   for patch in "${patches[@]}"; do
@@ -737,10 +747,20 @@ do_merge() {
   ) > "${tmpfile}"
 
   # Add conflicts to description.
-  if [[ ${#conflicts[@]} -gt 0 ]]; then
+  if [[ ${#content_conflicts[@]} -gt 0 ]]; then
     (
       echo "Conflicts:"
-      for conflict in "${conflicts[@]}"; do
+      for conflict in "${content_conflicts[@]}"; do
+        echo "    ${conflict}"
+      done
+      echo
+    ) >> "${tmpfile}"
+  fi
+
+  if [[ ${#delete_conflicts[@]} -gt 0 ]]; then
+    (
+      echo "Files deleted during merge which were locally modified:"
+      for conflict in "${delete_conflicts[@]}"; do
         echo "    ${conflict}"
       done
       echo
