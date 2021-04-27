@@ -14,6 +14,7 @@ import base64
 import copy
 import datetime
 import errno
+import http
 import json
 import logging
 import os
@@ -23,13 +24,11 @@ import signal
 import sys
 import threading
 import traceback
+import urllib
 
+from http import server
 from xml.dom import minidom
 from xml.etree import ElementTree
-
-from six.moves import BaseHTTPServer
-from six.moves import http_client
-from six.moves import urllib
 
 
 # '5' and '7' are just default values for testing.
@@ -910,10 +909,10 @@ class NebraskaServer(object):
     self._server_thread = None
     self._created_runtime_root = False
 
-  class NebraskaHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+  class NebraskaHandler(server.BaseHTTPRequestHandler):
     """HTTP request handler for Omaha requests."""
 
-    def _SendResponse(self, content_type, response, code=http_client.OK):
+    def _SendResponse(self, content_type, response, code=http.client.OK):
       """Sends a given response back to the client.
 
       Args:
@@ -956,7 +955,7 @@ class NebraskaServer(object):
         data = self.rfile.read(request_len)
       except Exception as err:
         logging.error('Failed to read request in do_POST %s', str(err))
-        self.send_error(http_client.BAD_REQUEST, 'Invalid request (header).')
+        self.send_error(http.client.BAD_REQUEST, 'Invalid request (header).')
         return
 
       parsed_path, parsed_query = self._ParseURL(self.path)
@@ -978,12 +977,12 @@ class NebraskaServer(object):
         else:
           error_str = 'The requested path "%s" was not found!' % parsed_path
           logging.error(error_str)
-          self.send_error(http_client.BAD_REQUEST, error_str)
+          self.send_error(http.client.BAD_REQUEST, error_str)
 
       except Exception as err:
         logging.error('Failed to handle request (%s)', str(err))
         logging.error(traceback.format_exc())
-        self.send_error(http_client.INTERNAL_SERVER_ERROR,
+        self.send_error(http.client.INTERNAL_SERVER_ERROR,
                         traceback.format_exc())
 
     def do_GET(self):
@@ -1001,13 +1000,13 @@ class NebraskaServer(object):
         self._SendResponse('text/plain', 'Nebraska is alive!')
       else:
         logging.error('The requested path "%s" was not found!', parsed_path)
-        self.send_error(http_client.BAD_REQUEST,
+        self.send_error(http.client.BAD_REQUEST,
                         'The requested path "%s" was not found!' % parsed_path)
 
   def Start(self):
     """Starts the nebraska server."""
-    self._httpd = BaseHTTPServer.HTTPServer(('', self.GetPort()),
-                                            NebraskaServer.NebraskaHandler)
+    self._httpd = server.HTTPServer(
+        ('', self.GetPort()), NebraskaServer.NebraskaHandler)
     self._port = self._httpd.server_port
 
     if self._runtime_root:

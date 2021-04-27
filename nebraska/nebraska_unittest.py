@@ -10,7 +10,9 @@ from __future__ import print_function
 
 # pylint: disable=cros-logging-import
 import base64
+import builtins
 import collections
+import http
 import json
 import logging
 import os
@@ -20,9 +22,6 @@ import unittest
 
 from xml.etree import ElementTree
 import mock
-
-from six.moves import builtins
-from six.moves import http_client
 
 import nebraska
 
@@ -245,7 +244,7 @@ class NebraskaHandlerTest(unittest.TestCase):
     nebraska_handler.do_POST()
 
     nebraska_handler.send_error.assert_called_once_with(
-        http_client.BAD_REQUEST,
+        http.client.BAD_REQUEST,
         'The requested path "invalid-path" was not found!')
 
   @mock.patch.object(nebraska, 'traceback')
@@ -259,7 +258,7 @@ class NebraskaHandlerTest(unittest.TestCase):
 
     self.assertEqual(traceback_mock.format_exc.call_count, 2)
     nebraska_handler.send_error.assert_called_once_with(
-        http_client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
+        http.client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
 
   @mock.patch.object(nebraska, 'traceback')
   @mock.patch.object(nebraska, 'Response')
@@ -274,7 +273,7 @@ class NebraskaHandlerTest(unittest.TestCase):
 
     self.assertEqual(traceback_mock.format_exc.call_count, 2)
     nebraska_handler.send_error.assert_called_once_with(
-        http_client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
+        http.client.INTERNAL_SERVER_ERROR, traceback_mock.format_exc())
 
   def testDoPostUpdateConfig(self):
     """Tests do_POST success for update_config API."""
@@ -299,7 +298,7 @@ class NebraskaHandlerTest(unittest.TestCase):
     nebraska_handler.path = 'http://test.com/invalid-path'
 
     nebraska_handler.do_GET()
-    nebraska_handler.send_error(http_client.BAD_REQUEST, mock.ANY)
+    nebraska_handler.send_error(http.client.BAD_REQUEST, mock.ANY)
 
   def testDoGetHealthCheck(self):
     """Tests do_GET with health_check path."""
@@ -319,8 +318,7 @@ class NebraskaServerTest(NebraskaBaseTest):
     nebraska_instance.UpdateConfig(update_payloads_address=_PAYLOADS_ADDRESS)
     server = nebraska.NebraskaServer(nebraska_instance, port=_NEBRASKA_PORT)
 
-    with mock.patch.object(nebraska.BaseHTTPServer,
-                           'HTTPServer') as server_mock:
+    with mock.patch.object(http.server, 'HTTPServer') as server_mock:
       with mock.patch.object(nebraska.threading, 'Thread') as thread_mock:
         server.Start()
 
@@ -358,7 +356,7 @@ class NebraskaServerTest(NebraskaBaseTest):
     port_file = os.path.join(runtime_root, 'port')
     pid_file = os.path.join(runtime_root, 'pid')
 
-    with mock.patch.object(nebraska.BaseHTTPServer, 'HTTPServer'):
+    with mock.patch.object(http.server, 'HTTPServer'):
       with mock.patch.object(nebraska.threading, 'Thread'):
         server.Start()
 
