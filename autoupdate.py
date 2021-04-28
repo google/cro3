@@ -23,12 +23,13 @@ except ImportError:
   import nebraska
 
 import setup_chromite  # pylint: disable=unused-import
-from chromite.lib.xbuddy import cherrypy_log_util
+from chromite.lib import cros_logging as logging
 
 
 # Module-local log function.
 def _Log(message, *args):
-  return cherrypy_log_util.LogWithTag('UPDATE', message, *args)
+  return logging.info(message, *args)
+
 
 class AutoupdateError(Exception):
   """Exception classes used by this module."""

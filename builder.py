@@ -15,7 +15,7 @@ import portage  # pylint: disable=import-error
 import cherrypy  # pylint: disable=import-error
 
 import setup_chromite  # pylint: disable=unused-import
-from chromite.lib.xbuddy import cherrypy_log_util
+from chromite.lib import cros_logging as logging
 
 
 # Relative path to the wrapper directory inside the sysroot.
@@ -34,7 +34,7 @@ def _SysrootCmd(sysroot, cmd):
 
 # Module-local log function.
 def _Log(message, *args):
-  return cherrypy_log_util.LogWithTag('BUILD', message, *args)
+  return logging.info(message, *args)
 
 
 def _OutputOf(command):

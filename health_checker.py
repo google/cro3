@@ -26,13 +26,13 @@ except ImportError:
   psutil = None
 
 import setup_chromite  # pylint: disable=unused-import
+from chromite.lib import cros_logging as logging
 from chromite.lib import cros_update_progress
-from chromite.lib.xbuddy import cherrypy_log_util
 
 
 def _Log(message, *args):
   """Module-local log function."""
-  return cherrypy_log_util.LogWithTag('HEALTHCHECKER', message, *args)
+  return logging.info(message, *args)
 
 # Number of seconds between the collection of disk and network IO counters.
 STATS_INTERVAL = 10.0

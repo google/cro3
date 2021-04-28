@@ -54,18 +54,19 @@ import health_checker
 # you will _not_ understand why.
 import setup_chromite  # pylint: disable=unused-import
 from chromite.lib import cros_build_lib
+from chromite.lib import cros_logging as logging
 from chromite.lib.xbuddy import android_build
 from chromite.lib.xbuddy import artifact_info
 from chromite.lib.xbuddy import build_artifact
-from chromite.lib.xbuddy import cherrypy_log_util
 from chromite.lib.xbuddy import common_util
 from chromite.lib.xbuddy import devserver_constants
 from chromite.lib.xbuddy import downloader
 from chromite.lib.xbuddy import xbuddy
 
+
 # Module-local log function.
 def _Log(message, *args):
-  return cherrypy_log_util.LogWithTag('DEVSERVER', message, *args)
+  return logging.info(message, *args)
 
 CACHED_ENTRIES = 12
 
