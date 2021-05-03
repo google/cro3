@@ -18,10 +18,6 @@ PATTERN_RC="^v[2-9](\.[0-9]+)+-rc$"
 GLOB="v[2-9].*[0-9]"
 NUMBER="^[1-9][0-9]*$"
 
-if git help push | grep -q push-option; then
-    git_skip_validation="-o skip-validation"
-fi
-
 # Initial parameter values.
 changeid="" # Get Change-Id from CL or generate new Change-Id.
 bug=""      # Get Bug-Id from CL or provide on on command line.
@@ -587,11 +583,11 @@ do_prepare() {
     # need it in the CrOS repository.
     vtag=$(echo "${tag}" | grep -E "${PATTERN}")
     if [[ -n "${vtag}" ]]; then
-      git push ${git_skip_validation} --no-verify ${dryrun} "${chromeos}" "refs/tags/${tag}"
+      git push --no-verify ${dryrun} "${chromeos}" "refs/tags/${tag}"
     else
       echo "${tag} is not a release tag, not pushed"
     fi
-    if ! git push ${git_skip_validation} --no-verify ${dryrun} "${chromeos}" "${obranch}"; then
+    if ! git push --no-verify ${dryrun} "${chromeos}" "${obranch}"; then
       die "Failed to upload '${obranch}' into '${chromeos}'."
     fi
   fi
