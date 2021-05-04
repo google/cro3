@@ -139,12 +139,12 @@ def add_to_kconfig_name(baseboard_name, variant_name):
         elif baseboard_name == 'waddledee':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
             print('\tbool "-> ' + capitalized + '"', file=outfile)
-            print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE', file=outfile)
+            print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE_CR50', file=outfile)
             print('\tselect BASEBOARD_DEDEDE_LAPTOP', file=outfile)
         elif baseboard_name == 'waddledoo':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
             print('\tbool "-> ' + capitalized + '"', file=outfile)
-            print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE', file=outfile)
+            print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE_CR50', file=outfile)
             print('\tselect BASEBOARD_DEDEDE_LAPTOP', file=outfile)
             print('\tselect DRIVERS_GENERIC_MAX98357A', file=outfile)
             print('\tselect DRIVERS_I2C_DA7219', file=outfile)
