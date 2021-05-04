@@ -149,9 +149,11 @@ def main(args):
         print(repo)
         private = 'private' in repo
         for cl in cl_list:
-            if not cl.cl:
-                continue
-            cl_str = f'CL:*{cl.cl}' if private else f'CL:{cl.cl}'
+            if cl.cl:
+                cl_str = f'CL:*{cl.cl}' if private else f'CL:{cl.cl}'
+            else:
+                cl_str = 'CL:' + '?' * 7
+                print('>>>>>>> PLEASE FILL THE CL NUMBER MANUALLY')
             title = cl.title
             indentation = 1 + len(cl_str) + 4
             for i, title_line in enumerate(
