@@ -467,6 +467,15 @@ def genconf_psu_type(device, _):
   return None
 
 
+def genconf_form_factor(device, _):
+  devicetype = device.lsb_val('DEVICETYPE')
+  if devicetype in ('REFERENCE', 'CHROMEBOOK'):
+    return 'CHROMEBOOK'
+  if devicetype in ('CHROMEBIT', 'CHROMEBASE', 'CHROMEBOX'):
+    return devicetype
+  return None
+
+
 def genconf_has_backlight(device, _):
   devicetype = device.lsb_val('DEVICETYPE')
   return devicetype not in ('CHROMEBIT', 'CHROMEBOX')
@@ -605,6 +614,7 @@ genconf_schema = {
         'signature-id': (M_PRIVATE, genconf_signature_id),
     },
     'hardware-properties': {
+        'form-factor': (M_PUBLIC, genconf_form_factor),
         'has-backlight': (M_PUBLIC, genconf_has_backlight),
         'psu-type': (M_PUBLIC, genconf_psu_type),
     },
