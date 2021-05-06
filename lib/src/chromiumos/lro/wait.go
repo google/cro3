@@ -9,8 +9,7 @@ import (
 	"math/rand"
 	"time"
 
-	"go.chromium.org/chromiumos/config/go/api/test/tls/dependencies/longrunning"
-	"go.chromium.org/luci/common/clock"
+	"go.chromium.org/chromiumos/config/go/longrunning"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -49,7 +48,7 @@ func Wait(ctx context.Context, client longrunning.OperationsClient, name string,
 				return op, err
 			}
 			delay := rand.Int63n(initialBackoffMillis * (1 << attempt))
-			clock.Sleep(ctx, time.Duration(delay)*time.Millisecond)
+			time.Sleep(time.Duration(delay) * time.Millisecond)
 			attempt++
 		default:
 			// Non-retryable error

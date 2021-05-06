@@ -17,7 +17,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/uuid"
-	"go.chromium.org/chromiumos/config/go/api/test/tls/dependencies/longrunning"
+	"go.chromium.org/chromiumos/config/go/longrunning"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -215,7 +215,7 @@ func (m *Manager) WaitOperation(ctx context.Context, req *longrunning.WaitOperat
 
 	if req.Timeout != nil && req.Timeout.Seconds > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, req.Timeout.AsDuration())
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(req.Timeout.GetSeconds()))
 		defer cancel()
 	}
 
