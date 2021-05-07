@@ -33,7 +33,7 @@ TEMP_DIR=""
 # All drivers are in media-libs/ portage category.
 CATEGORY="media-libs"
 # List of supported drivers
-DRIVERS="mali-drivers mali-drivers-bifrost mali-drivers-valhall img-ddk"
+DRIVERS="arc-mali-drivers-bifrost arc-mali-drivers-valhall mali-drivers mali-drivers-bifrost mali-drivers-valhall img-ddk"
 
 # List of parameters to pass to build_board, for a given package $pn:
 #  - Build board names.
