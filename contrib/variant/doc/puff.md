@@ -18,8 +18,9 @@ text.
 
 A gerrit administrator must create the project configuration repository before
 you can begin the process to create a new variant of Puff. Please file a bug
-in [Infra > ChromeOS > Product > Device](https://bugs.chromium.org/p/chromium/issues/list?q=component:Infra%3EChromeOS%3EProduct%3EDevice)
-to have the project configuration updated.
+to have the project configuration updated using
+[go/cros-boxster-bug](go/cros-boxster-bug) or
+https://b.corp.google.com/issues/new?component=167276&template=1022133.
 
 This example shows how to create the "Wyvern" variant of the Puff reference
 board. Since Wyvern is a real product, unlike Gnastygnorc (Volteer), Acro
