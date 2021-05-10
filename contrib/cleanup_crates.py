@@ -24,12 +24,11 @@ import pickle
 import sys
 
 from chromite.lib import build_target_lib
+from chromite.lib import chroot_util
 from chromite.lib import commandline
 from chromite.lib import constants
-from chromite.lib import cros_build_lib
 from chromite.lib import osutils
 from chromite.lib import portage_util
-from chromite.service import sysroot
 
 # The path of the cache.
 DEFAULT_CACHE_PATH = os.path.join(osutils.GetGlobalTempDir(),
@@ -48,7 +47,7 @@ BOARD_CONFIGURATIONS = {
 }
 
 # The set of boards to check. This only needs to be a representative set.
-BOARDS = {'eve', 'lakitu', 'tatl'} | (
+BOARDS = {'eve', 'tatl'} | (
     set() if not os.path.isdir(os.path.join(constants.SOURCE_ROOT, 'src',
                                             'private-overlays')) else
     {'lasilla-ground', 'mistral'}
@@ -125,17 +124,10 @@ def exclude_latest_version(packages):
 
 def _get_package_dependencies(board, package):
     """List the ebuild-version dependencies for a specific board & package."""
-    if board and not os.path.isdir(cros_build_lib.GetSysroot(board)):
-        config = sysroot.SetupBoardRunConfig(
-            usepkg=True,
-            jobs=os.cpu_count(),
-            regen_configs=True,
-            update_toolchain=False,
-            upgrade_chroot=False,
-            init_board_pkgs=True,
-            local_build=False)
-        sysroot.SetupBoard(build_target_lib.BuildTarget(board),
-                           run_configs=config)
+    if board and not os.path.isdir(
+            build_target_lib.get_default_sysroot_path(board)):
+        chroot_util.SetupBoard(board, update_chroot=False,
+                               update_host_packages=False,)
     return portage_util.GetPackageDependencies(board, package)
 
 
