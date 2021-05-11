@@ -1,0 +1,7 @@
+# Extra requirements for RTD TLS integration
+grpcio==1.31.0
+mock
+numpy==1.16.6
+pyparsing
+protobuf
+six==1.15.0
