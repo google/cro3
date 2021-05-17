@@ -112,6 +112,8 @@ sed -e "s/${REFERENCE_UPPER}/${VARIANT_UPPER}/" \
     -e "s/descriptor\.bin/descriptor-${VARIANT}.bin/" \
     -e "s/me-${BASE}\.bin/me-${VARIANT}.bin/" \
     -e "s/me-${REFERENCE}\.bin/me-${VARIANT}.bin/" \
+    -e "s/me_rw-${BASE}\.bin/me_rw-${VARIANT}.bin/" \
+    -e "s/me_rw-${REFERENCE}\.bin/me_rw-${VARIANT}.bin/" \
     "config.${REFERENCE}" > "config.${VARIANT}"
 git add "config.${VARIANT}"
 

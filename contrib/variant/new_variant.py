@@ -236,6 +236,8 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
         could differ for processors that use a private repo
     * step_list - list of steps (named in step_names.py) to run in sequence
         to create the new variant of the reference board
+    * ec_board - EC board to use as a reference. Defaults to the value of
+        board but can be different, e.g. brya0 specifies 'brya'
     * fsp - package name for FSP. This may be None, depending on the
         processor on the reference board
     * fitimage_pkg - package name for the fitimage
@@ -372,6 +374,7 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
     status.coreboot_reference   = getattr(module, 'coreboot_reference',
                                           status.board)
     status.cb_config_dir        = getattr(module, 'cb_config_dir', None)
+    status.ec_board             = getattr(module, 'ec_board', status.board)
     status.emerge_cmd           = module.emerge_cmd
     status.emerge_pkgs          = module.emerge_pkgs
     status.fitimage_bin         = getattr(module, 'fitimage_bin',
@@ -965,7 +968,7 @@ def create_initial_ec_image(status):
         'create_initial_ec_image.sh')
     if not run_process(
         [create_initial_ec_image_sh,
-        status.board,
+        status.ec_board,
         status.variant,
         status.bug], env=environ):
         return False

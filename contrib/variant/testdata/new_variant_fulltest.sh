@@ -17,7 +17,7 @@ fi
 
 if [[ "$#" -lt 1 ]]; then
   echo "Usage: ${SCRIPT} reference_name"
-  echo "e.g. ${SCRIPT} hatch | puff | volteer | volteer2 | waddledee | waddledoo | trembyle | dalboz"
+  echo "e.g. ${SCRIPT} hatch | puff | volteer | volteer2 | waddledee | waddledoo | trembyle | dalboz | brya0"
   echo "End-to-end test to create a new variant of a reference board"
   echo "Script version ${VERSION}"
   exit 1
@@ -121,6 +121,17 @@ case "${REFERENCE}" in
     EBUILD=chromeos-config-bsp-zork-private-9999.ebuild
     ;;
 
+  brya0)
+    BASE=brya
+    NEW=eris
+    CONFIG_DIR=/mnt/host/source/src/project/brya
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-brya-private/chromeos-base/chromeos-config-bsp-brya-private
+    EBUILD=chromeos-config-bsp-brya-private-9999.ebuild
+    FITIMAGE=brya0
+    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-brya-private/sys-boot/coreboot-private-files-baseboard-brya/files/blobs
+    FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-brya-private/sys-boot/coreboot-private-files-baseboard-brya/files
+    ;;
+
   *)
     echo Unsupported reference board "${REFERENCE}"
     exit 1
@@ -177,6 +188,17 @@ cleanup() {
       popd
       pushd "${FITIMAGE_FILES_DIR}/maps"
       rm -f "fitimage-${NEW}.map"
+    fi
+    # Clean up the extra Brya fitimage files, too.
+    if [[ "${REFERENCE}" == "brya0" ]] ; then
+      pushd "${FITIMAGE_FILES_DIR}/blobs"
+      rm -f "csme-${NEW}.bin"
+      rm -f "descriptor-${NEW}.bin"
+      popd
+      pushd "${FITIMAGE_FILES_DIR}/metadata"
+      rm -f "fitimage-${NEW}-versions.txt"
+      rm -f "fitimage-${NEW}.map"
+      rm -f "fit_config_${NEW}.xml"
     fi
     popd
   fi
@@ -241,9 +263,18 @@ if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
     popd
     pushd "${FITIMAGE_FILES_DIR}/maps"
     cp "fitimage-${REFERENCE}.map" "fitimage-${NEW}.map"
+  elif [[ "${REFERENCE}" == "brya0" ]] ; then
+    pushd "${FITIMAGE_OUTPUTS_DIR}"
+    cp "csme-${FITIMAGE}.bin" "csme-${NEW}.bin"
+    cp "descriptor-${FITIMAGE}.bin" "descriptor-${NEW}.bin"
+    popd
+    pushd "${FITIMAGE_FILES_DIR}/metadata"
+    cp "fitimage-${REFERENCE}-versions.txt" "fitimage-${NEW}-versions.txt"
+    cp "fitimage-${REFERENCE}.map" "fitimage-${NEW}.map"
+    cp "fit_config_${REFERENCE}.xml" "fit_config_${NEW}.xml"
   else
     pushd "${FITIMAGE_OUTPUTS_DIR}"
-    # All boards that have fitimages and are not volteer use a fitimage binary.
+    # All boards that have fitimages and are not volteer or brya use a fitimage binary.
     cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}.bin" "fitimage-${NEW}.bin"
     cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}-versions.txt" "fitimage-${NEW}-versions.txt"
     # Dedede boards also need an me_rw-${VARIANT}.bin

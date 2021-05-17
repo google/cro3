@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Copyright 2021 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 """Add a new variant to the Kconfig and Kconfig.name for the baseboard
@@ -33,7 +33,7 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--board', type=str, required=True,
                         choices=('hatch', 'volteer', 'trembyle', 'dalboz',
-                                 'waddledee', 'waddledoo', 'puff'),
+                                 'waddledee', 'waddledoo', 'puff', 'brya0'),
                         help='Name of the baseboard')
     parser.add_argument('--variant', type=str, required=True,
                         help='Name of the board variant')
@@ -152,6 +152,10 @@ def add_to_kconfig_name(baseboard_name, variant_name):
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
             print('\tbool "-> ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_PUFF', file=outfile)
+        elif baseboard_name == 'brya0':
+            print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
+            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tselect BOARD_GOOGLE_BASEBOARD_BRYA', file=outfile)
         else:
             raise ValueError(f'Unsupported board {baseboard_name}')
 
