@@ -1,0 +1,4 @@
+include chromiumos/chromite:/OWNERS.au
+
+# Temporary OWNERS supporting migration of TLS into cros-platform
+include chromiumos/config:/owners/testservice
