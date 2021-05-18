@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Package main implements the dutservice used to run tests in RTD.
+// Package main implements the provisionservice used to setup CrOS devices
 package main
 
 import (
@@ -22,7 +22,7 @@ var Version = "<unknown>"
 // createLogFile creates a file and its parent directory for logging purpose.
 func createLogFile() (*os.File, error) {
 	t := time.Now()
-	fullPath := filepath.Join("/tmp/dutservice/", t.Format("20060102-150405"))
+	fullPath := filepath.Join("/tmp/provisionservice/", t.Format("20060102-150405"))
 	if err := os.MkdirAll(fullPath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory %v: %v", fullPath, err)
 	}
@@ -49,7 +49,7 @@ func main() {
 		flag.Parse()
 
 		if *version {
-			fmt.Println("dutservice version ", Version)
+			fmt.Println("provisionservice version ", Version)
 			return 0
 		}
 
@@ -60,15 +60,15 @@ func main() {
 		defer logFile.Close()
 
 		logger := newLogger(logFile)
-		logger.Println("Starting dutservice version ", Version)
+		logger.Println("Starting provisionservice version ", Version)
 		l, err := net.Listen("tcp", ":0")
 		if err != nil {
 			logger.Fatalln("Failed to create a net listener: ", err)
 			return 2
 		}
-		server, err := newDutServer(l, logger)
+		server, err := newProvisionServer(l, logger)
 		if err != nil {
-			logger.Fatalln("Failed to start dutservice server: ", err)
+			logger.Fatalln("Failed to start provisionservice server: ", err)
 		}
 
 		server.Serve(l)

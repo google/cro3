@@ -15,8 +15,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-// TestDutServer_Empty tests if DutServer can handle emtpy requst without problem.
-func TestDutServer_Empty(t *testing.T) {
+// TestProvisionServer_Empty tests if ProvisionServer can handle emtpy requst without problem.
+func TestProvisionServer_Empty(t *testing.T) {
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -24,9 +24,9 @@ func TestDutServer_Empty(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	srv, err := newDutServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC))
+	srv, err := newProvisionServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC))
 	if err != nil {
-		t.Fatalf("Failed to start DutServer: %v", err)
+		t.Fatalf("Failed to start ProvisionServer: %v", err)
 	}
 	go srv.Serve(l)
 	defer srv.Stop()
@@ -37,8 +37,8 @@ func TestDutServer_Empty(t *testing.T) {
 	}
 	defer conn.Close()
 
-	cl := api.NewDutServiceClient(conn)
-	if _, err := cl.ProvisionDut(ctx, &api.ProvisionDutRequest{}); err != nil {
-		t.Fatalf("Failed at api.ProvisionDut: %v", err)
+	cl := api.NewProvisionServiceClient(conn)
+	if _, err := cl.InstallCros(ctx, &api.InstallCrosRequest{}); err != nil {
+		t.Fatalf("Failed at api.InstallCros: %v", err)
 	}
 }

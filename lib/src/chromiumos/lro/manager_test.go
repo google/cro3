@@ -26,14 +26,14 @@ func (s *exampleServer) Serve(l net.Listener) error {
 	return server.Serve(l)
 }
 
-func (s *exampleServer) ProvisionDut(ctx context.Context, req *api.ProvisionDutRequest) (*longrunning.Operation, error) {
+func (s *exampleServer) RunTests(ctx context.Context, req *api.RunTestsRequest) (*longrunning.Operation, error) {
 	op := s.Manager.NewOperation()
 	go s.provision(ctx, req, op.Name)
 	return op, nil
 }
 
-func (s *exampleServer) provision(ctx context.Context, req *api.ProvisionDutRequest, op string) {
-	s.Manager.SetResult(op, &api.ProvisionDutResponse{})
+func (s *exampleServer) provision(ctx context.Context, req *api.RunTestsRequest, op string) {
+	s.Manager.SetResult(op, &api.RunTestsResponse{})
 }
 
 func RunServer() {
