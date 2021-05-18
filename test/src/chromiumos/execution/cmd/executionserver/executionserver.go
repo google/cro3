@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Package main implements the testservice server to listen to test and provision requests.
+// Package main implements the executionservice server
 package main
 
 import (
@@ -17,28 +17,28 @@ import (
 	"google.golang.org/grpc"
 )
 
-// TestServiceServer implement a server that will listen to test and provision requests.
-type TestServiceServer struct {
+// ExecutionServer implement a server that will run tests
+type ExecutionServer struct {
 	Manager *lro.Manager
 	logger  *log.Logger
 }
 
-// newTestServiceServer creates a new test service server to listen to test requests.
-func newTestServiceServer(l net.Listener, logger *log.Logger) (*grpc.Server, error) {
-	s := &TestServiceServer{
+// newExecutionServer creates a new test service server to listen to test requests.
+func newExecutionServer(l net.Listener, logger *log.Logger) (*grpc.Server, error) {
+	s := &ExecutionServer{
 		Manager: lro.New(),
 		logger:  logger,
 	}
 	defer s.Manager.Close()
 	server := grpc.NewServer()
-	api.RegisterTestServiceServer(server, s)
+	api.RegisterExecutionServiceServer(server, s)
 	longrunning.RegisterOperationsServer(server, s.Manager)
-	logger.Println("testservice listen to request at ", l.Addr().String())
+	logger.Println("executionservice listen to request at ", l.Addr().String())
 	return server, nil
 }
 
 // RunTests runs the requested tests.
-func (s *TestServiceServer) RunTests(ctx context.Context, req *api.RunTestsRequest) (*longrunning.Operation, error) {
+func (s *ExecutionServer) RunTests(ctx context.Context, req *api.RunTestsRequest) (*longrunning.Operation, error) {
 	s.logger.Println("Received api.RunTestsRequest: ", *req)
 	op := s.Manager.NewOperation()
 	s.Manager.SetResult(op.Name, &api.RunTestsResponse{})

@@ -13,7 +13,7 @@ import (
 )
 
 type exampleServer struct {
-	api.UnimplementedTestServiceServer
+	api.UnimplementedExecutionServiceServer
 	*lro.Manager
 }
 
@@ -21,19 +21,15 @@ func (s *exampleServer) Serve(l net.Listener) error {
 	s.Manager = lro.New()
 	defer s.Manager.Close()
 	server := grpc.NewServer()
-	api.RegisterTestServiceServer(server, s)
+	api.RegisterExecutionServiceServer(server, s)
 	longrunning.RegisterOperationsServer(server, s.Manager)
 	return server.Serve(l)
 }
 
 func (s *exampleServer) RunTests(ctx context.Context, req *api.RunTestsRequest) (*longrunning.Operation, error) {
 	op := s.Manager.NewOperation()
-	go s.provision(ctx, req, op.Name)
+	go s.RunTests(ctx, req)
 	return op, nil
-}
-
-func (s *exampleServer) provision(ctx context.Context, req *api.RunTestsRequest, op string) {
-	s.Manager.SetResult(op, &api.RunTestsResponse{})
 }
 
 func RunServer() {
