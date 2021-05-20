@@ -18,6 +18,10 @@ PATTERN_RC="^v[2-9](\.[0-9]+)+-rc$"
 GLOB="v[2-9].*[0-9]"
 NUMBER="^[1-9][0-9]*$"
 
+if git help push | grep -q push-option; then
+    git_skip_validation="-o skip-validation"
+fi
+
 # Initial parameter values.
 changeid="" # Get Change-Id from CL or generate new Change-Id.
 bug=""      # Get Bug-Id from CL or provide on on command line.
@@ -28,6 +32,7 @@ upload=0    # Do not upload into Gerrit.
 do_dryrun=0 # If 1, don't push anything upstream, don't send email.
 notify=0    # Do not send notification e-mail.
 deadline=3  # Feedback deadline (in days, default 3).
+bypass=0    # Bypass upload validation
 changes=()  # List of uncommitted CLs to be applied prior to merge.
 patches=()  # List of patches to apply before committing merge.
 reverts=()  # List of patches to revert as part of merge, after merge
@@ -70,6 +75,7 @@ Options:
   -c change-id  Change-Id as used by Gerrit. Optional.
   -d deadline   Feedback deadline in days (default: ${deadline})
   -f            Force. Override existing Change-Id and bug number.
+  -F            Force. Bypass upload validation.
   -h            Display help text and exit.
   -l change-id  Apply patch extracted from CL:change-id prior to merge.
                 May be repeated multiple times.
@@ -167,7 +173,7 @@ do_getparams() {
   local option
   local vtag
 
-  while getopts "b:c:d:fhl:N:nP:pq:r:R:st:uS:x:" option; do
+  while getopts "b:c:d:fFhl:N:nP:pq:r:R:st:uS:x:" option; do
     case ${option} in
       b) bugs="${OPTARG}" ;;
       c) changeid="Change-Id: ${OPTARG}" ;;
@@ -177,6 +183,7 @@ do_getparams() {
          fi
          ;;
       f) force=1 ;;
+      F) bypass=1 ;;
       l) changes+=("${OPTARG}") ;;
       n) notify=1 ;;
       N) namespace="${OPTARG}" ;;
@@ -583,12 +590,26 @@ do_prepare() {
     # need it in the CrOS repository.
     vtag=$(echo "${tag}" | grep -E "${PATTERN}")
     if [[ -n "${vtag}" ]]; then
-      git push --no-verify ${dryrun} "${chromeos}" "refs/tags/${tag}"
+      if ! git push --no-verify ${dryrun} "${chromeos}" "refs/tags/${tag}"; then
+        die "Failed to push tag \"${tag}\" into \"${chromeos}\"."
+      fi
     else
       echo "${tag} is not a release tag, not pushed"
     fi
-    if ! git push --no-verify ${dryrun} "${chromeos}" "${obranch}"; then
-      die "Failed to upload '${obranch}' into '${chromeos}'."
+    if [[ "${bypass}" -eq 0 ]]; then
+      if ! git push --no-verify ${dryrun} "${chromeos}" "${obranch}"; then
+        error "Failed to upload '${obranch}' into '${chromeos}'."
+        error "If the error is a validation error, and if your changes did not cause the problem,"
+        error "repeat the command with '-F' option. Do not use that option unless you are sure"
+        error "that your changes did not cause the problem."
+        die
+      fi
+    else
+      if ! git push ${git_skip_validation} --no-verify ${dryrun} "${chromeos}" "${obranch}" >/dev/null 2>&1; then
+        if ! git push -o "uploadvalidator~skip" --no-verify ${dryrun} "${chromeos}" "${obranch}"; then
+          die "Failed to upload '${obranch}' into '${chromeos}'."
+        fi
+      fi
     fi
   fi
 }
@@ -876,8 +897,18 @@ EOF
 
 do_upload() {
   if [[ ${upload} -ne 0 ]]; then
-    if ! git push --no-verify ${dryrun} "${chromeos}" "${mbranch}:refs/for/${cbranch}%t=${topic}"; then
-      die "Failed to upload changes into '${chromeos}'."
+    if [[ "${bypass}" -eq 0 ]]; then
+      if ! git push --no-verify ${dryrun} "${chromeos}" "${mbranch}:refs/for/${cbranch}%t=${topic}"; then
+        error "Failed to upload changes into '${chromeos}'."
+        error "If the error is a validation error, and if your changes did not cause the problem,"
+        error "repeat the command with '-F' option. Do not use that option unless you are sure"
+        error "that your changes did not cause the problem."
+        die
+      fi
+    else
+      if ! git push -o "uploadvalidator~skip" --no-verify ${dryrun} "${chromeos}" "${mbranch}:refs/for/${cbranch}%t=${topic}"; then
+        die "Failed to upload changes into '${chromeos}'."
+      fi
     fi
   elif [[ ${prepare} -ne 0 ]]; then
     echo "Push into ${chromeos} using the following command:"
