@@ -4,7 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This script quickly builds the testservice executable or its unit tests within a
+# This script quickly builds the testexecserver executable or its unit tests within a
 # Chrome OS chroot.
 
 # Personal Go workspace used to cache compiled packages.
@@ -15,14 +15,14 @@ readonly PKGDIR="${GOHOME}/pkg"
 
 # Go workspaces containing the Test Service source.
 readonly SRCDIRS=(
-  "${HOME}/trunk/src/platform/dev/test"
+  "${HOME}/trunk/src/platform/dev"
 )
 
-# Package to build to produce testservice executables.
-readonly TESTSERVICE_PKG="chromiumos/testservice/cmd/testservice"
+# Package to build to produce testexecserver
+readonly TESTEXECSERVER_PKG="chromiumos/test/execution/cmd/testexecserver"
 
-# Output filename for testservice executable.
-readonly TESTSERVICE_OUT="${GOHOME}/bin/testservice"
+# Output filename for testexecserver executable.
+readonly TESTEXECSERVER_OUT="${GOHOME}/bin/testexecserver"
 
 # Readonly Go workspaces containing source to build. Note that the packages
 # installed to /usr/lib/gopath (dev-go/crypto, dev-go/subcommand, etc.) need to
@@ -40,9 +40,9 @@ readonly CMD=$(basename "${0}")
 # Prints usage information and exits.
 usage() {
   cat - <<EOF >&2
-Quickly builds the testservice executable or its unit tests.
+Quickly builds the testexecserver executable or its unit tests.
 
-Usage: ${CMD}                             Builds testservice to ${TESTSERVICE_OUT}.
+Usage: ${CMD}                             Builds testexecserver to ${TESTEXECSERVER_OUT}.
        ${CMD} -b <pkg> -o <path>          Builds <pkg> to <path>.
        ${CMD} [-v] -T                     Tests all packages.
        ${CMD} [-v] [-r <regex>] -t <pkg>  Tests <pkg>.
@@ -168,5 +168,5 @@ elif [ -n "${check_pkg}" ]; then
     run_vet "${check_pkg}"
   fi
 else
-  run_build "${TESTSERVICE_PKG}" "${TESTSERVICE_OUT}"
+  run_build "${TESTEXECSERVER_PKG}" "${TESTEXECSERVER_OUT}"
 fi

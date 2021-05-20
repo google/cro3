@@ -22,7 +22,7 @@ var Version = "<unknown>"
 // createLogFile creates a file and its parent directory for logging purpose.
 func createLogFile() (*os.File, error) {
 	t := time.Now()
-	fullPath := filepath.Join("/tmp/executionserver/", t.Format("20060102-150405"))
+	fullPath := filepath.Join("/tmp/testexecserver/", t.Format("20060102-150405"))
 	if err := os.MkdirAll(fullPath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory %v: %v", fullPath, err)
 	}
@@ -66,9 +66,9 @@ func main() {
 			logger.Fatalln("Failed to create a net listener: ", err)
 			return 2
 		}
-		server, err := newExecutionServer(l, logger)
+		server, err := newTestExecServer(l, logger)
 		if err != nil {
-			logger.Fatalln("Failed to start executionserver: ", err)
+			logger.Fatalln("Failed to start testexecserver: ", err)
 		}
 
 		server.Serve(l)

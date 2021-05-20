@@ -1,3 +1,0 @@
-include chromiumos/config:/owners/testservice
-
-include chromiumos/chromite:/OWNERS.au

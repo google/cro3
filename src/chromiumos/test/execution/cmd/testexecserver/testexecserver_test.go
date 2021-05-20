@@ -15,8 +15,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-// TestExecutionServer_Empty tests if ExecutionServer can handle emtpy requst without problem.
-func TestExecutionServer_Empty(t *testing.T) {
+// TestExecServer_Empty tests if ExecutionServer can handle emtpy requst without problem.
+func TestExecServer_Empty(t *testing.T) {
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -24,9 +24,9 @@ func TestExecutionServer_Empty(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	srv, err := newExecutionServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC))
+	srv, err := newTestExecServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC))
 	if err != nil {
-		t.Fatalf("Failed to start TestService server: %v", err)
+		t.Fatalf("Failed to start ExecutionService server: %v", err)
 	}
 	go srv.Serve(l)
 	defer srv.Stop()
