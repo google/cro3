@@ -13,21 +13,23 @@ readonly GOHOME="${HOME}/go"
 # Directory where compiled packages are cached.
 readonly PKGDIR="${GOHOME}/pkg"
 
-# Go workspaces containing the Test Service source.
+# Go workspaces containing the Test Execution Service source.
 readonly SRCDIRS=(
   "${HOME}/trunk/src/platform/dev"
 )
 
 # Package to build to produce testexecserver
 readonly TESTEXECSERVER_PKG="chromiumos/test/execution/cmd/testexecserver"
+readonly PROVISIONSERVER_PKG="chromiumos/test/provision/cmd/provisionserver"
 
 # Output filename for testexecserver executable.
 readonly TESTEXECSERVER_OUT="${GOHOME}/bin/testexecserver"
+readonly PROVISIONSERVER_OUT="${GOHOME}/bin/provisionserver"
 
 # Readonly Go workspaces containing source to build. Note that the packages
 # installed to /usr/lib/gopath (dev-go/crypto, dev-go/subcommand, etc.) need to
 # be emerged beforehand.
-export GOPATH="$(IFS=:; echo "${SRCDIRS[*]}"):"${HOME}"/trunk/src/platform/dev/lib:/usr/lib/gopath"
+export GOPATH="$(IFS=:; echo "${SRCDIRS[*]}"):/usr/lib/gopath"
 
 # Disable cgo and PIE on building Test Service binaries. See:
 # https://crbug.com/976196
@@ -157,16 +159,17 @@ if [ -n "${build_pkg}" ]; then
   run_build "${build_pkg}" "${build_out}"
 elif [ -n "${test_pkg}" ]; then
   if [ "${test_pkg}" = 'all' ]; then
-    run_test "$(get_test_pkgs)"
+    run_test $(get_test_pkgs)
   else
     run_test "${test_pkg}"
   fi
 elif [ -n "${check_pkg}" ]; then
   if [ "${check_pkg}" = 'all' ]; then
-    run_vet "$(get_check_pkgs)"
+    run_vet $(get_check_pkgs)
   else
     run_vet "${check_pkg}"
   fi
 else
   run_build "${TESTEXECSERVER_PKG}" "${TESTEXECSERVER_OUT}"
+  run_build "${PROVISIONSERVER_PKG}" "${PROVISIONSERVER_OUT}"
 fi
