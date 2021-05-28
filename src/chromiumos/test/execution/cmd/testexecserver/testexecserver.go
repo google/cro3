@@ -15,6 +15,10 @@ import (
 	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"chromiumos/test/execution/cmd/testexecserver/internal/driver"
 )
 
 // TestExecServer implement a server that will run tests
@@ -41,6 +45,12 @@ func newTestExecServer(l net.Listener, logger *log.Logger) (*grpc.Server, error)
 func (s *TestExecServer) RunTests(ctx context.Context, req *api.RunTestsRequest) (*longrunning.Operation, error) {
 	s.logger.Println("Received api.RunTestsRequest: ", *req)
 	op := s.Manager.NewOperation()
+	if req.Dut == nil || req.Dut.PrimaryHost == "" {
+		s.Manager.SetError(op.Name, status.New(codes.InvalidArgument, "DUT is not defined"))
+		return op, nil
+	}
+	testDriver := driver.NewTastDriver(s.logger, s.Manager, op.Name)
+	go testDriver.RunTests(ctx, req, "")
 	s.Manager.SetResult(op.Name, &api.RunTestsResponse{})
 	return op, nil
 }
