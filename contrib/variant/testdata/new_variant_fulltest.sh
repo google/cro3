@@ -196,9 +196,9 @@ cleanup() {
       rm -f "descriptor-${NEW}.bin"
       popd
       pushd "${FITIMAGE_FILES_DIR}/metadata"
-      rm -f "fitimage-${NEW}-versions.txt"
-      rm -f "fitimage-${NEW}.map"
-      rm -f "fit_config_${NEW}.xml"
+      rm -f "mfitimage-${NEW}-versions.txt"
+      rm -f "mfitimage-${NEW}.map"
+      rm -f "mfit_config_${NEW}.xml"
     fi
     popd
   fi
@@ -269,9 +269,9 @@ if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
     cp "descriptor-${FITIMAGE}.bin" "descriptor-${NEW}.bin"
     popd
     pushd "${FITIMAGE_FILES_DIR}/metadata"
-    cp "fitimage-${REFERENCE}-versions.txt" "fitimage-${NEW}-versions.txt"
-    cp "fitimage-${REFERENCE}.map" "fitimage-${NEW}.map"
-    cp "fit_config_${REFERENCE}.xml" "fit_config_${NEW}.xml"
+    cp "mfitimage-${REFERENCE}-versions.txt" "mfitimage-${NEW}-versions.txt"
+    cp "mfitimage-${REFERENCE}.map" "mfitimage-${NEW}.map"
+    cp "mfit_config_${REFERENCE}.xml" "mfit_config_${NEW}.xml"
   else
     pushd "${FITIMAGE_OUTPUTS_DIR}"
     # All boards that have fitimages and are not volteer or brya use a fitimage binary.

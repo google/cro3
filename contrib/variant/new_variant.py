@@ -383,6 +383,8 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
     status.fitimage_bin_dir     = getattr(module, 'fitimage_bin_dir', None)
     status.fitimage_versions_dir= getattr(module, 'fitimage_versions_dir',
                                           status.fitimage_bin_dir)
+    status.fitimage_versions    = getattr(module, 'fitimage_versions',
+                                          'fitimage-%s-versions.txt')
     status.fitimage_pkg         = getattr(module, 'fitimage_pkg', None)
     status.fitimage_cmd         = getattr(module, 'fitimage_cmd', None)
     status.fitimage_script      = getattr(module, 'fitimage_script',
@@ -918,10 +920,10 @@ def check_fit_image_files(status):
     if not os.path.isfile(os.path.join(fitimage_bin_dir, fitimage_bin)):
         files_not_found.append(fitimage_bin)
 
-    fitimage_versions = 'fitimage-' + status.variant + '-versions.txt'
+    fitimage_versions_file = status.fitimage_versions % status.variant
     if not os.path.isfile(os.path.join(fitimage_versions_dir,
-        fitimage_versions)):
-        files_not_found.append(fitimage_versions)
+        fitimage_versions_file)):
+        files_not_found.append(fitimage_versions_file)
 
     return files_not_found
 

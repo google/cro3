@@ -67,6 +67,9 @@ fitimage_versions_dir = 'files/metadata'
 # Script to add fitimage sources
 fitimage_script = 'files/add_fitimage.sh'
 
+# ADL-P CSE Lite uses MFIT, not FIT
+fitimage_versions = 'mfitimage-%s-versions.txt'
+
 # List of packages to cros_workon
 workon_pkgs = [
     'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
