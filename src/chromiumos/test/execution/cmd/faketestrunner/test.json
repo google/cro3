@@ -1,0 +1,20 @@
+{
+	"test_suites" : [
+		{
+			"name" : "suite1",
+			"test_case_ids" : {
+				"test_case_ids" : [
+					{
+						"value" : "example.Pass"
+					},
+					{
+						"value" : "example.Fail"
+					}
+				]
+			}
+		}
+	],
+	"dut" : {
+		"primary_host": "127.0.0.1:2222"
+	}
+}

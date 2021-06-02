@@ -24,7 +24,7 @@ func TestExecServer_Empty(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	srv, err := newTestExecServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC))
+	srv, err := newTestExecServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), "tast")
 	if err != nil {
 		t.Fatalf("Failed to start ExecutionService server: %v", err)
 	}

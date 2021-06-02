@@ -21,10 +21,12 @@ readonly SRCDIRS=(
 # Package to build to produce testexecserver
 readonly TESTEXECSERVER_PKG="chromiumos/test/execution/cmd/testexecserver"
 readonly PROVISIONSERVER_PKG="chromiumos/test/provision/cmd/provisionserver"
+readonly FAKETESTRUNNER_PKG="chromiumos/test/execution/cmd/faketestrunner"
 
 # Output filename for testexecserver executable.
 readonly TESTEXECSERVER_OUT="${GOHOME}/bin/testexecserver"
 readonly PROVISIONSERVER_OUT="${GOHOME}/bin/provisionserver"
+readonly FAKETESTRUNNER_OUT="${GOHOME}/bin/faketestrunner"
 
 # Readonly Go workspaces containing source to build. Note that the packages
 # installed to /usr/lib/gopath (dev-go/crypto, dev-go/subcommand, etc.) need to
@@ -172,4 +174,5 @@ elif [ -n "${check_pkg}" ]; then
 else
   run_build "${TESTEXECSERVER_PKG}" "${TESTEXECSERVER_OUT}"
   run_build "${PROVISIONSERVER_PKG}" "${PROVISIONSERVER_OUT}"
+  run_build "${FAKETESTRUNNER_PKG}" "${FAKETESTRUNNER_OUT}"
 fi

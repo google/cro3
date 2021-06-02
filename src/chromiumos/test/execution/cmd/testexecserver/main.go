@@ -46,6 +46,11 @@ func newLogger(logFile *os.File) *log.Logger {
 func main() {
 	os.Exit(func() int {
 		version := flag.Bool("version", false, "print version and exit")
+		port := flag.Int("port", 0, "specify the port number to start test execution server.")
+
+		// TODO: Use it as a temporary flag to help development. Will be removed after metadata support.
+		driver := flag.String("driver", "tast", "specify a driver (tast/tauto) to be used.")
+
 		flag.Parse()
 
 		if *version {
@@ -61,12 +66,12 @@ func main() {
 
 		logger := newLogger(logFile)
 		logger.Println("Starting executionservice version ", Version)
-		l, err := net.Listen("tcp", ":0")
+		l, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 		if err != nil {
-			logger.Fatalln("Failed to create a net listener: ", err)
+			logger.Fatalf("Failed to create a net listener on port %d: %v", *port, err)
 			return 2
 		}
-		server, err := newTestExecServer(l, logger)
+		server, err := newTestExecServer(l, logger, *driver)
 		if err != nil {
 			logger.Fatalln("Failed to start testexecserver: ", err)
 		}

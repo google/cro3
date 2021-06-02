@@ -62,15 +62,19 @@ func (td *TastDriver) RunTests(ctx context.Context, req *api.RunTestsRequest, re
 	cmd := exec.Command(path, genArgList(args)...)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
+		td.logger.Println("Failed to capture tast stdin: ", err)
 		td.manager.SetError(td.op, status.New(codes.FailedPrecondition, "StderrPipe failed"))
 		return
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		td.logger.Println("Failed to capture tast stdout: ", err)
 		td.manager.SetError(td.op, status.New(codes.FailedPrecondition, "StdoutPipe failed"))
 		return
 	}
+	td.logger.Println("Running Tast ", cmd.String())
 	if err := cmd.Start(); err != nil {
+		td.logger.Println("Failed to run tast: ", err)
 		td.manager.SetError(td.op, status.Newf(codes.FailedPrecondition, "failed to run tast: %v", err))
 		return
 	}

@@ -25,13 +25,15 @@ import (
 type TestExecServer struct {
 	Manager *lro.Manager
 	logger  *log.Logger
+	driver  string
 }
 
 // newTestExecServer creates a new test service server to listen to test requests.
-func newTestExecServer(l net.Listener, logger *log.Logger) (*grpc.Server, error) {
+func newTestExecServer(l net.Listener, logger *log.Logger, driver string) (*grpc.Server, error) {
 	s := &TestExecServer{
 		Manager: lro.New(),
 		logger:  logger,
+		driver:  driver,
 	}
 	defer s.Manager.Close()
 	server := grpc.NewServer()
@@ -49,8 +51,12 @@ func (s *TestExecServer) RunTests(ctx context.Context, req *api.RunTestsRequest)
 		s.Manager.SetError(op.Name, status.New(codes.InvalidArgument, "DUT is not defined"))
 		return op, nil
 	}
-	testDriver := driver.NewTastDriver(s.logger, s.Manager, op.Name)
-	go testDriver.RunTests(ctx, req, "")
-	s.Manager.SetResult(op.Name, &api.RunTestsResponse{})
+	var testDriver driver.Driver
+	if s.driver == "tast" {
+		testDriver = driver.NewTastDriver(s.logger, s.Manager, op.Name)
+	}
+	if testDriver != nil {
+		go testDriver.RunTests(ctx, req, "")
+	}
 	return op, nil
 }
