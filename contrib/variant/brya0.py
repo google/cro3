@@ -58,6 +58,9 @@ fitimage_bin = 'csme-%s.bin'
 # Directory under fitimage_dir where the fitimage binary will be
 fitimage_bin_dir = 'files/blobs'
 
+# Explanation of gen_fit_image command
+fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit>'
+
 # Directory under fitimage_dir where the fitimage versions file will be
 fitimage_versions_dir = 'files/metadata'
 
