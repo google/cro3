@@ -21,7 +21,8 @@ def parse_manifest_projects_to_lisp_alist(repo_root_path):
         repo_root_path: The path to a repo root.
 
     Returns:
-        Lisp readable alist with elements of the form ((name . dest-branch) . path)
+        Lisp readable alist with elements of the form
+        ((name . dest-branch) . path)
 
     Raises:
         CalledProcessError: The repo tool threw an error getting the manifest.
