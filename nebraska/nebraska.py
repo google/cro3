@@ -1121,9 +1121,10 @@ def main(argv):
       pass
     print('Logging to %s' % opts.log_file)
 
-  logging.basicConfig(filename=(opts.log_file if opts.log_file != 'stdout'
-                                else None),
-                      level=logging.DEBUG)
+  logging.basicConfig(
+      filename=(opts.log_file if opts.log_file != 'stdout' else None),
+      format='%(asctime)s %(levelname)-8s %(message)s',
+      level=logging.DEBUG)
 
   logging.info('Starting nebraska ...')
 
