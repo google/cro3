@@ -26,6 +26,12 @@ logger = logging.getLogger()
 MAX_LENGTH = 72
 CHANGES_PATTERN = r'Changes between ([0-9\.]+) and ([0-9\.]+)'
 
+IGNORED_PATTERNS = (
+    'Marking set of ebuilds as stable',
+    r'Incremented to version: \d+\.\d+\.\d+',
+    r'Increment to version R\d+-\d+\.\d+\.\d+.*',
+)
+
 DEFAULT_REPOS = (
     'src/overlays',
     'src/platform/bmpblk',
@@ -94,6 +100,7 @@ def main(args):
     repos = []
     repo = None
     ignored_repos = []
+    ignored_commits = []
     skipped_lines = []
     for line in sys.stdin:
         line = line.strip()
@@ -124,11 +131,19 @@ def main(args):
             continue
 
         cl = parse_cl(line)
-        if cl:
-            cl_list.append(cl)
-        else:
+        if not cl:
             skipped_lines.append(line)
             continue
+
+        ignored = False
+        for pattern in IGNORED_PATTERNS:
+            if re.fullmatch(pattern, cl.title):
+                ignored = True
+                continue
+        if ignored:
+            ignored_commits.append((cl.commit, repo))
+        else:
+            cl_list.append(cl)
 
     if not repos:
         logger.error('No repo found from ChangeLog')
@@ -145,6 +160,8 @@ def main(args):
 
     bugs = set()
     for repo, cl_list in repos:
+        if not cl_list:
+            continue
         print()
         print(repo)
         private = 'private' in repo
@@ -152,6 +169,13 @@ def main(args):
             if cl.cl:
                 cl_str = f'CL:*{cl.cl}' if private else f'CL:{cl.cl}'
             else:
+                ignored = False
+                for pattern in IGNORED_PATTERNS:
+                    if re.fullmatch(pattern, cl.title):
+                        ignored = True
+                        continue
+                if ignored:
+                    continue
                 cl_str = 'CL:' + '?' * 7
                 print('>>>>>>> PLEASE FILL THE CL NUMBER MANUALLY')
             title = cl.title
@@ -188,6 +212,8 @@ def main(args):
     # Warnings
     for repo in ignored_repos:
         logger.warning('Ignore repo %s', repo)
+    for commit, repo in ignored_commits:
+        logger.warning('Ignore commit %s in %s', commit, repo)
     for line in skipped_lines:
         logger.warning('Skipping line: %s', line)
 
