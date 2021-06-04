@@ -8,7 +8,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -170,8 +169,6 @@ func (r *generateRun) run() error {
 		return err
 	}
 
-	ctx := context.Background()
-
 	plans := make([]*plan.SourceTestPlan, len(r.planPaths))
 
 	for i, planPath := range r.planPaths {
@@ -194,7 +191,7 @@ func (r *generateRun) run() error {
 	}
 
 	rules, err := testplan.Generate(
-		ctx, plans, buildSummaryList, dutAttributeList,
+		plans, buildSummaryList, dutAttributeList,
 	)
 	if err != nil {
 		return err
