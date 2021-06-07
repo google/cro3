@@ -9,10 +9,12 @@ package main
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/maruel/subcommands"
@@ -32,6 +34,21 @@ func errToCode(a subcommands.Application, err error) int {
 	}
 
 	return 0
+}
+
+// addExistingFlags adds all currently defined flags to generateRun.
+//
+// Some packages define flags in their init functions (e.g. glog). In order for
+// these flags to be defined on a command, they need to be defined in the
+// CommandRun function as well.
+func (r *generateRun) addExistingFlags() {
+	if !flag.Parsed() {
+		panic("flag.Parse() must be called before addExistingFlags()")
+	}
+
+	flag.VisitAll(func(f *flag.Flag) {
+		r.GetFlags().Var(f.Value, f.Name, f.Usage)
+	})
 }
 
 var application = &subcommands.DefaultApplication{
@@ -78,6 +95,8 @@ newline-delimited json protos.
 			"",
 			"Path to the output CoverageRules.",
 		)
+
+		r.addExistingFlags()
 
 		return r
 	},
@@ -185,9 +204,21 @@ func (r *generateRun) run() error {
 		return err
 	}
 
+	glog.Infof("Reading %d BuildSummaries from %s", len(buildSummaryList.Values), r.buildSummaryListPath)
+
+	for _, buildSummary := range buildSummaryList.Values {
+		glog.V(2).Infof("Read BuildSummary: %s", buildSummary)
+	}
+
 	dutAttributeList := &testpb.DutAttributeList{}
 	if err := readJsonpb(r.dutAttributeListPath, dutAttributeList); err != nil {
 		return err
+	}
+
+	glog.Infof("Reading %d DutAttributes from %s", len(dutAttributeList.DutAttributes), r.dutAttributeListPath)
+
+	for _, dutAttribute := range dutAttributeList.DutAttributes {
+		glog.V(2).Infof("Read DutAttribute: %s", dutAttribute)
 	}
 
 	rules, err := testplan.Generate(
@@ -196,6 +227,8 @@ func (r *generateRun) run() error {
 	if err != nil {
 		return err
 	}
+
+	glog.Infof("Generated %d CoverageRules, writing to %s", len(rules), r.out)
 
 	return writeRules(rules, r.out)
 }

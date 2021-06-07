@@ -8,6 +8,7 @@ package coveragerules
 import (
 	"fmt"
 
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	configpb "go.chromium.org/chromiumos/config/go/api"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
@@ -84,6 +85,10 @@ func getSingleDutCriterionOrPanic(rule *testpb.CoverageRule) *testpb.DutCriterio
 // be called multiple times to build up a result, curRules is empty in the
 // first call).
 func expandCoverageRules(curRules, newRules []*testpb.CoverageRule) []*testpb.CoverageRule {
+	for _, rule := range newRules {
+		glog.V(2).Infof("Joining CoverageRule %s", rule)
+	}
+
 	if len(curRules) == 0 {
 		return newRules
 	}
@@ -353,6 +358,9 @@ func Generate(
 				unimplementedReq = fd
 				return false
 			}
+
+			glog.V(1).Infof("Added CoverageRules for %s, now have %d CoverageRules", fd.Message().FullName(), len(coverageRules))
+
 			return true
 		},
 	)

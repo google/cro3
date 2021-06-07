@@ -8,6 +8,7 @@ package testplan
 import (
 	"errors"
 
+	"github.com/golang/glog"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	"go.chromium.org/chromiumos/config/go/test/plan"
@@ -44,6 +45,9 @@ func Generate(
 	}
 
 	mergedSourceTestPlan := merge.SourceTestPlans(sourceTestPlans...)
+
+	glog.Infof("Merged %d SourceTestPlans together", len(sourceTestPlans))
+	glog.V(1).Infof("Merged SourceTestPlan: %s", mergedSourceTestPlan)
 
 	return coveragerules.Generate(
 		mergedSourceTestPlan, buildSummaryList, dutAttributeList,
