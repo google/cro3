@@ -7,6 +7,8 @@
 package main
 
 import (
+	"chromiumos/test/dut/cmd/dutserver/dutssh"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -46,12 +48,23 @@ func newLogger(logFile *os.File) *log.Logger {
 
 func main() {
 	os.Exit(func() int {
-		version := flag.Bool("version", false, "print version and exit")
+		flag.NewFlagSet("version", flag.ExitOnError)
+
+		dutAddress := flag.String("dut_address", "", "Dut to connect to")
+		wiringAddress := flag.String("wiring_address", "", "Address to TLW")
 		flag.Parse()
 
-		if *version {
+		if os.Args[1] == "version" {
 			fmt.Println("dutservice version ", Version)
 			return 0
+		}
+
+		if *dutAddress != "" {
+			fmt.Println("A DUT address must be valid")
+		}
+
+		if *wiringAddress != "" {
+			fmt.Println("A Wiring address must be valid")
 		}
 
 		logFile, err := createLogFile()
@@ -67,10 +80,16 @@ func main() {
 			logger.Fatalln("Failed to create a net listener: ", err)
 			return 2
 		}
-		server, err := newDutServiceServer(l, logger)
+
+		ctx := context.Background()
+		conn, err := GetConnection(ctx, *dutAddress, *wiringAddress)
 		if err != nil {
-			logger.Fatalln("Failed to start dutserver: ", err)
+			logger.Fatalln("Failed to connect to dut: ", err)
+			return 2
 		}
+		defer conn.Close()
+
+		server := newDutServiceServer(l, logger, &dutssh.SSHClient{Client: conn})
 
 		err = server.Serve(l)
 		if err != nil {
