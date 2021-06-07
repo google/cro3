@@ -24,13 +24,14 @@ func TestNewTastArgs(t *testing.T) {
 			sshRetriesFlag:             "2",
 			downloadDataFlag:           "batch",
 			buildFlag:                  "false",
-			downloadPrivateBundlesFlag: "false",
+			downloadPrivateBundlesFlag: "true",
 			timeOutFlag:                "3000",
 			resultsDirFlag:             workDir1,
+			reportsServer:              ":5555",
 		},
 	}
 
-	args := newTastArgs(&req, workDir1)
+	args := newTastArgs(dut1, expectedArgs.patterns, workDir1, expectedArgs.runFlags[reportsServer])
 	if diff := cmp.Diff(args, &expectedArgs, cmp.AllowUnexported(runArgs{})); diff != "" {
 		t.Errorf("Got unexpected argument from newTastArgs (-got +want):\n%s", diff)
 	}

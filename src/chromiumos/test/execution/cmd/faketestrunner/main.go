@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/grpc"
@@ -72,12 +73,11 @@ func readInput(fileName string) (*api.RunTestsRequest, error) {
 }
 
 // sendRunRequest sends run request to the test execution server.
-func sendRunRequest(serverPort int, req *api.RunTestsRequest) (err error) {
+func sendRunRequest(serverPort int, req *api.RunTestsRequest, output string) (err error) {
 	// Set up connection with ProgressSink
 	addr := fmt.Sprintf("localhost:%d", serverPort)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute) // one hour time for now.
 	defer cancel()
-	const maxRetries = 6
 	conn, err := grpc.DialContext(ctx, addr, grpc.WithBlock(), grpc.WithInsecure())
 	if err != nil {
 		return fmt.Errorf("failed to connect to the test execution server: %v", err)
@@ -107,12 +107,28 @@ func sendRunRequest(serverPort int, req *api.RunTestsRequest) (err error) {
 	if !op.GetDone() {
 		return fmt.Errorf("WaitOperation timed out (%v)", op)
 	}
+
+	if output == "" {
+		output = "output.json"
+	}
+	resp := &api.RunTestsResponse{}
+	if err := ptypes.UnmarshalAny(op.GetResponse(), resp); err != nil {
+		return fmt.Errorf("failed to unmarshall response: %v", err)
+	}
+	buf, err := json.MarshalIndent(resp, "", " ")
+	if err != nil {
+		return fmt.Errorf("failed to marshall response to a json string: %v", err)
+	}
+	if err := ioutil.WriteFile(output, buf, 0644); err != nil {
+		return fmt.Errorf("failed to write to json file: %v", err)
+	}
 	return nil
 }
 
 func main() {
 	os.Exit(func() int {
-		input := flag.String("input", "", "specify the test test execution request json input file")
+		input := flag.String("input", "", "specify the test execution request json input file")
+		output := flag.String("output", "", "specify the test execution request json output file")
 		serverPort := flag.Int("testexecserver_port", 0, "specify the port number to start test execution server.")
 		// TODO: Use it as a temporary flag to help development. Will be removed after metadata support.
 		driver := flag.String("driver", "tast", "specify a driver (tast/tauto) to be used.")
@@ -129,7 +145,7 @@ func main() {
 			logger.Printf("Failed to invoke testexecserver: %v", err)
 			return 1
 		}
-		if err := sendRunRequest(*serverPort, req); err != nil {
+		if err := sendRunRequest(*serverPort, req, *output); err != nil {
 			logger.Printf("Failed to send test executation request: %v", err)
 			return 1
 		}

@@ -55,8 +55,15 @@ func (s *TestExecServer) RunTests(ctx context.Context, req *api.RunTestsRequest)
 	if s.driver == "tast" {
 		testDriver = driver.NewTastDriver(s.logger, s.Manager, op.Name)
 	}
+	var tests []string
+	for _, suite := range req.TestSuites {
+		for _, tc := range suite.TestCaseIds.TestCaseIds {
+			tests = append(tests, tc.Value)
+		}
+		// TO-DO Support Tags
+	}
 	if testDriver != nil {
-		go testDriver.RunTests(ctx, req, "")
+		go testDriver.RunTests(ctx, "", req.Dut.PrimaryHost, tests)
 	}
 	return op, nil
 }

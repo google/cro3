@@ -21,6 +21,8 @@ import (
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"chromiumos/test/execution/cmd/testexecserver/internal/tastrpc"
 )
 
 // TastDriver runs tast and report its results.
@@ -45,18 +47,27 @@ func NewTastDriver(logger *log.Logger, manager *lro.Manager, op string) *TastDri
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TastDriver) RunTests(ctx context.Context, req *api.RunTestsRequest, resultsDir string) {
+func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut string, tests []string) {
 	path := "/usr/bin/tast" // Default path of tast which can be overridden later.
 
-	if resultsDir != "" {
-		// Make sure the result directory exists.
-		if err := os.MkdirAll(resultsDir, 0755); err != nil {
-			td.manager.SetError(td.op, status.Newf(codes.FailedPrecondition, "failed to create result directory %v", resultsDir))
-			return
-		}
+	if resultsDir == "" {
+		t := time.Now()
+		resultsDir = filepath.Join("/tmp/tast/results", t.Format("20060102-150405"))
+	}
+	// Make sure the result directory exists.
+	if err := os.MkdirAll(resultsDir, 0755); err != nil {
+		td.manager.SetError(td.op, status.Newf(codes.FailedPrecondition, "failed to create result directory %v", resultsDir))
+		return
 	}
 
-	args := newTastArgs(req, resultsDir)
+	reportServer, err := tastrpc.NewReportsServer(0, tests, resultsDir)
+	if err != nil {
+		td.manager.SetError(td.op, status.Newf(codes.FailedPrecondition, "failed to create report server for tast %v", err))
+		return
+	}
+	defer reportServer.Stop()
+
+	args := newTastArgs(dut, tests, resultsDir, reportServer.Address())
 
 	// Run tast.
 	cmd := exec.Command(path, genArgList(args)...)
@@ -104,8 +115,15 @@ func (td *TastDriver) RunTests(ctx context.Context, req *api.RunTestsRequest, re
 		td.manager.SetError(td.op, status.Newf(codes.Aborted, "fail to run tast: %s", err))
 		return
 	}
-	// TODO: set test response.
-	td.manager.SetResult(td.op, &api.RunTestsResponse{})
+
+	testResults := reportServer.TestsReports()
+	missingResults := reportServer.MissingTestsReports()
+	results := append(testResults, missingResults...)
+
+	if err := td.manager.SetResult(td.op, &api.RunTestsResponse{TestCaseResults: results}); err != nil {
+		td.logger.Println("Failed to set result: ", err)
+		td.manager.SetError(td.op, status.Newf(codes.Aborted, "fail to set result: %s", err))
+	}
 	return
 }
 
@@ -140,9 +158,9 @@ type runArgs struct {
 }
 
 // newTastArgs created an argument structure for invoking tast
-func newTastArgs(req *api.RunTestsRequest, resultsDir string) *runArgs {
-	args := runArgs{
-		target: req.Dut.PrimaryHost,
+func newTastArgs(dut string, tests []string, resultsDir, rsAddress string) *runArgs {
+	return &runArgs{
+		target: dut,
 		tastFlags: map[string]string{
 			verboseFlag: "true",
 			logTimeFlag: "false",
@@ -151,25 +169,13 @@ func newTastArgs(req *api.RunTestsRequest, resultsDir string) *runArgs {
 			sshRetriesFlag:             "2",
 			downloadDataFlag:           "batch",
 			buildFlag:                  "false",
-			downloadPrivateBundlesFlag: "false", // Default to "false".
+			downloadPrivateBundlesFlag: "true",
 			timeOutFlag:                "3000",
+			resultsDirFlag:             resultsDir,
+			reportsServer:              rsAddress,
 		},
+		patterns: tests, // TO-DO Support Tags
 	}
-
-	for _, suite := range req.TestSuites {
-		for _, tc := range suite.TestCaseIds.TestCaseIds {
-			args.patterns = append(args.patterns, tc.Value)
-		}
-		// TO-DO Support Tags
-	}
-
-	if resultsDir == "" {
-		t := time.Now()
-		resultsDir = filepath.Join("/tmp/tast/results", t.Format("20060102-150405"))
-	}
-	args.runFlags[resultsDirFlag] = resultsDir
-
-	return &args
 }
 
 // genArgList generates argument list for invoking tast

@@ -7,12 +7,10 @@ package driver
 
 import (
 	"context"
-
-	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 // Driver provides common interface to execute Tast and Autotest.
 type Driver interface {
 	// RunTests drives a test framework to execute tests.
-	RunTests(ctx context.Context, req *api.RunTestsRequest, resultDir string)
+	RunTests(ctx context.Context, resultsDir, dut string, tests []string)
 }
