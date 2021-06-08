@@ -26,6 +26,10 @@ import (
 	testplan "chromiumos/test/plan/internal"
 )
 
+// Version is set to the CROS_GO_VERSION eclass variable at build time. See
+// cros-go.eclass for details.
+var Version string
+
 // errToCode converts an error into an exit code.
 func errToCode(a subcommands.Application, err error) int {
 	if err != nil {
@@ -56,9 +60,33 @@ var application = &subcommands.DefaultApplication{
 	Title: "A tool to generate ChromeOS CoverageRule protos from SourceTestPlan protos.",
 	Commands: []*subcommands.Command{
 		cmdGenerate,
+		cmdVersion,
 
 		subcommands.CmdHelp,
 	},
+}
+
+var cmdVersion = &subcommands.Command{
+	UsageLine: "version",
+	ShortDesc: "Prints the Portage package version information used to build the tool.",
+	CommandRun: func() subcommands.CommandRun {
+		return &versionRun{}
+	},
+}
+
+type versionRun struct {
+	subcommands.CommandRunBase
+}
+
+func (r *versionRun) Run(a subcommands.Application, args []string, env subcommands.Env) int {
+	if Version == "" {
+		fmt.Println("testplan version unknown, likely was not built with Portage")
+		return 1
+	}
+
+	fmt.Printf("testplan version: %s\n", Version)
+
+	return 0
 }
 
 var cmdGenerate = &subcommands.Command{
