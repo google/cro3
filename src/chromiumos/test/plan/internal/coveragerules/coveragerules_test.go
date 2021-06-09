@@ -5,6 +5,7 @@ package coveragerules_test
 
 import (
 	"chromiumos/test/plan/internal/coveragerules"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -402,6 +403,7 @@ func TestGenerateErrors(t *testing.T) {
 		name             string
 		input            *plan.SourceTestPlan
 		dutAttributeList *testpb.DutAttributeList
+		expectedError    string
 	}{
 		{
 			name: "no requirements",
@@ -411,6 +413,28 @@ func TestGenerateErrors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
+			expectedError:    "at least one requirement must be set in SourceTestPlan",
+		},
+		{
+			name: "empty requirements",
+			input: &plan.SourceTestPlan{
+				EnabledTestEnvironments: []plan.SourceTestPlan_TestEnvironment{
+					plan.SourceTestPlan_HARDWARE,
+				},
+				Requirements: &plan.SourceTestPlan_Requirements{},
+			},
+			dutAttributeList: dutAttributeList,
+			expectedError:    "at least one requirement must be set in SourceTestPlan",
+		},
+		{
+			name: "unimplemented requirement",
+			input: &plan.SourceTestPlan{
+				Requirements: &plan.SourceTestPlan_Requirements{
+					ChromeosConfig: &plan.SourceTestPlan_Requirements_ChromeOSConfig{},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+			expectedError:    `unimplemented requirement "SourceTestPlan_Requirements_ChromeOSConfig"`,
 		},
 		{
 			name: "invalid dut attributes",
@@ -432,6 +456,7 @@ func TestGenerateErrors(t *testing.T) {
 					},
 				},
 			},
+			expectedError: "CoverageRule contains invalid DutAttributes",
 		},
 	}
 	for _, test := range tests {
@@ -440,6 +465,8 @@ func TestGenerateErrors(t *testing.T) {
 				test.input, buildSummaryList, test.dutAttributeList,
 			); err == nil {
 				t.Errorf("Expected error from coveragerules.Generate")
+			} else if !strings.Contains(err.Error(), test.expectedError) {
+				t.Errorf("Got error %q, wanted error to contain %q", err.Error(), test.expectedError)
 			}
 		})
 	}

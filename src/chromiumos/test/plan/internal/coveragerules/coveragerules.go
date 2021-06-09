@@ -7,15 +7,15 @@ package coveragerules
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	configpb "go.chromium.org/chromiumos/config/go/api"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	"go.chromium.org/chromiumos/config/go/test/plan"
 	"go.chromium.org/luci/common/data/stringset"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 var (
@@ -310,11 +310,6 @@ func checkDutAttributesValid(rules []*testpb.CoverageRule, dutAttributeList *tes
 	return nil
 }
 
-// typeName is a convenience function for the FullName of m.
-func typeName(m proto.Message) protoreflect.FullName {
-	return proto.MessageReflect(m).Descriptor().FullName()
-}
-
 // Generate computes a list of CoverageRules, based on sourceTestPlan and
 // buildSummaryList.
 func Generate(
@@ -329,48 +324,63 @@ func Generate(
 	//
 	// Return an error if no requirements are set, or a requirement is
 	// unimplemented.
-	var unimplementedReq protoreflect.FieldDescriptor
 
 	hasRequirement := false
 
-	proto.MessageReflect(sourceTestPlan.Requirements).Range(
-		func(fd protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
+	reqs := sourceTestPlan.Requirements
+	if reqs != nil {
+		// As of 6/9/2021, the dev-go/protobuf ebuild installs v1.3.2 of the
+		// github.com/golang/protobuf package, which does not contain the
+		// MessageReflect function.
+		//
+		// Bumping the version of this package broke dependent packages. Use the
+		// standard reflect package instead.
+		//
+		// TODO(b/189223005): Fix dependent package or install multiple versions
+		// of the protobuf package.
+		reqsValue := reflect.ValueOf(*reqs)
+
+		for i := 0; i < reqsValue.NumField(); i++ {
+			fieldValue := reqsValue.Field(i)
+
+			// All Requirements should be messages, so pointers to structs in
+			// the generated Go. Use IsZero to check if they are set (even if
+			// no fields within them are set).
+			if fieldValue.Kind() != reflect.Ptr || fieldValue.IsZero() {
+				continue
+			}
+
 			hasRequirement = true
 
-			// It is not possible to do a type switch on the FieldDescriptor or
-			// Value, so switch on the full type name.
-			switch fd.Message().FullName() {
-			case typeName(&plan.SourceTestPlan_Requirements_ArcVersions{}):
+			// Get the type name of the field, removing "*plan.", for use in log
+			// and error messages.
+			typeName := strings.ReplaceAll(fieldValue.Type().String(), "*plan.", "")
+
+			switch fieldValue.Interface().(type) {
+			case *plan.SourceTestPlan_Requirements_ArcVersions:
 				coverageRules = expandCoverageRules(coverageRules, arcCoverageRules(sourceTestPlan, buildSummaryList))
 
-			case typeName(&plan.SourceTestPlan_Requirements_KernelVersions{}):
+			case *plan.SourceTestPlan_Requirements_KernelVersions:
 				coverageRules = expandCoverageRules(coverageRules, kernelCoverageRules(sourceTestPlan, buildSummaryList))
 
-			case typeName(&plan.SourceTestPlan_Requirements_SocFamilies{}):
+			case *plan.SourceTestPlan_Requirements_SocFamilies:
 				coverageRules = expandCoverageRules(coverageRules, socCoverageRules(sourceTestPlan, buildSummaryList))
 
-			case typeName(&plan.SourceTestPlan_Requirements_Fingerprint{}):
+			case *plan.SourceTestPlan_Requirements_Fingerprint:
 				coverageRules = expandCoverageRules(
 					coverageRules, []*testpb.CoverageRule{fingerprintCoverageRule(sourceTestPlan)},
 				)
 
 			default:
-				unimplementedReq = fd
-				return false
+				return nil, fmt.Errorf("unimplemented requirement %q", typeName)
 			}
 
-			glog.V(1).Infof("Added CoverageRules for %s, now have %d CoverageRules", fd.Message().FullName(), len(coverageRules))
-
-			return true
-		},
-	)
+			glog.V(1).Infof("Added CoverageRules for %q, now have %d CoverageRules", typeName, len(coverageRules))
+		}
+	}
 
 	if !hasRequirement {
 		return nil, fmt.Errorf("at least one requirement must be set in SourceTestPlan: %v", sourceTestPlan)
-	}
-
-	if unimplementedReq != nil {
-		return nil, fmt.Errorf("unimplemented requirement %q", unimplementedReq.Name())
 	}
 
 	if err := checkDutAttributesValid(coverageRules, dutAttributeList); err != nil {
