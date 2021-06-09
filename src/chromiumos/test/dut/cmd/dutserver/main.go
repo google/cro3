@@ -50,8 +50,11 @@ func main() {
 	os.Exit(func() int {
 		flag.NewFlagSet("version", flag.ExitOnError)
 
-		dutAddress := flag.String("dut_address", "", "Dut to connect to")
-		wiringAddress := flag.String("wiring_address", "", "Address to TLW")
+		dutName := flag.String("dut_name", "", "DUT name to connect to. Mutually exclusive from dut_address. E.g.: chromeos1-row1-rack9-host4.")
+		dutAddress := flag.String("dut_address", "", "DUT address to connect to. Mutually exclusive from dut_name. A DUT address must be in the format address:port. E.g.: 1.2.3.4:8080")
+		wiringAddress := flag.String("wiring_address", "", "Address to TLW. Only required if using DUT name.")
+		protoChunkSize := flag.Int64("chunk_size", 1024*1024, "Largest size of blob or coredumps to include in an individual response.")
+		serializerPath := flag.String("serializer_path", "/usr/local/sbin/crash_serializer", "Location of the serializer binary on disk in the DUT.")
 		flag.Parse()
 
 		if os.Args[1] == "version" {
@@ -59,12 +62,20 @@ func main() {
 			return 0
 		}
 
-		if *dutAddress != "" {
-			fmt.Println("A DUT address must be valid")
+		if *dutAddress == "" && *dutName == "" {
+			fmt.Println("A DUT address or DUT name must be specified.")
 		}
 
-		if *wiringAddress != "" {
-			fmt.Println("A Wiring address must be valid")
+		if *dutName != "" && *dutAddress != "" {
+			fmt.Println("DUT address and DUT name are mutually exclusive.")
+		}
+
+		if *dutName != "" && *wiringAddress == "" {
+			fmt.Println("A Wiring address must be valid if DUT name is used.")
+		}
+
+		if *dutAddress != "" && *wiringAddress != "" {
+			fmt.Println("A Wiring address should not be specified if DUT address is used.")
 		}
 
 		logFile, err := createLogFile()
@@ -82,14 +93,14 @@ func main() {
 		}
 
 		ctx := context.Background()
-		conn, err := GetConnection(ctx, *dutAddress, *wiringAddress)
+		conn, err := GetConnection(ctx, *dutName, *wiringAddress)
 		if err != nil {
 			logger.Fatalln("Failed to connect to dut: ", err)
 			return 2
 		}
 		defer conn.Close()
 
-		server := newDutServiceServer(l, logger, &dutssh.SSHClient{Client: conn})
+		server := newDutServiceServer(l, logger, &dutssh.SSHClient{Client: conn}, *serializerPath, *protoChunkSize)
 
 		err = server.Serve(l)
 		if err != nil {

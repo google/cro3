@@ -38,6 +38,10 @@ type SessionInterface interface {
 	SetStdout(writer io.Writer)
 	SetStderr(writer io.Writer)
 	Run(cmd string) error
+	Start(cmd string) error
+	Output(cmd string) ([]byte, error)
+	StdoutPipe() (io.Reader, error)
+	StderrPipe() (io.Reader, error)
 }
 
 type SSHSession struct {
@@ -57,4 +61,20 @@ func (s *SSHSession) SetStderr(writer io.Writer) {
 
 func (s *SSHSession) Run(cmd string) error {
 	return s.Session.Run(cmd)
+}
+
+func (s *SSHSession) Start(cmd string) error {
+	return s.Session.Start(cmd)
+}
+
+func (s *SSHSession) Output(cmd string) ([]byte, error) {
+	return s.Session.Output(cmd)
+}
+
+func (s *SSHSession) StdoutPipe() (io.Reader, error) {
+	return s.Session.StdoutPipe()
+}
+
+func (s *SSHSession) StderrPipe() (io.Reader, error) {
+	return s.Session.StderrPipe()
 }

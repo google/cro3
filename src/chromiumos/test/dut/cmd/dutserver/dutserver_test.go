@@ -34,6 +34,22 @@ func (s *MockSession_Success) SetStderr(writer io.Writer) {
 	s.Stderr = writer
 }
 
+func (s *MockSession_Success) Start(cmd string) error {
+	return nil
+}
+
+func (s *MockSession_Success) Output(cmd string) ([]byte, error) {
+	return nil, nil
+}
+
+func (s *MockSession_Success) StdoutPipe() (io.Reader, error) {
+	return nil, nil
+}
+
+func (s *MockSession_Success) StderrPipe() (io.Reader, error) {
+	return nil, nil
+}
+
 func (s *MockSession_Success) Run(cmd string) error {
 	s.Stdout.Write([]byte("success!"))
 	s.Stderr.Write([]byte("not failed!"))
@@ -60,7 +76,7 @@ func TestDutServiceServer_Empty(t *testing.T) {
 
 	ctx := context.Background()
 	dutConn := &MockConnection_Success{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn)
+	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -89,7 +105,7 @@ func TestDutServiceServer_CommandWorks(t *testing.T) {
 
 	ctx := context.Background()
 	dutConn := &MockConnection_Success{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn)
+	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -159,6 +175,22 @@ func (s *MockSession_CommandFailed) Run(cmd string) error {
 	}
 }
 
+func (s *MockSession_CommandFailed) Start(cmd string) error {
+	return nil
+}
+
+func (s *MockSession_CommandFailed) Output(cmd string) ([]byte, error) {
+	return nil, nil
+}
+
+func (s *MockSession_CommandFailed) StdoutPipe() (io.Reader, error) {
+	return nil, nil
+}
+
+func (s *MockSession_CommandFailed) StderrPipe() (io.Reader, error) {
+	return nil, nil
+}
+
 type MockConnection_CommandFailed struct{}
 
 func (c *MockConnection_CommandFailed) Close() error {
@@ -179,7 +211,7 @@ func TestDutServiceServer_CommandFails(t *testing.T) {
 
 	ctx := context.Background()
 	dutConn := &MockConnection_CommandFailed{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn)
+	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -242,6 +274,22 @@ func (s *MockSession_PreCommandFailure) Run(cmd string) error {
 	return &ssh.ExitMissingError{}
 }
 
+func (s *MockSession_PreCommandFailure) Start(cmd string) error {
+	return nil
+}
+
+func (s *MockSession_PreCommandFailure) Output(cmd string) ([]byte, error) {
+	return nil, nil
+}
+
+func (s *MockSession_PreCommandFailure) StdoutPipe() (io.Reader, error) {
+	return nil, nil
+}
+
+func (s *MockSession_PreCommandFailure) StderrPipe() (io.Reader, error) {
+	return nil, nil
+}
+
 type MockConnection_PreCommandFailure struct{}
 
 func (c *MockConnection_PreCommandFailure) Close() error {
@@ -262,7 +310,7 @@ func TestDutServiceServer_PreCommandFails(t *testing.T) {
 
 	ctx := context.Background()
 	dutConn := &MockConnection_PreCommandFailure{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn)
+	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -324,7 +372,7 @@ func TestDutServiceServer_NewSessionFails(t *testing.T) {
 
 	ctx := context.Background()
 	dutConn := &MockConnection_NewSessionFailure{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn)
+	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}

@@ -6,30 +6,41 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
+	"io"
 	"log"
 	"net"
+	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"chromiumos/test/dut/cmd/dutserver/dutssh"
 )
 
 // DutServiceServer implementation of dut_service.proto
 type DutServiceServer struct {
-	logger     *log.Logger
-	connection dutssh.ClientInterface
+	logger         *log.Logger
+	connection     dutssh.ClientInterface
+	serializerPath string
+	protoChunkSize int64
 }
 
 // newDutServiceServer creates a new dut service server to listen to rpc requests.
-func newDutServiceServer(l net.Listener, logger *log.Logger, conn dutssh.ClientInterface) *grpc.Server {
+func newDutServiceServer(l net.Listener, logger *log.Logger, conn dutssh.ClientInterface, serializerPath string, protoChunkSize int64) *grpc.Server {
 	s := &DutServiceServer{
-		logger:     logger,
-		connection: conn,
+		logger:         logger,
+		connection:     conn,
+		serializerPath: serializerPath,
+		protoChunkSize: protoChunkSize,
 	}
 
 	server := grpc.NewServer()
@@ -48,14 +59,100 @@ func (s *DutServiceServer) ExecCommand(req *api.ExecCommandRequest, stream api.D
 // FetchCrashes remotely fetches crashes from the DUT.
 func (s *DutServiceServer) FetchCrashes(req *api.FetchCrashesRequest, stream api.DutService_FetchCrashesServer) error {
 	s.logger.Println("Received api.FetchCrashesRequest: ", *req)
-	return stream.Send(&api.FetchCrashesResponse{})
+	if exists, err := s.runCmdOutput(dutssh.PathExistsCommand(s.serializerPath)); err != nil {
+		return status.Errorf(codes.FailedPrecondition, "Failed to check crash_serializer existence: %s", err.Error())
+	} else if exists != "1" {
+		return status.Errorf(codes.NotFound, "crash_serializer not present on device")
+	}
+
+	session, err := s.connection.NewSession()
+	if err != nil {
+		return status.Errorf(codes.FailedPrecondition, "Failed to start ssh session: %s", err)
+	}
+
+	stdout, stderr, err := getPipes(session)
+	if err != nil {
+		return err
+	}
+
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	wg.Add(1)
+	// Grab stderr concurrently to reading the protos.
+	go func() {
+		defer wg.Done()
+
+		for stderr.Scan() {
+			log.Printf("crash_serializer: %s\n", stderr.Text())
+		}
+		if err := stderr.Err(); err != nil {
+			log.Printf("Failed to get stderr: %s\n", err)
+		}
+	}()
+
+	err = session.Start(dutssh.RunSerializerCommand(s.serializerPath, s.protoChunkSize, req.FetchCore))
+	if err != nil {
+		return status.Errorf(codes.FailedPrecondition, "Failed to run serializer: %s", err.Error())
+	}
+
+	var protoBytes bytes.Buffer
+
+	for {
+		crashResp, err := readFetchCrashesProto(stdout, protoBytes)
+		if err != nil {
+			return err
+		} else if crashResp == nil {
+			return nil
+		}
+		_ = stream.Send(crashResp)
+	}
 }
 
-// GetConnection resolves the dut address name to ip address and ssh into it
-func GetConnection(ctx context.Context, dutAddress string, wiringAddress string) (*ssh.Client, error) {
-	addr, err := dutssh.GetSSHAddr(ctx, dutAddress, wiringAddress)
+// readFetchCrashesProto reads stdout and transforms it into a FetchCrashesResponse
+func readFetchCrashesProto(stdout io.Reader, buffer bytes.Buffer) (*api.FetchCrashesResponse, error) {
+	var sizeBytes [8]byte
+	crashResp := &api.FetchCrashesResponse{}
+
+	buffer.Reset()
+
+	// First, read the length of the proto.
+	length, err := io.ReadFull(stdout, sizeBytes[:])
 	if err != nil {
-		return nil, err
+		if length == 0 && err == io.EOF {
+			// We've come to the end of the stream -- expected condition.
+			return nil, nil
+		}
+		// Read only a partial int. Abort.
+		return nil, status.Errorf(codes.Unavailable, "Failed to read a size: %s", err.Error())
+	}
+	size := binary.BigEndian.Uint64(sizeBytes[:])
+
+	// Next, read the actual proto and parse it.
+	if length, err := io.CopyN(&buffer, stdout, int64(size)); err != nil {
+		return nil, status.Errorf(codes.Unavailable, "Failed to read complete proto. Read %d bytes but wanted %d. err: %s", length, size, err)
+	}
+	// CopyN guarantees that n == protoByes.Len() == size now.
+
+	if err := proto.Unmarshal(buffer.Bytes(), crashResp); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to unmarshal proto: %s; %v", err.Error(), buffer.Bytes())
+	}
+
+	return crashResp, nil
+}
+
+// GetConnection connects to a dut server. If wiringAddress is provided,
+// it resolves the dut name to ip address; otherwise, uses dutIdentifier as is.
+func GetConnection(ctx context.Context, dutIdentifier string, wiringAddress string) (*ssh.Client, error) {
+	var addr string
+	if wiringAddress != "" {
+		var err error
+		addr, err = dutssh.GetSSHAddr(ctx, dutIdentifier, wiringAddress)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		addr = dutIdentifier
 	}
 
 	return ssh.Dial("tcp", addr, dutssh.GetSSHConfig())
@@ -82,6 +179,18 @@ func (s *DutServiceServer) runCmd(cmd string) *api.ExecCommandResponse {
 		Stderr:   stdErr.Bytes(),
 		ExitInfo: getExitInfo(err),
 	}
+}
+
+// runCmdOutput interprets the given string command in a shell and returns stdout.
+// Overall this is a simplified version of runCmd which only returns output.
+func (s *DutServiceServer) runCmdOutput(cmd string) (string, error) {
+	session, err := s.connection.NewSession()
+	if err != nil {
+		return "", err
+	}
+	defer session.Close()
+	b, err := session.Output(cmd)
+	return string(b), err
 }
 
 // getExitInfo extracts exit info from Session Run's error
@@ -126,4 +235,21 @@ func createCommandFailedExitInfo(err *ssh.ExitError) *api.ExecCommandResponse_Ex
 		Started:      true,
 		ErrorMessage: "",
 	}
+}
+
+// getPipes returns stdout and stderr from a Session/SessionInterface. stderr is
+// converted to a buffer do to concurrency expectations
+func getPipes(s dutssh.SessionInterface) (io.Reader, *bufio.Scanner, error) {
+	stdout, err := s.StdoutPipe()
+	if err != nil {
+		return nil, nil, status.Errorf(codes.FailedPrecondition, "Failed to get stdout: %s", err)
+	}
+
+	stderrReader, err := s.StderrPipe()
+	if err != nil {
+		return nil, nil, status.Errorf(codes.FailedPrecondition, "Failed to get stderr: %s", err)
+	}
+	stderr := bufio.NewScanner(stderrReader)
+
+	return stdout, stderr, nil
 }
