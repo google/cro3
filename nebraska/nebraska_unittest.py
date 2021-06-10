@@ -290,7 +290,7 @@ class NebraskaHandlerTest(unittest.TestCase):
     self.assertTrue(
         nebraska_handler.server.owner.nebraska._config.critical_update)
     nebraska_handler._SendResponse.assert_called_once_with(
-        'text/plain', 'Config set!')
+        'text/plain', b'Config set!')
 
   def testDoGetFailureBadPath(self):
     """Tests do_GET failure on bad path."""
@@ -307,7 +307,7 @@ class NebraskaHandlerTest(unittest.TestCase):
 
     nebraska_handler.do_GET()
     nebraska_handler._SendResponse.assert_called_once_with(
-        'text/plain', 'Nebraska is alive!')
+        'text/plain', b'Nebraska is alive!')
 
 class NebraskaServerTest(NebraskaBaseTest):
   """Test NebraskaServer."""

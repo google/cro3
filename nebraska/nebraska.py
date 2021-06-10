@@ -955,7 +955,7 @@ class NebraskaServer(object):
         data = self.rfile.read(request_len)
       except Exception as err:
         logging.error('Failed to read request in do_POST %s', str(err))
-        self.send_error(http.client.BAD_REQUEST, 'Invalid request (header).')
+        self.send_error(http.client.BAD_REQUEST, b'Invalid request (header).')
         return
 
       parsed_path, parsed_query = self._ParseURL(self.path)
@@ -972,7 +972,7 @@ class NebraskaServer(object):
 
         elif parsed_path == 'update_config':
           self.server.owner.nebraska.UpdateConfig(**json.loads(data))
-          self._SendResponse('text/plain', 'Config set!')
+          self._SendResponse('text/plain', b'Config set!')
 
         else:
           error_str = 'The requested path "%s" was not found!' % parsed_path
@@ -997,7 +997,7 @@ class NebraskaServer(object):
       parsed_path, _ = self._ParseURL(self.path)
 
       if parsed_path == 'health_check':
-        self._SendResponse('text/plain', 'Nebraska is alive!')
+        self._SendResponse('text/plain', b'Nebraska is alive!')
       else:
         logging.error('The requested path "%s" was not found!', parsed_path)
         self.send_error(http.client.BAD_REQUEST,
