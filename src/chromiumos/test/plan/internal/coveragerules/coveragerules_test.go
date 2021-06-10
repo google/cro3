@@ -44,6 +44,7 @@ var buildSummaryList = &buildpb.SystemImage_BuildSummaryList{
 		buildSummary("project4", "3.18", "chipsetC", "R"),
 		buildSummary("project5", "4.14", "chipsetA", ""),
 		buildSummary("project6", "4.14", "chipsetB", "P"),
+		buildSummary("missingkernelversionproject", "0.0", "", ""),
 	},
 }
 var dutAttributeList = &testpb.DutAttributeList{

@@ -211,7 +211,15 @@ func kernelCoverageRules(
 ) []*testpb.CoverageRule {
 	return buildTargetCoverageRules(
 		func(buildSummary *buildpb.SystemImage_BuildSummary) string {
-			return buildSummary.GetKernel().GetVersion()
+			version := buildSummary.GetKernel().GetVersion()
+			// Some BuildSummaries have a kernel version set to "0.0", skip
+			// these.
+			if version == "0.0" {
+				glog.V(1).Infof("BuildSummary with kernel version \"0.0\", skipping: %q", buildSummary)
+				return ""
+			}
+
+			return version
 		},
 		func(key string) string {
 			return fmt.Sprintf("kernel:%s", key)
