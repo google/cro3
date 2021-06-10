@@ -33,7 +33,8 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--board', type=str, required=True,
                         choices=('hatch', 'volteer', 'trembyle', 'dalboz',
-                                 'waddledee', 'waddledoo', 'puff', 'brya0'),
+                                 'waddledee', 'waddledoo', 'lalala', 'puff',
+                                 'brya0'),
                         help='Name of the baseboard')
     parser.add_argument('--variant', type=str, required=True,
                         help='Name of the board variant')
@@ -148,6 +149,11 @@ def add_to_kconfig_name(baseboard_name, variant_name):
             print('\tselect BASEBOARD_DEDEDE_LAPTOP', file=outfile)
             print('\tselect DRIVERS_GENERIC_MAX98357A', file=outfile)
             print('\tselect DRIVERS_I2C_DA7219', file=outfile)
+        elif baseboard_name == 'lalala':
+            print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
+            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE_TPM2', file=outfile)
+            print('\tselect BASEBOARD_DEDEDE_LAPTOP', file=outfile)
         elif baseboard_name == 'puff':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
             print('\tbool "-> ' + capitalized + '"', file=outfile)

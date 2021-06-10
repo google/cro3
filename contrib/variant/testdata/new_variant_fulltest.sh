@@ -17,7 +17,7 @@ fi
 
 if [[ "$#" -lt 1 ]]; then
   echo "Usage: ${SCRIPT} reference_name"
-  echo "e.g. ${SCRIPT} hatch | puff | volteer | volteer2 | waddledee | waddledoo | trembyle | dalboz | brya0"
+  echo "e.g. ${SCRIPT} hatch | puff | volteer | volteer2 | waddledee | waddledoo | lalala | trembyle | dalboz | brya0"
   echo "End-to-end test to create a new variant of a reference board"
   echo "Script version ${VERSION}"
   exit 1
@@ -105,6 +105,21 @@ case "${REFERENCE}" in
     OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-dedede-private/chromeos-base/chromeos-config-bsp-dedede-private
     EBUILD=chromeos-config-bsp-dedede-private-9999.ebuild
     FITIMAGE=drawcia
+    # FITIMAGE_OUTPUTS_DIR and FITIMAGE_FILES_DIR are supposed to be the same;
+    # gen_fit_image.sh moves the generated files from asset_generation/outputs
+    # to files/blobs, so we have to put our fake fitimage files in files/blobs
+    # for commit_fitimage.sh to find there.
+    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-dedede-private/sys-boot/coreboot-private-files-baseboard-dedede/files/blobs
+    FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-dedede-private/sys-boot/coreboot-private-files-baseboard-dedede/files/blobs
+    ;;
+
+  lalala)
+    BASE=keeby
+    NEW=kingitchy
+    CONFIG_DIR=/mnt/host/source/src/project/keeby
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-keeby-private/chromeos-base/chromeos-config-bsp-keeby-private
+    EBUILD=chromeos-config-bsp-keeby-private-9999.ebuild
+    FITIMAGE=lalala
     # FITIMAGE_OUTPUTS_DIR and FITIMAGE_FILES_DIR are supposed to be the same;
     # gen_fit_image.sh moves the generated files from asset_generation/outputs
     # to files/blobs, so we have to put our fake fitimage files in files/blobs
@@ -278,7 +293,7 @@ if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
     cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}.bin" "fitimage-${NEW}.bin"
     cp "${FITIMAGE_FILES_DIR}/fitimage-${FITIMAGE}-versions.txt" "fitimage-${NEW}-versions.txt"
     # Dedede boards also need an me_rw-${VARIANT}.bin
-    if [[ "${REFERENCE}" == "waddledee" || "${REFERENCE}" == "waddledoo" ]] ; then
+    if [[ "${REFERENCE}" == "waddledee" || "${REFERENCE}" == "waddledoo" || "${REFERENCE}" == "lalala" ]] ; then
       cp "${FITIMAGE_FILES_DIR}/me_rw-${FITIMAGE}.bin" "me_rw-${NEW}.bin"
     fi
   fi
