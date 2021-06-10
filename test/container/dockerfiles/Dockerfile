@@ -58,7 +58,7 @@ COPY testexecserver /usr/bin/
 
 # Own testexecserver
 RUN chown -R chromeos-test:chromeos-test /usr/bin/testexecserver
-
+RUN chmod 755 /usr/bin/testexecserver
 USER chromeos-test
 
 # Configure the ssh for testing
