@@ -7,53 +7,21 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"net"
+	"os"
 
-	"chromiumos/lro"
-
-	"go.chromium.org/chromiumos/config/go/longrunning"
+	"github.com/golang/protobuf/jsonpb"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"chromiumos/test/execution/cmd/testexecserver/internal/driver"
 )
 
-// TestExecServer implement a server that will run tests
-type TestExecServer struct {
-	Manager *lro.Manager
-	logger  *log.Logger
-	driver  string
-}
-
-// newTestExecServer creates a new test service server to listen to test requests.
-func newTestExecServer(l net.Listener, logger *log.Logger, driver string) (*grpc.Server, error) {
-	s := &TestExecServer{
-		Manager: lro.New(),
-		logger:  logger,
-		driver:  driver,
-	}
-	defer s.Manager.Close()
-	server := grpc.NewServer()
-	api.RegisterExecutionServiceServer(server, s)
-	longrunning.RegisterOperationsServer(server, s.Manager)
-	logger.Println("executionservice listen to request at ", l.Addr().String())
-	return server, nil
-}
-
-// RunTests runs the requested tests.
-func (s *TestExecServer) RunTests(ctx context.Context, req *api.RunTestsRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.RunTestsRequest: ", *req)
-	op := s.Manager.NewOperation()
-	if req.Dut == nil || req.Dut.PrimaryHost == "" {
-		s.Manager.SetError(op.Name, status.New(codes.InvalidArgument, "DUT is not defined"))
-		return op, nil
-	}
+// runTests runs the requested tests.
+func runTests(ctx context.Context, logger *log.Logger, testType string, req *api.RunTestsRequest) (*api.RunTestsResponse, error) {
 	var testDriver driver.Driver
-	if s.driver == "tast" {
-		testDriver = driver.NewTastDriver(s.logger, s.Manager, op.Name)
+	if testType == "tast" {
+		testDriver = driver.NewTastDriver(logger)
 	}
 	var tests []string
 	for _, suite := range req.TestSuites {
@@ -62,8 +30,35 @@ func (s *TestExecServer) RunTests(ctx context.Context, req *api.RunTestsRequest)
 		}
 		// TO-DO Support Tags
 	}
+
 	if testDriver != nil {
-		go testDriver.RunTests(ctx, "", req.Dut.PrimaryHost, tests)
+		return testDriver.RunTests(ctx, "", req.Dut.PrimaryHost, tests)
 	}
-	return op, nil
+	return nil, fmt.Errorf("unknown test driver: %v", testType)
+}
+
+// readInput reads an execution_service json file and returns a pointer to RunTestsRequest.
+func readInput(fileName string) (*api.RunTestsRequest, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return nil, fmt.Errorf("fail to read file %v: %v", fileName, err)
+	}
+	req := api.RunTestsRequest{}
+	if err := jsonpb.Unmarshal(f, &req); err != nil {
+		return nil, fmt.Errorf("fail to unmarshal file %v: %v", fileName, err)
+	}
+	return &req, nil
+}
+
+// writeOutput writes a RunTestsResponse json.
+func writeOutput(output string, resp *api.RunTestsResponse) error {
+	f, err := os.Create(output)
+	if err != nil {
+		return fmt.Errorf("fail to create file %v: %v", output, err)
+	}
+	m := jsonpb.Marshaler{}
+	if err := m.Marshal(f, resp); err != nil {
+		return fmt.Errorf("failed to marshall response to file %v: %v", output, err)
+	}
+	return nil
 }

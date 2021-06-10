@@ -6,11 +6,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -46,7 +46,8 @@ func newLogger(logFile *os.File) *log.Logger {
 func main() {
 	os.Exit(func() int {
 		version := flag.Bool("version", false, "print version and exit")
-		port := flag.Int("port", 0, "specify the port number to start test execution server.")
+		input := flag.String("input", "input.json", "specify the test execution request json input file")
+		output := flag.String("output", "output.json", "specify the test execution request json output file")
 
 		// TODO: Use it as a temporary flag to help development. Will be removed after metadata support.
 		driver := flag.String("driver", "tast", "specify a driver (tast/tauto) to be used.")
@@ -66,17 +67,22 @@ func main() {
 
 		logger := newLogger(logFile)
 		logger.Println("Starting executionservice version ", Version)
-		l, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
-		if err != nil {
-			logger.Fatalf("Failed to create a net listener on port %d: %v", *port, err)
-			return 2
-		}
-		server, err := newTestExecServer(l, logger, *driver)
-		if err != nil {
-			logger.Fatalln("Failed to start testexecserver: ", err)
-		}
 
-		server.Serve(l)
+		req, err := readInput(*input)
+		if err != nil {
+			logger.Printf("Failed to read test executation json file %v: %v", *input, err)
+			return 1
+		}
+		ctx := context.Background()
+		rspn, err := runTests(ctx, logger, *driver, req)
+		if err != nil {
+			logger.Printf("Failed to run test %v: %v", *input, err)
+			return 1
+		}
+		if err := writeOutput(*output, rspn); err != nil {
+			logger.Printf("Failed to read test result json file %v: %v", *output, err)
+			return 1
+		}
 		return 0
 	}())
 }

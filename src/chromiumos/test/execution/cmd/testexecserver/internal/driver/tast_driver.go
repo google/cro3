@@ -16,11 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"chromiumos/lro"
-
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"chromiumos/test/execution/cmd/testexecserver/internal/tastrpc"
 )
@@ -29,25 +25,17 @@ import (
 type TastDriver struct {
 	// logger provides logging service.
 	logger *log.Logger
-
-	// Long running operation manager
-	manager *lro.Manager
-
-	// operation name
-	op string
 }
 
 // NewTastDriver creates a new driver to run tast tests.
-func NewTastDriver(logger *log.Logger, manager *lro.Manager, op string) *TastDriver {
+func NewTastDriver(logger *log.Logger) *TastDriver {
 	return &TastDriver{
-		logger:  logger,
-		manager: manager,
-		op:      op,
+		logger: logger,
 	}
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut string, tests []string) {
+func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut string, tests []string) (*api.RunTestsResponse, error) {
 	path := "/usr/bin/tast" // Default path of tast which can be overridden later.
 
 	if resultsDir == "" {
@@ -56,14 +44,12 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut string, test
 	}
 	// Make sure the result directory exists.
 	if err := os.MkdirAll(resultsDir, 0755); err != nil {
-		td.manager.SetError(td.op, status.Newf(codes.FailedPrecondition, "failed to create result directory %v", resultsDir))
-		return
+		return nil, fmt.Errorf("failed to create result directory %v: %v", resultsDir, err)
 	}
 
 	reportServer, err := tastrpc.NewReportsServer(0, tests, resultsDir)
 	if err != nil {
-		td.manager.SetError(td.op, status.Newf(codes.FailedPrecondition, "failed to create report server for tast %v", err))
-		return
+		return nil, fmt.Errorf("failed to create tast report server: %v", err)
 	}
 	defer reportServer.Stop()
 
@@ -73,21 +59,17 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut string, test
 	cmd := exec.Command(path, genArgList(args)...)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		td.logger.Println("Failed to capture tast stdin: ", err)
-		td.manager.SetError(td.op, status.New(codes.FailedPrecondition, "StderrPipe failed"))
-		return
+		return nil, fmt.Errorf("failed to capture tast stderr: %v", err)
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		td.logger.Println("Failed to capture tast stdout: ", err)
-		td.manager.SetError(td.op, status.New(codes.FailedPrecondition, "StdoutPipe failed"))
-		return
+		return nil, fmt.Errorf("failed to capture tast stdout: %v", err)
 	}
 	td.logger.Println("Running Tast ", cmd.String())
 	if err := cmd.Start(); err != nil {
 		td.logger.Println("Failed to run tast: ", err)
-		td.manager.SetError(td.op, status.Newf(codes.FailedPrecondition, "failed to run tast: %v", err))
-		return
+		return nil, fmt.Errorf("failed to run tast: %v", err)
 	}
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -112,19 +94,14 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut string, test
 
 	if err := cmd.Wait(); err != nil {
 		td.logger.Println("Failed to run tast: ", err)
-		td.manager.SetError(td.op, status.Newf(codes.Aborted, "fail to run tast: %s", err))
-		return
+		return nil, fmt.Errorf("tast exited with error: %v", err)
 	}
 
 	testResults := reportServer.TestsReports()
 	missingResults := reportServer.MissingTestsReports()
 	results := append(testResults, missingResults...)
 
-	if err := td.manager.SetResult(td.op, &api.RunTestsResponse{TestCaseResults: results}); err != nil {
-		td.logger.Println("Failed to set result: ", err)
-		td.manager.SetError(td.op, status.Newf(codes.Aborted, "fail to set result: %s", err))
-	}
-	return
+	return &api.RunTestsResponse{TestCaseResults: results}, nil
 }
 
 // Command name and flag names.

@@ -110,19 +110,28 @@ func TestReportsServer_ReportResult(t *testing.T) {
 
 	expectedReports := []*api.TestCaseResult{
 		{
-			TestCaseId:    &api.TestCase_Id{Value: tests[0]},
-			ResultDirPath: &_go.StoragePath{Path: filepath.Join(resultDir, "tests", tests[0])},
-			Verdict:       &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
+			TestCaseId: &api.TestCase_Id{Value: tests[0]},
+			ResultDirPath: &_go.StoragePath{
+				HostType: _go.StoragePath_LOCAL,
+				Path:     filepath.Join(resultDir, "tests", tests[0]),
+			},
+			Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
 		},
 		{
-			TestCaseId:    &api.TestCase_Id{Value: tests[1]},
-			ResultDirPath: &_go.StoragePath{Path: filepath.Join(resultDir, "tests", tests[1])},
-			Verdict:       &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}},
+			TestCaseId: &api.TestCase_Id{Value: tests[1]},
+			ResultDirPath: &_go.StoragePath{
+				HostType: _go.StoragePath_LOCAL,
+				Path:     filepath.Join(resultDir, "tests", tests[1]),
+			},
+			Verdict: &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}},
 		},
 		{
-			TestCaseId:    &api.TestCase_Id{Value: tests[2]},
-			ResultDirPath: &_go.StoragePath{Path: filepath.Join(resultDir, "tests", tests[2])},
-			Verdict:       &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
+			TestCaseId: &api.TestCase_Id{Value: tests[2]},
+			ResultDirPath: &_go.StoragePath{
+				HostType: _go.StoragePath_LOCAL,
+				Path:     filepath.Join(resultDir, "tests", tests[2]),
+			},
+			Verdict: &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
 		},
 	}
 	expectedMissingReports := []*api.TestCaseResult{

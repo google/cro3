@@ -45,7 +45,8 @@ func (s *ReportsServer) ReportResult(ctx context.Context, req *protocol.ReportRe
 	testResult := api.TestCaseResult{
 		TestCaseId: &api.TestCase_Id{Value: req.Test},
 		ResultDirPath: &_go.StoragePath{
-			Path: filepath.Join(s.testResultsDir, "tests", req.Test),
+			HostType: _go.StoragePath_LOCAL,
+			Path:     filepath.Join(s.testResultsDir, "tests", req.Test),
 		},
 		Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
 	}
