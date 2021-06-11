@@ -1,6 +1,33 @@
 # emacs for Chrome OS
 
+[TOC]
+
 This directory contains projects for using emacs as editor for Chrome OS.
+
+## Tips for setting up emacs for Chrome OS
+
+### BUILD.gn and .gni files
+
+There is a copy of gn mode in chrome browser source tree for editing gn files.
+
+https://chromium.googlesource.com/chromium/src/+/refs/heads/main/tools/emacs/gn.el
+
+```lisp
+(load-file "path/to/chromium/src/tools/emacs/gn.el")
+```
+
+### ebuild files
+
+Try using the ebuild mode.
+
+```shell
+$ git clone https://anongit.gentoo.org/git/proj/ebuild-mode.git
+```
+
+```lisp
+(add-to-list 'load-path "~/path/to/ebuild-mode/")
+(load-library "~/src/ebuild-mode/ebuild-mode.el")
+```
 
 ## Gerrit integration.
 
