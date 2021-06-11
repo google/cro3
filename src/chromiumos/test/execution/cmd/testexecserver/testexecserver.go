@@ -15,6 +15,7 @@ import (
 	"go.chromium.org/chromiumos/config/go/test/api"
 
 	"chromiumos/test/execution/cmd/testexecserver/internal/driver"
+	"chromiumos/test/execution/errors"
 )
 
 // runTests runs the requested tests.
@@ -34,18 +35,21 @@ func runTests(ctx context.Context, logger *log.Logger, testType string, req *api
 	if testDriver != nil {
 		return testDriver.RunTests(ctx, "", req.Dut.PrimaryHost, tests)
 	}
-	return nil, fmt.Errorf("unknown test driver: %v", testType)
+	return nil, errors.NewStatusError(errors.InvalidArgument,
+		fmt.Errorf("unknown test driver: %v", testType))
 }
 
 // readInput reads an execution_service json file and returns a pointer to RunTestsRequest.
 func readInput(fileName string) (*api.RunTestsRequest, error) {
 	f, err := os.Open(fileName)
 	if err != nil {
-		return nil, fmt.Errorf("fail to read file %v: %v", fileName, err)
+		return nil, errors.NewStatusError(errors.IOAccessError,
+			fmt.Errorf("fail to read file %v: %v", fileName, err))
 	}
 	req := api.RunTestsRequest{}
 	if err := jsonpb.Unmarshal(f, &req); err != nil {
-		return nil, fmt.Errorf("fail to unmarshal file %v: %v", fileName, err)
+		return nil, errors.NewStatusError(errors.UnmarshalError,
+			fmt.Errorf("fail to unmarshal file %v: %v", fileName, err))
 	}
 	return &req, nil
 }
@@ -54,11 +58,13 @@ func readInput(fileName string) (*api.RunTestsRequest, error) {
 func writeOutput(output string, resp *api.RunTestsResponse) error {
 	f, err := os.Create(output)
 	if err != nil {
-		return fmt.Errorf("fail to create file %v: %v", output, err)
+		return errors.NewStatusError(errors.IOCreateError,
+			fmt.Errorf("fail to create file %v: %v", output, err))
 	}
 	m := jsonpb.Marshaler{}
 	if err := m.Marshal(f, resp); err != nil {
-		return fmt.Errorf("failed to marshall response to file %v: %v", output, err)
+		return errors.NewStatusError(errors.MarshalError,
+			fmt.Errorf("failed to marshall response to file %v: %v", output, err))
 	}
 	return nil
 }

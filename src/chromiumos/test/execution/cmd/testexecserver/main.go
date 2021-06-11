@@ -14,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"chromiumos/test/execution/errors"
 )
 
 // Version is the version info of this command. It is filled in during emerge.
@@ -24,7 +26,8 @@ func createLogFile() (*os.File, error) {
 	t := time.Now()
 	fullPath := filepath.Join("/tmp/testexecserver/", t.Format("20060102-150405"))
 	if err := os.MkdirAll(fullPath, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create directory %v: %v", fullPath, err)
+		return nil, errors.NewStatusError(errors.IOCreateError,
+			fmt.Errorf("failed to create directory %v: %w", fullPath, err))
 	}
 
 	logFullPathName := filepath.Join(fullPath, "log.txt")
@@ -32,7 +35,8 @@ func createLogFile() (*os.File, error) {
 	// Log the full output of the command to disk.
 	logFile, err := os.Create(logFullPathName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create file %v: %v", fullPath, err)
+		return nil, errors.NewStatusError(errors.IOCreateError,
+			fmt.Errorf("failed to create file %v: %w", fullPath, err))
 	}
 	return logFile, nil
 }
@@ -61,7 +65,7 @@ func main() {
 
 		logFile, err := createLogFile()
 		if err != nil {
-			log.Fatalln("Failed to create log file: ", err)
+			return errors.WriteError(os.Stderr, err)
 		}
 		defer logFile.Close()
 
@@ -70,18 +74,15 @@ func main() {
 
 		req, err := readInput(*input)
 		if err != nil {
-			logger.Printf("Failed to read test executation json file %v: %v", *input, err)
-			return 1
+			return errors.WriteError(os.Stderr, err)
 		}
 		ctx := context.Background()
 		rspn, err := runTests(ctx, logger, *driver, req)
 		if err != nil {
-			logger.Printf("Failed to run test %v: %v", *input, err)
-			return 1
+			return errors.WriteError(os.Stderr, err)
 		}
 		if err := writeOutput(*output, rspn); err != nil {
-			logger.Printf("Failed to read test result json file %v: %v", *output, err)
-			return 1
+			return errors.WriteError(os.Stderr, err)
 		}
 		return 0
 	}())

@@ -19,6 +19,7 @@ import (
 	"go.chromium.org/chromiumos/config/go/test/api"
 
 	"chromiumos/test/execution/cmd/testexecserver/internal/tastrpc"
+	"chromiumos/test/execution/errors"
 )
 
 // TastDriver runs tast and report its results.
@@ -44,12 +45,14 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut string, test
 	}
 	// Make sure the result directory exists.
 	if err := os.MkdirAll(resultsDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create result directory %v: %v", resultsDir, err)
+		return nil, errors.NewStatusError(errors.IOCreateError,
+			fmt.Errorf("failed to create result directory %v: %v", resultsDir, err))
 	}
 
 	reportServer, err := tastrpc.NewReportsServer(0, tests, resultsDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tast report server: %v", err)
+		return nil, errors.NewStatusError(errors.ServerStartingError,
+			fmt.Errorf("failed to create tast report server: %v", err))
 	}
 	defer reportServer.Stop()
 
@@ -64,12 +67,14 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut string, test
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		td.logger.Println("Failed to capture tast stdout: ", err)
-		return nil, fmt.Errorf("failed to capture tast stdout: %v", err)
+		return nil, errors.NewStatusError(errors.IOCaptureError,
+			fmt.Errorf("failed to capture tast stdout: %v", err))
 	}
 	td.logger.Println("Running Tast ", cmd.String())
 	if err := cmd.Start(); err != nil {
 		td.logger.Println("Failed to run tast: ", err)
-		return nil, fmt.Errorf("failed to run tast: %v", err)
+		return nil, errors.NewStatusError(errors.CommandStartingError,
+			fmt.Errorf("failed to run tast: %v", err))
 	}
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -94,7 +99,8 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut string, test
 
 	if err := cmd.Wait(); err != nil {
 		td.logger.Println("Failed to run tast: ", err)
-		return nil, fmt.Errorf("tast exited with error: %v", err)
+		return nil, errors.NewStatusError(errors.CommandExitError,
+			fmt.Errorf("tast exited with error: %v", err))
 	}
 
 	testResults := reportServer.TestsReports()
