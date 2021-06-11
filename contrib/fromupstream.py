@@ -190,56 +190,81 @@ def _wrap_commit_line(prefix, content):
     ret = textwrap.fill(line, COMMIT_MESSAGE_WIDTH, subsequent_indent=indent)
     return ret[len(prefix):]
 
-def _pick_patchwork(url, patch_id, args):
+def _get_patch_from_message_id(args, message_id):
+    for (url_template, mbox_suffix) in [
+        ('https://lore.kernel.org/r/%s', 'raw'),
+        # hostap project (and others) are here, but not kernel.org.
+        ('https://marc.info/?i=%s', None),
+        # public-inbox comes last as a "default"; it has a nice error page
+        # pointing to other redirectors, even if it doesn't have what
+        # you're looking for directly.
+        ('https://public-inbox.org/git/%s', None),
+    ]:
+        this_url = url_template % message_id
+        if args['debug']:
+            print('Probing archive for message at: %s' % this_url)
+        try:
+            opener = urllib.request.urlopen(this_url)
+
+            # To actually get the patch from lore.kernel.org we need to:
+            # - Let it redirect us to an actual list it's tracking.
+            # - Add the "raw" suffix
+            if (opener.url != this_url) and mbox_suffix:
+                opener = urllib.request.urlopen(opener.url + mbox_suffix)
+        except urllib.error.HTTPError as e:
+            # Skip all HTTP errors. We can expect 404 for archives that
+            # don't have this MessageId, or 300 for public-inbox ("not
+            # found, but try these other redirects"). It's less clear what
+            # to do with transitory (or is it permanent?) server failures.
+            if args['debug']:
+                print('Skipping URL %s, error: %s' % (this_url, e))
+            continue
+        # Success!
+        if args['debug']:
+            print('Found at %s' % this_url)
+        return this_url, opener.read()
+    errprint(
+        "WARNING: couldn't find working MessageId URL; "
+        'defaulting to "%s"' % this_url)
+    return this_url, None
+
+def _pick_fromlist(url, patch_id, args, message_id=None):
     if args['tag'] is None:
         args['tag'] = 'FROMLIST: '
 
-    try:
-        opener = urllib.request.urlopen('%s/patch/%s/mbox' % (url, patch_id))
-    except urllib.error.HTTPError as e:
-        errprint('Error: could not download patch: %s' % e)
-        sys.exit(1)
-    patch_contents = opener.read()
+    if patch_id is not None:
+        try:
+            opener = urllib.request.urlopen('%s/patch/%s/mbox' % (url, patch_id))
+        except urllib.error.HTTPError as e:
+            errprint('Error: could not download patch: %s' % e)
+            sys.exit(1)
+        patch_contents = opener.read()
 
-    if not patch_contents:
-        errprint('Error: No patch content found')
+        if not patch_contents:
+            errprint('Error: No patch content found')
+            sys.exit(1)
+
+        message_id = mailbox.Message(patch_contents)['Message-Id']
+        message_id = re.sub('^<|>$', '', message_id.strip())
+        alt_url = None
+    elif message_id is not None:
+        alt_url, patch_contents = _get_patch_from_message_id(args, message_id)
+        if patch_contents is None:
+            errprint('Error: could not find patch based on message id')
+            sys.exit(1)
+    else:
+        errprint('Error: Need a message ID or a patchwork ID')
         sys.exit(1)
 
-    message_id = mailbox.Message(patch_contents)['Message-Id']
-    message_id = re.sub('^<|>$', '', message_id.strip())
     if args['source_line'] is None:
-        args['source_line'] = '(am from %s/patch/%s/)' % (url, patch_id)
-        for url_template in [
-            'https://lore.kernel.org/r/%s',
-            # hostap project (and others) are here, but not kernel.org.
-            'https://marc.info/?i=%s',
-            # public-inbox comes last as a "default"; it has a nice error page
-            # pointing to other redirectors, even if it doesn't have what
-            # you're looking for directly.
-            'https://public-inbox.org/git/%s',
-        ]:
-            alt_url = url_template % message_id
-            if args['debug']:
-                print('Probing archive for message at: %s' % alt_url)
-            try:
-                urllib.request.urlopen(alt_url)
-            except urllib.error.HTTPError as e:
-                # Skip all HTTP errors. We can expect 404 for archives that
-                # don't have this MessageId, or 300 for public-inbox ("not
-                # found, but try these other redirects"). It's less clear what
-                # to do with transitory (or is it permanent?) server failures.
-                if args['debug']:
-                    print('Skipping URL %s, error: %s' % (alt_url, e))
-                continue
-            # Success!
-            if args['debug']:
-                print('Found at %s' % alt_url)
-            break
+        if alt_url is None:
+            alt_url, _ = _get_patch_from_message_id(args, message_id)
+
+        if patch_id is not None:
+            args['source_line'] = '(am from %s/patch/%s/)' % (url, patch_id)
+            args['source_line'] += '\n(also found at %s)' % alt_url
         else:
-            errprint(
-                "WARNING: couldn't find working MessageId URL; "
-                'defaulting to "%s"' % alt_url)
-        args['source_line'] += '\n(also found at %s)' % alt_url
+            args['source_line'] = '(am from %s)' % alt_url
 
     # Auto-snarf the Change-Id if it was encoded into the Message-Id.
     mo = re.match(r'.*(I[a-f0-9]{40})@changeid$', message_id)
@@ -261,7 +286,7 @@ def _match_patchwork(match, args):
               (pw_project, patch_id))
 
     url = _get_pw_url(pw_project)
-    return _pick_patchwork(url, patch_id, args)
+    return _pick_fromlist(url, patch_id, args)
 
 def _match_msgid(match, args):
     """Match location: msgid://MSGID."""
@@ -270,13 +295,12 @@ def _match_msgid(match, args):
     if args['debug']:
         print('_match_msgid: message_id=%s' % (msgid))
 
-    # Patchwork requires the brackets so force it
-    msgid = '<' + msgid + '>'
     url = None
     for url in PATCHWORK_URLS:
         rpc = xmlrpc.client.ServerProxy(url + '/xmlrpc/')
         try:
-            res = rpc.patch_list({'msgid': msgid})
+            # Patchwork requires the brackets so force it
+            res = rpc.patch_list({'msgid': '<' + msgid + '>'})
         except ssl.SSLCertVerificationError:
             errprint('Error: server "%s" gave an SSL error, skipping' % url)
             continue
@@ -286,10 +310,12 @@ def _match_msgid(match, args):
             patch_id = res[0]['id']
             break
     else:
-        errprint('Error: could not find patch based on message id')
-        sys.exit(1)
+        # We can't find a patch ID for this message but we won't give up.
+        # Some patches might not be on any (known) patchwork servers but
+        # can still be found on mailing list archives.
+        patch_id = None
 
-    return _pick_patchwork(url, patch_id, args)
+    return _pick_fromlist(url, patch_id, args, msgid)
 
 def _upstream(commit, urls, args):
     if args['debug']:
