@@ -24,6 +24,7 @@ import (
 	luciflag "go.chromium.org/luci/common/flag"
 
 	testplan "chromiumos/test/plan/internal"
+	"chromiumos/test/plan/internal/coveragerules"
 )
 
 // Version is set to the CROS_GO_VERSION eclass variable at build time. See
@@ -123,6 +124,13 @@ newline-delimited json protos.
 			"",
 			"Path to the output CoverageRules.",
 		)
+		r.Flags.StringVar(
+			&r.textSummaryOut,
+			"textsummaryout",
+			"",
+			"Path to write a more easily human-readable summary of the "+
+				"CoverageRules to. If not set, no summary is written.",
+		)
 
 		r.addExistingFlags()
 
@@ -136,6 +144,7 @@ type generateRun struct {
 	buildSummaryListPath string
 	dutAttributeListPath string
 	out                  string
+	textSummaryOut       string
 }
 
 func (r *generateRun) Run(a subcommands.Application, args []string, env subcommands.Env) int {
@@ -163,7 +172,7 @@ func readTextpb(path string, m proto.Message) error {
 }
 
 // writeRules writes a newline-delimited json file containing rules to outPath.
-func writeRules(rules []*testpb.CoverageRule, outPath string) error {
+func writeRules(rules []*testpb.CoverageRule, outPath, textSummaryOutPath string) error {
 	outFile, err := os.Create(outPath)
 	if err != nil {
 		return err
@@ -181,6 +190,20 @@ func writeRules(rules []*testpb.CoverageRule, outPath string) error {
 		jsonString += "\n"
 
 		if _, err = outFile.Write([]byte(jsonString)); err != nil {
+			return err
+		}
+	}
+
+	if textSummaryOutPath != "" {
+		glog.Infof("Writing text summary file to %s", textSummaryOutPath)
+
+		textSummaryOutFile, err := os.Create(textSummaryOutPath)
+		if err != nil {
+			return err
+		}
+		defer textSummaryOutFile.Close()
+
+		if err = coveragerules.WriteTextSummary(textSummaryOutFile, rules); err != nil {
 			return err
 		}
 	}
@@ -258,7 +281,7 @@ func (r *generateRun) run() error {
 
 	glog.Infof("Generated %d CoverageRules, writing to %s", len(rules), r.out)
 
-	return writeRules(rules, r.out)
+	return writeRules(rules, r.out, r.textSummaryOut)
 }
 
 func main() {

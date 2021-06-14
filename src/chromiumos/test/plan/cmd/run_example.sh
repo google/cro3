@@ -62,7 +62,9 @@ else
     echo "Using BuildSummaryList at ${build_summary}"
 fi
 
-out=$(mktemp -d)/coverage_rules.jsonproto
+outDir=$(mktemp -d)
+out=${outDir}/coverage_rules.jsonproto
+textSummaryOut=${outDir}/coverage_rules_summary.txt
 
 echo "Running testplan.go, writing CoverageRules to ${out}"
 
@@ -73,4 +75,5 @@ go run testplan.go generate \
   -dutattributes "${dut_attributes}" \
   -buildsummary "${build_summary}" \
   -out "${out}" \
+  -textsummaryout "${textSummaryOut}" \
   "$@"
