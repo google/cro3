@@ -62,7 +62,7 @@ func (s *DutServiceServer) FetchCrashes(req *api.FetchCrashesRequest, stream api
 	if exists, err := s.runCmdOutput(dutssh.PathExistsCommand(s.serializerPath)); err != nil {
 		return status.Errorf(codes.FailedPrecondition, "Failed to check crash_serializer existence: %s", err.Error())
 	} else if exists != "1" {
-		return status.Errorf(codes.NotFound, "crash_serializer not present on device")
+		return status.Errorf(codes.NotFound, "crash_serializer not present on device.")
 	}
 
 	session, err := s.connection.NewSession()

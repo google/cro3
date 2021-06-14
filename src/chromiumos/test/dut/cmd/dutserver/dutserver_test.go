@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 	"testing"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
@@ -416,4 +417,367 @@ func TestDutServiceServer_NewSessionFails(t *testing.T) {
 	if resp.ExitInfo.ErrorMessage != "Session failed." {
 		t.Fatalf("Error message should be session failed, instead got %v", resp.ExitInfo.ErrorMessage)
 	}
+}
+
+type MockSession_FetchCrashesPathExistsFailure struct {
+}
+
+func (s *MockSession_FetchCrashesPathExistsFailure) Close() error {
+	return nil
+}
+func (s *MockSession_FetchCrashesPathExistsFailure) SetStdout(writer io.Writer) {
+}
+func (s *MockSession_FetchCrashesPathExistsFailure) SetStderr(writer io.Writer) {
+}
+
+func (s *MockSession_FetchCrashesPathExistsFailure) Start(cmd string) error {
+	return nil
+}
+
+func (s *MockSession_FetchCrashesPathExistsFailure) Output(cmd string) ([]byte, error) {
+	return nil, errors.New("command failed!")
+}
+
+func (s *MockSession_FetchCrashesPathExistsFailure) StdoutPipe() (io.Reader, error) {
+	return nil, nil
+}
+
+func (s *MockSession_FetchCrashesPathExistsFailure) StderrPipe() (io.Reader, error) {
+	return nil, nil
+}
+
+func (s *MockSession_FetchCrashesPathExistsFailure) Run(cmd string) error {
+	return nil
+}
+
+type MockConnection_FetchCrashesPathExistsFailure struct{}
+
+func (c *MockConnection_FetchCrashesPathExistsFailure) Close() error {
+	return nil
+}
+
+func (c *MockConnection_FetchCrashesPathExistsFailure) NewSession() (dutssh.SessionInterface, error) {
+	return &MockSession_FetchCrashesPathExistsFailure{}, nil
+}
+
+// Tests that a path exist command fails
+func TestDutServiceServer_FetchCrasesPathExistsFails(t *testing.T) {
+	var logBuf bytes.Buffer
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal("Failed to create a net listener: ", err)
+	}
+
+	ctx := context.Background()
+	dutConn := &MockConnection_FetchCrashesPathExistsFailure{}
+	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	if err != nil {
+		t.Fatalf("Failed to start DutServiceServer: %v", err)
+	}
+	go srv.Serve(l)
+	defer srv.Stop()
+
+	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial: %v", err)
+	}
+	defer conn.Close()
+
+	cl := api.NewDutServiceClient(conn)
+	stream, err := cl.FetchCrashes(ctx, &api.FetchCrashesRequest{})
+	if err != nil {
+		t.Fatalf("Failed at api.FetchCrashes: %v", err)
+	}
+
+	resp := &api.FetchCrashesResponse{}
+	err = stream.RecvMsg(resp)
+	if err.Error() != "rpc error: code = FailedPrecondition desc = Failed to check crash_serializer existence: command failed!" {
+		t.Fatalf("Command failure should have caused an error: %v", err)
+	}
+
+}
+
+type MockSession_FetchCrashesPathExistsMissing struct {
+}
+
+func (s *MockSession_FetchCrashesPathExistsMissing) Close() error {
+	return nil
+}
+func (s *MockSession_FetchCrashesPathExistsMissing) SetStdout(writer io.Writer) {
+}
+func (s *MockSession_FetchCrashesPathExistsMissing) SetStderr(writer io.Writer) {
+}
+
+func (s *MockSession_FetchCrashesPathExistsMissing) Start(cmd string) error {
+	return nil
+}
+
+func (s *MockSession_FetchCrashesPathExistsMissing) Output(cmd string) ([]byte, error) {
+	return []byte("0"), nil
+}
+
+func (s *MockSession_FetchCrashesPathExistsMissing) StdoutPipe() (io.Reader, error) {
+	return nil, nil
+}
+
+func (s *MockSession_FetchCrashesPathExistsMissing) StderrPipe() (io.Reader, error) {
+	return nil, nil
+}
+
+func (s *MockSession_FetchCrashesPathExistsMissing) Run(cmd string) error {
+	return nil
+}
+
+type MockConnection_FetchCrashesPathExistsMissing struct{}
+
+func (c *MockConnection_FetchCrashesPathExistsMissing) Close() error {
+	return nil
+}
+
+func (c *MockConnection_FetchCrashesPathExistsMissing) NewSession() (dutssh.SessionInterface, error) {
+	return &MockSession_FetchCrashesPathExistsMissing{}, nil
+}
+
+// Tests that a path exist command returns command missing
+func TestDutServiceServer_FetchCrasesPathExistsMissing(t *testing.T) {
+	var logBuf bytes.Buffer
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal("Failed to create a net listener: ", err)
+	}
+
+	ctx := context.Background()
+	dutConn := &MockConnection_FetchCrashesPathExistsMissing{}
+	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	if err != nil {
+		t.Fatalf("Failed to start DutServiceServer: %v", err)
+	}
+	go srv.Serve(l)
+	defer srv.Stop()
+
+	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial: %v", err)
+	}
+	defer conn.Close()
+
+	cl := api.NewDutServiceClient(conn)
+	stream, err := cl.FetchCrashes(ctx, &api.FetchCrashesRequest{})
+	if err != nil {
+		t.Fatalf("Failed at api.FetchCrashes: %v", err)
+	}
+
+	resp := &api.FetchCrashesResponse{}
+	err = stream.RecvMsg(resp)
+	if err.Error() != "rpc error: code = NotFound desc = crash_serializer not present on device." {
+		t.Fatalf("Path missing should have caused an error: %v", err)
+	}
+
+}
+
+type MockConnection_FetchCrashesNewSessionFailure struct{}
+
+func (c *MockConnection_FetchCrashesNewSessionFailure) Close() error {
+	return nil
+}
+
+func (c *MockConnection_FetchCrashesNewSessionFailure) NewSession() (dutssh.SessionInterface, error) {
+	return nil, errors.New("Session failed.")
+}
+
+// Tests that a new session failure fails
+func TestDutServiceServer_FetchCrasesNewSessionFailure(t *testing.T) {
+	var logBuf bytes.Buffer
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal("Failed to create a net listener: ", err)
+	}
+
+	ctx := context.Background()
+	dutConn := &MockConnection_FetchCrashesNewSessionFailure{}
+	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	if err != nil {
+		t.Fatalf("Failed to start DutServiceServer: %v", err)
+	}
+	go srv.Serve(l)
+	defer srv.Stop()
+
+	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial: %v", err)
+	}
+	defer conn.Close()
+
+	cl := api.NewDutServiceClient(conn)
+	stream, err := cl.FetchCrashes(ctx, &api.FetchCrashesRequest{})
+	if err != nil {
+		t.Fatalf("Failed at api.FetchCrashes: %v", err)
+	}
+
+	resp := &api.FetchCrashesResponse{}
+	err = stream.RecvMsg(resp)
+	if err.Error() != "rpc error: code = FailedPrecondition desc = Failed to check crash_serializer existence: Session failed." {
+		t.Fatalf("Session Failure should have failed: %v", err)
+	}
+
+}
+
+type MockSession_FetchCrashesSessionStartFailure struct {
+}
+
+func (s *MockSession_FetchCrashesSessionStartFailure) Close() error {
+	return nil
+}
+func (s *MockSession_FetchCrashesSessionStartFailure) SetStdout(writer io.Writer) {
+}
+func (s *MockSession_FetchCrashesSessionStartFailure) SetStderr(writer io.Writer) {
+}
+
+func (s *MockSession_FetchCrashesSessionStartFailure) Start(cmd string) error {
+	return errors.New("Session Start Failure.")
+}
+
+func (s *MockSession_FetchCrashesSessionStartFailure) Output(cmd string) ([]byte, error) {
+	return []byte("1"), nil
+}
+
+func (s *MockSession_FetchCrashesSessionStartFailure) StdoutPipe() (io.Reader, error) {
+	return strings.NewReader("stdout"), nil
+}
+
+func (s *MockSession_FetchCrashesSessionStartFailure) StderrPipe() (io.Reader, error) {
+	return strings.NewReader("stderr"), nil
+}
+
+func (s *MockSession_FetchCrashesSessionStartFailure) Run(cmd string) error {
+	return nil
+}
+
+type MockConnection_FetchCrashesSessionStartFailure struct{}
+
+func (c *MockConnection_FetchCrashesSessionStartFailure) Close() error {
+	return nil
+}
+
+func (c *MockConnection_FetchCrashesSessionStartFailure) NewSession() (dutssh.SessionInterface, error) {
+	return &MockSession_FetchCrashesSessionStartFailure{}, nil
+}
+
+// Tests that a path exist command returns command missing
+func TestDutServiceServer_FetchCrasesSessionStartFailure(t *testing.T) {
+	var logBuf bytes.Buffer
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal("Failed to create a net listener: ", err)
+	}
+
+	ctx := context.Background()
+	dutConn := &MockConnection_FetchCrashesSessionStartFailure{}
+	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	if err != nil {
+		t.Fatalf("Failed to start DutServiceServer: %v", err)
+	}
+	go srv.Serve(l)
+	defer srv.Stop()
+
+	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial: %v", err)
+	}
+	defer conn.Close()
+
+	cl := api.NewDutServiceClient(conn)
+	stream, err := cl.FetchCrashes(ctx, &api.FetchCrashesRequest{})
+	if err != nil {
+		t.Fatalf("Failed at api.FetchCrashes: %v", err)
+	}
+
+	resp := &api.FetchCrashesResponse{}
+	err = stream.RecvMsg(resp)
+	if err.Error() != "rpc error: code = FailedPrecondition desc = Failed to run serializer: Session Start Failure." {
+		t.Fatalf("Session Start Failure should have caused an error: %v", err)
+	}
+
+}
+
+type MockSession_FetchCrashesPipeFailure struct {
+	Stdout io.Writer
+	Stderr io.Writer
+}
+
+func (s *MockSession_FetchCrashesPipeFailure) Close() error {
+	return nil
+}
+func (s *MockSession_FetchCrashesPipeFailure) SetStdout(writer io.Writer) {
+	s.Stdout = writer
+}
+func (s *MockSession_FetchCrashesPipeFailure) SetStderr(writer io.Writer) {
+	s.Stderr = writer
+}
+
+func (s *MockSession_FetchCrashesPipeFailure) Start(cmd string) error {
+	return nil
+}
+
+func (s *MockSession_FetchCrashesPipeFailure) Output(cmd string) ([]byte, error) {
+	return []byte("1"), nil
+}
+
+func (s *MockSession_FetchCrashesPipeFailure) StdoutPipe() (io.Reader, error) {
+	return nil, errors.New("stdout failure.")
+}
+
+func (s *MockSession_FetchCrashesPipeFailure) StderrPipe() (io.Reader, error) {
+	return nil, nil
+}
+
+func (s *MockSession_FetchCrashesPipeFailure) Run(cmd string) error {
+	return nil
+}
+
+type MockConnection_FetchCrashesPipeFailure struct{}
+
+func (c *MockConnection_FetchCrashesPipeFailure) Close() error {
+	return nil
+}
+
+func (c *MockConnection_FetchCrashesPipeFailure) NewSession() (dutssh.SessionInterface, error) {
+	return &MockSession_FetchCrashesPipeFailure{}, nil
+}
+
+// Tests that a path exist command returns command missing
+func TestDutServiceServer_FetchCrasesPipeFailure(t *testing.T) {
+	var logBuf bytes.Buffer
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal("Failed to create a net listener: ", err)
+	}
+
+	ctx := context.Background()
+	dutConn := &MockConnection_FetchCrashesPipeFailure{}
+	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	if err != nil {
+		t.Fatalf("Failed to start DutServiceServer: %v", err)
+	}
+	go srv.Serve(l)
+	defer srv.Stop()
+
+	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial: %v", err)
+	}
+	defer conn.Close()
+
+	cl := api.NewDutServiceClient(conn)
+	stream, err := cl.FetchCrashes(ctx, &api.FetchCrashesRequest{})
+	if err != nil {
+		t.Fatalf("Failed at api.FetchCrashes: %v", err)
+	}
+
+	resp := &api.FetchCrashesResponse{}
+	err = stream.RecvMsg(resp)
+	if err.Error() != "rpc error: code = FailedPrecondition desc = Failed to get stdout: stdout failure." {
+		t.Fatalf("Standard Out Failure should have caused an error: %v", err)
+	}
+
 }
