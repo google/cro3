@@ -305,6 +305,24 @@ func TestGenerate(t *testing.T) {
 			},
 			expected: []*testpb.CoverageRule{
 				{
+					Name: "kernel:3.18_soc:chipsetC_arc:R",
+					DutCriteria: []*testpb.DutCriterion{
+						{
+							AttributeId: &testpb.DutAttribute_Id{
+								Value: "system_build_target",
+							},
+							Values: []string{"project4"},
+						},
+					},
+					TestSuites: []*testpb.TestSuite{
+						{
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags: []string{"kernel", "arc"},
+							},
+						},
+					},
+				},
+				{
 					Name: "kernel:4.14_soc:chipsetA",
 					DutCriteria: []*testpb.DutCriterion{
 						{
@@ -358,24 +376,6 @@ func TestGenerate(t *testing.T) {
 						},
 					},
 				},
-				{
-					Name: "kernel:3.18_soc:chipsetC_arc:R",
-					DutCriteria: []*testpb.DutCriterion{
-						{
-							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
-							},
-							Values: []string{"project4"},
-						},
-					},
-					TestSuites: []*testpb.TestSuite{
-						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"kernel", "arc"},
-							},
-						},
-					},
-				},
 			},
 		},
 	}
@@ -388,9 +388,6 @@ func TestGenerate(t *testing.T) {
 			if diff := cmp.Diff(
 				test.expected,
 				outputs,
-				cmpopts.SortSlices(func(i, j *testpb.CoverageRule) bool {
-					return i.Name < j.Name
-				}),
 				cmpopts.SortSlices(func(i, j string) bool {
 					return i < j
 				}),

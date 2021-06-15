@@ -323,6 +323,8 @@ func checkDutAttributesValid(rules []*testpb.CoverageRule, dutAttributeList *tes
 
 // Generate computes a list of CoverageRules, based on sourceTestPlan and
 // buildSummaryList.
+//
+// The returned CoverageRules are sorted by Name.
 func Generate(
 	sourceTestPlan *plan.SourceTestPlan,
 	buildSummaryList *buildpb.SystemImage_BuildSummaryList,
@@ -397,6 +399,10 @@ func Generate(
 	if err := checkDutAttributesValid(coverageRules, dutAttributeList); err != nil {
 		return nil, err
 	}
+
+	sort.SliceStable(coverageRules, func(i, j int) bool {
+		return coverageRules[i].Name < coverageRules[j].Name
+	})
 
 	return coverageRules, nil
 }
