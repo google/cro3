@@ -422,6 +422,11 @@ class Response(object):
       self._app_data = None
       self._payloads_address = None
 
+      # Invalidate update was requested, the update status must be `noupdate`.
+      if self._config.invalidate_last_update:
+        self._config.no_update = True
+        return
+
       # If no update was requested, don't process anything anymore.
       if self._config.no_update:
         return
@@ -531,6 +536,8 @@ class Response(object):
         app_response.attrib['status'] = 'noupdate'
       elif self._app_request.request_type == Request.RequestType.UPDATE:
         update_check_attribs = {'status': 'noupdate'}
+        if self._config.invalidate_last_update:
+          update_check_attribs['_invalidate_last_update'] = 'true'
         if self._config.eol_date is not None:
           update_check_attribs['_eol_date'] = str(self._config.eol_date)
         ElementTree.SubElement(app_response, 'updatecheck',
@@ -799,6 +806,11 @@ class Config(object):
     # if set to 1, returns noupdate starting from the first check, i.e., always
     # returns noupdate.
     self.return_noupdate_starting = 0
+
+    # When set to true, `update_engine` will invalidate any update in the
+    # inactive partition, `no_update` is always true when
+    # `invalidate_last_update` is true.
+    self.invalidate_last_update = False
 
   def Update(self, **kwargs):
     """Updates the attributes of this class.

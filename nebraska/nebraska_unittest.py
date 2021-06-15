@@ -838,6 +838,22 @@ class NebraskaTest(NebraskaBaseTest):
     TestHasUpdate(True)
     TestHasUpdate(False)
 
+  def testInvalidateLastUpdate(self):
+    """Tests invalidate_last_update."""
+    self.GenerateAppData('foo.json', appid='foo')
+    neb = nebraska.Nebraska()
+    neb.UpdateConfig(update_app_index=nebraska.AppIndex(self.tempdir),
+                     update_payloads_address=_PAYLOADS_ADDRESS,
+                     invalidate_last_update=True)
+    request = GenerateXMLRequest([GenerateXMLAppRequest(appid='foo'),])
+    response = neb.GetResponseToRequest(nebraska.Request(request))
+    app = ElementTree.fromstring(response).find('app')
+    self.assertEqual(app.attrib['appid'], 'foo')
+    update_check = app.find('updatecheck')
+    self.assertEqual(update_check.attrib['status'], 'noupdate')
+    self.assertEqual(update_check.attrib['_invalidate_last_update'], 'true')
+
+
   def testEvent(self):
     """Tests event requests."""
     neb = nebraska.Nebraska()
