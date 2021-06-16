@@ -38,10 +38,10 @@ def is_internal():
         cwd='/mnt/host/source/.repo/manifests/',
         check=True).stdout.decode().strip()
 
-    if url == 'https://chrome-internal.googlesource.com/chromeos/manifest-internal/':
+    if 'chrome-internal.googlesource.com/chromeos/manifest-internal' in url:
         return True
 
-    if url == 'https://chromium.googlesource.com/chromiumos/manifest/':
+    if 'chromium.googlesource.com/chromiumos/manifest' in url:
         return False
 
     print(f'Unknown manifest source {url}')
