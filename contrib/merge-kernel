@@ -30,6 +30,7 @@ force=0     # Do not override Change-Id / Bug-Id.
 prepare=0   # Do not prepare for upload.
 upload=0    # Do not upload into Gerrit.
 do_dryrun=0 # If 1, don't push anything upstream, don't send email.
+cq_dryrun="" # Do not kick off CQ+1 dry run.
 notify=0    # Do not send notification e-mail.
 deadline=3  # Feedback deadline (in days, default 3).
 bypass=0    # Bypass upload validation
@@ -173,7 +174,7 @@ do_getparams() {
   local option
   local vtag
 
-  while getopts "b:c:d:fFhl:N:nP:pq:r:R:st:uS:x:" option; do
+  while getopts "b:c:d:fFhkl:N:nP:pq:r:R:st:uS:x:" option; do
     case ${option} in
       b) bugs="${OPTARG}" ;;
       c) changeid="Change-Id: ${OPTARG}" ;;
@@ -184,6 +185,7 @@ do_getparams() {
          ;;
       f) force=1 ;;
       F) bypass=1 ;;
+      k) cq_dryrun=",l=Commit-Queue+1" ;;
       l) changes+=("${OPTARG}") ;;
       n) notify=1 ;;
       N) namespace="${OPTARG}" ;;
@@ -898,7 +900,7 @@ EOF
 do_upload() {
   if [[ ${upload} -ne 0 ]]; then
     if [[ "${bypass}" -eq 0 ]]; then
-      if ! git push --no-verify ${dryrun} "${chromeos}" "${mbranch}:refs/for/${cbranch}%t=${topic}"; then
+      if ! git push --no-verify ${dryrun} "${chromeos}" "${mbranch}:refs/for/${cbranch}%t=${topic}${cq_dryrun}"; then
         error "Failed to upload changes into '${chromeos}'."
         error "If the error is a validation error, and if your changes did not cause the problem,"
         error "repeat the command with '-F' option. Do not use that option unless you are sure"
@@ -906,13 +908,14 @@ do_upload() {
         die
       fi
     else
-      if ! git push -o "uploadvalidator~skip" --no-verify ${dryrun} "${chromeos}" "${mbranch}:refs/for/${cbranch}%t=${topic}"; then
+      if ! git push -o "uploadvalidator~skip" --no-verify ${dryrun} "${chromeos}" \
+        "${mbranch}:refs/for/${cbranch}%t=${topic}${cq_dryrun}"; then
         die "Failed to upload changes into '${chromeos}'."
       fi
     fi
   elif [[ ${prepare} -ne 0 ]]; then
     echo "Push into ${chromeos} using the following command:"
-    echo "    git push --no-verify ${chromeos} ${mbranch}:refs/for/${cbranch}%t=${topic}"
+    echo "    git push --no-verify ${chromeos} ${mbranch}:refs/for/${cbranch}%t=${topic}${cq_dryrun}"
   fi
 }
 
