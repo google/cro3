@@ -17,12 +17,14 @@ func TestNewTautoArgs(t *testing.T) {
 		target:   dut1,
 		patterns: []string{test1, test2, test3, test4, test5},
 		runFlags: map[string]string{
-			tauto_resultsDirFlag: workDir1,
-			autotest_dir:         "/usr/local/autotest/",
+			tautoResultsDirFlag: workDir1,
+			autotestDir:         "/usr/local/autotest/",
 		},
 	}
 
-	args := newTautoArgs(&req, workDir1)
+	dut := dut1
+	tests := []string{test1, test2, test3, test4, test5}
+	args := newTautoArgs(dut, tests, workDir1)
 	if diff := cmp.Diff(args, &expectedArgs, cmp.AllowUnexported(tautoRunArgs{})); diff != "" {
 		t.Errorf("Got unexpected argument from newTautoArgs (-got +want):\n%s", diff)
 	}
@@ -34,8 +36,8 @@ func TestGenTautoArgList(t *testing.T) {
 		target:   dut1,
 		patterns: []string{test1, test2},
 		runFlags: map[string]string{
-			tauto_resultsDirFlag: workDir1,
-			autotest_dir:         "/usr/local/autotest/",
+			tautoResultsDirFlag: workDir1,
+			autotestDir:         "/usr/local/autotest/",
 		},
 	}
 

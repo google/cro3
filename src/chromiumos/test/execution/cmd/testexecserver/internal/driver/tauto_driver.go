@@ -19,8 +19,8 @@ import (
 	"chromiumos/lro"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+
+	"chromiumos/test/execution/cmd/testexecserver/internal/tautoresults"
 )
 
 // TautoDriver runs Tauto and report its results.
@@ -36,43 +36,37 @@ type TautoDriver struct {
 }
 
 // NewTautoDriver creates a new driver to run tests.
-func NewTautoDriver(logger *log.Logger, manager *lro.Manager, op string) *TautoDriver {
+func NewTautoDriver(logger *log.Logger) *TautoDriver {
 	return &TautoDriver{
-		logger:  logger,
-		manager: manager,
-		op:      op,
+		logger: logger,
 	}
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TautoDriver) RunTests(ctx context.Context, req *api.RunTestsRequest, resultsDir string) {
+func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut string, tests []string) (*api.RunTestsResponse, error) {
 	path := "/usr/local/autotest/site_utils/test_that.py" // Default path of test_that.
 
 	if resultsDir != "" {
 		// Make sure the result directory exists.
 		if err := os.MkdirAll(resultsDir, 0755); err != nil {
-			td.manager.SetError(td.op, status.Newf(codes.FailedPrecondition, "failed to create result directory %v", resultsDir))
-			return
+			return nil, fmt.Errorf("failed to create result directory %v", resultsDir)
 		}
 	}
 
-	args := newTautoArgs(req, resultsDir)
+	args := newTautoArgs(dut, tests, resultsDir)
 
 	// Run RTD.
 	cmd := exec.Command(path, genTautoArgList(args)...)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		td.manager.SetError(td.op, status.New(codes.FailedPrecondition, "StderrPipe failed"))
-		return
+		return nil, fmt.Errorf("StderrPipe failed")
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		td.manager.SetError(td.op, status.New(codes.FailedPrecondition, "StdoutPipe failed"))
-		return
+		return nil, fmt.Errorf("StdoutPipe failed")
 	}
 	if err := cmd.Start(); err != nil {
-		td.manager.SetError(td.op, status.Newf(codes.FailedPrecondition, "failed to run Tauto: %v", err))
-		return
+		return nil, fmt.Errorf("failed to run Tauto: %v", err)
 	}
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -96,19 +90,22 @@ func (td *TautoDriver) RunTests(ctx context.Context, req *api.RunTestsRequest, r
 	wg.Wait()
 
 	if err := cmd.Wait(); err != nil {
-		td.logger.Println("Failed to run tauto: ", err)
-		td.manager.SetError(td.op, status.Newf(codes.Aborted, "fail to run tauto: %s", err))
-		return
+		return nil, fmt.Errorf("fail to run tauto: %s", err)
 	}
-	// TODO: set test response.
-	td.manager.SetResult(td.op, &api.RunTestsResponse{})
-	return
+
+	results, err := tautoresults.TestsReports(resultsDir, tests)
+
+	if err != nil {
+		return &api.RunTestsResponse{}, err
+	}
+
+	return &api.RunTestsResponse{TestCaseResults: results}, nil
 }
 
 // Flag names. More to be populated once impl details are firmed.
 const (
-	autotest_dir         = "--autotest_dir"
-	tauto_resultsDirFlag = "--results_dir"
+	autotestDir         = "--autotestDir"
+	tautoResultsDirFlag = "--results_dir"
 )
 
 // tautoRunArgs stores arguments to invoke tauto
@@ -119,28 +116,22 @@ type tautoRunArgs struct {
 }
 
 // newTautoArgs created an argument structure for invoking tauto
-func newTautoArgs(req *api.RunTestsRequest, resultsDir string) *tautoRunArgs {
+func newTautoArgs(dut string, tests []string, resultsDir string) *tautoRunArgs {
 	args := tautoRunArgs{
-		target: req.Dut.PrimaryHost,
+		target: dut,
 		runFlags: map[string]string{
-			autotest_dir: "/usr/local/autotest/",
+			autotestDir: "/usr/local/autotest/",
 		},
 	}
 
-	for _, suite := range req.TestSuites {
-		for _, tc := range suite.TestCaseIds.TestCaseIds {
-			args.patterns = append(args.patterns, tc.Value)
-
-		}
-		// TO-DO Support Tags
-	}
+	args.patterns = tests // TO-DO Support Tags
 
 	if resultsDir == "" {
 		t := time.Now()
 		resultsDir = filepath.Join("/tmp/results/autotest", t.Format("20060102-150405"))
 	}
 
-	args.runFlags[tauto_resultsDirFlag] = resultsDir
+	args.runFlags[tautoResultsDirFlag] = resultsDir
 	fmt.Println(args)
 	return &args
 }
