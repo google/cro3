@@ -63,7 +63,7 @@ fitimage_bin_dir = 'files/blobs'
 fitimage_versions_dir = 'files/versions'
 
 # Script to add fitimage sources
-fitimage_script = 'files/add_fitimage_qs.sh'
+fitimage_script = 'files/add_fitimage.sh'
 
 # List of packages to cros_workon
 workon_pkgs = [
