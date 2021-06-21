@@ -148,28 +148,28 @@ func expandCoverageRules(curRules, newRules []*testpb.CoverageRule) []*testpb.Co
 }
 
 // buildTargetCoverageRules groups BuildTarget overlay names in
-// buildSummaryList and returns one CoverageRule per group.
+// SystemImage.Metadata and returns one CoverageRule per group.
 //
-// For each BuildSummary in buildSummaryList, keyFn is called to get a string
+// For each entry in MetadataList, keyFn is called to get a string
 // key. All overlay names that share the same string key are used to create a
 // CoverageRule.
 //
 // nameFn converts a key returned by keyFn to a Name for the CoverageRule.
 //
 // For example, to create one CoverageRule for each kernel version, keyFn should
-// return the kernel version found in a BuildSummary, and nameFn could return
+// return the kernel version found in a BuildMetadata, and nameFn could return
 // the string "kernel:<key>".
 //
-// If keyFn returns the empty string, that BuildSummary is skipped.
+// If keyFn returns the empty string, that entry is skipped.
 func buildTargetCoverageRules(
-	keyFn func(*buildpb.SystemImage_BuildSummary) string,
+	keyFn func(*buildpb.SystemImage_BuildMetadata) string,
 	nameFn func(string) string,
-	buildSummaryList *buildpb.SystemImage_BuildSummaryList,
+	buildMetadataList *buildpb.SystemImage_BuildMetadataList,
 	sourceTestPlan *plan.SourceTestPlan,
 ) []*testpb.CoverageRule {
 	keyToBuildTargets := make(map[string][]string)
 
-	for _, value := range buildSummaryList.GetValues() {
+	for _, value := range buildMetadataList.GetValues() {
 		key := keyFn(value)
 		if key == "" {
 			continue
@@ -210,15 +210,15 @@ func buildTargetCoverageRules(
 
 // kernelCoverageRules returns CoverageRules requiring each kernel version.
 func kernelCoverageRules(
-	sourceTestPlan *plan.SourceTestPlan, buildSummaryList *buildpb.SystemImage_BuildSummaryList,
+	sourceTestPlan *plan.SourceTestPlan, buildMetadataList *buildpb.SystemImage_BuildMetadataList,
 ) []*testpb.CoverageRule {
 	return buildTargetCoverageRules(
-		func(buildSummary *buildpb.SystemImage_BuildSummary) string {
-			version := buildSummary.GetKernel().GetVersion()
+		func(buildMetadata *buildpb.SystemImage_BuildMetadata) string {
+			version := buildMetadata.GetPackageSummary().GetKernel().GetVersion()
 			// Some BuildSummaries have a kernel version set to "0.0", skip
 			// these.
 			if version == "0.0" {
-				glog.V(1).Infof("BuildSummary with kernel version \"0.0\", skipping: %q", buildSummary)
+				glog.V(1).Infof("BuildMetadata with kernel version \"0.0\", skipping: %q", buildMetadata)
 				return ""
 			}
 
@@ -227,39 +227,39 @@ func kernelCoverageRules(
 		func(key string) string {
 			return fmt.Sprintf("kernel:%s", key)
 		},
-		buildSummaryList,
+		buildMetadataList,
 		sourceTestPlan,
 	)
 }
 
 // socCoverageRules returns CoverageRules requiring each SoC family.
 func socCoverageRules(
-	sourceTestPlan *plan.SourceTestPlan, buildSummaryList *buildpb.SystemImage_BuildSummaryList,
+	sourceTestPlan *plan.SourceTestPlan, buildMetadataList *buildpb.SystemImage_BuildMetadataList,
 ) []*testpb.CoverageRule {
 	return buildTargetCoverageRules(
-		func(buildSummary *buildpb.SystemImage_BuildSummary) string {
-			return buildSummary.GetChipset().GetOverlay()
+		func(buildMetadata *buildpb.SystemImage_BuildMetadata) string {
+			return buildMetadata.GetPackageSummary().GetChipset().GetOverlay()
 		},
 		func(key string) string {
 			return fmt.Sprintf("soc:%s", key)
 		},
-		buildSummaryList,
+		buildMetadataList,
 		sourceTestPlan,
 	)
 }
 
 // arcCoverageRules returns a CoverageRule requiring each ARC version.
 func arcCoverageRules(
-	sourceTestPlan *plan.SourceTestPlan, buildSummaryList *buildpb.SystemImage_BuildSummaryList,
+	sourceTestPlan *plan.SourceTestPlan, buildMetadataList *buildpb.SystemImage_BuildMetadataList,
 ) []*testpb.CoverageRule {
 	return buildTargetCoverageRules(
-		func(buildSummary *buildpb.SystemImage_BuildSummary) string {
-			return buildSummary.GetArc().GetVersion()
+		func(buildMetadata *buildpb.SystemImage_BuildMetadata) string {
+			return buildMetadata.GetPackageSummary().GetArc().GetVersion()
 		},
 		func(key string) string {
 			return fmt.Sprintf("arc:%s", key)
 		},
-		buildSummaryList,
+		buildMetadataList,
 		sourceTestPlan,
 	)
 }
@@ -322,12 +322,12 @@ func checkDutAttributesValid(rules []*testpb.CoverageRule, dutAttributeList *tes
 }
 
 // Generate computes a list of CoverageRules, based on sourceTestPlan and
-// buildSummaryList.
+// buildMetadataList.
 //
 // The returned CoverageRules are sorted by Name.
 func Generate(
 	sourceTestPlan *plan.SourceTestPlan,
-	buildSummaryList *buildpb.SystemImage_BuildSummaryList,
+	buildMetadataList *buildpb.SystemImage_BuildMetadataList,
 	dutAttributeList *testpb.DutAttributeList,
 ) ([]*testpb.CoverageRule, error) {
 	coverageRules := []*testpb.CoverageRule{}
@@ -371,13 +371,13 @@ func Generate(
 
 			switch fieldValue.Interface().(type) {
 			case *plan.SourceTestPlan_Requirements_ArcVersions:
-				coverageRules = expandCoverageRules(coverageRules, arcCoverageRules(sourceTestPlan, buildSummaryList))
+				coverageRules = expandCoverageRules(coverageRules, arcCoverageRules(sourceTestPlan, buildMetadataList))
 
 			case *plan.SourceTestPlan_Requirements_KernelVersions:
-				coverageRules = expandCoverageRules(coverageRules, kernelCoverageRules(sourceTestPlan, buildSummaryList))
+				coverageRules = expandCoverageRules(coverageRules, kernelCoverageRules(sourceTestPlan, buildMetadataList))
 
 			case *plan.SourceTestPlan_Requirements_SocFamilies:
-				coverageRules = expandCoverageRules(coverageRules, socCoverageRules(sourceTestPlan, buildSummaryList))
+				coverageRules = expandCoverageRules(coverageRules, socCoverageRules(sourceTestPlan, buildMetadataList))
 
 			case *plan.SourceTestPlan_Requirements_Fingerprint:
 				coverageRules = expandCoverageRules(

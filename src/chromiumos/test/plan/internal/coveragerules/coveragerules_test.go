@@ -16,36 +16,38 @@ import (
 	"go.chromium.org/chromiumos/config/go/test/plan"
 )
 
-// buildSummary is a convenience to reduce boilerplate when creating
-// SystemImage_BuildSummary in test cases.
-func buildSummary(overlay, kernelVersion, chipsetOverlay, arcVersion string) *buildpb.SystemImage_BuildSummary {
-	return &buildpb.SystemImage_BuildSummary{
+// buildMetadata is a convenience to reduce boilerplate when creating
+// SystemImage_BuildMetadata in test cases.
+func buildMetadata(overlay, kernelVersion, chipsetOverlay, arcVersion string) *buildpb.SystemImage_BuildMetadata {
+	return &buildpb.SystemImage_BuildMetadata{
 		BuildTarget: &buildpb.SystemImage_BuildTarget{
 			PortageBuildTarget: &buildpb.Portage_BuildTarget{
 				OverlayName: overlay,
 			},
 		},
-		Kernel: &buildpb.SystemImage_BuildSummary_Kernel{
-			Version: kernelVersion,
-		},
-		Chipset: &buildpb.SystemImage_BuildSummary_Chipset{
-			Overlay: chipsetOverlay,
-		},
-		Arc: &buildpb.SystemImage_BuildSummary_Arc{
-			Version: arcVersion,
+		PackageSummary: &buildpb.SystemImage_BuildMetadata_PackageSummary{
+			Kernel: &buildpb.SystemImage_BuildMetadata_Kernel{
+				Version: kernelVersion,
+			},
+			Chipset: &buildpb.SystemImage_BuildMetadata_Chipset{
+				Overlay: chipsetOverlay,
+			},
+			Arc: &buildpb.SystemImage_BuildMetadata_Arc{
+				Version: arcVersion,
+			},
 		},
 	}
 }
 
-var buildSummaryList = &buildpb.SystemImage_BuildSummaryList{
-	Values: []*buildpb.SystemImage_BuildSummary{
-		buildSummary("project1", "4.14", "chipsetA", ""),
-		buildSummary("project2", "4.14", "chipsetB", ""),
-		buildSummary("project3", "5.4", "chipsetA", ""),
-		buildSummary("project4", "3.18", "chipsetC", "R"),
-		buildSummary("project5", "4.14", "chipsetA", ""),
-		buildSummary("project6", "4.14", "chipsetB", "P"),
-		buildSummary("missingkernelversionproject", "0.0", "", ""),
+var buildMetadataList = &buildpb.SystemImage_BuildMetadataList{
+	Values: []*buildpb.SystemImage_BuildMetadata{
+		buildMetadata("project1", "4.14", "chipsetA", ""),
+		buildMetadata("project2", "4.14", "chipsetB", ""),
+		buildMetadata("project3", "5.4", "chipsetA", ""),
+		buildMetadata("project4", "3.18", "chipsetC", "R"),
+		buildMetadata("project5", "4.14", "chipsetA", ""),
+		buildMetadata("project6", "4.14", "chipsetB", "P"),
+		buildMetadata("missingkernelversionproject", "0.0", "", ""),
 	},
 }
 var dutAttributeList = &testpb.DutAttributeList{
@@ -381,7 +383,7 @@ func TestGenerate(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			outputs, err := coveragerules.Generate(test.input, buildSummaryList, dutAttributeList)
+			outputs, err := coveragerules.Generate(test.input, buildMetadataList, dutAttributeList)
 			if err != nil {
 				t.Fatalf("coveragerules.Generate failed: %s", err)
 			}
@@ -461,7 +463,7 @@ func TestGenerateErrors(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if _, err := coveragerules.Generate(
-				test.input, buildSummaryList, test.dutAttributeList,
+				test.input, buildMetadataList, test.dutAttributeList,
 			); err == nil {
 				t.Errorf("Expected error from coveragerules.Generate")
 			} else if !strings.Contains(err.Error(), test.expectedError) {

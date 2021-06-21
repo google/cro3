@@ -16,32 +16,34 @@ import (
 	testplan "chromiumos/test/plan/internal"
 )
 
-// buildSummary is a convenience to reduce boilerplate when creating
-// SystemImage_BuildSummary in test cases.
-func buildSummary(overlay, kernelVersion, chipsetOverlay, arcVersion string) *buildpb.SystemImage_BuildSummary {
-	return &buildpb.SystemImage_BuildSummary{
+// buildMetadata is a convenience to reduce boilerplate when creating
+// SystemImage_BuildMetadata in test cases.
+func buildMetadata(overlay, kernelVersion, chipsetOverlay, arcVersion string) *buildpb.SystemImage_BuildMetadata {
+	return &buildpb.SystemImage_BuildMetadata{
 		BuildTarget: &buildpb.SystemImage_BuildTarget{
 			PortageBuildTarget: &buildpb.Portage_BuildTarget{
 				OverlayName: overlay,
 			},
 		},
-		Kernel: &buildpb.SystemImage_BuildSummary_Kernel{
-			Version: kernelVersion,
-		},
-		Chipset: &buildpb.SystemImage_BuildSummary_Chipset{
-			Overlay: chipsetOverlay,
-		},
-		Arc: &buildpb.SystemImage_BuildSummary_Arc{
-			Version: arcVersion,
+		PackageSummary: &buildpb.SystemImage_BuildMetadata_PackageSummary{
+			Kernel: &buildpb.SystemImage_BuildMetadata_Kernel{
+				Version: kernelVersion,
+			},
+			Chipset: &buildpb.SystemImage_BuildMetadata_Chipset{
+				Overlay: chipsetOverlay,
+			},
+			Arc: &buildpb.SystemImage_BuildMetadata_Arc{
+				Version: arcVersion,
+			},
 		},
 	}
 }
 
-var buildSummaryList = &buildpb.SystemImage_BuildSummaryList{
-	Values: []*buildpb.SystemImage_BuildSummary{
-		buildSummary("project1", "4.14", "chipsetA", "P"),
-		buildSummary("project2", "4.14", "chipsetB", "R"),
-		buildSummary("project3", "5.4", "chipsetA", ""),
+var buildMetadataList = &buildpb.SystemImage_BuildMetadataList{
+	Values: []*buildpb.SystemImage_BuildMetadata{
+		buildMetadata("project1", "4.14", "chipsetA", "P"),
+		buildMetadata("project2", "4.14", "chipsetB", "R"),
+		buildMetadata("project3", "5.4", "chipsetA", ""),
 	},
 }
 
@@ -68,7 +70,7 @@ func TestGenerate(t *testing.T) {
 		},
 	}
 
-	rules, err := testplan.Generate(sourceTestPlans, buildSummaryList, dutAttributeList)
+	rules, err := testplan.Generate(sourceTestPlans, buildMetadataList, dutAttributeList)
 
 	if err != nil {
 		t.Fatalf("Generate returned error: %v", err)
@@ -130,19 +132,19 @@ func TestGenerate(t *testing.T) {
 
 func TestGenerateErrors(t *testing.T) {
 	tests := []struct {
-		name             string
-		sourceTestPlans  []*plan.SourceTestPlan
-		buildSummaryList *buildpb.SystemImage_BuildSummaryList
-		dutAttributeList *testpb.DutAttributeList
+		name              string
+		sourceTestPlans   []*plan.SourceTestPlan
+		buildMetadataList *buildpb.SystemImage_BuildMetadataList
+		dutAttributeList  *testpb.DutAttributeList
 	}{
 		{
-			name:             "empty sourceTestPlans",
-			sourceTestPlans:  []*plan.SourceTestPlan{},
-			buildSummaryList: buildSummaryList,
-			dutAttributeList: dutAttributeList,
+			name:              "empty sourceTestPlans",
+			sourceTestPlans:   []*plan.SourceTestPlan{},
+			buildMetadataList: buildMetadataList,
+			dutAttributeList:  dutAttributeList,
 		},
 		{
-			name: "nil buildSummaryList",
+			name: "nil buildMetadataList",
 			sourceTestPlans: []*plan.SourceTestPlan{
 				{
 					Requirements: &plan.SourceTestPlan_Requirements{
@@ -150,8 +152,8 @@ func TestGenerateErrors(t *testing.T) {
 					},
 				},
 			},
-			buildSummaryList: nil,
-			dutAttributeList: dutAttributeList,
+			buildMetadataList: nil,
+			dutAttributeList:  dutAttributeList,
 		},
 		{
 			name: "nil dutAttributeList",
@@ -162,8 +164,8 @@ func TestGenerateErrors(t *testing.T) {
 					},
 				},
 			},
-			buildSummaryList: buildSummaryList,
-			dutAttributeList: nil,
+			buildMetadataList: buildMetadataList,
+			dutAttributeList:  nil,
 		},
 		{
 			name: "plans has paths set",
@@ -179,14 +181,14 @@ func TestGenerateErrors(t *testing.T) {
 					PathRegexps:     []string{"a/b/c"},
 				},
 			},
-			buildSummaryList: buildSummaryList,
-			dutAttributeList: dutAttributeList,
+			buildMetadataList: buildMetadataList,
+			dutAttributeList:  dutAttributeList,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := testplan.Generate(test.sourceTestPlans, test.buildSummaryList, test.dutAttributeList); err == nil {
+			if _, err := testplan.Generate(test.sourceTestPlans, test.buildMetadataList, test.dutAttributeList); err == nil {
 				t.Error("Expected error from Generate")
 			}
 		})

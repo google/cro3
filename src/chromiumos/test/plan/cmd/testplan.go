@@ -91,7 +91,7 @@ func (r *versionRun) Run(a subcommands.Application, args []string, env subcomman
 }
 
 var cmdGenerate = &subcommands.Command{
-	UsageLine: "generate -plan PLAN1 [-plan PLAN2] -dutattributes PATH -buildsummary -out OUTPUT",
+	UsageLine: "generate -plan PLAN1 [-plan PLAN2] -dutattributes PATH -buildmetadata -out OUTPUT",
 	ShortDesc: "generate coverage rule protos",
 	LongDesc: `Generate coverage rule protos.
 
@@ -113,10 +113,10 @@ newline-delimited json protos.
 			"Path to a JSON proto file containing a DutAttributeList.",
 		)
 		r.Flags.StringVar(
-			&r.buildSummaryListPath,
-			"buildsummary",
+			&r.buildMetadataListPath,
+			"buildmetadata",
 			"",
-			"Path to a JSON proto file containing a BuildSummaryList.",
+			"Path to a JSON proto file containing a SystemImage.BuildMetadataList.",
 		)
 		r.Flags.StringVar(
 			&r.out,
@@ -140,11 +140,11 @@ newline-delimited json protos.
 
 type generateRun struct {
 	subcommands.CommandRunBase
-	planPaths            []string
-	buildSummaryListPath string
-	dutAttributeListPath string
-	out                  string
-	textSummaryOut       string
+	planPaths             []string
+	buildMetadataListPath string
+	dutAttributeListPath  string
+	out                   string
+	textSummaryOut        string
 }
 
 func (r *generateRun) Run(a subcommands.Application, args []string, env subcommands.Env) int {
@@ -222,8 +222,8 @@ func (r *generateRun) validateFlags() error {
 		return errors.New("-dutattributes is required")
 	}
 
-	if r.buildSummaryListPath == "" {
-		return errors.New("-buildsummary is required")
+	if r.buildMetadataListPath == "" {
+		return errors.New("-buildmetadata is required")
 	}
 
 	if r.out == "" {
@@ -250,15 +250,15 @@ func (r *generateRun) run() error {
 		plans[i] = plan
 	}
 
-	buildSummaryList := &buildpb.SystemImage_BuildSummaryList{}
-	if err := readJsonpb(r.buildSummaryListPath, buildSummaryList); err != nil {
+	buildMetadataList := &buildpb.SystemImage_BuildMetadataList{}
+	if err := readJsonpb(r.buildMetadataListPath, buildMetadataList); err != nil {
 		return err
 	}
 
-	glog.Infof("Reading %d BuildSummaries from %s", len(buildSummaryList.Values), r.buildSummaryListPath)
+	glog.Infof("Reading %d SystemImage.Metadata from %s", len(buildMetadataList.Values), r.buildMetadataListPath)
 
-	for _, buildSummary := range buildSummaryList.Values {
-		glog.V(2).Infof("Read BuildSummary: %s", buildSummary)
+	for _, buildMetadata := range buildMetadataList.Values {
+		glog.V(2).Infof("Read BuildMetadata: %s", buildMetadata)
 	}
 
 	dutAttributeList := &testpb.DutAttributeList{}
@@ -273,7 +273,7 @@ func (r *generateRun) run() error {
 	}
 
 	rules, err := testplan.Generate(
-		plans, buildSummaryList, dutAttributeList,
+		plans, buildMetadataList, dutAttributeList,
 	)
 	if err != nil {
 		return err

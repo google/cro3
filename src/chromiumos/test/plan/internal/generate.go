@@ -19,19 +19,19 @@ import (
 
 // Generate computes CoverageRules based on SourceTestPlans.
 //
-// sourceTestPlans must be non-empty. buildSummaryList and dutAttributeList must
+// sourceTestPlans must be non-empty. buildMetadataList and dutAttributeList must
 // be non-nil.
 func Generate(
 	sourceTestPlans []*plan.SourceTestPlan,
-	buildSummaryList *buildpb.SystemImage_BuildSummaryList,
+	buildMetadataList *buildpb.SystemImage_BuildMetadataList,
 	dutAttributeList *testpb.DutAttributeList,
 ) ([]*testpb.CoverageRule, error) {
 	if len(sourceTestPlans) == 0 {
 		return nil, errors.New("sourceTestPlans must be non-empty")
 	}
 
-	if buildSummaryList == nil {
-		return nil, errors.New("buildSummaryList must be non-nil")
+	if buildMetadataList == nil {
+		return nil, errors.New("buildMetadataList must be non-nil")
 	}
 
 	if dutAttributeList == nil {
@@ -50,6 +50,6 @@ func Generate(
 	glog.V(1).Infof("Merged SourceTestPlan: %s", mergedSourceTestPlan)
 
 	return coveragerules.Generate(
-		mergedSourceTestPlan, buildSummaryList, dutAttributeList,
+		mergedSourceTestPlan, buildMetadataList, dutAttributeList,
 	)
 }

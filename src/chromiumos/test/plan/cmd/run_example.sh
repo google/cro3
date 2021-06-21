@@ -46,7 +46,7 @@ cd "${script_dir}"
 config_internal_dir="$(realpath -e ../../../../../../../config-internal)"
 
 dut_attributes="${config_internal_dir}/dut_attributes/generated/dut_attributes.jsonproto"
-build_summary="${config_internal_dir}/build/generated/build_summary.jsonproto"
+build_metadata="${config_internal_dir}/build/generated/build_metadata.jsonproto"
 
 if [[ ! -f ${dut_attributes} ]]; then
     echo "Expected to find DutAttributesList at ${dut_attributes}"
@@ -55,11 +55,11 @@ else
     echo "Using DutAttributeList at ${dut_attributes}"
 fi
 
-if [[ ! -f ${build_summary} ]]; then
-    echo "Expected to find BuildSummaryList at ${build_summary}"
+if [[ ! -f ${build_metadata} ]]; then
+    echo "Expected to find BuildMetadataList at ${build_metadata}"
     exit 1
 else
-    echo "Using BuildSummaryList at ${build_summary}"
+    echo "Using BuildMetadataList at ${build_metadata}"
 fi
 
 outDir=$(mktemp -d)
@@ -73,7 +73,7 @@ set -x
 go run testplan.go generate \
   -plan example_source_test_plan.textpb \
   -dutattributes "${dut_attributes}" \
-  -buildsummary "${build_summary}" \
+  -buildmetadata "${build_metadata}" \
   -out "${out}" \
   -textsummaryout "${textSummaryOut}" \
   "$@"
