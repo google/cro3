@@ -52,6 +52,7 @@ func main() {
 		version := flag.Bool("version", false, "print version and exit")
 		input := flag.String("input", "input.json", "specify the test execution request json input file")
 		output := flag.String("output", "output.json", "specify the test execution request json output file")
+		tlwAddr := flag.String("tlwaddr", "", "specify the tlw address")
 
 		// TODO: Use it as a temporary flag to help development. Will be removed after metadata support.
 		driver := flag.String("driver", "tast", "specify a driver (tast/tauto) to be used.")
@@ -77,7 +78,7 @@ func main() {
 			return errors.WriteError(os.Stderr, err)
 		}
 		ctx := context.Background()
-		rspn, err := runTests(ctx, logger, *driver, req)
+		rspn, err := runTests(ctx, logger, *tlwAddr, *driver, req)
 		if err != nil {
 			return errors.WriteError(os.Stderr, err)
 		}

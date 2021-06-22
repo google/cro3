@@ -28,10 +28,38 @@ func TestNewTastArgs(t *testing.T) {
 			timeOutFlag:                "3000",
 			resultsDirFlag:             workDir1,
 			reportsServer:              ":5555",
+			tlwServerFlag:              tlwAddress,
 		},
 	}
 
-	args := newTastArgs(dut1, expectedArgs.patterns, workDir1, expectedArgs.runFlags[reportsServer])
+	args := newTastArgs(dut1, expectedArgs.patterns, workDir1, tlwAddress, expectedArgs.runFlags[reportsServer])
+	if diff := cmp.Diff(args, &expectedArgs, cmp.AllowUnexported(runArgs{})); diff != "" {
+		t.Errorf("Got unexpected argument from newTastArgs (-got +want):\n%s\n%v\n--\n%v\n", diff, args, expectedArgs)
+	}
+}
+
+// TestNewTastArgsNoTlw makes sure newTastArgs creates the correct arguments for tast when no tlw address is specified.
+func TestNewTastArgsNoTlw(t *testing.T) {
+	expectedArgs := runArgs{
+		target:   dut1,
+		patterns: []string{test1, test2, test3, test4, test5},
+		tastFlags: map[string]string{
+			verboseFlag: "true",
+			logTimeFlag: "false",
+		},
+		runFlags: map[string]string{
+			sshRetriesFlag:             "2",
+			downloadDataFlag:           "batch",
+			buildFlag:                  "false",
+			downloadPrivateBundlesFlag: "false",
+			timeOutFlag:                "3000",
+			resultsDirFlag:             workDir1,
+			reportsServer:              ":5555",
+			tlwServerFlag:              "",
+		},
+	}
+
+	args := newTastArgs(dut1, expectedArgs.patterns, workDir1, "", expectedArgs.runFlags[reportsServer])
 	if diff := cmp.Diff(args, &expectedArgs, cmp.AllowUnexported(runArgs{})); diff != "" {
 		t.Errorf("Got unexpected argument from newTastArgs (-got +want):\n%s", diff)
 	}
@@ -50,10 +78,10 @@ func TestGenArgList(t *testing.T) {
 			sshRetriesFlag:             "2",
 			downloadDataFlag:           "batch",
 			buildFlag:                  "false",
-			downloadPrivateBundlesFlag: "false",
+			downloadPrivateBundlesFlag: "true",
 			timeOutFlag:                "3000",
 			resultsDirFlag:             workDir1,
-			tlwServerFlag:              fmt.Sprintf("%v:%v", tlwAddress, tlwPort),
+			tlwServerFlag:              tlwAddress,
 			reportsServer:              "127.0.0.1:3333",
 		},
 	}

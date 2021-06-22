@@ -1,6 +1,8 @@
 // Copyright 2021 The Chromium OS Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
+// Package driver implements drivers to execute tests.
 package driver
 
 import (
@@ -26,8 +28,7 @@ const (
 	sinkPort   = 22
 	tlsAddress = "192.168.86.81"
 	tlsPort    = 2227
-	tlwAddress = "192.168.86.109"
-	tlwPort    = 2228
+	tlwAddress = "192.168.86.109:2228"
 	dut1       = "127.0.0.1:2222"
 )
 

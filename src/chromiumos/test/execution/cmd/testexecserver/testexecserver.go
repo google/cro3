@@ -19,7 +19,7 @@ import (
 )
 
 // runTests runs the requested tests.
-func runTests(ctx context.Context, logger *log.Logger, testType string, req *api.RunTestsRequest) (*api.RunTestsResponse, error) {
+func runTests(ctx context.Context, logger *log.Logger, tlwAddr, testType string, req *api.RunTestsRequest) (*api.RunTestsResponse, error) {
 	var testDriver driver.Driver
 	if testType == "tast" {
 		testDriver = driver.NewTastDriver(logger)
@@ -33,7 +33,7 @@ func runTests(ctx context.Context, logger *log.Logger, testType string, req *api
 	}
 
 	if testDriver != nil {
-		return testDriver.RunTests(ctx, "", req.Dut.PrimaryHost, tests)
+		return testDriver.RunTests(ctx, "", req.Dut.PrimaryHost, tlwAddr, tests)
 	}
 	return nil, errors.NewStatusError(errors.InvalidArgument,
 		fmt.Errorf("unknown test driver: %v", testType))

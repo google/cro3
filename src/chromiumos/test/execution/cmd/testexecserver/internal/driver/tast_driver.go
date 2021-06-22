@@ -36,7 +36,7 @@ func NewTastDriver(logger *log.Logger) *TastDriver {
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut string, tests []string) (*api.RunTestsResponse, error) {
+func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string) (*api.RunTestsResponse, error) {
 	path := "/usr/bin/tast" // Default path of tast which can be overridden later.
 
 	if resultsDir == "" {
@@ -56,7 +56,7 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut string, test
 	}
 	defer reportServer.Stop()
 
-	args := newTastArgs(dut, tests, resultsDir, reportServer.Address())
+	args := newTastArgs(dut, tests, resultsDir, tlwAddr, reportServer.Address())
 
 	// Run tast.
 	cmd := exec.Command(path, genArgList(args)...)
@@ -141,7 +141,12 @@ type runArgs struct {
 }
 
 // newTastArgs created an argument structure for invoking tast
-func newTastArgs(dut string, tests []string, resultsDir, rsAddress string) *runArgs {
+func newTastArgs(dut string, tests []string, resultsDir, tlwAddress, rsAddress string) *runArgs {
+	downloadPrivateBundles := "false"
+	// Change downloadPrivateBundlesFlag to "true" if tlwServer is specified.
+	if tlwAddress != "" {
+		downloadPrivateBundles = "true"
+	}
 	return &runArgs{
 		target: dut,
 		tastFlags: map[string]string{
@@ -152,10 +157,11 @@ func newTastArgs(dut string, tests []string, resultsDir, rsAddress string) *runA
 			sshRetriesFlag:             "2",
 			downloadDataFlag:           "batch",
 			buildFlag:                  "false",
-			downloadPrivateBundlesFlag: "true",
+			downloadPrivateBundlesFlag: downloadPrivateBundles,
 			timeOutFlag:                "3000",
 			resultsDirFlag:             resultsDir,
 			reportsServer:              rsAddress,
+			tlwServerFlag:              tlwAddress,
 		},
 		patterns: tests, // TO-DO Support Tags
 	}

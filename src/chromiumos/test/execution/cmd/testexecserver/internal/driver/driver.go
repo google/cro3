@@ -14,5 +14,5 @@ import (
 // Driver provides common interface to execute Tast and Autotest.
 type Driver interface {
 	// RunTests drives a test framework to execute tests.
-	RunTests(ctx context.Context, resultsDir, dut string, tests []string) (*api.RunTestsResponse, error)
+	RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string) (*api.RunTestsResponse, error)
 }
