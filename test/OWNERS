@@ -1,0 +1,4 @@
+include chromiumos/config:/owners/testservice
+
+# Other relevant owners
+haddowk@chromium.org
