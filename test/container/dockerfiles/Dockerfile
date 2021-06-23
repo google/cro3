@@ -8,7 +8,6 @@ RUN apt-get update \
     && apt-get install -y \
       ca-certificates \
       curl \
-      lsb-release \
       iproute2 \
       iputils-ping \
       python2.7 \
@@ -28,6 +27,10 @@ RUN echo \
     add - && apt-get update -y && apt-get install google-cloud-sdk -y
 RUN rm -rf /usr/lib/google-cloud-sdk/bin/anthoscli \
   /usr/lib/google-cloud-sdk/bin/kuberun
+
+# Point /usr/bin/python3 to usr/local/bin/python3. See b/191884161
+RUN sudo rm /usr/bin/python3*
+RUN sudo ln -s /usr/local/bin/python3 /usr/bin/python3
 
 # Config the user
 RUN useradd -m chromeos-test
@@ -55,6 +58,8 @@ RUN chown -R chromeos-test:chromeos-test /usr/local/autotest/shadow_config.ini
 
 # Test service *must* be cp'd into the dockerfile dir prior.
 COPY testexecserver /usr/bin/
+
+RUN sudo ln -s /usr/local/autotest/site_utils/test_that.py /usr/bin/test_that
 
 # Own testexecserver
 RUN chown -R chromeos-test:chromeos-test /usr/bin/testexecserver
