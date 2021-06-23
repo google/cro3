@@ -32,8 +32,6 @@ import requests
 import cherrypy  # pylint: disable=import-error
 
 import constants
-import fake_omaha
-import fake_telemetry
 from chromite.lib import cros_logging as logging
 from chromite.lib import gs
 
@@ -542,16 +540,6 @@ def main(argv):
   cherrypy.server.socket_port = args.port
   cherrypy.server.socket_file = args.socket
   cherrypy.server.socket_host = args.bind
-
-  # TODO(crbug.com/1063420) Remove the fake Omaha app once we have the long
-  # term solution rolls out.
-  cherrypy.tree.mount(fake_omaha.FakeOmaha(), '/update',
-                      config=fake_omaha.get_config())
-
-  # TODO(crbug.com/1063420) Remove the fake Telemetry app once we have the long
-  # term solution rolls out.
-  cherrypy.tree.mount(fake_telemetry.FakeTelemetry(), '/setup_telemetry',
-                      config=fake_telemetry.get_config())
 
   cherrypy.quickstart(GsArchiveServer(_CachingServer(args.caching_server)))
 
