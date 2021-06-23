@@ -43,8 +43,8 @@ func NewTautoDriver(logger *log.Logger) *TautoDriver {
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut string, tests []string) (*api.RunTestsResponse, error) {
-	path := "/usr/local/autotest/site_utils/test_that.py" // Default path of test_that.
+func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string) (*api.RunTestsResponse, error) {
+	path := "/usr/bin/test_that" // Default path of test_that.
 
 	if resultsDir != "" {
 		// Make sure the result directory exists.
@@ -104,7 +104,7 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut string, tes
 
 // Flag names. More to be populated once impl details are firmed.
 const (
-	autotestDir         = "--autotestDir"
+	autotestDir         = "--autotest_dir"
 	tautoResultsDirFlag = "--results_dir"
 )
 
@@ -132,7 +132,6 @@ func newTautoArgs(dut string, tests []string, resultsDir string) *tautoRunArgs {
 	}
 
 	args.runFlags[tautoResultsDirFlag] = resultsDir
-	fmt.Println(args)
 	return &args
 }
 

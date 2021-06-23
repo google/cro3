@@ -21,8 +21,13 @@ import (
 // runTests runs the requested tests.
 func runTests(ctx context.Context, logger *log.Logger, tlwAddr, testType string, req *api.RunTestsRequest) (*api.RunTestsResponse, error) {
 	var testDriver driver.Driver
-	if testType == "tast" {
+	switch testType {
+	case "tast":
 		testDriver = driver.NewTastDriver(logger)
+	case "tauto":
+		testDriver = driver.NewTautoDriver(logger)
+	default:
+		return nil, fmt.Errorf("unsupported target: %v", testType)
 	}
 	var tests []string
 	for _, suite := range req.TestSuites {
