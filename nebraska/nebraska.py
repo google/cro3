@@ -744,8 +744,14 @@ class Config(object):
   def __init__(self):
     """Initliazes the response properties."""
 
+    # Payloads metadata directory for update.
+    self.update_metadata = None
+
     # The base address for update payload URLs.
     self.update_payloads_address = None
+
+    # Payloads metadata directory for install.
+    self.install_metadata = None
 
     # The base address for install payload URLs.
     self.install_payloads_address = None
@@ -806,6 +812,12 @@ class Config(object):
         logging.error('Invalid config attributed %s is passed.', key)
         continue
       setattr(self, key, value)
+
+    if self.update_metadata is not None:
+      self.update_app_index = AppIndex(self.update_metadata)
+
+    if self.install_metadata is not None:
+      self.install_app_index = AppIndex(self.install_metadata)
 
     logging.debug('Config updated to:\n%s', pprint.pformat(self.__dict__))
 
