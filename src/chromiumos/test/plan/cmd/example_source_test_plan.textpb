@@ -1,4 +1,10 @@
 requirements {
     kernel_versions {}
     fingerprint {}
+    firmware_ro_versions {
+        program_to_milestone {
+            key: "brya"
+            value: 80
+        }
+    }
 }

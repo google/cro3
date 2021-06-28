@@ -9,7 +9,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	configpb "go.chromium.org/chromiumos/config/go/api"
+	"go.chromium.org/chromiumos/config/go/api/software"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
+	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	"go.chromium.org/chromiumos/config/go/test/plan"
 
@@ -39,6 +42,23 @@ func buildMetadata(overlay, kernelVersion, chipsetOverlay, arcVersion string) *b
 	}
 }
 
+// flatConfig is a convenience to reduce boilerplate when creating FlatConfig
+// in test cases.
+func flatConfig(program, design, designConfig string, firmwareROVersion *buildpb.Version) *payload.FlatConfig {
+	return &payload.FlatConfig{
+		Program:        &configpb.Program{Id: &configpb.ProgramId{Value: program}},
+		HwDesign:       &configpb.Design{Id: &configpb.DesignId{Value: design}},
+		HwDesignConfig: &configpb.Design_Config{Id: &configpb.DesignConfigId{Value: designConfig}},
+		SwConfig: &software.SoftwareConfig{
+			Firmware: &buildpb.FirmwareConfig{
+				MainRoPayload: &buildpb.FirmwarePayload{
+					Version: firmwareROVersion,
+				},
+			},
+		},
+	}
+}
+
 var buildMetadataList = &buildpb.SystemImage_BuildMetadataList{
 	Values: []*buildpb.SystemImage_BuildMetadata{
 		buildMetadata("project1", "4.14", "chipsetA", "P"),
@@ -60,6 +80,15 @@ var dutAttributeList = &testpb.DutAttributeList{
 	},
 }
 
+var flatConfigList = &payload.FlatConfigList{
+	Values: []*payload.FlatConfig{
+		flatConfig("ProgA", "Design1", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}),
+		flatConfig("ProgA", "Design1", "Config2", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}),
+		flatConfig("ProgA", "Design2", "Config1", &buildpb.Version{Major: 123, Minor: 0, Patch: 0}),
+		flatConfig("ProgB", "Design20", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 0}),
+	},
+}
+
 func TestGenerate(t *testing.T) {
 	sourceTestPlans := []*plan.SourceTestPlan{
 		{
@@ -70,7 +99,7 @@ func TestGenerate(t *testing.T) {
 		},
 	}
 
-	rules, err := testplan.Generate(sourceTestPlans, buildMetadataList, dutAttributeList)
+	rules, err := testplan.Generate(sourceTestPlans, buildMetadataList, dutAttributeList, flatConfigList)
 
 	if err != nil {
 		t.Fatalf("Generate returned error: %v", err)
@@ -188,7 +217,9 @@ func TestGenerateErrors(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := testplan.Generate(test.sourceTestPlans, test.buildMetadataList, test.dutAttributeList); err == nil {
+			if _, err := testplan.Generate(
+				test.sourceTestPlans, test.buildMetadataList, test.dutAttributeList, flatConfigList,
+			); err == nil {
 				t.Error("Expected error from Generate")
 			}
 		})

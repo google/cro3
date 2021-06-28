@@ -10,20 +10,26 @@ import (
 	"io"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/golang/glog"
 	configpb "go.chromium.org/chromiumos/config/go/api"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
+	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	"go.chromium.org/chromiumos/config/go/test/plan"
 	"go.chromium.org/luci/common/data/stringset"
 )
 
 var (
-	buildTargetAttributeID = &testpb.DutAttribute_Id{Value: "system_build_target"}
-	fingerprintAttributeID = &testpb.DutAttribute_Id{Value: "fingerprint_location"}
+	buildTargetAttributeID            = &testpb.DutAttribute_Id{Value: "system_build_target"}
+	fingerprintAttributeID            = &testpb.DutAttribute_Id{Value: "fingerprint_location"}
+	designIDAttributeID               = &testpb.DutAttribute_Id{Value: "design_id"}
+	firmwareROMajorVersionAttributeID = &testpb.DutAttribute_Id{Value: "firmware_ro_major_version"}
+	firmwareROMinorVersionAttributeID = &testpb.DutAttribute_Id{Value: "firmware_ro_minor_version"}
+	firmwareROPatchVersionAttributeID = &testpb.DutAttribute_Id{Value: "firmware_ro_patch_version"}
 )
 
 // sortDutCriteriaOrPanic sorts rule.DutCriteria by AttributeId, panicing if
@@ -346,6 +352,98 @@ func fingerprintCoverageRule(sourceTestPlan *plan.SourceTestPlan) *testpb.Covera
 	}
 }
 
+// firmwareROCoverageRules returns CoverageRules requiring firmware tests to
+// be run on each Design in FirmwareRoVersions.ProgramToMilestone.
+func firmwareROCoverageRules(
+	sourceTestPlan *plan.SourceTestPlan, flatConfigWrapper *flatConfigWrapper,
+) ([]*testpb.CoverageRule, error) {
+	coverageRules := make([]*testpb.CoverageRule, 0)
+
+	programToMilestone := sourceTestPlan.GetRequirements().GetFirmwareRoVersions().GetProgramToMilestone()
+	if len(programToMilestone) == 0 {
+		return nil, fmt.Errorf("programToMilestone must be set in SourceTestPlan: %s", sourceTestPlan)
+	}
+
+	for program := range programToMilestone {
+		configs, ok := flatConfigWrapper.getProgramConfigs(program)
+		if !ok {
+			return nil, fmt.Errorf("configs for program %q not found", program)
+		}
+
+		designIDToROVersion := make(map[string]*buildpb.Version)
+
+		for _, config := range configs {
+			designID := config.GetHwDesign().GetId().GetValue()
+			version := config.GetSwConfig().GetFirmware().GetMainRoPayload().GetVersion()
+
+			if version == nil {
+				glog.V(1).Infof(
+					"No RO firmware version info found for design %q, config %q, skipping",
+					designID,
+					config.GetHwDesignConfig().GetId().GetValue(),
+				)
+
+				continue
+			}
+
+			// If the Design doesn't have a Version yet, assign one. Otherwise,
+			// check the Version is the same across all configs for a given
+			// Design.
+			if storedVersion, ok := designIDToROVersion[designID]; !ok {
+				designIDToROVersion[designID] = version
+			} else if !reflect.DeepEqual(storedVersion, version) {
+				return nil, fmt.Errorf(
+					"conflicting firmware RO versions found for design %q: %s, %s", designID, version, storedVersion,
+				)
+			}
+		}
+
+		if len(designIDToROVersion) == 0 {
+			return nil, fmt.Errorf("no RO firmware version info found for program %q", program)
+		}
+
+		for designID, version := range designIDToROVersion {
+			coverageRules = append(coverageRules, &testpb.CoverageRule{
+				Name: fmt.Sprintf("%s_faft", designID),
+				TestSuites: []*testpb.TestSuite{
+					{
+						Name: "faft_smoke",
+						TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+							Tags: []string{"suite:faft_smoke"},
+						},
+					},
+					{
+						Name: "faft_bios",
+						TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+							Tags: []string{"suite:faft_bios"},
+						},
+					},
+				},
+				DutCriteria: []*testpb.DutCriterion{
+					{
+						AttributeId: designIDAttributeID,
+						Values:      []string{designID},
+					},
+					{
+						AttributeId: firmwareROMajorVersionAttributeID,
+						Values:      []string{strconv.FormatInt(int64(version.Major), 10)},
+					},
+					{
+						AttributeId: firmwareROMinorVersionAttributeID,
+						Values:      []string{strconv.FormatInt(int64(version.Minor), 10)},
+					},
+					{
+						AttributeId: firmwareROPatchVersionAttributeID,
+						Values:      []string{strconv.FormatInt(int64(version.Patch), 10)},
+					},
+				},
+			})
+		}
+	}
+
+	return coverageRules, nil
+}
+
 // checkDutAttributesValid checks that the ids of all attributes in rules are in
 // dutAttributeList.
 func checkDutAttributesValid(rules []*testpb.CoverageRule, dutAttributeList *testpb.DutAttributeList) error {
@@ -380,8 +478,11 @@ func Generate(
 	sourceTestPlan *plan.SourceTestPlan,
 	buildMetadataList *buildpb.SystemImage_BuildMetadataList,
 	dutAttributeList *testpb.DutAttributeList,
+	flatConfigList *payload.FlatConfigList,
 ) ([]*testpb.CoverageRule, error) {
 	coverageRules := []*testpb.CoverageRule{}
+
+	flatConfigWrapper := newFlatConfigWrapper(flatConfigList)
 
 	// For each requirement set in sourceTestPlan, switch on the type of the
 	// requirement and call the corresponding <requirement>Outputs function.
@@ -435,6 +536,13 @@ func Generate(
 					coverageRules, []*testpb.CoverageRule{fingerprintCoverageRule(sourceTestPlan)},
 				)
 
+			case *plan.SourceTestPlan_Requirements_FirmwareROVersions:
+				newRules, err := firmwareROCoverageRules(sourceTestPlan, flatConfigWrapper)
+				if err != nil {
+					return nil, err
+				}
+
+				coverageRules = expandCoverageRules(coverageRules, newRules)
 			default:
 				return nil, fmt.Errorf("unimplemented requirement %q", typeName)
 			}

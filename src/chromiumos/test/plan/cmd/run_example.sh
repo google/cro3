@@ -47,6 +47,7 @@ config_internal_dir="$(realpath -e ../../../../../../../config-internal)"
 
 dut_attributes="${config_internal_dir}/dut_attributes/generated/dut_attributes.jsonproto"
 build_metadata="${config_internal_dir}/build/generated/build_metadata.jsonproto"
+flat_config_list="${config_internal_dir}/hw_design/generated/flattened.jsonproto"
 
 if [[ ! -f ${dut_attributes} ]]; then
     echo "Expected to find DutAttributesList at ${dut_attributes}"
@@ -62,6 +63,15 @@ else
     echo "Using BuildMetadataList at ${build_metadata}"
 fi
 
+
+if [[ ! -f ${flat_config_list} ]]; then
+    echo "Expected to find FlatConfigList at ${flat_config_list}"
+    exit 1
+else
+    echo "Using FlatConfigList at ${flat_config_list}"
+fi
+
+
 outDir=$(mktemp -d)
 out=${outDir}/coverage_rules.jsonproto
 textSummaryOut=${outDir}/coverage_rules_summary.txt
@@ -74,6 +84,7 @@ go run testplan.go generate \
   -plan example_source_test_plan.textpb \
   -dutattributes "${dut_attributes}" \
   -buildmetadata "${build_metadata}" \
+  -flatconfiglist "${flat_config_list}" \
   -out "${out}" \
   -textsummaryout "${textSummaryOut}" \
   "$@"

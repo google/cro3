@@ -13,12 +13,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/maruel/subcommands"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
+	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	"go.chromium.org/chromiumos/config/go/test/plan"
 	luciflag "go.chromium.org/luci/common/flag"
@@ -119,6 +121,12 @@ newline-delimited json protos.
 			"Path to a JSON proto file containing a SystemImage.BuildMetadataList.",
 		)
 		r.Flags.StringVar(
+			&r.flatConfigListPath,
+			"flatconfiglist",
+			"",
+			"Path to a JSON proto file containing a FlatConfigList",
+		)
+		r.Flags.StringVar(
 			&r.out,
 			"out",
 			"",
@@ -143,6 +151,7 @@ type generateRun struct {
 	planPaths             []string
 	buildMetadataListPath string
 	dutAttributeListPath  string
+	flatConfigListPath    string
 	out                   string
 	textSummaryOut        string
 }
@@ -151,11 +160,35 @@ func (r *generateRun) Run(a subcommands.Application, args []string, env subcomma
 	return errToCode(a, r.run())
 }
 
+// The v1 jsonpb package has known issues with FieldMasks:
+// https://github.com/golang/protobuf/issues/745. This is fixed in the v2
+// package, but as of 6/28/2021 the version of dev-go/protobuf ebuild installs
+// v1.3.2 of the github.com/golang/protobuf package, which does not contain the
+// MessageV2 function (required to use the v2 jsonproto package).
+//
+// Bumping the version of this Portage package broke dependent packages. As a
+// workaround, parse out the known FieldMask messages from the jsonpb files
+// we are reading.
+//
+// TODO(b/189223005): Fix dependent package or install multiple versions of the
+// protobuf package.
+var publicReplicationRegexp = regexp.MustCompile(`(?m),?\s*"publicReplication":\s*{\s*"publicFields":\s*"[^"]*"\s*}`)
+
 // readJsonpb reads the jsonpb at path into m.
 func readJsonpb(path string, m proto.Message) error {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
+	}
+
+	lenBeforeRegexp := len(b)
+	b = publicReplicationRegexp.ReplaceAll(b, []byte{})
+
+	if lenBeforeRegexp != len(b) {
+		glog.V(2).Infof(
+			`Removed "publicReplication" fields with regexp. Length before: %d. Length after: %d`,
+			lenBeforeRegexp, len(b),
+		)
 	}
 
 	return jsonpb.Unmarshal(bytes.NewReader(b), m)
@@ -226,6 +259,10 @@ func (r *generateRun) validateFlags() error {
 		return errors.New("-buildmetadata is required")
 	}
 
+	if r.flatConfigListPath == "" {
+		return errors.New("-flatconfiglist is required")
+	}
+
 	if r.out == "" {
 		return errors.New("-out is required")
 	}
@@ -255,7 +292,7 @@ func (r *generateRun) run() error {
 		return err
 	}
 
-	glog.Infof("Reading %d SystemImage.Metadata from %s", len(buildMetadataList.Values), r.buildMetadataListPath)
+	glog.Infof("Read %d SystemImage.Metadata from %s", len(buildMetadataList.Values), r.buildMetadataListPath)
 
 	for _, buildMetadata := range buildMetadataList.Values {
 		glog.V(2).Infof("Read BuildMetadata: %s", buildMetadata)
@@ -266,14 +303,23 @@ func (r *generateRun) run() error {
 		return err
 	}
 
-	glog.Infof("Reading %d DutAttributes from %s", len(dutAttributeList.DutAttributes), r.dutAttributeListPath)
+	glog.Infof("Read %d DutAttributes from %s", len(dutAttributeList.DutAttributes), r.dutAttributeListPath)
 
 	for _, dutAttribute := range dutAttributeList.DutAttributes {
 		glog.V(2).Infof("Read DutAttribute: %s", dutAttribute)
 	}
 
+	glog.Infof("Starting read of FlatConfigs from %s (may be slow if file is large)", r.flatConfigListPath)
+
+	flatConfigList := &payload.FlatConfigList{}
+	if err := readJsonpb(r.flatConfigListPath, flatConfigList); err != nil {
+		return err
+	}
+
+	glog.Infof("Read %d FlatConfigs from %s", len(flatConfigList.Values), r.flatConfigListPath)
+
 	rules, err := testplan.Generate(
-		plans, buildMetadataList, dutAttributeList,
+		plans, buildMetadataList, dutAttributeList, flatConfigList,
 	)
 	if err != nil {
 		return err

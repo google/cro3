@@ -11,7 +11,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.chromium.org/chromiumos/config/go/api"
+	"go.chromium.org/chromiumos/config/go/api/software"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
+	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	"go.chromium.org/chromiumos/config/go/test/plan"
 )
@@ -39,6 +42,23 @@ func buildMetadata(overlay, kernelVersion, chipsetOverlay, arcVersion string) *b
 	}
 }
 
+// flatConfig is a convenience to reduce boilerplate when creating FlatConfig
+// in test cases.
+func flatConfig(program, design, designConfig string, firmwareROVersion *buildpb.Version) *payload.FlatConfig {
+	return &payload.FlatConfig{
+		Program:        &api.Program{Id: &api.ProgramId{Value: program}},
+		HwDesign:       &api.Design{Id: &api.DesignId{Value: design}},
+		HwDesignConfig: &api.Design_Config{Id: &api.DesignConfigId{Value: designConfig}},
+		SwConfig: &software.SoftwareConfig{
+			Firmware: &buildpb.FirmwareConfig{
+				MainRoPayload: &buildpb.FirmwarePayload{
+					Version: firmwareROVersion,
+				},
+			},
+		},
+	}
+}
+
 var buildMetadataList = &buildpb.SystemImage_BuildMetadataList{
 	Values: []*buildpb.SystemImage_BuildMetadata{
 		buildMetadata("project1", "4.14", "chipsetA", ""),
@@ -50,6 +70,7 @@ var buildMetadataList = &buildpb.SystemImage_BuildMetadataList{
 		buildMetadata("missingkernelversionproject", "0.0", "", ""),
 	},
 }
+
 var dutAttributeList = &testpb.DutAttributeList{
 	DutAttributes: []*testpb.DutAttribute{
 		{
@@ -60,6 +81,32 @@ var dutAttributeList = &testpb.DutAttributeList{
 			Id:        &testpb.DutAttribute_Id{Value: "system_build_target"},
 			FieldPath: "software_configs.system_build_target.portage_build_target.overlay_name",
 		},
+		{
+			Id:        &testpb.DutAttribute_Id{Value: "design_id"},
+			FieldPath: "design_list.id.value",
+		},
+		{
+			Id:        &testpb.DutAttribute_Id{Value: "firmware_ro_major_version"},
+			FieldPath: "software_configs.firmware.main_ro_payload.version.major",
+		},
+		{
+			Id:        &testpb.DutAttribute_Id{Value: "firmware_ro_minor_version"},
+			FieldPath: "software_configs.firmware.main_ro_payload.version.minor",
+		},
+		{
+			Id:        &testpb.DutAttribute_Id{Value: "firmware_ro_patch_version"},
+			FieldPath: "software_configs.firmware.main_ro_payload.version.patch",
+		},
+	},
+}
+
+var flatConfigList = &payload.FlatConfigList{
+	Values: []*payload.FlatConfig{
+		flatConfig("ProgA", "Design1", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}),
+		flatConfig("ProgA", "Design1", "Config2", nil),
+		flatConfig("ProgA", "Design1", "Config3", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}),
+		flatConfig("ProgA", "Design2", "Config1", &buildpb.Version{Major: 123, Minor: 0, Patch: 0}),
+		flatConfig("ProgB", "Design20", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 0}),
 	},
 }
 
@@ -296,6 +343,126 @@ func TestGenerate(t *testing.T) {
 			},
 		},
 		{
+			name: "firmware_ro_versions",
+			input: &plan.SourceTestPlan{
+				Requirements: &plan.SourceTestPlan_Requirements{
+					FirmwareRoVersions: &plan.SourceTestPlan_Requirements_FirmwareROVersions{
+						ProgramToMilestone: map[string]int32{
+							"ProgA": 90,
+							"ProgB": 91,
+						},
+					},
+				},
+			},
+			expected: []*testpb.CoverageRule{
+				{
+					Name: "Design1_faft",
+					TestSuites: []*testpb.TestSuite{
+						{
+							Name: "faft_smoke",
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags: []string{"suite:faft_smoke"},
+							},
+						},
+						{
+							Name: "faft_bios",
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags: []string{"suite:faft_bios"},
+							},
+						},
+					},
+					DutCriteria: []*testpb.DutCriterion{
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "design_id"},
+							Values:      []string{"Design1"},
+						},
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_major_version"},
+							Values:      []string{"123"},
+						},
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_minor_version"},
+							Values:      []string{"4"},
+						},
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_patch_version"},
+							Values:      []string{"5"},
+						},
+					},
+				},
+				{
+					Name: "Design20_faft",
+					TestSuites: []*testpb.TestSuite{
+						{
+							Name: "faft_smoke",
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags: []string{"suite:faft_smoke"},
+							},
+						},
+						{
+							Name: "faft_bios",
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags: []string{"suite:faft_bios"},
+							},
+						},
+					},
+					DutCriteria: []*testpb.DutCriterion{
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "design_id"},
+							Values:      []string{"Design20"},
+						},
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_major_version"},
+							Values:      []string{"123"},
+						},
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_minor_version"},
+							Values:      []string{"4"},
+						},
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_patch_version"},
+							Values:      []string{"0"},
+						},
+					},
+				},
+				{
+					Name: "Design2_faft",
+					TestSuites: []*testpb.TestSuite{
+						{
+							Name: "faft_smoke",
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags: []string{"suite:faft_smoke"},
+							},
+						},
+						{
+							Name: "faft_bios",
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags: []string{"suite:faft_bios"},
+							},
+						},
+					},
+					DutCriteria: []*testpb.DutCriterion{
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "design_id"},
+							Values:      []string{"Design2"},
+						},
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_major_version"},
+							Values:      []string{"123"},
+						},
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_minor_version"},
+							Values:      []string{"0"},
+						},
+						{
+							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_patch_version"},
+							Values:      []string{"0"},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "multiple requirements",
 			input: &plan.SourceTestPlan{
 				Requirements: &plan.SourceTestPlan_Requirements{
@@ -383,7 +550,7 @@ func TestGenerate(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			outputs, err := coveragerules.Generate(test.input, buildMetadataList, dutAttributeList)
+			outputs, err := coveragerules.Generate(test.input, buildMetadataList, dutAttributeList, flatConfigList)
 			if err != nil {
 				t.Fatalf("coveragerules.Generate failed: %s", err)
 			}
@@ -404,6 +571,7 @@ func TestGenerateErrors(t *testing.T) {
 		name             string
 		input            *plan.SourceTestPlan
 		dutAttributeList *testpb.DutAttributeList
+		flatConfigList   *payload.FlatConfigList
 		expectedError    string
 	}{
 		{
@@ -459,11 +627,88 @@ func TestGenerateErrors(t *testing.T) {
 			},
 			expectedError: "CoverageRule contains invalid DutAttributes",
 		},
+		{
+			name: "programToMilestone not set",
+			input: &plan.SourceTestPlan{
+				Requirements: &plan.SourceTestPlan_Requirements{
+					FirmwareRoVersions: &plan.SourceTestPlan_Requirements_FirmwareROVersions{},
+				},
+			},
+			expectedError: "programToMilestone must be set",
+		},
+		{
+			name: "program not found",
+			input: &plan.SourceTestPlan{
+				EnabledTestEnvironments: []plan.SourceTestPlan_TestEnvironment{
+					plan.SourceTestPlan_HARDWARE,
+				},
+				Requirements: &plan.SourceTestPlan_Requirements{
+					FirmwareRoVersions: &plan.SourceTestPlan_Requirements_FirmwareROVersions{
+						ProgramToMilestone: map[string]int32{
+							"otherProg": 90,
+						},
+					},
+				},
+			},
+			expectedError: `configs for program "otherProg" not found`,
+		},
+		{
+			name: "conflicting RO versions",
+			input: &plan.SourceTestPlan{
+				Requirements: &plan.SourceTestPlan_Requirements{
+					FirmwareRoVersions: &plan.SourceTestPlan_Requirements_FirmwareROVersions{
+						ProgramToMilestone: map[string]int32{
+							"progA": 91,
+						},
+					},
+				},
+			},
+			flatConfigList: &payload.FlatConfigList{
+				Values: []*payload.FlatConfig{
+					flatConfig("progA", "designA", "config1", &buildpb.Version{Major: 1}),
+					flatConfig("progA", "designA", "config2", &buildpb.Version{Major: 2}),
+				},
+			},
+			expectedError: `conflicting firmware RO versions found for design "designA": major:2 , major:1`,
+		},
+		{
+			name: "no RO firmware info for program",
+			input: &plan.SourceTestPlan{
+				Requirements: &plan.SourceTestPlan_Requirements{
+					FirmwareRoVersions: &plan.SourceTestPlan_Requirements_FirmwareROVersions{
+						ProgramToMilestone: map[string]int32{
+							"progA": 91,
+						},
+					},
+				},
+			},
+			flatConfigList: &payload.FlatConfigList{
+				Values: []*payload.FlatConfig{
+					flatConfig("progA", "designA", "config1", nil),
+					flatConfig("progA", "designA", "config2", nil),
+				},
+			},
+			expectedError: `no RO firmware version info found for program "progA"`,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			var dal *testpb.DutAttributeList
+			if test.dutAttributeList == nil {
+				dal = dutAttributeList
+			} else {
+				dal = test.dutAttributeList
+			}
+
+			var fcl *payload.FlatConfigList
+			if test.flatConfigList == nil {
+				fcl = flatConfigList
+			} else {
+				fcl = test.flatConfigList
+			}
+
 			if _, err := coveragerules.Generate(
-				test.input, buildMetadataList, test.dutAttributeList,
+				test.input, buildMetadataList, dal, fcl,
 			); err == nil {
 				t.Errorf("Expected error from coveragerules.Generate")
 			} else if !strings.Contains(err.Error(), test.expectedError) {
