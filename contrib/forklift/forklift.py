@@ -9,6 +9,7 @@
 import argparse
 import json
 import pathlib
+import re
 import sys
 
 from git import Git
@@ -34,7 +35,7 @@ class ForkliftReport:
             self.sha = sha
             self.backported = backported
 
-    def __init__(self, report_path, bug=None, test=None):
+    def __init__(self, report_path, prefix=None, bug=None, test=None, tree=None):
         """Initializes the forklift report.
 
         Args:
@@ -43,13 +44,16 @@ class ForkliftReport:
             test: The value of TEST= field in the commit messages.
         """
         self._path = report_path
+        self.prefix = prefix
         self.bug = bug
         self.test = test
+        self.tree = tree
         self.commits = []
 
     def save(self):
         """Saves the report to the path given at init."""
-        output = {'bug': self.bug, 'test': self.test, 'commits': []}
+        output = {'prefix': self.prefix, 'bug': self.bug, 'test': self.test,
+                  'tree': self.tree, 'commits': []}
         for c in self.commits:
             output['commits'].append(c.__dict__)
 
@@ -66,8 +70,10 @@ class ForkliftReport:
             with open(self._path, mode='rb') as f:
                 j = json.load(f)
 
+            self.prefix = j['prefix']
             self.bug = j['bug']
             self.test = j['test']
+            self.tree = j['tree']
             for c in j['commits']:
                 self.commits.append(ForkliftReport.Commit(c['sha'],
                                                           c['backported']))
@@ -153,7 +159,8 @@ def command_gen_report(args):
     if (args.list and not args.msg_id) or (not args.list and args.msg_id):
         raise ValueError('List and Message-Id must both be specified.')
 
-    report = ForkliftReport(args.report_path, args.bug, args.test)
+    report = ForkliftReport(args.report_path, args.prefix, args.bug, args.test,
+                            args.tree)
     pull_request = PullRequest(args.list, args.msg_id, args.local_pull)
     git = Git(args.git_path)
     if not git.fetch_refspec_from_remote(pull_request.source_tree,
@@ -177,15 +184,17 @@ def command_gen_report(args):
 
     return 0
 
-def _format_commit_message(git, message, conflicted, bug, test):
+def _format_commit_message(git, report, message, conflicted):
     msg = message.rstrip().splitlines()
     if conflicted:
         if not msg[0].startswith('BACKPORT'):
-            msg[0] = 'BACKPORT: ' + msg[0]
+            msg[0] = f'BACKPORT/{report.prefix}: ' + msg[0]
     else:
-        msg[0] = 'UPSTREAM: ' + msg[0]
+        msg[0] = f'{report.prefix}: ' + msg[0]
 
-    found = {'bug': None, 'test': None, 'change-id': None}
+    re_cp = re.compile('\(cherry picked from commit ([0-9a-fA-F]+)\)')
+
+    found = {'bug': None, 'test': None, 'cherry-pick': None, 'change-id': None}
     for i, l in enumerate(msg[1:]):
         if l.startswith('BUG='):
             found['bug'] = i + 1
@@ -193,6 +202,8 @@ def _format_commit_message(git, message, conflicted, bug, test):
             found['test'] = i + 1
         elif l.startswith('Change-Id'):
             found['change-id'] = i + 1
+        elif re_cp.fullmatch(l):
+            found['cherry-pick'] = i + 1
 
     change_id = ''
     if found['change-id']:
@@ -202,13 +213,25 @@ def _format_commit_message(git, message, conflicted, bug, test):
         if ret:
             change_id = f'Change-Id: {cid}'
 
+    cherry_pick = ''
+    if found['cherry-pick']:
+        m = re_cp.fullmatch(msg.pop(found['cherry-pick']))
+        cherry_pick = f'(cherry picked from commit {m.group(1)}'
+        if report.tree:
+            msg.insert(found['cherry-pick'], cherry_pick)
+            msg.insert(found['cherry-pick'] + 1, f' {report.tree})')
+        else:
+            msg.insert(found['cherry-pick'], cherry_pick + ')')
+    else:
+        raise ValueError('Could not find cherry pick string!')
+
     if not found['bug'] or not found['test']:
         msg.append('')
 
     if not found['bug']:
-        msg.append(f'BUG={bug}')
+        msg.append(f'BUG={report.bug}')
     if not found['test']:
-        msg.append(f'TEST={test}')
+        msg.append(f'TEST={report.test}')
 
     if change_id:
         msg.append('')
@@ -273,8 +296,7 @@ def command_cherry_pick(args):
         if not skipped:
             ret, msg = git.get_commit_message()
             if ret:
-                msg = _format_commit_message(git, msg, conflicted, report.bug,
-                                             report.test)
+                msg = _format_commit_message(git, report, msg, conflicted)
                 git.set_commit_message(msg)
 
         c.backported = True
@@ -446,6 +468,12 @@ def main(args):
                         help=('Optional common ancestor between the local and '
                               'remote trees. Improves execution time if '
                               'provided.'))
+    subparser_gen.add_argument('--prefix', type=str, default='UPSTREAM',
+                        help=('Optional subject prefix to use for forklifted '
+                              'patches. Defaults to "UPSTREAM"'))
+    subparser_gen.add_argument('--tree', type=str, default=None,
+                        help=('Optional tree to use in the "cherry picked" '
+                              'line in the commit message. Defaults to empty.'))
     subparser_gen.set_defaults(func=command_gen_report)
 
     subparser_pick = subparsers.add_parser('cherry-pick',
