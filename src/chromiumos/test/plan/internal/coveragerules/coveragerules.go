@@ -26,22 +26,29 @@ var (
 	fingerprintAttributeID = &testpb.DutAttribute_Id{Value: "fingerprint_location"}
 )
 
-func getSingleDutCriterionOrPanic(rule *testpb.CoverageRule) *testpb.DutCriterion {
-	if len(rule.DutCriteria) != 1 {
-		panic(fmt.Sprintf("expected exactly one DutCriterion, got rule %s", rule))
+// sortDutCriteriaOrPanic sorts rule.DutCriteria by AttributeId, panicing if
+// rule has an empty DutCriteria.
+func sortDutCriteriaOrPanic(rule *testpb.CoverageRule) {
+	if len(rule.DutCriteria) == 0 {
+		panic(fmt.Sprintf("expected at least one DutCriterion, got rule %s", rule))
 	}
 
-	return rule.DutCriteria[0]
+	sort.Slice(rule.DutCriteria, func(i, j int) bool {
+		return rule.DutCriteria[i].AttributeId.Value < rule.DutCriteria[j].AttributeId.Value
+	})
 }
 
 // expandCoverageRules joins newRules to curRules, by intersecting DutCriteria.
 //
 // For each combination of CoverageRules (a, b), where a is in curRules, and b
 // is in newRules, a new CoverageRule is added to the result, with
-// DutCriterion.Values that are the intersection of a.DutCriteria[0].Values and
-// b.DutCriteria[0].Values
+// DutCriterion.Values that are the intersection of a.DutCriteria[i].Values and
+// b.DutCriteria[i].Values.
 //
-// It is assumed each CoverageRule has exactly one DutCriterion (this function
+// If a and b do not have the exact same set of DutAttribute.Ids, they are not
+// joined.
+//
+// It is assumed each CoverageRule has at least one DutCriterion (this function
 // panics if this is not true).
 //
 // All CoverageRules in either newRules or curRules that don't have any
@@ -49,37 +56,49 @@ func getSingleDutCriterionOrPanic(rule *testpb.CoverageRule) *testpb.DutCriterio
 //
 // For example, if curRules is
 // {
-// 	  {
-// 		  Name: "A", DutCriteria: {{Values:"1"}},
-// 	  },
-// 	  {
-// 		  Name: "B", DutCriteria: {{Values:"2"}},
+//    {
+//        Name: "A",
+//        DutCriteria: {
+//          {AttributeId: {Value: "Attr1"}, Values:{"1", "2"}}
+//          {AttributeId: {Value: "Attr2"}, Values:{"3", "4"}}
+//        },
+//    },
+//    {
+// 		  Name: "B", DutCriteria: {{AttributeId: {Value: "Attr1"}, Values:"5"}},
 // 	  },
 // }
 //
 // and newRules is
 //
 // {
-// 	  {
-// 		  Name: "C", DutCriteria: {{Values:"1", "3"}},
-// 	  },
-// 	  {
-// 		  Name: "D", DutCriteria: {{Values:"4"}},
-// 	  },
+//    {
+//        Name: "C",
+//        DutCriteria: {
+//          {AttributeId: {Value: "Attr1"}, Values:{"2", "5"}}
+//          {AttributeId: {Value: "Attr2"}, Values:{"3", "5"}}
+//        },
+//    },
+//    {
+//        Name: "D", DutCriteria: {{AttributeId: {Value: "Attr3"}, Values:"4"}},
+//    },
 // }
 //
 // the result is
 //
 // {
-// 	  {
-// 		  Name: "A_C", DutCriteria: {{Values:"1"}},
-// 	  },
-// 	  {
-// 		  Name: "B", DutCriteria: {{Values:"2"}},
-// 	  },
-// 	  {
-// 		  Name: "D", DutCriteria: {{Values:"4"}},
-// 	  },
+//    {
+//        Name: "A_C",
+//        DutCriteria: {
+//          {AttributeId: {Value: "Attr1"}, Values:{"2"}}
+//          {AttributeId: {Value: "Attr2"}, Values:{"3"}}
+//        },
+//    },
+//    {
+//        Name: "B", DutCriteria: {{{AttributeId: {Value: "Attr1"}, Values:"2"}},
+//    },
+//    {
+//        Name: "D", DutCriteria: {{AttributeId: {Value: "Attr3"}, Values:"4"}},
+//    },
 // }
 //
 // because "A" and "C" are joined, "B" and "D" are passed through as is.
@@ -107,35 +126,67 @@ func expandCoverageRules(curRules, newRules []*testpb.CoverageRule) []*testpb.Co
 	expandedRules := make([]*testpb.CoverageRule, 0)
 
 	for _, cur := range curRules {
+	NewRulesLoop:
 		for _, new := range newRules {
-			curDC := getSingleDutCriterionOrPanic(cur)
-			newDC := getSingleDutCriterionOrPanic(new)
-
-			if curDC.AttributeId.Value != newDC.AttributeId.Value {
-				continue
+			if len(cur.DutCriteria) != len(new.DutCriteria) {
+				glog.V(2).Infof("Rules %s and %s have a different number of DutCriteria, not joining", cur.Name, new.Name)
+				continue NewRulesLoop
 			}
 
-			valueIntersection := stringset.NewFromSlice(
-				curDC.Values...,
-			).Intersect(
-				stringset.NewFromSlice(newDC.Values...),
-			)
+			sortDutCriteriaOrPanic(cur)
+			sortDutCriteriaOrPanic(new)
 
-			if len(valueIntersection) > 0 {
-				delete(unjoinedRules, cur.Name)
-				delete(unjoinedRules, new.Name)
+			var joinedCriteria []*testpb.DutCriterion
 
-				expandedRules = append(expandedRules, &testpb.CoverageRule{
-					Name: fmt.Sprintf("%s_%s", cur.Name, new.Name),
-					DutCriteria: []*testpb.DutCriterion{
-						{
-							AttributeId: curDC.AttributeId,
-							Values:      valueIntersection.ToSlice(),
-						},
-					},
-					TestSuites: cur.TestSuites,
+			for i := range cur.DutCriteria {
+				// DutCriteria were sorted above, so if cur and new have the
+				// same set of DutAttribute.Ids, curCriterion and newCriterion
+				// should have the same DutAttribute.Id.
+				curCriterion := cur.DutCriteria[i]
+				newCriterion := new.DutCriteria[i]
+
+				if curCriterion.AttributeId.Value != newCriterion.AttributeId.Value {
+					glog.V(2).Infof("Rules %s and %s have a different types of DutCriteria, not joining", cur.Name, new.Name)
+					continue NewRulesLoop
+				}
+
+				valueIntersection := stringset.NewFromSlice(
+					curCriterion.Values...,
+				).Intersect(
+					stringset.NewFromSlice(newCriterion.Values...),
+				)
+
+				if len(valueIntersection) == 0 {
+					glog.V(2).Infof(
+						"Rules %s and %s have a no intersection for Attribute %s, not joining",
+						cur.Name, new.Name, curCriterion.AttributeId,
+					)
+					continue NewRulesLoop
+				}
+
+				joinedCriteria = append(joinedCriteria, &testpb.DutCriterion{
+					AttributeId: curCriterion.AttributeId,
+					Values:      valueIntersection.ToSortedSlice(),
 				})
 			}
+
+			if len(joinedCriteria) != len(cur.DutCriteria) {
+				panic(
+					fmt.Sprintf(
+						"expected joined criteria to have the same length as cur criteria, got %d and %d",
+						len(joinedCriteria), len(cur.DutCriteria),
+					),
+				)
+			}
+
+			delete(unjoinedRules, cur.Name)
+			delete(unjoinedRules, new.Name)
+
+			expandedRules = append(expandedRules, &testpb.CoverageRule{
+				Name:        fmt.Sprintf("%s_%s", cur.Name, new.Name),
+				DutCriteria: joinedCriteria,
+				TestSuites:  cur.TestSuites,
+			})
 		}
 	}
 
