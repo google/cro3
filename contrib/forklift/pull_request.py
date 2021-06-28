@@ -19,22 +19,30 @@ class PullRequest:
         source_tree: The location of the remote tree to fetch this pull from
         source_ref: The refspec from the remote to find the pull
     """
-    def __init__(self, mailing_list, msg_id):
+    def __init__(self, mailing_list, msg_id, local_pull):
         """Inits PullRequest class with given list/msgid.
 
         Args:
             mailing_list: The name of the mailing list to use on lore.
             msg_id: The Message-Id of the pull request e-mail.
+            local_pull: The path to a local pull request.
         """
-        url = f'https://lore.kernel.org/{mailing_list}/{msg_id}/raw'
-        req = requests.get(url)
-        req.raise_for_status()
+        if mailing_list and msg_id:
+            url = f'https://lore.kernel.org/{mailing_list}/{msg_id}/raw'
+            req = requests.get(url)
+            req.raise_for_status()
+            msg = mailbox.mboxMessage(req.text)
+            charset = msg.get_param('charset')
+            if not charset:
+                charset = 'us-ascii'
+            self._pull_request = msg.get_payload(decode=True).decode(charset)
 
-        msg = mailbox.mboxMessage(req.text)
-        charset = msg.get_param('charset')
-        if not charset:
-            charset = 'us-ascii'
-        self._pull_request = msg.get_payload(decode=True).decode(charset)
+        elif local_pull:
+            with open(local_pull, 'r') as f:
+                self._pull_request = f.read()
+        else:
+            raise ValueError('Invalid pull request source!')
+
         self._parse_pull_request()
 
 

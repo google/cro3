@@ -142,8 +142,19 @@ def command_gen_report(args):
     Returns:
         0 if successful, non-zero otherwise.
     """
+
+    """Python doesn't support nesting of mutually exclusive arg groups yet
+    (https://bugs.python.org/issue10984), so we have to do this by hand
+    """
+    if not args.list and not args.msg_id and not args.local_pull:
+        raise ValueError('Must specify a pull request from the list or local.')
+    if (args.list or args.msg_id) and args.local_pull:
+        raise ValueError('Cannot specify a pull request from list and local.')
+    if (args.list and not args.msg_id) or (not args.list and args.msg_id):
+        raise ValueError('List and Message-Id must both be specified.')
+
     report = ForkliftReport(args.report_path, args.bug, args.test)
-    pull_request = PullRequest(args.list, args.msg_id)
+    pull_request = PullRequest(args.list, args.msg_id, args.local_pull)
     git = Git(args.git_path)
     if not git.fetch_refspec_from_remote(pull_request.source_tree,
                                          pull_request.source_ref):
@@ -421,10 +432,12 @@ def main(args):
     subparser_gen = subparsers.add_parser('generate-report',
                         parents=[parser_git, parser_report],
                         help='Generate a forklift report from pull request.')
-    subparser_gen.add_argument('--list', type=str, required=True,
+    subparser_gen.add_argument('--list', type=str,
                         help='Mailing list from lore.kernel.org/lists.html.')
-    subparser_gen.add_argument('--msg-id', type=str, required=True,
+    subparser_gen.add_argument('--msg-id', type=str,
                         help='Message-Id for the pull request to process.')
+    subparser_gen.add_argument('--local-pull', type=str,
+                               help='Path to a local pull request.')
     subparser_gen.add_argument('--bug', type=str, default='None',
                         help='Value to use for BUG= in commit descriptions.')
     subparser_gen.add_argument('--test', type=str, default='None',
