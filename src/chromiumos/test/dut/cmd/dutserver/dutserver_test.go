@@ -4,9 +4,10 @@
 
 package main
 
+/*
 import (
 	"bytes"
-	"chromiumos/test/dut/cmd/dutserver/dutssh"
+	"chromiumos/test/dut/cmd/dutserver/dutssh/mock_dutssh"
 	"context"
 	"errors"
 	"io"
@@ -15,60 +16,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
 )
 
-type MockSession_Success struct {
-	Stdout io.Writer
-	Stderr io.Writer
-}
-
-func (s *MockSession_Success) Close() error {
-	return nil
-}
-func (s *MockSession_Success) SetStdout(writer io.Writer) {
-	s.Stdout = writer
-}
-func (s *MockSession_Success) SetStderr(writer io.Writer) {
-	s.Stderr = writer
-}
-
-func (s *MockSession_Success) Start(cmd string) error {
-	return nil
-}
-
-func (s *MockSession_Success) Output(cmd string) ([]byte, error) {
-	return nil, nil
-}
-
-func (s *MockSession_Success) StdoutPipe() (io.Reader, error) {
-	return nil, nil
-}
-
-func (s *MockSession_Success) StderrPipe() (io.Reader, error) {
-	return nil, nil
-}
-
-func (s *MockSession_Success) Run(cmd string) error {
-	s.Stdout.Write([]byte("success!"))
-	s.Stderr.Write([]byte("not failed!"))
-	return nil
-}
-
-type MockConnection_Success struct{}
-
-func (c *MockConnection_Success) Close() error {
-	return nil
-}
-
-func (c *MockConnection_Success) NewSession() (dutssh.SessionInterface, error) {
-	return &MockSession_Success{}, nil
-}
-
 // Tests if DutServiceServer can handle empty request without problem.
 func TestDutServiceServer_Empty(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	mci.EXPECT().Close()
+
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -76,8 +37,8 @@ func TestDutServiceServer_Empty(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dutConn := &MockConnection_Success{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "", 0, "dutname", "wiringaddress")
+	defer destructor()
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -98,6 +59,29 @@ func TestDutServiceServer_Empty(t *testing.T) {
 
 // Tests that a command executes successfully
 func TestDutServiceServer_CommandWorks(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	msi := mock_dutssh.NewMockSessionInterface(ctrl)
+
+	var so io.Writer
+	var se io.Writer
+
+	gomock.InOrder(
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("command arg1 arg2")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("success!"))
+				se.Write([]byte("not failed!"))
+				return nil
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().Close(),
+	)
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -105,8 +89,8 @@ func TestDutServiceServer_CommandWorks(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dutConn := &MockConnection_Success{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "", 0, "dutname", "wiringaddress")
+	defer destructor()
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -120,7 +104,13 @@ func TestDutServiceServer_CommandWorks(t *testing.T) {
 	defer conn.Close()
 
 	cl := api.NewDutServiceClient(conn)
-	stream, err := cl.ExecCommand(ctx, &api.ExecCommandRequest{})
+	stream, err := cl.ExecCommand(ctx, &api.ExecCommandRequest{
+		Command: "command",
+		Args:    []string{"arg1", "arg2"},
+		Stdin:   []byte{},
+		Stdout:  api.Output_OUTPUT_PIPE,
+		Stderr:  api.Output_OUTPUT_PIPE,
+	})
 	if err != nil {
 		t.Fatalf("Failed at api.ExecCommand: %v", err)
 	}
@@ -136,11 +126,11 @@ func TestDutServiceServer_CommandWorks(t *testing.T) {
 	}
 
 	if string(resp.Stderr) != "not failed!" {
-		t.Fatalf("Expecting stderr to be \"not failed\", instead got %v", string(resp.Stderr))
+		t.Fatalf("Expecting stderr to be \"not failed!\", instead got %v", string(resp.Stderr))
 	}
 
 	if string(resp.Stdout) != "success!" {
-		t.Fatalf("Expecting stderr to be \"success\", instead got %v", string(resp.Stderr))
+		t.Fatalf("Expecting stderr to be \"success!\", instead got %v", string(resp.Stdout))
 	}
 
 	if resp.ExitInfo.Signaled {
@@ -152,58 +142,32 @@ func TestDutServiceServer_CommandWorks(t *testing.T) {
 	}
 }
 
-type MockSession_CommandFailed struct {
-	Stdout io.Writer
-	Stderr io.Writer
-}
+// Tests that a command executes successfully
+func TestDutServiceServer_CommandOptionCombineWorks(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func (s *MockSession_CommandFailed) Close() error {
-	return nil
-}
-func (s *MockSession_CommandFailed) SetStdout(writer io.Writer) {
-	s.Stdout = writer
-}
-func (s *MockSession_CommandFailed) SetStderr(writer io.Writer) {
-	s.Stderr = writer
-}
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
-func (s *MockSession_CommandFailed) Run(cmd string) error {
-	s.Stdout.Write([]byte("not success!"))
-	s.Stderr.Write([]byte("failure!"))
-	wm := ssh.Waitmsg{}
-	return &ssh.ExitError{
-		Waitmsg: wm,
-	}
-}
+	var so io.Writer
+	var se io.Writer
 
-func (s *MockSession_CommandFailed) Start(cmd string) error {
-	return nil
-}
+	gomock.InOrder(
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("command arg1 arg2")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("success!"))
+				se.Write([]byte("not failed!"))
+				return nil
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().Close(),
+	)
 
-func (s *MockSession_CommandFailed) Output(cmd string) ([]byte, error) {
-	return nil, nil
-}
-
-func (s *MockSession_CommandFailed) StdoutPipe() (io.Reader, error) {
-	return nil, nil
-}
-
-func (s *MockSession_CommandFailed) StderrPipe() (io.Reader, error) {
-	return nil, nil
-}
-
-type MockConnection_CommandFailed struct{}
-
-func (c *MockConnection_CommandFailed) Close() error {
-	return nil
-}
-
-func (c *MockConnection_CommandFailed) NewSession() (dutssh.SessionInterface, error) {
-	return &MockSession_CommandFailed{}, nil
-}
-
-// Tests that a command does not execute successfully
-func TestDutServiceServer_CommandFails(t *testing.T) {
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -211,8 +175,8 @@ func TestDutServiceServer_CommandFails(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dutConn := &MockConnection_CommandFailed{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "", 0, "dutname", "wiringaddress")
+	defer destructor()
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -226,7 +190,90 @@ func TestDutServiceServer_CommandFails(t *testing.T) {
 	defer conn.Close()
 
 	cl := api.NewDutServiceClient(conn)
-	stream, err := cl.ExecCommand(ctx, &api.ExecCommandRequest{})
+	stream, err := cl.ExecCommand(ctx, &api.ExecCommandRequest{
+		Command: "command",
+		Args:    []string{"arg1", "arg2"},
+		Stdin:   []byte{},
+		Stdout:  api.Output_OUTPUT_PIPE,
+		Stderr:  api.Output_OUTPUT_STDOUT,
+	})
+	if err != nil {
+		t.Fatalf("Failed at api.ExecCommand: %v", err)
+	}
+
+	resp := &api.ExecCommandResponse{}
+	err = stream.RecvMsg(resp)
+	if err != nil {
+		t.Fatalf("Failed at api.ExecCommand: %v", err)
+	}
+
+	if string(resp.Stderr) != "" {
+		t.Fatalf("Expecting stderr to be empty, instead got %v", string(resp.Stderr))
+	}
+
+	if string(resp.Stdout) != "success!not failed!" {
+		t.Fatalf("Expecting stderr to be \"success!not failed!\", instead got %v", string(resp.Stdout))
+	}
+}
+
+// Tests that a command does not execute successfully
+func TestDutServiceServer_CommandFails(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	msi := mock_dutssh.NewMockSessionInterface(ctrl)
+
+	var so io.Writer
+	var se io.Writer
+
+	gomock.InOrder(
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("command arg1 arg2")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("not success!"))
+				se.Write([]byte("failure!"))
+				wm := ssh.Waitmsg{}
+				return &ssh.ExitError{
+					Waitmsg: wm,
+				}
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().Close(),
+	)
+
+	var logBuf bytes.Buffer
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal("Failed to create a net listener: ", err)
+	}
+
+	ctx := context.Background()
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "", 0, "dutname", "wiringaddress")
+	defer destructor()
+	if err != nil {
+		t.Fatalf("Failed to start DutServiceServer: %v", err)
+	}
+	go srv.Serve(l)
+	defer srv.Stop()
+
+	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial: %v", err)
+	}
+	defer conn.Close()
+
+	cl := api.NewDutServiceClient(conn)
+	stream, err := cl.ExecCommand(ctx, &api.ExecCommandRequest{
+		Command: "command",
+		Args:    []string{"arg1", "arg2"},
+		Stdin:   []byte{},
+		Stdout:  api.Output_OUTPUT_PIPE,
+		Stderr:  api.Output_OUTPUT_PIPE,
+	})
 	if err != nil {
 		t.Fatalf("Failed at api.ExecCommand: %v", err)
 	}
@@ -238,11 +285,11 @@ func TestDutServiceServer_CommandFails(t *testing.T) {
 	}
 
 	if string(resp.Stderr) != "failure!" {
-		t.Fatalf("Expecting stderr to be \"not success\", instead got %v", string(resp.Stderr))
+		t.Fatalf("Expecting stderr to be \"failure\", instead got %v", string(resp.Stderr))
 	}
 
 	if string(resp.Stdout) != "not success!" {
-		t.Fatalf("Expecting stderr to be \"failure\", instead got %v", string(resp.Stderr))
+		t.Fatalf("Expecting stdout to be \"not success\", instead got %v", string(resp.Stdout))
 	}
 
 	if !resp.ExitInfo.Signaled {
@@ -254,55 +301,31 @@ func TestDutServiceServer_CommandFails(t *testing.T) {
 	}
 }
 
-type MockSession_PreCommandFailure struct {
-	Stdout io.Writer
-	Stderr io.Writer
-}
-
-func (s *MockSession_PreCommandFailure) Close() error {
-	return nil
-}
-func (s *MockSession_PreCommandFailure) SetStdout(writer io.Writer) {
-	s.Stdout = writer
-}
-func (s *MockSession_PreCommandFailure) SetStderr(writer io.Writer) {
-	s.Stderr = writer
-}
-
-func (s *MockSession_PreCommandFailure) Run(cmd string) error {
-	s.Stdout.Write([]byte(""))
-	s.Stderr.Write([]byte(""))
-	return &ssh.ExitMissingError{}
-}
-
-func (s *MockSession_PreCommandFailure) Start(cmd string) error {
-	return nil
-}
-
-func (s *MockSession_PreCommandFailure) Output(cmd string) ([]byte, error) {
-	return nil, nil
-}
-
-func (s *MockSession_PreCommandFailure) StdoutPipe() (io.Reader, error) {
-	return nil, nil
-}
-
-func (s *MockSession_PreCommandFailure) StderrPipe() (io.Reader, error) {
-	return nil, nil
-}
-
-type MockConnection_PreCommandFailure struct{}
-
-func (c *MockConnection_PreCommandFailure) Close() error {
-	return nil
-}
-
-func (c *MockConnection_PreCommandFailure) NewSession() (dutssh.SessionInterface, error) {
-	return &MockSession_PreCommandFailure{}, nil
-}
-
 // Tests that a command does not execute
 func TestDutServiceServer_PreCommandFails(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	msi := mock_dutssh.NewMockSessionInterface(ctrl)
+
+	var so io.Writer
+	var se io.Writer
+
+	gomock.InOrder(
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("command arg1 arg2")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte(""))
+				se.Write([]byte(""))
+				return &ssh.ExitMissingError{}
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().Close(),
+	)
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -310,8 +333,8 @@ func TestDutServiceServer_PreCommandFails(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dutConn := &MockConnection_PreCommandFailure{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "", 0, "dutname", "wiringaddress")
+	defer destructor()
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -325,7 +348,13 @@ func TestDutServiceServer_PreCommandFails(t *testing.T) {
 	defer conn.Close()
 
 	cl := api.NewDutServiceClient(conn)
-	stream, err := cl.ExecCommand(ctx, &api.ExecCommandRequest{})
+	stream, err := cl.ExecCommand(ctx, &api.ExecCommandRequest{
+		Command: "command",
+		Args:    []string{"arg1", "arg2"},
+		Stdin:   []byte{},
+		Stdout:  api.Output_OUTPUT_PIPE,
+		Stderr:  api.Output_OUTPUT_PIPE,
+	})
 	if err != nil {
 		t.Fatalf("Failed at api.ExecCommand: %v", err)
 	}
@@ -353,18 +382,17 @@ func TestDutServiceServer_PreCommandFails(t *testing.T) {
 	}
 }
 
-type MockConnection_NewSessionFailure struct{}
-
-func (c *MockConnection_NewSessionFailure) Close() error {
-	return nil
-}
-
-func (c *MockConnection_NewSessionFailure) NewSession() (dutssh.SessionInterface, error) {
-	return nil, errors.New("Session failed.")
-}
-
 // Tests that a session fails
 func TestDutServiceServer_NewSessionFails(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+
+	gomock.InOrder(
+		mci.EXPECT().NewSession().Return(nil, errors.New("Session failed.")),
+		mci.EXPECT().Close(),
+	)
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -372,8 +400,8 @@ func TestDutServiceServer_NewSessionFails(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dutConn := &MockConnection_NewSessionFailure{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "", 0, "dutname", "wiringaddress")
+	defer destructor()
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -387,7 +415,13 @@ func TestDutServiceServer_NewSessionFails(t *testing.T) {
 	defer conn.Close()
 
 	cl := api.NewDutServiceClient(conn)
-	stream, err := cl.ExecCommand(ctx, &api.ExecCommandRequest{})
+	stream, err := cl.ExecCommand(ctx, &api.ExecCommandRequest{
+		Command: "command",
+		Args:    []string{"arg1", "arg2"},
+		Stdin:   []byte{},
+		Stdout:  api.Output_OUTPUT_PIPE,
+		Stderr:  api.Output_OUTPUT_PIPE,
+	})
 	if err != nil {
 		t.Fatalf("Failed at api.ExecCommand: %v", err)
 	}
@@ -403,7 +437,7 @@ func TestDutServiceServer_NewSessionFails(t *testing.T) {
 	}
 
 	if string(resp.Stdout) != "" {
-		t.Fatalf("Expecting stderr to be empty, instead got %v", string(resp.Stderr))
+		t.Fatalf("Expecting stdout to be empty, instead got %v", string(resp.Stdout))
 	}
 
 	if resp.ExitInfo.Signaled {
@@ -419,49 +453,20 @@ func TestDutServiceServer_NewSessionFails(t *testing.T) {
 	}
 }
 
-type MockSession_FetchCrashesPathExistsFailure struct {
-}
-
-func (s *MockSession_FetchCrashesPathExistsFailure) Close() error {
-	return nil
-}
-func (s *MockSession_FetchCrashesPathExistsFailure) SetStdout(writer io.Writer) {
-}
-func (s *MockSession_FetchCrashesPathExistsFailure) SetStderr(writer io.Writer) {
-}
-
-func (s *MockSession_FetchCrashesPathExistsFailure) Start(cmd string) error {
-	return nil
-}
-
-func (s *MockSession_FetchCrashesPathExistsFailure) Output(cmd string) ([]byte, error) {
-	return nil, errors.New("command failed!")
-}
-
-func (s *MockSession_FetchCrashesPathExistsFailure) StdoutPipe() (io.Reader, error) {
-	return nil, nil
-}
-
-func (s *MockSession_FetchCrashesPathExistsFailure) StderrPipe() (io.Reader, error) {
-	return nil, nil
-}
-
-func (s *MockSession_FetchCrashesPathExistsFailure) Run(cmd string) error {
-	return nil
-}
-
-type MockConnection_FetchCrashesPathExistsFailure struct{}
-
-func (c *MockConnection_FetchCrashesPathExistsFailure) Close() error {
-	return nil
-}
-
-func (c *MockConnection_FetchCrashesPathExistsFailure) NewSession() (dutssh.SessionInterface, error) {
-	return &MockSession_FetchCrashesPathExistsFailure{}, nil
-}
-
 // Tests that a path exist command fails
 func TestDutServiceServer_FetchCrasesPathExistsFails(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	msi := mock_dutssh.NewMockSessionInterface(ctrl)
+
+	gomock.InOrder(
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return(nil, errors.New("command failed!")),
+		msi.EXPECT().Close(),
+		mci.EXPECT().Close(),
+	)
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -469,8 +474,8 @@ func TestDutServiceServer_FetchCrasesPathExistsFails(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dutConn := &MockConnection_FetchCrashesPathExistsFailure{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "serializer_path", 0, "dutname", "wiringaddress")
+	defer destructor()
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -497,49 +502,20 @@ func TestDutServiceServer_FetchCrasesPathExistsFails(t *testing.T) {
 
 }
 
-type MockSession_FetchCrashesPathExistsMissing struct {
-}
-
-func (s *MockSession_FetchCrashesPathExistsMissing) Close() error {
-	return nil
-}
-func (s *MockSession_FetchCrashesPathExistsMissing) SetStdout(writer io.Writer) {
-}
-func (s *MockSession_FetchCrashesPathExistsMissing) SetStderr(writer io.Writer) {
-}
-
-func (s *MockSession_FetchCrashesPathExistsMissing) Start(cmd string) error {
-	return nil
-}
-
-func (s *MockSession_FetchCrashesPathExistsMissing) Output(cmd string) ([]byte, error) {
-	return []byte("0"), nil
-}
-
-func (s *MockSession_FetchCrashesPathExistsMissing) StdoutPipe() (io.Reader, error) {
-	return nil, nil
-}
-
-func (s *MockSession_FetchCrashesPathExistsMissing) StderrPipe() (io.Reader, error) {
-	return nil, nil
-}
-
-func (s *MockSession_FetchCrashesPathExistsMissing) Run(cmd string) error {
-	return nil
-}
-
-type MockConnection_FetchCrashesPathExistsMissing struct{}
-
-func (c *MockConnection_FetchCrashesPathExistsMissing) Close() error {
-	return nil
-}
-
-func (c *MockConnection_FetchCrashesPathExistsMissing) NewSession() (dutssh.SessionInterface, error) {
-	return &MockSession_FetchCrashesPathExistsMissing{}, nil
-}
-
 // Tests that a path exist command returns command missing
 func TestDutServiceServer_FetchCrasesPathExistsMissing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	msi := mock_dutssh.NewMockSessionInterface(ctrl)
+
+	gomock.InOrder(
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return([]byte("0"), nil),
+		msi.EXPECT().Close(),
+		mci.EXPECT().Close(),
+	)
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -547,8 +523,8 @@ func TestDutServiceServer_FetchCrasesPathExistsMissing(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dutConn := &MockConnection_FetchCrashesPathExistsMissing{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "serializer_path", 0, "dutname", "wiringaddress")
+	defer destructor()
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -575,18 +551,17 @@ func TestDutServiceServer_FetchCrasesPathExistsMissing(t *testing.T) {
 
 }
 
-type MockConnection_FetchCrashesNewSessionFailure struct{}
-
-func (c *MockConnection_FetchCrashesNewSessionFailure) Close() error {
-	return nil
-}
-
-func (c *MockConnection_FetchCrashesNewSessionFailure) NewSession() (dutssh.SessionInterface, error) {
-	return nil, errors.New("Session failed.")
-}
-
 // Tests that a new session failure fails
 func TestDutServiceServer_FetchCrasesNewSessionFailure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+
+	gomock.InOrder(
+		mci.EXPECT().NewSession().Return(nil, errors.New("Session failed.")),
+		mci.EXPECT().Close(),
+	)
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -594,8 +569,8 @@ func TestDutServiceServer_FetchCrasesNewSessionFailure(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dutConn := &MockConnection_FetchCrashesNewSessionFailure{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "serializer_path", 0, "dutname", "wiringaddress")
+	defer destructor()
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -622,49 +597,25 @@ func TestDutServiceServer_FetchCrasesNewSessionFailure(t *testing.T) {
 
 }
 
-type MockSession_FetchCrashesSessionStartFailure struct {
-}
-
-func (s *MockSession_FetchCrashesSessionStartFailure) Close() error {
-	return nil
-}
-func (s *MockSession_FetchCrashesSessionStartFailure) SetStdout(writer io.Writer) {
-}
-func (s *MockSession_FetchCrashesSessionStartFailure) SetStderr(writer io.Writer) {
-}
-
-func (s *MockSession_FetchCrashesSessionStartFailure) Start(cmd string) error {
-	return errors.New("Session Start Failure.")
-}
-
-func (s *MockSession_FetchCrashesSessionStartFailure) Output(cmd string) ([]byte, error) {
-	return []byte("1"), nil
-}
-
-func (s *MockSession_FetchCrashesSessionStartFailure) StdoutPipe() (io.Reader, error) {
-	return strings.NewReader("stdout"), nil
-}
-
-func (s *MockSession_FetchCrashesSessionStartFailure) StderrPipe() (io.Reader, error) {
-	return strings.NewReader("stderr"), nil
-}
-
-func (s *MockSession_FetchCrashesSessionStartFailure) Run(cmd string) error {
-	return nil
-}
-
-type MockConnection_FetchCrashesSessionStartFailure struct{}
-
-func (c *MockConnection_FetchCrashesSessionStartFailure) Close() error {
-	return nil
-}
-
-func (c *MockConnection_FetchCrashesSessionStartFailure) NewSession() (dutssh.SessionInterface, error) {
-	return &MockSession_FetchCrashesSessionStartFailure{}, nil
-}
-
 // Tests that a path exist command returns command missing
 func TestDutServiceServer_FetchCrasesSessionStartFailure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	msi := mock_dutssh.NewMockSessionInterface(ctrl)
+
+	gomock.InOrder(
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return([]byte("1"), nil),
+		msi.EXPECT().Close(),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().StdoutPipe().Return(strings.NewReader("stdout"), nil),
+		msi.EXPECT().StderrPipe().Return(strings.NewReader("stderr"), nil),
+		msi.EXPECT().Start(gomock.Eq("serializer_path --chunk_size=0 --fetch_coredumps")).Return(errors.New("Session Start Failure.")),
+		msi.EXPECT().Close(),
+		mci.EXPECT().Close(),
+	)
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -672,8 +623,8 @@ func TestDutServiceServer_FetchCrasesSessionStartFailure(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dutConn := &MockConnection_FetchCrashesSessionStartFailure{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "serializer_path", 0, "dutname", "wiringaddress")
+	defer destructor()
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -687,7 +638,9 @@ func TestDutServiceServer_FetchCrasesSessionStartFailure(t *testing.T) {
 	defer conn.Close()
 
 	cl := api.NewDutServiceClient(conn)
-	stream, err := cl.FetchCrashes(ctx, &api.FetchCrashesRequest{})
+	stream, err := cl.FetchCrashes(ctx, &api.FetchCrashesRequest{
+		FetchCore: true,
+	})
 	if err != nil {
 		t.Fatalf("Failed at api.FetchCrashes: %v", err)
 	}
@@ -700,53 +653,23 @@ func TestDutServiceServer_FetchCrasesSessionStartFailure(t *testing.T) {
 
 }
 
-type MockSession_FetchCrashesPipeFailure struct {
-	Stdout io.Writer
-	Stderr io.Writer
-}
-
-func (s *MockSession_FetchCrashesPipeFailure) Close() error {
-	return nil
-}
-func (s *MockSession_FetchCrashesPipeFailure) SetStdout(writer io.Writer) {
-	s.Stdout = writer
-}
-func (s *MockSession_FetchCrashesPipeFailure) SetStderr(writer io.Writer) {
-	s.Stderr = writer
-}
-
-func (s *MockSession_FetchCrashesPipeFailure) Start(cmd string) error {
-	return nil
-}
-
-func (s *MockSession_FetchCrashesPipeFailure) Output(cmd string) ([]byte, error) {
-	return []byte("1"), nil
-}
-
-func (s *MockSession_FetchCrashesPipeFailure) StdoutPipe() (io.Reader, error) {
-	return nil, errors.New("stdout failure.")
-}
-
-func (s *MockSession_FetchCrashesPipeFailure) StderrPipe() (io.Reader, error) {
-	return nil, nil
-}
-
-func (s *MockSession_FetchCrashesPipeFailure) Run(cmd string) error {
-	return nil
-}
-
-type MockConnection_FetchCrashesPipeFailure struct{}
-
-func (c *MockConnection_FetchCrashesPipeFailure) Close() error {
-	return nil
-}
-
-func (c *MockConnection_FetchCrashesPipeFailure) NewSession() (dutssh.SessionInterface, error) {
-	return &MockSession_FetchCrashesPipeFailure{}, nil
-}
-
 // Tests that a path exist command returns command missing
 func TestDutServiceServer_FetchCrasesPipeFailure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	msi := mock_dutssh.NewMockSessionInterface(ctrl)
+
+	gomock.InOrder(
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return([]byte("1"), nil),
+		msi.EXPECT().Close(),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().StdoutPipe().Return(strings.NewReader("stdout"), errors.New("stdout failure.")),
+		msi.EXPECT().Close(),
+		mci.EXPECT().Close(),
+	)
 	var logBuf bytes.Buffer
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -754,8 +677,8 @@ func TestDutServiceServer_FetchCrasesPipeFailure(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dutConn := &MockConnection_FetchCrashesPipeFailure{}
-	srv := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), dutConn, "", 0)
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "serializer_path", 0, "dutname", "wiringaddress")
+	defer destructor()
 	if err != nil {
 		t.Fatalf("Failed to start DutServiceServer: %v", err)
 	}
@@ -781,3 +704,54 @@ func TestDutServiceServer_FetchCrasesPipeFailure(t *testing.T) {
 	}
 
 }
+
+// TestRestart tests that a Restart command works
+func TestRestart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	msi := mock_dutssh.NewMockSessionInterface(ctrl)
+
+	gomock.InOrder(
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().Output(gomock.Eq("reboot some args")).Return([]byte("reboot output"), nil),
+		msi.EXPECT().Close(),
+		mci.EXPECT().Close(),
+	)
+
+	mci.EXPECT().Wait().Return(nil)
+
+	var logBuf bytes.Buffer
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal("Failed to create a net listener: ", err)
+	}
+
+	ctx := context.Background()
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "serializer_path", 0, "dutname", "wiringaddress")
+	defer destructor()
+	if err != nil {
+		t.Fatalf("Failed to start DutServiceServer: %v", err)
+	}
+	go srv.Serve(l)
+	defer srv.Stop()
+
+	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial: %v", err)
+	}
+	defer conn.Close()
+
+	cl := api.NewDutServiceClient(conn)
+	_, err = cl.Restart(ctx, &api.RestartRequest{
+		Args: []string{"some", "args"},
+	})
+	// technically if we get to the reconnect step, we did everything right, so
+	// rather than mock the reconnect step, we assume that if we got there, we are
+	// successful
+	if err.Error() != "rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing dial tcp: address wiringaddress: missing port in address\"" {
+		t.Fatalf("Failed at api.FetchCrashes: %v", err)
+	}
+}
+*/

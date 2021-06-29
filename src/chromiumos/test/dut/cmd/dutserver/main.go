@@ -98,9 +98,9 @@ func main() {
 			logger.Fatalln("Failed to connect to dut: ", err)
 			return 2
 		}
-		defer conn.Close()
 
-		server := newDutServiceServer(l, logger, &dutssh.SSHClient{Client: conn}, *serializerPath, *protoChunkSize)
+		server, destructor := newDutServiceServer(l, logger, &dutssh.SSHClient{Client: conn}, *serializerPath, *protoChunkSize, *dutName, *wiringAddress)
+		defer destructor()
 
 		err = server.Serve(l)
 		if err != nil {

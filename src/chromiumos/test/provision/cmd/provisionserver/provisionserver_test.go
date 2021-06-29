@@ -4,41 +4,369 @@
 
 package main
 
+// Removing until internal gomock gets updated
+/*
 import (
-	"bytes"
+	"chromiumos/test/provision/cmd/provisionserver/bootstrap/info"
+	"chromiumos/test/provision/cmd/provisionserver/bootstrap/mock_services"
+	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/crosservice"
 	"context"
-	"log"
-	"net"
+	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	conf "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/grpc"
 )
 
-// TestProvisionServer_Empty tests if ProvisionServer can handle emtpy requst without problem.
-func TestProvisionServer_Empty(t *testing.T) {
-	var logBuf bytes.Buffer
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatal("Failed to create a net listener: ", err)
-	}
+func TestCrosInstallStateTransitions(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_services.NewMockServiceAdapterInterface(ctrl)
+
+	cs := crosservice.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "path/to/image",
+		},
+		false,
+		[]*api.InstallCrosRequest_DLCSpec{{Id: "1"}},
+	)
 
 	ctx := context.Background()
-	srv, err := newProvisionServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC))
-	if err != nil {
-		t.Fatalf("Failed to start ProvisionServer: %v", err)
-	}
-	go srv.Serve(l)
-	defer srv.Stop()
 
-	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
-	if err != nil {
-		t.Fatalf("Failed to dial: %v", err)
-	}
-	defer conn.Close()
+	// INSTALL
+	st := cs.GetFirstState()
 
-	cl := api.NewProvisionServiceClient(conn)
-	if _, err := cl.InstallCros(ctx, &api.InstallCrosRequest{}); err != nil {
-		t.Fatalf("Failed at api.InstallCros: %v", err)
+	// Serial Portion
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s"})).Return(fmt.Sprintf("root%s", info.PartitionNumRootA), nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s", "-d"})).Return("root_disk", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq(info.DlcLibDir)).Return(true, nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/* /* /dlc_b/verified"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
+	)
+	// Concurrent portion
+	sam.EXPECT().CopyData(gomock.Any(), gomock.Any()).Return("1", nil).AnyTimes()
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot5 obs=2M"})).Times(1).Return("", nil)
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot4 obs=2M"})).Times(1).Return("", nil)
+	// Serial Portion
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
+			"tmpmnt=$(mktemp -d)",
+			"&&",
+			"mount -o ro root_diskroot5 ${tmpmnt}",
+			"&&",
+			"${tmpmnt}/postinst root_diskroot5",
+			"&&",
+			"{ umount ${tmpmnt} || true; }",
+			"&&",
+			"{ rmdir ${tmpmnt} || true; }"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("crossystem"), gomock.Eq([]string{"clear_tpm_owner_request=1"})).Return("", nil),
+	)
+
+	if err := st.Execute(ctx); err != nil {
+		t.Fatalf("failed install state: %v", err)
+	}
+
+	// POST INSTALL
+	st = st.Next()
+
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("echo"), gomock.Eq([]string{"'fast keepimg'", ">", "/mnt/stateful_partition/factory_install_reset"})).Return("", nil),
+		sam.EXPECT().Restart(gomock.Any()).Return(nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{"rm -rf /mnt/stateful_partition/.update_available /mnt/stateful_partition/var_new /mnt/stateful_partition/dev_image_new", "&&", "curl 1 | tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -", "&&", "echo -n clobber > /mnt/stateful_partition/.update_available"})).Return("", nil),
+		sam.EXPECT().Restart(gomock.Any()).Return(nil),
+	)
+
+	if err := st.Execute(ctx); err != nil {
+		t.Fatalf("failed post-install state: %v", err)
+	}
+
+	// VERIFY (Currently empty)
+	st = st.Next()
+
+	if err := st.Execute(ctx); err != nil {
+		t.Fatalf("failed verify state: %v", err)
+	}
+
+	//PROVISION DLC
+	st = st.Next()
+
+	// Serial Portion
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s"})).Return(fmt.Sprintf("root%s", info.PartitionNumRootA), nil),
+	)
+	// Concurrent Portion
+	// Return not verfied so we can test full case:
+	sam.EXPECT().PathExists(gomock.Any(), "/var/lib/dlcservice/dlc/1/dlc_a/verified").Return(false, nil)
+	sam.EXPECT().RunCmd(gomock.Any(), "", []string{"mkdir", "-p", "/var/cache/dlc/1/package/dlc_a", "&&", "curl", "--output", "/var/cache/dlc/1/package/dlc_a/dlc.img", "1"}).Return("", nil)
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Times(1).Return("", nil)
+
+	if err := st.Execute(ctx); err != nil {
+		t.Fatalf("failed provision-dlc state: %v", err)
 	}
 }
+
+func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_services.NewMockServiceAdapterInterface(ctrl)
+
+	cs := crosservice.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "path/to/image",
+		},
+		false,
+		[]*api.InstallCrosRequest_DLCSpec{{Id: "1"}},
+	)
+
+	ctx := context.Background()
+
+	// INSTALL
+	st := cs.GetFirstState()
+
+	// Serial Portion
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s"})).Return(fmt.Sprintf("root%s", info.PartitionNumRootA), nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s", "-d"})).Return("root_disk", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq(info.DlcLibDir)).Return(true, nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/* /* /dlc_b/verified"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
+	)
+	// Concurrent portion
+	sam.EXPECT().CopyData(gomock.Any(), gomock.Any()).Return("1", nil).AnyTimes()
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot5 obs=2M"})).Times(1).Return("", nil)
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot4 obs=2M"})).Times(1).Return("", nil)
+	// Serial Portion
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
+			"tmpmnt=$(mktemp -d)",
+			"&&",
+			"mount -o ro root_diskroot5 ${tmpmnt}",
+			"&&",
+			"${tmpmnt}/postinst root_diskroot5",
+			"&&",
+			"{ umount ${tmpmnt} || true; }",
+			"&&",
+			"{ rmdir ${tmpmnt} || true; }"})).Return("", fmt.Errorf("postinstall error")),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new", "/mnt/stateful_partition/.update_available"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("/postinst"), gomock.Eq([]string{"root_diskroot3", "2>&1"})).Return("", nil),
+	)
+
+	if err := st.Execute(ctx); err.Error() != "failed to set next kernel, postinstall error" {
+		t.Fatalf("expected specific error, instead got: %v", err)
+	}
+}
+
+func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_services.NewMockServiceAdapterInterface(ctrl)
+
+	cs := crosservice.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "path/to/image",
+		},
+		false,
+		[]*api.InstallCrosRequest_DLCSpec{{Id: "1"}},
+	)
+
+	ctx := context.Background()
+
+	// INSTALL
+	st := cs.GetFirstState()
+
+	// Serial Portion
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s"})).Return(fmt.Sprintf("root%s", info.PartitionNumRootA), nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s", "-d"})).Return("root_disk", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq(info.DlcLibDir)).Return(true, nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/* /* /dlc_b/verified"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
+	)
+	// Concurrent portion
+	sam.EXPECT().CopyData(gomock.Any(), gomock.Any()).Return("1", nil).AnyTimes()
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot5 obs=2M"})).Times(1).Return("", nil)
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot4 obs=2M"})).Times(1).Return("", nil)
+	// Serial Portion
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
+			"tmpmnt=$(mktemp -d)",
+			"&&",
+			"mount -o ro root_diskroot5 ${tmpmnt}",
+			"&&",
+			"${tmpmnt}/postinst root_diskroot5",
+			"&&",
+			"{ umount ${tmpmnt} || true; }",
+			"&&",
+			"{ rmdir ${tmpmnt} || true; }"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("crossystem"), gomock.Eq([]string{"clear_tpm_owner_request=1"})).Return("", fmt.Errorf("clear TPM error")),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new", "/mnt/stateful_partition/.update_available"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("/postinst"), gomock.Eq([]string{"root_diskroot3", "2>&1"})).Return("", nil),
+	)
+
+	if err := st.Execute(ctx); err.Error() != "failed to clear TPM, clear TPM error" {
+		t.Fatalf("expected specific error, instead got: %v", err)
+	}
+}
+
+func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_services.NewMockServiceAdapterInterface(ctrl)
+
+	cs := crosservice.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "path/to/image",
+		},
+		true, // <- preserve stateful
+		[]*api.InstallCrosRequest_DLCSpec{},
+	)
+
+	ctx := context.Background()
+
+	// Install -> PostInstall
+	st := cs.GetFirstState().Next()
+
+	gomock.InOrder(
+		// Delete steps elided due to preserve stateful
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
+		sam.EXPECT().CopyData(gomock.Any(), gomock.Eq("path/to/image/stateful.tzg")).Return("url", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{"rm -rf /mnt/stateful_partition/.update_available /mnt/stateful_partition/var_new /mnt/stateful_partition/dev_image_new", "&&", "curl url | tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -", "&&", "echo -n clobber > /mnt/stateful_partition/.update_available"})).Return("", nil),
+		sam.EXPECT().Restart(gomock.Any()).Return(nil),
+	)
+
+	// Nothing should be run, so no need to use mock expect
+	if err := st.Execute(ctx); err != nil {
+		t.Fatalf("failed post-install state: %v", err)
+	}
+}
+
+func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_services.NewMockServiceAdapterInterface(ctrl)
+
+	cs := crosservice.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "path/to/image",
+		},
+		true, // <- preserve stateful
+		[]*api.InstallCrosRequest_DLCSpec{},
+	)
+
+	ctx := context.Background()
+
+	// Install -> PostInstall
+	st := cs.GetFirstState().Next()
+
+	gomock.InOrder(
+		// Delete steps elided due to preserve stateful
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
+		// Simulated error:
+		sam.EXPECT().CopyData(gomock.Any(), gomock.Eq("path/to/image/stateful.tzg")).Return("", errors.New("some copy error")),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new", "/mnt/stateful_partition/.update_available"})).Return("", nil),
+	)
+
+	// Nothing should be run, so no need to use mock expect
+	if err := st.Execute(ctx); err.Error() != "failed to provision stateful, failed to install stateful partition, failed to get GS Cache URL, some copy error" {
+		t.Fatalf("Post install should've failed with specific error, instead got: %v", err)
+	}
+
+}
+
+func TestProvisionDLCWithEmptyDLCsDoesNotExecute(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_services.NewMockServiceAdapterInterface(ctrl)
+
+	cs := crosservice.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "path/to/image",
+		},
+		false,
+		[]*api.InstallCrosRequest_DLCSpec{},
+	)
+
+	ctx := context.Background()
+
+	// Install -> PostInstall -> Verify -> ProvisionDLC
+	st := cs.GetFirstState().Next().Next().Next()
+
+	// Nothing should be run, so no need to use mock expect
+	if err := st.Execute(ctx); err != nil {
+		t.Fatalf("failed provision-dlc state: %v", err)
+	}
+}
+
+func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_services.NewMockServiceAdapterInterface(ctrl)
+
+	cs := crosservice.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "path/to/image",
+		},
+		false,
+		[]*api.InstallCrosRequest_DLCSpec{{Id: "1"}},
+	)
+
+	ctx := context.Background()
+
+	// Install -> PostInstall -> Verify -> ProvisionDLC
+	st := cs.GetFirstState().Next().Next().Next()
+
+	// Serial Portion
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s"})).Return(fmt.Sprintf("root%s", info.PartitionNumRootA), nil),
+	)
+	// Concurrent Portion
+	// Return verfied so install stops there
+	sam.EXPECT().PathExists(gomock.Any(), "/var/lib/dlcservice/dlc/1/dlc_a/verified").Return(true, nil)
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Times(1).Return("", nil)
+
+	// Nothing should be run, so no need to use mock expect
+	if err := st.Execute(ctx); err != nil {
+		t.Fatalf("failed provision-dlc state: %v", err)
+	}
+}
+*/

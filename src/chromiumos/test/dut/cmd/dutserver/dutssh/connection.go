@@ -15,6 +15,7 @@ import (
 type ClientInterface interface {
 	Close() error
 	NewSession() (SessionInterface, error)
+	Wait() error
 }
 
 type SSHClient struct {
@@ -33,10 +34,15 @@ func (c *SSHClient) NewSession() (SessionInterface, error) {
 	return &SSHSession{Session: session}, nil
 }
 
+func (c *SSHClient) Wait() error {
+	return c.Client.Wait()
+}
+
 type SessionInterface interface {
 	Close() error
 	SetStdout(writer io.Writer)
 	SetStderr(writer io.Writer)
+	SetStdin(reader io.Reader)
 	Run(cmd string) error
 	Start(cmd string) error
 	Output(cmd string) ([]byte, error)
@@ -57,6 +63,10 @@ func (s *SSHSession) SetStdout(writer io.Writer) {
 
 func (s *SSHSession) SetStderr(writer io.Writer) {
 	s.Session.Stderr = writer
+}
+
+func (s *SSHSession) SetStdin(reader io.Reader) {
+	s.Session.Stdin = reader
 }
 
 func (s *SSHSession) Run(cmd string) error {

@@ -14,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"google.golang.org/grpc"
 )
 
 // Version is the version info of this command. It is filled in during emerge.
@@ -45,12 +47,26 @@ func newLogger(logFile *os.File) *log.Logger {
 
 func main() {
 	os.Exit(func() int {
-		version := flag.Bool("version", false, "print version and exit")
+		version := flag.Bool("version", false, "print version and exit.")
+		dutServiceAddress := flag.String("dut-service-address", "", "grcp address for dut-service.")
+		dutName := flag.String("dut-name", "", "The name of the DUT to be interfaced with.")
+		wiringAddress := flag.String("wiring-address", "", "wiring address TLW.")
 		flag.Parse()
 
 		if *version {
 			fmt.Println("provisionservice version ", Version)
 			return 0
+		}
+
+		if *dutServiceAddress == "" {
+			fmt.Println("dut-address must be defined.")
+			return 1
+		}
+
+		// Necessary for now to move GCS data to DUT. Can be removed when another service is created.
+		if *wiringAddress == "" {
+			fmt.Println("wiring_address must be defined.")
+			return 1
 		}
 
 		logFile, err := createLogFile()
@@ -66,7 +82,21 @@ func main() {
 			logger.Fatalln("Failed to create a net listener: ", err)
 			return 2
 		}
-		server, err := newProvisionServer(l, logger)
+		dutConn, err := grpc.Dial(*dutServiceAddress, grpc.WithInsecure())
+		if err != nil {
+			logger.Fatalln("Failed to connect to DUTServiceServer: ", err)
+			return 2
+		}
+		defer dutConn.Close()
+
+		wiringConn, err := grpc.Dial(*wiringAddress, grpc.WithInsecure())
+		if err != nil {
+			logger.Fatalln("Failed to connect to WiringService: ", err)
+			return 2
+		}
+		defer wiringConn.Close()
+
+		server, err := newProvisionServer(l, logger, *dutName, dutConn, wiringConn)
 		if err != nil {
 			logger.Fatalln("Failed to start provisionservice server: ", err)
 		}
