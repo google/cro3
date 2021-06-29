@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -352,6 +353,22 @@ func fingerprintCoverageRule(sourceTestPlan *plan.SourceTestPlan) *testpb.Covera
 	}
 }
 
+// parseInt32OrPanic parses s into an int32.
+//
+// Assumes s is in base10. This function should only be used in cases where s is
+// known to be an int, e.g. if it was a regexp match for digits. Otherwise, use
+// strconv and handle the error appropriately.
+func parseInt32OrPanic(s string) int32 {
+	i, err := strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		panic(fmt.Sprintf("unable to parse %q: %v", s, err))
+	}
+
+	return int32(i)
+}
+
+var fwImageNameRegexp = regexp.MustCompile(`bcs://[^.]+\.(\d+)\.(\d+)\.(\d+)\.tbz2`)
+
 // firmwareROCoverageRules returns CoverageRules requiring firmware tests to
 // be run on each Design in FirmwareRoVersions.ProgramToMilestone.
 func firmwareROCoverageRules(
@@ -374,16 +391,31 @@ func firmwareROCoverageRules(
 
 		for _, config := range configs {
 			designID := config.GetHwDesign().GetId().GetValue()
-			version := config.GetSwConfig().GetFirmware().GetMainRoPayload().GetVersion()
+			roPayload := config.GetSwConfig().GetFirmware().GetMainRoPayload()
+			version := roPayload.GetVersion()
 
 			if version == nil {
 				glog.V(1).Infof(
-					"No RO firmware version info found for design %q, config %q, skipping",
+					"No RO firmware version info found for design %q, config %q, attempting to parse firmwareImageName",
 					designID,
 					config.GetHwDesignConfig().GetId().GetValue(),
 				)
 
-				continue
+				matches := fwImageNameRegexp.FindStringSubmatch(roPayload.GetFirmwareImageName())
+				if matches == nil {
+					glog.V(1).Infof(
+						"Could not parse firmware version info from image name %q, skipping",
+						roPayload.GetFirmwareImageName(),
+					)
+
+					continue
+				}
+
+				version = &buildpb.Version{
+					Major: parseInt32OrPanic(matches[1]),
+					Minor: parseInt32OrPanic(matches[2]),
+					Patch: parseInt32OrPanic(matches[3]),
+				}
 			}
 
 			// If the Design doesn't have a Version yet, assign one. Otherwise,

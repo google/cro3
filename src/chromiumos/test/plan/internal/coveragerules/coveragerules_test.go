@@ -44,7 +44,7 @@ func buildMetadata(overlay, kernelVersion, chipsetOverlay, arcVersion string) *b
 
 // flatConfig is a convenience to reduce boilerplate when creating FlatConfig
 // in test cases.
-func flatConfig(program, design, designConfig string, firmwareROVersion *buildpb.Version) *payload.FlatConfig {
+func flatConfig(program, design, designConfig string, firmwareROVersion *buildpb.Version, firmwareImageName string) *payload.FlatConfig {
 	return &payload.FlatConfig{
 		Program:        &api.Program{Id: &api.ProgramId{Value: program}},
 		HwDesign:       &api.Design{Id: &api.DesignId{Value: design}},
@@ -52,7 +52,8 @@ func flatConfig(program, design, designConfig string, firmwareROVersion *buildpb
 		SwConfig: &software.SoftwareConfig{
 			Firmware: &buildpb.FirmwareConfig{
 				MainRoPayload: &buildpb.FirmwarePayload{
-					Version: firmwareROVersion,
+					Version:           firmwareROVersion,
+					FirmwareImageName: firmwareImageName,
 				},
 			},
 		},
@@ -102,11 +103,11 @@ var dutAttributeList = &testpb.DutAttributeList{
 
 var flatConfigList = &payload.FlatConfigList{
 	Values: []*payload.FlatConfig{
-		flatConfig("ProgA", "Design1", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}),
-		flatConfig("ProgA", "Design1", "Config2", nil),
-		flatConfig("ProgA", "Design1", "Config3", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}),
-		flatConfig("ProgA", "Design2", "Config1", &buildpb.Version{Major: 123, Minor: 0, Patch: 0}),
-		flatConfig("ProgB", "Design20", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 0}),
+		flatConfig("ProgA", "Design1", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}, ""),
+		flatConfig("ProgA", "Design1", "Config2", nil, "bcs://ProgA.123.4.5.tbz2"),
+		flatConfig("ProgA", "Design1", "Config3", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}, ""),
+		flatConfig("ProgA", "Design2", "Config1", &buildpb.Version{Major: 123, Minor: 0, Patch: 0}, ""),
+		flatConfig("ProgB", "Design20", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 0}, ""),
 	},
 }
 
@@ -665,8 +666,8 @@ func TestGenerateErrors(t *testing.T) {
 			},
 			flatConfigList: &payload.FlatConfigList{
 				Values: []*payload.FlatConfig{
-					flatConfig("progA", "designA", "config1", &buildpb.Version{Major: 1}),
-					flatConfig("progA", "designA", "config2", &buildpb.Version{Major: 2}),
+					flatConfig("progA", "designA", "config1", &buildpb.Version{Major: 1}, ""),
+					flatConfig("progA", "designA", "config2", &buildpb.Version{Major: 2}, ""),
 				},
 			},
 			expectedError: `conflicting firmware RO versions found for design "designA": major:2 , major:1`,
@@ -684,8 +685,8 @@ func TestGenerateErrors(t *testing.T) {
 			},
 			flatConfigList: &payload.FlatConfigList{
 				Values: []*payload.FlatConfig{
-					flatConfig("progA", "designA", "config1", nil),
-					flatConfig("progA", "designA", "config2", nil),
+					flatConfig("progA", "designA", "config1", nil, ""),
+					flatConfig("progA", "designA", "config2", nil, ""),
 				},
 			},
 			expectedError: `no RO firmware version info found for program "progA"`,

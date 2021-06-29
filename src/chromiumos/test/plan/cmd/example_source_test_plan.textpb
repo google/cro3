@@ -6,5 +6,9 @@ requirements {
             key: "brya"
             value: 80
         }
+        program_to_milestone {
+            key: "coral"
+            value: 81
+        }
     }
 }
