@@ -7,7 +7,7 @@
 # Strip a given package and place the stripped version in
 # /build/<board>/stripped-packages.
 
-if [ ! -e /etc/debian_chroot ]; then
+if [ ! -e /etc/cros_chroot_version ]; then
   echo "Script needs to be run from within the chroot!" && exit 1
 fi
 
