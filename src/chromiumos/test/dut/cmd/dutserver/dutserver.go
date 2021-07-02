@@ -179,6 +179,14 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 	}
 }
 
+// TODO(shapiroc): implement
+func (s *DutServiceServer) DetectDeviceConfigId(
+	req *api.DetectDeviceConfigIdRequest,
+	stream api.DutService_DetectDeviceConfigIdServer) error {
+	s.logger.Println("TODO: implement DetectDeviceConfigId", *req)
+	return nil
+}
+
 // readFetchCrashesProto reads stdout and transforms it into a FetchCrashesResponse
 func readFetchCrashesProto(stdout io.Reader, buffer bytes.Buffer) (*api.FetchCrashesResponse, error) {
 	var sizeBytes [8]byte
