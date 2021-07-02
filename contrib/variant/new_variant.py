@@ -1357,8 +1357,8 @@ def find_coreboot_upstream(status):
     a target for cq-depend). There is a process for upstream CLs from
     coreboot after they have been reviewed, approved, and merged. We can
     track a specific coreboot CL if we know the change-id that it used on
-    the coreboot gerrit instance, by looking for that change-id as
-    'original-change-id' in the public chromium gerrit instance.
+    the coreboot gerrit instance, by looking for that change-id in the public
+    chromium gerrit instance.
 
     The change-id for the coreboot variant will be under the 'cb_variant' key,
     but this is for the 'coreboot' gerrit instance.
@@ -1394,10 +1394,10 @@ def find_coreboot_upstream(status):
             step_names.CB_VARIANT)
         return False
 
-    # Find the CL by the Original-Change-Id
-    original_change_id = status.commits[step_names.CB_VARIANT]['change_id']
+    # Find the CL by the Change-Id
+    change_id = status.commits[step_names.CB_VARIANT]['change_id']
     gerrit_query_args = {
-        'message': f'Original-Change-Id:{original_change_id}'
+        'message': f'Change-Id:{change_id}'
     }
     cros = gerrit.GetCrosExternal()
     upstream = cros.Query(**gerrit_query_args)
@@ -1413,8 +1413,7 @@ def find_coreboot_upstream(status):
 
     # If more than one CL is found, something is very wrong
     if len(upstream) != 1:
-        logging.error('More than one CL was found with Original-Change-Id %s',
-                      original_change_id)
+        logging.error('More than one CL was found with Change-Id %s', change_id)
         return False
 
     # At this point, we know there is only one CL and we can get the
@@ -1429,7 +1428,7 @@ def find_coreboot_upstream(status):
     # dir - not needed because we're not going to `cd` there to `repo upload`
     # branch_name - not valid; the CL is already merged
     # change_id - we use the change_id to find a CL number, and since we
-    #   just found the CL number via original-change-id, this is moot.
+    #   just found the CL number via change-id, this is moot.
     status.commits[step_names.FIND] = {
         'gerrit': instance_name,
         'cl_number': str(cl_number)
