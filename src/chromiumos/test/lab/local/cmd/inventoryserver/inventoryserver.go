@@ -15,13 +15,43 @@ import (
 
 // InventoryServer implementation of inventory_service.proto
 type InventoryServer struct {
-	logger *log.Logger
+	logger      *log.Logger
+	dutTopology *api.DutTopology
+}
+
+// Optional arguments (passed during startup that control serving behavior)
+type Options struct {
+	DutAddress string
+	DutPort    int
 }
 
 // newInventoryServer creates a new inventory service server to listen to rpc requests.
-func newInventoryServer(l net.Listener, logger *log.Logger) (*grpc.Server, error) {
+func newInventoryServer(l net.Listener, logger *log.Logger, options *Options) (*grpc.Server, error) {
+	dutTopology := &api.DutTopology{}
+	if len(options.DutAddress) != 0 {
+		dutTopology = &api.DutTopology{
+			Id: &api.DutTopology_Id{
+				Value: options.DutAddress,
+			},
+			Dut: &api.Dut{
+				Id: &api.Dut_Id{
+					Value: options.DutAddress,
+				},
+				DutType: &api.Dut_Chromeos{
+					Chromeos: &api.Dut_ChromeOS{
+						Ssh: &api.IpEndpoint{
+							Address: options.DutAddress,
+							Port:    int32(options.DutPort),
+						},
+					},
+				},
+			},
+		}
+	}
+
 	s := &InventoryServer{
-		logger: logger,
+		logger:      logger,
+		dutTopology: dutTopology,
 	}
 	server := grpc.NewServer()
 	api.RegisterInventoryServiceServer(server, s)
@@ -31,5 +61,11 @@ func newInventoryServer(l net.Listener, logger *log.Logger) (*grpc.Server, error
 
 func (s *InventoryServer) GetDutTopology(req *api.GetDutTopologyRequest, stream api.InventoryService_GetDutTopologyServer) error {
 	s.logger.Println("Received api.GetDutTopology: ", *req)
-	return stream.Send(&api.GetDutTopologyResponse{})
+	return stream.Send(&api.GetDutTopologyResponse{
+		Result: &api.GetDutTopologyResponse_Success_{
+			Success: &api.GetDutTopologyResponse_Success{
+				DutTopology: s.dutTopology,
+			},
+		},
+	})
 }

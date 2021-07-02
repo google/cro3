@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Package main implements the inventoryservice used to setup CrOS devices
+// Package main starts the InventoryService grpc server
 package main
 
 import (
@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"time"
 )
+
+const defaultSshPort = 22
 
 // Version is the version info of this command. It is filled in during emerge.
 var Version = "<unknown>"
@@ -46,6 +48,8 @@ func newLogger(logFile *os.File) *log.Logger {
 func main() {
 	os.Exit(func() int {
 		version := flag.Bool("version", false, "print version and exit")
+		dutAddress := flag.String("dut_address", "", "DUT address to connect to (see ip_endpoint.proto for format requirements)")
+		dutPort := flag.Int("dut_port", defaultSshPort, fmt.Sprintf("SSH port for the target DUT (default: %d)", defaultSshPort))
 		flag.Parse()
 
 		if *version {
@@ -66,7 +70,13 @@ func main() {
 			logger.Fatalln("Failed to create a net listener: ", err)
 			return 2
 		}
-		server, err := newInventoryServer(l, logger)
+		server, err := newInventoryServer(
+			l,
+			logger,
+			&Options{
+				DutAddress: *dutAddress,
+				DutPort:    *dutPort,
+			})
 		if err != nil {
 			logger.Fatalln("Failed to start inventoryservice server: ", err)
 		}
