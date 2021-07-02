@@ -16,7 +16,7 @@ import sys
 
 sys.path.insert(1, '../../')
 
-from python.lib import container_util
+from python.lib import container_util  # noqa: E402
 
 
 def parse_local_arguments():
@@ -42,8 +42,7 @@ class DockerPrep():
     """Prep Needed files for the Test Execution Container Docker Build."""
 
     def __init__(self, args):
-        """
-        @param args (ArgumentParser): .chroot, .sysroot, .path."""
+        """@param args (ArgumentParser): .chroot, .sysroot, .path."""
         self.args = args
         self.full_autotest = ""
         self.full_bin = ""
@@ -69,13 +68,17 @@ class DockerPrep():
         """Verify the paths generated are valid/exist."""
         if not os.path.isdir(self.full_autotest):
             if not os.path.exists(self.full_autotest):
-                raise Exception("Autotest path %s does not exist")
-            raise Exception("Autotest path %s is not a directory")
+                raise Exception("Autotest path %s does not exist"
+                                % self.full_autotest)
+            raise Exception("Autotest path %s is not a directory"
+                            % self.full_autotest)
 
         if not os.path.isdir(self.build_path):
             if not os.path.exists(self.build_path):
-                raise Exception("sysroot %s does not exist")
-            raise Exception("sysroot %s is not a directory")
+                raise Exception("sysroot %s does not exist"
+                                % self.build_path)
+            raise Exception("sysroot %s is not a directory" %
+                            self.build_path)
 
     def prep_artifact_dir(self):
         """Prepare the artifact dir. If it does not exist, create it."""
@@ -84,7 +87,8 @@ class DockerPrep():
                 print("Deleting existing prepdir {}".format(self.full_out))
                 shutil.rmtree(self.full_out)
             else:
-                raise Exception("outpath %s exists and force is not set.")
+                raise Exception("outpath %s exists and force is not set."
+                                % self.full_out)
         os.makedirs(self.full_out, exist_ok=True)
 
     def create_tarball(self):
@@ -114,7 +118,9 @@ class DockerPrep():
             d = os.path.join(self.full_out, item)
             shutil.copy2(s, d)
 
+
 def main():
+    """Entry point."""
     args = parse_local_arguments()
     builder = DockerPrep(args)
     builder.config_paths()
