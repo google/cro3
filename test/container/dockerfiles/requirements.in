@@ -5,3 +5,5 @@ pyparsing
 protobuf
 six==1.15.0
 python-dateutil
+selenium==2.37.2
+psutil==2.1.1
