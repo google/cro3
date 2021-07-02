@@ -4,7 +4,6 @@
 
 package main
 
-/*
 import (
 	"bytes"
 	"chromiumos/test/dut/cmd/dutserver/dutssh/mock_dutssh"
@@ -754,4 +753,3 @@ func TestRestart(t *testing.T) {
 		t.Fatalf("Failed at api.FetchCrashes: %v", err)
 	}
 }
-*/

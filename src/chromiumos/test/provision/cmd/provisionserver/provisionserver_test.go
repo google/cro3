@@ -5,7 +5,6 @@
 package main
 
 // Removing until internal gomock gets updated
-/*
 import (
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/info"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/mock_services"
@@ -49,7 +48,7 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq(info.DlcLibDir)).Return(true, nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
-		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/* /* /dlc_b/verified"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/*/*/dlc_b/verified"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
 	)
 	// Concurrent portion
@@ -146,7 +145,7 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq(info.DlcLibDir)).Return(true, nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
-		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/* /* /dlc_b/verified"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/*/*/dlc_b/verified"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
 	)
 	// Concurrent portion
@@ -204,7 +203,7 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq(info.DlcLibDir)).Return(true, nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
-		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/* /* /dlc_b/verified"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/*/*/dlc_b/verified"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
 	)
 	// Concurrent portion
@@ -369,4 +368,3 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 		t.Fatalf("failed provision-dlc state: %v", err)
 	}
 }
-*/

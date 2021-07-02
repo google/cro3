@@ -9,7 +9,6 @@
 package mock_services
 
 // Removing until gomock gets updated internally
-/*
 
 import (
 	context "context"
@@ -99,4 +98,3 @@ func (mr *MockServiceAdapterInterfaceMockRecorder) RunCmd(ctx, cmd, args interfa
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunCmd", reflect.TypeOf((*MockServiceAdapterInterface)(nil).RunCmd), ctx, cmd, args)
 }
-*/

@@ -9,7 +9,6 @@
 package mock_dutssh
 
 //Removing until internal gomock gets updated
-/*
 import (
 	dutssh "chromiumos/test/dut/cmd/dutserver/dutssh"
 	io "io"
@@ -229,4 +228,3 @@ func (mr *MockSessionInterfaceMockRecorder) StdoutPipe() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StdoutPipe", reflect.TypeOf((*MockSessionInterface)(nil).StdoutPipe))
 }
-*/
