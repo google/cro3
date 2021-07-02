@@ -59,11 +59,17 @@ RUN chown -R chromeos-test:chromeos-test /usr/local/autotest/shadow_config.ini
 # Test service *must* be cp'd into the dockerfile dir prior.
 COPY testexecserver /usr/bin/
 
+# Bring in metadata to 1 location
+COPY *.pb /tmp/testexecserver/metadata/
+
 RUN sudo ln -s /usr/local/autotest/site_utils/test_that.py /usr/bin/test_that
 
-# Own testexecserver
+# Own testexecserver & metadata
 RUN chown -R chromeos-test:chromeos-test /usr/bin/testexecserver
 RUN chmod 755 /usr/bin/testexecserver
+RUN chown -R chromeos-test:chromeos-test /tmp/testexecserver/
+RUN chmod 755 /tmp/testexecserver/metadata/*.pb
+
 USER chromeos-test
 
 # Configure the ssh for testing

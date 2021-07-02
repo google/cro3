@@ -35,6 +35,8 @@ SOURCE_ROOT = _FindSourceRoot()
 def FromChrootPath(chroot, file):
     return os.path.join(chroot, file)
 
+def FromSysrootPath(sysroot, file):
+    return os.path.join(sysroot, file)
 
 def FindFilesMatching(pattern, target = './', cwd = os.curdir,
                       exclude_dirs=[]):
@@ -167,7 +169,6 @@ class AutotestTarballBuilder(object):
             return None
         compressor = COMP_BZIP2
         chroot = self.chroot_path
-
 
         return cmd_util.CreateTarball(
             tarball_path, self.archive_basedir, compression=compressor,

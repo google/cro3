@@ -102,11 +102,34 @@ class DockerPrep():
 
     def copy_services(self):
         """Copy services needed for Docker."""
-        shutil.copyfile(os.path.join(self.chroot_bin, 'testexecserver'),
-                        os.path.join(self.full_out, 'testexecserver'))
-        # TODO, copy testservice, (TLS?)
+        shutil.copy(os.path.join(self.chroot_bin, 'testexecserver'),
+                    self.full_out)
 
-        return
+    def copy_metadata(self):
+        """Return the absolute path of the metadata files."""
+        # Relative to build
+        _BUILD_METADATA_FILES = [
+                ('usr/local/build/autotest/autotest_metadata.pb',
+                    os.path.join(self.full_out, 'autotest_metadata.pb')),
+                ('usr/share/tast/metadata/local/cros.pb',
+                    os.path.join(self.full_out, 'local_cros.pb')),
+                ('build/share/tast/metadata/local/crosint.pb',
+                    os.path.join(self.full_out, 'crosint.pb'))]
+
+        # relative to chroot.
+        _CHROOT_METADATA_FILES = [
+            ('usr/share/tast/metadata/remote/cros.pb',
+                os.path.join(self.full_out, 'remote_cros.pb'))]
+
+        for f, d in _BUILD_METADATA_FILES:
+            shutil.copyfile(
+                container_util.FromSysrootPath(self.build_path, f),
+                os.path.join(self.full_out, d))
+
+        for f, d in _CHROOT_METADATA_FILES:
+            shutil.copyfile(
+                container_util.FromChrootPath(self.chroot, f),
+                os.path.join(self.full_out, d))
 
     def copy_dockerfiles(self):
         """Copy Dockerfiles needed to build the container to the output dir."""
@@ -126,6 +149,7 @@ def main():
     builder.config_paths()
     builder.create_tarball()
     builder.copy_services()
+    builder.copy_metadata()
     builder.copy_dockerfiles()
 
 
