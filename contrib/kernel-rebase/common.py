@@ -15,8 +15,9 @@ from config import datadir, rebasedb_name
 from config import rebase_baseline_branch, rebase_target
 from config import next_repo, stable_repo, android_repo
 
+data_subdir = 'data'
 if datadir is None:
-    datadir = os.path.join(sys.path[0], 'data')
+    datadir = os.path.join(sys.path[0], data_subdir)
 
 if rebasedb_name is None:
     rebasedb_name = 'rebase-%s.db' % rebase_target
@@ -33,6 +34,9 @@ dbdir = os.path.join(datadir, 'database')
 rebasedb = os.path.join(dbdir, rebasedb_name)
 upstreamdb = os.path.join(dbdir, 'upstream.db')
 nextdb = os.path.join(dbdir, 'next.db') if next_repo else None
+
+# This path must be relative to the root of the project
+executor_io = os.path.join(data_subdir, 'executor_io')
 
 def do_check_output(cmd):
     """Python version independent implementation of 'subprocess.check_output'"""

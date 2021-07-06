@@ -149,3 +149,5 @@ echo "Calculating replace list"
 ./upstream.py
 echo "Calculating topics"
 ./topics.py
+
+./rebase_setup.py

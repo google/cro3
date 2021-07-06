@@ -35,6 +35,10 @@ chromeos_repo = chromium_site + 'chromiumos/third_party/kernel'
 # subject_droplist = []
 subject_droplist = ['ANDROID:', 'Android:', 'android:']
 
+# Control debug functionalities that are preferred to be disabled
+# by default.
+debug = False
+
 # List of SHAs to be dropped manually, for example because they are
 # upstream but not auto-detected by the tool.
 sha_droplist = [
