@@ -15,6 +15,7 @@ import (
 	"chromiumos/lro"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/crosservice"
+	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/lacrosservice"
 
 	"go.chromium.org/chromiumos/config/go/api/test/tls"
 	"go.chromium.org/chromiumos/config/go/longrunning"
@@ -54,9 +55,6 @@ func newProvisionServer(l net.Listener, logger *log.Logger, dutName string, conn
 // InstallCros installs a specified version of Chrome OS on the DUT, along
 // with any specified DLCs.
 //
-// If the DUT is already on the specified version of Chrome OS, the OS will
-// not be provisioned.
-//
 // If the DUT already has the specified list of DLCs, only the missing DLCs
 // will be provisioned.
 func (s *ProvisionServer) InstallCros(ctx context.Context, req *api.InstallCrosRequest) (*longrunning.Operation, error) {
@@ -74,13 +72,26 @@ func (s *ProvisionServer) InstallCros(ctx context.Context, req *api.InstallCrosR
 }
 
 // InstallLacros installs a specified version of Lacros on the DUT.
-//
-// If the DUT already has the specified version of Lacros, Lacros will not be
-// provisioned.
 func (s *ProvisionServer) InstallLacros(ctx context.Context, req *api.InstallLacrosRequest) (*longrunning.Operation, error) {
 	s.logger.Println("Received api.InstallLacrosRequest: ", *req)
 	op := s.Manager.NewOperation()
-	s.Manager.SetResult(op.Name, &api.InstallLacrosResponse{})
+	ls, err := lacrosservice.NewLaCrOSService(s.dutName, s.dutClient, s.wiringConn, req)
+	response := api.InstallLacrosResponse{}
+	if err != nil {
+		s.setNewOperationError(
+			op,
+			codes.Aborted,
+			fmt.Sprintf("pre-provision: failed setup: %s", err),
+			tls.ProvisionDutResponse_REASON_PROVISIONING_FAILED.String(),
+		)
+	} else {
+		if s.provisionOS(ctx, &ls, op) == nil {
+			response.Outcome = &api.InstallLacrosResponse_Success{}
+		} else {
+			response.Outcome = &api.InstallLacrosResponse_Failure{}
+		}
+	}
+	s.Manager.SetResult(op.Name, &response)
 	return op, nil
 }
 
@@ -133,7 +144,7 @@ func (s *ProvisionServer) provisionOS(ctx context.Context, si services.ServiceIn
 				fmt.Sprintf("provision: failed %s step: %s", cs.Name(), err),
 				tls.ProvisionDutResponse_REASON_PROVISIONING_FAILED.String(),
 			)
-			return fmt.Errorf("provision step %s failure: %s", cs.Name(), err)
+			return fmt.Errorf("provision step %s failure: %w", cs.Name(), err)
 		}
 	}
 

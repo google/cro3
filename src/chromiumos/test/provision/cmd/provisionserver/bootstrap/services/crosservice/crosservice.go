@@ -37,7 +37,7 @@ func NewCrOSService(dutName string, dutClient api.DutServiceClient, wiringConn *
 	}
 }
 
-// NewCrOSServiceFromExistingConnection is equivalent to the obove constructor,
+// NewCrOSServiceFromExistingConnection is equivalent to the above constructor,
 // but recycles a ServiceAdapter. Generally useful for tests.
 func NewCrOSServiceFromExistingConnection(conn services.ServiceAdapterInterface, imagePath *conf.StoragePath, preserverStateful bool, dlcSpecs []*api.InstallCrosRequest_DLCSpec) CrOSService {
 	return CrOSService{
