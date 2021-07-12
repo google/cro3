@@ -749,7 +749,7 @@ func TestRestart(t *testing.T) {
 	// technically if we get to the reconnect step, we did everything right, so
 	// rather than mock the reconnect step, we assume that if we got there, we are
 	// successful
-	if err.Error() != "rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing dial tcp: address wiringaddress: missing port in address\"" {
-		t.Fatalf("Failed at api.FetchCrashes: %v", err)
+	if !strings.Contains(err.Error(), "connection error") {
+		t.Fatalf("Failed at api.Restart: %v", err)
 	}
 }
