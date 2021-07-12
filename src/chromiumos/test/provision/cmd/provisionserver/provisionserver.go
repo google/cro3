@@ -14,6 +14,7 @@ import (
 
 	"chromiumos/lro"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services"
+	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/ashservice"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/crosservice"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/lacrosservice"
 
@@ -62,7 +63,7 @@ func (s *ProvisionServer) InstallCros(ctx context.Context, req *api.InstallCrosR
 	op := s.Manager.NewOperation()
 	cs := crosservice.NewCrOSService(s.dutName, s.dutClient, s.wiringConn, req)
 	response := api.InstallCrosResponse{}
-	if s.provisionOS(ctx, &cs, op) == nil {
+	if s.provision(ctx, &cs, op) == nil {
 		response.Outcome = &api.InstallCrosResponse_Success{}
 	} else {
 		response.Outcome = &api.InstallCrosResponse_Failure{}
@@ -85,10 +86,14 @@ func (s *ProvisionServer) InstallLacros(ctx context.Context, req *api.InstallLac
 			tls.ProvisionDutResponse_REASON_PROVISIONING_FAILED.String(),
 		)
 	} else {
-		if s.provisionOS(ctx, &ls, op) == nil {
+		if s.provision(ctx, &ls, op) == nil {
 			response.Outcome = &api.InstallLacrosResponse_Success{}
 		} else {
-			response.Outcome = &api.InstallLacrosResponse_Failure{}
+			response.Outcome = &api.InstallLacrosResponse_Failure{
+				Failure: &api.InstallFailure{
+					Reason: api.InstallFailure_REASON_PROVISIONING_FAILED,
+				},
+			}
 		}
 	}
 	s.Manager.SetResult(op.Name, &response)
@@ -102,7 +107,14 @@ func (s *ProvisionServer) InstallLacros(ctx context.Context, req *api.InstallLac
 func (s *ProvisionServer) InstallAsh(ctx context.Context, req *api.InstallAshRequest) (*longrunning.Operation, error) {
 	s.logger.Println("Received api.InstallAshRequest: ", *req)
 	op := s.Manager.NewOperation()
-	s.Manager.SetResult(op.Name, &api.InstallAshResponse{})
+	cs := ashservice.NewAshService(s.dutName, s.dutClient, s.wiringConn, req)
+	response := api.InstallAshResponse{}
+	if s.provision(ctx, &cs, op) == nil {
+		response.Outcome = &api.InstallAshResponse_Success{}
+	} else {
+		response.Outcome = &api.InstallAshResponse_Failure{}
+	}
+	s.Manager.SetResult(op.Name, &response)
 	return op, nil
 }
 
@@ -117,11 +129,11 @@ func (s *ProvisionServer) InstallArc(ctx context.Context, req *api.InstallArcReq
 	return op, nil
 }
 
-// provisionOS effectively acts as a state transition runner for each of the
+// provision effectively acts as a state transition runner for each of the
 // installation services, transitioning between states as required, and
 // executing each state. Operation status is also set at this state in case of
 // error.
-func (s *ProvisionServer) provisionOS(ctx context.Context, si services.ServiceInterface, operation *longrunning.Operation) error {
+func (s *ProvisionServer) provision(ctx context.Context, si services.ServiceInterface, operation *longrunning.Operation) error {
 	// Set a timeout for provisioning.
 	ctx, cancel := context.WithTimeout(ctx, time.Hour)
 	defer cancel()
@@ -132,7 +144,7 @@ func (s *ProvisionServer) provisionOS(ctx context.Context, si services.ServiceIn
 			codes.DeadlineExceeded,
 			"provision: timed out before provisioning OS",
 			tls.ProvisionDutResponse_REASON_PROVISIONING_TIMEDOUT.String())
-		return fmt.Errorf("deadline failure.")
+		return fmt.Errorf("deadline failure")
 	default:
 	}
 

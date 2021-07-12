@@ -8,8 +8,6 @@
 // Package mock_services is a generated GoMock package.
 package mock_services
 
-// Removing until gomock gets updated internally
-
 import (
 	context "context"
 	reflect "reflect"
@@ -53,6 +51,34 @@ func (m *MockServiceAdapterInterface) CopyData(ctx context.Context, url string) 
 func (mr *MockServiceAdapterInterfaceMockRecorder) CopyData(ctx, url interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyData", reflect.TypeOf((*MockServiceAdapterInterface)(nil).CopyData), ctx, url)
+}
+
+// CreateDirectories mocks base method.
+func (m *MockServiceAdapterInterface) CreateDirectories(ctx context.Context, dirs []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateDirectories", ctx, dirs)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateDirectories indicates an expected call of CreateDirectories.
+func (mr *MockServiceAdapterInterfaceMockRecorder) CreateDirectories(ctx, dirs interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateDirectories", reflect.TypeOf((*MockServiceAdapterInterface)(nil).CreateDirectories), ctx, dirs)
+}
+
+// DeleteDirectory mocks base method.
+func (m *MockServiceAdapterInterface) DeleteDirectory(ctx context.Context, dir string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteDirectory", ctx, dir)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteDirectory indicates an expected call of DeleteDirectory.
+func (mr *MockServiceAdapterInterfaceMockRecorder) DeleteDirectory(ctx, dir interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDirectory", reflect.TypeOf((*MockServiceAdapterInterface)(nil).DeleteDirectory), ctx, dir)
 }
 
 // PathExists mocks base method.

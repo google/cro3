@@ -24,6 +24,8 @@ type ServiceAdapterInterface interface {
 	Restart(ctx context.Context) error
 	PathExists(ctx context.Context, path string) (bool, error)
 	CopyData(ctx context.Context, url string) (string, error)
+	DeleteDirectory(ctx context.Context, dir string) error
+	CreateDirectories(ctx context.Context, dirs []string) error
 }
 
 type ServiceAdapter struct {
@@ -133,4 +135,22 @@ func (s ServiceAdapter) CopyData(ctx context.Context, url string) (string, error
 	}
 
 	return resp.GetUrl(), nil
+}
+
+// DeleteDirectory is a thin wrapper around an rm command. Done here as it is
+// expected to be reused often by many services.
+func (s ServiceAdapter) DeleteDirectory(ctx context.Context, dir string) error {
+	if _, err := s.RunCmd(ctx, "rm", []string{"-rf", dir}); err != nil {
+		return fmt.Errorf("could not delete directory, %w", err)
+	}
+	return nil
+}
+
+// Create directories is a thin wrapper around an mkdir command. Done here as it
+// is expected to be reused often by many services.
+func (s ServiceAdapter) CreateDirectories(ctx context.Context, dirs []string) error {
+	if _, err := s.RunCmd(ctx, "mkdir", append([]string{"-p"}, dirs...)); err != nil {
+		return fmt.Errorf("could not create directory, %w", err)
+	}
+	return nil
 }
