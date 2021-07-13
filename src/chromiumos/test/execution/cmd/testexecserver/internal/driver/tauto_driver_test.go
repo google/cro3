@@ -43,22 +43,17 @@ func TestGenTautoArgList(t *testing.T) {
 
 	var expectedArgList []string
 
-	runIndex := len(expectedArgList)
 	for key, value := range args.runFlags {
 		expectedArgList = append(expectedArgList, fmt.Sprintf("%v=%v", key, value))
 	}
-	dutIndex := len(expectedArgList)
 	expectedArgList = append(expectedArgList, dut1)
 	expectedArgList = append(expectedArgList, test1)
 	expectedArgList = append(expectedArgList, test2)
 
 	argList := genTautoArgList(&args)
 
-	// Sort both lists so that we can compare them.
-	sort.Sort(sort.StringSlice(expectedArgList[0:runIndex]))
-	sort.Sort(sort.StringSlice(argList[0:runIndex]))
-	sort.Sort(sort.StringSlice(expectedArgList[runIndex+1 : dutIndex]))
-	sort.Sort(sort.StringSlice(argList[runIndex+1 : dutIndex]))
+	sort.Strings(argList)
+	sort.Strings(expectedArgList)
 
 	if diff := cmp.Diff(argList, expectedArgList, cmp.AllowUnexported(tautoRunArgs{})); diff != "" {
 		t.Errorf("Got unexpected argument from genTautoArgList (-got %v +want %v):\n%s", argList, expectedArgList, diff)
