@@ -22,6 +22,7 @@ step_list = [
     step_names.FW_BUILD_CONFIG,
     step_names.CB_VARIANT,
     step_names.CB_CONFIG,
+    step_names.DC_VARIANT,
     step_names.ADD_FIT,
     step_names.GEN_FIT,
     step_names.COMMIT_FIT,

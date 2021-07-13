@@ -236,6 +236,13 @@ if [[ ! -z ${OVERLAY_DIR+x} ]] ; then
   popd
 fi
 
+# Explicitly set the desired firmware targets
+BUILD_TARGETS_SED="s/_FW_BUILD_CONFIG = None/_FW_BUILD_CONFIG = sc.create_fw_build_config(sc.create_fw_build_targets(\
+coreboot='${NEW}',\
+depthcharge='${NEW}',\
+libpayload='${BASE}',\
+ec='${NEW}'))\n/"
+
 # Create the project configuration repo, if defined.
 if [[ ! -z ${CONFIG_DIR+x} ]] ; then
   mkdir -p "${CONFIG_DIR}/${NEW}"
@@ -247,8 +254,9 @@ if [[ ! -z ${CONFIG_DIR+x} ]] ; then
   # fw_build_config.sh to make the changes we need. Instead just apply the
   # changes manually.
   pushd "${CONFIG_DIR}/${NEW}"
-  # Apply FW_BUILD_CONFIG to new project and build the config
-  sed -i -e "s/_FW_BUILD_CONFIG = None/_FW_BUILD_CONFIG = program.firmware_build_config(_${NEW_UPPER})/" config.star
+  # Load sw_config.star and update FW_BUILD_CONFIG to new project and build the config
+  sed -i '4s/^/load("\/\/config\/util\/sw_config.star",sc="sw_config")\n/' config.star
+  sed -i -e "${BUILD_TARGETS_SED}" config.star
   ./config.star
   popd
 fi

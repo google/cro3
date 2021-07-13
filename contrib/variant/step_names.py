@@ -13,6 +13,7 @@ from __future__ import print_function
 PROJECT_CONFIG  = 'project_config'
 CB_VARIANT      = 'cb_variant'
 CB_CONFIG       = 'cb_config'
+DC_VARIANT      = 'dc_variant'
 CRAS_CONFIG     = 'cras_config'
 ADD_FIT         = 'add_fit'
 GEN_FIT         = 'gen_fit'

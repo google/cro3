@@ -13,6 +13,7 @@ board, the following scripts are called:
 
 * platform/dev/contrib/variant/create_coreboot_variant.sh
 * platform/dev/contrib/variant/create_coreboot_config.sh
+* platform/dev/contrib/variant/create_depthcharge_config.sh
 * private-overlays/baseboard-hatch-private/sys-boot/
  * coreboot-private-files-hatch/files/add_fitimage.sh
  * coreboot-private-files-hatch/asset_generation/gen_fit_image.sh
@@ -27,6 +28,7 @@ Once the scripts are done, the following repos have changes
 * third_party/coreboot
 * third_party/chromiumos-overlay
 * private-overlays/baseboard-hatch-private
+* platform/depthcharge
 * platform/ec
 * private-overlays/overlay-hatch-private
 * overlays
@@ -234,6 +236,8 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
     * cb_config_dir - base directory for coreboot configs, usually
         third_party/chromiumos-overlay/sys-boot/coreboot/files/configs but
         could differ for processors that use a private repo
+    * depthcharge_dir - base directory for depthcharge, usually
+        platform/depthcharge
     * step_list - list of steps (named in step_names.py) to run in sequence
         to create the new variant of the reference board
     * ec_board - EC board to use as a reference. Defaults to the value of
@@ -374,6 +378,12 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
     status.coreboot_reference   = getattr(module, 'coreboot_reference',
                                           status.board)
     status.cb_config_dir        = getattr(module, 'cb_config_dir', None)
+    status.depthcharge_dir      = getattr(module, 'depthcharge_base',
+                                          'platform/depthcharge')
+    status.depthcharge_base     = getattr(module, 'depthcharge_base',
+                                          status.coreboot_base)
+    status.depthcharge_ref      = getattr(module, 'depthcharge_ref',
+                                          status.coreboot_base)
     status.ec_board             = getattr(module, 'ec_board', status.board)
     status.emerge_cmd           = module.emerge_cmd
     status.emerge_pkgs          = module.emerge_pkgs
@@ -425,6 +435,7 @@ def perform_step(status):
         step_names.FW_BUILD_CONFIG: fw_build_config,
         step_names.CB_VARIANT:      create_coreboot_variant,
         step_names.CB_CONFIG:       create_coreboot_config,
+        step_names.DC_VARIANT:      create_depthcharge_variant,
         step_names.CRAS_CONFIG:     copy_cras_config,
         step_names.ADD_FIT:         add_fitimage,
         step_names.GEN_FIT:         gen_fit_image_outside_chroot,
@@ -791,6 +802,35 @@ def create_coreboot_config(status):
             status.cb_config_dir or 'third_party/chromiumos-overlay')
         status.commits[step_names.CB_CONFIG] = get_git_commit_data(
             cb_config_dir)
+    return rc
+
+
+def create_depthcharge_variant(status):
+    """Create source files for a new variant of the reference board in depthcharge
+
+    This function calls create_depthcharge_variant.sh to set up a new variant
+    of the reference board.
+
+    Args:
+        status: variant_status object tracking our board, variant, etc.
+
+    Returns:
+        True if everything succeeded, False if something failed
+    """
+    logging.info('Running step create_depthcharge_variant')
+    dc_src_dir = os.path.join('/mnt/host/source/src/', status.depthcharge_dir)
+    environ = {**os.environ, 'DC_SRC_DIR': dc_src_dir,
+               'NEW_VARIANT_BRANCH': status.branch}
+    create_depthcharge_variant_sh = os.path.join(status.my_loc,
+        'create_depthcharge_variant.sh')
+    rc = run_process(
+        [create_depthcharge_variant_sh,
+        status.depthcharge_base,        # base
+        status.depthcharge_ref,         # reference
+        status.variant,                 # variant
+        status.bug], env=environ)
+    if rc:
+        status.commits[step_names.DC_VARIANT] = get_git_commit_data(dc_src_dir)
     return rc
 
 
