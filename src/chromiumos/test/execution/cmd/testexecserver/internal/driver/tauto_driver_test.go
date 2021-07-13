@@ -11,7 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-// TestNewTautoArgs makes sure newTastArgs creates the correct arguments for tast.
+// TestNewTautoArgs makes sure newTautoArgs creates the correct arguments for tauto.
 func TestNewTautoArgs(t *testing.T) {
 	expectedArgs := tautoRunArgs{
 		target:   dut1,
@@ -30,7 +30,7 @@ func TestNewTautoArgs(t *testing.T) {
 	}
 }
 
-// TestGenTautoArgList makes sure genTautoArgList generates the correct list of argument for tast.
+// TestGenTautoArgList makes sure genTautoArgList generates the correct list of argument for tauto.
 func TestGenTautoArgList(t *testing.T) {
 	args := tautoRunArgs{
 		target:   dut1,
