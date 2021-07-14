@@ -34,10 +34,11 @@ type ProvisionServer struct {
 	dutName    string
 	dutClient  api.DutServiceClient
 	wiringConn *grpc.ClientConn
+	noReboot   bool
 }
 
 // newProvisionServer creates a new provision service server to listen to rpc requests.
-func newProvisionServer(l net.Listener, logger *log.Logger, dutName string, conn *grpc.ClientConn, wiringConn *grpc.ClientConn) (*grpc.Server, error) {
+func newProvisionServer(l net.Listener, logger *log.Logger, dutName string, conn *grpc.ClientConn, wiringConn *grpc.ClientConn, noReboot bool) (*grpc.Server, error) {
 	s := &ProvisionServer{
 		Manager:    lro.New(),
 		logger:     logger,
@@ -61,7 +62,7 @@ func newProvisionServer(l net.Listener, logger *log.Logger, dutName string, conn
 func (s *ProvisionServer) InstallCros(ctx context.Context, req *api.InstallCrosRequest) (*longrunning.Operation, error) {
 	s.logger.Println("Received api.InstallCrosRequest: ", *req)
 	op := s.Manager.NewOperation()
-	cs := crosservice.NewCrOSService(s.dutName, s.dutClient, s.wiringConn, req)
+	cs := crosservice.NewCrOSService(s.dutName, s.dutClient, s.wiringConn, s.noReboot, req)
 	response := api.InstallCrosResponse{}
 	if s.provision(ctx, &cs, op) == nil {
 		response.Outcome = &api.InstallCrosResponse_Success{}

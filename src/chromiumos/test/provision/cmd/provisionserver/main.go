@@ -49,8 +49,9 @@ func main() {
 	os.Exit(func() int {
 		version := flag.Bool("version", false, "print version and exit.")
 		dutServiceAddress := flag.String("dut-service-address", "", "grcp address for dut-service.")
-		dutName := flag.String("dut-name", "", "The name of the DUT to be interfaced with.")
+		dutName := flag.String("dut-name", "", "the name of the DUT to be interfaced with.")
 		wiringAddress := flag.String("wiring-address", "", "wiring address TLW.")
+		noReboot := flag.Bool("no-reboot", false, "don't reboot DUT after install (labstation-specific).")
 		flag.Parse()
 
 		if *version {
@@ -96,7 +97,7 @@ func main() {
 		}
 		defer wiringConn.Close()
 
-		server, err := newProvisionServer(l, logger, *dutName, dutConn, wiringConn)
+		server, err := newProvisionServer(l, logger, *dutName, dutConn, wiringConn, *noReboot)
 		if err != nil {
 			logger.Fatalln("Failed to start provisionservice server: ", err)
 		}

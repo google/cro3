@@ -22,7 +22,7 @@ import (
 // File specific consts
 const (
 	autotestDir      = "/usr/local/autotest/deps/chrome_test/test_src/out/Release/"
-	stagingDirectory = "/tmp/_tls_chrome_deploy"
+	stagingDirectory = "/tmp/_provisioning_service_chrome_deploy"
 	targetDir        = "/opt/google/chrome"
 	tastDir          = "/usr/local/libexec/chrome-binary-tests/"
 )
@@ -76,7 +76,7 @@ type AshService struct {
 
 func NewAshService(dutName string, dutClient api.DutServiceClient, wiringConn *grpc.ClientConn, req *api.InstallAshRequest) AshService {
 	service := AshService{
-		connection: services.NewServiceAdapter(dutName, dutClient, wiringConn),
+		connection: services.NewServiceAdapter(dutName, dutClient, wiringConn, false /*noRebot*/),
 		imagePath:  req.AshImagePath,
 	}
 

@@ -28,9 +28,9 @@ type CrOSService struct {
 	dlcSpecs          []*api.InstallCrosRequest_DLCSpec
 }
 
-func NewCrOSService(dutName string, dutClient api.DutServiceClient, wiringConn *grpc.ClientConn, req *api.InstallCrosRequest) CrOSService {
+func NewCrOSService(dutName string, dutClient api.DutServiceClient, wiringConn *grpc.ClientConn, noReboot bool, req *api.InstallCrosRequest) CrOSService {
 	return CrOSService{
-		connection:        services.NewServiceAdapter(dutName, dutClient, wiringConn),
+		connection:        services.NewServiceAdapter(dutName, dutClient, wiringConn, noReboot),
 		imagePath:         req.CrosImagePath,
 		preserverStateful: req.PreserveStateful,
 		dlcSpecs:          req.DlcSpecs,

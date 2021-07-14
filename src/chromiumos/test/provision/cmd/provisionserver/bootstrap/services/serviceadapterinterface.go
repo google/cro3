@@ -32,13 +32,15 @@ type ServiceAdapter struct {
 	dutName    string
 	dutClient  api.DutServiceClient
 	wiringConn *grpc.ClientConn
+	noReboot   bool
 }
 
-func NewServiceAdapter(dutName string, dutClient api.DutServiceClient, wiringConn *grpc.ClientConn) ServiceAdapter {
+func NewServiceAdapter(dutName string, dutClient api.DutServiceClient, wiringConn *grpc.ClientConn, noReboot bool) ServiceAdapter {
 	return ServiceAdapter{
 		dutName:    dutName,
 		dutClient:  dutClient,
 		wiringConn: wiringConn,
+		noReboot:   noReboot,
 	}
 }
 
@@ -67,6 +69,10 @@ func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (
 
 // Restart restarts a DUT
 func (s ServiceAdapter) Restart(ctx context.Context) error {
+	if s.noReboot {
+		return nil
+	}
+
 	req := api.RestartRequest{
 		Args: []string{},
 	}

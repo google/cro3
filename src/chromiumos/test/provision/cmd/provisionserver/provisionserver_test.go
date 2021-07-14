@@ -532,10 +532,10 @@ func TestAshInstallStateTransitions(t *testing.T) {
 	st := as.GetFirstState()
 
 	gomock.InOrder(
-		sam.EXPECT().DeleteDirectory(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy")).Return(nil),
-		sam.EXPECT().CreateDirectories(gomock.Any(), gomock.Eq([]string{"/tmp/_tls_chrome_deploy"})).Return(nil),
+		sam.EXPECT().DeleteDirectory(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy")).Return(nil),
+		sam.EXPECT().CreateDirectories(gomock.Any(), gomock.Eq([]string{"/tmp/_provisioning_service_chrome_deploy"})).Return(nil),
 		sam.EXPECT().CopyData(gomock.Any(), "path/to/image").Return("image_url", nil),
-		sam.EXPECT().RunCmd(gomock.Any(), "", []string{"curl", "image_url", "|", "tar", "--ignore-command-error", "--overwrite", "--preserve-permissions", "--directory=/tmp/_tls_chrome_deploy", "-xf", "-"}).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), "", []string{"curl", "image_url", "|", "tar", "--ignore-command-error", "--overwrite", "--preserve-permissions", "--directory=/tmp/_provisioning_service_chrome_deploy", "-xf", "-"}).Return("", nil),
 		sam.EXPECT().CreateDirectories(gomock.Any(), gomock.Eq([]string{"/opt/google/chrome", "/usr/local/autotest/deps/chrome_test/test_src/out/Release/", "/usr/local/libexec/chrome-binary-tests/"})).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), "stop", []string{"ui"}).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), "lsof", []string{"/opt/google/chrome/chrome"}).Return("", errors.New("chrome is in use!")),
@@ -556,42 +556,42 @@ func TestAshInstallStateTransitions(t *testing.T) {
 
 	gomock.InOrder(
 		sam.EXPECT().RunCmd(gomock.Any(), "mount", []string{"-o", "remount,rw", "/"}).Return("", nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/ash_shell")).Return(true, nil),
-		sam.EXPECT().RunCmd(gomock.Any(), "rsync", []string{"-av", "/tmp/_tls_chrome_deploy/ash_shell", "/opt/google/chrome"}).Return("", nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/ash_shell")).Return(true, nil),
+		sam.EXPECT().RunCmd(gomock.Any(), "rsync", []string{"-av", "/tmp/_provisioning_service_chrome_deploy/ash_shell", "/opt/google/chrome"}).Return("", nil),
 		// For all items after we make them exist so we don't need to double every item (we assume that the test isn't breakable here):
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/aura_demo")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/chrome")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/chrome-wrapper")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/chrome.pak")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/chrome_100_percent.pak")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/chrome_200_percent.pak")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/content_shell")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/content_shell.pak")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/aura_demo")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/chrome")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/chrome-wrapper")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/chrome.pak")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/chrome_100_percent.pak")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/chrome_200_percent.pak")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/content_shell")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/content_shell.pak")).Return(false, nil),
 		// Testing this one specifically as it should map to the designated folder rather than the top-most:
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/extensions/")).Return(true, nil),
-		sam.EXPECT().RunCmd(gomock.Any(), "rsync", []string{"-av", "/tmp/_tls_chrome_deploy/extensions/", "/opt/google/chrome/extensions"}).Return("", nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/lib/*.so")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/libffmpegsumo.so")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/libpdf.so")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/libppGoogleNaClPluginChrome.so")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/libosmesa.so")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/libwidevinecdmadapter.so")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/libwidevinecdm.so")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/locales/")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/nacl_helper_bootstrap")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/nacl_irt_*.nexe")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/nacl_helper")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/resources/")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/resources.pak")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/xdg-settings")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/*.png")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/extensions/")).Return(true, nil),
+		sam.EXPECT().RunCmd(gomock.Any(), "rsync", []string{"-av", "/tmp/_provisioning_service_chrome_deploy/extensions/", "/opt/google/chrome/extensions"}).Return("", nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/lib/*.so")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/libffmpegsumo.so")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/libpdf.so")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/libppGoogleNaClPluginChrome.so")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/libosmesa.so")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/libwidevinecdmadapter.so")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/libwidevinecdm.so")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/locales/")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/nacl_helper_bootstrap")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/nacl_irt_*.nexe")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/nacl_helper")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/resources/")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/resources.pak")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/xdg-settings")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/*.png")).Return(false, nil),
 
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/*test")).Return(true, nil),
-		sam.EXPECT().RunCmd(gomock.Any(), "rsync", []string{"-av", "/tmp/_tls_chrome_deploy/*test", "/usr/local/autotest/deps/chrome_test/test_src/out/Release"}).Return("", nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/*test")).Return(true, nil),
-		sam.EXPECT().RunCmd(gomock.Any(), "rsync", []string{"-av", "/tmp/_tls_chrome_deploy/*test", "/usr/local/libexec/chrome-binary-tests"}).Return("", nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/*tests")).Return(false, nil),
-		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy/*tests")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/*test")).Return(true, nil),
+		sam.EXPECT().RunCmd(gomock.Any(), "rsync", []string{"-av", "/tmp/_provisioning_service_chrome_deploy/*test", "/usr/local/autotest/deps/chrome_test/test_src/out/Release"}).Return("", nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/*test")).Return(true, nil),
+		sam.EXPECT().RunCmd(gomock.Any(), "rsync", []string{"-av", "/tmp/_provisioning_service_chrome_deploy/*test", "/usr/local/libexec/chrome-binary-tests"}).Return("", nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/*tests")).Return(false, nil),
+		sam.EXPECT().PathExists(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy/*tests")).Return(false, nil),
 	)
 
 	if err := st.Execute(ctx); err != nil {
@@ -604,7 +604,7 @@ func TestAshInstallStateTransitions(t *testing.T) {
 	gomock.InOrder(
 		sam.EXPECT().RunCmd(gomock.Any(), "killall", []string{"-HUP", "dbus-daemon"}).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), "start", []string{"ui"}).Return("", nil),
-		sam.EXPECT().DeleteDirectory(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy")).Return(nil),
+		sam.EXPECT().DeleteDirectory(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy")).Return(nil),
 	)
 
 	if err := st.Execute(ctx); err != nil {
@@ -636,10 +636,10 @@ func TestPkillOnlyRunsForTenSeconds(t *testing.T) {
 	st := as.GetFirstState()
 
 	gomock.InOrder(
-		sam.EXPECT().DeleteDirectory(gomock.Any(), gomock.Eq("/tmp/_tls_chrome_deploy")).Return(nil),
-		sam.EXPECT().CreateDirectories(gomock.Any(), gomock.Eq([]string{"/tmp/_tls_chrome_deploy"})).Return(nil),
+		sam.EXPECT().DeleteDirectory(gomock.Any(), gomock.Eq("/tmp/_provisioning_service_chrome_deploy")).Return(nil),
+		sam.EXPECT().CreateDirectories(gomock.Any(), gomock.Eq([]string{"/tmp/_provisioning_service_chrome_deploy"})).Return(nil),
 		sam.EXPECT().CopyData(gomock.Any(), "path/to/image").Return("image_url", nil),
-		sam.EXPECT().RunCmd(gomock.Any(), "", []string{"curl", "image_url", "|", "tar", "--ignore-command-error", "--overwrite", "--preserve-permissions", "--directory=/tmp/_tls_chrome_deploy", "-xf", "-"}).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), "", []string{"curl", "image_url", "|", "tar", "--ignore-command-error", "--overwrite", "--preserve-permissions", "--directory=/tmp/_provisioning_service_chrome_deploy", "-xf", "-"}).Return("", nil),
 		sam.EXPECT().CreateDirectories(gomock.Any(), gomock.Eq([]string{"/opt/google/chrome", "/usr/local/autotest/deps/chrome_test/test_src/out/Release/", "/usr/local/libexec/chrome-binary-tests/"})).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), "stop", []string{"ui"}).Return("", nil),
 	)

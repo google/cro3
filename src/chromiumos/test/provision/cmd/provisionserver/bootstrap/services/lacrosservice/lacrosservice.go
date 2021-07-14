@@ -31,7 +31,7 @@ type LaCrOSService struct {
 
 func NewLaCrOSService(dutName string, dutClient api.DutServiceClient, wiringConn *grpc.ClientConn, req *api.InstallLacrosRequest) (LaCrOSService, error) {
 	service := LaCrOSService{
-		connection: services.NewServiceAdapter(dutName, dutClient, wiringConn),
+		connection: services.NewServiceAdapter(dutName, dutClient, wiringConn, false /*noReboot*/),
 		imagePath:  req.LacrosImagePath,
 	}
 
