@@ -21,41 +21,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Tests if DutServiceServer can handle empty request without problem.
-func TestDutServiceServer_Empty(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mci := mock_dutssh.NewMockClientInterface(ctrl)
-	mci.EXPECT().Close()
-
-	var logBuf bytes.Buffer
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatal("Failed to create a net listener: ", err)
-	}
-
-	ctx := context.Background()
-	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "", 0, "dutname", "wiringaddress")
-	defer destructor()
-	if err != nil {
-		t.Fatalf("Failed to start DutServiceServer: %v", err)
-	}
-	go srv.Serve(l)
-	defer srv.Stop()
-
-	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
-	if err != nil {
-		t.Fatalf("Failed to dial: %v", err)
-	}
-	defer conn.Close()
-
-	cl := api.NewDutServiceClient(conn)
-	if _, err := cl.ExecCommand(ctx, &api.ExecCommandRequest{}); err != nil {
-		t.Fatalf("Failed at api.ExecCommand: %v", err)
-	}
-}
-
 // Tests that a command executes successfully
 func TestDutServiceServer_CommandWorks(t *testing.T) {
 	ctrl := gomock.NewController(t)
