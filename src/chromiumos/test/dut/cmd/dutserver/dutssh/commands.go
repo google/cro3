@@ -9,6 +9,21 @@ import (
 	"strings"
 )
 
+type CmdResult struct {
+	ReturnCode int32
+	StdOut     string
+	StdErr     string
+}
+
+// Simple interface abstracting away many details around SSH/streaming for
+// clients that execute many simple/quick commands.
+// This insulate clients from the full complexity of DutServer and also
+// makes it easier to test logic that's focused on command execution results.
+// E.g. Identity scanning
+type CmdExecutor interface {
+	RunCmd(cmd string) (*CmdResult, error)
+}
+
 // Formatters for commands
 
 func PathExistsCommand(path string) string {
