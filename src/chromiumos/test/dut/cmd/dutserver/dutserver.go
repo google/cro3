@@ -28,6 +28,7 @@ import (
 
 	"chromiumos/lro"
 	"chromiumos/test/dut/cmd/dutserver/dutssh"
+	"chromiumos/test/dut/internal"
 )
 
 // DutServiceServer implementation of dut_service.proto
@@ -179,12 +180,22 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 	}
 }
 
-// TODO(shapiroc): implement
+// RunCmd implements the dutssh.CmdExecutor interface.
+func (s *DutServiceServer) RunCmd(cmd string) (*dutssh.CmdResult, error) {
+	resp := s.runCmd(cmd, nil, false)
+	return &dutssh.CmdResult{
+		ReturnCode: resp.ExitInfo.Status,
+		StdOut:     string(resp.GetStdout()),
+		StdErr:     string(resp.GetStderr()),
+	}, nil
+}
+
+// DetectDeviceConfigId scans a live device and returns identity info.
 func (s *DutServiceServer) DetectDeviceConfigId(
 	req *api.DetectDeviceConfigIdRequest,
 	stream api.DutService_DetectDeviceConfigIdServer) error {
-	s.logger.Println("TODO: implement DetectDeviceConfigId", *req)
-	return nil
+	resp := internal.DetectDeviceConfigID(s)
+	return stream.Send(resp)
 }
 
 // readFetchCrashesProto reads stdout and transforms it into a FetchCrashesResponse
