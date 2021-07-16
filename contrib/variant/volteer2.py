@@ -17,7 +17,13 @@ import step_names
 base = 'volteer'
 
 # Name of the reference board
-board = 'volteer'
+board = 'volteer2'
+
+# Name of the reference board for EC
+ec_board = 'volteer'
+
+# Name of the reference board for coreboot
+coreboot_reference = 'volteer'
 
 # List of steps (named in step_names.py) to run in sequence to create
 # the new variant of the baseboard

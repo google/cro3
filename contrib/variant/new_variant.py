@@ -780,7 +780,7 @@ def create_coreboot_config(status):
     rc = run_process(
         [create_coreboot_config_sh,
         status.base,
-        status.coreboot_reference,
+        status.board,
         status.variant,
         status.bug], env=environ)
     if rc:
