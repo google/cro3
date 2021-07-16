@@ -130,6 +130,17 @@ func (s *ProvisionServer) InstallArc(ctx context.Context, req *api.InstallArcReq
 	return op, nil
 }
 
+// InstallFirmware installs AP/EC firmware to the DUT
+//
+// TODO(shapiroc): Implement this
+func (s *ProvisionServer) InstallFirmware(ctx context.Context, req *api.InstallFirmwareRequest) (*longrunning.Operation, error) {
+	s.logger.Println("Received api.InstallFirmwareRequest: ", *req)
+	s.logger.Println("TODO(shapiroc): Implement")
+	op := s.Manager.NewOperation()
+	s.Manager.SetResult(op.Name, &api.InstallFirmwareResponse{})
+	return op, nil
+}
+
 // provision effectively acts as a state transition runner for each of the
 // installation services, transitioning between states as required, and
 // executing each state. Operation status is also set at this state in case of
