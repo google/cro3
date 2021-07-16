@@ -52,8 +52,10 @@ func flatConfig(program, design, designConfig string, firmwareROVersion *buildpb
 		SwConfig: &software.SoftwareConfig{
 			Firmware: &buildpb.FirmwareConfig{
 				MainRoPayload: &buildpb.FirmwarePayload{
-					Version:           firmwareROVersion,
-					FirmwareImageName: firmwareImageName,
+					Version: firmwareROVersion,
+					FirmwareImage: &buildpb.FirmwarePayload_FirmwareImageName{
+						FirmwareImageName: firmwareImageName,
+					},
 				},
 			},
 		},
