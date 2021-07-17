@@ -42,6 +42,11 @@ func NewTautoDriver(logger *log.Logger) *TautoDriver {
 	}
 }
 
+// Type returns the type of driver.
+func (td *TautoDriver) Type() Type {
+	return Tauto
+}
+
 // RunTests drives a test framework to execute tests.
 func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string) (*api.RunTestsResponse, error) {
 	path := "/usr/bin/test_that" // Default path of test_that.

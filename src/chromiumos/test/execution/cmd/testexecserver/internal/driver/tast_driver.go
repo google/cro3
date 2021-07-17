@@ -35,6 +35,11 @@ func NewTastDriver(logger *log.Logger) *TastDriver {
 	}
 }
 
+// Type returns the type of driver.
+func (td *TastDriver) Type() Type {
+	return Tast
+}
+
 // RunTests drives a test framework to execute tests.
 func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string) (*api.RunTestsResponse, error) {
 	path := "/usr/bin/tast" // Default path of tast which can be overridden later.

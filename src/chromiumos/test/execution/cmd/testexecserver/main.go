@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"chromiumos/test/execution/cmd/testexecserver/internal/metadata"
 	"chromiumos/test/execution/errors"
 )
 
@@ -51,11 +52,10 @@ func main() {
 	os.Exit(func() int {
 		version := flag.Bool("version", false, "print version and exit")
 		input := flag.String("input", "input.json", "specify the test execution request json input file")
-		output := flag.String("output", "output.json", "specify the test execution request json output file")
+		output := flag.String("output", "output.json", "specify the test execution response json output file")
 		tlwAddr := flag.String("tlwaddr", "", "specify the tlw address")
-
-		// TODO: Use it as a temporary flag to help development. Will be removed after metadata support.
-		driver := flag.String("driver", "tast", "specify a driver (tast/tauto) to be used.")
+		metadataDir := flag.String("metadatadir", "/usrlocal/testmetadata/",
+			"specify a directory that contain all test metadata proto files.")
 
 		flag.Parse()
 
@@ -77,8 +77,13 @@ func main() {
 		if err != nil {
 			return errors.WriteError(os.Stderr, err)
 		}
+
+		metadata, err := metadata.ReadDir(*metadataDir)
+		if err != nil {
+			return errors.WriteError(os.Stderr, err)
+		}
 		ctx := context.Background()
-		rspn, err := runTests(ctx, logger, *tlwAddr, *driver, req)
+		rspn, err := runTests(ctx, logger, *tlwAddr, metadata, req)
 		if err != nil {
 			return errors.WriteError(os.Stderr, err)
 		}

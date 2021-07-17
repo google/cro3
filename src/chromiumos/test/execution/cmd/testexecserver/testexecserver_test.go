@@ -5,7 +5,9 @@
 package main
 
 import (
+	"bytes"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +16,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
+
+	"chromiumos/test/execution/cmd/testexecserver/internal/driver"
 )
 
 func TestReadInput(t *testing.T) {
@@ -115,5 +119,149 @@ func TestWriteOutput(t *testing.T) {
 	}
 	if diff := cmp.Diff(rspn, expectedRspn, cmp.AllowUnexported(api.RunTestsResponse{})); diff != "" {
 		t.Errorf("Got unexpected data from writeOutput (-got +want):\n%s", diff)
+	}
+}
+
+var mdList = &api.TestCaseMetadataList{
+	Values: []*api.TestCaseMetadata{
+		{
+			TestCase: &api.TestCase{
+				Id: &api.TestCase_Id{
+					Value: "tast/test001",
+				},
+				Name: "tastTest",
+				Tags: []*api.TestCase_Tag{
+					{Value: "attr1"},
+					{Value: "attr2"},
+				},
+			},
+			TestCaseExec: &api.TestCaseExec{
+				TestHarness: &api.TestHarness{
+					TestHarnessType: &api.TestHarness_Tast_{
+						Tast: &api.TestHarness_Tast{},
+					},
+				},
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{Email: "someone1@chromium.org"},
+					{Email: "someone2@chromium.org"},
+				},
+			},
+		},
+		{
+			TestCase: &api.TestCase{
+				Id: &api.TestCase_Id{
+					Value: "tauto/test002",
+				},
+				Name: "tautoTest",
+				Tags: []*api.TestCase_Tag{
+					{Value: "attr1"},
+					{Value: "attr2"},
+				},
+			},
+			TestCaseExec: &api.TestCaseExec{
+				TestHarness: &api.TestHarness{
+					TestHarnessType: &api.TestHarness_Tauto_{
+						Tauto: &api.TestHarness_Tauto{},
+					},
+				},
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{Email: "someone1@chromium.org"},
+					{Email: "someone2@chromium.org"},
+				},
+			},
+		},
+	},
+}
+
+// TestDriverToTestsMappingMissingMetadata make sure driverToTestsMapping return
+// error when there is missing metadata..
+func TestDriverToTestsMappingMissingMetadata(t *testing.T) {
+	var buf bytes.Buffer
+	logger := log.New(&buf, "logger: ", log.Lshortfile)
+	tests := []string{"tastTest", "tautoTest"}
+
+	ml := &api.TestCaseMetadataList{
+		Values: []*api.TestCaseMetadata{
+			mdList.Values[0],
+		},
+	}
+
+	_, err := driverToTestsMapping(logger, tests, ml)
+	if err == nil {
+		t.Fatal("Failed to get error from driverToTestsMapping when there is missing metadata")
+	}
+}
+
+// TestDriverToTestsMapping make sure driverToTestsMapping return correct values.
+func TestDriverToTestsMapping(t *testing.T) {
+	var buf bytes.Buffer
+	logger := log.New(&buf, "logger: ", log.Lshortfile)
+	tests := []string{"tastTest", "tautoTest"}
+
+	driverToTests, err := driverToTestsMapping(logger, tests, mdList)
+	if err != nil {
+		t.Fatal("Failed to call driverToTestsMapping: ", err)
+	}
+
+	if len(driverToTests) != len(tests) {
+		t.Fatalf("Got unexpected number of drivers from driverToTestsMapping %d: want %d",
+			len(driverToTests), len(tests))
+	}
+	hasTast := false
+	hasTauto := false
+	for d, ts := range driverToTests {
+		var expected []string
+		switch d.Type() {
+		case driver.Tast:
+			expected = []string{"tastTest"}
+			hasTast = true
+		case driver.Tauto:
+			expected = []string{"tautoTest"}
+			hasTauto = true
+		default:
+			t.Fatal("Unexpected driver type returned from driverToTestsMapping: ", d.Type())
+		}
+		if diff := cmp.Diff(ts, expected); diff != "" {
+			t.Errorf("Got unexpected data from driverToTestsMapping (-got +want):\n%s", diff)
+		}
+	}
+	if !hasTast {
+		t.Error("Did not get tast driver from driverToTestsMapping")
+	}
+	if !hasTauto {
+		t.Error("Did not get tauto driver from driverToTestsMapping")
+	}
+}
+
+func TestGetTests(t *testing.T) {
+	expReq := &api.RunTestsRequest{
+		TestSuites: []*api.TestSuite{
+			{
+				Name: "suite1",
+				TestCaseIds: &api.TestCaseIdList{
+					TestCaseIds: []*api.TestCase_Id{
+						{
+							Value: "example.Pass",
+						},
+						{
+							Value: "example.Fail",
+						},
+					},
+				},
+			},
+		},
+		Dut: &api.DeviceInfo{
+			PrimaryHost: "127.0.0.1:2222",
+		},
+	}
+
+	tests := getTests(expReq)
+	expected := []string{"example.Pass", "example.Fail"}
+	if diff := cmp.Diff(tests, expected); diff != "" {
+		t.Errorf("Got unexpected data from getTests (-got +want):\n%s", diff)
 	}
 }
