@@ -29,5 +29,5 @@ type Driver interface {
 	RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string) (*api.RunTestsResponse, error)
 
 	// Types returns the type of driver.
-	Type() Type
+	Type() *api.TestHarness
 }

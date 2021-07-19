@@ -43,8 +43,8 @@ func NewTautoDriver(logger *log.Logger) *TautoDriver {
 }
 
 // Type returns the type of driver.
-func (td *TautoDriver) Type() Type {
-	return Tauto
+func (td *TautoDriver) Type() *api.TestHarness {
+	return &api.TestHarness{TestHarnessType: &api.TestHarness_Tauto_{Tauto: &api.TestHarness_Tauto{}}}
 }
 
 // RunTests drives a test framework to execute tests.

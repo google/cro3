@@ -16,8 +16,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
-
-	"chromiumos/test/execution/cmd/testexecserver/internal/driver"
 )
 
 func TestReadInput(t *testing.T) {
@@ -215,14 +213,14 @@ func TestDriverToTestsMapping(t *testing.T) {
 	hasTauto := false
 	for d, ts := range driverToTests {
 		var expected []string
-		switch d.Type() {
-		case driver.Tast:
+		ht := d.Type()
+		if ht.GetTast() != nil {
 			expected = []string{"tastTest"}
 			hasTast = true
-		case driver.Tauto:
+		} else if ht.GetTauto() != nil {
 			expected = []string{"tautoTest"}
 			hasTauto = true
-		default:
+		} else {
 			t.Fatal("Unexpected driver type returned from driverToTestsMapping: ", d.Type())
 		}
 		if diff := cmp.Diff(ts, expected); diff != "" {

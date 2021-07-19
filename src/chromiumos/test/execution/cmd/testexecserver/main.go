@@ -54,7 +54,7 @@ func main() {
 		input := flag.String("input", "input.json", "specify the test execution request json input file")
 		output := flag.String("output", "output.json", "specify the test execution response json output file")
 		tlwAddr := flag.String("tlwaddr", "", "specify the tlw address")
-		metadataDir := flag.String("metadatadir", "/usrlocal/testmetadata/",
+		metadataDir := flag.String("metadatadir", "/usr/local/testmetadata/",
 			"specify a directory that contain all test metadata proto files.")
 
 		flag.Parse()

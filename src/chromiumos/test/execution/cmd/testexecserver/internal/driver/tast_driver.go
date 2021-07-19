@@ -36,8 +36,8 @@ func NewTastDriver(logger *log.Logger) *TastDriver {
 }
 
 // Type returns the type of driver.
-func (td *TastDriver) Type() Type {
-	return Tast
+func (td *TastDriver) Type() *api.TestHarness {
+	return &api.TestHarness{TestHarnessType: &api.TestHarness_Tast_{Tast: &api.TestHarness_Tast{}}}
 }
 
 // RunTests drives a test framework to execute tests.
