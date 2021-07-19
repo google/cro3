@@ -22,17 +22,17 @@ func TestTestsReports(t *testing.T) {
 	testJSON := `
 	{"tests":[
 	  {
-	  "verdict": "PASS",
+	  "verdict": "Pass",
 	  "testname": "infra_pass",
 	  "errmsg": ""
 	},
 	  {
-	  "verdict": "FAIL",
+	  "verdict": "Fail",
 	  "testname": "infra_fail",
 	  "errmsg": "OH NO IT FAILED Q_Q"
 	},
 	  {
-	  "verdict": "ERROR",
+	  "verdict": "Error",
 	  "testname": "infra_err",
 	  "errmsg": "I drove my car into a tree, and crashed."
 	}]
@@ -42,7 +42,7 @@ func TestTestsReports(t *testing.T) {
 		t.Fatal("Failed to create temporary dictectory: ", err)
 	}
 	defer os.RemoveAll(td)
-	fn := filepath.Join(td, "test_results.json")
+	fn := filepath.Join(td, "results.json")
 	fmt.Println("PRINTING TO FILE")
 	fmt.Println(fn)
 

@@ -51,11 +51,13 @@ func (td *TautoDriver) Type() *api.TestHarness {
 func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string) (*api.RunTestsResponse, error) {
 	path := "/usr/bin/test_that" // Default path of test_that.
 
-	if resultsDir != "" {
-		// Make sure the result directory exists.
-		if err := os.MkdirAll(resultsDir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create result directory %v", resultsDir)
-		}
+	if resultsDir == "" {
+		t := time.Now()
+		resultsDir = filepath.Join("/tmp/results/autotest", t.Format("20060102-150405"))
+	}
+	// Make sure the result directory exists.
+	if err := os.MkdirAll(resultsDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create result directory %v", resultsDir)
 	}
 
 	args := newTautoArgs(dut, tests, resultsDir)
@@ -130,12 +132,6 @@ func newTautoArgs(dut string, tests []string, resultsDir string) *tautoRunArgs {
 	}
 
 	args.patterns = tests // TO-DO Support Tags
-
-	if resultsDir == "" {
-		t := time.Now()
-		resultsDir = filepath.Join("/tmp/results/autotest", t.Format("20060102-150405"))
-	}
-
 	args.runFlags[tautoResultsDirFlag] = resultsDir
 	return &args
 }

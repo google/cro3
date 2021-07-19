@@ -40,11 +40,11 @@ type test struct {
 
 // loadJSON unmarshals the json into the Report.RawResults struct.
 func (r *Report) loadJSON(resultsDir string) error {
-	plan, _ := ioutil.ReadFile(filepath.Join(resultsDir, "test_results.json"))
+	plan, _ := ioutil.ReadFile(filepath.Join(resultsDir, "results.json"))
 	err := json.Unmarshal(plan, &r.RawResults)
 	if err != nil {
 		return errors.NewStatusError(errors.UnmarshalError,
-			fmt.Errorf("failed to unmarshal results: %v", err))
+			fmt.Errorf("failed to unmarshal results: %v From: %v", err, resultsDir))
 	}
 	return nil
 }
@@ -64,9 +64,9 @@ func GenerateReport(test test, resultsDir string) *api.TestCaseResult {
 	}
 
 	// Change result to fail/err as needed.
-	if test.Verdict == "FAIL" {
+	if test.Verdict == "Fail" {
 		testResult.Verdict = &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}}
-	} else if test.Verdict == "ERROR" {
+	} else if test.Verdict == "Error" {
 		testResult.Verdict = &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}}
 	}
 	// r.testCaseResults = append(r.testCaseResults, &testResult)
