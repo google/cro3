@@ -14,20 +14,39 @@ import (
 	"strings"
 )
 
+func runCmd(cmdStr ...string) (string, error) {
+	cmd := exec.Command(cmdStr[0], cmdStr[1:]...)
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("%v: %v", err, stderr.String())
+	}
+
+	return out.String(), nil
+}
+
+func abandonDut(hostname string) {
+	log.Println("Abandoning DUT at " + hostname + "...")
+	ret, err := runCmd("crosfleet", "dut", "abandon", hostname)
+	if err != nil {
+		log.Fatal(fmt.Errorf("error abandoning DUT: %v", err))
+	}
+	log.Println(ret)
+}
+
 func flashKernel(hostname string, imageId string) error {
 	board, err := getDutBoard(hostname)
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command("cros", "flash", "--board="+board, "ssh://root@"+hostname+".cros",
-		"xBuddy://remote/"+board+"-debug-kernel-postsubmit/"+imageId)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
 	log.Printf("Flashing kernel onto DUT...")
-	err = cmd.Run()
-	if err != nil {
-		return fmt.Errorf("error flashing kernel onto DUT: %v: %v", err, stderr.String())
+	ssh := "ssh://root@" + hostname + ".cros"
+	xBuddy := "xBuddy://remote/" + board + "-debug-kernel-postsubmit/" + imageId
+	if _, err = runCmd("cros", "flash", "--board="+board, ssh, xBuddy); err != nil {
+		return fmt.Errorf("error flashing kernel onto DUT: %v", err)
 	}
 	log.Printf("Finished flashing kernel onto DUT")
 
@@ -35,15 +54,9 @@ func flashKernel(hostname string, imageId string) error {
 }
 
 func getDutBoard(hostname string) (string, error) {
-	cmd := exec.Command("crosfleet", "dut", "info", hostname)
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
+	ret, err := runCmd("crosfleet", "dut", "info", hostname)
 	if err != nil {
-		return "", fmt.Errorf("error getting dut info: %v: %v", err, stderr.String())
+		return "", fmt.Errorf("error getting dut info: %v", err)
 	}
 
 	/* out.String() looks like:
@@ -53,29 +66,23 @@ func getDutBoard(hostname string) (string, error) {
 	SERVO_HOSTNAME=chromeos6-row17-rack16-labstation1
 	SERVO_PORT=9985
 	SERVO_SERIAL=G1911051544 */
-	lines := strings.Split(out.String(), "\n")
+	lines := strings.Split(ret, "\n")
 	return strings.Split(lines[2], "=")[1], nil
 }
 
 func leaseDut(model string, minutes int) (string, error) {
-	cmd := exec.Command("crosfleet", "dut", "lease", "-model", model, "--minutes", strconv.Itoa(minutes))
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
 	log.Printf("Leasing model %v device for %v minutes...\n", model, minutes)
-	err := cmd.Run()
+	ret, err := runCmd("crosfleet", "dut", "lease", "-model", model, "--minutes", strconv.Itoa(minutes))
 	if err != nil {
-		return "", fmt.Errorf("error leasing device: %v: %v", err, stderr.String())
+		return "", fmt.Errorf("error leasing device: %v", err)
 	}
 
 	// prints out lease information for user
-	log.Println(out.String())
+	log.Println(ret)
 
 	// out.String() looks like "Leased chromeos6-row18-rack16-host10 until 19 Jul 21 19:58 UTC"
 	// returns hostname, e.g. chromeos6-row18-rack16-host10
-	return strings.Split(out.String(), " ")[1], nil
+	return strings.Split(ret, " ")[1], nil
 }
 
 func main() {
@@ -89,9 +96,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer abandonDut(hostname)
 
 	err = flashKernel(hostname, *imageId)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }
