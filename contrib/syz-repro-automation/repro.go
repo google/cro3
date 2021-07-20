@@ -37,10 +37,36 @@ func abandonDut(hostname string) {
 	log.Println(ret)
 }
 
+func getLatestImage(board string) (string, error) {
+	bucket := "gs://chromeos-image-archive/" + board + "-debug-kernel-postsubmit"
+	ret, err := runCmd("gsutil.py", "ls", bucket)
+	if err != nil {
+		return "", err
+	}
+	lines := strings.Split(ret, "\n")
+
+	// The last line is a blank line
+	imageLine := lines[len(lines)-2]
+	sections := strings.Split(imageLine, "/")
+
+	// Line looks like gs://chromeos-image-archive/octopus-debug-kernel-postsubmit/R94-14102.0.0-51496-8841198623588369056/
+	// Last element is empty
+	latestImage := sections[len(sections)-2]
+	log.Printf("Found latest image %v for board %v\n", latestImage, board)
+	return latestImage, nil
+}
+
 func flashKernel(hostname string, imageId string) error {
 	board, err := getDutBoard(hostname)
 	if err != nil {
 		return err
+	}
+	if imageId == "" {
+		log.Printf("Image id not provided, fetching latest image for board %v...\n", board)
+		imageId, err = getLatestImage(board)
+		if err != nil {
+			return err
+		}
 	}
 	log.Printf("Flashing kernel onto DUT...")
 	ssh := "ssh://root@" + hostname + ".cros"
@@ -88,7 +114,7 @@ func leaseDut(model string, minutes int) (string, error) {
 func main() {
 	model := flag.String("model", "garg", "Model for leased DUT")
 	minutes := flag.Int("minutes", 60, "Number of minutes to lease DUT")
-	imageId := flag.String("imageid", "R93-14027.0.0-49783-8844471042827170672", "Kernel image id to flash onto DUT")
+	imageId := flag.String("imageid", "", "Kernel image id to flash onto DUT")
 
 	flag.Parse()
 
