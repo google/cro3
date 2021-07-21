@@ -118,8 +118,10 @@ func TestGenerate(t *testing.T) {
 			},
 			TestSuites: []*testpb.TestSuite{
 				{
-					TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-						TagExcludes: []string{"flaky"},
+					Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+						TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+							TagExcludes: []string{"flaky"},
+						},
 					},
 				},
 			},
@@ -136,8 +138,10 @@ func TestGenerate(t *testing.T) {
 			},
 			TestSuites: []*testpb.TestSuite{
 				{
-					TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-						TagExcludes: []string{"flaky"},
+					Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+						TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+							TagExcludes: []string{"flaky"},
+						},
 					},
 				},
 			},

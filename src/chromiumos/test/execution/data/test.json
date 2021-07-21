@@ -5,12 +5,18 @@
 			"test_case_ids" : {
 				"test_case_ids" : [
 					{
-						"value" : "example.Pass"
+						"value" : "remoteTestDrivers/tast/tests/example.Pass"
 					},
 					{
-						"value" : "example.Fail"
+						"value" : "remoteTestDrivers/tast/tests/example.Fail"
 					}
 				]
+			}
+		},
+		{
+			"name" : "suite2",
+			"testCaseTagCriteria" : {
+				"tags":["group:meta"]
 			}
 		}
 	],

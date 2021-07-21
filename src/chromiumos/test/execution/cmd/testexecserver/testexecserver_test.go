@@ -23,14 +23,24 @@ func TestReadInput(t *testing.T) {
 		TestSuites: []*api.TestSuite{
 			{
 				Name: "suite1",
-				TestCaseIds: &api.TestCaseIdList{
-					TestCaseIds: []*api.TestCase_Id{
-						{
-							Value: "example.Pass",
+				Spec: &api.TestSuite_TestCaseIds{
+					TestCaseIds: &api.TestCaseIdList{
+						TestCaseIds: []*api.TestCase_Id{
+							{
+								Value: "example.Pass",
+							},
+							{
+								Value: "example.Fail",
+							},
 						},
-						{
-							Value: "example.Fail",
-						},
+					},
+				},
+			},
+			{
+				Name: "suite2",
+				Spec: &api.TestSuite_TestCaseTagCriteria_{
+					TestCaseTagCriteria: &api.TestSuite_TestCaseTagCriteria{
+						Tags: []string{"group:meta"},
 					},
 				},
 			},
@@ -49,11 +59,13 @@ func TestReadInput(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to create temporary dictectory: ", err)
 	}
+
 	defer os.RemoveAll(td)
 	fn := filepath.Join(td, "t.json")
 	if err := ioutil.WriteFile(fn, []byte(encodedData), 0644); err != nil {
 		t.Fatalf("Failed to write file %v: %v", fn, err)
 	}
+	ioutil.WriteFile("/tmp/t.json", []byte(encodedData), 0644)
 	req, err := readInput(fn)
 	if err != nil {
 		t.Fatalf("Failed to read input file %v: %v", fn, err)
@@ -175,32 +187,13 @@ var mdList = &api.TestCaseMetadataList{
 	},
 }
 
-// TestDriverToTestsMappingMissingMetadata make sure driverToTestsMapping return
-// error when there is missing metadata..
-func TestDriverToTestsMappingMissingMetadata(t *testing.T) {
-	var buf bytes.Buffer
-	logger := log.New(&buf, "logger: ", log.Lshortfile)
-	tests := []string{"tastTest", "tautoTest"}
-
-	ml := &api.TestCaseMetadataList{
-		Values: []*api.TestCaseMetadata{
-			mdList.Values[0],
-		},
-	}
-
-	_, err := driverToTestsMapping(logger, tests, ml)
-	if err == nil {
-		t.Fatal("Failed to get error from driverToTestsMapping when there is missing metadata")
-	}
-}
-
 // TestDriverToTestsMapping make sure driverToTestsMapping return correct values.
 func TestDriverToTestsMapping(t *testing.T) {
 	var buf bytes.Buffer
 	logger := log.New(&buf, "logger: ", log.Lshortfile)
 	tests := []string{"tastTest", "tautoTest"}
 
-	driverToTests, err := driverToTestsMapping(logger, tests, mdList)
+	driverToTests, err := driverToTestsMapping(logger, mdList.Values)
 	if err != nil {
 		t.Fatal("Failed to call driverToTestsMapping: ", err)
 	}
@@ -232,34 +225,5 @@ func TestDriverToTestsMapping(t *testing.T) {
 	}
 	if !hasTauto {
 		t.Error("Did not get tauto driver from driverToTestsMapping")
-	}
-}
-
-func TestGetTests(t *testing.T) {
-	expReq := &api.RunTestsRequest{
-		TestSuites: []*api.TestSuite{
-			{
-				Name: "suite1",
-				TestCaseIds: &api.TestCaseIdList{
-					TestCaseIds: []*api.TestCase_Id{
-						{
-							Value: "example.Pass",
-						},
-						{
-							Value: "example.Fail",
-						},
-					},
-				},
-			},
-		},
-		Dut: &api.DeviceInfo{
-			PrimaryHost: "127.0.0.1:2222",
-		},
-	}
-
-	tests := getTests(expReq)
-	expected := []string{"example.Pass", "example.Fail"}
-	if diff := cmp.Diff(tests, expected); diff != "" {
-		t.Errorf("Got unexpected data from getTests (-got +want):\n%s", diff)
 	}
 }

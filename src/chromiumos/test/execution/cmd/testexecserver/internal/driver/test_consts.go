@@ -36,29 +36,33 @@ var req = api.RunTestsRequest{
 	TestSuites: []*api.TestSuite{
 		{
 			Name: suite1,
-			TestCaseIds: &api.TestCaseIdList{
-				TestCaseIds: []*api.TestCase_Id{
-					{
-						Value: test1,
-					},
-					{
-						Value: test2,
-					},
-					{
-						Value: test3,
+			Spec: &api.TestSuite_TestCaseIds{
+				TestCaseIds: &api.TestCaseIdList{
+					TestCaseIds: []*api.TestCase_Id{
+						{
+							Value: test1,
+						},
+						{
+							Value: test2,
+						},
+						{
+							Value: test3,
+						},
 					},
 				},
 			},
 		},
 		{
 			Name: suite2,
-			TestCaseIds: &api.TestCaseIdList{
-				TestCaseIds: []*api.TestCase_Id{
-					{
-						Value: test4,
-					},
-					{
-						Value: test5,
+			Spec: &api.TestSuite_TestCaseIds{
+				TestCaseIds: &api.TestCaseIdList{
+					TestCaseIds: []*api.TestCase_Id{
+						{
+							Value: test4,
+						},
+						{
+							Value: test5,
+						},
 					},
 				},
 			},

@@ -17,18 +17,15 @@ import (
 
 	"chromiumos/test/execution/cmd/testexecserver/internal/driver"
 	statuserrors "chromiumos/test/execution/errors"
+	"chromiumos/test/finder"
 )
 
 // driverToTestsMapping builds a map between test and its driver.
-func driverToTestsMapping(logger *log.Logger, tests []string, mdList *api.TestCaseMetadataList) (map[driver.Driver][]string, error) {
+func driverToTestsMapping(logger *log.Logger, mdList []*api.TestCaseMetadata) (map[driver.Driver][]string, error) {
 	tastDriver := driver.NewTastDriver(logger)
 	tautoDriver := driver.NewTautoDriver(logger)
 	driverToTests := make(map[driver.Driver][]string)
-	unvisited := make(map[string]struct{})
-	for _, t := range tests {
-		unvisited[t] = struct{}{}
-	}
-	for _, md := range mdList.Values {
+	for _, md := range mdList {
 		if md.TestCase == nil {
 			return nil, statuserrors.NewStatusError(statuserrors.InvalidArgument,
 				fmt.Errorf("missing test case information %v", md))
@@ -37,12 +34,6 @@ func driverToTestsMapping(logger *log.Logger, tests []string, mdList *api.TestCa
 			return nil, statuserrors.NewStatusError(statuserrors.InvalidArgument,
 				fmt.Errorf("test case %v does not have test harness information", md.TestCase.Name))
 		}
-		_, ok := unvisited[md.TestCase.Name]
-		if !ok {
-			// Only process tests that users intent to run.
-			continue
-		}
-		delete(unvisited, md.TestCase.Name)
 		if md.TestCaseExec.TestHarness.GetTast() != nil {
 			driverToTests[tastDriver] = append(driverToTests[tastDriver], md.TestCase.Name)
 		} else if md.TestCaseExec.TestHarness.GetTauto() != nil {
@@ -52,34 +43,18 @@ func driverToTestsMapping(logger *log.Logger, tests []string, mdList *api.TestCa
 				errors.New("manual harness has not been supported"))
 		}
 	}
-	if len(unvisited) > 0 {
-		unvisitedTests := []string{}
-		for t := range unvisited {
-			unvisitedTests = append(unvisitedTests, t)
-		}
-		return nil, statuserrors.NewStatusError(statuserrors.InvalidArgument,
-			fmt.Errorf("following tests have no metadata, %v", unvisitedTests))
-	}
 	return driverToTests, nil
-}
-
-func getTests(req *api.RunTestsRequest) []string {
-	var tests []string
-	for _, suite := range req.TestSuites {
-		if suite.TestCaseIds == nil {
-			continue
-		}
-		for _, tc := range suite.TestCaseIds.TestCaseIds {
-			tests = append(tests, tc.Value)
-		}
-		// TO-DO Support Tags
-	}
-	return tests
 }
 
 // runTests runs the requested tests.
 func runTests(ctx context.Context, logger *log.Logger, tlwAddr string, metadataList *api.TestCaseMetadataList, req *api.RunTestsRequest) (*api.RunTestsResponse, error) {
-	driversToTests, err := driverToTestsMapping(logger, getTests(req), metadataList)
+	matchedMdList, err := finder.MatchedTestsForSuites(metadataList.Values, req.TestSuites)
+	if err != nil {
+		return nil, statuserrors.NewStatusError(statuserrors.InvalidArgument,
+			fmt.Errorf("failed to match test metadata: %v", err))
+	}
+
+	driversToTests, err := driverToTestsMapping(logger, matchedMdList)
 	if err != nil {
 		return nil, err
 	}

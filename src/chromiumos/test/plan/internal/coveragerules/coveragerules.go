@@ -248,9 +248,11 @@ func buildTargetCoverageRules(
 			Name: nameFn(key),
 			TestSuites: []*testpb.TestSuite{
 				{
-					TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-						Tags:        sourceTestPlan.TestTags,
-						TagExcludes: sourceTestPlan.TestTagExcludes,
+					Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+						TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+							Tags:        sourceTestPlan.TestTags,
+							TagExcludes: sourceTestPlan.TestTagExcludes,
+						},
 					},
 				},
 			},
@@ -338,9 +340,11 @@ func fingerprintCoverageRule(sourceTestPlan *plan.SourceTestPlan) *testpb.Covera
 		Name: "fp:present",
 		TestSuites: []*testpb.TestSuite{
 			{
-				TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-					Tags:        sourceTestPlan.TestTags,
-					TagExcludes: sourceTestPlan.TestTagExcludes,
+				Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+					TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+						Tags:        sourceTestPlan.TestTags,
+						TagExcludes: sourceTestPlan.TestTagExcludes,
+					},
 				},
 			},
 		},
@@ -440,14 +444,18 @@ func firmwareROCoverageRules(
 				TestSuites: []*testpb.TestSuite{
 					{
 						Name: "faft_smoke",
-						TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-							Tags: []string{"suite:faft_smoke"},
+						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags: []string{"suite:faft_smoke"},
+							},
 						},
 					},
 					{
 						Name: "faft_bios",
-						TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-							Tags: []string{"suite:faft_bios"},
+						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags: []string{"suite:faft_bios"},
+							},
 						},
 					},
 				},

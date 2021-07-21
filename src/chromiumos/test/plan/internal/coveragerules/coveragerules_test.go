@@ -141,9 +141,11 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags:        []string{"kernel"},
-								TagExcludes: []string{"flaky"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags:        []string{"kernel"},
+									TagExcludes: []string{"flaky"},
+								},
 							},
 						},
 					},
@@ -160,9 +162,11 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags:        []string{"kernel"},
-								TagExcludes: []string{"flaky"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags:        []string{"kernel"},
+									TagExcludes: []string{"flaky"},
+								},
 							},
 						},
 					},
@@ -179,9 +183,11 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags:        []string{"kernel"},
-								TagExcludes: []string{"flaky"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags:        []string{"kernel"},
+									TagExcludes: []string{"flaky"},
+								},
 							},
 						},
 					},
@@ -209,8 +215,10 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								TagExcludes: []string{"flaky"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									TagExcludes: []string{"flaky"},
+								},
 							},
 						},
 					},
@@ -227,8 +235,10 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								TagExcludes: []string{"flaky"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									TagExcludes: []string{"flaky"},
+								},
 							},
 						},
 					},
@@ -245,8 +255,10 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								TagExcludes: []string{"flaky"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									TagExcludes: []string{"flaky"},
+								},
 							},
 						},
 					},
@@ -283,8 +295,10 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"kernel", "fingerprint"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"kernel", "fingerprint"},
+								},
 							},
 						},
 					},
@@ -301,8 +315,10 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"kernel", "fingerprint"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"kernel", "fingerprint"},
+								},
 							},
 						},
 					},
@@ -319,8 +335,10 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"kernel", "fingerprint"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"kernel", "fingerprint"},
+								},
 							},
 						},
 					},
@@ -337,8 +355,10 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"kernel", "fingerprint"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"kernel", "fingerprint"},
+								},
 							},
 						},
 					},
@@ -363,14 +383,18 @@ func TestGenerate(t *testing.T) {
 					TestSuites: []*testpb.TestSuite{
 						{
 							Name: "faft_smoke",
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"suite:faft_smoke"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"suite:faft_smoke"},
+								},
 							},
 						},
 						{
 							Name: "faft_bios",
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"suite:faft_bios"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"suite:faft_bios"},
+								},
 							},
 						},
 					},
@@ -398,14 +422,18 @@ func TestGenerate(t *testing.T) {
 					TestSuites: []*testpb.TestSuite{
 						{
 							Name: "faft_smoke",
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"suite:faft_smoke"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"suite:faft_smoke"},
+								},
 							},
 						},
 						{
 							Name: "faft_bios",
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"suite:faft_bios"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"suite:faft_bios"},
+								},
 							},
 						},
 					},
@@ -433,14 +461,18 @@ func TestGenerate(t *testing.T) {
 					TestSuites: []*testpb.TestSuite{
 						{
 							Name: "faft_smoke",
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"suite:faft_smoke"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"suite:faft_smoke"},
+								},
 							},
 						},
 						{
 							Name: "faft_bios",
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"suite:faft_bios"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"suite:faft_bios"},
+								},
 							},
 						},
 					},
@@ -488,8 +520,10 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"kernel", "arc"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"kernel", "arc"},
+								},
 							},
 						},
 					},
@@ -506,8 +540,10 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"kernel", "arc"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"kernel", "arc"},
+								},
 							},
 						},
 					},
@@ -524,8 +560,10 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"kernel", "arc"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"kernel", "arc"},
+								},
 							},
 						},
 					},
@@ -542,8 +580,10 @@ func TestGenerate(t *testing.T) {
 					},
 					TestSuites: []*testpb.TestSuite{
 						{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"kernel", "arc"},
+							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+									Tags: []string{"kernel", "arc"},
+								},
 							},
 						},
 					},
