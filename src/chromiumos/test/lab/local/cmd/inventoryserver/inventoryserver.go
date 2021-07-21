@@ -6,9 +6,14 @@
 package main
 
 import (
+	"bytes"
+	"errors"
+	"io/ioutil"
 	"log"
 	"net"
 
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"go.chromium.org/chromiumos/config/go/test/lab/api"
 	"google.golang.org/grpc"
 )
@@ -23,12 +28,36 @@ type InventoryServer struct {
 type Options struct {
 	DutAddress string
 	DutPort    int
+	// File path to a serialized jsonproto payload of DutTopology.
+	// This allows local complex lab setups (e.g. multi-dut) for local testing.
+	DutTopologyConfigPath string
+}
+
+// readJsonpb reads the jsonpb at path into m.
+func readJsonpb(path string, m proto.Message) error {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return jsonpb.Unmarshal(bytes.NewReader(b), m)
 }
 
 // newInventoryServer creates a new inventory service server to listen to rpc requests.
 func newInventoryServer(l net.Listener, logger *log.Logger, options *Options) (*grpc.Server, error) {
 	dutTopology := &api.DutTopology{}
-	if len(options.DutAddress) != 0 {
+
+	dutAddress := len(options.DutAddress) != 0
+	dutTopoConfig := len(options.DutTopologyConfigPath) != 0
+
+	if dutAddress && dutTopoConfig {
+		return nil, errors.New("DutAddress and DutTopologyConfigOptions options are mutally exclusive")
+	}
+
+	if dutTopoConfig {
+		if err := readJsonpb(options.DutTopologyConfigPath, dutTopology); err != nil {
+			return nil, err
+		}
+	} else if dutAddress {
 		dutTopology = &api.DutTopology{
 			Id: &api.DutTopology_Id{
 				Value: options.DutAddress,

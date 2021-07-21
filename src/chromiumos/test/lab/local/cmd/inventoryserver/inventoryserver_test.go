@@ -7,10 +7,14 @@ package main
 import (
 	"bytes"
 	"context"
+	"io/ioutil"
 	"log"
 	"net"
+	"os"
+	"strings"
 	"testing"
 
+	"github.com/golang/protobuf/jsonpb"
 	"go.chromium.org/chromiumos/config/go/test/lab/api"
 	"google.golang.org/grpc"
 )
@@ -71,5 +75,60 @@ func TestInventoryServer_DutAddressOption(t *testing.T) {
 
 	if ssh.Address != dutAddress || ssh.Port != int32(dutPort) {
 		t.Fatalf("Expected address: %s and port: %d; Got: %s", dutAddress, dutPort, ssh.String())
+	}
+}
+
+// InventoryServer handles DutTopology config from file
+func TestInventoryServer_DutTopologyConfigOption(t *testing.T) {
+	dutAddress := "fake-hostname"
+	tmpFile, _ := ioutil.TempFile(os.TempDir(), "fakeduttopoconfig-")
+	marshal := &jsonpb.Marshaler{EmitDefaults: true, Indent: "  "}
+	jsonOutput, _ := marshal.MarshalToString(&api.DutTopology{
+		Dut: &api.Dut{
+			DutType: &api.Dut_Chromeos{
+				Chromeos: &api.Dut_ChromeOS{
+					Ssh: &api.IpEndpoint{
+						Address: dutAddress,
+					},
+				},
+			},
+		},
+	})
+
+	dutTopoConfig := []byte(jsonOutput)
+	tmpFile.Write(dutTopoConfig)
+	tmpFile.Close()
+
+	defer os.Remove(tmpFile.Name())
+
+	dutTopology := getTopology(t, &Options{
+		DutTopologyConfigPath: tmpFile.Name(),
+	})
+
+	ssh := dutTopology.Dut.GetChromeos().GetSsh()
+
+	if ssh.Address != dutAddress {
+		t.Fatalf("Failed to load config from file %s", tmpFile.Name())
+	}
+}
+
+// InventoryServer errors on conflicting config/address options
+func TestInventoryServer_DutConfig_DutAddress_Exclusive(t *testing.T) {
+	var logBuf bytes.Buffer
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal("Failed to create a net listener: ", err)
+	}
+
+	svr, err := newInventoryServer(
+		l,
+		log.New(&logBuf, "", log.LstdFlags|log.LUTC),
+		&Options{
+			DutAddress:            "fake",
+			DutTopologyConfigPath: "somepath",
+		},
+	)
+	if svr != nil || err == nil || !strings.Contains(err.Error(), "exclusive") {
+		t.Fatalf("Expected error for invalid server options")
 	}
 }

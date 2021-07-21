@@ -50,6 +50,7 @@ func main() {
 		version := flag.Bool("version", false, "print version and exit")
 		dutAddress := flag.String("dut_address", "", "DUT address to connect to (see ip_endpoint.proto for format requirements)")
 		dutPort := flag.Int("dut_port", defaultSshPort, fmt.Sprintf("SSH port for the target DUT (default: %d)", defaultSshPort))
+		dutTopologyConfigPath := flag.String("dut_config", "", "Path to jsonproto serialized DutTopology config")
 		flag.Parse()
 
 		if *version {
@@ -74,8 +75,9 @@ func main() {
 			l,
 			logger,
 			&Options{
-				DutAddress: *dutAddress,
-				DutPort:    *dutPort,
+				DutAddress:            *dutAddress,
+				DutPort:               *dutPort,
+				DutTopologyConfigPath: *dutTopologyConfigPath,
 			})
 		if err != nil {
 			logger.Fatalln("Failed to start inventoryservice server: ", err)
