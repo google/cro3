@@ -5,10 +5,10 @@
 			"test_case_ids" : {
 				"test_case_ids" : [
 					{
-						"value" : "remoteTestDrivers/tast/tests/example.Pass"
+						"value" : "tast.example.Pass"
 					},
 					{
-						"value" : "remoteTestDrivers/tast/tests/example.Fail"
+						"value" : "tast.example.Fail"
 					}
 				]
 			}
