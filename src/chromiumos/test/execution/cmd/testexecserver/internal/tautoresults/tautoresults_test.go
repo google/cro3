@@ -54,7 +54,7 @@ func TestTestsReports(t *testing.T) {
 	resultsDir := td
 	expectedResults := []*api.TestCaseResult{
 		{
-			TestCaseId: &api.TestCase_Id{Value: "infra_pass"},
+			TestCaseId: &api.TestCase_Id{Value: "infra_pass_id"},
 			ResultDirPath: &_go.StoragePath{
 				HostType: _go.StoragePath_LOCAL,
 				Path:     filepath.Join(resultsDir),
@@ -62,7 +62,7 @@ func TestTestsReports(t *testing.T) {
 			Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
 		},
 		{
-			TestCaseId: &api.TestCase_Id{Value: "infra_fail"},
+			TestCaseId: &api.TestCase_Id{Value: "infra_fail_id"},
 			ResultDirPath: &_go.StoragePath{
 				HostType: _go.StoragePath_LOCAL,
 				Path:     filepath.Join(resultsDir),
@@ -70,7 +70,7 @@ func TestTestsReports(t *testing.T) {
 			Verdict: &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}},
 		},
 		{
-			TestCaseId: &api.TestCase_Id{Value: "infra_err"},
+			TestCaseId: &api.TestCase_Id{Value: "infra_err_id"},
 			ResultDirPath: &_go.StoragePath{
 				HostType: _go.StoragePath_LOCAL,
 				Path:     filepath.Join(resultsDir),
@@ -78,17 +78,27 @@ func TestTestsReports(t *testing.T) {
 			Verdict: &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
 		},
 		{
-			TestCaseId: &api.TestCase_Id{Value: "infra_dne"},
+			TestCaseId: &api.TestCase_Id{Value: "infra_dne_id"},
 			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
 		},
 	}
 
 	tests := []string{"infra_pass", "infra_fail", "infra_err", "infra_dne"}
 
-	reports, _ := TestsReports(resultsDir, tests)
+	testNamesToIds := map[string]string{
+		"infra_pass": "infra_pass_id",
+		"infra_fail": "infra_fail_id",
+		"infra_err":  "infra_err_id",
+		"infra_dne":  "infra_dne_id",
+	}
 
-	if diff := cmp.Diff(expectedResults, reports); diff != "" {
-		t.Errorf("Got unexpected missing reports (-got +want):\n%s", diff)
+	reports, err := TestsReports(resultsDir, tests, testNamesToIds)
+	if err != nil {
+		t.Fatal("Got error from unexpected: ", err)
+	}
+
+	if diff := cmp.Diff(reports, expectedResults); diff != "" {
+		t.Errorf("Got unexpected reports (-got +want):\n%s", diff)
 	}
 
 }
@@ -98,18 +108,24 @@ func TestTestsReports_BadJson(t *testing.T) {
 	resultsDir := "fakdir/"
 	expectedResults := []*api.TestCaseResult{
 		{
-			TestCaseId: &api.TestCase_Id{Value: "infra_pass"},
+			TestCaseId: &api.TestCase_Id{Value: "infra_pass_id"},
 			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
 		},
 		{
-			TestCaseId: &api.TestCase_Id{Value: "infra_dne"},
+			TestCaseId: &api.TestCase_Id{Value: "infra_dne_id"},
 			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
 		},
 	}
 
 	tests := []string{"infra_pass", "infra_dne"}
+	testNamesToIds := map[string]string{
+		"infra_pass": "infra_pass_id",
+		"infra_fail": "infra_fail_id",
+		"infra_err":  "infra_err_id",
+		"infra_dne":  "infra_dne_id",
+	}
 
-	reports, _ := TestsReports(resultsDir, tests)
+	reports, _ := TestsReports(resultsDir, tests, testNamesToIds)
 
 	if diff := cmp.Diff(expectedResults, reports); diff != "" {
 		t.Errorf("Got unexpected missing reports (-got +want):\n%s", diff)

@@ -41,7 +41,7 @@ func (td *TastDriver) Type() *api.TestHarness {
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string) (*api.RunTestsResponse, error) {
+func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string, testNamesToIds map[string]string) (*api.RunTestsResponse, error) {
 	path := "/usr/bin/tast" // Default path of tast which can be overridden later.
 
 	if resultsDir == "" {
@@ -54,7 +54,7 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr str
 			fmt.Errorf("failed to create result directory %v: %v", resultsDir, err))
 	}
 
-	reportServer, err := tastrpc.NewReportsServer(0, tests, resultsDir)
+	reportServer, err := tastrpc.NewReportsServer(0, tests, testNamesToIds, resultsDir)
 	if err != nil {
 		return nil, errors.NewStatusError(errors.ServerStartingError,
 			fmt.Errorf("failed to create tast report server: %v", err))
@@ -111,6 +111,13 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr str
 	testResults := reportServer.TestsReports()
 	missingResults := reportServer.MissingTestsReports()
 	results := append(testResults, missingResults...)
+	reportErrors := reportServer.Errors()
+	if len(reportErrors) > 0 {
+		for _, e := range reportErrors {
+			td.logger.Printf("%v\n", e)
+		}
+		return &api.RunTestsResponse{TestCaseResults: results}, reportErrors[len(reportErrors)-1]
+	}
 
 	return &api.RunTestsResponse{TestCaseResults: results}, nil
 }

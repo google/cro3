@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 
 	"chromiumos/tast/framework/protocol"
+	"chromiumos/test/execution/errors"
 )
 
 // ReportsServer implements the tast.framework.protocol.ReportsServer.
@@ -30,6 +31,8 @@ type ReportsServer struct {
 	reportedTests   map[string]struct{}   // Tests that have received results.
 	testCaseResults []*api.TestCaseResult // Reported test results.
 	testResultsDir  string                // Parent directory for all test results.
+	testNamesToIds  map[string]string     // Mapping between test names and test ids.
+	allErrors       []error               // All errors that has been encountered.
 }
 
 var _ protocol.ReportsServer = (*ReportsServer)(nil)
@@ -42,8 +45,14 @@ func (s *ReportsServer) LogStream(stream protocol.Reports_LogStreamServer) error
 
 // ReportResult gets a report request from tast and passes on to progress sink.
 func (s *ReportsServer) ReportResult(ctx context.Context, req *protocol.ReportResultRequest) (*protocol.ReportResultResponse, error) {
+	testID, ok := s.testNamesToIds[req.Test]
+	if !ok {
+		s.allErrors = append(s.allErrors, errors.NewStatusError(errors.InvalidArgument,
+			fmt.Errorf("failed to find test id for test %v", req.Test)))
+		return &protocol.ReportResultResponse{}, nil
+	}
 	testResult := api.TestCaseResult{
-		TestCaseId: &api.TestCase_Id{Value: req.Test},
+		TestCaseId: &api.TestCase_Id{Value: testID},
 		ResultDirPath: &_go.StoragePath{
 			HostType: _go.StoragePath_LOCAL,
 			Path:     filepath.Join(s.testResultsDir, "tests", req.Test),
@@ -60,6 +69,7 @@ func (s *ReportsServer) ReportResult(ctx context.Context, req *protocol.ReportRe
 	s.reportedTests[req.Test] = struct{}{}
 	s.testCaseResults = append(s.testCaseResults, &testResult)
 	s.mu.Unlock()
+
 	return &protocol.ReportResultResponse{}, nil
 }
 
@@ -72,8 +82,12 @@ func (s *ReportsServer) MissingTestsReports() []*api.TestCaseResult {
 		if _, ok := s.reportedTests[t]; ok {
 			continue
 		}
+		testID, ok := s.testNamesToIds[t]
+		if !ok {
+			continue
+		}
 		missingTestResults = append(missingTestResults, &api.TestCaseResult{
-			TestCaseId: &api.TestCase_Id{Value: t},
+			TestCaseId: &api.TestCase_Id{Value: testID},
 			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
 		})
 	}
@@ -97,9 +111,14 @@ func (s *ReportsServer) Address() string {
 	return s.listenerAddr.String()
 }
 
+// Errors returns errors that encountered during test reporting.
+func (s *ReportsServer) Errors() []error {
+	return s.allErrors
+}
+
 // NewReportsServer starts a Reports gRPC service and returns a ReportsServer object when success.
 // The caller is responsible for calling Stop() method.
-func NewReportsServer(port int, tests []string, resultDir string) (*ReportsServer, error) {
+func NewReportsServer(port int, tests []string, testNamesToIds map[string]string, resultDir string) (*ReportsServer, error) {
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
@@ -110,6 +129,7 @@ func NewReportsServer(port int, tests []string, resultDir string) (*ReportsServe
 		reportedTests:  make(map[string]struct{}),
 		tests:          tests,
 		testResultsDir: resultDir,
+		testNamesToIds: testNamesToIds,
 	}
 
 	protocol.RegisterReportsServer(s.srv, &s)

@@ -21,8 +21,9 @@ import (
 type Report struct {
 	tests           []string              // Tests to be run.
 	testCaseResults []*api.TestCaseResult // Reported test results.
-	testResultsDir  string                // Parent directory for all test results.
+	testResultsDir  string                // Parent directory for all test results.N
 	reportedTests   map[string]struct{}   // Tests that have received results.
+	testNamesToIds  map[string]string     // Mapping between test names and test ids.
 	RawResults      results
 }
 
@@ -50,12 +51,12 @@ func (r *Report) loadJSON(resultsDir string) error {
 }
 
 // GenerateReport gets a report request from tast and passes on to progress sink.
-func GenerateReport(test test, resultsDir string) *api.TestCaseResult {
+func GenerateReport(test test, testID string, resultsDir string) *api.TestCaseResult {
 	// For now, assume results will be in $results_dir/"test_results.json"
 	// Mark the result as found.
 	// r.reportedTests[test] = struct{}{}
 	testResult := api.TestCaseResult{
-		TestCaseId: &api.TestCase_Id{Value: test.Testname},
+		TestCaseId: &api.TestCase_Id{Value: testID},
 		ResultDirPath: &_go.StoragePath{
 			HostType: _go.StoragePath_LOCAL,
 			Path:     filepath.Join(resultsDir),
@@ -80,9 +81,12 @@ func (r *Report) MissingTestsReports() []*api.TestCaseResult {
 		if _, ok := r.reportedTests[t]; ok {
 			continue
 		}
-
+		testID, ok := r.testNamesToIds[t]
+		if !ok {
+			continue
+		}
 		missingTestResults = append(missingTestResults, &api.TestCaseResult{
-			TestCaseId: &api.TestCase_Id{Value: t},
+			TestCaseId: &api.TestCase_Id{Value: testID},
 			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
 		})
 	}
@@ -90,11 +94,12 @@ func (r *Report) MissingTestsReports() []*api.TestCaseResult {
 }
 
 // TestsReports returns results to all tests.
-func TestsReports(resultsDir string, tests []string) ([]*api.TestCaseResult, error) {
+func TestsReports(resultsDir string, tests []string, testNamesToIds map[string]string) ([]*api.TestCaseResult, error) {
 	report := Report{
 		reportedTests:  make(map[string]struct{}),
 		tests:          tests,
 		testResultsDir: resultsDir,
+		testNamesToIds: testNamesToIds,
 	}
 	report.tests = tests
 
@@ -104,8 +109,13 @@ func TestsReports(resultsDir string, tests []string) ([]*api.TestCaseResult, err
 	}
 
 	for _, test := range report.RawResults.Tests {
+		testID, ok := testNamesToIds[test.Testname]
+		if !ok {
+			return report.testCaseResults, errors.NewStatusError(errors.InvalidArgument,
+				fmt.Errorf("failed to find test id for test %v", test.Testname))
+		}
 		report.reportedTests[test.Testname] = struct{}{}
-		report.testCaseResults = append(report.testCaseResults, GenerateReport(test, resultsDir))
+		report.testCaseResults = append(report.testCaseResults, GenerateReport(test, testID, resultsDir))
 	}
 	return append(report.testCaseResults, report.MissingTestsReports()...), nil
 }

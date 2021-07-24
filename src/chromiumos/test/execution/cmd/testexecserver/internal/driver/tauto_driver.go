@@ -48,7 +48,7 @@ func (td *TautoDriver) Type() *api.TestHarness {
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string) (*api.RunTestsResponse, error) {
+func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string, testNamesToIds map[string]string) (*api.RunTestsResponse, error) {
 	path := "/usr/bin/test_that" // Default path of test_that.
 
 	if resultsDir == "" {
@@ -100,7 +100,7 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr st
 		return nil, fmt.Errorf("fail to run tauto: %s", err)
 	}
 
-	results, err := tautoresults.TestsReports(resultsDir, tests)
+	results, err := tautoresults.TestsReports(resultsDir, tests, testNamesToIds)
 
 	if err != nil {
 		return &api.RunTestsResponse{}, err

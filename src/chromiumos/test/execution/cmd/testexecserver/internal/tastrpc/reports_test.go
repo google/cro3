@@ -21,18 +21,25 @@ import (
 func TestReportsServer_LogStream(t *testing.T) {
 	const (
 		testName1    = "test.Name1"
+		testID1      = "tast.test.Id1"
 		logSinkName1 = "tests/name01-20210123/test.Name1/log.txt"
 		requestName1 = "request_for_test_name1"
 		testLog1a    = "log1a"
 		testLog1b    = "log1b"
 		testName2    = "test.Name2"
+		testID2      = "tast.test.Id2"
 		requestName2 = "request_for_test_name2"
 		logSinkName2 = "tests/name01-20210123/test.Name2/log.txt"
 		testLog2a    = "log2a"
 		resultDir    = "/tmp/tast/results"
 	)
 
-	srv, err := NewReportsServer(0, []string{testName1, testName2}, resultDir)
+	testNamesToIds := map[string]string{
+		testName1: testID1,
+		testName2: testID2,
+	}
+
+	srv, err := NewReportsServer(0, []string{testName1, testName2}, testNamesToIds, resultDir)
 	if err != nil {
 		t.Fatalf("Failed to start Reports server: %v", err)
 	}
@@ -84,6 +91,18 @@ func TestReportsServer_ReportResult(t *testing.T) {
 		"SkippedTest",
 		"MissingTest", // Used for testing missing test report.
 	}
+	testIDs := []string{
+		"PassedTestId",
+		"FailedTestId",
+		"SkippedTestId",
+		"MissingTestId", // Used for testing missing test report.
+	}
+	testNamesToIds := map[string]string{
+		"PassedTest":  "PassedTestId",
+		"FailedTest":  "FailedTestId",
+		"SkippedTest": "SkippedTestId",
+		"MissingTest": "MissingTestId",
+	}
 	testTime := ptypes.TimestampNow()
 
 	requests := []*protocol.ReportResultRequest{
@@ -110,7 +129,7 @@ func TestReportsServer_ReportResult(t *testing.T) {
 
 	expectedReports := []*api.TestCaseResult{
 		{
-			TestCaseId: &api.TestCase_Id{Value: tests[0]},
+			TestCaseId: &api.TestCase_Id{Value: testIDs[0]},
 			ResultDirPath: &_go.StoragePath{
 				HostType: _go.StoragePath_LOCAL,
 				Path:     filepath.Join(resultDir, "tests", tests[0]),
@@ -118,7 +137,7 @@ func TestReportsServer_ReportResult(t *testing.T) {
 			Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
 		},
 		{
-			TestCaseId: &api.TestCase_Id{Value: tests[1]},
+			TestCaseId: &api.TestCase_Id{Value: testIDs[1]},
 			ResultDirPath: &_go.StoragePath{
 				HostType: _go.StoragePath_LOCAL,
 				Path:     filepath.Join(resultDir, "tests", tests[1]),
@@ -126,7 +145,7 @@ func TestReportsServer_ReportResult(t *testing.T) {
 			Verdict: &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}},
 		},
 		{
-			TestCaseId: &api.TestCase_Id{Value: tests[2]},
+			TestCaseId: &api.TestCase_Id{Value: testIDs[2]},
 			ResultDirPath: &_go.StoragePath{
 				HostType: _go.StoragePath_LOCAL,
 				Path:     filepath.Join(resultDir, "tests", tests[2]),
@@ -136,13 +155,13 @@ func TestReportsServer_ReportResult(t *testing.T) {
 	}
 	expectedMissingReports := []*api.TestCaseResult{
 		{
-			TestCaseId: &api.TestCase_Id{Value: tests[3]},
+			TestCaseId: &api.TestCase_Id{Value: testIDs[3]},
 			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
 		},
 	}
 
 	// Setting up reports server and client
-	reportsServer, err := NewReportsServer(0, tests, resultDir)
+	reportsServer, err := NewReportsServer(0, tests, testNamesToIds, resultDir)
 	if err != nil {
 		t.Fatalf("Failed to start Reports server: %v", err)
 	}
@@ -162,6 +181,10 @@ func TestReportsServer_ReportResult(t *testing.T) {
 		}
 		if rspn.Terminate {
 			t.Errorf("ReportResult(ctx, %+v) returned true; wanted false", r)
+		}
+		reportErrors := reportsServer.Errors()
+		if len(reportErrors) > 0 {
+			t.Fatal("Encountered errors at ReportResult: ", reportErrors)
 		}
 		reports := reportsServer.TestsReports()
 		if diff := cmp.Diff(reports[i], expectedReports[i]); diff != "" {

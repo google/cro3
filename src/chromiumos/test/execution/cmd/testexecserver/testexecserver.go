@@ -60,8 +60,13 @@ func runTests(ctx context.Context, logger *log.Logger, tlwAddr string, metadataL
 	}
 	allRspn := api.RunTestsResponse{}
 
+	testNamesToIds := make(map[string]string)
+	for _, md := range metadataList.Values {
+		testNamesToIds[md.TestCase.Name] = md.TestCase.Id.Value
+	}
+
 	for driver, tests := range driversToTests {
-		rspn, err := driver.RunTests(ctx, "", req.Dut.PrimaryHost, tlwAddr, tests)
+		rspn, err := driver.RunTests(ctx, "", req.Dut.PrimaryHost, tlwAddr, tests, testNamesToIds)
 		if err != nil {
 			return nil, err
 		}
