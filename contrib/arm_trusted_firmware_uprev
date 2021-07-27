@@ -20,7 +20,7 @@ You should now go on http://go/crosoncall and paste the following statement:
 Hi crosoncall. FYI I am about to push an uprev to arm-trusted-firmware. This
 should not be an issue but if you start seeing any build errors for the coreboot
 ebuild, please let me know.
-(See https://chromium.googlesource.com/chromiumos/platform/dev-util/+/master/contrib/arm_trusted_firmware_uprev for details.)
+(See https://chromium.googlesource.com/chromiumos/platform/dev-util/+/HEAD/contrib/arm_trusted_firmware_uprev for details.)
 ===========================================================================
 
 Now, *after* you have coordinated with sheriffs and received no objections,
