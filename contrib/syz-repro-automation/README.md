@@ -20,3 +20,9 @@ The available flags are:
 - `-model`: specify what model device to lease (default: garg)
 - `-minutes`: specify how many minutes to lease the device for (default: 60)
 - `-imageid`: specify the kernel image id to flash onto the DUT (default: lookup the latest image for the DUT board)
+
+To run syz-repro on a directory, the user can run
+
+	$ ./syz-repro-automation -logdir PATH/TO/LOGDIR
+
+*Information about logopts.yaml will be added in next commit*

@@ -99,21 +99,43 @@ func runSyzRepro(paths map[string]string, hostname string, reproLog string) erro
 func checkPaths(paths []string) error {
 	for _, path := range paths {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
-			return fmt.Errorf("path for %v is invalid: %v", err)
+			return fmt.Errorf("filepath %v is invalid: %v", err)
 		}
 	}
 	return nil
+}
+
+func run(model string, minutes int, imageID string, paths map[string]string) {
+	hostname, err := dut.Lease(model, minutes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer dut.Abandon(hostname)
+
+	if err = dut.FlashKernel(hostname, imageID); err != nil {
+		log.Panic(err)
+	}
+
+	if err = runSyzRepro(paths, hostname, flag.Arg(0)); err != nil {
+		log.Panic(err)
+	}
 }
 
 func main() {
 	model := flag.String("model", "garg", "Model for leased DUT")
 	minutes := flag.Int("minutes", 60, "Number of minutes to lease DUT")
 	imageID := flag.String("imageid", "", "Kernel image id to flash onto DUT")
+	logFile := flag.Bool("logfile", false, "Argument supplied is a log file")
+	logDir := flag.Bool("logdir", false, "Argument supplied is a directory")
 
 	flag.Parse()
 
+	if *logFile == *logDir {
+		log.Fatal("please use exactly one of the flags -logfile or -dir")
+	}
+
 	if flag.Arg(0) == "" {
-		log.Fatal("must provide a log file to run syz-repro on")
+		log.Fatal("must provide a file or directory to run syz-repro on")
 	}
 
 	syzkallerDir := os.Getenv("SYZKALLER")
@@ -124,7 +146,7 @@ func main() {
 	sshKey := filepath.Join(syzkallerDir, "testing_rsa")
 	startupScript := filepath.Join(syzkallerDir, "startup_script.sh")
 
-	if err := checkPaths([]string{syzkallerDir, syzrepro, sshKey, startupScript}); err != nil {
+	if err := checkPaths([]string{flag.Arg(0), syzkallerDir, syzrepro, sshKey, startupScript}); err != nil {
 		log.Fatal(err)
 	}
 
@@ -135,17 +157,7 @@ func main() {
 		"startupScript": startupScript,
 	}
 
-	hostname, err := dut.Lease(*model, *minutes)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer dut.Abandon(hostname)
-
-	if err = dut.FlashKernel(hostname, *imageID); err != nil {
-		log.Panic(err)
-	}
-
-	if err = runSyzRepro(paths, hostname, flag.Arg(0)); err != nil {
-		log.Panic(err)
+	if *logFile {
+		run(*model, *minutes, *imageID, paths)
 	}
 }
