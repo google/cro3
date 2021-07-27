@@ -9,8 +9,13 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/syz-repro-automation/cmd"
+)
+
+const (
+	dutSleep = 2 * time.Second
 )
 
 // Lease leases a DUT of type model and for specified minutes, runs crosfleet dut lease.
@@ -52,6 +57,27 @@ func FlashKernel(hostname string, imageID string) error {
 	log.Printf("Finished flashing kernel onto DUT")
 
 	return nil
+}
+
+// WaitForDut checks if the DUT is up.
+func WaitForDut(hostname string) {
+	log.Println("Pinging DUT at " + hostname + "...")
+	args := []string{
+		"ssh", "root@" + hostname + ".cros", "pwd",
+		"-o", "UserKnownHostsFile=/dev/null",
+		"-o", "BatchMode=yes",
+		"-o", "IdentitiesOnly=yes",
+		"-o", "StrictHostKeyChecking=no",
+		"-o", "ConnectTimeout=10",
+	}
+	for {
+		if _, err := cmd.RunCmd(false, args...); err != nil {
+			log.Printf("ssh failed: %v. sleeping for %v and trying again.", hostname, err, dutSleep)
+			time.Sleep(dutSleep)
+		} else {
+			break
+		}
+	}
 }
 
 // Abandon abandons the DUT at hostname, runs crosfleet dut abandon.

@@ -85,6 +85,8 @@ func runSyzRepro(paths map[string]string, hostname string, reproLog string) erro
 		return fmt.Errorf("invalid syzkaller configuration: %v", err)
 	}
 
+	dut.WaitForDut(hostname)
+
 	outputLog := filepath.Join(paths["syzkaller"], "outputLog-"+time.Now().Format("2006-01-02-15:04:05"))
 	log.Printf("Running syz-repro, output directed to %v\n", outputLog)
 	if err = cmd.RunCmdLog(outputLog, syzReproTimeout, paths["syzrepro"], "-config="+configPath, "-vv", "10", reproLog); err != nil {
@@ -140,10 +142,10 @@ func main() {
 	defer dut.Abandon(hostname)
 
 	if err = dut.FlashKernel(hostname, *imageID); err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 
 	if err = runSyzRepro(paths, hostname, flag.Arg(0)); err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
