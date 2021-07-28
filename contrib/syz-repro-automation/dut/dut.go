@@ -63,16 +63,17 @@ func FlashKernel(hostname string, imageID string) error {
 func WaitForDut(hostname string) {
 	log.Println("Pinging DUT at " + hostname + "...")
 	args := []string{
-		"ssh", "root@" + hostname + ".cros", "pwd",
+		"ssh",
 		"-o", "UserKnownHostsFile=/dev/null",
 		"-o", "BatchMode=yes",
 		"-o", "IdentitiesOnly=yes",
 		"-o", "StrictHostKeyChecking=no",
 		"-o", "ConnectTimeout=10",
+		"root@" + hostname + ".cros", "pwd",
 	}
 	for {
 		if _, err := cmd.RunCmd(false, args...); err != nil {
-			log.Printf("ssh failed: %v. sleeping for %v and trying again.", hostname, err, dutSleep)
+			log.Printf("ssh failed: %v. sleeping for %v and trying again.", err, dutSleep)
 			time.Sleep(dutSleep)
 		} else {
 			break

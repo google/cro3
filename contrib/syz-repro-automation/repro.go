@@ -102,7 +102,7 @@ func runSyzRepro(paths map[string]string, hostname string, reproLog string) erro
 
 	dut.WaitForDut(hostname)
 
-	outputLog := filepath.Join(paths["syzkaller"], "outputLog-"+time.Now().Format("2006-01-02-15:04:05"))
+	outputLog := filepath.Join(filepath.Dir(reproLog), "outputLog-"+time.Now().Format("2006-01-02-15:04:05"))
 	log.Printf("Running syz-repro, output directed to %v\n", outputLog)
 	if err = cmd.RunCmdLog(outputLog, syzReproTimeout, paths["syzrepro"], "-config="+configPath, "-vv", "10", reproLog); err != nil {
 		return fmt.Errorf("error running syz-repro: %v", err)
@@ -144,7 +144,7 @@ func processLogOpts(rootdir string) (map[dutObj][]string, error) {
 	return dutToBugs, nil
 }
 
-func run(model string, minutes int, imageID string, paths map[string]string) {
+func run(model string, minutes int, imageID string, paths map[string]string, bugLogs []string) {
 	hostname, err := dut.Lease(model, minutes)
 	if err != nil {
 		log.Fatal(err)
@@ -155,8 +155,10 @@ func run(model string, minutes int, imageID string, paths map[string]string) {
 		log.Panic(err)
 	}
 
-	if err = runSyzRepro(paths, hostname, flag.Arg(0)); err != nil {
-		log.Panic(err)
+	for _, bugLog := range bugLogs {
+		if err = runSyzRepro(paths, hostname, bugLog); err != nil {
+			log.Panic(err)
+		}
 	}
 }
 
@@ -197,12 +199,18 @@ func main() {
 	}
 
 	if *logFile {
-		run(*model, *minutes, *imageID, paths)
+		run(*model, *minutes, *imageID, paths, []string{flag.Arg(0)})
 	} else {
 		dutToBugs, err := processLogOpts(flag.Arg(0))
 		if err != nil {
 			log.Panic(err)
 		}
-		fmt.Println(dutToBugs)
+		for dut, bugIDs := range dutToBugs {
+			var bugLogs []string
+			for _, bugID := range bugIDs {
+				bugLogs = append(bugLogs, filepath.Join(flag.Arg(0), "bugs", bugID, "log0"))
+			}
+			run(dut.Model, *minutes, dut.ImageID, paths, bugLogs)
+		}
 	}
 }

@@ -25,4 +25,27 @@ To run syz-repro on a directory, the user can run
 
 	$ ./syz-repro-automation -logdir PATH/TO/LOGDIR
 
-*Information about logopts.yaml will be added in next commit*
+Your root directory at `PATH/TO/LOGDIR` must be structured in the following format:
+```
+logdir
+│   logopts.yaml
+└───bugs
+	└───189546178
+	│  	└───log0
+	└───188960160
+		└───log0
+```
+Note each subdirectory in `bugs` is a numeric buganizer ID.
+
+Then `logopts.yaml` should be structured as follows:
+```yaml
+bugs:
+- id: 189546178
+  dut:
+    imageid: R93-13996.0.0-48962-8846054154814192240
+    model: pompom
+- id: 188960160
+  dut:
+    imageid: R93-13984.0.0-48668-8846614155709648032
+    model: limozeen
+```
