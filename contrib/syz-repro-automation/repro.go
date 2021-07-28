@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/syz-repro-automation/cmd"
 	"github.com/google/syz-repro-automation/dut"
+	"gopkg.in/yaml.v2"
 )
 
 type dutConfig struct {
@@ -37,6 +38,20 @@ type syzreproConfig struct {
 	SSHKey    string    `json:"sshkey"`
 	Procs     int       `json:"procs"`
 	DUTConfig dutConfig `json:"vm"`
+}
+
+type dutObj struct {
+	Model   string `yaml:"model"`
+	ImageID string `yaml:"imageid"`
+}
+
+type bug struct {
+	ID  string `yaml:"id"`
+	DUT dutObj `yaml:"dut"`
+}
+
+type logOpts struct {
+	Bugs []bug `yaml:"bugs"`
 }
 
 const (
@@ -105,6 +120,30 @@ func checkPaths(paths []string) error {
 	return nil
 }
 
+func processLogOpts(rootdir string) (map[dutObj][]string, error) {
+	logoptsFile := filepath.Join(rootdir, "logopts.yaml")
+	yamlFile, err := ioutil.ReadFile(logoptsFile)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read logopts.yaml file: %v", err)
+	}
+
+	logopts := logOpts{}
+	err = yaml.Unmarshal(yamlFile, &logopts)
+	if err != nil {
+		return nil, fmt.Errorf("unable to unmarshal logopts.yaml: %v", err)
+	}
+
+	dutToBugs := make(map[dutObj][]string)
+
+	for _, bug := range logopts.Bugs {
+		if bug.DUT.Model != "" {
+			dutToBugs[bug.DUT] = append(dutToBugs[bug.DUT], bug.ID)
+		}
+	}
+
+	return dutToBugs, nil
+}
+
 func run(model string, minutes int, imageID string, paths map[string]string) {
 	hostname, err := dut.Lease(model, minutes)
 	if err != nil {
@@ -159,5 +198,11 @@ func main() {
 
 	if *logFile {
 		run(*model, *minutes, *imageID, paths)
+	} else {
+		dutToBugs, err := processLogOpts(flag.Arg(0))
+		if err != nil {
+			log.Panic(err)
+		}
+		fmt.Println(dutToBugs)
 	}
 }
