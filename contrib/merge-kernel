@@ -279,10 +279,14 @@ do_validate() {
 do_validate_changeids() {
   local cl
   local ref
+  local gerrit_log
 
   for cl in "${changes[@]}"; do
-    ref=$(gerrit --json search "change:${cl}" \
-          | jq ".[].currentPatchSet.ref")
+    gerrit_log=$(gerrit --json search "change:${cl}")
+    if [[ $? -ne 0 ]]; then
+      die "'gerrit --json search \"change:${cl}\"' command error."
+    fi
+    ref=$(echo "${gerrit_log}" | jq ".[].currentPatchSet.ref")
     if [[ -z "${ref}" ]]; then
       die "No such Change-Id: ${cl}."
     fi
@@ -454,13 +458,21 @@ find_merge_cl() {
   local cls
   local cl
   local subject
+  local gerrit_log
 
-  cls=($(gerrit --json search "hashtag:${topic}" \
-                    | jq ".[].number" | sed -e 's/"//g'))
+  gerrit_log=$(gerrit --json search "hashtag:${topic}")
+  if [[ $? -ne 0 ]]; then
+    die "'gerrit --json search \"hashtag:${topic}\"' command error."
+  fi
 
+  cls=($(echo "${gerrit_log}" | jq ".[].number" | sed -e 's/"//g'))
   for cl in "${cls[@]}"; do
-    subject=$(dequote "$(gerrit --json search "change:${cl}" \
-                         | jq ".[].subject")")
+    gerrit_log=$(gerrit --json search "change:${cl}")
+    if [[ $? -ne 0 ]]; then
+      die "'gerrit --json search \"change:${cl}\"' command error."
+    fi
+    subject=$(dequote \
+      "$(echo "${gerrit_log}" | jq ".[].subject")")
     if [[ "${subject}" == "${Subject}" ]]; then
       merge_cl="${cl}"
       break
@@ -479,6 +491,7 @@ do_prepare() {
   local ochangeid
   local odependency
   local ref
+  local gerrit_log
 
   find_merge_cl
 
@@ -511,8 +524,11 @@ do_prepare() {
   fi
 
   if [[ -n "${merge_cl}" ]]; then
-    ref=$(dequote "$(gerrit --json search "change:${merge_cl}" \
-                     | jq ".[].currentPatchSet.ref")")
+    gerrit_log=$(gerrit --json search "change:${merge_cl}")
+    if [[ $? -ne 0 ]]; then
+      die "'gerrit --json search \"change:${merge_cl}\"' command error."
+    fi
+    ref=$(dequote "$(echo "${gerrit_log}" | jq ".[].currentPatchSet.ref")")
   fi
   if [[ -n "${ref}" ]]; then
     if ! git fetch "${chromeos}" "${ref}" >/dev/null 2>&1; then
@@ -629,11 +645,16 @@ gitismerge()
 do_apply_changes() {
   local cl
   local ref
+  local gerrit_log
 
   for cl in "${changes[@]}"; do
     echo "Applying CL:${cl}"
-    ref=$(dequote "$(gerrit --json search "change:${cl}" \
-                     | jq ".[].currentPatchSet.ref" | head -n1)")
+    gerrit_log=$(gerrit --json search "change:${cl}")
+    if [[ $? -ne 0 ]]; then
+      die "'gerrit --json search \"change:${cl}\"' command error."
+    fi
+    ref=$(dequote \
+          "$(echo "${gerrit_log}" | jq ".[].currentPatchSet.ref" | head -n1)")
     if [[ -z "${ref}" ]]; then
       die "Patch set for CL:${cl} not found."
     fi
@@ -844,6 +865,9 @@ do_notify() {
   fi
 
   gerrit --json search "change:${merge_cl}" > "${tmpfile}"
+  if [[ $? -ne 0 ]]; then
+    die "'gerrit --json search \"change:${merge_cl}\" > "${tmpfile}"' command error."
+  fi
 
   cl=$(dequote "$(jq ".[].number" "${tmpfile}")")
   if [[ -z "${cl}" ]]; then
