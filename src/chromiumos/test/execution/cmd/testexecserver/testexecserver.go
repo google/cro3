@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/golang/protobuf/jsonpb"
 	"go.chromium.org/chromiumos/config/go/test/api"
@@ -47,7 +48,7 @@ func driverToTestsMapping(logger *log.Logger, mdList []*api.TestCaseMetadata) (m
 }
 
 // runTests runs the requested tests.
-func runTests(ctx context.Context, logger *log.Logger, tlwAddr string, metadataList *api.TestCaseMetadataList, req *api.RunTestsRequest) (*api.RunTestsResponse, error) {
+func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr string, metadataList *api.TestCaseMetadataList, req *api.RunTestsRequest) (*api.RunTestsResponse, error) {
 	matchedMdList, err := finder.MatchedTestsForSuites(metadataList.Values, req.TestSuites)
 	if err != nil {
 		return nil, statuserrors.NewStatusError(statuserrors.InvalidArgument,
@@ -66,7 +67,13 @@ func runTests(ctx context.Context, logger *log.Logger, tlwAddr string, metadataL
 	}
 
 	for driver, tests := range driversToTests {
-		rspn, err := driver.RunTests(ctx, "", req.Dut.PrimaryHost, tlwAddr, tests, testNamesToIds)
+		resultsDir := filepath.Join(resultRootDir, driver.Name())
+		// Make sure the result directory exists.
+		if err := os.MkdirAll(resultsDir, 0755); err != nil {
+			return nil, statuserrors.NewStatusError(statuserrors.IOCreateError,
+				fmt.Errorf("failed to create result directory %v", resultsDir))
+		}
+		rspn, err := driver.RunTests(ctx, resultsDir, req.Dut.PrimaryHost, tlwAddr, tests, testNamesToIds)
 		if err != nil {
 			return nil, err
 		}

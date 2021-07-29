@@ -16,6 +16,6 @@ type Driver interface {
 	// RunTests drives a test framework to execute tests.
 	RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string, testNamesToIds map[string]string) (*api.RunTestsResponse, error)
 
-	// Types returns the type of driver.
-	Type() *api.TestHarness
+	// Name returns the name of the driver.
+	Name() string
 }

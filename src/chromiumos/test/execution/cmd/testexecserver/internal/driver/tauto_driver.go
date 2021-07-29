@@ -10,16 +10,14 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"sync"
-	"time"
 
 	"chromiumos/lro"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
 
+	"chromiumos/test/execution/cmd/testexecserver/internal/common"
 	"chromiumos/test/execution/cmd/testexecserver/internal/tautoresults"
 )
 
@@ -42,28 +40,17 @@ func NewTautoDriver(logger *log.Logger) *TautoDriver {
 	}
 }
 
-// Type returns the type of driver.
-func (td *TautoDriver) Type() *api.TestHarness {
-	return &api.TestHarness{TestHarnessType: &api.TestHarness_Tauto_{Tauto: &api.TestHarness_Tauto{}}}
+// Name returns the name of the driver.
+func (td *TautoDriver) Name() string {
+	return "tauto"
 }
 
 // RunTests drives a test framework to execute tests.
 func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string, testNamesToIds map[string]string) (*api.RunTestsResponse, error) {
-	path := "/usr/bin/test_that" // Default path of test_that.
-
-	if resultsDir == "" {
-		t := time.Now()
-		resultsDir = filepath.Join("/tmp/results/autotest", t.Format("20060102-150405"))
-	}
-	// Make sure the result directory exists.
-	if err := os.MkdirAll(resultsDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create result directory %v", resultsDir)
-	}
-
 	args := newTautoArgs(dut, tests, resultsDir)
 
 	// Run RTD.
-	cmd := exec.Command(path, genTautoArgList(args)...)
+	cmd := exec.Command("/usr/bin/test_that", genTautoArgList(args)...)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return nil, fmt.Errorf("StderrPipe failed")
@@ -127,7 +114,7 @@ func newTautoArgs(dut string, tests []string, resultsDir string) *tautoRunArgs {
 	args := tautoRunArgs{
 		target: dut,
 		runFlags: map[string]string{
-			autotestDir: "/usr/local/autotest/",
+			autotestDir: common.AutotestDir,
 		},
 	}
 

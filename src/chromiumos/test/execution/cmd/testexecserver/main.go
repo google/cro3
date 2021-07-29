@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"chromiumos/test/execution/cmd/testexecserver/internal/common"
 	"chromiumos/test/execution/cmd/testexecserver/internal/metadata"
 	"chromiumos/test/execution/errors"
 )
@@ -23,9 +24,7 @@ import (
 var Version = "<unknown>"
 
 // createLogFile creates a file and its parent directory for logging purpose.
-func createLogFile() (*os.File, error) {
-	t := time.Now()
-	fullPath := filepath.Join("/tmp/testexecserver/", t.Format("20060102-150405"))
+func createLogFile(fullPath string) (*os.File, error) {
 	if err := os.MkdirAll(fullPath, 0755); err != nil {
 		return nil, errors.NewStatusError(errors.IOCreateError,
 			fmt.Errorf("failed to create directory %v: %w", fullPath, err))
@@ -50,11 +49,17 @@ func newLogger(logFile *os.File) *log.Logger {
 
 func main() {
 	os.Exit(func() int {
+		t := time.Now()
+		defaultLogPath := filepath.Join(common.TestExecServerRoot, t.Format("20060102-150405"))
+		defaultRequestFile := filepath.Join(common.TestExecServerRoot, common.TestRequestJSONFile)
+		defaultResultFile := filepath.Join(common.TestExecServerRoot, common.TestResultJSONFile)
 		version := flag.Bool("version", false, "print version and exit")
-		input := flag.String("input", "input.json", "specify the test execution request json input file")
-		output := flag.String("output", "output.json", "specify the test execution response json output file")
+		log := flag.String("log", defaultLogPath, "specify the test execution server log directory")
+		input := flag.String("input", defaultRequestFile, "specify the test execution request json input file")
+		output := flag.String("output", defaultResultFile, "specify the test execution response json output file")
+		resultDir := flag.String("resultdir", common.TestResultDir, "specify default directory for test harnesses to store their run result")
 		tlwAddr := flag.String("tlwaddr", "", "specify the tlw address")
-		metadataDir := flag.String("metadatadir", "/usr/local/testmetadata/",
+		metadataDir := flag.String("metadatadir", common.TestMetadataDir,
 			"specify a directory that contain all test metadata proto files.")
 
 		flag.Parse()
@@ -64,7 +69,7 @@ func main() {
 			return 0
 		}
 
-		logFile, err := createLogFile()
+		logFile, err := createLogFile(*log)
 		if err != nil {
 			return errors.WriteError(os.Stderr, err)
 		}
@@ -83,7 +88,7 @@ func main() {
 			return errors.WriteError(os.Stderr, err)
 		}
 		ctx := context.Background()
-		rspn, err := runTests(ctx, logger, *tlwAddr, metadata, req)
+		rspn, err := runTests(ctx, logger, *resultDir, *tlwAddr, metadata, req)
 		if err != nil {
 			return errors.WriteError(os.Stderr, err)
 		}

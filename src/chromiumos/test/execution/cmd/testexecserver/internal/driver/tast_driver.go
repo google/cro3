@@ -10,11 +10,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"sync"
-	"time"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
 
@@ -35,25 +32,13 @@ func NewTastDriver(logger *log.Logger) *TastDriver {
 	}
 }
 
-// Type returns the type of driver.
-func (td *TastDriver) Type() *api.TestHarness {
-	return &api.TestHarness{TestHarnessType: &api.TestHarness_Tast_{Tast: &api.TestHarness_Tast{}}}
+// Name returns the name of the driver.
+func (td *TastDriver) Name() string {
+	return "tast"
 }
 
 // RunTests drives a test framework to execute tests.
 func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string, testNamesToIds map[string]string) (*api.RunTestsResponse, error) {
-	path := "/usr/bin/tast" // Default path of tast which can be overridden later.
-
-	if resultsDir == "" {
-		t := time.Now()
-		resultsDir = filepath.Join("/tmp/tast/results", t.Format("20060102-150405"))
-	}
-	// Make sure the result directory exists.
-	if err := os.MkdirAll(resultsDir, 0755); err != nil {
-		return nil, errors.NewStatusError(errors.IOCreateError,
-			fmt.Errorf("failed to create result directory %v: %v", resultsDir, err))
-	}
-
 	reportServer, err := tastrpc.NewReportsServer(0, tests, testNamesToIds, resultsDir)
 	if err != nil {
 		return nil, errors.NewStatusError(errors.ServerStartingError,
@@ -64,7 +49,7 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr str
 	args := newTastArgs(dut, tests, resultsDir, tlwAddr, reportServer.Address())
 
 	// Run tast.
-	cmd := exec.Command(path, genArgList(args)...)
+	cmd := exec.Command("/usr/bin/tast", genArgList(args)...)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to capture tast stderr: %v", err)

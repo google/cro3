@@ -206,15 +206,15 @@ func TestDriverToTestsMapping(t *testing.T) {
 	hasTauto := false
 	for d, ts := range driverToTests {
 		var expected []string
-		ht := d.Type()
-		if ht.GetTast() != nil {
+		switch d.Name() {
+		case "tast":
 			expected = []string{"tastTest"}
 			hasTast = true
-		} else if ht.GetTauto() != nil {
+		case "tauto":
 			expected = []string{"tautoTest"}
 			hasTauto = true
-		} else {
-			t.Fatal("Unexpected driver type returned from driverToTestsMapping: ", d.Type())
+		default:
+			t.Fatal("Unexpected driver type returned from driverToTestsMapping: ", d.Name())
 		}
 		if diff := cmp.Diff(ts, expected); diff != "" {
 			t.Errorf("Got unexpected data from driverToTestsMapping (-got +want):\n%s", diff)
