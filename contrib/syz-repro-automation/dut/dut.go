@@ -39,13 +39,13 @@ func Lease(model string, minutes int) (string, error) {
 func FlashKernel(hostname string, imageID string) error {
 	board, err := getBoard(hostname)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to get board for DUT: %v", err)
 	}
 	if imageID == "" {
 		log.Printf("Image id not provided, fetching latest image for board %v...\n", board)
 		imageID, err = getLatestImage(board)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to get latest image for board: %v", err)
 		}
 	}
 	log.Printf("Flashing kernel onto DUT...")

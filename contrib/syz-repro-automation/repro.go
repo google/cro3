@@ -120,7 +120,7 @@ func checkPaths(paths []string) error {
 	return nil
 }
 
-func processLogOpts(rootdir string) (map[dutObj][]string, error) {
+func processLogOpts(rootdir string) (map[string]map[string][]string, error) {
 	logoptsFile := filepath.Join(rootdir, "logopts.yaml")
 	yamlFile, err := ioutil.ReadFile(logoptsFile)
 	if err != nil {
@@ -133,33 +133,52 @@ func processLogOpts(rootdir string) (map[dutObj][]string, error) {
 		return nil, fmt.Errorf("unable to unmarshal logopts.yaml: %v", err)
 	}
 
-	dutToBugs := make(map[dutObj][]string)
+	modelToImageToBugs := make(map[string]map[string][]string)
 
 	for _, bug := range logopts.Bugs {
-		if bug.DUT.Model != "" {
-			dutToBugs[bug.DUT] = append(dutToBugs[bug.DUT], bug.ID)
+		model := bug.DUT.Model
+		image := bug.DUT.ImageID
+		if model != "" {
+			if modelToImageToBugs[model] == nil {
+				modelToImageToBugs[model] = make(map[string][]string)
+			}
+			bugLog := filepath.Join(rootdir, "bugs", bug.ID, "log0")
+			modelToImageToBugs[model][image] = append(modelToImageToBugs[model][image], bugLog)
 		}
 	}
 
-	return dutToBugs, nil
+	return modelToImageToBugs, nil
 }
 
-func run(model string, minutes int, imageID string, paths map[string]string, bugLogs []string) {
+func run(model string, minutes int, paths map[string]string, imageToBugs map[string][]string) error {
 	hostname, err := dut.Lease(model, minutes)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("error trying to lease model %v: %v", model, err)
 	}
 	defer dut.Abandon(hostname)
 
-	if err = dut.FlashKernel(hostname, imageID); err != nil {
-		log.Panic(err)
-	}
+	for imageID, bugLogs := range imageToBugs {
+		if err := dut.FlashKernel(hostname, imageID); err != nil {
+			if imageID == "" {
+				return fmt.Errorf("error flashing latest kernel: %v", err)
+			}
+			log.Printf("Flashing image %v failed: %v.\nTrying to flash latest image.", imageID, err)
+			if err := dut.FlashKernel(hostname, ""); err != nil {
+				return fmt.Errorf("error flashing latest kernel: %v", err)
+			}
+		}
 
-	for _, bugLog := range bugLogs {
-		if err = runSyzRepro(paths, hostname, bugLog); err != nil {
-			log.Panic(err)
+		for _, bugLog := range bugLogs {
+			// bug id is the directory name where the bug log resides
+			bugID := filepath.Base(filepath.Dir(bugLog))
+			log.Printf("Running syz-repro on bug %v\n...", bugID)
+			if err = runSyzRepro(paths, hostname, bugLog); err != nil {
+				return fmt.Errorf("error running syz-repro on bug %v: %v", bugID, err)
+			}
 		}
 	}
+
+	return nil
 }
 
 func main() {
@@ -199,18 +218,21 @@ func main() {
 	}
 
 	if *logFile {
-		run(*model, *minutes, *imageID, paths, []string{flag.Arg(0)})
+		imageToBug := map[string][]string{
+			*imageID: {flag.Arg(0)},
+		}
+		if err := run(*model, *minutes, paths, imageToBug); err != nil {
+			log.Panic(err)
+		}
 	} else {
-		dutToBugs, err := processLogOpts(flag.Arg(0))
+		modelToImageToBugs, err := processLogOpts(flag.Arg(0))
 		if err != nil {
 			log.Panic(err)
 		}
-		for dut, bugIDs := range dutToBugs {
-			var bugLogs []string
-			for _, bugID := range bugIDs {
-				bugLogs = append(bugLogs, filepath.Join(flag.Arg(0), "bugs", bugID, "log0"))
+		for model, imageToBugs := range modelToImageToBugs {
+			if err := run(model, *minutes, paths, imageToBugs); err != nil {
+				log.Printf("error on model %v: %v\n", model, err)
 			}
-			run(dut.Model, *minutes, dut.ImageID, paths, bugLogs)
 		}
 	}
 }
