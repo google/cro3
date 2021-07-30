@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -120,7 +121,7 @@ func checkPaths(paths []string) error {
 	return nil
 }
 
-func processLogOpts(rootdir string) (map[string]map[string][]string, error) {
+func processLogOpts(rootdir string, finishedBugs *os.File) (map[string]map[string][]string, error) {
 	logoptsFile := filepath.Join(rootdir, "logopts.yaml")
 	yamlFile, err := ioutil.ReadFile(logoptsFile)
 	if err != nil {
@@ -133,9 +134,18 @@ func processLogOpts(rootdir string) (map[string]map[string][]string, error) {
 		return nil, fmt.Errorf("unable to unmarshal logopts.yaml: %v", err)
 	}
 
+	doneBugs := make(map[string]bool)
+	scanner := bufio.NewScanner(finishedBugs)
+	for scanner.Scan() {
+		doneBugs[scanner.Text()] = true
+	}
+
 	modelToImageToBugs := make(map[string]map[string][]string)
 
 	for _, bug := range logopts.Bugs {
+		if _, ok := doneBugs[bug.ID]; ok {
+			continue
+		}
 		model := bug.DUT.Model
 		image := bug.DUT.ImageID
 		if model != "" {
@@ -150,7 +160,7 @@ func processLogOpts(rootdir string) (map[string]map[string][]string, error) {
 	return modelToImageToBugs, nil
 }
 
-func run(model string, minutes int, paths map[string]string, imageToBugs map[string][]string) error {
+func run(model string, minutes int, paths map[string]string, imageToBugs map[string][]string, finishedBugs *os.File) error {
 	hostname, err := dut.Lease(model, minutes)
 	if err != nil {
 		return fmt.Errorf("error trying to lease model %v: %v", model, err)
@@ -174,6 +184,13 @@ func run(model string, minutes int, paths map[string]string, imageToBugs map[str
 			log.Printf("Running syz-repro on bug %v\n...", bugID)
 			if err = runSyzRepro(paths, hostname, bugLog); err != nil {
 				return fmt.Errorf("error running syz-repro on bug %v: %v", bugID, err)
+			}
+			if finishedBugs != nil {
+				if _, err := finishedBugs.WriteString(bugID + "\n"); err != nil {
+					log.Printf("Failed to record that bug %v finished reproducing\n", bugID)
+				} else {
+					log.Printf("Recorded that bug %v finished reproducing\n", bugID)
+				}
 			}
 		}
 	}
@@ -221,16 +238,20 @@ func main() {
 		imageToBug := map[string][]string{
 			*imageID: {flag.Arg(0)},
 		}
-		if err := run(*model, *minutes, paths, imageToBug); err != nil {
+		if err := run(*model, *minutes, paths, imageToBug, nil); err != nil {
 			log.Panic(err)
 		}
 	} else {
-		modelToImageToBugs, err := processLogOpts(flag.Arg(0))
+		finishedBugsPath := filepath.Join(flag.Arg(0), "finishedbugs")
+		finishedBugs, err := os.OpenFile(finishedBugsPath, os.O_APPEND|os.O_CREATE, 0600)
+		defer finishedBugs.Close()
+
+		modelToImageToBugs, err := processLogOpts(flag.Arg(0), finishedBugs)
 		if err != nil {
 			log.Panic(err)
 		}
 		for model, imageToBugs := range modelToImageToBugs {
-			if err := run(model, *minutes, paths, imageToBugs); err != nil {
+			if err := run(model, *minutes, paths, imageToBugs, finishedBugs); err != nil {
 				log.Printf("error on model %v: %v\n", model, err)
 			}
 		}
