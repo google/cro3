@@ -55,6 +55,10 @@ type logOpts struct {
 	Bugs []bug `yaml:"bugs"`
 }
 
+var disallowedModels = map[string]bool{
+	"elm": true, // elm images are not fully built
+}
+
 const (
 	syzReproTimeout = 20 * time.Minute
 )
@@ -148,6 +152,9 @@ func processLogOpts(rootdir string, finishedBugs *os.File) (map[string]map[strin
 		}
 		model := bug.DUT.Model
 		image := bug.DUT.ImageID
+		if _, ok := disallowedModels[model]; ok {
+			continue
+		}
 		if model != "" {
 			if modelToImageToBugs[model] == nil {
 				modelToImageToBugs[model] = make(map[string][]string)
