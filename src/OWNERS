@@ -1,4 +1,4 @@
-include chromiumos/config:/owners/testservice
+include chromiumos/config:/OWNERS.testservices
 
 # Owners supporting the initial migration from TLS/phosphorus
 # into cros-platform as TestService
