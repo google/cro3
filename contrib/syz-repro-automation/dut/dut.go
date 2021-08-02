@@ -42,8 +42,8 @@ func FlashKernel(hostname string, imageID string) error {
 		return fmt.Errorf("unable to get board for DUT: %v", err)
 	}
 	if imageID == "" {
-		log.Printf("Image id not provided, fetching latest image for board %v...\n", board)
-		imageID, err = getLatestImage(board)
+		log.Printf("Image id not provided, fetching second-latest image for board %v...\n", board)
+		imageID, err = getSecondLatestImage(board)
 		if err != nil {
 			return fmt.Errorf("unable to get latest image for board: %v", err)
 		}
@@ -84,14 +84,14 @@ func WaitForDut(hostname string) {
 // Abandon abandons the DUT at hostname, runs crosfleet dut abandon.
 func Abandon(hostname string) {
 	log.Println("Abandoning DUT at " + hostname + "...")
-	ret, err := cmd.RunCmd(false, "crosfleet", "dut", "abandon", hostname)
+	ret, err := cmd.RunCmd(false, "crosfleet", "dut", "abandon", hostname+".cros")
 	if err != nil {
 		log.Fatal(fmt.Errorf("error abandoning DUT: %v", err))
 	}
 	log.Println(ret)
 }
 
-func getLatestImage(board string) (string, error) {
+func getSecondLatestImage(board string) (string, error) {
 	bucket := "gs://chromeos-image-archive/" + board + "-debug-kernel-postsubmit"
 	ret, err := cmd.RunCmd(false, "gsutil.py", "ls", bucket)
 	if err != nil {
@@ -99,8 +99,9 @@ func getLatestImage(board string) (string, error) {
 	}
 	lines := strings.Split(ret, "\n")
 
-	// Get second to last line as the last line is blank.
-	imageLine := lines[len(lines)-2]
+	// Get third to last line as the last line is blank.
+	// We get the second latest image because flashing the latest image runs into issues.
+	imageLine := lines[len(lines)-3]
 
 	// imageLine looks like gs://chromeos-image-archive/octopus-debug-kernel-postsubmit/R94-14102.0.0-51496-8841198623588369056/.
 	sections := strings.Split(imageLine, "/")

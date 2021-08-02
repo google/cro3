@@ -184,13 +184,11 @@ func run(model string, minutes int, paths map[string]string, imageToBugs map[str
 			log.Printf("Running syz-repro on bug %v\n...", bugID)
 			if err = runSyzRepro(paths, hostname, bugLog); err != nil {
 				return fmt.Errorf("error running syz-repro on bug %v: %v", bugID, err)
-			}
-			if finishedBugs != nil {
+			} else if finishedBugs != nil {
 				if _, err := finishedBugs.WriteString(bugID + "\n"); err != nil {
-					log.Printf("Failed to record that bug %v finished reproducing\n", bugID)
-				} else {
-					log.Printf("Recorded that bug %v finished reproducing\n", bugID)
+					return fmt.Errorf("error recording that bug %v finished reproducing: %v", bugID, err)
 				}
+				log.Printf("Recorded that bug %v finished reproducing\n", bugID)
 			}
 		}
 	}
@@ -243,7 +241,10 @@ func main() {
 		}
 	} else {
 		finishedBugsPath := filepath.Join(flag.Arg(0), "finishedbugs")
-		finishedBugs, err := os.OpenFile(finishedBugsPath, os.O_APPEND|os.O_CREATE, 0600)
+		finishedBugs, err := os.OpenFile(finishedBugsPath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
+		if err != nil {
+			log.Panicf("error opening finishedbugs file: %v", err)
+		}
 		defer finishedBugs.Close()
 
 		modelToImageToBugs, err := processLogOpts(flag.Arg(0), finishedBugs)
@@ -252,7 +253,7 @@ func main() {
 		}
 		for model, imageToBugs := range modelToImageToBugs {
 			if err := run(model, *minutes, paths, imageToBugs, finishedBugs); err != nil {
-				log.Printf("error on model %v: %v\n", model, err)
+				log.Panicf("error on model %v: %v\n", model, err)
 			}
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"time"
@@ -52,7 +53,12 @@ func RunCmdLog(outputLog string, timeout time.Duration, cmdStr ...string) error 
 	cmd.Stderr = writer
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("cmd error: %v, ctx err: %v", err, ctx.Err())
+		// Ignore errors due to context deadlines.
+		if ctx.Err() != nil {
+			log.Printf("Ctx Error: %v", ctx.Err())
+			return nil
+		}
+		return fmt.Errorf("cmd error: %v", err)
 	}
 
 	return nil
