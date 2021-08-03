@@ -56,14 +56,15 @@ type logOpts struct {
 }
 
 var disallowedModels = map[string]bool{
-	"elm": true, // elm images are not fully built
+	"elm": true, // Elm images are not fully built.
 }
 
 const (
-	syzReproTimeout = 20 * time.Minute
+	syzReproTimeout = 10 * time.Hour
+	leaseTime       = 1439 // 24 hours in minutes - one minute.
 )
 
-func runSyzRepro(paths map[string]string, hostname string, reproLog string) error {
+func runSyzRepro(paths map[string]string, hostname, reproLog string) error {
 	syzreproTempDir, err := ioutil.TempDir("", "syzrepro-temp")
 	if err != nil {
 		return fmt.Errorf("unable to create tempdir: %v", err)
@@ -86,7 +87,7 @@ func runSyzRepro(paths map[string]string, hostname string, reproLog string) erro
 		SSHKey:    paths["sshKey"],
 		Procs:     1,
 		DUTConfig: dutConfig{
-			Targets:       []string{hostname + ".cros"},
+			Targets:       []string{hostname},
 			TargetDir:     "/tmp",
 			TargetReboot:  false,
 			StartupScript: paths["startupScript"],
@@ -125,6 +126,15 @@ func checkPaths(paths []string) error {
 	return nil
 }
 
+func readBugIds(f *os.File) map[string]bool {
+	lines := make(map[string]bool)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines[scanner.Text()] = true
+	}
+	return lines
+}
+
 func processLogOpts(rootdir string, finishedBugs *os.File) (map[string]map[string][]string, error) {
 	logoptsFile := filepath.Join(rootdir, "logopts.yaml")
 	yamlFile, err := ioutil.ReadFile(logoptsFile)
@@ -138,12 +148,7 @@ func processLogOpts(rootdir string, finishedBugs *os.File) (map[string]map[strin
 		return nil, fmt.Errorf("unable to unmarshal logopts.yaml: %v", err)
 	}
 
-	doneBugs := make(map[string]bool)
-	scanner := bufio.NewScanner(finishedBugs)
-	for scanner.Scan() {
-		doneBugs[scanner.Text()] = true
-	}
-
+	doneBugs := readBugIds(finishedBugs)
 	modelToImageToBugs := make(map[string]map[string][]string)
 
 	for _, bug := range logopts.Bugs {
@@ -168,25 +173,12 @@ func processLogOpts(rootdir string, finishedBugs *os.File) (map[string]map[strin
 }
 
 func run(model string, minutes int, paths map[string]string, imageToBugs map[string][]string, finishedBugs *os.File) error {
-	hostname, err := dut.Lease(model, minutes)
-	if err != nil {
-		return fmt.Errorf("error trying to lease model %v: %v", model, err)
-	}
-	defer dut.Abandon(hostname)
-
 	for imageID, bugLogs := range imageToBugs {
-		if err := dut.FlashKernel(hostname, imageID); err != nil {
-			if imageID == "" {
-				return fmt.Errorf("error flashing latest kernel: %v", err)
-			}
-			log.Printf("Flashing image %v failed: %v.\nTrying to flash latest image.", imageID, err)
-			if err := dut.FlashKernel(hostname, ""); err != nil {
-				return fmt.Errorf("error flashing latest kernel: %v", err)
-			}
-		}
-
 		for _, bugLog := range bugLogs {
-			// bug id is the directory name where the bug log resides
+			hostname, err := dut.Get(model, imageID, minutes, syzReproTimeout)
+			if err != nil {
+				return err
+			}
 			bugID := filepath.Base(filepath.Dir(bugLog))
 			log.Printf("Running syz-repro on bug %v\n...", bugID)
 			if err = runSyzRepro(paths, hostname, bugLog); err != nil {
@@ -199,13 +191,12 @@ func run(model string, minutes int, paths map[string]string, imageToBugs map[str
 			}
 		}
 	}
-
 	return nil
 }
 
 func main() {
 	model := flag.String("model", "garg", "Model for leased DUT")
-	minutes := flag.Int("minutes", 60, "Number of minutes to lease DUT")
+	minutes := flag.Int("minutes", leaseTime, "Number of minutes to lease DUT")
 	imageID := flag.String("imageid", "", "Kernel image id to flash onto DUT")
 	logFile := flag.Bool("logfile", false, "Argument supplied is a log file")
 	logDir := flag.Bool("logdir", false, "Argument supplied is a directory")
@@ -239,6 +230,7 @@ func main() {
 		"startupScript": startupScript,
 	}
 
+	defer dut.Abandon()
 	if *logFile {
 		imageToBug := map[string][]string{
 			*imageID: {flag.Arg(0)},

@@ -15,12 +15,59 @@ import (
 )
 
 const (
-	dutSleep = 2 * time.Second
+	dutSleep    = 2 * time.Second
+	flashBuffer = 20 * time.Minute
 )
 
-// Lease leases a DUT of type model and for specified minutes, runs crosfleet dut lease.
+type leasedDut struct {
+	hostname string
+	model    string
+	imageID  string
+	expTime  time.Time
+}
+
+var currDut *leasedDut
+
+// Get leases a DUT if the current DUT is nil, the model requested for the DUT has changed, or the DUT lease is about to expire.
+// Otherwise if only the DUT imageID has changed, we will get the new image.
+// If all fields are the same, Get does nothing.
+// Returns the current DUT's hostname.
+func Get(model, imageID string, minutes int, timeNeeded time.Duration) (string, error) {
+	if currDut == nil || currDut.model != model || time.Now().Add(timeNeeded).Add(flashBuffer).After(currDut.expTime) {
+		Abandon()
+		hostname, err := lease(model, minutes)
+		if err != nil {
+			return "", err
+		}
+		expTime := time.Now().Add(time.Duration(minutes) * time.Minute)
+		if err := getKernel(hostname, imageID); err != nil {
+			abandonDut(hostname)
+			return "", err
+		}
+		// Note imageID may not correspond to the actual image on the DUT.
+		// If user given imageID does not work and second-latest image is flashed onto DUT,
+		// imageID will still equal user given imageID. This way if user given imageID is present again,
+		// we will not try to flash the user given imageID again, and instead use the current DUT.
+		currDut = &leasedDut{
+			hostname: hostname,
+			model:    model,
+			imageID:  imageID,
+			expTime:  expTime,
+		}
+		return currDut.hostname, nil
+	} else if currDut.imageID != imageID {
+		if err := getKernel(currDut.hostname, imageID); err != nil {
+			Abandon()
+			return "", err
+		}
+		currDut.imageID = imageID
+	}
+	return currDut.hostname, nil
+}
+
+// lease leases a DUT of type model and for specified minutes, runs crosfleet dut lease.
 // Returns leased DUT's hostname.
-func Lease(model string, minutes int) (string, error) {
+func lease(model string, minutes int) (string, error) {
 	log.Printf("Leasing model %v device for %v minutes...\n", model, minutes)
 	ret, err := cmd.RunCmd(true, "crosfleet", "dut", "lease", "-model", model, "--minutes", strconv.Itoa(minutes))
 	if err != nil {
@@ -32,11 +79,24 @@ func Lease(model string, minutes int) (string, error) {
 
 	// ret looks like "Leased chromeos6-row18-rack16-host10 until 19 Jul 21 19:58 UTC".
 	// Returns hostname, e.g. chromeos6-row18-rack16-host10.
-	return strings.Split(ret, " ")[1], nil
+	return strings.Split(ret, " ")[1] + ".cros", nil
 }
 
-// FlashKernel flashes a kernel onto the DUT at hostname, runs cros flash.
-func FlashKernel(hostname string, imageID string) error {
+func getKernel(hostname, imageID string) error {
+	if err := flashKernel(hostname, imageID); err != nil {
+		if imageID == "" {
+			return fmt.Errorf("error flashing latest kernel: %v", err)
+		}
+		log.Printf("Flashing image %v failed: %v.\nTrying to flash latest image.", imageID, err)
+		if err := flashKernel(hostname, ""); err != nil {
+			return fmt.Errorf("error flashing latest kernel: %v", err)
+		}
+	}
+	return nil
+}
+
+// flashKernel flashes a kernel onto the DUT at hostname, runs cros flash.
+func flashKernel(hostname, imageID string) error {
 	board, err := getBoard(hostname)
 	if err != nil {
 		return fmt.Errorf("unable to get board for DUT: %v", err)
@@ -49,7 +109,7 @@ func FlashKernel(hostname string, imageID string) error {
 		}
 	}
 	log.Printf("Flashing kernel onto DUT...")
-	ssh := "ssh://root@" + hostname + ".cros"
+	ssh := "ssh://root@" + hostname
 	xBuddy := "xBuddy://remote/" + board + "-debug-kernel-postsubmit/" + imageID
 	if _, err = cmd.RunCmd(true, "cros", "flash", "--board="+board, ssh, xBuddy); err != nil {
 		return fmt.Errorf("error flashing kernel onto DUT: %v", err)
@@ -69,7 +129,7 @@ func WaitForDut(hostname string) {
 		"-o", "IdentitiesOnly=yes",
 		"-o", "StrictHostKeyChecking=no",
 		"-o", "ConnectTimeout=10",
-		"root@" + hostname + ".cros", "pwd",
+		"root@" + hostname, "pwd",
 	}
 	for {
 		if _, err := cmd.RunCmd(false, args...); err != nil {
@@ -81,14 +141,22 @@ func WaitForDut(hostname string) {
 	}
 }
 
-// Abandon abandons the DUT at hostname, runs crosfleet dut abandon.
-func Abandon(hostname string) {
+func abandonDut(hostname string) {
 	log.Println("Abandoning DUT at " + hostname + "...")
-	ret, err := cmd.RunCmd(false, "crosfleet", "dut", "abandon", hostname+".cros")
+	ret, err := cmd.RunCmd(false, "crosfleet", "dut", "abandon", hostname)
 	if err != nil {
 		log.Fatal(fmt.Errorf("error abandoning DUT: %v", err))
 	}
 	log.Println(ret)
+}
+
+// Abandon abandons the DUT at hostname, runs crosfleet dut abandon.
+func Abandon() {
+	if currDut == nil {
+		return
+	}
+	abandonDut(currDut.hostname)
+	currDut = nil
 }
 
 func getSecondLatestImage(board string) (string, error) {
