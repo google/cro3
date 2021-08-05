@@ -34,7 +34,7 @@ def main(argv):
     parser.add_argument('--board', type=str, required=True,
                         choices=('hatch', 'volteer', 'trembyle', 'dalboz',
                                  'waddledee', 'waddledoo', 'lalala', 'puff',
-                                 'brya0'),
+                                 'brya0','guybrush'),
                         help='Name of the baseboard')
     parser.add_argument('--variant', type=str, required=True,
                         help='Name of the board variant')
@@ -162,6 +162,10 @@ def add_to_kconfig_name(baseboard_name, variant_name):
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
             print('\tbool "-> ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_BRYA', file=outfile)
+        elif baseboard_name == 'guybrush':
+            print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
+            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tselect BOARD_GOOGLE_BASEBOARD_GUYBRUSH', file=outfile)
         else:
             raise ValueError(f'Unsupported board {baseboard_name}')
 

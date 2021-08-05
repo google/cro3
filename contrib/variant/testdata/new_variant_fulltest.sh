@@ -151,6 +151,14 @@ case "${REFERENCE}" in
     SUPPORTS_DC_VARIANT=1
     ;;
 
+  guybrush)
+    BASE=guybrush
+    NEW=jojo
+    CONFIG_DIR=/mnt/host/source/src/project/guybrush
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-guybrush-private/chromeos-base/chromeos-config-bsp-guybrush-private
+    EBUILD=chromeos-config-bsp-guybrush-private-9999.ebuild
+    ;;
+
   *)
     echo Unsupported reference board "${REFERENCE}"
     exit 1

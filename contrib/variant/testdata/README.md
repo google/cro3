@@ -89,6 +89,7 @@ The supported reference boards are:
 * dalboz (zork)
 * waddledee (dedede)
 * waddledoo (dedede)
+* guybrush
 
 For example, to test that creating a variant of the Waddledee reference board
 still works,
