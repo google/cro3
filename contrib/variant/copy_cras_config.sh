@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-VERSION="1.4.0"
+VERSION="1.5.0"
 SCRIPT=$(basename -- "${0}")
 set -e
 
@@ -47,7 +47,17 @@ VARIANT="${3,,}"
 # Assign BUG= text, or "None" if that parameter wasn't specified.
 BUG=${4:-None}
 
-cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE}/files/cras-config"
+CHROMEOS_BSP_DIR="${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE}"
+
+if [[ -d "${CHROMEOS_BSP_DIR}/files/cras-config" ]]; then
+  CRAS_DIR="files/cras-config"
+elif [[ -d "${CHROMEOS_BSP_DIR}/files/${REFERENCE}/audio/cras-config" ]]; then
+  CRAS_DIR="files/${REFERENCE}/audio/cras-config"
+else
+  echo "cras-config dir does not exists in overlay-${BASE}."
+fi
+
+cd "${CHROMEOS_BSP_DIR}"
 
 # If there are pending changes, exit the script (unless overridden)
 check_pending_changes "$(pwd)"
@@ -62,13 +72,13 @@ repo start "${BRANCH}" . "${NEW_VARIANT_WIP:+--head}"
 cleanup() {
   # If there is an error after the `repo start`, then restore modified files
   # to clean up and `repo abandon` the new branch.
-  cd "${HOME}/trunk/src/overlays/overlay-${BASE}/chromeos-base/chromeos-bsp-${BASE}"
+  cd "${CHROMEOS_BSP_DIR}"
   git restore --staged "*.ebuild"
   git restore "*.ebuild"
   if [[ ! -z "${NEWEBUILD}" ]] ; then
     rm -f "${NEWEBUILD}"
   fi
-  cd "files/cras-config"
+  cd "${CRAS_DIR}"
   if [[ -e "${VARIANT}" ]] ; then
     rm -Rf "${VARIANT}"
     # Use || true so that if the new files haven't been added yet, the error
@@ -79,13 +89,17 @@ cleanup() {
 }
 trap 'cleanup' ERR
 
-# ebuild will be located 2 directories up.
-pushd ../..
+# ebuild will be located in CHROMEOS_BSP_DIR.
 revbump_ebuild
-popd
+
+if [[ $CRAS_DIR == "files/cras-config" ]]; then
+  cd "files/cras-config"
+else
+  cd "files/"
+fi
 
 mkdir "${VARIANT}"
-cp "${REFERENCE}"/* "${VARIANT}"
+cp -r "${REFERENCE}"/* "${VARIANT}"
 git add "${VARIANT}"
 git commit -m "${BASE}: Add ${VARIANT} cras config
 
