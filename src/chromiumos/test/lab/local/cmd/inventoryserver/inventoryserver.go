@@ -62,15 +62,17 @@ func newInventoryServer(l net.Listener, logger *log.Logger, options *Options) (*
 			Id: &api.DutTopology_Id{
 				Value: options.DutAddress,
 			},
-			Dut: &api.Dut{
-				Id: &api.Dut_Id{
-					Value: options.DutAddress,
-				},
-				DutType: &api.Dut_Chromeos{
-					Chromeos: &api.Dut_ChromeOS{
-						Ssh: &api.IpEndpoint{
-							Address: options.DutAddress,
-							Port:    int32(options.DutPort),
+			Duts: []*api.Dut{
+				{
+					Id: &api.Dut_Id{
+						Value: options.DutAddress,
+					},
+					DutType: &api.Dut_Chromeos{
+						Chromeos: &api.Dut_ChromeOS{
+							Ssh: &api.IpEndpoint{
+								Address: options.DutAddress,
+								Port:    int32(options.DutPort),
+							},
 						},
 					},
 				},

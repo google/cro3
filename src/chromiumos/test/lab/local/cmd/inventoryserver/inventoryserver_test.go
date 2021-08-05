@@ -71,7 +71,7 @@ func TestInventoryServer_DutAddressOption(t *testing.T) {
 		DutPort:    dutPort,
 	})
 
-	ssh := dutTopology.Dut.GetChromeos().GetSsh()
+	ssh := dutTopology.Duts[0].GetChromeos().GetSsh()
 
 	if ssh.Address != dutAddress || ssh.Port != int32(dutPort) {
 		t.Fatalf("Expected address: %s and port: %d; Got: %s", dutAddress, dutPort, ssh.String())
@@ -84,11 +84,13 @@ func TestInventoryServer_DutTopologyConfigOption(t *testing.T) {
 	tmpFile, _ := ioutil.TempFile(os.TempDir(), "fakeduttopoconfig-")
 	marshal := &jsonpb.Marshaler{EmitDefaults: true, Indent: "  "}
 	jsonOutput, _ := marshal.MarshalToString(&api.DutTopology{
-		Dut: &api.Dut{
-			DutType: &api.Dut_Chromeos{
-				Chromeos: &api.Dut_ChromeOS{
-					Ssh: &api.IpEndpoint{
-						Address: dutAddress,
+		Duts: []*api.Dut{
+			{
+				DutType: &api.Dut_Chromeos{
+					Chromeos: &api.Dut_ChromeOS{
+						Ssh: &api.IpEndpoint{
+							Address: dutAddress,
+						},
 					},
 				},
 			},
@@ -105,7 +107,7 @@ func TestInventoryServer_DutTopologyConfigOption(t *testing.T) {
 		DutTopologyConfigPath: tmpFile.Name(),
 	})
 
-	ssh := dutTopology.Dut.GetChromeos().GetSsh()
+	ssh := dutTopology.Duts[0].GetChromeos().GetSsh()
 
 	if ssh.Address != dutAddress {
 		t.Fatalf("Failed to load config from file %s", tmpFile.Name())
