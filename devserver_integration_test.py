@@ -15,6 +15,7 @@ To run the integration test for devserver:
 
 from __future__ import print_function
 
+import logging
 import os
 import shutil
 import socket
@@ -35,7 +36,6 @@ from six.moves import urllib
 import psutil  # pylint: disable=import-error
 
 import setup_chromite  # pylint: disable=unused-import
-from chromite.lib import cros_logging as logging
 from chromite.lib.xbuddy import devserver_constants
 
 

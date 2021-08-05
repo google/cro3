@@ -13,6 +13,7 @@ import base64
 import gzip
 import httplib
 import json
+import logging
 import md5
 import os
 import StringIO
@@ -27,7 +28,6 @@ from cherrypy.test import helper
 
 import gs_archive_server
 import tarfile_utils
-from chromite.lib import cros_logging as logging
 
 _TESTING_SERVER = 'http://127.0.0.1:8888'
 _DIR = '/gs_archive_server_test'

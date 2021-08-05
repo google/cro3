@@ -9,6 +9,7 @@ from __future__ import division
 from __future__ import print_function
 
 import json
+import logging
 import os
 import subprocess
 import threading
@@ -26,7 +27,6 @@ except ImportError:
   psutil = None
 
 import setup_chromite  # pylint: disable=unused-import
-from chromite.lib import cros_logging as logging
 from chromite.lib import cros_update_progress
 
 

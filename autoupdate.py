@@ -7,6 +7,7 @@
 
 from __future__ import print_function
 
+import logging
 import os
 
 from six.moves import urllib
@@ -21,9 +22,6 @@ try:
   from nebraska import nebraska
 except ImportError:
   import nebraska
-
-import setup_chromite  # pylint: disable=unused-import
-from chromite.lib import cros_logging as logging
 
 
 # Module-local log function.

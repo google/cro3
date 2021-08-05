@@ -13,11 +13,11 @@ Cache performance.
 from __future__ import print_function
 
 import argparse
+import logging
 import re
 import sys
 from logging import handlers
 
-from chromite.lib import cros_logging as logging
 from chromite.lib import metrics
 from chromite.lib import ts_mon_config
 

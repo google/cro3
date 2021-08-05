@@ -7,15 +7,13 @@
 
 from __future__ import print_function
 
+import logging
 import os
 import subprocess
 import tempfile
 
 import portage  # pylint: disable=import-error
 import cherrypy  # pylint: disable=import-error
-
-import setup_chromite  # pylint: disable=unused-import
-from chromite.lib import cros_logging as logging
 
 
 # Relative path to the wrapper directory inside the sysroot.

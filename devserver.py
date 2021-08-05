@@ -25,6 +25,7 @@ how to update and which payload to give to a requester.
 from __future__ import print_function
 
 import json
+import logging
 import optparse  # pylint: disable=deprecated-module
 import os
 import re
@@ -54,7 +55,6 @@ import health_checker
 # you will _not_ understand why.
 import setup_chromite  # pylint: disable=unused-import
 from chromite.lib import cros_build_lib
-from chromite.lib import cros_logging as logging
 from chromite.lib.xbuddy import android_build
 from chromite.lib.xbuddy import artifact_info
 from chromite.lib.xbuddy import build_artifact

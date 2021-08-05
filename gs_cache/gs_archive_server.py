@@ -20,6 +20,7 @@ from __future__ import print_function
 
 import argparse
 import functools
+import logging
 import os
 import subprocess
 import sys
@@ -32,7 +33,6 @@ import requests
 import cherrypy  # pylint: disable=import-error
 
 import constants
-from chromite.lib import cros_logging as logging
 from chromite.lib import gs
 
 _WRITE_BUFFER_SIZE_BYTES = 1024 * 1024  # 1 MB
