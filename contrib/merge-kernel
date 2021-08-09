@@ -299,6 +299,7 @@ do_setup() {
   readonly stable_rc=$(find_stable_rc)
   local vtag
   local dvtag
+  local tbranch_release=""
 
   # If a stable release tag is provided, we need to update stable
   # at this point to get the tag if it is not already available.
@@ -353,6 +354,7 @@ do_setup() {
   # to make this configurable.
   if [[ -n "${tbranch}" ]]; then
     readonly cbranch="${tbranch}"
+    tbranch_release="-$(echo $tbranch | sed -e 's/^release-\(R[0-9]*\)-.*/\1/')"
   else
     readonly cbranch="chromeos-${ctag}"
   fi
@@ -365,7 +367,7 @@ do_setup() {
   readonly mcbranch="merge/${cbranch}"
 
   # Topic to use.
-  readonly topic="merge-${dtag}"
+  readonly topic="merge-${dtag}${tbranch_release}"
 
   if ! git rev-parse --verify "${ocbranch}" >/dev/null 2>&1; then
     usage "Invalid tag '${tag}': No such branch: '${ocbranch}'"
