@@ -87,7 +87,7 @@ LICENSES = {
 }
 
 VERSION_RE = (
-    '^(?P<dep>[\\^~=])?'  # Dependency type: ^, ~, =
+    '^(?P<dep>([\\^~=]|>=))?'  # Dependency type: ^, ~, =, >=
     '(?P<major>[0-9]+|[*])'  # Major version (can be *)
     '(.(?P<minor>[0-9]+|[*]))?'  # Minor version
     '(.(?P<patch>[0-9]+|[*]))?'  # Patch version
@@ -170,6 +170,13 @@ class VersionRange:
                 else:
                     v_max = (major, minor + 1, 0)
                 v_min = (major, minor, patch)
+            elif dep == '>=':
+                major = max(v_min[0], 0)
+                minor = max(v_min[1], 0)
+                patch = max(v_min[2], 0)
+                v_min = (major, minor, patch)
+                v_min_inclusive = True
+                v_max = None
             elif dep and dep != '^':
                 raise VersionParseError('Unrecognized operator: "{}"'.format(dep))
             else:
@@ -671,7 +678,8 @@ def version_to_tuple(version, missing=-1):
 
     m = re.match(VERSION_RE, version)
     if not m:
-        raise VersionParseError
+        raise VersionParseError(
+            'Invalid SemVer: {}'.format(version))
 
     dep = m.group('dep')
     major = m.group('major')
