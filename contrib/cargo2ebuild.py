@@ -165,13 +165,10 @@ class VersionRange:
                 if v_min[0] < 0:
                     raise VersionParseError(
                         'The ~ constraint operator requires a major version: {}'.format(value))
-                if v_min[1] < 0:
+                if v_min[1] < 0 and v_min[2] < 0:
                     v_max = (major + 1, 0, 0)
-                elif v_min[2] < 0:
-                    v_max = (0, minor + 1, 0)
                 else:
-                    v_max_inclusive = True
-                    v_max = (major, minor, patch)
+                    v_max = (major, minor + 1, 0)
                 v_min = (major, minor, patch)
             elif dep and dep != '^':
                 raise VersionParseError('Unrecognized operator: "{}"'.format(dep))
