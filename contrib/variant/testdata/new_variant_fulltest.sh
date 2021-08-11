@@ -26,6 +26,9 @@ fi
 # ${var,,} converts to all lowercase.
 REFERENCE="${1,,}"
 
+# Support for depthcharge variants was added later, so the default is no support
+SUPPORTS_DC_VARIANT=0
+
 # Set variables depending on the reference board.
 #
 # All boards:
@@ -145,6 +148,7 @@ case "${REFERENCE}" in
     FITIMAGE=brya0
     FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-brya-private/sys-boot/coreboot-private-files-baseboard-brya/files/blobs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-brya-private/sys-boot/coreboot-private-files-baseboard-brya/files
+    SUPPORTS_DC_VARIANT=1
     ;;
 
   *)
@@ -236,7 +240,7 @@ if [[ ! -z ${OVERLAY_DIR+x} ]] ; then
   popd
 fi
 
-# Explicitly set the desired firmware targets
+# Explicitly set the desired firmware targets (if SUPPORTS_DC_VARIANT is 1)
 BUILD_TARGETS_SED="s/_FW_BUILD_CONFIG = None/_FW_BUILD_CONFIG = sc.create_fw_build_config(sc.create_fw_build_targets(\
 coreboot='${NEW}',\
 depthcharge='${NEW}',\
@@ -254,9 +258,15 @@ if [[ ! -z ${CONFIG_DIR+x} ]] ; then
   # fw_build_config.sh to make the changes we need. Instead just apply the
   # changes manually.
   pushd "${CONFIG_DIR}/${NEW}"
-  # Load sw_config.star and update FW_BUILD_CONFIG to new project and build the config
-  sed -i '4s/^/load("\/\/config\/util\/sw_config.star",sc="sw_config")\n/' config.star
-  sed -i -e "${BUILD_TARGETS_SED}" config.star
+
+  if [[ ${SUPPORTS_DC_VARIANT} -eq 1 ]] ; then
+    # Load sw_config.star and update FW_BUILD_CONFIG to new project and build the config
+    sed -i '4s/^/load("\/\/config\/util\/sw_config.star",sc="sw_config")\n/' config.star
+    sed -i -e "${BUILD_TARGETS_SED}" config.star
+  else
+      # Use the same build target for everything
+      sed -i -e "s/_FW_BUILD_CONFIG = None/_FW_BUILD_CONFIG = program.firmware_build_config(_${NEW_UPPER})/" config.star
+  fi
   ./config.star
   popd
 fi
