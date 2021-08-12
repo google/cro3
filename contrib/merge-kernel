@@ -42,6 +42,7 @@ dependency="" # No dependency
 Subject=""  # default subject
 namespace="" # default namespace
 apply_stashed=0 # Apply stash@{0} on top of a merge
+reviewers="" # Comma separated list of reviewer(s) email address(es).
 
 # derived parameters
 skip_merge=0    # Skip actual merge and upload.
@@ -84,6 +85,7 @@ Options:
   -f            Force. Override existing Change-Id and bug number.
   -F            Force. Bypass upload validation.
   -h            Display help text and exit.
+  -k            Launch CQ+1 dry-run.
   -l change-id  Apply patch extracted from CL:change-id prior to merge.
                 May be repeated multiple times.
   -n            Send notification e-mail to ${notify_to}.
@@ -106,6 +108,7 @@ Options:
   -t            Target branch name. The branch must exist in the Chrome OS
                 repository.
   -u            Upload merge into Gerrit.
+  -v email-addr Comma separated list of Gerrit email addresses for reviewers.
   -x patchfile  Patch to apply before committing merge. Patch will be applied
                 with "patch -p 1 < patchfile". May be repeated several times.
 EOF
@@ -180,7 +183,7 @@ do_getparams() {
   local option
   local vtag
 
-  while getopts "ab:c:d:fFhkl:N:nP:pq:r:R:st:uS:x:" option; do
+  while getopts "ab:c:d:fFhkl:N:nP:pq:r:R:sS:t:uv:x:" option; do
     case ${option} in
       a) apply_stashed=1 ;;
       b) bugs="${OPTARG}" ;;
@@ -205,6 +208,7 @@ do_getparams() {
       s) do_dryrun=1 ;;
       S) Subject="${OPTARG}" ;;
       u) upload=1 prepare=1 ;;
+      v) reviewers=",r=${OPTARG//,/,r=}" ;;
       x) patches+=("${OPTARG}") ;;
       h|?|*) usage ;;
     esac
@@ -961,9 +965,10 @@ EOF
 }
 
 do_upload() {
+  local options="t=${topic}${cq_dryrun}${reviewers}"
   if [[ ${upload} -ne 0 ]]; then
     if [[ "${bypass}" -eq 0 ]]; then
-      if ! git push --no-verify ${dryrun} "${chromeos}" "${mbranch}:refs/for/${cbranch}%t=${topic}${cq_dryrun}"; then
+      if ! git push --no-verify ${dryrun} "${chromeos}" "${mbranch}:refs/for/${cbranch}%${options}"; then
         error "Failed to upload changes into '${chromeos}'."
         error "If the error is a validation error, and if your changes did not cause the problem,"
         error "repeat the command with '-F' option. Do not use that option unless you are sure"
@@ -972,13 +977,13 @@ do_upload() {
       fi
     else
       if ! git push -o "uploadvalidator~skip" --no-verify ${dryrun} "${chromeos}" \
-        "${mbranch}:refs/for/${cbranch}%t=${topic}${cq_dryrun}"; then
+        "${mbranch}:refs/for/${cbranch}%${options}"; then
         die "Failed to upload changes into '${chromeos}'."
       fi
     fi
   elif [[ ${prepare} -ne 0 ]]; then
     echo "Push into ${chromeos} using the following command:"
-    echo "    git push --no-verify ${chromeos} ${mbranch}:refs/for/${cbranch}%t=${topic}${cq_dryrun}"
+    echo "    git push --no-verify ${chromeos} ${mbranch}:refs/for/${cbranch}%${options}"
   fi
 }
 
