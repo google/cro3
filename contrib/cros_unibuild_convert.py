@@ -438,12 +438,6 @@ class DeviceConfig:
     return default
 
 
-def genconf_first_api_level(_, overlay):
-  if overlay.board_name in ('atlas', 'nocturne'):
-    return '28'
-  return '25'
-
-
 def genconf_dt_compatible_match(device, overlay):
   if not device.fdt_compatible_raw:
     return None
@@ -574,7 +568,6 @@ genconf_schema = {
                                d.arc_build_prop('ro.product.model')),
             'oem': (M_PRIVATE,
                     lambda d, _: d.arc_build_prop('ro.product.brand')),
-            'first-api-level': (M_PRIVATE, genconf_first_api_level),
             'metrics-tag': (M_PRIVATE,
                             lambda d, _: d.arc_build_prop('ro.product.board')),
             'product': (M_PRIVATE, lambda d, _:
