@@ -595,10 +595,12 @@ genconf_schema = {
         'main-rw-image': (M_PRIVATE, lambda _, b: b.bcs_main_rw),
         'build-targets': {
             'base': (M_PUBLIC, lambda _, b: b.detachable_base_build_target),
+            'bmpblk': (M_PUBLIC, lambda _, b: b.board_name),
             'coreboot': (M_PUBLIC, lambda _, b: b.board_name),
             'depthcharge': (M_PUBLIC, lambda _, b: b.board_name),
             'ec': (M_PUBLIC, lambda _, b: b.ec_build_target),
             'ec_extras': (M_PUBLIC, lambda _, b: b.ec_extras_build_target),
+            'libpayload': (M_PUBLIC, lambda _, b: b.board_name),
         },
     },
     'firmware-signing': {
