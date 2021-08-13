@@ -68,19 +68,21 @@ def yaml_str_representer(dumper, data):
 yaml.add_representer(str, yaml_str_representer)
 
 
-def format_yaml(config):
+def format_yaml(config, device_configs, used_vars):
   conf_str = yaml.dump(config, indent=2, default_flow_style=False)
   out = gen_cros_copyright()
   out += """
-# This board only supports a single config, defined below, as it is a
-# migrated pre-unibuild device.
 device-config: &device_config\n"""
   out += prepend_all_lines(conf_str, '  ')
   out += """
-# Required dunder for chromeos-config to support a single device.
 chromeos:
-  devices:
-    - skus:
+  devices:\n"""
+  for dev in device_configs:
+    out += "    - "
+    for var in used_vars:
+      out += "${}: {}\n".format(var, getattr(dev, var))
+      out += "      "
+    out += """skus:
         - config: *device_config\n"""
   return out
 
@@ -389,6 +391,7 @@ class DeviceConfig:
       'psu_type': ['cros_config', '/hardware-properties', 'psu-type'],
       'whitelabel_tag': ['vpd_get_value', 'whitelabel_tag'],
       'customization_id': ['vpd_get_value', 'customization_id'],
+      'vpd_model_name': ['vpd_get_value', 'model_name'],
       'cras_config_dir': ['sh', '/etc/cras/get_device_config_dir'],
       'internal_ucm_suffix': ['sh', '/etc/cras/get_internal_ucm_suffix'],
       # disgusting, but whatever...
@@ -435,6 +438,21 @@ class DeviceConfig:
         _, _, val = line.partition('=')
         return val
     return default
+
+  @property
+  def loem(self):
+    loem = ''
+    if self.customization_id:
+      loem, _, _ = self.customization_id.partition('-')
+    return loem
+
+  @property
+  def chassis(self):
+    return self.model.upper()
+
+  @property
+  def marketing_name(self):
+    return self.vpd_model_name or self.arc_build_prop('ro.product.brand')
 
 
 def genconf_dt_compatible_match(device, overlay):
@@ -563,8 +581,7 @@ genconf_schema = {
         'build-properties': {
             'device': (M_PRIVATE, lambda d, _:
                        d.arc_build_prop('ro.product.device')),
-            'marketing-name': (M_PRIVATE, lambda d, _:
-                               d.arc_build_prop('ro.product.model')),
+            'marketing-name': (M_PRIVATE, lambda d, _: d.marketing_name),
             'oem': (M_PRIVATE,
                     lambda d, _: d.arc_build_prop('ro.product.brand')),
             'metrics-tag': (M_PRIVATE,
@@ -650,6 +667,59 @@ def genconf(schema, device_conf, overlay_conf):
     return pub, priv
 
 
+def unify_configs(dev_configs, configs):
+  """Merge multiple configs together by replacing device config
+  attributes with templates recognized by cros_config_schema (in the
+  format {{$device_config_attribute}}).
+
+  Args:
+    dev_configs: a list of DeviceConfig to operate on.
+    configs: the list of cros_config json-like configs to merge.
+
+  Returns:
+    A two tuple of (unified_config, vars_used).
+  """
+  configs = list(configs)
+
+  def configs_are_unified():
+    return all(configs[0] == cfg for cfg in configs[1:])
+
+  if configs_are_unified():
+    return configs[0], set()
+
+  if isinstance(configs[0], str):
+    replace_vars = ('model', 'loem', 'chassis', 'brand_code', 'smbios_name',
+                    'marketing_name')
+    vars_used = set()
+    for var in replace_vars:
+      for i in range(len(configs)):
+        device_config = dev_configs[i]
+        value = getattr(device_config, var)
+        if not value:
+          break
+        old_config_value = configs[i]
+        configs[i] = configs[i].replace(value, '{{$%s}}' % var)
+        if i == 0 and configs[i] == old_config_value:
+          break
+        vars_used.add(var)
+      if configs_are_unified():
+        return configs[0], vars_used
+
+  if isinstance(configs[0], dict):
+    result = {}
+    used_vars = set()
+    for key in configs[0]:
+      item_result, item_used_vars = unify_configs(
+          dev_configs, [cfg[key] for cfg in configs]
+      )
+      result[key] = item_result
+      used_vars |= item_used_vars
+
+    return result, used_vars
+
+  raise ValueError("Can't unify configs: {!r}".format(configs))
+
+
 def validate_gs_uri(uri):
   log('Validating {}...'.format(uri))
   subprocess.run(['gsutil', 'stat', uri], check=True, stdout=subprocess.DEVNULL)
@@ -662,11 +732,11 @@ def parse_opts(argv):
                       default=pathlib.Path(os.getenv('HOME')) / 'trunk',
                       help='Location of the ChromeOS checkout')
   parser.add_argument('--dut', '-d',
-                      type=str,
-                      required=True,
-                      help='Hostname of DUT to use for querying and testing.')
-  parser.add_argument('--dut-ssh-port', type=int, default=22,
-                      help='SSH port to use on the dut.')
+                      action='append',
+                      dest='duts',
+                      help=('Hostname of DUT(s) to use for querying. '
+                            'Note: multiple duts can be passed, which is useful'
+                            ' for converting a zerg board like hana or lars.'))
   parser.add_argument('--board', '-b',
                       type=str,
                       required=True,
@@ -683,21 +753,50 @@ def main(argv):
   opts = parse_opts(argv)
 
   overlays = BoardOverlays(opts.board, opts.cros_checkout, opts.mosys_platform)
-  dut = Dut(opts.dut, opts.cros_checkout, port=opts.dut_ssh_port)
+  duts = []
+  for dut_string in opts.duts:
+    hostname, _, port = dut_string.partition(':')
+    if port:
+      port = int(port)
+    else:
+      port = 22
+    duts.append(Dut(hostname, opts.cros_checkout, port=port))
 
-  log('Loading configuration from DUT...')
-  dut_config = DeviceConfig.from_dut(dut)
-  log('Got configuration: {}'.format(dut_config))
+  dut_configs = []
+  for dut, dut_string in zip(duts, opts.duts):
+    log('Loading configuration from DUT {}...'.format(dut_string))
+    dut_config = DeviceConfig.from_dut(dut)
+    log('Got configuration: {}'.format(dut_config))
 
-  assert dut_config.lsb_val('CHROMEOS_RELEASE_BOARD') == opts.board
-  assert dut_config.lsb_val('CHROMEOS_RELEASE_UNIBUILD', '0') != '1'
+    assert dut_config.lsb_val('CHROMEOS_RELEASE_UNIBUILD', '0') != '1'
+    dut_configs.append(dut_config)
 
-  log('Generating chromeos-config values...')
-  public_config, private_config = genconf(genconf_schema, dut_config, overlays)
+  dut_public_configs = []
+  dut_private_configs = []
+  for dut_config, dut_string in zip(dut_configs, opts.duts):
+    log('Generating chromeos-config values for {}...'.format(dut_string))
+    dut_public_config, dut_private_config = genconf(
+        genconf_schema, dut_config, overlays)
+    log("PUBLIC={!r}".format(dut_public_config))
+    log("PRIVATE={!r}".format(dut_private_config))
+    dut_public_configs.append(dut_public_config)
+    dut_private_configs.append(dut_private_config)
 
-  public_config_yaml = format_yaml(public_config)
-  private_config_yaml = format_yaml(private_config)
+  log('Unifying public configs...')
+  public_config, public_config_vars = unify_configs(
+      dut_configs, dut_public_configs)
+
+  log('Unifying private configs...')
+  private_config, private_config_vars = unify_configs(
+      dut_configs, dut_private_configs)
+
+  public_config_yaml = format_yaml(
+      public_config, dut_configs, public_config_vars
+  )
   log('Got public config: \n{}'.format(public_config_yaml))
+  private_config_yaml = format_yaml(
+      private_config, dut_configs, private_config_vars
+  )
   log('Got private config: \n{}'.format(private_config_yaml))
 
   log('Generating ebuilds...')
