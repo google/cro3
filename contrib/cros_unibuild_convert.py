@@ -380,13 +380,13 @@ class Dut:
 
 class DeviceConfig:
   ATTRS = {
-      'brand_code': ['mosys', 'platform', 'brand'],
-      'model': ['mosys', 'platform', 'model'],
+      'brand_code': ['cros_config', '/', 'brand-code'],
+      'model': ['cros_config', '/', 'name'],
       'lsb_release': ['cat', '/etc/lsb-release'],
       'smbios_name': ['cat', '/sys/class/dmi/id/product_name'],
       'fdt_compatible_raw': ['cat', '/proc/device-tree/compatible'],
       'arc_build_props': ['cat', '/usr/share/arc/properties/build.prop'],
-      'mosys_psu_type': ['mosys', 'psu', 'type'],
+      'psu_type': ['cros_config', '/hardware-properties', 'psu-type'],
       'whitelabel_tag': ['vpd_get_value', 'whitelabel_tag'],
       'customization_id': ['vpd_get_value', 'customization_id'],
       'cras_config_dir': ['sh', '/etc/cras/get_device_config_dir'],
@@ -450,8 +450,8 @@ def genconf_dt_compatible_match(device, overlay):
 
 
 def genconf_psu_type(device, _):
-  if device.mosys_psu_type:
-    return device.mosys_psu_type
+  if device.psu_type:
+    return device.psu_type
   devicetype = device.lsb_val('DEVICETYPE')
   if devicetype == 'CHROMEBOOK':
     return 'battery'
