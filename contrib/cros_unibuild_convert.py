@@ -140,7 +140,6 @@ CROS_WORKON_COMMIT=""
 CROS_WORKON_TREE=""
 CROS_WORKON_LOCALNAME="platform/firmware"
 CROS_WORKON_PROJECT="chromiumos/platform/firmware"
-CROS_BOARDS=( %(board_name)s )
 
 inherit cros-workon cros-firmware cros-unibuild
 
