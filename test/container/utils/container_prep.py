@@ -144,6 +144,11 @@ class DockerPrep():
 
 def main():
     """Entry point."""
+
+    if not (sys.version_info.major == 3 and sys.version_info.minor >= 6):
+        print('python3.6 or greater is required.')
+        sys.exit(1)
+
     args = parse_local_arguments()
     builder = DockerPrep(args)
     builder.config_paths()

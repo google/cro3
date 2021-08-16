@@ -29,4 +29,4 @@ source "${config_bin_dir}/common.sh"
 create_venv
 
 # $chroot_path $sysroot_path $output_path are set as ENV VAR's.
-python3.6 container_prep.py -chroot=${chroot_path} -sysroot=${sysroot_path} -path=${output_path} -force_path=True -src=${src_root}
+python3 container_prep.py -chroot=${chroot_path} -sysroot=${sysroot_path} -path=${output_path} -force_path=True -src=${src_root}
