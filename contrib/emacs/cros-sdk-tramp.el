@@ -38,7 +38,7 @@ Default value is inferred from the location of this file."
   "Rotate among same file inside or outside cros_sdk chroot.
 They should be the same file."
   (interactive)
-  (let* ((current (buffer-file-name))
+  (let* ((current (or (buffer-file-name) default-directory))
          (cros-match (string-match "^/cros:.*:/mnt/host/source/\\(.*\\)$" current)))
     (if cros-match
         (let* ((relative-path (match-string 1 current))
