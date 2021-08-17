@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
@@ -112,19 +113,22 @@ newline-delimited json protos.
 			&r.dutAttributeListPath,
 			"dutattributes",
 			"",
-			"Path to a JSON proto file containing a DutAttributeList.",
+			"Path to a proto file containing a DutAttributeList. Can be JSON "+
+				"or binary proto.",
 		)
 		r.Flags.StringVar(
 			&r.buildMetadataListPath,
 			"buildmetadata",
 			"",
-			"Path to a JSON proto file containing a SystemImage.BuildMetadataList.",
+			"Path to a proto file containing a SystemImage.BuildMetadataList. "+
+				"Can be JSON or binary proto.",
 		)
 		r.Flags.StringVar(
 			&r.flatConfigListPath,
 			"flatconfiglist",
 			"",
-			"Path to a JSON proto file containing a FlatConfigList",
+			"Path to a proto file containing a FlatConfigList. Can be JSON or "+
+				"binary proto.",
 		)
 		r.Flags.StringVar(
 			&r.out,
@@ -174,13 +178,8 @@ func (r *generateRun) Run(a subcommands.Application, args []string, env subcomma
 // protobuf package.
 var publicReplicationRegexp = regexp.MustCompile(`(?m),?\s*"publicReplication":\s*{\s*"publicFields":\s*"[^"]*"\s*}`)
 
-// readJsonpb reads the jsonpb at path into m.
-func readJsonpb(path string, m proto.Message) error {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
+// parseJsonpb parses the jsonpb in b into m.
+func parseJsonpb(b []byte, m proto.Message) error {
 	lenBeforeRegexp := len(b)
 	b = publicReplicationRegexp.ReplaceAll(b, []byte{})
 
@@ -192,6 +191,43 @@ func readJsonpb(path string, m proto.Message) error {
 	}
 
 	return jsonpb.Unmarshal(bytes.NewReader(b), m)
+}
+
+// readBinaryOrJSONPb reads path into m, attempting to parse as both a binary
+// and json encoded proto.
+//
+// This function is meant as a convenience so the CLI can take either json or
+// binary protos as input. This function guesses at whether to attempt to parse
+// as binary or json first based on path's suffix.
+func readBinaryOrJSONPb(path string, m proto.Message) error {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	if strings.HasSuffix(path, ".jsonpb") || strings.HasSuffix(path, ".jsonproto") {
+		glog.Infof("Attempting to parse %q as jsonpb first", path)
+
+		err = parseJsonpb(b, m)
+		if err == nil {
+			return nil
+		}
+
+		glog.Warningf("Parsing %q as jsonpb failed, attempting to parse as binary pb", path)
+
+		return proto.Unmarshal(b, m)
+	}
+
+	glog.Infof("Attempting to parse %q as binary pb first", path)
+
+	err = proto.Unmarshal(b, m)
+	if err == nil {
+		return nil
+	}
+
+	glog.Warningf("Parsing %q as binarypb failed, attempting to parse as jsonpb", path)
+
+	return parseJsonpb(b, m)
 }
 
 // readTextpb reads the textpb at path into m.
@@ -288,7 +324,7 @@ func (r *generateRun) run() error {
 	}
 
 	buildMetadataList := &buildpb.SystemImage_BuildMetadataList{}
-	if err := readJsonpb(r.buildMetadataListPath, buildMetadataList); err != nil {
+	if err := readBinaryOrJSONPb(r.buildMetadataListPath, buildMetadataList); err != nil {
 		return err
 	}
 
@@ -299,7 +335,7 @@ func (r *generateRun) run() error {
 	}
 
 	dutAttributeList := &testpb.DutAttributeList{}
-	if err := readJsonpb(r.dutAttributeListPath, dutAttributeList); err != nil {
+	if err := readBinaryOrJSONPb(r.dutAttributeListPath, dutAttributeList); err != nil {
 		return err
 	}
 
@@ -312,7 +348,7 @@ func (r *generateRun) run() error {
 	glog.Infof("Starting read of FlatConfigs from %s (may be slow if file is large)", r.flatConfigListPath)
 
 	flatConfigList := &payload.FlatConfigList{}
-	if err := readJsonpb(r.flatConfigListPath, flatConfigList); err != nil {
+	if err := readBinaryOrJSONPb(r.flatConfigListPath, flatConfigList); err != nil {
 		return err
 	}
 
