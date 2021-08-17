@@ -68,7 +68,11 @@ def save_json(data, file_name):
 def main(args):
   defaultTraceFileName = os.path.join(TMP_DIR, DEFAULT_TRACE_FNAME)
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('gameid', help='steam game id')
+  parser.add_argument(
+      '--skip-user-input',
+      dest='skip_user_input',
+      help='skip user questions. No game play or system information will be collected.',
+      action='store_true')
   parser.add_argument(
       '--temp-dir',
       default=TMP_DIR,
@@ -79,23 +83,34 @@ def main(args):
       dest='sysinfo_file',
       help='override the system info with the given json file')
   parser.add_argument(
+      '--no-sysinfo',
+      dest='no_sysinfo',
+      action='store_true',
+      help='don\'t collect or generate any system information file')
+  parser.add_argument(
+      '--no-gameplay-info',
+      dest='no_gameplay_info',
+      action='store_true',
+      help='don\'t ask for any game play experience report')
+  parser.add_argument(
       '--output-dir',
-      default=TMP_DIR,
+      default=os.getcwd(),
       dest='output_dir',
-      help=f'the output directory for the result file (default: {TMP_DIR})')
+      help=f'the output directory for the result tar file')
   parser.add_argument(
       '--trace-file',
-      default=defaultTraceFileName,
       dest='trace_file',
       help=f'game trace file name (default: {defaultTraceFileName})')
+  parser.add_argument(
+      'steam_gameid',
+      help='the game id in the SteamDB catalogue (https://steamdb.info/)')
   opts = parser.parse_args(args)
 
   if opts.sysinfo_file and not os.path.exists(opts.sysinfo_file):
     utils.panic(
         f'Unable to open system info file {opts.sysinfo_file}. File not found.')
 
-  if opts.trace_file != defaultTraceFileName and not os.path.exists(
-      opts.trace_file):
+  if opts.trace_file and not os.path.exists(opts.trace_file):
     utils.panic(f'Unable to open trace file {opts.trace_file}. File not found.')
 
   # Check for missing packages
@@ -107,31 +122,31 @@ def main(args):
   try:
     cur_time = datetime.datetime.now(
         datetime.timezone.utc).astimezone().replace(microsecond=0)
-    items_in_archive = [GAME_INFO_FNAME, SYSTEM_INFO_FNAME]
+    items_in_archive = [GAME_INFO_FNAME]
 
     # Retrieving the game information from Steam.
     print('Retrieving the game information from Steam...')
     game_info = utils.parse_script_stdout_json('steam_game_info.py',
-                                               [opts.gameid])
+                                               [opts.steam_gameid])
     if not game_info:
       utils.panic(
-          f'Unable to retrieve information for the game with steamid {opts.gameid}'
+          f'Unable to retrieve information for the game with steamid {opts.steam_gameid}'
       )
     print(f'Steam game id: {game_info["gameid"]}')
     print(f'Game name: {game_info["game_name"]}')
-    if not yes_or_no('Is it correct?'):
+    if not opts.skip_user_input and not yes_or_no('Is it correct?'):
       sys.exit(0)
 
     # Format the output file name
     game_name_safe = re.sub('[^a-z0-9]', '_', game_info['game_name'].lower())
-    result_name = 'steam_%s-%s-%s' % (opts.gameid, game_name_safe,
+    result_name = 'steam_%s-%s-%s' % (opts.steam_gameid, game_name_safe,
                                       cur_time.strftime('%Y%m%d_%H%M%S'))
     result_file_name = f'{result_name}.tar'
     result_full_name = os.path.join(opts.output_dir, result_file_name)
 
     # Sanity check file/directory paths for collisions.
     if os.path.exists(result_full_name):
-      if yes_or_no(
+      if opts.skip_user_input or yes_or_no(
           f'The file {result_full_name} already exists. Do you want to delete it?'
       ):
         os.remove(result_full_name)
@@ -141,26 +156,29 @@ def main(args):
     # Collect the game info report.
     game_info.update({
         'report_version': GAME_REPORT_VERSION,
-        'report_date': cur_time.isoformat(),
-        'game_version': input('Game version (if available): '),
-        'can_start': yes_or_no('Does the game start?'),
-        'bug_id': input('Issue id in buganizer: '),
+        'report_date': cur_time.isoformat()
     })
-    if game_info['can_start']:
+    if not opts.skip_user_input and not opts.no_gameplay_info:
       game_info.update({
-          'load_time': input('Game load time to main menu in seconds: '),
-          'fps_main_menu': input('Main menu fps: '),
-          'start_time': input('Game start time from main menu in seconds: '),
-          'playable': yes_or_no('Is game playable?'),
-          'stutters': yes_or_no('Does game stutter?'),
-          'average_fps': input('Average game fps: '),
-          'full_screen': yes_or_no('Is game fullscreen?'),
+          'game_version': input('Game version (if available): '),
+          'can_start': yes_or_no('Does the game start?'),
+          'bug_id': input('Issue id in buganizer: '),
       })
-    else:
-      game_info['can_install'] = yes_or_no('Does the game install?')
-      if not game_info['can_install']:
-        game_info['not_enough_space'] = yes_or_no(
-            'Is the installation error caused by insufficient disk space?')
+      if game_info['can_start']:
+        game_info.update({
+            'load_time': input('Game load time to main menu in seconds: '),
+            'fps_main_menu': input('Main menu fps: '),
+            'start_time': input('Game start time from main menu in seconds: '),
+            'playable': yes_or_no('Is game playable?'),
+            'stutters': yes_or_no('Does game stutter?'),
+            'average_fps': input('Average game fps: '),
+            'full_screen': yes_or_no('Is game fullscreen?'),
+        })
+      else:
+        game_info['can_install'] = yes_or_no('Does the game install?')
+        if not game_info['can_install']:
+          game_info['not_enough_space'] = yes_or_no(
+              'Is the installation error caused by insufficient disk space?')
     save_json(game_info, os.path.join(opts.temp_dir, GAME_INFO_FNAME))
 
     # Collect system/machine info report.
@@ -168,7 +186,8 @@ def main(args):
       print(f'Using system information from {opts.sysinfo_file}')
       shutil.copyfile(opts.sysinfo_file,
                       os.path.join(opts.temp_dir, SYSTEM_INFO_FNAME))
-    else:
+      items_in_archive = items_in_archive + [SYSTEM_INFO_FNAME]
+    elif not opts.skip_user_input and not opts.no_sysinfo:
       system_info = {}
       system_info['host'] = {
           'chrome':
@@ -180,9 +199,18 @@ def main(args):
       system_info['guest'] = utils.parse_script_stdout_json(
           'cros_container_info.py', [])
       save_json(system_info, os.path.join(opts.temp_dir, SYSTEM_INFO_FNAME))
+      items_in_archive = items_in_archive + [SYSTEM_INFO_FNAME]
 
-    if (game_info['can_start'] and
-        yes_or_no('Did you manage to create the trace file?')):
+    if not opts.skip_user_input and not opts.no_gameplay_info:
+      if (game_info['can_start'] and
+          yes_or_no('Did you manage to create the trace file?')):
+        if not os.path.exists(defaultTraceFilename):
+          utils.panic(
+              f'Unable to open trace file {defaultTraceFilename}. File not found.'
+          )
+        opts.trace_file = defaultTraceFilename
+
+    if opts.trace_file:
       print(f'Preparing the trace file information for {opts.trace_file}...')
       trace_info = utils.parse_script_stdout_json('trace_file_info.py',
                                                   [opts.trace_file])
@@ -191,21 +219,18 @@ def main(args):
       file_time = datetime.datetime.fromtimestamp(
           os.path.getmtime(opts.trace_file)).astimezone().replace(microsecond=0)
       trace_info.update({
-          'trace_file_name':
-              DEFAULT_TRACE_FNAME,
-          'trace_file_size':
-              os.path.getsize(opts.trace_file),
-          'trace_file_time':
-              file_time.isoformat(),
-          'trace_file_md5':
-              get_file_md5(opts.trace_file),
-          'trace_can_replay':
-              yes_or_no('Does the trace file can be replayed without crashes?'),
+          'trace_file_name': DEFAULT_TRACE_FNAME,
+          'trace_file_size': os.path.getsize(opts.trace_file),
+          'trace_file_time': file_time.isoformat(),
+          'trace_file_md5': get_file_md5(opts.trace_file),
       })
-      if trace_info['trace_can_replay']:
-        trace_info['trace_replay_artifacts'] = yes_or_no(
-            'Is there any visual differences in trace replay compared to the game?'
-        )
+      if not opts.skip_user_input and not opts.no_gameplay_info:
+        trace_info['trace_can_replay'] = yes_or_no(
+            'Does the trace file can be replayed without crashes?')
+        if trace_info['trace_can_replay']:
+          trace_info['trace_replay_artifacts'] = yes_or_no(
+              'Is there any visual differences in trace replay compared to the game?'
+          )
         trace_info['trace_replay_fps'] = input('Trace replay fps: ')
       print('Compressing the trace file...')
       trace_storage_file_name = DEFAULT_TRACE_FNAME + '.zst'
