@@ -22,11 +22,14 @@ conn = http.client.HTTPSConnection('steamdb.info', context=ssl_context)
 try:
   headers = {
       'User-Agent':
-          'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) '
-          'Chrome/81.0.2228.0 Safari/537.36',
+          'Mozilla/5.0 (X11; CrOS x86_64 14092.19.0) '
+          'AppleWebKit/537.36 (KHTML, like Gecko) '
+          'Chrome/93.0.4577.22 Safari/537.36',
   }
   conn.request('GET', '/app/%s/' % args.gameid, None, headers)
   resp = conn.getresponse()
+  if resp.status == 503:
+    raise Exception(f'Please update |User-Agent| to a current Chrome/Browser string.')
   if resp.status != 200:
     raise Exception(f'Response status is {resp.status} (expected 200)')
 except Exception as err:
