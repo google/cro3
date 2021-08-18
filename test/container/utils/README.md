@@ -43,11 +43,11 @@ docker build -t testcontainer -f Dockerfile .
 Example of foreground cmd only (pastes the command, you can copy/paste to start it)
 
 ```bash
-python3.6 run_docker.py --build=autotest_jul19 --input_json=../../../src/chromiumos/test/execution/data/tauto.json --results=/usr/local/google/home/dbeckett/drive2/cros_2021/chroot/tmp/dockertest --foreground --cmd_only
+python3 run_docker.py --build=autotest_jul19 --input_json=../../../src/chromiumos/test/execution/data/tauto.json --results=/usr/local/google/home/dbeckett/drive2/cros_2021/chroot/tmp/dockertest --foreground --cmd_only
 ```
 
 Example of self running (It launches docker, runs, exits, all in background, provides results dir):
 
 ```bash
-python3.6 run_docker.py --build=autotest_jul19 --input_json=../../../src/chromiumos/test/execution/data/tauto.json --results=/usr/local/google/home/dbeckett/drive2/cros_2021/chroot/tmp/dockertest --cmd_only
+python3 run_docker.py --build=autotest_jul19 --input_json=../../../src/chromiumos/test/execution/data/tauto.json --results=/usr/local/google/home/dbeckett/drive2/cros_2021/chroot/tmp/dockertest --cmd_only
 ```
