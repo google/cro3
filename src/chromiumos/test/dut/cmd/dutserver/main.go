@@ -55,6 +55,7 @@ func main() {
 		wiringAddress := flag.String("wiring_address", "", "Address to TLW. Only required if using DUT name.")
 		protoChunkSize := flag.Int64("chunk_size", 1024*1024, "Largest size of blob or coredumps to include in an individual response.")
 		serializerPath := flag.String("serializer_path", "/usr/local/sbin/crash_serializer", "Location of the serializer binary on disk in the DUT.")
+		port := flag.Int("port", 0, "the port used to start service. default not specified")
 		flag.Parse()
 
 		if os.Args[1] == "version" {
@@ -78,6 +79,11 @@ func main() {
 			fmt.Println("A Wiring address should not be specified if DUT address is used.")
 		}
 
+		if *port == 0 {
+			fmt.Println("Please specify the port.")
+			return 2
+		}
+
 		logFile, err := createLogFile()
 		if err != nil {
 			log.Fatalln("Failed to create log file: ", err)
@@ -86,7 +92,8 @@ func main() {
 
 		logger := newLogger(logFile)
 		logger.Println("Starting dutservice version ", Version)
-		l, err := net.Listen("tcp", ":0")
+		logger.Println("Starting dutservice on port ", *port)
+		l, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 		if err != nil {
 			logger.Fatalln("Failed to create a net listener: ", err)
 			return 2
