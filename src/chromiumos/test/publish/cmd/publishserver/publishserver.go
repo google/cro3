@@ -7,6 +7,7 @@ package main
 
 import (
 	"chromiumos/lro"
+	"chromiumos/test/publish/cmd/publishserver/storage"
 	"context"
 	"log"
 	"net"
@@ -18,35 +19,44 @@ import (
 
 // PublishServiceServer implementation of publish_service.proto
 type PublishServiceServer struct {
-	manager *lro.Manager
-	logger  *log.Logger
+	manager  *lro.Manager
+	logger   *log.Logger
+	gsClient storage.GSClientInterface
 }
 
 // newPublishServiceServer creates a new publish service server to listen to rpc requests.
-func newPublishServiceServer(l net.Listener, logger *log.Logger) (*grpc.Server, func()) {
+func newPublishServiceServer(l net.Listener, logger *log.Logger, gcpCredentials string) (*grpc.Server, func(), error) {
+	gsClient, err := storage.NewGSClient(context.Background(), gcpCredentials)
+	if err != nil {
+		return nil, nil, err
+	}
 	s := &PublishServiceServer{
-		manager: lro.New(),
-		logger:  logger,
+		manager:  lro.New(),
+		logger:   logger,
+		gsClient: gsClient,
 	}
 
 	server := grpc.NewServer()
 	destructor := func() {
 		s.manager.Close()
+		s.gsClient.Close()
 	}
 
 	api.RegisterPublishServiceServer(server, s)
 	logger.Println("publishservice listen to request at ", l.Addr().String())
-	return server, destructor
+	return server, destructor, nil
 }
 
 // UploadToGS uploads the designated folder to the provided Google Cloud Storage
 // bucket/object
-//
-// TODO(jaquesc): Implement this
 func (s *PublishServiceServer) UploadToGS(ctx context.Context, req *api.UploadToGSRequest) (*longrunning.Operation, error) {
 	s.logger.Println("Received api.UploadToGSRequest: ", *req)
-	s.logger.Println("TODO(jaquesc): Implement")
 	op := s.manager.NewOperation()
-	s.manager.SetResult(op.Name, &api.UploadToGSResponse{})
+	if err := s.gsClient.Upload(ctx, req.LocalDirectory, req.GsDirectory); err != nil {
+		return nil, err
+	}
+	s.manager.SetResult(op.Name, &api.UploadToGSResponse{
+		GsUrl: req.GsDirectory,
+	})
 	return op, nil
 }

@@ -45,11 +45,17 @@ func newLogger(logFile *os.File) *log.Logger {
 func main() {
 	os.Exit(func() int {
 		flag.NewFlagSet("version", flag.ExitOnError)
+		gcpCredentials := flag.String("gcp-creds", "", "path to file containing gcp credentials")
 		flag.Parse()
 
 		if os.Args[1] == "version" {
 			fmt.Println("publishservice version ", Version)
 			return 0
+		}
+
+		if *gcpCredentials == "" {
+			fmt.Println("gcp-creds must be defined.")
+			return 1
 		}
 
 		logFile, err := createLogFile()
@@ -66,7 +72,11 @@ func main() {
 			return 2
 		}
 
-		server, destructor := newPublishServiceServer(l, logger)
+		server, destructor, err := newPublishServiceServer(l, logger, *gcpCredentials)
+		if err != nil {
+			logger.Fatalln("Failed to create server: ", err)
+			return 2
+		}
 		defer destructor()
 
 		err = server.Serve(l)
