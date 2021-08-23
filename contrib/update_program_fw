@@ -45,6 +45,8 @@ DEFINE_string reviewer "${DEFAULT_REVIEWER}" "The reviewer(s) to send the CLs to
 DEFINE_string test "none" "The 'TEST=' string added to the commit message"
 DEFINE_boolean dryrun "${FLAGS_FALSE}" "Do not perform any actions, just validate and print arguments"
 DEFINE_boolean verify "${FLAGS_TRUE}" "Ask for verification before proceeding"
+DEFINE_boolean ro "${FLAGS_FALSE}" "Update RO version"
+DEFINE_boolean rw "${FLAGS_TRUE}" "Update RW version"
 
 # Set before flag processing
 COMMAND=$(basename "$0")
@@ -61,14 +63,20 @@ assert_inside_chroot
 # Variables
 #
 PATH="${PATH}:${GCLIENT_ROOT}/src/config/bin"
-MAJOR_RE="[1-9][0-9]{4}"
-MINOR_RE="(0|[1-9][0-9]*)"
 BRANCH=""
 PROGRAM_CL=""
-MAJOR_PREFIX="major_version = "
-MINOR_PREFIX="minor_version = "
-ANY_MAJOR="${MAJOR_PREFIX}${MAJOR_RE}"
-ANY_MINOR="${MINOR_PREFIX}${MINOR_RE}"
+MAJOR_NUMBER_RE="[1-9][0-9]{4}"
+MINOR_NUMBER_RE="(0|[1-9][0-9]*)"
+RO_MAJOR="major_version"
+RO_MINOR="minor_version"
+RW_MAJOR="rw_major_version"
+RW_MINOR="rw_minor_version"
+# Unfortunately RO version prefixes are a subset of the RW version prefix
+# so the whole word must be matched (e.g major_version vs rw_major_version)
+RO_MAJOR_RE="\b${RO_MAJOR}\b\s*=\s*${MAJOR_NUMBER_RE}"
+RO_MINOR_RE="\b${RO_MINOR}\b\s*=\s*${MINOR_NUMBER_RE}"
+RW_MAJOR_RE="\b${RW_MAJOR}\b\s*=\s*${MAJOR_NUMBER_RE}"
+RW_MINOR_RE="\b${RW_MINOR}\b\s*=\s*${MINOR_NUMBER_RE}"
 #
 # Common functions
 #
@@ -94,22 +102,40 @@ abort() {
   die "$*"
 }
 #
-# Return 0 if file has major or minor version in it.
+# Return 0 if file has RO major or minor version in it.
 #
-has_version() {
-  (grep -E -q "(${ANY_MAJOR}|${ANY_MINOR})" "${1}")
+has_ro() {
+  (grep -E -q "(${RO_MAJOR_RE}|${RO_MINOR_RE})" "${1}")
 }
 #
-# Return 0 if file has major version in it.
+# Return 0 if file has RW major or minor version in it.
+#
+has_rw() {
+  (grep -E -q "(${RW_MAJOR_RE}|${RW_MINOR_RE})" "${1}")
+}
+#
+# Return 0 if file has required major version strings in it.
 #
 has_major_version() {
-  (grep -E -q "${ANY_MAJOR}" "${1}")
+  if [[ "${FLAGS_ro}" -eq "${FLAGS_TRUE}" ]] && ! (grep -E -q "${RO_MAJOR_RE}" "${1}"); then
+    return 1
+  fi
+  if [[ "${FLAGS_rw}" -eq "${FLAGS_TRUE}" ]] && ! (grep -E -q "${RW_MAJOR_RE}" "${1}"); then
+    return 1
+  fi
+  return 0
 }
 #
-# Return 0 if file has minor version in it.
+# Return 0 if file has required minor version strings in it.
 #
 has_minor_version() {
-  (grep -E -q "${ANY_MINOR}" "${1}")
+  if [[ "${FLAGS_ro}" -eq "${FLAGS_TRUE}" ]] && ! (grep -E -q "${RO_MINOR_RE}" "${1}"); then
+    return 1
+  fi
+  if [[ "${FLAGS_rw}" -eq "${FLAGS_TRUE}" ]] && ! (grep -E -q "${RW_MINOR_RE}" "${1}"); then
+    return 1
+  fi
+  return 0
 }
 #
 # Extract a CL number from the file containing the output of repo upload
@@ -181,11 +207,11 @@ check_project() {
   # project has the right config lines to update.
   #
   if  [[ "${FLAGS_program}" -eq  "${FLAGS_FALSE}" ]]; then
-    if ! (has_major_version "${PFILE}") ;then
-      version_error "${PFILE} requires major_version"
+    if ! (has_major_version "${PFILE}"); then
+      version_error "${PFILE} requires major version string"
     fi
     if [[ "${MINOR_VERSION}" -ne  "0" ]] && ! (has_minor_version "${PFILE}"); then
-      version_error "${PFILE} requires minor_version"
+      version_error "${PFILE} requires minor version string"
     fi
   fi
 }
@@ -214,10 +240,15 @@ These lines are in the form of (e.g):
 ...
    major_version = 12345,
    minor_version = 10
+   rw_major_version = 13579,
+   rw_minor_version = 20
 ...
 
+The first 2 lines represent the RO version, and the next are the RW version.
+
 The regular expressions used to find and replace these configuration lines are
-"/${ANY_MAJOR}/" and "/${ANY_MINOR}/".
+(for RO) "/${RO_MAJOR_RE}/" and "/${RO_MINOR_RE}/",
+(for RW) "/${RW_MAJOR_RE}/" and "/${RW_MINOR_RE}/",
 The version configuration lines must match these regular expressions.
 
 These configuration lines may appear in the board's base program.star file, or in
@@ -237,23 +268,61 @@ EOF
 exit 1
 }
 #
-# Update the version in the file passed.
-# return 0 if version updated.
-# return 1 if version not in file, or unchanged.
+# Update the RO version in the file passed.
+# return 0 if version updated, otherwise 1.
 #
-update_version() {
-  # Check for major or minor version in file.
-  if ! (has_version "${1}") ;then
+update_ro() {
+  if [[ "${FLAGS_ro}" -eq "${FLAGS_FALSE}" ]]; then
+    return 1
+  fi
+  # Check for RO major or minor version in file.
+  if ! (has_ro "${1}"); then
     return 1
   fi
   local nf="${TEMPDIR}/new-${1}"
-  sed -E "s/${ANY_MAJOR}/${NEW_MAJOR}/" "${1}" >  "${nf}"
-  sed -i -E "s/${ANY_MINOR}/${NEW_MINOR}/" "${nf}"
+  sed -E "s/${RO_MAJOR_RE}/${NEW_RO_MAJOR}/" "${1}" >  "${nf}"
+  sed -i -E "s/${RO_MINOR_RE}/${NEW_RO_MINOR}/" "${nf}"
   if cmp -s "${1}" "${nf}"; then
     return 1
   fi
   cp "${nf}" "${1}"
   return 0
+}
+#
+# Update the RW version in the file passed.
+# return 0 if version updated, otherwise 1.
+#
+update_rw() {
+  if [[ "${FLAGS_rw}" -eq "${FLAGS_FALSE}" ]]; then
+    return 1
+  fi
+  # Check for RW major or minor version in file.
+  if ! (has_rw "${1}"); then
+    return 1
+  fi
+  local nf="${TEMPDIR}/new-${1}"
+  sed -E "s/${RW_MAJOR_RE}/${NEW_RW_MAJOR}/" "${1}" >  "${nf}"
+  sed -i -E "s/${RW_MINOR_RE}/${NEW_RW_MINOR}/" "${nf}"
+  if cmp -s "${1}" "${nf}"; then
+    return 1
+  fi
+  cp "${nf}" "${1}"
+  return 0
+}
+#
+# Update the version in the file passed.
+# return 0 if any version updated.
+# return 1 if version not in file, or file is unchanged.
+#
+update_version() {
+  local res=1
+  if (update_ro "${1}"); then
+    res=0
+  fi
+  if (update_rw "${1}"); then
+    res=0
+  fi
+  return ${res}
 }
 #
 # Validate arguments
@@ -263,6 +332,12 @@ if [[ -z "${FLAGS_board}" ]]; then
 fi
 if [[ -z "${FLAGS_release}" ]]; then
   die "-r or --release required."
+fi
+#
+# Must be updating either or both RO and RW.
+#
+if [[ "${FLAGS_ro}" -eq "${FLAGS_FALSE}" ]] && [[ "${FLAGS_rw}" -eq "${FLAGS_FALSE}" ]]; then
+  dir "either or both --rw or --ro must be set."
 fi
 #
 # Program must exist as a directory
@@ -277,17 +352,19 @@ PROGFILE="${PROGDIR}/program.star"
 # Major must be a 5 digit number
 # Optional minor release must be a number.
 #
-if [[ "${FLAGS_release}" =~ ^${MAJOR_RE}$ ]]; then
+if [[ "${FLAGS_release}" =~ ^${MAJOR_NUMBER_RE}$ ]]; then
   MAJOR_VERSION=${FLAGS_release}
   MINOR_VERSION="0"
-elif [[ "${FLAGS_release}" =~ ^${MAJOR_RE}\.${MINOR_RE}$ ]]; then
+elif [[ "${FLAGS_release}" =~ ^${MAJOR_NUMBER_RE}\.${MINOR_NUMBER_RE}$ ]]; then
   MAJOR_VERSION=$(echo "${FLAGS_release}" | cut -d. -f1)
   MINOR_VERSION=$(echo "${FLAGS_release}" | cut -d. -f2)
 else
   die "Unknown release format (must be NNNNN[.n])"
 fi
-NEW_MAJOR="${MAJOR_PREFIX}${MAJOR_VERSION}"
-NEW_MINOR="${MINOR_PREFIX}${MINOR_VERSION}"
+NEW_RO_MAJOR="${RO_MAJOR} = ${MAJOR_VERSION}"
+NEW_RO_MINOR="${RO_MINOR} = ${MINOR_VERSION}"
+NEW_RW_MAJOR="${RW_MAJOR} = ${MAJOR_VERSION}"
+NEW_RW_MINOR="${RW_MINOR} = ${MINOR_VERSION}"
 #
 # If updating the board config, check for program.star
 # and for version strings.
@@ -296,11 +373,11 @@ if [[ "${FLAGS_program}" -eq "${FLAGS_TRUE}" ]]; then
   if [[ ! -f "${PROGFILE}" ]]; then
     die "${FLAGS_board} is not a valid program (${PROGFILE} missing)"
   fi
-  if ! (has_major_version "${PROGFILE}") ;then
-    version_error "${PROGFILE} requires major_version"
+  if ! (has_major_version "${PROGFILE}"); then
+    version_error "${PROGFILE} requires major version string"
   fi
   if [[ "${MINOR_VERSION}" -ne  "0" ]] && ! (has_minor_version "${PROGFILE}"); then
-    version_error "${PROGFILE} requires minor_version"
+    version_error "${PROGFILE} requires minor version string"
   fi
 fi
 # Use a common git branch name.
@@ -389,6 +466,8 @@ echo
 echo "Release number of upgrade:     ${FLAGS_release}"
 echo "Major version of release:      ${MAJOR_VERSION}"
 echo "Minor version of release:      ${MINOR_VERSION}"
+echo "Update RO version:             $(yes_no "${FLAGS_ro}")"
+echo "Update RW version:             $(yes_no "${FLAGS_rw}")"
 echo "BUG string used in commit:     ${FLAGS_bug}"
 echo "TEST string used in commit:    ${FLAGS_test}"
 echo "Reviewer(s) assigned to CLs:   ${REVIEWERS[*]}"
@@ -431,7 +510,7 @@ if [[ "${FLAGS_program}" -eq "${FLAGS_TRUE}" ]]; then
   cd "${PROGDIR}"
   echo "Updating program.star for board ${FLAGS_board}"
   branch
-  if (update_version "program.star") ;then
+  if (update_version "program.star"); then
     #
     # If config has changed, create a CL.
     #
@@ -445,7 +524,7 @@ $(echo "${COMMAND} ${CMDARGS}" | fold -s -w 70 | sed '2,$s/^/    /')
 BUG=${FLAGS_bug}
 TEST=${FLAGS_test}
 EOF
-    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.output" 2>&1 ;then
+    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.output" 2>&1; then
       cat  "${TEMPDIR}/upload.output"
       abort "repo upload failed"
     fi
@@ -483,7 +562,7 @@ ${COMMAND} ${CMDARGS}
 BUG=${FLAGS_bug}
 TEST=${FLAGS_test}
 EOF
-    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1 ;then
+    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1; then
       cat  "${TEMPDIR}/upload.${PROJ}.output"
       abort "repo upload failed"
     fi
@@ -507,7 +586,7 @@ if [[ -n "${PROJ_CLS[*]}" ]];then
   if [[ -n "${PROGRAM_CL}" ]]; then
     cd "${PROGDIR}"
     amend_cq_file "${CQD_FILE}"
-    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.amend.output" 2>&1 ;then
+    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.amend.output" 2>&1; then
       cat  "${TEMPDIR}/upload.amend.output"
       abort "repo upload failed"
     fi
@@ -588,7 +667,7 @@ EOF
   #
   # Upload with no-verify since the file lines are too long.
   #
-  if ! repo upload "--ht=${BRANCH}" -y --no-verify --cbr . > "${TEMPDIR}/overlay.output" 2>&1 ;then
+  if ! repo upload "--ht=${BRANCH}" -y --no-verify --cbr . > "${TEMPDIR}/overlay.output" 2>&1; then
     cat  "${TEMPDIR}/overlay.output"
     abort "repo upload failed"
   fi
@@ -604,7 +683,7 @@ EOF
   for DIR in "${PROJ_DIRS[@]}"; do
     cd "${DIR}"
     amend_cq_file "${TEMPDIR}/over_cqd"
-    if ! repo upload -y --verify --cbr . > "${TEMPDIR}/cqd.output" 2>&1 ;then
+    if ! repo upload -y --verify --cbr . > "${TEMPDIR}/cqd.output" 2>&1; then
       cat  "${TEMPDIR}/cqd.output"
       abort "repo upload failed"
     fi
