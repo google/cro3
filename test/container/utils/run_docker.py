@@ -48,7 +48,7 @@ def parse_local_arguments() -> argparse.Namespace:
             help='Results volume on local fs')
   parser.add_argument('--target_results', type=str,
             dest='target_results',
-            default='/tmp/results/',
+            default='/tmp/test/results/',
             help='Results volume on docker fs')
   parser.add_argument('-bin', '--bin', dest='bin', type=str,
             default='testexecserver',
