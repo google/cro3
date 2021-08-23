@@ -247,7 +247,16 @@ class VersionRange:
             return '{}:='.format(category_and_name)
 
         min_bound = '>=' if self.min_inclusive else '>'
-        max_bound = '<=' if self.max_inclusive else '<'
+        if self.max_inclusive:
+            max_bound = '<='
+            suffix = ''
+        else:
+            max_bound = '<'
+            # The _alpha suffix is needed because pre-release versions are treated as less than the actual release
+            # by portage so 3.0.0_beta2 is treated as less than 3.0.0. Consequently, 3.0.0_beta2 may satisfy the
+            # requirement >=2.0.1:= <3.0.0 for portage but not meet the requirement for cargo. Adding the _alpha
+            # suffix covers this edge case.
+            suffix = '_alpha'
         if not self.max:
             return '{}{}-{}.{}.{}:='.format(min_bound, category_and_name, self.min[0], self.min[1],
                                             self.min[2])
@@ -266,9 +275,9 @@ class VersionRange:
             if x == 1 and self.min[2] == 0:
                 return '={}-{}.{}*:='.format(category_and_name, self.min[0], self.min[1])
 
-        return '{0}{1}-{2}.{3}.{4}:= {5}{1}-{6}.{7}.{8}'.format(
+        return '{0}{1}-{2}.{3}.{4}:= {5}{1}-{6}.{7}.{8}{9}'.format(
             min_bound, category_and_name, self.min[0], self.min[1], self.min[2],
-            max_bound, self.max[0], self.max[1], self.max[2])
+            max_bound, self.max[0], self.max[1], self.max[2], suffix)
 
 
 class DepGraphNode:
