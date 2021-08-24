@@ -557,7 +557,7 @@ def colored_sscope(name, sheetId, rows, start, end):
     return s
 
 
-def add_backlog_chart(sheet, dataSheetId, rows):
+def add_backlog_chart(sheet, dataSheetId, title, rows):
     """Add backlog chart"""
 
     request = []
@@ -605,7 +605,7 @@ def add_backlog_chart(sheet, dataSheetId, rows):
         'updateSheetProperties': {
             'properties': {
                 'sheetId': sheetId,
-                'title': 'Backlog Count',
+                'title': title,
             },
             'fields': 'title',
         }
@@ -739,7 +739,7 @@ def main():
     topic_stats_sheet, topic_stats_rows, topic_stats_columns = create_topic_stats(
         sheet, 'Topic Statistics Data', topiclist_consolidated)
 
-    add_backlog_chart(sheet, summary_sheet, summary_rows)
+    add_backlog_chart(sheet, summary_sheet, 'Backlog Count', summary_rows)
     add_age_chart(sheet, summary_sheet, summary_rows)
     add_stats_chart(sheet, topic_stats_sheet, topic_stats_rows,
                     topic_stats_columns)
