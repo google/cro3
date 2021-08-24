@@ -261,14 +261,14 @@ topiclist = [['chromeos',
 topiclist_consolidated = [
     ['cros_ec', ['cros_ec/iio', 'cros_ec/wilco', 'cros_ec/extcon', 'cros_ec']],
     [
-        'drm/gpu',
+        'drm',
         [
             'drm/amd', 'drm/i915', 'drm/mediatek', 'drm/qualcomm', 'drm/panel',
             'drm/rockchip', 'gpu/other', 'arm/mali'
         ]
     ],
     [
-        'virt',
+        'virtio',
         ['drm/virtio', 'virtio', 'media/virtio', 'virt/kvm', 'arcvm/container']
     ],
     [
@@ -292,6 +292,7 @@ topiclist_consolidated = [
         'sound',
         ['sound/intel', 'sound/other', 'sound/mediatek', 'sound/rockchip']
     ],
+    ['media', ['media/qcom', 'media/other' ]],
     ['mm', ['cgroup', 'lowmem', 'mm']],
     ['arch', ['arch/x86', 'arch/arm64', 'arch/arm']],
     ['fs', ['fs/pstore', 'fs/ecryptfs', 'fs/other']],
