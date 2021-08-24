@@ -4,4 +4,5 @@
 
 FROM ubuntu:bionic
 COPY testplan /usr/bin/testplan
+RUN chmod +x /usr/bin/testplan
 ENTRYPOINT [ "/usr/bin/testplan" ]
