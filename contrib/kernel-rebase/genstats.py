@@ -247,7 +247,7 @@ def get_topic_stats(c):
     return topic_stats
 
 
-def add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, topic, name):
+def add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, topics, name):
     """Add topics summary row"""
 
     c = conn.cursor()
@@ -256,9 +256,9 @@ def add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, topic, name
 
     age = 0
     now = NOW()
-    if topic:
+    if topics:
         search = ('select topic, patchid, usha, authored, subject, disposition '
-                  'from commits where topic=%d') % topic
+                  'from commits where topic in (%s)' % ','.join(str(t) for t in topics))
     else:
         search = ('select topic, patchid, usha, authored, subject, disposition '
                   'from commits where topic != 0')
@@ -273,12 +273,12 @@ def add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, topic, name
     backport = 0
     other = 0
     for (t, patchid, usha, a, subject, d) in c.fetchall(): # pylint: disable=too-many-nested-blocks
-        if topic == 0:
+        if not topics:
             # We are interested if the topic name is 'other',
             # or if the topic is not in the named topic list.
             c2.execute('select name from topics where topic is %d' % t)
-            topics = c2.fetchone()
-            if topics and topics[0] != 'other':
+            topic_name = c2.fetchone()
+            if topic_name and topic_name[0] != 'other':
                 continue
 
         rows += 1
@@ -353,19 +353,19 @@ def add_topics_summary(requests, sheetId):
     c.execute("select topic from topics where name is 'chromeos'")
     topic = c.fetchone()
     if topic:
-        add_topics_summary_row(requests, conn, nconn, sheetId, 1, topic[0], 'chromeos')
+        add_topics_summary_row(requests, conn, nconn, sheetId, 1, list(topic), 'chromeos')
 
     c.execute('select topic, name from topics order by name')
     rowindex = 2
     for (topic, name) in c.fetchall():
         if name not in ('chromeos', 'other'):
             added = add_topics_summary_row(requests, conn, nconn, sheetId, rowindex,
-                                           topic, name)
+                                           [topic], name)
             if added:
                 rowindex += 1
 
-    # Finally, do the same for 'other' topics, identified as topic==0.
-    added = add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, 0, 'other')
+    # Finally, do the same for 'other' topics, identified as empty topics list.
+    added = add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, None, 'other')
 
     conn.close()
 
