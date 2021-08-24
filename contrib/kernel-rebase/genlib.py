@@ -234,7 +234,7 @@ def add_sheet_header(requests, sheetId, fields):
 
 
 def move_sheet(sheet, sheetId, to):
-    """Move 'Data' sheet to end of spreadsheet."""
+    """Move sheet to end of spreadsheet."""
 
     request = []
 
@@ -249,6 +249,26 @@ def move_sheet(sheet, sheetId, to):
     })
 
     doit(sheet, request)
+
+
+def sort_sheet(request, sheetId, sortby, order, rows, columns):
+    """Sort sheet in given order, starting with row 1, all rows and columns as provided."""
+
+    request.append({
+        'sortRange': {
+            'range': {
+                'sheetId': sheetId,
+                'startRowIndex': 1,
+                'endRowIndex': rows,
+                'startColumnIndex': 0,
+                'endColumnIndex': columns
+            },
+            'sortSpecs': [{
+                    'dimensionIndex': sortby,
+                    'sortOrder': order
+            }]
+        }
+    })
 
 
 def source_range(sheetId, rows, column):
