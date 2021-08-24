@@ -247,7 +247,7 @@ def get_topic_stats(c):
     return topic_stats
 
 
-def add_topics_summary_row(requests, conn, nconn, rowindex, topic, name):
+def add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, topic, name):
     """Add topics summary row"""
 
     c = conn.cursor()
@@ -333,7 +333,7 @@ def add_topics_summary_row(requests, conn, nconn, rowindex, topic, name):
                 'delimiter':
                     ';',
                 'coordinate': {
-                    'sheetId': 0,
+                    'sheetId': sheetId,
                     'rowIndex': rowindex
                 }
             }
@@ -341,7 +341,7 @@ def add_topics_summary_row(requests, conn, nconn, rowindex, topic, name):
     return effrows
 
 
-def add_topics_summary(requests):
+def add_topics_summary(requests, sheetId):
     """Add topics summary"""
 
     conn = sqlite3.connect(rebasedb)
@@ -353,58 +353,71 @@ def add_topics_summary(requests):
     c.execute("select topic from topics where name is 'chromeos'")
     topic = c.fetchone()
     if topic:
-        add_topics_summary_row(requests, conn, nconn, 1, topic[0], 'chromeos')
+        add_topics_summary_row(requests, conn, nconn, sheetId, 1, topic[0], 'chromeos')
 
     c.execute('select topic, name from topics order by name')
     rowindex = 2
     for (topic, name) in c.fetchall():
         if name not in ('chromeos', 'other'):
-            added = add_topics_summary_row(requests, conn, nconn, rowindex,
+            added = add_topics_summary_row(requests, conn, nconn, sheetId, rowindex,
                                            topic, name)
             if added:
                 rowindex += 1
 
     # Finally, do the same for 'other' topics, identified as topic==0.
-    added = add_topics_summary_row(requests, conn, nconn, rowindex, 0, 'other')
+    added = add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, 0, 'other')
 
     conn.close()
 
     return rowindex
 
 
-def create_summary(sheet):
+def create_summary(sheet, title, sheetId=None):
     """Create summary"""
 
     requests = []
 
-    requests.append({
-        'updateSheetProperties': {
-            'properties': {
-                'sheetId': 0,
-                'title': 'Data',
-            },
-            'fields': 'title'
-        }
-    })
+    if sheetId is None:
+        requests.append({
+            'addSheet': {
+                'properties': {
+                    'title': title,
+                },
+            }
+        })
+        response = genlib.doit(sheet, requests)
+        reply = response.get('replies')
+        sheetId = reply[0]['addSheet']['properties']['sheetId']
+        requests = []
+    else:
+        requests.append({
+            'updateSheetProperties': {
+                'properties': {
+                    'sheetId': sheetId,
+                    'title': title,
+                },
+                'fields': 'title'
+            }
+        })
 
     header = 'Topic, Queued, Upstream, Backport, Fromgit, Fromlist, \
               Chromium, Untagged/Other, Net, Total, Average Age (days)'
 
-    genlib.add_sheet_header(requests, 0, header)
+    genlib.add_sheet_header(requests, sheetId, header)
 
     # Now add all topics
-    rows = add_topics_summary(requests)
+    rows = add_topics_summary(requests, sheetId)
 
     # As final step, resize it
-    genlib.resize_sheet(requests, 0, 0, 11)
+    genlib.resize_sheet(requests, sheetId, 0, 11)
 
     # sort by CHROMIUM column, descending
-    genlib.sort_sheet(requests, 0, 6, 'DESCENDING', rows + 1, 11)
+    genlib.sort_sheet(requests, sheetId, 6, 'DESCENDING', rows + 1, 11)
 
     # and execute
     genlib.doit(sheet, requests)
 
-    return rows
+    return sheetId, rows
 
 
 def update_one_cell(request, sheetId, row, column, data):
@@ -544,7 +557,7 @@ def colored_sscope(name, sheetId, rows, start, end):
     return s
 
 
-def add_backlog_chart(sheet, rows):
+def add_backlog_chart(sheet, dataSheetId, rows):
     """Add backlog chart"""
 
     request = []
@@ -570,8 +583,8 @@ def add_backlog_chart(sheet, rows):
                             'position': 'LEFT_AXIS',
                             'title': 'Backlog'
                         }],
-                        'domains': [genlib.scope('domain', 0, rows + 1, 0)],
-                        'series': colored_sscope('series', 0, rows + 1, 1, 7),
+                        'domains': [genlib.scope('domain', dataSheetId, rows + 1, 0)],
+                        'series': colored_sscope('series', dataSheetId, rows + 1, 1, 7),
                     }
                 },
                 'position': {
@@ -600,7 +613,7 @@ def add_backlog_chart(sheet, rows):
     genlib.doit(sheet, request)
 
 
-def add_age_chart(sheet, rows):
+def add_age_chart(sheet, dataSheetId, rows):
     """Add age chart"""
 
     request = []
@@ -623,8 +636,8 @@ def add_age_chart(sheet, rows):
                             'position': 'LEFT_AXIS',
                             'title': 'Average Age (days)'
                         }],
-                        'domains': [genlib.scope('domain', 0, rows + 1, 0)],
-                        'series': [genlib.scope('series', 0, rows + 1, 10)]
+                        'domains': [genlib.scope('domain', dataSheetId, rows + 1, 0)],
+                        'series': [genlib.scope('series', dataSheetId, rows + 1, 10)]
                     }
                 },
                 'position': {
@@ -653,7 +666,7 @@ def add_age_chart(sheet, rows):
     genlib.doit(sheet, request)
 
 
-def add_stats_chart(sheet, sheetId, rows, columns):
+def add_stats_chart(sheet, dataSheetId, rows, columns):
     """Add statistics chart"""
 
     request = []
@@ -684,9 +697,9 @@ def add_stats_chart(sheet, sheetId, rows, columns):
                             'position': 'LEFT_AXIS',
                             'title': 'Patches'
                         }],
-                        'domains': [genlib.scope('domain', sheetId, rows, 0)],
+                        'domains': [genlib.scope('domain', dataSheetId, rows, 0)],
                         'series':
-                            genlib.sscope('series', sheetId, rows, 1, columns),
+                            genlib.sscope('series', dataSheetId, rows, 1, columns),
                     }
                 },
                 'position': {
@@ -722,19 +735,21 @@ def main():
         stats_filename,
         'Backlog Status for chromeos-%s' % rebase_baseline().strip('v'))
 
-    summary_rows = create_summary(sheet)
+    summary_sheet, summary_rows = create_summary(sheet, 'Backlog Data', 0)
     topic_stats_sheet, topic_stats_rows, topic_stats_columns = create_topic_stats(
         sheet)
 
-    add_backlog_chart(sheet, summary_rows)
-    add_age_chart(sheet, summary_rows)
+    add_backlog_chart(sheet, summary_sheet, summary_rows)
+    add_age_chart(sheet, summary_sheet, summary_rows)
     add_stats_chart(sheet, topic_stats_sheet, topic_stats_rows,
                     topic_stats_columns)
 
-    genlib.move_sheet(sheet, 0, 4)
-    genlib.hide_sheet(sheet, 0, True)
-
+    # Move data sheets to the very end
+    genlib.move_sheet(sheet, summary_sheet, 5)
     genlib.move_sheet(sheet, topic_stats_sheet, 5)
+
+    # and hide them
+    genlib.hide_sheet(sheet, summary_sheet, True)
     genlib.hide_sheet(sheet, topic_stats_sheet, True)
 
 
