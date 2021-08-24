@@ -666,7 +666,7 @@ def add_age_chart(sheet, dataSheetId, rows):
     genlib.doit(sheet, request)
 
 
-def add_stats_chart(sheet, dataSheetId, rows, columns):
+def add_stats_chart(sheet, dataSheetId, title, rows, columns):
     """Add statistics chart"""
 
     request = []
@@ -720,7 +720,7 @@ def add_stats_chart(sheet, dataSheetId, rows, columns):
         'updateSheetProperties': {
             'properties': {
                 'sheetId': sheetId,
-                'title': 'Topic Statistics',
+                'title': title,
             },
             'fields': 'title',
         }
@@ -741,8 +741,8 @@ def main():
 
     add_backlog_chart(sheet, summary_sheet, 'Backlog Count', summary_rows)
     add_age_chart(sheet, summary_sheet, summary_rows)
-    add_stats_chart(sheet, topic_stats_sheet, topic_stats_rows,
-                    topic_stats_columns)
+    add_stats_chart(sheet, topic_stats_sheet, 'Topic Statistics',
+                    topic_stats_rows, topic_stats_columns)
 
     # Move data sheets to the very end
     genlib.move_sheet(sheet, summary_sheet, 5)
