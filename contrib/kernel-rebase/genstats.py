@@ -554,7 +554,6 @@ def add_backlog_chart(sheet, rows):
     request.append({
         'addChart': {
             'chart': {
-                'chartId': 1,
                 'spec': {
                     'title':
                         'Upstream Backlog (updated %s)' %
@@ -609,7 +608,6 @@ def add_age_chart(sheet, rows):
     request.append({
         'addChart': {
             'chart': {
-                'chartId': 2,
                 'spec': {
                     'title':
                         'Upstream Backlog Age (updated %s)' %
@@ -667,7 +665,6 @@ def add_stats_chart(sheet, sheetId, rows, columns):
     request.append({
         'addChart': {
             'chart': {
-                'chartId': 3,
                 'spec': {
                     'title':
                         'Topic Statistics (updated %s)' %
