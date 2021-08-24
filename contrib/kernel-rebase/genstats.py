@@ -372,7 +372,7 @@ def add_topics_summary(requests, sheetId):
     return rowindex
 
 
-def create_summary(sheet, title, sheetId=None):
+def create_summary(sheet, title, sheetId=None, summary_func=add_topics_summary):
     """Create summary"""
 
     requests = []
@@ -406,7 +406,7 @@ def create_summary(sheet, title, sheetId=None):
     genlib.add_sheet_header(requests, sheetId, header)
 
     # Now add all topics
-    rows = add_topics_summary(requests, sheetId)
+    rows = summary_func(requests, sheetId)
 
     # As final step, resize it
     genlib.resize_sheet(requests, sheetId, 0, 11)
