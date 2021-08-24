@@ -135,8 +135,6 @@ topiclist = [['chromeos',
        'include/media', 'include/uapi/linux/videodev2.h',
        'include/uapi/linux/v4l2-controls.h', 'Documentation/media',
        'Documentation/devicetree/bindings/media']],
-     ['video',
-      ['drivers/video']],
      ['input',
       ['drivers/input', 'include/linux/input']],
      ['iio',
@@ -275,7 +273,7 @@ topiclist_consolidated = [
         'other',
         [
             'other', 'devicetree', 'acpi', 'cpufreq', 'firmware/google',
-            'devfreq', 'block', 'android', 'video', 'sysrq', 'scheduler',
+            'devfreq', 'block', 'android', 'sysrq', 'scheduler',
             'tools'
         ]
     ],
@@ -285,7 +283,8 @@ topiclist_consolidated = [
         [
             'drivers', 'iio', 'input', 'usb', 'usb-gadget', 'mmc', 'mtd',
             'drivers/mediatek', 'drivers/rockchip', 'iommu', 'mfd',
-            'remoteproc', 'devfreq', 'regulator', 'scsi', 'soundwire'
+            'remoteproc', 'devfreq', 'regulator', 'scsi', 'soundwire',
+            'video'
         ]
     ],
     [
@@ -333,7 +332,8 @@ topiclist_short = [
         [
             'drivers', 'iio', 'input', 'mmc', 'mtd',
             'drivers/mediatek', 'drivers/rockchip', 'iommu', 'mfd',
-            'remoteproc', 'devfreq', 'regulator', 'scsi', 'soundwire'
+            'remoteproc', 'devfreq', 'regulator', 'scsi', 'soundwire',
+            'video'
         ]
     ],
     [
