@@ -21,7 +21,7 @@ import re
 import datetime
 import time
 
-from config import topiclist_consolidated
+from config import topiclist_consolidated, topiclist_short
 from common import rebasedb, nextdb, upstreamdb, rebase_baseline
 
 import genlib
@@ -479,6 +479,9 @@ def create_topic_stats(sheet, title, tlist):
     topics = get_consolidated_topics(c, tlist)
     topic_list = list(set(topics.values()))
 
+    if 'discard' in topic_list:
+        topic_list.remove('discard')
+
     request = []
 
     request.append({
@@ -738,19 +741,25 @@ def main():
     summary_sheet, summary_rows = create_summary(sheet, 'Backlog Data', 0)
     topic_stats_sheet, topic_stats_rows, topic_stats_columns = create_topic_stats(
         sheet, 'Topic Statistics Data', topiclist_consolidated)
+    short_topic_stats_sheet, short_topic_stats_rows, short_topic_stats_columns = create_topic_stats(
+        sheet, 'Topic Statistics Data (short)', topiclist_short)
 
     add_backlog_chart(sheet, summary_sheet, 'Backlog Count', summary_rows)
     add_age_chart(sheet, summary_sheet, summary_rows)
     add_stats_chart(sheet, topic_stats_sheet, 'Topic Statistics',
                     topic_stats_rows, topic_stats_columns)
+    add_stats_chart(sheet, short_topic_stats_sheet, 'Topic Statistics (short)',
+                    short_topic_stats_rows, short_topic_stats_columns)
 
     # Move data sheets to the very end
-    genlib.move_sheet(sheet, summary_sheet, 5)
-    genlib.move_sheet(sheet, topic_stats_sheet, 5)
+    genlib.move_sheet(sheet, summary_sheet, 7)
+    genlib.move_sheet(sheet, topic_stats_sheet, 7)
+    genlib.move_sheet(sheet, short_topic_stats_sheet, 7)
 
     # and hide them
     genlib.hide_sheet(sheet, summary_sheet, True)
     genlib.hide_sheet(sheet, topic_stats_sheet, True)
+    genlib.hide_sheet(sheet, short_topic_stats_sheet, True)
 
 
 if __name__ == '__main__':
