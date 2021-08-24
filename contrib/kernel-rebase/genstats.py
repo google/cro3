@@ -72,20 +72,20 @@ def NOW():
     return int(time.time())
 
 
-def get_consolidated_topic_name(topic_name):
+def get_consolidated_topic_name(topic_name, tlist):
     """Return consolidated topic name"""
 
-    for [consolidated_name, topic_names] in topiclist_consolidated:
+    for [consolidated_name, topic_names] in tlist:
         for elem in topic_names:
             if topic_name == elem:
                 return consolidated_name
     return topic_name
 
 
-def get_consolidated_topic(c, topic_name):
+def get_consolidated_topic(c, tlist, topic_name):
     """Return consolidated topic"""
 
-    for (_, topic_names) in topiclist_consolidated:
+    for (_, topic_names) in tlist:
         for elem in topic_names:
             if topic_name == elem:
                 c.execute("select topic from topics where name is '%s'" %
@@ -102,7 +102,7 @@ def get_consolidated_topic(c, topic_name):
     return 0
 
 
-def get_consolidated_topics(c):
+def get_consolidated_topics(c, tlist):
     """Return dict of consolidated topics"""
 
     topics = {}
@@ -111,8 +111,8 @@ def get_consolidated_topics(c):
     c.execute('SELECT topic, name FROM topics ORDER BY name')
     for topic, name in c.fetchall():
         if name:
-            consolidated_name = get_consolidated_topic_name(name)
-            consolidated_topic = get_consolidated_topic(c, name)
+            consolidated_name = get_consolidated_topic_name(name, tlist)
+            consolidated_topic = get_consolidated_topic(c, tlist, name)
             topics[topic] = consolidated_name
             if consolidated_name == 'other':
                 other_topic_id = consolidated_topic
@@ -167,7 +167,7 @@ def get_topic_stats(c):
     cu = uconn.cursor()
 
     tags = get_tags(cu)
-    topics = get_consolidated_topics(c)
+    topics = get_consolidated_topics(c, topiclist_consolidated)
 
     topic_stats = {}
     for topic in list(set(topics.values())):
@@ -463,7 +463,7 @@ def create_topic_stats(sheet):
     topic_stats = get_topic_stats(c)
     tags = get_tags()
     sorted_tags = sorted(tags, key=tags.get)
-    topics = get_consolidated_topics(c)
+    topics = get_consolidated_topics(c, topiclist_consolidated)
     topic_list = list(set(topics.values()))
 
     request = []
