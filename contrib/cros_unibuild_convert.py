@@ -87,26 +87,6 @@ chromeos:
   return out
 
 
-def generate_vpackage(depends):
-  return gen_cros_copyright() + """
-EAPI=7
-
-DESCRIPTION="ChromeOS Unibuild Config virtual package"
-HOMEPAGE="https://chromium.googlesource.com/chromiumos/platform2/+/master/chromeos-config/README.md"
-
-LICENSE="BSD-Google"
-SLOT="0"
-KEYWORDS="*"
-
-DEPEND="%(depends)s"
-RDEPEND="${DEPEND}"
-""" % {
-    'depends':
-    (''.join('\n\t{}'.format(d) for d in depends) + '\n')
-    if len(depends) > 1 else
-    ''.join(depends)}
-
-
 def generate_bsp_ebuild(private=False):
   return gen_cros_copyright() + """
 EAPI=7
@@ -199,27 +179,22 @@ def sh_getvar(script, varname):
   return res.stdout.strip() or None
 
 
-def write_file(fullpath, file_contents, make_ebuild_symlink=False):
+def write_file(fullpath, file_contents):
   os.makedirs(fullpath.parent, exist_ok=True)
   log('Writing {}...'.format(fullpath))
   with open(fullpath, 'w') as f:
     f.write(file_contents)
-  if make_ebuild_symlink:
-    if not fullpath.name.endswith('.ebuild'):
-      raise ValueError(
-          'make_ebuild_symlink specified, but path does not look like an ebuild')
-    prefix, _, _ = fullpath.name.rpartition('.')
-    linkname = fullpath.parent / '{}-r1.ebuild'.format(prefix)
-    log('Creating symlink {} -> {}...'.format(linkname, fullpath))
-    os.symlink(fullpath.name, linkname)
 
 
-def generate_make_defaults(contents):
+def generate_make_defaults(contents, private=False):
   contents = make_defaults_search_and_destroy_re.sub('', contents)
+  bsp_use_flag = 'has_chromeos_config_bsp'
+  if private:
+    bsp_use_flag += '_private'
   contents += """
 # Enable chromeos-config.
-USE="${USE} unibuild"
-"""
+USE="${USE} unibuild %(bsp_use_flag)s"
+""" % dict(bsp_use_flag=bsp_use_flag)
   return contents
 
 
@@ -327,16 +302,14 @@ class BoardOverlays:
     self.ec_extras_build_target = sorted(list(self.ec_firmware_extras
                                               | self.pd_firmwares)) or None
 
-  def write_file(self, overlay_flags, path, file_contents,
-                 make_ebuild_symlink=False):
+  def write_file(self, overlay_flags, path, file_contents):
     dirs = []
     if overlay_flags & M_PUBLIC:
       dirs += [self.public_overlay]
     if overlay_flags & M_PRIVATE:
       dirs += [self.private_overlay]
     for d in dirs:
-      write_file(d / path, file_contents,
-                 make_ebuild_symlink=make_ebuild_symlink)
+      write_file(d / path, file_contents)
 
 
 class Dut:
@@ -801,13 +774,6 @@ def main(argv):
 
   log('Generating ebuilds...')
 
-  public_vpackage = generate_vpackage(('chromeos-base/chromeos-config-bsp', ))
-  private_vpackage = generate_vpackage(
-      ('chromeos-base/chromeos-config-bsp',
-       'chromeos-base/chromeos-config-bsp-private'))
-  log('Got public vpackage: \n{}'.format(public_vpackage))
-  log('Got private vpackage: \n{}'.format(private_vpackage))
-
   public_bsp_ebuild = generate_bsp_ebuild()
   private_bsp_ebuild = generate_bsp_ebuild(private=True)
   log('Got public bsp_ebuild: \n{}'.format(public_bsp_ebuild))
@@ -818,7 +784,10 @@ def main(argv):
 
   public_make_defaults = generate_make_defaults(overlays.public_make_defaults)
   log('Got public make defaults: \n{}'.format(public_make_defaults))
-  private_make_defaults = generate_make_defaults(overlays.private_make_defaults)
+  private_make_defaults = generate_make_defaults(
+      overlays.private_make_defaults,
+      private=True,
+  )
   log('Got private make defaults: \n{}'.format(private_make_defaults))
 
   cros_config = CrosConfig(public_config_yaml, private_config_yaml)
@@ -841,12 +810,6 @@ def main(argv):
   overlays.write_file(
       M_PRIVATE, 'chromeos-base/chromeos-config-bsp-private/files/model.yaml',
       private_config_yaml)
-  overlays.write_file(
-      M_PUBLIC, 'virtual/chromeos-config-bsp/chromeos-config-bsp-2.ebuild',
-      public_vpackage, make_ebuild_symlink=True)
-  overlays.write_file(
-      M_PRIVATE, 'virtual/chromeos-config-bsp/chromeos-config-bsp-3.ebuild',
-      private_vpackage, make_ebuild_symlink=True)
   overlays.write_file(
       M_PUBLIC,
       'chromeos-base/chromeos-config-bsp/chromeos-config-bsp-9999.ebuild',
