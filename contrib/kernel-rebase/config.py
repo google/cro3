@@ -298,3 +298,50 @@ topiclist_consolidated = [
     ['fs', ['fs/pstore', 'fs/ecryptfs', 'fs/other']],
     ['net', ['wireless', 'net']],
 ]
+
+topiclist_short = [
+    ['discard',
+        [
+        'chromeos', 'fs/esdfs', 'arm/mali',
+        'dts/arm', 'dts/qcom', 'dts/mediatek', 'dts/rk3399',
+        'devicetree',
+        ]
+    ],
+    ['cros_ec', ['cros_ec/iio', 'cros_ec/wilco', 'cros_ec/extcon', 'cros_ec']],
+    [
+        'drm',
+        [
+            'drm/amd', 'drm/i915', 'drm/mediatek', 'drm/qualcomm', 'drm/panel',
+            'drm/rockchip',
+        ]
+    ],
+    [
+        'virtio',
+        ['drm/virtio', 'virtio', 'media/virtio', 'virt/kvm', 'arcvm/container']
+    ],
+    [
+        'other',
+        [
+            'other', 'acpi', 'firmware/google',
+            'block', 'android', 'sysrq',
+            'tools'
+        ]
+    ],
+    ['usb', ['usb', 'usb-gadget']],
+    [
+        'drivers',
+        [
+            'drivers', 'iio', 'input', 'mmc', 'mtd',
+            'drivers/mediatek', 'drivers/rockchip', 'iommu', 'mfd',
+            'remoteproc', 'devfreq', 'regulator', 'scsi', 'soundwire'
+        ]
+    ],
+    [
+        'sound',
+        ['sound/intel', 'sound/other', 'sound/mediatek', 'sound/rockchip']
+    ],
+    ['media', ['media/qcom', 'media/other' ]],
+    ['mm', ['cgroup', 'lowmem', 'mm']],
+    ['arch', ['arch/x86', 'arch/arm64', 'arch/arm']],
+    ['fs', ['fs/pstore', 'fs/ecryptfs', 'fs/other']],
+]
