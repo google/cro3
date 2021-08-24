@@ -160,14 +160,14 @@ def do_topic_stats_count(topic_stats, tags, topic, committed_ts, integrated_ts):
             topic_stats[topic][tag] += 1
 
 
-def get_topic_stats(c):
+def get_topic_stats(c, tlist):
     """Return dict with commit statistics"""
 
     uconn = sqlite3.connect(upstreamdb)
     cu = uconn.cursor()
 
     tags = get_tags(cu)
-    topics = get_consolidated_topics(c, topiclist_consolidated)
+    topics = get_consolidated_topics(c, tlist)
 
     topic_stats = {}
     for topic in list(set(topics.values())):
@@ -464,7 +464,7 @@ def add_topic_stats_column(request, sheetId, column, tag, data):
         update_one_cell(request, sheetId, row, column, f)
 
 
-def create_topic_stats(sheet):
+def create_topic_stats(sheet, title, tlist):
     """Create tab with topic statistics.
 
     We'll use it later to create a chart.
@@ -473,10 +473,10 @@ def create_topic_stats(sheet):
     conn = sqlite3.connect(rebasedb)
     c = conn.cursor()
 
-    topic_stats = get_topic_stats(c)
+    topic_stats = get_topic_stats(c, tlist)
     tags = get_tags()
     sorted_tags = sorted(tags, key=tags.get)
-    topics = get_consolidated_topics(c, topiclist_consolidated)
+    topics = get_consolidated_topics(c, tlist)
     topic_list = list(set(topics.values()))
 
     request = []
@@ -485,7 +485,7 @@ def create_topic_stats(sheet):
         'addSheet': {
             'properties': {
                 # 'sheetId': 1,
-                'title': 'Topic Statistics Data',
+                'title': title,
             },
         }
     })
@@ -737,7 +737,7 @@ def main():
 
     summary_sheet, summary_rows = create_summary(sheet, 'Backlog Data', 0)
     topic_stats_sheet, topic_stats_rows, topic_stats_columns = create_topic_stats(
-        sheet)
+        sheet, 'Topic Statistics Data', topiclist_consolidated)
 
     add_backlog_chart(sheet, summary_sheet, summary_rows)
     add_age_chart(sheet, summary_sheet, summary_rows)
