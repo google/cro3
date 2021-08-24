@@ -398,6 +398,9 @@ def create_summary(sheet):
     # As final step, resize it
     genlib.resize_sheet(requests, 0, 0, 11)
 
+    # sort by CHROMIUM column, descending
+    genlib.sort_sheet(requests, 0, 6, 'DESCENDING', rows + 1, 11)
+
     # and execute
     genlib.doit(sheet, requests)
 
