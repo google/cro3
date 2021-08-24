@@ -372,6 +372,34 @@ def add_topics_summary(requests, sheetId):
     return rowindex
 
 
+def add_topics_summary_short(requests, sheetId):
+    """Add short topics summary"""
+
+    conn = sqlite3.connect(rebasedb)
+    nconn = sqlite3.connect(nextdb)
+    c = conn.cursor()
+
+    topics = get_consolidated_topics(c, topiclist_short)
+    # create unique list of topics
+    unique = list(set(topics.values()))
+
+    rowindex = 1
+    for name in unique:
+        topic_list = [i for i,j in topics.items() if j == name]
+        if name not in ('discard', 'other'):
+            added = add_topics_summary_row(requests, conn, nconn, sheetId, rowindex,
+                                           topic_list, name)
+            if added:
+                rowindex += 1
+
+    # Finally, do the same for 'other' topics, identified as topic==None.
+    added = add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, None, 'other')
+
+    conn.close()
+
+    return rowindex
+
+
 def create_summary(sheet, title, sheetId=None, summary_func=add_topics_summary):
     """Create summary"""
 
@@ -739,12 +767,18 @@ def main():
         'Backlog Status for chromeos-%s' % rebase_baseline().strip('v'))
 
     summary_sheet, summary_rows = create_summary(sheet, 'Backlog Data', 0)
+    short_summary_sheet, short_summary_rows = create_summary(sheet, 'Backlog Data (short)',
+                                                             summary_func=add_topics_summary_short)
+
     topic_stats_sheet, topic_stats_rows, topic_stats_columns = create_topic_stats(
         sheet, 'Topic Statistics Data', topiclist_consolidated)
     short_topic_stats_sheet, short_topic_stats_rows, short_topic_stats_columns = create_topic_stats(
         sheet, 'Topic Statistics Data (short)', topiclist_short)
 
     add_backlog_chart(sheet, summary_sheet, 'Backlog Count', summary_rows)
+    add_backlog_chart(sheet, short_summary_sheet, 'Backlog Count (short)',
+                      short_summary_rows)
+
     add_age_chart(sheet, summary_sheet, summary_rows)
     add_stats_chart(sheet, topic_stats_sheet, 'Topic Statistics',
                     topic_stats_rows, topic_stats_columns)
@@ -752,12 +786,14 @@ def main():
                     short_topic_stats_rows, short_topic_stats_columns)
 
     # Move data sheets to the very end
-    genlib.move_sheet(sheet, summary_sheet, 7)
-    genlib.move_sheet(sheet, topic_stats_sheet, 7)
-    genlib.move_sheet(sheet, short_topic_stats_sheet, 7)
+    genlib.move_sheet(sheet, summary_sheet, 9)
+    genlib.move_sheet(sheet, short_summary_sheet, 9)
+    genlib.move_sheet(sheet, topic_stats_sheet, 9)
+    genlib.move_sheet(sheet, short_topic_stats_sheet, 9)
 
     # and hide them
     genlib.hide_sheet(sheet, summary_sheet, True)
+    genlib.hide_sheet(sheet, short_summary_sheet, True)
     genlib.hide_sheet(sheet, topic_stats_sheet, True)
     genlib.hide_sheet(sheet, short_topic_stats_sheet, True)
 
