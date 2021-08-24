@@ -96,7 +96,7 @@ class DockerPrepManager(object):
     self._load_request()
 
     # Base docker run command to build from.
-    self.docker_cmd = 'docker run --user chromeos-test'
+    self.docker_cmd = 'docker run --net=host --user chromeos-test'
 
   def run_in_background(self) -> None:
     self.docker_cmd += ' --rm --detach'
