@@ -48,6 +48,9 @@ def do_check_output(cmd):
 def stable_baseline():
     """Return most recent label in to-be-rebased branch"""
 
+    if not os.path.exists(chromeos_path):
+        return None
+
     cmd = ['git', '-C', chromeos_path, 'describe', rebase_baseline_branch]
     tag = do_check_output(cmd)
     return tag.split('-')[0]
