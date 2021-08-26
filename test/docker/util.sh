@@ -51,7 +51,7 @@ validate () {
   readonly registry_name="gcr.io"
   readonly cloud_project="chromeos-bot"
   readonly image_name="${server_name}"
-  readonly image_path="${registry_name}/${cloud_project}/${image_name}_${build_version}"
+  readonly image_path="${registry_name}/${cloud_project}/${image_name}"
 }
 
 build_image() {
@@ -60,7 +60,7 @@ build_image() {
   # @DESCRIPTION:
   sudo docker build -f "${docker_file}" -t "${image_path}" "${build_context}"
   sudo docker login -u oauth2accesstoken -p "$(gcloud auth print-access-token)" "https://${registry_name}"
-  sudo docker push "${image_path}"
+  sudo docker push "${image_path}":"${build_version}"
 }
 
 build_container_image(){
