@@ -1,0 +1,78 @@
+# Copyright 2021 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# This file defines the schema for gtest functional test metadata
+#
+# Metadata files are here:
+#
+# config/proto/chromiumos/test/api/test_case_metadata.proto
+# config/proto/chromiumos/test/api/test_case.proto
+# config/proto/chromiumos/test/api/test_harness.proto
+
+type: object
+properties:
+  author:
+    description: "Test Author"
+    type: string
+  name:
+    description: "Name of test"
+    type: string
+  harness:
+    description: "Test harness required (should always be gtest)"
+    type: string
+    enum:
+      - gtest
+  category:
+    description: "Type of testing this test represents"
+    type: string
+  owners:
+    description: "Owners of the test"
+    type: array
+    items:
+      type: object
+      properties:
+        email:
+          description: "Group or individual owner email"
+          type: string
+      additionalProperties: false
+    minItems: 1
+    uniqueItems: true
+    additionalProperties: false
+  cases:
+    type: array
+    items:
+      type: object
+      properties:
+        id:
+          description: "test case identifier"
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        criteria:
+          description: "test criteria notes"
+          type: string
+      additionalProperties: false
+      required:
+        - id
+        - tags
+        - criteria
+    minItems: 1
+    uniqueItems: true
+    additionalProperties: false
+  target_bin_location:
+    description: "path to find target binary on DUT"
+    type: string
+  another_prop:
+    type: integer
+additionalProperties: false
+required:
+  - author
+  - name
+  - harness
+  - category
+  - owners
+  - cases
+  - target_bin_location
