@@ -6,16 +6,18 @@
 package services
 
 import (
-	"chromiumos/lro"
 	"context"
 	"fmt"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"go.chromium.org/chromiumos/config/go/api/test/tls"
+	longrunning2 "go.chromium.org/chromiumos/config/go/api/test/tls/dependencies/longrunning"
 	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/grpc"
+
+	"chromiumos/lroold"
 )
 
 // ServiceAdapters are used to interface with a DUT
@@ -46,6 +48,7 @@ func NewServiceAdapter(dutName string, dutClient api.DutServiceClient, wiringCon
 
 // RunCmd runs a command in a remote DUT
 func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (string, error) {
+	fmt.Printf("Run cmd: %s, %s\n", cmd, args)
 	req := api.ExecCommandRequest{
 		Command: cmd,
 		Args:    args,
@@ -54,15 +57,16 @@ func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (
 	}
 	stream, err := s.dutClient.ExecCommand(ctx, &req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("execution fail: %s\n", err)
 	}
 	// Expecting single stream result
 	feature, err := stream.Recv()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("execution single stream result: %s\n", err)
 	}
+	fmt.Printf("Run cmd response: %s\n", feature)
 	if string(feature.Stderr) != "" {
-		return "", fmt.Errorf("execution error: %s", string(feature.Stderr))
+		fmt.Printf("execution finished with stderr: %s\n", string(feature.Stderr))
 	}
 	return string(feature.Stdout), nil
 }
@@ -121,7 +125,7 @@ func (s ServiceAdapter) CopyData(ctx context.Context, url string) (string, error
 		return "", err
 	}
 
-	waitOperation, err := lro.Wait(ctx, longrunning.NewOperationsClient(s.wiringConn), wireOperation.Name)
+	waitOperation, err := lroold.Wait(ctx, longrunning2.NewOperationsClient(s.wiringConn), wireOperation.Name)
 	if err != nil {
 		return "", fmt.Errorf("cacheForDut: failed to wait for CacheForDut, %s", err)
 	}

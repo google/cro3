@@ -8,50 +8,29 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
-	"time"
 
 	"chromiumos/lro"
-	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services"
-	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/ashservice"
-	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/crosservice"
-	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/lacrosservice"
 
-	"go.chromium.org/chromiumos/config/go/api/test/tls"
 	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"go.chromium.org/luci/common/errors"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-// ProvisionServer implementation of provision_service.proto
-type ProvisionServer struct {
-	Manager    *lro.Manager
-	logger     *log.Logger
-	dutName    string
-	dutClient  api.DutServiceClient
-	wiringConn *grpc.ClientConn
-	noReboot   bool
-}
-
-// newProvisionServer creates a new provision service server to listen to rpc requests.
-func newProvisionServer(l net.Listener, logger *log.Logger, dutName string, conn *grpc.ClientConn, wiringConn *grpc.ClientConn, noReboot bool) (*grpc.Server, error) {
-	s := &ProvisionServer{
-		Manager:    lro.New(),
-		logger:     logger,
-		dutName:    dutName,
-		dutClient:  api.NewDutServiceClient(conn),
-		wiringConn: wiringConn,
+// startServer starts provision server on requested port.
+func (s *provision) startServer(port int) error {
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return errors.Annotate(err, "start server: create listener at %d", port).Err()
 	}
-	defer s.Manager.Close()
+	s.manager = lro.New()
+	defer s.manager.Close()
 	server := grpc.NewServer()
 	api.RegisterProvisionServiceServer(server, s)
-	longrunning.RegisterOperationsServer(server, s.Manager)
-	logger.Println("provisionservice listen to request at ", l.Addr().String())
-	return server, nil
+	longrunning.RegisterOperationsServer(server, s.manager)
+	s.logger.Println("provisionservice listen to request at ", l.Addr().String())
+	return server.Serve(l)
 }
 
 // InstallCros installs a specified version of Chrome OS on the DUT, along
@@ -59,45 +38,33 @@ func newProvisionServer(l net.Listener, logger *log.Logger, dutName string, conn
 //
 // If the DUT already has the specified list of DLCs, only the missing DLCs
 // will be provisioned.
-func (s *ProvisionServer) InstallCros(ctx context.Context, req *api.InstallCrosRequest) (*longrunning.Operation, error) {
+func (s *provision) InstallCros(ctx context.Context, req *api.InstallCrosRequest) (*longrunning.Operation, error) {
 	s.logger.Println("Received api.InstallCrosRequest: ", *req)
-	op := s.Manager.NewOperation()
-	cs := crosservice.NewCrOSService(s.dutName, s.dutClient, s.wiringConn, s.noReboot, req)
+	op := s.manager.NewOperation()
 	response := api.InstallCrosResponse{}
-	if s.provision(ctx, &cs, op) == nil {
-		response.Outcome = &api.InstallCrosResponse_Success{}
+	if fr, err := s.installCros(ctx, req, false, op); err != nil {
+		response.Outcome = &api.InstallCrosResponse_Failure{
+			Failure: fr,
+		}
 	} else {
-		response.Outcome = &api.InstallCrosResponse_Failure{}
+		response.Outcome = &api.InstallCrosResponse_Success{}
 	}
-	s.Manager.SetResult(op.Name, &response)
+	s.manager.SetResult(op.Name, &response)
 	return op, nil
 }
 
 // InstallLacros installs a specified version of Lacros on the DUT.
-func (s *ProvisionServer) InstallLacros(ctx context.Context, req *api.InstallLacrosRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.InstallLacrosRequest: ", *req)
-	op := s.Manager.NewOperation()
-	ls, err := lacrosservice.NewLaCrOSService(s.dutName, s.dutClient, s.wiringConn, req)
+func (s *provision) InstallLacros(ctx context.Context, req *api.InstallLacrosRequest) (*longrunning.Operation, error) {
+	op := s.manager.NewOperation()
 	response := api.InstallLacrosResponse{}
-	if err != nil {
-		s.setNewOperationError(
-			op,
-			codes.Aborted,
-			fmt.Sprintf("pre-provision: failed setup: %s", err),
-			tls.ProvisionDutResponse_REASON_PROVISIONING_FAILED.String(),
-		)
-	} else {
-		if s.provision(ctx, &ls, op) == nil {
-			response.Outcome = &api.InstallLacrosResponse_Success{}
-		} else {
-			response.Outcome = &api.InstallLacrosResponse_Failure{
-				Failure: &api.InstallFailure{
-					Reason: api.InstallFailure_REASON_PROVISIONING_FAILED,
-				},
-			}
+	if fr, err := s.installLacros(ctx, req, op); err != nil {
+		response.Outcome = &api.InstallLacrosResponse_Failure{
+			Failure: fr,
 		}
+	} else {
+		response.Outcome = &api.InstallLacrosResponse_Success{}
 	}
-	s.Manager.SetResult(op.Name, &response)
+	s.manager.SetResult(op.Name, &response)
 	return op, nil
 }
 
@@ -105,17 +72,17 @@ func (s *ProvisionServer) InstallLacros(ctx context.Context, req *api.InstallLac
 //
 // This directly overwrites the version of ash-chrome on the current root
 // disk partition.
-func (s *ProvisionServer) InstallAsh(ctx context.Context, req *api.InstallAshRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.InstallAshRequest: ", *req)
-	op := s.Manager.NewOperation()
-	cs := ashservice.NewAshService(s.dutName, s.dutClient, s.wiringConn, req)
+func (s *provision) InstallAsh(ctx context.Context, req *api.InstallAshRequest) (*longrunning.Operation, error) {
+	op := s.manager.NewOperation()
 	response := api.InstallAshResponse{}
-	if s.provision(ctx, &cs, op) == nil {
-		response.Outcome = &api.InstallAshResponse_Success{}
+	if fr, err := s.installAsh(ctx, req, op); err != nil {
+		response.Outcome = &api.InstallAshResponse_Failure{
+			Failure: fr,
+		}
 	} else {
-		response.Outcome = &api.InstallAshResponse_Failure{}
+		response.Outcome = &api.InstallAshResponse_Success{}
 	}
-	s.Manager.SetResult(op.Name, &response)
+	s.manager.SetResult(op.Name, &response)
 	return op, nil
 }
 
@@ -123,73 +90,32 @@ func (s *ProvisionServer) InstallAsh(ctx context.Context, req *api.InstallAshReq
 //
 // This directly overwrites the version of ARC on the current root
 // disk partition.
-func (s *ProvisionServer) InstallArc(ctx context.Context, req *api.InstallArcRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.InstallArcRequest: ", *req)
-	op := s.Manager.NewOperation()
-	s.Manager.SetResult(op.Name, &api.InstallArcResponse{})
+func (s *provision) InstallArc(ctx context.Context, req *api.InstallArcRequest) (*longrunning.Operation, error) {
+	op := s.manager.NewOperation()
+	response := api.InstallArcResponse{}
+	if fr, err := s.installArc(ctx, req, op); err != nil {
+		response.Outcome = &api.InstallArcResponse_Failure{
+			Failure: fr,
+		}
+	} else {
+		response.Outcome = &api.InstallArcResponse_Success{}
+	}
+	s.manager.SetResult(op.Name, &response)
 	return op, nil
 }
 
 // InstallFirmware installs AP/EC firmware to the DUT
-//
-// TODO(shapiroc): Implement this
-func (s *ProvisionServer) InstallFirmware(ctx context.Context, req *api.InstallFirmwareRequest) (*longrunning.Operation, error) {
+func (s *provision) InstallFirmware(ctx context.Context, req *api.InstallFirmwareRequest) (*longrunning.Operation, error) {
 	s.logger.Println("Received api.InstallFirmwareRequest: ", *req)
-	s.logger.Println("TODO(shapiroc): Implement")
-	op := s.Manager.NewOperation()
-	s.Manager.SetResult(op.Name, &api.InstallFirmwareResponse{})
-	return op, nil
-}
-
-// provision effectively acts as a state transition runner for each of the
-// installation services, transitioning between states as required, and
-// executing each state. Operation status is also set at this state in case of
-// error.
-func (s *ProvisionServer) provision(ctx context.Context, si services.ServiceInterface, operation *longrunning.Operation) error {
-	// Set a timeout for provisioning.
-	ctx, cancel := context.WithTimeout(ctx, time.Hour)
-	defer cancel()
-	select {
-	case <-ctx.Done():
-		s.setNewOperationError(
-			operation,
-			codes.DeadlineExceeded,
-			"provision: timed out before provisioning OS",
-			tls.ProvisionDutResponse_REASON_PROVISIONING_TIMEDOUT.String())
-		return fmt.Errorf("deadline failure")
-	default:
-	}
-
-	for cs := si.GetFirstState(); cs != nil; cs = cs.Next() {
-		if err := cs.Execute(ctx); err != nil {
-			s.setNewOperationError(
-				operation,
-				codes.Aborted,
-				fmt.Sprintf("provision: failed %s step: %s", cs.Name(), err),
-				tls.ProvisionDutResponse_REASON_PROVISIONING_FAILED.String(),
-			)
-			return fmt.Errorf("provision step %s failure: %w", cs.Name(), err)
+	op := s.manager.NewOperation()
+	response := api.InstallFirmwareResponse{}
+	if fr, err := s.installFirmware(ctx, req, op); err != nil {
+		response.Outcome = &api.InstallFirmwareResponse_Failure{
+			Failure: fr,
 		}
+	} else {
+		response.Outcome = &api.InstallFirmwareResponse_Success{}
 	}
-
-	return nil
-}
-
-// setNewOperationError is a simple helper to handle operation error propagation
-func (s *ProvisionServer) setNewOperationError(op *longrunning.Operation, code codes.Code, msg, reason string) {
-	status := status.New(code, msg)
-	status, err := status.WithDetails(&errdetails.LocalizedMessage{
-		Message: reason,
-	})
-	if err != nil {
-		panic("Failed to set status details")
-	}
-	s.setError(op.Name, status)
-}
-
-// setError directly interacts with the Manager to set an error if appropriate
-func (s *ProvisionServer) setError(opName string, opErr *status.Status) {
-	if err := s.Manager.SetError(opName, opErr); err != nil {
-		log.Printf("Failed to set Operation error, %s", err)
-	}
+	s.manager.SetResult(op.Name, &response)
+	return op, nil
 }

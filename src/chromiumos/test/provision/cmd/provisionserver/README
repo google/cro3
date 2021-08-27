@@ -1,0 +1,41 @@
+ProvisionServer can be used as CLI or Server.
+
+Example of input file:
+{
+  "id": {
+    "value": "provision_id"
+  },
+  "system_image": {
+    "version": "R99-99999.99.99",
+    "system_image_path": {
+      "host_type": "GS",
+      "path": "gs:/special_path_to_the_image"
+    }
+  },
+  "packages": [
+    {
+      "package_path": {
+        "host_type": "GS",
+        "path": "gs:/special_path_to_the_image"
+      },
+      "portage_package": {
+        "package_name": "chromeos-lacros",
+        "category": "chromeos-base",
+        "version": "99.9.9999.r9"
+      }
+    },
+    {
+      "package_path": {
+        "host_type": "GS",
+        "path": "gs:/special_path_to_the_image"
+      },
+      "portage_package": {
+        "package_name": "chromeos-chrome",
+        "category": "chromeos-base",
+        "version": "99.9.9999.r9"
+      }
+    }
+  ],
+  "firmware": {},
+  "prevent_reboot": false
+}

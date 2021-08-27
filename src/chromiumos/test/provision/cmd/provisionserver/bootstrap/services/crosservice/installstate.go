@@ -29,15 +29,13 @@ func (s CrOSInstallState) Execute(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get root part number, %s", err)
 	}
-	if err := s.service.StopSystemDaemons(ctx); err != nil {
-		return fmt.Errorf("failed to stop daemons, %s", err)
-	}
+	s.service.StopSystemDaemons(ctx)
 	if err := s.service.ClearDLCArtifacts(ctx, rootPartNum); err != nil {
 		return fmt.Errorf("failed to clear DLC artifacts, %s", err)
 	}
 	pi := info.GetPartitionInfo(root, rootDisk, rootPartNum)
-	if errs := s.service.InstallPartitions(ctx, pi); len(errs) > 0 {
-		return fmt.Errorf("failed to provision the OS, %s", errs)
+	if err := s.service.InstallPartitions(ctx, pi); err != nil {
+		return fmt.Errorf("failed to provision the OS, %s", err)
 	}
 	if err := s.service.PostInstall(ctx, pi.InactiveRoot); err != nil {
 		s.service.RevertProvisionOS(ctx, pi.ActiveRoot)

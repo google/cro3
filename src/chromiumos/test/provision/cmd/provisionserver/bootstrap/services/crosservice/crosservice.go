@@ -102,14 +102,13 @@ func (c *CrOSService) GetRootPartNumber(ctx context.Context, root string) (strin
 }
 
 // stopSystemDaemon stops system daemons than can interfere with provisioning.
-func (c *CrOSService) StopSystemDaemons(ctx context.Context) error {
+func (c *CrOSService) StopSystemDaemons(ctx context.Context) {
 	if _, err := c.connection.RunCmd(ctx, "stop", []string{"ui"}); err != nil {
-		return fmt.Errorf("failed to stop UI daemon, %s", err)
+		log.Printf("Failed to stop UI daemon, %s", err)
 	}
 	if _, err := c.connection.RunCmd(ctx, "stop", []string{"update-engine"}); err != nil {
-		return fmt.Errorf("failed to stop update-engine daemon, %s", err)
+		log.Printf("Failed to stop update-engine daemon, %s", err)
 	}
-	return nil
 }
 
 // ClearDLCArtifacts will clear the verified marks for all DLCs in the inactive slots.
@@ -145,26 +144,14 @@ func (c *CrOSService) ClearDLCArtifacts(ctx context.Context, rootPartNum string)
 }
 
 // InstallPartitions  installs the kernel and root images in parallel
-func (c *CrOSService) InstallPartitions(ctx context.Context, pi info.PartitionInfo) []error {
-	kernelErr := make(chan error)
-	rootErr := make(chan error)
-	go func() {
-		// Install Kernel
-		kernelErr <- c.InstallZippedImage(ctx, "full_dev_part_KERN.bin.gz", pi.InactiveKernel)
-	}()
-	go func() {
-		// Install Root
-		rootErr <- c.InstallZippedImage(ctx, "full_dev_part_ROOT.bin.gz", pi.InactiveRoot)
-	}()
-
-	var provisionErrs []error
-	if err := <-kernelErr; err != nil {
-		provisionErrs = append(provisionErrs, err)
+func (c *CrOSService) InstallPartitions(ctx context.Context, pi info.PartitionInfo) error {
+	if err := c.InstallZippedImage(ctx, "full_dev_part_KERN.bin.gz", pi.InactiveKernel); err != nil {
+		return fmt.Errorf("install kernel: %s", err)
 	}
-	if err := <-rootErr; err != nil {
-		provisionErrs = append(provisionErrs, err)
+	if err := c.InstallZippedImage(ctx, "full_dev_part_ROOT.bin.gz", pi.InactiveRoot); err != nil {
+		return fmt.Errorf("install root: %s", err)
 	}
-	return provisionErrs
+	return nil
 }
 
 // InstallZippedImage installs a remote zipped image to disk.
@@ -176,6 +163,7 @@ func (c *CrOSService) InstallZippedImage(ctx context.Context, remoteImagePath st
 	if err != nil {
 		return fmt.Errorf("failed to get GS Cache URL, %s", err)
 	}
+	fmt.Printf("URL used to install zipped image: %s\n", url)
 	_, err = c.connection.RunCmd(ctx, "curl", []string{url, "|", "gzip -d", "|", fmt.Sprintf("dd of=%s obs=2M", outputFile)})
 	return err
 }
@@ -249,7 +237,7 @@ func (c *CrOSService) InstallStateful(ctx context.Context) error {
 	if c.imagePath.HostType == conf.StoragePath_LOCAL || c.imagePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
 		return fmt.Errorf("only GS copying is implemented")
 	}
-	url, err := c.connection.CopyData(ctx, path.Join(c.imagePath.GetPath(), "stateful.tzg"))
+	url, err := c.connection.CopyData(ctx, path.Join(c.imagePath.GetPath(), "stateful.tgz"))
 	if err != nil {
 		return fmt.Errorf("failed to get GS Cache URL, %s", err)
 	}

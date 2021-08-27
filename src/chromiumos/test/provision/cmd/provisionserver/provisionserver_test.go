@@ -263,7 +263,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 		// Delete steps elided due to preserve stateful
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
-		sam.EXPECT().CopyData(gomock.Any(), gomock.Eq("path/to/image/stateful.tzg")).Return("url", nil),
+		sam.EXPECT().CopyData(gomock.Any(), gomock.Eq("path/to/image/stateful.tgz")).Return("url", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{"rm -rf /mnt/stateful_partition/.update_available /mnt/stateful_partition/var_new /mnt/stateful_partition/dev_image_new", "&&", "curl url | tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -", "&&", "echo -n clobber > /mnt/stateful_partition/.update_available"})).Return("", nil),
 		sam.EXPECT().Restart(gomock.Any()).Return(nil),
 	)
@@ -300,7 +300,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		// Simulated error:
-		sam.EXPECT().CopyData(gomock.Any(), gomock.Eq("path/to/image/stateful.tzg")).Return("", errors.New("some copy error")),
+		sam.EXPECT().CopyData(gomock.Any(), gomock.Eq("path/to/image/stateful.tgz")).Return("", errors.New("some copy error")),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new", "/mnt/stateful_partition/.update_available"})).Return("", nil),
 	)
 
