@@ -58,7 +58,7 @@ build_image() {
   # @FUNCTION: build_image
   # @USAGE: Docker builds + uploads to the registry.
   # @DESCRIPTION:
-  sudo docker build -f "${docker_file}" -t "${image_path}" "${build_context}"
+  sudo docker build -f "${docker_file}" -t "${image_path}:${build_version}" "${build_context}"
   sudo docker login -u oauth2accesstoken -p "$(gcloud auth print-access-token)" "https://${registry_name}"
   sudo docker push "${image_path}":"${build_version}"
 }
