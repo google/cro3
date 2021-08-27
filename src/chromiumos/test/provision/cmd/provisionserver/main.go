@@ -19,7 +19,7 @@ import (
 )
 
 // Version is the version info of this command. It is filled in during emerge.
-var Version = "<0.1>"
+var Version = "<unknown>"
 
 // createLogFile creates a file and its parent directory for logging purpose.
 func createLogFile() (*os.File, error) {

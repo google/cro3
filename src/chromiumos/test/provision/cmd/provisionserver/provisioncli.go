@@ -42,6 +42,7 @@ func (s *provision) runCLI(ctx context.Context, inputPath, outputPath string) er
 		}
 		return errors.Annotate(err, "run CLI").Err()
 	}
+	s.logger.Println("Finished successfully!")
 	return nil
 }
 

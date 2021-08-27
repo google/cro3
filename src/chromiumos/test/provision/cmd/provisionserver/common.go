@@ -55,7 +55,7 @@ func newProvision(logger *log.Logger, dutName string, dutServiceAddr, wiringServ
 	if err != nil {
 		return nil, closer, errors.Annotate(err, "new provision: failed to connect wiring-service").Err()
 	}
-	defer wiringConn.Close()
+	conns = append(conns, wiringConn)
 	return &provision{
 		logger:     logger,
 		dutName:    dutName,
@@ -79,7 +79,8 @@ func (s *provision) installState(ctx context.Context, state *api.ProvisionState,
 			CrosImagePath:    state.GetSystemImage().GetSystemImagePath(),
 			DlcSpecs:         dlcSpecs,
 			PreserveStateful: false,
-		}, state.GetPreventReboot(), op); err != nil {
+			PreventReboot:    state.GetPreventReboot(),
+		}, op); err != nil {
 			return fr, err
 		}
 	}
@@ -124,9 +125,9 @@ func (s *provision) installState(ctx context.Context, state *api.ProvisionState,
 
 // installCros installs a specified version of Chrome OS on the DUT, along
 // with any specified DLCs.
-func (s *provision) installCros(ctx context.Context, req *api.InstallCrosRequest, noReboot bool, op *longrunning.Operation) (*api.InstallFailure, error) {
+func (s *provision) installCros(ctx context.Context, req *api.InstallCrosRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
 	s.logger.Println("Received api.InstallCrosRequest: ", *req)
-	cs := crosservice.NewCrOSService(s.dutName, s.dutClient, s.wiringConn, noReboot, req)
+	cs := crosservice.NewCrOSService(s.dutName, s.dutClient, s.wiringConn, req)
 	return s.execute(ctx, &cs, op)
 }
 
@@ -176,7 +177,7 @@ func (s *provision) installFirmware(ctx context.Context, req *api.InstallFirmwar
 	}, fmt.Errorf("not implemented")
 }
 
-// provision effectively acts as a state transition runner for each of the
+// execute effectively acts as a state transition runner for each of the
 // installation services, transitioning between states as required, and
 // executing each state. Operation status is also set at this state in case of
 // error.

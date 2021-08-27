@@ -42,7 +42,7 @@ func (s *provision) InstallCros(ctx context.Context, req *api.InstallCrosRequest
 	s.logger.Println("Received api.InstallCrosRequest: ", *req)
 	op := s.manager.NewOperation()
 	response := api.InstallCrosResponse{}
-	if fr, err := s.installCros(ctx, req, false, op); err != nil {
+	if fr, err := s.installCros(ctx, req, op); err != nil {
 		response.Outcome = &api.InstallCrosResponse_Failure{
 			Failure: fr,
 		}
