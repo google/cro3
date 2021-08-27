@@ -87,11 +87,11 @@ def wrap_line(s, max_length):
 def main(args):
     """Parse ChangeLog and print commit message."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-b', '--board')
+    parser.add_argument('-b', '--board', required=True)
     parser.add_argument('--extra-repo-file',
                         help='File containing extra repo names')
     args = parser.parse_args(args)
-    board = args.board or 'BOARD'
+    board = args.board
     included_repos = set(DEFAULT_REPOS)
     if args.extra_repo_file:
         included_repos |= read_extra_repos(args.extra_repo_file)
