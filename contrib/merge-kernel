@@ -41,6 +41,7 @@ prereverts=() # List of patches to revert as part of merge, prior to merge
 dependency="" # No dependency
 Subject=""  # default subject
 namespace="" # default namespace
+apply_stashed=0 # Apply stash@{0} on top of a merge
 
 # derived parameters
 skip_merge=0    # Skip actual merge and upload.
@@ -69,6 +70,11 @@ Parameters:
                 branch release tag, a valid branch name, or a valid SHA.
 
 Options:
+  -a            Apply stash@{0} to the merge. Used when a conflict resolution
+                includes files which are not in the conflicting file list.
+                Use 'git stash' manually to stash the files, and use with -a
+                option in the next run to apply the head(stash@{0}) of the stash
+                list to the merge.
   -b bug-id[,bug-id] ...
                 Bug-id or list of bug IDs. Must be valid buganizer
                 bug ID. Mandatory unless the merge branch already exists
@@ -174,8 +180,9 @@ do_getparams() {
   local option
   local vtag
 
-  while getopts "b:c:d:fFhkl:N:nP:pq:r:R:st:uS:x:" option; do
+  while getopts "ab:c:d:fFhkl:N:nP:pq:r:R:st:uS:x:" option; do
     case ${option} in
+      a) apply_stashed=1 ;;
       b) bugs="${OPTARG}" ;;
       c) changeid="Change-Id: ${OPTARG}" ;;
       d) deadline="${OPTARG}"
@@ -707,6 +714,8 @@ do_merge() {
   local revert
   local content_conflicts
   local delete_conflicts
+  local stashed
+  local stashed_files=()
 
   git branch -D "${mbranch}" >/dev/null 2>&1
   if ! git checkout -b "${mbranch}" "${ocbranch}"; then
@@ -780,6 +789,22 @@ do_merge() {
     fi
   fi
 
+  if [[ ${apply_stashed} -eq 1 ]]; then
+    stashed="$(git stash list)"
+    if [[ -n "${stashed}" ]]; then
+      if ! git stash apply -q "stash@{0}"; then
+        die "Failed to apply stash@{0}."
+      fi
+      if ! git add -u; then
+        die "Failed to add files to index."
+      fi
+      stashed_files=($(git status -s | awk '{print $2}'))
+      if ! git commit --amend --no-edit; then
+        die "Failed to commit after stash apply."
+      fi
+    fi
+  fi
+
   # Update commit message.
 
   ( echo "${Subject}"
@@ -804,6 +829,18 @@ do_merge() {
       echo "Files deleted during merge which were locally modified:"
       for conflict in "${delete_conflicts[@]}"; do
         echo "    ${conflict}"
+      done
+      echo
+    ) >> "${tmpfile}"
+  fi
+
+  # Add applied statsh to description
+  if [[ -n "${stashed_files[@]}" ]]; then
+    (
+    echo "The following file(s) have been modified as part of the"
+      echo "merge/conflict resolution:"
+      for file in ${stashed_files[@]}; do
+        echo "    ${file}"
       done
       echo
     ) >> "${tmpfile}"
