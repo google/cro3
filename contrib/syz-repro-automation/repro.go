@@ -88,8 +88,8 @@ func runSyzRepro(paths map[string]string, hostname, reproLog string) error {
 		Procs:     1,
 		DUTConfig: dutConfig{
 			Targets:       []string{hostname},
-			TargetDir:     "/tmp",
-			TargetReboot:  false,
+			TargetDir:     "/usr/local/tmp",
+			TargetReboot:  true,
 			StartupScript: paths["startupScript"],
 			Pstore:        true,
 		},

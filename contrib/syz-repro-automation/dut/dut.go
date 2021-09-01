@@ -39,6 +39,7 @@ func Get(model, imageID string, minutes int, timeNeeded time.Duration) (string, 
 		if err != nil {
 			return "", err
 		}
+		WaitForDut(hostname)
 		expTime := time.Now().Add(time.Duration(minutes) * time.Minute)
 		if err := getKernel(hostname, imageID); err != nil {
 			abandonDut(hostname)
@@ -111,7 +112,7 @@ func flashKernel(hostname, imageID string) error {
 	log.Printf("Flashing kernel onto DUT...")
 	ssh := "ssh://root@" + hostname
 	xBuddy := "xBuddy://remote/" + board + "-debug-kernel-postsubmit/" + imageID
-	if _, err = cmd.RunCmd(true, "cros", "flash", "--board="+board, ssh, xBuddy); err != nil {
+	if _, err = cmd.RunCmd(true, "cros", "flash", "--no-ping", "--board="+board, ssh, xBuddy); err != nil {
 		return fmt.Errorf("error flashing kernel onto DUT: %v", err)
 	}
 	log.Printf("Finished flashing kernel onto DUT")
