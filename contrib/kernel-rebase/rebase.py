@@ -309,12 +309,15 @@ class Rebaser:
                 if diff is None:
                     cherry_pick('kernel-next', sha)
                 else:
-                    apply_patch('kernel-next', diff)
+                    apply_patch('kernel-next', diff, sha) # sha is only used for debugs
                 noconflicts += 1
                 # No conflicts, check rerere and continue
                 continue
             except Exception as error: # pylint: disable=broad-except
-                err = error
+                if debug:
+                    sh.mkdir('-p', 'debug/rebase/' + sha)
+                    with open('debug/rebase/' + sha + '/cp_am_err', 'w') as f:
+                        f.write(str(error))
 
             print('Conflicts found.')
             # There were conflicts, check if autoresolved

@@ -17,8 +17,10 @@ import os
 import sh
 from config import debug
 
+GITHELPERS_DBG_PATH = 'debug/githelpers/'
+
 if debug:
-    sh.mkdir('-p', 'debug/githelpers/')
+    sh.mkdir('-p', GITHELPERS_DBG_PATH)
 
 def is_dirty(repo):
     """Check if repo is dirty"""
@@ -55,14 +57,22 @@ def cherry_pick(repo, sha):
     with sh.pushd(repo):
         # replace rerere-autoupdate to its negation after we finish migration to
         # patches stored in files
-        sh.git('cherry-pick', '--no-rerere-autoupdate', sha)
+        ret = sh.git('cherry-pick', '--no-rerere-autoupdate', sha)
+    if debug:
+        sh.mkdir('-p', GITHELPERS_DBG_PATH + sha)
+        with open(GITHELPERS_DBG_PATH + sha + '/cherry-pick', 'w') as f:
+            f.write(str(ret))
 
 
-def apply_patch(repo, diff):
+def apply_patch(repo, diff, sha):
     """applies a patch in repo"""
 
     with sh.pushd(repo):
-        sh.git('am', '-3', '--no-rerere-autoupdate', diff)
+        ret = sh.git('am', '-3', '--no-rerere-autoupdate', diff)
+    if debug:
+        sh.mkdir('-p', GITHELPERS_DBG_PATH + sha)
+        with open(GITHELPERS_DBG_PATH + sha + '/am', 'w') as f:
+            f.write(str(ret))
 
 
 def is_resolved(repo):
@@ -128,12 +138,12 @@ def patch_title(repo, sha, old=False):
         s = ''
         if old:
             s = '_old'
-        sh.mkdir('-p', 'debug/githelpers/' + sha + s)
-        with open('debug/githelpers/' + sha + s + '/text_all', 'w') as f:
+        sh.mkdir('-p', GITHELPERS_DBG_PATH + sha + s)
+        with open(GITHELPERS_DBG_PATH + sha + s + '/text_all', 'w') as f:
             f.write(text)
-        with open('debug/githelpers/' + sha + s + '/text_hashed', 'w') as f:
+        with open(GITHELPERS_DBG_PATH + sha + s + '/text_hashed', 'w') as f:
             f.write(refined)
-        with open('debug/githelpers/' + sha + s + '/sha224', 'w') as f:
+        with open(GITHELPERS_DBG_PATH + sha + s + '/sha224', 'w') as f:
             f.write(sha224)
     return sha224
 
