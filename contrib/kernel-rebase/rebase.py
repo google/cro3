@@ -36,9 +36,21 @@ import sh
 from common import executor_io, rebasedb
 from config import *
 import rebase_config
-# the import is not used directly, but helpful if one runs python3 -i rebase.py
+# the import is not used directly, but instead intended to be used in the interactive mode
 from mailing import Mailing, load_and_notify # pylint: disable=unused-import
 from githelpers import *
+
+def call_hook(sha, hook_type):
+    if '*' in rebase_config.commit_hooks:
+        entry = rebase_config.commit_hooks['*']
+        if hook_type in entry['types']:
+            hook = entry['hook']
+            hook(sha, hook_type)
+    if sha in rebase_config.commit_hooks:
+        entry = rebase_config.commit_hooks[sha]
+        if hook_type in entry['types']:
+            hook = entry['hook']
+            hook(sha, hook_type)
 
 class Logger:
     """Splits stdout into stdout and a file"""
@@ -397,20 +409,22 @@ class Rebaser:
                 # Make the path absolute
                 diff = os.getcwd() + '/' + diff
 
-            err = 0
             try:
+                call_hook(sha, 'pre')
                 if diff is None:
                     cherry_pick('kernel-next', sha)
                 else:
                     apply_patch('kernel-next', diff, sha) # sha is only used for debugs
                 noconflicts += 1
                 # No conflicts, check rerere and continue
+                call_hook(sha, 'post')
                 continue
             except Exception as error: # pylint: disable=broad-except
                 if debug:
                     sh.mkdir('-p', 'debug/rebase/' + sha)
                     with open('debug/rebase/' + sha + '/cp_am_err', 'w') as f:
                         f.write(str(error))
+                call_hook(sha, 'conflict')
 
             print('Conflicts found.')
             # There were conflicts, check if autoresolved
@@ -467,6 +481,7 @@ class Rebaser:
                                 try:
                                     sh.git(
                                         '-c', 'core.editor=true', 'cherry-pick', '--continue')
+                                    call_hook(sha, 'post')
                                 except sh.ErrorReturnCode_1 as e:
                                     if 'The previous cherry-pick is now empty' in str(
                                             e.stderr):
@@ -474,12 +489,14 @@ class Rebaser:
                                             'Cherry-pick empty due to conflict resolution. Skip.')
                                         sh.git(
                                             '-c', 'core.editor=true', 'cherry-pick', '--abort')
+                                        call_hook(sha, 'post_empty')
                                         continue
                                     raise e
                             else:
                                 try:
                                     sh.git(
                                         '-c', 'core.editor=true', 'am', '--continue')
+                                    call_hook(sha, 'post')
                                 except Exception as e: # pylint: disable=broad-except
                                     print('git am --continue failed:')
                                     print(e)
@@ -499,6 +516,7 @@ class Rebaser:
                             sh.git('cherry-pick', '--abort')
                         else:
                             sh.git('am', '--abort')
+                    call_hook(sha, 'post_drop')
                     continue
                 print(
                     """
@@ -524,6 +542,7 @@ class Rebaser:
                             try:
                                 sh.git(
                                     '-c', 'core.editor=true', 'cherry-pick', '--continue')
+                                call_hook(sha, 'post')
                             except sh.ErrorReturnCode_1 as e:
                                 if 'The previous cherry-pick is now empty' in str(
                                         e.stderr):
@@ -531,12 +550,14 @@ class Rebaser:
                                         'Cherry-pick empty due to conflict resolution. Skip.')
                                     sh.git(
                                         '-c', 'core.editor=true', 'cherry-pick', '--abort')
+                                    call_hook(sha, 'post_empty')
                                     continue
                                 raise e
                         else:
                             try:
                                 sh.git(
                                     '-c', 'core.editor=true', 'am', '--continue')
+                                call_hook(sha, 'post')
                             except Exception as e: # pylint: disable=broad-except
                                 print('git am --continue failed:')
                                 print(e)
@@ -579,9 +600,11 @@ class Rebaser:
                 # Apply fixups for this particular topic
                 for sha in rebase_config.topic_fixups[topic]:
                     try:
+                        call_hook(sha, 'pre')
                         cherry_pick('kernel-next', sha)
                         # No conflicts, check rerere and continue
                         print('Applied ' + sha + ' fixup for ' + topic + '.')
+                        call_hook(sha, 'post')
                         continue
                     except sh.ErrorReturnCode_1:
                         print(

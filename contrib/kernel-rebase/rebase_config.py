@@ -8,7 +8,25 @@
 
 """automatic rebase-specific data"""
 
+import hooks # pylint: disable=unused-import
+
 global_reverts = []
+
+commit_hooks = {}
+# calls a function on a selection of events, listed in the 'types' list.
+# the different types are as follows:
+# - conflict: called if a patch conflicts.
+# - pre: called before the patch is applied.
+# - post: called after successful application.
+# - post_empty: called after a successful application that causes the commit to
+#               be empty.
+# - post_drop: called after triage drops a conflicting commit.
+# The hook can be applied either only for a given commit (set the key to its SHA)
+# or to all commits (set the key to '*')
+# examples:
+#   commit_hooks['e0c3be8f6bce'] = {'hook': hooks.pause, 'types': ['post']}
+#   commit_hooks['*'] = {'hook': hooks.pause, 'types': ['conflict']}
+# commit_hooks['a49b8bb6e63d'] = {'hook': hooks.pause, 'types': ['pre']}
 
 topic_fixups = {}
 # example:
