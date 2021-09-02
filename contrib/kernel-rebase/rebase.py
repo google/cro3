@@ -211,8 +211,7 @@ def normalize():
                 print('This failure might be caused be the lack of commit e749464a877aa:')
                 print('"CHROMIUM: kernelconfig sets CROSS_COMPILE"')
             return
-        else:
-            break
+        break
 
     for command in commands:
         print('executing', command)
@@ -786,7 +785,7 @@ def merge_topic_branches():
                     '), skipping')
                 continue
         print('Conflict found')
-        if r.kernel.index.diff(None) == []:
+        if is_resolved('kernel-next'):
             print('Resolved automatically')
             with sh.pushd('kernel-next'):
                 sh.git('-c', 'core.editor=/bin/true', 'merge', '--continue')
