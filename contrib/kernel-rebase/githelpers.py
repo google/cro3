@@ -14,6 +14,7 @@ replaces git rerere for this project, due to specific requirements.
 
 import hashlib
 import os
+import re
 import sh
 from config import debug
 
@@ -164,7 +165,14 @@ def head_diff(repo):
             '--no-color',
             '--stdout',
             'HEAD~..HEAD')
-    diff = str(diff)
+
+    # Remove information about indices. Git uses this to autoresolve some
+    # conflicts, which will only work if the indices refer to git objects
+    # present locally. It's not portable, and thus has to be disabled.
+    # It would be preferable to fix it with a git option instead of sabotaging
+    # the patch file, but AFAICT it's not possible as of now.
+    diff = re.sub(r'^index .*\n?', '', str(diff), flags=re.MULTILINE)
+
     return diff
 
 
