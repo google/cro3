@@ -704,13 +704,16 @@ def triage():
             topic_stats[topic][3] = True
         else:
             print('Error building %s:' % topic)
-            l = ret['error_line']
-            reg = re.compile('\x1b\\[[0-9;]*m')
-            topic_stderr[topic] = reg.sub(
-                '', '\n'.join(
-                    ret['output'].split('\n')[
-                        l - 7:l]))
-            print(topic_stderr[topic])
+            if ret['error_line'] is not None:
+                l = ret['error_line']
+                reg = re.compile('\x1b\\[[0-9;]*m')
+                topic_stderr[topic] = reg.sub(
+                    '', '\n'.join(
+                        ret['output'].split('\n')[
+                            l - 7:l]))
+                print(topic_stderr[topic])
+            else:
+                print('(No error line.)')
             f = open(
                 'log/triage/' +
                 topic_branch.replace(
