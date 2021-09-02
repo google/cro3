@@ -10,11 +10,11 @@
 import argparse
 
 import os
+import pathlib
 import shutil
 import sys
 
-
-sys.path.insert(1, '../../')
+sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve()/'../../'))
 
 from python.lib import container_util  # noqa: E402
 
