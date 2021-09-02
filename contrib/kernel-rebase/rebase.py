@@ -436,24 +436,41 @@ class Rebaser:
                 autoresolved += 1
                 with sh.pushd('kernel-next'):
                     try:
-                        sh.git(
-                            '-c',
-                            'core.editor=true',
-                            'cherry-pick',
-                            '--continue')
-                    except sh.ErrorReturnCode_1 as e:
-                        if 'The previous cherry-pick is now empty' in str(
-                                e.stderr):
-                            print(
-                                'Cherry-pick empty due to conflict resolution. Skip.')
+                        if diff is None:
                             sh.git(
                                 '-c',
                                 'core.editor=true',
                                 'cherry-pick',
-                                '--abort')
+                                '--continue')
+                        else:
+                            sh.git(
+                                '-c',
+                                'core.editor=true',
+                                'am',
+                                '--continue')
+                        call_hook(sha, 'post')
+                        save_head('kernel-next', sha)
+                    except (sh.ErrorReturnCode_1, sh.ErrorReturnCode_128) as e:
+                        cp_err = 'The previous cherry-pick is now empty' in str(e.stderr)
+                        am_err = 'No changes - did you forget' in str(e.stdout)
+                        if cp_err or am_err:
+                            print(
+                                'Cherry-pick/am empty due to conflict resolution. Skip.')
+                            if diff is None:
+                                sh.git(
+                                    '-c',
+                                    'core.editor=true',
+                                    'cherry-pick',
+                                    '--abort')
+                            else:
+                                sh.git(
+                                    '-c',
+                                    'core.editor=true',
+                                    'am',
+                                    '--abort')
+                            call_hook(sha, 'post_empty')
                             continue
                         raise e
-                save_head('kernel-next', sha)
             else:
                 # Detect the cases, where deleted file is the only meaningful
                 # conflict
