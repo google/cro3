@@ -122,49 +122,49 @@ def add_to_kconfig_name(baseboard_name, variant_name):
         # Now add the new section.
         if baseboard_name == 'hatch':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
-            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_HATCH', file=outfile)
             print('\tselect BOARD_ROMSIZE_KB_16384', file=outfile)
         elif baseboard_name == 'volteer':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
-            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_VOLTEER', file=outfile)
         elif baseboard_name == 'trembyle':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
-            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_TREMBYLE', file=outfile)
         elif baseboard_name == 'dalboz':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
-            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_DALBOZ', file=outfile)
         elif baseboard_name == 'waddledee':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
-            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE_CR50', file=outfile)
             print('\tselect BASEBOARD_DEDEDE_LAPTOP', file=outfile)
         elif baseboard_name == 'waddledoo':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
-            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE_CR50', file=outfile)
             print('\tselect BASEBOARD_DEDEDE_LAPTOP', file=outfile)
             print('\tselect DRIVERS_GENERIC_MAX98357A', file=outfile)
             print('\tselect DRIVERS_I2C_DA7219', file=outfile)
         elif baseboard_name == 'lalala':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
-            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_DEDEDE_TPM2', file=outfile)
             print('\tselect BASEBOARD_DEDEDE_LAPTOP', file=outfile)
         elif baseboard_name == 'puff':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
-            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_PUFF', file=outfile)
         elif baseboard_name == 'brya0':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
-            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_BRYA', file=outfile)
         elif baseboard_name == 'guybrush':
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
-            print('\tbool "-> ' + capitalized + '"', file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_GUYBRUSH', file=outfile)
         else:
             raise ValueError(f'Unsupported board {baseboard_name}')
