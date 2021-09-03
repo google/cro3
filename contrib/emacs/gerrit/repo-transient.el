@@ -8,7 +8,6 @@
 
 ;; This file is not part of GNU Emacs.
 
-(require 'term)
 (require 'transient)
 (require 'magit-process)
 
@@ -24,43 +23,15 @@
   :key "-A"
   :argument "--all")
 
-;; TODO(jrosenth): the below keybindings don't work ... might be
-;; something with evil mode
-(defun repo--term-insert-yes ()
-  (interactive)
-  (term-send-string (get-buffer-process (current-buffer))
-                    "yes\n"))
-
-(defun repo--term-insert-no ()
-  (interactive)
-  (term-send-string (get-buffer-process (current-buffer))
-                    "no\n"))
-
-(defvar repo-term-mode-map
-  (let ((map (copy-keymap magit-mode-map)))
-    (define-key map (kbd "y") #'repo--term-insert-yes)
-    (define-key map (kbd "n") #'repo--term-insert-no)
-    (set-keymap-parent map magit-mode-map)
-    map))
-
-(define-derived-mode repo-term-mode term-mode "Repo Output"
-  "Derived terminal mode for repo output.")
-
-(defun repo--run-interactively (&rest args)
-  (let ((buf (apply #'make-term "repo-output" "repo" nil args)))
-    (with-current-buffer buf
-      (repo-term-mode))
-    (magit-display-buffer buf)))
-
 (defun repo-sync (args)
   "Run a repo sync command."
   (interactive (list (transient-args 'repo-sync-menu)))
-  (apply #'repo--run-interactively "sync" args))
+  (apply #'magit-call-process "repo" "sync" args))
 
 (defun repo-rebase (args)
   "Run a repo rebase command."
   (interactive (list (transient-args 'repo-rebase-menu)))
-  (apply #'repo--run-interactively "rebase" args))
+  (apply #'magit-call-process "repo" "rebase" args))
 
 (define-transient-command repo-sync-menu ()
   "Transient menu for repo sync."
@@ -107,7 +78,9 @@
                           (string-prefix-p "--br=" arg))
                         args)))
     (repo-upload `(,@args "--cbr")))
-   (t (apply #'repo--run-interactively "upload" args))))
+   ;; --no-verify is safe, as we ran the repohooks just before in
+   ;; repo-upload-menu-with-repohooks.
+   (t (apply #'magit-call-process "repo" "upload" "--yes" "--no-verify" args))))
 
 (defun repo-upload-current (args)
   "Run a repo upload command in the current project."
@@ -156,9 +129,6 @@
    (repo:--re)
    (repo:--cc)
    ("-E" "Don't send emails" "--no-emails")]
-  ["Upload Hooks"
-   ("-n" "Skip upload hooks" "--no-verify")
-   ("-i" "Ignore failures in upload hooks" "--ignore-hooks")]
   ["Labels"
    ("-a" "Label Auto-Submit+1" "--label=Auto-Submit+1")
    ("-d" "Label Commit-Queue+1 (dry run)" "--label=Commit-Queue+1")
@@ -176,12 +146,27 @@
    ("u" "Upload current project" repo-upload-current)
    ("U" "Upload all projects" repo-upload-all)])
 
+(defun repo-upload-menu-with-repohooks ()
+  "Run repohooks before showing the repo upload menu"
+  (interactive)
+  (message "Running repohooks...")
+  (let ((magit-process-raise-error t)
+        (do-upload t))
+    (condition-case nil
+        (magit-call-process "repo" "upload" "." "--cbr" "--yes" "--dry-run")
+      ('magit-git-error (magit-process-buffer)
+                        (unless (magit-y-or-n-p "Repohooks failed. Continue?")
+                          (setq do-upload nil))))
+    (when do-upload
+      (repo-upload-menu))))
+
 (define-transient-command repo-main-menu ()
   "Transient menu for repo commands."
   ["Subcommands"
    ("y" "sync" repo-sync-menu)
    ("r" "rebase" repo-rebase-menu)
    ("s" "start" repo-start-menu)
-   ("u" "upload" repo-upload-menu)])
+   ("u" "upload" repo-upload-menu-with-repohooks)
+   ("U" "upload, no repohooks" repo-upload-menu)])
 
 (provide 'repo-transient)
