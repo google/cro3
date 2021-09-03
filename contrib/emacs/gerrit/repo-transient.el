@@ -147,8 +147,7 @@
    ("-a" "Label Auto-Submit+1" "--label=Auto-Submit+1")
    ("-d" "Label Commit-Queue+1 (dry run)" "--label=Commit-Queue+1")
    ("-Q" "Label Commit-Queue+2" "--label=Commit-Queue+2")
-   ("-B" "Label Verified-1 (BAD)" "--label=Verified-1")
-   ("-S" "Sticky CQ+2" "--hashtag=stickycq")]
+   ("-B" "Label Verified-1 (BAD)" "--label=Verified-1")]
   ["CL Options"
    ("-w" "Work in Progress" "--wip")
    ("-p" "Private" "--private")
