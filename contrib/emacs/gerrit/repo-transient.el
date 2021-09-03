@@ -47,22 +47,32 @@
   ["Commands"
    ("r" "Rebase" repo-rebase)])
 
-(defun repo-start (branch-name args)
+(defvar repo--branch-name-history '())
+
+(defun repo--start (branch-name &optional args)
   "Run a repo start command."
-  (interactive (list "sBranch name: ")
-               (transient-args 'repo-start-menu))
-  (apply #'magit-call-process "repo" "start" args))
+  (apply #'magit-call-process "repo" "start" `(,@args ,branch-name)))
+
+(defun repo-start (args)
+  (interactive (list (transient-args 'repo-start-menu)))
+  (let ((branch-name
+         (magit-read-string-ns "Branch name" nil 'repo--branch-name-history)))
+    (when branch-name
+      (repo--start branch-name args)
+      (add-to-history 'repo--branch-name-history branch-name))))
 
 (defun repo-start-temp (args)
   "Run a repo start command with an auto-generated branch name."
-  (interactive (transient-args 'repo-start-menu))
-  (repo-start (format-time-string "temp-%Y-%m-%dT%H:%M:%S")
-              args))
+  (interactive (list (transient-args 'repo-start-menu)))
+  (repo--start (format-time-string "temp-%Y-%m-%dT%H-%M-%S")
+               args))
 
-(define-transient-command repo-start-menu
+(define-transient-command repo-start-menu ()
   "Transient menu for repo start."
   ["Project"
    (repo:all-projects)]
+  ["Revision"
+   ("-h" "Start at HEAD" "--head")]
   ["Commands"
    ("s" "Start new development branch" repo-start)
    ("t" "Start temporary development branch" repo-start-temp)])
