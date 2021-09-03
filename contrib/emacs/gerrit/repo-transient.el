@@ -49,6 +49,12 @@
   ["Commands"
    ("r" "Rebase" repo-rebase)])
 
+(defun repo-prune ()
+  "Run a repo prune command."
+  (interactive)
+  (magit-call-process "repo" "--no-pager" "prune" "-q")
+  (magit-refresh-all))
+
 (defvar repo--branch-name-history '())
 
 (defun repo--start (branch-name &optional args)
@@ -178,6 +184,7 @@
   ["Subcommands"
    ("y" "sync" repo-sync-menu)
    ("r" "rebase" repo-rebase-menu)
+   ("p" "prune" repo-prune)
    ("s" "start" repo-start-menu)
    ("u" "upload" repo-upload-menu-with-repohooks)
    ("U" "upload, no repohooks" repo-upload-menu)])
