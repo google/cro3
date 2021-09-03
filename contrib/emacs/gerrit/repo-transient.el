@@ -26,12 +26,14 @@
 (defun repo-sync (args)
   "Run a repo sync command."
   (interactive (list (transient-args 'repo-sync-menu)))
-  (apply #'magit-call-process "repo" "sync" args))
+  (apply #'magit-call-process "repo" "sync" args)
+  (magit-refresh-all))
 
 (defun repo-rebase (args)
   "Run a repo rebase command."
   (interactive (list (transient-args 'repo-rebase-menu)))
-  (apply #'magit-call-process "repo" "rebase" args))
+  (apply #'magit-call-process "repo" "rebase" args)
+  (magit-refresh-all))
 
 (define-transient-command repo-sync-menu ()
   "Transient menu for repo sync."
@@ -51,7 +53,8 @@
 
 (defun repo--start (branch-name &optional args)
   "Run a repo start command."
-  (apply #'magit-call-process "repo" "start" `(,@args ,branch-name)))
+  (apply #'magit-call-process "repo" "start" `(,@args ,branch-name))
+  (magit-refresh-all))
 
 (defun repo-start (args)
   (interactive (list (transient-args 'repo-start-menu)))
@@ -90,7 +93,8 @@
     (repo-upload `(,@args "--cbr")))
    ;; --no-verify is safe, as we ran the repohooks just before in
    ;; repo-upload-menu-with-repohooks.
-   (t (apply #'magit-call-process "repo" "upload" "--yes" "--no-verify" args))))
+   (t (apply #'magit-call-process "repo" "upload" "--yes" "--no-verify" args)
+      (magit-refresh-all))))
 
 (defun repo-upload-current (args)
   "Run a repo upload command in the current project."
