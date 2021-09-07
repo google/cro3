@@ -51,11 +51,13 @@ class DockerPrep():
         self.chroot_bin = ""
         self.chroot = self.args.chroot
         self.src_root = self.args.src
+        self.sysroot = self.args.sysroot
+        if self.sysroot.startswith('/'):
+            self.sysroot = self.sysroot[1:]
 
     def config_paths(self):
         """Build up the paths needed in local mem."""
-        self.build_path = os.path.join(self.chroot, self.args.sysroot)
-
+        self.build_path = os.path.join(self.chroot, self.sysroot)
         self.full_autotest = os.path.join(
                 self.build_path, 'usr/local/build/autotest')
         self.chroot_bin = os.path.join(self.chroot, 'usr/bin')
