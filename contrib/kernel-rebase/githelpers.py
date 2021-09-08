@@ -176,16 +176,36 @@ def head_diff(repo):
     return diff
 
 
-def save_head(repo, sha):
+def head_sha(repo):
+    """Gets the sha of HEAD"""
+
+    with sh.pushd(repo):
+        sha = sh.git('--no-pager', 'rev-parse', '--short', 'HEAD')
+
+    return str(sha).strip('\n')
+
+
+def save_head(repo, sha, path_override=None):
     """Saves the current diff as a conflict resolution"""
 
     diff = head_diff(repo)
-    title = patch_title(repo, sha)
-    path = patch_path(title)
-    print('Saving patch', sha, 'as', title)
+    if path_override is None:
+        title = patch_title(repo, sha)
+        path = patch_path(title)
+    else:
+        path = path_override
+    print('Saving patch', sha, 'as', path)
     with open(path, 'w') as f:
         f.write(diff)
 
+
+def commit_message(repo, sha):
+    """Gets a commit message"""
+
+    with sh.pushd(repo):
+        msg = sh.git('--no-pager', 'show', '--no-color', '--format=medium', '--quiet', sha)
+
+    return str(msg)
 
 def replacement(repo, sha):
     """Check if there exists a saved conflict resolution for a given patch"""

@@ -33,34 +33,34 @@ topic_fixups = {}
 # topic_fixups['bluetooth'] = ['fd83ec5d9b94']
 
 topic_fixups['bluetooth'] = [
-    'fd83ec5d9b94'
+    'Handle BR&ADR devices during suspend'
 ]
 topic_fixups['cros_ec'] = [
-    'f28f6f7055a6'
+    'Revert "iio: cros_ec: unify hw fifo attributes into the core file"'
 ]
 topic_fixups['block-fs'] = [
-    'cb90fca27f47',
-    '3f91858b76dd',
-    '009fc62cede0',
-    '08c17be52b99',
-    'f6a790778992',
-    'e5d3ba38d64d'
+    'add ChromeOS specific platform functions',
+    'Add message definitions for CHROMEOS_TMPFILE',
+    'bring over dm-verity-chromeos.c',
+    'Revert "ecryptfs_lookup(): try either only encrypted or plaintext name"',
+    'Revert "eCryptfs: don\'t pass up plaintext names when',
+    'update ESDFS to use changed FS API'
 ]
 topic_fixups['net'] = [
-    '9bf5655f0eea'
+    'Introduce ANDROID_PARANOID_NETWORK as per-netns setting'
 ]
 topic_fixups['drm'] = [
-    '56356fd6f922',
-    '7936d45c60ff'
+    'Add drm_main_relax debugfs file (non-root set&drop main ioctls)',
+    'Add an API for exporting sync files (v12)'
 ]
 
 topic_fixups['chromeos'] = [
-    '0f7cd1316628', # FIXUP: BACKPORT: FROMLIST: mm: multigenerational lru: eviction
-    '2ccc00ec1edd'  # FIXUP: BACKPORT: FROMLIST: mm: multigenerational lru: aging
+    'multigenerational lru: eviction',
+    'multigenerational lru: aging'
 ]
 
 topic_fixups['dts'] = [
-    '16a45bcf03d2' # FIXUP: arm64: dts: qcom: Add sc7180-trogdor-coachz skus
+    'Add sc7180-trogdor-coachz skus'
 ]
 
 # order for automatic branch merging in rebase.py.
@@ -79,7 +79,7 @@ merge_order_override = [
 #     "e0783589ae58"
 # ]
 merge_fixups = [
-    'e0783589ae58'
+    'process fput task_work with TWA_SIGNAL'
 ]
 
 # cherry-pick a list of patches before a given patch

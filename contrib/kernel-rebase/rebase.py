@@ -12,6 +12,7 @@
 # pylint: disable=import-outside-toplevel
 # pylint: disable=missing-function-docstring
 # pylint: disable=input-builtin
+# pylint: disable=redefined-outer-name
 
 """Automatic rebase
 
@@ -614,21 +615,21 @@ class Rebaser:
         for topic in topic_list:
             if topic in rebase_config.topic_fixups:
                 # Apply fixups for this particular topic
-                for sha in rebase_config.topic_fixups[topic]:
+                for name in rebase_config.topic_fixups[topic]:
                     try:
-                        call_hook(sha, 'pre')
-                        cherry_pick('kernel-next', sha)
+                        call_hook('[nosha]', 'pre')
+                        patch_short = 'patches/fixups/{}.patch'.format(name)
+                        patch = os.getcwd() + '/' + patch_short
+                        apply_patch('kernel-next', patch, '[nosha]')
                         # No conflicts, check rerere and continue
-                        print('Applied ' + sha + ' fixup for ' + topic + '.')
-                        call_hook(sha, 'post')
+                        print('Applied ' + patch_short + ' fixup for ' + topic + '.')
+                        call_hook('[nosha]', 'post')
                         continue
-                    except sh.ErrorReturnCode_1:
-                        print(
-                            'Failed to apply topic fixup ' +
-                            sha +
-                            ' due to a conflict.')
+                    except sh.ErrorReturnCode_128:
+                        print('Conflict found')
                         with sh.pushd('kernel-next'):
-                            sh.git('cherry-pick', '--abort')
+                            sh.git('am', '--abort')
+                        call_hook('[nosha]', 'post_drop')
 
         print('Done. %s commits dropped, %s applied cleanly, %s resolved'
               ' automatically, %s needing manual resolution' %
@@ -737,6 +738,26 @@ def triage():
     return (topic_stats, topic_stderr)
 
 
+def fixup():
+    print('Current HEAD:')
+    sha = head_sha('kernel-next')
+    print(commit_message('kernel-next', sha))
+    print('This will record the current HEAD as a fixup.')
+
+    name = input('patch name: ')
+    if '/' in name:
+        print("patch name can't contains forward slashes!")
+        return
+    path = 'patches/fixups/{}.patch'.format(name)
+    if os.path.isfile(path):
+        print('Path exists!')
+        yn = input('proceed [y/n]:')
+        if yn.lower() not in ['y', 'yes']:
+            print('aborting')
+            return
+    save_head('kernel-next', sha, path_override=path)
+
+
 def merge_topic_branches():
     r = Rebaser()
     topic_dict = r.topics
@@ -801,10 +822,14 @@ def merge_topic_branches():
     for fu in rebase_config.merge_fixups:
         print('Applying fixup', fu)
         try:
-            cherry_pick('kernel-next', fu)
-        except sh.ErrorReturnCode_1:
+            patch = 'patches/fixups/{}.patch'.format(fu)
+            patch = os.getcwd() + '/' + patch
+            apply_patch('kernel-next', patch, '[merge]')
+        except sh.ErrorReturnCode_128:
             print('Conflict found')
-            print('Resolve (including git cherry-pick --continue) and update the fixup entry in config.py if necessary') # pylint: disable=C0301
+            with sh.pushd('kernel-next'):
+                sh.git('am', '--abort')
+            call_hook('[nosha]', 'post_drop')
         except Exception as err: # pylint: disable=broad-except
             print('Uknown error occured:')
             print(err)
