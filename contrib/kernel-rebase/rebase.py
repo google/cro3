@@ -225,15 +225,15 @@ def normalize():
             print('exit code:', ec)
             return
 
-def verify_build(sha, board):
+def verify_build(sha):
     assert not is_dirty(
         'kernel-next'), "There's a local diff in kernel repo. Clean it to continue."
     if sha is not None:
         checkout('kernel-next', sha)
     return do_on_cros_sdk(
         'emerge-' +
-        board +
-        ' --color n -B chromeos-kernel-next')
+        rebase_config.verify_board +
+        ' --color n -B ' + rebase_config.verify_package)
 
 class Rebaser:
     """Keeps all automatic rebase data"""
@@ -698,7 +698,7 @@ def triage():
             ret['manual'],
             False]
         print('Verifying build...')
-        ret = verify_build(topic_branch, 'caroline')
+        ret = verify_build(topic_branch)
         if ret['exit_code'] == 0:
             print('Built %s succesfully.' % topic)
             topic_stats[topic][3] = True

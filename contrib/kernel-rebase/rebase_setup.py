@@ -21,10 +21,9 @@ from githelpers import fetch, has_remote, add_remote
 repo = 'kernel-next'
 no_repo_msg = """No kernel-next repository!
 
-Create a new repository in third_party/kernel/ (you can just copy an existing
-one with a new name, like `next`) and then link it here. The link should be
-a relative path, so that it also works in the SDK chroot.
-E.g. `ln -s ../../../../third_party/kernel/next/ kernel-next`
+Link the third_party/kernel/upstream repository as kernel-next. This link should
+be relative so that it works both in cros SDK chroot and outside of it.
+E.g. `ln -s ../../../../third_party/kernel/upstream/ kernel-next`
 
 This is necessary for emerge-${BOARD} to be able to build the branches
 created with the help of rebase.py. This process is not automated,

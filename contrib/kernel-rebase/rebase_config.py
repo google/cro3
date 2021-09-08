@@ -10,6 +10,9 @@
 
 import hooks # pylint: disable=unused-import
 
+verify_board = 'caroline'
+verify_package = 'chromeos-kernel-upstream'
+
 global_reverts = []
 
 commit_hooks = {}
