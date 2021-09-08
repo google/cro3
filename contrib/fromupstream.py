@@ -37,7 +37,7 @@ UPSTREAM_URLS = (
     'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git',
     'https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git',
 
-    # Acceptible Linux Firmware URLs
+    # Acceptable Linux Firmware URLs
     'git://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git',
     'https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git',
     'https://kernel.googlesource.com/pub/scm/linux/kernel/git/firmware/linux-firmware.git',
