@@ -313,6 +313,11 @@ def _match_msgid(match, args):
         # Some patches might not be on any (known) patchwork servers but
         # can still be found on mailing list archives.
         patch_id = None
+        errprint(
+"""Warning: could not find msgid "%s"
+on a known patchwork instance. This could be a Patchwork issue (dropped or
+delayed patch?), or this script may need updated to point at a relevant
+Patchwork server.""" % msgid)
 
     return _pick_fromlist(url, patch_id, args, msgid)
 
