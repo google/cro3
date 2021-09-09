@@ -59,6 +59,14 @@ func (c *CrOSService) GetFirstState() services.ServiceState {
 	The following run specific commands related to CrOS installation.
 */
 
+// Creates a marker, whose existance signals a failure in provisioning
+func (c *CrOSService) CreateProvisionMarker(ctx context.Context) error {
+	if _, err := c.connection.RunCmd(ctx, "touch", []string{info.ProvisionMarker}); err != nil {
+		return fmt.Errorf("failed to create provisionFailed file, %w", err)
+	}
+	return nil
+}
+
 // GetRoot returns the rootdev outoput for root
 func (c *CrOSService) GetRoot(ctx context.Context) (string, error) {
 	// Example 1: "/dev/nvme0n1p3"

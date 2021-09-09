@@ -25,6 +25,12 @@ const (
 const (
 	StatefulPath           = "/mnt/stateful_partition"
 	UpdateStatefulFilePath = StatefulPath + "/.update_available"
+	// ProvisionMarker - This file acts as a flag to signal failed provisions.
+	// As we create the file in stateful, that means that if provision
+	// is successful it will be overwritten, meaning that the fact it exists
+	// beyond a provision run means it must have failed.
+	// This file should be created on every OS provision start.
+	ProvisionMarker = "/var/tmp/provision_failed"
 )
 
 // partitionsInfo holds active/inactive root + kernel partition information.

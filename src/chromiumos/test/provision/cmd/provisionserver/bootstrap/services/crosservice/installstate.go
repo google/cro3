@@ -17,6 +17,10 @@ type CrOSInstallState struct {
 }
 
 func (s CrOSInstallState) Execute(ctx context.Context) error {
+	if err := s.service.CreateProvisionMarker(ctx); err != nil {
+		return fmt.Errorf("failed to create provision marker, %s", err)
+	}
+
 	root, err := s.service.GetRoot(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get root, %s", err)

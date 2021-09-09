@@ -44,6 +44,7 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 
 	// Serial Portion
 	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("touch"), gomock.Eq([]string{"/var/tmp/provision_failed"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s"})).Return(fmt.Sprintf("root%s", info.PartitionNumRootA), nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s", "-d"})).Return("root_disk", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
@@ -145,6 +146,7 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 
 	// Serial Portion
 	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("touch"), gomock.Eq([]string{"/var/tmp/provision_failed"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s"})).Return(fmt.Sprintf("root%s", info.PartitionNumRootA), nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s", "-d"})).Return("root_disk", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
@@ -203,6 +205,7 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 
 	// Serial Portion
 	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("touch"), gomock.Eq([]string{"/var/tmp/provision_failed"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s"})).Return(fmt.Sprintf("root%s", info.PartitionNumRootA), nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s", "-d"})).Return("root_disk", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
