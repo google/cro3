@@ -16,8 +16,7 @@ by newer versions:
 For example:
   ./cleanup_crates.py -c --log-level=debug
 """
-
-import distutils.version  # pylint: disable=no-name-in-module,import-error
+import collections
 import logging
 import os
 import pickle
@@ -73,7 +72,7 @@ def main(argv):
     ebuilds = exclude_latest_version(get_dev_rust_ebuilds())
     used = cln.get_used_packages(CONFIGURATIONS)
 
-    unused_ebuilds = sorted(x.cpv for x in ebuilds if x.cpv not in used)
+    unused_ebuilds = sorted(x.cpvr for x in ebuilds if x.cpvr not in used)
     print('\n'.join(unused_ebuilds))
     return 0
 
@@ -103,22 +102,24 @@ def get_dev_rust_ebuilds():
 
 def exclude_latest_version(packages):
     """Return a list of ebuilds that aren't the latest version."""
-    latest = {}
-    results = []
-    lv = distutils.version.LooseVersion
+    by_atom = collections.defaultdict(list)
     for pkg in packages:
-        name = pkg.cp
-        if name not in latest:
-            latest[name] = pkg
+        by_atom[pkg.atom].append(pkg)
+    results = []
+    # Pick out all the old versions, but keep different revisions of the newest
+    # version to ensure we don't keep a symlink and remove the ebuild itself.
+    for pkgs in by_atom.values():
+        if len(pkgs) <= 1:
+            # No old versions.
             continue
 
-        version = lv(pkg.version_no_rev)
-        other_version = lv(latest[name].version_no_rev)
-        if version > other_version:
-            results.append(latest[name])
-            latest[name] = pkg
-        elif version != other_version:
-            results.append(pkg)
+        pkgs.sort()
+        newest = pkgs[-1]
+        # Use with_version to do x/y-1.0-r2 -> x/y-1.0.
+        newest = newest.with_version(newest.version)
+        # Add packages unless they're the no-revision-newest-version ebuild.
+        results.extend(x for x in pkgs[:-1] if x != newest)
+
     return results
 
 
