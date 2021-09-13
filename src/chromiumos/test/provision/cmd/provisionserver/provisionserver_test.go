@@ -56,8 +56,32 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 	)
 	// Concurrent portion
 	sam.EXPECT().CopyData(gomock.Any(), gomock.Any()).Return("1", nil).AnyTimes()
-	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot5 obs=2M"})).Times(1).Return("", nil)
-	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot4 obs=2M"})).Times(1).Return("", nil)
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot5 obs=2M",
+		`
+pipestatus=("${PIPESTATUS[@]}")
+if [[ "${pipestatus[0]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Fetching 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[1]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Decompressing 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[2]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot5 failed." >&2
+  exit 1
+fi`})).Times(1).Return("", nil)
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot4 obs=2M",
+		`
+pipestatus=("${PIPESTATUS[@]}")
+if [[ "${pipestatus[0]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Fetching 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[1]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Decompressing 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[2]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot4 failed." >&2
+  exit 1
+fi`})).Times(1).Return("", nil)
 	// Serial Portion
 	gomock.InOrder(
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
@@ -85,7 +109,7 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 		sam.EXPECT().Restart(gomock.Any()).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
-		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{"rm -rf /mnt/stateful_partition/.update_available /mnt/stateful_partition/var_new /mnt/stateful_partition/dev_image_new", "&&", "curl 1 | tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -", "&&", "echo -n clobber > /mnt/stateful_partition/.update_available"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{"rm -rf /mnt/stateful_partition/.update_available /mnt/stateful_partition/var_new /mnt/stateful_partition/dev_image_new", "&&", "curl -S -s -v -# -C - --retry 3 --retry-delay 60 1 | tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -", "&&", "echo -n clobber > /mnt/stateful_partition/.update_available"})).Return("", nil),
 		sam.EXPECT().Restart(gomock.Any()).Return(nil),
 	)
 
@@ -111,7 +135,7 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 	// Concurrent Portion
 	// Return not verfied so we can test full case:
 	sam.EXPECT().PathExists(gomock.Any(), "/var/lib/dlcservice/dlc/1/dlc_a/verified").Return(false, nil)
-	sam.EXPECT().RunCmd(gomock.Any(), "", []string{"mkdir", "-p", "/var/cache/dlc/1/package/dlc_a", "&&", "curl", "--output", "/var/cache/dlc/1/package/dlc_a/dlc.img", "1"}).Return("", nil)
+	sam.EXPECT().RunCmd(gomock.Any(), "", []string{"mkdir", "-p", "/var/cache/dlc/1/package/dlc_a", "&&", "curl -S -s -v -# -C - --retry 3 --retry-delay 60", "--output", "/var/cache/dlc/1/package/dlc_a/dlc.img", "1"}).Return("", nil)
 	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Times(1).Return("", nil)
 
 	if err := st.Execute(ctx); err != nil {
@@ -158,8 +182,32 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 	)
 	// Concurrent portion
 	sam.EXPECT().CopyData(gomock.Any(), gomock.Any()).Return("1", nil).AnyTimes()
-	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot5 obs=2M"})).Times(1).Return("", nil)
-	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot4 obs=2M"})).Times(1).Return("", nil)
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot5 obs=2M",
+		`
+pipestatus=("${PIPESTATUS[@]}")
+if [[ "${pipestatus[0]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Fetching 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[1]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Decompressing 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[2]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot5 failed." >&2
+  exit 1
+fi`})).Times(1).Return("", nil)
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot4 obs=2M",
+		`
+pipestatus=("${PIPESTATUS[@]}")
+if [[ "${pipestatus[0]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Fetching 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[1]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Decompressing 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[2]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot4 failed." >&2
+  exit 1
+fi`})).Times(1).Return("", nil)
 	// Serial Portion
 	gomock.InOrder(
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
@@ -217,8 +265,32 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 	)
 	// Concurrent portion
 	sam.EXPECT().CopyData(gomock.Any(), gomock.Any()).Return("1", nil).AnyTimes()
-	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot5 obs=2M"})).Times(1).Return("", nil)
-	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot4 obs=2M"})).Times(1).Return("", nil)
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot5 obs=2M",
+		`
+pipestatus=("${PIPESTATUS[@]}")
+if [[ "${pipestatus[0]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Fetching 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[1]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Decompressing 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[2]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot5 failed." >&2
+  exit 1
+fi`})).Times(1).Return("", nil)
+	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60"), gomock.Eq([]string{"1", "|", "gzip -d", "|", "dd of=root_diskroot4 obs=2M",
+		`
+pipestatus=("${PIPESTATUS[@]}")
+if [[ "${pipestatus[0]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Fetching 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[1]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Decompressing 1 failed." >&2
+  exit 1
+elif [[ "${pipestatus[2]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot4 failed." >&2
+  exit 1
+fi`})).Times(1).Return("", nil)
 	// Serial Portion
 	gomock.InOrder(
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
@@ -267,7 +339,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		sam.EXPECT().CopyData(gomock.Any(), gomock.Eq("path/to/image/stateful.tgz")).Return("url", nil),
-		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{"rm -rf /mnt/stateful_partition/.update_available /mnt/stateful_partition/var_new /mnt/stateful_partition/dev_image_new", "&&", "curl url | tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -", "&&", "echo -n clobber > /mnt/stateful_partition/.update_available"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{"rm -rf /mnt/stateful_partition/.update_available /mnt/stateful_partition/var_new /mnt/stateful_partition/dev_image_new", "&&", "curl -S -s -v -# -C - --retry 3 --retry-delay 60 url | tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -", "&&", "echo -n clobber > /mnt/stateful_partition/.update_available"})).Return("", nil),
 		sam.EXPECT().Restart(gomock.Any()).Return(nil),
 	)
 

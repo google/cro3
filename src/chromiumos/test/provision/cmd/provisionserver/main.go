@@ -22,9 +22,9 @@ import (
 var Version = "<unknown>"
 
 // createLogFile creates a file and its parent directory for logging purpose.
-func createLogFile() (*os.File, error) {
+func createLogFile(logPath string) (*os.File, error) {
 	t := time.Now()
-	fullPath := filepath.Join("/tmp/provisionservice/", t.Format("20060102-150405"))
+	fullPath := filepath.Join(logPath, t.Format("20060102-150405"))
 	if err := os.MkdirAll(fullPath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory %v: %v", fullPath, err)
 	}
@@ -56,6 +56,9 @@ type args struct {
 	// Input and output json pb files.
 	inputPath  string
 	outputPath string
+
+	// log
+	logPath string
 }
 
 func (a *args) addCommonFlags(fs *flag.FlagSet) {
@@ -63,6 +66,8 @@ func (a *args) addCommonFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&a.dutServiceAddr, "dut-service-address", "", "grcp address for dut-service.")
 	fs.StringVar(&a.wiringServiceAddr, "wiring-service-address", "", "wiring address TLW.")
+
+	fs.StringVar(&a.logPath, "log-path", "/tmp/provisionservice/", "The path to the log file.")
 }
 
 func (a *args) verifyCommon() error {
@@ -109,58 +114,70 @@ func (a *args) verifyCLIInput(d []string) error {
 	return nil
 }
 
+func (a *args) setupLogging() (*log.Logger, error) {
+	logFile, err := createLogFile(a.logPath)
+	if err != nil {
+		return nil, err
+	}
+	logger := newLogger(logFile)
+	logger.Println("Starting provisionservice version ", Version)
+
+	return logger, nil
+}
+
 func mainInternal(ctx context.Context) int {
 	if len(os.Args) < 2 {
 		log.Fatalln("please provide arguments")
 		return 2
 	}
 
-	logFile, err := createLogFile()
-	if err != nil {
-		log.Fatalln("Failed to create log file: ", err)
-		return 1
-	}
-	defer logFile.Close()
-	logger := newLogger(logFile)
-	logger.Println("Starting provisionservice version ", Version)
-
 	a := &args{}
 	switch os.Args[1] {
 	case "cli":
 		if err := a.verifyCLIInput(os.Args[2:]); err != nil {
-			logger.Fatalln("Failed verify input: ", err)
+			fmt.Printf("failed verify input: %s", err)
+			return 2
+		}
+		logger, err := a.setupLogging()
+		if err != nil {
+			fmt.Printf("could not set up logging, %s", err)
 			return 2
 		}
 		p, closer, err := newProvision(logger, a.dutName, a.dutServiceAddr, a.wiringServiceAddr)
 		defer closer()
 		if err != nil {
-			logger.Fatalln("Failed to create provision: ", err)
+			fmt.Printf("failed to create provision, %s", err)
 			return 2
 		}
 		if err := p.runCLI(ctx, a.inputPath, a.outputPath); err != nil {
-			logger.Fatalln("Failed to perform provision: ", err)
+			fmt.Printf("failed to perform provision, %s", err)
 			return 1
 		}
 	case "server":
 		if err := a.verifyServerInput(os.Args[2:]); err != nil {
-			logger.Fatalln("Failed verify input: ", err)
+			fmt.Printf("failed verify input, %s", err)
+			return 2
+		}
+		logger, err := a.setupLogging()
+		if err != nil {
+			fmt.Printf("could not set up logging, %s", err)
 			return 2
 		}
 		p, closer, err := newProvision(logger, a.dutName, a.dutServiceAddr, a.wiringServiceAddr)
 		defer closer()
 		if err != nil {
-			logger.Fatalln("Failed to create provision: ", err)
+			fmt.Printf("failed to create provision, %s", err)
 			return 2
 		}
 		if err := p.startServer(a.serverPort); err != nil {
-			logger.Fatalln("Failed to perform provision: ", err)
+			fmt.Printf("failed to perform provision, %s", err)
 			return 1
 		}
 	case "version":
-		logger.Printf("Provisionservice version: %s", Version)
+		fmt.Printf("Provisionservice version: %s", Version)
 		return 0
 	default:
-		logger.Fatalln("Expected 'cli' or 'server' as subcommands.")
+		fmt.Printf("expected 'cli' or 'server' as subcommands.")
 		return 2
 	}
 	return 0

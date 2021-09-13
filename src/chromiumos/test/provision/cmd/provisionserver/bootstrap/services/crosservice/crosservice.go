@@ -56,6 +56,25 @@ func (c *CrOSService) GetFirstState() services.ServiceState {
 }
 
 /*
+	Constant Variables
+*/
+
+const curlWithRetries = "curl -S -s -v -# -C - --retry 3 --retry-delay 60"
+
+const pipeStatusHandler = `
+pipestatus=("${PIPESTATUS[@]}")
+if [[ "${pipestatus[0]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Fetching %[1]s failed." >&2
+  exit 1
+elif [[ "${pipestatus[1]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Decompressing %[1]s failed." >&2
+  exit 1
+elif [[ "${pipestatus[2]}" -ne 0 ]]; then
+  echo "$(date --rfc-3339=seconds) ERROR: Writing to %[2]s failed." >&2
+  exit 1
+fi`
+
+/*
 	The following run specific commands related to CrOS installation.
 */
 
@@ -172,7 +191,7 @@ func (c *CrOSService) InstallZippedImage(ctx context.Context, remoteImagePath st
 		return fmt.Errorf("failed to get GS Cache URL, %s", err)
 	}
 	fmt.Printf("URL used to install zipped image: %s\n", url)
-	_, err = c.connection.RunCmd(ctx, "curl", []string{url, "|", "gzip -d", "|", fmt.Sprintf("dd of=%s obs=2M", outputFile)})
+	_, err = c.connection.RunCmd(ctx, curlWithRetries, []string{url, "|", "gzip -d", "|", fmt.Sprintf("dd of=%s obs=2M", outputFile), fmt.Sprintf(pipeStatusHandler, url, outputFile)})
 	return err
 }
 
@@ -252,7 +271,7 @@ func (c *CrOSService) InstallStateful(ctx context.Context) error {
 	_, err = c.connection.RunCmd(ctx, "", []string{
 		fmt.Sprintf("rm -rf %[1]s %[2]s/var_new %[2]s/dev_image_new", info.UpdateStatefulFilePath, info.StatefulPath),
 		"&&",
-		fmt.Sprintf("curl %s | tar --ignore-command-error --overwrite --directory=%s -xzf -", url, info.StatefulPath),
+		fmt.Sprintf(curlWithRetries+" %s | tar --ignore-command-error --overwrite --directory=%s -xzf -", url, info.StatefulPath),
 		"&&",
 		fmt.Sprintf("echo -n clobber > %s", info.UpdateStatefulFilePath),
 	})
@@ -302,7 +321,7 @@ func (c *CrOSService) InstallDLC(ctx context.Context, spec *api.InstallCrosReque
 	if _, err := c.connection.RunCmd(ctx, "", []string{
 		"mkdir", "-p", dlcOutputSlotDir,
 		"&&",
-		"curl", "--output", dlcOutputImage, url,
+		curlWithRetries, "--output", dlcOutputImage, url,
 	}); err != nil {
 		return fmt.Errorf("failed to provision DLC %s, %s", dlcID, err)
 	}
