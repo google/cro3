@@ -275,7 +275,10 @@ class VersionRange:
             if x == 1 and self.min[2] == 0:
                 return '={}-{}.{}*:='.format(category_and_name, self.min[0], self.min[1])
 
-        return '{0}{1}-{2}.{3}.{4}:= {5}{1}-{6}.{7}.{8}{9}'.format(
+        # The slot operator needs to be on the upper bound (b/199734226) otherwise the depgraph operation pulls in the
+        # wrong slot for the lower bound that may violate the upper bound. This issue shows up in the DEPEND string for
+        # binary packages.
+        return '{0}{1}-{2}.{3}.{4} {5}{1}-{6}.{7}.{8}{9}:='.format(
             min_bound, category_and_name, self.min[0], self.min[1], self.min[2],
             max_bound, self.max[0], self.max[1], self.max[2], suffix)
 
