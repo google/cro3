@@ -17,7 +17,7 @@ fi
 
 if [[ "$#" -lt 1 ]]; then
   echo "Usage: ${SCRIPT} reference_name"
-  echo "e.g. ${SCRIPT} hatch | puff | volteer | volteer2 | waddledee | waddledoo | lalala | trembyle | dalboz | brya0"
+  echo "e.g. ${SCRIPT} hatch | puff | volteer2 | waddledee | waddledoo | lalala | trembyle | dalboz | brya0"
   echo "End-to-end test to create a new variant of a reference board"
   echo "Script version ${VERSION}"
   exit 1
@@ -77,17 +77,6 @@ case "${REFERENCE}" in
     FITIMAGE=puff
     FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation/outputs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/files
-    ;;
-
-  volteer)
-    BASE=volteer
-    NEW=gnastygnorc
-    CONFIG_DIR=/mnt/host/source/src/project/volteer
-    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-volteer-private/chromeos-base/chromeos-config-bsp-volteer-private
-    EBUILD=chromeos-config-bsp-volteer-private-9999.ebuild
-    FITIMAGE=volteer
-    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/files/blobs
-    FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/files
     ;;
 
   volteer2)
