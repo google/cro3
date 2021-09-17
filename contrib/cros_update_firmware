@@ -65,9 +65,10 @@ stop_workon() {
 update_firmware() {
   local board="$1"
   local project="$2"
-  local base ebuild srcuris cfg_bsp_pkg cfg_bsp_baseboard_pkg
-  local current_workon_pkg_list start_pkg result i quiet
-  [[ "$3" == "${FLAGS_TRUE}" ]] && quiet="--quiet-build"
+  local base ebuild srcuris
+  local current_workon_pkg_list start_pkg result i
+  local emerge_flags=()
+  [[ "$3" == "${FLAGS_TRUE}" ]] && emerge_flags+=("--quiet-build")
   local append_srcuris="$4"
 
   set -e
@@ -75,18 +76,17 @@ update_firmware() {
   # query the current working package
   mapfile -t current_workon_pkg_list < <(cros workon --board="${board}" list)
 
-  # check if chromeos-config-bsp is a virtual package
-  cfg_bsp_pkg="chromeos-config-bsp"
-  equery-"${board}" w chromeos-base/chromeos-config-bsp > /dev/null 2>&1 \
-    || cfg_bsp_pkg="chromeos-config-bsp-${board}-private"
-  # check if chromeos-config-bsp-baseboard is in use
-  cfg_bsp_baseboard_pkg="chromeos-config-bsp-baseboard"
-  equery-"${board}" w chromeos-base/chromeos-config-bsp-baseboard \
-    > /dev/null 2>&1 || cfg_bsp_baseboard_pkg=
+  local config_packages=(chromeos-base/chromeos-config)
+  local suffix
+  for suffix in "" -private -baseboard -baseboard-private; do
+    local pkg="chromeos-base/chromeos-config-bsp${suffix}"
+    if equery-"${board}" which "${pkg}" >/dev/null 2>&1; then
+      config_packages+=("${pkg}")
+    fi
+  done
 
-  start_pkg=("${cfg_bsp_pkg}")
+  start_pkg=("${config_packages[@]}")
   start_pkg+=("chromeos-firmware-${board}")
-  start_pkg+=("${cfg_bsp_baseboard_pkg}")
 
   for i in "${!start_pkg[@]}"; do
     result[i]=0
@@ -115,8 +115,7 @@ update_firmware() {
     popd > /dev/null
   fi
 
-  "emerge-${board}" -j ${quiet} ${cfg_bsp_baseboard_pkg} "${cfg_bsp_pkg}"
-  "emerge-${board}" ${quiet} chromeos-config
+  "emerge-${board}" -j "${emerge_flags[@]}" "${config_packages[@]}"
 
   # If the append_srcuris and project flags are set, append uris that aren't
   # already in srcuris. Otherwise, overwrite srcuris.
@@ -144,7 +143,7 @@ update_firmware() {
   # these cache cleanup code.
   rm -rf "${metadata}/cache" "${metadata}/md5-cache" "${edb_cache}"
   "ebuild-${board}" "${ebuild}" manifest
-  "emerge-${board}" -j ${quiet} "chromeos-firmware-${board}"
+  "emerge-${board}" -j "${emerge_flags[@]}" "chromeos-firmware-${board}"
 
   for i in "${!result[@]}"; do
     if [[ "${result[i]}" -eq "0" ]]; then
