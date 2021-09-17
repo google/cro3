@@ -22,10 +22,11 @@ import (
 )
 
 // driverToTestsMapping builds a map between test and its driver.
-func driverToTestsMapping(logger *log.Logger, mdList []*api.TestCaseMetadata) (map[driver.Driver][]string, error) {
+func driverToTestsMapping(logger *log.Logger, mdList []*api.TestCaseMetadata) (map[driver.Driver][]*api.TestCaseMetadata, error) {
 	tastDriver := driver.NewTastDriver(logger)
 	tautoDriver := driver.NewTautoDriver(logger)
-	driverToTests := make(map[driver.Driver][]string)
+
+	driverToTests := make(map[driver.Driver][]*api.TestCaseMetadata)
 	for _, md := range mdList {
 		if md.TestCase == nil {
 			return nil, statuserrors.NewStatusError(statuserrors.InvalidArgument,
@@ -35,10 +36,11 @@ func driverToTestsMapping(logger *log.Logger, mdList []*api.TestCaseMetadata) (m
 			return nil, statuserrors.NewStatusError(statuserrors.InvalidArgument,
 				fmt.Errorf("test case %v does not have test harness information", md.TestCase.Name))
 		}
+
 		if md.TestCaseExec.TestHarness.GetTast() != nil {
-			driverToTests[tastDriver] = append(driverToTests[tastDriver], md.TestCase.Name)
+			driverToTests[tastDriver] = append(driverToTests[tastDriver], md)
 		} else if md.TestCaseExec.TestHarness.GetTauto() != nil {
-			driverToTests[tautoDriver] = append(driverToTests[tautoDriver], md.TestCase.Name)
+			driverToTests[tautoDriver] = append(driverToTests[tautoDriver], md)
 		} else {
 			return nil, statuserrors.NewStatusError(statuserrors.InvalidArgument,
 				errors.New("manual harness has not been supported"))
@@ -61,11 +63,6 @@ func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr st
 	}
 	allRspn := api.RunTestsResponse{}
 
-	testNamesToIds := make(map[string]string)
-	for _, md := range metadataList.Values {
-		testNamesToIds[md.TestCase.Name] = md.TestCase.Id.Value
-	}
-
 	for driver, tests := range driversToTests {
 		resultsDir := filepath.Join(resultRootDir, driver.Name())
 		// Make sure the result directory exists.
@@ -73,7 +70,7 @@ func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr st
 			return nil, statuserrors.NewStatusError(statuserrors.IOCreateError,
 				fmt.Errorf("failed to create result directory %v", resultsDir))
 		}
-		rspn, err := driver.RunTests(ctx, resultsDir, req.Dut.PrimaryHost, tlwAddr, tests, testNamesToIds)
+		rspn, err := driver.RunTests(ctx, resultsDir, req.Dut.PrimaryHost, tlwAddr, tests)
 		if err != nil {
 			return nil, err
 		}

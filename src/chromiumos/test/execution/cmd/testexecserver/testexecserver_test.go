@@ -191,27 +191,28 @@ var mdList = &api.TestCaseMetadataList{
 func TestDriverToTestsMapping(t *testing.T) {
 	var buf bytes.Buffer
 	logger := log.New(&buf, "logger: ", log.Lshortfile)
-	tests := []string{"tastTest", "tautoTest"}
+	expectedDriverCount := 2
 
 	driverToTests, err := driverToTestsMapping(logger, mdList.Values)
 	if err != nil {
 		t.Fatal("Failed to call driverToTestsMapping: ", err)
 	}
 
-	if len(driverToTests) != len(tests) {
+	if len(driverToTests) != expectedDriverCount {
 		t.Fatalf("Got unexpected number of drivers from driverToTestsMapping %d: want %d",
-			len(driverToTests), len(tests))
+			len(driverToTests), expectedDriverCount)
 	}
+
 	hasTast := false
 	hasTauto := false
 	for d, ts := range driverToTests {
-		var expected []string
+		var expected []*api.TestCaseMetadata
 		switch d.Name() {
 		case "tast":
-			expected = []string{"tastTest"}
+			expected = []*api.TestCaseMetadata{mdList.Values[0]}
 			hasTast = true
 		case "tauto":
-			expected = []string{"tautoTest"}
+			expected = []*api.TestCaseMetadata{mdList.Values[1]}
 			hasTauto = true
 		default:
 			t.Fatal("Unexpected driver type returned from driverToTestsMapping: ", d.Name())

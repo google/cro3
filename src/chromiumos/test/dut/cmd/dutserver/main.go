@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 // Package main implements the dutserver for interfacing with the DUT.
-
 package main
 
 import (
@@ -82,6 +81,10 @@ func main() {
 		if *port == 0 {
 			fmt.Println("Please specify the port.")
 			return 2
+		}
+
+		if *dutName == "" {
+			dutName = dutAddress
 		}
 
 		logFile, err := createLogFile()

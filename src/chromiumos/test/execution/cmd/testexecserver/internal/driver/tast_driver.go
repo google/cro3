@@ -38,15 +38,18 @@ func (td *TastDriver) Name() string {
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string, testNamesToIds map[string]string) (*api.RunTestsResponse, error) {
-	reportServer, err := tastrpc.NewReportsServer(0, tests, testNamesToIds, resultsDir)
+func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []*api.TestCaseMetadata) (*api.RunTestsResponse, error) {
+	testNamesToIds := getTestNamesToIds(tests)
+	testNames := getTestNames(tests)
+
+	reportServer, err := tastrpc.NewReportsServer(0, testNames, testNamesToIds, resultsDir)
 	if err != nil {
 		return nil, errors.NewStatusError(errors.ServerStartingError,
 			fmt.Errorf("failed to create tast report server: %v", err))
 	}
 	defer reportServer.Stop()
 
-	args := newTastArgs(dut, tests, resultsDir, tlwAddr, reportServer.Address())
+	args := newTastArgs(dut, testNames, resultsDir, tlwAddr, reportServer.Address())
 
 	// Run tast.
 	cmd := exec.Command("/usr/bin/tast", genArgList(args)...)

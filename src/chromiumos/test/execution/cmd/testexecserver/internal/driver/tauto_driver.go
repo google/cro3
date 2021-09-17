@@ -46,8 +46,11 @@ func (td *TautoDriver) Name() string {
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []string, testNamesToIds map[string]string) (*api.RunTestsResponse, error) {
-	args := newTautoArgs(dut, tests, resultsDir)
+func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []*api.TestCaseMetadata) (*api.RunTestsResponse, error) {
+	testNamesToIds := getTestNamesToIds(tests)
+	testNames := getTestNames(tests)
+
+	args := newTautoArgs(dut, testNames, resultsDir)
 
 	// Run RTD.
 	cmd := exec.Command("/usr/bin/test_that", genTautoArgList(args)...)
@@ -87,7 +90,7 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr st
 		return nil, fmt.Errorf("fail to run tauto: %s", err)
 	}
 
-	results, err := tautoresults.TestsReports(resultsDir, tests, testNamesToIds)
+	results, err := tautoresults.TestsReports(resultsDir, testNames, testNamesToIds)
 
 	if err != nil {
 		return &api.RunTestsResponse{}, err
