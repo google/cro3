@@ -49,9 +49,19 @@ RUN pip3 install -r requirements.txt
 COPY autotest_server_package.tar.bz2 /tmp/autotest_server_package.tar.bz2
 RUN tar -xvf /tmp/autotest_server_package.tar.bz2 -C /usr/local
 
-# LXC gives chown/chgrp to root...
+# Give chown/chgrp to root...
 RUN chown -R chromeos-test:chromeos-test /usr/local/tast
 RUN chown -R chromeos-test:chromeos-test /usr/local/autotest/
+
+# Configure tast
+RUN mv /usr/local/tast/tast /usr/bin/tast
+RUN mv /usr/local/tast/remote_test_runner /usr/bin/remote_test_runner
+RUN mkdir -p /usr/libexec/tast/
+RUN mv /usr/local/tast/bundles/ /usr/libexec/tast/
+RUN mkdir -p /usr/share/tast/
+RUN mv /usr/local/tast/data/ /usr/share/tast/
+RUN mkdir -p /etc/tast/
+RUN mv /usr/local/tast/vars/ /etc/tast/
 
 COPY shadow_config.ini /usr/local/autotest/
 RUN chown -R chromeos-test:chromeos-test /usr/local/autotest/shadow_config.ini
