@@ -55,8 +55,7 @@ topic_fixups['drm'] = [
 ]
 
 topic_fixups['chromeos'] = [
-    'multigenerational lru: eviction',
-    'multigenerational lru: aging'
+    'Restrict swapon() to "zram" devices lock down zram'
 ]
 
 topic_fixups['dts'] = [
