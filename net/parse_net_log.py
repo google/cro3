@@ -28,11 +28,16 @@ TRANSLATED_SUBSTRING_SEARCH = (u'request (translated)',
                                u'message (translated)',
                                u'indication (translated)')
 RAW_SUBSTRING_SEARCH = (u' Sent message...',
-                        u' Received message...')
+                        u' sent message...',
+                        u' Received message...',
+                        u' received message...')
 
+# Use regex for this search.
 RAW_SIGNAL_STRENGTH_SUBSTRING_SEARCH = (u'"Get Signal Strength"',
-                                        u'"Get Signal Info"')
-
+                                        u'"Get Signal Info"',
+                                        r"cid\s*= \'signal\'")
+raw_signal_strength_re =re.compile(
+  '|'.join(RAW_SIGNAL_STRENGTH_SUBSTRING_SEARCH))
 
 def parse_raw_message(line, mm_raw_parser_level):
   """Parses one raw message from Modemmanager"""
@@ -111,8 +116,7 @@ def parse_net_log(file_name, remove_date, process_filter, mm_raw_parser_level,
                                                    + RAW_SUBSTRING_SEARCH)):
         continue
 
-      if (hide_signal_messages and any(x in line for x in
-                                       RAW_SIGNAL_STRENGTH_SUBSTRING_SEARCH)):
+      if hide_signal_messages and raw_signal_strength_re.search(line):
         continue
 
       if add_seconds_counter:
