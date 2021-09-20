@@ -8,7 +8,6 @@
 
 from __future__ import print_function
 
-# pylint: disable=cros-logging-import
 import base64
 import builtins
 import collections
