@@ -77,12 +77,20 @@ update_firmware() {
   mapfile -t current_workon_pkg_list < <(cros workon --board="${board}" list)
 
   local config_packages=(chromeos-base/chromeos-config)
-  local suffix
-  for suffix in "" -private -baseboard -baseboard-private; do
-    local pkg="chromeos-base/chromeos-config-bsp${suffix}"
-    if equery-"${board}" which "${pkg}" >/dev/null 2>&1; then
-      config_packages+=("${pkg}")
-    fi
+
+  # checking various use flags to include appropriate packages
+  local all_use_flags=$(portageq-${board} envvar USE)
+  local use_flag pkg
+  for use_flag in ${all_use_flags}; do
+    case "${use_flag}" in
+      has_chromeos_config_bsp* )
+        without_has="${use_flag//has_/}"
+        pkg="chromeos-base/${without_has//_/-}"
+        if equery-"${board}" which "${pkg}" >/dev/null 2>&1; then
+          config_packages+=("${pkg}")
+        fi
+        ;;
+    esac
   done
 
   start_pkg=("${config_packages[@]}")
