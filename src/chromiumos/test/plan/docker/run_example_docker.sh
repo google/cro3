@@ -45,11 +45,13 @@ readonly input_tmpdir output_tmpdir
 trap 'rm -rf ${input_tmpdir}' EXIT
 
 config_internal_path=$(realpath ../../../../../../../config-internal)
-readonly config_internal_path
+config_path=$(realpath ../../../../../../../config)
+
+readonly config_internal_path config_path
 
 cp "${config_internal_path}/hw_design/generated/flattened.binaryproto" "${input_tmpdir}"
 cp "${config_internal_path}/build/generated/build_metadata.jsonproto" "${input_tmpdir}"
-cp "${config_internal_path}/dut_attributes/generated/dut_attributes.jsonproto" "${input_tmpdir}"
+cp "${config_path}/generated/dut_attributes.jsonproto" "${input_tmpdir}"
 cp ../cmd/example_source_test_plan.textpb "${input_tmpdir}"
 
 sudo docker run \

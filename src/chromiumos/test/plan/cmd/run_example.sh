@@ -44,8 +44,9 @@ script_dir="$(dirname "$(realpath -e "${BASH_SOURCE[0]}")")"
 cd "${script_dir}"
 
 config_internal_dir="$(realpath -e ../../../../../../../config-internal)"
+config_dir="$(realpath -e ../../../../../../../config)"
 
-dut_attributes="${config_internal_dir}/dut_attributes/generated/dut_attributes.jsonproto"
+dut_attributes="${config_dir}/generated/dut_attributes.jsonproto"
 build_metadata="${config_internal_dir}/build/generated/build_metadata.jsonproto"
 flat_config_list="${config_internal_dir}/hw_design/generated/flattened.binaryproto"
 

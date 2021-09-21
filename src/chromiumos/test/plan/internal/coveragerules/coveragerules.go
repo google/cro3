@@ -25,12 +25,12 @@ import (
 )
 
 var (
-	buildTargetAttributeID            = &testpb.DutAttribute_Id{Value: "system_build_target"}
-	fingerprintAttributeID            = &testpb.DutAttribute_Id{Value: "fingerprint_location"}
-	designIDAttributeID               = &testpb.DutAttribute_Id{Value: "design_id"}
-	firmwareROMajorVersionAttributeID = &testpb.DutAttribute_Id{Value: "firmware_ro_major_version"}
-	firmwareROMinorVersionAttributeID = &testpb.DutAttribute_Id{Value: "firmware_ro_minor_version"}
-	firmwareROPatchVersionAttributeID = &testpb.DutAttribute_Id{Value: "firmware_ro_patch_version"}
+	buildTargetAttributeID            = &testpb.DutAttribute_Id{Value: "sw-build-target"}
+	fingerprintAttributeID            = &testpb.DutAttribute_Id{Value: "attr-fingerprint-location"}
+	designIDAttributeID               = &testpb.DutAttribute_Id{Value: "attr-design"}
+	firmwareROMajorVersionAttributeID = &testpb.DutAttribute_Id{Value: "sw-firmware-ro-major-version"}
+	firmwareROMinorVersionAttributeID = &testpb.DutAttribute_Id{Value: "sw-firmware-ro-minor-version"}
+	firmwareROPatchVersionAttributeID = &testpb.DutAttribute_Id{Value: "sw-firmware-ro-patch-version"}
 )
 
 // sortDutCriteriaOrPanic sorts rule.DutCriteria by AttributeId, panicing if
@@ -493,18 +493,18 @@ func checkDutAttributesValid(rules []*testpb.CoverageRule, dutAttributeList *tes
 		validAttributes.Add(dutAttribute.Id.Value)
 	}
 
-	invalidAttributes := []string{}
+	invalidAttributes := stringset.New(0)
 
 	for _, rule := range rules {
 		for _, criterion := range rule.DutCriteria {
 			if !validAttributes.Has(criterion.AttributeId.Value) {
-				invalidAttributes = append(invalidAttributes, criterion.AttributeId.Value)
+				invalidAttributes.Add(criterion.AttributeId.Value)
 			}
 		}
 	}
 
 	if len(invalidAttributes) > 0 {
-		return fmt.Errorf("CoverageRule contains invalid DutAttributes: %q", invalidAttributes)
+		return fmt.Errorf("CoverageRule contains invalid DutAttributes: %q", invalidAttributes.ToSortedSlice())
 	}
 
 	return nil

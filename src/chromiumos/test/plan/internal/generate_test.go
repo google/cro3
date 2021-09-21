@@ -70,12 +70,28 @@ var buildMetadataList = &buildpb.SystemImage_BuildMetadataList{
 var dutAttributeList = &testpb.DutAttributeList{
 	DutAttributes: []*testpb.DutAttribute{
 		{
-			Id:        &testpb.DutAttribute_Id{Value: "fingerprint_location"},
-			FieldPath: "design_list.configs.hardware_features.fingerprint.location",
+			Id: &testpb.DutAttribute_Id{Value: "fingerprint_location"},
+			DataSource: &testpb.DutAttribute_FlatConfigSource_{
+				FlatConfigSource: &testpb.DutAttribute_FlatConfigSource{
+					Fields: []*testpb.DutAttribute_FieldSpec{
+						{
+							Path: "design_list.configs.hardware_features.fingerprint.location",
+						},
+					},
+				},
+			},
 		},
 		{
-			Id:        &testpb.DutAttribute_Id{Value: "system_build_target"},
-			FieldPath: "software_configs.system_build_target.portage_build_target.overlay_name",
+			Id: &testpb.DutAttribute_Id{Value: "system_build_target"},
+			DataSource: &testpb.DutAttribute_FlatConfigSource_{
+				FlatConfigSource: &testpb.DutAttribute_FlatConfigSource{
+					Fields: []*testpb.DutAttribute_FieldSpec{
+						{
+							Path: "software_configs.system_build_target.portage_build_target.overlay_name",
+						},
+					},
+				},
+			},
 		},
 	},
 }
