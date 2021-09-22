@@ -62,6 +62,10 @@ topic_fixups['dts'] = [
     'Add sc7180-trogdor-coachz skus'
 ]
 
+topic_fixups['media'] = [
+    'add a quirk for ROI fixup'
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
