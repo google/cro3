@@ -153,3 +153,5 @@ disp_overlay['13047d2b9924'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: Disa
 
 disp_overlay['8de0f20fc570'] = 'drop' # FIXUP: FROMLIST: sched: Add a coresched command line option
 disp_overlay['588857db26e5'] = 'drop' # CHROMIUM: iommu/intel: Specialcase for internal but untrusted devices
+disp_overlay['be3ed1509047'] = 'drop' # BACKPORT: FROMLIST: Bluetooth: adding BTUSB_VALID_LE_STATES to Intel Controllers
+disp_overlay['cd28f80e98d9'] = 'drop' # CHROMIUM: Bluetooth: remove an unused variable
