@@ -93,7 +93,8 @@ merge_fixups = [
 # }
 patch_deps = {
     '0d022b4a1e19': ['6e18e51a1c19'],
-    '03ee1420ddff': ['13f1f28be1c3']
+    '03ee1420ddff': ['13f1f28be1c3'],
+    '5f46e9f6605b': ['fbfe1e70219a']
 }
 
 # Add entry here to overwrite default disposition on particular commit
