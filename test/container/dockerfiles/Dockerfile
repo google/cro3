@@ -46,8 +46,8 @@ RUN pip3 install -r requirements.txt
 
 # TODO (dbeckett/shapiroc), this should be gen'd from the ebuild.
 # deploy autotest_server packages
-COPY autotest_server_package.tar.bz2 /tmp/autotest_server_package.tar.bz2
-RUN tar -xvf /tmp/autotest_server_package.tar.bz2 -C /usr/local
+COPY autotest/ /usr/local/autotest
+COPY tast/ /usr/local/tast
 
 # Give chown/chgrp to root...
 RUN chown -R chromeos-test:chromeos-test /usr/local/tast

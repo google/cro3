@@ -104,6 +104,17 @@ class DockerPrep():
 
     builder.BuildFullAutotestandTastTarball()
 
+  def untar(self):
+    """Untar the package prior to depl."""
+    os.system('tar -xvf {out}/autotest_server_package.tar.bz2 -C {out}'
+              .format(out=self.full_out))
+
+  def remove_unused_deps(self):
+    UNUSED = ['chrome_test']
+    for dep in UNUSED:
+      os.system('rm -r {out}/autotest/client/deps/{dep}'.format(
+        out=self.full_out, dep=dep))
+
   def copy_services(self):
     """Copy services needed for Docker."""
     shutil.copy(os.path.join(self.chroot_bin, 'testexecserver'),
@@ -165,6 +176,8 @@ def main():
   builder.copy_services()
   builder.copy_metadata()
   builder.copy_dockerfiles()
+  builder.untar()
+  builder.remove_unused_deps()
 
 
 if __name__ == '__main__':
