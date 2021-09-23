@@ -44,14 +44,9 @@ RUN pip2 install --upgrade pip
 RUN pip2 install -r requirements.txt
 RUN pip3 install -r requirements.txt
 
-# TODO (dbeckett/shapiroc), this should be gen'd from the ebuild.
-# deploy autotest_server packages
-COPY autotest/ /usr/local/autotest
-COPY tast/ /usr/local/tast
-
-# Give chown/chgrp to root...
-RUN chown -R chromeos-test:chromeos-test /usr/local/tast
-RUN chown -R chromeos-test:chromeos-test /usr/local/autotest/
+# deploy autotest & tast packages
+COPY --chown=chromeos-test:chromeos-test autotest/ /usr/local/autotest
+COPY --chown=chromeos-test:chromeos-test tast/ /usr/local/tast
 
 # Configure tast
 RUN mv /usr/local/tast/tast /usr/bin/tast
