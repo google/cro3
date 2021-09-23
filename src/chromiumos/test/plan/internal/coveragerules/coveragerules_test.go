@@ -44,18 +44,16 @@ func buildMetadata(overlay, kernelVersion, chipsetOverlay, arcVersion string) *b
 
 // flatConfig is a convenience to reduce boilerplate when creating FlatConfig
 // in test cases.
-func flatConfig(program, design, designConfig string, firmwareROVersion *buildpb.Version, firmwareImageName string) *payload.FlatConfig {
+func flatConfig(program, overlay string) *payload.FlatConfig {
 	return &payload.FlatConfig{
-		Program:        &api.Program{Id: &api.ProgramId{Value: program}},
-		HwDesign:       &api.Design{Id: &api.DesignId{Value: design}},
-		HwDesignConfig: &api.Design_Config{Id: &api.DesignConfigId{Value: designConfig}},
+		Program: &api.Program{
+			Name: program,
+			Id:   &api.ProgramId{Value: program},
+		},
 		SwConfig: &software.SoftwareConfig{
-			Firmware: &buildpb.FirmwareConfig{
-				MainRoPayload: &buildpb.FirmwarePayload{
-					Version: firmwareROVersion,
-					FirmwareImage: &buildpb.FirmwarePayload_FirmwareImageName{
-						FirmwareImageName: firmwareImageName,
-					},
+			SystemBuildTarget: &buildpb.SystemImage_BuildTarget{
+				PortageBuildTarget: &buildpb.Portage_BuildTarget{
+					OverlayName: overlay,
 				},
 			},
 		},
@@ -64,20 +62,20 @@ func flatConfig(program, design, designConfig string, firmwareROVersion *buildpb
 
 var buildMetadataList = &buildpb.SystemImage_BuildMetadataList{
 	Values: []*buildpb.SystemImage_BuildMetadata{
-		buildMetadata("project1", "4.14", "chipsetA", ""),
-		buildMetadata("project2", "4.14", "chipsetB", ""),
-		buildMetadata("project3", "5.4", "chipsetA", ""),
-		buildMetadata("project4", "3.18", "chipsetC", "R"),
-		buildMetadata("project5", "4.14", "chipsetA", ""),
-		buildMetadata("project6", "4.14", "chipsetB", "P"),
-		buildMetadata("missingkernelversionproject", "0.0", "", ""),
+		buildMetadata("ProgA", "4.14", "chipsetA", ""),
+		buildMetadata("ProgB", "4.14", "chipsetB", ""),
+		buildMetadata("ProgC", "5.4", "chipsetA", ""),
+		buildMetadata("ProgD", "3.18", "chipsetC", "R"),
+		buildMetadata("ProgE", "4.14", "chipsetA", ""),
+		buildMetadata("ProgF", "4.14", "chipsetB", "P"),
+		buildMetadata("ProgWithMissingKernelVersion", "0.0", "", ""),
 	},
 }
 
 var dutAttributeList = &testpb.DutAttributeList{
 	DutAttributes: []*testpb.DutAttribute{
 		{
-			Id: &testpb.DutAttribute_Id{Value: "fingerprint_location"},
+			Id: &testpb.DutAttribute_Id{Value: "attr-fingerprint-location"},
 			DataSource: &testpb.DutAttribute_FlatConfigSource_{
 				FlatConfigSource: &testpb.DutAttribute_FlatConfigSource{
 					Fields: []*testpb.DutAttribute_FieldSpec{
@@ -89,60 +87,12 @@ var dutAttributeList = &testpb.DutAttributeList{
 			},
 		},
 		{
-			Id: &testpb.DutAttribute_Id{Value: "system_build_target"},
+			Id: &testpb.DutAttribute_Id{Value: "attr-program"},
 			DataSource: &testpb.DutAttribute_FlatConfigSource_{
 				FlatConfigSource: &testpb.DutAttribute_FlatConfigSource{
 					Fields: []*testpb.DutAttribute_FieldSpec{
 						{
-							Path: "software_configs.system_build_target.portage_build_target.overlay_name",
-						},
-					},
-				},
-			},
-		},
-		{
-			Id: &testpb.DutAttribute_Id{Value: "design_id"},
-			DataSource: &testpb.DutAttribute_FlatConfigSource_{
-				FlatConfigSource: &testpb.DutAttribute_FlatConfigSource{
-					Fields: []*testpb.DutAttribute_FieldSpec{
-						{
-							Path: "design_list.id.value",
-						},
-					},
-				},
-			},
-		},
-		{
-			Id: &testpb.DutAttribute_Id{Value: "firmware_ro_major_version"},
-			DataSource: &testpb.DutAttribute_FlatConfigSource_{
-				FlatConfigSource: &testpb.DutAttribute_FlatConfigSource{
-					Fields: []*testpb.DutAttribute_FieldSpec{
-						{
-							Path: "software_configs.firmware.main_ro_payload.version.major",
-						},
-					},
-				},
-			},
-		},
-		{
-			Id: &testpb.DutAttribute_Id{Value: "firmware_ro_minor_version"},
-			DataSource: &testpb.DutAttribute_FlatConfigSource_{
-				FlatConfigSource: &testpb.DutAttribute_FlatConfigSource{
-					Fields: []*testpb.DutAttribute_FieldSpec{
-						{
-							Path: "software_configs.firmware.main_ro_payload.version.minor",
-						},
-					},
-				},
-			},
-		},
-		{
-			Id: &testpb.DutAttribute_Id{Value: "firmware_ro_patch_version"},
-			DataSource: &testpb.DutAttribute_FlatConfigSource_{
-				FlatConfigSource: &testpb.DutAttribute_FlatConfigSource{
-					Fields: []*testpb.DutAttribute_FieldSpec{
-						{
-							Path: "software_configs.firmware.main_ro_payload.version.patch",
+							Path: "program.id.value",
 						},
 					},
 				},
@@ -153,11 +103,14 @@ var dutAttributeList = &testpb.DutAttributeList{
 
 var flatConfigList = &payload.FlatConfigList{
 	Values: []*payload.FlatConfig{
-		flatConfig("ProgA", "Design1", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}, ""),
-		flatConfig("ProgA", "Design1", "Config2", nil, "bcs://ProgA.123.4.5.tbz2"),
-		flatConfig("ProgA", "Design1", "Config3", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}, ""),
-		flatConfig("ProgA", "Design2", "Config1", &buildpb.Version{Major: 123, Minor: 0, Patch: 0}, ""),
-		flatConfig("ProgB", "Design20", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 0}, ""),
+		flatConfig("ProgA", "ProgA"),
+		flatConfig("ProgB", "ProgB"),
+		flatConfig("ProgC", "ProgC"),
+		flatConfig("ProgD", "ProgD"),
+		flatConfig("ProgE", "ProgE"),
+		flatConfig("ProgF", "ProgF"),
+		flatConfig("ProgWithMissingKernelVersion", "ProgWithMissingKernelVersion"),
+		flatConfig("ProgWithMissingOverlay", ""),
 	},
 }
 
@@ -182,9 +135,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project4"},
+							Values: []string{"ProgD"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -203,9 +156,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project1", "project2", "project5", "project6"},
+							Values: []string{"ProgA", "ProgB", "ProgE", "ProgF"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -224,9 +177,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project3"},
+							Values: []string{"ProgC"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -256,9 +209,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project1", "project3", "project5"},
+							Values: []string{"ProgA", "ProgC", "ProgE"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -276,9 +229,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project2", "project6"},
+							Values: []string{"ProgB", "ProgF"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -296,9 +249,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project4"},
+							Values: []string{"ProgD"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -314,7 +267,7 @@ func TestGenerate(t *testing.T) {
 			},
 		},
 		{
-			name: "build targets and designs",
+			name: "kernel versions and fingerprint",
 			input: &plan.SourceTestPlan{
 				Requirements: &plan.SourceTestPlan_Requirements{
 					KernelVersions: &plan.SourceTestPlan_Requirements_KernelVersions{},
@@ -328,7 +281,7 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "fingerprint_location",
+								Value: "attr-fingerprint-location",
 							},
 							Values: []string{
 								"POWER_BUTTON_TOP_LEFT",
@@ -356,9 +309,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project4"},
+							Values: []string{"ProgD"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -376,9 +329,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project1", "project2", "project5", "project6"},
+							Values: []string{"ProgA", "ProgB", "ProgE", "ProgF"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -396,9 +349,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project3"},
+							Values: []string{"ProgC"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -408,138 +361,6 @@ func TestGenerate(t *testing.T) {
 									Tags: []string{"kernel", "fingerprint"},
 								},
 							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "firmware_ro_versions",
-			input: &plan.SourceTestPlan{
-				Requirements: &plan.SourceTestPlan_Requirements{
-					FirmwareRoVersions: &plan.SourceTestPlan_Requirements_FirmwareROVersions{
-						ProgramToMilestone: map[string]int32{
-							"ProgA": 90,
-							"ProgB": 91,
-						},
-					},
-				},
-			},
-			expected: []*testpb.CoverageRule{
-				{
-					Name: "Design1_faft",
-					TestSuites: []*testpb.TestSuite{
-						{
-							Name: "faft_smoke",
-							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
-								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-									Tags: []string{"suite:faft_smoke"},
-								},
-							},
-						},
-						{
-							Name: "faft_bios",
-							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
-								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-									Tags: []string{"suite:faft_bios"},
-								},
-							},
-						},
-					},
-					DutCriteria: []*testpb.DutCriterion{
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "design_id"},
-							Values:      []string{"Design1"},
-						},
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_major_version"},
-							Values:      []string{"123"},
-						},
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_minor_version"},
-							Values:      []string{"4"},
-						},
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_patch_version"},
-							Values:      []string{"5"},
-						},
-					},
-				},
-				{
-					Name: "Design20_faft",
-					TestSuites: []*testpb.TestSuite{
-						{
-							Name: "faft_smoke",
-							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
-								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-									Tags: []string{"suite:faft_smoke"},
-								},
-							},
-						},
-						{
-							Name: "faft_bios",
-							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
-								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-									Tags: []string{"suite:faft_bios"},
-								},
-							},
-						},
-					},
-					DutCriteria: []*testpb.DutCriterion{
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "design_id"},
-							Values:      []string{"Design20"},
-						},
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_major_version"},
-							Values:      []string{"123"},
-						},
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_minor_version"},
-							Values:      []string{"4"},
-						},
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_patch_version"},
-							Values:      []string{"0"},
-						},
-					},
-				},
-				{
-					Name: "Design2_faft",
-					TestSuites: []*testpb.TestSuite{
-						{
-							Name: "faft_smoke",
-							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
-								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-									Tags: []string{"suite:faft_smoke"},
-								},
-							},
-						},
-						{
-							Name: "faft_bios",
-							Spec: &testpb.TestSuite_TestCaseTagCriteria_{
-								TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-									Tags: []string{"suite:faft_bios"},
-								},
-							},
-						},
-					},
-					DutCriteria: []*testpb.DutCriterion{
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "design_id"},
-							Values:      []string{"Design2"},
-						},
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_major_version"},
-							Values:      []string{"123"},
-						},
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_minor_version"},
-							Values:      []string{"0"},
-						},
-						{
-							AttributeId: &testpb.DutAttribute_Id{Value: "firmware_ro_patch_version"},
-							Values:      []string{"0"},
 						},
 					},
 				},
@@ -561,9 +382,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project4"},
+							Values: []string{"ProgD"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -581,9 +402,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project1", "project5"},
+							Values: []string{"ProgA", "ProgE"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -601,9 +422,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project6"},
+							Values: []string{"ProgF"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -621,9 +442,9 @@ func TestGenerate(t *testing.T) {
 					DutCriteria: []*testpb.DutCriterion{
 						{
 							AttributeId: &testpb.DutAttribute_Id{
-								Value: "system_build_target",
+								Value: "attr-program",
 							},
-							Values: []string{"project3"},
+							Values: []string{"ProgC"},
 						},
 					},
 					TestSuites: []*testpb.TestSuite{
@@ -659,11 +480,11 @@ func TestGenerate(t *testing.T) {
 }
 func TestGenerateErrors(t *testing.T) {
 	tests := []struct {
-		name             string
-		input            *plan.SourceTestPlan
-		dutAttributeList *testpb.DutAttributeList
-		flatConfigList   *payload.FlatConfigList
-		expectedError    string
+		name              string
+		input             *plan.SourceTestPlan
+		dutAttributeList  *testpb.DutAttributeList
+		buildMetadataList *buildpb.SystemImage_BuildMetadataList
+		expectedError     string
 	}{
 		{
 			name: "no requirements",
@@ -727,67 +548,39 @@ func TestGenerateErrors(t *testing.T) {
 			expectedError: "CoverageRule contains invalid DutAttributes",
 		},
 		{
-			name: "programToMilestone not set",
-			input: &plan.SourceTestPlan{
-				Requirements: &plan.SourceTestPlan_Requirements{
-					FirmwareRoVersions: &plan.SourceTestPlan_Requirements_FirmwareROVersions{},
-				},
-			},
-			expectedError: "programToMilestone must be set",
-		},
-		{
-			name: "program not found",
+			name: "missing overlay in BuildMetadata",
 			input: &plan.SourceTestPlan{
 				EnabledTestEnvironments: []plan.SourceTestPlan_TestEnvironment{
 					plan.SourceTestPlan_HARDWARE,
 				},
 				Requirements: &plan.SourceTestPlan_Requirements{
-					FirmwareRoVersions: &plan.SourceTestPlan_Requirements_FirmwareROVersions{
-						ProgramToMilestone: map[string]int32{
-							"otherProg": 90,
-						},
-					},
+					KernelVersions: &plan.SourceTestPlan_Requirements_KernelVersions{},
 				},
 			},
-			expectedError: `configs for program "otherProg" not found`,
+			buildMetadataList: &buildpb.SystemImage_BuildMetadataList{
+				Values: []*buildpb.SystemImage_BuildMetadata{
+					buildMetadata("", "4.14", "chipsetA", ""),
+				},
+			},
+			expectedError: "no overlay found in BuildMetadata",
 		},
 		{
-			name: "conflicting RO versions",
+			name: "multiple BuildMetadatas for overlay",
 			input: &plan.SourceTestPlan{
+				EnabledTestEnvironments: []plan.SourceTestPlan_TestEnvironment{
+					plan.SourceTestPlan_HARDWARE,
+				},
 				Requirements: &plan.SourceTestPlan_Requirements{
-					FirmwareRoVersions: &plan.SourceTestPlan_Requirements_FirmwareROVersions{
-						ProgramToMilestone: map[string]int32{
-							"progA": 91,
-						},
-					},
+					KernelVersions: &plan.SourceTestPlan_Requirements_KernelVersions{},
 				},
 			},
-			flatConfigList: &payload.FlatConfigList{
-				Values: []*payload.FlatConfig{
-					flatConfig("progA", "designA", "config1", &buildpb.Version{Major: 1}, ""),
-					flatConfig("progA", "designA", "config2", &buildpb.Version{Major: 2}, ""),
+			buildMetadataList: &buildpb.SystemImage_BuildMetadataList{
+				Values: []*buildpb.SystemImage_BuildMetadata{
+					buildMetadata("overlay1", "4.14", "chipsetA", ""),
+					buildMetadata("overlay1", "4.14", "chipsetB", ""),
 				},
 			},
-			expectedError: `conflicting firmware RO versions found for design "designA": major:2 , major:1`,
-		},
-		{
-			name: "no RO firmware info for program",
-			input: &plan.SourceTestPlan{
-				Requirements: &plan.SourceTestPlan_Requirements{
-					FirmwareRoVersions: &plan.SourceTestPlan_Requirements_FirmwareROVersions{
-						ProgramToMilestone: map[string]int32{
-							"progA": 91,
-						},
-					},
-				},
-			},
-			flatConfigList: &payload.FlatConfigList{
-				Values: []*payload.FlatConfig{
-					flatConfig("progA", "designA", "config1", nil, ""),
-					flatConfig("progA", "designA", "config2", nil, ""),
-				},
-			},
-			expectedError: `no RO firmware version info found for program "progA"`,
+			expectedError: "multiple BuildMetadatas for key",
 		},
 	}
 	for _, test := range tests {
@@ -799,15 +592,15 @@ func TestGenerateErrors(t *testing.T) {
 				dal = test.dutAttributeList
 			}
 
-			var fcl *payload.FlatConfigList
-			if test.flatConfigList == nil {
-				fcl = flatConfigList
+			var bml *buildpb.SystemImage_BuildMetadataList
+			if test.buildMetadataList == nil {
+				bml = buildMetadataList
 			} else {
-				fcl = test.flatConfigList
+				bml = test.buildMetadataList
 			}
 
 			if _, err := coveragerules.Generate(
-				test.input, buildMetadataList, dal, fcl,
+				test.input, bml, dal, flatConfigList,
 			); err == nil {
 				t.Errorf("Expected error from coveragerules.Generate")
 			} else if !strings.Contains(err.Error(), test.expectedError) {

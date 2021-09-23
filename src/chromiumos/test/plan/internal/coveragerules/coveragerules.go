@@ -9,9 +9,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -25,12 +23,8 @@ import (
 )
 
 var (
-	buildTargetAttributeID            = &testpb.DutAttribute_Id{Value: "sw-build-target"}
-	fingerprintAttributeID            = &testpb.DutAttribute_Id{Value: "attr-fingerprint-location"}
-	designIDAttributeID               = &testpb.DutAttribute_Id{Value: "attr-design"}
-	firmwareROMajorVersionAttributeID = &testpb.DutAttribute_Id{Value: "sw-firmware-ro-major-version"}
-	firmwareROMinorVersionAttributeID = &testpb.DutAttribute_Id{Value: "sw-firmware-ro-minor-version"}
-	firmwareROPatchVersionAttributeID = &testpb.DutAttribute_Id{Value: "sw-firmware-ro-patch-version"}
+	programAttributeID     = &testpb.DutAttribute_Id{Value: "attr-program"}
+	fingerprintAttributeID = &testpb.DutAttribute_Id{Value: "attr-fingerprint-location"}
 )
 
 // sortDutCriteriaOrPanic sorts rule.DutCriteria by AttributeId, panicing if
@@ -205,45 +199,43 @@ func expandCoverageRules(curRules, newRules []*testpb.CoverageRule) []*testpb.Co
 	return expandedRules
 }
 
-// buildTargetCoverageRules groups BuildTarget overlay names in
-// SystemImage.Metadata and returns one CoverageRule per group.
+// programCoverageRules groups Program ids and returns one CoverageRule per
+// group.
 //
-// For each entry in MetadataList, keyFn is called to get a string
-// key. All overlay names that share the same string key are used to create a
-// CoverageRule.
+// For each entry in flatConfigAndBuildMetadatas, keyFn is called to get a
+// string key. All program names that share the same string key are used to
+// create a CoverageRule.
 //
 // nameFn converts a key returned by keyFn to a Name for the CoverageRule.
 //
 // For example, to create one CoverageRule for each kernel version, keyFn should
-// return the kernel version found in a BuildMetadata, and nameFn could return
-// the string "kernel:<key>".
+// return the kernel version found in a flatConfigAndBuildMetadata, and nameFn
+// could return the string "kernel:<key>".
 //
 // If keyFn returns the empty string, that entry is skipped.
-func buildTargetCoverageRules(
-	keyFn func(*buildpb.SystemImage_BuildMetadata) string,
+func programCoverageRules(
+	keyFn func(flatConfigAndBuildMetadata) string,
 	nameFn func(string) string,
-	buildMetadataList *buildpb.SystemImage_BuildMetadataList,
+	flatConfigAndBuildMetadatas []flatConfigAndBuildMetadata,
 	sourceTestPlan *plan.SourceTestPlan,
 ) []*testpb.CoverageRule {
-	keyToBuildTargets := make(map[string][]string)
+	keyToPrograms := make(map[string]*stringset.Set)
 
-	for _, value := range buildMetadataList.GetValues() {
+	for _, value := range flatConfigAndBuildMetadatas {
 		key := keyFn(value)
 		if key == "" {
 			continue
 		}
 
-		if _, found := keyToBuildTargets[key]; !found {
-			keyToBuildTargets[key] = []string{}
+		if _, found := keyToPrograms[key]; !found {
+			keyToPrograms[key] = &stringset.Set{}
 		}
 
-		keyToBuildTargets[key] = append(
-			keyToBuildTargets[key], value.GetBuildTarget().GetPortageBuildTarget().GetOverlayName(),
-		)
+		keyToPrograms[key].Add(value.GetProgram().GetId().Value)
 	}
 
-	coverageRules := make([]*testpb.CoverageRule, 0, len(keyToBuildTargets))
-	for key, buildTargets := range keyToBuildTargets {
+	coverageRules := make([]*testpb.CoverageRule, 0, len(keyToPrograms))
+	for key, programs := range keyToPrograms {
 		coverageRules = append(coverageRules, &testpb.CoverageRule{
 			Name: nameFn(key),
 			TestSuites: []*testpb.TestSuite{
@@ -258,8 +250,8 @@ func buildTargetCoverageRules(
 			},
 			DutCriteria: []*testpb.DutCriterion{
 				{
-					AttributeId: buildTargetAttributeID,
-					Values:      buildTargets,
+					AttributeId: programAttributeID,
+					Values:      programs.ToSortedSlice(),
 				},
 			},
 		})
@@ -270,15 +262,15 @@ func buildTargetCoverageRules(
 
 // kernelCoverageRules returns CoverageRules requiring each kernel version.
 func kernelCoverageRules(
-	sourceTestPlan *plan.SourceTestPlan, buildMetadataList *buildpb.SystemImage_BuildMetadataList,
+	sourceTestPlan *plan.SourceTestPlan, flatConfigAndBuildMetadatas []flatConfigAndBuildMetadata,
 ) []*testpb.CoverageRule {
-	return buildTargetCoverageRules(
-		func(buildMetadata *buildpb.SystemImage_BuildMetadata) string {
-			version := buildMetadata.GetPackageSummary().GetKernel().GetVersion()
+	return programCoverageRules(
+		func(fcbm flatConfigAndBuildMetadata) string {
+			version := fcbm.GetPackageSummary().GetKernel().GetVersion()
 			// Some BuildSummaries have a kernel version set to "0.0", skip
 			// these.
 			if version == "0.0" {
-				glog.V(1).Infof("BuildMetadata with kernel version \"0.0\", skipping: %q", buildMetadata)
+				glog.V(1).Infof("BuildMetadata with kernel version \"0.0\", skipping: %q", fcbm.SystemImage_BuildMetadata)
 				return ""
 			}
 
@@ -287,39 +279,39 @@ func kernelCoverageRules(
 		func(key string) string {
 			return fmt.Sprintf("kernel:%s", key)
 		},
-		buildMetadataList,
+		flatConfigAndBuildMetadatas,
 		sourceTestPlan,
 	)
 }
 
 // socCoverageRules returns CoverageRules requiring each SoC family.
 func socCoverageRules(
-	sourceTestPlan *plan.SourceTestPlan, buildMetadataList *buildpb.SystemImage_BuildMetadataList,
+	sourceTestPlan *plan.SourceTestPlan, flatConfigAndBuildMetadatas []flatConfigAndBuildMetadata,
 ) []*testpb.CoverageRule {
-	return buildTargetCoverageRules(
-		func(buildMetadata *buildpb.SystemImage_BuildMetadata) string {
-			return buildMetadata.GetPackageSummary().GetChipset().GetOverlay()
+	return programCoverageRules(
+		func(fcbm flatConfigAndBuildMetadata) string {
+			return fcbm.GetPackageSummary().GetChipset().GetOverlay()
 		},
 		func(key string) string {
 			return fmt.Sprintf("soc:%s", key)
 		},
-		buildMetadataList,
+		flatConfigAndBuildMetadatas,
 		sourceTestPlan,
 	)
 }
 
 // arcCoverageRules returns a CoverageRule requiring each ARC version.
 func arcCoverageRules(
-	sourceTestPlan *plan.SourceTestPlan, buildMetadataList *buildpb.SystemImage_BuildMetadataList,
+	sourceTestPlan *plan.SourceTestPlan, flatConfigAndBuildMetadatas []flatConfigAndBuildMetadata,
 ) []*testpb.CoverageRule {
-	return buildTargetCoverageRules(
-		func(buildMetadata *buildpb.SystemImage_BuildMetadata) string {
-			return buildMetadata.GetPackageSummary().GetArc().GetVersion()
+	return programCoverageRules(
+		func(fcbm flatConfigAndBuildMetadata) string {
+			return fcbm.GetPackageSummary().GetArc().GetVersion()
 		},
 		func(key string) string {
 			return fmt.Sprintf("arc:%s", key)
 		},
-		buildMetadataList,
+		flatConfigAndBuildMetadatas,
 		sourceTestPlan,
 	)
 }
@@ -355,133 +347,6 @@ func fingerprintCoverageRule(sourceTestPlan *plan.SourceTestPlan) *testpb.Covera
 			},
 		},
 	}
-}
-
-// parseInt32OrPanic parses s into an int32.
-//
-// Assumes s is in base10. This function should only be used in cases where s is
-// known to be an int, e.g. if it was a regexp match for digits. Otherwise, use
-// strconv and handle the error appropriately.
-func parseInt32OrPanic(s string) int32 {
-	i, err := strconv.ParseInt(s, 10, 32)
-	if err != nil {
-		panic(fmt.Sprintf("unable to parse %q: %v", s, err))
-	}
-
-	return int32(i)
-}
-
-var fwImageNameRegexp = regexp.MustCompile(`bcs://[^.]+\.(\d+)\.(\d+)\.(\d+)\.tbz2`)
-
-// firmwareROCoverageRules returns CoverageRules requiring firmware tests to
-// be run on each Design in FirmwareRoVersions.ProgramToMilestone.
-func firmwareROCoverageRules(
-	sourceTestPlan *plan.SourceTestPlan, flatConfigWrapper *flatConfigWrapper,
-) ([]*testpb.CoverageRule, error) {
-	coverageRules := make([]*testpb.CoverageRule, 0)
-
-	programToMilestone := sourceTestPlan.GetRequirements().GetFirmwareRoVersions().GetProgramToMilestone()
-	if len(programToMilestone) == 0 {
-		return nil, fmt.Errorf("programToMilestone must be set in SourceTestPlan: %s", sourceTestPlan)
-	}
-
-	for program := range programToMilestone {
-		configs, ok := flatConfigWrapper.getProgramConfigs(program)
-		if !ok {
-			return nil, fmt.Errorf("configs for program %q not found", program)
-		}
-
-		designIDToROVersion := make(map[string]*buildpb.Version)
-
-		for _, config := range configs {
-			designID := config.GetHwDesign().GetId().GetValue()
-			roPayload := config.GetSwConfig().GetFirmware().GetMainRoPayload()
-			version := roPayload.GetVersion()
-
-			if version == nil {
-				glog.V(1).Infof(
-					"No RO firmware version info found for design %q, config %q, attempting to parse firmwareImageName",
-					designID,
-					config.GetHwDesignConfig().GetId().GetValue(),
-				)
-
-				matches := fwImageNameRegexp.FindStringSubmatch(roPayload.GetFirmwareImageName())
-				if matches == nil {
-					glog.V(1).Infof(
-						"Could not parse firmware version info from image name %q, skipping",
-						roPayload.GetFirmwareImageName(),
-					)
-
-					continue
-				}
-
-				version = &buildpb.Version{
-					Major: parseInt32OrPanic(matches[1]),
-					Minor: parseInt32OrPanic(matches[2]),
-					Patch: parseInt32OrPanic(matches[3]),
-				}
-			}
-
-			// If the Design doesn't have a Version yet, assign one. Otherwise,
-			// check the Version is the same across all configs for a given
-			// Design.
-			if storedVersion, ok := designIDToROVersion[designID]; !ok {
-				designIDToROVersion[designID] = version
-			} else if !reflect.DeepEqual(storedVersion, version) {
-				return nil, fmt.Errorf(
-					"conflicting firmware RO versions found for design %q: %s, %s", designID, version, storedVersion,
-				)
-			}
-		}
-
-		if len(designIDToROVersion) == 0 {
-			return nil, fmt.Errorf("no RO firmware version info found for program %q", program)
-		}
-
-		for designID, version := range designIDToROVersion {
-			coverageRules = append(coverageRules, &testpb.CoverageRule{
-				Name: fmt.Sprintf("%s_faft", designID),
-				TestSuites: []*testpb.TestSuite{
-					{
-						Name: "faft_smoke",
-						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"suite:faft_smoke"},
-							},
-						},
-					},
-					{
-						Name: "faft_bios",
-						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
-							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-								Tags: []string{"suite:faft_bios"},
-							},
-						},
-					},
-				},
-				DutCriteria: []*testpb.DutCriterion{
-					{
-						AttributeId: designIDAttributeID,
-						Values:      []string{designID},
-					},
-					{
-						AttributeId: firmwareROMajorVersionAttributeID,
-						Values:      []string{strconv.FormatInt(int64(version.Major), 10)},
-					},
-					{
-						AttributeId: firmwareROMinorVersionAttributeID,
-						Values:      []string{strconv.FormatInt(int64(version.Minor), 10)},
-					},
-					{
-						AttributeId: firmwareROPatchVersionAttributeID,
-						Values:      []string{strconv.FormatInt(int64(version.Patch), 10)},
-					},
-				},
-			})
-		}
-	}
-
-	return coverageRules, nil
 }
 
 // checkDutAttributesValid checks that the ids of all attributes in rules are in
@@ -523,6 +388,11 @@ func Generate(
 	coverageRules := []*testpb.CoverageRule{}
 
 	flatConfigWrapper := newFlatConfigWrapper(flatConfigList)
+	flatConfigAndBuildMetadatas, err := flatConfigWrapper.joinWithBuildMetadata(buildMetadataList)
+
+	if err != nil {
+		return nil, err
+	}
 
 	// For each requirement set in sourceTestPlan, switch on the type of the
 	// requirement and call the corresponding <requirement>Outputs function.
@@ -563,26 +433,19 @@ func Generate(
 
 			switch fieldValue.Interface().(type) {
 			case *plan.SourceTestPlan_Requirements_ArcVersions:
-				coverageRules = expandCoverageRules(coverageRules, arcCoverageRules(sourceTestPlan, buildMetadataList))
+				coverageRules = expandCoverageRules(coverageRules, arcCoverageRules(sourceTestPlan, flatConfigAndBuildMetadatas))
 
 			case *plan.SourceTestPlan_Requirements_KernelVersions:
-				coverageRules = expandCoverageRules(coverageRules, kernelCoverageRules(sourceTestPlan, buildMetadataList))
+				coverageRules = expandCoverageRules(coverageRules, kernelCoverageRules(sourceTestPlan, flatConfigAndBuildMetadatas))
 
 			case *plan.SourceTestPlan_Requirements_SocFamilies:
-				coverageRules = expandCoverageRules(coverageRules, socCoverageRules(sourceTestPlan, buildMetadataList))
+				coverageRules = expandCoverageRules(coverageRules, socCoverageRules(sourceTestPlan, flatConfigAndBuildMetadatas))
 
 			case *plan.SourceTestPlan_Requirements_Fingerprint:
 				coverageRules = expandCoverageRules(
 					coverageRules, []*testpb.CoverageRule{fingerprintCoverageRule(sourceTestPlan)},
 				)
 
-			case *plan.SourceTestPlan_Requirements_FirmwareROVersions:
-				newRules, err := firmwareROCoverageRules(sourceTestPlan, flatConfigWrapper)
-				if err != nil {
-					return nil, err
-				}
-
-				coverageRules = expandCoverageRules(coverageRules, newRules)
 			default:
 				return nil, fmt.Errorf("unimplemented requirement %q", typeName)
 			}
