@@ -180,3 +180,5 @@ disp_overlay['fbe3bce15a14'] = 'drop' # FROMGIT: arm64: dts: qcom: sc7280-idp: A
 disp_overlay['2c4ec85e9ebe'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: Clean up audio dts to match upstream
 disp_overlay['c8e36674ea80'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: Update trogdor for new dp node label
 disp_overlay['2f51beb00a6d'] = 'drop' # CHROMIUM: arm64: dts: qcom: Add trogdor-r2
+disp_overlay['3e7cf116596c'] = 'drop' # FROMLIST: drm/mediatek: clear pending flag when cmdq packet is done.
+disp_overlay['0c4975c2f2fe'] = 'drop' # FROMLIST: drm/i915/adlp: Define GuC/HuC for Alderlake_P
