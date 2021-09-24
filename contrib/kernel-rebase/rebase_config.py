@@ -183,3 +183,6 @@ disp_overlay['c8e36674ea80'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: Upda
 disp_overlay['2f51beb00a6d'] = 'drop' # CHROMIUM: arm64: dts: qcom: Add trogdor-r2
 disp_overlay['3e7cf116596c'] = 'drop' # FROMLIST: drm/mediatek: clear pending flag when cmdq packet is done.
 disp_overlay['0c4975c2f2fe'] = 'drop' # FROMLIST: drm/i915/adlp: Define GuC/HuC for Alderlake_P
+disp_overlay['65f77de7444e'] = 'drop' # FROMLIST: pwm: fine tune pwm-mtk-disp clock control flow
+disp_overlay['98583bf3ca78'] = 'drop' # FROMLIST: pwm/mtk_disp: fix update reg issue when chip doesn't have commit
+disp_overlay['6adf7ed211c8'] = 'drop' # FROMLIST: usb: xhci-mtk: handle bandwidth table rollover
