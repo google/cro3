@@ -24,6 +24,7 @@ import (
 type CrOSService struct {
 	connection        services.ServiceAdapterInterface
 	imagePath         *conf.StoragePath
+	overwritePayload  *conf.StoragePath
 	preserverStateful bool
 	dlcSpecs          []*api.InstallCrosRequest_DLCSpec
 }
@@ -32,6 +33,7 @@ func NewCrOSService(dutName string, dutClient api.DutServiceClient, wiringConn *
 	return CrOSService{
 		connection:        services.NewServiceAdapter(dutName, dutClient, wiringConn, req.GetPreventReboot()),
 		imagePath:         req.CrosImagePath,
+		overwritePayload:  req.OverwritePayload,
 		preserverStateful: req.PreserveStateful,
 		dlcSpecs:          req.DlcSpecs,
 	}
@@ -39,10 +41,11 @@ func NewCrOSService(dutName string, dutClient api.DutServiceClient, wiringConn *
 
 // NewCrOSServiceFromExistingConnection is equivalent to the above constructor,
 // but recycles a ServiceAdapter. Generally useful for tests.
-func NewCrOSServiceFromExistingConnection(conn services.ServiceAdapterInterface, imagePath *conf.StoragePath, preserverStateful bool, dlcSpecs []*api.InstallCrosRequest_DLCSpec) CrOSService {
+func NewCrOSServiceFromExistingConnection(conn services.ServiceAdapterInterface, imagePath *conf.StoragePath, overwritePayload *conf.StoragePath, preserverStateful bool, dlcSpecs []*api.InstallCrosRequest_DLCSpec) CrOSService {
 	return CrOSService{
 		connection:        conn,
 		imagePath:         imagePath,
+		overwritePayload:  overwritePayload,
 		preserverStateful: preserverStateful,
 		dlcSpecs:          dlcSpecs,
 	}
@@ -274,6 +277,26 @@ func (c *CrOSService) InstallStateful(ctx context.Context) error {
 		fmt.Sprintf(curlWithRetries+" %s | tar --ignore-command-error --overwrite --directory=%s -xzf -", url, info.StatefulPath),
 		"&&",
 		fmt.Sprintf("echo -n clobber > %s", info.UpdateStatefulFilePath),
+	})
+	return err
+}
+
+func (c *CrOSService) OverwiteInstall(ctx context.Context) error {
+	if c.overwritePayload == nil {
+		log.Printf("skipping overwrite install, because none was specified.")
+		return nil
+	}
+	if c.overwritePayload.HostType == conf.StoragePath_LOCAL || c.overwritePayload.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
+		return fmt.Errorf("only GS copying is implemented")
+	}
+	url, err := c.connection.CopyData(ctx, c.overwritePayload.GetPath())
+	if err != nil {
+		return fmt.Errorf("failed to get GS Cache URL, %s", err)
+	}
+	_, err = c.connection.RunCmd(ctx, curlWithRetries, []string{
+		url,
+		"|",
+		"tar", "xf", "-", "-C", "/",
 	})
 	return err
 }

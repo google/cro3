@@ -33,6 +33,7 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 			HostType: conf.StoragePath_GS,
 			Path:     "path/to/image",
 		},
+		nil,
 		false,
 		[]*api.InstallCrosRequest_DLCSpec{{Id: "1"}},
 	)
@@ -159,6 +160,7 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 			HostType: conf.StoragePath_GS,
 			Path:     "path/to/image",
 		},
+		nil,
 		false,
 		[]*api.InstallCrosRequest_DLCSpec{{Id: "1"}},
 	)
@@ -242,6 +244,7 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 			HostType: conf.StoragePath_GS,
 			Path:     "path/to/image",
 		},
+		nil,
 		false,
 		[]*api.InstallCrosRequest_DLCSpec{{Id: "1"}},
 	)
@@ -325,6 +328,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 			HostType: conf.StoragePath_GS,
 			Path:     "path/to/image",
 		},
+		nil,
 		true, // <- preserve stateful
 		[]*api.InstallCrosRequest_DLCSpec{},
 	)
@@ -361,6 +365,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 			HostType: conf.StoragePath_GS,
 			Path:     "path/to/image",
 		},
+		nil,
 		true, // <- preserve stateful
 		[]*api.InstallCrosRequest_DLCSpec{},
 	)
@@ -398,6 +403,7 @@ func TestProvisionDLCWithEmptyDLCsDoesNotExecute(t *testing.T) {
 			HostType: conf.StoragePath_GS,
 			Path:     "path/to/image",
 		},
+		nil,
 		false,
 		[]*api.InstallCrosRequest_DLCSpec{},
 	)
@@ -425,6 +431,7 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 			HostType: conf.StoragePath_GS,
 			Path:     "path/to/image",
 		},
+		nil,
 		false,
 		[]*api.InstallCrosRequest_DLCSpec{{Id: "1"}},
 	)
@@ -448,6 +455,49 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 	if err := st.Execute(ctx); err != nil {
 		t.Fatalf("failed provision-dlc state: %v", err)
 	}
+}
+
+func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_services.NewMockServiceAdapterInterface(ctrl)
+
+	cs := crosservice.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "path/to/image",
+		},
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "path/to/image/overwite.tar",
+		},
+		false,
+		[]*api.InstallCrosRequest_DLCSpec{{Id: "1"}},
+	)
+
+	ctx := context.Background()
+
+	// Install -> PostInstall
+	st := cs.GetFirstState().Next()
+
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("echo"), gomock.Eq([]string{"'fast keepimg'", ">", "/mnt/stateful_partition/factory_install_reset"})).Return("", nil),
+		sam.EXPECT().Restart(gomock.Any()).Return(nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
+		sam.EXPECT().CopyData(gomock.Any(), gomock.Eq("path/to/image/stateful.tgz")).Return("stateful.url", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{"rm -rf /mnt/stateful_partition/.update_available /mnt/stateful_partition/var_new /mnt/stateful_partition/dev_image_new", "&&", "curl -S -s -v -# -C - --retry 3 --retry-delay 60 stateful.url | tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -", "&&", "echo -n clobber > /mnt/stateful_partition/.update_available"})).Return("", nil),
+		sam.EXPECT().CopyData(gomock.Any(), gomock.Eq("path/to/image/overwite.tar")).Return("overwrite.url.tar", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60"), gomock.Eq([]string{"overwrite.url.tar", "|", "tar", "xf", "-", "-C", "/"})).Return("", nil),
+		sam.EXPECT().Restart(gomock.Any()).Return(nil),
+	)
+
+	if err := st.Execute(ctx); err != nil {
+		t.Fatalf("failed post-install state: %v", err)
+	}
+
 }
 
 func TestLaCrOSInstallStateTransitions(t *testing.T) {

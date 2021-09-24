@@ -30,6 +30,10 @@ func (s CrOSPostInstallState) Execute(ctx context.Context) error {
 		return fmt.Errorf("failed to provision stateful, %s", err)
 	}
 
+	if err := s.service.OverwiteInstall(ctx); err != nil {
+		return fmt.Errorf("failed to overwite install, %s", err)
+	}
+
 	if err := s.service.connection.Restart(ctx); err != nil {
 		return fmt.Errorf("failed to restart dut, %s", err)
 	}
