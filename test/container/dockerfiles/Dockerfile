@@ -46,17 +46,11 @@ RUN pip3 install -r requirements.txt
 
 # deploy autotest & tast packages
 COPY --chown=chromeos-test:chromeos-test autotest/ /usr/local/autotest
-COPY --chown=chromeos-test:chromeos-test tast/ /usr/local/tast
-
-# Configure tast
-RUN mv /usr/local/tast/tast /usr/bin/tast
-RUN mv /usr/local/tast/remote_test_runner /usr/bin/remote_test_runner
-RUN mkdir -p /usr/libexec/tast/
-RUN mv /usr/local/tast/bundles/ /usr/libexec/tast/
-RUN mkdir -p /usr/share/tast/
-RUN mv /usr/local/tast/data/ /usr/share/tast/
-RUN mkdir -p /etc/tast/
-RUN mv /usr/local/tast/vars/ /etc/tast/
+COPY --chown=chromeos-test:chromeos-test tast/tast /usr/bin/tast
+COPY --chown=chromeos-test:chromeos-test tast/remote_test_runner /usr/bin/remote_test_runner
+COPY --chown=chromeos-test:chromeos-test tast/bundles/ /usr/libexec/tast/bundles
+COPY --chown=chromeos-test:chromeos-test tast/data/ /usr/share/tast/data
+COPY --chown=chromeos-test:chromeos-test tast/vars/ /etc/tast/vars
 
 COPY shadow_config.ini /usr/local/autotest/
 RUN chown -R chromeos-test:chromeos-test /usr/local/autotest/shadow_config.ini
