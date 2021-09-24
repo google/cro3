@@ -51,7 +51,8 @@ topic_fixups['net'] = [
 ]
 topic_fixups['drm'] = [
     'Add drm_main_relax debugfs file (non-root set&drop main ioctls)',
-    'Add an API for exporting sync files (v12)'
+    'Add an API for exporting sync files (v12)',
+    'Track context current active time'
 ]
 
 topic_fixups['chromeos'] = [
