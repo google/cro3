@@ -58,10 +58,6 @@ topic_fixups['chromeos'] = [
     'Restrict swapon() to "zram" devices lock down zram'
 ]
 
-topic_fixups['dts'] = [
-    'Add sc7180-trogdor-coachz skus'
-]
-
 topic_fixups['media'] = [
     'add a quirk for ROI fixup'
 ]
@@ -155,9 +151,32 @@ disp_overlay['da23336459fb'] = 'drop' # FROMLIST: arm64: dts: mt8183-kukui: Enab
 disp_overlay['3b69b8a1515a'] = 'drop' # Revert "FROMLIST: Bluetooth: Update Adv monitor count upon removal"
 disp_overlay['c5d00cc3779e'] = 'drop' # FROMLIST: media: mtk-vcodec: Use pm_runtime_resume_and_get for PM get_sync
 disp_overlay['13047d2b9924'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: Disable skin temperature thermal zone for coachz
-
 disp_overlay['8de0f20fc570'] = 'drop' # FIXUP: FROMLIST: sched: Add a coresched command line option
 disp_overlay['588857db26e5'] = 'drop' # CHROMIUM: iommu/intel: Specialcase for internal but untrusted devices
 disp_overlay['be3ed1509047'] = 'drop' # BACKPORT: FROMLIST: Bluetooth: adding BTUSB_VALID_LE_STATES to Intel Controllers
 disp_overlay['cd28f80e98d9'] = 'drop' # CHROMIUM: Bluetooth: remove an unused variable
 disp_overlay['fbfe1e70219a'] = 'drop' # FROMLIST: KVM: mmu: introduce new gfn_to_pfn_page functions
+disp_overlay['cd6529601dd1'] = 'drop' # CHROMIUM: arm64: dts: qcom: Add dts files for sc7180-trogdor-pompom
+disp_overlay['ccbd9a486631'] = 'drop' # CHROMIUM: arm64: dts: qcom: Use proper compatible string for pompom display
+disp_overlay['b2b08a5af157'] = 'drop' # CHROMIUM: arm64: dts: qcom: Enable i2c-5 and Enable Proximity Sensor SX9311
+disp_overlay['9424e235b405'] = 'drop' # CHROMIUM: arm64: dts: qcom: Add sc7180-pompom-r1
+disp_overlay['19391e9e1530'] = 'drop' # CHROMIUM: arm64: dts: qcom: Add sc7180-coachz
+disp_overlay['bf616126dbfa'] = 'drop' # CHROMIUM: arm64: dts: qcom: PWM for backlight is 0 on CoachZ
+disp_overlay['9b8671768cd8'] = 'drop' # CHROMIUM: arm64: dts: qcom: Only enable p-sensor on Lazor LTE SKUs
+disp_overlay['3580d48018ee'] = 'drop' # CHROMIUM: arm64: dts: qcom: Fix sc7180-trogdor-coachz eDP lanes
+disp_overlay['3107a86ed003'] = 'drop' # CHROMIUM: arm64: dts: qcom: Make sc7180-trogdor-coachz touchscreen probe
+disp_overlay['d86814edd5b2'] = 'drop' # CHROMIUM: arm64: dts: qcom: Only enable i2c5 on devices that use it
+disp_overlay['21418d69d435'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: Keep using pp3300_l7c as supply for pp3300_hub for trogdor r0
+disp_overlay['34bc46a113fa'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: Add sc7180-pompom-r2
+disp_overlay['a0100a25c161'] = 'drop' # CHROMIUM: arm64: dts: qcom: Remove prox sensor on Limozeen
+disp_overlay['0383da3aca29'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: Enable vivaldi keyboard for pompom
+disp_overlay['a49b8bb6e63d'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: remove dmic_clk_en
+disp_overlay['3de4e6ccf396'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: add dmic_clk_en back
+disp_overlay['c5876158d1f8'] = 'drop' # CHROMIUM: arm64: dts: qcom: Add cros ec proximity on CoachZ
+disp_overlay['e2052fb234bb'] = 'drop' # CHROMIUM: arm64: dts: qcom: Fix trackpad on sc7180-trogdor-lazor-limozeen-rev4-sku5
+disp_overlay['3677513fffa0'] = 'drop' # CHROMIUM: arm64: dts: qcom: Remove "dmic_clk_en" from coachz revs
+disp_overlay['678d6b8fbf75'] = 'drop' # CHROMIUM: arm64: dts: qcom: Fix lane polarities on trogdor-r2
+disp_overlay['fbe3bce15a14'] = 'drop' # FROMGIT: arm64: dts: qcom: sc7280-idp: Add vcc-supply for qfprom
+disp_overlay['2c4ec85e9ebe'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: Clean up audio dts to match upstream
+disp_overlay['c8e36674ea80'] = 'drop' # CHROMIUM: arm64: dts: qcom: sc7180: Update trogdor for new dp node label
+disp_overlay['2f51beb00a6d'] = 'drop' # CHROMIUM: arm64: dts: qcom: Add trogdor-r2
