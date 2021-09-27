@@ -43,10 +43,7 @@ topic_fixups['cros_ec'] = [
 ]
 topic_fixups['block-fs'] = [
     'add ChromeOS specific platform functions',
-    'Add message definitions for CHROMEOS_TMPFILE',
     'bring over dm-verity-chromeos.c',
-    'Revert "ecryptfs_lookup(): try either only encrypted or plaintext name"',
-    'Revert "eCryptfs: don\'t pass up plaintext names when',
     'update ESDFS to use changed FS API'
 ]
 topic_fixups['net'] = [
