@@ -9,14 +9,17 @@ script_dir="$(dirname "$(realpath -e "${BASH_SOURCE[0]}")")"
 readonly script_dir
 
 usage() {
-    echo "Usage: $0 <chroot_path> <version> <sysroot_path>"
+    echo "Usage: $0 <chroot> <sysroot> [options] [key=value...]"
     echo
-    echo "Build a docker container for the test-exec service."
+    echo "Build a docker container for the cros-test service."
     echo
     echo "Args:"
-    echo "  chroot_path  - Path to the location of the ChromeOS chroot"
-    echo "  version      - Version tag to attach to container image"
-    echo "  sysroot_path - Path to the sysroot we're building a container for"
+    echo "  chroot  - Path to the ChromeOS chroot on the host system."
+    echo "  sysroot - Path inside of the chroot to the board sysroot."
+    echo "  labels  - Zero or more key=value strings to apply as labels to container."
+    echo
+    echo "Options:"
+    echo "  --tags/-t - Comma separated list of tag names to apply to container"
     exit 1
 }
 
@@ -41,8 +44,23 @@ prep_container() {
 }
 
 
-readonly chroot_path="$1"
-readonly sysroot_path="$3"
+readonly chroot_path="$1"; shift
+readonly sysroot_path="$1"; shift
+
+tags=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --tags|-t)
+            tags="$2"
+            shift
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
 
 readonly output_dir="tmp/docker/testexeccontainer"
 readonly full_output_dir="${chroot_path}/${sysroot_path}/${output_dir}"
@@ -52,4 +70,9 @@ prep_container
 # shellcheck source=/dev/null
 source "${script_dir}/../../../test/docker/util.sh"
 
-build_container_image "testexeccontainer" "${full_output_dir}/Dockerfile" "$@"
+build_container_image               \
+    "testexeccontainer"             \
+    "${full_output_dir}/Dockerfile" \
+    "${chroot_path}"                \
+    "${tags}"                       \
+    "$@"
