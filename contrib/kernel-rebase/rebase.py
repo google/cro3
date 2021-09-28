@@ -23,17 +23,16 @@ to newer upstream kernels.
 See go/cont-rebase for details
 """
 
-import code
 import os
 import re
 import sys
-from datetime import datetime
 import multiprocessing
 from multiprocessing import Manager
 import pickle
 import importlib
 import sqlite3
 import sh
+from logging_console import LoggingConsole
 from common import executor_io, rebasedb
 from config import *
 import rebase_config
@@ -52,30 +51,6 @@ def call_hook(sha, hook_type):
         if hook_type in entry['types']:
             hook = entry['hook']
             hook(sha, hook_type)
-
-class Logger:
-    """Splits stdout into stdout and a file"""
-
-    def __init__(self):
-        sh.mkdir('-p', 'log/triage/')
-        ts = datetime.now().strftime('%d-%m-%Y_%H-%M-%S')
-        filename = ts + '.log'
-        if os.path.exists('log/latest'):
-            sh.rm('log/latest')
-        sh.ln('-s', filename, 'log/latest')
-        self.terminal = sys.stdout
-        self.log = open('log/' + filename, 'w')
-
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
-
-    def flush(self):
-        self.terminal.flush()
-        self.log.flush()
-
-
-sys.stdout = Logger()
 
 
 def branch_name(branch_prefix, target, topic):
@@ -836,5 +811,6 @@ def merge_topic_branches():
             print('Enter [s]top to exit or c[ontinue] to proceed')
 
 # The script only performs basic setup by itself. Specific actions
-# are done via the Python shell created by this call to code.interact.
-code.interact(local=locals())
+# are done via an interactive Python shell.
+lc = LoggingConsole(local=dict(globals(), **locals()))
+lc.interact()
