@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	_go "go.chromium.org/chromiumos/config/go"
@@ -58,11 +59,22 @@ func (s *ReportsServer) ReportResult(ctx context.Context, req *protocol.ReportRe
 			Path:     filepath.Join(s.testResultsDir, "tests", req.Test),
 		},
 		Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
+		TestHarness: &api.TestHarness{
+			TestHarnessType: &api.TestHarness_Tast_{
+				Tast: &api.TestHarness_Tast{},
+			},
+		},
 	}
 	if len(req.Errors) > 0 {
 		testResult.Verdict = &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}}
+		var reasons []string
+		for _, e := range req.Errors {
+			reasons = append(reasons, e.Reason)
+		}
+		testResult.Reason = strings.Join(reasons, "\n")
 	} else if req.SkipReason != "" {
-		testResult.Verdict = &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}}
+		testResult.Verdict = &api.TestCaseResult_Skip_{Skip: &api.TestCaseResult_Skip{}}
+		testResult.Reason = req.SkipReason
 	}
 
 	s.mu.Lock()
@@ -74,10 +86,13 @@ func (s *ReportsServer) ReportResult(ctx context.Context, req *protocol.ReportRe
 }
 
 // MissingTestsReports return error results to all tests that have not reported results.
-func (s *ReportsServer) MissingTestsReports() []*api.TestCaseResult {
+func (s *ReportsServer) MissingTestsReports(reason string) []*api.TestCaseResult {
 	var missingTestResults []*api.TestCaseResult
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if reason == "" {
+		reason = "Test did not run"
+	}
 	for _, t := range s.tests {
 		if _, ok := s.reportedTests[t]; ok {
 			continue
@@ -88,7 +103,13 @@ func (s *ReportsServer) MissingTestsReports() []*api.TestCaseResult {
 		}
 		missingTestResults = append(missingTestResults, &api.TestCaseResult{
 			TestCaseId: &api.TestCase_Id{Value: testID},
-			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
+			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
+			Reason:     reason,
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tast_{
+					Tast: &api.TestHarness_Tast{},
+				},
+			},
 		})
 	}
 	return missingTestResults

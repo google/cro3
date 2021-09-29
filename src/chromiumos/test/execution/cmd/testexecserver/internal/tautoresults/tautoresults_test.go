@@ -60,6 +60,11 @@ func TestTestsReports(t *testing.T) {
 				Path:     filepath.Join(resultsDir),
 			},
 			Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tauto_{
+					Tauto: &api.TestHarness_Tauto{},
+				},
+			},
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_fail_id"},
@@ -68,6 +73,12 @@ func TestTestsReports(t *testing.T) {
 				Path:     filepath.Join(resultsDir),
 			},
 			Verdict: &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}},
+			Reason:  "OH NO IT FAILED Q_Q",
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tauto_{
+					Tauto: &api.TestHarness_Tauto{},
+				},
+			},
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_err_id"},
@@ -75,11 +86,23 @@ func TestTestsReports(t *testing.T) {
 				HostType: _go.StoragePath_LOCAL,
 				Path:     filepath.Join(resultsDir),
 			},
-			Verdict: &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
+			Verdict: &api.TestCaseResult_Crash_{Crash: &api.TestCaseResult_Crash{}},
+			Reason:  "I drove my car into a tree, and crashed.",
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tauto_{
+					Tauto: &api.TestHarness_Tauto{},
+				},
+			},
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_dne_id"},
-			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
+			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
+			Reason:     "Test did not run",
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tauto_{
+					Tauto: &api.TestHarness_Tauto{},
+				},
+			},
 		},
 	}
 
@@ -109,11 +132,23 @@ func TestTestsReports_BadJson(t *testing.T) {
 	expectedResults := []*api.TestCaseResult{
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_pass_id"},
-			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
+			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
+			Reason:     "Test did not run",
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tauto_{
+					Tauto: &api.TestHarness_Tauto{},
+				},
+			},
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_dne_id"},
-			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
+			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
+			Reason:     "Test did not run",
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tauto_{
+					Tauto: &api.TestHarness_Tauto{},
+				},
+			},
 		},
 	}
 
@@ -127,7 +162,7 @@ func TestTestsReports_BadJson(t *testing.T) {
 
 	reports, _ := TestsReports(resultsDir, tests, testNamesToIds)
 
-	if diff := cmp.Diff(expectedResults, reports); diff != "" {
+	if diff := cmp.Diff(reports, expectedResults); diff != "" {
 		t.Errorf("Got unexpected missing reports (-got +want):\n%s", diff)
 	}
 

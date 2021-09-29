@@ -62,13 +62,27 @@ func GenerateReport(test test, testID string, resultsDir string) *api.TestCaseRe
 			Path:     filepath.Join(resultsDir),
 		},
 		Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
+		TestHarness: &api.TestHarness{
+			TestHarnessType: &api.TestHarness_Tauto_{
+				Tauto: &api.TestHarness_Tauto{},
+			},
+		},
 	}
 
 	// Change result to fail/err as needed.
 	if test.Verdict == "Fail" {
 		testResult.Verdict = &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}}
+		testResult.Reason = test.Errmsg
+		if test.Errmsg == "" {
+			testResult.Reason = "Test failed"
+		}
 	} else if test.Verdict == "Error" {
-		testResult.Verdict = &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}}
+		// ToDo: b/199940635 -- Update RawResult not to use "Error"
+		testResult.Verdict = &api.TestCaseResult_Crash_{Crash: &api.TestCaseResult_Crash{}}
+		testResult.Reason = test.Errmsg
+		if test.Errmsg == "" {
+			testResult.Reason = "Test did not finish"
+		}
 	}
 	// r.testCaseResults = append(r.testCaseResults, &testResult)
 	return &testResult
@@ -87,7 +101,14 @@ func (r *Report) MissingTestsReports() []*api.TestCaseResult {
 		}
 		missingTestResults = append(missingTestResults, &api.TestCaseResult{
 			TestCaseId: &api.TestCase_Id{Value: testID},
-			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
+			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
+			// ToDo: b/199940635 -- add reason why test did not run if possible.
+			Reason: "Test did not run",
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tauto_{
+					Tauto: &api.TestHarness_Tauto{},
+				},
+			},
 		})
 	}
 	return missingTestResults

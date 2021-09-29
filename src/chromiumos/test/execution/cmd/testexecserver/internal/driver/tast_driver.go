@@ -90,14 +90,16 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr str
 
 	wg.Wait()
 
+	MissingTestErrMsg := ""
 	if err := cmd.Wait(); err != nil {
 		td.logger.Println("Failed to run tast: ", err)
+		MissingTestErrMsg = fmt.Sprintf("Test did not run due to %s", err)
 		return nil, errors.NewStatusError(errors.CommandExitError,
 			fmt.Errorf("tast exited with error: %v", err))
 	}
 
 	testResults := reportServer.TestsReports()
-	missingResults := reportServer.MissingTestsReports()
+	missingResults := reportServer.MissingTestsReports(MissingTestErrMsg)
 	results := append(testResults, missingResults...)
 	reportErrors := reportServer.Errors()
 	if len(reportErrors) > 0 {

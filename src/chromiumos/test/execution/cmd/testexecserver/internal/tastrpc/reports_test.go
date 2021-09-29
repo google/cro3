@@ -123,7 +123,7 @@ func TestReportsServer_ReportResult(t *testing.T) {
 		},
 		{
 			Test:       "SkippedTest",
-			SkipReason: "intentally skipped",
+			SkipReason: "intentionally skipped",
 		},
 	}
 
@@ -135,6 +135,11 @@ func TestReportsServer_ReportResult(t *testing.T) {
 				Path:     filepath.Join(resultDir, "tests", tests[0]),
 			},
 			Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tast_{
+					Tast: &api.TestHarness_Tast{},
+				},
+			},
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: testIDs[1]},
@@ -143,6 +148,12 @@ func TestReportsServer_ReportResult(t *testing.T) {
 				Path:     filepath.Join(resultDir, "tests", tests[1]),
 			},
 			Verdict: &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}},
+			Reason:  "intentionally failed",
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tast_{
+					Tast: &api.TestHarness_Tast{},
+				},
+			},
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: testIDs[2]},
@@ -150,13 +161,25 @@ func TestReportsServer_ReportResult(t *testing.T) {
 				HostType: _go.StoragePath_LOCAL,
 				Path:     filepath.Join(resultDir, "tests", tests[2]),
 			},
-			Verdict: &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
+			Verdict: &api.TestCaseResult_Skip_{Skip: &api.TestCaseResult_Skip{}},
+			Reason:  "intentionally skipped",
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tast_{
+					Tast: &api.TestHarness_Tast{},
+				},
+			},
 		},
 	}
 	expectedMissingReports := []*api.TestCaseResult{
 		{
 			TestCaseId: &api.TestCase_Id{Value: testIDs[3]},
-			Verdict:    &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
+			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
+			Reason:     "Test did not run",
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tast_{
+					Tast: &api.TestHarness_Tast{},
+				},
+			},
 		},
 	}
 
@@ -193,7 +216,7 @@ func TestReportsServer_ReportResult(t *testing.T) {
 	}
 
 	// Testing for missing reports.
-	missingReports := reportsServer.MissingTestsReports()
+	missingReports := reportsServer.MissingTestsReports("Test did not run")
 	if diff := cmp.Diff(missingReports, expectedMissingReports); diff != "" {
 		t.Errorf("Got unexpected missing reports (-got +want):\n%s", diff)
 	}

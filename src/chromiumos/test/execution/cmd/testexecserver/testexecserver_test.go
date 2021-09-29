@@ -106,7 +106,8 @@ func TestWriteOutput(t *testing.T) {
 					HostType: _go.StoragePath_LOCAL,
 					Path:     filepath.Join(resultDir, "tests", tests[2]),
 				},
-				Verdict: &api.TestCaseResult_Error_{Error: &api.TestCaseResult_Error{}},
+				Verdict: &api.TestCaseResult_Skip_{Skip: &api.TestCaseResult_Skip{}},
+				Reason:  "Test is skipped",
 			},
 		},
 	}
