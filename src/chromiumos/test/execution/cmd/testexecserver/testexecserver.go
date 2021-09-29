@@ -18,7 +18,7 @@ import (
 
 	"chromiumos/test/execution/cmd/testexecserver/internal/driver"
 	statuserrors "chromiumos/test/execution/errors"
-	"chromiumos/test/finder"
+	"chromiumos/test/util/finder"
 )
 
 // driverToTestsMapping builds a map between test and its driver.

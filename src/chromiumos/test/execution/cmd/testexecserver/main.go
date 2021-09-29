@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"chromiumos/test/execution/cmd/testexecserver/internal/common"
-	"chromiumos/test/execution/cmd/testexecserver/internal/metadata"
 	"chromiumos/test/execution/errors"
+	"chromiumos/test/util/metadata"
 )
 
 // Version is the version info of this command. It is filled in during emerge.
