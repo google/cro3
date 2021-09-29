@@ -97,7 +97,7 @@ def parse_net_log(file_name, remove_date, process_filter, mm_raw_parser_level,
   with open(file_name, encoding='ISO-8859-1') as ff:
     # pylint: disable=line-too-long
     process_re = re.compile(
-      r'(?:(?<=DEBUG )|(?<=INFO )|(?<=WARNING )|(?<=NOTICE ))(.*?)(?=\[[0-9]*\])')
+      r'(?:(?<=DEBUG )|(?<=INFO )|(?<=WARNING )|(?<=NOTICE )|(?<=ERR )|(?<=CRIT ))(.*?)(?=\[[0-9]*\])')
     # pylint: enable=line-too-long
     for line in ff:
       line = line.strip()
