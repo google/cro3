@@ -12,9 +12,15 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/golang/protobuf/jsonpb"
+	"go.chromium.org/chromiumos/config/go/test/api"
+
 	"chromiumos/test/execution/errors"
+	"chromiumos/test/util/finder"
+	"chromiumos/test/util/metadata"
 )
 
 const (
@@ -51,6 +57,62 @@ func newLogger(logFile *os.File) *log.Logger {
 	return log.New(mw, "", log.LstdFlags|log.LUTC)
 }
 
+// readInput reads a CrosTestFinderRequest jsonproto file and returns a pointer to RunTestsRequest.
+func readInput(fileName string) (*api.CrosTestFinderRequest, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return nil, errors.NewStatusError(errors.IOAccessError,
+			fmt.Errorf("fail to read file %v: %v", fileName, err))
+	}
+	req := api.CrosTestFinderRequest{}
+	if err := jsonpb.Unmarshal(f, &req); err != nil {
+		return nil, errors.NewStatusError(errors.UnmarshalError,
+			fmt.Errorf("fail to unmarshal file %v: %v", fileName, err))
+	}
+	return &req, nil
+}
+
+// writeOutput writes a CrosTestFinderResponse json.
+func writeOutput(output string, resp *api.CrosTestFinderResponse) error {
+	f, err := os.Create(output)
+	if err != nil {
+		return errors.NewStatusError(errors.IOCreateError,
+			fmt.Errorf("fail to create file %v: %v", output, err))
+	}
+	m := jsonpb.Marshaler{}
+	if err := m.Marshal(f, resp); err != nil {
+		return errors.NewStatusError(errors.MarshalError,
+			fmt.Errorf("failed to marshall response to file %v: %v", output, err))
+	}
+	return nil
+}
+
+// combineTestSuiteNames combines a list of test suite names to one single name.
+func combineTestSuiteNames(suites []*api.TestSuite) string {
+	if len(suites) == 0 {
+		return "CombinedSuite"
+	}
+	var names []string
+	for _, s := range suites {
+		names = append(names, s.Name)
+	}
+	return strings.Join(names, ",")
+}
+
+// metadataToTestSuite convert a list of test metadata to a test suite.
+func metadataToTestSuite(name string, mdList []*api.TestCaseMetadata) *api.TestSuite {
+	testIds := []*api.TestCase_Id{}
+	for _, md := range mdList {
+		testIds = append(testIds, md.TestCase.Id)
+	}
+	return &api.TestSuite{
+		Name: name,
+		Spec: &api.TestSuite_TestCaseIds{
+			TestCaseIds: &api.TestCaseIdList{TestCaseIds: testIds},
+		},
+	}
+}
+
 func main() {
 	os.Exit(func() int {
 		t := time.Now()
@@ -79,9 +141,37 @@ func main() {
 
 		logger := newLogger(logFile)
 		logger.Println("cros-test-finder version ", Version)
-		logger.Println("cros-test-finder input file: ", *input)
-		logger.Println("cros-test-finder output file ", *output)
-		logger.Println("cros-test-finder metadata directory: ", *metadataDir)
+
+		logger.Println("Reading metadata from directory: ", *metadataDir)
+		allTestMetadata, err := metadata.ReadDir(*metadataDir)
+		if err != nil {
+			logger.Println("Error: ", err)
+			return errors.WriteError(os.Stderr, err)
+		}
+
+		logger.Println("Reading input file: ", *input)
+		req, err := readInput(*input)
+		if err != nil {
+			logger.Println("Error: ", err)
+			return errors.WriteError(os.Stderr, err)
+		}
+
+		suiteName := combineTestSuiteNames(req.TestSuites)
+
+		selectedTestMetadata, err := finder.MatchedTestsForSuites(allTestMetadata.Values, req.TestSuites)
+		if err != nil {
+			logger.Println("Error: ", err)
+			return errors.WriteError(os.Stderr, err)
+		}
+
+		resultTestSuite := metadataToTestSuite(suiteName, selectedTestMetadata)
+
+		logger.Println("Writing output file: ", *output)
+		rspn := &api.CrosTestFinderResponse{TestSuites: []*api.TestSuite{resultTestSuite}}
+		if err := writeOutput(*output, rspn); err != nil {
+			logger.Println("Error: ", err)
+			return errors.WriteError(os.Stderr, err)
+		}
 
 		return 0
 	}())

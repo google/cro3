@@ -1,0 +1,17 @@
+{
+    "testSuites":[{
+        "name":"suite1",
+        "testCaseIds":{
+            "testCaseIds":[
+                {"value":"tast.example.Pass"},
+                {"value":"tast.example.Fail"}
+            ]
+        }
+    },
+    {
+        "name":"suite2",
+        "testCaseTagCriteria":{
+            "tags":["group:meta"]
+        }
+    }]
+}
