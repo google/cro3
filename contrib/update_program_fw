@@ -97,7 +97,7 @@ abort() {
     done
   fi
   cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-firmware-${FLAGS_board}"
-  cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-config-bsp-${FLAGS_board}-private"
+  cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-config-bsp-private"
   repo abandon "${BRANCH}"
   die "$*"
 }
@@ -632,7 +632,7 @@ EB9999="chromeos-firmware-${FLAGS_board}-9999.ebuild"
 # Remove any previous attempts to build the firmware.
 #
 cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-firmware-${FLAGS_board}"
-cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-config-bsp-${FLAGS_board}-private"
+cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-config-bsp-private"
 cd "${OVERLAY}"
 branch
 cd "${DEVCONTRIB}"
