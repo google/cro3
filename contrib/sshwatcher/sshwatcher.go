@@ -122,8 +122,8 @@ func main() {
 	for _, param := range params {
 		// Try connecting once. On the way set host name to what you would expect instead of localhost.
 		log.Printf("Try pre-connecting %v", param.host)
-		if sshResult, err := exec.Command("ssh", param.host, "hostname", param.host).CombinedOutput(); err != nil {
-			log.Fatalf("host[%v] message[%v] err[%v]: can't set host name on remote host", param.host, string(sshResult), err)
+		if sshResult, err := exec.Command("ssh", param.host, "uname", "-a").CombinedOutput(); err != nil {
+			log.Fatalf("host[%v] message[%v] err[%v]: can't get uname -a on remote host", param.host, string(sshResult), err)
 		}
 		go sshConnectionLoop(param, message)
 	}
