@@ -56,7 +56,7 @@ COPY shadow_config.ini /usr/local/autotest/
 RUN chown -R chromeos-test:chromeos-test /usr/local/autotest/shadow_config.ini
 
 # Test service *must* be cp'd into the dockerfile dir prior.
-COPY testexecserver /usr/bin/
+COPY cros-test /usr/bin/
 
 RUN mkdir -p /tmp/test
 # Bring in metadata to 1 location
@@ -64,9 +64,9 @@ COPY *.pb /tmp/test/metadata/
 
 RUN sudo ln -s /usr/local/autotest/site_utils/test_that.py /usr/bin/test_that
 
-# Own testexecserver & metadata
-RUN chown -R chromeos-test:chromeos-test /usr/bin/testexecserver
-RUN chmod 755 /usr/bin/testexecserver
+# Own cros-test & metadata
+RUN chown -R chromeos-test:chromeos-test /usr/bin/cros-test
+RUN chmod 755 /usr/bin/cros-test
 RUN chown -R chromeos-test:chromeos-test /tmp/test/
 RUN chmod 755 /tmp/test/metadata/*.pb
 

@@ -3,12 +3,12 @@
 // found in the LICENSE file.
 
 // Package common provide command utilies and variables for all components in
-// testexecserver to use.
+// cros-test to use.
 package common
 
 // Constants for different components to use.
 const (
-	TestExecServerRoot  = "/tmp/test/testexecserver"
+	TestExecServerRoot  = "/tmp/test/cros-test"
 	TestRequestJSONFile = "request.json"
 	TestResultJSONFile  = "result.json"
 	TestResultDir       = "/tmp/test/results"

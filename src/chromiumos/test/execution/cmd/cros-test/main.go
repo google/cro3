@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"chromiumos/test/execution/cmd/testexecserver/internal/common"
+	"chromiumos/test/execution/cmd/cros-test/internal/common"
 	"chromiumos/test/execution/errors"
 	"chromiumos/test/util/metadata"
 )

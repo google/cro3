@@ -16,7 +16,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"go.chromium.org/chromiumos/config/go/test/api"
 
-	"chromiumos/test/execution/cmd/testexecserver/internal/driver"
+	"chromiumos/test/execution/cmd/cros-test/internal/driver"
 	statuserrors "chromiumos/test/execution/errors"
 	"chromiumos/test/util/finder"
 )

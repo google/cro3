@@ -15,17 +15,17 @@ import tempfile
 
 
 DeployConfig = collections.namedtuple(
-  'DeployConfig', ['source', 'target', 'append', 'permission'])
+    'DeployConfig', ['source', 'target', 'append', 'permission'])
 
 MountConfig = collections.namedtuple(
-  'MountConfig', ['source', 'target', 'mount', 'readonly', 'force_create'])
+    'MountConfig', ['source', 'target', 'mount', 'readonly', 'force_create'])
 
 
 # TODO find a proper root path
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 
-TARGET = '/usr/local/testexecserver/input/request.jsonproto'
-RESULT_LOC = 'testexecserver_result.json'
+TARGET = '/usr/local/cros-test/input/request.jsonproto'
+RESULT_LOC = 'cros-test_result.jsonproto'
 
 # TODO, metadata?
 
@@ -38,26 +38,26 @@ def parse_local_arguments() -> argparse.Namespace:
   @Returns: tuple of local argument parser and remaining argv.
   """
   parser = argparse.ArgumentParser(
-    description='CLI launch the given docker image & start Testservice.')
+      description='CLI launch the given docker image & start Testservice.')
   parser.add_argument('-b', '--build', dest='build',
-            default=None,
-            help='the docker build to use')
+                      default=None,
+                      help='the docker build to use')
   parser.add_argument('--results', dest='results',
-            default=os.path.join(
-              TEST_DIR, 'tmp/results/test/'),
-            help='Results volume on local fs')
+                      default=os.path.join(
+                          TEST_DIR, 'tmp/results/test/'),
+                      help='Results volume on local fs')
   parser.add_argument('--target_results', type=str,
-            dest='target_results',
-            default='/tmp/test/results/',
-            help='Results volume on docker fs')
+                      dest='target_results',
+                      default='/tmp/test/results/',
+                      help='Results volume on docker fs')
   parser.add_argument('-bin', '--bin', dest='bin', type=str,
-            default='testexecserver',
-            help='bin to launch on Docker Run')
+                      default='cros-test',
+                      help='bin to launch on Docker Run')
   parser.add_argument('--input_json', dest='input_json',
-            help='input_json to provide to testexecserver')
+                      help='input_json to provide to cros-test')
   parser.add_argument('-output_json', dest='output_json',
-            default=RESULT_LOC,
-            help='result output json name')
+                      default=RESULT_LOC,
+                      help='result output json name')
   parser.add_argument('--foreground', action='store_true',
                       help='True if you want docker running in foreground.')
   parser.add_argument('--dry_run', action='store_true')
@@ -110,11 +110,11 @@ class DockerPrepManager(object):
 
     # Deploy_configs are cp'd files
     self.deploy_configs = [self.validate(c) for c in deploy_configs
-                 if 'append' in c]
+                           if 'append' in c]
 
     # mount_configs are mounted dirs
     self.mount_configs = [self.validate_mount(c) for c in deploy_configs
-                if 'mount' in c]
+                          if 'mount' in c]
 
   def _load_request(self) -> None:
     """Load and mount the test request."""
@@ -177,8 +177,8 @@ class DockerPrepManager(object):
     """
     f = ' --mount type=bind,source={full_src_path},' \
         'target={full_target_path}'.format(
-          full_src_path=config.source,
-          full_target_path=config.target)
+            full_src_path=config.source,
+            full_target_path=config.target)
 
     self.docker_cmd += f
 
@@ -227,8 +227,8 @@ class DockerPrepManager(object):
     """Add an arg to docker run."""
     self.docker_cmd += (' %s' % cmd)
 
-  def add_testexecserver(self, args: argparse.Namespace):
-    """Add the testexecserver bin & args to docker run."""
+  def add_cros_test(self, args: argparse.Namespace):
+    """Add the cros-test bin & args to docker run."""
     if not args.input_json:
       raise Exception('An input file must be specified')
     cmd = '{} -input {} -output {}'.format(
@@ -244,10 +244,10 @@ def main() -> None:
   dm.setup()
   res = dm.add_results(args.results, args.target_results)
   dm.add_docker_image_name(args.build)
-  dm.add_testexecserver(args)
+  dm.add_cros_test(args)
   if not args.dry_run:
     f = _run(dm.docker_cmd)
-    print('Running testexecservice in container %s' % f)
+    print('Running cros-test in container %s' % f)
     verb = 'can'
   else:
     print(f'Docker Command: \n{dm.docker_cmd}\n')

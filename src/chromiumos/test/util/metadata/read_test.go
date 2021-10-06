@@ -19,7 +19,7 @@ import (
 // TestReadDir makes to ReadDir read all metadata files in a directory without errors.
 func TestReadDir(t *testing.T) {
 
-	tmpDir, err := ioutil.TempDir("", "testexecserver_TestReadDir_*")
+	tmpDir, err := ioutil.TempDir("", "cros-test_TestReadDir_*")
 	if err != nil {
 		t.Fatal("Failed to create tmpdir: ", err)
 	}

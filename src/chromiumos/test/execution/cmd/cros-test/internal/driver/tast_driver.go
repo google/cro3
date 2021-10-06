@@ -15,7 +15,7 @@ import (
 
 	"go.chromium.org/chromiumos/config/go/test/api"
 
-	"chromiumos/test/execution/cmd/testexecserver/internal/tastrpc"
+	"chromiumos/test/execution/cmd/cros-test/internal/tastrpc"
 	"chromiumos/test/execution/errors"
 )
 

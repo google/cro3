@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Package tastrpc provides the Tast related RPC services by testexecserver.
+// Package tastrpc provides the Tast related RPC services by cros-test.
 package tastrpc
 
 import (

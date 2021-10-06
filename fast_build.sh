@@ -4,7 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This script quickly builds the testexecserver executable or its unit tests within a
+# This script quickly builds the cros-test executable or its unit tests within a
 # Chrome OS chroot.
 
 # Personal Go workspace used to cache compiled packages.
@@ -18,12 +18,12 @@ readonly SRCDIRS=(
   "${HOME}/trunk/src/platform/dev"
 )
 
-# Package to build to produce testexecserver
-readonly TESTEXECSERVER_PKG="chromiumos/test/execution/cmd/testexecserver"
+# Package to build to produce cros-test
+readonly CROS_TEST_PKG="chromiumos/test/execution/cmd/cros-test"
 readonly PROVISIONSERVER_PKG="chromiumos/test/provision/cmd/provisionserver"
 
-# Output filename for testexecserver executable.
-readonly TESTEXECSERVER_OUT="${GOHOME}/bin/testexecserver"
+# Output filename for cros-test executable.
+readonly CROS_TEST_OUT="${GOHOME}/bin/cros-test"
 readonly PROVISIONSERVER_OUT="${GOHOME}/bin/provisionserver"
 
 # Readonly Go workspaces containing source to build. Note that the packages
@@ -42,9 +42,9 @@ readonly CMD=$(basename "${0}")
 # Prints usage information and exits.
 usage() {
   cat - <<EOF >&2
-Quickly builds the testexecserver executable or its unit tests.
+Quickly builds the cros-test executable or its unit tests.
 
-Usage: ${CMD}                             Builds testexecserver to ${TESTEXECSERVER_OUT}.
+Usage: ${CMD}                             Builds cros-test to ${CROS_TEST_OUT}.
        ${CMD} -b <pkg> -o <path>          Builds <pkg> to <path>.
        ${CMD} [-v] -T                     Tests all packages.
        ${CMD} [-v] [-r <regex>] -t <pkg>  Tests <pkg>.
@@ -170,6 +170,6 @@ elif [ -n "${check_pkg}" ]; then
     run_vet "${check_pkg}"
   fi
 else
-  run_build "${TESTEXECSERVER_PKG}" "${TESTEXECSERVER_OUT}"
+  run_build "${CROS_TEST_PKG}" "${CROS_TEST_OUT}"
   run_build "${PROVISIONSERVER_PKG}" "${PROVISIONSERVER_OUT}"
 fi

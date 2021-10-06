@@ -117,7 +117,7 @@ class DockerPrep():
 
   def copy_services(self):
     """Copy services needed for Docker."""
-    shutil.copy(os.path.join(self.chroot_bin, 'testexecserver'),
+    shutil.copy(os.path.join(self.chroot_bin, 'cros-test'),
                 self.full_out)
 
   def copy_metadata(self):

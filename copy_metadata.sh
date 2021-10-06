@@ -7,7 +7,7 @@
 # This script copy the test metadata from build to local test directory
 # Example:
 # ./copy_metadata.sh hana ./src/chromiumos/test/execution/data/metadata
-# This script is temporary solution for testing of testexecserver.
+# This script is temporary solution for testing of cros-test.
 # It will be removed after we implement a permanent method to export
 # test metadata to a single directory.
 

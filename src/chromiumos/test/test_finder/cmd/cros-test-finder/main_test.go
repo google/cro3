@@ -49,7 +49,7 @@ func TestReadInput(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to marshall request")
 	}
-	td, err := ioutil.TempDir("", "testexecserver_TestReadInput_*")
+	td, err := ioutil.TempDir("", "cros-test-finder_TestReadInput_*")
 	if err != nil {
 		t.Fatal("Failed to create temporary dictectory: ", err)
 	}
