@@ -27,8 +27,6 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 TARGET = '/usr/local/cros-test/input/request.jsonproto'
 RESULT_LOC = 'cros-test_result.jsonproto'
 
-# TODO, metadata?
-
 
 def parse_local_arguments() -> argparse.Namespace:
   """Strip out arguments that are not to be passed through to runs.
@@ -39,82 +37,110 @@ def parse_local_arguments() -> argparse.Namespace:
   """
   parser = argparse.ArgumentParser(
       description='CLI launch the given docker image & start Testservice.')
-  parser.add_argument('-b', '--build', dest='build',
+  parser.add_argument('-b',
+                      '--build',
+                      dest='build',
                       default=None,
                       help='the docker build to use')
-  parser.add_argument('--results', dest='results',
-                      default=os.path.join(
-                          TEST_DIR, 'tmp/results/test/'),
+  parser.add_argument('--results',
+                      dest='results',
+                      default=os.path.join(TEST_DIR, 'tmp/results/test/'),
                       help='Results volume on local fs')
-  parser.add_argument('--target_results', type=str,
+  parser.add_argument('--target_results',
+                      type=str,
                       dest='target_results',
                       default='/tmp/test/results/',
                       help='Results volume on docker fs')
-  parser.add_argument('-bin', '--bin', dest='bin', type=str,
+  parser.add_argument('-bin',
+                      '--bin',
+                      dest='bin',
+                      type=str,
                       default='cros-test',
                       help='bin to launch on Docker Run')
-  parser.add_argument('--input_json', dest='input_json',
-                      help='input_json to provide to cros-test')
-  parser.add_argument('-output_json', dest='output_json',
+  parser.add_argument('--input_json',
+                      dest='input_json',
+                      help='input_json to provide to testexecserver')
+  parser.add_argument(
+      '--config_json',
+      dest='config_json',
+      nargs='*',
+      help='List of config files.',
+      default=['/usr/local/autotest/ssp_deploy_shadow_config.json'])
+  parser.add_argument('-output_json',
+                      dest='output_json',
                       default=RESULT_LOC,
                       help='result output json name')
-  parser.add_argument('--foreground', action='store_true',
+  parser.add_argument('--foreground',
+                      action='store_true',
                       help='True if you want docker running in foreground.')
-  parser.add_argument('--dry_run', action='store_true')
+  parser.add_argument('--print_cmd_only', action='store_true')
+  parser.add_argument('--cmd',
+                      dest='cmd',
+                      help='A command to run in the docker container')
 
   args = parser.parse_args()
   return args
 
 
-def _run(c: str) -> str:
+def _run(cmd: str) -> str:
   """Run the given cmd via subprocess.
 
-  Args c (str): cmd to run.
+  Args cmd (str): cmd to run.
   @Returns (str): string output from cmd.
   """
-  out = subprocess.Popen(
-      c, stdout=subprocess.PIPE, shell=True).communicate()[0]  # noqa: E126
+  out = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                         shell=True).communicate()[0]  # noqa: E126
   return out.decode()
 
 
 class DockerPrepManager(object):
   """Get the Docker Container ready for testing."""
 
-  def __init__(self, input_json: str, f: str = None):
+  def __init__(self, input_json: str = None, f: list = None):
     """Param f (str): shadow_config.json file name."""
     if f is None:
-      f = 'supporting/shadow_config.json'
+      f = ['supporting/shadow_config.json']
 
     self._f = f
     self.deploy_configs = []  # type:list[DeployConfig]
     self.mount_configs = []  # type:list[MountConfig]
-    self.input_json = {'source': input_json,
-                       'target': TARGET,
-                       'append': False,
-                       'permission': None}
     self._load_config()
-    self._load_request()
+
+    if input_json:
+      self.input_json = {
+          'source': input_json,
+          'target': TARGET,
+          'append': False,
+          'permission': None
+      }
+
+      self._load_request()
 
     # Base docker run command to build from.
     self.docker_cmd = 'docker run --net=host --user chromeos-test'
 
   def run_in_background(self) -> None:
+    """Add flag to run the docker command in the background (no stdout)."""
     self.docker_cmd += ' --rm --detach'
 
   def _load_config(self) -> None:
     """Load the config from f into local mem."""
-    if not os.path.exists(self._f):
-      return
-    with open(self._f) as f:
-      deploy_configs = json.load(f)
+    deploy_configs = []
+    for file in self._f:
+      if not os.path.exists(file):
+        return
+      with open(file) as rf:
+        deploy_configs += json.load(rf)
 
     # Deploy_configs are cp'd files
-    self.deploy_configs = [self.validate(c) for c in deploy_configs
-                           if 'append' in c]
+    self.deploy_configs = [
+        self.validate(c) for c in deploy_configs if 'append' in c
+    ]
 
     # mount_configs are mounted dirs
-    self.mount_configs = [self.validate_mount(c) for c in deploy_configs
-                          if 'mount' in c]
+    self.mount_configs = [
+        self.validate_mount(c) for c in deploy_configs if 'mount' in c
+    ]
 
   def _load_request(self) -> None:
     """Load and mount the test request."""
@@ -130,9 +156,8 @@ class DockerPrepManager(object):
     source = deploy_config['source']
     if not os.path.isabs(source):
       if source.startswith('~'):
-        raise Exception('Absolute paths must be provided.')
-      else:
-        source = os.path.join(TEST_DIR, source)
+        raise Exception('Absolute paths must be provided. %s' % source)
+      source = os.path.join(TEST_DIR, source)
 
       # Update the source setting in deploy config with the updated path.
       deploy_config['source'] = source
@@ -162,8 +187,8 @@ class DockerPrepManager(object):
       self._append_docker_mount(deploy_config)
 
     for mount_config in self.mount_configs:
-      if (mount_config.force_create and
-          not os.path.exists(mount_config.source)):
+      if (mount_config.force_create
+          and not os.path.exists(mount_config.source)):
         _run('mkdir -p %s' % mount_config.source)
 
       self._append_docker_volume(mount_config)
@@ -189,8 +214,7 @@ class DockerPrepManager(object):
 
     @Args: deploy_config: Config to be deployed.
     """
-    f = ' -v {src}:{dest}'.format(src=config.source,
-                                  dest=config.target)
+    f = ' -v {src}:{dest}'.format(src=config.source, dest=config.target)
     if hasattr(config, 'readonly') and config.readonly:
       f += ':ro'
 
@@ -212,7 +236,10 @@ class DockerPrepManager(object):
     _run('mkdir -p {src}'.format(src=src))
     _run('chmod 777 -R {src}'.format(src=src))
 
-    r = MountConfig(source=src, target=tgt, mount=True, readonly=False,
+    r = MountConfig(source=src,
+                    target=tgt,
+                    mount=True,
+                    readonly=False,
                     force_create=True)
     self._append_docker_volume(r)
     return str(src)
@@ -232,20 +259,33 @@ class DockerPrepManager(object):
     if not args.input_json:
       raise Exception('An input file must be specified')
     cmd = '{} -input {} -output {}'.format(
-        args.bin, TARGET, os.path.join(args.target_results, args.output_json))
+        args.bin, TARGET,
+        os.path.join(args.target_results, args.output_json))
+    self._add_arg(cmd)
+
+  def add_cmd(self, cmd: str):
+    """Add the given str to the docker cmd."""
     self._add_arg(cmd)
 
 
 def main() -> None:
   args = parse_local_arguments()
-  dm = DockerPrepManager(input_json=args.input_json)
+  if args.input_json and args.cmd:
+    raise Exception('Expected either input_json or cmd, not both.')
+  dm = DockerPrepManager(input_json=args.input_json, f=args.config_json)
   if not args.foreground:
     dm.run_in_background()
   dm.setup()
   res = dm.add_results(args.results, args.target_results)
   dm.add_docker_image_name(args.build)
-  dm.add_cros_test(args)
-  if not args.dry_run:
+
+  # If an input json is used, deply the testexecserver
+  if args.input_json:
+    dm.add_cros_test(args)
+  else:
+    dm.add_cmd(args.cmd)
+
+  if not args.print_cmd_only:
     f = _run(dm.docker_cmd)
     print('Running cros-test in container %s' % f)
     verb = 'can'

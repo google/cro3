@@ -10,7 +10,7 @@
 2.) Run the following command (with chroot_path and sysroot_path set):
 
 ```bash
-./build-dockerimage.sh $chroot_path noop $sysroot_path
+./build-dockerimage.sh $chroot_path $sysroot_path <tags>
 ```
 
 ## Run the test via testexecservice
@@ -24,7 +24,7 @@
 Example of foreground cmd only (pastes the command, you can copy/paste to start it)
 
 ```bash
-python3 run_docker.py --build=$docker_image_name --input_json=../../../src/chromiumos/test/execution/data/tauto.json --results=$chroot_path/tmp/dockertest --foreground --dry_run
+python3 run_docker.py --build=$docker_image_name --input_json=../../../src/chromiumos/test/execution/data/tauto.json --results=$chroot_path/tmp/dockertest --foreground --print_cmd_only
 ```
 Example of full cmd (starts the test for you, and echos stdout)
 
