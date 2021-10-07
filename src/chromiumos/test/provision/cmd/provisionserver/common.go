@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 // Implements provision_service.proto (see proto for details)
-package main
+package provisionserver
 
 import (
 	"context"
@@ -37,7 +37,7 @@ type provision struct {
 }
 
 // newProvision creates new provision to perform.
-func newProvision(logger *log.Logger, dutName string, dutServiceAddr, wiringServiceAddr string) (*provision, func(), error) {
+func NewProvision(logger *log.Logger, dutName string, dutServiceAddr, wiringServiceAddr string) (*provision, func(), error) {
 	var conns []*grpc.ClientConn
 	closer := func() {
 		for _, conn := range conns {

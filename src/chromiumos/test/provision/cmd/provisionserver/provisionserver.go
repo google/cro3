@@ -3,35 +3,14 @@
 // found in the LICENSE file.
 
 // Implements provision_service.proto (see proto for details)
-package main
+package provisionserver
 
 import (
 	"context"
-	"fmt"
-	"net"
-
-	"chromiumos/lro"
 
 	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"go.chromium.org/luci/common/errors"
-	"google.golang.org/grpc"
 )
-
-// startServer starts provision server on requested port.
-func (s *provision) startServer(port int) error {
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return errors.Annotate(err, "start server: create listener at %d", port).Err()
-	}
-	s.manager = lro.New()
-	defer s.manager.Close()
-	server := grpc.NewServer()
-	api.RegisterProvisionServiceServer(server, s)
-	longrunning.RegisterOperationsServer(server, s.manager)
-	s.logger.Println("provisionservice listen to request at ", l.Addr().String())
-	return server.Serve(l)
-}
 
 // InstallCros installs a specified version of Chrome OS on the DUT, along
 // with any specified DLCs.
