@@ -192,9 +192,11 @@ def _format_commit_message(git, report, message, conflicted):
     else:
         msg[0] = f'{report.prefix}: ' + msg[0]
 
+    forklift_sig = 'Backported using forklift.py'
     re_cp = re.compile('\(cherry picked from commit ([0-9a-fA-F]+)\)')
 
-    found = {'bug': None, 'test': None, 'cherry-pick': None, 'change-id': None}
+    found = {'bug': None, 'test': None, 'cherry-pick': None, 'change-id': None,
+             'forklift': None}
     for i, l in enumerate(msg[1:]):
         if l.startswith('BUG='):
             found['bug'] = i + 1
@@ -204,6 +206,8 @@ def _format_commit_message(git, report, message, conflicted):
             found['change-id'] = i + 1
         elif re_cp.fullmatch(l):
             found['cherry-pick'] = i + 1
+        elif l.startswith(forklift_sig):
+            found['forklift'] = i + 1
 
     change_id = ''
     if found['change-id']:
@@ -232,6 +236,9 @@ def _format_commit_message(git, report, message, conflicted):
         msg.append(f'BUG={report.bug}')
     if not found['test']:
         msg.append(f'TEST={report.test}')
+    if not found['forklift']:
+        msg.append('')
+        msg.append(forklift_sig)
 
     if change_id:
         msg.append('')
