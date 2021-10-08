@@ -9,15 +9,18 @@ import (
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/mock_services"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/ashservice"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/crosservice"
+	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/firmwareservice"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/lacrosservice"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	conf "go.chromium.org/chromiumos/config/go"
+	build_api "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
@@ -775,4 +778,135 @@ func TestPkillOnlyRunsForTenSeconds(t *testing.T) {
 	if err := st.Execute(ctx); err == nil {
 		t.Fatalf("prepare should've failed!")
 	}
+}
+
+func TestFirmwareProvisioningStates(t *testing.T) {
+	fakeGSPath := "foobar"
+	expectedImagePathOnDUT := path.Join(firmwareservice.FirmwarePathTmp, fakeGSPath)
+	makeRequest := func(main_rw, main_ro, ec_ro, pd_ro bool) *api.InstallFirmwareRequest {
+		fakePayload := &build_api.FirmwarePayload{FirmwareImage: &build_api.FirmwarePayload_FirmwareImagePath{FirmwareImagePath: &conf.StoragePath{HostType: conf.StoragePath_GS, Path: fakeGSPath}}}
+		FirmwareConfig := build_api.FirmwareConfig{}
+		if main_rw {
+			FirmwareConfig.MainRwPayload = fakePayload
+		}
+		if main_ro {
+			FirmwareConfig.MainRoPayload = fakePayload
+		}
+		if ec_ro {
+			FirmwareConfig.EcRoPayload = fakePayload
+		}
+		if pd_ro {
+			FirmwareConfig.PdRoPayload = fakePayload
+		}
+		fmt.Printf("FirmwareConfig %#v \n", FirmwareConfig)
+
+		return &api.InstallFirmwareRequest{FirmwareConfig: &FirmwareConfig}
+	}
+	type TestCase struct {
+		// inputs
+		main_rw, main_ro, ec_ro, pd_ro bool
+		// expected outputs
+		updateRw, updateRo     bool
+		expectConstructorError bool
+	}
+
+	testCases := []TestCase{
+		{ /*in*/ false, false, false, false /*out*/, false, false /*err*/, true},
+		{ /*in*/ true, false, false, false /*out*/, true, false /*err*/, false},
+		{ /*in*/ false, true, false, false /*out*/, false, true /*err*/, false},
+		{ /*in*/ false, false, true, true /*out*/, false, true /*err*/, false},
+		{ /*in*/ false, true, true, true /*out*/, false, true /*err*/, false},
+		{ /*in*/ true, true, true, true /*out*/, true, true /*err*/, false},
+		{ /*in*/ true, true, false, true /*out*/, true, true /*err*/, false},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_services.NewMockServiceAdapterInterface(ctrl)
+
+	for _, testCase := range testCases {
+		if !testCase.expectConstructorError {
+			sam.EXPECT().CreateDirectories(gomock.Any(), gomock.Eq([]string{firmwareservice.FirmwarePathTmp})).Return(nil)
+		}
+		fws, err := firmwareservice.NewFirmwareServiceFromExistingConnection(
+			sam,
+			makeRequest(testCase.main_rw, testCase.main_ro, testCase.ec_ro, testCase.pd_ro),
+		)
+		if err != nil {
+			if testCase.expectConstructorError {
+				continue
+			}
+			t.Fatalf("failed to create FirmwareService with test case %#v: %v", testCase, err)
+		}
+		if err == nil && testCase.expectConstructorError {
+			t.Fatalf("expected constructor error for test case %#v. got: %v", testCase, err)
+		}
+		if testCase.updateRo != fws.UpdateRo() {
+			t.Fatalf("test case %#v expects updateRo to be %v. got: %v.", testCase, testCase.updateRo, fws.UpdateRo())
+		}
+		if testCase.updateRw != fws.UpdateRw() {
+			t.Fatalf("test case %#v expects updateRw to be %v. got: %v.", testCase, testCase.updateRw, fws.UpdateRw())
+		}
+
+		st := fws.GetFirstState()
+
+		ctx := context.Background()
+
+		if testCase.updateRw {
+			expectedFutilityArgs := []string{"update", "--mode=autoupdate", "--wp=1", "--image=" + expectedImagePathOnDUT}
+			gomock.InOrder(
+				sam.EXPECT().CopyData(gomock.Any(), gomock.Eq(fakeGSPath)).Return("image_url", nil),
+				sam.EXPECT().RunCmd(gomock.Any(), "curl", []string{firmwareservice.CurlWithRetriesArgsFW, "image_url", "--output", expectedImagePathOnDUT}).Return("", nil),
+				sam.EXPECT().RunCmd(gomock.Any(), "futility", expectedFutilityArgs).Return("", nil),
+				sam.EXPECT().Restart(gomock.Any()).Return(nil),
+			)
+
+			err := st.Execute(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st = st.Next()
+		}
+
+		if testCase.updateRo {
+			expectedFutilityImageArgs := []string{}
+			if testCase.main_ro {
+				expectedFutilityImageArgs = append(expectedFutilityImageArgs, "--image="+expectedImagePathOnDUT)
+				gomock.InOrder(
+					sam.EXPECT().CopyData(gomock.Any(), gomock.Eq(fakeGSPath)).Return("image_url", nil),
+					sam.EXPECT().RunCmd(gomock.Any(), "curl", []string{firmwareservice.CurlWithRetriesArgsFW, "image_url", "--output", expectedImagePathOnDUT}).Return("", nil),
+				)
+			}
+			if testCase.ec_ro {
+				expectedFutilityImageArgs = append(expectedFutilityImageArgs, "--ec_image="+expectedImagePathOnDUT)
+				gomock.InOrder(
+					sam.EXPECT().CopyData(gomock.Any(), gomock.Eq(fakeGSPath)).Return("image_url", nil),
+					sam.EXPECT().RunCmd(gomock.Any(), "curl", []string{firmwareservice.CurlWithRetriesArgsFW, "image_url", "--output", expectedImagePathOnDUT}).Return("", nil),
+				)
+			}
+			if testCase.pd_ro {
+				expectedFutilityImageArgs = append(expectedFutilityImageArgs, "--pd_image="+expectedImagePathOnDUT)
+				gomock.InOrder(
+					sam.EXPECT().CopyData(gomock.Any(), gomock.Eq(fakeGSPath)).Return("image_url", nil),
+					sam.EXPECT().RunCmd(gomock.Any(), "curl", []string{firmwareservice.CurlWithRetriesArgsFW, "image_url", "--output", expectedImagePathOnDUT}).Return("", nil),
+				)
+			}
+			expectedFutilityArgs := append([]string{"update", "--mode=recovery", "--wp=0"}, expectedFutilityImageArgs...)
+			gomock.InOrder(
+				sam.EXPECT().RunCmd(gomock.Any(), "futility", expectedFutilityArgs).Return("", nil),
+				sam.EXPECT().Restart(gomock.Any()).Return(nil),
+			)
+			err := st.Execute(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st = st.Next()
+		}
+
+		if st.Name() != "Firmware Verify" {
+			t.Fatalf("Expected to finish in state Firmware Verify, got: %v", st.Name())
+		}
+	}
+
 }
