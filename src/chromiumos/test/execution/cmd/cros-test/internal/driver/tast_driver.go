@@ -15,6 +15,7 @@ import (
 
 	"go.chromium.org/chromiumos/config/go/test/api"
 
+	"chromiumos/test/execution/cmd/cros-test/internal/device"
 	"chromiumos/test/execution/cmd/cros-test/internal/tastrpc"
 	"chromiumos/test/execution/errors"
 )
@@ -38,7 +39,7 @@ func (td *TastDriver) Name() string {
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []*api.TestCaseMetadata) (*api.RunTestsResponse, error) {
+func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, primary *api.CrosTestRequest_Device, tlwAddr string, tests []*api.TestCaseMetadata) (*api.CrosTestResponse, error) {
 	testNamesToIds := getTestNamesToIds(tests)
 	testNames := getTestNames(tests)
 
@@ -49,7 +50,12 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr str
 	}
 	defer reportServer.Stop()
 
-	args := newTastArgs(dut, testNames, resultsDir, tlwAddr, reportServer.Address())
+	addr, err := device.Address(primary)
+	if err != nil {
+		return nil, errors.NewStatusError(errors.InvalidArgument,
+			fmt.Errorf("cannot get address from primary device: %v", primary))
+	}
+	args := newTastArgs(addr, testNames, resultsDir, tlwAddr, reportServer.Address())
 
 	// Run tast.
 	cmd := exec.Command("/usr/bin/tast", genArgList(args)...)
@@ -106,10 +112,10 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr str
 		for _, e := range reportErrors {
 			td.logger.Printf("%v\n", e)
 		}
-		return &api.RunTestsResponse{TestCaseResults: results}, reportErrors[len(reportErrors)-1]
+		return &api.CrosTestResponse{TestCaseResults: results}, reportErrors[len(reportErrors)-1]
 	}
 
-	return &api.RunTestsResponse{TestCaseResults: results}, nil
+	return &api.CrosTestResponse{TestCaseResults: results}, nil
 }
 
 // Command name and flag names.

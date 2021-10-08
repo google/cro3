@@ -18,6 +18,7 @@ import (
 	"go.chromium.org/chromiumos/config/go/test/api"
 
 	"chromiumos/test/execution/cmd/cros-test/internal/common"
+	"chromiumos/test/execution/cmd/cros-test/internal/device"
 	"chromiumos/test/execution/cmd/cros-test/internal/tautoresults"
 )
 
@@ -46,11 +47,15 @@ func (td *TautoDriver) Name() string {
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []*api.TestCaseMetadata) (*api.RunTestsResponse, error) {
+func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, primary *api.CrosTestRequest_Device, tlwAddr string, tests []*api.TestCaseMetadata) (*api.CrosTestResponse, error) {
 	testNamesToIds := getTestNamesToIds(tests)
 	testNames := getTestNames(tests)
 
-	args := newTautoArgs(dut, testNames, resultsDir)
+	addr, err := device.Address(primary)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get address from DUT: %v", primary)
+	}
+	args := newTautoArgs(addr, testNames, resultsDir)
 
 	// Run RTD.
 	cmd := exec.Command("/usr/bin/test_that", genTautoArgList(args)...)
@@ -93,10 +98,10 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir, dut, tlwAddr st
 	results, err := tautoresults.TestsReports(resultsDir, testNames, testNamesToIds)
 
 	if err != nil {
-		return &api.RunTestsResponse{}, err
+		return &api.CrosTestResponse{}, err
 	}
 
-	return &api.RunTestsResponse{TestCaseResults: results}, nil
+	return &api.CrosTestResponse{TestCaseResults: results}, nil
 }
 
 // Flag names. More to be populated once impl details are firmed.

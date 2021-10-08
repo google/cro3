@@ -34,7 +34,7 @@ func getTestNames(tests []*api.TestCaseMetadata) []string {
 // Driver provides common interface to execute Tast and Autotest.
 type Driver interface {
 	// RunTests drives a test framework to execute tests.
-	RunTests(ctx context.Context, resultsDir, dut, tlwAddr string, tests []*api.TestCaseMetadata) (*api.RunTestsResponse, error)
+	RunTests(ctx context.Context, resultsDir string, primary *api.CrosTestRequest_Device, tlwAddr string, tests []*api.TestCaseMetadata) (*api.CrosTestResponse, error)
 
 	// Name returns the name of the driver.
 	Name() string

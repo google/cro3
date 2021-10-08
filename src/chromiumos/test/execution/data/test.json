@@ -20,7 +20,15 @@
 			}
 		}
 	],
-	"dut" : {
-		"primary_host": "127.0.0.1:2223"
-	}
+	"primary":{
+            "dut":{
+                "id":{"value":"primary_dut"},
+                "chromeos":{
+                    "ssh":{
+                        "address":"127.0.0.1",
+                        "port":2223
+                   }
+                }
+            }
+        }
 }

@@ -7,6 +7,7 @@ package driver
 
 import (
 	"go.chromium.org/chromiumos/config/go/test/api"
+	labapi "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
 // Common test data for multiple tests.
@@ -29,10 +30,12 @@ const (
 	tlsAddress = "192.168.86.81"
 	tlsPort    = 2227
 	tlwAddress = "192.168.86.109:2228"
-	dut1       = "127.0.0.1:2222"
+	dutName1   = "dut1"
+	dutPort1   = 2225
+	dut1       = "dut1:2225"
 )
 
-var req = api.RunTestsRequest{
+var req = api.CrosTestRequest{
 	TestSuites: []*api.TestSuite{
 		{
 			Name: suite1,
@@ -68,7 +71,14 @@ var req = api.RunTestsRequest{
 			},
 		},
 	},
-	Dut: &api.DeviceInfo{
-		PrimaryHost: dut1,
+	Primary: &api.CrosTestRequest_Device{
+		Dut: &labapi.Dut{
+			Id: &labapi.Dut_Id{Value: "Dut1"},
+			DutType: &labapi.Dut_Chromeos{
+				Chromeos: &labapi.Dut_ChromeOS{
+					Ssh: &labapi.IpEndpoint{Address: dutName1, Port: dutPort1},
+				},
+			},
+		},
 	},
 }

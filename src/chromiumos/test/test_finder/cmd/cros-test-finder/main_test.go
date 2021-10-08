@@ -63,7 +63,7 @@ func TestReadInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read input file %v: %v", fn, err)
 	}
-	if diff := cmp.Diff(req, expReq, cmp.AllowUnexported(api.RunTestsRequest{})); diff != "" {
+	if diff := cmp.Diff(req, expReq, cmp.AllowUnexported(api.CrosTestRequest{})); diff != "" {
 		t.Errorf("Got unexpected request from readInput (-got +want):\n%s", diff)
 	}
 }

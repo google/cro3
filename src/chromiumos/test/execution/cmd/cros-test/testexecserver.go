@@ -50,7 +50,7 @@ func driverToTestsMapping(logger *log.Logger, mdList []*api.TestCaseMetadata) (m
 }
 
 // runTests runs the requested tests.
-func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr string, metadataList *api.TestCaseMetadataList, req *api.RunTestsRequest) (*api.RunTestsResponse, error) {
+func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr string, metadataList *api.TestCaseMetadataList, req *api.CrosTestRequest) (*api.CrosTestResponse, error) {
 	matchedMdList, err := finder.MatchedTestsForSuites(metadataList.Values, req.TestSuites)
 	if err != nil {
 		return nil, statuserrors.NewStatusError(statuserrors.InvalidArgument,
@@ -61,7 +61,7 @@ func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr st
 	if err != nil {
 		return nil, err
 	}
-	allRspn := api.RunTestsResponse{}
+	allRspn := api.CrosTestResponse{}
 
 	for driver, tests := range driversToTests {
 		resultsDir := filepath.Join(resultRootDir, driver.Name())
@@ -70,7 +70,7 @@ func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr st
 			return nil, statuserrors.NewStatusError(statuserrors.IOCreateError,
 				fmt.Errorf("failed to create result directory %v", resultsDir))
 		}
-		rspn, err := driver.RunTests(ctx, resultsDir, req.Dut.PrimaryHost, tlwAddr, tests)
+		rspn, err := driver.RunTests(ctx, resultsDir, req.Primary, tlwAddr, tests)
 		if err != nil {
 			return nil, err
 		}
@@ -80,13 +80,13 @@ func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr st
 }
 
 // readInput reads an execution_service json file and returns a pointer to RunTestsRequest.
-func readInput(fileName string) (*api.RunTestsRequest, error) {
+func readInput(fileName string) (*api.CrosTestRequest, error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		return nil, statuserrors.NewStatusError(statuserrors.IOAccessError,
 			fmt.Errorf("fail to read file %v: %v", fileName, err))
 	}
-	req := api.RunTestsRequest{}
+	req := api.CrosTestRequest{}
 	if err := jsonpb.Unmarshal(f, &req); err != nil {
 		return nil, statuserrors.NewStatusError(statuserrors.UnmarshalError,
 			fmt.Errorf("fail to unmarshal file %v: %v", fileName, err))
@@ -95,7 +95,7 @@ func readInput(fileName string) (*api.RunTestsRequest, error) {
 }
 
 // writeOutput writes a RunTestsResponse json.
-func writeOutput(output string, resp *api.RunTestsResponse) error {
+func writeOutput(output string, resp *api.CrosTestResponse) error {
 	f, err := os.Create(output)
 	if err != nil {
 		return statuserrors.NewStatusError(statuserrors.IOCreateError,

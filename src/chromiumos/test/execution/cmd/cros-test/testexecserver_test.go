@@ -16,10 +16,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
+	labapi "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
 func TestReadInput(t *testing.T) {
-	expReq := &api.RunTestsRequest{
+	expReq := &api.CrosTestRequest{
 		TestSuites: []*api.TestSuite{
 			{
 				Name: "suite1",
@@ -45,8 +46,15 @@ func TestReadInput(t *testing.T) {
 				},
 			},
 		},
-		Dut: &api.DeviceInfo{
-			PrimaryHost: "127.0.0.1:2222",
+		Primary: &api.CrosTestRequest_Device{
+			Dut: &labapi.Dut{
+				Id: &labapi.Dut_Id{Value: "Dut1"},
+				DutType: &labapi.Dut_Chromeos{
+					Chromeos: &labapi.Dut_ChromeOS{
+						Ssh: &labapi.IpEndpoint{Address: "127.0.0.1", Port: 2222},
+					},
+				},
+			},
 		},
 	}
 
@@ -70,7 +78,7 @@ func TestReadInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read input file %v: %v", fn, err)
 	}
-	if diff := cmp.Diff(req, expReq, cmp.AllowUnexported(api.RunTestsRequest{})); diff != "" {
+	if diff := cmp.Diff(req, expReq, cmp.AllowUnexported(api.CrosTestRequest{})); diff != "" {
 		t.Errorf("Got unexpected request from readInput (-got +want):\n%s", diff)
 	}
 }
@@ -82,7 +90,7 @@ func TestWriteOutput(t *testing.T) {
 		"FailedTest",
 		"SkippedTest",
 	}
-	expectedRspn := api.RunTestsResponse{
+	expectedRspn := api.CrosTestResponse{
 		TestCaseResults: []*api.TestCaseResult{
 			{
 				TestCaseId: &api.TestCase_Id{Value: tests[0]},
@@ -124,11 +132,11 @@ func TestWriteOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read response from file %v: %v", fn, err)
 	}
-	rspn := api.RunTestsResponse{}
+	rspn := api.CrosTestResponse{}
 	if err := jsonpb.Unmarshal(f, &rspn); err != nil {
 		t.Fatalf("Failed to unmarshall data from file %v: %v", fn, err)
 	}
-	if diff := cmp.Diff(rspn, expectedRspn, cmp.AllowUnexported(api.RunTestsResponse{})); diff != "" {
+	if diff := cmp.Diff(rspn, expectedRspn, cmp.AllowUnexported(api.CrosTestResponse{})); diff != "" {
 		t.Errorf("Got unexpected data from writeOutput (-got +want):\n%s", diff)
 	}
 }
