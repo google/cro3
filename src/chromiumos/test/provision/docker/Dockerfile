@@ -3,4 +3,4 @@
 # found in the LICENSE file.
 
 FROM ubuntu:bionic
-COPY provisionserver /usr/bin/provisionserver
+COPY cros-provision /usr/bin/cros-provision

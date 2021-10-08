@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 build_server_image             \
-    "provisionserver"          \
+    "cros-provision"          \
     "${script_dir}/Dockerfile" \
     "${chroot}"                \
     "${tags}"                  \
