@@ -3,7 +3,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-set -e
+set -eE -o functrace
+
+# Print context information in the event of a failure to help debugging.
+failure() {
+  local lineno=$1
+  local msg=$2
+  echo "failed at $lineno: $msg" >&2
+}
+trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
 script_dir="$(dirname "$(realpath -e "${BASH_SOURCE[0]}")")"
 readonly script_dir
@@ -20,6 +28,7 @@ usage() {
     echo
     echo "Options:"
     echo "  --tags/-t - Comma separated list of tag names to apply to container"
+    echo "  --output/-o - File to which to write ContainerImageInfo jsonproto"
     exit 1
 }
 
@@ -48,12 +57,16 @@ readonly chroot_path="$1"; shift
 readonly sysroot_path="$1"; shift
 
 tags=""
+output=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --tags|-t)
             tags="$2"
-            shift
-            shift
+            shift 2
+            ;;
+        --output|-o)
+            output="$2"
+            shift 2
             ;;
         *)
             break
@@ -75,4 +88,5 @@ build_container_image               \
     "${full_output_dir}/Dockerfile" \
     "${chroot_path}"                \
     "${tags}"                       \
+    "${output}"                     \
     "$@"
