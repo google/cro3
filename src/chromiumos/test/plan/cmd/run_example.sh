@@ -4,14 +4,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
-# Runs testplan.go on an example SourceTestPlan, with config from
+# Runs testplan.go on an example Starlark file, with config from
 # config-internal.
 
 set -e
 
-usage="Run testplan.go on an example SourceTestPlan.
+usage="Run testplan.go on an example Starlark file.
 
-This script is just for seeing an example run of testplan.go an experimenting
+This script is just for seeing an example run of testplan.go and experimenting
 with changes difficult to unit test (e.g. logging). It directly calls 'go run'
 outside of Portage, so will fail if dependencies are not installed.
 
@@ -77,12 +77,12 @@ outDir=$(mktemp -d)
 out=${outDir}/coverage_rules.jsonproto
 textSummaryOut=${outDir}/coverage_rules_summary.txt
 
-echo "Running testplan.go, writing CoverageRules to ${out}"
+echo "Running testplan.go, writing HWTestPlans to ${out}"
 
 set -x
 
 go run testplan.go generate \
-  -plan example_source_test_plan.textpb \
+  -plan plan.star \
   -dutattributes "${dut_attributes}" \
   -buildmetadata "${build_metadata}" \
   -flatconfiglist "${flat_config_list}" \

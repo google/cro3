@@ -7,14 +7,11 @@ package testplan_test
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	configpb "go.chromium.org/chromiumos/config/go/api"
 	"go.chromium.org/chromiumos/config/go/api/software"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
-	"go.chromium.org/chromiumos/config/go/test/plan"
 
 	testplan "chromiumos/test/plan/internal"
 )
@@ -105,140 +102,48 @@ var flatConfigList = &payload.FlatConfigList{
 	},
 }
 
-func TestGenerate(t *testing.T) {
-	sourceTestPlans := []*plan.SourceTestPlan{
-		{
-			Requirements: &plan.SourceTestPlan_Requirements{
-				KernelVersions: &plan.SourceTestPlan_Requirements_KernelVersions{},
-			},
-			TestTagExcludes: []string{"flaky"},
-		},
-	}
-
-	rules, err := testplan.Generate(sourceTestPlans, buildMetadataList, dutAttributeList, flatConfigList)
-
-	if err != nil {
-		t.Fatalf("Generate returned error: %v", err)
-	}
-
-	expectedRules := []*testpb.CoverageRule{
-		{
-			Name: "kernel:4.14",
-			DutCriteria: []*testpb.DutCriterion{
-				{
-					AttributeId: &testpb.DutAttribute_Id{
-						Value: "system_build_target",
-					},
-					Values: []string{"project1", "project2"},
-				},
-			},
-			TestSuites: []*testpb.TestSuite{
-				{
-					Spec: &testpb.TestSuite_TestCaseTagCriteria_{
-						TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-							TagExcludes: []string{"flaky"},
-						},
-					},
-				},
-			},
-		},
-		{
-			Name: "kernel:5.4",
-			DutCriteria: []*testpb.DutCriterion{
-				{
-					AttributeId: &testpb.DutAttribute_Id{
-						Value: "system_build_target",
-					},
-					Values: []string{"project3"},
-				},
-			},
-			TestSuites: []*testpb.TestSuite{
-				{
-					Spec: &testpb.TestSuite_TestCaseTagCriteria_{
-						TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-							TagExcludes: []string{"flaky"},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	if diff := cmp.Diff(
-		expectedRules,
-		rules,
-		cmpopts.SortSlices(func(i, j *testpb.CoverageRule) bool {
-			return i.Name < j.Name
-		}),
-		cmpopts.SortSlices(func(i, j string) bool {
-			return i < j
-		}),
-		cmpopts.EquateEmpty(),
-	); diff != "" {
-		t.Errorf("generate returned unexpected diff (-want +got):\n%s", diff)
-	}
-}
-
 func TestGenerateErrors(t *testing.T) {
 	tests := []struct {
 		name              string
-		sourceTestPlans   []*plan.SourceTestPlan
+		planFilenames     []string
 		buildMetadataList *buildpb.SystemImage_BuildMetadataList
 		dutAttributeList  *testpb.DutAttributeList
+		flatConfigList    *payload.FlatConfigList
 	}{
 		{
-			name:              "empty sourceTestPlans",
-			sourceTestPlans:   []*plan.SourceTestPlan{},
+			name:              "empty planFilenames",
+			planFilenames:     []string{},
 			buildMetadataList: buildMetadataList,
 			dutAttributeList:  dutAttributeList,
+			flatConfigList:    flatConfigList,
 		},
 		{
-			name: "nil buildMetadataList",
-			sourceTestPlans: []*plan.SourceTestPlan{
-				{
-					Requirements: &plan.SourceTestPlan_Requirements{
-						KernelVersions: &plan.SourceTestPlan_Requirements_KernelVersions{},
-					},
-				},
-			},
+			name:              "nil buildMetadataList",
+			planFilenames:     []string{"plan1.star"},
 			buildMetadataList: nil,
 			dutAttributeList:  dutAttributeList,
+			flatConfigList:    flatConfigList,
 		},
 		{
-			name: "nil dutAttributeList",
-			sourceTestPlans: []*plan.SourceTestPlan{
-				{
-					Requirements: &plan.SourceTestPlan_Requirements{
-						KernelVersions: &plan.SourceTestPlan_Requirements_KernelVersions{},
-					},
-				},
-			},
+			name:              "nil dutAttributeList",
+			planFilenames:     []string{"plan1.star"},
 			buildMetadataList: buildMetadataList,
 			dutAttributeList:  nil,
+			flatConfigList:    flatConfigList,
 		},
 		{
-			name: "plans has paths set",
-			sourceTestPlans: []*plan.SourceTestPlan{
-				{
-					EnabledTestEnvironments: []plan.SourceTestPlan_TestEnvironment{
-						plan.SourceTestPlan_HARDWARE,
-					},
-					Requirements: &plan.SourceTestPlan_Requirements{
-						KernelVersions: &plan.SourceTestPlan_Requirements_KernelVersions{},
-					},
-					TestTagExcludes: []string{"flaky"},
-					PathRegexps:     []string{"a/b/c"},
-				},
-			},
+			name:              "nil FlatConfigList",
+			planFilenames:     []string{"plan1.star"},
 			buildMetadataList: buildMetadataList,
 			dutAttributeList:  dutAttributeList,
+			flatConfigList:    nil,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if _, err := testplan.Generate(
-				test.sourceTestPlans, test.buildMetadataList, test.dutAttributeList, flatConfigList,
+				test.planFilenames, test.buildMetadataList, test.dutAttributeList, flatConfigList,
 			); err == nil {
 				t.Error("Expected error from Generate")
 			}

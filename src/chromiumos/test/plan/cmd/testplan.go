@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// The testplan tool generates ChromeOS CoverageRule protos from SourceTestPlan
-// protos.
+// The testplan tool evaluates Starlark files to generate ChromeOS
+// chromiumos.test.api.v1.HWTestPlan protos.
 package main
 
 import (
@@ -23,7 +23,7 @@ import (
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
-	"go.chromium.org/chromiumos/config/go/test/plan"
+	planv1 "go.chromium.org/chromiumos/config/go/test/api/v1"
 	luciflag "go.chromium.org/luci/common/flag"
 
 	testplan "chromiumos/test/plan/internal"
@@ -61,7 +61,7 @@ func (r *generateRun) addExistingFlags() {
 
 var application = &subcommands.DefaultApplication{
 	Name:  "testplan",
-	Title: "A tool to generate ChromeOS CoverageRule protos from SourceTestPlan protos.",
+	Title: "A tool to evaluate Starlark files to generate ChromeOS chromiumos.test.api.v1.HWTestPlan protos.",
 	Commands: []*subcommands.Command{
 		cmdGenerate,
 		cmdVersion,
@@ -94,20 +94,20 @@ func (r *versionRun) Run(a subcommands.Application, args []string, env subcomman
 }
 
 var cmdGenerate = &subcommands.Command{
-	UsageLine: "generate -plan PLAN1 [-plan PLAN2] -dutattributes PATH -buildmetadata -out OUTPUT",
-	ShortDesc: "generate coverage rule protos",
-	LongDesc: `Generate coverage rule protos.
+	UsageLine: "generate -plan plan1.star [-plan plan2.star] -dutattributes PATH -buildmetadata -out OUTPUT",
+	ShortDesc: "generate HW test plan protos",
+	LongDesc: `Generate HW test plan protos.
 
-Reads SourceTestPlan text protos and generates a CoverageRules as
-newline-delimited json protos.
+Evaluates Starlark files to generate HWTestPlans as newline-delimited json protos.
 `,
 	CommandRun: func() subcommands.CommandRun {
 		r := &generateRun{}
+		// TODO(b/182898188): Add more details on proto input / output for
+		// Starlark files once it is implemented.
 		r.Flags.Var(
 			luciflag.StringSlice(&r.planPaths),
 			"plan",
-			"Text proto file with a SourceTestPlan to use. Must be specified "+
-				"at least once.",
+			"Starlark file to use. Must be specified at least once.",
 		)
 		r.Flags.StringVar(
 			&r.dutAttributeListPath,
@@ -134,14 +134,14 @@ newline-delimited json protos.
 			&r.out,
 			"out",
 			"",
-			"Path to the output CoverageRules.",
+			"Path to the output HWTestPlans.",
 		)
 		r.Flags.StringVar(
 			&r.textSummaryOut,
 			"textsummaryout",
 			"",
 			"Path to write a more easily human-readable summary of the "+
-				"CoverageRules to. If not set, no summary is written.",
+				"HWTestPlans to. If not set, no summary is written.",
 		)
 
 		r.addExistingFlags()
@@ -240,8 +240,8 @@ func readTextpb(path string, m proto.Message) error {
 	return proto.UnmarshalText(string(b), m)
 }
 
-// writeRules writes a newline-delimited json file containing rules to outPath.
-func writeRules(rules []*testpb.CoverageRule, outPath, textSummaryOutPath string) error {
+// writePlans writes a newline-delimited json file containing plans to outPath.
+func writePlans(plans []*planv1.HWTestPlan, outPath, textSummaryOutPath string) error {
 	outFile, err := os.Create(outPath)
 	if err != nil {
 		return err
@@ -249,9 +249,10 @@ func writeRules(rules []*testpb.CoverageRule, outPath, textSummaryOutPath string
 	defer outFile.Close()
 
 	marshaler := jsonpb.Marshaler{}
+	allRules := []*testpb.CoverageRule{}
 
-	for _, rule := range rules {
-		jsonString, err := marshaler.MarshalToString(rule)
+	for _, plan := range plans {
+		jsonString, err := marshaler.MarshalToString(plan)
 		if err != nil {
 			return err
 		}
@@ -261,6 +262,8 @@ func writeRules(rules []*testpb.CoverageRule, outPath, textSummaryOutPath string
 		if _, err = outFile.Write([]byte(jsonString)); err != nil {
 			return err
 		}
+
+		allRules = append(allRules, plan.GetCoverageRules()...)
 	}
 
 	if textSummaryOutPath != "" {
@@ -272,7 +275,7 @@ func writeRules(rules []*testpb.CoverageRule, outPath, textSummaryOutPath string
 		}
 		defer textSummaryOutFile.Close()
 
-		if err = coveragerules.WriteTextSummary(textSummaryOutFile, rules); err != nil {
+		if err = coveragerules.WriteTextSummary(textSummaryOutFile, allRules); err != nil {
 			return err
 		}
 	}
@@ -312,17 +315,6 @@ func (r *generateRun) run() error {
 		return err
 	}
 
-	plans := make([]*plan.SourceTestPlan, len(r.planPaths))
-
-	for i, planPath := range r.planPaths {
-		plan := &plan.SourceTestPlan{}
-		if err := readTextpb(planPath, plan); err != nil {
-			return err
-		}
-
-		plans[i] = plan
-	}
-
 	buildMetadataList := &buildpb.SystemImage_BuildMetadataList{}
 	if err := readBinaryOrJSONPb(r.buildMetadataListPath, buildMetadataList); err != nil {
 		return err
@@ -355,7 +347,7 @@ func (r *generateRun) run() error {
 	glog.Infof("Read %d FlatConfigs from %s", len(flatConfigList.Values), r.flatConfigListPath)
 
 	rules, err := testplan.Generate(
-		plans, buildMetadataList, dutAttributeList, flatConfigList,
+		r.planPaths, buildMetadataList, dutAttributeList, flatConfigList,
 	)
 	if err != nil {
 		return err
@@ -363,7 +355,7 @@ func (r *generateRun) run() error {
 
 	glog.Infof("Generated %d CoverageRules, writing to %s", len(rules), r.out)
 
-	return writeRules(rules, r.out, r.textSummaryOut)
+	return writePlans(rules, r.out, r.textSummaryOut)
 }
 
 func main() {

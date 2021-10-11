@@ -1,4 +1,0 @@
-requirements {
-    kernel_versions {}
-    fingerprint {}
-}
