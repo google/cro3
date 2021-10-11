@@ -39,7 +39,10 @@ func (td *TastDriver) Name() string {
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, primary *api.CrosTestRequest_Device, tlwAddr string, tests []*api.TestCaseMetadata) (*api.CrosTestResponse, error) {
+func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.CrosTestRequest, tlwAddr string, tests []*api.TestCaseMetadata) (*api.CrosTestResponse, error) {
+	primary := req.Primary
+	companions := req.Companions
+
 	testNamesToIds := getTestNamesToIds(tests)
 	testNames := getTestNames(tests)
 
@@ -55,7 +58,16 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, primary *
 		return nil, errors.NewStatusError(errors.InvalidArgument,
 			fmt.Errorf("cannot get address from primary device: %v", primary))
 	}
-	args := newTastArgs(addr, testNames, resultsDir, tlwAddr, reportServer.Address())
+	var companionAddrs []string
+	for _, c := range companions {
+		address, err := device.Address(c)
+		if err != nil {
+			return nil, errors.NewStatusError(errors.InvalidArgument,
+				fmt.Errorf("cannot get address from companion device: %v", c))
+		}
+		companionAddrs = append(companionAddrs, address)
+	}
+	args := newTastArgs(addr, companionAddrs, testNames, resultsDir, tlwAddr, reportServer.Address())
 
 	// Run tast.
 	cmd := exec.Command("/usr/bin/tast", genArgList(args)...)
@@ -136,25 +148,28 @@ const (
 	tlwServerFlag              = "-tlwserver"
 	waitUntilReadyFlag         = "-waituntilready"
 	timeOutFlag                = "-timeout"
-	keyfile                    = "-keyfile"
-	reportsServer              = "-reports_server"
+	keyfileFlag                = "-keyfile"
+	reportsServerFlag          = "-reports_server"
+	companionDUTFlag           = "-companiondut"
 )
 
 // runArgs stores arguments to invoke Tast
 type runArgs struct {
-	target    string            // The url for the target machine.
-	patterns  []string          // The names of test to be run.
-	tastFlags map[string]string // The flags for tast.
-	runFlags  map[string]string // The flags for tast run command.
+	target     string            // The url for the target machine.
+	patterns   []string          // The names of test to be run.
+	tastFlags  map[string]string // The flags for tast.
+	runFlags   map[string]string // The flags for tast run command.
+	companions []string          // The companion DUTs to be used for testing.
 }
 
 // newTastArgs created an argument structure for invoking tast
-func newTastArgs(dut string, tests []string, resultsDir, tlwAddress, rsAddress string) *runArgs {
+func newTastArgs(dut string, companionDuts, tests []string, resultsDir, tlwAddress, rsAddress string) *runArgs {
 	downloadPrivateBundles := "false"
 	// Change downloadPrivateBundlesFlag to "true" if tlwServer is specified.
 	if tlwAddress != "" {
 		downloadPrivateBundles = "true"
 	}
+
 	return &runArgs{
 		target: dut,
 		tastFlags: map[string]string{
@@ -168,10 +183,11 @@ func newTastArgs(dut string, tests []string, resultsDir, tlwAddress, rsAddress s
 			downloadPrivateBundlesFlag: downloadPrivateBundles,
 			timeOutFlag:                "3000",
 			resultsDirFlag:             resultsDir,
-			reportsServer:              rsAddress,
+			reportsServerFlag:          rsAddress,
 			tlwServerFlag:              tlwAddress,
 		},
-		patterns: tests, // TO-DO Support Tags
+		patterns:   tests, // TO-DO Support Tags
+		companions: companionDuts,
 	}
 }
 
@@ -183,6 +199,10 @@ func genArgList(args *runArgs) (argList []string) {
 	argList = append(argList, runSubcommand)
 	for flag, value := range args.runFlags {
 		argList = append(argList, fmt.Sprintf("%v=%v", flag, value))
+	}
+	for i, c := range args.companions {
+		// example: -companiondut=cd1:127.0.0.1:2222
+		argList = append(argList, fmt.Sprintf("%v=cd%v:%v", companionDUTFlag, i+1, c))
 	}
 	argList = append(argList, args.target)
 	argList = append(argList, args.patterns...)

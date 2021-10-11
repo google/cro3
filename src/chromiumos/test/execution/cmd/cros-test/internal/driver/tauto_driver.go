@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"chromiumos/lro"
@@ -47,7 +48,9 @@ func (td *TautoDriver) Name() string {
 }
 
 // RunTests drives a test framework to execute tests.
-func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, primary *api.CrosTestRequest_Device, tlwAddr string, tests []*api.TestCaseMetadata) (*api.CrosTestResponse, error) {
+func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, req *api.CrosTestRequest, tlwAddr string, tests []*api.TestCaseMetadata) (*api.CrosTestResponse, error) {
+	primary := req.Primary
+	companions := req.Companions
 	testNamesToIds := getTestNamesToIds(tests)
 	testNames := getTestNames(tests)
 
@@ -55,7 +58,15 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, primary 
 	if err != nil {
 		return nil, fmt.Errorf("cannot get address from DUT: %v", primary)
 	}
-	args := newTautoArgs(addr, testNames, resultsDir)
+	var companionAddrs []string
+	for _, c := range companions {
+		address, err := device.Address(c)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get address from companion device: %v", c)
+		}
+		companionAddrs = append(companionAddrs, address)
+	}
+	args := newTautoArgs(addr, companionAddrs, testNames, resultsDir)
 
 	// Run RTD.
 	cmd := exec.Command("/usr/bin/test_that", genTautoArgList(args)...)
@@ -106,8 +117,9 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, primary 
 
 // Flag names. More to be populated once impl details are firmed.
 const (
-	autotestDir         = "--autotest_dir"
+	autotestDirFlag     = "--autotest_dir"
 	tautoResultsDirFlag = "--results_dir"
+	companionFlag       = "--companion_hosts"
 )
 
 // tautoRunArgs stores arguments to invoke tauto
@@ -118,12 +130,16 @@ type tautoRunArgs struct {
 }
 
 // newTautoArgs created an argument structure for invoking tauto
-func newTautoArgs(dut string, tests []string, resultsDir string) *tautoRunArgs {
+func newTautoArgs(dut string, companions, tests []string, resultsDir string) *tautoRunArgs {
 	args := tautoRunArgs{
 		target: dut,
 		runFlags: map[string]string{
-			autotestDir: common.AutotestDir,
+			autotestDirFlag: common.AutotestDir,
 		},
+	}
+	if len(companions) > 0 {
+		companionsAddresses := strings.Join(companions, ",")
+		args.runFlags[companionFlag] = companionsAddresses
 	}
 
 	args.patterns = tests // TO-DO Support Tags

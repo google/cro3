@@ -56,6 +56,18 @@ func TestReadInput(t *testing.T) {
 				},
 			},
 		},
+		Companions: []*api.CrosTestRequest_Device{
+			{
+				Dut: &labapi.Dut{
+					Id: &labapi.Dut_Id{Value: "CompanionDut1"},
+					DutType: &labapi.Dut_Chromeos{
+						Chromeos: &labapi.Dut_ChromeOS{
+							Ssh: &labapi.IpEndpoint{Address: "127.0.0.1", Port: 2223},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	m := jsonpb.Marshaler{}

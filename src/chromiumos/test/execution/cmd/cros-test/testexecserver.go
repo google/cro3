@@ -70,7 +70,7 @@ func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr st
 			return nil, statuserrors.NewStatusError(statuserrors.IOCreateError,
 				fmt.Errorf("failed to create result directory %v", resultsDir))
 		}
-		rspn, err := driver.RunTests(ctx, resultsDir, req.Primary, tlwAddr, tests)
+		rspn, err := driver.RunTests(ctx, resultsDir, req, tlwAddr, tests)
 		if err != nil {
 			return nil, err
 		}

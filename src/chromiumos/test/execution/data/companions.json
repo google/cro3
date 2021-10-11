@@ -1,0 +1,38 @@
+{
+    "test_suites" : [
+        {
+            "name" : "suite1",
+            "test_case_ids" : {
+                "test_case_ids" : [
+                    {
+                        "value" : "tast.meta.CompanionDUTs"
+                    }
+                ]
+            }
+        }
+    ],
+    "primary":{
+            "dut":{
+                "id":{"value":"primary_dut"},
+                "chromeos":{
+                    "ssh":{
+                        "address":"127.0.0.1",
+                        "port":2222
+                   }
+                }
+            }
+        },
+    "companions":[
+        {
+            "dut": {
+                "id": {"value":"CompanionDut1"},
+                "chromeos": {
+                    "ssh":{
+                        "address":"127.0.0.1",
+                        "port":2223
+                   }
+                }
+            }
+        }
+    ]
+}
