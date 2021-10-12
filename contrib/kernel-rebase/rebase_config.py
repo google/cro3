@@ -44,7 +44,8 @@ topic_fixups['cros_ec'] = [
 topic_fixups['block-fs'] = [
     'add ChromeOS specific platform functions',
     'bring over dm-verity-chromeos.c',
-    'update ESDFS to use changed FS API'
+    'update ESDFS to use changed FS API',
+    'efi: Support non-standard GPT location'
 ]
 topic_fixups['net'] = [
     'Introduce ANDROID_PARANOID_NETWORK as per-netns setting'
@@ -91,7 +92,8 @@ merge_fixups = [
 patch_deps = {
     '0d022b4a1e19': ['6e18e51a1c19'],
     '03ee1420ddff': ['13f1f28be1c3'],
-    '5f46e9f6605b': ['fbfe1e70219a']
+    '5f46e9f6605b': ['fbfe1e70219a'],
+    'fa50bd48a5a6': ['3f91858b76dd']
 }
 
 # Add entry here to overwrite default disposition on particular commit
