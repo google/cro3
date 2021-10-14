@@ -11,7 +11,7 @@ import (
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
-	planv1 "go.chromium.org/chromiumos/config/go/test/api/v1"
+	test_api_v1 "go.chromium.org/chromiumos/config/go/test/api/v1"
 )
 
 // Generate evals the Starlark files in planFilenames to produce a list of
@@ -24,7 +24,7 @@ func Generate(
 	buildMetadataList *buildpb.SystemImage_BuildMetadataList,
 	dutAttributeList *testpb.DutAttributeList,
 	flatConfigList *payload.FlatConfigList,
-) ([]*planv1.HWTestPlan, error) {
+) ([]*test_api_v1.HWTestPlan, error) {
 	if len(planFilenames) == 0 {
 		return nil, errors.New("planFilenames must be non-empty")
 	}

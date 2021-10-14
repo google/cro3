@@ -23,7 +23,7 @@ import (
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
-	planv1 "go.chromium.org/chromiumos/config/go/test/api/v1"
+	test_api_v1 "go.chromium.org/chromiumos/config/go/test/api/v1"
 	luciflag "go.chromium.org/luci/common/flag"
 
 	testplan "chromiumos/test/plan/internal"
@@ -241,7 +241,7 @@ func readTextpb(path string, m proto.Message) error {
 }
 
 // writePlans writes a newline-delimited json file containing plans to outPath.
-func writePlans(plans []*planv1.HWTestPlan, outPath, textSummaryOutPath string) error {
+func writePlans(plans []*test_api_v1.HWTestPlan, outPath, textSummaryOutPath string) error {
 	outFile, err := os.Create(outPath)
 	if err != nil {
 		return err
