@@ -45,6 +45,17 @@ host your-dut-name
 
 Inside of your chroot you will be using:
 
+```shell
+(chroot)$ ssh localhost -p xxxx  # to ssh connection.
+(chroot)$ adb connect localhost:xxxx  # to Chrome OS Android instance.
+(chroot)$ tast run localhost:xxxx arc.Boot  # run a tast test
 ```
-ssh localhost -p xxxx
+
+Having `.ssh/config` entry such as below might be helpful to use from inside the
+chroot:
+
+```
+host your-dut-name.local
+    HostName 127.0.0.1
+    Port xxxx
 ```
