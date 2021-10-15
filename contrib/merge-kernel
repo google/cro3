@@ -107,6 +107,7 @@ Options:
   -S subject    Replace default subject line with provided string
   -t            Target branch name. The branch must exist in the Chrome OS
                 repository.
+  -T            Auto-detect LTS branch name given R<N> argument. eg R90.
   -u            Upload merge into Gerrit.
   -v email-addr Comma separated list of Gerrit email addresses for reviewers.
   -x patchfile  Patch to apply before committing merge. Patch will be applied
@@ -176,14 +177,32 @@ find_stable_rc() {
   find_create_remote "${url}" "stable-rc"
 }
 
+# Given a R<N> release argument, auto-detect tbranch
+find_lts_branch() {
+  local lts_r="$1"
+
+  local m='^R[0-9]+$'
+  [[ ! "$lts_r" =~ $m ]] && die "invalid -T argument. Use eg. R90"
+
+  # strip tag of v prefix and patch version. eg v5.4.148 to 5.4
+  local kernel_version=$(echo $tag | sed 's/v\([0-9]*.[0-9]*\).*/\1/')
+
+  tbranch=$(git branch -r --list "cros/release-$lts_r-*.B-chromeos-$kernel_version"\
+    | sed 's/  cros\///g')
+
+  [[ -z "${tbranch}" ]] &&
+    die "unable to find branch on release $lts_r kernel version $kernel_version"
+}
+
 do_getparams() {
   local bugs="" # List of bugs
   local nbug="" # Numerical part of bug #, for validation.
   local _bug
   local option
   local vtag
+  local lts_branch=""
 
-  while getopts "ab:c:d:fFhkl:N:nP:pq:r:R:sS:t:uv:x:" option; do
+  while getopts "ab:c:d:fFhkl:N:nP:pq:r:R:sS:t:T:uv:x:" option; do
     case ${option} in
       a) apply_stashed=1 ;;
       b) bugs="${OPTARG}" ;;
@@ -205,6 +224,7 @@ do_getparams() {
       P) prereverts+=("${OPTARG}") ;;
       R) reverts+=("${OPTARG}") ;;
       t) tbranch="${OPTARG}" ;;
+      T) lts_branch="${OPTARG}" ;;
       s) do_dryrun=1 ;;
       S) Subject="${OPTARG}" ;;
       u) upload=1 prepare=1 ;;
@@ -254,6 +274,8 @@ do_getparams() {
     bug="BUG=${bugs}"
   fi
   dependency="${dependency:+Cq-Depend: ${dependency}}"
+
+  [[ -n "${lts_branch}" ]] && find_lts_branch "${lts_branch}"
 }
 
 # Validate environment and repository.
