@@ -54,6 +54,7 @@ sha_droplist = [
 
 droplist = [
     ('drivers/net/wireless/iwl7000', 'Intel'),
+    ('drivers/gpu/drm/evdi', 'DisplayLink'),
     #           ('drivers/gpu/drm/i915', 'Intel'),
     #           ('drivers/gpu/drm/amd', 'AMD')
 ]
