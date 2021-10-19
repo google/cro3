@@ -7,7 +7,7 @@
 # pylint complains about module sh
 # pylint: disable=import-error
 
-"""Sets up the kernel-next repository
+"""Sets up the kernel-upstream repository
 
 Necessary for automatic rebase (rebase.py)
 """
@@ -18,12 +18,12 @@ import sh
 import config
 from githelpers import fetch, has_remote, add_remote
 
-repo = 'kernel-next'
-no_repo_msg = """No kernel-next repository!
+repo = 'kernel-upstream'
+no_repo_msg = """No kernel-upstream repository!
 
-Link the third_party/kernel/upstream repository as kernel-next. This link should
+Link the third_party/kernel/upstream repository as kernel-upstream. This link should
 be relative so that it works both in cros SDK chroot and outside of it.
-E.g. `ln -s ../../../../third_party/kernel/upstream/ kernel-next`
+E.g. `ln -s ../../../../third_party/kernel/upstream/ kernel-upstream`
 
 This is necessary for emerge-${BOARD} to be able to build the branches
 created with the help of rebase.py. This process is not automated,

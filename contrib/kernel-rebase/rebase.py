@@ -114,7 +114,7 @@ def normalize():
     def in_configs(command):
         return 'cd ./data/repositories/linux-chrome/CONFIGS; ' + command
     def in_knext(command):
-        return 'cd kernel-next; ' + command
+        return 'cd kernel-upstream; ' + command
 
     configs = [
         (
@@ -163,7 +163,7 @@ def normalize():
     genconfig = in_linux_chrome('chromeos/scripts/kernelconfig genconfig 2>&1')
 
     commands = [
-        in_configs('cp ' + config[0] + ' ../../../../kernel-next/chromeos/config/' + config[1] + ' 2>&1')  # pylint: disable=C0301
+        in_configs('cp ' + config[0] + ' ../../../../kernel-upstream/chromeos/config/' + config[1] + ' 2>&1')  # pylint: disable=C0301
         for config in configs
     ] + [
         in_knext('echo "' + iwl + '" >> ' + file)
@@ -202,9 +202,9 @@ def normalize():
 
 def verify_build(sha):
     assert not is_dirty(
-        'kernel-next'), "There's a local diff in kernel repo. Clean it to continue."
+        'kernel-upstream'), "There's a local diff in kernel repo. Clean it to continue."
     if sha is not None:
-        checkout('kernel-next', sha)
+        checkout('kernel-upstream', sha)
     return do_on_cros_sdk(
         'emerge-' +
         rebase_config.verify_board +
@@ -215,7 +215,7 @@ class Rebaser:
 
     def __init__(self, branch_prefix='test'):
         assert not is_dirty(
-            'kernel-next'), "There's a local diff in kernel repo. Clean it to continue."
+            'kernel-upstream'), "There's a local diff in kernel repo. Clean it to continue."
 
         self.db = sqlite3.connect(rebasedb)
         self.cur = self.db.cursor()
@@ -264,14 +264,14 @@ class Rebaser:
 
         # Pull chromeos-5.4 branch
         print('Fetching cros...')
-        fetch('kernel-next', 'cros')
+        fetch('kernel-upstream', 'cros')
 
         print('Fetching upstream...')
-        fetch('kernel-next', 'upstream')
+        fetch('kernel-upstream', 'upstream')
 
         # Checkout to target branch
         print('Checkout to', rebase_target, '...')
-        checkout('kernel-next', rebase_target)
+        checkout('kernel-upstream', rebase_target)
 
     def get_topic_dispositions(self, topic_list):
         # reload config to import up-to-date disp_overlay
@@ -310,12 +310,12 @@ class Rebaser:
         importlib.reload(rebase_config)
 
         print('Checkout to', rebase_target, '...')
-        checkout('kernel-next', rebase_target)
+        checkout('kernel-upstream', rebase_target)
 
         if is_triage:
             topic_branch = branch_name('triage', rebase_target, end_name)
             print('Triage mode on. Using branch %s.' % topic_branch)
-            with sh.pushd('kernel-next'):
+            with sh.pushd('kernel-upstream'):
                 try:
                     sh.git('branch', '-D', topic_branch)
                 except sh.ErrorReturnCode_1 as e:
@@ -325,7 +325,7 @@ class Rebaser:
                 self.branch_prefix, rebase_target, end_name)
 
         try:
-            create_head('kernel-next', topic_branch)
+            create_head('kernel-upstream', topic_branch)
         except OSError as err:
             print(err)
             print('Branch already exists?')
@@ -334,7 +334,7 @@ class Rebaser:
         print('Rebasing topics %s, branch %s' % (topic_list, end_name))
 
         print('Checkout to %s...' % topic_branch)
-        checkout('kernel-next', topic_branch)
+        checkout('kernel-upstream', topic_branch)
 
         dispositions = self.get_topic_dispositions(topic_list)
 
@@ -360,8 +360,8 @@ class Rebaser:
             subject = i[2]
             reason = i[3]
 
-            if cp_or_am_in_progress('kernel-next'):
-                print('cherry-pick or am is currently in progress in kernel-next')
+            if cp_or_am_in_progress('kernel-upstream'):
+                print('cherry-pick or am is currently in progress in kernel-upstream')
                 print('resolve and press enter to continue')
                 input()
 
@@ -378,7 +378,7 @@ class Rebaser:
                 # hassle.
                 print('WARNING: commit disposition is replace')
 
-            diff = replacement('kernel-next', sha)
+            diff = replacement('kernel-upstream', sha)
             if diff is not None:
                 print('Patch replaced by previous conflict resolution:', diff)
                 # Make the path absolute
@@ -387,9 +387,9 @@ class Rebaser:
             try:
                 call_hook(sha, 'pre')
                 if diff is None:
-                    cherry_pick('kernel-next', sha)
+                    cherry_pick('kernel-upstream', sha)
                 else:
-                    apply_patch('kernel-next', diff, sha) # sha is only used for debugs
+                    apply_patch('kernel-upstream', diff, sha) # sha is only used for debugs
                 noconflicts += 1
                 # No conflicts, check rerere and continue
                 call_hook(sha, 'post')
@@ -406,10 +406,10 @@ class Rebaser:
             # Autostage in git is assumed
             # Files from patches shouldn't be autoresolved, so no path for handling
             # git apply conflicts is added here
-            if is_resolved('kernel-next'):
+            if is_resolved('kernel-upstream'):
                 print('All resolved automatically.')
                 autoresolved += 1
-                with sh.pushd('kernel-next'):
+                with sh.pushd('kernel-upstream'):
                     try:
                         if diff is None:
                             sh.git(
@@ -424,7 +424,7 @@ class Rebaser:
                                 'am',
                                 '--continue')
                         call_hook(sha, 'post')
-                        save_head('kernel-next', sha)
+                        save_head('kernel-upstream', sha)
                     except (sh.ErrorReturnCode_1, sh.ErrorReturnCode_128) as e:
                         cp_err = 'The previous cherry-pick is now empty' in str(e.stderr)
                         am_err = 'No changes - did you forget' in str(e.stdout)
@@ -449,7 +449,7 @@ class Rebaser:
             else:
                 # Detect the cases, where deleted file is the only meaningful
                 # conflict
-                with sh.pushd('kernel-next'):
+                with sh.pushd('kernel-upstream'):
                     status = sh.git('status', '--porcelain')
                 if 'DU' in status:
                     status = status.split('\n')
@@ -466,9 +466,9 @@ class Rebaser:
                         # should autoresolve
                         for entry in status:
                             if entry[0] == 'DU':
-                                with sh.pushd('kernel-next'):
+                                with sh.pushd('kernel-upstream'):
                                     sh.git('rm', entry[1])
-                        with sh.pushd('kernel-next'):
+                        with sh.pushd('kernel-upstream'):
                             if diff is None:
                                 try:
                                     sh.git(
@@ -497,13 +497,13 @@ class Rebaser:
                                     if ans in ['y', 'Y']:
                                         return {}
                         print('Applied commit by removing conflicting files.')
-                        save_head('kernel-next', sha)
+                        save_head('kernel-upstream', sha)
                         continue
                 if is_triage:
                     # Conflict requires manual resolution - drop and continue
                     print('Commit requires manual resolution. Dropping it for now.')
                     manual += 1
-                    with sh.pushd('kernel-next'):
+                    with sh.pushd('kernel-upstream'):
                         if diff is None:
                             sh.git('cherry-pick', '--abort')
                         else:
@@ -525,11 +525,11 @@ class Rebaser:
                     cmd = input()
                 if cmd in ['continue', 'c']:
                     # Commit the change and continue
-                    while not is_resolved('kernel-next'):
+                    while not is_resolved('kernel-upstream'):
                         print('Something still unresolved. Resolve and hit enter.')
                         input()
                     manual += 1
-                    with sh.pushd('kernel-next'):
+                    with sh.pushd('kernel-upstream'):
                         if diff is None:
                             try:
                                 sh.git(
@@ -557,11 +557,11 @@ class Rebaser:
                                 ans = input()
                                 if ans in ['y', 'Y']:
                                     return {}
-                    save_head('kernel-next', sha)
+                    save_head('kernel-upstream', sha)
                 elif cmd in ['drop', 'd']:
                     dropped += 1
                     # Drop the commit and record as dropped in overlay
-                    with sh.pushd('kernel-next'):
+                    with sh.pushd('kernel-upstream'):
                         if diff is None:
                             sh.git('cherry-pick', '--abort')
                         else:
@@ -575,7 +575,7 @@ class Rebaser:
                         'Stopped. %s commits dropped, %s applied cleanly, %s resolved'
                         ' automatically, %s needing manual resolution' %
                         (dropped, noconflicts, autoresolved, manual))
-                    with sh.pushd('kernel-next'):
+                    with sh.pushd('kernel-upstream'):
                         if diff is None:
                             sh.git('cherry-pick', '--abort')
                         else:
@@ -584,7 +584,7 @@ class Rebaser:
 
         # Apply global reverts
         for sha in rebase_config.global_reverts:
-            with sh.pushd('kernel-next'):
+            with sh.pushd('kernel-upstream'):
                 sh.git('-c', 'core.editor=true', 'revert', sha)
 
         for topic in topic_list:
@@ -595,14 +595,14 @@ class Rebaser:
                         call_hook('[nosha]', 'pre')
                         patch_short = 'patches/fixups/{}.patch'.format(name)
                         patch = os.getcwd() + '/' + patch_short
-                        apply_patch('kernel-next', patch, '[nosha]')
+                        apply_patch('kernel-upstream', patch, '[nosha]')
                         # No conflicts, check rerere and continue
                         print('Applied ' + patch_short + ' fixup for ' + topic + '.')
                         call_hook('[nosha]', 'post')
                         continue
                     except sh.ErrorReturnCode_128:
                         print('Conflict found')
-                        with sh.pushd('kernel-next'):
+                        with sh.pushd('kernel-upstream'):
                             sh.git('am', '--abort')
                         call_hook('[nosha]', 'post_drop')
 
@@ -715,8 +715,8 @@ def triage():
 
 def fixup():
     print('Current HEAD:')
-    sha = head_sha('kernel-next')
-    print(commit_message('kernel-next', sha))
+    sha = head_sha('kernel-upstream')
+    print(commit_message('kernel-upstream', sha))
     print('This will record the current HEAD as a fixup.')
 
     name = input('patch name: ')
@@ -730,7 +730,7 @@ def fixup():
         if yn.lower() not in ['y', 'yes']:
             print('aborting')
             return
-    save_head('kernel-next', sha, path_override=path)
+    save_head('kernel-upstream', sha, path_override=path)
 
 
 def merge_topic_branches():
@@ -754,23 +754,23 @@ def merge_topic_branches():
     merged_branch = branch_name('kernelupstream', rebase_target, None)
 
     print('checking out to ', rebase_target)
-    checkout('kernel-next', rebase_target)
+    checkout('kernel-upstream', rebase_target)
 
     try:
         print('creating head', merged_branch)
-        create_head('kernel-next', merged_branch)
+        create_head('kernel-upstream', merged_branch)
     except OSError as err:
         print(err)
         print('Branch already exists?')
         return
 
     print('checking out to ', merged_branch)
-    checkout('kernel-next', merged_branch)
+    checkout('kernel-upstream', merged_branch)
 
     for topic_branch in topic_branches:
         print('Merging', topic_branch)
         try:
-            with sh.pushd('kernel-next'):
+            with sh.pushd('kernel-upstream'):
                 sh.git('merge', '--no-edit', topic_branch)
             continue
         except sh.ErrorReturnCode_1 as error:
@@ -781,9 +781,9 @@ def merge_topic_branches():
                     '), skipping')
                 continue
         print('Conflict found')
-        if is_resolved('kernel-next'):
+        if is_resolved('kernel-upstream'):
             print('Resolved automatically')
-            with sh.pushd('kernel-next'):
+            with sh.pushd('kernel-upstream'):
                 sh.git('-c', 'core.editor=/bin/true', 'merge', '--continue')
         else:
             print('Verify automatic resolution or resolve manually')
@@ -799,10 +799,10 @@ def merge_topic_branches():
         try:
             patch = 'patches/fixups/{}.patch'.format(fu)
             patch = os.getcwd() + '/' + patch
-            apply_patch('kernel-next', patch, '[merge]')
+            apply_patch('kernel-upstream', patch, '[merge]')
         except sh.ErrorReturnCode_128:
             print('Conflict found')
-            with sh.pushd('kernel-next'):
+            with sh.pushd('kernel-upstream'):
                 sh.git('am', '--abort')
             call_hook('[nosha]', 'post_drop')
         except Exception as err: # pylint: disable=broad-except
