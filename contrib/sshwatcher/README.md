@@ -33,7 +33,7 @@ host your-dut-name
     ProxyCommand [your extra complex config comes here]
     ControlMaster auto
     ControlPersist 3600
-    ControlPath ~/tmp/ssh-%r@%h:%p
+    ControlPath /tmp/ssh-%r@%h:%p
     ServerAliveCountMax 10
     ServerAliveInterval 1
     VerifyHostKeyDNS no
