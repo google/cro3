@@ -189,3 +189,5 @@ disp_overlay['65f77de7444e'] = 'drop' # FROMLIST: pwm: fine tune pwm-mtk-disp cl
 disp_overlay['98583bf3ca78'] = 'drop' # FROMLIST: pwm/mtk_disp: fix update reg issue when chip doesn't have commit
 disp_overlay['6adf7ed211c8'] = 'drop' # FROMLIST: usb: xhci-mtk: handle bandwidth table rollover
 disp_overlay['e2052fb234bb'] = 'drop' # CHROMIUM: arm64: dts: qcom: Fix trackpad on sc7180-trogdor-lazor-limozeen-rev4-sku5
+disp_overlay['0ab547a96da1'] = 'drop' # FROMGIT: drm/i915/pxp: Define PXP component interface
+disp_overlay['8509c59ba454'] = 'drop' # CHROMIUM: drm/i915/pxp: import downstream pxp definitions
