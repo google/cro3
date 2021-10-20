@@ -56,7 +56,7 @@ func (s FirmwareUpdateRoState) Execute(ctx context.Context) error {
 }
 
 func (s FirmwareUpdateRoState) Next() services.ServiceState {
-	return FirmwareVerifyState(s)
+	return nil
 }
 
 func (s FirmwareUpdateRoState) Name() string {

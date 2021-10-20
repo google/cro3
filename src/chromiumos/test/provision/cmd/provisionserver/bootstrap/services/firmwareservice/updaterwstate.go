@@ -38,7 +38,7 @@ func (s FirmwareUpdateRwState) Next() services.ServiceState {
 	if s.service.UpdateRo() {
 		return FirmwareUpdateRoState(s)
 	} else {
-		return FirmwareVerifyState(s)
+		return nil
 	}
 }
 

@@ -904,8 +904,8 @@ func TestFirmwareProvisioningStates(t *testing.T) {
 			st = st.Next()
 		}
 
-		if st.Name() != "Firmware Verify" {
-			t.Fatalf("Expected to finish in state Firmware Verify, got: %v", st.Name())
+		if st != nil {
+			t.Fatalf("Expected to finish, got state: %v", st.Name())
 		}
 	}
 

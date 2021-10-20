@@ -117,11 +117,8 @@ func (fws *FirmwareService) GetFirstState() services.ServiceState {
 		return FirmwareUpdateRoState{
 			service: *fws,
 		}
-	} else {
-		return FirmwareVerifyState{
-			service: *fws,
-		}
 	}
+	return nil
 }
 
 // CopyImageToDUT copies the desired image to the DUT, passing through the caching layer.
