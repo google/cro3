@@ -103,6 +103,11 @@ disp_overlay = {}
 # example
 # disp_overlay['62b865c66db4'] = 'drop'
 
+# ANDROID: export security_path_chown
+disp_overlay['69513bac7694'] = 'pick'
+# ANDROID: Revert "fs: unexport vfs_read and vfs_write"
+disp_overlay['d440e09ca08e'] = 'pick'
+
 # FROMLIST: scsi: ufs: clear UAC for FFU
 disp_overlay['62b865c66db4'] = 'drop'
 # FROMLIST: scsi: ufs: clear uac for rpmb lun
