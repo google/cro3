@@ -6,7 +6,7 @@ package main
 
 import (
 	"bytes"
-	"chromiumos/test/dut/cmd/dutserver/dutssh/mock_dutssh"
+	"chromiumos/test/dut/cmd/cros-dut/dutssh/mock_dutssh"
 	"context"
 	"errors"
 	"io"

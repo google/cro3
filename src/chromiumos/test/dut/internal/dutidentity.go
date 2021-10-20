@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"chromiumos/test/dut/cmd/dutserver/dutssh"
+	"chromiumos/test/dut/cmd/cros-dut/dutssh"
 
 	hwdesign "go.chromium.org/chromiumos/config/go/api"
 	"go.chromium.org/chromiumos/config/go/test/api"

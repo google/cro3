@@ -11,7 +11,7 @@ import (
 )
 
 // The provided key is copied from
-// https://chromium.googlesource.com/chromiumos/chromite/+/master/ssh_keys/testing_rsa
+// https://chromium.googlesource.com/chromiumos/chromite/+/HEAD/ssh_keys/testing_rsa
 // It's a well known "private" key used widely in Chrome OS testing.
 const sshKeyContent = `
 -----BEGIN RSA PRIVATE KEY-----

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"chromiumos/test/dut/cmd/dutserver/dutssh"
+	"chromiumos/test/dut/cmd/cros-dut/dutssh"
 )
 
 type FakeCmdExecutor struct {

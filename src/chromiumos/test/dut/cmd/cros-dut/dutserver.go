@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"chromiumos/lro"
-	"chromiumos/test/dut/cmd/dutserver/dutssh"
+	"chromiumos/test/dut/cmd/cros-dut/dutssh"
 	"chromiumos/test/dut/internal"
 )
 
@@ -64,6 +64,7 @@ func newDutServiceServer(l net.Listener, logger *log.Logger, conn dutssh.ClientI
 	return server, destructor
 }
 
+// Close closes DUT service.
 func (s *DutServiceServer) Close() {
 	s.manager.Close()
 	s.connection.Close()

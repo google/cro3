@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Package main implements the dutserver for interfacing with the DUT.
+// Package main implements the cros-dut for interfacing with the DUT.
 package main
 
 import (
-	"chromiumos/test/dut/cmd/dutserver/dutssh"
+	"chromiumos/test/dut/cmd/cros-dut/dutssh"
 	"context"
 	"flag"
 	"fmt"
@@ -24,7 +24,7 @@ var Version = "<unknown>"
 // createLogFile creates a file and its parent directory for logging purpose.
 func createLogFile() (*os.File, error) {
 	t := time.Now()
-	fullPath := filepath.Join("/tmp/dutserver/", t.Format("20060102-150405"))
+	fullPath := filepath.Join("/tmp/cros-dut/", t.Format("20060102-150405"))
 	if err := os.MkdirAll(fullPath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory %v: %v", fullPath, err)
 	}

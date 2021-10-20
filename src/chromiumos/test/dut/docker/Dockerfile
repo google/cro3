@@ -3,4 +3,4 @@
 # found in the LICENSE file.
 
 FROM ubuntu:bionic
-COPY dutserver /usr/bin/dutserver
+COPY cros-dut /usr/bin/cros-dut

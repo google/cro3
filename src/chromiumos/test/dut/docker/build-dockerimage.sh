@@ -59,7 +59,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 build_server_image             \
-    "dutserver"                \
+    "cros-dut"                \
     "${script_dir}/Dockerfile" \
     "${chroot}"                \
     "${tags}"                  \
