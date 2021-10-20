@@ -308,11 +308,18 @@ func checkGitTree(gitPath string, tracking string) gitTreeReport {
 	return report
 }
 
-func reportProgress(startedCounter, runningCounter int) {
+func reportProgress(repoListLen, startedCounter, runningCounter int) {
+	const width = 50.0
+	progressFinished := (startedCounter - runningCounter) * width / repoListLen
+	progressRunning := (runningCounter) * width / repoListLen
+	progressNotStarted := width - progressFinished - progressRunning
+
 	// Use unbuffered write so that output is updated even without
 	// a \n.
-	os.Stdout.WriteString(fmt.Sprintf("Started %3d still going %3d\r", startedCounter, runningCounter))
-
+	os.Stdout.WriteString(fmt.Sprintf("[%s%s%s]\r",
+		strings.Repeat("=", progressFinished),
+		strings.Repeat("*", progressRunning),
+		strings.Repeat("-", progressNotStarted)))
 }
 
 func printResults(results map[string]gitTreeReport) {
@@ -387,6 +394,7 @@ func main() {
 	maxGoCount := runtime.NumCPU()
 
 	repoList := strings.Split(repos, "\n")
+	repoListLen := len(repoList)
 
 	// Create a channel to use it as a throttle to prevent from starting
 	// too many git queries concurrently.
@@ -432,7 +440,7 @@ func main() {
 	go func() {
 		for {
 			countMtx.Lock()
-			reportProgress(startedCounter, runningCounter)
+			reportProgress(repoListLen, startedCounter, runningCounter)
 			select {
 			case <-finishProgressReporting:
 				// Finish.
