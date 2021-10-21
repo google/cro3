@@ -75,7 +75,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-readonly output_dir="tmp/docker/testexeccontainer"
+readonly output_dir="tmp/docker/crostest"
 readonly full_output_dir="${chroot_path}/${sysroot_path}/${output_dir}"
 
 prep_container
@@ -84,7 +84,7 @@ prep_container
 source "${script_dir}/../../../test/docker/util.sh"
 
 build_container_image               \
-    "testexeccontainer"             \
+    "cros-test"             \
     "${full_output_dir}/Dockerfile" \
     "${chroot_path}"                \
     "${tags}"                       \
