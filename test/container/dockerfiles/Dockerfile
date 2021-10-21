@@ -39,10 +39,12 @@ RUN useradd -m chromeos-test
 RUN echo 'chromeos-test ALL=NOPASSWD:ALL' > /etc/sudoers.d/chromeos-test
 
 # Install all packages
-COPY requirements.txt .
+COPY requirements_py2.txt .
+COPY requirements_py3.txt .
+
 RUN pip2 install --upgrade pip
-RUN pip2 install -r requirements.txt
-RUN pip3 install -r requirements.txt
+RUN pip2 install -r requirements_py2.txt
+RUN pip3 install -r requirements_py3.txt
 
 # deploy autotest & tast packages
 COPY --chown=chromeos-test:chromeos-test autotest/ /usr/local/autotest
