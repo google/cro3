@@ -515,7 +515,6 @@ def genconf_powerd_settings(device, overlay):
       ('cras', 'use-cras'),
       ('has_keyboard_backlight', 'has-keyboard-backlight'),
       ('legacy_power_button', 'legacy-power-button'),
-      ('mosys_eventlog', 'mosys-eventlog'),
   ]
 
   for flag, powerd_setting in use_flag_settings:
