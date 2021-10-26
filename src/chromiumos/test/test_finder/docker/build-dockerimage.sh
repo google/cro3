@@ -46,13 +46,27 @@ prep_container() {
 readonly chroot_path="$1"; shift
 readonly sysroot_path="$1"; shift
 
+host=""
+project=""
 tags=""
+output=""
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --host|-h)
+            host="$2"
+            shift 2
+            ;;
+        --project|-p)
+            project="$2"
+            shift 2
+            ;;
         --tags|-t)
             tags="$2"
-            shift
-            shift
+            shift 2
+            ;;
+        --output|-o)
+            output="$2"
+            shift 2
             ;;
         *)
             break
@@ -66,10 +80,12 @@ readonly full_output_dir="${chroot_path}/${sysroot_path}/${output_dir}"
 
 prep_container
 
-
-build_container_image               \
-    "crostestfinder"             \
-    "${full_output_dir}/Dockerfile" \
-    "${chroot_path}"                \
-    "${tags}"                       \
-    "$@"
+build_container_image                                \
+    --service "crostestfinder"                       \
+    --docker_file "${full_output_dir}/Dockerfile"    \
+    --chroot "${chroot_path}"                        \
+    --tags "${tags}"                                 \
+    --output "${output}"                             \
+    --host "${host}"                                 \
+    --project "${project}"                           \
+    "${@}"

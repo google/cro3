@@ -9,7 +9,7 @@ set -eE -o functrace
 failure() {
   local lineno=$1
   local msg=$2
-  echo "failed at $lineno: $msg" >&2
+  echo "failed at ${lineno}: ${msg}" >&2
 }
 trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
@@ -40,10 +40,20 @@ fi
 chroot="$1"; shift
 shift # don't care about sysroot
 
+host=""
+project=""
 tags=""
 output=""
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --host|-h)
+            host="$2"
+            shift 2
+            ;;
+        --project|-p)
+            project="$2"
+            shift 2
+            ;;
         --tags|-t)
             tags="$2"
             shift 2
@@ -58,10 +68,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-build_server_image             \
-    "cros-dut"                \
-    "${script_dir}/Dockerfile" \
-    "${chroot}"                \
-    "${tags}"                  \
-    "${output}"                \
+build_server_image                             \
+    --service "cros-dut"                       \
+    --docker_file "${script_dir}/Dockerfile"   \
+    --chroot "${chroot}"                       \
+    --tags "${tags}"                           \
+    --output "${output}"                       \
+    --host "${host}"                           \
+    --project "${project}"                     \
     "${@}"

@@ -9,4 +9,39 @@ readonly script_dir
 
 source "${script_dir}/../../../../../test/docker/util.sh"
 
-build_server_image "testplan" "${script_dir}/Dockerfile" "$@"
+host=""
+project=""
+tags=""
+output=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --host|-h)
+            host="$2"
+            shift 2
+            ;;
+        --project|-p)
+            project="$2"
+            shift 2
+            ;;
+        --tags|-t)
+            tags="$2"
+            shift 2
+            ;;
+        --output|-o)
+            output="$2"
+            shift 2
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+build_server_image                               \
+    --service "testplan"                         \
+    --docker_file "${script_dir}/Dockerfile"     \
+    --tags "${tags}"                             \
+    --output "${output}"                         \
+    --host "${host}"                             \
+    --project "${project}"                       \
+    "${@}"

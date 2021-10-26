@@ -19,18 +19,59 @@ validate () {
   #   $3:  (optional) chroot path
   #   $4:  (optional) tags
   #   $5:  (optional) output file for metadata
-  #   $6+: (optional) labels
-  [[ $# -lt 3 ]] && die "${FUNCNAME[0]}: Server name and Dockerfile path required"
-  server_name="$1"
-  docker_file="$2"
-  chroot_arg="$3"
-  tags="$4"
-  output_path="$5"
-  shift 5
+  #   $6:  (optional) host
+  #   $7:  (optional) project
+  #   $8+: (optional) labels
+  server_name=""
+  docker_file=""
+  chroot_arg=""
+  tags=""
+  output_path=""
+  registry_name=""
+  cloud_project=""
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --service| -s)
+        server_name="$2"
+        shift 2
+        ;;
+      --docker_file| -d)
+        docker_file="$2"
+        shift 2
+        ;;
+      --chroot| -c)
+        chroot_arg="$2"
+        shift 2
+        ;;
+      --tags| -t)
+        tags="$2"
+        shift 2
+        ;;
+      --output| -o)
+        output_path="$2"
+        shift 2
+        ;;
+      --host| -h)
+        registry_name="$2"
+        shift 2
+        ;;
+      --project| -p)
+        cloud_project="$2"
+        shift 2
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
 
+  if [[ "${server_name}" == "" || "${docker_file}" == "" ]]; then
+    die "${FUNCNAME[0]}: Server name and Dockerfile path required"
+  fi
   # Aggregate rest of CLI arguments as labels into an array
   labels=( "$@" )
 
+  # shellcheck source=/dev/null
   if [[ -e ${CHROOT_VERSION_FILE} ]]; then
     echo "Script must run outside the chroot since this depends on docker"
     exit 1
@@ -48,13 +89,23 @@ validate () {
   fi
 
   readonly default_tag="local-${USER}"
-  if [[ "$tags" == "" ]]; then
+  if [[ "${tags}" == "" ]]; then
     echo "No tags specified, defaulting to: ${default_tag}"
     tags="${default_tag}"
   fi
 
-  readonly registry_name="gcr.io"
-  readonly cloud_project="chromeos-bot"
+  readonly default_registry_name="us-docker.pkg.dev"
+  if [[ "${registry_name}" == "" ]]; then
+    echo "No host specified, defaulting to: ${default_registry_name}"
+    registry_name="${default_registry_name}"
+  fi
+
+  readonly default_cloud_project="cros-registry/test-services"
+  if [[ "${cloud_project}" == "" ]]; then
+    echo "No project specified, defaulting to: ${default_cloud_project}"
+    cloud_project="${default_cloud_project}"
+  fi
+
   readonly image_name="${server_name}"
   readonly image_path="${registry_name}/${cloud_project}/${image_name}"
 
@@ -73,7 +124,7 @@ build_image() {
   # Map tags into -t options
   ntag=0
   IFS=,
-  for tag in $tags; do
+  for tag in ${tags}; do
       ntag="$((ntag+1))"
       args+=(-t "${image_path}:${tag}")
   done
@@ -92,36 +143,35 @@ build_image() {
   sudo docker push --all-tags "${image_path}"
 
   # write output if requested
-  if [[ -n "$output_path" ]]; then
+  if [[ -n "${output_path}" ]]; then
     local digest
-    digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image_path:${tag[0]}" \
-                 | cut -d: -f2 )
+    digest=$(docker inspect --format='{{index .RepoDigests 0}}' "${image_path}:${tag[0]}" | cut -d@ -f2)
 
-    cat <<EOF > "$output_path"
+    cat <<EOF > "${output_path}"
 {
     "repository" : {
-       "hostname": "$registry_name",
-       "project" : "$cloud_project"
+       "hostname": "${registry_name}",
+       "project" : "${cloud_project}"
     },
-    "name" : "$image_name",
-    "digest" : "$digest",
+    "name" : "${image_name}",
+    "digest" : "${digest}",
     "tags" : [
 EOF
 
     ii=0
     local tag_block=""
     IFS=,
-    for tag in $tags; do
-        tag_block+="      \"$tag\""
+    for tag in ${tags}; do
+        tag_block+="      \"${tag}\""
 
         ii="$((ii+1))"
-        if [[ $ii -lt $ntag ]]; then
+        if [[ $ii -lt ${ntag} ]]; then
           tag_block+=",\n"
         fi
     done
-    echo -e "${tag_block}" >> "$output_path"
+    echo -e "${tag_block}" >> "${output_path}"
 
-    cat <<EOF >> "$output_path"
+    cat <<EOF >> "${output_path}"
     ]
 }
 EOF
@@ -139,7 +189,11 @@ build_container_image(){
   #   $2:  Dockerfile path for the build
   #   $3:  (optional) chroot path
   #   $4:  (optional) tags
-  #   $5+: (optional) labels
+  #   $5:  (optional) output file for metadata
+  #   $6:  (optional) host
+  #   $7:  (optional) project
+  #   $8+: (optional) labels
+
   validate "$@"
   readonly build_context=$(dirname "${docker_file}")
   build_image
@@ -154,10 +208,13 @@ build_server_image() {
   #
   # Args:
   #   $1: Server name (as built/installed into /usr/bin on the chroot)
-  #   $2: Dockerfile path for the build
+  #   $2:  Dockerfile path for the build
   #   $3:  (optional) chroot path
   #   $4:  (optional) tags
-  #   $5+: (optional) labels
+  #   $5:  (optional) output file for metadata
+  #   $6:  (optional) host
+  #   $7:  (optional) project
+  #   $8+: (optional) labels
   validate "$@"
 
   readonly tmpdir=$(mktemp -d)

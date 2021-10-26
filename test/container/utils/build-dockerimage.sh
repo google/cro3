@@ -9,7 +9,7 @@ set -eE -o functrace
 failure() {
   local lineno=$1
   local msg=$2
-  echo "failed at $lineno: $msg" >&2
+  echo "failed at ${lineno}: ${msg}" >&2
 }
 trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
@@ -52,14 +52,23 @@ prep_container() {
   python3 "${script_dir}"/container_prep.py -chroot="${chroot_path}" -sysroot="${sysroot_path}" -path="${output_dir}" -force_path=True -src="${src_root}"
 }
 
-
 readonly chroot_path="$1"; shift
 readonly sysroot_path="$1"; shift
 
+host=""
+project=""
 tags=""
 output=""
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --host|-h)
+            host="$2"
+            shift 2
+            ;;
+        --project|-p)
+            project="$2"
+            shift 2
+            ;;
         --tags|-t)
             tags="$2"
             shift 2
@@ -83,10 +92,12 @@ prep_container
 # shellcheck source=/dev/null
 source "${script_dir}/../../../test/docker/util.sh"
 
-build_container_image               \
-    "cros-test"             \
-    "${full_output_dir}/Dockerfile" \
-    "${chroot_path}"                \
-    "${tags}"                       \
-    "${output}"                     \
-    "$@"
+build_container_image                                \
+    --service "cros-test"                            \
+    --docker_file "${full_output_dir}/Dockerfile"    \
+    --chroot "${chroot_path}"                        \
+    --tags "${tags}"                                 \
+    --output "${output}"                             \
+    --host "${host}"                                 \
+    --project "${project}"                           \
+    "${@}"
