@@ -45,7 +45,9 @@ topic_fixups['block-fs'] = [
     'add ChromeOS specific platform functions',
     'bring over dm-verity-chromeos.c',
     'update ESDFS to use changed FS API',
-    'efi: Support non-standard GPT location'
+    'efi: Support non-standard GPT location',
+    'Revert "fs: unexport vfs_read and vfs_write"',
+    'export security_path_chown'
 ]
 topic_fixups['net'] = [
     'Introduce ANDROID_PARANOID_NETWORK as per-netns setting'
