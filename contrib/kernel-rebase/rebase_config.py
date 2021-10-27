@@ -193,3 +193,21 @@ disp_overlay['6adf7ed211c8'] = 'drop' # FROMLIST: usb: xhci-mtk: handle bandwidt
 disp_overlay['e2052fb234bb'] = 'drop' # CHROMIUM: arm64: dts: qcom: Fix trackpad on sc7180-trogdor-lazor-limozeen-rev4-sku5
 disp_overlay['0ab547a96da1'] = 'drop' # FROMGIT: drm/i915/pxp: Define PXP component interface
 disp_overlay['8509c59ba454'] = 'drop' # CHROMIUM: drm/i915/pxp: import downstream pxp definitions
+
+# multigenerational lru changes conflict against upstream commit 897218ff7cf19
+# ("KVM: x86: compile out TDP MMU on 32-bit systems").
+# Patches will have to be rebased manually.
+disp_overlay['fec3c46b70ee'] = 'drop' # FIXUP: BACKPORT: FROMLIST: mm: multigenerational lru: Kconfig
+disp_overlay['a7bda7faa61f'] = 'drop' # FIXUP: BACKPORT: FROMLIST: mm: multigenerational lru: mm_struct list
+disp_overlay['13e17c58f6e0'] = 'drop' # FIXUP: CHROMIUM: mm: multigenerational lru: scan kvm mmu pages
+disp_overlay['8afd29eb63c8'] = 'drop' # CHROMIUM: config: enable multigenerational lru
+disp_overlay['7a9c90e2bcb0'] = 'drop' # CHROMIUM: mm: multigenerational lru: add arch_has_hw_pte_young()
+disp_overlay['73c132823047'] = 'drop' # CHROMIUM: mm: multigenerational lru: don't use min_filelist_kbytes
+disp_overlay['096a432b5e09'] = 'drop' # CHROMIUM: mm: multigenerational lru: scan kvm mmu pages
+disp_overlay['e7e403962735'] = 'drop' # BACKPORT: FROMLIST: mm: multigenerational lru: Kconfig
+disp_overlay['ff161f14dc34'] = 'drop' # FROMLIST: mm: multigenerational lru: user interface
+disp_overlay['767728855ab8'] = 'drop' # BACKPORT: FROMLIST: mm: multigenerational lru: eviction
+disp_overlay['3480c0cc0881'] = 'drop' # BACKPORT: FROMLIST: mm: multigenerational lru: aging
+disp_overlay['1105167e1479'] = 'drop' # FROMLIST: mm: multigenerational lru: mm_struct list
+disp_overlay['ddce0868503d'] = 'drop' # BACKPORT: FROMLIST: mm: multigenerational lru: activation
+disp_overlay['5d9f844e96a7'] = 'drop' # BACKPORT: FROMLIST: mm: multigenerational lru: groundwork
