@@ -43,6 +43,7 @@ Subject=""  # default subject
 namespace="" # default namespace
 apply_stashed=0 # Apply stash@{0} on top of a merge
 reviewers="" # Comma separated list of reviewer(s) email address(es).
+disallow_recycled_builds=0 # Do not add Disallow-Recycled-Builds footer.
 
 # derived parameters
 skip_merge=0    # Skip actual merge and upload.
@@ -82,6 +83,8 @@ Options:
                 locally or in Gerrit.
   -c change-id  Change-Id as used by Gerrit. Optional.
   -d deadline   Feedback deadline in days (default: ${deadline})
+  -D            Add 'Disallow-Recycled-Builds: test-failures' footer to the
+                commit.
   -f            Force. Override existing Change-Id and bug number.
   -F            Force. Bypass upload validation.
   -h            Display help text and exit.
@@ -202,7 +205,7 @@ do_getparams() {
   local vtag
   local lts_branch=""
 
-  while getopts "ab:c:d:fFhkl:N:nP:pq:r:R:sS:t:T:uv:x:" option; do
+  while getopts "ab:c:d:DfFhkl:N:nP:pq:r:R:sS:t:T:uv:x:" option; do
     case ${option} in
       a) apply_stashed=1 ;;
       b) bugs="${OPTARG}" ;;
@@ -212,6 +215,7 @@ do_getparams() {
            die "Deadline must be numeric value > 0 (${deadline})"
          fi
          ;;
+      D) disallow_recycled_builds=1 ;;
       f) force=1 ;;
       F) bypass=1 ;;
       k) cq_dryrun=",l=Commit-Queue+1" ;;
@@ -909,6 +913,12 @@ do_merge() {
       echo "${changeid}"
     fi
   ) >> "${tmpfile}"
+
+  if [[ "${disallow_recycled_builds}" -ne 0 ]]; then
+    git -c trailer.ifexists=doNothing interpret-trailers \
+      --trailer "Disallow-Recycled-Builds: test-failures" \
+      --in-place "${tmpfile}"
+  fi
 
   # Amend commit with the updated description.
   if ! git commit -s --amend -F "${tmpfile}"; then
