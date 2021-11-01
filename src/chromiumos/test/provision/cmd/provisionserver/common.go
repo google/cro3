@@ -23,6 +23,7 @@ import (
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/ashservice"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/crosservice"
+	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/firmwareservice"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/lacrosservice"
 )
 
@@ -168,13 +169,22 @@ func (s *provision) installArc(ctx context.Context, req *api.InstallArcRequest, 
 }
 
 // installFirmware installs requested firmware to the DUT.
-//
-// TODO(shapiroc): Implement this
 func (s *provision) installFirmware(ctx context.Context, req *api.InstallFirmwareRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
 	s.logger.Println("Received api.InstallFirmwareRequest: ", *req)
-	return &api.InstallFailure{
-		Reason: api.InstallFailure_REASON_PROVISIONING_FAILED,
-	}, fmt.Errorf("not implemented")
+	ls, err := firmwareservice.NewFirmwareService(s.dutName, s.dutClient, s.wiringConn, req)
+	if err != nil {
+		fr := &api.InstallFailure{
+			Reason: api.InstallFailure_REASON_PROVISIONING_FAILED,
+		}
+		s.setNewOperationError(
+			op,
+			codes.Aborted,
+			fmt.Sprintf("pre-provision: failed setup: %s", err),
+			fr.Reason.String(),
+		)
+		return fr, err
+	}
+	return s.execute(ctx, ls, op)
 }
 
 // execute effectively acts as a state transition runner for each of the
