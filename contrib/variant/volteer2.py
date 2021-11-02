@@ -56,8 +56,8 @@ fitimage_pkg = 'coreboot-private-files-baseboard-volteer'
 
 # Directory for fitimage; append '~/trunk/src/'' in chroot, '~/chromiumos/src'
 # outside
-fitimage_dir = 'private-overlays/baseboard-volteer-private/sys-boot/'\
-    'coreboot-private-files-baseboard-volteer'
+fitimage_dir = ('private-overlays/baseboard-volteer-private/sys-boot/'
+                'coreboot-private-files-baseboard-volteer')
 
 # Volteer fitimages use csme-${VARIANT}.bin, not fitimage-${VARIANT}.bin
 fitimage_bin = 'csme-%s.bin'
@@ -74,7 +74,7 @@ fitimage_script = 'files/add_fitimage.sh'
 # List of packages to cros_workon
 workon_pkgs = [
     'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
-    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-volteer-private']
+    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-private']
 
 # The emerge command
 emerge_cmd = 'emerge-volteer'
@@ -82,15 +82,14 @@ emerge_cmd = 'emerge-volteer'
 # List of packages to emerge
 emerge_pkgs = [
     'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
-    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-volteer-private',
-    'chromeos-config', 'chromeos-config-bsp', 'coreboot-private-files',
-    'chromeos-bootimage']
+    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-private',
+    'chromeos-config', 'coreboot-private-files', 'chromeos-bootimage']
 
 # List of packages to cros_workon to build the project config
-config_workon_pkgs = ['chromeos-config-bsp-volteer-private']
+config_workon_pkgs = ['chromeos-config-bsp-private']
 
 # List of packages to emerge to build the project config
-config_emerge_pkgs = ['chromeos-config-bsp-volteer-private']
+config_emerge_pkgs = ['chromeos-config-bsp-private']
 
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [

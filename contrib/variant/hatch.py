@@ -45,7 +45,7 @@ fitimage_pkg = 'coreboot-private-files-hatch'
 # Directory for fitimage; append '~/trunk/src/'' in chroot, '~/chromiumos/src'
 # outside
 fitimage_dir = ('private-overlays/baseboard-hatch-private/'
-    'sys-boot/coreboot-private-files-hatch')
+                'sys-boot/coreboot-private-files-hatch')
 
 # Directory under fitimage_dir where the fitimage binary will be
 fitimage_bin_dir = 'asset_generation/outputs'
@@ -65,7 +65,7 @@ emerge_cmd = 'emerge-hatch'
 emerge_pkgs = [
     'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
     fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-private',
-    'chromeos-config', 'chromeos-config-bsp', 'chromeos-config-bsp-hatch',
+    'chromeos-config', 'chromeos-config-bsp', 'chromeos-config-bsp',
     'coreboot-private-files', 'chromeos-bootimage']
 
 # List of packages to cros_workon to build the project config
@@ -73,8 +73,7 @@ config_workon_pkgs = ['chromeos-config', 'chromeos-config-bsp-private']
 
 # List of packages to emerge to build the project config
 config_emerge_pkgs = [
-    'chromeos-config-bsp', 'chromeos-config',
-    'chromeos-config-bsp-hatch', 'chromeos-config-bsp-private']
+    'chromeos-config-bsp', 'chromeos-config', 'chromeos-config-bsp-private']
 
 # Directory for the private yaml file
 private_yaml_dir = '~/trunk/src/private-overlays/overlay-hatch-private/'\

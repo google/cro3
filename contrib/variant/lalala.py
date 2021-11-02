@@ -49,8 +49,8 @@ fitimage_pkg = 'coreboot-private-files-baseboard-dedede'
 
 # Directory for fitimage; append '~/trunk/src/'' in chroot, '~/chromiumos/src'
 # outside
-fitimage_dir = 'private-overlays/baseboard-dedede-private/sys-boot/'\
-    'coreboot-private-files-baseboard-dedede'
+fitimage_dir = ('private-overlays/baseboard-dedede-private/sys-boot/'
+                'coreboot-private-files-baseboard-dedede')
 
 # Directory under fitimage_dir where the fitimage binary will be
 fitimage_bin_dir = 'files/blobs'
@@ -61,7 +61,7 @@ fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> -b'
 # List of packages to cros_workon
 workon_pkgs = [
     'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
-    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-keeby-private']
+    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-private']
 
 # The emerge command
 emerge_cmd = 'emerge-keeby'
@@ -69,15 +69,14 @@ emerge_cmd = 'emerge-keeby'
 # List of packages to emerge
 emerge_pkgs = [
     'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
-    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-keeby-private',
-    'chromeos-config', 'chromeos-config-bsp', 'coreboot-private-files',
-    'chromeos-bootimage']
+    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-private',
+    'chromeos-config', 'coreboot-private-files', 'chromeos-bootimage']
 
 # List of packages to cros_workon to build the project config
-config_workon_pkgs = ['chromeos-config-bsp-keeby-private']
+config_workon_pkgs = ['chromeos-config-bsp-private']
 
 # List of packages to emerge to build the project config
-config_emerge_pkgs = ['chromeos-config-bsp-keeby-private']
+config_emerge_pkgs = ['chromeos-config-bsp-private']
 
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [

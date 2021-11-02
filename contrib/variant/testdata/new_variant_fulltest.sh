@@ -29,6 +29,9 @@ REFERENCE="${1,,}"
 # Support for depthcharge variants was added later, so the default is no support
 SUPPORTS_DC_VARIANT=0
 
+# ebuild for all boards that use Boxster config
+EBUILD=chromeos-config-bsp-private-9999.ebuild
+
 # Set variables depending on the reference board.
 #
 # All boards:
@@ -42,7 +45,6 @@ SUPPORTS_DC_VARIANT=0
 #   for the baseboard.
 # OVERLAY_DIR - the directory for the chromeos-config overlay ebuild, if it
 #   needs to be modified for this baseboard so that the new variant will build.
-# EBUILD - the name of the chromeos-config overlay ebuild, if needed.
 #
 # Intel-based reference boards only:
 #
@@ -72,8 +74,7 @@ case "${REFERENCE}" in
     BASE=puff
     NEW=tiamat
     CONFIG_DIR=/mnt/host/source/src/project/puff
-    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-puff-private/chromeos-base/chromeos-config-bsp-puff-private
-    EBUILD=chromeos-config-bsp-puff-private-9999.ebuild
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-puff-private/chromeos-base/chromeos-config-bsp-private
     FITIMAGE=puff
     FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation/outputs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/files
@@ -83,8 +84,7 @@ case "${REFERENCE}" in
     BASE=volteer
     NEW=gnastygnorc
     CONFIG_DIR=/mnt/host/source/src/project/volteer
-    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-volteer-private/chromeos-base/chromeos-config-bsp-volteer-private
-    EBUILD=chromeos-config-bsp-volteer-private-9999.ebuild
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-volteer-private/chromeos-base/chromeos-config-bsp-private
     FITIMAGE=volteer2
     FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/files/blobs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-volteer-private/sys-boot/coreboot-private-files-baseboard-volteer/files
@@ -94,8 +94,7 @@ case "${REFERENCE}" in
     BASE=dedede
     NEW=kingitchy
     CONFIG_DIR=/mnt/host/source/src/project/dedede
-    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-dedede-private/chromeos-base/chromeos-config-bsp-dedede-private
-    EBUILD=chromeos-config-bsp-dedede-private-9999.ebuild
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-dedede-private/chromeos-base/chromeos-config-bsp-private
     FITIMAGE=drawcia
     # FITIMAGE_OUTPUTS_DIR and FITIMAGE_FILES_DIR are supposed to be the same;
     # gen_fit_image.sh moves the generated files from asset_generation/outputs
@@ -109,8 +108,7 @@ case "${REFERENCE}" in
     BASE=keeby
     NEW=kingitchy
     CONFIG_DIR=/mnt/host/source/src/project/keeby
-    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-keeby-private/chromeos-base/chromeos-config-bsp-keeby-private
-    EBUILD=chromeos-config-bsp-keeby-private-9999.ebuild
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-keeby-private/chromeos-base/chromeos-config-bsp-private
     FITIMAGE=lalala
     # FITIMAGE_OUTPUTS_DIR and FITIMAGE_FILES_DIR are supposed to be the same;
     # gen_fit_image.sh moves the generated files from asset_generation/outputs
@@ -124,16 +122,14 @@ case "${REFERENCE}" in
     BASE=zork
     NEW=grue
     CONFIG_DIR=/mnt/host/source/src/project/zork
-    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-zork-private/chromeos-base/chromeos-config-bsp-zork-private
-    EBUILD=chromeos-config-bsp-zork-private-9999.ebuild
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-zork-private/chromeos-base/chromeos-config-bsp-private
     ;;
 
   brya0)
     BASE=brya
     NEW=eris
     CONFIG_DIR=/mnt/host/source/src/project/brya
-    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-brya-private/chromeos-base/chromeos-config-bsp-brya-private
-    EBUILD=chromeos-config-bsp-brya-private-9999.ebuild
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-brya-private/chromeos-base/chromeos-config-bsp-private
     FITIMAGE=brya0
     FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-brya-private/sys-boot/coreboot-private-files-baseboard-brya/files/blobs
     FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-brya-private/sys-boot/coreboot-private-files-baseboard-brya/files
@@ -144,8 +140,7 @@ case "${REFERENCE}" in
     BASE=guybrush
     NEW=jojo
     CONFIG_DIR=/mnt/host/source/src/project/guybrush
-    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-guybrush-private/chromeos-base/chromeos-config-bsp-guybrush-private
-    EBUILD=chromeos-config-bsp-guybrush-private-9999.ebuild
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-guybrush-private/chromeos-base/chromeos-config-bsp-private
     ;;
 
   *)
@@ -210,6 +205,7 @@ cleanup() {
       pushd "${FITIMAGE_FILES_DIR}/blobs"
       rm -f "csme-${NEW}.bin"
       rm -f "descriptor-${NEW}.bin"
+      rm -f "me_rw-${NEW}.bin"
       popd
       pushd "${FITIMAGE_FILES_DIR}/metadata"
       rm -f "mfitimage-${NEW}-versions.txt"
@@ -295,6 +291,7 @@ if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
     pushd "${FITIMAGE_OUTPUTS_DIR}"
     cp "csme-${FITIMAGE}.bin" "csme-${NEW}.bin"
     cp "descriptor-${FITIMAGE}.bin" "descriptor-${NEW}.bin"
+    cp "me_rw-${FITIMAGE}.bin" "me_rw-${NEW}.bin"
     popd
     pushd "${FITIMAGE_FILES_DIR}/metadata"
     cp "mfitimage-${REFERENCE}-versions.txt" "mfitimage-${NEW}-versions.txt"

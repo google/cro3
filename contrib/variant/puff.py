@@ -46,8 +46,10 @@ fsp = 'intel-cmlfsp'
 # Package name for the fitimage
 fitimage_pkg = 'coreboot-private-files-puff'
 
-# Directory for fitimage; append '~/trunk/src/'' in chroot, '~/chromiumos/src' outside
-fitimage_dir = 'private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff'
+# Directory for fitimage; append '~/trunk/src/'' in chroot, '~/chromiumos/src'
+# outside
+fitimage_dir = ('private-overlays/baseboard-puff-private/'
+                'sys-boot/coreboot-private-files-puff')
 
 # Directory under fitimage_dir where the fitimage binary will be
 fitimage_bin_dir = 'asset_generation/outputs'
@@ -58,7 +60,7 @@ fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit> -b'
 # List of packages to cros_workon
 workon_pkgs = [
     'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
-    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-puff-private']
+    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-private']
 
 # The emerge command
 emerge_cmd = 'emerge-puff'
@@ -66,15 +68,14 @@ emerge_cmd = 'emerge-puff'
 # List of packages to emerge
 emerge_pkgs = [
     'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
-    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-puff-private',
-    'chromeos-config', 'chromeos-config-bsp', 'coreboot-private-files',
-    'chromeos-bootimage']
+    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-private',
+    'chromeos-config', 'coreboot-private-files', 'chromeos-bootimage']
 
 # List of packages to cros_workon to build the project config
-config_workon_pkgs = ['chromeos-config-bsp-puff-private']
+config_workon_pkgs = ['chromeos-config-bsp-private']
 
 # List of packages to emerge to build the project config
-config_emerge_pkgs = ['chromeos-config-bsp-puff-private']
+config_emerge_pkgs = ['chromeos-config-bsp-private']
 
 # Directory for the private yaml file
 # None; puff doesn't use model.yaml

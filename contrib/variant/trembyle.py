@@ -34,25 +34,21 @@ step_list = [
 coreboot_dir = 'third_party/coreboot'
 
 # List of packages to cros_workon
-workon_pkgs = ['coreboot', 'chromeos-ec', 'chromeos-config-bsp-zork-private']
+workon_pkgs = ['coreboot', 'chromeos-ec', 'chromeos-config-bsp-private']
 
 # The emerge command
 emerge_cmd = 'emerge-zork'
 
 # List of packages to emerge
 emerge_pkgs = [
-    'coreboot', 'vboot_reference',
-    'chromeos-ec', 'chromeos-config-bsp-zork-private',
-    'chromeos-config', 'chromeos-config-bsp',
-    'coreboot-private-files', 'chromeos-bootimage']
+    'coreboot', 'vboot_reference', 'chromeos-ec', 'chromeos-config-bsp-private',
+    'chromeos-config', 'coreboot-private-files', 'chromeos-bootimage']
 
 # List of packages to cros_workon to build the project config
-config_workon_pkgs = ['chromeos-config', 'chromeos-config-bsp-zork-private']
+config_workon_pkgs = ['chromeos-config', 'chromeos-config-bsp-private']
 
 # List of packages to emerge to build the project config
-config_emerge_pkgs = [
-    'chromeos-config-bsp', 'chromeos-config',
-    'chromeos-config-bsp-zork-private']
+config_emerge_pkgs = ['chromeos-config', 'chromeos-config-bsp-private']
 
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [

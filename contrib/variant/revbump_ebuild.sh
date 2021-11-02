@@ -4,11 +4,10 @@
 # found in the LICENSE file.
 
 revbump_ebuild() {
-  # Revbump an ebuild file. It has the version number in its name,
-  # and furthermore, it's a symlink to another ebuild file.
+  # Revbump an ebuild file by updating the version number in its name.
 
-  # Find a symlink named *.ebuild, should be only one.
-  EBUILD=$(find . -name "*.ebuild" -type l)
+  # Find an *.ebuild with a revision number, not 9999, should be only one.
+  EBUILD=$(find . -name "*-r*.ebuild")
   # Remove the extension
   F=${EBUILD%.ebuild}
   # Get the numeric suffix after the 'r'.
