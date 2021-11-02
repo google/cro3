@@ -190,7 +190,7 @@ cleanup() {
     rm -f "fitimage-${NEW}.bin" "fitimage-${NEW}-versions.txt"
     rm -f "me_rw-${NEW}.bin"
     # Clean up the extra Volteer fitimage files, too.
-    if [[ "${REFERENCE}" == "volteer" || "${REFERENCE}" == "volteer2" ]] ; then
+    if [[ "${REFERENCE}" == "volteer2" ]] ; then
       rm -f "fit-${NEW}.log"
       popd
       pushd "${FITIMAGE_FILES_DIR}/blobs"
@@ -276,13 +276,11 @@ if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
   # variant, and there are other blobs that are customized to the
   # variant and have names to reflect it. Volteer also does not use
   # fitimage-${VARIANT}.bin.
-  if [[ "${REFERENCE}" == "volteer" || "${REFERENCE}" == "volteer2" ]] ; then
+  if [[ "${REFERENCE}" == "volteer2" ]] ; then
     pushd "${FITIMAGE_FILES_DIR}/blobs"
     cp "csme-${FITIMAGE}.bin" "csme-${NEW}.bin"
     cp "descriptor-${FITIMAGE}.bin" "descriptor-${NEW}.bin"
-    # me_rw-volteer.bin does not exist, and since the fitmage isn't being used
-    # on an actual board, it's OK to just use volteer2 for either reference.
-    cp "me_rw-volteer2.bin" "me_rw-${NEW}.bin"
+    cp "me_rw-${FITIMAGE}.bin" "me_rw-${NEW}.bin"
     popd
     pushd "${FITIMAGE_FILES_DIR}/versions"
     cp "fitimage-${REFERENCE}-versions.txt" "fitimage-${NEW}-versions.txt"
