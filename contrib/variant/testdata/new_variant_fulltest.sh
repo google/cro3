@@ -17,7 +17,7 @@ fi
 
 if [[ "$#" -lt 1 ]]; then
   echo "Usage: ${SCRIPT} reference_name"
-  echo "e.g. ${SCRIPT} hatch | puff | volteer2 | waddledee | waddledoo | lalala | trembyle | dalboz | brya0"
+  echo "e.g. ${SCRIPT} hatch | puff | volteer2 | waddledee | waddledoo | lalala | trembyle | dalboz | brya0 | guybrush"
   echo "End-to-end test to create a new variant of a reference board"
   echo "Script version ${VERSION}"
   exit 1
@@ -141,6 +141,7 @@ case "${REFERENCE}" in
     NEW=jojo
     CONFIG_DIR=/mnt/host/source/src/project/guybrush
     OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-guybrush-private/chromeos-base/chromeos-config-bsp-private
+    SUPPORTS_DC_VARIANT=1
     ;;
 
   *)

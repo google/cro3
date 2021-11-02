@@ -19,6 +19,7 @@ step_list = [
     step_names.FW_BUILD_CONFIG,
     step_names.CB_VARIANT,
     step_names.CB_CONFIG,
+    step_names.DC_VARIANT,
     step_names.CRAS_CONFIG,
     step_names.EC_IMAGE,
     step_names.EMERGE,
@@ -34,7 +35,8 @@ step_list = [
 coreboot_dir = 'third_party/coreboot'
 
 # List of packages to cros_workon
-workon_pkgs = ['coreboot', 'chromeos-ec', 'chromeos-config-bsp-private']
+workon_pkgs = [
+    'coreboot', 'chromeos-ec', 'chromeos-config-bsp-private', 'depthcharge']
 
 # The emerge command
 emerge_cmd = 'emerge-guybrush'
@@ -53,7 +55,7 @@ config_emerge_pkgs = ['chromeos-config', 'chromeos-config-bsp-private']
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [
     step_names.CB_CONFIG, step_names.CRAS_CONFIG, step_names.EC_IMAGE,
-    step_names.FW_BUILD_CONFIG]
+    step_names.DC_VARIANT, step_names.FW_BUILD_CONFIG]
 
 # List of commits that will be pushed to review.coreboot.org
 coreboot_push_list = [step_names.CB_VARIANT]
