@@ -93,8 +93,8 @@ config_emerge_pkgs = ['chromeos-config-bsp-private']
 
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [
-    step_names.CB_CONFIG, step_names.COMMIT_FIT,
-    step_names.EC_IMAGE, step_names.FW_BUILD_CONFIG]
+    step_names.CB_CONFIG, step_names.COMMIT_FIT, step_names.EC_IMAGE,
+    step_names.DC_VARIANT, step_names.FW_BUILD_CONFIG]
 
 # List of commits that will be pushed to review.coreboot.org
 coreboot_push_list = [step_names.CB_VARIANT]
