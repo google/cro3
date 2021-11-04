@@ -411,38 +411,23 @@ class Rebaser:
                 autoresolved += 1
                 with sh.pushd('kernel-upstream'):
                     try:
-                        if diff is None:
-                            sh.git(
-                                '-c',
-                                'core.editor=true',
-                                'cherry-pick',
-                                '--continue')
-                        else:
+                        sh.git(
+                            '-c',
+                            'core.editor=true',
+                            'am',
+                            '--continue')
+                        call_hook(sha, 'post')
+                        save_head('kernel-upstream', sha)
+                    except sh.ErrorReturnCode_128 as e:
+                        am_err = 'No changes - did you forget' in str(e.stdout)
+                        if am_err:
+                            print(
+                                'Cherry-pick/am empty due to conflict resolution. Skip.')
                             sh.git(
                                 '-c',
                                 'core.editor=true',
                                 'am',
-                                '--continue')
-                        call_hook(sha, 'post')
-                        save_head('kernel-upstream', sha)
-                    except (sh.ErrorReturnCode_1, sh.ErrorReturnCode_128) as e:
-                        cp_err = 'The previous cherry-pick is now empty' in str(e.stderr)
-                        am_err = 'No changes - did you forget' in str(e.stdout)
-                        if cp_err or am_err:
-                            print(
-                                'Cherry-pick/am empty due to conflict resolution. Skip.')
-                            if diff is None:
-                                sh.git(
-                                    '-c',
-                                    'core.editor=true',
-                                    'cherry-pick',
-                                    '--abort')
-                            else:
-                                sh.git(
-                                    '-c',
-                                    'core.editor=true',
-                                    'am',
-                                    '--abort')
+                                '--abort')
                             call_hook(sha, 'post_empty')
                             continue
                         raise e
@@ -469,33 +454,17 @@ class Rebaser:
                                 with sh.pushd('kernel-upstream'):
                                     sh.git('rm', entry[1])
                         with sh.pushd('kernel-upstream'):
-                            if diff is None:
-                                try:
-                                    sh.git(
-                                        '-c', 'core.editor=true', 'cherry-pick', '--continue')
-                                    call_hook(sha, 'post')
-                                except sh.ErrorReturnCode_1 as e:
-                                    if 'The previous cherry-pick is now empty' in str(
-                                            e.stderr):
-                                        print(
-                                            'Cherry-pick empty due to conflict resolution. Skip.')
-                                        sh.git(
-                                            '-c', 'core.editor=true', 'cherry-pick', '--abort')
-                                        call_hook(sha, 'post_empty')
-                                        continue
-                                    raise e
-                            else:
-                                try:
-                                    sh.git(
-                                        '-c', 'core.editor=true', 'am', '--continue')
-                                    call_hook(sha, 'post')
-                                except Exception as e: # pylint: disable=broad-except
-                                    print('git am --continue failed:')
-                                    print(e)
-                                    print('Fatal? [y/n]')
-                                    ans = input()
-                                    if ans in ['y', 'Y']:
-                                        return {}
+                            try:
+                                sh.git(
+                                    '-c', 'core.editor=true', 'am', '--continue')
+                                call_hook(sha, 'post')
+                            except Exception as e: # pylint: disable=broad-except
+                                print('git am --continue failed:')
+                                print(e)
+                                print('Fatal? [y/n]')
+                                ans = input()
+                                if ans in ['y', 'Y']:
+                                    return {}
                         print('Applied commit by removing conflicting files.')
                         save_head('kernel-upstream', sha)
                         continue
@@ -504,10 +473,7 @@ class Rebaser:
                     print('Commit requires manual resolution. Dropping it for now.')
                     manual += 1
                     with sh.pushd('kernel-upstream'):
-                        if diff is None:
-                            sh.git('cherry-pick', '--abort')
-                        else:
-                            sh.git('am', '--abort')
+                        sh.git('am', '--abort')
                     call_hook(sha, 'post_drop')
                     continue
                 print(
@@ -530,42 +496,23 @@ class Rebaser:
                         input()
                     manual += 1
                     with sh.pushd('kernel-upstream'):
-                        if diff is None:
-                            try:
-                                sh.git(
-                                    '-c', 'core.editor=true', 'cherry-pick', '--continue')
-                                call_hook(sha, 'post')
-                            except sh.ErrorReturnCode_1 as e:
-                                if 'The previous cherry-pick is now empty' in str(
-                                        e.stderr):
-                                    print(
-                                        'Cherry-pick empty due to conflict resolution. Skip.')
-                                    sh.git(
-                                        '-c', 'core.editor=true', 'cherry-pick', '--abort')
-                                    call_hook(sha, 'post_empty')
-                                    continue
-                                raise e
-                        else:
-                            try:
-                                sh.git(
-                                    '-c', 'core.editor=true', 'am', '--continue')
-                                call_hook(sha, 'post')
-                            except Exception as e: # pylint: disable=broad-except
-                                print('git am --continue failed:')
-                                print(e)
-                                print('Fatal? [y/n]')
-                                ans = input()
-                                if ans in ['y', 'Y']:
-                                    return {}
+                        try:
+                            sh.git(
+                                '-c', 'core.editor=true', 'am', '--continue')
+                            call_hook(sha, 'post')
+                        except Exception as e: # pylint: disable=broad-except
+                            print('git am --continue failed:')
+                            print(e)
+                            print('Fatal? [y/n]')
+                            ans = input()
+                            if ans in ['y', 'Y']:
+                                return {}
                     save_head('kernel-upstream', sha)
                 elif cmd in ['drop', 'd']:
                     dropped += 1
                     # Drop the commit and record as dropped in overlay
                     with sh.pushd('kernel-upstream'):
-                        if diff is None:
-                            sh.git('cherry-pick', '--abort')
-                        else:
-                            sh.git('am', '--abort')
+                        sh.git('am', '--abort')
                     with open('rebase_config.py', 'a') as f:
                         f.write(
                             "disp_overlay['%s'] = '%s' # %s\n" %
@@ -576,10 +523,7 @@ class Rebaser:
                         ' automatically, %s needing manual resolution' %
                         (dropped, noconflicts, autoresolved, manual))
                     with sh.pushd('kernel-upstream'):
-                        if diff is None:
-                            sh.git('cherry-pick', '--abort')
-                        else:
-                            sh.git('am', '--abort')
+                        sh.git('am', '--abort')
                     return {}
 
         # Apply global reverts

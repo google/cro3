@@ -53,21 +53,23 @@ def create_head(repo, name):
 
 
 def cherry_pick(repo, sha):
-    """cherryp-pick sha on repo"""
+    """pretend cherry-pick
 
-    with sh.pushd(repo):
-        # replace rerere-autoupdate to its negation after we finish migration to
-        # patches stored in files
-        ret = sh.git('cherry-pick', '--no-rerere-autoupdate', sha)
-    if debug:
-        sh.mkdir('-p', GITHELPERS_DBG_PATH + sha)
-        with open(GITHELPERS_DBG_PATH + sha + '/cherry-pick', 'w') as f:
-            f.write(str(ret))
+    The fn actually exports the patch to a file and
+    then `git am`s it. This is to re-use the machinery
+    for removing problematic index information from
+    generated patches
+    """
 
+    patch = format_patch(repo, sha)
+    path = '/tmp/rebase_cherry_pick_patch'
+
+    with open(path, 'w+') as f:
+        f.write(patch)
+    apply_patch(repo, path, sha)
 
 def apply_patch(repo, diff, sha):
     """applies a patch in repo"""
-
     with sh.pushd(repo):
         ret = sh.git('am', '-3', '--no-rerere-autoupdate', diff)
     if debug:
@@ -155,7 +157,7 @@ def patch_path(title):
     return 'patches/' + title + '.patch'
 
 
-def head_diff(repo):
+def format_patch(repo, sha):
     """Gets the diff between HEAD~ and HEAD"""
 
     with sh.pushd(repo):
@@ -164,7 +166,7 @@ def head_diff(repo):
             'format-patch',
             '--no-color',
             '--stdout',
-            'HEAD~..HEAD')
+            '{sha}~..{sha}'.format(sha=sha))
 
     # Remove information about indices. Git uses this to autoresolve some
     # conflicts, which will only work if the indices refer to git objects
@@ -188,7 +190,7 @@ def head_sha(repo):
 def save_head(repo, sha, path_override=None):
     """Saves the current diff as a conflict resolution"""
 
-    diff = head_diff(repo)
+    diff = format_patch(repo, 'HEAD')
     if path_override is None:
         title = patch_title(repo, sha)
         path = patch_path(title)
