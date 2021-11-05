@@ -12,6 +12,7 @@ import code
 from datetime import datetime
 import os
 import readline
+import rlcompleter
 import sys
 
 import sh
@@ -60,6 +61,8 @@ class LoggingConsole(code.InteractiveConsole):
             atexit.register(save_history)
         except FileNotFoundError:
             pass
+        readline.set_completer(rlcompleter.Completer(local).complete)
+        readline.parse_and_bind('tab: complete')
 
     def push(self, line):
         """temporarily subsistute a Logger() instance before forwarding the push() call
