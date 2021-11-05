@@ -199,6 +199,20 @@ func (s *DutServiceServer) DetectDeviceConfigId(
 	return stream.Send(resp)
 }
 
+func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*longrunning.Operation, error) {
+	s.logger.Println("Received api.CacheRequest: ", *req)
+	op := s.manager.NewOperation()
+
+	return op, nil
+}
+
+func (s *DutServiceServer) ForceReconnect(ctx context.Context, req *api.ForceReconnectRequest) (*longrunning.Operation, error) {
+	s.logger.Println("Received api.ForceReconnectRequest: ", *req)
+	op := s.manager.NewOperation()
+
+	return op, nil
+}
+
 // readFetchCrashesProto reads stdout and transforms it into a FetchCrashesResponse
 func readFetchCrashesProto(stdout io.Reader, buffer bytes.Buffer) (*api.FetchCrashesResponse, error) {
 	var sizeBytes [8]byte
