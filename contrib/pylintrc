@@ -91,6 +91,9 @@ disable=
 # CHANGE: No report.
 reports=no
 
+# Activate the evaluation score.
+score=no
+
 
 [FORMAT]
 
