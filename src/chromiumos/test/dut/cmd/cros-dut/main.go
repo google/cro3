@@ -54,6 +54,7 @@ func main() {
 		wiringAddress := flag.String("wiring_address", "", "Address to TLW. Only required if using DUT name.")
 		protoChunkSize := flag.Int64("chunk_size", 1024*1024, "Largest size of blob or coredumps to include in an individual response.")
 		serializerPath := flag.String("serializer_path", "/usr/local/sbin/crash_serializer", "Location of the serializer binary on disk in the DUT.")
+		cacheAddress := flag.String("cache_address", "", "CacheForDUT service address.")
 		port := flag.Int("port", 0, "the port used to start service. default not specified")
 		flag.Parse()
 
@@ -76,6 +77,11 @@ func main() {
 
 		if *dutAddress != "" && *wiringAddress != "" {
 			fmt.Println("A Wiring address should not be specified if DUT address is used.")
+		}
+
+		if *cacheAddress == "" {
+			fmt.Println("Caching address must be specified.")
+			return 2
 		}
 
 		if *port == 0 {
@@ -109,7 +115,7 @@ func main() {
 			return 2
 		}
 
-		server, destructor := newDutServiceServer(l, logger, &dutssh.SSHClient{Client: conn}, *serializerPath, *protoChunkSize, *dutName, *wiringAddress)
+		server, destructor := newDutServiceServer(l, logger, &dutssh.SSHClient{Client: conn}, *serializerPath, *protoChunkSize, *dutName, *wiringAddress, *cacheAddress)
 		defer destructor()
 
 		err = server.Serve(l)

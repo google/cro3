@@ -15,6 +15,8 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/url"
+	"path"
 	"strings"
 	"sync"
 
@@ -31,6 +33,10 @@ import (
 	"chromiumos/test/dut/internal"
 )
 
+const CACHE_DOWNLOAD_URI = "/download/%s"
+const CACHE_UNTAR_AND_DOWNLOAD_URI = "/extract/%s?file=%s"
+const CACHE_EXTRACT_AND_DOWNLOAD_URI = "/decompress/%s"
+
 // DutServiceServer implementation of dut_service.proto
 type DutServiceServer struct {
 	manager        *lro.Manager
@@ -40,10 +46,11 @@ type DutServiceServer struct {
 	protoChunkSize int64
 	dutName        string
 	wiringAddress  string
+	cacheAddress   string
 }
 
 // newDutServiceServer creates a new dut service server to listen to rpc requests.
-func newDutServiceServer(l net.Listener, logger *log.Logger, conn dutssh.ClientInterface, serializerPath string, protoChunkSize int64, dutName, wiringAddress string) (*grpc.Server, func()) {
+func newDutServiceServer(l net.Listener, logger *log.Logger, conn dutssh.ClientInterface, serializerPath string, protoChunkSize int64, dutName, wiringAddress string, cacheAddress string) (*grpc.Server, func()) {
 	s := &DutServiceServer{
 		manager:        lro.New(),
 		logger:         logger,
@@ -52,6 +59,7 @@ func newDutServiceServer(l net.Listener, logger *log.Logger, conn dutssh.ClientI
 		protoChunkSize: protoChunkSize,
 		dutName:        dutName,
 		wiringAddress:  wiringAddress,
+		cacheAddress:   cacheAddress,
 	}
 
 	server := grpc.NewServer()
@@ -199,16 +207,94 @@ func (s *DutServiceServer) DetectDeviceConfigId(
 	return stream.Send(resp)
 }
 
+// Cache downloads a specified file to the DUT via CacheForDut service
 func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*longrunning.Operation, error) {
 	s.logger.Println("Received api.CacheRequest: ", *req)
 	op := s.manager.NewOperation()
 
+	command := "curl -S -s -v -# -C - --retry 3 --retry-delay 60 "
+
+	url, err := s.getCacheURL(req)
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.runCmdOutput(fmt.Sprintf("%s -o %s %s", command, req.DestinationPath, url))
+
+	if err != nil {
+		return nil, err
+	} else {
+		s.manager.SetResult(op.Name, &api.CacheResponse{
+			Result: &api.CacheResponse_Success_{},
+		})
+	}
+
 	return op, nil
 }
 
+// getCacheURL returns a constructed URL to the caching service given a specific
+// Source request type
+func (s *DutServiceServer) getCacheURL(req *api.CacheRequest) (string, error) {
+	switch op := req.Source.(type) {
+	case *api.CacheRequest_GsFile:
+		parsedPath, err := parseGSURL(op.GsFile.SourcePath)
+		if err != nil {
+			return "", err
+		}
+		return path.Join(s.cacheAddress, fmt.Sprintf(CACHE_DOWNLOAD_URI, parsedPath)), nil
+	case *api.CacheRequest_GsTarFile:
+		parsedPath, err := parseGSURL(op.GsTarFile.SourcePath)
+		if err != nil {
+			return "", err
+		}
+		return path.Join(s.cacheAddress, fmt.Sprintf(CACHE_UNTAR_AND_DOWNLOAD_URI, parsedPath, op.GsTarFile.SourceFile)), nil
+	case *api.CacheRequest_GsZipFile:
+		parsedPath, err := parseGSURL(op.GsZipFile.SourcePath)
+		if err != nil {
+			return "", err
+		}
+		return path.Join(s.cacheAddress, fmt.Sprintf(CACHE_EXTRACT_AND_DOWNLOAD_URI, parsedPath)), nil
+	default:
+		return "", fmt.Errorf("type can only be one of GsFile, GsTarFile or GSZipFile")
+	}
+}
+
+// parseGSURL retrieves the bucket and object from a GS URL.
+// URL expectation is of the form: "gs://bucket/object"
+func parseGSURL(gsUrl string) (string, error) {
+	if !strings.HasPrefix(gsUrl, "gs://") {
+		return "", fmt.Errorf("gs url must begin with 'gs://', instead have, %s", gsUrl)
+	}
+
+	u, err := url.Parse(gsUrl)
+	if err != nil {
+		return "", fmt.Errorf("unable to parse url, %w", err)
+	}
+
+	// Host corresponds to bucket
+	// Path corresponds to object
+	return path.Join(u.Host, u.Path), nil
+}
+
+// ForceReconnect attempts to reconnect to the DUT
 func (s *DutServiceServer) ForceReconnect(ctx context.Context, req *api.ForceReconnectRequest) (*longrunning.Operation, error) {
 	s.logger.Println("Received api.ForceReconnectRequest: ", *req)
+
 	op := s.manager.NewOperation()
+
+	conn, err := GetConnection(ctx, s.dutName, s.wiringAddress)
+
+	if err != nil {
+		return nil, err
+	} else {
+		s.manager.SetResult(op.Name, &api.CacheResponse{
+			Result: &api.CacheResponse_Success_{},
+		})
+
+	}
+
+	s.connection = &dutssh.SSHClient{Client: conn}
 
 	return op, nil
 }
