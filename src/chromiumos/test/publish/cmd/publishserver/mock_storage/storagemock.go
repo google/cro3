@@ -8,9 +8,10 @@
 package mock_storage
 
 import (
-	storage "chromiumos/test/publish/cmd/publishserver/storage"
 	context "context"
 	reflect "reflect"
+
+	storage "chromiumos/test/publish/cmd/publishserver/storage"
 
 	gomock "github.com/golang/mock/gomock"
 )

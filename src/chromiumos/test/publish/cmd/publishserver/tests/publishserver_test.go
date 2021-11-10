@@ -5,14 +5,15 @@
 package tests
 
 import (
-	"chromiumos/test/publish/cmd/publishserver/mock_storage"
-	"chromiumos/test/publish/cmd/publishserver/storage"
 	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"testing"
+
+	"chromiumos/test/publish/cmd/publishserver/mock_storage"
+	"chromiumos/test/publish/cmd/publishserver/storage"
 
 	"github.com/golang/mock/gomock"
 )
