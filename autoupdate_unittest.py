@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -13,7 +13,7 @@ import socket
 import tempfile
 import unittest
 
-import mock
+import unittest.mock as mock
 import cherrypy  # pylint: disable=import-error
 
 import autoupdate
@@ -83,11 +83,11 @@ class AutoupdateTest(unittest.TestCase):
     r = autoupdate._ChangeUrlPort('ftp://fuzzy', 8085)
     self.assertEqual(r, 'ftp://fuzzy:8085')
 
-  @mock.patch.object(autoupdate.Autoupdate, 'GetPathToPayload')
-  def testHandleUpdatePing(self, path_to_payload_mock):
+  @mock.patch.object(autoupdate.Autoupdate, 'GetBuildID')
+  def testHandleUpdatePing(self, get_build_id):
     """Tests HandleUpdatePing"""
     au_mock = self._DummyAutoupdateConstructor()
-    path_to_payload_mock.return_value = self.tempdir
+    get_build_id.return_value = ''
     request = """<?xml version="1.0" encoding="UTF-8"?>
 <request protocol="3.0">
   <os version="Indy" platform="Chrome OS" sp="10323.52.0_x86_64"></os>
@@ -98,7 +98,7 @@ class AutoupdateTest(unittest.TestCase):
   </app>
 </request>"""
 
-    self.assertIn('<updatecheck status="noupdate"',
+    self.assertIn(b'<updatecheck status="noupdate"',
                   au_mock.HandleUpdatePing(request))
 
 if __name__ == '__main__':
