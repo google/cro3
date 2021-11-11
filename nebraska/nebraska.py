@@ -38,6 +38,8 @@ _KERNEL_VER = '7'
 # This is the same for all images on canary channel.
 _CANARY_APP_ID = '{90F229CE-83E2-4FAF-8479-E368A34938B1}'
 
+_MINIOS_APP_ID_SUFFIX = '_minios'
+
 
 class Error(Exception):
   """The base class for failures raised by Nebraska."""
@@ -165,6 +167,8 @@ class Request(object):
       for all apps if existed. It can optionally be in one or more apps, but
       they are all equal.
 
+      Ignores all miniOS apps due to the out of sync nature for updates.
+
       Args:
         attribute: An attribute of the app tag.
         in_all: If true, the attribute should exist among all apps.
@@ -175,7 +179,10 @@ class Request(object):
         The value of the attribute. If no valid attribute value is found,
         ignore_value will be returned.
       """
-      all_attrs = [getattr(x, attribute) for x in self.app_requests]
+      # Exclude miniOS apps.
+      all_attrs = [getattr(x, attribute)
+                   for x in self.app_requests
+                   if not x.appid.endswith(_MINIOS_APP_ID_SUFFIX)]
       if in_all and (ignore_value in all_attrs):
         raise InvalidRequestError(
             'All apps should have "%s" attribute.' % attribute)

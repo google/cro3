@@ -18,9 +18,9 @@ import os
 import shutil
 import tempfile
 import unittest
+import unittest.mock as mock
 
 from xml.etree import ElementTree
-import mock
 
 import nebraska
 
@@ -725,6 +725,16 @@ class NebraskaTest(NebraskaBaseTest):
     ])
     with self.assertRaises(nebraska.InvalidRequestError):
       nebraska.Request(request)
+
+  def testParseRequestMiniOSMismatchedVersion(self):
+    """Tests ParseRequest handling of miniOS mismtach update."""
+    request = GenerateXMLRequest([
+        GenerateXMLAppRequest(version='1.0.0'),
+        GenerateXMLAppRequest(appid='foo' + nebraska._MINIOS_APP_ID_SUFFIX,
+                              version='2.0.0'),
+    ])
+    # Should not assert.
+    nebraska.Request(request)
 
   def testParseRequestMismatchedVersionInstall(self):
     """Tests ParseRequest handling of mismatched install version numbers."""
