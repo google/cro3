@@ -82,7 +82,7 @@ echo "Running testplan.go, writing HWTestPlans to ${out}"
 set -x
 
 go run testplan.go generate \
-  -plan plan.star \
+  -plan "${script_dir}/example_plan.star" \
   -dutattributes "${dut_attributes}" \
   -buildmetadata "${build_metadata}" \
   -flatconfiglist "${flat_config_list}" \

@@ -8,6 +8,8 @@ package testplan
 import (
 	"errors"
 
+	"chromiumos/test/plan/internal/starlark"
+
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
@@ -39,6 +41,13 @@ func Generate(
 
 	if flatConfigList == nil {
 		return nil, errors.New("flatConfigList must be non-nil")
+	}
+
+	for _, planFilename := range planFilenames {
+		err := starlark.ExecTestPlan(planFilename, buildMetadataList, flatConfigList)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return nil, errors.New("Generate not implemented")
