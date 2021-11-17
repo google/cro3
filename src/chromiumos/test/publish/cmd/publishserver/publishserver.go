@@ -24,8 +24,8 @@ type PublishService struct {
 }
 
 // NewPublishService creates a new publish service with the GCP storage client.
-func NewPublishService(logger *log.Logger, gcpCredentials string) (*PublishService, func(), error) {
-	gsClient, err := storage.NewGSClient(context.Background(), gcpCredentials)
+func NewPublishService(ctx context.Context, gcpCredentials string, logger *log.Logger) (*PublishService, func(), error) {
+	gsClient, err := storage.NewGSClient(ctx, gcpCredentials)
 	if err != nil {
 		return nil, nil, err
 	}

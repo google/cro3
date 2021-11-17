@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -69,28 +70,71 @@ func newLogger(logFile *os.File) *log.Logger {
 
 type args struct {
 	// Common input params.
-	servviceAccountCreds string
+	// Local directory that will be uploaded.
+	localDir string
+	// GCS bucket path where the local directory will be uploaded to.
+	gsDir string
+	// Service account file containing gcp credentials.
+	serviceAccountCreds string
+	// Output log file.
+	outputPath string
 
 	// Server mode params
 	port int
 }
 
 func validate(a args) error {
-	if a.servviceAccountCreds == "" {
+	if a.serviceAccountCreds == "" {
 		return errors.Reason("Service account file not specified").Err()
 	}
 
-	_, err := os.Open(a.servviceAccountCreds)
+	_, err := os.Open(a.serviceAccountCreds)
 	if err != nil {
 		return errors.Reason("Failed to read service account file").Err()
 	}
 	return nil
 }
 
-func startServer(d []string) int {
+func runCLI(ctx context.Context, d []string) int {
 	a := args{}
 	fs := flag.NewFlagSet("Start publish publishService", flag.ExitOnError)
-	fs.StringVar(&a.servviceAccountCreds, "service_account_creds", "", "path to service account file containing gcp credentials")
+	fs.StringVar(&a.localDir, "local_dir", "", "path to the local directory that will be uploaded")
+	fs.StringVar(&a.gsDir, "gs_dir", "", "path to the GCS bucket where the local directory will be uploaded to")
+	fs.StringVar(&a.serviceAccountCreds, "service_account_creds", "", "path to service account file containing gcp credentials")
+	fs.StringVar(&a.outputPath, "output", "", "path to the response jsonproto output file.")
+	fs.Parse(d)
+
+	logFile, err := createLogFile()
+	if err != nil {
+		log.Fatalln("Failed to create log file", err)
+		return 2
+	}
+	defer logFile.Close()
+
+	logger := newLogger(logFile)
+	if err := validate(a); err != nil {
+		log.Fatalf("Validate arguments fail: %s", err)
+		return 2
+	}
+
+	publishService, destructor, err := publishserver.NewPublishService(ctx, a.serviceAccountCreds, logger)
+	defer destructor()
+	if err != nil {
+		logger.Fatalln("Failed to create publish: ", err)
+		return 2
+	}
+
+	if err := publishService.RunCli(ctx, a.localDir, a.gsDir, a.outputPath); err != nil {
+		logger.Fatalln("Failed to perform publish: ", err)
+		return 1
+	}
+	return 0
+}
+
+func startServer(ctx context.Context, d []string) int {
+	a := args{}
+	fs := flag.NewFlagSet("Start publish publishService", flag.ExitOnError)
+	fs.StringVar(&a.serviceAccountCreds, "service_account_creds", "", "path to service account file containing gcp credentials")
 	fs.IntVar(&a.port, "port", defaultPort, fmt.Sprintf("Specify the port for the publishService. Default value %d.", defaultPort))
 	fs.Parse(d)
 
@@ -102,21 +146,19 @@ func startServer(d []string) int {
 	defer logFile.Close()
 
 	logger := newLogger(logFile)
-	err = validate(a)
-	if err != nil {
+	if err := validate(a) ; err != nil {
 		log.Fatalf("Validate arguments fail: %s", err)
 		return 2
 	}
 
-	publishService, destructor, err := publishserver.NewPublishService(logger, "")
+	publishService, destructor, err := publishserver.NewPublishService(ctx, a.serviceAccountCreds, logger)
 	defer destructor()
 	if err != nil {
 		logger.Fatalln("Failed to create publish: ", err)
 		return 2
 	}
 
-	err = publishService.StartServer(a.port)
-	if err != nil {
+	if err := publishService.StartServer(a.port); err != nil {
 		logger.Fatalln("Failed to perform publish: ", err)
 		return 1
 	}
@@ -158,13 +200,14 @@ func mainInternal() int {
 		return 2
 	}
 
+	ctx := context.Background()
 	switch rm {
 	case runCli:
-		log.Fatalln("CLI mode is not implemented yet!")
-		return 2
+		log.Printf("Running CLI mode!")
+		return runCLI(ctx, os.Args[2:])
 	case runServer:
 		log.Printf("Running server mode!")
-		return startServer(os.Args[2:])
+		return startServer(ctx, os.Args[2:])
 	case runVersion:
 		log.Printf("cros-publish version: %s", version)
 		return 0
