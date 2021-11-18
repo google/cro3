@@ -10,9 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"go.chromium.org/chromiumos/config/go/api"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
+	test_api_v1 "go.chromium.org/chromiumos/config/go/test/api/v1"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 var buildMetadataList = &buildpb.SystemImage_BuildMetadataList{
@@ -66,12 +69,15 @@ build_metadata = testplan.get_build_metadata()
 flat_configs = testplan.get_flat_config_list()
 print('Got {} BuildMetadatas'.format(len(build_metadata.values)))
 print('Got {} FlatConfigs'.format(len(flat_configs.values)))
+testplan.add_hw_test_plan(
+	testplan.HWTestPlan(id=testplan.TestPlanId(value='plan1'))
+)
 `
 	planFilename := writeTempStarlarkFile(
 		t, starlarkSource,
 	)
 
-	err := starlark.ExecTestPlan(
+	testPlans, err := starlark.ExecTestPlan(
 		planFilename,
 		buildMetadataList,
 		flatConfigList,
@@ -79,6 +85,20 @@ print('Got {} FlatConfigs'.format(len(flat_configs.values)))
 
 	if err != nil {
 		t.Errorf("ExecTestPlan failed: %s", err)
+	}
+
+	expectedTestPlans := []*test_api_v1.HWTestPlan{
+		{Id: &test_api_v1.HWTestPlan_TestPlanId{Value: "plan1"}},
+	}
+
+	if len(expectedTestPlans) != len(testPlans) {
+		t.Errorf("expected %d test plans, got %d", len(expectedTestPlans), len(testPlans))
+	}
+
+	for i, expected := range expectedTestPlans {
+		if diff := cmp.Diff(expected, testPlans[i], protocmp.Transform()); diff != "" {
+			t.Errorf("returned unexpected diff in test plan %d (-want +got):\n%s", i, diff)
+		}
 	}
 }
 
@@ -98,6 +118,21 @@ func TestExecTestPlanErrors(t *testing.T) {
 			starlarkSource: "testplan.get_flat_config_list(somearg='abc')",
 			err:            "get_flat_config_list: unexpected keyword argument \"somearg\"",
 		},
+		{
+			name:           "invalid named args ctor",
+			starlarkSource: "testplan.add_hw_test_plan(somearg='abc')",
+			err:            "add_hw_test_plan: unexpected keyword argument \"somearg\"",
+		},
+		{
+			name:           "invalid type ctor",
+			starlarkSource: "testplan.add_hw_test_plan(hw_test_plan='abc')",
+			err:            "arg to add_hw_test_plan must be a HWTestPlan, got \"\\\"abc\\\"\"",
+		},
+		{
+			name:           "invalid proto ctor",
+			starlarkSource: "testplan.add_hw_test_plan(hw_test_plan=testplan.TestPlanId(value='abc'))",
+			err:            "arg to add_hw_test_plan must be a HWTestPlan, got \"value:\\\"abc\\\" ",
+		},
 	}
 
 	for _, tc := range tests {
@@ -106,7 +141,7 @@ func TestExecTestPlanErrors(t *testing.T) {
 				t, tc.starlarkSource,
 			)
 
-			err := starlark.ExecTestPlan(
+			_, err := starlark.ExecTestPlan(
 				planFilename, buildMetadataList, flatConfigList,
 			)
 

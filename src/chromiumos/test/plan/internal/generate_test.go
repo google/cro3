@@ -5,13 +5,18 @@
 package testplan_test
 
 import (
+	"os"
+	"path"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	configpb "go.chromium.org/chromiumos/config/go/api"
 	"go.chromium.org/chromiumos/config/go/api/software"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
+	test_api_v1 "go.chromium.org/chromiumos/config/go/test/api/v1"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	testplan "chromiumos/test/plan/internal"
 )
@@ -100,6 +105,60 @@ var flatConfigList = &payload.FlatConfigList{
 		flatConfig("ProgA", "Design2", "Config1", &buildpb.Version{Major: 123, Minor: 0, Patch: 0}),
 		flatConfig("ProgB", "Design20", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 0}),
 	},
+}
+
+// writeTempStarlarkFile writes starlarkSource to a temp file created under
+// a t.TempDir().
+func writeTempStarlarkFile(t *testing.T, starlarkSource string) string {
+	testDir := t.TempDir()
+	planFilename := path.Join(testDir, "test.star")
+
+	if err := os.WriteFile(
+		planFilename,
+		[]byte(starlarkSource),
+		os.ModePerm,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	return planFilename
+}
+
+func TestGenerate(t *testing.T) {
+	starlarkSource := `
+build_metadata = testplan.get_build_metadata()
+flat_configs = testplan.get_flat_config_list()
+print('Got {} BuildMetadatas'.format(len(build_metadata.values)))
+print('Got {} FlatConfigs'.format(len(flat_configs.values)))
+testplan.add_hw_test_plan(
+	testplan.HWTestPlan(id=testplan.TestPlanId(value='plan1'))
+)
+	`
+
+	planFilename := writeTempStarlarkFile(
+		t, starlarkSource,
+	)
+
+	testPlans, err := testplan.Generate(
+		[]string{planFilename}, buildMetadataList, dutAttributeList, flatConfigList,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedTestPlans := []*test_api_v1.HWTestPlan{
+		{Id: &test_api_v1.HWTestPlan_TestPlanId{Value: "plan1"}},
+	}
+
+	if len(expectedTestPlans) != len(testPlans) {
+		t.Errorf("expected %d test plans, got %d", len(expectedTestPlans), len(testPlans))
+	}
+
+	for i, expected := range expectedTestPlans {
+		if diff := cmp.Diff(expected, testPlans[i], protocmp.Transform()); diff != "" {
+			t.Errorf("returned unexpected diff in test plan %d (-want +got):\n%s", i, diff)
+		}
+	}
 }
 
 func TestGenerateErrors(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 
 	"chromiumos/test/plan/internal/starlark"
 
+	"github.com/golang/glog"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
@@ -43,12 +44,19 @@ func Generate(
 		return nil, errors.New("flatConfigList must be non-nil")
 	}
 
+	var allTestPlans []*test_api_v1.HWTestPlan
 	for _, planFilename := range planFilenames {
-		err := starlark.ExecTestPlan(planFilename, buildMetadataList, flatConfigList)
+		testPlans, err := starlark.ExecTestPlan(planFilename, buildMetadataList, flatConfigList)
 		if err != nil {
 			return nil, err
 		}
+
+		if len(testPlans) == 0 {
+			glog.Warningf("starlark file %q returned no TestPlans", planFilename)
+		}
+
+		allTestPlans = append(allTestPlans, testPlans...)
 	}
 
-	return nil, errors.New("Generate not implemented")
+	return allTestPlans, nil
 }
