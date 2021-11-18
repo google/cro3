@@ -77,6 +77,21 @@ USER chromeos-test
 # Configure the ssh for testing
 RUN mkdir ~/.ssh
 RUN  echo '\n\
+Host android* brillo* chromeos1* chromeos2* chromeos3* chromeos4* chromeos5* chromeos6* chromeos7* chromeos9* autotest*.vrlab* jetstream* satlab* cros-* \n\
+  GSSAPIKeyExchange no \n\
+  GSSAPITrustDns no \n\
+  GSSAPIDelegateCredentials no \n\
+  GSSAPIAuthentication no \n\
+  GSSAPIKeyExchange no \n\
+  GSSAPIClientIdentity no \n\
+  GSSAPIRenewalForcesRekey no \n\
+  ForwardAgent no \n\
+  ForwardX11 no \n\
+  PreferredAuthentications publickey \n\
+  StrictHostKeyChecking no \n\
+  User root \n\
+  IdentityFile %d/.ssh/testing_rsa \n\
+\n\
 Host * \n\
   StrictHostKeyChecking=no \n\
   IdentityFile %d/.ssh/testing_rsa \n\
