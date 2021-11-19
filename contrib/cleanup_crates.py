@@ -17,6 +17,7 @@ For example:
   ./cleanup_crates.py -c --log-level=debug
 """
 import collections
+import errno
 import logging
 import os
 import pickle
@@ -28,6 +29,7 @@ from chromite.lib import commandline
 from chromite.lib import constants
 from chromite.lib import osutils
 from chromite.lib import portage_util
+from chromite.lib.parser import package_info
 
 # The path of the cache.
 DEFAULT_CACHE_PATH = os.path.join(osutils.GetGlobalTempDir(),
@@ -49,7 +51,7 @@ BOARD_CONFIGURATIONS = {
 BOARDS = {'eve', 'tatl'} | (
     set() if not os.path.isdir(os.path.join(constants.SOURCE_ROOT, 'src',
                                             'private-overlays')) else
-    {'lasilla-ground', 'mistral'}
+    {'brya-manatee', 'kiran', 'mistral', 'reven'}
 )
 
 _GEN_CONFIG = lambda boards, configs: [(b, c) for b in boards for c in configs]
@@ -60,6 +62,7 @@ CONFIGURATIONS = (
     _GEN_CONFIG(BOARDS, BOARD_CONFIGURATIONS)
 )
 
+EBUILD_SUFFIX = '.ebuild'
 
 def main(argv):
     """List ebuilds for rust crates replaced by newer versions."""
@@ -69,11 +72,29 @@ def main(argv):
                              clear_cache=opts.clear_cache,
                              cache_dir=opts.cache_dir)
 
-    ebuilds = exclude_latest_version(get_dev_rust_ebuilds())
+    ebuilds = get_dev_rust_ebuilds()
     used = cln.get_used_packages(CONFIGURATIONS)
+    if not opts.latest:
+        used.update(latest_versions(ebuilds))
 
-    unused_ebuilds = sorted(x.cpvr for x in ebuilds if x.cpvr not in used)
-    print('\n'.join(unused_ebuilds))
+    for key, value in find_ebuild_symlinks(ebuilds).items():
+        if key in used and value not in used:
+            logging.info('Used symlink to unused cpvr: %s -> %s', key, value)
+            used.add(value)
+
+    used_pv = set()
+    unused_ebuilds = []
+    for ebuild in ebuilds:
+        if ebuild.cpvr not in used:
+            unused_ebuilds.append(ebuild)
+        else:
+            used_pv.add(ebuild.pv)
+    print('\n'.join(sorted(x.cpvr for x in unused_ebuilds)))
+
+    if opts.apply:
+        remove_ebuilds(unused_ebuilds)
+        remove_manifest_entries([x for x in unused_ebuilds
+                                 if x.pv not in used_pv])
     return 0
 
 
@@ -90,18 +111,43 @@ def get_opts(argv):
         '-C', '--cache-dir', action='store', default=DEFAULT_CACHE_PATH,
         type='path',
         help='The path to store the cache (default: %(default)s)')
+    parser.add_argument(
+        '-A', '--apply', action='store_true',
+        help='Remove the ebuilds and their Manifest entries.')
+    parser.add_argument(
+        '-L', '--latest', action='store_true',
+        help='Remove even the latest version of unused ebuilds')
     opts = parser.parse_args(argv)
     opts.Freeze()
     return opts
 
 
 def get_dev_rust_ebuilds():
-    """Return a list of dev-rust ebuilds."""
-    return portage_util.FindPackageNameMatches('dev-rust/*')
+    """Return a list of dev-rust ebuilds excluding cros-workon packages."""
+    results = []
+    category = 'dev-rust'
+    category_dir = os.path.join(constants.SOURCE_ROOT,
+                                constants.CHROMIUMOS_OVERLAY_DIR,
+                                category)
+    for package in os.listdir(category_dir):
+        package_dir = os.path.join(category_dir, package)
+        if not os.path.isdir(package_dir):
+            continue
+        # Skip cros-workon packages.
+        if os.path.exists(os.path.join(package_dir,
+                                       '%s-9999.ebuild' % package)):
+            continue
+        for ebuild_name in os.listdir(package_dir):
+            if not ebuild_name.lower().endswith(EBUILD_SUFFIX):
+                continue
+            cpvr = os.path.join(category,
+                                ebuild_name[0:-len(EBUILD_SUFFIX)])
+            results.append(package_info.parse(cpvr))
+    return results
 
 
-def exclude_latest_version(packages):
-    """Return a list of ebuilds that aren't the latest version."""
+def latest_versions(packages):
+    """Return a list of the pvr's with the latest version."""
     by_atom = collections.defaultdict(list)
     for pkg in packages:
         by_atom[pkg.atom].append(pkg)
@@ -109,17 +155,8 @@ def exclude_latest_version(packages):
     # Pick out all the old versions, but keep different revisions of the newest
     # version to ensure we don't keep a symlink and remove the ebuild itself.
     for pkgs in by_atom.values():
-        if len(pkgs) <= 1:
-            # No old versions.
-            continue
-
         pkgs.sort()
-        newest = pkgs[-1]
-        # Use with_version to do x/y-1.0-r2 -> x/y-1.0.
-        newest = newest.with_version(newest.version)
-        # Add packages unless they're the no-revision-newest-version ebuild.
-        results.extend(x for x in pkgs[:-1] if x != newest)
-
+        results.append(pkgs[-1].cpvr)
     return results
 
 
@@ -130,6 +167,110 @@ def _get_package_dependencies(board, package):
         chroot_util.SetupBoard(board, update_chroot=False,
                                update_host_packages=False,)
     return portage_util.GetPackageDependencies(board, package)
+
+
+def get_ebuild_path(package):
+    """Get the absolute path to a chromiumos-overlay ebuild."""
+    return os.path.join(constants.SOURCE_ROOT,
+                        constants.CHROMIUMOS_OVERLAY_DIR,
+                        package.relative_path)
+
+
+def chase_references(references):
+    """Flatten a pvr -> pvr dict."""
+    to_chase = set(references.keys())
+    while to_chase:
+        value = to_chase.pop()
+        stack = [value]
+        value = references[value]
+        while value in to_chase:
+            to_chase.remove(value)
+            stack.append(value)
+            value = references[value]
+        for key in stack:
+            references[key] = value
+
+
+def find_ebuild_symlinks(packages):
+    """Resolve ebuild symlinks as a flattened pvr -> pvr dict."""
+    links = {}
+    checked = set()
+    for package in packages:
+        if package.cp in checked:
+            continue
+        checked.add(package.cp)
+        ebuild_dir = os.path.dirname(get_ebuild_path(package))
+        __find_ebuild_symlinks_impl(ebuild_dir, links)
+    chase_references(links)
+    return links
+
+
+def __find_ebuild_symlinks_impl(ebuild_dir, links):
+    package = os.path.basename(ebuild_dir)
+    category = os.path.basename(os.path.dirname(ebuild_dir))
+    for ebuild_name in os.listdir(ebuild_dir):
+        if not ebuild_name.lower().endswith(EBUILD_SUFFIX):
+            continue
+        ebuild_path = os.path.join(ebuild_dir, ebuild_name)
+        if not os.path.islink(ebuild_path):
+            continue
+        target = os.path.realpath(ebuild_path)
+        target_name = os.path.basename(target)
+        prefix = '%s-' % package
+        if (os.path.dirname(target) != ebuild_dir or
+            not target_name.startswith(prefix) or
+            not target_name.lower().endswith(EBUILD_SUFFIX)):
+            logging.warning('Skipping symlink: %s -> %s', ebuild_path, target)
+            continue
+        cpvr = os.path.join(category,
+                            ebuild_name[0:-len(EBUILD_SUFFIX)])
+        target_cpvr = os.path.join(category,
+                                   target_name[0:-len(EBUILD_SUFFIX)])
+        links[cpvr] = target_cpvr
+
+
+def remove_ebuilds(packages):
+    """Removes the listed ebuilds."""
+    for package in packages:
+        ebuild_path = get_ebuild_path(package)
+        ebuild_dir = os.path.dirname(ebuild_path)
+        logging.info('Removing: %s', ebuild_path)
+        try:
+            os.unlink(ebuild_path)
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
+            logging.warning('Could not find: %s', ebuild_path)
+        try:
+            os.rmdir(ebuild_dir)
+        except OSError as e:
+            if e.errno != errno.ENOTEMPTY:
+                raise
+
+
+def remove_manifest_entries(packages):
+    """Removes the manifest entries for the listed ebuilds."""
+    for package in packages:
+        ebuild_dir = os.path.dirname(get_ebuild_path(package))
+        manifest_path = os.path.join(ebuild_dir, 'Manifest')
+        if not os.path.exists(manifest_path):
+            logging.warning('Could not find: %s', manifest_path)
+            continue
+        logging.info('Updating: %s', manifest_path)
+        with open(manifest_path, 'r') as m:
+            manifest_lines = m.readlines()
+        filtered_lines = [a for a in manifest_lines if package.pv not in a]
+        if not filtered_lines:
+            os.remove(manifest_path)
+        elif len(filtered_lines) != len(manifest_lines):
+            with open(manifest_path, 'w') as m:
+                for line in filtered_lines:
+                    m.write(line)
+        try:
+            os.rmdir(ebuild_dir)
+        except OSError as e:
+            if e.errno != errno.ENOTEMPTY:
+                raise
 
 
 class CachedPackageLists:
