@@ -24,7 +24,7 @@ class callbox_manager():
         self.log = logging.getLogger()
         self.host = data['host']
         if data['hardware'] == "CMW":
-            self.simulator = cmw.CMW500CellularSimulator(cbl.callboxes[self.host], 22)
+            self.simulator = cmw.CMW500CellularSimulator(cbl.callboxes[self.host], 5025)
         self.dut = ChromebookCellularDut.ChromebookCellularDut(self.host, self.log)
         if data['cellular_type'] == "LTE":
             self.simulation = LteSimulation.LteSimulation(self.simulator,
