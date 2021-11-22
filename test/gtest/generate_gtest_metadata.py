@@ -23,10 +23,15 @@ from chromiumos.test.api import test_harness_pb2 as th_pb
 from chromiumos.test.api import test_case_pb2 as tc_pb
 
 
-def _test_case_exec_factory() -> th_pb.TestHarness:
-    """Factory method to build TestCaseExec proto objects"""
+def _test_case_exec_factory(target_bin_location: str) -> th_pb.TestHarness:
+    """Factory method to build TestCaseExec proto objects
+
+    Args:
+        target_bin_location: String representing the path on the DUT to the
+                             compiled gtest binary.
+    """
     return tc_metadata_pb.TestCaseExec(test_harness=th_pb.TestHarness(
-        gtest=th_pb.TestHarness.Gtest()))
+        gtest=th_pb.TestHarness.Gtest(target_bin_location=target_bin_location)))
 
 
 def _test_case_info_factory(data: dict) -> list:
@@ -65,7 +70,7 @@ def _test_case_metadata_factory(
 def _test_case_list_factory(input_data: dict) -> list:
     """Factory method for batch building TestCaseMetadata objects"""
     suite_name = input_data['name']
-    test_case_exec = _test_case_exec_factory()
+    test_case_exec = _test_case_exec_factory(input_data['target_bin_location'])
     test_case_info = _test_case_info_factory(input_data['owners'])
 
     test_cases = [

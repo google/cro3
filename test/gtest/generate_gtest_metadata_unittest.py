@@ -143,7 +143,7 @@ class Generate_Gtest_Metadata_Test(TestCase):
             s_name = f['name']
 
             tce = tc_metadata_pb.TestCaseExec(test_harness=th_pb.TestHarness(
-                gtest=th_pb.TestHarness.Gtest()))
+                gtest=th_pb.TestHarness.Gtest(target_bin_location=f['target_bin_location'])))
             tci = tc_metadata_pb.TestCaseInfo(owners=[
                 tc_metadata_pb.Contact(email=x['email']) for x in f['owners']
             ])

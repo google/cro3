@@ -28,7 +28,7 @@ cases:
 target_bin_location: "/usr/local/fake_test_path/test_binary"
 ...
 """
-VALID_YAML_SINGLE_CASE_NO_TAG_PROTOBUF = b'\nW\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12\x04\n\x02"\x00\x1a\x19\n\x17\n\x15owneremail@google.com'
+VALID_YAML_SINGLE_CASE_NO_TAG_PROTOBUF = b'\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com'
 
 VALID_YAML_SINGLE_CASE_ONE_TAG = """---
 author: "Existing Team"
@@ -47,7 +47,7 @@ cases:
 target_bin_location: "/usr/local/fake_test_path/test_binary"
 ...
 """
-VALID_YAML_SINGLE_CASE_ONE_TAG_PROTOBUF = b'\nd\nA\n\x1d\n\x1bgtest.MyFakeTest2.FakeCaseX\x12\x15MyFakeTest2.FakeCaseX\x1a\t\n\x07tag one\x12\x04\n\x02"\x00\x1a\x19\n\x17\n\x15owneremail@google.com'
+VALID_YAML_SINGLE_CASE_ONE_TAG_PROTOBUF = b'\n\x8b\x01\nA\n\x1d\n\x1bgtest.MyFakeTest2.FakeCaseX\x12\x15MyFakeTest2.FakeCaseX\x1a\t\n\x07tag one\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com'
 
 VALID_YAML_SINGLE_CASE_MULTIPLE_TAGS = """---
 author: "The Best Team"
@@ -66,7 +66,7 @@ cases:
 target_bin_location: "/usr/bin/fake_test_path/test_binary"
 ...
 """
-VALID_YAML_SINGLE_CASE_MULTIPLE_TAGS_PROTOBUF = b'\n\xb2\x01\n\x8f\x01\n&\n$gtest.YetAnotherTest.AnotherFakeCase\x12\x1eYetAnotherTest.AnotherFakeCase\x1a\t\n\x07tag one\x1a\t\n\x07two tag\x1a\r\n\x0banother tag\x1a\n\n\x08this_tag\x1a\x08\n\x06my*tag\x1a\n\n\x08your&tag\x12\x04\n\x02"\x00\x1a\x18\n\x16\n\x14myemail@chromium.org'
+VALID_YAML_SINGLE_CASE_MULTIPLE_TAGS_PROTOBUF = b'\n\xd7\x01\n\x8f\x01\n&\n$gtest.YetAnotherTest.AnotherFakeCase\x12\x1eYetAnotherTest.AnotherFakeCase\x1a\t\n\x07tag one\x1a\t\n\x07two tag\x1a\r\n\x0banother tag\x1a\n\n\x08this_tag\x1a\x08\n\x06my*tag\x1a\n\n\x08your&tag\x12)\n\'"%\n#/usr/bin/fake_test_path/test_binary\x1a\x18\n\x16\n\x14myemail@chromium.org'
 
 VALID_YAML_MULTIPLE_CASE_NO_TAG = """---
 author: "New Team"
@@ -88,7 +88,7 @@ cases:
 target_bin_location: "/usr/local/fake_test_path/test_binary"
 ...
 """
-VALID_YAML_MULTIPLE_CASE_NO_TAG_PROTOBUF = b'\nW\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12\x04\n\x02"\x00\x1a\x19\n\x17\n\x15owneremail@google.com\nW\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase2\x12\x14MyFakeTest.FakeCase2\x12\x04\n\x02"\x00\x1a\x19\n\x17\n\x15owneremail@google.com'
+VALID_YAML_MULTIPLE_CASE_NO_TAG_PROTOBUF = b'\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase2\x12\x14MyFakeTest.FakeCase2\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com'
 
 VALID_YAML_MULTIPLE_CASE_ONE_TAG = """---
 author: "Multi-Case Team"
@@ -111,7 +111,7 @@ cases:
 target_bin_location: "/tmp/test"
 ...
 """
-VALID_YAML_MULTIPLE_CASE_ONE_TAG_PROTOBUF = b'\n\x8d\x01\nO\n$\n"gtest.MultiCase_FakeTest.FakeCaseX\x12\x1cMultiCase_FakeTest.FakeCaseX\x1a\t\n\x07tag one\x12\x04\n\x02"\x00\x1a4\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x8d\x01\nO\n$\n"gtest.MultiCase_FakeTest.FakeCaseY\x12\x1cMultiCase_FakeTest.FakeCaseY\x1a\t\n\x07tag two\x12\x04\n\x02"\x00\x1a4\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com'
+VALID_YAML_MULTIPLE_CASE_ONE_TAG_PROTOBUF = b'\n\x98\x01\nO\n$\n"gtest.MultiCase_FakeTest.FakeCaseX\x12\x1cMultiCase_FakeTest.FakeCaseX\x1a\t\n\x07tag one\x12\x0f\n\r"\x0b\n\t/tmp/test\x1a4\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x98\x01\nO\n$\n"gtest.MultiCase_FakeTest.FakeCaseY\x12\x1cMultiCase_FakeTest.FakeCaseY\x1a\t\n\x07tag two\x12\x0f\n\r"\x0b\n\t/tmp/test\x1a4\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com'
 
 VALID_YAML_MULTIPLE_CASE_MULTIPLE_TAGS = """---
 author: "Multi-Case Team"
@@ -138,9 +138,9 @@ cases:
 target_bin_location: "/tmp/test/gtest/my_test"
 ...
 """
-VALID_YAML_MULTIPLE_CASE_MULTIPLE_TAGS_PROTOBUF = b'\n\xf5\x01\n\x9b\x01\n$\n"gtest.MultiCase_FakeTest.FakeCaseX\x12\x1cMultiCase_FakeTest.FakeCaseX\x1a\t\n\x07one tag\x1a\t\n\x07two tag\x1a\x0b\n\tthree tag\x1a\x06\n\x04four\x1a\n\n\x08five tag\x1a\t\n\x07six tag\x1a\x0b\n\tseven tag\x1a\x06\n\x04more\x12\x04\n\x02"\x00\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org\n\xb3\x01\nZ\n$\n"gtest.MultiCase_FakeTest.FakeCaseY\x12\x1cMultiCase_FakeTest.FakeCaseY\x1a\t\n\x07tag one\x1a\t\n\x07tag two\x12\x04\n\x02"\x00\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org\n\xbb\x01\nb\n$\n"gtest.MultiCase_FakeTest.FakeCaseZ\x12\x1cMultiCase_FakeTest.FakeCaseZ\x1a\x05\n\x03one\x1a\x05\n\x03now\x1a\x07\n\x05never\x1a\x05\n\x03tag\x12\x04\n\x02"\x00\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org'
+VALID_YAML_MULTIPLE_CASE_MULTIPLE_TAGS_PROTOBUF = b'\n\x8e\x02\n\x9b\x01\n$\n"gtest.MultiCase_FakeTest.FakeCaseX\x12\x1cMultiCase_FakeTest.FakeCaseX\x1a\t\n\x07one tag\x1a\t\n\x07two tag\x1a\x0b\n\tthree tag\x1a\x06\n\x04four\x1a\n\n\x08five tag\x1a\t\n\x07six tag\x1a\x0b\n\tseven tag\x1a\x06\n\x04more\x12\x1d\n\x1b"\x19\n\x17/tmp/test/gtest/my_test\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org\n\xcc\x01\nZ\n$\n"gtest.MultiCase_FakeTest.FakeCaseY\x12\x1cMultiCase_FakeTest.FakeCaseY\x1a\t\n\x07tag one\x1a\t\n\x07tag two\x12\x1d\n\x1b"\x19\n\x17/tmp/test/gtest/my_test\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org\n\xd4\x01\nb\n$\n"gtest.MultiCase_FakeTest.FakeCaseZ\x12\x1cMultiCase_FakeTest.FakeCaseZ\x1a\x05\n\x03one\x1a\x05\n\x03now\x1a\x07\n\x05never\x1a\x05\n\x03tag\x12\x1d\n\x1b"\x19\n\x17/tmp/test/gtest/my_test\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org'
 
-VALID_YAML_ALL_FILES_PROTOBUF = b'\nW\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12\x04\n\x02"\x00\x1a\x19\n\x17\n\x15owneremail@google.com\nd\nA\n\x1d\n\x1bgtest.MyFakeTest2.FakeCaseX\x12\x15MyFakeTest2.FakeCaseX\x1a\t\n\x07tag one\x12\x04\n\x02"\x00\x1a\x19\n\x17\n\x15owneremail@google.com\n\xb2\x01\n\x8f\x01\n&\n$gtest.YetAnotherTest.AnotherFakeCase\x12\x1eYetAnotherTest.AnotherFakeCase\x1a\t\n\x07tag one\x1a\t\n\x07two tag\x1a\r\n\x0banother tag\x1a\n\n\x08this_tag\x1a\x08\n\x06my*tag\x1a\n\n\x08your&tag\x12\x04\n\x02"\x00\x1a\x18\n\x16\n\x14myemail@chromium.org\nW\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12\x04\n\x02"\x00\x1a\x19\n\x17\n\x15owneremail@google.com\nW\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase2\x12\x14MyFakeTest.FakeCase2\x12\x04\n\x02"\x00\x1a\x19\n\x17\n\x15owneremail@google.com\n\x8d\x01\nO\n$\n"gtest.MultiCase_FakeTest.FakeCaseX\x12\x1cMultiCase_FakeTest.FakeCaseX\x1a\t\n\x07tag one\x12\x04\n\x02"\x00\x1a4\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x8d\x01\nO\n$\n"gtest.MultiCase_FakeTest.FakeCaseY\x12\x1cMultiCase_FakeTest.FakeCaseY\x1a\t\n\x07tag two\x12\x04\n\x02"\x00\x1a4\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\xf5\x01\n\x9b\x01\n$\n"gtest.MultiCase_FakeTest.FakeCaseX\x12\x1cMultiCase_FakeTest.FakeCaseX\x1a\t\n\x07one tag\x1a\t\n\x07two tag\x1a\x0b\n\tthree tag\x1a\x06\n\x04four\x1a\n\n\x08five tag\x1a\t\n\x07six tag\x1a\x0b\n\tseven tag\x1a\x06\n\x04more\x12\x04\n\x02"\x00\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org\n\xb3\x01\nZ\n$\n"gtest.MultiCase_FakeTest.FakeCaseY\x12\x1cMultiCase_FakeTest.FakeCaseY\x1a\t\n\x07tag one\x1a\t\n\x07tag two\x12\x04\n\x02"\x00\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org\n\xbb\x01\nb\n$\n"gtest.MultiCase_FakeTest.FakeCaseZ\x12\x1cMultiCase_FakeTest.FakeCaseZ\x1a\x05\n\x03one\x1a\x05\n\x03now\x1a\x07\n\x05never\x1a\x05\n\x03tag\x12\x04\n\x02"\x00\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org'
+VALID_YAML_ALL_FILES_PROTOBUF = b'\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com\n\x8b\x01\nA\n\x1d\n\x1bgtest.MyFakeTest2.FakeCaseX\x12\x15MyFakeTest2.FakeCaseX\x1a\t\n\x07tag one\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com\n\xd7\x01\n\x8f\x01\n&\n$gtest.YetAnotherTest.AnotherFakeCase\x12\x1eYetAnotherTest.AnotherFakeCase\x1a\t\n\x07tag one\x1a\t\n\x07two tag\x1a\r\n\x0banother tag\x1a\n\n\x08this_tag\x1a\x08\n\x06my*tag\x1a\n\n\x08your&tag\x12)\n\'"%\n#/usr/bin/fake_test_path/test_binary\x1a\x18\n\x16\n\x14myemail@chromium.org\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase2\x12\x14MyFakeTest.FakeCase2\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com\n\x98\x01\nO\n$\n"gtest.MultiCase_FakeTest.FakeCaseX\x12\x1cMultiCase_FakeTest.FakeCaseX\x1a\t\n\x07tag one\x12\x0f\n\r"\x0b\n\t/tmp/test\x1a4\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x98\x01\nO\n$\n"gtest.MultiCase_FakeTest.FakeCaseY\x12\x1cMultiCase_FakeTest.FakeCaseY\x1a\t\n\x07tag two\x12\x0f\n\r"\x0b\n\t/tmp/test\x1a4\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x8e\x02\n\x9b\x01\n$\n"gtest.MultiCase_FakeTest.FakeCaseX\x12\x1cMultiCase_FakeTest.FakeCaseX\x1a\t\n\x07one tag\x1a\t\n\x07two tag\x1a\x0b\n\tthree tag\x1a\x06\n\x04four\x1a\n\n\x08five tag\x1a\t\n\x07six tag\x1a\x0b\n\tseven tag\x1a\x06\n\x04more\x12\x1d\n\x1b"\x19\n\x17/tmp/test/gtest/my_test\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org\n\xcc\x01\nZ\n$\n"gtest.MultiCase_FakeTest.FakeCaseY\x12\x1cMultiCase_FakeTest.FakeCaseY\x1a\t\n\x07tag one\x1a\t\n\x07tag two\x12\x1d\n\x1b"\x19\n\x17/tmp/test/gtest/my_test\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org\n\xd4\x01\nb\n$\n"gtest.MultiCase_FakeTest.FakeCaseZ\x12\x1cMultiCase_FakeTest.FakeCaseZ\x1a\x05\n\x03one\x1a\x05\n\x03now\x1a\x07\n\x05never\x1a\x05\n\x03tag\x12\x1d\n\x1b"\x19\n\x17/tmp/test/gtest/my_test\x1aO\n\x18\n\x16multiowners@google.com\n\x18\n\x16secondowner@google.com\n\x19\n\x17thirdowner@chromium.org'
 
 ###### INVALID YAML DATA #######
 INVALID_YAML_NO_AUTHOR = """---
