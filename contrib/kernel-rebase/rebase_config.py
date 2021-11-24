@@ -37,6 +37,10 @@ topic_fixups = {}
 # example:
 # topic_fixups['bluetooth'] = ['fd83ec5d9b94']
 
+topic_fixups['chromeos'] = [
+    'hid: Emit digitizer serial number through power_supply'
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
