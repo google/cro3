@@ -5,7 +5,7 @@
 
 """Continuous rebase configuration file"""
 
-rebase_baseline_branch = 'chromeos-5.10'
+rebase_baseline_branch = 'chromeos-5.15'
 android_baseline_branch = 'deprecated/android-5.4'
 
 # Set rebase_target to desired target.
