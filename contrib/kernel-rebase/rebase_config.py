@@ -185,3 +185,4 @@ disp_overlay['23f0e774db3b'] = 'drop' # FROMLIST: mm, x86: support the access bi
 disp_overlay['ab6f3dbba4b5'] = 'drop' # FROMLIST: include/linux/cgroup.h: export cgroup_mutex
 disp_overlay['953d0f9b23ed'] = 'drop' # FROMLIST: include/linux/nodemask.h: define next_memory_node() if !CONFIG_NUMA
 disp_overlay['0fe2ef3d7dfa'] = 'drop' # BACKPORT: FROMLIST: include/linux/mm.h: do not warn in page_memcg_rcu() if !CONFIG_MEMCG
+disp_overlay['0977464ba037'] = 'drop' # CHROMIUM: virtio-gpu api: context init feature
