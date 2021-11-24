@@ -37,37 +37,6 @@ topic_fixups = {}
 # example:
 # topic_fixups['bluetooth'] = ['fd83ec5d9b94']
 
-topic_fixups['bluetooth'] = [
-    'Handle BR&ADR devices during suspend'
-]
-topic_fixups['cros_ec'] = [
-    'Revert "iio: cros_ec: unify hw fifo attributes into the core file"'
-]
-topic_fixups['block-fs'] = [
-    'add ChromeOS specific platform functions',
-    'bring over dm-verity-chromeos.c',
-    'update ESDFS to use changed FS API',
-    'efi: Support non-standard GPT location',
-    'Revert "fs: unexport vfs_read and vfs_write"',
-    'export security_path_chown'
-]
-topic_fixups['net'] = [
-    'Introduce ANDROID_PARANOID_NETWORK as per-netns setting'
-]
-topic_fixups['drm'] = [
-    'Add drm_main_relax debugfs file (non-root set&drop main ioctls)',
-    'Add an API for exporting sync files (v12)',
-    'Track context current active time'
-]
-
-topic_fixups['chromeos'] = [
-    'Restrict swapon() to "zram" devices lock down zram'
-]
-
-topic_fixups['media'] = [
-    'add a quirk for ROI fixup'
-]
-
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
@@ -84,7 +53,6 @@ merge_order_override = [
 #     "e0783589ae58"
 # ]
 merge_fixups = [
-    'process fput task_work with TWA_SIGNAL'
 ]
 
 # cherry-pick a list of patches before a given patch
@@ -94,12 +62,6 @@ merge_fixups = [
 #     '0d022b4a1e19': ['6e18e51a1c19']
 # }
 patch_deps = {
-    '0d022b4a1e19': ['6e18e51a1c19'],
-    '03ee1420ddff': ['13f1f28be1c3'],
-    '5f46e9f6605b': ['fbfe1e70219a'],
-    'fa50bd48a5a6': ['3f91858b76dd'],
-    'ff7031e150ea': ['0ab547a96da1'],
-    '0087fc6db81c': ['8509c59ba454'],
 }
 
 # Add entry here to overwrite default disposition on particular commit
