@@ -2,12 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Package device implements utilities to extract device information.
+// Package device_test tests the exported APIs of the package device.
 package device
 
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	labapi "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
@@ -55,6 +56,120 @@ func TestAddress(t *testing.T) {
 		}
 		if got != d.expected {
 			t.Errorf("Got %q from Address; wanted:%q", got, d.expected)
+		}
+	}
+}
+
+// TestFillDUTInfo makes sure FillDUTInfo behaved as expected.
+func TestFillDUTInfo(t *testing.T) {
+	expected := []*DutInfo{
+		{
+			Addr:            "127.0.0.1:2222",
+			Role:            "",
+			Servo:           "c6-r9-r7-labstation:9996",
+			DutServer:       "cros-dut0:80",
+			ProvisionServer: "cros-provision0:80",
+		},
+		{
+			Addr:            "[0:0:0:0:0:ffff:7f00:1]:2",
+			Role:            "cd1",
+			Servo:           "c6-r8-r7-labstation:9999",
+			DutServer:       "cros-dut1:80",
+			ProvisionServer: "cros-provision1:80",
+		},
+		{
+			Addr:            "c6-r8-rack7-host7",
+			Role:            "cd2",
+			Servo:           "c6-r7-r7-labstation:9999",
+			DutServer:       "cros-dut2:80",
+			ProvisionServer: "cros-provision2:80",
+		},
+		{
+			Addr:            "0:0:0:0:0:ffff:7f00:1",
+			Role:            "cd3",
+			Servo:           "",
+			DutServer:       "",
+			ProvisionServer: "",
+		},
+	}
+	input := []*api.CrosTestRequest_Device{
+		{
+			Dut: &labapi.Dut{
+				Id: &labapi.Dut_Id{Value: "AnyId"},
+				DutType: &labapi.Dut_Chromeos{
+					Chromeos: &labapi.Dut_ChromeOS{
+						Ssh: &labapi.IpEndpoint{Address: "127.0.0.1", Port: 2222},
+						Servo: &labapi.Servo{
+							Present: true,
+							ServodAddress: &labapi.IpEndpoint{
+								Address: "c6-r9-r7-labstation",
+								Port:    9996,
+							},
+						},
+					},
+				},
+			},
+			DutServer:       &labapi.IpEndpoint{Address: "cros-dut0", Port: 80},
+			ProvisionServer: &labapi.IpEndpoint{Address: "cros-provision0", Port: 80},
+		},
+		{
+			Dut: &labapi.Dut{
+				Id: &labapi.Dut_Id{Value: "AnyId"},
+				DutType: &labapi.Dut_Chromeos{
+					Chromeos: &labapi.Dut_ChromeOS{
+						Ssh: &labapi.IpEndpoint{Address: "0:0:0:0:0:ffff:7f00:1", Port: 2},
+						Servo: &labapi.Servo{
+							Present: true,
+							ServodAddress: &labapi.IpEndpoint{
+								Address: "c6-r8-r7-labstation",
+								Port:    9999,
+							},
+						},
+					},
+				},
+			},
+			DutServer:       &labapi.IpEndpoint{Address: "cros-dut1", Port: 80},
+			ProvisionServer: &labapi.IpEndpoint{Address: "cros-provision1", Port: 80},
+		},
+		{
+			Dut: &labapi.Dut{
+				Id: &labapi.Dut_Id{Value: "AnyId"},
+				DutType: &labapi.Dut_Chromeos{
+					Chromeos: &labapi.Dut_ChromeOS{
+						Ssh: &labapi.IpEndpoint{Address: "c6-r8-rack7-host7", Port: 0},
+						Servo: &labapi.Servo{
+							Present: true,
+							ServodAddress: &labapi.IpEndpoint{
+								Address: "c6-r7-r7-labstation",
+								Port:    9999,
+							},
+						},
+					},
+				},
+			},
+			DutServer:       &labapi.IpEndpoint{Address: "cros-dut2", Port: 80},
+			ProvisionServer: &labapi.IpEndpoint{Address: "cros-provision2", Port: 80},
+		},
+		{
+			Dut: &labapi.Dut{
+				Id: &labapi.Dut_Id{Value: "AnyId"},
+				DutType: &labapi.Dut_Chromeos{
+					Chromeos: &labapi.Dut_ChromeOS{
+						Ssh: &labapi.IpEndpoint{Address: "0:0:0:0:0:ffff:7f00:1", Port: 0},
+					},
+				},
+			},
+		},
+	}
+
+	for i, wanted := range expected {
+		dut := input[i]
+		got, err := FillDUTInfo(dut, wanted.Role)
+		if err != nil {
+			t.Errorf("Cannot get address for dut %v: %v", dut, err)
+		}
+		if diff := cmp.Diff(got, wanted); diff != "" {
+			t.Errorf("DownloadPrivateBundlesRequest mismatch (-got +want):\n%s", diff)
 		}
 	}
 }

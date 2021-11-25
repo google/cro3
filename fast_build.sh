@@ -20,11 +20,11 @@ readonly SRCDIRS=(
 
 # Package to build to produce cros-test
 readonly CROS_TEST_PKG="chromiumos/test/execution/cmd/cros-test"
-readonly PROVISIONSERVER_PKG="chromiumos/test/provision/cmd/provisionserver"
+readonly CROS_PROVISION_PKG="chromiumos/test/provision/cmd/cros-provision"
 
 # Output filename for cros-test executable.
 readonly CROS_TEST_OUT="${GOHOME}/bin/cros-test"
-readonly PROVISIONSERVER_OUT="${GOHOME}/bin/provisionserver"
+readonly CROS_PROVISION_OUT="${GOHOME}/bin/cros-provision"
 
 # Readonly Go workspaces containing source to build. Note that the packages
 # installed to /usr/lib/gopath (dev-go/crypto, dev-go/subcommand, etc.) need to
@@ -171,5 +171,5 @@ elif [ -n "${check_pkg}" ]; then
   fi
 else
   run_build "${CROS_TEST_PKG}" "${CROS_TEST_OUT}"
-  run_build "${PROVISIONSERVER_PKG}" "${PROVISIONSERVER_OUT}"
+  run_build "${CROS_PROVISION_PKG}" "${CROS_PROVISION_OUT}"
 fi

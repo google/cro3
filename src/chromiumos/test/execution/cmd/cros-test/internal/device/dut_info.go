@@ -15,6 +15,15 @@ import (
 	labapi "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
+// DutInfo stores
+type DutInfo struct {
+	Addr            string // The address of the DUT.
+	Role            string // The role of the DUT.
+	Servo           string // The address of the servo.
+	DutServer       string // The address of the dutServer.
+	ProvisionServer string // address of the provision server
+}
+
 // joinHostAndPort joins host and port to a single address.
 // Example 1: "127.0.0.1" "" -> "127.0.0.1".
 // Example 2: "0:0:0:0:0:ffff:7f00:1" "2" -> "[0:0:0:0:0:ffff:7f00:1]:2".
@@ -27,6 +36,7 @@ func joinHostAndPort(endpoint *labapi.IpEndpoint) string {
 }
 
 // Address returns the address of a DUT.
+// TODO: Remove this after no test drivers are using this.
 func Address(device *api.CrosTestRequest_Device) (string, error) {
 	if device == nil {
 		return "", errors.New("requested device is nil")
@@ -41,4 +51,45 @@ func Address(device *api.CrosTestRequest_Device) (string, error) {
 	}
 	return joinHostAndPort(chromeOS.Ssh), nil
 
+}
+
+// FillDUTInfo extraction DUT information from a device.
+func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, error) {
+	if device == nil {
+		return nil, errors.New("requested device is nil")
+	}
+	dut := device.Dut
+	if dut == nil {
+		return nil, errors.New("DUT is nil")
+	}
+	chromeOS := dut.GetChromeos()
+	if chromeOS == nil {
+		return nil, fmt.Errorf("DUT does not have end point information: %v", dut)
+	}
+	addr := joinHostAndPort(chromeOS.Ssh)
+
+	// Servo address.
+	var servo string
+	if chromeOS.Servo != nil && chromeOS.Servo.ServodAddress != nil {
+		servo = joinHostAndPort(chromeOS.Servo.ServodAddress)
+	}
+
+	// DUT Server address.
+	var dutServer string
+	if device.DutServer != nil {
+		dutServer = joinHostAndPort(device.DutServer)
+	}
+	// Provision server address.
+	var provisionServer string
+	if device.ProvisionServer != nil {
+		provisionServer = joinHostAndPort(device.ProvisionServer)
+	}
+
+	return &DutInfo{
+		Addr:            addr,
+		Role:            role,
+		Servo:           servo,
+		DutServer:       dutServer,
+		ProvisionServer: provisionServer,
+	}, nil
 }

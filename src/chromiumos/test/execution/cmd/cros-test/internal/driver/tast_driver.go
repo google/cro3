@@ -40,9 +40,6 @@ func (td *TastDriver) Name() string {
 
 // RunTests drives a test framework to execute tests.
 func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.CrosTestRequest, tlwAddr string, tests []*api.TestCaseMetadata) (*api.CrosTestResponse, error) {
-	primary := req.Primary
-	companions := req.Companions
-
 	testNamesToIds := getTestNamesToIds(tests)
 	testNames := getTestNames(tests)
 
@@ -53,21 +50,21 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.
 	}
 	defer reportServer.Stop()
 
-	addr, err := device.Address(primary)
+	primary, err := device.FillDUTInfo(req.Primary, "")
 	if err != nil {
 		return nil, errors.NewStatusError(errors.InvalidArgument,
 			fmt.Errorf("cannot get address from primary device: %v", primary))
 	}
-	var companionAddrs []string
-	for _, c := range companions {
-		address, err := device.Address(c)
+	var companions []*device.DutInfo
+	for i, c := range req.Companions {
+		info, err := device.FillDUTInfo(c, fmt.Sprintf("cd%d", i+1))
 		if err != nil {
 			return nil, errors.NewStatusError(errors.InvalidArgument,
 				fmt.Errorf("cannot get address from companion device: %v", c))
 		}
-		companionAddrs = append(companionAddrs, address)
+		companions = append(companions, info)
 	}
-	args := newTastArgs(addr, companionAddrs, testNames, resultsDir, tlwAddr, reportServer.Address())
+	args := newTastArgs(primary, companions, testNames, resultsDir, reportServer.Address())
 
 	// Run tast.
 	cmd := exec.Command("/usr/bin/tast", genArgList(args)...)
@@ -109,11 +106,10 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.
 	wg.Wait()
 
 	MissingTestErrMsg := ""
-	if err := cmd.Wait(); err != nil {
+	err = cmd.Wait()
+	if err != nil {
 		td.logger.Println("Failed to run tast: ", err)
 		MissingTestErrMsg = fmt.Sprintf("Test did not run due to %s", err)
-		return nil, errors.NewStatusError(errors.CommandExitError,
-			fmt.Errorf("tast exited with error: %v", err))
 	}
 
 	testResults := reportServer.TestsReports()
@@ -127,7 +123,7 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.
 		return &api.CrosTestResponse{TestCaseResults: results}, reportErrors[len(reportErrors)-1]
 	}
 
-	return &api.CrosTestResponse{TestCaseResults: results}, nil
+	return &api.CrosTestResponse{TestCaseResults: results}, err
 }
 
 // Command name and flag names.
@@ -145,33 +141,27 @@ const (
 	downloadPrivateBundlesFlag = "-downloadprivatebundles"
 	devServerFlag              = "-devservers"
 	resultsDirFlag             = "-resultsdir"
-	tlwServerFlag              = "-tlwserver"
 	waitUntilReadyFlag         = "-waituntilready"
 	timeOutFlag                = "-timeout"
 	keyfileFlag                = "-keyfile"
 	reportsServerFlag          = "-reports_server"
 	companionDUTFlag           = "-companiondut"
+	varFlag                    = "-var"
 )
 
 // runArgs stores arguments to invoke Tast
 type runArgs struct {
-	target     string            // The url for the target machine.
+	primary    *device.DutInfo   // The information of the primary machine.
 	patterns   []string          // The names of test to be run.
 	tastFlags  map[string]string // The flags for tast.
 	runFlags   map[string]string // The flags for tast run command.
-	companions []string          // The companion DUTs to be used for testing.
+	companions []*device.DutInfo // The information of the companion DUTs to be used for testing.
 }
 
 // newTastArgs created an argument structure for invoking tast
-func newTastArgs(dut string, companionDuts, tests []string, resultsDir, tlwAddress, rsAddress string) *runArgs {
-	downloadPrivateBundles := "false"
-	// Change downloadPrivateBundlesFlag to "true" if tlwServer is specified.
-	if tlwAddress != "" {
-		downloadPrivateBundles = "true"
-	}
-
+func newTastArgs(primary *device.DutInfo, companionDuts []*device.DutInfo, tests []string, resultsDir, rsAddress string) *runArgs {
 	return &runArgs{
-		target: dut,
+		primary: primary,
 		tastFlags: map[string]string{
 			verboseFlag: "true",
 			logTimeFlag: "false",
@@ -180,11 +170,10 @@ func newTastArgs(dut string, companionDuts, tests []string, resultsDir, tlwAddre
 			sshRetriesFlag:             "2",
 			downloadDataFlag:           "batch",
 			buildFlag:                  "false",
-			downloadPrivateBundlesFlag: downloadPrivateBundles,
+			downloadPrivateBundlesFlag: "true",
 			timeOutFlag:                "3000",
 			resultsDirFlag:             resultsDir,
 			reportsServerFlag:          rsAddress,
-			tlwServerFlag:              tlwAddress,
 		},
 		patterns:   tests, // TO-DO Support Tags
 		companions: companionDuts,
@@ -200,11 +189,63 @@ func genArgList(args *runArgs) (argList []string) {
 	for flag, value := range args.runFlags {
 		argList = append(argList, fmt.Sprintf("%v=%v", flag, value))
 	}
-	for i, c := range args.companions {
+	for _, c := range args.companions {
 		// example: -companiondut=cd1:127.0.0.1:2222
-		argList = append(argList, fmt.Sprintf("%v=cd%v:%v", companionDUTFlag, i+1, c))
+		argList = append(argList, fmt.Sprintf("%v=%s:%s", companionDUTFlag, c.Role, c.Addr))
 	}
-	argList = append(argList, args.target)
+
+	// Fill in the servo var flags.
+	servoStrs := ""
+	if args.primary.Servo != "" {
+		// Fill in the old servo var flag for backward compatibility.
+		// example -var=servo=labstation:9996/
+		argList = append(argList, fmt.Sprintf("%v=servo=%s", varFlag, args.primary.Servo))
+		// Fill in the servo var flag
+		servoStrs = fmt.Sprintf(":%s", args.primary.Servo)
+	}
+	for _, c := range args.companions {
+		if c.Servo != "" {
+			servoStrs = fmt.Sprintf("%s,%s:%s", servoStrs, c.Role, c.Servo)
+		}
+	}
+	if servoStrs != "" {
+		// example: -var=servers.servo=:labstation:9995,cd1:labstation:9998
+		argList = append(argList, fmt.Sprintf("%v=servers.servo=%s", varFlag, servoStrs))
+	}
+
+	// Fill in DUT server var flags.
+	dutServerStrs := ""
+	if args.primary.DutServer != "" {
+		// Fill in the servo var flag
+		dutServerStrs = fmt.Sprintf(":%s", args.primary.DutServer)
+	}
+	for _, c := range args.companions {
+		if c.DutServer != "" {
+			dutServerStrs = fmt.Sprintf("%s,%s:%s", dutServerStrs, c.Role, c.DutServer)
+		}
+	}
+	if dutServerStrs != "" {
+		// example: var=servers.dut=primary:d1:22,cd1:d2:22,cd3:d3:22
+		argList = append(argList, fmt.Sprintf("%v=servers.dut=%s", varFlag, dutServerStrs))
+	}
+
+	// Fill in Provision server var flags.
+	provisionServerStrs := ""
+	if args.primary.ProvisionServer != "" {
+		// Fill in the servo var flag
+		provisionServerStrs = fmt.Sprintf(":%s", args.primary.ProvisionServer)
+	}
+	for _, c := range args.companions {
+		if c.ProvisionServer != "" {
+			provisionServerStrs = fmt.Sprintf("%s,%s:%s", provisionServerStrs, c.Role, c.ProvisionServer)
+		}
+	}
+	if provisionServerStrs != "" {
+		// example: -var=servers.provision=primary:p1:22,cd1:p2:22,cd2:p2:22
+		argList = append(argList, fmt.Sprintf("%v=servers.provision=%s", varFlag, provisionServerStrs))
+	}
+
+	argList = append(argList, args.primary.Addr)
 	argList = append(argList, args.patterns...)
 	return argList
 }
