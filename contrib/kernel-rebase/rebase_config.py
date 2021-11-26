@@ -45,6 +45,13 @@ topic_fixups['bluetooth'] = [
     'Bluetooth: Optimize the LE connection sequence'
 ]
 
+topic_fixups['block-fs'] = [
+    'add ChromeOS specific platform functions',
+    'Add message definitions for CHROMEOS_TMPFILE',
+    'fuse: Passthrough initialization and release',
+    'fuse: Handle asynchronous read and write in passthrough'
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
