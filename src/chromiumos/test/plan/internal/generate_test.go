@@ -5,6 +5,7 @@
 package testplan_test
 
 import (
+	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -113,7 +114,7 @@ func writeTempStarlarkFile(t *testing.T, starlarkSource string) string {
 	testDir := t.TempDir()
 	planFilename := path.Join(testDir, "test.star")
 
-	if err := os.WriteFile(
+	if err := ioutil.WriteFile(
 		planFilename,
 		[]byte(starlarkSource),
 		os.ModePerm,
