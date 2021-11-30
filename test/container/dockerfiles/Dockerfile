@@ -95,6 +95,7 @@ Host android* brillo* chromeos1* chromeos2* chromeos3* chromeos4* chromeos5* chr
 Host * \n\
   StrictHostKeyChecking=no \n\
   IdentityFile %d/.ssh/testing_rsa \n\
+  IdentityFile %d/.ssh/autotest_internal_rsa \n\
   UserKnownHostsFile=/dev/null \n\
 '> ~/.ssh/config
 
