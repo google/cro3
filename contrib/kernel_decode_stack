@@ -64,7 +64,7 @@ decode_stacktrace() {
       head -1 |
       sed 's|\(.*\)/include/linux/compiler.h:$|\1|')
 
-  CROSS_COMPILE="${cross}-" \
+  ARCH=${kernel_arch} CROSS_COMPILE="${cross}-" \
     "${SRC_ROOT}/third_party/kernel/upstream/scripts/decode_stacktrace.sh" \
     "/build/${board}/usr/lib/debug/boot/vmlinux" \
     "${kernel_source_path}" \
