@@ -14,7 +14,6 @@ replaces git rerere for this project, due to specific requirements.
 
 import hashlib
 import os
-import re
 import sh
 from config import debug
 
@@ -56,9 +55,7 @@ def cherry_pick(repo, sha):
     """pretend cherry-pick
 
     The fn actually exports the patch to a file and
-    then `git am`s it. This is to re-use the machinery
-    for removing problematic index information from
-    generated patches
+    then `git am`s it.
     """
 
     patch = format_patch(repo, sha)
@@ -104,6 +101,11 @@ def refine_text_old(text):
     lines = text.splitlines()
     refined = ''
     for l in lines:
+        line_num_delim2 = l.find('@@', 1)
+        if line_num_delim2 != -1:
+            # truncate cosmetic information from the line containing diff line
+            # number
+            l = l[0:line_num_delim2 + 2]
         if not l.startswith('index '):
             refined += l + '\n'
     return refined
@@ -120,8 +122,7 @@ def refine_text(text):
             # truncate cosmetic information from the line containing diff line
             # number
             l = l[0:line_num_delim2 + 2]
-        if not l.startswith('index '):
-            refined += l + '\n'
+        refined += l + '\n'
     return refined
 
 
@@ -168,14 +169,7 @@ def format_patch(repo, sha):
             '--stdout',
             '{sha}~..{sha}'.format(sha=sha))
 
-    # Remove information about indices. Git uses this to autoresolve some
-    # conflicts, which will only work if the indices refer to git objects
-    # present locally. It's not portable, and thus has to be disabled.
-    # It would be preferable to fix it with a git option instead of sabotaging
-    # the patch file, but AFAICT it's not possible as of now.
-    diff = re.sub(r'^index .*\n?', '', str(diff), flags=re.MULTILINE)
-
-    return diff
+    return str(diff)
 
 
 def head_sha(repo):
