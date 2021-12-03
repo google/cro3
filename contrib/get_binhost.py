@@ -9,7 +9,9 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 
+from pathlib import Path
 from chromite.lib.cros_build_lib import IsInsideChroot
 
 user_conf = '/etc/make.conf.user'
@@ -73,43 +75,48 @@ def is_internal():
     print(f'Unknown manifest source {url}')
     sys.exit(1)
 
-def get_current_snapshot():
-    return subprocess.run(
-        ['git', 'rev-parse', 'HEAD'],
+def get_snapshot_hashes():
+    # 48 snapshots = 24 hours
+    commit_range = 'HEAD~48..HEAD'
+
+    internal = subprocess.run(
+        ['git', 'log', commit_range, '--format=%H'],
         stdout=subprocess.PIPE,
         cwd='/mnt/host/source/.repo/manifests/',
-        check=True).stdout.decode().strip()
+        check=True).stdout.decode().split()
 
-def internal_to_external_snapshot(rev):
-    return subprocess.run(
-        ['git', 'footers', '--key', 'Cr-External-Snapshot', rev],
+    if not is_internal():
+        return internal
+
+    external = subprocess.run(
+        ['git', 'log', commit_range,
+         '--format=%(trailers:key=Cr-External-Snapshot'
+         ',separator=,valueonly)'],
         stdout=subprocess.PIPE,
         cwd='/mnt/host/source/.repo/manifests/',
-        check=True).stdout.decode().strip()
+        check=True).stdout.decode().split()
 
-def run_query(query):
-    query_str = json.dumps(query)
+    # Flatten the list of (internal, external) pairs. This gives us a
+    # priority order where newer snapshots > older, and then internal
+    # snapshots > external snapshots.
+    return [rev for pair in zip(internal, external) for rev in pair]
 
-    return subprocess.run(
-        ['bb', 'ls', '-json', '-fields', 'input,output',
-         '-predicate', query_str],
-        stdout=subprocess.PIPE,
-        check=True).stdout.decode()
+def download_json(tmp, rev):
+    subprocess.run(['gsutil', '-m', 'cp', '-r',
+                    f'gs://chromeos-prebuilt/snapshot/{rev}',
+                    tmp],
+                   stderr=subprocess.DEVNULL)
+    # Don't check the return code because gsutil returns non-zero if
+    # some of the paths don't exist.
 
-def parse_response(bb_ret):
-    # bb unhelpfully returns a bunch on concatenated JSON objects,
-    # rather then a single top-level list, so we need to have our own
-    # parsing loop rather then just doing json.loads().
+def parse_json(tmp, rev):
+    result = []
+    for curr, _, files in os.walk(tmp / rev):
+        for f in files:
+            with open(Path(curr) / f, 'r') as f:
+                result.append(json.loads(f.read()))
 
-    decoder = json.JSONDecoder()
-    ret = []
-    while True:
-        try:
-            obj, idx = decoder.raw_decode(bb_ret)
-            ret.append(obj)
-            bb_ret = bb_ret[idx:].strip()
-        except json.decoder.JSONDecodeError:
-            return ret
+    return result
 
 def main():
     parser = argparse.ArgumentParser(
@@ -122,25 +129,27 @@ these packages are taken from is itself a part of the git repo, which
 means it is effectivly always out of date. See crbug.com/1073565 for
 more details.
 
-This script tries to solve this by looking up CI builds which match
-the currently checked out manifest snapshot. Only exact matches are
-used, so this is most useful if you sync to the "stable" manifest
-branch. If you haven't used this script before, you must add the line
+This script tries to solve this by looking up recent binary prebuilts
+for all boards. This is most useful if you sync to the "stable"
+manifest branch, which will always have up to date prebuilts. If you
+haven't used this script before, you must add the line
     {conf_line}
-to the file {user_conf} in your chroot. This script also
-relies on the buildbucket CLI tool. If you haven't previously used it,
-you will need to run "bb auth-login".""")
+to the file {user_conf} in your chroot.""")
     parser.add_argument(
-        'builder', nargs='?', default='', type=str,
-        help='By default, we try to make use of all builders. '
-        'However, for some boards, such as amd64-generic, there '
-        'are multiple builders with different profiles. By '
-        'default we assume the one named {board}-postsubmit is '
-        'the desired builder, if one exists, or the first '
-        'result otherwise, but if you have configured your '
-        'build with "setup_board --profile" or similar you may '
-        'need to set this option to a different builder. Note '
-        'that this is not persistent. If you run the default '
+        'board', nargs='?', default='', type=str,
+        help='By default, we try to configure prebuilts for all '
+        'available boards. This can be slow. If you only want to '
+        'configure a single board, set this option.')
+    parser.add_argument(
+        'profile', nargs='?', default='base', type=str,
+        help='Portage allows each board to have many profiles which '
+        'can have different build options configured, and therefore '
+        'require different prebuilts. This script can only configure '
+        'a board to use prebuilts from one profile at a time. By '
+        'default we use "base" for everything, and this is usually '
+        'correct, but if you set up your sysroot by passing the '
+        '"--profile" option to setup_board you will need to set this. '
+        'Note that this is not persistent. If you run the default '
         'form of this command any binhosts you set with this '
         'will be overwritten.')
 
@@ -148,38 +157,9 @@ you will need to run "bb auth-login".""")
 
     run_prechecks()
 
-    query = {
-        'builder': {
-            'project': 'chromeos',
-            'bucket': 'postsubmit',
-        },
-
-        'tags': [{
-            'key': 'snapshot',
-            'value': get_current_snapshot(),
-        }],
-
-        'status': 'SUCCESS',
-    }
-
-    if args.builder:
-        query['builder']['builder'] = args.builder
-
-    bb_ret = run_query(query)
-
-    # Some postsubmit builders use the external manifest, so if we
-    # just used the internal manifest try the external one too to get
-    # more builders.
-    if is_internal():
-        query['tags'][0]['value'] = (
-            internal_to_external_snapshot(query['tags'][0]['value']))
-        bb_ret += run_query(query)
-
-    bb_ret = parse_response(bb_ret)
-    if not bb_ret:
-        print('Warning: buildbucket returned no builds.')
-
-    binhost_map = defaultdict(str)
+    # Snapshot hashes are listed newest-to-oldest, so in descending
+    # order of priority.
+    revs = get_snapshot_hashes()
 
     # Files in /etc/binhost overwrite the normal BINHOST selection, so
     # we don't want to leave stale data in there ever. Make sure
@@ -189,28 +169,45 @@ you will need to run "bb auth-login".""")
     # If we're only querying a single builder, don't worry about
     # it. Not getting a result for a board doesn't mean that file is
     # stale.
-    if not args.builder:
+    binhost_map = defaultdict(str)
+    if not args.board:
         for path in os.listdir('/etc/binhost'):
             binhost_map[path] = ''
+    else:
+        binhost_map[args.board] = ''
 
-    for build in bb_ret:
-        if 'build_target' not in build['input']['properties']:
-            # The postsubmit-orchestrator task, skip
-            continue
-        if 'prebuilts_uri' not in build['output']['properties']:
-            # Some builders don't create prebuilts, skip
-            continue
+    tmp = tempfile.TemporaryDirectory()
+    tmp_path = Path(tmp.name)
+    binhosts_found = 0
+    for rev in revs:
+        download_json(tmp_path, rev)
+        builds = parse_json(tmp_path, rev)
 
-        name = build['builder']['builder']
-        board = build['input']['properties']['build_target']['name']
-        uri = build['output']['properties']['prebuilts_uri']
-        if not binhost_map[board] or name == f'{board}-postsubmit':
-            binhost_map[board] = uri
+        for build in builds:
+            if build['profile']['name'] != args.profile:
+                continue
 
-    for board,uri in binhost_map.items():
+            if args.board and build['buildTarget']['name'] != args.board:
+                continue
+
+            # Higher priority build already found
+            if binhost_map[build['buildTarget']['name']]:
+                continue
+
+            binhost_map[build['buildTarget']['name']] = build['location']
+            binhosts_found += 1
+
+        # if args.board is set, we only need to find one build.
+        if args.board and binhosts_found:
+            break
+
+        # Rough estimate of the total number of boards
+        if binhosts_found > 135:
+            break
+
+    for board, uri in binhost_map.items():
         write_binhost(board, uri)
 
-    binhosts_found = len([i for i in binhost_map.values() if i])
     print(f'Found binhosts for {binhosts_found} boards')
 
 if __name__ == '__main__':
