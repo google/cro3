@@ -112,6 +112,17 @@ validate () {
   readonly server_name docker_file chroot_arg tags
 }
 
+ensure_gcloud_helpers() {
+  # @FUNCTION: ensure_gcloud_helpers
+  # @USAGE: ensure_gcloud_helpers
+  # @DESCRIPTION:
+  #   Setup gcloud credential helpers for Google Cloud container registries.
+
+  # First call sets up default GCR registries, second call sets up
+  # Artifact Registry registries.
+  sudo gcloud --quiet --verbosity=error auth configure-docker
+  sudo gcloud --quiet --verbosity=error auth configure-docker us-docker.pkg.dev
+}
 
 build_image() {
   # @FUNCTION: build_image
@@ -139,6 +150,7 @@ build_image() {
   sudo docker build "${args[@]}"
 
   # Push image to register
+  ensure_gcloud_helpers
   sudo docker login -u oauth2accesstoken -p "$(gcloud auth print-access-token)" "https://${registry_name}"
   sudo docker push --all-tags "${image_path}"
 
