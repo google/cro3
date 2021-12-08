@@ -37,6 +37,10 @@ topic_fixups = {}
 # example:
 # topic_fixups['bluetooth'] = ['fd83ec5d9b94']
 
+topic_fixups['arch'] = [
+    'x86_mmu: use gfn_to_pfn_page'
+]
+
 topic_fixups['chromeos'] = [
     'hid: Emit digitizer serial number through power_supply'
 ]
@@ -77,6 +81,7 @@ merge_fixups = [
 #     '0d022b4a1e19': ['6e18e51a1c19']
 # }
 patch_deps = {
+    '9a5646b44de9' : ['ab733e258051']
 }
 
 # Add entry here to overwrite default disposition on particular commit
@@ -197,3 +202,5 @@ disp_overlay['ab6f3dbba4b5'] = 'drop' # FROMLIST: include/linux/cgroup.h: export
 disp_overlay['953d0f9b23ed'] = 'drop' # FROMLIST: include/linux/nodemask.h: define next_memory_node() if !CONFIG_NUMA
 disp_overlay['0fe2ef3d7dfa'] = 'drop' # BACKPORT: FROMLIST: include/linux/mm.h: do not warn in page_memcg_rcu() if !CONFIG_MEMCG
 disp_overlay['0977464ba037'] = 'drop' # CHROMIUM: virtio-gpu api: context init feature
+disp_overlay['f50880e8e103'] = 'drop' # FROMLIST: KVM: x86/mmu: use gfn_to_pfn_page
+disp_overlay['bfab1021e5b6'] = 'drop' # FIXUP: FROMLIST: sched: Add a coresched command line option
