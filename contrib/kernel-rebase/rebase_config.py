@@ -204,3 +204,4 @@ disp_overlay['0fe2ef3d7dfa'] = 'drop' # BACKPORT: FROMLIST: include/linux/mm.h: 
 disp_overlay['0977464ba037'] = 'drop' # CHROMIUM: virtio-gpu api: context init feature
 disp_overlay['f50880e8e103'] = 'drop' # FROMLIST: KVM: x86/mmu: use gfn_to_pfn_page
 disp_overlay['bfab1021e5b6'] = 'drop' # FIXUP: FROMLIST: sched: Add a coresched command line option
+disp_overlay['ab733e258051'] = 'drop' # FROMLIST: KVM: mmu: introduce new gfn_to_pfn_page functions
