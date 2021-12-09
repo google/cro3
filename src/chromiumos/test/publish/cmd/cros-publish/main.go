@@ -45,9 +45,9 @@ Commands:
 )
 
 // createLogFile creates a file and its parent directory for logging purpose.
-func createLogFile() (*os.File, error) {
+func createLogFile(logPath string) (*os.File, error) {
 	t := time.Now()
-	fullPath := filepath.Join(defaultLogDirectory, t.Format("20060102-150405"))
+	fullPath := filepath.Join(logPath, t.Format("20060102-150405"))
 	if err := os.MkdirAll(fullPath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory %v: %v", fullPath, err)
 	}
@@ -70,6 +70,8 @@ func newLogger(logFile *os.File) *log.Logger {
 
 type args struct {
 	// Common input params.
+	// Local log file path.
+	logPath    string
 	// Local directory that will be uploaded.
 	localDir string
 	// GCS bucket path where the local directory will be uploaded to.
@@ -98,13 +100,14 @@ func validate(a args) error {
 func runCLI(ctx context.Context, d []string) int {
 	a := args{}
 	fs := flag.NewFlagSet("Start publish publishService", flag.ExitOnError)
+	fs.StringVar(&a.logPath, "log_path", defaultLogDirectory, fmt.Sprintf("Path to record execution logs. Default value is %s", defaultLogDirectory))
 	fs.StringVar(&a.localDir, "local_dir", "", "path to the local directory that will be uploaded")
 	fs.StringVar(&a.gsDir, "gs_dir", "", "path to the GCS bucket where the local directory will be uploaded to")
 	fs.StringVar(&a.serviceAccountCreds, "service_account_creds", "", "path to service account file containing gcp credentials")
 	fs.StringVar(&a.outputPath, "output", "", "path to the response jsonproto output file.")
 	fs.Parse(d)
 
-	logFile, err := createLogFile()
+	logFile, err := createLogFile(a.logPath)
 	if err != nil {
 		log.Fatalln("Failed to create log file", err)
 		return 2
@@ -134,11 +137,12 @@ func runCLI(ctx context.Context, d []string) int {
 func startServer(ctx context.Context, d []string) int {
 	a := args{}
 	fs := flag.NewFlagSet("Start publish publishService", flag.ExitOnError)
+	fs.StringVar(&a.logPath, "log_path", defaultLogDirectory, fmt.Sprintf("Path to record execution logs. Default value is %s", defaultLogDirectory))
 	fs.StringVar(&a.serviceAccountCreds, "service_account_creds", "", "path to service account file containing gcp credentials")
 	fs.IntVar(&a.port, "port", defaultPort, fmt.Sprintf("Specify the port for the publishService. Default value %d.", defaultPort))
 	fs.Parse(d)
 
-	logFile, err := createLogFile()
+	logFile, err := createLogFile(a.logPath)
 	if err != nil {
 		log.Fatalln("Failed to create log file", err)
 		return 2
@@ -165,7 +169,7 @@ func startServer(ctx context.Context, d []string) int {
 	return 0
 }
 
-// Specify run mode for CLI.
+// Specify run mode for cros-publish.
 type runMode string
 
 const (
