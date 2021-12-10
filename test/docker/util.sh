@@ -120,8 +120,8 @@ ensure_gcloud_helpers() {
 
   # First call sets up default GCR registries, second call sets up
   # Artifact Registry registries.
-  sudo gcloud --quiet --verbosity=error auth configure-docker
-  sudo gcloud --quiet --verbosity=error auth configure-docker us-docker.pkg.dev
+  gcloud --quiet --verbosity=error auth configure-docker
+  gcloud --quiet --verbosity=error auth configure-docker us-docker.pkg.dev
 }
 
 build_image() {
@@ -146,13 +146,22 @@ build_image() {
   done
   args+=("${build_context}")
 
-  echo sudo docker build "${args[@]}"
-  sudo docker build "${args[@]}"
+  echo docker build "${args[@]}"
+  docker build "${args[@]}"
 
-  # Push image to register
+  # Print debugging info
   ensure_gcloud_helpers
-  sudo docker login -u oauth2accesstoken -p "$(gcloud auth print-access-token)" "https://${registry_name}"
-  sudo docker push --all-tags "${image_path}"
+  echo
+  echo "== Gcloud helper configuration"
+  docker-credential-gcloud list
+
+  echo
+  echo "== User Authorization Scopes"
+  curl -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+       https://www.googleapis.com/oauth2/v1/tokeninfo
+
+  # Push image to registry
+  docker push --all-tags "${image_path}"
 
   # write output if requested
   if [[ -n "${output_path}" ]]; then
