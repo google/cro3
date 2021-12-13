@@ -117,11 +117,10 @@ func (l *LaCrOSService) ExtractLacrosMetadata(ctx context.Context) (*LaCrOSMetad
 		return nil, fmt.Errorf("only GS copying is implemented")
 	}
 
-	url, err := l.connection.CopyData(ctx, l.GetMetatadaPath())
-	if err != nil {
+	if err := l.connection.CopyData(ctx, l.GetMetatadaPath(), "/tmp/metadata.json"); err != nil {
 		return nil, fmt.Errorf("failed to cache Lacros metadata.json, %w", err)
 	}
-	metadataJSONStr, err := l.connection.RunCmd(ctx, "curl", []string{"-s", url})
+	metadataJSONStr, err := l.connection.RunCmd(ctx, "cat", []string{"/tmp/metadata.json"})
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Lacros metadata.json, %w", err)
 	}
@@ -137,16 +136,11 @@ func (l *LaCrOSService) CopyImageToDUT(ctx context.Context) error {
 	if l.imagePath.HostType == conf.StoragePath_LOCAL || l.imagePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
 		return fmt.Errorf("only GS copying is implemented")
 	}
-	url, err := l.connection.CopyData(ctx, l.GetCompressedImagePath())
-	if err != nil {
-		return fmt.Errorf("failed to cache lacross compressed, %w", err)
+	if err := l.connection.CreateDirectories(ctx, []string{l.GetComponentPath()}); err != nil {
+		return fmt.Errorf("failed to create directory, %w", err)
 	}
-	if _, err := l.connection.RunCmd(ctx, "", []string{
-		"mkdir", "-p", l.GetComponentPath(),
-		"&&",
-		"curl", url, "--output", l.GetLocalImagePath(),
-	}); err != nil {
-		return fmt.Errorf("failed to copy lacross compressed, %w", err)
+	if err := l.connection.CopyData(ctx, l.GetCompressedImagePath(), l.GetLocalImagePath()); err != nil {
+		return fmt.Errorf("failed to copy lacros compressed, %w", err)
 	}
 
 	return nil

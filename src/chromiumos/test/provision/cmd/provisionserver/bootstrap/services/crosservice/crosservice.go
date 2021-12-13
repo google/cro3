@@ -189,13 +189,14 @@ func (c *CrOSService) InstallZippedImage(ctx context.Context, remoteImagePath st
 	if c.imagePath.HostType == conf.StoragePath_LOCAL || c.imagePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
 		return fmt.Errorf("only GS copying is implemented")
 	}
-	url, err := c.connection.CopyData(ctx, path.Join(c.imagePath.GetPath(), remoteImagePath))
+	err := c.connection.PipeData(ctx,
+		path.Join(c.imagePath.GetPath(), remoteImagePath),
+		fmt.Sprintf("gzip -d | %s %s", fmt.Sprintf("dd of=%s obs=2M", outputFile), fmt.Sprintf(pipeStatusHandler, c.imagePath.GetPath(), outputFile)),
+	)
 	if err != nil {
-		return fmt.Errorf("failed to get GS Cache URL, %s", err)
+		return fmt.Errorf("failed to install image, %w", err)
 	}
-	fmt.Printf("URL used to install zipped image: %s\n", url)
-	_, err = c.connection.RunCmd(ctx, curlWithRetries, []string{url, "|", "gzip -d", "|", fmt.Sprintf("dd of=%s obs=2M", outputFile), fmt.Sprintf(pipeStatusHandler, url, outputFile)})
-	return err
+	return nil
 }
 
 // PostInstall mounts and runs post installation items.
@@ -267,17 +268,23 @@ func (c *CrOSService) InstallStateful(ctx context.Context) error {
 	if c.imagePath.HostType == conf.StoragePath_LOCAL || c.imagePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
 		return fmt.Errorf("only GS copying is implemented")
 	}
-	url, err := c.connection.CopyData(ctx, path.Join(c.imagePath.GetPath(), "stateful.tgz"))
-	if err != nil {
-		return fmt.Errorf("failed to get GS Cache URL, %s", err)
-	}
-	_, err = c.connection.RunCmd(ctx, "", []string{
+
+	if _, err := c.connection.RunCmd(ctx, "", []string{
 		fmt.Sprintf("rm -rf %[1]s %[2]s/var_new %[2]s/dev_image_new", info.UpdateStatefulFilePath, info.StatefulPath),
-		"&&",
-		fmt.Sprintf(curlWithRetries+" %s | tar --ignore-command-error --overwrite --directory=%s -xzf -", url, info.StatefulPath),
-		"&&",
-		fmt.Sprintf("echo -n clobber > %s", info.UpdateStatefulFilePath),
+	}); err != nil {
+		return err
+	}
+
+	if err := c.connection.PipeData(ctx,
+		path.Join(c.imagePath.GetPath(), "stateful.tgz"),
+		fmt.Sprintf("tar --ignore-command-error --overwrite --directory=%s -xzf -", info.StatefulPath)); err != nil {
+		return err
+	}
+
+	_, err := c.connection.RunCmd(ctx, "echo", []string{
+		fmt.Sprintf("-n clobber > %s", info.UpdateStatefulFilePath),
 	})
+
 	return err
 }
 
@@ -289,16 +296,11 @@ func (c *CrOSService) OverwiteInstall(ctx context.Context) error {
 	if c.overwritePayload.HostType == conf.StoragePath_LOCAL || c.overwritePayload.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
 		return fmt.Errorf("only GS copying is implemented")
 	}
-	url, err := c.connection.CopyData(ctx, c.overwritePayload.GetPath())
+	err := c.connection.PipeData(ctx, c.overwritePayload.GetPath(), "tar xf - -C /")
 	if err != nil {
-		return fmt.Errorf("failed to get GS Cache URL, %s", err)
+		return fmt.Errorf("failed to download and untar file, %s", err)
 	}
-	_, err = c.connection.RunCmd(ctx, curlWithRetries, []string{
-		url,
-		"|",
-		"tar", "xf", "-", "-C", "/",
-	})
-	return err
+	return nil
 }
 
 // StopDLCService stops a DLC service
@@ -334,20 +336,16 @@ func (c *CrOSService) InstallDLC(ctx context.Context, spec *api.InstallCrosReque
 		return fmt.Errorf("only GS copying is implemented")
 	}
 	dlcURL := path.Join(c.imagePath.GetPath(), "dlc", dlcID, info.DlcPackage, info.DlcImage)
-	url, err := c.connection.CopyData(ctx, dlcURL)
-	if err != nil {
-		return fmt.Errorf("failed to get GS Cache server, %s", err)
-	}
 
 	dlcOutputSlotDir := path.Join(dlcOutputDir, string(slot))
 	dlcOutputImage := path.Join(dlcOutputSlotDir, info.DlcImage)
-	if _, err := c.connection.RunCmd(ctx, "", []string{
-		"mkdir", "-p", dlcOutputSlotDir,
-		"&&",
-		curlWithRetries, "--output", dlcOutputImage, url,
-	}); err != nil {
-		return fmt.Errorf("failed to provision DLC %s, %s", dlcID, err)
+	if err := c.connection.CreateDirectories(ctx, []string{dlcOutputSlotDir}); err != nil {
+		return fmt.Errorf("failed to create DLC directories %s, %s", dlcID, err)
 	}
+	if err := c.connection.CopyData(ctx, dlcURL, dlcOutputImage); err != nil {
+		return fmt.Errorf("failed to download DLCs, %s", err)
+	}
+
 	return nil
 }
 

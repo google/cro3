@@ -123,16 +123,9 @@ func (a *AshService) CopyImageToDUT(ctx context.Context) error {
 	if a.imagePath.HostType == conf.StoragePath_LOCAL || a.imagePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
 		return fmt.Errorf("only GS copying is implemented")
 	}
-	url, err := a.connection.CopyData(ctx, a.imagePath.GetPath())
+	err := a.connection.PipeData(ctx, a.imagePath.GetPath(), fmt.Sprintf("tar --ignore-command-error --overwrite --preserve-permissions --directory=%s -xf -", stagingDirectory))
 	if err != nil {
-		return fmt.Errorf("failed to cache ash compressed, %w", err)
-	}
-	if _, err := a.connection.RunCmd(ctx, "", []string{
-		"curl", url,
-		"|",
-		"tar", "--ignore-command-error", "--overwrite", "--preserve-permissions", fmt.Sprintf("--directory=%s", stagingDirectory), "-xf", "-",
-	}); err != nil {
-		return fmt.Errorf("failed to copy ash compressed, %w", err)
+		return fmt.Errorf("failed to download and uncompress ash compressed, %w", err)
 	}
 
 	return nil

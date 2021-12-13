@@ -220,7 +220,12 @@ func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*l
 		return nil, err
 	}
 
-	_, err = s.runCmdOutput(fmt.Sprintf("%s -o %s %s", command, req.DestinationPath, url))
+	destination, err := s.parseDestination(req)
+
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.runCmdOutput(fmt.Sprintf("%s -o %s %s", command, destination, url))
 
 	if err != nil {
 		return nil, err
@@ -231,6 +236,18 @@ func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*l
 	}
 
 	return op, nil
+}
+
+func (s *DutServiceServer) parseDestination(req *api.CacheRequest) (string, error) {
+	switch op := req.Destination.(type) {
+	case *api.CacheRequest_File:
+		// TODO(jaquesc): parse the file name to ensure it's a file and prevent user errors
+		return op.File.Path, nil
+	case *api.CacheRequest_Pipe_:
+		return fmt.Sprintf("| %s", op.Pipe.Commands), nil
+	default:
+		return "", fmt.Errorf("destination can only be one of LocalFile or Pipe")
+	}
 }
 
 // getCacheURL returns a constructed URL to the caching service given a specific

@@ -10,14 +10,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"go.chromium.org/chromiumos/config/go/api/test/tls"
-	longrunning2 "go.chromium.org/chromiumos/config/go/api/test/tls/dependencies/longrunning"
 	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/grpc"
-
-	"chromiumos/lroold"
 )
 
 // ServiceAdapters are used to interface with a DUT
@@ -25,7 +20,8 @@ type ServiceAdapterInterface interface {
 	RunCmd(ctx context.Context, cmd string, args []string) (string, error)
 	Restart(ctx context.Context) error
 	PathExists(ctx context.Context, path string) (bool, error)
-	CopyData(ctx context.Context, url string) (string, error)
+	PipeData(ctx context.Context, sourceUrl string, pipeCommand string) error
+	CopyData(ctx context.Context, sourceUrl string, destPath string) error
 	DeleteDirectory(ctx context.Context, dir string) error
 	CreateDirectories(ctx context.Context, dirs []string) error
 }
@@ -57,12 +53,12 @@ func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (
 	}
 	stream, err := s.dutClient.ExecCommand(ctx, &req)
 	if err != nil {
-		return "", fmt.Errorf("execution fail: %s\n", err)
+		return "", fmt.Errorf("execution fail: %s", err)
 	}
 	// Expecting single stream result
 	feature, err := stream.Recv()
 	if err != nil {
-		return "", fmt.Errorf("execution single stream result: %s\n", err)
+		return "", fmt.Errorf("execution single stream result: %s", err)
 	}
 	fmt.Printf("Run cmd response: %s\n", feature)
 	if string(feature.Stderr) != "" {
@@ -113,38 +109,76 @@ func (s ServiceAdapter) PathExists(ctx context.Context, path string) (bool, erro
 	return exists == "1", nil
 }
 
-// CopyData caches a file for a DUT and returns the URL to use.
-// NOTE: In the future the hope is to not use TLS for this. This is a placeholder until then.
-func (s ServiceAdapter) CopyData(ctx context.Context, url string) (string, error) {
-	wiringClient := tls.WiringClient(tls.NewWiringClient(s.wiringConn))
-	wireOperation, err := wiringClient.CacheForDut(ctx, &tls.CacheForDutRequest{
-		Url:     url,
-		DutName: s.dutName,
-	})
+func (s ServiceAdapter) PipeData(ctx context.Context, sourceUrl string, pipeCommand string) error {
+	fmt.Printf("Piping %s with command %s\n", sourceUrl, pipeCommand)
+
+	req := api.CacheRequest{
+		Source: &api.CacheRequest_GsFile{
+			GsFile: &api.CacheRequest_GSFile{
+				SourcePath: sourceUrl,
+			},
+		},
+		Destination: &api.CacheRequest_Pipe_{
+			Pipe: &api.CacheRequest_Pipe{
+				Commands: pipeCommand,
+			},
+		},
+	}
+
+	op, err := s.dutClient.Cache(ctx, &req)
 	if err != nil {
-		return "", err
+		return fmt.Errorf("execution failure: %v", err)
 	}
 
-	waitOperation, err := lroold.Wait(ctx, longrunning2.NewOperationsClient(s.wiringConn), wireOperation.Name)
+	for !op.Done {
+		time.Sleep(1 * time.Second)
+	}
+
+	switch x := op.Result.(type) {
+	case *longrunning.Operation_Error:
+		return fmt.Errorf(x.Error.Message)
+	case *longrunning.Operation_Response:
+		return nil
+	}
+
+	return nil
+
+}
+
+// CopyData caches a file for a DUT locally from a GS url.
+func (s ServiceAdapter) CopyData(ctx context.Context, sourceUrl string, destPath string) error {
+	fmt.Printf("Copy data from: %s, to: %s\n", sourceUrl, destPath)
+
+	req := api.CacheRequest{
+		Source: &api.CacheRequest_GsFile{
+			GsFile: &api.CacheRequest_GSFile{
+				SourcePath: sourceUrl,
+			},
+		},
+		Destination: &api.CacheRequest_File{
+			File: &api.CacheRequest_LocalFile{
+				Path: destPath,
+			},
+		},
+	}
+
+	op, err := s.dutClient.Cache(ctx, &req)
 	if err != nil {
-		return "", fmt.Errorf("cacheForDut: failed to wait for CacheForDut, %s", err)
+		return fmt.Errorf("execution failure: %v", err)
 	}
 
-	if s := waitOperation.GetError(); s != nil {
-		return "", fmt.Errorf("cacheForDut: failed to get CacheForDut, %s", s)
+	for !op.Done {
+		time.Sleep(1 * time.Second)
 	}
 
-	a := waitOperation.GetResponse()
-	if a == nil {
-		return "", fmt.Errorf("cacheForDut: failed to get CacheForDut response for URL=%s and Name=%s", url, s.dutName)
+	switch x := op.Result.(type) {
+	case *longrunning.Operation_Error:
+		return fmt.Errorf(x.Error.Message)
+	case *longrunning.Operation_Response:
+		return nil
 	}
 
-	resp := &tls.CacheForDutResponse{}
-	if err := ptypes.UnmarshalAny(a, resp); err != nil {
-		return "", fmt.Errorf("cacheForDut: unexpected response from CacheForDut, %v", a)
-	}
-
-	return resp.GetUrl(), nil
+	return nil
 }
 
 // DeleteDirectory is a thin wrapper around an rm command. Done here as it is

@@ -126,14 +126,8 @@ func (fws *FirmwareService) CopyImageToDUT(ctx context.Context, remotePath *conf
 	if remotePath.HostType == conf.StoragePath_LOCAL || remotePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
 		return fmt.Errorf("only GS copying is implemented")
 	}
-	url, err := fws.connection.CopyData(ctx, remotePath.GetPath())
-	if err != nil {
+	if err := fws.connection.CopyData(ctx, remotePath.GetPath(), fws.GetImagePath(localFilename)); err != nil {
 		return fmt.Errorf("failed to cache %v: %w", remotePath.GetPath(), err)
-	}
-	if _, err := fws.connection.RunCmd(ctx, "curl", []string{
-		CurlWithRetriesArgsFW, url, "--output", fws.GetImagePath(localFilename),
-	}); err != nil {
-		return fmt.Errorf("failed to download %v (cached %v): %w", url, remotePath.GetPath(), err)
 	}
 
 	return nil
