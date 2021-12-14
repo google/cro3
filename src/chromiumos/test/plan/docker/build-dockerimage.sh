@@ -9,6 +9,9 @@ readonly script_dir
 
 source "${script_dir}/../../../../../test/docker/util.sh"
 
+chroot="$1"; shift
+shift # don't care about sysroot
+
 host=""
 project=""
 tags=""
@@ -40,6 +43,7 @@ done
 build_server_image                               \
     --service "testplan"                         \
     --docker_file "${script_dir}/Dockerfile"     \
+    --chroot "${chroot}"                         \
     --tags "${tags}"                             \
     --output "${output}"                         \
     --host "${host}"                             \
