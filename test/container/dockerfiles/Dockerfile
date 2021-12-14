@@ -57,6 +57,8 @@ COPY --chown=chromeos-test:chromeos-test tast/vars/ /etc/tast/vars
 COPY shadow_config.ini /usr/local/autotest/
 RUN chown -R chromeos-test:chromeos-test /usr/local/autotest/shadow_config.ini
 
+RUN touch /usr/local/f20container
+
 # Test service *must* be cp'd into the dockerfile dir prior.
 COPY cros-test /usr/bin/
 
