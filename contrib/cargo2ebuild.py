@@ -83,6 +83,7 @@ LICENSES = {
     'BSD-3-Clause': 'BSD',
     '0BSD': '0BSD',
     'ISC': 'ISC',
+    'MPL-2.0': 'MPL-2.0',
 }
 
 VERSION_RE = (
