@@ -212,20 +212,14 @@ func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*l
 	s.logger.Println("Received api.CacheRequest: ", *req)
 	op := s.manager.NewOperation()
 
-	command := "curl -S -s -v -# -C - --retry 3 --retry-delay 60 "
-
-	url, err := s.getCacheURL(req)
-
-	if err != nil {
-		return nil, err
-	}
+	command := "curl -S -s -v -# -C - --retry 3 --retry-delay 60"
 
 	destination, err := s.parseDestination(req)
 
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.runCmdOutput(fmt.Sprintf("%s -o %s %s", command, destination, url))
+	_, err = s.runCmdOutput(fmt.Sprintf("%s %s", command, destination))
 
 	if err != nil {
 		return nil, err
@@ -239,12 +233,17 @@ func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*l
 }
 
 func (s *DutServiceServer) parseDestination(req *api.CacheRequest) (string, error) {
+	url, err := s.getCacheURL(req)
+	if err != nil {
+		return "", err
+	}
+
 	switch op := req.Destination.(type) {
 	case *api.CacheRequest_File:
 		// TODO(jaquesc): parse the file name to ensure it's a file and prevent user errors
-		return op.File.Path, nil
+		return fmt.Sprintf("-o %s %s", op.File.Path, url), nil
 	case *api.CacheRequest_Pipe_:
-		return fmt.Sprintf("| %s", op.Pipe.Commands), nil
+		return fmt.Sprintf("%s | %s", url, op.Pipe.Commands), nil
 	default:
 		return "", fmt.Errorf("destination can only be one of LocalFile or Pipe")
 	}

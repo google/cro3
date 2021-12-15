@@ -16,13 +16,30 @@ import (
 )
 
 // ServiceAdapters are used to interface with a DUT
+// All methods here are proxies to cros-dut (with some additions for simplicity)
 type ServiceAdapterInterface interface {
+	// RunCmd takes a command and argument and executes it remotely in the DUT,
+	// returning the stdout as the string result and any execution error as the error.
 	RunCmd(ctx context.Context, cmd string, args []string) (string, error)
+	// Restart restarts a DUT (allowing cros-dut to reconnect for connection caching).
 	Restart(ctx context.Context) error
+	// PathExists is a simple wrapper for RunCmd for the sake of simplicity. If
+	// the path exists True is returned, else False. An error implies a
+	// a communication failure.
 	PathExists(ctx context.Context, path string) (bool, error)
+	// PipeData uses the caching infrastructure to bring an image into the lab.
+	// Contrary to CopyData, the data here is pipeable to whatever is fed into
+	// pipeCommand, rather than directly placed locally.
 	PipeData(ctx context.Context, sourceUrl string, pipeCommand string) error
+	// CopyData uses the caching infrastructure to copy a remote image to
+	// the local path specified by destPath.
 	CopyData(ctx context.Context, sourceUrl string, destPath string) error
+	// DeleteDirectory is a simple wrapper for RunCmd for the sake of simplicity.
 	DeleteDirectory(ctx context.Context, dir string) error
+	// CreateDirectory is a simple wrapper for RunCmd for the sake of simplicity.
+	// All directories specified in the array will be created.
+	// As this uses "-p" option, subdirs are created regardless of whether parents
+	// exist or not.
 	CreateDirectories(ctx context.Context, dirs []string) error
 }
 
@@ -53,12 +70,12 @@ func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (
 	}
 	stream, err := s.dutClient.ExecCommand(ctx, &req)
 	if err != nil {
-		return "", fmt.Errorf("execution fail: %s", err)
+		return "", fmt.Errorf("execution fail: %w", err)
 	}
 	// Expecting single stream result
 	feature, err := stream.Recv()
 	if err != nil {
-		return "", fmt.Errorf("execution single stream result: %s", err)
+		return "", fmt.Errorf("execution single stream result: %w", err)
 	}
 	fmt.Printf("Run cmd response: %s\n", feature)
 	if string(feature.Stderr) != "" {
@@ -109,6 +126,8 @@ func (s ServiceAdapter) PathExists(ctx context.Context, path string) (bool, erro
 	return exists == "1", nil
 }
 
+// PipeData uses the caching infrastructure to bring a file locally,
+// allowing a user to pipe the result to any desired application.
 func (s ServiceAdapter) PipeData(ctx context.Context, sourceUrl string, pipeCommand string) error {
 	fmt.Printf("Piping %s with command %s\n", sourceUrl, pipeCommand)
 

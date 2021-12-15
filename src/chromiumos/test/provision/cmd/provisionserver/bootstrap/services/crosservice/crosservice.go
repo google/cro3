@@ -269,8 +269,8 @@ func (c *CrOSService) InstallStateful(ctx context.Context) error {
 		return fmt.Errorf("only GS copying is implemented")
 	}
 
-	if _, err := c.connection.RunCmd(ctx, "", []string{
-		fmt.Sprintf("rm -rf %[1]s %[2]s/var_new %[2]s/dev_image_new", info.UpdateStatefulFilePath, info.StatefulPath),
+	if _, err := c.connection.RunCmd(ctx, "rm", []string{
+		"-rf", info.UpdateStatefulFilePath, path.Join(info.StatefulPath, "var_new"), path.Join(info.StatefulPath, "dev_image_new"),
 	}); err != nil {
 		return err
 	}
@@ -282,7 +282,7 @@ func (c *CrOSService) InstallStateful(ctx context.Context) error {
 	}
 
 	_, err := c.connection.RunCmd(ctx, "echo", []string{
-		fmt.Sprintf("-n clobber > %s", info.UpdateStatefulFilePath),
+		"-n", "clobber", ">", info.UpdateStatefulFilePath,
 	})
 
 	return err

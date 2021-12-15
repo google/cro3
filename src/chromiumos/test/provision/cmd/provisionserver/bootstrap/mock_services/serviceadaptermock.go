@@ -39,18 +39,17 @@ func (m *MockServiceAdapterInterface) EXPECT() *MockServiceAdapterInterfaceMockR
 }
 
 // CopyData mocks base method.
-func (m *MockServiceAdapterInterface) CopyData(ctx context.Context, url string) (string, error) {
+func (m *MockServiceAdapterInterface) CopyData(ctx context.Context, sourceUrl, destPath string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CopyData", ctx, url)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "CopyData", ctx, sourceUrl, destPath)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // CopyData indicates an expected call of CopyData.
-func (mr *MockServiceAdapterInterfaceMockRecorder) CopyData(ctx, url interface{}) *gomock.Call {
+func (mr *MockServiceAdapterInterfaceMockRecorder) CopyData(ctx, sourceUrl, destPath interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyData", reflect.TypeOf((*MockServiceAdapterInterface)(nil).CopyData), ctx, url)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyData", reflect.TypeOf((*MockServiceAdapterInterface)(nil).CopyData), ctx, sourceUrl, destPath)
 }
 
 // CreateDirectories mocks base method.
@@ -94,6 +93,20 @@ func (m *MockServiceAdapterInterface) PathExists(ctx context.Context, path strin
 func (mr *MockServiceAdapterInterfaceMockRecorder) PathExists(ctx, path interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PathExists", reflect.TypeOf((*MockServiceAdapterInterface)(nil).PathExists), ctx, path)
+}
+
+// PipeData mocks base method.
+func (m *MockServiceAdapterInterface) PipeData(ctx context.Context, sourceUrl, pipeCommand string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PipeData", ctx, sourceUrl, pipeCommand)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PipeData indicates an expected call of PipeData.
+func (mr *MockServiceAdapterInterfaceMockRecorder) PipeData(ctx, sourceUrl, pipeCommand interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PipeData", reflect.TypeOf((*MockServiceAdapterInterface)(nil).PipeData), ctx, sourceUrl, pipeCommand)
 }
 
 // Restart mocks base method.
