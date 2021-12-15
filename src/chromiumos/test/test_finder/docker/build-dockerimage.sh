@@ -75,13 +75,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-readonly output_dir="tmp/docker/crostestfinder"
+readonly output_dir="tmp/docker/cros-test-finder"
 readonly full_output_dir="${chroot_path}/${sysroot_path}/${output_dir}"
 
 prep_container
 
 build_container_image                                \
-    --service "crostestfinder"                       \
+    --service "cros-test-finder"                     \
     --docker_file "${full_output_dir}/Dockerfile"    \
     --chroot "${chroot_path}"                        \
     --tags "${tags}"                                 \
