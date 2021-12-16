@@ -62,8 +62,6 @@ done
 readonly output_dir="tmp/docker/croscallbox"
 readonly full_output_dir="${chroot_path}/${sysroot_path}/${output_dir}"
 
-prep_container
-
 build_container_image                                \
     --service "cros-callbox"                         \
     --docker_file "${script_dir}/Dockerfile"         \
