@@ -44,6 +44,7 @@ DRIVERS="arc-mali-drivers-bifrost arc-mali-drivers-valhall mali-drivers mali-dri
 
 PARAMS_arc_mali_drivers_bifrost=(
   "kukui kukui chipset-mt8183"
+  "corsola corsola chipset-mt8186"
 )
 
 PARAMS_arc_mali_drivers_valhall=(
@@ -60,6 +61,7 @@ PARAMS_mali_drivers=(
 
 PARAMS_mali_drivers_bifrost=(
   "kukui kukui chipset-mt8183"
+  "corsola corsola chipset-mt8186"
 )
 
 PARAMS_mali_drivers_valhall=(
