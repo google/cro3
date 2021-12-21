@@ -121,6 +121,13 @@ func (fws *FirmwareService) GetFirstState() services.ServiceState {
 	return nil
 }
 
+// CleanupOnFailure is called if one of service's states failes to Execute() and
+// should clean up the temporary files, and undo the execution, if feasible.
+func (fws *FirmwareService) CleanupOnFailure(states []services.ServiceState, executionErr error) error {
+	// TODO(sfrolov): implement cleanup.
+	return nil
+}
+
 // CopyImageToDUT copies the desired image to the DUT, passing through the caching layer.
 func (fws *FirmwareService) CopyImageToDUT(ctx context.Context, remotePath *conf.StoragePath, localFilename string) error {
 	if remotePath.HostType == conf.StoragePath_LOCAL || remotePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {

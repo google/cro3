@@ -25,4 +25,14 @@ type ServiceState interface {
 type ServiceInterface interface {
 	// GetFirstState returns the first state in this state machine
 	GetFirstState() ServiceState
+
+	// CleanupOnFailure "undoes" the service execution to the extent possible,
+	// removing temporary files, and, if feasible, reverting the run commands.
+	// CleanupOnFailure function will be called if any ServiceState returns an
+	// error when running Execute().
+	// |states| will include all ServiceStates that were run; naturally, all of
+	// them but last one would have succeeded to Execute().
+	// |executionErr| is the error returned by Execute() of the last (failed)
+	// ServiceState.
+	CleanupOnFailure(states []ServiceState, executionErr error) error
 }

@@ -62,6 +62,13 @@ func (c *LaCrOSService) GetFirstState() services.ServiceState {
 	}
 }
 
+// CleanupOnFailure is called if one of service's states failes to Execute() and
+// should clean up the temporary files, and undo the execution, if feasible.
+func (c *LaCrOSService) CleanupOnFailure(states []services.ServiceState, executionErr error) error {
+	// TODO: evaluate whether cleanup is needed.
+	return nil
+}
+
 /*
 	The following consists of helper structs
 */

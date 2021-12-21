@@ -209,8 +209,16 @@ func (s *provision) execute(ctx context.Context, si services.ServiceInterface, o
 	default:
 	}
 
+	// states list keeps the executed and failed ServiceStates,
+	// so that they can be undone/cleaned up upon failure.
+	var states []services.ServiceState
+
 	for cs := si.GetFirstState(); cs != nil; cs = cs.Next() {
+		states = append(states, cs)
 		if err := cs.Execute(ctx); err != nil {
+			if cleanupErr := si.CleanupOnFailure(states, err); cleanupErr != nil {
+				s.logger.Println("CleanupOnFailure failed:", cleanupErr.Error())
+			}
 			fr := &api.InstallFailure{
 				Reason: api.InstallFailure_REASON_PROVISIONING_FAILED,
 			}
