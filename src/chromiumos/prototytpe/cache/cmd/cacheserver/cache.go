@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -105,21 +104,17 @@ func (c *Cache) fetchFromGS(gsPath, localPath string) error {
 }
 
 // parseGSURL retrieves the bucket and object from a GS URL.
-// URL expectation is of the form: "gs://bucket/object"
+// URL expectation is of the form: "bucket/object"
 // This method does not exists in the GS client, so creating bespoke.
 func (c *Cache) parseGSURL(gsUrl string) (string, string, error) {
-	if !strings.HasPrefix(gsUrl, "gs://") {
-		return "", "", fmt.Errorf("gs url must begin with 'gs://', instead have, %s", gsUrl)
+	if strings.HasPrefix(gsUrl, "gs://") {
+		return "", "", fmt.Errorf("gs url must not have \"gs://\" prefix")
 	}
-
-	u, err := url.Parse(gsUrl)
-	if err != nil {
-		return "", "", err
+	r := strings.SplitN(gsUrl, "/", 2)
+	if len(r) != 2 {
+		return "", "", fmt.Errorf("gs url must contain both a bucket and object")
 	}
-
-	// Host corresponds to bucket
-	// Path corresponds to object (though we need to remove prepending '/')
-	return u.Host, u.Path[1:], nil
+	return r[0], r[1], nil
 }
 
 // Close cleans up the cache (deletes files).

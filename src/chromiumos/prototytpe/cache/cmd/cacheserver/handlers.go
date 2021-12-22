@@ -11,11 +11,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 
 	"golang.org/x/sys/unix"
 )
 
-const sourceURLKey = "source_url"
+const (
+	sourceURLKey        = "source_url"
+	downloadPrefix      = "/download/"
+	downloadLocalPrefix = "/download-local/"
+)
 
 type HttpHandlers struct {
 	cache *Cache
@@ -44,8 +49,8 @@ func InstantiateHandlers(port int, cacheLocation string) error {
 		cache: cache,
 	}
 
-	http.HandleFunc("/v1/cache/gs/", h.cacheGSHandler)
-	http.HandleFunc("/v1/cache/local/", h.cacheLocalHandler)
+	http.HandleFunc(downloadPrefix, h.cacheGSHandler)
+	http.HandleFunc(downloadLocalPrefix, h.cacheLocalHandler)
 
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		return err
@@ -64,21 +69,24 @@ func (h *HttpHandlers) cacheGSHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// getCacgeGSHandler handles GET requests to GS cache
+// getCacheGSHandler handles GET requests to GS cache
 func (h *HttpHandlers) getCacheGSHandler(w http.ResponseWriter, r *http.Request) {
 	log.Print("got GET request for GS file")
-	gsPath := r.URL.Query().Get(sourceURLKey)
+	gsPath := strings.TrimPrefix(r.URL.EscapedPath(), downloadPrefix)
 	if gsPath == "" {
-		http.Error(w, fmt.Sprintf("URL must have an option with %s field", sourceURLKey), http.StatusUnprocessableEntity)
+		http.Error(w, "URL must have a path to download", http.StatusUnprocessableEntity)
+		return
 	}
 	localPath, err := h.cache.Get(gsPath)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to cache %s, %v", gsPath, err), http.StatusBadRequest)
+		return
 	}
 
 	fr, err := os.OpenFile(localPath, os.O_RDONLY, 0644)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to open local cache %s, %v", localPath, err), http.StatusInternalServerError)
+		return
 	}
 	defer fr.Close()
 
