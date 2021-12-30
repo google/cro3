@@ -5,6 +5,7 @@ package starlark_test
 
 import (
 	"chromiumos/test/plan/internal/starlark"
+	"context"
 	"io/ioutil"
 	"os"
 	"path"
@@ -15,6 +16,7 @@ import (
 	"go.chromium.org/chromiumos/config/go/api"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
+	test_api "go.chromium.org/chromiumos/config/go/test/api"
 	test_api_v1 "go.chromium.org/chromiumos/config/go/test/api/v1"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -65,13 +67,21 @@ func writeTempStarlarkFile(t *testing.T, starlarkSource string) string {
 }
 
 func TestExecTestPlan(t *testing.T) {
+	ctx := context.Background()
 	starlarkSource := `
+load("@proto//chromiumos/test/api/v1/plan.proto", plan_pb = "chromiumos.test.api.v1")
+load("@proto//chromiumos/test/api/coverage_rule.proto", coverage_rule_pb = "chromiumos.test.api")
+
 build_metadata = testplan.get_build_metadata()
 flat_configs = testplan.get_flat_config_list()
 print('Got {} BuildMetadatas'.format(len(build_metadata.values)))
 print('Got {} FlatConfigs'.format(len(flat_configs.values)))
+coverage_rule = coverage_rule_pb.CoverageRule(name='ruleA')
 testplan.add_hw_test_plan(
-	testplan.HWTestPlan(id=testplan.TestPlanId(value='plan1'))
+	plan_pb.HWTestPlan(
+		id=plan_pb.HWTestPlan.TestPlanId(value='plan1'),
+		coverage_rules=[coverage_rule],
+	),
 )
 `
 	planFilename := writeTempStarlarkFile(
@@ -79,17 +89,25 @@ testplan.add_hw_test_plan(
 	)
 
 	testPlans, err := starlark.ExecTestPlan(
+		ctx,
 		planFilename,
 		buildMetadataList,
 		flatConfigList,
 	)
 
 	if err != nil {
-		t.Errorf("ExecTestPlan failed: %s", err)
+		t.Fatalf("ExecTestPlan failed: %s", err)
 	}
 
 	expectedTestPlans := []*test_api_v1.HWTestPlan{
-		{Id: &test_api_v1.HWTestPlan_TestPlanId{Value: "plan1"}},
+		{
+			Id: &test_api_v1.HWTestPlan_TestPlanId{Value: "plan1"},
+			CoverageRules: []*test_api.CoverageRule{
+				{
+					Name: "ruleA",
+				},
+			},
+		},
 	}
 
 	if len(expectedTestPlans) != len(testPlans) {
@@ -104,6 +122,8 @@ testplan.add_hw_test_plan(
 }
 
 func TestExecTestPlanErrors(t *testing.T) {
+	ctx := context.Background()
+
 	tests := []struct {
 		name           string
 		starlarkSource string
@@ -130,9 +150,12 @@ func TestExecTestPlanErrors(t *testing.T) {
 			err:            "arg to add_hw_test_plan must be a HWTestPlan, got \"\\\"abc\\\"\"",
 		},
 		{
-			name:           "invalid proto ctor",
-			starlarkSource: "testplan.add_hw_test_plan(hw_test_plan=testplan.TestPlanId(value='abc'))",
-			err:            "arg to add_hw_test_plan must be a HWTestPlan, got \"value:\\\"abc\\\" ",
+			name: "invalid proto ctor",
+			starlarkSource: `
+load("@proto//chromiumos/test/api/v1/plan.proto", plan_pb = "chromiumos.test.api.v1")
+testplan.add_hw_test_plan(hw_test_plan=plan_pb.HWTestPlan.TestPlanId(value='abc'))
+			`,
+			err: "arg to add_hw_test_plan must be a HWTestPlan, got \"value:\\\"abc\\\"",
 		},
 	}
 
@@ -143,7 +166,7 @@ func TestExecTestPlanErrors(t *testing.T) {
 			)
 
 			_, err := starlark.ExecTestPlan(
-				planFilename, buildMetadataList, flatConfigList,
+				ctx, planFilename, buildMetadataList, flatConfigList,
 			)
 
 			if err == nil {

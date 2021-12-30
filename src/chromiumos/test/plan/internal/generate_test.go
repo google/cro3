@@ -5,6 +5,7 @@
 package testplan_test
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path"
@@ -126,6 +127,8 @@ func writeTempStarlarkFile(t *testing.T, starlarkSource string) string {
 }
 
 func TestGenerate(t *testing.T) {
+	ctx := context.Background()
+
 	starlarkSource := `
 build_metadata = testplan.get_build_metadata()
 flat_configs = testplan.get_flat_config_list()
@@ -141,7 +144,7 @@ testplan.add_hw_test_plan(
 	)
 
 	testPlans, err := testplan.Generate(
-		[]string{planFilename}, buildMetadataList, dutAttributeList, flatConfigList,
+		ctx, []string{planFilename}, buildMetadataList, dutAttributeList, flatConfigList,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -163,6 +166,8 @@ testplan.add_hw_test_plan(
 }
 
 func TestGenerateErrors(t *testing.T) {
+	ctx := context.Background()
+
 	tests := []struct {
 		name              string
 		planFilenames     []string
@@ -203,7 +208,7 @@ func TestGenerateErrors(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if _, err := testplan.Generate(
-				test.planFilenames, test.buildMetadataList, test.dutAttributeList, flatConfigList,
+				ctx, test.planFilenames, test.buildMetadataList, test.dutAttributeList, flatConfigList,
 			); err == nil {
 				t.Error("Expected error from Generate")
 			}

@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -311,6 +312,8 @@ func (r *generateRun) validateFlags() error {
 
 // run is the actual implementation of the generate command.
 func (r *generateRun) run() error {
+	ctx := context.Background()
+
 	if err := r.validateFlags(); err != nil {
 		return err
 	}
@@ -347,7 +350,7 @@ func (r *generateRun) run() error {
 	glog.Infof("Read %d FlatConfigs from %s", len(flatConfigList.Values), r.flatConfigListPath)
 
 	rules, err := testplan.Generate(
-		r.planPaths, buildMetadataList, dutAttributeList, flatConfigList,
+		ctx, r.planPaths, buildMetadataList, dutAttributeList, flatConfigList,
 	)
 	if err != nil {
 		return err

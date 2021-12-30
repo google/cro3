@@ -6,6 +6,7 @@
 package testplan
 
 import (
+	"context"
 	"errors"
 
 	"chromiumos/test/plan/internal/starlark"
@@ -23,6 +24,7 @@ import (
 // planFilenames must be non-empty. buildMetadataList, dutAttributeList, and
 // flatConfigList must be non-nil.
 func Generate(
+	ctx context.Context,
 	planFilenames []string,
 	buildMetadataList *buildpb.SystemImage_BuildMetadataList,
 	dutAttributeList *testpb.DutAttributeList,
@@ -46,7 +48,7 @@ func Generate(
 
 	var allTestPlans []*test_api_v1.HWTestPlan
 	for _, planFilename := range planFilenames {
-		testPlans, err := starlark.ExecTestPlan(planFilename, buildMetadataList, flatConfigList)
+		testPlans, err := starlark.ExecTestPlan(ctx, planFilename, buildMetadataList, flatConfigList)
 		if err != nil {
 			return nil, err
 		}
