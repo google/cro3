@@ -51,7 +51,7 @@ BOARD_CONFIGURATIONS = {
 BOARDS = {'eve', 'tatl'} | (
     set() if not os.path.isdir(os.path.join(constants.SOURCE_ROOT, 'src',
                                             'private-overlays')) else
-    {'brya-manatee', 'kiran', 'mistral', 'reven'}
+    {'brya-manatee', 'kiran', 'reven'}
 )
 
 _GEN_CONFIG = lambda boards, configs: [(b, c) for b in boards for c in configs]
