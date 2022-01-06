@@ -47,6 +47,7 @@ DEFINE_boolean dryrun "${FLAGS_FALSE}" "Do not perform any actions, just validat
 DEFINE_boolean verify "${FLAGS_TRUE}" "Ask for verification before proceeding"
 DEFINE_boolean ro "${FLAGS_FALSE}" "Update RO version"
 DEFINE_boolean rw "${FLAGS_TRUE}" "Update RW version"
+DEFINE_string tag "update" "The string prepended to the branch name and gerrit tag"
 
 # Set before flag processing
 COMMAND=$(basename "$0")
@@ -63,7 +64,7 @@ assert_inside_chroot
 # Variables
 #
 PATH="${PATH}:${GCLIENT_ROOT}/src/config/bin"
-BRANCH=""
+TAG=""
 PROGRAM_CL=""
 MAJOR_NUMBER_RE="[1-9][0-9]{4}"
 MINOR_NUMBER_RE="(0|[1-9][0-9]*)"
@@ -89,7 +90,7 @@ cleanup() {
 # Abort the update, and clean up branches and CLs
 #
 abort() {
-  CLS=$(gerrit -i --raw search "owner:me status:open hashtag:${BRANCH}")
+  CLS=$(gerrit -i --raw search "owner:me status:open hashtag:${TAG}")
   if [[ -n "${CLS}" ]]; then
     echo "Abandoning uploaded CLs"
     for cl in ${CLS}; do
@@ -98,7 +99,7 @@ abort() {
   fi
   cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-firmware-${FLAGS_board}"
   cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-config-bsp-private"
-  repo abandon "${BRANCH}"
+  repo abandon "${TAG}"
   die "$*"
 }
 #
@@ -152,10 +153,10 @@ getcl() {
 # If not on this branch, start a branch
 #
 branch() {
-  if ! (git branch --show-current | grep -q "${BRANCH}"); then
-     repo start "${BRANCH}"
+  if ! (git branch --show-current | grep -q "${TAG}"); then
+     repo start "${TAG}"
   else
-     echo "${BRANCH} already exists, skipping repo start"
+     echo "${TAG} already exists, skipping repo start"
   fi
 }
 #
@@ -380,8 +381,8 @@ if [[ "${FLAGS_program}" -eq "${FLAGS_TRUE}" ]]; then
     version_error "${PROGFILE} requires minor version string"
   fi
 fi
-# Use a common git branch name.
-BRANCH="update_${FLAGS_board}_fw_${MAJOR_VERSION}_${MINOR_VERSION}"
+# Use a common git branch name and gerrit hashtag.
+TAG="${FLAGS_tag}_${FLAGS_board}_fw_${MAJOR_VERSION}_${MINOR_VERSION}"
 #
 # Build the project list.
 # If no projects are specified, use all in the programs directory.
@@ -471,7 +472,7 @@ echo "Update RW version:             $(yes_no "${FLAGS_rw}")"
 echo "BUG string used in commit:     ${FLAGS_bug}"
 echo "TEST string used in commit:    ${FLAGS_test}"
 echo "Reviewer(s) assigned to CLs:   ${REVIEWERS[*]}"
-echo "repo branch to be used is:     ${BRANCH}"
+echo "Tag for branch and gerrit ht:  ${TAG}"
 echo "Update program.star version:   $(yes_no "${FLAGS_program}")"
 echo "Coreboot build enabled:        $(yes_no "${FLAGS_build}")"
 echo "Dry run requested:             $(yes_no "${FLAGS_dryrun}")"
@@ -524,7 +525,7 @@ $(echo "${COMMAND} ${CMDARGS}" | fold -s -w 70 | sed '2,$s/^/    /')
 BUG=${FLAGS_bug}
 TEST=${FLAGS_test}
 EOF
-    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.output" 2>&1; then
+    if ! repo upload -y --verify "--ht=${TAG}" --cbr . > "${TEMPDIR}/upload.output" 2>&1; then
       cat  "${TEMPDIR}/upload.output"
       abort "repo upload failed"
     fi
@@ -562,7 +563,7 @@ ${COMMAND} ${CMDARGS}
 BUG=${FLAGS_bug}
 TEST=${FLAGS_test}
 EOF
-    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1; then
+    if ! repo upload -y --verify "--ht=${TAG}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1; then
       cat  "${TEMPDIR}/upload.${PROJ}.output"
       abort "repo upload failed"
     fi
@@ -586,7 +587,7 @@ if [[ -n "${PROJ_CLS[*]}" ]];then
   if [[ -n "${PROGRAM_CL}" ]]; then
     cd "${PROGDIR}"
     amend_cq_file "${CQD_FILE}"
-    if ! repo upload -y --verify "--ht=${BRANCH}" --cbr . > "${TEMPDIR}/upload.amend.output" 2>&1; then
+    if ! repo upload -y --verify "--ht=${TAG}" --cbr . > "${TEMPDIR}/upload.amend.output" 2>&1; then
       cat  "${TEMPDIR}/upload.amend.output"
       abort "repo upload failed"
     fi
@@ -667,7 +668,7 @@ EOF
   #
   # Upload with no-verify since the file lines are too long.
   #
-  if ! repo upload "--ht=${BRANCH}" -y --no-verify --cbr . > "${TEMPDIR}/overlay.output" 2>&1; then
+  if ! repo upload "--ht=${TAG}" -y --no-verify --cbr . > "${TEMPDIR}/overlay.output" 2>&1; then
     cat  "${TEMPDIR}/overlay.output"
     abort "repo upload failed"
   fi
@@ -692,10 +693,10 @@ fi
 #
 # Send all of the CLs to the CQ for a dry run.
 #
-ALL_CLS=$(gerrit -i --raw search "owner:me status:open hashtag:${BRANCH}")
+ALL_CLS=$(gerrit -i --raw search "owner:me status:open hashtag:${TAG}")
 if [[ -z "${ALL_CLS}" ]]; then
   echo "No changes required for program ${FLAGS_board}"
-  repo abandon "${BRANCH}"
+  repo abandon "${TAG}"
   exit 0
 fi
 for cl in ${ALL_CLS}; do
@@ -722,4 +723,4 @@ echo "Run:"
 echo "  /build/${FLAGS_board}/usr/sbin/chromeos-firmwareupdate --manifest"
 echo "to verify firmware update"
 echo "When submitted, cleanup by running:"
-echo "repo abandon ${BRANCH}"
+echo "repo abandon ${TAG}"
