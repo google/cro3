@@ -233,6 +233,63 @@ func TestServodServer_ExecCmdSuccess(t *testing.T) {
 	}
 }
 
+// Tests that a command with stdin executes successfully.
+func TestServodServer_ExecCmdWithStdinSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mce := mock_commandexecutor.NewMockCommandExecutorInterface(ctrl)
+
+	stdin := []byte("stdin")
+	var expectedStdin io.Reader = bytes.NewReader(stdin)
+
+	mce.EXPECT().Run(gomock.Eq("servoHostPath"), gomock.Eq("command arg1 arg2"), gomock.Eq(expectedStdin), gomock.Eq(false)).DoAndReturn(
+		func(addr string, command string, stdin io.Reader, routeToStd bool) (bytes.Buffer, bytes.Buffer, error) {
+			var bOut, bErr bytes.Buffer
+			bOut.Write([]byte("success!"))
+			bErr.Write([]byte("not failed!"))
+			return bOut, bErr, nil
+		},
+	)
+
+	ctx := context.Background()
+	var logBuf bytes.Buffer
+	srv, destructor, err := NewServodService(ctx, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mce)
+	defer destructor()
+	if err != nil {
+		t.Fatalf("Failed to create new ServodService: %v", err)
+	}
+
+	resp, err := srv.ExecCmd(ctx, &api.ExecCmdRequest{
+		ServoHostPath: "servoHostPath",
+		Command:       "command arg1 arg2",
+		Stdin:         stdin,
+	})
+	if err != nil {
+		t.Fatalf("Failed at api.ExecCmd: %v", err)
+	}
+
+	if string(resp.Stderr) != "not failed!" {
+		t.Fatalf("Expecting Stderr to be \"not failed!\", instead got %v", string(resp.Stderr))
+	}
+
+	if string(resp.Stdout) != "success!" {
+		t.Fatalf("Expecting Stdout to be \"success!\", instead got %v", string(resp.Stdout))
+	}
+
+	if resp.ExitInfo.Signaled {
+		t.Fatalf("ExitInfo.Signaled should not be set!")
+	}
+
+	if !resp.ExitInfo.Started {
+		t.Fatalf("ExitInfo.Started should be set!")
+	}
+
+	if resp.ExitInfo.Status != 0 {
+		t.Fatalf("Expecting ExitInfo.Status to be 0, instead got: %v", resp.ExitInfo.Status)
+	}
+}
+
 // Tests that a command execution failure is handled gracefully.
 func TestServodServer_ExecCmdFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -377,6 +434,8 @@ func TestServodServer_CallServodFailure(t *testing.T) {
 }
 
 /*
+//NOTE: The following tests are for INTEGRATION TESTING PURPOSES and will be REMOVED before merging to master.
+
 var (
 	tls                = flag.Bool("tls", false, "Connection uses TLS if true, else plain TCP")
 	caFile             = flag.String("ca_file", "", "The file containing the CA root cert file")
