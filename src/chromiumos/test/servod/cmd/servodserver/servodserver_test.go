@@ -12,6 +12,7 @@ import (
 	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"go.chromium.org/luci/common/errors"
+	"golang.org/x/crypto/ssh"
 )
 
 // Tests that servod starts successfully.
@@ -343,66 +344,26 @@ func TestServodServer_ExecCmdFailure(t *testing.T) {
 	}
 
 	if resp.ExitInfo.Status == 0 {
-		t.Fatalf("Expecting ExitInfo.Status to be not 0, instead got: %v", resp.ExitInfo.Status)
+		t.Fatalf("Expecting ExitInfo.Status to be 0, instead got: %v", resp.ExitInfo.Status)
 	}
 }
 
-// Tests that calling servod is successful.
-func TestServodServer_CallServodSuccess(t *testing.T) {
+// Tests that a command execution with SSH exit failure is handled gracefully.
+func TestServodServer_ExecCmdWithSshExitFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mce := mock_commandexecutor.NewMockCommandExecutorInterface(ctrl)
 
-	mce.EXPECT().Run(gomock.Eq("servoHostPath"), gomock.Any(), gomock.Eq(nil), gomock.Eq(false)).DoAndReturn(
-		func(addr string, command string, stdin io.Reader, routeToStd bool) (bytes.Buffer, bytes.Buffer, error) {
-			var bOut, bErr bytes.Buffer
-			bOut.Write([]byte("success!"))
-			bErr.Write([]byte("not failed!"))
-			return bOut, bErr, nil
-		},
-	)
-
-	ctx := context.Background()
-	var logBuf bytes.Buffer
-	srv, destructor, err := NewServodService(ctx, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mce)
-	defer destructor()
-	if err != nil {
-		t.Fatalf("Failed to create new ServodService: %v", err)
-	}
-
-	resp, err := srv.CallServod(ctx, &api.CallServodRequest{
-		ServoHostPath: "servoHostPath",
-		ServodPort:    9901,
-		Method:        api.CallServodRequest_DOC,
-		Args:          "arg1",
-	})
-	if err != nil {
-		t.Fatalf("Failed at api.CallServod: %v", err)
-	}
-
-	if resp.GetFailure() != nil {
-		t.Fatalf("Expecting GetFailure() to be nil, instead got %v", resp.GetFailure().ErrorMessage)
-	}
-
-	if resp.GetSuccess().Result != "success!" {
-		t.Fatalf("Expecting GetSuccess().Result to be \"success!\", instead got %v", resp.GetSuccess().Result)
-	}
-}
-
-// Tests that calling servod failure is handled gracefully.
-func TestServodServer_CallServodFailure(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mce := mock_commandexecutor.NewMockCommandExecutorInterface(ctrl)
-
-	mce.EXPECT().Run(gomock.Eq("servoHostPath"), gomock.Any(), gomock.Eq(nil), gomock.Eq(false)).DoAndReturn(
+	mce.EXPECT().Run(gomock.Eq("servoHostPath"), gomock.Eq("command arg1 arg2"), gomock.Eq(nil), gomock.Eq(false)).DoAndReturn(
 		func(addr string, command string, stdin io.Reader, routeToStd bool) (bytes.Buffer, bytes.Buffer, error) {
 			var bOut, bErr bytes.Buffer
 			bOut.Write([]byte("not success!"))
 			bErr.Write([]byte("failed!"))
-			return bOut, bErr, errors.Reason("error message").Err()
+			wm := ssh.Waitmsg{}
+			return bOut, bErr, &ssh.ExitError{
+				Waitmsg: wm,
+			}
 		},
 	)
 
@@ -414,27 +375,41 @@ func TestServodServer_CallServodFailure(t *testing.T) {
 		t.Fatalf("Failed to create new ServodService: %v", err)
 	}
 
-	resp, err := srv.CallServod(ctx, &api.CallServodRequest{
+	resp, err := srv.ExecCmd(ctx, &api.ExecCmdRequest{
 		ServoHostPath: "servoHostPath",
-		ServodPort:    9901,
-		Method:        api.CallServodRequest_DOC,
-		Args:          "arg1",
+		Command:       "command arg1 arg2",
 	})
 	if err == nil {
-		t.Fatalf("Should have failed at api.CallServod.")
+		t.Fatalf("Should have failed at api.ExecCmd.")
 	}
 
-	if resp.GetFailure().ErrorMessage != "failed!" {
-		t.Fatalf("Expecting GetFailure().ErrorMessage to be \"failed!\", instead got %v", resp.GetFailure().ErrorMessage)
+	if string(resp.Stderr) != "failed!" {
+		t.Fatalf("Expecting Stderr to be \"failed!\", instead got %v", string(resp.Stderr))
 	}
 
-	if resp.GetSuccess() != nil {
-		t.Fatalf("Expecting GetSuccess() to be nil, instead got %v", resp.GetSuccess().Result)
+	if string(resp.Stdout) != "not success!" {
+		t.Fatalf("Expecting Stdout to be \"not success!\", instead got %v", string(resp.Stdout))
+	}
+
+	if resp.ExitInfo.ErrorMessage != "" {
+		t.Fatalf("Expecting ExitInfo.ErrorMessage to be \"\", instead got %v", resp.ExitInfo.ErrorMessage)
+	}
+
+	if !resp.ExitInfo.Signaled {
+		t.Fatalf("ExitInfo.Signaled should be set!")
+	}
+
+	if !resp.ExitInfo.Started {
+		t.Fatalf("ExitInfo.Started should be set!")
+	}
+
+	if resp.ExitInfo.Status != 0 {
+		t.Fatalf("Expecting ExitInfo.Status to be 0, instead got: %v", resp.ExitInfo.Status)
 	}
 }
 
 /*
-//NOTE: The following tests are for INTEGRATION TESTING PURPOSES and will be REMOVED before merging to master.
+//NOTE: The following tests are for INTEGRATION TESTING PURPOSES and should be REMOVED before merging to master.
 
 var (
 	tls                = flag.Bool("tls", false, "Connection uses TLS if true, else plain TCP")
@@ -506,19 +481,13 @@ func TestExecCmdRemoteSuccess(t *testing.T) {
 	defer conn.Close()
 	client := api.NewServodServiceClient(conn)
 
-	stream, err := client.ExecCmd(context.Background(), &api.ExecCmdRequest{
+	resp, err := client.ExecCmd(context.Background(), &api.ExecCmdRequest{
 		ServoHostPath:             "localhost:9876",
 		ServodDockerContainerName: "",
 		Command:                   "ps -ef | grep servod",
 		Stdin:                     []byte{},
 	})
 
-	if err != nil {
-		t.Fatalf("Failed at api.ExecCmd: %v", err)
-	}
-
-	resp := &api.ExecCmdResponse{}
-	err = stream.RecvMsg(resp)
 	if err != nil {
 		t.Fatalf("Failed at api.ExecCmd: %v", err)
 	}
@@ -537,7 +506,7 @@ func TestExecCmdLocalSuccess(t *testing.T) {
 	defer conn.Close()
 	client := api.NewServodServiceClient(conn)
 
-	stream, err := client.ExecCmd(context.Background(), &api.ExecCmdRequest{
+	resp, err := client.ExecCmd(context.Background(), &api.ExecCmdRequest{
 		ServoHostPath:             "",
 		ServodDockerContainerName: "",
 		Command:                   "ls -ll",
@@ -548,16 +517,10 @@ func TestExecCmdLocalSuccess(t *testing.T) {
 		t.Fatalf("Failed at api.ExecCmd: %v", err)
 	}
 
-	resp := &api.ExecCmdResponse{}
-	err = stream.RecvMsg(resp)
-	if err != nil {
-		t.Fatalf("Failed at api.ExecCmd: %v", err)
-	}
-
 	fmt.Println(resp)
 }
 
-func TestCallServodSuccess(t *testing.T) {
+func TestCallServodDocSuccess(t *testing.T) {
 	flag.Parse()
 	opts := getDialOptions()
 
@@ -568,24 +531,115 @@ func TestCallServodSuccess(t *testing.T) {
 	defer conn.Close()
 	client := api.NewServodServiceClient(conn)
 
-	stream, err := client.CallServod(context.Background(), &api.CallServodRequest{
+	resp, err := client.CallServod(context.Background(), &api.CallServodRequest{
 		ServoHostPath:             "localhost:9876",
 		ServodDockerContainerName: "",
 		ServodPort:                9901,
 		Method:                    api.CallServodRequest_DOC,
-		// Method: api.CallServodRequest_GET,
-		// Method: api.CallServodRequest_SET,
-		Args: "lid_openXYZ",
-		// Args: "lid_open:yes",
+		Args: []*xmlrpc.Value{&xmlrpc.Value{
+			ScalarOneof: &xmlrpc.Value_String_{
+				String_: "lid_open",
+			},
+		}},
 	})
 
 	if err != nil {
+		fmt.Println(err)
 		t.Fatalf("Failed at api.CallServod: %v", err)
 	}
 
-	resp := &api.CallServodResponse{}
-	err = stream.RecvMsg(resp)
+	fmt.Println(resp)
+}
+
+func TestCallServodGetSuccess(t *testing.T) {
+	flag.Parse()
+	opts := getDialOptions()
+
+	conn, err := grpc.Dial(*serverAddr, opts...)
 	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+	defer conn.Close()
+	client := api.NewServodServiceClient(conn)
+
+	resp, err := client.CallServod(context.Background(), &api.CallServodRequest{
+		ServoHostPath:             "localhost:9876",
+		ServodDockerContainerName: "",
+		ServodPort:                9901,
+		Method:                    api.CallServodRequest_GET,
+		Args: []*xmlrpc.Value{&xmlrpc.Value{
+			ScalarOneof: &xmlrpc.Value_String_{
+				String_: "lid_open",
+			},
+		}},
+	})
+
+	if err != nil {
+		fmt.Println(err)
+		t.Fatalf("Failed at api.CallServod: %v", err)
+	}
+
+	fmt.Println(resp)
+}
+
+func TestCallServodSetSuccess(t *testing.T) {
+	flag.Parse()
+	opts := getDialOptions()
+
+	conn, err := grpc.Dial(*serverAddr, opts...)
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+	defer conn.Close()
+	client := api.NewServodServiceClient(conn)
+
+	resp, err := client.CallServod(context.Background(), &api.CallServodRequest{
+		ServoHostPath:             "localhost:9876",
+		ServodDockerContainerName: "",
+		ServodPort:                9901,
+		Method:                    api.CallServodRequest_SET,
+		Args: []*xmlrpc.Value{
+			&xmlrpc.Value{
+				ScalarOneof: &xmlrpc.Value_String_{
+					String_: "lid_open",
+				},
+			},
+			&xmlrpc.Value{
+				ScalarOneof: &xmlrpc.Value_String_{
+					String_: "yes",
+				},
+			},
+		},
+	})
+
+	if err != nil {
+		fmt.Println(err)
+		t.Fatalf("Failed at api.CallServod: %v", err)
+	}
+
+	fmt.Println(resp)
+}
+
+func TestCallServodHwinitSuccess(t *testing.T) {
+	flag.Parse()
+	opts := getDialOptions()
+
+	conn, err := grpc.Dial(*serverAddr, opts...)
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+	defer conn.Close()
+	client := api.NewServodServiceClient(conn)
+
+	resp, err := client.CallServod(context.Background(), &api.CallServodRequest{
+		ServoHostPath:             "localhost:9876",
+		ServodDockerContainerName: "",
+		ServodPort:                9901,
+		Method:                    api.CallServodRequest_HWINIT,
+	})
+
+	if err != nil {
+		fmt.Println(err)
 		t.Fatalf("Failed at api.CallServod: %v", err)
 	}
 

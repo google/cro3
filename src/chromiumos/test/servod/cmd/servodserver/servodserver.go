@@ -9,16 +9,21 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"infra/libs/sshpool"
 	"io"
 	"log"
+	"strings"
 
 	"chromiumos/lro"
 	"chromiumos/test/servod/cmd/commandexecutor"
 	"chromiumos/test/servod/cmd/model"
+	"chromiumos/test/servod/cmd/servod"
+
+	"chromiumos/test/servod/cmd/ssh"
 
 	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"golang.org/x/crypto/ssh"
+	crypto_ssh "golang.org/x/crypto/ssh"
 )
 
 // ServodService implementation of servod_service.proto
@@ -26,6 +31,8 @@ type ServodService struct {
 	manager         *lro.Manager
 	logger          *log.Logger
 	commandexecutor commandexecutor.CommandExecutorInterface
+	sshPool         *sshpool.Pool
+	servodPool      *servod.Pool
 }
 
 // NewServodService creates a new servod service.
@@ -34,6 +41,8 @@ func NewServodService(ctx context.Context, logger *log.Logger, commandexecutor c
 		manager:         lro.New(),
 		logger:          logger,
 		commandexecutor: commandexecutor,
+		sshPool:         sshpool.New(ssh.SSHConfig()),
+		servodPool:      servod.NewPool(),
 	}
 
 	destructor := func() {
@@ -64,10 +73,7 @@ func (s *ServodService) StartServod(ctx context.Context, req *api.StartServodReq
 		AllowDualV4:               req.AllowDualV4,
 	}
 
-	var bErr bytes.Buffer
-	var err error
-
-	_, bErr, err = s.RunCli(model.CliStartServod, a, nil, false)
+	_, bErr, err := s.RunCli(model.CliStartServod, a, nil, false)
 	if err != nil {
 		s.logger.Println("Failed to run CLI: ", err)
 		s.manager.SetResult(op.Name, &api.StartServodResponse{
@@ -99,10 +105,7 @@ func (s *ServodService) StopServod(ctx context.Context, req *api.StopServodReque
 		ServodPort:                req.ServodPort,
 	}
 
-	var bErr bytes.Buffer
-	var err error
-
-	_, bErr, err = s.RunCli(model.CliStopServod, a, nil, false)
+	_, bErr, err := s.RunCli(model.CliStopServod, a, nil, false)
 	if err != nil {
 		s.logger.Println("Failed to run CLI: ", err)
 		s.manager.SetResult(op.Name, &api.StopServodResponse{
@@ -121,11 +124,14 @@ func (s *ServodService) StopServod(ctx context.Context, req *api.StopServodReque
 	return op, err
 }
 
-// ExecCmd executes a servod command inside the servod Docker container
-// if servod_docker_container_name parameter is provided. Otherwise, it
-// executes the command directly inside the servo host.
-// Example commands:
-// "dut-control -p $PORT power_state:off"
+// ExecCmd executes a system command that is provided through the command
+// parameter in the request. It allows the user to execute arbitrary commands
+// that can't be handled by calling servod (e.g. update firmware through
+// "futility", remote file copy through "scp").
+// It executes the command inside the servod Docker container if the
+// servod_docker_container_name parameter is provided in the request.
+// Otherwise, it executes the command directly inside the host that the servo
+// is physically connected to.
 func (s *ServodService) ExecCmd(ctx context.Context, req *api.ExecCmdRequest) (*api.ExecCmdResponse, error) {
 	s.logger.Println("Received api.ExecCmdRequest: ", *req)
 
@@ -151,45 +157,50 @@ func (s *ServodService) ExecCmd(ctx context.Context, req *api.ExecCmdRequest) (*
 	}, err
 }
 
-// CallServod runs a servod command through an XML-RPC call inside the
-// servod Docker container if servod_docker_container_name parameter is provided.
-// Otherwise, it runs the command directly inside the servo host.
-// Allowed methods: doc, get, and set.
+// CallServod runs a servod command through an XML-RPC call.
+// It runs the command inside the servod Docker container if the
+// servod_docker_container_name parameter is provided in the request.
+// Otherwise, it runs the command directly inside the host that the servo
+// is physically connected to.
+// Allowed methods: doc, get, set, and hwinit.
 func (s *ServodService) CallServod(ctx context.Context, req *api.CallServodRequest) (*api.CallServodResponse, error) {
 	s.logger.Println("Received api.CallServodRequest: ", *req)
 
-	a := model.CliArgs{
-		ServoHostPath:             req.ServoHostPath,
-		ServodDockerContainerName: req.ServodDockerContainerName,
-		ServodPort:                req.ServodPort,
-		Method:                    req.Method.String(),
-		Args:                      req.Args,
-	}
-
-	var bOut bytes.Buffer
-	var bErr bytes.Buffer
-	var err error
-
-	bOut, bErr, err = s.RunCli(model.CliCallServod, a, nil, false)
-
+	sd, err := s.servodPool.Get(
+		req.ServoHostPath,
+		req.ServodPort,
+		// This method must return non-nil value for servod.Get to work so return a dummy array.
+		func() ([]string, error) {
+			return []string{}, nil
+		})
 	if err != nil {
-		s.logger.Println("Failed to run CLI: ", err)
 		return &api.CallServodResponse{
 			Result: &api.CallServodResponse_Failure_{
 				Failure: &api.CallServodResponse_Failure{
-					ErrorMessage: getErrorMessage(bErr, err),
-				},
-			},
-		}, err
-	} else {
-		return &api.CallServodResponse{
-			Result: &api.CallServodResponse_Success_{
-				Success: &api.CallServodResponse_Success{
-					Result: bOut.String(),
+					ErrorMessage: err.Error(),
 				},
 			},
 		}, err
 	}
+
+	val, err := sd.Call(ctx, s.sshPool, strings.ToLower(req.Method.String()), req.Args)
+	if err != nil {
+		return &api.CallServodResponse{
+			Result: &api.CallServodResponse_Failure_{
+				Failure: &api.CallServodResponse_Failure{
+					ErrorMessage: err.Error(),
+				},
+			},
+		}, err
+	}
+
+	return &api.CallServodResponse{
+		Result: &api.CallServodResponse_Success_{
+			Success: &api.CallServodResponse_Success{
+				Result: val,
+			},
+		},
+	}, nil
 }
 
 // getErrorMessage returns either Stderr output or error message
@@ -209,7 +220,7 @@ func getExitInfo(runError error) *api.ExecCmdResponse_ExitInfo {
 	}
 
 	// If ExitError, command ran but did not succeed
-	var ee *ssh.ExitError
+	var ee *crypto_ssh.ExitError
 	if errors.As(runError, &ee) {
 		return createCommandFailedExitInfo(ee)
 	}
@@ -236,7 +247,7 @@ func createCommandSucceededExitInfo() *api.ExecCmdResponse_ExitInfo {
 	}
 }
 
-func createCommandFailedExitInfo(err *ssh.ExitError) *api.ExecCmdResponse_ExitInfo {
+func createCommandFailedExitInfo(err *crypto_ssh.ExitError) *api.ExecCmdResponse_ExitInfo {
 	return &api.ExecCmdResponse_ExitInfo{
 		Status:       int32(err.ExitStatus()),
 		Signaled:     true,

@@ -39,28 +39,48 @@ Commands:
             Usage:
             To start servod:
             cros-servod cli start_servod --servo_host_path <ip:port> --servod_docker_container_name <a_unique_name> --servod_docker_image_path <servod_docker_image_path> --servod_port <servod_port> --board <board> --model <model> --serial_name <serial_name> --debug <debug> --recovery_mode <recovery_mode> --config <config> --allow_dual_v4 <allow_dual_v4> [--log_path /tmp/servod/]
+            Example (Start non-containerized servod):
+            cros-servod cli start_servod --servo_host_path localhost:9876 --servod_port 9901 --board dedede --model galith --serial_name G1911050826
+            Example (Start containerized servod):
+            cros-servod cli start_servod --servo_host_path localhost:9876 --servod_docker_container_name servod_container1 --servod_docker_image_path gcr.io/chromeos-bot/servod@sha256:2d25f6313c7bbac349607 --servod_port 9901 --board dedede --model galith --serial_name G1911050826
 
             To stop servod:
             cros-servod cli stop_servod --servo_host_path <ip:port> --servod_docker_container_name <a_unique_name> --servod_port <servod_port> [--log_path /tmp/servod/]
+            Example (Stop non-containerized servod):
+            cros-servod cli stop_servod --servo_host_path localhost:9876 --servod_port 9901
+            Example (Stop containerized servod):
+            cros-servod cli stop_servod --servo_host_path localhost:9876 --servod_docker_container_name servod_container1 --servod_port 9901
 
             To execute command:
             cros-servod cli exec_cmd --servo_host_path <ip:port> --servod_docker_container_name <a_unique_name> --command <command> [--log_path /tmp/servod/]
+            Example (Execute fake disconnect command on non-containerized servod):
+            cros-servod cli exec_cmd --servo_host_path localhost:9876 --command "dut-control -p 9901 servo_v4_uart_cmd:'fakedisconnect 130 2400'"
+            Example (Execute system command on containerized servod):
+            cros-servod cli exec_cmd --servo_host_path localhost:9876 --servod_docker_container_name servod_container1 --command "ps -ef | grep servod"
 
             To call servod for doc:
-            cros-servod cli call_servod --servo_host_path <ip:port> --servod_docker_container_name <a_unique_name> --method doc [--log_path /tmp/servod/]
+            cros-servod cli call_servod --servo_host_path <ip:port> --servod_docker_container_name <a_unique_name> --method doc --args <args> [--log_path /tmp/servod/]
+            Example (Call DOC method for lid_open control on non-containerized servod):
+            cros-servod cli call_servod --servo_host_path localhost:9876 --method doc --args lid_open
 
             To call servod for get:
             cros-servod cli call_servod --servo_host_path <ip:port> --servod_docker_container_name <a_unique_name> --method get --args <args> [--log_path /tmp/servod/]
+            Example (Call GET method for lid_open control on non-containerized servod):
+            cros-servod cli call_servod --servo_host_path localhost:9876 --method get --args lid_open
 
             To call servod for set:
             cros-servod cli call_servod --servo_host_path <ip:port> --servod_docker_container_name <a_unique_name> --method set --args <args> [--log_path /tmp/servod/]
+            Example (Call SET method to set lid_open control value to yes on containerized servod):
+            cros-servod cli call_servod --servo_host_path localhost:9876 --servod_docker_container_name servod_container1 --method set --args "lid_open:yes"
+            Example (Call SET method to execute fake disconnect on non-containerized servod):
+            cros-servod cli call_servod --servo_host_path localhost:9876 --method set --args "servo_v4_uart_cmd:'fakedisconnect 130 2400'"
 
   server    Starts the servod server for RPC calls. Mostly used for tests.
             Usage:
             cros-servod server [--log_path /tmp/servod/] [--server_port 80]
 
   --version Prints the version.
-  
+
   --help    Prints the help.`
 	defaultLogDirectory = "/tmp/servod/"
 	defaultServerPort   = 80

@@ -2,14 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// The model package holds the data model that is common to multiple packages
+// in the project. For example, CliArgs is used in both main and servodserver
+// packages.
 package model
 
+// CliArgs is a data structure that holds the CLI arguments passed.
 type CliArgs struct {
 	// Common input params.
 	// Local log file path.
 	LogPath string
 
 	// The path (URI) for the servod (containerized or running as a daemon) host.
+	// It can be in IP:PORT format or an absolute path.
+	// For local testing, you can do port forwarding as follows:
+	// ssh -L 9876:localhost:22 root@SERVO_HOST_IP
+	// Then, you can use localhost:9876 as ServoHostPath value.
 	// If cros-servod and docker-servod live on the same host, this parameter
 	// should be empty.
 	ServoHostPath string
@@ -52,11 +60,13 @@ type CliArgs struct {
 	Method string
 
 	// The arguments to pass to the method. For the doc and get methods,
-	// there will be a single argument, which is the control name (e.g.
-	// cli --method get --args fakedisconnect). For the set method,
-	// it will be the control name and the value separated with a colon
-	// and wrapped inside a quote (e.g.
-	// cli --method set --args “fakedisconnect:100 2000”).
+	// there will be a single argument which is the control name
+	// (e.g. cli --method get --args lid_open). For the set method, it will
+	// be the control name and the value separated with a colon and wrapped
+	// inside a quote (e.g. cli --method set --args "lid_open:yes"). If the
+	// control value for the set operation includes non-alphanumeric characters
+	// such as space, it should be wrapped with a single quote (e.g.
+	// cli --method set --args "servo_v4_uart_cmd:'fakedisconnect 100 2000'").
 	Args string
 
 	// The port for the servod GRPC server.
@@ -67,9 +77,18 @@ type CliArgs struct {
 type CliSubcommand string
 
 const (
-	CliUnknown     CliSubcommand = ""
+	// This is used when the command value passed in not known by the app.
+	CliUnknown CliSubcommand = ""
+
+	// CLI subcommand to start servod.
 	CliStartServod CliSubcommand = "start_servod"
-	CliStopServod  CliSubcommand = "stop_servod"
-	CliExecCmd     CliSubcommand = "exec_cmd"
-	CliCallServod  CliSubcommand = "call_servod"
+
+	// CLI subcommand to stop servod.
+	CliStopServod CliSubcommand = "stop_servod"
+
+	// CLI subcommand to execute a servod command.
+	CliExecCmd CliSubcommand = "exec_cmd"
+
+	// CLI subcommand to call servod (DOC, GET, and SET).
+	CliCallServod CliSubcommand = "call_servod"
 )

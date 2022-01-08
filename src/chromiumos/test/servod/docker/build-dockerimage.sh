@@ -69,7 +69,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 build_server_image                             \
-    --service "cros-servod"                       \
+    --service "cros-servod"                    \
     --docker_file "${script_dir}/Dockerfile"   \
     --chroot "${chroot}"                       \
     --tags "${tags}"                           \

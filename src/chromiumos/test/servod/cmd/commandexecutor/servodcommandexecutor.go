@@ -15,6 +15,9 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// ServodCommandExecutor acts as a receiver to implement CommandExecutorInterface
+// by running given commands either locally or on a remote host through os/exec
+// and SSH run commands.
 type ServodCommandExecutor struct {
 	logger *log.Logger
 }
