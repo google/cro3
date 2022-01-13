@@ -15,12 +15,15 @@ import pandas
 import plotly.express
 
 def main():
+    gpio_default='./boards/guybrush/guybrush_r0_pacs_gpio.csv'
+    mapping_default='./boards/guybrush/guybrush_r0_railmapping.csv'
+
     argparser = ArgumentParser(description=modules[__name__].__doc__)
     argparser.add_argument(
         '-s',
         '--single',
         help=
-        'Use to take a single voltage, current, power measurement of all rails',
+        'Use to take a single voltage, current, power measurement of all rails and report GPIO status',
         action="store_true")
     argparser.add_argument(
         '-t',
@@ -42,14 +45,14 @@ def main():
         '-m',
         '--mapping',
         type=FileType('r'),
-        default='./GuybrushProto0_RailMapping.csv',
+        default=mapping_default,
         help='Rail hierachy mapping used to generate sunburst plot')
     argparser.add_argument(
         '-g',
         '--gpio',
         type=FileType('r'),
-        default='./guybrush_r0_pacs_mainsmt_gpio.csv',
-        help='PAC address to GPIO Rail mapping')
+        default=gpio_default,
+        help='PAC address to GPIO net name mapping')
 
     args = argparser.parse_args()
 
@@ -66,12 +69,29 @@ def main():
     Path(log_path).mkdir(parents=True, exist_ok=True)
 
     # If single, take a single shot of these measurements then quit.
+    # Print which files are being used for clarity
     if args.single:
+        print("Taking a single voltage, current, power measurement of all rails and reporting GPIO status")
+        print("Using config file:", args.config.name)
+        if args.gpio.name == gpio_default:
+            print("Using default gpio file:", args.gpio.name)
+        else:
+            print("Using gpio file:", args.gpio.name)
+        print()
         log = pac_utils.query_all(args.config.name, args.gpio.name)
         log.to_csv(single_log_path)
         return False
 
     # Else we're going to take a time log.
+    # Print which files are being used for clarity
+    print("Taking an extended reading")
+    print("Using config file:", args.config.name)
+    if args.mapping.name == mapping_default:
+        print("Using default rail mapping file:", args.mapping.name)
+    else:
+        print("Using rail mapping file:", args.mapping.name)
+    print()
+    
     # Record the sample and log to file.
     (log, accumulator_log) = pac_utils.record(args.config.name,
                                    rail=['all'],

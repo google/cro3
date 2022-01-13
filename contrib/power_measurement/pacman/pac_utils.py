@@ -170,8 +170,15 @@ def load_config(config_file):
     Returns:
         config: (Pandas Dataframe) config.
     """
-    guybrush_r0_pacs = importlib.import_module(config_file.strip('.py'))
-    config = pandas.DataFrame(guybrush_r0_pacs.INAS)
+    import importlib.util
+    import os
+    head_tail = os.path.split(config_file)
+    module_name = head_tail[1]
+    spec = importlib.util.spec_from_file_location(module_name, config_file)
+    pacs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pacs)
+
+    config = pandas.DataFrame(pacs.INAS)
     config.columns = [
         'drv', 'addr', 'rail', 'nom', 'rsense', 'mux', 'is_calib'
     ]
