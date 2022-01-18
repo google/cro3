@@ -95,10 +95,7 @@ def get_reviewers(changeid, branch):
 
     resp = retrieve_and_parse_endpoint(list_reviewers_endpoint)
 
-    try:
-        return [reviewer_resp['email'] for reviewer_resp in resp]
-    except KeyError as e:
-        raise type(e)('Gerrit API endpoint to list reviewers should contain key email') from e
+    return [reviewer_resp['email'] for reviewer_resp in resp if 'email' in reviewer_resp]
 
 
 def abandon_change(changeid, branch, reason=None):
