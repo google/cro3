@@ -58,8 +58,8 @@ BUG="${4:-None}"
 COMMIT_MSG_BRANCH="${NEW_VARIANT_BRANCH:-None}"
 
 # The template files are in ${DC_SRC_DIR}/util/template
-DEFCONFIG="${DC_SRC_DIR}/util/template/board/${BASE}/defconfig"
-VARIANTC="${DC_SRC_DIR}/util/template/src/board/${BASE}/variant.c"
+DEFCONFIG="${DC_SRC_DIR}/util/template/board/${REFERENCE}/defconfig"
+VARIANTC="${DC_SRC_DIR}/util/template/src/board/${REFERENCE}/variant.c"
 
 pushd "${DC_SRC_DIR}"
 
