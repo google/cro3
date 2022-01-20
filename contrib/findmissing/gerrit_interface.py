@@ -225,11 +225,8 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch, is_chromeos, fix
     bug_test_line = get_bug_test_line(chrome_kernel_sha)
     fix_commit_message = generate_fix_message(fixer_upstream_sha, bug_test_line)
 
-    # TODO(hirthanan): find relevant mailing list/reviewers
-    # For now we will assign it to a default user like Guenter?
-    # This is for stable bug fix patches that don't have a direct fixee changeid
-    #  since groups of stable commits get merged as one changeid
-    reviewers = ['groeck@chromium.org']
+    # No reviewers by default.
+    reviewers = []
     try:
         if fixee_changeid:
             cl_reviewers = get_reviewers(fixee_changeid, branch)
@@ -237,18 +234,28 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch, is_chromeos, fix
                 reviewers = cl_reviewers
     except requests.exceptions.HTTPError:
         # There is a Change-Id in the commit log, but Gerrit does not have a
-        # matching entry. Fall back to list of e-mails found in tags after
-        # the last "cherry picked" message.
+        # matching entry.
         logging.warning('Failed to get reviewer(s) from gerrit for Change-Id %s', fixee_changeid)
+
+    if not reviewers:
+        # Fall back to list of e-mails found in tags after the last
+        # "cherry picked" message.
         emails = git_interface.get_tag_emails_linux_chrome(fixee_kernel_sha)
         if emails:
             reviewers = emails
+
+    # Copy all requests to well defined mailing list if there is no reviewer
+    # and the patch is ChromeOS-specific.
+    # The mailing list must be accessible from outside Google because
+    # Gerrit will send e-mail to it, and the Gerrit e-mail address is
+    # a chromium.org address.
+    cc = ['cros-kernel-codereviews@googlegroups.com'] if is_chromeos and not reviewers else []
 
     try:
         # Cherry pick changes and generate commit message indicating fix from upstream
         handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch)
         fixer_changeid = handler.cherry_pick_and_push(fixer_upstream_sha, fixer_changeid,
-                                                      fix_commit_message, reviewers)
+                                                      fix_commit_message, reviewers, cc)
     except ValueError:
         # Error cherry-picking and pushing fix patch
         return None
