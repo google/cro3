@@ -25,7 +25,7 @@ import json
 import http
 import os
 import re
-import requests
+import requests # pylint: disable=import-error
 
 import common
 import git_interface
@@ -35,14 +35,14 @@ def get_auth_cookie():
     """Load cookies in order to authenticate requests with gerrit/googlesource."""
     # This cookie should exist in order to perform GAIA authenticated requests
     try:
-        gerrit_credentials_cookies = \
-                http.cookiejar.MozillaCookieJar(common.GCE_GIT_COOKIE_PATH, None, None)
+        gerrit_credentials_cookies = (
+                http.cookiejar.MozillaCookieJar(common.GCE_GIT_COOKIE_PATH, None, None))
         gerrit_credentials_cookies.load()
         return gerrit_credentials_cookies
     except FileNotFoundError:
         try:
-            gerrit_credentials_cookies = \
-                    http.cookiejar.MozillaCookieJar(common.LOCAL_GIT_COOKIE_PATH, None, None)
+            gerrit_credentials_cookies = (
+                    http.cookiejar.MozillaCookieJar(common.LOCAL_GIT_COOKIE_PATH, None, None))
             gerrit_credentials_cookies.load()
             return gerrit_credentials_cookies
         except FileNotFoundError:
@@ -82,9 +82,7 @@ def get_full_changeid(changeid, branch):
     """Returns the changeid with url-encoding in project~branch~changeid format."""
     project = 'chromiumos%2Fthird_party%2Fkernel'
     chromeos_branch = common.chromeos_branch(branch)
-    return '{project}~{branch}~{changeid}'.format(project=project,
-                                                    branch=chromeos_branch,
-                                                    changeid=changeid)
+    return '%s~%s~%s' % (project, chromeos_branch, changeid)
 
 
 def get_reviewers(changeid, branch):
@@ -196,10 +194,7 @@ def generate_fix_message(fixer_upstream_sha, bug_test_line):
     cherry_picked = '(cherry picked from commit %s)\n\n'% upstream_full_sha
 
 
-    commit_message = ('UPSTREAM: {fix_commit_msg}'
-                      '{cherry_picked}'
-                      '{bug_test_line}').format(fix_commit_msg=fix_upstream_commit_msg,
-                        cherry_picked=cherry_picked, bug_test_line=bug_test_line)
+    commit_message = 'UPSTREAM: %s%s%s' % (fix_upstream_commit_msg, cherry_picked, bug_test_line)
 
     return commit_message
 

@@ -165,7 +165,7 @@ def get_integrated_tag(sha):
 class commitHandler:
     """Class to control active accesses on a git repository"""
 
-    commit_list = { }
+    commit_list = {}
 
     def __init__(self, kernel, branch=None, full_reset=True):
         self.kernel = kernel
@@ -179,7 +179,7 @@ class commitHandler:
         self.full_reset = full_reset
 
         if kernel not in self.commit_list:
-            self.commit_list[kernel] = { }
+            self.commit_list[kernel] = {}
 
         current_branch_cmd = ['symbolic-ref', '-q', '--short', 'HEAD']
         self.current_branch = self.__git_check_output(current_branch_cmd).rstrip()
