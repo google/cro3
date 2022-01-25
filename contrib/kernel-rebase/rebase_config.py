@@ -57,6 +57,10 @@ topic_fixups['block-fs'] = [
     'fuse: Handle asynchronous read and write in passthrough'
 ]
 
+topic_fixups['drm'] = [
+    'dma-buf: Add an API for exporting sync files (v12)'
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
