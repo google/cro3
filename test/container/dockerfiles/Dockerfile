@@ -24,12 +24,12 @@ RUN echo \
     tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
     curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
     apt-key --keyring /usr/share/keyrings/cloud.google.gpg  \
-    add - && apt-get update -y && apt-get install google-cloud-sdk -y
+    add - && apt-get update -y && apt-get install google-cloud-sdk=369.0.0-0 -y
 RUN rm -rf /usr/lib/google-cloud-sdk/bin/anthoscli \
   /usr/lib/google-cloud-sdk/bin/kuberun
 
 # Point /usr/bin/python3 to usr/local/bin/python3. See b/191884161
-RUN sudo rm /usr/bin/python3*
+RUN sudo rm /usr/bin/python3*; exit 0
 RUN sudo ln -s /usr/local/bin/python3 /usr/bin/python3
 
 # Config the user
