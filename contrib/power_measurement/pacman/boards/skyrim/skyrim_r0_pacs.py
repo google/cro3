@@ -52,4 +52,5 @@ INAS = [
     ('pac19next','0x1B:0','PP5000_S5_DB',5.000,0.005,'rem',True),
     ('pac19next','0x1B:1','PP3300_S5_X_DB',3.300,0.500,'rem',True),
     ('pac19next','0x1B:2','PP1200_S5_DB',1.200,0.050,'rem',True),
+    ('pac19next','0x1B:3','PP1800_S5_DB',1.800,0.050,'rem',True),
 ]
