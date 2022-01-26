@@ -16,7 +16,7 @@ import (
 
 	conf "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/grpc"
+	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
 // File specific consts
@@ -74,9 +74,9 @@ type AshService struct {
 	imagePath  *conf.StoragePath
 }
 
-func NewAshService(dutName string, dutClient api.DutServiceClient, wiringConn *grpc.ClientConn, req *api.InstallAshRequest) AshService {
+func NewAshService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.InstallAshRequest) AshService {
 	service := AshService{
-		connection: services.NewServiceAdapter(dutName, dutClient, wiringConn, false /*noRebot*/),
+		connection: services.NewServiceAdapter(dut, dutClient, false /*noRebot*/),
 		imagePath:  req.AshImagePath,
 	}
 

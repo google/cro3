@@ -11,9 +11,8 @@ import (
 	"time"
 
 	"go.chromium.org/chromiumos/config/go/longrunning"
-	"go.chromium.org/chromiumos/config/go/test/api"
+	api "go.chromium.org/chromiumos/config/go/test/api"
 	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
-	"google.golang.org/grpc"
 )
 
 // ServiceAdapters are used to interface with a DUT
@@ -47,18 +46,16 @@ type ServiceAdapterInterface interface {
 }
 
 type ServiceAdapter struct {
-	dutName    string
-	dutClient  api.DutServiceClient
-	wiringConn *grpc.ClientConn
-	noReboot   bool
+	dut       *lab_api.Dut
+	dutClient api.DutServiceClient
+	noReboot  bool
 }
 
-func NewServiceAdapter(dutName string, dutClient api.DutServiceClient, wiringConn *grpc.ClientConn, noReboot bool) ServiceAdapter {
+func NewServiceAdapter(dut *lab_api.Dut, dutClient api.DutServiceClient, noReboot bool) ServiceAdapter {
 	return ServiceAdapter{
-		dutName:    dutName,
-		dutClient:  dutClient,
-		wiringConn: wiringConn,
-		noReboot:   noReboot,
+		dut:       dut,
+		dutClient: dutClient,
+		noReboot:  noReboot,
 	}
 }
 
@@ -225,39 +222,5 @@ func (s ServiceAdapter) CreateDirectories(ctx context.Context, dirs []string) er
 // `DutTopology` (list of `Dut`s), then finds the `Dut` with right ID in that
 // list and returns it.
 func (s ServiceAdapter) GetDut(ctx context.Context) (*lab_api.Dut, error) {
-	inventoryClient := lab_api.NewInventoryServiceClient(s.wiringConn)
-
-	req := &lab_api.GetDutTopologyRequest{
-		Id: &lab_api.DutTopology_Id{Value: s.dutName},
-	}
-	getTopologyClient, err := inventoryClient.GetDutTopology(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to GetDutTopology client for ID %v: %w", s.dutName, err)
-	}
-
-	resp, err := getTopologyClient.Recv()
-	if err != nil {
-		return nil, fmt.Errorf("failed to receive GetDutTopology response for ID %v: %w",
-			s.dutName, err)
-	}
-
-	respSuccess := resp.GetSuccess()
-	if respSuccess == nil {
-		errMsg := resp.GetFailure().GetErrorMessage()
-		return nil, fmt.Errorf("GetDutTopology received failure response for ID %v: %v",
-			s.dutClient, errMsg)
-	}
-
-	// find our DUT in DutTopology
-	allDuts := respSuccess.DutTopology.GetDuts()
-	var wrongIds []string // keep wrong IDs for a descriptive error message
-	for _, dut := range allDuts {
-		if dut.GetId().Value == s.dutName {
-			return dut, nil
-		}
-		wrongIds = append(wrongIds, dut.GetId().Value)
-	}
-
-	return nil, fmt.Errorf("failed to find DUT with ID %v among following IDs in DutTopology: %v",
-		s.dutName, wrongIds)
+	return s.dut, nil
 }

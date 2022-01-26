@@ -139,7 +139,7 @@ func runCLI(ctx context.Context, d []string) int {
 		log.Fatalf("Validate input fail: %s", err)
 		return 2
 	}
-	p, closer, err := provisionserver.NewProvision(logger, in.GetDut().GetId().GetValue(), getAddress(in.GetDutServer()), getAddress(in.GetInventoryServer()))
+	p, closer, err := provisionserver.NewProvision(logger, in.GetDut(), getAddress(in.GetDutServer()))
 	defer closer()
 	if err != nil {
 		logger.Fatalln("Failed to create provision: ", err)
@@ -172,7 +172,7 @@ func startServer(d []string) int {
 		log.Fatalf("Validate input fail: %s", err)
 		return 2
 	}
-	p, closer, err := provisionserver.NewProvision(logger, in.GetDut().GetId().GetValue(), getAddress(in.GetDutServer()), getAddress(in.GetInventoryServer()))
+	p, closer, err := provisionserver.NewProvision(logger, in.GetDut(), getAddress(in.GetDutServer()))
 	defer closer()
 	if err != nil {
 		logger.Fatalln("Failed to create provision: ", err)

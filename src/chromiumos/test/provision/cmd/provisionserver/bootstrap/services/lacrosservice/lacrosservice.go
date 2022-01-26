@@ -19,7 +19,7 @@ import (
 
 	conf "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/grpc"
+	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
 // LaCrOSService inherits ServiceInterface
@@ -29,9 +29,9 @@ type LaCrOSService struct {
 	metadata   *LaCrOSMetadata
 }
 
-func NewLaCrOSService(dutName string, dutClient api.DutServiceClient, wiringConn *grpc.ClientConn, req *api.InstallLacrosRequest) (LaCrOSService, error) {
+func NewLaCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.InstallLacrosRequest) (LaCrOSService, error) {
 	service := LaCrOSService{
-		connection: services.NewServiceAdapter(dutName, dutClient, wiringConn, false /*noReboot*/),
+		connection: services.NewServiceAdapter(dut, dutClient, false /*noReboot*/),
 		imagePath:  req.LacrosImagePath,
 	}
 

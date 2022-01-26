@@ -13,6 +13,7 @@ import (
 
 	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
+	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
 	"go.chromium.org/luci/common/errors"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
@@ -29,16 +30,15 @@ import (
 
 // provision holds info for provisioning.
 type provision struct {
-	logger     *log.Logger
-	dutName    string
-	dutClient  api.DutServiceClient
-	wiringConn *grpc.ClientConn
+	logger    *log.Logger
+	dut       *lab_api.Dut
+	dutClient api.DutServiceClient
 	// Used only for server implementation.
 	manager *lro.Manager
 }
 
 // newProvision creates new provision to perform.
-func NewProvision(logger *log.Logger, dutName string, dutServiceAddr, wiringServiceAddr string) (*provision, func(), error) {
+func NewProvision(logger *log.Logger, dut *lab_api.Dut, dutServiceAddr string) (*provision, func(), error) {
 	var conns []*grpc.ClientConn
 	closer := func() {
 		for _, conn := range conns {
@@ -52,16 +52,10 @@ func NewProvision(logger *log.Logger, dutName string, dutServiceAddr, wiringServ
 	}
 	conns = append(conns, dutConn)
 
-	wiringConn, err := grpc.Dial(wiringServiceAddr, grpc.WithInsecure())
-	if err != nil {
-		return nil, closer, errors.Annotate(err, "new provision: failed to connect wiring-service").Err()
-	}
-	conns = append(conns, wiringConn)
 	return &provision{
-		logger:     logger,
-		dutName:    dutName,
-		dutClient:  api.NewDutServiceClient(dutConn),
-		wiringConn: wiringConn,
+		logger:    logger,
+		dut:       dut,
+		dutClient: api.NewDutServiceClient(dutConn),
 	}, closer, nil
 }
 
@@ -128,14 +122,14 @@ func (s *provision) installState(ctx context.Context, state *api.ProvisionState,
 // with any specified DLCs.
 func (s *provision) installCros(ctx context.Context, req *api.InstallCrosRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
 	s.logger.Println("Received api.InstallCrosRequest: ", *req)
-	cs := crosservice.NewCrOSService(s.dutName, s.dutClient, s.wiringConn, req)
+	cs := crosservice.NewCrOSService(s.dut, s.dutClient, req)
 	return s.execute(ctx, &cs, op)
 }
 
 // installLacros installs a specified version of Lacros on the DUT.
 func (s *provision) installLacros(ctx context.Context, req *api.InstallLacrosRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
 	s.logger.Println("Received api.InstallLacrosRequest: ", *req)
-	ls, err := lacrosservice.NewLaCrOSService(s.dutName, s.dutClient, s.wiringConn, req)
+	ls, err := lacrosservice.NewLaCrOSService(s.dut, s.dutClient, req)
 	if err != nil {
 		fr := &api.InstallFailure{
 			Reason: api.InstallFailure_REASON_PROVISIONING_FAILED,
@@ -154,7 +148,7 @@ func (s *provision) installLacros(ctx context.Context, req *api.InstallLacrosReq
 // installAsh installs a specified version of ash-chrome on the DUT.
 func (s *provision) installAsh(ctx context.Context, req *api.InstallAshRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
 	s.logger.Println("Received api.InstallAshRequest: ", *req)
-	cs := ashservice.NewAshService(s.dutName, s.dutClient, s.wiringConn, req)
+	cs := ashservice.NewAshService(s.dut, s.dutClient, req)
 	return s.execute(ctx, &cs, op)
 }
 
@@ -171,7 +165,7 @@ func (s *provision) installArc(ctx context.Context, req *api.InstallArcRequest, 
 // installFirmware installs requested firmware to the DUT.
 func (s *provision) installFirmware(ctx context.Context, req *api.InstallFirmwareRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
 	s.logger.Println("Received api.InstallFirmwareRequest: ", *req)
-	ls, err := firmwareservice.NewFirmwareService(s.dutName, s.dutClient, s.wiringConn, req)
+	ls, err := firmwareservice.NewFirmwareService(s.dut, s.dutClient, req)
 	if err != nil {
 		fr := &api.InstallFailure{
 			Reason: api.InstallFailure_REASON_PROVISIONING_FAILED,

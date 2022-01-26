@@ -24,7 +24,7 @@ import (
 func (s *provision) RunCLI(ctx context.Context, state *api.ProvisionState, outputPath string) error {
 	out := &api.CrosProvisionResponse{
 		Id: &lab_api.Dut_Id{
-			Value: s.dutName,
+			Value: s.dut.GetId().GetValue(),
 		},
 		Outcome: &api.CrosProvisionResponse_Success{},
 	}

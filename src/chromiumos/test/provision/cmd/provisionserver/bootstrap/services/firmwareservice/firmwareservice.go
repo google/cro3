@@ -15,7 +15,7 @@ import (
 
 	conf "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/grpc"
+	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
 const FirmwarePathTmp = "/tmp/fw-provisioning-service/"
@@ -33,13 +33,13 @@ type FirmwareService struct {
 
 const CurlWithRetriesArgsFW = "-S -s -v -# -C - --retry 3 --retry-delay 60"
 
-func NewFirmwareService(dutName string, dutClient api.DutServiceClient, wiringConn *grpc.ClientConn, req *api.InstallFirmwareRequest) (*FirmwareService, error) {
+func NewFirmwareService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.InstallFirmwareRequest) (*FirmwareService, error) {
 	fws, err := newConnectionlessFirmwareService(req)
 	if err != nil {
 		return nil, err
 	}
 
-	fws.connection = services.NewServiceAdapter(dutName, dutClient, wiringConn, false /*noReboot*/)
+	fws.connection = services.NewServiceAdapter(dut, dutClient, false /*noReboot*/)
 	if err := fws.connection.CreateDirectories(context.Background(), []string{FirmwarePathTmp}); err != nil {
 		return nil, fmt.Errorf("failed to create folder %v: %w", FirmwarePathTmp, err)
 	}

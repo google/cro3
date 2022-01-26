@@ -17,7 +17,7 @@ import (
 
 	conf "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/grpc"
+	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
 // CrOSService inherits ServiceInterface
@@ -29,9 +29,9 @@ type CrOSService struct {
 	dlcSpecs          []*api.InstallCrosRequest_DLCSpec
 }
 
-func NewCrOSService(dutName string, dutClient api.DutServiceClient, wiringConn *grpc.ClientConn, req *api.InstallCrosRequest) CrOSService {
+func NewCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.InstallCrosRequest) CrOSService {
 	return CrOSService{
-		connection:        services.NewServiceAdapter(dutName, dutClient, wiringConn, req.GetPreventReboot()),
+		connection:        services.NewServiceAdapter(dut, dutClient, req.GetPreventReboot()),
 		imagePath:         req.CrosImagePath,
 		overwritePayload:  req.OverwritePayload,
 		preserverStateful: req.PreserveStateful,
