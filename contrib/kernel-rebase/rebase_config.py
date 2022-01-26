@@ -212,3 +212,4 @@ disp_overlay['bfab1021e5b6'] = 'drop' # FIXUP: FROMLIST: sched: Add a coresched 
 disp_overlay['ab733e258051'] = 'drop' # FROMLIST: KVM: mmu: introduce new gfn_to_pfn_page functions
 disp_overlay['f847a203da94'] = 'drop' # NOUPSTREAM: ANDROID: mm: add a field to store names for private anonymous memory
 disp_overlay['cc117192ce4f'] = 'drop' # CHROMIUM: rtw88: sar: add SAR of TX power limit
+disp_overlay['2547b9cb08cc'] = 'drop' # CHROMIUM: add DEVTMPFS_SAFE support
