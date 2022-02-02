@@ -12,7 +12,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	api "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
 // MockServiceAdapterInterface is a mock of ServiceAdapterInterface interface.
@@ -78,21 +77,6 @@ func (m *MockServiceAdapterInterface) DeleteDirectory(ctx context.Context, dir s
 func (mr *MockServiceAdapterInterfaceMockRecorder) DeleteDirectory(ctx, dir interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDirectory", reflect.TypeOf((*MockServiceAdapterInterface)(nil).DeleteDirectory), ctx, dir)
-}
-
-// GetDut mocks base method.
-func (m *MockServiceAdapterInterface) GetDut(ctx context.Context) (*api.Dut, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDut", ctx)
-	ret0, _ := ret[0].(*api.Dut)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetDut indicates an expected call of GetDut.
-func (mr *MockServiceAdapterInterfaceMockRecorder) GetDut(ctx interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDut", reflect.TypeOf((*MockServiceAdapterInterface)(nil).GetDut), ctx)
 }
 
 // PathExists mocks base method.

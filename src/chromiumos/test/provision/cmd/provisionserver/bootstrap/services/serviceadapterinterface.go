@@ -41,8 +41,6 @@ type ServiceAdapterInterface interface {
 	// As this uses "-p" option, subdirs are created regardless of whether parents
 	// exist or not.
 	CreateDirectories(ctx context.Context, dirs []string) error
-	// GetDut returns lab_api.Dut object that contains information about the DUT.
-	GetDut(ctx context.Context) (*lab_api.Dut, error)
 }
 
 type ServiceAdapter struct {
@@ -216,11 +214,4 @@ func (s ServiceAdapter) CreateDirectories(ctx context.Context, dirs []string) er
 		return fmt.Errorf("could not create directory, %w", err)
 	}
 	return nil
-}
-
-// GetDut sends GetDutTopology grpc request to Inventory Service, receiving
-// `DutTopology` (list of `Dut`s), then finds the `Dut` with right ID in that
-// list and returns it.
-func (s ServiceAdapter) GetDut(ctx context.Context) (*lab_api.Dut, error) {
-	return s.dut, nil
 }
