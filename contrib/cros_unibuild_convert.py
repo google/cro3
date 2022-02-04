@@ -226,7 +226,6 @@ class BoardOverlays:
       ('EC_FIRMWARE', 'ec_firmwares'),
       ('PD_FIRMWARE', 'pd_firmwares'),
       ('EC_FIRMWARE_EXTRA', 'ec_firmware_extras'),
-      ('FPMCU_FIRMWARE', 'fpmcu_firmware'),
       ('USE', 'use_flags'),
   ]
 
@@ -423,26 +422,6 @@ def genconf_dt_compatible_match(device, overlay):
   return compatible_strings[-1]
 
 
-def genconf_fp_board(_, overlay):
-  if overlay.fpmcu_firmware:
-    return ' '.join(overlay.fpmcu_firmware)
-  return None
-
-
-def genconf_fp_type(_, overlay):
-  if 'fp_on_power_button' in overlay.use_flags:
-    return 'on-power-button'
-  if overlay.fpmcu_firmware:
-    return 'stand-alone'
-  return None
-
-
-def genconf_fp_location(_, overlay):
-  if overlay.board_name == 'nocturne':
-    return 'power-button-top-left'
-  return None
-
-
 def genconf_signature_id(device, _):
   if device.whitelabel_tag:
     return device.whitelabel_tag.upper()
@@ -525,11 +504,6 @@ genconf_schema = {
             'cras-config-dir': (M_PUBLIC, genconf_cras_config_dir),
             'ucm-suffix': (M_PUBLIC, lambda d, _: d.internal_ucm_suffix),
         },
-    },
-    'fingerprint': {
-        'board': (M_PUBLIC, genconf_fp_board),
-        'fingerprint-sensor-type': (M_PUBLIC, genconf_fp_type),
-        'sensor-location': (M_PUBLIC, genconf_fp_location),
     },
     'firmware': {
         'image-name': (M_PUBLIC, lambda d, _: d.model),
