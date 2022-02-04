@@ -113,13 +113,7 @@ src_install() {
 
 def generate_firmware_ebuild(board_name):
   return gen_cros_copyright() + """
-# Change this version number when any change is made to model.yaml
-# in order to trigger an auto-revbump is required.
-# VERSION=REVBUMP-0.0.1
-
 EAPI=7
-CROS_WORKON_COMMIT=""
-CROS_WORKON_TREE=""
 CROS_WORKON_LOCALNAME="platform/firmware"
 CROS_WORKON_PROJECT="chromiumos/platform/firmware"
 
@@ -130,8 +124,6 @@ HOMEPAGE="http://src.chromium.org"
 LICENSE="BSD-Google"
 SLOT="0"
 KEYWORDS="~*"
-
-RDEPEND=""
 
 # Unified Builds firmware URL's are read from:
 #   chromeos-base/chromeos-config-bsp-private/files/model.yaml
