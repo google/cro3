@@ -349,11 +349,9 @@ class DeviceConfig:
   ATTRS = {
       'brand_code': ['cros_config', '/', 'brand-code'],
       'model': ['cros_config', '/', 'name'],
-      'lsb_release': ['cat', '/etc/lsb-release'],
       'smbios_name': ['cat', '/sys/class/dmi/id/product_name'],
       'fdt_compatible_raw': ['cat', '/proc/device-tree/compatible'],
       'arc_build_props': ['cat', '/usr/share/arc/properties/build.prop'],
-      'psu_type': ['cros_config', '/hardware-properties', 'psu-type'],
       'whitelabel_tag': ['vpd_get_value', 'whitelabel_tag'],
       'customization_id': ['vpd_get_value', 'customization_id'],
       'vpd_model_name': ['vpd_get_value', 'model_name'],
@@ -386,13 +384,6 @@ class DeviceConfig:
     return 'DeviceConfig({})'.format(
         ', '.join('{}={!r}'.format(attr, getattr(self, attr))
                   for attr in self.ATTRS))
-
-  def lsb_val(self, name, default=None):
-    for item in self.lsb_release.splitlines():
-      k, _, v = item.partition('=')
-      if k == name:
-        return v
-    return default
 
   def arc_build_prop(self, name, default=None):
     for line in self.arc_build_props.splitlines():
@@ -430,31 +421,6 @@ def genconf_dt_compatible_match(device, overlay):
                                          overlay.board_name in s,
                                          -len(s)))
   return compatible_strings[-1]
-
-
-def genconf_psu_type(device, _):
-  if device.psu_type:
-    return device.psu_type
-  devicetype = device.lsb_val('DEVICETYPE')
-  if devicetype == 'CHROMEBOOK':
-    return 'battery'
-  if devicetype in ('CHROMEBIT', 'CHROMEBASE', 'CHROMEBOX'):
-    return 'AC_only'
-  return None
-
-
-def genconf_form_factor(device, _):
-  devicetype = device.lsb_val('DEVICETYPE')
-  if devicetype in ('REFERENCE', 'CHROMEBOOK'):
-    return 'CHROMEBOOK'
-  if devicetype in ('CHROMEBIT', 'CHROMEBASE', 'CHROMEBOX'):
-    return devicetype
-  return None
-
-
-def genconf_has_backlight(device, _):
-  devicetype = device.lsb_val('DEVICETYPE')
-  return devicetype not in ('CHROMEBIT', 'CHROMEBOX')
 
 
 def genconf_fp_board(_, overlay):
@@ -589,9 +555,9 @@ genconf_schema = {
         'signature-id': (M_PRIVATE, genconf_signature_id),
     },
     'hardware-properties': {
-        'form-factor': (M_PUBLIC, genconf_form_factor),
-        'has-backlight': (M_PUBLIC, genconf_has_backlight),
-        'psu-type': (M_PUBLIC, genconf_psu_type),
+        'form-factor': (M_PUBLIC, lambda d, b: 'CHROMEBOOK'),
+        'has-backlight': (M_PUBLIC, lambda d, b: True),
+        'psu-type': (M_PUBLIC, lambda d, b: 'battery'),
     },
     'identity': {
         'platform-name': (M_PUBLIC, lambda _, b: b.mosys_platform),
@@ -731,8 +697,6 @@ def main(argv):
     log('Loading configuration from DUT {}...'.format(dut_string))
     dut_config = DeviceConfig.from_dut(dut)
     log('Got configuration: {}'.format(dut_config))
-
-    assert dut_config.lsb_val('CHROMEOS_RELEASE_UNIBUILD', '0') != '1'
     dut_configs.append(dut_config)
 
   dut_public_configs = []
