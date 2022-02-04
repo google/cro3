@@ -5,7 +5,7 @@
 from enum import Enum
 import time
 
-import abstract_inst
+from .. import abstract_inst
 
 LTE_ATTACH_RESP = 'ATT'
 LTE_CONN_RESP = 'CONN'
@@ -163,14 +163,14 @@ class ReducedPdcch(Enum):
 class Cmw500(abstract_inst.SocketInstrument):
     """ Base class for interfacing with the CMW500 Callbox device """
 
-    def __init__(self, ip_addr, port):
+    def __init__(self, ip_addr, port, logger):
         """Init method to setup variables for controllers.
 
         Args:
               ip_addr: Controller's ip address.
               port: Port
         """
-        super(Cmw500, self).__init__(ip_addr, port)
+        super(Cmw500, self).__init__(ip_addr, port, logger)
         self._connect_socket()
         self._send('*CLS')
         self._send('*ESE 0;*SRE 0')

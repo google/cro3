@@ -6,8 +6,8 @@ import math
 import time
 from enum import Enum
 
-from simulation_utils.BaseSimulation import BaseSimulation
-from simulation_utils import BaseCellularDut
+from .BaseSimulation import BaseSimulation
+from . import BaseCellularDut
 
 
 class TransmissionMode(Enum):

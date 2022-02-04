@@ -30,10 +30,10 @@ class SocketInstrumentError(Exception):
         return self._error_message
 
 
-class SocketInstrument():
+class SocketInstrument:
     """Abstract Instrument Class, via Socket and SCPI."""
 
-    def __init__(self, ip_addr, ip_port):
+    def __init__(self, ip_addr, ip_port, logger):
         """Init method for Socket Instrument.
 
         Args:
@@ -42,7 +42,7 @@ class SocketInstrument():
             ip_port: TCPIP Port.
                 Type, str.
         """
-        self._logger = logging.getLogger(__name__)
+        self._logger = logger
         self._socket_timeout = 120
         self._socket_buffer_size = 1024
 
@@ -56,6 +56,8 @@ class SocketInstrument():
 
     def _connect_socket(self):
         """Init and Connect to socket."""
+        self._logger.error("CONNECTING SOCKET")
+
         try:
             self._socket = socket.create_connection(
                     (self._ip_addr, self._ip_port),
@@ -84,6 +86,8 @@ class SocketInstrument():
             self._connect_socket()
 
         cmd_es = cmd + self._escseq
+
+        self._logger.debug("SOCKET_SEND: {}".format(cmd))
 
         try:
             self._socket.sendall(cmd_es.encode(self._codefmt))
@@ -137,6 +141,8 @@ class SocketInstrument():
             raise SocketInstrumentError(errmsg)
 
         resp = resp.rstrip(self._escseq)
+
+        self._logger.debug("SOCKET_RECV: {}".format(resp))
 
         return resp
 

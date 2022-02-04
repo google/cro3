@@ -5,9 +5,9 @@
 import time
 import logging
 
-import cellular_simulator as cc
-from callbox_utils import cmw500
-from simulation_utils import LteSimulation
+from .. import cellular_simulator as cc
+from . import cmw500
+from ..simulation_utils import LteSimulation
 
 CMW_TM_MAPPING = {
         LteSimulation.TransmissionMode.TM1: cmw500.TransmissionModes.TM1,
@@ -170,7 +170,7 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
     # The maximum number of carriers that this simulator can support for LTE
     LTE_MAX_CARRIERS = 1
 
-    def __init__(self, ip_address, port):
+    def __init__(self, ip_address, port, logger):
         """ Initializes the cellular simulator.
 
         Args:
@@ -178,13 +178,14 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
             port: the port number for the CMW500 controller
         """
 
+        super().__init__()
         try:
-            self.cmw = cmw500.Cmw500(ip_address, port)
+            self.cmw = cmw500.Cmw500(ip_address, port, logger)
         except cmw500.CmwError:
             raise cc.CellularSimulatorError('Could not connect to CMW500.')
 
         self.bts = None
-        self.log = logging.getLogger(__name__)
+        self.log = logger
         self.dl_modulation = None
         self.ul_modulation = None
 

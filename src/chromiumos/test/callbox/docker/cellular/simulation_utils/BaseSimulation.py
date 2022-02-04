@@ -4,7 +4,7 @@
 
 import numpy as np
 import time
-import cellular_simulator
+from .. import cellular_simulator
 from enum import Enum
 
 

@@ -9,33 +9,26 @@ readonly script_dir="$(dirname "$(realpath -e "${BASH_SOURCE[0]}")")"
 source "${script_dir}/../../../../../test/docker/util.sh"
 
 usage() {
-    echo "Usage: $0 <chroot> <sysroot> [options] [key=value...]"
+    echo "Usage: $0 [options] [key=value...]"
     echo
     echo "Build a docker container for the cros-callbox service."
-    echo
-    echo "Args:"
-    echo "  chroot  - Path to the ChromeOS chroot on the host system."
-    echo "  sysroot - Path inside of the chroot to the board sysroot."
-    echo "  labels  - Zero or more key=value strings to apply as labels to container."
     echo
     echo "Options:"
     echo "  --tags/-t - Comma separated list of tag names to apply to container"
     exit 1
 }
 
-if [[ $# -lt 2 ]]; then
-    usage
-fi
-
-readonly chroot_path="$1"; shift
-readonly sysroot_path="$1"; shift
-
+chroot=""
 host=""
 project=""
 tags=""
 output=""
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --chroot|-c)
+                chroot="$2"
+                shift 2
+                ;;
         --host|-h)
             host="$2"
             shift 2
@@ -59,13 +52,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-readonly output_dir="tmp/docker/croscallbox"
-readonly full_output_dir="${chroot_path}/${sysroot_path}/${output_dir}"
+build_dir="/tmp/docker/cros-callbox"
+mkdir -p "$build_dir"
+cp -R "$script_dir" "$build_dir"
 
 build_container_image                                \
     --service "cros-callbox"                         \
-    --docker_file "${script_dir}/Dockerfile"         \
-    --chroot "${chroot_path}"                        \
+    --docker_file "${build_dir}/docker/Dockerfile"   \
+    --chroot "${chroot}"                             \
     --tags "${tags}"                                 \
     --output "${output}"                             \
     --host "${host}"                                 \
