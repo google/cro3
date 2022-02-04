@@ -351,7 +351,6 @@ class DeviceConfig:
       'smbios_name': ['cat', '/sys/class/dmi/id/product_name'],
       'fdt_compatible_raw': ['cat', '/proc/device-tree/compatible'],
       'arc_build_props': ['cat', '/usr/share/arc/properties/build.prop'],
-      'whitelabel_tag': ['vpd_get_value', 'whitelabel_tag'],
       'customization_id': ['vpd_get_value', 'customization_id'],
       'vpd_model_name': ['vpd_get_value', 'model_name'],
       'cras_config_dir': ['sh', '/etc/cras/get_device_config_dir'],
@@ -423,8 +422,6 @@ def genconf_dt_compatible_match(device, overlay):
 
 
 def genconf_signature_id(device, _):
-  if device.whitelabel_tag:
-    return device.whitelabel_tag.upper()
   if device.customization_id:
     return device.customization_id.upper().partition('-')[0]
   return device.model
@@ -459,14 +456,6 @@ def genconf_powerd_settings(device, overlay):
       d[powerd_setting] = '1'
 
   return d
-
-
-def genconf_whitelabel_tag(device, _):
-  # Devices with a Customization ID are not compatible with whitelabel
-  # tags.
-  if device.customization_id:
-    return None
-  return device.whitelabel_tag or None
 
 
 def genconf_wallpaper_id(device, overlay):
@@ -538,7 +527,6 @@ genconf_schema = {
         'smbios-name-match': (M_PUBLIC, lambda d, _: d.smbios_name),
         'device-tree-compatible-match': (M_PUBLIC, genconf_dt_compatible_match),
         'customization-id': (M_PUBLIC, lambda d, _: d.customization_id or None),
-        'whitelabel-tag': (M_PUBLIC, genconf_whitelabel_tag),
     },
     'power': (M_PUBLIC, genconf_powerd_settings),
     'wallpaper': (M_PRIVATE, genconf_wallpaper_id),
