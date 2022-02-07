@@ -38,7 +38,8 @@ topic_fixups = {}
 # topic_fixups['bluetooth'] = ['fd83ec5d9b94']
 
 topic_fixups['arch'] = [
-    'x86_mmu: use gfn_to_pfn_page'
+    'x86_mmu: use gfn_to_pfn_page',
+    'KVM: mmu: introduce new gfn_to_pfn_page functions'
 ]
 
 topic_fixups['chromeos'] = [
