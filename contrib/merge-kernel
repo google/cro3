@@ -9,7 +9,7 @@
 # If necessary, it also pushes the tag into the remote
 # repository and creates a branch pointing to it.
 
-readonly notify_to="chromeos-kernel@google.com"
+readonly notify_to="cros-kernel-codereviews@googlegroups.com"
 readonly notify_cc="chromium-os-reviews@chromium.org"
 
 # Valid tag pattern.
