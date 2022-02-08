@@ -1,0 +1,1 @@
+[{"name":"example_reg_info","api_type":"REST","version":0,"image":"gcr.io/chromeos-bot/example-service","run_options":"","port":"11111","ping":"ping","owners":["chromeos-frameworks@google.com","kathrelkeld@google.com"],"description":"Short description of example library here."}]
