@@ -94,9 +94,6 @@ func (a args) validate(expectProvisionState bool) (*api.CrosProvisionRequest, er
 	if isAddressEmpty(in.GetDutServer()) {
 		return nil, errors.Reason("dut server address is no specified or incorrect in input file").Err()
 	}
-	if isAddressEmpty(in.GetInventoryServer()) {
-		return nil, errors.Reason("inventory server address is no specified or incorrect in input file").Err()
-	}
 	return in, nil
 }
 
