@@ -197,7 +197,7 @@ func (c *CrOSService) InstallZippedImage(ctx context.Context, remoteImagePath st
 		return fmt.Errorf("only GS copying is implemented")
 	}
 	err := c.connection.PipeData(ctx,
-		path.Join(c.imagePath.GetPath(), remoteImagePath),
+		bucketJoin(c.imagePath.GetPath(), remoteImagePath),
 		fmt.Sprintf("gzip -d | %s %s", fmt.Sprintf("dd of=%s obs=2M", outputFile), fmt.Sprintf(pipeStatusHandler, c.imagePath.GetPath(), outputFile)),
 	)
 	if err != nil {
@@ -283,7 +283,7 @@ func (c *CrOSService) InstallStateful(ctx context.Context) error {
 	}
 
 	if err := c.connection.PipeData(ctx,
-		path.Join(c.imagePath.GetPath(), "stateful.tgz"),
+		bucketJoin(c.imagePath.GetPath(), "stateful.tgz"),
 		fmt.Sprintf("tar --ignore-command-error --overwrite --directory=%s -xzf -", info.StatefulPath)); err != nil {
 		return err
 	}
@@ -342,6 +342,8 @@ func (c *CrOSService) InstallDLC(ctx context.Context, spec *api.InstallCrosReque
 	if c.imagePath.HostType == conf.StoragePath_LOCAL || c.imagePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
 		return fmt.Errorf("only GS copying is implemented")
 	}
+
+	// Might need to adjust bucketJoin to support n args
 	dlcURL := path.Join(c.imagePath.GetPath(), "dlc", dlcID, info.DlcPackage, info.DlcImage)
 
 	dlcOutputSlotDir := path.Join(dlcOutputDir, string(slot))
@@ -363,4 +365,11 @@ func (c *CrOSService) IsDLCVerified(ctx context.Context, dlcID, slot string) (bo
 		return false, fmt.Errorf("failed to check if DLC %s is verified, %s", dlcID, err)
 	}
 	return verified, nil
+}
+
+func bucketJoin(bucket string, append string) string {
+        if strings.HasPrefix(bucket, "gs://") {
+                bucket = bucket[5:]
+        }
+        return fmt.Sprintf("gs://%s", path.Join(bucket, append))
 }
