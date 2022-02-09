@@ -59,11 +59,11 @@ fitimage_pkg = 'coreboot-private-files-baseboard-brya'
 fitimage_dir = ('private-overlays/baseboard-brya-private/sys-boot/'
                 'coreboot-private-files-baseboard-brya')
 
-# Brask fitimages use cse_data-${VARIANT}.bin, not fitimage-${VARIANT}.bin
-fitimage_bin = 'cse_data-%s.bin'
+# Brask fitimages use csme-${VARIANT}.bin, not fitimage-${VARIANT}.bin
+fitimage_bin = 'csme-%s.bin'
 
 # Directory under fitimage_dir where the fitimage binary will be
-fitimage_bin_dir = 'files/blobs/cse_inputs/cse_data/'
+fitimage_bin_dir = 'files/blobs'
 
 # Explanation of gen_fit_image command
 fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit>'
