@@ -14,9 +14,8 @@ readonly GOHOME="${HOME}/go"
 readonly PKGDIR="${GOHOME}/pkg"
 
 # Go workspaces containing the Test Execution Service source.
-readonly SRCDIRS=(
-  "${HOME}/trunk/src/platform/dev"
-)
+SCRIPTDIR=$(realpath $0)
+readonly SRCDIRS=$(dirname ${SCRIPTDIR})
 
 # Package to build to produce cros-test
 readonly CROS_TEST_PKG="chromiumos/test/execution/cmd/cros-test"
@@ -30,6 +29,7 @@ readonly CROS_PROVISION_OUT="${GOHOME}/bin/cros-provision"
 # installed to /usr/lib/gopath (dev-go/crypto, dev-go/subcommand, etc.) need to
 # be emerged beforehand.
 export GOPATH="$(IFS=:; echo "${SRCDIRS[*]}"):/usr/lib/gopath"
+export GO111MODULE=off
 
 # Disable cgo and PIE on building Test Service binaries. See:
 # https://crbug.com/976196

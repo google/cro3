@@ -8,11 +8,13 @@ package tastrpc
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"path/filepath"
 	"strings"
 	"sync"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/grpc"
@@ -40,8 +42,15 @@ var _ protocol.ReportsServer = (*ReportsServer)(nil)
 
 // LogStream gets logs from tast and passes on to progress sink server.
 func (s *ReportsServer) LogStream(stream protocol.Reports_LogStreamServer) error {
-	// Ignore log for now.
-	return nil
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&empty.Empty{})
+		}
+		if err != nil {
+			return err
+		}
+	}
 }
 
 // ReportResult gets a report request from tast and passes on to progress sink.
