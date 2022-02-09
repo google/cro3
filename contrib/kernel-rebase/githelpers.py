@@ -22,6 +22,15 @@ GITHELPERS_DBG_PATH = 'debug/githelpers/'
 if debug:
     sh.mkdir('-p', GITHELPERS_DBG_PATH)
 
+def branch_name(branch_prefix, target, topic):
+    """Format branch_prefix, target and topic into a proper git branch name"""
+
+    if topic is None:
+        topic = ''
+    else:
+        topic = '-' + topic.replace('/', '_')
+    return 'chromeos-' + branch_prefix + '-' + target[1:] + topic
+
 def is_dirty(repo):
     """Check if repo is dirty"""
 

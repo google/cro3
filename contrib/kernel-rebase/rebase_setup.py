@@ -16,9 +16,9 @@ import os
 import sys
 import sh
 import config
+from rebase_config import rebase_repo
 from githelpers import fetch, has_remote, add_remote
 
-repo = 'kernel-upstream'
 no_repo_msg = """No kernel-upstream repository!
 
 Link the third_party/kernel/upstream repository as kernel-upstream. This link should
@@ -33,32 +33,32 @@ environment.
 
 When you're done, re-run rebase_setup.py."""
 
-if not os.path.exists(repo):
+if not os.path.exists(rebase_repo):
     print(no_repo_msg)
     sys.exit(1)
 
-if not has_remote(repo, 'cros'):
+if not has_remote(rebase_repo, 'cros'):
     url = config.chromeos_repo
-    add_remote(repo, 'cros', url)
+    add_remote(rebase_repo, 'cros', url)
     print('Added cros remote:', url)
 else:
     print('cros remote ok')
 
-if not has_remote(repo, 'upstream'):
+if not has_remote(rebase_repo, 'upstream'):
     url = config.upstream_repo
-    add_remote(repo, 'upstream', url)
+    add_remote(rebase_repo, 'upstream', url)
     print('Added upstream remote: ', url)
 else:
     print('upstream remote ok')
 
 print('Fetching cros...')
-fetch(repo, 'cros')
+fetch(rebase_repo, 'cros')
 
 print('Fetching upstream...')
-fetch(repo, 'upstream')
+fetch(rebase_repo, 'upstream')
 
 print('setting git config...')
-with sh.pushd(repo):
+with sh.pushd(rebase_repo):
     print('rerere.enabled = false')
     sh.git('config', 'rerere.enabled', 'false')
     print('rerere.autoupdate = false')

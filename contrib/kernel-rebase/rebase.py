@@ -52,15 +52,6 @@ def call_hook(sha, hook_type):
             hook = entry['hook']
             hook(sha, hook_type)
 
-
-def branch_name(branch_prefix, target, topic):
-    if topic is None:
-        topic = ''
-    else:
-        topic = '-' + topic.replace('/', '_')
-    return 'chromeos-' + branch_prefix + '-' + target[1:] + topic
-
-
 def do_on_cros_sdk_impl(command, ret_by_arg=None):
     result = {'exit_code': None, 'output': None, 'error_line': None}
     os.system("echo '" + command + "' > " + executor_io + '/commands &')
