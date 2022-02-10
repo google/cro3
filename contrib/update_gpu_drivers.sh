@@ -167,7 +167,8 @@ build_board() {
       sed -nE 's/POSTSUBMIT_BINHOST=\"(.*)\"/\1/p')"
 
     # Parse Packages file to find GS path of the latest ${pn} prebuilt.
-    local prebuilt_path="$(gsutil cat "${binhost_gs}/Packages" | \
+    local packages_file="$(gsutil cat "${binhost_gs}/Packages")"
+    local prebuilt_path="$(echo "${packages_file}" | \
       awk '
         $1 == "CPV:" && $2 ~ /'"${CATEGORY}"'\/'"${pn}"'-[0-9]/ { m = 1 }
         m && $1 == "PATH:" { print $2 }
