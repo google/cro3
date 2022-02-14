@@ -25,9 +25,11 @@ import (
 	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	test_api_v1 "go.chromium.org/chromiumos/config/go/test/api/v1"
+	"go.chromium.org/chromiumos/infra/proto/go/testplans"
 	luciflag "go.chromium.org/luci/common/flag"
 
 	testplan "chromiumos/test/plan/internal"
+	"chromiumos/test/plan/internal/compatibility"
 	"chromiumos/test/plan/internal/coveragerules"
 )
 
@@ -131,6 +133,22 @@ Evaluates Starlark files to generate HWTestPlans as newline-delimited json proto
 			"Path to a proto file containing a FlatConfigList. Can be JSON or "+
 				"binary proto.",
 		)
+		r.Flags.BoolVar(
+			&r.ctpV1,
+			"ctpv1",
+			false,
+			"Output GenerateTestPlanResponse protos instead of HWTestPlans, "+
+				"for backwards compatibility with CTP1. Output is still "+
+				"to <out>. generatetestplanreq must be set if this flag is "+
+				"true",
+		)
+		r.Flags.StringVar(
+			&r.generateTestPlanReqPath,
+			"generatetestplanreq",
+			"",
+			"Path to a proto file containing a GenerateTestPlanRequest. Can be"+
+				"JSON or binary proto. Should be set iff ctpv1 is set.",
+		)
 		r.Flags.StringVar(
 			&r.out,
 			"out",
@@ -153,12 +171,14 @@ Evaluates Starlark files to generate HWTestPlans as newline-delimited json proto
 
 type generateRun struct {
 	subcommands.CommandRunBase
-	planPaths             []string
-	buildMetadataListPath string
-	dutAttributeListPath  string
-	flatConfigListPath    string
-	out                   string
-	textSummaryOut        string
+	planPaths               []string
+	buildMetadataListPath   string
+	dutAttributeListPath    string
+	flatConfigListPath      string
+	ctpV1                   bool
+	generateTestPlanReqPath string
+	out                     string
+	textSummaryOut          string
 }
 
 func (r *generateRun) Run(a subcommands.Application, args []string, env subcommands.Env) int {
@@ -307,6 +327,10 @@ func (r *generateRun) validateFlags() error {
 		return errors.New("-out is required")
 	}
 
+	if r.ctpV1 != (r.generateTestPlanReqPath != "") {
+		return errors.New("-generatetestplanreq must be set iff -out is set.")
+	}
+
 	return nil
 }
 
@@ -349,16 +373,47 @@ func (r *generateRun) run() error {
 
 	glog.Infof("Read %d FlatConfigs from %s", len(flatConfigList.Values), r.flatConfigListPath)
 
-	rules, err := testplan.Generate(
+	hwTestPlans, err := testplan.Generate(
 		ctx, r.planPaths, buildMetadataList, dutAttributeList, flatConfigList,
 	)
 	if err != nil {
 		return err
 	}
 
-	glog.Infof("Generated %d CoverageRules, writing to %s", len(rules), r.out)
+	if r.ctpV1 {
+		glog.Infof(
+			"Outputting GenerateTestPlanRequest to %s instead of HWTestPlan, for backwards compatibility with CTPV1",
+			r.out,
+		)
 
-	return writePlans(rules, r.out, r.textSummaryOut)
+		generateTestPlanReq := &testplans.GenerateTestPlanRequest{}
+		if err := readBinaryOrJSONPb(r.generateTestPlanReqPath, generateTestPlanReq); err != nil {
+			return err
+		}
+
+		resp, err := compatibility.ToCTP1(hwTestPlans, generateTestPlanReq, dutAttributeList)
+		if err != nil {
+			return err
+		}
+
+		outFile, err := os.Create(r.out)
+		defer outFile.Close()
+
+		respBytes, err := proto.Marshal(resp)
+		if err != nil {
+			return err
+		}
+
+		if _, err := outFile.Write(respBytes); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	glog.Infof("Generated %d CoverageRules, writing to %s", len(hwTestPlans), r.out)
+
+	return writePlans(hwTestPlans, r.out, r.textSummaryOut)
 }
 
 func main() {
