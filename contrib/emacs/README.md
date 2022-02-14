@@ -59,3 +59,13 @@ chroot and outside.
 
 To make `cros_sdk` smooth you may want to tweak your
 [sudo configuration](https://chromium.googlesource.com/chromiumos/docs/+/HEAD/tips-and-tricks.md#How-to-make-sudo-a-little-more-permissive)
+
+## CS integration
+
+This will generate codesearch link.
+
+```
+(load-file "~/path/to/chromiumos/src/platform/dev/contrib/emacs/generate-cs-path.el")
+```
+
+`M-x cros-generate-cs-path` will generate the codesearch link and add it to the clipboard.
