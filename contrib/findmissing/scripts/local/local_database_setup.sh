@@ -6,8 +6,8 @@
 
 # ./scripts/local/local_database_setup.sh
 
-FINDMISSING_DIR="$(cd $(dirname $0)/../..; pwd)"
-cd "${FINDMISSING_DIR}"
+FINDMISSING_DIR="$(cd "$(dirname "$0")/../.." || exit; pwd)"
+cd "${FINDMISSING_DIR}" || exit
 
 sudo apt-get update
 
@@ -32,7 +32,9 @@ gcloud auth login
 python3 -m venv env
 
 # Activate so requirements can be installed in virtual env
+# shellcheck disable=SC1091
 source env/bin/activate
 
 # pip install requirements line by line
+# shellcheck disable=SC2046
 pip install -q $(cat requirements.txt)
