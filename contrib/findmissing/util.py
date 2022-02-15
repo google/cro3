@@ -64,14 +64,14 @@ def preliminary_check_decorator(is_gce):
             if is_gce:
                 # Ensures we have service account credentials to connect to cloudsql (GCP)
                 check_service_key_secret_exists()
+                # Ensure we have token to allow service account to perform Gerrit API operations
+                check_git_cookie_authdaemon_running()
 
             # Ensure cloudsql proxy is running to allow connection
             check_cloud_sql_proxy_running()
 
             if is_gce:
                 level = logging.INFO
-                # Ensure we have token to allow service account to perform Gerrit API operations
-                check_git_cookie_authdaemon_running()
             else:
                 level = logging.WARNING
 
