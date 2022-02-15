@@ -14,7 +14,7 @@ sudo apt-get update
 packages=()
 packages+=(google-cloud-sdk)
 packages+=(python3-venv)
-packages+=(libmariadbclient-dev)
+packages+=(libmariadb-dev)
 packages+=(python3-dev)
 for p in "${packages[@]}"; do
     sudo apt-get install "${p}"
