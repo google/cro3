@@ -9,8 +9,17 @@
 FINDMISSING_DIR="$(cd $(dirname $0)/../..; pwd)"
 cd "${FINDMISSING_DIR}"
 
-sudo apt-get update && sudo apt-get install google-cloud-sdk \
-        python3-venv libmariadbclient-dev python3-dev
+sudo apt-get update
+
+packages=()
+packages+=(google-cloud-sdk)
+packages+=(python3-venv)
+packages+=(libmariadbclient-dev)
+packages+=(python3-dev)
+for p in "${packages[@]}"; do
+    sudo apt-get install "${p}"
+done
+
 sudo wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 \
         -O /usr/local/bin/cloud_sql_proxy
 sudo chmod +x /usr/local/bin/cloud_sql_proxy
