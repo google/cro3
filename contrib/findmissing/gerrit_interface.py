@@ -19,7 +19,6 @@ curl -b /home/chromeos_patches/.git-credential-cache/cookie \
         "topic":"test_topic"}' https://chromium-review.googlesource.com/a/changes/
 """
 
-from __future__ import print_function
 import logging
 import json
 import http

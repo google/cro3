@@ -7,7 +7,6 @@
 
 """Module parses and stores data from stable linux patch."""
 
-from __future__ import print_function
 import logging
 import subprocess
 import MySQLdb # pylint: disable=import-error

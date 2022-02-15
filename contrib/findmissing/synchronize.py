@@ -7,7 +7,6 @@
 
 """Setup module containing script to Synchronize kernel repositories + database."""
 
-from __future__ import print_function
 
 import logging
 import os

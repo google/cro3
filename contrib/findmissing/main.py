@@ -10,7 +10,6 @@
 Systems will include: Cloud Scheduler, CloudSQL, and Compute Engine
 """
 
-from __future__ import print_function
 
 import sys
 import MySQLdb # pylint: disable=import-error

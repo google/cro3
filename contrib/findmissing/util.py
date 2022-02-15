@@ -14,7 +14,6 @@ cloud_sql_proxy_decorator():
     Start and stop cloud_sql_proxy.
 """
 
-from __future__ import print_function
 
 import logging
 import os

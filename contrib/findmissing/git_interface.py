@@ -10,7 +10,6 @@
 i.e Parsing git logs for change-id, full commit sha's, etc.
 """
 
-from __future__ import print_function
 import logging
 import re
 import subprocess

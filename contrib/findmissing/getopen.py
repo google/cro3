@@ -24,7 +24,6 @@ virtual env (source env/bin/activate) before running any commands.
 The associated shell script enables this environment.
 """
 
-from __future__ import print_function
 
 import argparse
 import re

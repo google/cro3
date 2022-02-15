@@ -7,7 +7,6 @@
 
 """Module containing shared helper methods."""
 
-from __future__ import print_function
 import logging
 import os
 import re

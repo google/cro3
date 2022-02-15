@@ -7,7 +7,6 @@
 
 """Module parses and stores mainline linux patches to be easily accessible."""
 
-from __future__ import print_function
 import logging
 import re
 import subprocess

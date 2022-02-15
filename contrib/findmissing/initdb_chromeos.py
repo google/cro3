@@ -7,7 +7,6 @@
 
 """Module rebuilding database with metadata about chromeos patches."""
 
-from __future__ import print_function
 import logging
 import re
 import subprocess
