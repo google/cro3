@@ -17,7 +17,7 @@ Before running this script, make sure you have been added to the
 chromeos-missing-patches GCP project.
 
 Prerequisites to execute this script locally (RUN ONCE):
->> ./scripts/local/local_database_setup.py
+>> ./scripts/local/local_database_setup.sh
 
 All locally executed commands must be run in this directory's
 virtual env (source env/bin/activate) before running any commands.
