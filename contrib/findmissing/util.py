@@ -59,7 +59,7 @@ def preliminary_check_decorator(is_gce):
     """Decorator for performing environment related checks."""
     def wrap_preliminary_check(f):
         """Inner function that wraps method with preliminary check."""
-        def wrapped_preliminary_check(*args):
+        def wrapped_preliminary_check(*args, **kwargs):
             """Sanity checks on state of environment before executing decorated function."""
             if is_gce:
                 # Ensures we have service account credentials to connect to cloudsql (GCP)
@@ -73,12 +73,15 @@ def preliminary_check_decorator(is_gce):
             if is_gce:
                 level = logging.INFO
             else:
-                level = logging.WARNING
+                if kwargs.get('debug'):
+                    level = logging.DEBUG
+                else:
+                    level = logging.WARNING
 
             logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=level,
                                 datefmt='%Y-%m-%d %H:%M:%S')
 
-            f(*args)
+            f(*args, **kwargs)
         return wrapped_preliminary_check
     return wrap_preliminary_check
 

@@ -217,12 +217,13 @@ def report_integration_status_branch(db, metadata, handled_shas, branch, conflic
 
 @util.cloud_sql_proxy_decorator
 @util.preliminary_check_decorator(False)
-def report_integration_status(branch, conflicts, is_chromium):
+def report_integration_status(branch=None, conflicts=False, chromium=False,
+                              debug=False):
     """Report list of open patches"""
 
     handled_shas = []
 
-    if is_chromium:
+    if chromium:
         metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
     else:
         metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
@@ -246,7 +247,7 @@ def report_integration_status_parse():
     """Parses command line args and calls the actual function with parsed parameters
 
     To execute:
-    ./getopen [-b branch] [-c] [-C]
+    ./getopen [-b branch] [-c] [-C] [-d]
     """
 
     metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
@@ -257,9 +258,11 @@ def report_integration_status_parse():
                         help='Look for pending chromium patches')
     parser.add_argument('-c', '--conflicts', action='store_true',
                         help='Check for conflicting patches')
-    args = parser.parse_args()
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='Enable debug messages')
+    args = vars(parser.parse_args())
 
-    report_integration_status(args.branch, args.conflicts, args.chromium)
+    report_integration_status(**args)
 
 if __name__ == '__main__':
     report_integration_status_parse()
