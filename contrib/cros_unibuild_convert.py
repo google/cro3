@@ -509,7 +509,7 @@ genconf_schema = {
             'coreboot': (M_PUBLIC, lambda _, b: b.board_name),
             'depthcharge': (M_PUBLIC, lambda _, b: b.board_name),
             'ec': (M_PUBLIC, lambda _, b: b.ec_build_target),
-            'ec_extras': (M_PUBLIC, lambda _, b: b.ec_extras_build_target),
+            'ec-extras': (M_PUBLIC, lambda _, b: b.ec_extras_build_target),
             'libpayload': (M_PUBLIC, lambda _, b: b.board_name),
         },
     },
