@@ -33,9 +33,9 @@ import (
 	"chromiumos/test/dut/internal"
 )
 
-const CACHE_DOWNLOAD_URI = "/download/%s"
-const CACHE_UNTAR_AND_DOWNLOAD_URI = "/extract/%s?file=%s"
-const CACHE_EXTRACT_AND_DOWNLOAD_URI = "/decompress/%s"
+const cacheDownloadURI = "/download/%s"
+const cacheUntarAndDownloadURI = "/extract/%s?file=%s"
+const cacheExtraAndDownloadURI = "/decompress/%s"
 
 // DutServiceServer implementation of dut_service.proto
 type DutServiceServer struct {
@@ -68,6 +68,7 @@ func newDutServiceServer(l net.Listener, logger *log.Logger, conn dutssh.ClientI
 		s.manager.Close()
 	}
 	api.RegisterDutServiceServer(server, s)
+	longrunning.RegisterOperationsServer(server, s.manager)
 	logger.Println("dutservice listen to request at ", l.Addr().String())
 	return server, destructor
 }
@@ -84,13 +85,13 @@ func (s *DutServiceServer) ExecCommand(req *api.ExecCommandRequest, stream api.D
 
 	command := req.Command + " " + strings.Join(req.Args, " ")
 
-	var stdin io.Reader = nil
+	var stdin io.Reader
 	if len(req.Stdin) > 0 {
 		stdin = bytes.NewReader(req.Stdin)
 
 	}
 
-	var combined bool = false
+	combined := false
 	if req.Stderr == api.Output_OUTPUT_STDOUT {
 		combined = true
 	}
@@ -219,15 +220,15 @@ func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*l
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.runCmdOutput(fmt.Sprintf("%s %s", command, destination))
-
-	if err != nil {
+	fullCmd := fmt.Sprintf("%s %s", command, destination)
+	if _, err = s.runCmdOutput(fullCmd); err != nil {
+		s.logger.Printf("Getting error from cache server while running command %q: %v", fullCmd, err)
 		return nil, err
-	} else {
-		s.manager.SetResult(op.Name, &api.CacheResponse{
-			Result: &api.CacheResponse_Success_{},
-		})
 	}
+	s.logger.Printf("Command %q was successful", fullCmd)
+	s.manager.SetResult(op.Name, &api.CacheResponse{
+		Result: &api.CacheResponse_Success_{},
+	})
 
 	return op, nil
 }
@@ -258,19 +259,19 @@ func (s *DutServiceServer) getCacheURL(req *api.CacheRequest) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return path.Join(s.cacheAddress, fmt.Sprintf(CACHE_DOWNLOAD_URI, parsedPath)), nil
+		return path.Join(s.cacheAddress, fmt.Sprintf(cacheDownloadURI, parsedPath)), nil
 	case *api.CacheRequest_GsTarFile:
 		parsedPath, err := parseGSURL(op.GsTarFile.SourcePath)
 		if err != nil {
 			return "", err
 		}
-		return path.Join(s.cacheAddress, fmt.Sprintf(CACHE_UNTAR_AND_DOWNLOAD_URI, parsedPath, op.GsTarFile.SourceFile)), nil
+		return path.Join(s.cacheAddress, fmt.Sprintf(cacheUntarAndDownloadURI, parsedPath, op.GsTarFile.SourceFile)), nil
 	case *api.CacheRequest_GsZipFile:
 		parsedPath, err := parseGSURL(op.GsZipFile.SourcePath)
 		if err != nil {
 			return "", err
 		}
-		return path.Join(s.cacheAddress, fmt.Sprintf(CACHE_EXTRACT_AND_DOWNLOAD_URI, parsedPath)), nil
+		return path.Join(s.cacheAddress, fmt.Sprintf(cacheExtraAndDownloadURI, parsedPath)), nil
 	default:
 		return "", fmt.Errorf("type can only be one of GsFile, GsTarFile or GSZipFile")
 	}
@@ -278,12 +279,12 @@ func (s *DutServiceServer) getCacheURL(req *api.CacheRequest) (string, error) {
 
 // parseGSURL retrieves the bucket and object from a GS URL.
 // URL expectation is of the form: "gs://bucket/object"
-func parseGSURL(gsUrl string) (string, error) {
-	if !strings.HasPrefix(gsUrl, "gs://") {
-		return "", fmt.Errorf("gs url must begin with 'gs://', instead have, %s", gsUrl)
+func parseGSURL(gsURL string) (string, error) {
+	if !strings.HasPrefix(gsURL, "gs://") {
+		return "", fmt.Errorf("gs url must begin with 'gs://', instead have, %s", gsURL)
 	}
 
-	u, err := url.Parse(gsUrl)
+	u, err := url.Parse(gsURL)
 	if err != nil {
 		return "", fmt.Errorf("unable to parse url, %w", err)
 	}
@@ -303,12 +304,10 @@ func (s *DutServiceServer) ForceReconnect(ctx context.Context, req *api.ForceRec
 
 	if err != nil {
 		return nil, err
-	} else {
-		s.manager.SetResult(op.Name, &api.CacheResponse{
-			Result: &api.CacheResponse_Success_{},
-		})
-
 	}
+	s.manager.SetResult(op.Name, &api.CacheResponse{
+		Result: &api.CacheResponse_Success_{},
+	})
 
 	s.connection = &dutssh.SSHClient{Client: conn}
 
