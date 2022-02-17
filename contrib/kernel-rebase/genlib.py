@@ -62,18 +62,21 @@ def init_spreadsheet(filename, title):
     """Initialize spreadsheet"""
 
     sheet = getsheet()
-    try:
-        with open(filename, 'r') as f:
-            ssid = f.read().strip('\n')
-        request = sheet.get(
-            spreadsheetId=ssid, ranges=[], includeGridData=False)
-        response = request.execute()
-        sheets = response.get('sheets')
-        delete_sheets((sheet, ssid), sheets)
-    except IOError:
+    if filename is None:
         ssid = create_spreadsheet(sheet, title)
-        with open(filename, 'w') as f:
-            f.write(ssid)
+    else:
+        try:
+            with open(filename, 'r') as f:
+                ssid = f.read().strip('\n')
+            request = sheet.get(
+                spreadsheetId=ssid, ranges=[], includeGridData=False)
+            response = request.execute()
+            sheets = response.get('sheets')
+            delete_sheets((sheet, ssid), sheets)
+        except IOError:
+            ssid = create_spreadsheet(sheet, title)
+            with open(filename, 'w') as f:
+                f.write(ssid)
 
     return (sheet, ssid)
 
