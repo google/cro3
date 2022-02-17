@@ -139,7 +139,7 @@ def hide_sheet(sheet, sheetId, hide):
 
 def create_spreadsheet(sheet, title):
     """Create a spreadsheet and return reference to it"""
-    spreadsheet = {'properties': {'title': title}}
+    spreadsheet = {'properties': {'title': title, 'locale': 'en_US'}}
 
     request = sheet.create(body=spreadsheet, fields='spreadsheetId')
     response = request.execute()
