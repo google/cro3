@@ -1,14 +1,14 @@
-# // Copyright 2022 The Chromium OS Authors. All rights reserved.
-# // Use of this source code is governed by a BSD-style license that can be
-# // found in the LICENSE file.
+# Copyright 2022 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 
 """Parse auditd logs.
 
-Parse the connect() syscall usage per process basis.
-Print the frequency historgram in stdout.
+Parse the connect() and send/sendto/sendmsg/sendmmsg() syscall usages per
+process basis. Print the frequency historgrams in stdout.
 
 Example:
-    python3 parser.py data/sample_data.txt
+    python3 parser.py data/sample.txt
 """
 
 
@@ -16,10 +16,15 @@ import sys
 
 
 DELIM = '----'
-SYSCALL = 'SYSCALL'
-SOCKADDR = 'SOCKADDR'
-EVENTID = 'event_id'
+TYPE_SYSCALL = 'SYSCALL'
+TYPE_SOCKADDR = 'SOCKADDR'
 TYPE = 'type'
+EVENTID = 'event_id'
+SYSCALL = 'syscall'
+SYSCALL_CONN = 'connect'
+SYSCALL_SEND = 'sendto'
+SYSCALL_SENDMSG = 'sendmsg'
+SYSCALL_SENDMMSG = 'sendmmsg'
 FAM = 'fam'
 LADDR = 'laddr'
 LPORT = 'lport'
@@ -36,45 +41,55 @@ def main(argv):
     """Parse the log file and show frequency histogram.
 
     Format of the output is: '<number> <process_name>', meaning that the
-    <proces_name> invoked the connect() syscall <number> of times.
+    <proces_name> invoked the syscall <number> of times. Showing 2 histograms
+    for connect() and for send/sendto/sendmsg/sendmmsg() respectively.
 
     Args:
         argv: A single element list, specifying the log file path
-              e.g. ["data/sample_output.txt"].
+              e.g. ["data/sample.txt"].
     """
     data = parse_file(argv[0])
-    visualize(data)
+
+    # Show histogram for connect syscall
+    visualize_syscalls([SYSCALL_CONN], data)
+    # Show joint histogram for send,sento,sendmsg syscalls
+    visualize_syscalls([SYSCALL_SEND, SYSCALL_SENDMSG, SYSCALL_SENDMMSG], data)
 
 
-def visualize(data):
+def visualize_syscalls(syscalls, data):
     """Print frequency histogram of per-process usage of sys_connect().
 
-    We want to observe what information is sent off of devices.
-    Consequently, ignoring:
-    * sockets that DO NOT use internet protocol
-    * loopback interfaces
+    To focus on the information sent off the device, ignores:
+        * sockets that DO NOT use the internet protocol
+        * loopback interfaces
+
+    Args:
+        syscalls: A list of syscalls we are interested in. Log entries are
+                  accounted if matched to any of the syscalls in this list.
+        data: The list of log entries. TODO(zauri): add example
     """
     stats = {}
     for data_point in data:
         # Skip the logs which don't contain the syscall information.
         if COMM in data_point and FAM in data_point:
-            comm, fam, addr = [
+            sysc, comm, fam, addr = [
+                data_point[SYSCALL],
                 data_point[COMM],
                 data_point[FAM],
                 data_point.get(LADDR, None),
             ]
 
-            # Ignore non-internet protocols
-            if fam not in ['inet', 'inet6']:
-                continue
-            # Ignore loopback addresses.
-            if addr in IGNORE_ADDR_LIST:
+            # Skip irrelevant log entries
+            if (sysc not in syscalls
+                or fam not in ['inet', 'inet6']
+                or addr in IGNORE_ADDR_LIST):
                 continue
 
             stats[comm] = stats.get(comm, 0) + 1
         else:
             continue
 
+    print(f'\nShowing stats for syscall={syscalls}:')
     for item in sorted(stats, key=stats.get, reverse=True):
         print(stats[item], '\t', item)
 
@@ -86,7 +101,8 @@ def parse_file(file_name):
         file_name: path the log file.
 
     Returns:
-        A list containing per-event information.
+        A list containing per-event information. The list elements are
+        dictionaries, containing even-related data, like eventid, syscall, etc.
     """
     events = None
     with open(file_name, 'r') as file:
@@ -129,7 +145,7 @@ def parse_type(event, log_type):
 
     Args:
         event: String of all the log entries associated with a single event.
-        log_type: Type of the log entry we're searcing for e.g. 'SYSCALL.
+        log_type: Type of the log entry we're searcing for e.g. 'SYSCALL'.
 
     Returns:
         The first log entry of the given type (should be EXACTLY one).
@@ -148,7 +164,7 @@ def parse_type(event, log_type):
 
 
 def parse_eventid(event, data_point):
-    """Populate EVENTID field of the data_point."""
+    """Parse EVENTID field into the data_point."""
     log_entry = event.split()[2].rstrip()
 
     eventid = log_entry.split(')')[0]
@@ -158,12 +174,14 @@ def parse_eventid(event, data_point):
 
 
 def parse_syscall_bits(event, data_point):
-    """Populate the SYSCALL-related fields into a data point."""
-    sys_entry = parse_type(event, SYSCALL)
+    """Parse the type=SYSCALL-related fields into the data point."""
+    sys_entry = parse_type(event, TYPE_SYSCALL)
     if sys_entry == '':
         return
 
-    ppid, pid, auid, uid, gid, comm, exe, subj = [
+    syscall, success, ppid, pid, auid, uid, gid, comm, exe, subj = [
+        ' syscall=',
+        ' success=',
         ' ppid=',
         ' pid=',
         ' auid=',
@@ -173,6 +191,8 @@ def parse_syscall_bits(event, data_point):
         ' exe=',
         ' subj=',
         ]
+    data_point[SYSCALL] = sys_entry[sys_entry.find(syscall)+len(syscall)
+                                    : sys_entry.find(success)]
     data_point[PPID] = int(sys_entry[sys_entry.find(ppid)+len(ppid)
                                      : sys_entry.find(pid)])
     data_point[PID] = int(sys_entry[sys_entry.find(pid)+len(pid)
@@ -186,8 +206,8 @@ def parse_syscall_bits(event, data_point):
 
 
 def parse_sockaddr_bits(event, data_point):
-    """Populate the SOCKADDR-related bits into a data point."""
-    sockaddr_entry = parse_type(event, SOCKADDR)
+    """Parse the type=SOCKADDR-related bits into the data point."""
+    sockaddr_entry = parse_type(event, TYPE_SOCKADDR)
     if sockaddr_entry == '':
         return
 

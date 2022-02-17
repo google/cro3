@@ -1,0 +1,97 @@
+type=SYSCALL msg=audit(02/22/22 06:37:57.747:28134) : arch=x86_64 syscall=sendto success=yes exit=368 a0=0x18 a1=0x3a6c05388380 a2=0x170 a3=MSG_NOSIGNAL items=0 ppid=1739 pid=1917 auid=unset uid=chronos gid=chronos euid=chronos suid=chronos fsuid=chronos egid=chronos sgid=chronos fsgid=chronos tty=(none) ses=unset comm=chrome exe=/opt/google/chrome/chrome subj=u:r:cros_browser:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.768:28135) : proctitle=/usr/bin/tlsdated -- /usr/bin/tlsdate -v -C /usr/share/chromeos-ca-certificates -l 
+type=SYSCALL msg=audit(02/22/22 06:37:57.768:28135) : arch=x86_64 syscall=sendto success=yes exit=77 a0=0x8 a1=0x577ec97af3d0 a2=0x4d a3=MSG_NOSIGNAL items=0 ppid=3120 pid=3128 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdated exe=/usr/bin/tlsdated subj=u:r:cros_tlsdated:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.775:28136) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=PATH msg=audit(02/22/22 06:37:57.775:28136) : item=0 name=/dev/log inode=11521 dev=00:06 mode=socket,666 ouid=root ogid=root rdev=00:00 obj=u:object_r:logger_device:s0 nametype=NORMAL cap_fp=none cap_fi=none cap_fe=0 cap_fver=0 
+type=CWD msg=audit(02/22/22 06:37:57.775:28136) : cwd=/ 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.775:28136) : saddr={ fam=local path=/dev/log } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.775:28136) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x3 a1=0x7eaa920015a0 a2=0x6e a3=0x0 items=1 ppid=3128 pid=3344 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.776:28137) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SYSCALL msg=audit(02/22/22 06:37:57.776:28137) : arch=x86_64 syscall=sendto success=yes exit=71 a0=0x3 a1=0x5cdc984f64a0 a2=0x47 a3=MSG_NOSIGNAL items=0 ppid=3128 pid=3344 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.776:28138) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SYSCALL msg=audit(02/22/22 06:37:57.776:28138) : arch=x86_64 syscall=sendto success=yes exit=73 a0=0x3 a1=0x5cdc984f86b0 a2=0x49 a3=MSG_NOSIGNAL items=0 ppid=3128 pid=3344 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.779:28139) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SYSCALL msg=audit(02/22/22 06:37:57.779:28139) : arch=x86_64 syscall=sendto success=yes exit=62 a0=0x3 a1=0x5cdc98519810 a2=0x3e a3=MSG_NOSIGNAL items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.779:28140) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SYSCALL msg=audit(02/22/22 06:37:57.779:28140) : arch=x86_64 syscall=sendto success=yes exit=81 a0=0x3 a1=0x5cdc9851b800 a2=0x51 a3=MSG_NOSIGNAL items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.780:28141) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.780:28141) : saddr={ fam=netlink nlnk-fam=16 nlnk-pid=0 } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.780:28141) : arch=x86_64 syscall=sendto success=yes exit=20 a0=0x4 a1=0x7ffc4639f9f0 a2=0x14 a3=0x0 items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.781:28142) : proctitle=/opt/google/chrome/chrome --use-gl=egl --gpu-sandbox-failures-fatal=no --enable-logging --log-level=1 --use-cras --enable-waylan 
+type=SYSCALL msg=audit(02/22/22 06:37:57.781:28142) : arch=x86_64 syscall=sendto success=yes exit=368 a0=0x32 a1=0x75600d7b200 a2=0x170 a3=MSG_NOSIGNAL items=0 ppid=1086 pid=1235 auid=unset uid=chronos gid=chronos euid=chronos suid=chronos fsuid=chronos egid=chronos sgid=chronos fsgid=chronos tty=(none) ses=unset comm=Chrome_IOThread exe=/opt/google/chrome/chrome subj=u:r:cros_browser:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.782:28143) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.782:28143) : saddr={ fam=inet laddr=100.115.92.130 lport=53 } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.782:28143) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x4 a1=0x7eaa920024f4 a2=0x10 a3=0x7ffc4639e324 items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.782:28144) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SYSCALL msg=audit(02/22/22 06:37:57.782:28144) : arch=x86_64 syscall=sendto success=yes exit=37 a0=0x4 a1=0x7ffc4639e720 a2=0x25 a3=MSG_NOSIGNAL items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.783:28145) : proctitle=/usr/sbin/dnsproxyd 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.783:28145) : saddr={ fam=inet laddr=10.0.2.3 lport=53 } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.783:28145) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x13 a1=0x7fff795b8460 a2=0x10 a3=0x17e6c640000000 items=0 ppid=2116 pid=2196 auid=unset uid=dns-proxy gid=dns-proxy euid=dns-proxy suid=dns-proxy fsuid=dns-proxy egid=dns-proxy sgid=dns-proxy fsgid=dns-proxy tty=(none) ses=unset comm=dnsproxyd exe=/usr/sbin/dnsproxyd subj=u:r:cros_dnsproxyd:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.784:28146) : proctitle=/usr/sbin/dnsproxyd 
+type=SYSCALL msg=audit(02/22/22 06:37:57.784:28146) : arch=x86_64 syscall=sendto success=yes exit=37 a0=0x13 a1=0x55e523b0d322 a2=0x25 a3=MSG_NOSIGNAL items=0 ppid=2116 pid=2196 auid=unset uid=dns-proxy gid=dns-proxy euid=dns-proxy suid=dns-proxy fsuid=dns-proxy egid=dns-proxy sgid=dns-proxy fsgid=dns-proxy tty=(none) ses=unset comm=dnsproxyd exe=/usr/sbin/dnsproxyd subj=u:r:cros_dnsproxyd:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.788:28147) : proctitle=/usr/sbin/dnsproxyd 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.788:28147) : saddr={ fam=inet6 laddr=::ffff:100.115.92.129 lport=37498 } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.788:28147) : arch=x86_64 syscall=sendmsg success=yes exit=157 a0=0x10 a1=0x7fff795b8458 a2=0x0 a3=0x180cebe0000000 items=0 ppid=2116 pid=2196 auid=unset uid=dns-proxy gid=dns-proxy euid=dns-proxy suid=dns-proxy fsuid=dns-proxy egid=dns-proxy sgid=dns-proxy fsgid=dns-proxy tty=(none) ses=unset comm=dnsproxyd exe=/usr/sbin/dnsproxyd subj=u:r:cros_dnsproxyd:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.788:28148) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SYSCALL msg=audit(02/22/22 06:37:57.788:28148) : arch=x86_64 syscall=sendto success=yes exit=37 a0=0x4 a1=0x7ffc4639e748 a2=0x25 a3=MSG_NOSIGNAL items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.789:28149) : proctitle=/usr/sbin/dnsproxyd 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.789:28149) : saddr={ fam=inet laddr=10.0.2.3 lport=53 } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.789:28149) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x13 a1=0x7fff795b8460 a2=0x10 a3=0x18148d00000000 items=0 ppid=2116 pid=2196 auid=unset uid=dns-proxy gid=dns-proxy euid=dns-proxy suid=dns-proxy fsuid=dns-proxy egid=dns-proxy sgid=dns-proxy fsgid=dns-proxy tty=(none) ses=unset comm=dnsproxyd exe=/usr/sbin/dnsproxyd subj=u:r:cros_dnsproxyd:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.789:28150) : proctitle=/usr/sbin/dnsproxyd 
+type=SYSCALL msg=audit(02/22/22 06:37:57.789:28150) : arch=x86_64 syscall=sendto success=yes exit=37 a0=0x13 a1=0x55e523b0d322 a2=0x25 a3=MSG_NOSIGNAL items=0 ppid=2116 pid=2196 auid=unset uid=dns-proxy gid=dns-proxy euid=dns-proxy suid=dns-proxy fsuid=dns-proxy egid=dns-proxy sgid=dns-proxy fsgid=dns-proxy tty=(none) ses=unset comm=dnsproxyd exe=/usr/sbin/dnsproxyd subj=u:r:cros_dnsproxyd:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.793:28151) : proctitle=/usr/sbin/dnsproxyd 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.793:28151) : saddr={ fam=inet6 laddr=::ffff:100.115.92.129 lport=37498 } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.793:28151) : arch=x86_64 syscall=sendmsg success=yes exit=173 a0=0x10 a1=0x7fff795b8458 a2=0x0 a3=0x18331180000000 items=0 ppid=2116 pid=2196 auid=unset uid=dns-proxy gid=dns-proxy euid=dns-proxy suid=dns-proxy fsuid=dns-proxy egid=dns-proxy sgid=dns-proxy fsgid=dns-proxy tty=(none) ses=unset comm=dnsproxyd exe=/usr/sbin/dnsproxyd subj=u:r:cros_dnsproxyd:s0 key=sock_send 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.793:28152) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.793:28152) : saddr={ fam=inet laddr=74.125.206.139 lport=443 } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.793:28152) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x4 a1=0x5cdc9851f0b0 a2=0x10 a3=0x0 items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.793:28153) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.793:28153) : saddr=unknown-family(0) 
+type=SYSCALL msg=audit(02/22/22 06:37:57.793:28153) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x4 a1=0x7ffc4639fb30 a2=0x10 a3=0xa items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.793:28154) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.793:28154) : saddr={ fam=inet laddr=74.125.206.100 lport=443 } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.793:28154) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x4 a1=0x5cdc98520730 a2=0x10 a3=0xa items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.793:28155) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.793:28155) : saddr=unknown-family(0) 
+type=SYSCALL msg=audit(02/22/22 06:37:57.793:28155) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x4 a1=0x7ffc4639fb30 a2=0x10 a3=0xa items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.793:28156) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.793:28156) : saddr={ fam=inet laddr=74.125.206.102 lport=443 } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.793:28156) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x4 a1=0x5cdc98520780 a2=0x10 a3=0xa items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.794:28157) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.794:28157) : saddr=unknown-family(0) 
+type=SYSCALL msg=audit(02/22/22 06:37:57.794:28157) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x4 a1=0x7ffc4639fb30 a2=0x10 a3=0xa items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.794:28158) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.794:28158) : saddr={ fam=inet laddr=74.125.206.113 lport=443 } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.794:28158) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x4 a1=0x5cdc985207d0 a2=0x10 a3=0xa items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.794:28159) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.794:28159) : saddr=unknown-family(0) 
+type=SYSCALL msg=audit(02/22/22 06:37:57.794:28159) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x4 a1=0x7ffc4639fb30 a2=0x10 a3=0xa items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_conn 
+----
+type=PROCTITLE msg=audit(02/22/22 06:37:57.794:28160) : proctitle=tlsdate clients3.google.com 443 tlsv12 racket verbose /usr/share/chromeos-ca-certificates dont-set-clock showtime=raw no-fun lea 
+type=SOCKADDR msg=audit(02/22/22 06:37:57.794:28160) : saddr={ fam=inet laddr=74.125.206.101 lport=443 } 
+type=SYSCALL msg=audit(02/22/22 06:37:57.794:28160) : arch=x86_64 syscall=connect success=yes exit=0 a0=0x4 a1=0x5cdc98520820 a2=0x10 a3=0xa items=0 ppid=3344 pid=3345 auid=unset uid=tlsdate gid=tlsdate euid=tlsdate suid=tlsdate fsuid=tlsdate egid=tlsdate sgid=tlsdate fsgid=tlsdate tty=(none) ses=unset comm=tlsdate-helper exe=/usr/bin/tlsdate-helper subj=u:r:cros_tlsdated:s0 key=sock_conn 
