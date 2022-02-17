@@ -13,6 +13,7 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=input-builtin
 # pylint: disable=redefined-outer-name
+# pylint: disable=banned-string-format-function
 
 """Automatic rebase
 
@@ -450,12 +451,18 @@ class Rebaser:
                                     '-c', 'core.editor=true', 'am', '--continue')
                                 call_hook(sha, 'post')
                             except Exception as e: # pylint: disable=broad-except
-                                print('git am --continue failed:')
-                                print(e)
-                                print('Fatal? [y/n]')
-                                ans = input()
-                                if ans in ['y', 'Y']:
-                                    return {}
+                                err_s = str(e)
+                                if "did you forget to use 'git add'" in err_s:
+                                    sh.git('am', '--skip')
+                                    call_hook(sha, 'post_drop')
+                                    print('Patch empty due to conflict resolution. Skip.')
+                                else:
+                                    print('git am --continue failed:')
+                                    print(e)
+                                    print('Fatal? [y/n]')
+                                    ans = input()
+                                    if ans in ['y', 'Y']:
+                                        return {}
                         print('Applied commit by removing conflicting files.')
                         save_head('kernel-upstream', sha)
                         continue
@@ -492,12 +499,18 @@ class Rebaser:
                                 '-c', 'core.editor=true', 'am', '--continue')
                             call_hook(sha, 'post')
                         except Exception as e: # pylint: disable=broad-except
-                            print('git am --continue failed:')
-                            print(e)
-                            print('Fatal? [y/n]')
-                            ans = input()
-                            if ans in ['y', 'Y']:
-                                return {}
+                            err_s = str(e)
+                            if "did you forget to use 'git add'" in err_s:
+                                sh.git('am', '--skip')
+                                call_hook(sha, 'post_drop')
+                                print('Patch empty due to conflict resolution. Skip.')
+                            else:
+                                print('git am --continue failed:')
+                                print(e)
+                                print('Fatal? [y/n]')
+                                ans = input()
+                                if ans in ['y', 'Y']:
+                                    return {}
                     save_head('kernel-upstream', sha)
                 elif cmd in ['drop', 'd']:
                     dropped += 1
