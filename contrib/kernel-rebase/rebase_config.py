@@ -216,3 +216,4 @@ disp_overlay['cc117192ce4f'] = 'drop' # CHROMIUM: rtw88: sar: add SAR of TX powe
 disp_overlay['2547b9cb08cc'] = 'drop' # CHROMIUM: add DEVTMPFS_SAFE support
 disp_overlay['3fe3a25052e6'] = 'drop' # CHROMIUM: bluetooth: fix race conditions in discovery update
 disp_overlay['f5f25cc10e34'] = 'drop' # CHROMIUM: Bluetooth: Unblock suspend once monitors are removed
+disp_overlay['01df362ccd59'] = 'drop' # CHROMIUM: rtw88: vndcmd: sar: Apply SAR power limit via vendor command
