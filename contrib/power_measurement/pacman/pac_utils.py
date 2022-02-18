@@ -117,6 +117,54 @@ def reset_accumulator(device):
     device.write_to(pac19xx.REFRESH, 0)
     time.sleep(0.001)
 
+def print_registers(device, pac_address):
+    """Prints CTRL and SLOW registers.
+
+    Args:
+        device: i2c port object.
+        pac_address: i2c hex address string.
+    """
+
+    # read back register and print value for debugging
+    tmp = read_pac(device, pac19xx.CTRL, 2)
+    print(f'{pac_address} register CTRL: \t\t0x{tmp}')
+    tmp = read_pac(device, pac19xx.SLOW, 1)
+    print(f'{pac_address} register SLOW: \t\t0x{tmp}')
+    tmp = read_pac(device, pac19xx.CTRL_ACT, 2)
+    print(f'{pac_address} register CTRL_ACT: \t0x{tmp}')
+    tmp = read_pac(device, pac19xx.CTRL_LAT, 2)
+    print(f'{pac_address} register CTRL_LAT: \t0x{tmp}')
+
+def disable_slow(device):
+    """Disable SLOW function of PAC accumulators.
+    Changes SLOW pin to GPIO function.
+
+    Args:
+        device: i2c port object.
+    """
+    # Write CTRL register with 0x0500, but consider changing to: read, bitwise AND, write
+    # CTRL register defaults to 0x0700, this sets bits[9:8] from 0b11 (SLOW) to 0b01 (GPIO in)
+    # Alternate method is to keep register as SLOW but set FTDI GPIO Low
+    device.write_to(pac19xx.CTRL, b'\x05\x00')
+
+    # force refreshing the updated control register
+    device.write_to(pac19xx.REFRESH, 0)
+
+def enable_slow(device):
+    """Disable SLOW function of PAC accumulators.
+    Changes SLOW pin to GPIO function.
+
+    Args:
+        device: i2c port object.
+    """
+    # Write CTRL register with 0x0700, but consider changing to: read, bitwise AND, write
+    # returns CTRL register to default 0x0700, this sets bits[9:8] to 0b11 (SLOW)
+    # note this just enables SLOW control - more work needed for forcing FTDI GPIO High
+    device.write_to(pac19xx.CTRL, b'\x07\x00')
+
+    # force refreshing the updated control register
+    device.write_to(pac19xx.REFRESH, 0)
+
 def dump_accumulator(device, ch_num):
     """Command to acquire the voltage accumulator and counts for a PAC.
 
@@ -235,6 +283,7 @@ def record(config_file,
     for pac_address, group in config.groupby('addr_pac'):
         try:
             device = i2c.get_port(int(pac_address, 16))
+            disable_slow(device)
             reset_accumulator(device)
             time.sleep(0.001)
         except I2cNackError:
