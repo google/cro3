@@ -1,0 +1,87 @@
+base-manifest:
+  image: archlinux
+  packages:
+    - coreutils
+    - git
+    - gzip
+    - python
+    - python-requests
+  secrets:
+    - 288d013b-4524-4f1c-96da-d9cadd2c73a6  # CopyBot Service Account
+  tasks:
+    - configure-git: |
+        git config --global http.cookiefile ~/.gitcookies
+        git config --global init.defaultBranch main
+        git config --global user.email copybot.service@gmail.com
+        git config --global user.name CopyBot
+    - extract-copybot-from-manifest: |
+        base64 -d <<<"${COPYBOT_BASE64}" | zcat > ~/copybot.py
+        chmod +x ~/copybot.py
+
+zephyr-downstream: &zephyr_downstream
+  topic: zephyr-downstream
+  upstream: https://github.com/zephyrproject-rtos/zephyr
+  downstream: https://chromium.googlesource.com/chromiumos/third_party/zephyr
+  labels:
+    - Verified+1
+  reviewers:
+    - cros.copybot.ota@gmail.com
+  triggers:
+    - action: email
+      condition: failure
+      to: zephyr-downstream@grotations.appspotmail.com
+      cc: jrosenth@google.com
+
+coreboot-downstream: &coreboot_downstream
+  topic: coreboot-downstream
+  upstream-branch: master
+  downstream-branch: master
+  labels:
+    - Verified+1
+  triggers:
+    - action: email
+      condition: failure
+      to: coreboot-sheriff@grotations.appspotmail.com
+      cc: jrosenth@google.com
+
+services:
+  - <<: *zephyr_downstream
+    upstream-branch: main
+    downstream-branch: main
+  - <<: *zephyr_downstream
+    upstream: https://github.com/zephyrproject-rtos/cmsis
+    upstream-branch: master
+    downstream: https://chromium.googlesource.com/chromiumos/third_party/zephyr/cmsis
+    downstream-branch: chromeos-main
+  - <<: *zephyr_downstream
+    upstream: https://github.com/zephyrproject-rtos/hal_stm32
+    upstream-branch: main
+    downstream: https://chromium.googlesource.com/chromiumos/third_party/zephyr/hal_stm32
+    downstream-branch: chromeos-main
+  - <<: *zephyr_downstream
+    upstream: https://github.com/zephyrproject-rtos/nanopb
+    upstream-branch: zephyr
+    downstream: https://chromium.googlesource.com/chromiumos/third_party/zephyr/nanopb
+    downstream-branch: main
+  - <<: *coreboot_downstream
+    upstream: https://review.coreboot.org/coreboot
+    downstream: https://chromium.googlesource.com/chromiumos/third_party/coreboot
+    downstream-branch: chromeos-2016.05
+    prepend-subject: "UPSTREAM: "
+    exclude-file-patterns:
+      - '3rdparty/.*'
+      - 'OWNERS'
+      - 'PRESUBMIT\.cfg'
+      - '\.checkpatch\.conf'
+      - '\.gitignore'
+      - '\.gitmodules'
+      - 'unblocked_terms\.txt'
+      - 'util/crossgcc/.*'
+      - 'util/nvidia/cbootimage/.*'
+  - <<: *coreboot_downstream
+    upstream: https://review.coreboot.org/amd_blobs
+    downstream: https://chromium.googlesource.com/chromiumos/third_party/coreboot/amd_blobs
+    downstream-branch: chromeos
+  - <<: *coreboot_downstream
+    upstream: https://review.coreboot.org/blobs
+    downstream: https://chromium.googlesource.com/chromiumos/third_party/coreboot/blobs
