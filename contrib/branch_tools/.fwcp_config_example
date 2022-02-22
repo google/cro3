@@ -1,0 +1,85 @@
+# This is a sample config file for the cros_update_branch tool.
+
+# Set the platform name - needed for build testing
+PLATFORM_NAME="zork"
+
+# PROJ_PATH: Set paths for each project being checked
+#      Example: PROJ_PATH[coreboot]="src/third_party/coreboot"
+#      These get evaluated in alphabetical order
+PROJ_PATH[coreboot]="src/third_party/coreboot"
+PROJ_PATH[private_partner_overlay]="src/private-overlays/chromeos-partner-overlay/sys-boot"
+PROJ_PATH[private_chipset_overlay]="src/private-overlays/chipset-picasso-private"
+PROJ_PATH[chromeos_overlay]="src/third_party/chromiumos-overlay/sys-boot"
+PROJ_PATH[coreboot_blobs]="src/third_party/coreboot/3rdparty/blobs"
+PROJ_PATH[amd_blobs]="src/third_party/coreboot/3rdparty/amd_blobs"
+PROJ_PATH[vboot]="src/platform/vboot_reference"
+PROJ_PATH[vendor_firmware]="src/third_party/amd-firmware/binarypi/picasso-pi"
+PROJ_PATH[bmpblk]="src/platform/bmpblk"
+PROJ_PATH[u_boot]="src/third_party/u-boot/files"
+PROJ_PATH[seabios]="src/third_party/seabios"
+PROJ_PATH[edk2_payload]="src/third_party/edk2"
+PROJ_PATH[edk2_pco]="src/third_party/amd-firmware/binarypi/picasso-edk2"
+PROJ_PATH[depthcharge]="src/platform/depthcharge"
+
+# Set ALL CrOS "FROM" branches
+PROJ_F_BRANCH[default]="remotes/cros/main"
+PROJ_F_BRANCH[private_partner_overlay]="remotes/cros-internal/main"
+PROJ_F_BRANCH[private_chipset_overlay]="remotes/cros-internal/main"
+PROJ_F_BRANCH[coreboot]="remotes/cros/chromeos-2016.05"
+PROJ_F_BRANCH[coreboot_blobs]="remotes/cros/master"
+PROJ_F_BRANCH[amd_blobs]="remotes/cros/upstream/master"
+PROJ_F_BRANCH[vendor_firmware]="remotes/cros-internal/silverback"
+PROJ_F_BRANCH[u_boot]="remotes/cros/chromeos-v2020.10-rc1"
+PROJ_F_BRANCH[seabios]="remotes/cros/chromeos-2014.11.03"
+PROJ_F_BRANCH[edk2_payload]="remotes/cros/chromeos-2017.08"
+PROJ_F_BRANCH[edk2_pco]="remotes/cros/pco"
+
+# Set the branches to update.
+# All not listed here use the 'default' version of the branch
+# TODO: UPDATE get_to_branch() to find the remote repo cros/cros-internal
+PROJ_T_BRANCH[default]="remotes/cros/firmware-zork-13434.B"
+PROJ_T_BRANCH[edk2_payload]="remotes/cros/firmware-zork-13434.B-chromeos-2017.08"
+PROJ_T_BRANCH[edk2_pco]="remotes/cros/firmware-zork-13434.B-pco"
+PROJ_T_BRANCH[private_partner_overlay]="remotes/cros-internal/firmware-zork-13434.B"
+PROJ_T_BRANCH[private_chipset_overlay]="remotes/cros-internal/firmware-zork-13434.B"
+PROJ_T_BRANCH[vendor_firmware]="remotes/cros-internal/firmware-zork-13434.B"
+
+# Emerge values to test a particular repo
+PROJ_BUILD[global]="chromeos-bootimage"
+PROJ_BUILD[coreboot]="coreboot"
+PROJ_BUILD[depthcharge]="depthcharge"
+PROJ_BUILD[bmpblk]="chromeos-bmpblk"
+PROJ_BUILD[chromeos_overlay]="depthcharge chromeos-bmpblk"
+
+# Set the default reviewers.  This can be customized by repo.
+PROJ_REVIEWERS[default]="martinroth@google.com"
+
+# Ignore commits older than this date.
+# TODO: make this repo specific instead of one date globally
+LAST_CHECKED_DATE="2022-1-15"
+
+### The entries below match with commits messages and contents using
+### case-insensitive BRE regular expressions. Global values are always
+### compared and do not need to be added to repo values.
+### https://www.gnu.org/software/sed/manual/html_node/BRE-syntax.html
+
+# Keywords that indicate the commit may be of interest
+PROJ_KEYWORDS[platforms]="\<zork\>\|\<trembyle\>\|\<dalboz\>\|/<ezkinil\>\|\<morphius\>\|\<berknip\>\|\<woomax\>\|\<vilboz\>\|\<dirinboz\>\|\<belboz\>\|\<jelboz\>\|\<peggleboz\>\|\<shuboz\>"
+PROJ_KEYWORDS[chips]="\<picasso\>\|\<pollock\>\|\<dali\>\|\<pco\>"
+PROJ_KEYWORDS[global]="${PROJ_KEYWORDS[platforms]}\|${PROJ_KEYWORDS[platforms]}"
+PROJ_KEYWORDS[coreboot]="\<soc/amd\>\|\<agesa\>\|\<amdfwtool\>\|\<mrc_cache\>\|\<vboot\>"
+PROJ_KEYWORDS[chromeos_overlay]="coreboot-9999\.ebuild"
+
+# Keywords that indicate the commit is not interesting
+# These commits are shown, but de-emphasized
+PROJ_DIM[platforms]="\|volteer\|dedede\|octopus\|fizz\|puff"
+PROJ_DIM[chips]="intel\|mediatek\|qualcomm"
+PROJ_DIM[global]="${PROJ_DIM[platforms]}\|${PROJ_DIM[chips]}"
+PROJ_DIM[coreboot]="emulation\|purism\|clevo\|qemu\|f2a85-m_pro"
+
+# Keywords indicating that the commit should be completely ignored.
+PROJ_HIDE[global]="chrome-bot@chromium.org\|chromeos-ci-prod@chromeos-bot.iam.gserviceaccount.com chromeos-ci-release@chromeos-bot.iam.gserviceaccount.com"
+
+# Commits that are already merged, but don't show up correctly as merged.
+# Does not use a global value.
+PROJ_IGNORE[coreboot]="3de870f224\|2da991400d\|2cce9c5c56\|3eddf72e8e\|95a0f027a8\|f0a60c013c\|424ca2ead8\|0433e952d2\|1827f55bdd\|da7263da64\|6dea47eeab\|3d919ed91d\|47e80bc1f3"

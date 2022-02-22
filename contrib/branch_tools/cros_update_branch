@@ -1,0 +1,1322 @@
+#!/bin/bash
+# Copyright 2022 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Helps cherry-pick the contents of a set of repos between one branch
+# and another.
+
+# Yes, it's way too long for a Bash script and needs to be rewritten in
+# a real programming language.
+
+VERSION="0.10"
+
+START_DIR=${PWD}
+PROGRAM=$0
+PROGNAME="$(basename "${PROGRAM}")"
+PLATFORM_NAME=""
+declare -A PROJ_PATH
+declare -A PROJ_F_BRANCH
+declare -A PROJ_T_BRANCH
+declare -A PROJ_KEYWORDS
+declare -A PROJ_DIM
+declare -A PROJ_IGNORE
+declare -A PROJ_BUILD
+declare -A PROJ_REVIEWERS
+CONFIG_FILE=".fwcp_config"
+
+#Todo: Add all of these into the config file
+MERGE_BRANCH_SUFFIX="local-script"
+REPO_TEST_FILE=".repo/manifests/default.xml"
+#Todo: Make the urls a sparse array
+CROS_INTERNAL_URL="https://chrome-internal-review.googlesource.com"
+CROS_EXTERNAL_URL="https://chromium-review.googlesource.com"
+DEFAULT_HASHTAG="cherrypick-script"
+DEFAULT_MERGE_ARGS="l=Code-Review+2,l=Commit-Queue+2,l=Verified+1"
+DEFAULT_REVIEW_ARGS="l=Verified+1"
+
+# Text STYLE variables
+BOLD="\033[1m"
+RED='\033[38;5;9m'
+C_RED3_UNDERLINED="\033[4m\033[38;5;160m"
+GREEN='\033[38;5;2m'
+ORANGERED="\033[38;5;202m"
+C_DODGERBLUE2="\033[38;5;27m"
+C_TURQUOISE2="\033[38;5;45m"
+C_GREY39="\033[38;5;241m"
+C_WHITE="\033[38;5;15m"
+NC='\033[0m' # No Color
+
+################################################################################
+_echo_color() {
+  if [[ -n "$3" ]]; then
+    printf "$1%s${NC}\n" "$2"
+  else
+    printf "$1%s${NC}" "$2"
+  fi
+}
+
+show_version() {
+  echo
+  _echo_color "${BOLD}${GREEN}" "${PROGNAME} version ${VERSION}" 1
+  echo
+}
+
+usage() {
+  show_version
+  echo "Usage: ${PROGNAME} [options]"
+  echo
+  echo "Options:"
+  echo " -b | --board      Set platform name."
+  echo " -c | --conf       Set config file."
+  echo " -d | --date       Earliest date to compare against - format:YYYY-MM-DD."
+  echo " -D | --debug      Print debug information.  Use -DD to show all commands."
+  echo " -F | --from       Set the branch to pull change from (for one project only)."
+  echo " -n | --nevercls   Never clear the screen or scrollback buffer."
+  echo " -N | --nocolor    Don't use color codes."
+  echo " -R | --repo       Specify the top of the repository directory."
+  echo " -s | --skipsync   Assume that repos are already synced."
+  echo " -S | --same       Show commits that are the same in both branches."
+  echo " -T | --to         Set the branch to merge changes to (for one project only)."
+  echo " -V | --version    Print the version and exit."
+  echo
+}
+
+# Clear the screen & scrollback buffer
+cls() {
+  if [[ ${NEVER_CLS} -eq 0 ]]; then
+    reset
+    echo -e "\e[3J"
+  fi
+}
+
+# Display input if the script is in debug mode
+_echo_debug() {
+  if [[ -z "${VERBOSE}" ]]; then
+    return
+  fi
+  printf "${ORANGERED}%s${NC}\n" "$2" >&2
+}
+
+# Display the input in the color red to stderr
+_echo_error() {
+  (_echo_color >&2 "${RED}" "$*" 1)
+}
+
+# Wait for the user to continue
+pause() {
+  read -p "Press [Enter] to continue." -r input
+}
+
+# Never display the output from a command
+silence_on_failure() {
+  SILENCE=1
+  silence "$@"
+  SILENCE=0
+}
+
+# Display the output from a command if the script is in debug mode
+silence() {
+  if [[ -n "${VERBOSE}" ]]; then
+    "$@"
+  else
+    local retval
+    silenced_output=$("$@" 2>&1)
+    retval=$?
+    if [[ ${retval} -ne 0 ]]; then
+      if [[ ${SILENCE} -ne 1 ]]; then
+        echo "${silenced_output}"
+      fi
+      return "${retval}"
+    fi
+  fi
+}
+
+# Display an error message and exit
+clean_up_and_exit() {
+  local errorlevel=$1
+  local message=$2
+  local proj_name=$3
+  local verification=$4
+  local merge_branch from_branch
+  merge_branch="${proj_name}-${MERGE_BRANCH_SUFFIX}"
+
+  if [[ -n "${message}" ]]; then
+    _echo_error "${message}"
+  fi
+  if [[ "${verification}" -ne 0 ]]; then
+    while true; do
+      _echo_color "${GREEN}" "Did you want to quit? [Y/N]: "
+
+      read -p "" -n 1 -r choice
+      echo
+      case "${choice}" in
+      y | Y) break ;;
+      n | N) return ;;
+      esac
+    done
+  fi
+
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    : # Not in a git repo - don't try to check out anything.
+  elif [[ -n "${proj_name}" && -n "$(git show-ref "refs/heads/${merge_branch}")" ]]; then
+    _echo_color "${GREEN}" "Delete temp branch [Y/N]: "
+
+    read -p "" -n 1 -r choice
+    echo
+    if [[ "${choice}" == "y" || "${choice}" == "Y" ]]; then
+      from_branch="$(get_from_branch "${proj_name}")"
+      git_checkout "${from_branch}"
+      if ! silence git branch -D "${merge_branch}"; then
+        _echo_error "Warning: git could not delete ${merge_branch}."
+      fi
+    fi
+  fi
+  exit "${errorlevel}"
+}
+
+# See if a key exists in an associative array
+exists() {
+  # shellcheck disable=SC2034
+  key=$1
+  testval=$2
+  array=$3
+  if [[ "${testval}" != "in" ]]; then
+    _echo_error "Error: Incorrect usage of exists()."
+    clean_up_and_exit 1 "Correct usage: exists {key} in {array}" 0
+  fi
+  # shellcheck disable=SC2086
+  eval '[ ${'${array}'[${key}]+exists} ]'
+}
+
+# Control-C Trap handler
+ctrl_c() {
+  proj_name=$1
+  printf "\n** Trapped CTRL-C **\n"
+  clean_up_and_exit 0 "" "${proj_name}" 1
+}
+
+git_checkout() {
+  local branch=$1
+  if ! silence git checkout "${branch}"; then
+    _echo_error "Error: could not check out branch ${branch}."
+    pause
+    return 1
+  fi
+  return 0
+}
+#######################################################
+
+# Return the path of the specified project
+get_proj_path() {
+  local proj_name=$1
+  local proj_path
+
+  proj_path="${PROJ_PATH[${proj_name}]}"
+  echo "${proj_path}"
+}
+
+# Return the name of the branch being merged to
+get_to_branch() {
+  local proj_name=$1
+
+  if [[ -n "${TO_BRANCH_ARG}" ]]; then
+    echo "${TO_BRANCH_ARG}"
+  elif exists "${proj_name}" in PROJ_T_BRANCH; then
+    echo "${PROJ_T_BRANCH[${proj_name}]}"
+  else
+    echo "${PROJ_T_BRANCH[default]}"
+  fi
+}
+
+# Return the name of the branch being merged from
+get_from_branch() {
+  local proj_name=$1
+
+  if [[ -n "${FROM_BRANCH_ARG}" ]]; then
+    echo "${FROM_BRANCH_ARG}"
+  elif exists "${proj_name}" in PROJ_F_BRANCH; then
+    echo "${PROJ_F_BRANCH[${proj_name}]}"
+  else
+    echo "${PROJ_F_BRANCH[default]}"
+  fi
+}
+
+# Return whether the project is in 'cros' or 'cros-internal'
+get_remote_name() {
+  local branch=$1
+  echo "${branch}" | cut -d'/' -f2
+}
+
+# Return the name of the branch without remote/cros...
+get_branch_name() {
+  local branch=$1
+  echo "${branch}" | cut -d'/' -f3
+}
+
+# Supply the from date to the git log command if given
+get_oldest_date() {
+  local date
+  date="${LAST_DATE_ARG:-${LAST_CHECKED_DATE}}"
+  if [[ -n "${date}" ]]; then
+    echo "--after=\"${date}\"}"
+  fi
+}
+
+# Return the reviewers for a given project
+get_new_reviewers() {
+  local proj_name=$1
+  if exists "${proj_name}" in PROJ_REVIEWERS; then
+    echo "${PROJ_REVIEWERS[${proj_name}]}"
+  else
+    echo "${PROJ_REVIEWERS[default]}"
+  fi
+}
+
+# Return the URL for the specified project
+get_url() {
+  local proj_name=$1
+  if [[ "$(get_remote_name "${proj_name}")" == "cros" ]]; then
+    echo "${CROS_EXTERNAL_URL}"
+  else
+    echo "${CROS_INTERNAL_URL}"
+  fi
+}
+
+# Return any keywords to highlight for the specified project
+get_proj_keywords() {
+  local proj_name=$1
+  if exists "${proj_name}" in PROJ_KEYWORDS; then
+    echo "${PROJ_KEYWORDS[${proj_name}]}\|${PROJ_KEYWORDS[global]}"
+  fi
+  echo "${PROJ_KEYWORDS[global]}"
+}
+
+# Return any keywords to dim for the specified project
+get_proj_dimwords() {
+  local proj_name=$1
+  if exists "${proj_name}" in PROJ_DIM; then
+    echo "${PROJ_DIM[${proj_name}]}\|${PROJ_DIM[global]}"
+  else
+    echo "${PROJ_DIM[global]}"
+  fi
+}
+
+# Return the current platform name
+get_platform_name() {
+  if [[ -n ${PLATFORM_NAME_ARG} ]]; then
+    echo "${PLATFORM_NAME_ARG}"
+  else
+    echo "${PLATFORM_NAME}"
+  fi
+}
+
+#######################################################
+# Display all of the commits in two different branches, showing the
+# commits in one, the other, or both, and setting the color depending
+# on various specified keywords.
+show_branch_commits() {
+  local proj_name=$1   # Current project name - coreboot, depthcharge, bmpblk
+  local from_branch=$2 # Branch being merged from (Upstream)
+  local show_as_merged # List of commits to show as merged
+  local keywords       # Keywords to highlight
+  local deemphasize    # Keywords to grey out
+  local hide           # Keywords to ignore
+  local platform_name  # Overall project name - zork, grunt, octopus
+  local git_args=()    # Any variable arguments to pass to git.
+  platform_name=$(get_platform_name "${proj_name}")
+
+  if exists "${proj_name}" in PROJ_HIDE; then
+    hide=("grep" "-vi" "${PROJ_HIDE[${proj_name}]}\|${PROJ_HIDE[global]}")
+  elif [[ -n ${PROJ_HIDE[global]} ]]; then
+    hide=("grep" "-vi" "${PROJ_HIDE[global]}")
+  else
+    hide=()
+  fi
+
+  # Show the differences.  Skip automatic commits.
+  readarray -t -d ' ' git_args < <(get_oldest_date)
+  ALL_COMMITS="$(git log --left-right --graph --cherry-mark --format="%h%Creset [%ci] (%ae) - %s" "${from_branch}...HEAD" "${git_args[@]}" -- . |
+    "${hide[@]}" || true)"
+
+  keywords=$(get_proj_keywords "${proj_name}")
+  deemphasize=$(get_proj_dimwords "${proj_name}")
+
+  if exists "${proj_name}" in PROJ_IGNORE; then
+    show_as_merged="${PROJ_IGNORE[${proj_name}]}"
+  fi
+
+  if [[ -z "${ALL_COMMITS}" ]]; then
+    BRANCH_COMMITS="none"
+  else
+    cls
+    echo "Commits for ${proj_name} BOARD=${platform_name} BRANCH=$(get_to_branch "${proj_name}")"
+    IFS=$'\n' # make newlines the only separator
+    for line in ${ALL_COMMITS}; do
+
+      if echo "${line}" | grep -qi "^="; then
+        if [[ "${SHOW_COMMITS_TO_BOTH}" -eq 1 ]]; then
+          _echo_color "${C_TURQUOISE2}" "${line}" 1
+        fi
+      elif [[ -n "${show_as_merged}" ]] && echo "${line}" | grep -qi "${show_as_merged}"; then
+        _echo_color "${C_TURQUOISE2}" "${line}" 1
+      elif echo "${line}" | grep -qi "^>"; then
+        _echo_color "${C_DODGERBLUE2}" "${line}" 1
+      else
+        # For commits that could be cherry-picked, get more information.
+        local gitlog
+        gitlog=$(git log -n 1 --name-only "$(echo "${line}" | cut -f2 -d' ')" -- .)
+
+        if [[ -n "${platform_name}" ]] && echo "${gitlog}" | grep -qi "BRANCH=${platform_name}"; then
+          _echo_color "${C_RED3_UNDERLINED}" "${line}" 1
+        elif [[ -n "${keywords}" ]] && echo "${gitlog}" | grep -qi "${keywords}"; then
+          _echo_color "${RED}" "${line}" 1
+        elif [[ -n "${deemphasize}" ]] && echo "${gitlog}" | grep -qi "${deemphasize}"; then
+          _echo_color "${C_GREY39}" "${line}" 1
+        else
+          _echo_color "${C_WHITE}" "${line}" 1
+        fi
+      fi
+    done
+  fi
+
+  # Input the list of commits that could be cherry-picked.  Again skip auto commits
+  readarray -t UNPICKED_COMMITS < <(git log --left-right --graph --cherry-mark --format="%h [%ci] (%ae) - %s" "${from_branch}...HEAD" "${git_args[@]}" -- . |
+    grep "^<" | "${hide[@]}" | cut -f2 -d' ' | tac)
+}
+
+########################################################################
+# Clean up and update the specified directory / repo to get it ready
+# to check out the temporary branch.  Finish by creating the temp branch.
+# If there are any errors, return errorlevel 1 to skip this repo.
+check_and_update_repo() {
+  local proj_name=$1                # Current project name - coreboot, depthcharge, bmpblk
+  local to_branch=$2                # Final branch being merged to (Downstream)
+  local merge_branch=$3             # Temporary branch being merged to
+  local skip_sync=$4                # Flag: Don't repo sync before checking
+  local branchname                  # Name of the branch being merged to without 'remotes/cros/'
+  local use_existing_merge_branch=0 # Flag: Use the existing merge branch instead of deleting and recreating
+  branchname=$(get_branch_name "${to_branch}")
+
+  if ! git branch -a | grep -q "${branchname}"; then
+    _echo_error "Error: ${branchname} does not exist in this repo."
+    return 1
+  fi
+
+  while true; do
+    # Make sure the current repo is clean before changing branches.
+    if silence git diff-index --quiet HEAD --; then
+      break
+    fi
+    local proj_path
+    proj_path=$(get_proj_path "${proj_name}")
+    _echo_error "ERROR: ${proj_path} has some local changes."
+    read -p "(S)tash, (R)eset, (G)it Status, (I)gnore ${proj_name} for now: " -r input
+    case "${input}" in
+    i | I | ignore | Ignore | IGNORE)
+      return 1
+      ;;
+    s | S | stash | Stash | STASH)
+      git stash
+      ;;
+    g | G | git | Git | GIT)
+      git status
+      ;;
+    r | R | reset | Reset | RESET)
+      git reset --hard
+      ;;
+    esac
+  done
+
+  if [[ -e "$(git rev-parse --git-dir)/CHERRY_PICK_HEAD" ]]; then
+    echo "Note: Currently in a cherry-pick state.  Aborting cherry-pick."
+    silence git cherry-pick --abort || true
+  fi
+  if [[ -d "$(git rev-parse --git-dir)/rebase-apply" || -d "$(git rev-parse --git-dir)/rebase-merge" ]]; then
+    echo "Note: Currently in a rebase state.  Aborting rebase."
+    silence git rebase --abort || true
+  fi
+
+  if [[ -n "$(git show-ref "refs/heads/${merge_branch}")" ]]; then
+    while true; do
+      echo "Branch ${merge_branch} already exists."
+      read -p "(D)elete branch or (U)se existing branch? [D/U]: " -n 1 -r choice
+      echo
+      case "${choice}" in
+      u | U | use | Use | USE)
+        use_existing_merge_branch=1
+        break
+        ;;
+      d | D | delete | Delete | DELETE)
+        if ! git_checkout "${to_branch}"; then
+          return 1
+        fi
+        if ! silence git branch -D "${merge_branch}"; then
+          _echo_error "Error: could not remove ${merge_branch}."
+          pause
+          return 1
+        fi
+        break
+        ;;
+      esac
+    done
+  fi
+
+  if [[ "${skip_sync}" -eq 0 ]]; then
+    echo "Doing network repo sync for ${proj_name}..."
+    if ! silence repo sync -n .; then
+      _echo_error "Error: Could not repo sync."
+      pause
+      return 1
+    fi
+    echo "Updating local tree..."
+    if ! silence git remote update "$(get_remote_name "${to_branch}")"; then
+      _echo_error "Error: Could not do local repo update."
+      pause
+      return 1
+    fi
+  fi
+
+  echo "Checking out temp branch ${merge_branch}..."
+  if [[ "${use_existing_merge_branch}" -eq 1 ]]; then
+    if ! git_checkout "${merge_branch}"; then
+      return 1
+    fi
+  else
+    if ! silence git checkout -b "${merge_branch}" "${to_branch}"; then
+      _echo_error "Error: git could not create ${merge_branch}."
+      pause
+      return 1
+    fi
+  fi
+  return 0
+}
+
+########################################################################
+# Select commits to merge to the temporary merge branch and work to
+# get them merged correctly.
+select_commits() {
+  proj_name=$1    # Current project name - coreboot, depthcharge, bmpblk
+  merge_branch=$2 # Temporary branch being merged to
+  from_branch=$3  # Branch being merged from (Upstream)
+  local proj_cros # Which gerrit repository: cros or cros-internal
+  proj_cros=$(get_remote_name "$(get_to_branch "${proj_name}")")
+  local commitlist=()
+
+  while true; do
+    done_selecting=0
+    while true; do
+      echo
+      if [[ -n "${UNPICKED_COMMITS[0]}" ]]; then
+        echo "Enter commit ids separated by spaces, (A)ll, (N)ext, (S)how unpicked,"
+      fi
+      read -p "(D)one, (L)ist picked, (R)efresh, (T)oggle Both, (H)elp or (Q)uit: " -r input
+      # TODO: Turn this into a function
+      input="${input#"${input%%[![:space:]]*}"}" # Trim leading whitespace
+      input="${input%%*( )}" #trim trailing whitespace
+      input="$(echo "${input}" | tr -s ' ')" # Condense multiple spaces to one
+      if [[ -z "${input}" || "${input}" == " " ]]; then
+        continue
+      fi
+      case "${input}" in
+      a | A | all | All | ALL)
+        if [[ -z "${UNPICKED_COMMITS[0]}" ]]; then continue; fi
+        commitlist=("${UNPICKED_COMMITS[@]}")
+        ;;
+      d | D | done | Done | DONE)
+        done_selecting=1
+        break
+        ;;
+      h | H | help | Help | HELP)
+        echo "  Cherry-pick menu help:"
+        echo "    <commit ids> - Add commit to merge list. Multiple ids can be entered"
+        echo "                   at once, separated by spaces."
+        echo "    (A)ll - Add all unmerged patches to the merge list."
+        echo "    (D)one adding patches. Go to the commit menu."
+        echo "    (H)elp - Display help text."
+        echo "    (L)ist all patches currently in the merge list."
+        echo "    (N)ext - Cherry-pick next unpicked commit."
+        echo "    (Q)uit the script."
+        echo "    (R)efresh - Re-display list of patches."
+        echo "    (S)how unpicked commits."
+        echo "    (T)oggle between showing and hiding patches in both branches."
+        printf "\n   Color Key: "
+        _echo_color "${C_RED3_UNDERLINED}" "Red Underlined - Unmerged, Contains platform name." 1
+        _echo_color "${RED}" "              Red - Unmerged, Contains a highlight keyword." 1
+        _echo_color "${C_GREY39}" "              Grey - Unmerged, Contains an ignore keyword." 1
+        _echo_color "${C_WHITE}" "              White - Unmerged, No keyword matches." 1
+        _echo_color "${C_TURQUOISE2}" "              Turquoise - commit in both to and from branches." 1
+        _echo_color "${C_DODGERBLUE2}" "              Blue - Commit only on the 'To' branch." 1
+        printf "\n   Git cherrymark Key: "
+        echo "< Only in branch you are cherry-picking FROM (Upstream)."
+        echo "                       > Only in branch you are cherry-picking TO (Downstream)."
+        echo "                       = In both branches."
+        echo "                    Note that commits that needed merging can show up"
+        echo "                    as both '<' and '>' instead of '='."
+        echo
+        continue
+        ;;
+      l | L | list | List | LIST)
+        echo
+        echo "Commits picked to temporary branch for merging:"
+        local gitargs=()
+        readarray -d ' ' gitargs < <(get_oldest_date)
+        local picked
+        picked="$(git --no-pager log --format="%h%Creset [%ci] (%ae) - %s" "${to_branch}..${merge_branch}" "${gitargs[@]}" --)"
+        if [[ -z "${picked}" ]]; then
+          echo "No commits cherry-picked yet."
+        else
+          printf "\n%s\n" "${picked}"
+        fi
+        echo
+        continue
+        ;;
+      r | R | refresh | Refresh | REFRESH)
+        show_branch_commits "${proj_name}" "${from_branch}"
+        continue
+        ;;
+      s | S | show | Show | SHOW)
+        if [[ -z "${UNPICKED_COMMITS[0]}" ]]; then
+          echo "No unpicked commits."
+        else
+          printf "Unpicked commits: \n%s\n" "$(echo "${UNPICKED_COMMITS[*]}" | tr -s '\n' ' ')"
+        fi
+        continue
+        ;;
+      t | T | toggle | Toggle | TOGGLE)
+        SHOW_COMMITS_TO_BOTH=$((SHOW_COMMITS_TO_BOTH == 0))
+        show_branch_commits "${proj_name}" "${from_branch}"
+        continue
+        ;;
+      q | Q | quit | Quit | QUIT)
+        clean_up_and_exit 0 "" "${proj_name}" 1
+        ;;
+      n | N | next | Next | NEXT)
+        if [[ -z "${UNPICKED_COMMITS[0]}" ]]; then continue; fi
+        commitlist=("${UNPICKED_COMMITS[0]}")
+        ;;
+      *)
+        readarray -t commitlist < <(echo -e "${input}" | tr -s ' ' '\n')
+        ;;
+      esac
+
+      for commit in "${commitlist[@]}"; do
+        _echo_debug "Cherry-picking '${commit}'"
+        readarray -t UNPICKED_COMMITS < <(echo "${UNPICKED_COMMITS[*]}" | grep -v "${commit}")
+
+        while true; do
+          if ! silence git show "${commit}" --; then
+            _echo_error "Error: ${commit} is not a valid commit ID."
+            if [[ -n "${UNPICKED_COMMITS[0]}" ]]; then
+              read -p "Enter a new commit ID or press [Enter] to go to the next." -r input
+              if [[ -z "${input}" ]]; then
+                commit=""
+                break
+              else
+                commit="${input}"
+                continue
+              fi
+            else
+              pause
+              break
+            fi
+          else
+            break
+          fi
+        done
+
+        if [[ -z "${commit}" ]]; then
+          continue
+        fi
+
+        echo "Cherry-picking commit '$(git log --oneline -n1 "${commit}" --)'"
+        silence git reset --hard HEAD
+        local success=0
+        if ! silence_on_failure git cherry-pick -x "${commit}" --; then
+          if git status | grep -q 'nothing to commit'; then
+            _echo_error "Error: commit ${commit} is empty. Skipping."
+            if silence git cherry-pick --skip --; then
+              continue
+            fi
+          fi
+          while true; do
+            _echo_error "Error: Could not cherry-pick ${commit} automatically."
+            echo "How do you want to resolve this?"
+            echo " (A)bort cherry-picking."
+            if [[ -n "${UNPICKED_COMMITS[0]}" ]]; then
+              echo " (C)ontinue with cherry-picking, skipping this patch."
+            fi
+            echo " (F)ixed the cherry-pick in another terminal."
+            echo " (M)anual fix with git merge tool."
+            echo " (S)hell prompt to fix the issue."
+            echo " (V)iew the commit in gerrit."
+            read -p "Choose from an option above: " -r input
+            if [[ -e "$(git rev-parse --git-dir)/CHERRY_PICK_HEAD" ]]; then
+              silence git cherry-pick --abort -- || true
+            fi
+            case "${input}" in
+            a | A | abort | Abort | ABORT)
+              echo "Aborting cherry-pick operation."
+              echo "Failing commit is: ${commit}"
+              if [[ -n "${UNPICKED_COMMITS[0]}" ]]; then
+                echo "Unpicked commits in the list are:"
+                echo "  ${UNPICKED_COMMITS[*]}"
+              fi
+              UNPICKED_COMMITS=()
+              success=-1
+              break
+              ;;
+            c | C | continue | Continue | CONTINUE | f | F | fixed | Fixed | FIXED)
+              success=1
+              ;;
+            m | M | manual | Manual | MANUAL)
+              echo "       Attempting manual merge."
+              silence git cherry-pick -x -n "${commit}" -- || true
+              if ! git mergetool; then
+                silence_on_failure git restore --staged . || true
+                silence_on_failure git checkout . || true
+              else
+                success=1
+              fi
+              ;;
+            s | S | shell | Shell | SHELL)
+              silence git cherry-pick -x -n "${commit}" -- || true
+              "${SHELL}"
+              if [[ -e "$(git rev-parse --git-dir)/CHERRY_PICK_HEAD" ]]; then
+                silence git cherry-pick --abort -- || true
+                silence_on_failure git restore --staged . || true
+                silence_on_failure git checkout . || true
+                success=0
+                _echo_error "The commit looks like it failed to merge cleanly."
+                echo "If it did merge cleanly, choose option 'F' to continue."
+              else
+                success=1
+              fi
+              ;;
+            v | V | view | View | VIEW)
+              local url
+              url="$(get_url "${proj_name}")"
+              if ! xdg-open "${url}/${commit}"; then
+                google-chrome "${url}/${commit}"
+              fi
+              success=0
+              ;;
+            esac
+            if [[ "${success}" -ne 0 ]]; then
+              break
+            fi
+          done
+        else
+          success=1
+        fi
+      done
+      if [[ ${success} -eq 1 ]]; then
+        silence_on_failure git commit --amend -s --no-edit || true
+        success=0
+      fi
+    done
+
+    if [[ ${done_selecting} -eq 1 ]]; then
+      echo "Done cherry-picking commits."
+      break
+    fi
+  done
+}
+
+########################################################################
+# Decide what to do with any cherry-picked commits.  They can be pushed
+# with different flags, abandoned, left for a future build, or go back
+# to adding more patches.
+handle_picked_commits() {
+  local proj_name=$1     # Current project name - coreboot, depthcharge, bmpblk
+  local to_branch=$2     # Final branch being merged to (Downstream)
+  local merge_branch=$3  # Temporary branch being merged to
+  local from_branch=$4   # Branch being merged from (Upstream)
+  local proj_cros        # Which gerrit repository: cros or cros-internal
+  local reviewer_arg     # array of reviewer arguments to pass to git
+  local new_reviewers=() # List of updated reviewer emails separated by spaces
+  local reviewers        # Combined list of default & updated reviewer emails
+  local patches_pushed=0 # Flag set after patches have been pushed
+  local hashtag="${DEFAULT_HASHTAG}"
+  local merge_args="${DEFAULT_MERGE_ARGS}"
+  local review_args="${DEFAULT_REVIEW_ARGS}"
+  local build_args
+  mapfile -t new_reviewers < <(get_new_reviewers "${proj_name}" | tr -s ' ' '\n')
+  if exists "${proj_name}" in PROJ_BUILD; then
+    mapfile -t build_args < <(
+      echo "-j"
+      echo "${PROJ_BUILD[${proj_name}]}" | tr -s ' ' '\n'
+      echo "${PROJ_BUILD[global]}" | tr -s ' ' '\n'
+    )
+  else
+    mapfile -t build_args < <(
+      echo "-j"
+      echo "${PROJ_BUILD[global]}" | tr -s ' ' '\n'
+    )
+  fi
+
+  proj_cros=$(get_remote_name "${to_branch}")
+  repository=$(echo "${to_branch}" | cut -d'/' -f3)
+
+  if [[ "$(git --no-pager log "${to_branch}..${merge_branch}" --oneline | wc -l)" -ne 0 ]]; then
+    while true; do
+
+      if [[ -n "${new_reviewers[0]}" ]]; then
+        for reviewer in "${new_reviewers[@]}"; do
+          reviewer_arg=("${reviewer_arg},r=${reviewer}")
+        done
+        reviewers="$(printf "%s %s" "${reviewers}" "${new_reviewers[*]}" | tr -s '\n' ' ')"
+        reviewers="${reviewers#"${reviewers%%[![:space:]]*}"}" # Trim leading whitespace
+
+        new_reviewers=()
+      fi
+
+      printf "\n Cherry-picked the following changes:"
+      git --no-pager log "${to_branch}..${merge_branch}" --oneline
+
+      printf "\nSelect what to do with the cherry-picked patches.\n"
+      echo " (A)bandon changes."
+      if [[ -n "$(get_platform_name)" ]] || exists "${proj_name}" in PROJ_BUILD || exists "global" in PROJ_BUILD; then
+        printf " (B)uild now for testing: 'emerge-%s %s'\n" "${PLATFORM_NAME}" "$(echo "${build_args[*]}" | tr -s '\n' ' ')"
+      fi
+      if [[ ${patches_pushed} -eq 0 ]]; then
+        if [[ -n "${UNPICKED_COMMITS[0]}" ]]; then
+          echo " (C)ontinue adding patches."
+        fi
+        echo " (D)elete current reviewer list: '${reviewers}'"
+        echo " (E)nter additional reviewers for commits (separated by spaces)."
+        echo " (P)ush for merge: '${merge_args}'"
+      fi
+      echo " (Q)uit the script"
+      if [[ ${patches_pushed} -eq 0 ]]; then
+        echo " (R)eplace commit hashtag: '${hashtag}'"
+        echo " (S)ubmit for review: '${review_args}${reviewer_arg[*]}'"
+      fi
+      echo " (U)pdate patches (rebase -i)."
+      echo " (V)alidate cherry-picked commits - leave branch for testing."
+      read -p "Selection: " -n 1 -r choice
+      echo
+      case "${choice}" in
+      a | A | abandon | Abandon | ABANDON)
+        echo "Abandoning changes"
+        break
+        ;;
+      b | B | build | Build | BUILD)
+        if [[ -z "${build_args[0]}" ]]; then
+          IFS=$'\n' read -r -d '' -p "Enter arguments for emerge-${PLATFORM_NAME}: " -a build_args
+        fi
+        cros_sdk -- bash -c "emerge-${PLATFORM_NAME}" "${build_args[@]}"
+        ;;
+      c | C | continue | Continue | CONTINUE)
+        if [[ ${patches_pushed} -ne 0 ]]; then continue; fi
+        if [[ -n "${UNPICKED_COMMITS[0]}" ]]; then continue; fi
+        select_commits "${proj_name}" "${merge_branch}" "${from_branch}" "${proj_cros}"
+        ;;
+      d | D | delete | Delete | DELETE)
+        if [[ ${patches_pushed} -ne 0 ]]; then continue; fi
+        reviewer_arg=()
+        reviewers=""
+        ;;
+      e | E | enter | Enter | ENTER)
+        if [[ ${patches_pushed} -ne 0 ]]; then continue; fi
+        echo "Enter list of reviewer email addresses separated by spaces."
+        read -p "Selection: " -r input
+        input="${input#"${input%%[![:space:]]*}"}"           # Trim leading whitespace
+        input="$(echo "${input}" | tr -s ' ' '/n')" # Condense multiple spaces to one
+        mapfile -t new_reviewers < <(echo "${input}")
+        ;;
+      p | P | push | Push | PUSH)
+        if [[ ${patches_pushed} -ne 0 ]]; then continue; fi
+        echo "Pushing changes as ready to merge."
+        if git push "${proj_cros}" "HEAD:refs/for/${repository}%${merge_args}" -o hashtag="${hashtag}"; then
+          patches_pushed=1
+        fi
+        ;;
+      q | Q | quit | Quit | QUIT)
+        clean_up_and_exit 0 "" "${proj_name}" 1
+        ;;
+      r | R | replace | Replace | REPLACE)
+        if [[ ${patches_pushed} -ne 0 ]]; then continue; fi
+        read -p "Enter new hashtag for the commit: " -r hashtag
+        ;;
+      s | S | submit | Submit | SUBMIT)
+        if [[ ${patches_pushed} -ne 0 ]]; then continue; fi
+        echo "Submitting changes for review."
+        if git push "${proj_cros}" "HEAD:refs/for/${repository}%${review_args}${reviewer_arg[*]}" -o hashtag="${hashtag}"; then
+          patches_pushed=1
+        fi
+        ;;
+      u | U | update | Update | UPDATE)
+        git rebase -i "${to_branch}" "${merge_branch}"
+        ;;
+      v | V | validate | Validate | VALIDATE)
+        echo "Leaving temporary branch for later use."
+        return 1 # Leave the temporary branch for later
+        ;;
+      esac
+    done
+  else
+    echo "No commits cherry-picked to ${proj_name}"
+  fi # No commits to push
+  return 0 # Clean up the temporary branch
+}
+
+########################################################################
+# Check whether the current repo/project needs to be updated and run all
+# the update steps if it does.
+# Repo sync, show differences, cherrypick differences, handle cherrypicks
+update_project() {
+  local proj_name=$1             # Current project name - coreboot, depthcharge, bmpblk
+  local skip_sync=$2             # Don't repo sync before checking
+  local in_project=$3            # Are we already inside the project dir
+
+  local from_branch              # Branch being merged from (Upstream)
+  local merge_branch             # Temporary branch being merged to
+  local initial_branch           # Branch the repo is currently in to return to at the end
+  local proj_cros                # Which gerrit repository: cros or cros-internal
+  local proj_path                # Path of the project from the root directory
+  local to_branch                # Final branch being merged to (Downstream)
+  local root_dir                 # Foot directory of the chroot
+  local leave_branch_for_later=0 # Skip deleting the merge branch when finishing
+  proj_path=$(get_proj_path "${proj_name}")
+  to_branch=$(get_to_branch "${proj_name}")
+  proj_cros=$(get_remote_name "${to_branch}")
+  from_branch=$(get_from_branch "${proj_name}")
+
+  if [[ ${in_project} -eq 0 ]]; then
+    root_dir=$(get_root_dir)
+
+    if [[ -z "${proj_path}" ]]; then
+      _echo_error "path for ${proj_name} is not set."
+      printf "\nSkipping %s\n" "${proj_name}"
+      pause
+      return
+    fi
+
+    if [[ ! -e "${root_dir}/${proj_path}" ]]; then
+      _echo_error "${root_dir}/${proj_path} does not exist."
+      printf "\nSkipping %s\n" "${proj_name}"
+      pause
+      return
+    fi
+
+    trap 'ctrl_c "${proj_name}"' INT
+
+    while true; do
+      echo
+      _echo_color "${GREEN}" "Check ${proj_name} (${proj_path})? [ (Y)es / (N)o / (Q)uit ]: "
+
+      read -p "" -n 1 -r choice
+      echo
+      case "${choice}" in
+      y | Y | yes | Yes | YES) break ;;
+      n | N | no | No | NO) return ;;
+      q | Q | quit | Quit | QUIT) exit 0 ;;
+      esac
+    done
+
+    if ! cd "${root_dir}/${proj_path}"; then
+      _echo_error "Error: could not switch to ${proj_path}.  Skipping ${proj_name}."
+      pause
+      return
+    fi
+  fi
+  if ! silence git rev-parse; then
+    _echo_error "Error: ${proj_path} is not in a git repo. Skipping ${proj_name}."
+    pause
+    return
+  fi
+
+  # Try to save the current branch
+  echo "Checking initial branch state..."
+  if git branch -a --contains HEAD | grep -q "${from_branch}" || [[ "${initial_branch}" == "${merge_branch}" ]]; then
+    initial_branch="${from_branch}"
+  elif git branch -a --contains HEAD | grep -q "${to_branch}"; then
+    initial_branch="${to_branch}"
+  elif [[ "$(git rev-parse --abbrev-ref HEAD)" == "HEAD" ]]; then
+    initial_branch="${proj_name}-$(date -Iminutes | tr ':' '_')"
+    git checkout -b "${initial_branch}"
+    echo "Created new branch to save current state: ${initial_branch}"
+  fi
+
+  merge_branch="${proj_name}-${MERGE_BRANCH_SUFFIX}"
+  BRANCH_COMMITS=""
+  UNPICKED_COMMITS=()
+
+  # Update the current repo / project, then look for branch differences
+  if ! check_and_update_repo "${proj_name}" "${to_branch}" "${merge_branch}" "${skip_sync}" "${initial_branch}"; then
+    return
+  fi
+  show_branch_commits "${proj_name}" "${from_branch}"
+
+  # Handle differences between branches
+  if [[ "${BRANCH_COMMITS}" == "none" ]]; then
+    printf "\nNo git commits to pick.\n\n"
+  elif [[ -z "${UNPICKED_COMMITS[0]}" ]]; then
+    printf "\nNo unpicked commits.\n\n"
+  else
+    select_commits "${proj_name}" "${merge_branch}" "${from_branch}"
+    handle_picked_commits "${proj_name}" "${to_branch}" "${merge_branch}" "${from_branch}"
+    leave_branch_for_later=$?
+  fi # No branch commits
+
+  # Clean up
+  if [[ ${leave_branch_for_later} -eq 0 ]]; then
+    silence git reset --hard HEAD
+    if [[ "${initial_branch}" == "${merge_branch}" ]]; then
+      initial_branch="${from_branch}"
+    fi
+    if ! silence git checkout "${initial_branch}"; then
+      silence git checkout "${from_branch}"
+      _echo_error "Warning: git could not check out ${initial_branch}."
+      pause
+      return
+    fi
+    if ! silence git branch -D "${merge_branch}"; then
+      _echo_error "Warning: git could not delete ${merge_branch}."
+      pause
+      return
+    fi
+  fi
+}
+
+########################################################################
+# Check that variables are reasonable
+check_global_vars() {
+  if ! exists "default" in PROJ_REVIEWERS; then
+    _echo_error "Error: BOARDNAME PROJ_REVIEWERS[default] not set."
+  fi
+  if ! exists "global" in PROJ_BUILD; then
+    _echo_error "Error: PROJ_BUILD[global] Variable not set."
+  fi
+  if ! exists "global" in PROJ_DIM; then
+    _echo_error "Error: PROJ_DIM[global] Variable not set."
+  fi
+  if ! exists "default" in PROJ_T_BRANCH; then
+    _echo_error "Error: PROJ_T_BRANCH[default] Variable not set."
+    error_found=1
+  fi
+  if ! exists "default" in PROJ_F_BRANCH; then
+    _echo_error "Error: PROJ_F_BRANCH[default] Variable not set."
+    error_found=1
+  fi
+  if [[ "${#PROJ_PATH[@]}" -eq 0 ]]; then
+    _echo_error "Error: PROJ_PATH array not set - no repos to check."
+    error_found=1
+  fi
+
+  if [[ -z "${PLATFORM_NAME}" && -z "${PLATFORM_NAME_ARG}" ]]; then
+    _echo_error "Error: No platform name specified."
+    error_found=1
+  fi
+  if [[ -n "${PLATFORM_NAME}" && -n "${PLATFORM_NAME_ARG}" && "${PLATFORM_NAME}" != "${PLATFORM_NAME_ARG}" ]]; then
+    _echo_error "Warning: Platform name differs from the name in the config."
+    _echo_error "         If this was unintentional, press CTL-C now."
+    pause
+  fi
+
+  if [[ ${error_found} -ne 0 ]]; then
+    clean_up_and_exit 1 "" 0
+  fi
+}
+
+########################################################################
+# Read the config file and check variables
+initialize() {
+  local config=$1 # The config name if passed as a command parameter
+  local root_dir  # Top directory of the chroot
+  local checkdate # Date to verify is valid
+
+  root_dir=$(get_root_dir)
+
+  echo "Initializing ${PROGNAME}"
+
+  if [[ -n "${config}" && ! -e "${config}" ]]; then
+    clean_up_and_exit 1 "Error: Config file ${config} does not exist." 0
+  elif [[ -n "${config}" ]]; then
+    : # A config was specified and exists
+  elif [[ -e "./${CONFIG_FILE}" ]]; then
+    config="./${CONFIG_FILE}"
+  elif [[ -e "${root_dir}/${CONFIG_FILE}" ]]; then
+    config="${root_dir}/${CONFIG_FILE}"
+  elif [[ -e "${HOME}/${CONFIG_FILE}" ]]; then
+    config="${HOME}/${CONFIG_FILE}"
+  elif [[ -e "$(dirname "${PROGRAM}")/${CONFIG_FILE}" ]]; then
+    config="$(dirname "${PROGRAM}")/${CONFIG_FILE}"
+  else
+    clean_up_and_exit 1 "Error: No config file found." 0
+  fi
+  config="$(realpath "${config}")"
+  echo "Using config file               : ${config}"
+
+  # shellcheck source=/dev/null
+  source "${config}"
+  check_global_vars
+
+  checkdate=${LAST_DATE_ARG:-${LAST_CHECKED_DATE}}
+  if [[ -n "${checkdate}" ]]; then
+    if ! date -d "${checkdate}" >/dev/null 2>&1; then
+      _echo_error "Error: Earliest date to compare against is invalid."
+      clean_up_and_exit 1 "Date is '${checkdate}'." 0
+    fi
+    if [[ "$(date -d "${checkdate}" +%s)" -gt "$(date +%s)" ]]; then
+      _echo_error "Error: Earliest date to compare against is in the future."
+      _echo_error "       Requested date is '${checkdate}'."
+      clean_up_and_exit 1 "       Today's date is '$(date -I)'." 0
+    fi
+  fi
+  echo "BOARD                           : '$(get_platform_name)'"
+  echo "Default 'from' branch (Upstream): ${PROJ_F_BRANCH[default]}"
+  echo "Default 'to' branch (Downstream): ${PROJ_T_BRANCH[default]}"
+}
+
+########################################################################
+# Find the top directory of the chroot
+get_root_dir() {
+  local root_dir=${REPO_TOP_ARG}
+  local test_dir
+  local test_file=${REPO_TEST_FILE}
+  test_dir=$(readlink -f "${START_DIR}")
+  if [[ -z "${root_dir}" ]]; then
+    if [[ ! -e "${test_dir}/${test_file}" ]]; then
+      while [[ ! -e "${test_dir}/${test_file}" ]]; do
+        test_dir=$(readlink -f "${test_dir}/..")
+        if [[ "${test_dir}" == "/" ]]; then
+          break
+        fi
+      done
+    fi
+    if [[ -e "${test_dir}/${test_file}" ]]; then
+      root_dir="${test_dir}"
+    fi
+  fi
+
+  if [[ ! -e "${root_dir}/${test_file}" ]]; then
+    clean_up_and_exit 1 "Error: Please set the repo dir with --repo or run ${PROGNAME} from within the repo." 0
+  fi
+
+  echo "${root_dir}"
+}
+
+########################################################################
+# Write out the current or a default config
+write_config() {
+  local config=$1
+  local overwrite=$2
+
+  config=${config:-./${CONFIG_FILE}}
+  if [[ ${overwrite} -ne 1 && -e ${config} ]]; then
+    clean_up_and_exit 1 "Error: The file ${config} already exists." 0
+  else
+    mv "${config}" "${config}_$(date -Iminutes)"
+  fi
+
+  echo "# PROJ_PATH: Set paths for each project being checked.
+# Example: PROJ_PATH[coreboot]='src/third_party/coreboot'
+# Note that these may be a subdirectory of a repo.
+# These get evaluated in alphabetical order.
+" >"${config}"
+  if [[ ${#PROJ_PATH[@]} -eq 0 ]]; then
+    printf "PROJ_PATH[]=''\n" >>"${config}"
+  else
+    readarray -t proj_list < <(echo "${!PROJ_PATH[@]}" | tr -s ' ' '\n' | sort)
+    for proj_name in "${proj_list[@]}"; do
+      printf "PROJ_PATH[%s]='%s'\n" "${proj_name}" "${PROJ_PATH[${proj_name}]}"
+    done
+  fi
+
+  echo "
+# Set the branches to sync from.
+# All not listed here use the 'default' version of the branch.
+" >"${config}"
+  if [[ ${#PROJ_PATH[@]} -eq 0 ]]; then
+    printf "PROJ_F_BRANCH[default]=''\n" >>"${config}"
+    printf "PROJ_F_BRANCH[]=''\n" >>"${config}"
+  else
+    readarray -t proj_list < <(
+      echo "default"
+      echo "${!PROJ_PATH[@]}" | tr -s ' ' '\n' | sort
+    )
+    for proj_name in "${proj_list[@]}"; do
+      printf "PROJ_F_BRANCH[%s]='%s'\n" "${proj_name}" "${PROJ_F_BRANCH[${proj_name}]}"
+    done
+  fi
+
+  echo "
+# Set the branches to receive updates.
+# All not listed here use the 'default' version of the branch.
+" >"${config}"
+  if [[ ${#PROJ_PATH[@]} -eq 0 ]]; then
+    printf "PROJ_T_BRANCH[default]=''\n" >>"${config}"
+    printf "PROJ_T_BRANCH[]=''\n" >>"${config}"
+  else
+    readarray -t proj_list < <(
+      echo "default"
+      echo "${!PROJ_PATH[@]}" | tr -s ' ' '\n' | sort
+    )
+    for proj_name in "${proj_list[@]}"; do
+      printf "PROJ_T_BRANCH[%s]='%s'\n" "${proj_name}" "${PROJ_T_BRANCH[${proj_name}]}"
+    done
+  fi
+
+  echo "
+# Set optional keywords.
+# All not listed here use the 'global' version of the keywords.
+" >"${config}"
+  if [[ ${#PROJ_PATH[@]} -eq 0 ]]; then
+    printf "PROJ_KEYWORDS[global]=''\n" >>"${config}"
+    printf "PROJ_KEYWORDS[]=''\n" >>"${config}"
+  else
+    readarray -t proj_list < <(
+      echo "global"
+      echo "${!PROJ_PATH[@]}" | tr -s ' ' '\n' | sort
+    )
+    for proj_name in "${proj_list[@]}"; do
+      printf "PROJ_KEYWORDS[%s]='%s'\n" "${proj_name}" "${PROJ_KEYWORDS[${proj_name}]}"
+    done
+  fi
+
+  echo "
+# Set optional keywords that indicate the commit is not interesting.
+# These are shown, but de-emphasized.
+" >"${config}"
+  if [[ ${#PROJ_PATH[@]} -eq 0 ]]; then
+    printf "PROJ_DIM[global]=''\n" >>"${config}"
+    printf "PROJ_DIM[]=''\n" >>"${config}"
+  else
+    readarray -t proj_list < <(
+      echo "global"
+      echo "${!PROJ_PATH[@]}" | tr -s ' ' '\n' | sort
+    )
+    for proj_name in "${proj_list[@]}"; do
+      printf "PROJ_DIM[%s]='%s'\n" "${proj_name}" "${PROJ_DIM[${proj_name}]}"
+    done
+  fi
+
+  echo "
+# List of reviewers, separated with spaces.
+" >"${config}"
+  if [[ ${#PROJ_REVIEWERS[@]} -eq 0 ]]; then
+    echo "PROJ_REVIEWERS[default]=''" >>"${config}"
+  else
+    echo "PROJ_REVIEWERS[default]='${PROJ_REVIEWERS[default]}'" >>"${config}"
+  fi
+}
+
+########################################################################
+# Get options, read the config file, and attempt to update all specified
+# projects
+main() {
+  local config_file
+  local skip_sync=0
+  local proj_list=()
+  local cmd_args
+
+  cmd_args=$(getopt -l version,help,repo:,debug,date:,conf:,nocolor,path:,from:,to:,nevercls,board:,same -o VhRd:B:DC:Np:sSF:T:b -- "$@")
+  getopt_ret=$?
+  eval set -- "${cmd_args}"
+
+  if [[ ${getopt_ret} -ne 0 ]]; then
+    usage
+    clean_up_and_exit 1 "" 0
+  fi
+
+  while true; do
+    case "$1" in
+    -V | --version)
+      show_version
+      clean_up_and_exit 0 "" 0
+      ;;
+    -h | --help)
+      usage
+      clean_up_and_exit 0 "" 0
+      ;;
+    -b | --board)
+      shift
+      PLATFORM_NAME_ARG="${1}"
+      ;;
+    -F | --from)
+      shift
+      FROM_BRANCH_ARG="${1}"
+      ;;
+    -T | --to)
+      shift
+      TO_BRANCH_ARG="${1}"
+      ;;
+    -C | --conf)
+      shift
+      config_file="${1}"
+      ;;
+    -d | --date)
+      shift
+      LAST_DATE_ARG="${1}"
+      ;;
+    -n | --nevercls)
+      NEVER_CLS=1
+      ;;
+    -N | --nocolor)
+      shift
+      BOLD=""
+      RED=""
+      GREEN=""
+      ORANGERED=""
+      C_DODGERBLUE2=""
+      C_TURQUOISE2=""
+      C_GREY39=""
+      C_WHITE=""
+      NC=""
+      ;;
+    -R | --repo)
+      shift
+      REPO_TOP_ARG="$(readlink -f "${1}")"
+      ;;
+    -s | --skipsync)
+      skip_sync=1
+      ;;
+    -S | --same)
+      SHOW_COMMITS_TO_BOTH=1
+      ;;
+    -D | --debug)
+      # -D prints extra debug info
+      # -DD prints all script steps
+      if [[ -n "${VERBOSE}" ]]; then
+        set -x
+      else
+        VERBOSE=-V
+        NEVER_CLS=1
+      fi
+      ;;
+    --)
+      break
+      ;;
+    *) break ;;
+    esac
+    shift
+  done
+
+  show_version
+  initialize "${config_file}"
+
+  # Loop through all projects offering to sync each
+  # shellcheck disable=SC2207
+  readarray -t proj_list < <(echo "${!PROJ_PATH[@]}" | tr -s ' ' $'\n' | sort)
+
+  if [[ ${#proj_list[@]} -gt 1 ]]; then
+    if [[ -n "${FROM_BRANCH_ARG}" || -n "${TO_BRANCH_ARG}" ]]; then
+      clean_up_and_exit 1 "Error: The --from and --to arguments may not be used on multiple projects." 0
+    fi
+
+    for proj_name in "${proj_list[@]}"; do
+      update_project "${proj_name}" "${skip_sync}" 0
+    done # Repo loop
+  else
+    local in_proj_dir=0
+    if [[ -n "$(get_proj_path "${proj_list[0]}")" ]]; then
+      in_proj_dir=1
+    fi
+    update_project "${proj_list[0]}" "${skip_sync}" "${in_proj_dir}"
+  fi
+}
+
+main "$@"
+clean_up_and_exit 0 "" 0
