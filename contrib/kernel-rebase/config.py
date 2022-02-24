@@ -5,8 +5,8 @@
 
 """Configuration file"""
 
-rebase_baseline_branch = 'chromeos-5.10'
-android_baseline_branch = 'android13-5.10'
+rebase_baseline_branch = 'chromeos-5.15'
+android_baseline_branch = 'android13-5.15'
 
 # Set rebase_target to desired target.
 # Select target tag, or 'latest' to rebase to ToT.
@@ -67,12 +67,6 @@ topiclist = [['chromeos',
       'include/linux/platform_data/wilco-ec.h',
       'Documentation/ABI/testing/debugfs-wilco-ec',
       'Documentation/ABI/testing/sysfs-platform-wilco-ec']],
-     ['cros_ec/extcon',
-      ['drivers/extcon/extcon-usbc-cros_ec',
-       'drivers/extcon/extcon-tcss-cros-ec.c',
-       'drivers/extcon/extcon-tcss-cros-ec.h',
-       'Documentation/devicetree/bindings/extcon/extcon-cros-ec.txt'
-      ]],
      ['cros_ec',
       ['drivers/mfd/cros_ec', 'drivers/power/cros',
        'drivers/rtc/rtc-cros-ec', 'drivers/platform/chrome',
@@ -88,6 +82,10 @@ topiclist = [['chromeos',
        'Documentation/devicetree/bindings/chrome',
        'Documentation/ABI/testing/sysfs-class-chromeos-driver-cros-ec-vbc'
        'Documentation/ABI/testing/debugfs-cros-ec'
+       'drivers/extcon/extcon-usbc-cros_ec',
+       'drivers/extcon/extcon-tcss-cros-ec.c',
+       'drivers/extcon/extcon-tcss-cros-ec.h',
+       'Documentation/devicetree/bindings/extcon/extcon-cros-ec.txt'
        ]],
      ['power',
       ['drivers/power', 'drivers/base/power', 'kernel/power', 'drivers/opp',
@@ -146,9 +144,6 @@ topiclist = [['chromeos',
      ['mmc',
       ['drivers/mmc', 'Documentation/mmc', 'include/linux/mmc',
        'include/uapi/linux/mmc']],
-     ['mtd',
-      ['drivers/mtd', 'include/linux/mtd', 'include/uapi/mtd',
-       'Documentation/mtd', 'Documentation/devicetree/bindings/mtd']],
      ['bluetooth',
       ['net/bluetooth', 'drivers/bluetooth',
        'Documentation/devicetree/bindings/net/btusb.txt',
@@ -228,12 +223,6 @@ topiclist = [['chromeos',
       ['drivers/cpufreq']],
      ['iommu',
       ['drivers/iommu']],
-     ['soundwire',
-      ['drivers/soundwire', 'include/linux/soundwire']],
-     ['remoteproc',
-      ['drivers/remoteproc', 'drivers/rpmsg', 'include/linux/rpmsg']],
-     ['mfd',
-      ['drivers/mfd']],
      ['drivers/soc',
       ['drivers/soc', 'include/linux/soc']],
      ['arch/arm64',
@@ -257,7 +246,7 @@ topiclist = [['chromeos',
     ]
 
 topiclist_consolidated = [
-    ['cros_ec', ['cros_ec/iio', 'cros_ec/wilco', 'cros_ec/extcon', 'cros_ec']],
+    ['cros_ec', ['cros_ec/iio', 'cros_ec/wilco', 'cros_ec']],
     [
         'drm',
         [
@@ -281,9 +270,9 @@ topiclist_consolidated = [
     [
         'drivers',
         [
-            'drivers', 'iio', 'input', 'usb', 'usb-gadget', 'mmc', 'mtd',
+            'drivers', 'iio', 'input', 'usb', 'usb-gadget', 'mmc',
             'drivers/mediatek', 'drivers/rockchip', 'iommu', 'mfd',
-            'remoteproc', 'devfreq', 'regulator', 'scsi', 'soundwire',
+            'devfreq', 'regulator', 'scsi', 'soundwire',
             'video'
         ]
     ],
@@ -306,7 +295,7 @@ topiclist_short = [
         'devicetree',
         ]
     ],
-    ['cros_ec', ['cros_ec/iio', 'cros_ec/wilco', 'cros_ec/extcon', 'cros_ec']],
+    ['cros_ec', ['cros_ec/iio', 'cros_ec/wilco', 'cros_ec']],
     [
         'drm',
         [
@@ -332,7 +321,7 @@ topiclist_short = [
         [
             'drivers', 'iio', 'input', 'mmc', 'mtd',
             'drivers/mediatek', 'drivers/rockchip', 'iommu', 'mfd',
-            'remoteproc', 'devfreq', 'regulator', 'scsi', 'soundwire',
+            'devfreq', 'regulator', 'scsi',
             'video'
         ]
     ],
