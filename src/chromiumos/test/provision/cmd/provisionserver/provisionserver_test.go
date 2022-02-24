@@ -57,9 +57,9 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/*/*/dlc_b/verified"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/full_dev_part_KERN.bin.gz"),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_KERN.bin.gz"),
 			gomock.Eq("gzip -d | dd of=root_diskroot4 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot4 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/full_dev_part_ROOT.bin.gz"),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_ROOT.bin.gz"),
 			gomock.Eq("gzip -d | dd of=root_diskroot5 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot5 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
 			"tmpmnt=$(mktemp -d)",
@@ -87,7 +87,7 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/.update_available", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new"})).Return("", nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(nil),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("echo"), []string{"-n", "clobber", ">", "/mnt/stateful_partition/.update_available"}).Return("", nil),
 		sam.EXPECT().Restart(gomock.Any()).Return(nil),
 	)
@@ -160,9 +160,9 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/*/*/dlc_b/verified"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/full_dev_part_KERN.bin.gz"),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_KERN.bin.gz"),
 			gomock.Eq("gzip -d | dd of=root_diskroot4 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot4 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/full_dev_part_ROOT.bin.gz"),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_ROOT.bin.gz"),
 			gomock.Eq("gzip -d | dd of=root_diskroot5 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot5 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
 			"tmpmnt=$(mktemp -d)",
@@ -217,9 +217,9 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-f", "/var/cache/dlc/*/*/dlc_b/verified"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Return("", nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/full_dev_part_KERN.bin.gz"),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_KERN.bin.gz"),
 			gomock.Eq("gzip -d | dd of=root_diskroot4 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot4 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/full_dev_part_ROOT.bin.gz"),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_ROOT.bin.gz"),
 			gomock.Eq("gzip -d | dd of=root_diskroot5 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot5 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
 			"tmpmnt=$(mktemp -d)",
@@ -268,7 +268,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/.update_available", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new"})).Return("", nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(nil),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("echo"), []string{"-n", "clobber", ">", "/mnt/stateful_partition/.update_available"}).Return("", nil),
 		sam.EXPECT().Restart(gomock.Any()).Return(nil),
 	)
@@ -307,7 +307,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		// Simulated error:
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/.update_available", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new"})).Return("", nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(errors.New("some copy error")),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(errors.New("some copy error")),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new", "/mnt/stateful_partition/.update_available"})).Return("", nil),
 	)
 
@@ -415,7 +415,7 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/.update_available", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new"})).Return("", nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(nil),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("echo"), []string{"-n", "clobber", ">", "/mnt/stateful_partition/.update_available"}).Return("", nil),
 		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/overwite.tar"), gomock.Eq("tar xf - -C /")).Return(nil),
 		sam.EXPECT().Restart(gomock.Any()).Return(nil),
