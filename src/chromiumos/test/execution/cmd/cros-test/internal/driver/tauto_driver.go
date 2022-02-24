@@ -66,7 +66,19 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, req *api
 		}
 		companionAddrs = append(companionAddrs, address)
 	}
-	args := newTautoArgs(addr, companionAddrs, testNames, resultsDir)
+
+	// Fill in DUT server var flags.
+	var dutServers []string
+	if primary.DutServer != nil {
+		dutServers = append(dutServers, fmt.Sprintf("%s:%d", primary.DutServer.Address, primary.DutServer.GetPort()))
+	}
+	for _, c := range companions {
+		if c.DutServer != nil {
+			dutServers = append(dutServers, fmt.Sprintf("%s:%d", c.DutServer.Address, c.DutServer.GetPort()))
+		}
+	}
+
+	args := newTautoArgs(addr, companionAddrs, testNames, dutServers, resultsDir)
 
 	// Run RTD.
 	cmd := exec.Command("/usr/bin/test_that", genTautoArgList(args)...)
@@ -120,6 +132,7 @@ const (
 	autotestDirFlag     = "--autotest_dir"
 	tautoResultsDirFlag = "--results_dir"
 	companionFlag       = "--companion_hosts"
+	dutServerFlag       = "--dut_servers"
 )
 
 // tautoRunArgs stores arguments to invoke tauto
@@ -130,7 +143,7 @@ type tautoRunArgs struct {
 }
 
 // newTautoArgs created an argument structure for invoking tauto
-func newTautoArgs(dut string, companions, tests []string, resultsDir string) *tautoRunArgs {
+func newTautoArgs(dut string, companions, tests, dutServers []string, resultsDir string) *tautoRunArgs {
 	args := tautoRunArgs{
 		target: dut,
 		runFlags: map[string]string{
@@ -141,13 +154,17 @@ func newTautoArgs(dut string, companions, tests []string, resultsDir string) *ta
 		companionsAddresses := strings.Join(companions, ",")
 		args.runFlags[companionFlag] = companionsAddresses
 	}
+	if len(dutServers) > 0 {
+		dutServerAddresses := strings.Join(dutServers, ",")
+		args.runFlags[dutServerFlag] = dutServerAddresses
+	}
 
 	args.patterns = tests // TO-DO Support Tags
 	args.runFlags[tautoResultsDirFlag] = resultsDir
 	return &args
 }
 
-// genArgList generates argument list for invoking Tauto
+// genTautoArgList generates argument list for invoking Tauto
 func genTautoArgList(args *tautoRunArgs) (argList []string) {
 	for flag, value := range args.runFlags {
 		argList = append(argList, fmt.Sprintf("%v=%v", flag, value))

@@ -14,6 +14,7 @@ import (
 // TestNewTautoArgs makes sure newTautoArgs creates the correct arguments for tauto.
 func TestNewTautoArgs(t *testing.T) {
 	companions := []string{"companion1", "companion2"}
+	dutServers := []string{"localhost:2222", "localhost:2223", "localhost:2224"}
 	expectedArgs := tautoRunArgs{
 		target:   dut1,
 		patterns: []string{test1, test2, test3, test4, test5},
@@ -21,12 +22,13 @@ func TestNewTautoArgs(t *testing.T) {
 			tautoResultsDirFlag: workDir1,
 			autotestDirFlag:     "/usr/local/autotest/",
 			companionFlag:       "companion1,companion2",
+			dutServerFlag:       "localhost:2222,localhost:2223,localhost:2224",
 		},
 	}
 
 	dut := dut1
 	tests := []string{test1, test2, test3, test4, test5}
-	args := newTautoArgs(dut, companions, tests, workDir1)
+	args := newTautoArgs(dut, companions, tests, dutServers, workDir1)
 	if diff := cmp.Diff(args, &expectedArgs, cmp.AllowUnexported(tautoRunArgs{})); diff != "" {
 		t.Errorf("Got unexpected argument from newTautoArgs (-got +want):\n%s", diff)
 	}
