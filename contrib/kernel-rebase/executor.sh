@@ -5,11 +5,9 @@
 # found in the LICENSE file.
 
 # the path as seen from the SDK
-ROOT=$(dirname "$0")
+cd "$(dirname "$0")" || exit
 
-# PYTHONPATH should be defined globally
-# shellcheck disable=SC2154
-IO="${ROOT}"/$(PYTHONPATH=${ROOT}:${PYTHONPATH} python3 -c "from common import executor_io; print(executor_io)")
+IO=$(python3 -c "from common import executor_io; print(executor_io)")
 
 mkdir -p "${IO}"
 function cleanup {
