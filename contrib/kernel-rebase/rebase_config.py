@@ -223,3 +223,4 @@ disp_overlay['abf0993da7e1'] = 'drop' # FROMGIT: drm/mediatek: Get rid of mtk_sm
 disp_overlay['50af28b0ad3b'] = 'drop' # CHROMIUM: drm/mediatek: revert fine tune the dsi panel's power sequence
 disp_overlay['b5652af7c555'] = 'drop' # FROMGIT: drm/mediatek: Add pm runtime support for ovl and rdma
 disp_overlay['423c46c6f10b'] = 'drop' # Revert "FROMLIST: memory: mtk-smi: Get rid of mtk_smi_larb_get/put"
+disp_overlay['9ffdf344327e'] = 'drop' # FROMGIT: drm/dp: Move DisplayPort AUX bus helpers into dp/
