@@ -16,6 +16,7 @@ type ClientInterface interface {
 	Close() error
 	NewSession() (SessionInterface, error)
 	Wait() error
+	IsAlive() bool
 }
 
 type SSHClient struct {
@@ -36,6 +37,11 @@ func (c *SSHClient) NewSession() (SessionInterface, error) {
 
 func (c *SSHClient) Wait() error {
 	return c.Client.Wait()
+}
+
+func (c *SSHClient) IsAlive() bool {
+	_, _, err := c.Client.SendRequest("keepalive@openssh.org", true, nil)
+	return err == nil
 }
 
 type SessionInterface interface {

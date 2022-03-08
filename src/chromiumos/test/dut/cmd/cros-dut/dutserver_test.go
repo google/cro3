@@ -35,6 +35,7 @@ func TestDutServiceServer_CommandWorks(t *testing.T) {
 	var se io.Writer
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
 		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
@@ -120,6 +121,7 @@ func TestDutServiceServer_CommandOptionCombineWorks(t *testing.T) {
 	var se io.Writer
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
 		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
@@ -194,6 +196,7 @@ func TestDutServiceServer_CommandFails(t *testing.T) {
 	var se io.Writer
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
 		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
@@ -279,6 +282,7 @@ func TestDutServiceServer_PreCommandFails(t *testing.T) {
 	var se io.Writer
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
 		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
@@ -348,6 +352,64 @@ func TestDutServiceServer_PreCommandFails(t *testing.T) {
 	}
 }
 
+// Tests that IsAliveFailure leads to a reconnect
+func TestDutServiceServer_IsAliveFailureInCommandReconnects(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+
+	mci.EXPECT().IsAlive().Return(false)
+	mci.EXPECT().Close()
+
+	var logBuf bytes.Buffer
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal("Failed to create a net listener: ", err)
+	}
+
+	ctx := context.Background()
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "", 0, "dutname", "wiringaddress", "cacheaddress")
+	defer destructor()
+	if err != nil {
+		t.Fatalf("Failed to start DutServiceServer: %v", err)
+	}
+	go srv.Serve(l)
+	defer srv.Stop()
+
+	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial: %v", err)
+	}
+	defer conn.Close()
+
+	cl := api.NewDutServiceClient(conn)
+	stream, err := cl.ExecCommand(ctx, &api.ExecCommandRequest{
+		Command: "command",
+		Args:    []string{"arg1", "arg2"},
+		Stdin:   []byte{},
+		Stdout:  api.Output_OUTPUT_PIPE,
+		Stderr:  api.Output_OUTPUT_PIPE,
+	})
+	if err != nil {
+		t.Fatalf("Failed at api.ExecCommand: %v", err)
+	}
+
+	resp := &api.ExecCommandResponse{}
+	err = stream.RecvMsg(resp)
+
+	// technically if we get to the reconnect step, we did everything right, so
+	// rather than mock the reconnect step, we assume that if we got there, we are
+	// successful
+	if resp.ExitInfo == nil {
+		t.Fatalf("Exit info should be populated")
+	}
+	if !strings.Contains(resp.ExitInfo.ErrorMessage, "connection error") {
+		t.Fatalf("Failed at api.ExecCommand: %v", err)
+	}
+
+}
+
 // Tests that a session fails
 func TestDutServiceServer_NewSessionFails(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -356,6 +418,7 @@ func TestDutServiceServer_NewSessionFails(t *testing.T) {
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(nil, errors.New("Session failed.")),
 		mci.EXPECT().Close(),
 	)
@@ -428,6 +491,7 @@ func TestDutServiceServer_FetchCrasesPathExistsFails(t *testing.T) {
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return(nil, errors.New("command failed!")),
 		msi.EXPECT().Close(),
@@ -477,6 +541,7 @@ func TestDutServiceServer_FetchCrasesPathExistsMissing(t *testing.T) {
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return([]byte("0"), nil),
 		msi.EXPECT().Close(),
@@ -525,6 +590,7 @@ func TestDutServiceServer_FetchCrasesNewSessionFailure(t *testing.T) {
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(nil, errors.New("Session failed.")),
 		mci.EXPECT().Close(),
 	)
@@ -572,6 +638,7 @@ func TestDutServiceServer_FetchCrasesSessionStartFailure(t *testing.T) {
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return([]byte("1"), nil),
 		msi.EXPECT().Close(),
@@ -628,6 +695,7 @@ func TestDutServiceServer_FetchCrasesPipeFailure(t *testing.T) {
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return([]byte("1"), nil),
 		msi.EXPECT().Close(),
@@ -680,6 +748,7 @@ func TestRestart(t *testing.T) {
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().Output(gomock.Eq("reboot some args")).Return([]byte("reboot output"), nil),
 		msi.EXPECT().Close(),
@@ -730,6 +799,7 @@ func TestCache(t *testing.T) {
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().Output(gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/download/source/path")).Return([]byte("curl output"), nil),
 		msi.EXPECT().Close(),
@@ -789,6 +859,7 @@ func TestCachePipe(t *testing.T) {
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().Output(gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60 cacheaddress/download/source/path | piped commands")).Return([]byte("curl output"), nil),
 		msi.EXPECT().Close(),
@@ -848,6 +919,7 @@ func TestUntarCache(t *testing.T) {
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().Output(gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/extract/source/path?file=somefile")).Return([]byte("curl output"), nil),
 		msi.EXPECT().Close(),
@@ -909,6 +981,7 @@ func TestUnzipCache(t *testing.T) {
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().Output(gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/decompress/source/path")).Return([]byte("curl output"), nil),
 		msi.EXPECT().Close(),
@@ -1019,6 +1092,7 @@ func TestCacheFailsCommandFails(t *testing.T) {
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
 	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().Output(gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/download/source/path")).Return([]byte(""), fmt.Errorf("couldn't download")),
 		msi.EXPECT().Close(),

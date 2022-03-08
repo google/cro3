@@ -300,18 +300,24 @@ func (s *DutServiceServer) ForceReconnect(ctx context.Context, req *api.ForceRec
 
 	op := s.manager.NewOperation()
 
-	conn, err := GetConnection(ctx, s.dutName, s.wiringAddress)
-
-	if err != nil {
+	if err := s.reconnect(ctx); err != nil {
 		return nil, err
 	}
 	s.manager.SetResult(op.Name, &api.CacheResponse{
 		Result: &api.CacheResponse_Success_{},
 	})
 
-	s.connection = &dutssh.SSHClient{Client: conn}
-
 	return op, nil
+}
+
+// reconnect starts a new ssh client connection
+func (s *DutServiceServer) reconnect(ctx context.Context) error {
+	conn, err := GetConnection(ctx, s.dutName, s.wiringAddress)
+	if err != nil {
+		return err
+	}
+	s.connection = &dutssh.SSHClient{Client: conn}
+	return nil
 }
 
 // readFetchCrashesProto reads stdout and transforms it into a FetchCrashesResponse
@@ -365,6 +371,13 @@ func GetConnection(ctx context.Context, dutIdentifier string, wiringAddress stri
 
 // runCmd run remote command returning return value, stdout, stderr, and error if any
 func (s *DutServiceServer) runCmd(cmd string, stdin io.Reader, combined bool) *api.ExecCommandResponse {
+	if !s.connection.IsAlive() {
+		if err := s.reconnect(context.Background()); err != nil {
+			return &api.ExecCommandResponse{
+				ExitInfo: createFailedToStartExitInfo(err),
+			}
+		}
+	}
 	session, err := s.connection.NewSession()
 	if err != nil {
 		return &api.ExecCommandResponse{
@@ -397,6 +410,11 @@ func (s *DutServiceServer) runCmd(cmd string, stdin io.Reader, combined bool) *a
 // runCmdOutput interprets the given string command in a shell and returns stdout.
 // Overall this is a simplified version of runCmd which only returns output.
 func (s *DutServiceServer) runCmdOutput(cmd string) (string, error) {
+	if !s.connection.IsAlive() {
+		if err := s.reconnect(context.Background()); err != nil {
+			return "", err
+		}
+	}
 	session, err := s.connection.NewSession()
 	if err != nil {
 		return "", err

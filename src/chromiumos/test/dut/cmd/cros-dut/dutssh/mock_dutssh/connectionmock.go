@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2022 The Chromium OS Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,6 @@
 // Package mock_dutssh is a generated GoMock package.
 package mock_dutssh
 
-//Removing until internal gomock gets updated
 import (
 	dutssh "chromiumos/test/dut/cmd/cros-dut/dutssh"
 	io "io"
@@ -52,6 +51,20 @@ func (m *MockClientInterface) Close() error {
 func (mr *MockClientInterfaceMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockClientInterface)(nil).Close))
+}
+
+// IsAlive mocks base method.
+func (m *MockClientInterface) IsAlive() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsAlive")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsAlive indicates an expected call of IsAlive.
+func (mr *MockClientInterfaceMockRecorder) IsAlive() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAlive", reflect.TypeOf((*MockClientInterface)(nil).IsAlive))
 }
 
 // NewSession mocks base method.
