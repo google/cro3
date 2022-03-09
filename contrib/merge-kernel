@@ -782,7 +782,7 @@ do_merge() {
       die "Please resolve conflicts, commit changes, and then rerun the merge script.\nMake sure you have 'git rerere' enabled."
     fi
     echo "All conflicts resolved, continuing"
-    content_conflicts=($(grep -e 'CONFLICT.*content' "${tmpfile}" \
+    content_conflicts=($(grep -e 'CONFLICT.*[content|add]' "${tmpfile}" \
                  | sed -e 's/.*Merge conflict in //'))
     delete_conflicts=($(grep -e 'CONFLICT.*delete' "${tmpfile}" \
                  | awk '{print $3;}'  ))
