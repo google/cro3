@@ -8,6 +8,9 @@ package compatibility
 
 import (
 	"fmt"
+	"math/rand"
+
+	"chromiumos/test/plan/internal/compatibility/priority"
 
 	"github.com/golang/glog"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
@@ -22,9 +25,8 @@ import (
 )
 
 // getAttrFromCriteria finds the DutCriterion with attribute id attr in
-// criteria. If the DutCriterion is not found or has more than one value, an
-// error is returned.
-func getAttrFromCriteria(criteria []*testpb.DutCriterion, attr *testpb.DutAttribute) (string, error) {
+// criteria. If the DutCriterion is not found an error is returned.
+func getAttrFromCriteria(criteria []*testpb.DutCriterion, attr *testpb.DutAttribute) ([]string, error) {
 	for _, criterion := range criteria {
 		isAttr := false
 		if criterion.GetAttributeId().GetValue() == attr.GetId().GetValue() {
@@ -39,15 +41,54 @@ func getAttrFromCriteria(criteria []*testpb.DutCriterion, attr *testpb.DutAttrib
 		}
 
 		if isAttr {
-			if len(criterion.GetValues()) != 1 {
-				return "", fmt.Errorf("only DutCriterion with exactly one value supported, got %q", criterion)
+			if len(criterion.GetValues()) == 0 {
+				return nil, fmt.Errorf("only DutCriterion with at least one value supported, got %q", criterion)
 			}
 
-			return criterion.GetValues()[0], nil
+			return criterion.GetValues(), nil
 		}
 	}
 
-	return "", fmt.Errorf("attribute %q not found in DutCriterion %q", attr.GetId().GetValue(), criteria)
+	return nil, fmt.Errorf("attribute %q not found in DutCriterion %q", attr.GetId().GetValue(), criteria)
+}
+
+// Chooses a program from the options in programs to test. The choice is
+// determined by:
+// 1. Choose a program with a critial completed build. If there are multiple
+//    programs, choose with prioritySelector.
+// 2. Choose a program with a non-critial completed build. If there are multiple
+//    programs, choose with prioritySelector.
+// 3. Choose a program with prioritySelector.
+func chooseProgramToTest(
+	pool string,
+	programs []string,
+	buildInfos map[string]*buildInfo,
+	prioritySelector *priority.RandomWeightedSelector,
+) (string, error) {
+	var criticalPrograms, completedPrograms []string
+	for _, program := range programs {
+		buildInfo, found := buildInfos[program]
+		if found {
+			completedPrograms = append(completedPrograms, program)
+
+			if buildInfo.criticality == bbpb.Trinary_YES {
+				criticalPrograms = append(criticalPrograms, program)
+			}
+		}
+	}
+
+	if len(criticalPrograms) > 0 {
+		glog.V(2).Infof("Choosing between critical programs: %q", criticalPrograms)
+		return prioritySelector.Select(pool, criticalPrograms)
+	}
+
+	if len(completedPrograms) > 0 {
+		glog.V(2).Infof("Choosing between completed programs: %q", completedPrograms)
+		return prioritySelector.Select(pool, completedPrograms)
+	}
+
+	glog.V(2).Info("No completed programs found.")
+	return prioritySelector.Select(pool, programs)
 }
 
 // extractFromProtoStruct returns the path pointed to by fields. For example,
@@ -100,6 +141,7 @@ func extractStringFromProtoStruct(s *structpb.Struct, fields ...string) (string,
 type buildInfo struct {
 	buildTarget string
 	builderName string
+	criticality bbpb.Trinary
 	payload     *testplans.BuildPayload
 }
 
@@ -184,6 +226,7 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 		buildInfos = append(buildInfos, &buildInfo{
 			buildTarget: buildTarget,
 			builderName: build.GetBuilder().GetBuilder(),
+			criticality: build.GetCritical(),
 			payload: &testplans.BuildPayload{
 				ArtifactsGsBucket: artifacts_gs_bucket,
 				ArtifactsGsPath:   artifacts_gs_path,
@@ -205,8 +248,11 @@ type suiteInfo struct {
 // extractSuiteInfos returns a map from program name to suiteInfos for the
 // program. There is one suiteInfo per CoverageRule in hwTestPlans.
 func extractSuiteInfos(
+	rnd *rand.Rand,
 	hwTestPlans []*test_api_v1.HWTestPlan,
 	dutAttributeList *testpb.DutAttributeList,
+	boardPriorityList *testplans.BoardPriorityList,
+	boardToBuildInfo map[string]*buildInfo,
 ) (map[string][]*suiteInfo, error) {
 	// Find the program and pool attributes in the DutAttributeList.
 	var programAttr, poolAttr *testpb.DutAttribute
@@ -227,6 +273,10 @@ func extractSuiteInfos(
 	}
 
 	programToSuiteInfos := map[string][]*suiteInfo{}
+	prioritySelector := priority.NewRandomWeightedSelector(
+		rnd,
+		boardPriorityList,
+	)
 
 	for _, hwTestPlan := range hwTestPlans {
 		for _, rule := range hwTestPlan.GetCoverageRules() {
@@ -236,18 +286,32 @@ func extractSuiteInfos(
 
 			dutTarget := rule.GetDutTargets()[0]
 
-			program, err := getAttrFromCriteria(dutTarget.GetCriteria(), programAttr)
+			pools, err := getAttrFromCriteria(dutTarget.GetCriteria(), poolAttr)
 			if err != nil {
 				return nil, err
 			}
 
-			if _, ok := programToSuiteInfos[program]; !ok {
-				programToSuiteInfos[program] = []*suiteInfo{}
+			if len(pools) != 1 {
+				return nil, fmt.Errorf("only DutCriteria with exactly one \"pool\" argument are supported, got %q", pools)
 			}
 
-			pool, err := getAttrFromCriteria(dutTarget.GetCriteria(), poolAttr)
+			pool := pools[0]
+
+			programs, err := getAttrFromCriteria(dutTarget.GetCriteria(), programAttr)
 			if err != nil {
 				return nil, err
+			}
+
+			chosenProgram, err := chooseProgramToTest(
+				pool, programs, boardToBuildInfo, prioritySelector,
+			)
+			if err != nil {
+				return nil, err
+			}
+			glog.V(2).Infof("chose program %q from possible programs %q", chosenProgram, programs)
+
+			if _, ok := programToSuiteInfos[chosenProgram]; !ok {
+				programToSuiteInfos[chosenProgram] = []*suiteInfo{}
 			}
 
 			if len(dutTarget.GetCriteria()) != 2 {
@@ -264,10 +328,10 @@ func extractSuiteInfos(
 				}
 
 				for _, id := range testCaseIds.GetTestCaseIds() {
-					programToSuiteInfos[program] = append(
-						programToSuiteInfos[program],
+					programToSuiteInfos[chosenProgram] = append(
+						programToSuiteInfos[chosenProgram],
 						&suiteInfo{
-							program: program,
+							program: chosenProgram,
 							pool:    pool,
 							suite:   id.Value,
 						})
@@ -288,24 +352,37 @@ func extractSuiteInfos(
 // - Both the "attr-program" and "swarming-pool" DutAttributes must be used in
 //   each DutTarget, and only these DutAttributes are allowed, i.e. each
 //   DutTarget must use exactly these attributes.
-// - Only one value per DutCriterion is allowed, e.g. a rule that specifies a
-// 	 test should run on either "programA" or "programB" is not allowed.
+// - Multiple values for "attr-program" are allowed, a program will be chosen
+//   randomly proportional to the board's priority in boardPriorityList
+//   (lowest priority is most likely to get chosen, negative priorities are
+//   allowed, programs without a priority get priority 0).
 // - Only TestCaseIds are supported (no tag-based testing).
 //
 // generateTestPlanReq is needed to provide Build protos for the builds being
 // tested. dutAttributeList must contain the "attr-program" and "swarming-pool"
 // DutAttributes.
 func ToCTP1(
+	rnd *rand.Rand,
 	hwTestPlans []*test_api_v1.HWTestPlan,
 	generateTestPlanReq *testplans.GenerateTestPlanRequest,
 	dutAttributeList *testpb.DutAttributeList,
+	boardPriorityList *testplans.BoardPriorityList,
 ) (*testplans.GenerateTestPlanResponse, error) {
 	buildInfos, err := parseBuildProtos(generateTestPlanReq.GetBuildbucketProtos())
 	if err != nil {
 		return nil, err
 	}
 
-	programToSuiteInfos, err := extractSuiteInfos(hwTestPlans, dutAttributeList)
+	// Form maps from board to buildInfo, which will be needed by calls to
+	// extractSuiteInfos.
+	boardToBuildInfo := map[string]*buildInfo{}
+	for _, buildInfo := range buildInfos {
+		boardToBuildInfo[buildInfo.buildTarget] = buildInfo
+	}
+
+	programToSuiteInfos, err := extractSuiteInfos(
+		rnd, hwTestPlans, dutAttributeList, boardPriorityList, boardToBuildInfo,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -336,6 +413,8 @@ func ToCTP1(
 					},
 				},
 			})
+
+			glog.V(2).Infof("added HwTest %q", hwTests[len(hwTests)-1])
 		}
 
 		hwTestUnit := &testplans.HwTestUnit{

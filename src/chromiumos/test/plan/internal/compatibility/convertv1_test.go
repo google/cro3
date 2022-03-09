@@ -4,9 +4,11 @@
 package compatibility_test
 
 import (
-	"chromiumos/test/plan/internal/compatibility"
+	"math/rand"
 	"strings"
 	"testing"
+
+	"chromiumos/test/plan/internal/compatibility"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
@@ -71,13 +73,14 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 								AttributeId: &testpb.DutAttribute_Id{
 									Value: "attr-design",
 								},
-								Values: []string{"boardA"},
+								// "boardA" will be chosen, since it is critical and has the lowest priority.
+								Values: []string{"boardC", "boardA", "boardB", "non-critical-board"},
 							},
 							{
 								AttributeId: &testpb.DutAttribute_Id{
 									Value: "swarming-pool",
 								},
-								Values: []string{"testpool"},
+								Values: []string{"DUT_POOL_QUOTA"},
 							},
 						},
 					},
@@ -119,6 +122,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 				},
 			}),
 		},
+		Critical: bbpb.Trinary_YES,
 	}
 
 	build2 := &bbpb.Build{
@@ -143,9 +147,59 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 				},
 			}),
 		},
+		Critical: bbpb.Trinary_YES,
 	}
 
 	build3 := &bbpb.Build{
+		Builder: &bbpb.BuilderID{
+			Builder: "cq-builderC",
+		},
+		Input: &bbpb.Build_Input{
+			Properties: newStruct(t, map[string]interface{}{
+				"build_target": map[string]interface{}{
+					"name": "boardC",
+				},
+			}),
+		},
+		Output: &bbpb.Build_Output{
+			Properties: newStruct(t, map[string]interface{}{
+				"artifacts": map[string]interface{}{
+					"gs_bucket": "testgsbucket",
+					"gs_path":   "testgspathC",
+					"files_by_artifact": map[string]interface{}{
+						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+					},
+				},
+			}),
+		},
+	}
+
+	build4 := &bbpb.Build{
+		Builder: &bbpb.BuilderID{
+			Builder: "non-critical-builder",
+		},
+		Input: &bbpb.Build_Input{
+			Properties: newStruct(t, map[string]interface{}{
+				"build_target": map[string]interface{}{
+					"name": "non-critical-board",
+				},
+			}),
+		},
+		Output: &bbpb.Build_Output{
+			Properties: newStruct(t, map[string]interface{}{
+				"artifacts": map[string]interface{}{
+					"gs_bucket": "testgsbucket",
+					"gs_path":   "testgspath",
+					"files_by_artifact": map[string]interface{}{
+						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+					},
+				},
+			}),
+		},
+		Critical: bbpb.Trinary_NO,
+	}
+
+	build5 := &bbpb.Build{
 		Builder: &bbpb.BuilderID{
 			Builder: "pointless-build",
 		},
@@ -156,7 +210,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 		},
 	}
 
-	build4 := &bbpb.Build{
+	build6 := &bbpb.Build{
 		Builder: &bbpb.BuilderID{
 			Builder: "no-build-target-build",
 		},
@@ -183,6 +237,8 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 		serializeOrFatal(t, build2),
 		serializeOrFatal(t, build3),
 		serializeOrFatal(t, build4),
+		serializeOrFatal(t, build5),
+		serializeOrFatal(t, build6),
 	}
 }
 
@@ -202,12 +258,26 @@ var dutAttributeList = &testpb.DutAttributeList{
 	},
 }
 
+var boardPriorityList = &testplans.BoardPriorityList{
+	BoardPriorities: []*testplans.BoardPriority{
+		{
+			SkylabBoard: "boardA", Priority: -100,
+		},
+		{
+			SkylabBoard: "boardB", Priority: 100,
+		},
+	},
+}
+
 func TestToCTP1(t *testing.T) {
 	req := &testplans.GenerateTestPlanRequest{
 		BuildbucketProtos: getSerializedBuilds(t),
 	}
 
-	resp, err := compatibility.ToCTP1(hwTestPlans, req, dutAttributeList)
+	resp, err := compatibility.ToCTP1(
+		rand.New(rand.NewSource(7)),
+		hwTestPlans, req, dutAttributeList, boardPriorityList,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +307,7 @@ func TestToCTP1(t *testing.T) {
 							},
 							Suite:       "suite1",
 							SkylabBoard: "boardA",
-							Pool:        "testpool",
+							Pool:        "DUT_POOL_QUOTA",
 						},
 						{
 							Common: &testplans.TestSuiteCommon{
@@ -246,7 +316,7 @@ func TestToCTP1(t *testing.T) {
 							},
 							Suite:       "suite2",
 							SkylabBoard: "boardA",
-							Pool:        "testpool",
+							Pool:        "DUT_POOL_QUOTA",
 						},
 					},
 				},
@@ -278,7 +348,7 @@ func TestToCTP1Errors(t *testing.T) {
 											AttributeId: &testpb.DutAttribute_Id{
 												Value: "swarming-pool",
 											},
-											Values: []string{"testpool"},
+											Values: []string{"DUT_POOL_QUOTA"},
 										},
 									},
 								},
@@ -316,6 +386,56 @@ func TestToCTP1Errors(t *testing.T) {
 			err:              "attribute \"swarming-pool\" not found in DutCriterion",
 		},
 		{
+
+			name: "missing pool DUT attribute",
+			hwTestPlans: []*test_api_v1.HWTestPlan{
+				{
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"programA"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+		},
+		{
+			name: "criteria with no values",
+			hwTestPlans: []*test_api_v1.HWTestPlan{
+				{
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+			err:              "only DutCriterion with at least one value supported",
+		},
+		{
 			name: "invalid DUT attribute",
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
@@ -334,7 +454,7 @@ func TestToCTP1Errors(t *testing.T) {
 											AttributeId: &testpb.DutAttribute_Id{
 												Value: "swarming-pool",
 											},
-											Values: []string{"testpool"},
+											Values: []string{"DUT_POOL_QUOTA"},
 										},
 										{
 											AttributeId: &testpb.DutAttribute_Id{
@@ -353,7 +473,7 @@ func TestToCTP1Errors(t *testing.T) {
 			err:              "expected DutTarget to use exactly criteria \"attr-program\" and \"swarming-pool\"",
 		},
 		{
-			name: "multiple program values",
+			name: "multiple pool values",
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
 					CoverageRules: []*testpb.CoverageRule{
@@ -363,9 +483,15 @@ func TestToCTP1Errors(t *testing.T) {
 									Criteria: []*testpb.DutCriterion{
 										{
 											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{"testpoolA", "testpoolB"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
 												Value: "attr-program",
 											},
-											Values: []string{"programA", "programB"},
+											Values: []string{"boardA", "boardB"},
 										},
 									},
 								},
@@ -375,7 +501,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "only DutCriterion with exactly one value supported",
+			err:              "only DutCriteria with exactly one \"pool\" argument are supported",
 		},
 		{
 			name: "test tags used",
@@ -396,7 +522,7 @@ func TestToCTP1Errors(t *testing.T) {
 											AttributeId: &testpb.DutAttribute_Id{
 												Value: "swarming-pool",
 											},
-											Values: []string{"testpool"},
+											Values: []string{"DUT_POOL_QUOTA"},
 										},
 									},
 								},
@@ -473,7 +599,10 @@ func TestToCTP1Errors(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := compatibility.ToCTP1(tc.hwTestPlans, req, tc.dutAttributeList)
+			_, err := compatibility.ToCTP1(
+				rand.New(rand.NewSource(7)),
+				tc.hwTestPlans, req, tc.dutAttributeList, boardPriorityList,
+			)
 			if err == nil {
 				t.Error("Expected error from ToCTP1")
 			}

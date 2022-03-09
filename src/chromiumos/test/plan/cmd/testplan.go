@@ -13,9 +13,11 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
@@ -150,6 +152,13 @@ Evaluates Starlark files to generate HWTestPlans as newline-delimited json proto
 				"JSON or binary proto. Should be set iff ctpv1 is set.",
 		)
 		r.Flags.StringVar(
+			&r.boardPriorityListPath,
+			"boardprioritylist",
+			"",
+			"Path to a proto file containing a BoardPriorityList. Can be JSON"+
+				"or binary proto. Should be set iff ctpv1 is set.",
+		)
+		r.Flags.StringVar(
 			&r.out,
 			"out",
 			"",
@@ -177,6 +186,7 @@ type generateRun struct {
 	flatConfigListPath      string
 	ctpV1                   bool
 	generateTestPlanReqPath string
+	boardPriorityListPath   string
 	out                     string
 	textSummaryOut          string
 }
@@ -331,6 +341,10 @@ func (r *generateRun) validateFlags() error {
 		return errors.New("-generatetestplanreq must be set iff -out is set.")
 	}
 
+	if r.ctpV1 != (r.boardPriorityListPath != "") {
+		return errors.New("-boardprioritylist must be set iff -out is set.")
+	}
+
 	return nil
 }
 
@@ -391,7 +405,15 @@ func (r *generateRun) run() error {
 			return err
 		}
 
-		resp, err := compatibility.ToCTP1(hwTestPlans, generateTestPlanReq, dutAttributeList)
+		boardPriorityList := &testplans.BoardPriorityList{}
+		if err := readBinaryOrJSONPb(r.boardPriorityListPath, boardPriorityList); err != nil {
+			return err
+		}
+
+		resp, err := compatibility.ToCTP1(
+			rand.New(rand.NewSource(time.Now().Unix())),
+			hwTestPlans, generateTestPlanReq, dutAttributeList, boardPriorityList,
+		)
 		if err != nil {
 			return err
 		}
