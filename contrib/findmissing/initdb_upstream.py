@@ -7,6 +7,7 @@
 
 """Module parses and stores mainline linux patches to be easily accessible."""
 
+import contextlib
 import logging
 import re
 import subprocess
@@ -148,7 +149,6 @@ def update_upstream_table(branch, start, db):
 
 
 if __name__ == '__main__':
-    cloudsql_db = common.connect_db()
-    kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_upstream)
-    common.update_kernel_db(cloudsql_db, kernel_metadata)
-    cloudsql_db.close()
+    with contextlib.closing(common.connect_db()) as cloudsql_db:
+        kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_upstream)
+        common.update_kernel_db(cloudsql_db, kernel_metadata)

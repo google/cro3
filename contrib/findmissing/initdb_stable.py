@@ -7,6 +7,7 @@
 
 """Module parses and stores data from stable linux patch."""
 
+import contextlib
 import logging
 import subprocess
 import MySQLdb # pylint: disable=import-error
@@ -83,7 +84,6 @@ def update_stable_table(branch, start, db):
 
 
 if __name__ == '__main__':
-    cloudsql_db = common.connect_db()
-    kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
-    common.update_kernel_db(cloudsql_db, kernel_metadata)
-    cloudsql_db.close()
+    with contextlib.closing(common.connect_db()) as cloudsql_db:
+        kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
+        common.update_kernel_db(cloudsql_db, kernel_metadata)

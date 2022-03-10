@@ -8,6 +8,7 @@
 """Setup module containing script to Synchronize kernel repositories + database."""
 
 
+import contextlib
 import logging
 import os
 import subprocess
@@ -89,11 +90,10 @@ def synchronize_repositories(local=False):
 
 def synchronize_databases():
     """Synchronizes the databases for upstream, stable, and chromeos."""
-    db = common.connect_db()
-    common.update_kernel_db(db, UPSTREAM_KERNEL_METADATA)
-    common.update_kernel_db(db, STABLE_KERNEL_METADATA)
-    common.update_kernel_db(db, CHROME_KERNEL_METADATA)
-    db.close()
+    with contextlib.closing(common.connect_db()) as db:
+        common.update_kernel_db(db, UPSTREAM_KERNEL_METADATA)
+        common.update_kernel_db(db, STABLE_KERNEL_METADATA)
+        common.update_kernel_db(db, CHROME_KERNEL_METADATA)
 
 
 def gerrit_status_to_db_status(gerrit_status):
@@ -105,32 +105,30 @@ def gerrit_status_to_db_status(gerrit_status):
 
 def synchronize_fixes_tables_with_gerrit():
     """Synchronizes the state of all OPEN/ABANDONED CL's with Gerrit."""
-    db = common.connect_db()
-    c = db.cursor(MySQLdb.cursors.DictCursor)
+    with contextlib.closing(common.connect_db()) as db:
+        c = db.cursor(MySQLdb.cursors.DictCursor)
 
-    # Find all OPEN/ABANDONED CL's in chrome_fixes
-    fixes_tables = ['stable_fixes', 'chrome_fixes']
+        # Find all OPEN/ABANDONED CL's in chrome_fixes
+        fixes_tables = ['stable_fixes', 'chrome_fixes']
 
-    for fixes_table in fixes_tables:
-        q = """SELECT branch, fix_change_id
-                FROM {fixes_table}
-                WHERE (status = 'OPEN' OR status = 'ABANDONED')
-                AND fix_change_id IS NOT NULL""".format(fixes_table=fixes_table)
-        c.execute(q)
-        rows = c.fetchall()
+        for fixes_table in fixes_tables:
+            q = """SELECT branch, fix_change_id
+                    FROM {fixes_table}
+                    WHERE (status = 'OPEN' OR status = 'ABANDONED')
+                    AND fix_change_id IS NOT NULL""".format(fixes_table=fixes_table)
+            c.execute(q)
+            rows = c.fetchall()
 
-        for row in rows:
-            try:
-                branch = row['branch']
-                fix_change_id = row['fix_change_id']
-                gerrit_status = gerrit_interface.get_status(fix_change_id, branch)
-                status = gerrit_status_to_db_status(gerrit_status)
-                cloudsql_interface.update_change_status(db, fixes_table, fix_change_id, status)
-            except KeyError as e:
-                logging.warning('Skipping syncing change-id %s with gerrit (%s)',
-                                fix_change_id, e)
-
-    db.close()
+            for row in rows:
+                try:
+                    branch = row['branch']
+                    fix_change_id = row['fix_change_id']
+                    gerrit_status = gerrit_interface.get_status(fix_change_id, branch)
+                    status = gerrit_status_to_db_status(gerrit_status)
+                    cloudsql_interface.update_change_status(db, fixes_table, fix_change_id, status)
+                except KeyError as e:
+                    logging.warning('Skipping syncing change-id %s with gerrit (%s)',
+                                    fix_change_id, e)
 
 
 if __name__ == '__main__':

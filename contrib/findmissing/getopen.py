@@ -26,6 +26,7 @@ The associated shell script enables this environment.
 
 
 import argparse
+import contextlib
 import re
 
 import common
@@ -229,16 +230,13 @@ def report_integration_status(branch=None, conflicts=False, chromium=False,
 
     synchronize.synchronize_repositories(True)
 
-    db = common.connect_db()
-
-    if branch:
-        report_integration_status_branch(db, metadata, handled_shas, branch, conflicts)
-    else:
-        for b in metadata.branches:
-            print('\nBranch: linux-%s.y\n' % b)
-            report_integration_status_branch(db, metadata, handled_shas, b, conflicts)
-
-    db.close()
+    with contextlib.closing(common.connect_db()) as db:
+        if branch:
+            report_integration_status_branch(db, metadata, handled_shas, branch, conflicts)
+        else:
+            for b in metadata.branches:
+                print('\nBranch: linux-%s.y\n' % b)
+                report_integration_status_branch(db, metadata, handled_shas, b, conflicts)
 
 
 def report_integration_status_parse():

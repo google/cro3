@@ -7,6 +7,7 @@
 
 """Module rebuilding database with metadata about chromeos patches."""
 
+import contextlib
 import logging
 import re
 import subprocess
@@ -103,7 +104,6 @@ def update_chrome_table(branch, start, db):
 
 
 if __name__ == '__main__':
-    cloudsql_db = common.connect_db()
-    kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
-    common.update_kernel_db(cloudsql_db, kernel_metadata)
-    cloudsql_db.close()
+    with contextlib.closing(common.connect_db()) as cloudsql_db:
+        kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
+        common.update_kernel_db(cloudsql_db, kernel_metadata)
