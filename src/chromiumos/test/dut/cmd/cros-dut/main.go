@@ -85,8 +85,7 @@ func main() {
 		}
 
 		if *port == 0 {
-			fmt.Println("Please specify the port.")
-			return 2
+			fmt.Println("Port not specified, using bind() command to request the next available dynamically allocated source port number.")
 		}
 
 		if *dutName == "" {
@@ -107,6 +106,8 @@ func main() {
 			logger.Fatalln("Failed to create a net listener: ", err)
 			return 2
 		}
+
+		logger.Println("Started server on address ", l.Addr().String())
 
 		ctx := context.Background()
 		conn, err := GetConnection(ctx, *dutName, *wiringAddress)
