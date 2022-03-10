@@ -228,15 +228,17 @@ def report_integration_status(branch=None, conflicts=False, chromium=False,
     else:
         metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
 
+    if branch:
+        branches = [branch]
+    else:
+        branches = metadata.branches
+
     synchronize.synchronize_repositories(True)
 
     with contextlib.closing(common.connect_db()) as db:
-        if branch:
-            report_integration_status_branch(db, metadata, branch, conflicts, handled_shas)
-        else:
-            for b in metadata.branches:
-                print('\nBranch: linux-%s.y\n' % b)
-                report_integration_status_branch(db, metadata, b, conflicts, handled_shas)
+        for b in branches:
+            print('\nBranch: %s\n' % metadata.get_kernel_branch(b))
+            report_integration_status_branch(db, metadata, b, conflicts, handled_shas)
 
 
 def report_integration_status_parse():
