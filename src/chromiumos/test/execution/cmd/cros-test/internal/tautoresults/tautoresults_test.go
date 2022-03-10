@@ -24,17 +24,20 @@ func TestTestsReports(t *testing.T) {
 	  {
 	  "verdict": "Pass",
 	  "testname": "infra_pass",
-	  "errmsg": ""
+	  "errmsg": "",
+  	  "resultspath": "/tmp/test/results/tauto/results-1-stub_FailServer"
 	},
 	  {
 	  "verdict": "Fail",
 	  "testname": "infra_fail",
-	  "errmsg": "OH NO IT FAILED Q_Q"
+	  "errmsg": "OH NO IT FAILED Q_Q",
+	  "resultspath": "/tmp/test/results/tauto/results-1-stub_FailServer"
 	},
 	  {
 	  "verdict": "Error",
 	  "testname": "infra_err",
-	  "errmsg": "I drove my car into a tree, and crashed."
+	  "errmsg": "I drove my car into a tree, and crashed.",
+	  "resultspath": "/tmp/test/results/tauto/results-1-stub_FailServer"
 	}]
 	}`
 	td, err := ioutil.TempDir("", "example")
@@ -57,7 +60,7 @@ func TestTestsReports(t *testing.T) {
 			TestCaseId: &api.TestCase_Id{Value: "infra_pass_id"},
 			ResultDirPath: &_go.StoragePath{
 				HostType: _go.StoragePath_LOCAL,
-				Path:     filepath.Join(resultsDir),
+				Path:     "/tmp/test/results/tauto/results-1-stub_FailServer",
 			},
 			Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
 			TestHarness: &api.TestHarness{
@@ -70,7 +73,7 @@ func TestTestsReports(t *testing.T) {
 			TestCaseId: &api.TestCase_Id{Value: "infra_fail_id"},
 			ResultDirPath: &_go.StoragePath{
 				HostType: _go.StoragePath_LOCAL,
-				Path:     filepath.Join(resultsDir),
+				Path:     "/tmp/test/results/tauto/results-1-stub_FailServer",
 			},
 			Verdict: &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}},
 			Reason:  "OH NO IT FAILED Q_Q",
@@ -84,7 +87,7 @@ func TestTestsReports(t *testing.T) {
 			TestCaseId: &api.TestCase_Id{Value: "infra_err_id"},
 			ResultDirPath: &_go.StoragePath{
 				HostType: _go.StoragePath_LOCAL,
-				Path:     filepath.Join(resultsDir),
+				Path:     "/tmp/test/results/tauto/results-1-stub_FailServer",
 			},
 			Verdict: &api.TestCaseResult_Crash_{Crash: &api.TestCaseResult_Crash{}},
 			Reason:  "I drove my car into a tree, and crashed.",

@@ -34,9 +34,10 @@ type results struct {
 
 // Test mirrors of the test_results.json example.
 type test struct {
-	Verdict  string `json:"verdict"`
-	Testname string `json:"testname"`
-	Errmsg   string `json:"errmsg"`
+	Verdict     string `json:"verdict"`
+	Testname    string `json:"testname"`
+	Errmsg      string `json:"errmsg"`
+	Resultspath string `json:"resultspath"`
 }
 
 // loadJSON unmarshals the json into the Report.RawResults struct.
@@ -59,7 +60,7 @@ func GenerateReport(test test, testID string, resultsDir string) *api.TestCaseRe
 		TestCaseId: &api.TestCase_Id{Value: testID},
 		ResultDirPath: &_go.StoragePath{
 			HostType: _go.StoragePath_LOCAL,
-			Path:     filepath.Join(resultsDir),
+			Path:     filepath.Join(test.Resultspath),
 		},
 		Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
 		TestHarness: &api.TestHarness{
