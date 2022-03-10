@@ -125,10 +125,11 @@ def report_integration_status_sha(handler, rc_handler, branch, branch_name, sha)
 
     print('      %s%s' % (branch_name, disposition))
 
-def report_integration_status_branch(db, metadata, branch, conflicts, handled_shas):
+def report_integration_status_branch(db, metadata, branch, conflicts,
+                                     chromium, handled_shas):
     """Report integration status for list of open patches in given repository and branch"""
 
-    if metadata.kernel_fixes_table == 'stable_fixes':
+    if not chromium:
         table = 'linux_stable'
         handler = git_interface.commitHandler(common.Kernel.linux_stable)
         rc_handler = git_interface.commitHandler(common.Kernel.linux_stable_rc)
@@ -238,7 +239,8 @@ def report_integration_status(branch=None, conflicts=False, chromium=False,
     with contextlib.closing(common.connect_db()) as db:
         for b in branches:
             print('\nBranch: %s\n' % metadata.get_kernel_branch(b))
-            report_integration_status_branch(db, metadata, b, conflicts, handled_shas)
+            report_integration_status_branch(db, metadata, b, conflicts,
+                                             chromium, handled_shas)
 
 
 def report_integration_status_parse():
