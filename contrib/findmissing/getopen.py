@@ -156,7 +156,7 @@ def report_integration_status_branch(db, metadata, branch, conflicts, handled_sh
         # another branch, we don't need to handle it again.
         if fixedby_sha in handled_shas:
             continue
-        handled_shas += [fixedby_sha]
+        handled_shas.add(fixedby_sha)
 
         print('Upstream commit %s ("%s")' % (fixedby_sha, fixedby_description))
 
@@ -221,7 +221,7 @@ def report_integration_status(branch=None, conflicts=False, chromium=False,
                               debug=False):
     """Report list of open patches"""
 
-    handled_shas = []
+    handled_shas = set()
 
     if chromium:
         metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
