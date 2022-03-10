@@ -520,8 +520,7 @@ def missing_patches_sync(db, kernel_metadata, sync_branch_method, limit=None):
 
 def new_missing_patches():
     """Rate limit calling create_new_fixes_in_branch."""
-    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb',
-                                  charset='utf8mb4')
+    cloudsql_db = common.connect_db()
     kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
     missing_patches_sync(cloudsql_db, kernel_metadata, create_new_fixes_in_branch,
                          NEW_CL_DAILY_LIMIT_PER_STABLE_BRANCH)
@@ -534,8 +533,7 @@ def new_missing_patches():
 
 def update_missing_patches():
     """Updates fixes table entries on regular basis."""
-    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb',
-                                  charset='utf8mb4')
+    cloudsql_db = common.connect_db()
 
     kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
     missing_patches_sync(cloudsql_db, kernel_metadata, update_fixes_in_branch)

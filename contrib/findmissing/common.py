@@ -7,6 +7,7 @@
 
 """Module containing shared helper methods."""
 
+import functools
 import logging
 import os
 import re
@@ -46,6 +47,8 @@ HOMEDIR = os.path.expanduser('~')
 GCE_GIT_COOKIE_PATH = os.path.join(HOMEDIR, '.git-credential-cache/cookie')
 LOCAL_GIT_COOKIE_PATH = os.path.join(HOMEDIR, '.gitcookies')
 
+connect_db = functools.partial(MySQLdb.Connect, user='linux_patches_robot',
+                               host='127.0.0.1', db='linuxdb')
 
 class Status(Enum):
     """Text representation of database enum to track status of gerrit CL."""

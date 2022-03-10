@@ -27,7 +27,6 @@ The associated shell script enables this environment.
 
 import argparse
 import re
-import MySQLdb # pylint: disable=import-error
 
 import common
 import git_interface
@@ -230,8 +229,7 @@ def report_integration_status(branch=None, conflicts=False, chromium=False,
 
     synchronize.synchronize_repositories(True)
 
-    db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb',
-                         charset='utf8mb4')
+    db = common.connect_db()
 
     if branch:
         report_integration_status_branch(db, metadata, handled_shas, branch, conflicts)

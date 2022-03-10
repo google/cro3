@@ -148,8 +148,7 @@ def update_upstream_table(branch, start, db):
 
 
 if __name__ == '__main__':
-    cloudsql_db = MySQLdb.Connect(user='linux_patches_robot', host='127.0.0.1', db='linuxdb',
-                                  charset='utf8mb4')
+    cloudsql_db = common.connect_db()
     kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_upstream)
     common.update_kernel_db(cloudsql_db, kernel_metadata)
     cloudsql_db.close()
