@@ -125,7 +125,7 @@ def report_integration_status_sha(handler, rc_handler, branch, branch_name, sha)
 
     print('      %s%s' % (branch_name, disposition))
 
-def report_integration_status_branch(db, metadata, handled_shas, branch, conflicts):
+def report_integration_status_branch(db, metadata, branch, conflicts, handled_shas):
     """Report integration status for list of open patches in given repository and branch"""
 
     if metadata.kernel_fixes_table == 'stable_fixes':
@@ -232,11 +232,11 @@ def report_integration_status(branch=None, conflicts=False, chromium=False,
 
     with contextlib.closing(common.connect_db()) as db:
         if branch:
-            report_integration_status_branch(db, metadata, handled_shas, branch, conflicts)
+            report_integration_status_branch(db, metadata, branch, conflicts, handled_shas)
         else:
             for b in metadata.branches:
                 print('\nBranch: linux-%s.y\n' % b)
-                report_integration_status_branch(db, metadata, handled_shas, b, conflicts)
+                report_integration_status_branch(db, metadata, b, conflicts, handled_shas)
 
 
 def report_integration_status_parse():
