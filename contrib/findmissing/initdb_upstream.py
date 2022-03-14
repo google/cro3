@@ -18,6 +18,7 @@ import common
 
 RF = re.compile(r'^\s*Fixes: (?:commit )*([0-9a-f]+).*')
 RDESC = re.compile(r'.* \("([^"]+)"\).*')
+REVERT = re.compile(r'^\s*This reverts commit ([0-9a-f]+).*')
 
 
 class Fix():
@@ -124,6 +125,24 @@ def update_upstream_table(branch, start, db):
                         # In that case, do nothing.
                 if fsha:
                     logging.info('Commit %s fixed by %s', fsha[0:12], sha)
+
+                    # Add fixes to list to be added after linux_upstream
+                    #  table is fully contructed to avoid Foreign key errors in SQL
+                    fix_obj = Fix(_upstream_sha=fsha[0:12], _fixedby_upstream_sha=sha)
+                    fixes.append(fix_obj)
+
+                m = REVERT.search(d)
+                fsha = None
+                if m and m.group(1):
+                    try:
+                        # Normalize fsha to 12 characters
+                        cmd = 'git show -s --pretty=format:%h ' + m.group(1)
+                        fsha = subprocess.check_output(cmd.split(' '),
+                                stderr=subprocess.DEVNULL, encoding='utf-8', errors='ignore')
+                    except subprocess.CalledProcessError:
+                        pass
+                if fsha:
+                    logging.info('Commit %s reverted by %s', fsha[0:12], sha)
 
                     # Add fixes to list to be added after linux_upstream
                     #  table is fully contructed to avoid Foreign key errors in SQL
