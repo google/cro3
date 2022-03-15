@@ -102,7 +102,7 @@ def update_upstream_table(branch, start, db):
                 if m and m.group(1):
                     try:
                         # Normalize fsha to 12 characters
-                        cmd = 'git show -s --pretty=format:%h ' + m.group(1)
+                        cmd = 'git show -s --abbrev=12 --pretty=format:%h ' + m.group(1)
                         fsha = subprocess.check_output(cmd.split(' '),
                                 stderr=subprocess.DEVNULL, encoding='utf-8', errors='ignore')
                     except subprocess.CalledProcessError:
@@ -136,7 +136,7 @@ def update_upstream_table(branch, start, db):
                 if m and m.group(1):
                     try:
                         # Normalize fsha to 12 characters
-                        cmd = 'git show -s --pretty=format:%h ' + m.group(1)
+                        cmd = 'git show -s --abbrev=12 --pretty=format:%h ' + m.group(1)
                         fsha = subprocess.check_output(cmd.split(' '),
                                 stderr=subprocess.DEVNULL, encoding='utf-8', errors='ignore')
                     except subprocess.CalledProcessError:
