@@ -148,14 +148,14 @@ def normalize():
         'CONFIG_IWLWIFI_DEBUGFS=y'
     ]
     iwl_fix_configs = [
-        'chromeos/config/x86_64/chromeos-intel-denverton.flavour.config',
-        'chromeos/config/x86_64/chromeos-intel-pineview.flavour.config'
+        'chromeos/config/chromeos/x86_64/chromeos-intel-denverton.flavour.config',
+        'chromeos/config/chromeos/x86_64/chromeos-intel-pineview.flavour.config'
     ]
 
     genconfig = in_linux_chrome('chromeos/scripts/kernelconfig genconfig 2>&1')
 
     commands = [
-        in_configs('cp ' + config[0] + ' ../../../../kernel-upstream/chromeos/config/' + config[1] + ' 2>&1')  # pylint: disable=C0301
+        in_configs('cp ' + config[0] + ' ../../../../kernel-upstream/chromeos/config/chromeos/' + config[1] + ' 2>&1')  # pylint: disable=C0301
         for config in configs
     ] + [
         in_knext('echo "' + iwl + '" >> ' + file)
