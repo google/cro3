@@ -132,22 +132,24 @@ def update_upstream_table(branch, start, db):
                     fixes.append(fix_obj)
 
                 m = REVERT.search(d)
-                fsha = None
+                rsha = None
                 if m and m.group(1):
                     try:
-                        # Normalize fsha to 12 characters
+                        # Normalize rsha to 12 characters
                         cmd = 'git show -s --abbrev=12 --pretty=format:%h ' + m.group(1)
-                        fsha = subprocess.check_output(cmd.split(' '),
+                        rsha = subprocess.check_output(cmd.split(' '),
                                 stderr=subprocess.DEVNULL, encoding='utf-8', errors='ignore')
                     except subprocess.CalledProcessError:
                         pass
-                if fsha:
-                    logging.info('Commit %s reverted by %s', fsha[0:12], sha)
+                if rsha:
+                    # Deduplicate if it has set Fixes tag.
+                    if fsha is None or fsha[0:12] != rsha[0:12]:
+                        logging.info('Commit %s reverted by %s', rsha[0:12], sha)
 
-                    # Add fixes to list to be added after linux_upstream
-                    #  table is fully contructed to avoid Foreign key errors in SQL
-                    fix_obj = Fix(_upstream_sha=fsha[0:12], _fixedby_upstream_sha=sha)
-                    fixes.append(fix_obj)
+                        # Add fixes to list to be added after linux_upstream
+                        #  table is fully contructed to avoid Foreign key errors in SQL
+                        fix_obj = Fix(_upstream_sha=rsha[0:12], _fixedby_upstream_sha=sha)
+                        fixes.append(fix_obj)
 
     for fix in fixes:
         # Update sha, fsha pairs
