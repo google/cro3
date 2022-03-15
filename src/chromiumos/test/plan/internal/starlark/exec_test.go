@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"go.chromium.org/chromiumos/config/go/api"
+	configpb "go.chromium.org/chromiumos/config/go/api"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	test_api "go.chromium.org/chromiumos/config/go/test/api"
@@ -36,16 +36,38 @@ var buildMetadataList = &buildpb.SystemImage_BuildMetadataList{
 	},
 }
 
-var flatConfigList = &payload.FlatConfigList{
-	Values: []*payload.FlatConfig{
+var configBundleList = &payload.ConfigBundleList{
+	Values: []*payload.ConfigBundle{
 		{
-			Program: &api.Program{
-				Name: "progA",
+			ProgramList: []*configpb.Program{
+				{
+					Id: &configpb.ProgramId{
+						Value: "ProgA",
+					},
+				},
 			},
 		},
 		{
-			Program: &api.Program{
-				Name: "progB",
+			ProgramList: []*configpb.Program{
+				{
+					Id: &configpb.ProgramId{
+						Value: "ProgB",
+					},
+				},
+			},
+		},
+		{
+			DesignList: []*configpb.Design{
+				{
+					Id: &configpb.DesignId{
+						Value: "Design1",
+					},
+				},
+				{
+					Id: &configpb.DesignId{
+						Value: "Design2",
+					},
+				},
 			},
 		},
 	},
@@ -73,9 +95,9 @@ load("@proto//chromiumos/test/api/v1/plan.proto", plan_pb = "chromiumos.test.api
 load("@proto//chromiumos/test/api/coverage_rule.proto", coverage_rule_pb = "chromiumos.test.api")
 
 build_metadata = testplan.get_build_metadata()
-flat_configs = testplan.get_flat_config_list()
+config_bundles = testplan.get_config_bundle_list()
 print('Got {} BuildMetadatas'.format(len(build_metadata.values)))
-print('Got {} FlatConfigs'.format(len(flat_configs.values)))
+print('Got {} ConfigBundles'.format(len(config_bundles.values)))
 coverage_rule = coverage_rule_pb.CoverageRule(name='ruleA')
 testplan.add_hw_test_plan(
 	plan_pb.HWTestPlan(
@@ -92,7 +114,7 @@ testplan.add_hw_test_plan(
 		ctx,
 		planFilename,
 		buildMetadataList,
-		flatConfigList,
+		configBundleList,
 	)
 
 	if err != nil {
@@ -136,8 +158,8 @@ func TestExecTestPlanErrors(t *testing.T) {
 		},
 		{
 			name:           "invalid named args",
-			starlarkSource: "testplan.get_flat_config_list(somearg='abc')",
-			err:            "get_flat_config_list: unexpected keyword argument \"somearg\"",
+			starlarkSource: "testplan.get_config_bundle_list(somearg='abc')",
+			err:            "get_config_bundle_list: unexpected keyword argument \"somearg\"",
 		},
 		{
 			name:           "invalid named args ctor",
@@ -166,7 +188,7 @@ testplan.add_hw_test_plan(hw_test_plan=plan_pb.HWTestPlan.TestPlanId(value='abc'
 			)
 
 			_, err := starlark.ExecTestPlan(
-				ctx, planFilename, buildMetadataList, flatConfigList,
+				ctx, planFilename, buildMetadataList, configBundleList,
 			)
 
 			if err == nil {

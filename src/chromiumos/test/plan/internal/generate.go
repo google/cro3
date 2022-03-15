@@ -22,13 +22,13 @@ import (
 // HWTestPlans.
 //
 // planFilenames must be non-empty. buildMetadataList, dutAttributeList, and
-// flatConfigList must be non-nil.
+// configBundleList must be non-nil.
 func Generate(
 	ctx context.Context,
 	planFilenames []string,
 	buildMetadataList *buildpb.SystemImage_BuildMetadataList,
 	dutAttributeList *testpb.DutAttributeList,
-	flatConfigList *payload.FlatConfigList,
+	configBundleList *payload.ConfigBundleList,
 ) ([]*test_api_v1.HWTestPlan, error) {
 	if len(planFilenames) == 0 {
 		return nil, errors.New("planFilenames must be non-empty")
@@ -42,13 +42,13 @@ func Generate(
 		return nil, errors.New("dutAttributeList must be non-nil")
 	}
 
-	if flatConfigList == nil {
-		return nil, errors.New("flatConfigList must be non-nil")
+	if configBundleList == nil {
+		return nil, errors.New("configBundleList must be non-nil")
 	}
 
 	var allTestPlans []*test_api_v1.HWTestPlan
 	for _, planFilename := range planFilenames {
-		testPlans, err := starlark.ExecTestPlan(ctx, planFilename, buildMetadataList, flatConfigList)
+		testPlans, err := starlark.ExecTestPlan(ctx, planFilename, buildMetadataList, configBundleList)
 		if err != nil {
 			return nil, err
 		}

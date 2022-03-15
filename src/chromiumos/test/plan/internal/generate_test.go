@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	configpb "go.chromium.org/chromiumos/config/go/api"
-	"go.chromium.org/chromiumos/config/go/api/software"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
@@ -41,23 +40,6 @@ func buildMetadata(overlay, kernelVersion, chipsetOverlay, arcVersion string) *b
 			},
 			Arc: &buildpb.SystemImage_BuildMetadata_Arc{
 				Version: arcVersion,
-			},
-		},
-	}
-}
-
-// flatConfig is a convenience to reduce boilerplate when creating FlatConfig
-// in test cases.
-func flatConfig(program, design, designConfig string, firmwareROVersion *buildpb.Version) *payload.FlatConfig {
-	return &payload.FlatConfig{
-		Program:        &configpb.Program{Id: &configpb.ProgramId{Value: program}},
-		HwDesign:       &configpb.Design{Id: &configpb.DesignId{Value: design}},
-		HwDesignConfig: &configpb.Design_Config{Id: &configpb.DesignConfigId{Value: designConfig}},
-		SwConfig: &software.SoftwareConfig{
-			Firmware: &buildpb.FirmwareConfig{
-				MainRoPayload: &buildpb.FirmwarePayload{
-					Version: firmwareROVersion,
-				},
 			},
 		},
 	}
@@ -100,12 +82,40 @@ var dutAttributeList = &testpb.DutAttributeList{
 	},
 }
 
-var flatConfigList = &payload.FlatConfigList{
-	Values: []*payload.FlatConfig{
-		flatConfig("ProgA", "Design1", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}),
-		flatConfig("ProgA", "Design1", "Config2", &buildpb.Version{Major: 123, Minor: 4, Patch: 5}),
-		flatConfig("ProgA", "Design2", "Config1", &buildpb.Version{Major: 123, Minor: 0, Patch: 0}),
-		flatConfig("ProgB", "Design20", "Config1", &buildpb.Version{Major: 123, Minor: 4, Patch: 0}),
+var configBundleList = &payload.ConfigBundleList{
+	Values: []*payload.ConfigBundle{
+		{
+			ProgramList: []*configpb.Program{
+				{
+					Id: &configpb.ProgramId{
+						Value: "ProgA",
+					},
+				},
+			},
+		},
+		{
+			ProgramList: []*configpb.Program{
+				{
+					Id: &configpb.ProgramId{
+						Value: "ProgB",
+					},
+				},
+			},
+		},
+		{
+			DesignList: []*configpb.Design{
+				{
+					Id: &configpb.DesignId{
+						Value: "Design1",
+					},
+				},
+				{
+					Id: &configpb.DesignId{
+						Value: "Design2",
+					},
+				},
+			},
+		},
 	},
 }
 
@@ -133,9 +143,9 @@ func TestGenerate(t *testing.T) {
 load("@proto//chromiumos/test/api/v1/plan.proto", plan_pb = "chromiumos.test.api.v1")
 
 build_metadata = testplan.get_build_metadata()
-flat_configs = testplan.get_flat_config_list()
+config_bundles = testplan.get_config_bundle_list()
 print('Got {} BuildMetadatas'.format(len(build_metadata.values)))
-print('Got {} FlatConfigs'.format(len(flat_configs.values)))
+print('Got {} ConfigBundles'.format(len(config_bundles.values)))
 testplan.add_hw_test_plan(
 	plan_pb.HWTestPlan(id=plan_pb.HWTestPlan.TestPlanId(value='plan1'))
 )
@@ -146,7 +156,7 @@ testplan.add_hw_test_plan(
 	)
 
 	testPlans, err := testplan.Generate(
-		ctx, []string{planFilename}, buildMetadataList, dutAttributeList, flatConfigList,
+		ctx, []string{planFilename}, buildMetadataList, dutAttributeList, configBundleList,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -175,42 +185,42 @@ func TestGenerateErrors(t *testing.T) {
 		planFilenames     []string
 		buildMetadataList *buildpb.SystemImage_BuildMetadataList
 		dutAttributeList  *testpb.DutAttributeList
-		flatConfigList    *payload.FlatConfigList
+		configBundleList  *payload.ConfigBundleList
 	}{
 		{
 			name:              "empty planFilenames",
 			planFilenames:     []string{},
 			buildMetadataList: buildMetadataList,
 			dutAttributeList:  dutAttributeList,
-			flatConfigList:    flatConfigList,
+			configBundleList:  configBundleList,
 		},
 		{
 			name:              "nil buildMetadataList",
 			planFilenames:     []string{"plan1.star"},
 			buildMetadataList: nil,
 			dutAttributeList:  dutAttributeList,
-			flatConfigList:    flatConfigList,
+			configBundleList:  configBundleList,
 		},
 		{
 			name:              "nil dutAttributeList",
 			planFilenames:     []string{"plan1.star"},
 			buildMetadataList: buildMetadataList,
 			dutAttributeList:  nil,
-			flatConfigList:    flatConfigList,
+			configBundleList:  configBundleList,
 		},
 		{
-			name:              "nil FlatConfigList",
+			name:              "nil ConfigBundleList",
 			planFilenames:     []string{"plan1.star"},
 			buildMetadataList: buildMetadataList,
 			dutAttributeList:  dutAttributeList,
-			flatConfigList:    nil,
+			configBundleList:  nil,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if _, err := testplan.Generate(
-				ctx, test.planFilenames, test.buildMetadataList, test.dutAttributeList, flatConfigList,
+				ctx, test.planFilenames, test.buildMetadataList, test.dutAttributeList, test.configBundleList,
 			); err == nil {
 				t.Error("Expected error from Generate")
 			}

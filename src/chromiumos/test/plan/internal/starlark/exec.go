@@ -102,7 +102,7 @@ func buildAddHWTestPlanBuiltin(result *[]*test_api_v1.HWTestPlan) *starlark.Buil
 
 // ExecTestPlan executes the Starlark file planFilename.
 // Builtins are provided to planFilename to access buildMetadataList and
-// flatConfigList, and add HWTestPlans to the output.
+// configBundleList, and add HWTestPlans to the output.
 //
 // A loader is provided to load proto constructors.
 //
@@ -112,7 +112,7 @@ func ExecTestPlan(
 	ctx context.Context,
 	planFilename string,
 	buildMetadataList *buildpb.SystemImage_BuildMetadataList,
-	flatConfigList *payload.FlatConfigList,
+	configBundleList *payload.ConfigBundleList,
 ) ([]*test_api_v1.HWTestPlan, error) {
 	protoLoader, err := buildProtoLoader()
 	if err != nil {
@@ -124,7 +124,7 @@ func ExecTestPlan(
 	)
 
 	getFlatConfigListBuiltin := protoAccessorBuiltin(
-		protoLoader, "get_flat_config_list", flatConfigList,
+		protoLoader, "get_config_bundle_list", configBundleList,
 	)
 
 	var test_plans []*test_api_v1.HWTestPlan

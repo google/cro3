@@ -129,10 +129,10 @@ Evaluates Starlark files to generate HWTestPlans as newline-delimited json proto
 				"Can be JSON or binary proto.",
 		)
 		r.Flags.StringVar(
-			&r.flatConfigListPath,
-			"flatconfiglist",
+			&r.configBundleListPath,
+			"configbundlelist",
 			"",
-			"Path to a proto file containing a FlatConfigList. Can be JSON or "+
+			"Path to a proto file containing a ConfigBundleList. Can be JSON or "+
 				"binary proto.",
 		)
 		r.Flags.BoolVar(
@@ -183,7 +183,7 @@ type generateRun struct {
 	planPaths               []string
 	buildMetadataListPath   string
 	dutAttributeListPath    string
-	flatConfigListPath      string
+	configBundleListPath    string
 	ctpV1                   bool
 	generateTestPlanReqPath string
 	boardPriorityListPath   string
@@ -329,8 +329,8 @@ func (r *generateRun) validateFlags() error {
 		return errors.New("-buildmetadata is required")
 	}
 
-	if r.flatConfigListPath == "" {
-		return errors.New("-flatconfiglist is required")
+	if r.configBundleListPath == "" {
+		return errors.New("-configbundlelist is required")
 	}
 
 	if r.out == "" {
@@ -378,17 +378,17 @@ func (r *generateRun) run() error {
 		glog.V(2).Infof("Read DutAttribute: %s", dutAttribute)
 	}
 
-	glog.Infof("Starting read of FlatConfigs from %s (may be slow if file is large)", r.flatConfigListPath)
+	glog.Infof("Starting read of ConfigBundleList from %s", r.configBundleListPath)
 
-	flatConfigList := &payload.FlatConfigList{}
-	if err := readBinaryOrJSONPb(r.flatConfigListPath, flatConfigList); err != nil {
+	configBundleList := &payload.ConfigBundleList{}
+	if err := readBinaryOrJSONPb(r.configBundleListPath, configBundleList); err != nil {
 		return err
 	}
 
-	glog.Infof("Read %d FlatConfigs from %s", len(flatConfigList.Values), r.flatConfigListPath)
+	glog.Infof("Read %d ConfigBundles from %s", len(configBundleList.Values), r.configBundleListPath)
 
 	hwTestPlans, err := testplan.Generate(
-		ctx, r.planPaths, buildMetadataList, dutAttributeList, flatConfigList,
+		ctx, r.planPaths, buildMetadataList, dutAttributeList, configBundleList,
 	)
 	if err != nil {
 		return err
