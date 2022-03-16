@@ -44,6 +44,7 @@ namespace="" # default namespace
 apply_stashed=0 # Apply stash@{0} on top of a merge
 reviewers="" # Comma separated list of reviewer(s) email address(es).
 disallow_recycled_builds=0 # Do not add Disallow-Recycled-Builds footer.
+lts_search=0 # Default 0 is to not use LTS search method to find CL's
 
 # derived parameters
 skip_merge=0    # Skip actual merge and upload.
@@ -205,7 +206,7 @@ do_getparams() {
   local vtag
   local lts_branch=""
 
-  while getopts "ab:c:d:DfFhkl:N:nP:pq:r:R:sS:t:T:uv:x:" option; do
+  while getopts "ab:c:Dd:FfhkLl:N:nP:pq:R:r:S:sT:t:uv:x:" option; do
     case ${option} in
       a) apply_stashed=1 ;;
       b) bugs="${OPTARG}" ;;
@@ -221,6 +222,7 @@ do_getparams() {
       k) cq_dryrun=",l=Commit-Queue+1" ;;
       l) changes+=("${OPTARG}") ;;
       n) notify=1 ;;
+      L) lts_search=1 ;;
       N) namespace="${OPTARG}" ;;
       p) prepare=1 ;;
       q) dependency="${OPTARG}" ;;
@@ -228,7 +230,7 @@ do_getparams() {
       P) prereverts+=("${OPTARG}") ;;
       R) reverts+=("${OPTARG}") ;;
       t) tbranch="${OPTARG}" ;;
-      T) lts_branch="${OPTARG}" ;;
+      T) lts_branch="${OPTARG}" lts_search=1 ;;
       s) do_dryrun=1 ;;
       S) Subject="${OPTARG}" ;;
       u) upload=1 prepare=1 ;;
@@ -499,6 +501,11 @@ find_merge_cl() {
   local subject
   local gerrit_log
 
+  if [[ ${lts_search} -eq 1 ]]; then
+	find_merge_cl_lts
+	return
+  fi
+
   gerrit_log=$(gerrit --json search "hashtag:${topic}")
   if [[ $? -ne 0 ]]; then
     die "'gerrit --json search \"hashtag:${topic}\"' command error."
@@ -517,6 +524,36 @@ find_merge_cl() {
       break
     fi
   done
+}
+
+# Locate previous merge CL's for LTS branch. LTS has unique workflow which
+# continuously re-uses the previously unsubmitted CL when the next
+# update arrives.  The subject and hashtag search method used on ToT will
+# not work. The next best thing it to search for open CL's on the
+# matching branch with merge keywoards, and use one of those.
+find_merge_cl_lts() {
+  local cls
+  local cl
+  local gerrit_log
+
+  gerrit_log=$(gerrit --json search "branch:$tbranch status:open kernel CHROMIUM: Merge")
+  if [[ $? -ne 0 ]]; then
+    die "'gerrit --json search \"hashtag:${topic}\"' command error."
+  fi
+
+  cls=($(echo "${gerrit_log}" | jq ".[].number" | sed -e 's/"//g'))
+  if [[ ${#cls[@]} -gt 1 ]]; then
+    die "-L search method fails when there are multiple matching (${cls[@]}) CL's"
+  fi
+  if [[ ${#cls[@]} -eq 0 ]]; then
+    return
+  fi
+  cl="${cls[0]}"
+  gerrit_log=$(gerrit --json search "change:${cl}")
+  if [[ $? -ne 0 ]]; then
+    die "'gerrit --json search \"change:${cl}\"' command error."
+  fi
+  merge_cl="${cl}"
 }
 
 # Prepare for merge.
@@ -593,7 +630,7 @@ do_prepare() {
   fi
   obug=$(grep "^BUG=" "${tmpfile}")
   if [[ -n "${bug}" && -n "${obug}" && "${bug}" != "${obug}" \
-          && ${force} -eq 0 ]]; then
+          && ${force} -eq 0 && ${lts_search} -eq 0 ]]; then
     die "Bug mismatch: '${bug}' <-> '${obug}'. Use -f to override."
   fi
   if [[ -z "${bug}" ]]; then
