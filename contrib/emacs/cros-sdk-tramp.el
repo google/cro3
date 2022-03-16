@@ -38,12 +38,18 @@ Default value is inferred from the location of this file."
 ;; TODO(uekawa): there must be a better per-connection way to set this
 (add-to-list 'tramp-remote-path 'tramp-own-remote-path)
 
-(defun cros-sdk-tramp-rotate-among-files ()
-  "Rotate among same file inside or outside cros_sdk chroot.
-They should be the same file."
-  (interactive)
-  (let* ((current (or (buffer-file-name) default-directory))
-         (cros-match (string-match "^/cros:.*:/mnt/host/source/\\(.*\\)$" current)))
+(defun cros-sdk-tramp--match-cros (filename)
+  (string-match "^/cros:.*:/mnt/host/source/\\(.*\\)$" filename))
+
+(defun cros-sdk-tramp--cros-filename (filename)
+  "Get the cros sdk filename."
+  (if (cros-sdk-tramp--match-cros filename)
+      filename
+    (cros-sdk-tramp--rotate-filename filename)))
+
+(defun cros-sdk-tramp--rotate-filename (current)
+  "Returns the file name after rotating between cros-sdk and regular file."
+  (let* ((cros-match (cros-sdk-tramp--match-cros current)))
     (if cros-match
         (let* ((relative-path (match-string 1 current))
                (abs-path
@@ -51,7 +57,7 @@ They should be the same file."
                  (file-name-as-directory cros-sdk-tramp-src-path)
                  relative-path)))
           ;; was in cros_sdk
-          (find-file abs-path))
+          abs-path)
       ;; Was in a regular directory
       (let* ((old-full-path (expand-file-name current))
              (old-root-path (expand-file-name cros-sdk-tramp-src-path))
@@ -61,7 +67,14 @@ They should be the same file."
                             old-full-path))
              (old-relative-path (match-string 1 old-full-path))
              (new-full-path (concat "/cros::/mnt/host/source/" old-relative-path)))
-        (find-file new-full-path)))))
+        new-full-path))))
+
+(defun cros-sdk-tramp-rotate-among-files ()
+  "Rotate among same file inside or outside cros_sdk chroot.
+They should be the same file."
+  (interactive)
+  (let* ((current (or (buffer-file-name) default-directory)))
+    (find-file (cros-sdk-tramp--rotate-filename current))))
 
 
 (provide 'cros-sdk-tramp)
