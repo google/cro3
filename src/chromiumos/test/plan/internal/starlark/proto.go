@@ -4,8 +4,6 @@
 package starlark
 
 import (
-	"fmt"
-
 	"go.chromium.org/luci/common/data/stringset"
 	"go.chromium.org/luci/starlark/starlarkproto"
 	"google.golang.org/protobuf/reflect/protodesc"
@@ -13,45 +11,49 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// findAllDescriptors finds FileDescriptorProtos for the proto file at path,
-// and all files it imports, both directly and recursively.
+// findAllDescriptors finds FileDescriptorProtos for the proto files in path,
+// and all files they import, both directly and recursively.
 //
-// Descriptors ordered topologically, so they can be passed to
+// Descriptors are ordered topologically, so they can be passed to
 // starlarkproto.NewDescriptorSet.
 //
 // visited keeps track of files already visited, so only one descriptor is
 // returned for each file.
-func findAllDescriptors(path string, visited stringset.Set) ([]*descriptorpb.FileDescriptorProto, error) {
-	if !visited.Add(path) {
-		return nil, nil // Already visited, return no new descriptors.
-	}
-
-	fd, err := protoregistry.GlobalFiles.FindFileByPath(path)
-	if err != nil {
-		return nil, err
-	}
-
+func findAllDescriptors(paths []string, visited stringset.Set) ([]*descriptorpb.FileDescriptorProto, error) {
 	var allFdps []*descriptorpb.FileDescriptorProto
-	fdp := protodesc.ToFileDescriptorProto(fd)
 
-	for _, d := range fdp.GetDependency() {
-		fdps, err := findAllDescriptors(d, visited)
-		if err != nil {
-			return nil, fmt.Errorf("error finding descriptors for %s: %w", d, err)
+	for _, path := range paths {
+		if !visited.Add(path) {
+			continue
 		}
 
-		allFdps = append(allFdps, fdps...)
+		fd, err := protoregistry.GlobalFiles.FindFileByPath(path)
+		if err != nil {
+			return nil, err
+		}
+
+		fdp := protodesc.ToFileDescriptorProto(fd)
+		depFdps, err := findAllDescriptors(fdp.GetDependency(), visited)
+		if err != nil {
+			return nil, err
+		}
+
+		allFdps = append(allFdps, depFdps...)
+		allFdps = append(allFdps, fdp)
 	}
 
-	return append(allFdps, fdp), nil
+	return allFdps, nil
 }
 
-// buildProtoLoader returns a Loader seeded with descriptors for HWTestPlan and
-// all its dependencies.
+// buildProtoLoader returns a Loader seeded with descriptors for HWTestPlan,
+// ConfigBundle and all their dependencies.
 func buildProtoLoader() (*starlarkproto.Loader, error) {
 	visited := stringset.New(0)
 
-	fdps, err := findAllDescriptors("chromiumos/test/api/v1/plan.proto", visited)
+	fdps, err := findAllDescriptors(
+		[]string{"chromiumos/test/api/v1/plan.proto", "chromiumos/config/payload/config_bundle.proto"},
+		visited,
+	)
 	if err != nil {
 		return nil, err
 	}
