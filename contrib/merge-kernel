@@ -1001,11 +1001,17 @@ do_upload() {
   if [[ ${upload} -ne 0 ]]; then
     if [[ "${bypass}" -eq 0 ]]; then
       if ! git push --no-verify ${dryrun} "${chromeos}" "${mbranch}:refs/for/${cbranch}%${options}"; then
-        error "Failed to upload changes into '${chromeos}'."
-        error "If the error is a validation error, and if your changes did not cause the problem,"
-        error "repeat the command with '-F' option. Do not use that option unless you are sure"
-        error "that your changes did not cause the problem."
-        die
+	# Due to unresolved GoB LOCK_FAILURE, a failure here is often b/209031134. A retry will
+	# workaround this. Can remove this extra retry when the bug is resolved.
+	if ! git push --no-verify ${dryrun} "${chromeos}" "${mbranch}:refs/for/${cbranch}%${options}"; then
+          error "Failed to upload changes into '${chromeos}'."
+          error "If the error is a validation error, and if your changes did not cause the problem,"
+          error "repeat the command with '-F' option. Do not use that option unless you are sure"
+          error "that your changes did not cause the problem."
+          die
+	fi
+	error "git push retry succeeded. If error messages during first try indicate GoB LOCK_FAILURE,"
+	error "please add cc to b/209031134 for signal boost."
       fi
     else
       if ! git push -o "uploadvalidator~skip" --no-verify ${dryrun} "${chromeos}" \
