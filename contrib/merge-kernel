@@ -898,7 +898,7 @@ do_merge() {
   fi
 
   ( echo "Changelog:"
-    git request-pull "${ref}" . | \
+    git request-pull "${ref}" . "${mbranch}" | \
                         sed -n '/^--------------/,$p'
 
     echo
