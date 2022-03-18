@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
 	labapi "go.chromium.org/chromiumos/config/go/test/lab/api"
@@ -17,11 +18,23 @@ import (
 
 // DutInfo stores
 type DutInfo struct {
-	Addr            string // The address of the DUT.
-	Role            string // The role of the DUT.
-	Servo           string // The address of the servo.
-	DutServer       string // The address of the dutServer.
-	ProvisionServer string // address of the provision server
+	Addr                string   // The address of the DUT.
+	Role                string   // The role of the DUT.
+	Servo               string   // The address of the servo.
+	DutServer           string   // The address of the dutServer.
+	ProvisionServer     string   // The address of the provision server
+	Board               string   // The board of the DUT
+	Model               string   // The model of the DUT
+	ServoHostname       string   // The hostname of the Servo paired with the DUT
+	ServoPort           string   // The port of the Servo paired with the DUT
+	ServoSerial         string   // The serial of the Servo paired with the DUT
+	ChameleonAudio      bool     // If the DUT has a ChameleonAudio peripheral
+	ChamelonPresent     bool     // If the DUT has a Chameleon peripheral
+	ChamelonPeriphsList []string // The list of Chameleon peripherals
+	AtrusAudio          bool     // If the DUT has a AtrusAudio label
+	TouchMimo           bool     // If the DUT has a TouchMimo label
+	CameraboxFacing     string   // The direction the camerabox is facing, ie "front" or "back"
+	CableList           []string // The list of cables attached
 }
 
 // joinHostAndPort joins host and port to a single address.
@@ -70,8 +83,14 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 
 	// Servo address.
 	var servo string
+	var servoHostname string
+	var servoPort string
+	var servoSerial string
 	if chromeOS.Servo != nil && chromeOS.Servo.ServodAddress != nil {
 		servo = joinHostAndPort(chromeOS.Servo.ServodAddress)
+		servoHostname = strings.ToLower(chromeOS.Servo.ServodAddress.Address)
+		servoPort = fmt.Sprintf("%v", chromeOS.Servo.ServodAddress.Port)
+		servoSerial = chromeOS.Servo.Serial
 	}
 
 	// DUT Server address.
@@ -84,12 +103,78 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 	if device.ProvisionServer != nil {
 		provisionServer = joinHostAndPort(device.ProvisionServer)
 	}
+	var board string
+	var model string
+	if chromeOS.DutModel != nil {
+		board = chromeOS.DutModel.BuildTarget
+		model = chromeOS.DutModel.ModelName
+	}
+
+	// - Chameleon
+
+	var chameleonAudio bool
+	var chamelonPresent bool
+	var chamelonPeriphsList []string
+	if chromeOS.Chameleon != nil {
+		if chromeOS.Chameleon.AudioBoard {
+			chameleonAudio = true
+		}
+
+		if len(chromeOS.Chameleon.Peripherals) > 0 {
+			chamelonPresent = true
+			for _, v := range chromeOS.Chameleon.Peripherals {
+				lv := "chameleon:" + strings.ToLower(v.String())
+				chamelonPeriphsList = append(chamelonPeriphsList, lv)
+			}
+		}
+	}
+
+	var atrusAudio bool
+	if audio := chromeOS.Audio; audio != nil {
+		if audio.Atrus {
+			atrusAudio = true
+		}
+	}
+
+	var touchMimo bool
+	if touch := chromeOS.Touch; touch != nil {
+		if touch.Mimo {
+			touchMimo = true
+		}
+	}
+
+	var cameraboxFacing string
+	if camerabox := chromeOS.Camerabox; camerabox != nil {
+		facing := camerabox.Facing
+		cameraboxFacing = strings.ToLower(facing.String())
+	}
+
+	var cableList []string
+	if cables := chromeOS.Cables; len(cables) > 0 {
+		for _, v := range cables {
+			// TODO: Figure out why this proto has an empty space at end
+			// eg. USBAUDIO is returning "USBAUDIO "
+			cableList = append(cableList, strings.Trim(strings.ToLower(v.String()), " "))
+		}
+	}
 
 	return &DutInfo{
-		Addr:            addr,
-		Role:            role,
-		Servo:           servo,
-		DutServer:       dutServer,
-		ProvisionServer: provisionServer,
+		Addr:                addr,
+		Role:                role,
+		Servo:               servo,
+		DutServer:           dutServer,
+		ProvisionServer:     provisionServer,
+		Board:               board,
+		Model:               model,
+		ServoHostname:       servoHostname,
+		ServoPort:           servoPort,
+		ServoSerial:         servoSerial,
+		ChameleonAudio:      chameleonAudio,
+		ChamelonPresent:     chamelonPresent,
+		ChamelonPeriphsList: chamelonPeriphsList,
+		AtrusAudio:          atrusAudio,
+		TouchMimo:           touchMimo,
+		CameraboxFacing:     cameraboxFacing,
+		CableList:           cableList,
 	}, nil
 }

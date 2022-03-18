@@ -69,6 +69,8 @@ func TestFillDUTInfo(t *testing.T) {
 			Servo:           "c6-r9-r7-labstation:9996",
 			DutServer:       "cros-dut0:80",
 			ProvisionServer: "cros-provision0:80",
+			ServoHostname:   "c6-r9-r7-labstation",
+			ServoPort:       "9996",
 		},
 		{
 			Addr:            "[0:0:0:0:0:ffff:7f00:1]:2",
@@ -76,6 +78,8 @@ func TestFillDUTInfo(t *testing.T) {
 			Servo:           "c6-r8-r7-labstation:9999",
 			DutServer:       "cros-dut1:80",
 			ProvisionServer: "cros-provision1:80",
+			ServoHostname:   "c6-r8-r7-labstation",
+			ServoPort:       "9999",
 		},
 		{
 			Addr:            "c6-r8-rack7-host7",
@@ -83,6 +87,8 @@ func TestFillDUTInfo(t *testing.T) {
 			Servo:           "c6-r7-r7-labstation:9999",
 			DutServer:       "cros-dut2:80",
 			ProvisionServer: "cros-provision2:80",
+			ServoHostname:   "c6-r7-r7-labstation",
+			ServoPort:       "9999",
 		},
 		{
 			Addr:            "0:0:0:0:0:ffff:7f00:1",
@@ -159,6 +165,90 @@ func TestFillDUTInfo(t *testing.T) {
 					},
 				},
 			},
+		},
+	}
+
+	for i, wanted := range expected {
+		dut := input[i]
+		got, err := FillDUTInfo(dut, wanted.Role)
+		if err != nil {
+			t.Errorf("Cannot get address for dut %v: %v", dut, err)
+		}
+		if diff := cmp.Diff(got, wanted); diff != "" {
+			t.Errorf("DownloadPrivateBundlesRequest mismatch (-got +want):\n%s", diff)
+		}
+	}
+}
+
+// TestFillDUTInfo makes sure FillDUTInfo behaved as expected.
+func TestFillDUTInfoExtended(t *testing.T) {
+	expected := []*DutInfo{
+		{
+			Addr:                "127.0.0.1:2222",
+			Role:                "",
+			Servo:               "127.123.332.121:1337",
+			DutServer:           "cros-dut0:80",
+			ProvisionServer:     "cros-provision0:80",
+			Board:               "Fred",
+			Model:               "Flintstone",
+			ServoHostname:       "127.123.332.121",
+			ServoPort:           "1337",
+			ServoSerial:         "8675309",
+			ChameleonAudio:      true,
+			ChamelonPresent:     true,
+			ChamelonPeriphsList: []string{"chameleon:vga", "chameleon:hdmi"},
+			AtrusAudio:          true,
+			TouchMimo:           true,
+			CameraboxFacing:     "front",
+			CableList:           []string{"type:usbaudio"},
+		},
+	}
+	input := []*api.CrosTestRequest_Device{
+		{
+			Dut: &labapi.Dut{
+				Id: &labapi.Dut_Id{Value: "AnyId"},
+				DutType: &labapi.Dut_Chromeos{
+					Chromeos: &labapi.Dut_ChromeOS{
+						Ssh: &labapi.IpEndpoint{Address: "127.0.0.1", Port: 2222},
+						Servo: &labapi.Servo{
+							Present: true,
+							ServodAddress: &labapi.IpEndpoint{
+								Address: "127.123.332.121",
+								Port:    1337,
+							},
+							Serial: "8675309",
+						},
+						DutModel: &labapi.DutModel{
+							BuildTarget: "Fred",
+							ModelName:   "Flintstone",
+						},
+						Chameleon: &labapi.Chameleon{
+							Peripherals: []labapi.Chameleon_Peripheral{
+								labapi.Chameleon_VGA,
+								labapi.Chameleon_HDMI,
+							},
+							AudioBoard: true,
+						},
+						Audio: &labapi.Audio{
+							Atrus: true,
+						},
+						Touch: &labapi.Touch{
+							Mimo: true,
+						},
+
+						Camerabox: &labapi.Camerabox{
+							Facing: labapi.Camerabox_FRONT,
+						},
+						Cables: []*labapi.Cable{
+							{
+								Type: labapi.Cable_USBAUDIO,
+							},
+						},
+					},
+				},
+			},
+			DutServer:       &labapi.IpEndpoint{Address: "cros-dut0", Port: 80},
+			ProvisionServer: &labapi.IpEndpoint{Address: "cros-provision0", Port: 80},
 		},
 	}
 
