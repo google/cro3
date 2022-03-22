@@ -81,6 +81,7 @@ func (a args) validate(expectProvisionState bool) (*api.CrosProvisionRequest, er
 	if a.outputPath == "" {
 		return nil, errors.Reason("output file not specified").Err()
 	}
+
 	in, err := readInput(a.inputPath)
 	if err != nil {
 		return nil, errors.Annotate(err, "fail to read input file").Err()
@@ -104,7 +105,10 @@ func readInput(path string) (*api.CrosProvisionRequest, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "read input").Err()
 	}
-	err = jsonpb.Unmarshal(r, in)
+
+	umrsh := jsonpb.Unmarshaler{}
+	umrsh.AllowUnknownFields = true
+	err = umrsh.Unmarshal(r, in)
 	return in, errors.Annotate(err, "read input").Err()
 }
 

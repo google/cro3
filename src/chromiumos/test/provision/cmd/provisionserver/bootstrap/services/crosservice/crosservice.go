@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// CrOSInstall state machine construction and helper
+// Package crosservice state machine construction and helper
 package crosservice
 
 import (
@@ -29,6 +29,7 @@ type CrOSService struct {
 	dlcSpecs          []*api.InstallCrosRequest_DLCSpec
 }
 
+// NewCrOSService inherits CrOSService
 func NewCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.InstallCrosRequest) CrOSService {
 	return CrOSService{
 		connection:        services.NewServiceAdapter(dut, dutClient, req.GetPreventReboot()),
@@ -88,7 +89,7 @@ fi`
 	The following run specific commands related to CrOS installation.
 */
 
-// Creates a marker, whose existance signals a failure in provisioning
+// CreateProvisionMarker Creates a marker, whose existance signals a failure in provisioning
 func (c *CrOSService) CreateProvisionMarker(ctx context.Context) error {
 	if _, err := c.connection.RunCmd(ctx, "touch", []string{info.ProvisionMarker}); err != nil {
 		return fmt.Errorf("failed to create provisionFailed file, %w", err)
@@ -138,7 +139,7 @@ func (c *CrOSService) GetRootPartNumber(ctx context.Context, root string) (strin
 	return match[1], nil
 }
 
-// stopSystemDaemon stops system daemons than can interfere with provisioning.
+// StopSystemDaemons stops system daemons than can interfere with provisioning.
 func (c *CrOSService) StopSystemDaemons(ctx context.Context) {
 	if _, err := c.connection.RunCmd(ctx, "stop", []string{"ui"}); err != nil {
 		log.Printf("Failed to stop UI daemon, %s", err)
@@ -259,7 +260,7 @@ func (c *CrOSService) WipeStateful(ctx context.Context) error {
 	return nil
 }
 
-// Provision stateful runs a stateful install, reverting if it fails.
+// ProvisionStateful runs a stateful install, reverting if it fails.
 func (c *CrOSService) ProvisionStateful(ctx context.Context) error {
 	c.StopSystemDaemons(ctx)
 
@@ -295,6 +296,7 @@ func (c *CrOSService) InstallStateful(ctx context.Context) error {
 	return err
 }
 
+// OverwiteInstall will over write the existing install
 func (c *CrOSService) OverwiteInstall(ctx context.Context) error {
 	if c.overwritePayload == nil {
 		log.Printf("skipping overwrite install, because none was specified.")
@@ -317,7 +319,7 @@ func (c *CrOSService) StopDLCService(ctx context.Context) {
 	}
 }
 
-// StopDLCService starts a DLC service
+// StartDLCService starts a DLC service
 func (c *CrOSService) StartDLCService(ctx context.Context) {
 	if _, err := c.connection.RunCmd(ctx, "start", []string{"dlcservice"}); err != nil {
 		log.Printf("failed to start dlcservice daemon, %s", err)
@@ -368,8 +370,8 @@ func (c *CrOSService) IsDLCVerified(ctx context.Context, dlcID, slot string) (bo
 }
 
 func bucketJoin(bucket string, append string) string {
-        if strings.HasPrefix(bucket, "gs://") {
-                bucket = bucket[5:]
-        }
-        return fmt.Sprintf("gs://%s", path.Join(bucket, append))
+	if strings.HasPrefix(bucket, "gs://") {
+		bucket = bucket[5:]
+	}
+	return fmt.Sprintf("gs://%s", path.Join(bucket, append))
 }
