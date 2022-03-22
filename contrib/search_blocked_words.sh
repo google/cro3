@@ -16,7 +16,7 @@
 #
 #   $ search_blocked_words.sh ./unblocked_terms.txt
 
-input_file=${1:-~/trunk/src/repohooks/blocked_terms.txt}
+input_file=${1:-~/chromiumos/src/repohooks/blocked_terms.txt}
 if [[ ! -r "${input_file}" ]]; then
   echo "Error: '${input_file}' not found."
   echo "This script is expected to run in CrOS SDK chroot."
@@ -60,14 +60,14 @@ while read -r regex; do
 
   # Save result.
   current_result="${regex} ${line_count} ${path_count} ${name_count}"
-  if [[ $(($line_count + $name_count)) -eq 0 ]]; then
+  if [[ $((line_count + name_count)) -eq 0 ]]; then
     results_ok+=("${current_result}");
   else
     results_nok+=("${current_result}");
   fi
 
   # Increment total counter
-  total_count=$(($total_count + $line_count + $name_count))
+  total_count=$((total_count + line_count + name_count))
 done < "${input_file}"
 
 results=("reg_exp #lines #files #filenames" "${results_ok[@]}" \
