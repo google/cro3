@@ -65,7 +65,9 @@ func readInput(fileName string) (*api.CrosTestFinderRequest, error) {
 			fmt.Errorf("fail to read file %v: %v", fileName, err))
 	}
 	req := api.CrosTestFinderRequest{}
-	if err := jsonpb.Unmarshal(f, &req); err != nil {
+	umrsh := jsonpb.Unmarshaler{}
+	umrsh.AllowUnknownFields = true
+	if err := umrsh.Unmarshal(f, &req); err != nil {
 		return nil, errors.NewStatusError(errors.UnmarshalError,
 			fmt.Errorf("fail to unmarshal file %v: %v", fileName, err))
 	}
