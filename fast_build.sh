@@ -25,6 +25,12 @@ readonly CROS_PROVISION_PKG="chromiumos/test/provision/cmd/cros-provision"
 readonly CROS_TEST_OUT="${GOHOME}/bin/cros-test"
 readonly CROS_PROVISION_OUT="${GOHOME}/bin/cros-provision"
 
+# Packages to exclude
+readonly EXCLUDE_PKGS=(
+	# TODO: re-enable after b/227254754 is fixed.
+	"chromiumos/test/publish/cmd/publishserver/tests"
+)
+
 # Readonly Go workspaces containing source to build. Note that the packages
 # installed to /usr/lib/gopath (dev-go/crypto, dev-go/subcommand, etc.) need to
 # be emerged beforehand.
@@ -66,13 +72,23 @@ get_check_pkgs() {
   done
 }
 
-# Prints all testable packages.
-get_test_pkgs() {
+# Prints all packages with unit tests.
+get_pkgs_with_unit_tests() {
   local dir
   for dir in "${SRCDIRS[@]}"; do
     if [[ -d "${dir}/src" ]]; then
       (cd "${dir}/src"
        find . -name '*_test.go' | xargs dirname | sort | uniq | cut -b 3-)
+    fi
+  done
+}
+
+# Prints all testable packages.
+get_test_pkgs() {
+  local pkgs=$(get_pkgs_with_unit_tests)
+  for pkg in ${pkgs}; do
+    if [[ ! "${EXCLUDE_PKGS[*]}" =~ "${pkg}" ]]; then
+      echo "${pkg}"
     fi
   done
 }
