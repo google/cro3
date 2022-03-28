@@ -83,6 +83,9 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, req *api
 
 	// Run RTD.
 	cmd := exec.Command("/usr/bin/test_that", genTautoArgList(args)...)
+
+	td.logger.Println("Running Autotest: ", cmd.String())
+
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return nil, fmt.Errorf("StderrPipe failed")
@@ -140,6 +143,8 @@ const (
 	// Must be formatted to test_that as follows: ... --host_attributes='{"key": "value"}'
 	// Thus, single quoted, with k/v in double quotes.
 	attributes = "--host_attributes"
+	// Setting the CFT has minor changes in Autotest, such as no exit(1) on failure.
+	cft = "--CFT"
 )
 
 // tautoRunArgs stores arguments to invoke tauto
@@ -148,6 +153,7 @@ type tautoRunArgs struct {
 	target   *device.DutInfo   // The information of the target machine.
 	patterns []string          // The names of test to be run.
 	runFlags map[string]string // The flags for tauto run command.
+	cftFlag  string
 }
 
 // newTautoArgs created an argument structure for invoking tauto
@@ -189,6 +195,8 @@ func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, d
 		}
 		args.runFlags[attributes] = fmt.Sprintf("%v", string(jsonStr))
 	}
+
+	args.cftFlag = cft
 	args.patterns = tests // TO-DO Support Tags
 	args.runFlags[tautoResultsDirFlag] = resultsDir
 	return &args, nil
@@ -268,6 +276,7 @@ func genTautoArgList(args *tautoRunArgs) (argList []string) {
 	for flag, value := range args.runFlags {
 		argList = append(argList, fmt.Sprintf("%v=%v", flag, value))
 	}
+	argList = append(argList, args.cftFlag)
 	argList = append(argList, args.target.Addr)
 	argList = append(argList, args.patterns...)
 	return argList

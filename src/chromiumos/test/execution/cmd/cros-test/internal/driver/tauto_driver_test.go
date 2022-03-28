@@ -56,6 +56,7 @@ func TestNewTautoArgs(t *testing.T) {
 			attributes:          `{"servo_host":"127.123.332.121","servo_port":"1337","servo_serial":"8675309"}`,
 			labels:              "board:fred model:flintstone servo chameleon audio_board chameleon:vga chameleon:hdmi atrus mimo camerabox_facing:front type:usbaudio",
 		},
+		cftFlag: "--CFT",
 	}
 
 	dut := primary
@@ -86,6 +87,7 @@ func TestGenTautoArgList(t *testing.T) {
 			companionFlag:       "companion1,companion2",
 			attributes:          fmt.Sprintf("'%v'", string(jsonStr)),
 		},
+		cftFlag: cft,
 	}
 
 	var expectedArgList []string
@@ -96,6 +98,7 @@ func TestGenTautoArgList(t *testing.T) {
 	expectedArgList = append(expectedArgList, dut1)
 	expectedArgList = append(expectedArgList, test1)
 	expectedArgList = append(expectedArgList, test2)
+	expectedArgList = append(expectedArgList, "--CFT")
 
 	argList := genTautoArgList(&args)
 
