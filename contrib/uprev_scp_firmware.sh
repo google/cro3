@@ -115,7 +115,7 @@ upload_to_localmirror() {
     gs://chromeos-localmirror/distfiles/"${SCP_FW_TAR_NAME}"
 
   # Update the ebuild Manifest
-  mv "${OLD_EBUILD_FILE}" "${NEW_EBUILD_FILE}"
+  mv -n "${OLD_EBUILD_FILE}" "${NEW_EBUILD_FILE}"
   ebuild "${NEW_EBUILD_FILE}" manifest
 }
 
