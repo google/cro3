@@ -152,6 +152,9 @@ to the file {user_conf} in your chroot.""")
         'Note that this is not persistent. If you run the default '
         'form of this command any binhosts you set with this '
         'will be overwritten.')
+    parser.add_argument(
+        '--progress', default=False, action='store_true',
+        help='Show progress')
 
     args = parser.parse_args()
 
@@ -179,7 +182,9 @@ to the file {user_conf} in your chroot.""")
     tmp = tempfile.TemporaryDirectory()
     tmp_path = Path(tmp.name)
     binhosts_found = 0
-    for rev in revs:
+    for count, rev in enumerate(revs):
+        if args.progress:
+            print(f'\rChecking {count}/{len(revs)}', end='')
         download_json(tmp_path, rev)
         builds = parse_json(tmp_path, rev)
 
@@ -204,7 +209,8 @@ to the file {user_conf} in your chroot.""")
         # Rough estimate of the total number of boards
         if binhosts_found > 135:
             break
-
+    if args.progress:
+        print()
     for board, uri in binhost_map.items():
         write_binhost(board, uri)
 
