@@ -12,8 +12,8 @@ be present when building/running through cros_sdk:
 
 ```sh
 cros_sdk
-cros_workon --host start test-server
-sudo emerge test-server
+cros_workon --host start test-services
+sudo emerge test-services
 
 ```
 
