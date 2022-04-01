@@ -52,7 +52,6 @@ topic_fixups['bluetooth'] = [
 ]
 
 topic_fixups['block-fs'] = [
-    'add ChromeOS specific platform functions',
     'Add message definitions for CHROMEOS_TMPFILE',
     'fuse: Passthrough initialization and release',
     'fuse: Handle asynchronous read and write in passthrough'
