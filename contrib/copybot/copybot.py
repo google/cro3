@@ -70,7 +70,7 @@ class GitRepo:
     def _run_git(self, *args, **kwargs):
         """Wrapper to run git with the provided arguments."""
         argv = ["git", "-C", self.git_dir, "--no-pager", *args]
-        logger.info("Run `%s`", " ".join(shlex.quote(arg) for arg in argv))
+        logger.info("Run `%s`", " ".join(shlex.quote(str(arg)) for arg in argv))
         kwargs.setdefault("encoding", "utf-8")
         kwargs.setdefault("errors", "replace")
         try:
@@ -150,7 +150,7 @@ class GitRepo:
 
     def apply(self, patch):
         """Apply a patch to the staging area."""
-        return self._run_git("apply", "--cached", "-", stdin=patch)
+        return self._run_git("apply", "--cached", "-", input=patch)
 
     def commit(self, message, amend=False):
         """Create a commit.
@@ -175,13 +175,25 @@ class GitRepo:
     @contextlib.contextmanager
     def temp_worktree(self, rev="HEAD"):
         """Context manager to create and destroy a temporary worktree."""
-        with tempfile.TemporaryDirectory() as worktree_dir:
-            worktree_dir = pathlib.Path(worktree_dir)
+        tmpdir = tempfile.TemporaryDirectory()
+        try:
+            worktree_dir = pathlib.Path(tmpdir.name)
             self._run_git("worktree", "add", "-d", worktree_dir, rev)
             try:
                 yield self.__class__(worktree_dir)
             finally:
-                self._run_git("worktree", "remove", worktree_dir)
+                self._run_git("worktree", "remove", "--force", worktree_dir)
+        finally:
+            # We use a try/finally to cleanup the temporary directory
+            # instead of a context manager as, in the successful
+            # condition, the worktree directory will no longer exist
+            # (git will have removed it).  In Python 3.10+, one can
+            # use ignore_cleanup_errors=True, but the chroot is on
+            # Python 3.6 right now.
+            try:
+                tmpdir.cleanup()
+            except FileNotFoundError:
+                pass
 
     def filter_commit(self, rev="HEAD", files=()):
         """Filter a commit to just certain files.
