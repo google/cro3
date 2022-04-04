@@ -231,9 +231,16 @@ class GitRepo:
 
         raise exn
 
-    def push(self, url, refspec):
+    def push(self, url, refspec, options=()):
         """Do a `git push`."""
-        self._run_git("push", url, refspec)
+        args = []
+
+        for option in options:
+            args.extend(["-o", option])
+
+        args.append(url)
+        args.append(refspec)
+        self._run_git("push", *args)
 
 
 class Gerrit:
@@ -610,7 +617,9 @@ def run_copybot(args, tmp_dir):
 
     push_refspec = get_push_refspec(args, downstream_branch)
     if not args.dry_run:
-        repo.push(downstream_url, push_refspec)
+        # We always want uploadvalidator~skip, since we're uploading
+        # pre-existing third-party commits.
+        repo.push(downstream_url, push_refspec, options=["uploadvalidator~skip"])
     else:
         logger.info("Skip push due to dry run")
 
