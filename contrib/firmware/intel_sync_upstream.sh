@@ -3,12 +3,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-SOC_LIST=(tgl jsl adl adln)
+SOC_LIST=(tgl jsl adl adln mtl)
 declare -A SOC_EDK_LOCAL_DIR_MAP=( ["tgl"]="branch2-private" ["jsl"]="branch1-private" ["adl"]="branch1-private" ["adln"]="branch1-private" )
 
 # If FSP is using a staging repo that does not follow the format ${SOC}-staging,
 # then add the mapping here.
-declare -A SOC_FSP_STAGING_REPO_MAP=( ["adl"]="ccg-adl-generic-full" ["adln"]="adl-n-staging" )
+declare -A SOC_FSP_STAGING_REPO_MAP=( ["adl"]="ccg-adl-generic-full" ["adln"]="adl-n-staging" ["mtl"]="mtl-staging")
 
 function die()
 {
@@ -80,7 +80,7 @@ case ${VERSION} in
   *)
     # TODO(b/223089091): Remove this special case once tags in adl-n-staging are
     # prefixed by upstream/
-    if [ ${SOC} = "adln" ]; then
+    if [ ${SOC} = "adln" ] || [ ${SOC} = "mtl" ]; then
       UPREV_BRANCH=${VERSION}
     else
       UPREV_BRANCH=upstream/${VERSION}
