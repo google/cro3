@@ -13,6 +13,7 @@ To run:
 ```shell
 $ go run sshwatcher.go host port host port host port
 ```
+
 to keep ssh connection to host with local port forwarded to port 22.
 
 An example:
@@ -50,6 +51,11 @@ Inside of your chroot you will be using:
 (chroot)$ adb connect localhost:xxxx  # to Chrome OS Android instance.
 (chroot)$ tast run localhost:xxxx arc.Boot  # run a tast test
 ```
+
+See other docs for more examples:
+
+-   [faft tests utilizing servo](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/HEAD/docs/faft-how-to-run-doc.md#running-against-duts-with-tunnelled-ssh)
+-   (Googlers only): go/arc-wfh#example-commands
 
 Having `.ssh/config` entry such as below might be helpful to use from inside the
 chroot:
