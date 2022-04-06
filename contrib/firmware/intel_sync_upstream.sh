@@ -125,7 +125,7 @@ die $? "Can't checkout upstream/${VERSION}"
 echo "Checked out upstream/${VERSION} to branch ${STAGING_NAME}-${VERSION}"
 
 echo "Pushing to a staging repo to avoid 'forge commiter' permission issues"
-git push -o skip-validation cros-internal HEAD:refs/heads/staging/${STAGING_PREFIX}-${VERSION}
+git push -o skip-validation -o nokeycheck cros-internal HEAD:refs/heads/staging/${STAGING_PREFIX}-${VERSION}
 die $? "Could not push to a staging repo"
 
 # Checkout a local branch from remotes/cros-internal/${CHROMEOS_BRANCH}
