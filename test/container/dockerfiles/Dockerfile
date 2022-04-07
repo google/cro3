@@ -10,7 +10,6 @@ RUN apt-get update \
       curl \
       iproute2 \
       iputils-ping \
-      python2.7 \
       python-pip \
       rsync \
       ssh \
@@ -39,11 +38,8 @@ RUN useradd -m chromeos-test
 RUN echo 'chromeos-test ALL=NOPASSWD:ALL' > /etc/sudoers.d/chromeos-test
 
 # Install all packages
-COPY requirements_py2.txt .
 COPY requirements_py3.txt .
 
-RUN pip2 install --upgrade pip
-RUN pip2 install -r requirements_py2.txt
 RUN pip3 install -r requirements_py3.txt
 
 # deploy autotest & tast packages
