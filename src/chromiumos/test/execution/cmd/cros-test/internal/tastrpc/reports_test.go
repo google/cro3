@@ -8,9 +8,13 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/grpc"
@@ -103,27 +107,44 @@ func TestReportsServer_ReportResult(t *testing.T) {
 		"SkippedTest": "SkippedTestId",
 		"MissingTest": "MissingTestId",
 	}
-	testTime := ptypes.TimestampNow()
+	testTimePassedTest, err := ptypes.TimestampProto(time.Time{})
+	if err != nil {
+		t.Error("Failed to create start time for PassedTest", err)
+	}
+	testTimeFailedTest, err := ptypes.TimestampProto(time.Time{}.Add(1))
+	if err != nil {
+		t.Error("Failed to create start time for FailededTest", err)
+	}
+	testTimeSkippedTest, err := ptypes.TimestampProto(time.Time{}.Add(2))
+	if err != nil {
+		t.Error("Failed to create start time for FailedTest", err)
+	}
 
 	requests := []*protocol.ReportResultRequest{
 		{
-			Test: "PassedTest",
+			Test:      "PassedTest",
+			StartTime: testTimePassedTest,
+			Duration:  ptypes.DurationProto(time.Second),
 		},
 		{
 			Test: "FailedTest",
 			Errors: []*protocol.ErrorReport{
 				{
-					Time:   testTime,
+					Time:   testTimeFailedTest,
 					Reason: "intentionally failed",
 					File:   "/tmp/file.go",
 					Line:   21,
 					Stack:  "None",
 				},
 			},
+			StartTime: testTimeFailedTest,
+			Duration:  ptypes.DurationProto(time.Second),
 		},
 		{
 			Test:       "SkippedTest",
 			SkipReason: "intentionally skipped",
+			StartTime:  testTimeSkippedTest,
+			Duration:   ptypes.DurationProto(0),
 		},
 	}
 
@@ -140,6 +161,8 @@ func TestReportsServer_ReportResult(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
+			StartTime: testTimePassedTest,
+			Duration:  ptypes.DurationProto(time.Second),
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: testIDs[1]},
@@ -154,6 +177,8 @@ func TestReportsServer_ReportResult(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
+			StartTime: testTimeFailedTest,
+			Duration:  ptypes.DurationProto(time.Second),
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: testIDs[2]},
@@ -168,6 +193,8 @@ func TestReportsServer_ReportResult(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
+			StartTime: testTimeSkippedTest,
+			Duration:  ptypes.DurationProto(0),
 		},
 	}
 	expectedMissingReports := []*api.TestCaseResult{
@@ -210,7 +237,10 @@ func TestReportsServer_ReportResult(t *testing.T) {
 			t.Fatal("Encountered errors at ReportResult: ", reportErrors)
 		}
 		reports := reportsServer.TestsReports()
-		if diff := cmp.Diff(reports[i], expectedReports[i]); diff != "" {
+		cmpOptIgnoreUnexportedDuration := cmpopts.IgnoreUnexported(duration.Duration{})
+		cmpOptIgnoreUnexportedTimeStamp := cmpopts.IgnoreUnexported(timestamp.Timestamp{})
+		if diff := cmp.Diff(reports[i], expectedReports[i],
+			cmpOptIgnoreUnexportedDuration, cmpOptIgnoreUnexportedTimeStamp); diff != "" {
 			t.Errorf("Got unexpected report from test %q (-got +want):\n%s", expectedReports[i].TestCaseId.Value, diff)
 		}
 	}

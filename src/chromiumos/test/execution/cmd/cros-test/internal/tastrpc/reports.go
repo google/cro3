@@ -73,6 +73,8 @@ func (s *ReportsServer) ReportResult(ctx context.Context, req *protocol.ReportRe
 				Tast: &api.TestHarness_Tast{},
 			},
 		},
+		StartTime: req.StartTime,
+		Duration:  req.Duration,
 	}
 	if len(req.Errors) > 0 {
 		testResult.Verdict = &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}}
