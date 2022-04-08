@@ -55,6 +55,7 @@ func TestNewTautoArgs(t *testing.T) {
 			dutServerFlag:       "localhost:2222,localhost:2223,localhost:2224",
 			attributes:          `{"servo_host":"127.123.332.121","servo_port":"1337","servo_serial":"8675309"}`,
 			labels:              "board:fred model:flintstone servo chameleon audio_board chameleon:vga chameleon:hdmi atrus mimo camerabox_facing:front type:usbaudio",
+			tautoArgs:           "dut_servers=localhost:2222,localhost:2223,localhost:2224",
 		},
 		cftFlag: "--CFT",
 	}

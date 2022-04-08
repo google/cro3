@@ -144,7 +144,8 @@ const (
 	// Thus, single quoted, with k/v in double quotes.
 	attributes = "--host_attributes"
 	// Setting the CFT has minor changes in Autotest, such as no exit(1) on failure.
-	cft = "--CFT"
+	cft       = "--CFT"
+	tautoArgs = "--args"
 )
 
 // tautoRunArgs stores arguments to invoke tauto
@@ -176,6 +177,7 @@ func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, d
 	if len(dutServers) > 0 {
 		dutServerAddresses := strings.Join(dutServers, ",")
 		args.runFlags[dutServerFlag] = dutServerAddresses
+		args.runFlags[tautoArgs] = fmt.Sprintf("%v=%v", "dut_servers", dutServerAddresses)
 	}
 
 	// Now we need to get a list of all labels, then load the labels const.
