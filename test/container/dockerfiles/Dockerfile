@@ -42,37 +42,50 @@ COPY requirements_py3.txt .
 
 RUN pip3 install -r requirements_py3.txt
 
-# deploy autotest & tast packages
-COPY --chown=chromeos-test:chromeos-test autotest/ /usr/local/autotest
+
+# Cros-test binary is static across boards.
+COPY --chown=chromeos-test:chromeos-test cros-test /usr/bin/
+
+# ###############################################################################
+# Everything above this point should not be changing often (ie not every build)
+# Everything below this point is possible/likely to change per build
+# ###############################################################################
+
+# Copy Tast packages before Autotest as they are the same across all boards
 COPY --chown=chromeos-test:chromeos-test tast/tast /usr/bin/tast
 COPY --chown=chromeos-test:chromeos-test tast/remote_test_runner /usr/bin/remote_test_runner
 COPY --chown=chromeos-test:chromeos-test tast/bundles/ /usr/libexec/tast/bundles
 COPY --chown=chromeos-test:chromeos-test tast/data/ /usr/share/tast/data
 COPY --chown=chromeos-test:chromeos-test tast/vars/ /etc/tast/vars
 
-COPY shadow_config.ini /usr/local/autotest/
-RUN chown -R chromeos-test:chromeos-test /usr/local/autotest/shadow_config.ini
-
+# Mark for Autotest/Tast to know they are within the CFT environment.
 RUN touch /usr/local/f20container
 
-# Test service *must* be cp'd into the dockerfile dir prior.
-COPY cros-test /usr/bin/
+# ###############################################################################
+# Everything above this point should not change per BOARD
+# Everything below this point is possible/likely to change per BOARD
+# ###############################################################################
+
+COPY --chown=chromeos-test:chromeos-test autotest/ /usr/local/autotest
+COPY --chown=chromeos-test:chromeos-test shadow_config.ini /usr/local/autotest/
 
 RUN mkdir -p /tmp/test
-# Bring in metadata to 1 location
-COPY *.pb /tmp/test/metadata/
+# Bring in metadata to 1 location (Can be different per board.)
+COPY --chown=chromeos-test:chromeos-test *.pb /tmp/test/metadata/
 
+# Create the symlink to /usr/bin/test_that to make test exec simple.
 RUN sudo ln -s /usr/local/autotest/site_utils/test_that.py /usr/bin/test_that
 
-# Own cros-test & metadata
-RUN chown -R chromeos-test:chromeos-test /usr/bin/cros-test
+# Do a final chown on /tmp/test
 RUN chmod 755 /usr/bin/cros-test
 RUN chown -R chromeos-test:chromeos-test /tmp/test/
-RUN chmod 755 /tmp/test/metadata/*.pb
 
+
+# Configure the ssh for testing under the test user
+# This **is** static between all boards/builds, but we rely on Autotest to get the SSH Key.
+# Should look into investigating how we can pull this earlier in the Dockerbuild.
 USER chromeos-test
 
-# Configure the ssh for testing
 RUN mkdir ~/.ssh
 RUN  echo '\n\
 Host android* brillo* chromeos1* chromeos2* chromeos3* chromeos4* chromeos5* chromeos6* chromeos7* chromeos9* autotest*.vrlab* jetstream* satlab* cros-* \n\
@@ -100,6 +113,7 @@ Host * \n\
 RUN cp /usr/local/autotest/utils/frozen_chromite/ssh_keys/testing_rsa ~/.ssh/
 RUN chmod 400 ~/.ssh/testing_rsa
 
+# This is empty currently, but might eventually need to be populated for different Envs.
 COPY shadow_config.ini .
 
 # The upstream autotest code that run in the container uses this to determine
