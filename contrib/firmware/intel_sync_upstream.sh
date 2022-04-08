@@ -78,9 +78,9 @@ case ${VERSION} in
     ;;
 
   *)
-    # TODO(b/223089091): Remove this special case once tags in adl-n-staging are
+    # TODO: Remove this special case once tags in mtl-staging are
     # prefixed by upstream/
-    if [ ${SOC} = "adln" ] || [ ${SOC} = "mtl" ]; then
+    if [ ${SOC} = "mtl" ]; then
       UPREV_BRANCH=${VERSION}
     else
       UPREV_BRANCH=upstream/${VERSION}
