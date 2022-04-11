@@ -225,3 +225,5 @@ disp_overlay['b5652af7c555'] = 'drop' # FROMGIT: drm/mediatek: Add pm runtime su
 disp_overlay['423c46c6f10b'] = 'drop' # Revert "FROMLIST: memory: mtk-smi: Get rid of mtk_smi_larb_get/put"
 disp_overlay['9ffdf344327e'] = 'drop' # FROMGIT: drm/dp: Move DisplayPort AUX bus helpers into dp/
 disp_overlay['ace1957d16df'] = 'drop' # FROMLIST: HID: Add mapping for KEY_ALL_APPLICATIONS
+disp_overlay['ab1609031cee'] = 'drop' # FROMLIST: i2c: mediatek: Isolate speed setting via dts for special devices
+disp_overlay['6efc076e538f'] = 'drop' # CHROMIUM: i2c: revert modify bus speed calculation formula
