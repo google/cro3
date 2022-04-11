@@ -39,7 +39,8 @@ topic_fixups = {}
 
 topic_fixups['arch'] = [
     'x86_mmu: use gfn_to_pfn_page',
-    'KVM: mmu: introduce new gfn_to_pfn_page functions'
+    'KVM: mmu: introduce new gfn_to_pfn_page functions',
+    'kvm_x86: virtual suspend time injection: Implement host side'
 ]
 
 topic_fixups['chromeos'] = [
