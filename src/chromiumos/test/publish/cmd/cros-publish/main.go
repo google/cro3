@@ -71,7 +71,7 @@ func newLogger(logFile *os.File) *log.Logger {
 type args struct {
 	// Common input params.
 	// Local log file path.
-	logPath    string
+	logPath string
 	// Local directory that will be uploaded.
 	localDir string
 	// GCS bucket path where the local directory will be uploaded to.
@@ -150,7 +150,7 @@ func startServer(ctx context.Context, d []string) int {
 	defer logFile.Close()
 
 	logger := newLogger(logFile)
-	if err := validate(a) ; err != nil {
+	if err := validate(a); err != nil {
 		log.Fatalf("Validate arguments fail: %s", err)
 		return 2
 	}
