@@ -85,3 +85,11 @@ services:
   - <<: *coreboot_downstream
     upstream: https://review.coreboot.org/blobs
     downstream: https://chromium.googlesource.com/chromiumos/third_party/coreboot/blobs
+  - <<: *coreboot_downstream
+    upstream: https://review.coreboot.org/libgfxinit
+    downstream: https://chromium.googlesource.com/chromiumos/third_party/coreboot/libgfxinit
+    downstream-branch: main
+  - <<: *coreboot_downstream
+    upstream: https://review.coreboot.org/libhwbase
+    downstream: https://chromium.googlesource.com/chromiumos/third_party/coreboot/libhwbase
+    downstream-branch: main
