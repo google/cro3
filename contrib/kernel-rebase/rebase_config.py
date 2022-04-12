@@ -45,7 +45,10 @@ topic_fixups['arch'] = [
 
 topic_fixups['chromeos'] = [
     'hid: Emit digitizer serial number through power_supply',
-    'chromiumos security module'
+    'chromiumos security module',
+    'Restore missing cursor for digitizer devices',
+    'mm: Check pmd_trans_unstable() after splitting huge page in per-process reclaim',
+    'kbuild: Allow kernel installation packaging to override pkg-config'
 ]
 
 topic_fixups['bluetooth'] = [
