@@ -233,3 +233,4 @@ disp_overlay['ab1609031cee'] = 'drop' # FROMLIST: i2c: mediatek: Isolate speed s
 disp_overlay['6efc076e538f'] = 'drop' # CHROMIUM: i2c: revert modify bus speed calculation formula
 disp_overlay['3881e5c35f51'] = 'drop' # CHROMIUM: mm: Check pmd_trans_unstable() after splitting huge page in per-process reclaim.
 disp_overlay['efd2d85276d4'] = 'drop' # config: Using CROSS_COMPILE prefix for pkg-config
+disp_overlay['e44743a29b47'] = 'drop' # CHROMIUM: drivers: Support iwl7000 driver.
