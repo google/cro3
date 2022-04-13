@@ -228,3 +228,5 @@ disp_overlay['9ffdf344327e'] = 'drop' # FROMGIT: drm/dp: Move DisplayPort AUX bu
 disp_overlay['ace1957d16df'] = 'drop' # FROMLIST: HID: Add mapping for KEY_ALL_APPLICATIONS
 disp_overlay['ab1609031cee'] = 'drop' # FROMLIST: i2c: mediatek: Isolate speed setting via dts for special devices
 disp_overlay['6efc076e538f'] = 'drop' # CHROMIUM: i2c: revert modify bus speed calculation formula
+disp_overlay['3881e5c35f51'] = 'drop' # CHROMIUM: mm: Check pmd_trans_unstable() after splitting huge page in per-process reclaim.
+disp_overlay['efd2d85276d4'] = 'drop' # config: Using CROSS_COMPILE prefix for pkg-config
