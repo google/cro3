@@ -65,7 +65,7 @@ type messageType struct {
 }
 
 // Format string for the per-host status.
-const kFmtString = "%-10v\t %-7v\t%-26v%-26v"
+var kFmtString string
 
 func sshConnectionLoop(param hostPortPair, message chan messageType) {
 	const kWaitBetweenSshTries = 1 * time.Second
@@ -105,6 +105,7 @@ func main() {
 		log.Fatal("Please specify host and port pairs, the number of arguments (%v) should be even.",
 			len(hostArgs))
 	}
+	maxHostLen := 10
 	for i := 0; i < len(hostArgs); i = i + 2 {
 		port, err := strconv.Atoi(hostArgs[i+1])
 		if err != nil {
@@ -115,7 +116,12 @@ func main() {
 			port: port,
 			host: hostArgs[i],
 		})
+
+		if len(hostArgs[i]) > maxHostLen {
+			maxHostLen = len(hostArgs[i])
+		}
 	}
+	kFmtString = fmt.Sprintf("%%-%dv\t %%-7v\t%%-30v%%-26v", maxHostLen)
 
 	message := make(chan messageType)
 
