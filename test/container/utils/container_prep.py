@@ -115,6 +115,10 @@ class DockerPrep():
       os.system('rm -r {out}/autotest/client/deps/{dep}'.format(
           out=self.full_out, dep=dep))
 
+  def remove_tarball(self):
+    """Remove the autotest tarball post untaring."""
+    os.system(f"rm -r {self.full_out}/autotest_server_package.tar.bz2")
+
   def copy_services(self):
     """Copy services needed for Docker."""
     shutil.copy(os.path.join(self.chroot_bin, 'cros-test'),
@@ -178,6 +182,7 @@ def main():
   builder.copy_dockerfiles()
   builder.untar()
   builder.remove_unused_deps()
+  builder.remove_tarball()
 
 
 if __name__ == '__main__':
