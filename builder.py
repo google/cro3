@@ -86,12 +86,11 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
   tmpd = tempfile.mkdtemp()
   try:
     # Extract package to temporary directory (excluding masked files).
-    cmd = ('pbzip2 -dc --ignore-trailing-garbage=1 %s'
-           ' | sudo tar -x -C %s %s --wildcards')
+    cmd = 'lbzip2 -dc %s | sudo tar -x -C %s %s --wildcards'
     subprocess.check_call(cmd % (in_path, tmpd, excludes), shell=True)
 
     # Build filtered version of package.
-    cmd = 'sudo tar -c --use-compress-program=pbzip2 -C %s . > %s'
+    cmd = 'sudo tar -c --use-compress-program=lbzip2 -C %s . > %s'
     subprocess.check_call(cmd % (tmpd, out_path), shell=True)
   finally:
     subprocess.check_call(['sudo', 'rm', '-rf', tmpd])
