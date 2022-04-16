@@ -81,16 +81,23 @@ def _FilterInstallMaskFromPackage(in_path, out_path):
   excludes = '--anchored ' + ' '.join(masks)
 
   gmerge_dir = os.path.dirname(out_path)
-  subprocess.check_call(['mkdir', '-p', gmerge_dir])
+  os.makedirs(gmerge_dir, mode=0o755, exist_ok=True)
+
+  with open(in_path, 'rb') as f:
+    data = f.read(3)
+  if data == b'BZh':
+    decomp = 'lbzip2 -dc'
+  else:
+    decomp = 'zstd -dcf'
 
   tmpd = tempfile.mkdtemp()
   try:
     # Extract package to temporary directory (excluding masked files).
-    cmd = 'lbzip2 -dc %s | sudo tar -x -C %s %s --wildcards'
+    cmd = f'{decomp} %s | sudo tar -x -C %s %s --wildcards'
     subprocess.check_call(cmd % (in_path, tmpd, excludes), shell=True)
 
     # Build filtered version of package.
-    cmd = 'sudo tar -c --use-compress-program=lbzip2 -C %s . > %s'
+    cmd = 'sudo tar -c --use-compress-program=zstd -C %s . > %s'
     subprocess.check_call(cmd % (tmpd, out_path), shell=True)
   finally:
     subprocess.check_call(['sudo', 'rm', '-rf', tmpd])
