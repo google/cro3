@@ -9,7 +9,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/golang/protobuf/ptypes"
 	"testing"
+	"time"
+
+	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
@@ -25,19 +32,25 @@ func TestTestsReports(t *testing.T) {
 	  "verdict": "Pass",
 	  "testname": "infra_pass",
 	  "errmsg": "",
-  	  "resultspath": "/tmp/test/results/tauto/results-1-stub_FailServer"
+	  "resultspath": "/tmp/test/results/tauto/results-1-stub_FailServer",
+	  "starttime": "1650319391",
+	  "endtime": "1650319496"
 	},
 	  {
 	  "verdict": "Fail",
 	  "testname": "infra_fail",
 	  "errmsg": "OH NO IT FAILED Q_Q",
-	  "resultspath": "/tmp/test/results/tauto/results-1-stub_FailServer"
+	  "resultspath": "/tmp/test/results/tauto/results-1-stub_FailServer",
+	  "starttime": "1650319391",
+	  "endtime": "1650319391"
 	},
 	  {
 	  "verdict": "Error",
 	  "testname": "infra_err",
 	  "errmsg": "I drove my car into a tree, and crashed.",
-	  "resultspath": "/tmp/test/results/tauto/results-1-stub_FailServer"
+	  "resultspath": "/tmp/test/results/tauto/results-1-stub_FailServer",
+	  "starttime": "1650319391",
+	  "endtime": "1650319496"
 	}]
 	}`
 	td, err := ioutil.TempDir("", "example")
@@ -54,6 +67,13 @@ func TestTestsReports(t *testing.T) {
 
 	f.WriteString(testJSON)
 
+	EXPECTSTARTTIME, err := ptypes.TimestampProto(time.Unix(1650319391, 0))
+	if err != nil {
+		fmt.Printf("!!!! ERR %v", err)
+	}
+	DURATION0 := ptypes.DurationProto(time.Second * time.Duration(0))
+	DURATION105 := ptypes.DurationProto(time.Second * time.Duration(105))
+
 	resultsDir := td
 	expectedResults := []*api.TestCaseResult{
 		{
@@ -68,6 +88,8 @@ func TestTestsReports(t *testing.T) {
 					Tauto: &api.TestHarness_Tauto{},
 				},
 			},
+			StartTime: EXPECTSTARTTIME,
+			Duration:  DURATION105,
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_fail_id"},
@@ -82,6 +104,8 @@ func TestTestsReports(t *testing.T) {
 					Tauto: &api.TestHarness_Tauto{},
 				},
 			},
+			StartTime: EXPECTSTARTTIME,
+			Duration:  DURATION0,
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_err_id"},
@@ -96,6 +120,8 @@ func TestTestsReports(t *testing.T) {
 					Tauto: &api.TestHarness_Tauto{},
 				},
 			},
+			StartTime: EXPECTSTARTTIME,
+			Duration:  DURATION105,
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_dne_id"},
@@ -123,10 +149,11 @@ func TestTestsReports(t *testing.T) {
 		t.Fatal("Got error from unexpected: ", err)
 	}
 
-	if diff := cmp.Diff(reports, expectedResults); diff != "" {
+	cmpOptIgnoreUnexportedDuration := cmpopts.IgnoreUnexported(duration.Duration{})
+	cmpOptIgnoreUnexportedTimeStamp := cmpopts.IgnoreUnexported(timestamp.Timestamp{})
+	if diff := cmp.Diff(reports, expectedResults, cmpOptIgnoreUnexportedDuration, cmpOptIgnoreUnexportedTimeStamp); diff != "" {
 		t.Errorf("Got unexpected reports (-got +want):\n%s", diff)
 	}
-
 }
 
 // TestTestsReports_BadJson verify results will be returned as missing if there is no/invalid json.

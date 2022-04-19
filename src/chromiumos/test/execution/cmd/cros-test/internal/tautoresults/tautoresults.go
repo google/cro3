@@ -6,12 +6,14 @@
 package tautoresults
 
 import (
+	"chromiumos/test/execution/errors"
 	"encoding/json"
 	"fmt"
+	"github.com/golang/protobuf/ptypes"
 	"io/ioutil"
 	"path/filepath"
-
-	"chromiumos/test/execution/errors"
+	"strconv"
+	"time"
 
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
@@ -38,6 +40,8 @@ type test struct {
 	Testname    string `json:"testname"`
 	Errmsg      string `json:"errmsg"`
 	Resultspath string `json:"resultspath"`
+	StartTime   string `json:"starttime"`
+	EndTime     string `json:"endtime"`
 }
 
 // loadJSON unmarshals the json into the Report.RawResults struct.
@@ -49,6 +53,31 @@ func (r *Report) loadJSON(resultsDir string) error {
 			fmt.Errorf("failed to unmarshal results: %v From: %v", err, resultsDir))
 	}
 	return nil
+}
+
+func getTime(givenTime string) time.Time {
+	start, err := strconv.ParseInt(givenTime, 10, 64)
+	if err != nil {
+		// If we can't convert return nil I guess.
+		return time.Unix(0, 0)
+	}
+	unixTime := time.Unix(start, 0)
+	return unixTime
+}
+
+// GetDuration gets the duration from the start/end time of a test.
+func GetDuration(test test) time.Duration {
+	start, err := strconv.Atoi(test.StartTime)
+	if err != nil {
+		return time.Duration(0)
+	}
+	end, err := strconv.Atoi(test.EndTime)
+	if err != nil {
+		return time.Duration(0)
+	}
+	diff := end - start
+	durationDiff := time.Second * time.Duration(diff)
+	return durationDiff
 }
 
 // GenerateReport gets a report request from tast and passes on to progress sink.
@@ -68,6 +97,17 @@ func GenerateReport(test test, testID string, resultsDir string) *api.TestCaseRe
 				Tauto: &api.TestHarness_Tauto{},
 			},
 		},
+	}
+
+	startTime := getTime(test.StartTime)
+	if startTime != time.Unix(0, 0) {
+		startProtoTime, err := ptypes.TimestampProto(startTime)
+		// Only add times if there was no err in conversion.
+		if err == nil {
+			durationProtoTime := ptypes.DurationProto(GetDuration(test))
+			testResult.StartTime = startProtoTime
+			testResult.Duration = durationProtoTime
+		}
 	}
 
 	// Change result to fail/err as needed.
