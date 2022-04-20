@@ -46,8 +46,8 @@ BUG=${4:-None}
 # Assign the value for BRANCH= in the commit message, or use None if unspecified
 COMMIT_MSG_BRANCH="${NEW_VARIANT_BRANCH:-None}"
 
-# All of the necessary files are in platform/ec/zephyr/projects
-WORKDIR="${HOME}/trunk/src/platform/ec/zephyr/projects"
+# All of the necessary files are in platform/ec/zephyr/program
+WORKDIR="${HOME}/trunk/src/platform/ec/zephyr/program"
 cd ${WORKDIR}
 
 # Make sure that the reference board exists.

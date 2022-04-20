@@ -20,6 +20,7 @@ SOC that we support.
 """
 
 from __future__ import print_function
+
 import argparse
 import sys
 
@@ -34,7 +35,7 @@ def main(argv):
     parser.add_argument('--board', type=str, required=True,
                         choices=('hatch', 'volteer', 'trembyle', 'dalboz',
                                  'waddledee', 'waddledoo', 'lalala', 'puff',
-                                 'brya0', 'brask', 'guybrush'),
+                                 'brya0', 'brask', 'guybrush', 'nissa'),
                         help='Name of the baseboard')
     parser.add_argument('--variant', type=str, required=True,
                         help='Name of the board variant')
@@ -170,6 +171,10 @@ def add_to_kconfig_name(baseboard_name, variant_name):
             print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
             print('\tbool "->  ' + capitalized + '"', file=outfile)
             print('\tselect BOARD_GOOGLE_BASEBOARD_GUYBRUSH', file=outfile)
+        elif baseboard_name == 'nissa':
+            print('\nconfig ' + 'BOARD_GOOGLE_' + uppercase, file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
+            print('\tselect BOARD_GOOGLE_BASEBOARD_NISSA', file=outfile)
         else:
             raise ValueError(f'Unsupported board {baseboard_name}')
 

@@ -17,7 +17,7 @@ fi
 
 if [[ "$#" -lt 1 ]]; then
   echo "Usage: ${SCRIPT} reference_name"
-  echo "e.g. ${SCRIPT} hatch | puff | volteer2 | waddledee | waddledoo | lalala | trembyle | dalboz | brya0 | guybrush"
+  echo "e.g. ${SCRIPT} hatch | puff | volteer2 | waddledee | waddledoo | lalala | trembyle | dalboz | brya0 | guybrush | nereid | nivviks"
   echo "End-to-end test to create a new variant of a reference board"
   echo "Script version ${VERSION}"
   exit 1
@@ -144,6 +144,17 @@ case "${REFERENCE}" in
     SUPPORTS_DC_VARIANT=1
     ;;
 
+  nereid|nivviks)
+    BASE=nissa
+    NEW=eris
+    CONFIG_DIR=/mnt/host/source/src/project/nissa
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-nissa-private/chromeos-base/chromeos-config-bsp-private
+    FITIMAGE=nivviks
+    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/chipset-adln-private/sys-boot/coreboot-private-files-chipset-adln/files/blobs
+    FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/chipset-adln-private/sys-boot/coreboot-private-files-chipset-adln/files
+    USE_ZEPHYR=1
+    ;;
+
   *)
     echo Unsupported reference board "${REFERENCE}"
     exit 1
@@ -202,7 +213,7 @@ cleanup() {
       rm -f "fitimage-${NEW}.map"
     fi
     # Clean up the extra Brya fitimage files, too.
-    if [[ "${REFERENCE}" == "brya0" ]] ; then
+    if [[ "${REFERENCE}" == "brya0" || "${REFERENCE}" == "nereid" || "${REFERENCE}" == "nivviks" ]] ; then
       pushd "${FITIMAGE_FILES_DIR}/blobs"
       rm -f "csme-${NEW}.bin"
       rm -f "descriptor-${NEW}.bin"
@@ -240,6 +251,11 @@ coreboot='${NEW}',\
 depthcharge='${NEW}',\
 libpayload='${BASE}',\
 ec='${NEW}'))\n/"
+
+# If using zephyr, replace ec with zephyr_ec in fw build config.
+if [[ ${USE_ZEPHYR} -eq 1 ]] ; then
+  BUILD_TARGETS_SED=${BUILD_TARGETS_SED/ec=/zephyr_ec=}
+fi
 
 # Create the project configuration repo, if defined.
 if [[ -n ${CONFIG_DIR+x} ]] ; then
@@ -288,7 +304,7 @@ if [[ -n ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
     popd
     pushd "${FITIMAGE_FILES_DIR}/maps"
     cp "fitimage-${REFERENCE}.map" "fitimage-${NEW}.map"
-  elif [[ "${REFERENCE}" == "brya0" ]] ; then
+  elif [[ "${REFERENCE}" == "brya0" || "${REFERENCE}" == "nereid" || "${REFERENCE}" == "nivviks" ]] ; then
     pushd "${FITIMAGE_OUTPUTS_DIR}"
     cp "csme-${FITIMAGE}.bin" "csme-${NEW}.bin"
     cp "descriptor-${FITIMAGE}.bin" "descriptor-${NEW}.bin"
