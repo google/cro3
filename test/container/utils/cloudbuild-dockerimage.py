@@ -88,7 +88,9 @@ class DockerPreper():
     self.outputdir = 'tmp/docker/crostest'
     self.chroot = args.chroot
     self.sysroot = args.sysroot
-    self.full_out_dir = os.path.join(args.chroot, args.sysroot, self.outputdir)
+    if self.sysroot.startswith('/'):
+      self.sysroot = self.sysroot[1:]
+    self.full_out_dir = os.path.join(self.chroot, self.sysroot, self.outputdir)
     self.cwd = os.path.dirname(os.path.abspath(__file__))
     self.src = os.path.join(self.cwd, '../../../../../')
 
