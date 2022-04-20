@@ -235,3 +235,4 @@ disp_overlay['6efc076e538f'] = 'drop' # CHROMIUM: i2c: revert modify bus speed c
 disp_overlay['3881e5c35f51'] = 'drop' # CHROMIUM: mm: Check pmd_trans_unstable() after splitting huge page in per-process reclaim.
 disp_overlay['efd2d85276d4'] = 'drop' # config: Using CROSS_COMPILE prefix for pkg-config
 disp_overlay['e44743a29b47'] = 'drop' # CHROMIUM: drivers: Support iwl7000 driver.
+disp_overlay['dcfe09e3e57e'] = 'drop' # CHROMIUM: mm: Optionally limit per-process reclaim.
