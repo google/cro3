@@ -92,7 +92,8 @@ class DockerPreper():
     self.cwd = os.path.dirname(os.path.abspath(__file__))
     self.src = os.path.join(self.cwd, '../../../../../')
     if not os.path.exists(self.full_out_dir):
-      os.mkdir(self.full_out_dir)
+      os.makedirs(self.full_out_dir, exist_ok=True)
+
 
   def build_yaml(self):
     build_tags = ''
