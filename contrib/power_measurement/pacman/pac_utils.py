@@ -3,16 +3,17 @@
 # found in the LICENSE file.
 
 import binascii
-import importlib
-import pac19xx
-import pandas
-from pyftdi.i2c import I2cController, I2cNackError
-import struct
 import signal
 import time
+import os
+import importlib.util
+import pandas
+import pac19xx
+from pyftdi.i2c import I2cController, I2cNackError
+
 
 def read_pac(device, reg, num_bytes):
-    """ Reads num_bytes from PAC I2C register using pyftdi driver.
+    """Reads num_bytes from PAC I2C register using pyftdi driver.
 
     Args:
         device: (string) Serial port device name - ftdi:///?.
@@ -21,14 +22,14 @@ def read_pac(device, reg, num_bytes):
 
     Returns:
         (string) Hex decoded as a string
-
     """
     pacval = device.read_from(reg, num_bytes)
     pacval = binascii.hexlify(pacval).decode()
     return pacval
 
+
 def read_pac_int(device, reg, num_bytes):
-    """ Calls read_pac and returns the value as an int.
+    """Calls read_pac and returns the value as an int.
 
     Args:
         device: (string) Serial port device name - ftdi:///?.
@@ -37,13 +38,13 @@ def read_pac_int(device, reg, num_bytes):
 
     Returns:
         (int) The value of read_pac converted to an int
-
     """
-    pacval = read_pac(device,reg,num_bytes)
+    pacval = read_pac(device, reg, num_bytes)
     return int(pacval, 16)
 
+
 def read_voltage(device, ch_num=1, polarity='bipolar'):
-    """ Returns PAC voltage of given channel number.
+    """Returns PAC voltage of given channel number.
 
     Args:
         device: i2c port object.
@@ -61,7 +62,7 @@ def read_voltage(device, ch_num=1, polarity='bipolar'):
 
 
 def read_power(device, sense_resistance, ch_num=1, polarity='unipolar'):
-    """ Returns PAC power of given channel number.
+    """Returns PAC power of given channel number.
 
     Args:
         device: i2c port object.
@@ -80,6 +81,7 @@ def read_power(device, sense_resistance, ch_num=1, polarity='unipolar'):
     # *0.25 to shift right 2 places VPOWERn[29:0].
     return power
 
+
 def read_current(device, sense_resistance, ch_num=1, polarity='unipolar'):
     """Returns PAC current of given channel number.
 
@@ -91,26 +93,26 @@ def read_current(device, sense_resistance, ch_num=1, polarity='unipolar'):
 
     Returns:
         current: (float) Current.
-
     """
     current = read_pac_int(device, pac19xx.VSENSE1_AVG + int(ch_num), 2)
     fsc = pac19xx.FSR / float(sense_resistance)
     current = (fsc / pac19xx.V_POLAR[polarity]) * current
     return float(current)
 
+
 def read_gpio(device):
-    """ Returns GPIO status of PAC GPIO
+    """Returns GPIO status of PAC GPIO
 
     Args:
         device: i2c port object.
 
     Returns:
         gpioSetting: (bool) gpio.
-
     """
     # Read GPIO
     gpio = read_pac_int(device, pac19xx.SMBUS_SET, 1)
     return bool(gpio & (1 << 7))
+
 
 def reset_accumulator(device):
     """Command to reset PAC accumulators.
@@ -120,6 +122,7 @@ def reset_accumulator(device):
     """
     device.write_to(pac19xx.REFRESH, 0)
     time.sleep(0.001)
+
 
 def print_registers(device, pac_address):
     """Prints CTRL and SLOW registers.
@@ -139,35 +142,45 @@ def print_registers(device, pac_address):
     tmp = read_pac(device, pac19xx.CTRL_LAT, 2)
     print(f'{pac_address} register CTRL_LAT: \t0x{tmp}')
 
+
 def disable_slow(device):
     """Disable SLOW function of PAC accumulators.
+
     Changes SLOW pin to GPIO function.
 
     Args:
         device: i2c port object.
     """
-    # Write CTRL register with 0x0500, but consider changing to: read, bitwise AND, write
-    # CTRL register defaults to 0x0700, this sets bits[9:8] from 0b11 (SLOW) to 0b01 (GPIO in)
+    # Write CTRL register with 0x0500
+    # #TODO consider changing to: read, bitwise AND, write
+    # CTRL register defaults to 0x0700:
+    # this sets bits[9:8] from 0b11 (SLOW) to 0b01 (GPIO in).
     # Alternate method is to keep register as SLOW but set FTDI GPIO Low
     device.write_to(pac19xx.CTRL, b'\x05\x00')
 
     # force refreshing the updated control register
     device.write_to(pac19xx.REFRESH, 0)
 
+
 def enable_slow(device):
     """Disable SLOW function of PAC accumulators.
+
     Changes SLOW pin to GPIO function.
 
     Args:
         device: i2c port object.
     """
-    # Write CTRL register with 0x0700, but consider changing to: read, bitwise AND, write
-    # returns CTRL register to default 0x0700, this sets bits[9:8] to 0b11 (SLOW)
-    # note this just enables SLOW control - more work needed for forcing FTDI GPIO High
+    # Write CTRL register with 0x0700
+    # #TODO consider changing to: read, bitwise AND, write
+    # returns CTRL register to default 0x0700:
+    # this sets bits[9:8] to 0b11 (SLOW)
+    # note this just enables SLOW control
+    # #TODO more work needed for forcing FTDI GPIO High
     device.write_to(pac19xx.CTRL, b'\x07\x00')
 
     # force refreshing the updated control register
     device.write_to(pac19xx.REFRESH, 0)
+
 
 def dump_accumulator(device, ch_num, polarity):
     """Command to acquire the voltage accumulator and counts for a PAC.
@@ -181,16 +194,21 @@ def dump_accumulator(device, ch_num, polarity):
         reg: (long) voltage accumulator register.
         count: (int) number of accumulations.
     """
-    lut = {'0': pac19xx.VACC1, '1': pac19xx.VACC2,
-           '2': pac19xx.VACC3, '3': pac19xx.VACC4}
+    lut = {
+        '0': pac19xx.VACC1,
+        '1': pac19xx.VACC2,
+        '2': pac19xx.VACC3,
+        '3': pac19xx.VACC4
+    }
     reg = device.read_from(lut[str(ch_num)], 7)
     count = device.read_from(pac19xx.ACC_COUNT, 4)
     count = int.from_bytes(count, byteorder='big', signed=False)
     if polarity == 'unipolar':
-      reg = int.from_bytes(reg, byteorder='big', signed=False)
+        reg = int.from_bytes(reg, byteorder='big', signed=False)
     else:
-      reg = int.from_bytes(reg, byteorder='big', signed=True)
+        reg = int.from_bytes(reg, byteorder='big', signed=True)
     return (reg, count)
+
 
 def pac_info(ftdi_url):
     """Returns PAC debugging info
@@ -204,8 +222,6 @@ def pac_info(ftdi_url):
     i2c.configure(ftdi_url)
     device = i2c.get_port(0x10)
     print(f'Device: \t{device}')
-    print(f'Args.debug: \t{args.debug}')
-
     tmp = read_pac(device, pac19xx.MANUFACTURER_ID, 1)
     print(f'PAC Mfg ID: \t0x{tmp}')
     tmp = read_pac(device, pac19xx.REVISION_ID, 1)
@@ -217,16 +233,18 @@ def pac_info(ftdi_url):
     tmp = read_pac(device, pac19xx.CTRL, 2)
     print(f'CTRL: \t\t0x{tmp}\n')
 
-def set_polarity( device, polarity):
-  if polarity == 'unipolar':
-    reg = b'\x00\x00'
-  elif polarity == 'bipolar':
-    reg = b'\x55\x55'
-  else:
-    raise ValueError('Unsupported polarity type '+polarity)
 
-  device.write_to(pac19xx.NEG_PWR_FSR, reg)
-  print(f'Set \t{hex(device.address)} polarity to: {polarity}')
+def set_polarity(device, polarity):
+    if polarity == 'unipolar':
+        reg = b'\x00\x00'
+    elif polarity == 'bipolar':
+        reg = b'\x55\x55'
+    else:
+        raise ValueError('Unsupported polarity type ' + polarity)
+
+    device.write_to(pac19xx.NEG_PWR_FSR, reg)
+    print(f'Set \t{hex(device.address)} polarity to: {polarity}')
+
 
 def load_config(config_file):
     """Loads the same config file used by servod into a pandas dataframe.
@@ -237,8 +255,6 @@ def load_config(config_file):
     Returns:
         config: (Pandas Dataframe) config.
     """
-    import importlib.util
-    import os
     head_tail = os.path.split(config_file)
     module_name = head_tail[1]
     spec = importlib.util.spec_from_file_location(module_name, config_file)
@@ -253,6 +269,7 @@ def load_config(config_file):
     config['ch_num'] = config.addr.apply(lambda x: x.split(':')[1])
     return config
 
+
 def load_gpio_config(gpio_config):
     """Loads a PAC address to GPIO rail name mapping csv file.
 
@@ -262,13 +279,18 @@ def load_gpio_config(gpio_config):
     Returns:
         config: (Pandas Dataframe) config.
     """
-    gpio_config = pandas.read_csv(gpio_config, skiprows=5,
+    gpio_config = pandas.read_csv(gpio_config,
+                                  skiprows=5,
                                   skipinitialspace=True)
     return gpio_config
 
+
 terminate_signal = False
-def signal_handler( signum, frame):
+
+
+def signal_handler(signum, frame):
     """Define a signal handler for record so we can stop on CTRL-C.
+
     Autotest can call subprocess.kill which will make us stop waiting and
     dump the rest of the log.
     """
@@ -277,6 +299,7 @@ def signal_handler( signum, frame):
     print('Dumping accumulators and generating reports.')
     global terminate_signal
     terminate_signal = True
+
 
 def record(config_file,
            ftdi_url='ftdi:///',
@@ -287,6 +310,7 @@ def record(config_file,
            power=True,
            polarity='bipolar'):
     """High level function to reset, log, then dump PAC power accumulations.
+
     Args:
         config_file: (string) Location of PAC Address/sense resitor .py file.
         ftdi_url: (string) ftdi_url.
@@ -295,7 +319,7 @@ def record(config_file,
         record_length: (float) time in seconds to log.
         voltage: (boolean) log voltage.
         current: (boolean) log current.
-        power  : (boolean) log power.
+        power: (boolean) log power.
         polarity: (string) ['unipolar', 'bipolar']
 
     Returns:
@@ -328,7 +352,7 @@ def record(config_file,
             skip_pacs.append(pac_address)
 
     log = []
-    #Register the signal handler for clean exits
+    # Register the signal handler for clean exits
     global terminate_signal
     terminate_signal = False
     signal.signal(signal.SIGINT, signal_handler)
@@ -365,8 +389,7 @@ def record(config_file,
                     tmp['relativeTime'] = tmp['systime'] - start_time
                     tmp['rail'] = row['rail']
                     if voltage:
-                        tmp['voltage'] = read_voltage(device, ch_num,
-                                                      polarity)
+                        tmp['voltage'] = read_voltage(device, ch_num, polarity)
                     if current:
                         tmp['current'] = read_current(device, sense_r, ch_num,
                                                       polarity)
@@ -395,7 +418,7 @@ def record(config_file,
         (accum, count) = dump_accumulator(device, config_row.ch_num, polarity)
         accumulator['tAccum'] = time.time() - start_time
         accumulator['count'] = count
-        depth = {'unipolar': 2 ** 30, 'bipolar': 2 ** 29}
+        depth = {'unipolar': 2**30, 'bipolar': 2**29}
         # Equation 3-8 Energy Calculation.
         accumulator['accumReg'] = accum
         accumulator['rSense'] = config_row.rsense
@@ -410,9 +433,13 @@ def record(config_file,
 
     return (time_log, accumulatorLog)
 
-def query_all(config_file, gpio_config, ftdi_url='ftdi:///',
+
+def query_all(config_file,
+              gpio_config,
+              ftdi_url='ftdi:///',
               polarity='bipolar'):
     """Preform a one time query of GPIOs, powers, currents, voltages.
+
     Args:
         config_file: (string) Location of PAC Address/sense resistor .py file.
         gpio_config: (string) Location of PAC Address Gpio rail mapping.

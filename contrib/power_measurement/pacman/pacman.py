@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Copyright 2021 The Chromium OS Authors. All rights reserved.
@@ -14,23 +14,24 @@ import pac_utils
 import pandas
 import plotly.express
 
+
 def main():
-    gpio_default='./boards/guybrush/guybrush_r0_pacs_gpio.csv'
-    mapping_default='./boards/guybrush/guybrush_r0_railmapping.csv'
-    polarity_default='bipolar'
+    gpio_default = './boards/guybrush/guybrush_r0_pacs_gpio.csv'
+    mapping_default = './boards/guybrush/guybrush_r0_railmapping.csv'
+    polarity_default = 'bipolar'
 
     argparser = ArgumentParser(description=modules[__name__].__doc__)
     argparser.add_argument(
         '-s',
         '--single',
         help=
-        'Use to take a single voltage, current, power measurement of all rails and report GPIO status',
-        action="store_true")
-    argparser.add_argument(
-        '-t',
-        '--time',
-        default=9999999,
-        help='Time to capture in seconds')
+        'Use to take a single voltage, current,'\
+            ' power measurement of all rails and report GPIO status',
+        action='store_true')
+    argparser.add_argument('-t',
+                           '--time',
+                           default=9999999,
+                           help='Time to capture in seconds')
     argparser.add_argument(
         '-c',
         '--config',
@@ -40,7 +41,9 @@ def main():
         '-O',
         '--output',
         nargs='?',
-        default=os.path.join('./Data', datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')),
+        default=os.path.join(
+            './Data',
+            datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')),
         help='Path for log files')
     argparser.add_argument(
         '-m',
@@ -48,18 +51,16 @@ def main():
         type=FileType('r'),
         default=mapping_default,
         help='Rail hierachy mapping used to generate sunburst plot')
-    argparser.add_argument(
-        '-g',
-        '--gpio',
-        type=FileType('r'),
-        default=gpio_default,
-        help='PAC address to GPIO net name mapping')
+    argparser.add_argument('-g',
+                           '--gpio',
+                           type=FileType('r'),
+                           default=gpio_default,
+                           help='PAC address to GPIO net name mapping')
     argparser.add_argument(
         '-p',
         '--polarity',
         default=polarity_default,
-        help='Measurements can either be unipolar or bipolar'
-        )
+        help='Measurements can either be unipolar or bipolar')
 
     args = argparser.parse_args()
 
@@ -78,44 +79,48 @@ def main():
     # If single, take a single shot of these measurements then quit.
     # Print which files are being used for clarity
     if args.single:
-        print("Taking a single voltage, current, power measurement of all rails and reporting GPIO status")
-        print("Using config file:", args.config.name)
+        print(
+            'Taking a single voltage, current, '\
+                'power measurement of all rails and reporting GPIO status'
+        )
+        print('Using config file:', args.config.name)
         if args.gpio.name == gpio_default:
-            print("Using default gpio file:", args.gpio.name)
+            print('Using default gpio file:', args.gpio.name)
         else:
-            print("Using gpio file:", args.gpio.name)
+            print('Using gpio file:', args.gpio.name)
         print()
-        log = pac_utils.query_all(args.config.name, args.gpio.name,
-                                  polarity=args.polarity )
+        log = pac_utils.query_all(args.config.name,
+                                  args.gpio.name,
+                                  polarity=args.polarity)
         log.to_csv(single_log_path)
         return False
 
     # Else we're going to take a time log.
     # Print which files are being used for clarity
-    print("Taking an extended reading")
-    print("Using config file:", args.config.name)
+    print('Taking an extended reading')
+    print('Using config file:', args.config.name)
     if args.mapping.name == mapping_default:
-        print("Using default rail mapping file:", args.mapping.name)
+        print('Using default rail mapping file:', args.mapping.name)
     else:
-        print("Using rail mapping file:", args.mapping.name)
+        print('Using rail mapping file:', args.mapping.name)
     print()
     # Record the sample and log to file.
     (log, accumulator_log) = pac_utils.record(args.config.name,
-                                   rail=['all'],
-                                   record_length=args.time,
-                                   polarity=args.polarity)
+                                              rail=['all'],
+                                              record_length=args.time,
+                                              polarity=args.polarity)
     log.to_csv(time_log_path)
     accumulator_log.to_csv(accumulator_log_path)
 
     # Generate plots using plotly.
     time_plot = plotly.express.line(log,
-                       x='relativeTime',
-                       y='power',
-                       color='rail',
-                       labels={
-                           'power': 'Power (w)',
-                           'relativeTime': 'Time (seconds)'
-                       })
+                                    x='relativeTime',
+                                    y='power',
+                                    color='rail',
+                                    labels={
+                                        'power': 'Power (w)',
+                                        'relativeTime': 'Time (seconds)'
+                                    })
     time_plot.update_layout(
         title='Time Series',
         xaxis_title='Time (Seconds)',
@@ -123,35 +128,34 @@ def main():
     )
     box_plot = plotly.express.box(log, y='power', x='rail')
     box_plot.update_layout(title='Instaneous Measurement Statistics',
-                          xaxis_title='Rail',
-                          yaxis_title='Power (W)')
+                           xaxis_title='Rail',
+                           yaxis_title='Power (W)')
     accumulator_log = accumulator_log.sort_values(by='Average Power (w)',
-                                                ascending=False)
-    summary_table = plotly.graph_objects.Figure(
-        data=[
-            plotly.graph_objects.Table(
-                header=dict(values=['Rail',
-                                    'Accumulation Time (s)',
-                                    'Sense Resistor (Ohm)',
-                                    'Average Power (W)'],
-                                    align='left'),
-                cells=dict(values=[
-                    accumulator_log.Rail,
-                    accumulator_log.tAccum.round(2), accumulator_log.rSense,
-                    accumulator_log['Average Power (w)'].round(3)
-                 ], align='left'))
-        ]
-    )
+                                                  ascending=False)
+    summary_table = plotly.graph_objects.Figure(data=[
+        plotly.graph_objects.Table(
+            header=dict(values=[
+                'Rail', 'Accumulation Time (s)', 'Sense Resistor (Ohm)',
+                'Average Power (W)'
+            ],
+                        align='left'),
+            cells=dict(values=[
+                accumulator_log.Rail,
+                accumulator_log.tAccum.round(2), accumulator_log.rSense,
+                accumulator_log['Average Power (w)'].round(3)
+            ],
+                       align='left'))
+    ])
     summary_table.update_layout(title='Accumulator Measurements')
     if args.mapping is not None:
         skip_sunplot = False
         mapping = pandas.read_csv(args.mapping, skiprows=4)
         accumulator_log = pandas.merge(accumulator_log, mapping, on='Rail')
         star_plot = plotly.express.sunburst(accumulator_log,
-                               names='Rail',
-                               parents='Parent',
-                               values='Average Power (w)',
-                               title='Power Sunburst')
+                                            names='Rail',
+                                            parents='Parent',
+                                            values='Average Power (w)',
+                                            title='Power Sunburst')
     else:
         print('Skipping Sunplot')
         skip_sunplot = True
@@ -162,6 +166,7 @@ def main():
             f.write(star_plot.to_html(full_html=False, include_plotlyjs='cdn'))
         f.write(box_plot.to_html(full_html=False, include_plotlyjs='cdn'))
         f.write(time_plot.to_html(full_html=False, include_plotlyjs='cdn'))
+
 
 if __name__ == '__main__':
     try:
