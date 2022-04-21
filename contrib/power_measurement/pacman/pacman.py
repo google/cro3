@@ -17,6 +17,7 @@ import plotly.express
 def main():
     gpio_default='./boards/guybrush/guybrush_r0_pacs_gpio.csv'
     mapping_default='./boards/guybrush/guybrush_r0_railmapping.csv'
+    polarity_default='bipolar'
 
     argparser = ArgumentParser(description=modules[__name__].__doc__)
     argparser.add_argument(
@@ -28,7 +29,7 @@ def main():
     argparser.add_argument(
         '-t',
         '--time',
-        default=1,
+        default=9999999,
         help='Time to capture in seconds')
     argparser.add_argument(
         '-c',
@@ -53,6 +54,12 @@ def main():
         type=FileType('r'),
         default=gpio_default,
         help='PAC address to GPIO net name mapping')
+    argparser.add_argument(
+        '-p',
+        '--polarity',
+        default=polarity_default,
+        help='Measurements can either be unipolar or bipolar'
+        )
 
     args = argparser.parse_args()
 
@@ -78,7 +85,8 @@ def main():
         else:
             print("Using gpio file:", args.gpio.name)
         print()
-        log = pac_utils.query_all(args.config.name, args.gpio.name)
+        log = pac_utils.query_all(args.config.name, args.gpio.name,
+                                  polarity=args.polarity )
         log.to_csv(single_log_path)
         return False
 
@@ -91,11 +99,11 @@ def main():
     else:
         print("Using rail mapping file:", args.mapping.name)
     print()
-    
     # Record the sample and log to file.
     (log, accumulator_log) = pac_utils.record(args.config.name,
                                    rail=['all'],
-                                   record_length=args.time)
+                                   record_length=args.time,
+                                   polarity=args.polarity)
     log.to_csv(time_log_path)
     accumulator_log.to_csv(accumulator_log_path)
 
@@ -135,7 +143,6 @@ def main():
         ]
     )
     summary_table.update_layout(title='Accumulator Measurements')
-
     if args.mapping is not None:
         skip_sunplot = False
         mapping = pandas.read_csv(args.mapping, skiprows=4)

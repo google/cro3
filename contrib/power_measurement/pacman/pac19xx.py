@@ -4,8 +4,8 @@
 
 FSR = 0.1  # Default config, Change to 0.05 for Guybrush/Mancomb
 FSV = 32  # Full scale voltage, change to 16v for Guybrush/Mancomb
-V_POLAR = 65536  # Default config is UNIPOLAR = 65536, Guybrush/Mancomb = 32768 (unipolar)
-P_POLAR = 1073741824  # Default config is UNIPOLAR = 1073741824, Guybrush/Mancomb = 536870912 (unipolar)
+V_POLAR = {'unipolar': 2**16, 'bipolar': 2**15}
+P_POLAR = {'unipolar': 2**30, 'bipolar': 2**29}
 """pac_registers of the PAC19xx"""
 REFRESH = 0x00
 CTRL = 0x01

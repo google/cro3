@@ -1,6 +1,17 @@
 ## Prereqs
 
  * `sudo pip3 install pandas plotly pyftdi`
+ * If running in chroot:
+   * wget https://bootstrap.pypa.io/pip/3.6/get-pip.py
+   * sudo python ./get-pip.py
+   * pip3 install pandas plotly pyftdi
+   * Set udev permissions
+     * Add the following in `/etc/udev/rules.d/pacman.rules`
+     * `
+     SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", MODE:="0666"
+     SUBSYSTEM=="usb_device", ATTRS{idVendor}=="0403", MODE:="0666"
+     `
+     * `sudo udevadm control --reload-rules`
 
 # Usage
 
