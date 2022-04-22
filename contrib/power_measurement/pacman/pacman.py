@@ -151,11 +151,16 @@ def main():
         skip_sunplot = False
         mapping = pandas.read_csv(args.mapping, skiprows=4)
         accumulator_log = pandas.merge(accumulator_log, mapping, on='Rail')
+        # Bidirectional Values means powers can be negative
+        accumulator_log['Average Power (w)'] = accumulator_log['Average Power (w)'].abs()
+        # Voltage column used for color coding
+        accumulator_log['voltage (mv)'] = accumulator_log.Rail.apply(lambda x: x.split('_')[0].strip('PP'))
         star_plot = plotly.express.sunburst(accumulator_log,
                                             names='Rail',
                                             parents='Parent',
                                             values='Average Power (w)',
-                                            title='Power Sunburst')
+                                            title='Power Sunburst',
+                                            color='voltage (mv)')
     else:
         print('Skipping Sunplot')
         skip_sunplot = True
