@@ -35,7 +35,7 @@ steps:
     ]
   timeout: 1800s
 options:
-  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
 """
 
 SUB_VAR = '__BUILD_TAG{n}'

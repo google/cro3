@@ -264,14 +264,11 @@ class DockerBuilder():
 
   def sha_from_cloudbuild_out(self, out: str):
     """Find the "sha:foo" from the cloudbuild log."""
-    DIGESTSHA = ''
-    lines = out.split('\n')
-    for i in range(len(lines) - 1, -1, -1):
-
-      if lines[i] == 'DONE':
-        if lines[i - 1] == 'PUSH':
-          DIGESTSHA = (lines[i - 2].split('@')[-1])
-    return DIGESTSHA.strip()
+    KEY = 'digest: '
+    for l in out.splitlines():
+      if 'digest: ' in l:
+        return l.split(KEY)[-1]
+    return ""
 
   def gcloud_build(self):
     """Build the Docker image using gcloud build.
@@ -280,6 +277,7 @@ class DockerBuilder():
     Dockerfile.
     """
     subs = self.structure_gcloud_tags()
+    search_tag = f'{self.image_path}:{self.tags[0]}'
     self.auth_gcloud()
     cloud_build_cmd = (
         f'gcloud builds submit --config {self.build_context}/cloudbuild.yaml'
@@ -295,6 +293,9 @@ class DockerBuilder():
     out, err, status = run(cloud_build_cmd, stream=True)
     if status != 0:
       raise GCloudBuildException(f'gcloud build failed with err:\n {err}\n')
+    else:
+      out = getoutput(f'gcloud artifacts docker images describe {search_tag}')
+      print(f'Digest output:\n{out}')
     self.write_outfile(out)
 
   # Todo: this
