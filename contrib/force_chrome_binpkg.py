@@ -57,7 +57,7 @@ def stash_overlay_changes(src_dir):
 
 def get_prebuilt_package_version(binhost_uri, category, package_name):
     prefix = f'{binhost_uri}/{category}/{package_name}-'
-    cmd = ('gsutil', 'ls', f'{prefix}*')
+    cmd = ('gsutil.py', 'ls', f'{prefix}*')
     print(' '.join(cmd))
     output = subprocess.run(cmd, capture_output=True, check=True, text=True)
     lines = output.stdout.splitlines()
