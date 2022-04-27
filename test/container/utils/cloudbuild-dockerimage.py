@@ -16,9 +16,10 @@ import sys
 import subprocess
 import traceback
 
+# Point up a few directories to make the other python modules discoverable.
 sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve()/'../../'))
 
-from python.docker_utils.build_helper import DockerBuilder  # noqa: E402
+from python.docker_utils.build_helper import DockerBuilder  # pylint: disable=import-error,wrong-import-position
 
 YAML_TEMPLATE = """
 substitutions:
@@ -32,6 +33,7 @@ steps:
       "--cache=true",
       "--cache-ttl=366h",
 {destinations}
+{labels}
     ]
   timeout: 1800s
 options:
@@ -39,8 +41,10 @@ options:
 """
 
 SUB_VAR = '__BUILD_TAG{n}'
+LABEL_SUB_VAR = '__LABEL{n}'
 SUB_TEMPLATE = '  {var}: ""\n'
 DESTINATION_VAR = '      "--destination=${{{var}}}",\n'
+LABEL_VAR = '      "--label=${{{var}}}",\n'
 
 
 def parse_local_arguments():
@@ -69,12 +73,11 @@ def parse_local_arguments():
   parser.add_argument('--local',
                       action='store_true',
                       help='Build Docker locally instead of cloud.')
-  # TODO, this isn't really supported as an option positional arg. Need to
-  # change build interface to call this with --labels, and then fix this.
-  # parser.add_argument('labels',
-  #                     help='Zero or more key=value strings to '
-  #                          'apply as labels to container.')
-
+  parser.add_argument('--labels',
+                      dest='labels',
+                      default='',
+                      help='Zero or more key=value comma seperated strings to '
+                           'apply as labels to container.')
   args = parser.parse_intermixed_args()
   return args
 
@@ -84,7 +87,8 @@ class DockerPreper():
 
   def __init__(self, args: argparse.Namespace):
     """@param args (ArgumentParser): .chroot, .sysroot, .path."""
-    self.tags = args.tags.split(',')
+    self.tags = args.tags.split(',') if args.tags else []
+    self.labels = args.labels.split(',') if args.labels else []
     self.outputdir = 'tmp/docker/crostest'
     self.chroot = args.chroot
     self.sysroot = args.sysroot
@@ -95,16 +99,25 @@ class DockerPreper():
     self.src = os.path.join(self.cwd, '../../../../../')
 
   def build_yaml(self):
-    build_tags = ''
+    subs = ''
     destinations = ''
+    labels = ''
 
-    for i in range(len(self.tags)):
-      v = SUB_VAR.format(n=i)
-      build_tags += SUB_TEMPLATE.format(var=v)
-      destinations += DESTINATION_VAR.format(var=v)
+    # Always add in atleast 1 tag. If none are given, 1 will be added by the
+    # builder by default, so ensure the cloudbuild yaml can support it.
+    for i in range(max(len(self.tags), 1)):
+      var = SUB_VAR.format(n=i)
+      subs += SUB_TEMPLATE.format(var=var)
+      destinations += DESTINATION_VAR.format(var=var)
 
-    cloudbuild_yaml = YAML_TEMPLATE.format(subs=build_tags,
-                                           destinations=destinations)
+    for i in range(len(self.labels)):
+      var = LABEL_SUB_VAR.format(n=i)
+      subs += SUB_TEMPLATE.format(var=var)
+      labels += LABEL_VAR.format(var=var)
+
+    cloudbuild_yaml = YAML_TEMPLATE.format(subs=subs,
+                                           destinations=destinations,
+                                           labels=labels)
 
     with open(os.path.join(self.full_out_dir, 'cloudbuild.yaml'), 'w') as wf:
       wf.write(cloudbuild_yaml)
@@ -133,7 +146,6 @@ def main():
   preper.build_yaml()
 
   err = False
-  # TODO, label support
   try:
     builder = DockerBuilder(
         service='cros-test',
@@ -142,7 +154,8 @@ def main():
         tags=preper.tags,
         output=args.output,
         registry_name=args.host,
-        cloud_project=args.project)
+        cloud_project=args.project,
+        labels=preper.labels)
 
     if not args.local:
       builder.gcloud_build()

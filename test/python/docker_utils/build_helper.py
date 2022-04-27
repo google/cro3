@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # Copyright 2022 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -9,6 +7,7 @@
 import json
 import os
 import select
+from typing import List
 from subprocess import Popen, PIPE
 
 CWD = os.path.dirname(os.path.abspath(__file__))
@@ -19,7 +18,7 @@ PROJECT_DEFAULT = 'cros-registry/test-services'
 
 class GCloudBuildException(Exception):
   """Raised when gcloud build fails"""
-  pass
+  pass  # pylint: disable=unnecessary-pass
 
 
 # TODO: this needs to be a common helper.
@@ -137,10 +136,11 @@ class DockerBuilder():
                service: str,
                dockerfile: str = '',
                chroot: str = '',
-               tags: str = '',
+               tags: List[str] = None,
                output: str = '',
                registry_name: str = '',
-               cloud_project: str = ''):
+               cloud_project: str = '',
+               labels: List[str] = None):
     """Why does an init need a docstring.
 
     Args:
@@ -151,12 +151,15 @@ class DockerBuilder():
       output: file which to write the output data from the build
       registry_name: name of the docker registry
       cloud_project: project name of registry
+      labels: labels to add to the image.
+        Example: ["foo=bar", "foobar=barfoo"]
     """
     self.service = service
     self.dockerfile = dockerfile
     self.build_context = os.path.dirname(self.dockerfile)
     self.chroot = chroot
-    self.tags = tags
+    self.tags = tags if tags else []
+    self.labels = labels if labels else []
     self.output = output
     self.registry_name = registry_name
     self.cloud_project = cloud_project
@@ -167,8 +170,6 @@ class DockerBuilder():
     """Validate the given args."""
     if not self.service or not self.dockerfile:
       raise Exception('Docker file and Service name required.')
-
-    # labels=( "$@" )
 
     if os.path.exists('/etc/cros_chroot_version'):
       raise Exception('Must be run outside chroot')
@@ -214,20 +215,37 @@ class DockerBuilder():
               ' us-docker.pkg.dev')
 
   def structure_gcloud_tags(self):
-    """Translate self.tags cloudbuild "--substitutions=" args.
+    """Translate self.tags to cloudbuild "--substitutions=" args.
 
-    Example:
+    Examples:
       tags=["kevin-postsubmit.123333.211","2385838192918392"]
-      translates to: __BUILD_TAG0=us-docker.pkg.dev/cros-registry/test-services/cros-test:kevin-postsubmit.123333.211","2385838192918392
+      translates to: __BUILD_TAG0=us-docker.pkg.dev/cros-registry/test-services/cros-test:kevin-postsubmit.123333.211","2385838192918392  # pylint: disable=line-too-long
 
     Returns:
       A string ofthe tags to be substituted into the cloudbuild.yaml
     """
     subs = ''
+
     for i, tag in enumerate(self.tags):
       subs = subs + f'__BUILD_TAG{i}={self.image_path}:{tag},'
-    # strip last comma
-    return subs[:-1]
+
+    return subs.rstrip(',')
+
+  def structure_build_labels(self):
+    """Translate self.labels to cloudbuild "--substitutions=" args.
+
+    Examples:
+      labels=["label1=foo","label2=bar"]
+      translates to: __LABEL0=label1=foo","__LABEL1=label2=bar"
+
+    Returns:
+      A string ofthe tags to be substituted into the cloudbuild.yaml
+    """
+    subs = ''
+    for i, label in enumerate(self.labels):
+      subs = subs + f'__LABEL{i}={label},'
+
+    return subs.rstrip(',')
 
   def auth_gcloud(self):
     """Auth the gcloud creds, and access token."""
@@ -268,7 +286,7 @@ class DockerBuilder():
     for l in out.splitlines():
       if 'digest: ' in l:
         return l.split(KEY)[-1]
-    return ""
+    return ''
 
   def gcloud_build(self):
     """Build the Docker image using gcloud build.
@@ -277,6 +295,10 @@ class DockerBuilder():
     Dockerfile.
     """
     subs = self.structure_gcloud_tags()
+    if self.labels:
+      subs = f'{subs},{self.structure_build_labels()}'
+
+    # Use the first tag to search for image.
     search_tag = f'{self.image_path}:{self.tags[0]}'
     self.auth_gcloud()
     cloud_build_cmd = (
