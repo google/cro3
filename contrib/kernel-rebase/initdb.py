@@ -45,6 +45,10 @@ def removedb():
 def createdb():
     """remove and recreate database"""
 
+    dbdirname = os.path.dirname(rebasedb)
+    if not os.path.exists(dbdirname):
+        os.mkdir(dbdirname)
+
     removedb()
 
     conn = sqlite3.connect(rebasedb)
