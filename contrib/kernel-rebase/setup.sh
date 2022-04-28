@@ -95,7 +95,7 @@ clone_complex()
         git fetch upstream
         if [[ "${next_repo}" != "None" ]]; then
             git remote -v | grep next || {
-                git remote add next "${next_path}"
+                git remote add next "../$(basename "${next_path}")"
             }
             git fetch next
         fi
@@ -107,7 +107,7 @@ clone_complex()
         git remote add upstream "../$(basename "${upstream_path}")"
         git fetch upstream
         if [[ "${next_repo}" != "None" ]]; then
-            git remote add next "${next_path}"
+            git remote add next "../$(basename "${next_path}")"
             git fetch next
         fi
         popd >/dev/null || return 1
