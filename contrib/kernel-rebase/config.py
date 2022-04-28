@@ -291,7 +291,7 @@ topiclist_consolidated = [
         'sound',
         ['sound/intel', 'sound/other', 'sound/mediatek', 'sound/rockchip']
     ],
-    ['media', ['media/qcom', 'media/other' ]],
+    ['media', ['media/qcom', 'media/other']],
     ['mm', ['cgroup', 'lowmem', 'mm']],
     ['arch', ['arch/x86', 'arch/arm64', 'arch/arm']],
     ['fs', ['fs/pstore', 'fs/ecryptfs', 'fs/other']],
@@ -340,7 +340,7 @@ topiclist_short = [
         'sound',
         ['sound/intel', 'sound/other', 'sound/mediatek', 'sound/rockchip']
     ],
-    ['media', ['media/qcom', 'media/other' ]],
+    ['media', ['media/qcom', 'media/other']],
     ['mm', ['cgroup', 'lowmem', 'mm']],
     ['arch', ['arch/x86', 'arch/arm64', 'arch/arm']],
     ['fs', ['fs/pstore', 'fs/ecryptfs', 'fs/other']],
