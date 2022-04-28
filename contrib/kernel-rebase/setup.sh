@@ -90,7 +90,7 @@ clone_complex()
             git checkout -b "${branch}" "origin/${branch}"
         fi
         git remote -v | grep upstream || {
-           git remote add upstream "${upstream_path}"
+            git remote add upstream "../$(basename "${upstream_path}")"
         }
         git fetch upstream
         if [[ "${next_repo}" != "None" ]]; then
@@ -104,7 +104,7 @@ clone_complex()
         git clone "${repository}" "${destdir}"
         pushd "${destdir}" >/dev/null || return 1
         git checkout -b "${branch}" "origin/${branch}"
-        git remote add upstream "${upstream_path}"
+        git remote add upstream "../$(basename "${upstream_path}")"
         git fetch upstream
         if [[ "${next_repo}" != "None" ]]; then
             git remote add next "${next_path}"
