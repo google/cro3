@@ -37,7 +37,7 @@ func TestGSUploadMultiFile(t *testing.T) {
 
 	root, err := createTempUploadDir()
 	if err != nil {
-		t.Errorf("failed setup, %w", err)
+		t.Errorf("failed setup, %v", err)
 	}
 
 	rootBucket := storage.GSObject{
@@ -61,7 +61,7 @@ func TestGSUploadOneFile(t *testing.T) {
 
 	root, err := createTempUploadDir()
 	if err != nil {
-		t.Errorf("failed setup, %w", err)
+		t.Errorf("failed setup, %v", err)
 	}
 
 	rootBucket := storage.GSObject{
