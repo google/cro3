@@ -1,0 +1,3 @@
+[flake8]
+indent-size=2
+ignore=E128, W504, E126
