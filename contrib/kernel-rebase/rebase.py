@@ -740,7 +740,7 @@ def merge_topic_branches():
             while cmd not in ['continue', 'stop', 's', 'c']:
                 cmd = input()
             if cmd in ['stop', 's']:
-                print('Exiting¡¬')
+                print('Exiting')
                 return
     for fu in rebase_config.merge_fixups:
         print('Applying fixup', fu)
