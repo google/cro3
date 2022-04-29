@@ -30,6 +30,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 
 TARGET = '/usr/local/cros-test/input/request.jsonproto'
 RESULT_LOC = 'cros-test_result.jsonproto'
+DEFAULT_IMAGE = 'kevin-postsubmit.R103-14709.0.0-63941-8816609403930587377'
 
 
 def parse_local_arguments() -> argparse.Namespace:
@@ -43,7 +44,7 @@ def parse_local_arguments() -> argparse.Namespace:
       description='CLI launch the given docker image & start Testservice.')
   parser.add_argument('-image',
                       dest='image',
-                      default='kevin-postsubmit.R103-14709.0.0-63941-8816609403930587377',
+                      default=DEFAULT_IMAGE,
                       help='the docker build to use')
   parser.add_argument('-results',
                       dest='results',
@@ -113,7 +114,7 @@ class CrosTestCaller(object):
         self.resultsDir = tempfile.mkdtemp(prefix=prefix)
         print(f'Could not delete results dir. Will use: {self.resultsDir}')
     else:
-      print(f"Making path {self.resultsDir}")
+      print(f'Making path {self.resultsDir}')
       _run(f'mkdir -p {self.resultsDir}')
 
     _run(f'chmod 777 -R {self.resultsDir}')
@@ -154,11 +155,11 @@ class CrosTestCaller(object):
     test_case_ids = []
     for test in self.test_request:
       test_case_ids.append(
-        test_case.TestCase.Id(value=f'{self.harness}.{test}'))
+          test_case.TestCase.Id(value=f'{self.harness}.{test}'))
 
     return [test_suite.TestSuite(
-      name='adhoc local',
-      test_case_ids=test_case.TestCaseIdList(test_case_ids=test_case_ids))]
+        name='adhoc local',
+        test_case_ids=test_case.TestCaseIdList(test_case_ids=test_case_ids))]
 
   def build_dut_info(self) -> lab_protos.Dut:
     """Build the DUT proto."""
