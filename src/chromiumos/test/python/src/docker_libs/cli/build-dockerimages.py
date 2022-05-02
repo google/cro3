@@ -8,13 +8,13 @@
 
 
 import argparse
-
+import pathlib
 import shutil
 import sys
 import traceback
 
 # Point up a few directories to make the other python modules discoverable.
-sys.path.append('../../../')
+sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve()/'../../../'))
 
 from src.docker_libs.build_libs.builders import GcloudDockerBuilder, LocalDockerBuilder  # pylint: disable=import-error,wrong-import-position
 from src.docker_libs.build_libs.shared.common_service_prep import CommonServiceDockerPrepper
