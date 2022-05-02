@@ -278,10 +278,60 @@ class LocalDockerBuilder(DockerBuilder):
                      cloud_project=cloud_project,
                      labels=labels)
 
-  def build(self):
-    """Build the Docker image using gcloud build.
+  def formatted_tags(self):
+    """Return formatted self.tags for `docker build`."""
+    tagstr = ''
+    for tag in self.tags:
+      tagstr += f'-t {self.image_path}:{tag} '
+    return tagstr.rstrip(' ')
+
+  def formatted_labels(self):
+    """Return formatted self.labels for `docker build`."""
+    labelstr = ''
+    for tag in self.labels:
+      labelstr += f'--label {tag} '
+    return labelstr.rstrip(' ')
+
+  def sha_from_docker_out(self, tag):
+    """Get the sha from the built docker image."""
+    full_sha = getoutput(
+        f'docker inspect --format="{{{{index .RepoDigests 0}}}}" {tag}')
+    if '@sha256' not in full_sha:
+      raise Exception(f"sha not found from repo digest {full_sha}")
+
+    # If the @sha256 sign is found, split on the @, return just the sha.
+    # Example: full_sha = image_path@sha256:<some_long_sha>
+    # splits into ['image_path', 'sha256:<some_long_sha>'],
+    # return just the "sha256 section"
+    return full_sha.split('@')[-1]
+
+  def upload_image(self):
+    """Upload the build image to the repo. Must be called after build."""
+    self.auth_gcloud()
+    run(f'docker push --all-tags {self.image_path}')
+
+  def build(self, upload=False):
+    """Build the Docker image using `docker build`.
 
     Assumes a cloudbuild.yaml is staged in the same dir as the given
     Dockerfile.
     """
-    raise NotImplementedError
+    tags = self.formatted_tags()
+    labels = self.formatted_labels()
+
+    docker_build_cmd = (
+        f'docker build -f {self.dockerfile} {tags} {labels}'
+        f' {self.build_context}')
+
+    print(f'Running cloud build cmd: {docker_build_cmd}')
+
+    # Stream the docker_build_cmd.
+    out, err, status = run(docker_build_cmd, stream=True)
+    if status != 0:
+      raise GCloudBuildException(f'gcloud build failed with err:\n {err}\n')
+
+    sha = ''
+    if upload:
+      self.upload_image()
+      sha = self.sha_from_docker_out(f'{self.image_path}:{self.tags[0]}')
+    self.write_outfile(sha)

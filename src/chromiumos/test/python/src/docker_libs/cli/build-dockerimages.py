@@ -61,6 +61,12 @@ def parse_local_arguments():
                       help='Build the image locally using `Docker Build`. '
                            'Default is False, if running this locally its '
                            'recommended to use this arg.')
+  parser.add_argument('--upload',
+                      dest='upload',
+                      action='store_true',
+                      help='Upload the built image to the registry. '
+                           'Flag is only valid when using localbuild. '
+                           'Cloud builds will always "upload".')
   args = parser.parse_intermixed_args()
   return args
 
@@ -79,6 +85,8 @@ lookup_ring = {'cros-callbox': CrosCallBoxDockerPrepper,
 def main():
   """Entry point."""
   args = parse_local_arguments()
+  if args.upload and not args.localbuild:
+    raise Exception("Upload flag is only valid when localbuild is set.")
 
   prepperlib = lookup_ring.get(args.service, None)
   if not prepperlib:
@@ -101,7 +109,7 @@ def main():
 
   err = False
   try:
-    builder(
+    b = builder(
         service='cros-test',
         dockerfile=f'{prepper.full_out_dir}/Dockerfile',
         chroot=prepper.chroot,
@@ -109,7 +117,12 @@ def main():
         output=args.output,
         registry_name=args.host,
         cloud_project=args.project,
-        labels=prepper.labels).build()
+        labels=prepper.labels)
+
+    if args.localbuild and args.upload:
+      b.build(upload=True)
+    else:
+      b.build()
 
   except Exception:
     print('Failed to build Docker package for cros-test:\nTraceback:\n')
