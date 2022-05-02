@@ -10,6 +10,10 @@ declare -A SOC_EDK_LOCAL_DIR_MAP=( ["tgl"]="branch2-private" ["jsl"]="branch1-pr
 # then add the mapping here.
 declare -A SOC_FSP_STAGING_REPO_MAP=( ["adl"]="ccg-adl-generic-full" ["adln"]="adl-n-staging" ["mtl"]="mtl-staging")
 
+# If edk2/edk2-platforms are using a branch prefix that does not follow the format chromeos-${SOC},
+# then add the mapping here.
+declare -A SOC_EDK_BRANCH_PREFIX_MAP=( ["adln"]="chromeos-adl-n" )
+
 function die()
 {
   if [ $1 -ne 0 ]; then
@@ -54,7 +58,11 @@ case $DIR in
   edk2 | edk2-platforms)
     STAGING_NAME="${DIR}-staging"
     LOCAL_DIR="${SOC_EDK_LOCAL_DIR_MAP[${SOC}]}"
-    CHROMEOS_BRANCH=chromeos-${SOC}-$LOCAL_DIR
+    if [ -v SOC_EDK_BRANCH_PREFIX_MAP["${SOC}"] ]; then
+      CHROMEOS_BRANCH="${SOC_EDK_BRANCH_PREFIX_MAP[${SOC}]}-${LOCAL_DIR}"
+    else
+      CHROMEOS_BRANCH="chromeos-${SOC}-${LOCAL_DIR}"
+    fi
     SRC_DIR="${CHROMIUM_TOT_ROOT}/src/third_party/fsp/${SOC}/$DIR/$LOCAL_DIR"
     STAGING_REPO="https://chrome-internal.googlesource.com/chromeos/third_party/intel-fsp/${STAGING_NAME}"
     ;;
