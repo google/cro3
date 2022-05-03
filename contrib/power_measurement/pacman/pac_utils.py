@@ -358,6 +358,10 @@ def record(config_file,
     signal.signal(signal.SIGINT, signal_handler)
     start_time = time.time()
     timeout = start_time + float(record_length)
+
+    prev_accum_by_rail = {}
+    prev_count_by_rail = {}
+
     while True:
         if time.time() > timeout:
             break
@@ -383,19 +387,34 @@ def record(config_file,
                     ch_num = row.ch_num
                     sense_r = float(row.rsense)
 
+                    prev_accum = prev_accum_by_rail.get(row['rail'], 0)
+                    prev_count = prev_count_by_rail.get(row['rail'], 0)
+
                     # Grab a log timestamp
                     tmp = {}
                     tmp['systime'] = time.time()
                     tmp['relativeTime'] = tmp['systime'] - start_time
                     tmp['rail'] = row['rail']
-                    if voltage:
-                        tmp['voltage'] = read_voltage(device, ch_num, polarity)
-                    if current:
-                        tmp['current'] = read_current(device, sense_r, ch_num,
-                                                      polarity)
-                    if power:
-                        tmp['power'] = read_power(device, sense_r, ch_num,
-                                                  polarity)
+
+                    (accum, count) = dump_accumulator(device, ch_num, polarity)
+
+                    tmp['rawAccumReg'] = accum
+                    tmp['rawCount'] = count
+
+                    prev_accum_by_rail[row['rail']] = accum
+                    prev_count_by_rail[row['rail']] = count
+
+                    accum = accum - prev_accum
+                    count = count - prev_count
+
+                    depth = {'unipolar': 2**30, 'bipolar': 2**29}
+                    # Equation 3-8 Energy Calculation.
+                    tmp['accumReg'] = accum
+                    tmp['count'] = count
+
+                    pwrFSR = 3.2 / sense_r
+                    tmp['power'] = accum / (depth[polarity] * count) * pwrFSR
+
                     log.append(tmp)
                 except I2cNackError:
                     print('NACK detected, continuing measurements')
