@@ -221,7 +221,8 @@ func parseJsonpb(b []byte, m proto.Message) error {
 		)
 	}
 
-	return jsonpb.Unmarshal(bytes.NewReader(b), m)
+	unmarshaller := jsonpb.Unmarshaler{AllowUnknownFields: true}
+	return unmarshaller.Unmarshal(bytes.NewReader(b), m)
 }
 
 // readBinaryOrJSONPb reads path into m, attempting to parse as both a binary
@@ -244,7 +245,7 @@ func readBinaryOrJSONPb(path string, m proto.Message) error {
 			return nil
 		}
 
-		glog.Warningf("Parsing %q as jsonpb failed, attempting to parse as binary pb", path)
+		glog.Warningf("Parsing %q as jsonpb failed (%q), attempting to parse as binary pb", path, err)
 
 		return proto.Unmarshal(b, m)
 	}
