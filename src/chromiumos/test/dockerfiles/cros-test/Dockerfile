@@ -37,9 +37,35 @@ RUN useradd -m chromeos-test
 # TODO, Try to remove SUDO from containers
 RUN echo 'chromeos-test ALL=NOPASSWD:ALL' > /etc/sudoers.d/chromeos-test
 
-# Install all packages
-COPY requirements_py3.txt .
-
+# Install python packages
+# Due to the way builds happen in the bots, the requirements.txt has a
+# different checksum (as the file path changes per build), thus breaks the
+# cache. This way of declaring allows the cloudbuild cache to be carried
+# between builds/boards.
+# To update this list, add the new dep to requirements.in, regenerate the
+# requirements_py3.txt, then manually copy in the dep to the list below,
+# including the \n\.
+RUN echo "\
+btsocket==0.1.0\n\
+certifi==2021.5.30\n\
+chardet==3.0.4\n\
+charset-normalizer==2.0.9\n\
+grpcio==1.31.0\n\
+idna==3.3\n\
+mock==3.0.5\n\
+numpy==1.16.6\n\
+pillow==8.3.2\n\
+protobuf==3.18.0\n\
+psutil==5.8.0\n\
+pyasn1==0.4.8\n\
+pyparsing==3.0.6\n\
+python-dateutil==2.8.2\n\
+pyyaml==5.4.1\n\
+requests==2.26.0\n\
+selenium==2.37.2\n\
+six==1.15.0\n\
+urllib3==1.26.7\n\
+" > requirements_py3.txt
 RUN pip3 install -r requirements_py3.txt
 
 
