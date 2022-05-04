@@ -8,6 +8,7 @@
 
 
 import argparse
+import os
 import pathlib
 import shutil
 import sys
@@ -22,6 +23,20 @@ from src.docker_libs.build_libs.cros_test_finder.cros_test_finder_prep import Cr
 from src.docker_libs.build_libs.cros_test.cros_test_prep import CrosTestDockerPrepper
 from src.docker_libs.build_libs.cros_callbox.cros_callbox_prep import CrosCallBoxDockerPrepper
 
+
+# TODO: Maybe a cfg file or something. Goal is to make is
+# extremely simple/easy for a user to come in and add a new dockerfile.
+
+REGISTERED_BUILDS = {'cros-callbox': CrosCallBoxDockerPrepper,
+                     'cros-dut': CommonServiceDockerPrepper,
+                     'cros-plan': CommonServiceDockerPrepper,
+                     'cros-provision': CommonServiceDockerPrepper,
+                     'cros-test': CrosTestDockerPrepper,
+                     'cros-test-finder': CrosTestFinderDockerPrepper,
+                     }
+
+DO_NOT_BUILD = set(['cros-callbox', 'cros-test-finder', 'cros-plan'])
+NON_CRITICAL = set(['cros-dut', 'cros-provision'])
 
 def parse_local_arguments():
   """Parse the CLI."""
@@ -67,30 +82,19 @@ def parse_local_arguments():
                       help='Upload the built image to the registry. '
                            'Flag is only valid when using localbuild. '
                            'Cloud builds will always "upload".')
+  parser.add_argument('--build_all',
+                      dest='build_all',
+                      action='store_true',
+                      help='Build all images.')
   args = parser.parse_intermixed_args()
   return args
 
 
-# TODO: Better here too. Maybe a cfg file or something. Goal is to make is
-# extremely simple/easy for a user to come in and add a new dockerfile.
-lookup_ring = {'cros-callbox': CrosCallBoxDockerPrepper,
-               'cros-dut': CommonServiceDockerPrepper,
-               'cros-plan': CommonServiceDockerPrepper,
-               'cros-provision': CommonServiceDockerPrepper,
-               'cros-test': CrosTestDockerPrepper,
-               'cros-test-finder': CrosTestFinderDockerPrepper,
-               }
-
-
-def main():
-  """Entry point."""
-  args = parse_local_arguments()
-  if args.upload and not args.localbuild:
-    raise Exception("Upload flag is only valid when localbuild is set.")
-
-  prepperlib = lookup_ring.get(args.service, None)
+def build_image(args, service, output):
+  """Build a singular image."""
+  prepperlib = REGISTERED_BUILDS.get(service, None)
   if not prepperlib:
-    print(f'{args.service} not support in build-dockerimages yet, please '
+    print(f'{service} not support in build-dockerimages yet, please '
           'register your service via instructions in the readme')
     sys.exit(1)
 
@@ -99,22 +103,21 @@ def main():
       sysroot=args.sysroot,
       tags=args.tags,
       labels=args.labels,
-      service=args.service)
+      service=service)
 
   prepper.prep_container()
   if not args.localbuild:
     prepper.build_yaml()
 
   builder = LocalDockerBuilder if args.localbuild else GcloudDockerBuilder
-
   err = False
   try:
     b = builder(
-        service='cros-test',
+        service=service,
         dockerfile=f'{prepper.full_out_dir}/Dockerfile',
         chroot=prepper.chroot,
         tags=prepper.tags,
-        output=args.output,
+        output=output,
         registry_name=args.host,
         cloud_project=args.project,
         labels=prepper.labels)
@@ -125,13 +128,55 @@ def main():
       b.build()
 
   except Exception:
-    print('Failed to build Docker package for cros-test:\nTraceback:\n')
+    # Print a traceback for debugging.
+    print(f'Failed to build Docker package for {service}:\nTraceback:\n')
     traceback.print_exc()
     err = True
   finally:
     shutil.rmtree(prepper.full_out_dir)
+  return err
+
+
+def build_all_images(args):
+  """Build all registered images.
+
+  Will skip any in DO_NOT_BUILD, and will not fail if a NON_CRITICAL build
+  fails.
+  """
+  all_pass = True
+  for service in REGISTERED_BUILDS:
+    if service in DO_NOT_BUILD:
+      continue
+
+    outfile = f'{args.output}_{service}'
+    err = build_image(args, service, outfile)
     if err:
-      sys.exit(1)
+      # If there was an error, rm the outfile (container info).
+      if os.path.exists(outfile):
+        os.remove(outfile)
+      if service in NON_CRITICAL:
+        print(f'{service} as not marked as critical so builder will not fail.')
+      else:
+        # Mark a critical failure, but continue to build.
+        all_pass = False
+
+  if not all_pass:
+    sys.exit(1)
+
+
+def main():
+  """Entry point."""
+  args = parse_local_arguments()
+  if args.upload and not args.localbuild:
+    raise Exception('Upload flag is only valid when localbuild is set.')
+
+  if args.build_all:
+    build_all_images(args)
+  else:
+    err = build_image(args, args.service, args.output)
+    if err:
+      if args.service not in NON_CRITICAL:
+        sys.exit(1)
 
 
 if __name__ == '__main__':
