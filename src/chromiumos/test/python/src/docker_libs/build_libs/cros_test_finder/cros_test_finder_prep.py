@@ -9,7 +9,10 @@ import sys
 # Point up a few directories to make the other python modules discoverable.
 sys.path.append('../../../../')
 
-from src.docker_libs.build_libs.shared.base_prep import BaseDockerPrepper
+from src.docker_libs.build_libs.cros_test_finder.container_prep\
+  import CrosTestFinderArtifactPrep  # noqa: E402 pylint: disable=import-error,wrong-import-position
+from src.docker_libs.build_libs.shared.base_prep\
+  import BaseDockerPrepper  # noqa: E402 pylint: disable=import-error,wrong-import-position
 
 
 class CrosTestFinderDockerPrepper(BaseDockerPrepper):
@@ -22,4 +25,7 @@ class CrosTestFinderDockerPrepper(BaseDockerPrepper):
                      service=service)
 
   def prep_container(self):
-    raise NotImplementedError
+    CrosTestFinderArtifactPrep(chroot=self.chroot,
+                               sysroot=self.sysroot,
+                               path=self.full_out_dir,
+                               force_path=True).prep()
