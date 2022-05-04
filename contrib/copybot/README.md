@@ -187,3 +187,10 @@ ideas include:
 
 - Automated copying and updates of FROMPULL PRs from GitHub when
   changes are pushed.
+
+### Tutorial Video
+
+How to run it manually video: [copybot - manual run demo][copybot_video]
+(available only to Googlers for the moment).
+
+[copybot_video]: https://drive.google.com/file/d/10aG8cMnR6TOpY5veLWSXX4MGeHA0RGel/view?resourcekey=0-zeid4OuuFAsysx0dJomQWg
