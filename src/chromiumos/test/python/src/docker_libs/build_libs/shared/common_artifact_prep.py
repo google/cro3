@@ -9,6 +9,12 @@ import shutil
 import sys
 
 
+# Point up a few directories to make the other python modules discoverable.
+sys.path.append('../../../../')
+
+from src.common.exceptions import NotDirectoryException, ConfigError  # noqa: E402 pylint: disable=import-error,wrong-import-position
+
+
 class CrosArtifactPrep():
   """Prep Needed files for the Test Execution Container Docker Build."""
 
@@ -53,15 +59,16 @@ class CrosArtifactPrep():
     """Verify the paths generated are valid/exist."""
     if not os.path.isdir(self.full_autotest):
       if not os.path.exists(self.full_autotest):
-        raise Exception('Autotest path %s does not exist' %
-                        self.full_autotest)
-      raise Exception('Autotest path %s is not a directory' %
-                      self.full_autotest)
+        raise FileNotFoundError('Autotest path %s does not exist' %
+                                self.full_autotest)
+      raise NotDirectoryException('Autotest path %s is not a directory' %
+                                  self.full_autotest)
 
     if not os.path.isdir(self.build_path):
       if not os.path.exists(self.build_path):
-        raise Exception('sysroot %s does not exist' % self.build_path)
-      raise Exception('sysroot %s is not a directory' % self.build_path)
+        raise FileNotFoundError('sysroot %s does not exist' % self.build_path)
+      raise NotDirectoryException(
+          'sysroot %s is not a directory' % self.build_path)
 
   def prep_artifact_dir(self):
     """Prepare the artifact dir. If it does not exist, create it."""
@@ -70,8 +77,8 @@ class CrosArtifactPrep():
         print(f'Deleting existing prepdir {self.full_out}')
         shutil.rmtree(self.full_out)
       else:
-        raise Exception('outpath %s exists and force is not set.' %
-                        self.full_out)
+        raise ConfigError('outpath %s exists and force is not set.' %
+                          self.full_out)
     os.makedirs(self.full_out, exist_ok=True)
 
   def copy_service(self):
@@ -82,7 +89,7 @@ class CrosArtifactPrep():
   def copy_dockercontext(self):
     """Copy Docker Context needed to build the container to the output dir."""
 
-    # TODO, this is a hardcode back up to the execution (cros-test) dir
+    # TODO, dbeckett@: this is a hardcode back up to the execution dir
     # I need to figure out a better way to do this, but nothing comes to mind.
     cwd = os.path.dirname(os.path.abspath(__file__))
     src = os.path.join(cwd, '../../../../../', f'dockerfiles/{self.service}/')
@@ -90,3 +97,38 @@ class CrosArtifactPrep():
       s = os.path.join(src, item)
       d = os.path.join(self.full_out, item)
       shutil.copy2(s, d)
+
+  def copy_metadata(self):
+    """Return the absolute path of the metadata files."""
+    # Relative to build
+    _BUILD_METADATA_FILES = [
+        ('usr/local/build/autotest/autotest_metadata.pb',
+         os.path.join(self.full_out, 'autotest_metadata.pb')),
+        ('usr/share/tast/metadata/local/cros.pb',
+         os.path.join(self.full_out, 'local_cros.pb')),
+        ('build/share/tast/metadata/local/crosint.pb',
+         os.path.join(self.full_out, 'crosint.pb'))
+    ]
+
+    # relative to chroot.
+    _CHROOT_METADATA_FILES = [('usr/share/tast/metadata/remote/cros.pb',
+                               os.path.join(self.full_out,
+                                            'remote_cros.pb'))]
+
+    for f, d in _BUILD_METADATA_FILES:
+      full_md_path = FromSysrootPath(self.build_path, f)
+      if not os.path.exists(full_md_path):
+        print('Path %s does not exist, skipping' % full_md_path)
+        continue
+      shutil.copyfile(full_md_path, os.path.join(self.full_out, d))
+
+    for f, d in _CHROOT_METADATA_FILES:
+      full_md_path = FromSysrootPath(self.chroot, f)
+      if not os.path.exists(full_md_path):
+        print('Path %s does not exist, skipping' % full_md_path)
+        continue
+      shutil.copyfile(full_md_path, os.path.join(self.full_out, d))
+
+
+def FromSysrootPath(sysroot: str, file: str):
+  return os.path.join(sysroot, file)

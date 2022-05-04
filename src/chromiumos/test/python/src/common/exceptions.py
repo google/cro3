@@ -8,3 +8,13 @@
 class GCloudBuildException(Exception):
   """Raised when gcloud build fails"""
   pass  # pylint: disable=unnecessary-pass
+
+
+class NotDirectoryException(Exception):
+  """Raised when a file is found but is not a directory."""
+  pass  # pylint: disable=unnecessary-pass
+
+
+class ConfigError(Exception):
+  """Raised when conflicting args."""
+  pass  # pylint: disable=unnecessary-pass
