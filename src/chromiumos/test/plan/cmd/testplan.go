@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -135,6 +136,16 @@ Evaluates Starlark files to generate HWTestPlans as newline-delimited json proto
 			"Path to a proto file containing a ConfigBundleList. Can be JSON or "+
 				"binary proto.",
 		)
+		r.Flags.StringVar(
+			&r.chromiumosSourceRootPath,
+			"crossrcroot",
+			"",
+			"Path to the root of a Chromium OS source checkout. Default "+
+				"versions of dutattributes, buildmetadata, configbundlelist, "+
+				"and boardprioritylist in this source checkout will be used, as "+
+				"a convenience to avoid specifying all these full paths. "+
+				"crossrcroot is mutually exclusive with the above flags.",
+		)
 		r.Flags.BoolVar(
 			&r.ctpV1,
 			"ctpv1",
@@ -180,15 +191,16 @@ Evaluates Starlark files to generate HWTestPlans as newline-delimited json proto
 
 type generateRun struct {
 	subcommands.CommandRunBase
-	planPaths               []string
-	buildMetadataListPath   string
-	dutAttributeListPath    string
-	configBundleListPath    string
-	ctpV1                   bool
-	generateTestPlanReqPath string
-	boardPriorityListPath   string
-	out                     string
-	textSummaryOut          string
+	planPaths                []string
+	buildMetadataListPath    string
+	dutAttributeListPath     string
+	configBundleListPath     string
+	chromiumosSourceRootPath string
+	ctpV1                    bool
+	generateTestPlanReqPath  string
+	boardPriorityListPath    string
+	out                      string
+	textSummaryOut           string
 }
 
 func (r *generateRun) Run(a subcommands.Application, args []string, env subcommands.Env) int {
@@ -317,21 +329,45 @@ func writePlans(plans []*test_api_v1.HWTestPlan, outPath, textSummaryOutPath str
 
 // validateFlags checks valid flags are passed to generate, e.g. all required
 // flags are set.
+//
+// If r.chromiumosSourceRootPath is set, other flags (e.g.
+// r.dutAttributeListPath) are updated to default values relative to the source
+// root.
 func (r *generateRun) validateFlags() error {
 	if len(r.planPaths) == 0 {
 		return errors.New("at least one -plan is required")
 	}
 
-	if r.dutAttributeListPath == "" {
-		return errors.New("-dutattributes is required")
-	}
+	if r.chromiumosSourceRootPath == "" {
+		if r.dutAttributeListPath == "" {
+			return errors.New("-dutattributes is required if -crossrcroot is not set")
+		}
 
-	if r.buildMetadataListPath == "" {
-		return errors.New("-buildmetadata is required")
-	}
+		if r.buildMetadataListPath == "" {
+			return errors.New("-buildmetadata is required if -crossrcroot is not set")
+		}
 
-	if r.configBundleListPath == "" {
-		return errors.New("-configbundlelist is required")
+		if r.configBundleListPath == "" {
+			return errors.New("-configbundlelist is required if -crossrcroot is not set")
+		}
+
+		if r.ctpV1 && r.boardPriorityListPath == "" {
+			return errors.New("-boardprioritylist or -crossrcroot must be set if -ctpv1 is set")
+		}
+	} else {
+		if r.dutAttributeListPath != "" || r.buildMetadataListPath != "" || r.configBundleListPath != "" || r.boardPriorityListPath != "" {
+			return errors.New("-dutattributes, -buildmetadata, -configbundlelist, and -boardprioritylist cannot be set if -crossrcroot is set")
+		}
+
+		glog.V(2).Infof("crossrcroot set to %q, updating dutattributes, buildmetadata, and configbundlelist", r.chromiumosSourceRootPath)
+		r.dutAttributeListPath = filepath.Join(r.chromiumosSourceRootPath, "src", "config", "generated", "dut_attributes.jsonproto")
+		r.buildMetadataListPath = filepath.Join(r.chromiumosSourceRootPath, "src", "config-internal", "build", "generated", "build_metadata.jsonproto")
+		r.configBundleListPath = filepath.Join(r.chromiumosSourceRootPath, "src", "config-internal", "hw_design", "generated", "configs.jsonproto")
+
+		if r.ctpV1 {
+			glog.V(2).Infof("crossrcroot set to %q, updating boardprioritylist", r.chromiumosSourceRootPath)
+			r.boardPriorityListPath = filepath.Join(r.chromiumosSourceRootPath, "src", "config-internal", "board_config", "generated", "board_priority.binaryproto")
+		}
 	}
 
 	if r.out == "" {
@@ -342,8 +378,8 @@ func (r *generateRun) validateFlags() error {
 		return errors.New("-generatetestplanreq must be set iff -out is set.")
 	}
 
-	if r.ctpV1 != (r.boardPriorityListPath != "") {
-		return errors.New("-boardprioritylist must be set iff -out is set.")
+	if !r.ctpV1 && r.boardPriorityListPath != "" {
+		return errors.New("-boardprioritylist cannot be set if -ctpv1 is not set")
 	}
 
 	return nil
