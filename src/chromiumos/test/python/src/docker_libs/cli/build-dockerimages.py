@@ -29,13 +29,13 @@ from src.docker_libs.build_libs.cros_callbox.cros_callbox_prep import CrosCallBo
 
 REGISTERED_BUILDS = {'cros-callbox': CrosCallBoxDockerPrepper,
                      'cros-dut': CommonServiceDockerPrepper,
-                     'cros-plan': CommonServiceDockerPrepper,
+                     'testplan': CommonServiceDockerPrepper,
                      'cros-provision': CommonServiceDockerPrepper,
                      'cros-test': CrosTestDockerPrepper,
                      'cros-test-finder': CrosTestFinderDockerPrepper,
                      }
 
-DO_NOT_BUILD = set(['cros-callbox', 'cros-test-finder', 'cros-plan'])
+DO_NOT_BUILD = set(['cros-callbox', 'cros-test-finder', 'testplan'])
 NON_CRITICAL = set(['cros-dut', 'cros-provision'])
 
 def parse_local_arguments():
