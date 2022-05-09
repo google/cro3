@@ -126,7 +126,7 @@ func TestTestsReports(t *testing.T) {
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_dne_id"},
 			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
-			Reason:     "Test did not run",
+			Reason:     "AutoservCrash",
 			TestHarness: &api.TestHarness{
 				TestHarnessType: &api.TestHarness_Tauto_{
 					Tauto: &api.TestHarness_Tauto{},
@@ -144,7 +144,7 @@ func TestTestsReports(t *testing.T) {
 		"infra_dne":  "infra_dne_id",
 	}
 
-	reports, err := TestsReports(resultsDir, tests, testNamesToIds)
+	reports, err := TestsReports(resultsDir, tests, testNamesToIds, "AutoservCrash")
 	if err != nil {
 		t.Fatal("Got error from unexpected: ", err)
 	}
@@ -159,11 +159,13 @@ func TestTestsReports(t *testing.T) {
 // TestTestsReports_BadJson verify results will be returned as missing if there is no/invalid json.
 func TestTestsReports_BadJson(t *testing.T) {
 	resultsDir := "fakdir/"
+	missingReason := "aReason"
+
 	expectedResults := []*api.TestCaseResult{
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_pass_id"},
 			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
-			Reason:     "Test did not run",
+			Reason:     missingReason,
 			TestHarness: &api.TestHarness{
 				TestHarnessType: &api.TestHarness_Tauto_{
 					Tauto: &api.TestHarness_Tauto{},
@@ -173,7 +175,7 @@ func TestTestsReports_BadJson(t *testing.T) {
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_dne_id"},
 			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
-			Reason:     "Test did not run",
+			Reason:     missingReason,
 			TestHarness: &api.TestHarness{
 				TestHarnessType: &api.TestHarness_Tauto_{
 					Tauto: &api.TestHarness_Tauto{},
@@ -190,7 +192,7 @@ func TestTestsReports_BadJson(t *testing.T) {
 		"infra_dne":  "infra_dne_id",
 	}
 
-	reports, _ := TestsReports(resultsDir, tests, testNamesToIds)
+	reports, _ := TestsReports(resultsDir, tests, testNamesToIds, missingReason)
 
 	if diff := cmp.Diff(reports, expectedResults); diff != "" {
 		t.Errorf("Got unexpected missing reports (-got +want):\n%s", diff)

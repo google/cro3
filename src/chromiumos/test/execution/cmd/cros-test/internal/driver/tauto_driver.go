@@ -118,11 +118,13 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, req *api
 
 	wg.Wait()
 
+	MissingTestErrMsg := ""
 	if err := cmd.Wait(); err != nil {
-		return nil, fmt.Errorf("fail to run tauto: %s", err)
+		td.logger.Println("Failed to run Tauto: ", err)
+		MissingTestErrMsg = fmt.Sprintf("Test did not run due to %s", err)
 	}
 
-	results, err := tautoresults.TestsReports(resultsDir, testNames, testNamesToIds)
+	results, err := tautoresults.TestsReports(resultsDir, testNames, testNamesToIds, MissingTestErrMsg)
 
 	if err != nil {
 		return &api.CrosTestResponse{}, err

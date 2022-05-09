@@ -130,7 +130,7 @@ func GenerateReport(test test, testID string, resultsDir string) *api.TestCaseRe
 }
 
 // MissingTestsReports returns tests not found in the resultsdir, marked as err.
-func (r *Report) MissingTestsReports() []*api.TestCaseResult {
+func (r *Report) MissingTestsReports(reason string) []*api.TestCaseResult {
 	var missingTestResults []*api.TestCaseResult
 	for _, t := range r.tests {
 		if _, ok := r.reportedTests[t]; ok {
@@ -143,8 +143,7 @@ func (r *Report) MissingTestsReports() []*api.TestCaseResult {
 		missingTestResults = append(missingTestResults, &api.TestCaseResult{
 			TestCaseId: &api.TestCase_Id{Value: testID},
 			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
-			// ToDo: b/199940635 -- add reason why test did not run if possible.
-			Reason: "Test did not run",
+			Reason:     reason,
 			TestHarness: &api.TestHarness{
 				TestHarnessType: &api.TestHarness_Tauto_{
 					Tauto: &api.TestHarness_Tauto{},
@@ -156,7 +155,7 @@ func (r *Report) MissingTestsReports() []*api.TestCaseResult {
 }
 
 // TestsReports returns results to all tests.
-func TestsReports(resultsDir string, tests []string, testNamesToIds map[string]string) ([]*api.TestCaseResult, error) {
+func TestsReports(resultsDir string, tests []string, testNamesToIds map[string]string, missingReason string) ([]*api.TestCaseResult, error) {
 	report := Report{
 		reportedTests:  make(map[string]struct{}),
 		tests:          tests,
@@ -167,7 +166,7 @@ func TestsReports(resultsDir string, tests []string, testNamesToIds map[string]s
 
 	err := report.loadJSON(resultsDir)
 	if err != nil {
-		return append(report.testCaseResults, report.MissingTestsReports()...), err
+		return append(report.testCaseResults, report.MissingTestsReports(missingReason)...), err
 	}
 
 	for _, test := range report.RawResults.Tests {
@@ -179,5 +178,5 @@ func TestsReports(resultsDir string, tests []string, testNamesToIds map[string]s
 		report.reportedTests[test.Testname] = struct{}{}
 		report.testCaseResults = append(report.testCaseResults, GenerateReport(test, testID, resultsDir))
 	}
-	return append(report.testCaseResults, report.MissingTestsReports()...), nil
+	return append(report.testCaseResults, report.MissingTestsReports(missingReason)...), nil
 }
