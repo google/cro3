@@ -13,32 +13,43 @@ import pathlib
 import shutil
 import sys
 import traceback
+from typing import Any, Dict
 
 # Point up a few directories to make the other python modules discoverable.
 sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve()/'../../../'))
 
+
+from src.common.exceptions import ConfigError  # pylint: disable=import-error,wrong-import-position
 from src.docker_libs.build_libs.builders import GcloudDockerBuilder, LocalDockerBuilder  # pylint: disable=import-error,wrong-import-position
-from src.docker_libs.build_libs.shared.common_service_prep import CommonServiceDockerPrepper
-from src.docker_libs.build_libs.cros_test_finder.cros_test_finder_prep import CrosTestFinderDockerPrepper
-from src.docker_libs.build_libs.cros_test.cros_test_prep import CrosTestDockerPrepper
-from src.docker_libs.build_libs.cros_callbox.cros_callbox_prep import CrosCallBoxDockerPrepper
+from src.docker_libs.build_libs.shared.common_service_prep import CommonServiceDockerPrepper  # pylint: disable=import-error,wrong-import-position
+from src.docker_libs.build_libs.cros_test_finder.cros_test_finder_prep import CrosTestFinderDockerPrepper  # pylint: disable=import-error,wrong-import-position
+from src.docker_libs.build_libs.cros_test.cros_test_prep import CrosTestDockerPrepper  # pylint: disable=import-error,wrong-import-position
+from src.docker_libs.build_libs.cros_callbox.cros_callbox_prep import CrosCallBoxDockerPrepper  # pylint: disable=import-error,wrong-import-position
 
 
 # TODO: Maybe a cfg file or something. Goal is to make is
 # extremely simple/easy for a user to come in and add a new dockerfile.
 
-REGISTERED_BUILDS = {'cros-callbox': CrosCallBoxDockerPrepper,
-                     'cros-dut': CommonServiceDockerPrepper,
-                     'testplan': CommonServiceDockerPrepper,
-                     'cros-provision': CommonServiceDockerPrepper,
-                     'cros-test': CrosTestDockerPrepper,
-                     'cros-test-finder': CrosTestFinderDockerPrepper,
-                     }
+REGISTERED_BUILDS = {
+    'cros-callbox': {
+        'prepper': CrosCallBoxDockerPrepper, 'cloud': False},
+    'cros-dut': {
+        'prepper': CommonServiceDockerPrepper, 'cloud': False},
+    'testplan': {
+        'prepper': CommonServiceDockerPrepper, 'cloud': False},
+    'cros-provision': {
+        'prepper': CommonServiceDockerPrepper, 'cloud': False},
+    'cros-test': {
+        'prepper': CrosTestDockerPrepper, 'cloud': True},
+    'cros-test-finder': {
+        'prepper': CrosTestFinderDockerPrepper, 'cloud': True},
+}
 
-DO_NOT_BUILD = set(['cros-callbox', 'cros-test-finder', 'testplan'])
+DO_NOT_BUILD = set(['cros-callbox'])
 NON_CRITICAL = set(['cros-dut', 'cros-provision'])
 
-def parse_local_arguments():
+
+def parse_local_arguments() -> argparse.Namespace:
   """Parse the CLI."""
   parser = argparse.ArgumentParser(
       description='Prep Tauto, Tast, & Services for DockerBuild.')
@@ -70,12 +81,11 @@ def parse_local_arguments():
                       default='',
                       help='Zero or more key=value comma seperated strings to '
                            'apply as labels to container.')
-  parser.add_argument('--localbuild',
-                      dest='localbuild',
-                      action='store_true',
-                      help='Build the image locally using `Docker Build`. '
-                           'Default is False, if running this locally its '
-                           'recommended to use this arg.')
+  parser.add_argument('--build_type',
+                      dest='build_type',
+                      default=None,
+                      help='Specify the docker build type to be used. Valid'
+                           ' options are oneof: "cloud" "local".')
   parser.add_argument('--upload',
                       dest='upload',
                       action='store_true',
@@ -90,14 +100,36 @@ def parse_local_arguments():
   return args
 
 
-def build_image(args, service, output):
+def validate_args(args: argparse.Namespace):
+  if args.build_type and args.build_type not in ('cloud', 'local'):
+    raise ConfigError('--build_type must be one of "cloud" or "local" but got '
+                      f'{args.build_type}')
+
+
+def isCloudBuild(
+    args: argparse.Namespace,
+    info: Dict[str, Any]) -> Any:
+  """Determine if the image should be built with cloud or local."""
+  # if the args is set, use that, otherwise default to the registration value.
+  if args.build_type == 'local':
+    return False
+  if args.build_type == 'cloud':
+    return True
+  return info['cloud']
+
+
+def build_image(
+    args: argparse.Namespace,
+    service: str,
+    output: str) -> bool:
   """Build a singular image."""
-  prepperlib = REGISTERED_BUILDS.get(service, None)
-  if not prepperlib:
+  info = REGISTERED_BUILDS.get(service, None)
+  if not info:
     print(f'{service} not support in build-dockerimages yet, please '
           'register your service via instructions in the readme')
     sys.exit(1)
 
+  prepperlib = info['prepper']
   prepper = prepperlib(
       chroot=args.chroot,
       sysroot=args.sysroot,
@@ -106,10 +138,11 @@ def build_image(args, service, output):
       service=service)
 
   prepper.prep_container()
-  if not args.localbuild:
+  gcloud_build = isCloudBuild(args, info)
+  if gcloud_build:
     prepper.build_yaml()
 
-  builder = LocalDockerBuilder if args.localbuild else GcloudDockerBuilder
+  builder = GcloudDockerBuilder if gcloud_build else LocalDockerBuilder
   err = False
   try:
     b = builder(
@@ -121,11 +154,11 @@ def build_image(args, service, output):
         registry_name=args.host,
         cloud_project=args.project,
         labels=prepper.labels)
+    b.build()
 
-    if args.localbuild and args.upload:
-      b.build(upload=True)
-    else:
-      b.build()
+    # Upload if requested, or an output file is given.
+    if args.upload or args.output:
+      b.upload_image()
 
   except Exception:
     # Print a traceback for debugging.
@@ -137,7 +170,7 @@ def build_image(args, service, output):
   return err
 
 
-def build_all_images(args):
+def build_all_images(args: argparse.Namespace):
   """Build all registered images.
 
   Will skip any in DO_NOT_BUILD, and will not fail if a NON_CRITICAL build
@@ -167,8 +200,7 @@ def build_all_images(args):
 def main():
   """Entry point."""
   args = parse_local_arguments()
-  if args.upload and not args.localbuild:
-    raise Exception('Upload flag is only valid when localbuild is set.')
+  validate_args(args)
 
   if args.build_all:
     build_all_images(args)

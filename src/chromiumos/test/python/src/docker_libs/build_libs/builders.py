@@ -6,12 +6,15 @@
 
 import json
 import os
-from typing import List
 import sys
+from typing import List
 
 sys.path.append('../../../')
-from src.common.utils import getoutput, run
-from src.common.exceptions import GCloudBuildException
+
+from src.common.exceptions import GCloudBuildException  # pylint: disable=import-error,wrong-import-position
+from src.common.utils import getoutput  # pylint: disable=import-error,wrong-import-position
+from src.common.utils import run  # pylint: disable=import-error,wrong-import-position
+
 
 CWD = os.path.dirname(os.path.abspath(__file__))
 CHROOT_DEFAULT = os.path.join(CWD, '../../../../../../../../../../chroot')
@@ -135,6 +138,14 @@ class DockerBuilder():
     with open(self.output, 'w') as wf:
       json.dump(template, wf, indent=4)
 
+  def build(self):
+    """To be implemented by child class."""
+    raise NotImplementedError
+
+  def upload_image(self):
+    """To be implemented by child class."""
+    raise NotImplementedError
+
 
 class GcloudDockerBuilder(DockerBuilder):
   """Class for building Docker images via gcloud."""
@@ -243,6 +254,10 @@ class GcloudDockerBuilder(DockerBuilder):
       print(f'Digest output:\n{out}')
     self.write_outfile(self.sha_from_cloudbuild_out(out))
 
+  def upload_image(self):
+    """Stub for simplicity sakes, as gcloud build automatically uploads."""
+    pass
+
 
 class LocalDockerBuilder(DockerBuilder):
   """Class for building Docker images locally using `Docker Build`."""
@@ -292,12 +307,12 @@ class LocalDockerBuilder(DockerBuilder):
       labelstr += f'--label {tag} '
     return labelstr.rstrip(' ')
 
-  def sha_from_docker_out(self, tag):
+  def sha_from_docker_out(self, tag: str):
     """Get the sha from the built docker image."""
     full_sha = getoutput(
         f'docker inspect --format="{{{{index .RepoDigests 0}}}}" {tag}')
     if '@sha256' not in full_sha:
-      raise Exception(f"sha not found from repo digest {full_sha}")
+      raise Exception(f'sha not found from repo digest {full_sha}')
 
     # If the @sha256 sign is found, split on the @, return just the sha.
     # Example: full_sha = image_path@sha256:<some_long_sha>
@@ -309,8 +324,10 @@ class LocalDockerBuilder(DockerBuilder):
     """Upload the build image to the repo. Must be called after build."""
     self.auth_gcloud()
     run(f'docker push --all-tags {self.image_path}')
+    sha = self.sha_from_docker_out(f'{self.image_path}:{self.tags[0]}')
+    self.write_outfile(sha)
 
-  def build(self, upload=False):
+  def build(self):
     """Build the Docker image using `docker build`.
 
     Assumes a cloudbuild.yaml is staged in the same dir as the given
@@ -323,15 +340,9 @@ class LocalDockerBuilder(DockerBuilder):
         f'docker build -f {self.dockerfile} {tags} {labels}'
         f' {self.build_context}')
 
-    print(f'Running cloud build cmd: {docker_build_cmd}')
+    print(f'Running docker build cmd: {docker_build_cmd}')
 
     # Stream the docker_build_cmd.
-    out, err, status = run(docker_build_cmd, stream=True)
+    _, err, status = run(docker_build_cmd, stream=True)
     if status != 0:
       raise GCloudBuildException(f'gcloud build failed with err:\n {err}\n')
-
-    sha = ''
-    if upload:
-      self.upload_image()
-      sha = self.sha_from_docker_out(f'{self.image_path}:{self.tags[0]}')
-    self.write_outfile(sha)
