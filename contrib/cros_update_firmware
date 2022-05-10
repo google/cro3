@@ -151,7 +151,8 @@ update_firmware() {
   # these cache cleanup code.
   rm -rf "${metadata}/cache" "${metadata}/md5-cache" "${edb_cache}"
   "ebuild-${board}" "${ebuild}" manifest
-  "emerge-${board}" -j "${emerge_flags[@]}" "chromeos-firmware-${board}"
+  USE="-bootimage -cros_ec -zephyr_ec" \
+	  "emerge-${board}" -j "${emerge_flags[@]}" "chromeos-firmware-${board}"
 
   for i in "${!result[@]}"; do
     if [[ "${result[i]}" -eq "0" ]]; then
