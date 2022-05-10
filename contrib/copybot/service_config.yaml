@@ -44,6 +44,18 @@ coreboot-downstream: &coreboot_downstream
       to: coreboot-sheriff@grotations.appspotmail.com
       cc: jrosenth@google.com
 
+flashrom-downstream: &flashrom_downstream
+  topic: flashrom-downstream
+  upstream-branch: master
+  downstream-branch: master
+  labels:
+    - Verified+1
+  triggers:
+    - action: email
+      condition: failure
+      to: flashrom-sheriff@grotations.appspotmail.com
+      cc: quasisec@google.com
+
 services:
   - <<: *zephyr_downstream
     upstream-branch: main
@@ -93,3 +105,8 @@ services:
     upstream: https://review.coreboot.org/libhwbase
     downstream: https://chromium.googlesource.com/chromiumos/third_party/coreboot/libhwbase
     downstream-branch: main
+  - <<: *flashrom_downstream
+    upstream: https://review.coreboot.org/flashrom
+    downstream: https://chromium.googlesource.com/chromiumos/third_party/flashrom
+    downstream-branch: master
+    prepend-subject: "UPSTREAM: "
