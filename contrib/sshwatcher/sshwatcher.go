@@ -27,7 +27,7 @@ import (
 )
 
 func getLsbReleaseMap(hostname string) (map[string]string, error) {
-	sshResult, err := exec.Command("ssh", hostname, "cat /etc/lsb-release").CombinedOutput()
+	sshResult, err := exec.Command("ssh", hostname, "cat /etc/lsb-release").Output()
 	if err != nil {
 		return nil, err
 	}
