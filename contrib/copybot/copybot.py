@@ -224,7 +224,7 @@ class GitRepo:
 
         def _try_cherry_pick(extra_flags):
             try:
-                self._run_git("cherry-pick", rev, *extra_flags)
+                self._run_git("cherry-pick", "-x", rev, *extra_flags)
             except subprocess.CalledProcessError as e:
                 self._run_git("cherry-pick", "--abort")
                 if "The previous cherry-pick is now empty" in e.stderr:
