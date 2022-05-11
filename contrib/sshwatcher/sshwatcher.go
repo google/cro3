@@ -65,11 +65,11 @@ type messageType struct {
 }
 
 // Format string for the per-host status.
-var kFmtString string
+var fmtString string
 
 func sshConnectionLoop(param hostPortPair, message chan messageType) {
-	const kWaitBetweenSshTries = 1 * time.Second
-	const kSleepCommand = "sleep 8h" // Command to run on remote host to keep connection.
+	const waitBetweenSSHTries = 1 * time.Second
+	const sleepCommand = "sleep 8h" // Command to run on remote host to keep connection.
 
 	for {
 		message <- messageType{
@@ -78,22 +78,22 @@ func sshConnectionLoop(param hostPortPair, message chan messageType) {
 		}
 		osVersion, arcVersion, err := getOsVersion(param.host)
 		if err != nil {
-			time.Sleep(kWaitBetweenSshTries)
+			time.Sleep(waitBetweenSSHTries)
 			// try again.
 			continue
 		}
 		message <- messageType{
 			host: param.host,
-			m: fmt.Sprintf(kFmtString,
+			m: fmt.Sprintf(fmtString,
 				param.host, param.port, osVersion, arcVersion),
 		}
 		err = exec.Command("ssh", fmt.Sprintf("-L%v:localhost:22", param.port), param.host,
-			kSleepCommand).Run()
+			sleepCommand).Run()
 		message <- messageType{
 			host: param.host,
 			m:    fmt.Sprintf("%-10v\t %-7v\t disconnected with %v", param.host, param.port, err),
 		}
-		time.Sleep(kWaitBetweenSshTries)
+		time.Sleep(waitBetweenSSHTries)
 	}
 }
 
@@ -121,7 +121,7 @@ func main() {
 			maxHostLen = len(hostArgs[i])
 		}
 	}
-	kFmtString = fmt.Sprintf("%%-%dv\t %%-7v\t%%-30v%%-26v", maxHostLen)
+	fmtString = fmt.Sprintf("%%-%dv\t %%-7v\t%%-30v%%-26v", maxHostLen)
 
 	message := make(chan messageType)
 
@@ -137,14 +137,14 @@ func main() {
 	// Now the goroutines are busy reconnecting to ssh, I can wait for their
 	// messages in channel to print out status.
 	status := make(map[string]string)
-	const kAnsiClearScreen = "\x1B[2J" // ANSI escape code CSI + 2J command for clearing screen.
+	const ansiClearScreen = "\x1B[2J" // ANSI escape code CSI + 2J command for clearing screen.
 	for {
 		msg := <-message
 		status[msg.host] = msg.m
 
 		// Clear screen before displaying
-		fmt.Printf("%v", kAnsiClearScreen)
-		fmt.Printf(kFmtString+"\n",
+		fmt.Printf("%v", ansiClearScreen)
+		fmt.Printf(fmtString+"\n",
 			"host", "port", "CrOS version", "ARC version")
 		for _, param := range params {
 			// Clear until end of line and print status.
