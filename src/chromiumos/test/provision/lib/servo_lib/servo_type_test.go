@@ -1,10 +1,10 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2022 The Chromium OS Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 package servo_lib_test
 
 import (
-	servo_lib "chromiumos/test/provision/cmd/provisionserver/bootstrap/services/firmwareservice/servo/lib"
+	"chromiumos/test/provision/lib/servo_lib"
 	"testing"
 )
 
@@ -96,5 +96,21 @@ func TestServoType(t *testing.T) {
 		if servo.IsMicro() != listContains(MICRO_SERVOS, servoStr) {
 			t.Errorf("servo %v: expected IsMicro() to return %v", servoStr, !servo.IsMicro())
 		}
+	}
+}
+
+func TestPickServoSubtype(t *testing.T) {
+	dualServoType := servo_lib.NewServoType("servo_v4p1_with_servo_micro_and_ccd_cr50")
+
+	expectedPreferCCD := "servo_v4p1_with_ccd_cr50"
+	expectedNoPreferCCD := "servo_v4p1_with_servo_micro"
+
+	if gotPreferCCD := dualServoType.PickServoSubtype(true /*prefer CCD*/); gotPreferCCD != expectedPreferCCD {
+		t.Errorf("%v PickOneFromDual(true) expected: %v, got: %v",
+			dualServoType, expectedPreferCCD, gotPreferCCD)
+	}
+	if gotNoPreferCCD := dualServoType.PickServoSubtype(false /*prefer CCD*/); gotNoPreferCCD != expectedNoPreferCCD {
+		t.Errorf("%v PickOneFromDual(true) expected: %v, got: %v",
+			dualServoType, expectedNoPreferCCD, gotNoPreferCCD)
 	}
 }
