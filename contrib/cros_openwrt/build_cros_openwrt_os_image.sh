@@ -13,7 +13,7 @@ set -e
 
 IMAGE_BUILDER_ARCHIVE_PATH="$1"
 BUILD_PROFILE="$2"
-CROS_IMAGE_VERSION=0.1.0
+CROS_IMAGE_VERSION=0.1.3
 
 if [ "${IMAGE_BUILDER_ARCHIVE_PATH}" == "" ]; then
   echo "Error: missing image_builder_archive_path_or_url argument"
@@ -104,6 +104,9 @@ PACKAGES=(
 
   # Packet capturing support.
   "tcpdump"
+
+  # Add the hostapd_cli utility.
+  "hostapd-utils"
 )
 PACKAGES_STR=$(IFS=' '; echo -n "${PACKAGES[@]}")
 

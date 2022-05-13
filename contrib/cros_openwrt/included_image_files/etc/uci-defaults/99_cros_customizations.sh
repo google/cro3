@@ -49,3 +49,6 @@ uci commit wireless
 /etc/init.d/dropbear reload
 /etc/init.d/network reload
 /sbin/wifi reload
+
+# Link hostapd_cli to the location our tests expect it to be.
+ln -s /usr/sbin/hostapd_cli /usr/bin/hostapd_cli
