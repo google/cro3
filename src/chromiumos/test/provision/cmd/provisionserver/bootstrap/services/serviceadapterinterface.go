@@ -71,15 +71,18 @@ func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (
 		return "", fmt.Errorf("execution fail: %w", err)
 	}
 	// Expecting single stream result
-	feature, err := stream.Recv()
+	execCmdResponse, err := stream.Recv()
 	if err != nil {
 		return "", fmt.Errorf("execution single stream result: %w", err)
 	}
-	fmt.Printf("Run cmd response: %s\n", feature)
-	if string(feature.Stderr) != "" {
-		fmt.Printf("execution finished with stderr: %s\n", string(feature.Stderr))
+	fmt.Printf("Run cmd response: %s\n", execCmdResponse)
+	if execCmdResponse.ExitInfo.Status != 0 {
+		err = fmt.Errorf("status:%v message:%v", execCmdResponse.ExitInfo.Status, execCmdResponse.ExitInfo.ErrorMessage)
 	}
-	return string(feature.Stdout), nil
+	if string(execCmdResponse.Stderr) != "" {
+		fmt.Printf("execution finished with stderr: %s\n", string(execCmdResponse.Stderr))
+	}
+	return string(execCmdResponse.Stdout), err
 }
 
 // Restart restarts a DUT
@@ -112,7 +115,6 @@ func (s ServiceAdapter) Restart(ctx context.Context) error {
 	}
 
 	return nil
-
 }
 
 // PathExists determines if a path exists in a DUT
@@ -159,7 +161,6 @@ func (s ServiceAdapter) PipeData(ctx context.Context, sourceUrl string, pipeComm
 	}
 
 	return nil
-
 }
 
 // CopyData caches a file for a DUT locally from a GS url.

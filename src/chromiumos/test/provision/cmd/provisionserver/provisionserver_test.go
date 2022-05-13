@@ -7,6 +7,7 @@ package provisionserver
 import (
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/info"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/mock_services"
+	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/ashservice"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/crosservice"
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services/firmwareservice"
@@ -15,13 +16,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path"
+	"log"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	conf "go.chromium.org/chromiumos/config/go"
 	build_api "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/test/api"
+	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
 func TestCrosInstallStateTransitions(t *testing.T) {
@@ -702,9 +706,22 @@ func TestPkillOnlyRunsForTenSeconds(t *testing.T) {
 	}
 }
 
-func TestFirmwareProvisioningStates(t *testing.T) {
-	fakeGSPath := "foobar"
-	expectedImagePathOnDUT := path.Join(firmwareservice.FirmwarePathTmp, fakeGSPath)
+func TestFirmwareProvisioningSSHStates(t *testing.T) {
+	fakeGSPath := "gs://test-archive.tar.gz"
+	fakeGSFilename := filepath.Base(fakeGSPath)
+
+	apImageWithinArchive := "image.bin"
+	ecImageWithinArchive := "ec.bin"
+	pdImageWithinArchive := "pd.bin"
+	imagesWithinArchive := strings.Join([]string{
+		"foo",
+		apImageWithinArchive,
+		"bar",
+		ecImageWithinArchive,
+		"baz",
+		pdImageWithinArchive,
+	}, "\n") // as reported by tar
+
 	makeRequest := func(main_rw, main_ro, ec_ro, pd_ro bool) *api.InstallFirmwareRequest {
 		fakePayload := &build_api.FirmwarePayload{FirmwareImage: &build_api.FirmwarePayload_FirmwareImagePath{FirmwareImagePath: &conf.StoragePath{HostType: conf.StoragePath_GS, Path: fakeGSPath}}}
 		FirmwareConfig := build_api.FirmwareConfig{}
@@ -724,6 +741,29 @@ func TestFirmwareProvisioningStates(t *testing.T) {
 
 		return &api.InstallFirmwareRequest{FirmwareConfig: &FirmwareConfig}
 	}
+	fakeDutProto := &lab_api.Dut{
+		Id: &lab_api.Dut_Id{Value: "dee you tee"},
+		DutType: &lab_api.Dut_Chromeos{Chromeos: &lab_api.Dut_ChromeOS{
+			DutModel: &lab_api.DutModel{
+				BuildTarget: "test_board",
+				ModelName:   "test_model",
+			},
+		}},
+	}
+
+	checkStateName := func(st services.ServiceState, expectedStateName string) {
+		if st == nil {
+			if len(expectedStateName) > 0 {
+				t.Fatalf("expected state %v. got: nil state", expectedStateName)
+			}
+			return
+		}
+		stateName := st.Name()
+		if stateName != expectedStateName {
+			t.Fatalf("expected state %v. got: %v", expectedStateName, stateName)
+		}
+	}
+
 	type TestCase struct {
 		// inputs
 		main_rw, main_ro, ec_ro, pd_ro bool
@@ -742,19 +782,22 @@ func TestFirmwareProvisioningStates(t *testing.T) {
 		{ /*in*/ true, true, false, true /*out*/, true, true /*err*/, false},
 	}
 
+	// Set up the mock.
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
 	sam := mock_services.NewMockServiceAdapterInterface(ctrl)
 
 	for _, testCase := range testCases {
-		if !testCase.expectConstructorError {
-			sam.EXPECT().CreateDirectories(gomock.Any(), gomock.Eq([]string{firmwareservice.FirmwarePathTmp})).Return(nil)
-		}
+		// Create FirmwareService.
+		ctx := context.Background()
 		fws, err := firmwareservice.NewFirmwareServiceFromExistingConnection(
+			ctx,
+			fakeDutProto,
 			sam,
+			nil,
 			makeRequest(testCase.main_rw, testCase.main_ro, testCase.ec_ro, testCase.pd_ro),
 		)
+		// Check if init error is expected/got.
 		if err != nil {
 			if testCase.expectConstructorError {
 				continue
@@ -764,6 +807,7 @@ func TestFirmwareProvisioningStates(t *testing.T) {
 		if err == nil && testCase.expectConstructorError {
 			t.Fatalf("expected constructor error for test case %#v. got: %v", testCase, err)
 		}
+		// Check expected states.
 		if testCase.updateRo != fws.UpdateRo() {
 			t.Fatalf("test case %#v expects updateRo to be %v. got: %v.", testCase, testCase.updateRo, fws.UpdateRo())
 		}
@@ -771,50 +815,58 @@ func TestFirmwareProvisioningStates(t *testing.T) {
 			t.Fatalf("test case %#v expects updateRw to be %v. got: %v.", testCase, testCase.updateRw, fws.UpdateRw())
 		}
 
+		// Start with the first state of the service.
 		st := fws.GetFirstState()
+		// Confirm state name is Prepare.
+		checkStateName(st, firmwareservice.PrepareStateName)
 
-		ctx := context.Background()
+		// Set mock expectations.
+		gomock.InOrder(
+			sam.EXPECT().RunCmd(gomock.Any(), "mktemp", gomock.Any()).Return("", nil),
+			sam.EXPECT().CopyData(gomock.Any(), gomock.Eq(fakeGSPath), gomock.Eq(fakeGSFilename)).Return(nil),
+			sam.EXPECT().RunCmd(gomock.Any(), "tar", gomock.Any()).Return(imagesWithinArchive, nil),
+		)
 
-		if testCase.updateRw {
-			expectedFutilityArgs := []string{"update", "--mode=autoupdate", "--wp=1", "--image=" + expectedImagePathOnDUT}
-			gomock.InOrder(
-				sam.EXPECT().CopyData(gomock.Any(), gomock.Eq(fakeGSPath), gomock.Eq(expectedImagePathOnDUT)).Return(nil),
-				sam.EXPECT().RunCmd(gomock.Any(), "futility", expectedFutilityArgs).Return("", nil),
-				sam.EXPECT().Restart(gomock.Any()).Return(nil),
-			)
-
-			err := st.Execute(ctx)
-			if err != nil {
-				t.Fatal(err)
-			}
-			st = st.Next()
+		// Execute the state and proceed.
+		err = st.Execute(ctx)
+		if err != nil {
+			t.Fatal(err)
 		}
+		log.Printf("early state: %v\n", st.Name())
+		st = st.Next()
+		log.Printf("early state after Next(): %v\n", st.Name())
 
 		if testCase.updateRo {
+			// Confirm state name is RO.
+			checkStateName(st, firmwareservice.UpdateRoStateName)
+
+			// Set mock expectations.
 			expectedFutilityImageArgs := []string{}
 			if testCase.main_ro {
-				expectedFutilityImageArgs = append(expectedFutilityImageArgs, "--image="+expectedImagePathOnDUT)
+				expectedFutilityImageArgs = append(expectedFutilityImageArgs, "--image="+apImageWithinArchive)
 				gomock.InOrder(
-					sam.EXPECT().CopyData(gomock.Any(), gomock.Eq(fakeGSPath), gomock.Eq(expectedImagePathOnDUT)).Return(nil),
+					sam.EXPECT().RunCmd(gomock.Any(), "cd", gomock.Any()).Return("", nil), // tar
 				)
 			}
 			if testCase.ec_ro {
-				expectedFutilityImageArgs = append(expectedFutilityImageArgs, "--ec_image="+expectedImagePathOnDUT)
+				expectedFutilityImageArgs = append(expectedFutilityImageArgs, "--ec_image="+ecImageWithinArchive)
 				gomock.InOrder(
-					sam.EXPECT().CopyData(gomock.Any(), gomock.Eq(fakeGSPath), gomock.Eq(expectedImagePathOnDUT)).Return(nil),
+					sam.EXPECT().RunCmd(gomock.Any(), "cd", gomock.Any()).Return("", nil), // tar
 				)
 			}
 			if testCase.pd_ro {
-				expectedFutilityImageArgs = append(expectedFutilityImageArgs, "--pd_image="+expectedImagePathOnDUT)
+				expectedFutilityImageArgs = append(expectedFutilityImageArgs, "--pd_image="+pdImageWithinArchive)
 				gomock.InOrder(
-					sam.EXPECT().CopyData(gomock.Any(), gomock.Eq(fakeGSPath), gomock.Eq(expectedImagePathOnDUT)).Return(nil),
+					sam.EXPECT().RunCmd(gomock.Any(), "cd", gomock.Any()).Return("", nil), // tar
 				)
 			}
-			expectedFutilityArgs := append([]string{"update", "--mode=recovery", "--wp=0"}, expectedFutilityImageArgs...)
+			expectedFutilityArgs := append([]string{"update", "--mode=recovery"}, expectedFutilityImageArgs...)
+			expectedFutilityArgs = append(expectedFutilityArgs, "--wp=0")
 			gomock.InOrder(
 				sam.EXPECT().RunCmd(gomock.Any(), "futility", expectedFutilityArgs).Return("", nil),
-				sam.EXPECT().Restart(gomock.Any()).Return(nil),
 			)
+
+			// Execute the state and proceed.
 			err := st.Execute(ctx)
 			if err != nil {
 				t.Fatal(err)
@@ -822,9 +874,41 @@ func TestFirmwareProvisioningStates(t *testing.T) {
 			st = st.Next()
 		}
 
-		if st != nil {
-			t.Fatalf("Expected to finish, got state: %v", st.Name())
-		}
-	}
+		if testCase.updateRw {
+			// Confirm state name is RW.
+			checkStateName(st, firmwareservice.UpdateRwStateName)
 
+			// Set mock expectations.
+			expectedFutilityArgs := []string{"update", "--mode=recovery", "--image=" + apImageWithinArchive, "--wp=1"}
+			gomock.InOrder(
+				sam.EXPECT().RunCmd(gomock.Any(), "cd", gomock.Any()).Return("", nil), // tar
+				sam.EXPECT().RunCmd(gomock.Any(), "futility", expectedFutilityArgs).Return("", nil),
+			)
+
+			// Execute the state and proceed.
+			err := st.Execute(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st = st.Next()
+		}
+
+		// Confirm state name is postinstall.
+		checkStateName(st, firmwareservice.PostInstallStateName)
+		// Set mock expectations.
+		gomock.InOrder(
+			sam.EXPECT().DeleteDirectory(gomock.Any(), "").Return(nil),
+			sam.EXPECT().Restart(gomock.Any()).Return(nil),
+			sam.EXPECT().RunCmd(gomock.Any(), "true", nil).Return("", nil),
+		)
+		// Execute the state and proceed.
+		err = st.Execute(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		st = st.Next()
+
+		// Confirm no states left.
+		checkStateName(st, "")
+	}
 }

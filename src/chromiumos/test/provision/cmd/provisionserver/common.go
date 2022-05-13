@@ -35,6 +35,8 @@ type provision struct {
 	dutClient api.DutServiceClient
 	// Used only for server implementation.
 	manager *lro.Manager
+	// Used only for flashing firmware.
+	servoClient api.ServodServiceClient
 }
 
 // newProvision creates new provision to perform.
@@ -52,11 +54,32 @@ func NewProvision(logger *log.Logger, dut *lab_api.Dut, dutServiceAddr string) (
 	}
 	conns = append(conns, dutConn)
 
+	var servoClient api.ServodServiceClient
+	if servoConf := dut.GetChromeos().GetServo(); servoConf != nil {
+		servoAddr := fmt.Sprintf("%s:%d", servoConf.GetServodAddress().GetAddress(), servoConf.GetServodAddress().GetPort())
+		servoConn, err := grpc.Dial(servoAddr, grpc.WithInsecure())
+		if err != nil {
+			return nil, closer, errors.Annotate(err, "new provision: failed to connect to cros-servod").Err()
+		}
+		conns = append(conns, servoConn)
+		servoClient = api.NewServodServiceClient(servoConn)
+	}
+
+	return &provision{
+		logger:      logger,
+		dut:         dut,
+		dutClient:   api.NewDutServiceClient(dutConn),
+		servoClient: servoClient,
+	}, closer, nil
+}
+
+// newProvision creates new provision to perform.
+func NewProvisionFromExistingDutClient(logger *log.Logger, dut *lab_api.Dut, dutClient api.DutServiceClient) (*provision, error) {
 	return &provision{
 		logger:    logger,
 		dut:       dut,
-		dutClient: api.NewDutServiceClient(dutConn),
-	}, closer, nil
+		dutClient: dutClient,
+	}, nil
 }
 
 // installState installs all required software from ProvisionState.
@@ -111,6 +134,8 @@ func (s *provision) installState(ctx context.Context, state *api.ProvisionState,
 	if fw := state.GetFirmware(); fw != nil {
 		if fr, err := s.installFirmware(ctx, &api.InstallFirmwareRequest{
 			FirmwareConfig: fw,
+			UseServo:       state.UseServo,
+			Force:          state.FirmwareForce,
 		}, nil); err != nil {
 			return fr, err
 		}
@@ -165,7 +190,7 @@ func (s *provision) installArc(ctx context.Context, req *api.InstallArcRequest, 
 // installFirmware installs requested firmware to the DUT.
 func (s *provision) installFirmware(ctx context.Context, req *api.InstallFirmwareRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
 	s.logger.Println("Received api.InstallFirmwareRequest: ", *req)
-	ls, err := firmwareservice.NewFirmwareService(s.dut, s.dutClient, req)
+	ls, err := firmwareservice.NewFirmwareService(ctx, s.dut, s.dutClient, s.servoClient, req)
 	if err != nil {
 		fr := &api.InstallFailure{
 			Reason: api.InstallFailure_REASON_PROVISIONING_FAILED,

@@ -85,7 +85,6 @@ func (s *provision) InstallArc(ctx context.Context, req *api.InstallArcRequest) 
 
 // InstallFirmware installs AP/EC firmware to the DUT
 func (s *provision) InstallFirmware(ctx context.Context, req *api.InstallFirmwareRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.InstallFirmwareRequest: ", *req)
 	op := s.manager.NewOperation()
 	response := api.InstallFirmwareResponse{}
 	if fr, err := s.installFirmware(ctx, req, op); err != nil {

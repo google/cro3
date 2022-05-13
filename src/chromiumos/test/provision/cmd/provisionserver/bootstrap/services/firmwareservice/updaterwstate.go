@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2022 The Chromium OS Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,7 @@ import (
 	"chromiumos/test/provision/cmd/provisionserver/bootstrap/services"
 	"context"
 	"fmt"
-	"path"
+	"log"
 )
 
 // FirmwareUpdateRwState updates firmware with write protection disabled.
@@ -17,31 +17,32 @@ type FirmwareUpdateRwState struct {
 	service FirmwareService
 }
 
+// Execute flashes firmware using futility with write-protection enabled.
 func (s FirmwareUpdateRwState) Execute(ctx context.Context) error {
-	mainRwFilename := path.Base(s.service.mainRwPath.GetPath())
-	if err := s.service.CopyImageToDUT(ctx, s.service.mainRwPath, mainRwFilename); err != nil {
+	connection := s.service.GetConnectionToFlashingDevice()
+	mainRwMetadata := s.service.imagesMetadata[s.service.mainRwPath.GetPath()]
+	log.Printf("[FW Provisioning: Update RW] extracting AP image to flash\n")
+	mainRwPath, err := PickAndExtractMainImage(ctx, connection, mainRwMetadata, s.service.GetBoard(), s.service.GetModel())
+	if err != nil {
 		return err
 	}
-	futilityImageArg := fmt.Sprint("--image=", s.service.GetImagePath(mainRwFilename))
-	if err := s.service.ExecuteWPFutility(ctx, futilityImageArg); err != nil {
+	futilityImageArgs := []string{fmt.Sprint("--image=", mainRwPath)}
+
+	log.Printf("[FW Provisioning: Update RW] flashing RW firmware with futility\n")
+	err = s.service.FlashWithFutility(ctx, true /* WP */, futilityImageArgs)
+	if err != nil {
 		return err
 	}
-	fmt.Println("Restarting to mark RW firmware update active.")
-	if err := s.service.connection.Restart(ctx); err != nil {
-		return err
-	}
-	fmt.Println("Restart successul.")
-	return nil
+
+	return err
 }
 
 func (s FirmwareUpdateRwState) Next() services.ServiceState {
-	if s.service.UpdateRo() {
-		return FirmwareUpdateRoState(s)
-	} else {
-		return nil
-	}
+	return FirmwarePostInstallState(s)
 }
 
+const UpdateRwStateName = "Firmware Update RW"
+
 func (s FirmwareUpdateRwState) Name() string {
-	return "Firmware Update RW"
+	return UpdateRwStateName
 }
