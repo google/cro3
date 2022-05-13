@@ -43,9 +43,15 @@ REGISTERED_BUILDS = {
         'prepper': CrosTestDockerPrepper, 'cloud': True},
     'cros-test-finder': {
         'prepper': CrosTestFinderDockerPrepper, 'cloud': True},
+    'cros-servod': {
+        'prepper': CommonServiceDockerPrepper, 'cloud': False},
 }
 
-DO_NOT_BUILD = set(['cros-callbox'])
+# callbox currently fails building and was disabled per b/
+# cros-servod does not have a ebuild yet, thus is not ready for building.
+DO_NOT_BUILD = set(['cros-callbox', 'cros-servod'])
+# NOTE: when promoting a service from DO_NOT_BUILD, it should be added to
+# NON_CRITICAL for atleast a short time to verify health.
 NON_CRITICAL = set(['cros-dut', 'cros-provision'])
 
 
