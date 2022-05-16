@@ -188,8 +188,6 @@ do
     "${SIGNED_BIN}" \
     ../../tests/devkeys/firmware_data_key.vbprivk \
     ../../tests/devkeys/firmware.keyblock \
-    ../../tests/devkeys/dev_firmware_data_key.vbprivk \
-    ../../tests/devkeys/dev_firmware.keyblock \
     ../../tests/devkeys/kernel_subkey.vbpubk 1 0
   cd "${BIOS_WORKING_DIR}"
 
