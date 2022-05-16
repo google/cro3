@@ -11,17 +11,35 @@
 
 set -e
 
+SCRIPT_DIR="$(dirname "$(realpath -e "${BASH_SOURCE[0]}")")"
+
+function print_usage {
+  cat << EOF
+Usage: $0 <image_builder_archive_path_or_url> <build_profile>
+
+You can also run without a build profile to see which profiles are available
+with the provided image builder.
+
+For more documentation, see the README at
+"${SCRIPT_DIR}/README.md".
+EOF
+}
+
+if [ "$#" == 0 ] || [ "$1" == "-h" ] || [ "$1" == "help" ] \
+|| [ "$1" == "--help" ]; then
+  print_usage
+  exit 0
+fi
+
 IMAGE_BUILDER_ARCHIVE_PATH="$1"
 BUILD_PROFILE="$2"
 CROS_IMAGE_VERSION=0.1.3
 
 if [ "${IMAGE_BUILDER_ARCHIVE_PATH}" == "" ]; then
   echo "Error: missing image_builder_archive_path_or_url argument"
-  echo "Usage: $0 <image_builder_archive_path_or_url> <build_profile>"
-  echo "You can also run without a build profile to see which profiles are available with the provided image builder"
+  print_usage
   exit 1
 fi
-SCRIPT_DIR="$(dirname "$(realpath -e "${BASH_SOURCE[0]}")")"
 CHROMIUMOS_DIR_PATH="$(realpath "${SCRIPT_DIR}/../../../../..")"
 
 # Prepare build dir.
@@ -117,6 +135,22 @@ DISABLED_SERVICES=(
 )
 DISABLED_SERVICES_STR=$(IFS=' '; echo -n "${DISABLED_SERVICES[@]}")
 
+# Add an image build summary to its files.
+CROS_FILES_DIR="${FILES_DIR}/etc/cros"
+mkdir -p "${CROS_FILES_DIR}"
+BUILD_INFO_FILE_PATH="${CROS_FILES_DIR}/build_info"
+cat > "${BUILD_INFO_FILE_PATH}" << EOF
+CROS_IMAGE_VERSION="${CROS_IMAGE_VERSION}"
+IMAGE_CREATED_AT="$(date --iso-8601=seconds)"
+IMAGE_BUILDER_ARCHIVE_PATH="${IMAGE_BUILDER_ARCHIVE_PATH}"
+BUILD_PROFILE="${BUILD_PROFILE}"
+PACKAGES="${PACKAGES_STR}"
+DISABLED_SERVICES="${DISABLED_SERVICES_STR}"
+EOF
+cat >> "${BUILD_INFO_FILE_PATH}" << EOF
+CUSTOM_IMAGE_FILES=$(cd "${FILES_DIR}" && find . -mindepth 1 -type f -printf "\"%p\" ")
+EOF
+
 # Build image.
 BIN_DIR="${BASE_TMP_DIR}/bin"
 EXTRA_IMAGE_NAME="cros-${CROS_IMAGE_VERSION}"
@@ -131,5 +165,9 @@ EXTRA_IMAGE_NAME="${EXTRA_IMAGE_NAME}" \
 DISABLED_SERVICES="${DISABLED_SERVICES_STR}"
 
 echo "Successfully built image"
+echo ""
+echo "Build Info (Saved to image at '/etc/cros/build_info'):"
+cat "${BUILD_INFO_FILE_PATH}"
+echo ""
 echo "Available Images:"
 find "${BIN_DIR}" -name "*.bin"
