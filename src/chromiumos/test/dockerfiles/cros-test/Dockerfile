@@ -68,6 +68,10 @@ urllib3==1.26.7\n\
 " > requirements_py3.txt
 RUN pip3 install -r requirements_py3.txt
 
+# TODO (b/232943535): When multi-staged/layered images become a thing, this needs to be moved into a base layer as this dep will never change.
+RUN mkdir -p /usr/local/dldir
+RUN wget -P /usr/local/dldir https://chromium.googlesource.com/chromiumos/platform/btsocket/+archive/refs/heads/main.tar.gz
+RUN tar -xvf /usr/local/dldir/main.tar.gz -C /usr/local/dldir && cd /usr/local/dldir && python3 setup.py build && python3 setup.py install
 
 # Cros-test binary is static across boards.
 COPY --chown=chromeos-test:chromeos-test cros-test /usr/bin/
