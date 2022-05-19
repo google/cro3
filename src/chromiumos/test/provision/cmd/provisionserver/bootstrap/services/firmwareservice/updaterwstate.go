@@ -29,12 +29,7 @@ func (s FirmwareUpdateRwState) Execute(ctx context.Context) error {
 	futilityImageArgs := []string{fmt.Sprint("--image=", mainRwPath)}
 
 	log.Printf("[FW Provisioning: Update RW] flashing RW firmware with futility\n")
-	err = s.service.FlashWithFutility(ctx, true /* WP */, futilityImageArgs)
-	if err != nil {
-		return err
-	}
-
-	return err
+	return s.service.FlashWithFutility(ctx, true /* WP */, futilityImageArgs)
 }
 
 func (s FirmwareUpdateRwState) Next() services.ServiceState {

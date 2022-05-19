@@ -22,16 +22,20 @@ const CurlWithRetriesArgsFW = "-S -s -v -# -C - --retry 3 --retry-delay 60"
 type ImageArchiveMetadata struct {
 	archivePath string
 	archiveDir  string
-	listOfFiles []string
+	listOfFiles map[string]struct{}
+}
+
+func MakeImageArchiveMetadata(archivePath string, archiveDir string, listOfFiles []string) *ImageArchiveMetadata {
+	m := &ImageArchiveMetadata{archivePath: archivePath, archiveDir: archiveDir, listOfFiles: make(map[string]struct{})}
+	for _, f := range listOfFiles {
+		m.listOfFiles[f] = struct{}{}
+	}
+	return m
 }
 
 func (m *ImageArchiveMetadata) IncludesFile(filename string) bool {
-	for _, _filename := range m.listOfFiles {
-		if filename == _filename {
-			return true
-		}
-	}
-	return false
+	_, isPresent := m.listOfFiles[filename]
+	return isPresent
 }
 
 // extractFileFromImage extracts a single file from an archive to a provided folder.
@@ -90,12 +94,7 @@ func DownloadAndProcessArchive(ctx context.Context, s services.ServiceAdapterInt
 		return nil, fmt.Errorf("failed to list archive contents: %w", err)
 	}
 
-	metadata := &ImageArchiveMetadata{
-		listOfFiles: listOfFiles,
-		archivePath: archivePath,
-		archiveDir:  archiveDir,
-	}
-
+	metadata := MakeImageArchiveMetadata(archivePath, archiveDir, listOfFiles)
 	return metadata, nil
 }
 
@@ -155,10 +154,8 @@ func PickAndExtractMainImage(ctx context.Context, s services.ServiceAdapterInter
 	candidates = append(candidates, path.Join("bios.bin"))
 
 	for i := 0; i < len(candidates); i++ {
-		for j := 0; j < len(imageMetadata.listOfFiles); j++ {
-			if candidates[i] == imageMetadata.listOfFiles[j] {
-				return extractFileFromImage(ctx, candidates[i], imageMetadata, s)
-			}
+		if imageMetadata.IncludesFile(candidates[i]) {
+			return extractFileFromImage(ctx, candidates[i], imageMetadata, s)
 		}
 	}
 	return "", fmt.Errorf(`could not find an AP image named any of: %v.
@@ -182,11 +179,10 @@ func PickAndExtractECImage(ctx context.Context, s services.ServiceAdapterInterfa
 	candidates = append(candidates, path.Join("ec.bin"))
 
 	for i := 0; i < len(candidates); i++ {
-		for j := 0; j < len(imageMetadata.listOfFiles); j++ {
-			if candidates[i] == imageMetadata.listOfFiles[j] {
-				return extractFileFromImage(ctx, candidates[i], imageMetadata, s)
-			}
+		if imageMetadata.IncludesFile(candidates[i]) {
+			return extractFileFromImage(ctx, candidates[i], imageMetadata, s)
 		}
+
 	}
 	return "", fmt.Errorf(`could not find an EC image named any of: %v.
 List of files in archive: %v.
@@ -199,10 +195,8 @@ func PickAndExtractPDImage(ctx context.Context, s services.ServiceAdapterInterfa
 	candidates := []string{"pd.bin"}
 
 	for i := 0; i < len(candidates); i++ {
-		for j := 0; j < len(imageMetadata.listOfFiles); j++ {
-			if candidates[i] == imageMetadata.listOfFiles[j] {
-				return extractFileFromImage(ctx, candidates[i], imageMetadata, s)
-			}
+		if imageMetadata.IncludesFile(candidates[i]) {
+			return extractFileFromImage(ctx, candidates[i], imageMetadata, s)
 		}
 	}
 

@@ -333,7 +333,8 @@ func (fws *FirmwareService) deleteArchiveDirectories() error {
 
 // FlashWithFutility flashes the DUT using "futility" tool.
 // futility will be run with "--mode=recovery".
-// if |rwOnly| is true, futility will run with "--wp=1".
+// if |rwOnly| is true, futility will flash only RW regions.
+// if |rwOnly| is false, futility will flash both RW and RO regions.
 // futilityArgs must include argument(s) that provide path(s) to the images.
 //
 // If flashing over ssh, simply calls runFutility().
