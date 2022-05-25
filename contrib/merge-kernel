@@ -339,6 +339,7 @@ do_setup() {
   local vtag
   local dvtag
   local tbranch_release=""
+  local _dtag
 
   # If a stable release tag is provided, we need to update stable
   # at this point to get the tag if it is not already available.
@@ -369,15 +370,23 @@ do_setup() {
 
   readonly ctag=$(git describe --match "${GLOB}" --abbrev=0 "${tag}" \
                      2>/dev/null | cut -f1,2 -d. | sed -e 's/v//')
-  readonly dtag=$(git describe --tags "${tag}")
+  _dtag=$(git describe --tags "${tag}")
 
   # While we accept any valid reference as <tag>, we want it to be based
   # on an existing release tag.
-  dbtag=${dtag%%-*}
-  dvtag=$(git describe --tags --abbrev=0 "${dtag}")
+  dbtag=${_dtag%%-*}
+  dvtag=$(git describe --tags --abbrev=0 "${_dtag}")
   if [[ "${dbtag}" != "${dvtag}" ]]; then
     die "${tag} (${dtag}) is not based on an existing release tag."
   fi
+
+  # When tag is a branch reference, git describe --tags creates a dtag of this
+  # form: v5.4.195-70-g697300e8207f. This string becomes part of the branch name,
+  # and an embedded sha causes failures in GoB described in bug b/233829068.
+  # Circumvent that bug with a simple string transformation to avoid the pattern
+  # matching done in GoB when it identifies embedded shas, and then improperly
+  # attempts to validate it.
+  readonly dtag=$(echo $_dtag | sed -e 's/-g/-G/')
 
   readonly chromeos=$(find_chromeos)
   if [[ -z "${chromeos}" ]]; then
