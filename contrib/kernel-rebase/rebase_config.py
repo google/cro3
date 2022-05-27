@@ -8,7 +8,8 @@
 
 """automatic rebase-specific data"""
 
-import hooks # pylint: disable=unused-import
+import hooks  # pylint: disable=unused-import
+
 
 verify_board = 'caroline'
 verify_package = 'chromeos-kernel-upstream'
