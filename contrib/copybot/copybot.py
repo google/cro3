@@ -36,10 +36,6 @@ logger = logging.getLogger(__name__)
 # Matches a full 40-character commit hash.
 _COMMIT_HASH_PATTERN = re.compile(r"\b[0-9a-f]{40}\b")
 
-# Matches lines that look like a "header" (the conventional footer
-# lines in a commit message).
-_PSEUDOHEADER_PATTERN = re.compile(r"^(?:[A-Za-z0-9]+-)*[A-Za-z0-9]+:")
-
 
 class MergeConflictBehavior(enum.Enum):
     """How to behave on merge conflicts.
@@ -257,6 +253,98 @@ class GitRepo:
         self._run_git("push", *args)
 
 
+class Pseudoheaders:
+    """Dictionary-like object for the pseudoheaders from a commit message.
+
+    The pseudoheaders are the header-like lines often found in the
+    bottom of a commit message.  Header names are case-insensitive.
+
+    Pseudoheaders are parsed the same way that the "git footers"
+    command parses them.
+    """
+
+    # Matches lines that look like a "header" (the conventional footer
+    # lines in a commit message).
+    _PSEUDOHEADER_PATTERN = re.compile(r"^(?:[A-Za-z0-9]+-)*[A-Za-z0-9]+:\s+")
+
+    def __init__(self, header_list=()):
+        self._header_list = list(header_list)
+
+    @classmethod
+    def from_commit_message(cls, commit_message):
+        """Parse pseudoheaders from a commit message.
+
+        Returns:
+            Two values, a Pseudoheaders dictionary, and the commit
+            message without any pseudoheaders.
+        """
+        message_lines = commit_message.splitlines()
+        rewritten_message = []
+
+        header_list = []
+        for i, line in enumerate(message_lines):
+            if i == 0 or not cls._PSEUDOHEADER_PATTERN.match(line):
+                rewritten_message.append(line)
+            else:
+                name, _, value = line.partition(":")
+                header_list.append((name, value.strip()))
+
+        return cls(header_list), "".join(f"{line}\n" for line in rewritten_message)
+
+    def prefix(self, prefix="Original-"):
+        """Prefix all header keys with a string.
+
+        Args:
+            prefix: The prefix to use.
+
+        Returns:
+            A new Pseudoheaders dictionary.
+        """
+        new_header_list = []
+        for key, value in self._header_list:
+            new_header_list.append((f"{prefix}{key}", value))
+        return self.__class__(new_header_list)
+
+    def __getitem__(self, item):
+        """Get a header value by name."""
+        for key, value in self._header_list:
+            if key.lower() == item.lower():
+                return value
+        raise KeyError(item)
+
+    def get(self, item, default=None):
+        """Get a header value by name, or return a default value."""
+        try:
+            return self[item]
+        except KeyError:
+            return default
+
+    def __setitem__(self, key, value):
+        """Add a header."""
+        self._header_list.append((key, value))
+
+    def add_to_commit_message(self, commit_message):
+        """Add our pseudoheaders to a commit message.
+
+        Returns:
+            The new commit message.
+        """
+        message_lines = commit_message.splitlines()
+
+        if not message_lines:
+            message_lines = ["NO COMMIT MESSAGE"]
+
+        # Ensure exactly one blank line separating body and pseudoheaders.
+        while not message_lines[-1].strip():
+            message_lines.pop()
+
+        message_lines.append("")
+
+        for key, value in self._header_list:
+            message_lines.append(f"{key}: {value}")
+        return "".join(f"{line}\n" for line in message_lines)
+
+
 class Gerrit:
     """Wrapper for actions on a Gerrit host."""
 
@@ -304,9 +392,7 @@ class Gerrit:
             current_revision_hash = cl["current_revision"]
             current_revision_data = cl["revisions"][current_revision_hash]
             commit_message = current_revision_data["commit"]["message"]
-            rev_id = find_pseudoheader(commit_message, "GitOrigin-RevId")
-            if not rev_id:
-                rev_id = find_pseudoheader(commit_message, "Original-Commit-Id")
+            rev_id = get_origin_rev_id(commit_message)
             if rev_id:
                 change_ids[rev_id] = change_id
         return change_ids
@@ -334,25 +420,17 @@ class Gerrit:
         return f"I{os.urandom(20).hex()}"
 
 
-def find_pseudoheader(commit_message, header_name):
-    """Find a pseudoheader by name.
-
-    The pseudoheaders are the header-like lines often found in the
-    bottom of a commit message.  Header names are case-insensitive.
+def get_origin_rev_id(commit_message):
+    """Get the origin revision hash from a commit message.
 
     Returns:
-        The value of the first header found (starting from the bottom
-        of the commit message), or None if one cannot be found.
+        The revision hash if one was found, or None otherwise.
     """
-    message_lines = commit_message.splitlines()
-    for line in reversed(message_lines):
-        if not line.strip():
-            continue
-        if _PSEUDOHEADER_PATTERN.match(line):
-            name, _, value = line.partition(":")
-            if header_name.lower() == name.lower():
-                return value.strip()
-    return None
+    pseudoheaders, _ = Pseudoheaders.from_commit_message(commit_message)
+    origin_revid = pseudoheaders.get("GitOrigin-RevId")
+    if not origin_revid:
+        origin_revid = pseudoheaders.get("Original-Commit-Id")
+    return origin_revid
 
 
 def find_last_merged_rev(repo, upstream_rev, downstream_rev):
@@ -375,9 +453,7 @@ def find_last_merged_rev(repo, upstream_rev, downstream_rev):
 
     for rev in downstream_hashes:
         commit_message = repo.get_commit_message(rev)
-        origin_revid = find_pseudoheader(commit_message, "GitOrigin-RevId")
-        if not origin_revid:
-            origin_revid = find_pseudoheader(commit_message, "Original-Commit-Id")
+        origin_revid = get_origin_rev_id(commit_message)
         if origin_revid:
             return origin_revid
         if rev in upstream_hashes:
@@ -474,35 +550,19 @@ def rewrite_commit_message(
         sign_off: True if Signed-off-by should be added to the commit message.
     """
     commit_message = repo.get_commit_message()
-    message_lines = commit_message.splitlines()
-
-    body_lines = []
-    pseudoheader_lines = []
-    for lineno, line in enumerate(message_lines):
-        if lineno > 1 and _PSEUDOHEADER_PATTERN.match(line):
-            if not line.lower().startswith(
-                "change-id:"
-            ) and not line.lower().startswith("gitorigin-revid:"):
-                pseudoheader_lines.append(line)
-        else:
-            body_lines.append(line)
-
-    while body_lines and not body_lines[-1].strip():
-        body_lines.pop()
+    if prepend_subject:
+        commit_message = prepend_subject + commit_message
+    pseudoheaders, commit_message = Pseudoheaders.from_commit_message(commit_message)
+    pseudoheaders = pseudoheaders.prefix()
 
     for path in skipped_files:
-        pseudoheader_lines.append(f"CopyBot-Skipped-File: {path}")
+        pseudoheaders["CopyBot-Skipped-File"] = path
 
-    original_change_id = find_pseudoheader(commit_message, "Change-Id")
-    if original_change_id:
-        pseudoheader_lines.append(f"Original-Change-Id: {original_change_id}")
+    pseudoheaders["GitOrigin-RevId"] = upstream_rev
+    pseudoheaders["Change-Id"] = change_id
 
-    pseudoheader_lines.append(f"GitOrigin-RevId: {upstream_rev}")
-    pseudoheader_lines.append(f"Change-Id: {change_id}")
-
-    new_message = "\n".join([*body_lines, "", *pseudoheader_lines])
-    new_message = prepend_subject + new_message
-    repo.reword(new_message, sign_off=sign_off)
+    commit_message = pseudoheaders.add_to_commit_message(commit_message)
+    repo.reword(commit_message, sign_off=sign_off)
 
 
 def get_push_refspec(args, downstream_branch):
