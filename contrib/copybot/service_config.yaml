@@ -48,6 +48,7 @@ flashrom-downstream: &flashrom_downstream
   topic: flashrom-downstream
   upstream-branch: master
   downstream-branch: master
+  add-signed-off-by: True
   labels:
     - Verified+1
   triggers:

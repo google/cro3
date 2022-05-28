@@ -51,6 +51,9 @@ def get_copybot_command(path_to_copybot, service):
     if merge_conflict_behavior:
         cmd.extend(["--merge-conflict-behavior", merge_conflict_behavior])
 
+    if service.get("add-signed-off-by"):
+        cmd.append("--add-signed-off-by")
+
     for option, arg in [
         ("labels", "--label"),
         ("ccs", "--cc"),

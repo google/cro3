@@ -152,7 +152,7 @@ class GitRepo:
         """Apply a patch to the staging area."""
         return self._run_git("apply", "--cached", "-", input=patch)
 
-    def commit(self, message, amend=False):
+    def commit(self, message, amend=False, sign_off=False):
         """Create a commit.
 
         Returns:
@@ -161,16 +161,18 @@ class GitRepo:
         extra_args = []
         if amend:
             extra_args.append("--amend")
+        if sign_off:
+            extra_args.append("--signoff")
         self._run_git("commit", "-m", message, *extra_args)
         return self.rev_parse()
 
-    def reword(self, new_message):
+    def reword(self, new_message, sign_off=False):
         """Reword the commit at HEAD.
 
         Returns:
             The new commit hash.
         """
-        return self.commit(new_message, amend=True)
+        return self.commit(new_message, amend=True, sign_off=sign_off)
 
     @contextlib.contextmanager
     def temp_worktree(self, rev="HEAD"):
@@ -454,7 +456,12 @@ def find_commits_to_copy(
 
 
 def rewrite_commit_message(
-    repo, upstream_rev, change_id, skipped_files=(), prepend_subject=""
+    repo,
+    upstream_rev,
+    change_id,
+    skipped_files=(),
+    prepend_subject="",
+    sign_off=False,
 ):
     """Reword the commit at HEAD with appropriate metadata.
 
@@ -464,6 +471,7 @@ def rewrite_commit_message(
         change_id: The Change-Id to add to the commit.
         skipped_files: The list of files skipped.
         prepend_subject: A string to prepend the subject line with.
+        sign_off: True if Signed-off-by should be added to the commit message.
     """
     commit_message = repo.get_commit_message()
     message_lines = commit_message.splitlines()
@@ -494,7 +502,7 @@ def rewrite_commit_message(
 
     new_message = "\n".join([*body_lines, "", *pseudoheader_lines])
     new_message = prepend_subject + new_message
-    repo.reword(new_message)
+    repo.reword(new_message, sign_off=sign_off)
 
 
 def get_push_refspec(args, downstream_branch):
@@ -621,6 +629,7 @@ def run_copybot(args, tmp_dir):
             change_id=pending_changes.get(rev) or gerrit.generate_change_id(),
             skipped_files=skipped_files_map[rev],
             prepend_subject=args.prepend_subject,
+            sign_off=args.add_signed_off_by,
         )
 
     if repo.rev_parse() == downstream_rev:
@@ -703,6 +712,11 @@ def main():
         help="How to handle merge conflicts",
         default="SKIP",
         choices=[behavior.name for behavior in MergeConflictBehavior],
+    )
+    parser.add_argument(
+        "--add-signed-off-by",
+        help="Add Signed-off-by pseudoheader to commit messages",
+        action="store_true",
     )
     parser.add_argument(
         "upstream",
