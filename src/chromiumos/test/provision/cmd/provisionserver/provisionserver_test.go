@@ -65,16 +65,12 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 			gomock.Eq("gzip -d | dd of=root_diskroot4 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot4 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
 		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_ROOT.bin.gz"),
 			gomock.Eq("gzip -d | dd of=root_diskroot5 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot5 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
-		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
-			"tmpmnt=$(mktemp -d)",
-			"&&",
-			"mount -o ro root_diskroot5 ${tmpmnt}",
-			"&&",
-			"${tmpmnt}/postinst root_diskroot5",
-			"&&",
-			"{ umount ${tmpmnt} || true; }",
-			"&&",
-			"{ rmdir ${tmpmnt} || true; }"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("mktemp"), gomock.Eq([]string{"-d"})).Return("temporary_dir", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("mount"), gomock.Eq([]string{"-o", "ro", "root_diskroot5", "temporary_dir"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("temporary_dir/postinst"), gomock.Eq([]string{"root_diskroot5"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("umount"), gomock.Eq([]string{"temporary_dir"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rmdir"), gomock.Eq([]string{"temporary_dir"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("cat"), gomock.Eq([]string{"/etc/lsb-release"})).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("crossystem"), gomock.Eq([]string{"clear_tpm_owner_request=1"})).Return("", nil),
 	)
 
@@ -122,12 +118,35 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 	sam.EXPECT().CopyData(gomock.Any(), gomock.Any(), gomock.Eq("/var/cache/dlc/1/package/dlc_a/dlc.img")).Return(nil)
 	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Times(1).Return("", nil)
 
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("chown"), gomock.Eq([]string{"-R", "dlcservice:dlcservice", "/var/cache/dlc"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("chmod"), gomock.Eq([]string{"-R", "0755", "/var/cache/dlc"})),
+	)
+
 	if err := st.Execute(ctx); err != nil {
 		t.Fatalf("failed provision-dlc state: %v", err)
 	}
 
+	//INSTALL MINIOS
+	st = st.Next()
+
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s"})).Return(fmt.Sprintf("root%s", info.PartitionNumRootA), nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s", "-d"})).Return("root_disk", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("cgpt"), gomock.Eq([]string{"show", "-t", "root_disk", "9"})).Return("not 09845860-705F-4BB5-B16C-8A8A099CAF52", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("cgpt"), gomock.Eq([]string{"show", "-t", "root_disk", "10"})).Return("not 09845860-705F-4BB5-B16C-8A8A099CAF52", nil),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_MINIOS.bin.gz"),
+			gomock.Eq("gzip -d | dd of=root_diskroot9 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot9 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_MINIOS.bin.gz"),
+			gomock.Eq("gzip -d | dd of=root_diskroot10 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot10 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
+	)
+
+	if err := st.Execute(ctx); err != nil {
+		t.Fatalf("failed install-minios state: %v", err)
+	}
+
 	if st.Next() != nil {
-		t.Fatalf("provision should be the last step")
+		t.Fatalf("installminios should be the last step")
 	}
 }
 
@@ -168,21 +187,16 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 			gomock.Eq("gzip -d | dd of=root_diskroot4 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot4 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
 		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_ROOT.bin.gz"),
 			gomock.Eq("gzip -d | dd of=root_diskroot5 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot5 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
-		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
-			"tmpmnt=$(mktemp -d)",
-			"&&",
-			"mount -o ro root_diskroot5 ${tmpmnt}",
-			"&&",
-			"${tmpmnt}/postinst root_diskroot5",
-			"&&",
-			"{ umount ${tmpmnt} || true; }",
-			"&&",
-			"{ rmdir ${tmpmnt} || true; }"})).Return("", fmt.Errorf("postinstall error")),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("mktemp"), gomock.Eq([]string{"-d"})).Return("temporary_dir", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("mount"), gomock.Eq([]string{"-o", "ro", "root_diskroot5", "temporary_dir"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("temporary_dir/postinst"), gomock.Eq([]string{"root_diskroot5"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("umount"), gomock.Eq([]string{"temporary_dir"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rmdir"), gomock.Eq([]string{"temporary_dir"})).Return("", fmt.Errorf("postinstall error")),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new", "/mnt/stateful_partition/.update_available"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("/postinst"), gomock.Eq([]string{"root_diskroot3", "2>&1"})).Return("", nil),
 	)
 
-	if err := st.Execute(ctx); err.Error() != "failed to set next kernel, postinstall error" {
+	if err := st.Execute(ctx); err.Error() != "failed to set next kernel, failed to remove temporary directory, postinstall error" {
 		t.Fatalf("expected specific error, instead got: %v", err)
 	}
 }
@@ -225,16 +239,12 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 			gomock.Eq("gzip -d | dd of=root_diskroot4 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot4 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
 		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_ROOT.bin.gz"),
 			gomock.Eq("gzip -d | dd of=root_diskroot5 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot5 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
-		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq(""), gomock.Eq([]string{
-			"tmpmnt=$(mktemp -d)",
-			"&&",
-			"mount -o ro root_diskroot5 ${tmpmnt}",
-			"&&",
-			"${tmpmnt}/postinst root_diskroot5",
-			"&&",
-			"{ umount ${tmpmnt} || true; }",
-			"&&",
-			"{ rmdir ${tmpmnt} || true; }"})).Return("", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("mktemp"), gomock.Eq([]string{"-d"})).Return("temporary_dir", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("mount"), gomock.Eq([]string{"-o", "ro", "root_diskroot5", "temporary_dir"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("temporary_dir/postinst"), gomock.Eq([]string{"root_diskroot5"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("umount"), gomock.Eq([]string{"temporary_dir"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rmdir"), gomock.Eq([]string{"temporary_dir"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("cat"), gomock.Eq([]string{"/etc/lsb-release"})).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("crossystem"), gomock.Eq([]string{"clear_tpm_owner_request=1"})).Return("", fmt.Errorf("clear TPM error")),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new", "/mnt/stateful_partition/.update_available"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("/postinst"), gomock.Eq([]string{"root_diskroot3", "2>&1"})).Return("", nil),
@@ -382,6 +392,11 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 	sam.EXPECT().PathExists(gomock.Any(), "/var/lib/dlcservice/dlc/1/dlc_a/verified").Return(true, nil)
 	sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("start"), gomock.Eq([]string{"dlcservice"})).Times(1).Return("", nil)
 
+	gomock.InOrder(
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("chown"), gomock.Eq([]string{"-R", "dlcservice:dlcservice", "/var/cache/dlc"})),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("chmod"), gomock.Eq([]string{"-R", "0755", "/var/cache/dlc"})),
+	)
+
 	// Nothing should be run, so no need to use mock expect
 	if err := st.Execute(ctx); err != nil {
 		t.Fatalf("failed provision-dlc state: %v", err)
@@ -446,6 +461,8 @@ func TestLaCrOSInstallStateTransitions(t *testing.T) {
 		&lacrosservice.LaCrOSMetadata{Content: struct {
 			Version string "json:\"version\""
 		}{"v1"}},
+		"",
+		"/var/lib/imageloader/lacros",
 	)
 
 	ctx := context.Background()
@@ -547,6 +564,8 @@ func TestLacrosAlignedDoesNotExtendAlignment(t *testing.T) {
 		&lacrosservice.LaCrOSMetadata{Content: struct {
 			Version string "json:\"version\""
 		}{"v1"}},
+		"",
+		"/var/lib/imageloader/lacros",
 	)
 
 	ctx := context.Background()

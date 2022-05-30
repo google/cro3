@@ -85,6 +85,8 @@ elif [[ "${pipestatus[2]}" -ne 0 ]]; then
   exit 1
 fi`
 
+var reBoard = regexp.MustCompile(`CHROMEOS_RELEASE_BOARD=(.*)`)
+
 /*
 	The following run specific commands related to CrOS installation.
 */
@@ -139,7 +141,7 @@ func (c *CrOSService) GetRootPartNumber(ctx context.Context, root string) (strin
 	return match[1], nil
 }
 
-// StopSystemDaemons stops system daemons than can interfere with provisioning.
+// StopSystemDaemon stops system daemons than can interfere with provisioning.
 func (c *CrOSService) StopSystemDaemons(ctx context.Context) {
 	if _, err := c.connection.RunCmd(ctx, "stop", []string{"ui"}); err != nil {
 		log.Printf("Failed to stop UI daemon, %s", err)
@@ -209,18 +211,24 @@ func (c *CrOSService) InstallZippedImage(ctx context.Context, remoteImagePath st
 
 // PostInstall mounts and runs post installation items.
 func (c *CrOSService) PostInstall(ctx context.Context, inactiveRoot string) error {
-	_, err := c.connection.RunCmd(ctx, "", []string{
-		"tmpmnt=$(mktemp -d)",
-		"&&",
-		fmt.Sprintf("mount -o ro %s ${tmpmnt}", inactiveRoot),
-		"&&",
-		fmt.Sprintf("${tmpmnt}/postinst %s", inactiveRoot),
-		"&&",
-		"{ umount ${tmpmnt} || true; }",
-		"&&",
-		"{ rmdir ${tmpmnt} || true; }",
-	})
-	return err
+	tmpMnt, err := c.connection.RunCmd(ctx, "mktemp", []string{"-d"})
+	if err != nil {
+		return fmt.Errorf("failed to create temporary directory, %s", err)
+	}
+	tmpMnt = strings.TrimSpace(tmpMnt)
+	if _, err := c.connection.RunCmd(ctx, "mount", []string{"-o", "ro", inactiveRoot, tmpMnt}); err != nil {
+		return fmt.Errorf("failed to mount inactive root, %s", err)
+	}
+	if _, err := c.connection.RunCmd(ctx, fmt.Sprintf("%s/postinst", tmpMnt), []string{inactiveRoot}); err != nil {
+		return fmt.Errorf("failed to postinst from inactive root, %s", err)
+	}
+	if _, err := c.connection.RunCmd(ctx, "umount", []string{tmpMnt}); err != nil {
+		return fmt.Errorf("failed to umount temporary directory, %s", err)
+	}
+	if _, err := c.connection.RunCmd(ctx, "rmdir", []string{tmpMnt}); err != nil {
+		return fmt.Errorf("failed to remove temporary directory, %s", err)
+	}
+	return nil
 }
 
 // ClearTPM runs crosssystem clear tpm request
@@ -344,8 +352,6 @@ func (c *CrOSService) InstallDLC(ctx context.Context, spec *api.InstallCrosReque
 	if c.imagePath.HostType == conf.StoragePath_LOCAL || c.imagePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
 		return fmt.Errorf("only GS copying is implemented")
 	}
-
-	// Might need to adjust bucketJoin to support n args
 	dlcURL := path.Join(c.imagePath.GetPath(), "dlc", dlcID, info.DlcPackage, info.DlcImage)
 
 	dlcOutputSlotDir := path.Join(dlcOutputDir, string(slot))
@@ -367,6 +373,67 @@ func (c *CrOSService) IsDLCVerified(ctx context.Context, dlcID, slot string) (bo
 		return false, fmt.Errorf("failed to check if DLC %s is verified, %s", dlcID, err)
 	}
 	return verified, nil
+}
+
+// IsMiniOSPartitionSupported determines whether the device has the partitions
+func (c *CrOSService) IsMiniOSPartitionSupported(ctx context.Context, rootDisk string, rootPart string) (bool, error) {
+	guidPartition, err := c.connection.RunCmd(ctx, "cgpt", []string{"show", "-t", rootDisk, rootPart})
+	if err != nil {
+		return false, fmt.Errorf("failed to get partition type, %s", err)
+	}
+
+	return strings.TrimSpace(guidPartition) != info.MiniOSUnsupportedGUIDPartition, nil
+}
+
+// InstallMiniOS downloads and installs the minios images
+func (c *CrOSService) InstallMiniOS(ctx context.Context, pi info.PartitionInfo) error {
+	if err := c.InstallZippedImage(ctx, "full_dev_part_MINIOS.bin.gz", pi.MiniOSA); err != nil {
+		return fmt.Errorf("install MiniOS A: %s", err)
+	}
+	if err := c.InstallZippedImage(ctx, "full_dev_part_MINIOS.bin.gz", pi.MiniOSB); err != nil {
+		return fmt.Errorf("install MiniOS B: %s", err)
+	}
+	return nil
+}
+
+// getBoard returns the name of the current board
+func (c *CrOSService) getBoard(ctx context.Context) (string, error) {
+	lsbRelease, err := c.connection.RunCmd(ctx, "cat", []string{"/etc/lsb-release"})
+	if err != nil {
+		return "", fmt.Errorf("failed to read lsb-release")
+	}
+
+	match := reBoard.FindStringSubmatch(lsbRelease)
+	if match == nil {
+		return "", fmt.Errorf("no match found in lsb-release for %s", reBoard.String())
+	}
+	return match[1], nil
+}
+
+// CanClearTPM determines whether the current board can clear TPM
+func (c *CrOSService) CanClearTPM(ctx context.Context) bool {
+	board, err := c.getBoard(ctx)
+	if err != nil {
+		log.Printf("could not determine board, %s", err)
+		return false
+	}
+	return !strings.HasPrefix(board, "raven")
+}
+
+// CorrectDLCPermissions changes the permission and ownership of DLC cache to
+// the correct one. As part of the transition to using tmpfiles.d, dlcservice
+// paths must have correct permissions/owners set. Simply starting the
+// dlcservice daemon will not fix this due to security concerns.
+func (c *CrOSService) CorrectDLCPermissions(ctx context.Context) error {
+	if _, err := c.connection.RunCmd(ctx, "chown", []string{"-R", "dlcservice:dlcservice", info.DlcCacheDir}); err != nil {
+		return fmt.Errorf("unable to set owner for DLC cache (%s), %s", info.DlcCacheDir, err)
+	}
+
+	if _, err := c.connection.RunCmd(ctx, "chmod", []string{"-R", "0755", info.DlcCacheDir}); err != nil {
+		return fmt.Errorf("unable to set permissions for DLC cache (%s), %s", info.DlcCacheDir, err)
+	}
+
+	return nil
 }
 
 func bucketJoin(bucket string, append string) string {

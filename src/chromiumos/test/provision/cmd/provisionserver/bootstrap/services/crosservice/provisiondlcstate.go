@@ -53,12 +53,18 @@ func (s CrOSProvisionDLCState) Execute(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to install the following DLCs (%s)", err)
 	}
-	return nil
 
+	if err := s.service.CorrectDLCPermissions(ctx); err != nil {
+		return fmt.Errorf("failed to correct DLC permissions, %s", err)
+	}
+
+	return nil
 }
 
 func (s CrOSProvisionDLCState) Next() services.ServiceState {
-	return nil
+	return CrOSInstallMiniOSState{
+		service: s.service,
+	}
 }
 
 func (s CrOSProvisionDLCState) Name() string {

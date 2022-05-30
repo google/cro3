@@ -20,6 +20,12 @@ const (
 	PartitionNumKernelB = "4"
 	PartitionNumRootA   = "3"
 	PartitionNumRootB   = "5"
+	partitionNumMiniOSA = "9"
+	partitionNumMiniOSB = "10"
+)
+
+const (
+	MiniOSUnsupportedGUIDPartition = "09845860-705F-4BB5-B16C-8A8A099CAF52"
 )
 
 const (
@@ -36,11 +42,16 @@ const (
 // partitionsInfo holds active/inactive root + kernel partition information.
 type PartitionInfo struct {
 	// The active + inactive kernel device partitions (e.g. /dev/nvme0n1p2).
-	ActiveKernel   string
-	InactiveKernel string
+	ActiveKernel      string
+	ActiveKernelNum   string
+	InactiveKernel    string
+	InactiveKernelNum string
 	// The active + inactive root device partitions (e.g. /dev/nvme0n1p3).
 	ActiveRoot   string
 	InactiveRoot string
+	// The A + B miniOS device partitions.
+	MiniOSA string
+	MiniOSB string
 }
 
 // GetPartitionInfo retrieves relevant kernel and root info for a specific root
@@ -54,6 +65,8 @@ func GetPartitionInfo(root string, rootDisk string, rootPartNum string) Partitio
 			InactiveKernel: rootDiskPartDelim + PartitionNumKernelB,
 			ActiveRoot:     rootDiskPartDelim + PartitionNumRootA,
 			InactiveRoot:   rootDiskPartDelim + PartitionNumRootB,
+			MiniOSA:        rootDiskPartDelim + partitionNumMiniOSA,
+			MiniOSB:        rootDiskPartDelim + partitionNumMiniOSB,
 		}
 	case PartitionNumRootB:
 		return PartitionInfo{
@@ -61,8 +74,14 @@ func GetPartitionInfo(root string, rootDisk string, rootPartNum string) Partitio
 			InactiveKernel: rootDiskPartDelim + PartitionNumKernelA,
 			ActiveRoot:     rootDiskPartDelim + PartitionNumRootB,
 			InactiveRoot:   rootDiskPartDelim + PartitionNumRootA,
+			MiniOSA:        rootDiskPartDelim + partitionNumMiniOSB,
+			MiniOSB:        rootDiskPartDelim + partitionNumMiniOSA,
 		}
 	default:
 		panic(fmt.Sprintf("Unexpected root partition number of %s", rootPartNum))
 	}
+}
+
+func GetMiniOSPartitions() []string {
+	return []string{partitionNumMiniOSA, partitionNumMiniOSB}
 }

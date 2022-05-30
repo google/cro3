@@ -45,9 +45,11 @@ func (s CrOSInstallState) Execute(ctx context.Context) error {
 		s.service.RevertProvisionOS(ctx, pi.ActiveRoot)
 		return fmt.Errorf("failed to set next kernel, %s", err)
 	}
-	if err := s.service.ClearTPM(ctx); err != nil {
-		s.service.RevertProvisionOS(ctx, pi.ActiveRoot)
-		return fmt.Errorf("failed to clear TPM, %s", err)
+	if s.service.CanClearTPM(ctx) {
+		if err := s.service.ClearTPM(ctx); err != nil {
+			s.service.RevertProvisionOS(ctx, pi.ActiveRoot)
+			return fmt.Errorf("failed to clear TPM, %s", err)
+		}
 	}
 
 	return nil

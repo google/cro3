@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -22,11 +23,17 @@ import (
 	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
+var versionRegex = regexp.MustCompile(`^(\d+\.)(\d+\.)(\d+\.)(\d+)$`)
+
+const crosComponentRootPath = "/home/chronos/cros-components"
+
 // LaCrOSService inherits ServiceInterface
 type LaCrOSService struct {
-	connection services.ServiceAdapterInterface
-	imagePath  *conf.StoragePath
-	metadata   *LaCrOSMetadata
+	connection      services.ServiceAdapterInterface
+	imagePath       *conf.StoragePath
+	metadata        *LaCrOSMetadata
+	overrideVersion string
+	componentPath   string
 }
 
 func NewLaCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.InstallLacrosRequest) (LaCrOSService, error) {
@@ -41,17 +48,31 @@ func NewLaCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api
 	}
 
 	service.metadata = metadata
+	if req.OverrideVersion != "" {
+		if !versionRegex.MatchString(req.OverrideVersion) {
+			return service, fmt.Errorf("failed to parse version: %v", req.OverrideVersion)
+		}
+		service.overrideVersion = req.OverrideVersion
+	}
+
+	if req.OverrideInstallPath != "" {
+		service.componentPath = req.OverrideInstallPath
+	} else {
+		service.componentPath = info.LaCrOSRootComponentPath
+	}
 
 	return service, nil
 }
 
 // NewLaCrOSServiceFromExistingConnection is equivalent to the above constructor,
 // but recycles a ServiceAdapter. Generally useful for tests.
-func NewLaCrOSServiceFromExistingConnection(conn services.ServiceAdapterInterface, imagePath *conf.StoragePath, metadata *LaCrOSMetadata) LaCrOSService {
+func NewLaCrOSServiceFromExistingConnection(conn services.ServiceAdapterInterface, imagePath *conf.StoragePath, metadata *LaCrOSMetadata, overrideVersion string, overrideInstallPath string) LaCrOSService {
 	return LaCrOSService{
-		connection: conn,
-		imagePath:  imagePath,
-		metadata:   metadata,
+		connection:      conn,
+		imagePath:       imagePath,
+		metadata:        metadata,
+		overrideVersion: overrideVersion,
+		componentPath:   overrideInstallPath,
 	}
 }
 
@@ -90,8 +111,12 @@ func (l *LaCrOSService) GetCompressedImagePath() string {
 	return path.Join(l.imagePath.GetPath(), "lacros_compressed.squash")
 }
 
+func (l *LaCrOSService) GetDeviceCompressedImagePath() string {
+	return path.Join(l.imagePath.GetPath(), "lacros.squash")
+}
+
 func (l *LaCrOSService) GetComponentPath() string {
-	return path.Join(info.LaCrOSRootComponentPath, l.metadata.Content.Version)
+	return path.Join(l.componentPath, l.metadata.Content.Version)
 }
 
 func (l *LaCrOSService) GetLocalImagePath() string {
@@ -120,12 +145,17 @@ func (l *LaCrOSService) GetLatestVersionPath() string {
 
 // extractLacrosMetadata will unmarshal the metadata.json in the GS path into the state.
 func (l *LaCrOSService) ExtractLacrosMetadata(ctx context.Context) (*LaCrOSMetadata, error) {
-	if l.imagePath.HostType == conf.StoragePath_LOCAL || l.imagePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
-		return nil, fmt.Errorf("only GS copying is implemented")
-	}
-
-	if err := l.connection.CopyData(ctx, l.GetMetatadaPath(), "/tmp/metadata.json"); err != nil {
-		return nil, fmt.Errorf("failed to cache Lacros metadata.json, %w", err)
+	switch l.imagePath.HostType {
+	case conf.StoragePath_GS:
+		if err := l.connection.CopyData(ctx, l.GetMetatadaPath(), "/tmp/metadata.json"); err != nil {
+			return nil, fmt.Errorf("failed to cache Lacros metadata.json, %w", err)
+		}
+	case conf.StoragePath_LOCAL:
+		if _, err := l.connection.RunCmd(ctx, "cp", []string{l.GetMetatadaPath(), "/tmp/metadata.json"}); err != nil {
+			return nil, fmt.Errorf("failed to copy Lacros metadata.json, %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("only GS and LOCAL copying are implemented")
 	}
 	metadataJSONStr, err := l.connection.RunCmd(ctx, "cat", []string{"/tmp/metadata.json"})
 	if err != nil {
@@ -135,19 +165,29 @@ func (l *LaCrOSService) ExtractLacrosMetadata(ctx context.Context) (*LaCrOSMetad
 	if err := json.Unmarshal([]byte(metadataJSONStr), &metadataJSON); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal Lacros metadata.json, %w", err)
 	}
+	if l.overrideVersion != "" {
+		metadataJSON.Content.Version = l.overrideVersion
+	}
 	return &metadataJSON, nil
 }
 
 // CopyImageToDUT copies the desired image to the DUT, passing through the caching layer.
 func (l *LaCrOSService) CopyImageToDUT(ctx context.Context) error {
-	if l.imagePath.HostType == conf.StoragePath_LOCAL || l.imagePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
-		return fmt.Errorf("only GS copying is implemented")
-	}
 	if err := l.connection.CreateDirectories(ctx, []string{l.GetComponentPath()}); err != nil {
 		return fmt.Errorf("failed to create directory, %w", err)
 	}
-	if err := l.connection.CopyData(ctx, l.GetCompressedImagePath(), l.GetLocalImagePath()); err != nil {
-		return fmt.Errorf("failed to copy lacros compressed, %w", err)
+
+	switch l.imagePath.HostType {
+	case conf.StoragePath_GS:
+		if err := l.connection.CopyData(ctx, l.GetCompressedImagePath(), l.GetLocalImagePath()); err != nil {
+			return fmt.Errorf("failed to cache lacros compressed, %w", err)
+		}
+	case conf.StoragePath_LOCAL:
+		if _, err := l.connection.RunCmd(ctx, "cp", []string{l.GetDeviceCompressedImagePath(), l.GetLocalImagePath()}); err != nil {
+			return fmt.Errorf("failed to copy lacros compressed, %w", err)
+		}
+	default:
+		return fmt.Errorf("only GS and LOCAL copying are implemented")
 	}
 
 	return nil
@@ -296,4 +336,19 @@ func (l *LaCrOSService) writeComponentManifest(ctx context.Context) error {
 // PublishVersion writes the Lacros version to the latest-version file.
 func (l *LaCrOSService) PublishVersion(ctx context.Context) error {
 	return l.writeToFile(ctx, l.metadata.Content.Version, l.GetLatestVersionPath())
+}
+
+// FixOwnership changes file mode and owner of provisioned files if the path is
+// prefixed with the CrOS component path.
+func (l *LaCrOSService) FixOwnership(ctx context.Context) error {
+	if strings.HasPrefix(l.componentPath, crosComponentRootPath) {
+		if _, err := l.connection.RunCmd(ctx, "chown", []string{"-R", "chronos:chronos", crosComponentRootPath}); err != nil {
+			return fmt.Errorf("could not change component path ownership for %s, %s", crosComponentRootPath, err)
+		}
+		if _, err := l.connection.RunCmd(ctx, "chmod", []string{"-R", "0755", crosComponentRootPath}); err != nil {
+			return fmt.Errorf("could not change component path permissions for %s, %s", crosComponentRootPath, err)
+
+		}
+	}
+	return nil
 }

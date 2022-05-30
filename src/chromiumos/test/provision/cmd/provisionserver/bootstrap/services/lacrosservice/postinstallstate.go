@@ -25,6 +25,9 @@ func (s LaCrOSPostInstallState) Execute(ctx context.Context) error {
 	if err := s.service.PublishVersion(ctx); err != nil {
 		return fmt.Errorf("failed to publish version, %w", err)
 	}
+	if err := s.service.FixOwnership(ctx); err != nil {
+		return fmt.Errorf("failed to fix ownership, %w", err)
+	}
 	return nil
 }
 

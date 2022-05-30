@@ -213,7 +213,7 @@ func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*l
 	s.logger.Println("Received api.CacheRequest: ", *req)
 	op := s.manager.NewOperation()
 
-	command := "curl -S -s -v -# -C - --retry 3 --retry-delay 60"
+	command := "curl --keepalive-time 20 -S -s -v -# -C - --retry 3 --retry-delay 60"
 
 	destination, err := s.parseDestination(req)
 
