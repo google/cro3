@@ -18,6 +18,7 @@ steps:
       "--context=.",
       "--cache=true",
       "--cache-ttl=366h",
+      "--image-fs-extract-retry=2",
 {destinations}
 {labels}
     ]
