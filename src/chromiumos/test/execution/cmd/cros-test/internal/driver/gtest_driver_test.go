@@ -8,11 +8,16 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"math/rand"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.chromium.org/chromiumos/config/go/test/api"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // getGtestResult returns a 'passing' result for manipulation
@@ -25,6 +30,8 @@ func getGtestResult() (string, gtestResult) {
 	gtestResult.TestSuites[0].TestSuite[0].Name = "case1"
 	gtestResult.TestSuites[0].TestSuite[0].Status = "RUN"
 	gtestResult.TestSuites[0].TestSuite[0].Result = "COMPLETED"
+	gtestResult.TestSuites[0].TestSuite[0].Timestamp = time.Now().Format(time.RFC3339)
+	gtestResult.TestSuites[0].TestSuite[0].Time = fmt.Sprintf("%ds", rand.Int63n(3600*10)) // Up to 10 hours
 	gtestResult.Failures = 0
 	gtestResult.Errors = 0
 	gtestResult.TestSuites[0].Failures = 0
@@ -172,19 +179,21 @@ func TestLogCmdWithExitError(t *testing.T) {
 // TestResultNoSuites ensures that testResult behaves properly
 // with no suites in results data.
 func TestResultNoSuites(t *testing.T) {
+	var result *executionData
 	caseName, gtestResult := getGtestResult()
-	var reasons []string
 
 	gtestSuites := gtestResult.TestSuites
 	gtestResult.TestSuites = []gtestSuite(nil)
 
+	startTime := time.Now()
+
 	// Check that no suites leads to error.
-	if reasons = testResult(caseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(caseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Error("expected failure but got pass with no suites specified")
 	}
 
 	expectedReasons := 1
-	actualReasons := len(reasons)
+	actualReasons := len(result.reasons)
 
 	if diff := cmp.Diff(actualReasons, expectedReasons); diff != "" {
 		t.Errorf("unexpected number of reasons (-got +want):\n%s\n%v\n--\n%v\n", diff, actualReasons, expectedReasons)
@@ -194,11 +203,11 @@ func TestResultNoSuites(t *testing.T) {
 	// test cases.
 	gtestResult.TestSuites = gtestSuites
 	gtestResult.TestSuites = append(gtestResult.TestSuites, gtestSuite{})
-	if reasons = testResult("", &gtestResult); len(reasons) == 0 {
+	if result = testResult("", startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Error("expected failure but got pass with no test cases specified")
 	}
 
-	actualReasons = len(reasons)
+	actualReasons = len(result.reasons)
 	if diff := cmp.Diff(actualReasons, expectedReasons); diff != "" {
 		t.Errorf("unexpected number of reasons (-got +want):\n%s\n%v\n--\n%v\n", diff, actualReasons, expectedReasons)
 	}
@@ -207,16 +216,17 @@ func TestResultNoSuites(t *testing.T) {
 // TestResultTestCaseName ensures that validity checks around
 // test case name are valid
 func TestResultTestCaseName(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	_, gtestResult := getGtestResult()
 	testCaseName := "fake.case"
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Error("expected failure but got pass with invalid test case specified")
 	}
 
-	actualReasons := len(reasons)
+	actualReasons := len(result.reasons)
 	expectedReasons := 1
 	if diff := cmp.Diff(actualReasons, expectedReasons); diff != "" {
 		t.Errorf("unexpected number of reasons (-got +want):\n%s\n%v\n--\n%v\n", diff, actualReasons, expectedReasons)
@@ -226,16 +236,17 @@ func TestResultTestCaseName(t *testing.T) {
 // TestResultEmptyTestCaseName ensures that validity checks around
 // test case name are valid when name is empty string
 func TestResultEmptyTestCaseName(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	_, gtestResult := getGtestResult()
 	testCaseName := ""
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Error("expected failure but got pass with invalid test case name specified")
 	}
 
-	actualReasons := len(reasons)
+	actualReasons := len(result.reasons)
 	expectedReasons := 1
 	if diff := cmp.Diff(actualReasons, expectedReasons); diff != "" {
 		t.Errorf("unexpected number of reasons (-got +want):\n%s\n%v\n--\n%v\n", diff, actualReasons, expectedReasons)
@@ -245,16 +256,17 @@ func TestResultEmptyTestCaseName(t *testing.T) {
 // TestResultTestClassName ensures that validity checks around
 // test class name are valid
 func TestResultTestClassName(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	_, gtestResult := getGtestResult()
 	testCaseName := "fake1.case_nothing"
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Error("expected failure but got pass with invalid test case specified")
 	}
 
-	actualReasons := len(reasons)
+	actualReasons := len(result.reasons)
 	expectedReasons := 1
 	if diff := cmp.Diff(actualReasons, expectedReasons); diff != "" {
 		t.Errorf("unexpected number of reasons (-got +want):\n%s\n%v\n--\n%v\n", diff, actualReasons, expectedReasons)
@@ -264,17 +276,18 @@ func TestResultTestClassName(t *testing.T) {
 // TestResultRunResult ensures that validity checks around
 // status are valid
 func TestResultRunResultStatus(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	testCaseName, gtestResult := getGtestResult()
 
 	gtestResult.TestSuites[0].TestSuite[0].Status = "NOT_RUN"
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Error("expected failure but got pass with invalid status value")
 	}
 
-	actualReasons := len(reasons)
+	actualReasons := len(result.reasons)
 	expectedReasons := 1
 	if diff := cmp.Diff(actualReasons, expectedReasons); diff != "" {
 		t.Errorf("unexpected number of reasons (-got +want):\n%s\n%v\n--\n%v\n", diff, actualReasons, expectedReasons)
@@ -284,17 +297,18 @@ func TestResultRunResultStatus(t *testing.T) {
 // TestResultRunStatus ensures that validity checks around
 // Result are valid
 func TestResultRunResultResult(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	testCaseName, gtestResult := getGtestResult()
 
 	gtestResult.TestSuites[0].TestSuite[0].Result = "NOT_COMPLETED"
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Error("expected failure but got pass with invalid result value")
 	}
 
-	actualReasons := len(reasons)
+	actualReasons := len(result.reasons)
 	expectedReasons := 1
 	if diff := cmp.Diff(actualReasons, expectedReasons); diff != "" {
 		t.Errorf("unexpected number of reasons (-got +want):\n%s\n%v\n--\n%v\n", diff, actualReasons, expectedReasons)
@@ -303,7 +317,8 @@ func TestResultRunResultResult(t *testing.T) {
 
 // TestResultFailures ensures that reason list building is valid
 func TestResultSingleFailure(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	testCaseName, gtestResult := getGtestResult()
 	failure := gtestFailure{
@@ -312,20 +327,21 @@ func TestResultSingleFailure(t *testing.T) {
 	}
 	gtestResult.TestSuites[0].TestSuite[0].Failures = append(gtestResult.TestSuites[0].TestSuite[0].Failures, failure)
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Errorf("passing result when failure expected")
 	}
 
 	expectedReasons := []string{fmt.Sprintf("failure: '%v', type: '%v'", failure.Failure, failure.Type)}
 
-	if diff := cmp.Diff(reasons, expectedReasons); diff != "" {
-		t.Errorf("unexpected result for 'reasons' (-got +want):\n%s\n%v\n--\n%v\n", diff, reasons, expectedReasons)
+	if diff := cmp.Diff(result.reasons, expectedReasons); diff != "" {
+		t.Errorf("unexpected result for 'reasons' (-got +want):\n%s\n%v\n--\n%v\n", diff, result.reasons, expectedReasons)
 	}
 }
 
 // TestResultMultipleFailures ensures that reason list building is valid
 func TestResultMultipleFailures(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	testCaseName, gtestResult := getGtestResult()
 	failures := []gtestFailure{
@@ -344,7 +360,7 @@ func TestResultMultipleFailures(t *testing.T) {
 	}
 	gtestResult.TestSuites[0].TestSuite[0].Failures = failures
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Errorf("passing result when failure expected")
 	}
 
@@ -353,25 +369,26 @@ func TestResultMultipleFailures(t *testing.T) {
 		expectedReasons = append(expectedReasons, fmt.Sprintf("failure: '%v', type: '%v'", failure.Failure, failure.Type))
 	}
 
-	if diff := cmp.Diff(reasons, expectedReasons); diff != "" {
-		t.Errorf("unexpected result for 'reasons' (-got +want):\n%s\n%v\n--\n%v\n", diff, reasons, expectedReasons)
+	if diff := cmp.Diff(result.reasons, expectedReasons); diff != "" {
+		t.Errorf("unexpected result for 'reasons' (-got +want):\n%s\n%v\n--\n%v\n", diff, result.reasons, expectedReasons)
 	}
 }
 
 // TestResultUnexpectedFailures ensures that validity checks around
 // unexpected gtest failures are valid
 func TestResultUnexpectedFailures(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	testCaseName, gtestResult := getGtestResult()
 
 	gtestResult.Failures = 1
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Error("expected failure but got pass with unexpected failures")
 	}
 
-	actualReasons := len(reasons)
+	actualReasons := len(result.reasons)
 	expectedReasons := 1
 	if diff := cmp.Diff(actualReasons, expectedReasons); diff != "" {
 		t.Errorf("unexpected number of reasons (-got +want):\n%s\n%v\n--\n%v\n", diff, actualReasons, expectedReasons)
@@ -381,17 +398,18 @@ func TestResultUnexpectedFailures(t *testing.T) {
 // TestResultUnexpectedErrors ensures that validity checks around
 // unexpected gtest errrors are valid
 func TestResultUnexpectedErrors(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	testCaseName, gtestResult := getGtestResult()
 
 	gtestResult.Errors = 1
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Error("expected failure but got pass with unexpected errors")
 	}
 
-	actualReasons := len(reasons)
+	actualReasons := len(result.reasons)
 	expectedReasons := 1
 	if diff := cmp.Diff(actualReasons, expectedReasons); diff != "" {
 		t.Errorf("unexpected number of reasons (-got +want):\n%s\n%v\n--\n%v\n", diff, actualReasons, expectedReasons)
@@ -401,17 +419,18 @@ func TestResultUnexpectedErrors(t *testing.T) {
 // TestResultUnexpectedSuiteFailures ensures that validity checks around
 // unexpected gtest suite failures are valid
 func TestResultUnexpectedSuiteFailures(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	testCaseName, gtestResult := getGtestResult()
 
 	gtestResult.TestSuites[0].Failures = 1
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Error("expected failure but got pass with unexpected suite failure")
 	}
 
-	actualReasons := len(reasons)
+	actualReasons := len(result.reasons)
 	expectedReasons := 1
 	if diff := cmp.Diff(actualReasons, expectedReasons); diff != "" {
 		t.Errorf("unexpected number of reasons (-got +want):\n%s\n%v\n--\n%v\n", diff, actualReasons, expectedReasons)
@@ -421,17 +440,18 @@ func TestResultUnexpectedSuiteFailures(t *testing.T) {
 // TestResultUnexpectedSuiteDisabled ensures that validity checks around
 // unexpected gtest suite disabled are valid
 func TestResultUnexpectedSuiteDisabled(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	testCaseName, gtestResult := getGtestResult()
 
 	gtestResult.TestSuites[0].Disabled = 1
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) == 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
 		t.Error("expected failure but got pass with unexpected suite disabled")
 	}
 
-	actualReasons := len(reasons)
+	actualReasons := len(result.reasons)
 	expectedReasons := 1
 	if diff := cmp.Diff(actualReasons, expectedReasons); diff != "" {
 		t.Errorf("unexpected number of reasons (-got +want):\n%s\n%v\n--\n%v\n", diff, actualReasons, expectedReasons)
@@ -441,17 +461,50 @@ func TestResultUnexpectedSuiteDisabled(t *testing.T) {
 // TestResultPass ensures that validity checks around
 // for passing tests
 func TestResultPass(t *testing.T) {
-	var reasons []string
+	var result *executionData
+	startTime := time.Now()
 
 	testCaseName, gtestResult := getGtestResult()
 
-	if reasons = testResult(testCaseName, &gtestResult); len(reasons) != 0 {
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) != 0 {
 		t.Error("unexpected failure when expecting pass")
 	}
 
 	expectedReasons := []string(nil)
-	if diff := cmp.Diff(reasons, expectedReasons); diff != "" {
-		t.Errorf("unexpected result for 'reasons' (-got +want):\n%s\n%v\n--\n%v\n", diff, reasons, expectedReasons)
+	if diff := cmp.Diff(result.reasons, expectedReasons); diff != "" {
+		t.Errorf("unexpected result for 'reasons' (-got +want):\n%s\n%v\n--\n%v\n", diff, result.reasons, expectedReasons)
+	}
+}
+
+// TestBadTime ensures that an unparseable time value is handled
+// correctly
+func TestBadTime(t *testing.T) {
+	var result *executionData
+	startTime := time.Now()
+
+	testCaseName, gtestResult := getGtestResult()
+	gtestResult.TestSuites[0].TestSuite[0].Time = "this isn't a time"
+
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
+		t.Error("unexpected pass when expecting failure")
+	}
+
+	if result.duration != invalidDuration {
+		t.Errorf("Unexpected value for duration, want '%d', got '%d'", invalidDuration, result.duration)
+	}
+}
+
+// TestBadTimestamp ensures that an unparseable time value is handled
+// correctly
+func TestBadTimestamp(t *testing.T) {
+	var result *executionData
+	startTime := time.Now()
+
+	testCaseName, gtestResult := getGtestResult()
+	gtestResult.TestSuites[0].TestSuite[0].Timestamp = "this isn't a time"
+
+	if result = testResult(testCaseName, startTime, &gtestResult); len(result.reasons) == 0 {
+		t.Error("unexpected pass when expecting failure")
 	}
 }
 
@@ -460,16 +513,22 @@ func TestResultPass(t *testing.T) {
 func TestBuiltTestCaseResultsPass(t *testing.T) {
 	expectedResult := new(api.TestCaseResult)
 	tcID := "gtest.fake.test"
+	startTime := time.Now()
 	reasons := []string{}
+	duration := int64(100)
+
+	result := newExecutionData(startTime, duration, reasons)
 
 	expectedResult.TestCaseId = &api.TestCase_Id{Value: tcID}
 	expectedResult.Verdict = &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}}
 	expectedResult.Reason = strings.Join(reasons, "\n")
 	expectedResult.TestHarness = &api.TestHarness{TestHarnessType: &api.TestHarness_Gtest_{Gtest: &api.TestHarness_Gtest{}}}
+	expectedResult.StartTime = timestamppb.New(startTime)
+	expectedResult.Duration = &durationpb.Duration{Seconds: duration}
 
-	actualResult := buildTestCaseResults(tcID, reasons)
+	actualResult := buildTestCaseResults(tcID, result)
 
-	if diff := cmp.Diff(actualResult, expectedResult); diff != "" {
+	if diff := cmp.Diff(actualResult, expectedResult, cmpopts.IgnoreUnexported(timestamppb.Timestamp{}, durationpb.Duration{})); diff != "" {
 		t.Errorf("unexpected test results for 'pass' (-got +want):\n%s\n%v\n--\n%v\n", diff, actualResult, expectedResult)
 	}
 }
@@ -479,18 +538,25 @@ func TestBuiltTestCaseResultsPass(t *testing.T) {
 func TestBuiltTestCaseResultsFailSingleReason(t *testing.T) {
 	expectedResult := new(api.TestCaseResult)
 	tcID := "gtest.fake.test"
+
+	startTime := time.Now()
 	reasons := []string{
 		"fake reason",
 	}
+	duration := int64(319)
+
+	result := newExecutionData(startTime, duration, reasons)
 
 	expectedResult.TestCaseId = &api.TestCase_Id{Value: tcID}
 	expectedResult.Verdict = &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}}
 	expectedResult.Reason = strings.Join(reasons, "\n")
 	expectedResult.TestHarness = &api.TestHarness{TestHarnessType: &api.TestHarness_Gtest_{Gtest: &api.TestHarness_Gtest{}}}
+	expectedResult.Duration = &durationpb.Duration{Seconds: duration}
+	expectedResult.StartTime = timestamppb.New(startTime)
 
-	actualResult := buildTestCaseResults(tcID, reasons)
+	actualResult := buildTestCaseResults(tcID, result)
 
-	if diff := cmp.Diff(actualResult, expectedResult); diff != "" {
+	if diff := cmp.Diff(actualResult, expectedResult, cmpopts.IgnoreUnexported(timestamppb.Timestamp{}, durationpb.Duration{})); diff != "" {
 		t.Errorf("unexpected test results for 'pass' (-got +want):\n%s\n%v\n--\n%v\n", diff, actualResult, expectedResult)
 	}
 }
@@ -500,19 +566,26 @@ func TestBuiltTestCaseResultsFailSingleReason(t *testing.T) {
 func TestBuiltTestCaseResultsFailMultipleReason(t *testing.T) {
 	expectedResult := new(api.TestCaseResult)
 	tcID := "gtest.fake.test"
+
+	startTime := time.Now()
 	reasons := []string{
 		"fake reason",
 		"fake reason 2",
 	}
+	duration := int64(968)
+
+	result := newExecutionData(startTime, duration, reasons)
 
 	expectedResult.TestCaseId = &api.TestCase_Id{Value: tcID}
 	expectedResult.Verdict = &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}}
 	expectedResult.Reason = strings.Join(reasons, "\n")
 	expectedResult.TestHarness = &api.TestHarness{TestHarnessType: &api.TestHarness_Gtest_{Gtest: &api.TestHarness_Gtest{}}}
+	expectedResult.Duration = &durationpb.Duration{Seconds: duration}
+	expectedResult.StartTime = timestamppb.New(startTime)
 
-	actualResult := buildTestCaseResults(tcID, reasons)
+	actualResult := buildTestCaseResults(tcID, result)
 
-	if diff := cmp.Diff(actualResult, expectedResult); diff != "" {
+	if diff := cmp.Diff(actualResult, expectedResult, cmpopts.IgnoreUnexported(timestamppb.Timestamp{}, durationpb.Duration{})); diff != "" {
 		t.Errorf("unexpected test results for 'pass' (-got +want):\n%s\n%v\n--\n%v\n", diff, actualResult, expectedResult)
 	}
 }
