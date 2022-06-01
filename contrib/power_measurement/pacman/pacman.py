@@ -5,12 +5,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from argparse import ArgumentParser, FileType
-from sys import modules, stderr
+from argparse import ArgumentParser
+from argparse import FileType
 import datetime
 import os
 from pathlib import Path
+from sys import modules
+from sys import stderr
+
 import pac_utils
+import pacboard
 import pandas
 import plotly.express
 
@@ -76,6 +80,9 @@ def main():
     report_log_path = os.path.join(log_path, 'report.html')
     Path(log_path).mkdir(parents=True, exist_ok=True)
 
+    # Register the custom VID:PID used for provisioned PACDebuggers
+    pacboard.PacDebugger.configure_custom_devices()
+
     # If single, take a single shot of these measurements then quit.
     # Print which files are being used for clarity
     if args.single:
@@ -104,6 +111,7 @@ def main():
     else:
         print('Using rail mapping file:', args.mapping.name)
     print()
+
     # Record the sample and log to file.
     (log, accumulator_log) = pac_utils.record(args.config.name,
                                               rail=['all'],
