@@ -125,6 +125,9 @@ PACKAGES=(
 
   # Add the hostapd_cli utility.
   "hostapd-utils"
+
+  # Add pkill utility
+  "procps-ng-pkill"
 )
 PACKAGES_STR=$(IFS=' '; echo -n "${PACKAGES[@]}")
 
