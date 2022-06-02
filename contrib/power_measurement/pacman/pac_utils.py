@@ -1,15 +1,16 @@
 # Copyright 2021 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+"""Utilities for reading from PAC sensors"""
 
 import binascii
 import signal
 import time
-import os
-import importlib.util
-import pandas
+
 import pac19xx
-from pyftdi.i2c import I2cController, I2cNackError
+import pandas
+from pyftdi.i2c import I2cController
+from pyftdi.i2c import I2cNackError
 
 
 def read_pac(device, reg, num_bytes):
@@ -235,6 +236,7 @@ def pac_info(ftdi_url):
 
 
 def set_polarity(device, polarity):
+    """Sets the polarity of the given device"""
     if polarity == 'unipolar':
         reg = b'\x00\x00'
     elif polarity == 'bipolar':
@@ -244,46 +246,6 @@ def set_polarity(device, polarity):
 
     device.write_to(pac19xx.NEG_PWR_FSR, reg)
     print(f'Set \t{hex(device.address)} polarity to: {polarity}')
-
-
-def load_config(config_file):
-    """Loads the same config file used by servod into a pandas dataframe.
-
-    Args:
-        config File: PAC Address and sense resistor file.
-
-    Returns:
-        config: (Pandas Dataframe) config.
-    """
-    head_tail = os.path.split(config_file)
-    module_name = head_tail[1]
-    spec = importlib.util.spec_from_file_location(module_name, config_file)
-    pacs = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(pacs)
-
-    config = pandas.DataFrame(pacs.INAS)
-    config.columns = [
-        'drv', 'addr', 'rail', 'nom', 'rsense', 'mux', 'is_calib'
-    ]
-    config['addr_pac'] = config.addr.apply(lambda x: x.split(':')[0])
-    config['ch_num'] = config.addr.apply(lambda x: x.split(':')[1])
-    return config
-
-
-def load_gpio_config(gpio_config):
-    """Loads a PAC address to GPIO rail name mapping csv file.
-
-    Args:
-        config File: (string) PAC Address and GPIO rail mapping.
-
-    Returns:
-        config: (Pandas Dataframe) config.
-    """
-    gpio_config = pandas.read_csv(gpio_config,
-                                  skiprows=5,
-                                  skipinitialspace=True)
-    return gpio_config
-
 
 terminate_signal = False
 
@@ -301,9 +263,9 @@ def signal_handler(signum, frame):
     terminate_signal = True
 
 
-def record(config_file,
+def record(config,
            ftdi_url='ftdi:///',
-           rail='all',
+           rails=['all'],
            record_length=360.0,
            voltage=True,
            current=True,
@@ -312,7 +274,7 @@ def record(config_file,
     """High level function to reset, log, then dump PAC power accumulations.
 
     Args:
-        config_file: (string) Location of PAC Address/sense resitor .py file.
+        config: PacConfig
         ftdi_url: (string) ftdi_url.
         rail: (string, list of strings) name of rail to log. Must match.
           config rail name. will record all by default.
@@ -330,26 +292,27 @@ def record(config_file,
     # Init the bus.
     i2c = I2cController()
     i2c.configure(ftdi_url)
-    # Load the config.
-    config = load_config(config_file)
+
     # Filter the config to rows we care about.
-    if 'all' not in rail:
-        config = config[config['rail'].isin(rail)]
+    allow_rails = set()
+    if 'all' not in rails:
+        for rail in rails:
+            allow_rails.add(rail)
 
     # Clear all accumulators
-    skip_pacs = []
-    for pac_address, group in config.groupby('addr_pac'):
+    skip_pacs = set()
 
+    for addr in config.pacs_by_addr:
         try:
-            device = i2c.get_port(int(pac_address, 16))
+            device = i2c.get_port(addr)
             set_polarity(device, polarity)
             disable_slow(device)
             reset_accumulator(device)
             time.sleep(0.001)
         except I2cNackError:
             # This happens on the DB PAC in Z states.
-            print('Unable to reset PAC %s. Ignoring value' % pac_address)
-            skip_pacs.append(pac_address)
+            print(f'Unable to reset PAC {addr:#x}. Ignoring value')
+            skip_pacs.add(addr)
 
     log = []
     # Register the signal handler for clean exits
@@ -372,37 +335,43 @@ def record(config_file,
               end='\r')
 
         # Group measurements by pac for speed.
-        for pac_address, group in config.groupby('addr_pac'):
-            if pac_address in skip_pacs:
+        for addr, group in config.pacs_by_addr.items():
+            if addr in skip_pacs:
                 continue
             # Parse from the dataframe.
-            device = i2c.get_port(int(pac_address, 16))
+            device = i2c.get_port(addr)
             # Setup any configuration changes here prior to refresh.
             device.write_to(pac19xx.REFRESH_V, 0)
             # Wait 1ms after REFRESH for registers to stablize.
             time.sleep(.001)
             # Log every rail on this pac we need to.
-            for i, row in group.iterrows():
-                try:
-                    ch_num = row.ch_num
-                    sense_r = float(row.rsense)
+            for pac in group:
+                if len(allow_rails) > 0 and pac.name not in allow_rails:
+                    continue
 
-                    prev_accum = prev_accum_by_rail.get(row['rail'], 0)
-                    prev_count = prev_count_by_rail.get(row['rail'], 0)
+                try:
+                    ch_num = pac.channel
+                    sense_r = float(pac.rsense)
+
+                    prev_accum = prev_accum_by_rail.get(pac.name, 0)
+                    prev_count = prev_count_by_rail.get(pac.name, 0)
+
+                    prev_accum = prev_accum_by_rail.get(pac.name, 0)
+                    prev_count = prev_count_by_rail.get(pac.name, 0)
 
                     # Grab a log timestamp
                     tmp = {}
                     tmp['systime'] = time.time()
                     tmp['relativeTime'] = tmp['systime'] - start_time
-                    tmp['rail'] = row['rail']
+                    tmp['rail'] = pac.name
 
                     (accum, count) = dump_accumulator(device, ch_num, polarity)
 
                     tmp['rawAccumReg'] = accum
                     tmp['rawCount'] = count
 
-                    prev_accum_by_rail[row['rail']] = accum
-                    prev_count_by_rail[row['rail']] = count
+                    prev_accum_by_rail[pac.name] = accum
+                    prev_count_by_rail[pac.name] = count
 
                     accum = accum - prev_accum
                     count = count - prev_count
@@ -420,6 +389,7 @@ def record(config_file,
                     print('NACK detected, continuing measurements')
                     time.sleep(.001)
                     continue
+
     time_log = pandas.DataFrame(log)
     time_log['power'] = time_log['power']
     pandas.options.display.float_format = '{:,.3f}'.format
@@ -427,21 +397,26 @@ def record(config_file,
 
     accumulators = []
     # Dump the accumulator.
-    for i, config_row in config.iterrows():
-        if config_row.addr_pac in skip_pacs:
+    for pac in config.pacs:
+        if pac.addr in skip_pacs:
             continue
+
+        if len(allow_rails) > 0 and pac.name not in allow_rails:
+            continue
+
         accumulator = {}
-        device = i2c.get_port(int(config_row['addr_pac'], 16))
+        device = i2c.get_port(pac.addr)
         time.sleep(.001)
-        accumulator['Rail'] = config_row['rail']
-        (accum, count) = dump_accumulator(device, config_row.ch_num, polarity)
+
+        accumulator['Rail'] = pac.name
+        (accum, count) = dump_accumulator(device, pac.channel, polarity)
         accumulator['tAccum'] = time.time() - start_time
         accumulator['count'] = count
         depth = {'unipolar': 2**30, 'bipolar': 2**29}
         # Equation 3-8 Energy Calculation.
         accumulator['accumReg'] = accum
-        accumulator['rSense'] = config_row.rsense
-        pwrFSR = 3.2 / config_row.rsense
+        accumulator['rSense'] = pac.rsense
+        pwrFSR = 3.2 / pac.rsense
         accumulator['Average Power (w)'] = accum / (depth[polarity] *
                                                     count) * pwrFSR
         accumulators.append(accumulator)
@@ -453,88 +428,81 @@ def record(config_file,
     return (time_log, accumulatorLog)
 
 
-def query_all(config_file,
-              gpio_config,
-              ftdi_url='ftdi:///',
-              polarity='bipolar'):
+def query_all(config, ftdi_url='ftdi:///', polarity='bipolar'):
     """Preform a one time query of GPIOs, powers, currents, voltages.
 
     Args:
-        config_file: (string) Location of PAC Address/sense resistor .py file.
-        gpio_config: (string) Location of PAC Address Gpio rail mapping.
+        config: PacConfig instance
         ftdi_url: (string) URL of ftdi device.
         polarity: (string) 'bipolar' or 'unipolar'
+
     Returns:
         log: Pandas DataFrame with log voltage log.
     """
     # Init the bus.
     i2c = I2cController()
     i2c.configure(ftdi_url)
-    # Load the config.
-    config = load_config(config_file)
-    # Load GPIO Config.
-    gpio_config = load_gpio_config(gpio_config)
 
     # Ping all the PACs.
-    skip_pacs = []
-    for pac_address, group in config.groupby('addr_pac'):
+    skip_pacs = set()
+    for addr in config.pacs_by_addr:
         try:
-            device = i2c.get_port(int(pac_address, 16))
+            device = i2c.get_port(addr)
             set_polarity(device, polarity)
             reset_accumulator(device)
             time.sleep(0.001)
         except I2cNackError:
             # This happens on the DB PAC in Z states
-            print('Unable to reset PAC %s. Ignoring value' % pac_address)
-            skip_pacs.append(pac_address)
+            print(f'Unable to reset PAC {addr:#x}. Ignoring value')
+            skip_pacs.add(addr)
 
     # Measure the GPIOs of all of the pacs
     gpio_log = []
-    for pac_address, row in gpio_config.iterrows():
-        tmp = {'Rail': row.Rail}
-        if row.addr_pac in skip_pacs:
+    for gpio in config.gpios:
+        tmp = {'Rail': gpio.rail}
+        if gpio.addr in skip_pacs:
             continue
         # Parse from the dataframe.
-        device = i2c.get_port(int(row.addr_pac, 16))
+        device = i2c.get_port(gpio.addr)
         if read_gpio(device):
             tmp['GPIO'] = 'High'
         else:
             tmp['GPIO'] = 'Low'
         gpio_log.append(tmp)
+
     gpio_log = pandas.DataFrame(gpio_log)
     print(gpio_log)
 
     # This just logs the instantaneous measurements once.
     log = []
-    for i, config_row in config.iterrows():
-        if config_row.addr_pac in skip_pacs:
+    for pac in config.pacs:
+        if pac.addr in skip_pacs:
             continue
         tmp = {}
-        tmp['ic_name'] = config_row.drv
-        tmp['ic_addr'] = config_row.addr.split(':')[0]
-        tmp['ch_num'] = config_row.addr.split(':')[1]
-        tmp['Rail'] = config_row.rail
-        tmp['bus_volt'] = config_row.nom
-        tmp['sense_r'] = config_row.rsense
+        tmp['ic_name'] = pac.drv
+        tmp['ic_addr'] = f'{pac.addr:#x}'
+        tmp['ch_num'] = pac.channel
+        tmp['Rail'] = pac.name
+        tmp['bus_volt'] = pac.nom
+        tmp['sense_r'] = pac.rsense
 
         i2c = I2cController()
         i2c.configure(ftdi_url)
 
-        device = i2c.get_port(int(tmp['ic_addr'], 16))
+        device = i2c.get_port(pac.addr)
         # Setup any configuration changes here prior to refresh.
         device.write_to(pac19xx.REFRESH_V, 0)
         # Wait 1ms after REFRESH for registers to stablize.
         time.sleep(0.001)
 
         # Read voltage.
-        tmp['act_volt'] = read_voltage(device, tmp['ch_num'], polarity)
+        tmp['act_volt'] = read_voltage(device, pac.channel, polarity)
         # Read power.
-        tmp['power'] = read_power(device, tmp['sense_r'], tmp['ch_num'],
-                                  polarity)
+        tmp['power'] = read_power(device, pac.rsense, pac.channel, polarity)
         # Read current.
-        tmp['current'] = read_current(device, tmp['sense_r'], tmp['ch_num'],
-                                      polarity)
+        tmp['current'] = read_current(device, pac.rsense, pac.channel, polarity)
         log.append(tmp)
+
     log = pandas.DataFrame(log)
     pandas.options.display.float_format = '{:,.3f}'.format
     print(log)

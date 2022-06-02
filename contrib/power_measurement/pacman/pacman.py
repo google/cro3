@@ -4,24 +4,25 @@
 # Copyright 2021 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+"""Main file for pacman utility"""
 
 from argparse import ArgumentParser
 from argparse import FileType
 import datetime
 import os
-from pathlib import Path
+import pathlib
 from sys import modules
 from sys import stderr
 
 import pac_utils
 import pacboard
+import pacconfig
 import pandas
 import plotly.express
 
 
 def main():
-    gpio_default = './boards/guybrush/guybrush_r0_pacs_gpio.csv'
-    mapping_default = './boards/guybrush/guybrush_r0_railmapping.csv'
+    """main function"""
     polarity_default = 'bipolar'
 
     argparser = ArgumentParser(description=modules[__name__].__doc__)
@@ -39,7 +40,7 @@ def main():
     argparser.add_argument(
         '-c',
         '--config',
-        type=FileType('r'),
+        type=pathlib.Path,
         help='PAC address and configuration file used by servod')
     argparser.add_argument(
         '-O',
@@ -49,17 +50,6 @@ def main():
             './Data',
             datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')),
         help='Path for log files')
-    argparser.add_argument(
-        '-m',
-        '--mapping',
-        type=FileType('r'),
-        default=mapping_default,
-        help='Rail hierachy mapping used to generate sunburst plot')
-    argparser.add_argument('-g',
-                           '--gpio',
-                           type=FileType('r'),
-                           default=gpio_default,
-                           help='PAC address to GPIO net name mapping')
     argparser.add_argument(
         '-p',
         '--polarity',
@@ -78,7 +68,11 @@ def main():
     time_log_path = os.path.join(log_path, 'timeLog.csv')
     accumulator_log_path = os.path.join(log_path, 'accumulatorData.csv')
     report_log_path = os.path.join(log_path, 'report.html')
-    Path(log_path).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(log_path).mkdir(parents=True, exist_ok=True)
+
+    # Load board config
+    print(args.config)
+    config = pacconfig.PacConfig(args.config)
 
     # Register the custom VID:PID used for provisioned PACDebuggers
     pacboard.PacDebugger.configure_custom_devices()
@@ -90,31 +84,17 @@ def main():
             'Taking a single voltage, current, '\
                 'power measurement of all rails and reporting GPIO status'
         )
-        print('Using config file:', args.config.name)
-        if args.gpio.name == gpio_default:
-            print('Using default gpio file:', args.gpio.name)
-        else:
-            print('Using gpio file:', args.gpio.name)
-        print()
-        log = pac_utils.query_all(args.config.name,
-                                  args.gpio.name,
-                                  polarity=args.polarity)
+
+        log = pac_utils.query_all(config, polarity=args.polarity)
         log.to_csv(single_log_path)
         return False
 
     # Else we're going to take a time log.
     # Print which files are being used for clarity
     print('Taking an extended reading')
-    print('Using config file:', args.config.name)
-    if args.mapping.name == mapping_default:
-        print('Using default rail mapping file:', args.mapping.name)
-    else:
-        print('Using rail mapping file:', args.mapping.name)
-    print()
 
     # Record the sample and log to file.
-    (log, accumulator_log) = pac_utils.record(args.config.name,
-                                              rail=['all'],
+    (log, accumulator_log) = pac_utils.record(config,
                                               record_length=args.time,
                                               polarity=args.polarity)
     log.to_csv(time_log_path)
@@ -154,15 +134,23 @@ def main():
             ],
                        align='left'))
     ])
+
     summary_table.update_layout(title='Accumulator Measurements')
-    if args.mapping is not None:
+    if len(config.rails) > 0:
+        mapping = []
+        for rail in config.rails:
+            mapping.append({'Rail': rail.rail, 'Parent': rail.parent})
+
         skip_sunplot = False
-        mapping = pandas.read_csv(args.mapping, skiprows=4)
+        mapping = pandas.DataFrame(mapping)
         accumulator_log = pandas.merge(accumulator_log, mapping, on='Rail')
         # Bidirectional Values means powers can be negative
-        accumulator_log['Average Power (w)'] = accumulator_log['Average Power (w)'].abs()
+        avg_power = accumulator_log['Average Power (w)'].abs()
+        accumulator_log['Average Power (w)'] = avg_power
         # Voltage column used for color coding
-        accumulator_log['voltage (mv)'] = accumulator_log.Rail.apply(lambda x: x.split('_')[0].strip('PP'))
+        accumulator_log['voltage (mv)'] = accumulator_log.Rail.apply(
+            lambda x: x.split('_')[0].strip('PP')
+        )
         star_plot = plotly.express.sunburst(accumulator_log,
                                             names='Rail',
                                             parents='Parent',
