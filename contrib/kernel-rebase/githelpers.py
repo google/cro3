@@ -4,6 +4,7 @@
 
 # Disable pylint noise
 # pylint: disable=E0401
+# pylint: disable=redefined-outer-name
 
 """Git helpers
 
@@ -38,6 +39,48 @@ def is_dirty(repo):
         cmd = sh.git('--no-pager', 'status', '--short', '--porcelain')
     return str(cmd) != ''
 
+def list_shas(repo, commit_range):
+    """Return SHA list"""
+
+    lines = None
+    with sh.pushd(repo):
+        ret = sh.git('--no-pager', 'log', '--no-color', '--format=format:%H', commit_range)
+        lines = str(ret).splitlines()
+
+    return lines
+
+def commit_subject(repo, sha):
+    """Get commit subject"""
+
+    with sh.pushd(repo):
+        ret = sh.git('--no-pager', 'show', '--no-color', '--format=%s', sha)
+        lines = str(ret).splitlines()
+
+    return lines[0].strip()
+
+def revert(repo, sha):
+    """Reverts a commit by sha"""
+
+    with sh.pushd(repo):
+        sh.git('--no-pager', 'revert', '--no-edit', sha)
+
+def is_merge(repo, sha):
+    """Returns true if the commit is a merge commit"""
+
+    with sh.pushd(repo):
+        ret = sh.git('--no-pager', 'show', '--no-color', sha)
+        lines = str(ret).splitlines()
+
+    # No commits have fewer than 4 or so lines, and merge line
+    # is always the one below commit sha
+    return lines[1].startswith('Merge: ')
+
+def diff(repo, path):
+    """returns the result of git diff {path}"""
+
+    with sh.pushd(repo):
+        ret = sh.git('--no-pager', 'diff', '--no-color', path)
+        return str(ret)
 
 def fetch(repo, remote):
     """fetch remote on repo"""
@@ -60,19 +103,23 @@ def create_head(repo, name):
         sh.git('branch', name)
 
 
-def cherry_pick(repo, sha):
+def cherry_pick(repo, sha, use_am=True):
     """pretend cherry-pick
 
     The fn actually exports the patch to a file and
     then `git am`s it.
     """
 
-    patch = format_patch(repo, sha)
-    path = '/tmp/rebase_cherry_pick_patch'
+    if use_am:
+        patch = format_patch(repo, sha)
+        path = '/tmp/rebase_cherry_pick_patch'
 
-    with open(path, 'w+') as f:
-        f.write(patch)
-    apply_patch(repo, path, sha)
+        with open(path, 'w+') as f:
+            f.write(patch)
+        apply_patch(repo, path, sha)
+    else:
+        with sh.pushd(repo):
+            sh.git('cherry-pick', sha)
 
 def apply_patch(repo, diff, sha):
     """applies a patch in repo"""
@@ -134,13 +181,17 @@ def refine_text(text):
         refined += l + '\n'
     return refined
 
+def patch_diff(repo, sha):
+    """Returns the diff for a given patch sha"""
+
+    with sh.pushd(repo):
+        ret = sh.git('--no-pager', 'show', '--format=', '--no-color', sha)
+    return str(ret)
 
 def patch_title(repo, sha, old=False):
     """computes a unique hash for a given patch"""
 
-    with sh.pushd(repo):
-        ret = sh.git('--no-pager', 'show', '--format=', '--no-color', sha)
-    text = str(ret)
+    text = patch_diff(repo, sha)
 
     if old:
         refined = refine_text_old(text)
@@ -176,7 +227,7 @@ def format_patch(repo, sha):
             'format-patch',
             '--no-color',
             '--stdout',
-            '{sha}~..{sha}'.format(sha=sha))
+            f'{sha}~..{sha}')
 
     return str(diff)
 
