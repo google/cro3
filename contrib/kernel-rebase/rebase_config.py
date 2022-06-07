@@ -72,6 +72,10 @@ topic_fixups['drm'] = [
     'dma-buf: Add an API for exporting sync files (v14)'
 ]
 
+topic_fixups['media'] = [
+    'CHROMIUM: media: intel-ipu6: copy IPU6 driver from v5.4 branch'
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
