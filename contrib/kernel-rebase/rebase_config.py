@@ -65,7 +65,7 @@ topic_fixups['block-fs'] = [
 ]
 
 topic_fixups['drm'] = [
-    'dma-buf: Add an API for exporting sync files (v12)'
+    'dma-buf: Add an API for exporting sync files (v14)'
 ]
 
 # order for automatic branch merging in rebase.py.
@@ -237,3 +237,6 @@ disp_overlay['3881e5c35f51'] = 'drop' # CHROMIUM: mm: Check pmd_trans_unstable()
 disp_overlay['efd2d85276d4'] = 'drop' # config: Using CROSS_COMPILE prefix for pkg-config
 disp_overlay['e44743a29b47'] = 'drop' # CHROMIUM: drivers: Support iwl7000 driver.
 disp_overlay['dcfe09e3e57e'] = 'drop' # CHROMIUM: mm: Optionally limit per-process reclaim.
+disp_overlay['46ed0f907cef'] = 'drop' # FROMLIST: dma-buf: Add dma_resv_get_singleton (v6)
+disp_overlay['718ce84e0101'] = 'drop' # BACKPORT: FROMLIST: dma-buf: Add an API for exporting sync files (v12)
+disp_overlay['710fdbb67a90'] = 'drop' # CHROMIUM: dma-buf: Remove call to dma_resv_get_excl_unlocked
