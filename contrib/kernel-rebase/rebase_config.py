@@ -76,6 +76,10 @@ topic_fixups['media'] = [
     'CHROMIUM: media: intel-ipu6: copy IPU6 driver from v5.4 branch'
 ]
 
+topic_fixups['net'] = [
+    'rtw88: replace RADAR flag with NO_IR for dfs channel'
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
