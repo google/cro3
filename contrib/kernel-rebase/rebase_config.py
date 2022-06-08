@@ -249,3 +249,5 @@ disp_overlay['46ed0f907cef'] = 'drop' # FROMLIST: dma-buf: Add dma_resv_get_sing
 disp_overlay['718ce84e0101'] = 'drop' # BACKPORT: FROMLIST: dma-buf: Add an API for exporting sync files (v12)
 disp_overlay['710fdbb67a90'] = 'drop' # CHROMIUM: dma-buf: Remove call to dma_resv_get_excl_unlocked
 disp_overlay['4149f3221225'] = 'drop' # FROMGIT: PM / devfreq: passive: Clean code when parent device is devfreq
+disp_overlay['ddbb5071fff5'] = 'drop' # FROMLIST: net: wwan: t7xx: Add debug and test ports
+disp_overlay['995fa555e62c'] = 'drop' # CHROMIUM: t7xx: Initial support for cldma0, sap, brom download port
