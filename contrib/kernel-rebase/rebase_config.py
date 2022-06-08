@@ -240,3 +240,4 @@ disp_overlay['dcfe09e3e57e'] = 'drop' # CHROMIUM: mm: Optionally limit per-proce
 disp_overlay['46ed0f907cef'] = 'drop' # FROMLIST: dma-buf: Add dma_resv_get_singleton (v6)
 disp_overlay['718ce84e0101'] = 'drop' # BACKPORT: FROMLIST: dma-buf: Add an API for exporting sync files (v12)
 disp_overlay['710fdbb67a90'] = 'drop' # CHROMIUM: dma-buf: Remove call to dma_resv_get_excl_unlocked
+disp_overlay['4149f3221225'] = 'drop' # FROMGIT: PM / devfreq: passive: Clean code when parent device is devfreq
