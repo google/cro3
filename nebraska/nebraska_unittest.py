@@ -19,7 +19,6 @@ import shutil
 import tempfile
 import unittest
 import unittest.mock as mock
-
 from xml.etree import ElementTree
 
 import nebraska
@@ -949,7 +948,7 @@ class NebraskaTest(NebraskaBaseTest):
     root = ElementTree.fromstring(response)
     update_check_tag = root.find('app/updatecheck')
     index_strs = ['', '_0', '_1', '_2', '_3', '_4']
-    self.assertEqual(update_check_tag.attrib['_is_rollback'], 'true')
+    self.assertEqual(update_check_tag.attrib['_rollback'], 'true')
     for idx in index_strs:
       self.assertEqual(update_check_tag.attrib['_firmware_version' + idx],
                        nebraska._FIRMWARE_VER)

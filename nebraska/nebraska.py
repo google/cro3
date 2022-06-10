@@ -14,6 +14,7 @@ import copy
 import datetime
 import errno
 import http
+from http import server
 import json
 import logging
 import os
@@ -25,15 +26,17 @@ import threading
 import time
 import traceback
 import urllib
-
-from http import server
 from xml.dom import minidom
 from xml.etree import ElementTree
 
 
-# '5' and '7' are just default values for testing.
-_FIRMWARE_VER = '5'
-_KERNEL_VER = '7'
+# '1.1' is just a default value for testing. It means there never was any
+# version roll, which should be the case for most devices.
+# Note that a device that had a version roll may not accept rollback images
+# from nebraska. You can check those versions with crossystem.
+_FIRMWARE_VER = '1.1'
+_KERNEL_VER = '1.1'
+
 
 # This is the same for all images on canary channel.
 _CANARY_APP_ID = '{90F229CE-83E2-4FAF-8479-E368A34938B1}'
@@ -483,7 +486,7 @@ class Response(object):
         update_check_attribs = {'status': 'ok'}
         if (self._config.is_rollback and
             self._app_request.rollback_allowed):
-          update_check_attribs['_is_rollback'] = 'true'
+          update_check_attribs['_rollback'] = 'true'
           # Techincally we have to always send _firmware_version and
           # _kernel_version attributes regardless of the rollback situation. But
           # for the sake of simplicity, we can just send it when rollback was
