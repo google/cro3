@@ -441,6 +441,7 @@ def perform_step(status):
         step_names.GEN_FIT:         gen_fit_image_outside_chroot,
         step_names.COMMIT_FIT:      commit_fitimage,
         step_names.EC_IMAGE:        create_initial_ec_image,
+        step_names.ZEPHYR_EC:       create_zephyr_ec_image,
         step_names.EC_BUILDALL:     ec_buildall,
         step_names.ADD_PUB_YAML:    add_variant_to_public_yaml,
         step_names.ADD_PRIV_YAML:   add_variant_to_private_yaml,
@@ -1028,6 +1029,37 @@ def create_initial_ec_image(status):
     if not os.path.isfile(ec_bin):
         logging.error('EC binary %s not found', ec_bin)
         return False
+    return True
+
+
+def create_zephyr_ec_image(status):
+    """Create a Zephyr EC image for the variant
+
+    This function calls create_zephyr_ec_image.sh, which will update the
+    BUILD.py file for the base board.
+
+    Args:
+        status: variant_status object tracking our board, variant, etc.
+
+    Returns:
+        True if the script and test build succeeded, False if something failed
+    """
+    logging.info('Running step create_zephyr_ec_image')
+    environ = {**os.environ, 'NEW_VARIANT_BRANCH': status.branch}
+    create_zephyr_ec_image_sh = os.path.join(status.my_loc,
+        'create_zephyr_ec_image.sh')
+    if not run_process(
+        [create_zephyr_ec_image_sh,
+         status.base,
+         status.ec_board,
+         status.variant,
+         status.bug], env=environ):
+        return False
+
+    # No need to `if rc:` because we already tested the run_process result above
+    status.commits[step_names.ZEPHYR_EC] = get_git_commit_data(
+        '/mnt/host/source/src/platform/ec')
+
     return True
 
 
