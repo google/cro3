@@ -86,13 +86,8 @@ case ${VERSION} in
     ;;
 
   *)
-    # TODO: Remove this special case once tags in mtl-staging are
-    # prefixed by upstream/
-    if [ ${SOC} = "mtl" ]; then
-      UPREV_BRANCH=${VERSION}
-    else
-      UPREV_BRANCH=upstream/${VERSION}
-    fi;
+
+    UPREV_BRANCH=upstream/${VERSION}
     ;;
 esac
 
