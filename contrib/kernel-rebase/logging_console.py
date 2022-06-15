@@ -42,7 +42,15 @@ class Logger:
         """Forwards write() call to self.terminal and self.log"""
 
         self.terminal.write(message)
-        self.log.write(message)
+
+        # prepend lines written to the log file with timestamps
+        ts = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+        lines_ts = []
+        for line in message.strip().splitlines():
+            lines_ts.append(f'[{ts}] {line}\n')
+        message_ts = ''.join(lines_ts)
+
+        self.log.write(message_ts)
 
     def flush(self):
         """Forwards flush() call to self.terminal and self.log"""

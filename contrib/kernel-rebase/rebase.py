@@ -24,6 +24,7 @@ to newer upstream kernels.
 See go/cont-rebase for details
 """
 
+from datetime import datetime
 import os
 import re
 import sys
@@ -598,6 +599,9 @@ class Rebaser:
 
 
 def triage():
+    start = datetime.now()
+    verify_time = datetime.now() - start # about 0s
+
     # Check if executor is alive, we'll need it for verifying build
     if do_on_cros_sdk('true', 1) == {}:
         print('Is executor running?')
@@ -621,7 +625,13 @@ def triage():
             ret['manual'],
             False]
         print('Verifying build...')
+
+        verify_one_start = datetime.now()
         ret = verify_build(topic_branch)
+        verify_one_end = datetime.now()
+
+        verify_time += verify_one_end - verify_one_start
+
         if ret['exit_code'] == 0:
             print('Built %s succesfully.' % topic)
             topic_stats[topic][3] = True
@@ -647,6 +657,14 @@ def triage():
                 '.txt',
                 'w')
             f.write(ret['output'])
+
+    end = datetime.now()
+
+    elsapsed_total = end - start
+    applying_time = elsapsed_total - verify_time
+
+    print(f'Verifying builds took: {verify_time}')
+    print(f'Applying patches took: {applying_time}')
 
     # Pickle the topic stats. Those can be loaded later by
     # Mailing::load_and_notify()
