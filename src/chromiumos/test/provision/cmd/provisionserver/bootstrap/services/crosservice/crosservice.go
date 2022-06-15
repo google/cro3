@@ -377,9 +377,9 @@ func (c *CrOSService) IsDLCVerified(ctx context.Context, dlcID, slot string) (bo
 
 // IsMiniOSPartitionSupported determines whether the device has the partitions
 func (c *CrOSService) IsMiniOSPartitionSupported(ctx context.Context, rootDisk string, rootPart string) (bool, error) {
-	guidPartition, err := c.connection.RunCmd(ctx, "cgpt", []string{"show", "-t", rootDisk, rootPart})
+	guidPartition, err := c.connection.RunCmd(ctx, "cgpt", []string{"show", "-t", rootDisk, "-i", rootPart})
 	if err != nil {
-		return false, fmt.Errorf("failed to get partition type, %s", err)
+		return false, fmt.Errorf("failed to get partition type, %s\n %s", err, guidPartition)
 	}
 
 	return strings.TrimSpace(guidPartition) != info.MiniOSUnsupportedGUIDPartition, nil

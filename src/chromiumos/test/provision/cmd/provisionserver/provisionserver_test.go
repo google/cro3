@@ -133,8 +133,8 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 	gomock.InOrder(
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s"})).Return(fmt.Sprintf("root%s", info.PartitionNumRootA), nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rootdev"), gomock.Eq([]string{"-s", "-d"})).Return("root_disk", nil),
-		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("cgpt"), gomock.Eq([]string{"show", "-t", "root_disk", "9"})).Return("not 09845860-705F-4BB5-B16C-8A8A099CAF52", nil),
-		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("cgpt"), gomock.Eq([]string{"show", "-t", "root_disk", "10"})).Return("not 09845860-705F-4BB5-B16C-8A8A099CAF52", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("cgpt"), gomock.Eq([]string{"show", "-t", "root_disk", "-i", "9"})).Return("not 09845860-705F-4BB5-B16C-8A8A099CAF52", nil),
+		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("cgpt"), gomock.Eq([]string{"show", "-t", "root_disk", "-i", "10"})).Return("not 09845860-705F-4BB5-B16C-8A8A099CAF52", nil),
 		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_MINIOS.bin.gz"),
 			gomock.Eq("gzip -d | dd of=root_diskroot9 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot9 failed.\" >&2\n  exit 1\nfi")).Times(1).Return(nil),
 		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/full_dev_part_MINIOS.bin.gz"),
