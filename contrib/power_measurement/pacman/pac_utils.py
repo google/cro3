@@ -479,7 +479,6 @@ def query_all(config, ftdi_url='ftdi:///', polarity='bipolar'):
         if pac.addr in skip_pacs:
             continue
         tmp = {}
-        tmp['ic_name'] = pac.drv
         tmp['ic_addr'] = f'{pac.addr:#x}'
         tmp['ch_num'] = pac.channel
         tmp['Rail'] = pac.name
