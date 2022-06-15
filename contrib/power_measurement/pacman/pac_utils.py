@@ -12,6 +12,49 @@ import pandas
 from pyftdi.i2c import I2cController
 from pyftdi.i2c import I2cNackError
 
+REFRESH_WAIT_TIME = 0.001
+
+
+class PacBus:
+    def __init__(self, i2c):
+        """
+        PacBus class holds initialized i2c port/pac objects, and can be
+        used to refresh pac devices globally
+
+        @param i2c: the i2c bus to use for the pac bus
+        """
+        self._i2c = i2c
+        self._pac_devices = {}
+
+    def add_device(self, addr):
+        """read_from will initialize a new pac on the i2c bus
+
+        @param addr: address of the new device to add
+
+        @returns: the newly initialized port (or existing open port)
+        """
+        if addr not in self._pac_devices:
+            self._pac_devices[addr] = self._i2c.get_port(addr)
+        return self._pac_devices[addr]
+
+    def get_device(self, addr):
+        """read_from will initialize a new pac on the i2c bus
+
+        @param addr: address of the new device to add
+        """
+        if addr not in self._pac_devices:
+            raise KeyError("Pac device not initialized at this address")
+        return self._pac_devices[addr]
+
+    def refresh_all(self):
+        """
+        refresh_all writes to the "general call" for the pac
+        devices, refreshing all accumulators synchronously
+        """
+        device = self._i2c.get_port(0x0)
+        device.write_to(pac19xx.REFRESH_G, 0)
+        time.sleep(REFRESH_WAIT_TIME)
+
 
 def read_pac(device, reg, num_bytes):
     """Reads num_bytes from PAC I2C register using pyftdi driver.
@@ -115,14 +158,17 @@ def read_gpio(device):
     return bool(gpio & (1 << 7))
 
 
-def reset_accumulator(device):
+def reset_accumulator(device, refresh_all=False):
     """Command to reset PAC accumulators.
 
     Args:
         device: i2c port object.
     """
+    if refresh_all:
+        device.refresh_all()
+        return
     device.write_to(pac19xx.REFRESH, 0)
-    time.sleep(0.001)
+    time.sleep(REFRESH_WAIT_TIME)
 
 
 def print_registers(device, pac_address):
@@ -201,14 +247,61 @@ def dump_accumulator(device, ch_num, polarity):
         '2': pac19xx.VACC3,
         '3': pac19xx.VACC4
     }
-    reg = device.read_from(lut[str(ch_num)], 7)
+    reg_bytes = device.read_from(lut[str(ch_num)], 7)
     count = device.read_from(pac19xx.ACC_COUNT, 4)
     count = int.from_bytes(count, byteorder='big', signed=False)
     if polarity == 'unipolar':
-        reg = int.from_bytes(reg, byteorder='big', signed=False)
+        reg = int.from_bytes(reg_bytes, byteorder='big', signed=False)
     else:
-        reg = int.from_bytes(reg, byteorder='big', signed=True)
+        reg = int.from_bytes(reg_bytes, byteorder='big', signed=True)
     return (reg, count)
+
+
+def unpack_bytes_at(bytes_array, offset, length):
+    """
+    unpack_bytes_at extracts a subset of bytes from the bytes object and
+    returns them.
+
+    @param bytes: the input bytes_like object
+    @param offset: the number of bytes to offset into the array
+    @param length: the number of bytes the output
+    """
+    return bytes_array[offset:offset + length]
+
+
+def dump_all_accumulators(device, polarity):
+    """Command to acquire all voltage accumulator and counts for a PAC.
+
+    Args:
+        device: i2c port object
+        polarity: str, unipolar/bipolar
+
+    Returns:
+        reg: (long) voltage accumulator register.
+        count: (int) number of accumulations.
+    """
+    ACCUMULATOR_WIDTH = 7
+    ACCUMULATOR_COUNT_WIDTH = 4
+
+    all_bytes = device.read_from(pac19xx.ACC_COUNT, (ACCUMULATOR_WIDTH * 4) +
+                                 ACCUMULATOR_COUNT_WIDTH)
+    count_bytes = unpack_bytes_at(all_bytes, 0, ACCUMULATOR_COUNT_WIDTH)
+    accum_bytes = unpack_bytes_at(all_bytes, ACCUMULATOR_COUNT_WIDTH,
+                                  ACCUMULATOR_WIDTH * 4)
+    accums = []
+    for accum_idx in range(4):
+        reg = 0
+        sel_bytes = unpack_bytes_at(accum_bytes, accum_idx * ACCUMULATOR_WIDTH,
+                                    ACCUMULATOR_WIDTH)
+        if polarity == 'unipolar':
+            reg = int.from_bytes(sel_bytes, byteorder='big', signed=False)
+        else:
+            reg = int.from_bytes(sel_bytes, byteorder='big', signed=True)
+        accums.append(reg)
+    count = int.from_bytes(all_bytes[:ACCUMULATOR_COUNT_WIDTH],
+                           byteorder='big',
+                           signed=False)
+    return (accums, count)
 
 
 def pac_info(ftdi_url):
@@ -247,6 +340,7 @@ def set_polarity(device, polarity):
     device.write_to(pac19xx.NEG_PWR_FSR, reg)
     print(f'Set \t{hex(device.address)} polarity to: {polarity}')
 
+
 terminate_signal = False
 
 
@@ -270,7 +364,9 @@ def record(config,
            voltage=True,
            current=True,
            power=True,
-           polarity='bipolar'):
+           polarity='bipolar',
+           sample_time=5,
+           refresh_all=True):
     """High level function to reset, log, then dump PAC power accumulations.
 
     Args:
@@ -283,6 +379,8 @@ def record(config,
         current: (boolean) log current.
         power: (boolean) log power.
         polarity: (string) ['unipolar', 'bipolar']
+        sample_time: (float) time in seconds between log samples
+        refresh_all: (boolean) refresh all pac devices synchronously
 
     Returns:
         time_log: (Pandas DataFrame) Time series log.
@@ -292,6 +390,7 @@ def record(config,
     # Init the bus.
     i2c = I2cController()
     i2c.configure(ftdi_url)
+    accumulators = {}
 
     # Filter the config to rows we care about.
     allow_rails = set()
@@ -302,13 +401,13 @@ def record(config,
     # Clear all accumulators
     skip_pacs = set()
 
+    pacbus = PacBus(i2c)
     for addr in config.pacs_by_addr:
         try:
-            device = i2c.get_port(addr)
+            device = pacbus.add_device(addr)
             set_polarity(device, polarity)
             disable_slow(device)
             reset_accumulator(device)
-            time.sleep(0.001)
         except I2cNackError:
             # This happens on the DB PAC in Z states.
             print(f'Unable to reset PAC {addr:#x}. Ignoring value')
@@ -322,68 +421,78 @@ def record(config,
     start_time = time.time()
     timeout = start_time + float(record_length)
 
-    prev_accum_by_rail = {}
-    prev_count_by_rail = {}
+    refresh_time = 0
+    last_target_sample = time.time() - sample_time
 
     while True:
         if time.time() > timeout:
             break
+        sleep = last_target_sample + sample_time - time.time()
+        if sleep > 0:
+            time.sleep(sleep)
+        last_target_sample = last_target_sample + sample_time
         if terminate_signal:
             break
         print('Logging: %.2f / %.2f s...' %
               (time.time() - start_time, float(record_length)),
               end='\r')
 
-        # Group measurements by pac for speed.
+        if refresh_all:
+            pacbus.refresh_all()
+            refresh_time = time.time()
         for addr, group in config.pacs_by_addr.items():
             if addr in skip_pacs:
                 continue
-            # Parse from the dataframe.
-            device = i2c.get_port(addr)
-            # Setup any configuration changes here prior to refresh.
-            device.write_to(pac19xx.REFRESH_V, 0)
-            # Wait 1ms after REFRESH for registers to stablize.
-            time.sleep(.001)
+            device = pacbus.get_device(addr)
+            if not refresh_all:
+                device.write_to(pac19xx.REFRESH_V, 0)
+                refresh_time = time.time()
+                time.sleep(REFRESH_WAIT_TIME)
+
+            (accum, count) = dump_all_accumulators(device, polarity)
             # Log every rail on this pac we need to.
             for pac in group:
                 if len(allow_rails) > 0 and pac.name not in allow_rails:
                     continue
-
                 try:
-                    ch_num = pac.channel
+                    ch_num = int(pac.channel)
                     sense_r = float(pac.rsense)
-
-                    prev_accum = prev_accum_by_rail.get(pac.name, 0)
-                    prev_count = prev_count_by_rail.get(pac.name, 0)
-
-                    prev_accum = prev_accum_by_rail.get(pac.name, 0)
-                    prev_count = prev_count_by_rail.get(pac.name, 0)
 
                     # Grab a log timestamp
                     tmp = {}
-                    tmp['systime'] = time.time()
-                    tmp['relativeTime'] = tmp['systime'] - start_time
+                    tmp['systime'] = refresh_time
+                    tmp['relativeTime'] = refresh_time - start_time
                     tmp['rail'] = pac.name
 
-                    (accum, count) = dump_accumulator(device, ch_num, polarity)
-
-                    tmp['rawAccumReg'] = accum
-                    tmp['rawCount'] = count
-
-                    prev_accum_by_rail[pac.name] = accum
-                    prev_count_by_rail[pac.name] = count
-
-                    accum = accum - prev_accum
-                    count = count - prev_count
-
                     depth = {'unipolar': 2**30, 'bipolar': 2**29}
-                    # Equation 3-8 Energy Calculation.
-                    tmp['accumReg'] = accum
+                    # Equation 5-8 Energy Calculation.
+                    tmp['accumReg'] = accum[ch_num]
                     tmp['count'] = count
 
                     pwrFSR = 3.2 / sense_r
-                    tmp['power'] = accum / (depth[polarity] * count) * pwrFSR
+                    tmp['power'] = (accum[ch_num] / (depth[polarity] * count) *
+                                    pwrFSR)
 
+                    if pac.name not in accumulators:
+                        accumulators[pac.name] = {
+                            'Rail': pac.name,
+                            'rSense': pac.rsense,
+                            'count': 0,
+                            'accumReg': 0,
+                            'Average Power (w)': 0
+                        }
+
+                    accumulators[
+                        pac.name]['tAccum'] = refresh_time - start_time
+                    accumulators[pac.name]['count'] += count
+
+                    accumulators[pac.name]['accumReg'] += accum[ch_num]
+                    new_weighting = count / accumulators[pac.name]['count']
+                    old_weighting = 1 - new_weighting
+                    accumulators[
+                        pac.name]['Average Power (w)'] *= old_weighting
+                    accumulators[pac.name]['Average Power (w)'] += (
+                        tmp['power']) * new_weighting
                     log.append(tmp)
                 except I2cNackError:
                     print('NACK detected, continuing measurements')
@@ -395,33 +504,7 @@ def record(config,
     pandas.options.display.float_format = '{:,.3f}'.format
     stats = time_log.groupby('rail').power.describe()
 
-    accumulators = []
-    # Dump the accumulator.
-    for pac in config.pacs:
-        if pac.addr in skip_pacs:
-            continue
-
-        if len(allow_rails) > 0 and pac.name not in allow_rails:
-            continue
-
-        accumulator = {}
-        device = i2c.get_port(pac.addr)
-        time.sleep(.001)
-
-        accumulator['Rail'] = pac.name
-        (accum, count) = dump_accumulator(device, pac.channel, polarity)
-        accumulator['tAccum'] = time.time() - start_time
-        accumulator['count'] = count
-        depth = {'unipolar': 2**30, 'bipolar': 2**29}
-        # Equation 3-8 Energy Calculation.
-        accumulator['accumReg'] = accum
-        accumulator['rSense'] = pac.rsense
-        pwrFSR = 3.2 / pac.rsense
-        accumulator['Average Power (w)'] = accum / (depth[polarity] *
-                                                    count) * pwrFSR
-        accumulators.append(accumulator)
-
-    accumulatorLog = pandas.DataFrame(accumulators)
+    accumulatorLog = pandas.DataFrame(accumulators.values())
     print('Accumulator Power Measurements by Rail (W)')
     print(accumulatorLog.sort_values(by='Average Power (w)', ascending=False))
 
@@ -499,7 +582,8 @@ def query_all(config, ftdi_url='ftdi:///', polarity='bipolar'):
         # Read power.
         tmp['power'] = read_power(device, pac.rsense, pac.channel, polarity)
         # Read current.
-        tmp['current'] = read_current(device, pac.rsense, pac.channel, polarity)
+        tmp['current'] = read_current(device, pac.rsense, pac.channel,
+                                      polarity)
         log.append(tmp)
 
     log = pandas.DataFrame(log)

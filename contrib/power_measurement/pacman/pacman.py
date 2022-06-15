@@ -37,6 +37,10 @@ def main():
                            '--time',
                            default=9999999,
                            help='Time to capture in seconds')
+    argparser.add_argument('--sample_time',
+                           default=1,
+                           type=float,
+                           help='Sample time in seconds')
     argparser.add_argument(
         '-c',
         '--config',
@@ -96,7 +100,8 @@ def main():
     # Record the sample and log to file.
     (log, accumulator_log) = pac_utils.record(config,
                                               record_length=args.time,
-                                              polarity=args.polarity)
+                                              polarity=args.polarity,
+                                              sample_time=args.sample_time)
     log.to_csv(time_log_path)
     accumulator_log.to_csv(accumulator_log_path)
 
@@ -149,8 +154,7 @@ def main():
         accumulator_log['Average Power (w)'] = avg_power
         # Voltage column used for color coding
         accumulator_log['voltage (mv)'] = accumulator_log.Rail.apply(
-            lambda x: x.split('_')[0].strip('PP')
-        )
+            lambda x: x.split('_')[0].strip('PP'))
         star_plot = plotly.express.sunburst(accumulator_log,
                                             names='Rail',
                                             parents='Parent',
@@ -159,7 +163,8 @@ def main():
                                             color='voltage (mv)')
         # Calculate what the sum of the child rails of root is
         root = 'PPVAR_SYS'
-        root_pwr = accumulator_log[accumulator_log.Rail == root]['Average Power (w)']
+        root_pwr = accumulator_log[accumulator_log.Rail ==
+                                   root]['Average Power (w)']
         # This should be a single element
         root_pwr = root_pwr.iloc[0]
         # tier 1 rails, children of root
@@ -170,8 +175,7 @@ def main():
         t1_summary_text = (
             f"{'T1 Rail Total:':<20}{t1_pwr:>20.3f}" + '\n' +
             f"{'T1 Root %s' % root:<20}{root_pwr:>20.3f}" + '\n' +
-            f"{'Root - T1 Total:':<20}{(root_pwr - t1_pwr):>20.3f}" + '\n'
-        )
+            f"{'Root - T1 Total:':<20}{(root_pwr - t1_pwr):>20.3f}" + '\n')
         print('Tier1 Summary')
         print(t1_summary_text)
         print(t1_summary)
@@ -179,14 +183,12 @@ def main():
         # HTML summary table
         t1_summary_table = plotly.graph_objects.Figure(data=[
             plotly.graph_objects.Table(
-                header=dict(values=summary_columns,
-                            align='left'),
+                header=dict(values=summary_columns, align='left'),
                 cells=dict(values=[
-                    t1_summary.Rail,
-                    t1_summary['voltage (mv)'],
+                    t1_summary.Rail, t1_summary['voltage (mv)'],
                     t1_summary['Average Power (w)'].round(3)
                 ],
-                    align='left'))
+                           align='left'))
         ])
         t1_summary_table.update_layout(
             title=f"{'T1 Rail Total: %.3f Watts' % t1_pwr:6>}")
@@ -197,10 +199,11 @@ def main():
     with open(report_log_path, 'w') as f:
         f.write(summary_table.to_html(full_html=False, include_plotlyjs='cdn'))
         if not skip_sunplot:
-            f.write(t1_summary_table.to_html(full_html=False,
-                                             include_plotlyjs='cdn',
-                                             default_width='100%',
-                                             default_height='50%'))
+            f.write(
+                t1_summary_table.to_html(full_html=False,
+                                         include_plotlyjs='cdn',
+                                         default_width='100%',
+                                         default_height='50%'))
             f.write(star_plot.to_html(full_html=False, include_plotlyjs='cdn'))
         f.write(box_plot.to_html(full_html=False, include_plotlyjs='cdn'))
         f.write(time_plot.to_html(full_html=False, include_plotlyjs='cdn'))
