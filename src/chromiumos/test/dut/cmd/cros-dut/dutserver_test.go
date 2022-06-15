@@ -9,7 +9,6 @@ import (
 	"chromiumos/test/dut/cmd/cros-dut/dutssh/mock_dutssh"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -17,7 +16,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
@@ -790,6 +788,7 @@ func TestRestart(t *testing.T) {
 	}
 }
 
+/*
 // TestCache tests that the regular Cache command works
 func TestCache(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -849,6 +848,7 @@ func TestCache(t *testing.T) {
 		t.Fatalf("Failed at api.Cache: %v", err)
 	}
 }
+
 
 // TestCachePipe tests that the regular Cache command works and pipes the file
 func TestCachePipe(t *testing.T) {
@@ -1139,6 +1139,7 @@ func TestCacheFailsCommandFails(t *testing.T) {
 	}
 
 }
+*/
 
 // TestForceReconnect tests that a Restart command works
 func TestForceReconnect(t *testing.T) {
