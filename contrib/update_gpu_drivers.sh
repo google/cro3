@@ -53,10 +53,7 @@ PARAMS_arc_mali_drivers_valhall=(
 )
 
 PARAMS_mali_drivers=(
-  "daisy daisy overlay-daisy"
   "kevin gru baseboard-gru"
-  "peach_pit peach overlay-peach"
-  "veyron_jerry veyron overlay-veyron"
 )
 
 PARAMS_mali_drivers_bifrost=(
