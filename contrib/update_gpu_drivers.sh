@@ -216,7 +216,7 @@ build_board() {
     die "Couldn't create work directory."
   fi
 
-  tar -C work -xpjvf "${inputtarball}"
+  qtbz2 -tO "${inputtarball}" | tar -C work --zstd -xpv
   if [[ $? != 0 ]]; then
     die "Couldn't decompress package tarball ${inputtarball}."
   fi
