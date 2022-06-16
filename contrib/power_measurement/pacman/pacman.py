@@ -13,6 +13,7 @@ import os
 import pathlib
 from sys import modules
 from sys import stderr
+import urllib
 
 import pac_utils
 import pacboard
@@ -207,6 +208,14 @@ def main():
             f.write(star_plot.to_html(full_html=False, include_plotlyjs='cdn'))
         f.write(box_plot.to_html(full_html=False, include_plotlyjs='cdn'))
         f.write(time_plot.to_html(full_html=False, include_plotlyjs='cdn'))
+
+        # Use PWD if available to avoid de-referencing symlinks otherwise use CWD
+        full_path = os.path.join(os.getenv('PWD') or os.getcwd(), report_log_path)
+        full_path = os.path.normpath(full_path)
+
+        print(
+            f"Report: file://{urllib.parse.quote(full_path)}"
+        )
 
 
 if __name__ == '__main__':
