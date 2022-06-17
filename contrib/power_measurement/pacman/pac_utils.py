@@ -502,14 +502,25 @@ def record(config,
                     time.sleep(.001)
                     continue
 
-    time_log = pandas.DataFrame(log)
-    time_log['power'] = time_log['power']
+    # We need a newline since the Loading message doesn't print one.
+    print()
+
     pandas.options.display.float_format = '{:,.3f}'.format
+
+    time_log = pandas.DataFrame(log)
+
     stats = time_log.groupby('rail').power.describe()
+    stats = stats.sort_values(by='mean', ascending=False)
+    stats = stats.astype({'count': int})
+
+    print('Accumulator Power Statistics by Rail (W)')
+    print(stats)
+    print()
 
     accumulatorLog = pandas.DataFrame(accumulators.values())
     print('Accumulator Power Measurements by Rail (W)')
     print(accumulatorLog.sort_values(by='Average Power (w)', ascending=False))
+    print()
 
     return (time_log, accumulatorLog)
 
