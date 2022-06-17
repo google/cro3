@@ -209,8 +209,11 @@ def _format_commit_message(git, report, message, conflicted):
         elif l.startswith(forklift_sig):
             found['forklift'] = i + 1
 
+    # If found[change-id] is not the max of all other indices, this Change-id
+    # likely is from the upstream commit, so let's generate a new Change-id.
+    max_index = max([v for v in found.values() if v])
     change_id = ''
-    if found['change-id']:
+    if found['change-id'] and (found['change-id'] == max_index):
         change_id = msg.pop(found['change-id'])
     else:
         ret, cid = git.generate_change_id()
