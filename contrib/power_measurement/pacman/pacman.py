@@ -7,12 +7,10 @@
 """Main file for pacman utility"""
 
 from argparse import ArgumentParser
-from argparse import FileType
 import datetime
 import os
 import pathlib
 from sys import modules
-from sys import stderr
 import urllib
 
 import pac_utils
@@ -209,17 +207,16 @@ def main():
         f.write(box_plot.to_html(full_html=False, include_plotlyjs='cdn'))
         f.write(time_plot.to_html(full_html=False, include_plotlyjs='cdn'))
 
-        # Use PWD if available to avoid de-referencing symlinks otherwise use CWD
-        full_path = os.path.join(os.getenv('PWD') or os.getcwd(), report_log_path)
+        # Use PWD if available to avoid de-referencing symlinks otherwise use
+        # CWD
+        full_path = os.path.join(
+            os.getenv('PWD') or os.getcwd(), report_log_path)
         full_path = os.path.normpath(full_path)
 
-        print(
-            f"Report: file://{urllib.parse.quote(full_path)}"
-        )
+        print(f'Report: file://{urllib.parse.quote(full_path)}')
+
+    return True
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except Exception as exception:
-        print(str(exception), file=stderr)
+    main()
