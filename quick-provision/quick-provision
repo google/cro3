@@ -188,7 +188,7 @@ stateful_update() {
   post_status "DUT: Stateful update"
   get_url_to_stdout "${url}" |
     tar --ignore-command-error --overwrite --directory="${STATEFUL_DIR}" \
-      --warning=no-timestamp -xzf -
+      --warning=no-timestamp --selinux -xzf -
   local pipestatus=("${PIPESTATUS[@]}")
   if [[ "${pipestatus[0]}" -ne "0" ]]; then
     die "Retrieving ${url} failed. (statuses ${pipestatus[*]})"
