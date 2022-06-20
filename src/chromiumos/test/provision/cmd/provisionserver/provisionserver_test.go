@@ -87,7 +87,7 @@ func TestCrosInstallStateTransitions(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/.update_available", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new"})).Return("", nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(nil),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition --selinux -xzf -")).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("echo"), []string{"-n", "clobber", ">", "/mnt/stateful_partition/.update_available"}).Return("", nil),
 		sam.EXPECT().Restart(gomock.Any()).Return(nil),
 	)
@@ -282,7 +282,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/.update_available", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new"})).Return("", nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(nil),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition --selinux -xzf -")).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("echo"), []string{"-n", "clobber", ">", "/mnt/stateful_partition/.update_available"}).Return("", nil),
 		sam.EXPECT().Restart(gomock.Any()).Return(nil),
 	)
@@ -321,7 +321,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		// Simulated error:
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/.update_available", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new"})).Return("", nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(errors.New("some copy error")),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition --selinux -xzf -")).Return(errors.New("some copy error")),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new", "/mnt/stateful_partition/.update_available"})).Return("", nil),
 	)
 
@@ -434,7 +434,7 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"ui"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("stop"), gomock.Eq([]string{"update-engine"})).Return("", nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("rm"), gomock.Eq([]string{"-rf", "/mnt/stateful_partition/.update_available", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new"})).Return("", nil),
-		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition -xzf -")).Return(nil),
+		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("gs://path/to/image/stateful.tgz"), gomock.Eq("tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition --selinux -xzf -")).Return(nil),
 		sam.EXPECT().RunCmd(gomock.Any(), gomock.Eq("echo"), []string{"-n", "clobber", ">", "/mnt/stateful_partition/.update_available"}).Return("", nil),
 		sam.EXPECT().PipeData(gomock.Any(), gomock.Eq("path/to/image/overwite.tar"), gomock.Eq("tar xf - -C /")).Return(nil),
 		sam.EXPECT().Restart(gomock.Any()).Return(nil),

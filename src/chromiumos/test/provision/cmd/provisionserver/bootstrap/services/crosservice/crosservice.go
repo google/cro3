@@ -293,7 +293,7 @@ func (c *CrOSService) InstallStateful(ctx context.Context) error {
 
 	if err := c.connection.PipeData(ctx,
 		bucketJoin(c.imagePath.GetPath(), "stateful.tgz"),
-		fmt.Sprintf("tar --ignore-command-error --overwrite --directory=%s -xzf -", info.StatefulPath)); err != nil {
+		fmt.Sprintf("tar --ignore-command-error --overwrite --directory=%s --selinux -xzf -", info.StatefulPath)); err != nil {
 		return err
 	}
 
