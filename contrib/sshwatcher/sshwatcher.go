@@ -101,6 +101,9 @@ func main() {
 	hostArgs := os.Args[1:]
 	params := []hostPortPair{}
 
+	if len(hostArgs) == 0 {
+		log.Fatal("Please specify host and port pairs, the number of pairs should not be zero.")
+	}
 	if len(hostArgs)%2 != 0 {
 		log.Fatal("Please specify host and port pairs, the number of arguments (%v) should be even.",
 			len(hostArgs))
