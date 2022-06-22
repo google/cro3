@@ -11,3 +11,7 @@ static/rootfs-test.gz
 static/state.gz
 .idea
 .vscode
+*.iml
+/pkg
+/contrib/labtunnel/go/bin
+/contrib/labtunnel/go/pkg
