@@ -19,7 +19,7 @@ import (
 )
 
 // Generate evals the Starlark files in planFilenames to produce a list of
-// HWTestPlans.
+// HWTestPlans and VMTestPlans.
 //
 // planFilenames must be non-empty. buildMetadataList, dutAttributeList, and
 // configBundleList must be non-nil.
@@ -29,36 +29,38 @@ func Generate(
 	buildMetadataList *buildpb.SystemImage_BuildMetadataList,
 	dutAttributeList *testpb.DutAttributeList,
 	configBundleList *payload.ConfigBundleList,
-) ([]*test_api_v1.HWTestPlan, error) {
+) ([]*test_api_v1.HWTestPlan, []*test_api_v1.VMTestPlan, error) {
 	if len(planFilenames) == 0 {
-		return nil, errors.New("planFilenames must be non-empty")
+		return nil, nil, errors.New("planFilenames must be non-empty")
 	}
 
 	if buildMetadataList == nil {
-		return nil, errors.New("buildMetadataList must be non-nil")
+		return nil, nil, errors.New("buildMetadataList must be non-nil")
 	}
 
 	if dutAttributeList == nil {
-		return nil, errors.New("dutAttributeList must be non-nil")
+		return nil, nil, errors.New("dutAttributeList must be non-nil")
 	}
 
 	if configBundleList == nil {
-		return nil, errors.New("configBundleList must be non-nil")
+		return nil, nil, errors.New("configBundleList must be non-nil")
 	}
 
-	var allTestPlans []*test_api_v1.HWTestPlan
+	var allHwTestPlans []*test_api_v1.HWTestPlan
+	var allVmTestPlans []*test_api_v1.VMTestPlan
 	for _, planFilename := range planFilenames {
-		testPlans, err := starlark.ExecTestPlan(ctx, planFilename, buildMetadataList, configBundleList)
+		hwTestPlans, vmTestPlans, err := starlark.ExecTestPlan(ctx, planFilename, buildMetadataList, configBundleList)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		if len(testPlans) == 0 {
+		if len(hwTestPlans) == 0 && len(vmTestPlans) == 0 {
 			glog.Warningf("starlark file %q returned no TestPlans", planFilename)
 		}
 
-		allTestPlans = append(allTestPlans, testPlans...)
+		allHwTestPlans = append(allHwTestPlans, hwTestPlans...)
+		allVmTestPlans = append(allVmTestPlans, vmTestPlans...)
 	}
 
-	return allTestPlans, nil
+	return allHwTestPlans, allVmTestPlans, nil
 }

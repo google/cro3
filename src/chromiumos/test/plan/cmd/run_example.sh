@@ -43,36 +43,7 @@ script_dir="$(dirname "$(realpath -e "${BASH_SOURCE[0]}")")"
 
 cd "${script_dir}"
 
-config_internal_dir="$(realpath -e ../../../../../../../config-internal)"
-config_dir="$(realpath -e ../../../../../../../config)"
-
-dut_attributes="${config_dir}/generated/dut_attributes.jsonproto"
-build_metadata="${config_internal_dir}/build/generated/build_metadata.jsonproto"
-flat_config_list="${config_internal_dir}/hw_design/generated/flattened.binaryproto"
-
-if [[ ! -f ${dut_attributes} ]]; then
-    echo "Expected to find DutAttributesList at ${dut_attributes}"
-    exit 1
-else
-    echo "Using DutAttributeList at ${dut_attributes}"
-fi
-
-if [[ ! -f ${build_metadata} ]]; then
-    echo "Expected to find BuildMetadataList at ${build_metadata}"
-    exit 1
-else
-    echo "Using BuildMetadataList at ${build_metadata}"
-fi
-
-
-if [[ ! -f ${flat_config_list} ]]; then
-    echo "Expected to find FlatConfigList at ${flat_config_list}"
-    exit 1
-else
-    echo "Using FlatConfigList at ${flat_config_list}"
-fi
-
-
+crosSrcRoot="$(realpath -e ../../../../../../../..)"
 outDir=$(mktemp -d)
 out=${outDir}/coverage_rules.jsonproto
 textSummaryOut=${outDir}/coverage_rules_summary.txt
@@ -83,9 +54,7 @@ set -x
 
 go run testplan.go generate \
   -plan "${script_dir}/example_plan.star" \
-  -dutattributes "${dut_attributes}" \
-  -buildmetadata "${build_metadata}" \
-  -flatconfiglist "${flat_config_list}" \
+  -crossrcroot "${crosSrcRoot}" \
   -out "${out}" \
   -textsummaryout "${textSummaryOut}" \
   "$@"

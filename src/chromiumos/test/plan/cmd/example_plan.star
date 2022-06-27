@@ -5,9 +5,9 @@ load("@proto//chromiumos/test/api/test_case.proto", test_case_pb = "chromiumos.t
 load("@proto//chromiumos/test/api/test_suite.proto", test_suite_pb = "chromiumos.test.api")
 
 build_metadata = testplan.get_build_metadata()
-flat_configs = testplan.get_flat_config_list()
+config_bundle_list = testplan.get_config_bundle_list()
 print("Got {} BuildMetadatas".format(len(build_metadata.values)))
-print("Got {} FlatConfigs".format(len(flat_configs.values)))
+print("Got {} ConfigBundles".format(len(config_bundle_list.values)))
 
 def add_test_plans():
     for bm in build_metadata.values:

@@ -424,11 +424,15 @@ func (r *generateRun) run() error {
 
 	glog.Infof("Read %d ConfigBundles from %s", len(configBundleList.Values), r.configBundleListPath)
 
-	hwTestPlans, err := testplan.Generate(
+	hwTestPlans, vmTestPlans, err := testplan.Generate(
 		ctx, r.planPaths, buildMetadataList, dutAttributeList, configBundleList,
 	)
 	if err != nil {
 		return err
+	}
+
+	if len(vmTestPlans) > 0 {
+		return fmt.Errorf("VMTestPlans not yet supported")
 	}
 
 	if r.ctpV1 {

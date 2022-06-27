@@ -98,19 +98,26 @@ build_metadata = testplan.get_build_metadata()
 config_bundles = testplan.get_config_bundle_list()
 print('Got {} BuildMetadatas'.format(len(build_metadata.values)))
 print('Got {} ConfigBundles'.format(len(config_bundles.values)))
-coverage_rule = coverage_rule_pb.CoverageRule(name='ruleA')
+coverage_rule_a = coverage_rule_pb.CoverageRule(name='ruleA')
+coverage_rule_b = coverage_rule_pb.CoverageRule(name='ruleB')
 testplan.add_hw_test_plan(
 	plan_pb.HWTestPlan(
 		id=plan_pb.HWTestPlan.TestPlanId(value='plan1'),
-		coverage_rules=[coverage_rule],
+		coverage_rules=[coverage_rule_a],
 	),
+)
+testplan.add_vm_test_plan(
+	plan_pb.VMTestPlan(
+		id=plan_pb.VMTestPlan.TestPlanId(value='vm_plan2'),
+		coverage_rules=[coverage_rule_b],
+	)
 )
 `
 	planFilename := writeTempStarlarkFile(
 		t, starlarkSource,
 	)
 
-	testPlans, err := starlark.ExecTestPlan(
+	hwTestPlans, vmTestPlans, err := starlark.ExecTestPlan(
 		ctx,
 		planFilename,
 		buildMetadataList,
@@ -121,7 +128,7 @@ testplan.add_hw_test_plan(
 		t.Fatalf("ExecTestPlan failed: %s", err)
 	}
 
-	expectedTestPlans := []*test_api_v1.HWTestPlan{
+	expectedHwTestPlans := []*test_api_v1.HWTestPlan{
 		{
 			Id: &test_api_v1.HWTestPlan_TestPlanId{Value: "plan1"},
 			CoverageRules: []*test_api.CoverageRule{
@@ -132,12 +139,33 @@ testplan.add_hw_test_plan(
 		},
 	}
 
-	if len(expectedTestPlans) != len(testPlans) {
-		t.Errorf("expected %d test plans, got %d", len(expectedTestPlans), len(testPlans))
+	expectedVmTestPlans := []*test_api_v1.VMTestPlan{
+		{
+			Id: &test_api_v1.VMTestPlan_TestPlanId{Value: "vm_plan2"},
+			CoverageRules: []*test_api.CoverageRule{
+				{
+					Name: "ruleB",
+				},
+			},
+		},
 	}
 
-	for i, expected := range expectedTestPlans {
-		if diff := cmp.Diff(expected, testPlans[i], protocmp.Transform()); diff != "" {
+	if len(expectedHwTestPlans) != len(hwTestPlans) {
+		t.Errorf("expected %d test plans, got %d", len(expectedHwTestPlans), len(hwTestPlans))
+	}
+
+	for i, expected := range expectedHwTestPlans {
+		if diff := cmp.Diff(expected, hwTestPlans[i], protocmp.Transform()); diff != "" {
+			t.Errorf("returned unexpected diff in test plan %d (-want +got):\n%s", i, diff)
+		}
+	}
+
+	if len(expectedVmTestPlans) != len(vmTestPlans) {
+		t.Errorf("expected %d test plans, got %d", len(expectedVmTestPlans), len(vmTestPlans))
+	}
+
+	for i, expected := range expectedVmTestPlans {
+		if diff := cmp.Diff(expected, vmTestPlans[i], protocmp.Transform()); diff != "" {
 			t.Errorf("returned unexpected diff in test plan %d (-want +got):\n%s", i, diff)
 		}
 	}
@@ -162,14 +190,24 @@ func TestExecTestPlanErrors(t *testing.T) {
 			err:            "get_config_bundle_list: unexpected keyword argument \"somearg\"",
 		},
 		{
-			name:           "invalid named args ctor",
+			name:           "invalid named args ctor HW",
 			starlarkSource: "testplan.add_hw_test_plan(somearg='abc')",
 			err:            "add_hw_test_plan: unexpected keyword argument \"somearg\"",
 		},
 		{
-			name:           "invalid type ctor",
+			name:           "invalid named args ctor VM",
+			starlarkSource: "testplan.add_vm_test_plan(somearg='abc')",
+			err:            "add_vm_test_plan: unexpected keyword argument \"somearg\"",
+		},
+		{
+			name:           "invalid type ctor HW",
 			starlarkSource: "testplan.add_hw_test_plan(hw_test_plan='abc')",
-			err:            "arg to add_hw_test_plan must be a HWTestPlan, got \"\\\"abc\\\"\"",
+			err:            "add_hw_test_plan: arg must be a chromiumos.test.api.v1.HWTestPlan, got \"\\\"abc\\\"\"",
+		},
+		{
+			name:           "invalid type ctor VM",
+			starlarkSource: "testplan.add_vm_test_plan(vm_test_plan='abc')",
+			err:            "add_vm_test_plan: arg must be a chromiumos.test.api.v1.VMTestPlan, got \"\\\"abc\\\"\"",
 		},
 		{
 			name: "invalid proto ctor",
@@ -177,7 +215,7 @@ func TestExecTestPlanErrors(t *testing.T) {
 load("@proto//chromiumos/test/api/v1/plan.proto", plan_pb = "chromiumos.test.api.v1")
 testplan.add_hw_test_plan(hw_test_plan=plan_pb.HWTestPlan.TestPlanId(value='abc'))
 			`,
-			err: "arg to add_hw_test_plan must be a HWTestPlan, got \"value:\\\"abc\\\"",
+			err: "add_hw_test_plan: arg must be a chromiumos.test.api.v1.HWTestPlan, got \"value:\\\"abc\\\"\"",
 		},
 	}
 
@@ -187,7 +225,7 @@ testplan.add_hw_test_plan(hw_test_plan=plan_pb.HWTestPlan.TestPlanId(value='abc'
 				t, tc.starlarkSource,
 			)
 
-			_, err := starlark.ExecTestPlan(
+			_, _, err := starlark.ExecTestPlan(
 				ctx, planFilename, buildMetadataList, configBundleList,
 			)
 

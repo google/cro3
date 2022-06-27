@@ -149,29 +149,62 @@ print('Got {} ConfigBundles'.format(len(config_bundles.values)))
 testplan.add_hw_test_plan(
 	plan_pb.HWTestPlan(id=plan_pb.HWTestPlan.TestPlanId(value='plan1'))
 )
+testplan.add_vm_test_plan(
+	plan_pb.VMTestPlan(id=plan_pb.VMTestPlan.TestPlanId(value='plan2'))
+)
+	`
+
+	noPlansStarlarkSource := `
+load("@proto//chromiumos/test/api/v1/plan.proto", plan_pb = "chromiumos.test.api.v1")
+
+def pointless_fn():
+	if 1 == 2:
+		testplan.add_hw_test_plan(
+			plan_pb.HWTestPlan(id=plan_pb.HWTestPlan.TestPlanId(value='plan1'))
+		)
+
+pointless_fn()
 	`
 
 	planFilename := writeTempStarlarkFile(
 		t, starlarkSource,
 	)
 
-	testPlans, err := testplan.Generate(
-		ctx, []string{planFilename}, buildMetadataList, dutAttributeList, configBundleList,
+	noPlanFilename := writeTempStarlarkFile(
+		t, noPlansStarlarkSource,
+	)
+
+	hwTestPlans, vmTestPlans, err := testplan.Generate(
+		ctx, []string{planFilename, noPlanFilename}, buildMetadataList, dutAttributeList, configBundleList,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expectedTestPlans := []*test_api_v1.HWTestPlan{
+	expectedHwTestPlans := []*test_api_v1.HWTestPlan{
 		{Id: &test_api_v1.HWTestPlan_TestPlanId{Value: "plan1"}},
 	}
 
-	if len(expectedTestPlans) != len(testPlans) {
-		t.Errorf("expected %d test plans, got %d", len(expectedTestPlans), len(testPlans))
+	expectedVmTestPlans := []*test_api_v1.VMTestPlan{
+		{Id: &test_api_v1.VMTestPlan_TestPlanId{Value: "plan2"}},
 	}
 
-	for i, expected := range expectedTestPlans {
-		if diff := cmp.Diff(expected, testPlans[i], protocmp.Transform()); diff != "" {
+	if len(expectedHwTestPlans) != len(hwTestPlans) {
+		t.Errorf("expected %d test plans, got %d", len(expectedHwTestPlans), len(hwTestPlans))
+	}
+
+	for i, expected := range expectedHwTestPlans {
+		if diff := cmp.Diff(expected, hwTestPlans[i], protocmp.Transform()); diff != "" {
+			t.Errorf("returned unexpected diff in test plan %d (-want +got):\n%s", i, diff)
+		}
+	}
+
+	if len(expectedVmTestPlans) != len(vmTestPlans) {
+		t.Errorf("expected %d test plans, got %d", len(expectedVmTestPlans), len(vmTestPlans))
+	}
+
+	for i, expected := range expectedVmTestPlans {
+		if diff := cmp.Diff(expected, vmTestPlans[i], protocmp.Transform()); diff != "" {
 			t.Errorf("returned unexpected diff in test plan %d (-want +got):\n%s", i, diff)
 		}
 	}
@@ -179,6 +212,9 @@ testplan.add_hw_test_plan(
 
 func TestGenerateErrors(t *testing.T) {
 	ctx := context.Background()
+
+	badStarlarkFile := "testplan.invalidcall()"
+	badPlanFilename := writeTempStarlarkFile(t, badStarlarkFile)
 
 	tests := []struct {
 		name              string
@@ -215,11 +251,18 @@ func TestGenerateErrors(t *testing.T) {
 			dutAttributeList:  dutAttributeList,
 			configBundleList:  nil,
 		},
+		{
+			name:              "bad Starlark file",
+			planFilenames:     []string{badPlanFilename},
+			buildMetadataList: buildMetadataList,
+			dutAttributeList:  dutAttributeList,
+			configBundleList:  configBundleList,
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := testplan.Generate(
+			if _, _, err := testplan.Generate(
 				ctx, test.planFilenames, test.buildMetadataList, test.dutAttributeList, test.configBundleList,
 			); err == nil {
 				t.Error("Expected error from Generate")
