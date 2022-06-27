@@ -12,6 +12,7 @@ import os
 import pathlib
 import shutil
 import sys
+import time
 import traceback
 from typing import Any, Dict
 
@@ -21,6 +22,7 @@ sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve()/'../../../'))
 
 # pylint: disable=import-error,wrong-import-position
 from src.common.exceptions import ConfigError
+from src.docker_libs.build_libs.builders import DockerBuilder
 from src.docker_libs.build_libs.builders import GcloudDockerBuilder
 from src.docker_libs.build_libs.builders import LocalDockerBuilder
 from src.docker_libs.build_libs.cros_callbox.cros_callbox_prep import (
@@ -59,6 +61,11 @@ REGISTERED_BUILDS = {
         'prepper': CommonServiceDockerPrepper, 'cloud': False},
 }
 
+# There is a ~1 in 10000 err with the fetching of the base container
+# adding a retry/wait for this case.
+# TODO: b/237016355, mitigate this properly with a self-owned base container.
+BUILD_RETRIES = 1
+RETRIES_WAIT = 10
 # callbox currently fails building and was disabled per b/
 # cros-servod does not have a ebuild yet, thus is not ready for building.
 DO_NOT_BUILD = set(['cros-servod'])
@@ -114,6 +121,14 @@ def parse_local_arguments() -> argparse.Namespace:
                       dest='build_all',
                       action='store_true',
                       help='Build all images.')
+  parser.add_argument('--build_retries',
+                      dest='build_retries',
+                      default=BUILD_RETRIES,
+                      help='How many retries per container to build.')
+  parser.add_argument('--retry_wait',
+                      dest='retry_wait',
+                      default=RETRIES_WAIT,
+                      help='How long to wait between retries.')
   args = parser.parse_intermixed_args()
   return args
 
@@ -172,7 +187,7 @@ def build_image(
         registry_name=args.host,
         cloud_project=args.project,
         labels=prepper.labels)
-    b.build()
+    build_container(b, args)
 
     # Upload if requested, or an output file is given.
     if args.upload or args.output:
@@ -186,6 +201,22 @@ def build_image(
   finally:
     shutil.rmtree(prepper.full_out_dir)
   return err
+
+
+def build_container(b: DockerBuilder, args: argparse.Namespace):
+  """Call the Build command, and optionally wrap it in retries."""
+  retries = args.build_retries
+  while retries >= 0:
+    try:
+      b.build()
+      return
+    except Exception as e:
+      if retries <= 0:
+        raise e
+      else:
+        print(f'Build failed, will retry in {args.retry_wait} seconds:\n{e}')
+        time.sleep(args.retry_wait)
+    retries -= 1
 
 
 def build_all_images(args: argparse.Namespace):
