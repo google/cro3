@@ -52,7 +52,7 @@ func TestNewGtestDriver(t *testing.T) {
 	}
 }
 
-//TestGtestName ensures the proper name is associated with the driver
+// TestGtestName ensures the proper name is associated with the driver
 func TestGtestName(t *testing.T) {
 	const expectedName string = "gtest"
 

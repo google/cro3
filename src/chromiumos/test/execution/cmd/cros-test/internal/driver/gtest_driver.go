@@ -42,12 +42,13 @@ func (td *GtestDriver) Name() string {
 
 // gtestFailure represents gtest failure information
 // ...
-// 	"failures": [
-// 			  {
-// 				"failure": "temp.cc:16\nExpected equality of these values:\n  0\n  1",
-// 				"type": ""
-// 			  }
-//  ]
+//
+//		"failures": [
+//				  {
+//					"failure": "temp.cc:16\nExpected equality of these values:\n  0\n  1",
+//					"type": ""
+//				  }
+//	 ]
 type gtestFailure struct {
 	Failure string
 	Type    string
@@ -55,6 +56,7 @@ type gtestFailure struct {
 
 // gtestCase represents a test case execution
 // ...
+//
 //	  {
 //		"name": "Negative",
 //		"status": "RUN",
@@ -81,39 +83,40 @@ type gtestCase struct {
 
 // gtestSuite represents a gtest suite
 // ...
-// 	  {
-// 		"name": "StubTest",
-// 		"tests": 2,
-// 		"failures": 1,
-// 		"disabled": 0,
-// 		"errors": 0,
-// 		"timestamp": "2021-11-24T15:23:23Z",
-// 		"time": "0s",
-// 		"testsuite": [
-// 		  {
-// 			"name": "Positive",
-// 			"status": "RUN",
-// 			"result": "COMPLETED",
-// 			"timestamp": "2021-11-24T15:23:23Z",
-// 			"time": "0s",
-// 			"classname": "StubTest"
-// 		  },
-// 		  {
-// 			"name": "Negative",
-// 			"status": "RUN",
-// 			"result": "COMPLETED",
-// 			"timestamp": "2021-11-24T15:23:23Z",
-// 			"time": "0s",
-// 			"classname": "StubTest",
-// 			"failures": [
-// 			  {
-// 				"failure": "temp.cc:16\nExpected equality of these values:\n  0\n  1",
-// 				"type": ""
-// 			  }
-// 			]
-// 		  }
-// 		]
-// 	  }
+//
+//	  {
+//		"name": "StubTest",
+//		"tests": 2,
+//		"failures": 1,
+//		"disabled": 0,
+//		"errors": 0,
+//		"timestamp": "2021-11-24T15:23:23Z",
+//		"time": "0s",
+//		"testsuite": [
+//		  {
+//			"name": "Positive",
+//			"status": "RUN",
+//			"result": "COMPLETED",
+//			"timestamp": "2021-11-24T15:23:23Z",
+//			"time": "0s",
+//			"classname": "StubTest"
+//		  },
+//		  {
+//			"name": "Negative",
+//			"status": "RUN",
+//			"result": "COMPLETED",
+//			"timestamp": "2021-11-24T15:23:23Z",
+//			"time": "0s",
+//			"classname": "StubTest",
+//			"failures": [
+//			  {
+//				"failure": "temp.cc:16\nExpected equality of these values:\n  0\n  1",
+//				"type": ""
+//			  }
+//			]
+//		  }
+//		]
+//	  }
 type gtestSuite struct {
 	Name      string
 	Tests     int
@@ -127,48 +130,50 @@ type gtestSuite struct {
 // gtestResult represents the entire gtest execution
 // ...
 // {
-// 	"tests": 2,
-// 	"failures": 1,
-// 	"disabled": 0,
-// 	"errors": 0,
-// 	"timestamp": "2021-11-24T15:23:23Z",
-// 	"time": "0s",
-// 	"name": "AllTests",
-// 	"testsuites": [
-// 	  {
-// 		"name": "StubTest",
-// 		"tests": 2,
-// 		"failures": 1,
-// 		"disabled": 0,
-// 		"errors": 0,
-// 		"timestamp": "2021-11-24T15:23:23Z",
-// 		"time": "0s",
-// 		"testsuite": [
-// 		  {
-// 			"name": "Positive",
-// 			"status": "RUN",
-// 			"result": "COMPLETED",
-// 			"timestamp": "2021-11-24T15:23:23Z",
-// 			"time": "0s",
-// 			"classname": "StubTest"
-// 		  },
-// 		  {
-// 			"name": "Negative",
-// 			"status": "RUN",
-// 			"result": "COMPLETED",
-// 			"timestamp": "2021-11-24T15:23:23Z",
-// 			"time": "0s",
-// 			"classname": "StubTest",
-// 			"failures": [
-// 			  {
-// 				"failure": "temp.cc:16\nExpected equality of these values:\n  0\n  1",
-// 				"type": ""
-// 			  }
-// 			]
-// 		  }
-// 		]
-// 	  }
-// 	]
+//
+//	"tests": 2,
+//	"failures": 1,
+//	"disabled": 0,
+//	"errors": 0,
+//	"timestamp": "2021-11-24T15:23:23Z",
+//	"time": "0s",
+//	"name": "AllTests",
+//	"testsuites": [
+//	  {
+//		"name": "StubTest",
+//		"tests": 2,
+//		"failures": 1,
+//		"disabled": 0,
+//		"errors": 0,
+//		"timestamp": "2021-11-24T15:23:23Z",
+//		"time": "0s",
+//		"testsuite": [
+//		  {
+//			"name": "Positive",
+//			"status": "RUN",
+//			"result": "COMPLETED",
+//			"timestamp": "2021-11-24T15:23:23Z",
+//			"time": "0s",
+//			"classname": "StubTest"
+//		  },
+//		  {
+//			"name": "Negative",
+//			"status": "RUN",
+//			"result": "COMPLETED",
+//			"timestamp": "2021-11-24T15:23:23Z",
+//			"time": "0s",
+//			"classname": "StubTest",
+//			"failures": [
+//			  {
+//				"failure": "temp.cc:16\nExpected equality of these values:\n  0\n  1",
+//				"type": ""
+//			  }
+//			]
+//		  }
+//		]
+//	  }
+//	]
+//
 // }
 type gtestResult struct {
 	Tests      int
