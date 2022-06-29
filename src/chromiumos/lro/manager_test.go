@@ -26,7 +26,7 @@ func (s *exampleServer) Serve(l net.Listener) error {
 	return server.Serve(l)
 }
 
-func (s *exampleServer) RunTests(ctx context.Context, req *api.RunTestsRequest) (*longrunning.Operation, error) {
+func (s *exampleServer) RunTests(ctx context.Context, req *api.CrosTestRequest) (*longrunning.Operation, error) {
 	op := s.Manager.NewOperation()
 	go s.RunTests(ctx, req)
 	return op, nil
