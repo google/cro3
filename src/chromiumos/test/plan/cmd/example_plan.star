@@ -50,5 +50,40 @@ def add_test_plans():
                 ],
             ),
         )
+        testplan.add_vm_test_plan(
+            plan_pb.VMTestPlan(
+                id = plan_pb.VMTestPlan.TestPlanId(value = overlay_name),
+                coverage_rules = [
+                    coverage_rule_pb.CoverageRule(
+                        test_suites = [
+                            test_suite_pb.TestSuite(
+                                test_case_tag_criteria = test_suite_pb.TestSuite.TestCaseTagCriteria(
+                                    tags = ["includedTagA"],
+                                    tag_excludes = ["informational"],
+                                ),
+                            ),
+                        ],
+                        dut_targets = [
+                            dut_attribute_pb.DutTarget(
+                                criteria = [
+                                    dut_attribute_pb.DutCriterion(
+                                        attribute_id = dut_attribute_pb.DutAttribute.Id(
+                                            value = "attr-program",
+                                        ),
+                                        values = [overlay_name],
+                                    ),
+                                    dut_attribute_pb.DutCriterion(
+                                        attribute_id = dut_attribute_pb.DutAttribute.Id(
+                                            value = "swarming-pool",
+                                        ),
+                                        values = ["VM_TESTPOOL"],
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
 
 add_test_plans()

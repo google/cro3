@@ -26,7 +26,7 @@ import (
 // string -> interface. For example:
 //
 // newStruct(t, map[string]interface{}{
-//   "a": 1, "b": []interface{}{"c", "d"}
+// "a": 1, "b": []interface{}{"c", "d"}
 // })
 //
 // Any errors will be passed to t.Fatal. See structpb.NewValue for more info
@@ -81,6 +81,53 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 									Value: "swarming-pool",
 								},
 								Values: []string{"DUT_POOL_QUOTA"},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var vmTestPlans = []*test_api_v1.VMTestPlan{
+	{
+		CoverageRules: []*testpb.CoverageRule{
+			{
+				Name: "vmrule",
+				TestSuites: []*testpb.TestSuite{
+					{
+						Name: "vmsuite1",
+						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags:        []string{"\"group:mainline\"", "\"dep:depA\""},
+								TagExcludes: []string{"informational"},
+							},
+						},
+					},
+					{
+						Name: "vmsuite2",
+						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags: []string{"\"group:mainline\"", "informational"},
+							},
+						},
+					},
+				},
+				DutTargets: []*testpb.DutTarget{
+					{
+						Criteria: []*testpb.DutCriterion{
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "attr-design",
+								},
+								Values: []string{"vmboardA", "vmboardB"},
+							},
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "swarming-pool",
+								},
+								Values: []string{"VM_POOL"},
 							},
 						},
 					},
@@ -232,6 +279,31 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 		},
 	}
 
+	vmBuild := &bbpb.Build{
+		Builder: &bbpb.BuilderID{
+			Builder: "cq-vmBuilderA",
+		},
+		Input: &bbpb.Build_Input{
+			Properties: newStruct(t, map[string]interface{}{
+				"build_target": map[string]interface{}{
+					"name": "vmboardA",
+				},
+			}),
+		},
+		Output: &bbpb.Build_Output{
+			Properties: newStruct(t, map[string]interface{}{
+				"artifacts": map[string]interface{}{
+					"gs_bucket": "testgsbucket",
+					"gs_path":   "testgspathA",
+					"files_by_artifact": map[string]interface{}{
+						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+					},
+				},
+			}),
+		},
+		Critical: bbpb.Trinary_YES,
+	}
+
 	return []*testplans.ProtoBytes{
 		serializeOrFatal(t, build1),
 		serializeOrFatal(t, build2),
@@ -239,6 +311,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 		serializeOrFatal(t, build4),
 		serializeOrFatal(t, build5),
 		serializeOrFatal(t, build6),
+		serializeOrFatal(t, vmBuild),
 	}
 }
 
@@ -276,7 +349,7 @@ func TestToCTP1(t *testing.T) {
 
 	resp, err := compatibility.ToCTP1(
 		rand.New(rand.NewSource(7)),
-		hwTestPlans, req, dutAttributeList, boardPriorityList,
+		hwTestPlans, vmTestPlans, req, dutAttributeList, boardPriorityList,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -317,6 +390,43 @@ func TestToCTP1(t *testing.T) {
 							Suite:       "suite2",
 							SkylabBoard: "boardA",
 							Pool:        "DUT_POOL_QUOTA",
+						},
+					},
+				},
+			},
+		},
+		DirectTastVmTestUnits: []*testplans.TastVmTestUnit{
+			{
+				Common: &testplans.TestUnitCommon{
+					BuildTarget: &chromiumos.BuildTarget{
+						Name: "vmboardA",
+					},
+					BuilderName: "cq-vmBuilderA",
+					BuildPayload: &testplans.BuildPayload{
+						ArtifactsGsBucket: "testgsbucket",
+						ArtifactsGsPath:   "testgspathA",
+						FilesByArtifact: newStruct(t, map[string]interface{}{
+							"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						}),
+					},
+				},
+				TastVmTestCfg: &testplans.TastVmTestCfg{
+					TastVmTest: []*testplans.TastVmTestCfg_TastVmTest{
+						{
+							SuiteName: "vmsuite1",
+							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
+								{
+									TestExpr: "\"group:mainline\" && \"dep:depA\" && !informational",
+								},
+							},
+						},
+						{
+							SuiteName: "vmsuite2",
+							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
+								{
+									TestExpr: "\"group:mainline\" && informational",
+								},
+							},
 						},
 					},
 				},
@@ -541,7 +651,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "Only TestCaseIds supported in TestSuites",
+			err:              "TestCaseTagCriteria are only valid for VM tests",
 		},
 		{
 			name: "multiple DUT targets",
@@ -601,7 +711,7 @@ func TestToCTP1Errors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := compatibility.ToCTP1(
 				rand.New(rand.NewSource(7)),
-				tc.hwTestPlans, req, tc.dutAttributeList, boardPriorityList,
+				tc.hwTestPlans, vmTestPlans, req, tc.dutAttributeList, boardPriorityList,
 			)
 			if err == nil {
 				t.Error("Expected error from ToCTP1")

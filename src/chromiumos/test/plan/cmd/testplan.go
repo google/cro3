@@ -431,8 +431,8 @@ func (r *generateRun) run() error {
 		return err
 	}
 
-	if len(vmTestPlans) > 0 {
-		return fmt.Errorf("VMTestPlans not yet supported")
+	if !r.ctpV1 && len(vmTestPlans) > 0 {
+		return fmt.Errorf("VMTestPlans are currently only supported in CTP1 compatibility mode")
 	}
 
 	if r.ctpV1 {
@@ -453,7 +453,7 @@ func (r *generateRun) run() error {
 
 		resp, err := compatibility.ToCTP1(
 			rand.New(rand.NewSource(time.Now().Unix())),
-			hwTestPlans, generateTestPlanReq, dutAttributeList, boardPriorityList,
+			hwTestPlans, vmTestPlans, generateTestPlanReq, dutAttributeList, boardPriorityList,
 		)
 		if err != nil {
 			return err
