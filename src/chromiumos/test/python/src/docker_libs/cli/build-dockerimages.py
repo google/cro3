@@ -15,17 +15,29 @@ import sys
 import traceback
 from typing import Any, Dict
 
+
 # Point up a few directories to make the other python modules discoverable.
 sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve()/'../../../'))
 
+# pylint: disable=import-error,wrong-import-position
+from src.common.exceptions import ConfigError
+from src.docker_libs.build_libs.builders import GcloudDockerBuilder
+from src.docker_libs.build_libs.builders import LocalDockerBuilder
+from src.docker_libs.build_libs.cros_callbox.cros_callbox_prep import (
+    CrosCallBoxDockerPrepper,
+)
+from src.docker_libs.build_libs.cros_test.cros_test_prep import (
+    CrosTestDockerPrepper,
+)
+from src.docker_libs.build_libs.cros_test_finder.cros_test_finder_prep import (
+    CrosTestFinderDockerPrepper,
+)
+from src.docker_libs.build_libs.shared.common_service_prep import (
+    CommonServiceDockerPrepper,
+)
 
-from src.common.exceptions import ConfigError  # pylint: disable=import-error,wrong-import-position
-from src.docker_libs.build_libs.builders import GcloudDockerBuilder, LocalDockerBuilder  # pylint: disable=import-error,wrong-import-position
-from src.docker_libs.build_libs.shared.common_service_prep import CommonServiceDockerPrepper  # pylint: disable=import-error,wrong-import-position
-from src.docker_libs.build_libs.cros_test_finder.cros_test_finder_prep import CrosTestFinderDockerPrepper  # pylint: disable=import-error,wrong-import-position
-from src.docker_libs.build_libs.cros_test.cros_test_prep import CrosTestDockerPrepper  # pylint: disable=import-error,wrong-import-position
-from src.docker_libs.build_libs.cros_callbox.cros_callbox_prep import CrosCallBoxDockerPrepper  # pylint: disable=import-error,wrong-import-position
 
+# pylint: enable=import-error,wrong-import-position
 
 # TODO: Maybe a cfg file or something. Goal is to make is
 # extremely simple/easy for a user to come in and add a new dockerfile.
@@ -49,10 +61,10 @@ REGISTERED_BUILDS = {
 
 # callbox currently fails building and was disabled per b/
 # cros-servod does not have a ebuild yet, thus is not ready for building.
-DO_NOT_BUILD = set(['cros-callbox', 'cros-servod'])
+DO_NOT_BUILD = set(['cros-servod'])
 # NOTE: when promoting a service from DO_NOT_BUILD, it should be added to
 # NON_CRITICAL for atleast a short time to verify health.
-NON_CRITICAL = set(['cros-dut', 'cros-provision'])
+NON_CRITICAL = set(['cros-dut', 'cros-provision', 'cros-callbox'])
 
 
 def parse_local_arguments() -> argparse.Namespace:
