@@ -23,8 +23,8 @@ go run sshwatcher.go cheeps 2226 eve 2227 kukui 2228 rammus 2229
 ```
 
 Your ssh config needs to be set up such that interactive password input is not
-always required. For DUTs this means use of testing_rsa key. See
-https://chromium.googlesource.com/chromiumos/docs/+/HEAD/tips-and-tricks.md#how-to-avoid-typing-test0000-or-any-password-on-ssh_ing-to-your-device
+always required. For DUTs this means use of `testing_rsa` key. See
+https://chromium.googlesource.com/chromiumos/docs/+/HEAD/tips-and-tricks.md#How-to-SSH-to-DUT-without-a-password.
 
 Outside of your chroot you will be using a `.ssh/config` like
 

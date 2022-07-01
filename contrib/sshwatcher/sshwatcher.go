@@ -11,7 +11,7 @@
 //
 // Your ssh config needs to be set up such that interactive password input is
 // not always required. For DUTs this means use of testing_rsa key. See
-// https://chromium.googlesource.com/chromiumos/docs/+/HEAD/tips-and-tricks.md#how-to-avoid-typing-test0000-or-any-password-on-ssh_ing-to-your-device
+// https://chromium.googlesource.com/chromiumos/docs/+/HEAD/tips-and-tricks.md#How-to-SSH-to-DUT-without-a-password
 
 package main
 
