@@ -6,10 +6,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,9 +31,6 @@ const (
 	defaultOutputFileName  = "result.json"
 	defaultTestMetadataDir = "/tmp/test/metadata"
 )
-
-// Version is the version info of this command. It is filled in during emerge.
-var Version = "<unknown>"
 
 // createLogFile creates a file and its parent directory for logging purpose.
 func createLogFile(fullPath string) (*os.File, error) {
@@ -115,66 +114,193 @@ func metadataToTestSuite(name string, mdList []*api.TestCaseMetadata) *api.TestS
 	}
 }
 
-func main() {
-	os.Exit(func() int {
-		t := time.Now()
-		defaultLogPath := filepath.Join(defaultRootPath, t.Format("20060102-150405"))
-		defaultRequestFile := filepath.Join(defaultRootPath, defaultInputFileName)
-		defaultResultFile := filepath.Join(defaultRootPath, defaultOutputFileName)
-		version := flag.Bool("version", false, "print version and exit")
-		log := flag.String("log", defaultLogPath, "specify the cros-test-finder log directory")
-		input := flag.String("input", defaultRequestFile, "specify the cros-test-finder request json input file")
-		output := flag.String("output", defaultResultFile, "specify the cros-test-finder response json output file")
-		metadataDir := flag.String("metadatadir", defaultTestMetadataDir,
-			"specify a directory that contain all test metadata proto files.")
+// Version is the version info of this command. It is filled in during emerge.
+var Version = "<unknown>"
+var defaultPort = 8010
 
-		flag.Parse()
+type args struct {
+	// Common input params.
+	logPath     string
+	inputPath   string
+	output      string
+	metadataDir string
+	version     bool
 
-		if *version {
-			fmt.Println("cros-test-finder version ", Version)
-			return 0
-		}
+	// Server mode params
+	port int
+}
 
-		logFile, err := createLogFile(*log)
-		if err != nil {
-			return errors.WriteError(os.Stderr, err)
-		}
-		defer logFile.Close()
+func innerMain(logger *log.Logger, req *api.CrosTestFinderRequest, metadataDir string) (*api.CrosTestFinderResponse, error) {
+	logger.Println("Reading metadata from directory: ", metadataDir)
+	allTestMetadata, err := metadata.ReadDir(metadataDir)
+	if err != nil {
+		logger.Println("Error: ", err)
+		return nil, errors.NewStatusError(errors.IOCreateError,
+			fmt.Errorf("failed to read directory %v: %w", metadataDir, err))
+	}
 
-		logger := newLogger(logFile)
-		logger.Println("cros-test-finder version ", Version)
+	suiteName := combineTestSuiteNames(req.TestSuites)
 
-		logger.Println("Reading metadata from directory: ", *metadataDir)
-		allTestMetadata, err := metadata.ReadDir(*metadataDir)
-		if err != nil {
-			logger.Println("Error: ", err)
-			return errors.WriteError(os.Stderr, err)
-		}
+	selectedTestMetadata, err := finder.MatchedTestsForSuites(allTestMetadata.Values, req.TestSuites)
+	if err != nil {
+		logger.Println("Error: ", err)
+		return nil, err
+	}
 
-		logger.Println("Reading input file: ", *input)
-		req, err := readInput(*input)
-		if err != nil {
-			logger.Println("Error: ", err)
-			return errors.WriteError(os.Stderr, err)
-		}
+	resultTestSuite := metadataToTestSuite(suiteName, selectedTestMetadata)
 
-		suiteName := combineTestSuiteNames(req.TestSuites)
+	rspn := &api.CrosTestFinderResponse{TestSuites: []*api.TestSuite{resultTestSuite}}
+	return rspn, nil
 
-		selectedTestMetadata, err := finder.MatchedTestsForSuites(allTestMetadata.Values, req.TestSuites)
-		if err != nil {
-			logger.Println("Error: ", err)
-			return errors.WriteError(os.Stderr, err)
-		}
+}
 
-		resultTestSuite := metadataToTestSuite(suiteName, selectedTestMetadata)
+// runCLI is the entry point for running cros-test (TestFinderService) in CLI mode.
+func runCLI(ctx context.Context, d []string) int {
+	t := time.Now()
+	defaultLogPath := filepath.Join(defaultRootPath, t.Format("20060102-150405"))
+	defaultRequestFile := filepath.Join(defaultRootPath, defaultInputFileName)
+	defaultResultFile := filepath.Join(defaultRootPath, defaultOutputFileName)
 
-		logger.Println("Writing output file: ", *output)
-		rspn := &api.CrosTestFinderResponse{TestSuites: []*api.TestSuite{resultTestSuite}}
-		if err := writeOutput(*output, rspn); err != nil {
-			logger.Println("Error: ", err)
-			return errors.WriteError(os.Stderr, err)
-		}
+	a := args{}
 
+	fs := flag.NewFlagSet("Run cros-test", flag.ExitOnError)
+	fs.StringVar(&a.logPath, "log", defaultLogPath, fmt.Sprintf("Path to record finder logs. Default value is %s", defaultLogPath))
+	fs.StringVar(&a.inputPath, "input", defaultRequestFile, "specify the test finder request json input file")
+	fs.StringVar(&a.output, "output", defaultResultFile, "specify the test finder request json input file")
+	fs.StringVar(&a.metadataDir, "metadatadir", defaultTestMetadataDir, "specify a directory that contain all test metadata proto files.")
+	fs.BoolVar(&a.version, "version", false, "print version and exit")
+	fs.Parse(d)
+
+	if a.version {
+		fmt.Println("cros-test-finder version ", Version)
 		return 0
-	}())
+	}
+
+	logFile, err := createLogFile(a.logPath)
+	if err != nil {
+		log.Fatalln("Failed to create log file", err)
+		return 2
+	}
+	defer logFile.Close()
+
+	logger := newLogger(logFile)
+	logger.Println("cros-test-finder version ", Version)
+
+	logger.Println("Reading input file: ", a.inputPath)
+	req, err := readInput(a.inputPath)
+	if err != nil {
+		logger.Println("Error: ", err)
+		return errors.WriteError(os.Stderr, err)
+	}
+
+	rspn, err := innerMain(logger, req, a.metadataDir)
+	if err != nil {
+		return 2
+	}
+
+	logger.Println("Writing output file: ", a.output)
+	if err := writeOutput(a.output, rspn); err != nil {
+		logger.Println("Error: ", err)
+		return errors.WriteError(os.Stderr, err)
+	}
+
+	return 0
+}
+
+// startServer is the entry point for running cros-test-finder (TestFinderService) in server mode.
+func startServer(d []string) int {
+	a := args{}
+	t := time.Now()
+	defaultLogPath := filepath.Join(defaultRootPath, t.Format("20060102-150405"))
+	fs := flag.NewFlagSet("Run cros-test", flag.ExitOnError)
+	fs.StringVar(&a.logPath, "log", defaultLogPath, fmt.Sprintf("Path to record finder logs. Default value is %s", defaultLogPath))
+	fs.StringVar(&a.metadataDir, "metadatadir", defaultTestMetadataDir, "specify a directory that contain all test metadata proto files.")
+	fs.IntVar(&a.port, "port", defaultPort, fmt.Sprintf("Specify the port for the server. Default value %d.", defaultPort))
+	fs.Parse(d)
+
+	logFile, err := createLogFile(a.logPath)
+	if err != nil {
+		log.Fatalln("Failed to create log file", err)
+		return 2
+	}
+	defer logFile.Close()
+
+	logger := newLogger(logFile)
+
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", a.port))
+	if err != nil {
+		logger.Fatalln("Failed to create a net listener: ", err)
+		return 2
+	}
+	logger.Println("Starting TestFinderService on port ", a.port)
+
+	server, closer := NewServer(logger, a.metadataDir)
+	defer closer()
+	err = server.Serve(l)
+	if err != nil {
+		logger.Fatalln("Failed to initialize server: ", err)
+		return 2
+	}
+	return 0
+}
+
+// Specify run mode for CLI.
+type runMode string
+
+const (
+	runCli     runMode = "cli"
+	runServer  runMode = "server"
+	runVersion runMode = "version"
+	runHelp    runMode = "help"
+
+	runCliDefault runMode = "cliDefault"
+)
+
+func getRunMode() (runMode, error) {
+	if len(os.Args) > 1 {
+		for _, a := range os.Args {
+			if a == "-version" {
+				return runVersion, nil
+			}
+		}
+		switch strings.ToLower(os.Args[1]) {
+		case "cli":
+			return runCli, nil
+		case "server":
+			return runServer, nil
+		case "help":
+			return runHelp, nil
+		}
+	}
+
+	// If we did not find special run mode then just run CLI to match legacy behavior.
+	return runCliDefault, nil
+}
+
+func mainInternal(ctx context.Context) int {
+	runMode, err := getRunMode()
+	if err != nil {
+		log.Fatalln(err)
+		return 2
+	}
+	switch runMode {
+
+	case runCliDefault:
+		log.Printf("No mode specified, assuming CLI.")
+		return runCLI(ctx, os.Args)
+	case runCli:
+		log.Printf("Running CLI mode!")
+		return runCLI(ctx, os.Args[2:])
+	case runServer:
+		log.Printf("Running server mode!")
+		return startServer(os.Args[2:])
+	case runVersion:
+		log.Printf("TestFinderService version: %s", Version)
+		return 0
+	}
+	return 0
+}
+
+func main() {
+	os.Exit(mainInternal(context.Background()))
 }
