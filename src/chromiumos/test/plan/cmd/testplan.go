@@ -7,33 +7,28 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/maruel/subcommands"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
-	test_api_v1 "go.chromium.org/chromiumos/config/go/test/api/v1"
 	"go.chromium.org/chromiumos/infra/proto/go/testplans"
 	luciflag "go.chromium.org/luci/common/flag"
 
 	testplan "chromiumos/test/plan/internal"
 	"chromiumos/test/plan/internal/compatibility"
 	"chromiumos/test/plan/internal/coveragerules"
+	"chromiumos/test/plan/internal/protoio"
 )
 
 // Version is set to the CROS_GO_VERSION eclass variable at build time. See
@@ -207,126 +202,6 @@ func (r *generateRun) Run(a subcommands.Application, args []string, env subcomma
 	return errToCode(a, r.run())
 }
 
-// The v1 jsonpb package has known issues with FieldMasks:
-// https://github.com/golang/protobuf/issues/745. This is fixed in the v2
-// package, but as of 6/28/2021 the version of dev-go/protobuf ebuild installs
-// v1.3.2 of the github.com/golang/protobuf package, which does not contain the
-// MessageV2 function (required to use the v2 jsonproto package).
-//
-// Bumping the version of this Portage package broke dependent packages. As a
-// workaround, parse out the known FieldMask messages from the jsonpb files
-// we are reading.
-//
-// TODO(b/189223005): Fix dependent package or install multiple versions of the
-// protobuf package.
-var publicReplicationRegexp = regexp.MustCompile(`(?m),?\s*"publicReplication":\s*{\s*"publicFields":\s*"[^"]*"\s*}`)
-
-// parseJsonpb parses the jsonpb in b into m.
-func parseJsonpb(b []byte, m proto.Message) error {
-	lenBeforeRegexp := len(b)
-	b = publicReplicationRegexp.ReplaceAll(b, []byte{})
-
-	if lenBeforeRegexp != len(b) {
-		glog.V(2).Infof(
-			`Removed "publicReplication" fields with regexp. Length before: %d. Length after: %d`,
-			lenBeforeRegexp, len(b),
-		)
-	}
-
-	unmarshaller := jsonpb.Unmarshaler{AllowUnknownFields: true}
-	return unmarshaller.Unmarshal(bytes.NewReader(b), m)
-}
-
-// readBinaryOrJSONPb reads path into m, attempting to parse as both a binary
-// and json encoded proto.
-//
-// This function is meant as a convenience so the CLI can take either json or
-// binary protos as input. This function guesses at whether to attempt to parse
-// as binary or json first based on path's suffix.
-func readBinaryOrJSONPb(path string, m proto.Message) error {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	if strings.HasSuffix(path, ".jsonpb") || strings.HasSuffix(path, ".jsonproto") {
-		glog.Infof("Attempting to parse %q as jsonpb first", path)
-
-		err = parseJsonpb(b, m)
-		if err == nil {
-			return nil
-		}
-
-		glog.Warningf("Parsing %q as jsonpb failed (%q), attempting to parse as binary pb", path, err)
-
-		return proto.Unmarshal(b, m)
-	}
-
-	glog.Infof("Attempting to parse %q as binary pb first", path)
-
-	err = proto.Unmarshal(b, m)
-	if err == nil {
-		return nil
-	}
-
-	glog.Warningf("Parsing %q as binarypb failed, attempting to parse as jsonpb", path)
-
-	return parseJsonpb(b, m)
-}
-
-// readTextpb reads the textpb at path into m.
-func readTextpb(path string, m proto.Message) error {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	return proto.UnmarshalText(string(b), m)
-}
-
-// writePlans writes a newline-delimited json file containing plans to outPath.
-func writePlans(plans []*test_api_v1.HWTestPlan, outPath, textSummaryOutPath string) error {
-	outFile, err := os.Create(outPath)
-	if err != nil {
-		return err
-	}
-	defer outFile.Close()
-
-	marshaler := jsonpb.Marshaler{}
-	allRules := []*testpb.CoverageRule{}
-
-	for _, plan := range plans {
-		jsonString, err := marshaler.MarshalToString(plan)
-		if err != nil {
-			return err
-		}
-
-		jsonString += "\n"
-
-		if _, err = outFile.Write([]byte(jsonString)); err != nil {
-			return err
-		}
-
-		allRules = append(allRules, plan.GetCoverageRules()...)
-	}
-
-	if textSummaryOutPath != "" {
-		glog.Infof("Writing text summary file to %s", textSummaryOutPath)
-
-		textSummaryOutFile, err := os.Create(textSummaryOutPath)
-		if err != nil {
-			return err
-		}
-		defer textSummaryOutFile.Close()
-
-		if err = coveragerules.WriteTextSummary(textSummaryOutFile, allRules); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // validateFlags checks valid flags are passed to generate, e.g. all required
 // flags are set.
 //
@@ -375,7 +250,7 @@ func (r *generateRun) validateFlags() error {
 	}
 
 	if r.ctpV1 != (r.generateTestPlanReqPath != "") {
-		return errors.New("-generatetestplanreq must be set iff -out is set.")
+		return errors.New("-generatetestplanreq must be set iff -out is set")
 	}
 
 	if !r.ctpV1 && r.boardPriorityListPath != "" {
@@ -394,7 +269,7 @@ func (r *generateRun) run() error {
 	}
 
 	buildMetadataList := &buildpb.SystemImage_BuildMetadataList{}
-	if err := readBinaryOrJSONPb(r.buildMetadataListPath, buildMetadataList); err != nil {
+	if err := protoio.ReadBinaryOrJSONPb(r.buildMetadataListPath, buildMetadataList); err != nil {
 		return err
 	}
 
@@ -405,7 +280,7 @@ func (r *generateRun) run() error {
 	}
 
 	dutAttributeList := &testpb.DutAttributeList{}
-	if err := readBinaryOrJSONPb(r.dutAttributeListPath, dutAttributeList); err != nil {
+	if err := protoio.ReadBinaryOrJSONPb(r.dutAttributeListPath, dutAttributeList); err != nil {
 		return err
 	}
 
@@ -418,7 +293,7 @@ func (r *generateRun) run() error {
 	glog.Infof("Starting read of ConfigBundleList from %s", r.configBundleListPath)
 
 	configBundleList := &payload.ConfigBundleList{}
-	if err := readBinaryOrJSONPb(r.configBundleListPath, configBundleList); err != nil {
+	if err := protoio.ReadBinaryOrJSONPb(r.configBundleListPath, configBundleList); err != nil {
 		return err
 	}
 
@@ -442,12 +317,12 @@ func (r *generateRun) run() error {
 		)
 
 		generateTestPlanReq := &testplans.GenerateTestPlanRequest{}
-		if err := readBinaryOrJSONPb(r.generateTestPlanReqPath, generateTestPlanReq); err != nil {
+		if err := protoio.ReadBinaryOrJSONPb(r.generateTestPlanReqPath, generateTestPlanReq); err != nil {
 			return err
 		}
 
 		boardPriorityList := &testplans.BoardPriorityList{}
-		if err := readBinaryOrJSONPb(r.boardPriorityListPath, boardPriorityList); err != nil {
+		if err := protoio.ReadBinaryOrJSONPb(r.boardPriorityListPath, boardPriorityList); err != nil {
 			return err
 		}
 
@@ -476,7 +351,31 @@ func (r *generateRun) run() error {
 
 	glog.Infof("Generated %d CoverageRules, writing to %s", len(hwTestPlans), r.out)
 
-	return writePlans(hwTestPlans, r.out, r.textSummaryOut)
+	var messages []proto.Message
+	var allRules []*testpb.CoverageRule
+	for _, m := range hwTestPlans {
+		messages = append(messages, m)
+		allRules = append(allRules, m.GetCoverageRules()...)
+	}
+	if err := protoio.WriteJsonl(messages, r.out); err != nil {
+		return err
+	}
+
+	if r.textSummaryOut != "" {
+		glog.Infof("Writing text summary file to %s", r.textSummaryOut)
+
+		textSummaryOutFile, err := os.Create(r.textSummaryOut)
+		if err != nil {
+			return err
+		}
+		defer textSummaryOutFile.Close()
+
+		if err = coveragerules.WriteTextSummary(textSummaryOutFile, allRules); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func main() {
