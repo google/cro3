@@ -102,6 +102,10 @@ def do_on_cros_sdk(command, timeout_s=None):
     return do_on_cros_sdk_impl(command)
 
 def normalize():
+    kernelupstream_branch = branch_name('kernelupstream', rebase_target, None)
+    print(f'Checking out {kernelupstream_branch}')
+    checkout('kernel-upstream', kernelupstream_branch)
+
     def in_linux_chrome(command):
         return 'cd ./data/repositories/linux-chrome/; ' + command
     def in_configs(command):
