@@ -60,7 +60,9 @@ func ParseInputs() (AbstractCommand, error) {
 	for _, cmd := range cmds {
 		options = append(options, cmd.Name())
 		if cmd.Is(subcommand) {
-			cmd.Init(os.Args[2:])
+			if err := cmd.Init(os.Args[2:]); err != nil {
+				return nil, fmt.Errorf("failed to initialize cli command, %s", err)
+			}
 			return cmd, nil
 		}
 	}
