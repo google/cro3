@@ -422,7 +422,6 @@ class Rebaser:
                             'am',
                             '--continue')
                         call_hook(sha, 'post')
-                        save_head('kernel-upstream', sha)
                     except sh.ErrorReturnCode_128 as e:
                         am_err = 'No changes - did you forget' in str(e.stdout)
                         if am_err:
@@ -477,7 +476,6 @@ class Rebaser:
                                     if ans in ['y', 'Y']:
                                         return {}
                         print('Applied commit by removing conflicting files.')
-                        save_head('kernel-upstream', sha)
                         continue
                 if is_triage:
                     # Conflict requires manual resolution - drop and continue
