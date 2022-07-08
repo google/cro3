@@ -349,7 +349,6 @@ class DeviceConfig:
       'brand_code': ['cros_config', '/', 'brand-code'],
       'model': ['cros_config', '/', 'name'],
       'smbios_name': ['cat', '/sys/class/dmi/id/product_name'],
-      'fdt_compatible_raw': ['cat', '/proc/device-tree/compatible'],
       'arc_build_props': ['cat', '/usr/share/arc/properties/build.prop'],
       'customization_id': ['vpd_get_value', 'customization_id'],
       'vpd_model_name': ['vpd_get_value', 'model_name'],
@@ -407,18 +406,6 @@ class DeviceConfig:
   @property
   def marketing_name(self):
     return self.vpd_model_name or self.arc_build_prop('ro.product.brand')
-
-
-def genconf_dt_compatible_match(device, overlay):
-  if not device.fdt_compatible_raw:
-    return None
-  compatible_strings = device.fdt_compatible_raw.strip('\x00').split('\x00')
-  compatible_strings.sort(key=lambda s: (s.startswith('google'),
-                                         'rev' not in s,
-                                         'sku' not in s,
-                                         overlay.board_name in s,
-                                         -len(s)))
-  return compatible_strings[-1]
 
 
 def genconf_signature_id(device, _):
@@ -525,7 +512,6 @@ genconf_schema = {
     'identity': {
         'platform-name': (M_PUBLIC, lambda _, b: b.mosys_platform),
         'smbios-name-match': (M_PUBLIC, lambda d, _: d.smbios_name),
-        'device-tree-compatible-match': (M_PUBLIC, genconf_dt_compatible_match),
         'customization-id': (M_PUBLIC, lambda d, _: d.customization_id or None),
     },
     'power': (M_PUBLIC, genconf_powerd_settings),
