@@ -49,7 +49,7 @@ func (c *InstallMiniOSCommand) isMiniOSPartitionSupported(rootPart string) (bool
 		return false, fmt.Errorf("failed to get partition type, %s\n %s", err, guidPartition)
 	}
 
-	return strings.TrimSpace(guidPartition) != common_utils.MiniOSUnsupportedGUIDPartition, nil
+	return strings.TrimSpace(guidPartition) == common_utils.MiniOSUnsupportedGUIDPartition, nil
 }
 
 // InstallMiniOS downloads and installs the minios images

@@ -103,8 +103,8 @@ func (s *DutServiceServer) ExecCommand(req *api.ExecCommandRequest, stream api.D
 // FetchCrashes remotely fetches crashes from the DUT.
 func (s *DutServiceServer) FetchCrashes(req *api.FetchCrashesRequest, stream api.DutService_FetchCrashesServer) error {
 	s.logger.Println("Received api.FetchCrashesRequest: ", *req)
-	if exists, err := s.runCmdOutput(dutssh.PathExistsCommand(s.serializerPath)); err != nil {
-		return status.Errorf(codes.FailedPrecondition, "Failed to check crash_serializer existence: %s", err.Error())
+	if exists, stderr, err := s.runCmdOutput(dutssh.PathExistsCommand(s.serializerPath)); err != nil {
+		return status.Errorf(codes.FailedPrecondition, "Failed to check crash_serializer existence: %s", stderr)
 	} else if exists != "1" {
 		return status.Errorf(codes.NotFound, "crash_serializer not present on device.")
 	}
@@ -160,9 +160,11 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 	op := s.manager.NewOperation()
 
 	command := "reboot " + strings.Join(req.Args, " ")
-	output, err := s.runCmdOutput(command)
+	output, stderr, err := s.runCmdOutput(command)
 	if err != nil {
-		return nil, err
+		status := status.New(codes.Aborted, fmt.Sprintf("rebootDut: failed reboot, %s", stderr))
+		s.manager.SetError(op.Name, status)
+		return op, err
 	}
 
 	s.manager.SetResult(op.Name, &api.RestartResponse{
@@ -180,13 +182,17 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 	case <-wait:
 		conn, err := GetConnection(ctx, s.dutName, s.wiringAddress)
 		if err != nil {
-			return nil, err
+			status := status.New(codes.Aborted, fmt.Sprintf("rebootDut: unable to get connection, %s", err))
+			s.manager.SetError(op.Name, status)
+			return op, err
 		}
 		s.connection = &dutssh.SSHClient{Client: conn}
 
 		return op, nil
 	case <-ctx.Done():
-		return nil, fmt.Errorf("rebootDUT: timeout waiting for reboot")
+		status := status.New(codes.Aborted, "rebootDut: timed out waiting for reboot")
+		s.manager.SetError(op.Name, status)
+		return op, fmt.Errorf("rebootDUT: timeout waiting for reboot")
 	}
 }
 
@@ -221,9 +227,12 @@ func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*l
 		return nil, err
 	}
 	fullCmd := fmt.Sprintf("%s %s", command, destination)
-	if _, err = s.runCmdOutput(fullCmd); err != nil {
+	if stdout, stderr, err := s.runCmdOutput(fullCmd); err != nil {
 		s.logger.Printf("Getting error from cache server while running command %q: %v", fullCmd, err)
-		return nil, err
+		s.logger.Printf("stdout: %s, stderr: %s", stdout, stderr)
+		status := status.New(codes.Aborted, fmt.Sprintf("err: %s, stderr: %s", err, stderr))
+		s.manager.SetError(op.Name, status)
+		return op, err
 	}
 	s.logger.Printf("Command %q was successful", fullCmd)
 	s.manager.SetResult(op.Name, &api.CacheResponse{
@@ -407,21 +416,27 @@ func (s *DutServiceServer) runCmd(cmd string, stdin io.Reader, combined bool) *a
 	}
 }
 
-// runCmdOutput interprets the given string command in a shell and returns stdout.
+// runCmdOutput interprets the given string command in a shell and returns stdout and stderr.
 // Overall this is a simplified version of runCmd which only returns output.
-func (s *DutServiceServer) runCmdOutput(cmd string) (string, error) {
+func (s *DutServiceServer) runCmdOutput(cmd string) (string, string, error) {
 	if !s.connection.IsAlive() {
 		if err := s.reconnect(context.Background()); err != nil {
-			return "", err
+			return "", "", fmt.Errorf("failed to reconnect after connection failure, %s", err)
 		}
 	}
 	session, err := s.connection.NewSession()
 	if err != nil {
-		return "", err
+		return "", "", fmt.Errorf("failed to establish a new session for command run, %s", err)
 	}
+	var stdOut bytes.Buffer
+	var stdErr bytes.Buffer
+
+	session.SetStdout(&stdOut)
+	session.SetStderr(&stdErr)
+
+	err = session.Run(cmd)
 	defer session.Close()
-	b, err := session.Output(cmd)
-	return string(b), err
+	return stdOut.String(), stdErr.String(), err
 }
 
 // getExitInfo extracts exit info from Session Run's error

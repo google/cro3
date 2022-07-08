@@ -488,10 +488,21 @@ func TestDutServiceServer_FetchCrasesPathExistsFails(t *testing.T) {
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
+	var so io.Writer
+	var se io.Writer
+
 	gomock.InOrder(
 		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
-		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return(nil, errors.New("command failed!")),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("not success!"))
+				se.Write([]byte("failed!"))
+				return errors.New("command failed!")
+			},
+		),
 		msi.EXPECT().Close(),
 		mci.EXPECT().Close(),
 	)
@@ -524,7 +535,7 @@ func TestDutServiceServer_FetchCrasesPathExistsFails(t *testing.T) {
 
 	resp := &api.FetchCrashesResponse{}
 	err = stream.RecvMsg(resp)
-	if err.Error() != "rpc error: code = FailedPrecondition desc = Failed to check crash_serializer existence: command failed!" {
+	if err.Error() != "rpc error: code = FailedPrecondition desc = Failed to check crash_serializer existence: failed!" {
 		t.Fatalf("Command failure should have caused an error: %v", err)
 	}
 
@@ -538,10 +549,21 @@ func TestDutServiceServer_FetchCrasesPathExistsMissing(t *testing.T) {
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
+	var so io.Writer
+	var se io.Writer
+
 	gomock.InOrder(
 		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
-		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return([]byte("0"), nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("0"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
 		msi.EXPECT().Close(),
 		mci.EXPECT().Close(),
 	)
@@ -621,7 +643,7 @@ func TestDutServiceServer_FetchCrasesNewSessionFailure(t *testing.T) {
 
 	resp := &api.FetchCrashesResponse{}
 	err = stream.RecvMsg(resp)
-	if err.Error() != "rpc error: code = FailedPrecondition desc = Failed to check crash_serializer existence: Session failed." {
+	if err.Error() != "rpc error: code = FailedPrecondition desc = Failed to check crash_serializer existence: " {
 		t.Fatalf("Session Failure should have failed: %v", err)
 	}
 
@@ -635,10 +657,21 @@ func TestDutServiceServer_FetchCrasesSessionStartFailure(t *testing.T) {
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
+	var so io.Writer
+	var se io.Writer
+
 	gomock.InOrder(
 		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
-		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return([]byte("1"), nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("1"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
 		msi.EXPECT().Close(),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().StdoutPipe().Return(strings.NewReader("stdout"), nil),
@@ -692,10 +725,21 @@ func TestDutServiceServer_FetchCrasesPipeFailure(t *testing.T) {
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
+	var so io.Writer
+	var se io.Writer
+
 	gomock.InOrder(
 		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
-		msi.EXPECT().Output(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).Return([]byte("1"), nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("[ -e serializer_path ] && echo -n 1 || echo -n 0")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("1"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
 		msi.EXPECT().Close(),
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().StdoutPipe().Return(strings.NewReader("stdout"), errors.New("stdout failure.")),
@@ -745,10 +789,21 @@ func TestRestart(t *testing.T) {
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
+	var so io.Writer
+	var se io.Writer
+
 	gomock.InOrder(
 		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
-		msi.EXPECT().Output(gomock.Eq("reboot some args")).Return([]byte("reboot output"), nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("reboot some args")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("reboot output"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
 		msi.EXPECT().Close(),
 		mci.EXPECT().Close(),
 	)
