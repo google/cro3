@@ -38,6 +38,7 @@ func NewCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.I
 		OverwritePayload:  req.OverwritePayload,
 		PreserverStateful: m.PreserveStateful,
 		DlcSpecs:          m.DlcSpecs,
+		MachineMetadata:   metadata.MachineMetadata{},
 	}, nil
 }
 
@@ -55,6 +56,7 @@ func NewCrOSServiceFromCrOSProvisionRequest(dutClient api.DutServiceClient, req 
 		OverwritePayload:  req.GetProvisionState().GetSystemImage().GetOverwritePayload(),
 		PreserverStateful: false,
 		DlcSpecs:          dlcSpecs,
+		MachineMetadata:   metadata.MachineMetadata{},
 	}
 }
 
@@ -67,6 +69,7 @@ func NewCrOSServiceFromExistingConnection(conn common_utils.ServiceAdapterInterf
 		OverwritePayload:  overwritePayload,
 		PreserverStateful: preserverStateful,
 		DlcSpecs:          dlcSpecs,
+		MachineMetadata:   metadata.MachineMetadata{},
 	}
 }
 

@@ -16,10 +16,10 @@ import (
 
 type GetRootInfoCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewGetRootInfoCommand(ctx context.Context, cs service.CrOSService) *GetRootInfoCommand {
+func NewGetRootInfoCommand(ctx context.Context, cs *service.CrOSService) *GetRootInfoCommand {
 	return &GetRootInfoCommand{
 		ctx: ctx,
 		cs:  cs,
@@ -43,11 +43,11 @@ func (c *GetRootInfoCommand) Execute() error {
 
 	pi := common_utils.GetPartitionInfo(root, rootDisk, rootPartNum)
 
-	c.cs.MachineMetadata.RootInfo = metadata.RootInfo{
+	c.cs.MachineMetadata.RootInfo = &metadata.RootInfo{
 		Root:          root,
 		RootDisk:      rootDisk,
 		RootPartNum:   rootPartNum,
-		PartitionInfo: pi,
+		PartitionInfo: &pi,
 	}
 
 	return nil

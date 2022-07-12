@@ -12,10 +12,10 @@ import (
 
 type InstallPartitionsCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewInstallPartitionsCommand(ctx context.Context, cs service.CrOSService) *InstallPartitionsCommand {
+func NewInstallPartitionsCommand(ctx context.Context, cs *service.CrOSService) *InstallPartitionsCommand {
 	return &InstallPartitionsCommand{
 		ctx: ctx,
 		cs:  cs,

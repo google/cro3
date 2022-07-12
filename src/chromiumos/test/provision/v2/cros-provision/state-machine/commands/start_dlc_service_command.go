@@ -12,10 +12,10 @@ import (
 
 type StartDLCServiceCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewStartDLCServiceCommand(ctx context.Context, cs service.CrOSService) *StartDLCServiceCommand {
+func NewStartDLCServiceCommand(ctx context.Context, cs *service.CrOSService) *StartDLCServiceCommand {
 	return &StartDLCServiceCommand{
 		ctx: ctx,
 		cs:  cs,

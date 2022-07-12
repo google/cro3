@@ -15,10 +15,10 @@ import (
 
 type ClearDLCArtifactsCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewClearDLCArtifactsCommand(ctx context.Context, cs service.CrOSService) *ClearDLCArtifactsCommand {
+func NewClearDLCArtifactsCommand(ctx context.Context, cs *service.CrOSService) *ClearDLCArtifactsCommand {
 	return &ClearDLCArtifactsCommand{
 		ctx: ctx,
 		cs:  cs,

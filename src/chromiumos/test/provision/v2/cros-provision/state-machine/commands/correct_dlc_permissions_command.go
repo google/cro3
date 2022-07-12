@@ -13,10 +13,10 @@ import (
 
 type CorrectDLCPermissionsCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewCorrectDLCPermissionsCommand(ctx context.Context, cs service.CrOSService) *CorrectDLCPermissionsCommand {
+func NewCorrectDLCPermissionsCommand(ctx context.Context, cs *service.CrOSService) *CorrectDLCPermissionsCommand {
 	return &CorrectDLCPermissionsCommand{
 		ctx: ctx,
 		cs:  cs,

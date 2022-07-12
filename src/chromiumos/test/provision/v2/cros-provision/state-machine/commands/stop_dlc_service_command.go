@@ -12,10 +12,10 @@ import (
 
 type StopDLCServiceCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewStopDLCServiceCommand(ctx context.Context, cs service.CrOSService) *StopDLCServiceCommand {
+func NewStopDLCServiceCommand(ctx context.Context, cs *service.CrOSService) *StopDLCServiceCommand {
 	return &StopDLCServiceCommand{
 		ctx: ctx,
 		cs:  cs,

@@ -16,10 +16,10 @@ import (
 
 type PostInstallCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewPostInstallCommand(ctx context.Context, cs service.CrOSService) *PostInstallCommand {
+func NewPostInstallCommand(ctx context.Context, cs *service.CrOSService) *PostInstallCommand {
 	return &PostInstallCommand{
 		ctx: ctx,
 		cs:  cs,

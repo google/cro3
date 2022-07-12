@@ -12,10 +12,10 @@ import (
 
 type ClearTPMCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewClearTPMCommand(ctx context.Context, cs service.CrOSService) *ClearTPMCommand {
+func NewClearTPMCommand(ctx context.Context, cs *service.CrOSService) *ClearTPMCommand {
 	return &ClearTPMCommand{
 		ctx: ctx,
 		cs:  cs,

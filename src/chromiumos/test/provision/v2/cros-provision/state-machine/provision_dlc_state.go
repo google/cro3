@@ -14,10 +14,11 @@ import (
 )
 
 type CrOSProvisionDLCState struct {
-	service service.CrOSService
+	service *service.CrOSService
 }
 
 func (s CrOSProvisionDLCState) Execute(ctx context.Context) error {
+	fmt.Println("State: Execute CrOSProvisionDLCState")
 	if len(s.service.DlcSpecs) == 0 {
 		return nil
 	}

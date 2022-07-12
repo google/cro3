@@ -15,10 +15,10 @@ import (
 
 type InstallMiniOSCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewInstallMiniOSCommand(ctx context.Context, cs service.CrOSService) *InstallMiniOSCommand {
+func NewInstallMiniOSCommand(ctx context.Context, cs *service.CrOSService) *InstallMiniOSCommand {
 	return &InstallMiniOSCommand{
 		ctx: ctx,
 		cs:  cs,

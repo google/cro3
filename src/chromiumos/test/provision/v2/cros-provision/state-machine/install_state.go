@@ -14,10 +14,11 @@ import (
 )
 
 type CrOSInstallState struct {
-	service service.CrOSService
+	service *service.CrOSService
 }
 
 func (s CrOSInstallState) Execute(ctx context.Context) error {
+	fmt.Println("State: Execute CrOSInstallState")
 	comms := []common_utils.CommandInterface{
 		commands.NewStopSystemDaemonsCommand(ctx, s.service),
 		commands.NewClearDLCArtifactsCommand(ctx, s.service),

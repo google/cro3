@@ -14,10 +14,11 @@ import (
 )
 
 type CrOSInstallMiniOSState struct {
-	service service.CrOSService
+	service *service.CrOSService
 }
 
 func (s CrOSInstallMiniOSState) Execute(ctx context.Context) error {
+	fmt.Println("State: Execute CrOSInstallMiniOSState")
 	comms := []common_utils.CommandInterface{
 		commands.NewInstallMiniOSCommand(ctx, s.service),
 	}

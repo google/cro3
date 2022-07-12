@@ -15,10 +15,10 @@ var reBoard = regexp.MustCompile(`CHROMEOS_RELEASE_BOARD=(.*)`)
 
 type GetBoardCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewGetBoardCommand(ctx context.Context, cs service.CrOSService) *GetBoardCommand {
+func NewGetBoardCommand(ctx context.Context, cs *service.CrOSService) *GetBoardCommand {
 	return &GetBoardCommand{
 		ctx: ctx,
 		cs:  cs,

@@ -96,7 +96,7 @@ func (cc *CLICommand) validate() error {
 }
 
 func (cc *CLICommand) Run() error {
-	cc.log.Printf("Running CLI Mode:")
+	cc.log.Printf("Running CLI Mode (V2):")
 	dutAddr := fmt.Sprintf("%s:%d", cc.inputProto.GetDutServer().GetAddress(), cc.inputProto.GetDutServer().GetPort())
 	dutConn, err := grpc.Dial(dutAddr, grpc.WithInsecure())
 	if err != nil {
@@ -113,7 +113,7 @@ func (cc *CLICommand) Run() error {
 	}
 
 	defer saveCLIOutput(cc.outputFile, out)
-	if _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewCrOSInitState(*cs)); err != nil {
+	if _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewCrOSInitState(cs)); err != nil {
 		out.Outcome = &api.CrosProvisionResponse_Failure{
 			Failure: &api.InstallFailure{
 				Reason: api.InstallFailure_Reason(api.InstallResponse_STATUS_PROVISIONING_FAILED),

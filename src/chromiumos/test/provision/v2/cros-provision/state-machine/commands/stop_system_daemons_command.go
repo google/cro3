@@ -12,10 +12,10 @@ import (
 
 type StopSystemDaemonsCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewStopSystemDaemonsCommand(ctx context.Context, cs service.CrOSService) *StopSystemDaemonsCommand {
+func NewStopSystemDaemonsCommand(ctx context.Context, cs *service.CrOSService) *StopSystemDaemonsCommand {
 	return &StopSystemDaemonsCommand{
 		ctx: ctx,
 		cs:  cs,

@@ -12,7 +12,7 @@ import (
 )
 
 type CrOSVerifyState struct {
-	service service.CrOSService
+	service *service.CrOSService
 }
 
 func (s CrOSVerifyState) Execute(ctx context.Context) error {

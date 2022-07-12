@@ -18,10 +18,10 @@ import (
 
 type InstallDLCsCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewInstallDLCsCommand(ctx context.Context, cs service.CrOSService) *InstallDLCsCommand {
+func NewInstallDLCsCommand(ctx context.Context, cs *service.CrOSService) *InstallDLCsCommand {
 	return &InstallDLCsCommand{
 		ctx: ctx,
 		cs:  cs,

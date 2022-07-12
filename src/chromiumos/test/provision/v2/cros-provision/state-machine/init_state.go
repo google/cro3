@@ -16,16 +16,17 @@ import (
 // CrosInitState can be thought of as the constructor state, which initializes
 // variables in CrOSService
 type CrOSInitState struct {
-	service service.CrOSService
+	service *service.CrOSService
 }
 
-func NewCrOSInitState(service service.CrOSService) common_utils.ServiceState {
+func NewCrOSInitState(service *service.CrOSService) common_utils.ServiceState {
 	return CrOSInitState{
 		service: service,
 	}
 }
 
 func (s CrOSInitState) Execute(ctx context.Context) error {
+	fmt.Println("State: Execute CrOSInitState")
 	comms := []common_utils.CommandInterface{
 		commands.NewGetRootInfoCommand(ctx, s.service),
 		commands.NewGetBoardCommand(ctx, s.service),

@@ -18,10 +18,10 @@ import (
 
 type ProvisionStatefulCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewProvisionStatefulCommand(ctx context.Context, cs service.CrOSService) *ProvisionStatefulCommand {
+func NewProvisionStatefulCommand(ctx context.Context, cs *service.CrOSService) *ProvisionStatefulCommand {
 	return &ProvisionStatefulCommand{
 		ctx: ctx,
 		cs:  cs,

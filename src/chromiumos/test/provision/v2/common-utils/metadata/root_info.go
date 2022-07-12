@@ -12,5 +12,5 @@ type RootInfo struct {
 	Root          string
 	RootDisk      string
 	RootPartNum   string
-	PartitionInfo common_utils.PartitionInfo
+	PartitionInfo *common_utils.PartitionInfo
 }

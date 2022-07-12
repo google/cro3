@@ -14,15 +14,18 @@ import (
 )
 
 type CrOSPostInstallState struct {
-	service service.CrOSService
+	service *service.CrOSService
 }
 
 func (s CrOSPostInstallState) Execute(ctx context.Context) error {
+	fmt.Println("State: Execute CrOSPostInstallState")
+
 	comms := []common_utils.CommandInterface{
 		commands.NewWipeStatefulCommand(ctx, s.service),
 		commands.NewStopSystemDaemonsCommand(ctx, s.service),
 		commands.NewProvisionStatefulCommand(ctx, s.service),
 		commands.NewOverwriteInstalCommand(ctx, s.service),
+		commands.NewGetRootInfoCommand(ctx, s.service),
 	}
 
 	for i, comm := range comms {

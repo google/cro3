@@ -15,10 +15,10 @@ import (
 
 type OverwriteInstalCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewOverwriteInstalCommand(ctx context.Context, cs service.CrOSService) *OverwriteInstalCommand {
+func NewOverwriteInstalCommand(ctx context.Context, cs *service.CrOSService) *OverwriteInstalCommand {
 	return &OverwriteInstalCommand{
 		ctx: ctx,
 		cs:  cs,

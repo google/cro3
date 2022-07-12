@@ -12,10 +12,10 @@ import (
 
 type WipeStatefulCommand struct {
 	ctx context.Context
-	cs  service.CrOSService
+	cs  *service.CrOSService
 }
 
-func NewWipeStatefulCommand(ctx context.Context, cs service.CrOSService) *WipeStatefulCommand {
+func NewWipeStatefulCommand(ctx context.Context, cs *service.CrOSService) *WipeStatefulCommand {
 	return &WipeStatefulCommand{
 		ctx: ctx,
 		cs:  cs,

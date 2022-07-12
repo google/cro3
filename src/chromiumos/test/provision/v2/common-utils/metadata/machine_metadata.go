@@ -7,6 +7,6 @@ package metadata
 
 // MachineMetadata stores DUT specific information
 type MachineMetadata struct {
-	RootInfo RootInfo
+	RootInfo *RootInfo
 	Board    string
 }
