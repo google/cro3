@@ -16,17 +16,17 @@ import (
 // LaCrOSInitState can be thought of as the constructor state, which initializes
 // variables in CrOSService
 type LaCrOSInitState struct {
-	service service.LaCrOSService
+	service *service.LaCrOSService
 }
 
-func NewLaCrOSInitState(service service.LaCrOSService) common_utils.ServiceState {
+func NewLaCrOSInitState(service *service.LaCrOSService) common_utils.ServiceState {
 	return LaCrOSInitState{
 		service: service,
 	}
 }
 
 func (s LaCrOSInitState) Execute(ctx context.Context) error {
-	fmt.Printf("Executing %s state", s.Name())
+	fmt.Printf("Executing %s State:\n", s.Name())
 	comms := []common_utils.CommandInterface{
 		commands.NewCopyMetadataCommand(ctx, s.service),
 		commands.NewGetMetadataCommand(ctx, s.service),

@@ -13,10 +13,10 @@ import (
 
 type RunVerityCommand struct {
 	ctx context.Context
-	cs  service.LaCrOSService
+	cs  *service.LaCrOSService
 }
 
-func NewRunVerityCommand(ctx context.Context, cs service.LaCrOSService) *RunVerityCommand {
+func NewRunVerityCommand(ctx context.Context, cs *service.LaCrOSService) *RunVerityCommand {
 	return &RunVerityCommand{
 		ctx: ctx,
 		cs:  cs,

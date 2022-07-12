@@ -14,7 +14,7 @@ import (
 )
 
 type LaCrOSInstallState struct {
-	service service.LaCrOSService
+	service *service.LaCrOSService
 }
 
 func (s LaCrOSInstallState) Execute(ctx context.Context) error {

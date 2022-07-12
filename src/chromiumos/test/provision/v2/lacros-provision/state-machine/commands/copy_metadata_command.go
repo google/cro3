@@ -15,10 +15,10 @@ import (
 
 type CopyMetadataCommand struct {
 	ctx context.Context
-	cs  service.LaCrOSService
+	cs  *service.LaCrOSService
 }
 
-func NewCopyMetadataCommand(ctx context.Context, cs service.LaCrOSService) *CopyMetadataCommand {
+func NewCopyMetadataCommand(ctx context.Context, cs *service.LaCrOSService) *CopyMetadataCommand {
 	return &CopyMetadataCommand{
 		ctx: ctx,
 		cs:  cs,

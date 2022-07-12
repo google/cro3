@@ -22,5 +22,5 @@ func (c *LaCrOSProvisionExecutor) GetFirstState(dut *lab_api.Dut, dutClient api.
 	if err != nil {
 		return nil, err
 	}
-	return state_machine.NewLaCrOSInitState(*cs), nil
+	return state_machine.NewLaCrOSInitState(cs), nil
 }

@@ -14,10 +14,10 @@ import (
 
 type WriteComponentManifestCommand struct {
 	ctx context.Context
-	cs  service.LaCrOSService
+	cs  *service.LaCrOSService
 }
 
-func NewWriteComponentManifestCommand(ctx context.Context, cs service.LaCrOSService) *WriteComponentManifestCommand {
+func NewWriteComponentManifestCommand(ctx context.Context, cs *service.LaCrOSService) *WriteComponentManifestCommand {
 	return &WriteComponentManifestCommand{
 		ctx: ctx,
 		cs:  cs,

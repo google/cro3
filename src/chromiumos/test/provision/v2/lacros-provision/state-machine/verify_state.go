@@ -13,7 +13,7 @@ import (
 )
 
 type LaCrOSVerifyState struct {
-	service service.LaCrOSService
+	service *service.LaCrOSService
 }
 
 func (s LaCrOSVerifyState) Execute(ctx context.Context) error {

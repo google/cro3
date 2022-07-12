@@ -17,10 +17,10 @@ import (
 
 type AlignImageToPageCommand struct {
 	ctx context.Context
-	cs  service.LaCrOSService
+	cs  *service.LaCrOSService
 }
 
-func NewAlignImageToPageCommand(ctx context.Context, cs service.LaCrOSService) *AlignImageToPageCommand {
+func NewAlignImageToPageCommand(ctx context.Context, cs *service.LaCrOSService) *AlignImageToPageCommand {
 	return &AlignImageToPageCommand{
 		ctx: ctx,
 		cs:  cs,

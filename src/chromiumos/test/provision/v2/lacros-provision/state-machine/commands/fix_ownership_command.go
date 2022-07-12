@@ -15,10 +15,10 @@ import (
 
 type FixOwnershipCommand struct {
 	ctx context.Context
-	cs  service.LaCrOSService
+	cs  *service.LaCrOSService
 }
 
-func NewFixOwnershipCommand(ctx context.Context, cs service.LaCrOSService) *FixOwnershipCommand {
+func NewFixOwnershipCommand(ctx context.Context, cs *service.LaCrOSService) *FixOwnershipCommand {
 	return &FixOwnershipCommand{
 		ctx: ctx,
 		cs:  cs,

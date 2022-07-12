@@ -14,10 +14,10 @@ import (
 
 type GetMetadataCommand struct {
 	ctx context.Context
-	cs  service.LaCrOSService
+	cs  *service.LaCrOSService
 }
 
-func NewGetMetadataCommand(ctx context.Context, cs service.LaCrOSService) *GetMetadataCommand {
+func NewGetMetadataCommand(ctx context.Context, cs *service.LaCrOSService) *GetMetadataCommand {
 	return &GetMetadataCommand{
 		ctx: ctx,
 		cs:  cs,

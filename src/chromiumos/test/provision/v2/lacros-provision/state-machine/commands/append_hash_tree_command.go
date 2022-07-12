@@ -13,10 +13,10 @@ import (
 
 type AppendHashTreeCommand struct {
 	ctx context.Context
-	cs  service.LaCrOSService
+	cs  *service.LaCrOSService
 }
 
-func NewAppendHashTreeCommand(ctx context.Context, cs service.LaCrOSService) *AppendHashTreeCommand {
+func NewAppendHashTreeCommand(ctx context.Context, cs *service.LaCrOSService) *AppendHashTreeCommand {
 	return &AppendHashTreeCommand{
 		ctx: ctx,
 		cs:  cs,

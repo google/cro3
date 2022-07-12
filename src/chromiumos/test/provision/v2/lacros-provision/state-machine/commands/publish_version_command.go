@@ -12,10 +12,10 @@ import (
 
 type PublishVersionCommand struct {
 	ctx context.Context
-	cs  service.LaCrOSService
+	cs  *service.LaCrOSService
 }
 
-func NewPublishVersionCommand(ctx context.Context, cs service.LaCrOSService) *PublishVersionCommand {
+func NewPublishVersionCommand(ctx context.Context, cs *service.LaCrOSService) *PublishVersionCommand {
 	return &PublishVersionCommand{
 		ctx: ctx,
 		cs:  cs,

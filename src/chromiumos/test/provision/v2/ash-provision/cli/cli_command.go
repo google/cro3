@@ -6,10 +6,10 @@
 package cli
 
 import (
+	"chromiumos/test/provision/v2/ash-provision/constants"
+	"chromiumos/test/provision/v2/ash-provision/service"
+	state_machine "chromiumos/test/provision/v2/ash-provision/state-machine"
 	common_utils "chromiumos/test/provision/v2/common-utils"
-	"chromiumos/test/provision/v2/lacros-provision/constants"
-	"chromiumos/test/provision/v2/lacros-provision/service"
-	state_machine "chromiumos/test/provision/v2/lacros-provision/state-machine"
 	"context"
 	"errors"
 	"flag"
@@ -104,7 +104,7 @@ func (cc *CLICommand) Run() error {
 	}
 	defer dutConn.Close()
 	for _, pkg := range cc.inputProto.GetProvisionState().GetPackages() {
-		cs := service.NewLaCrOSServiceFromCrOSProvisionRequest(api.NewDutServiceClient(dutConn), cc.inputProto, pkg)
+		cs := service.NewAShServiceFromCrOSProvisionRequest(api.NewDutServiceClient(dutConn), cc.inputProto, pkg)
 
 		out := &api.CrosProvisionResponse{
 			Id: &lab_api.Dut_Id{
@@ -114,7 +114,7 @@ func (cc *CLICommand) Run() error {
 		}
 
 		defer saveCLIOutput(cc.outputFile, out)
-		if _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewLaCrOSInitState(cs)); err != nil {
+		if _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewAShInitState(cs)); err != nil {
 			out.Outcome = &api.CrosProvisionResponse_Failure{
 				Failure: &api.InstallFailure{
 					Reason: api.InstallFailure_Reason(api.InstallResponse_STATUS_PROVISIONING_FAILED),

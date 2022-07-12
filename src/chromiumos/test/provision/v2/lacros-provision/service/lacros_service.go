@@ -6,7 +6,6 @@
 package service
 
 import (
-	"chromiumos/test/provision/cmd/provisionserver/bootstrap/info"
 	common_utils "chromiumos/test/provision/v2/common-utils"
 	lacros_metadata "chromiumos/test/provision/v2/lacros-provision/lacros-metadata"
 	"context"
@@ -141,7 +140,7 @@ func (l *LaCrOSService) GetComponentManifestPath() string {
 }
 
 func (l *LaCrOSService) GetLatestVersionPath() string {
-	return path.Join(info.LaCrOSRootComponentPath, "latest-version")
+	return path.Join(common_utils.LaCrOSRootComponentPath, "latest-version")
 }
 
 // writeToFile takes a string and writes its contents to a file on a DUT.
