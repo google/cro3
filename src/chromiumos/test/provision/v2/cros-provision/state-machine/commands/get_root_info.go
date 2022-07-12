@@ -6,7 +6,7 @@ package commands
 
 import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
-	"chromiumos/test/provision/v2/cros-provision/metadata"
+	"chromiumos/test/provision/v2/common-utils/metadata"
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
 	"fmt"

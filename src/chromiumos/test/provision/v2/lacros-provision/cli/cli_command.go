@@ -7,10 +7,9 @@ package cli
 
 import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
-	"chromiumos/test/provision/v2/cros-provision/cli/common"
-	"chromiumos/test/provision/v2/cros-provision/constants"
-	"chromiumos/test/provision/v2/cros-provision/service"
-	state_machine "chromiumos/test/provision/v2/cros-provision/state-machine"
+	"chromiumos/test/provision/v2/lacros-provision/constants"
+	"chromiumos/test/provision/v2/lacros-provision/service"
+	state_machine "chromiumos/test/provision/v2/lacros-provision/state-machine"
 	"context"
 	"errors"
 	"flag"
@@ -71,7 +70,7 @@ func (cc *CLICommand) Init(args []string) error {
 		return err
 	}
 
-	cc.inputProto, err = common.ParseCrosProvisionRequest(cc.inputFile)
+	cc.inputProto, err = common_utils.ParseCrosProvisionRequest(cc.inputFile)
 	if err != nil {
 		return fmt.Errorf("unable to parse CrosProvisionRequest proto: %s", err)
 	}
@@ -104,23 +103,25 @@ func (cc *CLICommand) Run() error {
 		return fmt.Errorf("failed to connect to dut-service, %s", err)
 	}
 	defer dutConn.Close()
-	cs := service.NewCrOSServiceFromCrOSProvisionRequest(api.NewDutServiceClient(dutConn), cc.inputProto)
+	for _, pkg := range cc.inputProto.GetProvisionState().GetPackages() {
+		cs := service.NewLaCrOSServiceFromCrOSProvisionRequest(cc.inputProto.Dut, api.NewDutServiceClient(dutConn), pkg)
 
-	out := &api.CrosProvisionResponse{
-		Id: &lab_api.Dut_Id{
-			Value: cc.inputProto.GetDut().GetId().GetValue(),
-		},
-		Outcome: &api.CrosProvisionResponse_Success{},
-	}
-
-	defer saveCLIOutput(cc.outputFile, out)
-	if _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewCrOSInitState(*cs)); err != nil {
-		out.Outcome = &api.CrosProvisionResponse_Failure{
-			Failure: &api.InstallFailure{
-				Reason: api.InstallFailure_Reason(api.InstallResponse_STATUS_PROVISIONING_FAILED),
+		out := &api.CrosProvisionResponse{
+			Id: &lab_api.Dut_Id{
+				Value: cc.inputProto.GetDut().GetId().GetValue(),
 			},
+			Outcome: &api.CrosProvisionResponse_Success{},
 		}
-		return fmt.Errorf("failed to provision, %s", err)
+
+		defer saveCLIOutput(cc.outputFile, out)
+		if _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewLaCrOSInitState(*cs)); err != nil {
+			out.Outcome = &api.CrosProvisionResponse_Failure{
+				Failure: &api.InstallFailure{
+					Reason: api.InstallFailure_Reason(api.InstallResponse_STATUS_PROVISIONING_FAILED),
+				},
+			}
+			return fmt.Errorf("failed to provision, %s", err)
+		}
 	}
 	log.Println("Finished Successfuly!")
 	return nil

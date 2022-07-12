@@ -6,10 +6,11 @@
 package cli
 
 import (
-	"chromiumos/test/provision/v2/cros-provision/cli/common"
+	common_utils "chromiumos/test/provision/v2/common-utils"
+	"chromiumos/test/provision/v2/common-utils/metadata"
+	"chromiumos/test/provision/v2/common-utils/server"
 	"chromiumos/test/provision/v2/cros-provision/constants"
-	"chromiumos/test/provision/v2/cros-provision/metadata"
-	"chromiumos/test/provision/v2/cros-provision/server"
+	"chromiumos/test/provision/v2/cros-provision/executor"
 	"errors"
 	"flag"
 	"fmt"
@@ -61,7 +62,7 @@ func (sc *ServerCommand) Init(args []string) error {
 		return fmt.Errorf("unable to set up logs: %s", err)
 	}
 
-	cpp, err := common.ParseCrosProvisionRequest(sc.metadataFile)
+	cpp, err := common_utils.ParseCrosProvisionRequest(sc.metadataFile)
 	if err != nil {
 		return fmt.Errorf("unable to parse CrosProvisionRequest proto: %s", err)
 	}
@@ -97,7 +98,7 @@ func (cc *ServerCommand) validateProtoInputs(cpp *api.CrosProvisionRequest) erro
 func (sc *ServerCommand) Run() error {
 	sc.metadata.Log.Printf("running server mode:")
 
-	ps, closer, err := server.NewProvisionServer(sc.metadata)
+	ps, closer, err := server.NewProvisionServer(sc.metadata, &executor.CrOSProvisionExecutor{})
 	defer closer()
 	if err != nil {
 		sc.metadata.Log.Fatalln("failed to create provision: ", err)

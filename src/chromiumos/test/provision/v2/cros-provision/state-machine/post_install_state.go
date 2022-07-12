@@ -20,6 +20,7 @@ type CrOSPostInstallState struct {
 func (s CrOSPostInstallState) Execute(ctx context.Context) error {
 	comms := []common_utils.CommandInterface{
 		commands.NewWipeStatefulCommand(ctx, s.service),
+		commands.NewStopSystemDaemonsCommand(ctx, s.service),
 		commands.NewProvisionStatefulCommand(ctx, s.service),
 		commands.NewOverwriteInstalCommand(ctx, s.service),
 	}

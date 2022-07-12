@@ -41,13 +41,19 @@ func (c *ProvisionStatefulCommand) Execute() error {
 
 	if err := c.cs.Connection.PipeData(c.ctx,
 		common_utils.BucketJoin(c.cs.ImagePath.GetPath(), "stateful.tgz"),
-		fmt.Sprintf("tar --ignore-command-error --overwrite --directory=%s -xzf -", info.StatefulPath)); err != nil {
+		fmt.Sprintf("tar --ignore-command-error --overwrite --directory=%s --selinux -xzf -", info.StatefulPath)); err != nil {
 		return err
 	}
 
-	_, err := c.cs.Connection.RunCmd(c.ctx, "echo", []string{"-n", "clobber", ">", info.UpdateStatefulFilePath})
+	if _, err := c.cs.Connection.RunCmd(c.ctx, "echo", []string{"-n", "clobber", ">", info.UpdateStatefulFilePath}); err != nil {
+		return err
+	}
 
-	return err
+	if err := c.cs.Connection.Restart(c.ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *ProvisionStatefulCommand) Revert() error {

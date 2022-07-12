@@ -8,9 +8,7 @@ package server
 import (
 	"chromiumos/lro"
 	common_utils "chromiumos/test/provision/v2/common-utils"
-	"chromiumos/test/provision/v2/cros-provision/metadata"
-	"chromiumos/test/provision/v2/cros-provision/service"
-	state_machine "chromiumos/test/provision/v2/cros-provision/state-machine"
+	"chromiumos/test/provision/v2/common-utils/metadata"
 	"context"
 	"fmt"
 	"net"
@@ -25,9 +23,10 @@ type ProvisionServer struct {
 	options   *metadata.ServerMetadata
 	dutClient api.DutServiceClient
 	manager   *lro.Manager
+	executor  ProvisionExecutor
 }
 
-func NewProvisionServer(options *metadata.ServerMetadata) (*ProvisionServer, func(), error) {
+func NewProvisionServer(options *metadata.ServerMetadata, executor ProvisionExecutor) (*ProvisionServer, func(), error) {
 	var conns []*grpc.ClientConn
 	closer := func() {
 		for _, conn := range conns {
@@ -44,6 +43,7 @@ func NewProvisionServer(options *metadata.ServerMetadata) (*ProvisionServer, fun
 	return &ProvisionServer{
 		options:   options,
 		dutClient: api.NewDutServiceClient(dutConn),
+		executor:  executor,
 	}, closer, nil
 }
 
@@ -79,11 +79,10 @@ func (sp *ProvisionServer) Install(ctx context.Context, req *api.InstallRequest)
 // with any specified DLCs.
 func (ps *ProvisionServer) installCros(ctx context.Context, req *api.InstallRequest) (api.InstallResponse_Status, error) {
 	ps.options.Log.Println("Received api.InstallRequest: ", *req)
-	cs, err := service.NewCrOSService(ps.options.Dut, ps.dutClient, req)
+	fs, err := ps.executor.GetFirstState(ps.options.Dut, ps.dutClient, req)
 	if err != nil {
 		return api.InstallResponse_STATUS_INVALID_REQUEST, err
 	}
-	cis := state_machine.NewCrOSInitState(*cs)
 
-	return common_utils.ExecuteStateMachine(ctx, cis)
+	return common_utils.ExecuteStateMachine(ctx, fs)
 }
