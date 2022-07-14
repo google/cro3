@@ -40,7 +40,9 @@ func (s AShInstallState) Execute(ctx context.Context) error {
 }
 
 func (s AShInstallState) Next() common_utils.ServiceState {
-	return nil
+	return AShPostInstallState{
+		service: s.service,
+	}
 }
 
 func (s AShInstallState) Name() string {

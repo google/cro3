@@ -41,5 +41,5 @@ func (c *ClearTPMCommand) Revert() error {
 }
 
 func (c *ClearTPMCommand) GetErrorMessage() string {
-	return "Failed to clear TPM"
+	return "failed to clear TPM"
 }

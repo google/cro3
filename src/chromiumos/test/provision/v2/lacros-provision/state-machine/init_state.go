@@ -30,6 +30,8 @@ func (s LaCrOSInitState) Execute(ctx context.Context) error {
 	comms := []common_utils.CommandInterface{
 		commands.NewCopyMetadataCommand(ctx, s.service),
 		commands.NewGetMetadataCommand(ctx, s.service),
+		commands.NewCreateImageDirectoryCommand(ctx, s.service),
+		commands.NewCopyImageCommand(ctx, s.service),
 		commands.NewAlignImageToPageCommand(ctx, s.service),
 	}
 

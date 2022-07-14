@@ -41,9 +41,7 @@ func (s AShPostInstallState) Execute(ctx context.Context) error {
 }
 
 func (s AShPostInstallState) Next() common_utils.ServiceState {
-	return AShPostInstallState{
-		service: s.service,
-	}
+	return nil
 }
 
 func (s AShPostInstallState) Name() string {

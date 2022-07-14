@@ -38,7 +38,7 @@ func NewAShServiceFromCrOSProvisionRequest(dutClient api.DutServiceClient, req *
 
 // NewAShServiceFromExistingConnection is equivalent to the above constructor,
 // but recycles a ServiceAdapter. Generally useful for tests.
-func NewAShServiceFromExistingConnection(conn common_utils.ServiceAdapterInterface, imagePath *conf.StoragePath, overwritePayload *conf.StoragePath, overrideVersion string, overrideInstallPath string) AShService {
+func NewAShServiceFromExistingConnection(conn common_utils.ServiceAdapterInterface, imagePath *conf.StoragePath, overwritePayload *conf.StoragePath) AShService {
 	return AShService{
 		Connection:       conn,
 		ImagePath:        imagePath,

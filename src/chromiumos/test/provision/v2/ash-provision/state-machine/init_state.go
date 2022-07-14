@@ -32,6 +32,7 @@ func (s AShInitState) Execute(ctx context.Context) error {
 		commands.NewCreateNewStagingDirsCommand(ctx, s.service),
 		commands.NewCopyImageCommand(ctx, s.service),
 		commands.NewCreateBinaryDirsCommand(ctx, s.service),
+		commands.NewStopChromeCommand(ctx, s.service),
 		commands.NewKillChromeCommand(ctx, s.service),
 	}
 

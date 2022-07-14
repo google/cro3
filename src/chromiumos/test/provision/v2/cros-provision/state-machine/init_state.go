@@ -28,6 +28,7 @@ func NewCrOSInitState(service *service.CrOSService) common_utils.ServiceState {
 func (s CrOSInitState) Execute(ctx context.Context) error {
 	fmt.Println("State: Execute CrOSInitState")
 	comms := []common_utils.CommandInterface{
+		commands.NewCreateProvisionMarkerCommand(ctx, s.service),
 		commands.NewGetRootInfoCommand(ctx, s.service),
 		commands.NewGetBoardCommand(ctx, s.service),
 	}
