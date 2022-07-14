@@ -377,6 +377,7 @@ class Rebaser:
                 # Make the path absolute
                 diff = os.getcwd() + '/' + diff
 
+            override_unresolved = False
             try:
                 call_hook(sha, 'pre')
                 if diff is None:
@@ -388,6 +389,8 @@ class Rebaser:
                 call_hook(sha, 'post')
                 continue
             except Exception as error: # pylint: disable=broad-except
+                if 'could not build fake ancestor' in str(error):
+                    override_unresolved = True
                 if debug:
                     sh.mkdir('-p', 'debug/rebase/' + sha)
                     with open('debug/rebase/' + sha + '/cp_am_err', 'w') as f:
@@ -399,7 +402,7 @@ class Rebaser:
             # Autostage in git is assumed
             # Files from patches shouldn't be autoresolved, so no path for handling
             # git apply conflicts is added here
-            if is_resolved('kernel-upstream'):
+            if is_resolved('kernel-upstream') and not override_unresolved:
                 print('All resolved automatically.')
                 autoresolved += 1
                 with sh.pushd('kernel-upstream'):
