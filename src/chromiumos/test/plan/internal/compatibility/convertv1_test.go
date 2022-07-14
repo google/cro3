@@ -71,10 +71,50 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 						Criteria: []*testpb.DutCriterion{
 							{
 								AttributeId: &testpb.DutAttribute_Id{
-									Value: "attr-design",
+									Value: "attr-program",
 								},
 								// "boardA" will be chosen, since it is critical and has the lowest priority.
 								Values: []string{"boardC", "boardA", "boardB", "non-critical-board"},
+							},
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "swarming-pool",
+								},
+								Values: []string{"DUT_POOL_QUOTA"},
+							},
+						},
+					},
+				},
+			},
+			{
+				TestSuites: []*testpb.TestSuite{
+					{
+
+						Spec: &testpb.TestSuite_TestCaseIds{
+							TestCaseIds: &testpb.TestCaseIdList{
+								TestCaseIds: []*testpb.TestCase_Id{
+									{
+										Value: "suite3",
+									},
+								},
+							},
+						},
+					},
+				},
+				DutTargets: []*testpb.DutTarget{
+					{
+						Criteria: []*testpb.DutCriterion{
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "attr-program",
+								},
+								Values: []string{"boardA"},
+							},
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "attr-model",
+								},
+								Values: []string{"model1"},
 							},
 							{
 								AttributeId: &testpb.DutAttribute_Id{
@@ -119,7 +159,7 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 						Criteria: []*testpb.DutCriterion{
 							{
 								AttributeId: &testpb.DutAttribute_Id{
-									Value: "attr-design",
+									Value: "attr-program",
 								},
 								Values: []string{"vmboardA", "vmboardB"},
 							},
@@ -321,7 +361,13 @@ var dutAttributeList = &testpb.DutAttributeList{
 			Id: &testpb.DutAttribute_Id{
 				Value: "attr-program",
 			},
-			Aliases: []string{"attr-design"},
+			Aliases: []string{"attr-board"},
+		},
+		{
+			Id: &testpb.DutAttribute_Id{
+				Value: "attr-design",
+			},
+			Aliases: []string{"attr-model"},
 		},
 		{
 			Id: &testpb.DutAttribute_Id{
@@ -389,6 +435,16 @@ func TestToCTP1(t *testing.T) {
 							},
 							Suite:       "suite2",
 							SkylabBoard: "boardA",
+							Pool:        "DUT_POOL_QUOTA",
+						},
+						{
+							Common: &testplans.TestSuiteCommon{
+								DisplayName: "boardA.suite3",
+								Critical:    wrapperspb.Bool(true),
+							},
+							Suite:       "suite3",
+							SkylabBoard: "boardA",
+							SkylabModel: "model1",
 							Pool:        "DUT_POOL_QUOTA",
 						},
 					},
@@ -568,6 +624,12 @@ func TestToCTP1Errors(t *testing.T) {
 										},
 										{
 											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-design",
+											},
+											Values: []string{"model1"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
 												Value: "fp",
 											},
 											Values: []string{"fp1"},
@@ -580,7 +642,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "expected DutTarget to use exactly criteria \"attr-program\" and \"swarming-pool\"",
+			err:              "expected DutTarget to use criteria \"attr-program\" and \"swarming-pool\", and optionally \"attr-design\"",
 		},
 		{
 			name: "multiple pool values",
@@ -612,6 +674,44 @@ func TestToCTP1Errors(t *testing.T) {
 			},
 			dutAttributeList: dutAttributeList,
 			err:              "only DutCriteria with exactly one \"pool\" argument are supported",
+		},
+		{
+
+			name: "multiple design values",
+			hwTestPlans: []*test_api_v1.HWTestPlan{
+				{
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{"testpoolA"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"boardA"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-design",
+											},
+											Values: []string{"model1", "model2"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+			err:              "only DutCriteria with exactly one \"attr-design\" argument are supported",
 		},
 		{
 			name: "test tags used",
@@ -700,6 +800,47 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			err: "\"attr-program\" not found in DutAttributeList",
+		},
+		{
+			name:             "multiple programs with design",
+			dutAttributeList: dutAttributeList,
+			hwTestPlans: []*test_api_v1.HWTestPlan{
+				{
+					Id: &test_api_v1.HWTestPlan_TestPlanId{
+						Value: "testplan1",
+					},
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							Name: "invalidrule",
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"programA", "programB"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{"DUT_POOL_QUOTA"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-design",
+											},
+											Values: []string{"model1"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			err: "if \"attr-design\" is specified, multiple \"attr-programs\" cannot be used",
 		},
 	}
 

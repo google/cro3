@@ -258,6 +258,8 @@ const (
 type suiteInfo struct {
 	// program that was chosen to run the suite on
 	program string
+	// optional, design that was chosen to run the suite on
+	design string
 	// pool to run the suite in.
 	pool string
 	// name of the suite.
@@ -296,7 +298,7 @@ func tagCriteriaToTastExpr(criteria testpb.TestSuite_TestCaseTagCriteria) string
 // either the tag criteria or test case id list.
 func coverageRuleToSuiteInfo(
 	rule *testpb.CoverageRule,
-	poolAttr, programAttr *testpb.DutAttribute,
+	poolAttr, programAttr, designAttr *testpb.DutAttribute,
 	boardToBuildInfo map[string]*buildInfo,
 	prioritySelector *priority.RandomWeightedSelector,
 	env testEnvironment,
@@ -331,10 +333,27 @@ func coverageRuleToSuiteInfo(
 	}
 	glog.V(2).Infof("chose program %q from possible programs %q", chosenProgram, programs)
 
-	if len(dutTarget.GetCriteria()) != 2 {
+	var design string
+	if len(dutTarget.GetCriteria()) == 3 {
+		designs, err := getAttrFromCriteria(dutTarget.GetCriteria(), designAttr)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(designs) != 1 {
+			return nil, fmt.Errorf("only DutCriteria with exactly one \"attr-design\" argument are supported, got %q", designs)
+		}
+
+		if len(programs) != 1 {
+			return nil, fmt.Errorf("if \"attr-design\" is specified, multiple \"attr-programs\" cannot be used")
+		}
+
+		design = designs[0]
+	} else if len(dutTarget.GetCriteria()) != 2 {
 		return nil, fmt.Errorf(
-			"expected DutTarget to use exactly criteria %q and %q, got %q",
-			programAttr.GetId().GetValue(), poolAttr.GetId().GetValue(), dutTarget,
+			"expected DutTarget to use criteria %q and %q, and optionally %q, got %q",
+			programAttr.GetId().GetValue(), poolAttr.GetId().GetValue(),
+			designAttr.GetId().GetValue(), dutTarget,
 		)
 	}
 
@@ -350,6 +369,7 @@ func coverageRuleToSuiteInfo(
 					suiteInfos,
 					&suiteInfo{
 						program:     chosenProgram,
+						design:      design,
 						pool:        pool,
 						suite:       id.Value,
 						environment: env,
@@ -359,6 +379,11 @@ func coverageRuleToSuiteInfo(
 			if env != TastVM {
 				return nil, fmt.Errorf("TestCaseTagCriteria are only valid for VM tests")
 			}
+
+			if design != "" {
+				glog.Warning("attr-design DutCriteria has no effect on VM tests")
+			}
+
 			suiteInfos = append(suiteInfos,
 				&suiteInfo{
 					program:     chosenProgram,
@@ -388,12 +413,16 @@ func extractSuiteInfos(
 	boardToBuildInfo map[string]*buildInfo,
 ) (map[string][]*suiteInfo, error) {
 	// Find the program and pool attributes in the DutAttributeList.
-	var programAttr, poolAttr *testpb.DutAttribute
+	var programAttr, designAttr, poolAttr *testpb.DutAttribute
 	for _, attr := range dutAttributeList.GetDutAttributes() {
-		if attr.Id.Value == "attr-program" {
+		switch attr.Id.Value {
+		case "attr-program":
 			programAttr = attr
-		} else if attr.Id.Value == "swarming-pool" {
+		case "attr-design":
+			designAttr = attr
+		case "swarming-pool":
 			poolAttr = attr
+
 		}
 	}
 
@@ -405,6 +434,10 @@ func extractSuiteInfos(
 		return nil, fmt.Errorf("\"swarming-pool\" not found in DutAttributeList")
 	}
 
+	if designAttr == nil {
+		return nil, fmt.Errorf("\"attr-design\" not found in DutAttributeList")
+	}
+
 	programToSuiteInfos := map[string][]*suiteInfo{}
 	prioritySelector := priority.NewRandomWeightedSelector(
 		rnd,
@@ -414,7 +447,7 @@ func extractSuiteInfos(
 	for _, hwTestPlan := range hwTestPlans {
 		for _, rule := range hwTestPlan.GetCoverageRules() {
 			suiteInfos, err := coverageRuleToSuiteInfo(
-				rule, poolAttr, programAttr, boardToBuildInfo, prioritySelector, HW,
+				rule, poolAttr, programAttr, designAttr, boardToBuildInfo, prioritySelector, HW,
 			)
 			if err != nil {
 				return nil, err
@@ -434,7 +467,7 @@ func extractSuiteInfos(
 	for _, vmTestPlan := range vmTestPlans {
 		for _, rule := range vmTestPlan.GetCoverageRules() {
 			suiteInfos, err := coverageRuleToSuiteInfo(
-				rule, poolAttr, programAttr, boardToBuildInfo, prioritySelector, TastVM,
+				rule, poolAttr, programAttr, designAttr, boardToBuildInfo, prioritySelector, TastVM,
 			)
 			if err != nil {
 				return nil, err
@@ -523,6 +556,7 @@ func ToCTP1(
 				hwTests = append(hwTests, &testplans.HwTestCfg_HwTest{
 					Suite:       suiteInfo.suite,
 					SkylabBoard: suiteInfo.program,
+					SkylabModel: suiteInfo.design,
 					Pool:        suiteInfo.pool,
 					Common: &testplans.TestSuiteCommon{
 						DisplayName: fmt.Sprintf("%s.%s", suiteInfo.program, suiteInfo.suite),
