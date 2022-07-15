@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/url"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -226,6 +227,19 @@ func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*l
 	if err != nil {
 		return nil, err
 	}
+	mkdirPath, err := s.parseDutDest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if mkdirPath != "" {
+		mkdircmd := fmt.Sprintf("mkdir -p %s", mkdirPath)
+		s.logger.Printf("Running cmd %s\n", mkdircmd)
+		if stdout, stderr, err := s.runCmdOutput(mkdircmd); err != nil {
+			s.logger.Printf("Getting error running command '%q' from server to host: %v", mkdircmd, err)
+			s.logger.Printf("cmd stdout: %s, cmd stderr: %s", stdout, stderr)
+		}
+	}
 	fullCmd := fmt.Sprintf("%s %s", command, destination)
 	if stdout, stderr, err := s.runCmdOutput(fullCmd); err != nil {
 		s.logger.Printf("Getting error from cache server while running command %q: %v", fullCmd, err)
@@ -240,6 +254,20 @@ func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*l
 	})
 
 	return op, nil
+}
+
+func (s *DutServiceServer) parseDutDest(req *api.CacheRequest) (string, error) {
+	switch op := req.Destination.(type) {
+	case *api.CacheRequest_File:
+		// TODO(jaquesc): parse the file name to ensure it's a file and prevent user errors
+		return filepath.Dir(op.File.Path), nil
+	case *api.CacheRequest_Pipe_:
+		s.logger.Println("CACHETYPE PIPE")
+		// TODO(dbeckett): verify we really don't want to mkdir of a pipe
+		return "", nil
+	default:
+		return "", fmt.Errorf("destination can only be one of LocalFile or Pipe")
+	}
 }
 
 func (s *DutServiceServer) parseDestination(req *api.CacheRequest) (string, error) {
