@@ -15,8 +15,11 @@ replaces git rerere for this project, due to specific requirements.
 
 import hashlib
 import os
+
 import sh
+
 from config import debug
+
 
 GITHELPERS_DBG_PATH = 'debug/githelpers/'
 
@@ -315,6 +318,7 @@ def generic_abort(repo):
     out = str(cmd)
     cp = 'You are currently cherry-picking commit' in out
     am = 'You are in the middle of an am session' in out
+    rv = 'You are currently reverting commit' in out
 
     if cp:
         with sh.pushd(repo):
@@ -330,8 +334,15 @@ def generic_abort(repo):
                 'core.editor=true',
                 'am',
                 '--abort')
+    elif rv:
+        with sh.pushd(repo):
+            sh.git(
+                '-c',
+                'core.editor=true',
+                'revert',
+                '--abort')
     else:
-        print('Error: generic_abort(..) called, but neither am nor cherry-pick is in progress!')
+        print('Error: generic_abort(..) called, but nor am or cp or revert is in progress!')
         print('This is a bug, report to the maintainer of kernel-rebase.')
 
 def generic_continue(repo):
@@ -342,6 +353,7 @@ def generic_continue(repo):
     out = str(cmd)
     cp = 'You are currently cherry-picking commit' in out
     am = 'You are in the middle of an am session' in out
+    rv = 'You are currently reverting commit' in out
 
     if cp:
         with sh.pushd(repo):
@@ -357,6 +369,13 @@ def generic_continue(repo):
                 'core.editor=true',
                 'am',
                 '--continue')
+    elif rv:
+        with sh.pushd(repo):
+            sh.git(
+                '-c',
+                'core.editor=true',
+                'revert',
+                '--continue')
     else:
-        print('Error: generic_abort(..) called, but neither am nor cherry-pick is in progress!')
+        print('Error: generic_continue(..) called, but nor am or cp or revert is in progress!')
         print('This is a bug, report to the maintainer of kernel-rebase.')
