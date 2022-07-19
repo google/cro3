@@ -54,6 +54,11 @@ properties:
         criteria:
           description: "test criteria notes"
           type: string
+        testBedDependencies:
+          description: "Field for defining test bed dependencies for test"
+          type: array
+          items:
+            type: string
       additionalProperties: false
       required:
         - id

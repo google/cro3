@@ -7,20 +7,21 @@
 # Ignore indention messages, since legacy scripts use 2 spaces instead of 4.
 # pylint: disable=bad-indentation,docstring-section-indent
 # pylint: disable=docstring-trailing-quotes
+# pylint: disable=line-too-long
 
 """Generate gtest metadata for testexecserv from provided yaml"""
 
 import argparse
 import pathlib
 import sys
-import yaml
-import six
-import jsonschema
 
-from google.protobuf import text_format
 from chromiumos.test.api import test_case_metadata_pb2 as tc_metadata_pb
-from chromiumos.test.api import test_harness_pb2 as th_pb
 from chromiumos.test.api import test_case_pb2 as tc_pb
+from chromiumos.test.api import test_harness_pb2 as th_pb
+from google.protobuf import text_format
+import jsonschema
+import six
+import yaml
 
 
 def _test_case_exec_factory(target_bin_location: str) -> th_pb.TestHarness:
@@ -54,7 +55,8 @@ def _test_case_factory(case_data: dict, suite_name: str) -> tc_pb.TestCase:
     tags = [tc_pb.TestCase.Tag(value=t) for t in case_data['tags']]
     tc_id = tc_pb.TestCase.Id(value=f'gtest.{suite_name}.{case_data["id"]}')
     name = f'{suite_name}.{case_data["id"]}'
-    return tc_pb.TestCase(id=tc_id, name=name, tags=tags)
+    testBedDeps = [tc_pb.TestCase.Dependency(value=t) for t in case_data.get('testBedDependencies', [])]
+    return tc_pb.TestCase(id=tc_id, name=name, tags=tags, dependencies=testBedDeps)
 
 
 def _test_case_metadata_factory(
@@ -177,6 +179,14 @@ if __name__ == '__main__':
         action='store_true',
         default=False,
         required=False)
+
+    parser.add_argument(
+        '--dump-bytes',
+        help='Dump byte array representation of protobuf to stdout. For debugging purposes',
+        action='store_true',
+        default=False,
+        required=False,
+        dest='dumpBytes')
     args = parser.parse_args()
     main(args.files, args.output_file, args.yaml_schema)
 
@@ -184,3 +194,6 @@ if __name__ == '__main__':
         metadata_list = tc_metadata_pb.TestCaseMetadataList()
         metadata_list.ParseFromString(args.output_file.read_bytes())
         print(text_format.MessageToString(metadata_list))
+
+    if args.dumpBytes:
+        print(args.output_file.read_bytes())

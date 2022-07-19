@@ -7,6 +7,7 @@
 # Ignore indention messages, since legacy scripts use 2 spaces instead of 4.
 # pylint: disable=bad-indentation,docstring-section-indent
 # pylint: disable=docstring-trailing-quotes
+# pylint: disable=line-too-long
 
 # Ignore line too long errors as many lines are large byte-arrays over 80 char
 # pylint: disable=line-too-long
@@ -15,17 +16,18 @@
 # pylint: disable=protected-access
 """Unit tests for generate_gtest_metadata.py script"""
 
-from unittest import TestCase, main, mock
 import collections
-import yaml
+from unittest import main
+from unittest import mock
+from unittest import TestCase
 
-import jsonschema
 from chromiumos.test.api import test_case_metadata_pb2 as tc_metadata_pb
-from chromiumos.test.api import test_harness_pb2 as th_pb
 from chromiumos.test.api import test_case_pb2 as tc_pb
-
-import gtest_unittest_const as gtc
+from chromiumos.test.api import test_harness_pb2 as th_pb
 import generate_gtest_metadata
+import gtest_unittest_const as gtc
+import jsonschema
+import yaml
 
 
 class Generate_Gtest_Metadata_Test(TestCase):
@@ -46,7 +48,13 @@ class Generate_Gtest_Metadata_Test(TestCase):
             Yaml_Proto(gtc.VALID_YAML_MULTIPLE_CASE_ONE_TAG,
                        gtc.VALID_YAML_MULTIPLE_CASE_ONE_TAG_PROTOBUF),
             Yaml_Proto(gtc.VALID_YAML_MULTIPLE_CASE_MULTIPLE_TAGS,
-                       gtc.VALID_YAML_MULTIPLE_CASE_MULTIPLE_TAGS_PROTOBUF)
+                       gtc.VALID_YAML_MULTIPLE_CASE_MULTIPLE_TAGS_PROTOBUF),
+            Yaml_Proto(gtc.VALID_YAML_EMPTY_TEST_BED_DEPS,
+                       gtc.VALID_YAML_EMPTY_TEST_BED_DEPS_PROTOBUF),
+            Yaml_Proto(gtc.VALID_YAML_SINGLE_TEST_BED_DEPS,
+                       gtc.VALID_YAML_SINGLE_TEST_BED_DEPS_PROTOBUF),
+            Yaml_Proto(gtc.VALID_YAML_MULTIPLE_TEST_BED_DEPS,
+                       gtc.VALID_YAML_MULTIPLE_TEST_BED_DEPS_PROTOBUF),
         ]
 
         with open('gtest_schema.yaml', 'r') as f:
@@ -136,8 +144,7 @@ class Generate_Gtest_Metadata_Test(TestCase):
                 self._get_protobuf_bytes([input_file], schema_file,
                                          output_file)
 
-    def _build_testcase_metadata_objects(
-            self, input_data: list) -> tc_metadata_pb.TestCaseMetadataList:
+    def _build_testcase_metadata_objects(self, input_data: list) -> tc_metadata_pb.TestCaseMetadataList:
         cases = []
         for f in input_data:
             s_name = f['name']
@@ -152,7 +159,8 @@ class Generate_Gtest_Metadata_Test(TestCase):
                 tags = [tc_pb.TestCase.Tag(value=t) for t in c['tags']]
                 tc_id = tc_pb.TestCase.Id(value=f'gtest.{s_name}.{c["id"]}')
                 c_name = f'{s_name}.{c["id"]}'
-                case = tc_pb.TestCase(id=tc_id, name=c_name, tags=tags)
+                deps = [tc_pb.TestCase.Dependency(value=t) for t in c.get('testBedDependencies', [])]
+                case = tc_pb.TestCase(id=tc_id, name=c_name, tags=tags, dependencies=deps)
                 cases.append(
                     tc_metadata_pb.TestCaseMetadata(test_case=case,
                                                     test_case_exec=tce,
