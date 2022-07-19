@@ -69,21 +69,18 @@ func TestReadInput(t *testing.T) {
 }
 
 func TestWriteOutput(t *testing.T) {
+	testInfos := []*api.TestCase{}
+	for _, md := range []string{"example.Pass", "example.Fail"} {
+		testInfos = append(testInfos, &api.TestCase{
+			Id: &api.TestCase_Id{Value: md},
+		})
+	}
 	expectedRspn := api.CrosTestFinderResponse{
 		TestSuites: []*api.TestSuite{
 			{
 				Name: "suite1",
-				Spec: &api.TestSuite_TestCaseIds{
-					TestCaseIds: &api.TestCaseIdList{
-						TestCaseIds: []*api.TestCase_Id{
-							{
-								Value: "example.Pass",
-							},
-							{
-								Value: "example.Fail",
-							},
-						},
-					},
+				Spec: &api.TestSuite_TestCases{
+					TestCases: &api.TestCaseList{TestCases: testInfos},
 				},
 			},
 		},
@@ -154,6 +151,10 @@ func TestMetadataToTestSuite(t *testing.T) {
 					{Value: "attr1"},
 					{Value: "attr2"},
 				},
+				Dependencies: []*api.TestCase_Dependency{
+					{Value: "dep1"},
+					{Value: "dep2"},
+				},
 			},
 			TestCaseExec: &api.TestCaseExec{
 				TestHarness: &api.TestHarness{
@@ -216,22 +217,28 @@ func TestMetadataToTestSuite(t *testing.T) {
 			},
 		},
 	}
+	testInfos := []*api.TestCase{}
+	testNames := []string{"tast/test001", "tauto/test002", "tauto/test003"}
+	testDeps := [][]string{{"dep1", "dep2"}, {}, {}}
+	for i := range testNames {
+		deps := []*api.TestCase_Dependency{}
+		for _, dep := range testDeps[i] {
+
+			deps = append(deps, &api.TestCase_Dependency{Value: dep})
+		}
+		if len(deps) == 0 {
+			deps = nil
+		}
+		testInfos = append(testInfos, &api.TestCase{
+			Id:           &api.TestCase_Id{Value: testNames[i]},
+			Dependencies: deps,
+		})
+
+	}
 	expected := api.TestSuite{
 		Name: "test_suite",
-		Spec: &api.TestSuite_TestCaseIds{
-			TestCaseIds: &api.TestCaseIdList{
-				TestCaseIds: []*api.TestCase_Id{
-					{
-						Value: "tast/test001",
-					},
-					{
-						Value: "tauto/test002",
-					},
-					{
-						Value: "tauto/test003",
-					},
-				},
-			},
+		Spec: &api.TestSuite_TestCases{
+			TestCases: &api.TestCaseList{TestCases: testInfos},
 		},
 	}
 	suites := metadataToTestSuite("test_suite", mdList)

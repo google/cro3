@@ -102,14 +102,17 @@ func combineTestSuiteNames(suites []*api.TestSuite) string {
 
 // metadataToTestSuite convert a list of test metadata to a test suite.
 func metadataToTestSuite(name string, mdList []*api.TestCaseMetadata) *api.TestSuite {
-	testIds := []*api.TestCase_Id{}
+	testInfos := []*api.TestCase{}
 	for _, md := range mdList {
-		testIds = append(testIds, md.TestCase.Id)
+		testInfos = append(testInfos, &api.TestCase{
+			Id:           md.TestCase.Id,
+			Dependencies: md.TestCase.Dependencies,
+		})
 	}
 	return &api.TestSuite{
 		Name: name,
-		Spec: &api.TestSuite_TestCaseIds{
-			TestCaseIds: &api.TestCaseIdList{TestCaseIds: testIds},
+		Spec: &api.TestSuite_TestCases{
+			TestCases: &api.TestCaseList{TestCases: testInfos},
 		},
 	}
 }
