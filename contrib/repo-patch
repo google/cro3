@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+#
+# Copyright 2022 The ChromiumOS Authors.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Maintainers: Steven Rostedt <rostedt@google.com>
+#              Ross Zwisler <zwisler@google.com>
+#
+# repo-patch: Apply a repo-level patch which can span multiple git
+# repositories.
+#
+# Example - stash local changes at the repo level, then restore them:
+#   cd ~/chromiumos
+#   repo diff > /tmp/r.diff
+#   repo-patch -R < /tmp/r.diff
+#   [do stuff]
+#   repo-patch < /tmp/r.diff
+
+use strict;
+use warnings;
+use Cwd qw(abs_path);
+use File::Basename;
+
+my $patching = 0;
+my $srcroot = abs_path(dirname($0) . "/../../../..");
+
+while (<STDIN>) {
+    if (/^project (\S+)$/) {
+        if ($patching) {
+            close PATCH;
+        }
+        chdir $srcroot or die "Cannot chdir to $srcroot\n";
+        chomp $1;
+        chdir $1 or die "Cannot chdir to $1\n";
+        print "Patching $1\n";
+        open(PATCH, "|patch -p1 @ARGV") or die "Cannot patch $1\n";
+        $patching = 1;
+    } elsif ($patching) {
+        print PATCH $_;
+    }
+}
+
+if ($patching) {
+    close PATCH;
+}
