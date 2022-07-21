@@ -301,7 +301,7 @@ func coverageRuleToSuiteInfo(
 	poolAttr, programAttr, designAttr *testpb.DutAttribute,
 	boardToBuildInfo map[string]*buildInfo,
 	prioritySelector *priority.RandomWeightedSelector,
-	env testEnvironment,
+	isVm bool,
 ) ([]*suiteInfo, error) {
 	if len(rule.GetDutTargets()) != 1 {
 		return nil, fmt.Errorf("expected exactly one DutTarget in CoverageRule, got %q", rule)
@@ -361,7 +361,7 @@ func coverageRuleToSuiteInfo(
 	for _, suite := range rule.GetTestSuites() {
 		switch spec := suite.Spec.(type) {
 		case *testpb.TestSuite_TestCaseIds:
-			if env != HW {
+			if isVm {
 				return nil, fmt.Errorf("TestCaseIdLists are only valid for HW tests")
 			}
 			for _, id := range spec.TestCaseIds.GetTestCaseIds() {
@@ -372,12 +372,23 @@ func coverageRuleToSuiteInfo(
 						design:      design,
 						pool:        pool,
 						suite:       id.Value,
-						environment: env,
+						environment: HW,
 					})
 			}
 		case *testpb.TestSuite_TestCaseTagCriteria_:
-			if env != TastVM {
+			if !isVm {
 				return nil, fmt.Errorf("TestCaseTagCriteria are only valid for VM tests")
+			}
+
+			var env testEnvironment
+			name := suite.GetName()
+			switch {
+			case strings.HasPrefix(name, "tast_vm"):
+				env = TastVM
+			case strings.HasPrefix(name, "tast_gce"):
+				env = TastGCE
+			default:
+				return nil, fmt.Errorf("VM suite names must start with either \"tast_vm\" or \"tast_gce\" in CTP1 compatibility mode, got %q", name)
 			}
 
 			if design != "" {
@@ -446,8 +457,9 @@ func extractSuiteInfos(
 
 	for _, hwTestPlan := range hwTestPlans {
 		for _, rule := range hwTestPlan.GetCoverageRules() {
+			isVm := false
 			suiteInfos, err := coverageRuleToSuiteInfo(
-				rule, poolAttr, programAttr, designAttr, boardToBuildInfo, prioritySelector, HW,
+				rule, poolAttr, programAttr, designAttr, boardToBuildInfo, prioritySelector, isVm,
 			)
 			if err != nil {
 				return nil, err
@@ -466,8 +478,9 @@ func extractSuiteInfos(
 
 	for _, vmTestPlan := range vmTestPlans {
 		for _, rule := range vmTestPlan.GetCoverageRules() {
+			isVm := true
 			suiteInfos, err := coverageRuleToSuiteInfo(
-				rule, poolAttr, programAttr, designAttr, boardToBuildInfo, prioritySelector, TastVM,
+				rule, poolAttr, programAttr, designAttr, boardToBuildInfo, prioritySelector, isVm,
 			)
 			if err != nil {
 				return nil, err
@@ -534,9 +547,8 @@ func ToCTP1(
 	}
 
 	var hwTestUnits []*testplans.HwTestUnit
-	// TODO(b/218319842): Support backwards compatibility for TastGceTestUnit
-	// as well.
 	var vmTestUnits []*testplans.TastVmTestUnit
+	var gceTestUnits []*testplans.TastGceTestUnit
 
 	// Join the buildInfos and suiteInfos on the suite's program name and
 	// build's build target. Each build maps to one HwTestUnit, each suite maps
@@ -550,6 +562,7 @@ func ToCTP1(
 
 		var hwTests []*testplans.HwTestCfg_HwTest
 		var tastVMTests []*testplans.TastVmTestCfg_TastVmTest
+		var tastGCETests []*testplans.TastGceTestCfg_TastGceTest
 		for _, suiteInfo := range suiteInfos {
 			switch env := suiteInfo.environment; env {
 			case HW:
@@ -576,8 +589,37 @@ func ToCTP1(
 							TestExpr: suiteInfo.tastExpr,
 						},
 					},
+					Common: &testplans.TestSuiteCommon{
+						DisplayName: fmt.Sprintf("%s.%s", suiteInfo.program, suiteInfo.suite),
+						Critical: &wrapperspb.BoolValue{
+							Value: true,
+						},
+					},
 				})
 				glog.V(2).Infof("added TastVmTest %q", tastVMTests[len(tastVMTests)-1])
+			case TastGCE:
+				tastGCETests = append(tastGCETests, &testplans.TastGceTestCfg_TastGceTest{
+					SuiteName: suiteInfo.suite,
+					TastTestExpr: []*testplans.TastGceTestCfg_TastTestExpr{
+						{
+							TestExpr: suiteInfo.tastExpr,
+						},
+					},
+					GceMetadata: &testplans.TastGceTestCfg_TastGceTest_GceMetadata{
+						Project:     "chromeos-gce-tests",
+						Zone:        "us-central1-a",
+						MachineType: "n2-standard-8",
+						Network:     "chromeos-gce-tests",
+						Subnet:      "us-central1",
+					},
+					Common: &testplans.TestSuiteCommon{
+						DisplayName: fmt.Sprintf("%s.%s", suiteInfo.program, suiteInfo.suite),
+						Critical: &wrapperspb.BoolValue{
+							Value: true,
+						},
+					},
+				})
+				glog.V(2).Infof("added TastGceTest %q", tastGCETests[len(tastGCETests)-1])
 			default:
 				return nil, fmt.Errorf("unsupported environment %T", env)
 			}
@@ -599,7 +641,8 @@ func ToCTP1(
 				},
 			}
 			hwTestUnits = append(hwTestUnits, hwTestUnit)
-		} else if len(tastVMTests) > 0 {
+		}
+		if len(tastVMTests) > 0 {
 			vmTestUnit := &testplans.TastVmTestUnit{
 				Common: common,
 				TastVmTestCfg: &testplans.TastVmTestCfg{
@@ -608,10 +651,21 @@ func ToCTP1(
 			}
 			vmTestUnits = append(vmTestUnits, vmTestUnit)
 		}
+		if len(tastGCETests) > 0 {
+			gceTestUnit := &testplans.TastGceTestUnit{
+				Common: common,
+				TastGceTestCfg: &testplans.TastGceTestCfg{
+					TastGceTest: tastGCETests,
+				},
+			}
+			gceTestUnits = append(gceTestUnits, gceTestUnit)
+		}
+
 	}
 
 	return &testplans.GenerateTestPlanResponse{
 		HwTestUnits:           hwTestUnits,
 		DirectTastVmTestUnits: vmTestUnits,
+		TastGceTestUnits:      gceTestUnits,
 	}, nil
 }

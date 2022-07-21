@@ -137,7 +137,7 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 				Name: "vmrule",
 				TestSuites: []*testpb.TestSuite{
 					{
-						Name: "vmsuite1",
+						Name: "tast_vm_suite1",
 						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
 							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
 								Tags:        []string{"\"group:mainline\"", "\"dep:depA\""},
@@ -146,7 +146,7 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 						},
 					},
 					{
-						Name: "vmsuite2",
+						Name: "tast_gce_suite2",
 						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
 							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
 								Tags: []string{"\"group:mainline\"", "informational"},
@@ -469,20 +469,50 @@ func TestToCTP1(t *testing.T) {
 				TastVmTestCfg: &testplans.TastVmTestCfg{
 					TastVmTest: []*testplans.TastVmTestCfg_TastVmTest{
 						{
-							SuiteName: "vmsuite1",
+							SuiteName: "tast_vm_suite1",
 							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
 								{
 									TestExpr: "\"group:mainline\" && \"dep:depA\" && !informational",
 								},
 							},
+							Common: &testplans.TestSuiteCommon{DisplayName: "vmboardA.tast_vm_suite1", Critical: wrapperspb.Bool(true)},
 						},
+					},
+				},
+			},
+		},
+		TastGceTestUnits: []*testplans.TastGceTestUnit{
+			{
+				Common: &testplans.TestUnitCommon{
+					BuildTarget: &chromiumos.BuildTarget{
+						Name: "vmboardA",
+					},
+					BuilderName: "cq-vmBuilderA",
+					BuildPayload: &testplans.BuildPayload{
+						ArtifactsGsBucket: "testgsbucket",
+						ArtifactsGsPath:   "testgspathA",
+						FilesByArtifact: newStruct(t, map[string]interface{}{
+							"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						}),
+					},
+				},
+				TastGceTestCfg: &testplans.TastGceTestCfg{
+					TastGceTest: []*testplans.TastGceTestCfg_TastGceTest{
 						{
-							SuiteName: "vmsuite2",
-							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
+							SuiteName: "tast_gce_suite2",
+							GceMetadata: &testplans.TastGceTestCfg_TastGceTest_GceMetadata{
+								Project:     "chromeos-gce-tests",
+								Zone:        "us-central1-a",
+								MachineType: "n2-standard-8",
+								Network:     "chromeos-gce-tests",
+								Subnet:      "us-central1",
+							},
+							TastTestExpr: []*testplans.TastGceTestCfg_TastTestExpr{
 								{
 									TestExpr: "\"group:mainline\" && informational",
 								},
 							},
+							Common: &testplans.TestSuiteCommon{DisplayName: "vmboardA.tast_gce_suite2", Critical: wrapperspb.Bool(true)},
 						},
 					},
 				},
@@ -498,11 +528,13 @@ func TestToCTP1Errors(t *testing.T) {
 	testCases := []struct {
 		name             string
 		hwTestPlans      []*test_api_v1.HWTestPlan
+		vmTestPlans      []*test_api_v1.VMTestPlan
 		dutAttributeList *testpb.DutAttributeList
 		err              string
 	}{
 		{
-			name: "missing program DUT attribute",
+			name:        "missing program DUT attribute",
+			vmTestPlans: vmTestPlans,
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
 					CoverageRules: []*testpb.CoverageRule{
@@ -527,7 +559,8 @@ func TestToCTP1Errors(t *testing.T) {
 			err:              "attribute \"attr-program\" not found in DutCriterion",
 		},
 		{
-			name: "missing pool DUT attribute",
+			name:        "missing pool DUT attribute",
+			vmTestPlans: vmTestPlans,
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
 					CoverageRules: []*testpb.CoverageRule{
@@ -553,7 +586,8 @@ func TestToCTP1Errors(t *testing.T) {
 		},
 		{
 
-			name: "missing pool DUT attribute",
+			name:        "missing pool DUT attribute",
+			vmTestPlans: vmTestPlans,
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
 					CoverageRules: []*testpb.CoverageRule{
@@ -577,7 +611,8 @@ func TestToCTP1Errors(t *testing.T) {
 			dutAttributeList: dutAttributeList,
 		},
 		{
-			name: "criteria with no values",
+			name:        "criteria with no values",
+			vmTestPlans: vmTestPlans,
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
 					CoverageRules: []*testpb.CoverageRule{
@@ -602,7 +637,8 @@ func TestToCTP1Errors(t *testing.T) {
 			err:              "only DutCriterion with at least one value supported",
 		},
 		{
-			name: "invalid DUT attribute",
+			name:        "invalid DUT attribute",
+			vmTestPlans: vmTestPlans,
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
 					CoverageRules: []*testpb.CoverageRule{
@@ -645,7 +681,8 @@ func TestToCTP1Errors(t *testing.T) {
 			err:              "expected DutTarget to use criteria \"attr-program\" and \"swarming-pool\", and optionally \"attr-design\"",
 		},
 		{
-			name: "multiple pool values",
+			name:        "multiple pool values",
+			vmTestPlans: vmTestPlans,
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
 					CoverageRules: []*testpb.CoverageRule{
@@ -677,7 +714,8 @@ func TestToCTP1Errors(t *testing.T) {
 		},
 		{
 
-			name: "multiple design values",
+			name:        "multiple design values",
+			vmTestPlans: vmTestPlans,
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
 					CoverageRules: []*testpb.CoverageRule{
@@ -714,7 +752,8 @@ func TestToCTP1Errors(t *testing.T) {
 			err:              "only DutCriteria with exactly one \"attr-design\" argument are supported",
 		},
 		{
-			name: "test tags used",
+			name:        "test tags used",
+			vmTestPlans: vmTestPlans,
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
 					CoverageRules: []*testpb.CoverageRule{
@@ -754,7 +793,8 @@ func TestToCTP1Errors(t *testing.T) {
 			err:              "TestCaseTagCriteria are only valid for VM tests",
 		},
 		{
-			name: "multiple DUT targets",
+			name:        "multiple DUT targets",
+			vmTestPlans: vmTestPlans,
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
 					CoverageRules: []*testpb.CoverageRule{
@@ -804,6 +844,7 @@ func TestToCTP1Errors(t *testing.T) {
 		{
 			name:             "multiple programs with design",
 			dutAttributeList: dutAttributeList,
+			vmTestPlans:      vmTestPlans,
 			hwTestPlans: []*test_api_v1.HWTestPlan{
 				{
 					Id: &test_api_v1.HWTestPlan_TestPlanId{
@@ -842,6 +883,95 @@ func TestToCTP1Errors(t *testing.T) {
 			},
 			err: "if \"attr-design\" is specified, multiple \"attr-programs\" cannot be used",
 		},
+		{
+			name:        "invalid VM test name",
+			hwTestPlans: hwTestPlans,
+			vmTestPlans: []*test_api_v1.VMTestPlan{
+				{
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							TestSuites: []*testpb.TestSuite{
+								{
+									Name: "vmsuite1",
+									Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+										TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+											Tags: []string{"tagA"},
+										},
+									},
+								},
+							},
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"programA", "programB"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{"DUT_POOL_QUOTA"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+			err:              "VM suite names must start with either \"tast_vm\" or \"tast_gce\" in CTP1 compatibility mode",
+		},
+		{
+
+			name:        "VM test with id list",
+			hwTestPlans: hwTestPlans,
+			vmTestPlans: []*test_api_v1.VMTestPlan{
+				{
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							TestSuites: []*testpb.TestSuite{
+								{
+									Name: "tast_vm_suite1",
+									Spec: &testpb.TestSuite_TestCaseIds{
+										TestCaseIds: &testpb.TestCaseIdList{
+											TestCaseIds: []*testpb.TestCase_Id{
+												{
+													Value: "testcaseA",
+												},
+											},
+										},
+									},
+								},
+							},
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"programA", "programB"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{"DUT_POOL_QUOTA"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+			err:              "TestCaseIdLists are only valid for HW tests",
+		},
 	}
 
 	req := &testplans.GenerateTestPlanRequest{
@@ -852,7 +982,7 @@ func TestToCTP1Errors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := compatibility.ToCTP1(
 				rand.New(rand.NewSource(7)),
-				tc.hwTestPlans, vmTestPlans, req, tc.dutAttributeList, boardPriorityList,
+				tc.hwTestPlans, tc.vmTestPlans, req, tc.dutAttributeList, boardPriorityList,
 			)
 			if err == nil {
 				t.Error("Expected error from ToCTP1")
