@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright 2022 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -10,6 +12,7 @@
 
 """Creates a bisection branch between two KCR results"""
 
+import sys
 import sh
 from githelpers import (
     checkout,
@@ -18,7 +21,10 @@ from githelpers import (
     commit_subject,
     create_head,
     diff,
+    generic_abort,
+    generic_continue,
     is_merge,
+    is_resolved,
     list_shas,
     patch_title,
     revert
@@ -89,6 +95,67 @@ def is_same(patch1, patch2):
     if chid1 is not None and chid2 is not None:
         return chid1 == chid2
     return title1 == title2
+
+def assert_empty(sha):
+    """True=empty, false=non-empty"""
+
+    try:
+        cherry_pick('kernel-upstream', sha, use_am=False)
+        return False
+    except Exception as e:
+        if not is_resolved('kernel-upstream'):
+            generic_abort('kernel-upstream')
+            return False
+    try:
+        generic_continue('kernel-upstream')
+    except sh.ErrorReturnCode as e:
+        generic_abort('kernel-upstream')
+        return 'all conflicts fixed' in str(e.stdout)
+
+
+def speculative_check(disp):
+    """True=retain, False=skip"""
+
+    if disp['disposition'] != 'replace':
+        return True
+
+    old = disp['old']
+    new = disp['new']
+    fixup_old = disp['fixup_old']
+    fixup_new = disp['fixup_new']
+
+    checkout('kernel-upstream', old)
+    if not assert_empty(new):
+        return True
+    if fixup_old is not None:
+        try:
+            cherry_pick('kernel-upstream', fixup_old, use_am=False)
+        except Exception:
+            generic_abort('kernel-upstream')
+            return True
+    if fixup_new is not None and not assert_empty(fixup_new):
+        return True
+
+    return False
+
+def filter_noops(disps):
+    """Removes dispositions that don't pass speculative_check(_)"""
+
+    result = []
+    for i, d in enumerate(disps):
+        if speculative_check(d):
+            result.append(d)
+            print('.', end='')
+        else:
+            print('X', end='')
+
+        if (i + 1) % 20 == 0:
+            print()
+        else:
+            sys.stdout.flush()
+    print()
+
+    return result
 
 def dispositions(patches_begin, patches_end):
     """List a sequence of Chromium OS patch operations that transform {begin} into {end}."""
@@ -302,6 +369,10 @@ end_patches = get_patches(end)
 
 # Print informative statistics
 disps = dispositions(begin_patches, end_patches)
+
+print('Removing no-op replaces')
+disps = filter_noops(disps)
+
 reverts = 0
 picks = 0
 replacements = 0

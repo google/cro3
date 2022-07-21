@@ -306,3 +306,57 @@ def add_remote(repo, remote, url):
     """Adds a remote to the repo"""
     with sh.pushd(repo):
         sh.git('remote', 'add', remote, url)
+
+def generic_abort(repo):
+    """Aborts am or cherry-pick, depending on what's active"""
+    with sh.pushd(repo):
+        cmd = sh.git('--no-pager', 'status')
+
+    out = str(cmd)
+    cp = 'You are currently cherry-picking commit' in out
+    am = 'You are in the middle of an am session' in out
+
+    if cp:
+        with sh.pushd(repo):
+            sh.git(
+                '-c',
+                'core.editor=true',
+                'cherry-pick',
+                '--abort')
+    elif am:
+        with sh.pushd(repo):
+            sh.git(
+                '-c',
+                'core.editor=true',
+                'am',
+                '--abort')
+    else:
+        print('Error: generic_abort(..) called, but neither am nor cherry-pick is in progress!')
+        print('This is a bug, report to the maintainer of kernel-rebase.')
+
+def generic_continue(repo):
+    """Aborts am or cherry-pick, depending on what's active"""
+    with sh.pushd(repo):
+        cmd = sh.git('--no-pager', 'status')
+
+    out = str(cmd)
+    cp = 'You are currently cherry-picking commit' in out
+    am = 'You are in the middle of an am session' in out
+
+    if cp:
+        with sh.pushd(repo):
+            sh.git(
+                '-c',
+                'core.editor=true',
+                'cherry-pick',
+                '--continue')
+    elif am:
+        with sh.pushd(repo):
+            sh.git(
+                '-c',
+                'core.editor=true',
+                'am',
+                '--continue')
+    else:
+        print('Error: generic_abort(..) called, but neither am nor cherry-pick is in progress!')
+        print('This is a bug, report to the maintainer of kernel-rebase.')
