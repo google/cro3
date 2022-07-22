@@ -15,6 +15,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"syscall"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -33,6 +34,7 @@ type Request struct {
 	Object              string
 }
 
+// copyChunked copies r to w in chunks.
 func copyChunked(w io.Writer, r io.Reader, buf []byte) (written int64, err error) {
 	for {
 		n, err := io.ReadFull(r, buf)
@@ -67,14 +69,14 @@ func (r *Request) Flash(ctx context.Context, rw *progress.ReportingWriter, image
 	}
 	rw.SetTotal(rd.Attrs.Size)
 
-	brd := bufio.NewReader(io.TeeReader(rd, rw))
+	brd := io.TeeReader(bufio.NewReaderSize(rd, 1<<20), rw)
 
 	gzRd, err := gzip.NewReader(brd)
 	if err != nil {
 		return fmt.Errorf("gzip.NewReader failed: %s", err)
 	}
 
-	w, err := os.OpenFile(partition, os.O_WRONLY, 0660)
+	w, err := os.OpenFile(partition, os.O_WRONLY|syscall.O_DIRECT, 0660)
 	if err != nil {
 		return fmt.Errorf("cannot open %s: %s", partition, err)
 	}
@@ -85,7 +87,7 @@ func (r *Request) Flash(ctx context.Context, rw *progress.ReportingWriter, image
 	}()
 
 	if _, err := copyChunked(w, gzRd, make([]byte, 1<<20)); err != nil {
-		return fmt.Errorf("copy to %s failed: %s", partition, err)
+		return fmt.Errorf("copy to %s failed: %w", partition, err)
 	}
 
 	return nil
@@ -107,7 +109,7 @@ func (r *Request) FlashStateful(ctx context.Context, rw *progress.ReportingWrite
 	}
 	rw.SetTotal(rd.Attrs.Size)
 
-	brd := bufio.NewReader(io.TeeReader(rd, rw))
+	brd := io.TeeReader(bufio.NewReader(rd), rw)
 
 	if err := unpackStateful(ctx, brd); err != nil {
 		return err
