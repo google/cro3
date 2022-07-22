@@ -26,6 +26,7 @@ Where `${dut_host}` is the ssh target.
 *   clobbers stateful
 *   disables verified boot
 *   clears tpm owner
+*   reboot the device
 
 `fflash` is faster than `cros flash` if the connection between `cros flash` and the DUT is slow.
 `cros flash` proxies the `gs://chromeos-image-archive` images for the DUT (Google Cloud -> workstation -> DUT).

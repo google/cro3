@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	embeddedagent "chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/embedded-agent"
+	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/partitions"
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/progress"
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/ssh"
 )
@@ -54,6 +55,17 @@ func DetectReleaseBuilder(c *ssh.Client) (BuilderPath, error) {
 	return BuilderPath{match[1], match[2]}, nil
 }
 
+// DetectPartitions detects the active/inactive partition state on c's remote host.
+func DetectPartitions(c *ssh.Client) (partitions.State, error) {
+	rootPart, err := c.RunSimpleOutput("rootdev -s")
+	if err != nil {
+		return partitions.State{}, err
+	}
+
+	return partitions.GetStateFromRootPartition(strings.TrimSuffix(rootPart, "\n"))
+}
+
+// DetectArch detects the CPU architecture on c's remote host.
 func DetectArch(c *ssh.Client) (string, error) {
 	stdout, err := c.RunSimpleOutput("uname -m")
 	if err != nil {

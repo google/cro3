@@ -42,5 +42,5 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	log.Println("flash complete, please reboot DUT manually.")
+	log.Println("DUT flashed successfully")
 }

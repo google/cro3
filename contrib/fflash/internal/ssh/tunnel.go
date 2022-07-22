@@ -26,6 +26,17 @@ type Tunnel struct {
 	tempDir  string
 }
 
+// DefaultCommand returns a SSH command with default flags set.
+func DefaultCommand(ctx context.Context) *exec.Cmd {
+	return exec.CommandContext(ctx, "ssh",
+		"-oBatchMode=yes",
+		"-oUserKnownHostsFile=/dev/null",
+		"-oConnectTimeout=10",
+		"-oServerAliveInterval=1",
+	)
+}
+
+// NewTunnel creates a SSH Tunnel to host.
 func NewTunnel(ctx context.Context, host string) (*Tunnel, error) {
 	tunnel := &Tunnel{}
 
@@ -38,11 +49,8 @@ func NewTunnel(ctx context.Context, host string) (*Tunnel, error) {
 	}
 	tunnel.tempDir = tempDir
 
-	cmd := exec.CommandContext(ctx, "ssh",
-		"-oBatchMode=yes",
-		"-oUserKnownHostsFile=/dev/null",
-		"-oConnectTimeout=10",
-		"-oServerAliveInterval=1",
+	cmd := DefaultCommand(ctx)
+	cmd.Args = append(cmd.Args,
 		fmt.Sprintf("-L%s:localhost:22", path.Join(tempDir, tunnelSocketName)),
 		host,
 		"echo", "ping", "&&", "read",
