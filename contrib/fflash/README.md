@@ -22,10 +22,22 @@ Where `${dut_host}` is the ssh target.
 
 `fflash` currently:
 
-*   flashes the latest test image on the device
+*   flashes the specified image, or latest image on the device
+*   clobbers stateful
 *   disables verified boot
+*   clears tpm owner
 
 `fflash` is faster than `cros flash` if the connection between `cros flash` and the DUT is slow.
 `cros flash` proxies the `gs://chromeos-image-archive` images for the DUT (Google Cloud -> workstation -> DUT).
 `fflash` makes the DUT download the OS images directly, by granting the DUT a restricted
 access token to the Chrome OS release image directory (Google Cloud -> DUT).
+
+## Usage examples
+
+```
+bin/fflash ${dut_host}
+bin/fflash ${dut_host} -R104
+bin/fflash ${dut_host} -R104-14911.0.0
+bin/fflash ${dut_host} --gs=gs://chromeos-image-archive/cherry-release/R104-14911.0.0
+bin/fflash --help
+```

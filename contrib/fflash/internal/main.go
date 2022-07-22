@@ -62,7 +62,13 @@ func getToken(ctx context.Context) (oauth2.TokenSource, error) {
 	return ts, nil
 }
 
-func Main(ctx context.Context, t0 time.Time, target string) error {
+type Options struct {
+	GS            string // gs:// directory to flash
+	ReleaseString string // release string such as R105-14989.0.0
+	ReleaseNum    int    // release number such as 105
+}
+
+func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error {
 	tkSrc, err := getToken(ctx)
 	if err != nil {
 		return err
@@ -93,13 +99,10 @@ func Main(ctx context.Context, t0 time.Time, target string) error {
 		return fmt.Errorf("storage.NewClient failed: %s", err)
 	}
 
-	gsRelease, err := GetLatestReleaseForBoard(ctx, storageClient, dutReleasePath.Board)
+	targetBucket, targetDirectory, err := getFlashTarget(ctx, storageClient, dutReleasePath.Board, opts)
 	if err != nil {
 		return err
 	}
-
-	targetBucket := "chromeos-image-archive"
-	targetDirectory := fmt.Sprintf("%s-release/%s", dutReleasePath.Board, gsRelease)
 	log.Printf("flashing directory: gs://%s/%s", targetBucket, targetDirectory)
 
 	req, err := createFlashRequest(ctx, tkSrc, targetBucket, targetDirectory)

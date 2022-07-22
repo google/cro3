@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"path"
 
 	"cloud.google.com/go/storage"
@@ -22,15 +23,19 @@ func maxVersion(v, w string) string {
 	return w
 }
 
-func GetLatestBuildForChannel(ctx context.Context, c *storage.Client, board, channel string) (string, error) {
+// GetLatestBuildWithPrefix finds the latest build with the given prefix on gs://chromeos-image-archive.
+// Versions are compared with semver.Compare.
+func GetLatestBuildWithPrefix(ctx context.Context, c *storage.Client, board, prefix string) (string, error) {
+	fullPrefix := fmt.Sprintf("%s-release/%s", board, prefix)
+
 	q := &storage.Query{
 		Delimiter: "/",
-		Prefix:    fmt.Sprintf("%s-channel/%s/", channel, board),
+		Prefix:    fullPrefix,
 	}
 	if err := q.SetAttrSelection([]string{"Name"}); err != nil {
 		panic("SetAttrSelection failed")
 	}
-	objects := c.Bucket("chromeos-releases").Objects(ctx, q)
+	objects := c.Bucket("chromeos-image-archive").Objects(ctx, q)
 
 	v := ""
 	for {
@@ -39,31 +44,17 @@ func GetLatestBuildForChannel(ctx context.Context, c *storage.Client, board, cha
 			break
 		}
 		if err != nil {
-			return "", fmt.Errorf("cannot get latest for channel=%s, board=%s: %s", channel, board, err)
+			return "", fmt.Errorf("cannot get releases available for gs://chromeos-image-archive/%s", fullPrefix)
 		}
 		v = maxVersion(v, path.Base(attrs.Prefix))
 	}
 	if v == "" {
-		return "", fmt.Errorf("no versions found for channel=%s, board=%s", channel, board)
+		return "", fmt.Errorf("no releases available found for gs://chromeos-image-archive/%s", fullPrefix)
 	}
 	return v, nil
 }
 
-func GetReleaseForBuild(ctx context.Context, c *storage.Client, board, build string) (string, error) {
-	object := c.Bucket("chromeos-image-archive").Object(fmt.Sprintf("%s-release/LATEST-%s", board, build))
-	r, err := object.NewReader(ctx)
-	if err != nil {
-		return "", fmt.Errorf("cannot open %s: %s", gsURI(object), err)
-	}
-
-	release, err := io.ReadAll(r)
-	if err != nil {
-		return "", fmt.Errorf("cannot read from %s: %s", gsURI(object), err)
-	}
-
-	return string(release), nil
-}
-
+// GetLatestReleaseForBoard finds the latest release for board on gs://chromeos-image-archive.
 func GetLatestReleaseForBoard(ctx context.Context, c *storage.Client, board string) (string, error) {
 	object := c.Bucket("chromeos-image-archive").Object(fmt.Sprintf("%s-release/LATEST-main", board))
 	r, err := object.NewReader(ctx)
@@ -77,4 +68,30 @@ func GetLatestReleaseForBoard(ctx context.Context, c *storage.Client, board stri
 	}
 
 	return string(release), nil
+}
+
+func getFlashTarget(ctx context.Context, c *storage.Client, board string, opts *Options) (targetBucket string, targetDirectory string, err error) {
+	if opts.GS != "" {
+		url, err := url.Parse(opts.GS)
+		if err != nil {
+			return "", "", err
+		}
+		return url.Host, url.RequestURI(), nil
+	}
+
+	var prefix string
+	if opts.ReleaseString != "" {
+		prefix = "R" + opts.ReleaseString
+	} else if opts.ReleaseNum != 0 {
+		prefix = fmt.Sprintf("R%d-", opts.ReleaseNum)
+	}
+
+	var gsRelease string
+	if prefix == "" {
+		gsRelease, err = GetLatestReleaseForBoard(ctx, c, board)
+	} else {
+		gsRelease, err = GetLatestBuildWithPrefix(ctx, c, board, prefix)
+	}
+
+	return "chromeos-image-archive", fmt.Sprintf("%s-release/%s", board, gsRelease), err
 }
