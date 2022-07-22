@@ -12,7 +12,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -141,26 +140,20 @@ func RunPostinst(ctx context.Context, partition string) error {
 		}
 	}()
 
-	cmd := exec.CommandContext(ctx, filepath.Join(dir, "postinst"), partition)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-
-	return nil
+	return runCommandStderr(ctx, filepath.Join(dir, "postinst"), partition)
 }
 
 func DisableRootfsVerification(ctx context.Context, kernelNum int) error {
-	cmd := exec.CommandContext(ctx,
+	return runCommandStderr(ctx,
 		"/usr/share/vboot/bin/make_dev_ssd.sh",
 		"--remove_rootfs_verification",
 		"--partitions", strconv.Itoa(kernelNum),
 	)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to disable rootfs verification: %s", err)
-	}
-	return nil
+}
+
+func ClearTpmOwner(ctx context.Context) error {
+	return runCommandStderr(ctx,
+		"crossystem",
+		"clear_tpm_owner_request=1",
+	)
 }

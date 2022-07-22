@@ -77,5 +77,10 @@ func Main() error {
 		return fmt.Errorf("disable rootfs verification failed: %s", err)
 	}
 
+	log.Println("clearing tpm owner")
+	if err := ClearTpmOwner(ctx); err != nil {
+		return fmt.Errorf("clear tpm owner failed: %s", err)
+	}
+
 	return nil
 }

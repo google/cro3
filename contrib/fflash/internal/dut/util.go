@@ -7,6 +7,7 @@ package dut
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -21,4 +22,14 @@ func runCommand(ctx context.Context, name string, args ...string) (string, error
 		return "", fmt.Errorf("%s failed: %v", cmd, err)
 	}
 	return strings.TrimRight(string(output), "\n"), nil
+}
+
+func runCommandStderr(ctx context.Context, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s failed: %v", cmd, err)
+	}
+	return nil
 }
