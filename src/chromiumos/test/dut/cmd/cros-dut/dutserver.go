@@ -162,6 +162,9 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 
 	command := "reboot " + strings.Join(req.Args, " ")
 	output, stderr, err := s.runCmdOutput(command)
+	if stderr != "" {
+		s.logger.Printf("reboot command has an stderr set to: %s", stderr)
+	}
 	if err != nil {
 		status := status.New(codes.Aborted, fmt.Sprintf("rebootDut: failed reboot, %s", stderr))
 		s.manager.SetError(op.Name, status)
