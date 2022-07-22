@@ -33,7 +33,7 @@ func Main() error {
 	log.Printf("active kernel/rootfs: %s, %s", partState.ActiveKernel(), partState.ActiveRootfs())
 	log.Printf("flashing to: %s, %s", partState.InactiveKernel(), partState.InactiveRootfs())
 
-	pr := progress.ProgressReporter{}
+	pr := progress.NewProgressReporter()
 	ch := make(chan error)
 
 	go func(rw *progress.ReportingWriter) {
