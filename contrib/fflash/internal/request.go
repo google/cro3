@@ -49,18 +49,18 @@ func createFlashRequest(ctx context.Context, token oauth2.TokenSource, bucket, o
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("downscope.NewTokenSource failed: %s", err)
+		return nil, fmt.Errorf("downscope.NewTokenSource failed: %w", err)
 	}
 
 	tok, err := down.Token()
 	if err != nil {
-		return nil, fmt.Errorf("down.Token() failed: %s", err)
+		return nil, fmt.Errorf("down.Token() failed: %w", err)
 	}
 	tok.RefreshToken = ""
 
 	return &dut.Request{
-		Token:  tok,
-		Bucket: bucket,
-		Object: objectPrefix,
+		Token:     tok,
+		Bucket:    bucket,
+		Directory: objectPrefix,
 	}, nil
 }

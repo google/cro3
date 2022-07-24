@@ -22,6 +22,7 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
 
+	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/misc"
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/progress"
 )
 
@@ -29,9 +30,10 @@ import (
 type Request struct {
 	// Base time when the flash started, for logging.
 	ElapsedTimeWhenSent time.Duration
-	Token               *oauth2.Token
-	Bucket              string
-	Object              string
+
+	Token     *oauth2.Token
+	Bucket    string
+	Directory string
 }
 
 // copyChunked copies r to w in chunks.
@@ -53,32 +55,78 @@ func copyChunked(w io.Writer, r io.Reader, buf []byte) (written int64, err error
 	return written, nil
 }
 
-func (r *Request) Flash(ctx context.Context, rw *progress.ReportingWriter, imageGz string, partition string) error {
+type closeFunc func() error
+
+// Client creates a storage.Client from req.
+func (req *Request) Client(ctx context.Context) (*storage.Client, error) {
 	client, err := storage.NewClient(ctx,
-		option.WithTokenSource(oauth2.StaticTokenSource(r.Token)),
+		option.WithTokenSource(oauth2.StaticTokenSource(req.Token)),
 	)
 	if err != nil {
-		return fmt.Errorf("storage.NewClient failed: %s", err)
+		return nil, fmt.Errorf("storage.NewClient failed: %w", err)
 	}
 
-	obj := client.Bucket(r.Bucket).Object(path.Join(r.Object, imageGz))
+	return client, nil
+}
+
+// object returns the storage.ObjectHandle for the file in the directory specified by req.
+func (req *Request) object(client *storage.Client, name string) *storage.ObjectHandle {
+	return client.Bucket(req.Bucket).Object(path.Join(req.Directory, name))
+}
+
+// openObject opens the file in the the directory specified by req.
+func (req *Request) openObject(ctx context.Context, client *storage.Client, rw *progress.ReportingWriter, name string, decompress bool) (io.Reader, closeFunc, error) {
+	obj := req.object(client, name)
 
 	rd, err := obj.NewReader(ctx)
 	if err != nil {
-		return fmt.Errorf("obj.NewReader failed: %s", err)
+		return nil, nil, fmt.Errorf("obj.NewReader for %s failed: %w", misc.GsURI(obj), err)
 	}
 	rw.SetTotal(rd.Attrs.Size)
 
 	brd := io.TeeReader(bufio.NewReaderSize(rd, 1<<20), rw)
 
+	if !decompress {
+		return brd, func() error { return rd.Close() }, nil
+	}
+
 	gzRd, err := gzip.NewReader(brd)
 	if err != nil {
-		return fmt.Errorf("gzip.NewReader failed: %s", err)
+		rd.Close()
+		return nil, nil, fmt.Errorf("gzip.NewReader for %s failed: %w", misc.GsURI(obj), err)
 	}
+
+	return gzRd,
+		func() error {
+			gzRd.Close()
+			return rd.Close()
+		},
+		nil
+}
+
+// Check access to Cloud Storage files.
+func (req *Request) Check(ctx context.Context, client *storage.Client) error {
+	for _, file := range []string{KernelImage, RootfsImage, StatefulImage} {
+		obj := req.object(client, file)
+
+		if _, err := obj.Attrs(ctx); err != nil {
+			return fmt.Errorf("%s: %w", misc.GsURI(obj), err)
+		}
+	}
+	return nil
+}
+
+// Flash a partition with imageGz to partition.
+func (req *Request) Flash(ctx context.Context, client *storage.Client, rw *progress.ReportingWriter, imageGz string, partition string) error {
+	r, close, err := req.openObject(ctx, client, rw, imageGz, true)
+	if err != nil {
+		return err
+	}
+	defer close()
 
 	w, err := os.OpenFile(partition, os.O_WRONLY|syscall.O_DIRECT, 0660)
 	if err != nil {
-		return fmt.Errorf("cannot open %s: %s", partition, err)
+		return fmt.Errorf("cannot open %s: %w", partition, err)
 	}
 	defer func() {
 		if err := w.Close(); err != nil {
@@ -86,32 +134,22 @@ func (r *Request) Flash(ctx context.Context, rw *progress.ReportingWriter, image
 		}
 	}()
 
-	if _, err := copyChunked(w, gzRd, make([]byte, 1<<20)); err != nil {
+	if _, err := copyChunked(w, r, make([]byte, 1<<20)); err != nil {
 		return fmt.Errorf("copy to %s failed: %w", partition, err)
 	}
 
 	return nil
 }
 
-func (r *Request) FlashStateful(ctx context.Context, rw *progress.ReportingWriter) error {
-	client, err := storage.NewClient(ctx,
-		option.WithTokenSource(oauth2.StaticTokenSource(r.Token)),
-	)
+// FlashStateful flashes the stateful partition.
+func (req *Request) FlashStateful(ctx context.Context, client *storage.Client, rw *progress.ReportingWriter) error {
+	r, close, err := req.openObject(ctx, client, rw, StatefulImage, false)
 	if err != nil {
-		return fmt.Errorf("storage.NewClient failed: %s", err)
+		return err
 	}
+	defer close()
 
-	obj := client.Bucket(r.Bucket).Object(path.Join(r.Object, StatefulImage))
-
-	rd, err := obj.NewReader(ctx)
-	if err != nil {
-		return fmt.Errorf("obj.NewReader failed: %s", err)
-	}
-	rw.SetTotal(rd.Attrs.Size)
-
-	brd := io.TeeReader(bufio.NewReader(rd), rw)
-
-	if err := unpackStateful(ctx, brd); err != nil {
+	if err := unpackStateful(ctx, r); err != nil {
 		return err
 	}
 
@@ -120,7 +158,7 @@ func (r *Request) FlashStateful(ctx context.Context, rw *progress.ReportingWrite
 		[]byte("clobber"),
 		0644,
 	); err != nil {
-		return fmt.Errorf("failed to write %s: %s", statefulAvailable, err)
+		return fmt.Errorf("failed to write %s: %w", statefulAvailable, err)
 	}
 
 	return nil

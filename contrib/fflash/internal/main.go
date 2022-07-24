@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -37,7 +38,7 @@ func getToken(ctx context.Context) (oauth2.TokenSource, error) {
 
 	u, err := user.Current()
 	if err != nil {
-		return nil, fmt.Errorf("cannot lookup user: %s", err)
+		return nil, fmt.Errorf("cannot lookup user: %w", err)
 	}
 
 	botoFile := filepath.Join(u.HomeDir, ".boto")
@@ -45,7 +46,7 @@ func getToken(ctx context.Context) (oauth2.TokenSource, error) {
 	// Get the key used by gsutil.py
 	boto, err := ini.Load(botoFile)
 	if err != nil {
-		return nil, fmt.Errorf("cannot load %s: %s (please run `gsutil.py config`)", botoFile, err)
+		return nil, fmt.Errorf("cannot load %s: %w (please run `gsutil.py config`)", botoFile, err)
 	}
 	refreshToken := boto.Section("Credentials").Key("gs_oauth2_refresh_token").String()
 	if refreshToken == "" {
@@ -76,13 +77,13 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 
 	sshClient, err := ssh.DialWithSystemSSH(ctx, target)
 	if err != nil {
-		return fmt.Errorf("system ssh failed: %s", err)
+		return fmt.Errorf("system ssh failed: %w", err)
 	}
 	defer sshClient.Close()
 
 	dutReleasePath, err := DetectReleaseBuilder(sshClient)
 	if err != nil {
-		return fmt.Errorf("cannot detect release for dut: %s", err)
+		return fmt.Errorf("cannot detect release for dut: %w", err)
 	}
 	log.Println("DUT is running:", dutReleasePath)
 
@@ -96,17 +97,20 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 		option.WithTokenSource(tkSrc),
 	)
 	if err != nil {
-		return fmt.Errorf("storage.NewClient failed: %s", err)
+		return fmt.Errorf("storage.NewClient failed: %w", err)
 	}
 
 	targetBucket, targetDirectory, err := getFlashTarget(ctx, storageClient, dutReleasePath.Board, opts)
 	if err != nil {
 		return err
 	}
-	log.Printf("flashing directory: gs://%s/%s", targetBucket, targetDirectory)
+	log.Printf("flashing directory: gs://%s", path.Join(targetBucket, targetDirectory))
 
 	req, err := createFlashRequest(ctx, tkSrc, targetBucket, targetDirectory)
 	if err != nil {
+		return err
+	}
+	if err := req.Check(ctx, storageClient); err != nil {
 		return err
 	}
 
@@ -146,7 +150,7 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	}()
 
 	if err := session.Wait(); err != nil {
-		return fmt.Errorf("dut-agent failed: %s", err)
+		return fmt.Errorf("dut-agent failed: %w", err)
 	}
 
 	oldParts, err := DetectPartitions(sshClient)

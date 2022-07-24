@@ -14,6 +14,8 @@ import (
 	"cloud.google.com/go/storage"
 	"golang.org/x/mod/semver"
 	"google.golang.org/api/iterator"
+
+	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/misc"
 )
 
 func maxVersion(v, w string) string {
@@ -59,12 +61,12 @@ func GetLatestReleaseForBoard(ctx context.Context, c *storage.Client, board stri
 	object := c.Bucket("chromeos-image-archive").Object(fmt.Sprintf("%s-release/LATEST-main", board))
 	r, err := object.NewReader(ctx)
 	if err != nil {
-		return "", fmt.Errorf("cannot open %s: %s", gsURI(object), err)
+		return "", fmt.Errorf("cannot open %s: %w", misc.GsURI(object), err)
 	}
 
 	release, err := io.ReadAll(r)
 	if err != nil {
-		return "", fmt.Errorf("cannot read from %s: %s", gsURI(object), err)
+		return "", fmt.Errorf("cannot read from %s: %w", misc.GsURI(object), err)
 	}
 
 	return string(release), nil

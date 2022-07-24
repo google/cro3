@@ -25,7 +25,7 @@ func unpackStateful(ctx context.Context, r io.Reader) error {
 	cmd.Stdin = r
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("tar unpack failed: %s", out)
+		return fmt.Errorf("tar unpack failed: %w: %s", err, out)
 	}
 	return nil
 }

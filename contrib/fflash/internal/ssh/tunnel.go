@@ -42,7 +42,7 @@ func NewTunnel(ctx context.Context, host string) (*Tunnel, error) {
 
 	tempDir, err := os.MkdirTemp("", "ssh-tunnel-*")
 	if err != nil {
-		return nil, fmt.Errorf("cannot create temporary directory for ssh tunnel: %s", err)
+		return nil, fmt.Errorf("cannot create temporary directory for ssh tunnel: %w", err)
 	}
 	if strings.Contains(tempDir, ":") {
 		panic("temporary directory name contains ':'")
@@ -57,15 +57,15 @@ func NewTunnel(ctx context.Context, host string) (*Tunnel, error) {
 	)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, fmt.Errorf("cannot setup stdin pipe: %s", err)
+		return nil, fmt.Errorf("cannot setup stdin pipe: %w", err)
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, fmt.Errorf("cannot setup stdout pipe: %s", err)
+		return nil, fmt.Errorf("cannot setup stdout pipe: %w", err)
 	}
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("cannot create ssh connection: %s", err)
+		return nil, fmt.Errorf("cannot create ssh connection: %w", err)
 	}
 	tunnel.cmd = cmd
 	tunnel.cmdStdin = stdin

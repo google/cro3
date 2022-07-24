@@ -17,9 +17,9 @@ func runCommand(ctx context.Context, name string, args ...string) (string, error
 	output, err := cmd.Output()
 	if err != nil {
 		if err, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("%s failed: %v: %s", cmd, err, err.Stderr)
+			return "", fmt.Errorf("%s failed: %w: %s", cmd, err, err.Stderr)
 		}
-		return "", fmt.Errorf("%s failed: %v", cmd, err)
+		return "", fmt.Errorf("%s failed: %w", cmd, err)
 	}
 	return strings.TrimRight(string(output), "\n"), nil
 }
@@ -29,7 +29,7 @@ func runCommandStderr(ctx context.Context, name string, args ...string) error {
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%s failed: %v", cmd, err)
+		return fmt.Errorf("%s failed: %w", cmd, err)
 	}
 	return nil
 }

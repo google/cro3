@@ -7,6 +7,8 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"os/signal"
 	"strconv"
 	"time"
 
@@ -24,7 +26,8 @@ func main() {
 	logging.SetUp(t0)
 	log.SetPrefix("[fflash] ")
 
-	ctx := context.TODO()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
 	target := kingpin.Arg("dut-host", "the ssh target of the dut").Required().String()
 	var opts internal.Options
