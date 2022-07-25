@@ -4,11 +4,15 @@
 
 """Proxy server for configuring callboxes."""
 
+# disable some lints to stay consistent with ACTS formatting
+# pylint: disable=bad-indentation, banned-string-format-function
+# pylint: disable=docstring-trailing-quotes, docstring-section-indent, bad-continuation
+
 import traceback
 import urllib
 
-import flask
-from flask import request
+import flask  # pylint: disable=E0401
+from flask import request  # pylint: disable=E0401
 
 from ..callbox_utils import cmw500_cellular_simulator as cmw
 from ..simulation_utils import ChromebookCellularDut
@@ -27,6 +31,7 @@ class CallboxConfiguration:
         self.simulator = None
         self.simulation = None
         self.parameter_list = None
+        self.iperf = None
 
 class CallboxManager:
     """Manager object that holds configurations to known callboxes."""
@@ -42,6 +47,7 @@ class CallboxManager:
         if data['hardware'] == 'CMW':
             config.simulator = cmw.CMW500CellularSimulator(
                     config.host, config.port, app.logger)
+            config.iperf = config.simulator.cmw.init_perf_measurement()
 
         config.dut = ChromebookCellularDut.ChromebookCellularDut(
                 'no_dut_connection', app.logger)
@@ -63,11 +69,53 @@ class CallboxManager:
         config.simulation.start()
         return 'OK'
 
+    def query_throughput(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        return {
+                'uplink' : config.simulation.maximum_uplink_throughput(),
+                'downlink' : config.simulation.maximum_downlink_throughput()
+                }
+
     def send_sms(self, data):
         self._require_dict_keys(data, 'callbox')
         config = self._get_callbox_config(data['callbox'])
         config.simulation.send_sms(data['sms'])
         return 'OK'
+
+    def config_iperf(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        config.iperf.configure(data)
+        return 'OK'
+
+    def start_iperf(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        config.iperf.start()
+        return 'OK'
+
+    def stop_iperf(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        config.iperf.stop()
+        return 'OK'
+
+    def close_iperf(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        config.iperf.close()
+        return 'OK'
+
+    def query_iperf_results(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        return config.iperf.query_results()
+
+    def query_iperf_ip(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        return {'ip' : config.iperf.ip_address}
 
     def _get_callbox_config(self, callbox, create_if_dne=False):
         if callbox not in self.configs_by_host:
@@ -76,7 +124,8 @@ class CallboxManager:
                 if not url.hostname:
                     url = urllib.parse.urlsplit('//' + callbox)
                 if not url.hostname:
-                    raise ValueError(f'Unable to parse callbox host: "{callbox}"')
+                    raise ValueError(
+                        f'Unable to parse callbox host: "{callbox}"')
                 config = CallboxConfiguration()
                 config.host = url.hostname
                 config.port = 5025 if not url.port else url.port
@@ -95,8 +144,15 @@ callbox_manager = CallboxManager()
 
 path_lookup = {
         'config': callbox_manager.configure_callbox,
+        'config/fetch/maxthroughput' : callbox_manager.query_throughput,
         'start': callbox_manager.begin_simulation,
         'sms': callbox_manager.send_sms,
+        'iperf/config': callbox_manager.config_iperf,
+        'iperf/start': callbox_manager.start_iperf,
+        'iperf/stop': callbox_manager.stop_iperf,
+        'iperf/close': callbox_manager.close_iperf,
+        'iperf/fetch/result': callbox_manager.query_iperf_results,
+        'iperf/fetch/ip': callbox_manager.query_iperf_ip,
 }
 
 @app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])

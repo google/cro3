@@ -2,10 +2,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# pylint: skip-file
+
 from enum import Enum
 import time
 
+from . import cmw500_iperf_measurement as perf
 from .. import abstract_inst
+
 
 LTE_ATTACH_RESP = 'ATT'
 LTE_CONN_RESP = 'CONN'
@@ -436,6 +440,15 @@ class Cmw500(abstract_inst.SocketInstrument):
             lte measurement object.
         """
         return LteMeasurement(self)
+
+    def init_perf_measurement(self):
+        """Gets the class object for Iperf measurements which can be used to
+        configure and initiate measurements.
+
+        Returns:
+            Iperf measurement object.
+        """
+        return perf.Cmw500IperfMeasurement(self)
 
     def set_sms(self, sms_message):
         """Sets the SMS message to be sent by the callbox."""
@@ -904,7 +917,7 @@ class BaseStation(object):
         if not isinstance(num_antenna, MimoModes):
             raise ValueError('num_antenna should be an instance of MimoModes.')
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:NENBantennas {}'.format(
-                self._bts, num_antenna)
+                self._bts, num_antenna.value)
         self._cmw.send_and_recv(cmd)
 
     @property
