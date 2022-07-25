@@ -25,22 +25,27 @@ See go/cont-rebase for details
 """
 
 from datetime import datetime
-import os
-import re
-import sys
+import importlib
 import multiprocessing
 from multiprocessing import Manager
+import os
 import pickle
-import importlib
+import re
 import sqlite3
-import sh
-from logging_console import LoggingConsole
-from common import executor_io, rebasedb
-from config import *
-import rebase_config
-# the import is not used directly, but instead intended to be used in the interactive mode
-from mailing import Mailing, load_and_notify # pylint: disable=unused-import
+import sys
+
+from common import executor_io
+from common import rebasedb
 from githelpers import *
+from logging_console import LoggingConsole
+
+# the import is not used directly, but instead intended to be used in the interactive mode
+from mailing import load_and_notify  # pylint: disable=unused-import
+import rebase_config
+import sh
+
+from config import *
+
 
 def call_hook(sha, hook_type):
     if '*' in rebase_config.commit_hooks:
@@ -654,16 +659,16 @@ def triage():
                 print(topic_stderr[topic])
             else:
                 print('(No error line.)')
-            f = open(
-                'log/triage/' +
-                topic_branch.replace(
+            with open(
+                 'log/triage/' +
+                 topic_branch.replace(
                     '.',
                     '_').replace(
                     '/',
                     '-') +
-                '.txt',
-                'w')
-            f.write(ret['output'])
+                 '.txt',
+                 'w') as f:
+                f.write(ret['output'])
 
     end = datetime.now()
 
