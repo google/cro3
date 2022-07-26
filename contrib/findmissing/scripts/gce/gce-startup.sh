@@ -19,8 +19,8 @@ sudo apt-get update
 sudo apt-get dist-upgrade
 sudo apt-get install -yq \
   git mysql-client default-libmysqlclient-dev build-essential \
-  python python3.7 python3-dev python3-venv python3.7-venv \
-  libssl-dev libffi-dev python3-setuptools nginx
+  python3 python3-dev python3-venv python3-setuptools \
+  libssl-dev libffi-dev nginx
 
 # Fetch git-cookie-authdaemon to authenticate gerrit api requests
 sudo git -C /opt/ clone https://gerrit.googlesource.com/gcompute-tools
