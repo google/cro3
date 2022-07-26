@@ -1,11 +1,11 @@
 base-manifest:
-  image: archlinux
+  image: alpine/latest
   packages:
     - coreutils
     - git
     - gzip
-    - python
-    - python-requests
+    - python3
+    - py3-requests
   secrets:
     - 288d013b-4524-4f1c-96da-d9cadd2c73a6  # CopyBot Service Account
   tasks:
