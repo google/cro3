@@ -9,6 +9,11 @@
 # Before this script is run, make sure to have the following:
 # 1) Create or attach persistent disk to the GCE instance to hold kernel_repositories
 
+USER=chromeos_patches
+HOME="/home/${USER}"
+WORKSPACE="${HOME}/findmissing_workspace"
+FINDMISSING="${WORKSPACE}/dev-util/contrib/findmissing"
+
 # Install Stackdriver logging agent
 curl -sSO https://dl.google.com/cloudagents/install-logging-agent.sh
 sudo bash install-logging-agent.sh
@@ -23,40 +28,31 @@ sudo apt-get install -yq \
   libssl-dev libffi-dev nginx
 
 # Fetch git-cookie-authdaemon to authenticate gerrit api requests
-sudo git -C /opt/ clone https://gerrit.googlesource.com/gcompute-tools
+git -C "${WORKSPACE}" clone https://gerrit.googlesource.com/gcompute-tools
 
 # Fetch source code
-sudo git -C /opt/ clone https://chromium.googlesource.com/chromiumos/platform/dev-util
-
-# Copies cloned repository to chromeos_patches home directory
-sudo /opt/dev-util/contrib/findmissing/scripts/gce/sync_remote_to_gce.sh
+git -C "${WORKSPACE}" clone https://chromium.googlesource.com/chromiumos/platform/dev-util
+ln -sf "${FINDMISSING}" "${WORKSPACE}/findmissing"
 
 # cloud_sql_proxy requires a secret file which can be retrieved via gcloud
 # Note: this will generate a token that lasts forever (year 9999)
-sudo gcloud iam service-accounts keys \
-  create /home/chromeos_patches/secrets/linux_patches_robot_key.json \
+gcloud iam service-accounts keys \
+  create "${WORKSPACE}/secrets/linux_patches_robot_key.json" \
   --iam-account=linux-patches-robot@chromeos-missing-patches.google.com.iam.gserviceaccount.com
 
 sudo wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O /usr/bin/cloud_sql_proxy
 sudo chmod a+x /usr/bin/cloud_sql_proxy
 
-sudo mkdir -p /home/chromeos_patches/kernel_repositories/
-sudo mount -o discard,defaults /dev/sdb /home/chromeos_patches/kernel_repositories/
-sudo chmod a+w /home/chromeos_patches/kernel_repositories/
-
-# Logs for chromeos_patches
+# Logs
 sudo mkdir -p /var/log/findmissing/
 sudo touch /var/log/findmissing/findmissing.log
+sudo chown -R "${USER}:${USER}" /var/log/findmissing/
 
-# Set ownership to newly created account
-sudo chown -R chromeos_patches:chromeos_patches /var/log/findmissing/
-sudo chown -R chromeos_patches:chromeos_patches /opt/dev-util/
-sudo chown -R chromeos_patches:chromeos_patches /home/chromeos_patches/
 
 # Python environment setup
-python3 -m venv /home/chromeos_patches/env
-source /home/chromeos_patches/env/bin/activate
-/home/chromeos_patches/env/bin/pip install -r /home/chromeos_patches/requirements.txt
+python3 -m venv "${FINDMISSING}/env"
+source "${FINDMISSING}/env/bin/activate"
+"${FINDMISSING}/env/bin/pip" install -r "${FINDMISSING}/requirements.txt"
 
 # Put systemd configurations in correct location
 sudo cp /home/chromeos_patches/config/systemd/cloud-sql-proxy.service /etc/systemd/system/

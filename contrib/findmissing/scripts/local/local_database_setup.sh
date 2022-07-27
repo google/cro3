@@ -6,7 +6,7 @@
 
 # ./scripts/local/local_database_setup.sh
 
-FINDMISSING_DIR="$(cd "$(dirname "$0")/../.." || exit; pwd)"
+FINDMISSING_DIR="${HOME}/findmissing_workspace/findmissing"
 cd "${FINDMISSING_DIR}" || exit
 
 sudo apt-get update

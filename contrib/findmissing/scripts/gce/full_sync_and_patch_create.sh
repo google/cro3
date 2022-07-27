@@ -5,7 +5,7 @@
 # found in the LICENSE file.
 
 
-FINDMISSING_DIR=$(cd $(dirname $0)/../..; pwd)
+FINDMISSING_DIR="${HOME}/findmissing_workspace/findmissing"
 cd "${FINDMISSING_DIR}"
 
 if [[ ! -e env/bin/activate ]]; then
