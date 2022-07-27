@@ -798,7 +798,7 @@ do_merge() {
   local content_conflicts
   local delete_conflicts
   local stashed
-  local stashed_files=()
+  local modified_files=()
 
   git branch -D "${mbranch}" >/dev/null 2>&1
   if ! git checkout -b "${mbranch}" "${ocbranch}"; then
@@ -859,6 +859,7 @@ do_merge() {
     if ! git add $(sed -e 's/.* //' "${tmpfile}"); then
       die "Failed to add patched files to git commit list"
     fi
+    modified_files=(${modified_files[@]} $(sed -e 's/.* //' "${tmpfile}"))
   done
 
   if ! git commit -s --no-edit; then
@@ -881,7 +882,7 @@ do_merge() {
       if ! git add -u; then
         die "Failed to add files to index."
       fi
-      stashed_files=($(git status -s | awk '{print $2}'))
+      modified_files=(${modified_files[@]} $(git status -s | awk '{print $2}'))
       if ! git commit --amend --no-edit; then
         die "Failed to commit after stash apply."
       fi
@@ -917,12 +918,12 @@ do_merge() {
     ) >> "${tmpfile}"
   fi
 
-  # Add applied statsh to description
-  if [[ -n "${stashed_files[@]}" ]]; then
+  # Add modified files from stash and/or patches to the description
+  if [[ -n "${modified_files[@]}" ]]; then
     (
     echo "The following file(s) have been modified as part of the"
       echo "merge/conflict resolution:"
-      for file in ${stashed_files[@]}; do
+      for file in ${modified_files[@]}; do
         echo "    ${file}"
       done
       echo
