@@ -853,13 +853,16 @@ do_merge() {
   fi
 
   for patch in "${patches[@]}"; do
-    if ! patch -p 1 < "${patch}" >"${tmpfile}"; then
+    echo "Applying patch file ${patch}"
+    set -o pipefail
+    if ! patch -p 1 < "${patch}" | sed -nr 's/^patching file //p' >"${tmpfile}"; then
       die "Failed to apply patch ${patch}"
     fi
-    if ! git add $(sed -e 's/.* //' "${tmpfile}"); then
+    set +o pipefail
+    if ! git add $(cat "${tmpfile}"); then
       die "Failed to add patched files to git commit list"
     fi
-    modified_files=(${modified_files[@]} $(sed -e 's/.* //' "${tmpfile}"))
+    modified_files=(${modified_files[@]} $(cat "${tmpfile}"))
   done
 
   if ! git commit -s --no-edit; then
@@ -874,6 +877,7 @@ do_merge() {
   fi
 
   if [[ ${apply_stashed} -eq 1 ]]; then
+    echo "Applying stash"
     stashed="$(git stash list)"
     if [[ -n "${stashed}" ]]; then
       if ! git stash apply -q "stash@{0}"; then
