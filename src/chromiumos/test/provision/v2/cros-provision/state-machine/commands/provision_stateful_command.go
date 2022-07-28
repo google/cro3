@@ -49,10 +49,6 @@ func (c *ProvisionStatefulCommand) Execute() error {
 		return err
 	}
 
-	if err := c.cs.Connection.Restart(c.ctx); err != nil {
-		return err
-	}
-
 	return nil
 }
 

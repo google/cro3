@@ -65,6 +65,7 @@ var (
 	umountTemp                = RunCommandStructure{Command: "umount", Args: []string{"temporary_dir"}}
 	deleteTemp                = RunCommandStructure{Command: "rmdir", Args: []string{"temporary_dir"}}
 	crosSystem                = RunCommandStructure{Command: "crossystem", Args: []string{"clear_tpm_owner_request=1"}}
+	waitforStabilize          = RunCommandStructure{Command: "status", Args: []string{"system-services"}}
 	echoFastKeepImg           = RunCommandStructure{Command: "echo", Args: []string{"'fast keepimg'", ">", "/mnt/stateful_partition/factory_install_reset"}}
 	cleanPostInstall          = RunCommandStructure{Command: "rm", Args: []string{"-rf", "/mnt/stateful_partition/.update_available", "/mnt/stateful_partition/var_new", "/mnt/stateful_partition/dev_image_new"}}
 	copyStateful              = PipeCommandStructure{Source: "gs://path/to/image/stateful.tgz", Command: "tar --ignore-command-error --overwrite --directory=/mnt/stateful_partition --selinux -xzf -"}
@@ -140,6 +141,7 @@ func TestStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, umountTemp).Return("", nil),
 		getRunCmdCommand(sam, deleteTemp).Return("", nil),
 		getRunCmdCommand(sam, crosSystem).Return("", nil),
+		getRestartCommand(sam).Return(nil),
 	)
 
 	if err := st.Execute(ctx); err != nil {
@@ -150,6 +152,7 @@ func TestStateTransitions(t *testing.T) {
 	st = st.Next()
 
 	gomock.InOrder(
+		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
 		getRunCmdCommand(sam, echoFastKeepImg).Return("", nil),
 		getRestartCommand(sam).Return(nil),
 		getRunCmdCommand(sam, stopUI).Return("", nil),
@@ -374,6 +377,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 	st = st.Next()
 
 	gomock.InOrder(
+		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
 		// Delete steps elided due to preserve stateful
 		getRunCmdCommand(sam, stopUI).Return("", nil),
 		getRunCmdCommand(sam, stopUpdateEngine).Return("", nil),
@@ -429,6 +433,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 	st = st.Next()
 
 	gomock.InOrder(
+		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
 		// Delete steps elided due to preserve stateful
 		getRunCmdCommand(sam, stopUI).Return("", nil),
 		getRunCmdCommand(sam, stopUpdateEngine).Return("", nil),
@@ -578,6 +583,7 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 	st = st.Next().Next()
 
 	gomock.InOrder(
+		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
 		getRunCmdCommand(sam, echoFastKeepImg).Return("", nil),
 		getRestartCommand(sam).Return(nil),
 		getRunCmdCommand(sam, stopUI).Return("", nil),

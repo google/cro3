@@ -11,6 +11,7 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/state-machine/commands"
 	"context"
 	"fmt"
+	"time"
 )
 
 type CrOSInstallState struct {
@@ -25,6 +26,8 @@ func (s CrOSInstallState) Execute(ctx context.Context) error {
 		commands.NewInstallPartitionsCommand(ctx, s.service),
 		commands.NewPostInstallCommand(ctx, s.service),
 		commands.NewClearTPMCommand(ctx, s.service),
+		// Install reboot may take longer, so we issue a longer timeout
+		commands.NewRebootWithTimeoutCommand(300*time.Second, ctx, s.service),
 	}
 
 	for i, comm := range comms {

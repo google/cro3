@@ -28,6 +28,7 @@ func (c *ClearTPMCommand) Execute() error {
 			return err
 		}
 	}
+
 	return nil
 }
 

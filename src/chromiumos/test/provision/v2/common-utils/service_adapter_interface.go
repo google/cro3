@@ -142,6 +142,10 @@ func (s ServiceAdapter) PipeData(ctx context.Context, sourceUrl string, pipeComm
 				Commands: pipeCommand,
 			},
 		},
+		Retry: &api.CacheRequest_Retry{
+			Times:      3,
+			IntervalMs: 5000,
+		},
 	}
 
 	op, err := s.dutClient.Cache(ctx, &req)
@@ -177,6 +181,10 @@ func (s ServiceAdapter) CopyData(ctx context.Context, sourceUrl string, destPath
 			File: &api.CacheRequest_LocalFile{
 				Path: destPath,
 			},
+		},
+		Retry: &api.CacheRequest_Retry{
+			Times:      3,
+			IntervalMs: 5000,
 		},
 	}
 

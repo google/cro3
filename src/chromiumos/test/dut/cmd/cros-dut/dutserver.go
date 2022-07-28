@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"go.chromium.org/chromiumos/config/go/longrunning"
@@ -244,19 +245,40 @@ func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*l
 		}
 	}
 	fullCmd := fmt.Sprintf("%s %s", command, destination)
-	if stdout, stderr, err := s.runCmdOutput(fullCmd); err != nil {
+
+	if stdout, stderr, err := s.runCmdOutputWithRetry(fullCmd, req.GetRetry()); err != nil {
 		s.logger.Printf("Getting error from cache server while running command %q: %v", fullCmd, err)
 		s.logger.Printf("stdout: %s, stderr: %s", stdout, stderr)
 		status := status.New(codes.Aborted, fmt.Sprintf("err: %s, stderr: %s", err, stderr))
 		s.manager.SetError(op.Name, status)
 		return op, err
 	}
+
 	s.logger.Printf("Command %q was successful", fullCmd)
 	s.manager.SetResult(op.Name, &api.CacheResponse{
 		Result: &api.CacheResponse_Success_{},
 	})
 
 	return op, nil
+}
+
+func (s *DutServiceServer) runCmdOutputWithRetry(cmd string, retry *api.CacheRequest_Retry) (stdout string, stderr string, err error) {
+	retryCount := 0
+	retryInterval := time.Duration(0)
+
+	if retry != nil {
+		retryCount = int(retry.Times)
+		retryInterval = time.Duration(retry.IntervalMs) * time.Millisecond
+	}
+
+	for ; retryCount >= 0; retryCount-- {
+		stdout, stderr, err = s.runCmdOutput(cmd)
+		if err == nil {
+			return
+		}
+		time.Sleep(retryInterval)
+	}
+	return
 }
 
 func (s *DutServiceServer) parseDutDest(req *api.CacheRequest) (string, error) {

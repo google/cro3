@@ -9,6 +9,7 @@ import (
 	"chromiumos/test/dut/cmd/cros-dut/dutssh/mock_dutssh"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -843,7 +844,6 @@ func TestRestart(t *testing.T) {
 	}
 }
 
-/*
 // TestCache tests that the regular Cache command works
 func TestCache(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -852,10 +852,33 @@ func TestCache(t *testing.T) {
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
+	var so io.Writer
+	var se io.Writer
+
 	gomock.InOrder(
 		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
-		msi.EXPECT().Output(gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/download/source/path")).Return([]byte("curl output"), nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("mkdir -p /dest")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("worked"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().IsAlive().Return(true),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("curl --keepalive-time 20 -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/download/source/path")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("curl output"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
 		msi.EXPECT().Close(),
 		mci.EXPECT().Close(),
 	)
@@ -882,7 +905,7 @@ func TestCache(t *testing.T) {
 	defer conn.Close()
 
 	cl := api.NewDutServiceClient(conn)
-	op, err := cl.Cache(ctx, &api.CacheRequest{
+	_, err = cl.Cache(ctx, &api.CacheRequest{
 		Destination: &api.CacheRequest_File{
 			File: &api.CacheRequest_LocalFile{
 				Path: "/dest/path",
@@ -897,26 +920,67 @@ func TestCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed at api.Cache: %v", err)
 	}
-
-	switch op.Result.(type) {
-	case *longrunning.Operation_Error:
-		t.Fatalf("Failed at api.Cache: %v", err)
-	}
 }
 
-
-// TestCachePipe tests that the regular Cache command works and pipes the file
-func TestCachePipe(t *testing.T) {
+// We need to make sure that on error all retries are triggered up to failure
+func TestCachePipeRetriesAllTimes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
+	var so io.Writer
+	var se io.Writer
+
 	gomock.InOrder(
 		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
-		msi.EXPECT().Output(gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60 cacheaddress/download/source/path | piped commands")).Return([]byte("curl output"), nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("mkdir -p /dest")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("worked"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().IsAlive().Return(true),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("curl --keepalive-time 20 -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/download/source/path")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("failed!"))
+				se.Write([]byte("failed!"))
+				return fmt.Errorf("Failed curl!")
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().IsAlive().Return(true),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("curl --keepalive-time 20 -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/download/source/path")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("failed!"))
+				se.Write([]byte("failed!"))
+				return fmt.Errorf("Failed curl!")
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().IsAlive().Return(true),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("curl --keepalive-time 20 -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/download/source/path")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("failed!"))
+				se.Write([]byte("failed!"))
+				return fmt.Errorf("Failed curl!")
+			},
+		),
 		msi.EXPECT().Close(),
 		mci.EXPECT().Close(),
 	)
@@ -943,7 +1007,78 @@ func TestCachePipe(t *testing.T) {
 	defer conn.Close()
 
 	cl := api.NewDutServiceClient(conn)
-	op, err := cl.Cache(ctx, &api.CacheRequest{
+	_, err = cl.Cache(ctx, &api.CacheRequest{
+		Destination: &api.CacheRequest_File{
+			File: &api.CacheRequest_LocalFile{
+				Path: "/dest/path",
+			},
+		},
+		Source: &api.CacheRequest_GsFile{
+			GsFile: &api.CacheRequest_GSFile{
+				SourcePath: "gs://source/path"},
+		},
+		Retry: &api.CacheRequest_Retry{
+			Times:      2,
+			IntervalMs: 100,
+		},
+	})
+
+	if err == nil {
+		t.Fatalf("Expected failure")
+	}
+
+}
+
+// TestCachePipe tests that the regular Cache command works and pipes the file
+func TestCachePipe(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	msi := mock_dutssh.NewMockSessionInterface(ctrl)
+
+	var so io.Writer
+	var se io.Writer
+
+	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("curl --keepalive-time 20 -S -s -v -# -C - --retry 3 --retry-delay 60 cacheaddress/download/source/path | piped commands")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("curl output"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().Close(),
+	)
+
+	var logBuf bytes.Buffer
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal("Failed to create a net listener: ", err)
+	}
+
+	ctx := context.Background()
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "serializer_path", 0, "dutname", "wiringaddress", "cacheaddress")
+	defer destructor()
+	if err != nil {
+		t.Fatalf("Failed to start DutServiceServer: %v", err)
+	}
+	go srv.Serve(l)
+	defer srv.Stop()
+
+	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial: %v", err)
+	}
+	defer conn.Close()
+
+	cl := api.NewDutServiceClient(conn)
+	_, err = cl.Cache(ctx, &api.CacheRequest{
 		Destination: &api.CacheRequest_Pipe_{
 			Pipe: &api.CacheRequest_Pipe{
 				Commands: "piped commands",
@@ -959,10 +1094,6 @@ func TestCachePipe(t *testing.T) {
 		t.Fatalf("Failed at api.Cache: %v", err)
 	}
 
-	switch op.Result.(type) {
-	case *longrunning.Operation_Error:
-		t.Fatalf("Failed at api.Cache: %v", err)
-	}
 }
 
 // TestUntarCache tests that the untar Cache command works
@@ -973,10 +1104,33 @@ func TestUntarCache(t *testing.T) {
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
+	var so io.Writer
+	var se io.Writer
+
 	gomock.InOrder(
 		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
-		msi.EXPECT().Output(gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/extract/source/path?file=somefile")).Return([]byte("curl output"), nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("mkdir -p /dest")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("worked"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().IsAlive().Return(true),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("curl --keepalive-time 20 -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/extract/source/path?file=somefile")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("curl output"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
 		msi.EXPECT().Close(),
 		mci.EXPECT().Close(),
 	)
@@ -1003,7 +1157,7 @@ func TestUntarCache(t *testing.T) {
 	defer conn.Close()
 
 	cl := api.NewDutServiceClient(conn)
-	op, err := cl.Cache(ctx, &api.CacheRequest{
+	_, err = cl.Cache(ctx, &api.CacheRequest{
 		Destination: &api.CacheRequest_File{
 			File: &api.CacheRequest_LocalFile{
 				Path: "/dest/path",
@@ -1021,10 +1175,6 @@ func TestUntarCache(t *testing.T) {
 		t.Fatalf("Failed at api.Cache: %v", err)
 	}
 
-	switch op.Result.(type) {
-	case *longrunning.Operation_Error:
-		t.Fatalf("Failed at api.Cache: %v", err)
-	}
 }
 
 // TestUnzipCache tests that the unzip Cache command works
@@ -1035,10 +1185,33 @@ func TestUnzipCache(t *testing.T) {
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
+	var so io.Writer
+	var se io.Writer
+
 	gomock.InOrder(
 		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
-		msi.EXPECT().Output(gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/decompress/source/path")).Return([]byte("curl output"), nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("mkdir -p /dest")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("worked"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().IsAlive().Return(true),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("curl --keepalive-time 20 -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/decompress/source/path")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("curl output"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
 		msi.EXPECT().Close(),
 		mci.EXPECT().Close(),
 	)
@@ -1065,7 +1238,7 @@ func TestUnzipCache(t *testing.T) {
 	defer conn.Close()
 
 	cl := api.NewDutServiceClient(conn)
-	op, err := cl.Cache(ctx, &api.CacheRequest{
+	_, err = cl.Cache(ctx, &api.CacheRequest{
 		Destination: &api.CacheRequest_File{
 			File: &api.CacheRequest_LocalFile{
 				Path: "/dest/path",
@@ -1082,10 +1255,6 @@ func TestUnzipCache(t *testing.T) {
 		t.Fatalf("Failed at api.Cache: %v", err)
 	}
 
-	switch op.Result.(type) {
-	case *longrunning.Operation_Error:
-		t.Fatalf("Failed at api.Cache: %v", err)
-	}
 }
 
 // TestCacheFailsWrongURL tests that the unzip Cache fails on a URL which doesn't comply
@@ -1146,10 +1315,33 @@ func TestCacheFailsCommandFails(t *testing.T) {
 	mci := mock_dutssh.NewMockClientInterface(ctrl)
 	msi := mock_dutssh.NewMockSessionInterface(ctrl)
 
+	var so io.Writer
+	var se io.Writer
+
 	gomock.InOrder(
 		mci.EXPECT().IsAlive().Return(true),
 		mci.EXPECT().NewSession().Return(msi, nil),
-		msi.EXPECT().Output(gomock.Eq("curl -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/download/source/path")).Return([]byte(""), fmt.Errorf("couldn't download")),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("mkdir -p /dest")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("worked"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().IsAlive().Return(true),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("curl --keepalive-time 20 -S -s -v -# -C - --retry 3 --retry-delay 60 -o /dest/path cacheaddress/download/source/path")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte(""))
+				se.Write([]byte("failed download"))
+				return fmt.Errorf("couldn't download")
+			},
+		),
 		msi.EXPECT().Close(),
 		mci.EXPECT().Close(),
 	)
@@ -1194,7 +1386,6 @@ func TestCacheFailsCommandFails(t *testing.T) {
 	}
 
 }
-*/
 
 // TestForceReconnect tests that a Restart command works
 func TestForceReconnect(t *testing.T) {
