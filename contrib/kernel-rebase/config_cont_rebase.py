@@ -14,7 +14,7 @@ rebase_target = 'v5.14'
 
 # Set rebasedb_name to None to use default.
 # Otherwise pick desired file name.
-rebasedb_name = 'rebase-latest.db'
+rebasedb_name = f'rebase-{rebase_target}.db'
 
 # Set datadir to None to use default.
 # Otherwise provide absolute path name.
