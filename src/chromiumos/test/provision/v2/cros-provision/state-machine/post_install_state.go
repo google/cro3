@@ -11,6 +11,7 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/state-machine/commands"
 	"context"
 	"fmt"
+	"time"
 )
 
 type CrOSPostInstallState struct {
@@ -25,7 +26,8 @@ func (s CrOSPostInstallState) Execute(ctx context.Context) error {
 		commands.NewWipeStatefulCommand(ctx, s.service),
 		commands.NewStopSystemDaemonsCommand(ctx, s.service),
 		commands.NewProvisionStatefulCommand(ctx, s.service),
-		commands.NewRebootCommand(ctx, s.service),
+		// Install reboot may take longer, so we issue a longer timeout
+		commands.NewRebootWithTimeoutCommand(120*time.Second, ctx, s.service),
 		commands.NewOverwriteInstalCommand(ctx, s.service),
 		commands.NewGetRootInfoCommand(ctx, s.service),
 	}
