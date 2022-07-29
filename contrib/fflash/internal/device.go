@@ -106,7 +106,7 @@ func PushCompressedExecutable(ctx context.Context, c *ssh.Client, b []byte) (str
 	prog := progress.NewWriter("push", int64(len(b)))
 	defer prog.Close()
 	session.Stdin = io.TeeReader(bytes.NewBuffer(b), prog)
-	_, err = session.SimpleOutput("gzip -d > " + agentPath)
+	_, err = session.SimpleOutput("xz -d > " + agentPath)
 	if err != nil {
 		return "", err
 	}
