@@ -24,7 +24,7 @@ Usage:
 Run this script after running `repo sync`. (And run the script again any
 time you re-run `repo sync`.)
 
-./force_chrome_binpkg.py --board <board> </path/to/chromiumos>
+./force_chrome_binpkg.py --board <board>
 
 Running that will make local modifications to
 /path/to/chromiumos/src/third_party/chromiumos-overlay.
@@ -37,15 +37,15 @@ As a convenience, the script can also stash changes in
 chromiumos-overlay. This can be useful to run before `repo sync`, to
 clear out the script's previous changes:
 
-./force_chrome_binpkg.py --board <board> </path/to/chromiumos> stash
+./force_chrome_binpkg.py --board <board> stash
 """
 
 # pylint: disable=missing-docstring
 
 import argparse
 import os
-import subprocess
 from pathlib import Path
+import subprocess
 
 
 def stash_overlay_changes(src_dir):
@@ -126,8 +126,6 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--board', required=True)
-    parser.add_argument('chromiumos',
-                        help='root of the chromiumos tree to modify')
     subparsers = parser.add_subparsers(dest='action',
                                        help='sub-command to perform')
     subparsers.add_parser(action_default, help='the default action')
@@ -136,7 +134,10 @@ def main():
 
     args = parser.parse_args()
 
-    src_dir = Path(args.chromiumos) / 'src'
+    # This script lives under src/platform/dev/contrib, so we can figure
+    # out the src directory path by navigating upwards.
+    script_path = Path(__file__)
+    src_dir = script_path.parent.parent.parent.parent
 
     if args.action == action_stash:
         stash_overlay_changes(src_dir)
