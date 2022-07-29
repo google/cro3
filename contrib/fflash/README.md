@@ -8,7 +8,7 @@
     ```
     git clone https://chromium.googlesource.com/chromiumos/platform/dev-util
     cd dev-util/contrib/fflash
-    bash build.bash
+    ninja -v
     ```
 
 ## Run

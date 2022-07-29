@@ -1,0 +1,15 @@
+rule fflash
+  command = CGO_ENABLED=0 go build -o $out ./cmd/fflash
+rule dut-agent
+  command = CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -ldflags="-s -w" -o $out ./cmd/dut-agent
+rule xz
+  command = xz -6 -k -f $in
+
+build always-rebuild: phony
+build internal/embedded-agent/dut-agent-arm64: dut-agent | always-rebuild
+  arch = arm64
+build internal/embedded-agent/dut-agent-amd64: dut-agent | always-rebuild
+  arch = amd64
+build internal/embedded-agent/dut-agent-arm64.xz: xz internal/embedded-agent/dut-agent-arm64
+build internal/embedded-agent/dut-agent-amd64.xz: xz internal/embedded-agent/dut-agent-amd64
+build bin/fflash: fflash internal/embedded-agent/dut-agent-arm64.xz internal/embedded-agent/dut-agent-amd64.xz | always-rebuild
