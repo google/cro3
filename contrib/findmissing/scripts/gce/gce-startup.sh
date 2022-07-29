@@ -30,8 +30,8 @@ sudo rm install-logging-agent.sh
 
 # Install or update needed software
 sudo apt-get update
-sudo apt-get dist-upgrade
-sudo apt-get install -yq \
+sudo DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade
+sudo DEBIAN_FRONTEND=noninteractive apt-get -yq install \
   git mysql-client default-libmysqlclient-dev build-essential \
   python3 python3-dev python3-venv python3-setuptools \
   libssl-dev libffi-dev nginx
