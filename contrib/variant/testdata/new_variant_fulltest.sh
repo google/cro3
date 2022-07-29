@@ -168,20 +168,20 @@ cleanup() {
   git restore "${REFERENCE}.py"
   popd
   # If we have an ebuild, undo any changes.
-  if [[ ! -z ${OVERLAY_DIR+x} ]] ; then
+  if [[ -n ${OVERLAY_DIR+x} ]] ; then
     pushd "${OVERLAY_DIR}"
     git restore "${EBUILD}"
     popd
   fi
   # If we have a Boxster config dir, remove it
-  if [[ ! -z ${CONFIG_DIR+x} ]] ; then
+  if [[ -n ${CONFIG_DIR+x} ]] ; then
     pushd "${CONFIG_DIR}"
     rm -Rf "${NEW}"
     popd
   fi
   # If we have a fitimage, remove any files we created to fake out the
   # fitimage for the new variant.
-  if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
+  if [[ -n ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
     pushd "${FITIMAGE_OUTPUTS_DIR}"
     rm -f "fitimage-${NEW}.bin" "fitimage-${NEW}-versions.txt"
     rm -f "me_rw-${NEW}.bin"
@@ -228,7 +228,7 @@ trap 'cleanup' EXIT
 sed -i -z -E -f testdata/modify_step_list.sed "${REFERENCE}.py"
 
 # Add the new variant to the overlay ebuild, if defined.
-if [[ ! -z ${OVERLAY_DIR+x} ]] ; then
+if [[ -n ${OVERLAY_DIR+x} ]] ; then
   pushd "${OVERLAY_DIR}"
   sed -i -E -e "s/PROJECTS=\(/PROJECTS=\(\n\t\"${NEW}\"/" "${EBUILD}"
   popd
@@ -242,7 +242,7 @@ libpayload='${BASE}',\
 ec='${NEW}'))\n/"
 
 # Create the project configuration repo, if defined.
-if [[ ! -z ${CONFIG_DIR+x} ]] ; then
+if [[ -n ${CONFIG_DIR+x} ]] ; then
   mkdir -p "${CONFIG_DIR}/${NEW}"
   pushd /mnt/host/source/src/config
   sbin/gen_project  /mnt/host/source/src/config "${BASE}" "/mnt/host/source/src/program/${BASE}/" "${NEW}" "${CONFIG_DIR}/${NEW}"
@@ -268,7 +268,7 @@ fi
 # If we have a fitimage, make a copy of the reference board's fitimage under
 # the new variant's name so that we don't have to generate the fitimage outside
 # the chroot.
-if [[ ! -z ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
+if [[ -n ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
   # Volteer requires some extra files; the FIT log is named after the
   # variant, and there are other blobs that are customized to the
   # variant and have names to reflect it. Volteer also does not use
