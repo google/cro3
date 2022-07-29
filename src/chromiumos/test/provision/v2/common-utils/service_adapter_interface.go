@@ -95,7 +95,7 @@ func (s ServiceAdapter) Restart(ctx context.Context) error {
 		Args: []string{},
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 500*time.Second)
 	defer cancel()
 
 	op, err := s.dutClient.Restart(ctx, &req)
