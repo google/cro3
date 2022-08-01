@@ -10,6 +10,7 @@ from argparse import ArgumentParser
 import datetime
 import os
 import pathlib
+import sys
 from sys import modules
 import urllib
 
@@ -58,6 +59,12 @@ def main():
         '--polarity',
         default=polarity_default,
         help='Measurements can either be unipolar or bipolar')
+    argparser.add_argument(
+        '-d',
+        '--device',
+        default='',
+        help='Serial number of provisioned pacdebugger to use'
+    )
 
     args = argparser.parse_args()
 
@@ -80,6 +87,17 @@ def main():
     # Register the custom VID:PID used for provisioned PACDebuggers
     pacboard.PacDebugger.configure_custom_devices()
 
+    # See if we've been passed a serial number to use
+    ftdi_url = 'ftdi:///'
+    if args.device != '':
+        ftdi_url = pacboard.PacDebugger.url_by_serial(args.device)
+
+        if ftdi_url == '':
+            print(f'Failed to find Pacdebugger with serial {args.device}',
+                file=sys.stderr)
+            return False
+
+
     # If single, take a single shot of these measurements then quit.
     # Print which files are being used for clarity
     if args.single:
@@ -88,7 +106,8 @@ def main():
                 'power measurement of all rails and reporting GPIO status'
         )
 
-        log = pac_utils.query_all(config, polarity=args.polarity)
+        log = pac_utils.query_all(config, ftdi_url=ftdi_url,
+            polarity=args.polarity)
         log.to_csv(single_log_path)
         return False
 
@@ -98,6 +117,7 @@ def main():
 
     # Record the sample and log to file.
     (log, accumulator_log) = pac_utils.record(config,
+                                              ftdi_url=ftdi_url,
                                               record_length=args.time,
                                               polarity=args.polarity,
                                               sample_time=args.sample_time)
