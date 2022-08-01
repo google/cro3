@@ -5,6 +5,6 @@
 # found in the LICENSE file.
 
 FINDMISSING_DIR="${HOME}/findmissing_workspace/findmissing"
-cd "${FINDMISSING_DIR}"
+cd "${FINDMISSING_DIR}" || exit
 
 rm -rf __pycache__/ env/
