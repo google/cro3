@@ -62,6 +62,10 @@ fi
 sudo wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O /usr/bin/cloud_sql_proxy
 sudo chmod a+x /usr/bin/cloud_sql_proxy
 
+# Setup git identity
+git config --global user.name "Linux Patches Robot"
+git config --global user.email "linux-patches-robot@chromeos-missing-patches.google.com.iam.gserviceaccount.com"
+
 # Logs
 sudo mkdir -p /var/log/findmissing/
 sudo touch /var/log/findmissing/findmissing.log
