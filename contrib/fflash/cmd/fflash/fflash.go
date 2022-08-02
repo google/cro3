@@ -31,8 +31,11 @@ func main() {
 
 	target := kingpin.Arg("dut-host", "the ssh target of the dut").Required().String()
 	var opts internal.Options
-	kingpin.Flag("gs", "gs:// directory to flash").StringVar(&opts.GS)
+	kingpin.Flag("gs", "gs:// directory to flash. Use with caution!").StringVar(&opts.GS)
 	kingpin.Flag("R", "release number. ex: 105 or 105-14989.0.0").Short('R').StringVar(&opts.ReleaseString)
+	kingpin.Flag("board",
+		"flash from gs://chromeos-image-archive/${board}-release/R*. Use with caution!").
+		StringVar(&opts.Board)
 	kingpin.Parse()
 
 	r, err := strconv.Atoi(opts.ReleaseString)

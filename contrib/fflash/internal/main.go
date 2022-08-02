@@ -67,6 +67,7 @@ type Options struct {
 	GS            string // gs:// directory to flash
 	ReleaseString string // release string such as R105-14989.0.0
 	ReleaseNum    int    // release number such as 105
+	Board         string // build target name such as brya
 }
 
 func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error {
@@ -91,6 +92,13 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	}
 	log.Println("DUT is running:", dutReleasePath)
 
+	var board string
+	if opts.Board != "" {
+		board = opts.Board
+	} else {
+		board = dutReleasePath.Board
+	}
+
 	dutArch, err := DetectArch(sshClient)
 	if err != nil {
 		return err
@@ -104,7 +112,7 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 		return fmt.Errorf("storage.NewClient failed: %w", err)
 	}
 
-	targetBucket, targetDirectory, err := getFlashTarget(ctx, storageClient, dutReleasePath.Board, opts)
+	targetBucket, targetDirectory, err := getFlashTarget(ctx, storageClient, board, opts)
 	if err != nil {
 		return err
 	}

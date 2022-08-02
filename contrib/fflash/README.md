@@ -43,6 +43,7 @@ ninja -v
 bin/fflash ${dut_host}
 bin/fflash ${dut_host} -R104
 bin/fflash ${dut_host} -R104-14911.0.0
+bin/fflash ${dut_host} --board=cherry64 -R104
 bin/fflash ${dut_host} --gs=gs://chromeos-image-archive/cherry-release/R104-14911.0.0
 bin/fflash --help
 ```
