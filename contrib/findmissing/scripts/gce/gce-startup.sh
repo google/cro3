@@ -13,6 +13,7 @@ USER=chromeos_patches
 HOME="/home/${USER}"
 WORKSPACE="${HOME}/findmissing_workspace"
 FINDMISSING="${WORKSPACE}/dev-util/contrib/findmissing"
+DATABASE=us-central1:linux-patches-mysql-8
 
 # Install Stackdriver logging agent
 curl -sSO https://dl.google.com/cloudagents/install-logging-agent.sh
@@ -48,6 +49,16 @@ sudo mkdir -p /var/log/findmissing/
 sudo touch /var/log/findmissing/findmissing.log
 sudo chown -R "${USER}:${USER}" /var/log/findmissing/
 
+sudo sh -c "cat >/etc/logrotate.d/findmissing" <<EOF
+/var/log/findmissing/findmissing.log {
+    daily
+    rotate 7
+    missingok
+    notifempty
+    compress
+    create 640 ${USER} ${USER}
+}
+EOF
 
 # Python environment setup
 python3 -m venv "${FINDMISSING}/env"
@@ -55,12 +66,48 @@ source "${FINDMISSING}/env/bin/activate"
 "${FINDMISSING}/env/bin/pip" install -r "${FINDMISSING}/requirements.txt"
 
 # Put systemd configurations in correct location
-sudo cp /home/chromeos_patches/config/systemd/cloud-sql-proxy.service /etc/systemd/system/
-sudo cp /home/chromeos_patches/config/systemd/git-cookie-authdaemon.service /etc/systemd/system/
-sudo chmod 644 /etc/systemd/system/cloud-sql-proxy.service
-sudo chmod 644 /etc/systemd/system/git-cookie-authdaemon.service
+sudo sh -c "cat >/etc/systemd/system/cloud-sql-proxy.service" <<EOF
+[Unit]
+Description=cloud-sql-proxy required to be running to access cloudsql database
 
-sudo cp /home/chromeos_patches/config/logrotate/findmissing /etc/logrotate.d/
+Wants=network.target
+After=syslog.target network-online.target
+
+[Service]
+User=${USER}
+Type=simple
+Environment="HOME=${HOME}"
+ExecStart=/usr/bin/cloud_sql_proxy -instances=google.com:chromeos-missing-patches:${DATABASE}=tcp:3306 -credential_file=${WORKSPACE}/secrets/linux_patches_robot_key.json
+Restart=on-failure
+RestartSec=10
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo chmod 644 /etc/systemd/system/cloud-sql-proxy.service
+
+sudo sh -c "cat >/etc/systemd/system/git-cookie-authdaemon.service" <<EOF
+[Unit]
+Description=git-cookie-authdaemon required to access git-on-borg from GCE
+
+Wants=network.target
+After=syslog.target network-online.target
+
+[Service]
+User=${USER}
+Type=simple
+Environment="HOME=${HOME}"
+ExecStart=${WORKSPACE}/gcompute-tools/git-cookie-authdaemon
+Restart=on-failure
+RestartSec=10
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo chmod 644 /etc/systemd/system/git-cookie-authdaemon.service
+sudo ln -sf /usr/bin/python3 /usr/bin/python
 
 # Start service now
 sudo systemctl start cloud-sql-proxy
