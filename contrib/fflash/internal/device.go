@@ -32,7 +32,7 @@ func (r BuilderPath) String() string {
 	return fmt.Sprintf("%s-release/%s", r.Board, r.Release)
 }
 
-var builderPathRegexp = regexp.MustCompile(`^([a-z]+)-\w+/(R[0-9-.]+)$`)
+var builderPathRegexp = regexp.MustCompile(`^([a-z0-9-]+)-\w+/(R[0-9.-]+)$`)
 var builderPathLineRegexp = regexp.MustCompile(`CHROMEOS_RELEASE_BUILDER_PATH=(.+)\n`)
 
 // DetectReleaseBuilder detects the release builder of c's remote host.
