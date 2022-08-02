@@ -22,7 +22,7 @@ type AShService struct {
 
 func NewAShService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.InstallRequest) (*AShService, error) {
 	return &AShService{
-		Connection:       common_utils.NewServiceAdapter(dut, dutClient, req.GetPreventReboot()),
+		Connection:       common_utils.NewServiceAdapter(dutClient, req.GetPreventReboot()),
 		ImagePath:        req.ImagePath,
 		OverwritePayload: req.OverwritePayload,
 	}, nil
@@ -30,7 +30,7 @@ func NewAShService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.In
 
 func NewAShServiceFromCrOSProvisionRequest(dutClient api.DutServiceClient, req *api.CrosProvisionRequest, pkg *api.ProvisionState_Package) *AShService {
 	return &AShService{
-		Connection:       common_utils.NewServiceAdapter(req.Dut, dutClient, req.ProvisionState.GetPreventReboot()),
+		Connection:       common_utils.NewServiceAdapter(dutClient, req.ProvisionState.GetPreventReboot()),
 		ImagePath:        pkg.GetPackagePath(),
 		OverwritePayload: req.GetProvisionState().GetSystemImage().GetOverwritePayload(),
 	}

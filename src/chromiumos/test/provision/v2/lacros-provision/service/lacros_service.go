@@ -43,7 +43,7 @@ func NewLaCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api
 		}
 	}
 	return &LaCrOSService{
-		Connection:          common_utils.NewServiceAdapter(dut, dutClient, req.GetPreventReboot()),
+		Connection:          common_utils.NewServiceAdapter(dutClient, req.GetPreventReboot()),
 		ImagePath:           req.ImagePath,
 		OverwritePayload:    req.OverwritePayload,
 		OverrideVersion:     m.OverrideVersion,
@@ -53,7 +53,7 @@ func NewLaCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api
 
 func NewLaCrOSServiceFromCrOSProvisionRequest(dutClient api.DutServiceClient, req *api.CrosProvisionRequest, pkg *api.ProvisionState_Package) *LaCrOSService {
 	return &LaCrOSService{
-		Connection:          common_utils.NewServiceAdapter(req.Dut, dutClient, req.ProvisionState.GetPreventReboot()),
+		Connection:          common_utils.NewServiceAdapter(dutClient, req.ProvisionState.GetPreventReboot()),
 		ImagePath:           pkg.GetPackagePath(),
 		OverwritePayload:    req.GetProvisionState().GetSystemImage().GetOverwritePayload(),
 		OverrideVersion:     "",

@@ -33,7 +33,7 @@ func NewCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.I
 		return nil, err
 	}
 	return &CrOSService{
-		Connection:        common_utils.NewServiceAdapter(dut, dutClient, req.GetPreventReboot()),
+		Connection:        common_utils.NewServiceAdapter(dutClient, req.GetPreventReboot()),
 		ImagePath:         req.ImagePath,
 		OverwritePayload:  req.OverwritePayload,
 		PreserverStateful: m.PreserveStateful,
@@ -51,7 +51,7 @@ func NewCrOSServiceFromCrOSProvisionRequest(dutClient api.DutServiceClient, req 
 		dlcSpecs = append(dlcSpecs, dlcSpec)
 	}
 	return &CrOSService{
-		Connection:        common_utils.NewServiceAdapter(req.Dut, dutClient, req.GetProvisionState().GetPreventReboot()),
+		Connection:        common_utils.NewServiceAdapter(dutClient, req.GetProvisionState().GetPreventReboot()),
 		ImagePath:         req.GetProvisionState().SystemImage.SystemImagePath,
 		OverwritePayload:  req.GetProvisionState().GetSystemImage().GetOverwritePayload(),
 		PreserverStateful: false,

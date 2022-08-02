@@ -12,7 +12,6 @@ import (
 
 	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
 // ServiceAdapters are used to interface with a DUT
@@ -44,14 +43,12 @@ type ServiceAdapterInterface interface {
 }
 
 type ServiceAdapter struct {
-	dut       *lab_api.Dut
 	dutClient api.DutServiceClient
 	noReboot  bool
 }
 
-func NewServiceAdapter(dut *lab_api.Dut, dutClient api.DutServiceClient, noReboot bool) ServiceAdapter {
+func NewServiceAdapter(dutClient api.DutServiceClient, noReboot bool) ServiceAdapter {
 	return ServiceAdapter{
-		dut:       dut,
 		dutClient: dutClient,
 		noReboot:  noReboot,
 	}
