@@ -24,6 +24,7 @@ fi
 
 # Initial parameter values.
 changeid="" # Get Change-Id from CL or generate new Change-Id.
+merge_cl="" # CL to re-use. Auto-deteced or forced with -G.
 bug=""      # Get Bug-Id from CL or provide on on command line.
 tag=""      # Tag to merge; must be provided on command line.
 force=0     # Do not override Change-Id / Bug-Id.
@@ -88,6 +89,7 @@ Options:
                 commit.
   -f            Force. Override existing Change-Id and bug number.
   -F            Force. Bypass upload validation.
+  -G cl-number  Force using existing Gerrit CL number.
   -h            Display help text and exit.
   -k            Launch CQ+1 dry-run.
   -l change-id  Apply patch extracted from CL:change-id prior to merge.
@@ -206,7 +208,7 @@ do_getparams() {
   local vtag
   local lts_branch=""
 
-  while getopts "ab:c:Dd:FfhkLl:N:nP:pq:R:r:S:sT:t:uv:x:" option; do
+  while getopts "ab:c:Dd:FfG:hkLl:N:nP:pq:R:r:S:sT:t:uv:x:" option; do
     case ${option} in
       a) apply_stashed=1 ;;
       b) bugs="${OPTARG}" ;;
@@ -219,6 +221,7 @@ do_getparams() {
       D) disallow_recycled_builds=1 ;;
       f) force=1 ;;
       F) bypass=1 ;;
+      G) merge_cl="${OPTARG}" ;;
       k) cq_dryrun=",l=Commit-Queue+1" ;;
       l) changes+=("${OPTARG}") ;;
       n) notify=1 ;;
@@ -510,6 +513,8 @@ find_merge_cl() {
   local subject
   local gerrit_log
 
+  [[ -n "${merge_cl}" ]] && return
+
   if [[ ${lts_search} -eq 1 ]]; then
 	find_merge_cl_lts
 	return
@@ -547,12 +552,13 @@ find_merge_cl_lts() {
 
   gerrit_log=$(gerrit --json search "branch:$tbranch status:open kernel CHROMIUM: Merge")
   if [[ $? -ne 0 ]]; then
-    die "'gerrit --json search \"hashtag:${topic}\"' command error."
+    die "'gerrit search for LTS cl fails'"
   fi
 
   cls=($(echo "${gerrit_log}" | jq ".[].number" | sed -e 's/"//g'))
   if [[ ${#cls[@]} -gt 1 ]]; then
-    die "-L search method fails when there are multiple matching (${cls[@]}) CL's"
+    error "Found multiple CLs on branch: (${cls[@]})"
+    die "Select CL using -G <gerrit-cl-number>"
   fi
   if [[ ${#cls[@]} -eq 0 ]]; then
     return
