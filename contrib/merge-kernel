@@ -94,6 +94,7 @@ Options:
   -k            Launch CQ+1 dry-run.
   -l change-id  Apply patch extracted from CL:change-id prior to merge.
                 May be repeated multiple times.
+  -L            Reuse existing CL on branch. For LTS release branches only..
   -n            Send notification e-mail to ${notify_to}.
   -N namespace  Namespace (branch prefix) to use
                 Default 'stable-merge/linux' or 'merge', depending on context
