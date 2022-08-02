@@ -70,6 +70,10 @@ type Options struct {
 }
 
 func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error {
+	if err := embeddedagent.SelfCheck(); err != nil {
+		return err
+	}
+
 	tkSrc, err := getToken(ctx)
 	if err != nil {
 		return err
