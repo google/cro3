@@ -234,7 +234,7 @@ do_getparams() {
       P) prereverts+=("${OPTARG}") ;;
       R) reverts+=("${OPTARG}") ;;
       t) tbranch="${OPTARG}" ;;
-      T) lts_branch="${OPTARG}" lts_search=1 ;;
+      T) lts_branch="${OPTARG}" ;;
       s) do_dryrun=1 ;;
       S) Subject="${OPTARG}" ;;
       u) upload=1 prepare=1 ;;
