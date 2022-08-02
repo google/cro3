@@ -35,6 +35,14 @@ func (r BuilderPath) String() string {
 var builderPathRegexp = regexp.MustCompile(`^([a-z0-9-]+)-\w+/(R[0-9.-]+)$`)
 var builderPathLineRegexp = regexp.MustCompile(`CHROMEOS_RELEASE_BUILDER_PATH=(.+)\n`)
 
+func parseBuilderPath(path string) (BuilderPath, error) {
+	match := builderPathRegexp.FindStringSubmatch(path)
+	if match == nil {
+		return BuilderPath{}, fmt.Errorf("cannot parse builder path: %s", path)
+	}
+	return BuilderPath{match[1], match[2]}, nil
+}
+
 // DetectReleaseBuilder detects the release builder of c's remote host.
 func DetectReleaseBuilder(c *ssh.Client) (BuilderPath, error) {
 	stdout, err := c.RunSimpleOutput("cat /etc/lsb-release")
@@ -46,13 +54,8 @@ func DetectReleaseBuilder(c *ssh.Client) (BuilderPath, error) {
 	if match == nil {
 		return BuilderPath{}, errors.New("cannot find CHROMEOS_RELEASE_BUILDER_PATH line")
 	}
-	path := match[1]
 
-	match = builderPathRegexp.FindStringSubmatch(path)
-	if match == nil {
-		return BuilderPath{}, fmt.Errorf("cannot parse builder path: %s", path)
-	}
-	return BuilderPath{match[1], match[2]}, nil
+	return parseBuilderPath(match[1])
 }
 
 // DetectPartitions detects the active/inactive partition state on c's remote host.
