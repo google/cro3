@@ -28,6 +28,9 @@ from src.docker_libs.build_libs.builders import LocalDockerBuilder
 from src.docker_libs.build_libs.cros_callbox.cros_callbox_prep import (
     CrosCallBoxDockerPrepper,
 )
+from src.docker_libs.build_libs.cros_publish.cros_publish_prep import (
+    CrosPublishDockerPrepper,
+)
 from src.docker_libs.build_libs.cros_test.cros_test_prep import (
     CrosTestDockerPrepper,
 )
@@ -59,6 +62,8 @@ REGISTERED_BUILDS = {
         'prepper': CrosTestFinderDockerPrepper, 'cloud': True},
     'cros-servod': {
         'prepper': CommonServiceDockerPrepper, 'cloud': False},
+    'cros-publish': {
+        'prepper': CrosPublishDockerPrepper, 'cloud': False},
 }
 
 # There is a ~1 in 10000 err with the fetching of the base container
@@ -66,12 +71,12 @@ REGISTERED_BUILDS = {
 # TODO: b/237016355, mitigate this properly with a self-owned base container.
 BUILD_RETRIES = 1
 RETRIES_WAIT = 10
-# callbox currently fails building and was disabled per b/
 # cros-servod does not have a ebuild yet, thus is not ready for building.
 DO_NOT_BUILD = set(['cros-servod'])
 # NOTE: when promoting a service from DO_NOT_BUILD, it should be added to
 # NON_CRITICAL for atleast a short time to verify health.
-NON_CRITICAL = set(['cros-dut', 'cros-provision', 'cros-callbox'])
+NON_CRITICAL = set(
+    ['cros-dut', 'cros-provision', 'cros-callbox', 'cros-publish'])
 
 
 def parse_local_arguments() -> argparse.Namespace:
@@ -105,18 +110,18 @@ def parse_local_arguments() -> argparse.Namespace:
                       dest='labels',
                       default='',
                       help='Zero or more key=value comma seperated strings to '
-                           'apply as labels to container.')
+                      'apply as labels to container.')
   parser.add_argument('--build_type',
                       dest='build_type',
                       default=None,
                       help='Specify the docker build type to be used. Valid'
-                           ' options are oneof: "cloud" "local".')
+                      ' options are oneof: "cloud" "local".')
   parser.add_argument('--upload',
                       dest='upload',
                       action='store_true',
                       help='Upload the built image to the registry. '
-                           'Flag is only valid when using localbuild. '
-                           'Cloud builds will always "upload".')
+                      'Flag is only valid when using localbuild. '
+                      'Cloud builds will always "upload".')
   parser.add_argument('--build_all',
                       dest='build_all',
                       action='store_true',
@@ -135,13 +140,12 @@ def parse_local_arguments() -> argparse.Namespace:
 
 def validate_args(args: argparse.Namespace):
   if args.build_type and args.build_type not in ('cloud', 'local'):
-    raise ConfigError('--build_type must be one of "cloud" or "local" but got '
-                      f'{args.build_type}')
+    raise ConfigError(
+        '--build_type must be one of "cloud" or "local" but got '
+        f'{args.build_type}')
 
 
-def isCloudBuild(
-    args: argparse.Namespace,
-    info: Dict[str, Any]) -> Any:
+def isCloudBuild(args: argparse.Namespace, info: Dict[str, Any]) -> Any:
   """Determine if the image should be built with cloud or local."""
   # if the args is set, use that, otherwise default to the registration value.
   if args.build_type == 'local':
@@ -151,10 +155,7 @@ def isCloudBuild(
   return info['cloud']
 
 
-def build_image(
-    args: argparse.Namespace,
-    service: str,
-    output: str) -> bool:
+def build_image(args: argparse.Namespace, service: str, output: str) -> bool:
   """Build a singular image."""
   info = REGISTERED_BUILDS.get(service, None)
   if not info:
@@ -222,8 +223,8 @@ def build_container(b: DockerBuilder, args: argparse.Namespace):
 def build_all_images(args: argparse.Namespace):
   """Build all registered images.
 
-  Will skip any in DO_NOT_BUILD, and will not fail if a NON_CRITICAL build
-  fails.
+Will skip any in DO_NOT_BUILD, and will not fail if a NON_CRITICAL build
+fails.
   """
   all_pass = True
   for service in REGISTERED_BUILDS:
@@ -237,7 +238,7 @@ def build_all_images(args: argparse.Namespace):
       if os.path.exists(outfile):
         os.remove(outfile)
       if service in NON_CRITICAL:
-        print(f'{service} as not marked as critical so builder will not fail.')
+        print(f'{service} is not marked as critical so builder will not fail.')
       else:
         # Mark a critical failure, but continue to build.
         all_pass = False
