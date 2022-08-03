@@ -66,6 +66,11 @@ sudo chmod a+x /usr/bin/cloud_sql_proxy
 git config --global user.name "Linux Patches Robot"
 git config --global user.email "linux-patches-robot@chromeos-missing-patches.google.com.iam.gserviceaccount.com"
 
+# Setup git hooks
+mkdir -p "${WORKSPACE}/git-hooks"
+curl -Lo "${WORKSPACE}/git-hooks/commit-msg" https://gerrit-review.googlesource.com/tools/hooks/commit-msg
+chmod +x "${WORKSPACE}/git-hooks/commit-msg"
+
 # Logs
 sudo mkdir -p /var/log/findmissing/
 sudo touch /var/log/findmissing/findmissing.log

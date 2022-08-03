@@ -83,11 +83,24 @@ def synchronize_custom(kernel):
             handler.pull(branch)
 
 
+def setup_linux_chrome_git_hooks():
+    """Setup git hooks for chromeos remote."""
+    metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
+    dest = os.path.join(common.get_kernel_absolute_path(metadata.path),
+                        '.git', 'hooks', 'commit-msg')
+    commit_msg = os.path.join(common.WORKSPACE_PATH, 'git-hooks', 'commit-msg')
+
+    if not os.path.exists(dest):
+        logging.info('Adding symlink %s to %s', dest, commit_msg)
+        os.symlink(commit_msg, dest)
+
+
 def synchronize_repositories(local=False):
     """Deep clones linux_upstream, linux_stable, and linux_chromeos repositories"""
     synchronize_upstream(UPSTREAM_KERNEL_METADATA)
     synchronize_custom(common.Kernel.linux_stable)
     synchronize_custom(common.Kernel.linux_chrome)
+    setup_linux_chrome_git_hooks()
     if local:
         synchronize_custom(common.Kernel.linux_stable_rc)
 
