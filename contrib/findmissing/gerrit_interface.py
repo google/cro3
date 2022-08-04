@@ -260,6 +260,7 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch, is_chromeos, fix
                                                       fix_commit_message, reviewers, cc)
     except ValueError:
         # Error cherry-picking and pushing fix patch
+        logging.error('Failed to cherry-pick and push SHA %s', fixer_upstream_sha)
         return None
 
     os.chdir(cwd)

@@ -85,6 +85,8 @@ def get_change_id(db, branch, sha):
     If multiple Change IDs are available, pick one that has not been abandoned.
     """
 
+    logging.info('Looking up Change ID for upstream SHA %s', sha)
+
     c = db.cursor()
     change_id = None
     status = None
@@ -102,6 +104,8 @@ def get_change_id(db, branch, sha):
 
     c.execute(q, [sha])
     for chrome_change_id, chrome_branch, stable_change_id, stable_branch in c.fetchall():
+        logging.info('Database: %s %s %s %s',
+                     chrome_change_id, chrome_branch, stable_change_id, stable_branch)
         # Some entries in fixes_table do not have a change id attached.
         # This will be seen if a patch was identified as already merged
         # or as duplicate.  Skip those. Also skip empty entries returned
@@ -117,6 +121,8 @@ def get_change_id(db, branch, sha):
                 # such Change-Ids. To verify, try to get the status from Gerrit
                 # and skip if the Change-Id is not found.
                 gerrit_status = gerrit_interface.get_status(chrome_change_id, chrome_branch)
+                logging.info('Found Change ID %s in branch %s, status %s',
+                             chrome_change_id, chrome_branch, gerrit_status)
                 # We can not use a Change-ID which exists in Gerrit but is marked
                 # as abandoned for the target branch.
                 if chrome_change_id in reject_list:
@@ -136,6 +142,8 @@ def get_change_id(db, branch, sha):
         if stable_change_id and stable_branch:
             try:
                 gerrit_status = gerrit_interface.get_status(stable_change_id, stable_branch)
+                logging.info('Found Change ID %s in branch %s, status %s',
+                             stable_change_id, stable_branch, gerrit_status)
                 if stable_change_id in reject_list:
                     continue
                 if stable_branch == branch and gerrit_status == common.Status.ABANDONED.name:
@@ -153,6 +161,8 @@ def get_change_id(db, branch, sha):
         if change_id in reject_list:
             change_id = None
 
+    logging.info('Returning Change-Id %s, reject=%s',
+                 change_id, status == common.Status.ABANDONED.name and bool(reject_list))
     return change_id, status == common.Status.ABANDONED.name and bool(reject_list)
 
 
@@ -361,6 +371,7 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
         if subsequent_fixes:
             subsequent_fixes.pop(0) # 1st returned SHA is fixedby_upstream_sha
             for fix in subsequent_fixes:
+                logging.info('SHA %s recursively fixed by: %s', fixedby_upstream_sha, fix)
                 insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fix, True)
 
     return created_new_change
