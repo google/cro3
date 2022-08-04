@@ -112,12 +112,11 @@ func (cc *CLICommand) Run() error {
 	dutAdapter := common_utils.NewServiceAdapter(api.NewDutServiceClient(dutConn), false /*noReboot*/)
 
 	out := &api.ProvisionFirmwareResponse{}
+	defer saveCLIOutput(cc.outputFile, out)
 
 	ctx := context.Background()
-	cs, err := firmwareservice.NewFirmwareService(ctx, dutAdapter, nil, cc.inputProto)
+	fwService, err := firmwareservice.NewFirmwareService(ctx, dutAdapter, nil, cc.inputProto)
 	if err != nil {
-		defer saveCLIOutput(cc.outputFile, out)
-
 		if fwErr, ok := err.(*firmwareservice.FirmwareProvisionError); ok {
 			out.Status = fwErr.Status
 		} else {
@@ -127,12 +126,19 @@ func (cc *CLICommand) Run() error {
 		return err
 	}
 
-	_, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewFirmwarePrepareState(cs))
+	// Execute state machine
+	cs := state_machine.NewFirmwarePrepareState(fwService)
+	for cs != nil {
+		if err = cs.Execute(ctx); err != nil {
+			break
+		}
+		cs = cs.Next()
+	}
+
 	if err == nil {
 		log.Println("Finished Successfuly!")
 		return nil
 	}
-
 	if fwErr, ok := err.(*firmwareservice.FirmwareProvisionError); ok {
 		out.Status = fwErr.Status
 	} else {

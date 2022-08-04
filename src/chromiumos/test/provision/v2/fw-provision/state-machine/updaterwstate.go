@@ -21,19 +21,35 @@ type FirmwareUpdateRwState struct {
 // Execute flashes firmware using futility with write-protection enabled.
 func (s FirmwareUpdateRwState) Execute(ctx context.Context) error {
 	connection := s.service.GetConnectionToFlashingDevice()
-	mainRwMetadata, ok := s.service.GetImageMetadata(s.service.GetMainRwPath())
-	if !ok {
-		panic(ok) // if nil, current state of the statemachine should not started
+	// form futility command args based on the request
+	var futilityImageArgs []string
+	if s.service.GetUseSimpleRequest() {
+		// Simple Request
+		imagePath, flashRo := s.service.GetSimpleRequest()
+		if flashRo {
+			panic("entered FirmwareUpdateRwState when flashRo == true") // impossible
+		}
+		imgMetadata, ok := s.service.GetImageMetadata(imagePath)
+		if !ok {
+			panic("no metadata for SimpleRequest") // impossible
+		}
+		futilityImageArgs = append(futilityImageArgs, []string{fmt.Sprint("--archive=", imgMetadata.ArchivePath)}...)
+	} else {
+		// Detailed Request
+		mainRwMetadata, ok := s.service.GetImageMetadata(s.service.GetMainRwPath())
+		if !ok {
+			panic(ok) // if nil, current state of the statemachine should not started
+		}
+		log.Printf("[FW Provisioning: Update RW] extracting AP image to flash\n")
+		mainRwPath, err := firmwareservice.PickAndExtractMainImage(ctx, connection, mainRwMetadata, s.service.GetBoard(), s.service.GetModel())
+		if err != nil {
+			return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+		}
+		futilityImageArgs = []string{fmt.Sprint("--image=", mainRwPath)}
 	}
-	log.Printf("[FW Provisioning: Update RW] extracting AP image to flash\n")
-	mainRwPath, err := firmwareservice.PickAndExtractMainImage(ctx, connection, mainRwMetadata, s.service.GetBoard(), s.service.GetModel())
-	if err != nil {
-		return firmwareservice.UpdateFirmwareFailedErr(err.Error())
-	}
-	futilityImageArgs := []string{fmt.Sprint("--image=", mainRwPath)}
 
 	log.Printf("[FW Provisioning: Update RW] flashing RW firmware with futility\n")
-	err = s.service.FlashWithFutility(ctx, true /* WP */, futilityImageArgs)
+	err := s.service.FlashWithFutility(ctx, true /* WP */, futilityImageArgs)
 	if err != nil {
 		return firmwareservice.UpdateFirmwareFailedErr(err.Error())
 	}

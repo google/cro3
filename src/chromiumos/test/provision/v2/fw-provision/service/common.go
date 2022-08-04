@@ -52,7 +52,9 @@ func extractFileFromImage(ctx context.Context, fileInArchive string, imageMetada
 // downloadAndProcessArchive downloads image from gsPath onto whatever device
 // is connected to |s|.
 // Returns ImageArchiveMetadata with metadata about the archive.
-func downloadAndProcessArchive(ctx context.Context, s common_utils.ServiceAdapterInterface, gsPath string) (*ImageArchiveMetadata, error) {
+// If |enumerateFilesInArchive| is true, will enumerate all files in every
+// downloaded archivem and store that in ImageArchiveMetadata.
+func downloadAndProcessArchive(ctx context.Context, s common_utils.ServiceAdapterInterface, gsPath string, enumerateFilesInArchive bool) (*ImageArchiveMetadata, error) {
 	// Infer names for the local files and folders from basename of gsPath.
 	archiveFilename := filepath.Base(gsPath)
 
@@ -79,22 +81,23 @@ func downloadAndProcessArchive(ctx context.Context, s common_utils.ServiceAdapte
 	}
 	archiveDir = strings.Trim(archiveDir, "\n")
 
-	// Download the archive and defer its deletion.
+	// Download the archive.
 	archivePath := path.Join(archiveDir, archiveFilename)
-
 	if err := s.CopyData(ctx, gsPath, archivePath); err != nil {
 		s.DeleteDirectory(ctx, archiveDir)
 		return nil, fmt.Errorf("remote CopyData() failed: %w", err)
 	}
 
-	listOfFiles, err := listFilesInArchive(ctx, archivePath, s)
-	if err != nil {
-		s.DeleteDirectory(ctx, archiveDir)
-		return nil, fmt.Errorf("failed to list archive contents: %w", err)
+	var listOfFiles []string
+	if enumerateFilesInArchive {
+		listOfFiles, err = listFilesInArchive(ctx, archivePath, s)
+		if err != nil {
+			s.DeleteDirectory(ctx, archiveDir)
+			return nil, fmt.Errorf("failed to list archive contents: %w", err)
+		}
 	}
 
-	metadata := MakeImageArchiveMetadata(archivePath, archiveDir, listOfFiles)
-	return metadata, nil
+	return MakeImageArchiveMetadata(archivePath, archiveDir, listOfFiles), nil
 }
 
 // GetFlashECScript finds flash_ec script locally and returns path to it.

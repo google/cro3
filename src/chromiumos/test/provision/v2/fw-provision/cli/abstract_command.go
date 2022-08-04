@@ -67,6 +67,6 @@ func ParseInputs() (AbstractCommand, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("Unknown subcommand: %s. \nOptions are: [%s]", subcommand, options)
+	return nil, fmt.Errorf("unknown subcommand: %s. \nOptions are: [%s]", subcommand, options)
 
 }

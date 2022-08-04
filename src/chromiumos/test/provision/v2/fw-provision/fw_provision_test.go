@@ -5,26 +5,24 @@
 package main
 
 import (
-	common_utils "chromiumos/test/provision/v2/common-utils"
-	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
-
-	firmwareservice "chromiumos/test/provision/v2/fw-provision/service"
-	state_machine "chromiumos/test/provision/v2/fw-provision/state-machine"
 	"context"
-	"fmt"
 	"log"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	common_utils "chromiumos/test/provision/v2/common-utils"
+	firmwareservice "chromiumos/test/provision/v2/fw-provision/service"
+	state_machine "chromiumos/test/provision/v2/fw-provision/state-machine"
+	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
+
 	"github.com/golang/mock/gomock"
 	conf "go.chromium.org/chromiumos/config/go"
-	"go.chromium.org/chromiumos/config/go/test/api"
-
 	build_api "go.chromium.org/chromiumos/config/go/build/api"
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
-func TestFirmwareProvisioningSSHStates(t *testing.T) {
+func TestDetailedRequestSSHStates(t *testing.T) {
 	fakeGSPath := "gs://test-archive.tar.gz"
 	fakeGSFilename := filepath.Base(fakeGSPath)
 
@@ -55,7 +53,6 @@ func TestFirmwareProvisioningSSHStates(t *testing.T) {
 		if pd_ro {
 			FirmwareConfig.PdRoPayload = fakePayload
 		}
-		fmt.Printf("FirmwareConfig %#v \n", FirmwareConfig)
 		req := &api.ProvisionFirmwareRequest{
 			Board: "test_board",
 			Model: "test_model",
@@ -106,11 +103,13 @@ func TestFirmwareProvisioningSSHStates(t *testing.T) {
 	for _, testCase := range testCases {
 		// Create FirmwareService.
 		ctx := context.Background()
+		req := makeRequest(testCase.main_rw, testCase.main_ro, testCase.ec_ro, testCase.pd_ro)
+		log.Printf("  Test Case: %#v\n  Detailed Request: %#v", testCase, req)
 		fws, err := firmwareservice.NewFirmwareService(
 			ctx,
 			sam,
 			nil,
-			makeRequest(testCase.main_rw, testCase.main_ro, testCase.ec_ro, testCase.pd_ro),
+			req,
 		)
 		// Check if init error is expected/got.
 		if err != nil {
@@ -147,9 +146,7 @@ func TestFirmwareProvisioningSSHStates(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		log.Printf("early state: %v\n", st.Name())
 		st = st.Next()
-		log.Printf("early state after Next(): %v\n", st.Name())
 
 		if testCase.updateRo {
 			// Confirm state name is RO.
@@ -207,6 +204,154 @@ func TestFirmwareProvisioningSSHStates(t *testing.T) {
 			}
 			st = st.Next()
 		}
+
+		// Confirm state name is postinstall.
+		checkStateName(st, state_machine.PostInstallStateName)
+		// Set mock expectations.
+		gomock.InOrder(
+			sam.EXPECT().DeleteDirectory(gomock.Any(), "").Return(nil),
+			sam.EXPECT().Restart(gomock.Any()).Return(nil),
+			sam.EXPECT().RunCmd(gomock.Any(), "true", nil).Return("", nil),
+		)
+		// Execute the state and proceed.
+		err = st.Execute(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		st = st.Next()
+
+		// Confirm no states left.
+		checkStateName(st, "")
+	}
+}
+
+func TestSimpleRequestSSHStates(t *testing.T) {
+	fakeGSPath := "gs://test-archive.tar.gz"
+	fakeGSFilename := filepath.Base(fakeGSPath)
+
+	makeRequest := func(gsPath string, flashRo bool) *api.ProvisionFirmwareRequest {
+		req := &api.ProvisionFirmwareRequest{
+			Board: "test_board",
+			Model: "test_model",
+		}
+		req.FirmwareRequest = &api.ProvisionFirmwareRequest_SimpleRequest{
+			SimpleRequest: &api.SimpleFirmwareRequest{
+				FlashRo:           flashRo,
+				FirmwareImagePath: &conf.StoragePath{HostType: conf.StoragePath_GS, Path: gsPath},
+			},
+		}
+
+		return req
+	}
+
+	checkStateName := func(st common_utils.ServiceState, expectedStateName string) {
+		if st == nil {
+			if len(expectedStateName) > 0 {
+				t.Fatalf("expected state %v. got: nil state", expectedStateName)
+			}
+			return
+		}
+		stateName := st.Name()
+		if stateName != expectedStateName {
+			t.Fatalf("expected state %v. got: %v", expectedStateName, stateName)
+		}
+	}
+
+	type TestCase struct {
+		// inputs
+		flashRo    bool
+		fakeGSPath string
+		// expected outputs
+		updateRw, updateRo     bool
+		expectConstructorError bool
+	}
+
+	testCases := []TestCase{
+		{ /*in*/ false, "" /*out*/, false, false /*err*/, true},
+		{ /*in*/ true, "" /*out*/, false, false /*err*/, true},
+		{ /*in*/ false, fakeGSPath /*out*/, true, false /*err*/, false},
+		{ /*in*/ true, fakeGSPath /*out*/, false, true /*err*/, false},
+	}
+
+	// Set up the mock.
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+
+	for _, testCase := range testCases {
+		// Create FirmwareService.
+		ctx := context.Background()
+		req := makeRequest(testCase.fakeGSPath, testCase.flashRo)
+		log.Printf("  Test Case: %#v\n  Simple Request: %#v", testCase, req)
+
+		fws, err := firmwareservice.NewFirmwareService(
+			ctx,
+			sam,
+			nil,
+			req,
+		)
+		// Check if init error is expected/got.
+		if err != nil {
+			if testCase.expectConstructorError {
+				continue
+			}
+			t.Fatalf("failed to create FirmwareService with test case %#v: %v", testCase, err)
+		}
+		if err == nil && testCase.expectConstructorError {
+			t.Fatalf("expected constructor error for test case %#v. got: %v", testCase, err)
+		}
+		// Check expected states.
+		if testCase.updateRo != fws.UpdateRo() {
+			t.Fatalf("test case %#v expects updateRo to be %v. got: %v.", testCase, testCase.updateRo, fws.UpdateRo())
+		}
+		if testCase.updateRw != fws.UpdateRw() {
+			t.Fatalf("test case %#v expects updateRw to be %v. got: %v.", testCase, testCase.updateRw, fws.UpdateRw())
+		}
+
+		// Start with the first state of the service.
+		st := state_machine.NewFirmwarePrepareState(fws)
+		// Confirm state name is Prepare.
+		checkStateName(st, state_machine.PrepareStateName)
+
+		// Set mock expectations.
+		gomock.InOrder(
+			sam.EXPECT().RunCmd(gomock.Any(), "mktemp", gomock.Any()).Return("", nil),
+			sam.EXPECT().CopyData(gomock.Any(), gomock.Eq(fakeGSPath), gomock.Eq(fakeGSFilename)).Return(nil),
+		)
+
+		// Execute the state and proceed.
+		err = st.Execute(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		st = st.Next()
+
+		if testCase.flashRo {
+			// Confirm state name is RO.
+			checkStateName(st, state_machine.UpdateRoStateName)
+		} else {
+			// Confirm state name is RW.
+			checkStateName(st, state_machine.UpdateRwStateName)
+		}
+
+		// Set mock expectations.
+		expectedFutilityArgs := []string{"update", "--mode=recovery", "--archive=" + fakeGSFilename}
+
+		if testCase.updateRo {
+			expectedFutilityArgs = append(expectedFutilityArgs, "--wp=0")
+		} else {
+			expectedFutilityArgs = append(expectedFutilityArgs, "--wp=1")
+		}
+		gomock.InOrder(
+			sam.EXPECT().RunCmd(gomock.Any(), "futility", expectedFutilityArgs).Return("", nil),
+		)
+
+		// Execute the state and proceed.
+		err = st.Execute(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		st = st.Next()
 
 		// Confirm state name is postinstall.
 		checkStateName(st, state_machine.PostInstallStateName)
