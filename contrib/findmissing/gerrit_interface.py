@@ -227,13 +227,21 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch, is_chromeos, fix
     bug_test_line = get_bug_test_line(chrome_kernel_sha)
     fix_commit_message = generate_fix_message(fixer_upstream_sha, bug_test_line)
 
-    # No reviewers by default.
-    reviewers = []
+    # Copy all requests to well defined mailing list if there is no reviewer
+    # and the patch is ChromeOS-specific.  Note that the mailing list must be
+    # accessible from outside Google because Gerrit will send e-mail to it,
+    # and the Gerrit e-mail address is a chromium.org address.
+    #
+    # This is for stable bug fix patches that don't have a direct fixee changeid
+    # since groups of stable commits get merged as one changeid
+    cc = ['cros-kernel-codereviews@googlegroups.com'] if is_chromeos else None
+    reviewers = None
     try:
         if fixee_changeid:
             cl_reviewers = get_reviewers(fixee_changeid, branch)
             if cl_reviewers:
                 reviewers = cl_reviewers
+                cc = None
     except requests.exceptions.HTTPError:
         # There is a Change-Id in the commit log, but Gerrit does not have a
         # matching entry.
@@ -245,13 +253,7 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch, is_chromeos, fix
         emails = git_interface.get_tag_emails_linux_chrome(fixee_kernel_sha)
         if emails:
             reviewers = emails
-
-    # Copy all requests to well defined mailing list if there is no reviewer
-    # and the patch is ChromeOS-specific.
-    # The mailing list must be accessible from outside Google because
-    # Gerrit will send e-mail to it, and the Gerrit e-mail address is
-    # a chromium.org address.
-    cc = ['cros-kernel-codereviews@googlegroups.com'] if is_chromeos and not reviewers else []
+            cc = None
 
     try:
         # Cherry pick changes and generate commit message indicating fix from upstream
