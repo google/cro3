@@ -40,7 +40,7 @@ DEFINE_string project "${DEFAULT_PROJECT}" "Which projects this release is for (
 DEFINE_string bug "none" "The bug to reference in the CL e.g b:12345"
 DEFINE_string skip "${DEFAULT_SKIP}" "Skip these projects (comma separated list)" s
 DEFINE_boolean build "${FLAGS_TRUE}" "Attempt to build coreboot"
-DEFINE_boolean program "${FLAGS_TRUE}" "Update the version in the base program.star"
+DEFINE_boolean program "${FLAGS_FALSE}" "Update the version in the base program.star"
 DEFINE_string reviewer "${DEFAULT_REVIEWER}" "The reviewer(s) to send the CLs to (optional)"
 DEFINE_string test "none" "The 'TEST=' string added to the commit message"
 DEFINE_boolean dryrun "${FLAGS_FALSE}" "Do not perform any actions, just validate and print arguments"
@@ -323,7 +323,7 @@ update_version() {
   if (update_rw "${1}"); then
     res=0
   fi
-  return ${res}
+  return "${res}"
 }
 #
 # Validate arguments
@@ -618,10 +618,10 @@ if [[ "${FLAGS_build}" -eq  "${FLAGS_TRUE}" ]]; then
     # Use general packages
     echo "Taking a guess at coreboot packages for ${FLAGS_board}"
     echo "If the coreboot build fails, this script may have to be customized for this board"
-    PACKAGES=(coreboot depthcharge vboot_reference libpayload chromeos-bootimage)
+    PACKAGES=(chromeos-bootimage)
     ;;
   esac
-  if ! ("emerge-${FLAGS_board}" -j --quiet-build "${PACKAGES[@]}"); then
+  if ! (build_packages -b "${FLAGS_board}" --skip-setup-board "${PACKAGES[@]}"); then
     abort "coreboot build failed!"
   fi
   echo "coreboot build successful"
