@@ -139,6 +139,12 @@ has_minor_version() {
   return 0
 }
 #
+# Return 0 if file has ebuild revbump in it
+#
+has_revbump() {
+  (grep -E -q "VERSION=REVBUMP.*[0-9][0-9]*$" "${1}")
+}
+#
 # Extract a CL number from the file containing the output of repo upload
 #
 getcl() {
@@ -447,6 +453,12 @@ if [[ ! -d "${DEVCONTRIB}" ]]; then
   die "${DEVCONTRIB}: invalid directory"
 fi
 #
+# Check if the firmware ebuild file has a REVBUMP line in it.
+#
+if ! (has_revbump "${OVERLAY}/${EB9999}"); then
+  echo "Warning -" "${OVERLAY}/${EB9999}" does not have a REVBUMP line
+fi
+#
 # Display arguments.
 #
 echo "Invoked as:"
@@ -628,7 +640,6 @@ if [[ "${FLAGS_build}" -eq  "${FLAGS_TRUE}" ]]; then
 else
   echo "Coreboot build not attempted"
 fi
-EB9999="chromeos-firmware-${FLAGS_board}-9999.ebuild"
 #
 # Remove any previous attempts to build the firmware.
 #
@@ -646,13 +657,15 @@ cd "${OVERLAY}"
 #
 OVERLAY_CL=""
 if changed; then
-  #
-  # Bump the version in the ebuild file. Relies on the format
-  # of the version so that the last number is at the end of the line.
-  #
-  CURVERS=$(grep "VERSION=REVBUMP" "${EB9999}" | grep -o "[0-9][0-9]*$")
-  NEXTVERS=$((CURVERS + 1))
-  sed -i "/VERSION=REVBUMP/s/${CURVERS}$/${NEXTVERS}/" "${EB9999}"
+  if (has_revbump "${EB9999}"); then
+    #
+    # Bump the version in the ebuild file. Relies on the format
+    # of the version so that the last number is at the end of the line.
+    #
+    CURVERS=$(grep "VERSION=REVBUMP" "${EB9999}" | grep -o "[0-9][0-9]*$")
+    NEXTVERS=$((CURVERS + 1))
+    sed -i "/VERSION=REVBUMP/s/${CURVERS}$/${NEXTVERS}/" "${EB9999}"
+  fi
   git add .
   cat > "${TEMPDIR}/overlay.msg" <<EOF
 ${FLAGS_board}: Update firmware to ${FLAGS_release}
