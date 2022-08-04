@@ -5,7 +5,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Find missing stable and backported mainline fix patches in chromeos."""
+"""Find missing stable and backported mainline fix patches in chromeos.
+
+   isort:skip_file
+"""
 
 import contextlib
 import logging
@@ -13,11 +16,11 @@ import os
 import subprocess
 import sys
 
-import requests
-
 import MySQLdb # pylint: disable=import-error
-import common
+import requests # pylint: disable=import-error
+
 import cloudsql_interface
+import common
 import gerrit_interface
 import git_interface
 

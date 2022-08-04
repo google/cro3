@@ -5,19 +5,23 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Setup module containing script to Synchronize kernel repositories + database."""
+"""Setup module containing script to Synchronize kernel repositories + database.
 
+   isort:skip_file
+"""
 
 import contextlib
 import logging
 import os
 import subprocess
+
 import MySQLdb # pylint: disable=import-error
-import common
 
 import cloudsql_interface
+import common
 import gerrit_interface
 import git_interface
+
 
 UPSTREAM_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_upstream)
 STABLE_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_stable)

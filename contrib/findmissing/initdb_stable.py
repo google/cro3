@@ -5,12 +5,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Module parses and stores data from stable linux patch."""
+"""Module parses and stores data from stable linux patch.
+
+   isort:skip_file
+"""
 
 import contextlib
 import logging
 import subprocess
+
 import MySQLdb # pylint: disable=import-error
+
 import common
 
 

@@ -5,14 +5,19 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Module rebuilding database with metadata about chromeos patches."""
+"""Module rebuilding database with metadata about chromeos patches.
+
+   isort:skip_file
+"""
 
 import contextlib
 import logging
 import re
 import subprocess
-import MySQLdb # pylint: disable=import-error
+
 import MySQLdb.constants.ER # pylint: disable=import-error
+import MySQLdb # pylint: disable=import-error
+
 import common
 
 

@@ -13,6 +13,7 @@ i.e Parsing git logs for change-id, full commit sha's, etc.
 import logging
 import re
 import subprocess
+
 import common
 
 

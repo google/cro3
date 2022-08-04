@@ -5,12 +5,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Find missing stable and backported mainline fix patches in chromeos."""
+"""Find missing stable and backported mainline fix patches in chromeos.
 
+   isort:skip_file
+"""
 
 import MySQLdb # pylint: disable=import-error
 
 import common
+
 
 DEFAULT_MERGED_REASON = 'Fix merged into linux chrome'
 

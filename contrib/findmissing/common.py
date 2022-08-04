@@ -5,20 +5,24 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Module containing shared helper methods."""
+"""Module containing shared helper methods.
 
+   isort:skip_file
+"""
+
+from enum import Enum
 import functools
 import logging
 import os
 import re
-import time
-from enum import Enum
 import subprocess
+import time
+
 import MySQLdb # pylint: disable=import-error
 
-import initdb_upstream
-import initdb_stable
 import initdb_chromeos
+import initdb_stable
+import initdb_upstream
 
 
 KERNEL_SITE = 'https://git.kernel.org/'

@@ -17,13 +17,16 @@ curl -b /home/chromeos_patches/.git-credential-cache/cookie \
         "subject":"test",\
         "branch":"chromeos-4.19",\
         "topic":"test_topic"}' https://chromium-review.googlesource.com/a/changes/
+
+   isort:skip_file
 """
 
-import logging
-import json
 import http
+import json
+import logging
 import os
 import re
+
 import requests # pylint: disable=import-error
 
 import common

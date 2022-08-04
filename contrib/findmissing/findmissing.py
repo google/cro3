@@ -16,9 +16,9 @@ All abandon/restore findmissing commands must be run in this directory's
     virtual env (source env/bin/activate) before running any commands
 """
 
-
 import argparse
 import sys
+
 import main
 
 
