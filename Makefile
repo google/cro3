@@ -11,7 +11,7 @@ install:
 	mkdir -p "${DESTDIR}/usr/bin"
 	mkdir -p "${DESTDIR}/usr/lib/devserver"
 	mkdir -p "${DESTDIR}/usr/lib/devserver/dut-scripts"
-	install -m 0755 host/start_devserver "${DESTDIR}/usr/bin"
+	ln -sfT /usr/lib/devserver/devserver.py "${DESTDIR}/usr/bin/start_devserver"
 	install -m 0755 devserver.py "${DESTDIR}/usr/lib/devserver"
 	install -m 0644  \
 		autoupdate.py \
