@@ -18,6 +18,11 @@ use strict;
 use warnings;
 use IO::Uncompress::Unzip qw(unzip $UnzipError);
 
+if (scalar(@ARGV) != 1) {
+    print "Usage: feedback-unpack <\${feedback_report}.zip>\n";
+    exit 1;
+}
+
 my $zip_file = $ARGV[0];
 
 die "'$zip_file' is not a file\n" if ( ! -f $zip_file );
@@ -44,3 +49,5 @@ while (my $line = $z->getline()) {
 }
 
 $z->close() or die "close failed: $UnzipError\n";
+
+print "Feedback report unpacked at $output_dir\n";
