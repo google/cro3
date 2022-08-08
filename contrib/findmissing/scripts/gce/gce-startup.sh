@@ -92,6 +92,7 @@ rm -rf "${FINDMISSING}/env"
 python3 -m venv "${FINDMISSING}/env"
 # shellcheck disable=SC1091
 source "${FINDMISSING}/env/bin/activate"
+"${FINDMISSING}/env/bin/pip" install wheel
 "${FINDMISSING}/env/bin/pip" install -r "${FINDMISSING}/requirements.txt"
 
 # Put systemd configurations in correct location
