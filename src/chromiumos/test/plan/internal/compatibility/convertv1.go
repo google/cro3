@@ -339,6 +339,8 @@ type suiteInfo struct {
 	// tastExpr that defines the suite. Only valid if environment is TastVM or
 	// TastGCE
 	tastExpr string
+	// whether the test suite is critical or not
+	critical bool
 	// optional, variant of the build target to test. For example, if program
 	// is "coral" and boardVariant is "kernelnext", the "coral-kernelnext" build
 	// will be used.
@@ -490,6 +492,15 @@ func coverageRuleToSuiteInfo(
 		licenses = append(licenses, licence)
 	}
 
+	// TODO(b/241789334): Figure out how to handle criticality when a critical
+	// rule gets run on a non-critical program.
+	var critical bool
+	if rule.Critical == nil {
+		critical = true
+	} else {
+		critical = rule.GetCritical().GetValue()
+	}
+
 	var suiteInfos []*suiteInfo
 	for _, suite := range rule.GetTestSuites() {
 		switch spec := suite.Spec.(type) {
@@ -506,6 +517,7 @@ func coverageRuleToSuiteInfo(
 						pool:         pool,
 						suite:        id.Value,
 						environment:  HW,
+						critical:     critical,
 						boardVariant: boardVariant,
 						licenses:     licenses,
 					})
@@ -541,6 +553,7 @@ func coverageRuleToSuiteInfo(
 					suite:        suite.GetName(),
 					tastExpr:     tagCriteriaToTastExpr(*spec.TestCaseTagCriteria),
 					environment:  env,
+					critical:     critical,
 					boardVariant: boardVariant,
 				})
 		default:
@@ -729,9 +742,8 @@ func ToCTP1(
 					Licenses:    suiteInfo.licenses,
 					Common: &testplans.TestSuiteCommon{
 						DisplayName: displayName,
-						// TODO(b/218319842): Set critical value based on v2 test disablement config.
 						Critical: &wrapperspb.BoolValue{
-							Value: true,
+							Value: suiteInfo.critical,
 						},
 					},
 				}
@@ -754,7 +766,7 @@ func ToCTP1(
 					Common: &testplans.TestSuiteCommon{
 						DisplayName: displayName,
 						Critical: &wrapperspb.BoolValue{
-							Value: true,
+							Value: suiteInfo.critical,
 						},
 					},
 				}
@@ -784,7 +796,7 @@ func ToCTP1(
 					Common: &testplans.TestSuiteCommon{
 						DisplayName: displayName,
 						Critical: &wrapperspb.BoolValue{
-							Value: true,
+							Value: suiteInfo.critical,
 						},
 					},
 				}

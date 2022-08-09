@@ -50,6 +50,7 @@ func newStruct(t *testing.T, fields map[string]interface{}) *structpb.Struct {
 var hwTestPlans = []*test_api_v1.HWTestPlan{
 	{
 		CoverageRules: []*testpb.CoverageRule{
+			// Criticality not set will default to true.
 			{
 				TestSuites: []*testpb.TestSuite{
 					{
@@ -185,6 +186,7 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 						},
 					},
 				},
+				Critical: &wrapperspb.BoolValue{Value: false},
 			},
 		},
 	},
@@ -250,6 +252,7 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 						},
 					},
 				},
+				Critical: &wrapperspb.BoolValue{Value: true},
 			},
 			{
 				Name: "vmrule-with-variant",
@@ -644,7 +647,7 @@ func TestToCTP1(t *testing.T) {
 						{
 							Common: &testplans.TestSuiteCommon{
 								DisplayName: "hw.boardA-kernelnext.model1.suite-with-board-variant",
-								Critical:    wrapperspb.Bool(true),
+								Critical:    wrapperspb.Bool(false),
 							},
 							Suite:       "suite-with-board-variant",
 							SkylabBoard: "boardA",
