@@ -1,4 +1,4 @@
-// Copyright 2022 The ChromiumOS Authors
+// Copyright 2022 The ChromiumOS Authors.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -26,12 +26,15 @@ const (
 
 // ServerCommand executed the provisioning as a Server
 type ServerCommand struct {
-	req                   *api.ProvisionFirmwareRequest
-	Log                   *log.Logger
-	logFileName           string
-	provisionFirmwareFile string
-	port                  int
-	flagSet               *flag.FlagSet
+	req           *api.ProvisionFirmwareRequest
+	inputFilename string
+
+	log         *log.Logger
+	logFilename string
+
+	port int
+
+	flagSet *flag.FlagSet
 }
 
 func NewServerCommand() *ServerCommand {
@@ -40,13 +43,15 @@ func NewServerCommand() *ServerCommand {
 	}
 
 	sc.flagSet.IntVar(&sc.port, "port", DefaultPort, fmt.Sprintf("Specify the port for the server. Default value %d.", DefaultPort))
-	sc.flagSet.StringVar(&sc.logFileName, "log-path", DefaultLogDirectory, fmt.Sprintf("Path to record execution logs. Default value is %s", DefaultLogDirectory))
-	sc.flagSet.StringVar(&sc.provisionFirmwareFile, "metadata", "", "Specify the ProvisionFirmwareRequest input file.")
+	sc.flagSet.StringVar(&sc.logFilename, "log-path", DefaultLogDirectory, fmt.Sprintf("Path to record execution logs. Default value is %s", DefaultLogDirectory))
+	sc.flagSet.StringVar(&sc.inputFilename, "input", "",
+		"Specify the ProvisionFirmwareRequest input file. "+
+			"File must include metadata about DUT, CFT services addresses, but not the request.")
 	return sc
 }
 
 func (sc *ServerCommand) Is(group string) bool {
-	return strings.HasPrefix(group, "s")
+	return strings.HasPrefix(group, "server")
 }
 
 func (sc *ServerCommand) Name() string {
@@ -63,12 +68,12 @@ func (sc *ServerCommand) Init(args []string) error {
 		return err
 	}
 
-	sc.Log, err = SetUpLog(sc.logFileName)
+	sc.log, err = SetUpLog(sc.logFilename)
 	if err != nil {
 		return fmt.Errorf("unable to set up logs: %s", err)
 	}
 
-	req, err := common_utils.ParseProvisionFirmwareRequest(sc.provisionFirmwareFile)
+	req, err := common_utils.ParseProvisionFirmwareRequest(sc.inputFilename)
 	if err != nil {
 		return fmt.Errorf("unable to parse ProvisionFirmwareRequest proto: %s", err)
 	}
@@ -83,7 +88,7 @@ func (sc *ServerCommand) Init(args []string) error {
 
 // validateCLIInputs ensures the CLI input values are valid
 func (cc *ServerCommand) validateCLIInputs() error {
-	if cc.provisionFirmwareFile == "" {
+	if cc.inputFilename == "" {
 		return errors.New("input file not specified")
 	}
 	return nil
@@ -112,6 +117,19 @@ func (cc *ServerCommand) validateProtoInputs(req *api.ProvisionFirmwareRequest) 
 }
 
 func (sc *ServerCommand) Run() error {
-	panic("server mode is not implemented")
-	// TODO(sfrolov): implement it.
+	sc.log.Printf("running server mode:")
+
+	ps, closer, err := NewFWProvisionServer(sc.port, sc.log, sc.req)
+	defer closer()
+	if err != nil {
+		sc.log.Fatalln("failed to create provision: ", err)
+		return err
+	}
+
+	if err := ps.Start(); err != nil {
+		sc.log.Fatalln("failed server execution: ", err)
+		return err
+	}
+
+	return nil
 }

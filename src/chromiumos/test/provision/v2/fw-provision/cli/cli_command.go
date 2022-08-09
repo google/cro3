@@ -1,4 +1,4 @@
-// Copyright 2022 The ChromiumOS Authors
+// Copyright 2022 The ChromiumOS Authors.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -53,7 +53,7 @@ func NewCLICommand() *CLICommand {
 }
 
 func (cc *CLICommand) Is(group string) bool {
-	return strings.HasPrefix(group, "c")
+	return strings.HasPrefix(group, "cli")
 }
 
 func (cc *CLICommand) Name() string {
@@ -100,22 +100,41 @@ func (cc *CLICommand) validate() error {
 	return nil
 }
 
+var DefaultServodPort = 9999
+
 func (cc *CLICommand) Run() error {
 	cc.log.Printf("Running CLI Mode (V2):")
-	dutAddr := fmt.Sprintf("%s:%d", cc.inputProto.GetDutServerAddress().GetAddress(), cc.inputProto.GetDutServerAddress().GetPort())
-	dutConn, err := grpc.Dial(dutAddr, grpc.WithInsecure())
+
+	dutServAddr, err := ipEndpointToHostPort(cc.inputProto.GetDutServerAddress())
+	if err != nil {
+		return fmt.Errorf("failed to parse IpEndpoint of Dut Server: %w", err)
+	}
+	dutConn, err := grpc.Dial(dutServAddr, grpc.WithInsecure())
 	if err != nil {
 		return fmt.Errorf("failed to connect to dut-service, %s", err)
 	}
 	defer dutConn.Close()
-
 	dutAdapter := common_utils.NewServiceAdapter(api.NewDutServiceClient(dutConn), false /*noReboot*/)
+
+	var servodServiceClient api.ServodServiceClient
+	if cc.inputProto.GetUseServo() {
+		crosServodAddr, err := ipEndpointToHostPort(cc.inputProto.GetCrosServodAddress())
+		if err != nil {
+			return fmt.Errorf("failed to parse IpEndpoint of Dut Server: %w", err)
+		}
+		servodConn, err := grpc.Dial(crosServodAddr, grpc.WithInsecure())
+		if err != nil {
+			return fmt.Errorf("failed to connect to dut-service, %s", err)
+		}
+		defer dutConn.Close()
+		servodServiceClient = api.NewServodServiceClient(servodConn)
+	}
 
 	out := &api.ProvisionFirmwareResponse{}
 	defer saveCLIOutput(cc.outputFile, out)
 
 	ctx := context.Background()
-	fwService, err := firmwareservice.NewFirmwareService(ctx, dutAdapter, nil, cc.inputProto)
+	fwService, err := firmwareservice.NewFirmwareService(ctx, dutAdapter, servodServiceClient, cc.inputProto)
 	if err != nil {
 		if fwErr, ok := err.(*firmwareservice.FirmwareProvisionError); ok {
 			out.Status = fwErr.Status
