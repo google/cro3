@@ -269,6 +269,8 @@ type suiteInfo struct {
 	// tastExpr that defines the suite. Only valid if environment is TastVM or
 	// TastGCE
 	tastExpr string
+	// whether the test suite is critical or not
+	critical bool
 }
 
 // tagCriteriaToTastExpr converts a TestCaseTagCriteria to a Tast expression.
@@ -357,6 +359,15 @@ func coverageRuleToSuiteInfo(
 		)
 	}
 
+	// TODO(b/241789334): Figure out how to handle criticality when a critical
+	// rule gets run on a non-critical program.
+	var critical bool
+	if rule.Critical == nil {
+		critical = true
+	} else {
+		critical = rule.GetCritical().GetValue()
+	}
+
 	var suiteInfos []*suiteInfo
 	for _, suite := range rule.GetTestSuites() {
 		switch spec := suite.Spec.(type) {
@@ -373,6 +384,7 @@ func coverageRuleToSuiteInfo(
 						pool:        pool,
 						suite:       id.Value,
 						environment: HW,
+						critical:    critical,
 					})
 			}
 		case *testpb.TestSuite_TestCaseTagCriteria_:
@@ -402,6 +414,7 @@ func coverageRuleToSuiteInfo(
 					suite:       suite.GetName(),
 					tastExpr:    tagCriteriaToTastExpr(*spec.TestCaseTagCriteria),
 					environment: env,
+					critical:    critical,
 				})
 		default:
 			return nil, fmt.Errorf("TestSuite spec type %T is not supported", spec)
@@ -573,9 +586,8 @@ func ToCTP1(
 					Pool:        suiteInfo.pool,
 					Common: &testplans.TestSuiteCommon{
 						DisplayName: fmt.Sprintf("%s.%s", suiteInfo.program, suiteInfo.suite),
-						// TODO(b/218319842): Set critical value based on v2 test disablement config.
 						Critical: &wrapperspb.BoolValue{
-							Value: true,
+							Value: suiteInfo.critical,
 						},
 					},
 				})
@@ -592,7 +604,7 @@ func ToCTP1(
 					Common: &testplans.TestSuiteCommon{
 						DisplayName: fmt.Sprintf("%s.%s", suiteInfo.program, suiteInfo.suite),
 						Critical: &wrapperspb.BoolValue{
-							Value: true,
+							Value: suiteInfo.critical,
 						},
 					},
 				})
@@ -615,7 +627,7 @@ func ToCTP1(
 					Common: &testplans.TestSuiteCommon{
 						DisplayName: fmt.Sprintf("%s.%s", suiteInfo.program, suiteInfo.suite),
 						Critical: &wrapperspb.BoolValue{
-							Value: true,
+							Value: suiteInfo.critical,
 						},
 					},
 				})
