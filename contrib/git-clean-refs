@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# Copyright 2022 The ChromiumOS Authors.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+HELP_TEXT="USAGE: git-clean-refs [flags]
+       repo forall -v -c git clean-refs [flags]
+
+This script can be used to restore ChromiumOS projects which have broken git
+refs, allowing repo to subsequently sync the project without errors.
+
+You can save this file anywhere in your \$PATH, or run the \`repo forall\`
+command from the directory where this script lives (assuming repo is installed).
+
+OPTIONS:
+
+-w  Run git fsck and delete the refs that are missing
+    from the repository's history. NB: This can be an
+    expensive operation in some projects, specifically
+    the Linux kernel repos.
+"
+
+WIPE_HISTORY=0
+
+while getopts "hw" OPT; do
+  case "${OPT}" in
+    h)
+      echo "${HELP_TEXT}"
+      exit
+      ;;
+    w)
+      WIPE_HISTORY=1
+      ;;
+    *)
+      ;;
+  esac
+done
+
+
+set -eu -o pipefail
+
+echo "Working on repository: $(git rev-parse --show-toplevel)"
+
+# We first need to clear out any refs that point to a missing commit
+# otherwise `git for-each-ref` will error out.
+while ! MSG="$(git show-ref 2>&1 1>/dev/null)"; do
+  REF="$(sed -En -e 's/^fatal: git show-ref: bad ref ([^ ]+).*/\1/p' <<<"${MSG}")"
+
+  echo "Deleting stale ref: ${REF}"
+  git update-ref -d "${REF}"
+done
+
+# We can then verify each ref contains a complete history.
+# If we are missing a commit in the history, we need to trash the ref
+# so that `git fetch` will send the missing commit.
+if [[ "${WIPE_HISTORY}" -eq 1 ]]; then
+  while read -r HASH TYPE REF; do
+    echo "Checking ref: ${REF}"
+
+    if ! git fsck --connectivity-only --no-dangling "${HASH}"; then
+      echo "Deleting broken ref: ${REF}"
+      git update-ref -d "${REF}"
+    fi
+
+    : "${TYPE}" # Keep shellcheck happy
+  done < <(git for-each-ref)
+fi
+
+git reflog expire --all --expire=now
