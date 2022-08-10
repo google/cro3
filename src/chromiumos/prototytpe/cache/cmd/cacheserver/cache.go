@@ -62,6 +62,7 @@ func (c *Cache) Get(gsPath string) (string, error) {
 	localPath := path.Join(c.location, uuid.New().String())
 	log.Printf("%s not cached, retrieving at %s", gsPath, localPath)
 	if err := c.fetchFromGS(gsPath, localPath); err != nil {
+		log.Printf("error when fetching from gs", err)
 		return "", err
 	}
 	log.Printf("successfully downloaded %s", gsPath)
