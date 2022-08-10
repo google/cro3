@@ -411,6 +411,7 @@ def command_resolve_conflict(args):
                                   ('rc', 'Print remote commit'),
                                   ('bh', 'Blame head'),
                                   ('br', 'Blame remote'),
+                                  ('cc', 'Compare commits between head/remote'),
                                   ('b', 'Back'),
                                   ('q', 'Quit')])
                 if choice[0] == 'c':
@@ -426,6 +427,8 @@ def command_resolve_conflict(args):
                     print(resolver.blame_head(conflict))
                 elif choice[0] == 'br':
                     print(resolver.blame_remote(conflict))
+                elif choice[0] == 'cc':
+                    print(resolver.compare_commits(conflict))
                 elif choice[0] == 'b':
                     break
                 elif choice[0] == 'q':

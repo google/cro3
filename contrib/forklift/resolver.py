@@ -4,7 +4,41 @@
 
 """Provides help with the conflict resolution feature of forklift"""
 
+from collections import defaultdict
+from datetime import datetime
 import re
+
+class Commit:
+    """Represents a commit object.
+
+    Attributes:
+        sha: The commit sha.
+        author: The commit author.
+        date_authored: The author date.
+    """
+    def __init__(self, sha, author, date_authored):
+        self._sha = sha
+        self._author = author
+        self._date_authored = date_authored
+
+    @staticmethod
+    def from_blame_line(blame_line):
+        pat_sha = '([a-f0-9]+)'
+        pat_file = '.*?\s*'
+        pat_author = '(.*?)'
+        pat_date = '[0-9]{4}-[0-9]{2}-[0-9]{2}'
+        pat_time = '[0-9]{2}:[0-9]{2}:[0-9]{2} [+-][0-9]{4}'
+        pat_datetime = f'({pat_date} {pat_time})\s*[0-9]*'
+        pat_details = rf'\({pat_author} {pat_datetime}\)'
+        pattern = f'{pat_sha}{pat_file} {pat_details}'
+        m = re.match(pattern, blame_line)
+        if not m:
+            return None
+
+        sha = m.group(1).strip()
+        author = m.group(2).strip()
+        date = datetime.strptime(m.group(3).strip(), '%Y-%m-%d %H:%M:%S %z')
+        return Commit(sha, author, date)
 
 class Conflict:
     """Represents a conflict located in a local file.
@@ -328,6 +362,40 @@ class Resolver:
             c_start = max(0, c['old_line'])
             c_end = min(len(blame), c['old_line'] + c['old_num'])
             ret += '\n'.join(blame[c_start:c_end])
+            ret += '\n'
+
+        return ret
+
+    def compare_commits(self, conflict):
+        head_blame = self.blame_head(conflict)
+        remote_blame = self.blame_remote(conflict)
+        commits = defaultdict(lambda: {'head': None, 'remote': None})
+
+        for l in head_blame.splitlines():
+            commit = Commit.from_blame_line(l)
+            if not commit:
+                continue
+            commits[(commit._date_authored, commit._author)]['head'] = commit._sha
+
+        for l in remote_blame.splitlines():
+            commit = Commit.from_blame_line(l)
+            if not commit:
+                continue
+            commits[(commit._date_authored, commit._author)]['remote'] = commit._sha
+
+        ret = f'{"Author Date".ljust(40)}{"Author".ljust(40)}'
+        ret += f'{"Local SHA".ljust(20)}{"Remote SHA".ljust(20)}\n'
+        for k in sorted(commits.keys()):
+            v = commits[k]
+            ret += f'{str(k[0]).ljust(40)}{k[1].ljust(40)}'
+            if v['head']:
+                ret += f'{v["head"].ljust(20)}'
+            else:
+                ret += f'{"<missing>".ljust(20)}'
+            if v['remote']:
+                ret += f'{v["remote"].ljust(20)}'
+            else:
+                ret += f'{"<missing>".ljust(20)}'
             ret += '\n'
 
         return ret
