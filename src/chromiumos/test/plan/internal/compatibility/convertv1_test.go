@@ -61,6 +61,10 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 									{
 										Value: "suite2",
 									},
+									// Add a suite twice, it should be de-duped.
+									{
+										Value: "suite1",
+									},
 								},
 							},
 						},
@@ -136,6 +140,24 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 			{
 				Name: "vmrule",
 				TestSuites: []*testpb.TestSuite{
+					{
+						Name: "tast_vm_suite1",
+						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags:        []string{"\"group:mainline\"", "\"dep:depA\""},
+								TagExcludes: []string{"informational"},
+							},
+						},
+					},
+					{
+						Name: "tast_gce_suite2",
+						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags: []string{"\"group:mainline\"", "informational"},
+							},
+						},
+					},
+					// Add suites twice, they should be de-duped.
 					{
 						Name: "tast_vm_suite1",
 						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
@@ -421,7 +443,17 @@ func TestToCTP1(t *testing.T) {
 					HwTest: []*testplans.HwTestCfg_HwTest{
 						{
 							Common: &testplans.TestSuiteCommon{
-								DisplayName: "boardA.suite1",
+								DisplayName: "hw.boardA.model1.suite3",
+								Critical:    wrapperspb.Bool(true),
+							},
+							Suite:       "suite3",
+							SkylabBoard: "boardA",
+							SkylabModel: "model1",
+							Pool:        "DUT_POOL_QUOTA",
+						},
+						{
+							Common: &testplans.TestSuiteCommon{
+								DisplayName: "hw.boardA.suite1",
 								Critical:    wrapperspb.Bool(true),
 							},
 							Suite:       "suite1",
@@ -430,21 +462,11 @@ func TestToCTP1(t *testing.T) {
 						},
 						{
 							Common: &testplans.TestSuiteCommon{
-								DisplayName: "boardA.suite2",
+								DisplayName: "hw.boardA.suite2",
 								Critical:    wrapperspb.Bool(true),
 							},
 							Suite:       "suite2",
 							SkylabBoard: "boardA",
-							Pool:        "DUT_POOL_QUOTA",
-						},
-						{
-							Common: &testplans.TestSuiteCommon{
-								DisplayName: "boardA.suite3",
-								Critical:    wrapperspb.Bool(true),
-							},
-							Suite:       "suite3",
-							SkylabBoard: "boardA",
-							SkylabModel: "model1",
 							Pool:        "DUT_POOL_QUOTA",
 						},
 					},
@@ -475,7 +497,7 @@ func TestToCTP1(t *testing.T) {
 									TestExpr: "\"group:mainline\" && \"dep:depA\" && !informational",
 								},
 							},
-							Common: &testplans.TestSuiteCommon{DisplayName: "vmboardA.tast_vm_suite1", Critical: wrapperspb.Bool(true)},
+							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA.tast_vm_suite1", Critical: wrapperspb.Bool(true)},
 						},
 					},
 				},
@@ -512,7 +534,10 @@ func TestToCTP1(t *testing.T) {
 									TestExpr: "\"group:mainline\" && informational",
 								},
 							},
-							Common: &testplans.TestSuiteCommon{DisplayName: "vmboardA.tast_gce_suite2", Critical: wrapperspb.Bool(true)},
+							Common: &testplans.TestSuiteCommon{
+								DisplayName: "gce.vmboardA.tast_gce_suite2",
+								Critical:    wrapperspb.Bool(true),
+							},
 						},
 					},
 				},

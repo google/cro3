@@ -9,6 +9,7 @@ package compatibility
 import (
 	"fmt"
 	"math/rand"
+	"sort"
 	"strings"
 
 	"chromiumos/test/plan/internal/compatibility/priority"
@@ -51,6 +52,24 @@ func getAttrFromCriteria(criteria []*testpb.DutCriterion, attr *testpb.DutAttrib
 	}
 
 	return nil, fmt.Errorf("attribute %q not found in DutCriterion %q", attr.GetId().GetValue(), criteria)
+}
+
+// sortedValuesFromMap returns the values from m as a list, sorted by the keys
+// of the map.
+func sortedValuesFromMap[V any](m map[string]V) []V {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	values := make([]V, 0, len(m))
+	for _, k := range keys {
+		values = append(values, m[k])
+	}
+
+	return values
 }
 
 // Chooses a program from the options in programs to test. The choice is
@@ -560,29 +579,44 @@ func ToCTP1(
 			continue
 		}
 
-		var hwTests []*testplans.HwTestCfg_HwTest
-		var tastVMTests []*testplans.TastVmTestCfg_TastVmTest
-		var tastGCETests []*testplans.TastGceTestCfg_TastGceTest
+		// Maps from display name, which should uniquely identify a test for a
+		// given (board, model, suite) combo, to a test.
+		hwTests := make(map[string]*testplans.HwTestCfg_HwTest)
+		tastVMTests := make(map[string]*testplans.TastVmTestCfg_TastVmTest)
+		tastGCETests := make(map[string]*testplans.TastGceTestCfg_TastGceTest)
 		for _, suiteInfo := range suiteInfos {
 			switch env := suiteInfo.environment; env {
 			case HW:
-				hwTests = append(hwTests, &testplans.HwTestCfg_HwTest{
+				// If a design is set, include it in the display name
+				var displayName string
+				if len(suiteInfo.design) > 0 {
+					displayName = fmt.Sprintf("hw.%s.%s.%s", suiteInfo.program, suiteInfo.design, suiteInfo.suite)
+				} else {
+					displayName = fmt.Sprintf("hw.%s.%s", suiteInfo.program, suiteInfo.suite)
+				}
+				hwTest := &testplans.HwTestCfg_HwTest{
 					Suite:       suiteInfo.suite,
 					SkylabBoard: suiteInfo.program,
 					SkylabModel: suiteInfo.design,
 					Pool:        suiteInfo.pool,
 					Common: &testplans.TestSuiteCommon{
-						DisplayName: fmt.Sprintf("%s.%s", suiteInfo.program, suiteInfo.suite),
+						DisplayName: displayName,
 						// TODO(b/218319842): Set critical value based on v2 test disablement config.
 						Critical: &wrapperspb.BoolValue{
 							Value: true,
 						},
 					},
-				})
+				}
 
-				glog.V(2).Infof("added HwTest %q", hwTests[len(hwTests)-1])
+				if _, found := hwTests[displayName]; found {
+					glog.V(2).Infof("HwTest already added: %q", hwTest)
+				} else {
+					hwTests[displayName] = hwTest
+					glog.V(2).Infof("added HwTest: %q", hwTest)
+				}
 			case TastVM:
-				tastVMTests = append(tastVMTests, &testplans.TastVmTestCfg_TastVmTest{
+				displayName := fmt.Sprintf("vm.%s.%s", suiteInfo.program, suiteInfo.suite)
+				tastVMTest := &testplans.TastVmTestCfg_TastVmTest{
 					SuiteName: suiteInfo.suite,
 					TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
 						{
@@ -590,15 +624,22 @@ func ToCTP1(
 						},
 					},
 					Common: &testplans.TestSuiteCommon{
-						DisplayName: fmt.Sprintf("%s.%s", suiteInfo.program, suiteInfo.suite),
+						DisplayName: displayName,
 						Critical: &wrapperspb.BoolValue{
 							Value: true,
 						},
 					},
-				})
-				glog.V(2).Infof("added TastVmTest %q", tastVMTests[len(tastVMTests)-1])
+				}
+
+				if _, found := tastVMTests[displayName]; found {
+					glog.V(2).Infof("TastVmTest already added: %q", tastVMTest)
+				} else {
+					tastVMTests[displayName] = tastVMTest
+					glog.V(2).Infof("added TastVmTest %q", tastVMTest)
+				}
 			case TastGCE:
-				tastGCETests = append(tastGCETests, &testplans.TastGceTestCfg_TastGceTest{
+				displayName := fmt.Sprintf("gce.%s.%s", suiteInfo.program, suiteInfo.suite)
+				tastGCETest := &testplans.TastGceTestCfg_TastGceTest{
 					SuiteName: suiteInfo.suite,
 					TastTestExpr: []*testplans.TastGceTestCfg_TastTestExpr{
 						{
@@ -613,13 +654,19 @@ func ToCTP1(
 						Subnet:      "us-central1",
 					},
 					Common: &testplans.TestSuiteCommon{
-						DisplayName: fmt.Sprintf("%s.%s", suiteInfo.program, suiteInfo.suite),
+						DisplayName: displayName,
 						Critical: &wrapperspb.BoolValue{
 							Value: true,
 						},
 					},
-				})
-				glog.V(2).Infof("added TastGceTest %q", tastGCETests[len(tastGCETests)-1])
+				}
+
+				if _, found := tastGCETests[displayName]; found {
+					glog.V(2).Infof("TastGceTest already added: %q", tastGCETest)
+				} else {
+					tastGCETests[displayName] = tastGCETest
+					glog.V(2).Infof("added TastGceTest: %q", tastGCETest)
+				}
 			default:
 				return nil, fmt.Errorf("unsupported environment %T", env)
 			}
@@ -637,7 +684,7 @@ func ToCTP1(
 			hwTestUnit := &testplans.HwTestUnit{
 				Common: common,
 				HwTestCfg: &testplans.HwTestCfg{
-					HwTest: hwTests,
+					HwTest: sortedValuesFromMap(hwTests),
 				},
 			}
 			hwTestUnits = append(hwTestUnits, hwTestUnit)
@@ -646,7 +693,7 @@ func ToCTP1(
 			vmTestUnit := &testplans.TastVmTestUnit{
 				Common: common,
 				TastVmTestCfg: &testplans.TastVmTestCfg{
-					TastVmTest: tastVMTests,
+					TastVmTest: sortedValuesFromMap(tastVMTests),
 				},
 			}
 			vmTestUnits = append(vmTestUnits, vmTestUnit)
@@ -655,7 +702,7 @@ func ToCTP1(
 			gceTestUnit := &testplans.TastGceTestUnit{
 				Common: common,
 				TastGceTestCfg: &testplans.TastGceTestCfg{
-					TastGceTest: tastGCETests,
+					TastGceTest: sortedValuesFromMap(tastGCETests),
 				},
 			}
 			gceTestUnits = append(gceTestUnits, gceTestUnit)
