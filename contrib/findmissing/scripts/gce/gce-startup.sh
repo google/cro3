@@ -82,7 +82,6 @@ sudo sh -c "cat >/etc/logrotate.d/findmissing" <<EOF
     rotate 7
     missingok
     notifempty
-    compress
     create 640 ${USER} ${USER}
 }
 EOF
