@@ -633,7 +633,13 @@ def main(argv):
   overlays = BoardOverlays(opts.board, opts.cros_checkout, opts.mosys_platform)
   duts = []
   for dut_string in opts.duts:
-    hostname, _, port = dut_string.partition(':')
+    if dut_string[0] == '[':
+        endpos = dut_string.find(']')
+        hostname = dut_string[1:endpos]
+        _, _, port = dut_string[endpos:-1].partition(':')
+    else:
+        hostname, _, port = dut_string.partition(':')
+
     if port:
       port = int(port)
     else:
