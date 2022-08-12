@@ -64,6 +64,7 @@ Usage:
 Available Commands:
   btpeers     Ssh tunnel to dut and its bluetooth peers.
   callbox     Ssh tunnel to dut, callbox manager, and callbox.
+  chameleon   Ssh tunnel to dut and its chameleon device.
   completion  Generate the autocompletion script for the specified shell
   dut         Ssh tunnel to dut.
   dutvnc      Starts and connects to a VNC server on dut for remote GUI access.
@@ -281,6 +282,18 @@ $ labtunnel sshwatcher chromeos1-dev-host1 chromeos1-dev-host1-router chromeos1-
   TUNNEL-3          [localhost:2202 -> chromeos1-dev-host6 -> localhost:22]  CLOSED
 ```
 
+
+### chameleon
+```text
+labtunnel chameleon crossk-chromeos15-row1-metro11-host2
+17:28:21.384892 starting ssh exec "TUNNEL-DUT        [localhost:2200 -> chromeos15-row1-metro11-host2 -> localhost:22]"
+17:28:21.385214 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos15-row1-metro11-host2 sleep 8h
+17:28:21.413752 starting ssh exec "TUNNEL-CHAMELEON  [localhost:2203 -> chromeos15-row1-metro11-host2-chameleon -> localhost:9992]"
+17:28:21.413887 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2203:localhost:9992 chromeos15-row1-metro11-host2-chameleon sleep 8h
+17:28:22.414140 ssh state summary:
+  TUNNEL-CHAMELEON  [localhost:2203 -> chromeos15-row1-metro11-host2-chameleon -> localhost:9992]  RUNNING
+  TUNNEL-DUT        [localhost:2200 -> chromeos15-row1-metro11-host2 -> localhost:22]  RUNNING
+```
 
 ## Debugging
 `labtunnel` is designed to clean itself up if something goes wrong in most cases,

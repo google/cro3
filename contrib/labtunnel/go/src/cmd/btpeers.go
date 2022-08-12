@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	remotePortChameleond int
-	btPeerCount          = 1
+	remotePortChameleondBtpeers int
+	btPeerCount                 = 1
 
 	btPeersCmd = &cobra.Command{
 		Use:   "btpeers <dut_hostname> [btpeer_count]",
@@ -59,7 +59,7 @@ starting at 1.
 			// Tunnel to btpeers.
 			for i := 1; i <= btPeerCount; i++ {
 				hostPeer := resolveHostname(hostDut, fmt.Sprintf("-btpeer%d", i))
-				tunnelLocalPortToRemotePort(cmd.Context(), sshManager, fmt.Sprint("BTPEER-", i), "", remotePortChameleond, hostPeer)
+				tunnelLocalPortToRemotePort(cmd.Context(), sshManager, fmt.Sprint("BTPEER-", i), "", remotePortChameleondBtpeers, hostPeer)
 			}
 
 			time.Sleep(time.Second)
@@ -70,5 +70,5 @@ starting at 1.
 
 func init() {
 	rootCmd.AddCommand(btPeersCmd)
-	btPeersCmd.Flags().IntVar(&remotePortChameleond, "remote-port-chameleond", 9992, "Remote port for accessing the chameleond service on btpeers")
+	btPeersCmd.Flags().IntVar(&remotePortChameleondBtpeers, "remote-port-chameleond", 9992, "Remote port for accessing the chameleond service on btpeers")
 }
