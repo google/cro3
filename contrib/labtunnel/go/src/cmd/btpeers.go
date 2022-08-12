@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -13,37 +14,52 @@ import (
 
 var (
 	remotePortChameleond int
-	btPeerCount          int
+	btPeerCount          = 1
 
 	btPeersCmd = &cobra.Command{
-		Use:   "btpeers <dut_hostname>",
-		Short: "Ssh tunnel to bluetooth peers.",
+		Use:   "btpeers <dut_hostname> [btpeer_count]",
+		Short: "Ssh tunnel the to dut and its bluetooth peers.",
 		Long: `
-Opens ssh tunnels to the remote chameleond port on bluetooth peers.
+Opens ssh tunnels to the dut and the remote chameleond port on its bluetooth
+peers.
 
 All tunnels are destroyed upon stopping labtunnel, and are restarted if
 interrupted by a remote device reboot.
 
-Specify the number of bluetooth peers to connect to with the --btpeers flag.
+The dut tunnel is created in the same manner as with the dut command, run
+"labtunnel dut --help" for details.
 
-This does not create a tunnel for the dut, it just uses the provided dut
-hostname to determine the hostnames of the btpeers. The formula for the btpeer
-hostname is "<dut>-btpeer<n>", where "<dut>" is the dut hostname (as used in
-the dut command) and "<n>" is the Nth bluetooth peer, starting at 1. If you need
-tunnel to the dut, it's suggested to just run another labtunnel process using
-the dut command.
+You can specify the number of bluetooth peers with the optional positional
+argument "btpeer_count" after the dut hostname. The default is 1 btpeer.
+
+The formula for the btpeer hostname is "<dut>-btpeer<n>", where "<dut>" is the
+dut hostname (as used in the dut command) and "<n>" is the Nth bluetooth peer,
+starting at 1.
 `,
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 && len(args) != 2 {
+				return fmt.Errorf("requires 1 or 2 positional arguments, received %d", len(args))
+			}
+			if len(args) == 2 {
+				var err error
+				btPeerCount, err = strconv.Atoi(args[1])
+				if err != nil || btPeerCount < 1 {
+					return fmt.Errorf("btpeer_count must be a positive integer, got %q", args[1])
+				}
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			sshManager := buildSshManager()
 
-			// Tunnel to btpeers.
+			// Tunnel to dut.
 			hostDut := resolveHostname(args[0], "")
-			var localBluetoothPeers []string
+			tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "DUT", "", remotePortSsh, hostDut)
+
+			// Tunnel to btpeers.
 			for i := 1; i <= btPeerCount; i++ {
 				hostPeer := resolveHostname(hostDut, fmt.Sprintf("-btpeer%d", i))
-				localPeer := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, fmt.Sprint("BTPEER-", i), "", remotePortChameleond, hostPeer)
-				localBluetoothPeers = append(localBluetoothPeers, localPeer)
+				tunnelLocalPortToRemotePort(cmd.Context(), sshManager, fmt.Sprint("BTPEER-", i), "", remotePortChameleond, hostPeer)
 			}
 
 			time.Sleep(time.Second)
@@ -54,6 +70,5 @@ the dut command.
 
 func init() {
 	rootCmd.AddCommand(btPeersCmd)
-	btPeersCmd.Flags().IntVar(&btPeerCount, "btpeers", 1, "Number of btpeers in wificell to tunnel to (-btpeer1, -btpeer2, ...)")
 	btPeersCmd.Flags().IntVar(&remotePortChameleond, "remote-port-chameleond", 9992, "Remote port for accessing the chameleond service on btpeers")
 }
