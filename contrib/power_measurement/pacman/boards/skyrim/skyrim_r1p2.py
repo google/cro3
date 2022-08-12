@@ -5,7 +5,7 @@
 
 PACS = [
     # addr:ch   name             nom    rsense
-    ('0x10:0', 'PPVAR_PCORE_IN', 0.000, 0.010),
+    ('0x10:0', 'PPVAR_PCORE_IN', 0.000, 0.003),
     ('0x10:1', 'PPVAR_PCORE_SOC_IN', 0.000, 0.010),
     ('0x10:2', 'PPVAR_VDDCR_SOC_S0', 0.000, 0.001),
     ('0x10:3', 'PP1800_C0_RETIMER_S5', 1.800, 0.010),
