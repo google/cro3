@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/url"
 	"path"
+	"strings"
 
 	"cloud.google.com/go/storage"
 	"golang.org/x/mod/semver"
@@ -78,7 +79,7 @@ func getFlashTarget(ctx context.Context, c *storage.Client, board string, opts *
 		if err != nil {
 			return "", "", err
 		}
-		return url.Host, url.RequestURI(), nil
+		return url.Host, strings.TrimPrefix(url.RequestURI(), "/"), nil
 	}
 
 	var prefix string

@@ -110,7 +110,7 @@ func (req *Request) Check(ctx context.Context, client *storage.Client) error {
 		obj := req.object(client, file)
 
 		if _, err := obj.Attrs(ctx); err != nil {
-			return fmt.Errorf("%s: %w", misc.GsURI(obj), err)
+			return fmt.Errorf("error checking access: %s: %w", misc.GsURI(obj), err)
 		}
 	}
 	return nil
