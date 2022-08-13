@@ -80,24 +80,18 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 		return err
 	}
 
+	storageClient, err := storage.NewClient(ctx,
+		option.WithTokenSource(tkSrc),
+	)
+	if err != nil {
+		return fmt.Errorf("storage.NewClient failed: %w", err)
+	}
+
 	sshClient, err := ssh.DialWithSystemSSH(ctx, target)
 	if err != nil {
 		return fmt.Errorf("system ssh failed: %w", err)
 	}
 	defer sshClient.Close()
-
-	dutReleasePath, err := DetectReleaseBuilder(sshClient)
-	if err != nil {
-		return fmt.Errorf("cannot detect release for dut: %w", err)
-	}
-	log.Println("DUT is running:", dutReleasePath)
-
-	var board string
-	if opts.Board != "" {
-		board = opts.Board
-	} else {
-		board = dutReleasePath.Board
-	}
 
 	dutArch, err := DetectArch(sshClient)
 	if err != nil {
@@ -105,11 +99,18 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	}
 	log.Println("DUT arch:", dutArch)
 
-	storageClient, err := storage.NewClient(ctx,
-		option.WithTokenSource(tkSrc),
-	)
-	if err != nil {
-		return fmt.Errorf("storage.NewClient failed: %w", err)
+	var board string
+	if opts.GS != "" || opts.Board != "" {
+		board = opts.Board
+	} else {
+		var err error
+		board, err = DetectBoard(sshClient)
+		if err != nil {
+			return fmt.Errorf("cannot detect board of %s: %w. %s", target, err,
+				"specify --board or --gs to bypass auto board detection",
+			)
+		}
+		log.Println("DUT board:", board)
 	}
 
 	targetBucket, targetDirectory, err := getFlashTarget(ctx, storageClient, board, opts)
@@ -181,11 +182,6 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	if err != nil {
 		return err
 	}
-	newBuilder, err := DetectReleaseBuilder(sshClient)
-	if err != nil {
-		return err
-	}
-	log.Println("DUT is running:", newBuilder)
 	newParts, err := DetectPartitions(sshClient)
 	if err != nil {
 		return err

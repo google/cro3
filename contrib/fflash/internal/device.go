@@ -20,42 +20,21 @@ import (
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/ssh"
 )
 
-// BuilderPath is the parsed CHROMEOS_RELEASE_BUILDER_PATH on /etc/lsb-release
-type BuilderPath struct {
-	Board   string
-	Release string
-}
+var boardLineRegexp = regexp.MustCompile(`CHROMEOS_RELEASE_BOARD=(.+)\n`)
 
-var _ fmt.Stringer = BuilderPath{}
-
-func (r BuilderPath) String() string {
-	return fmt.Sprintf("%s-release/%s", r.Board, r.Release)
-}
-
-var builderPathRegexp = regexp.MustCompile(`^([a-z0-9-]+)-\w+/(R[0-9.-]+)$`)
-var builderPathLineRegexp = regexp.MustCompile(`CHROMEOS_RELEASE_BUILDER_PATH=(.+)\n`)
-
-func parseBuilderPath(path string) (BuilderPath, error) {
-	match := builderPathRegexp.FindStringSubmatch(path)
-	if match == nil {
-		return BuilderPath{}, fmt.Errorf("cannot parse builder path: %s", path)
-	}
-	return BuilderPath{match[1], match[2]}, nil
-}
-
-// DetectReleaseBuilder detects the release builder of c's remote host.
-func DetectReleaseBuilder(c *ssh.Client) (BuilderPath, error) {
+// DetectBoard detects the board of c's remote host.
+func DetectBoard(c *ssh.Client) (string, error) {
 	stdout, err := c.RunSimpleOutput("cat /etc/lsb-release")
 	if err != nil {
-		return BuilderPath{}, err
+		return "", err
 	}
 
-	match := builderPathLineRegexp.FindStringSubmatch(stdout)
+	match := boardLineRegexp.FindStringSubmatch(stdout)
 	if match == nil {
-		return BuilderPath{}, errors.New("cannot find CHROMEOS_RELEASE_BUILDER_PATH line")
+		return "", errors.New("cannot find CHROMEOS_RELEASE_BOARD line")
 	}
 
-	return parseBuilderPath(match[1])
+	return match[1], err
 }
 
 // DetectPartitions detects the active/inactive partition state on c's remote host.
