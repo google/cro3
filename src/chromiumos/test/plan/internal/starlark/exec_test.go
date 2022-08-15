@@ -93,6 +93,7 @@ func TestExecTestPlan(t *testing.T) {
 	starlarkSource := `
 load("@proto//chromiumos/test/api/v1/plan.proto", plan_pb = "chromiumos.test.api.v1")
 load("@proto//chromiumos/test/api/coverage_rule.proto", coverage_rule_pb = "chromiumos.test.api")
+load("@proto//lab/license.proto", licence_pb = "lab")
 
 build_metadata = testplan.get_build_metadata()
 config_bundles = testplan.get_config_bundle_list()
@@ -100,6 +101,7 @@ print('Got {} BuildMetadatas'.format(len(build_metadata.values)))
 print('Got {} ConfigBundles'.format(len(config_bundles.values)))
 coverage_rule_a = coverage_rule_pb.CoverageRule(name='ruleA')
 coverage_rule_b = coverage_rule_pb.CoverageRule(name='ruleB')
+test_licence = licence_pb.LICENSE_TYPE_WINDOWS_10_PRO
 testplan.add_hw_test_plan(
 	plan_pb.HWTestPlan(
 		id=plan_pb.HWTestPlan.TestPlanId(value='plan1'),

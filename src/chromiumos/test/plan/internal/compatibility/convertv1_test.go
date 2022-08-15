@@ -15,6 +15,7 @@ import (
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	test_api_v1 "go.chromium.org/chromiumos/config/go/test/api/v1"
 	"go.chromium.org/chromiumos/infra/proto/go/chromiumos"
+	"go.chromium.org/chromiumos/infra/proto/go/lab"
 	"go.chromium.org/chromiumos/infra/proto/go/testplans"
 	bbpb "go.chromium.org/luci/buildbucket/proto"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -119,6 +120,18 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 									Value: "attr-model",
 								},
 								Values: []string{"model1"},
+							},
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "misc-license",
+								},
+								Values: []string{"LICENSE_TYPE_WINDOWS_10_PRO"},
+							},
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "misc-license",
+								},
+								Values: []string{"LICENSE_TYPE_MS_OFFICE_STANDARD"},
 							},
 							{
 								AttributeId: &testpb.DutAttribute_Id{
@@ -526,6 +539,12 @@ var dutAttributeList = &testpb.DutAttributeList{
 				Value: "swarming-pool",
 			},
 		},
+		{
+			Id: &testpb.DutAttribute_Id{
+				Value: "misc-license",
+			},
+			Aliases: []string{"label-license"},
+		},
 	},
 }
 
@@ -579,7 +598,11 @@ func TestToCTP1(t *testing.T) {
 							Suite:       "suite3",
 							SkylabBoard: "boardA",
 							SkylabModel: "model1",
-							Pool:        "DUT_POOL_QUOTA",
+							Licenses: []lab.LicenseType{
+								lab.LicenseType_LICENSE_TYPE_WINDOWS_10_PRO,
+								lab.LicenseType_LICENSE_TYPE_MS_OFFICE_STANDARD,
+							},
+							Pool: "DUT_POOL_QUOTA",
 						},
 						{
 							Common: &testplans.TestSuiteCommon{
@@ -768,7 +791,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "attribute \"attr-program\" not found in DutCriterion",
+			err:              "DutCriteria must contain at least one \"attr-program\" attribute",
 		},
 		{
 			name:        "missing pool DUT attribute",
@@ -794,7 +817,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "attribute \"swarming-pool\" not found in DutCriterion",
+			err:              "only DutCriteria with exactly one \"swarming-pool\" attribute are supported, got []",
 		},
 		{
 
@@ -890,7 +913,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "expected DutTarget to use criteria \"attr-program\" and \"swarming-pool\", and optionally \"attr-design\"",
+			err:              "criterion \"attribute_id:<value:\\\"fp\\\" > values:\\\"fp1\\\" \" doesn't match any valid attributes",
 		},
 		{
 			name:        "multiple pool values",
@@ -922,7 +945,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "only DutCriteria with exactly one \"pool\" argument are supported",
+			err:              "only DutCriteria with exactly one \"swarming-pool\" attribute are supported, got [\"testpoolA\" \"testpoolB\"]",
 		},
 		{
 
@@ -961,7 +984,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "only DutCriteria with exactly one \"attr-design\" argument are supported",
+			err:              "only DutCriteria with one \"attr-design\" attribute are supported",
 		},
 		{
 			name:        "test tags used",
@@ -1218,6 +1241,121 @@ func TestToCTP1Errors(t *testing.T) {
 			dutAttributeList: dutAttributeList,
 			err:              "board_variant (\"kernelnext\") cannot be specified if multiple programs ([\"programA\" \"programB\"])",
 		},
+		{
+			name:        "invalid license attribute",
+			vmTestPlans: vmTestPlans,
+			hwTestPlans: []*test_api_v1.HWTestPlan{
+				{
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"board-A"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{"DUT_POOL_QUOTA"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "misc-license",
+											},
+											Values: []string{"InvalidLicense"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+			err:              "invalid LicenseType \"InvalidLicense\"",
+		},
+		{
+
+			name:        "multiple license values",
+			vmTestPlans: vmTestPlans,
+			hwTestPlans: []*test_api_v1.HWTestPlan{
+				{
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"board-A"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{"DUT_POOL_QUOTA"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "misc-license",
+											},
+											Values: []string{"LICENSE_TYPE_WINDOWS_10_PRO", "LICENSE_TYPE_MS_OFFICE_STANDARD"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+			err:              "only exactly one value can be specified in \"misc-licence\" DutCriteria",
+		},
+		{
+			name:        "program attribute specified twice",
+			vmTestPlans: vmTestPlans,
+			hwTestPlans: []*test_api_v1.HWTestPlan{
+				{
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"board-A"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"board-B"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{"DUT_POOL_QUOTA"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+			err:              "DutAttribute \"id:<value:\\\"attr-program\\\" > aliases:\\\"attr-board\\\" \" specified twice",
+		},
 	}
 
 	req := &testplans.GenerateTestPlanRequest{
@@ -1231,7 +1369,7 @@ func TestToCTP1Errors(t *testing.T) {
 				tc.hwTestPlans, tc.vmTestPlans, req, tc.dutAttributeList, boardPriorityList,
 			)
 			if err == nil {
-				t.Error("Expected error from ToCTP1")
+				t.Fatal("Expected error from ToCTP1")
 			}
 
 			if !strings.Contains(err.Error(), tc.err) {

@@ -4,6 +4,7 @@
 package starlark
 
 import (
+	_ "go.chromium.org/chromiumos/infra/proto/go/lab"
 	"go.chromium.org/luci/common/data/stringset"
 	"go.chromium.org/luci/starlark/starlarkproto"
 	"google.golang.org/protobuf/reflect/protodesc"
@@ -51,7 +52,11 @@ func buildProtoLoader() (*starlarkproto.Loader, error) {
 	visited := stringset.New(0)
 
 	fdps, err := findAllDescriptors(
-		[]string{"chromiumos/test/api/v1/plan.proto", "chromiumos/config/payload/config_bundle.proto"},
+		[]string{
+			"chromiumos/test/api/v1/plan.proto",
+			"chromiumos/config/payload/config_bundle.proto",
+			"lab/license.proto",
+		},
 		visited,
 	)
 	if err != nil {

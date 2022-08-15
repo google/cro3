@@ -7,6 +7,7 @@
 package compatibility
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -18,6 +19,7 @@ import (
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	test_api_v1 "go.chromium.org/chromiumos/config/go/test/api/v1"
 	"go.chromium.org/chromiumos/infra/proto/go/chromiumos"
+	"go.chromium.org/chromiumos/infra/proto/go/lab"
 	"go.chromium.org/chromiumos/infra/proto/go/testplans"
 	bbpb "go.chromium.org/luci/buildbucket/proto"
 	"go.chromium.org/luci/common/data/stringset"
@@ -26,32 +28,81 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-// getAttrFromCriteria finds the DutCriterion with attribute id attr in
-// criteria. If the DutCriterion is not found an error is returned.
-func getAttrFromCriteria(criteria []*testpb.DutCriterion, attr *testpb.DutAttribute) ([]string, error) {
-	for _, criterion := range criteria {
-		isAttr := false
-		if criterion.GetAttributeId().GetValue() == attr.GetId().GetValue() {
-			isAttr = true
-		} else {
-			for _, alias := range attr.GetAliases() {
-				if criterion.GetAttributeId().GetValue() == alias {
-					isAttr = true
-					break
-				}
+// criterionMatchesAttribute returns true if criterion's AttributeId matches
+// attr's Id or any of attr's Aliases.
+func criterionMatchesAttribute(criterion *testpb.DutCriterion, attr *testpb.DutAttribute) bool {
+	if criterion.GetAttributeId().GetValue() == attr.GetId().GetValue() {
+		return true
+	} else {
+		for _, alias := range attr.GetAliases() {
+			if criterion.GetAttributeId().GetValue() == alias {
+				return true
 			}
 		}
+	}
 
-		if isAttr {
+	return false
+}
+
+// getAttrFromCriteria finds the DutCriterion with attribute id attr in
+// criteria. If the DutCriterion is not found a nil array is returned. If there
+// is more than one DutCriterion that matches attr, an error is returned.
+func getAttrFromCriteria(criteria []*testpb.DutCriterion, attr *testpb.DutAttribute) ([]string, error) {
+	var values []string
+	matched := false
+	for _, criterion := range criteria {
+		if criterionMatchesAttribute(criterion, attr) {
+			if matched {
+				return nil, fmt.Errorf("DutAttribute %q specified twice", attr)
+			}
+
 			if len(criterion.GetValues()) == 0 {
 				return nil, fmt.Errorf("only DutCriterion with at least one value supported, got %q", criterion)
 			}
 
-			return criterion.GetValues(), nil
+			values = criterion.GetValues()
+			matched = true
 		}
 	}
 
-	return nil, fmt.Errorf("attribute %q not found in DutCriterion %q", attr.GetId().GetValue(), criteria)
+	return values, nil
+}
+
+// getAllAttrFromCriteria is similar to getAttrFromCriteria, but if more than
+// one DutCriterion that matches attr, values for all matches are returned,
+// instead of returning an error.
+func getAllAttrFromCriteria(criteria []*testpb.DutCriterion, attr *testpb.DutAttribute) ([][]string, error) {
+	var values [][]string
+	for _, criterion := range criteria {
+		if criterionMatchesAttribute(criterion, attr) {
+			if len(criterion.GetValues()) == 0 {
+				return nil, fmt.Errorf("only DutCriterion with at least one value supported, got %q", criterion)
+			}
+
+			values = append(values, criterion.GetValues())
+		}
+	}
+
+	return values, nil
+}
+
+// checkCriteriaValid returns an error if any of criteria don't match the set
+// of validAttrs.
+func checkCriteriaValid(criteria []*testpb.DutCriterion, validAttrs ...*testpb.DutAttribute) error {
+	for _, criterion := range criteria {
+		matches := false
+		for _, attr := range validAttrs {
+			if criterionMatchesAttribute(criterion, attr) {
+				matches = true
+			}
+		}
+
+		if !matches {
+			return fmt.Errorf("criterion %q doesn't match any valid attributes (%q)", criterion, validAttrs)
+		}
+	}
+
+	return nil
 }
 
 // sortedValuesFromMap returns the values from m as a list, sorted by the keys
@@ -292,6 +343,8 @@ type suiteInfo struct {
 	// is "coral" and boardVariant is "kernelnext", the "coral-kernelnext" build
 	// will be used.
 	boardVariant string
+	// optional, the licenses required for the DUT the test will run on.
+	licenses []lab.LicenseType
 }
 
 // getBuildTarget returns the build target for the suiteInfo. If boardVariant is
@@ -325,14 +378,14 @@ func tagCriteriaToTastExpr(criteria testpb.TestSuite_TestCaseTagCriteria) string
 // suiteInfo (internal representation used by this package).
 //
 // coverageRuleToSuiteInfo does the following steps:
-// 1. Extract the pool and program attrs from rule, failing if they are not
-// present.
+// 1. Extract the relevant DutAttributes from rule. pool and program attributes
+// are required.
 // 2. Choose a program using prioritySelector.
 // 3. Convert each TestSuite (CTPv2 compatible) in rule into a suiteInfo, using
 // either the tag criteria or test case id list.
 func coverageRuleToSuiteInfo(
 	rule *testpb.CoverageRule,
-	poolAttr, programAttr, designAttr *testpb.DutAttribute,
+	poolAttr, programAttr, designAttr, licenseAttr *testpb.DutAttribute,
 	buildTargetToBuildInfo map[string]*buildInfo,
 	prioritySelector *priority.RandomWeightedSelector,
 	isVm bool,
@@ -343,13 +396,19 @@ func coverageRuleToSuiteInfo(
 
 	dutTarget := rule.GetDutTargets()[0]
 
+	// Check that all criteria in dutTarget specify one of the expected
+	// DutAttributes.
+	if err := checkCriteriaValid(dutTarget.GetCriteria(), poolAttr, programAttr, designAttr, licenseAttr); err != nil {
+		return nil, err
+	}
+
 	pools, err := getAttrFromCriteria(dutTarget.GetCriteria(), poolAttr)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(pools) != 1 {
-		return nil, fmt.Errorf("only DutCriteria with exactly one \"pool\" argument are supported, got %q", pools)
+		return nil, fmt.Errorf("only DutCriteria with exactly one \"swarming-pool\" attribute are supported, got %q", pools)
 	}
 
 	pool := pools[0]
@@ -357,6 +416,10 @@ func coverageRuleToSuiteInfo(
 	programs, err := getAttrFromCriteria(dutTarget.GetCriteria(), programAttr)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(programs) == 0 {
+		return nil, errors.New("DutCriteria must contain at least one \"attr-program\" attribute")
 	}
 
 	// For simplicitly, only allow a board variant to be specified if a single
@@ -384,28 +447,47 @@ func coverageRuleToSuiteInfo(
 		glog.V(2).Infof("chose program %q from possible programs %q", chosenProgram, programs)
 	}
 
+	// The design attribute is optional. If a design is specified, only one
+	// program can be specified. Multiple designs cannot be specified.
 	var design string
-	if len(dutTarget.GetCriteria()) == 3 {
-		designs, err := getAttrFromCriteria(dutTarget.GetCriteria(), designAttr)
-		if err != nil {
-			return nil, err
-		}
+	designs, err := getAttrFromCriteria(dutTarget.GetCriteria(), designAttr)
+	if err != nil {
+		return nil, err
+	}
 
-		if len(designs) != 1 {
-			return nil, fmt.Errorf("only DutCriteria with exactly one \"attr-design\" argument are supported, got %q", designs)
-		}
-
+	if len(designs) == 1 {
 		if len(programs) != 1 {
 			return nil, fmt.Errorf("if \"attr-design\" is specified, multiple \"attr-programs\" cannot be used")
 		}
 
 		design = designs[0]
-	} else if len(dutTarget.GetCriteria()) != 2 {
-		return nil, fmt.Errorf(
-			"expected DutTarget to use criteria %q and %q, and optionally %q, got %q",
-			programAttr.GetId().GetValue(), poolAttr.GetId().GetValue(),
-			designAttr.GetId().GetValue(), dutTarget,
-		)
+	} else if len(designs) > 1 {
+		return nil, fmt.Errorf("only DutCriteria with one \"attr-design\" attribute are supported, got %q", designs)
+	}
+
+	allLicenseNames, err := getAllAttrFromCriteria(dutTarget.GetCriteria(), licenseAttr)
+	if err != nil {
+		return nil, err
+	}
+
+	var licenses []lab.LicenseType
+	for _, names := range allLicenseNames {
+		if len(names) != 1 {
+			return nil, fmt.Errorf("only exactly one value can be specified in \"misc-licence\" DutCriteria, got %q", names)
+		}
+		name := names[0]
+
+		licenseInt, found := lab.LicenseType_value[name]
+		if !found {
+			return nil, fmt.Errorf("invalid LicenseType %q", name)
+		}
+
+		licence := lab.LicenseType(licenseInt)
+		if licence == lab.LicenseType_LICENSE_TYPE_UNSPECIFIED {
+			return nil, fmt.Errorf("LICENSE_TYPE_UNSPECIFIED not allowed")
+		}
+
+		licenses = append(licenses, licence)
 	}
 
 	var suiteInfos []*suiteInfo
@@ -425,6 +507,7 @@ func coverageRuleToSuiteInfo(
 						suite:        id.Value,
 						environment:  HW,
 						boardVariant: boardVariant,
+						licenses:     licenses,
 					})
 			}
 		case *testpb.TestSuite_TestCaseTagCriteria_:
@@ -445,6 +528,10 @@ func coverageRuleToSuiteInfo(
 
 			if design != "" {
 				glog.Warning("attr-design DutCriteria has no effect on VM tests")
+			}
+
+			if len(licenses) > 0 {
+				glog.Warning("misc-licenses DutCriteria has no effect on VM tests")
 			}
 
 			suiteInfos = append(suiteInfos,
@@ -476,8 +563,8 @@ func extractSuiteInfos(
 	boardPriorityList *testplans.BoardPriorityList,
 	buildTargetToBuildInfo map[string]*buildInfo,
 ) (map[string][]*suiteInfo, error) {
-	// Find the program and pool attributes in the DutAttributeList.
-	var programAttr, designAttr, poolAttr *testpb.DutAttribute
+	// Find relevant attributes in the DutAttributeList.
+	var programAttr, designAttr, poolAttr, licenseAttr *testpb.DutAttribute
 	for _, attr := range dutAttributeList.GetDutAttributes() {
 		switch attr.Id.Value {
 		case "attr-program":
@@ -486,7 +573,8 @@ func extractSuiteInfos(
 			designAttr = attr
 		case "swarming-pool":
 			poolAttr = attr
-
+		case "misc-license":
+			licenseAttr = attr
 		}
 	}
 
@@ -502,6 +590,10 @@ func extractSuiteInfos(
 		return nil, fmt.Errorf("\"attr-design\" not found in DutAttributeList")
 	}
 
+	if licenseAttr == nil {
+		return nil, fmt.Errorf("\"misc-license\" not found in DutAttributeList")
+	}
+
 	buildTargetToSuiteInfos := map[string][]*suiteInfo{}
 	prioritySelector := priority.NewRandomWeightedSelector(
 		rnd,
@@ -512,7 +604,7 @@ func extractSuiteInfos(
 		for _, rule := range hwTestPlan.GetCoverageRules() {
 			isVm := false
 			suiteInfos, err := coverageRuleToSuiteInfo(
-				rule, poolAttr, programAttr, designAttr, buildTargetToBuildInfo, prioritySelector, isVm,
+				rule, poolAttr, programAttr, designAttr, licenseAttr, buildTargetToBuildInfo, prioritySelector, isVm,
 			)
 			if err != nil {
 				return nil, err
@@ -533,7 +625,7 @@ func extractSuiteInfos(
 		for _, rule := range vmTestPlan.GetCoverageRules() {
 			isVm := true
 			suiteInfos, err := coverageRuleToSuiteInfo(
-				rule, poolAttr, programAttr, designAttr, buildTargetToBuildInfo, prioritySelector, isVm,
+				rule, poolAttr, programAttr, designAttr, licenseAttr, buildTargetToBuildInfo, prioritySelector, isVm,
 			)
 			if err != nil {
 				return nil, err
@@ -559,19 +651,21 @@ func extractSuiteInfos(
 // [HW|VM]TestPlan protos target CTP2, this method is meant to provide backwards
 // compatibility with CTP1. Because CTP1 does not support rules-based testing,
 // there are some limitations to the [HW|VM]TestPlans that can be converted:
+//
 // - Both the "attr-program" and "swarming-pool" DutAttributes must be used in
-// each DutTarget, and only these DutAttributes are allowed, i.e. each DutTarget
-// must use exactly these attributes.
+// each DutTarget. The "attr-design" and "misc-license" DutAttributes are
+// optional.
 //
 // - Multiple values for "attr-program" are allowed, a program will be chosen
 // randomly proportional to the board's priority in boardPriorityList (lowest
 // priority is most likely to get chosen, negative priorities are allowed,
 // programs without a priority get priority 0).
 //
-// - Only TestCaseIds are supported (no tag-based testing). generateTestPlanReq
-// is needed to provide Build protos for the builds being tested.
-// dutAttributeList must contain the "attr-program" and "swarming-pool"
-// DutAttributes.
+// - Only TestCaseIds are supported for hardware testing, and only
+// TestCaseTagCriteria are supported for VM testing.
+//
+// - generateTestPlanReq is needed to provide Build protos for the builds being
+// tested.
 func ToCTP1(
 	rnd *rand.Rand,
 	hwTestPlans []*test_api_v1.HWTestPlan,
@@ -632,6 +726,7 @@ func ToCTP1(
 					SkylabBoard: suiteInfo.program,
 					SkylabModel: suiteInfo.design,
 					Pool:        suiteInfo.pool,
+					Licenses:    suiteInfo.licenses,
 					Common: &testplans.TestSuiteCommon{
 						DisplayName: displayName,
 						// TODO(b/218319842): Set critical value based on v2 test disablement config.
