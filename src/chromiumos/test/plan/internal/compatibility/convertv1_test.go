@@ -130,6 +130,49 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 					},
 				},
 			},
+			{
+				TestSuites: []*testpb.TestSuite{
+					{
+
+						Spec: &testpb.TestSuite_TestCaseIds{
+							TestCaseIds: &testpb.TestCaseIdList{
+								TestCaseIds: []*testpb.TestCase_Id{
+									{
+										Value: "suite-with-board-variant",
+									},
+								},
+							},
+						},
+					},
+				},
+				DutTargets: []*testpb.DutTarget{
+					{
+						Criteria: []*testpb.DutCriterion{
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "attr-program",
+								},
+								Values: []string{"boardA"},
+							},
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "attr-model",
+								},
+								Values: []string{"model1"},
+							},
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "swarming-pool",
+								},
+								Values: []string{"DUT_POOL_QUOTA"},
+							},
+						},
+						ProvisionConfig: &testpb.ProvisionConfig{
+							BoardVariant: "kernelnext",
+						},
+					},
+				},
+			},
 		},
 	},
 }
@@ -191,6 +234,41 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 								},
 								Values: []string{"VM_POOL"},
 							},
+						},
+					},
+				},
+			},
+			{
+				Name: "vmrule-with-variant",
+				TestSuites: []*testpb.TestSuite{
+					{
+						Name: "tast_vm_suite1",
+						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags:        []string{"\"group:mainline\"", "\"dep:depA\""},
+								TagExcludes: []string{"informational"},
+							},
+						},
+					},
+				},
+				DutTargets: []*testpb.DutTarget{
+					{
+						Criteria: []*testpb.DutCriterion{
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "attr-program",
+								},
+								Values: []string{"vmboardA"},
+							},
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "swarming-pool",
+								},
+								Values: []string{"VM_POOL"},
+							},
+						},
+						ProvisionConfig: &testpb.ProvisionConfig{
+							BoardVariant: "arc-r",
 						},
 					},
 				},
@@ -341,6 +419,31 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 		},
 	}
 
+	variantBuild := &bbpb.Build{
+		Builder: &bbpb.BuilderID{
+			Builder: "cq-builderA-kernelnext",
+		},
+		Input: &bbpb.Build_Input{
+			Properties: newStruct(t, map[string]interface{}{
+				"build_target": map[string]interface{}{
+					"name": "boardA-kernelnext",
+				},
+			}),
+		},
+		Output: &bbpb.Build_Output{
+			Properties: newStruct(t, map[string]interface{}{
+				"artifacts": map[string]interface{}{
+					"gs_bucket": "testgsbucket",
+					"gs_path":   "testgspathA-kernelnext",
+					"files_by_artifact": map[string]interface{}{
+						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+					},
+				},
+			}),
+		},
+		Critical: bbpb.Trinary_YES,
+	}
+
 	vmBuild := &bbpb.Build{
 		Builder: &bbpb.BuilderID{
 			Builder: "cq-vmBuilderA",
@@ -366,6 +469,31 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 		Critical: bbpb.Trinary_YES,
 	}
 
+	vmBuildWithVariant := &bbpb.Build{
+		Builder: &bbpb.BuilderID{
+			Builder: "cq-vmBuilderA-arc-r",
+		},
+		Input: &bbpb.Build_Input{
+			Properties: newStruct(t, map[string]interface{}{
+				"build_target": map[string]interface{}{
+					"name": "vmboardA-arc-r",
+				},
+			}),
+		},
+		Output: &bbpb.Build_Output{
+			Properties: newStruct(t, map[string]interface{}{
+				"artifacts": map[string]interface{}{
+					"gs_bucket": "testgsbucket",
+					"gs_path":   "testgspathA-arc-r",
+					"files_by_artifact": map[string]interface{}{
+						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+					},
+				},
+			}),
+		},
+		Critical: bbpb.Trinary_YES,
+	}
+
 	return []*testplans.ProtoBytes{
 		serializeOrFatal(t, build1),
 		serializeOrFatal(t, build2),
@@ -373,7 +501,9 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 		serializeOrFatal(t, build4),
 		serializeOrFatal(t, build5),
 		serializeOrFatal(t, build6),
+		serializeOrFatal(t, variantBuild),
 		serializeOrFatal(t, vmBuild),
+		serializeOrFatal(t, vmBuildWithVariant),
 	}
 }
 
@@ -472,6 +602,35 @@ func TestToCTP1(t *testing.T) {
 					},
 				},
 			},
+			{
+				Common: &testplans.TestUnitCommon{
+					BuildTarget: &chromiumos.BuildTarget{
+						Name: "boardA-kernelnext",
+					},
+					BuilderName: "cq-builderA-kernelnext",
+					BuildPayload: &testplans.BuildPayload{
+						ArtifactsGsBucket: "testgsbucket",
+						ArtifactsGsPath:   "testgspathA-kernelnext",
+						FilesByArtifact: newStruct(t, map[string]interface{}{
+							"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						}),
+					},
+				},
+				HwTestCfg: &testplans.HwTestCfg{
+					HwTest: []*testplans.HwTestCfg_HwTest{
+						{
+							Common: &testplans.TestSuiteCommon{
+								DisplayName: "hw.boardA-kernelnext.model1.suite-with-board-variant",
+								Critical:    wrapperspb.Bool(true),
+							},
+							Suite:       "suite-with-board-variant",
+							SkylabBoard: "boardA",
+							SkylabModel: "model1",
+							Pool:        "DUT_POOL_QUOTA",
+						},
+					},
+				},
+			},
 		},
 		DirectTastVmTestUnits: []*testplans.TastVmTestUnit{
 			{
@@ -498,6 +657,34 @@ func TestToCTP1(t *testing.T) {
 								},
 							},
 							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA.tast_vm_suite1", Critical: wrapperspb.Bool(true)},
+						},
+					},
+				},
+			},
+			{
+				Common: &testplans.TestUnitCommon{
+					BuildTarget: &chromiumos.BuildTarget{
+						Name: "vmboardA-arc-r",
+					},
+					BuilderName: "cq-vmBuilderA-arc-r",
+					BuildPayload: &testplans.BuildPayload{
+						ArtifactsGsBucket: "testgsbucket",
+						ArtifactsGsPath:   "testgspathA-arc-r",
+						FilesByArtifact: newStruct(t, map[string]interface{}{
+							"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						}),
+					},
+				},
+				TastVmTestCfg: &testplans.TastVmTestCfg{
+					TastVmTest: []*testplans.TastVmTestCfg_TastVmTest{
+						{
+							SuiteName: "tast_vm_suite1",
+							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
+								{
+									TestExpr: "\"group:mainline\" && \"dep:depA\" && !informational",
+								},
+							},
+							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA-arc-r.tast_vm_suite1", Critical: wrapperspb.Bool(true)},
 						},
 					},
 				},
@@ -996,6 +1183,40 @@ func TestToCTP1Errors(t *testing.T) {
 			},
 			dutAttributeList: dutAttributeList,
 			err:              "TestCaseIdLists are only valid for HW tests",
+		},
+		{
+			name: "board variant with multiple programs",
+			hwTestPlans: []*test_api_v1.HWTestPlan{
+				{
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"programA", "programB"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{"DUT_POOL_QUOTA"},
+										},
+									},
+									ProvisionConfig: &testpb.ProvisionConfig{
+										BoardVariant: "kernelnext",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+			err:              "board_variant (\"kernelnext\") cannot be specified if multiple programs ([\"programA\" \"programB\"])",
 		},
 	}
 

@@ -288,6 +288,21 @@ type suiteInfo struct {
 	// tastExpr that defines the suite. Only valid if environment is TastVM or
 	// TastGCE
 	tastExpr string
+	// optional, variant of the build target to test. For example, if program
+	// is "coral" and boardVariant is "kernelnext", the "coral-kernelnext" build
+	// will be used.
+	boardVariant string
+}
+
+// getBuildTarget returns the build target for the suiteInfo. If boardVariant is
+// set on the suite info, "<program>-<boardVariant>" is returned, otherwise
+// "<program>" is returned.
+func (si *suiteInfo) getBuildTarget() string {
+	if len(si.boardVariant) > 0 {
+		return fmt.Sprintf("%s-%s", si.program, si.boardVariant)
+	}
+
+	return si.program
 }
 
 // tagCriteriaToTastExpr converts a TestCaseTagCriteria to a Tast expression.
@@ -318,7 +333,7 @@ func tagCriteriaToTastExpr(criteria testpb.TestSuite_TestCaseTagCriteria) string
 func coverageRuleToSuiteInfo(
 	rule *testpb.CoverageRule,
 	poolAttr, programAttr, designAttr *testpb.DutAttribute,
-	boardToBuildInfo map[string]*buildInfo,
+	buildTargetToBuildInfo map[string]*buildInfo,
 	prioritySelector *priority.RandomWeightedSelector,
 	isVm bool,
 ) ([]*suiteInfo, error) {
@@ -344,13 +359,30 @@ func coverageRuleToSuiteInfo(
 		return nil, err
 	}
 
-	chosenProgram, err := chooseProgramToTest(
-		pool, programs, boardToBuildInfo, prioritySelector,
-	)
-	if err != nil {
-		return nil, err
+	// For simplicitly, only allow a board variant to be specified if a single
+	// program is specified. I.e. a rule that specifies it wants to test the
+	// "kernelnext" build chosen from multiple programs is not currently
+	// supported.
+	var chosenProgram string
+	boardVariant := dutTarget.GetProvisionConfig().GetBoardVariant()
+	if len(boardVariant) > 0 {
+		if len(programs) != 1 {
+			return nil, fmt.Errorf(
+				"board_variant (%q) cannot be specified if multiple programs (%q) are specified",
+				boardVariant, programs,
+			)
+		}
+
+		chosenProgram = programs[0]
+	} else {
+		chosenProgram, err = chooseProgramToTest(
+			pool, programs, buildTargetToBuildInfo, prioritySelector,
+		)
+		if err != nil {
+			return nil, err
+		}
+		glog.V(2).Infof("chose program %q from possible programs %q", chosenProgram, programs)
 	}
-	glog.V(2).Infof("chose program %q from possible programs %q", chosenProgram, programs)
 
 	var design string
 	if len(dutTarget.GetCriteria()) == 3 {
@@ -387,11 +419,12 @@ func coverageRuleToSuiteInfo(
 				suiteInfos = append(
 					suiteInfos,
 					&suiteInfo{
-						program:     chosenProgram,
-						design:      design,
-						pool:        pool,
-						suite:       id.Value,
-						environment: HW,
+						program:      chosenProgram,
+						design:       design,
+						pool:         pool,
+						suite:        id.Value,
+						environment:  HW,
+						boardVariant: boardVariant,
 					})
 			}
 		case *testpb.TestSuite_TestCaseTagCriteria_:
@@ -416,11 +449,12 @@ func coverageRuleToSuiteInfo(
 
 			suiteInfos = append(suiteInfos,
 				&suiteInfo{
-					program:     chosenProgram,
-					pool:        pool,
-					suite:       suite.GetName(),
-					tastExpr:    tagCriteriaToTastExpr(*spec.TestCaseTagCriteria),
-					environment: env,
+					program:      chosenProgram,
+					pool:         pool,
+					suite:        suite.GetName(),
+					tastExpr:     tagCriteriaToTastExpr(*spec.TestCaseTagCriteria),
+					environment:  env,
+					boardVariant: boardVariant,
 				})
 		default:
 			return nil, fmt.Errorf("TestSuite spec type %T is not supported", spec)
@@ -431,8 +465,8 @@ func coverageRuleToSuiteInfo(
 	return suiteInfos, nil
 }
 
-// extractSuiteInfos returns a map from program name to suiteInfos for the
-// program. There is one suiteInfo per CoverageRule in hwTestPlans and
+// extractSuiteInfos returns a map from build target name to suiteInfos for the
+// build target. There is one suiteInfo per CoverageRule in hwTestPlans and
 // vmTestPlans.
 func extractSuiteInfos(
 	rnd *rand.Rand,
@@ -440,7 +474,7 @@ func extractSuiteInfos(
 	vmTestPlans []*test_api_v1.VMTestPlan,
 	dutAttributeList *testpb.DutAttributeList,
 	boardPriorityList *testplans.BoardPriorityList,
-	boardToBuildInfo map[string]*buildInfo,
+	buildTargetToBuildInfo map[string]*buildInfo,
 ) (map[string][]*suiteInfo, error) {
 	// Find the program and pool attributes in the DutAttributeList.
 	var programAttr, designAttr, poolAttr *testpb.DutAttribute
@@ -468,7 +502,7 @@ func extractSuiteInfos(
 		return nil, fmt.Errorf("\"attr-design\" not found in DutAttributeList")
 	}
 
-	programToSuiteInfos := map[string][]*suiteInfo{}
+	buildTargetToSuiteInfos := map[string][]*suiteInfo{}
 	prioritySelector := priority.NewRandomWeightedSelector(
 		rnd,
 		boardPriorityList,
@@ -478,19 +512,19 @@ func extractSuiteInfos(
 		for _, rule := range hwTestPlan.GetCoverageRules() {
 			isVm := false
 			suiteInfos, err := coverageRuleToSuiteInfo(
-				rule, poolAttr, programAttr, designAttr, boardToBuildInfo, prioritySelector, isVm,
+				rule, poolAttr, programAttr, designAttr, buildTargetToBuildInfo, prioritySelector, isVm,
 			)
 			if err != nil {
 				return nil, err
 			}
 
 			for _, info := range suiteInfos {
-				chosenProgram := info.program
-				if _, ok := programToSuiteInfos[chosenProgram]; !ok {
-					programToSuiteInfos[chosenProgram] = []*suiteInfo{}
+				buildTarget := info.getBuildTarget()
+				if _, ok := buildTargetToSuiteInfos[buildTarget]; !ok {
+					buildTargetToSuiteInfos[buildTarget] = []*suiteInfo{}
 				}
 
-				programToSuiteInfos[chosenProgram] = append(programToSuiteInfos[chosenProgram], info)
+				buildTargetToSuiteInfos[buildTarget] = append(buildTargetToSuiteInfos[buildTarget], info)
 			}
 		}
 	}
@@ -499,24 +533,24 @@ func extractSuiteInfos(
 		for _, rule := range vmTestPlan.GetCoverageRules() {
 			isVm := true
 			suiteInfos, err := coverageRuleToSuiteInfo(
-				rule, poolAttr, programAttr, designAttr, boardToBuildInfo, prioritySelector, isVm,
+				rule, poolAttr, programAttr, designAttr, buildTargetToBuildInfo, prioritySelector, isVm,
 			)
 			if err != nil {
 				return nil, err
 			}
 
 			for _, info := range suiteInfos {
-				chosenProgram := info.program
-				if _, ok := programToSuiteInfos[chosenProgram]; !ok {
-					programToSuiteInfos[chosenProgram] = []*suiteInfo{}
+				buildTarget := info.getBuildTarget()
+				if _, ok := buildTargetToSuiteInfos[buildTarget]; !ok {
+					buildTargetToSuiteInfos[buildTarget] = []*suiteInfo{}
 				}
 
-				programToSuiteInfos[chosenProgram] = append(programToSuiteInfos[chosenProgram], info)
+				buildTargetToSuiteInfos[buildTarget] = append(buildTargetToSuiteInfos[buildTarget], info)
 			}
 		}
 	}
 
-	return programToSuiteInfos, nil
+	return buildTargetToSuiteInfos, nil
 }
 
 // ToCTP1 converts a [VM|HW]TestPlan to a GenerateTestPlansResponse, which can
@@ -551,15 +585,15 @@ func ToCTP1(
 		return nil, err
 	}
 
-	// Form maps from board to buildInfo, which will be needed by calls to
+	// Form a map from buildTarget to buildInfo, which will be needed by calls to
 	// extractSuiteInfos.
-	boardToBuildInfo := map[string]*buildInfo{}
+	buildTargetToBuildInfo := map[string]*buildInfo{}
 	for _, buildInfo := range buildInfos {
-		boardToBuildInfo[buildInfo.buildTarget] = buildInfo
+		buildTargetToBuildInfo[buildInfo.buildTarget] = buildInfo
 	}
 
-	programToSuiteInfos, err := extractSuiteInfos(
-		rnd, hwTestPlans, vmTestPlans, dutAttributeList, boardPriorityList, boardToBuildInfo,
+	buildTargetToSuiteInfos, err := extractSuiteInfos(
+		rnd, hwTestPlans, vmTestPlans, dutAttributeList, boardPriorityList, buildTargetToBuildInfo,
 	)
 	if err != nil {
 		return nil, err
@@ -569,18 +603,17 @@ func ToCTP1(
 	var vmTestUnits []*testplans.TastVmTestUnit
 	var gceTestUnits []*testplans.TastGceTestUnit
 
-	// Join the buildInfos and suiteInfos on the suite's program name and
-	// build's build target. Each build maps to one HwTestUnit, each suite maps
-	// to one HwTestCfg_HwTest.
+	// Join the buildInfos and suiteInfos on build target name. Each build maps
+	// to one HwTestUnit, each suite maps to one HwTestCfg_HwTest.
 	for _, buildInfo := range buildInfos {
-		suiteInfos, ok := programToSuiteInfos[buildInfo.buildTarget]
+		suiteInfos, ok := buildTargetToSuiteInfos[buildInfo.buildTarget]
 		if !ok {
 			glog.Warningf("no suites found for build %q, skipping tests", buildInfo.buildTarget)
 			continue
 		}
 
 		// Maps from display name, which should uniquely identify a test for a
-		// given (board, model, suite) combo, to a test.
+		// given (buildTarget, model, suite) combo, to a test.
 		hwTests := make(map[string]*testplans.HwTestCfg_HwTest)
 		tastVMTests := make(map[string]*testplans.TastVmTestCfg_TastVmTest)
 		tastGCETests := make(map[string]*testplans.TastGceTestCfg_TastGceTest)
@@ -590,9 +623,9 @@ func ToCTP1(
 				// If a design is set, include it in the display name
 				var displayName string
 				if len(suiteInfo.design) > 0 {
-					displayName = fmt.Sprintf("hw.%s.%s.%s", suiteInfo.program, suiteInfo.design, suiteInfo.suite)
+					displayName = fmt.Sprintf("hw.%s.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.design, suiteInfo.suite)
 				} else {
-					displayName = fmt.Sprintf("hw.%s.%s", suiteInfo.program, suiteInfo.suite)
+					displayName = fmt.Sprintf("hw.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.suite)
 				}
 				hwTest := &testplans.HwTestCfg_HwTest{
 					Suite:       suiteInfo.suite,
@@ -615,7 +648,7 @@ func ToCTP1(
 					glog.V(2).Infof("added HwTest: %q", hwTest)
 				}
 			case TastVM:
-				displayName := fmt.Sprintf("vm.%s.%s", suiteInfo.program, suiteInfo.suite)
+				displayName := fmt.Sprintf("vm.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.suite)
 				tastVMTest := &testplans.TastVmTestCfg_TastVmTest{
 					SuiteName: suiteInfo.suite,
 					TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
@@ -638,7 +671,7 @@ func ToCTP1(
 					glog.V(2).Infof("added TastVmTest %q", tastVMTest)
 				}
 			case TastGCE:
-				displayName := fmt.Sprintf("gce.%s.%s", suiteInfo.program, suiteInfo.suite)
+				displayName := fmt.Sprintf("gce.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.suite)
 				tastGCETest := &testplans.TastGceTestCfg_TastGceTest{
 					SuiteName: suiteInfo.suite,
 					TastTestExpr: []*testplans.TastGceTestCfg_TastTestExpr{
