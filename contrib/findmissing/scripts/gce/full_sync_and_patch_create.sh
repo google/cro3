@@ -38,7 +38,8 @@ fi
 
 echo "${day}" > "${LAST_CREATE}"
 
-# shellcheck disable=SC2129
-echo "Triggered full synchronization at $(date)" >> "${LOG_FILE}"
-env/bin/python3 -c "import main; main.synchronize_and_create_patches(${create})" >> "${LOG_FILE}" 2>&1
-echo -e "\n" >> "${LOG_FILE}"
+{
+    echo "Triggered full synchronization at $(date)"
+    env/bin/python3 -c "import main; main.synchronize_and_create_patches(${create})"
+    echo "End of full synchronization at $(date)"
+} >> "${LOG_FILE}" 2>&1
