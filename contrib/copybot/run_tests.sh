@@ -14,6 +14,9 @@ cd "$(dirname "$(realpath -e "${BASH_SOURCE[0]}")")"
 
 export PYTHONPATH="${PWD}"
 
+# Run pytest.
+pytest -v
+
 # Check import sorting.
 isort --check .
 

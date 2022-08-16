@@ -291,18 +291,27 @@ class Pseudoheaders:
 
         return cls(header_list), "".join(f"{line}\n" for line in rewritten_message)
 
-    def prefix(self, prefix="Original-"):
+    def prefix(self, prefix="Original-", keep=()):
         """Prefix all header keys with a string.
 
         Args:
             prefix: The prefix to use.
+            keep: Headers which should not be modified.
 
         Returns:
             A new Pseudoheaders dictionary.
         """
         new_header_list = []
+
+        # Constructing a new pseudoheaders dictionary ensures we
+        # consider the keep list to be case insensitive.
+        keep_dict = self.__class__([(key, True) for key in keep])
+
         for key, value in self._header_list:
-            new_header_list.append((f"{prefix}{key}", value))
+            if keep_dict.get(key):
+                new_header_list.append((key, value))
+            else:
+                new_header_list.append((f"{prefix}{key}", value))
         return self.__class__(new_header_list)
 
     def __getitem__(self, item):
@@ -538,6 +547,7 @@ def rewrite_commit_message(
     skipped_files=(),
     prepend_subject="",
     sign_off=False,
+    keep_pseudoheaders=(),
 ):
     """Reword the commit at HEAD with appropriate metadata.
 
@@ -548,12 +558,13 @@ def rewrite_commit_message(
         skipped_files: The list of files skipped.
         prepend_subject: A string to prepend the subject line with.
         sign_off: True if Signed-off-by should be added to the commit message.
+        keep_pseudoheaders: Pseudoheaders which should not be prefixed.
     """
     commit_message = repo.get_commit_message()
     if prepend_subject:
         commit_message = prepend_subject + commit_message
     pseudoheaders, commit_message = Pseudoheaders.from_commit_message(commit_message)
-    pseudoheaders = pseudoheaders.prefix()
+    pseudoheaders = pseudoheaders.prefix(keep=keep_pseudoheaders)
 
     for path in skipped_files:
         pseudoheaders["CopyBot-Skipped-File"] = path
@@ -690,6 +701,7 @@ def run_copybot(args, tmp_dir):
             skipped_files=skipped_files_map[rev],
             prepend_subject=args.prepend_subject,
             sign_off=args.add_signed_off_by,
+            keep_pseudoheaders=args.keep_pseudoheaders,
         )
 
     if repo.rev_parse() == downstream_rev:
@@ -777,6 +789,13 @@ def main():
         "--add-signed-off-by",
         help="Add Signed-off-by pseudoheader to commit messages",
         action="store_true",
+    )
+    parser.add_argument(
+        "--keep-pseudoheader",
+        help="Keep a pseudoheader from being prefixed",
+        action="append",
+        dest="keep_pseudoheaders",
+        default=[],
     )
     parser.add_argument(
         "upstream",

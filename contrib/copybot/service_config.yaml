@@ -18,7 +18,12 @@ base-manifest:
         base64 -d <<<"${COPYBOT_BASE64}" | zcat > ~/copybot.py
         chmod +x ~/copybot.py
 
+common-options: &common_options
+  keep-pseudoheaders:
+    - Cq-Depend
+
 zephyr-downstream: &zephyr_downstream
+  <<: *common_options
   topic: zephyr-downstream
   upstream: https://github.com/zephyrproject-rtos/zephyr
   downstream: https://chromium.googlesource.com/chromiumos/third_party/zephyr
@@ -33,6 +38,7 @@ zephyr-downstream: &zephyr_downstream
       cc: jrosenth@google.com
 
 coreboot-downstream: &coreboot_downstream
+  <<: *common_options
   topic: coreboot-downstream
   upstream-branch: master
   downstream-branch: master
@@ -45,6 +51,7 @@ coreboot-downstream: &coreboot_downstream
       cc: jrosenth@google.com
 
 flashrom-downstream: &flashrom_downstream
+  <<: *common_options
   topic: flashrom-downstream
   upstream-branch: master
   downstream-branch: master
