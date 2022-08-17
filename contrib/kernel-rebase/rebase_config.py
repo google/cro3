@@ -58,7 +58,8 @@ topic_fixups['chromeos'] = [
 ]
 
 topic_fixups['bluetooth'] = [
-    'Bluetooth: Optimize the LE connection sequence'
+    'Bluetooth: Optimize the LE connection sequence',
+    'devcoredump: Add per device sysfs entry to enable disable coredump'
 ]
 
 topic_fixups['block-fs'] = [
