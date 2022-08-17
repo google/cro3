@@ -19,6 +19,7 @@ import MySQLdb.constants.ER # pylint: disable=import-error
 import MySQLdb # pylint: disable=import-error
 
 import common
+import util
 
 
 RF = re.compile(r'^\s*Fixes: (?:commit )*([0-9a-f]+).*')
@@ -65,9 +66,7 @@ def update_upstream_table(branch, start, db):
             last = sha
 
             # Nothing else to do if the commit is a merge
-            l = subprocess.check_output(['git', 'rev-list', '--parents', '-n', '1', sha],
-                                        encoding='utf-8', errors='ignore')
-            if len(l.split(' ')) > 2:
+            if util.is_merge_commit(sha):
                 continue
 
             description = elem[1].rstrip('\n')

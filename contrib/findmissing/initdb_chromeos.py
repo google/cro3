@@ -19,6 +19,7 @@ import MySQLdb.constants.ER # pylint: disable=import-error
 import MySQLdb # pylint: disable=import-error
 
 import common
+import util
 
 
 UPSTREAM = re.compile(r'(ANDROID: *|UPSTREAM: *|FROMGIT: *|BACKPORT: *)+(.*)')
@@ -55,9 +56,7 @@ def update_chrome_table(branch, start, db):
             last = sha
 
             # Nothing else to do if the commit is a merge
-            l = subprocess.check_output(['git', 'rev-list', '--parents', '-n', '1', sha],
-                                        encoding='utf-8', errors='ignore')
-            if len(l.split(' ')) > 2:
+            if util.is_merge_commit(sha):
                 continue
 
             ps = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
