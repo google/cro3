@@ -14,6 +14,7 @@ RUN apt-get update \
       rsync \
       ssh \
       sudo \
+      unzip \
       wget
 
 # grab gsutil
