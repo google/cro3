@@ -81,6 +81,11 @@ topic_fixups['net'] = [
     'rtw88: replace RADAR flag with NO_IR for dfs channel'
 ]
 
+topic_fixups['dts'] = [
+    'dt-bindings: clock: Add resets for LPASS audio clock controller for SC7280',
+    'dt-bindings: clock: Add support for external MCLKs for LPASS on SC7280'
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
@@ -263,3 +268,4 @@ disp_overlay['11613daf9e9d'] = 'drop' # FROMLIST: devfreq: add mediatek cci devf
 disp_overlay['27c9b8adc889'] = 'drop' # CHROMIUM: usb: dwc3: core: Power off phy in suspend for non-wake-enabled
 disp_overlay['64d27f5d21ff'] = 'drop' # CHROMIUM: usb: dwc3: Fixup non-wakeup suspend path
 disp_overlay['ab6e15ae5558'] = 'drop' # CHROMIUM: devfreq: Revert mediatek cci devfreq series
+disp_overlay['71074083efff'] = 'drop' # FROMLIST: arm64: dts: mediatek: add cpufreq and cci devfreq nodes for mt8183
