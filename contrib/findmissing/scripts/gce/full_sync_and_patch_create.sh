@@ -6,37 +6,31 @@
 
 
 FINDMISSING_DIR="${HOME}/findmissing_workspace/findmissing"
+LOG_FILE="/var/log/findmissing/findmissing.log"
+LAST_RUN="/tmp/synchronize-lastrun"
+
 cd "${FINDMISSING_DIR}" || exit
 
 if [[ ! -e env/bin/activate ]]; then
     echo "Virtual environment not set up."
     echo "Setting up virtual environment"
     python3 -m venv env
-    # shellcheck disable=SC1091
-    source env/bin/activate
 
     # pip install requirements line by line
-    pip install -q "$(cat requirements.txt)"
-else
-    # shellcheck disable=SC1091
-    source env/bin/activate
+    env/bin/pip install -q "$(cat requirements.txt)"
 fi
-
-LOG_FILE="/var/log/findmissing/findmissing.log"
-LAST_CREATE="/tmp/synchronize-lastrun"
 
 day="$(date +%e)"
 create="False"
-if [[ ! -e "${LAST_CREATE}" ]]; then
+if [[ ! -e "${LAST_RUN}" ]]; then
     create="True"
 else
-    last="$(cat "${LAST_CREATE}")"
+    last="$(cat "${LAST_RUN}")"
     if [[ "${last}" != "${day}" ]]; then
         create="True"
     fi
 fi
-
-echo "${day}" > "${LAST_CREATE}"
+echo "${day}" > "${LAST_RUN}"
 
 {
     echo "Triggered full synchronization at $(date)"
