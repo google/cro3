@@ -17,6 +17,7 @@ import subprocess
 import MySQLdb # pylint: disable=import-error
 
 import common
+import util
 
 
 def update_stable_table(branch, start, db):
@@ -43,10 +44,7 @@ def update_stable_table(branch, start, db):
 
             description = elem[1].rstrip('\n')
 
-            ps = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
-            spid = subprocess.check_output(['git', 'patch-id', '--stable'],
-                            stdin=ps.stdout, encoding='utf-8', errors='ignore')
-            patch_id = spid.split(' ', 1)[0]
+            patch_id = util.calc_patch_id(sha, stable=True)
 
             # Do nothing if the sha is already in the database
             q = """SELECT sha FROM linux_stable

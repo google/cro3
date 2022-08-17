@@ -72,10 +72,7 @@ def update_upstream_table(branch, start, db):
             description = elem[1].rstrip('\n')
 
             # Calculate patch ID
-            ps = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
-            spid = subprocess.check_output(['git', 'patch-id'],
-                    stdin=ps.stdout, encoding='utf-8', errors='ignore')
-            patch_id = spid.split(' ', 1)[0]
+            patch_id = util.calc_patch_id(sha)
 
             try:
                 q = """INSERT INTO linux_upstream

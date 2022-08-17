@@ -127,3 +127,15 @@ def is_merge_commit(sha):
     cmd = subprocess.check_output(['git', 'rev-list', '--parents', '-n', '1', sha],
                                   encoding='utf-8', errors='ignore')
     return len(cmd.split(' ')) > 2
+
+
+def calc_patch_id(sha, stable=False):
+    """Calculate patch ID."""
+    show = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
+
+    cmd = ['git', 'patch-id']
+    if stable:
+        cmd.append('--stable')
+
+    patch_id = subprocess.check_output(cmd, stdin=show.stdout, encoding='utf-8', errors='ignore')
+    return patch_id.split(' ', 1)[0]

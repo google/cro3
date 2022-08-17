@@ -59,10 +59,7 @@ def update_chrome_table(branch, start, db):
             if util.is_merge_commit(sha):
                 continue
 
-            ps = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)
-            spid = subprocess.check_output(['git', 'patch-id', '--stable'],
-                    stdin=ps.stdout, encoding='utf-8', errors='ignore')
-            patchid = spid.split(' ', 1)[0]
+            patchid = util.calc_patch_id(sha, stable=True)
 
             # Do nothing if sha is in linux_stable since we
             #  don't want to duplicate tracking linux_stable sha's
