@@ -256,3 +256,4 @@ disp_overlay['4149f3221225'] = 'drop' # FROMGIT: PM / devfreq: passive: Clean co
 disp_overlay['ddbb5071fff5'] = 'drop' # FROMLIST: net: wwan: t7xx: Add debug and test ports
 disp_overlay['995fa555e62c'] = 'drop' # CHROMIUM: t7xx: Initial support for cldma0, sap, brom download port
 disp_overlay['54a49aaee4a8'] = 'drop' # CHROMIUM: Bluetooth: Fix receiving HCI_LE_Advertising_Set_Terminated event
+disp_overlay['8b2dc1abd7fb'] = 'drop' # CHROMIUM: bluetooth: fix race conditions in discovery update
