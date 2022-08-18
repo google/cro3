@@ -61,15 +61,12 @@ def update_upstream_table(branch, start, db):
 
     for commit in commits.splitlines():
         if commit != '':
-            elem = commit.split(' ', 1)
-            sha = elem[0]
+            sha, description = commit.rstrip('\n').split(' ', 1)
             last = sha
 
             # Nothing else to do if the commit is a merge
             if util.is_merge_commit(sha):
                 continue
-
-            description = elem[1].rstrip('\n')
 
             # Calculate patch ID
             patch_id = util.calc_patch_id(sha)

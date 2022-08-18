@@ -47,10 +47,7 @@ def update_chrome_table(branch, start, db):
 
     for commit in commits.splitlines():
         if commit:
-            elem = commit.split(' ', 1)
-            sha = elem[0]
-
-            description = elem[1].rstrip('\n')
+            sha, description = commit.rstrip('\n').split(' ', 1)
 
             # Always mark as handled since we don't want to look at this commit again
             last = sha

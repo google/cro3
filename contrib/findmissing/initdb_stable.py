@@ -39,10 +39,7 @@ def update_stable_table(branch, start, db):
     last = None
     for commit in commits.splitlines():
         if commit:
-            elem = commit.split(' ', 1)
-            sha = elem[0]
-
-            description = elem[1].rstrip('\n')
+            sha, description = commit.rstrip('\n').split(' ', 1)
 
             patch_id = util.calc_patch_id(sha, stable=True)
 
