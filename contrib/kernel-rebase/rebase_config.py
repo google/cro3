@@ -74,6 +74,7 @@ topic_fixups['drm'] = [
 ]
 
 topic_fixups['media'] = [
+    'FROMLIST: media: uvcvideo: Lock video streams and queues while unregistering',
     'CHROMIUM: media: intel-ipu6: copy IPU6 driver from v5.4 branch'
 ]
 
@@ -119,7 +120,6 @@ merge_fixups = [
 # }
 patch_deps = {
       '4638c45ac4c3': ['be850241385f'],
-      '3afbdcf3718e': ['423c46c6f10b']
 }
 
 # Add entry here to overwrite default disposition on particular commit
@@ -278,3 +278,12 @@ disp_overlay['ab6e15ae5558'] = 'drop' # CHROMIUM: devfreq: Revert mediatek cci d
 disp_overlay['71074083efff'] = 'drop' # FROMLIST: arm64: dts: mediatek: add cpufreq and cci devfreq nodes for mt8183
 disp_overlay['dea547509e65'] = 'drop' # FROMLIST: dt-bindings: clock: Add resets for LPASS audio clock controller for SC7280
 disp_overlay['0a27f3bccfb4'] = 'drop' # CHROMIUM: opp: Add API for getting voltage from supplies
+disp_overlay['423c46c6f10b'] = 'drop' # (fake subject) Dependency of 3afbdcf3718e
+disp_overlay['45ac473e3b87'] = 'drop' # BACKPORT: FROMLIST: media: uvcvideo: Add UVC_QUIRK_LIMITED_POWERLINE
+disp_overlay['4cc21281d999'] = 'drop' # FROMLIST: media: uvcvideo: Add LIMITED_POWERLINE quirks for Quanta UVC Webcam
+disp_overlay['0f8df6ff5d3a'] = 'drop' # FROMLIST: media: uvcvideo: Add LIMITED_POWERLINE quirks for Chicony Easycamera
+disp_overlay['a459fc7ff1c6'] = 'drop' # FROMLIST: media: uvcvideo: Add LIMITED_POWERLINE quirks for Chicony Easycamera
+disp_overlay['eb12ac60ee13'] = 'drop' # FROMLIST: media: uvcvideo: Add LIMITED_POWERLINE quirks for Quanta cameras
+disp_overlay['60402d644886'] = 'drop' # FROMLIST: media: uvcvideo: Add LIMITED_POWERLINE quirks for Acer EasyCamera
+disp_overlay['74c5e6509147'] = 'drop' # CHROMIUM: media: uvcvideo: Keep original control value for powerline
+disp_overlay['558c27830ce5'] = 'drop' # CHROMIUM: media: uvcvideo: Revert all the powerline changes
