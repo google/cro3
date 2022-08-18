@@ -39,6 +39,68 @@ class Fix():
         self.fixedby_upstream_sha = _fixedby_upstream_sha
 
 
+def check_fixes(cursor, sha, fixes):
+    """Check if this patch fixes a previous patch."""
+    cmd = ['git', 'show', '-s', '--pretty=format:%b', sha]
+    description = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
+
+    for d in description.splitlines():
+        m = RF.search(d)
+        fsha = None
+        if m and m.group(1):
+            try:
+                # Normalize fsha to 12 characters
+                cmd = ['git', 'show', '-s', '--abbrev=12', '--pretty=format:%h', m.group(1)]
+                fsha = subprocess.check_output(cmd, stderr=subprocess.DEVNULL,
+                                                encoding='utf-8', errors='ignore')
+            except subprocess.CalledProcessError:
+                logging.error('SHA %s fixes commit %s: Not found', sha, m.group(0))
+
+                # The Fixes: tag may be wrong. The sha may not be in the
+                # upstream kernel, or the format may be completely wrong
+                # and m.group(1) may not be a sha in the first place.
+                # In that case, try to search by commit title.
+                m = RDESC.search(d)
+                if m:
+                    desc = m.group(1)
+                    desc = desc.replace("'", "''")
+                    q = """SELECT sha FROM linux_upstream WHERE description = %s"""
+                    cursor.execute(q, [desc])
+                    fsha = cursor.fetchone()
+                    if fsha:
+                        fsha = fsha[0]
+                        logging.info('  Description matches with SHA %s', fsha)
+
+            if fsha:
+                logging.info('Commit %s fixed by %s', fsha, sha)
+
+                # Add fixes to list to be added after linux_upstream
+                # table is fully contructed to avoid Foreign key errors in SQL
+                fix_obj = Fix(_upstream_sha=fsha, _fixedby_upstream_sha=sha)
+                fixes.append(fix_obj)
+
+        m = REVERT.search(d)
+        if m and m.group(1):
+            try:
+                # Normalize rsha to 12 characters
+                cmd = ['git', 'show', '-s', '--abbrev=12', '--pretty=format:%h', m.group(1)]
+                rsha = subprocess.check_output(cmd, stderr=subprocess.DEVNULL,
+                                                encoding='utf-8', errors='ignore')
+
+                # De-duplicate if it has set Fixes tag.
+                if fsha is None or fsha != rsha:
+                    logging.info('Commit %s reverted by %s', rsha, sha)
+
+                    # Add fixes to list to be added after linux_upstream
+                    # table is fully contructed to avoid Foreign key errors in SQL
+                    fix_obj = Fix(_upstream_sha=rsha, _fixedby_upstream_sha=sha)
+                    fixes.append(fix_obj)
+            except subprocess.CalledProcessError:
+                # The revert message format may be wrong.  Ignore if it can't
+                # the corresponding sha in the table.
+                pass
+
+
 def update_upstream_table(branch, start, db):
     """Updates the linux upstream commits and linux upstream fixes tables.
 
@@ -84,70 +146,11 @@ def update_upstream_table(branch, start, db):
                     logging.error(
                         'Issue inserting sha "%s", description "%s", patch_id "%s": error %d (%s)',
                         sha, description, patch_id, e.args[0], e.args[1])
-                continue
             except UnicodeEncodeError as e:
                 logging.error('Failed to INSERT upstream sha %s with description %s: error %s',
                         sha, description, e)
-                continue
-
-            # check if this patch fixes a previous patch.
-            subprocess_cmd = ['git', 'show', '-s', '--pretty=format:%b', sha]
-            description = subprocess.check_output(subprocess_cmd,
-                                                    encoding='utf-8', errors='ignore')
-            for d in description.splitlines():
-                m = RF.search(d)
-                fsha = None
-                if m and m.group(1):
-                    try:
-                        # Normalize fsha to 12 characters
-                        cmd = 'git show -s --abbrev=12 --pretty=format:%h ' + m.group(1)
-                        fsha = subprocess.check_output(cmd.split(' '),
-                                stderr=subprocess.DEVNULL, encoding='utf-8', errors='ignore')
-                    except subprocess.CalledProcessError:
-                        logging.error('SHA %s fixes commit %s: Not found', sha, m.group(0))
-                        m = RDESC.search(d)
-                        if m:
-                            desc = m.group(1)
-                            desc = desc.replace("'", "''")
-                            q = """SELECT sha
-                                    FROM linux_upstream
-                                    WHERE description = %s"""
-                            cursor.execute(q, [desc])
-                            fsha = cursor.fetchone()
-                            if fsha:
-                                fsha = fsha[0]
-                                logging.info('  Description matches with SHA %s', fsha)
-                        # The Fixes: tag may be wrong. The sha may not be in the
-                        # upstream kernel, or the format may be completely wrong
-                        # and m.group(1) may not be a sha in the first place.
-                        # In that case, do nothing.
-                if fsha:
-                    logging.info('Commit %s fixed by %s', fsha[0:12], sha)
-
-                    # Add fixes to list to be added after linux_upstream
-                    #  table is fully contructed to avoid Foreign key errors in SQL
-                    fix_obj = Fix(_upstream_sha=fsha[0:12], _fixedby_upstream_sha=sha)
-                    fixes.append(fix_obj)
-
-                m = REVERT.search(d)
-                rsha = None
-                if m and m.group(1):
-                    try:
-                        # Normalize rsha to 12 characters
-                        cmd = 'git show -s --abbrev=12 --pretty=format:%h ' + m.group(1)
-                        rsha = subprocess.check_output(cmd.split(' '),
-                                stderr=subprocess.DEVNULL, encoding='utf-8', errors='ignore')
-                    except subprocess.CalledProcessError:
-                        pass
-                if rsha:
-                    # Deduplicate if it has set Fixes tag.
-                    if fsha is None or fsha[0:12] != rsha[0:12]:
-                        logging.info('Commit %s reverted by %s', rsha[0:12], sha)
-
-                        # Add fixes to list to be added after linux_upstream
-                        #  table is fully contructed to avoid Foreign key errors in SQL
-                        fix_obj = Fix(_upstream_sha=rsha[0:12], _fixedby_upstream_sha=sha)
-                        fixes.append(fix_obj)
+            else:
+                check_fixes(cursor, sha, fixes)
 
     for fix in fixes:
         # Update sha, fsha pairs
