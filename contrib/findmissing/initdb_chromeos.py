@@ -34,41 +34,40 @@ def update_chrome_table(branch, start, db):
         entire commit log on each run.
     Skip commit if it is contained in the linux stable db, add to linux_chrome
     """
-    subprocess.run(['git', 'checkout', '-q', common.chromeos_branch(branch)], check=True)
-    subprocess.run(['git', 'pull', '-q'], check=True)
+    logging.info('Linux chrome on branch %s', branch)
+    cursor = db.cursor()
 
+    logging.info('Pulling all the latest linux chrome commits')
+    subprocess.check_output(['git', 'checkout', common.chromeos_branch(branch)])
+    subprocess.check_output(['git', 'pull'])
+
+    logging.info('Loading all linux chrome commit logs from %s', start)
     cmd = ['git', 'log', '--abbrev=12', '--oneline', '--reverse', '%s..' % start]
     commits = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
 
-    c = db.cursor()
     last = None
-    logging.info('Parsing git logs from %s .. HEAD on branch %s',
-                 start, common.chromeos_branch(branch))
+    logging.info('Analyzing commits to build linux_chrome table.')
 
     for commit in commits.splitlines():
         if not commit:
             continue
 
         sha, description = commit.rstrip('\n').split(' ', 1)
-
-        # Always mark as handled since we don't want to look at this commit again
         last = sha
 
         # Nothing else to do if the commit is a merge
         if util.is_merge_commit(sha):
             continue
 
-        patchid = util.calc_patch_id(sha, stable=True)
-
         # Do nothing if sha is in linux_stable since we
-        #  don't want to duplicate tracking linux_stable sha's
-        q = """SELECT 1 FROM linux_stable
-                WHERE sha = %s"""
-        c.execute(q, [sha])
-        stable_found = c.fetchone()
-
-        if stable_found:
+        # don't want to duplicate tracking linux_stable sha's
+        q = """SELECT 1 FROM linux_stable WHERE sha = %s"""
+        cursor.execute(q, [sha])
+        if cursor.fetchone():
             continue
+
+        # Calculate patch ID
+        patch_id = util.calc_patch_id(sha, stable=True)
 
         usha = None
         if not CHROMIUM.match(description):
@@ -78,9 +77,9 @@ def update_chrome_table(branch, start, db):
             q = """INSERT INTO linux_chrome
                     (sha, branch, upstream_sha, patch_id, description)
                     VALUES (%s, %s, %s, %s, %s)"""
-            c.execute(q, [sha, branch, usha, patchid, description])
+            cursor.execute(q, [sha, branch, usha, patch_id, description])
             logging.info('Insert into linux_chrome %s %s %s %s %s',
-                         sha, branch, usha, patchid, description)
+                         sha, branch, usha, patch_id, description)
         except MySQLdb.Error as e: # pylint: disable=no-member
             # We'll see duplicates if the last commit handled previously was
             # the tip of a merge. In that case, all commits from the tail of
@@ -89,11 +88,11 @@ def update_chrome_table(branch, start, db):
             if e.args[0] != MySQLdb.constants.ER.DUP_ENTRY:
                 logging.error(
                     'Error inserting [%s %s %s %s %s] into linux_chrome: error %d (%s)',
-                    sha, branch, usha, patchid, description, e.args[0], e.args[1])
+                    sha, branch, usha, patch_id, description, e.args[0], e.args[1])
         except UnicodeDecodeError as e:
             logging.error(
                     'Unicode error inserting [%s %s %s %s %s] into linux_chrome: error %s',
-                    sha, branch, usha, patchid, description, e)
+                    sha, branch, usha, patch_id, description, e)
 
     # Update previous fetch database
     if last:
