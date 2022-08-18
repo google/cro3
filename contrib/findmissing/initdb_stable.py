@@ -26,41 +26,43 @@ def update_stable_table(branch, start, db):
     Also keep a reference of last parsed SHA so we don't have to index the
         entire commit log on each run.
     """
+    logging.info('Linux stable on branch %s', branch)
     cursor = db.cursor()
 
-    # Pull latest changes in repository
-    subprocess.check_output(['git', 'checkout', '-q', common.stable_branch(branch)])
-    subprocess.check_output(['git', 'pull', '-q'])
+    logging.info('Pulling all the latest linux stable commits')
+    subprocess.check_output(['git', 'checkout', common.stable_branch(branch)])
+    subprocess.check_output(['git', 'pull'])
 
+    logging.info('Loading all linux stable commit logs from %s', start)
     cmd = ['git', 'log', '--no-merges', '--abbrev=12', '--oneline',
-                 '--reverse', '%s..' % start]
+                '--reverse', '%s..' % start]
     commits = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
 
     last = None
+    logging.info('Analyzing commits to build linux_stable table.')
+
     for commit in commits.splitlines():
         if not commit:
             continue
 
         sha, description = commit.rstrip('\n').split(' ', 1)
-
-        patch_id = util.calc_patch_id(sha, stable=True)
+        last = sha
 
         # Do nothing if the sha is already in the database
-        q = """SELECT sha FROM linux_stable
-                WHERE sha = %s"""
+        q = """SELECT 1 FROM linux_stable WHERE sha = %s"""
         cursor.execute(q, [sha])
-        found = cursor.fetchone()
-        if found:
+        if cursor.fetchone():
             continue
 
-        last = sha
         usha = common.search_upstream_sha(sha)
-
         # The upstream SHA will not always exist, for example for commits
         # changing the Linux version number. Attempts to insert such commits
         # into linux_stable will fail, so ignore them.
         if usha is None:
             continue
+
+        # Calculate patch ID
+        patch_id = util.calc_patch_id(sha, stable=True)
 
         try:
             q = """INSERT INTO linux_stable
