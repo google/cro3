@@ -121,14 +121,6 @@ def cloud_sql_proxy_decorator(func):
     return cloud_sql_proxy_wrapper
 
 
-def is_merge_commit(sha):
-    """Check if the given sha in the git repo is a merge commit."""
-    # Nothing else to do if the commit is a merge
-    cmd = subprocess.check_output(['git', 'rev-list', '--parents', '-n', '1', sha],
-                                  encoding='utf-8', errors='ignore')
-    return len(cmd.split(' ')) > 2
-
-
 def calc_patch_id(sha, stable=False):
     """Calculate patch ID."""
     show = subprocess.Popen(['git', 'show', sha], stdout=subprocess.PIPE)

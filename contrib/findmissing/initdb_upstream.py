@@ -112,7 +112,8 @@ def update_upstream_table(branch, start, db):
     subprocess.check_output(['git', 'pull'])
 
     logging.info('Loading all linux-upstream commit logs from %s', start)
-    cmd = ['git', 'log', '--abbrev=12', '--oneline', '--reverse', start + '..HEAD']
+    cmd = ['git', 'log', '--no-merges', '--abbrev=12', '--oneline',
+                '--reverse', start + '..HEAD']
     commits = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
 
     fixes = []
@@ -125,10 +126,6 @@ def update_upstream_table(branch, start, db):
 
         sha, description = commit.rstrip('\n').split(' ', 1)
         last = sha
-
-        # Nothing else to do if the commit is a merge
-        if util.is_merge_commit(sha):
-            continue
 
         # Calculate patch ID
         patch_id = util.calc_patch_id(sha)

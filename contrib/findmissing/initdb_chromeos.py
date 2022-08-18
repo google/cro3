@@ -42,7 +42,8 @@ def update_chrome_table(branch, start, db):
     subprocess.check_output(['git', 'pull'])
 
     logging.info('Loading all linux chrome commit logs from %s', start)
-    cmd = ['git', 'log', '--abbrev=12', '--oneline', '--reverse', '%s..' % start]
+    cmd = ['git', 'log', '--no-merges', '--abbrev=12', '--oneline',
+                '--reverse', '%s..' % start]
     commits = subprocess.check_output(cmd, encoding='utf-8', errors='ignore')
 
     last = None
@@ -54,10 +55,6 @@ def update_chrome_table(branch, start, db):
 
         sha, description = commit.rstrip('\n').split(' ', 1)
         last = sha
-
-        # Nothing else to do if the commit is a merge
-        if util.is_merge_commit(sha):
-            continue
 
         # Do nothing if sha is in linux_stable since we
         # don't want to duplicate tracking linux_stable sha's
