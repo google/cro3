@@ -46,52 +46,54 @@ def update_chrome_table(branch, start, db):
                  start, common.chromeos_branch(branch))
 
     for commit in commits.splitlines():
-        if commit:
-            sha, description = commit.rstrip('\n').split(' ', 1)
+        if not commit:
+            continue
 
-            # Always mark as handled since we don't want to look at this commit again
-            last = sha
+        sha, description = commit.rstrip('\n').split(' ', 1)
 
-            # Nothing else to do if the commit is a merge
-            if util.is_merge_commit(sha):
-                continue
+        # Always mark as handled since we don't want to look at this commit again
+        last = sha
 
-            patchid = util.calc_patch_id(sha, stable=True)
+        # Nothing else to do if the commit is a merge
+        if util.is_merge_commit(sha):
+            continue
 
-            # Do nothing if sha is in linux_stable since we
-            #  don't want to duplicate tracking linux_stable sha's
-            q = """SELECT 1 FROM linux_stable
-                    WHERE sha = %s"""
-            c.execute(q, [sha])
-            stable_found = c.fetchone()
+        patchid = util.calc_patch_id(sha, stable=True)
 
-            if stable_found:
-                continue
+        # Do nothing if sha is in linux_stable since we
+        #  don't want to duplicate tracking linux_stable sha's
+        q = """SELECT 1 FROM linux_stable
+                WHERE sha = %s"""
+        c.execute(q, [sha])
+        stable_found = c.fetchone()
 
-            usha = None
-            if not CHROMIUM.match(description):
-                usha = common.search_upstream_sha(sha)
+        if stable_found:
+            continue
 
-            try:
-                q = """INSERT INTO linux_chrome
-                        (sha, branch, upstream_sha, patch_id, description)
-                        VALUES (%s, %s, %s, %s, %s)"""
-                c.execute(q, [sha, branch, usha, patchid, description])
-                logging.info('Insert into linux_chrome %s %s %s %s %s',
-                             sha, branch, usha, patchid, description)
-            except MySQLdb.Error as e: # pylint: disable=no-member
-                # We'll see duplicates if the last commit handled previously was
-                # the tip of a merge. In that case, all commits from the tail of
-                # that merge up to the time when it was integrated will be handled
-                # again. Let's ignore that situation.
-                if e.args[0] != MySQLdb.constants.ER.DUP_ENTRY:
-                    logging.error(
-                        'Error inserting [%s %s %s %s %s] into linux_chrome: error %d (%s)',
-                        sha, branch, usha, patchid, description, e.args[0], e.args[1])
-            except UnicodeDecodeError as e:
+        usha = None
+        if not CHROMIUM.match(description):
+            usha = common.search_upstream_sha(sha)
+
+        try:
+            q = """INSERT INTO linux_chrome
+                    (sha, branch, upstream_sha, patch_id, description)
+                    VALUES (%s, %s, %s, %s, %s)"""
+            c.execute(q, [sha, branch, usha, patchid, description])
+            logging.info('Insert into linux_chrome %s %s %s %s %s',
+                         sha, branch, usha, patchid, description)
+        except MySQLdb.Error as e: # pylint: disable=no-member
+            # We'll see duplicates if the last commit handled previously was
+            # the tip of a merge. In that case, all commits from the tail of
+            # that merge up to the time when it was integrated will be handled
+            # again. Let's ignore that situation.
+            if e.args[0] != MySQLdb.constants.ER.DUP_ENTRY:
                 logging.error(
-                        'Unicode error inserting [%s %s %s %s %s] into linux_chrome: error %s',
-                        sha, branch, usha, patchid, description, e)
+                    'Error inserting [%s %s %s %s %s] into linux_chrome: error %d (%s)',
+                    sha, branch, usha, patchid, description, e.args[0], e.args[1])
+        except UnicodeDecodeError as e:
+            logging.error(
+                    'Unicode error inserting [%s %s %s %s %s] into linux_chrome: error %s',
+                    sha, branch, usha, patchid, description, e)
 
     # Update previous fetch database
     if last:

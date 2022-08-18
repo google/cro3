@@ -120,35 +120,37 @@ def update_upstream_table(branch, start, db):
     logging.info('Analyzing upstream commits to build linux_upstream and fixes tables.')
 
     for commit in commits.splitlines():
-        if commit != '':
-            sha, description = commit.rstrip('\n').split(' ', 1)
-            last = sha
+        if not commit:
+            continue
 
-            # Nothing else to do if the commit is a merge
-            if util.is_merge_commit(sha):
-                continue
+        sha, description = commit.rstrip('\n').split(' ', 1)
+        last = sha
 
-            # Calculate patch ID
-            patch_id = util.calc_patch_id(sha)
+        # Nothing else to do if the commit is a merge
+        if util.is_merge_commit(sha):
+            continue
 
-            try:
-                q = """INSERT INTO linux_upstream
-                        (sha, description, patch_id)
-                        VALUES (%s, %s, %s)"""
-                cursor.execute(q, [sha, description, patch_id])
-                logging.info('Inserted sha %s into linux_upstream', sha)
-            except MySQLdb.Error as e: # pylint: disable=no-member
-                # Don't complain about duplicate entries; those are seen all the time
-                # due to git idiosyncrasies (non-linearity).
-                if e.args[0] != MySQLdb.constants.ER.DUP_ENTRY:
-                    logging.error(
-                        'Issue inserting sha "%s", description "%s", patch_id "%s": error %d (%s)',
-                        sha, description, patch_id, e.args[0], e.args[1])
-            except UnicodeEncodeError as e:
-                logging.error('Failed to INSERT upstream sha %s with description %s: error %s',
-                        sha, description, e)
-            else:
-                check_fixes(cursor, sha, fixes)
+        # Calculate patch ID
+        patch_id = util.calc_patch_id(sha)
+
+        try:
+            q = """INSERT INTO linux_upstream
+                    (sha, description, patch_id)
+                    VALUES (%s, %s, %s)"""
+            cursor.execute(q, [sha, description, patch_id])
+            logging.info('Inserted sha %s into linux_upstream', sha)
+        except MySQLdb.Error as e: # pylint: disable=no-member
+            # Don't complain about duplicate entries; those are seen all the time
+            # due to git idiosyncrasies (non-linearity).
+            if e.args[0] != MySQLdb.constants.ER.DUP_ENTRY:
+                logging.error(
+                    'Issue inserting sha "%s", description "%s", patch_id "%s": error %d (%s)',
+                    sha, description, patch_id, e.args[0], e.args[1])
+        except UnicodeEncodeError as e:
+            logging.error('Failed to INSERT upstream sha %s with description %s: error %s',
+                    sha, description, e)
+        else:
+            check_fixes(cursor, sha, fixes)
 
     for fix in fixes:
         # Update sha, fsha pairs

@@ -38,43 +38,45 @@ def update_stable_table(branch, start, db):
 
     last = None
     for commit in commits.splitlines():
-        if commit:
-            sha, description = commit.rstrip('\n').split(' ', 1)
+        if not commit:
+            continue
 
-            patch_id = util.calc_patch_id(sha, stable=True)
+        sha, description = commit.rstrip('\n').split(' ', 1)
 
-            # Do nothing if the sha is already in the database
-            q = """SELECT sha FROM linux_stable
-                    WHERE sha = %s"""
-            cursor.execute(q, [sha])
-            found = cursor.fetchone()
-            if found:
-                continue
+        patch_id = util.calc_patch_id(sha, stable=True)
 
-            last = sha
-            usha = common.search_upstream_sha(sha)
+        # Do nothing if the sha is already in the database
+        q = """SELECT sha FROM linux_stable
+                WHERE sha = %s"""
+        cursor.execute(q, [sha])
+        found = cursor.fetchone()
+        if found:
+            continue
 
-            # The upstream SHA will not always exist, for example for commits
-            # changing the Linux version number. Attempts to insert such commits
-            # into linux_stable will fail, so ignore them.
-            if usha is None:
-                continue
+        last = sha
+        usha = common.search_upstream_sha(sha)
 
-            try:
-                q = """INSERT INTO linux_stable
-                        (sha, branch, upstream_sha, patch_id, description)
-                        VALUES (%s, %s, %s, %s, %s)"""
-                cursor.execute(q, [sha, branch, usha, patch_id, description])
-                logging.info('Insert into linux_stable %s %s %s %s %s',
-                             sha, branch, usha, patch_id, description)
-            except MySQLdb.Error as e: # pylint: disable=no-member
-                logging.error(
-                    'Error inserting into linux_stable with values %s %s %s %s %s: error %d (%s)',
-                    sha, branch, usha, patch_id, description, e.args[0], e.args[1])
-            except UnicodeDecodeError as e:
-                logging.error(
-                    'Failed to INSERT stable sha %s with description %s: error %s',
-                    sha, description, e)
+        # The upstream SHA will not always exist, for example for commits
+        # changing the Linux version number. Attempts to insert such commits
+        # into linux_stable will fail, so ignore them.
+        if usha is None:
+            continue
+
+        try:
+            q = """INSERT INTO linux_stable
+                    (sha, branch, upstream_sha, patch_id, description)
+                    VALUES (%s, %s, %s, %s, %s)"""
+            cursor.execute(q, [sha, branch, usha, patch_id, description])
+            logging.info('Insert into linux_stable %s %s %s %s %s',
+                         sha, branch, usha, patch_id, description)
+        except MySQLdb.Error as e: # pylint: disable=no-member
+            logging.error(
+                'Error inserting into linux_stable with values %s %s %s %s %s: error %d (%s)',
+                sha, branch, usha, patch_id, description, e.args[0], e.args[1])
+        except UnicodeDecodeError as e:
+            logging.error(
+                'Failed to INSERT stable sha %s with description %s: error %s',
+                sha, description, e)
 
     # Update previous fetch database
     if last:
