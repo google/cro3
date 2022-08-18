@@ -62,10 +62,8 @@ def check_fixes(cursor, sha, fixes):
                 # In that case, try to search by commit title.
                 m = RDESC.search(d)
                 if m:
-                    desc = m.group(1)
-                    desc = desc.replace("'", "''")
                     q = """SELECT sha FROM linux_upstream WHERE description = %s"""
-                    cursor.execute(q, [desc])
+                    cursor.execute(q, [m.group(1)])
                     fsha = cursor.fetchone()
                     if fsha:
                         fsha = fsha[0]
