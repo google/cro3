@@ -270,3 +270,4 @@ disp_overlay['64d27f5d21ff'] = 'drop' # CHROMIUM: usb: dwc3: Fixup non-wakeup su
 disp_overlay['ab6e15ae5558'] = 'drop' # CHROMIUM: devfreq: Revert mediatek cci devfreq series
 disp_overlay['71074083efff'] = 'drop' # FROMLIST: arm64: dts: mediatek: add cpufreq and cci devfreq nodes for mt8183
 disp_overlay['dea547509e65'] = 'drop' # FROMLIST: dt-bindings: clock: Add resets for LPASS audio clock controller for SC7280
+disp_overlay['0a27f3bccfb4'] = 'drop' # CHROMIUM: opp: Add API for getting voltage from supplies
