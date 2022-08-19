@@ -9,9 +9,11 @@ import os
 import pathlib
 import sys
 
+
 sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve() / '../../'))
 
 from src.tools import cmd_util  # noqa: E402
+
 
 COMP_NONE = 0
 COMP_GZIP = 1
@@ -111,7 +113,11 @@ class AutotestTarballBuilder(object):
       'src/platform/tast/tools/run_tast.sh',  # Helper to run tast.
   ]
 
-  def __init__(self, archive_basedir, output_directory, chroot_path):
+  def __init__(self,
+               archive_basedir,
+               output_directory,
+               chroot_path,
+               tko_only=False):
     """Init function.
 
     Args:
@@ -121,10 +127,12 @@ class AutotestTarballBuilder(object):
       output_directory (str): The directory where the archives will be
         written.
       chroot_path (str): Path to the chroot fs.
+      tko_onky (bool): Flag to only bundle tko & required content.
     """
     self.archive_basedir = archive_basedir
     self.output_directory = output_directory
     self.chroot_path = chroot_path
+    self.tko_only = tko_only
 
   def BuildFullAutotestandTastTarball(self):
     """Tar all needed Autotest & Tast files required by Docker Container.
@@ -136,12 +144,16 @@ class AutotestTarballBuilder(object):
       str|None - The path of the autotest server package tarball if
         created.
     """
-    tast_files, transforms = self._GetTastServerFilesAndTarTransforms()
+    if not self.tko_only:
+      tast_files, transforms = self._GetTastServerFilesAndTarTransforms()
+    else:
+      tast_files, transforms = [], []
+
     autotest_files = FindFilesMatching(
         '*',
         target='autotest',
         cwd=self.archive_basedir,
-        exclude_dirs=('autotest/packages', ))
+        exclude_dirs=('autotest/packages',))
 
     tarball = os.path.join(self.output_directory,
                            self._SERVER_PACKAGE_ARCHIVE)
