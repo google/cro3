@@ -435,58 +435,17 @@ class Rebaser:
                             call_hook(sha, 'post_empty')
                             continue
                         raise e
-            else:
-                # Detect the cases, where deleted file is the only meaningful
-                # conflict
+            elif is_triage:
+                # Conflict requires manual resolution - drop and continue
+                print('Commit requires manual resolution. Dropping it for now.')
+                manual += 1
                 with sh.pushd('kernel-upstream'):
-                    status = sh.git('status', '--porcelain')
-                if 'DU' in status:
-                    status = status.split('\n')
-                    status = [line.split(' ') for line in status]
-                    # By now, we have such array:
-                    # [ ['DU', 'fs/compat_ioctl.c']
-                    #   ['M', 'fs/ioctl.c'
-                    # ]
-                    # The only case where we can help is when conflicts are within
-                    # the set (DU, M, ??, A). Check that now
-                    conf_types = {a[0] for a in status}
-                    if conf_types - set(['', '??', 'DU', 'M', 'A']) == set():
-                        # Cool, we can solve that - note the files to remove, others
-                        # should autoresolve
-                        for entry in status:
-                            if entry[0] == 'DU':
-                                with sh.pushd('kernel-upstream'):
-                                    sh.git('rm', entry[1])
-                        with sh.pushd('kernel-upstream'):
-                            try:
-                                sh.git(
-                                    '-c', 'core.editor=true', 'am', '--continue')
-                                call_hook(sha, 'post')
-                            except Exception as e: # pylint: disable=broad-except
-                                err_s = str(e)
-                                if "did you forget to use 'git add'" in err_s:
-                                    sh.git('am', '--skip')
-                                    call_hook(sha, 'post_drop')
-                                    print('Patch empty due to conflict resolution. Skip.')
-                                else:
-                                    print('git am --continue failed:')
-                                    print(e)
-                                    print('Fatal? [y/n]')
-                                    ans = input()
-                                    if ans in ['y', 'Y']:
-                                        return {}
-                        print('Applied commit by removing conflicting files.')
-                        continue
-                if is_triage:
-                    # Conflict requires manual resolution - drop and continue
-                    print('Commit requires manual resolution. Dropping it for now.')
-                    manual += 1
-                    with sh.pushd('kernel-upstream'):
-                        sh.git('am', '--abort')
-                    call_hook(sha, 'post_drop')
-                    continue
-                print(
-                    """
+                    sh.git('am', '--abort')
+                call_hook(sha, 'post_drop')
+                continue
+
+            print(
+            """
         Conflict requires manual resolution.
         Resolve it in another window, add the changes by git add, then
         type \'continue\' (c) here.
@@ -494,52 +453,52 @@ class Rebaser:
         rebase_config.py and dropped in subsequent rebases.
         Or stop the rebase altogether (while keeping the changes that
         were already made) by typing \'stop\' (s).
-        """)
-                cmd = ''
-                while cmd not in ['continue', 'drop', 'stop', 's', 'c', 'd']:
-                    cmd = input()
-                if cmd in ['continue', 'c']:
-                    # Commit the change and continue
-                    while not is_resolved('kernel-upstream'):
-                        print('Something still unresolved. Resolve and hit enter.')
-                        input()
-                    manual += 1
-                    with sh.pushd('kernel-upstream'):
-                        try:
-                            sh.git(
-                                '-c', 'core.editor=true', 'am', '--continue')
-                            call_hook(sha, 'post')
-                        except Exception as e: # pylint: disable=broad-except
-                            err_s = str(e)
-                            if "did you forget to use 'git add'" in err_s:
-                                sh.git('am', '--skip')
-                                call_hook(sha, 'post_drop')
-                                print('Patch empty due to conflict resolution. Skip.')
-                            else:
-                                print('git am --continue failed:')
-                                print(e)
-                                print('Fatal? [y/n]')
-                                ans = input()
-                                if ans in ['y', 'Y']:
-                                    return {}
-                    save_head('kernel-upstream', sha)
-                elif cmd in ['drop', 'd']:
-                    dropped += 1
-                    # Drop the commit and record as dropped in overlay
-                    with sh.pushd('kernel-upstream'):
-                        sh.git('am', '--abort')
-                    with open('rebase_config.py', 'a') as f:
-                        f.write(
-                            "disp_overlay['%s'] = '%s' # %s\n" %
-                            (sha, 'drop', subject))
-                else:
-                    print(
-                        'Stopped. %s commits dropped, %s applied cleanly, %s resolved'
-                        ' automatically, %s needing manual resolution' %
-                        (dropped, noconflicts, autoresolved, manual))
-                    with sh.pushd('kernel-upstream'):
-                        sh.git('am', '--abort')
-                    return {}
+            """)
+            cmd = ''
+            while cmd not in ['continue', 'drop', 'stop', 's', 'c', 'd']:
+                cmd = input()
+            if cmd in ['continue', 'c']:
+                # Commit the change and continue
+                while not is_resolved('kernel-upstream'):
+                    print('Something still unresolved. Resolve and hit enter.')
+                    input()
+                manual += 1
+                with sh.pushd('kernel-upstream'):
+                    try:
+                        sh.git(
+                            '-c', 'core.editor=true', 'am', '--continue')
+                        call_hook(sha, 'post')
+                    except Exception as e: # pylint: disable=broad-except
+                        err_s = str(e)
+                        if "did you forget to use 'git add'" in err_s:
+                            sh.git('am', '--skip')
+                            call_hook(sha, 'post_drop')
+                            print('Patch empty due to conflict resolution. Skip.')
+                        else:
+                            print('git am --continue failed:')
+                            print(e)
+                            print('Fatal? [y/n]')
+                            ans = input()
+                            if ans in ['y', 'Y']:
+                                return {}
+                save_head('kernel-upstream', sha)
+            elif cmd in ['drop', 'd']:
+                dropped += 1
+                # Drop the commit and record as dropped in overlay
+                with sh.pushd('kernel-upstream'):
+                    sh.git('am', '--abort')
+                with open('rebase_config.py', 'a') as f:
+                    f.write(
+                        "disp_overlay['%s'] = '%s' # %s\n" %
+                        (sha, 'drop', subject))
+            else:
+                print(
+                    'Stopped. %s commits dropped, %s applied cleanly, %s resolved'
+                    ' automatically, %s needing manual resolution' %
+                    (dropped, noconflicts, autoresolved, manual))
+                with sh.pushd('kernel-upstream'):
+                    sh.git('am', '--abort')
+                return {}
 
         # Apply global reverts
         for sha in rebase_config.global_reverts:
