@@ -86,6 +86,13 @@ topic_fixups['dts'] = [
     'dt-bindings: clock: Add support for external MCLKs for LPASS on SC7280'
 ]
 
+topic_fixups['cros_ec'] = [
+    'iio cros_ec_light_prox : Fix 5.15 merging',
+    'iio: cros_ec: Add synchronization sensor',
+    'iio: cros_ec_activity: add activity sensor driver',
+    'platform iio: cros_ec_activity: add body_detection push event'
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
