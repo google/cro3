@@ -14,8 +14,12 @@ RUN apt-get update \
       rsync \
       ssh \
       sudo \
-      unzip \
       wget
+
+# For CTS
+RUN apt-get install -y \
+      unzip \
+      openjdk-11-jdk
 
 # grab gsutil
 RUN echo \
