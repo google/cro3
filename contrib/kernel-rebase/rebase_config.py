@@ -69,10 +69,6 @@ topic_fixups['block-fs'] = [
     'verity: bring over dm-verity-chromeos.c'
 ]
 
-topic_fixups['drm'] = [
-    'dma-buf: Add an API for exporting sync files (v14)'
-]
-
 topic_fixups['media'] = [
     'FROMLIST: media: uvcvideo: Lock video streams and queues while unregistering',
     'CHROMIUM: media: intel-ipu6: copy IPU6 driver from v5.4 branch'
