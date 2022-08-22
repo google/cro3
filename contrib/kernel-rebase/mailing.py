@@ -35,10 +35,10 @@ email_text = """\
 This is an automatic notification about %s -> merge/continuous/chromeos-kernelupstream-%s
 uprev status.
 Commits in "handled automatically" column were either dropped (due to revert or upstream)
-or resolved using preexisting rerere database.
+or resolved using preexisting resolutions.
 Commits counted as "need manual resolution" were skipped for the purpose of triage.
 
-topic          | commits overall | handled automatically | need manual resolution | build
+topic          | commits overall | handled automatically | need manual resolution*| build
 ---------------+-----------------+-----------------------+------------------------+------
 """
 
@@ -78,26 +78,30 @@ class Mailing:
         """Formats statistics into an email"""
 
         mail = email_text % (self.rebase_base, self.rebase_target[1:])
-        stats = [0, 0, 0]
+        stats = [0, 0, 0, 0]
         for topic in topic_stats:
             data = topic_stats[topic]
             overall = data[0]
             auto = data[1]
             manual = data[2]
+            fixup_manual = data[3]
             stats[0] += overall
             stats[1] += auto
             stats[2] += manual
-            if data[3]:
+            stats[3] += fixup_manual
+            if data[4]:
                 build = 'OK'
             else:
                 build = 'FAIL'
-            mail += f'{topic:14} | {overall:15d} | {auto:21d} | {manual:22d} | {build}\n'
+            val = f'{manual}+{fixup_manual}'
+            mail += f'{topic:14} | {overall:15d} | {auto:21d} | {val:>22s} | {build}\n'
 
         topic = 'ALL'
         build = 'ON HOLD'
         mail += '-' * len(email_text.split('\n')[6])
         mail += '\n'
-        mail += f'{topic:14} | {stats[0]:15d} | {stats[1]:21d} | {stats[2]:22d} | {build}\n'
+        val = f'{stats[2]}+{stats[3]}'
+        mail += f'{topic:14} | {stats[0]:15d} | {stats[1]:21d} | {val:>22s} | {build}\n'
         mail += '\n'
 
         mail += upstream_prefix
@@ -112,6 +116,10 @@ class Mailing:
             mail += 'Branch %s failed to build due to:\n' % topic
             mail += topic_errors[topic]
             mail += '\n\n'
+
+        mail += '* - is a number of commmits+fixups which need manual resolution'
+        mail += '\n'
+
         return (mail, stats)
 
     def send_mail(self, subject, mail, recipients):

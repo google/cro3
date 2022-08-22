@@ -344,6 +344,7 @@ class Rebaser:
         noconflicts = 0
         autoresolved = 0
         manual = 0
+        fixup_manual = 0
 
         dispositions_with_deps = []
         for i in dispositions:
@@ -522,14 +523,15 @@ class Rebaser:
                         print('Conflict found')
                         with sh.pushd('kernel-upstream'):
                             sh.git('am', '--abort')
+                        fixup_manual += 1
                         call_hook('[nosha]', 'post_drop')
 
         print('Done. %s commits dropped, %s applied cleanly, %s resolved'
-              ' automatically, %s needing manual resolution' %
-              (dropped, noconflicts, autoresolved, manual))
+              ' automatically, %s+%s needing manual resolution' %
+              (dropped, noconflicts, autoresolved, manual, fixup_manual))
 
         return {'dropped': dropped, 'noconflicts': noconflicts,
-                'autoresolved': autoresolved, 'manual': manual}
+                'autoresolved': autoresolved, 'manual': manual, 'fixup_manual': fixup_manual}
 
     # Shorthand for rebase_multiple
     def rebase_one(self, t, is_triage=False):
@@ -587,11 +589,14 @@ def triage():
             ret['dropped'] +
             ret['noconflicts'] +
             ret['autoresolved'] +
-            ret['manual'],
+            ret['manual'] +
+            ret['fixup_manual'],
             ret['dropped'] +
-            ret['autoresolved'] +
-            ret['noconflicts'],
+            ret['noconflicts'] +
+            ret['autoresolved'],
             ret['manual'],
+            ret['fixup_manual'],
+            ret['noconflicts'],
             False]
         print('Verifying build...')
 
@@ -603,7 +608,7 @@ def triage():
 
         if ret['exit_code'] == 0:
             print('Built %s succesfully.' % topic)
-            topic_stats[topic][3] = True
+            topic_stats[topic][4] = True
         else:
             print('Error building %s:' % topic)
             if ret['error_line'] is not None:
