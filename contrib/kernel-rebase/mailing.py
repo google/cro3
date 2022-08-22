@@ -7,12 +7,15 @@
 
 """Sends triage reports"""
 
-import smtplib
-import pickle
-import sys
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from config import rebase_target, rebase_baseline_branch
+import pickle
+import smtplib
+import sys
+
+from config import rebase_baseline_branch
+from config import rebase_target
+
 
 cred_error = """\
 ERROR: cred.py file not found. Create it in and initialize login, passw
@@ -126,7 +129,8 @@ class Mailing:
         """Send mail"""
 
         try:
-            from cred import login, passw
+            from cred import login
+            from cred import passw
         except: # pylint: disable=bare-except
             print(cred_error)
             sys.exit()
