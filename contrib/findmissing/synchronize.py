@@ -10,12 +10,9 @@
    isort:skip_file
 """
 
-import contextlib
 import logging
 import os
 import subprocess
-
-import MySQLdb # pylint: disable=import-error
 
 import cloudsql_interface
 import common
@@ -107,7 +104,7 @@ def synchronize_repositories(local=False):
 
 def synchronize_databases():
     """Synchronizes the databases for upstream, stable, and chromeos."""
-    with contextlib.closing(common.connect_db()) as db:
+    with common.connect_db() as db:
         common.update_kernel_db(db, UPSTREAM_KERNEL_METADATA)
         common.update_kernel_db(db, STABLE_KERNEL_METADATA)
         common.update_kernel_db(db, CHROME_KERNEL_METADATA)
@@ -122,7 +119,7 @@ def gerrit_status_to_db_status(gerrit_status):
 
 def synchronize_fixes_tables_with_gerrit():
     """Synchronizes the state of all OPEN/ABANDONED CL's with Gerrit."""
-    with contextlib.closing(common.connect_db()) as db:
+    with common.connect_db() as db:
         c = db.cursor()
 
         # Find all OPEN/ABANDONED CL's in chrome_fixes

@@ -10,7 +10,6 @@
    isort:skip_file
 """
 
-import contextlib
 import logging
 import os
 import subprocess
@@ -535,21 +534,21 @@ def missing_patches_sync(db, kernel_metadata, sync_branch_method, limit=None):
 
 def new_missing_patches():
     """Rate limit calling create_new_fixes_in_branch."""
-    with contextlib.closing(common.connect_db()) as cloudsql_db:
+    with common.connect_db() as db:
         kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
-        missing_patches_sync(cloudsql_db, kernel_metadata, create_new_fixes_in_branch,
+        missing_patches_sync(db, kernel_metadata, create_new_fixes_in_branch,
                              NEW_CL_DAILY_LIMIT_PER_STABLE_BRANCH)
 
         kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
-        missing_patches_sync(cloudsql_db, kernel_metadata, create_new_fixes_in_branch,
+        missing_patches_sync(db, kernel_metadata, create_new_fixes_in_branch,
                              NEW_CL_DAILY_LIMIT_PER_BRANCH)
 
 
 def update_missing_patches():
     """Updates fixes table entries on regular basis."""
-    with contextlib.closing(common.connect_db()) as cloudsql_db:
+    with common.connect_db() as db:
         kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
-        missing_patches_sync(cloudsql_db, kernel_metadata, update_fixes_in_branch)
+        missing_patches_sync(db, kernel_metadata, update_fixes_in_branch)
 
         kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
-        missing_patches_sync(cloudsql_db, kernel_metadata, update_fixes_in_branch)
+        missing_patches_sync(db, kernel_metadata, update_fixes_in_branch)

@@ -10,7 +10,6 @@
    isort:skip_file
 """
 
-import contextlib
 import logging
 import subprocess
 
@@ -88,6 +87,6 @@ def update_stable_table(branch, start, db):
 
 
 if __name__ == '__main__':
-    with contextlib.closing(common.connect_db()) as cloudsql_db:
+    with common.connect_db() as cloudsql_db:
         kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
         common.update_kernel_db(cloudsql_db, kernel_metadata)

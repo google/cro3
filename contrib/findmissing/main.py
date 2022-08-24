@@ -11,7 +11,6 @@ Systems will include: Cloud Scheduler, CloudSQL, and Compute Engine
 """
 
 
-import contextlib
 import sys
 
 import cloudsql_interface
@@ -56,7 +55,7 @@ def print_rows(rows):
                row['branch'], row['kernel_sha'], row['fixedby_upstream_sha'], row['status']))
 
 
-def get_fixes_rows(cloudsql_db, fixes_table, sha_list, strict):
+def get_fixes_rows(db, fixes_table, sha_list, strict):
     """Get all table rows for provided fixes table, or for both tables if none is proviced."""
 
     if not fixes_table:
@@ -64,17 +63,16 @@ def get_fixes_rows(cloudsql_db, fixes_table, sha_list, strict):
     else:
         fixes_tables = [fixes_table]
 
-    return cloudsql_interface.get_fix_status_and_changeid(cloudsql_db, fixes_tables, sha_list,
-                                                          strict)
+    return cloudsql_interface.get_fix_status_and_changeid(db, fixes_tables, sha_list, strict)
 
 
 @util.cloud_sql_proxy_decorator
 @util.preliminary_check_decorator(False)
 def abandon_fix_cl(fixes_table, sha_list, reason, force):
     """Abandons an fix CL + updates database fix table."""
-    with contextlib.closing(common.connect_db()) as cloudsql_db:
+    with common.connect_db() as db:
         try:
-            rows = get_fixes_rows(cloudsql_db, fixes_table, sha_list, True)
+            rows = get_fixes_rows(db, fixes_table, sha_list, True)
             if not rows:
                 print('Patch identified by "%s" not found in fixes table(s)' % sha_list)
                 sys.exit(1)
@@ -97,7 +95,7 @@ def abandon_fix_cl(fixes_table, sha_list, reason, force):
                     fix_change_id = row['fix_change_id']
                     gerrit_interface.abandon_change(fix_change_id, branch, reason)
                     print('Abandoned Change %s on Gerrit with reason %s' % (fix_change_id, reason))
-                cloudsql_interface.update_change_abandoned(cloudsql_db, row['table'],
+                cloudsql_interface.update_change_abandoned(db, row['table'],
                                                            kernel_sha, fixedby_upstream_sha, reason)
                 print('Updated status to abandoned for patch %s in %s, fixed by %s' %
                       (kernel_sha, branch, fixedby_upstream_sha))
@@ -112,7 +110,7 @@ def abandon_fix_cl(fixes_table, sha_list, reason, force):
 @util.preliminary_check_decorator(False)
 def status_fix_cl(fixes_table, sha_list, reason, force): # pylint: disable=unused-argument
     """Lists status for a fix CL."""
-    with contextlib.closing(common.connect_db()) as db:
+    with common.connect_db() as db:
         rows = []
         # Remove duplicate SHAs
         sha_list = list(set(sha_list))
@@ -127,9 +125,9 @@ def status_fix_cl(fixes_table, sha_list, reason, force): # pylint: disable=unuse
 @util.preliminary_check_decorator(False)
 def restore_fix_cl(fixes_table, sha_list, reason, force):
     """Restores an abandoned change + updates database fix table."""
-    with contextlib.closing(common.connect_db()) as cloudsql_db:
+    with common.connect_db() as db:
         try:
-            rows = get_fixes_rows(cloudsql_db, fixes_table, sha_list, True)
+            rows = get_fixes_rows(db, fixes_table, sha_list, True)
             if not rows:
                 print('Patch identified by "%s" not found in fixes table(s)' % sha_list)
                 sys.exit(1)
@@ -147,7 +145,7 @@ def restore_fix_cl(fixes_table, sha_list, reason, force):
                 if fix_change_id:
                     gerrit_interface.restore_change(fix_change_id, branch, reason)
                     print('Restored Change %s on Gerrit with reason %s' % (fix_change_id, reason))
-                cloudsql_interface.update_change_restored(cloudsql_db, row['table'],
+                cloudsql_interface.update_change_restored(db, row['table'],
                                                           kernel_sha, fixedby_upstream_sha, reason)
                 print('Updated status to restored for patch %s in %s, fixed by %s'
                       % (kernel_sha, branch, fixedby_upstream_sha))
