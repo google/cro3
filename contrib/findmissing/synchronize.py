@@ -24,6 +24,12 @@ UPSTREAM_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_upstre
 STABLE_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_stable)
 CHROME_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_chrome)
 
+gerrit_to_db_status_map = {
+    'NEW': common.Status.OPEN,
+    'ABANDONED': common.Status.ABANDONED,
+    'MERGED': common.Status.MERGED,
+}
+
 def synchronize_upstream(upstream_kernel_metadata):
     """Synchronizes locally cloned repo with linux upstream remote."""
     destdir = common.get_kernel_absolute_path(upstream_kernel_metadata.path)
@@ -110,13 +116,6 @@ def synchronize_databases():
         common.update_kernel_db(db, CHROME_KERNEL_METADATA)
 
 
-def gerrit_status_to_db_status(gerrit_status):
-    """Translates gerrit status to common.Status structure."""
-    gerrit_to_db_status = {'NEW': common.Status.OPEN,
-                            'ABANDONED': common.Status.ABANDONED,
-                            'MERGED': common.Status.MERGED}
-    return gerrit_to_db_status[gerrit_status]
-
 def synchronize_fixes_tables_with_gerrit():
     """Synchronizes the state of all OPEN/ABANDONED CL's with Gerrit."""
     with common.connect_db() as db, db.cursor() as c:
@@ -137,7 +136,7 @@ def synchronize_fixes_tables_with_gerrit():
 
                 for branch, fix_change_id in rows:
                     gerrit_status = gerrit_interface.get_status(fix_change_id, branch)
-                    status = gerrit_status_to_db_status(gerrit_status)
+                    status = gerrit_to_db_status_map[gerrit_status]
                     cloudsql_interface.update_change_status(db, fixes_table, fix_change_id, status)
 
 
