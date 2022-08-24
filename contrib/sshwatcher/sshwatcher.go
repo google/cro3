@@ -87,8 +87,15 @@ func sshConnectionLoop(param hostPortPair, message chan messageType) {
 			m: fmt.Sprintf(fmtString,
 				param.host, param.port, osVersion, arcVersion),
 		}
-		err = exec.Command("ssh", fmt.Sprintf("-L%v:localhost:22", param.port), param.host,
-			sleepCommand).Run()
+		arg := []string{
+			"-o", "ConnectTimeout=5",
+			"-o", "ServerAliveCountMax=3",
+			"-o", "ServerAliveInterval=5",
+			fmt.Sprintf("-L%v:localhost:22", param.port),
+			param.host,
+			sleepCommand,
+		}
+		err = exec.Command("ssh", arg...).Run()
 		message <- messageType{
 			host: param.host,
 			m:    fmt.Sprintf("%-10v\t %-7v\t disconnected with %v", param.host, param.port, err),
