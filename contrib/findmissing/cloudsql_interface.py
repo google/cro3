@@ -25,34 +25,30 @@ def upstream_fixes_for_shas(db, upstream_shas):
     Note: above todo is blocked by migration to MySQL 5.7, once upgraded then we can switch
     """
     upstream_shas = ["\'" + sha + "\'" for sha in upstream_shas]
-    c = db.cursor()
-
     # format string here since we are inserting n elements
     q = """SELECT fixedby_upstream_sha
             FROM upstream_fixes
             WHERE upstream_sha IN ({})""".format(', '.join(upstream_shas))
-    c.execute(q)
 
-    return [a[0] for a in c.fetchall()]
+    with db.cursor() as c:
+        c.execute(q)
+        return [a[0] for a in c.fetchall()]
 
 
 def get_fixes_table_primary_key(db, fixes_table, fix_change_id):
     """Retrieves the primary keys from a fixes table using changeid."""
-    c = db.cursor(MySQLdb.cursors.DictCursor)
-
     q = """SELECT kernel_sha, fixedby_upstream_sha
             FROM {fixes_table}
             WHERE fix_change_id = %s""".format(fixes_table=fixes_table)
 
-    c.execute(q, [fix_change_id])
-    row = c.fetchone()
-    return (row['kernel_sha'], row['fixedby_upstream_sha'])
+    with db.cursor(MySQLdb.cursors.DictCursor) as c:
+        c.execute(q, [fix_change_id])
+        row = c.fetchone()
+        return (row['kernel_sha'], row['fixedby_upstream_sha'])
 
 
 def get_fix_status_and_changeid(db, fixes_tables, sha_list, strict):
     """Get branch, fix_change_id, initial_status and status for one or more rows in fixes table."""
-    c = db.cursor(MySQLdb.cursors.DictCursor)
-
     # If sha_list has only one entry, there will be only one database match.
     # Use OR in the query if this is the case.
     if len(sha_list) < 2:
@@ -74,8 +70,9 @@ def get_fix_status_and_changeid(db, fixes_tables, sha_list, strict):
         q += ' UNION '
         q += pre_q.format(fixes_table=fixes_tables.pop(0))
 
-    c.execute(q)
-    return c.fetchall()
+    with db.cursor(MySQLdb.cursors.DictCursor) as c:
+        c.execute(q)
+        return c.fetchall()
 
 
 def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha, reason=None):
@@ -83,14 +80,15 @@ def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha, r
 
     Function will only abandon rows in the table which have status OPEN or CONFLICT.
     """
-    c = db.cursor()
     q = """UPDATE {fixes_table}
             SET status = 'ABANDONED', close_time = %s, reason = %s
             WHERE kernel_sha = %s
             AND fixedby_upstream_sha = %s
             AND (status = 'OPEN' OR status = 'CONFLICT')""".format(fixes_table=fixes_table)
     close_time = common.get_current_time()
-    c.execute(q, [close_time, reason, kernel_sha, fixedby_upstream_sha])
+
+    with db.cursor() as c:
+        c.execute(q, [close_time, reason, kernel_sha, fixedby_upstream_sha])
     db.commit()
 
 
@@ -99,27 +97,28 @@ def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha, re
     rows = get_fix_status_and_changeid(db, [fixes_table], [kernel_sha, fixedby_upstream_sha], True)
     row = rows[0]
     status = 'OPEN' if row['fix_change_id'] else row['initial_status']
-
-    c = db.cursor()
     q = """UPDATE {fixes_table}
             SET status = %s, close_time = %s, reason = %s
             WHERE kernel_sha = %s
             AND fixedby_upstream_sha = %s
             AND status = 'ABANDONED'""".format(fixes_table=fixes_table)
-    c.execute(q, [status, None, reason, kernel_sha, fixedby_upstream_sha])
+
+    with db.cursor() as c:
+        c.execute(q, [status, None, reason, kernel_sha, fixedby_upstream_sha])
     db.commit()
 
 
 def update_change_merged(db, fixes_table, kernel_sha, fixedby_upstream_sha,
                             reason=DEFAULT_MERGED_REASON):
     """Updates fixes_table unique fix row to indicate fix cl has been merged."""
-    c = db.cursor()
     q = """UPDATE {fixes_table}
             SET status = 'MERGED', close_time = %s, reason = %s
             WHERE kernel_sha = %s
             AND fixedby_upstream_sha = %s""".format(fixes_table=fixes_table)
     close_time = common.get_current_time()
-    c.execute(q, [close_time, reason, kernel_sha, fixedby_upstream_sha])
+
+    with db.cursor() as c:
+        c.execute(q, [close_time, reason, kernel_sha, fixedby_upstream_sha])
     db.commit()
 
 
@@ -142,11 +141,12 @@ def update_change_status(db, fixes_table, fix_change_id, status):
 
 def update_conflict_to_open(db, fixes_table, kernel_sha, fixedby_upstream_sha, fix_change_id):
     """Updates fixes_table to represent an open change that previously resulted in conflict."""
-    c = db.cursor()
     reason = 'Patch applies cleanly after originally conflicting.'
     q = """UPDATE {fixes_table}
             SET status = 'OPEN', fix_change_id = %s, reason = %s
             WHERE kernel_sha = %s
             AND fixedby_upstream_sha = %s""".format(fixes_table=fixes_table)
-    c.execute(q, [fix_change_id, reason, kernel_sha, fixedby_upstream_sha])
+
+    with db.cursor() as c:
+        c.execute(q, [fix_change_id, reason, kernel_sha, fixedby_upstream_sha])
     db.commit()

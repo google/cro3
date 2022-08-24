@@ -31,9 +31,6 @@ NEW_CL_DAILY_LIMIT_PER_BRANCH = 2
 
 def get_subsequent_fixes(db, upstream_sha):
     """Finds all fixes that might be needed to fix the incoming commit"""
-
-    c = db.cursor()
-
     q = """
     WITH RECURSIVE sha_graph (sha, ord) AS (
       SELECT %s as sha, 1 as ord
@@ -48,8 +45,10 @@ def get_subsequent_fixes(db, upstream_sha):
     GROUP BY sha
     ORDER BY MAX(ord);
     """
-    c.execute(q, [upstream_sha])
-    return list(sum(c.fetchall(), ()))
+
+    with db.cursor() as c:
+        c.execute(q, [upstream_sha])
+        return list(sum(c.fetchall(), ()))
 
 
 def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
@@ -57,8 +56,6 @@ def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
 
     Returns sha or None if upstream sha doesn't exist downstream.
     """
-    c = db.cursor()
-
     q = """SELECT sha
             FROM {chosen_table}
             WHERE branch = %s
@@ -68,10 +65,12 @@ def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
                     FROM linux_upstream
                     WHERE sha = %s
                 ))""".format(chosen_table=chosen_table)
-    c.execute(q, [branch, upstream_sha, upstream_sha])
-    row = c.fetchone()
 
-    return row[0] if row else None
+    with db.cursor() as c:
+        c.execute(q, [branch, upstream_sha, upstream_sha])
+        row = c.fetchone()
+
+        return row[0] if row else None
 
 
 def get_change_id(db, branch, sha):
@@ -172,9 +171,6 @@ def find_duplicate(db, branch, upstream_sha):
     in chrome_fixes table using a different upstream SHA with same patch_id,
     None otherwise.
     """
-
-    c = db.cursor()
-
     # Check if the commit is already in the fixes table using a different SHA
     # (the same commit may be listed upstream under multiple SHAs).
     q = """SELECT c.kernel_sha, c.fixedby_upstream_sha, c.status
@@ -187,8 +183,9 @@ def find_duplicate(db, branch, upstream_sha):
         AND c.branch = %s
         AND l2.sha = %s"""
 
-    c.execute(q, [branch, upstream_sha])
-    return c.fetchone()
+    with db.cursor() as c:
+        c.execute(q, [branch, upstream_sha])
+        return c.fetchone()
 
 
 def insert_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
@@ -294,8 +291,6 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
     if success:
         return created_new_change
 
-    c = db.cursor()
-
     handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch=branch,
                                           full_reset=not recursion)
     # Try applying patch and get status
@@ -352,8 +347,9 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
         pass
 
     try:
-        c.execute(q, [kernel_sha, fixedby_upstream_sha, branch, entry_time,
-                        close_time, fix_change_id, initial_status, current_status, reason])
+        with db.cursor() as c:
+            c.execute(q, [kernel_sha, fixedby_upstream_sha, branch, entry_time,
+                          close_time, fix_change_id, initial_status, current_status, reason])
         logging.info('Inserted row into fixes table %s %s %s %s %s %s %s %s %s %s',
                      chosen_fixes, kernel_sha, fixedby_upstream_sha, branch,
                      entry_time, close_time, fix_change_id, initial_status, current_status, reason)
@@ -434,7 +430,6 @@ def update_fixes_in_branch(db, branch, kernel_metadata, limit):
     """Updates fix patch table row by determining if CL merged into linux_chrome."""
     del limit # unused here
 
-    c = db.cursor()
     chosen_fixes = kernel_metadata.kernel_fixes_table
 
     # Old rows to Update
@@ -452,7 +447,8 @@ def update_fixes_in_branch(db, branch, kernel_metadata, limit):
     reason = 'Patch has been applied to linux_chome'
 
     try:
-        c.execute(q, [close_time, reason, branch, branch])
+        with db.cursor() as c:
+            c.execute(q, [close_time, reason, branch, branch])
         logging.info(
             'Updating rows that have been merged into linux_chrome in table %s / branch %s',
             chosen_fixes, branch)

@@ -136,12 +136,12 @@ def patch_link(changeID):
 
 def update_previous_fetch(db, kernel, branch, last_sha):
     """Updates the previous_fetch table for a kernel branch."""
-    c = db.cursor()
     q = """UPDATE previous_fetch
             SET sha_tip = %s
             WHERE linux = %s AND branch = %s"""
-    c.execute(q, [last_sha, kernel.name, branch])
 
+    with db.cursor() as c:
+        c.execute(q, [last_sha, kernel.name, branch])
     db.commit()
 
 

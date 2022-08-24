@@ -119,9 +119,7 @@ def gerrit_status_to_db_status(gerrit_status):
 
 def synchronize_fixes_tables_with_gerrit():
     """Synchronizes the state of all OPEN/ABANDONED CL's with Gerrit."""
-    with common.connect_db() as db:
-        c = db.cursor()
-
+    with common.connect_db() as db, db.cursor() as c:
         # Find all OPEN/ABANDONED CL's in chrome_fixes
         fixes_tables = ['stable_fixes', 'chrome_fixes']
 
