@@ -123,7 +123,7 @@ def gerrit_status_to_db_status(gerrit_status):
 def synchronize_fixes_tables_with_gerrit():
     """Synchronizes the state of all OPEN/ABANDONED CL's with Gerrit."""
     with contextlib.closing(common.connect_db()) as db:
-        c = db.cursor(MySQLdb.cursors.DictCursor)
+        c = db.cursor()
 
         # Find all OPEN/ABANDONED CL's in chrome_fixes
         fixes_tables = ['stable_fixes', 'chrome_fixes']
@@ -134,18 +134,16 @@ def synchronize_fixes_tables_with_gerrit():
                     WHERE (status = 'OPEN' OR status = 'ABANDONED')
                     AND fix_change_id IS NOT NULL""".format(fixes_table=fixes_table)
             c.execute(q)
-            rows = c.fetchall()
 
-            for row in rows:
-                try:
-                    branch = row['branch']
-                    fix_change_id = row['fix_change_id']
+            while True:
+                rows = c.fetchmany(1000)
+                if not rows:
+                    break
+
+                for branch, fix_change_id in rows:
                     gerrit_status = gerrit_interface.get_status(fix_change_id, branch)
                     status = gerrit_status_to_db_status(gerrit_status)
                     cloudsql_interface.update_change_status(db, fixes_table, fix_change_id, status)
-                except KeyError as e:
-                    logging.warning('Skipping syncing change-id %s with gerrit (%s)',
-                                    fix_change_id, e)
 
 
 if __name__ == '__main__':
