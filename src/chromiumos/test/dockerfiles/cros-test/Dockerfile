@@ -66,6 +66,8 @@ requests==2.26.0\n\
 selenium==2.37.2\n\
 six==1.15.0\n\
 urllib3==1.26.7\n\
+docker==4.4.4\n\
+websocket-client==1.4.0\n\
 " > requirements_py3.txt
 RUN pip3 install -r requirements_py3.txt
 

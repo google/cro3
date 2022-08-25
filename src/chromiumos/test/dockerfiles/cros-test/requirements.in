@@ -1,3 +1,4 @@
+docker==4.4.4
 grpcio==1.31.0
 mock==3.0.5
 numpy==1.16.6
