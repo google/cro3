@@ -143,7 +143,9 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 						},
 					},
 				},
+				Critical: &wrapperspb.BoolValue{Value: false},
 			},
+			// Critical rule running on a non-critical builder.
 			{
 				TestSuites: []*testpb.TestSuite{
 					{
@@ -186,7 +188,7 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 						},
 					},
 				},
-				Critical: &wrapperspb.BoolValue{Value: false},
+				Critical: &wrapperspb.BoolValue{Value: true},
 			},
 		},
 	},
@@ -457,7 +459,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 				},
 			}),
 		},
-		Critical: bbpb.Trinary_YES,
+		Critical: bbpb.Trinary_NO,
 	}
 
 	vmBuild := &bbpb.Build{
@@ -596,7 +598,7 @@ func TestToCTP1(t *testing.T) {
 						{
 							Common: &testplans.TestSuiteCommon{
 								DisplayName: "hw.boardA.model1.suite3",
-								Critical:    wrapperspb.Bool(true),
+								Critical:    wrapperspb.Bool(false),
 							},
 							Suite:       "suite3",
 							SkylabBoard: "boardA",

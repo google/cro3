@@ -125,11 +125,11 @@ func sortedValuesFromMap[V any](m map[string]V) []V {
 
 // Chooses a program from the options in programs to test. The choice is
 // determined by:
-// 1. Choose a program with a critial completed build. If there are multiple
+// 1. Choose a program with a critical completed build. If there are multiple
 // programs, choose with prioritySelector.
 //
-// 2. Choose a program with a non-critial completed build. If there are multiple
-// programs, choose with prioritySelector.
+// 2. Choose a program with a non-critical completed build. If there are
+// multiple programs, choose with prioritySelector.
 //
 // 3. Choose a program with prioritySelector.
 func chooseProgramToTest(
@@ -492,14 +492,27 @@ func coverageRuleToSuiteInfo(
 		licenses = append(licenses, licence)
 	}
 
-	// TODO(b/241789334): Figure out how to handle criticality when a critical
-	// rule gets run on a non-critical program.
-	var critical bool
-	if rule.Critical == nil {
-		critical = true
-	} else {
-		critical = rule.GetCritical().GetValue()
+	ruleCritical := true
+	if rule.Critical != nil {
+		ruleCritical = rule.GetCritical().GetValue()
 	}
+
+	var buildTarget string
+	if len(boardVariant) > 0 {
+		buildTarget = fmt.Sprintf("%s-%s", chosenProgram, boardVariant)
+	} else {
+		buildTarget = chosenProgram
+	}
+
+	programCritical := true
+	buildInfo, found := buildTargetToBuildInfo[buildTarget]
+	if found && buildInfo.criticality != bbpb.Trinary_YES {
+		programCritical = false
+	}
+
+	// The rule and program must both be critical in order for it to be blocking
+	// in CQ.
+	critical := ruleCritical && programCritical
 
 	var suiteInfos []*suiteInfo
 	for _, suite := range rule.GetTestSuites() {
