@@ -5,7 +5,6 @@
 package dut
 
 import (
-	"bufio"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/klauspost/readahead"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
 
@@ -84,22 +84,30 @@ func (req *Request) openObject(ctx context.Context, client *storage.Client, rw *
 	}
 	rw.SetTotal(rd.Attrs.Size)
 
-	brd := io.TeeReader(bufio.NewReaderSize(rd, 1<<20), rw)
-
-	if !decompress {
-		return brd, func() error { return rd.Close() }, nil
-	}
-
-	gzRd, err := gzip.NewReader(brd)
+	aheadRd, err := readahead.NewReadCloserSize(rd, 4, 1<<20)
 	if err != nil {
 		rd.Close()
-		return nil, nil, fmt.Errorf("gzip.NewReader for %s failed: %w", misc.GsURI(obj), err)
+		return nil, nil, fmt.Errorf(
+			"readahead.NewReadCloserSize for %s failed: %w", misc.GsURI(obj), err)
+	}
+
+	brd := io.TeeReader(aheadRd, rw)
+
+	var gzRd io.ReadCloser
+	if decompress {
+		gzRd, err = gzip.NewReader(brd)
+		if err != nil {
+			rd.Close()
+			return nil, nil, fmt.Errorf("gzip.NewReader for %s failed: %w", misc.GsURI(obj), err)
+		}
+	} else {
+		gzRd = io.NopCloser(brd)
 	}
 
 	return gzRd,
 		func() error {
 			gzRd.Close()
-			return rd.Close()
+			return aheadRd.Close()
 		},
 		nil
 }
