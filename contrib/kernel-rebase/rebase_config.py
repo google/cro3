@@ -286,3 +286,4 @@ disp_overlay['60402d644886'] = 'drop' # FROMLIST: media: uvcvideo: Add LIMITED_P
 disp_overlay['74c5e6509147'] = 'drop' # CHROMIUM: media: uvcvideo: Keep original control value for powerline
 disp_overlay['558c27830ce5'] = 'drop' # CHROMIUM: media: uvcvideo: Revert all the powerline changes
 disp_overlay['81c356de527c'] = 'drop' # FROMLIST: dt-binding: mediatek: Get rid of mediatek, larb for multimedia HW
+disp_overlay['5b887c2c06e7'] = 'drop' # FROMLIST: devfreq: mediatek: cci devfreq register opp notification for SVS support
