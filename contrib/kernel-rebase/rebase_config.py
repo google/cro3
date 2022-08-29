@@ -287,3 +287,6 @@ disp_overlay['74c5e6509147'] = 'drop' # CHROMIUM: media: uvcvideo: Keep original
 disp_overlay['558c27830ce5'] = 'drop' # CHROMIUM: media: uvcvideo: Revert all the powerline changes
 disp_overlay['81c356de527c'] = 'drop' # FROMLIST: dt-binding: mediatek: Get rid of mediatek, larb for multimedia HW
 disp_overlay['5b887c2c06e7'] = 'drop' # FROMLIST: devfreq: mediatek: cci devfreq register opp notification for SVS support
+disp_overlay['cea3027781ee'] = 'drop' # CHROMIUM: net: xt_qtaguid: Make the match/check functions userns-aware
+disp_overlay['f4370ef58dae'] = 'drop' # BACKPORT: FROMGIT: ANDROID: xt_qtaguid: Remove tag_entry from process list on untag
+disp_overlay['56fdd9cd9158'] = 'drop' # BACKPORT: FROMGIT: ANDROID: xt_qtaguid: fix UAF race
