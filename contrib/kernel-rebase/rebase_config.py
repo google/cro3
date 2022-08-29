@@ -285,3 +285,4 @@ disp_overlay['eb12ac60ee13'] = 'drop' # FROMLIST: media: uvcvideo: Add LIMITED_P
 disp_overlay['60402d644886'] = 'drop' # FROMLIST: media: uvcvideo: Add LIMITED_POWERLINE quirks for Acer EasyCamera
 disp_overlay['74c5e6509147'] = 'drop' # CHROMIUM: media: uvcvideo: Keep original control value for powerline
 disp_overlay['558c27830ce5'] = 'drop' # CHROMIUM: media: uvcvideo: Revert all the powerline changes
+disp_overlay['81c356de527c'] = 'drop' # FROMLIST: dt-binding: mediatek: Get rid of mediatek, larb for multimedia HW
