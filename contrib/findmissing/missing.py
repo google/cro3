@@ -380,19 +380,18 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
         2) Detect if the fix has been applied to linux_chrome externally
             (i.e not merging through a fix created by this robot)
     """
-    c = db.cursor()
     fixes_table = kernel_metadata.kernel_fixes_table
-
     q = """SELECT kernel_sha, fixedby_upstream_sha, status, fix_change_id
             FROM {fixes_table}
             WHERE status != 'MERGED'
             AND branch = %s""".format(fixes_table=fixes_table)
-    c.execute(q, [branch])
-    rows = c.fetchall()
     handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch)
-    for row in rows:
-        kernel_sha, fixedby_upstream_sha, status, fix_change_id = row
 
+    with db.cursor() as c:
+        c.execute(q, [branch])
+        rows = c.fetchall()
+
+    for kernel_sha, fixedby_upstream_sha, status, fix_change_id in rows:
         new_status_enum = handler.cherrypick_status(fixedby_upstream_sha,
                                                     apply=status != 'ABANDONED')
         if not new_status_enum:
