@@ -65,20 +65,27 @@ func DetectArch(c *ssh.Client) (string, error) {
 // PushCompressedExecutable pushes a compressed executable to c's remote host.
 // The path of the pushed executable is returned.
 func PushCompressedExecutable(ctx context.Context, c *ssh.Client, b []byte) (string, error) {
-	if _, err := c.RunSimpleOutput("mount -o remount,exec /tmp"); err != nil {
-		return "", err
-	}
-
 	tempDir, err := c.RunSimpleOutput("mktemp --directory --tmpdir=/tmp dut-agent.XXXXXXXXXX")
 	if err != nil {
 		return "", err
 	}
 	tempDir = strings.TrimSuffix(tempDir, "\n")
-	agentPath := path.Join(tempDir, "dut-agent")
 
-	if _, err := c.RunSimpleOutput("mount -t tmpfs -o rw,exec,mode=700 dut-agent " + tempDir); err != nil {
-		panic(err)
+	// Create an in-memory filesystem to put the dut-agent executable
+	// A in-memory device file is used instead of tmpfs to workaround LSM restrictions
+	// https://crrev.com/c/3834992
+	devicePath := path.Join(tempDir, "device")
+	if _, err := c.RunSimpleOutput("fallocate --length=32M " + devicePath); err != nil {
+		return "", err
 	}
+	if _, err := c.RunSimpleOutput("mkfs.ext4 " + devicePath); err != nil {
+		return "", err
+	}
+	if _, err := c.RunSimpleOutput(fmt.Sprintf("mount %s %s", devicePath, tempDir)); err != nil {
+		return "", err
+	}
+
+	agentPath := path.Join(tempDir, "dut-agent")
 
 	session, err := c.NewSession()
 	if err != nil {
