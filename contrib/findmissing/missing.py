@@ -147,6 +147,7 @@ def get_change_id(db, target_branch, sha):
 
         if change_id_cand in reject_list:
             change_id_cand = None
+            status_cand = None
 
     reject = status_cand == gerrit_interface.GerritStatus.ABANDONED and bool(reject_list)
     logging.info('Returning Change-Id %s, reject=%s', change_id_cand, reject)
