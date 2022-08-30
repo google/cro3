@@ -152,11 +152,10 @@ def get_change_id(db, branch, sha):
                 if not change_id or gerrit_status != gerrit_interface.GerritStatus.ABANDONED:
                     change_id = stable_change_id
                     status = gerrit_status
+                if status != gerrit_interface.GerritStatus.ABANDONED:
+                    break
             except requests.exceptions.HTTPError:
                 pass
-
-        if status and status != gerrit_interface.GerritStatus.ABANDONED:
-            break
 
         if change_id in reject_list:
             change_id = None
