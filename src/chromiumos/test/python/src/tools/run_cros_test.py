@@ -7,6 +7,7 @@
 """Run test service in the built container, mounting relevant dirs."""
 
 import argparse
+import json
 import os
 import pathlib
 import shutil
@@ -15,10 +16,9 @@ import sys
 import tempfile
 
 from google.protobuf.json_format import MessageToJson
-from typing import List
 
 # Used to import the proto stack.
-sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve()/'../../../../../../../../config/python'))
+sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve() / '../../../../../../../../config/python'))
 import chromiumos.test.lab.api.dut_pb2 as lab_protos
 import chromiumos.test.lab.api.ip_endpoint_pb2 as IpEndpoint
 import chromiumos.test.api.cros_test_cli_pb2 as cros_test_request
@@ -30,7 +30,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 
 TARGET = '/usr/local/cros-test/input/request.jsonproto'
 RESULT_LOC = 'cros-test_result.jsonproto'
-DEFAULT_IMAGE = 'kevin-postsubmit.R103-14709.0.0-63941-8816609403930587377'
+DEFAULT_BOARD = 'kevin'
 
 
 def parse_local_arguments() -> argparse.Namespace:
@@ -44,8 +44,16 @@ def parse_local_arguments() -> argparse.Namespace:
       description='CLI launch the given docker image & start Testservice.')
   parser.add_argument('-image',
                       dest='image',
-                      default=DEFAULT_IMAGE,
+                      default=None,
                       help='the docker build to use')
+  parser.add_argument('-board',
+                      dest='board',
+                      default=DEFAULT_BOARD,
+                      help='the board to use to find docker images'
+                           '(best attempt will be made, but image not '
+                           f'garunteed. Will default to {DEFAULT_BOARD} if '
+                           'given cannot be found). '
+                           ' Use -image for exact image #')
   parser.add_argument('-results',
                       dest='results',
                       default=('/tmp/results/CFTtest/'),
@@ -63,9 +71,39 @@ def parse_local_arguments() -> argparse.Namespace:
                       default='localhost:2222',
                       help='hostname of dut.')
 
-
   args = parser.parse_args()
   return args
+
+
+def find_image(board=DEFAULT_BOARD) -> str:
+  """Attempt to find an image for the given board.
+
+  If no image is found for said board, use the default board."""
+  default_tag = ""
+  print(f'Try to get cros-test image for board {board}')
+  cmd = ('gcloud container images list-tags us-docker.pkg.dev/cros-registry/'
+         'test-services/cros-test --filter="tags:(release)" --format=json '
+         '--limit 200')
+  f = _run(cmd)
+
+  j_obj = json.loads(f)
+  for item in j_obj:
+    for t in item['tags']:
+      if f'{board}-release' in t:
+        print('found image {}'.format(t))
+        return t
+      # If the default is found, store it incase the given is not found.
+      if board != DEFAULT_BOARD and not default_tag:
+        if f'{DEFAULT_BOARD}-release' in t:
+          default_tag = t
+
+  if default_tag:
+    print(f'Could not find image for board {board}, using default board: '
+          f'{DEFAULT_BOARD}. Image {default_tag}')
+    return default_tag
+  else:
+    raise Exception(f'No image found for board {board} (or default '
+                    f'{DEFAULT_BOARD}), try another board or specify image.')
 
 
 def _run(cmd: str) -> str:
@@ -84,6 +122,7 @@ class CrosTestCaller(object):
 
   def __init__(self,
                args: argparse.Namespace,
+               image: str,
                ):
     """Param f (str): shadow_config.json file name."""
 
@@ -92,6 +131,7 @@ class CrosTestCaller(object):
     self.test_request = args.tests.split(',')
     self.harness = args.harness
     self.dutAddr = args.host
+    self.image = image
     self.requestjson = self.build_requestjson()
     self.resultsDir = args.results
     self.prep()
@@ -125,7 +165,7 @@ class CrosTestCaller(object):
       wf.write(MessageToJson(self.requestjson))
 
     self.image = ('us-docker.pkg.dev/cros-registry/test-services/cros-test:'
-                  f'{self.args.image}')
+                  f'{self.image}')
 
   def run_in_background(self) -> None:
     """Add flag to run the docker command in the background (no stdout)."""
@@ -177,14 +217,16 @@ class CrosTestCaller(object):
 
 
 def main() -> None:
-
   args = parse_local_arguments()
-  f = CrosTestCaller(args)
+  image = args.image
+  if not image:
+    image = find_image(args.board)
+  f = CrosTestCaller(args, image)
   f.make_docker_cmd()
   print(f.cmd)
   child = subprocess.Popen(f.cmd, stdout=subprocess.PIPE,
                            shell=True)  # noqa: E126
-  stdout, err = child.communicate()
+  _, err = child.communicate()
   if child.returncode == 0:
     print('===============Test Passed===============')
   else:
