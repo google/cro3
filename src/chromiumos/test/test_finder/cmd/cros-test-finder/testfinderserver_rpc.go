@@ -43,7 +43,7 @@ func NewServer(logger *log.Logger, metadatadir string) (*grpc.Server, func()) {
 
 // FindTests calls the innerMain (test-finder flow) in main.
 func (s *TestFinderServiceServer) FindTests(ctx context.Context, req *api.CrosTestFinderRequest) (*api.CrosTestFinderResponse, error) {
-	s.logger.Println("Received api.CacheRequest: ", *req)
+	s.logger.Println("Received api.CacheRequest: ", req)
 
 	rspn, err := innerMain(s.logger, req, s.metadatadir)
 	if err != nil {

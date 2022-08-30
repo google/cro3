@@ -91,7 +91,7 @@ func newInventoryServer(l net.Listener, logger *log.Logger, options *Options) (*
 }
 
 func (s *InventoryServer) GetDutTopology(req *api.GetDutTopologyRequest, stream api.InventoryService_GetDutTopologyServer) error {
-	s.logger.Println("Received api.GetDutTopology: ", *req)
+	s.logger.Println("Received api.GetDutTopology: ", req)
 	return stream.Send(&api.GetDutTopologyResponse{
 		Result: &api.GetDutTopologyResponse_Success_{
 			Success: &api.GetDutTopologyResponse_Success{

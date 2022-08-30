@@ -62,7 +62,7 @@ func (ps *ProvisionServer) Start() error {
 }
 
 func (sp *ProvisionServer) Install(ctx context.Context, req *api.InstallRequest) (*longrunning.Operation, error) {
-	sp.options.Log.Println("Received api.InstallCrosRequest: ", *req)
+	sp.options.Log.Println("Received api.InstallCrosRequest: ", req)
 	op := sp.manager.NewOperation()
 	response := api.InstallResponse{}
 
@@ -78,7 +78,7 @@ func (sp *ProvisionServer) Install(ctx context.Context, req *api.InstallRequest)
 // installCros installs a specified version of Chrome OS on the DUT, along
 // with any specified DLCs.
 func (ps *ProvisionServer) installCros(ctx context.Context, req *api.InstallRequest) (api.InstallResponse_Status, error) {
-	ps.options.Log.Println("Received api.InstallRequest: ", *req)
+	ps.options.Log.Println("Received api.InstallRequest: ", req)
 	fs, err := ps.executor.GetFirstState(ps.options.Dut, ps.dutClient, req)
 	if err != nil {
 		return api.InstallResponse_STATUS_INVALID_REQUEST, err

@@ -756,7 +756,7 @@ func TestFirmwareProvisioningSSHStates(t *testing.T) {
 		if pd_ro {
 			FirmwareConfig.PdRoPayload = fakePayload
 		}
-		fmt.Printf("FirmwareConfig %#v \n", FirmwareConfig)
+		fmt.Printf("FirmwareConfig %#v \n", &FirmwareConfig)
 
 		return &api.InstallFirmwareRequest{FirmwareConfig: &FirmwareConfig}
 	}

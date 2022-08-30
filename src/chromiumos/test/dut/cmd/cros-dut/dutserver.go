@@ -83,7 +83,7 @@ func (s *DutServiceServer) Close() {
 
 // ExecCommand remotely executes a command on the DUT.
 func (s *DutServiceServer) ExecCommand(req *api.ExecCommandRequest, stream api.DutService_ExecCommandServer) error {
-	s.logger.Println("Received api.ExecCommandRequest: ", *req)
+	s.logger.Println("Received api.ExecCommandRequest: ", req)
 
 	command := req.Command + " " + strings.Join(req.Args, " ")
 
@@ -104,7 +104,7 @@ func (s *DutServiceServer) ExecCommand(req *api.ExecCommandRequest, stream api.D
 
 // FetchCrashes remotely fetches crashes from the DUT.
 func (s *DutServiceServer) FetchCrashes(req *api.FetchCrashesRequest, stream api.DutService_FetchCrashesServer) error {
-	s.logger.Println("Received api.FetchCrashesRequest: ", *req)
+	s.logger.Println("Received api.FetchCrashesRequest: ", req)
 	if exists, stderr, err := s.runCmdOutput(dutssh.PathExistsCommand(s.serializerPath)); err != nil {
 		return status.Errorf(codes.FailedPrecondition, "Failed to check crash_serializer existence: %s", stderr)
 	} else if exists != "1" {
@@ -158,7 +158,7 @@ func (s *DutServiceServer) FetchCrashes(req *api.FetchCrashesRequest, stream api
 
 // Restart is a special case of ExecCommand which restarts the DUT and reconnects
 func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.RestartRequest: ", *req)
+	s.logger.Println("Received api.RestartRequest: ", req)
 	op := s.manager.NewOperation()
 
 	command := "reboot " + strings.Join(req.Args, " ")
@@ -221,7 +221,7 @@ func (s *DutServiceServer) DetectDeviceConfigId(
 
 // Cache downloads a specified file to the DUT via CacheForDut service
 func (s *DutServiceServer) Cache(ctx context.Context, req *api.CacheRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.CacheRequest: ", *req)
+	s.logger.Println("Received api.CacheRequest: ", req)
 	op := s.manager.NewOperation()
 
 	command := "curl --keepalive-time 20 -S -s -v -# -C - --retry 3 --retry-delay 60"
@@ -358,7 +358,7 @@ func parseGSURL(gsURL string) (string, error) {
 
 // ForceReconnect attempts to reconnect to the DUT
 func (s *DutServiceServer) ForceReconnect(ctx context.Context, req *api.ForceReconnectRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.ForceReconnectRequest: ", *req)
+	s.logger.Println("Received api.ForceReconnectRequest: ", req)
 
 	op := s.manager.NewOperation()
 

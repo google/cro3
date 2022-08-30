@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/google/go-cmp/cmp"
 	"go.chromium.org/chromiumos/config/go/test/api"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestReadInput(t *testing.T) {
@@ -63,8 +63,9 @@ func TestReadInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read input file %v: %v", fn, err)
 	}
-	if diff := cmp.Diff(req, expReq, cmp.AllowUnexported(api.CrosTestRequest{})); diff != "" {
-		t.Errorf("Got unexpected request from readInput (-got +want):\n%s", diff)
+
+	if !proto.Equal(req, expReq) {
+		t.Errorf("Got unexpected request from readInput (-got +want):\n%v\n--\n%v\n", req, expReq)
 	}
 }
 
@@ -102,8 +103,9 @@ func TestWriteOutput(t *testing.T) {
 	if err := jsonpb.Unmarshal(f, &rspn); err != nil {
 		t.Fatalf("Failed to unmarshall data from file %v: %v", fn, err)
 	}
-	if diff := cmp.Diff(rspn, expectedRspn, cmp.AllowUnexported(api.CrosTestFinderResponse{})); diff != "" {
-		t.Errorf("Got unexpected data from writeOutput (-got +want):\n%s", diff)
+
+	if !proto.Equal(&rspn, &expectedRspn) {
+		t.Errorf("Got unexpected reports(-got +want):\n%v\n--\n%v\n", &rspn, &expectedRspn)
 	}
 }
 
@@ -242,8 +244,8 @@ func TestMetadataToTestSuite(t *testing.T) {
 		},
 	}
 	suites := metadataToTestSuite("test_suite", mdList)
-	if diff := cmp.Diff(suites, &expected, cmp.AllowUnexported(api.TestSuite{})); diff != "" {
-		t.Errorf("Got unexpected test suite from metadataToTestSuite (-got +want):\n%s", diff)
-	}
 
+	if !proto.Equal(suites, &expected) {
+		t.Errorf("Got unexpected test suite from metadataToTestSuite (-got +want):\n%v\n--\n%v\n", suites, &expected)
+	}
 }

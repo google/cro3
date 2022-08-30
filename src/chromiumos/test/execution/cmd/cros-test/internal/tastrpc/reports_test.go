@@ -11,13 +11,10 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	"chromiumos/tast/framework/protocol"
 )
@@ -237,17 +234,15 @@ func TestReportsServer_ReportResult(t *testing.T) {
 			t.Fatal("Encountered errors at ReportResult: ", reportErrors)
 		}
 		reports := reportsServer.TestsReports()
-		cmpOptIgnoreUnexportedDuration := cmpopts.IgnoreUnexported(duration.Duration{})
-		cmpOptIgnoreUnexportedTimeStamp := cmpopts.IgnoreUnexported(timestamp.Timestamp{})
-		if diff := cmp.Diff(reports[i], expectedReports[i],
-			cmpOptIgnoreUnexportedDuration, cmpOptIgnoreUnexportedTimeStamp); diff != "" {
-			t.Errorf("Got unexpected report from test %q (-got +want):\n%s", expectedReports[i].TestCaseId.Value, diff)
+		if !proto.Equal(reports[i], expectedReports[i]) {
+			t.Errorf("Got unexpected report from test %q (-got +want):\n%v\n--\n%v\n", expectedReports[i].TestCaseId.Value, reports[i], expectedReports[i])
 		}
 	}
 
 	// Testing for missing reports.
 	missingReports := reportsServer.MissingTestsReports("Test did not run")
-	if diff := cmp.Diff(missingReports, expectedMissingReports); diff != "" {
-		t.Errorf("Got unexpected missing reports (-got +want):\n%s", diff)
+
+	if !proto.Equal(missingReports[0], expectedMissingReports[0]) {
+		t.Errorf("unexpected test results for 'pass' (-got +want):\n%v\n--\n%v\n", missingReports[0], expectedMissingReports[0])
 	}
 }

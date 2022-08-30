@@ -13,10 +13,10 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/google/go-cmp/cmp"
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	labapi "go.chromium.org/chromiumos/config/go/test/lab/api"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestReadInput(t *testing.T) {
@@ -90,8 +90,8 @@ func TestReadInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read input file %v: %v", fn, err)
 	}
-	if diff := cmp.Diff(req, expReq, cmp.AllowUnexported(api.CrosTestRequest{})); diff != "" {
-		t.Errorf("Got unexpected request from readInput (-got +want):\n%s", diff)
+	if !proto.Equal(req, expReq) {
+		t.Errorf("Got unexpected request from readInput (-got +want):\n%v\n--\n%v\n", req, expReq)
 	}
 }
 
@@ -148,8 +148,8 @@ func TestWriteOutput(t *testing.T) {
 	if err := jsonpb.Unmarshal(f, &rspn); err != nil {
 		t.Fatalf("Failed to unmarshall data from file %v: %v", fn, err)
 	}
-	if diff := cmp.Diff(rspn, expectedRspn, cmp.AllowUnexported(api.CrosTestResponse{})); diff != "" {
-		t.Errorf("Got unexpected data from writeOutput (-got +want):\n%s", diff)
+	if !proto.Equal(&rspn, &expectedRspn) {
+		t.Errorf("Got unexpected reports(-got +want):\n%v\n--\n%v\n", &rspn, &expectedRspn)
 	}
 }
 
@@ -238,8 +238,10 @@ func TestDriverToTestsMapping(t *testing.T) {
 		default:
 			t.Fatal("Unexpected driver type returned from driverToTestsMapping: ", d.Name())
 		}
-		if diff := cmp.Diff(ts, expected); diff != "" {
-			t.Errorf("Got unexpected data from driverToTestsMapping (-got +want):\n%s", diff)
+		for i := 0; i < len(ts); i++ {
+			if !proto.Equal(ts[i], expected[i]) {
+				t.Errorf("Got unexpected request from driverToTestsMapping (-got +want):\n%v\n--\n%v\n", ts[i], expected[i])
+			}
 		}
 	}
 	if !hasTast {

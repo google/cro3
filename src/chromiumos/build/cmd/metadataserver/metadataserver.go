@@ -32,7 +32,7 @@ func newMetadataServer(l net.Listener, logger *log.Logger) (*grpc.Server, error)
 
 func (s *MetadataServer) GetDeviceConfig(ctx context.Context,
 	req *api.GetDeviceConfigRequest) (*api.GetDeviceConfigResponse, error) {
-	s.logger.Println("Received api.GetDeviceConfig: ", *req)
+	s.logger.Println("Received api.GetDeviceConfig: ", req)
 	s.logger.Println("TODO(shapiroc): implement")
 	return &api.GetDeviceConfigResponse{}, nil
 }

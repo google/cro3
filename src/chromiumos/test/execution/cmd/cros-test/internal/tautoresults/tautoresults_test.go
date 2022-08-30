@@ -10,18 +10,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/golang/protobuf/ptypes"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 // TestTestsReports verify results can be parsed and returned in the expected fmt.
@@ -149,11 +145,12 @@ func TestTestsReports(t *testing.T) {
 		t.Fatal("Got error from unexpected: ", err)
 	}
 
-	cmpOptIgnoreUnexportedDuration := cmpopts.IgnoreUnexported(duration.Duration{})
-	cmpOptIgnoreUnexportedTimeStamp := cmpopts.IgnoreUnexported(timestamp.Timestamp{})
-	if diff := cmp.Diff(reports, expectedResults, cmpOptIgnoreUnexportedDuration, cmpOptIgnoreUnexportedTimeStamp); diff != "" {
-		t.Errorf("Got unexpected reports (-got +want):\n%s", diff)
+	for i := 0; i < len(reports); i++ {
+		if !proto.Equal(reports[i], expectedResults[i]) {
+			t.Errorf("Got unexpected reports(-got +want):\n%v\n--\n%v\n", reports, expectedResults)
+		}
 	}
+
 }
 
 // TestTestsReports_BadJson verify results will be returned as missing if there is no/invalid json.
@@ -194,8 +191,10 @@ func TestTestsReports_BadJson(t *testing.T) {
 
 	reports, _ := TestsReports(resultsDir, tests, testNamesToIds, missingReason)
 
-	if diff := cmp.Diff(reports, expectedResults); diff != "" {
-		t.Errorf("Got unexpected missing reports (-got +want):\n%s", diff)
+	for i := 0; i < len(reports); i++ {
+		if !proto.Equal(reports[i], expectedResults[i]) {
+			t.Errorf("Got unexpected reports(-got +want):\n%v\n--\n%v\n", reports, expectedResults)
+		}
 	}
 
 }

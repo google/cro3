@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.chromium.org/chromiumos/config/go/test/api"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -528,8 +528,8 @@ func TestBuiltTestCaseResultsPass(t *testing.T) {
 
 	actualResult := buildTestCaseResults(tcID, result)
 
-	if diff := cmp.Diff(actualResult, expectedResult, cmpopts.IgnoreUnexported(timestamppb.Timestamp{}, durationpb.Duration{})); diff != "" {
-		t.Errorf("unexpected test results for 'pass' (-got +want):\n%s\n%v\n--\n%v\n", diff, actualResult, expectedResult)
+	if !proto.Equal(actualResult, expectedResult) {
+		t.Errorf("unexpected test results for 'pass' (-got +want):\n%v\n--\n%v\n", actualResult, expectedResult)
 	}
 }
 
@@ -556,8 +556,8 @@ func TestBuiltTestCaseResultsFailSingleReason(t *testing.T) {
 
 	actualResult := buildTestCaseResults(tcID, result)
 
-	if diff := cmp.Diff(actualResult, expectedResult, cmpopts.IgnoreUnexported(timestamppb.Timestamp{}, durationpb.Duration{})); diff != "" {
-		t.Errorf("unexpected test results for 'pass' (-got +want):\n%s\n%v\n--\n%v\n", diff, actualResult, expectedResult)
+	if !proto.Equal(actualResult, expectedResult) {
+		t.Errorf("unexpected test results for 'pass' (-got +want):\n%v\n--\n%v\n", actualResult, expectedResult)
 	}
 }
 
@@ -585,7 +585,7 @@ func TestBuiltTestCaseResultsFailMultipleReason(t *testing.T) {
 
 	actualResult := buildTestCaseResults(tcID, result)
 
-	if diff := cmp.Diff(actualResult, expectedResult, cmpopts.IgnoreUnexported(timestamppb.Timestamp{}, durationpb.Duration{})); diff != "" {
-		t.Errorf("unexpected test results for 'pass' (-got +want):\n%s\n%v\n--\n%v\n", diff, actualResult, expectedResult)
+	if !proto.Equal(actualResult, expectedResult) {
+		t.Errorf("unexpected test results for 'pass' (-got +want):\n%v\n--\n%v\n", actualResult, expectedResult)
 	}
 }

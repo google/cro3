@@ -13,7 +13,6 @@ import (
 	"path"
 	"regexp"
 
-	protov1 "github.com/golang/protobuf/proto"
 	conf "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
@@ -81,12 +80,12 @@ func (c *LaCrOSService) CleanupOnFailure(states []common_utils.ServiceState, exe
 }
 
 // unpackMetadata unpacks the Any metadata field into CrOSProvisionMetadata
-func unpackMetadata(req *api.InstallRequest) (api.LaCrOSProvisionMetadata, error) {
+func unpackMetadata(req *api.InstallRequest) (*api.LaCrOSProvisionMetadata, error) {
 	m := api.LaCrOSProvisionMetadata{}
-	if err := req.Metadata.UnmarshalTo(protov1.MessageV2(m)); err != nil {
-		return m, fmt.Errorf("improperly formatted input proto metadata, %s", err)
+	if err := req.Metadata.UnmarshalTo(&m); err != nil {
+		return &m, fmt.Errorf("improperly formatted input proto metadata, %s", err)
 	}
-	return m, nil
+	return &m, nil
 }
 
 /*

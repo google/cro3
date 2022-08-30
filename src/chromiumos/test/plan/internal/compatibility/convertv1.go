@@ -367,7 +367,7 @@ func (si *suiteInfo) getBuildTarget() string {
 //
 // See https://chromium.googlesource.com/chromiumos/platform/tast/+/HEAD/docs/running_tests.md
 // for a description of Tast expressions.
-func tagCriteriaToTastExpr(criteria testpb.TestSuite_TestCaseTagCriteria) string {
+func tagCriteriaToTastExpr(criteria *testpb.TestSuite_TestCaseTagCriteria) string {
 	attributes := criteria.GetTags()
 	for _, tag := range criteria.GetTagExcludes() {
 		attributes = append(attributes, "!"+tag)
@@ -564,7 +564,7 @@ func coverageRuleToSuiteInfo(
 					program:      chosenProgram,
 					pool:         pool,
 					suite:        suite.GetName(),
-					tastExpr:     tagCriteriaToTastExpr(*spec.TestCaseTagCriteria),
+					tastExpr:     tagCriteriaToTastExpr(spec.TestCaseTagCriteria),
 					environment:  env,
 					critical:     critical,
 					boardVariant: boardVariant,

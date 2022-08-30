@@ -52,7 +52,7 @@ func TestAddress(t *testing.T) {
 		}
 		got, err := Address(&device)
 		if err != nil {
-			t.Errorf("Cannot get address for dut %v: %v", device, err)
+			t.Errorf("Cannot get address for dut %v: %v", &device, err)
 		}
 		if got != d.expected {
 			t.Errorf("Got %q from Address; wanted:%q", got, d.expected)

@@ -114,5 +114,4 @@ func (cc *ServerCommand) validateProtoInputs(req *api.ProvisionFirmwareRequest) 
 func (sc *ServerCommand) Run() error {
 	panic("server mode is not implemented")
 	// TODO(sfrolov): implement it.
-	return nil
 }

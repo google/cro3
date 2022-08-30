@@ -46,7 +46,7 @@ func NewPublishService(ctx context.Context, gcpCredentials string, logger *log.L
 // UploadToGS uploads the designated folder to the provided Google Cloud Storage
 // bucket/object
 func (s *PublishService) UploadToGS(ctx context.Context, req *api.UploadToGSRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.UploadToGSRequest: ", *req)
+	s.logger.Println("Received api.UploadToGSRequest: ", req)
 	op := s.manager.NewOperation()
 	if err := s.gsClient.Upload(ctx, req.LocalDirectory, req.GsDirectory); err != nil {
 		return nil, err

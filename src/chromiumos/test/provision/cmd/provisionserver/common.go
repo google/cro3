@@ -146,14 +146,14 @@ func (s *provision) installState(ctx context.Context, state *api.ProvisionState,
 // installCros installs a specified version of Chrome OS on the DUT, along
 // with any specified DLCs.
 func (s *provision) installCros(ctx context.Context, req *api.InstallCrosRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
-	s.logger.Println("Received api.InstallCrosRequest: ", *req)
+	s.logger.Println("Received api.InstallCrosRequest: ", req)
 	cs := crosservice.NewCrOSService(s.dut, s.dutClient, req)
 	return s.execute(ctx, &cs, op)
 }
 
 // installLacros installs a specified version of Lacros on the DUT.
 func (s *provision) installLacros(ctx context.Context, req *api.InstallLacrosRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
-	s.logger.Println("Received api.InstallLacrosRequest: ", *req)
+	s.logger.Println("Received api.InstallLacrosRequest: ", req)
 	ls, err := lacrosservice.NewLaCrOSService(s.dut, s.dutClient, req)
 	if err != nil {
 		fr := &api.InstallFailure{
@@ -172,7 +172,7 @@ func (s *provision) installLacros(ctx context.Context, req *api.InstallLacrosReq
 
 // installAsh installs a specified version of ash-chrome on the DUT.
 func (s *provision) installAsh(ctx context.Context, req *api.InstallAshRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
-	s.logger.Println("Received api.InstallAshRequest: ", *req)
+	s.logger.Println("Received api.InstallAshRequest: ", req)
 	cs := ashservice.NewAshService(s.dut, s.dutClient, req)
 	return s.execute(ctx, &cs, op)
 }
@@ -181,7 +181,7 @@ func (s *provision) installAsh(ctx context.Context, req *api.InstallAshRequest, 
 //
 // TODO(shapiroc): Implement this
 func (s *provision) installArc(ctx context.Context, req *api.InstallArcRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
-	s.logger.Println("Received api.InstallArcRequest: ", *req)
+	s.logger.Println("Received api.InstallArcRequest: ", req)
 	return &api.InstallFailure{
 		Reason: api.InstallFailure_REASON_PROVISIONING_FAILED,
 	}, fmt.Errorf("not implemented")
@@ -189,7 +189,7 @@ func (s *provision) installArc(ctx context.Context, req *api.InstallArcRequest, 
 
 // installFirmware installs requested firmware to the DUT.
 func (s *provision) installFirmware(ctx context.Context, req *api.InstallFirmwareRequest, op *longrunning.Operation) (*api.InstallFailure, error) {
-	s.logger.Println("Received api.InstallFirmwareRequest: ", *req)
+	s.logger.Println("Received api.InstallFirmwareRequest: ", req)
 	ls, err := firmwareservice.NewFirmwareService(ctx, s.dut, s.dutClient, s.servoClient, req)
 	if err != nil {
 		fr := &api.InstallFailure{

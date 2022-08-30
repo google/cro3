@@ -18,7 +18,7 @@ import (
 // If the DUT already has the specified list of DLCs, only the missing DLCs
 // will be provisioned.
 func (s *provision) InstallCros(ctx context.Context, req *api.InstallCrosRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.InstallCrosRequest: ", *req)
+	s.logger.Println("Received api.InstallCrosRequest: ", req)
 	op := s.manager.NewOperation()
 	response := api.InstallCrosResponse{}
 	if fr, err := s.installCros(ctx, req, op); err != nil {
