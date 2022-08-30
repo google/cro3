@@ -73,7 +73,7 @@ def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
         return row[0] if row else None
 
 
-def get_change_id(db, branch, sha):
+def get_change_id(db, target_branch, sha):
     """Get Change-Id associated with provided upstream SHA.
 
     Returns Gerrit Change-Id for a provided SHA if available in either
@@ -86,8 +86,8 @@ def get_change_id(db, branch, sha):
     logging.info('Looking up Change ID for upstream SHA %s', sha)
 
     c = db.cursor()
-    change_id = None
-    status = None
+    change_id_cand = None
+    status_cand = None
     reject_list = []
 
     q = """SELECT c.fix_change_id, c.branch, s.fix_change_id, s.branch
@@ -110,7 +110,13 @@ def get_change_id(db, branch, sha):
         # by the query above.
         # Return Change-Ids associated with abandoned CLs only if no other
         # Change-Ids are found.
+        todo_list = []
         if chrome_change_id and chrome_branch:
+            todo_list.append((chrome_change_id, chrome_branch))
+        if stable_change_id and stable_branch:
+            todo_list.append((stable_change_id, stable_branch))
+
+        for change_id, branch in todo_list:
             try:
                 # Change-IDs stored in in chrome_fixes are not always available
                 # in Gerrit. This can happen, for example, if a commit was
@@ -118,51 +124,33 @@ def get_change_id(db, branch, sha):
                 # commit was uploaded into Gerrit using a merge. We can not use
                 # such Change-Ids. To verify, try to get the status from Gerrit
                 # and skip if the Change-Id is not found.
-                gerrit_status = gerrit_interface.get_status(chrome_change_id, chrome_branch)
+                gerrit_status = gerrit_interface.get_status(change_id, branch)
                 logging.info('Found Change ID %s in branch %s, status %s',
-                             chrome_change_id, chrome_branch, gerrit_status)
+                             change_id, branch, gerrit_status)
                 # We can not use a Change-ID which exists in Gerrit but is marked
                 # as abandoned for the target branch.
-                if chrome_change_id in reject_list:
+                if change_id in reject_list:
                     continue
-                if (chrome_branch == branch and
+                if (branch == target_branch and
                         gerrit_status == gerrit_interface.GerritStatus.ABANDONED):
-                    reject_list += [chrome_change_id]
+                    reject_list.append(change_id)
                     continue
-                if not change_id or gerrit_status != gerrit_interface.GerritStatus.ABANDONED:
-                    change_id = chrome_change_id
-                    status = gerrit_status
-                if status != gerrit_interface.GerritStatus.ABANDONED:
+
+                if not change_id_cand or gerrit_status != gerrit_interface.GerritStatus.ABANDONED:
+                    change_id_cand = change_id
+                    status_cand = gerrit_status
+                if status_cand != gerrit_interface.GerritStatus.ABANDONED:
                     break
             except requests.exceptions.HTTPError:
                 # Change-Id was not found in Gerrit
                 pass
 
-        if stable_change_id and stable_branch:
-            try:
-                gerrit_status = gerrit_interface.get_status(stable_change_id, stable_branch)
-                logging.info('Found Change ID %s in branch %s, status %s',
-                             stable_change_id, stable_branch, gerrit_status)
-                if stable_change_id in reject_list:
-                    continue
-                if (stable_branch == branch and
-                        gerrit_status == gerrit_interface.GerritStatus.ABANDONED):
-                    reject_list += [stable_change_id]
-                    continue
-                if not change_id or gerrit_status != gerrit_interface.GerritStatus.ABANDONED:
-                    change_id = stable_change_id
-                    status = gerrit_status
-                if status != gerrit_interface.GerritStatus.ABANDONED:
-                    break
-            except requests.exceptions.HTTPError:
-                pass
+        if change_id_cand in reject_list:
+            change_id_cand = None
 
-        if change_id in reject_list:
-            change_id = None
-
-    logging.info('Returning Change-Id %s, reject=%s',
-                 change_id, status == gerrit_interface.GerritStatus.ABANDONED and bool(reject_list))
-    return change_id, status == gerrit_interface.GerritStatus.ABANDONED and bool(reject_list)
+    reject = status_cand == gerrit_interface.GerritStatus.ABANDONED and bool(reject_list)
+    logging.info('Returning Change-Id %s, reject=%s', change_id_cand, reject)
+    return change_id_cand, reject
 
 
 def find_duplicate(db, branch, upstream_sha):
