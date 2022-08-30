@@ -40,6 +40,7 @@ DEFINE_string project "${DEFAULT_PROJECT}" "Which projects this release is for (
 DEFINE_string bug "none" "The bug to reference in the CL e.g b:12345"
 DEFINE_string skip "${DEFAULT_SKIP}" "Skip these projects (comma separated list)" s
 DEFINE_boolean build "${FLAGS_TRUE}" "Attempt to build coreboot"
+DEFINE_boolean setup "${FLAGS_FALSE}" "Run setup_board if necessary"
 DEFINE_boolean program "${FLAGS_FALSE}" "Update the version in the base program.star"
 DEFINE_string reviewer "${DEFAULT_REVIEWER}" "The reviewer(s) to send the CLs to (optional)"
 DEFINE_string test "none" "The 'TEST=' string added to the commit message"
@@ -513,6 +514,16 @@ TEMPDIR=$(mktemp -d -t fw-XXXXXXXXXX)
 trap "exit 1"           HUP INT PIPE QUIT TERM
 trap 'cleanup' EXIT
 
+#
+# Ensure that the board has been setup.
+#
+if [[ ! -d "/build/${FLAGS_board}" ]]; then
+  if [[ "${FLAGS_setup}" -eq "${FLAGS_FALSE}" ]]; then
+    die "setup_board needs to be run"
+  fi
+  echo "Running setup_board --board ${FLAGS_board}"
+  setup_board --board "${FLAGS_board}"
+fi
 #
 # From now on, all errors should invoke 'abort'
 # so that the branches and CLs are cleaned up on exit.
