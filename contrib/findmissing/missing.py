@@ -82,13 +82,7 @@ def get_change_id(db, target_branch, sha):
 
     If multiple Change IDs are available, pick one that has not been abandoned.
     """
-
     logging.info('Looking up Change ID for upstream SHA %s', sha)
-
-    c = db.cursor()
-    change_id_cand = None
-    status_cand = None
-    reject_list = []
 
     q = """SELECT c.fix_change_id, c.branch, s.fix_change_id, s.branch
         FROM linux_upstream AS l1
@@ -100,8 +94,14 @@ def get_change_id(db, target_branch, sha):
         ON s.fixedby_upstream_sha = l2.sha
         WHERE l1.sha = %s"""
 
-    c.execute(q, [sha])
-    for chrome_change_id, chrome_branch, stable_change_id, stable_branch in c.fetchall():
+    with db.cursor() as c:
+        c.execute(q, [sha])
+        rows = c.fetchall()
+
+    change_id_cand, status_cand = None, None
+    reject_list = []
+
+    for chrome_change_id, chrome_branch, stable_change_id, stable_branch in rows:
         logging.info('Database: %s %s %s %s',
                      chrome_change_id, chrome_branch, stable_change_id, stable_branch)
         # Some entries in fixes_table do not have a change id attached.
@@ -137,8 +137,7 @@ def get_change_id(db, target_branch, sha):
                     continue
 
                 if not change_id_cand or gerrit_status != gerrit_interface.GerritStatus.ABANDONED:
-                    change_id_cand = change_id
-                    status_cand = gerrit_status
+                    change_id_cand, status_cand = change_id, gerrit_status
                 if status_cand != gerrit_interface.GerritStatus.ABANDONED:
                     break
             except requests.exceptions.HTTPError:
@@ -146,8 +145,7 @@ def get_change_id(db, target_branch, sha):
                 pass
 
         if change_id_cand in reject_list:
-            change_id_cand = None
-            status_cand = None
+            change_id_cand, status_cand = None, None
 
     reject = status_cand == gerrit_interface.GerritStatus.ABANDONED and bool(reject_list)
     logging.info('Returning Change-Id %s, reject=%s', change_id_cand, reject)
