@@ -125,13 +125,14 @@ def get_change_id(db, branch, sha):
                 # as abandoned for the target branch.
                 if chrome_change_id in reject_list:
                     continue
-                if chrome_branch == branch and gerrit_status == common.Status.ABANDONED.name:
+                if (chrome_branch == branch and
+                        gerrit_status == gerrit_interface.GerritStatus.ABANDONED):
                     reject_list += [chrome_change_id]
                     continue
-                if not change_id or gerrit_status != common.Status.ABANDONED.name:
+                if not change_id or gerrit_status != gerrit_interface.GerritStatus.ABANDONED:
                     change_id = chrome_change_id
                     status = gerrit_status
-                if status != common.Status.ABANDONED.name:
+                if status != gerrit_interface.GerritStatus.ABANDONED:
                     break
             except requests.exceptions.HTTPError:
                 # Change-Id was not found in Gerrit
@@ -144,24 +145,25 @@ def get_change_id(db, branch, sha):
                              stable_change_id, stable_branch, gerrit_status)
                 if stable_change_id in reject_list:
                     continue
-                if stable_branch == branch and gerrit_status == common.Status.ABANDONED.name:
+                if (stable_branch == branch and
+                        gerrit_status == gerrit_interface.GerritStatus.ABANDONED):
                     reject_list += [stable_change_id]
                     continue
-                if not change_id or gerrit_status != common.Status.ABANDONED.name:
+                if not change_id or gerrit_status != gerrit_interface.GerritStatus.ABANDONED:
                     change_id = stable_change_id
                     status = gerrit_status
             except requests.exceptions.HTTPError:
                 pass
 
-        if status and status != common.Status.ABANDONED.name:
+        if status and status != gerrit_interface.GerritStatus.ABANDONED:
             break
 
         if change_id in reject_list:
             change_id = None
 
     logging.info('Returning Change-Id %s, reject=%s',
-                 change_id, status == common.Status.ABANDONED.name and bool(reject_list))
-    return change_id, status == common.Status.ABANDONED.name and bool(reject_list)
+                 change_id, status == gerrit_interface.GerritStatus.ABANDONED and bool(reject_list))
+    return change_id, status == gerrit_interface.GerritStatus.ABANDONED and bool(reject_list)
 
 
 def find_duplicate(db, branch, upstream_sha):

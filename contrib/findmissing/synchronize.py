@@ -25,9 +25,9 @@ STABLE_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_stable)
 CHROME_KERNEL_METADATA = common.get_kernel_metadata(common.Kernel.linux_chrome)
 
 gerrit_to_db_status_map = {
-    'NEW': common.Status.OPEN,
-    'ABANDONED': common.Status.ABANDONED,
-    'MERGED': common.Status.MERGED,
+    gerrit_interface.GerritStatus.NEW: common.Status.OPEN,
+    gerrit_interface.GerritStatus.ABANDONED: common.Status.ABANDONED,
+    gerrit_interface.GerritStatus.MERGED: common.Status.MERGED,
 }
 
 def synchronize_upstream(upstream_kernel_metadata):

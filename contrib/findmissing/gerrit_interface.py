@@ -21,6 +21,7 @@ curl -b /home/chromeos_patches/.git-credential-cache/cookie \
    isort:skip_file
 """
 
+from enum import Enum
 import http
 import json
 import logging
@@ -31,6 +32,13 @@ import requests # pylint: disable=import-error
 
 import common
 import git_interface
+
+
+class GerritStatus(str, Enum):
+    """String representations for Gerrit CL status."""
+    NEW = 'NEW'
+    ABANDONED = 'ABANDONED'
+    MERGED = 'MERGED'
 
 
 def get_auth_cookie():
