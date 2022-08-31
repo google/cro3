@@ -450,7 +450,6 @@ def update_fixes_in_branch(db, branch, kernel_metadata, limit):
 
 def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
     """Look for missing Fixup commits in provided chromeos or stable release."""
-    c = db.cursor()
     branch_name = kernel_metadata.get_kernel_branch(branch)
 
     logging.info('Checking branch %s', branch_name)
@@ -475,8 +474,12 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
                 FROM {chosen_fixes} AS chosen_fixes
                 WHERE branch = %s
             )""".format(chosen_table=chosen_table, chosen_fixes=chosen_fixes)
+
     try:
-        c.execute(q, [branch, branch])
+        with db.cursor() as c:
+            c.execute(q, [branch, branch])
+            rows = c.fetchall()
+
         logging.info('Finding new rows to insert into fixes table %s %s %s',
                      chosen_table, chosen_fixes, branch)
     except MySQLdb.Error as e: # pylint: disable=no-member
@@ -488,7 +491,7 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
     #   create all the patches in chrome/stable fixes tables but does not add reviewers
     #   until quota is available. This should decouple the creation of gerrit CL's
     #   and adding reviewers to those CL's.
-    for (kernel_sha, fixedby_upstream_sha) in c.fetchall():
+    for kernel_sha, fixedby_upstream_sha in rows:
         new_change = insert_fix_gerrit(db, chosen_table, chosen_fixes,
                                         branch, kernel_sha, fixedby_upstream_sha)
         if new_change:
