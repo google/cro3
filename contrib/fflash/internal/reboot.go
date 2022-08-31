@@ -68,3 +68,36 @@ func Reboot(ctx context.Context, client *ssh.Client, host string) error {
 
 	return WaitReboot(ctx, host, bootID)
 }
+
+// checkBootExpectations checks that the DUT host reboots to wantActiveRootfs.
+func checkBootExpectations(ctx context.Context, client *ssh.Client, wantActiveRootfs string) error {
+	newParts, err := DetectPartitions(client)
+	if err != nil {
+		return err
+	}
+	log.Println("DUT rebooted to:", newParts.ActiveRootfs())
+	if newParts.ActiveRootfs() != wantActiveRootfs {
+		return fmt.Errorf("DUT did not boot to %s", wantActiveRootfs)
+	}
+	return nil
+}
+
+// CheckedReboot reboots the dut with Reboot() and checkBootExpectations().
+// A new SSH client is provided to interact with the rebooted host.
+// The passed in client is closed.
+func CheckedReboot(ctx context.Context, client *ssh.Client, host, wantActiveRootfs string) (*ssh.Client, error) {
+	if err := Reboot(ctx, client, host); err != nil {
+		return nil, err
+	}
+	client.Close()
+
+	log.Println("checking boot expectations")
+	client, err := ssh.DialWithSystemSSH(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkBootExpectations(ctx, client, wantActiveRootfs); err != nil {
+		return client, err
+	}
+	return client, nil
+}

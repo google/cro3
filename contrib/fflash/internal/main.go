@@ -161,23 +161,9 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	}
 	log.Println("DUT root is on:", oldParts.ActiveRootfs())
 
-	if err := Reboot(ctx, sshClient, target); err != nil {
-		return err
-	}
-	log.Println(target, "is online")
-
-	log.Println("checking boot expectations")
-	sshClient, err = ssh.DialWithSystemSSH(ctx, target)
+	_, err = CheckedReboot(ctx, sshClient, target, oldParts.InactiveRootfs())
 	if err != nil {
 		return err
-	}
-	newParts, err := DetectPartitions(sshClient)
-	if err != nil {
-		return err
-	}
-	log.Println("DUT rebooted to:", newParts.ActiveRootfs())
-	if newParts.ActiveRootfs() != oldParts.InactiveRootfs() {
-		return fmt.Errorf("DUT did not boot to %s", oldParts.InactiveRootfs())
 	}
 
 	return nil
