@@ -72,11 +72,12 @@ REGISTERED_BUILDS = {
 BUILD_RETRIES = 1
 RETRIES_WAIT = 10
 # cros-servod does not have a ebuild yet, thus is not ready for building.
-DO_NOT_BUILD = set(['cros-servod'])
+# callbox is not used (and a bit heavy) so do not build until its needed.
+DO_NOT_BUILD = set(['cros-servod', 'cros-callbox'])
 # NOTE: when promoting a service from DO_NOT_BUILD, it should be added to
 # NON_CRITICAL for atleast a short time to verify health.
 NON_CRITICAL = set(
-    ['cros-dut', 'cros-provision', 'cros-callbox', 'cros-publish'])
+    ['cros-dut', 'cros-provision', 'cros-publish'])
 
 
 def parse_local_arguments() -> argparse.Namespace:
