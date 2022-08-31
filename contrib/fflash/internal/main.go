@@ -5,6 +5,7 @@
 package internal
 
 import (
+	"bytes"
 	"context"
 	"encoding/gob"
 	"fmt"
@@ -142,27 +143,15 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	if err != nil {
 		return err
 	}
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		return err
+	var stdin bytes.Buffer
+	req.ElapsedTimeWhenSent = time.Since(t0)
+	if err := gob.NewEncoder(&stdin).Encode(req); err != nil {
+		return fmt.Errorf("failed to write flash request: %w", err)
 	}
+	session.Stdin = &stdin
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
-	if err := session.Start(agentPath); err != nil {
-		return err
-	}
-
-	req.ElapsedTimeWhenSent = time.Since(t0)
-	go func() {
-		if err := gob.NewEncoder(stdin).Encode(req); err != nil {
-			log.Printf("failed to write flash request: %s", err)
-		}
-		if err := stdin.Close(); err != nil {
-			log.Printf("failed to finish flash request: %s", err)
-		}
-	}()
-
-	if err := session.Wait(); err != nil {
+	if err := session.Run(agentPath); err != nil {
 		return fmt.Errorf("dut-agent failed: %w", err)
 	}
 
