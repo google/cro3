@@ -103,6 +103,7 @@ RUN touch /usr/local/f20container
 
 COPY --chown=chromeos-test:chromeos-test autotest/ /usr/local/autotest
 COPY --chown=chromeos-test:chromeos-test shadow_config.ini /usr/local/autotest/
+COPY --chown=chromeos-test:chromeos-test chromiumos/ /usr/local/lib/python3.8/site-packages/chromiumos
 
 RUN mkdir -p /tmp/test
 # Bring in metadata to 1 location (Can be different per board.)

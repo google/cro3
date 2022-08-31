@@ -32,6 +32,7 @@ class CrosTestArtifactPrep(CrosArtifactPrep):
     self.create_tarball()
     self.copy_service()
     self.copy_metadata()
+    self.copy_python_protos()
     self.copy_dockercontext()
     self.untar()
     self.remove_unused_deps()

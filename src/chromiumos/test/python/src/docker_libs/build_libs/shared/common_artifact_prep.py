@@ -12,7 +12,10 @@ import sys
 # Point up a few directories to make the other python modules discoverable.
 sys.path.append('../../../../')
 
-from src.common.exceptions import NotDirectoryException, ConfigError  # noqa: E402 pylint: disable=import-error,wrong-import-position
+from src.common.exceptions import (  # noqa: E402 pylint: disable=import-error,wrong-import-position
+    ConfigError,
+)
+from src.common.exceptions import NotDirectoryException
 
 
 class CrosArtifactPrep():
@@ -85,6 +88,13 @@ class CrosArtifactPrep():
     """Copy service needed for Docker."""
     shutil.copy(os.path.join(self.chroot_bin, self.service),
                 self.full_out)
+
+  def copy_python_protos(self):
+    """Copy the python proto bindings."""
+    shutil.copytree(
+        os.path.join(self.chroot,
+                     'usr/lib64/python3.6/site-packages/chromiumos'),
+        os.path.join(self.full_out, 'chromiumos'))
 
   def copy_dockercontext(self):
     """Copy Docker Context needed to build the container to the output dir."""
