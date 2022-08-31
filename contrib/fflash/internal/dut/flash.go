@@ -36,6 +36,11 @@ type Request struct {
 	Directory string
 }
 
+type Result struct {
+	RetryDisableRootfsVerification bool
+	RetryClearTpmOwner             bool
+}
+
 // copyChunked copies r to w in chunks.
 func copyChunked(w io.Writer, r io.Reader, buf []byte) (written int64, err error) {
 	for {

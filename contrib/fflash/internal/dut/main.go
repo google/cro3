@@ -85,14 +85,22 @@ func Main() error {
 		return fmt.Errorf("postinst failed: %w", err)
 	}
 
+	result := &Result{}
+
 	log.Println("disabling rootfs verification")
 	if err := DisableRootfsVerification(ctx, partState.InactiveKernelNum); err != nil {
-		return fmt.Errorf("disable rootfs verification failed: %w", err)
+		log.Printf("disable rootfs verification failed (will retry after reboot): %s", err)
+		result.RetryDisableRootfsVerification = true
 	}
 
 	log.Println("clearing tpm owner")
 	if err := ClearTpmOwner(ctx); err != nil {
-		return fmt.Errorf("clear tpm owner failed: %w", err)
+		log.Printf("clear tpm owner request failed (will retry after reboot): %s", err)
+		result.RetryClearTpmOwner = true
+	}
+
+	if err := gob.NewEncoder(os.Stdout).Encode(result); err != nil {
+		return fmt.Errorf("failed to encode result: %w", err)
 	}
 
 	return nil

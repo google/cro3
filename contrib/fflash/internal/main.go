@@ -22,9 +22,12 @@ import (
 	"google.golang.org/api/option"
 	"gopkg.in/ini.v1"
 
+	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/dut"
 	embeddedagent "chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/embedded-agent"
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/ssh"
 )
+
+const devFeaturesRootfsVerification = "/usr/libexec/debugd/helpers/dev_features_rootfs_verification"
 
 // getToken returns the user's token to access Google Cloud Storage.
 // It reads ~/.boto, which is a ini file set up by `gsutil.py config`.
@@ -149,10 +152,15 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 		return fmt.Errorf("failed to write flash request: %w", err)
 	}
 	session.Stdin = &stdin
-	session.Stdout = os.Stdout
+	var stdout bytes.Buffer
+	session.Stdout = &stdout
 	session.Stderr = os.Stderr
 	if err := session.Run(agentPath); err != nil {
 		return fmt.Errorf("dut-agent failed: %w", err)
+	}
+	var result dut.Result
+	if err := gob.NewDecoder(&stdout).Decode(&result); err != nil {
+		return fmt.Errorf("cannot decode dut-agent result: %w", err)
 	}
 
 	oldParts, err := DetectPartitions(sshClient)
@@ -161,9 +169,38 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	}
 	log.Println("DUT root is on:", oldParts.ActiveRootfs())
 
-	_, err = CheckedReboot(ctx, sshClient, target, oldParts.InactiveRootfs())
+	sshClient, err = CheckedReboot(ctx, sshClient, target, oldParts.InactiveRootfs())
 	if err != nil {
 		return err
+	}
+
+	needs2ndReboot := false
+
+	if result.RetryDisableRootfsVerification {
+		log.Println("retrying disable rootfs verification")
+		if _, err := sshClient.RunSimpleOutput(devFeaturesRootfsVerification); err != nil {
+			return fmt.Errorf("disable rootfs verification failed: %w", err)
+		}
+		needs2ndReboot = true
+	}
+
+	if result.RetryClearTpmOwner {
+		log.Println("retrying clear tpm owner")
+		if _, err := sshClient.RunSimpleOutput("crossystem clear_tpm_owner_request=1"); err != nil {
+			return fmt.Errorf("failed to clear tpm owner: %w", err)
+		}
+		needs2ndReboot = true
+	}
+
+	if needs2ndReboot {
+		sshClient, err = CheckedReboot(ctx, sshClient, target, oldParts.InactiveRootfs())
+		if err != nil {
+			return err
+		}
+	}
+
+	if _, err := sshClient.RunSimpleOutput(devFeaturesRootfsVerification + " -q"); err != nil {
+		return fmt.Errorf("failed to check rootfs verification: %w", err)
 	}
 
 	return nil
