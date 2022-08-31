@@ -4,6 +4,7 @@
 
 FROM python:3.8-slim-buster AS build
 
+# unzip, openjdk are for CTS specifically.
 RUN apt-get update \
     && apt-get install -y \
       ca-certificates \
@@ -14,12 +15,9 @@ RUN apt-get update \
       rsync \
       ssh \
       sudo \
-      wget
-
-# For CTS
-RUN apt-get install -y \
       unzip \
-      openjdk-11-jdk
+      openjdk-11-jdk \
+      wget
 
 # grab gsutil
 RUN echo \
