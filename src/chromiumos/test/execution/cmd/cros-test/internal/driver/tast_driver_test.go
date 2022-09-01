@@ -154,6 +154,7 @@ func TestGenArgListWithServers(t *testing.T) {
 		Role:            "",
 		Servo:           "servo0",
 		DutServer:       "dutserver0",
+		LibsServer:      "libsserver0",
 		ProvisionServer: "provisionserver0",
 	}
 	companions := []*device.DutInfo{
@@ -217,6 +218,10 @@ func TestGenArgListWithServers(t *testing.T) {
 		dutServerStr = fmt.Sprintf("%s,%s:%s", dutServerStr, c.Role, c.DutServer)
 	}
 	expectedArgList = append(expectedArgList, fmt.Sprintf("-var=servers.dut=%v", dutServerStr))
+
+	// Creates Libsserver.
+	libsServerStr := fmt.Sprintf(":%s", primary.LibsServer)
+	expectedArgList = append(expectedArgList, fmt.Sprintf("-var=servers.libs=%v", libsServerStr))
 
 	// Creates DUT server list.
 	ProvisionServerStr := fmt.Sprintf(":%s", primary.ProvisionServer)

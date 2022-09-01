@@ -76,7 +76,13 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, req *api
 		}
 	}
 
-	args, err := newTautoArgs(primary, companions, testNames, dutServers, resultsDir)
+	// Fill in DUT server var flags.
+	var libsServer string
+	if primary.LibsServer != "" {
+		libsServer = fmt.Sprintf("%s", primary.LibsServer)
+	}
+
+	args, err := newTautoArgs(primary, companions, testNames, dutServers, resultsDir, libsServer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tauto args: %v", err)
 	}
@@ -139,6 +145,7 @@ const (
 	tautoResultsDirFlag = "--results_dir"
 	companionFlag       = "--companion_hosts"
 	dutServerFlag       = "--dut_servers"
+	libsServerFlag      = "--libs_server"
 	// Must be formatted to test_that as follows: ... --host_labels label1 label2 label3
 	// Thus, no quotes, etc just a space deliminated list of strings
 	labels = "--host_labels"
@@ -160,7 +167,7 @@ type tautoRunArgs struct {
 }
 
 // newTautoArgs created an argument structure for invoking tauto
-func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, dutServers []string, resultsDir string) (*tautoRunArgs, error) {
+func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, dutServers []string, resultsDir string, libsServer string) (*tautoRunArgs, error) {
 	args := tautoRunArgs{
 		target: dut,
 		runFlags: map[string]string{
@@ -176,11 +183,19 @@ func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, d
 		args.runFlags[companionFlag] = strings.Join(companionsAddresses, ",")
 	}
 
+	tautoArgsStr := ""
 	if len(dutServers) > 0 {
 		dutServerAddresses := strings.Join(dutServers, ",")
 		args.runFlags[dutServerFlag] = dutServerAddresses
-		args.runFlags[tautoArgs] = fmt.Sprintf("%v=%v", "dut_servers", dutServerAddresses)
+		tautoArgsStr = tautoArgsStr + fmt.Sprintf("%v=%v", "dut_servers", dutServerAddresses)
 	}
+
+	if libsServer != "" {
+		args.runFlags[libsServerFlag] = libsServer
+		tautoArgsStr = tautoArgsStr + fmt.Sprintf(" %v=%v", "libs_server", libsServer)
+	}
+
+	args.runFlags[tautoArgs] = tautoArgsStr
 
 	// Now we need to get a list of all labels, then load the labels const.
 	attrMap, infoLabels, err := convertDutTopologyToHostInfo(dut)

@@ -25,6 +25,7 @@ func TestNewTautoArgs(t *testing.T) {
 		},
 	}
 	dutServers := []string{"localhost:2222", "localhost:2223", "localhost:2224"}
+	libsServer := "192.168.1.1:8675"
 	primary := &device.DutInfo{
 		Addr:                "127.0.0.1:2222",
 		Role:                "",
@@ -55,14 +56,15 @@ func TestNewTautoArgs(t *testing.T) {
 			dutServerFlag:       "localhost:2222,localhost:2223,localhost:2224",
 			attributes:          `{"servo_host":"127.123.332.121","servo_port":"1337","servo_serial":"8675309"}`,
 			labels:              "board:fred model:flintstone servo chameleon audio_board chameleon:vga chameleon:hdmi atrus mimo camerabox_facing:front type:usbaudio",
-			tautoArgs:           "dut_servers=localhost:2222,localhost:2223,localhost:2224",
+			tautoArgs:           "dut_servers=localhost:2222,localhost:2223,localhost:2224 libs_server=192.168.1.1:8675",
+			libsServerFlag:      "192.168.1.1:8675",
 		},
 		cftFlag: "--CFT",
 	}
 
 	dut := primary
 	tests := []string{test1, test2, test3, test4, test5}
-	args, err := newTautoArgs(dut, companions, tests, dutServers, workDir1)
+	args, err := newTautoArgs(dut, companions, tests, dutServers, workDir1, libsServer)
 	if err != nil {
 		t.Errorf("Got err ")
 	}

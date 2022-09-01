@@ -22,6 +22,7 @@ type DutInfo struct {
 	Role                string   // The role of the DUT.
 	Servo               string   // The address of the servo.
 	DutServer           string   // The address of the dutServer.
+	LibsServer          string   // The address of the libsServer.
 	ProvisionServer     string   // The address of the provision server
 	Board               string   // The board of the DUT
 	Model               string   // The model of the DUT
@@ -98,6 +99,11 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 	if device.DutServer != nil {
 		dutServer = joinHostAndPort(device.DutServer)
 	}
+	// DUT Server address.
+	var libsServer string
+	if device.LibsServer != nil {
+		libsServer = joinHostAndPort(device.LibsServer)
+	}
 	// Provision server address.
 	var provisionServer string
 	if device.ProvisionServer != nil {
@@ -163,6 +169,7 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 		Role:                role,
 		Servo:               servo,
 		DutServer:           dutServer,
+		LibsServer:          libsServer,
 		ProvisionServer:     provisionServer,
 		Board:               board,
 		Model:               model,

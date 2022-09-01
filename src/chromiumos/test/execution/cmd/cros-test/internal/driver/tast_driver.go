@@ -225,8 +225,18 @@ func genArgList(args *runArgs) (argList []string) {
 		}
 	}
 	if dutServerStrs != "" {
-		// example: var=servers.dut=primary:d1:22,cd1:d2:22,cd3:d3:22
+		// example: var=servers.dut=:d1:22,cd1:d2:22,cd3:d3:22
 		argList = append(argList, fmt.Sprintf("%v=servers.dut=%s", varFlag, dutServerStrs))
+	}
+
+	// Fill in libs server var flag.
+	libsServerStr := ""
+	if args.primary.LibsServer != "" {
+		libsServerStr = fmt.Sprintf(":%s", args.primary.LibsServer)
+	}
+	if libsServerStr != "" {
+		// example: var=servers.libs=:d1:22
+		argList = append(argList, fmt.Sprintf("%v=servers.libs=%s", varFlag, libsServerStr))
 	}
 
 	// Fill in Provision server var flags.
