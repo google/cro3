@@ -486,21 +486,21 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
         logging.error('Error finding new rows to insert %s %s %s: error %d(%s)',
                       chosen_table, chosen_fixes, branch, e.args[0], e.args[1])
 
-    count_new_changes = 0
     # todo(hirthanan): Create an intermediate state in Status that allows us to
     #   create all the patches in chrome/stable fixes tables but does not add reviewers
     #   until quota is available. This should decouple the creation of gerrit CL's
     #   and adding reviewers to those CL's.
     for kernel_sha, fixedby_upstream_sha in rows:
-        new_change = insert_fix_gerrit(db, chosen_table, chosen_fixes,
-                                        branch, kernel_sha, fixedby_upstream_sha)
-        if new_change:
-            count_new_changes += 1
-        if count_new_changes >= limit:
+        # Treat it unlimited if `limit` is None.
+        if limit is not None and limit <= 0:
             break
 
+        created = insert_fix_gerrit(db, chosen_table, chosen_fixes,
+                        branch, kernel_sha, fixedby_upstream_sha)
+        if created and limit:
+            limit -= 1
+
     db.commit()
-    return count_new_changes
 
 
 def missing_patches_sync(db, kernel_metadata, sync_branch_method, limit=None):
