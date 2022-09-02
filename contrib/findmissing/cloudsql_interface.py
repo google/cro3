@@ -25,10 +25,11 @@ def upstream_fixes_for_shas(db, upstream_shas):
     Note: above todo is blocked by migration to MySQL 5.7, once upgraded then we can switch
     """
     upstream_shas = ["\'" + sha + "\'" for sha in upstream_shas]
+    shas = ', '.join(upstream_shas)
     # format string here since we are inserting n elements
-    q = """SELECT fixedby_upstream_sha
+    q = f"""SELECT fixedby_upstream_sha
             FROM upstream_fixes
-            WHERE upstream_sha IN ({})""".format(', '.join(upstream_shas))
+            WHERE upstream_sha IN ({shas})"""
 
     with db.cursor() as c:
         c.execute(q)
@@ -37,9 +38,9 @@ def upstream_fixes_for_shas(db, upstream_shas):
 
 def get_fixes_table_primary_key(db, fixes_table, fix_change_id):
     """Retrieves the primary keys from a fixes table using changeid."""
-    q = """SELECT kernel_sha, fixedby_upstream_sha
+    q = f"""SELECT kernel_sha, fixedby_upstream_sha
             FROM {fixes_table}
-            WHERE fix_change_id = %s""".format(fixes_table=fixes_table)
+            WHERE fix_change_id = %s"""
 
     with db.cursor(MySQLdb.cursors.DictCursor) as c:
         c.execute(q, [fix_change_id])
@@ -80,11 +81,11 @@ def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha, r
 
     Function will only abandon rows in the table which have status OPEN or CONFLICT.
     """
-    q = """UPDATE {fixes_table}
+    q = f"""UPDATE {fixes_table}
             SET status = 'ABANDONED', close_time = %s, reason = %s
             WHERE kernel_sha = %s
             AND fixedby_upstream_sha = %s
-            AND (status = 'OPEN' OR status = 'CONFLICT')""".format(fixes_table=fixes_table)
+            AND (status = 'OPEN' OR status = 'CONFLICT')"""
     close_time = common.get_current_time()
 
     with db.cursor() as c:
@@ -97,11 +98,11 @@ def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha, re
     rows = get_fix_status_and_changeid(db, [fixes_table], [kernel_sha, fixedby_upstream_sha], True)
     row = rows[0]
     status = 'OPEN' if row['fix_change_id'] else row['initial_status']
-    q = """UPDATE {fixes_table}
+    q = f"""UPDATE {fixes_table}
             SET status = %s, close_time = %s, reason = %s
             WHERE kernel_sha = %s
             AND fixedby_upstream_sha = %s
-            AND status = 'ABANDONED'""".format(fixes_table=fixes_table)
+            AND status = 'ABANDONED'"""
 
     with db.cursor() as c:
         c.execute(q, [status, None, reason, kernel_sha, fixedby_upstream_sha])
@@ -111,10 +112,10 @@ def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha, re
 def update_change_merged(db, fixes_table, kernel_sha, fixedby_upstream_sha,
                             reason=DEFAULT_MERGED_REASON):
     """Updates fixes_table unique fix row to indicate fix cl has been merged."""
-    q = """UPDATE {fixes_table}
+    q = f"""UPDATE {fixes_table}
             SET status = 'MERGED', close_time = %s, reason = %s
             WHERE kernel_sha = %s
-            AND fixedby_upstream_sha = %s""".format(fixes_table=fixes_table)
+            AND fixedby_upstream_sha = %s"""
     close_time = common.get_current_time()
 
     with db.cursor() as c:
@@ -142,10 +143,10 @@ def update_change_status(db, fixes_table, fix_change_id, status):
 def update_conflict_to_open(db, fixes_table, kernel_sha, fixedby_upstream_sha, fix_change_id):
     """Updates fixes_table to represent an open change that previously resulted in conflict."""
     reason = 'Patch applies cleanly after originally conflicting.'
-    q = """UPDATE {fixes_table}
+    q = f"""UPDATE {fixes_table}
             SET status = 'OPEN', fix_change_id = %s, reason = %s
             WHERE kernel_sha = %s
-            AND fixedby_upstream_sha = %s""".format(fixes_table=fixes_table)
+            AND fixedby_upstream_sha = %s"""
 
     with db.cursor() as c:
         c.execute(q, [fix_change_id, reason, kernel_sha, fixedby_upstream_sha])

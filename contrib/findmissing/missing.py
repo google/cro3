@@ -56,7 +56,7 @@ def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
 
     Returns sha or None if upstream sha doesn't exist downstream.
     """
-    q = """SELECT sha
+    q = f"""SELECT sha
             FROM {chosen_table}
             WHERE branch = %s
             AND (upstream_sha = %s
@@ -64,7 +64,7 @@ def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
                     SELECT patch_id
                     FROM linux_upstream
                     WHERE sha = %s
-                ))""".format(chosen_table=chosen_table)
+                ))"""
 
     with db.cursor() as c:
         c.execute(q, [branch, upstream_sha, upstream_sha])
@@ -290,10 +290,10 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
 
     close_time = fix_change_id = reason = None
 
-    q = """INSERT INTO {chosen_fixes}
+    q = f"""INSERT INTO {chosen_fixes}
             (kernel_sha, fixedby_upstream_sha, branch, entry_time, close_time,
             fix_change_id, initial_status, status, reason)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""".format(chosen_fixes=chosen_fixes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
 
     if status == common.Status.MERGED:
         # Create a row for the merged CL (we don't need to track this), but can be stored
@@ -369,10 +369,10 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
             (i.e not merging through a fix created by this robot)
     """
     fixes_table = kernel_metadata.kernel_fixes_table
-    q = """SELECT kernel_sha, fixedby_upstream_sha, status, fix_change_id
+    q = f"""SELECT kernel_sha, fixedby_upstream_sha, status, fix_change_id
             FROM {fixes_table}
             WHERE status != 'MERGED'
-            AND branch = %s""".format(fixes_table=fixes_table)
+            AND branch = %s"""
     handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch)
 
     with db.cursor() as c:
@@ -420,7 +420,7 @@ def update_fixes_in_branch(db, branch, kernel_metadata, limit):
     chosen_fixes = kernel_metadata.kernel_fixes_table
 
     # Old rows to Update
-    q = """UPDATE {chosen_fixes} AS fixes
+    q = f"""UPDATE {chosen_fixes} AS fixes
            JOIN linux_chrome AS lc
            ON fixes.fixedby_upstream_sha = lc.upstream_sha
            SET status = 'MERGED', close_time = %s, reason = %s
@@ -428,7 +428,7 @@ def update_fixes_in_branch(db, branch, kernel_metadata, limit):
            AND lc.branch = %s
            AND (fixes.status = 'OPEN'
                 OR fixes.status = 'CONFLICT'
-                OR fixes.status = 'ABANDONED')""".format(chosen_fixes=chosen_fixes)
+                OR fixes.status = 'ABANDONED')"""
 
     close_time = common.get_current_time()
     reason = 'Patch has been applied to linux_chome'
@@ -463,7 +463,7 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
     # New rows to insert
     # Note: MySQLdb doesn't support inserting table names as parameters
     #   due to sql injection
-    q = """SELECT chosen_table.sha, uf.fixedby_upstream_sha
+    q = f"""SELECT chosen_table.sha, uf.fixedby_upstream_sha
             FROM {chosen_table} AS chosen_table
             JOIN upstream_fixes AS uf
             ON chosen_table.upstream_sha = uf.upstream_sha
@@ -473,7 +473,7 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
                 SELECT chosen_fixes.kernel_sha, chosen_fixes.fixedby_upstream_sha
                 FROM {chosen_fixes} AS chosen_fixes
                 WHERE branch = %s
-            )""".format(chosen_table=chosen_table, chosen_fixes=chosen_fixes)
+            )"""
 
     try:
         with db.cursor() as c:

@@ -123,10 +123,10 @@ def synchronize_fixes_tables_with_gerrit():
         fixes_tables = ['stable_fixes', 'chrome_fixes']
 
         for fixes_table in fixes_tables:
-            q = """SELECT branch, fix_change_id
+            q = f"""SELECT branch, fix_change_id
                     FROM {fixes_table}
                     WHERE (status = 'OPEN' OR status = 'ABANDONED')
-                    AND fix_change_id IS NOT NULL""".format(fixes_table=fixes_table)
+                    AND fix_change_id IS NOT NULL"""
             c.execute(q)
 
             while True:

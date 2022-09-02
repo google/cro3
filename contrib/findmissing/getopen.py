@@ -142,14 +142,15 @@ def report_integration_status_branch(db, metadata, branch, conflicts,
     status = 'CONFLICT' if conflicts else 'OPEN'
 
     # Walk through all fixes table entries with given status
-    q = """SELECT ct.fixedby_upstream_sha, lu.description, t.upstream_sha, t.description
+    chosen_table = metadata.kernel_fixes_table
+    q = f"""SELECT ct.fixedby_upstream_sha, lu.description, t.upstream_sha, t.description
             FROM {chosen_table} AS ct
             JOIN linux_upstream AS lu
             ON ct.fixedby_upstream_sha = lu.sha
             JOIN {table} as t
             ON ct.kernel_sha = t.sha
             WHERE ct.status = %s
-            AND ct.branch = %s""".format(chosen_table=metadata.kernel_fixes_table, table=table)
+            AND ct.branch = %s"""
     c.execute(q, [status, branch])
     for fixedby_sha, fixedby_description, fixes_sha, fixes_description in c.fetchall():
         # If we already handled a SHA while running this command while examining
@@ -171,9 +172,9 @@ def report_integration_status_branch(db, metadata, branch, conflicts,
         print('  upstream: %s' % integrated)
         print('    Fixes: %s ("%s")' % (fixes_sha, fixes_description))
 
-        q = """SELECT sha, branch
+        q = f"""SELECT sha, branch
                FROM {table}
-               WHERE upstream_sha = %s""".format(table=table)
+               WHERE upstream_sha = %s"""
         c.execute(q, [fixes_sha])
         fix_rows = sorted(c.fetchall(), key=mysort)
         affected_branches = []
@@ -204,10 +205,10 @@ def report_integration_status_branch(db, metadata, branch, conflicts,
             subsequent_fixes = ["\'" + sha + "\'" for sha in subsequent_fixes]
             parsed_fixes = ', '.join(subsequent_fixes)
             # format query here since we are inserting n values
-            q = """SELECT sha, description
+            q = f"""SELECT sha, description
                    FROM linux_upstream
-                   WHERE sha in ({sha})
-                   ORDER BY FIELD(sha, {sha})""".format(sha=parsed_fixes)
+                   WHERE sha in ({parsed_fixes})
+                   ORDER BY FIELD(sha, {parsed_fixes})"""
             c.execute(q)
             fixes = c.fetchall()
             print('    Fixed by:')
