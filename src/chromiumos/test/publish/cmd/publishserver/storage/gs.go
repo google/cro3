@@ -47,10 +47,20 @@ func (o *GSObject) Extend(addendum string) GSObject {
 }
 
 func NewGSClient(ctx context.Context, credentialsFile string) (*GSClient, error) {
-	client, err := NewStorageClient(ctx, credentialsFile)
-	if err != nil {
-		return nil, err
+	var client *StorageClient
+	var err error
+	if credentialsFile != "" {
+		client, err = NewStorageClientWithCredsFile(ctx, credentialsFile)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		client, err = NewStorageClientWithDefaultAccount(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return &GSClient{
 		client: client,
 	}, nil
