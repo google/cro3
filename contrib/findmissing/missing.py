@@ -226,20 +226,20 @@ def update_duplicate_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
     return True
 
 
-def check_merged_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
-    """Handles case where fixedby_upstream_sha may have changed in kernels.
+def update_duplicate_by_patch_id2(db, branch, fixedby_upstream_sha):
+    """Update duplicate by using patch_id.
 
-    Returns True if successful patch_id insertion and False if patch_id not found.
+    Commit sha may have been modified in cherry-pick, backport, etc.
+    Retrieve SHA in linux_chrome by patch-id by checking for fixedby_upstream_sha.
+    Remove entries that are already tracked in chrome_fixes.
+
+    Return True if:
+    - The patch is already in chrome_fixes table using a different chrome SHAs with same
+      upstream SHA and patch_id.
+    - The duplicate entry is updated into chrome_fixes.
+
+    Otherwise, False.
     """
-    c = db.cursor()
-
-    updated = update_duplicate_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha)
-    if updated:
-        return True
-
-    # Commit sha may have been modified in cherry-pick, backport, etc.
-    # Retrieve SHA in linux_chrome by patch-id by checking for fixedby_upstream_sha
-    #  removes entries that are already tracked in chrome_fixes
     q = """SELECT lc.sha
             FROM linux_chrome AS lc
             JOIN linux_upstream AS lu
@@ -253,29 +253,49 @@ def check_merged_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
                 FROM chrome_fixes
                 WHERE branch = %s
             )"""
-    c.execute(q, [fixedby_upstream_sha, branch, branch])
-    chrome_shas = c.fetchall()
+
+    with db.cursor() as c:
+        c.execute(q, [fixedby_upstream_sha, branch, branch])
+        chrome_shas = c.fetchall()
 
     # fixedby_upstream_sha has already been merged into linux_chrome
     #  chrome shas represent kernel sha for the upstream_sha fixedby_upstream_sha
     if chrome_shas:
-        for chrome_sha in chrome_shas:
-            entry_time = common.get_current_time()
-            cl_status = common.Status.MERGED.name
-            reason = 'Already merged into linux_chrome [upstream sha %s]' % fixedby_upstream_sha
+        entry_time = common.get_current_time()
+        cl_status = common.Status.MERGED.name
+        reason = 'Already merged into linux_chrome [upstream sha %s]' % fixedby_upstream_sha
+        q = """INSERT INTO chrome_fixes
+                (kernel_sha, fixedby_upstream_sha, branch, entry_time,
+                close_time, initial_status, status, reason)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
 
+        for chrome_sha in chrome_shas:
             try:
-                q = """INSERT INTO chrome_fixes
-                        (kernel_sha, fixedby_upstream_sha, branch, entry_time,
-                        close_time, initial_status, status, reason)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
-                c.execute(q, [chrome_sha, fixedby_upstream_sha, branch, entry_time,
-                                entry_time, cl_status, cl_status, reason])
+                with db.cursor() as c:
+                    c.execute(q, [chrome_sha, fixedby_upstream_sha, branch, entry_time, entry_time,
+                                  cl_status, cl_status, reason])
                 db.commit()
             except MySQLdb.Error as e: # pylint: disable=no-member
                 logging.error(
                     'Failed to insert an already merged entry into chrome_fixes: error %d(%s)',
                     e.args[0], e.args[1])
+
+        return True
+
+    return False
+
+
+def check_merged_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
+    """Handles case where fixedby_upstream_sha may have changed in kernels.
+
+    Returns True if successful patch_id insertion and False if patch_id not found.
+    """
+    updated = update_duplicate_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha)
+    if updated:
+        return True
+
+    updated = update_duplicate_by_patch_id2(db, branch, fixedby_upstream_sha)
+    if updated:
         return True
 
     return False
