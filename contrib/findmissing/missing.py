@@ -152,7 +152,7 @@ def get_change_id(db, target_branch, sha):
     return change_id_cand, reject
 
 
-def find_duplicate(db, branch, upstream_sha):
+def check_duplicate_by_patch_id(db, branch, upstream_sha):
     """Find and report dupplicate entry in chrome_fixes table.
 
     Return [kernel_sha, fixedby_upstream_sha, status] if patch is already
@@ -176,14 +176,14 @@ def find_duplicate(db, branch, upstream_sha):
         return c.fetchone()
 
 
-def insert_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
+def check_merged_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
     """Handles case where fixedby_upstream_sha may have changed in kernels.
 
     Returns True if successful patch_id insertion and False if patch_id not found.
     """
     c = db.cursor()
 
-    duplicate = find_duplicate(db, branch, fixedby_upstream_sha)
+    duplicate = check_duplicate_by_patch_id(db, branch, fixedby_upstream_sha)
     if duplicate:
         # This commit is already queued or known under a different upstream SHA.
         # Mark it as abandoned and point to the other entry as reason.
@@ -274,8 +274,8 @@ def create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstr
     Return True if we create a new Gerrit CL, otherwise return False.
     """
     # Check if fix has been merged using it's patch-id since sha's might've changed
-    success = insert_by_patch_id(db, branch, kernel_sha, fixedby_upstream_sha)
-    if success:
+    merged = check_merged_by_patch_id(db, branch, kernel_sha, fixedby_upstream_sha)
+    if merged:
         return False
 
     created_new_change = False
