@@ -350,12 +350,9 @@ def create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstr
 
     if created_new_change and not in_recursion:
         subsequent_fixes = get_subsequent_fixes(db, fixedby_upstream_sha)
-        if subsequent_fixes:
-            subsequent_fixes.pop(0) # 1st returned SHA is fixedby_upstream_sha
-            for fix in subsequent_fixes:
-                logging.info('SHA %s recursively fixed by: %s', fixedby_upstream_sha, fix)
-                create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fix,
-                           in_recursion=True)
+        for fix in subsequent_fixes[1:]: # 1st returned SHA is fixedby_upstream_sha
+            logging.info('SHA %s recursively fixed by: %s', fixedby_upstream_sha, fix)
+            create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fix, in_recursion=True)
 
     return created_new_change
 
