@@ -267,33 +267,27 @@ def insert_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
     return False
 
 
-def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstream_sha,
-                      recursion=False):
+def create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstream_sha,
+               in_recursion=False):
     """Inserts fix row by checking status of applying a fix change.
 
     Return True if we create a new Gerrit CL, otherwise return False.
     """
     # Check if fix has been merged using it's patch-id since sha's might've changed
     success = insert_by_patch_id(db, branch, kernel_sha, fixedby_upstream_sha)
-    created_new_change = False
     if success:
-        return created_new_change
+        return False
 
-    handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch=branch,
-                                          full_reset=not recursion)
+    created_new_change = False
+    entry_time = common.get_current_time()
+    close_time = fix_change_id = reason = None
+
     # Try applying patch and get status
+    handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch=branch,
+                                          full_reset=not in_recursion)
     status = handler.cherrypick_status(fixedby_upstream_sha)
     initial_status = status.name
     current_status = status.name
-
-    entry_time = common.get_current_time()
-
-    close_time = fix_change_id = reason = None
-
-    q = f"""INSERT INTO {chosen_fixes}
-            (kernel_sha, fixedby_upstream_sha, branch, entry_time, close_time,
-            fix_change_id, initial_status, status, reason)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
 
     if status == common.Status.MERGED:
         # Create a row for the merged CL (we don't need to track this), but can be stored
@@ -334,14 +328,19 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
         # Requires engineer to manually explore why CL doesn't apply cleanly
         pass
 
+    q = f"""INSERT INTO {chosen_fixes}
+            (kernel_sha, fixedby_upstream_sha, branch, entry_time, close_time,
+            fix_change_id, initial_status, status, reason)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+
     try:
         with db.cursor() as c:
             c.execute(q, [kernel_sha, fixedby_upstream_sha, branch, entry_time,
                           close_time, fix_change_id, initial_status, current_status, reason])
+
         logging.info('Inserted row into fixes table %s %s %s %s %s %s %s %s %s %s',
                      chosen_fixes, kernel_sha, fixedby_upstream_sha, branch,
                      entry_time, close_time, fix_change_id, initial_status, current_status, reason)
-
     except MySQLdb.Error as e: # pylint: disable=no-member
         logging.error(
             'Error inserting fix CL into fixes table %s %s %s %s %s %s %s %s %s %s: error %d(%s)',
@@ -349,13 +348,14 @@ def insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedb
             entry_time, close_time, fix_change_id, initial_status, current_status, reason,
             e.args[0], e.args[1])
 
-    if created_new_change and not recursion:
+    if created_new_change and not in_recursion:
         subsequent_fixes = get_subsequent_fixes(db, fixedby_upstream_sha)
         if subsequent_fixes:
             subsequent_fixes.pop(0) # 1st returned SHA is fixedby_upstream_sha
             for fix in subsequent_fixes:
                 logging.info('SHA %s recursively fixed by: %s', fixedby_upstream_sha, fix)
-                insert_fix_gerrit(db, chosen_table, chosen_fixes, branch, kernel_sha, fix, True)
+                create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fix,
+                           in_recursion=True)
 
     return created_new_change
 
@@ -495,8 +495,8 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
         if limit is not None and limit <= 0:
             break
 
-        created = insert_fix_gerrit(db, chosen_table, chosen_fixes,
-                        branch, kernel_sha, fixedby_upstream_sha)
+        created = create_fix(db, chosen_table, chosen_fixes, branch,
+                             kernel_sha, fixedby_upstream_sha)
         if created and limit:
             limit -= 1
 
