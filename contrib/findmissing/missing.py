@@ -152,15 +152,20 @@ def get_change_id(db, target_branch, sha):
     return change_id_cand, reject
 
 
-def check_duplicate_by_patch_id(db, branch, upstream_sha):
-    """Find and report dupplicate entry in chrome_fixes table.
+def update_duplicate_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
+    """Update duplicate entry in chrome_fixes table by using patch_id.
 
-    Return [kernel_sha, fixedby_upstream_sha, status] if patch is already
-    in chrome_fixes table using a different upstream SHA with same patch_id,
-    None otherwise.
+    Check if the commit is already in the fixes table using a different SHA.
+    The same commit may be listed upstream under multiple SHAs.
+
+    Update the table for duplicate entry if found.
+
+    Return True if:
+    - The patch is already in chrome_fixes table using a different upstream SHA with same patch_id.
+    - The duplicate entry is updated into chrome_fixes.
+
+    Otherwise, False.
     """
-    # Check if the commit is already in the fixes table using a different SHA
-    # (the same commit may be listed upstream under multiple SHAs).
     q = """SELECT c.kernel_sha, c.fixedby_upstream_sha, c.status
         FROM chrome_fixes AS c
         JOIN linux_upstream AS l1
@@ -172,8 +177,53 @@ def check_duplicate_by_patch_id(db, branch, upstream_sha):
         AND l2.sha = %s"""
 
     with db.cursor() as c:
-        c.execute(q, [branch, upstream_sha])
-        return c.fetchone()
+        c.execute(q, [branch, fixedby_upstream_sha])
+        row = c.fetchone()
+
+    if not row:
+        return False
+
+    # This commit is already queued or known under a different upstream SHA.
+    # Mark it as abandoned and point to the other entry as reason.
+    kernel_sha, recorded_upstream_sha, status = row
+    # kernel_sha is the SHA in the database.
+    # fixed_sha is the SHA we are trying to fix, which matches kernel_sha
+    # (meaning both have the same patch ID).
+    # The entry we need to add to the fixes table is for fixed_sha, not for
+    # kernel_sha (because kernel_sha is already in the database).
+    reason = 'Already merged/queued into linux_chrome [upstream sha %s]' % recorded_upstream_sha
+
+    # Status must be OPEN, MERGED or ABANDONED since we don't have
+    # entries with CONFLICT in the fixes table.
+    # Change OPEN to ABANDONED for final status, but keep MERGED.
+    final_status = status
+    if final_status == common.Status.OPEN.name:
+        final_status = common.Status.ABANDONED.name
+    # ABANDONED is not a valid initial status. Change it to OPEN
+    # if encountered.
+    if status == common.Status.ABANDONED.name:
+        status = common.Status.OPEN.name
+    entry_time = common.get_current_time()
+
+    q = """INSERT INTO chrome_fixes
+           (kernel_sha, fixedby_upstream_sha, branch, entry_time,
+            close_time, initial_status, status, reason)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+
+    try:
+        with db.cursor() as c:
+            c.execute(q, [fixed_sha, fixedby_upstream_sha, branch, entry_time, entry_time,
+                          status, final_status, reason])
+        db.commit()
+
+        logging.info('SHA %s [%s] fixed by %s: %s',
+                     fixed_sha, kernel_sha, fixedby_upstream_sha, reason)
+    except MySQLdb.Error as e: # pylint: disable=no-member
+        logging.error(
+            'Failed to insert an already merged/queued entry into chrome_fixes: error %d (%s)',
+            e.args[0], e.args[1])
+
+    return True
 
 
 def check_merged_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
@@ -183,44 +233,8 @@ def check_merged_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
     """
     c = db.cursor()
 
-    duplicate = check_duplicate_by_patch_id(db, branch, fixedby_upstream_sha)
-    if duplicate:
-        # This commit is already queued or known under a different upstream SHA.
-        # Mark it as abandoned and point to the other entry as reason.
-        kernel_sha, recorded_upstream_sha, status = duplicate
-        # kernel_sha is the SHA in the database.
-        # fixed_sha is the SHA we are trying to fix, which matches kernel_sha
-        # (meaning both have the same patch ID).
-        # The entry we need to add to the fixes table is for fixed_sha, not for
-        # kernel_sha (because kernel_sha is already in the database).
-        reason = 'Already merged/queued into linux_chrome [upstream sha %s]' % recorded_upstream_sha
-        logging.info('SHA %s [%s] fixed by %s: %s',
-                     fixed_sha, kernel_sha, fixedby_upstream_sha, reason)
-
-        try:
-            q = """INSERT INTO chrome_fixes
-                        (kernel_sha, fixedby_upstream_sha, branch, entry_time,
-                        close_time, initial_status, status, reason)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
-            # Status must be OPEN, MERGED or ABANDONED since we don't have
-            # entries with CONFLICT in the fixes table.
-            # Change OPEN to ABANDONED for final status, but keep MERGED.
-            final_status = status
-            if final_status == common.Status.OPEN.name:
-                final_status = common.Status.ABANDONED.name
-            # ABANDONED is not a valid initial status. Change it to OPEN
-            # if encountered.
-            if status == common.Status.ABANDONED.name:
-                status = common.Status.OPEN.name
-            entry_time = common.get_current_time()
-            c.execute(q, [fixed_sha, fixedby_upstream_sha,
-                              branch, entry_time, entry_time,
-                              status, final_status, reason])
-            db.commit()
-        except MySQLdb.Error as e: # pylint: disable=no-member
-            logging.error(
-                'Failed to insert an already merged/queued entry into chrome_fixes: error %d (%s)',
-                e.args[0], e.args[1])
+    updated = update_duplicate_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha)
+    if updated:
         return True
 
     # Commit sha may have been modified in cherry-pick, backport, etc.
