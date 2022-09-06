@@ -290,3 +290,4 @@ disp_overlay['5b887c2c06e7'] = 'drop' # FROMLIST: devfreq: mediatek: cci devfreq
 disp_overlay['cea3027781ee'] = 'drop' # CHROMIUM: net: xt_qtaguid: Make the match/check functions userns-aware
 disp_overlay['f4370ef58dae'] = 'drop' # BACKPORT: FROMGIT: ANDROID: xt_qtaguid: Remove tag_entry from process list on untag
 disp_overlay['56fdd9cd9158'] = 'drop' # BACKPORT: FROMGIT: ANDROID: xt_qtaguid: fix UAF race
+disp_overlay['4378383d6f00'] = 'drop' # CHROMIUM: media: platform: mtk-mdp3: Add VIDEO_MEDIATEK_MDP3 in Kconfig and Makefile
