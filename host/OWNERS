@@ -1,1 +1,1 @@
-include chromiumos/chromite:/OWNERS.build
+include chromiumos/owners:v1:/infra/OWNERS.build
