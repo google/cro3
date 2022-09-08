@@ -613,7 +613,7 @@ def parse_opts(argv):
   parser = argparse.ArgumentParser()
   parser.add_argument('--cros-checkout',
                       type=pathlib.Path,
-                      default=pathlib.Path(os.getenv('HOME')) / 'trunk',
+                      default=pathlib.Path(os.getenv('HOME')) / 'chromiumos',
                       help='Location of the ChromeOS checkout')
   parser.add_argument('--dut', '-d',
                       action='append',
