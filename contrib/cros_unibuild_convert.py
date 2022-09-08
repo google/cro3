@@ -348,7 +348,7 @@ class DeviceConfig:
   ATTRS = {
       'brand_code': ['cros_config', '/', 'brand-code'],
       'model': ['cros_config', '/', 'name'],
-      'smbios_name': ['cat', '/sys/class/dmi/id/product_name'],
+      'ro_fwid': ['crossystem', 'ro_fwid'],
       'arc_build_props': ['cat', '/usr/share/arc/properties/build.prop'],
       'customization_id': ['vpd_get_value', 'customization_id'],
       'vpd_model_name': ['vpd_get_value', 'model_name'],
@@ -391,6 +391,12 @@ class DeviceConfig:
         _, _, val = line.partition('=')
         return val
     return default
+
+  @property
+  def frid(self):
+    frid = self.ro_fwid or ''
+    frid, _, _ = frid.partition('.')
+    return frid
 
   @property
   def loem(self):
@@ -511,7 +517,7 @@ genconf_schema = {
     },
     'identity': {
         'platform-name': (M_PUBLIC, lambda _, b: b.mosys_platform),
-        'smbios-name-match': (M_PUBLIC, lambda d, _: d.smbios_name),
+        'frid': (M_PUBLIC, lambda d, _: d.frid),
         'customization-id': (M_PUBLIC, lambda d, _: d.customization_id or None),
     },
     'power': (M_PUBLIC, genconf_powerd_settings),
@@ -566,7 +572,7 @@ def unify_configs(dev_configs, configs):
     return configs[0], set()
 
   if isinstance(configs[0], str):
-    replace_vars = ('model', 'loem', 'chassis', 'brand_code', 'smbios_name',
+    replace_vars = ('model', 'loem', 'chassis', 'brand_code', 'frid',
                     'marketing_name')
     vars_used = set()
     for var in replace_vars:
