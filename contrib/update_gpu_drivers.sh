@@ -265,8 +265,9 @@ build_board() {
   fi
 
   # Uprev ebuild in git if it exists.
-  if [[ -d "${SRC_ROOT}/overlays/${opath}/${CATEGORY}/${pnbin}" ]]; then
-    cd "${SRC_ROOT}/overlays/${opath}/${CATEGORY}/${pnbin}"
+  local pnbin_path="${SRC_ROOT}/overlays/${opath}/${CATEGORY}/${pnbin}"
+  if [[ -d "${pnbin_path}" ]]; then
+    cd "${pnbin_path}"
 
     # Grab the version of the current release of the binary package.
     local pvbin="$(printf '%s\n' *.ebuild | \
@@ -289,6 +290,9 @@ build_board() {
     if ! commit_change; then
       warn "The changes are not commited."
     fi
+  else
+    warn "${pnbin_path} doesn't exist."
+    warn "Please create the package and the base ebuild file."
   fi
 
   popd > /dev/null
