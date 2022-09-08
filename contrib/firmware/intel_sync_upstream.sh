@@ -143,7 +143,8 @@ die $? "Error checking out cros-internal/${CHROMEOS_BRANCH}"
 echo "Checked out cros-internal/${CHROMEOS_BRANCH} to branch chrome-internal-tot"
 
 # Merge from staging branch
-if git merge "${STAGING_NAME}"-"${VERSION}" --strategy-option theirs --no-ff --log; then
+git merge "${STAGING_NAME}-${VERSION}" --strategy-option theirs --no-ff --log
+if [ $? -ne 0 ]; then
   echo "Didn't merge cleanly to ${STAGING_NAME}-${VERSION}"
 
   while true
