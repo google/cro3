@@ -229,10 +229,9 @@ class BoardOverlays:
       ('USE', 'use_flags'),
   ]
 
-  def __init__(self, board_name, checkout, mosys_platform):
+  def __init__(self, board_name, checkout):
     self.checkout = checkout
     self.board_name = board_name
-    self.mosys_platform = mosys_platform
     self.public_overlay = (checkout / 'src' / 'overlays'
                            / f'overlay-{board_name}')
     log('Public overlay path: {}'.format(self.public_overlay))
@@ -348,6 +347,7 @@ class DeviceConfig:
   ATTRS = {
       'brand_code': ['cros_config', '/', 'brand-code'],
       'model': ['cros_config', '/', 'name'],
+      'mosys_platform': ['mosys', 'platform', 'name'],
       'ro_fwid': ['crossystem', 'ro_fwid'],
       'arc_build_props': ['cat', '/usr/share/arc/properties/build.prop'],
       'customization_id': ['vpd_get_value', 'customization_id'],
@@ -516,7 +516,7 @@ genconf_schema = {
         'psu-type': (M_PUBLIC, lambda d, b: 'battery'),
     },
     'identity': {
-        'platform-name': (M_PUBLIC, lambda _, b: b.mosys_platform),
+        'platform-name': (M_PUBLIC, lambda d, _: d.mosys_platform),
         'frid': (M_PUBLIC, lambda d, _: d.frid),
         'customization-id': (M_PUBLIC, lambda d, _: d.customization_id or None),
     },
@@ -625,7 +625,6 @@ def parse_opts(argv):
                       type=str,
                       required=True,
                       help='Board name to convert.')
-  parser.add_argument('--mosys-platform', type=str, required=True)
   parser.add_argument('--dry-run',
                       action='store_true',
                       default=False,
@@ -636,7 +635,7 @@ def parse_opts(argv):
 def main(argv):
   opts = parse_opts(argv)
 
-  overlays = BoardOverlays(opts.board, opts.cros_checkout, opts.mosys_platform)
+  overlays = BoardOverlays(opts.board, opts.cros_checkout)
   duts = []
   for dut_string in opts.duts:
     if dut_string[0] == '[':
