@@ -800,6 +800,16 @@ def main(argv):
       M_PRIVATE,
       'chromeos-base/chromeos-config-bsp-private/chromeos-config-bsp-private-9999.ebuild',
       private_bsp_ebuild)
+  overlays.write_file(
+      M_PUBLIC,
+      'chromeos-base/chromeos-config-bsp/OWNERS',
+      'include chromiumos/owners:v1:/platform/OWNERS.cros_config\n',
+  )
+  overlays.write_file(
+      M_PRIVATE,
+      'chromeos-base/chromeos-config-bsp-private/OWNERS',
+      'include chromeos/owners:v1:/platform/OWNERS.cros_config\n',
+  )
   write_file(overlays.firmware_ebuild_path, firmware_ebuild)
   write_file(firmware_srcuris_path, ''.join('{}\n'.format(uri) for uri in firmware_srcuris.split()))
   write_file(overlays.public_make_defaults_file, public_make_defaults)
