@@ -42,11 +42,12 @@ DRIVERS="arc-mali-drivers-bifrost arc-mali-drivers-valhall mali-drivers mali-dri
 #
 # Variable name: "PARAMS_${pn//-/_}"
 
+# Only add board that is still using ARC++ P
 PARAMS_arc_mali_drivers_bifrost=(
   "kukui kukui chipset-mt8183"
-  "corsola corsola chipset-mt8186"
 )
 
+# Only add board that is still using ARC++ P
 PARAMS_arc_mali_drivers_valhall=(
   "asurada asurada chipset-mt8192"
   "cherry cherry chipset-mt8195"
