@@ -143,7 +143,7 @@ build_board() {
   local board=$1
   local suffix=$2
   local opath=$3
-  echo "Board is ${board}"
+  info "Board is ${board}"
 
   # Source PVR (e.g. 13.0-r6)
   local pvr
@@ -206,10 +206,10 @@ build_board() {
   local script="${pn}-${suffix}-${pv}.run"
   local gspath="gs://chromeos-localmirror/distfiles"
 
-  echo "Current version is ${pvr}"
-  echo "Input tarball is ${inputtarball}"
-  echo "Output tarball is ${outputtarball}"
-  echo "Script is ${script}"
+  info "Current version is ${pvr}"
+  info "Input tarball is ${inputtarball}"
+  info "Output tarball is ${outputtarball}"
+  info "Script is ${script}"
 
   mkdir work
   if [[ $? != 0 ]]; then
@@ -228,16 +228,16 @@ build_board() {
 
   create_run_script "${script}" "${outputtarball}"
 
-  echo "Uploading tarball to ${gspath}/${script}"
+  info "Uploading tarball to ${gspath}/${script}"
   if [[ ${FLAGS_dryrun} -eq ${FLAGS_TRUE} ]]; then
-    echo "Would run: gsutil cp -n -a public-read \"${script}\" \"${gspath}/${script}\""
+    info "Would run: gsutil cp -n -a public-read \"${script}\" \"${gspath}/${script}\""
   else
     local extra_args=""
 
     if [[ ${FLAGS_clobber} -eq ${FLAGS_FALSE} ]]; then
       if gsutil ls -a "${gspath}/${script}" 2>/dev/null; then
-        echo "WARNING: ${gspath}/${script} exists."
-        echo "Retry with -c or --clobber to overwrite the existing binaries."
+        warn "${gspath}/${script} exists."
+        warn "Retry with -c or --clobber to overwrite the existing binaries."
         exit 1
       fi
       extra_args="${extra_args} -n"
@@ -257,7 +257,7 @@ build_board() {
     local pvbin="$(printf '%s\n' *.ebuild | \
                    sed -nE "s/^${pnbin}-(.*)\.ebuild\$/\1/p" | \
                    sort -V | tail -n 1)"
-    echo "New binary version: ${pv} (current binary version: ${pvbin})"
+    info "New binary version: ${pv} (current binary version: ${pvbin})"
 
     # following git commands may fail if they have been issued previously
     git checkout -b "gpudriverbinupdate-${pnbin}-${pv}"
@@ -285,20 +285,20 @@ main() {
 
   trap cleanup INT TERM ERR EXIT
 
-  echo 'This script builds gpu drivers for a list of boards. It uploads the'
-  echo 'binaries to Google storage and makes them available in the public'
-  echo 'repository. It expects you have configured gsutil.'
-  echo
+  info 'This script builds gpu drivers for a list of boards. It uploads the'
+  info 'binaries to Google storage and makes them available in the public'
+  info 'repository. It expects you have configured gsutil.'
+  info
 
   if [[ ${FLAGS_dryrun} -eq ${FLAGS_TRUE} ]]; then
-    echo "Running with --dryrun, moving forward."
+    info "Running with --dryrun, moving forward."
   else
     printf 'Type "y" if you know what you are doing and want to go ahead: '
     read typed
 
     if [[ "${typed}" != y ]]; then
-      echo
-      echo "Good choice."
+      info
+      info "Good choice."
       exit 2
     fi
   fi
@@ -313,14 +313,14 @@ main() {
   local array="PARAMS_${pn//-/_}[@]"
 
   if [[ -z "${!array}" ]]; then
-    echo
-    echo "Nothing to do for ${pn}, you probably chose an incorrect package name."
-    echo "Supported packages: ${DRIVERS}"
+    warn
+    warn "Nothing to do for ${pn}, you probably chose an incorrect package name."
+    warn "Supported packages: ${DRIVERS}"
     exit 1
   fi
 
   TEMP_DIR="$(mktemp -d)"
-  echo "Temp dir is ${TEMP_DIR}"
+  info "Temp dir is ${TEMP_DIR}"
 
   for params in "${!array}"; do
     build_board ${params}
