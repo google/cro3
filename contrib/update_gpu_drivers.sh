@@ -134,6 +134,19 @@ __BODYEOF__
   du -b "${script}"
 }
 
+commit_change() {
+  git commit --edit -m "$(cat <<EOM
+${opath}: ${pnbin}: Uprev to ${pv}
+
+Via ~/chromiumos/src/platform/dev/contrib/update_gpu_drivers.sh
+      --package ${pn}
+
+BUG=TODO
+TEST=emerge-${board} -av ${pnbin}
+EOM
+)"
+}
+
 # arguments:
 # $1 board name (Chrome OS board name to build)
 # $2 binary package suffix (suffix added to tar package name)
@@ -263,7 +276,17 @@ build_board() {
     git checkout -b "gpudriverbinupdate-${pnbin}-${pv}"
     git mv "${pnbin}-${pvbin}.ebuild" "${pnbin}-${pv}.ebuild"
 
-    ebuild "${pnbin}-${pv}.ebuild" manifest
+    if ! ebuild "${pnbin}-${pv}.ebuild" manifest; then
+      die "Couldn't update manifest for ${pnbin}-${pv}."
+    fi
+
+    if ! git add "Manifest"; then
+      die "Couldn't git add Manifest."
+    fi
+
+    if ! commit_change; then
+      warn "The changes are not commited."
+    fi
   fi
 
   popd > /dev/null
@@ -285,9 +308,12 @@ main() {
 
   trap cleanup INT TERM ERR EXIT
 
-  info 'This script builds gpu drivers for a list of boards. It uploads the'
-  info 'binaries to Google storage and makes them available in the public'
-  info 'repository. It expects you have configured gsutil.'
+  info "$(basename "$0") builds GPU drivers for a list of boards."
+  info 'It uploads the binaries to Google storage and generates corresponding'
+  info 'commits for submission.'
+  info 'It makes the pre-built GPU binaries available in the public repository'
+  info 'for external partners and developers to use.'
+  info 'It expects you have configured gsutil.'
   info
 
   if [[ ${FLAGS_dryrun} -eq ${FLAGS_TRUE} ]]; then
