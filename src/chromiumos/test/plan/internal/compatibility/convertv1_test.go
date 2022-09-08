@@ -918,7 +918,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "criterion \"attribute_id:{value:\\\"fp\\\"} values:\\\"fp1\\\"\" doesn't match any valid attributes",
+			err:              "criterion \"attribute_id:{value:\\\"fp\\\"}  values:\\\"fp1\\\"\" doesn't match any valid attributes",
 		},
 		{
 			name:        "multiple pool values",
@@ -1359,7 +1359,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "DutAttribute \"id:{value:\\\"attr-program\\\"} aliases:\\\"attr-board\\\"\" specified twice",
+			err:              "DutAttribute \"id:{value:\\\"attr-program\\\"}  aliases:\\\"attr-board\\\"\" specified twice",
 		},
 	}
 
