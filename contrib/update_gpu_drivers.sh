@@ -13,11 +13,11 @@ CONTRIB_DIR=$(dirname "$(readlink -f "$0")")
 
 DEFINE_string package "" \
   "selects which gpu drivers package to build"
-DEFINE_boolean dryrun ${FLAGS_FALSE} \
+DEFINE_boolean dryrun "${FLAGS_FALSE}" \
   "dry run, don't upload anything and don't delete temporary dirs" n
-DEFINE_boolean usebinpkg ${FLAGS_TRUE} \
+DEFINE_boolean usebinpkg "${FLAGS_TRUE}" \
   "use prebuilt binaries, instead of building driver locally" b
-DEFINE_boolean clobber ${FLAGS_FALSE} \
+DEFINE_boolean clobber "${FLAGS_FALSE}" \
   "overwrites the existing binaries when uploading" c
 
 # Parse command line.
@@ -43,31 +43,37 @@ DRIVERS="arc-mali-drivers-bifrost arc-mali-drivers-valhall mali-drivers mali-dri
 # Variable name: "PARAMS_${pn//-/_}"
 
 # Only add board that is still using ARC++ P
+# shellcheck disable=SC2034
 PARAMS_arc_mali_drivers_bifrost=(
   "kukui kukui chipset-mt8183"
 )
 
 # Only add board that is still using ARC++ P
+# shellcheck disable=SC2034
 PARAMS_arc_mali_drivers_valhall=(
   "asurada asurada chipset-mt8192"
   "cherry cherry chipset-mt8195"
 )
 
+# shellcheck disable=SC2034
 PARAMS_mali_drivers=(
   "kevin gru baseboard-gru"
 )
 
+# shellcheck disable=SC2034
 PARAMS_mali_drivers_bifrost=(
   "kukui kukui chipset-mt8183"
   "corsola corsola chipset-mt8186"
 )
 
+# shellcheck disable=SC2034
 PARAMS_mali_drivers_valhall=(
   "asurada asurada chipset-mt8192"
   "cherry cherry chipset-mt8195"
   "geralt geralt chipset-mt8188g"
 )
 
+# shellcheck disable=SC2034
 PARAMS_img_ddk=(
   "elm oak chipset-mt8173"
 )
@@ -75,6 +81,7 @@ PARAMS_img_ddk=(
 create_run_script() {
   local script="$1"
   local outputtarball="$2"
+  local hdrsize
 
   cat > "${script}" <<\__HDREOF__
 #!/bin/sh
@@ -92,8 +99,11 @@ echo
 more << __EOF__
 __HDREOF__
 
-  cat "${SRC_ROOT}/third_party/chromiumos-overlay/licenses/Google-TOS" >> "${script}"
-  echo __EOF__ >> "${script}"
+  {
+    cat "${SRC_ROOT}/third_party/chromiumos-overlay/licenses/Google-TOS"
+    echo __EOF__
+  } >> "${script}"
+
   cat >> "${script}" <<\__BODYEOF__
 if [ $? != 0 ]; then
   echo "ERROR: Couldn't display license file" 1>&2
@@ -126,7 +136,7 @@ fi
 exit 0
 __BODYEOF__
 
-  local hdrsize=$(wc -l < "${script}")
+  hdrsize=$(wc -l < "${script}")
 
   sed -i "s/@HDRSZ@/$(( hdrsize + 1 ))/g" "${script}"
 
@@ -166,21 +176,24 @@ build_board() {
 
   local temp="${TEMP_DIR}/${suffix}"
   mkdir "${temp}"
-  pushd "${temp}" > /dev/null
+  pushd "${temp}" > /dev/null || die "Couldn't pushd ${temp}."
 
   if [[ ${FLAGS_usebinpkg} -eq ${FLAGS_TRUE} ]]; then
     # Fetch binary package from Google Storage.
     local partner_overlay="${SRC_ROOT}/private-overlays/chromeos-partner-overlay"
+    local binhost_gs
+    local packages_file
+    local prebuilt_path
 
     # Fetch latest preflight prebuilt version.
     git --git-dir "${partner_overlay}/.git" fetch --all
-    local binhost_gs="$(git --git-dir "${partner_overlay}/.git" show \
-        "m/main:chromeos/binhost/target/${board}-POSTSUBMIT_BINHOST.conf" | \
-      sed -nE 's/POSTSUBMIT_BINHOST=\"(.*)\"/\1/p')"
+    binhost_gs="$(git --git-dir "${partner_overlay}/.git" show \
+                  "m/main:chromeos/binhost/target/${board}-POSTSUBMIT_BINHOST.conf" | \
+                  sed -nE 's/POSTSUBMIT_BINHOST=\"(.*)\"/\1/p')"
 
     # Parse Packages file to find GS path of the latest ${pn} prebuilt.
-    local packages_file="$(gsutil cat "${binhost_gs}/Packages")"
-    local prebuilt_path="$(echo "${packages_file}" | \
+    packages_file="$(gsutil cat "${binhost_gs}/Packages")"
+    prebuilt_path="$(echo "${packages_file}" | \
       awk '
         $1 == "CPV:" && $2 ~ /'"${CATEGORY}"'\/'"${pn}"'-[0-9]/ { m = 1 }
         m && $1 == "PATH:" { print $2 }
@@ -195,8 +208,8 @@ build_board() {
     pvr="${pvr##*${pn}-}"
   else
     # Build from source.
-    setup_board --board="${board}"
-    if [[ $? != 0 ]]; then
+
+    if ! setup_board --board="${board}"; then
       die "Setting up board ${board} failed."
     fi
 
@@ -204,9 +217,7 @@ build_board() {
     # This could fail if cros_workon is already stopped so ignore return code.
     cros_workon --board="${board}" stop "${pn}"
 
-    "emerge-${board}" "${pn}"
-
-    if [[ $? != 0 ]]; then
+    if ! "emerge-${board}" "${pn}"; then
       die "Emerging ${pn} for ${board} failed."
     fi
 
@@ -226,18 +237,15 @@ build_board() {
   info "Output tarball is ${outputtarball}"
   info "Script is ${script}"
 
-  mkdir work
-  if [[ $? != 0 ]]; then
+  if ! mkdir work; then
     die "Couldn't create work directory."
   fi
 
-  qtbz2 -tO "${inputtarball}" | tar -C work --zstd -xpv
-  if [[ $? != 0 ]]; then
+  if ! qtbz2 -tO "${inputtarball}" | tar -C work --zstd -xpv; then
     die "Couldn't decompress package tarball ${inputtarball}."
   fi
 
-  tar -C work --exclude=usr/lib/debug -cpjvf "${outputtarball}" ./
-  if [[ $? != 0 ]]; then
+  if ! tar -C work --exclude=usr/lib/debug -cpjvf "${outputtarball}" ./; then
     die "Couldn't create ${outputtarball}."
   fi
 
@@ -247,7 +255,7 @@ build_board() {
   if [[ ${FLAGS_dryrun} -eq ${FLAGS_TRUE} ]]; then
     info "Would run: gsutil cp -n -a public-read \"${script}\" \"${gspath}/${script}\""
   else
-    local extra_args=""
+    local extra_args=()
 
     if [[ ${FLAGS_clobber} -eq ${FLAGS_FALSE} ]]; then
       if gsutil ls -a "${gspath}/${script}" 2>/dev/null; then
@@ -255,11 +263,10 @@ build_board() {
         warn "Retry with -c or --clobber to overwrite the existing binaries."
         exit 1
       fi
-      extra_args="${extra_args} -n"
+      extra_arg+=( "-n" )
     fi
 
-    gsutil cp ${extra_args} -a public-read "${script}" "${gspath}/${script}"
-    if [[ $? != 0 ]]; then
+    if ! gsutil cp "${extra_args[@]}" -a public-read "${script}" "${gspath}/${script}"; then
       die "Couldn't upload ${script} to ${gspath}/${script}."
     fi
   fi
@@ -267,12 +274,13 @@ build_board() {
   # Uprev ebuild in git if it exists.
   local pnbin_path="${SRC_ROOT}/overlays/${opath}/${CATEGORY}/${pnbin}"
   if [[ -d "${pnbin_path}" ]]; then
-    cd "${pnbin_path}"
+    cd "${pnbin_path}" || die "Couldn't cd to ${pnbin_path}."
 
     # Grab the version of the current release of the binary package.
-    local pvbin="$(printf '%s\n' *.ebuild | \
-                   sed -nE "s/^${pnbin}-(.*)\.ebuild\$/\1/p" | \
-                   sort -V | tail -n 1)"
+    local pvbin
+    pvbin="$(printf '%s\n' *.ebuild | \
+             sed -nE "s/^${pnbin}-(.*)\.ebuild\$/\1/p" | \
+             sort -V | tail -n 1)"
     info "New binary version: ${pv} (current binary version: ${pvbin})"
 
     # following git commands may fail if they have been issued previously
@@ -295,7 +303,7 @@ build_board() {
     warn "Please create the package and the base ebuild file."
   fi
 
-  popd > /dev/null
+  popd > /dev/null || die "Couldn't popd."
 }
 
 cleanup() {
@@ -326,7 +334,7 @@ main() {
     info "Running with --dryrun, moving forward."
   else
     printf 'Type "y" if you know what you are doing and want to go ahead: '
-    read typed
+    read -r typed
 
     if [[ "${typed}" != y ]]; then
       info
@@ -355,6 +363,7 @@ main() {
   info "Temp dir is ${TEMP_DIR}"
 
   for params in "${!array}"; do
+    # shellcheck disable=SC2086
     build_board ${params}
   done
 }
