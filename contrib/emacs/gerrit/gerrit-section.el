@@ -1,8 +1,7 @@
 ;; -*- lexical-binding: t -*-
-
-;; copyright 2020 the chromium os authors. all rights reserved.
-;; use of this source code is governed by a bsd-style license that can be
-;; found in the license file.
+;; Copyright 2020 The ChromiumOS Authors
+;; Use of this source code is governed by a BSD-style license that can be
+;; found in the LICENSE file.
 
 (require 'magit)
 (require 'magit-section)

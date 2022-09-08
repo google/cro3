@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Class to manage saving the state of the new_variant process
 
-Copyright 2020 The Chromium OS Authors. All rights reserved.
+Copyright 2020 The ChromiumOS Authors
 Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 """

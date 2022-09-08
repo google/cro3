@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Read two test logs and report differences in power consumption."""
-# Copyright 2022 The Chromium OS Authors. All rights reserved.
+# Copyright 2022 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 

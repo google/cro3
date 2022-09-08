@@ -5,7 +5,7 @@ Volteer2 uses QS revision silicon, while Volteer uses ES2 revision. This
 matters when we generate a fitimage, but everywhere else, we just want to
 use the same stuff as Volteer.
 
-Copyright 2020 The Chromium OS Authors. All rights reserved.
+Copyright 2020 The ChromiumOS Authors
 Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 """
