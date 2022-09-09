@@ -13,6 +13,8 @@ CONTRIB_DIR=$(dirname "$(readlink -f "$0")")
 
 DEFINE_string package "" \
   "selects which gpu drivers package to build"
+DEFINE_string board "" \
+  "selects which board to build on. Empty to build on all supported boards."
 DEFINE_boolean dryrun "${FLAGS_FALSE}" \
   "dry run, don't upload anything and don't delete temporary dirs" n
 DEFINE_boolean usebinpkg "${FLAGS_TRUE}" \
@@ -362,10 +364,24 @@ main() {
   TEMP_DIR="$(mktemp -d)"
   info "Temp dir is ${TEMP_DIR}"
 
+  local found=0
+  local boards=()
   for params in "${!array}"; do
-    # shellcheck disable=SC2086
-    build_board ${params}
+    # shellcheck disable=SC2206   # Expand on whitespace.
+    params=( ${params} )
+    board="${params[0]}"
+    boards+=( "${board}" )
+
+    if [[ -z "${FLAGS_board}" || "${FLAGS_board}" == "${board}" ]]; then
+      found=1
+      build_board "${params[@]}"
+    fi
   done
+
+  if [[ ${found} -eq 0 ]]; then
+    warn "Nothing to do for board '${FLAGS_board}'."
+    warn "${pn} supports following boards: ${boards[*]}"
+  fi
 }
 
 main "$@"
