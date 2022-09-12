@@ -59,7 +59,7 @@ REGISTERED_BUILDS = {
     'cros-test': {
         'prepper': CrosTestDockerPrepper, 'cloud': True},
     'cros-test-finder': {
-        'prepper': CrosTestFinderDockerPrepper, 'cloud': True},
+        'prepper': CrosTestFinderDockerPrepper, 'cloud': False},
     'cros-servod': {
         'prepper': CommonServiceDockerPrepper, 'cloud': False},
     'cros-publish': {
