@@ -16,6 +16,9 @@ func main() {
 		fmt.Printf("unable to parse inputs: %s", err)
 		os.Exit(2)
 	}
-
-	opt.Run()
+	err = opt.Run()
+	if err != nil {
+		fmt.Printf("fw-provision failed: %v", err)
+		os.Exit(1)
+	}
 }

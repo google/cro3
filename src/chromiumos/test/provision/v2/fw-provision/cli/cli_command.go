@@ -1,4 +1,4 @@
-// Copyright 2022 The ChromiumOS Authors.
+// Copyright 2022 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -77,7 +77,7 @@ func (cc *CLICommand) Init(args []string) error {
 
 	cc.inputProto, err = common_utils.ParseProvisionFirmwareRequest(cc.inputFile)
 	if err != nil {
-		return fmt.Errorf("unable to parse CrosProvisionRequest proto: %s", err)
+		return fmt.Errorf("unable to parse ProvisionFirmwareRequest proto: %s", err)
 	}
 
 	return nil
@@ -105,28 +105,31 @@ var DefaultServodPort = 9999
 func (cc *CLICommand) Run() error {
 	cc.log.Printf("Running CLI Mode (V2):")
 
-	dutServAddr, err := ipEndpointToHostPort(cc.inputProto.GetDutServerAddress())
-	if err != nil {
-		return fmt.Errorf("failed to parse IpEndpoint of Dut Server: %w", err)
+	var dutAdapter common_utils.ServiceAdapter
+	if !cc.inputProto.GetUseServo() {
+		dutServAddr, err := ipEndpointToHostPort(cc.inputProto.GetDutServerAddress())
+		if err != nil {
+			return fmt.Errorf("failed to parse IpEndpoint of Dut Server: %w", err)
+		}
+		dutConn, err := grpc.Dial(dutServAddr, grpc.WithInsecure())
+		if err != nil {
+			return fmt.Errorf("failed to connect to dut-service, %s", err)
+		}
+		defer dutConn.Close()
+		dutAdapter = common_utils.NewServiceAdapter(api.NewDutServiceClient(dutConn), false /*noReboot*/)
 	}
-	dutConn, err := grpc.Dial(dutServAddr, grpc.WithInsecure())
-	if err != nil {
-		return fmt.Errorf("failed to connect to dut-service, %s", err)
-	}
-	defer dutConn.Close()
-	dutAdapter := common_utils.NewServiceAdapter(api.NewDutServiceClient(dutConn), false /*noReboot*/)
 
 	var servodServiceClient api.ServodServiceClient
 	if cc.inputProto.GetUseServo() {
 		crosServodAddr, err := ipEndpointToHostPort(cc.inputProto.GetCrosServodAddress())
 		if err != nil {
-			return fmt.Errorf("failed to parse IpEndpoint of Dut Server: %w", err)
+			return fmt.Errorf("failed to parse IpEndpoint of cros-servod: %w", err)
 		}
 		servodConn, err := grpc.Dial(crosServodAddr, grpc.WithInsecure())
 		if err != nil {
-			return fmt.Errorf("failed to connect to dut-service, %s", err)
+			return fmt.Errorf("failed to connect to cros-servod, %s", err)
 		}
-		defer dutConn.Close()
+		defer servodConn.Close()
 		servodServiceClient = api.NewServodServiceClient(servodConn)
 	}
 
