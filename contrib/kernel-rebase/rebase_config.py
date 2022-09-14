@@ -1,5 +1,5 @@
 # Commits to revert on each topic branch *before* topic fixups
-# Copyright 2021 The ChromiumOS Authors
+# Copyright 2022 The ChromiumOS Authors.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -93,6 +93,10 @@ topic_fixups['cros_ec'] = [
 
 topic_fixups['drivers'] = [
     'FIXUP: BACKPORT: FROMLIST: usb: dwc3: qcom: Configure wakeup'
+]
+
+topic_fixups['sound'] = [
+    'ASoC: max98357a: Add mixer control to mute unmute speaker'
 ]
 
 # order for automatic branch merging in rebase.py.
