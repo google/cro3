@@ -56,7 +56,7 @@ class PacBus:
         time.sleep(REFRESH_WAIT_TIME)
 
 
-def read_pac(device, reg, num_bytes):
+def read_pac(device, reg, num_bytes, signed=False):
     """Reads num_bytes from PAC I2C register using pyftdi driver.
 
     Args:
@@ -72,7 +72,7 @@ def read_pac(device, reg, num_bytes):
     return pacval
 
 
-def read_pac_int(device, reg, num_bytes):
+def read_pac_int(device, reg, num_bytes, signed=False):
     """Calls read_pac and returns the value as an int.
 
     Args:
@@ -83,8 +83,8 @@ def read_pac_int(device, reg, num_bytes):
     Returns:
         (int) The value of read_pac converted to an int
     """
-    pacval = read_pac(device, reg, num_bytes)
-    return int(pacval, 16)
+    pacval = device.read_from(reg, num_bytes)
+    return int.from_bytes(pacval, byteorder='big', signed=signed)
 
 
 def read_voltage(device, ch_num=1, polarity='bipolar'):
@@ -99,7 +99,8 @@ def read_voltage(device, ch_num=1, polarity='bipolar'):
         act_volt: (float) Voltage.
     """
     # Read Voltage.
-    act_volt = read_pac_int(device, pac19xx.VBUS1_AVG + int(ch_num), 2)
+    signed = polarity == 'bipolar'
+    act_volt = read_pac_int(device, pac19xx.VBUS1_AVG + int(ch_num), 2, signed)
     # Convert to voltage.
     act_volt = act_volt * (pac19xx.FSV / pac19xx.V_POLAR[polarity])
     return float(act_volt)
@@ -118,7 +119,8 @@ def read_power(device, sense_resistance, ch_num=1, polarity='unipolar'):
         power: (float) Power in W.
     """
     # Read power
-    power = read_pac_int(device, pac19xx.VPOWER1 + int(ch_num), 4)
+    signed = polarity == 'bipolar'
+    power = read_pac_int(device, pac19xx.VPOWER1 + int(ch_num), 4, signed)
     power_fsr = (pac19xx.FSR / float(sense_resistance)) * pac19xx.FSV
     p_prop = power / pac19xx.P_POLAR[polarity]
     power = power_fsr * p_prop * 0.25
@@ -138,7 +140,8 @@ def read_current(device, sense_resistance, ch_num=1, polarity='unipolar'):
     Returns:
         current: (float) Current.
     """
-    current = read_pac_int(device, pac19xx.VSENSE1_AVG + int(ch_num), 2)
+    signed = polarity == 'bipolar'
+    current = read_pac_int(device, pac19xx.VSENSE1_AVG + int(ch_num), 2, signed)
     fsc = pac19xx.FSR / float(sense_resistance)
     current = (fsc / pac19xx.V_POLAR[polarity]) * current
     return float(current)
