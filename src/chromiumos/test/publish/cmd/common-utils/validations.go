@@ -25,9 +25,11 @@ func ValidateGCSPublishRequest(req *api.PublishRequest, metadata *api.PublishGcs
 }
 
 // ValidateTKOPublishRequest validates tko publish request
-func ValidateTKOPublishRequest(req *api.PublishRequest, metadata proto.Message) error {
+func ValidateTKOPublishRequest(req *api.PublishRequest, metadata *api.PublishTkoMetadata) error {
 	if err := ValidateGenericPublishRequest(req); err != nil {
 		return fmt.Errorf("error in publish request: %s", err)
+	} else if err := ValidateTKORequestMetadata(metadata); err != nil {
+		return fmt.Errorf("error in tko publish request metadata: %s", err)
 	}
 	return nil
 }
@@ -58,6 +60,15 @@ func ValidateGCSRequestMetadata(metadata *api.PublishGcsMetadata) error {
 		return fmt.Errorf("GCS path must be of GS type")
 	} else if !strings.HasPrefix(metadata.GetGcsPath().GetPath(), "gs://") {
 		return fmt.Errorf("gs url must begin with 'gs://', instead have, %s", metadata.GetGcsPath().GetPath())
+	}
+
+	return nil
+}
+
+// ValidateTKORequestMetadata validates tko request metadata
+func ValidateTKORequestMetadata(metadata *api.PublishTkoMetadata) error {
+	if metadata.GetJobName() == "" {
+		return fmt.Errorf("JobName is required in metadata for tko publish")
 	}
 
 	return nil

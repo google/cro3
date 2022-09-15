@@ -6,43 +6,71 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"time"
 
 	common_utils "chromiumos/test/publish/cmd/common-utils"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/protobuf/proto"
 )
 
+// TkoPublishService serves only one publish request. Not to be confused with a
+// server that creates a new service instance for each request.
 type TkoPublishService struct {
-	RetryCount int
+	LocalArtifactPath string
+	RetryCount        int
+	JobName           string
 }
 
 func NewTkoPublishService(req *api.PublishRequest) (*TkoPublishService, error) {
-	_, err := unpackMetadata(req)
+	metadata, err := unpackMetadata(req)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = common_utils.ValidateTKOPublishRequest(req, nil); err != nil {
+	if err = common_utils.ValidateTKOPublishRequest(req, metadata); err != nil {
 		return nil, err
 	}
 
-	// TODO(b/241053803): read retryCount from input
 	retryCount := 0
+	if req.GetRetryCount() > 0 {
+		retryCount = int(req.GetRetryCount())
+	}
 
 	return &TkoPublishService{
-		RetryCount: retryCount,
+		LocalArtifactPath: req.GetArtifactDirPath().GetPath(),
+		RetryCount:        retryCount,
+		JobName:           metadata.GetJobName(),
 	}, nil
 }
 
-// TODO(b/241053803): implement this
 func (ts *TkoPublishService) UploadToTko(ctx context.Context) error {
+	cmd, err := tkoParseCmd(ctx, TkoParseRequest{ResultsDir: ts.LocalArtifactPath, JobName: ts.JobName})
+	if err != nil {
+		log.Printf("error while creating tko parse command: %s", err)
+		return fmt.Errorf("error while creating tko parse command: %s", err)
+	}
+	stdout, stderr, err := common_utils.RunWithTimeout(ctx, cmd, 5*time.Minute, true)
+	if err != nil {
+		log.Printf("error in tko upload: %s", err)
+		return fmt.Errorf("error in tko upload: %s", err)
+	}
+	// TODO(mingkong) decide whether to log errors to stderr instead of stdout
+	log.Println("#### stdout from tko/parse start ####")
+	log.Print(stdout)
+	log.Println("#### stdout from tko/parse end ####")
+	log.Println("#### stderr from tko/parse start ####")
+	log.Print(stderr)
+	log.Println("#### stderr from tko/parse end ####")
 	return nil
 }
 
-// unpackMetadata unpacks the Any metadata field into PublishGcsMetadata
-func unpackMetadata(req *api.PublishRequest) (*proto.Message, error) {
-	var m proto.Message
-	// TODO(b/241053803): unmarshal proper metadata
+// unpackMetadata unpacks the Any metadata field into PublishTkoMetadata
+func unpackMetadata(req *api.PublishRequest) (*api.PublishTkoMetadata, error) {
+	var m api.PublishTkoMetadata
+	if err := req.Metadata.UnmarshalTo(&m); err != nil {
+		return &m, fmt.Errorf("improperly formatted input proto metadata, %s", err)
+	}
 	return &m, nil
 }
