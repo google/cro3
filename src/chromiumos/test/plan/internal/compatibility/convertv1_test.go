@@ -5,6 +5,7 @@ package compatibility_test
 
 import (
 	"math/rand"
+	"regexp"
 	"testing"
 
 	"chromiumos/test/plan/internal/compatibility"
@@ -763,17 +764,13 @@ func TestToCTP1(t *testing.T) {
 	}
 }
 
-/*
-Disabling test due to insensetive serialization issue.
-Context: b/245727441
-b/245744929 should fix this.
 func TestToCTP1Errors(t *testing.T) {
 	testCases := []struct {
 		name             string
 		hwTestPlans      []*test_api_v1.HWTestPlan
 		vmTestPlans      []*test_api_v1.VMTestPlan
 		dutAttributeList *testpb.DutAttributeList
-		err              string
+		errRegexp        string
 	}{
 		{
 			name:        "missing program DUT attribute",
@@ -799,7 +796,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "DutCriteria must contain at least one \"attr-program\" attribute",
+			errRegexp:        "DutCriteria must contain at least one \"attr-program\" attribute",
 		},
 		{
 			name:        "missing pool DUT attribute",
@@ -825,33 +822,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "only DutCriteria with exactly one \"swarming-pool\" attribute are supported, got []",
-		},
-		{
-
-			name:        "missing pool DUT attribute",
-			vmTestPlans: vmTestPlans,
-			hwTestPlans: []*test_api_v1.HWTestPlan{
-				{
-					CoverageRules: []*testpb.CoverageRule{
-						{
-							DutTargets: []*testpb.DutTarget{
-								{
-									Criteria: []*testpb.DutCriterion{
-										{
-											AttributeId: &testpb.DutAttribute_Id{
-												Value: "attr-program",
-											},
-											Values: []string{"programA"},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			dutAttributeList: dutAttributeList,
+			errRegexp:        `only DutCriteria with exactly one \"swarming-pool\" attribute are supported, got \[\]`,
 		},
 		{
 			name:        "criteria with no values",
@@ -877,7 +848,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "only DutCriterion with at least one value supported",
+			errRegexp:        "only DutCriterion with at least one value supported",
 		},
 		{
 			name:        "invalid DUT attribute",
@@ -921,7 +892,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "criterion \"attribute_id:{value:\\\"fp\\\"}  values:\\\"fp1\\\"\" doesn't match any valid attributes",
+			errRegexp:        "criterion .+ doesn't match any valid attributes",
 		},
 		{
 			name:        "multiple pool values",
@@ -953,7 +924,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "only DutCriteria with exactly one \"swarming-pool\" attribute are supported, got [\"testpoolA\" \"testpoolB\"]",
+			errRegexp:        `only DutCriteria with exactly one \"swarming-pool\" attribute are supported, got \[\"testpoolA\" \"testpoolB\"\]`,
 		},
 		{
 
@@ -992,7 +963,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "only DutCriteria with one \"attr-design\" attribute are supported",
+			errRegexp:        "only DutCriteria with one \"attr-design\" attribute are supported",
 		},
 		{
 			name:        "test tags used",
@@ -1033,7 +1004,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "TestCaseTagCriteria are only valid for VM tests",
+			errRegexp:        "TestCaseTagCriteria are only valid for VM tests",
 		},
 		{
 			name:        "multiple DUT targets",
@@ -1069,7 +1040,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "expected exactly one DutTarget in CoverageRule",
+			errRegexp:        "expected exactly one DutTarget in CoverageRule",
 		},
 		{
 			name: "invalid DutAttributeList",
@@ -1082,7 +1053,7 @@ func TestToCTP1Errors(t *testing.T) {
 					},
 				},
 			},
-			err: "\"attr-program\" not found in DutAttributeList",
+			errRegexp: "\"attr-program\" not found in DutAttributeList",
 		},
 		{
 			name:             "multiple programs with design",
@@ -1124,7 +1095,7 @@ func TestToCTP1Errors(t *testing.T) {
 					},
 				},
 			},
-			err: "if \"attr-design\" is specified, multiple \"attr-programs\" cannot be used",
+			errRegexp: "if \"attr-design\" is specified, multiple \"attr-programs\" cannot be used",
 		},
 		{
 			name:        "invalid VM test name",
@@ -1166,7 +1137,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "VM suite names must start with either \"tast_vm\" or \"tast_gce\" in CTP1 compatibility mode",
+			errRegexp:        "VM suite names must start with either \"tast_vm\" or \"tast_gce\" in CTP1 compatibility mode",
 		},
 		{
 
@@ -1213,7 +1184,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "TestCaseIdLists are only valid for HW tests",
+			errRegexp:        "TestCaseIdLists are only valid for HW tests",
 		},
 		{
 			name: "board variant with multiple programs",
@@ -1247,7 +1218,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "board_variant (\"kernelnext\") cannot be specified if multiple programs ([\"programA\" \"programB\"])",
+			errRegexp:        `board_variant \(\"kernelnext\"\) cannot be specified if multiple programs \(\[\"programA\" \"programB\"\]\) are specified`,
 		},
 		{
 			name:        "invalid license attribute",
@@ -1285,7 +1256,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "invalid LicenseType \"InvalidLicense\"",
+			errRegexp:        "invalid LicenseType \".+\"",
 		},
 		{
 
@@ -1324,7 +1295,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "only exactly one value can be specified in \"misc-licence\" DutCriteria",
+			errRegexp:        "only exactly one value can be specified in \"misc-licence\" DutCriteria",
 		},
 		{
 			name:        "program attribute specified twice",
@@ -1362,7 +1333,7 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			err:              "DutAttribute \"id:{value:\\\"attr-program\\\"}  aliases:\\\"attr-board\\\"\" specified twice",
+			errRegexp:        "DutAttribute .+ specified twice",
 		},
 	}
 
@@ -1380,10 +1351,14 @@ func TestToCTP1Errors(t *testing.T) {
 				t.Fatal("Expected error from ToCTP1")
 			}
 
-			if !strings.Contains(err.Error(), tc.err) {
-				t.Errorf("Expected error to contain %q, got %q", tc.err, err.Error())
+			matched, reErr := regexp.Match(tc.errRegexp, []byte(err.Error()))
+			if reErr != nil {
+				t.Fatal(reErr)
+			}
+
+			if !matched {
+				t.Errorf("Expected error to match regexp %q, got %q", tc.errRegexp, err.Error())
 			}
 		})
 	}
 }
-*/
