@@ -73,3 +73,7 @@ access token to the Chrome OS release image directory (Google Cloud -> DUT).
 ```
 go test ./...
 ```
+
+## Bugs & Feedback
+
+Join the [fflash-users](https://groups.google.com/a/google.com/g/fflash-users) Google Group (Googlers only).
