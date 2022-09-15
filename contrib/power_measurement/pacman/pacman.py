@@ -10,7 +10,6 @@ from argparse import ArgumentParser
 import datetime
 import os
 import pathlib
-import sys
 from sys import modules
 import urllib
 
@@ -91,12 +90,6 @@ def main():
     ftdi_url = 'ftdi:///'
     if args.device != '':
         ftdi_url = pacboard.PacDebugger.url_by_serial(args.device)
-
-        if ftdi_url == '':
-            print(f'Failed to find Pacdebugger with serial {args.device}',
-                file=sys.stderr)
-            return False
-
 
     # If single, take a single shot of these measurements then quit.
     # Print which files are being used for clarity

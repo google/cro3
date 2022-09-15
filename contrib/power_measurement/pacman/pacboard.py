@@ -95,20 +95,8 @@ class PacDebugger:
     @staticmethod
     def url_by_serial(serial):
         """Returns the device URL of a pacdebugger by serial number"""
-        devices = pyftdi.ftdi.Ftdi.find_all([
-            (PacDebugger.PROVISIONED_VID, PacDebugger.PROVISIONED_PID)
-        ])
-
-        for ((vid, pid, bus, addr, _, _, _), _) in devices:
-            ftdi_url = f'ftdi://{vid:#x}:{pid:#x}:{bus:x}:{addr:x}/1'
-
-            eeprom = pyftdi.eeprom.FtdiEeprom()
-            eeprom.open(ftdi_url, size=PacDebugger.EEPROM_SIZE)
-
-            if eeprom.serial == serial:
-                return ftdi_url
-
-        return ''
+        return (f'ftdi://{PacDebugger.PROVISIONED_VID:#x}'
+                f':{PacDebugger.PROVISIONED_PID:#x}:{serial}/1')
 
     @staticmethod
     def unbrick(unbricker_url):
