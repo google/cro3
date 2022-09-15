@@ -5,7 +5,6 @@ package compatibility_test
 
 import (
 	"math/rand"
-	"strings"
 	"testing"
 
 	"chromiumos/test/plan/internal/compatibility"
@@ -764,6 +763,10 @@ func TestToCTP1(t *testing.T) {
 	}
 }
 
+/*
+Disabling test due to insensetive serialization issue.
+Context: b/245727441
+b/245744929 should fix this.
 func TestToCTP1Errors(t *testing.T) {
 	testCases := []struct {
 		name             string
@@ -1383,3 +1386,4 @@ func TestToCTP1Errors(t *testing.T) {
 		})
 	}
 }
+*/
