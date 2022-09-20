@@ -2,10 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import numpy as np
-import time
-from .. import cellular_simulator
+# TODO(b/254347891): unify formatting and ignore specific lints in callbox libraries
+# pylint: skip-file
+
 from enum import Enum
+import time
+
+import numpy as np
+
+from .. import cellular_simulator
 
 
 class BaseSimulation(object):
@@ -78,7 +83,7 @@ class BaseSimulation(object):
             values with the new ones for all the parameters different to None.
             """
             for attr, value in vars(new_config).items():
-                if value:
+                if value is not None:
                     setattr(self, attr, value)
 
     def __init__(self, simulator, log, dut, test_config, calibration_table):
@@ -387,6 +392,22 @@ class BaseSimulation(object):
         self.simulator.configure_bts(new_config)
         self.primary_config.incorporate(new_config)
 
+    def get_uplink_tx_power(self):
+        """ Returns the uplink tx power level
+
+        Returns:
+            calibrated tx power in dBm
+        """
+        return self.primary_config.input_power
+
+    def get_downlink_rx_power(self):
+        """ Returns the downlink tx power level
+
+        Returns:
+            calibrated rx power in dBm
+        """
+        return self.primary_config.output_power
+
     def get_uplink_power_from_parameters(self, parameters):
         """ Reads uplink power from a list of parameters. """
 
@@ -396,14 +417,11 @@ class BaseSimulation(object):
             if values[1] in self.UPLINK_SIGNAL_LEVEL_DICTIONARY:
                 return self.UPLINK_SIGNAL_LEVEL_DICTIONARY[values[1]]
             else:
-                try:
-                    if values[1][0] == 'n':
-                        # Treat the 'n' character as a negative sign
-                        return -int(values[1][1:])
-                    else:
-                        return int(values[1])
-                except ValueError:
-                    pass
+                if values[1][0] == 'n':
+                    # Treat the 'n' character as a negative sign
+                    return -float(values[1][1:])
+                else:
+                    return float(values[1])
 
         # If the method got to this point it is because PARAM_UL_PW was not
         # included in the test parameters or the provided value was invalid.
@@ -421,11 +439,15 @@ class BaseSimulation(object):
         values = self.consume_parameter(parameters, self.PARAM_DL_PW, 1)
 
         if values:
-            if values[1] not in self.DOWNLINK_SIGNAL_LEVEL_DICTIONARY:
-                raise ValueError("Invalid signal level value {}.".format(
-                        values[1]))
-            else:
+            if values[1] in self.DOWNLINK_SIGNAL_LEVEL_DICTIONARY:
                 return self.DOWNLINK_SIGNAL_LEVEL_DICTIONARY[values[1]]
+            else:
+                if values[1][0] == 'n':
+                    # Treat the 'n' character as a negative sign
+                    return -float(values[1][1:])
+                else:
+                    return float(values[1])
+
         else:
             # Use default value
             power = self.DOWNLINK_SIGNAL_LEVEL_DICTIONARY['excellent']
@@ -458,7 +480,7 @@ class BaseSimulation(object):
         # Try to use measured path loss value. If this was not set, it will
         # throw an TypeError exception
         try:
-            calibrated_power = round(power + self.dl_path_loss)
+            calibrated_power = round(power + self.dl_path_loss, 1)
             if calibrated_power > self.simulator.MAX_DL_POWER:
                 self.log.warning(
                         "Cannot achieve phone DL Rx power of {} dBm. Requested TX "
@@ -481,7 +503,7 @@ class BaseSimulation(object):
         except TypeError:
             self.log.info("Phone downlink received power set to {} (link is "
                           "uncalibrated).".format(round(power)))
-            return round(power)
+            return round(power, 1)
 
     def calibrated_uplink_tx_power(self, bts_config, signal_level):
         """ Calculates the power level at the instrument's input in order to
@@ -507,7 +529,7 @@ class BaseSimulation(object):
         # Try to use measured path loss value. If this was not set, it will
         # throw an TypeError exception
         try:
-            calibrated_power = round(power - self.ul_path_loss)
+            calibrated_power = round(power - self.ul_path_loss, 1)
             if calibrated_power < self.UL_MIN_POWER:
                 self.log.warning(
                         "Cannot achieve phone UL Tx power of {} dBm. Requested UL "
@@ -530,7 +552,7 @@ class BaseSimulation(object):
         except TypeError:
             self.log.info("Phone uplink transmitted power set to {} (link is "
                           "uncalibrated).".format(round(power)))
-            return round(power)
+            return round(power, 1)
 
     def calibrate(self, band):
         """ Calculates UL and DL path loss if it wasn't done before.

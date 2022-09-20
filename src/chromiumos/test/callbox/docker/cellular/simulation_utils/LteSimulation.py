@@ -2,12 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# TODO(b/254347891): unify formatting and ignore specific lints in callbox libraries
+# pylint: skip-file
+
+from enum import Enum
 import math
 import time
-from enum import Enum
 
-from .BaseSimulation import BaseSimulation
 from . import BaseCellularDut
+from .BaseSimulation import BaseSimulation
 
 
 class TransmissionMode(Enum):
@@ -80,13 +83,12 @@ class LteSimulation(BaseSimulation):
     # Units in which signal level is defined in DOWNLINK_SIGNAL_LEVEL_DICTIONARY
     DOWNLINK_SIGNAL_LEVEL_UNITS = "RSRP"
 
-    # RSRP signal levels thresholds (as reported by Android) in dBm/15KHz.
-    # Excellent is set to -75 since callbox B Tx power is limited to -30 dBm
+    # RSRP signal levels thresholds taken from cellular_capability_3gpp.cc
     DOWNLINK_SIGNAL_LEVEL_DICTIONARY = {
-            'excellent': -75,
-            'high': -110,
-            'medium': -115,
-            'weak': -120,
+            'excellent': -88,
+            'high': -98,
+            'medium': -108,
+            'weak': -118,
             'disconnected': -170
     }
 
@@ -829,25 +831,6 @@ class LteSimulation(BaseSimulation):
         # Now that the band is set, calibrate the link if necessary
         self.load_pathloss_if_required()
 
-    def calibrated_downlink_rx_power(self, bts_config, rsrp):
-        """ LTE simulation overrides this method so that it can convert from
-        RSRP to total signal power transmitted from the basestation.
-
-        Args:
-            bts_config: the current configuration at the base station
-            rsrp: desired rsrp, contained in a key value pair
-        """
-
-        power = self.rsrp_to_signal_power(rsrp, bts_config)
-
-        self.log.info(
-                "Setting downlink signal level to {} RSRP ({} dBm)".format(
-                        rsrp, power))
-
-        # Use parent method to calculate signal level
-        return super(LteSimulation,
-                     self).calibrated_downlink_rx_power(bts_config, power)
-
     def downlink_calibration(self, rat=None, power_units_conversion_func=None):
         """ Computes downlink path loss and returns the calibration value.
 
@@ -864,8 +847,7 @@ class LteSimulation(BaseSimulation):
         """
 
         return super().downlink_calibration(
-                rat='lteDbm',
-                power_units_conversion_func=self.rsrp_to_signal_power)
+                rat='lteDbm')
 
     def rsrp_to_signal_power(self, rsrp, bts_config):
         """ Converts rsrp to total band signal power

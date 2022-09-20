@@ -2,6 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# TODO(b/254347891): unify formatting and ignore specific lints in callbox libraries
+# pylint: skip-file
+
 from . import simulation_utils as sims
 
 
@@ -71,10 +74,10 @@ class AbstractCellularSimulator:
             bts_index: the base station number.
         """
 
-        if config.output_power:
+        if config.output_power is not None:
             self.set_output_power(bts_index, config.output_power)
 
-        if config.input_power:
+        if config.input_power is not None:
             self.set_input_power(bts_index, config.input_power)
 
         if isinstance(config, sims.LteSimulation.LteSimulation.BtsConfig):

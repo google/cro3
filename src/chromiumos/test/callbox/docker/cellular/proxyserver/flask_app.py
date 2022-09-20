@@ -6,7 +6,7 @@
 
 # disable some lints to stay consistent with ACTS formatting
 # pylint: disable=bad-indentation, banned-string-format-function
-# pylint: disable=docstring-trailing-quotes, docstring-section-indent, bad-continuation
+# pylint: disable=docstring-trailing-quotes, docstring-section-indent
 
 import traceback
 import urllib
@@ -60,14 +60,40 @@ class CallboxManager:
                     }, None)
 
         config.parameter_list = data['parameter_list']
+        config.simulation.parse_parameters(config.parameter_list)
         return 'OK'
 
     def begin_simulation(self, data):
         self._require_dict_keys(data, 'callbox')
         config = self._get_callbox_config(data['callbox'])
-        config.simulation.parse_parameters(config.parameter_list)
         config.simulation.start()
         return 'OK'
+
+    def set_uplink_tx_power(self, data):
+        self._require_dict_keys(data, 'callbox', LteSimulation.LteSimulation.PARAM_UL_PW)
+        config = self._get_callbox_config(data['callbox'])
+        parameters = [LteSimulation.LteSimulation.PARAM_UL_PW, data[LteSimulation.LteSimulation.PARAM_UL_PW]]
+        power = config.simulation.get_uplink_power_from_parameters(parameters)
+        config.simulation.set_uplink_tx_power(power)
+        return 'OK'
+
+    def set_downlink_rx_power(self, data):
+        self._require_dict_keys(data, 'callbox', LteSimulation.LteSimulation.PARAM_DL_PW)
+        config = self._get_callbox_config(data['callbox'])
+        parameters = [LteSimulation.LteSimulation.PARAM_DL_PW, data[LteSimulation.LteSimulation.PARAM_DL_PW]]
+        power = config.simulation.get_downlink_power_from_parameters(parameters)
+        config.simulation.set_downlink_rx_power(power)
+        return 'OK'
+
+    def query_uplink_tx_power(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        return { LteSimulation.LteSimulation.PARAM_UL_PW : config.simulation.get_uplink_tx_power()}
+
+    def query_downlink_rx_power(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        return { LteSimulation.LteSimulation.PARAM_DL_PW : config.simulation.get_downlink_rx_power()}
 
     def query_throughput(self, data):
         self._require_dict_keys(data, 'callbox')
@@ -144,6 +170,10 @@ callbox_manager = CallboxManager()
 
 path_lookup = {
         'config': callbox_manager.configure_callbox,
+        'config/power/downlink' : callbox_manager.set_downlink_rx_power,
+        'config/power/uplink' : callbox_manager.set_uplink_tx_power,
+        'config/fetch/power/downlink' : callbox_manager.query_downlink_rx_power,
+        'config/fetch/power/uplink' : callbox_manager.query_uplink_tx_power,
         'config/fetch/maxthroughput' : callbox_manager.query_throughput,
         'start': callbox_manager.begin_simulation,
         'sms': callbox_manager.send_sms,

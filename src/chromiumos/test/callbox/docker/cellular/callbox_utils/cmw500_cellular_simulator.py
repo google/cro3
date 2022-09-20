@@ -2,12 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import time
-import logging
+# TODO(b/254347891): unify formatting and ignore specific lints in callbox libraries
+# pylint: skip-file
 
-from .. import cellular_simulator as cc
+import logging
+import time
+
 from . import cmw500
+from .. import cellular_simulator as cc
 from ..simulation_utils import LteSimulation
+
 
 CMW_TM_MAPPING = {
         LteSimulation.TransmissionMode.TM1: cmw500.TransmissionModes.TM1,
@@ -256,7 +260,8 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
             self.log.warning('Open loop supports-50dBm to 23 dBm. '
                              'Setting it to max power 23 dBm')
             input_power = 23
-        bts.uplink_power_control = input_power
+        # open loop power only supports integers
+        bts.uplink_power_control = round(input_power)
         bts.tpc_power_control = cmw500.TpcPowerControl.CLOSED_LOOP
         bts.tpc_closed_loop_target_power = input_power
 
@@ -599,4 +604,3 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
         self.cmw.wait_for_attached_state()
         self.cmw.set_sms(sms_message)
         self.cmw.send_sms()
-
