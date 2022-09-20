@@ -51,9 +51,9 @@ bin/fflash --help
 ## What `fflash` does
 
 *   flashes the specified image, or latest image on the device
-*   clobbers stateful
+*   clobbers stateful (optional)
 *   disables verified boot
-*   clears tpm owner
+*   clears tpm owner (optional)
 *   reboot the device
 
 ### it does not

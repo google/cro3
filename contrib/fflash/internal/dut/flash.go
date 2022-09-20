@@ -31,9 +31,11 @@ type Request struct {
 	// Base time when the flash started, for logging.
 	ElapsedTimeWhenSent time.Duration
 
-	Token     *oauth2.Token
-	Bucket    string
-	Directory string
+	Token           *oauth2.Token
+	Bucket          string
+	Directory       string
+	ClearTpmOwner   bool
+	ClobberStateful bool
 }
 
 type Result struct {
@@ -155,7 +157,7 @@ func (req *Request) Flash(ctx context.Context, client *storage.Client, rw *progr
 }
 
 // FlashStateful flashes the stateful partition.
-func (req *Request) FlashStateful(ctx context.Context, client *storage.Client, rw *progress.ReportingWriter) error {
+func (req *Request) FlashStateful(ctx context.Context, client *storage.Client, rw *progress.ReportingWriter, clobber bool) error {
 	r, close, err := req.openObject(ctx, client, rw, StatefulImage, false)
 	if err != nil {
 		return err
@@ -166,9 +168,14 @@ func (req *Request) FlashStateful(ctx context.Context, client *storage.Client, r
 		return err
 	}
 
+	content := "standard"
+	if clobber {
+		content = "clobber"
+	}
+
 	if err := os.WriteFile(
 		filepath.Join(statefulDir, statefulAvailable),
-		[]byte("clobber"),
+		[]byte(content),
 		0644,
 	); err != nil {
 		return fmt.Errorf("failed to write %s: %w", statefulAvailable, err)

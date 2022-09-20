@@ -36,6 +36,17 @@ func main() {
 	kingpin.Flag("board",
 		"flash from gs://chromeos-image-archive/${board}-release/R*. Use with caution!").
 		StringVar(&opts.Board)
+
+	// A helper function for boolean flags with default true value.
+	// See https://github.com/alecthomas/kingpin/issues/243 for more details.
+	inverseBoolVar := func(name, help string, target *bool) {
+		var bv bool
+		kingpin.Flag(name, help).BoolVar(&bv)
+		*target = !bv
+	}
+	inverseBoolVar("no-clear-tpm-owner", "Do not clear the TPM owner on reboot.", &opts.ClearTpmOwner)
+	inverseBoolVar("no-clobber-stateful", "Do not clobber the stateful partition.", &opts.ClobberStateful)
+
 	kingpin.Parse()
 
 	r, err := strconv.Atoi(opts.ReleaseString)

@@ -53,7 +53,7 @@ func Main() error {
 		ch <- r.Flash(flashCtx, client, rw, RootfsImage, partState.InactiveRootfs())
 	}(pr.NewWriter("rootfs"))
 	go func(rw *progress.ReportingWriter) {
-		ch <- r.FlashStateful(flashCtx, client, rw)
+		ch <- r.FlashStateful(flashCtx, client, rw, r.ClobberStateful)
 	}(pr.NewWriter("stateful"))
 
 	var failed bool
@@ -93,10 +93,12 @@ func Main() error {
 		result.RetryDisableRootfsVerification = true
 	}
 
-	log.Println("clearing tpm owner")
-	if err := ClearTpmOwner(ctx); err != nil {
-		log.Printf("clear tpm owner request failed (will retry after reboot): %s", err)
-		result.RetryClearTpmOwner = true
+	if r.ClearTpmOwner {
+		log.Println("clearing tpm owner")
+		if err := ClearTpmOwner(ctx); err != nil {
+			log.Printf("clear tpm owner request failed (will retry after reboot): %s", err)
+			result.RetryClearTpmOwner = true
+		}
 	}
 
 	if err := gob.NewEncoder(os.Stdout).Encode(result); err != nil {

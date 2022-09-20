@@ -68,10 +68,12 @@ func getToken(ctx context.Context) (oauth2.TokenSource, error) {
 }
 
 type Options struct {
-	GS            string // gs:// directory to flash
-	ReleaseString string // release string such as R105-14989.0.0
-	ReleaseNum    int    // release number such as 105
-	Board         string // build target name such as brya
+	GS              string // gs:// directory to flash
+	ReleaseString   string // release string such as R105-14989.0.0
+	ReleaseNum      int    // release number such as 105
+	Board           string // build target name such as brya
+	ClobberStateful bool   // whether to clobber the stateful partition
+	ClearTpmOwner   bool   // whether to clean tpm owner on reboot
 }
 
 func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error {
@@ -123,7 +125,7 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	}
 	log.Printf("flashing directory: gs://%s", path.Join(targetBucket, targetDirectory))
 
-	req, err := createFlashRequest(ctx, tkSrc, targetBucket, targetDirectory)
+	req, err := createFlashRequest(ctx, tkSrc, targetBucket, targetDirectory, opts.ClearTpmOwner, opts.ClobberStateful)
 	if err != nil {
 		return err
 	}
