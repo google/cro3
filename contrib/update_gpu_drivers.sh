@@ -311,7 +311,9 @@ build_board() {
 cleanup() {
   trap - INT TERM ERR EXIT
 
-  rm -rf "${TEMP_DIR}"
+  if [[ ${FLAGS_dryrun} -eq ${FLAGS_FALSE} ]]; then
+    rm -rf "${TEMP_DIR}"
+  fi
 }
 
 main() {
