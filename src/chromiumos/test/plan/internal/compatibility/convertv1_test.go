@@ -681,7 +681,7 @@ func TestToCTP1(t *testing.T) {
 							SuiteName: "tast_vm_suite1",
 							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
 								{
-									TestExpr: "\"group:mainline\" && \"dep:depA\" && !informational",
+									TestExpr: "(\"group:mainline\" && \"dep:depA\" && !informational)",
 								},
 							},
 							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA.tast_vm_suite1", Critical: wrapperspb.Bool(true)},
@@ -709,7 +709,7 @@ func TestToCTP1(t *testing.T) {
 							SuiteName: "tast_vm_suite1",
 							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
 								{
-									TestExpr: "\"group:mainline\" && \"dep:depA\" && !informational",
+									TestExpr: "(\"group:mainline\" && \"dep:depA\" && !informational)",
 								},
 							},
 							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA-arc-r.tast_vm_suite1", Critical: wrapperspb.Bool(true)},
@@ -746,7 +746,7 @@ func TestToCTP1(t *testing.T) {
 							},
 							TastTestExpr: []*testplans.TastGceTestCfg_TastTestExpr{
 								{
-									TestExpr: "\"group:mainline\" && informational",
+									TestExpr: "(\"group:mainline\" && informational)",
 								},
 							},
 							Common: &testplans.TestSuiteCommon{

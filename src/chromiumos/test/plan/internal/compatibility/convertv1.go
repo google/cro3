@@ -363,7 +363,7 @@ func (si *suiteInfo) getBuildTarget() string {
 // tagCriteriaToTastExpr converts a TestCaseTagCriteria to a Tast expression.
 // All of the included and excluded tags in criteria are joined together with
 // " && ", i.e. Tast expressions with "|" cannot be generated. Excluded tags are
-// negated with "!".
+// negated with "!". The entire expression is surrounded in parens.
 //
 // See https://chromium.googlesource.com/chromiumos/platform/tast/+/HEAD/docs/running_tests.md
 // for a description of Tast expressions.
@@ -373,7 +373,7 @@ func tagCriteriaToTastExpr(criteria *testpb.TestSuite_TestCaseTagCriteria) strin
 		attributes = append(attributes, "!"+tag)
 	}
 
-	return strings.Join(attributes, " && ")
+	return "(" + strings.Join(attributes, " && ") + ")"
 }
 
 // coverageRuleToSuiteInfo converts a CoverageRule (CTPv2 compatible) to a
@@ -495,6 +495,7 @@ func coverageRuleToSuiteInfo(
 	ruleCritical := true
 	if rule.Critical != nil {
 		ruleCritical = rule.GetCritical().GetValue()
+		glog.V(2).Infof("rule %q explicitly sets criticality %v", rule.GetName(), ruleCritical)
 	}
 
 	var buildTarget string
@@ -508,6 +509,7 @@ func coverageRuleToSuiteInfo(
 	buildInfo, found := buildTargetToBuildInfo[buildTarget]
 	if found && buildInfo.criticality != bbpb.Trinary_YES {
 		programCritical = false
+		glog.V(2).Infof("build target %q explicitly sets criticality %q", buildTarget, buildInfo.criticality)
 	}
 
 	// The rule and program must both be critical in order for it to be blocking
