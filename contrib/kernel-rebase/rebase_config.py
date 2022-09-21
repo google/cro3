@@ -297,3 +297,4 @@ disp_overlay['cea3027781ee'] = 'drop' # CHROMIUM: net: xt_qtaguid: Make the matc
 disp_overlay['f4370ef58dae'] = 'drop' # BACKPORT: FROMGIT: ANDROID: xt_qtaguid: Remove tag_entry from process list on untag
 disp_overlay['56fdd9cd9158'] = 'drop' # BACKPORT: FROMGIT: ANDROID: xt_qtaguid: fix UAF race
 disp_overlay['4378383d6f00'] = 'drop' # CHROMIUM: media: platform: mtk-mdp3: Add VIDEO_MEDIATEK_MDP3 in Kconfig and Makefile
+disp_overlay['ae921dd92ca5'] = 'drop' # BACKPORT: FROMLIST: mt76: mt7921: get rid of the false positive reset
