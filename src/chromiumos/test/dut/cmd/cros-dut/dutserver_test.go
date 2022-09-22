@@ -835,6 +835,10 @@ func TestRestart(t *testing.T) {
 	cl := api.NewDutServiceClient(conn)
 	_, err = cl.Restart(ctx, &api.RestartRequest{
 		Args: []string{"some", "args"},
+		Retry: &api.RestartRequest_ReconnectRetry{
+			Times:      1,
+			IntervalMs: 100,
+		},
 	})
 	// technically if we get to the reconnect step, we did everything right, so
 	// rather than mock the reconnect step, we assume that if we got there, we are

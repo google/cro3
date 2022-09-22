@@ -185,14 +185,13 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 	}()
 	select {
 	case <-wait:
-		conn, err := GetConnection(ctx, s.dutName, s.wiringAddress)
+		conn, err := GetConnectionWithRetry(ctx, s.dutName, s.wiringAddress, req)
 		if err != nil {
 			status := status.New(codes.Aborted, fmt.Sprintf("rebootDut: unable to get connection, %s", err))
 			s.manager.SetError(op.Name, status)
 			return op, err
 		}
 		s.connection = &dutssh.SSHClient{Client: conn}
-
 		return op, nil
 	case <-ctx.Done():
 		status := status.New(codes.Aborted, "rebootDut: timed out waiting for reboot")
@@ -412,6 +411,27 @@ func readFetchCrashesProto(stdout io.Reader, buffer bytes.Buffer) (*api.FetchCra
 	}
 
 	return crashResp, nil
+}
+
+// GetConnectionWithRetry calls GetConnect with retries.
+func GetConnectionWithRetry(ctx context.Context, dutIdentifier string, wiringAddress string, req *api.RestartRequest) (*ssh.Client, error) {
+	retryCount := 5
+	retryInterval := time.Duration(10 * time.Second)
+	var err error
+	var client *ssh.Client
+	if req.Retry != nil {
+		retryCount = int(req.Retry.Times)
+		retryInterval = time.Duration(req.Retry.IntervalMs) * time.Millisecond
+	}
+	for ; retryCount >= 0; retryCount-- {
+		err = nil
+		client, err = GetConnection(ctx, dutIdentifier, wiringAddress)
+		if err == nil {
+			return client, nil
+		}
+		time.Sleep(retryInterval)
+	}
+	return nil, err
 }
 
 // GetConnection connects to a dut server. If wiringAddress is provided,

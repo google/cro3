@@ -90,6 +90,10 @@ func (s ServiceAdapter) Restart(ctx context.Context) error {
 
 	req := api.RestartRequest{
 		Args: []string{},
+		Retry: &api.RestartRequest_ReconnectRetry{
+			Times:      18,
+			IntervalMs: 10000,
+		},
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 500*time.Second)
