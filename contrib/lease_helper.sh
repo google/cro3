@@ -4,11 +4,16 @@
 # found in the LICENSE file.
 # This helper script uses crosfleet to lease a dut and then opens ssh tunnels
 # to both the dut and the servo which will automatically shut down after the lease
-# time is up.
+# time is up.  Can also be used for wificell duts where it will setup tunnels to
+# the Wi-Fi AP/PCAP devices see go/htl-customers for more info on wificell test
+# setup
 # example run:
 # (outside) ./scripts/lease_helper.sh -board dedede -minutes 30
 # (inside) test_that localhost:2222 TEST
 # will setup ssh tunnel to DUT on port 2222 and servo on port 9999
+# example run for wificell DUT
+# (outside) ./scripts/lease_helper.sh -wifi -dim label-cts_cpu:CTS_CPU_X86 -minutes 300
+# (inside) tast run -var=router=localhost:2223 -var=pcap=localhost:2224 localhost:2222 wifi.ChannelScanDwellTime
 
 RED='\033[38;5;9m'
 BLUE='\033[38;5;12m'
@@ -49,8 +54,13 @@ lease_dut() {
 
 start_tunnels() {
   # start tunnel to dut with ssh watcher and start tunnel to servo along with servod
-  go run "${SSHWATCHER_PATH}" "${DUT_HOSTNAME}" 2222 >/dev/null &
-  ssh -L "9999:localhost:${SERVO_PORT}" "${SERVO_HOSTNAME}" servod --port "${SERVO_PORT}" --serialname "${SERVO_SERIAL}" -b "${BOARD}" > /dev/null &
+  SSHWATCHER_ARGS=( "${DUT_HOSTNAME}" "2222" "${SERVO_HOSTNAME}" "9999")
+  if [ "$1" -eq "1" ]; then
+    # if WIFI DUT then setup tunnels to router/pcap Gales
+    SSHWATCHER_ARGS+=( "${DUT_HOSTNAME}-router" "2223" "${DUT_HOSTNAME}-pcap" "2224" )
+  fi
+  go run "${SSHWATCHER_PATH}" "${SSHWATCHER_ARGS[@]}" >/dev/null &
+  ssh -L "${SERVO_HOSTNAME}" servod --port "${SERVO_PORT}" --serialname "${SERVO_SERIAL}" -b "${BOARD}" > /dev/null &
   sleep 10
   _echo_color "${BLUE}" "dut on port 2222, servo on port 9999"
 }
@@ -108,22 +118,33 @@ check_setup() {
 
 main() {
   check_setup
-  lease_dut "$@"
-  start_tunnels
-  # parse minutes arg to crosfleet so we can figure out how long to keep tunnels open
+  WIFI=0
+  CROSFLEET_ARGS=()
   MINUTES=60
+  # parse command line args passing on unparsed options to crosfleet along with
+  # extra args that may be generated for certain scrip command line args
   while [[ $# -gt 0 ]]; do
     case $1 in
+      -wifi|--wifi)
+        WIFI=1
+        CROSFLEET_ARGS+=( "-dim" "label-pool=wificell" )
+        shift
+        ;;
       -minutes|--minutes)
         MINUTES="$2"
+        CROSFLEET_ARGS+=( "$1" "$2" )
         shift # past argument
         shift # past value
         ;;
       *)
+        CROSFLEET_ARGS+=( "$1" )
         shift # past argument
         ;;
     esac
   done
+  lease_dut "${CROSFLEET_ARGS[@]}"
+  start_tunnels "${WIFI}"
+
   _echo_color "${BLUE}" "Waiting for ${MINUTES} minute lease to expire"
   sleep "${MINUTES}m"
   kill_tunnels
