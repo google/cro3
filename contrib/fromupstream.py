@@ -495,6 +495,7 @@ def main(args):
                         help='Overrides the gerrit generated Change-Id line')
     parser.add_argument('--cqdepend',
                         type=str, help='Cq-Depend: line')
+    parser.add_argument('--upstream-task', '-u', help='Set UPSTREAM-TASK')
 
     parser.add_argument('--replace', '-r',
                         action='store_true',
@@ -543,6 +544,10 @@ def main(args):
 
     test_lines = [_wrap_commit_line('TEST=', x) for x in args['test']]
 
+    upstream_task = args.get('upstream_task')
+    if upstream_task and not upstream_task.startswith('b:'):
+        upstream_task = 'b:%s' % upstream_task
+
     if args['replace']:
         old_commit_message = _git(['show', '-s', '--format=%B', 'HEAD'])
 
@@ -570,9 +575,15 @@ def main(args):
                    ^Cq-Depend:| # or Cq-Depend:
                    ^Change-Id:| # or Change-Id:
                    ^BUG=|       # or following BUG=
-                   ^TEST=)      # or another TEST=
+                   ^TEST=|      # or another TEST=
+                   ^UPSTREAM-TASK=) # or UPSTREAM-TASK
                 """,
                 old_commit_message, re.MULTILINE | re.DOTALL | re.VERBOSE)
+
+        upstream_task_match = re.search('^UPSTREAM-TASK=(.*)$',
+                                        old_commit_message, re.MULTILINE)
+        if upstream_task is None and upstream_task_match:
+            upstream_task = upstream_task_match.group(1)
 
     if not bug_lines or not test_lines:
         parser.error('BUG=/TEST= lines are required; --replace can help '
@@ -638,6 +649,8 @@ def main(args):
         # next commands know where to work on
         commit_message += '\n'
         commit_message += conflicts
+        if upstream_task:
+            commit_message += '\nUPSTREAM-TASK=%s' % upstream_task
         commit_message += '\n'
         commit_message += '\n'.join('BUG=%s' % bug for bug in bug_lines)
         commit_message += '\n'
