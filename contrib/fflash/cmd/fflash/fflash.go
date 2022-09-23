@@ -18,8 +18,11 @@ import (
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/logging"
 )
 
-func init() {
-}
+const (
+	yes  = "yes"
+	no   = "no"
+	auto = "auto"
+)
 
 func main() {
 	t0 := time.Now()
@@ -36,16 +39,14 @@ func main() {
 	kingpin.Flag("board",
 		"flash from gs://chromeos-image-archive/${board}-release/R*. Use with caution!").
 		StringVar(&opts.Board)
-
-	// A helper function for boolean flags with default true value.
-	// See https://github.com/alecthomas/kingpin/issues/243 for more details.
-	inverseBoolVar := func(name, help string, target *bool) {
-		var bv bool
-		kingpin.Flag(name, help).BoolVar(&bv)
-		*target = !bv
-	}
-	inverseBoolVar("no-clear-tpm-owner", "Do not clear the TPM owner on reboot.", &opts.ClearTpmOwner)
-	inverseBoolVar("no-clobber-stateful", "Do not clobber the stateful partition.", &opts.ClobberStateful)
+	clobberStateful := kingpin.Flag(
+		"clobber-stateful",
+		"whether to clobber the stateful partition. Choices: yes, no (default)").Default(no).Enum(yes, no)
+	clearTpmOwner := kingpin.Flag(
+		"clear-tpm-owner",
+		"whether to clear the TPM owner on reboot. "+
+			" Choices: yes, no, auto (default, follows --clobber-stateful)",
+	).Default(auto).Enum(auto, yes, no)
 
 	kingpin.Parse()
 
@@ -53,6 +54,12 @@ func main() {
 	if err == nil {
 		opts.ReleaseNum = r
 		opts.ReleaseString = ""
+	}
+	opts.ClobberStateful = (*clobberStateful == yes)
+	if *clearTpmOwner == auto {
+		opts.ClearTpmOwner = opts.ClobberStateful
+	} else {
+		opts.ClearTpmOwner = (*clearTpmOwner == yes)
 	}
 
 	if err := internal.Main(ctx, t0, *target, &opts); err != nil {

@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -68,10 +69,10 @@ func getToken(ctx context.Context) (oauth2.TokenSource, error) {
 }
 
 type Options struct {
-	GS              string // gs:// directory to flash
-	ReleaseString   string // release string such as R105-14989.0.0
-	ReleaseNum      int    // release number such as 105
-	Board           string // build target name such as brya
+	GS              string `json:",omitempty"` // gs:// directory to flash
+	ReleaseString   string `json:",omitempty"` // release string such as R105-14989.0.0
+	ReleaseNum      int    `json:",omitempty"` // release number such as 105
+	Board           string `json:",omitempty"` // build target name such as brya
 	ClobberStateful bool   // whether to clobber the stateful partition
 	ClearTpmOwner   bool   // whether to clean tpm owner on reboot
 }
@@ -80,6 +81,12 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	if err := embeddedagent.SelfCheck(); err != nil {
 		return err
 	}
+
+	optionsString, err := json.Marshal(opts)
+	if err != nil {
+		panic(err) // should never fail
+	}
+	log.Printf("Running fflash with options: %s", string(optionsString))
 
 	tkSrc, err := getToken(ctx)
 	if err != nil {

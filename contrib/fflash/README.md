@@ -40,20 +40,21 @@ ninja -v
 ## Usage examples
 
 ```
-bin/fflash ${dut_host}
-bin/fflash ${dut_host} -R104
-bin/fflash ${dut_host} -R104-14911.0.0
-bin/fflash ${dut_host} --board=cherry64 -R104
-bin/fflash ${dut_host} --gs=gs://chromeos-image-archive/cherry-release/R104-14911.0.0
+bin/fflash ${dut_host}  # flash latest canary
+bin/fflash ${dut_host} --clobber-stateful=yes  # flash latest canary and clobber stateful
+bin/fflash ${dut_host} -R104  # flash latest R104
+bin/fflash ${dut_host} -R104-14911.0.0  # flash 104-14911.0.0
+bin/fflash ${dut_host} --board=cherry64 -R104  # flash latest R104 for board cherry64
+bin/fflash ${dut_host} --gs=gs://chromeos-image-archive/cherry-release/R104-14911.0.0  # flash specified gs:// directory
 bin/fflash --help
 ```
 
 ## What `fflash` does
 
 *   flashes the specified image, or latest image on the device
-*   clobbers stateful (optional)
+*   clobbers stateful (optional, disabled by default)
 *   disables verified boot
-*   clears tpm owner (optional)
+*   clears tpm owner (optional, disabled by default)
 *   reboot the device
 
 ### it does not
