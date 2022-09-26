@@ -112,14 +112,14 @@ func main() {
 		log.Fatal("Please specify host and port pairs, the number of pairs should not be zero.")
 	}
 	if len(hostArgs)%2 != 0 {
-		log.Fatal("Please specify host and port pairs, the number of arguments (%v) should be even.",
+		log.Fatalf("Please specify host and port pairs, the number of arguments (%v) should be even.",
 			len(hostArgs))
 	}
 	maxHostLen := 10
 	for i := 0; i < len(hostArgs); i = i + 2 {
 		port, err := strconv.Atoi(hostArgs[i+1])
 		if err != nil {
-			log.Fatal("%v is not a number, give me a port number", hostArgs[i+1])
+			log.Fatalf("%v is not a number, give me a port number", hostArgs[i+1])
 		}
 
 		params = append(params, hostPortPair{
