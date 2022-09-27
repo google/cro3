@@ -21,7 +21,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -105,32 +104,21 @@ var DefaultServodPort = 9999
 func (cc *CLICommand) Run() error {
 	cc.log.Printf("Running CLI Mode (V2):")
 
-	var dutAdapter common_utils.ServiceAdapter
+	var dutAdapter *common_utils.ServiceAdapter
+	var err error
 	if !cc.inputProto.GetUseServo() {
-		dutServAddr, err := ipEndpointToHostPort(cc.inputProto.GetDutServerAddress())
+		dutAdapter, err = connectToDutServer(cc.inputProto.GetDutServerAddress())
 		if err != nil {
-			return fmt.Errorf("failed to parse IpEndpoint of Dut Server: %w", err)
+			return err
 		}
-		dutConn, err := grpc.Dial(dutServAddr, grpc.WithInsecure())
-		if err != nil {
-			return fmt.Errorf("failed to connect to dut-service, %s", err)
-		}
-		defer dutConn.Close()
-		dutAdapter = common_utils.NewServiceAdapter(api.NewDutServiceClient(dutConn), false /*noReboot*/)
 	}
 
 	var servodServiceClient api.ServodServiceClient
 	if cc.inputProto.GetUseServo() {
-		crosServodAddr, err := ipEndpointToHostPort(cc.inputProto.GetCrosServodAddress())
+		servodServiceClient, err = connectToCrosServod(cc.inputProto.GetCrosServodAddress())
 		if err != nil {
-			return fmt.Errorf("failed to parse IpEndpoint of cros-servod: %w", err)
+			return err
 		}
-		servodConn, err := grpc.Dial(crosServodAddr, grpc.WithInsecure())
-		if err != nil {
-			return fmt.Errorf("failed to connect to cros-servod, %s", err)
-		}
-		defer servodConn.Close()
-		servodServiceClient = api.NewServodServiceClient(servodConn)
 	}
 
 	out := &api.ProvisionFirmwareResponse{}

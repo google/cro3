@@ -24,6 +24,16 @@ import (
 )
 
 type FWProvisionServer struct {
+	// dutAdapter provides an interface to manipulate DUT via cros-dut
+	// service. Its address may be specified either when server is created,
+	// or later in user's ProvisionFirmwareRequest
+	dutAdapter common_utils.ServiceAdapterInterface
+
+	// servoClient provides an interface to manipulate DUT via cros-servod
+	// service. Its address may be specified either when server is created,
+	// or later in user's ProvisionFirmwareRequest
+	servoClient api.ServodServiceClient
+
 	log        *log.Logger
 	listenPort int
 
@@ -40,10 +50,12 @@ func ipEndpointToHostPort(i *api1.IpEndpoint) (string, error) {
 	return fmt.Sprintf("%v:%v", i.GetAddress(), i.GetPort()), nil
 }
 
-func NewFWProvisionServer(listenPort int, log *log.Logger) (*FWProvisionServer, func(), error) {
+func NewFWProvisionServer(listenPort int, log *log.Logger, dutAdapter common_utils.ServiceAdapterInterface, servoClient api.ServodServiceClient) (*FWProvisionServer, func(), error) {
 	return &FWProvisionServer{
-		listenPort: listenPort,
-		log:        log,
+		listenPort:  listenPort,
+		log:         log,
+		dutAdapter:  dutAdapter,
+		servoClient: servoClient,
 	}, nil, nil
 }
 
@@ -62,47 +74,53 @@ func (ps *FWProvisionServer) Start() error {
 }
 
 func (ps *FWProvisionServer) Provision(ctx context.Context, req *api.ProvisionFirmwareRequest) (*longrunning.Operation, error) {
+	ps.log.Printf("Received api.ProvisionFirmwareRequest: %#v\n", req)
+	log.Printf("Received api.ProvisionFirmwareRequest: %#v\n", req)
+	op := ps.manager.NewOperation()
+	response := api.ProvisionFirmwareResponse{}
+
 	if err := ps.validateProtoInputs(req); err != nil {
-		return nil, fmt.Errorf("failed to validate ProvisionFirmwareRequest: %w", err)
+		response.Status = api.ProvisionFirmwareResponse_STATUS_INVALID_REQUEST
+		ps.manager.SetResult(op.Name, &response)
+		return nil, firmwareservice.InvalidRequestErr(err.Error())
 	}
 
-	var dutAdapter common_utils.ServiceAdapter
-	if !req.GetUseServo() {
-		dutServAddr, err := ipEndpointToHostPort(req.GetDutServerAddress())
+	var dutAdapter *common_utils.ServiceAdapter
+	var err error
+	if !req.GetUseServo() && ps.dutAdapter == nil {
+		// the (ps.dutAdapter == nil) check ensures that cros-dut address
+		// specified during fw-provisioning startup is preferred.
+		dutAdapter, err = connectToDutServer(req.GetDutServerAddress())
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse IpEndpoint of Dut Server: %w", err)
+			response.Status = api.ProvisionFirmwareResponse_STATUS_INVALID_REQUEST
+			ps.manager.SetResult(op.Name, &response)
+			log.Fatalln(err)
+			return nil, firmwareservice.InvalidRequestErr(err.Error())
 		}
-		dutConn, err := grpc.Dial(dutServAddr, grpc.WithInsecure())
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to dut-service, %s", err)
-		}
-		defer dutConn.Close()
-		dutAdapter = common_utils.NewServiceAdapter(api.NewDutServiceClient(dutConn), false /*noReboot*/)
+		ps.dutAdapter = dutAdapter
 	}
 
 	var servodServiceClient api.ServodServiceClient
-	if req.GetUseServo() {
-		crosServodAddr, err := ipEndpointToHostPort(req.GetCrosServodAddress())
+	if req.GetUseServo() && ps.servoClient == nil {
+		// the (ps.servoClient == nil) check ensures that cros-servod address
+		// specified during fw-provisioning startup is preferred.
+		servodServiceClient, err = connectToCrosServod(req.GetCrosServodAddress())
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse IpEndpoint of cros-servod: %w", err)
+			response.Status = api.ProvisionFirmwareResponse_STATUS_INVALID_REQUEST
+			ps.manager.SetResult(op.Name, &response)
+			log.Fatalln(err)
+			return nil, firmwareservice.InvalidRequestErr(err.Error())
 		}
-		servodConn, err := grpc.Dial(crosServodAddr, grpc.WithInsecure())
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to cros-servod, %s", err)
-		}
-		defer servodConn.Close()
-		servodServiceClient = api.NewServodServiceClient(servodConn)
+		ps.servoClient = servodServiceClient
 	}
 
-	fwService, err := firmwareservice.NewFirmwareService(ctx, dutAdapter, servodServiceClient, req)
+	fwService, err := firmwareservice.NewFirmwareService(ctx, ps.dutAdapter, ps.servoClient, req)
 	if err != nil {
+		response.Status = api.ProvisionFirmwareResponse_STATUS_INVALID_REQUEST
+		ps.manager.SetResult(op.Name, &response)
 		log.Fatalf("Failed to initialize Firmware Service: %v", err)
-		return nil, err
+		return nil, firmwareservice.InvalidRequestErr(err.Error())
 	}
-
-	ps.log.Println("Received api.ProvisionFirmwareRequest: ", *req)
-	op := ps.manager.NewOperation()
-	response := api.InstallResponse{}
 
 	// Execute state machine
 	cs := state_machine.NewFirmwarePrepareState(fwService)
@@ -112,11 +130,14 @@ func (ps *FWProvisionServer) Provision(ctx context.Context, req *api.ProvisionFi
 		}
 		cs = cs.Next()
 	}
-	ps.manager.SetResult(op.Name, &response)
 
 	if err == nil {
 		log.Println("Finished Successfuly!")
+		response.Status = api.ProvisionFirmwareResponse_STATUS_OK
+		ps.manager.SetResult(op.Name, &response)
 	} else {
+		response.Status = api.ProvisionFirmwareResponse_STATUS_UPDATE_FIRMWARE_FAILED
+		ps.manager.SetResult(op.Name, &response)
 		log.Println("Finished with error:", err)
 	}
 	return op, nil
@@ -129,14 +150,6 @@ func (cc *FWProvisionServer) validateProtoInputs(req *api.ProvisionFirmwareReque
 	}
 	if len(req.Model) == 0 {
 		return errors.New("ProvisionFirmwareRequest: Model field is required ")
-	}
-	if req.UseServo {
-		if req.CrosServodAddress == nil {
-			return errors.New("ProvisionFirmwareRequest: CrosServodAddress is required when UseServo=true")
-		}
-	}
-	if req.DutServerAddress == nil {
-		return errors.New("ProvisionFirmwareRequest: DutServerAddress is required")
 	}
 	if req.GetSimpleRequest() == nil && req.GetDetailedRequest() == nil {
 		return errors.New("ProvisionFirmwareRequest: SimpleRequest or DetailedRequest is required")

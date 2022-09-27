@@ -6,14 +6,14 @@
 package cli
 
 import (
-	"log"
-
-	// "chromiumos/test/provision/v2/cros-provision/constants"
-	// "chromiumos/test/provision/v2/cros-provision/executor"
-
+	common_utils "chromiumos/test/provision/v2/common-utils"
 	"flag"
 	"fmt"
+	"log"
 	"strings"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
+	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
 )
 
 const (
@@ -25,6 +25,14 @@ const (
 type ServerCommand struct {
 	log         *log.Logger
 	logFilename string
+
+	// inputFilename expects ProvisionFirmwareRequest and will parse
+	// crosDutAddr and crosServodAddr from it, but not the request.
+	// Users that want it to parse both the address and the request
+	// are looking for `cli` mode, not `server`.
+	inputFilename  string
+	crosDutAddr    *lab_api.IpEndpoint
+	crosServodAddr *lab_api.IpEndpoint
 
 	port int
 
@@ -38,6 +46,9 @@ func NewServerCommand() *ServerCommand {
 
 	sc.flagSet.IntVar(&sc.port, "port", DefaultPort, fmt.Sprintf("Specify the port for the server. Default value %d.", DefaultPort))
 	sc.flagSet.StringVar(&sc.logFilename, "log-path", DefaultLogDirectory, fmt.Sprintf("Path to record execution logs. Default value is %s", DefaultLogDirectory))
+	sc.flagSet.StringVar(&sc.inputFilename, "input", "",
+		"Specify the ProvisionFirmwareRequest input file. "+
+			"File must include metadata about DUT, CFT services addresses, but not the request.")
 	return sc
 }
 
@@ -63,6 +74,14 @@ func (sc *ServerCommand) Init(args []string) error {
 	if err != nil {
 		return fmt.Errorf("unable to set up logs: %s", err)
 	}
+	if len(sc.inputFilename) > 0 {
+		req, err := common_utils.ParseProvisionFirmwareRequest(sc.inputFilename)
+		if err != nil {
+			return fmt.Errorf("unable to parse input ProvisionFirmwareRequest: %s", err)
+		}
+		sc.crosDutAddr = req.DutServerAddress
+		sc.crosServodAddr = req.CrosServodAddress
+	}
 
 	return nil
 }
@@ -75,7 +94,24 @@ func (cc *ServerCommand) validateCLIInputs() error {
 func (sc *ServerCommand) Run() error {
 	sc.log.Printf("running server mode:")
 
-	ps, closer, err := NewFWProvisionServer(sc.port, sc.log)
+	var dutAdapter common_utils.ServiceAdapterInterface
+	var err error
+	if sc.crosDutAddr != nil {
+		dutAdapter, err = connectToDutServer(sc.crosDutAddr)
+		if err != nil {
+			return err
+		}
+	}
+
+	var servodServiceClient api.ServodServiceClient
+	if sc.crosServodAddr != nil {
+		servodServiceClient, err = connectToCrosServod(sc.crosServodAddr)
+		if err != nil {
+			return err
+		}
+	}
+
+	ps, closer, err := NewFWProvisionServer(sc.port, sc.log, dutAdapter, servodServiceClient)
 	defer closer()
 	if err != nil {
 		sc.log.Fatalln("failed to create provision: ", err)
