@@ -81,7 +81,8 @@ topic_fixups['net'] = [
 
 topic_fixups['dts'] = [
     'dt-bindings: clock: Add resets for LPASS audio clock controller for SC7280',
-    'dt-bindings: clock: Add support for external MCLKs for LPASS on SC7280'
+    'dt-bindings: clock: Add support for external MCLKs for LPASS on SC7280',
+    'BACKPORT: FROMLIST: arm64: dts: mt8183: Add Mediatek MDP3 nodes'
 ]
 
 topic_fixups['cros_ec'] = [
