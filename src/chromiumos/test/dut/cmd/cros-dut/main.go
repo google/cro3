@@ -10,6 +10,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"go.chromium.org/chromiumos/config/go/test/api"
 	"io"
 	"log"
 	"net"
@@ -110,7 +111,7 @@ func main() {
 		logger.Println("Started server on address ", l.Addr().String())
 
 		ctx := context.Background()
-		conn, err := GetConnection(ctx, *dutName, *wiringAddress)
+		conn, err := GetConnectionWithRetry(ctx, *dutName, *wiringAddress, &api.RestartRequest{})
 		if err != nil {
 			logger.Fatalln("Failed to connect to dut: ", err)
 			return 2
