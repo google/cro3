@@ -27,8 +27,11 @@ readonly CROS_PROVISION_OUT="${GOHOME}/bin/cros-provision"
 
 # Packages to exclude
 readonly EXCLUDE_PKGS=(
-	# TODO: re-enable after b/227254754 is fixed.
-	"chromiumos/test/publish/cmd/publishserver/tests"
+  # TODO: re-enable after b/227254754 is fixed.
+  "chromiumos/test/publish/cmd/publishserver/tests"
+  # TODO: re-enable following 2 packages after b/236148146 is fixed.
+  "chromiumos/test/servod/cmd/servodserver"
+  "chromiumos/test/servod/cmd/xmlrpc"
 )
 
 # Readonly Go workspaces containing source to build. Note that the packages
@@ -97,7 +100,7 @@ get_test_pkgs() {
 run_build() {
   local pkg="${1}"
   local dest="${2}"
-  go build -i -pkgdir "${PKGDIR}" -o "${dest}" "${pkg}"
+  go build -pkgdir "${PKGDIR}" -o "${dest}" "${pkg}"
 }
 
 # Checks one or more packages.
