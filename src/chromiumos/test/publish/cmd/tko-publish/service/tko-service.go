@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	common_utils "chromiumos/test/publish/cmd/common-utils"
 
@@ -51,18 +50,11 @@ func (ts *TkoPublishService) UploadToTko(ctx context.Context) error {
 		log.Printf("error while creating tko parse command: %s", err)
 		return fmt.Errorf("error while creating tko parse command: %s", err)
 	}
-	stdout, stderr, err := common_utils.RunWithTimeout(ctx, cmd, 5*time.Minute, true)
+	_, _, err = common_utils.RunCommand(ctx, cmd, "tko/parse", nil, true)
 	if err != nil {
 		log.Printf("error in tko upload: %s", err)
 		return fmt.Errorf("error in tko upload: %s", err)
 	}
-	// TODO(mingkong) decide whether to log errors to stderr instead of stdout
-	log.Println("#### stdout from tko/parse start ####")
-	log.Print(stdout)
-	log.Println("#### stdout from tko/parse end ####")
-	log.Println("#### stderr from tko/parse start ####")
-	log.Print(stderr)
-	log.Println("#### stderr from tko/parse end ####")
 	return nil
 }
 

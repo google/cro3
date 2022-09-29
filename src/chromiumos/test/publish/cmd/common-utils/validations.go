@@ -11,7 +11,7 @@ import (
 
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"google.golang.org/protobuf/proto"
+	"go.chromium.org/chromiumos/config/go/test/api/metadata"
 )
 
 // ValidateGCSPublishRequest validates gcs publish request
@@ -35,9 +35,11 @@ func ValidateTKOPublishRequest(req *api.PublishRequest, metadata *api.PublishTko
 }
 
 // ValidateTKOPublishRequest validates rdb publish request
-func ValidateRDBPublishRequest(req *api.PublishRequest, metadata proto.Message) error {
+func ValidateRDBPublishRequest(req *api.PublishRequest, metadata *metadata.PublishRdbMetadata) error {
 	if err := ValidateGenericPublishRequest(req); err != nil {
 		return fmt.Errorf("error in publish request: %s", err)
+	} else if err := ValidateRDBRequestMetadata(metadata); err != nil {
+		return fmt.Errorf("error in rdb publish request metadata: %s", err)
 	}
 	return nil
 }
@@ -69,6 +71,19 @@ func ValidateGCSRequestMetadata(metadata *api.PublishGcsMetadata) error {
 func ValidateTKORequestMetadata(metadata *api.PublishTkoMetadata) error {
 	if metadata.GetJobName() == "" {
 		return fmt.Errorf("JobName is required in metadata for tko publish")
+	}
+
+	return nil
+}
+
+// ValidateRDBRequestMetadata validates rdb request metadata
+func ValidateRDBRequestMetadata(metadata *metadata.PublishRdbMetadata) error {
+	if metadata.GetCurrentInvocationId() == "" {
+		return fmt.Errorf("Current invocation id is required in metadata for rdb publish")
+	} else if metadata.GetTestResult() == nil || metadata.GetTestResult().GetTestRuns() == nil || len(metadata.GetTestResult().GetTestRuns()) == 0 {
+		return fmt.Errorf("TestResult is required in metadata for rdb publish")
+	} else if metadata.StainlessUrl != "" && !strings.HasPrefix(metadata.StainlessUrl, "https://stainless.corp.google.com/browse/") {
+		return fmt.Errorf("Stainless url must start with `https://stainless.corp.google.com/browse/`. Found %q instead", metadata.StainlessUrl)
 	}
 
 	return nil
