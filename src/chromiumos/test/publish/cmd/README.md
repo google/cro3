@@ -9,6 +9,7 @@ cros-publish provides various publish services for ChromiumOS. All of the servic
 go/cros-publish-dd
 
 ## Testing services
+The follow sections use gcs-publish as an example. tko-publish and rdb-publish follow the same pattern.
 
 ### gcs-pubilsh (CLI)
 All provided paths should absolute paths.
@@ -53,3 +54,4 @@ Rpc succeeded with OK status
 ```
 Examples:
 1. input.textproto = http://go/paste/6585018561331200 (Please modify the aritifact_dir_path.path and gcs_path.path correctly)
+2. More examples are included in the [examples](http://cs/chromeos_public/src/platform/dev/src/chromiumos/test/publish/examples/) folder.

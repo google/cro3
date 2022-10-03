@@ -5,9 +5,10 @@
 package main
 
 import (
-	"chromiumos/test/publish/cmd/gcs-publish/cli"
 	"fmt"
 	"os"
+
+	"chromiumos/test/publish/cmd/tko-publish/cli"
 )
 
 func main() {

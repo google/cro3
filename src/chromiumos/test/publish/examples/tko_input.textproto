@@ -1,0 +1,17 @@
+# Step 1. Start server
+# publish/cmd/tko-publish$ go build .
+# publish/cmd/tko-publish$ ./tko-publish server --port 8891
+# Step 2. Use grpc_cli to call service
+# publish/cmd/tko-publish$ grpc_cli call localhost:8891 chromiumos.test.api.GenericPublishService.Publish --channel_creds_type insecure --infile=../../examples/tko_input.textproto
+# Alternative: directly use CLI mode without server
+# publish/cmd/tko-publish$./tko-publish cli -input ../../examples/tko_input.json -output output.json
+artifact_dir_path:{
+  host_type:LOCAL
+  path:"/tmp/publish-for-tko"
+}
+retry_count:2
+metadata:{
+  [type.googleapis.com/chromiumos.test.api.PublishTkoMetadata]:{
+    job_name:'jobname-1'
+  }
+}
