@@ -427,10 +427,12 @@ func GetConnectionWithRetry(ctx context.Context, dutIdentifier string, wiringAdd
 		err = nil
 		client, err = GetConnection(ctx, dutIdentifier, wiringAddress)
 		if err == nil {
+			log.Printf("GetConnectionWithRetry succeed with %d retries left.\n", retryCount)
 			return client, nil
 		}
 		time.Sleep(retryInterval)
 	}
+	log.Printf("GetConnectionWithRetry failed after exhausting retries.\n")
 	return nil, err
 }
 
