@@ -12,7 +12,7 @@ PYTHON_CMD="./$(basename "$0").py"
 
 if [[ ! -e ${WORKSPACE}/env/bin/activate ]]; then
     echo "Environment is not set up to run findmissing client."
-    echo "Please run './scripts/local/local_database_setup.sh' and repeat this command"
+    echo "Please run './scripts/local/local_setup.sh' and repeat this command"
     exit 1
 fi
 

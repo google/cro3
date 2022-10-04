@@ -4,8 +4,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# ./scripts/local/local_database_setup.sh
-
 FINDMISSING="$(cd "$(dirname "$0")/../.." || exit; pwd)"
 cd "${FINDMISSING}" || exit
 rm -rf __pycache__/
