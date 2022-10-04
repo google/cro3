@@ -7,6 +7,8 @@
 # ./scripts/local/local_database_setup.sh
 
 FINDMISSING="$(cd "$(dirname "$0")/../.." || exit; pwd)"
+cd "${FINDMISSING}" || exit
+rm -rf __pycache__/
 
 WORKSPACE="${HOME}/findmissing_workspace"
 mkdir -p "${WORKSPACE}"
@@ -38,6 +40,7 @@ if [[ $(gcloud config get project) != "${PROJECT}" ]]; then
 fi
 
 # Creates env in findmissing top level directory
+rm -rf env/
 python3 -m venv env
 
 # pip install requirements line by line
