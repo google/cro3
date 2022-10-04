@@ -87,19 +87,33 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.
 	var wg sync.WaitGroup
 	wg.Add(2)
 
+	const maxCapacity = 4096 * 1024
+
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stderr)
+		// Expand the buffer size to avoid deadlocks on heavy logs
+		buf := make([]byte, maxCapacity)
+		scanner.Buffer(buf, maxCapacity)
 		for scanner.Scan() {
 			td.logger.Printf("[tast] %v", scanner.Text())
+		}
+		if scanner.Err() != nil {
+			td.logger.Println("Failed to read stderr Pipe: ", scanner.Err())
 		}
 	}()
 
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stdout)
+		// Expand the buffer size to avoid deadlocks on heavy logs
+		buf := make([]byte, maxCapacity)
+		scanner.Buffer(buf, maxCapacity)
 		for scanner.Scan() {
 			td.logger.Printf("[tast] %v", scanner.Text())
+		}
+		if scanner.Err() != nil {
+			td.logger.Println("Failed to read stdout Pipe: ", scanner.Err())
 		}
 	}()
 
