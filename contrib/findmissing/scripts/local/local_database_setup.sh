@@ -34,10 +34,6 @@ gcloud auth login --no-launch-browser
 # Creates env in findmissing top level directory
 python3 -m venv env
 
-# Activate so requirements can be installed in virtual env
-# shellcheck disable=SC1091
-source env/bin/activate
-
 # pip install requirements line by line
 # shellcheck disable=SC2046
-pip install -q $(cat "${FINDMISSING}/requirements.txt")
+./env/bin/pip install -q $(cat "${FINDMISSING}/requirements.txt")
