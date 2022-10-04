@@ -6,8 +6,11 @@
 
 # ./scripts/local/local_database_setup.sh
 
-FINDMISSING_DIR="${HOME}/findmissing_workspace/findmissing"
-cd "${FINDMISSING_DIR}" || exit
+FINDMISSING="$(cd "$(dirname "$0")/../.." || exit; pwd)"
+
+WORKSPACE="${HOME}/findmissing_workspace"
+mkdir -p "${WORKSPACE}"
+cd "${WORKSPACE}" || exit
 
 sudo apt-get update
 
@@ -37,4 +40,4 @@ source env/bin/activate
 
 # pip install requirements line by line
 # shellcheck disable=SC2046
-pip install -q $(cat requirements.txt)
+pip install -q $(cat "${FINDMISSING}/requirements.txt")
