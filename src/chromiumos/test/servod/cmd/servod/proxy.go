@@ -10,9 +10,8 @@ import (
 	"net"
 	"sync"
 
+	"chromiumos/test/servod/cmd/ssh"
 	"go.chromium.org/luci/common/errors"
-
-	"infra/libs/sshpool"
 )
 
 // proxy holds info to perform proxy confection to servod daemon.
@@ -35,7 +34,7 @@ const (
 // newProxy creates a new proxy with forward from remote to local host.
 // Function is using a goroutine to listen and handle each incoming connection.
 // Initialization of proxy is going asynchronous after return proxy instance.
-func newProxy(pool *sshpool.Pool, host string, remotePort int32, errFuncs ...func(error)) (*proxy, error) {
+func newProxy(pool *ssh.Pool, host string, remotePort int32, errFuncs ...func(error)) (*proxy, error) {
 	remoteAddr := fmt.Sprintf(remoteAddrFmt, remotePort)
 	connFunc := func() (net.Conn, error) {
 		conn, err := pool.Get(host)

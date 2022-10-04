@@ -18,8 +18,6 @@ import (
 
 	xmlrpc_value "go.chromium.org/chromiumos/config/go/api/test/xmlrpc"
 	"go.chromium.org/luci/common/errors"
-
-	"infra/libs/sshpool"
 )
 
 const (
@@ -27,11 +25,11 @@ const (
 	startServodTimeout = 60
 	// Waiting 3 seconds when stopping servod daemon.
 	stopServodTimeout = 3
-	// GPIO control for USB device on servo-host
+	// ImageUsbkeyDev sets GPIO control for USB device on servo-host
 	ImageUsbkeyDev = "image_usbkey_dev"
-	// GPIO control for USB multiplexer
+	// ImageUsbkeyDirection sets GPIO control for USB multiplexer
 	ImageUsbkeyDirection = "image_usbkey_direction"
-	// GPIO control value that causes USB drive to be attached to DUT.
+	// ImageUsbkeyTowardsDUT sets GPIO control value that causes USB drive to be attached to DUT.
 	ImageUsbkeyTowardsDUT = "dut_sees_usbkey"
 )
 
@@ -61,7 +59,7 @@ type servod struct {
 // Prepare prepares servod before call it to run commands.
 // If servod is running: do nothing.
 // If servod is not running: start servod.
-func (s *servod) Prepare(ctx context.Context, pool *sshpool.Pool) error {
+func (s *servod) Prepare(ctx context.Context, pool *ssh.Pool) error {
 	stat, err := s.getStatus(ctx, pool)
 	if err != nil {
 		return errors.Annotate(err, "prepare servod").Err()
@@ -80,7 +78,7 @@ func (s *servod) Prepare(ctx context.Context, pool *sshpool.Pool) error {
 }
 
 // getStatus return status of servod daemon on the servo-host.
-func (s *servod) getStatus(ctx context.Context, pool *sshpool.Pool) (status, error) {
+func (s *servod) getStatus(ctx context.Context, pool *ssh.Pool) (status, error) {
 	r := ssh.Run(ctx, pool, s.host, fmt.Sprintf("status servod PORT=%d", s.port))
 	if r.ExitCode == 0 {
 		if strings.Contains(strings.ToLower(r.Stdout), "start/running") {
@@ -96,7 +94,7 @@ func (s *servod) getStatus(ctx context.Context, pool *sshpool.Pool) (status, err
 }
 
 // start starts servod daemon on servo-host.
-func (s *servod) start(ctx context.Context, pool *sshpool.Pool) error {
+func (s *servod) start(ctx context.Context, pool *ssh.Pool) error {
 	params, err := s.getParams()
 	if err != nil {
 		return errors.Annotate(err, "start servod").Err()
@@ -114,21 +112,21 @@ func (s *servod) start(ctx context.Context, pool *sshpool.Pool) error {
 }
 
 // Stop stops servod daemon on servo-host.
-func (s *servod) Stop(ctx context.Context, pool *sshpool.Pool) error {
+func (s *servod) Stop(ctx context.Context, pool *ssh.Pool) error {
 	r := ssh.Run(ctx, pool, s.host, fmt.Sprintf("stop servod PORT=%d", s.port))
 	if r.ExitCode != 0 {
 		log.Println(ctx, "stop servod: %s", r.Stderr)
 		return errors.Reason("stop servod: %s", r.Stderr).Err()
-	} else {
-		// Wait to teardown the servod.
-		log.Println(ctx, "Stop servod: waiting %d seconds to fully teardown the daemon.", stopServodTimeout)
-		time.Sleep(stopServodTimeout * time.Second)
 	}
+	// Wait to teardown the servod.
+	log.Println(ctx, "Stop servod: waiting %d seconds to fully teardown the daemon.", stopServodTimeout)
+	time.Sleep(stopServodTimeout * time.Second)
+
 	return nil
 }
 
 // Call performs execution commands by servod daemon by XMLRPC connection.
-func (s *servod) Call(ctx context.Context, pool *sshpool.Pool, method string, args []*xmlrpc_value.Value) (r *xmlrpc_value.Value, rErr error) {
+func (s *servod) Call(ctx context.Context, pool *ssh.Pool, method string, args []*xmlrpc_value.Value) (r *xmlrpc_value.Value, rErr error) {
 	if s.proxy == nil {
 		p, err := newProxy(pool, s.host, s.port)
 		if err != nil {

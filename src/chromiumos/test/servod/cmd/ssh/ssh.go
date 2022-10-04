@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
-
-	"infra/libs/sshpool"
 )
 
 const (
@@ -23,11 +21,10 @@ const (
 	// take quite long (2-3 hours). We need to set timeout limit to
 	// accommodate such tasks.
 	defaultSSHTimeout = time.Hour * 3
-	DefaultPort       = 22
 )
 
-// getSSHConfig provides default config for SSH.
-func SSHConfig() *ssh.ClientConfig {
+// Config provides default config for SSH.
+func Config() *ssh.ClientConfig {
 	return &ssh.ClientConfig{
 		User:            defaultSSHUser,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
@@ -52,7 +49,7 @@ type RunResult struct {
 }
 
 // Run executes command on the target address by SSH.
-func Run(ctx context.Context, pool *sshpool.Pool, addr string, cmd string) (result *RunResult) {
+func Run(ctx context.Context, pool *Pool, addr string, cmd string) (result *RunResult) {
 	result = &RunResult{
 		Command:  cmd,
 		ExitCode: -1,

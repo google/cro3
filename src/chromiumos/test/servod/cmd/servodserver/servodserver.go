@@ -2,14 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Implements servod_service.proto (see proto for details)
+// Package servodserver implements servod_service.proto (see proto for details)
 package servodserver
 
 import (
 	"bytes"
 	"context"
 	"errors"
-	"infra/libs/sshpool"
 	"io"
 	"log"
 	"strings"
@@ -31,7 +30,7 @@ type ServodService struct {
 	manager         *lro.Manager
 	logger          *log.Logger
 	commandexecutor commandexecutor.CommandExecutorInterface
-	sshPool         *sshpool.Pool
+	sshPool         *ssh.Pool
 	servodPool      *servod.Pool
 }
 
@@ -41,7 +40,7 @@ func NewServodService(ctx context.Context, logger *log.Logger, commandexecutor c
 		manager:         lro.New(),
 		logger:          logger,
 		commandexecutor: commandexecutor,
-		sshPool:         sshpool.New(ssh.SSHConfig()),
+		sshPool:         ssh.New(ssh.Config()),
 		servodPool:      servod.NewPool(),
 	}
 
@@ -56,7 +55,7 @@ func NewServodService(ctx context.Context, logger *log.Logger, commandexecutor c
 // inside the container if servod is containerized. Otherwise, it simply
 // starts the servod daemon.
 func (s *ServodService) StartServod(ctx context.Context, req *api.StartServodRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.StartServodRequest: ", *req)
+	s.logger.Printf("Received api.StartServodRequest: %#v\n", req)
 	op := s.manager.NewOperation()
 
 	a := model.CliArgs{
@@ -96,7 +95,7 @@ func (s *ServodService) StartServod(ctx context.Context, req *api.StartServodReq
 // servod Docker container if servod is containerized. Otherwise, it simply
 // stops the servod daemon.
 func (s *ServodService) StopServod(ctx context.Context, req *api.StopServodRequest) (*longrunning.Operation, error) {
-	s.logger.Println("Received api.StopServodRequest: ", *req)
+	s.logger.Printf("Received api.StopServodRequest: %#v\n", req)
 	op := s.manager.NewOperation()
 
 	a := model.CliArgs{
@@ -133,7 +132,7 @@ func (s *ServodService) StopServod(ctx context.Context, req *api.StopServodReque
 // Otherwise, it executes the command directly inside the host that the servo
 // is physically connected to.
 func (s *ServodService) ExecCmd(ctx context.Context, req *api.ExecCmdRequest) (*api.ExecCmdResponse, error) {
-	s.logger.Println("Received api.ExecCmdRequest: ", *req)
+	s.logger.Printf("Received api.ExecCmdRequest: %#v\n", req)
 
 	a := model.CliArgs{
 		ServoHostPath:             req.ServoHostPath,
@@ -164,7 +163,7 @@ func (s *ServodService) ExecCmd(ctx context.Context, req *api.ExecCmdRequest) (*
 // is physically connected to.
 // Allowed methods: doc, get, set, and hwinit.
 func (s *ServodService) CallServod(ctx context.Context, req *api.CallServodRequest) (*api.CallServodResponse, error) {
-	s.logger.Println("Received api.CallServodRequest: ", *req)
+	s.logger.Printf("Received api.CallServodRequest: %#v\n", req)
 
 	sd, err := s.servodPool.Get(
 		req.ServoHostPath,
