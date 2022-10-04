@@ -29,7 +29,7 @@ sudo chmod +x /usr/local/bin/cloud_sql_proxy
 
 # Required for cloud_sql_proxy
 # (https://cloud.google.com/sql/docs/mysql/sql-proxy#credentials-from-an-authenticated-cloud-sdk-client.)
-gcloud auth login
+gcloud auth login --no-launch-browser
 
 # Creates env in findmissing top level directory
 python3 -m venv env
