@@ -12,6 +12,8 @@ WORKSPACE="${HOME}/findmissing_workspace"
 mkdir -p "${WORKSPACE}"
 cd "${WORKSPACE}" || exit
 
+PROJECT="google.com:chromeos-missing-patches"
+
 sudo apt-get update
 
 packages=()
@@ -27,9 +29,13 @@ sudo wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 \
         -O /usr/local/bin/cloud_sql_proxy
 sudo chmod +x /usr/local/bin/cloud_sql_proxy
 
-# Required for cloud_sql_proxy
-# (https://cloud.google.com/sql/docs/mysql/sql-proxy#credentials-from-an-authenticated-cloud-sdk-client.)
-gcloud auth login --no-launch-browser
+if [[ $(gcloud config get project) != "${PROJECT}" ]]; then
+    # Required for cloud_sql_proxy
+    # (https://cloud.google.com/sql/docs/mysql/sql-proxy#credentials-from-an-authenticated-cloud-sdk-client.)
+    gcloud auth login --no-launch-browser
+
+    gcloud config set project "${PROJECT}"
+fi
 
 # Creates env in findmissing top level directory
 python3 -m venv env
