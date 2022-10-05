@@ -93,7 +93,7 @@ def setup_linux_chrome_git_hooks():
                         '.git', 'hooks', 'commit-msg')
     commit_msg = os.path.join(common.WORKSPACE_PATH, 'git-hooks', 'commit-msg')
 
-    if not os.path.exists(dest):
+    if not os.path.islink(dest):
         logging.info('Adding symlink %s to %s', dest, commit_msg)
         os.symlink(commit_msg, dest)
 
