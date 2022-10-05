@@ -168,7 +168,7 @@ func (req *Request) FlashStateful(ctx context.Context, client *storage.Client, r
 		return err
 	}
 
-	content := "standard"
+	content := ""
 	if clobber {
 		content = "clobber"
 	}
