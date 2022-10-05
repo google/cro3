@@ -111,7 +111,7 @@ func main() {
 		logger.Println("Started server on address ", l.Addr().String())
 
 		ctx := context.Background()
-		conn, err := GetConnectionWithRetry(ctx, *dutName, *wiringAddress, &api.RestartRequest{})
+		conn, err := GetConnectionWithRetry(ctx, *dutName, *wiringAddress, &api.RestartRequest{}, logger)
 		if err != nil {
 			logger.Fatalln("Failed to connect to dut: ", err)
 			return 2
