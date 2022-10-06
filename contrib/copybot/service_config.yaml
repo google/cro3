@@ -58,6 +58,8 @@ flashrom-downstream: &flashrom_downstream
   add-signed-off-by: True
   labels:
     - Verified+1
+  reviewers:
+    - cros-flashrom-team+reviews@google.com
   triggers:
     - action: email
       condition: failure
