@@ -13,6 +13,7 @@ USER=chromeos_patches
 HOME="/home/${USER}"
 WORKSPACE="${HOME}/findmissing_workspace"
 FINDMISSING="${WORKSPACE}/dev-util/contrib/findmissing"
+GERRIT="${WORKSPACE}/chromite/bin/gerrit"
 DATABASE=us-central1:linux-patches-mysql-8
 
 if [[ -e /etc/systemd/system/cloud-sql-proxy.service ]]; then
@@ -49,6 +50,13 @@ if [[ -e ${WORKSPACE}/dev-util ]]; then
 else
   git -C "${WORKSPACE}" clone https://chromium.googlesource.com/chromiumos/platform/dev-util
   ln -sf "${FINDMISSING}" "${WORKSPACE}/findmissing"
+fi
+
+# Fetch chromite for gerrit CLI
+if [[ -e ${WORKSPACE}/chromite ]]; then
+  git -C "${WORKSPACE}/chromite" pull
+else
+  git -C "${WORKSPACE}" clone https://chromium.googlesource.com/chromiumos/chromite
 fi
 
 # cloud_sql_proxy requires a secret file which can be retrieved via gcloud
