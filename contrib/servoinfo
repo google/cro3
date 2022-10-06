@@ -15,7 +15,7 @@ SERVO_V2_DEVICE_ID="5002"
 SERVO_V4_DEVICE_ID="501b"
 SERVO_MICRO_DEVICE_ID="501a"
 SUZY_Q_CABLE_DEVICE_ID="501f"
-SUZY_Q_DEVICE_ID="5014" # Actually CR50, but report as Suzy Q-connected to CR50
+SUZY_Q_DEVICE_ID="\(5014\|504a\)" # Actually CR50 or ti50, but report as Suzy Q-connected to CR50
 
 # Text STYLE variables
 RED='\033[38;5;9m'
