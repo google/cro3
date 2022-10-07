@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Package common provide command utilies and variables for all components in
+// Package common provide command utilities and variables for all components in
 // cros-test to use.
 package common
 

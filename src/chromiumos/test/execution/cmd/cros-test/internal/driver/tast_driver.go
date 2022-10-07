@@ -6,7 +6,6 @@
 package driver
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log"
@@ -15,6 +14,7 @@ import (
 
 	"go.chromium.org/chromiumos/config/go/test/api"
 
+	"chromiumos/test/execution/cmd/cros-test/internal/common"
 	"chromiumos/test/execution/cmd/cros-test/internal/device"
 	"chromiumos/test/execution/cmd/cros-test/internal/tastrpc"
 	"chromiumos/test/execution/errors"
@@ -91,30 +91,12 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.
 
 	go func() {
 		defer wg.Done()
-		scanner := bufio.NewScanner(stderr)
-		// Expand the buffer size to avoid deadlocks on heavy logs
-		buf := make([]byte, maxCapacity)
-		scanner.Buffer(buf, maxCapacity)
-		for scanner.Scan() {
-			td.logger.Printf("[tast] %v", scanner.Text())
-		}
-		if scanner.Err() != nil {
-			td.logger.Println("Failed to read stderr Pipe: ", scanner.Err())
-		}
+		common.TestScanner(stderr, td.logger, "tast")
 	}()
 
 	go func() {
 		defer wg.Done()
-		scanner := bufio.NewScanner(stdout)
-		// Expand the buffer size to avoid deadlocks on heavy logs
-		buf := make([]byte, maxCapacity)
-		scanner.Buffer(buf, maxCapacity)
-		for scanner.Scan() {
-			td.logger.Printf("[tast] %v", scanner.Text())
-		}
-		if scanner.Err() != nil {
-			td.logger.Println("Failed to read stdout Pipe: ", scanner.Err())
-		}
+		common.TestScanner(stdout, td.logger, "tast")
 	}()
 
 	wg.Wait()
