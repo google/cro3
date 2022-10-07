@@ -27,6 +27,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 
 import requests # pylint: disable=import-error
 
@@ -275,3 +276,37 @@ def create_change(fixee_kernel_sha, fixer_upstream_sha, branch, is_chromeos, fix
 
     os.chdir(cwd)
     return fixer_changeid
+
+
+def label_cq_plus1(branch, changeid):
+    """Label CQ+1 for the given branch and changeid.
+
+    Use Gerrit CLI to query the CL number and label it CQ+1.
+
+    Returns True if CQ+1 success; otherwise False.
+    """
+    chromeos_branch = common.chromeos_branch(branch)
+
+    q = f'branch:{chromeos_branch} {changeid}'
+    logging.info('Query CL number via query string "%s"', q)
+
+    try:
+        cmd = [common.GERRIT_PATH, '--json', 'search', q]
+        data = subprocess.check_output(cmd, encoding='utf-8', errors='ignore',
+                                       stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        return False
+
+    try:
+        cl_num = json.loads(data)[0]['number']
+        logging.info('CL number: %s', cl_num)
+    except (json.decoder.JSONDecodeError, IndexError, KeyError):
+        return False
+
+    try:
+        cmd = [common.GERRIT_PATH, 'label-cq', cl_num, '1']
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        return False
+
+    return True

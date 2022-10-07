@@ -357,6 +357,9 @@ def create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstr
                 logging.error('Failed to create change for kernel_sha %s fixed by %s',
                               kernel_sha, fixedby_upstream_sha)
                 return False
+
+            if not gerrit_interface.label_cq_plus1(branch, fix_change_id):
+                logging.info('Failed to CQ+1 for branch:%s %s', branch, fix_change_id)
     elif status == common.Status.CONFLICT:
         # Register conflict entry_time, do not create gerrit CL
         # Requires engineer to manually explore why CL doesn't apply cleanly
@@ -434,6 +437,9 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
                 if fix_change_id:
                     cloudsql_interface.update_conflict_to_open(db, fixes_table,
                                         kernel_sha, fixedby_upstream_sha, fix_change_id)
+
+                    if not gerrit_interface.label_cq_plus1(branch, fix_change_id):
+                        logging.info('Failed to CQ+1 for branch:%s %s', branch, fix_change_id)
         elif new_status == 'MERGED':
             # This specifically includes situations where a patch marked ABANDONED
             # in the database was merged at some point anyway.

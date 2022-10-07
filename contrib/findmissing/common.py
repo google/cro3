@@ -51,6 +51,7 @@ HOMEDIR = os.path.expanduser('~')
 WORKSPACE_PATH = os.path.join(HOMEDIR, 'findmissing_workspace')
 GCE_GIT_COOKIE_PATH = os.path.join(HOMEDIR, '.git-credential-cache/cookie')
 LOCAL_GIT_COOKIE_PATH = os.path.join(HOMEDIR, '.gitcookies')
+GERRIT_PATH = os.path.join(WORKSPACE_PATH, 'chromite', 'bin', 'gerrit')
 
 connect_db = functools.partial(MySQLdb.Connect, user='linux_patches_robot',
                                host='127.0.0.1', db='linuxdb')
