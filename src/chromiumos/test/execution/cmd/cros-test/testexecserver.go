@@ -60,6 +60,17 @@ func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr st
 			fmt.Errorf("failed to match test metadata: %v", err))
 	}
 
+	// Write all matching test metadata to the results directory.
+	const mdFilename = "test_metadata.json"
+	if err := os.MkdirAll(resultRootDir, 0755); err != nil {
+		return nil, statuserrors.NewStatusError(statuserrors.IOCreateError,
+			fmt.Errorf("failed to create result root directory %v", resultRootDir))
+	}
+	mdPath := filepath.Join(resultRootDir, mdFilename)
+	if err := writeMetadata(mdPath, &api.TestCaseMetadataList{Values: matchedMdList}); err != nil {
+		return nil, err
+	}
+
 	driversToTests, err := driverToTestsMapping(logger, matchedMdList)
 	if err != nil {
 		return nil, err
@@ -73,6 +84,7 @@ func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr st
 			return nil, statuserrors.NewStatusError(statuserrors.IOCreateError,
 				fmt.Errorf("failed to create result directory %v", resultsDir))
 		}
+
 		rspn, err := driver.RunTests(ctx, resultsDir, req, tlwAddr, tests)
 		if err != nil {
 			return nil, err
@@ -87,7 +99,7 @@ func readInput(fileName string) (*api.CrosTestRequest, error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		return nil, statuserrors.NewStatusError(statuserrors.IOAccessError,
-			fmt.Errorf("fail to read file %v: %v", fileName, err))
+			fmt.Errorf("failed to read file %v: %v", fileName, err))
 	}
 	req := api.CrosTestRequest{}
 
@@ -95,9 +107,24 @@ func readInput(fileName string) (*api.CrosTestRequest, error) {
 	umrsh.AllowUnknownFields = true
 	if err := umrsh.Unmarshal(f, &req); err != nil {
 		return nil, statuserrors.NewStatusError(statuserrors.UnmarshalError,
-			fmt.Errorf("fail to unmarshal file %v: %v", fileName, err))
+			fmt.Errorf("failed to unmarshal file %v: %v", fileName, err))
 	}
 	return &req, nil
+}
+
+// writeMetadata writes a TestCaseMetadataList json.
+func writeMetadata(outputPath string, mdList *api.TestCaseMetadataList) error {
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return statuserrors.NewStatusError(statuserrors.IOCreateError,
+			fmt.Errorf("failed to create file %v: %v", outputPath, err))
+	}
+	m := jsonpb.Marshaler{}
+	if err := m.Marshal(f, mdList); err != nil {
+		return statuserrors.NewStatusError(statuserrors.MarshalError,
+			fmt.Errorf("failed to marshall metadata list to file %v: %v", outputPath, err))
+	}
+	return nil
 }
 
 // writeOutput writes a RunTestsResponse json.
