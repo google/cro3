@@ -8,6 +8,7 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
 	"fmt"
+	"log"
 )
 
 type WipeStatefulCommand struct {
@@ -22,7 +23,9 @@ func NewWipeStatefulCommand(ctx context.Context, cs *service.CrOSService) *WipeS
 	}
 }
 
-func (c *WipeStatefulCommand) Execute() error {
+func (c *WipeStatefulCommand) Execute(log *log.Logger) error {
+	log.Printf("Start WipeStatefulCommand Execute")
+
 	if !c.cs.PreserverStateful {
 		if _, err := c.cs.Connection.RunCmd(c.ctx, "echo", []string{"'fast keepimg'", ">", "/mnt/stateful_partition/factory_install_reset"}); err != nil {
 			return fmt.Errorf("failed to to write to factory reset file, %s", err)
@@ -32,6 +35,8 @@ func (c *WipeStatefulCommand) Execute() error {
 			return fmt.Errorf("failed to restart dut, %s", err)
 		}
 	}
+	log.Printf("WipeStatefulCommand Success")
+
 	return nil
 }
 

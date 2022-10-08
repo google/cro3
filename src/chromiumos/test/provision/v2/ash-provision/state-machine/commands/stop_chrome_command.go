@@ -22,7 +22,7 @@ func NewStopChromeCommand(ctx context.Context, cs *service.AShService) *StopChro
 	}
 }
 
-func (c *StopChromeCommand) Execute() error {
+func (c *StopChromeCommand) Execute(log *log.Logger) error {
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "stop", []string{"ui"}); err != nil {
 		// stop ui returns error when UI is terminated, so ignore error here
 		log.Printf("failed to stop chrome, %s", err)

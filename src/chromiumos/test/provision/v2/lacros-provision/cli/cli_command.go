@@ -114,7 +114,7 @@ func (cc *CLICommand) Run() error {
 		}
 
 		defer saveCLIOutput(cc.outputFile, out)
-		if _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewLaCrOSInitState(cs)); err != nil {
+		if _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewLaCrOSInitState(cs), cc.log); err != nil {
 			out.Outcome = &api.CrosProvisionResponse_Failure{
 				Failure: &api.InstallFailure{
 					Reason: api.InstallFailure_Reason(api.InstallResponse_STATUS_PROVISIONING_FAILED),
@@ -123,7 +123,7 @@ func (cc *CLICommand) Run() error {
 			return fmt.Errorf("failed to provision, %s", err)
 		}
 	}
-	log.Println("Finished Successfuly!")
+	cc.log.Println("Finished Successfuly!")
 	return nil
 }
 

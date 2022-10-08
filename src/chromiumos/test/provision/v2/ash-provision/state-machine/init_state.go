@@ -11,6 +11,7 @@ import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
 	"context"
 	"fmt"
+	"log"
 )
 
 // AShInitState can be thought of as the constructor state, which initializes
@@ -25,7 +26,7 @@ func NewAShInitState(service *service.AShService) common_utils.ServiceState {
 	}
 }
 
-func (s AShInitState) Execute(ctx context.Context) error {
+func (s AShInitState) Execute(ctx context.Context, log *log.Logger) error {
 	fmt.Printf("Executing %s State:\n", s.Name())
 	comms := []common_utils.CommandInterface{
 		commands.NewCleanUpStagingCommand(ctx, s.service),
@@ -37,7 +38,7 @@ func (s AShInitState) Execute(ctx context.Context) error {
 	}
 
 	for _, comm := range comms {
-		err := comm.Execute()
+		err := comm.Execute(log)
 		if err != nil {
 			return fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}

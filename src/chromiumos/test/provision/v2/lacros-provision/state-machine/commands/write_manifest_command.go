@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -25,7 +26,7 @@ func NewWriteManifestCommand(ctx context.Context, cs *service.LaCrOSService) *Wr
 	}
 }
 
-func (c *WriteManifestCommand) Execute() error {
+func (c *WriteManifestCommand) Execute(log *log.Logger) error {
 	imageHash, err := c.getSHA256Sum(c.ctx, c.cs.GetLocalImagePath())
 	if err != nil {
 		return fmt.Errorf("failed to get Lacros image hash, %w", err)

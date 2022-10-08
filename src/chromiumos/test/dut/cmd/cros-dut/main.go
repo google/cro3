@@ -10,13 +10,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"go.chromium.org/chromiumos/config/go/test/api"
 	"io"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
 	"time"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 // Version is the version info of this command. It is filled in during emerge.
@@ -43,7 +44,9 @@ func createLogFile() (*os.File, error) {
 // newLogger creates a logger. Using go default logger for now.
 func newLogger(logFile *os.File) *log.Logger {
 	mw := io.MultiWriter(logFile, os.Stderr)
-	return log.New(mw, "", log.LstdFlags|log.LUTC)
+	newLog := log.New(mw, "<cros-dut>", log.LstdFlags|log.LUTC)
+	newLog.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmsgprefix)
+	return newLog
 }
 
 func main() {

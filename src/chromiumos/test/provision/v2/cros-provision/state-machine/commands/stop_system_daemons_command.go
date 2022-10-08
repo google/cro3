@@ -22,13 +22,17 @@ func NewStopSystemDaemonsCommand(ctx context.Context, cs *service.CrOSService) *
 	}
 }
 
-func (c *StopSystemDaemonsCommand) Execute() error {
+func (c *StopSystemDaemonsCommand) Execute(log *log.Logger) error {
+	log.Printf("Start StopSystemDaemonsCommand Execute")
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "stop", []string{"ui"}); err != nil {
+		log.Printf("StopSystemDaemonsCommand stop ui FAILED NON FATAL")
 		log.Printf("Failed to stop UI daemon, %s", err)
 	}
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "stop", []string{"update-engine"}); err != nil {
+		log.Printf("StopSystemDaemonsCommand stop updat-engine FAILED NON FATAL")
 		log.Printf("Failed to stop update-engine daemon, %s", err)
 	}
+	log.Printf("StopSystemDaemonsCommand Success")
 	return nil
 }
 

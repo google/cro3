@@ -8,6 +8,7 @@ package commands
 import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
+	"log"
 )
 
 type ReloadBusCommand struct {
@@ -22,7 +23,7 @@ func NewReloadBusCommand(ctx context.Context, cs *service.AShService) *ReloadBus
 	}
 }
 
-func (c *ReloadBusCommand) Execute() error {
+func (c *ReloadBusCommand) Execute(log *log.Logger) error {
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "killall", []string{"-HUP", "dbus-daemon"}); err != nil {
 		return err
 	}

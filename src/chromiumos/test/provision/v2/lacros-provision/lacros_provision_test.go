@@ -5,6 +5,8 @@
 package main
 
 import (
+	"chromiumos/test/provision/v2/lacros-provision/cli"
+	"chromiumos/test/provision/v2/lacros-provision/constants"
 	"chromiumos/test/provision/v2/lacros-provision/service"
 	state_machine "chromiumos/test/provision/v2/lacros-provision/state-machine"
 	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
@@ -103,6 +105,7 @@ func TestLaCrosStateTransitions(t *testing.T) {
 	defer ctrl.Finish()
 
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 	ls := service.NewLaCrOSServiceFromExistingConnection(
 		sam,
 		&conf.StoragePath{
@@ -127,7 +130,7 @@ func TestLaCrosStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, runDDCommand).Return("", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 	// INSTALL
@@ -143,14 +146,14 @@ func TestLaCrosStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, writePublishCommand).Return("", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install state: %v", err)
 	}
 
 	// Verify
 	st = st.Next()
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed verify state: %v", err)
 	}
 
@@ -165,6 +168,7 @@ func TestLaCrosStateTransitionsWithOverride(t *testing.T) {
 	defer ctrl.Finish()
 
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 	ls := service.NewLaCrOSServiceFromExistingConnection(
 		sam,
 		&conf.StoragePath{
@@ -189,7 +193,7 @@ func TestLaCrosStateTransitionsWithOverride(t *testing.T) {
 		getRunCmdCommand(sam, customOverwriteRunDDCommand).Return("", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 	// INSTALL
@@ -207,7 +211,7 @@ func TestLaCrosStateTransitionsWithOverride(t *testing.T) {
 		getRunCmdCommand(sam, chmodCommand).Return("", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install state: %v", err)
 	}
 }
@@ -217,6 +221,7 @@ func TestLaCrosStateDoesNotExtendAlignment(t *testing.T) {
 	defer ctrl.Finish()
 
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 	ls := service.NewLaCrOSServiceFromExistingConnection(
 		sam,
 		&conf.StoragePath{
@@ -241,7 +246,7 @@ func TestLaCrosStateDoesNotExtendAlignment(t *testing.T) {
 		// Ensure dd doesn't run if value is multiple of 4096
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 }

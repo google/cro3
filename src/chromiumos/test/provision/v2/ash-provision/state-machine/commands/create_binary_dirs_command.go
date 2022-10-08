@@ -7,6 +7,7 @@ package commands
 import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
+	"log"
 )
 
 type CreateBinaryDirsCommand struct {
@@ -21,7 +22,7 @@ func NewCreateBinaryDirsCommand(ctx context.Context, cs *service.AShService) *Cr
 	}
 }
 
-func (c *CreateBinaryDirsCommand) Execute() error {
+func (c *CreateBinaryDirsCommand) Execute(log *log.Logger) error {
 	return c.cs.Connection.CreateDirectories(c.ctx, []string{c.cs.GetTargetDir(), c.cs.GetAutotestDir(), c.cs.GetTastDir()})
 }
 

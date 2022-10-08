@@ -22,10 +22,13 @@ func NewStopDLCServiceCommand(ctx context.Context, cs *service.CrOSService) *Sto
 	}
 }
 
-func (c *StopDLCServiceCommand) Execute() error {
+func (c *StopDLCServiceCommand) Execute(log *log.Logger) error {
+	log.Printf("Start StopDLCServiceCommand Execute")
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "stop", []string{"dlcservice"}); err != nil {
+		log.Printf("StopDLCServiceCommand stop FAILED NON FATAL")
 		log.Printf("%s, %s", c.GetErrorMessage(), err)
 	}
+	log.Printf("StopDLCServiceCommand Success")
 	return nil
 }
 

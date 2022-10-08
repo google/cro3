@@ -54,8 +54,9 @@ func (s *ServoType) IsMultipleServos() bool {
 // function to check for that.
 // |preferCCD| tells the function to pick the CCD servo, otherwise other servo
 // type (likely servo_micro) will be chosen. Example:
-//   If preferCCD is true, string above will return "servo_v4p1_with_ccd_cr50".
-//   If preferCCD is false, it will return "servo_v4p1_with_servo_micro".
+//
+//	If preferCCD is true, string above will return "servo_v4p1_with_ccd_cr50".
+//	If preferCCD is false, it will return "servo_v4p1_with_servo_micro".
 func (s *ServoType) PickServoSubtype(preferCCD bool) string {
 	withSplit := strings.Split(s.string, "_with_")
 	if len(withSplit) <= 1 {

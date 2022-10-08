@@ -5,6 +5,8 @@
 package main
 
 import (
+	"chromiumos/test/provision/v2/ash-provision/cli"
+	"chromiumos/test/provision/v2/ash-provision/constants"
 	"chromiumos/test/provision/v2/ash-provision/service"
 	state_machine "chromiumos/test/provision/v2/ash-provision/state-machine"
 	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
@@ -103,6 +105,7 @@ func TestStateTransitions(t *testing.T) {
 		nil)
 
 	ctx := context.Background()
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 
 	// INIT STATE
 	st := state_machine.NewAShInitState(&ls)
@@ -122,7 +125,7 @@ func TestStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, lsofChrome).Return("", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 	// INSTALL
@@ -168,7 +171,7 @@ func TestStateTransitions(t *testing.T) {
 		getPathExistsCommand(sam, checkStarTestsExists).Return(false, nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install state: %v", err)
 	}
 
@@ -181,7 +184,7 @@ func TestStateTransitions(t *testing.T) {
 		getDeleteDirCommand(sam, deleteStagingDir).Return(nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed post-install state: %v", err)
 	}
 
@@ -205,6 +208,7 @@ func TestPkillRunsOnlyForTenSeconds(t *testing.T) {
 		nil)
 
 	ctx := context.Background()
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 
 	// INIT STATE
 	st := state_machine.NewAShInitState(&ls)
@@ -220,7 +224,7 @@ func TestPkillRunsOnlyForTenSeconds(t *testing.T) {
 	getRunCmdCommand(sam, lsofChrome).Return("", errors.New("chrome is in use!")).AnyTimes()
 	getRunCmdCommand(sam, pkillChrome).Return("", nil).AnyTimes()
 
-	if err := st.Execute(ctx); err == nil {
+	if err := st.Execute(ctx, log); err == nil {
 		t.Fatalf("init state should have failed!")
 	}
 }

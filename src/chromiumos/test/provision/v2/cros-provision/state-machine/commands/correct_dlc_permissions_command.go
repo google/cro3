@@ -9,6 +9,7 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
 	"fmt"
+	"log"
 )
 
 type CorrectDLCPermissionsCommand struct {
@@ -23,18 +24,22 @@ func NewCorrectDLCPermissionsCommand(ctx context.Context, cs *service.CrOSServic
 	}
 }
 
-func (c *CorrectDLCPermissionsCommand) Execute() error {
+func (c *CorrectDLCPermissionsCommand) Execute(log *log.Logger) error {
 	// CorrectDLCPermissions changes the permission and ownership of DLC cache to
 	// the correct one. As part of the transition to using tmpfiles.d, dlcservice
 	// paths must have correct permissions/owners set. Simply starting the
 	// dlcservice daemon will not fix this due to security concerns.
+	log.Printf("Start CorrectDLCPermissionsCommand Execute")
+
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "chown", []string{"-R", "dlcservice:dlcservice", common_utils.DlcCacheDir}); err != nil {
 		return fmt.Errorf("unable to set owner for DLC cache (%s), %s", common_utils.DlcCacheDir, err)
 	}
+	log.Printf("CorrectDLCPermissionsCommand chown completed")
 
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "chmod", []string{"-R", "0755", common_utils.DlcCacheDir}); err != nil {
 		return fmt.Errorf("unable to set permissions for DLC cache (%s), %s", common_utils.DlcCacheDir, err)
 	}
+	log.Printf("CorrectDLCPermissionsCommand Success")
 
 	return nil
 }

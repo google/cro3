@@ -8,6 +8,7 @@ import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
+	"log"
 )
 
 type CreateProvisionMarkerCommand struct {
@@ -23,10 +24,13 @@ func NewCreateProvisionMarkerCommand(ctx context.Context, cs *service.CrOSServic
 
 }
 
-func (c *CreateProvisionMarkerCommand) Execute() error {
+func (c *CreateProvisionMarkerCommand) Execute(log *log.Logger) error {
+	log.Printf("Start CreateProvisionMarkerCommand Execute")
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "touch", []string{common_utils.ProvisionMarker}); err != nil {
+		log.Printf("CreateProvisionMarkerCommand touch marker errord")
 		return err
 	}
+	log.Printf("CreateProvisionMarkerCommand Success")
 	return nil
 }
 

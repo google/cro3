@@ -9,6 +9,7 @@ import (
 	"chromiumos/test/provision/v2/lacros-provision/service"
 	"context"
 	"fmt"
+	"log"
 )
 
 type RunVerityCommand struct {
@@ -23,7 +24,7 @@ func NewRunVerityCommand(ctx context.Context, cs *service.LaCrOSService) *RunVer
 	}
 }
 
-func (c *RunVerityCommand) Execute() error {
+func (c *RunVerityCommand) Execute(log *log.Logger) error {
 	// Generate the verity (hashtree and table) from Lacros image.
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "verity", []string{
 		"mode=create",

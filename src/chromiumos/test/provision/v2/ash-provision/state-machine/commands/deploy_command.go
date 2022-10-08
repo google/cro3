@@ -9,6 +9,7 @@ import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
 	"fmt"
+	"log"
 	"path/filepath"
 )
 
@@ -59,7 +60,7 @@ func NewDeployCommand(ctx context.Context, cs *service.AShService) *DeployComman
 	}
 }
 
-func (c *DeployCommand) Execute() error {
+func (c *DeployCommand) Execute(log *log.Logger) error {
 	for _, file := range copyPaths {
 
 		if err := c.deployFile(c.ctx, file, c.cs.GetTargetDir()); err != nil {

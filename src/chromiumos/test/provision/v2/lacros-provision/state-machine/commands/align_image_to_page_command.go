@@ -27,7 +27,7 @@ func NewAlignImageToPageCommand(ctx context.Context, cs *service.LaCrOSService) 
 	}
 }
 
-func (c *AlignImageToPageCommand) Execute() error {
+func (c *AlignImageToPageCommand) Execute(log *log.Logger) error {
 	sizeStr, err := c.cs.Connection.RunCmd(c.ctx, "stat", []string{"-c%s", c.cs.GetLocalImagePath()})
 	if err != nil {
 		return fmt.Errorf("failed to get image size, %w", err)

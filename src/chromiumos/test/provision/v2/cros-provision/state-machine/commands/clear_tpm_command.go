@@ -7,6 +7,7 @@ package commands
 import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
+	"log"
 	"strings"
 )
 
@@ -22,12 +23,15 @@ func NewClearTPMCommand(ctx context.Context, cs *service.CrOSService) *ClearTPMC
 	}
 }
 
-func (c *ClearTPMCommand) Execute() error {
+func (c *ClearTPMCommand) Execute(log *log.Logger) error {
+	log.Printf("Start ClearTPMCommand Execute")
+
 	if c.canClearTPM(c.ctx) {
 		if _, err := c.cs.Connection.RunCmd(c.ctx, "crossystem", []string{"clear_tpm_owner_request=1"}); err != nil {
 			return err
 		}
 	}
+	log.Printf("ClearTPMCommand Success")
 
 	return nil
 }

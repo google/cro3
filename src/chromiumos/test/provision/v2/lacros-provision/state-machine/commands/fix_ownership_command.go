@@ -10,6 +10,7 @@ import (
 	"chromiumos/test/provision/v2/lacros-provision/service"
 	"context"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -25,7 +26,7 @@ func NewFixOwnershipCommand(ctx context.Context, cs *service.LaCrOSService) *Fix
 	}
 }
 
-func (c *FixOwnershipCommand) Execute() error {
+func (c *FixOwnershipCommand) Execute(log *log.Logger) error {
 	if strings.HasPrefix(c.cs.GetComponentPath(), c.cs.GetComponentRootPath()) {
 		if _, err := c.cs.Connection.RunCmd(c.ctx, "chown", []string{"-R", "chronos:chronos", c.cs.GetComponentRootPath()}); err != nil {
 			return fmt.Errorf("could not change component path ownership for %s, %s", c.cs.GetComponentRootPath(), err)

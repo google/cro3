@@ -30,7 +30,7 @@ func NewKillChromeCommand(ctx context.Context, cs *service.AShService) *KillChro
 	}
 }
 
-func (c *KillChromeCommand) Execute() error {
+func (c *KillChromeCommand) Execute(log *log.Logger) error {
 	for start := time.Now(); time.Since(start) < tenSeconds; time.Sleep(twoSeconds) {
 		if !c.isChromeInUse() {
 			return nil

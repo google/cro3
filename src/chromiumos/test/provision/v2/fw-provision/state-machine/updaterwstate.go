@@ -19,7 +19,7 @@ type FirmwareUpdateRwState struct {
 }
 
 // Execute flashes firmware using futility with write-protection enabled.
-func (s FirmwareUpdateRwState) Execute(ctx context.Context) error {
+func (s FirmwareUpdateRwState) Execute(ctx context.Context, log *log.Logger) error {
 	connection := s.service.GetConnectionToFlashingDevice()
 	// form futility command args based on the request
 	var futilityImageArgs []string

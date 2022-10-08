@@ -98,12 +98,18 @@ func (cc *CLICommand) validate() error {
 func (cc *CLICommand) Run() error {
 	cc.log.Printf("Running CLI Mode (V2):")
 	dutAddr := fmt.Sprintf("%s:%d", cc.inputProto.GetDutServer().GetAddress(), cc.inputProto.GetDutServer().GetPort())
+	cc.log.Printf("DutAddr found")
+
 	dutConn, err := grpc.Dial(dutAddr, grpc.WithInsecure())
 	if err != nil {
+		cc.log.Printf("DutConn Failed!")
 		return fmt.Errorf("failed to connect to dut-service, %s", err)
 	}
+	cc.log.Printf("Dut Conn Established")
+
 	defer dutConn.Close()
 	cs := service.NewCrOSServiceFromCrOSProvisionRequest(api.NewDutServiceClient(dutConn), cc.inputProto)
+	cc.log.Printf("New CS Created")
 
 	out := &api.CrosProvisionResponse{
 		Id: &lab_api.Dut_Id{
@@ -112,37 +118,49 @@ func (cc *CLICommand) Run() error {
 		Outcome: &api.CrosProvisionResponse_Success{},
 	}
 
-	defer saveCLIOutput(cc.outputFile, out)
-	if _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewCrOSInitState(cs)); err != nil {
+	defer saveCLIOutput(cc.outputFile, out, cc.log)
+	cc.log.Printf("State Machine Start.")
+
+	if _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewCrOSInitState(cs), cc.log); err != nil {
+		cc.log.Printf("State Machine Failed, setting err to PROVISION_FAILED.")
 		out.Outcome = &api.CrosProvisionResponse_Failure{
 			Failure: &api.InstallFailure{
-				Reason: api.InstallFailure_Reason(api.InstallResponse_STATUS_PROVISIONING_FAILED),
+				Reason: api.InstallFailure_Reason(api.InstallFailure_REASON_PROVISIONING_FAILED),
 			},
 		}
+		cc.log.Printf("State Machine Failed %s.", err)
 		return fmt.Errorf("failed to provision, %s", err)
 	}
-	log.Println("Finished Successfuly!")
+	cc.log.Printf("Finished Successfuly!")
 	return nil
 }
 
 // saveCLIOutput saves response to the output file.
-func saveCLIOutput(outputPath string, out *api.CrosProvisionResponse) error {
+func saveCLIOutput(outputPath string, out *api.CrosProvisionResponse, log *log.Logger) error {
+	log.Printf("saveCLIOutput out:%s\n", out)
 	if outputPath != "" && out != nil {
+		log.Printf("saveCLIOutput outputPath:%s\n", outputPath)
 		dir := filepath.Dir(outputPath)
 		// Create the directory if it doesn't exist.
 		if err := os.MkdirAll(dir, 0777); err != nil {
+			log.Printf("MKDIR Error.")
 			return fmt.Errorf("save output: fail to create directory for %q", outputPath)
 		}
 		w, err := os.Create(outputPath)
 		if err != nil {
+			log.Printf("Save File Error")
 			return fmt.Errorf("save output: failed to create file %q", outputPath)
 		}
 		defer w.Close()
 
 		marshaler := jsonpb.Marshaler{}
 		if err := marshaler.Marshal(w, out); err != nil {
+
+			log.Printf("Marshal Error")
 			return fmt.Errorf("save output: failed to marshal output")
 		}
+	} else {
+		log.Printf("saveCLIOutput NO OUTPATH")
 	}
 	return nil
 }

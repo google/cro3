@@ -39,7 +39,9 @@ func SetUpLog(dir string) (*log.Logger, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file %v: %v", lfp, err)
 	}
-	return log.New(io.MultiWriter(lf, os.Stderr), "", log.LstdFlags|log.LUTC), nil
+	newLog := log.New(io.MultiWriter(lf, os.Stderr), "<lacros-provision>", log.LstdFlags|log.LUTC)
+	newLog.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmsgprefix)
+	return newLog, nil
 }
 
 // ParseInputs is a helper method which parses input arguments. It is

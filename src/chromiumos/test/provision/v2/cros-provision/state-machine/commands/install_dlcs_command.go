@@ -28,7 +28,8 @@ func NewInstallDLCsCommand(ctx context.Context, cs *service.CrOSService) *Instal
 	}
 }
 
-func (c *InstallDLCsCommand) Execute() error {
+func (c *InstallDLCsCommand) Execute(log *log.Logger) error {
+	log.Printf("Start InstallDLCsCommand Execute")
 	activeSlot := common_utils.ActiveDlcMap[c.cs.MachineMetadata.RootInfo.RootPartNum]
 	var err error
 	errCh := make(chan error)
@@ -37,6 +38,7 @@ func (c *InstallDLCsCommand) Execute() error {
 			errCh <- c.installDLC(c.ctx, spec, activeSlot)
 		}(spec)
 	}
+	log.Printf("InstallDLCsCommand installDLC completed")
 
 	for range c.cs.DlcSpecs {
 		errTmp := <-errCh
@@ -45,7 +47,7 @@ func (c *InstallDLCsCommand) Execute() error {
 		}
 		err = fmt.Errorf("%s, %s", err, errTmp)
 	}
-
+	log.Printf("InstallDLCsCommand Success")
 	return err
 }
 

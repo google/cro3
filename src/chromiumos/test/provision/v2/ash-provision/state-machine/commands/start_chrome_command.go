@@ -7,6 +7,7 @@ package commands
 import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
+	"log"
 )
 
 type StartChromeCommand struct {
@@ -21,7 +22,7 @@ func NewStartChromeCommand(ctx context.Context, cs *service.AShService) *StartCh
 	}
 }
 
-func (c *StartChromeCommand) Execute() error {
+func (c *StartChromeCommand) Execute(log *log.Logger) error {
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "start", []string{"ui"}); err != nil {
 		return err
 	}

@@ -168,6 +168,8 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 	}
 	if err != nil {
 		status := status.New(codes.Aborted, fmt.Sprintf("rebootDut: failed reboot, %s", stderr))
+		s.logger.Printf("failed to reboot %s\n", err)
+
 		s.manager.SetError(op.Name, status)
 		return op, err
 	}
@@ -188,6 +190,8 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 		conn, err := GetConnectionWithRetry(ctx, s.dutName, s.wiringAddress, req, s.logger)
 		if err != nil {
 			status := status.New(codes.Aborted, fmt.Sprintf("rebootDut: unable to get connection, %s", err))
+			s.logger.Println("unable to connect")
+
 			s.manager.SetError(op.Name, status)
 			return op, err
 		}
@@ -195,6 +199,8 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 		return op, nil
 	case <-ctx.Done():
 		status := status.New(codes.Aborted, "rebootDut: timed out waiting for reboot")
+		s.logger.Println("Failed to reboot timeout")
+
 		s.manager.SetError(op.Name, status)
 		return op, fmt.Errorf("rebootDUT: timeout waiting for reboot")
 	}
@@ -373,8 +379,10 @@ func (s *DutServiceServer) ForceReconnect(ctx context.Context, req *api.ForceRec
 
 // reconnect starts a new ssh client connection
 func (s *DutServiceServer) reconnect(ctx context.Context) error {
+	s.logger.Printf("attempting to reconnect to DUT.")
 	conn, err := GetConnection(ctx, s.dutName, s.wiringAddress)
 	if err != nil {
+		s.logger.Printf("Failed to reconnect to DUT.")
 		return err
 	}
 	s.connection = &dutssh.SSHClient{Client: conn}
@@ -455,17 +463,23 @@ func GetConnection(ctx context.Context, dutIdentifier string, wiringAddress stri
 
 // runCmd run remote command returning return value, stdout, stderr, and error if any
 func (s *DutServiceServer) runCmd(cmd string, stdin io.Reader, combined bool) *api.ExecCommandResponse {
+	s.logger.Printf("Running cmd %s", cmd)
 	if !s.connection.IsAlive() {
+		s.logger.Printf("Connection is not alive, trying to reconnect")
 		if err := s.reconnect(context.Background()); err != nil {
+			s.logger.Printf("failed to reconnect in runcmd %s\n", err)
+
 			return &api.ExecCommandResponse{
-				ExitInfo: createFailedToStartExitInfo(err),
+				ExitInfo: createFailedToStartExitInfo(err, s.logger),
 			}
 		}
 	}
+
 	session, err := s.connection.NewSession()
 	if err != nil {
+		s.logger.Printf("failed to start session %s\n", err)
 		return &api.ExecCommandResponse{
-			ExitInfo: createFailedToStartExitInfo(err),
+			ExitInfo: createFailedToStartExitInfo(err, s.logger),
 		}
 	}
 	defer session.Close()
@@ -487,7 +501,7 @@ func (s *DutServiceServer) runCmd(cmd string, stdin io.Reader, combined bool) *a
 	return &api.ExecCommandResponse{
 		Stdout:   stdOut.Bytes(),
 		Stderr:   stdErr.Bytes(),
-		ExitInfo: getExitInfo(err),
+		ExitInfo: getExitInfo(err, s.logger),
 	}
 }
 
@@ -515,23 +529,29 @@ func (s *DutServiceServer) runCmdOutput(cmd string) (string, string, error) {
 }
 
 // getExitInfo extracts exit info from Session Run's error
-func getExitInfo(runError error) *api.ExecCommandResponse_ExitInfo {
+func getExitInfo(runError error, logger *log.Logger) *api.ExecCommandResponse_ExitInfo {
 	// If no error, command succeeded
 	if runError == nil {
+		logger.Println("NO RUN ISSSUES")
+
 		return createCommandSucceededExitInfo()
 	}
 
 	// If ExitError, command ran but did not succeed
 	var ee *ssh.ExitError
 	if errors.As(runError, &ee) {
+		logger.Println("cmdfailed")
+
 		return createCommandFailedExitInfo(ee)
 	}
 
 	// Otherwise we assume command failed to start
-	return createFailedToStartExitInfo(runError)
+	return createFailedToStartExitInfo(runError, logger)
 }
 
-func createFailedToStartExitInfo(err error) *api.ExecCommandResponse_ExitInfo {
+func createFailedToStartExitInfo(err error, logger *log.Logger) *api.ExecCommandResponse_ExitInfo {
+	logger.Println("runError Failed to start exit")
+
 	return &api.ExecCommandResponse_ExitInfo{
 		Status:       42, // Contract dictates arbitrary response, thus 42 is as good as any number
 		Signaled:     false,

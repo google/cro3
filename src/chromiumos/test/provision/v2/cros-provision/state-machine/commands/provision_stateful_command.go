@@ -28,7 +28,9 @@ func NewProvisionStatefulCommand(ctx context.Context, cs *service.CrOSService) *
 	}
 }
 
-func (c *ProvisionStatefulCommand) Execute() error {
+func (c *ProvisionStatefulCommand) Execute(log *log.Logger) error {
+	log.Printf("Start ProvisionStatefulCommand Execute")
+
 	if c.cs.ImagePath.HostType == conf.StoragePath_LOCAL || c.cs.ImagePath.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
 		return fmt.Errorf("only GS copying is implemented")
 	}
@@ -36,19 +38,25 @@ func (c *ProvisionStatefulCommand) Execute() error {
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "rm", []string{
 		"-rf", info.UpdateStatefulFilePath, path.Join(info.StatefulPath, "var_new"), path.Join(info.StatefulPath, "dev_image_new"),
 	}); err != nil {
+		log.Printf("ProvisionStatefulCommand rm FAILED")
 		return err
 	}
+	log.Printf("ProvisionStatefulCommand rm Completed")
 
 	if err := c.cs.Connection.PipeData(c.ctx,
 		common_utils.BucketJoin(c.cs.ImagePath.GetPath(), "stateful.tgz"),
 		fmt.Sprintf("tar --ignore-command-error --overwrite --directory=%s --selinux -xzf -", info.StatefulPath)); err != nil {
+		log.Printf("ProvisionStatefulCommand PipeData FAILED")
 		return err
 	}
+	log.Printf("ProvisionStatefulCommand PipeData Completed")
 
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "echo", []string{"-n", "clobber", ">", info.UpdateStatefulFilePath}); err != nil {
+		log.Printf("ProvisionStatefulCommand UpdateStatefulFilePath FAILED")
 		return err
 	}
-
+	log.Printf("ProvisionStatefulCommand UpdateStatefulFilePath Completed")
+	log.Printf("ProvisionStatefulCommand Success")
 	return nil
 }
 

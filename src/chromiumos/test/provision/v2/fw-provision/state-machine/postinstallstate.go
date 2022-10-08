@@ -10,6 +10,7 @@ import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
 	firmwareservice "chromiumos/test/provision/v2/fw-provision/service"
 	"context"
+	"log"
 )
 
 // FirmwarePostInstallState cleans up temporary folders and reboots the DUT.
@@ -18,7 +19,7 @@ type FirmwarePostInstallState struct {
 }
 
 // Execute deletes all folders with firmware image archives.
-func (s FirmwarePostInstallState) Execute(ctx context.Context) error {
+func (s FirmwarePostInstallState) Execute(ctx context.Context, log *log.Logger) error {
 	s.service.DeleteArchiveDirectories()
 	err := s.service.RestartDut(ctx, false)
 	if err != nil {

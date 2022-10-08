@@ -91,7 +91,7 @@ func (c *LaCrOSService) CleanupOnFailure(states []services.ServiceState, executi
 }
 
 /*
-	The following consists of helper structs
+The following consists of helper structs
 */
 type LaCrOSMetadata struct {
 	Content struct {

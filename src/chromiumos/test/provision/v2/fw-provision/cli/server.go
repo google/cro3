@@ -125,7 +125,7 @@ func (ps *FWProvisionServer) Provision(ctx context.Context, req *api.ProvisionFi
 	// Execute state machine
 	cs := state_machine.NewFirmwarePrepareState(fwService)
 	for cs != nil {
-		if err = cs.Execute(ctx); err != nil {
+		if err = cs.Execute(ctx, ps.log); err != nil {
 			break
 		}
 		cs = cs.Next()

@@ -7,6 +7,7 @@ package commands
 import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
+	"log"
 )
 
 type CreateNewStagingDirsCommand struct {
@@ -21,7 +22,7 @@ func NewCreateNewStagingDirsCommand(ctx context.Context, cs *service.AShService)
 	}
 }
 
-func (c *CreateNewStagingDirsCommand) Execute() error {
+func (c *CreateNewStagingDirsCommand) Execute(log *log.Logger) error {
 	return c.cs.Connection.CreateDirectories(c.ctx, []string{c.cs.GetStagingDirectory()})
 }
 

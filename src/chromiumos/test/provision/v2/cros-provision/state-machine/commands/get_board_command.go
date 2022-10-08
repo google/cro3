@@ -8,6 +8,7 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 )
 
@@ -26,13 +27,15 @@ func NewGetBoardCommand(ctx context.Context, cs *service.CrOSService) *GetBoardC
 
 }
 
-func (c *GetBoardCommand) Execute() error {
+func (c *GetBoardCommand) Execute(log *log.Logger) error {
+	log.Printf("RUNNING GetBoardCommand Execute")
 	board, err := c.getBoard()
 	if err != nil {
 		return fmt.Errorf("failed to get board, %s", err)
 	}
 
 	c.cs.MachineMetadata.Board = board
+	log.Printf("RUNNING GetBoardCommand Success")
 
 	return nil
 }

@@ -23,7 +23,7 @@ func NewFirmwarePrepareState(service *firmwareservice.FirmwareService) common_ut
 
 // FirmwarePrepareState downloads and extracts every image from the request.
 // The already downloaded images will not be downloaded and extracted again.
-func (s FirmwarePrepareState) Execute(ctx context.Context) error {
+func (s FirmwarePrepareState) Execute(ctx context.Context, log *log.Logger) error {
 	firmwareImageDestination := "DUT"
 	if s.service.IsServoUsed() {
 		firmwareImageDestination = "ServoHost"

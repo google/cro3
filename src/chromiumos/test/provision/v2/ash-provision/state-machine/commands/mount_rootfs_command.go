@@ -7,6 +7,7 @@ package commands
 import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
+	"log"
 )
 
 type MountRootFSCommand struct {
@@ -21,7 +22,7 @@ func NewMountRootFSCommand(ctx context.Context, cs *service.AShService) *MountRo
 	}
 }
 
-func (c *MountRootFSCommand) Execute() error {
+func (c *MountRootFSCommand) Execute(log *log.Logger) error {
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "mount", []string{"-o", "remount,rw", "/"}); err != nil {
 		return err
 	}

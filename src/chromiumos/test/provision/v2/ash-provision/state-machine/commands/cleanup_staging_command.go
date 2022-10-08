@@ -7,6 +7,7 @@ package commands
 import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
+	"log"
 )
 
 type CleanUpStagingCommand struct {
@@ -21,7 +22,7 @@ func NewCleanUpStagingCommand(ctx context.Context, cs *service.AShService) *Clea
 	}
 }
 
-func (c *CleanUpStagingCommand) Execute() error {
+func (c *CleanUpStagingCommand) Execute(log *log.Logger) error {
 	return c.cs.Connection.DeleteDirectory(c.ctx, c.cs.GetStagingDirectory())
 }
 

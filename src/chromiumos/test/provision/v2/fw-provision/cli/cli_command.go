@@ -102,7 +102,7 @@ func (cc *CLICommand) validate() error {
 var DefaultServodPort = 9999
 
 func (cc *CLICommand) Run() error {
-	cc.log.Printf("Running CLI Mode (V2):")
+	cc.log.Printf("Running CLI Mode (V2) - Firmware Provision:")
 
 	var dutAdapter *common_utils.ServiceAdapter
 	var err error
@@ -130,7 +130,7 @@ func (cc *CLICommand) Run() error {
 		if fwErr, ok := err.(*firmwareservice.FirmwareProvisionError); ok {
 			out.Status = fwErr.Status
 		} else {
-			log.Printf("expected FirmwareProvision to return error of type FirmwareProvisionError. got: %T", err)
+			cc.log.Printf("expected FirmwareProvision to return error of type FirmwareProvisionError. got: %T", err)
 			out.Status = api.ProvisionFirmwareResponse_STATUS_UPDATE_FIRMWARE_FAILED
 		}
 		return err
@@ -139,20 +139,20 @@ func (cc *CLICommand) Run() error {
 	// Execute state machine
 	cs := state_machine.NewFirmwarePrepareState(fwService)
 	for cs != nil {
-		if err = cs.Execute(ctx); err != nil {
+		if err = cs.Execute(ctx, cc.log); err != nil {
 			break
 		}
 		cs = cs.Next()
 	}
 
 	if err == nil {
-		log.Println("Finished Successfuly!")
+		cc.log.Println("Finished Successfuly!")
 		return nil
 	}
 	if fwErr, ok := err.(*firmwareservice.FirmwareProvisionError); ok {
 		out.Status = fwErr.Status
 	} else {
-		log.Printf("expected FirmwareProvision to return error of type FirmwareProvisionError. got: %T", err)
+		cc.log.Printf("expected FirmwareProvision to return error of type FirmwareProvisionError. got: %T", err)
 		out.Status = api.ProvisionFirmwareResponse_STATUS_UPDATE_FIRMWARE_FAILED
 	}
 	return fmt.Errorf("failed to provision: %s", err)

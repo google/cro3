@@ -9,15 +9,15 @@ import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
 	"chromiumos/test/provision/v2/lacros-provision/service"
 	"context"
-	"fmt"
+	"log"
 )
 
 type LaCrOSVerifyState struct {
 	service *service.LaCrOSService
 }
 
-func (s LaCrOSVerifyState) Execute(ctx context.Context) error {
-	fmt.Printf("Executing %s State:\n", s.Name())
+func (s LaCrOSVerifyState) Execute(ctx context.Context, log *log.Logger) error {
+	log.Printf("Executing %s State:\n", s.Name())
 	// Currently there is no verification post step as we don't specify install type
 	return nil
 }

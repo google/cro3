@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 )
 
 type WriteComponentManifestCommand struct {
@@ -24,7 +25,7 @@ func NewWriteComponentManifestCommand(ctx context.Context, cs *service.LaCrOSSer
 	}
 }
 
-func (c *WriteComponentManifestCommand) Execute() error {
+func (c *WriteComponentManifestCommand) Execute(log *log.Logger) error {
 	lacrosComponentManifestJSON, err := json.MarshalIndent(struct {
 		ManifestVersion int    `json:"manifest-version"`
 		Name            string `json:"name"`

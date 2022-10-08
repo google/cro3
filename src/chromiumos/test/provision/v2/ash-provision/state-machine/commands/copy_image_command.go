@@ -9,6 +9,7 @@ import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
 	"fmt"
+	"log"
 
 	conf "go.chromium.org/chromiumos/config/go"
 )
@@ -25,7 +26,7 @@ func NewCopyImageCommand(ctx context.Context, cs *service.AShService) *CopyImage
 	}
 }
 
-func (c *CopyImageCommand) Execute() error {
+func (c *CopyImageCommand) Execute(log *log.Logger) error {
 	switch c.cs.ImagePath.HostType {
 	case conf.StoragePath_GS:
 		return c.cs.Connection.PipeData(c.ctx, c.cs.ImagePath.GetPath(), fmt.Sprintf("tar --ignore-command-error --overwrite --preserve-permissions --directory=%s -xf -", c.cs.GetStagingDirectory()))

@@ -11,6 +11,7 @@ import (
 	"chromiumos/test/provision/v2/lacros-provision/state-machine/commands"
 	"context"
 	"fmt"
+	"log"
 )
 
 // LaCrOSInitState can be thought of as the constructor state, which initializes
@@ -25,8 +26,8 @@ func NewLaCrOSInitState(service *service.LaCrOSService) common_utils.ServiceStat
 	}
 }
 
-func (s LaCrOSInitState) Execute(ctx context.Context) error {
-	fmt.Printf("Executing %s State:\n", s.Name())
+func (s LaCrOSInitState) Execute(ctx context.Context, log *log.Logger) error {
+	log.Printf("Executing %s State:\n", s.Name())
 	comms := []common_utils.CommandInterface{
 		commands.NewCopyMetadataCommand(ctx, s.service),
 		commands.NewGetMetadataCommand(ctx, s.service),
@@ -36,7 +37,7 @@ func (s LaCrOSInitState) Execute(ctx context.Context) error {
 	}
 
 	for _, comm := range comms {
-		err := comm.Execute()
+		err := comm.Execute(log)
 		if err != nil {
 			return fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}

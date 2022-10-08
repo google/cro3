@@ -7,6 +7,7 @@ package commands
 import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
+	"log"
 	"time"
 )
 
@@ -32,7 +33,9 @@ func NewRebootCommand(ctx context.Context, cs *service.CrOSService) *RebootComma
 	}
 }
 
-func (c *RebootCommand) Execute() error {
+func (c *RebootCommand) Execute(log *log.Logger) error {
+	log.Printf("Start RebootCommand Execute")
+
 	ctx := c.ctx
 	var cancel context.CancelFunc
 	if c.timeout != nil {
@@ -42,6 +45,7 @@ func (c *RebootCommand) Execute() error {
 	if err := c.cs.Connection.Restart(ctx); err != nil {
 		return err
 	}
+	log.Printf("RebootCommand Success")
 	return nil
 }
 

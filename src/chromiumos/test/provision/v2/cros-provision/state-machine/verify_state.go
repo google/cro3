@@ -9,13 +9,14 @@ import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
+	"log"
 )
 
 type CrOSVerifyState struct {
 	service *service.CrOSService
 }
 
-func (s CrOSVerifyState) Execute(ctx context.Context) error {
+func (s CrOSVerifyState) Execute(ctx context.Context, log *log.Logger) error {
 	// Currently there is no verification post step as we don't specify install type
 	return nil
 }

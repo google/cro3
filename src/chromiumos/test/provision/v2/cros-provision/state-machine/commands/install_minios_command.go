@@ -25,17 +25,19 @@ func NewInstallMiniOSCommand(ctx context.Context, cs *service.CrOSService) *Inst
 	}
 }
 
-func (c *InstallMiniOSCommand) Execute() error {
+func (c *InstallMiniOSCommand) Execute(log *log.Logger) error {
+	log.Printf("Start InstallMiniOSCommand Execute")
 	for _, rootPart := range common_utils.GetMiniOSPartitions() {
 		if isSupported, err := c.isMiniOSPartitionSupported(rootPart); err == nil && !isSupported {
-			log.Printf("device does not support MiniOS, skipping installation.")
+			log.Printf("InstallMiniOSCommand device does not support MiniOS, skipping installation.")
 			return nil
 		} else if err != nil {
 			return fmt.Errorf("failed to determine miniOS suport, %s", err)
 		}
 	}
+	log.Printf("InstallMiniOSCommand Running Install")
 
-	return c.installMiniOS()
+	return c.installMiniOS(log)
 }
 
 func (c *InstallMiniOSCommand) Revert() error {
@@ -53,13 +55,16 @@ func (c *InstallMiniOSCommand) isMiniOSPartitionSupported(rootPart string) (bool
 }
 
 // InstallMiniOS downloads and installs the minios images
-func (c *InstallMiniOSCommand) installMiniOS() error {
+func (c *InstallMiniOSCommand) installMiniOS(log *log.Logger) error {
 	if err := c.cs.InstallZippedImage(c.ctx, "full_dev_part_MINIOS.bin.gz", c.cs.MachineMetadata.RootInfo.PartitionInfo.MiniOSA); err != nil {
 		return fmt.Errorf("install MiniOS A: %s", err)
 	}
+	log.Printf("InstallMiniOSCommand installed full_dev_part_MINIOS MiniOSA")
 	if err := c.cs.InstallZippedImage(c.ctx, "full_dev_part_MINIOS.bin.gz", c.cs.MachineMetadata.RootInfo.PartitionInfo.MiniOSB); err != nil {
 		return fmt.Errorf("install MiniOS B: %s", err)
 	}
+	log.Printf("InstallMiniOSCommand installed full_dev_part_MINIOS MiniOSB")
+	log.Printf("InstallMiniOSCommand Success")
 	return nil
 }
 

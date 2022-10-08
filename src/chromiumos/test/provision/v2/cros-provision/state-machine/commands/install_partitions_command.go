@@ -8,6 +8,7 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
 	"fmt"
+	"log"
 )
 
 type InstallPartitionsCommand struct {
@@ -22,14 +23,19 @@ func NewInstallPartitionsCommand(ctx context.Context, cs *service.CrOSService) *
 	}
 }
 
-func (c *InstallPartitionsCommand) Execute() error {
+func (c *InstallPartitionsCommand) Execute(log *log.Logger) error {
+	log.Printf("Start InstallPartitionsCommand Execute")
 
 	if err := c.cs.InstallZippedImage(c.ctx, "full_dev_part_KERN.bin.gz", c.cs.MachineMetadata.RootInfo.PartitionInfo.InactiveKernel); err != nil {
 		return fmt.Errorf("install kernel: %s", err)
 	}
+	log.Printf("InstallPartitionsCommand full_dev_part_KERN COMPLETED")
+
 	if err := c.cs.InstallZippedImage(c.ctx, "full_dev_part_ROOT.bin.gz", c.cs.MachineMetadata.RootInfo.PartitionInfo.InactiveRoot); err != nil {
 		return fmt.Errorf("install root: %s", err)
 	}
+	log.Printf("InstallPartitionsCommand full_dev_part_ROOT COMPLETED")
+	log.Printf("InstallPartitionsCommand Success")
 
 	return nil
 }

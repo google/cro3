@@ -9,6 +9,7 @@ import (
 	"chromiumos/test/provision/v2/lacros-provision/service"
 	"context"
 	"fmt"
+	"log"
 )
 
 type AppendHashTreeCommand struct {
@@ -23,7 +24,7 @@ func NewAppendHashTreeCommand(ctx context.Context, cs *service.LaCrOSService) *A
 	}
 }
 
-func (c *AppendHashTreeCommand) Execute() error {
+func (c *AppendHashTreeCommand) Execute(log *log.Logger) error {
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "cat", []string{
 		c.cs.GetHashTreePath(),
 		">>",

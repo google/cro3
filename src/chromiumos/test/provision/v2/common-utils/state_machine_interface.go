@@ -7,6 +7,7 @@ package common_utils
 
 import (
 	"context"
+	"log"
 )
 
 // CommandInterface executes a specific step in a state. Note commands are
@@ -15,7 +16,7 @@ import (
 //	side-effects.
 type CommandInterface interface {
 	//Execute runs the command
-	Execute() error
+	Execute(log *log.Logger) error
 
 	// Revert reverts the command
 	Revert() error
@@ -27,7 +28,7 @@ type CommandInterface interface {
 // ServiceState is a single state representation.
 type ServiceState interface {
 	// Execute Runs the state
-	Execute(ctx context.Context) error
+	Execute(ctx context.Context, log *log.Logger) error
 	// Next gets the next state in the state machine
 	Next() ServiceState
 	// Name gets the fully qualified name of this state

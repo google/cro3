@@ -25,11 +25,14 @@ func NewOverwriteInstalCommand(ctx context.Context, cs *service.CrOSService) *Ov
 	}
 }
 
-func (c *OverwriteInstalCommand) Execute() error {
+func (c *OverwriteInstalCommand) Execute(log *log.Logger) error {
+	log.Printf("Start OverwriteInstalCommand Execute")
+
 	if c.cs.OverwritePayload == nil {
 		log.Printf("skipping overwrite install, because none was specified.")
 		return nil
 	}
+	log.Printf("OverwriteInstalCommand OverwritePayload Completed")
 
 	if c.cs.OverwritePayload.HostType == conf.StoragePath_LOCAL || c.cs.OverwritePayload.HostType == conf.StoragePath_HOSTTYPE_UNSPECIFIED {
 		return fmt.Errorf("only GS copying is implemented")
@@ -39,11 +42,13 @@ func (c *OverwriteInstalCommand) Execute() error {
 	if err != nil {
 		return fmt.Errorf("failed to download and untar file, %s", err)
 	}
+	log.Printf("OverwriteInstalCommand OverwritePayload.GetPath() Completed")
 
 	if err := c.cs.Connection.Restart(c.ctx); err != nil {
 		return fmt.Errorf("failed to restart dut, %s", err)
 	}
-
+	log.Printf("OverwriteInstalCommand Restart Completed")
+	log.Printf("InstallPartitionsCommand Success")
 	return nil
 }
 

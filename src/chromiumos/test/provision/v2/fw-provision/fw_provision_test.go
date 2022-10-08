@@ -5,16 +5,15 @@
 package main
 
 import (
-	"context"
-	"log"
-	"path/filepath"
-	"strings"
-	"testing"
-
 	common_utils "chromiumos/test/provision/v2/common-utils"
+	"chromiumos/test/provision/v2/fw-provision/cli"
 	firmwareservice "chromiumos/test/provision/v2/fw-provision/service"
 	state_machine "chromiumos/test/provision/v2/fw-provision/state-machine"
 	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
+	"context"
+	"path/filepath"
+	"strings"
+	"testing"
 
 	"github.com/golang/mock/gomock"
 	conf "go.chromium.org/chromiumos/config/go"
@@ -99,6 +98,7 @@ func TestDetailedRequestSSHStates(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(cli.DefaultLogDirectory)
 
 	for _, testCase := range testCases {
 		// Create FirmwareService.
@@ -142,7 +142,7 @@ func TestDetailedRequestSSHStates(t *testing.T) {
 		)
 
 		// Execute the state and proceed.
-		err = st.Execute(ctx)
+		err = st.Execute(ctx, log)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -179,7 +179,7 @@ func TestDetailedRequestSSHStates(t *testing.T) {
 			)
 
 			// Execute the state and proceed.
-			err := st.Execute(ctx)
+			err := st.Execute(ctx, log)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -198,7 +198,7 @@ func TestDetailedRequestSSHStates(t *testing.T) {
 			)
 
 			// Execute the state and proceed.
-			err := st.Execute(ctx)
+			err := st.Execute(ctx, log)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -214,7 +214,7 @@ func TestDetailedRequestSSHStates(t *testing.T) {
 			sam.EXPECT().RunCmd(gomock.Any(), "true", nil).Return("", nil),
 		)
 		// Execute the state and proceed.
-		err = st.Execute(ctx)
+		err = st.Execute(ctx, log)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -277,6 +277,7 @@ func TestSimpleRequestSSHStates(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(cli.DefaultLogDirectory)
 
 	for _, testCase := range testCases {
 		// Create FirmwareService.
@@ -320,7 +321,7 @@ func TestSimpleRequestSSHStates(t *testing.T) {
 		)
 
 		// Execute the state and proceed.
-		err = st.Execute(ctx)
+		err = st.Execute(ctx, log)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -347,7 +348,7 @@ func TestSimpleRequestSSHStates(t *testing.T) {
 		)
 
 		// Execute the state and proceed.
-		err = st.Execute(ctx)
+		err = st.Execute(ctx, log)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -362,7 +363,7 @@ func TestSimpleRequestSSHStates(t *testing.T) {
 			sam.EXPECT().RunCmd(gomock.Any(), "true", nil).Return("", nil),
 		)
 		// Execute the state and proceed.
-		err = st.Execute(ctx)
+		err = st.Execute(ctx, log)
 		if err != nil {
 			t.Fatal(err)
 		}

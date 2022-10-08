@@ -11,27 +11,29 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/state-machine/commands"
 	"context"
 	"fmt"
+	"log"
 )
 
 type CrOSProvisionDLCState struct {
 	service *service.CrOSService
 }
 
-func (s CrOSProvisionDLCState) Execute(ctx context.Context) error {
-	fmt.Println("State: Execute CrOSProvisionDLCState")
+func (s CrOSProvisionDLCState) Execute(ctx context.Context, log *log.Logger) error {
+	log.Printf("State: Execute CrOSProvisionDLCState")
 	if len(s.service.DlcSpecs) == 0 {
 		return nil
 	}
-	commands.NewStopDLCServiceCommand(ctx, s.service).Execute()
-	defer commands.NewStartDLCServiceCommand(ctx, s.service).Execute()
+	commands.NewStopDLCServiceCommand(ctx, s.service).Execute(log)
+	defer commands.NewStartDLCServiceCommand(ctx, s.service).Execute(log)
 
-	if err := commands.NewInstallDLCsCommand(ctx, s.service).Execute(); err != nil {
+	if err := commands.NewInstallDLCsCommand(ctx, s.service).Execute(log); err != nil {
 		return fmt.Errorf("failed to install the following DLCs (%s)", err)
 	}
 
-	if err := commands.NewCorrectDLCPermissionsCommand(ctx, s.service).Execute(); err != nil {
+	if err := commands.NewCorrectDLCPermissionsCommand(ctx, s.service).Execute(log); err != nil {
 		return fmt.Errorf("failed to correct DLC permissions, %s", err)
 	}
+	log.Printf("State: CrOSProvisionDLCState Completed")
 
 	return nil
 }

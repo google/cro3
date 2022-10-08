@@ -9,6 +9,7 @@ import (
 	"chromiumos/test/provision/v2/lacros-provision/service"
 	"context"
 	"fmt"
+	"log"
 
 	conf "go.chromium.org/chromiumos/config/go"
 )
@@ -25,7 +26,7 @@ func NewCopyImageCommand(ctx context.Context, cs *service.LaCrOSService) *CopyIm
 	}
 }
 
-func (c *CopyImageCommand) Execute() error {
+func (c *CopyImageCommand) Execute(log *log.Logger) error {
 	switch c.cs.ImagePath.HostType {
 	case conf.StoragePath_GS:
 		if err := c.cs.Connection.CopyData(c.ctx, c.cs.GetCompressedImagePath(), c.cs.GetLocalImagePath()); err != nil {

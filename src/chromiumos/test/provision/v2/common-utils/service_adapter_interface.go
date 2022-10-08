@@ -8,6 +8,7 @@ package common_utils
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"go.chromium.org/chromiumos/config/go/longrunning"
@@ -56,7 +57,7 @@ func NewServiceAdapter(dutClient api.DutServiceClient, noReboot bool) ServiceAda
 
 // RunCmd runs a command in a remote DUT
 func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (string, error) {
-	fmt.Printf("Run cmd: %s, %s\n", cmd, args)
+	log.Printf("<cros-provision> Run cmd: %s, %s\n", cmd, args)
 	req := api.ExecCommandRequest{
 		Command: cmd,
 		Args:    args,
@@ -72,12 +73,12 @@ func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (
 	if err != nil {
 		return "", fmt.Errorf("execution single stream result: %w", err)
 	}
-	fmt.Printf("Run cmd response: %s\n", execCmdResponse)
+	log.Printf("Run cmd response: %s\n", execCmdResponse)
 	if execCmdResponse.ExitInfo.Status != 0 {
 		err = fmt.Errorf("status:%v message:%v", execCmdResponse.ExitInfo.Status, execCmdResponse.ExitInfo.ErrorMessage)
 	}
 	if string(execCmdResponse.Stderr) != "" {
-		fmt.Printf("execution finished with stderr: %s\n", string(execCmdResponse.Stderr))
+		log.Printf("<cros-provision> execution finished with stderr: %s\n", string(execCmdResponse.Stderr))
 	}
 	return string(execCmdResponse.Stdout), err
 }
@@ -87,11 +88,12 @@ func (s ServiceAdapter) Restart(ctx context.Context) error {
 	if s.noReboot {
 		return nil
 	}
+	log.Printf("<cros-provision>: ServiceAdaptor: Restart Start")
 
 	req := api.RestartRequest{
 		Args: []string{},
 		Retry: &api.RestartRequest_ReconnectRetry{
-			Times:      18,
+			Times:      50,
 			IntervalMs: 10000,
 		},
 	}
@@ -101,19 +103,26 @@ func (s ServiceAdapter) Restart(ctx context.Context) error {
 
 	op, err := s.dutClient.Restart(ctx, &req)
 	if err != nil {
+		log.Printf("<cros-provision>: ServiceAdaptor: Restart ERROR %s", err)
 		return err
 	}
 
 	for !op.Done {
+		log.Printf("<cros-provision>: ServiceAdaptor: Restart !op.Done")
 		time.Sleep(1 * time.Second)
 	}
 
 	switch x := op.Result.(type) {
 	case *longrunning.Operation_Error:
+		log.Printf("<cros-provision>: ServiceAdaptor: Restart LRO ERROR %s", x.Error.Message)
 		return fmt.Errorf(x.Error.Message)
 	case *longrunning.Operation_Response:
+		log.Printf("<cros-provision>: ServiceAdaptor: Restart LRO RESPONSE")
+
 		return nil
 	}
+
+	log.Printf("<cros-provision>: ServiceAdaptor: Restart Success")
 
 	return nil
 }
@@ -130,7 +139,7 @@ func (s ServiceAdapter) PathExists(ctx context.Context, path string) (bool, erro
 // PipeData uses the caching infrastructure to bring a file locally,
 // allowing a user to pipe the result to any desired application.
 func (s ServiceAdapter) PipeData(ctx context.Context, sourceUrl string, pipeCommand string) error {
-	fmt.Printf("Piping %s with command %s\n", sourceUrl, pipeCommand)
+	log.Printf("Piping %s with command %s\n", sourceUrl, pipeCommand)
 
 	req := api.CacheRequest{
 		Source: &api.CacheRequest_GsFile{
@@ -170,7 +179,7 @@ func (s ServiceAdapter) PipeData(ctx context.Context, sourceUrl string, pipeComm
 
 // CopyData caches a file for a DUT locally from a GS url.
 func (s ServiceAdapter) CopyData(ctx context.Context, sourceUrl string, destPath string) error {
-	fmt.Printf("Copy data from: %s, to: %s\n", sourceUrl, destPath)
+	log.Printf("Copy data from: %s, to: %s\n", sourceUrl, destPath)
 
 	req := api.CacheRequest{
 		Source: &api.CacheRequest_GsFile{

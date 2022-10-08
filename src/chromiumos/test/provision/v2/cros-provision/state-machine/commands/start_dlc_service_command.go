@@ -22,10 +22,16 @@ func NewStartDLCServiceCommand(ctx context.Context, cs *service.CrOSService) *St
 	}
 }
 
-func (c *StartDLCServiceCommand) Execute() error {
+func (c *StartDLCServiceCommand) Execute(log *log.Logger) error {
+	log.Printf("Start StartDLCServiceCommand Execute")
+
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "start", []string{"dlcservice"}); err != nil {
+		log.Printf("StartDLCServiceCommand start FAILED NON FATAL")
+
 		log.Printf("%s, %s", c.GetErrorMessage(), err)
 	}
+	log.Printf("StartDLCServiceCommand Success")
+
 	return nil
 }
 

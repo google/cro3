@@ -6,6 +6,8 @@ package main
 
 import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
+	"chromiumos/test/provision/v2/cros-provision/cli"
+	"chromiumos/test/provision/v2/cros-provision/constants"
 	"chromiumos/test/provision/v2/cros-provision/service"
 	state_machine "chromiumos/test/provision/v2/cros-provision/state-machine"
 	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
@@ -96,6 +98,7 @@ func TestStateTransitions(t *testing.T) {
 	defer ctrl.Finish()
 
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 	cs := service.NewCrOSServiceFromExistingConnection(
 		sam,
 		&conf.StoragePath{
@@ -119,7 +122,7 @@ func TestStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -144,7 +147,7 @@ func TestStateTransitions(t *testing.T) {
 		getRestartCommand(sam).Return(nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install state: %v", err)
 	}
 
@@ -165,7 +168,7 @@ func TestStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed post-install state: %v", err)
 	}
 
@@ -174,7 +177,7 @@ func TestStateTransitions(t *testing.T) {
 
 	gomock.InOrder()
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed verify state: %v", err)
 	}
 
@@ -196,7 +199,7 @@ func TestStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, chmodDLCs).Return("", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install DLCs state: %v", err)
 	}
 
@@ -210,7 +213,7 @@ func TestStateTransitions(t *testing.T) {
 		getPipeDataCommand(sam, copyMiniOS10).Return(nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install MiniOS state: %v", err)
 	}
 
@@ -225,7 +228,7 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 	defer ctrl.Finish()
 
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
-
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 	cs := service.NewCrOSServiceFromExistingConnection(
 		sam,
 		&conf.StoragePath{
@@ -249,7 +252,7 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -274,7 +277,7 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 		getRunCmdCommand(sam, postInstRevert).Return("", nil),
 	)
 
-	if err := st.Execute(ctx); err.Error() != "failed to post install, failed to remove temporary directory, postinstall error" {
+	if err := st.Execute(ctx, log); err.Error() != "failed to post install, failed to remove temporary directory, postinstall error" {
 		t.Fatalf("expected specific error, instead got: %v", err)
 	}
 }
@@ -284,7 +287,7 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 	defer ctrl.Finish()
 
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
-
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 	cs := service.NewCrOSServiceFromExistingConnection(
 		sam,
 		&conf.StoragePath{
@@ -308,7 +311,7 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -334,7 +337,7 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 		getRunCmdCommand(sam, postInstRevert).Return("", nil),
 	)
 
-	if err := st.Execute(ctx); err.Error() != "failed to clear TPM, clear TPM error" {
+	if err := st.Execute(ctx, log); err.Error() != "failed to clear TPM, clear TPM error" {
 		t.Fatalf("expected specific error, instead got: %v", err)
 	}
 }
@@ -344,6 +347,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 	defer ctrl.Finish()
 
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 	cs := service.NewCrOSServiceFromExistingConnection(
 		sam,
 		&conf.StoragePath{
@@ -367,7 +371,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -390,7 +394,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 	)
 
 	// Nothing should be run, so no need to use mock expect
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed post-install state: %v", err)
 	}
 }
@@ -400,6 +404,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 	defer ctrl.Finish()
 
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 	cs := service.NewCrOSServiceFromExistingConnection(
 		sam,
 		&conf.StoragePath{
@@ -423,7 +428,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -443,7 +448,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 		getRunCmdCommand(sam, cleanPostInstallRevert).Return("", nil),
 	)
 
-	if err := st.Execute(ctx); err.Error() != "failed to provision stateful, copy error" {
+	if err := st.Execute(ctx, log); err.Error() != "failed to provision stateful, copy error" {
 		t.Fatalf("Post install should've failed with specific error, instead got: %v", err)
 	}
 }
@@ -453,7 +458,7 @@ func TestProvisionDLCWithEmptyDLCsDoesNotExecute(t *testing.T) {
 	defer ctrl.Finish()
 
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
-
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 	cs := service.NewCrOSServiceFromExistingConnection(
 		sam,
 		&conf.StoragePath{
@@ -477,7 +482,7 @@ func TestProvisionDLCWithEmptyDLCsDoesNotExecute(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -485,7 +490,7 @@ func TestProvisionDLCWithEmptyDLCsDoesNotExecute(t *testing.T) {
 	st = st.Next().Next().Next().Next()
 
 	// Nothing should be run, so no need to use mock expect
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed provision-dlc state: %v", err)
 	}
 }
@@ -495,7 +500,7 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 	defer ctrl.Finish()
 
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
-
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 	cs := service.NewCrOSServiceFromExistingConnection(
 		sam,
 		&conf.StoragePath{
@@ -519,7 +524,7 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -539,7 +544,7 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 		getRunCmdCommand(sam, chmodDLCs).Return("", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed provision-dlc state: %v", err)
 	}
 }
@@ -547,7 +552,7 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
 	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
 	cs := service.NewCrOSServiceFromExistingConnection(
 		sam,
@@ -575,7 +580,7 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -598,7 +603,7 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
 	)
 
-	if err := st.Execute(ctx); err != nil {
+	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed post-install state: %v", err)
 	}
 }

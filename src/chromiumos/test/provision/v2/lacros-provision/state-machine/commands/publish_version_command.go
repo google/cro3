@@ -8,6 +8,7 @@ package commands
 import (
 	"chromiumos/test/provision/v2/lacros-provision/service"
 	"context"
+	"log"
 )
 
 type PublishVersionCommand struct {
@@ -22,7 +23,7 @@ func NewPublishVersionCommand(ctx context.Context, cs *service.LaCrOSService) *P
 	}
 }
 
-func (c *PublishVersionCommand) Execute() error {
+func (c *PublishVersionCommand) Execute(log *log.Logger) error {
 	return c.cs.WriteToFile(c.ctx, c.cs.LaCrOSMetadata.Content.Version, c.cs.GetLatestVersionPath())
 }
 

@@ -11,6 +11,7 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/state-machine/commands"
 	"context"
 	"fmt"
+	"log"
 )
 
 // CrosInitState can be thought of as the constructor state, which initializes
@@ -25,8 +26,8 @@ func NewCrOSInitState(service *service.CrOSService) common_utils.ServiceState {
 	}
 }
 
-func (s CrOSInitState) Execute(ctx context.Context) error {
-	fmt.Println("State: Execute CrOSInitState")
+func (s CrOSInitState) Execute(ctx context.Context, log *log.Logger) error {
+	log.Printf("State: Execute CrOSInitState")
 	comms := []common_utils.CommandInterface{
 		commands.NewCreateProvisionMarkerCommand(ctx, s.service),
 		commands.NewGetRootInfoCommand(ctx, s.service),
@@ -34,12 +35,12 @@ func (s CrOSInitState) Execute(ctx context.Context) error {
 	}
 
 	for _, comm := range comms {
-		err := comm.Execute()
+		err := comm.Execute(log)
 		if err != nil {
 			return fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
-
+	log.Printf("State: CrOSInitState Completed")
 	return nil
 }
 

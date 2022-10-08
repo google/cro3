@@ -8,6 +8,7 @@ package commands
 import (
 	"chromiumos/test/provision/v2/lacros-provision/service"
 	"context"
+	"log"
 )
 
 type CreateImageDirectoryCommand struct {
@@ -22,7 +23,7 @@ func NewCreateImageDirectoryCommand(ctx context.Context, cs *service.LaCrOSServi
 	}
 }
 
-func (c *CreateImageDirectoryCommand) Execute() error {
+func (c *CreateImageDirectoryCommand) Execute(log *log.Logger) error {
 	return c.cs.Connection.CreateDirectories(c.ctx, []string{c.cs.GetComponentPath()})
 }
 

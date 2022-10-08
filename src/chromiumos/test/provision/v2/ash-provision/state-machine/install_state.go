@@ -11,13 +11,14 @@ import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
 	"context"
 	"fmt"
+	"log"
 )
 
 type AShInstallState struct {
 	service *service.AShService
 }
 
-func (s AShInstallState) Execute(ctx context.Context) error {
+func (s AShInstallState) Execute(ctx context.Context, log *log.Logger) error {
 	fmt.Printf("Executing %s State:\n", s.Name())
 	comms := []common_utils.CommandInterface{
 		commands.NewMountRootFSCommand(ctx, s.service),
@@ -25,7 +26,7 @@ func (s AShInstallState) Execute(ctx context.Context) error {
 	}
 
 	for i, comm := range comms {
-		err := comm.Execute()
+		err := comm.Execute(log)
 		if err != nil {
 			for ; i >= 0; i-- {
 				if innerErr := comms[i].Revert(); innerErr != nil {

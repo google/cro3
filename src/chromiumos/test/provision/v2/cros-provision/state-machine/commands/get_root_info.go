@@ -10,6 +10,7 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 )
@@ -27,21 +28,26 @@ func NewGetRootInfoCommand(ctx context.Context, cs *service.CrOSService) *GetRoo
 
 }
 
-func (c *GetRootInfoCommand) Execute() error {
+func (c *GetRootInfoCommand) Execute(log *log.Logger) error {
+	log.Printf("Start GetRootInfoCommand Execute")
 	root, err := c.getRoot()
 	if err != nil {
 		return fmt.Errorf("failed to get root, %s", err)
 	}
+	log.Printf("GetRootInfoCommand got root")
 	rootDisk, err := c.getRootDisk()
 	if err != nil {
 		return fmt.Errorf("failed to get root disk, %s", err)
 	}
+	log.Printf("GetRootInfoCommand got root disk")
 	rootPartNum, err := c.getRootPartNumber(root)
 	if err != nil {
 		return fmt.Errorf("failed to get root part number, %s", err)
 	}
+	log.Printf("GetRootInfoCommand got part number")
 
 	pi := common_utils.GetPartitionInfo(root, rootDisk, rootPartNum)
+	log.Printf("GetRootInfoCommand got partition info")
 
 	c.cs.MachineMetadata.RootInfo = &metadata.RootInfo{
 		Root:          root,
@@ -49,7 +55,7 @@ func (c *GetRootInfoCommand) Execute() error {
 		RootPartNum:   rootPartNum,
 		PartitionInfo: &pi,
 	}
-
+	log.Printf("GetRootInfoCommand Success")
 	return nil
 }
 

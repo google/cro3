@@ -10,6 +10,7 @@ import (
 	"chromiumos/test/provision/v2/lacros-provision/service"
 	"context"
 	"encoding/json"
+	"log"
 )
 
 type GetMetadataCommand struct {
@@ -24,7 +25,7 @@ func NewGetMetadataCommand(ctx context.Context, cs *service.LaCrOSService) *GetM
 	}
 }
 
-func (c *GetMetadataCommand) Execute() error {
+func (c *GetMetadataCommand) Execute(log *log.Logger) error {
 	metadataJSONStr, err := c.cs.Connection.RunCmd(c.ctx, "cat", []string{"/tmp/metadata.json"})
 	if err != nil {
 		return err

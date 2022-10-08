@@ -25,7 +25,8 @@ func NewClearDLCArtifactsCommand(ctx context.Context, cs *service.CrOSService) *
 	}
 }
 
-func (c *ClearDLCArtifactsCommand) Execute() error {
+func (c *ClearDLCArtifactsCommand) Execute(log *log.Logger) error {
+	log.Printf("Start ClearDLCArtifactsCommand Execute")
 	exists, err := c.cs.Connection.PathExists(c.ctx, common_utils.DlcLibDir)
 	if err != nil {
 		return fmt.Errorf("failed path existance, %s", err)
@@ -36,11 +37,11 @@ func (c *ClearDLCArtifactsCommand) Execute() error {
 
 	// Stop dlcservice daemon in order to not interfere with clearing inactive verified DLCs.
 	if _, err := c.cs.Connection.RunCmd(c.ctx, "stop", []string{"dlcservice"}); err != nil {
-		log.Printf("failed to stop dlcservice daemon, %s", err)
+		log.Printf("ClearDLCArtifactsCommand failed to stop dlcservice daemon, %s", err)
 	}
 	defer func() {
 		if _, err := c.cs.Connection.RunCmd(c.ctx, "start", []string{"dlcservice"}); err != nil {
-			log.Printf("failed to start dlcservice daemon, %s", err)
+			log.Printf("ClearDLCArtifactsCommandfailed to start dlcservice daemon, %s", err)
 		}
 	}()
 
@@ -52,6 +53,7 @@ func (c *ClearDLCArtifactsCommand) Execute() error {
 	if err != nil {
 		return fmt.Errorf("failed remove inactive verified DLCs, %s", err)
 	}
+	log.Printf("ClearDLCArtifactsCommand Success")
 
 	return nil
 }

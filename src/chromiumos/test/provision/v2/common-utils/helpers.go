@@ -8,6 +8,7 @@ package common_utils
 import (
 	"context"
 	"fmt"
+	"log"
 	"path"
 	"strings"
 
@@ -25,9 +26,9 @@ func BucketJoin(bucket string, append string) string {
 }
 
 // ExecuteStateMachine runs a specific state machine
-func ExecuteStateMachine(ctx context.Context, cs ServiceState) (api.InstallResponse_Status, error) {
+func ExecuteStateMachine(ctx context.Context, cs ServiceState, log *log.Logger) (api.InstallResponse_Status, error) {
 	for cs != nil {
-		if err := cs.Execute(ctx); err != nil {
+		if err := cs.Execute(ctx, log); err != nil {
 			return api.InstallResponse_STATUS_PROVISIONING_FAILED, fmt.Errorf("failed provisioning on %s step, %s", cs.Name(), err)
 		}
 		cs = cs.Next()

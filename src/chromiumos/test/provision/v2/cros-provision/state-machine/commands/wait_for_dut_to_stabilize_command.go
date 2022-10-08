@@ -25,7 +25,9 @@ func NewWaitForDutToStabilizeCommand(ctx context.Context, cs *service.CrOSServic
 	}
 }
 
-func (c *WaitForDutToStabilizeCommand) Execute() error {
+func (c *WaitForDutToStabilizeCommand) Execute(log *log.Logger) error {
+	log.Printf("Start WaitForDutToStabilizeCommand Execute")
+
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -33,11 +35,12 @@ func (c *WaitForDutToStabilizeCommand) Execute() error {
 		default:
 			status, err := c.cs.Connection.RunCmd(c.ctx, "status", []string{"system-services"})
 			if err != nil {
-				log.Printf("could not get UI status, %s", err)
+				log.Printf("WaitForDutToStabilizeCommand could not get UI status, %s", err)
 			} else if !strings.Contains(status, "start/running") {
-				log.Printf("UI has not stabilized yet")
+				log.Printf("WaitForDutToStabilizeCommand UI has not stabilized yet")
 			} else {
-				log.Printf("UI is running")
+				log.Printf("WaitForDutToStabilizeCommand UI is running")
+				log.Printf("WaitForDutToStabilizeCommand Success")
 				return nil
 			}
 			time.Sleep(2 * time.Second)

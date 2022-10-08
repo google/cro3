@@ -84,5 +84,5 @@ func (ps *ProvisionServer) installCros(ctx context.Context, req *api.InstallRequ
 		return api.InstallResponse_STATUS_INVALID_REQUEST, err
 	}
 
-	return common_utils.ExecuteStateMachine(ctx, fs)
+	return common_utils.ExecuteStateMachine(ctx, fs, ps.options.Log)
 }
