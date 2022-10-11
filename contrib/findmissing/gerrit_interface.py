@@ -28,6 +28,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 
 import requests # pylint: disable=import-error
 
@@ -310,3 +311,9 @@ def label_cq_plus1(branch, changeid):
         return False
 
     return True
+
+if __name__ == '__main__':
+    if len(sys.argv) == 3:
+        print(json.dumps(get_change(sys.argv[1], sys.argv[2])))
+    else:
+        print('Usage: %s [CHANGE-ID] [BRANCH]' % sys.argv[0])
