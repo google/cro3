@@ -95,7 +95,7 @@ class KernelMetadata():
 
 def get_current_time():
     """Returns DATETIME in specific time format required by SQL."""
-    return time.strftime('%Y-%m-%d %H:%M%:%S')
+    return time.strftime('%Y-%m-%d %H:%M:%S')
 
 
 def stable_branch(version):
