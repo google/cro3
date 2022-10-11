@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/frankban/quicktest"
+
+	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/dut"
 )
 
 func TestCLIParse(t *testing.T) {
@@ -27,16 +29,20 @@ func TestCLIParse(t *testing.T) {
 			args:   []string{"dut", "--clobber-stateful=yes"},
 			target: "dut",
 			opts: Options{
-				ClobberStateful: true,
-				ClearTpmOwner:   true, // follows --clobber-stateful by default
+				FlashOptions: dut.FlashOptions{
+					ClobberStateful: true,
+					ClearTpmOwner:   true, // follows --clobber-stateful by default
+				},
 			},
 		},
 		"clobber-but-not-clear-tpm": {
 			args:   []string{"dut", "--clobber-stateful=yes", "--clear-tpm-owner=no"},
 			target: "dut",
 			opts: Options{
-				ClobberStateful: true,
-				ClearTpmOwner:   false,
+				FlashOptions: dut.FlashOptions{
+					ClobberStateful: true,
+					ClearTpmOwner:   false,
+				},
 			},
 		},
 	} {

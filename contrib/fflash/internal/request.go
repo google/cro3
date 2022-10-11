@@ -29,7 +29,7 @@ func buildConditionExpression(bucket, objectPrefix string) string {
 // createFlashRequest creates a dut.Request to the dut-agent to perform a flash.
 //
 // The token is downscoped to only allow access to the Google Cloud Storage directory.
-func createFlashRequest(ctx context.Context, token oauth2.TokenSource, bucket, objectPrefix string, clearTpmOwner, clobberStateful bool) (*dut.Request, error) {
+func createFlashRequest(ctx context.Context, token oauth2.TokenSource, bucket, objectPrefix string, options dut.FlashOptions) (*dut.Request, error) {
 	// Downscope with Credential Access Boundaries
 	// https://cloud.google.com/iam/docs/downscoping-short-lived-credentials
 	down, err := downscope.NewTokenSource(ctx, downscope.DownscopingConfig{
@@ -59,10 +59,9 @@ func createFlashRequest(ctx context.Context, token oauth2.TokenSource, bucket, o
 	tok.RefreshToken = ""
 
 	return &dut.Request{
-		Token:           tok,
-		Bucket:          bucket,
-		Directory:       objectPrefix,
-		ClearTpmOwner:   clearTpmOwner,
-		ClobberStateful: clobberStateful,
+		Token:        tok,
+		Bucket:       bucket,
+		Directory:    objectPrefix,
+		FlashOptions: options,
 	}, nil
 }
