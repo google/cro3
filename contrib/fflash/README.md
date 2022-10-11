@@ -69,10 +69,19 @@ access token to the Chrome OS release image directory (Google Cloud -> DUT).
 
 ## Development
 
-### Run unit tests
+### Testing
+
+#### Unit tests
 
 ```
 go test ./...
+```
+
+#### Integration tests
+
+```
+ninja -v
+bin/integration-test ${dut_host}
 ```
 
 ## Bugs & Feedback

@@ -1,5 +1,5 @@
 rule fflash
-  command = CGO_ENABLED=0 go build -tags=with_embedded_agent -o $out ./cmd/fflash
+  command = CGO_ENABLED=0 go build -tags=with_embedded_agent -o $outdir/ ./cmd/fflash ./cmd/integration-test
 rule dut-agent
   command = CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -ldflags="-s -w" -o $out ./cmd/dut-agent
 rule xz
@@ -12,4 +12,5 @@ build internal/embedded-agent/dut-agent-amd64: dut-agent | always-rebuild
   arch = amd64
 build internal/embedded-agent/dut-agent-arm64.xz: xz internal/embedded-agent/dut-agent-arm64
 build internal/embedded-agent/dut-agent-amd64.xz: xz internal/embedded-agent/dut-agent-amd64
-build bin/fflash: fflash internal/embedded-agent/dut-agent-arm64.xz internal/embedded-agent/dut-agent-amd64.xz | always-rebuild
+build bin/fflash bin/integration-test: fflash internal/embedded-agent/dut-agent-arm64.xz internal/embedded-agent/dut-agent-amd64.xz | always-rebuild
+  outdir = bin
