@@ -66,6 +66,7 @@ func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (
 	}
 	stream, err := s.dutClient.ExecCommand(ctx, &req)
 	if err != nil {
+		log.Printf("<cros-provision> Run cmd FAILED: %s\n", err)
 		return "", fmt.Errorf("execution fail: %w", err)
 	}
 	// Expecting single stream result

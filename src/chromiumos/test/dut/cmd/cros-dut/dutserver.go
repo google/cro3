@@ -161,23 +161,55 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 	s.logger.Println("Received api.RestartRequest: ", req)
 	op := s.manager.NewOperation()
 
-	command := "reboot " + strings.Join(req.Args, " ")
-	output, stderr, err := s.runCmdOutput(command)
-	if stderr != "" {
-		s.logger.Printf("reboot command has an stderr set to: %s", stderr)
-	}
+	// Get the boot ID before rebooting to ensure it changes.
+	preBootID, err := s.getBootID(ctx)
 	if err != nil {
-		status := status.New(codes.Aborted, fmt.Sprintf("rebootDut: failed reboot, %s", stderr))
-		s.logger.Printf("failed to reboot %s\n", err)
-
-		s.manager.SetError(op.Name, status)
+		s.manager.SetError(op.Name, status.New(codes.Aborted, fmt.Sprintf("failed to get bootID before reboot: %s", err)))
 		return op, err
 	}
 
+	command := "reboot " + strings.Join(req.Args, " ")
+	output, bootStderr, _ := s.runCmdOutput(command)
+	if bootStderr != "" {
+		s.logger.Printf("reboot command stderr: %s", bootStderr)
+	}
 	s.manager.SetResult(op.Name, &api.RestartResponse{
 		Output: output,
 	})
 
+	err = s.waitForReboot(ctx, req)
+	if err != nil {
+		s.manager.SetError(op.Name, status.New(codes.Aborted, fmt.Sprintf("rebootDut: unable to get connection, %s", err)))
+		return op, err
+	}
+
+	postBootID, err := s.getBootID(ctx)
+	if err != nil {
+		s.manager.SetError(op.Name, status.New(codes.Aborted, fmt.Sprintf("failed to get bootID after reconnection: %s", err)))
+		return op, err
+	}
+
+	if preBootID == postBootID || postBootID == "" {
+		s.logger.Printf("boot ID pre reboot: %s matches post reboot: %s", preBootID, postBootID)
+		s.manager.SetError(op.Name, status.New(codes.Aborted, fmt.Sprint("boot ID did not change after reboot")))
+		return op, fmt.Errorf("boot ID did not change after reboot")
+	}
+	return op, err
+
+}
+
+func (s *DutServiceServer) getBootID(ctx context.Context) (string, error) {
+	stdout, stderr, err := s.runCmdOutput("cat /proc/sys/kernel/random/boot_id")
+	if err != nil {
+		s.logger.Printf("Failed to get bootID:  %s\n, %s", err, stderr)
+		return stdout, fmt.Errorf("Failed to get bootID %s", err)
+	}
+
+	s.logger.Printf("Found BootID %s", stdout)
+	return stdout, nil
+}
+
+func (s *DutServiceServer) waitForReboot(ctx context.Context, req *api.RestartRequest) error {
 	// Wait so following commands don't run before an actual reboot has kicked off
 	// by waiting for the client connection to shutdown or a timeout.
 	wait := make(chan interface{})
@@ -189,20 +221,15 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 	case <-wait:
 		conn, err := GetConnectionWithRetry(ctx, s.dutName, s.wiringAddress, req, s.logger)
 		if err != nil {
-			status := status.New(codes.Aborted, fmt.Sprintf("rebootDut: unable to get connection, %s", err))
-			s.logger.Println("unable to connect")
-
-			s.manager.SetError(op.Name, status)
-			return op, err
+			s.logger.Println("unable to connect to dut post reboot.")
+			return fmt.Errorf("rebootDut: unable to get connection, %s", err)
 		}
 		s.connection = &dutssh.SSHClient{Client: conn}
-		return op, nil
-	case <-ctx.Done():
-		status := status.New(codes.Aborted, "rebootDut: timed out waiting for reboot")
-		s.logger.Println("Failed to reboot timeout")
+		return nil
 
-		s.manager.SetError(op.Name, status)
-		return op, fmt.Errorf("rebootDUT: timeout waiting for reboot")
+	case <-ctx.Done():
+		s.logger.Println("Failed to reboot within timeout")
+		return fmt.Errorf("rebootDUT: timeout waiting for reboot")
 	}
 }
 
@@ -380,7 +407,7 @@ func (s *DutServiceServer) ForceReconnect(ctx context.Context, req *api.ForceRec
 // reconnect starts a new ssh client connection
 func (s *DutServiceServer) reconnect(ctx context.Context) error {
 	s.logger.Printf("attempting to reconnect to DUT.")
-	conn, err := GetConnection(ctx, s.dutName, s.wiringAddress)
+	conn, err := GetConnection(ctx, s.dutName, s.wiringAddress, s.logger)
 	if err != nil {
 		s.logger.Printf("Failed to reconnect to DUT.")
 		return err
@@ -423,6 +450,8 @@ func readFetchCrashesProto(stdout io.Reader, buffer bytes.Buffer) (*api.FetchCra
 
 // GetConnectionWithRetry calls GetConnect with retries.
 func GetConnectionWithRetry(ctx context.Context, dutIdentifier string, wiringAddress string, req *api.RestartRequest, logger *log.Logger) (*ssh.Client, error) {
+	logger.Printf("GetConnectionWithRetry Start")
+
 	retryCount := 5
 	retryInterval := time.Duration(10 * time.Second)
 	var err error
@@ -431,12 +460,18 @@ func GetConnectionWithRetry(ctx context.Context, dutIdentifier string, wiringAdd
 		retryCount = int(req.Retry.Times)
 		retryInterval = time.Duration(req.Retry.IntervalMs) * time.Millisecond
 	}
+	logger.Printf("GetConnectionWithRetry Retries %v Interval %v", retryCount, retryInterval)
+
 	for ; retryCount >= 0; retryCount-- {
 		err = nil
-		client, err = GetConnection(ctx, dutIdentifier, wiringAddress)
+		logger.Printf("GetConnectionWithRetry Calling GetConn!")
+
+		client, err = GetConnection(ctx, dutIdentifier, wiringAddress, logger)
 		if err == nil {
 			logger.Printf("GetConnectionWithRetry succeed with %d retries left.\n", retryCount)
 			return client, nil
+		} else {
+			logger.Printf("GetConnectionWithRetry FAILED TO CONNECT TO DUT %s", err)
 		}
 		time.Sleep(retryInterval)
 	}
@@ -446,19 +481,32 @@ func GetConnectionWithRetry(ctx context.Context, dutIdentifier string, wiringAdd
 
 // GetConnection connects to a dut server. If wiringAddress is provided,
 // it resolves the dut name to ip address; otherwise, uses dutIdentifier as is.
-func GetConnection(ctx context.Context, dutIdentifier string, wiringAddress string) (*ssh.Client, error) {
+func GetConnection(ctx context.Context, dutIdentifier string, wiringAddress string, logger *log.Logger) (*ssh.Client, error) {
+	logger.Printf("GetConnection Start!")
+
 	var addr string
+	logger.Printf("GetConnection wiringAddress: %s", wiringAddress)
+
 	if wiringAddress != "" {
 		var err error
+		logger.Printf("GetConnection Calling GetSSHADDR!")
+
 		addr, err = dutssh.GetSSHAddr(ctx, dutIdentifier, wiringAddress)
 		if err != nil {
+			logger.Printf("GetConnection FAILED GetSSHADDR!")
+
 			return nil, err
 		}
 	} else {
+		logger.Printf("GetConnection dutIdentifier: %s", dutIdentifier)
+
 		addr = dutIdentifier
 	}
+	logger.Printf("GetConnection Attempting to Dial!")
+	ssh, err := ssh.Dial("tcp", addr, dutssh.GetSSHConfig())
+	logger.Printf("GetConnection FINISHED Dial! %s\n", err)
 
-	return ssh.Dial("tcp", addr, dutssh.GetSSHConfig())
+	return ssh, err
 }
 
 // runCmd run remote command returning return value, stdout, stderr, and error if any

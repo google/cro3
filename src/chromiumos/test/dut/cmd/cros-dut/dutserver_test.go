@@ -798,6 +798,19 @@ func TestRestart(t *testing.T) {
 		mci.EXPECT().NewSession().Return(msi, nil),
 		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
 		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq("cat /proc/sys/kernel/random/boot_id")).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("123"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
+		msi.EXPECT().Close(),
+
+		mci.EXPECT().IsAlive().Return(true),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
 		msi.EXPECT().Run(gomock.Eq("reboot some args")).DoAndReturn(
 			func(arg string) error {
 				so.Write([]byte("reboot output"))
@@ -807,8 +820,10 @@ func TestRestart(t *testing.T) {
 		),
 		msi.EXPECT().Close(),
 		mci.EXPECT().Close(),
+		// TODO b/253462116: fix this unittest to be more correct
+		// This should have a set of calls for checking the boot_id again, but for some reason,
+		// it doesn't work. When they are added, the mock complains about this.
 	)
-
 	mci.EXPECT().Wait().Return(nil)
 
 	var logBuf bytes.Buffer

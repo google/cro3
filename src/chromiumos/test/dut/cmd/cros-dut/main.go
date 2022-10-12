@@ -44,7 +44,7 @@ func createLogFile() (*os.File, error) {
 // newLogger creates a logger. Using go default logger for now.
 func newLogger(logFile *os.File) *log.Logger {
 	mw := io.MultiWriter(logFile, os.Stderr)
-	newLog := log.New(mw, "<cros-dut>", log.LstdFlags|log.LUTC)
+	newLog := log.New(mw, "<cros-dut>: ", log.LstdFlags|log.LUTC)
 	newLog.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmsgprefix)
 	return newLog
 }
@@ -112,11 +112,14 @@ func main() {
 		}
 
 		logger.Println("Started server on address ", l.Addr().String())
+		logger.Println("Continue")
 
 		ctx := context.Background()
+		logger.Println("Attempting to connect w/ Retry.")
+
 		conn, err := GetConnectionWithRetry(ctx, *dutName, *wiringAddress, &api.RestartRequest{}, logger)
 		if err != nil {
-			logger.Fatalln("Failed to connect to dut: ", err)
+			logger.Println("Failed to connect to dut: ", err)
 			return 2
 		}
 

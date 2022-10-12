@@ -98,7 +98,7 @@ func (cc *CLICommand) validate() error {
 func (cc *CLICommand) Run() error {
 	cc.log.Printf("Running CLI Mode (V2):")
 	dutAddr := fmt.Sprintf("%s:%d", cc.inputProto.GetDutServer().GetAddress(), cc.inputProto.GetDutServer().GetPort())
-	cc.log.Printf("DutAddr found")
+	cc.log.Printf("DutAddr found %s", dutAddr)
 
 	dutConn, err := grpc.Dial(dutAddr, grpc.WithInsecure())
 	if err != nil {
