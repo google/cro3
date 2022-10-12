@@ -23,15 +23,20 @@ func TestCLIParse(t *testing.T) {
 		"defaults": {
 			args:   []string{"dut"},
 			target: "dut",
-			opts:   Options{},
+			opts: Options{
+				FlashOptions: dut.FlashOptions{
+					DisableRootfsVerification: true,
+				},
+			},
 		},
 		"clobber": {
 			args:   []string{"dut", "--clobber-stateful=yes"},
 			target: "dut",
 			opts: Options{
 				FlashOptions: dut.FlashOptions{
-					ClobberStateful: true,
-					ClearTpmOwner:   true, // follows --clobber-stateful by default
+					DisableRootfsVerification: true,
+					ClobberStateful:           true,
+					ClearTpmOwner:             true, // follows --clobber-stateful by default
 				},
 			},
 		},
@@ -40,8 +45,18 @@ func TestCLIParse(t *testing.T) {
 			target: "dut",
 			opts: Options{
 				FlashOptions: dut.FlashOptions{
-					ClobberStateful: true,
-					ClearTpmOwner:   false,
+					DisableRootfsVerification: true,
+					ClobberStateful:           true,
+					ClearTpmOwner:             false,
+				},
+			},
+		},
+		"disable-rootfs-verification": {
+			args:   []string{"dut", "--rootfs-verification=yes"},
+			target: "dut",
+			opts: Options{
+				FlashOptions: dut.FlashOptions{
+					DisableRootfsVerification: false,
 				},
 			},
 		},

@@ -26,8 +26,9 @@ type Request struct {
 // Unlike Request.Bucket, Request.Directory, these are determined solely by
 // parsing the command line without further processing.
 type FlashOptions struct {
-	ClobberStateful bool // whether to clobber the stateful partition
-	ClearTpmOwner   bool // whether to clean tpm owner on reboot
+	DisableRootfsVerification bool // whether to disable rootfs verification
+	ClobberStateful           bool // whether to clobber the stateful partition
+	ClearTpmOwner             bool // whether to clean tpm owner on reboot
 }
 
 type Result struct {

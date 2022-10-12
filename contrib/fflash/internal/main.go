@@ -207,8 +207,10 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 		}
 	}
 
-	if _, err := sshClient.RunSimpleOutput(devFeaturesRootfsVerification + " -q"); err != nil {
-		return fmt.Errorf("failed to check rootfs verification: %w", err)
+	if opts.DisableRootfsVerification {
+		if _, err := sshClient.RunSimpleOutput(devFeaturesRootfsVerification + " -q"); err != nil {
+			return fmt.Errorf("failed to check rootfs verification: %w", err)
+		}
 	}
 
 	return nil

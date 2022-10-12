@@ -87,10 +87,12 @@ func Main() error {
 
 	result := &Result{}
 
-	log.Println("disabling rootfs verification")
-	if err := DisableRootfsVerification(ctx, partState.InactiveKernelNum); err != nil {
-		log.Printf("disable rootfs verification failed (will retry after reboot): %s", err)
-		result.RetryDisableRootfsVerification = true
+	if r.DisableRootfsVerification {
+		log.Println("disabling rootfs verification")
+		if err := DisableRootfsVerification(ctx, partState.InactiveKernelNum); err != nil {
+			log.Printf("disable rootfs verification failed (will retry after reboot): %s", err)
+			result.RetryDisableRootfsVerification = true
+		}
 	}
 
 	if r.ClearTpmOwner {

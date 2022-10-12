@@ -28,6 +28,11 @@ func cliParse(args []string) (target string, opts Options, err error) {
 	app.Flag("board",
 		"flash from gs://chromeos-image-archive/${board}-release/R*. Use with caution!").
 		StringVar(&opts.Board)
+	rootfsVerification := app.Flag(
+		"rootfs-verification",
+		"whether rootfs verification on the new root is enabled. "+
+			"Choices: yes, no (default)",
+	).Default(no).Enum(yes, no)
 	clobberStateful := app.Flag(
 		"clobber-stateful",
 		"whether to clobber the stateful partition. Choices: yes, no (default)").Default(no).Enum(yes, no)
@@ -46,6 +51,7 @@ func cliParse(args []string) (target string, opts Options, err error) {
 		opts.ReleaseNum = r
 		opts.ReleaseString = ""
 	}
+	opts.DisableRootfsVerification = (*rootfsVerification == no)
 	opts.ClobberStateful = (*clobberStateful == yes)
 	if *clearTpmOwner == auto {
 		opts.ClearTpmOwner = opts.ClobberStateful
