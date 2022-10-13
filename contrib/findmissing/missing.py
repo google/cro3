@@ -517,8 +517,9 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
             c.execute(q, [branch, branch])
             rows = c.fetchall()
 
-        logging.info('Finding new rows to insert into fixes table %s %s %s',
-                     chosen_table, chosen_fixes, branch)
+        if rows:
+            logging.info('Finding new rows to insert into fixes table %s %s %s',
+                         chosen_table, chosen_fixes, branch)
     except MySQLdb.Error as e: # pylint: disable=no-member
         logging.error('Error finding new rows to insert %s %s %s: error %d(%s)',
                       chosen_table, chosen_fixes, branch, e.args[0], e.args[1])
