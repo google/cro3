@@ -19,19 +19,26 @@ const (
 	partNumMiniosB = 10
 )
 
-func parse(partition string) (device string, number int, err error) {
+func parse(partition string) (device string, delimiter string, number int, err error) {
 	device = strings.TrimRight(partition, "0123456789")
 	number, err = strconv.Atoi(partition[len(device):])
-	if err != nil || !strings.HasSuffix(device, "p") {
-		return "", 0, fmt.Errorf("cannot parse %q as a partition: %v", partition, device)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("cannot parse %q as a partition: %v", partition, device)
 	}
-	return device[:len(device)-1], number, nil
+	if strings.HasSuffix(device, "p") {
+		return device[:len(device)-1], "p", number, nil
+	} else {
+		return device, "", number, nil
+	}
 }
 
 // State of the device.
 type State struct {
 	// device path in /dev
 	Device string
+
+	// partition delimiter
+	Delimiter string
 
 	// partition numbers
 	ActiveKernelNum   int
@@ -41,7 +48,7 @@ type State struct {
 }
 
 func (p *State) partition(num int) string {
-	return fmt.Sprintf("%sp%d", p.Device, num)
+	return fmt.Sprintf("%s%s%d", p.Device, p.Delimiter, num)
 }
 
 func (p *State) ActiveKernel() string {
@@ -61,7 +68,7 @@ func (p *State) InactiveRootfs() string {
 }
 
 func GetStateFromRootPartition(rootPart string) (State, error) {
-	device, activeRootNum, err := parse(rootPart)
+	device, delimiter, activeRootNum, err := parse(rootPart)
 	if err != nil {
 		return State{}, err
 	}
@@ -70,6 +77,7 @@ func GetStateFromRootPartition(rootPart string) (State, error) {
 	case partNumRootfsA:
 		return State{
 			Device:            device,
+			Delimiter:         delimiter,
 			ActiveKernelNum:   partNumKernelA,
 			ActiveRootfsNum:   partNumRootfsA,
 			InactiveKernelNum: partNumKernelB,
@@ -78,6 +86,7 @@ func GetStateFromRootPartition(rootPart string) (State, error) {
 	case partNumRootfsB:
 		return State{
 			Device:            device,
+			Delimiter:         delimiter,
 			ActiveKernelNum:   partNumKernelB,
 			ActiveRootfsNum:   partNumRootfsB,
 			InactiveKernelNum: partNumKernelA,
