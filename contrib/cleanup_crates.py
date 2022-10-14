@@ -31,6 +31,7 @@ from chromite.lib import osutils
 from chromite.lib import portage_util
 from chromite.lib.parser import package_info
 
+
 # The path of the cache.
 DEFAULT_CACHE_PATH = os.path.join(osutils.GetGlobalTempDir(),
                                   'cleanup_crates.py')
@@ -51,7 +52,7 @@ BOARD_CONFIGURATIONS = {
 BOARDS = {'eve', 'tatl'} | (
     set() if not os.path.isdir(os.path.join(constants.SOURCE_ROOT, 'src',
                                             'private-overlays')) else
-    {'brya-manatee', 'kiran', 'reven'}
+    {'reven'}
 )
 
 _GEN_CONFIG = lambda boards, configs: [(b, c) for b in boards for c in configs]
@@ -162,11 +163,13 @@ def latest_versions(packages):
 
 def _get_package_dependencies(board, package):
     """List the ebuild-version dependencies for a specific board & package."""
+    if not board:
+        board = None
     if board and not os.path.isdir(
             build_target_lib.get_default_sysroot_path(board)):
         chroot_util.SetupBoard(board, update_chroot=False,
                                update_host_packages=False,)
-    return portage_util.GetPackageDependencies(board, package)
+    return portage_util.GetPackageDependencies(package, board)
 
 
 def get_ebuild_path(package):
