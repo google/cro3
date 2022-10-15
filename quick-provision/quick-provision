@@ -13,6 +13,7 @@
 # Helpful constants.
 readonly LOGFILE_PATH="/var/log/quick-provision.log"
 readonly KERN_IMAGE="full_dev_part_KERN.bin.gz"
+readonly MINIOS_IMAGE="full_dev_part_MINIOS.bin.gz"
 readonly ROOT_IMAGE="full_dev_part_ROOT.bin.gz"
 readonly STATEFUL_TGZ="stateful.tgz"
 readonly STATEFUL_DIR="/mnt/stateful_partition"
@@ -37,6 +38,7 @@ readonly FLAGS_HELP="Usage:
 DEFINE_string logfile "${LOGFILE_PATH}" "Path to record logs to."
 DEFINE_string status_url "" "URL of devserver to post status to."
 DEFINE_boolean reboot "${FLAGS_TRUE}" "Whether to reboot at completion"
+DEFINE_boolean minios "${FLAGS_FALSE}" "Whether to provision inactive miniOS"
 
 # Parse command line.
 FLAGS "$@" || exit 1
@@ -282,17 +284,38 @@ provision_device() {
   info "Update kernel ${NEXT_KERN}"
   post_status "DUT: Updating kernel ${NEXT_KERN}"
   time_cmd UPDATE_KERNEL \
-    update_partition "${static_url}/${build}/${KERN_IMAGE}" ${NEXT_KERN}
+    update_partition "${static_url}/${build}/${KERN_IMAGE}" "${NEXT_KERN}"
 
   # Rootfs.
   info "Update rootfs ${NEXT_ROOT}"
   post_status "DUT: Updating rootfs ${NEXT_ROOT}"
   time_cmd UPDATE_ROOTFS \
-    update_partition "${static_url}/${build}/${ROOT_IMAGE}" ${NEXT_ROOT}
+    update_partition "${static_url}/${build}/${ROOT_IMAGE}" "${NEXT_ROOT}"
 
   # Stateful.
   time_cmd UPDATE_STATEFUL \
     stateful_update "${static_url}/${build}/${STATEFUL_TGZ}"
+
+  # MiniOS.
+  if [[ ${FLAGS_minios} -eq ${FLAGS_TRUE} ]]; then
+    local next_minios
+    local minios_part="$(crossystem minios_priority)"
+    if [[ "${minios_part}" == "A" ]]; then
+      next_minios="${root_disk}${root_part_delim}${PARTITION_NUM_MINIOS_B}"
+    elif [[ "${minios_part}" == "B" ]]; then
+      next_minios="${root_disk}${root_part_delim}${PARTITION_NUM_MINIOS_A}"
+    else
+      next_minios=""
+      error "Unexpected miniOS partition ${minios_part}, skip updating miniOS"
+    fi
+
+    if [ -n "${next_minios}" ]; then
+      info "Update miniOS ${next_minios}"
+      post_status "DUT: Updating miniOS ${next_minios}"
+      time_cmd UPDATE_MINIOS update_partition \
+        "${static_url}/${build}/${MINIOS_IMAGE}" "${next_minios}"
+    fi
+  fi
 
   # Boot the next kernel.
   time_cmd SET_NEXT_KERNEL \
