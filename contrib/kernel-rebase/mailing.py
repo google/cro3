@@ -92,7 +92,7 @@ class Mailing:
             stats[1] += auto
             stats[2] += manual
             stats[3] += fixup_manual
-            if data[4]:
+            if data[5]:
                 build = 'OK'
             else:
                 build = 'FAIL'

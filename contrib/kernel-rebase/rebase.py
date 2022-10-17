@@ -550,7 +550,7 @@ def triage():
 
         if ret['exit_code'] == 0:
             print('Built %s succesfully.' % topic)
-            topic_stats[topic][4] = True
+            topic_stats[topic][5] = True
         else:
             print('Error building %s:' % topic)
             if ret['error_line'] is not None:
