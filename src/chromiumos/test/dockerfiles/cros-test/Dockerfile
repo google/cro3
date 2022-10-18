@@ -49,7 +49,6 @@ RUN echo 'chromeos-test ALL=NOPASSWD:ALL' > /etc/sudoers.d/chromeos-test
 # requirements_py3.txt, then manually copy in the dep to the list below,
 # including the \n\.
 RUN echo "\
-btsocket==0.1.0\n\
 certifi==2021.5.30\n\
 chardet==3.0.4\n\
 charset-normalizer==2.0.9\n\
