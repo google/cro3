@@ -51,7 +51,6 @@ topic_fixups['chromeos'] = [
     'chromiumos security module',
     'Restore missing cursor for digitizer devices',
     'mm: Check pmd_trans_unstable() after splitting huge page in per-process reclaim',
-    'kbuild: Allow kernel installation packaging to override pkg-config',
     'mm: Optionally limit per-process reclaim',
     'CHROMIUM: LSM: chromiumos security module',
     'CHROMIUM: Restrict swapon() to \"zram\" devices lock down zram',
