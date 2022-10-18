@@ -54,7 +54,8 @@ topic_fixups['chromeos'] = [
     'mm: Optionally limit per-process reclaim',
     'CHROMIUM: LSM: chromiumos security module',
     'CHROMIUM: Restrict swapon() to \"zram\" devices lock down zram',
-    'misc: rtsx: add rts5261 efuse function'
+    'misc: rtsx: add rts5261 efuse function',
+    'Input: elants_i2c - keep regulators on when unbinding'
 ]
 
 topic_fixups['bluetooth'] = [
