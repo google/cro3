@@ -301,3 +301,4 @@ disp_overlay['4378383d6f00'] = 'drop' # CHROMIUM: media: platform: mtk-mdp3: Add
 disp_overlay['ae921dd92ca5'] = 'drop' # BACKPORT: FROMLIST: mt76: mt7921: get rid of the false positive reset
 disp_overlay['210b8cc77ab7'] = 'drop' # CHROMIUM: drm/bridge/ite-6505: Use drm_debug_enabled() instead of drm_debug
 disp_overlay['d2d55ab35d61'] = 'drop' # CHROMIUM: KVM: fix uninitialized outparam
+disp_overlay['fbe16d437758'] = 'drop' # BACKPORT: FROMLIST: ath10k: Set tx credit to one for wcn3990 snoc based devices
