@@ -83,9 +83,7 @@ topic_fixups['net'] = [
 ]
 
 topic_fixups['dts'] = [
-    'dt-bindings: clock: Add resets for LPASS audio clock controller for SC7280',
-    'dt-bindings: clock: Add support for external MCLKs for LPASS on SC7280',
-    'BACKPORT: FROMLIST: arm64: dts: mt8183: Add Mediatek MDP3 nodes'
+    'dts: arm64: mt8183: Add DIP nodes'
 ]
 
 topic_fixups['cros_ec'] = [
@@ -305,3 +303,4 @@ disp_overlay['ae921dd92ca5'] = 'drop' # BACKPORT: FROMLIST: mt76: mt7921: get ri
 disp_overlay['210b8cc77ab7'] = 'drop' # CHROMIUM: drm/bridge/ite-6505: Use drm_debug_enabled() instead of drm_debug
 disp_overlay['d2d55ab35d61'] = 'drop' # CHROMIUM: KVM: fix uninitialized outparam
 disp_overlay['fbe16d437758'] = 'drop' # BACKPORT: FROMLIST: ath10k: Set tx credit to one for wcn3990 snoc based devices
+disp_overlay['a3bb183436e8'] = 'drop' # BACKPORT: FROMLIST: arm64: dts: mt8183: Add Mediatek MDP3 nodes
