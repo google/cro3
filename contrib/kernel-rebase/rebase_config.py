@@ -76,7 +76,8 @@ topic_fixups['media'] = [
 ]
 
 topic_fixups['net'] = [
-    'rtw88: replace RADAR flag with NO_IR for dfs channel'
+    'rtw88: replace RADAR flag with NO_IR for dfs channel',
+    'net: wwan: t7xx: Add NAPI support'
 ]
 
 topic_fixups['dts'] = [
