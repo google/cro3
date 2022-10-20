@@ -98,8 +98,12 @@ abort() {
       gerrit -i abandon "${cl}"
     done
   fi
+  # Undo any changes to srcuris
+  cd "${OVERLAY}"
+  git restore .
   cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-firmware-${FLAGS_board}"
   cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-config-bsp-private"
+  cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-config"
   repo abandon "${TAG}"
   die "$*"
 }
@@ -563,11 +567,18 @@ fi
 #
 PROJ_CLS=()
 PROJ_DIRS=()
+OLD_URIS=()
 for PROJ in "${PROJECTS[@]}"; do
   echo "Updating configs for project ${PROJ}"
   PDIR="${GCLIENT_ROOT}/src/project/${FLAGS_board}/${PROJ}"
   cd "${PDIR}"
+  PCONF="./sw_build_config/platform/chromeos-config/generated/project-config.json"
   branch
+  # Read old URIs before updating
+  ./config.star || abort "Generate existing config failed for ${PROJ}"
+  for i in $(cros_config_host -c "${PCONF}" get-firmware-uris); do
+    OLD_URIS+=("${i}")
+  done
   update_version "config.star" || true
   ./config.star || abort "Generate config failed for ${PROJ}"
   check_config > "${TEMPDIR}/check_config-${PROJ}.output" || abort "check_config failed for ${PROJ}"
@@ -656,11 +667,33 @@ fi
 #
 cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-firmware-${FLAGS_board}"
 cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-config-bsp-private"
+cros workon "--board=${FLAGS_board}" stop "chromeos-base/chromeos-config"
 cd "${OVERLAY}"
 branch
+#
+# Remove the old URIs from srcuris before updating.
+#
+echo "Removing ${#OLD_URIS[@]} old URIs from srcuris"
+for U in "${OLD_URIS[@]}"; do
+  # Use a delimiter not used in URIs
+  sed -i -e "\|${U}|d" ./files/srcuris
+done
+#
 cd "${DEVCONTRIB}"
-if ! (./cros_update_firmware -q "--board=${FLAGS_board}"); then
-  abort "cros_update_firmware failed for ${FLAGS_board}"
+#
+# If no projects specified, do all, otherwise
+# run cros_update_firmware for each individual project
+#
+if [[ -z "${FLAGS_project}" ]] && [[ -z "${FLAGS_skip}" ]]; then
+  if ! (./cros_update_firmware -q "--board=${FLAGS_board}"); then
+    abort "cros_update_firmware failed for ${FLAGS_board}"
+  fi
+else
+  for P in "${PROJECTS[@]}"; do
+    if ! (./cros_update_firmware -q "--board=${FLAGS_board}" "--project=${P}" "--append_srcuris"); then
+      abort "cros_update_firmware failed for ${FLAGS_board} project ${P}"
+    fi
+  done
 fi
 cd "${OVERLAY}"
 #
