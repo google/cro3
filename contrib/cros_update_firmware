@@ -139,6 +139,8 @@ update_firmware() {
     # Put each uri on its own line for easier merging in git.
     cros_config_host -c "${yaml_config}" get-firmware-uris | tr ' ' '\n' > "${srcuris}"
   fi
+  # Sort the URIs file so that it is consistent (easier for merging to branches)
+  sort -o "${srcuris}" "${srcuris}"
 
   touch "${ebuild}"
 
