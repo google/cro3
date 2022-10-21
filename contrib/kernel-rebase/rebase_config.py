@@ -304,3 +304,4 @@ disp_overlay['210b8cc77ab7'] = 'drop' # CHROMIUM: drm/bridge/ite-6505: Use drm_d
 disp_overlay['d2d55ab35d61'] = 'drop' # CHROMIUM: KVM: fix uninitialized outparam
 disp_overlay['fbe16d437758'] = 'drop' # BACKPORT: FROMLIST: ath10k: Set tx credit to one for wcn3990 snoc based devices
 disp_overlay['a3bb183436e8'] = 'drop' # BACKPORT: FROMLIST: arm64: dts: mt8183: Add Mediatek MDP3 nodes
+disp_overlay['a7c45d277d65'] = 'drop' # FROMLIST: ufs: core: print UFSHCD capabilities in controller's sysfs node
