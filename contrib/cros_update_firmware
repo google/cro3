@@ -30,6 +30,10 @@ DEFINE_boolean append_srcuris "${FLAGS_TRUE}" "Only applicable when the project
 flag is set. Append firmware uris to srcuris instead of overwriting. This is
 usually needed if you have limited access to project config repos, so
 overwriting would delete some uris."
+DEFINE_boolean project_srcuris "${FLAGS_FALSE}" "Only applicable when the
+project flag is set. Use a project specific file to store the URIs
+instead of srcuris. The project config directory must be available
+to read the project specific URIs. Mutually exclusive with --append_srcuris."
 
 # Parse command line.
 FLAGS "$@" || exit 1
@@ -65,11 +69,12 @@ stop_workon() {
 update_firmware() {
   local board="$1"
   local project="$2"
-  local base ebuild srcuris
+  local base ebuild srcuris proj
   local current_workon_pkg_list start_pkg result i
   local emerge_flags=()
   [[ "$3" == "${FLAGS_TRUE}" ]] && emerge_flags+=("--quiet-build")
   local append_srcuris="$4"
+  local project_srcuris="$5"
 
   set -e
 
@@ -77,7 +82,12 @@ update_firmware() {
   mapfile -t current_workon_pkg_list < <(cros workon --board="${board}" list)
 
   local config_packages=(chromeos-base/chromeos-config)
+  local proj_config="${GCLIENT_ROOT}/src/project/${board}/${project}/sw_build_config/platform/chromeos-config/generated/project-config.json"
 
+  # If --project_srcuris set, ensure that the project config is available
+  if [[ "${project_srcuris}" == "${FLAGS_TRUE}" && ! -f "${proj_config}" ]]; then
+    die "--project_srcuris set but ${proj_config} unreadable"
+  fi
   # checking various use flags to include appropriate packages
   local all_use_flags=$(portageq-${board} envvar USE)
   local use_flag pkg
@@ -108,25 +118,36 @@ update_firmware() {
   base="${overlay}/chromeos-base"
   ebuild="${base}/chromeos-firmware-${board}/chromeos-firmware-${board}-9999.ebuild"
   srcuris="${base}/chromeos-firmware-${board}/files/srcuris"
+  proj_srcuris="${base}/chromeos-firmware-${board}/files/${project}.srcuris"
   yaml_config="/build/${board}/usr/share/chromeos-config/yaml/config.yaml"
 
   # Check project config repo exists -- if so generate the config first.
-  if [[ -d "${GCLIENT_ROOT}/src/project/${project}" ]]; then
-    pushd "${GCLIENT_ROOT}/src/project/${project}" > /dev/null
-    for brd in *; do
-      if [[ -d "${brd}" && -x "${brd}/config/bin/gen_config" && -f "${brd}/config.star" ]]; then
-        pushd "${brd}" > /dev/null
+  if [[ -d "${GCLIENT_ROOT}/src/project/${board}" ]]; then
+    pushd "${GCLIENT_ROOT}/src/project/${board}" > /dev/null
+    if [[ -z "${project}" ]]; then
+      # No project specified, do them all.
+      for proj in *; do
+        if [[ -d "${proj}" && -x "${proj}/config/bin/gen_config" && -f "${proj}/config.star" ]]; then
+          pushd "${proj}" > /dev/null
+          ./config/bin/gen_config config.star
+          popd > /dev/null
+        fi
+      done
+      popd > /dev/null
+    else
+      # Specific project, just regenerate the config for that project.
+      if [[ -d "${project}" && -x "${project}/config/bin/gen_config" && -f "${project}/config.star" ]]; then
+        pushd "${project}" > /dev/null
         ./config/bin/gen_config config.star
         popd > /dev/null
       fi
-    done
-    popd > /dev/null
+    fi
   fi
 
   "emerge-${board}" -j "${emerge_flags[@]}" "${config_packages[@]}"
 
   # If the append_srcuris and project flags are set, append uris that aren't
-  # already in srcuris. Otherwise, overwrite srcuris.
+  # already in srcuris.
   if [[ -n "${project}" && "${append_srcuris}" == "${FLAGS_TRUE}" ]]; then
     for uri in $(cros_config_host -c "${yaml_config}" get-firmware-uris); do
       if ! grep -q "${uri}" "${srcuris}"; then
@@ -135,12 +156,16 @@ update_firmware() {
         echo "${uri}" >> "${srcuris}"
       fi
     done
+    # After appending, sort the URIs file so that it is consistent
+    sort -o "${srcuris}" "${srcuris}"
+  # If project_srcuris is set, write URIs to project specific file
+  elif  [[ -n "${project}" && "${project_srcuris}" == "${FLAGS_TRUE}" ]]; then
+    cros_config_host -c "${proj_config}" get-firmware-uris | tr ' ' '\n' | sort > "${proj_srcuris}"
+  # Otherwise overwrite srcuris.
   else
     # Put each uri on its own line for easier merging in git.
-    cros_config_host -c "${yaml_config}" get-firmware-uris | tr ' ' '\n' > "${srcuris}"
+    cros_config_host -c "${yaml_config}" get-firmware-uris | tr ' ' '\n' | sort > "${srcuris}"
   fi
-  # Sort the URIs file so that it is consistent (easier for merging to branches)
-  sort -o "${srcuris}" "${srcuris}"
 
   touch "${ebuild}"
 
@@ -167,8 +192,14 @@ main() {
   if [[ -z "${FLAGS_board}" ]]; then
     die "-b or --board required."
   fi
+  if [[ "${FLAGS_append_srcuris}" == "${FLAGS_TRUE}" && "${FLAGS_project_srcuris}" == "${FLAGS_TRUE}" ]]; then
+    die "--append_srcuris and --project_srcuris cannot both be set"
+  fi
+  if [[ -z "${FLAGS_project}" && "${FLAGS_project_srcuris}" == "${FLAGS_TRUE}" ]]; then
+    die "--project must be set when --project_srcuris is set"
+  fi
 
-  update_firmware "${FLAGS_board}" "${FLAGS_project}" "${FLAGS_quiet}" "${FLAGS_append_srcuris}"
+  update_firmware "${FLAGS_board}" "${FLAGS_project}" "${FLAGS_quiet}" "${FLAGS_append_srcuris}" "${FLAGS_project_srcuris}"
 }
 
 main "$@"

@@ -68,12 +68,11 @@ check_firmware_tarball() {
   local uris=() unknown_uris=() known_uris=() known_uris_source=()
 
   # Check srcuris exist
-  srcuris="${GCLIENT_ROOT}/src/private-overlays/overlay-${board}-private/chromeos-base/chromeos-firmware-${board}/files/srcuris"
-  [[ ! -f "${srcuris}" ]] && die "${srcuris} doesn't exist."
-
-  # Get Missing URIs in srcuris
-  for uri in $(cat "${srcuris}"); do
-    gsutil ls "${uri}" > /dev/null 2>&1 || uris+=("${uri}")
+  for srcuris in "${GCLIENT_ROOT}/src/private-overlays/overlay-${board}-private/chromeos-base/chromeos-firmware-${board}/files/"*srcuris*; do
+    # Get Missing URIs in srcuris file
+    for uri in $(cat "${srcuris}"); do
+      gsutil ls "${uri}" > /dev/null 2>&1 || uris+=("${uri}")
+    done
   done
 
   # Return success if no missing URIs.
