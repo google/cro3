@@ -3,20 +3,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-
 # This script preloads custom settings and is run on the router after the
 # flashing process. These settings configure the router to be run in a CROS lab
 # environment.
 #
 # OpenWrt Image Builder docs: https://openwrt.org/docs/guide-user/additional-software/imagebuilder
 # https://openwrt.org/docs/guide-developer/uci-defaults
-
-
-# Disable services that will not be used in the lab.
-/etc/init.d/dnsmasq stop
-/etc/init.d/dnsmasq disable
-/etc/init.d/wpad stop
-/etc/init.d/wpad disable
 
 # Configure SSH Settings to disallow password login, as only private key auth
 # using the common CROS test key will be used.
