@@ -7,5 +7,5 @@ package constants
 
 const (
 	DefaultPort         = 80
-	DefaultLogDirectory = "/tmp/provision/"
+	DefaultLogDirectory = "/tmp/provisionservice/"
 )
