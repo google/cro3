@@ -3,5 +3,5 @@
 # found in the LICENSE file.
 
 FROM ubuntu:bionic
-COPY fw-provision /usr/bin/fw-provision
+COPY cros-fw-provision /usr/bin/cros-fw-provision
 COPY fw-config.json /usr/share/ap_firmware_config/fw-config.json

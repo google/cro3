@@ -62,7 +62,7 @@ REGISTERED_BUILDS = {
         'prepper': CommonServiceDockerPrepper, 'cloud': False},
     'cros-provision': {
         'prepper': CommonServiceDockerPrepper, 'cloud': False},
-    'fw-provision': {
+    'cros-fw-provision': {
         'prepper': CrosFWProvisionDockerPrepper, 'cloud': False},
     'cros-test': {
         'prepper': CrosTestDockerPrepper, 'cloud': True},

@@ -7,8 +7,8 @@ package cli
 
 import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
-	firmwareservice "chromiumos/test/provision/v2/fw-provision/service"
-	state_machine "chromiumos/test/provision/v2/fw-provision/state-machine"
+	firmwareservice "chromiumos/test/provision/v2/cros-fw-provision/service"
+	state_machine "chromiumos/test/provision/v2/cros-fw-provision/state-machine"
 	"context"
 	"errors"
 	"flag"
@@ -26,7 +26,7 @@ import (
 const (
 	// version is the version info of this command. It is filled in during emerge.
 	version             = "<unknown>"
-	defaultLogDirectory = "/tmp/fw-provision/"
+	defaultLogDirectory = "/tmp/cros-fw-provision/"
 	defaultPort         = 80
 )
 

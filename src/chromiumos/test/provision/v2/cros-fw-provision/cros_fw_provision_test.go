@@ -6,9 +6,9 @@ package main
 
 import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
-	"chromiumos/test/provision/v2/fw-provision/cli"
-	firmwareservice "chromiumos/test/provision/v2/fw-provision/service"
-	state_machine "chromiumos/test/provision/v2/fw-provision/state-machine"
+	"chromiumos/test/provision/v2/cros-fw-provision/cli"
+	firmwareservice "chromiumos/test/provision/v2/cros-fw-provision/service"
+	state_machine "chromiumos/test/provision/v2/cros-fw-provision/state-machine"
 	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
 	"context"
 	"path/filepath"

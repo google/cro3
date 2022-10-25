@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-const FirmwarePathTmp = "/tmp/fw-provisioning-service/"
+const FirmwarePathTmp = "/tmp/cros-fw-provisioning-service/"
 const CurlWithRetriesArgsFW = "-S -s -v -# -C - --retry 3 --retry-delay 60"
 
 // ImageArchiveMetadata will be the value of the map in which the key is the
@@ -75,7 +75,7 @@ func downloadAndProcessArchive(ctx context.Context, s common_utils.ServiceAdapte
 	}
 
 	// Use mktemp to safely create a unique temp directory.
-	archiveDir, err := s.RunCmd(ctx, "mktemp", []string{"-d", "--tmpdir", "fw-provision.XXXXXXXXX." + archiveSubfolder})
+	archiveDir, err := s.RunCmd(ctx, "mktemp", []string{"-d", "--tmpdir", "cros-fw-provision.XXXXXXXXX." + archiveSubfolder})
 	if err != nil {
 		return nil, fmt.Errorf("remote mktemp failed: %w", err)
 	}

@@ -5,7 +5,7 @@
 package main
 
 import (
-	"chromiumos/test/provision/v2/fw-provision/cli"
+	"chromiumos/test/provision/v2/cros-fw-provision/cli"
 	"fmt"
 	"os"
 )
@@ -18,7 +18,7 @@ func main() {
 	}
 	err = opt.Run()
 	if err != nil {
-		fmt.Printf("fw-provision failed: %v", err)
+		fmt.Printf("cros-fw-provision failed: %v", err)
 		os.Exit(1)
 	}
 }

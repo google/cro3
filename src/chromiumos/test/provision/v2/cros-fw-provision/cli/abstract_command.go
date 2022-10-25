@@ -39,7 +39,7 @@ func SetUpLog(dir string) (*log.Logger, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file %v: %v", lfp, err)
 	}
-	newLog := log.New(io.MultiWriter(lf, os.Stderr), "<fw-provision>", log.LstdFlags|log.LUTC)
+	newLog := log.New(io.MultiWriter(lf, os.Stderr), "<cros-fw-provision>", log.LstdFlags|log.LUTC)
 	newLog.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmsgprefix)
 	return newLog, nil
 }

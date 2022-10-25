@@ -8,8 +8,8 @@ package cli
 import (
 	"chromiumos/lro"
 	common_utils "chromiumos/test/provision/v2/common-utils"
-	firmwareservice "chromiumos/test/provision/v2/fw-provision/service"
-	state_machine "chromiumos/test/provision/v2/fw-provision/state-machine"
+	firmwareservice "chromiumos/test/provision/v2/cros-fw-provision/service"
+	state_machine "chromiumos/test/provision/v2/cros-fw-provision/state-machine"
 	"context"
 	"errors"
 	"fmt"
@@ -89,7 +89,7 @@ func (ps *FWProvisionServer) Provision(ctx context.Context, req *api.ProvisionFi
 	var err error
 	if !req.GetUseServo() && ps.dutAdapter == nil {
 		// the (ps.dutAdapter == nil) check ensures that cros-dut address
-		// specified during fw-provisioning startup is preferred.
+		// specified during cros-fw-provisioning startup is preferred.
 		dutAdapter, err = connectToDutServer(req.GetDutServerAddress())
 		if err != nil {
 			response.Status = api.ProvisionFirmwareResponse_STATUS_INVALID_REQUEST
@@ -103,7 +103,7 @@ func (ps *FWProvisionServer) Provision(ctx context.Context, req *api.ProvisionFi
 	var servodServiceClient api.ServodServiceClient
 	if req.GetUseServo() && ps.servoClient == nil {
 		// the (ps.servoClient == nil) check ensures that cros-servod address
-		// specified during fw-provisioning startup is preferred.
+		// specified during cros-fw-provisioning startup is preferred.
 		servodServiceClient, err = connectToCrosServod(req.GetCrosServodAddress())
 		if err != nil {
 			response.Status = api.ProvisionFirmwareResponse_STATUS_INVALID_REQUEST

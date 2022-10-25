@@ -18,7 +18,7 @@ import (
 
 const (
 	DefaultPort         = 8080
-	DefaultLogDirectory = "/tmp/fw-provision/"
+	DefaultLogDirectory = "/tmp/cros-fw-provision/"
 )
 
 // ServerCommand executed the provisioning as a Server

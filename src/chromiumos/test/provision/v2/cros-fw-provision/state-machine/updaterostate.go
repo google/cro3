@@ -7,7 +7,7 @@ package state_machine
 
 import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
-	firmwareservice "chromiumos/test/provision/v2/fw-provision/service"
+	firmwareservice "chromiumos/test/provision/v2/cros-fw-provision/service"
 	"context"
 	"fmt"
 	"log"
