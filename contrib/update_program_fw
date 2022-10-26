@@ -640,8 +640,9 @@ EOF
     PROJ_DIRS+=("${PDIR}")
   fi
   cd "${DEVCONTRIB}"
-  if ! (./cros_update_firmware -q "--board=${FLAGS_board}" "--project=${P}" "--project_srcuris" "--noappend_srcuris"); then
-    abort "cros_update_firmware failed for ${FLAGS_board} project ${P}"
+  echo "Updating firmware for project ${PROJ}"
+  if ! (./cros_update_firmware -q "--board=${FLAGS_board}" "--project=${PROJ}" "--project_srcuris" "--noappend_srcuris"); then
+    abort "cros_update_firmware failed for ${FLAGS_board} project ${PROJ}"
   fi
 done
 #
