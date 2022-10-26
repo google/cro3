@@ -57,6 +57,11 @@ get_chromium_reviewers() {
 
             echo "..Hasn't been changed for more than ${THRESHOLD} day(s)"
 
+            # Get the last message earlier so that it won't be affected by the following gerrit
+            # operations.
+            last_message=$(./env/bin/python gerrit_interface.py "${change_id}" "${branch}" |
+                            jq -c -r '.[-1].message' 2>/dev/null)
+
             if [[ -z "$(get_chromium_reviewers "${cl_num}")" ]]; then
                 "${GERRIT}" reviewers "${cl_num}" "${ROTATED_REVIEWERS}"
             fi
@@ -64,9 +69,7 @@ get_chromium_reviewers() {
             "${GERRIT}" message "${cl_num}" \
                 "The CL hasn't been changed for more than ${THRESHOLD} day(s)"
 
-            reasons=$(./env/bin/python gerrit_interface.py "${change_id}" "${branch}" |
-                        jq -c -r '.attention_set | flatten | .[].reason' 2>/dev/null)
-            if echo "${reasons}" | grep -q "Run succeeded"; then
+            if echo "${last_message}" | grep -q "This CL has passed the run"; then
                 echo "..CQ+1 has passed"
                 continue
             fi
