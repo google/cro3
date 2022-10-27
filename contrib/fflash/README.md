@@ -1,6 +1,6 @@
 # fflash
 
-go/cros-fflash
+[go/cros-fflash](https://goto.google.com/cros-fflash)
 
 `fflash` is a tool to update a ChromiumOS device with a test image from `gs://` (Google Cloud Storage).
 
@@ -86,4 +86,20 @@ bin/integration-test ${dut_host}
 
 ## Bugs & Feedback
 
-Join the [fflash-users](https://groups.google.com/a/google.com/g/fflash-users) Google Group (Googlers only).
+*   Join the [fflash-users] Google Group (Googlers only).
+
+*   [File a bug] in our [issue tracker].
+
+[fflash-users]: https://groups.google.com/a/google.com/g/fflash-users
+[File a bug]: https://issuetracker.google.com/issues/new?component=1264059
+[issue tracker]: https://issuetracker.google.com/issues?q=status:open%20componentid:1264059&s=created_time:desc
+
+## Related tools
+
+*   [cros flash] is the officially supported tool to image ChromiumOS devices.
+    It also allow flashing locally-built images.
+
+*   [quick-provision] is useful if your OS image is already on your ChromiumOS device.
+
+[cros flash]: https://chromium.googlesource.com/chromiumos/docs/+/HEAD/cros_flash.md
+[quick-provision]: https://source.chromium.org/chromiumos/chromiumos/codesearch/+/main:src/platform/dev/quick-provision/
