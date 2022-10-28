@@ -29,16 +29,12 @@ func crosConfigIdentity(c dutssh.CmdExecutor, property string) string {
 func DetectDeviceConfigID(c dutssh.CmdExecutor) *api.DetectDeviceConfigIdResponse {
 	designScanConfig := &hwdesign.DesignConfigId_ScanConfig{}
 	var failure string
-	if match := crosConfigIdentity(c, "smbios-name-match"); len(match) > 0 {
-		designScanConfig.FirmwareNameMatch = &hwdesign.DesignConfigId_ScanConfig_SmbiosNameMatch{
-			SmbiosNameMatch: match,
-		}
-	} else if match := crosConfigIdentity(c, "device-tree-compatible-match"); len(match) > 0 {
-		designScanConfig.FirmwareNameMatch = &hwdesign.DesignConfigId_ScanConfig_DeviceTreeCompatibleMatch{
-			DeviceTreeCompatibleMatch: match,
+	if match := crosConfigIdentity(c, "frid"); len(match) > 0 {
+		designScanConfig.FirmwareNameMatch = &hwdesign.DesignConfigId_ScanConfig_Frid{
+			Frid: match,
 		}
 	} else {
-		failure = "Failed to scan firmware identity for X86 (smbios-name-match) and ARM (device-tree-compatible-match)"
+		failure = "Failed to scan frid"
 	}
 
 	// FirmwareNameMatch is the only required bit ... all optional from here on
