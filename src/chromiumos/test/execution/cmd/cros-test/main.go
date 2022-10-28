@@ -25,7 +25,7 @@ import (
 // Version is the version info of this command. It is filled in during emerge.
 var Version = "<unknown>"
 
-// defaulPort is the port where cros-test will bind to in server mode if a port is not provided.
+// defaultPort is the port where cros-test will bind to in server mode if a port is not provided.
 var defaultPort = 8001
 
 // createLogFile creates a file and its parent directory for logging purpose.
@@ -138,6 +138,7 @@ func startServer(d []string) int {
 	fs.StringVar(&a.tlwAddr, "tlwaddr", "", "specify the tlw address")
 	fs.StringVar(&a.metadataDirPath, "metadatadir", common.TestMetadataDir, "specify a directory that contain all test metadata proto files.")
 	fs.IntVar(&a.port, "port", defaultPort, fmt.Sprintf("Specify the port for the server. Default value %d.", defaultPort))
+	fs.Parse(d)
 
 	logFile, err := createLogFile(a.logPath)
 	if err != nil {
