@@ -1,4 +1,4 @@
-# Copyright 2022 The ChromiumOS Authors
+# Copyright 2022 The ChromiumOS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -23,6 +23,11 @@ urllib3==1.26.7\n\
 " > requirements_py3.txt
 RUN pip3 install -r requirements_py3.txt
 
-COPY cros-publish /usr/bin/cros-publish
+COPY gcs-publish /usr/bin/gcs-publish
+COPY tko-publish /usr/bin/tko-publish
+COPY rdb-publish /usr/bin/rdb-publish
+
+COPY result_adapter_cipd_metadata.json /tmp/rdb-publish/result_adapter_cipd_metadata.json
+COPY rdb_cipd_metadata.json /tmp/rdb-publish/rdb_cipd_metadata.json
 
 COPY autotest/ /usr/local/autotest
