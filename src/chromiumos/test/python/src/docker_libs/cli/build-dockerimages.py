@@ -34,6 +34,9 @@ from src.docker_libs.build_libs.cros_fw_provision.cros_fw_provision_prep import 
 from src.docker_libs.build_libs.cros_publish.cros_publish_prep import (
     CrosPublishDockerPrepper,
 )
+from src.docker_libs.build_libs.cros_servod.cros_servod_prep import (
+    CrosServodDockerPrepper,
+)
 from src.docker_libs.build_libs.cros_test.cros_test_prep import (
     CrosTestDockerPrepper,
 )
@@ -66,7 +69,7 @@ REGISTERED_BUILDS = {
     'cros-test-finder': {
         'prepper': CrosTestFinderDockerPrepper, 'cloud': False},
     'cros-servod': {
-        'prepper': CommonServiceDockerPrepper, 'cloud': False},
+        'prepper': CrosServodDockerPrepper, 'cloud': False},
     'cros-publish': {
         'prepper': CrosPublishDockerPrepper, 'cloud': False},
 }
@@ -76,13 +79,12 @@ REGISTERED_BUILDS = {
 # TODO: b/237016355, mitigate this properly with a self-owned base container.
 BUILD_RETRIES = 1
 RETRIES_WAIT = 10
-# cros-servod does not have a ebuild yet, thus is not ready for building.
 # callbox is not used (and a bit heavy) so do not build until its needed.
-DO_NOT_BUILD = set(['cros-servod', 'cros-callbox'])
+DO_NOT_BUILD = set(['cros-callbox'])
 # NOTE: when promoting a service from DO_NOT_BUILD, it should be added to
 # NON_CRITICAL for atleast a short time to verify health.
 NON_CRITICAL = set(
-    ['cros-dut', 'cros-provision', 'cros-publish'])
+    ['cros-dut', 'cros-servod', 'cros-provision', 'cros-publish'])
 
 
 def parse_local_arguments() -> argparse.Namespace:
