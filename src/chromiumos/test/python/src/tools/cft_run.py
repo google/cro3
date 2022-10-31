@@ -27,8 +27,8 @@ from typing import Tuple
 sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve()/'../../'))
 
 from src.common.utils import run  # pylint: disable=import-error,wrong-import-position
-from src.cli.proto_templates import make_testRequest, make_prov_request, make_testFinderRequest
-
+from src.tools.proto_templates import make_testRequest, make_prov_request, make_testFinderRequest
+from src.tools.container_updater import ContainerUpdater
 
 def parse_local_arguments() -> argparse.Namespace:
   """Parse the CLI."""
@@ -71,7 +71,7 @@ def parse_local_arguments() -> argparse.Namespace:
                       help='Model name')
   parser.add_argument('-build',
                       dest='build',
-                      default='R108',
+                      default='',
                       help='Build number to run containers from.'
                            ' Eg R108 or R108-14143. Do not use with -md_path')
   parser.add_argument('-md_path',
@@ -92,7 +92,26 @@ def parse_local_arguments() -> argparse.Namespace:
                       action='store_true',
                       help='Addative flag. Set if you want to publish '
                            'results. Must have test set to -test set True')
-
+  parser.add_argument('-image_path', dest='image_path',
+                      help='image path to use for image artifacts.')
+  parser.add_argument('--update_containers', action='store_true',
+                      help='update the containers defined in the given '
+                           '(or discovered) metadata.')
+  parser.add_argument('-chroot_path', dest='chroot_path',
+                      help='path to chroot, required if --update_containers')
+  parser.add_argument('-sysroot_path', dest='sysroot_path',
+                      help='path to sysroot, required if --update_containers,'
+                           ' and updating a test container.')
+  parser.add_argument('-service_updates',
+                      dest='service_updates',
+                      nargs='*',
+                      help='binary/services to update. Example: '
+                           '"-service_updates cros-test cros-dut"')
+  parser.add_argument('-rtd_updates',
+                      dest='rtd_updates',
+                      nargs='*',
+                      help='RTDs to update. Note: This is slow and heavy, only'
+                           ' use if reqd. Example: "-rtd_updates tauto tast"')
   # Not implemented yet. Autotunnels will be required for the first iteration
   # due to the complexity with getting the reverse tunnel w/ cros-dut and
   # cacheserver setup.
@@ -165,6 +184,27 @@ def validate_args(args: argparse.Namespace):
     raise Exception('Tests must be given as a list.')
   if args.tags and not isinstance(args.tags, list):
     raise Exception('Tags must be given as a list.')
+  if args.md_path and args.provision and not args.image_path:
+    raise Exception('image_path must be given if provisioning w/'
+                    ' custom metadata.')
+  if args.build and args.md_path:
+    raise Exception('-build and -md_path are exclusive (do not use togther).')
+  if not args.md_path and not args.build:
+    raise Exception('One of -build or -md_path must be included'
+                    ' such that the metadata can be found.')
+  if args.update_containers:
+    validate_update_args(args)
+
+
+def validate_update_args(args: argparse.Namespace):
+  """Specifically validate the args around the container updating."""
+  if args.rtd_updates and not args.sysroot_path:
+    raise Exception('sysroot_path must be given when updating RTDs.')
+  if not args.rtd_updates and not args.service_updates:
+    raise Exception('either -rtd_updates or -service_updates must be set when '
+                    '--update_containers is set.')
+  if not args.chroot_path:
+    raise Exception('chroot_path must be given when updating containers.')
 
 
 def validate_prereqs():
@@ -195,9 +235,11 @@ def make_ssh_cmd(cmd: str) -> str:
           ' -o "UserKnownHostsFile=/dev/null"  -o "StrictHostKeyChecking=no" ')
   return base + cmd + ' -N'
 
+
 def is_port_in_use(port: int) -> bool:
   with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     return s.connect_ex(('localhost', port)) == 0
+
 
 class ProxyManager(object):
   """Manager of proxy/tunnels to the DUT/services."""
@@ -298,7 +340,6 @@ class ProxyManager(object):
     if self.cache_file:
       self.cache_file.close()
 
-
   def wait_for_port(self, port: int) -> bool:
     """Wait for the port to be up."""
     st = time.time()
@@ -312,14 +353,14 @@ class ProxyManager(object):
 class CTRRunner(object):
   """The Cros-tool-runner, runner."""
 
-  def __init__(self, args: argparse.Namespace):
+  def __init__(self, args: argparse.Namespace, md_path: str, image_path: str):
     self.args = args
     self.ProxyManager = None
     self.resultsDir = ''
     self.cache_file = None
     self.cache_process = None
-    self.image_path = ''
-    self.md_path = None
+    self.image_path = image_path
+    self.md_path = md_path
     self.ctf_tests = {}
 
     self.startup()
@@ -344,10 +385,6 @@ class CTRRunner(object):
     self.ProxyManager.setup_ports()
     print('Tunnel setup completed')
     self.setup_artifactsDir()
-    if not self.args.md_path:
-      self.md_path, self.image_path = download_metadata(self.args)
-    else:
-      self.md_path = self.args.md_path
 
   def ctr_exists(self) -> bool:
     if os.path.isfile('cros-tool-runner'):
@@ -462,15 +499,30 @@ class CTRRunner(object):
       json.dump(req, fp)
 
 
+def _should_update_rtd(rtd, args):
+  return args.rtd_updates and rtd in args.rtd_updates
+
+
 def main():
   """Entry point."""
   args = parse_local_arguments()
   validate_args(args)
-
   validate_prereqs()
+  if not args.md_path:
+    md_path, image_path = download_metadata(args)
+  else:
+    md_path = args.md_path
+    image_path = args.image_path
 
-  with CTRRunner(args) as ctrRunner:
-
+  if args.update_containers:
+    md_path = ContainerUpdater(metadata=md_path,
+                               services=args.service_updates,
+                               tast=_should_update_rtd('tast', args),
+                               autotest=_should_update_rtd('tauto', args),
+                               chroot=args.chroot_path,
+                               sysroot=args.sysroot_path,
+                               board=args.board).Update_Containers()
+  with CTRRunner(args, md_path, image_path) as ctrRunner:
     cmds = []
     if args.fullrun:
       cmds.extend([ctrRunner.chromeOS_Provision,
@@ -483,10 +535,8 @@ def main():
                    ctrRunner.run_test])
     if args.publish:
       pass
-      # cmds.append(ctrRunner.publish_results)
     for cmd in cmds:
       cmd()
-      # break
 
 
 if __name__ == '__main__':
