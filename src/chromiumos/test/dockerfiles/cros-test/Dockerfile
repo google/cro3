@@ -17,7 +17,8 @@ RUN apt-get update \
       sudo \
       unzip \
       openjdk-11-jdk \
-      wget
+      wget \
+      xxd
 
 # grab gsutil
 RUN echo \
