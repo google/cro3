@@ -66,7 +66,7 @@ def normalize():
     def in_linux_chrome(command):
         return 'cd ./data/repositories/linux-chrome/; ' + command
     def in_configs(command):
-        return 'cd ./data/repositories/linux-chrome/CONFIGS; ' + command
+        return 'cd ./data/repositories/linux-chrome/CONFIGS/chromeos; ' + command
     def in_knext(command):
         return 'cd kernel-upstream; ' + command
 
@@ -117,7 +117,7 @@ def normalize():
     genconfig = in_linux_chrome('chromeos/scripts/kernelconfig genconfig 2>&1')
 
     commands = [
-        in_configs('cp ' + config[0] + ' ../../../../kernel-upstream/chromeos/config/chromeos/' + config[1] + ' 2>&1')  # pylint: disable=C0301
+        in_configs('cp ' + config[0] + ' ../../../../../kernel-upstream/chromeos/config/chromeos/' + config[1] + ' 2>&1')  # pylint: disable=C0301
         for config in configs
     ] + [
         in_knext('echo "' + iwl + '" >> ' + file)
