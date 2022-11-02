@@ -50,7 +50,7 @@ func (s CrOSInstallState) Execute(ctx context.Context, log *log.Logger) error {
 }
 
 func (s CrOSInstallState) Next() common_utils.ServiceState {
-	return CrOSPostInstallState{
+	return CrosUpdateFirmwareState{
 		service: s.service,
 	}
 }

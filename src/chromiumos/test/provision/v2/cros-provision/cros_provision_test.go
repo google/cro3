@@ -20,6 +20,11 @@ import (
 	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
+const (
+	mockedValidCrosidStdout           = "SKU=33\nCONFIG_INDEX=9\nFIRMWARE_MANIFEST_KEY='babytiger'\n"
+	mockedValidFirmwareManifestStdout = "{\n  \"babytiger\": {\n    \"host\": { \"versions\": { \"ro\": \"Google_Coral.10068.113.0\", \"rw\": \"Google_Coral.10068.113.0\" },\n      \"keys\": { \"root\": \"b11d74edd286c144e1135b49e7f0bc20cf041f10\", \"recovery\": \"c14bd720b70d97394257e3e826bd8f43de48d4ed\" },\n      \"image\": \"images/bios-coral.ro-10068-113-0.rw-10068-113-0.bin\" },\n    \"ec\": { \"versions\": { \"ro\": \"coral_v1.1.7302-d2b56e247\", \"rw\": \"coral_v1.1.7302-d2b56e247\" },\n      \"image\": \"images/ec-coral.ro-1-1-7302.rw-1-1-7302.bin\" },\n    \"signature_id\": \"babytiger\"\n  }\n}\n"
+)
+
 type PathExistsCommandStructure struct {
 	Path string
 }
@@ -80,6 +85,13 @@ var (
 	cgptRoot10                = RunCommandStructure{Command: "cgpt", Args: []string{"show", "-t", "root_disk", "-i", "10"}}
 	copyMiniOS9               = PipeCommandStructure{Source: "gs://path/to/image/full_dev_part_MINIOS.bin.gz", Command: "gzip -d | dd of=root_diskroot9 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot9 failed.\" >&2\n  exit 1\nfi"}
 	copyMiniOS10              = PipeCommandStructure{Source: "gs://path/to/image/full_dev_part_MINIOS.bin.gz", Command: "gzip -d | dd of=root_diskroot10 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot10 failed.\" >&2\n  exit 1\nfi"}
+	checkFirmwareUpdater      = PathExistsCommandStructure{Path: common_utils.FirmwareUpdaterPath}
+	updateFirmware            = RunCommandStructure{Command: common_utils.FirmwareUpdaterPath, Args: []string{"--wp=1", "--mode=autoupdate"}}
+	currentFirmwareSlot       = RunCommandStructure{Command: "crossystem", Args: []string{common_utils.CrossystemCurrentFirmwareSlotKey}}
+	nextFirmwareSlot          = RunCommandStructure{Command: "crossystem", Args: []string{common_utils.CrossystemNextFirmwareSlotKey}}
+	firmwareManifest          = RunCommandStructure{Command: common_utils.FirmwareUpdaterPath, Args: []string{"--manifest"}}
+	getCrosid                 = RunCommandStructure{Command: "crosid", Args: []string{}}
+	getCurrentFirmware        = RunCommandStructure{Command: "crossystem", Args: []string{"fwid"}}
 )
 
 // REVERT COMMANDS
@@ -108,6 +120,7 @@ func TestStateTransitions(t *testing.T) {
 		nil,
 		false,
 		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		true, // FirmwareUpdate enabled.
 	)
 
 	ctx := context.Background()
@@ -149,6 +162,25 @@ func TestStateTransitions(t *testing.T) {
 
 	if err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install state: %v", err)
+	}
+
+	// UPDATE FIRMWARE
+	st = st.Next()
+
+	gomock.InOrder(
+		getPathExistsCommand(sam, checkFirmwareUpdater).Return(true, nil),
+		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
+		getRunCmdCommand(sam, updateFirmware).Return("", nil),
+		getRunCmdCommand(sam, currentFirmwareSlot).Return("A", nil),
+		getRunCmdCommand(sam, nextFirmwareSlot).Return("B", nil),
+		getRestartCommand(sam).Return(nil),
+		getRunCmdCommand(sam, firmwareManifest).Return(mockedValidFirmwareManifestStdout, nil),
+		getRunCmdCommand(sam, getCrosid).Return(mockedValidCrosidStdout, nil),
+		getRunCmdCommand(sam, getCurrentFirmware).Return("Google_Coral.10068.113.0", nil),
+	)
+
+	if err := st.Execute(ctx, log); err != nil {
+		t.Fatalf("failed firmware-update state: %v", err)
 	}
 
 	// POST INSTALL
@@ -238,6 +270,7 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 		nil,
 		false,
 		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		false,
 	)
 
 	ctx := context.Background()
@@ -297,6 +330,7 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 		nil,
 		false,
 		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		false,
 	)
 
 	ctx := context.Background()
@@ -342,7 +376,7 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 	}
 }
 
-func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
+func TestFirmwareUpdateStateSkippedDueToNoUpdaterExist(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -355,8 +389,9 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 			Path:     "path/to/image",
 		},
 		nil,
-		true, // <- preserve stateful
+		false,
 		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		true,
 	)
 
 	ctx := context.Background()
@@ -375,10 +410,107 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 		t.Fatalf("failed init state: %v", err)
 	}
 
-	// INSTALL
-	st = st.Next()
-	// POST-INSTALL
-	st = st.Next()
+	// -> INSTALL -> FIRMWARE-UPDATE
+	st = st.Next().Next()
+
+	gomock.InOrder(
+		getPathExistsCommand(sam, checkFirmwareUpdater).Return(true, nil),
+		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
+		getRunCmdCommand(sam, updateFirmware).Return("", nil),
+		getRunCmdCommand(sam, currentFirmwareSlot).Return("A", nil),
+		getRunCmdCommand(sam, nextFirmwareSlot).Return("A", nil),
+		getRunCmdCommand(sam, firmwareManifest).Return(mockedValidFirmwareManifestStdout, nil),
+		getRunCmdCommand(sam, getCrosid).Return(mockedValidCrosidStdout, nil),
+		getRunCmdCommand(sam, getCurrentFirmware).Return("Google_Coral.10068.113.0", nil),
+	)
+
+	if err := st.Execute(ctx, log); err != nil {
+		t.Fatalf("failed firmware-update state: %v", err)
+	}
+}
+
+func TestFirmwareUpdateStateWithNoChange(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
+	cs := service.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "path/to/image",
+		},
+		nil,
+		false,
+		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		true,
+	)
+
+	ctx := context.Background()
+
+	// INIT STATE
+	st := state_machine.NewCrOSInitState(&cs)
+
+	gomock.InOrder(
+		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
+		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
+		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+	)
+
+	if err := st.Execute(ctx, log); err != nil {
+		t.Fatalf("failed init state: %v", err)
+	}
+
+	// -> INSTALL -> FIRMWARE-UPDATE
+	st = st.Next().Next()
+
+	gomock.InOrder(
+		getPathExistsCommand(sam, checkFirmwareUpdater).Return(false, nil),
+	)
+
+	if err := st.Execute(ctx, log); err != nil {
+		t.Fatalf("failed firmware-update state: %v", err)
+	}
+}
+
+func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
+	cs := service.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "path/to/image",
+		},
+		nil,
+		true, // <- preserve stateful
+		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		false,
+	)
+
+	ctx := context.Background()
+
+	// INIT STATE
+	st := state_machine.NewCrOSInitState(&cs)
+
+	gomock.InOrder(
+		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
+		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
+		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+	)
+
+	if err := st.Execute(ctx, log); err != nil {
+		t.Fatalf("failed init state: %v", err)
+	}
+
+	// -> INSTALL -> FIRMWARE-UPDATE -> POST-INSTALL
+	st = st.Next().Next().Next()
 
 	gomock.InOrder(
 		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
@@ -414,6 +546,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 		nil,
 		true, // <- preserve stateful
 		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		false,
 	)
 
 	ctx := context.Background()
@@ -432,10 +565,8 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 		t.Fatalf("failed init state: %v", err)
 	}
 
-	// INSTALL
-	st = st.Next()
-	// POST-INSTALL
-	st = st.Next()
+	// -> INSTALL -> FIRMWARE-UPDATE -> POST-INSTALL
+	st = st.Next().Next().Next()
 
 	gomock.InOrder(
 		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
@@ -468,6 +599,7 @@ func TestProvisionDLCWithEmptyDLCsDoesNotExecute(t *testing.T) {
 		nil,
 		false,
 		[]*api.CrOSProvisionMetadata_DLCSpec{}, // <- empty
+		false,
 	)
 
 	ctx := context.Background()
@@ -486,8 +618,8 @@ func TestProvisionDLCWithEmptyDLCsDoesNotExecute(t *testing.T) {
 		t.Fatalf("failed init state: %v", err)
 	}
 
-	// -> INSTALL -> POST-INSTALL -> VERIFY -> DLC
-	st = st.Next().Next().Next().Next()
+	// -> INSTALL -> FIRMWARE-UPDATE -> POST-INSTALL -> VERIFY -> DLC
+	st = st.Next().Next().Next().Next().Next()
 
 	// Nothing should be run, so no need to use mock expect
 	if err := st.Execute(ctx, log); err != nil {
@@ -510,6 +642,7 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 		nil,
 		false,
 		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		false,
 	)
 
 	ctx := context.Background()
@@ -528,8 +661,8 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 		t.Fatalf("failed init state: %v", err)
 	}
 
-	// -> INSTALL -> POST-INSTALL -> VERIFY -> DLC
-	st = st.Next().Next().Next().Next()
+	// -> INSTALL -> FIRMWARE-UPDATE -> POST-INSTALL -> VERIFY -> DLC
+	st = st.Next().Next().Next().Next().Next()
 
 	gomock.InOrder(
 		getRunCmdCommand(sam, stopDLCservice).Return("", nil),
@@ -566,6 +699,7 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 		},
 		false,
 		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		false,
 	)
 
 	ctx := context.Background()
@@ -584,8 +718,8 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 		t.Fatalf("failed init state: %v", err)
 	}
 
-	// -> INSTALL -> POST-INSTALL
-	st = st.Next().Next()
+	// -> INSTALL -> FIRMWARE-UPDATE -> POST-INSTALL
+	st = st.Next().Next().Next()
 
 	gomock.InOrder(
 		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),

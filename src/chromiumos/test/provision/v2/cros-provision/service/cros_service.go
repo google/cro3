@@ -24,6 +24,7 @@ type CrOSService struct {
 	OverwritePayload  *conf.StoragePath
 	PreserverStateful bool
 	DlcSpecs          []*api.CrOSProvisionMetadata_DLCSpec
+	UpdateFirmware    bool
 }
 
 func NewCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.InstallRequest) (*CrOSService, error) {
@@ -38,6 +39,7 @@ func NewCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.I
 		PreserverStateful: m.PreserveStateful,
 		DlcSpecs:          m.DlcSpecs,
 		MachineMetadata:   metadata.MachineMetadata{},
+		UpdateFirmware:    m.UpdateFirmware,
 	}, nil
 }
 
@@ -56,12 +58,13 @@ func NewCrOSServiceFromCrOSProvisionRequest(dutClient api.DutServiceClient, req 
 		PreserverStateful: false,
 		DlcSpecs:          dlcSpecs,
 		MachineMetadata:   metadata.MachineMetadata{},
+		UpdateFirmware:    req.GetProvisionState().UpdateFirmware,
 	}
 }
 
 // NewCrOSServiceFromExistingConnection is equivalent to the above constructor,
 // but recycles a ServiceAdapter. Generally useful for tests.
-func NewCrOSServiceFromExistingConnection(conn common_utils.ServiceAdapterInterface, imagePath *conf.StoragePath, overwritePayload *conf.StoragePath, preserverStateful bool, dlcSpecs []*api.CrOSProvisionMetadata_DLCSpec) CrOSService {
+func NewCrOSServiceFromExistingConnection(conn common_utils.ServiceAdapterInterface, imagePath *conf.StoragePath, overwritePayload *conf.StoragePath, preserverStateful bool, dlcSpecs []*api.CrOSProvisionMetadata_DLCSpec, updateFirmware bool) CrOSService {
 	return CrOSService{
 		Connection:        conn,
 		ImagePath:         imagePath,
@@ -69,6 +72,7 @@ func NewCrOSServiceFromExistingConnection(conn common_utils.ServiceAdapterInterf
 		PreserverStateful: preserverStateful,
 		DlcSpecs:          dlcSpecs,
 		MachineMetadata:   metadata.MachineMetadata{},
+		UpdateFirmware:    updateFirmware,
 	}
 }
 
