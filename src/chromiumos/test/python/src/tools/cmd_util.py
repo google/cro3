@@ -6,6 +6,7 @@
 
 import errno
 import functools
+import logging
 import operator
 import os
 import pathlib
@@ -14,7 +15,7 @@ import subprocess
 import sys
 import tempfile
 import time
-import logging
+
 
 sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve()/'../../'))
 

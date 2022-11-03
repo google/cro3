@@ -12,6 +12,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+
 sys.path.insert(1, '../../../')
 
 from src.tools import cmd_util

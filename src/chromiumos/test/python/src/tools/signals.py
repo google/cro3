@@ -4,8 +4,8 @@
 
 """Signal related functionality."""
 
-import signal
 import contextlib
+import signal
 
 
 def RelaySignal(handler, signum, frame):

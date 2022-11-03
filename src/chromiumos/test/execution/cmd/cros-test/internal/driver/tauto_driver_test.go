@@ -9,9 +9,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-
 	"chromiumos/test/execution/cmd/cros-test/internal/device"
+	"github.com/google/go-cmp/cmp"
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 // TestNewTautoArgs makes sure newTautoArgs creates the correct arguments for tauto.
@@ -45,6 +45,14 @@ func TestNewTautoArgs(t *testing.T) {
 		CameraboxFacing:     "front",
 		CableList:           []string{"type:usbaudio"},
 	}
+	customAutotestArgs := &api.AutotestExecutionMetadata{
+		Args: []*api.AutotestExecutionMetadata_Arg{
+			{
+				Flag:  "tast_list",
+				Value: "tast.example.Pass",
+			},
+		},
+	}
 
 	expectedArgs := tautoRunArgs{
 		target:   primary,
@@ -56,7 +64,7 @@ func TestNewTautoArgs(t *testing.T) {
 			dutServerFlag:       "localhost:2222,localhost:2223,localhost:2224",
 			attributes:          `{"servo_host":"127.123.332.121","servo_port":"1337","servo_serial":"8675309"}`,
 			labels:              "board:fred model:flintstone servo chameleon audio_board chameleon:vga chameleon:hdmi atrus mimo camerabox_facing:front type:usbaudio",
-			tautoArgs:           "dut_servers=localhost:2222,localhost:2223,localhost:2224 libs_server=192.168.1.1:8675",
+			tautoArgs:           "dut_servers=localhost:2222,localhost:2223,localhost:2224 libs_server=192.168.1.1:8675 tast_list=tast.example.Pass",
 			libsServerFlag:      "192.168.1.1:8675",
 		},
 		cftFlag: "--CFT",
@@ -64,7 +72,7 @@ func TestNewTautoArgs(t *testing.T) {
 
 	dut := primary
 	tests := []string{test1, test2, test3, test4, test5}
-	args, err := newTautoArgs(dut, companions, tests, dutServers, workDir1, libsServer)
+	args, err := newTautoArgs(dut, companions, tests, dutServers, workDir1, libsServer, customAutotestArgs)
 	if err != nil {
 		t.Errorf("Got err ")
 	}
