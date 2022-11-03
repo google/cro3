@@ -81,7 +81,13 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, req *api
 		libsServer = fmt.Sprintf("%s", primary.LibsServer)
 	}
 
-	args, err := newTautoArgs(primary, companions, testNames, dutServers, resultsDir, libsServer)
+	// Get autotest execution args
+	customAutotestArgs, err := unpackMetadata(req)
+	if err != nil {
+		return nil, err
+	}
+
+	args, err := newTautoArgs(primary, companions, testNames, dutServers, resultsDir, libsServer, customAutotestArgs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tauto args: %v", err)
 	}
@@ -162,7 +168,7 @@ type tautoRunArgs struct {
 }
 
 // newTautoArgs created an argument structure for invoking tauto
-func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, dutServers []string, resultsDir string, libsServer string) (*tautoRunArgs, error) {
+func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, dutServers []string, resultsDir string, libsServer string, customAutotestArgs *api.AutotestExecutionMetadata) (*tautoRunArgs, error) {
 	args := tautoRunArgs{
 		target: dut,
 		runFlags: map[string]string{
@@ -188,6 +194,10 @@ func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, d
 	if libsServer != "" {
 		args.runFlags[libsServerFlag] = libsServer
 		tautoArgsStr = tautoArgsStr + fmt.Sprintf(" %v=%v", "libs_server", libsServer)
+	}
+
+	for _, customAutotestArg := range customAutotestArgs.GetArgs() {
+		tautoArgsStr = tautoArgsStr + fmt.Sprintf(" %v=%v", customAutotestArg.GetFlag(), customAutotestArg.GetValue())
 	}
 
 	args.runFlags[tautoArgs] = tautoArgsStr
@@ -283,6 +293,19 @@ func appendChromeOsLabels(dut *device.DutInfo) (map[string]string, []string, err
 	}
 
 	return attrMap, labels, nil
+}
+
+// unpackMetadata unpacks the Any metadata field into AutotestExecutionMetadata
+func unpackMetadata(req *api.CrosTestRequest) (*api.AutotestExecutionMetadata, error) {
+	if req.Metadata == nil {
+		return &api.AutotestExecutionMetadata{}, nil
+	}
+
+	var m api.AutotestExecutionMetadata
+	if err := req.Metadata.UnmarshalTo(&m); err != nil {
+		return nil, fmt.Errorf("improperly formatted input proto metadata, %s", err)
+	}
+	return &m, nil
 }
 
 // genTautoArgList generates argument list for invoking Tauto
