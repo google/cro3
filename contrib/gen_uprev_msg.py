@@ -20,6 +20,7 @@ import logging
 import re
 import sys
 
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
@@ -33,14 +34,12 @@ IGNORED_PATTERNS = (
 )
 
 DEFAULT_REPOS = (
-    'src/overlays',
     'src/platform/bmpblk',
     'src/platform/depthcharge',
     'src/platform/ec',
     'src/platform/firmware',
     'src/platform/vboot_reference',
     'src/third_party/arm-trusted-firmware',
-    'src/third_party/chromiumos-overlay',
     'src/third_party/coreboot',
     'src/third_party/coreboot/3rdparty/blobs',
 )
@@ -158,7 +157,6 @@ def main(args):
 
     print(f'Changes between {changes[0]} and {changes[1]}:')
 
-    bugs = set()
     for repo, cl_list in repos:
         if not cl_list:
             continue
@@ -187,26 +185,9 @@ def main(args):
                 else:
                     line = ' ' * indentation + f'{title_line}'
                 print(line)
-            if cl.bug:
-                bugs.add(cl.bug)
 
     print()
-    bugs = [f'b:{bug}' if bug >= 1e8 else f'chromium:{bug}'
-            for bug in sorted(bugs)]
-    line_bugs = []
-    length = len('BUG=')
-    for bug in bugs:
-        if line_bugs:
-            bug = ', ' + bug
-        if length + len(bug) <= MAX_LENGTH:
-            line_bugs.append(bug)
-            length += len(bug)
-        else:
-            print('BUG=' + ''.join(line_bugs))
-            line_bugs = []
-            length = 0
-    if line_bugs:
-        print('BUG=' + ''.join(line_bugs))
+    print('BUG=<INSERT BUGS HERE>')
     print(f'TEST=emerge-{board} chromeos-firmware-{board}')
 
     # Warnings
