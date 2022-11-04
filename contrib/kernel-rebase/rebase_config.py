@@ -308,3 +308,4 @@ disp_overlay['a7c45d277d65'] = 'drop' # FROMLIST: ufs: core: print UFSHCD capabi
 disp_overlay['f9133b032aff'] = 'drop' # CHROMIUM: Bluetooth: disable passive scan temporary in set random address
 disp_overlay['1d172738cfd0'] = 'drop' # CHROMIUM: Bluetooth: Fix wrong filter setting in LE scan
 disp_overlay['8213f4f10840'] = 'drop' # CHROMIUM: Bluetooth: Improve adv/scan use around random address update
+disp_overlay['1e06f17e1b1a'] = 'drop' # CHROMIUM: rtw88: add mutex when set SAR
