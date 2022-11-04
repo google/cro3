@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/golang/protobuf/jsonpb"
@@ -66,6 +67,7 @@ func runTests(ctx context.Context, logger *log.Logger, resultRootDir, tlwAddr st
 		return nil, statuserrors.NewStatusError(statuserrors.IOCreateError,
 			fmt.Errorf("failed to create result root directory %v", resultRootDir))
 	}
+	defer exec.Command("chmod", "-R", "777", resultRootDir).Run()
 	mdPath := filepath.Join(resultRootDir, mdFilename)
 	if err := writeMetadata(mdPath, &api.TestCaseMetadataList{Values: matchedMdList}); err != nil {
 		return nil, err
