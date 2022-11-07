@@ -29,6 +29,7 @@ class CallboxConfiguration:
         self.simulation = None
         self.parameter_list = None
         self.iperf = None
+        self.tx_measurement = None
 
 
 class CallboxManager:
@@ -45,6 +46,7 @@ class CallboxManager:
             config.simulator = cmw.CMW500CellularSimulator(
                 config.host, config.port, app.logger)
             config.iperf = config.simulator.cmw.init_perf_measurement()
+            config.tx_measurement = config.simulator.cmw.init_lte_measurement()
 
         config.dut = ChromebookCellularDut.ChromebookCellularDut(
             'no_dut_connection', app.logger)
@@ -56,13 +58,19 @@ class CallboxManager:
                 }, None)
 
         config.parameter_list = data['parameter_list']
+        # Stop any existing connection before configuring as some configuration
+        # items cannot be adjusted while the UE is attached.
+        config.simulation.stop()
         config.simulation.parse_parameters(config.parameter_list)
+        config.simulator.wait_until_quiet()
+        config.simulation.setup_simulator()
         return 'OK'
 
     def begin_simulation(self, data):
         self._require_dict_keys(data, 'callbox')
         config = self._get_callbox_config(data['callbox'])
         config.simulation.start()
+        config.simulator.wait_until_quiet()
         return 'OK'
 
     def set_uplink_tx_power(self, data):
@@ -75,6 +83,7 @@ class CallboxManager:
         ]
         power = config.simulation.get_uplink_power_from_parameters(parameters)
         config.simulation.set_uplink_tx_power(power)
+        config.simulator.wait_until_quiet()
         return 'OK'
 
     def set_downlink_rx_power(self, data):
@@ -120,7 +129,7 @@ class CallboxManager:
         config.simulation.send_sms(data['sms'])
         return 'OK'
 
-    def config_iperf(self, data):
+    def configure_iperf(self, data):
         self._require_dict_keys(data, 'callbox')
         config = self._get_callbox_config(data['callbox'])
         config.iperf.configure(data)
@@ -153,6 +162,42 @@ class CallboxManager:
         self._require_dict_keys(data, 'callbox')
         config = self._get_callbox_config(data['callbox'])
         return {'ip': config.iperf.ip_address}
+
+    def configure_uplink_measurement(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        sample_count = data.get("sample_count", 100)
+        config.tx_measurement.sample_count = sample_count
+        return 'OK'
+
+    def run_uplink_measurement(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        config.tx_measurement.run_measurement()
+        return 'OK'
+
+    def query_uplink_measurement(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        meas = config.tx_measurement
+        return {
+            'average': meas.tx_average,
+            'min': meas.tx_min,
+            'max': meas.tx_max,
+            'stdev': meas.tx_stdev,
+        }
+
+    def stop_uplink_measurement(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        config.tx_measurement.stop_measurement()
+        return 'OK'
+
+    def close_uplink_measurement(self, data):
+        self._require_dict_keys(data, 'callbox')
+        config = self._get_callbox_config(data['callbox'])
+        config.tx_measurement.abort_measurement()
+        return 'OK'
 
     def _get_callbox_config(self, callbox, create_if_dne=False):
         if callbox not in self.configs_by_host:
@@ -189,12 +234,17 @@ path_lookup = {
     'config/fetch/maxthroughput': callbox_manager.query_throughput,
     'start': callbox_manager.begin_simulation,
     'sms': callbox_manager.send_sms,
-    'iperf/config': callbox_manager.config_iperf,
+    'iperf/config': callbox_manager.configure_iperf,
     'iperf/start': callbox_manager.start_iperf,
     'iperf/stop': callbox_manager.stop_iperf,
     'iperf/close': callbox_manager.close_iperf,
     'iperf/fetch/result': callbox_manager.query_iperf_results,
     'iperf/fetch/ip': callbox_manager.query_iperf_ip,
+    'txmeas/config': callbox_manager.configure_uplink_measurement,
+    'txmeas/run': callbox_manager.run_uplink_measurement,
+    'txmeas/stop': callbox_manager.stop_uplink_measurement,
+    'txmeas/close': callbox_manager.close_uplink_measurement,
+    'txmeas/fetch/result': callbox_manager.query_uplink_measurement,
 }
 
 

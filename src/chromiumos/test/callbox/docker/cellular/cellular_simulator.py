@@ -428,6 +428,15 @@ class AbstractCellularSimulator:
         """
         raise NotImplementedError()
 
+    def wait_until_quiet(self, timeout=120):
+        """Waits for all pending operations to finish on the simulator.
+
+        Args:
+            timeout: after this amount of time the method will raise a
+                CellularSimulatorError exception. Default is 120 seconds.
+        """
+        raise NotImplementedError()
+
     def detach(self):
         """ Turns off all the base stations so the DUT loose connection."""
         raise NotImplementedError()

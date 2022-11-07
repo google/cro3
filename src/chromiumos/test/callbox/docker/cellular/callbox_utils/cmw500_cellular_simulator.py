@@ -259,10 +259,10 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
             self.log.warning('Open loop supports-50dBm to 23 dBm. '
                              'Setting it to max power 23 dBm')
             input_power = 23
+        bts.tpc_closed_loop_target_power = input_power
         # open loop power only supports integers
         bts.uplink_power_control = round(input_power)
         bts.tpc_power_control = cmw500.TpcPowerControl.CLOSED_LOOP
-        bts.tpc_closed_loop_target_power = input_power
 
     def set_output_power(self, bts_index, output_power):
         """ Sets the output power for the indicated base station.
@@ -349,6 +349,9 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
         elif mimo_mode == cmw500.MimoModes.MIMO2x2:
             self.cmw.configure_mimo_settings(cmw500.MimoScenario.SCEN2x2)
             bts.dl_antenna = cmw500.MimoModes.MIMO2x2
+            # set default transmission mode and DCI for this scenario
+            bts.transmode = cmw500.TransmissionModes.TM3
+            bts.dci_format = cmw500.DciFormat.D2A
 
         elif mimo_mode == cmw500.MimoModes.MIMO4x4:
             self.cmw.configure_mimo_settings(cmw500.MimoScenario.SCEN4x4)
@@ -581,6 +584,15 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
                                             'Idle state before '
                                             'the timeout period ended.')
 
+    def wait_until_quiet(self, timeout=120):
+        """Waits for all pending operations to finish on the simulator.
+
+        Args:
+            timeout: after this amount of time the method will raise a
+                CellularSimulatorError exception. Default is 120 seconds.
+        """
+        self.cmw.send_and_recv('*OPC?')
+
     def detach(self):
         """ Turns off all the base stations so the DUT loose connection."""
         self.cmw.detach()
@@ -588,7 +600,8 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
     def stop(self):
         """ Stops current simulation. After calling this method, the simulator
         will need to be set up again. """
-        raise NotImplementedError()
+        self.detach()
+        self.cmw.switch_lte_signalling(cmw500.LteState.LTE_OFF)
 
     def start_data_traffic(self):
         """ Starts transmitting data from the instrument to the DUT. """
