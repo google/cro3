@@ -15,18 +15,15 @@ import subprocess
 import sys
 import tempfile
 
-from google.protobuf.any_pb2 import Any
 from google.protobuf.json_format import MessageToJson
-
 
 # Used to import the proto stack.
 sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve() / '../../../../../../../../config/python'))
-import chromiumos.test.api.cros_test_cli_pb2 as cros_test_request
-import chromiumos.test.api.test_case_pb2 as test_case
-import chromiumos.test.api.test_execution_metadata_pb2 as test_execution_metatdata
-import chromiumos.test.api.test_suite_pb2 as test_suite
 import chromiumos.test.lab.api.dut_pb2 as lab_protos
 import chromiumos.test.lab.api.ip_endpoint_pb2 as IpEndpoint
+import chromiumos.test.api.cros_test_cli_pb2 as cros_test_request
+import chromiumos.test.api.test_case_pb2 as test_case
+import chromiumos.test.api.test_suite_pb2 as test_suite
 
 
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -73,14 +70,6 @@ def parse_local_arguments() -> argparse.Namespace:
                       dest='host',
                       default='localhost:2222',
                       help='hostname of dut.')
-  parser.add_argument('-autotest_args',
-                      dest='autotest_args',
-                      default='',
-                      nargs='*',
-                      help='Flag/value pairs to pass through to'
-                           'test_that. Note, flags and values must be'
-                           'separated by \'=\' character. '
-                           'e.g. --autotest_args foo=bar cat="in a hat"')
 
   args = parser.parse_args()
   return args
@@ -140,7 +129,6 @@ class CrosTestCaller(object):
     # Base docker run command to build from.
     self.args = args
     self.test_request = args.tests.split(',')
-    self.autotest_args = args.autotest_args
     self.harness = args.harness
     self.dutAddr = args.host
     self.image = image
@@ -198,21 +186,9 @@ class CrosTestCaller(object):
     """Builds the request proto"""
     dut = self.build_dut_info()
     tests = self.build_test_info()
-    metadata = self.build_metadata_info()
     primary = cros_test_request.CrosTestRequest.Device(dut=dut)
-    f = cros_test_request.CrosTestRequest(primary=primary, test_suites=tests, metadata=metadata)
+    f = cros_test_request.CrosTestRequest(primary=primary, test_suites=tests)
     return f
-
-  def build_metadata_info(self):
-    """Builds the test execution metadata proto"""
-    autotest_args_proto = []
-    for flag_value_pair in self.autotest_args:
-      flag, value = flag_value_pair.split("=", 1)
-      autotest_arg_proto = test_execution_metatdata.AutotestExecutionMetadata.Arg(flag=flag, value=value)
-      autotest_args_proto.append(autotest_arg_proto)
-    metadata = Any()
-    metadata.Pack(test_execution_metatdata.AutotestExecutionMetadata(args=autotest_args_proto))
-    return metadata
 
   def build_test_info(self) -> test_suite.TestSuite:
     """Build the test suite info/proto."""
