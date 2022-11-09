@@ -9,11 +9,14 @@ import (
 	"chromiumos/test/execution/errors"
 	"encoding/json"
 	"fmt"
-	"github.com/golang/protobuf/ptypes"
 	"io/ioutil"
+	"log"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/golang/protobuf/ptypes"
 
 	_go "go.chromium.org/chromiumos/config/go"
 	"go.chromium.org/chromiumos/config/go/test/api"
@@ -99,6 +102,10 @@ func GenerateReport(test test, testID string, resultsDir string) *api.TestCaseRe
 		},
 	}
 
+	// Overwrite the tauto harness in the test was a tast subtest.
+	if strings.HasPrefix(testID, "tast.") {
+		testResult.TestHarness = &api.TestHarness{TestHarnessType: &api.TestHarness_Tast_{Tast: &api.TestHarness_Tast{}}}
+	}
 	startTime := getTime(test.StartTime)
 	if startTime != time.Unix(0, 0) {
 		startProtoTime, err := ptypes.TimestampProto(startTime)
@@ -168,12 +175,12 @@ func TestsReports(resultsDir string, tests []string, testNamesToIds map[string]s
 	if err != nil {
 		return append(report.testCaseResults, report.MissingTestsReports(missingReason)...), err
 	}
-
 	for _, test := range report.RawResults.Tests {
+		var testID string
 		testID, ok := testNamesToIds[test.Testname]
 		if !ok {
-			return report.testCaseResults, errors.NewStatusError(errors.InvalidArgument,
-				fmt.Errorf("failed to find test id for test %v", test.Testname))
+			testID = test.Testname
+			log.Printf("failed to find test id for test: %v, will default to this name.", test.Testname)
 		}
 		report.reportedTests[test.Testname] = struct{}{}
 		report.testCaseResults = append(report.testCaseResults, GenerateReport(test, testID, resultsDir))
