@@ -47,6 +47,7 @@ class CrosPublishArtifactPrep(CrosArtifactPrep):
 
         # Download the required packages
         self.install_cipd_package()
+        self.cipd_init()
         self.install_result_adapter_package()
         self.install_rdb_package()
 
@@ -102,6 +103,19 @@ class CrosPublishArtifactPrep(CrosArtifactPrep):
         if code != 0:
             print("unzipping cipd package failed")
 
+    def cipd_init(self):
+        """Initialize Cipd."""
+
+        out, err, code = run(
+            f'{self.full_out}/cipd init -verbose -force {self.full_out}'
+        )
+        if out != "":
+            print(out)
+        if err != "":
+            print(err)
+        if code != 0:
+            print("Initializing cipd failed")
+
     def install_result_adapter_package(self):
         """Install result_adapter package using cipd."""
         result_adapter_package = 'infra/tools/result_adapter/linux-amd64'
@@ -109,7 +123,7 @@ class CrosPublishArtifactPrep(CrosArtifactPrep):
         output_loc = f'{self.full_out}/result_adapter_cipd_metadata.json'
 
         out, err, code = run(
-            f'{self.full_out}/cipd install {result_adapter_package} {result_adapter_version} -json-output {output_loc}'
+            f'{self.full_out}/cipd install {result_adapter_package} {result_adapter_version} -root {self.full_out} -json-output {output_loc}'
         )
         if out != "":
             print(out)
@@ -125,7 +139,7 @@ class CrosPublishArtifactPrep(CrosArtifactPrep):
         output_loc = f'{self.full_out}/rdb_cipd_metadata.json'
 
         out, err, code = run(
-            f'{self.full_out}/cipd install {result_adapter_package} {result_adapter_version} -json-output {output_loc}'
+            f'{self.full_out}/cipd install {result_adapter_package} {result_adapter_version} -root {self.full_out} -json-output {output_loc}'
         )
         if out != "":
             print(out)

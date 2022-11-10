@@ -27,6 +27,9 @@ COPY gcs-publish /usr/bin/gcs-publish
 COPY tko-publish /usr/bin/tko-publish
 COPY rdb-publish /usr/bin/rdb-publish
 
+COPY rdb /usr/bin/rdb
+COPY result_adapter /usr/bin/result_adapter
+
 COPY result_adapter_cipd_metadata.json /tmp/rdb-publish/result_adapter_cipd_metadata.json
 COPY rdb_cipd_metadata.json /tmp/rdb-publish/rdb_cipd_metadata.json
 
