@@ -7,8 +7,8 @@
 from enum import Enum
 import time
 
-from . import cmw500_iperf_measurement as perf
-from .. import abstract_inst
+from cellular import abstract_inst
+from cellular.callbox_utils import cmw500_iperf_measurement as perf
 
 
 LTE_ATTACH_RESP = 'ATT'
@@ -318,8 +318,8 @@ class Cmw500(abstract_inst.SocketInstrument):
         """
         if state not in [LTE_CONN_RESP, LTE_IDLE_RESP]:
             raise ValueError(
-                    'The allowed values for state are {} and {}.'.format(
-                            LTE_CONN_RESP, LTE_IDLE_RESP))
+                'The allowed values for state are {} and {}.'.format(
+                    LTE_CONN_RESP, LTE_IDLE_RESP))
 
         while timeout > 0:
             new_state = self.send_and_recv('SENSe:LTE:SIGN:RRCState?')
@@ -452,15 +452,20 @@ class Cmw500(abstract_inst.SocketInstrument):
 
     def set_sms(self, sms_message):
         """Sets the SMS message to be sent by the callbox."""
-        self.send_and_recv('CONFigure:LTE:SIGN:SMS:OUTGoing:INTernal "%s"' % sms_message)
+        self.send_and_recv('CONFigure:LTE:SIGN:SMS:OUTGoing:INTernal "%s"' %
+                           sms_message)
 
     def send_sms(self):
         """Sends the SMS message."""
         self.send_and_recv('CALL:LTE:SIGN:PSWitched:ACTion SMS; *OPC?')
         timeout = time.time() + STATE_CHANGE_TIMEOUT
-        while "SUCC" != self.send_and_recv('SENSe:LTE:SIGN:SMS:OUTGoing:INFO:LMSent?'):
+        while "SUCC" != self.send_and_recv(
+                'SENSe:LTE:SIGN:SMS:OUTGoing:INFO:LMSent?'):
             if time.time() > timeout:
-                raise CmwError("SENSe:LTE:SIGN:SMS:OUTGoing:INFO:LMSent? never returns status 'SUCC' instead got (%s)" % self.send_and_recv('SENSe:LTE:SIGN:SMS:OUTGoing:INFO:LMSent?'))
+                raise CmwError(
+                    "SENSe:LTE:SIGN:SMS:OUTGoing:INFO:LMSent? never returns status 'SUCC' instead got (%s)"
+                    % self.send_and_recv(
+                        'SENSe:LTE:SIGN:SMS:OUTGoing:INFO:LMSent?'))
             time.sleep(2)
 
 
@@ -522,7 +527,7 @@ class BaseStation(object):
             channel: downlink channel number of cell.
         """
         cmd = 'CONFigure:LTE:SIGN:RFSettings:{}:CHANnel:DL {}'.format(
-                self._bts, channel)
+            self._bts, channel)
         self._cmw.send_and_recv(cmd)
 
     @property
@@ -539,7 +544,7 @@ class BaseStation(object):
             channel: up link channel number of cell.
         """
         cmd = 'CONFigure:LTE:SIGN:RFSettings:{}:CHANnel:UL {}'.format(
-                self._bts, channel)
+            self._bts, channel)
         self._cmw.send_and_recv(cmd)
 
     @property
@@ -559,14 +564,14 @@ class BaseStation(object):
             raise ValueError('bandwidth should be an instance of '
                              'LteBandwidth.')
         cmd = 'CONFigure:LTE:SIGN:CELL:BANDwidth:{}:DL {}'.format(
-                self._bts, bandwidth.value)
+            self._bts, bandwidth.value)
         self._cmw.send_and_recv(cmd)
 
     @property
     def ul_frequency(self):
         """Get the uplink frequency of the cell."""
         cmd = 'CONFigure:LTE:SIGN:RFSettings:{}:CHANnel:UL? MHZ'.format(
-                self._bts)
+            self._bts)
         return self._cmw.send_and_recv(cmd)
 
     @ul_frequency.setter
@@ -577,14 +582,14 @@ class BaseStation(object):
             freq: uplink frequency of the cell.
         """
         cmd = 'CONFigure:LTE:SIGN:RFSettings:{}:CHANnel:UL {} MHZ'.format(
-                self._bts, freq)
+            self._bts, freq)
         self._cmw.send_and_recv(cmd)
 
     @property
     def dl_frequency(self):
         """Get the downlink frequency of the cell"""
         cmd = 'CONFigure:LTE:SIGN:RFSettings:{}:CHANnel:DL? MHZ'.format(
-                self._bts)
+            self._bts)
         return self._cmw.send_and_recv(cmd)
 
     @dl_frequency.setter
@@ -595,14 +600,14 @@ class BaseStation(object):
             freq: downlink frequency of the cell.
         """
         cmd = 'CONFigure:LTE:SIGN:RFSettings:{}:CHANnel:DL {} MHZ'.format(
-                self._bts, freq)
+            self._bts, freq)
         self._cmw.send_and_recv(cmd)
 
     @property
     def transmode(self):
         """Gets the TM of cell."""
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:TRANsmission?'.format(
-                self._bts)
+            self._bts)
         return self._cmw.send_and_recv(cmd)
 
     @transmode.setter
@@ -617,7 +622,7 @@ class BaseStation(object):
                              'Transmission modes.')
 
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:TRANsmission {}'.format(
-                self._bts, tm_mode.value)
+            self._bts, tm_mode.value)
         self._cmw.send_and_recv(cmd)
 
     @property
@@ -634,7 +639,7 @@ class BaseStation(object):
             pwlevel: power level in dBm.
         """
         cmd = 'CONFigure:LTE:SIGN:DL:{}:RSEPre:LEVel {}'.format(
-                self._bts, pwlevel)
+            self._bts, pwlevel)
         self._cmw.send_and_recv(cmd)
 
     @property
@@ -651,7 +656,7 @@ class BaseStation(object):
             ul_power: uplink power level.
         """
         cmd = 'CONFigure:LTE:SIGN:UL:{}:PUSCh:OLNPower {}'.format(
-                self._bts, ul_power)
+            self._bts, ul_power)
         self._cmw.send_and_recv(cmd)
 
     @property
@@ -692,7 +697,7 @@ class BaseStation(object):
                              ' inclusive.')
 
         cmd = 'CONFigure:LTE:SIGN:CELL:{}:SSUBframe {}'.format(
-                self._bts, sframe)
+            self._bts, sframe)
         self._cmw.send_and_recv(cmd)
 
     @property
@@ -712,7 +717,7 @@ class BaseStation(object):
             raise ValueError('mode should be the instance of scheduling mode.')
 
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:STYPe {}'.format(
-                self._bts, mode.value)
+            self._bts, mode.value)
         self._cmw.send_and_recv(cmd)
 
     @property
@@ -721,7 +726,7 @@ class BaseStation(object):
         Number of Resource blocks, Resource block position and Modulation type.
         """
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:{}:DL?'.format(
-                self._bts, self.scheduling_mode)
+            self._bts, self.scheduling_mode)
         return self._cmw.send_and_recv(cmd)
 
     @rb_configuration_dl.setter
@@ -762,7 +767,7 @@ class BaseStation(object):
         Number of Resource blocks, Resource block position and Modulation type.
         """
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:{}:UL?'.format(
-                self._bts, self.scheduling_mode)
+            self._bts, self.scheduling_mode)
         return self._cmw.send_and_recv(cmd)
 
     @rb_configuration_ul.setter
@@ -838,7 +843,7 @@ class BaseStation(object):
         the channel band-width.
         """
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:RMC:RBPosition:DL?'.format(
-                self._bts)
+            self._bts)
         return self._cmw.send_and_recv(cmd)
 
     @rb_position_dl.setter
@@ -853,7 +858,7 @@ class BaseStation(object):
             raise ValueError('rbpos should be the instance of RbPosition.')
 
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:RMC:RBPosition:DL {}'.format(
-                self._bts, rbpos.value)
+            self._bts, rbpos.value)
         self._cmw.send_and_recv(cmd)
 
     @property
@@ -862,7 +867,7 @@ class BaseStation(object):
         the channel band-width.
         """
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:RMC:RBPosition:UL?'.format(
-                self._bts)
+            self._bts)
         return self._cmw.send_and_recv(cmd)
 
     @rb_position_ul.setter
@@ -877,7 +882,7 @@ class BaseStation(object):
             raise ValueError('rbpos should be the instance of RbPosition.')
 
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:RMC:RBPosition:UL {}'.format(
-                self._bts, rbpos.value)
+            self._bts, rbpos.value)
         self._cmw.send_and_recv(cmd)
 
     @property
@@ -897,14 +902,14 @@ class BaseStation(object):
             raise ValueError('dci_format should be the instance of DciFormat.')
 
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:DCIFormat {}'.format(
-                self._bts, dci_format)
+            self._bts, dci_format)
         self._cmw.send_and_recv(cmd)
 
     @property
     def dl_antenna(self):
         """Gets dl antenna count of cell."""
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:NENBantennas?'.format(
-                self._bts)
+            self._bts)
         return self._cmw.send_and_recv(cmd)
 
     @dl_antenna.setter
@@ -917,14 +922,14 @@ class BaseStation(object):
         if not isinstance(num_antenna, MimoModes):
             raise ValueError('num_antenna should be an instance of MimoModes.')
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:NENBantennas {}'.format(
-                self._bts, num_antenna.value)
+            self._bts, num_antenna.value)
         self._cmw.send_and_recv(cmd)
 
     @property
     def reduced_pdcch(self):
         """Gets the reduction of PDCCH resources state."""
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:PDCCh:RPDCch?'.format(
-                self._bts)
+            self._bts)
         return self._cmw.send_and_recv(cmd)
 
     @reduced_pdcch.setter
@@ -935,7 +940,7 @@ class BaseStation(object):
             state: ON/OFF.
         """
         cmd = 'CONFigure:LTE:SIGN:CONNection:{}:PDCCh:RPDCch {}'.format(
-                self._bts, state.value)
+            self._bts, state.value)
         self._cmw.send_and_recv(cmd)
 
     def tpc_power_control(self, set_type):
@@ -949,7 +954,7 @@ class BaseStation(object):
             raise ValueError('set_type should be the instance of '
                              'TpCPowerControl.')
         cmd = 'CONFigure:LTE:SIGN:UL:{}:PUSCh:TPC:SET {}'.format(
-                self._bts, set_type.value)
+            self._bts, set_type.value)
         self._cmw.send_and_recv(cmd)
         cmd = 'CONFigure:LTE:SIGN:UL:{}:PUSCh:TPC:PEXecute'.format(self._bts)
         self._cmw.send_and_recv(cmd)
@@ -968,7 +973,7 @@ class BaseStation(object):
             tpower: Target power.
         """
         cmd = 'CONFigure:LTE:SIGN:UL:{}:PUSCh:TPC:CLTPower {}'.format(
-                self._bts, cltpower)
+            self._bts, cltpower)
         self._cmw.send_and_recv(cmd)
 
     @property
@@ -1136,7 +1141,7 @@ class LteMeasurement(object):
     def measurement_repetition(self):
         """Returns the measurement repetition mode that has been set."""
         return self._cmw.send_and_recv(
-                'CONFigure:LTE:MEAS:MEValuation:REPetition?')
+            'CONFigure:LTE:MEAS:MEValuation:REPetition?')
 
     @measurement_repetition.setter
     def measurement_repetition(self, mode):
@@ -1160,7 +1165,7 @@ class LteMeasurement(object):
     def measure_tx_power(self):
         """Return the current Tx power measurement."""
         return self._cmw.send_and_recv(
-                'FETCh:LTE:MEAS:MEValuation:PMONitor:AVERage?')
+            'FETCh:LTE:MEAS:MEValuation:PMONitor:AVERage?')
 
     def stop_measurement(self):
         """Stops the on-going measurement.

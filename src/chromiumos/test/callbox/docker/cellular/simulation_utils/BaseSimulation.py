@@ -8,9 +8,8 @@
 from enum import Enum
 import time
 
+from cellular import cellular_simulator
 import numpy as np
-
-from .. import cellular_simulator
 
 
 class BaseSimulation(object):
@@ -113,7 +112,7 @@ class BaseSimulation(object):
                              'parameters. Setting to off by default. To '
                              'turn calibration on, include the key with '
                              'a true/false value.'.format(
-                                     self.KEY_CALIBRATION))
+                                 self.KEY_CALIBRATION))
 
         self.calibration_required = test_config.get(self.KEY_CALIBRATION,
                                                     False)
@@ -122,8 +121,8 @@ class BaseSimulation(object):
         if self.KEY_ATTACH_RETRIES not in test_config:
             self.log.warning('The {} key is not set in the testbed '
                              'parameters. Setting to {} by default.'.format(
-                                     self.KEY_ATTACH_RETRIES,
-                                     self.DEFAULT_ATTACH_RETRIES))
+                                 self.KEY_ATTACH_RETRIES,
+                                 self.DEFAULT_ATTACH_RETRIES))
 
         self.attach_retries = test_config.get(self.KEY_ATTACH_RETRIES,
                                               self.DEFAULT_ATTACH_RETRIES)
@@ -132,8 +131,8 @@ class BaseSimulation(object):
         if self.KEY_ATTACH_TIMEOUT not in test_config:
             self.log.warning('The {} key is not set in the testbed '
                              'parameters. Setting to {} by default.'.format(
-                                     self.KEY_ATTACH_TIMEOUT,
-                                     self.DEFAULT_ATTACH_TIMEOUT))
+                                 self.KEY_ATTACH_TIMEOUT,
+                                 self.DEFAULT_ATTACH_TIMEOUT))
 
         self.attach_timeout = test_config.get(self.KEY_ATTACH_TIMEOUT,
                                               self.DEFAULT_ATTACH_TIMEOUT)
@@ -215,8 +214,7 @@ class BaseSimulation(object):
 
                 # The phone failed to attach
                 self.log.info(
-                        "UE failed to attach on attempt number {}.".format(i +
-                                                                           1))
+                    "UE failed to attach on attempt number {}.".format(i + 1))
 
                 # Turn airplane mode on to prepare the phone for a retry.
                 self.dut.toggle_airplane_mode(True)
@@ -363,8 +361,8 @@ class BaseSimulation(object):
                 return_list.append(parameters.pop(i))
         except IndexError:
             raise ValueError(
-                    "Parameter {} has to be followed by {} values.".format(
-                            parameter_name, num_values))
+                "Parameter {} has to be followed by {} values.".format(
+                    parameter_name, num_values))
 
         return return_list
 
@@ -376,7 +374,7 @@ class BaseSimulation(object):
         """
         new_config = self.BtsConfig()
         new_config.input_power = self.calibrated_uplink_tx_power(
-                self.primary_config, signal_level)
+            self.primary_config, signal_level)
         self.simulator.configure_bts(new_config)
         self.primary_config.incorporate(new_config)
 
@@ -388,7 +386,7 @@ class BaseSimulation(object):
         """
         new_config = self.BtsConfig()
         new_config.output_power = self.calibrated_downlink_rx_power(
-                self.primary_config, signal_level)
+            self.primary_config, signal_level)
         self.simulator.configure_bts(new_config)
         self.primary_config.incorporate(new_config)
 
@@ -426,12 +424,12 @@ class BaseSimulation(object):
         # If the method got to this point it is because PARAM_UL_PW was not
         # included in the test parameters or the provided value was invalid.
         raise ValueError(
-                "The test name needs to include parameter {} followed by the "
-                "desired uplink power expressed by an integer number in dBm "
-                "or by one the following values: {}. To indicate negative "
-                "values, use the letter n instead of - sign.".format(
-                        self.PARAM_UL_PW,
-                        list(self.UPLINK_SIGNAL_LEVEL_DICTIONARY.keys())))
+            "The test name needs to include parameter {} followed by the "
+            "desired uplink power expressed by an integer number in dBm "
+            "or by one the following values: {}. To indicate negative "
+            "values, use the letter n instead of - sign.".format(
+                self.PARAM_UL_PW,
+                list(self.UPLINK_SIGNAL_LEVEL_DICTIONARY.keys())))
 
     def get_downlink_power_from_parameters(self, parameters):
         """ Reads downlink power from a list of parameters. """
@@ -453,7 +451,7 @@ class BaseSimulation(object):
             power = self.DOWNLINK_SIGNAL_LEVEL_DICTIONARY['excellent']
             self.log.info("No DL signal level value was indicated in the test "
                           "parameters. Using default value of {} {}.".format(
-                                  power, self.DOWNLINK_SIGNAL_LEVEL_UNITS))
+                              power, self.DOWNLINK_SIGNAL_LEVEL_UNITS))
             return power
 
     def calibrated_downlink_rx_power(self, bts_config, signal_level):
@@ -483,22 +481,22 @@ class BaseSimulation(object):
             calibrated_power = round(power + self.dl_path_loss, 1)
             if calibrated_power > self.simulator.MAX_DL_POWER:
                 self.log.warning(
-                        "Cannot achieve phone DL Rx power of {} dBm. Requested TX "
-                        "power of {} dBm exceeds callbox limit!".format(
-                                power, calibrated_power))
+                    "Cannot achieve phone DL Rx power of {} dBm. Requested TX "
+                    "power of {} dBm exceeds callbox limit!".format(
+                        power, calibrated_power))
                 calibrated_power = self.simulator.MAX_DL_POWER
                 self.log.warning(
-                        "Setting callbox Tx power to max possible ({} dBm)".
-                        format(calibrated_power))
+                    "Setting callbox Tx power to max possible ({} dBm)".format(
+                        calibrated_power))
 
             self.log.info(
-                    "Requested phone DL Rx power of {} dBm, setting callbox Tx "
-                    "power at {} dBm".format(power, calibrated_power))
+                "Requested phone DL Rx power of {} dBm, setting callbox Tx "
+                "power at {} dBm".format(power, calibrated_power))
             # Power has to be a natural number so calibration wont be exact.
             # Inform the actual received power after rounding.
             self.log.info(
-                    "Phone downlink received power is {0:.2f} dBm".format(
-                            calibrated_power - self.dl_path_loss))
+                "Phone downlink received power is {0:.2f} dBm".format(
+                    calibrated_power - self.dl_path_loss))
             return calibrated_power
         except TypeError:
             self.log.info("Phone downlink received power set to {} (link is "
@@ -532,22 +530,22 @@ class BaseSimulation(object):
             calibrated_power = round(power - self.ul_path_loss, 1)
             if calibrated_power < self.UL_MIN_POWER:
                 self.log.warning(
-                        "Cannot achieve phone UL Tx power of {} dBm. Requested UL "
-                        "power of {} dBm exceeds callbox limit!".format(
-                                power, calibrated_power))
+                    "Cannot achieve phone UL Tx power of {} dBm. Requested UL "
+                    "power of {} dBm exceeds callbox limit!".format(
+                        power, calibrated_power))
                 calibrated_power = self.UL_MIN_POWER
                 self.log.warning(
-                        "Setting UL Tx power to min possible ({} dBm)".format(
-                                calibrated_power))
+                    "Setting UL Tx power to min possible ({} dBm)".format(
+                        calibrated_power))
 
             self.log.info(
-                    "Requested phone UL Tx power of {} dBm, setting callbox Rx "
-                    "power at {} dBm".format(power, calibrated_power))
+                "Requested phone UL Tx power of {} dBm, setting callbox Rx "
+                "power at {} dBm".format(power, calibrated_power))
             # Power has to be a natural number so calibration wont be exact.
             # Inform the actual transmitted power after rounding.
             self.log.info(
-                    "Phone uplink transmitted power is {0:.2f} dBm".format(
-                            calibrated_power + self.ul_path_loss))
+                "Phone uplink transmitted power is {0:.2f} dBm".format(
+                    calibrated_power + self.ul_path_loss))
             return calibrated_power
         except TypeError:
             self.log.info("Phone uplink transmitted power set to {} (link is "
@@ -570,7 +568,7 @@ class BaseSimulation(object):
         # Attach the phone to the base station
         if not self.attach():
             self.log.info(
-                    "Skipping calibration because the phone failed to attach.")
+                "Skipping calibration because the phone failed to attach.")
             return
 
         # If downlink or uplink were not yet calibrated, do it now
@@ -618,8 +616,8 @@ class BaseSimulation(object):
         # this class passing the necessary parameters.
         if not rat:
             raise ValueError(
-                    "The parameter 'rat' has to indicate the RAT being used as "
-                    "reported by the phone.")
+                "The parameter 'rat' has to indicate the RAT being used as "
+                "reported by the phone.")
 
         # Save initial output level to restore it after calibration
         restoration_config = self.BtsConfig()
@@ -655,7 +653,7 @@ class BaseSimulation(object):
         # Convert from RSRP to signal power
         if power_units_conversion_func:
             avg_down_power = power_units_conversion_func(
-                    reported_asu_power, self.primary_config)
+                reported_asu_power, self.primary_config)
         else:
             avg_down_power = reported_asu_power
 
@@ -666,11 +664,11 @@ class BaseSimulation(object):
         # Validate the result
         if not 0 < down_call_path_loss < 100:
             raise RuntimeError(
-                    "Downlink calibration failed. The calculated path loss value "
-                    "was {} dBm.".format(down_call_path_loss))
+                "Downlink calibration failed. The calculated path loss value "
+                "was {} dBm.".format(down_call_path_loss))
 
-        self.log.info("Measured downlink path loss: {} dB".format(
-                down_call_path_loss))
+        self.log.info(
+            "Measured downlink path loss: {} dB".format(down_call_path_loss))
 
         return down_call_path_loss
 
@@ -716,7 +714,7 @@ class BaseSimulation(object):
                     up_power_per_chain[ichain].append(float('nan'))
                 else:
                     up_power_per_chain[ichain].append(
-                            float(str_power_chain[ichain]))
+                        float(str_power_chain[ichain]))
 
             # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
             time.sleep(3)
@@ -733,19 +731,19 @@ class BaseSimulation(object):
         avg_up_power = np.nanmean(up_power_per_chain[0])
         if np.isnan(avg_up_power):
             raise RuntimeError(
-                    "Calibration failed because the callbox reported the chain to "
-                    "be deactive.")
+                "Calibration failed because the callbox reported the chain to "
+                "be deactive.")
 
         up_call_path_loss = target_power - avg_up_power
 
         # Validate the result
         if not 0 < up_call_path_loss < 100:
             raise RuntimeError(
-                    "Uplink calibration failed. The calculated path loss value "
-                    "was {} dBm.".format(up_call_path_loss))
+                "Uplink calibration failed. The calculated path loss value "
+                "was {} dBm.".format(up_call_path_loss))
 
         self.log.info(
-                "Measured uplink path loss: {} dB".format(up_call_path_loss))
+            "Measured uplink path loss: {} dB".format(up_call_path_loss))
 
         return up_call_path_loss
 

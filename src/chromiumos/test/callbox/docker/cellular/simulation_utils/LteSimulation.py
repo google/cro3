@@ -9,8 +9,8 @@ from enum import Enum
 import math
 import time
 
-from . import BaseCellularDut
-from .BaseSimulation import BaseSimulation
+from cellular.simulation_utils import BaseCellularDut
+from cellular.simulation_utils.BaseSimulation import BaseSimulation
 
 
 class TransmissionMode(Enum):
@@ -85,19 +85,19 @@ class LteSimulation(BaseSimulation):
 
     # RSRP signal levels thresholds taken from cellular_capability_3gpp.cc
     DOWNLINK_SIGNAL_LEVEL_DICTIONARY = {
-            'excellent': -88,
-            'high': -98,
-            'medium': -108,
-            'weak': -118,
-            'disconnected': -170
+        'excellent': -88,
+        'high': -98,
+        'medium': -108,
+        'weak': -118,
+        'disconnected': -170
     }
 
     # Transmitted output power for the phone (dBm)
     UPLINK_SIGNAL_LEVEL_DICTIONARY = {
-            'max': 24,
-            'high': 13,
-            'medium': 3,
-            'low': -20
+        'max': 24,
+        'high': 13,
+        'medium': 3,
+        'low': -20
     }
 
     # Bandwidth [MHz] to total RBs mapping
@@ -114,68 +114,68 @@ class LteSimulation(BaseSimulation):
 
     # Allowed bandwidth for each band.
     allowed_bandwidth_dictionary = {
-            1: [5, 10, 15, 20],
-            2: [1.4, 3, 5, 10, 15, 20],
-            3: [1.4, 3, 5, 10, 15, 20],
-            4: [1.4, 3, 5, 10, 15, 20],
-            5: [1.4, 3, 5, 10],
-            7: [5, 10, 15, 20],
-            8: [1.4, 3, 5, 10],
-            10: [5, 10, 15, 20],
-            11: [5, 10],
-            12: [1.4, 3, 5, 10],
-            13: [5, 10],
-            14: [5, 10],
-            17: [5, 10],
-            18: [5, 10, 15],
-            19: [5, 10, 15],
-            20: [5, 10, 15, 20],
-            21: [5, 10, 15],
-            22: [5, 10, 15, 20],
-            24: [5, 10],
-            25: [1.4, 3, 5, 10, 15, 20],
-            26: [1.4, 3, 5, 10, 15],
-            27: [1.4, 3, 5, 10],
-            28: [3, 5, 10, 15, 20],
-            29: [3, 5, 10],
-            30: [5, 10],
-            31: [1.4, 3, 5],
-            32: [5, 10, 15, 20],
-            33: [5, 10, 15, 20],
-            34: [5, 10, 15],
-            35: [1.4, 3, 5, 10, 15, 20],
-            36: [1.4, 3, 5, 10, 15, 20],
-            37: [5, 10, 15, 20],
-            38: [20],
-            39: [5, 10, 15, 20],
-            40: [5, 10, 15, 20],
-            41: [5, 10, 15, 20],
-            42: [5, 10, 15, 20],
-            43: [5, 10, 15, 20],
-            44: [3, 5, 10, 15, 20],
-            45: [5, 10, 15, 20],
-            46: [10, 20],
-            47: [10, 20],
-            48: [5, 10, 15, 20],
-            49: [10, 20],
-            50: [3, 5, 10, 15, 20],
-            51: [3, 5],
-            52: [5, 10, 15, 20],
-            65: [5, 10, 15, 20],
-            66: [1.4, 3, 5, 10, 15, 20],
-            67: [5, 10, 15, 20],
-            68: [5, 10, 15],
-            69: [5],
-            70: [5, 10, 15],
-            71: [5, 10, 15, 20],
-            72: [1.4, 3, 5],
-            73: [1.4, 3, 5],
-            74: [1.4, 3, 5, 10, 15, 20],
-            75: [5, 10, 15, 20],
-            76: [5],
-            85: [5, 10],
-            252: [20],
-            255: [20]
+        1: [5, 10, 15, 20],
+        2: [1.4, 3, 5, 10, 15, 20],
+        3: [1.4, 3, 5, 10, 15, 20],
+        4: [1.4, 3, 5, 10, 15, 20],
+        5: [1.4, 3, 5, 10],
+        7: [5, 10, 15, 20],
+        8: [1.4, 3, 5, 10],
+        10: [5, 10, 15, 20],
+        11: [5, 10],
+        12: [1.4, 3, 5, 10],
+        13: [5, 10],
+        14: [5, 10],
+        17: [5, 10],
+        18: [5, 10, 15],
+        19: [5, 10, 15],
+        20: [5, 10, 15, 20],
+        21: [5, 10, 15],
+        22: [5, 10, 15, 20],
+        24: [5, 10],
+        25: [1.4, 3, 5, 10, 15, 20],
+        26: [1.4, 3, 5, 10, 15],
+        27: [1.4, 3, 5, 10],
+        28: [3, 5, 10, 15, 20],
+        29: [3, 5, 10],
+        30: [5, 10],
+        31: [1.4, 3, 5],
+        32: [5, 10, 15, 20],
+        33: [5, 10, 15, 20],
+        34: [5, 10, 15],
+        35: [1.4, 3, 5, 10, 15, 20],
+        36: [1.4, 3, 5, 10, 15, 20],
+        37: [5, 10, 15, 20],
+        38: [20],
+        39: [5, 10, 15, 20],
+        40: [5, 10, 15, 20],
+        41: [5, 10, 15, 20],
+        42: [5, 10, 15, 20],
+        43: [5, 10, 15, 20],
+        44: [3, 5, 10, 15, 20],
+        45: [5, 10, 15, 20],
+        46: [10, 20],
+        47: [10, 20],
+        48: [5, 10, 15, 20],
+        49: [10, 20],
+        50: [3, 5, 10, 15, 20],
+        51: [3, 5],
+        52: [5, 10, 15, 20],
+        65: [5, 10, 15, 20],
+        66: [1.4, 3, 5, 10, 15, 20],
+        67: [5, 10, 15, 20],
+        68: [5, 10, 15],
+        69: [5],
+        70: [5, 10, 15],
+        71: [5, 10, 15, 20],
+        72: [1.4, 3, 5],
+        73: [1.4, 3, 5],
+        74: [1.4, 3, 5, 10, 15, 20],
+        75: [5, 10, 15, 20],
+        76: [5],
+        85: [5, 10],
+        252: [20],
+        255: [20]
     }
 
     # Peak throughput lookup tables for each TDD subframe
@@ -364,14 +364,14 @@ class LteSimulation(BaseSimulation):
 
     # Peak throughput lookup table dictionary
     tdd_config_tput_lut_dict = {
-            'TDD_CONFIG1':
-            tdd_config1_tput_lut,  # DL 256QAM, UL 64QAM & TBS turned OFF
-            'TDD_CONFIG2':
-            tdd_config2_tput_lut,  # DL 256QAM, UL 64 QAM turned ON & TBS OFF
-            'TDD_CONFIG3':
-            tdd_config3_tput_lut,  # DL 256QAM, UL 64QAM & TBS turned ON
-            'TDD_CONFIG4':
-            tdd_config4_tput_lut  # DL 256QAM, UL 64 QAM turned OFF & TBS ON
+        'TDD_CONFIG1':
+        tdd_config1_tput_lut,  # DL 256QAM, UL 64QAM & TBS turned OFF
+        'TDD_CONFIG2':
+        tdd_config2_tput_lut,  # DL 256QAM, UL 64 QAM turned ON & TBS OFF
+        'TDD_CONFIG3':
+        tdd_config3_tput_lut,  # DL 256QAM, UL 64QAM & TBS turned ON
+        'TDD_CONFIG4':
+        tdd_config4_tput_lut  # DL 256QAM, UL 64 QAM turned OFF & TBS ON
     }
 
     class BtsConfig(BaseSimulation.BtsConfig):
@@ -464,21 +464,21 @@ class LteSimulation(BaseSimulation):
                                             calibration_table)
 
         self.dut.set_preferred_network_type(
-                BaseCellularDut.PreferredNetworkType.LTE_ONLY)
+            BaseCellularDut.PreferredNetworkType.LTE_ONLY)
 
         # Get TBS pattern setting from the test configuration
         if self.KEY_TBS_PATTERN not in test_config:
             self.log.warning("The key '{}' is not set in the config file. "
                              "Setting to true by default.".format(
-                                     self.KEY_TBS_PATTERN))
+                                 self.KEY_TBS_PATTERN))
         self.primary_config.tbs_pattern_on = test_config.get(
-                self.KEY_TBS_PATTERN, True)
+            self.KEY_TBS_PATTERN, True)
 
         # Get the 256-QAM setting from the test configuration
         if self.KEY_DL_256_QAM not in test_config:
             self.log.warning("The key '{}' is not set in the config file. "
                              "Setting to false by default.".format(
-                                     self.KEY_DL_256_QAM))
+                                 self.KEY_DL_256_QAM))
 
         self.dl_256_qam = test_config.get(self.KEY_DL_256_QAM, False)
 
@@ -493,14 +493,14 @@ class LteSimulation(BaseSimulation):
 
         else:
             self.log.warning(
-                    'dl modulation 256QAM is not specified in config, '
-                    'setting to default value 64QAM')
+                'dl modulation 256QAM is not specified in config, '
+                'setting to default value 64QAM')
             self.primary_config.dl_modulation_order = ModulationType.Q64
         # Get the 64-QAM setting from the test configuration
         if self.KEY_UL_64_QAM not in test_config:
             self.log.warning("The key '{}' is not set in the config file. "
                              "Setting to false by default.".format(
-                                     self.KEY_UL_64_QAM))
+                                 self.KEY_UL_64_QAM))
 
         self.ul_64_qam = test_config.get(self.KEY_UL_64_QAM, False)
 
@@ -541,8 +541,8 @@ class LteSimulation(BaseSimulation):
 
         if not values:
             raise ValueError(
-                    "The test name needs to include parameter '{}' followed by "
-                    "the required band number.".format(self.PARAM_BAND))
+                "The test name needs to include parameter '{}' followed by "
+                "the required band number.".format(self.PARAM_BAND))
 
         new_config.band = values[1]
 
@@ -554,10 +554,10 @@ class LteSimulation(BaseSimulation):
                                             self.PARAM_FRAME_CONFIG, 1)
             if not values:
                 raise ValueError(
-                        "When a TDD band is selected the frame "
-                        "structure has to be indicated with the '{}' "
-                        "parameter followed by a number from 0 to 6.".format(
-                                self.PARAM_FRAME_CONFIG))
+                    "When a TDD band is selected the frame "
+                    "structure has to be indicated with the '{}' "
+                    "parameter followed by a number from 0 to 6.".format(
+                        self.PARAM_FRAME_CONFIG))
 
             new_config.dlul_config = int(values[1])
 
@@ -566,9 +566,9 @@ class LteSimulation(BaseSimulation):
 
             if not values:
                 self.log.warning(
-                        'The {} parameter was not provided. Setting '
-                        'Special Sub-Frame config to 6 by default.'.format(
-                                self.PARAM_SSF))
+                    'The {} parameter was not provided. Setting '
+                    'Special Sub-Frame config to 6 by default.'.format(
+                        self.PARAM_SSF))
                 new_config.ssf_config = 6
             else:
                 new_config.ssf_config = int(values[1])
@@ -579,9 +579,9 @@ class LteSimulation(BaseSimulation):
 
         if not values:
             raise ValueError(
-                    "The test name needs to include parameter {} followed by an "
-                    "int value (to indicate 1.4 MHz use 14).".format(
-                            self.PARAM_BW))
+                "The test name needs to include parameter {} followed by an "
+                "int value (to indicate 1.4 MHz use 14).".format(
+                    self.PARAM_BW))
 
         bw = float(values[1])
 
@@ -596,8 +596,8 @@ class LteSimulation(BaseSimulation):
 
         if not values:
             raise ValueError(
-                    "The test name needs to include parameter '{}' followed by the "
-                    "mimo mode.".format(self.PARAM_MIMO))
+                "The test name needs to include parameter '{}' followed by the "
+                "mimo mode.".format(self.PARAM_MIMO))
 
         for mimo_mode in MimoMode:
             if values[1] == mimo_mode.value:
@@ -608,7 +608,7 @@ class LteSimulation(BaseSimulation):
                              "1x1, 2x2 or 4x4.".format(self.PARAM_MIMO))
 
         if (new_config.mimo_mode == MimoMode.MIMO_4x4
-                    and not self.simulator.LTE_SUPPORTS_4X4_MIMO):
+                and not self.simulator.LTE_SUPPORTS_4X4_MIMO):
             raise ValueError("The test requires 4x4 MIMO, but that is not "
                              "supported by the cellular simulator.")
 
@@ -618,9 +618,9 @@ class LteSimulation(BaseSimulation):
 
         if not values:
             raise ValueError(
-                    "The test name needs to include parameter {} followed by an "
-                    "int value from 1 to 4 indicating transmission mode.".
-                    format(self.PARAM_TM))
+                "The test name needs to include parameter {} followed by an "
+                "int value from 1 to 4 indicating transmission mode.".format(
+                    self.PARAM_TM))
 
         for tm in TransmissionMode:
             if values[1] == tm.value[2:]:
@@ -629,7 +629,7 @@ class LteSimulation(BaseSimulation):
         else:
             raise ValueError("The {} parameter needs to be followed by either "
                              "TM1, TM2, TM3, TM4, TM7, TM8 or TM9.".format(
-                                     self.PARAM_MIMO))
+                                 self.PARAM_MIMO))
 
         # Setup scheduling mode
 
@@ -638,16 +638,16 @@ class LteSimulation(BaseSimulation):
         if not values:
             new_config.scheduling_mode = SchedulingMode.STATIC
             self.log.warning(
-                    "The test name does not include the '{}' parameter. Setting to "
-                    "static by default.".format(self.PARAM_SCHEDULING))
+                "The test name does not include the '{}' parameter. Setting to "
+                "static by default.".format(self.PARAM_SCHEDULING))
         elif values[1] == self.PARAM_SCHEDULING_DYNAMIC:
             new_config.scheduling_mode = SchedulingMode.DYNAMIC
         elif values[1] == self.PARAM_SCHEDULING_STATIC:
             new_config.scheduling_mode = SchedulingMode.STATIC
         else:
             raise ValueError(
-                    "The test name parameter '{}' has to be followed by either "
-                    "'dynamic' or 'static'.".format(self.PARAM_SCHEDULING))
+                "The test name parameter '{}' has to be followed by either "
+                "'dynamic' or 'static'.".format(self.PARAM_SCHEDULING))
 
         if new_config.scheduling_mode == SchedulingMode.STATIC:
 
@@ -655,11 +655,11 @@ class LteSimulation(BaseSimulation):
 
             if not values:
                 self.log.warning(
-                        "The '{}' parameter was not set, using 100% RBs for both "
-                        "DL and UL. To set the percentages of total RBs include "
-                        "the '{}' parameter followed by two ints separated by an "
-                        "underscore indicating downlink and uplink percentages."
-                        .format(self.PARAM_PATTERN, self.PARAM_PATTERN))
+                    "The '{}' parameter was not set, using 100% RBs for both "
+                    "DL and UL. To set the percentages of total RBs include "
+                    "the '{}' parameter followed by two ints separated by an "
+                    "underscore indicating downlink and uplink percentages.".
+                    format(self.PARAM_PATTERN, self.PARAM_PATTERN))
                 dl_pattern = 100
                 ul_pattern = 100
             else:
@@ -668,13 +668,13 @@ class LteSimulation(BaseSimulation):
 
             if not (0 <= dl_pattern <= 100 and 0 <= ul_pattern <= 100):
                 raise ValueError(
-                        "The scheduling pattern parameters need to be two "
-                        "positive numbers between 0 and 100.")
+                    "The scheduling pattern parameters need to be two "
+                    "positive numbers between 0 and 100.")
 
             new_config.dl_rbs, new_config.ul_rbs = (
-                    self.allocation_percentages_to_rbs(
-                            new_config.bandwidth, new_config.transmission_mode,
-                            dl_pattern, ul_pattern))
+                self.allocation_percentages_to_rbs(
+                    new_config.bandwidth, new_config.transmission_mode,
+                    dl_pattern, ul_pattern))
 
             # Look for a DL MCS configuration in the test parameters. If it is
             # not present, use a default value.
@@ -684,9 +684,8 @@ class LteSimulation(BaseSimulation):
                 new_config.dl_mcs = int(dlmcs[1])
             else:
                 self.log.warning(
-                        'The test name does not include the {} parameter. Setting '
-                        'to the max value by default'.format(
-                                self.PARAM_DL_MCS))
+                    'The test name does not include the {} parameter. Setting '
+                    'to the max value by default'.format(self.PARAM_DL_MCS))
                 if self.dl_256_qam and new_config.bandwidth == 1.4:
                     new_config.dl_mcs = 26
                 elif (not self.dl_256_qam
@@ -704,9 +703,8 @@ class LteSimulation(BaseSimulation):
                 new_config.ul_mcs = int(ulmcs[1])
             else:
                 self.log.warning(
-                        'The test name does not include the {} parameter. Setting '
-                        'to the max value by default'.format(
-                                self.PARAM_UL_MCS))
+                    'The test name does not include the {} parameter. Setting '
+                    'to the max value by default'.format(self.PARAM_UL_MCS))
                 if self.ul_64_qam:
                     new_config.ul_mcs = 28
                 else:
@@ -729,9 +727,9 @@ class LteSimulation(BaseSimulation):
                     new_config.drx_long_cycle_offset = long_cycle_offset
                 else:
                     self.log.error(
-                            ("The cDRX long cycle offset must be in the "
-                             "range 0 to (long cycle  - 1). Setting "
-                             "long cycle offset to 0"))
+                        ("The cDRX long cycle offset must be in the "
+                         "range 0 to (long cycle  - 1). Setting "
+                         "long cycle offset to 0"))
                     new_config.drx_long_cycle_offset = 0
 
             except ValueError:
@@ -753,8 +751,8 @@ class LteSimulation(BaseSimulation):
                                         self.PARAM_RRC_STATUS_CHANGE_TIMER, 1)
         if not values:
             self.log.info(
-                    "The test name does not include the '{}' parameter. Disabled "
-                    "by default.".format(self.PARAM_RRC_STATUS_CHANGE_TIMER))
+                "The test name does not include the '{}' parameter. Disabled "
+                "by default.".format(self.PARAM_RRC_STATUS_CHANGE_TIMER))
             self.simulator.set_lte_rrc_state_change_timer(False)
         else:
             timer = int(values[1])
@@ -777,7 +775,7 @@ class LteSimulation(BaseSimulation):
         if not values:
             self.log.warning('The {} parameter was not provided. Setting '
                              'PHICH group size to 1 by default.'.format(
-                                     self.PARAM_PHICH))
+                                 self.PARAM_PHICH))
             new_config.phich = '1'
         else:
             if values[1] == '16':
@@ -789,7 +787,7 @@ class LteSimulation(BaseSimulation):
             else:
                 raise ValueError('The {} parameter can only be followed by 1,'
                                  '2, 1/2 (or 12) and 1/6 (or 16).'.format(
-                                         self.PARAM_PHICH))
+                                     self.PARAM_PHICH))
 
         # Paging cycle duration
         values = self.consume_parameter(parameters, self.PARAM_PAGING, 1)
@@ -804,8 +802,8 @@ class LteSimulation(BaseSimulation):
                 new_config.paging_cycle = int(values[1])
             except ValueError:
                 raise ValueError(
-                        'The {} parameter has to be followed by the paging cycle '
-                        'duration in milliseconds.'.format(self.PARAM_PAGING))
+                    'The {} parameter has to be followed by the paging cycle '
+                    'duration in milliseconds.'.format(self.PARAM_PAGING))
 
         # Get uplink power
 
@@ -846,8 +844,7 @@ class LteSimulation(BaseSimulation):
             phone only reports RSRP of the primary chain
         """
 
-        return super().downlink_calibration(
-                rat='lteDbm')
+        return super().downlink_calibration(rat='lteDbm')
 
     def rsrp_to_signal_power(self, rsrp, bts_config):
         """ Converts rsrp to total band signal power
@@ -927,81 +924,81 @@ class LteSimulation(BaseSimulation):
                 if mcs == 27:
                     if bts_config.tbs_pattern_on:
                         max_rate_per_stream = self.tdd_config_tput_lut_dict[
-                                'TDD_CONFIG3'][tdd_subframe_config][bandwidth][
-                                        'DL']
+                            'TDD_CONFIG3'][tdd_subframe_config][bandwidth][
+                                'DL']
                     else:
                         max_rate_per_stream = self.tdd_config_tput_lut_dict[
-                                'TDD_CONFIG2'][tdd_subframe_config][bandwidth][
-                                        'DL']
+                            'TDD_CONFIG2'][tdd_subframe_config][bandwidth][
+                                'DL']
             else:
                 if mcs == 28:
                     if bts_config.tbs_pattern_on:
                         max_rate_per_stream = self.tdd_config_tput_lut_dict[
-                                'TDD_CONFIG4'][tdd_subframe_config][bandwidth][
-                                        'DL']
+                            'TDD_CONFIG4'][tdd_subframe_config][bandwidth][
+                                'DL']
                     else:
                         max_rate_per_stream = self.tdd_config_tput_lut_dict[
-                                'TDD_CONFIG1'][tdd_subframe_config][bandwidth][
-                                        'DL']
+                            'TDD_CONFIG1'][tdd_subframe_config][bandwidth][
+                                'DL']
 
         elif duplex_mode == DuplexMode.FDD:
             if (not self.dl_256_qam and bts_config.tbs_pattern_on
-                        and mcs == 28):
+                    and mcs == 28):
                 max_rate_per_stream = {
-                        3: 9.96,
-                        5: 17.0,
-                        10: 34.7,
-                        15: 52.7,
-                        20: 72.2
+                    3: 9.96,
+                    5: 17.0,
+                    10: 34.7,
+                    15: 52.7,
+                    20: 72.2
                 }.get(bandwidth, None)
             if (not self.dl_256_qam and bts_config.tbs_pattern_on
-                        and mcs == 27):
+                    and mcs == 27):
                 max_rate_per_stream = {
-                        1.4: 2.94,
+                    1.4: 2.94,
                 }.get(bandwidth, None)
             elif (not self.dl_256_qam and not bts_config.tbs_pattern_on
                   and mcs == 27):
                 max_rate_per_stream = {
-                        1.4: 2.87,
-                        3: 7.7,
-                        5: 14.4,
-                        10: 28.7,
-                        15: 42.3,
-                        20: 57.7
+                    1.4: 2.87,
+                    3: 7.7,
+                    5: 14.4,
+                    10: 28.7,
+                    15: 42.3,
+                    20: 57.7
                 }.get(bandwidth, None)
             elif self.dl_256_qam and bts_config.tbs_pattern_on and mcs == 27:
                 max_rate_per_stream = {
-                        3: 13.2,
-                        5: 22.9,
-                        10: 46.3,
-                        15: 72.2,
-                        20: 93.9
+                    3: 13.2,
+                    5: 22.9,
+                    10: 46.3,
+                    15: 72.2,
+                    20: 93.9
                 }.get(bandwidth, None)
             elif self.dl_256_qam and bts_config.tbs_pattern_on and mcs == 26:
                 max_rate_per_stream = {
-                        1.4: 3.96,
+                    1.4: 3.96,
                 }.get(bandwidth, None)
             elif (self.dl_256_qam and not bts_config.tbs_pattern_on
                   and mcs == 27):
                 max_rate_per_stream = {
-                        3: 11.3,
-                        5: 19.8,
-                        10: 44.1,
-                        15: 68.1,
-                        20: 88.4
+                    3: 11.3,
+                    5: 19.8,
+                    10: 44.1,
+                    15: 68.1,
+                    20: 88.4
                 }.get(bandwidth, None)
             elif (self.dl_256_qam and not bts_config.tbs_pattern_on
                   and mcs == 26):
                 max_rate_per_stream = {
-                        1.4: 3.96,
+                    1.4: 3.96,
                 }.get(bandwidth, None)
 
         if not max_rate_per_stream:
             raise NotImplementedError(
-                    "The calculation for tbs pattern = {} "
-                    "and mcs = {} is not implemented.".format(
-                            "FULLALLOCATION"
-                            if bts_config.tbs_pattern_on else "OFF", mcs))
+                "The calculation for tbs pattern = {} "
+                "and mcs = {} is not implemented.".format(
+                    "FULLALLOCATION" if bts_config.tbs_pattern_on else "OFF",
+                    mcs))
 
         return max_rate_per_stream * streams * rb_ratio
 
@@ -1042,48 +1039,48 @@ class LteSimulation(BaseSimulation):
                 if mcs == 28:
                     if bts_config.tbs_pattern_on:
                         max_rate_per_stream = self.tdd_config_tput_lut_dict[
-                                'TDD_CONFIG3'][tdd_subframe_config][bandwidth][
-                                        'UL']
+                            'TDD_CONFIG3'][tdd_subframe_config][bandwidth][
+                                'UL']
                     else:
                         max_rate_per_stream = self.tdd_config_tput_lut_dict[
-                                'TDD_CONFIG2'][tdd_subframe_config][bandwidth][
-                                        'UL']
+                            'TDD_CONFIG2'][tdd_subframe_config][bandwidth][
+                                'UL']
             else:
                 if mcs == 23:
                     if bts_config.tbs_pattern_on:
                         max_rate_per_stream = self.tdd_config_tput_lut_dict[
-                                'TDD_CONFIG4'][tdd_subframe_config][bandwidth][
-                                        'UL']
+                            'TDD_CONFIG4'][tdd_subframe_config][bandwidth][
+                                'UL']
                     else:
                         max_rate_per_stream = self.tdd_config_tput_lut_dict[
-                                'TDD_CONFIG1'][tdd_subframe_config][bandwidth][
-                                        'UL']
+                            'TDD_CONFIG1'][tdd_subframe_config][bandwidth][
+                                'UL']
 
         elif duplex_mode == DuplexMode.FDD:
             if mcs == 23 and not self.ul_64_qam:
                 max_rate_per_stream = {
-                        1.4: 2.85,
-                        3: 7.18,
-                        5: 12.1,
-                        10: 24.5,
-                        15: 36.5,
-                        20: 49.1
+                    1.4: 2.85,
+                    3: 7.18,
+                    5: 12.1,
+                    10: 24.5,
+                    15: 36.5,
+                    20: 49.1
                 }.get(bandwidth, None)
             elif mcs == 28 and self.ul_64_qam:
                 max_rate_per_stream = {
-                        1.4: 4.2,
-                        3: 10.5,
-                        5: 17.2,
-                        10: 35.3,
-                        15: 53.0,
-                        20: 72.6
+                    1.4: 4.2,
+                    3: 10.5,
+                    5: 17.2,
+                    10: 35.3,
+                    15: 53.0,
+                    20: 72.6
                 }.get(bandwidth, None)
 
         if not max_rate_per_stream:
             raise NotImplementedError(
-                    "The calculation fir mcs = {} is not implemented.".format(
-                            "FULLALLOCATION"
-                            if bts_config.tbs_pattern_on else "OFF", mcs))
+                "The calculation fir mcs = {} is not implemented.".format(
+                    "FULLALLOCATION" if bts_config.tbs_pattern_on else "OFF",
+                    mcs))
 
         return max_rate_per_stream * rb_ratio
 
@@ -1181,8 +1178,8 @@ class LteSimulation(BaseSimulation):
         # Report what are the obtained RB percentages
         self.log.info("Requested a {}% / {}% RB allocation. Closest possible "
                       "percentages are {}% / {}%.".format(
-                              dl, ul, round(100 * dl_rbs / max_rbs),
-                              round(100 * ul_rbs / max_rbs)))
+                          dl, ul, round(100 * dl_rbs / max_rbs),
+                          round(100 * ul_rbs / max_rbs)))
 
         return dl_rbs, ul_rbs
 
@@ -1207,7 +1204,7 @@ class LteSimulation(BaseSimulation):
         temporary_config.mimo_mode = MimoMode.MIMO_1x1
         temporary_config.transmission_mode = TransmissionMode.TM1
         temporary_config.bandwidth = max(
-                self.allowed_bandwidth_dictionary[int(band)])
+            self.allowed_bandwidth_dictionary[int(band)])
         self.simulator.configure_bts(temporary_config)
         self.primary_config.incorporate(temporary_config)
 

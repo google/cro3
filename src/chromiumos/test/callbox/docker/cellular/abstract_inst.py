@@ -3,9 +3,12 @@
 # found in the LICENSE file.
 """Python module for Abstract Instrument Library."""
 
-import logging
-import requests
+# pylint: disable=banned-string-format-function
+# pylint: disable=C9010, W0612
+
 import socket
+
+import requests  # pylint: disable=E0401
 
 
 class SocketInstrumentError(Exception):
@@ -24,7 +27,7 @@ class SocketInstrumentError(Exception):
         self._error_message = self._error_code
         if command is not None:
             self._error_message = 'Command {} returned the error: {}.'.format(
-                    repr(command), repr(self._error_message))
+                repr(command), repr(self._error_message))
 
     def __str__(self):
         return self._error_message
@@ -60,12 +63,10 @@ class SocketInstrument:
 
         try:
             self._socket = socket.create_connection(
-                    (self._ip_addr, self._ip_port),
-                    timeout=self._socket_timeout)
+                (self._ip_addr, self._ip_port), timeout=self._socket_timeout)
 
             infmsg = 'Opened Socket connection to {}:{} with handle {}.'.format(
-                    repr(self._ip_addr), repr(self._ip_port),
-                    repr(self._socket))
+                repr(self._ip_addr), repr(self._ip_port), repr(self._socket))
 
         except socket.timeout:
             errmsg = 'Socket timeout while connecting to instrument.'

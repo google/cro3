@@ -123,9 +123,9 @@ class AbstractCellularSimulator:
         if config.scheduling_mode:
 
             if (config.scheduling_mode ==
-                        sims.LteSimulation.SchedulingMode.STATIC
-                        and not (config.dl_rbs and config.ul_rbs
-                                 and config.dl_mcs and config.ul_mcs)):
+                    sims.LteSimulation.SchedulingMode.STATIC
+                    and not (config.dl_rbs and config.ul_rbs and config.dl_mcs
+                             and config.ul_mcs)):
                 raise ValueError('When the scheduling mode is set to manual, '
                                  'the RB and MCS parameters are required.')
 
@@ -162,7 +162,7 @@ class AbstractCellularSimulator:
 
             if config.drx_retransmission_timer:
                 self.set_drx_retransmission_timer(
-                        bts_index, config.drx_retransmission_timer)
+                    bts_index, config.drx_retransmission_timer)
 
             if config.drx_long_cycle:
                 self.set_drx_long_cycle(bts_index, config.drx_long_cycle)
@@ -456,7 +456,6 @@ class AbstractCellularSimulator:
     def send_sms(self, sms_message):
         """ Sends SMS message from the instrument to the DUT. """
         raise NotImplementedError()
-
 
 
 class CellularSimulatorError(Exception):

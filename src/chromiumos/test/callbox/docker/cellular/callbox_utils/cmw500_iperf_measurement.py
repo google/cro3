@@ -1,12 +1,10 @@
 # Copyright 2022 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """Provides classes for managing Iperf sessions on cmw500 callboxes."""
 
 # disable some lints to stay consistent with ACTS formatting
-# pylint: disable=bad-indentation, banned-string-format-function
-# pylint: disable=docstring-trailing-quotes, docstring-section-indent
+# pylint: disable=banned-string-format-function
 
 from enum import Enum
 import time
@@ -76,10 +74,11 @@ class Cmw500IperfMeasurement(object):
                                              parameters,
                                              default=self.DEFAULT_TIME,
                                              fun=int)
-        self.packet_size = self._get_parameter(self.PARAM_PACKET_SIZE,
-                                               parameters,
-                                               default=self.DEFAULT_PACKET_SIZE,
-                                               fun=int)
+        self.packet_size = self._get_parameter(
+            self.PARAM_PACKET_SIZE,
+            parameters,
+            default=self.DEFAULT_PACKET_SIZE,
+            fun=int)
 
         if self.PARAM_CLIENTS in parameters:
             client_configs = parameters[self.PARAM_CLIENTS]
@@ -247,12 +246,12 @@ class Cmw500IperfMeasurement(object):
             A dictionary containing the results for all servers and clients.
             Invalid results are set to None.
         """
-        results = self._cmw.send_and_recv('FETCh:DATA:MEAS{}:IPERf:ALL?'.format(
-            self._idx))
+        results = self._cmw.send_and_recv(
+            'FETCh:DATA:MEAS{}:IPERf:ALL?'.format(self._idx))
         results = results.split(',')
         reliability = self._try_parse(results[0], float)
 
-        output = {'reliability' : reliability, 'servers': [], 'clients': []}
+        output = {'reliability': reliability, 'servers': [], 'clients': []}
         for i in range(1, len(results), 5):
             server_counter = self._try_parse(results[i], int)
             client_counter = self._try_parse(results[i + 1], int)
@@ -260,9 +259,8 @@ class Cmw500IperfMeasurement(object):
             loss_rate = self._try_parse(results[i + 3], float)
             downlink_throughput = self._try_parse(results[i + 4], float)
 
-            if (server_counter is None or
-                uplink_throughput is None or
-                loss_rate is None):
+            if (server_counter is None or uplink_throughput is None
+                    or loss_rate is None):
                 server = None
             else:
                 server = {
@@ -547,6 +545,7 @@ class CMW500IperfServer(object):
         cmd = 'CONFigure:DATA:MEAS{}:IPERf:SERVer{}:SBSize {}'.format(
             self._measIdx, self._idx, size)
         self._cmw.send_and_recv(cmd)
+
 
 class CmwIperfError(Exception):
     """Class to raise exceptions related to cmw Iperf."""

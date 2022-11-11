@@ -1,6 +1,12 @@
+# Copyright 2021 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+"""CallboxManager WSGI app."""
+
 import logging
 
-from .flask_app import app
+from cellular.proxyserver.flask_app import app
+
 
 gunicorn_logger = logging.getLogger("gunicorn.error")
 app.logger.handlers = gunicorn_logger.handlers
