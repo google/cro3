@@ -17,7 +17,18 @@ LTE_IDLE_RESP = 'IDLE'
 LTE_PSWITCHED_ON_RESP = 'ON'
 LTE_PSWITCHED_OFF_RESP = 'OFF'
 
+WCDMA_ATTACH_RESP = 'ATT'
+WCDMA_CESTABLISHED_RESP = 'CEST'
+WCDMA_PSWITCHED_ON_RESP = 'ON'
+
 STATE_CHANGE_TIMEOUT = 20
+
+
+class SignallingState(Enum):
+    """Signalling states common to all RATs."""
+    ON = 'ON'
+    OFF = 'OFF'
+    ReadyForHandover = 'RFH'
 
 
 class LteState(Enum):
@@ -45,6 +56,23 @@ class LteBandwidth(Enum):
     BANDWIDTH_10MHz = 'B100'
     BANDWIDTH_15MHz = 'B150'
     BANDWIDTH_20MHz = 'B200'
+
+
+def BandwidthFromFloat(bw):
+    if bw == 20:
+        return LteBandwidth.BANDWIDTH_20MHz
+    elif bw == 15:
+        return LteBandwidth.BANDWIDTH_15MHz
+    elif bw == 10:
+        return LteBandwidth.BANDWIDTH_10MHz
+    elif bw == 5:
+        return LteBandwidth.BANDWIDTH_5MHz
+    elif bw == 3:
+        return LteBandwidth.BANDWIDTH_3MHz
+    elif bw == 1.4:
+        return LteBandwidth.BANDWIDTH_1MHz
+
+    raise ValueError('Bandwidth {} MHz is not valid for LTE'.format(bandwidth))
 
 
 class DuplexMode(Enum):
@@ -211,6 +239,25 @@ class Cmw500(abstract_inst.SocketInstrument):
         else:
             raise CmwError('Failed to turn {} LTE signalling.'.format(state))
 
+    def wait_for_response(self, cmd, allowed, timeout=120):
+        """Polls a specific query command until an allowed response is returned.
+
+        Args:
+            cmd: the query command string.
+            allowed: a collection of allowed string responses.
+            timeout: the maximum amount of time to wait for an allowed response.
+        """
+        time_elapsed = 0
+        while time_elapsed < timeout:
+            response = self.send_and_recv(cmd)
+
+            if response in allowed:
+                return
+
+            time.sleep(1)
+            time_elapsed += 1
+        raise CmwError('Failed to wait for valid response')
+
     def enable_packet_switching(self):
         """Enable packet switching in call box."""
         self.send_and_recv('CALL:LTE:SIGN:PSWitched:ACTion CONNect')
@@ -332,6 +379,15 @@ class Cmw500(abstract_inst.SocketInstrument):
             timeout -= 1
         else:
             raise CmwError('Timeout before RRC state was {}.'.format(state))
+
+    def stop_all_signalling(self):
+        """Turns off all signaling applications, generators, or measurements."""
+        self.send_and_recv('SYSTem:SIGNaling:ALL:OFF')
+        self.wait_until_quiet()
+
+    def wait_until_quiet(self):
+        """Waits for all pending operations to stop on the callbox."""
+        self.send_and_recv('*OPC?')
 
     def reset(self):
         """System level reset"""
