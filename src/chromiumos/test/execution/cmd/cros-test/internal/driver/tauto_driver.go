@@ -292,6 +292,14 @@ func appendChromeOsLabels(dut *device.DutInfo) (map[string]string, []string, err
 		labels = append(labels, dut.CableList...)
 	}
 
+	if len(dut.CarrierList) > 0 {
+		labels = append(labels, dut.CarrierList...)
+	}
+
+	if len(dut.HwIDList) > 0 {
+		labels = append(labels, dut.HwIDList...)
+	}
+
 	return attrMap, labels, nil
 }
 

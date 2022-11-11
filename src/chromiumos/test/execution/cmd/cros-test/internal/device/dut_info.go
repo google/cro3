@@ -36,6 +36,8 @@ type DutInfo struct {
 	TouchMimo           bool     // If the DUT has a TouchMimo label
 	CameraboxFacing     string   // The direction the camerabox is facing, ie "front" or "back"
 	CableList           []string // The list of cables attached
+	CarrierList         []string // the list of carriers
+	HwIDList            []string // HwIDlist
 }
 
 // joinHostAndPort joins host and port to a single address.
@@ -164,6 +166,28 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 		}
 	}
 
+	var carriers []string
+	if car := chromeOS.Cellular; car != nil {
+		if len(car.Operators) > 0 {
+			for _, v := range car.Operators {
+				lv := "carrier:" + strings.ToLower(v.String())
+				carriers = append(carriers, lv)
+
+			}
+
+		}
+	}
+
+	var hwids []string
+	if hwid := chromeOS.HwidComponent; len(hwid) > 0 {
+		for _, v := range hwid {
+			// TODO: Figure out why this proto has an empty space at end
+			// eg. USBAUDIO is returning "USBAUDIO "
+			lv := "hwid_component:" + strings.ToLower(v)
+			hwids = append(hwids, lv)
+		}
+	}
+
 	return &DutInfo{
 		Addr:                addr,
 		Role:                role,
@@ -183,5 +207,7 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 		TouchMimo:           touchMimo,
 		CameraboxFacing:     cameraboxFacing,
 		CableList:           cableList,
+		CarrierList:         carriers,
+		HwIDList:            hwids,
 	}, nil
 }
