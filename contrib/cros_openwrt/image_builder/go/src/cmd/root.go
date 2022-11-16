@@ -208,6 +208,7 @@ func init() {
 		&includedOfficialPackages,
 		"include_official_package",
 		[]string{
+			"iputils-ping",
 			"iputils-arping",
 			"kmod-veth",
 			"tcpdump",
