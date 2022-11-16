@@ -31,6 +31,25 @@ func ParseCrosProvisionRequest(path string) (*api.CrosProvisionRequest, error) {
 	return in, nil
 }
 
+// ParseAndroidProvisionRequest parses AndroidProvisionRequest input request data from
+// the input file.
+func ParseAndroidProvisionRequest(path string) (*api.AndroidProvisionRequest, error) {
+	in := &api.AndroidProvisionRequest{}
+	r, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("read input: %s", err)
+	}
+
+	umrsh := jsonpb.Unmarshaler{}
+	umrsh.AllowUnknownFields = true
+	err = umrsh.Unmarshal(r, in)
+	if err != nil {
+		return nil, fmt.Errorf("read input: %s", err)
+	}
+
+	return in, nil
+}
+
 // ParseProvisionFirmwareRequest parses ProvisionFirmwareRequest input request data from
 // the input file.
 func ParseProvisionFirmwareRequest(path string) (*api.ProvisionFirmwareRequest, error) {
