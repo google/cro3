@@ -12,8 +12,9 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "labtunnel",
-		Short: "Create and maintain ssh tunnels for common lab environments easily.",
+		Use:     "labtunnel",
+		Version: "2.0.1",
+		Short:   "Create and maintain ssh tunnels for common lab environments easily.",
 		Long: `
 Create and maintain ssh tunnels for common lab environments easily.
 

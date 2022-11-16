@@ -62,7 +62,7 @@ Usage:
   labtunnel [command]
 
 Available Commands:
-  btpeers     Ssh tunnel to dut and its bluetooth peers.
+  btpeers     Ssh tunnel the to dut and its bluetooth peers.
   callbox     Ssh tunnel to dut, callbox manager, and callbox.
   chameleon   Ssh tunnel to dut and its chameleon device.
   completion  Generate the autocompletion script for the specified shell
@@ -70,7 +70,6 @@ Available Commands:
   dutvnc      Starts and connects to a VNC server on dut for remote GUI access.
   help        Help about any command
   sshwatcher  Ssh tunnel to host(s).
-  version     Displays the version of labtunnel.
   wificell    Ssh tunnel to the dut, pcap, and router of a wificell.
 
 Flags:
@@ -79,6 +78,8 @@ Flags:
       --remote-port-ssh int           Remote port to forward ssh tunnels to (default 22)
   -o, --ssh-options strings           ssh options for all ssh commands (default [StrictHostKeyChecking=no,ExitOnForwardFailure=yes,ForkAfterAuthentication=no,LogLevel=ERROR,ControlMaster=auto,ControlPersist=3600,ControlPath=/tmp/ssh-labtunnel-%C,ServerAliveCountMax=10,ServerAliveInterval=1,VerifyHostKeyDNS=no,CheckHostIP=no,UserKnownHostsFile=/dev/null,Compression=yes])
       --ssh-retry-delay-seconds int   Time to wait before retrying failed ssh command calls (default 10)
+  -v, --version                       version for labtunnel
+
 
 Use "labtunnel [command] --help" for more information about a command.
 ```
