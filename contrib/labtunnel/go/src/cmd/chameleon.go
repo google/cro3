@@ -24,6 +24,9 @@ The dut tunnel is created in the same manner as with the dut command, run
 "labtunnel dut --help" for details.
 
 The formula for the chameleon device hostname is "<dut>-chameleon".
+
+When the --tauto flag is provided, chameleon tunnels are to the remote ssh port
+rather than the remote chameleond port.
 `,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -35,7 +38,13 @@ The formula for the chameleon device hostname is "<dut>-chameleon".
 
 			// Tunnel to chameleon.
 			hostChameleon := resolveHostname(hostDut, "-chameleon")
-			tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "CHAMELEON", "", remotePortChameleond, hostChameleon)
+			var remoteChameleonPort int
+			if forAutotest {
+				remoteChameleonPort = remotePortSsh
+			} else {
+				remoteChameleonPort = remotePortChameleond
+			}
+			tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "CHAMELEON", "", remoteChameleonPort, hostChameleon)
 
 			time.Sleep(time.Second)
 			sshManager.WaitUntilAllSshCompleted(cmd.Context())

@@ -134,8 +134,14 @@ func runContextualCommand(ctx context.Context, logPrefix string, command string,
 }
 
 func tunnelToBtpeers(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, btPeerCount int) {
+	var remoteBtpeerPort int
+	if forAutotest {
+		remoteBtpeerPort = remotePortSsh
+	} else {
+		remoteBtpeerPort = remotePortChameleond
+	}
 	for i := 1; i <= btPeerCount; i++ {
 		hostPeer := resolveHostname(hostDut, fmt.Sprintf("-btpeer%d", i))
-		tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("BTPEER-", i), "", remotePortChameleond, hostPeer)
+		tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("BTPEER-", i), "", remoteBtpeerPort, hostPeer)
 	}
 }

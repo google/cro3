@@ -34,6 +34,9 @@ argument "btpeer_count" after the dut hostname. The default is 1 btpeer.
 The formula for the btpeer hostname is "<dut>-btpeer<n>", where "<dut>" is the
 dut hostname (as used in the dut command) and "<n>" is the Nth bluetooth peer,
 starting at 1.
+
+When the --tauto flag is provided, btpeer tunnels are to the remote ssh port
+rather than the remote chameleond port.
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 && len(args) != 2 {
