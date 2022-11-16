@@ -62,7 +62,7 @@ Usage:
   labtunnel [command]
 
 Available Commands:
-  btpeers     Ssh tunnel the to dut and its bluetooth peers.
+  btpeers     Ssh tunnel to dut and its bluetooth peers.
   callbox     Ssh tunnel to dut, callbox manager, and callbox.
   chameleon   Ssh tunnel to dut and its chameleon device.
   completion  Generate the autocompletion script for the specified shell
@@ -75,6 +75,7 @@ Available Commands:
 Flags:
   -h, --help                          help for labtunnel
   -p, --local-port-start int          Initial local port to forward to tunnel (default 2200)
+      --remote-port-chameleond int    Remote port for accessing the chameleond service on btpeers and chameleon devices (default 9992)
       --remote-port-ssh int           Remote port to forward ssh tunnels to (default 22)
   -o, --ssh-options strings           ssh options for all ssh commands (default [StrictHostKeyChecking=no,ExitOnForwardFailure=yes,ForkAfterAuthentication=no,LogLevel=ERROR,ControlMaster=auto,ControlPersist=3600,ControlPath=/tmp/ssh-labtunnel-%C,ServerAliveCountMax=10,ServerAliveInterval=1,VerifyHostKeyDNS=no,CheckHostIP=no,UserKnownHostsFile=/dev/null,Compression=yes])
       --ssh-retry-delay-seconds int   Time to wait before retrying failed ssh command calls (default 10)
@@ -110,6 +111,29 @@ sending SIGINT with ^C (ctr+c/cmd+c) to the terminal.
   TUNNEL-DUT        [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]  CLOSED
   TUNNEL-PCAP-1     [localhost:2202 -> chromeos1-dev-host1-pcap -> localhost:22]  CLOSED
   TUNNEL-ROUTER-1   [localhost:2201 -> chromeos1-dev-host1-router -> localhost:22]  CLOSED
+```
+```text
+$ labtunnel wificell chromeos1-dev-host1 --routers 1 --pcaps 1 --btpeers 1
+17:51:47.304796 starting ssh exec "TUNNEL-DUT        [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]"
+17:51:47.305315 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos1-dev-host1 sleep 8h
+17:51:47.337514 starting ssh exec "TUNNEL-ROUTER-1   [localhost:2202 -> chromeos1-dev-host1-router -> localhost:22]"
+17:51:47.337908 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2202:localhost:22 chromeos1-dev-host1-router sleep 8h
+17:51:47.354007 starting ssh exec "TUNNEL-PCAP-1     [localhost:2203 -> chromeos1-dev-host1-pcap -> localhost:22]"
+17:51:47.354339 SSH[3]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2203:localhost:22 chromeos1-dev-host1-pcap sleep 8h
+17:51:47.399457 starting ssh exec "TUNNEL-BTPEER-1   [localhost:2206 -> chromeos1-dev-host1-btpeer1 -> localhost:9992]"
+17:51:47.399730 SSH[4]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2206:localhost:9992 chromeos1-dev-host1-btpeer1 sleep 8h
+17:51:48.399603 Example Tast call (in chroot): tast run -var=router=localhost:2202 -var=pcap=localhost:2203 localhost:2200 <test>
+17:51:48.399671 ssh state summary:
+  TUNNEL-BTPEER-1   [localhost:2206 -> chromeos1-dev-host1-btpeer1 -> localhost:9992]  RUNNING
+  TUNNEL-DUT        [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]  RUNNING
+  TUNNEL-PCAP-1     [localhost:2203 -> chromeos1-dev-host1-pcap -> localhost:22]  RUNNING
+  TUNNEL-ROUTER-1   [localhost:2202 -> chromeos1-dev-host1-router -> localhost:22]  RUNNING
+^C17:51:57.496110 received SIGINT, cancelling operations
+17:51:57.496212 ssh state summary:
+  TUNNEL-BTPEER-1   [localhost:2206 -> chromeos1-dev-host1-btpeer1 -> localhost:9992]  CLOSED
+  TUNNEL-DUT        [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]  CLOSED
+  TUNNEL-PCAP-1     [localhost:2203 -> chromeos1-dev-host1-pcap -> localhost:22]  CLOSED
+  TUNNEL-ROUTER-1   [localhost:2202 -> chromeos1-dev-host1-router -> localhost:22]  CLOSED
 ```
 
 ### callbox

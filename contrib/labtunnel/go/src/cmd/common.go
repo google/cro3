@@ -132,3 +132,10 @@ func runContextualCommand(ctx context.Context, logPrefix string, command string,
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
 }
+
+func tunnelToBtpeers(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, btPeerCount int) {
+	for i := 1; i <= btPeerCount; i++ {
+		hostPeer := resolveHostname(hostDut, fmt.Sprintf("-btpeer%d", i))
+		tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("BTPEER-", i), "", remotePortChameleond, hostPeer)
+	}
+}

@@ -11,8 +11,6 @@ import (
 )
 
 var (
-	remotePortChameleondChameleon int
-
 	chameleonCmd = &cobra.Command{
 		Use:   "chameleon <dut_hostname>",
 		Short: "Ssh tunnel to dut and its chameleon device.",
@@ -37,7 +35,7 @@ The formula for the chameleon device hostname is "<dut>-chameleon".
 
 			// Tunnel to chameleon.
 			hostChameleon := resolveHostname(hostDut, "-chameleon")
-			tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "CHAMELEON", "", remotePortChameleondChameleon, hostChameleon)
+			tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "CHAMELEON", "", remotePortChameleond, hostChameleon)
 
 			time.Sleep(time.Second)
 			sshManager.WaitUntilAllSshCompleted(cmd.Context())
@@ -47,5 +45,4 @@ The formula for the chameleon device hostname is "<dut>-chameleon".
 
 func init() {
 	rootCmd.AddCommand(chameleonCmd)
-	chameleonCmd.Flags().IntVar(&remotePortChameleondChameleon, "remote-port-chameleond", 9992, "Remote port for accessing the chameleond service on chameleon devices")
 }

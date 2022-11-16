@@ -13,7 +13,7 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:     "labtunnel",
-		Version: "2.0.1",
+		Version: "2.1.0",
 		Short:   "Create and maintain ssh tunnels for common lab environments easily.",
 		Long: `
 Create and maintain ssh tunnels for common lab environments easily.
@@ -42,6 +42,7 @@ ports will be freed upon stopping labtunnel.
 	sshOptions           []string
 	remotePortSsh        int
 	sshRetryDelaySeconds int
+	remotePortChameleond int
 )
 
 func init() {
@@ -67,6 +68,7 @@ func init() {
 		},
 		"ssh options for all ssh commands",
 	)
+	rootCmd.PersistentFlags().IntVar(&remotePortChameleond, "remote-port-chameleond", 9992, "Remote port for accessing the chameleond service on btpeers and chameleon devices")
 }
 
 func Execute(ctx context.Context) error {

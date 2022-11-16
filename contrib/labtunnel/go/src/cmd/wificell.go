@@ -9,13 +9,15 @@ import (
 	"strings"
 	"time"
 
-	"chromiumos/platform/dev/contrib/labtunnel/log"
 	"github.com/spf13/cobra"
+
+	"chromiumos/platform/dev/contrib/labtunnel/log"
 )
 
 var (
-	pcapCount   int
-	routerCount int
+	pcapCount              int
+	routerCount            int
+	wificellCmdBtpeerCount int
 
 	wificellCmd = &cobra.Command{
 		Use:   "wificell <dut_hostname>",
@@ -35,6 +37,9 @@ is dut hostname plus the "-pcap" suffix. If the --routers or --pcaps flag value
 is set to 0, then no tunnels will be created for the respective device type. If
 the dut hostname ends with ".cros", the router and pcap hostnames generated
 from the dut hostname will still end with ".cros" (e.g. "-router.cros").
+
+The btpeer tunnels are created in the same manner as with the btpeers command,
+see "labtunnel btpeers --help" for details.
 `,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -68,6 +73,11 @@ from the dut hostname will still end with ".cros" (e.g. "-router.cros").
 				localPcaps = append(localPcaps, localPcap)
 			}
 
+			// Tunnel to btpeers.
+			if wificellCmdBtpeerCount > 0 {
+				tunnelToBtpeers(cmd.Context(), sshManager, hostDut, wificellCmdBtpeerCount)
+			}
+
 			time.Sleep(time.Second)
 			log.Logger.Printf(
 				"Example Tast call (in chroot): tast run -var=router=%s -var=pcap=%s %s <test>",
@@ -83,4 +93,5 @@ func init() {
 	rootCmd.AddCommand(wificellCmd)
 	wificellCmd.Flags().IntVar(&routerCount, "routers", 1, "Number of routers in wificell to tunnel to (-router, -router2, -router3, ...)")
 	wificellCmd.Flags().IntVar(&pcapCount, "pcaps", 1, "Number of pcap devices in wificell to tunnel to (-pcap, -pcap2, -pcap3, ...)")
+	wificellCmd.Flags().IntVar(&wificellCmdBtpeerCount, "btpeers", 0, "Number of btpeers in wificell to tunnel to (-btpeer1, -btpeer2, ...)")
 }

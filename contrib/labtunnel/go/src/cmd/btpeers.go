@@ -13,12 +13,11 @@ import (
 )
 
 var (
-	remotePortChameleondBtpeers int
-	btPeerCount                 = 1
+	btpeersCmdBtpeerCount = 1
 
-	btPeersCmd = &cobra.Command{
+	btpeersCmd = &cobra.Command{
 		Use:   "btpeers <dut_hostname> [btpeer_count]",
-		Short: "Ssh tunnel the to dut and its bluetooth peers.",
+		Short: "Ssh tunnel to dut and its bluetooth peers.",
 		Long: `
 Opens ssh tunnels to the dut and the remote chameleond port on its bluetooth
 peers.
@@ -42,8 +41,8 @@ starting at 1.
 			}
 			if len(args) == 2 {
 				var err error
-				btPeerCount, err = strconv.Atoi(args[1])
-				if err != nil || btPeerCount < 1 {
+				btpeersCmdBtpeerCount, err = strconv.Atoi(args[1])
+				if err != nil || btpeersCmdBtpeerCount < 1 {
 					return fmt.Errorf("btpeer_count must be a positive integer, got %q", args[1])
 				}
 			}
@@ -57,10 +56,7 @@ starting at 1.
 			tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "DUT", "", remotePortSsh, hostDut)
 
 			// Tunnel to btpeers.
-			for i := 1; i <= btPeerCount; i++ {
-				hostPeer := resolveHostname(hostDut, fmt.Sprintf("-btpeer%d", i))
-				tunnelLocalPortToRemotePort(cmd.Context(), sshManager, fmt.Sprint("BTPEER-", i), "", remotePortChameleondBtpeers, hostPeer)
-			}
+			tunnelToBtpeers(cmd.Context(), sshManager, hostDut, btpeersCmdBtpeerCount)
 
 			time.Sleep(time.Second)
 			sshManager.WaitUntilAllSshCompleted(cmd.Context())
@@ -69,6 +65,5 @@ starting at 1.
 )
 
 func init() {
-	rootCmd.AddCommand(btPeersCmd)
-	btPeersCmd.Flags().IntVar(&remotePortChameleondBtpeers, "remote-port-chameleond", 9992, "Remote port for accessing the chameleond service on btpeers")
+	rootCmd.AddCommand(btpeersCmd)
 }
