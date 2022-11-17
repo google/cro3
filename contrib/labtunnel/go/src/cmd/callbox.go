@@ -40,7 +40,7 @@ on the proxy host, as the callboxes do not support SSH.
 
 			// Tunnel to dut.
 			hostDut := resolveHostname(args[0], "")
-			localDut := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "DUT", "", remotePortSsh, hostDut)
+			localDut := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
 
 			// Tunnel to Callbox Manager service on callbox proxy.
 			hostProxy := args[1]

@@ -34,17 +34,10 @@ rather than the remote chameleond port.
 
 			// Tunnel to dut.
 			hostDut := resolveHostname(args[0], "")
-			tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "DUT", "", remotePortSsh, hostDut)
+			tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
 
 			// Tunnel to chameleon.
-			hostChameleon := resolveHostname(hostDut, "-chameleon")
-			var remoteChameleonPort int
-			if forAutotest {
-				remoteChameleonPort = remotePortSsh
-			} else {
-				remoteChameleonPort = remotePortChameleond
-			}
-			tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "CHAMELEON", "", remoteChameleonPort, hostChameleon)
+			tunnelToChameleonUsingDutHost(cmd.Context(), sshManager, hostDut, 1)
 
 			time.Sleep(time.Second)
 			sshManager.WaitUntilAllSshCompleted(cmd.Context())

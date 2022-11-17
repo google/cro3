@@ -56,10 +56,10 @@ rather than the remote chameleond port.
 
 			// Tunnel to dut.
 			hostDut := resolveHostname(args[0], "")
-			tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "DUT", "", remotePortSsh, hostDut)
+			tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
 
 			// Tunnel to btpeers.
-			tunnelToBtpeers(cmd.Context(), sshManager, hostDut, btpeersCmdBtpeerCount)
+			tunnelToBtpeersUsingDutHost(cmd.Context(), sshManager, hostDut, btpeersCmdBtpeerCount)
 
 			time.Sleep(time.Second)
 			sshManager.WaitUntilAllSshCompleted(cmd.Context())

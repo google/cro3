@@ -31,7 +31,7 @@ The dut hostname is resolved from <dut_hostname> by removing the prefix
 
 			// Tunnel to dut.
 			hostDut := resolveHostname(args[0], "")
-			localDut := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "DUT", "", remotePortSsh, hostDut)
+			localDut := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
 
 			time.Sleep(time.Second)
 			log.Logger.Printf("Example Tast call (in chroot): tast run %s <test>", localDut)

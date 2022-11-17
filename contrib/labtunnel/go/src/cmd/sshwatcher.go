@@ -5,7 +5,6 @@
 package cmd
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -32,7 +31,7 @@ to be specified and is selected like it is for other tunnels in labtunnel. See
 
 			// Tunnel to the specified hosts.
 			for i, host := range args {
-				tunnelLocalPortToRemotePort(cmd.Context(), sshManager, strconv.Itoa(i+1), "", remotePortSsh, host)
+				genericTunnelToSshPort(cmd.Context(), sshManager, i+1, host)
 			}
 
 			time.Sleep(time.Second)

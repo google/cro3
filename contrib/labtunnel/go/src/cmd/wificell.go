@@ -5,7 +5,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -47,36 +46,16 @@ see "labtunnel btpeers --help" for details.
 
 			// Tunnel to dut.
 			hostDut := resolveHostname(args[0], "")
-			localDut := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "DUT", "", remotePortSsh, hostDut)
+			localDut := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
 
 			// Tunnel to routers.
-			var localRouters []string
-			for i := 1; i <= routerCount; i++ {
-				suffix := "-router"
-				if i != 1 {
-					suffix = fmt.Sprintf("%s%d", suffix, i)
-				}
-				hostRouter := resolveHostname(hostDut, suffix)
-				localRouter := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, fmt.Sprint("ROUTER-", i), "", remotePortSsh, hostRouter)
-				localRouters = append(localRouters, localRouter)
-			}
+			localRouters := tunnelToRoutersUsingDutHost(cmd.Context(), sshManager, hostDut, routerCount)
 
 			// Tunnel to pcaps.
-			var localPcaps []string
-			for i := 1; i <= pcapCount; i++ {
-				suffix := "-pcap"
-				if i != 1 {
-					suffix = fmt.Sprintf("%s%d", suffix, i)
-				}
-				hostPcap := resolveHostname(hostDut, suffix)
-				localPcap := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, fmt.Sprint("PCAP-", i), "", remotePortSsh, hostPcap)
-				localPcaps = append(localPcaps, localPcap)
-			}
+			localPcaps := tunnelToPcapsUsingDutHost(cmd.Context(), sshManager, hostDut, pcapCount)
 
 			// Tunnel to btpeers.
-			if wificellCmdBtpeerCount > 0 {
-				tunnelToBtpeers(cmd.Context(), sshManager, hostDut, wificellCmdBtpeerCount)
-			}
+			tunnelToBtpeersUsingDutHost(cmd.Context(), sshManager, hostDut, wificellCmdBtpeerCount)
 
 			time.Sleep(time.Second)
 			log.Logger.Printf(
