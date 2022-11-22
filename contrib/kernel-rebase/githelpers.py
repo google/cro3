@@ -82,7 +82,7 @@ def diff(repo, path):
     """returns the result of git diff {path}"""
 
     with sh.pushd(repo):
-        ret = sh.git('--no-pager', 'diff', '--no-color', path)
+        ret = sh.git('--no-pager', 'diff', '--no-color', '--full-index', path)
         return str(ret)
 
 def fetch(repo, remote):
@@ -188,7 +188,7 @@ def patch_diff(repo, sha):
     """Returns the diff for a given patch sha"""
 
     with sh.pushd(repo):
-        ret = sh.git('--no-pager', 'show', '--format=', '--no-color', sha)
+        ret = sh.git('--no-pager', 'show', '--format=', '--no-color', '--full-index', sha)
     return str(ret)
 
 def patch_title(repo, sha, old=False):
@@ -230,6 +230,7 @@ def format_patch(repo, sha):
             'format-patch',
             '--no-color',
             '--stdout',
+            '--full-index',
             f'{sha}~..{sha}')
 
     return str(diff)
