@@ -300,6 +300,18 @@ func appendChromeOsLabels(dut *device.DutInfo) (map[string]string, []string, err
 		labels = append(labels, dut.HwIDList...)
 	}
 
+	if dut.Sku != "" {
+		labels = append(labels, "sku:"+dut.Sku)
+	}
+
+	if dut.Phase != "" {
+		labels = append(labels, "phase:"+dut.Phase)
+	}
+
+	if dut.BTPeers > 0 {
+		labels = append(labels, fmt.Sprintf("working_bluetooth_btpeer:%v", dut.BTPeers))
+	}
+
 	return attrMap, labels, nil
 }
 

@@ -38,6 +38,9 @@ type DutInfo struct {
 	CableList           []string // The list of cables attached
 	CarrierList         []string // the list of carriers
 	HwIDList            []string // HwIDlist
+	Sku                 string
+	Phase               string
+	BTPeers             int
 }
 
 // joinHostAndPort joins host and port to a single address.
@@ -188,6 +191,21 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 		}
 	}
 
+	sku := chromeOS.Sku
+
+	var phase string
+	phase = strings.ToUpper(chromeOS.Phase.String())
+
+	btpeers := 0
+	if peers := chromeOS.BluetoothPeers; len(peers) > 0 {
+		for _, v := range peers {
+			state := v.State
+			if strings.ToLower(state.String()) == "working" {
+				btpeers++
+			}
+		}
+	}
+
 	return &DutInfo{
 		Addr:                addr,
 		Role:                role,
@@ -209,5 +227,8 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 		CableList:           cableList,
 		CarrierList:         carriers,
 		HwIDList:            hwids,
+		Sku:                 sku,
+		Phase:               phase,
+		BTPeers:             btpeers,
 	}, nil
 }

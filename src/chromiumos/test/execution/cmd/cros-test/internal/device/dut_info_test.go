@@ -71,6 +71,7 @@ func TestFillDUTInfo(t *testing.T) {
 			ProvisionServer: "cros-provision0:80",
 			ServoHostname:   "c6-r9-r7-labstation",
 			ServoPort:       "9996",
+			Phase:           "PHASE_UNSPECIFIED",
 		},
 		{
 			Addr:            "[0:0:0:0:0:ffff:7f00:1]:2",
@@ -80,6 +81,7 @@ func TestFillDUTInfo(t *testing.T) {
 			ProvisionServer: "cros-provision1:80",
 			ServoHostname:   "c6-r8-r7-labstation",
 			ServoPort:       "9999",
+			Phase:           "PHASE_UNSPECIFIED",
 		},
 		{
 			Addr:            "c6-r8-rack7-host7",
@@ -89,6 +91,7 @@ func TestFillDUTInfo(t *testing.T) {
 			ProvisionServer: "cros-provision2:80",
 			ServoHostname:   "c6-r7-r7-labstation",
 			ServoPort:       "9999",
+			Phase:           "PHASE_UNSPECIFIED",
 		},
 		{
 			Addr:            "0:0:0:0:0:ffff:7f00:1",
@@ -96,6 +99,7 @@ func TestFillDUTInfo(t *testing.T) {
 			Servo:           "",
 			DutServer:       "",
 			ProvisionServer: "",
+			Phase:           "PHASE_UNSPECIFIED",
 		},
 	}
 	input := []*api.CrosTestRequest_Device{
@@ -201,6 +205,9 @@ func TestFillDUTInfoExtended(t *testing.T) {
 			TouchMimo:           true,
 			CameraboxFacing:     "front",
 			CableList:           []string{"type:usbaudio"},
+			Phase:               "DVT",
+			Sku:                 "123",
+			HwIDList:            []string{"hwid_component:hwid123"},
 		},
 	}
 	input := []*api.CrosTestRequest_Device{
@@ -244,6 +251,9 @@ func TestFillDUTInfoExtended(t *testing.T) {
 								Type: labapi.Cable_USBAUDIO,
 							},
 						},
+						Phase:         labapi.Phase_DVT,
+						Sku:           "123",
+						HwidComponent: []string{"hwid123"},
 					},
 				},
 			},
