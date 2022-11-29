@@ -9,6 +9,8 @@ import (
 	"chromiumos/lro"
 	common_utils "chromiumos/test/provision/v2/common-utils"
 	"chromiumos/test/provision/v2/common-utils/metadata"
+	"chromiumos/test/util/portdiscovery"
+
 	"context"
 	"fmt"
 	"net"
@@ -53,6 +55,18 @@ func (ps *ProvisionServer) Start() error {
 	if err != nil {
 		return fmt.Errorf("failed to create listener at %d", ps.options.Port)
 	}
+	// Write port number to ~/.cftmeta for go/cft-port-discovery
+	pdUtil := portdiscovery.PortDiscovery{Logger: ps.options.Log}
+	servicePort, _ := pdUtil.GetPortFromAddress(l.Addr().String())
+	serviceMetadata := portdiscovery.Metadata{
+		Port: servicePort,
+		Name: "provision",
+	}
+	err = pdUtil.WriteMetadata(serviceMetadata)
+	if err != nil {
+		ps.options.Log.Println("Warning: error when writing to metadata file: ", err)
+	}
+
 	ps.manager = lro.New()
 	defer ps.manager.Close()
 	server := grpc.NewServer()

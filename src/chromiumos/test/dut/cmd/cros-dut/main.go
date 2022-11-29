@@ -6,7 +6,6 @@
 package main
 
 import (
-	"chromiumos/test/dut/cmd/cros-dut/dutssh"
 	"context"
 	"flag"
 	"fmt"
@@ -16,6 +15,9 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"chromiumos/test/dut/cmd/cros-dut/dutssh"
+	"chromiumos/test/util/portdiscovery"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
 )
@@ -113,6 +115,19 @@ func main() {
 
 		logger.Println("Started server on address ", l.Addr().String())
 		logger.Println("Continue")
+
+		// Write port number to ~/.cftmeta for go/cft-port-discovery
+		pdUtil := portdiscovery.PortDiscovery{Logger: logger}
+		servicePort, _ := pdUtil.GetPortFromAddress(l.Addr().String())
+		serviceMetadata := portdiscovery.Metadata{
+			Port:    servicePort,
+			Name:    "cros-dut",
+			Version: Version,
+		}
+		err = pdUtil.WriteMetadata(serviceMetadata)
+		if err != nil {
+			logger.Println("Warning: error when writing to metadata file: ", err)
+		}
 
 		ctx := context.Background()
 		logger.Println("Attempting to connect w/ Retry.")

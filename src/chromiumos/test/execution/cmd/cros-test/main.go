@@ -20,6 +20,7 @@ import (
 	"chromiumos/test/execution/cmd/cros-test/internal/common"
 	"chromiumos/test/execution/errors"
 	"chromiumos/test/util/metadata"
+	"chromiumos/test/util/portdiscovery"
 )
 
 // Version is the version info of this command. It is filled in during emerge.
@@ -155,6 +156,19 @@ func startServer(d []string) int {
 		return 2
 	}
 	logger.Println("Starting executionservice on port ", a.port)
+
+	// Write port number to ~/.cftmeta for go/cft-port-discovery
+	pdUtil := portdiscovery.PortDiscovery{Logger: logger}
+	servicePort, _ := pdUtil.GetPortFromAddress(l.Addr().String())
+	serviceMetadata := portdiscovery.Metadata{
+		Port:    servicePort,
+		Name:    "cros-test",
+		Version: Version,
+	}
+	err = pdUtil.WriteMetadata(serviceMetadata)
+	if err != nil {
+		logger.Println("Warning: error when writing to metadata file: ", err)
+	}
 
 	metadata, err := metadata.ReadDir(a.metadataDirPath)
 	if err != nil {
