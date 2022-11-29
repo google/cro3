@@ -54,6 +54,7 @@ type FirmwareService struct {
 	servoPort       int
 }
 
+// NewFirmwareService initializes a FirmwareService.
 func NewFirmwareService(ctx context.Context, dutAdapter common_utils.ServiceAdapterInterface, servoClient api.ServodServiceClient, req *api.ProvisionFirmwareRequest) (*FirmwareService, error) {
 	simpleRequest := req.GetSimpleRequest()
 	detailedRequest := req.GetDetailedRequest()
@@ -183,6 +184,7 @@ func (fws *FirmwareService) prepareServoConnection(ctx context.Context, servoCli
 	return nil
 }
 
+// PrintRequestInfo logs details of the provisioning operation.
 func (fws *FirmwareService) PrintRequestInfo() {
 	informationString := "provisioning "
 
@@ -224,20 +226,20 @@ func (fws *FirmwareService) PrintRequestInfo() {
 	log.Println("[FW Provisioning]", informationString)
 }
 
+// UpdateRw returns whether the read/write firmware is being operated on.
 func (fws *FirmwareService) UpdateRw() bool {
 	if fws.useSimpleRequest {
 		return !fws.simpleFlashRo && len(fws.simpleImagePath.GetPath()) > 0
-	} else {
-		return fws.mainRwPath != nil
 	}
+	return fws.mainRwPath != nil
 }
 
+// UpdateRo returns whether the read-only firmware is being operated on.
 func (fws *FirmwareService) UpdateRo() bool {
 	if fws.useSimpleRequest {
 		return fws.simpleFlashRo && len(fws.simpleImagePath.GetPath()) > 0
-	} else {
-		return (fws.mainRoPath != nil) || (fws.ecRoPath != nil) || (fws.pdRoPath != nil)
 	}
+	return (fws.mainRoPath != nil) || (fws.ecRoPath != nil) || (fws.pdRoPath != nil)
 }
 
 // GetBoard returns board of the DUT to provision. Returns empty string if board is not known.
@@ -289,18 +291,17 @@ func (fws *FirmwareService) RestartDut(ctx context.Context, requireServoReset bo
 			if fws.connection != nil {
 				// If SSH connection to DUT was available, wait until it's back up again.
 				return waitForReconnect(fws.connection)
-			} else {
-				waitDuration := 30 * time.Second
-				log.Printf("[FW Provisioning: Restart DUT] waiting for %v for DUT to finish rebooting.\n", waitDuration.String())
-				time.Sleep(waitDuration)
-				powerState, getPowerStateErr := fws.servoConnection.GetVariable(ctx, "ec_system_powerstate")
-				if getPowerStateErr != nil {
-					log.Printf("[FW Provisioning: Restart DUT] failed to get power state after reboot: %v\n", getPowerStateErr)
-				} else {
-					log.Printf("[FW Provisioning: Restart DUT] DUT power state after reboot: %v\n", powerState)
-				}
-				return getPowerStateErr
 			}
+			waitDuration := 30 * time.Second
+			log.Printf("[FW Provisioning: Restart DUT] waiting for %v for DUT to finish rebooting.\n", waitDuration.String())
+			time.Sleep(waitDuration)
+			powerState, getPowerStateErr := fws.servoConnection.GetVariable(ctx, "ec_system_powerstate")
+			if getPowerStateErr != nil {
+				log.Printf("[FW Provisioning: Restart DUT] failed to get power state after reboot: %v\n", getPowerStateErr)
+			} else {
+				log.Printf("[FW Provisioning: Restart DUT] DUT power state after reboot: %v\n", powerState)
+			}
+			return getPowerStateErr
 		}
 		log.Printf("[FW Provisioning: Restart DUT] failed to restart DUT via Servo: %v.\n", servoRestartErr)
 		if requireServoReset {
@@ -328,6 +329,7 @@ func (fws *FirmwareService) CleanupOnFailure(states []common_utils.ServiceState,
 	return fws.DeleteArchiveDirectories()
 }
 
+// DeleteArchiveDirectories deletes files on the servo host or DUT.
 func (fws *FirmwareService) DeleteArchiveDirectories() error {
 	var cleanedDevice common_utils.ServiceAdapterInterface
 	if fws.useServo {
@@ -365,9 +367,8 @@ func (fws *FirmwareService) DeleteArchiveDirectories() error {
 func (fws FirmwareService) FlashWithFutility(ctx context.Context, rwOnly bool, futilityImageArgs []string) error {
 	if fws.useServo {
 		return fws.servoFlash(ctx, rwOnly, futilityImageArgs)
-	} else {
-		return fws.sshFlash(ctx, rwOnly, futilityImageArgs)
 	}
+	return fws.sshFlash(ctx, rwOnly, futilityImageArgs)
 }
 
 func (fws FirmwareService) sshFlash(ctx context.Context, rwOnly bool, futilityImageArgs []string) error {
@@ -430,32 +431,41 @@ func (fws FirmwareService) runFutility(ctx context.Context, rwOnly bool, futilit
 func (fws FirmwareService) GetConnectionToFlashingDevice() common_utils.ServiceAdapterInterface {
 	if fws.useServo {
 		return fws.servoConnection
-	} else {
-		return fws.connection
 	}
+	return fws.connection
 }
 
+// IsServoUsed returns whether servo is used during the provisioning.
 func (fws FirmwareService) IsServoUsed() bool {
 	return fws.useServo
 }
+
+// IsForceUpdate returns whether an update is forced during the provisioning.
 func (fws FirmwareService) IsForceUpdate() bool {
 	return fws.force
 }
 
+// GetMainRwPath returns the path of the read/write part of the AP firmware.
 func (fws FirmwareService) GetMainRwPath() string {
 	return fws.mainRwPath.GetPath()
 }
+
+// GetMainRoPath returns the path of readonly part of the AP firmware.
 func (fws FirmwareService) GetMainRoPath() string {
 	return fws.mainRoPath.GetPath()
 }
+
+// GetEcRoPath returns the path for the readonly portion of the EC firmware.
 func (fws FirmwareService) GetEcRoPath() string {
 	return fws.ecRoPath.GetPath()
 }
+
+// GetPdRoPath returns the path for power delivery firmware.
 func (fws FirmwareService) GetPdRoPath() string {
 	return fws.pdRoPath.GetPath()
 }
 
-// returns (imageGsLink, flashRo)
+// GetSimpleRequest returns (imageGsLink, flashRo)
 func (fws FirmwareService) GetSimpleRequest() (string, bool) {
 	return fws.simpleImagePath.GetPath(), fws.simpleFlashRo
 }
@@ -470,14 +480,13 @@ func (fws FirmwareService) DownloadAndProcess(ctx context.Context, gspath string
 		if err != nil {
 			log.Printf("[FW Provisioning: Prepare FW] failed to download and process %v: %v\n", gspath, err)
 			return err
+		}
+		if fws.GetUseSimpleRequest() {
+			log.Printf("[FW Provisioning: Prepare FW] downloaded %v to %v\n",
+				gspath, archiveMetadata.ArchivePath)
 		} else {
-			if fws.GetUseSimpleRequest() {
-				log.Printf("[FW Provisioning: Prepare FW] downloaded %v to %v\n",
-					gspath, archiveMetadata.ArchivePath)
-			} else {
-				log.Printf("[FW Provisioning: Prepare FW] downloaded %v to %v. Files in archive: %v\n",
-					gspath, archiveMetadata.ArchivePath, len(archiveMetadata.ListOfFiles))
-			}
+			log.Printf("[FW Provisioning: Prepare FW] downloaded %v to %v. Files in archive: %v\n",
+				gspath, archiveMetadata.ArchivePath, len(archiveMetadata.ListOfFiles))
 		}
 		fws.imagesMetadata[gspath] = *archiveMetadata
 	}
