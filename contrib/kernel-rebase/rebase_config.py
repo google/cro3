@@ -91,10 +91,6 @@ topic_fixups['cros_ec'] = [
     'platform iio: cros_ec_activity: add body_detection push event'
 ]
 
-topic_fixups['drivers'] = [
-    'FIXUP: BACKPORT: FROMLIST: usb: dwc3: qcom: Configure wakeup'
-]
-
 topic_fixups['sound'] = [
     'ASoC: max98357a: Add mixer control to mute unmute speaker'
 ]
