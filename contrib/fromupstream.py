@@ -525,7 +525,7 @@ def main(args):
                         'git reference like git://remote/branch/HASH or '
                         'git://repoURL#branch/HASH or '
                         'https://repoURL#branch/HASH or '
-                        'https://repoURL/commit/?h=branch&id=HASH')
+                        '\'https://repoURL/commit/?h=branch&id=HASH\'')
 
     args = vars(parser.parse_args(args))
 
