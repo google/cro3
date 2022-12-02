@@ -57,6 +57,9 @@ def parse_local_arguments() -> argparse.Namespace:
                            f'garunteed. Will default to {DEFAULT_BOARD} if '
                            'given cannot be found). '
                            ' Use -image for exact image #')
+  parser.add_argument('-model',
+                      dest='model',
+                      default=None,)
   parser.add_argument('-results',
                       dest='results',
                       default=('/tmp/results/CFTtest/'),
@@ -236,7 +239,12 @@ class CrosTestCaller(object):
   def build_chromeos_info(self) -> lab_protos.Dut.ChromeOS:
     """Build the basic chromeos dut proto."""
     endpoint = IpEndpoint.IpEndpoint(address=self.dutAddr)
-    CHROMEOS = lab_protos.Dut.ChromeOS(ssh=endpoint)
+    if self.args.model:
+      model = lab_protos.DutModel(build_target=self.args.board,
+                                      model_name=self.args.model)
+    else:
+      model = lab_protos.DutModel(build_target=self.args.board)
+    CHROMEOS = lab_protos.Dut.ChromeOS(ssh=endpoint, dut_model=model)
     return CHROMEOS
 
 
