@@ -92,11 +92,13 @@ func NewAndroidServiceFromAndroidProvisionRequest(dutClient api.DutServiceClient
 		return nil, err
 	}
 	var p []*ProvisionPackage
-	for _, pkgProto := range req.GetCipdPackages() {
-		cipdPkg := &CIPDPackage{
-			PackageProto: pkgProto,
+	if ps := req.GetProvisionState(); ps != nil {
+		for _, pkgProto := range ps.GetCipdPackages() {
+			cipdPkg := &CIPDPackage{
+				PackageProto: pkgProto,
+			}
+			p = append(p, &ProvisionPackage{CIPDPackage: cipdPkg})
 		}
-		p = append(p, &ProvisionPackage{CIPDPackage: cipdPkg})
 	}
 	return &AndroidService{
 		DUT: &DUTConnection{
