@@ -23,6 +23,9 @@ while true
 do
 # cat is not equivalent to < when the file is a FIFO
 # shellcheck disable=SC2002
-        cat "${IO}"/commands | bash > "${IO}"/output
-        echo $? > "${IO}"/last_exit
+  commands=$(cat "${IO}"/commands)
+  echo "$(date '+%Y-%m-%d %H:%M:%S'): executing ${commands}"
+  echo "${commands}" | bash > "${IO}"/output
+  echo $? > "${IO}"/last_exit
+  echo "$(date '+%Y-%m-%d %H:%M:%S'): returncode ${?}"
 done

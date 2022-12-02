@@ -16,6 +16,7 @@ replaces git rerere for this project, due to specific requirements.
 import hashlib
 import os
 
+from rich.prompt import Confirm
 import sh
 
 from config import debug
@@ -56,8 +57,11 @@ def commit_subject(repo, sha):
     """Get commit subject"""
 
     with sh.pushd(repo):
-        ret = sh.git('--no-pager', 'show', '--no-color', '--format=%s', sha)
-        lines = str(ret).splitlines()
+        ret = sh.git('--no-pager', 'show', '--stat', '--no-color', '--format=%s', sha)
+        try:
+            lines = str(ret).splitlines()
+        except UnicodeDecodeError:
+            lines = str(ret, 'ascii').splitlines()
 
     return lines[0].strip()
 
@@ -71,8 +75,11 @@ def is_merge(repo, sha):
     """Returns true if the commit is a merge commit"""
 
     with sh.pushd(repo):
-        ret = sh.git('--no-pager', 'show', '--no-color', sha)
-        lines = str(ret).splitlines()
+        ret = sh.git('--no-pager', 'show', "--stat", '--no-color', sha)
+        try:
+            lines = str(ret).splitlines()
+        except UnicodeDecodeError:
+            lines = str(ret, 'ascii').splitlines()
 
     # No commits have fewer than 4 or so lines, and merge line
     # is always the one below commit sha
@@ -98,11 +105,25 @@ def checkout(repo, branch):
     with sh.pushd(repo):
         sh.git('checkout', branch)
 
+def ref_exists(repo, name):
+    """checks if specified ref (branch, sha...) exists in a repository"""
+    with sh.pushd(repo):
+        try:
+            sh.git("show-ref", "--quiet", name)
+        except sh.ErrorReturnCode_1:
+            return False
+        return True
 
-def create_head(repo, name):
+
+def create_head(repo, name, force=False):
     """creates a branch on repo"""
 
+    branch_exists = ref_exists(repo, name)
+
     with sh.pushd(repo):
+        if branch_exists:
+            if force or Confirm.ask(f"Branch {name} already exists. Remove it?"):
+                sh.git('branch', '-D', name)
         sh.git('branch', name)
 
 
