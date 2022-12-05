@@ -191,7 +191,8 @@ build_board() {
     git --git-dir "${partner_overlay}/.git" fetch --all
     binhost_gs="$(git --git-dir "${partner_overlay}/.git" show \
                   "m/main:chromeos/binhost/target/${board}-POSTSUBMIT_BINHOST.conf" | \
-                  sed -nE 's/POSTSUBMIT_BINHOST=\"(.*)\"/\1/p')"
+                  sed -nE 's/POSTSUBMIT_BINHOST=\"(.*)\"/\1/p' | \
+                  cut -d' ' -f1)"
 
     # Parse Packages file to find GS path of the latest ${pn} prebuilt.
     packages_file="$(gsutil cat "${binhost_gs}/Packages")"
