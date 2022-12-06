@@ -55,8 +55,6 @@ func TestTestsReports(t *testing.T) {
 	}
 	defer os.RemoveAll(td)
 	fn := filepath.Join(td, "results.json")
-	fmt.Println("PRINTING TO FILE")
-	fmt.Println(fn)
 
 	f, err := os.Create(fn)
 	defer f.Close()
@@ -190,6 +188,126 @@ func TestTestsReports_BadJson(t *testing.T) {
 	}
 
 	reports, _ := TestsReports(resultsDir, tests, testNamesToIds, missingReason)
+
+	for i := 0; i < len(reports); i++ {
+		if !proto.Equal(reports[i], expectedResults[i]) {
+			t.Errorf("Got unexpected reports(-got +want):\n%v\n--\n%v\n", reports, expectedResults)
+		}
+	}
+
+}
+
+func TestAbortedResults(t *testing.T) {
+	testJSON := `
+	{"tests": [{"verdict": "Abort", "testname": "stub_ServerToClientPass", "errmsg": "client job was aborted", "resultspath": "/tmp/test/results/tauto/results-1-stub_ServerToClientPass", "starttime": "1670062681", "endtime": "1670062718"}]}`
+	td, err := ioutil.TempDir("", "example")
+	if err != nil {
+		t.Fatal("Failed to create temporary dictectory: ", err)
+	}
+	defer os.RemoveAll(td)
+	fn := filepath.Join(td, "results.json")
+
+	f, err := os.Create(fn)
+	defer f.Close()
+
+	f.WriteString(testJSON)
+
+	EXPECTSTARTTIME, err := ptypes.TimestampProto(time.Unix(1670062681, 0))
+	if err != nil {
+		fmt.Printf("!!!! ERR %v", err)
+	}
+	DURATION105 := ptypes.DurationProto(time.Second * time.Duration(37))
+
+	resultsDir := td
+	expectedResults := []*api.TestCaseResult{
+		{
+			TestCaseId: &api.TestCase_Id{Value: "stub_ServerToClientPass"},
+			ResultDirPath: &_go.StoragePath{
+				HostType: _go.StoragePath_LOCAL,
+				Path:     "/tmp/test/results/tauto/results-1-stub_ServerToClientPass",
+			},
+			Verdict: &api.TestCaseResult_Abort_{Abort: &api.TestCaseResult_Abort{}},
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tauto_{
+					Tauto: &api.TestHarness_Tauto{},
+				},
+			},
+			Reason:    "client job was aborted",
+			StartTime: EXPECTSTARTTIME,
+			Duration:  DURATION105,
+		},
+	}
+
+	tests := []string{"infra_pass", "infra_fail", "infra_err", "infra_dne"}
+
+	testNamesToIds := map[string]string{
+		"stub_ServerToClientPass": "stub_ServerToClientPass",
+	}
+
+	reports, err := TestsReports(resultsDir, tests, testNamesToIds, "AutoservCrash")
+	if err != nil {
+		t.Fatal("Got error from unexpected: ", err)
+	}
+
+	for i := 0; i < len(reports); i++ {
+		if !proto.Equal(reports[i], expectedResults[i]) {
+			t.Errorf("Got unexpected reports(-got +want):\n%v\n--\n%v\n", reports, expectedResults)
+		}
+	}
+
+}
+
+func TestMalformedResults(t *testing.T) {
+	testJSON := `
+	{"tests": [{"verdict": "UNKOWN", "testname": "stub_ServerToClientPass", "errmsg": "someCrash", "resultspath": "/tmp/test/results/tauto/results-1-stub_ServerToClientPass", "starttime": "1670062681", "endtime": "1670062718"}]}`
+	td, err := ioutil.TempDir("", "example")
+	if err != nil {
+		t.Fatal("Failed to create temporary dictectory: ", err)
+	}
+	defer os.RemoveAll(td)
+	fn := filepath.Join(td, "results.json")
+
+	f, err := os.Create(fn)
+	defer f.Close()
+
+	f.WriteString(testJSON)
+
+	EXPECTSTARTTIME, err := ptypes.TimestampProto(time.Unix(1670062681, 0))
+	if err != nil {
+		fmt.Printf("!!!! ERR %v", err)
+	}
+	DURATION105 := ptypes.DurationProto(time.Second * time.Duration(37))
+
+	resultsDir := td
+	expectedResults := []*api.TestCaseResult{
+		{
+			TestCaseId: &api.TestCase_Id{Value: "stub_ServerToClientPass"},
+			ResultDirPath: &_go.StoragePath{
+				HostType: _go.StoragePath_LOCAL,
+				Path:     "/tmp/test/results/tauto/results-1-stub_ServerToClientPass",
+			},
+			Verdict: &api.TestCaseResult_Crash_{Crash: &api.TestCaseResult_Crash{}},
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tauto_{
+					Tauto: &api.TestHarness_Tauto{},
+				},
+			},
+			Reason:    "Result status indicator unknown, defaulting to CRASH: someCrash",
+			StartTime: EXPECTSTARTTIME,
+			Duration:  DURATION105,
+		},
+	}
+
+	tests := []string{"infra_pass", "infra_fail", "infra_err", "infra_dne"}
+
+	testNamesToIds := map[string]string{
+		"stub_ServerToClientPass": "stub_ServerToClientPass",
+	}
+
+	reports, err := TestsReports(resultsDir, tests, testNamesToIds, "AutoservCrash")
+	if err != nil {
+		t.Fatal("Got error from unexpected: ", err)
+	}
 
 	for i := 0; i < len(reports); i++ {
 		if !proto.Equal(reports[i], expectedResults[i]) {

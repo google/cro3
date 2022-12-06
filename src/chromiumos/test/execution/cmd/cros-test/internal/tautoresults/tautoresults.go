@@ -88,18 +88,27 @@ func GenerateReport(test test, testID string, resultsDir string) *api.TestCaseRe
 	// For now, assume results will be in $results_dir/"test_results.json"
 	// Mark the result as found.
 	// r.reportedTests[test] = struct{}{}
+
+	// If we cannot validate the status name, we will default to Crash.
 	testResult := api.TestCaseResult{
 		TestCaseId: &api.TestCase_Id{Value: testID},
 		ResultDirPath: &_go.StoragePath{
 			HostType: _go.StoragePath_LOCAL,
 			Path:     filepath.Join(test.Resultspath),
 		},
-		Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
+		Verdict: &api.TestCaseResult_Crash_{Crash: &api.TestCaseResult_Crash{}},
 		TestHarness: &api.TestHarness{
 			TestHarnessType: &api.TestHarness_Tauto_{
 				Tauto: &api.TestHarness_Tauto{},
 			},
 		},
+		Reason: "Result status indicator unknown, defaulting to CRASH",
+	}
+
+	// If there is an errmsg, append it for clarity.
+	if test.Errmsg != "" {
+		testResult.Reason = fmt.Sprintf("%s: %s", testResult.Reason, test.Errmsg)
+
 	}
 
 	// Overwrite the tauto harness in the test was a tast subtest.
@@ -131,6 +140,15 @@ func GenerateReport(test test, testID string, resultsDir string) *api.TestCaseRe
 		if test.Errmsg == "" {
 			testResult.Reason = "Test did not finish"
 		}
+	} else if test.Verdict == "Abort" {
+		testResult.Verdict = &api.TestCaseResult_Abort_{Abort: &api.TestCaseResult_Abort{}}
+		testResult.Reason = test.Errmsg
+		if test.Errmsg == "" {
+			testResult.Reason = "Test Aborted."
+		}
+	} else if test.Verdict == "Pass" {
+		testResult.Verdict = &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}}
+		testResult.Reason = ""
 	}
 	// r.testCaseResults = append(r.testCaseResults, &testResult)
 	return &testResult
