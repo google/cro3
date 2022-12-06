@@ -61,23 +61,23 @@ func (ps *ProvisionServer) Start() error {
 	return server.Serve(l)
 }
 
-func (sp *ProvisionServer) Install(ctx context.Context, req *api.InstallRequest) (*longrunning.Operation, error) {
-	sp.options.Log.Println("Received api.InstallCrosRequest: ", req)
-	op := sp.manager.NewOperation()
+func (ps *ProvisionServer) Install(ctx context.Context, req *api.InstallRequest) (*longrunning.Operation, error) {
+	ps.options.Log.Println("Received api.InstallCrosRequest: ", req)
+	op := ps.manager.NewOperation()
 	response := api.InstallResponse{}
 
-	fr, err := sp.installCros(ctx, req)
+	fr, err := ps.installTarget(ctx, req)
 	if err != nil {
-		sp.options.Log.Fatalf("failed provision, %s", err)
+		ps.options.Log.Fatalf("failed provision, %s", err)
 	}
 	response.Status = fr
-	sp.manager.SetResult(op.Name, &response)
+	ps.manager.SetResult(op.Name, &response)
 	return op, nil
 }
 
-// installCros installs a specified version of Chrome OS on the DUT, along
+// installTarget installs a specified version of the software on the target, along
 // with any specified DLCs.
-func (ps *ProvisionServer) installCros(ctx context.Context, req *api.InstallRequest) (api.InstallResponse_Status, error) {
+func (ps *ProvisionServer) installTarget(ctx context.Context, req *api.InstallRequest) (api.InstallResponse_Status, error) {
 	ps.options.Log.Println("Received api.InstallRequest: ", req)
 	fs, err := ps.executor.GetFirstState(ps.options.Dut, ps.dutClient, req)
 	if err != nil {
