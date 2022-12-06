@@ -8,23 +8,28 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
+	"google.golang.org/api/googleapi"
 
+	"chromiumos/test/provision/v2/android-provision/common/gsstorage"
 	"chromiumos/test/provision/v2/android-provision/service"
 )
 
 type UploadAPKToGSCommand struct {
 	ctx context.Context
 	svc *service.AndroidService
+	gs  gsstorage.GsClient
 }
 
 func NewUploadAPKToGSCommand(ctx context.Context, svc *service.AndroidService) *UploadAPKToGSCommand {
 	return &UploadAPKToGSCommand{
 		ctx: ctx,
 		svc: svc,
+		gs:  gsstorage.NewGsClient(),
 	}
 }
 
@@ -47,10 +52,29 @@ func (c *UploadAPKToGSCommand) Execute(log *log.Logger) error {
 				log.Printf("UploadAPKToGSCommand Failure: %v", err)
 				return err
 			}
-			// TODO (b/256224396): Upload APK to GS bucket.
+			apkRemotePath := cipdPkg.InstanceId + "/" + apkName
+			gspath, err := c.gs.Upload(c.ctx, apkPath, apkRemotePath)
+			if err != nil {
+				switch e := err.(type) {
+				case *googleapi.Error:
+					if e.Code != http.StatusPreconditionFailed {
+						log.Printf("UploadAPKToGSCommand Failure: %v", err)
+						return err
+					}
+					// File already exists, skipping upload.
+					continue
+				default:
+					log.Printf("UploadAPKToGSCommand Failure: %v", err)
+					return err
+				}
+			}
+			if err != nil {
+				log.Printf("UploadAPKToGSCommand Failure: %v", err)
+				return err
+			}
 			pkg.APKFile = &service.APKFile{
 				Name:   apkName,
-				GsPath: "", // TODO (b/256224396): Populate GSPath.
+				GsPath: gspath,
 			}
 		}
 	}

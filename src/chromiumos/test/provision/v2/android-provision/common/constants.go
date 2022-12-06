@@ -13,4 +13,8 @@ const (
 	ADBVendorKeys               = "/var/lib/android_keys"
 	ADBUnixSocketMountDirectory = "/run/arc/adb"
 	GMSCorePackageName          = "com.google.android.gms"
+
+	// DroneServiceAccountCreds is needed to upload APKs to Android Provisioning GSBucket.
+	DroneServiceAccountCreds = "/creds/service_accounts/skylab-drone.json"
+	GSBucketName             = "android-provisioning-apks"
 )
