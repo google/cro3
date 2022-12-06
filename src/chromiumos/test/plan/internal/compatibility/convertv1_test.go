@@ -208,6 +208,7 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 								TagExcludes: []string{"informational"},
 							},
 						},
+						TotalShards: 1,
 					},
 					{
 						Name: "tast_gce_suite2",
@@ -216,6 +217,7 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 								Tags: []string{"\"group:mainline\"", "informational"},
 							},
 						},
+						TotalShards: 2,
 					},
 					// Add suites twice, they should be de-duped.
 					{
@@ -226,6 +228,7 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 								TagExcludes: []string{"informational"},
 							},
 						},
+						TotalShards: 1,
 					},
 					{
 						Name: "tast_gce_suite2",
@@ -234,6 +237,7 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 								Tags: []string{"\"group:mainline\"", "informational"},
 							},
 						},
+						TotalShards: 2,
 					},
 				},
 				DutTargets: []*testpb.DutTarget{
@@ -267,6 +271,7 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 								TagExcludes: []string{"informational"},
 							},
 						},
+						TotalShards: 3,
 					},
 				},
 				DutTargets: []*testpb.DutTarget{
@@ -712,7 +717,37 @@ func TestToCTP1(t *testing.T) {
 									TestExpr: "(\"group:mainline\" && \"dep:depA\" && !informational)",
 								},
 							},
-							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA-arc-r.tast_vm_suite1", Critical: wrapperspb.Bool(true)},
+							TastTestShard: &testplans.TastTestShard{
+								TotalShards: 3,
+								ShardIndex:  0,
+							},
+							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA-arc-r.tast_vm_suite1_shard_1_of_3", Critical: wrapperspb.Bool(true)},
+						},
+						{
+							SuiteName: "tast_vm_suite1",
+							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
+								{
+									TestExpr: "(\"group:mainline\" && \"dep:depA\" && !informational)",
+								},
+							},
+							TastTestShard: &testplans.TastTestShard{
+								TotalShards: 3,
+								ShardIndex:  1,
+							},
+							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA-arc-r.tast_vm_suite1_shard_2_of_3", Critical: wrapperspb.Bool(true)},
+						},
+						{
+							SuiteName: "tast_vm_suite1",
+							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
+								{
+									TestExpr: "(\"group:mainline\" && \"dep:depA\" && !informational)",
+								},
+							},
+							TastTestShard: &testplans.TastTestShard{
+								TotalShards: 3,
+								ShardIndex:  2,
+							},
+							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA-arc-r.tast_vm_suite1_shard_3_of_3", Critical: wrapperspb.Bool(true)},
 						},
 					},
 				},
@@ -749,8 +784,35 @@ func TestToCTP1(t *testing.T) {
 									TestExpr: "(\"group:mainline\" && informational)",
 								},
 							},
+							TastTestShard: &testplans.TastTestShard{
+								TotalShards: 2,
+								ShardIndex:  0,
+							},
 							Common: &testplans.TestSuiteCommon{
-								DisplayName: "gce.vmboardA.tast_gce_suite2",
+								DisplayName: "gce.vmboardA.tast_gce_suite2_shard_1_of_2",
+								Critical:    wrapperspb.Bool(true),
+							},
+						},
+						{
+							SuiteName: "tast_gce_suite2",
+							GceMetadata: &testplans.TastGceTestCfg_TastGceTest_GceMetadata{
+								Project:     "chromeos-gce-tests",
+								Zone:        "us-central1-a",
+								MachineType: "n2-standard-8",
+								Network:     "chromeos-gce-tests",
+								Subnet:      "us-central1",
+							},
+							TastTestExpr: []*testplans.TastGceTestCfg_TastTestExpr{
+								{
+									TestExpr: "(\"group:mainline\" && informational)",
+								},
+							},
+							TastTestShard: &testplans.TastTestShard{
+								TotalShards: 2,
+								ShardIndex:  1,
+							},
+							Common: &testplans.TestSuiteCommon{
+								DisplayName: "gce.vmboardA.tast_gce_suite2_shard_2_of_2",
 								Critical:    wrapperspb.Bool(true),
 							},
 						},

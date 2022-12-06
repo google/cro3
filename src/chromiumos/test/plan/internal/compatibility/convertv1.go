@@ -347,6 +347,9 @@ type suiteInfo struct {
 	boardVariant string
 	// optional, the licenses required for the DUT the test will run on.
 	licenses []lab.LicenseType
+	// optional, the total number of shards to be used in a test run. Only valid
+	// if environment is TastVM or TastGCE.
+	totalShards int64
 }
 
 // getBuildTarget returns the build target for the suiteInfo. If boardVariant is
@@ -570,6 +573,7 @@ func coverageRuleToSuiteInfo(
 					environment:  env,
 					critical:     critical,
 					boardVariant: boardVariant,
+					totalShards:  suite.GetTotalShards(),
 				})
 		default:
 			return nil, fmt.Errorf("TestSuite spec type %T is not supported", spec)
@@ -673,6 +677,87 @@ func extractSuiteInfos(
 	return buildTargetToSuiteInfos, nil
 }
 
+// createTastVMTest creates a TastVmTestCfg_TastVmTest based on a suiteInfo
+// and shardIndex. Note that shardIndex is 0-based.
+func createTastVMTest(suiteInfo *suiteInfo, shardIndex int64) (*testplans.TastVmTestCfg_TastVmTest, error) {
+	if suiteInfo.totalShards != 0 && shardIndex > suiteInfo.totalShards {
+		return nil, fmt.Errorf("shardIndex cannot be greater than suiteInfo.totalShards")
+	}
+	// If the suite is configured to run more than one shard, include that info in the display name
+	var displayName string
+	if suiteInfo.totalShards > 1 {
+		// shardIndex is 0-based, but we use 1-based indexing for the display name.
+		displayName = fmt.Sprintf("vm.%s.%s_shard_%d_of_%d", suiteInfo.getBuildTarget(), suiteInfo.suite, shardIndex+1, suiteInfo.totalShards)
+	} else {
+		displayName = fmt.Sprintf("vm.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.suite)
+	}
+	tastVMTest := &testplans.TastVmTestCfg_TastVmTest{
+		SuiteName: suiteInfo.suite,
+		TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
+			{
+				TestExpr: suiteInfo.tastExpr,
+			},
+		},
+		Common: &testplans.TestSuiteCommon{
+			DisplayName: displayName,
+			Critical: &wrapperspb.BoolValue{
+				Value: suiteInfo.critical,
+			},
+		},
+	}
+	if suiteInfo.totalShards > 1 {
+		tastVMTest.TastTestShard = &testplans.TastTestShard{
+			TotalShards: suiteInfo.totalShards,
+			ShardIndex:  shardIndex,
+		}
+	}
+	return tastVMTest, nil
+}
+
+// createTastGCETest creates a TastGceTestCfg_TastGceTest based on a suiteInfo
+// and shardIndex. Note that shardIndex is 0-based.
+func createTastGCETest(suiteInfo *suiteInfo, shardIndex int64) (*testplans.TastGceTestCfg_TastGceTest, error) {
+	if suiteInfo.totalShards != 0 && shardIndex > suiteInfo.totalShards {
+		return nil, fmt.Errorf("shardIndex cannot be greater than suiteInfo.totalShards")
+	}
+	// If the suite is configured to run more than one shard, include that info in the display name
+	var displayName string
+	if suiteInfo.totalShards > 1 {
+		// shardIndex is 0-based, but we use 1-based indexing for the display name.
+		displayName = fmt.Sprintf("gce.%s.%s_shard_%d_of_%d", suiteInfo.getBuildTarget(), suiteInfo.suite, shardIndex+1, suiteInfo.totalShards)
+	} else {
+		displayName = fmt.Sprintf("gce.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.suite)
+	}
+	tastGCETest := &testplans.TastGceTestCfg_TastGceTest{
+		SuiteName: suiteInfo.suite,
+		TastTestExpr: []*testplans.TastGceTestCfg_TastTestExpr{
+			{
+				TestExpr: suiteInfo.tastExpr,
+			},
+		},
+		GceMetadata: &testplans.TastGceTestCfg_TastGceTest_GceMetadata{
+			Project:     "chromeos-gce-tests",
+			Zone:        "us-central1-a",
+			MachineType: "n2-standard-8",
+			Network:     "chromeos-gce-tests",
+			Subnet:      "us-central1",
+		},
+		Common: &testplans.TestSuiteCommon{
+			DisplayName: displayName,
+			Critical: &wrapperspb.BoolValue{
+				Value: suiteInfo.critical,
+			},
+		},
+	}
+	if suiteInfo.totalShards > 1 {
+		tastGCETest.TastTestShard = &testplans.TastTestShard{
+			TotalShards: suiteInfo.totalShards,
+			ShardIndex:  shardIndex,
+		}
+	}
+	return tastGCETest, nil
+}
+
 // ToCTP1 converts a [VM|HW]TestPlan to a GenerateTestPlansResponse, which can
 // be used with CTP1.
 //
@@ -770,57 +855,66 @@ func ToCTP1(
 					glog.V(2).Infof("added HwTest: %q", hwTest)
 				}
 			case TastVM:
-				displayName := fmt.Sprintf("vm.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.suite)
-				tastVMTest := &testplans.TastVmTestCfg_TastVmTest{
-					SuiteName: suiteInfo.suite,
-					TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
-						{
-							TestExpr: suiteInfo.tastExpr,
-						},
-					},
-					Common: &testplans.TestSuiteCommon{
-						DisplayName: displayName,
-						Critical: &wrapperspb.BoolValue{
-							Value: suiteInfo.critical,
-						},
-					},
-				}
+				if suiteInfo.totalShards > 0 {
+					var i int64
+					for i = 0; i < suiteInfo.totalShards; i++ {
+						tastVMTest, err := createTastVMTest(suiteInfo, i)
+						if err != nil {
+							return nil, err
+						}
 
-				if _, found := tastVMTests[displayName]; found {
-					glog.V(2).Infof("TastVmTest already added: %q", tastVMTest)
+						displayName := tastVMTest.GetCommon().GetDisplayName()
+						if _, found := tastVMTests[displayName]; found {
+							glog.V(2).Infof("TastVmTest already added: %q", tastVMTest)
+						} else {
+							tastVMTests[displayName] = tastVMTest
+							glog.V(2).Infof("added TastVmTest %q", tastVMTest)
+						}
+					}
 				} else {
-					tastVMTests[displayName] = tastVMTest
-					glog.V(2).Infof("added TastVmTest %q", tastVMTest)
+					tastVMTest, err := createTastVMTest(suiteInfo, 0)
+					if err != nil {
+						return nil, err
+					}
+
+					displayName := tastVMTest.GetCommon().GetDisplayName()
+					if _, found := tastVMTests[displayName]; found {
+						glog.V(2).Infof("TastVmTest already added: %q", tastVMTest)
+					} else {
+						tastVMTests[displayName] = tastVMTest
+						glog.V(2).Infof("added TastVmTest %q", tastVMTest)
+					}
 				}
 			case TastGCE:
-				displayName := fmt.Sprintf("gce.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.suite)
-				tastGCETest := &testplans.TastGceTestCfg_TastGceTest{
-					SuiteName: suiteInfo.suite,
-					TastTestExpr: []*testplans.TastGceTestCfg_TastTestExpr{
-						{
-							TestExpr: suiteInfo.tastExpr,
-						},
-					},
-					GceMetadata: &testplans.TastGceTestCfg_TastGceTest_GceMetadata{
-						Project:     "chromeos-gce-tests",
-						Zone:        "us-central1-a",
-						MachineType: "n2-standard-8",
-						Network:     "chromeos-gce-tests",
-						Subnet:      "us-central1",
-					},
-					Common: &testplans.TestSuiteCommon{
-						DisplayName: displayName,
-						Critical: &wrapperspb.BoolValue{
-							Value: suiteInfo.critical,
-						},
-					},
-				}
+				if suiteInfo.totalShards > 0 {
+					var i int64
+					for i = 0; i < suiteInfo.totalShards; i++ {
+						tastGCETest, err := createTastGCETest(suiteInfo, i)
+						if err != nil {
+							return nil, err
+						}
 
-				if _, found := tastGCETests[displayName]; found {
-					glog.V(2).Infof("TastGceTest already added: %q", tastGCETest)
+						displayName := tastGCETest.GetCommon().GetDisplayName()
+						if _, found := tastGCETests[displayName]; found {
+							glog.V(2).Infof("TastGceTest already added: %q", tastGCETest)
+						} else {
+							tastGCETests[displayName] = tastGCETest
+							glog.V(2).Infof("added TastGceTest %q", tastGCETest)
+						}
+					}
 				} else {
-					tastGCETests[displayName] = tastGCETest
-					glog.V(2).Infof("added TastGceTest: %q", tastGCETest)
+					tastGCETest, err := createTastGCETest(suiteInfo, 0)
+					if err != nil {
+						return nil, err
+					}
+
+					displayName := tastGCETest.GetCommon().GetDisplayName()
+					if _, found := tastGCETests[displayName]; found {
+						glog.V(2).Infof("TastGceTest already added: %q", tastGCETest)
+					} else {
+						tastGCETests[displayName] = tastGCETest
+						glog.V(2).Infof("added TastGceTest %q", tastGCETest)
+					}
 				}
 			default:
 				return nil, fmt.Errorf("unsupported environment %T", env)
