@@ -415,10 +415,6 @@ read -r -a REVIEWERS <<< "$(rd_list "${FLAGS_reviewer}")"
 if [[ -n "${FLAGS_skip}" ]]; then
   PROJECTS=()
   read -r -a SKIP_ARRAY <<< "$(rd_list "${FLAGS_skip}")"
-  # Validate skipped projects
-  for S in "${SKIP_ARRAY[@]}"; do
-    check_project "${S}"
-  done
   SKIPPED="${SKIP_ARRAY[*]}"
   for P in "${PROJLIST[@]}"; do
     if ! (in_list "${P}" "${SKIPPED}"); then
