@@ -54,7 +54,8 @@ topic_fixups['chromeos'] = [
     'mm: Optionally limit per-process reclaim',
     'CHROMIUM: LSM: chromiumos security module',
     'CHROMIUM: Restrict swapon() to \"zram\" devices lock down zram',
-    'Input: elants_i2c - keep regulators on when unbinding'
+    'Input: elants_i2c - keep regulators on when unbinding',
+    'schedutil: Fix iowait boost issues for slow IO devices'
 ]
 
 topic_fixups['bluetooth'] = [
