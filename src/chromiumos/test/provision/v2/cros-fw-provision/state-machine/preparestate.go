@@ -9,6 +9,8 @@ import (
 	firmwareservice "chromiumos/test/provision/v2/cros-fw-provision/service"
 	"context"
 	"log"
+
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type FirmwarePrepareState struct {
@@ -23,7 +25,7 @@ func NewFirmwarePrepareState(service *firmwareservice.FirmwareService) common_ut
 
 // FirmwarePrepareState downloads and extracts every image from the request.
 // The already downloaded images will not be downloaded and extracted again.
-func (s FirmwarePrepareState) Execute(ctx context.Context, log *log.Logger) error {
+func (s FirmwarePrepareState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
 	firmwareImageDestination := "DUT"
 	if s.service.IsServoUsed() {
 		firmwareImageDestination = "ServoHost"
@@ -34,7 +36,7 @@ func (s FirmwarePrepareState) Execute(ctx context.Context, log *log.Logger) erro
 		imagePath, _ := s.service.GetSimpleRequest()
 		if len(imagePath) > 0 {
 			if err := s.service.DownloadAndProcess(ctx, imagePath); err != nil {
-				return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+				return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 			}
 		} else {
 			// was checked for earlier
@@ -43,26 +45,26 @@ func (s FirmwarePrepareState) Execute(ctx context.Context, log *log.Logger) erro
 	} else {
 		if mainRw := s.service.GetMainRwPath(); len(mainRw) > 0 {
 			if err := s.service.DownloadAndProcess(ctx, mainRw); err != nil {
-				return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+				return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 			}
 		}
 		if mainRo := s.service.GetMainRoPath(); len(mainRo) > 0 {
 			if err := s.service.DownloadAndProcess(ctx, mainRo); err != nil {
-				return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+				return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 			}
 		}
 		if ecRoPath := s.service.GetEcRoPath(); len(ecRoPath) > 0 {
 			if err := s.service.DownloadAndProcess(ctx, ecRoPath); err != nil {
-				return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+				return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 			}
 		}
 		if pdRoPath := s.service.GetPdRoPath(); len(pdRoPath) > 0 {
 			if err := s.service.DownloadAndProcess(ctx, pdRoPath); err != nil {
-				return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+				return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (s FirmwarePrepareState) Next() common_utils.ServiceState {

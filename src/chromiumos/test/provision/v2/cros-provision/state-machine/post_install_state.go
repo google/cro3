@@ -12,13 +12,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type CrOSPostInstallState struct {
 	service *service.CrOSService
 }
 
-func (s CrOSPostInstallState) Execute(ctx context.Context, log *log.Logger) error {
+func (s CrOSPostInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
 	log.Printf("State: Execute CrOSPostInstallState")
 
 	comms := []common_utils.CommandInterface{
@@ -37,15 +39,15 @@ func (s CrOSPostInstallState) Execute(ctx context.Context, log *log.Logger) erro
 			for ; i >= 0; i-- {
 				log.Printf("CrOSPostInstallState REVERT CALLED")
 				if innerErr := comms[i].Revert(); innerErr != nil {
-					return fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
+					return nil, fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
 				}
 			}
-			return fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
+			return nil, fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
 	log.Printf("State: CrOSPostInstallState Completed")
 
-	return nil
+	return nil, nil
 }
 
 func (s CrOSPostInstallState) Next() common_utils.ServiceState {

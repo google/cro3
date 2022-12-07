@@ -12,13 +12,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type AShPostInstallState struct {
 	service *service.AShService
 }
 
-func (s AShPostInstallState) Execute(ctx context.Context, log *log.Logger) error {
+func (s AShPostInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
 	fmt.Printf("Executing %s State:\n", s.Name())
 	comms := []common_utils.CommandInterface{
 		commands.NewReloadBusCommand(ctx, s.service),
@@ -31,14 +33,14 @@ func (s AShPostInstallState) Execute(ctx context.Context, log *log.Logger) error
 		if err != nil {
 			for ; i >= 0; i-- {
 				if innerErr := comms[i].Revert(); innerErr != nil {
-					return fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
+					return nil, fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
 				}
 			}
-			return fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
+			return nil, fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (s AShPostInstallState) Next() common_utils.ServiceState {

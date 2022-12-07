@@ -121,7 +121,7 @@ func (cc *CLICommand) Run() error {
 	defer saveCLIOutput(cc.outputFile, out, cc.log)
 	cc.log.Printf("State Machine Start.")
 
-	if _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewCrOSInitState(cs), cc.log); err != nil {
+	if _, _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewCrOSInitState(cs), cc.log); err != nil {
 		cc.log.Printf("State Machine Failed, setting err to PROVISION_FAILED.")
 		out.Outcome = &api.CrosProvisionResponse_Failure{
 			Failure: &api.InstallFailure{

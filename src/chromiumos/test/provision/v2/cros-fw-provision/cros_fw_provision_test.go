@@ -142,7 +142,7 @@ func TestDetailedRequestSSHStates(t *testing.T) {
 		)
 
 		// Execute the state and proceed.
-		err = st.Execute(ctx, log)
+		_, err = st.Execute(ctx, log)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -179,7 +179,7 @@ func TestDetailedRequestSSHStates(t *testing.T) {
 			)
 
 			// Execute the state and proceed.
-			err := st.Execute(ctx, log)
+			_, err := st.Execute(ctx, log)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -198,7 +198,7 @@ func TestDetailedRequestSSHStates(t *testing.T) {
 			)
 
 			// Execute the state and proceed.
-			err := st.Execute(ctx, log)
+			_, err := st.Execute(ctx, log)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -214,7 +214,7 @@ func TestDetailedRequestSSHStates(t *testing.T) {
 			sam.EXPECT().RunCmd(gomock.Any(), "true", nil).Return("", nil),
 		)
 		// Execute the state and proceed.
-		err = st.Execute(ctx, log)
+		_, err = st.Execute(ctx, log)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -321,7 +321,7 @@ func TestSimpleRequestSSHStates(t *testing.T) {
 		)
 
 		// Execute the state and proceed.
-		err = st.Execute(ctx, log)
+		_, err = st.Execute(ctx, log)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -348,7 +348,7 @@ func TestSimpleRequestSSHStates(t *testing.T) {
 		)
 
 		// Execute the state and proceed.
-		err = st.Execute(ctx, log)
+		_, err = st.Execute(ctx, log)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -363,7 +363,7 @@ func TestSimpleRequestSSHStates(t *testing.T) {
 			sam.EXPECT().RunCmd(gomock.Any(), "true", nil).Return("", nil),
 		)
 		// Execute the state and proceed.
-		err = st.Execute(ctx, log)
+		_, err = st.Execute(ctx, log)
 		if err != nil {
 			t.Fatal(err)
 		}

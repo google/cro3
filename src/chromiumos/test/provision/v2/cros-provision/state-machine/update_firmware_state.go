@@ -13,25 +13,27 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type CrosUpdateFirmwareState struct {
 	service *service.CrOSService
 }
 
-func (s CrosUpdateFirmwareState) Execute(ctx context.Context, log *log.Logger) error {
+func (s CrosUpdateFirmwareState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
 	if !s.service.UpdateFirmware {
 		log.Printf("State: Skip CrosUpdateFirmwareState by request")
-		return nil
+		return nil, nil
 	}
 	// Some type of build(e.g. public build) doesn't have built-in firmware updater, so skip the firmware update in this case.
 	checkUpdaterComm := commands.NewCheckFirmwareUpdaterCommand(ctx, s.service)
 	if err := checkUpdaterComm.Execute(log); err != nil {
-		return fmt.Errorf("%s, %s", checkUpdaterComm.GetErrorMessage(), err)
+		return nil, fmt.Errorf("%s, %s", checkUpdaterComm.GetErrorMessage(), err)
 	}
 	if !checkUpdaterComm.UpdaterExist {
 		log.Printf("State: Skip CrosUpdateFirmwareState as firmware updater does not exist on the build")
-		return nil
+		return nil, nil
 	}
 
 	log.Printf("State: Execute CrosUpdateFirmwareState")
@@ -49,10 +51,10 @@ func (s CrosUpdateFirmwareState) Execute(ctx context.Context, log *log.Logger) e
 			for ; i >= 0; i-- {
 				log.Printf("CrosUpdateFirmwareState REVERT CALLED")
 				if innerErr := comms[i].Revert(); innerErr != nil {
-					return fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
+					return nil, fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
 				}
 			}
-			return fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
+			return nil, fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
 	// Reboot if firmware slot changed.
@@ -60,19 +62,19 @@ func (s CrosUpdateFirmwareState) Execute(ctx context.Context, log *log.Logger) e
 		// Post firmware update reboot could take longer time, so give it 300 seconds timeout here.
 		rebootComm := commands.NewRebootWithTimeoutCommand(300*time.Second, ctx, s.service)
 		if err := rebootComm.Execute(log); err != nil {
-			return fmt.Errorf("%s, %s", rebootComm.GetErrorMessage(), err)
+			return nil, fmt.Errorf("%s, %s", rebootComm.GetErrorMessage(), err)
 		}
 	} else {
 		log.Printf("no firmware slot change detected, skip post firmware update reboot.")
 	}
 	verifyFirmwareComm := commands.NewVerifyFirmwareCommand(ctx, s.service)
 	if err := verifyFirmwareComm.Execute(log); err != nil {
-		return fmt.Errorf("%s, %s", verifyFirmwareComm.GetErrorMessage(), err)
+		return nil, fmt.Errorf("%s, %s", verifyFirmwareComm.GetErrorMessage(), err)
 	}
 
 	log.Printf("State: CrosUpdateFirmwareState Completed")
 
-	return nil
+	return nil, nil
 }
 
 func (s CrosUpdateFirmwareState) Next() common_utils.ServiceState {

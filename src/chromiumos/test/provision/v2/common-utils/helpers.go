@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // BucketJoin is equivalent to Path.Join(), but for gs buckets.
@@ -26,12 +27,13 @@ func BucketJoin(bucket string, append string) string {
 }
 
 // ExecuteStateMachine runs a specific state machine
-func ExecuteStateMachine(ctx context.Context, cs ServiceState, log *log.Logger) (api.InstallResponse_Status, error) {
+func ExecuteStateMachine(ctx context.Context, cs ServiceState, log *log.Logger) (api.InstallResponse_Status, *anypb.Any, error) {
+	var md *anypb.Any
 	for cs != nil {
-		if err := cs.Execute(ctx, log); err != nil {
-			return api.InstallResponse_STATUS_PROVISIONING_FAILED, fmt.Errorf("failed provisioning on %s step, %s", cs.Name(), err)
+		if md, err := cs.Execute(ctx, log); err != nil {
+			return api.InstallResponse_STATUS_PROVISIONING_FAILED, md, fmt.Errorf("failed provisioning on %s step, %s", cs.Name(), err)
 		}
 		cs = cs.Next()
 	}
-	return api.InstallResponse_STATUS_OK, nil
+	return api.InstallResponse_STATUS_OK, md, nil
 }

@@ -17,6 +17,7 @@ import (
 
 	"go.chromium.org/chromiumos/config/go/longrunning"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type ProvisionServer struct {
@@ -66,22 +67,23 @@ func (ps *ProvisionServer) Install(ctx context.Context, req *api.InstallRequest)
 	op := ps.manager.NewOperation()
 	response := api.InstallResponse{}
 
-	fr, err := ps.installTarget(ctx, req)
+	installResp, md, err := ps.installTarget(ctx, req)
 	if err != nil {
 		ps.options.Log.Fatalf("failed provision, %s", err)
 	}
-	response.Status = fr
+	response.Status = installResp
+	response.Metadata = md
 	ps.manager.SetResult(op.Name, &response)
 	return op, nil
 }
 
 // installTarget installs a specified version of the software on the target, along
 // with any specified DLCs.
-func (ps *ProvisionServer) installTarget(ctx context.Context, req *api.InstallRequest) (api.InstallResponse_Status, error) {
+func (ps *ProvisionServer) installTarget(ctx context.Context, req *api.InstallRequest) (api.InstallResponse_Status, *anypb.Any, error) {
 	ps.options.Log.Println("Received api.InstallRequest: ", req)
 	fs, err := ps.executor.GetFirstState(ps.options.Dut, ps.dutClient, req)
 	if err != nil {
-		return api.InstallResponse_STATUS_INVALID_REQUEST, err
+		return api.InstallResponse_STATUS_INVALID_REQUEST, nil, err
 	}
 
 	return common_utils.ExecuteStateMachine(ctx, fs, ps.options.Log)

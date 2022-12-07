@@ -12,6 +12,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // LaCrOSInitState can be thought of as the constructor state, which initializes
@@ -26,7 +28,7 @@ func NewLaCrOSInitState(service *service.LaCrOSService) common_utils.ServiceStat
 	}
 }
 
-func (s LaCrOSInitState) Execute(ctx context.Context, log *log.Logger) error {
+func (s LaCrOSInitState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
 	log.Printf("Executing %s State:\n", s.Name())
 	comms := []common_utils.CommandInterface{
 		commands.NewCopyMetadataCommand(ctx, s.service),
@@ -39,11 +41,11 @@ func (s LaCrOSInitState) Execute(ctx context.Context, log *log.Logger) error {
 	for _, comm := range comms {
 		err := comm.Execute(log)
 		if err != nil {
-			return fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
+			return nil, fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (s LaCrOSInitState) Next() common_utils.ServiceState {

@@ -12,13 +12,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type LaCrOSInstallState struct {
 	service *service.LaCrOSService
 }
 
-func (s LaCrOSInstallState) Execute(ctx context.Context, log *log.Logger) error {
+func (s LaCrOSInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
 	log.Printf("Executing %s State:\n", s.Name())
 	comms := []common_utils.CommandInterface{
 		commands.NewRunVerityCommand(ctx, s.service),
@@ -34,14 +36,14 @@ func (s LaCrOSInstallState) Execute(ctx context.Context, log *log.Logger) error 
 		if err != nil {
 			for ; i >= 0; i-- {
 				if innerErr := comms[i].Revert(); innerErr != nil {
-					return fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
+					return nil, fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
 				}
 			}
-			return fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
+			return nil, fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (s LaCrOSInstallState) Next() common_utils.ServiceState {

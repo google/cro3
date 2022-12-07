@@ -139,7 +139,7 @@ func (cc *CLICommand) Run() error {
 	// Execute state machine
 	cs := state_machine.NewFirmwarePrepareState(fwService)
 	for cs != nil {
-		if err = cs.Execute(ctx, cc.log); err != nil {
+		if _, err = cs.Execute(ctx, cc.log); err != nil {
 			break
 		}
 		cs = cs.Next()

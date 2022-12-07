@@ -11,6 +11,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // FirmwareUpdateRoState updates firmware with write protection disabled.
@@ -19,7 +21,7 @@ type FirmwareUpdateRoState struct {
 }
 
 // Execute flashes firmware with write-protection disabled using futility.
-func (s FirmwareUpdateRoState) Execute(ctx context.Context, log *log.Logger) error {
+func (s FirmwareUpdateRoState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
 	connection := s.service.GetConnectionToFlashingDevice()
 
 	// form futility command args based on the request
@@ -42,7 +44,7 @@ func (s FirmwareUpdateRoState) Execute(ctx context.Context, log *log.Logger) err
 			log.Printf("[FW Provisioning: Update RO] extracting AP image to flash\n")
 			mainRoPath, err := firmwareservice.PickAndExtractMainImage(ctx, connection, mainRoMetadata, s.service.GetBoard(), s.service.GetModel())
 			if err != nil {
-				return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+				return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 			}
 			futilityImageArgs = append(futilityImageArgs, []string{fmt.Sprint("--image=", mainRoPath)}...)
 		}
@@ -52,7 +54,7 @@ func (s FirmwareUpdateRoState) Execute(ctx context.Context, log *log.Logger) err
 			log.Printf("[FW Provisioning: Update RO] extracting EC image to flash\n")
 			ecRoPath, err := firmwareservice.PickAndExtractECImage(ctx, connection, ecRoMetadata, s.service.GetBoard(), s.service.GetModel())
 			if err != nil {
-				return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+				return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 			}
 			if s.service.IsServoUsed() {
 				log.Printf("[FW Provisioning: Update RO] separately flashing EC over Servo with flash_ec\n")
@@ -61,11 +63,11 @@ func (s FirmwareUpdateRoState) Execute(ctx context.Context, log *log.Logger) err
 				// use flash_ec script that to flash the EC separately.
 				flashECScript, err := firmwareservice.GetFlashECScript(ctx, connection, ecRoMetadata.ArchiveDir)
 				if err != nil {
-					return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+					return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 				}
 				err = s.service.ProvisionWithFlashEC(ctx, ecRoPath, flashECScript)
 				if err != nil {
-					return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+					return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 				}
 			} else {
 				// For SSH, we can simply run `futility ... --ec-image=$EC_IMAGE ...`
@@ -77,11 +79,11 @@ func (s FirmwareUpdateRoState) Execute(ctx context.Context, log *log.Logger) err
 		if ok {
 			log.Printf("[FW Provisioning: Update RO] extracting PD image to flash\n")
 			if s.service.IsServoUsed() {
-				return firmwareservice.UpdateFirmwareFailedErr("can't flash PD as a separate image over servo")
+				return nil, firmwareservice.UpdateFirmwareFailedErr("can't flash PD as a separate image over servo")
 			}
 			pdRoPath, err := firmwareservice.PickAndExtractPDImage(ctx, connection, pdRoMetadata, s.service.GetBoard(), s.service.GetModel())
 			if err != nil {
-				return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+				return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 			}
 			futilityImageArgs = append(futilityImageArgs, []string{fmt.Sprint("--pd_image=", pdRoPath)}...)
 		}
@@ -90,10 +92,10 @@ func (s FirmwareUpdateRoState) Execute(ctx context.Context, log *log.Logger) err
 	log.Printf("[FW Provisioning: Update RO] flashing RO firmware with futility\n")
 	err := s.service.FlashWithFutility(ctx, false /* WP */, futilityImageArgs)
 	if err != nil {
-		return firmwareservice.UpdateFirmwareFailedErr(err.Error())
+		return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (s FirmwareUpdateRoState) Next() common_utils.ServiceState {

@@ -10,15 +10,17 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
 	"log"
+
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type CrOSVerifyState struct {
 	service *service.CrOSService
 }
 
-func (s CrOSVerifyState) Execute(ctx context.Context, log *log.Logger) error {
+func (s CrOSVerifyState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
 	// Currently there is no verification post step as we don't specify install type
-	return nil
+	return nil, nil
 }
 
 func (s CrOSVerifyState) Next() common_utils.ServiceState {

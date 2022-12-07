@@ -135,7 +135,7 @@ func TestStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -160,7 +160,7 @@ func TestStateTransitions(t *testing.T) {
 		getRestartCommand(sam).Return(nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install state: %v", err)
 	}
 
@@ -179,7 +179,7 @@ func TestStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, getCurrentFirmware).Return("Google_Coral.10068.113.0", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed firmware-update state: %v", err)
 	}
 
@@ -200,7 +200,7 @@ func TestStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed post-install state: %v", err)
 	}
 
@@ -209,7 +209,7 @@ func TestStateTransitions(t *testing.T) {
 
 	gomock.InOrder()
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed verify state: %v", err)
 	}
 
@@ -231,7 +231,7 @@ func TestStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, chmodDLCs).Return("", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install DLCs state: %v", err)
 	}
 
@@ -245,7 +245,7 @@ func TestStateTransitions(t *testing.T) {
 		getPipeDataCommand(sam, copyMiniOS10).Return(nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install MiniOS state: %v", err)
 	}
 
@@ -285,7 +285,7 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -310,7 +310,7 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 		getRunCmdCommand(sam, postInstRevert).Return("", nil),
 	)
 
-	if err := st.Execute(ctx, log); err.Error() != "failed to post install, failed to remove temporary directory, postinstall error" {
+	if _, err := st.Execute(ctx, log); err.Error() != "failed to post install, failed to remove temporary directory, postinstall error" {
 		t.Fatalf("expected specific error, instead got: %v", err)
 	}
 }
@@ -345,7 +345,7 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -371,7 +371,7 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 		getRunCmdCommand(sam, postInstRevert).Return("", nil),
 	)
 
-	if err := st.Execute(ctx, log); err.Error() != "failed to clear TPM, clear TPM error" {
+	if _, err := st.Execute(ctx, log); err.Error() != "failed to clear TPM, clear TPM error" {
 		t.Fatalf("expected specific error, instead got: %v", err)
 	}
 }
@@ -406,7 +406,7 @@ func TestFirmwareUpdateStateSkippedDueToNoUpdaterExist(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -424,7 +424,7 @@ func TestFirmwareUpdateStateSkippedDueToNoUpdaterExist(t *testing.T) {
 		getRunCmdCommand(sam, getCurrentFirmware).Return("Google_Coral.10068.113.0", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed firmware-update state: %v", err)
 	}
 }
@@ -459,7 +459,7 @@ func TestFirmwareUpdateStateWithNoChange(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -470,7 +470,7 @@ func TestFirmwareUpdateStateWithNoChange(t *testing.T) {
 		getPathExistsCommand(sam, checkFirmwareUpdater).Return(false, nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed firmware-update state: %v", err)
 	}
 }
@@ -505,7 +505,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -526,7 +526,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 	)
 
 	// Nothing should be run, so no need to use mock expect
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed post-install state: %v", err)
 	}
 }
@@ -561,7 +561,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -579,7 +579,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 		getRunCmdCommand(sam, cleanPostInstallRevert).Return("", nil),
 	)
 
-	if err := st.Execute(ctx, log); err.Error() != "failed to provision stateful, copy error" {
+	if _, err := st.Execute(ctx, log); err.Error() != "failed to provision stateful, copy error" {
 		t.Fatalf("Post install should've failed with specific error, instead got: %v", err)
 	}
 }
@@ -614,7 +614,7 @@ func TestProvisionDLCWithEmptyDLCsDoesNotExecute(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -622,7 +622,7 @@ func TestProvisionDLCWithEmptyDLCsDoesNotExecute(t *testing.T) {
 	st = st.Next().Next().Next().Next().Next()
 
 	// Nothing should be run, so no need to use mock expect
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed provision-dlc state: %v", err)
 	}
 }
@@ -657,7 +657,7 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -677,7 +677,7 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 		getRunCmdCommand(sam, chmodDLCs).Return("", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed provision-dlc state: %v", err)
 	}
 }
@@ -714,7 +714,7 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 
@@ -737,7 +737,7 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
 	)
 
-	if err := st.Execute(ctx, log); err != nil {
+	if _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed post-install state: %v", err)
 	}
 }

@@ -12,30 +12,32 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type CrOSProvisionDLCState struct {
 	service *service.CrOSService
 }
 
-func (s CrOSProvisionDLCState) Execute(ctx context.Context, log *log.Logger) error {
+func (s CrOSProvisionDLCState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
 	log.Printf("State: Execute CrOSProvisionDLCState")
 	if len(s.service.DlcSpecs) == 0 {
-		return nil
+		return nil, nil
 	}
 	commands.NewStopDLCServiceCommand(ctx, s.service).Execute(log)
 	defer commands.NewStartDLCServiceCommand(ctx, s.service).Execute(log)
 
 	if err := commands.NewInstallDLCsCommand(ctx, s.service).Execute(log); err != nil {
-		return fmt.Errorf("failed to install the following DLCs (%s)", err)
+		return nil, fmt.Errorf("failed to install the following DLCs (%s)", err)
 	}
 
 	if err := commands.NewCorrectDLCPermissionsCommand(ctx, s.service).Execute(log); err != nil {
-		return fmt.Errorf("failed to correct DLC permissions, %s", err)
+		return nil, fmt.Errorf("failed to correct DLC permissions, %s", err)
 	}
 	log.Printf("State: CrOSProvisionDLCState Completed")
 
-	return nil
+	return nil, nil
 }
 
 func (s CrOSProvisionDLCState) Next() common_utils.ServiceState {

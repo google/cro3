@@ -8,6 +8,8 @@ package common_utils
 import (
 	"context"
 	"log"
+
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // CommandInterface executes a specific step in a state. Note commands are
@@ -28,7 +30,7 @@ type CommandInterface interface {
 // ServiceState is a single state representation.
 type ServiceState interface {
 	// Execute Runs the state
-	Execute(ctx context.Context, log *log.Logger) error
+	Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error)
 	// Next gets the next state in the state machine
 	Next() ServiceState
 	// Name gets the fully qualified name of this state
