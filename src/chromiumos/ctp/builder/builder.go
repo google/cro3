@@ -160,6 +160,41 @@ const (
 	containerMetadataURLSuffix = "metadata/containers.jsonpb"
 )
 
+// buildTagsForModel combines test metadata tags with user-added tags
+func (c *CTPBuilder) buildTags() map[string]string {
+	tags := map[string]string{}
+
+	// Add user-added tags.
+	// NOTE: these addedTags themselves will NOT be processed by Buildbucket or
+	// Swarming--they are for metadata purposes only.
+	// addedTags attached here will NOT be processed by CTP.
+	for key, val := range c.AddedTags {
+		tags[key] = val
+	}
+
+	// Add metadata tags.
+	if c.Board != "" {
+		tags["label-board"] = c.Board
+	}
+	if c.Model != "" {
+		tags["label-model"] = c.Model
+	}
+	if c.Pool != "" {
+		tags["label-pool"] = c.Pool
+	}
+	if c.Image != "" {
+		tags["label-image"] = c.Image
+	}
+	// Only surface the priority if Quota Account was unset.
+	if c.QSAccount != "" {
+		tags["label-quota-account"] = c.QSAccount
+	} else if c.Priority != 0 {
+		tags["label-priority"] = fmt.Sprint(c.Priority)
+	}
+
+	return tags
+}
+
 // testPlatformRequest constructs a cros_test_platform.Request from the given CTPBuilder
 func (c *CTPBuilder) testPlatformRequest(buildTags map[string]string) (*test_platform.Request, error) {
 	softwareDependencies, err := c.softwareDependencies()

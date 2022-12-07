@@ -575,3 +575,67 @@ func TestTestPlatformRequest(t *testing.T) {
 		t.Errorf("unexpected diff (%s)", diff)
 	}
 }
+
+var testBuildTagsData = []struct {
+	name  string
+	input CTPBuilder
+	want  map[string]string
+}{
+	{
+		"all tags",
+		CTPBuilder{
+			AddedTags: map[string]string{"foo": "bar", "eli": "cool"},
+			Board:     "myboard",
+			Model:     "mymodel",
+			Pool:      "mypool",
+			Image:     "myimage",
+			QSAccount: "myqs",
+			Priority:  123,
+		},
+		map[string]string{
+			"foo":                 "bar",
+			"eli":                 "cool",
+			"label-board":         "myboard",
+			"label-model":         "mymodel",
+			"label-pool":          "mypool",
+			"label-image":         "myimage",
+			"label-quota-account": "myqs",
+		},
+	},
+	{
+		"only added tags",
+		CTPBuilder{
+			AddedTags: map[string]string{"foo": "bar", "eli": "cool"},
+		},
+		map[string]string{
+			"foo": "bar",
+			"eli": "cool",
+		},
+	},
+	{
+		"priority label if no qs account",
+		CTPBuilder{
+			AddedTags: map[string]string{"foo": "bar", "eli": "cool"},
+			Priority:  123,
+		},
+		map[string]string{
+			"foo":            "bar",
+			"eli":            "cool",
+			"label-priority": "123",
+		},
+	},
+}
+
+func TestBuildTags(t *testing.T) {
+	t.Parallel()
+	for _, tt := range testBuildTagsData {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.input.buildTags()
+			if diff := cmp.Diff(tt.want, got, CmpOpts); diff != "" {
+				t.Errorf("unexpected diff (%s)", diff)
+			}
+		})
+	}
+}
