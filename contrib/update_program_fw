@@ -48,6 +48,7 @@ DEFINE_boolean dryrun "${FLAGS_FALSE}" "Do not perform any actions, just validat
 DEFINE_boolean verify "${FLAGS_TRUE}" "Ask for verification before proceeding"
 DEFINE_boolean ro "${FLAGS_FALSE}" "Update RO version"
 DEFINE_boolean rw "${FLAGS_TRUE}" "Update RW version"
+DEFINE_boolean presubmit "${FLAGS_TRUE}" "Enable upload presubmit"
 DEFINE_string tag "update" "The string prepended to the branch name and gerrit tag"
 
 # Set before flag processing
@@ -485,6 +486,7 @@ echo "Update RW version:             $(yes_no "${FLAGS_rw}")"
 echo "BUG string used in commit:     ${FLAGS_bug}"
 echo "TEST string used in commit:    ${FLAGS_test}"
 echo "Reviewer(s) assigned to CLs:   ${REVIEWERS[*]}"
+echo "Upload presubmit enabled:      $(yes_no "${FLAGS_presubmit}")"
 echo "Tag for branch and gerrit ht:  ${TAG}"
 echo "Update program.star version:   $(yes_no "${FLAGS_program}")"
 echo "Coreboot build enabled:        $(yes_no "${FLAGS_build}")"
@@ -506,6 +508,14 @@ if [[ "${FLAGS_build}" -eq  "${FLAGS_FALSE}" ]]; then
   echo "* This assumes coreboot is already built *"
   echo "******************************************"
   echo
+fi
+#
+# Determine presubmit option
+#
+if [[ "${FLAGS_presubmit}" -eq  "${FLAGS_TRUE}" ]]; then
+  PRESUBMIT="--verify"
+else
+  PRESUBMIT="--no-verify"
 fi
 #
 # Create a temp directory.
@@ -548,7 +558,7 @@ $(echo "${COMMAND} ${CMDARGS}" | fold -s -w 70 | sed '2,$s/^/    /')
 BUG=${FLAGS_bug}
 TEST=${FLAGS_test}
 EOF
-    if ! repo upload -y --verify "--ht=${TAG}" --cbr . > "${TEMPDIR}/upload.output" 2>&1; then
+    if ! repo upload -y "${PRESUBMIT}" "--ht=${TAG}" --cbr . > "${TEMPDIR}/upload.output" 2>&1; then
       cat  "${TEMPDIR}/upload.output"
       abort "repo upload failed"
     fi
@@ -627,7 +637,7 @@ ${COMMAND} ${CMDARGS}
 BUG=${FLAGS_bug}
 TEST=${FLAGS_test}
 EOF
-    if ! repo upload -y --verify "--ht=${TAG}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1; then
+    if ! repo upload -y "${PRESUBMIT}" "--ht=${TAG}" --cbr . > "${TEMPDIR}/upload.${PROJ}.output" 2>&1; then
       cat  "${TEMPDIR}/upload.${PROJ}.output"
       abort "repo upload failed"
     fi
@@ -656,7 +666,7 @@ if [[ -n "${PROJ_CLS[*]}" ]];then
   if [[ -n "${PROGRAM_CL}" ]]; then
     cd "${PROGDIR}"
     amend_cq_file "${CQD_FILE}"
-    if ! repo upload -y --verify "--ht=${TAG}" --cbr . > "${TEMPDIR}/upload.amend.output" 2>&1; then
+    if ! repo upload -y "${PRESUBMIT}" "--ht=${TAG}" --cbr . > "${TEMPDIR}/upload.amend.output" 2>&1; then
       cat  "${TEMPDIR}/upload.amend.output"
       abort "repo upload failed"
     fi
@@ -709,7 +719,7 @@ EOF
   for DIR in "${PROJ_DIRS[@]}"; do
     cd "${DIR}"
     amend_cq_file "${TEMPDIR}/over_cqd"
-    if ! repo upload -y --verify --cbr . > "${TEMPDIR}/cqd.output" 2>&1; then
+    if ! repo upload -y "${PRESUBMIT}" --cbr . > "${TEMPDIR}/cqd.output" 2>&1; then
       cat  "${TEMPDIR}/cqd.output"
       abort "repo upload failed"
     fi
