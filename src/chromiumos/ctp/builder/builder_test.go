@@ -7,18 +7,43 @@ package builder
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
+	"go.chromium.org/chromiumos/infra/proto/go/chromiumos"
 	"go.chromium.org/chromiumos/infra/proto/go/test_platform"
 	buildbucketpb "go.chromium.org/luci/buildbucket/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // sampleTestPlan is a minimal test plan object for use in our testing
 var sampleTestPlan = &test_platform.Request_TestPlan{
 	Suite: []*test_platform.Request_Suite{&test_platform.Request_Suite{Name: "test"}},
 }
+
+// CmpOpts enables comparisons of the listed protos with unexported fields.
+var CmpOpts = cmpopts.IgnoreUnexported(
+	buildbucketpb.BuilderID{},
+	chromiumos.BuildTarget{},
+	durationpb.Duration{},
+	test_platform.Request{},
+	test_platform.Request_TestPlan{},
+	test_platform.Request_Params{},
+	test_platform.Request_Params_Decorations{},
+	test_platform.Request_Params_FreeformAttributes{},
+	test_platform.Request_Params_HardwareAttributes{},
+	test_platform.Request_Params_Metadata{},
+	test_platform.Request_Params_SoftwareDependency{},
+	test_platform.Request_Params_Retry{},
+	test_platform.Request_Params_Scheduling{},
+	test_platform.Request_Params_SecondaryDevice{},
+	test_platform.Request_Params_SoftwareAttributes{},
+	test_platform.Request_Params_SoftwareDependency{},
+	test_platform.Request_Params_Time{},
+	test_platform.Request_Suite{},
+)
 
 var testValidateAndAddDefaultsData = []struct {
 	testName                string
@@ -179,7 +204,7 @@ func TestValidateAndAddDefaults(t *testing.T) {
 	t.Parallel()
 	for _, tt := range testValidateAndAddDefaultsData {
 		tt := tt
-		t.Run(fmt.Sprintf("(%s)", tt.wantValidationErrString), func(t *testing.T) {
+		t.Run(fmt.Sprintf("(%s)", tt.testName), func(t *testing.T) {
 			t.Parallel()
 			gotValidationErr := tt.input.validateAndAddDefaults()
 			gotValidationErrString := ErrToString(gotValidationErr)
@@ -187,10 +212,366 @@ func TestValidateAndAddDefaults(t *testing.T) {
 				t.Errorf("unexpected error: wanted '%s', got '%s'", tt.wantValidationErrString, gotValidationErrString)
 			}
 			if gotValidationErr == nil {
-				if diff := cmp.Diff(tt.wantCTPBuilder, tt.input, cmpopts.IgnoreUnexported(buildbucketpb.BuilderID{}), cmpopts.IgnoreUnexported(test_platform.Request_TestPlan{}), cmpopts.IgnoreUnexported(test_platform.Request_Suite{})); diff != "" {
+				if diff := cmp.Diff(tt.wantCTPBuilder, tt.input, CmpOpts); diff != "" {
 					t.Errorf("unexpected error: %s", diff)
 				}
 			}
 		})
+	}
+}
+
+var testSoftwareDependenciesData = []struct {
+	name          string
+	input         CTPBuilder
+	wantDeps      []*test_platform.Request_Params_SoftwareDependency
+	wantErrString string
+}{
+	{
+		"invalid label",
+		CTPBuilder{
+			ImageBucket:     "",
+			Image:           "",
+			ProvisionLabels: map[string]string{"foo-invalid": "bar"},
+		},
+		nil,
+		"invalid provisionable label foo-invalid",
+	},
+	{
+		"no deps",
+		CTPBuilder{
+			ImageBucket:     "",
+			Image:           "",
+			ProvisionLabels: nil,
+		},
+		nil,
+		"",
+	},
+	{
+		"bucket, image, lacros, and label",
+		CTPBuilder{
+			ImageBucket: "sample-bucket",
+			Image:       "sample-image",
+			LacrosPath:  "sample-lacros-path",
+			ProvisionLabels: map[string]string{
+				"fwrw-version": "foo-rw",
+			},
+		},
+		[]*test_platform.Request_Params_SoftwareDependency{
+			{Dep: &test_platform.Request_Params_SoftwareDependency_RwFirmwareBuild{RwFirmwareBuild: "foo-rw"}},
+			{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuildGcsBucket{ChromeosBuildGcsBucket: "sample-bucket"}},
+			{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: "sample-image"}},
+			{Dep: &test_platform.Request_Params_SoftwareDependency_LacrosGcsPath{LacrosGcsPath: "sample-lacros-path"}},
+		},
+		"",
+	},
+}
+
+func TestSoftwareDependencies(t *testing.T) {
+	t.Parallel()
+	for _, tt := range testSoftwareDependenciesData {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			gotDeps, gotErr := tt.input.softwareDependencies()
+			if diff := cmp.Diff(tt.wantDeps, gotDeps, CmpOpts); diff != "" {
+				t.Errorf("unexpected diff (%s)", diff)
+			}
+			gotErrString := ErrToString(gotErr)
+			if tt.wantErrString != gotErrString {
+				t.Errorf("unexpected error: wanted '%s', got '%s'", tt.wantErrString, gotErrString)
+			}
+		})
+	}
+}
+
+var testSchedulingParamsData = []struct {
+	name     string
+	input    CTPBuilder
+	wantDeps *test_platform.Request_Params_Scheduling
+}{
+	{
+		"priority",
+		CTPBuilder{
+			Priority: 123,
+			Pool:     "foobar",
+		},
+		&test_platform.Request_Params_Scheduling{
+			Pool:     &test_platform.Request_Params_Scheduling_UnmanagedPool{UnmanagedPool: "foobar"},
+			Priority: 123,
+		},
+	},
+	{
+		"qsAccount",
+		CTPBuilder{
+			Priority:  123,
+			QSAccount: "account",
+			Pool:      "foobar",
+		},
+		&test_platform.Request_Params_Scheduling{
+			Pool:      &test_platform.Request_Params_Scheduling_UnmanagedPool{UnmanagedPool: "foobar"},
+			QsAccount: "account",
+		},
+	},
+	{
+		"managed pool",
+		CTPBuilder{
+			Priority: 123,
+			Pool:     "dut-pool-cq",
+		},
+		&test_platform.Request_Params_Scheduling{
+			Pool:     &test_platform.Request_Params_Scheduling_ManagedPool_{ManagedPool: test_platform.Request_Params_Scheduling_MANAGED_POOL_CQ},
+			Priority: 123,
+		},
+	},
+}
+
+func TestSchedulingParams(t *testing.T) {
+	t.Parallel()
+	for _, tt := range testSchedulingParamsData {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			gotDeps := tt.input.schedulingParams()
+			if diff := cmp.Diff(tt.wantDeps, gotDeps, CmpOpts); diff != "" {
+				t.Errorf("unexpected diff (%s)", diff)
+			}
+		})
+	}
+}
+
+var testRetryParamsData = []struct {
+	name     string
+	input    CTPBuilder
+	wantDeps *test_platform.Request_Params_Retry
+}{
+	{
+		"zero",
+		CTPBuilder{
+			MaxRetries: 0,
+		},
+		&test_platform.Request_Params_Retry{
+			Max:   int32(0),
+			Allow: false,
+		},
+	},
+	{
+		"greater than zero",
+		CTPBuilder{
+			MaxRetries: 3,
+		},
+		&test_platform.Request_Params_Retry{
+			Max:   int32(3),
+			Allow: true,
+		},
+	},
+}
+
+func TestRetryParams(t *testing.T) {
+	t.Parallel()
+	for _, tt := range testRetryParamsData {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			gotDeps := tt.input.retryParams()
+			if diff := cmp.Diff(tt.wantDeps, gotDeps, CmpOpts); diff != "" {
+				t.Errorf("unexpected diff (%s)", diff)
+			}
+		})
+	}
+}
+
+var testSecondaryDevicesData = []struct {
+	name     string
+	input    CTPBuilder
+	wantDeps []*test_platform.Request_Params_SecondaryDevice
+}{
+	{
+		"board image only",
+		CTPBuilder{
+			SecondaryBoards: []string{"board1", "board2"},
+			SecondaryImages: []string{"board1-release/10000.0.0", "board2-release/9999.0.0"},
+		},
+		[]*test_platform.Request_Params_SecondaryDevice{
+			{
+				SoftwareAttributes: &test_platform.Request_Params_SoftwareAttributes{
+					BuildTarget: &chromiumos.BuildTarget{Name: "board1"},
+				},
+				SoftwareDependencies: []*test_platform.Request_Params_SoftwareDependency{
+					{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: "board1-release/10000.0.0"}},
+				},
+			},
+			{
+				SoftwareAttributes: &test_platform.Request_Params_SoftwareAttributes{
+					BuildTarget: &chromiumos.BuildTarget{Name: "board2"},
+				},
+				SoftwareDependencies: []*test_platform.Request_Params_SoftwareDependency{
+					{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: "board2-release/9999.0.0"}},
+				},
+			},
+		},
+	},
+	{
+		"board image model",
+		CTPBuilder{
+			SecondaryBoards: []string{"board1", "board2"},
+			SecondaryImages: []string{"board1-release/10000.0.0", "board2-release/9999.0.0"},
+			SecondaryModels: []string{"model1", "model2"},
+		},
+		[]*test_platform.Request_Params_SecondaryDevice{
+			{
+				SoftwareAttributes: &test_platform.Request_Params_SoftwareAttributes{
+					BuildTarget: &chromiumos.BuildTarget{Name: "board1"},
+				},
+				SoftwareDependencies: []*test_platform.Request_Params_SoftwareDependency{
+					{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: "board1-release/10000.0.0"}},
+				},
+				HardwareAttributes: &test_platform.Request_Params_HardwareAttributes{
+					Model: "model1",
+				},
+			},
+			{
+				SoftwareAttributes: &test_platform.Request_Params_SoftwareAttributes{
+					BuildTarget: &chromiumos.BuildTarget{Name: "board2"},
+				},
+				SoftwareDependencies: []*test_platform.Request_Params_SoftwareDependency{
+					{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: "board2-release/9999.0.0"}},
+				},
+				HardwareAttributes: &test_platform.Request_Params_HardwareAttributes{
+					Model: "model2",
+				},
+			},
+		},
+	},
+	{
+		"board image lacros path",
+		CTPBuilder{
+			SecondaryBoards:      []string{"board1", "board2"},
+			SecondaryImages:      []string{"board1-release/10000.0.0", "board2-release/9999.0.0"},
+			SecondaryLacrosPaths: []string{"lc1", "lc2"},
+		},
+		[]*test_platform.Request_Params_SecondaryDevice{
+			{
+				SoftwareAttributes: &test_platform.Request_Params_SoftwareAttributes{
+					BuildTarget: &chromiumos.BuildTarget{Name: "board1"},
+				},
+				SoftwareDependencies: []*test_platform.Request_Params_SoftwareDependency{
+					{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: "board1-release/10000.0.0"}},
+					{Dep: &test_platform.Request_Params_SoftwareDependency_LacrosGcsPath{LacrosGcsPath: "lc1"}},
+				},
+			},
+			{
+				SoftwareAttributes: &test_platform.Request_Params_SoftwareAttributes{
+					BuildTarget: &chromiumos.BuildTarget{Name: "board2"},
+				},
+				SoftwareDependencies: []*test_platform.Request_Params_SoftwareDependency{
+					{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: "board2-release/9999.0.0"}},
+					{Dep: &test_platform.Request_Params_SoftwareDependency_LacrosGcsPath{LacrosGcsPath: "lc2"}},
+				},
+			},
+		},
+	},
+	{
+		"skip image",
+		CTPBuilder{
+			SecondaryBoards: []string{"board1", "board2"},
+			SecondaryImages: []string{"board1-release/10000.0.0", "skip"},
+		},
+		[]*test_platform.Request_Params_SecondaryDevice{
+			{
+				SoftwareAttributes: &test_platform.Request_Params_SoftwareAttributes{
+					BuildTarget: &chromiumos.BuildTarget{Name: "board1"},
+				},
+				SoftwareDependencies: []*test_platform.Request_Params_SoftwareDependency{
+					{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: "board1-release/10000.0.0"}},
+				},
+			},
+			{
+				SoftwareAttributes: &test_platform.Request_Params_SoftwareAttributes{
+					BuildTarget: &chromiumos.BuildTarget{Name: "board2"},
+				},
+			},
+		},
+	},
+}
+
+func TestSecondaryDevices(t *testing.T) {
+	t.Parallel()
+	for _, tt := range testSecondaryDevicesData {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			gotDeps := tt.input.secondaryDevices()
+			if diff := cmp.Diff(tt.wantDeps, gotDeps, CmpOpts); diff != "" {
+				t.Errorf("unexpected diff (%s)", diff)
+			}
+		})
+	}
+}
+
+func TestTestPlatformRequest(t *testing.T) {
+	t.Parallel()
+	b := &CTPBuilder{
+		Board:           "sample-board",
+		ImageBucket:     "sample-bucket",
+		Image:           "sample-image",
+		Pool:            "MANAGED_POOL_SUITES",
+		Model:           "sample-model",
+		QSAccount:       "sample-qs-account",
+		Priority:        100,
+		MaxRetries:      0,
+		TimeoutMins:     30,
+		ProvisionLabels: map[string]string{"cros-version": "foo-cros"},
+		Dimensions:      map[string]string{"foo-dim": "bar-dim"},
+		Keyvals:         map[string]string{"foo-key": "foo-val"},
+		CFT:             true,
+		TestPlan:        sampleTestPlan,
+	}
+	buildTags := map[string]string{"foo-tag": "bar-tag"}
+	wantRequest := &test_platform.Request{
+		TestPlan: sampleTestPlan,
+		Params: &test_platform.Request_Params{
+			Scheduling: &test_platform.Request_Params_Scheduling{
+				Pool:      &test_platform.Request_Params_Scheduling_ManagedPool_{ManagedPool: 3},
+				QsAccount: "sample-qs-account",
+			},
+			FreeformAttributes: &test_platform.Request_Params_FreeformAttributes{
+				SwarmingDimensions: []string{"foo-dim:bar-dim"},
+			},
+			HardwareAttributes: &test_platform.Request_Params_HardwareAttributes{
+				Model: "sample-model",
+			},
+			SoftwareAttributes: &test_platform.Request_Params_SoftwareAttributes{
+				BuildTarget: &chromiumos.BuildTarget{Name: "sample-board"},
+			},
+			SoftwareDependencies: []*test_platform.Request_Params_SoftwareDependency{
+				{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: "foo-cros"}},
+				{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuildGcsBucket{ChromeosBuildGcsBucket: "sample-bucket"}},
+				{Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: "sample-image"}},
+			},
+			Decorations: &test_platform.Request_Params_Decorations{
+				AutotestKeyvals: map[string]string{"foo-key": "foo-val"},
+				Tags:            []string{"foo-tag:bar-tag"},
+			},
+			Retry: &test_platform.Request_Params_Retry{
+				Max:   0,
+				Allow: false,
+			},
+			Metadata: &test_platform.Request_Params_Metadata{
+				TestMetadataUrl:        "gs://sample-bucket/sample-image",
+				DebugSymbolsArchiveUrl: "gs://sample-bucket/sample-image",
+				ContainerMetadataUrl:   "gs://sample-bucket/sample-image/metadata/containers.jsonpb",
+			},
+			Time: &test_platform.Request_Params_Time{
+				MaximumDuration: durationpb.New(time.Duration(1800000000000)),
+			},
+			RunViaCft: true,
+		},
+	}
+	gotRequest, err := b.testPlatformRequest(buildTags)
+	if err != nil {
+		t.Fatalf("unexpected error constructing Test Platform request: %v", err)
+	}
+	if diff := cmp.Diff(wantRequest, gotRequest, CmpOpts); diff != "" {
+		t.Errorf("unexpected diff (%s)", diff)
 	}
 }

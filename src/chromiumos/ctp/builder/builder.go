@@ -7,10 +7,16 @@ package builder
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	"go.chromium.org/chromiumos/infra/proto/go/chromiumos"
 	"go.chromium.org/chromiumos/infra/proto/go/test_platform"
 	"go.chromium.org/luci/auth"
 	buildbucketpb "go.chromium.org/luci/buildbucket/proto"
+	"go.chromium.org/luci/common/errors"
+	"google.golang.org/protobuf/types/known/durationpb"
+
+	"chromium.googlesource.com/chromiumos/platform/dev-util.git/src/chromiumos/ctp/common"
 )
 
 // CTP builder contains fields needed to send a build to CTP
@@ -146,4 +152,184 @@ func (c *CTPBuilder) validateAndAddDefaults() error {
 		return fmt.Errorf(strings.Join(errors, "\n"))
 	}
 	return nil
+}
+
+const (
+	// containerMetadataURLSuffix is the URL suffix for the container metadata
+	// URL in the ChromeOS image archive.
+	containerMetadataURLSuffix = "metadata/containers.jsonpb"
+)
+
+// testPlatformRequest constructs a cros_test_platform.Request from the given CTPBuilder
+func (c *CTPBuilder) testPlatformRequest(buildTags map[string]string) (*test_platform.Request, error) {
+	softwareDependencies, err := c.softwareDependencies()
+	if err != nil {
+		return nil, err
+	}
+	gsPath := fmt.Sprintf("gs://%s/%s", c.ImageBucket, c.Image)
+
+	request := &test_platform.Request{
+		TestPlan: c.TestPlan,
+		Params: &test_platform.Request_Params{
+			FreeformAttributes: &test_platform.Request_Params_FreeformAttributes{
+				SwarmingDimensions: common.ToKeyvalSlice(c.Dimensions),
+			},
+			HardwareAttributes: &test_platform.Request_Params_HardwareAttributes{
+				Model: c.Model,
+			},
+			SoftwareAttributes: &test_platform.Request_Params_SoftwareAttributes{
+				BuildTarget: &chromiumos.BuildTarget{Name: c.Board},
+			},
+			SoftwareDependencies: softwareDependencies,
+			Scheduling:           c.schedulingParams(),
+			Decorations: &test_platform.Request_Params_Decorations{
+				AutotestKeyvals: c.Keyvals,
+				Tags:            common.ToKeyvalSlice(buildTags),
+			},
+			Retry: c.retryParams(),
+			Metadata: &test_platform.Request_Params_Metadata{
+				TestMetadataUrl:        gsPath,
+				DebugSymbolsArchiveUrl: gsPath,
+				ContainerMetadataUrl:   gsPath + "/" + containerMetadataURLSuffix,
+			},
+			Time: &test_platform.Request_Params_Time{
+				MaximumDuration: durationpb.New(
+					time.Duration(c.TimeoutMins) * time.Minute),
+			},
+			RunViaCft: c.CFT,
+		},
+	}
+	// Handling multi-DUTs use case if secondaryBoards provided.
+	if len(c.SecondaryBoards) > 0 {
+		request.Params.SecondaryDevices = c.secondaryDevices()
+	}
+	return request, nil
+}
+
+// softwareDependencies constructs test_platform.Request_Params_SoftwareDependency
+// from fields in softwareDependencies
+func (c *CTPBuilder) softwareDependencies() ([]*test_platform.Request_Params_SoftwareDependency, error) {
+	deps, err := softwareDepsFromProvisionLabels(c.ProvisionLabels)
+	if err != nil {
+		return nil, err
+	}
+	if c.ImageBucket != "" {
+		deps = append(deps, &test_platform.Request_Params_SoftwareDependency{
+			Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuildGcsBucket{
+				ChromeosBuildGcsBucket: c.ImageBucket,
+			}})
+	}
+	if c.Image != "" {
+		deps = append(deps, &test_platform.Request_Params_SoftwareDependency{
+			Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: c.Image},
+		})
+	}
+	if c.LacrosPath != "" {
+		deps = append(deps, &test_platform.Request_Params_SoftwareDependency{
+			Dep: &test_platform.Request_Params_SoftwareDependency_LacrosGcsPath{LacrosGcsPath: c.LacrosPath},
+		})
+	}
+	return deps, nil
+}
+
+// softwareDepsFromProvisionLabels parses the given provision labels into a
+// []*test_platform.Request_Params_SoftwareDependency.
+func softwareDepsFromProvisionLabels(labels map[string]string) ([]*test_platform.Request_Params_SoftwareDependency, error) {
+	var deps []*test_platform.Request_Params_SoftwareDependency
+	for label, value := range labels {
+		dep := &test_platform.Request_Params_SoftwareDependency{}
+		switch label {
+		// These prefixes are interpreted by autotest's provisioning behavior;
+		// they are defined in the autotest repo, at utils/labellib.py
+		case "cros-version":
+			dep.Dep = &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{
+				ChromeosBuild: value,
+			}
+		case "fwro-version":
+			dep.Dep = &test_platform.Request_Params_SoftwareDependency_RoFirmwareBuild{
+				RoFirmwareBuild: value,
+			}
+		case "fwrw-version":
+			dep.Dep = &test_platform.Request_Params_SoftwareDependency_RwFirmwareBuild{
+				RwFirmwareBuild: value,
+			}
+		default:
+			return nil, errors.Reason("invalid provisionable label %s", label).Err()
+		}
+		deps = append(deps, dep)
+	}
+	return deps, nil
+}
+
+// schedulingParams constructs Swarming scheduling params from test run flags.
+func (c *CTPBuilder) schedulingParams() *test_platform.Request_Params_Scheduling {
+	s := &test_platform.Request_Params_Scheduling{}
+
+	if managedPool, isManaged := managedPool(c.Pool); isManaged {
+		s.Pool = &test_platform.Request_Params_Scheduling_ManagedPool_{ManagedPool: managedPool}
+	} else {
+		s.Pool = &test_platform.Request_Params_Scheduling_UnmanagedPool{UnmanagedPool: c.Pool}
+	}
+
+	// Priority and Quota Scheduler account cannot coexist in a CTP request.
+	// Only attach priority if no quota account is specified.
+	if c.QSAccount != "" {
+		s.QsAccount = c.QSAccount
+	} else {
+		s.Priority = c.Priority
+	}
+
+	return s
+}
+
+// secondaryDevices constructs secondary devices data for a test platform request
+func (c *CTPBuilder) secondaryDevices() []*test_platform.Request_Params_SecondaryDevice {
+	var secondary_devices []*test_platform.Request_Params_SecondaryDevice
+	for i, b := range c.SecondaryBoards {
+		sd := &test_platform.Request_Params_SecondaryDevice{
+			SoftwareAttributes: &test_platform.Request_Params_SoftwareAttributes{
+				BuildTarget: &chromiumos.BuildTarget{Name: b},
+			},
+		}
+		if strings.ToLower(c.SecondaryImages[i]) != "skip" {
+			sd.SoftwareDependencies = append(sd.SoftwareDependencies, &test_platform.Request_Params_SoftwareDependency{
+				Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: c.SecondaryImages[i]},
+			})
+		}
+		if len(c.SecondaryModels) > 0 {
+			sd.HardwareAttributes = &test_platform.Request_Params_HardwareAttributes{
+				Model: c.SecondaryModels[i],
+			}
+		}
+		if len(c.SecondaryLacrosPaths) > 0 {
+			sd.SoftwareDependencies = append(sd.SoftwareDependencies, &test_platform.Request_Params_SoftwareDependency{
+				Dep: &test_platform.Request_Params_SoftwareDependency_LacrosGcsPath{LacrosGcsPath: c.SecondaryLacrosPaths[i]},
+			})
+		}
+		secondary_devices = append(secondary_devices, sd)
+	}
+	return secondary_devices
+}
+
+// retryParams constructs test_platform.Request_Params_Retry from CTPBuilder
+func (c *CTPBuilder) retryParams() *test_platform.Request_Params_Retry {
+	return &test_platform.Request_Params_Retry{
+		Max:   int32(c.MaxRetries),
+		Allow: c.MaxRetries != 0,
+	}
+}
+
+// managedPool returns the test_platform.Request_Params_Scheduling_ManagedPool
+// matching the given pool string, and returns false if no match was found.
+func managedPool(pool string) (test_platform.Request_Params_Scheduling_ManagedPool, bool) {
+	// Attempt to handle common pool name format discrepancies.
+	pool = strings.ToUpper(pool)
+	pool = strings.Replace(pool, "-", "_", -1)
+	pool = strings.Replace(pool, "DUT_POOL_", "MANAGED_POOL_", 1)
+
+	enum, ok := test_platform.Request_Params_Scheduling_ManagedPool_value[pool]
+	if !ok {
+		return 0, false
+	}
+	return test_platform.Request_Params_Scheduling_ManagedPool(enum), true
 }
