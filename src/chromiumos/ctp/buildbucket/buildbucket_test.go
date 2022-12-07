@@ -50,3 +50,35 @@ func TestNewClient(t *testing.T) {
 		t.Errorf("unexpected diff (%s)", diff)
 	}
 }
+
+func TestBBDims(t *testing.T) {
+	t.Parallel()
+
+	dims := map[string]string{
+		"foo ": " bar",
+	}
+	wantBBDims := []*buildbucketpb.RequestedDimension{
+		{Key: "foo", Value: "bar"},
+	}
+	gotBBDims := bbDims(dims)
+	diff := cmp.Diff(wantBBDims, gotBBDims, cmpopts.IgnoreUnexported(buildbucketpb.RequestedDimension{}))
+	if diff != "" {
+		t.Errorf("unexpected diff (%s)", diff)
+	}
+}
+
+func TestBBTags(t *testing.T) {
+	t.Parallel()
+
+	tags := map[string]string{
+		" foo": "bar ",
+	}
+	wantBBTags := []*buildbucketpb.StringPair{
+		{Key: "foo", Value: "bar"},
+	}
+	gotBBTags := bbTags(tags)
+	diff := cmp.Diff(wantBBTags, gotBBTags, cmpopts.IgnoreUnexported(buildbucketpb.StringPair{}))
+	if diff != "" {
+		t.Errorf("unexpected diff (%s)", diff)
+	}
+}
