@@ -23,13 +23,14 @@ type LocalCFTManager struct {
 	ports           map[string]uint16
 	ctx             context.Context
 
-	Board   string
-	Model   string
-	Build   string
-	Tests   []string
-	Tags    []string
-	DutHost string
-	BaseDir string
+	Board       string
+	Model       string
+	Build       string
+	Tests       []string
+	Tags        []string
+	TagsExclude []string
+	DutHost     string
+	BaseDir     string
 
 	imagePath    string
 	images       map[string]*buildapi.ContainerImageInfo
@@ -66,7 +67,7 @@ func SERVICES() services {
 func NewLocalCFTManager(
 	ctx context.Context,
 	board, model, build, dutHost, baseDir string,
-	tests, tags []string,
+	tests, tags, tagsExclude []string,
 ) *LocalCFTManager {
 	return &LocalCFTManager{
 		ctx:             ctx,
@@ -81,6 +82,7 @@ func NewLocalCFTManager(
 		BaseDir:         baseDir,
 		Tests:           tests,
 		Tags:            tags,
+		TagsExclude:     tagsExclude,
 		imagePath:       "",
 	}
 }

@@ -151,11 +151,20 @@ type FindTestsCommand struct {
 
 func (cmd *FindTestsCommand) Execute() error {
 	testSuites := []*api.TestSuite{}
-	for _, testTag := range cmd.ctf.manager.Tags {
+	var tags []string = nil
+	var tagsExclude []string = nil
+	if len(cmd.ctf.manager.Tags) > 0 && cmd.ctf.manager.Tags[0] != "" {
+		tags = cmd.ctf.manager.Tags
+	}
+	if len(cmd.ctf.manager.TagsExclude) > 0 && cmd.ctf.manager.TagsExclude[0] != "" {
+		tagsExclude = cmd.ctf.manager.TagsExclude
+	}
+	if tags != nil || tagsExclude != nil {
 		testSuites = append(testSuites, &api.TestSuite{
 			Spec: &api.TestSuite_TestCaseTagCriteria_{
 				TestCaseTagCriteria: &api.TestSuite_TestCaseTagCriteria{
-					Tags: []string{testTag},
+					Tags:        tags,
+					TagExcludes: tagsExclude,
 				},
 			},
 		})
@@ -163,9 +172,11 @@ func (cmd *FindTestsCommand) Execute() error {
 
 	testCaseIds := []*api.TestCase_Id{}
 	for _, testCaseId := range cmd.ctf.manager.Tests {
-		testCaseIds = append(testCaseIds, &api.TestCase_Id{
-			Value: testCaseId,
-		})
+		if testCaseId != "" {
+			testCaseIds = append(testCaseIds, &api.TestCase_Id{
+				Value: testCaseId,
+			})
+		}
 	}
 
 	if len(testCaseIds) > 0 {
@@ -182,11 +193,15 @@ func (cmd *FindTestsCommand) Execute() error {
 		TestSuites: testSuites,
 	}
 
-	_, err := cmd.ctf.client.FindTests(cmd.ctf.manager.ctx, findTestsRequest)
+	findTestResult, err := cmd.ctf.client.FindTests(cmd.ctf.manager.ctx, findTestsRequest)
 	if err != nil {
 		return fmt.Errorf("Failed to find tests, %s", err)
 	}
-	cmd.ctf.manager.testSuites = findTestsRequest.TestSuites
+	cmd.ctf.manager.testSuites = findTestResult.TestSuites
+	for _, testSuite := range findTestResult.TestSuites {
+		cmd.ctf.LocalLogger.Printf("Found %d tests:\n", len(testSuite.GetTestCases().TestCases))
+		cmd.ctf.LocalLogger.Printf("%v\n", testSuite.GetTestCases().TestCases)
+	}
 
 	return nil
 }

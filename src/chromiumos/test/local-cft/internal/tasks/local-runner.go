@@ -26,17 +26,19 @@ const (
 type localCftCmd struct {
 	subcommands.CommandRunBase
 
-	flagSet   *flag.FlagSet
-	tests     string
-	tags      string
-	model     string
-	board     string
-	build     string
-	dutHost   string
-	baseDir   string
-	fullRun   bool
-	provision bool
-	test      bool
+	flagSet     *flag.FlagSet
+	tests       string
+	tags        string
+	tagsExclude string
+	model       string
+	board       string
+	build       string
+	dutHost     string
+	baseDir     string
+	fullRun     bool
+	provision   bool
+	test        bool
+	testFind    bool
 	// publish   bool
 
 	errorLogger *log.Logger
@@ -57,6 +59,7 @@ func LocalCft() int {
 
 	localCft.flagSet.StringVar(&localCft.tests, "tests", "", "test(s) to run, comma separated. Example: -tests test1,test2")
 	localCft.flagSet.StringVar(&localCft.tags, "tags", "", "tag(s) to run, comma separated. Example: -tags group:1,group:2")
+	localCft.flagSet.StringVar(&localCft.tagsExclude, "tagsExclude", "", "Excluded tag(s) to run, comma separated. Example: -tags group:1,group:2")
 	localCft.flagSet.StringVar(&localCft.model, "model", "", "Model name")
 	localCft.flagSet.StringVar(&localCft.board, "board", "", "Board name")
 	localCft.flagSet.StringVar(&localCft.build, "build", "", "Build number to run containers from.\n Eg R108 or R108-14143. Do not use with -md_path")
@@ -65,6 +68,7 @@ func LocalCft() int {
 	localCft.flagSet.BoolVar(&localCft.fullRun, "fullrun", false, "Run the full flow of cft.\n\tWhen true, provision and test are defaulted to true")
 	localCft.flagSet.BoolVar(&localCft.provision, "provision", false, "Run cros-provision")
 	localCft.flagSet.BoolVar(&localCft.test, "test", false, "Run cros-test-finder and cros-test")
+	localCft.flagSet.BoolVar(&localCft.testFind, "findtest", false, "Run cros-test-finder")
 	// localCft.flagSet.BoolVar(&localCft.publish, "publish", false, "Run cros-publish")
 
 	return localCft.Run()
@@ -95,12 +99,13 @@ func (c *localCftCmd) Run() int {
 	ctx := context.Background()
 	parsedTests := strings.Split(c.tests, ",")
 	parsedTags := strings.Split(c.tags, ",")
+	parsedExcludedTags := strings.Split(c.tagsExclude, ",")
 	c.baseDir = fmt.Sprintf("%s/%s", c.baseDir, RELATIVE_BASE_DIR)
 
 	manager := services.NewLocalCFTManager(
 		ctx,
 		c.board, c.model, c.build, c.dutHost, c.baseDir,
-		parsedTests, parsedTags,
+		parsedTests, parsedTags, parsedExcludedTags,
 	)
 
 	servicesToRun := c.compileServicesToRun(manager)
@@ -137,6 +142,7 @@ func (c *localCftCmd) compileServicesToRun(manager *services.LocalCFTManager) []
 
 	if c.fullRun {
 		c.provision = true
+		c.testFind = true
 		c.test = true
 	}
 
@@ -149,7 +155,7 @@ func (c *localCftCmd) compileServicesToRun(manager *services.LocalCFTManager) []
 			cmds: []services.ServiceCommand_{services.CROS_PROVISION_SERVICE_COMMANDS().Install},
 		})
 	}
-	if c.test {
+	if c.test || c.testFind {
 		servicesToRun = append(servicesToRun, serviceToRun{
 			name: services.SERVICES().CrosTestFinder,
 			service: &services.CrosTestFinderService{
@@ -157,6 +163,8 @@ func (c *localCftCmd) compileServicesToRun(manager *services.LocalCFTManager) []
 			},
 			cmds: []services.ServiceCommand_{services.CROS_TEST_FINDER_SERVICE_COMMANDS().FindTests},
 		})
+	}
+	if c.test {
 		servicesToRun = append(servicesToRun, serviceToRun{
 			name: services.SERVICES().CrosTest,
 			service: &services.CrosTestService{
