@@ -11,13 +11,13 @@
 (require 'transient)
 (require 'magit-process)
 
-(define-infix-argument repo:current-project ()
+(transient-define-infix repo:current-project ()
   :description "Current Project"
   :class 'transient-switch
   :key "-c"
   :argument ".")
 
-(define-infix-argument repo:all-projects ()
+(transient-define-infix repo:all-projects ()
   :description "All Projects"
   :class 'transient-switch
   :key "-A"
@@ -35,14 +35,14 @@
   (apply #'magit-call-process "repo" "rebase" args)
   (magit-refresh-all))
 
-(define-transient-command repo-sync-menu ()
+(transient-define-prefix repo-sync-menu ()
   "Transient menu for repo sync."
   ["Project"
    (repo:current-project)]
   ["Commands"
    ("y" "Sync" repo-sync)])
 
-(define-transient-command repo-rebase-menu
+(transient-define-prefix repo-rebase-menu
   "Transient menu for repo rebase."
   ["Project"
    (repo:current-project)]
@@ -76,7 +76,7 @@
   (repo--start (format-time-string "temp-%Y-%m-%dT%H-%M-%S")
                args))
 
-(define-transient-command repo-start-menu ()
+(transient-define-prefix repo-start-menu ()
   "Transient menu for repo start."
   ["Project"
    (repo:all-projects)]
@@ -112,38 +112,38 @@
   (interactive (list (transient-args 'repo-upload-menu)))
   (repo-upload args))
 
-(define-infix-argument repo:--re ()
+(transient-define-argument repo:--re ()
   :description "Set reviewers"
   :class 'transient-option
   :key "-r"
   :argument "--re=")
 
-(define-infix-argument repo:--cc ()
+(transient-define-argument repo:--cc ()
   :description "Set reviewers"
   :class 'transient-option
   :key "-c"
   :argument "--cc=")
 
-(define-infix-argument repo:--br ()
+(transient-define-argument repo:--br ()
   :description "Local branch to upload"
   :class 'transient-option
   :key "-b"
   :argument "--br="
   :reader 'magit-transient-read-revision)
 
-(define-infix-argument repo:--dest ()
+(transient-define-argument repo:--dest ()
   :description "Remote destination branch"
   :class 'transient-option
   :key "-D"
   :argument "--dest=")
 
-(define-infix-argument repo:--hashtag ()
+(transient-define-argument repo:--hashtag ()
   :description "Hashtags"
   :class 'transient-option
   :key "-h"
   :argument "--hashtag=")
 
-(define-transient-command repo-upload-menu ()
+(transient-define-prefix repo-upload-menu ()
   "Transient menu for repo upload."
   ["People"
    (repo:--re)
@@ -179,7 +179,7 @@
     (when do-upload
       (repo-upload-menu))))
 
-(define-transient-command repo-main-menu ()
+(transient-define-prefix repo-main-menu ()
   "Transient menu for repo commands."
   ["Subcommands"
    ("y" "sync" repo-sync-menu)
