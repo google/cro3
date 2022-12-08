@@ -10,9 +10,7 @@ This simplies the process of calling CTP programmatically
 To schedule tests, create a CTPBuilder object and then call it's `ScheduleCTPBuild` method. This will return a Build object which you can use to track the progress of the test
 
 ```
-tp := &test_platform.Request_TestPlan{
-    Suite: []*test_platform.Request_Suite{&test_platform.Request_Suite{Name: "rlz"}},
-}
+tp := builder.TestPlanForSuites([]string{"rlz"})
 
 ctp := &builder.CTPBuilder{
     Image:      "zork-release/R107-15117.103.0",
