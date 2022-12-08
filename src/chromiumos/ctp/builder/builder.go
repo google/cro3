@@ -5,6 +5,7 @@
 package builder
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -16,7 +17,9 @@ import (
 	"go.chromium.org/luci/common/errors"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"chromium.googlesource.com/chromiumos/platform/dev-util.git/src/chromiumos/ctp/buildbucket"
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/src/chromiumos/ctp/common"
+	"chromium.googlesource.com/chromiumos/platform/dev-util.git/src/chromiumos/ctp/site"
 )
 
 // CTP builder contains fields needed to send a build to CTP
@@ -84,6 +87,38 @@ type CTPBuilder struct {
 	// TimeoutMins is the timeout of the CTP run in minutes
 	// If not set, will default to 360
 	TimeoutMins int
+}
+
+func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build, error) {
+	c.validateAndAddDefaults()
+	buildTags := c.buildTags()
+	ctpRequest, err := c.testPlatformRequest(buildTags)
+	if err != nil {
+		return nil, err
+	}
+	buildProps := map[string]interface{}{
+		"requests": map[string]interface{}{
+			// Convert to protoreflect.ProtoMessage for easier type comparison.
+			"default": ctpRequest.ProtoReflect().Interface(),
+		},
+	}
+
+	if c.AuthOptions == nil {
+		c.AuthOptions = &site.DefaultAuthOptions
+	}
+
+	ctpBBClient, err := buildbucket.NewClient(ctx, c.BuilderID, c.BBService, c.AuthOptions, buildbucket.NewHTTPClient)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parent cros_test_platform builds run on generic GCE bots at the default
+	// priority, so we pass zero values for the dimensions and priority of the
+	// parent build.
+	//
+	// buildProps contains separate dimensions and priority values to apply to
+	// the child test_runner builds that will be launched by the parent build.
+	return ctpBBClient.ScheduleBuild(ctx, buildProps, nil, buildTags, 0)
 }
 
 const (
