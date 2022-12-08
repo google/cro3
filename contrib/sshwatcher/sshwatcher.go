@@ -44,12 +44,12 @@ func getLsbReleaseMap(hostname string) (map[string]string, error) {
 	return result, nil
 }
 
-func getOsVersion(host string) (string, string, error) {
+func getOsVersion(host string) (string, string, string, error) {
 	lsbRelease, err := getLsbReleaseMap(host)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
-	return lsbRelease["CHROMEOS_RELEASE_VERSION"], lsbRelease["CHROMEOS_ARC_VERSION"], nil
+	return lsbRelease["CHROMEOS_RELEASE_BOARD"], lsbRelease["CHROMEOS_RELEASE_VERSION"], lsbRelease["CHROMEOS_ARC_VERSION"], nil
 }
 
 // For command-line parameter which holds a pair of host name and port number.
@@ -76,7 +76,7 @@ func sshConnectionLoop(param hostPortPair, message chan messageType) {
 			host: param.host,
 			m:    fmt.Sprintf("%-10v\t %-7v\t try connecting", param.host, param.port),
 		}
-		osVersion, arcVersion, err := getOsVersion(param.host)
+		board, osVersion, arcVersion, err := getOsVersion(param.host)
 		if err != nil {
 			time.Sleep(waitBetweenSSHTries)
 			// try again.
@@ -85,7 +85,7 @@ func sshConnectionLoop(param hostPortPair, message chan messageType) {
 		message <- messageType{
 			host: param.host,
 			m: fmt.Sprintf(fmtString,
-				param.host, param.port, osVersion, arcVersion),
+				param.host, param.port, board, osVersion, arcVersion),
 		}
 		arg := []string{
 			"-o", "ConnectTimeout=5",
@@ -131,7 +131,7 @@ func main() {
 			maxHostLen = len(hostArgs[i])
 		}
 	}
-	fmtString = fmt.Sprintf("%%-%dv\t %%-7v\t%%-30v%%-26v", maxHostLen)
+	fmtString = fmt.Sprintf("%%-%dv\t %%-7v\t%%-10v\t%%-30v%%-26v", maxHostLen)
 
 	message := make(chan messageType)
 
@@ -157,7 +157,7 @@ func main() {
 		// Clear screen before displaying
 		fmt.Printf("%v", ansiClearScreen)
 		fmt.Printf(fmtString+"\n",
-			"host", "port", "CrOS version", "ARC version")
+			"host", "port", "board", "CrOS version", "ARC version")
 		for _, param := range params {
 			// Clear until end of line and print status.
 			fmt.Printf("%v\n", status[param.host])
