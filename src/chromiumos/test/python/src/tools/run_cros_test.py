@@ -20,7 +20,11 @@ from google.protobuf.json_format import MessageToJson
 
 
 # Used to import the proto stack.
-sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve() / '../../../../../../../../config/python'))
+if "CONFIG_REPO_ROOT" in os.environ:
+  sys.path.insert(1, os.path.join(os.getenv("CONFIG_REPO_ROOT"), "python"))
+else:
+  sys.path.insert(1, str(pathlib.Path(__file__).parent.resolve() / '../../../../../../../../config/python'))
+
 import chromiumos.test.api.cros_test_cli_pb2 as cros_test_request
 import chromiumos.test.api.test_case_pb2 as test_case
 import chromiumos.test.api.test_execution_metadata_pb2 as test_execution_metatdata
