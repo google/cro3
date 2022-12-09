@@ -54,6 +54,7 @@ type ServiceBase struct {
 	Name    string
 	Port    uint16
 	BaseDir string
+	Started bool
 
 	ReadyChan         chan error
 	CloseChan         chan struct{}
@@ -90,6 +91,7 @@ func NewServiceBase(
 		ReadyChan:         make(chan error),
 		CloseChan:         make(chan struct{}),
 		CloseFinishedChan: make(chan struct{}),
+		Started:           false,
 		loggerBuf:         buffer,
 		LocalLogger:       log.New(multiwriter, fmt.Sprintf("%s (local):   ", kebabToUpperSnake(name)), log.Ldate|log.Ltime|log.Lshortfile),
 		ServiceLogger:     log.New(multiwriter, fmt.Sprintf("%s (service): ", kebabToUpperSnake(name)), 0),

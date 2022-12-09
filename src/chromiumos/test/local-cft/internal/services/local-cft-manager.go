@@ -23,14 +23,16 @@ type LocalCFTManager struct {
 	ports           map[string]uint16
 	ctx             context.Context
 
-	Board       string
-	Model       string
-	Build       string
-	Tests       []string
-	Tags        []string
-	TagsExclude []string
-	DutHost     string
-	BaseDir     string
+	Board         string
+	Model         string
+	Build         string
+	Tests         []string
+	Tags          []string
+	TagsExclude   []string
+	DutHost       string
+	BaseDir       string
+	Chroot        string
+	LocalServices map[string]struct{}
 
 	imagePath    string
 	images       map[string]*buildapi.ContainerImageInfo
@@ -66,9 +68,14 @@ func SERVICES() services {
 // Initializes a LocalCFTManager
 func NewLocalCFTManager(
 	ctx context.Context,
-	board, model, build, dutHost, baseDir string,
-	tests, tags, tagsExclude []string,
+	board, model, build, dutHost, baseDir, chroot string,
+	tests, tags, tagsExclude, localServices []string,
 ) *LocalCFTManager {
+	localServicesMap := map[string]struct{}{}
+	for _, service := range localServices {
+		localServicesMap[service] = struct{}{}
+	}
+
 	return &LocalCFTManager{
 		ctx:             ctx,
 		services:        make(map[string]Service),
@@ -80,10 +87,12 @@ func NewLocalCFTManager(
 		Build:           build,
 		DutHost:         dutHost,
 		BaseDir:         baseDir,
+		Chroot:          chroot,
 		Tests:           tests,
 		Tags:            tags,
 		TagsExclude:     tagsExclude,
 		imagePath:       "",
+		LocalServices:   localServicesMap,
 	}
 }
 
@@ -102,6 +111,7 @@ func (c *LocalCFTManager) Execute(serviceName, commandName ServiceCommand_, args
 // Stops all services that are running in the reverse order of when they started
 func (c *LocalCFTManager) Stop() (err error) {
 	for _, service := range c.servicesStarted {
+		fmt.Printf("Stopping %s\n", service)
 		if innerErr := c.services[service].Stop(); innerErr != nil {
 			err = fmt.Errorf("%s, %s", innerErr, err)
 		}

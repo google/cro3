@@ -262,8 +262,10 @@ func (stopper *StopCTR) Stop() error {
 		stopper.ctr.conn.Close()
 	}
 
-	stopper.ctr.CloseChan <- struct{}{}
-	<-stopper.ctr.CloseFinishedChan
+	if stopper.ctr.Started {
+		stopper.ctr.CloseChan <- struct{}{}
+		<-stopper.ctr.CloseFinishedChan
+	}
 
 	WriteLogs(&stopper.ctr.ServiceBase)
 

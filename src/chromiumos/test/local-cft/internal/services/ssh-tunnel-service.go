@@ -126,8 +126,10 @@ type StopSSHTunnel struct {
 }
 
 func (stopper *StopSSHTunnel) Stop() error {
-	stopper.st.CloseChan <- struct{}{}
-	<-stopper.st.CloseFinishedChan
+	if stopper.st.Started {
+		stopper.st.CloseChan <- struct{}{}
+		<-stopper.st.CloseFinishedChan
+	}
 
 	WriteLogs(&stopper.st.ServiceBase)
 

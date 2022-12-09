@@ -79,13 +79,24 @@ func (starter *SetupCrosTest) Setup() error {
 		return err
 	}
 
+	containerImage := fmt.Sprintf(
+		"us-docker.pkg.dev/cros-registry/test-services/%s:%s",
+		starter.ct.Name,
+		starter.ct.manager.images[starter.ct.Name].Tags[0],
+	)
+
+	if _, ok := starter.ct.manager.LocalServices[starter.ct.Name]; ok {
+		err := utils.UpdateContainerService(starter.ct.LocalLogger, starter.ct.manager.Chroot, containerImage, starter.ct.Name)
+		if err != nil {
+			starter.ct.LocalLogger.Println(err)
+			return err
+		}
+		containerImage = containerImage + "_localchange"
+	}
+
 	request := &api.StartContainerRequest{
-		Name: starter.ct.Name,
-		ContainerImage: fmt.Sprintf(
-			"us-docker.pkg.dev/cros-registry/test-services/%s:%s",
-			starter.ct.Name,
-			starter.ct.manager.images[starter.ct.Name].Tags[0],
-		),
+		Name:           starter.ct.Name,
+		ContainerImage: containerImage,
 		AdditionalOptions: &api.StartContainerRequest_Options{
 			Expose: []string{fmt.Sprint(starter.ct.Port)},
 			Volume: []string{
@@ -138,8 +149,10 @@ func (stopper *StopCrosTest) Stop() error {
 		stopper.ct.conn.Close()
 	}
 
-	stopper.ct.CloseChan <- struct{}{}
-	<-stopper.ct.CloseFinishedChan
+	if stopper.ct.Started {
+		stopper.ct.CloseChan <- struct{}{}
+		<-stopper.ct.CloseFinishedChan
+	}
 
 	WriteLogs(&stopper.ct.ServiceBase)
 

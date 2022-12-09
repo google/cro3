@@ -118,8 +118,10 @@ type StopCacheServer struct {
 }
 
 func (stopper *StopCacheServer) Stop() error {
-	stopper.cs.CloseChan <- struct{}{}
-	<-stopper.cs.CloseFinishedChan
+	if stopper.cs.Started {
+		stopper.cs.CloseChan <- struct{}{}
+		<-stopper.cs.CloseFinishedChan
+	}
 
 	WriteLogs(&stopper.cs.ServiceBase)
 

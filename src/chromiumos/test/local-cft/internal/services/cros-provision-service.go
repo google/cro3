@@ -93,13 +93,24 @@ func (starter *SetupCrosProvision) Setup() error {
 		return err
 	}
 
+	containerImage := fmt.Sprintf(
+		"us-docker.pkg.dev/cros-registry/test-services/%s:%s",
+		starter.cp.Name,
+		starter.cp.manager.images[starter.cp.Name].Tags[0],
+	)
+
+	if _, ok := starter.cp.manager.LocalServices[starter.cp.Name]; ok {
+		err := utils.UpdateContainerService(starter.cp.LocalLogger, starter.cp.manager.Chroot, containerImage, starter.cp.Name)
+		if err != nil {
+			starter.cp.LocalLogger.Println(err)
+			return err
+		}
+		containerImage = containerImage + "_localchange"
+	}
+
 	request := &api.StartContainerRequest{
-		Name: starter.cp.Name,
-		ContainerImage: fmt.Sprintf(
-			"us-docker.pkg.dev/cros-registry/test-services/%s:%s",
-			starter.cp.Name,
-			starter.cp.manager.images[starter.cp.Name].Tags[0],
-		),
+		Name:           starter.cp.Name,
+		ContainerImage: containerImage,
 		AdditionalOptions: &api.StartContainerRequest_Options{
 			Expose:  []string{fmt.Sprint(starter.cp.Port)},
 			Volume:  []string{fmt.Sprintf("%s/cros-provision:/tmp/provisionservice", starter.cp.BaseDir)},
@@ -207,8 +218,10 @@ func (stopper *StopCrosProvision) Stop() error {
 		stopper.cp.conn.Close()
 	}
 
-	stopper.cp.CloseChan <- struct{}{}
-	<-stopper.cp.CloseFinishedChan
+	if stopper.cp.Started {
+		stopper.cp.CloseChan <- struct{}{}
+		<-stopper.cp.CloseFinishedChan
+	}
 
 	WriteLogs(&stopper.cp.ServiceBase)
 

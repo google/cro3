@@ -80,6 +80,7 @@ func BuildServiceListener(service *ServiceBase, skipDial bool, cmd *exec.Cmd) fu
 			}
 		}()
 
+		service.Started = true
 		cmd.Wait()
 		service.CloseFinishedChan <- struct{}{}
 	}

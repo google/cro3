@@ -78,13 +78,24 @@ func (starter *SetupCrosTestFinder) Setup() error {
 		return err
 	}
 
+	containerImage := fmt.Sprintf(
+		"us-docker.pkg.dev/cros-registry/test-services/%s:%s",
+		starter.ctf.Name,
+		starter.ctf.manager.images[starter.ctf.Name].Tags[0],
+	)
+
+	if _, ok := starter.ctf.manager.LocalServices[starter.ctf.Name]; ok {
+		err := utils.UpdateContainerService(starter.ctf.LocalLogger, starter.ctf.manager.Chroot, containerImage, starter.ctf.Name)
+		if err != nil {
+			starter.ctf.LocalLogger.Println(err)
+			return err
+		}
+		containerImage = containerImage + "_localchange"
+	}
+
 	request := &api.StartContainerRequest{
-		Name: starter.ctf.Name,
-		ContainerImage: fmt.Sprintf(
-			"us-docker.pkg.dev/cros-registry/test-services/%s:%s",
-			starter.ctf.Name,
-			starter.ctf.manager.images[starter.ctf.Name].Tags[0],
-		),
+		Name:           starter.ctf.Name,
+		ContainerImage: containerImage,
 		AdditionalOptions: &api.StartContainerRequest_Options{
 			Expose:  []string{fmt.Sprint(starter.ctf.Port)},
 			Network: "host",
@@ -134,8 +145,10 @@ func (stopper *StopCrosTestFinder) Stop() error {
 		stopper.ctf.conn.Close()
 	}
 
-	stopper.ctf.CloseChan <- struct{}{}
-	<-stopper.ctf.CloseFinishedChan
+	if stopper.ctf.Started {
+		stopper.ctf.CloseChan <- struct{}{}
+		<-stopper.ctf.CloseFinishedChan
+	}
 
 	WriteLogs(&stopper.ctf.ServiceBase)
 

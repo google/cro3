@@ -26,19 +26,21 @@ const (
 type localCftCmd struct {
 	subcommands.CommandRunBase
 
-	flagSet     *flag.FlagSet
-	tests       string
-	tags        string
-	tagsExclude string
-	model       string
-	board       string
-	build       string
-	dutHost     string
-	baseDir     string
-	fullRun     bool
-	provision   bool
-	test        bool
-	testFind    bool
+	flagSet       *flag.FlagSet
+	tests         string
+	tags          string
+	localServices string
+	tagsExclude   string
+	model         string
+	board         string
+	build         string
+	dutHost       string
+	baseDir       string
+	chroot        string
+	fullRun       bool
+	provision     bool
+	test          bool
+	testFind      bool
 	// publish   bool
 
 	errorLogger *log.Logger
@@ -59,12 +61,14 @@ func LocalCft() int {
 
 	localCft.flagSet.StringVar(&localCft.tests, "tests", "", "test(s) to run, comma separated. Example: -tests test1,test2")
 	localCft.flagSet.StringVar(&localCft.tags, "tags", "", "tag(s) to run, comma separated. Example: -tags group:1,group:2")
+	localCft.flagSet.StringVar(&localCft.localServices, "localservices", "", "Services with local updates to include in containers\n Eg cros-dut,cros-test,cros-test")
 	localCft.flagSet.StringVar(&localCft.tagsExclude, "tagsExclude", "", "Excluded tag(s) to run, comma separated. Example: -tags group:1,group:2")
 	localCft.flagSet.StringVar(&localCft.model, "model", "", "Model name")
 	localCft.flagSet.StringVar(&localCft.board, "board", "", "Board name")
 	localCft.flagSet.StringVar(&localCft.build, "build", "", "Build number to run containers from.\n Eg R108 or R108-14143. Do not use with -md_path")
 	localCft.flagSet.StringVar(&localCft.dutHost, "host", "", "Hostname of dut")
 	localCft.flagSet.StringVar(&localCft.baseDir, "dir", "/tmp", "The base absolute path for the local-cft runner's interactions and output.\n Eg /tmp")
+	localCft.flagSet.StringVar(&localCft.chroot, "chroot", "", "Absolute path of your chromiumos chroot. Necessary for updating local services.")
 	localCft.flagSet.BoolVar(&localCft.fullRun, "fullrun", false, "Run the full flow of cft.\n\tWhen true, provision and test are defaulted to true")
 	localCft.flagSet.BoolVar(&localCft.provision, "provision", false, "Run cros-provision")
 	localCft.flagSet.BoolVar(&localCft.test, "test", false, "Run cros-test-finder and cros-test")
@@ -100,17 +104,23 @@ func (c *localCftCmd) Run() int {
 	parsedTests := strings.Split(c.tests, ",")
 	parsedTags := strings.Split(c.tags, ",")
 	parsedExcludedTags := strings.Split(c.tagsExclude, ",")
+	parsedLocalServices := strings.Split(c.localServices, ",")
 	c.baseDir = fmt.Sprintf("%s/%s", c.baseDir, RELATIVE_BASE_DIR)
 
 	manager := services.NewLocalCFTManager(
 		ctx,
-		c.board, c.model, c.build, c.dutHost, c.baseDir,
+		c.board, c.model, c.build, c.dutHost, c.baseDir, c.chroot,
 		parsedTests, parsedTags, parsedExcludedTags,
+		parsedLocalServices,
 	)
 
 	servicesToRun := c.compileServicesToRun(manager)
 
-	defer manager.Stop()
+	defer func() {
+		if err := manager.Stop(); err != nil {
+			c.errorLogger.Println(err)
+		}
+	}()
 	for _, serviceToRun := range servicesToRun {
 		if err := manager.Start(serviceToRun.name, serviceToRun.service); err != nil {
 			c.errorLogger.Printf("Failed to run %s, %s", serviceToRun.name, err)
@@ -194,6 +204,11 @@ func (c *localCftCmd) validateArgs() error {
 		return fmt.Errorf("-duthost must be provided.")
 	}
 
+	parsedLocalServices := strings.Split(c.localServices, ",")
+	if c.localServices != "" && len(parsedLocalServices) > 0 && c.chroot == "" {
+		return fmt.Errorf("Local services requires having the -chroot flag")
+	}
+
 	return nil
 }
 
@@ -211,7 +226,7 @@ func (c *localCftCmd) checkPreReqs() error {
 func (c *localCftCmd) Validate() error {
 	if err := c.flagSet.Parse(os.Args[1:]); err != nil {
 		c.printUsage()
-		return fmt.Errorf("Failed to parse args, %s\n", err)
+		return fmt.Errorf("Failed to parse args, %s", err)
 	}
 	if err := c.validateArgs(); err != nil {
 		c.printUsage()

@@ -68,13 +68,24 @@ func (starter *SetupCrosDut) Setup() error {
 		return err
 	}
 
+	containerImage := fmt.Sprintf(
+		"us-docker.pkg.dev/cros-registry/test-services/%s:%s",
+		starter.cd.Name,
+		starter.cd.manager.images[starter.cd.Name].Tags[0],
+	)
+
+	if _, ok := starter.cd.manager.LocalServices[starter.cd.Name]; ok {
+		err := utils.UpdateContainerService(starter.cd.LocalLogger, starter.cd.manager.Chroot, containerImage, starter.cd.Name)
+		if err != nil {
+			starter.cd.LocalLogger.Println(err)
+			return err
+		}
+		containerImage = containerImage + "_localchange"
+	}
+
 	request := &api.StartContainerRequest{
-		Name: starter.cd.Name,
-		ContainerImage: fmt.Sprintf(
-			"us-docker.pkg.dev/cros-registry/test-services/%s:%s",
-			starter.cd.Name,
-			starter.cd.manager.images[starter.cd.Name].Tags[0],
-		),
+		Name:           starter.cd.Name,
+		ContainerImage: containerImage,
 		AdditionalOptions: &api.StartContainerRequest_Options{
 			Expose:  []string{fmt.Sprint(starter.cd.Port)},
 			Volume:  []string{fmt.Sprintf("%s/cros-dut:/tmp/cros-dut", starter.cd.BaseDir)},
@@ -128,8 +139,10 @@ func (stopper *StopCrosDut) Stop() error {
 		stopper.cd.conn.Close()
 	}
 
-	stopper.cd.CloseChan <- struct{}{}
-	<-stopper.cd.CloseFinishedChan
+	if stopper.cd.Started {
+		stopper.cd.CloseChan <- struct{}{}
+		<-stopper.cd.CloseFinishedChan
+	}
 
 	WriteLogs(&stopper.cd.ServiceBase)
 
