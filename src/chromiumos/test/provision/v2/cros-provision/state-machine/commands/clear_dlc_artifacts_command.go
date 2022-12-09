@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"log"
 	"path"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type ClearDLCArtifactsCommand struct {
@@ -64,4 +66,8 @@ func (c *ClearDLCArtifactsCommand) Revert() error {
 
 func (c *ClearDLCArtifactsCommand) GetErrorMessage() string {
 	return "Failed to clear DLC artifacts"
+}
+
+func (c *ClearDLCArtifactsCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

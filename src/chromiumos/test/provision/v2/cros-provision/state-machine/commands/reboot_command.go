@@ -9,6 +9,8 @@ import (
 	"context"
 	"log"
 	"time"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type RebootCommand struct {
@@ -55,4 +57,8 @@ func (c *RebootCommand) Revert() error {
 
 func (c *RebootCommand) GetErrorMessage() string {
 	return "failed to reboot DUT"
+}
+
+func (c *RebootCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_DUT_UNREACHABLE_POST_PROVISION
 }

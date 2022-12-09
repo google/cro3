@@ -13,6 +13,8 @@ import (
 	"log"
 	"strconv"
 	"strings"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type AlignImageToPageCommand struct {
@@ -66,4 +68,8 @@ func (c *AlignImageToPageCommand) Revert() error {
 
 func (c *AlignImageToPageCommand) GetErrorMessage() string {
 	return "failed to align image"
+}
+
+func (c *AlignImageToPageCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type WriteManifestCommand struct {
@@ -73,4 +75,8 @@ func (c *WriteManifestCommand) getSHA256Sum(ctx context.Context, path string) (s
 		return "", fmt.Errorf("failed to get hash of %s, %w", path, err)
 	}
 	return strings.TrimSpace(hash), nil
+}
+
+func (c *WriteManifestCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

@@ -26,6 +26,23 @@ import (
 	"google.golang.org/grpc"
 )
 
+var statusToResult = map[api.InstallResponse_Status]api.InstallFailure_Reason{
+	api.InstallResponse_STATUS_INVALID_REQUEST:                        api.InstallFailure_REASON_INVALID_REQUEST,
+	api.InstallResponse_STATUS_DUT_UNREACHABLE_PRE_PROVISION:          api.InstallFailure_REASON_DUT_UNREACHABLE_PRE_PROVISION,
+	api.InstallResponse_STATUS_DOWNLOADING_IMAGE_FAILED:               api.InstallFailure_REASON_DOWNLOADING_IMAGE_FAILED,
+	api.InstallResponse_STATUS_PROVISIONING_TIMEDOUT:                  api.InstallFailure_REASON_PROVISIONING_TIMEDOUT,
+	api.InstallResponse_STATUS_PROVISIONING_FAILED:                    api.InstallFailure_REASON_PROVISIONING_FAILED,
+	api.InstallResponse_STATUS_DUT_UNREACHABLE_POST_PROVISION:         api.InstallFailure_REASON_DUT_UNREACHABLE_POST_PROVISION,
+	api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED:                 api.InstallFailure_REASON_UPDATE_FIRMWARE_FAILED,
+	api.InstallResponse_STATUS_FIRMWARE_MISMATCH_POST_FIRMWARE_UPDATE: api.InstallFailure_REASON_FIRMWARE_MISMATCH_POST_FIRMWARE_UPDATE,
+	api.InstallResponse_STATUS_DUT_UNREACHABLE_POST_FIRMWARE_UPDATE:   api.InstallFailure_REASON_DUT_UNREACHABLE_POST_FIRMWARE_UPDATE,
+	api.InstallResponse_STATUS_UPDATE_MINIOS_FAILED:                   api.InstallFailure_REASON_UPDATE_MINIOS_FAILED,
+	api.InstallResponse_STATUS_POST_PROVISION_SETUP_FAILED:            api.InstallFailure_REASON_POST_PROVISION_SETUP_FAILED,
+	api.InstallResponse_STATUS_CLEAR_TPM_FAILED:                       api.InstallFailure_REASON_CLEAR_TPM_FAILED,
+	api.InstallResponse_STATUS_STABLIZE_DUT_FAILED:                    api.InstallFailure_REASON_STABLIZE_DUT_FAILED,
+	api.InstallResponse_STATUS_INSTALL_DLC_FAILED:                     api.InstallFailure_REASON_INSTALL_DLC_FAILED,
+}
+
 // CLI command executed the provisioning as a CLI
 type CLICommand struct {
 	logFileName string
@@ -121,11 +138,12 @@ func (cc *CLICommand) Run() error {
 	defer saveCLIOutput(cc.outputFile, out, cc.log)
 	cc.log.Printf("State Machine Start.")
 
-	if _, _, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewCrOSInitState(cs), cc.log); err != nil {
+	if respStatus, _, err := common_utils.ExecuteStateMachine(context.Background(), state_machine.NewCrOSInitState(cs), cc.log); err != nil {
 		cc.log.Printf("State Machine Failed, setting err to PROVISION_FAILED.")
+		translatedStatus := statusToResult[respStatus]
 		out.Outcome = &api.CrosProvisionResponse_Failure{
 			Failure: &api.InstallFailure{
-				Reason: api.InstallFailure_Reason(api.InstallFailure_REASON_PROVISIONING_FAILED),
+				Reason: api.InstallFailure_Reason(translatedStatus),
 			},
 		}
 		cc.log.Printf("State Machine Failed %s.", err)

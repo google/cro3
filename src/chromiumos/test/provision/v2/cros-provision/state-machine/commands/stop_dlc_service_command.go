@@ -8,6 +8,8 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type StopDLCServiceCommand struct {
@@ -38,4 +40,8 @@ func (c *StopDLCServiceCommand) Revert() error {
 
 func (c *StopDLCServiceCommand) GetErrorMessage() string {
 	return "failed to stop DLC service"
+}
+
+func (c *StopDLCServiceCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

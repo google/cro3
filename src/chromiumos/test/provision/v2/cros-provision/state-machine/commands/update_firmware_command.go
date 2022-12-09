@@ -10,6 +10,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type RunFirmwareUpdaterCommand struct {
@@ -42,4 +44,8 @@ func (c *RunFirmwareUpdaterCommand) Revert() error {
 
 func (c *RunFirmwareUpdaterCommand) GetErrorMessage() string {
 	return "failed to run firmware updater"
+}
+
+func (c *RunFirmwareUpdaterCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

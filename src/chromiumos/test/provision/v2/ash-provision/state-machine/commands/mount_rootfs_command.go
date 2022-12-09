@@ -8,6 +8,8 @@ import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type MountRootFSCommand struct {
@@ -35,4 +37,8 @@ func (c *MountRootFSCommand) Revert() error {
 
 func (c *MountRootFSCommand) GetErrorMessage() string {
 	return "failed to mount root file system"
+}
+
+func (c *MountRootFSCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

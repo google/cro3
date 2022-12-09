@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 // binaries to be copied in installation
@@ -101,4 +103,8 @@ func (c *DeployCommand) deployFile(ctx context.Context, file string, destination
 		return fmt.Errorf("failed run rsync, %s", err)
 	}
 	return nil
+}
+
+func (c *DeployCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

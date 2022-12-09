@@ -10,6 +10,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type AppendHashTreeCommand struct {
@@ -41,4 +43,8 @@ func (c *AppendHashTreeCommand) Revert() error {
 
 func (c *AppendHashTreeCommand) GetErrorMessage() string {
 	return "failed to append hash tree"
+}
+
+func (c *AppendHashTreeCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

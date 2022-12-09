@@ -30,8 +30,8 @@ func BucketJoin(bucket string, append string) string {
 func ExecuteStateMachine(ctx context.Context, cs ServiceState, log *log.Logger) (api.InstallResponse_Status, *anypb.Any, error) {
 	var md *anypb.Any
 	for cs != nil {
-		if md, err := cs.Execute(ctx, log); err != nil {
-			return api.InstallResponse_STATUS_PROVISIONING_FAILED, md, fmt.Errorf("failed provisioning on %s step, %s", cs.Name(), err)
+		if md, status, err := cs.Execute(ctx, log); err != nil {
+			return status, md, fmt.Errorf("failed provisioning on %s step, %s", cs.Name(), err)
 		}
 		cs = cs.Next()
 	}

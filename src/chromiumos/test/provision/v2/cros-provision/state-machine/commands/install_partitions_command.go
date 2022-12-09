@@ -9,6 +9,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type InstallPartitionsCommand struct {
@@ -46,4 +48,8 @@ func (c *InstallPartitionsCommand) Revert() error {
 
 func (c *InstallPartitionsCommand) GetErrorMessage() string {
 	return "failed to install partitions"
+}
+
+func (c *InstallPartitionsCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_DOWNLOADING_IMAGE_FAILED
 }

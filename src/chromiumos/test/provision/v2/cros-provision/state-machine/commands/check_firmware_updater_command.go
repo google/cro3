@@ -9,6 +9,8 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type CheckFirmwareUpdaterCommand struct {
@@ -44,4 +46,8 @@ func (c *CheckFirmwareUpdaterCommand) Revert() error {
 
 func (c *CheckFirmwareUpdaterCommand) GetErrorMessage() string {
 	return "failed to check firmware updater exist"
+}
+
+func (c *CheckFirmwareUpdaterCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

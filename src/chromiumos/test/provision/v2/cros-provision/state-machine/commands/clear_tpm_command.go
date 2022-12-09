@@ -9,6 +9,8 @@ import (
 	"context"
 	"log"
 	"strings"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type ClearTPMCommand struct {
@@ -47,4 +49,8 @@ func (c *ClearTPMCommand) Revert() error {
 
 func (c *ClearTPMCommand) GetErrorMessage() string {
 	return "failed to clear TPM"
+}
+
+func (c *ClearTPMCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_CLEAR_TPM_FAILED
 }

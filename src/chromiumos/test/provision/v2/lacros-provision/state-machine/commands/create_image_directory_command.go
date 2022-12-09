@@ -9,6 +9,8 @@ import (
 	"chromiumos/test/provision/v2/lacros-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type CreateImageDirectoryCommand struct {
@@ -33,4 +35,8 @@ func (c *CreateImageDirectoryCommand) Revert() error {
 
 func (c *CreateImageDirectoryCommand) GetErrorMessage() string {
 	return "failed to create local image directory"
+}
+
+func (c *CreateImageDirectoryCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

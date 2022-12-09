@@ -8,6 +8,8 @@ import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type StartChromeCommand struct {
@@ -35,4 +37,8 @@ func (c *StartChromeCommand) Revert() error {
 
 func (c *StartChromeCommand) GetErrorMessage() string {
 	return "failed to start chrome"
+}
+
+func (c *StartChromeCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

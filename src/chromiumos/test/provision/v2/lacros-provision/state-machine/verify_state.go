@@ -11,6 +11,7 @@ import (
 	"context"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -18,10 +19,10 @@ type LaCrOSVerifyState struct {
 	service *service.LaCrOSService
 }
 
-func (s LaCrOSVerifyState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
+func (s LaCrOSVerifyState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
 	log.Printf("Executing %s State:\n", s.Name())
 	// Currently there is no verification post step as we don't specify install type
-	return nil, nil
+	return nil, api.InstallResponse_STATUS_OK, nil
 }
 
 func (s LaCrOSVerifyState) Next() common_utils.ServiceState {

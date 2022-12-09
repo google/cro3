@@ -12,6 +12,8 @@ import (
 	"log"
 	"path"
 	"strings"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type PostInstallCommand struct {
@@ -84,4 +86,8 @@ func (c *PostInstallCommand) revertPostInstall() {
 
 func (c *PostInstallCommand) GetErrorMessage() string {
 	return "failed to post install"
+}
+
+func (c *PostInstallCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_POST_PROVISION_SETUP_FAILED
 }

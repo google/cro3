@@ -12,6 +12,7 @@ import (
 	"log"
 
 	conf "go.chromium.org/chromiumos/config/go"
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type CopyImageCommand struct {
@@ -48,4 +49,8 @@ func (c *CopyImageCommand) Revert() error {
 
 func (c *CopyImageCommand) GetErrorMessage() string {
 	return "failed to copy image"
+}
+
+func (c *CopyImageCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

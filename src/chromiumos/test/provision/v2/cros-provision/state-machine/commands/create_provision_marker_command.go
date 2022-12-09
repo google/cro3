@@ -9,6 +9,8 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type CreateProvisionMarkerCommand struct {
@@ -40,4 +42,8 @@ func (c *CreateProvisionMarkerCommand) Revert() error {
 
 func (c *CreateProvisionMarkerCommand) GetErrorMessage() string {
 	return "failed to create provision marker"
+}
+
+func (c *CreateProvisionMarkerCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_DUT_UNREACHABLE_PRE_PROVISION
 }

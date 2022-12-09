@@ -9,6 +9,8 @@ import (
 	"chromiumos/test/provision/v2/lacros-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type PublishVersionCommand struct {
@@ -33,4 +35,8 @@ func (c *PublishVersionCommand) Revert() error {
 
 func (c *PublishVersionCommand) GetErrorMessage() string {
 	return "failed to publish version"
+}
+
+func (c *PublishVersionCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

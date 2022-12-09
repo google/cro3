@@ -99,3 +99,7 @@ func (c *InstallDLCsCommand) isDLCVerified(ctx context.Context, dlcID, slot stri
 func (c *InstallDLCsCommand) GetErrorMessage() string {
 	return "failed to install DLCs"
 }
+
+func (c *InstallDLCsCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_INSTALL_DLC_FAILED
+}

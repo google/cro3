@@ -9,6 +9,7 @@ import (
 	"context"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -25,12 +26,15 @@ type CommandInterface interface {
 
 	// GetErrorMessage returns a crafted error message in case of failure
 	GetErrorMessage() string
+
+	// GetStatus returns the proto status response for the message
+	GetStatus() api.InstallResponse_Status
 }
 
 // ServiceState is a single state representation.
 type ServiceState interface {
 	// Execute Runs the state
-	Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error)
+	Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error)
 	// Next gets the next state in the state machine
 	Next() ServiceState
 	// Name gets the fully qualified name of this state

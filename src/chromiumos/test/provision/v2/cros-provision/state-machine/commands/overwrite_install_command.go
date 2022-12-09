@@ -11,6 +11,7 @@ import (
 	"log"
 
 	conf "go.chromium.org/chromiumos/config/go"
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type OverwriteInstalCommand struct {
@@ -58,4 +59,8 @@ func (c *OverwriteInstalCommand) Revert() error {
 
 func (c *OverwriteInstalCommand) GetErrorMessage() string {
 	return "failed to overwrite install"
+}
+
+func (c *OverwriteInstalCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

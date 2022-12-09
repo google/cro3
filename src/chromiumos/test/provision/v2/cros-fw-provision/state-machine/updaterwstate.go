@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -21,7 +22,7 @@ type FirmwareUpdateRwState struct {
 }
 
 // Execute flashes firmware using futility with write-protection enabled.
-func (s FirmwareUpdateRwState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
+func (s FirmwareUpdateRwState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
 	connection := s.service.GetConnectionToFlashingDevice()
 	// form futility command args based on the request
 	var futilityImageArgs []string
@@ -45,7 +46,7 @@ func (s FirmwareUpdateRwState) Execute(ctx context.Context, log *log.Logger) (*a
 		log.Printf("[FW Provisioning: Update RW] extracting AP image to flash\n")
 		mainRwPath, err := firmwareservice.PickAndExtractMainImage(ctx, connection, mainRwMetadata, s.service.GetBoard(), s.service.GetModel())
 		if err != nil {
-			return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
+			return nil, api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 		}
 		futilityImageArgs = []string{fmt.Sprint("--image=", mainRwPath)}
 	}
@@ -53,9 +54,9 @@ func (s FirmwareUpdateRwState) Execute(ctx context.Context, log *log.Logger) (*a
 	log.Printf("[FW Provisioning: Update RW] flashing RW firmware with futility\n")
 	err := s.service.FlashWithFutility(ctx, true /* WP */, futilityImageArgs)
 	if err != nil {
-		return nil, firmwareservice.UpdateFirmwareFailedErr(err.Error())
+		return nil, api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 	}
-	return nil, nil
+	return nil, api.InstallResponse_STATUS_OK, nil
 }
 
 func (s FirmwareUpdateRwState) Next() common_utils.ServiceState {

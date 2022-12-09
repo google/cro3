@@ -10,6 +10,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type CorrectDLCPermissionsCommand struct {
@@ -50,4 +52,8 @@ func (c *CorrectDLCPermissionsCommand) Revert() error {
 
 func (c *CorrectDLCPermissionsCommand) GetErrorMessage() string {
 	return "failed to correct DLC permissions"
+}
+
+func (c *CorrectDLCPermissionsCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 var reBoard = regexp.MustCompile(`CHROMEOS_RELEASE_BOARD=(.*)`)
@@ -62,4 +64,8 @@ func (c *GetBoardCommand) getBoard() (string, error) {
 
 func (c *GetBoardCommand) GetErrorMessage() string {
 	return "failed to get board"
+}
+
+func (c *GetBoardCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

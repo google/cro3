@@ -12,6 +12,7 @@ import (
 	"context"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -21,16 +22,16 @@ type FirmwarePostInstallState struct {
 }
 
 // Execute deletes all folders with firmware image archives.
-func (s FirmwarePostInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
+func (s FirmwarePostInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
 	s.service.DeleteArchiveDirectories()
 	err := s.service.RestartDut(ctx, false)
 	if err != nil {
-		return nil, firmwareservice.UnreachablePostProvisionErr(err.Error())
+		return nil, api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED, firmwareservice.UnreachablePostProvisionErr(err.Error())
 	}
 
 	// TODO(sfrolov): if Firmware Version Mismatched:
 	// return FirmwareMismatchPostProvisionErr("expected fw version: %v, got: %v")
-	return nil, nil
+	return nil, api.InstallResponse_STATUS_OK, nil
 }
 
 func (s FirmwarePostInstallState) Next() common_utils.ServiceState {

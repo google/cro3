@@ -12,6 +12,7 @@ import (
 	"log"
 
 	conf "go.chromium.org/chromiumos/config/go"
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type CopyMetadataCommand struct {
@@ -48,4 +49,8 @@ func (c *CopyMetadataCommand) Revert() error {
 
 func (c *CopyMetadataCommand) GetErrorMessage() string {
 	return "failed to copy metadata"
+}
+
+func (c *CopyMetadataCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

@@ -10,6 +10,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type RunVerityCommand struct {
@@ -47,4 +49,8 @@ func (c *RunVerityCommand) Revert() error {
 
 func (c *RunVerityCommand) GetErrorMessage() string {
 	return "failed to run verity"
+}
+
+func (c *RunVerityCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

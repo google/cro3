@@ -8,6 +8,8 @@ import (
 	"chromiumos/test/provision/v2/cros-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type StopSystemDaemonsCommand struct {
@@ -42,4 +44,8 @@ func (c *StopSystemDaemonsCommand) Revert() error {
 
 func (c *StopSystemDaemonsCommand) GetErrorMessage() string {
 	return "failed to stop system daemons"
+}
+
+func (c *StopSystemDaemonsCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

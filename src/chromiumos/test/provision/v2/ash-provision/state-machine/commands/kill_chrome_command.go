@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 // Time specific consts
@@ -55,4 +57,8 @@ func (c *KillChromeCommand) GetErrorMessage() string {
 func (c *KillChromeCommand) isChromeInUse() bool {
 	_, err := c.cs.Connection.RunCmd(c.ctx, "lsof", []string{fmt.Sprintf("%s/chrome", c.cs.GetTargetDir())})
 	return err != nil
+}
+
+func (c *KillChromeCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

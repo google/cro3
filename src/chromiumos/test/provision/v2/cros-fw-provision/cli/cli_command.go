@@ -121,7 +121,7 @@ func (cc *CLICommand) Run() error {
 		}
 	}
 
-	out := &api.ProvisionFirmwareResponse{}
+	out := &api.InstallResponse{}
 	defer saveCLIOutput(cc.outputFile, out)
 
 	ctx := context.Background()
@@ -131,15 +131,17 @@ func (cc *CLICommand) Run() error {
 			out.Status = fwErr.Status
 		} else {
 			cc.log.Printf("expected FirmwareProvision to return error of type FirmwareProvisionError. got: %T", err)
-			out.Status = api.ProvisionFirmwareResponse_STATUS_UPDATE_FIRMWARE_FAILED
+			out.Status = api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 		}
 		return err
 	}
 
+	var statusResponse api.InstallResponse_Status
+
 	// Execute state machine
 	cs := state_machine.NewFirmwarePrepareState(fwService)
 	for cs != nil {
-		if _, err = cs.Execute(ctx, cc.log); err != nil {
+		if _, statusResponse, err = cs.Execute(ctx, cc.log); err != nil {
 			break
 		}
 		cs = cs.Next()
@@ -149,17 +151,12 @@ func (cc *CLICommand) Run() error {
 		cc.log.Println("Finished Successfuly!")
 		return nil
 	}
-	if fwErr, ok := err.(*firmwareservice.FirmwareProvisionError); ok {
-		out.Status = fwErr.Status
-	} else {
-		cc.log.Printf("expected FirmwareProvision to return error of type FirmwareProvisionError. got: %T", err)
-		out.Status = api.ProvisionFirmwareResponse_STATUS_UPDATE_FIRMWARE_FAILED
-	}
+	out.Status = statusResponse
 	return fmt.Errorf("failed to provision: %s", err)
 }
 
 // saveCLIOutput saves response to the output file.
-func saveCLIOutput(outputPath string, out *api.ProvisionFirmwareResponse) error {
+func saveCLIOutput(outputPath string, out *api.InstallResponse) error {
 	if outputPath != "" && out != nil {
 		dir := filepath.Dir(outputPath)
 		// Create the directory if it doesn't exist.

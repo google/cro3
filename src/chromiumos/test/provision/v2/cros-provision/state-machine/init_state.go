@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -28,7 +29,7 @@ func NewCrOSInitState(service *service.CrOSService) common_utils.ServiceState {
 	}
 }
 
-func (s CrOSInitState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
+func (s CrOSInitState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
 	log.Printf("State: Execute CrOSInitState")
 	comms := []common_utils.CommandInterface{
 		commands.NewCreateProvisionMarkerCommand(ctx, s.service),
@@ -39,11 +40,11 @@ func (s CrOSInitState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any
 	for _, comm := range comms {
 		err := comm.Execute(log)
 		if err != nil {
-			return nil, fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
+			return nil, comm.GetStatus(), fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
 	log.Printf("State: CrOSInitState Completed")
-	return nil, nil
+	return nil, api.InstallResponse_STATUS_OK, nil
 }
 
 func (s CrOSInitState) Next() common_utils.ServiceState {

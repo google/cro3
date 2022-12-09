@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type InstallMiniOSCommand struct {
@@ -70,4 +72,8 @@ func (c *InstallMiniOSCommand) installMiniOS(log *log.Logger) error {
 
 func (c *InstallMiniOSCommand) GetErrorMessage() string {
 	return "failed to install MiniOS"
+}
+
+func (c *InstallMiniOSCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_MINIOS_FAILED
 }

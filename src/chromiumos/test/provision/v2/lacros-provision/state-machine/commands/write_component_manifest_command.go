@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type WriteComponentManifestCommand struct {
@@ -55,4 +57,8 @@ func (c *WriteComponentManifestCommand) Revert() error {
 
 func (c *WriteComponentManifestCommand) GetErrorMessage() string {
 	return "failed to write component manifest"
+}
+
+func (c *WriteComponentManifestCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

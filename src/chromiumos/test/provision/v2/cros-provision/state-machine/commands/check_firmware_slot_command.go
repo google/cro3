@@ -10,6 +10,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type CheckFirmwareSlotCommand struct {
@@ -54,4 +56,8 @@ func (c *CheckFirmwareSlotCommand) Revert() error {
 
 func (c *CheckFirmwareSlotCommand) GetErrorMessage() string {
 	return "failed to check if firmware slot changed"
+}
+
+func (c *CheckFirmwareSlotCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

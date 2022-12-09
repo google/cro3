@@ -8,6 +8,8 @@ import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type CreateBinaryDirsCommand struct {
@@ -32,4 +34,8 @@ func (c *CreateBinaryDirsCommand) Revert() error {
 
 func (c *CreateBinaryDirsCommand) GetErrorMessage() string {
 	return "failed to create binary directories"
+}
+
+func (c *CreateBinaryDirsCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

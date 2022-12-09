@@ -11,6 +11,8 @@ import (
 	"log"
 	"strings"
 	"time"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type WaitForDutToStabilizeCommand struct {
@@ -54,4 +56,8 @@ func (c *WaitForDutToStabilizeCommand) Revert() error {
 
 func (c *WaitForDutToStabilizeCommand) GetErrorMessage() string {
 	return "failed to wait for DUT to stabilize"
+}
+
+func (c *WaitForDutToStabilizeCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_STABLIZE_DUT_FAILED
 }

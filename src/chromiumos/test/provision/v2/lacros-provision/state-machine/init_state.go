@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -28,7 +29,7 @@ func NewLaCrOSInitState(service *service.LaCrOSService) common_utils.ServiceStat
 	}
 }
 
-func (s LaCrOSInitState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
+func (s LaCrOSInitState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
 	log.Printf("Executing %s State:\n", s.Name())
 	comms := []common_utils.CommandInterface{
 		commands.NewCopyMetadataCommand(ctx, s.service),
@@ -41,11 +42,11 @@ func (s LaCrOSInitState) Execute(ctx context.Context, log *log.Logger) (*anypb.A
 	for _, comm := range comms {
 		err := comm.Execute(log)
 		if err != nil {
-			return nil, fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
+			return nil, comm.GetStatus(), fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
 
-	return nil, nil
+	return nil, api.InstallResponse_STATUS_OK, nil
 }
 
 func (s LaCrOSInitState) Next() common_utils.ServiceState {

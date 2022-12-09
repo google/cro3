@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -20,7 +21,7 @@ type CrOSPostInstallState struct {
 	service *service.CrOSService
 }
 
-func (s CrOSPostInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
+func (s CrOSPostInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
 	log.Printf("State: Execute CrOSPostInstallState")
 
 	comms := []common_utils.CommandInterface{
@@ -39,15 +40,15 @@ func (s CrOSPostInstallState) Execute(ctx context.Context, log *log.Logger) (*an
 			for ; i >= 0; i-- {
 				log.Printf("CrOSPostInstallState REVERT CALLED")
 				if innerErr := comms[i].Revert(); innerErr != nil {
-					return nil, fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
+					return nil, comm.GetStatus(), fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
 				}
 			}
-			return nil, fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
+			return nil, comm.GetStatus(), fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
 	log.Printf("State: CrOSPostInstallState Completed")
 
-	return nil, nil
+	return nil, api.InstallResponse_STATUS_OK, nil
 }
 
 func (s CrOSPostInstallState) Next() common_utils.ServiceState {

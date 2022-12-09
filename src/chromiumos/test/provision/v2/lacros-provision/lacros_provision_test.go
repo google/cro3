@@ -130,7 +130,7 @@ func TestLaCrosStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, runDDCommand).Return("", nil),
 	)
 
-	if _, err := st.Execute(ctx, log); err != nil {
+	if _, _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 	// INSTALL
@@ -146,14 +146,14 @@ func TestLaCrosStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, writePublishCommand).Return("", nil),
 	)
 
-	if _, err := st.Execute(ctx, log); err != nil {
+	if _, _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install state: %v", err)
 	}
 
 	// Verify
 	st = st.Next()
 
-	if _, err := st.Execute(ctx, log); err != nil {
+	if _, _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed verify state: %v", err)
 	}
 
@@ -193,7 +193,7 @@ func TestLaCrosStateTransitionsWithOverride(t *testing.T) {
 		getRunCmdCommand(sam, customOverwriteRunDDCommand).Return("", nil),
 	)
 
-	if _, err := st.Execute(ctx, log); err != nil {
+	if _, _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 	// INSTALL
@@ -211,7 +211,7 @@ func TestLaCrosStateTransitionsWithOverride(t *testing.T) {
 		getRunCmdCommand(sam, chmodCommand).Return("", nil),
 	)
 
-	if _, err := st.Execute(ctx, log); err != nil {
+	if _, _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed install state: %v", err)
 	}
 }
@@ -246,7 +246,7 @@ func TestLaCrosStateDoesNotExtendAlignment(t *testing.T) {
 		// Ensure dd doesn't run if value is multiple of 4096
 	)
 
-	if _, err := st.Execute(ctx, log); err != nil {
+	if _, _, err := st.Execute(ctx, log); err != nil {
 		t.Fatalf("failed init state: %v", err)
 	}
 }

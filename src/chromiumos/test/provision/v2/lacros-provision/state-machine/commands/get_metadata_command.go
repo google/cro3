@@ -11,6 +11,8 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type GetMetadataCommand struct {
@@ -48,4 +50,8 @@ func (c *GetMetadataCommand) Revert() error {
 
 func (c *GetMetadataCommand) GetErrorMessage() string {
 	return "failed to get metadata"
+}
+
+func (c *GetMetadataCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

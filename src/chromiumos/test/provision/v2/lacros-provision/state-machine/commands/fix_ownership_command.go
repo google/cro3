@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type FixOwnershipCommand struct {
@@ -45,4 +47,8 @@ func (c *FixOwnershipCommand) Revert() error {
 
 func (c *FixOwnershipCommand) GetErrorMessage() string {
 	return "failed to fix ownership"
+}
+
+func (c *FixOwnershipCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED
 }

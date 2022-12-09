@@ -13,6 +13,8 @@ import (
 	"log"
 	"regexp"
 	"strings"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type GetRootInfoCommand struct {
@@ -109,4 +111,8 @@ func (c *GetRootInfoCommand) getRootPartNumber(root string) (string, error) {
 
 func (c *GetRootInfoCommand) GetErrorMessage() string {
 	return "failed to get root info"
+}
+
+func (c *GetRootInfoCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

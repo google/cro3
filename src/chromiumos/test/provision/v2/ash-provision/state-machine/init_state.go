@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -28,7 +29,7 @@ func NewAShInitState(service *service.AShService) common_utils.ServiceState {
 	}
 }
 
-func (s AShInitState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
+func (s AShInitState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
 	fmt.Printf("Executing %s State:\n", s.Name())
 	comms := []common_utils.CommandInterface{
 		commands.NewCleanUpStagingCommand(ctx, s.service),
@@ -42,11 +43,11 @@ func (s AShInitState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any,
 	for _, comm := range comms {
 		err := comm.Execute(log)
 		if err != nil {
-			return nil, fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
+			return nil, comm.GetStatus(), fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
 
-	return nil, nil
+	return nil, api.InstallResponse_STATUS_OK, nil
 }
 
 func (s AShInitState) Next() common_utils.ServiceState {

@@ -8,6 +8,8 @@ import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type CreateNewStagingDirsCommand struct {
@@ -32,4 +34,8 @@ func (c *CreateNewStagingDirsCommand) Revert() error {
 
 func (c *CreateNewStagingDirsCommand) GetErrorMessage() string {
 	return "failed to create new staging directories"
+}
+
+func (c *CreateNewStagingDirsCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

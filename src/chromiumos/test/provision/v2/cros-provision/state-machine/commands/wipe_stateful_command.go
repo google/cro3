@@ -9,6 +9,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type WipeStatefulCommand struct {
@@ -46,4 +48,8 @@ func (c *WipeStatefulCommand) Revert() error {
 
 func (c *WipeStatefulCommand) GetErrorMessage() string {
 	return "failed to wipe stateful"
+}
+
+func (c *WipeStatefulCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

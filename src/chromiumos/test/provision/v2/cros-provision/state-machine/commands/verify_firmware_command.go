@@ -13,6 +13,8 @@ import (
 	"log"
 	"regexp"
 	"strings"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 var firmwareManifestRegexp = regexp.MustCompile("FIRMWARE_MANIFEST_KEY='(.*)'")
@@ -103,4 +105,8 @@ func (c *VerifyFirmwareCommand) Revert() error {
 
 func (c *VerifyFirmwareCommand) GetErrorMessage() string {
 	return "firmware installed does not match with OS bundled firmware"
+}
+
+func (c *VerifyFirmwareCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_FIRMWARE_MISMATCH_POST_FIRMWARE_UPDATE
 }

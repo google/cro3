@@ -77,10 +77,10 @@ func (ps *FWProvisionServer) Provision(ctx context.Context, req *api.ProvisionFi
 	ps.log.Printf("Received api.ProvisionFirmwareRequest: %#v\n", req)
 	log.Printf("Received api.ProvisionFirmwareRequest: %#v\n", req)
 	op := ps.manager.NewOperation()
-	response := api.ProvisionFirmwareResponse{}
+	response := api.InstallResponse{}
 
 	if err := ps.validateProtoInputs(req); err != nil {
-		response.Status = api.ProvisionFirmwareResponse_STATUS_INVALID_REQUEST
+		response.Status = api.InstallResponse_STATUS_OK
 		ps.manager.SetResult(op.Name, &response)
 		return nil, firmwareservice.InvalidRequestErr(err.Error())
 	}
@@ -92,7 +92,7 @@ func (ps *FWProvisionServer) Provision(ctx context.Context, req *api.ProvisionFi
 		// specified during cros-fw-provisioning startup is preferred.
 		dutAdapter, err = connectToDutServer(req.GetDutServerAddress())
 		if err != nil {
-			response.Status = api.ProvisionFirmwareResponse_STATUS_INVALID_REQUEST
+			response.Status = api.InstallResponse_STATUS_INVALID_REQUEST
 			ps.manager.SetResult(op.Name, &response)
 			log.Fatalln(err)
 			return nil, firmwareservice.InvalidRequestErr(err.Error())
@@ -106,7 +106,7 @@ func (ps *FWProvisionServer) Provision(ctx context.Context, req *api.ProvisionFi
 		// specified during cros-fw-provisioning startup is preferred.
 		servodServiceClient, err = connectToCrosServod(req.GetCrosServodAddress())
 		if err != nil {
-			response.Status = api.ProvisionFirmwareResponse_STATUS_INVALID_REQUEST
+			response.Status = api.InstallResponse_STATUS_INVALID_REQUEST
 			ps.manager.SetResult(op.Name, &response)
 			log.Fatalln(err)
 			return nil, firmwareservice.InvalidRequestErr(err.Error())
@@ -116,7 +116,7 @@ func (ps *FWProvisionServer) Provision(ctx context.Context, req *api.ProvisionFi
 
 	fwService, err := firmwareservice.NewFirmwareService(ctx, ps.dutAdapter, ps.servoClient, req)
 	if err != nil {
-		response.Status = api.ProvisionFirmwareResponse_STATUS_INVALID_REQUEST
+		response.Status = api.InstallResponse_STATUS_INVALID_REQUEST
 		ps.manager.SetResult(op.Name, &response)
 		log.Fatalf("Failed to initialize Firmware Service: %v", err)
 		return nil, firmwareservice.InvalidRequestErr(err.Error())
@@ -124,8 +124,9 @@ func (ps *FWProvisionServer) Provision(ctx context.Context, req *api.ProvisionFi
 
 	// Execute state machine
 	cs := state_machine.NewFirmwarePrepareState(fwService)
+	var statusResponse api.InstallResponse_Status
 	for cs != nil {
-		if _, err = cs.Execute(ctx, ps.log); err != nil {
+		if _, statusResponse, err = cs.Execute(ctx, ps.log); err != nil {
 			break
 		}
 		cs = cs.Next()
@@ -133,10 +134,10 @@ func (ps *FWProvisionServer) Provision(ctx context.Context, req *api.ProvisionFi
 
 	if err == nil {
 		log.Println("Finished Successfuly!")
-		response.Status = api.ProvisionFirmwareResponse_STATUS_OK
+		response.Status = api.InstallResponse_STATUS_OK
 		ps.manager.SetResult(op.Name, &response)
 	} else {
-		response.Status = api.ProvisionFirmwareResponse_STATUS_UPDATE_FIRMWARE_FAILED
+		response.Status = statusResponse
 		ps.manager.SetResult(op.Name, &response)
 		log.Println("Finished with error:", err)
 	}

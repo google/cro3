@@ -14,6 +14,7 @@ import (
 	"path"
 
 	conf "go.chromium.org/chromiumos/config/go"
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type ProvisionStatefulCommand struct {
@@ -72,4 +73,8 @@ func (c *ProvisionStatefulCommand) Revert() error {
 
 func (c *ProvisionStatefulCommand) GetErrorMessage() string {
 	return "failed to provision stateful"
+}
+
+func (c *ProvisionStatefulCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

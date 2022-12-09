@@ -8,6 +8,8 @@ import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type CleanUpStagingCommand struct {
@@ -32,4 +34,8 @@ func (c *CleanUpStagingCommand) Revert() error {
 
 func (c *CleanUpStagingCommand) GetErrorMessage() string {
 	return "failed to clean up staging directory"
+}
+
+func (c *CleanUpStagingCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

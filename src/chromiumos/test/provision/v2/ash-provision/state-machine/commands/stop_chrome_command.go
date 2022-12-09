@@ -8,6 +8,8 @@ import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type StopChromeCommand struct {
@@ -36,4 +38,8 @@ func (c *StopChromeCommand) Revert() error {
 
 func (c *StopChromeCommand) GetErrorMessage() string {
 	return "failed to stop chrome"
+}
+
+func (c *StopChromeCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

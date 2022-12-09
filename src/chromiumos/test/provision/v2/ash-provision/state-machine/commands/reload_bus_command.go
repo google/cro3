@@ -9,6 +9,8 @@ import (
 	"chromiumos/test/provision/v2/ash-provision/service"
 	"context"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 type ReloadBusCommand struct {
@@ -36,4 +38,8 @@ func (c *ReloadBusCommand) Revert() error {
 
 func (c *ReloadBusCommand) GetErrorMessage() string {
 	return "failed to reload bus"
+}
+
+func (c *ReloadBusCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

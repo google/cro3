@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -20,7 +21,7 @@ type LaCrOSInstallState struct {
 	service *service.LaCrOSService
 }
 
-func (s LaCrOSInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
+func (s LaCrOSInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
 	log.Printf("Executing %s State:\n", s.Name())
 	comms := []common_utils.CommandInterface{
 		commands.NewRunVerityCommand(ctx, s.service),
@@ -36,14 +37,14 @@ func (s LaCrOSInstallState) Execute(ctx context.Context, log *log.Logger) (*anyp
 		if err != nil {
 			for ; i >= 0; i-- {
 				if innerErr := comms[i].Revert(); innerErr != nil {
-					return nil, fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
+					return nil, comm.GetStatus(), fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
 				}
 			}
-			return nil, fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
+			return nil, comm.GetStatus(), fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
 
-	return nil, nil
+	return nil, api.InstallResponse_STATUS_OK, nil
 }
 
 func (s LaCrOSInstallState) Next() common_utils.ServiceState {

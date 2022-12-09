@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -20,7 +21,7 @@ type AShPostInstallState struct {
 	service *service.AShService
 }
 
-func (s AShPostInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, error) {
+func (s AShPostInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
 	fmt.Printf("Executing %s State:\n", s.Name())
 	comms := []common_utils.CommandInterface{
 		commands.NewReloadBusCommand(ctx, s.service),
@@ -33,14 +34,14 @@ func (s AShPostInstallState) Execute(ctx context.Context, log *log.Logger) (*any
 		if err != nil {
 			for ; i >= 0; i-- {
 				if innerErr := comms[i].Revert(); innerErr != nil {
-					return nil, fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
+					return nil, comm.GetStatus(), fmt.Errorf("failure while reverting, %s: %s", err, innerErr)
 				}
 			}
-			return nil, fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
+			return nil, comm.GetStatus(), fmt.Errorf("%s, %s", comm.GetErrorMessage(), err)
 		}
 	}
 
-	return nil, nil
+	return nil, api.InstallResponse_STATUS_OK, nil
 }
 
 func (s AShPostInstallState) Next() common_utils.ServiceState {
