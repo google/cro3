@@ -16,14 +16,22 @@ import (
 	"go.chromium.org/luci/grpc/prpc"
 	"go.chromium.org/luci/lucictx"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/genproto/protobuf/field_mask"
+	"google.golang.org/grpc"
 
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/src/chromiumos/ctp/common"
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/src/chromiumos/ctp/site"
 )
 
+// bbClient is a subset of buildbucketpb.BuildsClient providing a smaller surface area for unit tests
+type bbClient interface {
+	GetBuild(context.Context, *buildbucketpb.GetBuildRequest, ...grpc.CallOption) (*buildbucketpb.Build, error)
+	ScheduleBuild(context.Context, *buildbucketpb.ScheduleBuildRequest, ...grpc.CallOption) (*buildbucketpb.Build, error)
+}
+
 // Client provides helper methods to interact with Buildbucket builds.
 type Client struct {
-	client    buildbucketpb.BuildsClient
+	client    bbClient
 	builderID *buildbucketpb.BuilderID
 }
 
@@ -139,4 +147,21 @@ func bbTags(tags map[string]string) []*buildbucketpb.StringPair {
 		})
 	}
 	return bbTagList
+}
+
+// GetBuild gets a Buildbucket build by ID, with the given build fields
+// populated. If no fields are given, all fields will be populated.
+func (c *Client) GetBuild(ctx context.Context, ID int64, fields ...string) (*buildbucketpb.Build, error) {
+	if len(fields) == 0 {
+		fields = []string{"*"}
+	}
+	request := &buildbucketpb.GetBuildRequest{
+		Id:     ID,
+		Fields: &field_mask.FieldMask{Paths: fields},
+	}
+	build, err := c.client.GetBuild(ctx, request)
+	if err != nil {
+		return nil, errors.Annotate(err, "get build").Err()
+	}
+	return build, nil
 }

@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"go.chromium.org/luci/auth"
-	"go.chromium.org/luci/common/api/gitiles"
 	"go.chromium.org/luci/grpc/prpc"
 )
 
@@ -34,7 +33,6 @@ var DefaultAuthOptions = auth.Options{
 	ClientID:     "446450136466-2hr92jrq8e6i4tnsa56b52vacp7t3936.apps.googleusercontent.com",
 	ClientSecret: "uBfbay2KCy9t4QveJ-dOqHtp",
 	SecretsDir:   SecretsDir(),
-	Scopes:       []string{auth.OAuthScopeEmail, gitiles.OAuthScope},
 }
 
 func SecretsDir() string {
