@@ -5,6 +5,7 @@
 """Prep everything for the cros publish Docker Build Context."""
 
 import os
+import shutil
 import sys
 
 from src.common.utils import (
@@ -38,6 +39,9 @@ class CrosPublishArtifactPrep(CrosArtifactPrep):
         self.copy_custom_service("gcs-publish")
         self.copy_custom_service("tko-publish")
         self.copy_custom_service("rdb-publish")
+
+        # Copy CPCon upload dependencies
+        self.copy_cpcon_upload()
 
         self.create_tarball()
         self.copy_dockercontext()
@@ -147,3 +151,10 @@ class CrosPublishArtifactPrep(CrosArtifactPrep):
             print(err)
         if code != 0:
             print("downloading rdb package failed")
+
+    def copy_cpcon_upload(self):
+        """Copy upload_results for CPCon upload"""
+        cwd = os.path.dirname(os.path.abspath(__file__))
+        src = os.path.join(cwd, '../../../../../../../../../../')
+        autotest_contrib = os.path.join(src, "third_party", "autotest", "files", "contrib")
+        shutil.copytree(autotest_contrib, self.full_out+ "/contrib/")

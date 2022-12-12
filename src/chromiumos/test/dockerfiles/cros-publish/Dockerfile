@@ -20,6 +20,9 @@ requests==2.26.0\n\
 selenium==2.37.2\n\
 six==1.15.0\n\
 urllib3==1.26.7\n\
+google.cloud\n\
+google.cloud.pubsub\n\
+google.cloud.storage\n\
 " > requirements_py3.txt
 RUN pip3 install -r requirements_py3.txt
 
@@ -34,3 +37,4 @@ COPY result_adapter_cipd_metadata.json /tmp/rdb-publish/result_adapter_cipd_meta
 COPY rdb_cipd_metadata.json /tmp/rdb-publish/rdb_cipd_metadata.json
 
 COPY autotest/ /usr/local/autotest
+COPY contrib/ /usr/local/autotest/contrib/
