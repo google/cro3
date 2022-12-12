@@ -79,6 +79,7 @@ def main():
     report_log_path = os.path.join(log_path, 'report.html')
     pathlib.Path(log_path).mkdir(parents=True, exist_ok=True)
 
+    # Load board config
     config = pacconfig.PacConfig(args.config)
 
     # Register the custom VID:PID used for provisioned PACDebuggers
