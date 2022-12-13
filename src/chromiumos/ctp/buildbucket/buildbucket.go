@@ -19,8 +19,8 @@ import (
 	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc"
 
-	"chromium.googlesource.com/chromiumos/platform/dev-util.git/src/chromiumos/ctp/common"
-	"chromium.googlesource.com/chromiumos/platform/dev-util.git/src/chromiumos/ctp/site"
+	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/common"
+	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/site"
 )
 
 // bbClient is a subset of buildbucketpb.BuildsClient providing a smaller surface area for unit tests

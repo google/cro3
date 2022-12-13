@@ -10,8 +10,8 @@ import (
 	"go.chromium.org/luci/auth"
 	buildbucketpb "go.chromium.org/luci/buildbucket/proto"
 
-	"chromium.googlesource.com/chromiumos/platform/dev-util.git/src/chromiumos/ctp/buildbucket"
-	"chromium.googlesource.com/chromiumos/platform/dev-util.git/src/chromiumos/ctp/site"
+	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/buildbucket"
+	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/site"
 )
 
 // ClientArgs are whatever args the bb client used to fetch the builds should use

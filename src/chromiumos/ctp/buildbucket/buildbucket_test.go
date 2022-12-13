@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc"
 
 
-	"chromium.googlesource.com/chromiumos/platform/dev-util.git/src/chromiumos/ctp/site"
+	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/site"
 )
 
 func fakeClient(ctx context.Context, o *auth.Options) (*http.Client, error) {
