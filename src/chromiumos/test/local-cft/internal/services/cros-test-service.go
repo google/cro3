@@ -181,8 +181,8 @@ func (cmd *RunTestsCommand) Execute() error {
 							Port:    int32(cmd.ct.manager.ports[SERVICES().SSHTunnel]),
 						},
 						DutModel: &lab.DutModel{
-							BuildTarget: "nautilus",
-							ModelName:   "nautilus",
+							BuildTarget: cmd.ct.manager.Board,
+							ModelName:   cmd.ct.manager.Model,
 						},
 						Servo: &lab.Servo{
 							Present: false,

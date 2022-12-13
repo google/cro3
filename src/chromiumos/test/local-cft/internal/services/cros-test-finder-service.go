@@ -210,10 +210,22 @@ func (cmd *FindTestsCommand) Execute() error {
 	if err != nil {
 		return fmt.Errorf("Failed to find tests, %s", err)
 	}
-	cmd.ctf.manager.testSuites = findTestResult.TestSuites
+	cmd.ctf.manager.testSuites = []*api.TestSuite{}
 	for _, testSuite := range findTestResult.TestSuites {
 		cmd.ctf.LocalLogger.Printf("Found %d tests:\n", len(testSuite.GetTestCases().TestCases))
 		cmd.ctf.LocalLogger.Printf("%v\n", testSuite.GetTestCases().TestCases)
+
+		testCaseIds := []*api.TestCase_Id{}
+		for _, testCase := range testSuite.GetTestCases().TestCases {
+			testCaseIds = append(testCaseIds, testCase.Id)
+		}
+		cmd.ctf.manager.testSuites = append(cmd.ctf.manager.testSuites, &api.TestSuite{
+			Spec: &api.TestSuite_TestCaseIds{
+				TestCaseIds: &api.TestCaseIdList{
+					TestCaseIds: testCaseIds,
+				},
+			},
+		})
 	}
 
 	return nil
