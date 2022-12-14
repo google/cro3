@@ -1,9 +1,9 @@
+// Package compatibility provides functions for backwards compatiblity with
+// test platform.
+//
 // Copyright 2022 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-//
-// Package compatibility provides functions for backwards compatiblity with
-// test platform.
 package compatibility
 
 import (
@@ -33,11 +33,10 @@ import (
 func criterionMatchesAttribute(criterion *testpb.DutCriterion, attr *testpb.DutAttribute) bool {
 	if criterion.GetAttributeId().GetValue() == attr.GetId().GetValue() {
 		return true
-	} else {
-		for _, alias := range attr.GetAliases() {
-			if criterion.GetAttributeId().GetValue() == alias {
-				return true
-			}
+	}
+	for _, alias := range attr.GetAliases() {
+		if criterion.GetAttributeId().GetValue() == alias {
+			return true
 		}
 	}
 
@@ -280,7 +279,7 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 			continue
 		}
 
-		artifacts_gs_bucket, ok := extractStringFromProtoStruct(
+		artifactsGsBucket, ok := extractStringFromProtoStruct(
 			build.GetOutput().GetProperties(),
 			"artifacts", "gs_bucket",
 		)
@@ -288,7 +287,7 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 			return nil, fmt.Errorf("artifacts.gs_bucket not found for build %q", build.GetBuilder().GetBuilder())
 		}
 
-		artifacts_gs_path, ok := extractStringFromProtoStruct(
+		artifactsGsPath, ok := extractStringFromProtoStruct(
 			build.GetOutput().GetProperties(),
 			"artifacts", "gs_path",
 		)
@@ -301,8 +300,8 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 			builderName: build.GetBuilder().GetBuilder(),
 			criticality: build.GetCritical(),
 			payload: &testplans.BuildPayload{
-				ArtifactsGsBucket: artifacts_gs_bucket,
-				ArtifactsGsPath:   artifacts_gs_path,
+				ArtifactsGsBucket: artifactsGsBucket,
+				ArtifactsGsPath:   artifactsGsPath,
 				FilesByArtifact:   filesByArtifact.GetStructValue(),
 			},
 		},
@@ -317,10 +316,10 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 type testEnvironment int64
 
 const (
-	Undefined testEnvironment = iota
-	HW
-	TastVM
-	TastGCE
+	undefined testEnvironment = iota
+	hw
+	tastVM
+	tastGCE
 )
 
 // suiteInfo is a struct internal to this package to track information about a
@@ -393,7 +392,7 @@ func coverageRuleToSuiteInfo(
 	poolAttr, programAttr, designAttr, licenseAttr *testpb.DutAttribute,
 	buildTargetToBuildInfo map[string]*buildInfo,
 	prioritySelector *priority.RandomWeightedSelector,
-	isVm bool,
+	isVM bool,
 ) ([]*suiteInfo, error) {
 	if len(rule.GetDutTargets()) != 1 {
 		return nil, fmt.Errorf("expected exactly one DutTarget in CoverageRule, got %q", rule)
@@ -523,7 +522,7 @@ func coverageRuleToSuiteInfo(
 	for _, suite := range rule.GetTestSuites() {
 		switch spec := suite.Spec.(type) {
 		case *testpb.TestSuite_TestCaseIds:
-			if isVm {
+			if isVM {
 				return nil, fmt.Errorf("TestCaseIdLists are only valid for HW tests")
 			}
 			for _, id := range spec.TestCaseIds.GetTestCaseIds() {
@@ -534,14 +533,14 @@ func coverageRuleToSuiteInfo(
 						design:       design,
 						pool:         pool,
 						suite:        id.Value,
-						environment:  HW,
+						environment:  hw,
 						critical:     critical,
 						boardVariant: boardVariant,
 						licenses:     licenses,
 					})
 			}
 		case *testpb.TestSuite_TestCaseTagCriteria_:
-			if !isVm {
+			if !isVM {
 				return nil, fmt.Errorf("TestCaseTagCriteria are only valid for VM tests")
 			}
 
@@ -549,9 +548,9 @@ func coverageRuleToSuiteInfo(
 			name := suite.GetName()
 			switch {
 			case strings.HasPrefix(name, "tast_vm"):
-				env = TastVM
+				env = tastVM
 			case strings.HasPrefix(name, "tast_gce"):
-				env = TastGCE
+				env = tastGCE
 			default:
 				return nil, fmt.Errorf("VM suite names must start with either \"tast_vm\" or \"tast_gce\" in CTP1 compatibility mode, got %q", name)
 			}
@@ -634,9 +633,9 @@ func extractSuiteInfos(
 
 	for _, hwTestPlan := range hwTestPlans {
 		for _, rule := range hwTestPlan.GetCoverageRules() {
-			isVm := false
+			isVM := false
 			suiteInfos, err := coverageRuleToSuiteInfo(
-				rule, poolAttr, programAttr, designAttr, licenseAttr, buildTargetToBuildInfo, prioritySelector, isVm,
+				rule, poolAttr, programAttr, designAttr, licenseAttr, buildTargetToBuildInfo, prioritySelector, isVM,
 			)
 			if err != nil {
 				return nil, err
@@ -655,9 +654,9 @@ func extractSuiteInfos(
 
 	for _, vmTestPlan := range vmTestPlans {
 		for _, rule := range vmTestPlan.GetCoverageRules() {
-			isVm := true
+			isVM := true
 			suiteInfos, err := coverageRuleToSuiteInfo(
-				rule, poolAttr, programAttr, designAttr, licenseAttr, buildTargetToBuildInfo, prioritySelector, isVm,
+				rule, poolAttr, programAttr, designAttr, licenseAttr, buildTargetToBuildInfo, prioritySelector, isVM,
 			)
 			if err != nil {
 				return nil, err
@@ -826,7 +825,7 @@ func ToCTP1(
 		tastGCETests := make(map[string]*testplans.TastGceTestCfg_TastGceTest)
 		for _, suiteInfo := range suiteInfos {
 			switch env := suiteInfo.environment; env {
-			case HW:
+			case hw:
 				// If a design is set, include it in the display name
 				var displayName string
 				if len(suiteInfo.design) > 0 {
@@ -854,7 +853,7 @@ func ToCTP1(
 					hwTests[displayName] = hwTest
 					glog.V(2).Infof("added HwTest: %q", hwTest)
 				}
-			case TastVM:
+			case tastVM:
 				if suiteInfo.totalShards > 0 {
 					var i int64
 					for i = 0; i < suiteInfo.totalShards; i++ {
@@ -885,7 +884,7 @@ func ToCTP1(
 						glog.V(2).Infof("added TastVmTest %q", tastVMTest)
 					}
 				}
-			case TastGCE:
+			case tastGCE:
 				if suiteInfo.totalShards > 0 {
 					var i int64
 					for i = 0; i < suiteInfo.totalShards; i++ {
