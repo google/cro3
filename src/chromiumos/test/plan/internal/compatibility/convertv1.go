@@ -349,6 +349,8 @@ type suiteInfo struct {
 	// optional, the total number of shards to be used in a test run. Only valid
 	// if environment is TastVM or TastGCE.
 	totalShards int64
+	// optional, if true then run test suites in this rule via CFT workflow.
+	runViaCft bool
 }
 
 // getBuildTarget returns the build target for the suiteInfo. If boardVariant is
@@ -537,6 +539,7 @@ func coverageRuleToSuiteInfo(
 						critical:     critical,
 						boardVariant: boardVariant,
 						licenses:     licenses,
+						runViaCft:    rule.RunViaCft,
 					})
 			}
 		case *testpb.TestSuite_TestCaseTagCriteria_:
@@ -845,6 +848,7 @@ func ToCTP1(
 							Value: suiteInfo.critical,
 						},
 					},
+					RunViaCft: suiteInfo.runViaCft,
 				}
 
 				if _, found := hwTests[displayName]; found {
