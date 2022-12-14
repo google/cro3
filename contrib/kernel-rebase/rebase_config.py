@@ -307,3 +307,4 @@ disp_overlay['8213f4f10840'] = 'drop' # CHROMIUM: Bluetooth: Improve adv/scan us
 disp_overlay['1e06f17e1b1a'] = 'drop' # CHROMIUM: rtw88: add mutex when set SAR
 disp_overlay['a4f839713c7c'] = 'drop' # BACKPORT: FROMLIST: ath11k: fix blocked for more than 120 seconds caused by reg update
 disp_overlay['a8d5ee3cd35c'] = 'drop' # FROMLIST: i2c: designware: Switch from using MMIO access to SMN access
+disp_overlay['68d83a3cc487'] = 'drop' # CHROMIUM: Introduce Modem Logging functionality
