@@ -119,6 +119,7 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.
 		return &api.CrosTestResponse{TestCaseResults: results}, reportErrors[len(reportErrors)-1]
 	}
 
+	_ = common.PublishTkoStatusFile(resultsDir, results)
 	return &api.CrosTestResponse{TestCaseResults: results}, err
 }
 
