@@ -59,7 +59,7 @@ flashrom-downstream: &flashrom_downstream
   labels:
     - Verified+1
   reviewers:
-    - cros-flashrom-team+reviews@google.com
+    - cros-flashrom-reviews@google.com
   triggers:
     - action: email
       condition: failure
