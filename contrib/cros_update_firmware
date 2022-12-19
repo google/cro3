@@ -45,11 +45,12 @@ assert_inside_chroot
 
 start_workon() {
   local board="$1"
-  local pkg item
+  local pkg item apkg
   if [[ -z "$2" ]]; then
     echo "Empty package.  Skipping..."
     return 1
   fi
+  apkg="$2"
   pkg=$(cros workon --board="${board}" info "$2" | cut -d ' ' -f 1)
   shift 2
   for item in "$@"; do
@@ -58,6 +59,11 @@ start_workon() {
       return 1
     fi
   done
+  if [[ -z "${pkg}" ]]; then
+    # Workaround for b/263059169
+    echo "cros workon info broken, using ${apkg}"
+    pkg="${apkg}"
+  fi
   cros workon --board="${board}" start "${pkg}"
   return $?
 }
