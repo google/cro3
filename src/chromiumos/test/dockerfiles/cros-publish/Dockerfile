@@ -29,6 +29,7 @@ RUN pip3 install -r requirements_py3.txt
 COPY gcs-publish /usr/bin/gcs-publish
 COPY tko-publish /usr/bin/tko-publish
 COPY rdb-publish /usr/bin/rdb-publish
+COPY cpcon-publish /usr/bin/cpcon-publish
 
 COPY rdb /usr/bin/rdb
 COPY result_adapter /usr/bin/result_adapter

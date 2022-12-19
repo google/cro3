@@ -44,6 +44,14 @@ func ValidateRDBPublishRequest(req *api.PublishRequest, metadata *metadata.Publi
 	return nil
 }
 
+// ValidateCpconPublishRequest validates cpcon publish request
+func ValidateCpconPublishRequest(req *api.PublishRequest) error {
+	if err := ValidateGenericPublishRequest(req); err != nil {
+		return fmt.Errorf("error in publish request: %s", err)
+	}
+	return nil
+}
+
 // ValidateGenericPublishRequest validates generic publish request
 func ValidateGenericPublishRequest(req *api.PublishRequest) error {
 	if req.GetArtifactDirPath().GetPath() == "" {

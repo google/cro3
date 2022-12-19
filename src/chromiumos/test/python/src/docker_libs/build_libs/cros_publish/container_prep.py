@@ -39,6 +39,7 @@ class CrosPublishArtifactPrep(CrosArtifactPrep):
         self.copy_custom_service("gcs-publish")
         self.copy_custom_service("tko-publish")
         self.copy_custom_service("rdb-publish")
+        self.copy_custom_service("cpcon-publish")
 
         # Copy CPCon upload dependencies
         self.copy_cpcon_upload()
