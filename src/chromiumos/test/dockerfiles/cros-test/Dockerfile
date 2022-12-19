@@ -70,6 +70,9 @@ six==1.15.0\n\
 urllib3==1.26.7\n\
 docker==4.4.4\n\
 websocket-client==1.4.0\n\
+cycler==0.11.0\n\
+kiwisolver==1.4.4\n\
+matplotlib==3.3.4\n\
 " > requirements_py3.txt
 RUN pip3 install -r requirements_py3.txt
 

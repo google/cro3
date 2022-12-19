@@ -14,18 +14,28 @@ chardet==3.0.4
     # via -r requirements.in
 charset-normalizer==2.0.9
     # via requests
+cycler==0.11.0
+    # via matplotlib
 docker==4.4.4
     # via -r requirements.in
 grpcio==1.31.0
     # via -r requirements.in
 idna==3.3
     # via requests
+kiwisolver==1.4.4
+    # via matplotlib
+matplotlib==3.3.4
+    # via -r requirements.in
 mock==3.0.5
     # via -r requirements.in
 numpy==1.16.6
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   matplotlib
 pillow==8.3.2
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   matplotlib
 protobuf==3.18.0
     # via -r requirements.in
 psutil==5.8.0
@@ -33,9 +43,13 @@ psutil==5.8.0
 pyasn1==0.4.8
     # via -r requirements.in
 pyparsing==3.0.6
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   matplotlib
 python-dateutil==2.8.2
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   matplotlib
 pyyaml==5.4.1
     # via -r requirements.in
 requests==2.26.0
