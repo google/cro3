@@ -41,6 +41,7 @@ type DutInfo struct {
 	Sku                 string
 	Phase               string
 	BTPeers             int
+	CacheServer         string
 }
 
 // joinHostAndPort joins host and port to a single address.
@@ -85,6 +86,9 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 	if chromeOS == nil {
 		return nil, fmt.Errorf("DUT does not have end point information: %v", dut)
 	}
+
+	cacheInfo := dut.GetCacheServer()
+
 	addr := joinHostAndPort(chromeOS.Ssh)
 
 	// Servo address.
@@ -206,6 +210,12 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 		}
 	}
 
+	cacheServer := ""
+	if cacheInfo != nil {
+		cacheServer = fmt.Sprintf("%v:%v", cacheInfo.GetAddress().Address, cacheInfo.GetAddress().Port)
+
+	}
+
 	return &DutInfo{
 		Addr:                addr,
 		Role:                role,
@@ -230,5 +240,6 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 		Sku:                 sku,
 		Phase:               phase,
 		BTPeers:             btpeers,
+		CacheServer:         cacheServer,
 	}, nil
 }

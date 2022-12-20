@@ -208,6 +208,7 @@ func TestFillDUTInfoExtended(t *testing.T) {
 			Phase:               "DVT",
 			Sku:                 "123",
 			HwIDList:            []string{"hwid_component:hwid123"},
+			CacheServer:         "cache1:8001",
 		},
 	}
 	input := []*api.CrosTestRequest_Device{
@@ -256,6 +257,7 @@ func TestFillDUTInfoExtended(t *testing.T) {
 						HwidComponent: []string{"hwid123"},
 					},
 				},
+				CacheServer: &labapi.CacheServer{Address: &labapi.IpEndpoint{Address: "cache1", Port: 8001}},
 			},
 			DutServer:       &labapi.IpEndpoint{Address: "cros-dut0", Port: 80},
 			ProvisionServer: &labapi.IpEndpoint{Address: "cros-provision0", Port: 80},

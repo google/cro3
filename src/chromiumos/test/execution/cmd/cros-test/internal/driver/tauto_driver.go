@@ -196,6 +196,10 @@ func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, d
 		tautoArgsStr = tautoArgsStr + fmt.Sprintf(" %v=%v", "libs_server", libsServer)
 	}
 
+	if dut.CacheServer != "" {
+		tautoArgsStr = tautoArgsStr + fmt.Sprintf(" %v=%v", "cache_endpoint", dut.CacheServer)
+	}
+
 	for _, customAutotestArg := range customAutotestArgs.GetArgs() {
 		tautoArgsStr = tautoArgsStr + fmt.Sprintf(" %v=%v", customAutotestArg.GetFlag(), customAutotestArg.GetValue())
 	}
