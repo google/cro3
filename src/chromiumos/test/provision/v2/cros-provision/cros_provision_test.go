@@ -132,7 +132,7 @@ func TestStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
-		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_reven)", nil),
 	)
 
 	if _, _, err := st.Execute(ctx, log); err != nil {
@@ -282,7 +282,7 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
-		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_reven)", nil),
 	)
 
 	if _, _, err := st.Execute(ctx, log); err != nil {
@@ -342,7 +342,7 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
-		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_reven)", nil),
 	)
 
 	if _, _, err := st.Execute(ctx, log); err != nil {
@@ -403,7 +403,7 @@ func TestFirmwareUpdateStateSkippedDueToNoUpdaterExist(t *testing.T) {
 		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
-		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_reven)", nil),
 	)
 
 	if _, _, err := st.Execute(ctx, log); err != nil {
@@ -456,7 +456,7 @@ func TestFirmwareUpdateStateWithNoChange(t *testing.T) {
 		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
-		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_reven)", nil),
 	)
 
 	if _, _, err := st.Execute(ctx, log); err != nil {
@@ -502,7 +502,7 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
-		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_reven)", nil),
 	)
 
 	if _, _, err := st.Execute(ctx, log); err != nil {
@@ -558,7 +558,7 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
-		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_reven)", nil),
 	)
 
 	if _, _, err := st.Execute(ctx, log); err != nil {
@@ -611,7 +611,7 @@ func TestProvisionDLCWithEmptyDLCsDoesNotExecute(t *testing.T) {
 		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
-		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_reven)", nil),
 	)
 
 	if _, _, err := st.Execute(ctx, log); err != nil {
@@ -654,7 +654,7 @@ func TestProvisionDLCWhenVerifyIsTrueDoesNotExecuteInstall(t *testing.T) {
 		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
-		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_reven)", nil),
 	)
 
 	if _, _, err := st.Execute(ctx, log); err != nil {
@@ -711,7 +711,7 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
-		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_raven)", nil),
+		getRunCmdCommand(sam, getBoard).Return("CHROMEOS_RELEASE_BOARD=(not_reven)", nil),
 	)
 
 	if _, _, err := st.Execute(ctx, log); err != nil {

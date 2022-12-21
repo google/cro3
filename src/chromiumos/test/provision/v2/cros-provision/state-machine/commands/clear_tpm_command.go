@@ -40,7 +40,7 @@ func (c *ClearTPMCommand) Execute(log *log.Logger) error {
 
 // CanClearTPM determines whether the current board can clear TPM
 func (c *ClearTPMCommand) canClearTPM(ctx context.Context) bool {
-	return !strings.HasPrefix(c.cs.MachineMetadata.Board, "raven")
+	return !strings.HasPrefix(c.cs.MachineMetadata.Board, "reven")
 }
 
 func (c *ClearTPMCommand) Revert() error {
