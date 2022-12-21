@@ -269,6 +269,11 @@ func appendChromeOsLabels(dut *device.DutInfo) (map[string]string, []string, err
 		attrMap["servo_serial"] = dut.ServoSerial
 	}
 
+	// HWID needs to be an attr
+	if dut.HWID != "" {
+		attrMap["HWID"] = dut.HWID
+	}
+
 	if dut.ChamelonPresent == true {
 		labels = append(labels, "chameleon")
 	}

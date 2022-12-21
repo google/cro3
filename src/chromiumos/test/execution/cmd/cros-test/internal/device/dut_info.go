@@ -42,6 +42,7 @@ type DutInfo struct {
 	Phase               string
 	BTPeers             int
 	CacheServer         string
+	HWID                string
 }
 
 // joinHostAndPort joins host and port to a single address.
@@ -200,6 +201,8 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 	var phase string
 	phase = strings.ToUpper(chromeOS.Phase.String())
 
+	hwid := string(chromeOS.Hwid)
+
 	btpeers := 0
 	if peers := chromeOS.BluetoothPeers; len(peers) > 0 {
 		for _, v := range peers {
@@ -241,5 +244,6 @@ func FillDUTInfo(device *api.CrosTestRequest_Device, role string) (*DutInfo, err
 		Phase:               phase,
 		BTPeers:             btpeers,
 		CacheServer:         cacheServer,
+		HWID:                hwid,
 	}, nil
 }

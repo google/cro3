@@ -49,6 +49,7 @@ func TestNewTautoArgs(t *testing.T) {
 		Phase:               "CVT",
 		BTPeers:             3,
 		CacheServer:         "cache:9001",
+		HWID:                "Atlas 123-34",
 	}
 	customAutotestArgs := &api.AutotestExecutionMetadata{
 		Args: []*api.AutotestExecutionMetadata_Arg{
@@ -67,7 +68,7 @@ func TestNewTautoArgs(t *testing.T) {
 			autotestDirFlag:     "/usr/local/autotest/",
 			companionFlag:       "companion1,companion2",
 			dutServerFlag:       "localhost:2222,localhost:2223,localhost:2224",
-			attributes:          `{"servo_host":"127.123.332.121","servo_port":"1337","servo_serial":"8675309"}`,
+			attributes:          `{"HWID":"Atlas 123-34","servo_host":"127.123.332.121","servo_port":"1337","servo_serial":"8675309"}`,
 			labels:              "board:fred model:flintstone servo chameleon audio_board chameleon:vga chameleon:hdmi atrus mimo camerabox_facing:front type:usbaudio sku:goat_4kb phase:CVT working_bluetooth_btpeer:3",
 			tautoArgs:           "dut_servers=localhost:2222,localhost:2223,localhost:2224 libs_server=192.168.1.1:8675 cache_endpoint=cache:9001 tast_list=tast.example.Pass",
 			libsServerFlag:      "192.168.1.1:8675",
