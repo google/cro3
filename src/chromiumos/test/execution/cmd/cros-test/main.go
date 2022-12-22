@@ -158,14 +158,7 @@ func startServer(d []string) int {
 	logger.Println("Starting executionservice on port ", a.port)
 
 	// Write port number to ~/.cftmeta for go/cft-port-discovery
-	pdUtil := portdiscovery.PortDiscovery{Logger: logger}
-	servicePort, _ := pdUtil.GetPortFromAddress(l.Addr().String())
-	serviceMetadata := portdiscovery.Metadata{
-		Port:    servicePort,
-		Name:    "cros-test",
-		Version: Version,
-	}
-	err = pdUtil.WriteMetadata(serviceMetadata)
+	err = portdiscovery.WriteServiceMetadata("cros-test", l.Addr().String(), logger)
 	if err != nil {
 		logger.Println("Warning: error when writing to metadata file: ", err)
 	}

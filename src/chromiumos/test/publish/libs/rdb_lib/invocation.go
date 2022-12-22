@@ -13,6 +13,10 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+const (
+	InvocationIdPrefix = "invocations/"
+)
+
 type Invocation struct {
 	invProto         rdb_pb.Invocation
 	testResults      []*rdb_pb.TestResult
@@ -99,4 +103,17 @@ func Deserialize(data string) (map[string]*Invocation, error) {
 	}
 
 	return invMap, nil
+}
+
+// ParseInvocationIds returns the invocation ids without InvocationIdPrefix
+func ParseInvocationIds(invIds []string) ([]string, error) {
+	parsedIds := []string{}
+	for _, invId := range invIds {
+		if !strings.HasPrefix(invId, InvocationIdPrefix) {
+			return parsedIds, fmt.Errorf("%q invocation id does not start with invocation id prefix %q", invId, InvocationIdPrefix)
+		}
+		parsedIds = append(parsedIds, invId[len(InvocationIdPrefix):])
+	}
+
+	return parsedIds, nil
 }

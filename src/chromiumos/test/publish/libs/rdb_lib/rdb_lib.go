@@ -50,7 +50,7 @@ type RdbLib struct {
 }
 
 // UploadTestResults uploads test results to rdb
-func (rdblib *RdbLib) UploadTestResults(ctx context.Context, rdbStreamConfig rdb_client.RdbStreamConfig) error {
+func (rdblib *RdbLib) UploadTestResults(ctx context.Context, rdbStreamConfig *rdb_client.RdbStreamConfig) error {
 	if rdbStreamConfig.ResultFormat == "" {
 		return fmt.Errorf("result_format can not be empty for rdb upload")
 	}
@@ -88,7 +88,7 @@ func (rdblib *RdbLib) UploadTestResults(ctx context.Context, rdbStreamConfig rdb
 func (rdblib *RdbLib) UploadInvocationArtifacts(ctx context.Context, artifact *rdb_pb.Artifact) error {
 	req := rdb_pb.BatchCreateArtifactsRequest{Requests: []*rdb_pb.CreateArtifactRequest{{Parent: rdblib.CurrentInvocation, Artifact: artifact}}}
 
-	rdbRpcConfig := rdb_client.RdbRpcConfig{ServiceName: RdbServiceName, MethodName: ArtifactsMethodName, IncludeUpdateToken: true}
+	rdbRpcConfig := &rdb_client.RdbRpcConfig{ServiceName: RdbServiceName, MethodName: ArtifactsMethodName, IncludeUpdateToken: true}
 	cmd, err := rdblib.RdbClient.RpcCommand(ctx, rdbRpcConfig)
 	if err != nil {
 		return fmt.Errorf("error in rpc command creation: %s", err.Error())
@@ -137,7 +137,7 @@ func (rdblib *RdbLib) ReportMissingTestCases(ctx context.Context, testNames []st
 	for batchNum, reqs := range batchedReqs {
 		batchReq := rdb_pb.BatchCreateTestResultsRequest{Invocation: rdblib.CurrentInvocation, Requests: reqs}
 
-		rdbRpcConfig := rdb_client.RdbRpcConfig{ServiceName: RdbServiceName, MethodName: TestResultsMethodName, IncludeUpdateToken: true}
+		rdbRpcConfig := &rdb_client.RdbRpcConfig{ServiceName: RdbServiceName, MethodName: TestResultsMethodName, IncludeUpdateToken: true}
 
 		cmd, err := rdblib.RdbClient.RpcCommand(ctx, rdbRpcConfig)
 		if err != nil {
@@ -177,28 +177,28 @@ func (rdblib *RdbLib) ApplyExonerations(ctx context.Context, invocationIds []str
 	}
 
 	isNonCriticalFunc := func(testResult *rdb_pb.TestResult) bool {
-		testExecBehavior := testExecBehaviorFunc(testResult.TestId)
+		testExecBehavior := testExecBehaviorFunc(testResult.GetTestId())
 		isNonCritical := testExecBehavior == test_platform.Request_Params_NON_CRITICAL
 
 		//A test results's variant must contain all attributes of the variant filter.
-		resultVariantValueMap := common_utils.GetValueBoolMap(testResult.Variant.Def)
+		resultVariantValueMap := common_utils.GetValueBoolMap(testResult.GetVariant().GetDef())
 		variantFilterValueMap := common_utils.GetValueBoolMap(variantFilter)
 		containsVariantFilter := common_utils.IsSubsetOf(variantFilterValueMap, resultVariantValueMap)
 
 		return isNonCritical && containsVariantFilter
 	}
 
-	isExoneratedFunc := func(testResult *rdb_pb.TestResult) bool {
-		// TODO(b/241154998): investigate what's the best way to retrieve exonerated tests list
-		return false
+	parsedIds, err := ParseInvocationIds(invocationIds)
+	if err != nil {
+		return err
 	}
 
-	rdbQueryConfig := rdb_client.RdbQueryConfig{InvocationIds: invocationIds, VariantsWithUnexpectedResults: true, TestResultFields: []string{"variant", "testId", "status", "expected"}, Merge: false, Limit: RdbQueryResultLimit}
+	rdbQueryConfig := &rdb_client.RdbQueryConfig{InvocationIds: parsedIds, VariantsWithUnexpectedResults: true, TestResultFields: []string{"variant", "testId", "status", "expected"}, Merge: false, Limit: RdbQueryResultLimit}
 	cmd, err := rdblib.RdbClient.QueryCommand(ctx, rdbQueryConfig)
 	if err != nil {
 		return fmt.Errorf("error during getting query command: %s", err.Error())
 	}
-	stdout, _, err := common_utils.RunCommand(ctx, cmd, "rdb-apply-exoneration", nil, true)
+	stdout, _, err := common_utils.RunCommand(ctx, cmd, "rdb-query", nil, true)
 	if err != nil {
 		return fmt.Errorf("error during executing query command: %s", err.Error())
 	}
@@ -222,13 +222,8 @@ func (rdblib *RdbLib) ApplyExonerations(ctx context.Context, invocationIds []str
 				if result.Status == rdb_pb.TestStatus_SKIP {
 					explanationHtml = "unexpectedly skipped but is not critical"
 				}
-				testExoneration := rdb_pb.TestExoneration{TestId: result.TestId, Variant: result.Variant, ExplanationHtml: explanationHtml, Reason: rdb_pb.ExonerationReason(3)}
-				testExonerations = append(testExonerations, &testExoneration)
-			}
 
-			if !result.Expected && result.Status != rdb_pb.TestStatus_PASS && result.Status != rdb_pb.TestStatus_SKIP && isExoneratedFunc(result) {
-				explanationHtml := "failed but is exonerated"
-				testExoneration := rdb_pb.TestExoneration{TestId: result.TestId, Variant: result.Variant, ExplanationHtml: explanationHtml, Reason: rdb_pb.ExonerationReason(2)}
+				testExoneration := rdb_pb.TestExoneration{TestId: result.TestId, Variant: result.Variant, ExplanationHtml: explanationHtml, Reason: rdb_pb.ExonerationReason(3)}
 				testExonerations = append(testExonerations, &testExoneration)
 			}
 		}
@@ -251,7 +246,7 @@ func (rdblib *RdbLib) Exonerate(ctx context.Context, testExonerations []*rdb_pb.
 		return fmt.Errorf("no test exoneration info provided for exonerate command")
 	}
 
-	rdbRpcConfig := rdb_client.RdbRpcConfig{ServiceName: RdbServiceName, MethodName: TestExonerationMethodName, IncludeUpdateToken: true}
+	rdbRpcConfig := &rdb_client.RdbRpcConfig{ServiceName: RdbServiceName, MethodName: TestExonerationMethodName, IncludeUpdateToken: true}
 	cmd, err := rdblib.RdbClient.RpcCommand(ctx, rdbRpcConfig)
 	if err != nil {
 		return fmt.Errorf("error during getting rpc command: %s", err.Error())
@@ -272,9 +267,9 @@ func (rdblib *RdbLib) Exonerate(ctx context.Context, testExonerations []*rdb_pb.
 		}
 		batchReq := rdb_pb.BatchCreateTestExonerationsRequest{Invocation: rdblib.CurrentInvocation, RequestId: uuid.New().String(), Requests: createTeRequests}
 
-		_, _, err := common_utils.RunCommand(ctx, cmd, "exonerate-tests", &batchReq, true)
+		_, _, err := common_utils.RunCommand(ctx, cmd, "rdb-rpc-batch-exoneration", &batchReq, true)
 		if err != nil {
-			errMsg := fmt.Sprintf("error in exonerate-tests batch %d: %s", batchNum, err.Error())
+			errMsg := fmt.Sprintf("error in rdb-rpc-batch-exoneration batch %d: %s", batchNum, err.Error())
 			log.Println(errMsg)
 			return fmt.Errorf(errMsg)
 		}

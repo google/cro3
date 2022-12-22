@@ -15,15 +15,11 @@ import (
 	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
-const (
-	// TODO(azrahman): make this part of input proto
-	serviceAcctCreds = "key.json"
-)
-
 type GcsPublishService struct {
-	LocalArtifactPath string
-	GcsPath           string
-	RetryCount        int
+	LocalArtifactPath           string
+	GcsPath                     string
+	ServiceAccountCredsFilePath string
+	RetryCount                  int
 }
 
 func NewGcsPublishService(req *api.PublishRequest) (*GcsPublishService, error) {
@@ -42,14 +38,15 @@ func NewGcsPublishService(req *api.PublishRequest) (*GcsPublishService, error) {
 	}
 
 	return &GcsPublishService{
-		LocalArtifactPath: req.GetArtifactDirPath().GetPath(),
-		GcsPath:           m.GetGcsPath().GetPath(),
-		RetryCount:        retryCount,
+		LocalArtifactPath:           req.GetArtifactDirPath().GetPath(),
+		GcsPath:                     m.GetGcsPath().GetPath(),
+		RetryCount:                  retryCount,
+		ServiceAccountCredsFilePath: m.GetServiceAccountCredsFilePath().GetPath(),
 	}, nil
 }
 
 func (gs *GcsPublishService) UploadToGS(ctx context.Context) error {
-	gsClient, err := storage.NewGSClient(ctx, serviceAcctCreds)
+	gsClient, err := storage.NewGSClient(ctx, gs.ServiceAccountCredsFilePath)
 	if err != nil {
 		log.Printf("error while creating new gs client: %s", err)
 		return fmt.Errorf("error while creating new gs client: %s", err)

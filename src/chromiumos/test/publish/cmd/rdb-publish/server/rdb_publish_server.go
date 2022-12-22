@@ -9,14 +9,16 @@ import (
 	"chromiumos/lro"
 	"chromiumos/test/publish/cmd/common-utils/metadata"
 	"chromiumos/test/publish/cmd/rdb-publish/service"
+	"chromiumos/test/util/portdiscovery"
+
 	"context"
 	"fmt"
 	"log"
 	"net"
 
+	"go.chromium.org/chromiumos/config/go/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
 
-	"go.chromium.org/chromiumos/config/go/longrunning"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -45,6 +47,12 @@ func (ps *RdbPublishServer) Start() error {
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", ps.options.Port))
 	if err != nil {
 		return fmt.Errorf("failed to create listener at %d", ps.options.Port)
+	}
+
+	// Write port number to ~/.cftmeta for go/cft-port-discovery
+	err = portdiscovery.WriteServiceMetadata("rdb-publish", l.Addr().String(), nil)
+	if err != nil {
+		log.Println("Warning: error when writing to metadata file: ", err)
 	}
 
 	ps.manager = lro.New()

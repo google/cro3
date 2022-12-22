@@ -24,14 +24,14 @@ type RdbRpcConfig struct {
 }
 
 // RpcCommand creates the rdb rpc command
-func (rdbClient *RdbClient) RpcCommand(ctx context.Context, rdbRpcConfig RdbRpcConfig) (*exec.Cmd, error) {
+func (rdbClient *RdbClient) RpcCommand(ctx context.Context, rdbRpcConfig *RdbRpcConfig) (*exec.Cmd, error) {
 	var args []string
 
 	if rdbRpcConfig.IncludeUpdateToken {
 		args = append(args, "-include-update-token")
 	}
 
-	rpcArgs := []string{"rdb", "rpc", rdbRpcConfig.ServiceName, rdbRpcConfig.MethodName}
+	rpcArgs := []string{"rpc", rdbRpcConfig.ServiceName, rdbRpcConfig.MethodName}
 	rpcArgs = append(rpcArgs, args...)
 
 	cmd := exec.CommandContext(ctx, rdbClient.RdbExecutablePath, rpcArgs...)
@@ -49,7 +49,7 @@ type RdbQueryConfig struct {
 }
 
 // QueryCommand creates the rdb query command
-func (rdbClient *RdbClient) QueryCommand(ctx context.Context, rdbQueryConfig RdbQueryConfig) (*exec.Cmd, error) {
+func (rdbClient *RdbClient) QueryCommand(ctx context.Context, rdbQueryConfig *RdbQueryConfig) (*exec.Cmd, error) {
 	args := []string{"-json", "-n", fmt.Sprint(rdbQueryConfig.Limit)}
 
 	if rdbQueryConfig.VariantsWithUnexpectedResults {
@@ -90,9 +90,9 @@ type RdbStreamConfig struct {
 }
 
 // StreamCommand creates the rdb stream command
-func (rdbClient *RdbClient) StreamCommand(ctx context.Context, rdbStreamConfig RdbStreamConfig) (*exec.Cmd, error) {
+func (rdbClient *RdbClient) StreamCommand(ctx context.Context, rdbStreamConfig *RdbStreamConfig) (*exec.Cmd, error) {
 
-	streamArgs := []string{"rdb", "stream"}
+	streamArgs := []string{"stream"}
 
 	if strings.TrimSpace(rdbStreamConfig.TestIdPrefix) != "" {
 		streamArgs = append(streamArgs, "-test-id-prefix", rdbStreamConfig.TestIdPrefix)

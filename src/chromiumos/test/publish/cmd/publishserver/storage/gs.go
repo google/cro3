@@ -7,6 +7,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/url"
 	"os"
@@ -159,7 +160,7 @@ func (c *GSClient) getAllFilesInFolderRecursively(localFolder string) ([]LocalOb
 	if err != nil {
 		return nil, fmt.Errorf("could not find file %w", err)
 	}
-	if !fi.IsDir() {
+	if !fi.IsDir() && fi.Mode()&fs.ModeSymlink == 0 {
 		return []LocalObject{{
 			FullPath: localFolder,
 			RelPath:  localFolder[len(path.Dir(localFolder))+1:],
@@ -171,7 +172,7 @@ func (c *GSClient) getAllFilesInFolderRecursively(localFolder string) ([]LocalOb
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() {
+		if !info.IsDir() && info.Mode()&fs.ModeSymlink == 0 {
 			files = append(files, LocalObject{
 				FullPath: currPath,
 				RelPath:  currPath[len(path.Clean(localFolder))+1:],

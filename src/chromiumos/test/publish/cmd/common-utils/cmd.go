@@ -11,7 +11,7 @@ import (
 	"log"
 	"os/exec"
 
-	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -21,8 +21,10 @@ func RunCommand(ctx context.Context, cmd *exec.Cmd, cmdName string, input proto.
 	cmd.Stderr = &se
 	cmd.Stdout = &so
 	if input != nil {
-		marshalOps := prototext.MarshalOptions{Multiline: true, Indent: "  "}
-		printableInput, err := marshalOps.Marshal(input)
+		marshaler := protojson.MarshalOptions{
+			Multiline: true,
+		}
+		printableInput, err := marshaler.Marshal(input)
 		if err != nil {
 			log.Printf("error while marshaling input: %s", err.Error())
 			return "", "", fmt.Errorf("error while marshaling input for cmd %s: %s", cmdName, err.Error())

@@ -91,7 +91,6 @@ func (rps *RdbPublishService) UploadToRdb(ctx context.Context) error {
 
 	// Upload invocation artifacts
 	if rps.StainlessUrl != "" {
-		// TODO (b/241154998): check if converting to []byte works with rdb binary during integration test
 		artifact := rdb_pb.Artifact{ArtifactId: "stainless_logs", ContentType: "", Contents: []byte(rps.StainlessUrl)}
 		err := rdbLib.UploadInvocationArtifacts(ctx, &artifact)
 		if err != nil {
@@ -102,7 +101,7 @@ func (rps *RdbPublishService) UploadToRdb(ctx context.Context) error {
 	// Upload test results
 	baseTags := map[string]string{}
 	baseVariant := map[string]string{}
-	config := rdb_client.RdbStreamConfig{BaseTags: baseTags, BaseVariant: baseVariant, ResultFile: testResultFilePath, ResultFormat: ResultAdapterResultFormat}
+	config := &rdb_client.RdbStreamConfig{BaseTags: baseTags, BaseVariant: baseVariant, ResultFile: testResultFilePath, ResultFormat: ResultAdapterResultFormat}
 	err = rdbLib.UploadTestResults(ctx, config)
 	if err != nil {
 		return fmt.Errorf("error during rdb test results upload: %s", err.Error())

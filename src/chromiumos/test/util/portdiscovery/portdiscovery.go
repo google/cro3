@@ -135,3 +135,17 @@ func (p *PortDiscovery) getHome() string {
 func (p *PortDiscovery) getMetaFilePath() string {
 	return fmt.Sprintf("%s/%s", p.getHome(), metaFileName)
 }
+
+// WriteServiceMetadata simplifies writing service metadata for all cft services. The
+// service address should be in the format of ".*:port".
+func WriteServiceMetadata(name string, serviceAddress string, logger *log.Logger) error {
+	// Write port number to ~/.cftmeta for go/cft-port-discovery
+	pdUtil := PortDiscovery{Logger: logger}
+	servicePort, _ := pdUtil.GetPortFromAddress(serviceAddress)
+	serviceMetadata := Metadata{
+		Port: servicePort,
+		Name: name,
+	}
+	err := pdUtil.WriteMetadata(serviceMetadata)
+	return err
+}

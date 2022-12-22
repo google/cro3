@@ -117,14 +117,7 @@ func main() {
 		logger.Println("Continue")
 
 		// Write port number to ~/.cftmeta for go/cft-port-discovery
-		pdUtil := portdiscovery.PortDiscovery{Logger: logger}
-		servicePort, _ := pdUtil.GetPortFromAddress(l.Addr().String())
-		serviceMetadata := portdiscovery.Metadata{
-			Port:    servicePort,
-			Name:    "cros-dut",
-			Version: Version,
-		}
-		err = pdUtil.WriteMetadata(serviceMetadata)
+		err = portdiscovery.WriteServiceMetadata("cros-dut", l.Addr().String(), logger)
 		if err != nil {
 			logger.Println("Warning: error when writing to metadata file: ", err)
 		}
