@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -26,6 +27,15 @@ const (
 	crosfleetHostnamePrefix = "crossk-"
 	crosHostnameSuffix      = ".cros"
 )
+
+var satlabHostnameMatcher = regexp.MustCompile("^satlab-(\\w+)-.*$")
+var satlabIDToHostnameMapping = map[string]string{
+	"0wgatfqi22088083": "chromeos1-row2-rack1-satlab",
+	"0wgatfqi22088022": "chromeos1-row2-rack2-satlab",
+	"0wgatfqi22088036": "chromeos1-row2-rack3-satlab",
+}
+
+const satlabUsername = "moblab"
 
 // resolveDutHostname remove any prefixes if hostname is given, otherwise if
 // hostname is "leased" will determine a host to use from crosfleet. Returns
@@ -116,16 +126,56 @@ func nextLocalPort(ctx context.Context) int {
 	return -1
 }
 
-func tunnelLocalPortToRemotePort(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelName string, remoteHost string, remotePort int, sshHost string) string {
+func tunnelLocalPortToRemotePort(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelName string, remoteHost string, remotePort int, sshHost string) (string, error) {
 	localPort := nextLocalPort(ctx)
+	listenHost := fmt.Sprintf("localhost:%d", localPort)
 	if remoteHost == "" {
 		remoteHost = "localhost"
 	}
-	description := fmt.Sprintf("TUNNEL-%-10s [localhost:%d -> %s -> %s:%d]", tunnelName, localPort, sshHost, remoteHost, remotePort)
+	if satlabDroneHostOverride != "" || isSatlabHost(sshHost) {
+		if remoteHost != "localhost" {
+			return "", fmt.Errorf("tunneling to a non-localhost port through a satlab device is not supported")
+		}
+		var satlabDroneHost string
+		if satlabDroneHostOverride != "" {
+			satlabDroneHost = satlabDroneHostOverride
+
+		} else {
+			var err error
+			satlabDroneHost, err = buildSatlabHostname(sshHost)
+			if err != nil {
+				return "", fmt.Errorf("failed to parse satlab hostnames from ssh host %q: %w", sshHost, err)
+			}
+		}
+		if !strings.Contains(satlabDroneHost, "@") {
+			satlabDroneHost = fmt.Sprintf("%s@%s", satlabUsername, satlabDroneHost)
+		}
+		remoteHost = sshHost
+		sshHost = satlabDroneHost
+	}
+	description := fmt.Sprintf("TUNNEL-%-10s [%s -> %s -> %s:%d]", tunnelName, listenHost, sshHost, remoteHost, remotePort)
 	sshManager.Ssh(ctx, true, description, func(ctx context.Context, r *ssh.Runner) error {
 		return r.TunnelLocalPortToRemotePort(ctx, localPort, remoteHost, remotePort, sshHost)
 	})
-	return fmt.Sprintf("localhost:%d", localPort)
+	return listenHost, nil
+}
+
+func isSatlabHost(hostname string) bool {
+	return satlabHostnameMatcher.MatchString(hostname)
+}
+
+func buildSatlabHostname(satlabDeviceHostname string) (string, error) {
+	matches := satlabHostnameMatcher.FindAllStringSubmatch(satlabDeviceHostname, -1)
+	if len(matches) != 1 || len(matches[0]) != 2 {
+		return "", fmt.Errorf("failed to parse satlab drone host and local device host from satlab device hostname %q", satlabDeviceHostname)
+	}
+	satlabID := matches[0][1]
+	// TODO(b/277986050): Deterministically deduce satlab done hostnames.
+	satlabDroneHost, ok := satlabIDToHostnameMapping[satlabID]
+	if !ok {
+		return "", fmt.Errorf("unmapped satlab hostname for satlab with ID %q", satlabID)
+	}
+	return satlabDroneHost, nil
 }
 
 func isPortAvailable(ctx context.Context, port int) (bool, error) {
@@ -190,70 +240,96 @@ func runContextualCommand(ctx context.Context, logPrefix string, command string,
 	}
 }
 
-func tunnelToDut(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) string {
+func tunnelToDut(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) (string, error) {
 	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("DUT-", tunnelID), "", remotePortSsh, hostname)
 }
 
-func tunnelToRouter(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) string {
+func tunnelToRouter(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) (string, error) {
 	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("ROUTER-", tunnelID), "", remotePortSsh, hostname)
 }
 
-func tunnelToPcap(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) string {
+func tunnelToPcap(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) (string, error) {
 	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("PCAP-", tunnelID), "", remotePortSsh, hostname)
 }
 
-func tunnelToBtpeer(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) string {
+func tunnelToBtpeer(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) (string, error) {
 	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("BTPEER-", tunnelID), "", remotePortSsh, hostname)
 }
 
-func tunnelToChameleon(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) string {
+func tunnelToChameleon(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) (string, error) {
 	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("CHAMELEON-", tunnelID), "", remotePortChameleond, hostname)
 }
 
-func genericTunnelToSshPort(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) string {
+func genericTunnelToSshPort(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) (string, error) {
 	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("SSH-", tunnelID), "", remotePortSsh, hostname)
 }
 
-func genericTunnelToChameleondPort(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) string {
+func genericTunnelToChameleondPort(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) (string, error) {
 	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("CHAMELEOND-", tunnelID), "", remotePortChameleond, hostname)
 }
 
-func tunnelToRoutersUsingDutHost(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, routerCount int) []string {
+func tunnelToRoutersUsingDutHost(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, routerCount int) ([]string, error) {
 	if routerCount < 1 {
-		return nil
+		return nil, nil
 	}
 	var localHostnames []string
-	localHostnames = append(localHostnames, tunnelToRouter(ctx, sshManager, 1, resolveHostname(hostDut, "-router")))
+	var localHostname string
+	var err error
+	localHostname, err = tunnelToRouter(ctx, sshManager, 1, resolveHostname(hostDut, "-router"))
+	if err != nil {
+		return nil, err
+	}
+	localHostnames = append(localHostnames, localHostname)
 	for i := 2; i <= routerCount; i++ {
-		localHostnames = append(localHostnames, tunnelToRouter(ctx, sshManager, i, resolveHostname(hostDut, fmt.Sprintf("-router%d", i))))
+		localHostname, err = tunnelToRouter(ctx, sshManager, i, resolveHostname(hostDut, fmt.Sprintf("-router%d", i)))
+		if err != nil {
+			return nil, err
+		}
+		localHostnames = append(localHostnames, localHostname)
 	}
-	return localHostnames
+	return localHostnames, err
 }
 
-func tunnelToPcapsUsingDutHost(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, pcapCount int) []string {
+func tunnelToPcapsUsingDutHost(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, pcapCount int) ([]string, error) {
 	if pcapCount < 1 {
-		return nil
+		return nil, nil
 	}
 	var localHostnames []string
-	localHostnames = append(localHostnames, tunnelToPcap(ctx, sshManager, 1, resolveHostname(hostDut, "-pcap")))
+	var localHostname string
+	var err error
+	localHostname, err = tunnelToPcap(ctx, sshManager, 1, resolveHostname(hostDut, "-pcap"))
+	if err != nil {
+		return nil, err
+	}
+	localHostnames = append(localHostnames, localHostname)
 	for i := 2; i <= pcapCount; i++ {
-		localHostnames = append(localHostnames, tunnelToPcap(ctx, sshManager, i, resolveHostname(hostDut, fmt.Sprintf("-pcap%d", i))))
+		localHostname, err = tunnelToPcap(ctx, sshManager, i, resolveHostname(hostDut, fmt.Sprintf("-pcap%d", i)))
+		if err != nil {
+			return nil, err
+		}
+		localHostnames = append(localHostnames, localHostname)
 	}
-	return localHostnames
+	return localHostnames, nil
 }
 
-func tunnelToBtpeersUsingDutHost(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, btPeerCount int) []string {
+func tunnelToBtpeersUsingDutHost(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, btPeerCount int) ([]string, error) {
 	if btPeerCount < 1 {
-		return nil
+		return nil, nil
 	}
 	var localHostnames []string
+	var localHostname string
+	var err error
 	for i := 1; i <= btPeerCount; i++ {
-		localHostnames = append(localHostnames, tunnelToBtpeer(ctx, sshManager, i, resolveHostname(hostDut, fmt.Sprintf("-btpeer%d", i))))
+		localHostname, err = tunnelToBtpeer(ctx, sshManager, i, resolveHostname(hostDut, fmt.Sprintf("-btpeer%d", i)))
+		if err != nil {
+			return nil, err
+		}
+		localHostnames = append(localHostnames, localHostname)
 	}
-	return localHostnames
+	return localHostnames, nil
 }
 
-func tunnelToChameleonUsingDutHost(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, tunnelID int) string {
+func tunnelToChameleonUsingDutHost(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, tunnelID int) (string, error) {
 	return tunnelToChameleon(ctx, sshManager, tunnelID, resolveHostname(hostDut, "-chameleon"))
 }
 

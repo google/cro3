@@ -36,7 +36,10 @@ The dut hostname is resolved from <dut_hostname> by removing the prefix
 			if err != nil {
 				return fmt.Errorf("could not determine hostname: %w", err)
 			}
-			localDut := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
+			localDut, err := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
+			if err != nil {
+				return err
+			}
 
 			time.Sleep(time.Second)
 			log.Logger.Printf("Example Tast call (in chroot): tast run %s <test>", localDut)

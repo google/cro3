@@ -55,10 +55,14 @@ starting at 1.
 			if err != nil {
 				return fmt.Errorf("could not determine hostname: %w", err)
 			}
-			tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
+			if _, err := tunnelToDut(cmd.Context(), sshManager, 1, hostDut); err != nil {
+				return err
+			}
 
 			// Tunnel to btpeers.
-			tunnelToBtpeersUsingDutHost(cmd.Context(), sshManager, hostDut, btpeersCmdBtpeerCount)
+			if _, err := tunnelToBtpeersUsingDutHost(cmd.Context(), sshManager, hostDut, btpeersCmdBtpeerCount); err != nil {
+				return nil
+			}
 
 			time.Sleep(time.Second)
 			ctx := cmd.Context()

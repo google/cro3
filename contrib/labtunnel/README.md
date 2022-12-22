@@ -78,6 +78,7 @@ Flags:
   -p, --local-port-start int          Initial local port to forward to tunnel (default 2200)
       --remote-port-chameleond int    Remote port for accessing the chameleond service on btpeers and chameleon devices (default 9992)
       --remote-port-ssh int           Remote port to forward ssh tunnels to (default 22)
+      --satlab string                 Hostname of the satlab drone to tunnel through (overrides hostname deduced from provided hostnames; affects all tunnels)
   -o, --ssh-options strings           ssh options for all ssh commands (default [StrictHostKeyChecking=no,ExitOnForwardFailure=yes,ForkAfterAuthentication=no,LogLevel=ERROR,ControlMaster=auto,ControlPersist=3600,ControlPath=/tmp/ssh-labtunnel-%C,ServerAliveCountMax=10,ServerAliveInterval=1,VerifyHostKeyDNS=no,CheckHostIP=no,UserKnownHostsFile=/dev/null,Compression=yes])
       --ssh-retry-delay-seconds int   Time to wait before retrying failed ssh command calls (default 10)
   -v, --version                       version for labtunnel
@@ -369,6 +370,7 @@ Global Flags:
   -p, --local-port-start int          Initial local port to forward to tunnel (default 2200)
       --remote-port-chameleond int    Remote port for accessing the chameleond service on btpeers and chameleon devices (default 9992)
       --remote-port-ssh int           Remote port to forward ssh tunnels to (default 22)
+      --satlab string                 Hostname of the satlab drone to tunnel through (overrides hostname deduced from provided hostnames; affects all tunnels)
   -o, --ssh-options strings           ssh options for all ssh commands (default [StrictHostKeyChecking=no,ExitOnForwardFailure=yes,ForkAfterAuthentication=no,LogLevel=ERROR,ControlMaster=auto,ControlPersist=3600,ControlPath=/tmp/ssh-labtunnel-%C,ServerAliveCountMax=10,ServerAliveInterval=1,VerifyHostKeyDNS=no,CheckHostIP=no,UserKnownHostsFile=/dev/null,Compression=yes])
       --ssh-retry-delay-seconds int   Time to wait before retrying failed ssh command calls (default 10)
 ```
@@ -466,6 +468,57 @@ $ labtunnel hosts --chameleond chromeos1-dev-host1-btpeer1
 15:39:02.276983 ssh state summary:
   TUNNEL-CHAMELEOND-1 [localhost:2200 -> chromeos1-dev-host1-btpeer1 -> localhost:9992]  CLOSED
 ```
+
+## Satlab Support
+`labtunnel` has preliminary support for satlab devices and users do not have to
+do anything extra to use them. However, only a few satlab dones are supported
+since they are [manually mapped](./go/src/cmd/common.go#32) and have DNS entries
+for each of its devices. Once [b/277986050](b/277986050) is completed, this
+mapping would no longer be required. If you'd like to use an unmapped
+satlab, you can pass its hostname using the `--satlab` flag.
+
+### Satlab Examples
+```text
+$ labtunnel wificell crossk-satlab-0wgatfqi22088083-chromeos1-dev-host3
+15:12:38.611849 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3:22]"
+15:12:38.612317 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ConnectTimeout="5" -o ServerAliveCountMax="3" -o ServerAliveInterval="5" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:satlab-0wgatfqi22088083-chromeos1-dev-host3:22 moblab@chromeos1-row2-rack1-satlab sleep 24h
+15:12:38.652952 starting ssh exec "TUNNEL-ROUTER-1   [localhost:2202 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-router:22]"
+15:12:38.653332 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ConnectTimeout="5" -o ServerAliveCountMax="3" -o ServerAliveInterval="5" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2202:satlab-0wgatfqi22088083-chromeos1-dev-host3-router:22 moblab@chromeos1-row2-rack1-satlab sleep 24h
+15:12:38.672328 starting ssh exec "TUNNEL-PCAP-1     [localhost:2203 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-pcap:22]"
+15:12:38.672574 SSH[3]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ConnectTimeout="5" -o ServerAliveCountMax="3" -o ServerAliveInterval="5" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2203:satlab-0wgatfqi22088083-chromeos1-dev-host3-pcap:22 moblab@chromeos1-row2-rack1-satlab sleep 24h
+15:12:39.672847 Example Tast call (in chroot): tast run -var=router=localhost:2202 -var=pcap=localhost:2203 localhost:2200 <test>
+15:12:39.672899 ssh state summary:
+  TUNNEL-DUT-1      [localhost:2200 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3:22]  RUNNING
+  TUNNEL-PCAP-1     [localhost:2203 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-pcap:22]  RUNNING
+  TUNNEL-ROUTER-1   [localhost:2202 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-router:22]  RUNNING
+^C15:12:41.741807 received SIGINT, cancelling operations
+15:12:41.741892 ssh state summary:
+  TUNNEL-DUT-1      [localhost:2200 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3:22]  CLOSED
+  TUNNEL-PCAP-1     [localhost:2203 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-pcap:22]  CLOSED
+  TUNNEL-ROUTER-1   [localhost:2202 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-router:22]  CLOSED
+```
+```text
+$ labtunnel wificell crossk-satlab-0wgatfqi22088083-chromeos1-dev-host3 --satlab chromeos1-row2-rack1-satlab
+15:12:03.146118 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3:22]"
+15:12:03.146727 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ConnectTimeout="5" -o ServerAliveCountMax="3" -o ServerAliveInterval="5" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:satlab-0wgatfqi22088083-chromeos1-dev-host3:22 moblab@chromeos1-row2-rack1-satlab sleep 24h
+15:12:03.168066 starting ssh exec "TUNNEL-ROUTER-1   [localhost:2201 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-router:22]"
+15:12:03.168373 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ConnectTimeout="5" -o ServerAliveCountMax="3" -o ServerAliveInterval="5" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2201:satlab-0wgatfqi22088083-chromeos1-dev-host3-router:22 moblab@chromeos1-row2-rack1-satlab sleep 24h
+15:12:03.186401 starting ssh exec "TUNNEL-PCAP-1     [localhost:2202 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-pcap:22]"
+15:12:03.186640 SSH[3]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ConnectTimeout="5" -o ServerAliveCountMax="3" -o ServerAliveInterval="5" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2202:satlab-0wgatfqi22088083-chromeos1-dev-host3-pcap:22 moblab@chromeos1-row2-rack1-satlab sleep 24h
+15:12:04.186940 Example Tast call (in chroot): tast run -var=router=localhost:2201 -var=pcap=localhost:2202 localhost:2200 <test>
+15:12:04.187013 ssh state summary:
+  TUNNEL-DUT-1      [localhost:2200 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3:22]  RUNNING
+  TUNNEL-PCAP-1     [localhost:2202 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-pcap:22]  RUNNING
+  TUNNEL-ROUTER-1   [localhost:2201 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-router:22]  RUNNING
+15:12:05.364388 SSH[3]: ControlSocket /tmp/ssh-labtunnel-f0f04626286e6d474c0d49c890862cc41f71412f already exists, disabling multiplexing
+15:12:05.375889 SSH[1]: ControlSocket /tmp/ssh-labtunnel-f0f04626286e6d474c0d49c890862cc41f71412f already exists, disabling multiplexing
+^C15:12:08.799780 received SIGINT, cancelling operations
+15:12:08.799954 ssh state summary:
+  TUNNEL-DUT-1      [localhost:2200 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3:22]  CLOSED
+  TUNNEL-PCAP-1     [localhost:2202 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-pcap:22]  CLOSED
+  TUNNEL-ROUTER-1   [localhost:2201 -> moblab@chromeos1-row2-rack1-satlab -> satlab-0wgatfqi22088083-chromeos1-dev-host3-router:22]  CLOSED
+```
+
 
 ## Debugging
 `labtunnel` is designed to clean itself up if something goes wrong in most cases,

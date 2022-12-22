@@ -35,10 +35,14 @@ The formula for the chameleon device hostname is "<dut>-chameleon".
 			if err != nil {
 				return fmt.Errorf("could not determine hostname: %w", err)
 			}
-			tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
+			if _, err := tunnelToDut(cmd.Context(), sshManager, 1, hostDut); err != nil {
+				return err
+			}
 
 			// Tunnel to chameleon.
-			tunnelToChameleonUsingDutHost(cmd.Context(), sshManager, hostDut, 1)
+			if _, err := tunnelToChameleonUsingDutHost(cmd.Context(), sshManager, hostDut, 1); err != nil {
+				return err
+			}
 
 			time.Sleep(time.Second)
 			ctx := cmd.Context()

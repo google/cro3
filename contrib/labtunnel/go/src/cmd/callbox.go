@@ -45,15 +45,24 @@ on the proxy host, as the callboxes do not support SSH.
 			if err != nil {
 				return fmt.Errorf("could not determine hostname: %w", err)
 			}
-			localDut := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
+			localDut, err := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
+			if err != nil {
+				return err
+			}
 
 			// Tunnel to Callbox Manager service on callbox proxy.
 			hostProxy := args[1]
-			localCallboxManager := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "CALLBOX_MANAGER", "", remotePortCallboxManager, hostProxy)
+			localCallboxManager, err := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "CALLBOX_MANAGER", "", remotePortCallboxManager, hostProxy)
+			if err != nil {
+				return err
+			}
 
 			// Tunnel to callbox through proxy.
 			hostCallbox := args[2]
-			localCallbox := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "CALLBOX", hostCallbox, remotePortCallbox, hostProxy)
+			localCallbox, err := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "CALLBOX", hostCallbox, remotePortCallbox, hostProxy)
+			if err != nil {
+				return err
+			}
 
 			time.Sleep(time.Second)
 			log.Logger.Printf(

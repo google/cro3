@@ -50,16 +50,27 @@ see "labtunnel btpeers --help" for details.
 			if err != nil {
 				return fmt.Errorf("could not determine hostname: %w", err)
 			}
-			localDut := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
+			localDut, err := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
+			if err != nil {
+				return err
+			}
 
 			// Tunnel to routers.
-			localRouters := tunnelToRoutersUsingDutHost(cmd.Context(), sshManager, hostDut, routerCount)
+			localRouters, err := tunnelToRoutersUsingDutHost(cmd.Context(), sshManager, hostDut, routerCount)
+			if err != nil {
+				return err
+			}
 
 			// Tunnel to pcaps.
-			localPcaps := tunnelToPcapsUsingDutHost(cmd.Context(), sshManager, hostDut, pcapCount)
+			localPcaps, err := tunnelToPcapsUsingDutHost(cmd.Context(), sshManager, hostDut, pcapCount)
+			if err != nil {
+				return err
+			}
 
 			// Tunnel to btpeers.
-			tunnelToBtpeersUsingDutHost(cmd.Context(), sshManager, hostDut, wificellCmdBtpeerCount)
+			if _, err := tunnelToBtpeersUsingDutHost(cmd.Context(), sshManager, hostDut, wificellCmdBtpeerCount); err != nil {
+				return err
+			}
 
 			time.Sleep(time.Second)
 			log.Logger.Printf(

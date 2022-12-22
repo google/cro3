@@ -13,7 +13,7 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:     "labtunnel",
-		Version: "2.4.1",
+		Version: "2.5.0",
 		Short:   "Create and maintain ssh tunnels for common lab environments easily.",
 		Long: `
 Create and maintain ssh tunnels for common lab environments easily.
@@ -38,11 +38,12 @@ ports will be freed upon stopping labtunnel.
 	}
 
 	// Persistent CLI Flags.
-	localPortStart       int
-	sshOptions           []string
-	remotePortSsh        int
-	sshRetryDelaySeconds int
-	remotePortChameleond int
+	localPortStart          int
+	sshOptions              []string
+	remotePortSsh           int
+	sshRetryDelaySeconds    int
+	remotePortChameleond    int
+	satlabDroneHostOverride string
 )
 
 func init() {
@@ -70,6 +71,7 @@ func init() {
 		"ssh options for all ssh commands",
 	)
 	rootCmd.PersistentFlags().IntVar(&remotePortChameleond, "remote-port-chameleond", 9992, "Remote port for accessing the chameleond service on btpeers and chameleon devices")
+	rootCmd.PersistentFlags().StringVar(&satlabDroneHostOverride, "satlab", "", "Hostname of the satlab drone to tunnel through (overrides hostname deduced from provided hostnames; affects all tunnels)")
 }
 
 func Execute(ctx context.Context) error {

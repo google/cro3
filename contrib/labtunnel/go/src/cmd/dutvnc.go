@@ -56,7 +56,10 @@ localhost:5900 with your preferred VNC client.
 			})
 
 			// Tunnel to kmsvnc port on dut.
-			localVnc := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "DUT-VNC", "", remotePortVnc, hostDut)
+			localVnc, err := tunnelLocalPortToRemotePort(cmd.Context(), sshManager, "DUT-VNC", "", remotePortVnc, hostDut)
+			if err != nil {
+				return err
+			}
 
 			log.Logger.Println("DUT VNC available at", localVnc)
 
