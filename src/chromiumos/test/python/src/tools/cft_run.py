@@ -60,6 +60,7 @@ def parse_local_arguments() -> argparse.Namespace:
   parser.add_argument('-dutport',
                       dest='dutport',
                       default=None,
+                      type=int,
                       help='hostname of dut.')
   parser.add_argument('-board',
                       dest='board',
