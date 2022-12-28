@@ -150,7 +150,7 @@ type SetupCTR struct {
 func (starter *SetupCTR) Setup() error {
 	path, err := starter.fetchCrosToolRunner()
 	if err != nil {
-		return nil
+		return err
 	}
 
 	go BuildServiceListener(

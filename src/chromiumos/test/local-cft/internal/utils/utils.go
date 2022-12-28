@@ -21,7 +21,7 @@ func EnsureContainerAvailable(containerName string) error {
 	stopOutput, err := stop.CombinedOutput()
 	output := string(stopOutput)
 	if err != nil && output != fmt.Sprintf("Error response from daemon: No such container: %s\n", containerName) {
-		return err
+		return fmt.Errorf(output)
 	}
 
 	if strings.Contains(output, containerName) {
