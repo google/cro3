@@ -10,6 +10,8 @@ import (
 	"log"
 	"strings"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
+
 	"chromiumos/test/provision/v2/android-provision/common"
 	"chromiumos/test/provision/v2/android-provision/common/cipd"
 	"chromiumos/test/provision/v2/android-provision/service"
@@ -64,4 +66,8 @@ func (c *ResolveCIPDPackageCommand) Revert() error {
 
 func (c *ResolveCIPDPackageCommand) GetErrorMessage() string {
 	return "failed to resolve CIPD package"
+}
+
+func (c *ResolveCIPDPackageCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_CIPD_PACKAGE_LOOKUP_FAILED
 }

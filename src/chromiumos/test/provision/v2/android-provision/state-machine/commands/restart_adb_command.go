@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
+
 	"chromiumos/test/provision/v2/android-provision/common"
 	"chromiumos/test/provision/v2/android-provision/service"
 )
@@ -51,4 +53,8 @@ func (c *RestartADBCommand) Revert() error {
 
 func (c *RestartADBCommand) GetErrorMessage() string {
 	return "failed to restart ADB service"
+}
+
+func (c *RestartADBCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_DUT_UNREACHABLE_PRE_PROVISION
 }

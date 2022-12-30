@@ -65,5 +65,8 @@ func TestResolveCIPDPackageCommand(t *testing.T) {
 		Convey("GetErrorMessage", func() {
 			So(cmd.GetErrorMessage(), ShouldEqual, "failed to resolve CIPD package")
 		})
+		Convey("GetStatus", func() {
+			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_CIPD_PACKAGE_LOOKUP_FAILED)
+		})
 	})
 }

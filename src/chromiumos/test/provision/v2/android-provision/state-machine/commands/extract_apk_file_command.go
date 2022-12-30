@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
+
 	"chromiumos/test/provision/v2/android-provision/common/zip"
 	"chromiumos/test/provision/v2/android-provision/service"
 )
@@ -53,4 +55,8 @@ func (c *ExtractAPKFileCommand) Revert() error {
 
 func (c *ExtractAPKFileCommand) GetErrorMessage() string {
 	return "failed to extract APK file"
+}
+
+func (c *ExtractAPKFileCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PRE_PROVISION_SETUP_FAILED
 }

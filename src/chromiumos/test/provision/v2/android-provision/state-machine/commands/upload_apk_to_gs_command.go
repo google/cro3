@@ -90,6 +90,10 @@ func (c *UploadAPKToGSCommand) GetErrorMessage() string {
 	return "failed to extract APK file"
 }
 
+func (c *UploadAPKToGSCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_GS_UPLOAD_FAILED
+}
+
 func getApkName(cipdPkgProto *api.CIPDPackage) (string, error) {
 	switch p := cipdPkgProto.GetAndroidPackage(); p {
 	case api.AndroidPackage_GMS_CORE:

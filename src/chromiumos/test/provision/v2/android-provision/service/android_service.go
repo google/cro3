@@ -13,6 +13,7 @@ import (
 
 	"go.chromium.org/chromiumos/config/go/test/api"
 	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	common_utils "chromiumos/test/provision/v2/common-utils"
 )
@@ -61,29 +62,21 @@ type AndroidService struct {
 }
 
 func NewAndroidService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.InstallRequest) (*AndroidService, error) {
-	m, err := unpackMetadata(req)
-	if err != nil {
-		return nil, err
-	}
 	dir, err := os.MkdirTemp("", "android_provision_")
 	if err != nil {
 		return nil, err
 	}
-	var p []*ProvisionPackage
-	for _, pkgProto := range m.GetCipdPackages() {
-		cipdPkg := &CIPDPackage{
-			PackageProto: pkgProto,
-		}
-		p = append(p, &ProvisionPackage{CIPDPackage: cipdPkg})
-	}
-	return &AndroidService{
+	svc := &AndroidService{
 		DUT: &DUTConnection{
 			AssociatedHost: common_utils.NewServiceAdapter(dutClient, true),
 			SerialNumber:   dut.GetAndroid().GetSerialNumber(),
 		},
-		ProvisionDir:      dir,
-		ProvisionPackages: p,
-	}, nil
+		ProvisionDir: dir,
+	}
+	if err := svc.UnmarshalRequestMetadata(req); err != nil {
+		return nil, err
+	}
+	return svc, nil
 }
 
 func NewAndroidServiceFromAndroidProvisionRequest(dutClient api.DutServiceClient, req *api.AndroidProvisionRequest) (*AndroidService, error) {
@@ -146,11 +139,33 @@ func (svc *AndroidService) CleanupOnFailure(states []common_utils.ServiceState, 
 	return nil
 }
 
-// unpackMetadata unpacks the Any metadata field into AndroidProvisionMetadata
-func unpackMetadata(req *api.InstallRequest) (*api.AndroidProvisionMetadata, error) {
-	m := api.AndroidProvisionMetadata{}
-	if err := req.Metadata.UnmarshalTo(&m); err != nil {
-		return &m, fmt.Errorf("improperly formatted input proto metadata, %s", err)
+// MarshalResponseMetadata packs AndroidProvisionRequestMetadata into the Any message type.
+func (svc *AndroidService) MarshalResponseMetadata() (*anypb.Any, error) {
+	var p []*api.InstalledAndroidPackage
+	for _, pkg := range svc.ProvisionPackages {
+		if ap := pkg.AndroidPackage; ap != nil && ap.UpdatedVersionCode != "" {
+			installedPkg := &api.InstalledAndroidPackage{
+				Name:        ap.PackageName,
+				VersionCode: ap.UpdatedVersionCode,
+			}
+			p = append(p, installedPkg)
+		}
 	}
-	return &m, nil
+	resp := &api.AndroidProvisionResponseMetadata{InstalledAndroidPackages: p}
+	return anypb.New(resp)
+}
+
+// UnmarshalRequestMetadata unpacks the Any metadata field into AndroidProvisionRequestMetadata
+func (svc *AndroidService) UnmarshalRequestMetadata(req *api.InstallRequest) error {
+	m := api.AndroidProvisionRequestMetadata{}
+	if err := req.Metadata.UnmarshalTo(&m); err != nil {
+		return fmt.Errorf("improperly formatted input proto metadata, %s", err)
+	}
+	for _, pkgProto := range m.GetCipdPackages() {
+		cipdPkg := &CIPDPackage{
+			PackageProto: pkgProto,
+		}
+		svc.ProvisionPackages = append(svc.ProvisionPackages, &ProvisionPackage{CIPDPackage: cipdPkg})
+	}
+	return nil
 }

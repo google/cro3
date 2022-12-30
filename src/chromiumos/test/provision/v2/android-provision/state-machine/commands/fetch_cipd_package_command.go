@@ -60,3 +60,7 @@ func (c *FetchCIPDPackageCommand) Revert() error {
 func (c *FetchCIPDPackageCommand) GetErrorMessage() string {
 	return "failed to fetch CIPD package"
 }
+
+func (c *FetchCIPDPackageCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_CIPD_PACKAGE_FETCH_FAILED
+}

@@ -62,5 +62,8 @@ func TestCleanupCommand(t *testing.T) {
 		Convey("GetErrorMessage", func() {
 			So(cmd.GetErrorMessage(), ShouldEqual, "failed to cleanup temp files")
 		})
+		Convey("GetStatus", func() {
+			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_POST_PROVISION_SETUP_FAILED)
+		})
 	})
 }

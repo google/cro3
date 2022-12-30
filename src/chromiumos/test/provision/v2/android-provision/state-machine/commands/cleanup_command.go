@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
+
 	"chromiumos/test/provision/v2/android-provision/service"
 )
 
@@ -43,4 +45,8 @@ func (c *CleanupCommand) Revert() error {
 
 func (c *CleanupCommand) GetErrorMessage() string {
 	return "failed to cleanup temp files"
+}
+
+func (c *CleanupCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_POST_PROVISION_SETUP_FAILED
 }

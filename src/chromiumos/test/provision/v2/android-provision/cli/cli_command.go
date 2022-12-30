@@ -26,6 +26,19 @@ import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
 )
 
+var statusToResult = map[api.InstallResponse_Status]api.InstallFailure_Reason{
+	api.InstallResponse_STATUS_INVALID_REQUEST:               api.InstallFailure_REASON_INVALID_REQUEST,
+	api.InstallResponse_STATUS_DUT_UNREACHABLE_PRE_PROVISION: api.InstallFailure_REASON_DUT_UNREACHABLE_PRE_PROVISION,
+	api.InstallResponse_STATUS_DOWNLOADING_IMAGE_FAILED:      api.InstallFailure_REASON_DOWNLOADING_IMAGE_FAILED,
+	api.InstallResponse_STATUS_PROVISIONING_FAILED:           api.InstallFailure_REASON_PROVISIONING_FAILED,
+	api.InstallResponse_STATUS_POST_PROVISION_SETUP_FAILED:   api.InstallFailure_REASON_POST_PROVISION_SETUP_FAILED,
+	api.InstallResponse_STATUS_PRE_PROVISION_SETUP_FAILED:    api.InstallFailure_REASON_PRE_PROVISION_SETUP_FAILED,
+	api.InstallResponse_STATUS_CIPD_PACKAGE_LOOKUP_FAILED:    api.InstallFailure_REASON_CIPD_PACKAGE_LOOKUP_FAILED,
+	api.InstallResponse_STATUS_CIPD_PACKAGE_FETCH_FAILED:     api.InstallFailure_REASON_CIPD_PACKAGE_FETCH_FAILED,
+	api.InstallResponse_STATUS_GS_UPLOAD_FAILED:              api.InstallFailure_REASON_GS_UPLOAD_FAILED,
+	api.InstallResponse_STATUS_GS_DOWNLOAD_FAILED:            api.InstallFailure_REASON_GS_DOWNLOAD_FAILED,
+}
+
 // CLICommand executed the provisioning as a CLI
 type CLICommand struct {
 	logFileName string
@@ -110,17 +123,15 @@ func (cc *CLICommand) Run() error {
 		return fmt.Errorf("failed to create AndroidService: %s", err)
 	}
 	cc.log.Printf("New AndroidService Created")
-
-	out := &api.AndroidProvisionResponse{
+	out := &api.AndroidProvisionCLIResponse{
 		Id: &lab_api.Dut_Id{
 			Value: cc.inputProto.GetDut().GetId().GetValue(),
 		},
-		Outcome: &api.AndroidProvisionResponse_Success{},
+		Outcome: &api.AndroidProvisionCLIResponse_Success{},
 	}
-
 	defer cc.saveResponse(out)
 	cc.log.Printf("Starting State Machine.")
-	_, err = common_utils.ExecuteStateMachine(context.Background(), state_machine.NewPrepareState(svc), cc.log)
+	respStatus, _, err := common_utils.ExecuteStateMachine(context.Background(), state_machine.NewPrepareState(svc), cc.log)
 	for _, pkg := range svc.ProvisionPackages {
 		if androidPkg := pkg.AndroidPackage; androidPkg != nil && androidPkg.UpdatedVersionCode != "" {
 			installedPkg := &api.InstalledAndroidPackage{
@@ -132,9 +143,10 @@ func (cc *CLICommand) Run() error {
 	}
 	if err != nil {
 		cc.log.Printf("State Machine Failed: %v", err)
-		out.Outcome = &api.AndroidProvisionResponse_Failure{
+		translatedStatus := statusToResult[respStatus]
+		out.Outcome = &api.AndroidProvisionCLIResponse_Failure{
 			Failure: &api.InstallFailure{
-				Reason: api.InstallFailure_Reason(api.InstallResponse_STATUS_PROVISIONING_FAILED),
+				Reason: api.InstallFailure_Reason(translatedStatus),
 			},
 		}
 		return fmt.Errorf("failed to provision, %s", err)
@@ -143,7 +155,7 @@ func (cc *CLICommand) Run() error {
 }
 
 // saveResponse saves response to the output file.
-func (cc *CLICommand) saveResponse(out *api.AndroidProvisionResponse) error {
+func (cc *CLICommand) saveResponse(out *api.AndroidProvisionCLIResponse) error {
 	cc.log.Printf("saveCLIOutput out:%s\n", out)
 	if cc.outputFile != "" && out != nil {
 		dir := filepath.Dir(cc.outputFile)

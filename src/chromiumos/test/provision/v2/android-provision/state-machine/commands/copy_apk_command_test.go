@@ -62,5 +62,8 @@ func TestCopyAPKCommand(t *testing.T) {
 		Convey("GetErrorMessage", func() {
 			So(cmd.GetErrorMessage(), ShouldEqual, "failed to copy APK file")
 		})
+		Convey("GetStatus", func() {
+			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_GS_DOWNLOAD_FAILED)
+		})
 	})
 }

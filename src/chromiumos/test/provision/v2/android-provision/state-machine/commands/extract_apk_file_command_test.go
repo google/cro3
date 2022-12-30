@@ -65,5 +65,8 @@ func TestExtractAPKFileCommand(t *testing.T) {
 		Convey("GetErrorMessage", func() {
 			So(cmd.GetErrorMessage(), ShouldEqual, "failed to extract APK file")
 		})
+		Convey("GetStatus", func() {
+			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_PRE_PROVISION_SETUP_FAILED)
+		})
 	})
 }

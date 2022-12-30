@@ -5,13 +5,14 @@
 package commands
 
 import (
-	"chromiumos/test/provision/v2/android-provision/common"
-	"chromiumos/test/provision/v2/android-provision/common/gsstorage"
-	"chromiumos/test/provision/v2/android-provision/service"
 	"context"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"chromiumos/test/provision/v2/android-provision/common"
+	"chromiumos/test/provision/v2/android-provision/common/gsstorage"
+	"chromiumos/test/provision/v2/android-provision/service"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
@@ -80,6 +81,9 @@ func TestUploadApkToGsCommand(t *testing.T) {
 		})
 		Convey("GetErrorMessage", func() {
 			So(cmd.GetErrorMessage(), ShouldEqual, "failed to extract APK file")
+		})
+		Convey("GetStatus", func() {
+			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_GS_UPLOAD_FAILED)
 		})
 	})
 }

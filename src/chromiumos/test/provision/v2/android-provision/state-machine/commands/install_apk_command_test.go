@@ -61,5 +61,8 @@ func TestInstallAPKCommand(t *testing.T) {
 		Convey("GetErrorMessage", func() {
 			So(cmd.GetErrorMessage(), ShouldEqual, "failed to install APK")
 		})
+		Convey("GetStatus", func() {
+			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_PROVISIONING_FAILED)
+		})
 	})
 }

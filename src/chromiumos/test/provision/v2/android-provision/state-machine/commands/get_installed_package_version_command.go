@@ -73,3 +73,7 @@ func (c *GetInstalledPackageVersionCommand) Revert() error {
 func (c *GetInstalledPackageVersionCommand) GetErrorMessage() string {
 	return "failed to read installed package version"
 }
+
+func (c *GetInstalledPackageVersionCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_DUT_UNREACHABLE_PRE_PROVISION
+}

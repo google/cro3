@@ -8,6 +8,8 @@ import (
 	"context"
 	"log"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
+
 	"chromiumos/test/provision/v2/android-provision/service"
 )
 
@@ -53,4 +55,8 @@ func (c *InstallAPKCommand) Revert() error {
 
 func (c *InstallAPKCommand) GetErrorMessage() string {
 	return "failed to install APK"
+}
+
+func (c *InstallAPKCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

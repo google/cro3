@@ -50,5 +50,8 @@ func TestRestartADBCommand(t *testing.T) {
 		Convey("GetErrorMessage", func() {
 			So(cmd.GetErrorMessage(), ShouldEqual, "failed to restart ADB service")
 		})
+		Convey("GetStatus", func() {
+			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_DUT_UNREACHABLE_PRE_PROVISION)
+		})
 	})
 }

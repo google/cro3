@@ -9,6 +9,8 @@ import (
 	"log"
 	"path/filepath"
 
+	"go.chromium.org/chromiumos/config/go/test/api"
+
 	"chromiumos/test/provision/v2/android-provision/service"
 )
 
@@ -51,4 +53,8 @@ func (c *CopyAPKCommand) Revert() error {
 
 func (c *CopyAPKCommand) GetErrorMessage() string {
 	return "failed to copy APK file"
+}
+
+func (c *CopyAPKCommand) GetStatus() api.InstallResponse_Status {
+	return api.InstallResponse_STATUS_GS_DOWNLOAD_FAILED
 }
