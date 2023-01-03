@@ -105,7 +105,7 @@ for carrier in ['verizon', 'tmobile', 'att',
 
     tests = single_test_template.format(
         test_exprs="['cellular.ShillCellularEnableAndConnect','cellular.HostCellularStressEnableDisable','cellular.ModemmanagerEnableAndConnect','cellular.ShillCellularSafetyDance']")
-    write_control_file(out_dir, 'cellular_ota',
+    write_control_file(out_dir, 'cellular_ota_flaky',
                        carrier, 'stress', tests)
 
     tests = single_test_template.format(
@@ -118,7 +118,7 @@ for carrier in ['verizon', 'tmobile', 'att',
     write_control_file(out_dir, 'cellular_ota',
                        carrier, 'platform', tests)
 
-    test_exprs = "['cellular.*SuspendResume*']"
+    tests = single_test_template.format(test_exprs = "['cellular.*SuspendResume*']")
     write_control_file(out_dir, 'cellular_ota_flaky',
                        carrier, 'suspend_resume', tests)
 
