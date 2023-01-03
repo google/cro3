@@ -5,15 +5,18 @@
 package builder
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"go.chromium.org/chromiumos/infra/proto/go/chromiumos"
 	"go.chromium.org/chromiumos/infra/proto/go/test_platform"
+	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/buildbucket"
+	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/site"
+	"go.chromium.org/luci/auth"
 	buildbucketpb "go.chromium.org/luci/buildbucket/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -636,6 +639,64 @@ func TestBuildTags(t *testing.T) {
 			t.Parallel()
 			got := tt.input.buildTags()
 			if diff := cmp.Diff(tt.want, got, CmpOpts); diff != "" {
+				t.Errorf("unexpected diff (%s)", diff)
+			}
+		})
+	}
+}
+
+func bbClient(
+	ctx context.Context,
+	builder *buildbucketpb.BuilderID,
+	opts *auth.Options,
+) *buildbucket.Client {
+	client, _ := buildbucket.NewClient(ctx, builder, "test-bb.com", opts, buildbucket.NewHTTPClient)
+	return client
+}
+
+func TestGetClient(t *testing.T) {
+	type fields struct {
+		AuthOptions *auth.Options
+		BBClient    *buildbucket.Client
+		BuilderID   *buildbucketpb.BuilderID
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    *buildbucket.Client
+		wantErr bool
+	}{
+		{
+			name: "client provided",
+			fields: fields{
+				BBClient: &buildbucket.Client{BuilderID: &buildbucketpb.BuilderID{Project: "provided"}},
+			},
+			want:    &buildbucket.Client{BuilderID: &buildbucketpb.BuilderID{Project: "provided"}},
+			wantErr: false,
+		},
+		{
+			name: "no client",
+			fields: fields{
+				AuthOptions: &site.DefaultAuthOptions,
+				BuilderID:   &buildbucketpb.BuilderID{Project: "test"},
+			},
+			want:    bbClient(context.Background(), &buildbucketpb.BuilderID{Project: "test"}, &site.DefaultAuthOptions),
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &CTPBuilder{
+				AuthOptions: tt.fields.AuthOptions,
+				BBClient:    tt.fields.BBClient,
+				BuilderID:   tt.fields.BuilderID,
+			}
+			got, err := c.getClient(context.Background())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CTPBuilder.getClient() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreUnexported(buildbucket.Client{}, buildbucketpb.BuilderID{})); diff != "" {
 				t.Errorf("unexpected diff (%s)", diff)
 			}
 		})

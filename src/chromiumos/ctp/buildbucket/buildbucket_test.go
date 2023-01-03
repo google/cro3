@@ -7,8 +7,8 @@ package buildbucket
 import (
 	"context"
 	"net/http"
-	"testing"
 	"strings"
+	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -16,7 +16,6 @@ import (
 	buildbucketpb "go.chromium.org/luci/buildbucket/proto"
 	"go.chromium.org/luci/grpc/prpc"
 	"google.golang.org/grpc"
-
 
 	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/site"
 )
@@ -46,10 +45,10 @@ func TestNewClient(t *testing.T) {
 	}
 	wantClient := &Client{
 		client:    buildbucketpb.NewBuildsPRPCClient(wantPRPCClient),
-		builderID: builderID,
+		BuilderID: builderID,
 	}
 
-	if diff := cmp.Diff(wantClient, c, cmpopts.IgnoreUnexported(Client{})); diff != "" {
+	if diff := cmp.Diff(wantClient, c, cmpopts.IgnoreUnexported(Client{}, buildbucketpb.BuilderID{})); diff != "" {
 		t.Errorf("unexpected diff (%s)", diff)
 	}
 }
@@ -93,7 +92,7 @@ type fakeBBClient struct{}
 // Also puts the fields we input in request the SummaryMarkdown field for verification
 func (fakeBBClient) GetBuild(ctx context.Context, in *buildbucketpb.GetBuildRequest, opts ...grpc.CallOption) (*buildbucketpb.Build, error) {
 	b := &buildbucketpb.Build{
-		Id: in.Id,
+		Id:              in.Id,
 		SummaryMarkdown: strings.Join(in.Fields.GetPaths(), ", "),
 	}
 
@@ -106,25 +105,25 @@ func (fakeBBClient) ScheduleBuild(ctx context.Context, in *buildbucketpb.Schedul
 }
 
 var testGetBuildData = []struct {
-	name  string
-	inputID int64
+	name        string
+	inputID     int64
 	inputFields []string
-	want  *buildbucketpb.Build
-} {
+	want        *buildbucketpb.Build
+}{
 	{
-		name: "no fields",
+		name:    "no fields",
 		inputID: 123,
 		want: &buildbucketpb.Build{
-			Id: 123,
+			Id:              123,
 			SummaryMarkdown: "*",
 		},
 	},
 	{
-		name: "fields",
-		inputID: 123,
+		name:        "fields",
+		inputID:     123,
 		inputFields: []string{"foo", "bar"},
 		want: &buildbucketpb.Build{
-			Id: 123,
+			Id:              123,
 			SummaryMarkdown: "foo, bar",
 		},
 	},
@@ -134,9 +133,9 @@ func TestGetBuild(t *testing.T) {
 	t.Parallel()
 	for _, tt := range testGetBuildData {
 		tt := tt
-		c := Client {
-			client: fakeBBClient{},
-			builderID: &buildbucketpb.BuilderID{},
+		c := Client{
+			client:    fakeBBClient{},
+			BuilderID: &buildbucketpb.BuilderID{},
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

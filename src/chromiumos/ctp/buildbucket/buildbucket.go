@@ -15,9 +15,9 @@ import (
 	"go.chromium.org/luci/common/errors"
 	"go.chromium.org/luci/grpc/prpc"
 	"go.chromium.org/luci/lucictx"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/common"
 	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/site"
@@ -32,7 +32,7 @@ type bbClient interface {
 // Client provides helper methods to interact with Buildbucket builds.
 type Client struct {
 	client    bbClient
-	builderID *buildbucketpb.BuilderID
+	BuilderID *buildbucketpb.BuilderID
 }
 
 // HttpClientGenerator is a type that facilitates testing
@@ -60,7 +60,7 @@ func NewClient(
 
 	return &Client{
 		client:    buildbucketpb.NewBuildsPRPCClient(prpcClient),
-		builderID: builder,
+		BuilderID: builder,
 	}, nil
 }
 
@@ -110,7 +110,7 @@ func (c *Client) ScheduleBuild(ctx context.Context, props map[string]interface{}
 	}
 
 	request := &buildbucketpb.ScheduleBuildRequest{
-		Builder:    c.builderID,
+		Builder:    c.BuilderID,
 		Properties: propStruct,
 		Dimensions: bbDims(dims),
 		Tags:       bbTags(tags),

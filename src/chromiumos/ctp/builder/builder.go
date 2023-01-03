@@ -31,6 +31,9 @@ type CTPBuilder struct {
 	// These should match the options used to log into LUCI
 	// For more context, see https://pkg.go.dev/go.chromium.org/luci/auth
 	AuthOptions *auth.Options
+	// BBClient is the client used to create buildbucket requests
+	// If nil, a client will be created as part of scheduling the request
+	BBClient *buildbucket.Client
 	// BBService is the URL of the buildbucket service to run against
 	// Defaults to https://cr-buildbucket.appspot.com/
 	BBService string // TODO
@@ -109,7 +112,7 @@ func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build
 		c.AuthOptions = &site.DefaultAuthOptions
 	}
 
-	ctpBBClient, err := buildbucket.NewClient(ctx, c.BuilderID, c.BBService, c.AuthOptions, buildbucket.NewHTTPClient)
+	ctpBBClient, err := c.getClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +141,21 @@ func getDefaultBuilder() *buildbucketpb.BuilderID {
 		Bucket:  "testplatform",
 		Builder: "cros_test_platform",
 	}
+}
+
+// getClient either extracts an associated bb client or creates a new client
+func (c *CTPBuilder) getClient(ctx context.Context) (*buildbucket.Client, error) {
+	// use the struct's builder if exists
+	if c.BBClient != nil {
+		return c.BBClient, nil
+	}
+
+	// otherwise build one for throwaway use
+	ctpBBClient, err := buildbucket.NewClient(ctx, c.BuilderID, c.BBService, c.AuthOptions, buildbucket.NewHTTPClient)
+	if err != nil {
+		return nil, err
+	}
+	return ctpBBClient, nil
 }
 
 // validateAndAddDefaults checks for any required fields and adds appropriate
