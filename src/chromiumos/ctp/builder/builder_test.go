@@ -525,6 +525,7 @@ func TestTestPlatformRequest(t *testing.T) {
 		Keyvals:         map[string]string{"foo-key": "foo-val"},
 		CFT:             true,
 		TestPlan:        sampleTestPlan,
+		UseScheduke:     true,
 	}
 	buildTags := map[string]string{"foo-tag": "bar-tag"}
 	wantRequest := &test_platform.Request{
@@ -564,7 +565,8 @@ func TestTestPlatformRequest(t *testing.T) {
 			Time: &test_platform.Request_Params_Time{
 				MaximumDuration: durationpb.New(time.Duration(1800000000000)),
 			},
-			RunViaCft: true,
+			RunViaCft:           true,
+			ScheduleViaScheduke: true,
 		},
 	}
 	gotRequest, err := b.testPlatformRequest(buildTags)

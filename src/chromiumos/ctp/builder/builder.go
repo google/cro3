@@ -87,6 +87,8 @@ type CTPBuilder struct {
 	// TimeoutMins is the timeout of the CTP run in minutes
 	// If not set, will default to 360
 	TimeoutMins int
+	// UseScheduke determines if we use Scheduke to schedule the CTP build
+	UseScheduke bool
 }
 
 func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build, error) {
@@ -266,7 +268,8 @@ func (c *CTPBuilder) testPlatformRequest(buildTags map[string]string) (*test_pla
 				MaximumDuration: durationpb.New(
 					time.Duration(c.TimeoutMins) * time.Minute),
 			},
-			RunViaCft: c.CFT,
+			RunViaCft:           c.CFT,
+			ScheduleViaScheduke: c.UseScheduke,
 		},
 	}
 	// Handling multi-DUTs use case if secondaryBoards provided.
