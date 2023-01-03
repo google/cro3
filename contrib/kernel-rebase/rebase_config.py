@@ -91,7 +91,8 @@ topic_fixups['cros_ec'] = [
     'iio cros_ec_light_prox : Fix 5.15 merging',
     'iio: cros_ec: Add synchronization sensor',
     'iio: cros_ec_activity: add activity sensor driver',
-    'platform iio: cros_ec_activity: add body_detection push event'
+    'platform iio: cros_ec_activity: add body_detection push event',
+    'platform: x86: add ACPI driver for ChromeOS',
 ]
 
 topic_fixups['sound'] = [
