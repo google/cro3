@@ -79,10 +79,6 @@ topic_fixups['media'] = [
     'CHROMIUM: media: intel-ipu6: copy IPU6 driver from v5.4 branch'
 ]
 
-topic_fixups['net'] = [
-    'net: wwan: t7xx: Add NAPI support'
-]
-
 topic_fixups['dts'] = [
     'dts: arm64: mt8183: Add DIP nodes'
 ]
