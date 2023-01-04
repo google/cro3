@@ -71,6 +71,7 @@ topic_fixups['block-fs'] = [
     'verity: bring over dm-verity-chromeos.c',
     'fuse: Implement CHROMEOS_TMPFILE',
     'mm: implement \\proc\\<pid>\\totmaps',
+    'FIXUP-CHROMIUM-drivers-md-dm-verity-chromeos-Fix-bio',
 ]
 
 topic_fixups['media'] = [
@@ -125,6 +126,7 @@ patch_deps = {
       '4638c45ac4c3': ['be850241385f'],
       'bb10d4565c7d': ['5df238f1926b', '7212dd43f055'],
       '9374b3da44f7': ['a8d5ee3cd35c'],
+      '673602971fd9': ['cb8884607325'],
 }
 
 # Add entry here to overwrite default disposition on particular commit
@@ -310,3 +312,4 @@ disp_overlay['a4f839713c7c'] = 'drop' # BACKPORT: FROMLIST: ath11k: fix blocked 
 disp_overlay['a8d5ee3cd35c'] = 'drop' # FROMLIST: i2c: designware: Switch from using MMIO access to SMN access
 disp_overlay['68d83a3cc487'] = 'drop' # CHROMIUM: Introduce Modem Logging functionality
 disp_overlay['91cde532656d'] = 'drop' # CHROMIUM: drm/udl: Cut >165 MHz modes for DVI
+disp_overlay['99d987212829'] = 'drop' # FROMLIST: fuse: 32-bit user space ioctl compat for fuse device
