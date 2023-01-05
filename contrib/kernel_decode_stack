@@ -59,7 +59,7 @@ decode_stacktrace() {
   # kernel/upstream instead of using the one in kernel_source_path.
   local kernel_source_path
   kernel_source_path=$(
-    objdump -WL "/build/${board}/usr/lib/debug/boot/vmlinux" |
+    objdump -WL "/build/${board}/usr/lib/debug/boot/vmlinux" 2>/dev/null |
       grep 'include/linux/compiler.h:$' |
       head -1 |
       sed 's|\(.*\)/include/linux/compiler.h:$|\1|')
