@@ -127,6 +127,7 @@ patch_deps = {
       'bb10d4565c7d': ['5df238f1926b', '7212dd43f055'],
       '9374b3da44f7': ['a8d5ee3cd35c'],
       '673602971fd9': ['cb8884607325'],
+      '0d9ca9d12712': ['93ee698a2665'],
 }
 
 # Add entry here to overwrite default disposition on particular commit
@@ -313,3 +314,4 @@ disp_overlay['a8d5ee3cd35c'] = 'drop' # FROMLIST: i2c: designware: Switch from u
 disp_overlay['68d83a3cc487'] = 'drop' # CHROMIUM: Introduce Modem Logging functionality
 disp_overlay['91cde532656d'] = 'drop' # CHROMIUM: drm/udl: Cut >165 MHz modes for DVI
 disp_overlay['99d987212829'] = 'drop' # FROMLIST: fuse: 32-bit user space ioctl compat for fuse device
+disp_overlay['ef6c7f7bf611'] = 'drop' # FROMLIST: mailbox: mtk-cmdq: instead magic number with GCE_CTRL_BY_SW
