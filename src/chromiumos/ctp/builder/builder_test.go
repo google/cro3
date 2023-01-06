@@ -16,8 +16,8 @@ import (
 	"go.chromium.org/chromiumos/infra/proto/go/test_platform"
 	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/buildbucket"
 	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/site"
-	"go.chromium.org/luci/auth"
 	buildbucketpb "go.chromium.org/luci/buildbucket/proto"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -645,59 +645,42 @@ func TestBuildTags(t *testing.T) {
 	}
 }
 
-func bbClient(
-	ctx context.Context,
-	builder *buildbucketpb.BuilderID,
-	opts *auth.Options,
-) *buildbucket.Client {
-	client, _ := buildbucket.NewClient(ctx, builder, "test-bb.com", opts, buildbucket.NewHTTPClient)
-	return client
+type fakeClient struct{}
+
+func (f fakeClient) GetBuild(context.Context, *buildbucketpb.GetBuildRequest, ...grpc.CallOption) (*buildbucketpb.Build, error) {
+	return nil, nil
+}
+func (f fakeClient) ScheduleBuild(context.Context, *buildbucketpb.ScheduleBuildRequest, ...grpc.CallOption) (*buildbucketpb.Build, error) {
+	return nil, nil
 }
 
 func TestGetClient(t *testing.T) {
-	type fields struct {
-		AuthOptions *auth.Options
-		BBClient    *buildbucket.Client
-		BuilderID   *buildbucketpb.BuilderID
-	}
 	tests := []struct {
-		name    string
-		fields  fields
-		want    *buildbucket.Client
-		wantErr bool
+		name               string
+		providedClient     buildbucket.BBClient
+		shouldBeFakeClient bool
 	}{
 		{
-			name: "client provided",
-			fields: fields{
-				BBClient: &buildbucket.Client{BuilderID: &buildbucketpb.BuilderID{Project: "provided"}},
-			},
-			want:    &buildbucket.Client{BuilderID: &buildbucketpb.BuilderID{Project: "provided"}},
-			wantErr: false,
+			name:               "client provided",
+			providedClient:     fakeClient{},
+			shouldBeFakeClient: true,
 		},
 		{
-			name: "no client",
-			fields: fields{
-				AuthOptions: &site.DefaultAuthOptions,
-				BuilderID:   &buildbucketpb.BuilderID{Project: "test"},
-			},
-			want:    bbClient(context.Background(), &buildbucketpb.BuilderID{Project: "test"}, &site.DefaultAuthOptions),
-			wantErr: false,
+			name:               "no client",
+			providedClient:     nil,
+			shouldBeFakeClient: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &CTPBuilder{
-				AuthOptions: tt.fields.AuthOptions,
-				BBClient:    tt.fields.BBClient,
-				BuilderID:   tt.fields.BuilderID,
+				AuthOptions: &site.DefaultAuthOptions,
+				BBClient:    tt.providedClient,
 			}
-			got, err := c.getClient(context.Background())
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CTPBuilder.getClient() error = %v, wantErr %v", err, tt.wantErr)
+			got, _ := c.getClient(context.Background())
+			if (got == fakeClient{}) != tt.shouldBeFakeClient {
+				t.Errorf("expected fake client: %t, got fake client: %t", tt.shouldBeFakeClient, (got == fakeClient{}))
 				return
-			}
-			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreUnexported(buildbucket.Client{}, buildbucketpb.BuilderID{})); diff != "" {
-				t.Errorf("unexpected diff (%s)", diff)
 			}
 		})
 	}

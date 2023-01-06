@@ -23,16 +23,10 @@ import (
 	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/site"
 )
 
-// bbClient is a subset of buildbucketpb.BuildsClient providing a smaller surface area for unit tests
-type bbClient interface {
+// BBClient is a subset of buildbucketpb.BuildsClient providing a smaller surface area for unit tests
+type BBClient interface {
 	GetBuild(context.Context, *buildbucketpb.GetBuildRequest, ...grpc.CallOption) (*buildbucketpb.Build, error)
 	ScheduleBuild(context.Context, *buildbucketpb.ScheduleBuildRequest, ...grpc.CallOption) (*buildbucketpb.Build, error)
-}
-
-// Client provides helper methods to interact with Buildbucket builds.
-type Client struct {
-	client    bbClient
-	BuilderID *buildbucketpb.BuilderID
 }
 
 // HttpClientGenerator is a type that facilitates testing
@@ -42,11 +36,10 @@ type HttpClientGenerator func(ctx context.Context, o *auth.Options) (*http.Clien
 // given builder.
 func NewClient(
 	ctx context.Context,
-	builder *buildbucketpb.BuilderID,
 	bbService string,
 	opts *auth.Options,
 	httpClientGenerator HttpClientGenerator,
-) (*Client, error) {
+) (BBClient, error) {
 	httpClient, err := httpClientGenerator(ctx, opts)
 	if err != nil {
 		return nil, err
@@ -58,10 +51,9 @@ func NewClient(
 		Options: site.DefaultPRPCOptions,
 	}
 
-	return &Client{
-		client:    buildbucketpb.NewBuildsPRPCClient(prpcClient),
-		BuilderID: builder,
-	}, nil
+	buildsClient := buildbucketpb.NewBuildsPRPCClient(prpcClient)
+
+	return buildsClient, nil
 }
 
 // NewHTTPClient returns an HTTP client with authentication set up.
@@ -87,7 +79,7 @@ func NewHTTPClient(ctx context.Context, o *auth.Options) (*http.Client, error) {
 // that fulfils the same requirements recursively.
 //
 // NOTE: Buildbucket priority is separate from internal swarming priority.
-func (c *Client) ScheduleBuild(ctx context.Context, props map[string]interface{}, dims map[string]string, tags map[string]string, priority int32) (*buildbucketpb.Build, error) {
+func ScheduleBuild(ctx context.Context, props map[string]interface{}, dims map[string]string, tags map[string]string, priority int32, client BBClient, builder *buildbucketpb.BuilderID) (*buildbucketpb.Build, error) {
 	propStruct, err := common.MapToStruct(props)
 
 	if err != nil {
@@ -110,13 +102,13 @@ func (c *Client) ScheduleBuild(ctx context.Context, props map[string]interface{}
 	}
 
 	request := &buildbucketpb.ScheduleBuildRequest{
-		Builder:    c.BuilderID,
+		Builder:    builder,
 		Properties: propStruct,
 		Dimensions: bbDims(dims),
 		Tags:       bbTags(tags),
 		Priority:   priority,
 	}
-	build, err := c.client.ScheduleBuild(ctx, request)
+	build, err := client.ScheduleBuild(ctx, request)
 	if err != nil {
 		return nil, errors.Annotate(err, "schedule build").Err()
 	}
@@ -151,7 +143,7 @@ func bbTags(tags map[string]string) []*buildbucketpb.StringPair {
 
 // GetBuild gets a Buildbucket build by ID, with the given build fields
 // populated. If no fields are given, all fields will be populated.
-func (c *Client) GetBuild(ctx context.Context, ID int64, fields ...string) (*buildbucketpb.Build, error) {
+func GetBuild(ctx context.Context, client BBClient, ID int64, fields ...string) (*buildbucketpb.Build, error) {
 	if len(fields) == 0 {
 		fields = []string{"*"}
 	}
@@ -159,7 +151,7 @@ func (c *Client) GetBuild(ctx context.Context, ID int64, fields ...string) (*bui
 		Id:     ID,
 		Fields: &field_mask.FieldMask{Paths: fields},
 	}
-	build, err := c.client.GetBuild(ctx, request)
+	build, err := client.GetBuild(ctx, request)
 	if err != nil {
 		return nil, errors.Annotate(err, "get build").Err()
 	}

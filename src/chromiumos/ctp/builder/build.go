@@ -18,7 +18,7 @@ import (
 // All fields have a sensible default for "standard" chromeos usage
 type ClientArgs struct {
 	AuthOptions *auth.Options
-	BBService string
+	BBService   string
 }
 
 // GetBuild fetches a build with the fields specified. If no fields are specified, all fields are returned
@@ -30,10 +30,10 @@ func GetBuild(ctx context.Context, args *ClientArgs, ID int64, fields ...string)
 		args.AuthOptions = &site.DefaultAuthOptions
 	}
 
-	ctpBBClient, err := buildbucket.NewClient(ctx, &buildbucketpb.BuilderID{}, args.BBService, args.AuthOptions, buildbucket.NewHTTPClient)
+	ctpBBClient, err := buildbucket.NewClient(ctx, args.BBService, args.AuthOptions, buildbucket.NewHTTPClient)
 	if err != nil {
 		return nil, err
 	}
 
-	return ctpBBClient.GetBuild(ctx, ID, fields...)
+	return buildbucket.GetBuild(ctx, ctpBBClient, ID, fields...)
 }

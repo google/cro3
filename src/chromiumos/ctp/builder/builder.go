@@ -33,7 +33,7 @@ type CTPBuilder struct {
 	AuthOptions *auth.Options
 	// BBClient is the client used to create buildbucket requests
 	// If nil, a client will be created as part of scheduling the request
-	BBClient *buildbucket.Client
+	BBClient buildbucket.BBClient
 	// BBService is the URL of the buildbucket service to run against
 	// Defaults to https://cr-buildbucket.appspot.com/
 	BBService string // TODO
@@ -122,7 +122,7 @@ func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build
 	//
 	// buildProps contains separate dimensions and priority values to apply to
 	// the child test_runner builds that will be launched by the parent build.
-	return ctpBBClient.ScheduleBuild(ctx, c.Properties, nil, buildTags, 0)
+	return buildbucket.ScheduleBuild(ctx, c.Properties, nil, buildTags, 0, ctpBBClient, c.BuilderID)
 }
 
 const (
@@ -142,15 +142,16 @@ func getDefaultBuilder() *buildbucketpb.BuilderID {
 	}
 }
 
-// getClient either extracts an associated bb client or creates a new client
-func (c *CTPBuilder) getClient(ctx context.Context) (*buildbucket.Client, error) {
+// getClient returns a new high level client using either an existing BBClient
+// or creating one on demand
+func (c *CTPBuilder) getClient(ctx context.Context) (buildbucket.BBClient, error) {
 	// use the struct's builder if exists
 	if c.BBClient != nil {
 		return c.BBClient, nil
 	}
 
 	// otherwise build one for throwaway use
-	ctpBBClient, err := buildbucket.NewClient(ctx, c.BuilderID, c.BBService, c.AuthOptions, buildbucket.NewHTTPClient)
+	ctpBBClient, err := buildbucket.NewClient(ctx, c.BBService, c.AuthOptions, buildbucket.NewHTTPClient)
 	if err != nil {
 		return nil, err
 	}

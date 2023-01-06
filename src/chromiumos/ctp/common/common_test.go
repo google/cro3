@@ -13,6 +13,13 @@ import (
 	"go.chromium.org/chromiumos/infra/proto/go/test_platform"
 )
 
+// orderDoesntMatter lets us compare two slices without needing the slices to
+// be in the same order
+var orderDoesntMatter = cmpopts.SortSlices(
+	// deterministically sort the slices lexigraphically
+	func(a, b string) bool { return a < b },
+)
+
 func TestToKeyvalSlice(t *testing.T) {
 	m := map[string]string{
 		"foo":  "bar",
@@ -21,8 +28,7 @@ func TestToKeyvalSlice(t *testing.T) {
 
 	want := []string{"foo:bar", "test:ing"}
 	got := ToKeyvalSlice(m)
-
-	if diff := cmp.Diff(want, got); diff != "" {
+	if diff := cmp.Diff(want, got, orderDoesntMatter); diff != "" {
 		t.Errorf("unexpected diff (%s)", diff)
 	}
 }
