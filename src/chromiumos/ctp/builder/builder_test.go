@@ -702,3 +702,50 @@ func TestGetClient(t *testing.T) {
 		})
 	}
 }
+
+func TestCTPBuilder_addRequestToProperties(t *testing.T) {
+	type fields struct {
+		Properties map[string]interface{}
+	}
+	type args struct {
+		r *test_platform.Request
+	}
+	tests := []struct {
+		name    string
+		builder *CTPBuilder
+		request *test_platform.Request
+		want    *CTPBuilder
+	}{
+		{
+			"test props",
+			&CTPBuilder{Properties: map[string]interface{}{"foo": "bar"}},
+			&test_platform.Request{TestPlan: sampleTestPlan},
+			&CTPBuilder{Properties: map[string]interface{}{
+				"foo": "bar",
+				"requests": map[string]interface{}{
+					// Convert to protoreflect.ProtoMessage for easier type comparison.
+					"default": (&test_platform.Request{TestPlan: sampleTestPlan}).ProtoReflect().Interface(),
+				},
+			}},
+		},
+		{
+			"no props",
+			&CTPBuilder{},
+			&test_platform.Request{TestPlan: sampleTestPlan},
+			&CTPBuilder{Properties: map[string]interface{}{
+				"requests": map[string]interface{}{
+					// Convert to protoreflect.ProtoMessage for easier type comparison.
+					"default": (&test_platform.Request{TestPlan: sampleTestPlan}).ProtoReflect().Interface(),
+				},
+			}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.builder.addRequestToProperties(tt.request)
+		})
+		if diff := cmp.Diff(tt.want, tt.builder, CmpOpts); diff != "" {
+			t.Errorf("unexpected diff (%s)", diff)
+		}
+	}
+}

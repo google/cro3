@@ -67,6 +67,9 @@ type CTPBuilder struct {
 	// Priority is the swarming priority to run tests under
 	// Priority and QSAccount cannot both be set
 	Priority int64
+	// Properties are any input properties to the CTP build that aren't a part
+	// of the CTP request built. Should not include a key with `requests`
+	Properties map[string]interface{}
 	// ProvisionLabels are any labels impacting how we provision a test
 	ProvisionLabels map[string]string
 	// QSAccount is what QuotaScheduler account the tests should run under
@@ -101,12 +104,8 @@ func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build
 	if err != nil {
 		return nil, err
 	}
-	buildProps := map[string]interface{}{
-		"requests": map[string]interface{}{
-			// Convert to protoreflect.ProtoMessage for easier type comparison.
-			"default": ctpRequest.ProtoReflect().Interface(),
-		},
-	}
+
+	c.addRequestToProperties(ctpRequest)
 
 	if c.AuthOptions == nil {
 		c.AuthOptions = &site.DefaultAuthOptions
@@ -123,7 +122,7 @@ func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build
 	//
 	// buildProps contains separate dimensions and priority values to apply to
 	// the child test_runner builds that will be launched by the parent build.
-	return ctpBBClient.ScheduleBuild(ctx, buildProps, nil, buildTags, 0)
+	return ctpBBClient.ScheduleBuild(ctx, c.Properties, nil, buildTags, 0)
 }
 
 const (
@@ -423,4 +422,17 @@ func managedPool(pool string) (test_platform.Request_Params_Scheduling_ManagedPo
 		return 0, false
 	}
 	return test_platform.Request_Params_Scheduling_ManagedPool(enum), true
+}
+
+// addRequestToProperties adds the test platform request to the user-supplied
+// properties in preparation to send to CTP builders
+func (c *CTPBuilder) addRequestToProperties(r *test_platform.Request) {
+	if c.Properties == nil {
+		c.Properties = map[string]interface{}{}
+	}
+
+	c.Properties["requests"] = map[string]interface{}{
+		// Convert to protoreflect.ProtoMessage for easier type comparison.
+		"default": r.ProtoReflect().Interface(),
+	}
 }
