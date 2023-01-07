@@ -73,6 +73,7 @@ type Options struct {
 	ReleaseString string `json:",omitempty"` // release string such as R105-14989.0.0
 	ReleaseNum    int    `json:",omitempty"` // release number such as 105
 	Board         string `json:",omitempty"` // build target name such as brya
+	Port          string `json:",omitempty"` // port number to connect to on the dut-host
 	dut.FlashOptions
 }
 
@@ -99,7 +100,13 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 		return fmt.Errorf("storage.NewClient failed: %w", err)
 	}
 
-	sshClient, err := ssh.DialWithSystemSSH(ctx, target)
+	sshDialer, err := ssh.NewDialer(ssh.SshOptions{Port: opts.Port})
+	if err != nil {
+		return fmt.Errorf("failed to make ssh dialer: %w", err)
+	}
+	defer sshDialer.Close()
+
+	sshClient, err := sshDialer.DialWithSystemSSH(ctx, target)
 	if err != nil {
 		return fmt.Errorf("system ssh failed: %w", err)
 	}
@@ -177,7 +184,7 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	}
 	log.Println("DUT root is on:", oldParts.ActiveRootfs())
 
-	sshClient, err = CheckedReboot(ctx, sshClient, target, oldParts.InactiveRootfs())
+	sshClient, err = CheckedReboot(ctx, sshDialer, sshClient, target, oldParts.InactiveRootfs())
 	if err != nil {
 		return err
 	}
@@ -201,7 +208,7 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	}
 
 	if needs2ndReboot {
-		sshClient, err = CheckedReboot(ctx, sshClient, target, oldParts.InactiveRootfs())
+		sshClient, err = CheckedReboot(ctx, sshDialer, sshClient, target, oldParts.InactiveRootfs())
 		if err != nil {
 			return err
 		}

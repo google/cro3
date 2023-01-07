@@ -28,6 +28,7 @@ func cliParse(args []string) (target string, opts Options, err error) {
 	app.Flag("board",
 		"flash from gs://chromeos-image-archive/${board}-release/R*. Use with caution!").
 		StringVar(&opts.Board)
+	app.Flag("port", "port number to connect to on the dut-host").Short('p').StringVar(&opts.Port)
 	rootfsVerification := app.Flag(
 		"rootfs-verification",
 		"whether rootfs verification on the new root is enabled. "+

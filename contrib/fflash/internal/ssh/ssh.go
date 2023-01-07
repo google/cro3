@@ -6,7 +6,6 @@ package ssh
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 
@@ -17,45 +16,6 @@ import (
 type Client struct {
 	tunnel *Tunnel
 	*ssh.Client
-}
-
-// DialWithSystemSSH connects to destination and return a Client.
-// Affected by ssh_config(5).
-//
-// It uses the ssh command on the system, which understands user SSH configuration (~/.ssh/config)
-// to make the initial connection. A tunnel: a UNIX domain socket is then set to forward traffic
-// to port 22 on the destination system. Then the Client is created, by connecting
-// to the UNIX domain socket. The benefit of doing so is to avoid the need of
-// parsing ssh configuration, while still having a programmatic API, instead of
-// having to deal with ssh child processes.
-func DialWithSystemSSH(ctx context.Context, destination string) (*Client, error) {
-	key, err := ssh.ParsePrivateKey([]byte(TestingRSA))
-	if err != nil {
-		return nil, err
-	}
-
-	tunnel, err := NewTunnel(ctx, destination)
-	if err != nil {
-		return nil, err
-	}
-
-	config := &ssh.ClientConfig{
-		User: "root",
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(key),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	}
-	sshClient, err := ssh.Dial("unix", tunnel.SSHServerSocket(), config)
-	if err != nil {
-		tunnel.Close()
-		return nil, err
-	}
-
-	return &Client{
-		tunnel: tunnel,
-		Client: sshClient,
-	}, nil
 }
 
 // Close the client.

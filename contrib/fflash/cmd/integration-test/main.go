@@ -34,10 +34,16 @@ func main() {
 	kingpin.Arg("dut-host", "the ssh target of the dut").Required().StringVar(&target)
 	kingpin.Parse()
 
-	if err := writeJunk(ctx, target); err != nil {
+	dialer, err := ssh.NewDialer(ssh.SshOptions{})
+	if err != nil {
+		log.Fatal("cannot create new ssh dialer:", err)
+	}
+	defer dialer.Close()
+
+	if err := writeJunk(ctx, dialer, target); err != nil {
 		log.Fatal("cannot write junk:", err)
 	}
-	if err := verifyJunk(ctx, target); err != nil {
+	if err := verifyJunk(ctx, dialer, target); err != nil {
 		log.Fatal("failed to verify junk after writing:", err)
 	}
 
@@ -47,12 +53,12 @@ func main() {
 	}
 
 	// Check rootfs verification is not disabled.
-	if err := checkRootfsVerification(ctx, target, true); err != nil {
+	if err := checkRootfsVerification(ctx, dialer, target, true); err != nil {
 		log.Fatal("check for enabled rootfs verification failed: ", err)
 	}
 
 	// Check the junk file is still there.
-	if err := verifyJunk(ctx, target); err != nil {
+	if err := verifyJunk(ctx, dialer, target); err != nil {
 		log.Fatal("failed to verify junk after non-clobbering flash:", err)
 	}
 
@@ -62,14 +68,14 @@ func main() {
 	}
 
 	// Check that the junk file is removed after clobbering flash.
-	cmd := ssh.DefaultCommand(ctx)
+	cmd := dialer.DefaultCommand(ctx)
 	cmd.Args = append(cmd.Args, target, "test", "!", "-e", statefulJunkFile)
 	if err := cmd.Run(); err != nil {
 		log.Fatal("junk file is not removed after clobbering flash")
 	}
 
 	// Check rootfs verification is disabled.
-	if err := checkRootfsVerification(ctx, target, false); err != nil {
+	if err := checkRootfsVerification(ctx, dialer, target, false); err != nil {
 		log.Fatal("check for disabled rootfs verification failed: ", err)
 	}
 
@@ -77,8 +83,8 @@ func main() {
 }
 
 // Write junk to the stateful partition.
-func writeJunk(ctx context.Context, target string) error {
-	cmd := ssh.DefaultCommand(ctx)
+func writeJunk(ctx context.Context, dialer *ssh.Dialer, target string) error {
+	cmd := dialer.DefaultCommand(ctx)
 	cmd.Args = append(cmd.Args, target, "cat", ">", statefulJunkFile)
 	cmd.Stdin = bytes.NewBufferString(statefulJunkText)
 	cmd.Stdout = os.Stderr
@@ -86,8 +92,8 @@ func writeJunk(ctx context.Context, target string) error {
 	return cmd.Run()
 }
 
-func verifyJunk(ctx context.Context, target string) error {
-	cmd := ssh.DefaultCommand(ctx)
+func verifyJunk(ctx context.Context, dialer *ssh.Dialer, target string) error {
+	cmd := dialer.DefaultCommand(ctx)
 	cmd.Args = append(cmd.Args, target, "cat", statefulJunkFile)
 	cmd.Stderr = os.Stderr
 	stdout, err := cmd.Output()
@@ -103,8 +109,8 @@ func verifyJunk(ctx context.Context, target string) error {
 }
 
 // checkRootfsVerification returns whether rootfs verification is in the desired state.
-func checkRootfsVerification(ctx context.Context, target string, enabled bool) error {
-	cmd := ssh.DefaultCommand(ctx)
+func checkRootfsVerification(ctx context.Context, dialer *ssh.Dialer, target string, enabled bool) error {
+	cmd := dialer.DefaultCommand(ctx)
 	cmd.Args = append(cmd.Args, target,
 		// Check that rootfs verification is disabled.
 		"/usr/libexec/debugd/helpers/dev_features_rootfs_verification", "-q",

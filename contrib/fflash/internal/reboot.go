@@ -22,18 +22,18 @@ func GetBootId(ctx context.Context, c *ssh.Client) (string, error) {
 
 // GetRebootingBootId attempts to connect to host using the system SSH command.
 // Then returns the unique boot ID of the host.
-func GetRebootingBootId(ctx context.Context, host string) (string, error) {
+func GetRebootingBootId(ctx context.Context, dialer *ssh.Dialer, host string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
 
-	cmd := ssh.DefaultCommand(ctx)
+	cmd := dialer.DefaultCommand(ctx)
 	cmd.Args = append(cmd.Args, host, "cat", BootIdFile)
 	out, err := cmd.Output()
 	return string(out), err
 }
 
 // WaitReboot waits the ssh host to reboot
-func WaitReboot(ctx context.Context, host string, oldBootID string) error {
+func WaitReboot(ctx context.Context, dialer *ssh.Dialer, host string, oldBootID string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
@@ -41,7 +41,7 @@ func WaitReboot(ctx context.Context, host string, oldBootID string) error {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
-			BootID, err := GetRebootingBootId(ctx, host)
+			BootID, err := GetRebootingBootId(ctx, dialer, host)
 			if err != nil {
 				continue
 			}
@@ -54,7 +54,7 @@ func WaitReboot(ctx context.Context, host string, oldBootID string) error {
 }
 
 // Reboot the device connected with client and wait for the host to be online
-func Reboot(ctx context.Context, client *ssh.Client, host string) error {
+func Reboot(ctx context.Context, dialer *ssh.Dialer, client *ssh.Client, host string) error {
 	bootID, err := GetBootId(ctx, client)
 	if err != nil {
 		return fmt.Errorf("cannot get current boot ID of DUT %s", bootID)
@@ -66,7 +66,7 @@ func Reboot(ctx context.Context, client *ssh.Client, host string) error {
 	}
 	client.Close()
 
-	return WaitReboot(ctx, host, bootID)
+	return WaitReboot(ctx, dialer, host, bootID)
 }
 
 // checkBootExpectations checks that the DUT host reboots to wantActiveRootfs.
@@ -85,14 +85,14 @@ func checkBootExpectations(ctx context.Context, client *ssh.Client, wantActiveRo
 // CheckedReboot reboots the dut with Reboot() and checkBootExpectations().
 // A new SSH client is provided to interact with the rebooted host.
 // The passed in client is closed.
-func CheckedReboot(ctx context.Context, client *ssh.Client, host, wantActiveRootfs string) (*ssh.Client, error) {
-	if err := Reboot(ctx, client, host); err != nil {
+func CheckedReboot(ctx context.Context, dialer *ssh.Dialer, client *ssh.Client, host, wantActiveRootfs string) (*ssh.Client, error) {
+	if err := Reboot(ctx, dialer, client, host); err != nil {
 		return nil, err
 	}
 	client.Close()
 
 	log.Println("checking boot expectations")
-	client, err := ssh.DialWithSystemSSH(ctx, host)
+	client, err := dialer.DialWithSystemSSH(ctx, host)
 	if err != nil {
 		return nil, err
 	}
