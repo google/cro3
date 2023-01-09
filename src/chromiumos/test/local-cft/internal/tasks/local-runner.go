@@ -201,7 +201,7 @@ func (c *localCftCmd) validateArgs() error {
 		return fmt.Errorf("-model and -board must be provided.")
 	}
 	if c.dutHost == "" {
-		return fmt.Errorf("-duthost must be provided.")
+		return fmt.Errorf("-host must be provided.")
 	}
 
 	parsedLocalServices := strings.Split(c.localServices, ",")
