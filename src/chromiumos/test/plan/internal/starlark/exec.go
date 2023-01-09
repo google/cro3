@@ -196,6 +196,10 @@ func ExecTestPlan(
 	intr := interpreter.Interpreter{
 		Predeclared: starlark.StringDict{
 			testplanModule.Name: testplanModule,
+			// Add the "struct" builtin as a convenience.
+			starlarkstruct.Default.GoString(): starlark.NewBuiltin(
+				starlarkstruct.Default.GoString(), starlarkstruct.Make,
+			),
 		},
 		Packages: pkgs,
 	}

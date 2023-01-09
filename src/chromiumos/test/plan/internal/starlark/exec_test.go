@@ -114,6 +114,9 @@ testplan.add_vm_test_plan(
 		coverage_rules=[coverage_rule_b],
 	)
 )
+
+s1 = struct(a=1, b=2)
+print('Got struct {}'.format(s1))
 `
 	planFilename := writeTempStarlarkFile(
 		t, starlarkSource,
