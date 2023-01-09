@@ -336,6 +336,7 @@ class Rebaser:
                     cherry_pick('kernel-upstream', sha)
                 else:
                     apply_patch('kernel-upstream', diff, sha) # sha is only used for debugs
+                    add_kcr_patch_tag(diff)
                 noconflicts += 1
                 # No conflicts, check rerere and continue
                 call_hook(sha, 'post')
@@ -378,6 +379,8 @@ class Rebaser:
                             call_hook(sha, 'post_empty')
                             continue
                         raise e
+                    if diff is not None:
+                        add_kcr_patch_tag(diff)
             elif is_triage:
                 # Conflict requires manual resolution - drop and continue
                 print('Commit requires manual resolution. Dropping it for now.')
@@ -457,6 +460,7 @@ class Rebaser:
                         patch_short = 'patches/fixups/{}.patch'.format(name)
                         patch = os.getcwd() + '/' + patch_short
                         apply_patch('kernel-upstream', patch, '[nosha]')
+                        add_kcr_patch_tag(patch_short, True)
                         # No conflicts, check rerere and continue
                         print('Applied ' + patch_short + ' fixup for ' + topic + '.')
                         call_hook('[nosha]', 'post')
@@ -612,7 +616,7 @@ def fixup():
         if yn.lower() not in ['y', 'yes']:
             print('aborting')
             return
-    save_head('kernel-upstream', sha, path_override=path)
+    save_head('kernel-upstream', sha, path_override=path, is_fixup=True)
 
 
 def merge_topic_branches():

@@ -126,6 +126,22 @@ def create_head(repo, name, force=False):
                 sh.git('branch', '-D', name)
         sh.git('branch', name)
 
+def add_tag_to_commit_hdr(repo, tag_name, tag_value):
+    """adds 'tag_name: tag_value' to commit pointed by HEAD"""
+
+    with sh.pushd(repo):
+        sh.git('--no-pager', 'commit', '--amend', '--no-edit', '--trailer',
+               tag_name + '=' + tag_value)
+
+def add_kcr_patch_tag(path, is_fixup=False):
+    """adds 'Kcr-patch: path_to_patch_or_fixup' to commit pointed by HEAD"""
+
+    _,patch = os.path.split(path)
+
+    if is_fixup:
+        patch = 'fixups/' + patch
+
+    add_tag_to_commit_hdr('kernel-upstream', 'Kcr-patch', patch)
 
 def cherry_pick(repo, sha, use_am=True):
     """pretend cherry-pick
@@ -266,7 +282,7 @@ def head_sha(repo):
     return str(sha).strip('\n')
 
 
-def save_head(repo, sha, path_override=None):
+def save_head(repo, sha, path_override=None, is_fixup=False):
     """Saves the current diff as a conflict resolution"""
 
     diff = format_patch(repo, 'HEAD')
@@ -279,6 +295,8 @@ def save_head(repo, sha, path_override=None):
     with open(path, 'w') as f:
         f.write(diff)
 
+    _, path = os.path.split(path)
+    add_kcr_patch_tag(path, is_fixup)
 
 def commit_message(repo, sha):
     """Gets a commit message"""
