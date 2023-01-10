@@ -80,3 +80,38 @@ func TestWriteJsonl(t *testing.T) {
 		t.Errorf("returned unexpected diff in read message (-want +got):\n%s", diff)
 	}
 }
+
+func TestFilepathAsJsonpb(t *testing.T) {
+	tests := []struct {
+		name, input, expected string
+	}{
+		{
+			name:     "binary proto",
+			input:    "a/b/test.binpb",
+			expected: "a/b/test.jsonpb",
+		},
+		{
+			name:     "text file",
+			input:    "a/b/test.txt",
+			expected: "a/b/test.jsonpb",
+		},
+		{
+			name:     "json proto",
+			input:    "a/b/test.jsonpb",
+			expected: "a/b/test.jsonpb",
+		},
+		{
+			name:     "empty",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := protoio.FilepathAsJsonpb(test.input); got != test.expected {
+				t.Errorf("FilepathAsJsonpb(%s) = %s, want %s", test.input, got, test.expected)
+			}
+		})
+	}
+}

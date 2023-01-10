@@ -24,6 +24,7 @@ import (
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	"go.chromium.org/chromiumos/infra/proto/go/testplans"
 	luciflag "go.chromium.org/luci/common/flag"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	testplan "chromiumos/test/plan/internal"
 	"chromiumos/test/plan/internal/compatibility"
@@ -344,6 +345,28 @@ func (r *generateRun) run() error {
 
 		if _, err := outFile.Write(respBytes); err != nil {
 			return err
+		}
+
+		jsonprotoOut := protoio.FilepathAsJsonpb(r.out)
+		if jsonprotoOut == r.out {
+			glog.Warningf("Output path set to jsonpb (%q), but output will be written as binaryproto", r.out)
+		} else {
+			glog.Infof("Writing jsonproto version of output to %s", jsonprotoOut)
+
+			jsonprotoOutFile, err := os.Create(jsonprotoOut)
+			if err != nil {
+				return err
+			}
+			defer jsonprotoOutFile.Close()
+
+			jsonprotoRespBytes, err := protojson.Marshal(resp)
+			if err != nil {
+				return err
+			}
+
+			if _, err := jsonprotoOutFile.Write(jsonprotoRespBytes); err != nil {
+				return err
+			}
 		}
 
 		return nil

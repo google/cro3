@@ -9,6 +9,7 @@ package protoio
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/golang/glog"
@@ -77,4 +78,18 @@ func WriteJsonl(messages []protov1.Message, outPath string) error {
 	}
 
 	return nil
+}
+
+// FilepathAsJsonpb returns a copy of path, with the extension changed to
+// ".jsonpb". If path is the empty string, an empty string is returned. Note
+// that this function makes no attempt to check if the input path already has a
+// jsonproto extension; i.e. if path is "a/b/test.jsonpb", the exact same path
+// will be returned. Thus, it is up to the caller to check the returned path
+// is different if this is required.
+func FilepathAsJsonpb(path string) string {
+	ext := filepath.Ext(path)
+	if ext == "" {
+		return ""
+	}
+	return path[0:len(path)-len(ext)] + ".jsonpb"
 }
