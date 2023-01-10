@@ -35,7 +35,7 @@ zephyr-downstream: &zephyr_downstream
     - action: email
       condition: failure
       to: zephyr-downstream@grotations.appspotmail.com
-      cc: jrosenth@google.com
+      cc: zephyr-downstreaming-alert@google.com
 
 coreboot-downstream: &coreboot_downstream
   <<: *common_options
