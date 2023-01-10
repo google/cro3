@@ -122,8 +122,9 @@ patch_deps = {
       '4638c45ac4c3': ['be850241385f'],
       '6e1d36e935c6': ['b134afc03c51', '5d2f15e1628a'],
       '9374b3da44f7': ['a8d5ee3cd35c'],
-      '673602971fd9': ['cb8884607325'],
+      'dba4f3cbb765': ['f1c5e6917f73'],
       '0d9ca9d12712': ['93ee698a2665'],
+      '343cf85ba839': ['85634c066fc3'],
 }
 
 # Add entry here to overwrite default disposition on particular commit
@@ -314,3 +315,4 @@ disp_overlay['ef6c7f7bf611'] = 'drop' # FROMLIST: mailbox: mtk-cmdq: instead mag
 disp_overlay['93ee698a2665'] = 'drop' # FROMLIST: i2c: designware: Switch from using MMIO access to SMN access
 disp_overlay['361e832d5127'] = 'drop' # Revert "UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support"
 disp_overlay['d3ca0f8f9181'] = 'drop' # BACKPORT: UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support
+disp_overlay['5a46f9f5770f'] = 'drop' # FROMLIST: fuse: 32-bit user space ioctl compat for fuse device
