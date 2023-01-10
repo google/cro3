@@ -312,3 +312,5 @@ disp_overlay['91cde532656d'] = 'drop' # CHROMIUM: drm/udl: Cut >165 MHz modes fo
 disp_overlay['99d987212829'] = 'drop' # FROMLIST: fuse: 32-bit user space ioctl compat for fuse device
 disp_overlay['ef6c7f7bf611'] = 'drop' # FROMLIST: mailbox: mtk-cmdq: instead magic number with GCE_CTRL_BY_SW
 disp_overlay['93ee698a2665'] = 'drop' # FROMLIST: i2c: designware: Switch from using MMIO access to SMN access
+disp_overlay['361e832d5127'] = 'drop' # Revert "UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support"
+disp_overlay['d3ca0f8f9181'] = 'drop' # BACKPORT: UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support
