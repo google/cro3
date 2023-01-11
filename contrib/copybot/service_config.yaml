@@ -48,7 +48,7 @@ coreboot-downstream: &coreboot_downstream
     - action: email
       condition: failure
       to: coreboot-sheriff@grotations.appspotmail.com
-      cc: jrosenth@google.com
+      cc: coreboot-downstreaming-alert@google.com
 
 flashrom-downstream: &flashrom_downstream
   <<: *common_options
