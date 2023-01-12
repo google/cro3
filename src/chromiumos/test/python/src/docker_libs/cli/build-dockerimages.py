@@ -45,7 +45,9 @@ from src.docker_libs.build_libs.cros_test_finder.cros_test_finder_prep import (
 from src.docker_libs.build_libs.shared.common_service_prep import (
     CommonServiceDockerPrepper,
 )
-
+from src.docker_libs.build_libs.cros_dut.cros_dut_prep import (
+    CrosDutDockerPrepper,
+)
 
 # pylint: enable=import-error,wrong-import-position
 
@@ -58,7 +60,7 @@ REGISTERED_BUILDS = {
         "cloud": False,
     },
     "cros-callbox": {"prepper": CrosCallBoxDockerPrepper, "cloud": False},
-    "cros-dut": {"prepper": CommonServiceDockerPrepper, "cloud": False},
+    "cros-dut": {"prepper": CrosDutDockerPrepper, "cloud": False},
     "testplan": {"prepper": CommonServiceDockerPrepper, "cloud": False},
     "cros-provision": {"prepper": CommonServiceDockerPrepper, "cloud": False},
     "cros-fw-provision": {

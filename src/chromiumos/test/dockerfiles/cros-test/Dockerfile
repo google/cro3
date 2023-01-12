@@ -141,16 +141,22 @@ Host android* brillo* chromeos1* chromeos2* chromeos3* chromeos4* chromeos5* chr
   StrictHostKeyChecking no \n\
   User root \n\
   IdentityFile %d/.ssh/testing_rsa \n\
+  IdentityFile %d/.ssh/partner_testing_rsa \n\
 \n\
 Host * \n\
   StrictHostKeyChecking=no \n\
   IdentityFile %d/.ssh/testing_rsa \n\
+  IdentityFile %d/.ssh/partner_testing_rsa \n\
   IdentityFile %d/.ssh/autotest_internal_rsa \n\
   UserKnownHostsFile=/dev/null \n\
 '> ~/.ssh/config
 
 RUN cp /usr/local/autotest/utils/frozen_chromite/ssh_keys/testing_rsa ~/.ssh/
 RUN chmod 400 ~/.ssh/testing_rsa
+
+RUN mkdir -p ~/.ssh
+COPY --chown=chromeos-test:chromeos-test ssh/ /home/chromeos-test/.ssh/
+RUN chmod 400 /home/chromeos-test/.ssh/partner_testing_rsa || :
 
 # This is empty currently, but might eventually need to be populated for different Envs.
 COPY shadow_config.ini .
