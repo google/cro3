@@ -143,6 +143,13 @@ class CrosArtifactPrep():
                 continue
             shutil.copyfile(full_md_path, os.path.join(self.full_out, d))
 
+    def copy_private_key(self):
+        """Copy private keys from src to docker context."""
+        cwd = os.path.dirname(os.path.abspath(__file__))
+        src = os.path.join(cwd, '../../../../../../../../../../../')
+        ssh_keys = os.path.join(src, "sshkeys", 'partner_testing_rsa')
+        shutil.copy(ssh_keys, self.full_out)
+
 
 def FromSysrootPath(sysroot: str, file: str):
     return os.path.join(sysroot, file)
