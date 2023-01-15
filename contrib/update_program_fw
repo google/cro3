@@ -70,16 +70,21 @@ TAG=""
 PROGRAM_CL=""
 MAJOR_NUMBER_RE="[1-9][0-9]{4}"
 MINOR_NUMBER_RE="(0|[1-9][0-9]*)"
+PATCH_NUMBER_RE="(0|[1-9][0-9]*)"
 RO_MAJOR="major_version"
 RO_MINOR="minor_version"
+RO_PATCH="patch_version"
 RW_MAJOR="rw_major_version"
 RW_MINOR="rw_minor_version"
+RW_PATCH="rw_patch_version"
 # Unfortunately RO version prefixes are a subset of the RW version prefix
 # so the whole word must be matched (e.g major_version vs rw_major_version)
 RO_MAJOR_RE="\b${RO_MAJOR}\b\s*=\s*${MAJOR_NUMBER_RE}"
 RO_MINOR_RE="\b${RO_MINOR}\b\s*=\s*${MINOR_NUMBER_RE}"
+RO_PATCH_RE="\b${RO_PATCH}\b\s*=\s*${PATCH_NUMBER_RE}"
 RW_MAJOR_RE="\b${RW_MAJOR}\b\s*=\s*${MAJOR_NUMBER_RE}"
 RW_MINOR_RE="\b${RW_MINOR}\b\s*=\s*${MINOR_NUMBER_RE}"
+RW_PATCH_RE="\b${RW_PATCH}\b\s*=\s*${PATCH_NUMBER_RE}"
 #
 # Common functions
 #
@@ -109,16 +114,16 @@ abort() {
   die "$*"
 }
 #
-# Return 0 if file has RO major or minor version in it.
+# Return 0 if file has RO major or minor or patch version in it.
 #
 has_ro() {
-  (grep -E -q "(${RO_MAJOR_RE}|${RO_MINOR_RE})" "${1}")
+  (grep -E -q "(${RO_MAJOR_RE}|${RO_MINOR_RE}|${RO_PATCH_RE})" "${1}")
 }
 #
-# Return 0 if file has RW major or minor version in it.
+# Return 0 if file has RW major or minor or patch version in it.
 #
 has_rw() {
-  (grep -E -q "(${RW_MAJOR_RE}|${RW_MINOR_RE})" "${1}")
+  (grep -E -q "(${RW_MAJOR_RE}|${RW_MINOR_RE}|${RW_PATCH_RE})" "${1}")
 }
 #
 # Return 0 if file has required major version strings in it.
@@ -140,6 +145,18 @@ has_minor_version() {
     return 1
   fi
   if [[ "${FLAGS_rw}" -eq "${FLAGS_TRUE}" ]] && ! (grep -E -q "${RW_MINOR_RE}" "${1}"); then
+    return 1
+  fi
+  return 0
+}
+#
+# Return 0 if file has required patch version strings in it.
+#
+has_patch_version() {
+  if [[ "${FLAGS_ro}" -eq "${FLAGS_TRUE}" ]] && ! (grep -E -q "${RO_PATCH_RE}" "${1}"); then
+    return 1
+  fi
+  if [[ "${FLAGS_rw}" -eq "${FLAGS_TRUE}" ]] && ! (grep -E -q "${RW_PATCH_RE}" "${1}"); then
     return 1
   fi
   return 0
@@ -208,6 +225,21 @@ amend_cq_file() {
   git commit -q --amend -F "${TEMPDIR}/amend-msg"
 }
 #
+# Check the file passed as argument 1 to verify it
+# has the necessary strings in it for replacement.
+#
+check_file_strings() {
+  if ! (has_major_version "${1}"); then
+    version_error "${1} requires major version string"
+  fi
+  if [[ "${MINOR_VERSION}" -ne  "0" ]] && ! (has_minor_version "${1}"); then
+    version_error "${1} requires minor version string"
+  fi
+  if [[ "${PATCH_VERSION}" -ne  "0" ]] && ! (has_patch_version "${1}"); then
+    version_error "${1} requires patch version string"
+  fi
+}
+#
 # Confirm that $1 is a valid project
 #
 check_project() {
@@ -220,12 +252,7 @@ check_project() {
   # project has the right config lines to update.
   #
   if  [[ "${FLAGS_program}" -eq  "${FLAGS_FALSE}" ]]; then
-    if ! (has_major_version "${PFILE}"); then
-      version_error "${PFILE} requires major version string"
-    fi
-    if [[ "${MINOR_VERSION}" -ne  "0" ]] && ! (has_minor_version "${PFILE}"); then
-      version_error "${PFILE} requires minor version string"
-    fi
+    check_file_strings "${PFILE}"
   fi
 }
 #
@@ -253,20 +280,24 @@ These lines are in the form of (e.g):
 ...
    major_version = 12345,
    minor_version = 10
+   patch_version = 2
    rw_major_version = 13579,
    rw_minor_version = 20
+   rw_patch_version = 3
 ...
 
-The first 2 lines represent the RO version, and the next are the RW version.
+The first 3 lines represent the RO version, and the next are the RW version.
+The patch versions are optional.
 
 The regular expressions used to find and replace these configuration lines are
-(for RO) "/${RO_MAJOR_RE}/" and "/${RO_MINOR_RE}/",
-(for RW) "/${RW_MAJOR_RE}/" and "/${RW_MINOR_RE}/",
+(for RO) "/${RO_MAJOR_RE}/" and "/${RO_MINOR_RE}/" and "/${RO_PATCH_RE}/",
+(for RW) "/${RW_MAJOR_RE}/" and "/${RW_MINOR_RE}/" and "/${RW_PATCH_RE}/",
 The version configuration lines must match these regular expressions.
 
 These configuration lines may appear in the board's base program.star file, or in
 the projects' config.star file. If the minor version is not 0, a 'minor_version' line
-must exist in the files to be updated.
+must exist in the files to be updated. If a patch version is used, the
+'patch_version' must also exist.
 
 If the board's program.star file is updated (the default --program option), then carefully
 check that the inherited project configs are correct, especially if projects are skipped.
@@ -288,13 +319,16 @@ update_ro() {
   if [[ "${FLAGS_ro}" -eq "${FLAGS_FALSE}" ]]; then
     return 1
   fi
-  # Check for RO major or minor version in file.
+  # Check for RO major or minor or patch version in file.
   if ! (has_ro "${1}"); then
     return 1
   fi
   local nf="${TEMPDIR}/new-${1}"
   sed -E "s/${RO_MAJOR_RE}/${NEW_RO_MAJOR}/" "${1}" >  "${nf}"
   sed -i -E "s/${RO_MINOR_RE}/${NEW_RO_MINOR}/" "${nf}"
+  if [[ "${NEW_RO_PATCH}" -ne  "0" ]]; then
+    sed -i -E "s/${RO_PATCH_RE}/${NEW_RO_PATCH}/" "${nf}"
+  fi
   if cmp -s "${1}" "${nf}"; then
     return 1
   fi
@@ -309,13 +343,16 @@ update_rw() {
   if [[ "${FLAGS_rw}" -eq "${FLAGS_FALSE}" ]]; then
     return 1
   fi
-  # Check for RW major or minor version in file.
+  # Check for RW major or minor or patch version in file.
   if ! (has_rw "${1}"); then
     return 1
   fi
   local nf="${TEMPDIR}/new-${1}"
   sed -E "s/${RW_MAJOR_RE}/${NEW_RW_MAJOR}/" "${1}" >  "${nf}"
   sed -i -E "s/${RW_MINOR_RE}/${NEW_RW_MINOR}/" "${nf}"
+  if [[ "${NEW_RW_PATCH}" -ne  "0" ]]; then
+    sed -i -E "s/${RW_PATCH_RE}/${NEW_RW_PATCH}/" "${nf}"
+  fi
   if cmp -s "${1}" "${nf}"; then
     return 1
   fi
@@ -364,20 +401,29 @@ PROGFILE="${PROGDIR}/program.star"
 # Validate release
 # Major must be a 5 digit number
 # Optional minor release must be a number.
+# Optional patch version must be a number.
 #
 if [[ "${FLAGS_release}" =~ ^${MAJOR_NUMBER_RE}$ ]]; then
   MAJOR_VERSION=${FLAGS_release}
   MINOR_VERSION="0"
+  PATCH_VERSION="0"
 elif [[ "${FLAGS_release}" =~ ^${MAJOR_NUMBER_RE}\.${MINOR_NUMBER_RE}$ ]]; then
   MAJOR_VERSION=$(echo "${FLAGS_release}" | cut -d. -f1)
   MINOR_VERSION=$(echo "${FLAGS_release}" | cut -d. -f2)
+  PATCH_VERSION="0"
+elif [[ "${FLAGS_release}" =~ ^${MAJOR_NUMBER_RE}\.${MINOR_NUMBER_RE}\.${PATCH_NUMBER_RE}$ ]]; then
+  MAJOR_VERSION=$(echo "${FLAGS_release}" | cut -d. -f1)
+  MINOR_VERSION=$(echo "${FLAGS_release}" | cut -d. -f2)
+  PATCH_VERSION=$(echo "${FLAGS_release}" | cut -d. -f3)
 else
-  die "Unknown release format (must be NNNNN[.n])"
+  die "Unknown release format (must be NNNNN[.nn[.nn]])"
 fi
 NEW_RO_MAJOR="${RO_MAJOR} = ${MAJOR_VERSION}"
 NEW_RO_MINOR="${RO_MINOR} = ${MINOR_VERSION}"
+NEW_RO_PATCH="${RO_PATCH} = ${PATCH_VERSION}"
 NEW_RW_MAJOR="${RW_MAJOR} = ${MAJOR_VERSION}"
 NEW_RW_MINOR="${RW_MINOR} = ${MINOR_VERSION}"
+NEW_RW_PATCH="${RW_PATCH} = ${PATCH_VERSION}"
 #
 # If updating the board config, check for program.star
 # and for version strings.
@@ -386,15 +432,10 @@ if [[ "${FLAGS_program}" -eq "${FLAGS_TRUE}" ]]; then
   if [[ ! -f "${PROGFILE}" ]]; then
     die "${FLAGS_board} is not a valid program (${PROGFILE} missing)"
   fi
-  if ! (has_major_version "${PROGFILE}"); then
-    version_error "${PROGFILE} requires major version string"
-  fi
-  if [[ "${MINOR_VERSION}" -ne  "0" ]] && ! (has_minor_version "${PROGFILE}"); then
-    version_error "${PROGFILE} requires minor version string"
-  fi
+  check_file_strings "${PROGFILE}"
 fi
 # Use a common git branch name and gerrit hashtag.
-TAG="${FLAGS_tag}_${FLAGS_board}_fw_${MAJOR_VERSION}_${MINOR_VERSION}"
+TAG="${FLAGS_tag}_${FLAGS_board}_fw_${MAJOR_VERSION}_${MINOR_VERSION}_${PATCH_VERSION}"
 #
 # Build the project list.
 # If no projects are specified, use all in the programs directory.
@@ -481,6 +522,9 @@ echo
 echo "Release number of upgrade:     ${FLAGS_release}"
 echo "Major version of release:      ${MAJOR_VERSION}"
 echo "Minor version of release:      ${MINOR_VERSION}"
+if [[ "${PATCH_VERSION}" -ne  "0" ]]; then
+  echo "Patch version of release:      ${PATCH_VERSION}"
+fi
 echo "Update RO version:             $(yes_no "${FLAGS_ro}")"
 echo "Update RW version:             $(yes_no "${FLAGS_rw}")"
 echo "BUG string used in commit:     ${FLAGS_bug}"
