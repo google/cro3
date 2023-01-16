@@ -46,8 +46,6 @@ topic_fixups['arch'] = [
 ]
 
 topic_fixups['chromeos'] = [
-    'hid: Emit digitizer serial number through power_supply',
-    'chromiumos security module',
     'Restore missing cursor for digitizer devices',
     'mm: Check pmd_trans_unstable() after splitting huge page in per-process reclaim',
     'mm: Optionally limit per-process reclaim',
@@ -55,7 +53,7 @@ topic_fixups['chromeos'] = [
     'CHROMIUM: Restrict swapon() to \"zram\" devices lock down zram',
     'Input: elants_i2c - keep regulators on when unbinding',
     'schedutil: Fix iowait boost issues for slow IO devices',
-    'FIXUP-NOUPSTREAM-ANDROID-cpu-hotplug-Always-use-real',
+    'FROMLIST: sched: Add a coresched command line option',
 ]
 
 topic_fixups['bluetooth'] = [
