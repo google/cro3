@@ -64,8 +64,6 @@ topic_fixups['bluetooth'] = [
 
 topic_fixups['block-fs'] = [
     'Add message definitions for CHROMEOS_TMPFILE',
-    'fuse: Passthrough initialization and release',
-    'fuse: Handle asynchronous read and write in passthrough',
     'verity: bring over dm-verity-chromeos.c',
     'fuse: Implement CHROMEOS_TMPFILE',
     'mm: implement \\proc\\<pid>\\totmaps',
