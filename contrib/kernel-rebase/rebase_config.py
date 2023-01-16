@@ -75,7 +75,6 @@ topic_fixups['block-fs'] = [
 
 topic_fixups['media'] = [
     'FROMLIST: media: uvcvideo: Lock video streams and queues while unregistering',
-    'CHROMIUM: media: intel-ipu6: copy IPU6 driver from v5.4 branch'
 ]
 
 topic_fixups['dts'] = [
