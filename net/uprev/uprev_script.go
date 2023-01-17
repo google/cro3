@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -265,12 +266,12 @@ func main() {
 		logPanic("Please run inside chroot")
 	}
 
-	file, err := os.OpenFile("/tmp/uprev.log", os.O_CREATE|os.O_WRONLY, 0666)
+	file, err := ioutil.TempFile("/tmp", "uprev")
 	if err != nil {
 		logPanic(err.Error())
 	}
 	log.SetOutput(file)
-	defer fmt.Println("\nUprev logs in /tmp/uprev.log")
+	defer fmt.Println("\nUprev logs in ", file.Name())
 
 	if len(os.Args) < 2 {
 		logPanic("expected 'merge' or 'post-merge' subcommands")
