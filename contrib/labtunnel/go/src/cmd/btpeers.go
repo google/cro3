@@ -51,11 +51,14 @@ rather than the remote chameleond port.
 			}
 			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			sshManager := buildSshManager()
 
 			// Tunnel to dut.
-			hostDut := resolveHostname(args[0], "")
+			hostDut, err := resolveDutHostname(cmd.Context(), args[0])
+			if err != nil {
+				return fmt.Errorf("could not determine hostname: %w", err)
+			}
 			tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
 
 			// Tunnel to btpeers.
@@ -63,6 +66,7 @@ rather than the remote chameleond port.
 
 			time.Sleep(time.Second)
 			sshManager.WaitUntilAllSshCompleted(cmd.Context())
+			return nil
 		},
 	}
 )

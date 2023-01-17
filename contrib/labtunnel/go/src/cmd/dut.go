@@ -5,9 +5,11 @@
 package cmd
 
 import (
+	"fmt"
 	"time"
 
 	"chromiumos/platform/dev/contrib/labtunnel/log"
+
 	"github.com/spf13/cobra"
 )
 
@@ -26,16 +28,20 @@ The dut hostname is resolved from <dut_hostname> by removing the prefix
 "crossk-" if it is present.
 `,
 		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			sshManager := buildSshManager()
 
 			// Tunnel to dut.
-			hostDut := resolveHostname(args[0], "")
+			hostDut, err := resolveDutHostname(cmd.Context(), args[0])
+			if err != nil {
+				return fmt.Errorf("could not determine hostname: %w", err)
+			}
 			localDut := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
 
 			time.Sleep(time.Second)
 			log.Logger.Printf("Example Tast call (in chroot): tast run %s <test>", localDut)
 			sshManager.WaitUntilAllSshCompleted(cmd.Context())
+			return nil
 		},
 	}
 )

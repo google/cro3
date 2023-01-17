@@ -6,10 +6,12 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"chromiumos/platform/dev/contrib/labtunnel/log"
 	"chromiumos/platform/dev/contrib/labtunnel/ssh"
+
 	"github.com/spf13/cobra"
 )
 
@@ -38,9 +40,12 @@ option to skip connecting to the VNC server with TigerVNC and then connect to
 localhost:5900 with your preferred VNC client.
 `,
 		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			sshManager := buildSshManager()
-			hostDut := resolveHostname(args[0], "")
+			hostDut, err := resolveDutHostname(cmd.Context(), args[0])
+			if err != nil {
+				return fmt.Errorf("could not determine hostname: %w", err)
+			}
 
 			// Launch kmsvnc on dut.
 			sshManager.Ssh(cmd.Context(), true, "DUT-VNC", func(ctx context.Context, r *ssh.Runner) error {
@@ -64,6 +69,7 @@ localhost:5900 with your preferred VNC client.
 			}
 
 			sshManager.WaitUntilAllSshCompleted(cmd.Context())
+			return nil
 		},
 	}
 )

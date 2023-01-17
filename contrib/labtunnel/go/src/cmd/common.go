@@ -5,14 +5,18 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	"chromiumos/platform/dev/contrib/labtunnel/crosfleet"
+	"chromiumos/platform/dev/contrib/labtunnel/fileutils"
 	clog "chromiumos/platform/dev/contrib/labtunnel/log"
 	"chromiumos/platform/dev/contrib/labtunnel/ssh"
 )
@@ -21,6 +25,53 @@ const (
 	crosfleetHostnamePrefix = "crossk-"
 	crosHostnameSuffix      = ".cros"
 )
+
+func resolveDutHostname(ctx context.Context, hostnameParam string) (string, error) {
+	if hostnameParam != "leased" {
+		return resolveHostname(hostnameParam, ""), nil
+	}
+	hostnames, err := crosfleet.CrosfleetLeasedDUTs(ctx)
+	if err != nil {
+		return "", err
+	}
+	if len(hostnames) < 1 {
+		return "", fmt.Errorf("could not find any DUTs leased from crosfleet")
+	} else if len(hostnames) == 1 {
+		clog.Logger.Printf("Defaulting to only leased DUT: %s", hostnames[0])
+		return hostnames[0], nil
+	}
+	return promptUserForDutChoice(ctx, hostnames)
+}
+
+func promptUserForDutChoice(ctx context.Context, hostnames []string) (string, error) {
+	totalDuts := len(hostnames)
+	prompt := fmt.Sprintf("Found %d leased DUTs please select the DUT you would like to tunnel to:\n", totalDuts)
+	for i, hostname := range hostnames {
+		prompt += fmt.Sprintf("%d: %s\n", i, hostname)
+	}
+	prompt += fmt.Sprintf("\nSelect from 0-%d: ", totalDuts-1)
+	inputReader := bufio.NewReader(fileutils.NewContextualReaderWrapper(ctx, os.Stdin))
+	for true {
+		var selected int
+		fmt.Print(prompt)
+		input, err := inputReader.ReadString('\n')
+		if err != nil {
+			return "", fmt.Errorf("failed to read user input for prompt: %w", err)
+		}
+		n, err := fmt.Sscanf(input, "%d", &selected)
+		if n != 1 || err != nil {
+			continue
+		}
+		if selected >= totalDuts || selected < 0 {
+			fmt.Printf("\nInvalid index %d\n\n", selected)
+			selected = -1
+			continue
+		}
+		clog.Logger.Printf("Using user selected leased DUT: %s", hostnames[selected])
+		return hostnames[selected], nil
+	}
+	return "", fmt.Errorf("no host selected")
+}
 
 func resolveHostname(hostnameParam string, suffixToAdd string) string {
 	// Remove any crosfleet name prefix.

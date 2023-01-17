@@ -5,9 +5,11 @@
 package cmd
 
 import (
+	"fmt"
 	"time"
 
 	"chromiumos/platform/dev/contrib/labtunnel/log"
+
 	"github.com/spf13/cobra"
 )
 
@@ -35,11 +37,14 @@ The callbox tunnel is made to "<remote_callbox_hostname>:<remote-port-callbox>"
 on the proxy host, as the callboxes do not support SSH.
 `,
 		Args: cobra.ExactArgs(3),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			sshManager := buildSshManager()
 
 			// Tunnel to dut.
-			hostDut := resolveHostname(args[0], "")
+			hostDut, err := resolveDutHostname(cmd.Context(), args[0])
+			if err != nil {
+				return fmt.Errorf("could not determine hostname: %w", err)
+			}
 			localDut := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
 
 			// Tunnel to Callbox Manager service on callbox proxy.
@@ -57,6 +62,7 @@ on the proxy host, as the callboxes do not support SSH.
 				localCallboxManager,
 				localDut)
 			sshManager.WaitUntilAllSshCompleted(cmd.Context())
+			return nil
 		},
 	}
 )

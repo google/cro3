@@ -5,6 +5,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -41,11 +42,14 @@ The btpeer tunnels are created in the same manner as with the btpeers command,
 see "labtunnel btpeers --help" for details.
 `,
 		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			sshManager := buildSshManager()
 
 			// Tunnel to dut.
-			hostDut := resolveHostname(args[0], "")
+			hostDut, err := resolveDutHostname(cmd.Context(), args[0])
+			if err != nil {
+				return fmt.Errorf("could not determine hostname: %w", err)
+			}
 			localDut := tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
 
 			// Tunnel to routers.
@@ -64,6 +68,7 @@ see "labtunnel btpeers --help" for details.
 				strings.Join(localPcaps, ","),
 				localDut)
 			sshManager.WaitUntilAllSshCompleted(cmd.Context())
+			return nil
 		},
 	}
 )

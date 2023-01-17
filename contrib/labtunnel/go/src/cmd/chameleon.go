@@ -5,6 +5,7 @@
 package cmd
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -29,11 +30,14 @@ When the --tauto flag is provided, chameleon tunnels are to the remote ssh port
 rather than the remote chameleond port.
 `,
 		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			sshManager := buildSshManager()
 
 			// Tunnel to dut.
-			hostDut := resolveHostname(args[0], "")
+			hostDut, err := resolveDutHostname(cmd.Context(), args[0])
+			if err != nil {
+				return fmt.Errorf("could not determine hostname: %w", err)
+			}
 			tunnelToDut(cmd.Context(), sshManager, 1, hostDut)
 
 			// Tunnel to chameleon.
@@ -41,6 +45,7 @@ rather than the remote chameleond port.
 
 			time.Sleep(time.Second)
 			sshManager.WaitUntilAllSshCompleted(cmd.Context())
+			return nil
 		},
 	}
 )

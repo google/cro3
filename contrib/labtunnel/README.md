@@ -58,6 +58,13 @@ When a local port is forwarded to remote port, the next available port starting
 at 2200 is used. The start port can be adjusted with --local-port-start. Used
 ports will be freed upon stopping labtunnel.
 
+Labtunnel can optionally use DUTs leased by crosfleet with the special `leased`
+hostname.  If you specify `leased` as the dut_hostname to labtunnel it will
+query crosfleet for leased DUTs. If there is only one DUT leased it will use
+that hostname, otherwise it will prompt the user to select from among the
+leased DUTs. The `leased` hostname will work with **all** subcommands except
+hosts which does not do any hostname resolution.
+
 Usage:
   labtunnel [command]
 
@@ -181,6 +188,31 @@ $ labtunnel dut crossk-chromeos1-dev-host1
 ^C15:17:34.409089 received SIGINT, cancelling operations
 15:17:34.409182 ssh state summary:
   TUNNEL-DUT-1      [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]  CLOSED
+```
+Use leased DUT with only multiple DUTs leased
+```text
+$ labtunnel dut leased
+Found 2 leased DUTs please select the DUT you would like to tunnel to:
+0: chromeos8-row12-rack2-host51
+1: chromeos15-row6-rack10-host7
+
+Select from 0-1: 0
+16:15:12.656539 Using user selected leased DUT: chromeos8-row12-rack2-host51
+16:15:12.801205 starting ssh exec "TUNNEL-DUT-1      [localhost:2212 -> chromeos8-row12-rack2-host51 -> localhost:22]"
+16:15:12.801327 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2212:localhost:22 chromeos8-row12-rack2-host51 sleep 8h
+16:15:13.801444 Example Tast call (in chroot): tast run localhost:2212 <test>
+16:15:13.801466 ssh state summary:
+  TUNNEL-DUT-1      [localhost:2212 -> chromeos8-row12-rack2-host51 -> localhost:22]  RUNNING
+```
+Use leased DUT with only one DUT leased
+```text
+$ labtunnel dut leased
+08:04:45.529115 Defaulting to only leased DUT: chromeos3-row1-rack1-host5
+08:04:45.538693 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> chromeos3-row1-rack1-host5 -> localhost:22]"
+08:04:45.538823 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos3-row1-rack1-host5 sleep 8h
+08:04:46.538933 Example Tast call (in chroot): tast run localhost:2200 <test>
+08:04:46.538953 ssh state summary:
+  TUNNEL-DUT-1      [localhost:2200 -> chromeos3-row1-rack1-host5 -> localhost:22]  RUNNING
 ```
 
 ### dutvnc
