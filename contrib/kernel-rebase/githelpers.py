@@ -170,6 +170,7 @@ def apply_patch(repo, diff, sha):
         with open(GITHELPERS_DBG_PATH + sha + '/am', 'w') as f:
             f.write(str(ret))
 
+    return ret
 
 def is_resolved(repo):
     """Checks if all conflicts are resolved"""

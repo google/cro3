@@ -459,7 +459,9 @@ class Rebaser:
                         call_hook('[nosha]', 'pre')
                         patch_short = 'patches/fixups/{}.patch'.format(name)
                         patch = os.getcwd() + '/' + patch_short
-                        apply_patch('kernel-upstream', patch, '[nosha]')
+                        ret = apply_patch('kernel-upstream', patch, '[nosha]')
+                        if ret.find("Patch already applied") != -1:
+                            continue
                         add_kcr_patch_tag(patch_short, True)
                         # No conflicts, check rerere and continue
                         print('Applied ' + patch_short + ' fixup for ' + topic + '.')
