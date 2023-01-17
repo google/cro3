@@ -24,8 +24,6 @@ import (
 
 // CTP builder contains fields needed to send a build to CTP
 type CTPBuilder struct {
-	// AddedTags represent any additional tags to add to the build
-	AddedTags map[string]string
 	// AuthOptions represent configuration for LUCI Auth used when sending
 	// builds to buildbucket such as the location of the client tokens or scope
 	// These should match the options used to log into LUCI
@@ -45,6 +43,9 @@ type CTPBuilder struct {
 	BuilderID *buildbucketpb.BuilderID // TODO
 	// CFT determines whether we will use CFT to run tests.
 	CFT bool
+	// CTPBuildTags are any tags that should be associated solely with the CTP
+	// build and not passed down to the test_runner builds.
+	CTPBuildTags map[string]string
 	// Dimensions contains required dimensions for swarming bots
 	Dimensions map[string]string
 	// Image is the image to be provisioned on the DUT when running the test
@@ -90,6 +91,9 @@ type CTPBuilder struct {
 	// TestPlan is the test plan we want to execute
 	// These should not be built by hand, instead using a method in the CTP client lib
 	TestPlan *test_platform.Request_TestPlan
+	// TestRunnerBuildTags are any tags that should be applied to the
+	// downstream Test Runner builds.
+	TestRunnerBuildTags map[string]string
 	// TimeoutMins is the timeout of the CTP run in minutes
 	// If not set, will default to 360
 	TimeoutMins int
@@ -97,10 +101,13 @@ type CTPBuilder struct {
 	UseScheduke bool
 }
 
+// ScheduleCTPBuild sends a buildbucket request based on CTPBuilder
 func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build, error) {
 	c.validateAndAddDefaults()
-	buildTags := c.buildTags()
-	ctpRequest, err := c.testPlatformRequest(buildTags)
+
+	// `testRunnerTags` are only applied to the downstream test runner builds
+	testRunnerTags := c.testRunnerTags()
+	ctpRequest, err := c.testPlatformRequest(testRunnerTags)
 	if err != nil {
 		return nil, err
 	}
@@ -116,13 +123,16 @@ func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build
 		return nil, err
 	}
 
+	// ctpBuildTags are only applied to the parent CTP build
+	ctpBuildTags := c.ctpTags()
+
 	// Parent cros_test_platform builds run on generic GCE bots at the default
 	// priority, so we pass zero values for the dimensions and priority of the
 	// parent build.
 	//
 	// buildProps contains separate dimensions and priority values to apply to
 	// the child test_runner builds that will be launched by the parent build.
-	return buildbucket.ScheduleBuild(ctx, c.Properties, nil, buildTags, 0, ctpBBClient, c.BuilderID)
+	return buildbucket.ScheduleBuild(ctx, c.Properties, nil, ctpBuildTags, 0, ctpBBClient, c.BuilderID)
 }
 
 const (
@@ -215,17 +225,39 @@ const (
 	containerMetadataURLSuffix = "metadata/containers.jsonpb"
 )
 
-// buildTagsForModel combines test metadata tags with user-added tags
-func (c *CTPBuilder) buildTags() map[string]string {
+// ctpTags returns the tags we should attach to the parent CTP build.
+func (c *CTPBuilder) ctpTags() map[string]string {
 	tags := map[string]string{}
 
-	// Add user-added tags.
-	// NOTE: these addedTags themselves will NOT be processed by Buildbucket or
-	// Swarming--they are for metadata purposes only.
-	// addedTags attached here will NOT be processed by CTP.
-	for key, val := range c.AddedTags {
-		tags[key] = val
+	for k, v := range c.CTPBuildTags {
+		tags[k] = v
 	}
+	for k, v := range c.genericTags() {
+		tags[k] = v
+	}
+
+	return tags
+}
+
+// testRunnerTags returns the tags we should attach to each test runner build
+// by combining user supplied tags with generic metadata tags.
+func (c *CTPBuilder) testRunnerTags() map[string]string {
+	tags := map[string]string{}
+
+	for k, v := range c.TestRunnerBuildTags {
+		tags[k] = v
+	}
+	for k, v := range c.genericTags() {
+		tags[k] = v
+	}
+
+	return tags
+}
+
+// genericTags generates a set of metadata tags that should be applied to both
+// CTP builds as well as the downstream test runner builds.
+func (c *CTPBuilder) genericTags() map[string]string {
+	tags := map[string]string{}
 
 	// Add metadata tags.
 	if c.Board != "" {

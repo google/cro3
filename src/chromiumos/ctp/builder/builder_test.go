@@ -581,7 +581,7 @@ func TestTestPlatformRequest(t *testing.T) {
 	}
 }
 
-var testBuildTagsData = []struct {
+var testCTPTags = []struct {
 	name  string
 	input CTPBuilder
 	want  map[string]string
@@ -589,13 +589,13 @@ var testBuildTagsData = []struct {
 	{
 		"all tags",
 		CTPBuilder{
-			AddedTags: map[string]string{"foo": "bar", "eli": "cool"},
-			Board:     "myboard",
-			Model:     "mymodel",
-			Pool:      "mypool",
-			Image:     "myimage",
-			QSAccount: "myqs",
-			Priority:  123,
+			CTPBuildTags: map[string]string{"foo": "bar", "eli": "cool"},
+			Board:        "myboard",
+			Model:        "mymodel",
+			Pool:         "mypool",
+			Image:        "myimage",
+			QSAccount:    "myqs",
+			Priority:     123,
 		},
 		map[string]string{
 			"foo":                 "bar",
@@ -608,9 +608,9 @@ var testBuildTagsData = []struct {
 		},
 	},
 	{
-		"only added tags",
+		"only manual tags",
 		CTPBuilder{
-			AddedTags: map[string]string{"foo": "bar", "eli": "cool"},
+			CTPBuildTags: map[string]string{"foo": "bar", "eli": "cool"},
 		},
 		map[string]string{
 			"foo": "bar",
@@ -620,8 +620,8 @@ var testBuildTagsData = []struct {
 	{
 		"priority label if no qs account",
 		CTPBuilder{
-			AddedTags: map[string]string{"foo": "bar", "eli": "cool"},
-			Priority:  123,
+			CTPBuildTags: map[string]string{"foo": "bar", "eli": "cool"},
+			Priority:     123,
 		},
 		map[string]string{
 			"foo":            "bar",
@@ -629,15 +629,93 @@ var testBuildTagsData = []struct {
 			"label-priority": "123",
 		},
 	},
+	{
+		"does not pick up test runner tags",
+		CTPBuilder{
+			TestRunnerBuildTags: map[string]string{"foo": "bar", "eli": "cool"},
+		},
+		map[string]string{},
+	},
 }
 
-func TestBuildTags(t *testing.T) {
+func TestCTPTags(t *testing.T) {
 	t.Parallel()
-	for _, tt := range testBuildTagsData {
+	for _, tt := range testCTPTags {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := tt.input.buildTags()
+			got := tt.input.ctpTags()
+			if diff := cmp.Diff(tt.want, got, CmpOpts); diff != "" {
+				t.Errorf("unexpected diff (%s)", diff)
+			}
+		})
+	}
+}
+
+var testTestRunnerTags = []struct {
+	name  string
+	input CTPBuilder
+	want  map[string]string
+}{
+	{
+		"all tags",
+		CTPBuilder{
+			TestRunnerBuildTags: map[string]string{"foo": "bar", "eli": "cool"},
+			Board:               "myboard",
+			Model:               "mymodel",
+			Pool:                "mypool",
+			Image:               "myimage",
+			QSAccount:           "myqs",
+			Priority:            123,
+		},
+		map[string]string{
+			"foo":                 "bar",
+			"eli":                 "cool",
+			"label-board":         "myboard",
+			"label-model":         "mymodel",
+			"label-pool":          "mypool",
+			"label-image":         "myimage",
+			"label-quota-account": "myqs",
+		},
+	},
+	{
+		"only manual tags",
+		CTPBuilder{
+			TestRunnerBuildTags: map[string]string{"foo": "bar", "eli": "cool"},
+		},
+		map[string]string{
+			"foo": "bar",
+			"eli": "cool",
+		},
+	},
+	{
+		"priority label if no qs account",
+		CTPBuilder{
+			TestRunnerBuildTags: map[string]string{"foo": "bar", "eli": "cool"},
+			Priority:            123,
+		},
+		map[string]string{
+			"foo":            "bar",
+			"eli":            "cool",
+			"label-priority": "123",
+		},
+	},
+	{
+		"does not pick up ctp tags",
+		CTPBuilder{
+			CTPBuildTags: map[string]string{"foo": "bar", "eli": "cool"},
+		},
+		map[string]string{},
+	},
+}
+
+func TestTestRunnerTags(t *testing.T) {
+	t.Parallel()
+	for _, tt := range testCTPTags {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.input.ctpTags()
 			if diff := cmp.Diff(tt.want, got, CmpOpts); diff != "" {
 				t.Errorf("unexpected diff (%s)", diff)
 			}
