@@ -301,7 +301,6 @@ disp_overlay['1e06f17e1b1a'] = 'drop' # CHROMIUM: rtw88: add mutex when set SAR
 disp_overlay['a4f839713c7c'] = 'drop' # BACKPORT: FROMLIST: ath11k: fix blocked for more than 120 seconds caused by reg update
 disp_overlay['68d83a3cc487'] = 'drop' # CHROMIUM: Introduce Modem Logging functionality
 
-disp_overlay['91cde532656d'] = 'drop' # CHROMIUM: drm/udl: Cut >165 MHz modes for DVI
 disp_overlay['99d987212829'] = 'drop' # FROMLIST: fuse: 32-bit user space ioctl compat for fuse device
 disp_overlay['361e832d5127'] = 'drop' # Revert "UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support"
 disp_overlay['d3ca0f8f9181'] = 'drop' # BACKPORT: UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support
@@ -309,3 +308,4 @@ disp_overlay['5a46f9f5770f'] = 'drop' # FROMLIST: fuse: 32-bit user space ioctl 
 disp_overlay['ff52d46e7dbb'] = 'drop' # FROMLIST: i2c: designware: Switch from using MMIO access to SMN access
 disp_overlay['5bbe10aab447'] = 'drop' # FROMLIST: mailbox: mtk-cmdq: instead magic number with GCE_CTRL_BY_SW
 disp_overlay['2f1d896c09eb'] = 'drop' # FIXUP: FROMLIST: sched: Add a coresched command line option
+disp_overlay['20dda512a08f'] = 'drop' # CHROMIUM: drm/udl: Cut >165 MHz modes for DVI
