@@ -25,5 +25,5 @@ func (c *CrOSProvisionExecutor) GetFirstState(dut *lab_api.Dut, dutClient api.Du
 	if err != nil {
 		return nil, err
 	}
-	return state_machine.NewCrOSInitState(cs), nil
+	return state_machine.NewCrOSPreInitState(cs), nil
 }

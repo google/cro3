@@ -58,6 +58,7 @@ var (
 	rootDevPartition          = RunCommandStructure{Command: "rootdev", Args: []string{"-s"}}
 	rootDevDisk               = RunCommandStructure{Command: "rootdev", Args: []string{"-s", "-d"}}
 	getBoard                  = RunCommandStructure{Command: "cat", Args: []string{"/etc/lsb-release"}}
+	getVersion                = RunCommandStructure{Command: "cat", Args: []string{"/etc/lsb-release"}}
 	stopUI                    = RunCommandStructure{Command: "stop", Args: []string{"ui"}}
 	stopUpdateEngine          = RunCommandStructure{Command: "stop", Args: []string{"update-engine"}}
 	dlcLibExists              = PathExistsCommandStructure{Path: common_utils.DlcLibDir}
@@ -125,8 +126,19 @@ func TestStateTransitions(t *testing.T) {
 
 	ctx := context.Background()
 
+	// PRE INIT STATE
+	st := state_machine.NewCrOSPreInitState(&cs)
+
+	gomock.InOrder(
+		getRunCmdCommand(sam, getVersion).Return("CHROMEOS_RELEASE_BUILDER_PATH=drallion-release/R110-15278.35.0", nil),
+	)
+
+	if _, _, err := st.Execute(ctx, log); err != nil {
+		t.Fatalf("failed init state: %v", err)
+	}
+
 	// INIT STATE
-	st := state_machine.NewCrOSInitState(&cs)
+	st = st.Next()
 
 	gomock.InOrder(
 		getRunCmdCommand(sam, createProvisionMarker).Return("", nil),
@@ -252,6 +264,80 @@ func TestStateTransitions(t *testing.T) {
 	// Check state completion
 	if st.Next() != nil {
 		t.Fatalf("install minios should be the last step")
+	}
+}
+
+func TestSkipInstall(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
+	cs := service.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "gs://chromeos-image-archive/drallion-release/R110-15278.35.0/",
+		},
+		nil,
+		false,
+		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		true, // FirmwareUpdate enabled.
+	)
+
+	ctx := context.Background()
+
+	// INIT STATE
+	st := state_machine.NewCrOSPreInitState(&cs)
+
+	gomock.InOrder(
+		getRunCmdCommand(sam, getVersion).Return("CHROMEOS_RELEASE_BUILDER_PATH=drallion-release/R110-15278.35.0", nil),
+	)
+
+	if _, _, err := st.Execute(ctx, log); err != nil {
+		t.Fatalf("failed init state: %v", err)
+	}
+
+	// Check state completion
+	if st.Next() != nil {
+		t.Fatalf("pre_init_state should be the last step")
+	}
+}
+
+func TestDontSkipInstall(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
+	cs := service.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "gs://chromeos-image-archive/drallion-release/R110-15278.36.0/",
+		},
+		nil,
+		false,
+		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		true, // FirmwareUpdate enabled.
+	)
+
+	ctx := context.Background()
+
+	// INIT STATE
+	st := state_machine.NewCrOSPreInitState(&cs)
+
+	gomock.InOrder(
+		getRunCmdCommand(sam, getVersion).Return("CHROMEOS_RELEASE_BUILDER_PATH=drallion-release/R110-15278.35.0", nil),
+	)
+
+	if _, _, err := st.Execute(ctx, log); err != nil {
+		t.Fatalf("failed init state: %v", err)
+	}
+
+	// Check state completion
+	if st.Next() == nil {
+		t.Fatalf("pre_init_state should not be the last step")
 	}
 }
 

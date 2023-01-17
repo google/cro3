@@ -9,4 +9,5 @@ package metadata
 type MachineMetadata struct {
 	RootInfo *RootInfo
 	Board    string
+	Version  string
 }

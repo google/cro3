@@ -25,6 +25,7 @@ type CrOSService struct {
 	PreserverStateful bool
 	DlcSpecs          []*api.CrOSProvisionMetadata_DLCSpec
 	UpdateFirmware    bool
+	UpdateCros        bool
 }
 
 func NewCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.InstallRequest) (*CrOSService, error) {
@@ -40,6 +41,7 @@ func NewCrOSService(dut *lab_api.Dut, dutClient api.DutServiceClient, req *api.I
 		DlcSpecs:          m.DlcSpecs,
 		MachineMetadata:   metadata.MachineMetadata{},
 		UpdateFirmware:    m.UpdateFirmware,
+		UpdateCros:        true, // Force this true by default
 	}, nil
 }
 
@@ -59,6 +61,8 @@ func NewCrOSServiceFromCrOSProvisionRequest(dutClient api.DutServiceClient, req 
 		DlcSpecs:          dlcSpecs,
 		MachineMetadata:   metadata.MachineMetadata{},
 		UpdateFirmware:    req.GetProvisionState().UpdateFirmware,
+		UpdateCros:        true, // Force this true by default
+
 	}
 }
 
@@ -73,10 +77,12 @@ func NewCrOSServiceFromExistingConnection(conn common_utils.ServiceAdapterInterf
 		DlcSpecs:          dlcSpecs,
 		MachineMetadata:   metadata.MachineMetadata{},
 		UpdateFirmware:    updateFirmware,
+		UpdateCros:        true, // Force this true by default
+
 	}
 }
 
-// CleanupOnFailure is called if one of service's states failes to Execute() and
+// CleanupOnFailure is called if one of service's states fails to Execute() and
 // should clean up the temporary files, and undo the execution, if feasible.
 func (c *CrOSService) CleanupOnFailure(states []common_utils.ServiceState, executionErr error) error {
 	// TODO: evaluate whether cleanup is needed.
