@@ -20,6 +20,7 @@ import (
 type LocalCFTManager struct {
 	services        map[string]Service
 	servicesStarted []string
+	servicesResults map[string]ServiceResult_
 	ports           map[string]uint16
 	ctx             context.Context
 
@@ -38,6 +39,8 @@ type LocalCFTManager struct {
 	images       map[string]*buildapi.ContainerImageInfo
 	testSuites   []*api.TestSuite
 	testResponse *api.CrosTestResponse
+
+	err error
 }
 
 type services struct {
@@ -80,6 +83,7 @@ func NewLocalCFTManager(
 		ctx:             ctx,
 		services:        make(map[string]Service),
 		servicesStarted: []string{},
+		servicesResults: map[string]string{},
 		ports:           make(map[string]uint16),
 		images:          make(map[string]*buildapi.ContainerImageInfo),
 		Board:           board,
@@ -93,19 +97,36 @@ func NewLocalCFTManager(
 		TagsExclude:     tagsExclude,
 		imagePath:       "",
 		LocalServices:   localServicesMap,
+		err:             nil,
 	}
 }
 
 // Calls the service to start then logs the service as running
 func (c *LocalCFTManager) Start(serviceName string, service Service) error {
 	c.services[serviceName] = service
+	c.servicesResults[serviceName] = SERVICE_RESULT().Undefined
 	c.servicesStarted = append([]string{serviceName}, c.servicesStarted...)
-	return c.services[serviceName].Start()
+	err := c.services[serviceName].Start()
+	if err != nil {
+		c.servicesResults[serviceName] = SERVICE_RESULT().Failed
+	} else {
+		c.servicesResults[serviceName] = SERVICE_RESULT().Success
+	}
+	c.err = err
+	return err
 }
 
 // Passes the command to the specified service
 func (c *LocalCFTManager) Execute(serviceName, commandName ServiceCommand_, args ...interface{}) error {
-	return c.services[serviceName].Execute(commandName, args)
+	c.servicesResults[serviceName] = SERVICE_RESULT().Undefined
+	err := c.services[serviceName].Execute(commandName, args)
+	if err != nil {
+		c.servicesResults[serviceName] = SERVICE_RESULT().Failed
+	} else {
+		c.servicesResults[serviceName] = SERVICE_RESULT().Success
+	}
+	c.err = err
+	return err
 }
 
 // Stops all services that are running in the reverse order of when they started
@@ -120,4 +141,19 @@ func (c *LocalCFTManager) Stop() (err error) {
 	c.servicesStarted = []string{}
 
 	return
+}
+
+// PrintResults list out the statuses of the services that ran during execution
+func (c *LocalCFTManager) PrintResults() {
+	overall := SERVICE_RESULT().Success
+	for service, status := range c.servicesResults {
+		fmt.Printf("%s: %s\n", service, status)
+		if status == SERVICE_RESULT().Failed || status == SERVICE_RESULT().Undefined {
+			overall = status
+		}
+	}
+	fmt.Printf("\nOverall Verdict: %s\n", overall)
+	if c.err != nil {
+		fmt.Printf("local-cft failed: %s\n", c.err)
+	}
 }

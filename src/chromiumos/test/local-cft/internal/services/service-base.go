@@ -67,6 +67,22 @@ type ServiceBase struct {
 	conn *grpc.ClientConn
 }
 
+type ServiceResult_ = string
+type ServiceResult struct {
+	Undefined ServiceResult_
+	Success   ServiceResult_
+	Failed    ServiceResult_
+}
+
+// SERVICE_RESULT provides possibilities for service result
+func SERVICE_RESULT() ServiceResult {
+	return ServiceResult{
+		Undefined: "UNDEFINED",
+		Success:   "SUCCESS",
+		Failed:    "FAILED",
+	}
+}
+
 // example-service -> EXAMPLE_SERVICE
 func kebabToUpperSnake(in string) (out string) {
 	parts := strings.Split(strings.ToUpper(in), "-")

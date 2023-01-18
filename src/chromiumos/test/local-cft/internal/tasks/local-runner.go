@@ -115,11 +115,11 @@ func (c *localCftCmd) Run() int {
 	)
 
 	servicesToRun := c.compileServicesToRun(manager)
-
 	defer func() {
 		if err := manager.Stop(); err != nil {
 			c.errorLogger.Println(err)
 		}
+		manager.PrintResults()
 	}()
 	for _, serviceToRun := range servicesToRun {
 		if err := manager.Start(serviceToRun.name, serviceToRun.service); err != nil {
