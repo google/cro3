@@ -5,11 +5,16 @@ package driver
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"gopkg.in/yaml.v2"
 
 	"chromiumos/test/execution/cmd/cros-test/internal/device"
 )
@@ -32,12 +37,14 @@ func TestNewTastArgs(t *testing.T) {
 			timeOutFlag:                "3000",
 			resultsDirFlag:             workDir1,
 			reportsServerFlag:          ":5555",
+			varsFile:                   "/tmp/test.yaml",
 		},
 	}
 
 	args := newTastArgs(
 		primary, nil, expectedArgs.patterns,
 		workDir1, expectedArgs.runFlags[reportsServerFlag],
+		expectedArgs.runFlags[varsFile],
 	)
 	if diff := cmp.Diff(args, &expectedArgs, cmp.AllowUnexported(runArgs{}), cmpopts.EquateEmpty()); diff != "" {
 		t.Errorf("Got unexpected argument from newTastArgs (-got +want):\n%s\n%v\n--\n%v\n", diff, args, expectedArgs)
@@ -72,13 +79,14 @@ func TestNewTastArgsCompanions(t *testing.T) {
 			timeOutFlag:                "3000",
 			resultsDirFlag:             workDir1,
 			reportsServerFlag:          ":5555",
+			varsFile:                   "/tmp/test.yaml",
 		},
 		companions: companions,
 	}
 
 	args := newTastArgs(
 		primary, companions, expectedArgs.patterns, workDir1,
-		expectedArgs.runFlags[reportsServerFlag])
+		expectedArgs.runFlags[reportsServerFlag], expectedArgs.runFlags[varsFile])
 	if diff := cmp.Diff(args, &expectedArgs, cmp.AllowUnexported(runArgs{})); diff != "" {
 		t.Errorf("Got unexpected argument from newTastArgs (-got +want):\n%s", diff)
 	}
@@ -112,6 +120,7 @@ func TestGenArgList(t *testing.T) {
 			timeOutFlag:                "3000",
 			resultsDirFlag:             workDir1,
 			reportsServerFlag:          "127.0.0.1:3333",
+			varsFile:                   "/a/file",
 		},
 		companions: companions,
 	}
@@ -245,5 +254,48 @@ func TestGenArgListWithServers(t *testing.T) {
 
 	if diff := cmp.Diff(argList, expectedArgList, cmp.AllowUnexported(runArgs{})); diff != "" {
 		t.Errorf("Got unexpected argument from genArgList (-got %v +want %v):\n%s", argList, expectedArgList, diff)
+	}
+}
+
+// TestgenHostInfoYAML tests memes.
+func TestGenHostInfoYAML(t *testing.T) {
+	primary := &device.DutInfo{
+		Addr:  "foo",
+		Phase: "aphase",
+		Sku:   "asku",
+		Model: "amodel",
+		Board: "aboard",
+	}
+	expected := make(map[string]string)
+	expected["phase"] = primary.Phase
+	expected["sku"] = primary.Sku
+	expected["model"] = primary.Model
+	expected["board"] = primary.Board
+
+	fn, err := genHostInfoYAML(primary)
+
+	if err != nil {
+		t.Errorf("Got unexpected err: %v", err)
+	}
+
+	fmt.Println(fn)
+	defer os.Remove(fn)
+	yfile, err := ioutil.ReadFile(fn)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	var data Labels
+	err = yaml.Unmarshal(yfile, &data)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for k, v := range expected {
+		testStr := fmt.Sprintf("\"%v:%v\"", k, v)
+		if !strings.Contains(data.Autotest_host_info_labels, testStr) {
+			t.Errorf("Missing |%v| in: %v", testStr, data.Autotest_host_info_labels)
+		}
 	}
 }

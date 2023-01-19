@@ -8,11 +8,15 @@ package driver
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
+	"gopkg.in/yaml.v2"
 
 	"chromiumos/test/execution/cmd/cros-test/internal/common"
 	"chromiumos/test/execution/cmd/cros-test/internal/device"
@@ -64,7 +68,14 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.
 		}
 		companions = append(companions, info)
 	}
-	args := newTastArgs(primary, companions, testNames, resultsDir, reportServer.Address())
+	yamlPath, err := genHostInfoYAML(primary)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate info yaml: %w", err)
+	}
+
+	// Be nice and clean up.
+	defer os.Remove(yamlPath)
+	args := newTastArgs(primary, companions, testNames, resultsDir, reportServer.Address(), yamlPath)
 
 	// Run tast.
 	cmd := exec.Command("/usr/bin/tast", genArgList(args)...)
@@ -144,6 +155,7 @@ const (
 	reportsServerFlag          = "-reports_server"
 	companionDUTFlag           = "-companiondut"
 	varFlag                    = "-var"
+	varsFile                   = "-varsfile"
 )
 
 // runArgs stores arguments to invoke Tast
@@ -156,7 +168,7 @@ type runArgs struct {
 }
 
 // newTastArgs created an argument structure for invoking tast
-func newTastArgs(primary *device.DutInfo, companionDuts []*device.DutInfo, tests []string, resultsDir, rsAddress string) *runArgs {
+func newTastArgs(primary *device.DutInfo, companionDuts []*device.DutInfo, tests []string, resultsDir, rsAddress string, varsFilePath string) *runArgs {
 	return &runArgs{
 		primary: primary,
 		tastFlags: map[string]string{
@@ -171,6 +183,7 @@ func newTastArgs(primary *device.DutInfo, companionDuts []*device.DutInfo, tests
 			timeOutFlag:                "3000",
 			resultsDirFlag:             resultsDir,
 			reportsServerFlag:          rsAddress,
+			varsFile:                   varsFilePath,
 		},
 		patterns:   tests, // TO-DO Support Tags
 		companions: companionDuts,
@@ -255,4 +268,54 @@ func genArgList(args *runArgs) (argList []string) {
 	argList = append(argList, args.primary.Addr)
 	argList = append(argList, args.patterns...)
 	return argList
+}
+
+// Labels contains Autotest_host_info_labels
+// Note, the name is intentionally `Autotest_host_info_labels` as that is a key string for parsing.
+type Labels struct {
+	Autotest_host_info_labels string
+}
+
+func getLabelsString(dut *device.DutInfo) (string, error) {
+	_, labels, err := device.AppendChromeOsLabels(dut)
+	if err != nil {
+		return "", fmt.Errorf("Topology failed: %v", err)
+	}
+	var attrStr string
+	var attrList []string
+	for _, label := range labels {
+		attrList = append(attrList, fmt.Sprintf("\"%v\"", label))
+
+	}
+
+	joind := strings.Join(attrList[:], ", ")
+	attrStr = fmt.Sprintf("[%v]", joind)
+
+	return attrStr, nil
+}
+
+func genHostInfoYAML(dut *device.DutInfo) (string, error) {
+	generateLabels, err := getLabelsString(dut)
+	if err != nil {
+		return "", err
+	}
+	labels := Labels{
+		Autotest_host_info_labels: generateLabels,
+	}
+
+	yamlData, err := yaml.Marshal(&labels)
+	if err != nil {
+		return "", err
+	}
+
+	file, err := ioutil.TempFile("/tmp", "hostinfoyaml")
+	if err != nil {
+		return "", err
+	}
+
+	err = ioutil.WriteFile(file.Name(), yamlData, 0644)
+	if err != nil {
+		return "", err
+	}
+	return file.Name(), nil
 }

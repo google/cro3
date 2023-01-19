@@ -231,96 +231,10 @@ func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, d
 }
 
 func convertDutTopologyToHostInfo(dut *device.DutInfo) (map[string]string, []string, error) {
-	attrMap, labels, err := appendChromeOsLabels(dut)
+	attrMap, labels, err := device.AppendChromeOsLabels(dut)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Topology failed: %v", err)
 	}
-	return attrMap, labels, nil
-}
-
-// appendChromeOsLabels appends labels extracted from ChromeOS device.
-func appendChromeOsLabels(dut *device.DutInfo) (map[string]string, []string, error) {
-	// attrMap is the map of attributes to be used for autotest hostinfo.
-	// example: {"servo_host": "servohostname.cros"}
-	attrMap := make(map[string]string)
-
-	// labels is a list of labels describing the DUT to be used for autotest hostinfo.
-	// example: "servo chameleon audio_board"
-	var labels []string
-
-	if dut.Board != "" {
-		labels = append(labels, "board:"+strings.ToLower(dut.Board))
-	}
-	if dut.Model != "" {
-		labels = append(labels, "model:"+strings.ToLower(dut.Model))
-	}
-
-	// - Servo
-	if dut.Servo != "" {
-		labels = append(labels, "servo")
-	}
-	if dut.ServoHostname != "" {
-		attrMap["servo_host"] = dut.ServoHostname
-	}
-	if dut.ServoPort != "" {
-		attrMap["servo_port"] = dut.ServoPort
-	}
-	if dut.ServoSerial != "" {
-		attrMap["servo_serial"] = dut.ServoSerial
-	}
-
-	// HWID needs to be an attr
-	if dut.HWID != "" {
-		attrMap["HWID"] = dut.HWID
-	}
-
-	if dut.ChamelonPresent == true {
-		labels = append(labels, "chameleon")
-	}
-	if dut.ChameleonAudio == true {
-		labels = append(labels, "audio_board")
-	}
-	if len(dut.ChamelonPeriphsList) > 0 {
-		labels = append(labels, dut.ChamelonPeriphsList...)
-	}
-
-	if dut.AtrusAudio == true {
-		labels = append(labels, "atrus")
-	}
-
-	if dut.TouchMimo == true {
-		labels = append(labels, "mimo")
-	}
-
-	// - Camerabox
-	if dut.CameraboxFacing != "" {
-		labels = append(labels, "camerabox_facing:"+dut.CameraboxFacing)
-	}
-
-	if len(dut.CableList) > 0 {
-		labels = append(labels, dut.CableList...)
-	}
-
-	if len(dut.CarrierList) > 0 {
-		labels = append(labels, dut.CarrierList...)
-	}
-
-	if len(dut.HwIDList) > 0 {
-		labels = append(labels, dut.HwIDList...)
-	}
-
-	if dut.Sku != "" {
-		labels = append(labels, "sku:"+dut.Sku)
-	}
-
-	if dut.Phase != "" {
-		labels = append(labels, "phase:"+dut.Phase)
-	}
-
-	if dut.BTPeers > 0 {
-		labels = append(labels, fmt.Sprintf("working_bluetooth_btpeer:%v", dut.BTPeers))
-	}
-
 	return attrMap, labels, nil
 }
 
