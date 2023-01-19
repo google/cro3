@@ -13,7 +13,7 @@ import argparse
 import os
 
 
-prefix = '''# Copyright 2022 The ChromiumOS Authors
+prefix = '''# Copyright 2023 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -21,6 +21,10 @@ prefix = '''# Copyright 2022 The ChromiumOS Authors
 
 AUTHOR = 'Chromium OS team'
 NAME = 'tast.{suite}-{carrier}-{tag}'
+METADATA = {{
+    "contacts": ["chromeos-cellular-team@google.com"],
+    "bug_component": "b:167157", # ChromeOS > Platform > Connectivity > Cellular
+    }}
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:{suite}'
@@ -89,7 +93,7 @@ for carrier in ['verizon', 'tmobile', 'att',
                 'amarisoft', 'vodafone', 'rakuten', 'ee', 'kddi',
                 'docomo', 'softbank']:
     tests = single_test_template.format(
-        test_exprs="['cellular.Identifiers','cellular.IsConnected','cellular.Smoke']")
+        test_exprs=f"['cellular.Identifiers.{carrier}','cellular.IsConnected.{carrier}','cellular.Smoke.{carrier}']")
     write_control_file(out_dir, 'cellular_ota',
                        carrier, 'dut_check', tests)
 
