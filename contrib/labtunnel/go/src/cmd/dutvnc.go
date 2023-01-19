@@ -42,7 +42,7 @@ localhost:5900 with your preferred VNC client.
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sshManager := buildSshManager()
-			hostDut, err := resolveDutHostname(cmd.Context(), args[0])
+			hostDut, leased, err := resolveDutHostname(cmd.Context(), args[0])
 			if err != nil {
 				return fmt.Errorf("could not determine hostname: %w", err)
 			}
@@ -68,7 +68,11 @@ localhost:5900 with your preferred VNC client.
 				}()
 			}
 
-			sshManager.WaitUntilAllSshCompleted(cmd.Context())
+			ctx := cmd.Context()
+			if leased {
+				ctx = pollDUTLease(ctx, hostDut)
+			}
+			sshManager.WaitUntilAllSshCompleted(ctx)
 			return nil
 		},
 	}

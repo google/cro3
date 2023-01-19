@@ -34,7 +34,7 @@ rather than the remote chameleond port.
 			sshManager := buildSshManager()
 
 			// Tunnel to dut.
-			hostDut, err := resolveDutHostname(cmd.Context(), args[0])
+			hostDut, leased, err := resolveDutHostname(cmd.Context(), args[0])
 			if err != nil {
 				return fmt.Errorf("could not determine hostname: %w", err)
 			}
@@ -44,7 +44,11 @@ rather than the remote chameleond port.
 			tunnelToChameleonUsingDutHost(cmd.Context(), sshManager, hostDut, 1)
 
 			time.Sleep(time.Second)
-			sshManager.WaitUntilAllSshCompleted(cmd.Context())
+			ctx := cmd.Context()
+			if leased {
+				ctx = pollDUTLease(ctx, hostDut)
+			}
+			sshManager.WaitUntilAllSshCompleted(ctx)
 			return nil
 		},
 	}

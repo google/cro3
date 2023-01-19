@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"strconv"
@@ -26,21 +27,26 @@ const (
 	crosHostnameSuffix      = ".cros"
 )
 
-func resolveDutHostname(ctx context.Context, hostnameParam string) (string, error) {
+// resolveDutHostname remove any prefixes if hostname is given, otherwise if
+// hostname is "leased" will determine a host to use from crosfleet. Returns
+// hostname as a string, boolean which is true if DUT is leased, and error if
+// any problems determining DUT from crosfleet.
+func resolveDutHostname(ctx context.Context, hostnameParam string) (string, bool, error) {
 	if hostnameParam != "leased" {
-		return resolveHostname(hostnameParam, ""), nil
+		return resolveHostname(hostnameParam, ""), false, nil
 	}
 	hostnames, err := crosfleet.CrosfleetLeasedDUTs(ctx)
 	if err != nil {
-		return "", err
+		return "", true, err
 	}
 	if len(hostnames) < 1 {
-		return "", fmt.Errorf("could not find any DUTs leased from crosfleet")
+		return "", true, fmt.Errorf("could not find any DUTs leased from crosfleet")
 	} else if len(hostnames) == 1 {
 		clog.Logger.Printf("Defaulting to only leased DUT: %s", hostnames[0])
-		return hostnames[0], nil
+		return hostnames[0], true, nil
 	}
-	return promptUserForDutChoice(ctx, hostnames)
+	hostname, err := promptUserForDutChoice(ctx, hostnames)
+	return hostname, true, err
 }
 
 func promptUserForDutChoice(ctx context.Context, hostnames []string) (string, error) {
@@ -256,4 +262,35 @@ func tunnelToBtpeersUsingDutHost(ctx context.Context, sshManager *ssh.Concurrent
 
 func tunnelToChameleonUsingDutHost(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, tunnelID int) string {
 	return tunnelToChameleon(ctx, sshManager, tunnelID, resolveHostname(hostDut, "-chameleon"))
+}
+
+func pollDUTLease(ctx context.Context, hostDut string) context.Context {
+	remain, err := crosfleet.DUTLeaseTimeRemainingSeconds(ctx, hostDut)
+	if err != nil {
+		clog.Logger.Printf("unable to determine lease info for %s, labtunnel will run until stopped", hostDut)
+		return ctx
+	}
+	clog.Logger.Printf("found lease for %s, labtunnel will close in %d minutes or if lease is abandoned", hostDut, remain/60)
+	ctx, cancel := context.WithCancel(ctx)
+	// goroutine to cancel context when lease is expired or abandoned
+	go func() {
+		for true {
+			remain, err := crosfleet.DUTLeaseTimeRemainingSeconds(ctx, hostDut)
+			if err == nil && remain == 0 {
+				clog.Logger.Printf("lease ended closing tunnels")
+				cancel()
+				return
+			}
+			// poll every 60 seconds or wait remaining time on lease whichever is less
+			timerSecs := int(math.Min(float64(remain), 60))
+			t := time.NewTimer(time.Duration(timerSecs) * time.Second)
+			select {
+			case <-t.C:
+				// poll again after timer expires
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return ctx
 }

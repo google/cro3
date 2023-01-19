@@ -32,7 +32,7 @@ The dut hostname is resolved from <dut_hostname> by removing the prefix
 			sshManager := buildSshManager()
 
 			// Tunnel to dut.
-			hostDut, err := resolveDutHostname(cmd.Context(), args[0])
+			hostDut, leased, err := resolveDutHostname(cmd.Context(), args[0])
 			if err != nil {
 				return fmt.Errorf("could not determine hostname: %w", err)
 			}
@@ -40,7 +40,11 @@ The dut hostname is resolved from <dut_hostname> by removing the prefix
 
 			time.Sleep(time.Second)
 			log.Logger.Printf("Example Tast call (in chroot): tast run %s <test>", localDut)
-			sshManager.WaitUntilAllSshCompleted(cmd.Context())
+			ctx := cmd.Context()
+			if leased {
+				ctx = pollDUTLease(ctx, hostDut)
+			}
+			sshManager.WaitUntilAllSshCompleted(ctx)
 			return nil
 		},
 	}

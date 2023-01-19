@@ -63,7 +63,9 @@ hostname.  If you specify `leased` as the dut_hostname to labtunnel it will
 query crosfleet for leased DUTs. If there is only one DUT leased it will use
 that hostname, otherwise it will prompt the user to select from among the
 leased DUTs. The `leased` hostname will work with **all** subcommands except
-hosts which does not do any hostname resolution.
+hosts which does not do any hostname resolution.  When using `leased` as the
+dut_hostname labtunnel will automatically close down withing 60s of the lease
+ending (either through timeout or due to the lease being abandoned).
 
 Usage:
   labtunnel [command]

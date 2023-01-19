@@ -41,7 +41,7 @@ on the proxy host, as the callboxes do not support SSH.
 			sshManager := buildSshManager()
 
 			// Tunnel to dut.
-			hostDut, err := resolveDutHostname(cmd.Context(), args[0])
+			hostDut, leased, err := resolveDutHostname(cmd.Context(), args[0])
 			if err != nil {
 				return fmt.Errorf("could not determine hostname: %w", err)
 			}
@@ -61,7 +61,11 @@ on the proxy host, as the callboxes do not support SSH.
 				localCallbox,
 				localCallboxManager,
 				localDut)
-			sshManager.WaitUntilAllSshCompleted(cmd.Context())
+			ctx := cmd.Context()
+			if leased {
+				ctx = pollDUTLease(ctx, hostDut)
+			}
+			sshManager.WaitUntilAllSshCompleted(ctx)
 			return nil
 		},
 	}

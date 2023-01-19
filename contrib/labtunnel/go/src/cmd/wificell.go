@@ -46,7 +46,7 @@ see "labtunnel btpeers --help" for details.
 			sshManager := buildSshManager()
 
 			// Tunnel to dut.
-			hostDut, err := resolveDutHostname(cmd.Context(), args[0])
+			hostDut, leased, err := resolveDutHostname(cmd.Context(), args[0])
 			if err != nil {
 				return fmt.Errorf("could not determine hostname: %w", err)
 			}
@@ -67,7 +67,11 @@ see "labtunnel btpeers --help" for details.
 				strings.Join(localRouters, ","),
 				strings.Join(localPcaps, ","),
 				localDut)
-			sshManager.WaitUntilAllSshCompleted(cmd.Context())
+			ctx := cmd.Context()
+			if leased {
+				ctx = pollDUTLease(ctx, hostDut)
+			}
+			sshManager.WaitUntilAllSshCompleted(ctx)
 			return nil
 		},
 	}
