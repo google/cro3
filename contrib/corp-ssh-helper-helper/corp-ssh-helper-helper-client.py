@@ -46,10 +46,10 @@ def main() -> int:
     with socket.socket(socket.AF_UNIX) as s:
         try:
             s.connect(path)
-        except ConnectionRefusedError as err:
-            logging.error('Failed to connect: %s. '
+        except (ConnectionRefusedError, FileNotFoundError) as err:
+            logging.error('Failed to connect to %s: %s. '
                           'Did you start corp-ssh-helper-helper-server?',
-                          err)
+                          path, err)
             return 1
 
         # Send a request JSON and standard IO FDs of this process to the server.
