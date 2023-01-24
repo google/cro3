@@ -6,6 +6,8 @@ package dutssh
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -43,12 +45,44 @@ HfN/2MoO07vQrjgsFylvrw9A79xItABaqKndlmqlwMZWc9Ne
 -----END RSA PRIVATE KEY-----
 `
 
-var testingSSHSigner ssh.Signer
+// readPrivateKey reads and decodes a passphraseless private SSH key from path.
+// rok is true if the key data was read successfully off disk and false if it wasn't.
+// Note that err may be set while rok is true if the key was malformed or passphrase-protected.
+func readPrivateKey(path string) (s ssh.Signer, err error) {
+	k, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	s, err = ssh.ParsePrivateKey(k)
+	return s, err
+}
+
+var testingSSHMethods []ssh.AuthMethod
 
 func init() {
+	testingSSHMethods = make([]ssh.AuthMethod, 0)
+	setSigners := func(ks []ssh.Signer) {
+		testingSSHMethods = append(testingSSHMethods, ssh.PublicKeys(ks...))
+	}
 	var err error
-	testingSSHSigner, err = ssh.ParsePrivateKey([]byte(sshKeyContent))
+	keySigners := make([]ssh.Signer, 0)
+	testingSSHSigner, err := ssh.ParsePrivateKey([]byte(sshKeyContent))
 	if err != nil {
 		panic(fmt.Sprintf("The well known RSA key: %v", err.Error()))
 	}
+	keySigners = append(keySigners, testingSSHSigner)
+	p := "/~/.ssh/partner_testing_rsa"
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		setSigners(keySigners)
+		return
+	}
+
+	s, err := readPrivateKey(p)
+	if err != nil {
+		setSigners(keySigners)
+		return
+	}
+	keySigners = append(keySigners, s)
+	setSigners(keySigners)
+
 }

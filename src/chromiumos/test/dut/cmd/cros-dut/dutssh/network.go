@@ -41,7 +41,7 @@ func GetSSHConfig() *ssh.ClientConfig {
 		Timeout:         5 * time.Second,
 		// Use the well known testing RSA key as the default SSH auth
 		// method.
-		Auth: []ssh.AuthMethod{ssh.PublicKeys(testingSSHSigner)},
+		Auth: testingSSHMethods,
 	}
 }
 
