@@ -43,6 +43,14 @@ The binary is at `bin/fflash`.
 
 1.  Make sure you can `ssh ${dut_host}` without typing a password
 
+    *** note
+    If using crosfleet devices, you might need to copy
+    https://chrome-internal.googlesource.com/chromeos/sshkeys/+/HEAD/partner_testing_rsa
+    to `~/.ssh/partner_testing_rsa`.
+    Refer to [b/260010430](https://issuetracker.google.com/issues/260010430)
+    for more information.
+    ***
+
 2.  ```
     path/to/fflash ${dut_host}
     ```

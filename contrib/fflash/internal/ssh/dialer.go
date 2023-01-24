@@ -23,20 +23,20 @@ type SshOptions struct {
 
 // Dialer is responsible for creating new ssh connections with a given set of ssh options.
 type Dialer struct {
-	sshOptions     SshOptions
-	testingRSAFile *TestingRSAFile
+	sshOptions SshOptions
+	keyChain   *KeyChain
 }
 
 // NewDialer creates a new ssh dialer which will create ssh clients and tunnels based on the provided options.
 func NewDialer(sshOptions SshOptions) (*Dialer, error) {
-	testingRSAFile, err := NewTestingRSAFile()
+	keyChain, err := NewKeyChain()
 	if err != nil {
 		return nil, err
 	}
 
 	return &Dialer{
-		sshOptions:     sshOptions,
-		testingRSAFile: testingRSAFile,
+		sshOptions: sshOptions,
+		keyChain:   keyChain,
 	}, nil
 }
 
@@ -50,11 +50,6 @@ func NewDialer(sshOptions SshOptions) (*Dialer, error) {
 // parsing ssh configuration, while still having a programmatic API, instead of
 // having to deal with ssh child processes.
 func (d *Dialer) DialWithSystemSSH(ctx context.Context, destination string) (*Client, error) {
-	key, err := ssh.ParsePrivateKey([]byte(TestingRSA))
-	if err != nil {
-		return nil, err
-	}
-
 	tunnel, err := d.newTunnel(ctx, destination)
 	if err != nil {
 		return nil, err
@@ -63,7 +58,7 @@ func (d *Dialer) DialWithSystemSSH(ctx context.Context, destination string) (*Cl
 	config := &ssh.ClientConfig{
 		User: "root",
 		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(key),
+			d.keyChain.SSHAuthMethod(),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
@@ -88,8 +83,8 @@ func (d *Dialer) DefaultCommand(ctx context.Context) *exec.Cmd {
 		"-oConnectTimeout=10",
 		"-oServerAliveInterval=1",
 		"-oUser=root",
-		fmt.Sprintf("-oIdentityFile=%s", d.testingRSAFile.GetFilePath()),
 	)
+	cmd.Args = append(cmd.Args, d.keyChain.SSHCommandOptions()...)
 
 	if d.sshOptions.Port != "" {
 		cmd.Args = append(cmd.Args,
@@ -102,7 +97,7 @@ func (d *Dialer) DefaultCommand(ctx context.Context) *exec.Cmd {
 
 // Closes the ssh dialer.
 func (d *Dialer) Close() error {
-	return d.testingRSAFile.Delete()
+	return d.keyChain.Delete()
 }
 
 // newTunnel creates a SSH Tunnel to host.
