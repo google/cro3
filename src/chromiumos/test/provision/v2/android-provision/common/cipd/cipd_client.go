@@ -22,18 +22,22 @@ type CIPDClient interface {
 }
 
 type CIPD struct {
-	ctx context.Context
+	ctx       context.Context
+	userAgent string
 }
 
 func NewCIPDClient(ctx context.Context) *CIPD {
 	return &CIPD{
-		ctx: ctx,
+		ctx:       ctx,
+		userAgent: "FleetServices: AndroidProvision",
 	}
 }
 
 // Describe returns information about CIPD package instances.
 func (c *CIPD) Describe(cipdPackageProto *api.CIPDPackage, describeTags, describeRefs bool) (*cipd.InstanceDescription, error) {
-	clientOptions := cipd.ClientOptions{}
+	clientOptions := cipd.ClientOptions{
+		UserAgent: fmt.Sprintf("%s; %s", c.userAgent, cipd.UserAgent),
+	}
 	if cipdPackageProto.GetServiceUrl() != "" {
 		clientOptions.ServiceURL = cipdPackageProto.GetServiceUrl()
 	}
@@ -59,7 +63,9 @@ func (c *CIPD) Describe(cipdPackageProto *api.CIPDPackage, describeTags, describ
 
 // FetchInstanceTo downloads CIPD package to a given location.
 func (c *CIPD) FetchInstanceTo(cipdPackageProto *api.CIPDPackage, packageName, instanceId, filePath string) error {
-	clientOptions := cipd.ClientOptions{}
+	clientOptions := cipd.ClientOptions{
+		UserAgent: fmt.Sprintf("%s; %s", c.userAgent, cipd.UserAgent),
+	}
 	if cipdPackageProto.GetServiceUrl() != "" {
 		clientOptions.ServiceURL = cipdPackageProto.GetServiceUrl()
 	}
