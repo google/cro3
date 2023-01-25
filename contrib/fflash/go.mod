@@ -4,7 +4,6 @@ go 1.18
 
 require (
 	cloud.google.com/go/storage v1.23.0
-	golang.org/x/mod v0.4.2
 	golang.org/x/oauth2 v0.0.0-20220630143837-2104d58473e0
 	google.golang.org/api v0.85.0
 )
