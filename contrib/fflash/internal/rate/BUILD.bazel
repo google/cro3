@@ -1,0 +1,22 @@
+# Copyright 2023 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "rate",
+    srcs = [
+        "rate.go",
+        "ring.go",
+    ],
+    importpath = "chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/rate",
+    visibility = ["//:__subpackages__"],
+)
+
+go_test(
+    name = "rate_test",
+    srcs = ["ring_test.go"],
+    embed = [":rate"],
+    deps = ["@com_github_frankban_quicktest//:quicktest"],
+)

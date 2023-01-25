@@ -1,0 +1,31 @@
+# Copyright 2023 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "dut",
+    srcs = [
+        "const.go",
+        "dut.go",
+        "flash.go",
+        "main.go",
+        "partition.go",
+        "request.go",
+        "stateful.go",
+        "util.go",
+    ],
+    importpath = "chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/dut",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/logging",
+        "//internal/misc",
+        "//internal/partitions",
+        "//internal/progress",
+        "@com_github_klauspost_readahead//:readahead",
+        "@com_google_cloud_go_storage//:storage",
+        "@org_golang_google_api//option",
+        "@org_golang_x_oauth2//:oauth2",
+    ],
+)

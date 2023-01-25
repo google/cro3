@@ -1,0 +1,19 @@
+# Copyright 2023 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "ssh",
+    srcs = [
+        "dialer.go",
+        "ssh.go",
+        "testing_rsa.go",
+        "tunnel.go",
+    ],
+    embedsrcs = ["testing_rsa"],
+    importpath = "chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/ssh",
+    visibility = ["//:__subpackages__"],
+    deps = ["@org_golang_x_crypto//ssh"],
+)

@@ -1,0 +1,21 @@
+# Copyright 2023 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+# gazelle:prefix chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash
+gazelle(
+    name = "gazelle",
+    build_tags = ["with_embedded_agent"],
+)
+
+gazelle(
+    name = "gazelle-update-repos",
+    args = [
+        "-from_file=go.mod",
+        "-to_macro=go_mod.bzl%go_mod_dependencies",
+        "-prune",
+    ],
+    command = "update-repos",
+)

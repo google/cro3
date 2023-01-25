@@ -1,0 +1,19 @@
+# Copyright 2023 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "partitions",
+    srcs = ["partition.go"],
+    importpath = "chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/partitions",
+    visibility = ["//:__subpackages__"],
+)
+
+go_test(
+    name = "partitions_test",
+    srcs = ["partition_test.go"],
+    embed = [":partitions"],
+    deps = ["@com_github_frankban_quicktest//:quicktest"],
+)

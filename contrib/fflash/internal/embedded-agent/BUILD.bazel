@@ -1,0 +1,35 @@
+# Copyright 2023 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "embedded-agent",
+    srcs = [
+        "arch.go",
+        "embed.go",
+    ],
+    embedsrcs = [
+        "dut-agent-amd64.xz",
+        "dut-agent-arm64.xz",
+    ],
+    importpath = "chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/embedded-agent",
+    visibility = ["//:__subpackages__"],
+)
+
+XZ_CMD = "xz -6 --stdout --keep $(<) > $(@)"
+
+genrule(
+    name = "dut-agent-amd64_xz",
+    srcs = ["//cmd/dut-agent:dut-agent-amd64"],
+    outs = ["dut-agent-amd64.xz"],
+    cmd = XZ_CMD,
+)
+
+genrule(
+    name = "dut-agent-arm64_xz",
+    srcs = ["//cmd/dut-agent:dut-agent-arm64"],
+    outs = ["dut-agent-arm64.xz"],
+    cmd = XZ_CMD,
+)

@@ -1,0 +1,56 @@
+# Copyright 2023 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+RULES_GO_VERSION = "v0.38.0"
+
+http_archive(
+    name = "io_bazel_rules_go",
+    sha256 = "19ef30b21eae581177e0028f6f4b1f54c66467017be33d211ab6fc81da01ea4d",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/{0}/rules_go-{0}.zip".format(RULES_GO_VERSION),
+        "https://github.com/bazelbuild/rules_go/releases/download/{0}/rules_go-{0}.zip".format(RULES_GO_VERSION),
+    ],
+)
+
+BAZEL_GAZELLE_VERSION = "v0.29.0"
+
+http_archive(
+    name = "bazel_gazelle",
+    sha256 = "ecba0f04f96b4960a5b250c8e8eeec42281035970aa8852dda73098274d14a1d",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/{0}/bazel-gazelle-{0}.tar.gz".format(BAZEL_GAZELLE_VERSION),
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/{0}/bazel-gazelle-{0}.tar.gz".format(BAZEL_GAZELLE_VERSION),
+    ],
+)
+
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
+load("//:go_mod.bzl", "go_mod_dependencies")
+
+# gazelle:repository_macro go_mod.bzl%go_mod_dependencies
+go_mod_dependencies()
+
+go_rules_dependencies()
+
+go_register_toolchains(version = "1.19.5")
+
+gazelle_dependencies(go_repository_default_config = "@//:WORKSPACE.bazel")
+
+COM_GOOGLE_PROTOBUF_VERSION = "21.12"
+
+http_archive(
+    name = "com_google_protobuf",
+    sha256 = "22fdaf641b31655d4b2297f9981fa5203b2866f8332d3c6333f6b0107bb320de",
+    strip_prefix = "protobuf-{}".format(COM_GOOGLE_PROTOBUF_VERSION),
+    urls = [
+        "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v{}.tar.gz".format(COM_GOOGLE_PROTOBUF_VERSION),
+        "https://github.com/protocolbuffers/protobuf/archive/v{}.tar.gz".format(COM_GOOGLE_PROTOBUF_VERSION),
+    ],
+)
+
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
+protobuf_deps()

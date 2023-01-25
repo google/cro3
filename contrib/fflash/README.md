@@ -8,31 +8,43 @@
 
 Dependencies:
 
-*   go 1.18 or later. Use `go version` to inspect the version.
-*   ninja. Check with `ninja --version`. ninja comes with depot_tools.
+*   `bazel`
+*   A C++ toolchain
 
 ### In-repo setup
 
 ```
 cd ~/chromiumos/src/platform/dev/contrib/fflash
-ninja -v
+bazel build //cmd/fflash
 ```
+
+The binary is at `bazel-bin/cmd/fflash/fflash_/fflash`.
 
 ### (Alternative) Out of source tree setup
 
 ```
 git clone https://chromium.googlesource.com/chromiumos/platform/dev-util
 cd dev-util/contrib/fflash
+bazel build //cmd/fflash
+```
+
+The binary is at `bazel-bin/cmd/fflash/fflash_/fflash`.
+
+### (Alternative) Ninja setup
+
+```
+cd ~/chromiumos/src/platform/dev/contrib/fflash
 ninja -v
 ```
+
+The binary is at `bin/fflash`.
 
 ## Run
 
 1.  Make sure you can `ssh ${dut_host}` without typing a password
 
 2.  ```
-    # in the fflash directory
-    bin/fflash ${dut_host}
+    path/to/fflash ${dut_host}
     ```
 
     Where `${dut_host}` is the ssh target.
@@ -40,13 +52,13 @@ ninja -v
 ## Usage examples
 
 ```
-bin/fflash ${dut_host}  # flash latest canary
-bin/fflash ${dut_host} --clobber-stateful=yes  # flash latest canary and clobber stateful
-bin/fflash ${dut_host} -R104  # flash latest R104
-bin/fflash ${dut_host} -R104-14911.0.0  # flash 104-14911.0.0
-bin/fflash ${dut_host} --board=cherry64 -R104  # flash latest R104 for board cherry64
-bin/fflash ${dut_host} --gs=gs://chromeos-image-archive/cherry-release/R104-14911.0.0  # flash specified gs:// directory
-bin/fflash --help
+fflash ${dut_host}  # flash latest canary
+fflash ${dut_host} --clobber-stateful=yes  # flash latest canary and clobber stateful
+fflash ${dut_host} -R104  # flash latest R104
+fflash ${dut_host} -R104-14911.0.0  # flash 104-14911.0.0
+fflash ${dut_host} --board=cherry64 -R104  # flash latest R104 for board cherry64
+fflash ${dut_host} --gs=gs://chromeos-image-archive/cherry-release/R104-14911.0.0  # flash specified gs:// directory
+fflash --help
 ```
 
 ## What `fflash` does
@@ -74,14 +86,31 @@ access token to the Chrome OS release image directory (Google Cloud -> DUT).
 #### Unit tests
 
 ```
-go test ./...
+bazel test //...
 ```
 
 #### Integration tests
 
 ```
-ninja -v
-bin/integration-test ${dut_host}
+bazel run //cmd/integration-test ${dut_host}
+```
+
+### Add go source
+
+Add the source normally and:
+
+```
+bazel run //:gazelle
+```
+
+to update the BUILD.bazel files.
+
+#### Update all go deps
+
+```
+go get -u -d ./...
+go mod tidy
+bazel run //:gazelle-update-repos
 ```
 
 ## Bugs & Feedback

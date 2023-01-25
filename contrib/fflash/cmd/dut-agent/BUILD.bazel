@@ -1,0 +1,30 @@
+# Copyright 2023 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load(":agent.bzl", "dut_agent_binary")
+
+go_library(
+    name = "dut-agent_lib",
+    srcs = ["agent.go"],
+    importpath = "chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/cmd/dut-agent",
+    visibility = ["//visibility:private"],
+    deps = ["//internal/dut"],
+)
+
+go_binary(
+    name = "dut-agent",
+    embed = [":dut-agent_lib"],
+    visibility = ["//visibility:public"],
+)
+
+dut_agent_binary(
+    name = "dut-agent-amd64",
+    goarch = "amd64",
+)
+
+dut_agent_binary(
+    name = "dut-agent-arm64",
+    goarch = "arm64",
+)

@@ -1,0 +1,49 @@
+# Copyright 2023 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "internal",
+    srcs = [
+        "cli.go",
+        "device.go",
+        "main.go",
+        "reboot.go",
+        "request.go",
+        "version.go",
+    ],
+    importpath = "chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/dut",
+        "//internal/embedded-agent",
+        "//internal/misc",
+        "//internal/partitions",
+        "//internal/progress",
+        "//internal/ssh",
+        "@com_github_alecthomas_kingpin//:kingpin",
+        "@com_google_cloud_go_storage//:storage",
+        "@in_gopkg_ini_v1//:ini_v1",
+        "@org_golang_google_api//iterator",
+        "@org_golang_google_api//option",
+        "@org_golang_x_exp//slices",
+        "@org_golang_x_oauth2//:oauth2",
+        "@org_golang_x_oauth2//google",
+        "@org_golang_x_oauth2//google/downscope",
+    ],
+)
+
+go_test(
+    name = "internal_test",
+    srcs = [
+        "cli_test.go",
+        "version_test.go",
+    ],
+    embed = [":internal"],
+    deps = [
+        "//internal/dut",
+        "@com_github_frankban_quicktest//:quicktest",
+    ],
+)
