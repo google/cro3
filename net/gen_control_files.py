@@ -63,11 +63,11 @@ Writes a control file at out_dir/control.suite-carrier-tag. The argument tests s
 """
 
 
-def write_control_file(out_dir, suite, carrier, tag, tests):
-    with open(os.path.join(out_dir, f"control.{suite}-{carrier}-{tag}"),
+def write_control_file(l_out_dir, l_suite, l_carrier, l_tag, l_tests):
+    with open(os.path.join(l_out_dir, f"control.{l_suite}-{l_carrier}-{l_tag}"),
               "w") as control_file:
         control_file.write(
-            prefix.format(suite=suite, carrier=carrier, tag=tag) + tests + suffix)
+            prefix.format(suite=l_suite, carrier=l_carrier, tag=l_tag) + l_tests + suffix)
 
 
 single_test_template = '''
@@ -92,6 +92,12 @@ out_dir = args.out_dir if args.out_dir else os.path.join(os.path.expanduser(
 for carrier in ['verizon', 'tmobile', 'att',
                 'amarisoft', 'vodafone', 'rakuten', 'ee', 'kddi',
                 'docomo', 'softbank']:
+
+    tests = single_test_template.format(
+        test_exprs="['cellular.IsModemUp']")
+    write_control_file(out_dir, 'cellular_ota',
+                       carrier, 'is_modem_up', tests)
+
     tests = single_test_template.format(
         test_exprs=f"['cellular.Identifiers.{carrier}','cellular.IsConnected.{carrier}','cellular.Smoke.{carrier}']")
     write_control_file(out_dir, 'cellular_ota',
