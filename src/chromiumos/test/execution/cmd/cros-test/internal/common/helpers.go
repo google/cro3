@@ -8,8 +8,11 @@ package common
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"log"
+
+	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
 // TestScanner makes a scanner to read from test streams.
@@ -26,4 +29,17 @@ func TestScanner(stream io.Reader, logger *log.Logger, harness string) {
 	if scanner.Err() != nil {
 		logger.Println("Failed to read pipe: ", scanner.Err())
 	}
+}
+
+// UnpackMetadata unpacks the Any metadata field into AutotestExecutionMetadata
+func UnpackMetadata(req *api.CrosTestRequest) (*api.AutotestExecutionMetadata, error) {
+	if req.Metadata == nil {
+		return &api.AutotestExecutionMetadata{}, nil
+	}
+
+	var m api.AutotestExecutionMetadata
+	if err := req.Metadata.UnmarshalTo(&m); err != nil {
+		return nil, fmt.Errorf("improperly formatted input proto metadata, %s", err)
+	}
+	return &m, nil
 }

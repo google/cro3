@@ -82,7 +82,7 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, req *api
 	}
 
 	// Get autotest execution args
-	customAutotestArgs, err := unpackMetadata(req)
+	customAutotestArgs, err := common.UnpackMetadata(req)
 	if err != nil {
 		return nil, err
 	}
@@ -236,19 +236,6 @@ func convertDutTopologyToHostInfo(dut *device.DutInfo) (map[string]string, []str
 		return nil, nil, fmt.Errorf("Topology failed: %v", err)
 	}
 	return attrMap, labels, nil
-}
-
-// unpackMetadata unpacks the Any metadata field into AutotestExecutionMetadata
-func unpackMetadata(req *api.CrosTestRequest) (*api.AutotestExecutionMetadata, error) {
-	if req.Metadata == nil {
-		return &api.AutotestExecutionMetadata{}, nil
-	}
-
-	var m api.AutotestExecutionMetadata
-	if err := req.Metadata.UnmarshalTo(&m); err != nil {
-		return nil, fmt.Errorf("improperly formatted input proto metadata, %s", err)
-	}
-	return &m, nil
 }
 
 // genTautoArgList generates argument list for invoking Tauto
