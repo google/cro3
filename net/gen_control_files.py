@@ -118,13 +118,14 @@ for carrier in ['verizon', 'tmobile', 'att',
     write_control_file(out_dir, 'cellular_ota_flaky',
                        carrier, 'stress', tests)
 
+    exclude_sms = "" if carrier in ["tmobile","att"] else " && !\"cellular_sms\""
     tests = single_test_template.format(
-        test_exprs="['(\"group:cellular\" && \"cellular_sim_active\" && \"cellular_unstable\" && !\"cellular_run_isolated\" && !\"cellular_e2e\")']")
+        test_exprs="['(\"group:cellular\" && \"cellular_sim_active\" && \"cellular_unstable\" && !\"cellular_run_isolated\" && !\"cellular_e2e\"" + exclude_sms + ")']")
     write_control_file(out_dir, 'cellular_ota_flaky',
                        carrier, 'platform', tests)
 
     tests = single_test_template.format(
-        test_exprs="['(\"group:cellular\" && \"cellular_sim_active\" && !\"cellular_unstable\" && !\"cellular_run_isolated\" && !\"cellular_e2e\")']")
+        test_exprs="['(\"group:cellular\" && \"cellular_sim_active\" && !\"cellular_unstable\" && !\"cellular_run_isolated\" && !\"cellular_e2e\"" + exclude_sms + ")']")
     write_control_file(out_dir, 'cellular_ota',
                        carrier, 'platform', tests)
 
