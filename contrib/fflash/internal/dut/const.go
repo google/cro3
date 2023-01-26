@@ -11,6 +11,9 @@ const (
 	StatefulImage = "stateful.tgz"
 )
 
+// Images to be flashed
+var Images = []string{KernelImage, RootfsImage, StatefulImage}
+
 const (
 	statefulDir       = "/mnt/stateful_partition"
 	statefulAvailable = ".update_available"

@@ -103,7 +103,7 @@ func (req *Request) openObject(ctx context.Context, client *storage.Client, rw *
 
 // Check access to Cloud Storage files.
 func (req *Request) Check(ctx context.Context, client *storage.Client) error {
-	for _, file := range []string{KernelImage, RootfsImage, StatefulImage} {
+	for _, file := range Images {
 		obj := req.object(client, file)
 
 		if _, err := obj.Attrs(ctx); err != nil {

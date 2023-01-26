@@ -19,6 +19,7 @@ import (
 	"golang.org/x/exp/slices"
 	"google.golang.org/api/iterator"
 
+	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/dut"
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/misc"
 )
 
@@ -109,6 +110,17 @@ func queryPrefix(ctx context.Context, c *storage.Client, q *storage.Query) ([]*s
 	return result, nil
 }
 
+func checkVersion(ctx context.Context, c *storage.Client, board string, v version) error {
+	for _, file := range dut.Images {
+		object := c.Bucket("chromeos-image-archive").Object(fmt.Sprintf("%s-release/%s/%s", board, v, file))
+		_, err := object.Attrs(ctx)
+		if err != nil {
+			return fmt.Errorf("%s: %v", misc.GsURI(object), err)
+		}
+	}
+	return nil
+}
+
 // GetLatestVersionWithPrefix finds the latest build with the given prefix on gs://chromeos-image-archive.
 func GetLatestVersionWithPrefix(ctx context.Context, c *storage.Client, board, prefix string) (string, error) {
 	fullPrefix := fmt.Sprintf("%s-release/%s", board, prefix)
@@ -134,7 +146,10 @@ func GetLatestVersionWithPrefix(ctx context.Context, c *storage.Client, board, p
 
 	slices.SortFunc(versions, func(a, b version) bool { return b.less(a) })
 	for _, v := range versions {
-		// TODO: check if v is valid.
+		if err := checkVersion(ctx, c, board, v); err != nil {
+			log.Printf("ignoring version %q: %v", v, err)
+			continue
+		}
 		return v.String(), nil
 	}
 	return "", fmt.Errorf("no versions found for gs://chromeos-image-archive/%s*", fullPrefix)
