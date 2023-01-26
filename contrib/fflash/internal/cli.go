@@ -24,11 +24,12 @@ func cliParse(args []string) (target string, opts Options, err error) {
 	app := kingpin.New("fflash", "")
 	app.Arg("dut-host", "the ssh target of the dut").Required().StringVar(&target)
 	app.Flag("gs", "gs:// directory to flash. Use with caution!").StringVar(&opts.GS)
-	app.Flag("R", "release number. ex: 105 or 105-14989.0.0").Short('R').StringVar(&opts.ReleaseString)
+	app.Flag("R", "release number. ex: 105 or 105-14989.0.0").Short('R').StringVar(&opts.VersionString)
 	app.Flag("board",
 		"flash from gs://chromeos-image-archive/${board}-release/R*. Use with caution!").
 		StringVar(&opts.Board)
 	app.Flag("port", "port number to connect to on the dut-host").Short('p').StringVar(&opts.Port)
+	app.Flag("dry-run", "print the target image version but do not actually flash it").BoolVar(&opts.DryRun)
 	rootfsVerification := app.Flag(
 		"rootfs-verification",
 		"whether rootfs verification on the new root is enabled. "+
@@ -47,10 +48,15 @@ func cliParse(args []string) (target string, opts Options, err error) {
 		return target, opts, fmt.Errorf("error: %w, try --help", err)
 	}
 
-	r, err := strconv.Atoi(opts.ReleaseString)
-	if err == nil {
-		opts.ReleaseNum = r
-		opts.ReleaseString = ""
+	if opts.VersionString != "" {
+		r, err := strconv.Atoi(opts.VersionString)
+		if err == nil {
+			opts.MilestoneNum = r
+			opts.VersionString = ""
+		} else {
+			// The -R is removed from the parser, add it back.
+			opts.VersionString = "R" + opts.VersionString
+		}
 	}
 	opts.DisableRootfsVerification = (*rootfsVerification == no)
 	opts.ClobberStateful = (*clobberStateful == yes)

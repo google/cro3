@@ -11,6 +11,7 @@ require (
 require (
 	github.com/frankban/quicktest v1.14.3
 	github.com/klauspost/readahead v1.4.0
+	golang.org/x/exp v0.0.0-20230126173853-a67bb567ff2e
 	gopkg.in/ini.v1 v1.66.6
 )
 
@@ -37,7 +38,7 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
-	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	google.golang.org/appengine v1.6.7 // indirect

@@ -16,17 +16,30 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"golang.org/x/exp/slices"
 	"google.golang.org/api/iterator"
 
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/misc"
 )
 
 // version like R{r}-{x}.{y}.{z} e.g. R109-15236.80.0
+//
+// In fflash, we refer to those as:
+//
+//	R109-15236.80.0
+//	 --- ----- -- -
+//	 |   |     |  |
+//	 |   |     |  Patch number
+//	 |   |     Branch number
+//	 |   Build number
+//	 Milestone number
+//
+// The full string is called the version.
 type version struct {
-	r int
-	x int
-	y int
-	z int
+	r int // Milestone number
+	x int // Build number
+	y int // Branch number
+	z int // Patch number
 }
 
 var versionRegexp = regexp.MustCompile(`^R(\d+)-(\d+).(\d+)\.(\d+)$`)
@@ -76,57 +89,116 @@ func (v version) String() string {
 	return fmt.Sprintf("R%d-%d.%d.%d", v.r, v.x, v.y, v.z)
 }
 
-// GetLatestBuildWithPrefix finds the latest build with the given prefix on gs://chromeos-image-archive.
-func GetLatestBuildWithPrefix(ctx context.Context, c *storage.Client, board, prefix string) (string, error) {
-	fullPrefix := fmt.Sprintf("%s-release/%s", board, prefix)
+func queryPrefix(ctx context.Context, c *storage.Client, q *storage.Query) ([]*storage.ObjectAttrs, error) {
+	var result []*storage.ObjectAttrs
 
-	q := &storage.Query{
-		Delimiter: "/",
-		Prefix:    fullPrefix,
-	}
 	if err := q.SetAttrSelection([]string{"Name"}); err != nil {
 		panic("SetAttrSelection failed")
 	}
 	objects := c.Bucket("chromeos-image-archive").Objects(ctx, q)
-
-	var latestVersion version
 	for {
 		attrs, err := objects.Next()
 		if err == iterator.Done {
 			break
 		}
 		if err != nil {
-			return "", fmt.Errorf("cannot get releases available for gs://chromeos-image-archive/%s", fullPrefix)
+			return nil, fmt.Errorf("error while executing query: %w", err)
 		}
+		result = append(result, attrs)
+	}
+	return result, nil
+}
+
+// GetLatestVersionWithPrefix finds the latest build with the given prefix on gs://chromeos-image-archive.
+func GetLatestVersionWithPrefix(ctx context.Context, c *storage.Client, board, prefix string) (string, error) {
+	fullPrefix := fmt.Sprintf("%s-release/%s", board, prefix)
+
+	q := &storage.Query{
+		Delimiter: "/",
+		Prefix:    fullPrefix,
+	}
+	objects, err := queryPrefix(ctx, c, q)
+	if err != nil {
+		return "", fmt.Errorf("cannot get versions available for gs://chromeos-image-archive/%s*", fullPrefix)
+	}
+
+	var versions []version
+	for _, attrs := range objects {
 		v, err := parseVersion(path.Base(attrs.Prefix))
 		if err != nil {
-			log.Println(err)
+			log.Printf("Cannot parse %q, ignoring: %v", attrs.Prefix, err)
 			continue
 		}
-		if latestVersion.less(v) {
-			latestVersion = v
+		versions = append(versions, v)
+	}
+
+	slices.SortFunc(versions, func(a, b version) bool { return b.less(a) })
+	for _, v := range versions {
+		// TODO: check if v is valid.
+		return v.String(), nil
+	}
+	return "", fmt.Errorf("no versions found for gs://chromeos-image-archive/%s*", fullPrefix)
+}
+
+// getLatestVersionForLATEST finds the latest version for LATEST file for board on gs://chromeos-image-archive.
+// If isPrefix is true, looks for the LATEST files having the {latest} as their prefix.
+func getLatestVersionForLATEST(ctx context.Context, c *storage.Client, board string, latest string, isPrefix bool) (string, error) {
+	name := fmt.Sprintf("%s-release/%s", board, latest)
+	var objects []*storage.ObjectAttrs
+	if isPrefix {
+		var err error
+		q := &storage.Query{Prefix: name}
+		objects, err = queryPrefix(ctx, c, q)
+		if err != nil {
+			return "", fmt.Errorf("cannot get LATEST file from gs://chromeos-image-archive/%s*", name)
+		}
+	} else {
+		objects = []*storage.ObjectAttrs{
+			{
+				Name: name,
+			},
 		}
 	}
+
+	var latestVersion version
+	for _, attrs := range objects {
+		latestFileObj := c.Bucket("chromeos-image-archive").Object(attrs.Name)
+		r, err := latestFileObj.NewReader(ctx)
+		if err != nil {
+			return "", fmt.Errorf("cannot open LATEST file %s: %w", misc.GsURI(latestFileObj), err)
+		}
+		rawVersion, err := io.ReadAll(r)
+		if err != nil {
+			return "", fmt.Errorf("cannot read from LATEST file %s: %w", misc.GsURI(latestFileObj), err)
+		}
+		version, err := parseVersion(string(rawVersion))
+		if err != nil {
+			return "", fmt.Errorf("cannot parse LATEST file %s: %w", misc.GsURI(latestFileObj), err)
+		}
+		if latestVersion.less(version) {
+			latestVersion = version
+		}
+	}
+
 	if latestVersion == (version{}) {
-		return "", fmt.Errorf("no releases available found for gs://chromeos-image-archive/%s", fullPrefix)
+		return "", fmt.Errorf("no LATEST file found for gs://chromeos-image-archive/%s*", name)
 	}
 	return latestVersion.String(), nil
 }
 
-// GetLatestReleaseForBoard finds the latest release for board on gs://chromeos-image-archive.
-func GetLatestReleaseForBoard(ctx context.Context, c *storage.Client, board string) (string, error) {
-	object := c.Bucket("chromeos-image-archive").Object(fmt.Sprintf("%s-release/LATEST-main", board))
-	r, err := object.NewReader(ctx)
+// GetLatestVersionForMilestone finds the latest version for board and milestone on gs://chromeos-image-archive.
+func GetLatestVersionForMilestone(ctx context.Context, c *storage.Client, board string, milestone int) (string, error) {
+	version, err := getLatestVersionForLATEST(ctx, c, board, fmt.Sprintf("LATEST-release-R%d-", milestone), true)
 	if err != nil {
-		return "", fmt.Errorf("cannot open %s: %w", misc.GsURI(object), err)
+		log.Printf("%v, maybe the milestone is not branched yet. Retrying with prefix matching", err)
+		version, err = GetLatestVersionWithPrefix(ctx, c, board, fmt.Sprintf("R%d-", milestone))
 	}
+	return version, err
+}
 
-	release, err := io.ReadAll(r)
-	if err != nil {
-		return "", fmt.Errorf("cannot read from %s: %w", misc.GsURI(object), err)
-	}
-
-	return string(release), nil
+// GetLatestVersion finds the latest version for board on gs://chromeos-image-archive.
+func GetLatestVersion(ctx context.Context, c *storage.Client, board string) (string, error) {
+	return getLatestVersionForLATEST(ctx, c, board, "LATEST-main", false)
 }
 
 func getFlashTarget(ctx context.Context, c *storage.Client, board string, opts *Options) (targetBucket string, targetDirectory string, err error) {
@@ -138,19 +210,14 @@ func getFlashTarget(ctx context.Context, c *storage.Client, board string, opts *
 		return url.Host, strings.TrimPrefix(url.RequestURI(), "/"), nil
 	}
 
-	var prefix string
-	if opts.ReleaseString != "" {
-		prefix = "R" + opts.ReleaseString
-	} else if opts.ReleaseNum != 0 {
-		prefix = fmt.Sprintf("R%d-", opts.ReleaseNum)
-	}
-
-	var gsRelease string
-	if prefix == "" {
-		gsRelease, err = GetLatestReleaseForBoard(ctx, c, board)
+	var gsVersion string
+	if opts.VersionString != "" {
+		gsVersion, err = GetLatestVersionWithPrefix(ctx, c, board, opts.VersionString)
+	} else if opts.MilestoneNum != 0 {
+		gsVersion, err = GetLatestVersionForMilestone(ctx, c, board, opts.MilestoneNum)
 	} else {
-		gsRelease, err = GetLatestBuildWithPrefix(ctx, c, board, prefix)
+		gsVersion, err = GetLatestVersion(ctx, c, board)
 	}
 
-	return "chromeos-image-archive", fmt.Sprintf("%s-release/%s", board, gsRelease), err
+	return "chromeos-image-archive", fmt.Sprintf("%s-release/%s", board, gsVersion), err
 }

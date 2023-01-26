@@ -60,6 +60,27 @@ func TestCLIParse(t *testing.T) {
 				},
 			},
 		},
+		"milestone": {
+			args:   []string{"dut", "-R123"},
+			target: "dut",
+			opts: Options{
+				MilestoneNum: 123,
+				FlashOptions: dut.FlashOptions{
+					DisableRootfsVerification: true,
+				},
+			},
+		},
+		"version": {
+			args:   []string{"dut", "-R123-4.5.6"},
+			target: "dut",
+			opts: Options{
+				MilestoneNum:  0,
+				VersionString: "R123-4.5.6",
+				FlashOptions: dut.FlashOptions{
+					DisableRootfsVerification: true,
+				},
+			},
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			qt := quicktest.New(t)

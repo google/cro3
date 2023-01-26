@@ -70,10 +70,11 @@ func getToken(ctx context.Context) (oauth2.TokenSource, error) {
 
 type Options struct {
 	GS            string `json:",omitempty"` // gs:// directory to flash
-	ReleaseString string `json:",omitempty"` // release string such as R105-14989.0.0
-	ReleaseNum    int    `json:",omitempty"` // release number such as 105
+	VersionString string `json:",omitempty"` // version string such as R105-14989.0.0
+	MilestoneNum  int    `json:",omitempty"` // release number such as 105
 	Board         string `json:",omitempty"` // build target name such as brya
 	Port          string `json:",omitempty"` // port number to connect to on the dut-host
+	DryRun        bool   `json:",omitempty"` // print what is going to be flashed but do not actually flash
 	dut.FlashOptions
 }
 
@@ -144,6 +145,11 @@ func Main(ctx context.Context, t0 time.Time, target string, opts *Options) error
 	}
 	if err := req.Check(ctx, storageClient); err != nil {
 		return err
+	}
+
+	if opts.DryRun {
+		log.Print("Exit early due to --dry-run")
+		return nil
 	}
 
 	log.Println("pushing dut-agent to", target)
