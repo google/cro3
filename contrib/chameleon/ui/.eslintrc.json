@@ -1,0 +1,23 @@
+{
+  "extends": ["google", "prettier", "plugin:react/recommended"],
+  "plugins": ["prettier", "react", "react-hooks", "babel"],
+  "parser": "@babel/eslint-parser",
+  "settings": {
+    "react": {
+        "version": "detect"
+    }
+  },
+  "env": {
+      "browser": true,
+      "es2021": true
+  },
+  "rules": {
+    "prettier/prettier": ["error"],
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "require-jsdoc": 0,
+    "no-invalid-this": 0,
+    "babel/no-invalid-this": 1,
+    "jsx-quotes": [2, "prefer-single"]
+  }
+}
