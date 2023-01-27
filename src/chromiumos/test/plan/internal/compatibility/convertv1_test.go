@@ -518,6 +518,56 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 		Critical: bbpb.Trinary_YES,
 	}
 
+	kernelBuild := &bbpb.Build{
+		Builder: &bbpb.BuilderID{
+			Builder: "cq-builderA-kernel-v4_4",
+		},
+		Input: &bbpb.Build_Input{
+			Properties: newStruct(t, map[string]interface{}{
+				"build_target": map[string]interface{}{
+					"name": "boardA",
+				},
+			}),
+		},
+		Output: &bbpb.Build_Output{
+			Properties: newStruct(t, map[string]interface{}{
+				"artifacts": map[string]interface{}{
+					"gs_bucket": "testgsbucket",
+					"gs_path":   "testgspathA",
+					"files_by_artifact": map[string]interface{}{
+						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+					},
+				},
+			}),
+		},
+		Critical: bbpb.Trinary_YES,
+	}
+
+	vmOptimizedBuild := &bbpb.Build{
+		Builder: &bbpb.BuilderID{
+			Builder: "cq-builderA-vm-optimized",
+		},
+		Input: &bbpb.Build_Input{
+			Properties: newStruct(t, map[string]interface{}{
+				"build_target": map[string]interface{}{
+					"name": "boardA",
+				},
+			}),
+		},
+		Output: &bbpb.Build_Output{
+			Properties: newStruct(t, map[string]interface{}{
+				"artifacts": map[string]interface{}{
+					"gs_bucket": "testgsbucket",
+					"gs_path":   "testgspathA",
+					"files_by_artifact": map[string]interface{}{
+						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+					},
+				},
+			}),
+		},
+		Critical: bbpb.Trinary_YES,
+	}
+
 	return []*testplans.ProtoBytes{
 		serializeOrFatal(t, build1),
 		serializeOrFatal(t, build2),
@@ -528,6 +578,8 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 		serializeOrFatal(t, variantBuild),
 		serializeOrFatal(t, vmBuild),
 		serializeOrFatal(t, vmBuildWithVariant),
+		serializeOrFatal(t, kernelBuild),
+		serializeOrFatal(t, vmOptimizedBuild),
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -217,6 +218,8 @@ type buildInfo struct {
 	payload     *testplans.BuildPayload
 }
 
+var kernelBuilderRegexp = regexp.MustCompile(`-kernel-v.+`)
+
 // parseBuildProtos parses serialized Buildbucket Build protos and extracts
 // properties into buildInfos.
 func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, error) {
@@ -238,9 +241,11 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 			return nil, err
 		}
 
+		builderName := build.GetBuilder().GetBuilder()
+
 		pointless, ok := extractFromProtoStruct(build.GetOutput().GetProperties(), "pointless_build")
 		if ok && pointless.GetBoolValue() {
-			glog.Warningf("build %q is pointless, skipping", build.GetBuilder().GetBuilder())
+			glog.Warningf("build %q is pointless, skipping", builderName)
 			continue
 		}
 
@@ -249,7 +254,7 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 			"build_target", "name",
 		)
 		if !ok {
-			glog.Warningf("build_target.name not found in input properties of build %q, skipping", build.GetBuilder().GetBuilder())
+			glog.Warningf("build_target.name not found in input properties of build %q, skipping", builderName)
 			continue
 		}
 
@@ -258,7 +263,7 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 			"artifacts", "files_by_artifact",
 		)
 		if !ok {
-			glog.Warningf("artifacts.files_by_artifact not found in output properties of build %q, skipping", build.GetBuilder().GetBuilder())
+			glog.Warningf("artifacts.files_by_artifact not found in output properties of build %q, skipping", builderName)
 			continue
 		}
 
@@ -275,7 +280,7 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 		}
 
 		if !foundTestArtifact {
-			glog.Warningf("no test artifacts found for build %q, skipping", build.GetBuilder().GetBuilder())
+			glog.Warningf("no test artifacts found for build %q, skipping", builderName)
 			continue
 		}
 
@@ -284,7 +289,7 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 			"artifacts", "gs_bucket",
 		)
 		if !ok {
-			return nil, fmt.Errorf("artifacts.gs_bucket not found for build %q", build.GetBuilder().GetBuilder())
+			return nil, fmt.Errorf("artifacts.gs_bucket not found for build %q", builderName)
 		}
 
 		artifactsGsPath, ok := extractStringFromProtoStruct(
@@ -292,7 +297,23 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 			"artifacts", "gs_path",
 		)
 		if !ok {
-			return nil, fmt.Errorf("artifacts.gs_path not found for build %q", build.GetBuilder().GetBuilder())
+			return nil, fmt.Errorf("artifacts.gs_path not found for build %q", builderName)
+		}
+
+		// kernel and vm-optimized builds have the same build_target input prop
+		// as the base version of the build. However, we don't want to test
+		// every version of the build target, just the base profile. Filter them
+		// out here by checking the builder name, in the future this could be
+		// made more robust by passing BuilderConfigs into testplan and checking
+		// the profile information directly.
+		if kernelBuilderRegexp.MatchString(builderName) {
+			glog.Warningf("skipping kernel build: %q", builderName)
+			continue
+		}
+
+		if strings.Contains(builderName, "vm-optimized") {
+			glog.Warningf("skipping vm optimized build: %v", builderName)
+			continue
 		}
 
 		buildInfos = append(buildInfos, &buildInfo{
