@@ -54,6 +54,8 @@ from src.docker_libs.build_libs.shared.common_service_prep import (
 # extremely simple/easy for a user to come in and add a new dockerfile.
 
 REGISTERED_BUILDS = {
+    'android-provision': {
+        'prepper': CommonServiceDockerPrepper, 'cloud': False},
     'cros-callbox': {
         'prepper': CrosCallBoxDockerPrepper, 'cloud': False},
     'cros-dut': {
