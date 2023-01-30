@@ -40,19 +40,12 @@ topic_fixups = {}
 
 topic_fixups['arch'] = [
     'KVM: mmu: introduce new gfn_to_pfn_page functions',
-    'kvm_x86: virtual suspend time injection: Implement host side',
     'KVM: Fix multiple races in gfn=>pfn cache refresh',
     'FIXUP: KVM: mmu: introduce new gfn_to_pfn_page functions'
 ]
 
 topic_fixups['chromeos'] = [
-    'Restore missing cursor for digitizer devices',
-    'mm: Check pmd_trans_unstable() after splitting huge page in per-process reclaim',
     'mm: Optionally limit per-process reclaim',
-    'CHROMIUM: LSM: chromiumos security module',
-    'CHROMIUM: Restrict swapon() to \"zram\" devices lock down zram',
-    'Input: elants_i2c - keep regulators on when unbinding',
-    'schedutil: Fix iowait boost issues for slow IO devices',
     'FROMLIST: sched: Add a coresched command line option',
 ]
 
@@ -62,30 +55,11 @@ topic_fixups['bluetooth'] = [
 
 topic_fixups['block-fs'] = [
     'Add message definitions for CHROMEOS_TMPFILE',
-    'verity: bring over dm-verity-chromeos.c',
-    'fuse: Implement CHROMEOS_TMPFILE',
-    'mm: implement \\proc\\<pid>\\totmaps',
     'FIXUP-CHROMIUM-drivers-md-dm-verity-chromeos-Fix-bio',
 ]
 
-topic_fixups['media'] = [
-    'FROMLIST: media: uvcvideo: Lock video streams and queues while unregistering',
-]
-
-topic_fixups['dts'] = [
-    'dts: arm64: mt8183: Add DIP nodes'
-]
-
 topic_fixups['cros_ec'] = [
-    'iio cros_ec_light_prox : Fix 5.15 merging',
-    'iio: cros_ec: Add synchronization sensor',
-    'iio: cros_ec_activity: add activity sensor driver',
-    'platform iio: cros_ec_activity: add body_detection push event',
     'platform: x86: add ACPI driver for ChromeOS',
-]
-
-topic_fixups['sound'] = [
-    'ASoC: max98357a: Add mixer control to mute unmute speaker'
 ]
 
 # order for automatic branch merging in rebase.py.
