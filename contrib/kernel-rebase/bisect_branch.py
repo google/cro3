@@ -820,7 +820,7 @@ def create_bisect_branch(begin,
     """Create bisection branch."""
 
     # Resultant branch name format
-    bisect_branch = f'kernelupstream-bisect-{begin}-{end}'
+    bisect_branch = f'kernelupstream-bisect-{begin}_{end}'
 
     log.info('Begin work on constructing a bisection branch...')
 
@@ -900,7 +900,7 @@ def verify_bisect_branch(begin, end, steps_cnt):
     """Verify bisection branch."""
 
     # Resultant branch name format
-    bisect_branch = f'kernelupstream-bisect-{begin}-{end}'
+    bisect_branch = f'kernelupstream-bisect-{begin}_{end}'
 
     log.info(f'Checkout {bisect_branch}')
     checkout('kernel-upstream', bisect_branch)
@@ -1017,7 +1017,7 @@ def alternative_bisect_branch(begin, end):
         commit_last = shas_split[step][-1]
 
         log.info(f'Bisection step: {step+1}/{steps_count}')
-        branch_prefix = f'local-bisect-{begin}-{end}-'
+        branch_prefix = f'local-bisect-{begin}_{end}-'
         alternative_apply_patches(commit_first, branch_prefix, cros_patches)
 
         # Actually, this step should upload the kernel image to DUT and test it
