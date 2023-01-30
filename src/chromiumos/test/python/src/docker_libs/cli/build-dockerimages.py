@@ -86,7 +86,7 @@ DO_NOT_BUILD = set(['cros-callbox'])
 # NOTE: when promoting a service from DO_NOT_BUILD, it should be added to
 # NON_CRITICAL for atleast a short time to verify health.
 NON_CRITICAL = set(
-    ['cros-dut', 'cros-servod', 'cros-provision', 'cros-publish'])
+    ['cros-servod', 'cros-publish'])
 
 
 def parse_local_arguments() -> argparse.Namespace:
@@ -200,9 +200,7 @@ def build_image(args: argparse.Namespace, service: str, output: str) -> bool:
         labels=prepper.labels)
     build_container(b, args)
 
-    # Upload if requested, or an output file is given.
-    if args.upload or args.output:
-      b.upload_image()
+
 
   except Exception:
     # Print a traceback for debugging.
@@ -220,6 +218,9 @@ def build_container(b: DockerBuilder, args: argparse.Namespace):
   while retries >= 0:
     try:
       b.build()
+      # Upload if requested, or an output file is given.
+      if args.upload or args.output:
+        b.upload_image()
       return
     except Exception as e:
       if retries <= 0:
