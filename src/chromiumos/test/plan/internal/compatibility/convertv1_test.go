@@ -149,7 +149,6 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 			{
 				TestSuites: []*testpb.TestSuite{
 					{
-
 						Spec: &testpb.TestSuite_TestCaseIds{
 							TestCaseIds: &testpb.TestCaseIdList{
 								TestCaseIds: []*testpb.TestCase_Id{
@@ -185,6 +184,44 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 						},
 						ProvisionConfig: &testpb.ProvisionConfig{
 							BoardVariant: "kernelnext",
+						},
+					},
+				},
+				Critical:  &wrapperspb.BoolValue{Value: true},
+				RunViaCft: true,
+			},
+			{
+				TestSuites: []*testpb.TestSuite{
+					{
+						Spec: &testpb.TestSuite_TestCaseIds{
+							TestCaseIds: &testpb.TestCaseIdList{
+								TestCaseIds: []*testpb.TestCase_Id{
+									{
+										Value: "asan-suite",
+									},
+								},
+							},
+						},
+					},
+				},
+				DutTargets: []*testpb.DutTarget{
+					{
+						Criteria: []*testpb.DutCriterion{
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "attr-program",
+								},
+								Values: []string{"boardA"},
+							},
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "swarming-pool",
+								},
+								Values: []string{"DUT_POOL_QUOTA"},
+							},
+						},
+						ProvisionConfig: &testpb.ProvisionConfig{
+							Profile: "asan",
 						},
 					},
 				},
@@ -518,9 +555,9 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 		Critical: bbpb.Trinary_YES,
 	}
 
-	kernelBuild := &bbpb.Build{
+	asanBuild := &bbpb.Build{
 		Builder: &bbpb.BuilderID{
-			Builder: "cq-builderA-kernel-v4_4",
+			Builder: "cq-builderA-asan",
 		},
 		Input: &bbpb.Build_Input{
 			Properties: newStruct(t, map[string]interface{}{
@@ -533,7 +570,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 			Properties: newStruct(t, map[string]interface{}{
 				"artifacts": map[string]interface{}{
 					"gs_bucket": "testgsbucket",
-					"gs_path":   "testgspathA",
+					"gs_path":   "testgspathA-asan",
 					"files_by_artifact": map[string]interface{}{
 						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
 					},
@@ -578,9 +615,34 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 		serializeOrFatal(t, variantBuild),
 		serializeOrFatal(t, vmBuild),
 		serializeOrFatal(t, vmBuildWithVariant),
-		serializeOrFatal(t, kernelBuild),
+		serializeOrFatal(t, asanBuild),
 		serializeOrFatal(t, vmOptimizedBuild),
 	}
+}
+
+var builderConfigs = &chromiumos.BuilderConfigs{
+	BuilderConfigs: []*chromiumos.BuilderConfig{
+		{
+			Id: &chromiumos.BuilderConfig_Id{
+				Name: "cq-builderA-asan",
+			},
+			Build: &chromiumos.BuilderConfig_Build{
+				PortageProfile: &chromiumos.BuilderConfig_Build_PortageProfile{
+					Profile: "asan",
+				},
+			},
+		},
+		{
+			Id: &chromiumos.BuilderConfig_Id{
+				Name: "cq-builderA-vm-optimized",
+			},
+			Build: &chromiumos.BuilderConfig_Build{
+				PortageProfile: &chromiumos.BuilderConfig_Build_PortageProfile{
+					Profile: "vm-optimized",
+				},
+			},
+		},
+	},
 }
 
 var dutAttributeList = &testpb.DutAttributeList{
@@ -629,7 +691,7 @@ func TestToCTP1(t *testing.T) {
 
 	resp, err := compatibility.ToCTP1(
 		rand.New(rand.NewSource(7)),
-		hwTestPlans, vmTestPlans, req, dutAttributeList, boardPriorityList,
+		hwTestPlans, vmTestPlans, req, dutAttributeList, boardPriorityList, builderConfigs,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -712,6 +774,35 @@ func TestToCTP1(t *testing.T) {
 							Suite:       "suite-with-board-variant",
 							SkylabBoard: "boardA",
 							SkylabModel: "model1",
+							Pool:        "DUT_POOL_QUOTA",
+							RunViaCft:   true,
+						},
+					},
+				},
+			},
+			{
+				Common: &testplans.TestUnitCommon{
+					BuildTarget: &chromiumos.BuildTarget{
+						Name: "boardA",
+					},
+					BuilderName: "cq-builderA-asan",
+					BuildPayload: &testplans.BuildPayload{
+						ArtifactsGsBucket: "testgsbucket",
+						ArtifactsGsPath:   "testgspathA-asan",
+						FilesByArtifact: newStruct(t, map[string]interface{}{
+							"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						}),
+					},
+				},
+				HwTestCfg: &testplans.HwTestCfg{
+					HwTest: []*testplans.HwTestCfg_HwTest{
+						{
+							Common: &testplans.TestSuiteCommon{
+								DisplayName: "hw.boardA.asan-suite",
+								Critical:    wrapperspb.Bool(true),
+							},
+							Suite:       "asan-suite",
+							SkylabBoard: "boardA",
 							Pool:        "DUT_POOL_QUOTA",
 							RunViaCft:   true,
 						},
@@ -1334,7 +1425,41 @@ func TestToCTP1Errors(t *testing.T) {
 				},
 			},
 			dutAttributeList: dutAttributeList,
-			errRegexp:        `board_variant \(\"kernelnext\"\) cannot be specified if multiple programs \(\[\"programA\" \"programB\"\]\) are specified`,
+			errRegexp:        `board_variant \(\"kernelnext\"\) and profile \(\"\"\) cannot be specified if multiple programs \(\[\"programA\" \"programB\"\]\) are specified`,
+		},
+		{
+			name: "profile with multiple programs",
+			hwTestPlans: []*test_api_v1.HWTestPlan{
+				{
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"programA", "programB"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{"DUT_POOL_QUOTA"},
+										},
+									},
+									ProvisionConfig: &testpb.ProvisionConfig{
+										Profile: "asan",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+			errRegexp:        `board_variant \(\"\"\) and profile \(\"asan\"\) cannot be specified if multiple programs \(\[\"programA\" \"programB\"\]\) are specified`,
 		},
 		{
 			name:        "invalid license attribute",
@@ -1461,7 +1586,7 @@ func TestToCTP1Errors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := compatibility.ToCTP1(
 				rand.New(rand.NewSource(7)),
-				tc.hwTestPlans, tc.vmTestPlans, req, tc.dutAttributeList, boardPriorityList,
+				tc.hwTestPlans, tc.vmTestPlans, req, tc.dutAttributeList, boardPriorityList, builderConfigs,
 			)
 			if err == nil {
 				t.Fatal("Expected error from ToCTP1")

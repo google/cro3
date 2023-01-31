@@ -210,10 +210,12 @@ func extractStringFromProtoStruct(s *structpb.Struct, fields ...string) (string,
 	return v.GetStringValue(), true
 }
 
-// buildInfo describes properties parsed from a Buildbucket build.
+// buildInfo describes properties parsed from a Buildbucket build and
+// BuilderConfigs.
 type buildInfo struct {
 	buildTarget string
 	builderName string
+	profile     string
 	criticality bbpb.Trinary
 	payload     *testplans.BuildPayload
 }
@@ -222,7 +224,15 @@ var kernelBuilderRegexp = regexp.MustCompile(`-kernel-v.+`)
 
 // parseBuildProtos parses serialized Buildbucket Build protos and extracts
 // properties into buildInfos.
-func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, error) {
+func parseBuildProtos(
+	buildbucketProtos []*testplans.ProtoBytes,
+	builderConfigs *chromiumos.BuilderConfigs,
+) ([]*buildInfo, error) {
+	builderToBuilderConfig := make(map[string]*chromiumos.BuilderConfig)
+	for _, builder := range builderConfigs.GetBuilderConfigs() {
+		builderToBuilderConfig[builder.GetId().GetName()] = builder
+	}
+
 	buildInfos := []*buildInfo{}
 
 	// The presence of any one of these artifacts is enough to tell us that this
@@ -300,25 +310,22 @@ func parseBuildProtos(buildbucketProtos []*testplans.ProtoBytes) ([]*buildInfo, 
 			return nil, fmt.Errorf("artifacts.gs_path not found for build %q", builderName)
 		}
 
-		// kernel and vm-optimized builds have the same build_target input prop
-		// as the base version of the build. However, we don't want to test
-		// every version of the build target, just the base profile. Filter them
-		// out here by checking the builder name, in the future this could be
-		// made more robust by passing BuilderConfigs into testplan and checking
-		// the profile information directly.
-		if kernelBuilderRegexp.MatchString(builderName) {
-			glog.Warningf("skipping kernel build: %q", builderName)
-			continue
-		}
-
-		if strings.Contains(builderName, "vm-optimized") {
-			glog.Warningf("skipping vm optimized build: %v", builderName)
-			continue
+		// Attempt to lookup the BuilderConfig to find profile information. If
+		// no BuilderConfig is found, keep the profile empty and log a warning,
+		// this build will match against CoverageRules that don't specify a
+		// profile.
+		profile := ""
+		builderConfig, ok := builderToBuilderConfig[builderName]
+		if ok {
+			profile = builderConfig.GetBuild().GetPortageProfile().GetProfile()
+		} else {
+			glog.Warningf("no BuilderConfig found for %q", builderName)
 		}
 
 		buildInfos = append(buildInfos, &buildInfo{
 			buildTarget: buildTarget,
 			builderName: build.GetBuilder().GetBuilder(),
+			profile:     profile,
 			criticality: build.GetCritical(),
 			payload: &testplans.BuildPayload{
 				ArtifactsGsBucket: artifactsGsBucket,
@@ -365,6 +372,8 @@ type suiteInfo struct {
 	// is "coral" and boardVariant is "kernelnext", the "coral-kernelnext" build
 	// will be used.
 	boardVariant string
+	// optional, profile of the build target to test. For example "asan".
+	profile string
 	// optional, the licenses required for the DUT the test will run on.
 	licenses []lab.LicenseType
 	// optional, the total number of shards to be used in a test run. Only valid
@@ -449,17 +458,18 @@ func coverageRuleToSuiteInfo(
 		return nil, errors.New("DutCriteria must contain at least one \"attr-program\" attribute")
 	}
 
-	// For simplicitly, only allow a board variant to be specified if a single
-	// program is specified. I.e. a rule that specifies it wants to test the
-	// "kernelnext" build chosen from multiple programs is not currently
-	// supported.
+	// For simplicitly, only allow a board variant or profile to be specified if
+	// a single program is specified. I.e. a rule that specifies it wants to
+	// test the "kernelnext" or "asan" build chosen from multiple programs is
+	// not currently supported.
 	var chosenProgram string
 	boardVariant := dutTarget.GetProvisionConfig().GetBoardVariant()
-	if len(boardVariant) > 0 {
+	profile := dutTarget.GetProvisionConfig().GetProfile()
+	if len(boardVariant) > 0 || len(profile) > 0 {
 		if len(programs) != 1 {
 			return nil, fmt.Errorf(
-				"board_variant (%q) cannot be specified if multiple programs (%q) are specified",
-				boardVariant, programs,
+				"board_variant (%q) and profile (%q) cannot be specified if multiple programs (%q) are specified",
+				boardVariant, profile, programs,
 			)
 		}
 
@@ -559,6 +569,7 @@ func coverageRuleToSuiteInfo(
 						environment:  hw,
 						critical:     critical,
 						boardVariant: boardVariant,
+						profile:      profile,
 						licenses:     licenses,
 						runViaCft:    rule.RunViaCft,
 					})
@@ -596,6 +607,7 @@ func coverageRuleToSuiteInfo(
 					environment:  env,
 					critical:     critical,
 					boardVariant: boardVariant,
+					profile:      profile,
 					totalShards:  suite.GetTotalShards(),
 				})
 		default:
@@ -802,6 +814,9 @@ func createTastGCETest(suiteInfo *suiteInfo, shardIndex int64) (*testplans.TastG
 //
 // - generateTestPlanReq is needed to provide Build protos for the builds being
 // tested.
+//
+// - builderConfigs is needed to provide Portage profile information for the
+// builds being tested.
 func ToCTP1(
 	rnd *rand.Rand,
 	hwTestPlans []*test_api_v1.HWTestPlan,
@@ -809,8 +824,9 @@ func ToCTP1(
 	generateTestPlanReq *testplans.GenerateTestPlanRequest,
 	dutAttributeList *testpb.DutAttributeList,
 	boardPriorityList *testplans.BoardPriorityList,
+	builderConfigs *chromiumos.BuilderConfigs,
 ) (*testplans.GenerateTestPlanResponse, error) {
-	buildInfos, err := parseBuildProtos(generateTestPlanReq.GetBuildbucketProtos())
+	buildInfos, err := parseBuildProtos(generateTestPlanReq.GetBuildbucketProtos(), builderConfigs)
 	if err != nil {
 		return nil, err
 	}
@@ -848,6 +864,17 @@ func ToCTP1(
 		tastVMTests := make(map[string]*testplans.TastVmTestCfg_TastVmTest)
 		tastGCETests := make(map[string]*testplans.TastGceTestCfg_TastGceTest)
 		for _, suiteInfo := range suiteInfos {
+			// If the build's profile doesn't match the suite's profile, skip
+			// the suite. Note that majority of builds and suites don't specify
+			// a profile, so they should match on the empty string.
+			if buildInfo.profile != suiteInfo.profile {
+				glog.Infof(
+					"profile for build %q (%q) doesn't match profile for suite %q (%q), skipping",
+					buildInfo.builderName, buildInfo.profile, suiteInfo.suite, suiteInfo.profile,
+				)
+				continue
+			}
+
 			switch env := suiteInfo.environment; env {
 			case hw:
 				// If a design is set, include it in the display name

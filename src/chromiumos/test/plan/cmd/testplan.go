@@ -22,6 +22,7 @@ import (
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
+	"go.chromium.org/chromiumos/infra/proto/go/chromiumos"
 	"go.chromium.org/chromiumos/infra/proto/go/testplans"
 	luciflag "go.chromium.org/luci/common/flag"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -166,6 +167,13 @@ Evaluates Starlark files to generate HWTestPlans as newline-delimited json proto
 				"or binary proto. Should be set iff ctpv1 is set.",
 		)
 		r.Flags.StringVar(
+			&r.builderConfigsPath,
+			"builderconfigs",
+			"",
+			"Path to a proto file containing a BuilderConfigs. Can be JSON"+
+				"or binary proto. Should be set iff ctpv1 is set.",
+		)
+		r.Flags.StringVar(
 			&r.out,
 			"out",
 			"",
@@ -195,6 +203,7 @@ type generateRun struct {
 	ctpV1                    bool
 	generateTestPlanReqPath  string
 	boardPriorityListPath    string
+	builderConfigsPath       string
 	out                      string
 	textSummaryOut           string
 }
@@ -230,8 +239,13 @@ func (r *generateRun) validateFlags() error {
 		if r.ctpV1 && r.boardPriorityListPath == "" {
 			return errors.New("-boardprioritylist or -crossrcroot must be set if -ctpv1 is set")
 		}
+
+		// TODO(b/237787418): Make this an error once Recipes pass -builderconfigs.
+		if r.ctpV1 && r.builderConfigsPath == "" {
+			glog.Warningf("-builderconfigs or -crossrcroot must be set if -ctpv1 is set (this will become an error in the future)")
+		}
 	} else {
-		if r.dutAttributeListPath != "" || r.buildMetadataListPath != "" || r.configBundleListPath != "" || r.boardPriorityListPath != "" {
+		if r.dutAttributeListPath != "" || r.buildMetadataListPath != "" || r.configBundleListPath != "" || r.boardPriorityListPath != "" || r.builderConfigsPath != "" {
 			return errors.New("-dutattributes, -buildmetadata, -configbundlelist, and -boardprioritylist cannot be set if -crossrcroot is set")
 		}
 
@@ -241,8 +255,9 @@ func (r *generateRun) validateFlags() error {
 		r.configBundleListPath = filepath.Join(r.chromiumosSourceRootPath, "src", "config-internal", "hw_design", "generated", "configs.jsonproto")
 
 		if r.ctpV1 {
-			glog.V(2).Infof("crossrcroot set to %q, updating boardprioritylist", r.chromiumosSourceRootPath)
+			glog.V(2).Infof("crossrcroot set to %q, updating boardprioritylist and builderconfigs", r.chromiumosSourceRootPath)
 			r.boardPriorityListPath = filepath.Join(r.chromiumosSourceRootPath, "src", "config-internal", "board_config", "generated", "board_priority.binaryproto")
+			r.builderConfigsPath = filepath.Join(r.chromiumosSourceRootPath, "infra", "config", "generated", "builder_configs.binaryproto")
 		}
 	}
 
@@ -251,7 +266,7 @@ func (r *generateRun) validateFlags() error {
 	}
 
 	if r.ctpV1 != (r.generateTestPlanReqPath != "") {
-		return errors.New("-generatetestplanreq must be set iff -out is set")
+		return errors.New("-generatetestplanreq must be set iff -ctpv1 is set")
 	}
 
 	if !r.ctpV1 && r.boardPriorityListPath != "" {
@@ -327,9 +342,19 @@ func (r *generateRun) run() error {
 			return err
 		}
 
+		builderConfigs := &chromiumos.BuilderConfigs{}
+		if r.builderConfigsPath != "" {
+			if err := protoio.ReadBinaryOrJSONPb(r.builderConfigsPath, builderConfigs); err != nil {
+				return err
+			}
+		} else {
+			// TODO(b/237787418): Make this an error once Recipes pass -builderconfigs.
+			glog.Warning("builderConfigsPath not set, continuing with empty BuilderConfigs.")
+		}
+
 		resp, err := compatibility.ToCTP1(
 			rand.New(rand.NewSource(time.Now().Unix())),
-			hwTestPlans, vmTestPlans, generateTestPlanReq, dutAttributeList, boardPriorityList,
+			hwTestPlans, vmTestPlans, generateTestPlanReq, dutAttributeList, boardPriorityList, builderConfigs,
 		)
 		if err != nil {
 			return err
