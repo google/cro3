@@ -63,11 +63,11 @@ func TestReadBinaryOrJSONPb(t *testing.T) {
 
 func TestWriteJsonl(t *testing.T) {
 	outPath := filepath.Join(t.TempDir(), "out.jsonl")
-	protoio.WriteJsonl([]protov1.Message{
-		&test_api_v1.HWTestPlan{Id: &test_api_v1.HWTestPlan_TestPlanId{
+	protoio.WriteJsonl([]*test_api_v1.HWTestPlan{
+		{Id: &test_api_v1.HWTestPlan_TestPlanId{
 			Value: "testplan1",
 		}},
-		&test_api_v1.HWTestPlan_TestPlanId{Value: "testid2"},
+		{Id: &test_api_v1.HWTestPlan_TestPlanId{Value: "testid2"}},
 	}, outPath)
 
 	readBytes, err := os.ReadFile(outPath)
@@ -75,7 +75,7 @@ func TestWriteJsonl(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expectedString := "{\"id\":{\"value\":\"testplan1\"}}\n{\"value\":\"testid2\"}\n"
+	expectedString := "{\"id\":{\"value\":\"testplan1\"}}\n{\"id\":{\"value\":\"testid2\"}}\n"
 	if diff := cmp.Diff(expectedString, string(readBytes), protocmp.Transform()); diff != "" {
 		t.Errorf("returned unexpected diff in read message (-want +got):\n%s", diff)
 	}

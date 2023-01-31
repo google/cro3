@@ -15,6 +15,7 @@ import (
 	"github.com/golang/glog"
 	protov1 "github.com/golang/protobuf/proto"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 // ReadBinaryOrJSONPb reads path into m, attempting to parse as both a binary
@@ -57,7 +58,7 @@ func ReadBinaryOrJSONPb(path string, m protov1.Message) error {
 }
 
 // WriteJsonl writes a newline-delimited json file containing messages to outPath.
-func WriteJsonl(messages []protov1.Message, outPath string) error {
+func WriteJsonl[M proto.Message](messages []M, outPath string) error {
 	outFile, err := os.Create(outPath)
 	if err != nil {
 		return err
@@ -65,7 +66,7 @@ func WriteJsonl(messages []protov1.Message, outPath string) error {
 	defer outFile.Close()
 
 	for _, m := range messages {
-		jsonBytes, err := protojson.Marshal(protov1.MessageV2(m))
+		jsonBytes, err := protojson.Marshal(m)
 		if err != nil {
 			return err
 		}

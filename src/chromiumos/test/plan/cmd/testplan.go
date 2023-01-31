@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 // The testplan tool evaluates Starlark files to generate ChromeOS
-// chromiumos.test.api.v1.HWTestPlan protos.
+// chromiumos.test.api.CoverageRule protos.
 package main
 
 import (
@@ -64,7 +64,7 @@ func (r *generateRun) addExistingFlags() {
 
 var application = &subcommands.DefaultApplication{
 	Name:  "testplan",
-	Title: "A tool to evaluate Starlark files to generate ChromeOS chromiumos.test.api.v1.HWTestPlan protos.",
+	Title: "A tool to evaluate Starlark files to generate ChromeOS chromiumos.test.api.CoverageRule protos.",
 	Commands: []*subcommands.Command{
 		cmdGenerate,
 		cmdVersion,
@@ -98,10 +98,10 @@ func (r *versionRun) Run(a subcommands.Application, args []string, env subcomman
 
 var cmdGenerate = &subcommands.Command{
 	UsageLine: "generate -plan plan1.star [-plan plan2.star] -dutattributes PATH -buildmetadata -out OUTPUT",
-	ShortDesc: "generate HW test plan protos",
-	LongDesc: `Generate HW test plan protos.
+	ShortDesc: "generate CoverageRule protos",
+	LongDesc: `Generate CoverageRule protos.
 
-Evaluates Starlark files to generate HWTestPlans as newline-delimited json protos.
+Evaluates Starlark files to generate CoverageRules as newline-delimited json protos.
 `,
 	CommandRun: func() subcommands.CommandRun {
 		r := &generateRun{}
@@ -147,7 +147,7 @@ Evaluates Starlark files to generate HWTestPlans as newline-delimited json proto
 			&r.ctpV1,
 			"ctpv1",
 			false,
-			"Output GenerateTestPlanResponse protos instead of HWTestPlans, "+
+			"Output GenerateTestPlanResponse protos instead of CoverageRules, "+
 				"for backwards compatibility with CTP1. Output is still "+
 				"to <out>. generatetestplanreq must be set if this flag is "+
 				"true",
@@ -177,14 +177,14 @@ Evaluates Starlark files to generate HWTestPlans as newline-delimited json proto
 			&r.out,
 			"out",
 			"",
-			"Path to the output HWTestPlans.",
+			"Path to the output CoverageRules (or GenerateTestPlanResponse if -ctpv1 is set).",
 		)
 		r.Flags.StringVar(
 			&r.textSummaryOut,
 			"textsummaryout",
 			"",
 			"Path to write a more easily human-readable summary of the "+
-				"HWTestPlans to. If not set, no summary is written.",
+				"CoverageRules to. If not set, no summary is written.",
 		)
 
 		r.addExistingFlags()
@@ -322,13 +322,9 @@ func (r *generateRun) run() error {
 		return err
 	}
 
-	if !r.ctpV1 && len(vmTestPlans) > 0 {
-		return fmt.Errorf("VMTestPlans are currently only supported in CTP1 compatibility mode")
-	}
-
 	if r.ctpV1 {
 		glog.Infof(
-			"Outputting GenerateTestPlanRequest to %s instead of HWTestPlan, for backwards compatibility with CTPV1",
+			"Outputting GenerateTestPlanRequest to %s instead of CoverageRules, for backwards compatibility with CTPV1",
 			r.out,
 		)
 
@@ -397,15 +393,18 @@ func (r *generateRun) run() error {
 		return nil
 	}
 
-	glog.Infof("Generated %d CoverageRules, writing to %s", len(hwTestPlans), r.out)
-
-	var messages []proto.Message
 	var allRules []*testpb.CoverageRule
 	for _, m := range hwTestPlans {
-		messages = append(messages, m)
 		allRules = append(allRules, m.GetCoverageRules()...)
 	}
-	if err := protoio.WriteJsonl(messages, r.out); err != nil {
+
+	for _, m := range vmTestPlans {
+		allRules = append(allRules, m.GetCoverageRules()...)
+	}
+
+	glog.Infof("Generated %d CoverageRules, writing to %s", len(allRules), r.out)
+
+	if err := protoio.WriteJsonl(allRules, r.out); err != nil {
 		return err
 	}
 
