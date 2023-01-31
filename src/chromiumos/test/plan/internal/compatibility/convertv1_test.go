@@ -717,7 +717,25 @@ func TestToCTP1(t *testing.T) {
 					HwTest: []*testplans.HwTestCfg_HwTest{
 						{
 							Common: &testplans.TestSuiteCommon{
-								DisplayName: "hw.boardA.model1.suite3",
+								DisplayName: "cq-builderA.hw.suite1",
+								Critical:    wrapperspb.Bool(true),
+							},
+							Suite:       "suite1",
+							SkylabBoard: "boardA",
+							Pool:        "DUT_POOL_QUOTA",
+						},
+						{
+							Common: &testplans.TestSuiteCommon{
+								DisplayName: "cq-builderA.hw.suite2",
+								Critical:    wrapperspb.Bool(true),
+							},
+							Suite:       "suite2",
+							SkylabBoard: "boardA",
+							Pool:        "DUT_POOL_QUOTA",
+						},
+						{
+							Common: &testplans.TestSuiteCommon{
+								DisplayName: "cq-builderA.model1.hw.suite3",
 								Critical:    wrapperspb.Bool(false),
 							},
 							Suite:       "suite3",
@@ -728,24 +746,6 @@ func TestToCTP1(t *testing.T) {
 								lab.LicenseType_LICENSE_TYPE_MS_OFFICE_STANDARD,
 							},
 							Pool: "DUT_POOL_QUOTA",
-						},
-						{
-							Common: &testplans.TestSuiteCommon{
-								DisplayName: "hw.boardA.suite1",
-								Critical:    wrapperspb.Bool(true),
-							},
-							Suite:       "suite1",
-							SkylabBoard: "boardA",
-							Pool:        "DUT_POOL_QUOTA",
-						},
-						{
-							Common: &testplans.TestSuiteCommon{
-								DisplayName: "hw.boardA.suite2",
-								Critical:    wrapperspb.Bool(true),
-							},
-							Suite:       "suite2",
-							SkylabBoard: "boardA",
-							Pool:        "DUT_POOL_QUOTA",
 						},
 					},
 				},
@@ -768,7 +768,7 @@ func TestToCTP1(t *testing.T) {
 					HwTest: []*testplans.HwTestCfg_HwTest{
 						{
 							Common: &testplans.TestSuiteCommon{
-								DisplayName: "hw.boardA-kernelnext.model1.suite-with-board-variant",
+								DisplayName: "cq-builderA-kernelnext.model1.hw.suite-with-board-variant",
 								Critical:    wrapperspb.Bool(false),
 							},
 							Suite:       "suite-with-board-variant",
@@ -798,7 +798,7 @@ func TestToCTP1(t *testing.T) {
 					HwTest: []*testplans.HwTestCfg_HwTest{
 						{
 							Common: &testplans.TestSuiteCommon{
-								DisplayName: "hw.boardA.asan-suite",
+								DisplayName: "cq-builderA-asan.hw.asan-suite",
 								Critical:    wrapperspb.Bool(true),
 							},
 							Suite:       "asan-suite",
@@ -834,7 +834,7 @@ func TestToCTP1(t *testing.T) {
 									TestExpr: "(\"group:mainline\" && \"dep:depA\" && !informational)",
 								},
 							},
-							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA.tast_vm_suite1", Critical: wrapperspb.Bool(true)},
+							Common: &testplans.TestSuiteCommon{DisplayName: "cq-vmBuilderA.tast_vm.tast_vm_suite1", Critical: wrapperspb.Bool(true)},
 						},
 					},
 				},
@@ -866,7 +866,7 @@ func TestToCTP1(t *testing.T) {
 								TotalShards: 3,
 								ShardIndex:  0,
 							},
-							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA-arc-r.tast_vm_suite1_shard_1_of_3", Critical: wrapperspb.Bool(true)},
+							Common: &testplans.TestSuiteCommon{DisplayName: "cq-vmBuilderA-arc-r.tast_vm.tast_vm_suite1_shard_1_of_3", Critical: wrapperspb.Bool(true)},
 						},
 						{
 							SuiteName: "tast_vm_suite1",
@@ -879,7 +879,7 @@ func TestToCTP1(t *testing.T) {
 								TotalShards: 3,
 								ShardIndex:  1,
 							},
-							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA-arc-r.tast_vm_suite1_shard_2_of_3", Critical: wrapperspb.Bool(true)},
+							Common: &testplans.TestSuiteCommon{DisplayName: "cq-vmBuilderA-arc-r.tast_vm.tast_vm_suite1_shard_2_of_3", Critical: wrapperspb.Bool(true)},
 						},
 						{
 							SuiteName: "tast_vm_suite1",
@@ -892,7 +892,7 @@ func TestToCTP1(t *testing.T) {
 								TotalShards: 3,
 								ShardIndex:  2,
 							},
-							Common: &testplans.TestSuiteCommon{DisplayName: "vm.vmboardA-arc-r.tast_vm_suite1_shard_3_of_3", Critical: wrapperspb.Bool(true)},
+							Common: &testplans.TestSuiteCommon{DisplayName: "cq-vmBuilderA-arc-r.tast_vm.tast_vm_suite1_shard_3_of_3", Critical: wrapperspb.Bool(true)},
 						},
 					},
 				},
@@ -934,7 +934,7 @@ func TestToCTP1(t *testing.T) {
 								ShardIndex:  0,
 							},
 							Common: &testplans.TestSuiteCommon{
-								DisplayName: "gce.vmboardA.tast_gce_suite2_shard_1_of_2",
+								DisplayName: "cq-vmBuilderA.tast_gce.tast_gce_suite2_shard_1_of_2",
 								Critical:    wrapperspb.Bool(true),
 							},
 						},
@@ -957,7 +957,7 @@ func TestToCTP1(t *testing.T) {
 								ShardIndex:  1,
 							},
 							Common: &testplans.TestSuiteCommon{
-								DisplayName: "gce.vmboardA.tast_gce_suite2_shard_2_of_2",
+								DisplayName: "cq-vmBuilderA.tast_gce.tast_gce_suite2_shard_2_of_2",
 								Critical:    wrapperspb.Bool(true),
 							},
 						},

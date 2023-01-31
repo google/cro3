@@ -714,7 +714,7 @@ func extractSuiteInfos(
 
 // createTastVMTest creates a TastVmTestCfg_TastVmTest based on a suiteInfo
 // and shardIndex. Note that shardIndex is 0-based.
-func createTastVMTest(suiteInfo *suiteInfo, shardIndex int64) (*testplans.TastVmTestCfg_TastVmTest, error) {
+func createTastVMTest(buildInfo *buildInfo, suiteInfo *suiteInfo, shardIndex int64) (*testplans.TastVmTestCfg_TastVmTest, error) {
 	if suiteInfo.totalShards != 0 && shardIndex > suiteInfo.totalShards {
 		return nil, fmt.Errorf("shardIndex cannot be greater than suiteInfo.totalShards")
 	}
@@ -722,9 +722,9 @@ func createTastVMTest(suiteInfo *suiteInfo, shardIndex int64) (*testplans.TastVm
 	var displayName string
 	if suiteInfo.totalShards > 1 {
 		// shardIndex is 0-based, but we use 1-based indexing for the display name.
-		displayName = fmt.Sprintf("vm.%s.%s_shard_%d_of_%d", suiteInfo.getBuildTarget(), suiteInfo.suite, shardIndex+1, suiteInfo.totalShards)
+		displayName = fmt.Sprintf("%s.tast_vm.%s_shard_%d_of_%d", buildInfo.builderName, suiteInfo.suite, shardIndex+1, suiteInfo.totalShards)
 	} else {
-		displayName = fmt.Sprintf("vm.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.suite)
+		displayName = fmt.Sprintf("%s.tast_vm.%s", buildInfo.builderName, suiteInfo.suite)
 	}
 	tastVMTest := &testplans.TastVmTestCfg_TastVmTest{
 		SuiteName: suiteInfo.suite,
@@ -751,7 +751,7 @@ func createTastVMTest(suiteInfo *suiteInfo, shardIndex int64) (*testplans.TastVm
 
 // createTastGCETest creates a TastGceTestCfg_TastGceTest based on a suiteInfo
 // and shardIndex. Note that shardIndex is 0-based.
-func createTastGCETest(suiteInfo *suiteInfo, shardIndex int64) (*testplans.TastGceTestCfg_TastGceTest, error) {
+func createTastGCETest(buildInfo *buildInfo, suiteInfo *suiteInfo, shardIndex int64) (*testplans.TastGceTestCfg_TastGceTest, error) {
 	if suiteInfo.totalShards != 0 && shardIndex > suiteInfo.totalShards {
 		return nil, fmt.Errorf("shardIndex cannot be greater than suiteInfo.totalShards")
 	}
@@ -759,9 +759,9 @@ func createTastGCETest(suiteInfo *suiteInfo, shardIndex int64) (*testplans.TastG
 	var displayName string
 	if suiteInfo.totalShards > 1 {
 		// shardIndex is 0-based, but we use 1-based indexing for the display name.
-		displayName = fmt.Sprintf("gce.%s.%s_shard_%d_of_%d", suiteInfo.getBuildTarget(), suiteInfo.suite, shardIndex+1, suiteInfo.totalShards)
+		displayName = fmt.Sprintf("%s.tast_gce.%s_shard_%d_of_%d", buildInfo.builderName, suiteInfo.suite, shardIndex+1, suiteInfo.totalShards)
 	} else {
-		displayName = fmt.Sprintf("gce.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.suite)
+		displayName = fmt.Sprintf("%s.tast_gce.%s", buildInfo.builderName, suiteInfo.suite)
 	}
 	tastGCETest := &testplans.TastGceTestCfg_TastGceTest{
 		SuiteName: suiteInfo.suite,
@@ -880,9 +880,9 @@ func ToCTP1(
 				// If a design is set, include it in the display name
 				var displayName string
 				if len(suiteInfo.design) > 0 {
-					displayName = fmt.Sprintf("hw.%s.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.design, suiteInfo.suite)
+					displayName = fmt.Sprintf("%s.%s.hw.%s", buildInfo.builderName, suiteInfo.design, suiteInfo.suite)
 				} else {
-					displayName = fmt.Sprintf("hw.%s.%s", suiteInfo.getBuildTarget(), suiteInfo.suite)
+					displayName = fmt.Sprintf("%s.hw.%s", buildInfo.builderName, suiteInfo.suite)
 				}
 				hwTest := &testplans.HwTestCfg_HwTest{
 					Suite:       suiteInfo.suite,
@@ -909,7 +909,7 @@ func ToCTP1(
 				if suiteInfo.totalShards > 0 {
 					var i int64
 					for i = 0; i < suiteInfo.totalShards; i++ {
-						tastVMTest, err := createTastVMTest(suiteInfo, i)
+						tastVMTest, err := createTastVMTest(buildInfo, suiteInfo, i)
 						if err != nil {
 							return nil, err
 						}
@@ -923,7 +923,7 @@ func ToCTP1(
 						}
 					}
 				} else {
-					tastVMTest, err := createTastVMTest(suiteInfo, 0)
+					tastVMTest, err := createTastVMTest(buildInfo, suiteInfo, 0)
 					if err != nil {
 						return nil, err
 					}
@@ -940,7 +940,7 @@ func ToCTP1(
 				if suiteInfo.totalShards > 0 {
 					var i int64
 					for i = 0; i < suiteInfo.totalShards; i++ {
-						tastGCETest, err := createTastGCETest(suiteInfo, i)
+						tastGCETest, err := createTastGCETest(buildInfo, suiteInfo, i)
 						if err != nil {
 							return nil, err
 						}
@@ -954,7 +954,7 @@ func ToCTP1(
 						}
 					}
 				} else {
-					tastGCETest, err := createTastGCETest(suiteInfo, 0)
+					tastGCETest, err := createTastGCETest(buildInfo, suiteInfo, 0)
 					if err != nil {
 						return nil, err
 					}
