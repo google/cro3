@@ -77,13 +77,12 @@ type CTPBuilder struct {
 	// Priority and QSAccount cannot both be set
 	QSAccount string
 	// SecondaryBoards is a list containing the boards of any secondary devices
-	// Should be of equal length to SecondaryImages
 	SecondaryBoards []string
 	// SecondaryModels is a list containing the models of any secondary devices
 	// Should either be equal to the length of SecondaryBoards or zero
 	SecondaryModels []string
 	// SecondaryImages is a list containing the images of any secondary devices
-	// Should be of equal length to SecondaryBoards
+	// Should be of equal length to SecondaryBoards or zero
 	SecondaryImages []string
 	// SecondaryBoards is a list containing the LacrosPath of any secondary devices
 	// Should either be equal to the length of SecondaryBoards or zero
@@ -203,11 +202,12 @@ func (c *CTPBuilder) validateAndAddDefaults() error {
 	if len(c.SecondaryModels) > 0 && len(c.SecondaryBoards) != len(c.SecondaryModels) {
 		errors = append(errors, fmt.Sprintf("number of requested secondary-boards: %d does not match with number of requested secondary-models: %d", len(c.SecondaryBoards), len(c.SecondaryModels)))
 	}
-	// Check if image name provided for each secondary devices.
-	if len(c.SecondaryBoards) != len(c.SecondaryImages) {
+	// If OS provision is required for secondary DUTs, then we require an image name for
+	// each secondary DUT.
+	if len(c.SecondaryImages) > 0 && len(c.SecondaryBoards) != len(c.SecondaryImages) {
 		errors = append(errors, fmt.Sprintf("number of requested secondary-boards: %d does not match with number of requested secondary-images: %d", len(c.SecondaryBoards), len(c.SecondaryImages)))
 	}
-	// If lacros provision required for secondary DUTs, then we require a path for
+	// If lacros provision is required for secondary DUTs, then we require a path for
 	// each secondary DUT.
 	if len(c.SecondaryLacrosPaths) > 0 && len(c.SecondaryLacrosPaths) != len(c.SecondaryBoards) {
 		errors = append(errors, fmt.Sprintf("number of requested secondary-boards: %d does not match with number of requested secondary-lacros-paths: %d", len(c.SecondaryBoards), len(c.SecondaryLacrosPaths)))
@@ -414,7 +414,7 @@ func (c *CTPBuilder) secondaryDevices() []*test_platform.Request_Params_Secondar
 				BuildTarget: &chromiumos.BuildTarget{Name: b},
 			},
 		}
-		if strings.ToLower(c.SecondaryImages[i]) != "skip" {
+		if len(c.SecondaryImages) > 0 && c.SecondaryImages[i] != "" {
 			sd.SoftwareDependencies = append(sd.SoftwareDependencies, &test_platform.Request_Params_SoftwareDependency{
 				Dep: &test_platform.Request_Params_SoftwareDependency_ChromeosBuild{ChromeosBuild: c.SecondaryImages[i]},
 			})
@@ -424,7 +424,7 @@ func (c *CTPBuilder) secondaryDevices() []*test_platform.Request_Params_Secondar
 				Model: c.SecondaryModels[i],
 			}
 		}
-		if len(c.SecondaryLacrosPaths) > 0 {
+		if len(c.SecondaryLacrosPaths) > 0 && c.SecondaryLacrosPaths[i] != "" {
 			sd.SoftwareDependencies = append(sd.SoftwareDependencies, &test_platform.Request_Params_SoftwareDependency{
 				Dep: &test_platform.Request_Params_SoftwareDependency_LacrosGcsPath{LacrosGcsPath: c.SecondaryLacrosPaths[i]},
 			})

@@ -128,9 +128,10 @@ priority flag should be in [50, 255]`,
 			Image:           "zork-release/R107-15117.103.0",
 			Pool:            "xolabs-satlab",
 			TestPlan:        sampleTestPlan,
-			SecondaryBoards: []string{"zork"},
+			SecondaryBoards: []string{"zork", "coral"},
+			SecondaryImages: []string{"sample-image"},
 		},
-		wantValidationErrString: "number of requested secondary-boards: 1 does not match with number of requested secondary-images: 0",
+		wantValidationErrString: "number of requested secondary-boards: 2 does not match with number of requested secondary-images: 1",
 		wantCTPBuilder: CTPBuilder{
 			BBService:   "cr-buildbucket.appspot.com",
 			Board:       "zork",
@@ -477,7 +478,7 @@ var testSecondaryDevicesData = []struct {
 		"skip image",
 		CTPBuilder{
 			SecondaryBoards: []string{"board1", "board2"},
-			SecondaryImages: []string{"board1-release/10000.0.0", "skip"},
+			SecondaryImages: []string{"board1-release/10000.0.0", ""},
 		},
 		[]*test_platform.Request_Params_SecondaryDevice{
 			{
