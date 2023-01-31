@@ -5,12 +5,12 @@
 
 """Continuous rebase configuration file"""
 
-rebase_baseline_branch = 'chromeos-5.15'
+rebase_baseline_branch = 'chromeos-6.1'
 android_baseline_branch = 'deprecated/android-5.4'
 
 # Set rebase_target to desired target.
 # Select target tag, or 'latest' to rebase to ToT.
-rebase_target = 'v5.14'
+rebase_target = 'v6.2-rc6'
 
 # Set rebasedb_name to None to use default.
 # Otherwise pick desired file name.
