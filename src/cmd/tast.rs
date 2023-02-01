@@ -121,7 +121,7 @@ fn run_tast_run(args: &ArgsRun) -> Result<()> {
     // TODO: automatically support internal tests
     chroot.run_bash_script_in_chroot(
         "tast_run_cmd",
-        &format!("tast run 127.0.0.1:{port} {filter}"),
+        &format!("tast run -installbuilddeps 127.0.0.1:{port} {filter}"),
         None,
     )?;
 
