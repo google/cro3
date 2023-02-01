@@ -104,7 +104,7 @@ for carrier in ['verizon', 'tmobile', 'att',
                        carrier, 'dut_check', tests)
 
     tests = single_test_template.format(
-        test_exprs="['cellular.Autoconnect','cellular.ShillEnableDisable']")
+        test_exprs=f"['cellular.Autoconnect.{carrier}','cellular.ShillEnableDisable.{carrier}']")
     write_control_file(out_dir, 'cellular_ota',
                        carrier, 'autoconnect_enable', tests)
 
