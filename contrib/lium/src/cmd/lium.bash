@@ -56,7 +56,7 @@ _lium_get_duts() {
 }
 
 _lium_get_tests() {
-  ${COMP_WORDS[0]} tast list 2>/dev/null | cut -f 1 -d,
+  ${COMP_WORDS[0]} tast list --cached 2>/dev/null | cut -f 1 -d,
 }
 
 _lium_get_servos() {

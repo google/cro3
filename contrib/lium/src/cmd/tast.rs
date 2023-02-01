@@ -52,6 +52,10 @@ pub struct ArgsList {
     /// glob pattern of the listint test
     #[argh(positional)]
     tests: Option<String>,
+
+    /// only show cached list
+    #[argh(switch)]
+    cached: bool,
 }
 
 fn print_cached_tests(filter: &Pattern) -> Result<()> {
@@ -73,7 +77,7 @@ fn run_tast_list(args: &ArgsList) -> Result<()> {
         Pattern::new("*")?
     };
 
-    if print_cached_tests(&filter).is_ok() {
+    if print_cached_tests(&filter).is_ok() || args.cached {
         return Ok(());
     }
 
