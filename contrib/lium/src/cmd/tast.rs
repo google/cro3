@@ -21,6 +21,7 @@ pub struct Args {
 }
 
 pub static TEST_CACHE: KvCache<Vec<String>> = KvCache::new("tast_cache");
+static PUBLIC_BUNDLE: &str = "public";
 
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
@@ -52,10 +53,9 @@ pub struct ArgsList {
     tests: Option<String>,
 }
 fn run_tast_list(args: &ArgsList) -> Result<()> {
-    let repodir = get_repo_dir(&args.repo)?;
     if args.tests.is_none() {
         // TODO: support glob matching
-        if let Ok(Some(tests)) = TEST_CACHE.get(&repodir) {
+        if let Ok(Some(tests)) = TEST_CACHE.get(PUBLIC_BUNDLE) {
             for t in &tests {
                 println!("{t}");
             }
@@ -65,12 +65,11 @@ fn run_tast_list(args: &ArgsList) -> Result<()> {
     let dut = if let Some(_dut) = &args.dut {
         _dut
     } else {
-        return Err(anyhow!(
-            "Failed to open a cache for {repodir}. Need --dut option"
-        ));
+        return Err(anyhow!("No cache found. Need --dut option to run"));
     };
 
     ensure_testing_rsa_is_there()?;
+    let repodir = get_repo_dir(&args.repo)?;
     let chroot = Chroot::new(&repodir)?;
     let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
     // setup port forwarding for chroot.
@@ -85,7 +84,7 @@ fn run_tast_list(args: &ArgsList) -> Result<()> {
     let list = chroot.exec_in_chroot(&["tast", "list", &format!("127.0.0.1:{}", port), filter])?;
 
     let tests: Vec<String> = list.lines().map(|s| s.to_string()).collect::<Vec<_>>();
-    TEST_CACHE.set(&repodir, tests)?;
+    TEST_CACHE.set(PUBLIC_BUNDLE, tests)?;
 
     println!("{list}");
 

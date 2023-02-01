@@ -56,10 +56,7 @@ _lium_get_duts() {
 }
 
 _lium_get_tests() {
-  local repodir=`_lium_current_repo`
-  if [ "$repodir" ]; then
-    ${COMP_WORDS[0]} tast list --repo $repodir 2>/dev/null | cut -f 1 -d,
-  fi
+  ${COMP_WORDS[0]} tast list 2>/dev/null | cut -f 1 -d,
 }
 
 _lium_get_servos() {
