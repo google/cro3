@@ -6,10 +6,8 @@
 # bash completion script for lium
 #
 
-#set -xv
-
 # return 0(OK) if given argument is already used
-__arg_used() { # arg
+__lium_arg_used() { # arg
   local i=0
   while [ $i -lt $COMP_CWORD ]; do
     test x"${COMP_WORDS[i]}" = x"$1" && return 0
@@ -19,16 +17,16 @@ __arg_used() { # arg
 }
 
 # return 0 (OK) if one of given arguments is already used
-_arg_used() { # arg [arg...]
+_lium_arg_used() { # arg [arg...]
   while [ "$#" -ne 0 ]; do
-    __arg_used $1 && return 0
+    __lium_arg_used $1 && return 0
     shift 1
   done
   return 1
 }
 
 # return 0 if carg is included in the rest of args
-_arg_included() { # carg [args...]
+_lium_arg_included() { # carg [args...]
   local cur=$1
   shift 1
   while [ "$#" -ne 0 ]; do
@@ -89,7 +87,7 @@ _lium_get_options() {
     case ${a} in
       Options:|Commands:) pout=1;;
       Positional) posarg=1;;
-      -*) _arg_used ${a} || echo ${a} ;;
+      -*) _lium_arg_used ${a} || echo ${a} ;;
       *)
         # TODO: handle `lium dut do ...` case correctly
         if [ ${posarg} = 1 ]; then
@@ -115,11 +113,11 @@ _lium() { # command current prev
 
   COMPREPLY=
   # If there is --help option, no more options available.
-  if _arg_used "--help"; then
+  if _lium_arg_used "--help"; then
     return 0
   fi
 
-  if _arg_included ${prev} ${todo_opts}; then
+  if _lium_arg_included ${prev} ${todo_opts}; then
     # TODO: support completion for each options. currently it is stopped.
     return 0
   elif [ x"$prev" = x"--dut" ]; then
@@ -128,7 +126,7 @@ _lium() { # command current prev
   elif [ x"$prev" = x"--serial" ]; then
     local DUTS=`_lium_get_servos`
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
-  elif _arg_included ${prev} ${dir_opts}; then
+  elif _lium_arg_included ${prev} ${dir_opts}; then
     # TODO: make this smarter
     local DIR=`compgen -d ${cur}`
     if [ `echo ${DIR} | wc -w` = 1 ]; then
