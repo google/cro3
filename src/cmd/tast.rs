@@ -6,6 +6,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
+use glob::Pattern;
 use lium::cache::KvCache;
 use lium::chroot::Chroot;
 use lium::cros::ensure_testing_rsa_is_there;
@@ -52,16 +53,30 @@ pub struct ArgsList {
     #[argh(positional)]
     tests: Option<String>,
 }
-fn run_tast_list(args: &ArgsList) -> Result<()> {
-    if args.tests.is_none() {
-        // TODO: support glob matching
-        if let Ok(Some(tests)) = TEST_CACHE.get(PUBLIC_BUNDLE) {
-            for t in &tests {
+
+fn print_cached_tests(filter: &Pattern) -> Result<()> {
+    if let Ok(Some(tests)) = TEST_CACHE.get(PUBLIC_BUNDLE) {
+        for t in &tests {
+            if filter.matches(t) {
                 println!("{t}");
             }
-            return Ok(());
         }
+        return Ok(());
     }
+    Err(anyhow!("No cache found"))
+}
+
+fn run_tast_list(args: &ArgsList) -> Result<()> {
+    let filter = if let Some(_tests) = &args.tests {
+        Pattern::new(_tests)?
+    } else {
+        Pattern::new("*")?
+    };
+
+    if print_cached_tests(&filter).is_ok() {
+        return Ok(());
+    }
+
     let dut = if let Some(_dut) = &args.dut {
         _dut
     } else {
@@ -74,19 +89,14 @@ fn run_tast_list(args: &ArgsList) -> Result<()> {
     let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
     // setup port forwarding for chroot.
     let (fwdcmd, port) = ssh.start_ssh_forwarding_range((4100, 4199))?;
-    let filter = if let Some(_pat) = &args.tests {
-        _pat
-    } else {
-        "*"
-    };
 
     // TODO: automatically support internal tests
-    let list = chroot.exec_in_chroot(&["tast", "list", &format!("127.0.0.1:{}", port), filter])?;
+    let list = chroot.exec_in_chroot(&["tast", "list", &format!("127.0.0.1:{}", port)])?;
 
     let tests: Vec<String> = list.lines().map(|s| s.to_string()).collect::<Vec<_>>();
     TEST_CACHE.set(PUBLIC_BUNDLE, tests)?;
 
-    println!("{list}");
+    print_cached_tests(&filter)?;
 
     drop(fwdcmd);
     Ok(())
