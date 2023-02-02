@@ -61,10 +61,10 @@ const COMMON_SSH_OPTIONS: [&str; 14] = [
 const COMMON_PORT_FORWARD_TOKEN: &str = "lium-ssh-portforward";
 
 lazy_static! {
-    static ref RE_IPV6_WITH_BRACKETS: Regex = Regex::new(r"^\[(?P<addr>[0-9a-fA-F:]+)\]$").unwrap();
+    static ref RE_IPV6_WITH_BRACKETS: Regex = Regex::new(r"^\[(?P<addr>[0-9a-fA-F:]+(%.*)?)\]$").unwrap();
     // based on https://url.spec.whatwg.org/#host-miscellaneous
     static ref RE_DUT_HOST_NAME: Regex =
-        Regex::new(r"^(([0-9.]+)|([0-9a-fA-F:]+)|([^\t\n\r #/:<>?@\[\]^|]+))$").unwrap();
+        Regex::new(r"^(([0-9.]+)|([0-9a-fA-F:]+(%.*)?)|([^\t\n\r #/:<>?@\[\]^|]+))$").unwrap();
 }
 
 #[test]
@@ -77,6 +77,11 @@ fn regex_test() {
         &RE_IPV6_WITH_BRACKETS.captures("[fe00::]").unwrap()["addr"],
         "fe00::"
     );
+    // %ifname should be supported for IPv6 link local addresses
+    assert_eq!(
+        &RE_IPV6_WITH_BRACKETS.captures("[fe00::%eth0]").unwrap()["addr"],
+        "fe00::%eth0"
+    );
     assert!(!RE_IPV6_WITH_BRACKETS.is_match("fe00::]"));
     assert!(!RE_IPV6_WITH_BRACKETS.is_match("[fe00::"));
 
@@ -85,6 +90,8 @@ fn regex_test() {
 
     assert!(RE_DUT_HOST_NAME.is_match("fe00::"));
     assert!(RE_DUT_HOST_NAME.is_match("fe00::"));
+    // %ifname should be supported for IPv6 link local addresses
+    assert!(RE_DUT_HOST_NAME.is_match("fe00::%eth0"));
     assert!(RE_DUT_HOST_NAME.is_match("a:"));
     assert!(!RE_DUT_HOST_NAME.is_match("fe00:: "));
     assert!(!RE_DUT_HOST_NAME.is_match(" fe00::"));
@@ -398,7 +405,8 @@ impl SshInfo {
         };
         if !RE_DUT_HOST_NAME.is_match(host) {
             Err(anyhow!(
-                "Invalid hostname. A host name should match with: {:?}",
+                "Invalid hostname {:?}. A host name should match with: {:?}",
+                host,
                 RE_DUT_HOST_NAME.to_string()
             ))
         } else {
@@ -825,11 +833,7 @@ pub fn discover_local_duts(iface: Option<String>) -> Result<Vec<DutInfo>> {
                         eprintln!("{} is a DUT :)", addr)
                     }
                     Err(e) => {
-                        eprintln!(
-                            "{} is not a DUT...(ToT) : {:?}",
-                            addr,
-                            e.to_string().replace('\n', "")
-                        )
+                        eprintln!("{} is not a DUT...(ToT) : {:#}", addr, e)
                     }
                 }
                 dut
