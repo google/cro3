@@ -26,7 +26,6 @@ func (s CrOSInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.
 	log.Printf("State: Execute CrOSInstallState")
 	comms := []common_utils.CommandInterface{
 		commands.NewStopSystemDaemonsCommand(ctx, s.service),
-		commands.NewClearDLCArtifactsCommand(ctx, s.service),
 		commands.NewInstallPartitionsCommand(ctx, s.service),
 		commands.NewPostInstallCommand(ctx, s.service),
 		commands.NewClearTPMCommand(ctx, s.service),
