@@ -9,18 +9,32 @@ use anyhow::Context;
 use anyhow::Result;
 use regex_macro::regex;
 use std::env;
+use std::path::PathBuf;
 use std::process::exit;
 use std::process::Command;
 use std::process::Stdio;
 
-pub fn get_repo_dir(dir: &Option<String>) -> Result<String> {
-    let repo = if let Some(repo) = dir {
-        repo.to_string()
+fn is_cros_dir(dir: &str) -> bool {
+    let path = PathBuf::from(dir);
+    path.is_dir() && path.join(".repo").is_dir() && path.join("chromite").join("bin").is_dir()
+}
+
+pub fn get_cros_dir_unchecked(dir: &Option<String>) -> Result<String> {
+    let crosdir = if let Some(cros) = dir {
+        cros.to_string()
     } else {
         env::current_dir()?.to_string_lossy().to_string()
     };
-    // TODO: check repo
-    Ok(repo)
+    Ok(crosdir)
+}
+
+pub fn get_repo_dir(dir: &Option<String>) -> Result<String> {
+    let repo = get_cros_dir_unchecked(dir)?;
+    if is_cros_dir(&repo) {
+        Ok(repo)
+    } else {
+        Err(anyhow!("{repo} is not a ChromeOS direcotry!"))
+    }
 }
 
 pub fn get_current_synced_version(repo: &str) -> Result<String> {
