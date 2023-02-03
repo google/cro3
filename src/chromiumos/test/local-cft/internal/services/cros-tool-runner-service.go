@@ -70,39 +70,41 @@ func (c *CTRService) Start() error {
 			SERVICES().CacheServer,
 		),
 	}
-	sshReverseTunnelService := &SSHTunnelService{
-		ServiceBase: NewServiceBase(
-			c.manager,
-			c.executor,
-			SERVICES().SSHReverseTunnel,
-		),
-	}
-	sshTunnelService := &SSHTunnelService{
-		ServiceBase: NewServiceBase(
-			c.manager,
-			c.executor,
-			SERVICES().SSHTunnel,
-		),
-	}
-	crosDutService := &CrosDutService{
-		ServiceBase: NewServiceBase(
-			c.manager,
-			c.executor,
-			SERVICES().CrosDut,
-		),
-	}
-
 	if err := c.manager.Start(cacheServerService.Name, cacheServerService); err != nil {
 		return err
 	}
-	if err := c.manager.Start(sshReverseTunnelService.Name, sshReverseTunnelService); err != nil {
-		return err
-	}
-	if err := c.manager.Start(sshTunnelService.Name, sshTunnelService); err != nil {
-		return err
-	}
-	if err := c.manager.Start(crosDutService.Name, crosDutService); err != nil {
-		return err
+
+	if c.manager.DutHost != "" {
+		sshReverseTunnelService := &SSHTunnelService{
+			ServiceBase: NewServiceBase(
+				c.manager,
+				c.executor,
+				SERVICES().SSHReverseTunnel,
+			),
+		}
+		sshTunnelService := &SSHTunnelService{
+			ServiceBase: NewServiceBase(
+				c.manager,
+				c.executor,
+				SERVICES().SSHTunnel,
+			),
+		}
+		crosDutService := &CrosDutService{
+			ServiceBase: NewServiceBase(
+				c.manager,
+				c.executor,
+				SERVICES().CrosDut,
+			),
+		}
+		if err := c.manager.Start(sshReverseTunnelService.Name, sshReverseTunnelService); err != nil {
+			return err
+		}
+		if err := c.manager.Start(sshTunnelService.Name, sshTunnelService); err != nil {
+			return err
+		}
+		if err := c.manager.Start(crosDutService.Name, crosDutService); err != nil {
+			return err
+		}
 	}
 
 	return nil
