@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+use crate::config::Config;
 use crate::util::get_stdout;
 use crate::util::run_bash_command;
 use anyhow::anyhow;
@@ -20,8 +21,17 @@ fn is_cros_dir(dir: &str) -> bool {
 }
 
 pub fn get_cros_dir_unchecked(dir: &Option<String>) -> Result<String> {
-    let crosdir = if let Some(cros) = dir {
-        cros.to_string()
+    // This tries to get ChromeOS checkout directory in the following order
+    // 1. user specified directory via a given command line argument
+    // 2. CROS_DIR environmental variables
+    // 3. default_cros_checkout config setting
+    // 4. current directory
+    let crosdir = if let Some(crosdir) = dir {
+        crosdir.to_string()
+    } else if let Ok(crosdir) = env::var("CROS_DIR") {
+        crosdir
+    } else if let Some(crosdir) = Config::read()?.default_cros_checkout() {
+        crosdir
     } else {
         env::current_dir()?.to_string_lossy().to_string()
     };

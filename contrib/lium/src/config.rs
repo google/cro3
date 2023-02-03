@@ -143,4 +143,7 @@ impl Config {
     pub fn android_manifest_url(&self) -> Option<String> {
         self.android_manifest_url.clone()
     }
+    pub fn default_cros_checkout(&self) -> Option<String> {
+        self.default_cros_checkout.clone()
+    }
 }
