@@ -1,0 +1,87 @@
+.hdmiPortButton {
+  width: 120px;
+  height: 60px;
+  margin: 10px;
+  border-radius: 10px;
+  font-size: 16px;
+  border: 2px solid black;
+  background-color: white;
+  position: relative;
+}
+
+.hdmiPortButton:before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: black;
+  position: absolute;
+  top: 20px;
+  left: -10px;
+}
+
+.hdmiPortButton:after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: black;
+  position: absolute;
+  top: 20px;
+  right: -10px;
+}
+
+.dpPortButton {
+  width: 120px;
+  height: 60px;
+  margin: 10px;
+  border-radius: 5px;
+  font-size: 16px;
+  border: 2px solid black;
+  background-color: white;
+  position: relative;
+}
+
+.dpPortButton:before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: black;
+  position: absolute;
+  top: 20px;
+  left: -10px;
+}
+
+.dpPortButton:after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: black;
+  position: absolute;
+  top: 20px;
+  right: -10px;
+}
+
+.dpPortButton:before:before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: black;
+  position: absolute;
+  top: -20px;
+  left: 20px;
+}
+
+.dpPortButton:after:after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: black;
+  position: absolute;
+  top: -20px;
+  right: 20px;
+}
