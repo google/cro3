@@ -8,9 +8,9 @@ use argh::FromArgs;
 use lium::arc::lookup_arc_version;
 use lium::arc::setup_arc_repo;
 use lium::cros::setup_cros_repo;
+use lium::repo::get_cros_dir_unchecked;
 use lium::repo::get_current_synced_arc_version;
 use lium::repo::get_current_synced_version;
-use lium::repo::get_repo_dir;
 use lium::repo::repo_sync;
 use std::fs;
 use std::path::Path;
@@ -51,7 +51,7 @@ pub fn run(args: &Args) -> Result<()> {
     } else {
         lookup_arc_version(&args.version)?
     };
-    let repo = get_repo_dir(&args.repo)?;
+    let repo = get_cros_dir_unchecked(&args.repo)?;
 
     print!("Syncing {} to {} ", &repo, version);
     if args.force {
