@@ -113,7 +113,7 @@ for carrier in ['verizon', 'tmobile', 'att',
                        carrier, 'is_modem_up', tests)
 
     tests = single_test_template.format(
-        test_exprs=f"['cellular.Identifiers.{carrier}','cellular.IsConnected.{carrier}','cellular.Smoke.{carrier}']")
+        test_exprs=f"['cellular.Identifiers.{carrier}','cellular.IsConnected.{carrier}','cellular.Smoke.{carrier}', 'cellular.SmokeIPConnectivity.{carrier}']")
     write_control_file(out_dir, dut_check_suites,
                        carrier, 'dut_check', tests)
 
