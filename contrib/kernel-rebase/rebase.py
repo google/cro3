@@ -218,9 +218,9 @@ class Rebaser:
         checkout('kernel-upstream', rebase_target)
 
     def get_topic_dispositions(self, topic_list):
-        # reload config to import up-to-date disp_overlay
+        # reload config to import up-to-date disp_overwrite
         importlib.reload(rebase_config)
-        from rebase_config import disp_overlay
+        from rebase_config import disp_overwrite
 
         gids = []
         for topic in topic_list:
@@ -240,8 +240,8 @@ class Rebaser:
             assert disp in [
                 'pick', 'drop', 'replace'], 'Unrecognized disposition.'
             # Modify dispositions according to overlay
-            if sha in disp_overlay:
-                dispositions[i] = (disp_overlay[sha], sha, subject, reason)
+            if sha in disp_overwrite:
+                dispositions[i] = (disp_overwrite[sha], sha, subject, reason)
 
         return dispositions
 
@@ -250,7 +250,7 @@ class Rebaser:
     # topics: list of source topics
     # is_triage: if set, skip over commits that require manual resolution
     def rebase_multiple(self, end_name, topic_list, is_triage=False):
-        # reload config to import up-to-date disp_overlay
+        # reload config to import up-to-date disp_overwrite
         importlib.reload(rebase_config)
 
         print('Checkout to', rebase_target, '...')
@@ -435,7 +435,7 @@ class Rebaser:
                     sh.git('am', '--abort')
                 with open('rebase_config.py', 'a') as f:
                     f.write(
-                        "disp_overlay['%s'] = '%s' # %s\n" %
+                        "disp_overwrite['%s'] = '%s' # %s\n" %
                         (sha, 'drop', subject))
             else:
                 print(

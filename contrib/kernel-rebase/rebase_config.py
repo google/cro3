@@ -98,14 +98,14 @@ patch_deps = {
 # Add entry here to overwrite default disposition on particular commit
 # WARNING: lines can be automatically appended here when user chooses
 # to drop the commit from rebase script.
-disp_overlay = {}
+disp_overwrite = {}
 # example
-# disp_overlay['62b865c66db4'] = 'drop'
+# disp_overwrite['62b865c66db4'] = 'drop'
 
-disp_overlay['361e832d5127'] = 'drop' # Revert "UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support"
-disp_overlay['d3ca0f8f9181'] = 'drop' # BACKPORT: UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support
-disp_overlay['5a46f9f5770f'] = 'drop' # FROMLIST: fuse: 32-bit user space ioctl compat for fuse device
-disp_overlay['ff52d46e7dbb'] = 'drop' # FROMLIST: i2c: designware: Switch from using MMIO access to SMN access
-disp_overlay['5bbe10aab447'] = 'drop' # FROMLIST: mailbox: mtk-cmdq: instead magic number with GCE_CTRL_BY_SW
-disp_overlay['2f1d896c09eb'] = 'drop' # FIXUP: FROMLIST: sched: Add a coresched command line option
-disp_overlay['20dda512a08f'] = 'drop' # CHROMIUM: drm/udl: Cut >165 MHz modes for DVI
+disp_overwrite['361e832d5127'] = 'drop' # Revert "UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support"
+disp_overwrite['d3ca0f8f9181'] = 'drop' # BACKPORT: UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support
+disp_overwrite['5a46f9f5770f'] = 'drop' # FROMLIST: fuse: 32-bit user space ioctl compat for fuse device
+disp_overwrite['ff52d46e7dbb'] = 'drop' # FROMLIST: i2c: designware: Switch from using MMIO access to SMN access
+disp_overwrite['5bbe10aab447'] = 'drop' # FROMLIST: mailbox: mtk-cmdq: instead magic number with GCE_CTRL_BY_SW
+disp_overwrite['2f1d896c09eb'] = 'drop' # FIXUP: FROMLIST: sched: Add a coresched command line option
+disp_overwrite['20dda512a08f'] = 'drop' # CHROMIUM: drm/udl: Cut >165 MHz modes for DVI
