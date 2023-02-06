@@ -253,11 +253,15 @@ fn do_reboot(s: &SshInfo) -> Result<()> {
 fn do_login(s: &SshInfo) -> Result<()> {
     s.run_autologin()
 }
+fn do_tail_messages(s: &SshInfo) -> Result<()> {
+    s.run_cmd_piped(&["tail -f /var/log/messages"])
+}
 lazy_static! {
     static ref DUT_ACTIONS: HashMap<&'static str, DutAction> = {
         let mut m: HashMap<&'static str, DutAction> = HashMap::new();
         m.insert("reboot", Box::new(do_reboot));
         m.insert("login", Box::new(do_login));
+        m.insert("tail_messages", Box::new(do_tail_messages));
         m
     };
 }
