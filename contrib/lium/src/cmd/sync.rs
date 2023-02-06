@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 use crate::lookup_full_version;
+use anyhow::anyhow;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::arc::lookup_arc_version;
@@ -60,18 +61,20 @@ pub fn run(args: &Args) -> Result<()> {
         println!("...");
     }
 
-    if Path::new(&repo).is_dir() {
-        if Path::new(&format!("{}/Android.bp", &repo)).exists() {
-            if let Ok(prev_version) = get_current_synced_arc_version(&repo) {
-                println!("Previous ARC version was: {}", prev_version);
-                is_arc = true;
-            }
-        } else if let Ok(prev_version) = get_current_synced_version(&repo) {
-            println!("Previous CROS version was: {}", prev_version);
-            is_arc = false;
-        }
-    } else {
+    if !Path::new(&repo).is_dir() {
+        println!("Creating {repo} ...");
         fs::create_dir_all(&repo)?;
+    } else if Path::new(&format!("{}/Android.bp", &repo)).exists() {
+        let prev_version = get_current_synced_arc_version(&repo)?;
+        println!("Previous ARC version was: {}", prev_version);
+        is_arc = true;
+    } else if let Ok(prev_version) = get_current_synced_version(&repo) {
+        println!("Previous CROS version was: {}", prev_version);
+        is_arc = false;
+    } else if Path::new(&repo).read_dir()?.next().is_some() {
+        return Err(anyhow!(
+            "{repo} is not a cros directory nor an empty directory."
+        ));
     }
 
     if is_arc {

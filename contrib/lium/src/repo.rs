@@ -48,6 +48,9 @@ pub fn get_repo_dir(dir: &Option<String>) -> Result<String> {
 }
 
 pub fn get_current_synced_version(repo: &str) -> Result<String> {
+    if !is_cros_dir(repo) {
+        return Err(anyhow!("{repo} is not a ChromeOS directory!"));
+    }
     let cmd = "./src/third_party/chromiumos-overlay/chromeos/config/chromeos_version.sh | grep -e VERSION_STRING -e CHROME_BRANCH | cut -d '=' -f 2 | cut -d '-' -f 1";
     let output = run_bash_command(cmd, Some(repo))?;
     let binding = get_stdout(&output);
