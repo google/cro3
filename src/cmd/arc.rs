@@ -22,11 +22,13 @@ pub struct Args {
 enum SubCommand {
     GuestKernelUprev(ArgsGuestKernelUprev),
     Flash(ArgsArcFlash),
+    Logcat(ArgsLogcat),
 }
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::GuestKernelUprev(args) => run_guest_kernel_uprev(args),
         SubCommand::Flash(args) => run_arc_flash(args),
+        SubCommand::Logcat(args) => run_logcat(args),
     }
 }
 
@@ -150,5 +152,19 @@ fn run_arc_flash(args: &ArgsArcFlash) -> Result<()> {
         println!("prebuilt ARC flash failed");
     }
 
+    Ok(())
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// logcat wrapper
+#[argh(subcommand, name = "logcat")]
+pub struct ArgsLogcat {
+    /// target DUT
+    #[argh(option)]
+    dut: String,
+}
+fn run_logcat(args: &ArgsLogcat) -> Result<()> {
+    let remote = SshInfo::new(&args.dut)?;
+    remote.run_cmd_piped(&["adb", "logcat"])?;
     Ok(())
 }
