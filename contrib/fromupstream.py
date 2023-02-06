@@ -471,10 +471,10 @@ def _match_gitfetch(match, args):
 
 
 def _match_gitweb(match, args):
-    """Match location: https://repoURL/commit/?h=branch&id=HASH."""
+    """Match location: https://repoURL/commit/?h=branch&id=HASH. or https://repoURL/commit/?id=HASH."""
     remote = match.group(1)
-    branch = match.group(2)
-    commit = match.group(3)
+    branch = match.group(3)
+    commit = match.group(4)
 
     if args["debug"]:
         print(
@@ -483,7 +483,10 @@ def _match_gitweb(match, args):
         )
 
     try:
-        _git(["fetch", remote, branch])
+        if branch:
+            _git(["fetch", remote, branch])
+        else:
+            _git(["fetch", remote])
     except subprocess.CalledProcessError:
         errprint("Error: Branch not in %s" % remote)
         sys.exit(1)
@@ -681,7 +684,7 @@ def main(args):
         ),
         (re.compile(r"^((git|https)://.+)#(.+)/([0-9a-f]+)$"), _match_gitfetch),
         (
-            re.compile(r"^(https://.+)/commit/\?h=(.+)\&id=([0-9a-f]+)$"),
+            re.compile(r"^(https://.+)/commit/\?(h=(.+)\&)?id=([0-9a-f]+)$"),
             _match_gitweb,
         ),
     )
