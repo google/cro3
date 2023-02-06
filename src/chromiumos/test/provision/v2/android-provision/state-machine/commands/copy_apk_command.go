@@ -29,7 +29,7 @@ func NewCopyAPKCommand(ctx context.Context, svc *service.AndroidService) *CopyAP
 func (c *CopyAPKCommand) Execute(log *log.Logger) error {
 	log.Printf("Start CopyAPKCommand Execute")
 	for _, pkg := range c.svc.ProvisionPackages {
-		if apkFile := pkg.APKFile; apkFile.GsPath != "" {
+		if apkFile := pkg.APKFile; apkFile != nil {
 			dstPath := filepath.Join("/tmp", pkg.CIPDPackage.InstanceId, apkFile.Name)
 			dut := c.svc.DUT
 			if err := dut.AssociatedHost.CreateDirectories(c.ctx, []string{filepath.Dir(dstPath)}); err != nil {
