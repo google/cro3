@@ -207,7 +207,7 @@ func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, d
 	args.runFlags[tautoArgs] = tautoArgsStr
 
 	// Now we need to get a list of all labels, then load the labels const.
-	attrMap, infoLabels, err := convertDutTopologyToHostInfo(dut)
+	attrMap, infoLabels, err := common.ConvertDutTopologyToHostInfo(dut)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert dutotopology: %v", err)
 	}
@@ -228,14 +228,6 @@ func newTautoArgs(dut *device.DutInfo, companionDuts []*device.DutInfo, tests, d
 	args.patterns = tests // TO-DO Support Tags
 	args.runFlags[tautoResultsDirFlag] = resultsDir
 	return &args, nil
-}
-
-func convertDutTopologyToHostInfo(dut *device.DutInfo) (map[string]string, []string, error) {
-	attrMap, labels, err := device.AppendChromeOsLabels(dut)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Topology failed: %v", err)
-	}
-	return attrMap, labels, nil
 }
 
 // genTautoArgList generates argument list for invoking Tauto

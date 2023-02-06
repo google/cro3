@@ -77,6 +77,12 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.
 	defer os.Remove(yamlPath)
 	args := newTastArgs(primary, companions, testNames, resultsDir, reportServer.Address(), yamlPath)
 
+	err = common.WriteHostInfoToFile(resultsDir, primary.Addr, primary, td.logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate hostinfo: %w", err)
+
+	}
+
 	// Run tast.
 	cmd := exec.Command("/usr/bin/tast", genArgList(args)...)
 	stderr, err := cmd.StderrPipe()
@@ -131,6 +137,7 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.
 	}
 
 	_ = common.PublishTkoStatusFile(resultsDir, results)
+
 	return &api.CrosTestResponse{TestCaseResults: results}, err
 }
 
