@@ -51,6 +51,9 @@ pub struct Config {
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
     ssh_overrides: HashMap<String, SshOverride>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    tast_bundles: Option<Vec<String>>,
 }
 static CONFIG_FILE_NAME: &str = "config.json";
 impl Config {
@@ -111,6 +114,11 @@ impl Config {
                     },
                 );
             }
+            "tast_bundles" => {
+                let bundles: Vec<String> =
+                    values[0..].iter().map(|s| s.as_ref().to_string()).collect();
+                self.tast_bundles = Some(bundles);
+            }
             _ => return Err(anyhow!("config key {key} is not valid")),
         }
         self.write()
@@ -132,10 +140,20 @@ impl Config {
                     "please use `lium config clear ssh_overrides` instead ;)"
                 ))
             }
+            "tast_bundles" => {
+                self.tast_bundles = None;
+            }
             _ => return Err(anyhow!("lium config clear for '{key}' is not implemented")),
         }
         self.write()?;
         Ok(())
+    }
+    pub fn tast_bundles(&self) -> Vec<&str> {
+        if let Some(bundles) = &self.tast_bundles {
+            bundles.iter().map(|s| s as &str).collect()
+        } else {
+            Vec::new()
+        }
     }
     pub fn ssh_overrides(&self) -> &HashMap<String, SshOverride> {
         &self.ssh_overrides
