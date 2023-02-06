@@ -34,22 +34,30 @@ commit_hooks = {}
 #   commit_hooks['*'] = {'hook': hooks.pause, 'types': ['conflict']}
 # commit_hooks['a49b8bb6e63d'] = {'hook': hooks.pause, 'types': ['pre']}
 
-topic_fixups = {}
-# example:
-# topic_fixups['bluetooth'] = ['fd83ec5d9b94']
+topic_patches = {}
+# patches and fixups applied on top of each topic branch
+#
+# examples:
+# topic_patches['arch'] = [
+#    'patches/KVM: mmu: introduce new gfn_to_pfn_page functions.patch',
+# ]
+#
+# topic_patches['cros_ec'] = [
+#    'fixups/platform: x86: add ACPI driver for ChromeOS.patch',
+# ]
 
-topic_fixups['arch'] = [
-    'KVM: mmu: introduce new gfn_to_pfn_page functions',
-    'KVM: Fix multiple races in gfn=>pfn cache refresh',
-    'FIXUP: KVM: mmu: introduce new gfn_to_pfn_page functions'
+topic_patches['arch'] = [
+    'patches/KVM: mmu: introduce new gfn_to_pfn_page functions.patch',
+    'fixups/KVM: Fix multiple races in gfn=>pfn cache refresh.patch',
+    'fixups/FIXUP: KVM: mmu: introduce new gfn_to_pfn_page functions.patch'
 ]
 
-topic_fixups['block-fs'] = [
-    'FIXUP-CHROMIUM-drivers-md-dm-verity-chromeos-Fix-bio',
+topic_patches['block-fs'] = [
+    'fixups/FIXUP-CHROMIUM-drivers-md-dm-verity-chromeos-Fix-bio.patch',
 ]
 
-topic_fixups['cros_ec'] = [
-    'platform: x86: add ACPI driver for ChromeOS',
+topic_patches['cros_ec'] = [
+    'fixups/platform: x86: add ACPI driver for ChromeOS.patch',
 ]
 
 # order for automatic branch merging in rebase.py.

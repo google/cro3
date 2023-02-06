@@ -468,19 +468,19 @@ class Rebaser:
                 sh.git('-c', 'core.editor=true', 'revert', sha)
 
         for topic in topic_list:
-            if topic in rebase_config.topic_fixups:
-                # Apply fixups for this particular topic
-                for name in rebase_config.topic_fixups[topic]:
+            if topic in rebase_config.topic_patches:
+                # Apply patches and fixups for this particular topic
+                for name in rebase_config.topic_patches[topic]:
                     try:
                         call_hook('[nosha]', 'pre')
-                        patch_short = 'patches/fixups/{}.patch'.format(name)
+                        patch_short = 'patches/{}'.format(name)
                         patch = os.getcwd() + '/' + patch_short
                         ret = apply_patch('kernel-upstream', patch, '[nosha]')
                         if ret.find("Patch already applied") != -1:
                             continue
                         add_kcr_patch_tag(patch_short, True)
                         # No conflicts, check rerere and continue
-                        print('Applied ' + patch_short + ' fixup for ' + topic + '.')
+                        print('Applied \'' + patch_short + '\' to ' + topic + ' topic branch.')
                         call_hook('[nosha]', 'post')
                         continue
                     except sh.ErrorReturnCode_128:
@@ -618,24 +618,35 @@ def triage():
     return (topic_stats, topic_stderr)
 
 
-def fixup():
+def save_head_user(prefix=None):
     print('Current HEAD:')
     sha = head_sha('kernel-upstream')
     print(commit_message('kernel-upstream', sha))
-    print('This will record the current HEAD as a fixup.')
+    print('This will record the current HEAD')
 
     name = input('patch name: ')
     if '/' in name:
         print("patch name can't contains forward slashes!")
         return
-    path = 'patches/fixups/{}.patch'.format(name)
+
+    path = 'patches/' + prefix + '/{}.patch'.format(name)
     if os.path.isfile(path):
         print('Path exists!')
         yn = input('proceed [y/n]:')
         if yn.lower() not in ['y', 'yes']:
             print('aborting')
             return
-    save_head('kernel-upstream', sha, path_override=path, is_fixup=True)
+    save_head('kernel-upstream', sha, path_override=path, add_prefix=True)
+
+
+def save_as_patch(prefix='patches'):
+
+    save_head_user(prefix)
+
+
+def save_as_fixup(prefix='fixups'):
+
+    save_head_user(prefix)
 
 
 def merge_topic_branches():
