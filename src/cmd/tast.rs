@@ -9,6 +9,7 @@ use argh::FromArgs;
 use glob::Pattern;
 use lium::cache::KvCache;
 use lium::chroot::Chroot;
+use lium::config::Config;
 use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::SshInfo;
 use lium::repo::get_repo_dir;
@@ -22,7 +23,7 @@ pub struct Args {
 }
 
 pub static TEST_CACHE: KvCache<Vec<String>> = KvCache::new("tast_cache");
-static PUBLIC_BUNDLE: &str = "public";
+static DEFAULT_BUNDLE: &str = "cros";
 
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
@@ -58,8 +59,8 @@ pub struct ArgsList {
     cached: bool,
 }
 
-fn print_cached_tests(filter: &Pattern) -> Result<()> {
-    if let Ok(Some(tests)) = TEST_CACHE.get(PUBLIC_BUNDLE) {
+fn print_cached_tests_in_bundle(filter: &Pattern, bundle: &str) -> Result<()> {
+    if let Ok(Some(tests)) = TEST_CACHE.get(bundle) {
         for t in &tests {
             if filter.matches(t) {
                 println!("{t}");
@@ -70,39 +71,79 @@ fn print_cached_tests(filter: &Pattern) -> Result<()> {
     Err(anyhow!("No cache found"))
 }
 
+fn print_cached_tests(filter: &Pattern, bundles: &Vec<&str>) -> Result<()> {
+    if bundles.is_empty() {
+        print_cached_tests_in_bundle(filter, DEFAULT_BUNDLE)
+    } else {
+        // Ensure all bundles are cached.
+        for b in bundles {
+            if TEST_CACHE.get(b)?.is_none() {
+                return Err(anyhow!("No cache found for {b}."));
+            }
+        }
+        for b in bundles {
+            print_cached_tests_in_bundle(filter, b)?
+        }
+        Ok(())
+    }
+}
+
+fn update_cached_tests_in_bundle(bundle: &str, chroot: &Chroot, port: u16) -> Result<()> {
+    let list = chroot.exec_in_chroot(&[
+        "tast",
+        "list",
+        "-installbuilddeps",
+        &format!("--buildbundle={}", bundle),
+        &format!("127.0.0.1:{}", port),
+    ])?;
+    let tests: Vec<String> = list.lines().map(|s| s.to_string()).collect::<Vec<_>>();
+    TEST_CACHE.set(bundle, tests)?;
+    Ok(())
+}
+
+fn update_cached_tests(bundles: &Vec<&str>, dut: &str, repodir: &str) -> Result<()> {
+    ensure_testing_rsa_is_there()?;
+    let chroot = Chroot::new(repodir)?;
+    let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
+    let (fwdcmd, port) = ssh.start_ssh_forwarding_range((4100, 4199))?;
+
+    let ret = if bundles.is_empty() {
+        update_cached_tests_in_bundle(DEFAULT_BUNDLE, &chroot, port)
+    } else {
+        for b in bundles {
+            update_cached_tests_in_bundle(b, &chroot, port)?
+        }
+        Ok(())
+    };
+    drop(fwdcmd);
+    ret
+}
+
 fn run_tast_list(args: &ArgsList) -> Result<()> {
     let filter = if let Some(_tests) = &args.tests {
         Pattern::new(_tests)?
     } else {
         Pattern::new("*")?
     };
+    let config = Config::read()?;
+    let bundles = config.tast_bundles();
 
-    if print_cached_tests(&filter).is_ok() || args.cached {
+    if print_cached_tests(&filter, &bundles).is_ok() || args.cached {
         return Ok(());
     }
 
     let dut = if let Some(_dut) = &args.dut {
         _dut
     } else {
-        return Err(anyhow!("No cache found. Need --dut option to run"));
+        return Err(anyhow!(
+            "Please re-run with --dut option to cache test names"
+        ));
     };
 
-    ensure_testing_rsa_is_there()?;
-    let repodir = get_repo_dir(&args.repo)?;
-    let chroot = Chroot::new(&repodir)?;
-    let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
-    // setup port forwarding for chroot.
-    let (fwdcmd, port) = ssh.start_ssh_forwarding_range((4100, 4199))?;
+    update_cached_tests(&bundles, dut, &get_repo_dir(&args.repo)?)?;
 
-    // TODO: automatically support internal tests
-    let list = chroot.exec_in_chroot(&["tast", "list", &format!("127.0.0.1:{}", port)])?;
+    print_cached_tests(&filter, &bundles)?;
 
-    let tests: Vec<String> = list.lines().map(|s| s.to_string()).collect::<Vec<_>>();
-    TEST_CACHE.set(PUBLIC_BUNDLE, tests)?;
-
-    print_cached_tests(&filter)?;
-
-    drop(fwdcmd);
     Ok(())
 }
 
@@ -122,21 +163,47 @@ pub struct ArgsRun {
     #[argh(positional)]
     tests: String,
 }
+
+fn bundle_has_test(bundle: &str, filter: &Pattern) -> bool {
+    if let Ok(Some(tests)) = TEST_CACHE.get(bundle) {
+        for t in tests {
+            if filter.matches(&t) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn run_test_with_bundle(bundle: &str, filter: &Pattern, chroot: &Chroot, port: u16) -> Result<()> {
+    chroot.run_bash_script_in_chroot(
+        "tast_run_cmd",
+        &format!("tast run -installbuilddeps -buildbundle={bundle} 127.0.0.1:{port} {filter}"),
+        None,
+    )?;
+    Ok(())
+}
+
 fn run_tast_run(args: &ArgsRun) -> Result<()> {
     ensure_testing_rsa_is_there()?;
+    let filter = Pattern::new(&args.tests)?;
     let repodir = get_repo_dir(&args.repo)?;
     let chroot = Chroot::new(&repodir)?;
     let ssh = SshInfo::new(&args.dut).context("failed to create SshInfo")?;
     // setup port forwarding for chroot.
     let (fwdcmd, port) = ssh.start_ssh_forwarding_range((4100, 4199))?;
-    let filter = &args.tests;
 
-    // TODO: automatically support internal tests
-    chroot.run_bash_script_in_chroot(
-        "tast_run_cmd",
-        &format!("tast run -installbuilddeps 127.0.0.1:{port} {filter}"),
-        None,
-    )?;
+    let config = Config::read()?;
+    let bundles = config.tast_bundles();
+    if bundles.is_empty() {
+        run_test_with_bundle(DEFAULT_BUNDLE, &filter, &chroot, port)?
+    } else {
+        for b in bundles {
+            if bundle_has_test(b, &filter) {
+                run_test_with_bundle(b, &filter, &chroot, port)?
+            }
+        }
+    }
 
     drop(fwdcmd);
     Ok(())
