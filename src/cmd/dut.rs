@@ -6,6 +6,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
+use lazy_static::lazy_static;
 use lium::cros;
 use lium::dut::discover_local_duts;
 use lium::dut::DutInfo;
@@ -228,6 +229,7 @@ fn run_dut_shell(args: &ArgsDutShell) -> Result<()> {
         target.run_cmd_piped(&args.args)
     }
 }
+
 #[derive(FromArgs, PartialEq, Debug)]
 /// get the kernel configuration from the DUT
 #[argh(subcommand, name = "kernel_config")]
@@ -244,28 +246,60 @@ fn run_dut_kernel_config(args: &ArgsDutKernelConfig) -> Result<()> {
     Ok(())
 }
 
+type DutAction = Box<fn(&SshInfo) -> Result<()>>;
+fn do_reboot(s: &SshInfo) -> Result<()> {
+    s.run_cmd_piped(&["reboot; exit"])
+}
+fn do_login(s: &SshInfo) -> Result<()> {
+    s.run_autologin()
+}
+lazy_static! {
+    static ref DUT_ACTIONS: HashMap<&'static str, DutAction> = {
+        let mut m: HashMap<&'static str, DutAction> = HashMap::new();
+        m.insert("reboot", Box::new(do_reboot));
+        m.insert("login", Box::new(do_login));
+        m
+    };
+}
 #[derive(FromArgs, PartialEq, Debug)]
 /// send actions
 #[argh(subcommand, name = "do")]
 struct ArgsDutDo {
     /// a DUT identifier (e.g. 127.0.0.1, localhost:2222)
-    #[argh(positional)]
-    dut: String,
-    /// actions to do
+    #[argh(option)]
+    dut: Option<String>,
+    /// actions to do (--list-actions to see available options)
     #[argh(positional)]
     actions: Vec<String>,
+    /// list available actions
+    #[argh(switch)]
+    list_actions: bool,
 }
 fn run_dut_do(args: &ArgsDutDo) -> Result<()> {
     cros::ensure_testing_rsa_is_there()?;
-    let target = &SshInfo::new(&args.dut)?;
-    for action in &args.actions {
-        match action.as_str() {
-            "reboot" => target.run_cmd_piped(&["reboot; exit"])?,
-            "login" => target.run_autologin()?,
-            c => {
-                println!("Unknown action {}", c);
-            }
-        }
+    if args.list_actions {
+        eprintln!("{:?}", DUT_ACTIONS.keys());
+        return Ok(());
+    }
+    let unknown_actions: Vec<&String> = args
+        .actions
+        .iter()
+        .filter(|s| !DUT_ACTIONS.contains_key(s.as_str()))
+        .collect();
+    if !unknown_actions.is_empty() || args.actions.is_empty() {
+        return Err(anyhow!(
+            "Unknown action: {unknown_actions:?}. See `lium dut do --list-actions` for available actions."
+        ));
+    }
+    let dut = &SshInfo::new(args.dut.as_ref().context(anyhow!("Please specify --dut"))?)?;
+    let actions: Vec<&DutAction> = args
+        .actions
+        .iter()
+        .flat_map(|s| DUT_ACTIONS.get(s.as_str()))
+        .collect();
+    let actions: Vec<(&String, &&DutAction)> = args.actions.iter().zip(actions.iter()).collect();
+    for (name, f) in actions {
+        f(dut).context(anyhow!("DUT action: {name}"))?;
     }
     Ok(())
 }
