@@ -44,17 +44,7 @@ topic_fixups['arch'] = [
     'FIXUP: KVM: mmu: introduce new gfn_to_pfn_page functions'
 ]
 
-topic_fixups['chromeos'] = [
-    'mm: Optionally limit per-process reclaim',
-    'FROMLIST: sched: Add a coresched command line option',
-]
-
-topic_fixups['bluetooth'] = [
-    'devcoredump: Add per device sysfs entry to enable disable coredump'
-]
-
 topic_fixups['block-fs'] = [
-    'Add message definitions for CHROMEOS_TMPFILE',
     'FIXUP-CHROMIUM-drivers-md-dm-verity-chromeos-Fix-bio',
 ]
 
@@ -107,5 +97,5 @@ disp_overwrite['d3ca0f8f9181'] = 'drop' # BACKPORT: UPSTREAM: Bluetooth: hci_qca
 disp_overwrite['5a46f9f5770f'] = 'drop' # FROMLIST: fuse: 32-bit user space ioctl compat for fuse device
 disp_overwrite['ff52d46e7dbb'] = 'drop' # FROMLIST: i2c: designware: Switch from using MMIO access to SMN access
 disp_overwrite['5bbe10aab447'] = 'drop' # FROMLIST: mailbox: mtk-cmdq: instead magic number with GCE_CTRL_BY_SW
-disp_overwrite['2f1d896c09eb'] = 'drop' # FIXUP: FROMLIST: sched: Add a coresched command line option
 disp_overwrite['20dda512a08f'] = 'drop' # CHROMIUM: drm/udl: Cut >165 MHz modes for DVI
+disp_overwrite['c5daa007043c'] = ['move', 'bluetooth'] # FROMLIST: devcoredump: Add per device sysfs entry to enable/disable coredump

@@ -25,7 +25,6 @@ See go/cont-rebase for details
 """
 
 from datetime import datetime
-import importlib
 import os
 import pickle
 import re
@@ -41,6 +40,7 @@ from logging_console import LoggingConsole
 # the import is not used directly, but instead intended to be used in the interactive mode
 from mailing import load_and_notify  # pylint: disable=unused-import
 import rebase_config
+from rebase_config import disp_overwrite
 import sh
 
 from config import *
@@ -173,6 +173,9 @@ class Rebaser:
             self.topics[name] = gid
         print('Topic dict: ', self.topics)
 
+        # Handle extended dispositions
+        self.handle_ext_disposition(self.topics)
+
         self.upstreamed = {
             'upstream': 0,
             'fromlist': 0,
@@ -206,7 +209,7 @@ class Rebaser:
 
         self.kernel = None
 
-        # Pull chromeos-5.4 branch
+        # Pull chromeos branch
         print('Fetching cros...')
         fetch('kernel-upstream', 'cros')
 
@@ -218,9 +221,6 @@ class Rebaser:
         checkout('kernel-upstream', rebase_target)
 
     def get_topic_dispositions(self, topic_list):
-        # reload config to import up-to-date disp_overwrite
-        importlib.reload(rebase_config)
-        from rebase_config import disp_overwrite
 
         gids = []
         for topic in topic_list:
@@ -236,22 +236,38 @@ class Rebaser:
             sha = dispositions[i][1]
             subject = dispositions[i][2]
             reason = dispositions[i][3]
-            # For now, assume there are only pick / drop / replace dispositions
-            assert disp in [
-                'pick', 'drop', 'replace'], 'Unrecognized disposition.'
-            # Modify dispositions according to overlay
+            # Assume there are only pick and drop dispositions
+            assert disp in ['pick', 'drop'], 'Unrecognized disposition.'
+
+            # Modify dispositions according to overwrite
             if sha in disp_overwrite:
+                # extended disposition are handled in handle_ext_disposition
+                if isinstance(disp_overwrite[sha], list):
+                    continue
                 dispositions[i] = (disp_overwrite[sha], sha, subject, reason)
 
         return dispositions
+
+    # Handle extended dispositions
+    # topic_list: list of source topics
+    def handle_ext_disposition(self, topic_list):
+
+        print('Handle extended disposition overwrites')
+        for sha, val in disp_overwrite.items():
+            # currently we support 'move' extended disposition only
+            if not isinstance(val, list):
+                continue
+
+            assert val[0] == 'move', 'Unrecognized extended disposition'
+            dst = val[1]
+            assert dst in topic_list, f'Unrecognized dst {dst} topic'
+            self.topic_move(sha, dst)
 
     # Rebase many topic branches joining them into one topic branch.
     # end_name: name of the target branch
     # topics: list of source topics
     # is_triage: if set, skip over commits that require manual resolution
     def rebase_multiple(self, end_name, topic_list, is_triage=False):
-        # reload config to import up-to-date disp_overwrite
-        importlib.reload(rebase_config)
 
         print('Checkout to', rebase_target, '...')
         checkout('kernel-upstream', rebase_target)
@@ -498,6 +514,7 @@ class Rebaser:
         for topic_name in self.topics:
             if self.topics[topic_name] == src_gid:
                 src = src_gid
+                src_topic = topic_name
         assert src != '', 'No such topic?'
         query = "update commits set topic=%d where sha='%s'" % (
             dst_gid, commit)
@@ -506,7 +523,7 @@ class Rebaser:
         self.cur.execute(query)
         ret = self.cur.fetchall()
         assert dst_gid == ret[0][1]
-        print('Commit', ret[0][0], 'moved from', src, 'to', dst)
+        print(f'Moved commit {commit} \'{ret[0][0]}\' from {src_topic} to {dst}')
 
     def topic_list(self, topic):
         dst_gid = self.topics[topic]
