@@ -111,64 +111,34 @@ impl LocalServo {
             .collect())
     }
     pub fn discover_slow() -> Result<Vec<LocalServo>> {
-        let paths = fs::read_dir("/sys/bus/usb/devices/").unwrap();
-        Ok(paths
-            .flat_map(|usb_path| -> Result<LocalServo> {
-                let usb_sysfs_path = usb_path?.path();
-                let product = Self::read_usb_attribute(&usb_sysfs_path, "product")?;
-                let serial = Self::read_usb_attribute(&usb_sysfs_path, "serial")?;
-                if product.starts_with("Servo") || product.starts_with("Cr50") {
-                    eprintln!("Servo found on {usb_sysfs_path:?}...");
-                    let paths = fs::read_dir(&usb_sysfs_path).context("failed to read dir")?;
-                    let tty_list: HashMap<String, String> = paths
-                        .flat_map(|path| -> Result<(String, String)> {
-                            let path = path?.path();
-                            let interface = fs::read_to_string(path.join("interface"))?
-                                .trim()
-                                .to_string();
-                            let tty_name = fs::read_dir(path)?
-                                .find_map(|p| {
-                                    let s = p.ok()?.path();
-                                    let s = s.file_name()?.to_string_lossy().to_string();
-                                    s.starts_with("ttyUSB").then_some(s.clone())
-                                })
-                                .context("ttyUSB not found")?;
-                            Ok((
-                                interface,
-                               tty_name,
-                                ))
-                        })
-                        .collect();
-                    let mac_addr = tty_list.get("Servo EC Shell").and_then(|id|
-                    {
-                        run_bash_command(&format!("echo macaddr | socat - /dev/{id},echo=0 | grep -E -o '([0-9A-Z]{{2}}:){{5}}([0-9A-Z]{{2}})'"), None)
-                            .ok()
-                            .filter(|o| {o.status.success()})
-                            .as_ref()
-                            .map(get_stdout)
-                    });
-                    let ec_version = tty_list.get("EC").and_then(|id|
-                    {
-                        run_bash_command(&format!("echo version | socat - /dev/{id},echo=0,crtscts=1"), None)
-                            .ok()
-                            .filter(|o| {o.status.success()})
-                            .as_ref()
-                            .map(get_stdout)
-                            .filter(|s| {!s.is_empty()})
-                    });
-                    Ok(Self {
-                        product,
-                        serial,
-                        usb_sysfs_path: usb_sysfs_path.to_string_lossy().to_string(),
-                        tty_list,
-                        mac_addr,
-                        ec_version
-                    })
-                } else {
-                    Err(anyhow!("Not a servo"))
-                }
-            })
-            .collect())
+        for mut s in Self::discover()? {
+            s.reset()
+                .context("Failed to reset. Please retry with sudo `which lium` ...")?
+        }
+        let mut servos = Self::discover()?;
+        servos.iter_mut().for_each(|s| {
+            eprintln!("Checking {}", s.serial);
+            let mac_addr = s.tty_list.get("Servo EC Shell").and_then(|id|
+                {
+                    run_bash_command(&format!("echo macaddr | socat - /dev/{id},echo=0 | grep -E -o '([0-9A-Z]{{2}}:){{5}}([0-9A-Z]{{2}})'"), None)
+                        .ok()
+                        .filter(|o| {o.status.success()})
+                        .as_ref()
+                        .map(get_stdout)
+                });
+            let ec_version = s.tty_list.get("EC").and_then(|id|
+                {
+                    run_bash_command(&format!("echo version | socat - /dev/{id},echo=0,crtscts=1 | grep 'RO:' | sed -e 's/^RO:\\s*'//"), None)
+                        .ok()
+                        .filter(|o| {o.status.success()})
+                        .as_ref()
+                        .map(get_stdout)
+                        .filter(|s| {!s.is_empty()})
+                });
+            s.mac_addr = mac_addr;
+            s.ec_version = ec_version;
+        });
+        Ok(servos)
     }
     pub fn from_serial(serial: &str) -> Result<LocalServo> {
         let servos = Self::discover()?;
