@@ -35,12 +35,11 @@ func (m *MockgsClient) EXPECT() *MockgsClientMockRecorder {
 }
 
 // Upload mocks base method.
-func (m *MockgsClient) Upload(ctx context.Context, apkLocalPath, apkName string) (string, error) {
+func (m *MockgsClient) Upload(ctx context.Context, apkLocalPath, apkName string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upload", ctx, apkLocalPath, apkName)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[0].(error)
+	return ret1
 }
 
 // Upload indicates an expected call of Upload.

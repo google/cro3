@@ -69,8 +69,8 @@ func TestUploadApkToGsCommand(t *testing.T) {
 		Convey("Execute", func() {
 			log, _ := common.SetUpLog(provisionDir)
 			Convey("Upload Android package", func() {
-				gsPath := "gs://instanceId/" + apkName
-				mockGsClient.EXPECT().Upload(gomock.Eq(context.Background()), gomock.Eq(apkPath), gomock.Eq("instanceId/"+apkName)).Return(gsPath, nil).Times(1)
+				gsPath := "gs://android-provisioning-apks/instanceId/" + apkName
+				mockGsClient.EXPECT().Upload(gomock.Eq(context.Background()), gomock.Eq(apkPath), gomock.Eq("instanceId/"+apkName)).Return(nil).Times(1)
 				So(cmd.Execute(log), ShouldBeNil)
 				So(provisionPkg.APKFile.Name, ShouldEqual, apkName)
 				So(provisionPkg.APKFile.GsPath, ShouldEqual, gsPath)

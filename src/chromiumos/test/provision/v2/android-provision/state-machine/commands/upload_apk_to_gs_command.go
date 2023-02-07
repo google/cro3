@@ -15,6 +15,7 @@ import (
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/api/googleapi"
 
+	"chromiumos/test/provision/v2/android-provision/common"
 	"chromiumos/test/provision/v2/android-provision/common/gsstorage"
 	"chromiumos/test/provision/v2/android-provision/service"
 )
@@ -53,25 +54,20 @@ func (c *UploadAPKToGSCommand) Execute(log *log.Logger) error {
 				return err
 			}
 			apkRemotePath := cipdPkg.InstanceId + "/" + apkName
-			gspath, err := c.gs.Upload(c.ctx, apkPath, apkRemotePath)
-			if err != nil {
+			if err := c.gs.Upload(c.ctx, apkPath, apkRemotePath); err != nil {
 				switch e := err.(type) {
 				case *googleapi.Error:
+					// If file already exists we do nothing.
 					if e.Code != http.StatusPreconditionFailed {
 						log.Printf("UploadAPKToGSCommand Failure: %v", err)
 						return err
 					}
-					// File already exists, skipping upload.
-					continue
 				default:
 					log.Printf("UploadAPKToGSCommand Failure: %v", err)
 					return err
 				}
 			}
-			if err != nil {
-				log.Printf("UploadAPKToGSCommand Failure: %v", err)
-				return err
-			}
+			gspath := "gs://" + common.GSBucketName + "/" + apkRemotePath
 			pkg.APKFile = &service.APKFile{
 				Name:   apkName,
 				GsPath: gspath,

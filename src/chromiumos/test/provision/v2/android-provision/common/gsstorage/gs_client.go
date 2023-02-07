@@ -22,7 +22,7 @@ import (
 // since storage pkg does not provide test pkg.
 type GsClient interface {
 	// Upload uploads an apk to the Fleet Services caching service.
-	Upload(ctx context.Context, apkLocalPath string, apkName string) (string, error)
+	Upload(ctx context.Context, apkLocalPath string, apkName string) error
 }
 
 // gs is mainly used for testing purpose.
@@ -36,15 +36,15 @@ func NewGsClient() GsClient {
 	}
 }
 
-func (gs *gs) Upload(ctx context.Context, apkPath string, remotePath string) (string, error) {
+func (gs *gs) Upload(ctx context.Context, apkPath string, remotePath string) error {
 	client, err := storage.NewClient(ctx, option.WithCredentialsFile(common.DroneServiceAccountCreds))
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer client.Close()
 	f, err := os.Open(apkPath)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer f.Close()
 	// Cancel after 5m.
@@ -56,11 +56,10 @@ func (gs *gs) Upload(ctx context.Context, apkPath string, remotePath string) (st
 	o = o.If(storage.Conditions{DoesNotExist: true})
 	wc := o.NewWriter(ctx)
 	if _, err = io.Copy(wc, f); err != nil {
-		return "", err
+		return err
 	}
 	if err := wc.Close(); err != nil {
-		return "", err
+		return err
 	}
-	apkFullPath := "gs://" + gs.bucketName + "/" + remotePath
-	return apkFullPath, nil
+	return nil
 }
