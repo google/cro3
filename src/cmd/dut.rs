@@ -14,6 +14,7 @@ use lium::dut::MonitoredDut;
 use lium::dut::SshInfo;
 use lium::dut::SSH_CACHE;
 use lium::util::run_bash_command;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::env::current_exe;
 use std::io::stdout;
@@ -319,6 +320,10 @@ struct ArgsDutList {
     /// display space-separated DUT IDs on one line (stable)
     #[argh(switch)]
     ids: bool,
+
+    /// display current status of DUTs (may take a few moments)
+    #[argh(switch)]
+    status: bool,
 }
 fn run_dut_list(args: &ArgsDutList) -> Result<()> {
     if args.clear {
@@ -327,6 +332,31 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
     if args.ids {
         let keys: Vec<String> = SSH_CACHE.entries()?.keys().map(|s| s.to_string()).collect();
         println!("{}", keys.join(" "));
+        return Ok(());
+    }
+    if args.status {
+        eprintln!("Checking DUT status. Please be patient...");
+        let status: Vec<(String, &str, SshInfo)> = SSH_CACHE
+            .entries()?
+            .par_iter()
+            .map(|e| {
+                let id = e.0;
+                let info = DutInfo::new(id).map(|e| e.info().clone());
+                let status = if let Ok(info) = info {
+                    if Some(id) == info.get("dut_id") {
+                        "Online"
+                    } else {
+                        "IP reused"
+                    }
+                } else {
+                    "Offline"
+                };
+                (id.to_owned(), status, e.1.clone())
+            })
+            .collect();
+        for s in status {
+            println!("{:32} {:32} {:?}", s.0, s.1, s.2);
+        }
         return Ok(());
     }
     for it in SSH_CACHE
