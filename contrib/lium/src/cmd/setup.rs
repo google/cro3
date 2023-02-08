@@ -151,7 +151,7 @@ fn run_bash_completion(_args: &ArgsBashCompletion) -> Result<()> {
     .status
     .exit_ok()?;
     eprintln!(
-        "Installed ~/.lium/lium.bash and an entry in ~/.bash_completion. Please reload your shell."
+        "Installed ~/.lium/lium.bash and an entry in ~/.bash_completion. Please run `source ~/.bash_completion` for the current shell."
     );
     Ok(())
 }

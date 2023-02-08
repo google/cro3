@@ -63,6 +63,10 @@ _lium_get_servos() {
   ${COMP_WORDS[0]} servo list 2>/dev/null | cut -f 1
 }
 
+_lium_get_dut_actions() {
+  lium dut do --list-actions 2>/dev/null
+}
+
 _lium_current_command() {
   local i=0
   while [ $i -lt $COMP_CWORD ]; do
@@ -90,6 +94,8 @@ _lium_get_options() {
         if [ ${posarg} = 1 ]; then
           if [ "${a}" = "dut" -o "${a}" = "duts" ] ; then
             _lium_get_duts
+          elif [ "${a}" = "actions" ] ; then
+            _lium_get_dut_actions
           elif [ "${a}" = "tests" ]; then
             echo "tests"
             _lium_get_tests
