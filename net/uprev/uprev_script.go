@@ -66,7 +66,7 @@ func mergeUntilConflict(upstreamBranch string) (string, error) {
 				fmt.Println(colorRed, "Warning: CQ does not support merge commits stacked on top of other commits. Your next commit needs to be a merge of the commit after", commitSHA, "without any commits in between.", colorReset)
 			} else {
 				fmt.Println(colorGreen, "Merged ", upstreamBranch, colorReset)
-				genCommitMsg("cros/master", upstreamBranch, "", "None")
+				genCommitMsg("cros/main", upstreamBranch, "", "None", upstreamBranch)
 			}
 			return fmt.Sprintf(commitSHA), nil
 		}
@@ -93,14 +93,14 @@ func uprevRepo(rootDir string, repoName string, upstreamBranch string, lastTagFl
 		if forceFlag {
 			cmd = exec.Command("git", "stash", "--include-untracked")
 			runCmd(cmd, false)
-			cmd = exec.Command("git", "reset", "--hard", "cros/master")
+			cmd = exec.Command("git", "reset", "--hard", "cros/main")
 			runCmd(cmd, false)
 		} else {
 			logPanic("Please ensure that there are no uncommitted changes. Or run with --force=true")
 		}
 	}
 
-	// Repo start a clean branch with HEAD cros/master and merge cros/upstream
+	// Repo start a clean branch with HEAD cros/main and merge cros/upstream
 	cmd = exec.Command("repo", "sync", "-d", ".")
 	runCmd(cmd, true)
 	if forceFlag {
@@ -168,7 +168,7 @@ func squash(baseSHA string) {
 	runCmd(cmd, true)
 	cmd = exec.Command("git", "commit", "--no-edit")
 	runCmd(cmd, true)
-	genCommitMsg(baseSHA, mergeSHA, "", "None")
+	genCommitMsg(baseSHA, mergeSHA, "", "None", mergeSHA)
 }
 
 // returns current working directory
@@ -180,12 +180,12 @@ func getWD() string {
 	return filepath.Base(d)
 }
 
-func genCommitMsg(baseSHA string, mergeSHA string, cqDepend string, bugFlag string) {
+func genCommitMsg(baseSHA string, mergeSHA string, cqDepend string, bugFlag string, lastTag string) {
 	var cmd *exec.Cmd
 
-	cmd = exec.Command("git", "log", "cros/master.."+mergeSHA, "--abbrev", "--oneline", "--no-merges", "--format=\"%C(auto) %h %s (%an)\"")
+	cmd = exec.Command("git", "log", "cros/main.."+mergeSHA, "--abbrev", "--oneline", "--no-merges", "--format=\"%C(auto) %h %s (%an)\"")
 	out, _ := runCmd(cmd, false)
-	commitMsg := "Merge cros/upstream to cros/master" + "\n\nPart of an uprev that contains the following commits:\n\n" + out + "\n\nBUG=" + bugFlag + "\nFIXED=" + bugFlag + "\n\nTEST=None"
+	commitMsg := "Merge cros/upstream to cros/main - " + lastTag + "\n\nPart of an uprev that contains the following commits:\n\n" + out + "\n\nBUG=" + bugFlag + "\nFIXED=" + bugFlag + "\n\nTEST=None"
 	if cqDepend != "" {
 		commitMsg = commitMsg + "\n\nCq-Depend: " + cqDepend
 	}
@@ -203,7 +203,7 @@ func genCommitMsg(baseSHA string, mergeSHA string, cqDepend string, bugFlag stri
 }
 
 // returns gerrit cl, cleanup function
-func postMerge(rootDir string, repoName string, upstreamBranch string, cqDepend string, uploadFlag bool, compileFlag bool, cqP1Flag bool, prettyMsg bool, bugFlag string) (string, func()) {
+func postMerge(rootDir string, repoName string, upstreamBranch string, cqDepend string, uploadFlag bool, compileFlag bool, compileBoardFlag string, cqP1Flag bool, prettyMsg bool, bugFlag string) (string, func()) {
 	cleanupFunc := func() {}
 	uprevDate := time.Now().Format("01-02-2006")
 	branchName := "merge-upstream-" + uprevDate
@@ -215,31 +215,39 @@ func postMerge(rootDir string, repoName string, upstreamBranch string, cqDepend 
 	fmt.Printf(colorGreen+"Working on : %s\n"+colorReset, newDir)
 
 	var cmd *exec.Cmd
-	cmd = exec.Command("git", "log", "cros/master..HEAD", "--abbrev", "--oneline", "--format=%h")
+	cmd = exec.Command("git", "log", "cros/main..HEAD", "--abbrev", "--oneline", "--format=%h")
 	out, _ := runCmd(cmd, true)
 	if out == "" {
 		return "", cleanupFunc
 	}
 
+	cmd = exec.Command("git", "describe", "--abbrev=0", "cros/"+upstreamBranch)
+	gitOut, _ := runCmd(cmd, true)
+	// git may throw warnings, but still have the last tag as the last but one line.
+	gitOutArr := strings.Split(gitOut, "\n")
+	lastTag := gitOutArr[len(gitOutArr)-2]
+	fmt.Printf(colorGreen+"Last tag : %s\n"+colorReset, lastTag)
+
 	if prettyMsg {
-		genCommitMsg("cros/master", "HEAD", cqDepend, bugFlag)
+		genCommitMsg("cros/main", "HEAD", cqDepend, bugFlag, lastTag)
 	}
 
 	if compileFlag {
-		cmd = exec.Command("cros_workon", "--board=trogdor", "start", repoName)
-		runCmd(cmd, true)
-		cmd = exec.Command("cros_workon", "--board=dedede", "start", repoName)
-		runCmd(cmd, true)
-		cleanupFunc = func() {
-			cmd = exec.Command("cros_workon", "--board=trogdor", "stop", repoName)
-			runCmd(cmd, false)
-			cmd = exec.Command("cros_workon", "--board=dedede", "stop", repoName)
-			runCmd(cmd, false)
+		cBoards := strings.Split(compileBoardFlag, ",")
+		for _, c := range cBoards {
+			cmd = exec.Command("cros_workon", "--board="+c, "start", repoName)
+			runCmd(cmd, true)
 		}
-		cmd = exec.Command("emerge-trogdor", repoName)
-		runCmd(cmd, true)
-		cmd = exec.Command("emerge-dedede", repoName)
-		runCmd(cmd, true)
+		cleanupFunc = func() {
+			for _, c := range cBoards {
+				cmd = exec.Command("cros_workon", "--board="+c, "stop", repoName)
+				runCmd(cmd, false)
+			}
+		}
+		for _, c := range cBoards {
+			cmd = exec.Command("emerge-"+c, repoName)
+			runCmd(cmd, true)
+		}
 	}
 
 	if !uploadFlag {
@@ -290,7 +298,7 @@ func main() {
 func mergeSubCmd() {
 	mergeFlagSet := flag.NewFlagSet("merge", flag.ExitOnError)
 	mergeUntilConflictFlag := mergeFlagSet.Bool("merge-until-conflict", false, "Merge the last non conflicting commit between current branch and cros/upstream")
-	forceFlag := mergeFlagSet.Bool("force", false, "force a reset to cros/master. You will lose all changes on the current branch. Prefer stashing your changes instead")
+	forceFlag := mergeFlagSet.Bool("force", false, "force a reset to cros/main. You will lose all changes on the current branch. Prefer stashing your changes instead")
 	createAndMergeFlag := mergeFlagSet.Bool("create-branch-and-merge", false, "Creates a new branch and performs a git merge of cros/upstream* until a conflict occurs")
 	squashMergeFlag := mergeFlagSet.String("squash-merge", "", "squashes all commits between provided SHA and HEAD. Use to overcome CQ uncertainity with stacked merge commits")
 	libmbimCommitFlag := mergeFlagSet.String("libmbim-commit", "cros/upstream", "libmbim SHA that needs to be merged")
@@ -353,7 +361,8 @@ func postMergeSubCmd() {
 	prettyMsgFlag := postmergeFlagSet.Bool("pretty-msg", true, "prettify the commit message of the head commit.")
 	uploadFlag := postmergeFlagSet.Bool("upload", false, "upload to gerrit")
 	cqP1Flag := postmergeFlagSet.Bool("cq", false, "V+1, CQ+1 on gerrit")
-	compileFlag := postmergeFlagSet.Bool("compile", false, "Compile on trogdor and dedede boards")
+	compileFlag := postmergeFlagSet.Bool("compile", false, "Compile on specified boards")
+	compileBoardFlag := postmergeFlagSet.String("board", "trogdor,dedede", "boards to be used in the compile process (default:trogdor,dedede)")
 	bugFlag := postmergeFlagSet.String("bug", "None", "Bug number in commit msg")
 	skipSetupBoardForCompileFlag := postmergeFlagSet.Bool("skip-setup-board-for-compile", false, "If --compile is true, skip executing setup_board. You will have to ensure that it's already been run before.")
 	postmergeFlagSet.Parse(os.Args[2:])
@@ -365,27 +374,28 @@ func postMergeSubCmd() {
 	}
 
 	if *compileFlag && !*skipSetupBoardForCompileFlag {
-		cmd := exec.Command("setup_board", "--board=trogdor")
-		runCmd(cmd, true)
-		cmd = exec.Command("setup_board", "--board=dedede")
-		runCmd(cmd, true)
+		cBoards := strings.Split(*compileBoardFlag, ",")
+		for _, c := range cBoards {
+			cmd := exec.Command("setup_board", "--board="+c)
+			runCmd(cmd, true)
+		}
 	}
 
 	homeDir, _ := os.UserHomeDir()
 	rootDir := homeDir + "/chromiumos/src/third_party/"
 	cqDepend := ""
 
-	libqrtrCl, cleanupLibqrtr := postMerge(rootDir, "libqrtr-glib", "upstream/main", cqDepend, *uploadFlag, *compileFlag, *cqP1Flag, *prettyMsgFlag, *bugFlag)
+	libqrtrCl, cleanupLibqrtr := postMerge(rootDir, "libqrtr-glib", "upstream/main", cqDepend, *uploadFlag, *compileFlag, *compileBoardFlag, *cqP1Flag, *prettyMsgFlag, *bugFlag)
 	defer cleanupLibqrtr()
 
-	libqmiCl, cleanupLibqmi := postMerge(rootDir, "libqmi", "upstream", cqDepend, *uploadFlag, *compileFlag, *cqP1Flag, *prettyMsgFlag, *bugFlag)
+	libqmiCl, cleanupLibqmi := postMerge(rootDir, "libqmi", "upstream", cqDepend, *uploadFlag, *compileFlag, *compileBoardFlag, *cqP1Flag, *prettyMsgFlag, *bugFlag)
 	defer cleanupLibqmi()
 
-	libmbimCl, cleanupLibmbim := postMerge(rootDir, "libmbim", "upstream", cqDepend, *uploadFlag, *compileFlag, *cqP1Flag, *prettyMsgFlag, *bugFlag)
+	libmbimCl, cleanupLibmbim := postMerge(rootDir, "libmbim", "upstream", cqDepend, *uploadFlag, *compileFlag, *compileBoardFlag, *cqP1Flag, *prettyMsgFlag, *bugFlag)
 	defer cleanupLibmbim()
 
 	cqDepend = libqrtrCl + libqmiCl + libmbimCl
 	cqDepend = strings.ReplaceAll(strings.TrimSpace(cqDepend), " ", ",")
-	_, cleanupMM := postMerge(rootDir, "modemmanager-next", "upstream", cqDepend, *uploadFlag, *compileFlag, *cqP1Flag, *prettyMsgFlag, *bugFlag)
+	_, cleanupMM := postMerge(rootDir, "modemmanager-next", "upstream", cqDepend, *uploadFlag, *compileFlag, *compileBoardFlag, *cqP1Flag, *prettyMsgFlag, *bugFlag)
 	defer cleanupMM()
 }
