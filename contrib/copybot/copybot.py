@@ -3,10 +3,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Black compatibility
-# pylint: disable=line-too-long
-# pylint: disable=invalid-string-quote
-
 """CopyBot script.
 
 This script copies commits from one repo (the "upstream") to another
@@ -207,6 +203,7 @@ class GitRepo:
     @contextlib.contextmanager
     def temp_worktree(self, rev="HEAD"):
         """Context manager to create and destroy a temporary worktree."""
+        # pylint: disable=consider-using-with
         tmpdir = tempfile.TemporaryDirectory()
         try:
             worktree_dir = pathlib.Path(tmpdir.name)
@@ -323,7 +320,9 @@ class Pseudoheaders:
                 name, _, value = line.partition(":")
                 header_list.append((name, value.strip()))
 
-        return cls(header_list), "".join(f"{line}\n" for line in rewritten_message)
+        return cls(header_list), "".join(
+            f"{line}\n" for line in rewritten_message
+        )
 
     def prefix(self, prefix="Original-", keep=()):
         """Prefix all header keys with a string.
@@ -569,7 +568,9 @@ def find_commits_to_copy(
 
         commits_to_copy.append(rev)
     else:
-        raise ValueError("Last merged revision cannot be found in upstream history")
+        raise ValueError(
+            "Last merged revision cannot be found in upstream history"
+        )
 
     return commits_to_copy, commit_files_map, skipped_files_map
 
@@ -597,7 +598,9 @@ def rewrite_commit_message(
     commit_message = repo.get_commit_message()
     if prepend_subject:
         commit_message = prepend_subject + commit_message
-    pseudoheaders, commit_message = Pseudoheaders.from_commit_message(commit_message)
+    pseudoheaders, commit_message = Pseudoheaders.from_commit_message(
+        commit_message
+    )
     pseudoheaders = pseudoheaders.prefix(keep=keep_pseudoheaders)
 
     for path in skipped_files:
@@ -660,7 +663,9 @@ def run_copybot(args, tmp_dir):
     exclude_file_patterns = [
         re.compile(pattern) for pattern in args.exclude_file_patterns
     ]
-    merge_conflict_behavior = MergeConflictBehavior[args.merge_conflict_behavior]
+    merge_conflict_behavior = MergeConflictBehavior[
+        args.merge_conflict_behavior
+    ]
 
     m = re.fullmatch(
         r"https://(chromium|chrome-internal)(?:-review)?\.googlesource\.com/(.*)",
@@ -679,7 +684,9 @@ def run_copybot(args, tmp_dir):
         downstream_branch,
         args.topic,
     )
-    logger.info("Found %s pending changes already on Gerrit", len(pending_changes))
+    logger.info(
+        "Found %s pending changes already on Gerrit", len(pending_changes)
+    )
 
     repo = GitRepo.init(tmp_dir)
     try:
@@ -723,7 +730,9 @@ def run_copybot(args, tmp_dir):
 
         filtered_rev = None
         if skipped_files_map[rev]:
-            filtered_rev = repo.filter_commit(rev=rev, files=commit_files_map[rev])
+            filtered_rev = repo.filter_commit(
+                rev=rev, files=commit_files_map[rev]
+            )
 
         try:
             repo.cherry_pick(filtered_rev or rev)
@@ -757,7 +766,9 @@ def run_copybot(args, tmp_dir):
         # We always want uploadvalidator~skip, since we're uploading
         # pre-existing third-party commits.
         try:
-            repo.push(downstream_url, push_refspec, options=["uploadvalidator~skip"])
+            repo.push(
+                downstream_url, push_refspec, options=["uploadvalidator~skip"]
+            )
         except subprocess.CalledProcessError as e:
             raise PushError(f"Failed to push to {downstream_url}") from e
     else:
@@ -765,9 +776,12 @@ def run_copybot(args, tmp_dir):
 
     if skipped_revs:
         revlist = [
-            repo.log(rev, fmt="%H %s", num=1).stdout.strip() for rev in skipped_revs
+            repo.log(rev, fmt="%H %s", num=1).stdout.strip()
+            for rev in skipped_revs
         ]
-        logger.error("The following commits were not applied due to merge conflict:")
+        logger.error(
+            "The following commits were not applied due to merge conflict:"
+        )
         for rev in revlist:
             logger.error("- %s", rev)
         raise MergeConflictsError(commits=skipped_revs)

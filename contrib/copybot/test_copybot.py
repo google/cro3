@@ -58,7 +58,9 @@ def test_main_raise_error(tmp_path):
         "copybot.run_copybot", side_effect=copybot.PushError("failed to push")
     ):
         with pytest.raises(copybot.PushError):
-            copybot.main(argv=["--json-out", str(err_out), "upstream", "downstream"])
+            copybot.main(
+                argv=["--json-out", str(err_out), "upstream", "downstream"]
+            )
     assert json.loads(err_out.read_text()) == {
         "failure_reason": "FAILURE_DOWNSTREAM_PUSH_ERROR",
     }

@@ -11,10 +11,6 @@ Usage:
     service_spawner.py [options...]
 """
 
-# Black compatibility
-# pylint: disable=line-too-long
-# pylint: disable=invalid-string-quote
-
 import argparse
 import base64
 import copy
@@ -170,7 +166,9 @@ def main():
 
     manifests = []
     for service in services:
-        manifests.append(create_manifest(base_manifest, copybot_base64, service))
+        manifests.append(
+            create_manifest(base_manifest, copybot_base64, service)
+        )
 
     if opts.dry_run:
         yaml.dump(manifests, sys.stdout)
