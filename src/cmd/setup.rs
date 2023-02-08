@@ -95,7 +95,7 @@ fn run_dut(_args: &ArgsDut) -> Result<()> {
     let servo_list = LocalServo::discover()?;
     let cr50_list: Vec<LocalServo> = servo_list
         .iter()
-        .filter(|e| e.product() == "Cr50")
+        .filter(|e| e.product() == "Cr50" || e.product() == "Ti50")
         .cloned()
         .collect();
 
