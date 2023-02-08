@@ -52,7 +52,7 @@ _lium_current_repo() {
 }
 
 _lium_get_duts() {
-  ${COMP_WORDS[0]} dut list 2>/dev/null | cut -f 1 -d,
+  ${COMP_WORDS[0]} dut list --ids 2>/dev/null
 }
 
 _lium_get_tests() {
