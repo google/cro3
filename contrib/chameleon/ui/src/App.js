@@ -4,7 +4,7 @@
 
 import React from 'react';
 
-import PortButton from './component/portButton';
+import PortButtons from './component/portButtons';
 
 const App = () => {
   return (
@@ -12,14 +12,7 @@ const App = () => {
       <p>
         Welcome to <code>Chamelium Control Center</code>
       </p>
-      <div>
-        <PortButton label={'DP1'} portId={0} />
-        <PortButton label={'DP2'} portId={1} />
-      </div>
-      <div>
-        <PortButton label={'HDMI1'} portId={2} />
-        <PortButton label={'HDMI2'} portId={3} />
-      </div>
+      <PortButtons />
     </div>
   );
 };
