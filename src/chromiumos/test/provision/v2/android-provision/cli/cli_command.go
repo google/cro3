@@ -23,6 +23,7 @@ import (
 	"chromiumos/test/provision/v2/android-provision/common"
 	"chromiumos/test/provision/v2/android-provision/service"
 	state_machine "chromiumos/test/provision/v2/android-provision/state-machine"
+	"chromiumos/test/provision/v2/android-provision/test"
 	common_utils "chromiumos/test/provision/v2/common-utils"
 )
 
@@ -118,9 +119,20 @@ func (cc *CLICommand) Run() error {
 	}
 	cc.log.Printf("Dut Conn Established")
 	defer dutConn.Close()
-	svc, err := service.NewAndroidServiceFromAndroidProvisionRequest(api.NewDutServiceClient(dutConn), cc.inputProto)
-	if err != nil {
-		return fmt.Errorf("failed to create AndroidService: %s", err)
+	ip := cc.inputProto.GetDutServer().GetAddress()
+	var svc *service.AndroidService
+	// Use local adapter for testing. See testing folder.
+	if ip == "127.0.0.1" {
+		svcAdapter, err := test.NewLocalDutServiceAdapter(cc.inputProto.GetDutServer())
+		if err != nil {
+			return fmt.Errorf("failed to create AndroidService: %s", err)
+		}
+		svc, err = service.NewAndroidServiceFromExistingConnection(svcAdapter, cc.inputProto.GetDut().GetAndroid().GetSerialNumber(), cc.inputProto.GetProvisionState().GetCipdPackages())
+		if err != nil {
+			return fmt.Errorf("failed to create Android service: %s", err)
+		}
+	} else {
+		svc, err = service.NewAndroidServiceFromAndroidProvisionRequest(api.NewDutServiceClient(dutConn), cc.inputProto)
 	}
 	cc.log.Printf("New AndroidService Created")
 	out := &api.AndroidProvisionCLIResponse{

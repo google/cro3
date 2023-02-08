@@ -1,0 +1,36 @@
+{
+	"dut": {
+		"id": {
+			"value": ""
+		},
+		"android": {
+			"name": "",
+			"serialNumber": "",
+			"dutModel": {
+				"buildTarget": "",
+				"modelName": ""
+			}
+		},
+		"cacheServer": {
+			"address": {
+				"address": "",
+				"port": 0
+			}
+		}
+	},
+	"provisionState": {
+		"id": {},
+		"cipdPackages": [{
+			"name": "",
+			"instanceId": "",
+			"serviceUrl": "",
+			"androidPackage": 1,
+			"apkDetails": {}
+		}]
+	},
+	"dutServer": {
+		"address": "127.0.0.1",
+		"port": 2500
+	}
+}
+
