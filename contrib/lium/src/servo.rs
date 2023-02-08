@@ -79,7 +79,10 @@ impl LocalServo {
                 let usb_sysfs_path = usb_path?.path();
                 let product = Self::read_usb_attribute(&usb_sysfs_path, "product")?;
                 let serial = Self::read_usb_attribute(&usb_sysfs_path, "serial")?;
-                if product.starts_with("Servo") || product.starts_with("Cr50") {
+                if product.starts_with("Servo")
+                    || product.starts_with("Cr50")
+                    || product.starts_with("Ti50")
+                {
                     let paths = fs::read_dir(&usb_sysfs_path).context("failed to read dir")?;
                     let tty_list: HashMap<String, String> = paths
                         .flat_map(|path| -> Result<(String, String)> {
