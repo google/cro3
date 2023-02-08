@@ -25,11 +25,11 @@ import pathlib
 import re
 import shlex
 import subprocess
-import sys
 import tempfile
 import time
 
 import requests  # pylint: disable=import-error
+
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,40 @@ class MergeConflictError(Exception):
 
 class EmptyCommitError(Exception):
     """A commit cannot be cherry-picked as it results in an empty commit."""
+
+
+class CopybotFatalError(Exception):
+    """Copybot fatal error."""
+
+    enum_name = "FAILURE_UNKNOWN"
+
+    def __init__(self, *args, commits=(), **kwargs):
+        self.commits = commits
+        super().__init__(*args, **kwargs)
+
+
+class UpstreamFetchError(CopybotFatalError):
+    """Copybot died as the upstream failed to fetch."""
+
+    enum_name = "FAILURE_UPSTREAM_FETCH_ERROR"
+
+
+class DownstreamFetchError(CopybotFatalError):
+    """Copybot died as the downstream failed to fetch."""
+
+    enum_name = "FAILURE_DOWNSTREAM_FETCH_ERROR"
+
+
+class PushError(CopybotFatalError):
+    """Copybot died as it failed to push to the downstream GoB host."""
+
+    enum_name = "FAILURE_DOWNSTREAM_PUSH_ERROR"
+
+
+class MergeConflictsError(CopybotFatalError):
+    """Copybot ran, but encountered merge conflicts."""
+
+    enum_name = "FAILURE_MERGE_CONFLICTS"
 
 
 class GitRepo:
@@ -85,7 +119,7 @@ class GitRepo:
             logger.error("  STDERR:")
             for line in e.stderr.splitlines():
                 logger.error("    %s", line)
-            raise e
+            raise
 
     @classmethod
     def init(cls, git_dir):
@@ -634,8 +668,7 @@ def run_copybot(args, tmp_dir):
     )
     if not m:
         # TODO(jrosenth): Support non-GoB Gerrit in the future?
-        logger.error("Downstream URL does not look like GoB")
-        sys.exit(1)
+        raise CopybotFatalError("Non-GoB downstream is currently not supported")
 
     downstream_gob_host = m.group(1)
     downstream_project = m.group(2)
@@ -649,8 +682,19 @@ def run_copybot(args, tmp_dir):
     logger.info("Found %s pending changes already on Gerrit", len(pending_changes))
 
     repo = GitRepo.init(tmp_dir)
-    upstream_rev = repo.fetch(upstream_url, upstream_branch)
-    downstream_rev = repo.fetch(downstream_url, downstream_branch)
+    try:
+        upstream_rev = repo.fetch(upstream_url, upstream_branch)
+    except subprocess.CalledProcessError as e:
+        raise UpstreamFetchError(
+            f"Failed to fetch branch {upstream_branch} from {upstream_url}"
+        ) from e
+
+    try:
+        downstream_rev = repo.fetch(downstream_url, downstream_branch)
+    except subprocess.CalledProcessError as e:
+        raise DownstreamFetchError(
+            f"Failed to fetch branch {downstream_branch} from {downstream_url}"
+        ) from e
 
     last_merged_rev = find_last_merged_rev(repo, upstream_rev, downstream_rev)
     logger.info("Last merged revision: %s", last_merged_rev)
@@ -692,7 +736,7 @@ def run_copybot(args, tmp_dir):
                 logger.warning("Skipping %s", rev)
                 skipped_revs.append(rev)
                 continue
-            raise e
+            raise MergeConflictsError(commits=[rev]) from e
 
         rewrite_commit_message(
             repo,
@@ -712,7 +756,10 @@ def run_copybot(args, tmp_dir):
     if not args.dry_run:
         # We always want uploadvalidator~skip, since we're uploading
         # pre-existing third-party commits.
-        repo.push(downstream_url, push_refspec, options=["uploadvalidator~skip"])
+        try:
+            repo.push(downstream_url, push_refspec, options=["uploadvalidator~skip"])
+        except subprocess.CalledProcessError as e:
+            raise PushError(f"Failed to push to {downstream_url}") from e
     else:
         logger.info("Skip push due to dry run")
 
@@ -723,10 +770,29 @@ def run_copybot(args, tmp_dir):
         logger.error("The following commits were not applied due to merge conflict:")
         for rev in revlist:
             logger.error("- %s", rev)
-        sys.exit(1)
+        raise MergeConflictsError(commits=skipped_revs)
 
 
-def main():
+def write_json_error(path: pathlib.Path, err: Exception):
+    """Write out the JSON-serialized protobuf from an exception.
+
+    Args:
+        path: The Path to write to.
+        err: The exception to serialize.
+    """
+    err_json = {}
+    if err:
+        if isinstance(err, CopybotFatalError):
+            err_json["failure_reason"] = err.enum_name
+            if err.commits:
+                err_json["merge_conflicts"] = [{"hash": x} for x in err.commits]
+        else:
+            err_json["failure_reason"] = CopybotFatalError.enum_name
+    logger.debug("JSON response: %s", err_json)
+    path.write_text(json.dumps(err_json))
+
+
+def main(argv=None):
     """The entry point to the program."""
     parser = argparse.ArgumentParser(description="CopyBot")
     parser.add_argument(
@@ -761,6 +827,11 @@ def main():
         action="append",
         dest="hashtags",
         default=[],
+    )
+    parser.add_argument(
+        "--json-out",
+        type=pathlib.Path,
+        help="Write JSON result to this file.",
     )
     parser.add_argument(
         "--dry-run",
@@ -805,15 +876,23 @@ def main():
         "downstream",
         help="Downstream Git URL, optionally with a branch after colon",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     logging.basicConfig(
         format="%(asctime)s %(levelname)s: %(message)s",
         level=logging.INFO,
     )
 
-    with tempfile.TemporaryDirectory(".copybot") as tmp_dir:
-        run_copybot(args, tmp_dir)
+    err = None
+    try:
+        with tempfile.TemporaryDirectory(".copybot") as tmp_dir:
+            run_copybot(args, tmp_dir)
+    except Exception as e:
+        err = e
+        raise
+    finally:
+        if args.json_out:
+            write_json_error(args.json_out, err)
 
 
 if __name__ == "__main__":
