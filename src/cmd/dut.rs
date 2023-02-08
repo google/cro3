@@ -283,7 +283,14 @@ struct ArgsDutDo {
 fn run_dut_do(args: &ArgsDutDo) -> Result<()> {
     cros::ensure_testing_rsa_is_there()?;
     if args.list_actions {
-        eprintln!("{:?}", DUT_ACTIONS.keys());
+        println!(
+            "{}",
+            DUT_ACTIONS
+                .keys()
+                .map(|s| s.to_owned())
+                .collect::<Vec<&str>>()
+                .join(" ")
+        );
         return Ok(());
     }
     let unknown_actions: Vec<&String> = args
