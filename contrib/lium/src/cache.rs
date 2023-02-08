@@ -100,10 +100,9 @@ impl<T: Serialize + DeserializeOwned + Sized + Clone + Debug> KvCache<T> {
         {
             let mut map = self.map.lock().unwrap();
             let map = map.as_mut().unwrap();
-            map.insert(key.to_string(), value.clone());
+            map.insert(key.to_string(), value);
         }
         self.sync()?;
-        eprintln!("Cache updated. key: {}, value: {:?}", key, value);
         Ok(())
     }
     pub fn sync(&self) -> Result<()> {

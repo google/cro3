@@ -383,7 +383,6 @@ impl SshInfo {
     }
     pub fn new(dut: &str) -> Result<Self> {
         if let Ok(Some(resolved)) = SSH_CACHE.get(dut) {
-            eprintln!("Found cached SSH info: {:?}", resolved);
             return Ok(resolved);
         }
         let url = "ssh://".to_string() + dut;
@@ -565,7 +564,6 @@ impl SshInfo {
     }
     fn run_cmd_captured(&self, cmd: &str) -> Result<Output> {
         let mut ssh = self.ssh_cmd(None)?;
-        eprintln!("Running: {}", cmd);
         ssh.arg(cmd).stdout(Stdio::piped()).stderr(Stdio::piped());
         let cmd = ssh.spawn()?;
         let output = cmd
