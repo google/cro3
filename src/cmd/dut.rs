@@ -312,28 +312,29 @@ fn run_dut_do(args: &ArgsDutDo) -> Result<()> {
 /// list all cached DUTs
 #[argh(subcommand, name = "list")]
 struct ArgsDutList {
-    /// show IP Addresses only
-    #[argh(switch)]
-    host_only: bool,
-
     /// clear all DUT caches
     #[argh(switch)]
     clear: bool,
+
+    /// display space-separated DUT IDs on one line (stable)
+    #[argh(switch)]
+    ids: bool,
 }
 fn run_dut_list(args: &ArgsDutList) -> Result<()> {
     if args.clear {
         return SSH_CACHE.clear();
+    }
+    if args.ids {
+        let keys: Vec<String> = SSH_CACHE.entries()?.keys().map(|s| s.to_string()).collect();
+        println!("{}", keys.join(" "));
+        return Ok(());
     }
     for it in SSH_CACHE
         .entries()
         .context(anyhow!("SSH_CACHE is not initialized yet"))?
         .iter()
     {
-        if args.host_only {
-            println!("{}", it.1.host());
-        } else {
-            println!("{}, {:?}", it.0, it.1);
-        }
+        println!("{} {}", it.0, serde_json::to_string(it.1)?);
     }
     Ok(())
 }

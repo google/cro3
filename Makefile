@@ -9,6 +9,7 @@ install:
 	RUSTFLAGS=$(RUSTFLAGS) cargo install --path . --target x86_64-unknown-linux-gnu
 	file `which lium`
 	ls -lah `which lium`
+	echo $${SHELL} | grep bash && { lium setup bash-completion && source ~/.bash_completion ; }
 
 run:
 	make build_static

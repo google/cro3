@@ -21,9 +21,10 @@ make
 You can also install the bash completion file by running:
 
 ```
-lium setup bash-completion
-source ~/.bash_completion
+lium setup bash-completion && source ~/.bash_completion
 ```
+
+If you updated your lium installation, please update the bash completion in the same way.
 
 ## Usage examples
 
@@ -36,7 +37,6 @@ lium arc guest_kernel_uprev --repo /work/chromiumos_stable/
 lium build --repo /work/chromiumos_stable --board brya --packages sys-kernel/arcvm-kernel-ack-5_10
 lium build --full --repo /work/chromiumos_stable --board brya
 lium config set default_cros_checkout /work/chromiumos_stable/
-
 lium config show
 lium deploy --repo /work/chromiumos_stable --dut localhost:2282 --package sys-kernel/arcvm-kernel-ack-5_10 --autologin
 lium dut discover --remote kled_SOMESERIALNUMBERS1234 --v6prefix 2001:DB8::
