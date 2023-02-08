@@ -12,12 +12,34 @@ use dirs::home_dir;
 use futures::io::BufReader;
 use futures::io::Lines;
 use futures::AsyncBufReadExt;
+use std::env;
+use std::env::current_exe;
 use std::fs::create_dir_all;
 use std::io::ErrorKind;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::process::Output;
+
+pub fn require_root_privilege() -> Result<()> {
+    let output = run_bash_command("id -u", None)?;
+    output.status.exit_ok()?;
+    if get_stdout(&output).trim() == "0" {
+        Ok(())
+    } else {
+        eprintln!("This actions requires root permission. Restarting with sudo...");
+        let mut c = Command::new("sudo");
+        let args: Vec<String> = env::args().into_iter().skip(1).collect();
+        std::process::exit(
+            c.arg(current_exe()?)
+                .args(&args)
+                .status()
+                .context("Failed to re-execute lium with sudo")?
+                .code()
+                .expect("Exit code is not available"),
+        )
+    }
+}
 
 pub fn lium_dir() -> Result<String> {
     gen_path_in_lium_dir(".keep").and_then(|mut path| {

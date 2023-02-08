@@ -5,6 +5,7 @@
 use crate::chroot::Chroot;
 use crate::util::get_async_lines;
 use crate::util::get_stdout;
+use crate::util::require_root_privilege;
 use crate::util::run_bash_command;
 use anyhow::anyhow;
 use anyhow::Context;
@@ -114,9 +115,9 @@ impl LocalServo {
             .collect())
     }
     pub fn discover_slow() -> Result<Vec<LocalServo>> {
+        require_root_privilege()?;
         for mut s in Self::discover()? {
-            s.reset()
-                .context("Failed to reset. Please retry with sudo `which lium` ...")?
+            s.reset().context("Failed to reset servo")?
         }
         let mut servos = Self::discover()?;
         servos.iter_mut().for_each(|s| {
