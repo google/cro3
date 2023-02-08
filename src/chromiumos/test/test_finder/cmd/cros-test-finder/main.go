@@ -166,7 +166,7 @@ func runCLI(ctx context.Context, d []string) int {
 
 	a := args{}
 
-	fs := flag.NewFlagSet("Run cros-test", flag.ExitOnError)
+	fs := flag.NewFlagSet("Run cros-test-finder", flag.ExitOnError)
 	fs.StringVar(&a.logPath, "log", defaultLogPath, fmt.Sprintf("Path to record finder logs. Default value is %s", defaultLogPath))
 	fs.StringVar(&a.inputPath, "input", defaultRequestFile, "specify the test finder request json input file")
 	fs.StringVar(&a.output, "output", defaultResultFile, "specify the test finder request json input file")
@@ -290,7 +290,7 @@ func mainInternal(ctx context.Context) int {
 
 	case runCliDefault:
 		log.Printf("No mode specified, assuming CLI.")
-		return runCLI(ctx, os.Args)
+		return runCLI(ctx, os.Args[1:])
 	case runCli:
 		log.Printf("Running CLI mode!")
 		return runCLI(ctx, os.Args[2:])
