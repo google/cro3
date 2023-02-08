@@ -17,7 +17,7 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:     "cros_openwrt_image_builder",
-		Version: "1.0.2",
+		Version: "1.0.3",
 		Short:   "Utility for building custom OpenWrt OS images with custom compiled packages",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if useExisting {

@@ -44,3 +44,8 @@ uci commit wireless
 
 # Link hostapd_cli to the location our tests expect it to be.
 ln -s /usr/sbin/hostapd_cli /usr/bin/hostapd_cli
+
+# Configure cros init script.
+chmod 755 /etc/init.d/z_cros_test.sh
+/etc/init.d/z_cros_test.sh enable
+/etc/init.d/z_cros_test.sh start
