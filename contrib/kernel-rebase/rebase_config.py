@@ -46,12 +46,6 @@ topic_patches = {}
 #    'fixups/platform: x86: add ACPI driver for ChromeOS.patch',
 # ]
 
-topic_patches["arch"] = [
-    "patches/KVM: mmu: introduce new gfn_to_pfn_page functions.patch",
-    "fixups/KVM: Fix multiple races in gfn=>pfn cache refresh.patch",
-    "fixups/FIXUP: KVM: mmu: introduce new gfn_to_pfn_page functions.patch",
-]
-
 topic_patches["block-fs"] = [
     "fixups/FIXUP-CHROMIUM-drivers-md-dm-verity-chromeos-Fix-bio.patch",
 ]
