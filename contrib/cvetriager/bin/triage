@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-#
 # Copyright 2020 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,54 +6,75 @@
 """Tool that triages a given CVE."""
 
 import argparse
-import logging
-import sys
-import os
 import json
+import logging
+import os
+import sys
 
-from cvelib import logutils, patchapplier, contextgenerator, clgenerator, webscraper, common
+from cvelib import clgenerator
+from cvelib import common
+from cvelib import contextgenerator
+from cvelib import logutils
+from cvelib import patchapplier
+from cvelib import webscraper
 
 
-KERNELS = ['v5.4', 'v4.19', 'v4.14', 'v4.4', 'v3.18', 'v3.14', 'v3.10', 'v3.8']
-ENV_VARS = ['CHROMIUMOS_KERNEL', 'LINUX', 'STABLE', 'STABLE_RC']
+KERNELS = ["v5.4", "v4.19", "v4.14", "v4.4", "v3.18", "v3.14", "v3.10", "v3.8"]
+ENV_VARS = ["CHROMIUMOS_KERNEL", "LINUX", "STABLE", "STABLE_RC"]
 
 # Used for testing CL generation, points to CLs made for testing.
 TEST_CHANGE_IDS = {
-    'v5.4': 'Ie13a5c55f80b12a5033ccb1bba349499a3900056',
-    'v4.19': 'I28fcec6f20969a3b0bda37dfb86ffce9b47127f5',
-    'v4.14': 'I708d5d3a6dd424fd7edc08eb94e8714d130bfb7b',
-    'v4.4': 'I80cbb53cfc1be86a7ae87f8f57adca6efc2d464a',
-    'v3.18': 'I2fb39ee806b858d5f283f5196af18b944c5e3bcf',
-    'v3.14': 'Id4918063ab5f92687c72c4a54d74209764f6ad6b',
-    'v3.10': 'Ie53785ca0aebafc54aca91ccb43f16f548cd6fce',
-    'v3.8': 'I501ce8f12992e3ef8d9d051354d4b2870737018e'
+    "v5.4": "Ie13a5c55f80b12a5033ccb1bba349499a3900056",
+    "v4.19": "I28fcec6f20969a3b0bda37dfb86ffce9b47127f5",
+    "v4.14": "I708d5d3a6dd424fd7edc08eb94e8714d130bfb7b",
+    "v4.4": "I80cbb53cfc1be86a7ae87f8f57adca6efc2d464a",
+    "v3.18": "I2fb39ee806b858d5f283f5196af18b944c5e3bcf",
+    "v3.14": "Id4918063ab5f92687c72c4a54d74209764f6ad6b",
+    "v3.10": "Ie53785ca0aebafc54aca91ccb43f16f548cd6fce",
+    "v3.8": "I501ce8f12992e3ef8d9d051354d4b2870737018e",
 }
 
 
 def get_parser():
     """Returns an ArgumentParser instance."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('cve_number', type=str, help='CVE number to be triaged.')
-    parser.add_argument('--bug', type=str, required=True, help='BUG id to be used.')
-    parser.add_argument('--debug', help='Display debug messages.', action='store_true')
-    parser.add_argument('-rc', '--relevant_commit', help='Display commits referring to CVE fix.',
-                        action='store_true')
-    parser.add_argument('--pull', help='Update kernel repositories.', action='store_true')
-    parser.add_argument('--json', help='Print results as JSON string.', action='store_true')
-    parser.add_argument('--test', help='Run triage in test mode.', action='store_true')
+    parser.add_argument(
+        "cve_number", type=str, help="CVE number to be triaged."
+    )
+    parser.add_argument(
+        "--bug", type=str, required=True, help="BUG id to be used."
+    )
+    parser.add_argument(
+        "--debug", help="Display debug messages.", action="store_true"
+    )
+    parser.add_argument(
+        "-rc",
+        "--relevant_commit",
+        help="Display commits referring to CVE fix.",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--pull", help="Update kernel repositories.", action="store_true"
+    )
+    parser.add_argument(
+        "--json", help="Print results as JSON string.", action="store_true"
+    )
+    parser.add_argument(
+        "--test", help="Run triage in test mode.", action="store_true"
+    )
     return parser
 
 
 def main(argv):
     """Main."""
-    logger = logutils.setuplogging(logging.INFO, 'triage')
+    logger = logutils.setuplogging(logging.INFO, "triage")
     parser = get_parser()
     opts = parser.parse_args(argv)
     cve_num = opts.cve_number
 
     for env in ENV_VARS:
         if not os.getenv(env):
-            logger.error(f'${env} not set in virtual environment.')
+            logger.error(f"${env} not set in virtual environment.")
             return 1
 
     patches = {}
@@ -72,60 +92,63 @@ def main(argv):
     if opts.pull:
         common.DO_PULL = True
 
-    logger.info('Searching for possible fixes.')
+    logger.info("Searching for possible fixes.")
     commits = webscraper.find_relevant_commits(cve_num)
 
     if len(commits) == 0:
-        logger.error('No commits found.')
+        logger.error("No commits found.")
         return 1
 
     for commit in commits:
-        logger.info(f'Generating context for {commit}')
-        cg = contextgenerator.ContextGenerator(KERNELS, opts.relevant_commit, loglvl)
+        logger.info(f"Generating context for {commit}")
+        cg = contextgenerator.ContextGenerator(
+            KERNELS, opts.relevant_commit, loglvl
+        )
         cg.generate_context(commit)
         patches[commit] = cg.kernels
 
     # Dictionary for JSON string conversion.
-    commit_status = {
-        'cve': cve_num,
-        'status': {}
-    }
+    commit_status = {"cve": cve_num, "status": {}}
 
     for commit in commits:
-        logger.info(f'Trying to apply patch: {commit}')
+        logger.info(f"Trying to apply patch: {commit}")
 
         # Only passes TEST_CHANGE_IDS if in testing mode.
         change_ids = {}
         if opts.test:
             change_ids = TEST_CHANGE_IDS
 
-        kernels = patchapplier.apply_patch(commit, opts.bug, patches[commit], change_ids)
+        kernels = patchapplier.apply_patch(
+            commit, opts.bug, patches[commit], change_ids
+        )
 
         patched_kernels = []
 
         # Records patch status for JSON string.
-        commit_status['status'][commit] = {}
+        commit_status["status"][commit] = {}
 
         # Displays status of kernels after attempting to patch each one.
         for kern in KERNELS:
             cros_branch = common.get_cros_branch(kern)
             if kern not in patches[commit]:
-                commit_status['status'][commit][kern] = 'FIXED'
-                logger.info(f'{cros_branch}: FIXED')
+                commit_status["status"][commit][kern] = "FIXED"
+                logger.info(f"{cros_branch}: FIXED")
             else:
                 if kernels[kern]:
-                    commit_status['status'][commit][kern] = 'MISSING, applies cleanly'
+                    commit_status["status"][commit][
+                        kern
+                    ] = "MISSING, applies cleanly"
                     patched_kernels.append(kern)
-                    logger.info(f'{cros_branch}: MISSING, applies cleanly')
+                    logger.info(f"{cros_branch}: MISSING, applies cleanly")
                 else:
-                    commit_status['status'][commit][kern] = 'MISSING, conflict'
-                    logger.info(f'{cros_branch}: MISSING, conflict')
+                    commit_status["status"][commit][kern] = "MISSING, conflict"
+                    logger.info(f"{cros_branch}: MISSING, conflict")
 
         if len(patched_kernels) != 0:
-            logger.info(f'Generating CLs for {commit}')
+            logger.info(f"Generating CLs for {commit}")
             cl_links = clgenerator.create_cls(opts.bug, patched_kernels)
             for kernel in cl_links:
-                logger.info(f'{kernel} CL Link: {cl_links[kernel]}')
+                logger.info(f"{kernel} CL Link: {cl_links[kernel]}")
 
     if opts.json:
         json_out = json.dumps(commit_status, indent=4)
@@ -134,5 +157,5 @@ def main(argv):
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

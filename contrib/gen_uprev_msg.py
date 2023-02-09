@@ -4,6 +4,7 @@
 # Copyright 2020 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Parse ChangeLog from CPCon and generate commit message.
 
 Usage:
@@ -25,27 +26,27 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 MAX_LENGTH = 72
-CHANGES_PATTERN = r'Changes between ([0-9\.]+) and ([0-9\.]+)'
+CHANGES_PATTERN = r"Changes between ([0-9\.]+) and ([0-9\.]+)"
 
 IGNORED_PATTERNS = (
-    'Marking set of ebuilds as stable',
-    r'Incremented to version: \d+\.\d+\.\d+',
-    r'Increment to version R\d+-\d+\.\d+\.\d+.*',
+    "Marking set of ebuilds as stable",
+    r"Incremented to version: \d+\.\d+\.\d+",
+    r"Increment to version R\d+-\d+\.\d+\.\d+.*",
 )
 
 DEFAULT_REPOS = (
-    'src/platform/bmpblk',
-    'src/platform/depthcharge',
-    'src/platform/ec',
-    'src/platform/firmware',
-    'src/platform/vboot_reference',
-    'src/third_party/arm-trusted-firmware',
-    'src/third_party/coreboot',
-    'src/third_party/coreboot/3rdparty/blobs',
+    "src/platform/bmpblk",
+    "src/platform/depthcharge",
+    "src/platform/ec",
+    "src/platform/firmware",
+    "src/platform/vboot_reference",
+    "src/third_party/arm-trusted-firmware",
+    "src/third_party/coreboot",
+    "src/third_party/coreboot/3rdparty/blobs",
 )
 
 
-CL = collections.namedtuple('CL', ['commit', 'cl', 'bug', 'title'])
+CL = collections.namedtuple("CL", ["commit", "cl", "bug", "title"])
 
 
 def read_extra_repos(filename):
@@ -61,7 +62,7 @@ def read_extra_repos(filename):
 
 def parse_cl(line):
     """Parse CL."""
-    tokens = line.split('\t')
+    tokens = line.split("\t")
     if len(tokens) != 6:
         return None
     commit, cl, bug, _date, _author, title = tokens
@@ -80,15 +81,16 @@ def wrap_line(s, max_length):
             length = 0
         lines[-1].append(word)
         length += 1 + len(word)
-    return [' '.join(line) for line in lines]
+    return [" ".join(line) for line in lines]
 
 
 def main(args):
     """Parse ChangeLog and print commit message."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-b', '--board', required=True)
-    parser.add_argument('--extra-repo-file',
-                        help='File containing extra repo names')
+    parser.add_argument("-b", "--board", required=True)
+    parser.add_argument(
+        "--extra-repo-file", help="File containing extra repo names"
+    )
     args = parser.parse_args(args)
     board = args.board
     included_repos = set(DEFAULT_REPOS)
@@ -115,7 +117,7 @@ def main(args):
 
         # Parse repo
         tokens = line.split()
-        if len(tokens) == 1 and '/' in tokens[0]:
+        if len(tokens) == 1 and "/" in tokens[0]:
             repo = tokens[0]
             if repo in included_repos:
                 cl_list = []
@@ -145,27 +147,29 @@ def main(args):
             cl_list.append(cl)
 
     if not repos:
-        logger.error('No repo found from ChangeLog')
+        logger.error("No repo found from ChangeLog")
         return 1
 
     # Output
     if changes:
-        title = (f'chromeos-firmware-{board}: '
-                 f'Uprev firmware to {changes[1]} for {board}')
+        title = (
+            f"chromeos-firmware-{board}: "
+            f"Uprev firmware to {changes[1]} for {board}"
+        )
         print(title)
         print()
 
-    print(f'Changes between {changes[0]} and {changes[1]}:')
+    print(f"Changes between {changes[0]} and {changes[1]}:")
 
     for repo, cl_list in repos:
         if not cl_list:
             continue
         print()
         print(repo)
-        private = 'private' in repo
+        private = "private" in repo
         for cl in cl_list:
             if cl.cl:
-                cl_str = f'CL:*{cl.cl}' if private else f'CL:{cl.cl}'
+                cl_str = f"CL:*{cl.cl}" if private else f"CL:{cl.cl}"
             else:
                 ignored = False
                 for pattern in IGNORED_PATTERNS:
@@ -174,32 +178,33 @@ def main(args):
                         continue
                 if ignored:
                     continue
-                cl_str = 'CL:' + '?' * 7
-                print('>>>>>>> PLEASE FILL THE CL NUMBER MANUALLY')
+                cl_str = "CL:" + "?" * 7
+                print(">>>>>>> PLEASE FILL THE CL NUMBER MANUALLY")
             title = cl.title
             indentation = 1 + len(cl_str) + 4
             for i, title_line in enumerate(
-                    wrap_line(cl.title, MAX_LENGTH - indentation)):
+                wrap_line(cl.title, MAX_LENGTH - indentation)
+            ):
                 if i == 0:
-                    line = f' {cl_str}    {title_line}'
+                    line = f" {cl_str}    {title_line}"
                 else:
-                    line = ' ' * indentation + f'{title_line}'
+                    line = " " * indentation + f"{title_line}"
                 print(line)
 
     print()
-    print('BUG=<INSERT BUGS HERE>')
-    print(f'TEST=emerge-{board} chromeos-firmware-{board}')
+    print("BUG=<INSERT BUGS HERE>")
+    print(f"TEST=emerge-{board} chromeos-firmware-{board}")
 
     # Warnings
     for repo in ignored_repos:
-        logger.warning('Ignore repo %s', repo)
+        logger.warning("Ignore repo %s", repo)
     for commit, repo in ignored_commits:
-        logger.warning('Ignore commit %s in %s', commit, repo)
+        logger.warning("Ignore commit %s in %s", commit, repo)
     for line in skipped_lines:
-        logger.warning('Skipping line: %s', line)
+        logger.warning("Skipping line: %s", line)
 
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

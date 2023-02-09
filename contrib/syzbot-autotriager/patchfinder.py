@@ -13,8 +13,9 @@ import base64
 import os
 import sys
 
-import config
 import simpledb
+
+import config
 import utils
 
 
@@ -24,9 +25,10 @@ class PatchFinderException(Exception):
 
 class PatchFinder(object):
     """PatchFinder locates patches that are absent in stable kernels."""
+
     DEFAULTS = {
-        '414': (config.SRC_LINUX_STABLE_414_DB, 'linux-4.14.y'),
-        '44': (config.SRC_LINUX_STABLE_44_DB, 'linux-4.4.y'),
+        "414": (config.SRC_LINUX_STABLE_414_DB, "linux-4.14.y"),
+        "44": (config.SRC_LINUX_STABLE_44_DB, "linux-4.4.y"),
     }
 
     def __init__(self, kver, objfiles):
@@ -40,18 +42,20 @@ class PatchFinder(object):
 
         contents = open(os.path.expanduser(objfiles)).readlines()
         objfiles = [i.strip() for i in contents]
-        self.srcfiles = [i[2:-2] + '.c' for i in objfiles if i.endswith('.o')]
+        self.srcfiles = [i[2:-2] + ".c" for i in objfiles if i.endswith(".o")]
         self.stats = {}
 
     def assert_dbs_exist(self):
-        "Check if caches exist, else raise PatchFinderException."""
+        "Check if caches exist, else raise PatchFinderException." ""
         if not os.path.isfile(self.dbname):
-            raise PatchFinderException('%s not found, create with dbgen.py'
-                                       % (self.dbname))
+            raise PatchFinderException(
+                "%s not found, create with dbgen.py" % (self.dbname)
+            )
 
         if not os.path.isfile(config.SRC_LINUX_DB):
-            raise PatchFinderException('%s not found, create with dbgen.py'
-                                       % (config.SRC_LINUX_DB))
+            raise PatchFinderException(
+                "%s not found, create with dbgen.py" % (config.SRC_LINUX_DB)
+            )
 
     def commit_in_stable(self, title):
         """Returns true if |title| is a commit present in stable."""
@@ -66,26 +70,27 @@ class PatchFinder(object):
 
     def process(self):
         """PatchFinder core."""
-        print('Mainline commit count=%d' % (self.mainline.count()))
+        print("Mainline commit count=%d" % (self.mainline.count()))
         commits = self.mainline.all()
 
         for counter, commit in enumerate(commits):
-            if (counter+1) % 100000 == 0:
-                print('--- %d' % (counter+1))
+            if (counter + 1) % 100000 == 0:
+                print("--- %d" % (counter + 1))
 
-            body, files = (base64.b64decode(i) for i in
-                           [commit['body'], commit['files']])
+            body, files = (
+                base64.b64decode(i) for i in [commit["body"], commit["files"]]
+            )
             files = [i for i in files.splitlines() if i]
 
             if not utils.interesting_keyword_in(body):
                 continue
 
-            if self.commit_in_stable(commit['title']):
-                utils.incstats(self.stats, 'commit_already_in_stable')
+            if self.commit_in_stable(commit["title"]):
+                utils.incstats(self.stats, "commit_already_in_stable")
                 continue
 
             if not self.commit_is_interesting(files):
-                utils.incstats(self.stats, 'commit_is_not_interesting')
+                utils.incstats(self.stats, "commit_is_not_interesting")
                 continue
 
             causer = utils.fixes_stmt(body)
@@ -94,16 +99,18 @@ class PatchFinder(object):
 
             cstr = utils.commitstr(causer)
             if not cstr:
-                utils.incstats(self.stats, 'fixes_stmt_unparseable')
+                utils.incstats(self.stats, "fixes_stmt_unparseable")
                 continue
 
             if not self.commit_in_stable(cstr):
-                utils.incstats(self.stats, 'root_cause_present')
+                utils.incstats(self.stats, "root_cause_present")
                 continue
 
-            print('Missing commit: %s ("%s")'
-                  % (commit['commitid'][:10], commit['title']))
-            utils.incstats(self.stats, 'count')
+            print(
+                'Missing commit: %s ("%s")'
+                % (commit["commitid"][:10], commit["title"])
+            )
+            utils.incstats(self.stats, "count")
 
     def dump_stats(self):
         """Print stats related to missing commits."""
@@ -113,11 +120,19 @@ class PatchFinder(object):
 def get_parser():
     """Create and return an ArgumentParser instance."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--kver', type=str, required=True,
-                        choices=['414', '44'],
-                        help='Choose one of supported kernel versions')
-    parser.add_argument('--objfiles', type=str, required=True,
-                        help='objfiles to use for filtering results')
+    parser.add_argument(
+        "--kver",
+        type=str,
+        required=True,
+        choices=["414", "44"],
+        help="Choose one of supported kernel versions",
+    )
+    parser.add_argument(
+        "--objfiles",
+        type=str,
+        required=True,
+        help="objfiles to use for filtering results",
+    )
     return parser
 
 
@@ -132,5 +147,5 @@ def main(argv):
     p.dump_stats()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

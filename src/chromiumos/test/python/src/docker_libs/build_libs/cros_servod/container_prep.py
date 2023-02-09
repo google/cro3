@@ -39,7 +39,9 @@ class CrosServodArtifactPrep(CrosArtifactPrep):
 
     def copy_fw_config(self):
         """Return the absolute path of the metadata files."""
-        fw_config_src = Path("usr") / "share" / "ap_firmware_config" / "fw-config.json"
+        fw_config_src = (
+            Path("usr") / "share" / "ap_firmware_config" / "fw-config.json"
+        )
         fw_config_dst = os.path.join(self.full_out, "fw-config.json")
         full_md_path = os.path.join(self.chroot, fw_config_src)
         if not os.path.exists(full_md_path):
@@ -47,4 +49,6 @@ class CrosServodArtifactPrep(CrosArtifactPrep):
         print(
             f"copying from {full_md_path} to {os.path.join(self.full_out, fw_config_dst)}"
         )
-        shutil.copyfile(full_md_path, os.path.join(self.full_out, fw_config_dst))
+        shutil.copyfile(
+            full_md_path, os.path.join(self.full_out, fw_config_dst)
+        )

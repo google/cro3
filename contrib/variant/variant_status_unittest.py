@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """Unit test for the variant_status class
 
 To avoid disrupting any work in progress, this unit test will set the name
@@ -11,22 +12,26 @@ found in the LICENSE file.
 """
 
 from __future__ import print_function
+
 import unittest
+
 import variant_status
 
 
 class TestVariantStatus(unittest.TestCase):
     """Unit test for the variant_status class"""
+
     def setUp(self):
         """Set up for a test
 
         Use a different yaml filename so that we don't stomp on any work in
         progress, and remove the yaml file if it exists.
         """
-        self.status = variant_status.variant_status('variant_status_unittest.yaml')
+        self.status = variant_status.variant_status(
+            "variant_status_unittest.yaml"
+        )
         if self.status.yaml_file_exists():
             self.status.rm()
-
 
     def tearDown(self):
         """Clean up after the test
@@ -36,7 +41,6 @@ class TestVariantStatus(unittest.TestCase):
         if self.status.yaml_file_exists():
             self.status.rm()
         self.status = None
-
 
     def test_given_file_does_not_exist_then_file_exists_returns_false(self):
         """Check that the file doesn't exist if we haven't created it."""
@@ -49,60 +53,73 @@ class TestVariantStatus(unittest.TestCase):
 
     def test_when_save_file_with_new_data_then_new_data_is_correct(self):
         """Create file with data, change and save, then load into new object"""
-        self.status.board = 'hatch'
-        self.status.variant = 'sushi'
-        self.status.bug = 'b:12345'
-        self.status.step = 'initial'
+        self.status.board = "hatch"
+        self.status.variant = "sushi"
+        self.status.bug = "b:12345"
+        self.status.step = "initial"
         self.status.save()
 
-        self.status.bug = 'FooBar'
+        self.status.bug = "FooBar"
         self.status.save()
 
-        new_status = variant_status.variant_status('variant_status_unittest.yaml')
+        new_status = variant_status.variant_status(
+            "variant_status_unittest.yaml"
+        )
         new_status.load()
-        self.assertTrue(new_status.bug == 'FooBar')
+        self.assertTrue(new_status.bug == "FooBar")
 
     def test_when_add_new_field_to_file_then_field_is_saved_and_loaded(self):
         """Create a file, add a new field, and ensure it is saved and loaded"""
-        self.status.board = 'hatch'
-        self.status.variant = 'sushi'
-        self.status.bug = 'b:12345'
-        self.status.step = 'initial'
+        self.status.board = "hatch"
+        self.status.variant = "sushi"
+        self.status.bug = "b:12345"
+        self.status.step = "initial"
         self.status.save()
 
-        self.status.packages = 'chromeos-ec'
+        self.status.packages = "chromeos-ec"
         self.status.save()
 
-        new_status = variant_status.variant_status('variant_status_unittest.yaml')
+        new_status = variant_status.variant_status(
+            "variant_status_unittest.yaml"
+        )
         new_status.load()
-        self.assertTrue(new_status.packages == 'chromeos-ec')
+        self.assertTrue(new_status.packages == "chromeos-ec")
 
     def test_when_field_is_list_then_list_is_loaded_correctly(self):
         """If we assign a list to a field, we can load the list correctly"""
-        self.status.workon = ['item1', 'item2']
+        self.status.workon = ["item1", "item2"]
         self.status.save()
 
-        new_status = variant_status.variant_status('variant_status_unittest.yaml')
+        new_status = variant_status.variant_status(
+            "variant_status_unittest.yaml"
+        )
         new_status.load()
-        self.assertTrue(new_status.workon[0] == 'item1')
-        self.assertTrue(new_status.workon[1] == 'item2')
+        self.assertTrue(new_status.workon[0] == "item1")
+        self.assertTrue(new_status.workon[1] == "item2")
 
-    def test_when_field_is_empty_list_then_append_to_list_is_still_correct(self):
+    def test_when_field_is_empty_list_then_append_to_list_is_still_correct(
+        self,
+    ):
         """If the list is empty, appending to it works correctly"""
         self.status.emerge = []
         self.status.save()
 
-        new_status = variant_status.variant_status('variant_status_unittest.yaml')
+        new_status = variant_status.variant_status(
+            "variant_status_unittest.yaml"
+        )
         new_status.load()
 
-        new_status.emerge.append('chromeos-ec')
-        new_status.emerge.append('chromeos-config-bsp')
+        new_status.emerge.append("chromeos-ec")
+        new_status.emerge.append("chromeos-config-bsp")
         new_status.save()
 
-        newest_status = variant_status.variant_status('variant_status_unittest.yaml')
+        newest_status = variant_status.variant_status(
+            "variant_status_unittest.yaml"
+        )
         newest_status.load()
-        self.assertTrue(newest_status.emerge[0] == 'chromeos-ec')
-        self.assertTrue(newest_status.emerge[1] == 'chromeos-config-bsp')
+        self.assertTrue(newest_status.emerge[0] == "chromeos-ec")
+        self.assertTrue(newest_status.emerge[1] == "chromeos-config-bsp")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

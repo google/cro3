@@ -33,6 +33,7 @@ To list USB bus ids:
 """
 
 from __future__ import print_function
+
 import contextlib
 import logging
 import os
@@ -49,17 +50,17 @@ from chromite.lib import remote_access
 from chromite.lib import retry_util
 
 
-HOST_MODULES = {'usbip-core', 'usbip-host', 'vhci-hcd'}
-CLIENT_MODULES = {'usbip-core', 'vhci-hcd'}
+HOST_MODULES = {"usbip-core", "usbip-host", "vhci-hcd"}
+CLIENT_MODULES = {"usbip-core", "vhci-hcd"}
 
-KILL_COMMAND = 'kill'
+KILL_COMMAND = "kill"
 
-MODPROBE_COMMAND = 'modprobe'
+MODPROBE_COMMAND = "modprobe"
 
-USBIP_PACKAGE = 'usbip'
-USBIP_COMMAND = 'usbip'
-USBIPD_COMMAND = 'usbipd'
-USBIPD_PID_FILE = '/run/usbipd.pid'
+USBIP_PACKAGE = "usbip"
+USBIP_COMMAND = "usbip"
+USBIPD_COMMAND = "usbipd"
+USBIPD_PID_FILE = "/run/usbipd.pid"
 USBIPD_PORT = 3240
 
 RETRY_USBIPD_READ_PID = 10
@@ -68,36 +69,44 @@ DELAY_USBIPD_READ_PID = 0.5
 
 def main(argv):
     """Forward USB devices from the caller to the target device."""
-    os.environ['PATH'] += ':/sbin:/usr/sbin'
+    os.environ["PATH"] += ":/sbin:/usr/sbin"
 
     opts = get_opts(argv)
-    return forward_devices(opts.device.hostname, opts.device.port,
-                           opts.usb_devices)
+    return forward_devices(
+        opts.device.hostname, opts.device.port, opts.usb_devices
+    )
 
 
 def forward_devices(hostname, port, usb_devices):
     """Forward USB devices from the caller to the target device."""
 
     if shutil.which(USBIP_COMMAND) is not None:
-        logging.debug('`%s` found in the chroot', USBIP_COMMAND)
+        logging.debug("`%s` found in the chroot", USBIP_COMMAND)
     else:
         logging.error(
-            'You need to emerge the `%s` package in the chroot: sudo emerge %s',
-            USBIP_PACKAGE, USBIP_PACKAGE)
+            "You need to emerge the `%s` package in the chroot: sudo emerge %s",
+            USBIP_PACKAGE,
+            USBIP_PACKAGE,
+        )
 
-    logging.debug('Connecting to root@%s:%s`', hostname, port)
+    logging.debug("Connecting to root@%s:%s`", hostname, port)
     with contextlib.ExitStack() as stack:
         device = stack.enter_context(
-            remote_access.ChromiumOSDeviceHandler(hostname=hostname, port=port,
-                                                  username='root'))
+            remote_access.ChromiumOSDeviceHandler(
+                hostname=hostname, port=port, username="root"
+            )
+        )
         if device.HasProgramInPath(USBIP_COMMAND):
-            logging.debug('`%s` found on the device', USBIP_COMMAND)
+            logging.debug("`%s` found on the device", USBIP_COMMAND)
         else:
             logging.error(
-                'You need to emerge and deploy the `%s` package to the test '
-                'device: emerge-${{BOARD}} %s && cros deploy '
-                '--board=${{BOARD}} %s',
-                USBIP_PACKAGE, USBIP_PACKAGE, USBIP_PACKAGE)
+                "You need to emerge and deploy the `%s` package to the test "
+                "device: emerge-${{BOARD}} %s && cros deploy "
+                "--board=${{BOARD}} %s",
+                USBIP_PACKAGE,
+                USBIP_PACKAGE,
+                USBIP_PACKAGE,
+            )
             return False
 
         tunnel_is_alive = stack.enter_context(setup_usbip_tunnel(device))
@@ -113,7 +122,7 @@ def forward_devices(hostname, port, usb_devices):
                 return False
 
         if not tunnel_is_alive():
-            logging.error('SSH tunnel is dead. Aborting.')
+            logging.error("SSH tunnel is dead. Aborting.")
             return False
 
         for i, busid in enumerate(usb_devices):
@@ -125,13 +134,13 @@ def forward_devices(hostname, port, usb_devices):
             signal.signal(signal.SIGINT, signal.default_int_handler)
             signal.signal(signal.SIGTERM, signal.default_int_handler)
             signal.signal(signal.SIGHUP, signal.default_int_handler)
-            logging.info('Ready. Press Ctrl-C (SIGINT) to cleanup.')
+            logging.info("Ready. Press Ctrl-C (SIGINT) to cleanup.")
             while True:
                 time.sleep(60)
         except KeyboardInterrupt:
             pass
 
-    logging.debug('Cleanup complete.')
+    logging.debug("Cleanup complete.")
     return True
 
 
@@ -139,12 +148,17 @@ def get_opts(argv):
     """Parse the command-line options."""
     parser = commandline.ArgumentParser(description=forward_devices.__doc__)
     parser.add_argument(
-        '-d', '--device',
+        "-d",
+        "--device",
         type=commandline.DeviceParser(commandline.DEVICE_SCHEME_SSH),
-        help='The target device to forward the USB devices to '
-             '(hostname[:port]).')
-    parser.add_argument('usb_devices', nargs='+',
-                        help='Bus identifiers of USB devices to forward')
+        help="The target device to forward the USB devices to "
+        "(hostname[:port]).",
+    )
+    parser.add_argument(
+        "usb_devices",
+        nargs="+",
+        help="Bus identifiers of USB devices to forward",
+    )
     opts = parser.parse_args(argv)
     opts.Freeze()
     return opts
@@ -160,18 +174,18 @@ def load_modules(device=None):
         try:
             cros_build_lib.sudo_run([MODPROBE_COMMAND, module])
         except cros_build_lib.RunCommandError:
-            logging.error('Failed to load module on host: %s', module)
+            logging.error("Failed to load module on host: %s", module)
             return False
-        logging.debug('Loaded module on host: %s', module)
+        logging.debug("Loaded module on host: %s", module)
 
     if device is not None:
         for module in CLIENT_MODULES:
             try:
                 device.run([MODPROBE_COMMAND, module])
             except cros_build_lib.RunCommandError:
-                logging.error('Failed to load module on target: %s', module)
+                logging.error("Failed to load module on target: %s", module)
                 return False
-            logging.debug('Loaded module on target: %s', module)
+            logging.debug("Loaded module on target: %s", module)
     return True
 
 
@@ -186,23 +200,25 @@ def start_usbipd():
     """
     try:
         cros_build_lib.sudo_run(
-            [USBIPD_COMMAND, '-D', '-P%s' % USBIPD_PID_FILE])
+            [USBIPD_COMMAND, "-D", "-P%s" % USBIPD_PID_FILE]
+        )
     except cros_build_lib.RunCommandError:
-        logging.error('Failed to start: %s', USBIPD_COMMAND)
+        logging.error("Failed to start: %s", USBIPD_COMMAND)
         yield False
         return
-    logging.debug('Started on host: %s', USBIPD_COMMAND)
+    logging.debug("Started on host: %s", USBIPD_COMMAND)
 
     # Give the daemon a chance to write the PID file.
     pid = retry_util.GenericRetry(
         handler=lambda e: isinstance(e, FileNotFoundError),
         max_retry=RETRY_USBIPD_READ_PID,
         functor=lambda: int(osutils.ReadFile(USBIPD_PID_FILE).strip()),
-        sleep=DELAY_USBIPD_READ_PID)
+        sleep=DELAY_USBIPD_READ_PID,
+    )
 
     yield True
 
-    logging.debug('Killing `usbipd` (%d).', pid)
+    logging.debug("Killing `usbipd` (%d).", pid)
     cros_build_lib.sudo_run([KILL_COMMAND, str(pid)])
 
 
@@ -216,7 +232,8 @@ def setup_usbip_tunnel(device):
         A callback to check if the tunnel is still alive.
     """
     proc = device.GetAgent().CreateTunnel(
-        to_remote=[remote_access.PortForwardSpec(local_port=USBIPD_PORT)])
+        to_remote=[remote_access.PortForwardSpec(local_port=USBIPD_PORT)]
+    )
 
     def alive():
         """Returns `True` if the SSH tunnel process is still alive."""
@@ -224,7 +241,7 @@ def setup_usbip_tunnel(device):
 
     yield alive
 
-    logging.debug('Stopping `usbip` tunnel.')
+    logging.debug("Stopping `usbip` tunnel.")
     proc.terminate()
     try:
         proc.wait(timeout=10)
@@ -243,17 +260,17 @@ def bind_usb_device(busid):
         False on failure.
     """
     try:
-        cros_build_lib.sudo_run([USBIP_COMMAND, 'bind', '-b', busid])
+        cros_build_lib.sudo_run([USBIP_COMMAND, "bind", "-b", busid])
     except cros_build_lib.RunCommandError:
-        logging.error('Failed to bind: %s', busid)
+        logging.error("Failed to bind: %s", busid)
         yield False
         return
-    logging.debug('Bound: %s', busid)
+    logging.debug("Bound: %s", busid)
 
     yield True
 
-    logging.debug('unbinding: %s', busid)
-    cros_build_lib.sudo_run([USBIP_COMMAND, 'unbind', '-b', busid])
+    logging.debug("unbinding: %s", busid)
+    cros_build_lib.sudo_run([USBIP_COMMAND, "unbind", "-b", busid])
 
 
 @contextlib.contextmanager
@@ -266,21 +283,21 @@ def attach_usb_device(device, busid, port):
         False on failure.
     """
     try:
-        device.run([USBIP_COMMAND, 'attach', '-r', 'localhost', '-b', busid])
+        device.run([USBIP_COMMAND, "attach", "-r", "localhost", "-b", busid])
     except cros_build_lib.RunCommandError:
-        logging.error('Failed to attach: %s', busid)
+        logging.error("Failed to attach: %s", busid)
         yield False
         return
-    logging.debug('Attached: %s', busid)
+    logging.debug("Attached: %s", busid)
 
     yield True
 
     try:
-        device.run([USBIP_COMMAND, 'detach', '-p', str(port)])
-        logging.debug('Detached usbip port: %s', port)
+        device.run([USBIP_COMMAND, "detach", "-p", str(port)])
+        logging.debug("Detached usbip port: %s", port)
     except cros_build_lib.RunCommandError:
-        logging.error('Failed to detach: %s', port)
+        logging.error("Failed to detach: %s", port)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

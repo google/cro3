@@ -113,4 +113,4 @@ ERROR:root:./gen_fit_image.sh wyvern <path_to_fit_kit> -b
 ERROR:root:Then re-start this program with --continue.
 ERROR:root:If your chroot is based in ~/chromiumos, then the folder you want is
 ERROR:root:~/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation
-(cr) ((9ec0ecd...)) pfagerburg@pfagerburg2 ~/trunk/src/platform/dev/contrib/variant $ 
+(cr) ((9ec0ecd...)) pfagerburg@pfagerburg2 ~/trunk/src/platform/dev/contrib/variant $

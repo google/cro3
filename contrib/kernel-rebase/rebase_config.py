@@ -11,10 +11,10 @@
 import hooks  # pylint: disable=unused-import
 
 
-verify_board = 'volteer'
-verify_package = 'chromeos-kernel-upstream'
-rebase_repo = 'kernel-upstream'
-baseline_repo = 'baseline/kernel-upstream/'
+verify_board = "volteer"
+verify_package = "chromeos-kernel-upstream"
+rebase_repo = "kernel-upstream"
+baseline_repo = "baseline/kernel-upstream/"
 
 global_reverts = []
 
@@ -46,18 +46,18 @@ topic_patches = {}
 #    'fixups/platform: x86: add ACPI driver for ChromeOS.patch',
 # ]
 
-topic_patches['arch'] = [
-    'patches/KVM: mmu: introduce new gfn_to_pfn_page functions.patch',
-    'fixups/KVM: Fix multiple races in gfn=>pfn cache refresh.patch',
-    'fixups/FIXUP: KVM: mmu: introduce new gfn_to_pfn_page functions.patch'
+topic_patches["arch"] = [
+    "patches/KVM: mmu: introduce new gfn_to_pfn_page functions.patch",
+    "fixups/KVM: Fix multiple races in gfn=>pfn cache refresh.patch",
+    "fixups/FIXUP: KVM: mmu: introduce new gfn_to_pfn_page functions.patch",
 ]
 
-topic_patches['block-fs'] = [
-    'fixups/FIXUP-CHROMIUM-drivers-md-dm-verity-chromeos-Fix-bio.patch',
+topic_patches["block-fs"] = [
+    "fixups/FIXUP-CHROMIUM-drivers-md-dm-verity-chromeos-Fix-bio.patch",
 ]
 
-topic_patches['cros_ec'] = [
-    'fixups/platform: x86: add ACPI driver for ChromeOS.patch',
+topic_patches["cros_ec"] = [
+    "fixups/platform: x86: add ACPI driver for ChromeOS.patch",
 ]
 
 # order for automatic branch merging in rebase.py.
@@ -67,16 +67,14 @@ topic_patches['cros_ec'] = [
 #     "drm",
 #     "gpu/other"
 # ]
-merge_order_override = [
-]
+merge_order_override = []
 
 # patches to be cherry-picked after automatic merge
 # example:
 # merge_fixups = [
 #     "e0783589ae58"
 # ]
-merge_fixups = [
-]
+merge_fixups = []
 
 # cherry-pick a list of patches before a given patch
 # during automatic rebase.
@@ -85,12 +83,12 @@ merge_fixups = [
 #     '0d022b4a1e19': ['6e18e51a1c19']
 # }
 patch_deps = {
-      '4638c45ac4c3': ['be850241385f'],
-      'a0b6f18f6f99': ['1b11975955e5', '2e1d95fe697e'],
-      '9374b3da44f7': ['a8d5ee3cd35c'],
-      'dba4f3cbb765': ['f1c5e6917f73'],
-      '343cf85ba839': ['85634c066fc3'],
-      'e8eba5950370': ['ff52d46e7dbb'],
+    "4638c45ac4c3": ["be850241385f"],
+    "a0b6f18f6f99": ["1b11975955e5", "2e1d95fe697e"],
+    "9374b3da44f7": ["a8d5ee3cd35c"],
+    "dba4f3cbb765": ["f1c5e6917f73"],
+    "343cf85ba839": ["85634c066fc3"],
+    "e8eba5950370": ["ff52d46e7dbb"],
 }
 
 # Add entry here to overwrite default disposition on particular commit
@@ -100,10 +98,25 @@ disp_overwrite = {}
 # example
 # disp_overwrite['62b865c66db4'] = 'drop'
 
-disp_overwrite['361e832d5127'] = 'drop' # Revert "UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support"
-disp_overwrite['d3ca0f8f9181'] = 'drop' # BACKPORT: UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support
-disp_overwrite['5a46f9f5770f'] = 'drop' # FROMLIST: fuse: 32-bit user space ioctl compat for fuse device
-disp_overwrite['ff52d46e7dbb'] = 'drop' # FROMLIST: i2c: designware: Switch from using MMIO access to SMN access
-disp_overwrite['5bbe10aab447'] = 'drop' # FROMLIST: mailbox: mtk-cmdq: instead magic number with GCE_CTRL_BY_SW
-disp_overwrite['20dda512a08f'] = 'drop' # CHROMIUM: drm/udl: Cut >165 MHz modes for DVI
-disp_overwrite['c5daa007043c'] = ['move', 'bluetooth'] # FROMLIST: devcoredump: Add per device sysfs entry to enable/disable coredump
+disp_overwrite[
+    "361e832d5127"
+] = "drop"  # Revert "UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support"
+disp_overwrite[
+    "d3ca0f8f9181"
+] = "drop"  # BACKPORT: UPSTREAM: Bluetooth: hci_qca: Add device_may_wakeup support
+disp_overwrite[
+    "5a46f9f5770f"
+] = "drop"  # FROMLIST: fuse: 32-bit user space ioctl compat for fuse device
+disp_overwrite[
+    "ff52d46e7dbb"
+] = "drop"  # FROMLIST: i2c: designware: Switch from using MMIO access to SMN access
+disp_overwrite[
+    "5bbe10aab447"
+] = "drop"  # FROMLIST: mailbox: mtk-cmdq: instead magic number with GCE_CTRL_BY_SW
+disp_overwrite[
+    "20dda512a08f"
+] = "drop"  # CHROMIUM: drm/udl: Cut >165 MHz modes for DVI
+disp_overwrite["c5daa007043c"] = [
+    "move",
+    "bluetooth",
+]  # FROMLIST: devcoredump: Add per device sysfs entry to enable/disable coredump

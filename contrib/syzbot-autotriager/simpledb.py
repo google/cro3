@@ -12,10 +12,11 @@ import dataset
 
 class SimpleDB(object):
     """SimpleDB is a wrapper for accessing and modifying SQLite caches."""
+
     def __init__(self, filename):
         self.filename = filename
-        self.db = dataset.connect('sqlite:///%s' % (filename))
-        self.table = self.db[filename.split('.')[0]]
+        self.db = dataset.connect("sqlite:///%s" % (filename))
+        self.table = self.db[filename.split(".")[0]]
 
     def insert(self, **kwargs):
         """Insert values into the table."""

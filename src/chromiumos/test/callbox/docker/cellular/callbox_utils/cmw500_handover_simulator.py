@@ -1,6 +1,7 @@
 # Copyright 2023 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Provides cmw500 handover functionality."""
 
 # pylint: disable=banned-string-format-function
@@ -13,6 +14,7 @@ from cellular.callbox_utils import cmw500
 
 class HandoverMode(Enum):
     """Supported handover modes."""
+
     Redirection = "RED"
     MTCSFallback = "MTCS"
     Handover = "HAND"
@@ -40,15 +42,19 @@ class Cmw500HandoverSimulator(hs.AbstractHandoverSimulator):
             bandwidth: the downlink bandwidth of the handover destination.
             source_technology: the source handover technology.
         """
-        mode = cmw500.DuplexMode.TDD if 33 <= int(
-            band) <= 46 else cmw500.DuplexMode.FDD
-        band = 'OB{}'.format(band)
+        mode = (
+            cmw500.DuplexMode.TDD
+            if 33 <= int(band) <= 46
+            else cmw500.DuplexMode.FDD
+        )
+        band = "OB{}".format(band)
         bandwidth = cmw500.BandwidthFromFloat(bandwidth)
 
         source = self._get_handover_manager(source_technology)
         self._prepare_handover(source, self._lte)
-        self._lte.configure_incoming_handover_lte(mode, band, channel,
-                                                  bandwidth)
+        self._lte.configure_incoming_handover_lte(
+            mode, band, channel, bandwidth
+        )
         self._perform_handover(source, self._lte)
 
     def wcdma_handover(self, band, channel, source_technology):
@@ -59,7 +65,7 @@ class Cmw500HandoverSimulator(hs.AbstractHandoverSimulator):
             channel: the downlink channel of the handover destination.
             source_technology: the source handover technology.
         """
-        band = 'OB{}'.format(band)
+        band = "OB{}".format(band)
 
         source = self._get_handover_manager(source_technology)
         self._prepare_handover(source, self._wcdma)
@@ -80,14 +86,17 @@ class Cmw500HandoverSimulator(hs.AbstractHandoverSimulator):
 
         source.handover_destination = destination.application_name
         if source.is_internal_handover:
-            destination.wait_for_signalling_state([
-                cmw500.SignallingState.ReadyForHandover.value,
-                cmw500.SignallingState.ON.value
-            ])
+            destination.wait_for_signalling_state(
+                [
+                    cmw500.SignallingState.ReadyForHandover.value,
+                    cmw500.SignallingState.ON.value,
+                ]
+            )
             source.handover_mode = HandoverMode.Redirection
         else:
             destination.wait_for_signalling_state(
-                [cmw500.SignallingState.ReadyForHandover.value])
+                [cmw500.SignallingState.ReadyForHandover.value]
+            )
             source.handover_mode = HandoverMode.Handover
 
     def _perform_handover(self, source, destination):
@@ -118,10 +127,11 @@ class Cmw500HandoverSimulator(hs.AbstractHandoverSimulator):
         if technology == hs.CellularTechnology.WCDMA:
             return self._wcdma
         raise hs.HandoverSimulatorError(
-            'Unsupported handover destination type {}.'.format(technology))
+            "Unsupported handover destination type {}.".format(technology)
+        )
 
 
-class Cmw500HandoverManagerBase():
+class Cmw500HandoverManagerBase:
     """Provides common CMW500 functionality for conducting handovers."""
 
     def __init__(self, cmw, technology):
@@ -137,13 +147,13 @@ class Cmw500HandoverManagerBase():
     @property
     def application_name(self):
         """Gets the name of the signalling application to be used in handovers."""
-        return '{} Sig1'.format(self.tech)
+        return "{} Sig1".format(self.tech)
 
     @property
     def handover_destination(self):
         """Gets the handover destination application."""
-        cmd = 'PREPare:{}:SIGN:HANDover:DESTination?'.format(self.tech)
-        return self.cmw.send_and_recv(cmd).strip('"\'')
+        cmd = "PREPare:{}:SIGN:HANDover:DESTination?".format(self.tech)
+        return self.cmw.send_and_recv(cmd).strip("\"'")
 
     @property
     def is_internal_handover(self):
@@ -154,33 +164,36 @@ class Cmw500HandoverManagerBase():
     def handover_destination(self, destination):
         """Sets the handover destination application."""
         cmd = 'PREPare:{}:SIGN:HANDover:DESTination "{}"'.format(
-            self.tech, destination)
+            self.tech, destination
+        )
         self.cmw.send_and_recv(cmd)
 
     @property
     def handover_mode(self):
         """Gets the handover mechanism to use."""
-        cmd = 'PREPare:{}:SIGN:HANDover:MMODe?'.format(self.tech)
+        cmd = "PREPare:{}:SIGN:HANDover:MMODe?".format(self.tech)
         return self.cmw.send_and_recv(cmd)
 
     @handover_mode.setter
     def handover_mode(self, mode):
         """Sets the handover mechanism to use."""
         if not isinstance(mode, HandoverMode):
-            raise ValueError('mode should be the instance of HandoverMode.')
-        self.cmw.send_and_recv('PREPare:{}:SIGN:HANDover:MMODe {}'.format(
-            self.tech, mode.value))
+            raise ValueError("mode should be the instance of HandoverMode.")
+        self.cmw.send_and_recv(
+            "PREPare:{}:SIGN:HANDover:MMODe {}".format(self.tech, mode.value)
+        )
 
     @property
     def is_attached(self):
         """Returns True if the current technology pswitched state is attached."""
-        cmd = 'FETCh:{}:SIGN:PSWitched:STATe?'.format(self.tech)
+        cmd = "FETCh:{}:SIGN:PSWitched:STATe?".format(self.tech)
         return self.cmw.send_and_recv(cmd) in self.get_attached_states()
 
     def stop_signalling(self):
         """Stops the current signalling application."""
-        cmd = 'SOURce:{}:SIGN:CELL:STATe {}'.format(
-            self.tech, cmw500.SignallingState.OFF.value)
+        cmd = "SOURce:{}:SIGN:CELL:STATe {}".format(
+            self.tech, cmw500.SignallingState.OFF.value
+        )
         self.cmw.send_and_recv(cmd)
         self.wait_for_signalling_state([cmw500.SignallingState.OFF.value])
 
@@ -194,8 +207,8 @@ class Cmw500HandoverManagerBase():
         Raises:
             CmwError on time out.
         """
-        allowed = set(['{},ADJ'.format(state) for state in allowed])
-        cmd = 'SOURce:{}:SIGN:CELL:STATe:ALL?'.format(self.tech)
+        allowed = set(["{},ADJ".format(state) for state in allowed])
+        cmd = "SOURce:{}:SIGN:CELL:STATe:ALL?".format(self.tech)
         self.cmw.wait_for_response(cmd, allowed, timeout=timeout)
 
     def wait_for_pswitched_state(self, allowed, timeout=120):
@@ -208,7 +221,7 @@ class Cmw500HandoverManagerBase():
         Raises:
             CmwError on time out.
         """
-        cmd = 'FETCh:{}:SIGN:PSWitched:STATe?'.format(self.tech)
+        cmd = "FETCh:{}:SIGN:PSWitched:STATe?".format(self.tech)
         self.cmw.wait_for_response(cmd, allowed, timeout=timeout)
 
     def get_attached_states(self):
@@ -261,13 +274,13 @@ class Cmw500LteHandoverManager(Cmw500HandoverManagerBase):
 
     def initiate_handover(self):
         """Initiates an outgoing handover."""
-        self.cmw.send_and_recv('CALL:LTE:SIGN:PSWitched:ACTion HANDover')
+        self.cmw.send_and_recv("CALL:LTE:SIGN:PSWitched:ACTion HANDover")
 
     def wait_for_handover(self):
         """Waits for an incoming handover to be completed."""
         self.cmw.wait_for_attached_state()
 
-    def configure_handover(self, mode, band, channel, bandwidth, emit='NS01'):
+    def configure_handover(self, mode, band, channel, bandwidth, emit="NS01"):
         """Configures the handover destination.
 
         Args:
@@ -278,13 +291,16 @@ class Cmw500LteHandoverManager(Cmw500HandoverManagerBase):
             emit: an additional optional spectrum emissions requirement.
         """
         if not isinstance(bandwidth, cmw500.LteBandwidth):
-            raise ValueError('bandwidth should be an instance of '
-                             'LteBandwidth.')
+            raise ValueError(
+                "bandwidth should be an instance of " "LteBandwidth."
+            )
         if not isinstance(mode, cmw500.DuplexMode):
-            raise ValueError('mode should be an instance of ' 'DuplexMode.')
+            raise ValueError("mode should be an instance of " "DuplexMode.")
         self.cmw.send_and_recv(
-            'PREPare:LTE:SIGN:HANDover:ENHanced {}, {}, {}, {}, {}'.format(
-                mode.value, band, channel, bandwidth.value, emit))
+            "PREPare:LTE:SIGN:HANDover:ENHanced {}, {}, {}, {}, {}".format(
+                mode.value, band, channel, bandwidth.value, emit
+            )
+        )
 
     def get_attached_states(self):
         """Gets a collection of valid attached states.
@@ -299,7 +315,8 @@ class Cmw500WcdmaHandoverManager(Cmw500HandoverManagerBase):
     """Provides WCDMA-specific handover methods."""
 
     ATTACHED_STATES = set(
-        [cmw500.WCDMA_ATTACH_RESP, cmw500.WCDMA_CESTABLISHED_RESP])
+        [cmw500.WCDMA_ATTACH_RESP, cmw500.WCDMA_CESTABLISHED_RESP]
+    )
 
     def __init__(self, cmw):
         """Init method to setup handover controller.
@@ -314,7 +331,7 @@ class Cmw500WcdmaHandoverManager(Cmw500HandoverManagerBase):
     @property
     def _band(self):
         """Sets the signalling application band."""
-        self.cmw.send_and_recv('CONFigure:WCDMa:SIGN:CARRier:BAND?')
+        self.cmw.send_and_recv("CONFigure:WCDMa:SIGN:CARRier:BAND?")
 
     @_band.setter
     def _band(self, band):
@@ -323,13 +340,13 @@ class Cmw500WcdmaHandoverManager(Cmw500HandoverManagerBase):
         Args:
             band: the band of the signalling application.
         """
-        cmd = 'CONFigure:WCDMa:SIGN:CARRier:BAND {}'.format(band)
+        cmd = "CONFigure:WCDMa:SIGN:CARRier:BAND {}".format(band)
         self.cmw.send_and_recv(cmd)
 
     @property
     def _dl_channel(self):
         """Gets the signalling application dl channel."""
-        cmd = 'CONFigure:WCDMa:SIGN:RFSettings:CARRier:CHANnel:DL?'
+        cmd = "CONFigure:WCDMa:SIGN:RFSettings:CARRier:CHANnel:DL?"
         self.cmw.send_and_recv(cmd)
 
     @_dl_channel.setter
@@ -339,8 +356,9 @@ class Cmw500WcdmaHandoverManager(Cmw500HandoverManagerBase):
         Args:
             channel: the channel of the signalling application.
         """
-        cmd = 'CONFigure:WCDMa:SIGN:RFSettings:CARRier:CHANnel:DL {}'.format(
-            channel)
+        cmd = "CONFigure:WCDMa:SIGN:RFSettings:CARRier:CHANnel:DL {}".format(
+            channel
+        )
         self.cmw.send_and_recv(cmd)
 
     def configure_incoming_handover_wcdma(self, band, channel):
@@ -366,12 +384,13 @@ class Cmw500WcdmaHandoverManager(Cmw500HandoverManagerBase):
             self._dl_channel = self._stored_channel
             self._band = self._stored_band
         else:
-            self.cmw.send_and_recv('CALL:WCDMA:SIGN:PSWitched:ACTion HANDover')
+            self.cmw.send_and_recv("CALL:WCDMA:SIGN:PSWitched:ACTion HANDover")
 
     def wait_for_handover(self):
         """Waits for an incoming handover to be completed."""
         self.wait_for_pswitched_state(
-            [cmw500.WCDMA_ATTACH_RESP, cmw500.WCDMA_CESTABLISHED_RESP])
+            [cmw500.WCDMA_ATTACH_RESP, cmw500.WCDMA_CESTABLISHED_RESP]
+        )
 
     def get_attached_states(self):
         """Gets a collection of valid attached states.

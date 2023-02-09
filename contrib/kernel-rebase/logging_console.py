@@ -17,26 +17,29 @@ import sys
 
 import sh
 
+
 # Python's default history path
-histfile = os.path.expanduser('~/.python_history')
+histfile = os.path.expanduser("~/.python_history")
+
 
 def save_history():
     """appends command history to the history file"""
     readline.set_history_length(10000)
     readline.write_history_file(histfile)
 
+
 class Logger:
     """Splits stdout into stdout and a file"""
 
     def __init__(self):
-        sh.mkdir('-p', 'log/triage/')
-        ts = datetime.now().strftime('%d-%m-%Y_%H-%M-%S')
-        filename = ts + '.log'
-        if os.path.exists('log/latest'):
-            sh.rm('log/latest')
-        sh.ln('-s', filename, 'log/latest')
+        sh.mkdir("-p", "log/triage/")
+        ts = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+        filename = ts + ".log"
+        if os.path.exists("log/latest"):
+            sh.rm("log/latest")
+        sh.ln("-s", filename, "log/latest")
         self.terminal = sys.stdout
-        self.log = open('log/' + filename, 'w')
+        self.log = open("log/" + filename, "w")
 
     def write(self, message):
         """Forwards write() call to self.terminal and self.log"""
@@ -44,11 +47,11 @@ class Logger:
         self.terminal.write(message)
 
         # prepend lines written to the log file with timestamps
-        ts = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+        ts = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         lines_ts = []
         for line in message.strip().splitlines():
-            lines_ts.append(f'[{ts}] {line}\n')
-        message_ts = ''.join(lines_ts)
+            lines_ts.append(f"[{ts}] {line}\n")
+        message_ts = "".join(lines_ts)
 
         self.log.write(message_ts)
 
@@ -57,6 +60,7 @@ class Logger:
 
         self.terminal.flush()
         self.log.flush()
+
 
 class LoggingConsole(code.InteractiveConsole):
     """code.InteractiveConsole that logs console output"""
@@ -70,7 +74,7 @@ class LoggingConsole(code.InteractiveConsole):
         except FileNotFoundError:
             pass
         readline.set_completer(rlcompleter.Completer(local).complete)
-        readline.parse_and_bind('tab: complete')
+        readline.parse_and_bind("tab: complete")
 
     def push(self, line):
         """temporarily subsistute a Logger() instance before forwarding the push() call

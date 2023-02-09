@@ -7,10 +7,12 @@
 import re
 import subprocess
 
+
 class Git:
     """A class which provides helpers for interacting with git."""
-    def __init__(self, path='.'):
-        self._cmd = ['git', '-C', path]
+
+    def __init__(self, path="."):
+        self._cmd = ["git", "-C", path]
 
     def _run(self, cmd, stdin=None):
         """Runs a git command with the appropriate working dir.
@@ -23,9 +25,13 @@ class Git:
             (returncode,stdout,stderr) from the command
         """
         run_cmd = self._cmd + cmd
-        ret = subprocess.run(run_cmd, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, input=stdin,
-                             encoding='UTF-8')
+        ret = subprocess.run(
+            run_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            input=stdin,
+            encoding="UTF-8",
+        )
         return (ret.returncode, ret.stdout, ret.stderr)
 
     @staticmethod
@@ -42,8 +48,8 @@ class Git:
         Returns:
             The unique remote name.
         """
-        name = re.sub(r'([a-z]*\://)|\W', '', remote, flags=re.I)
-        return f'fl-{name}'
+        name = re.sub(r"([a-z]*\://)|\W", "", remote, flags=re.I)
+        return f"fl-{name}"
 
     def fetch_refspec_from_remote(self, remote, refspec):
         """Fetches the given refspec from the given remote.
@@ -57,8 +63,8 @@ class Git:
         """
         remote_name = Git._generate_remote_name(remote)
         # Ignore failures from remote add since the remote might already exist.
-        self._run(['remote', 'add', remote_name, remote])
-        ret, *_ = self._run(['fetch', remote_name, refspec])
+        self._run(["remote", "add", remote_name, remote])
+        ret, *_ = self._run(["fetch", remote_name, refspec])
         return ret == 0
 
     def get_commits_in_range(self, start, end, include_merges=False):
@@ -72,17 +78,18 @@ class Git:
         Returns:
             True if successful, False otherwise.
         """
-        cmd = ['log', '--format=%H']
+        cmd = ["log", "--format=%H"]
         if not include_merges:
-            cmd += ['--no-merges']
-        ret, commits, _ = self._run(cmd + [f'{start}..{end}'])
+            cmd += ["--no-merges"]
+        ret, commits, _ = self._run(cmd + [f"{start}..{end}"])
         if ret != 0:
             return None
 
         return commits.splitlines()
 
-    def commit_in_local_branch(self, commit, common_ancestor=None,
-                               include_cherry_picks=False):
+    def commit_in_local_branch(
+        self, commit, common_ancestor=None, include_cherry_picks=False
+    ):
         """Look for the given commit in the local branch.
 
         Args:
@@ -93,7 +100,7 @@ class Git:
         Returns:
             True if the commit is found in the local branch, False otherwise.
         """
-        ret, *_ = self._run(['merge-base', '--is-ancestor', commit, 'HEAD'])
+        ret, *_ = self._run(["merge-base", "--is-ancestor", commit, "HEAD"])
         if ret == 0:
             return True
 
@@ -101,8 +108,9 @@ class Git:
             return False
 
         # Get the affected files to narrow down the grep below
-        ret, files, _ = self._run(['diff-tree', '--no-commit-id', '--name-only',
-                                   '-r', commit])
+        ret, files, _ = self._run(
+            ["diff-tree", "--no-commit-id", "--name-only", "-r", commit]
+        )
         if ret != 0:
             return False
 
@@ -112,10 +120,11 @@ class Git:
         # the grep below. We could of course just count all the commits, but
         # that would take a long time and probably [hand waving] take more time
         # overall than grepping a random file from the commit.
-        lru = ('', -1)
+        lru = ("", -1)
         for f in files.splitlines():
-            ret, changes, _ = self._run(['log', '-10', '--format=%ct', commit,
-                                         '--', f])
+            ret, changes, _ = self._run(
+                ["log", "-10", "--format=%ct", commit, "--", f]
+            )
             if ret != 0 or not changes:
                 continue
 
@@ -123,12 +132,16 @@ class Git:
             if lru[1] == -1 or oldest < lru[1]:
                 lru = (f, oldest)
 
-        cmd = ['log', '--extended-regexp', '--grep',
-               f'(cherry.picked from( commit)? {commit})']
+        cmd = [
+            "log",
+            "--extended-regexp",
+            "--grep",
+            f"(cherry.picked from( commit)? {commit})",
+        ]
         if common_ancestor:
-            cmd += [f'{common_ancestor}..']
+            cmd += [f"{common_ancestor}.."]
         if lru[1] != -1:
-            cmd += ['--', lru[0]]
+            cmd += ["--", lru[0]]
         ret, commits, _ = self._run(cmd)
         if ret == 0 and commits:
             return True
@@ -146,22 +159,22 @@ class Git:
             (ret, skipped) ret will be True on success, skipped will be True if
             the patch is skipped.
         """
-        ret, _, err = self._run(['cherry-pick', '-s', '-x', commit])
+        ret, _, err = self._run(["cherry-pick", "-s", "-x", commit])
         if ret == 0:
             return (True, False)
 
         if not skip_empty:
             return (False, False)
 
-        if 'The previous cherry-pick is now empty' not in err:
+        if "The previous cherry-pick is now empty" not in err:
             return (False, False)
 
         # Double check we don't have any local changes
-        ret, files, _ = self._run(['status', '-s', '-uno'])
-        if ret != 0 or files != '':
+        ret, files, _ = self._run(["status", "-s", "-uno"])
+        if ret != 0 or files != "":
             return (False, False)
 
-        ret, *_ = self._run(['cherry-pick', '--skip'])
+        ret, *_ = self._run(["cherry-pick", "--skip"])
         return (ret == 0, ret == 0)
 
     def get_conflicting_files(self):
@@ -170,19 +183,19 @@ class Git:
         Returns:
             A list of files with conflicts.
         """
-        ret, files, _ = self._run(['status', '-s'])
+        ret, files, _ = self._run(["status", "-s"])
         if ret != 0:
             return []
 
         conflicts = []
         for f in files.splitlines():
-            if not f.startswith('UU'):
+            if not f.startswith("UU"):
                 continue
-            conflicts.append(f.split(' ')[1])
+            conflicts.append(f.split(" ")[1])
 
         return conflicts
 
-    def get_commit_message(self, commit='HEAD'):
+    def get_commit_message(self, commit="HEAD"):
         """Returns the commit message for the given commit.
 
         Args:
@@ -192,7 +205,7 @@ class Git:
             (ret, message) ret will be True on success, message will have the
             commit message.
         """
-        ret, message, _ = self._run(['show', '--quiet', '--format=%B', commit])
+        ret, message, _ = self._run(["show", "--quiet", "--format=%B", commit])
         return (ret == 0, message)
 
     def set_commit_message(self, message):
@@ -204,10 +217,10 @@ class Git:
         Returns:
             True if successful, False otherwise.
         """
-        ret, *_ = self._run(['commit', '--amend', '-F', '-'], stdin=message)
+        ret, *_ = self._run(["commit", "--amend", "-F", "-"], stdin=message)
         return (ret == 0, message)
 
-    def generate_change_id(self, commit='HEAD'):
+    def generate_change_id(self, commit="HEAD"):
         """Generates the Change-Id value for the commit at HEAD
 
         Args:
@@ -217,31 +230,32 @@ class Git:
             (ret, change_id) ret will be True on success, change_id is the
             Change-Id for the commit at HEAD.
         """
-        obj = ''
+        obj = ""
 
-        ret, stdout, _ = self._run(['write-tree'])
+        ret, stdout, _ = self._run(["write-tree"])
         if ret == 0 and stdout:
-            obj += f'tree {stdout}'
+            obj += f"tree {stdout}"
 
-        ret, stdout, _ = self._run(['rev-parse', f'{commit}^0'])
+        ret, stdout, _ = self._run(["rev-parse", f"{commit}^0"])
         if ret == 0 and stdout:
-            obj += f'parent {stdout}'
+            obj += f"parent {stdout}"
 
-        ret, stdout, _ = self._run(['var', 'GIT_AUTHOR_IDENT'])
+        ret, stdout, _ = self._run(["var", "GIT_AUTHOR_IDENT"])
         if ret == 0 and stdout:
-            obj += f'author {stdout}'
+            obj += f"author {stdout}"
 
-        ret, stdout, _ = self._run(['var', 'GIT_COMMITTER_IDENT'])
+        ret, stdout, _ = self._run(["var", "GIT_COMMITTER_IDENT"])
         if ret == 0 and stdout:
-            obj += f'committer {stdout}'
+            obj += f"committer {stdout}"
 
         ret, commit_msg = self.get_commit_message(commit)
         if ret:
-            obj += f'\n{commit_msg}'
+            obj += f"\n{commit_msg}"
 
-        ret, stdout, _ = self._run(['hash-object', '-t', 'commit', '--stdin'],
-                                   stdin=obj)
-        return (ret == 0, f'I{stdout.strip()}')
+        ret, stdout, _ = self._run(
+            ["hash-object", "-t", "commit", "--stdin"], stdin=obj
+        )
+        return (ret == 0, f"I{stdout.strip()}")
 
     def show(self, commit):
         """Returns the 'git show' output for the given commit.
@@ -252,7 +266,7 @@ class Git:
         Returns:
             A string with the 'git show' output.
         """
-        _, output, _ = self._run(['show', commit])
+        _, output, _ = self._run(["show", commit])
         return output
 
     def commit_diff(self, commit, path):
@@ -265,12 +279,12 @@ class Git:
         Returns:
             The diff introduced in commit.
         """
-        ret, output, _ = self._run(['diff-tree', '-p', commit, '--', path])
+        ret, output, _ = self._run(["diff-tree", "-p", commit, "--", path])
         if ret != 0:
-            return ''
+            return ""
 
         # Split out the header goop in the first 5 lines
-        return '\n'.join(output.splitlines()[5:])
+        return "\n".join(output.splitlines()[5:])
 
     def blame(self, path, refspec=None):
         """Returns the 'git blame' output for the given path at refspec.
@@ -282,9 +296,9 @@ class Git:
         Returns:
             A string with the 'git blame' output.
         """
-        cmd = ['blame']
+        cmd = ["blame"]
         if refspec:
             cmd += [refspec]
-        cmd += ['--', path]
+        cmd += ["--", path]
         _, output, _ = self._run(cmd)
         return output

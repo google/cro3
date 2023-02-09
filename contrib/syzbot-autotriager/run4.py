@@ -13,9 +13,11 @@ import base64
 import pickle
 import sys
 
-import config
 import simpledb
+
+import config
 import utils
+
 
 REPORT_TEMPLATE = """
 Upstream commit is %s ("%s").
@@ -33,6 +35,7 @@ class AutoTriager(object):
     AutoTriager correlates information from issuetracker and
     syzweb to determine fixes for issuetracker bugs.
     """
+
     def __init__(self):
         self._use_mst = False
         self.it_db = simpledb.SimpleDB(config.ISSUETRACKER_DB)
@@ -48,26 +51,26 @@ class AutoTriager(object):
         )
 
         try:
-            self.triaged_bugs = open('triaged_bugs').readlines()
+            self.triaged_bugs = open("triaged_bugs").readlines()
             self.triaged_bugs = [i.strip() for i in self.triaged_bugs]
         except IOError as _:
             self.triaged_bugs = []
 
         try:
-            contents = open('blacklistfns').readlines()
-            contents = [i for i in contents if not i.startswith('#')]
+            contents = open("blacklistfns").readlines()
+            contents = [i for i in contents if not i.startswith("#")]
             self.blacklistfns = set([i.strip() for i in contents])
         except IOError as _:
             self.blacklistfns = []
 
         try:
-            contents = open('known_mismatch', 'r').readlines()
+            contents = open("known_mismatch", "r").readlines()
             contents = [i.strip().split() for i in contents]
-            self.known_mismatch = {i[0]:i[1] for i in contents}
+            self.known_mismatch = {i[0]: i[1] for i in contents}
         except IOError as _:
             self.known_mismatch = {}
 
-        print('[+] Autotriager initialized.')
+        print("[+] Autotriager initialized.")
 
     def use_mst(self):
         """Set Autotriager to use stacktrace matching."""
@@ -79,7 +82,7 @@ class AutoTriager(object):
 
     def is_mismatch(self, bugid, url):
         """Returns true if |url| is known to not be the fix for |bugid|."""
-        return self.known_mismatch.get(bugid, '') == url
+        return self.known_mismatch.get(bugid, "") == url
 
     def generate_report(self, cid, cmsg, url):
         """Generate a report with commit information.
@@ -93,19 +96,19 @@ class AutoTriager(object):
                 patch_status[i] = 1
                 continue
 
-        VERSIONS = ['v4.14', 'v4.4', 'v3.18', 'v3.14', 'v3.10', 'v3.8']
+        VERSIONS = ["v4.14", "v4.4", "v3.18", "v3.14", "v3.10", "v3.8"]
         present = [VERSIONS[i] for i, j in enumerate(patch_status) if j]
         not_present = [VERSIONS[i] for i, j in enumerate(patch_status) if not j]
 
-        present = ','.join(present)
-        not_present = ','.join(not_present)
+        present = ",".join(present)
+        not_present = ",".join(not_present)
 
         if present:
-            present = 'This patch is present in ' + present
+            present = "This patch is present in " + present
         if not_present:
-            not_present = 'This patch is not present in ' + not_present
+            not_present = "This patch is not present in " + not_present
 
-        url = 'https://syzkaller.appspot.com' + url
+        url = "https://syzkaller.appspot.com" + url
         report = REPORT_TEMPLATE % (cid[:12], cmsg, present, not_present, url)
 
         utils.print_report(report)
@@ -130,7 +133,7 @@ class AutoTriager(object):
                 if fn in syz_st:
                     count += 1
             if count == len(itbug_st):
-                print('Match found using :-')
+                print("Match found using :-")
                 print(itbug_st)
                 return True
         return False
@@ -138,12 +141,12 @@ class AutoTriager(object):
     def add_to_triaged(self, bugid):
         """Add |bugid| to the list of triaged bugs."""
         self.triaged_bugs.append(bugid)
-        open('triaged_bugs', 'a').write(bugid+'\n')
+        open("triaged_bugs", "a").write(bugid + "\n")
 
     def add_mismatch(self, bugid, syzurl):
         """Avoid false positives in the future with |bugid| and |syzurl|."""
         self.known_mismatch[bugid] = syzurl
-        open('known_mismatch', 'a').write('%s %s\n' %(bugid, syzurl))
+        open("known_mismatch", "a").write("%s %s\n" % (bugid, syzurl))
 
     def _triage(self, title):
         """Correlate issuetracker against syzweb for a bug |title|."""
@@ -152,52 +155,58 @@ class AutoTriager(object):
 
         for itbug in it_bugs:
             for syzbug in syz_bugs:
-                if not self.matchstacktrace(itbug['stacktrace'],
-                                            syzbug['stacktrace']):
+                if not self.matchstacktrace(
+                    itbug["stacktrace"], syzbug["stacktrace"]
+                ):
                     continue
 
-                if self.is_triaged(itbug['bugid']):
+                if self.is_triaged(itbug["bugid"]):
                     continue
 
-                if self.is_mismatch(itbug['bugid'], syzbug['url']):
+                if self.is_mismatch(itbug["bugid"], syzbug["url"]):
                     continue
 
-                utils.hit_summary(itbug['bugid'], syzbug['url'],
-                                  syzbug['commitmsg'])
+                utils.hit_summary(
+                    itbug["bugid"], syzbug["url"], syzbug["commitmsg"]
+                )
 
-                if utils.interact('Generate report? [y/N] - '):
-                    cid = self.linux_db.find_one(title=syzbug['commitmsg'])
-                    cid = cid['commitid'] if cid else ''
-                    self.generate_report(cid, syzbug['commitmsg'],
-                                         syzbug['url'])
-                    self.add_to_triaged(itbug['bugid'])
+                if utils.interact("Generate report? [y/N] - "):
+                    cid = self.linux_db.find_one(title=syzbug["commitmsg"])
+                    cid = cid["commitid"] if cid else ""
+                    self.generate_report(
+                        cid, syzbug["commitmsg"], syzbug["url"]
+                    )
+                    self.add_to_triaged(itbug["bugid"])
 
                 else:
-                    self.add_mismatch(itbug['bugid'], syzbug['url'])
+                    self.add_mismatch(itbug["bugid"], syzbug["url"])
 
                 utils.endbanner()
 
     def triage(self):
         """Start autotriage using local caches."""
         common_titles = set()
-        for it_bug in self.it_db.distinct('title'):
-            it_title = it_bug['title']
+        for it_bug in self.it_db.distinct("title"):
+            it_title = it_bug["title"]
             for match_syzbug in self.syz_db.find(title=it_title):
-                common_titles.add(match_syzbug['title'])
-        print('[+] %d common titles found' % (len(common_titles)))
+                common_titles.add(match_syzbug["title"])
+        print("[+] %d common titles found" % (len(common_titles)))
 
         for title in common_titles:
             self._triage(title)
-        print('[+] Autotriager done.')
+        print("[+] Autotriager done.")
 
 
 def get_parser():
     """Create and return an ArgumentParser instance."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mst', action='store_true',
-                        help='match stacktraces to determine if '
-                             'the issuetracker bug and syzweb fix '
-                             'match')
+    parser.add_argument(
+        "--mst",
+        action="store_true",
+        help="match stacktraces to determine if "
+        "the issuetracker bug and syzweb fix "
+        "match",
+    )
     return parser
 
 
@@ -214,5 +223,5 @@ def main(argv):
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

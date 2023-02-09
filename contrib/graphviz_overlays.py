@@ -36,6 +36,7 @@ def dot_repr_str(str_to_repr):
 
 class Digraph:
     """Class representing a directed graph structure."""
+
     def __init__(self, stylesheet=None):
         self.nodes = {}
         self.edges = []
@@ -75,7 +76,6 @@ class Digraph:
 
         return g
 
-
     def add_node(self, name, subgraph=None):
         """Add a node to the graph, or do nothing if it already exists.
 
@@ -86,7 +86,7 @@ class Digraph:
         if name in self.nodes:
             # Node already added
             return
-        nid = 'N{}'.format(len(self.nodes) + 1)
+        nid = "N{}".format(len(self.nodes) + 1)
         self.nodes[name] = nid
         if subgraph:
             self.subgraph_set(subgraph, name)
@@ -99,7 +99,7 @@ class Digraph:
             node_name: The node.
         """
         if name not in self.subgraphs:
-            cid = 'cluster_{}'.format(len(self.subgraphs) + 1)
+            cid = "cluster_{}".format(len(self.subgraphs) + 1)
             self.subgraphs[name] = cid
         else:
             cid = self.subgraphs[name]
@@ -120,25 +120,29 @@ class Digraph:
         Args:
             output_file: The file to write to.
         """
-        output_file.write('digraph {\n')
+        output_file.write("digraph {\n")
         if self.stylesheet:
             output_file.write(
-                'graph [stylesheet={}]\n'.format(dot_repr_str(self.stylesheet)))
-        output_file.write('node [shape=box, style=rounded]\n')
+                "graph [stylesheet={}]\n".format(dot_repr_str(self.stylesheet))
+            )
+        output_file.write("node [shape=box, style=rounded]\n")
         for node_label, node_id in self.nodes.items():
-            output_file.write('{} [label={}]\n'.format(
-                node_id, dot_repr_str(node_label)))
+            output_file.write(
+                "{} [label={}]\n".format(node_id, dot_repr_str(node_label))
+            )
         for subgraph_label, subgraph_id in self.subgraphs.items():
-            output_file.write('subgraph {}'.format(subgraph_id))
-            output_file.write(' {\n')
-            output_file.write('label = {}\n'.format(
-                dot_repr_str(subgraph_label)))
-            output_file.write('{}\n'.format(
-                '; '.join(self.subgraph_items[subgraph_id])))
-            output_file.write('}\n')
+            output_file.write("subgraph {}".format(subgraph_id))
+            output_file.write(" {\n")
+            output_file.write(
+                "label = {}\n".format(dot_repr_str(subgraph_label))
+            )
+            output_file.write(
+                "{}\n".format("; ".join(self.subgraph_items[subgraph_id]))
+            )
+            output_file.write("}\n")
         for from_nid, to_nid in self.edges:
-            output_file.write('{} -> {}\n'.format(from_nid, to_nid))
-        output_file.write('}\n')
+            output_file.write("{} -> {}\n".format(from_nid, to_nid))
+        output_file.write("}\n")
 
 
 def add_profiles(graph, repo_name, path, basedir=None):
@@ -159,28 +163,29 @@ def add_profiles(graph, repo_name, path, basedir=None):
     for ent in path.iterdir():
         if ent.is_dir():
             yield from add_profiles(graph, repo_name, ent, basedir=basedir)
-        elif ent.name == 'parent':
-            pname = '{}:{}'.format(repo_name, path.relative_to(basedir))
+        elif ent.name == "parent":
+            pname = "{}:{}".format(repo_name, path.relative_to(basedir))
             graph.add_node(pname)
             yield pname
-            with open(ent, 'r') as f:
+            with open(ent, "r") as f:
                 for line in f:
-                    line, _, _ = line.partition('#')
+                    line, _, _ = line.partition("#")
                     line = line.strip()
                     if not line:
                         continue
-                    if ':' in line:
+                    if ":" in line:
                         cname = line
                     else:
-                        cname = '{}:{}'.format(
+                        cname = "{}:{}".format(
                             repo_name,
-                            (path / line).resolve().relative_to(basedir))
+                            (path / line).resolve().relative_to(basedir),
+                        )
                     graph.add_node(cname)
                     graph.add_edge(pname, cname)
-                    if cname.startswith('{}:'.format(repo_name)):
+                    if cname.startswith("{}:".format(repo_name)):
                         yield cname
-        elif ent.name in ('package.use', 'make.defaults'):
-            pname = '{}:{}'.format(repo_name, path.relative_to(basedir))
+        elif ent.name in ("package.use", "make.defaults"):
+            pname = "{}:{}".format(repo_name, path.relative_to(basedir))
             graph.add_node(pname)
             yield pname
 
@@ -192,22 +197,22 @@ def add_overlay(path, graph):
         path: The path to the overlay.
         graph: The graph to add to.
     """
-    with open(path / 'metadata' / 'layout.conf') as f:
+    with open(path / "metadata" / "layout.conf") as f:
         for line in f:
-            k, part, v = line.partition('=')
+            k, part, v = line.partition("=")
             if not part:
                 continue
-            if k.strip() == 'repo-name':
+            if k.strip() == "repo-name":
                 repo_name = v.strip()
                 break
         else:
             repo_name = path.name
     subgraph = repo_name
-    if path.parent.name == 'private-overlays':
-        subgraph = 'Private Overlays'
-    elif path.parent.name == 'overlays':
-        subgraph = 'Public Overlays'
-    for profile in add_profiles(graph, repo_name, path / 'profiles'):
+    if path.parent.name == "private-overlays":
+        subgraph = "Private Overlays"
+    elif path.parent.name == "overlays":
+        subgraph = "Public Overlays"
+    for profile in add_profiles(graph, repo_name, path / "profiles"):
         graph.subgraph_set(subgraph, profile)
 
 
@@ -219,7 +224,7 @@ def find_overlays(path, max_depth=10, skip_dirs=()):
         max_depth: Maximum recursion depth.
         skip_dirs: Optional set of paths to skip.
     """
-    if path.name == '.git':
+    if path.name == ".git":
         return
     if max_depth == 0:
         return
@@ -227,7 +232,7 @@ def find_overlays(path, max_depth=10, skip_dirs=()):
         if d in skip_dirs:
             continue
         if d.is_dir():
-            if (d / 'metadata' / 'layout.conf').is_file():
+            if (d / "metadata" / "layout.conf").is_file():
                 yield d
             else:
                 yield from find_overlays(d, max_depth=max_depth - 1)
@@ -235,28 +240,32 @@ def find_overlays(path, max_depth=10, skip_dirs=()):
 
 def get_default_src_dir():
     """Find the path to ~/trunk/src."""
-    home = pathlib.Path(os.getenv('HOME'))
-    for path in (home / 'trunk' / 'src',
-                 home / 'chromiumos' / 'src',
-                 pathlib.Path('mnt') / 'host' / 'source' / 'src'):
+    home = pathlib.Path(os.getenv("HOME"))
+    for path in (
+        home / "trunk" / "src",
+        home / "chromiumos" / "src",
+        pathlib.Path("mnt") / "host" / "source" / "src",
+    ):
         if path.is_dir():
             return path
     raise OSError(
-        'Cannot find path to ~/trunk/src.  '
-        'You may need to manually specify --src-dir.')
+        "Cannot find path to ~/trunk/src.  "
+        "You may need to manually specify --src-dir."
+    )
 
 
 def main():
     """The main function."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--src-dir', type=pathlib.Path)
-    parser.add_argument('-o', '--output',
-                        type=argparse.FileType('w'), default=sys.stdout)
-    parser.add_argument('-r', '--roots', nargs='*')
+    parser.add_argument("--src-dir", type=pathlib.Path)
     parser.add_argument(
-        '--stylesheet',
+        "-o", "--output", type=argparse.FileType("w"), default=sys.stdout
+    )
+    parser.add_argument("-r", "--roots", nargs="*")
+    parser.add_argument(
+        "--stylesheet",
         # pylint: disable=line-too-long
-        default='https://g3doc.corp.google.com/frameworks/g3doc/includes/graphviz-style.css',
+        default="https://g3doc.corp.google.com/frameworks/g3doc/includes/graphviz-style.css",
         # pylint: enable=line-too-long
     )
     args = parser.parse_args()
@@ -267,11 +276,14 @@ def main():
     src_dir = src_dir.resolve()
 
     g = Digraph(stylesheet=args.stylesheet)
-    for d in find_overlays(src_dir, skip_dirs=(src_dir / 'platform',
-                                               src_dir / 'platform2')):
-        if not (d / 'profiles').is_dir():
-            print('WARNING: skipping {} due to missing profiles dir'.format(d),
-                  file=sys.stderr)
+    for d in find_overlays(
+        src_dir, skip_dirs=(src_dir / "platform", src_dir / "platform2")
+    ):
+        if not (d / "profiles").is_dir():
+            print(
+                "WARNING: skipping {} due to missing profiles dir".format(d),
+                file=sys.stderr,
+            )
             continue
         add_overlay(d, g)
 
@@ -280,5 +292,5 @@ def main():
     g.to_dot(args.output)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

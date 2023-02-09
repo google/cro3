@@ -5,17 +5,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Find missing stable and backported mainline fix patches in chromeos.
-
-   isort:skip_file
-"""
-
-import MySQLdb # pylint: disable=import-error
+"""Find missing stable and backported mainline fix patches in chromeos."""
 
 import common
+import MySQLdb  # pylint: disable=import-error
 
 
-DEFAULT_MERGED_REASON = 'Fix merged into linux chrome'
+DEFAULT_MERGED_REASON = "Fix merged into linux chrome"
 
 
 def upstream_fixes_for_shas(db, upstream_shas):
@@ -24,8 +20,8 @@ def upstream_fixes_for_shas(db, upstream_shas):
     TODO(*): remove this after build_ordered_fixes_table_map moved to SQL CTE
     Note: above todo is blocked by migration to MySQL 5.7, once upgraded then we can switch
     """
-    upstream_shas = ["\'" + sha + "\'" for sha in upstream_shas]
-    shas = ', '.join(upstream_shas)
+    upstream_shas = ["'" + sha + "'" for sha in upstream_shas]
+    shas = ", ".join(upstream_shas)
     # format string here since we are inserting n elements
     q = f"""SELECT fixedby_upstream_sha
             FROM upstream_fixes
@@ -45,7 +41,7 @@ def get_fixes_table_primary_key(db, fixes_table, fix_change_id):
     with db.cursor(MySQLdb.cursors.DictCursor) as c:
         c.execute(q, [fix_change_id])
         row = c.fetchone()
-        return (row['kernel_sha'], row['fixedby_upstream_sha'])
+        return (row["kernel_sha"], row["fixedby_upstream_sha"])
 
 
 def get_fix_status_and_changeid(db, fixes_tables, sha_list, strict):
@@ -60,15 +56,15 @@ def get_fix_status_and_changeid(db, fixes_tables, sha_list, strict):
                FROM {fixes_table}
                WHERE """
 
-    joined_list = '("'+'","'.join(sha_list)+'")'
+    joined_list = '("' + '","'.join(sha_list) + '")'
 
-    pre_q += ' kernel_sha IN  %s' % joined_list
-    pre_q += ' AND' if strict else ' OR'
-    pre_q += ' fixedby_upstream_sha IN %s' % joined_list
+    pre_q += " kernel_sha IN  %s" % joined_list
+    pre_q += " AND" if strict else " OR"
+    pre_q += " fixedby_upstream_sha IN %s" % joined_list
 
     q = pre_q.format(fixes_table=fixes_tables.pop(0))
     while fixes_tables:
-        q += ' UNION '
+        q += " UNION "
         q += pre_q.format(fixes_table=fixes_tables.pop(0))
 
     with db.cursor(MySQLdb.cursors.DictCursor) as c:
@@ -76,7 +72,9 @@ def get_fix_status_and_changeid(db, fixes_tables, sha_list, strict):
         return c.fetchall()
 
 
-def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha, reason=None):
+def update_change_abandoned(
+    db, fixes_table, kernel_sha, fixedby_upstream_sha, reason=None
+):
     """Updates fixes_table unique fix row to indicate fix cl has been abandoned.
 
     Function will only abandon rows in the table which have status OPEN or CONFLICT.
@@ -93,11 +91,15 @@ def update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha, r
     db.commit()
 
 
-def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha, reason=None):
+def update_change_restored(
+    db, fixes_table, kernel_sha, fixedby_upstream_sha, reason=None
+):
     """Updates fixes_table unique fix row to indicate fix cl has been reopened."""
-    rows = get_fix_status_and_changeid(db, [fixes_table], [kernel_sha, fixedby_upstream_sha], True)
+    rows = get_fix_status_and_changeid(
+        db, [fixes_table], [kernel_sha, fixedby_upstream_sha], True
+    )
     row = rows[0]
-    status = 'OPEN' if row['fix_change_id'] else row['initial_status']
+    status = "OPEN" if row["fix_change_id"] else row["initial_status"]
     q = f"""UPDATE {fixes_table}
             SET status = %s, close_time = %s, reason = %s
             WHERE kernel_sha = %s
@@ -109,8 +111,13 @@ def update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha, re
     db.commit()
 
 
-def update_change_merged(db, fixes_table, kernel_sha, fixedby_upstream_sha,
-                            reason=DEFAULT_MERGED_REASON):
+def update_change_merged(
+    db,
+    fixes_table,
+    kernel_sha,
+    fixedby_upstream_sha,
+    reason=DEFAULT_MERGED_REASON,
+):
     """Updates fixes_table unique fix row to indicate fix cl has been merged."""
     q = f"""UPDATE {fixes_table}
             SET status = 'MERGED', close_time = %s, reason = %s
@@ -129,20 +136,28 @@ def update_change_status(db, fixes_table, fix_change_id, status):
     This is done to synchronize CL's that are
     abandoned/restored on Gerrit with our database state
     """
-    kernel_sha, fixedby_upstream_sha = get_fixes_table_primary_key(db, fixes_table, fix_change_id)
+    kernel_sha, fixedby_upstream_sha = get_fixes_table_primary_key(
+        db, fixes_table, fix_change_id
+    )
     if status == common.Status.OPEN:
-        update_change_restored(db, fixes_table, kernel_sha, fixedby_upstream_sha)
+        update_change_restored(
+            db, fixes_table, kernel_sha, fixedby_upstream_sha
+        )
     elif status == common.Status.ABANDONED:
-        update_change_abandoned(db, fixes_table, kernel_sha, fixedby_upstream_sha)
+        update_change_abandoned(
+            db, fixes_table, kernel_sha, fixedby_upstream_sha
+        )
     elif status == common.Status.MERGED:
         update_change_merged(db, fixes_table, kernel_sha, fixedby_upstream_sha)
     else:
-        raise ValueError('Change should be either OPEN, ABANDONED, or MERGED')
+        raise ValueError("Change should be either OPEN, ABANDONED, or MERGED")
 
 
-def update_conflict_to_open(db, fixes_table, kernel_sha, fixedby_upstream_sha, fix_change_id):
+def update_conflict_to_open(
+    db, fixes_table, kernel_sha, fixedby_upstream_sha, fix_change_id
+):
     """Updates fixes_table to represent an open change that previously resulted in conflict."""
-    reason = 'Patch applies cleanly after originally conflicting.'
+    reason = "Patch applies cleanly after originally conflicting."
     q = f"""UPDATE {fixes_table}
             SET status = 'OPEN', fix_change_id = %s, reason = %s
             WHERE kernel_sha = %s

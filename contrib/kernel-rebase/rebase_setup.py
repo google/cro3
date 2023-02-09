@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 # Copyright 2021 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -14,10 +13,15 @@ Necessary for automatic rebase (rebase.py)
 
 import os
 import sys
-import sh
-import config
+
+from githelpers import add_remote
+from githelpers import fetch
+from githelpers import has_remote
 from rebase_config import rebase_repo
-from githelpers import fetch, has_remote, add_remote
+import sh
+
+import config
+
 
 no_repo_msg = """No kernel-upstream repository!
 
@@ -37,35 +41,35 @@ if not os.path.exists(rebase_repo):
     print(no_repo_msg)
     sys.exit(1)
 
-if not has_remote(rebase_repo, 'cros'):
+if not has_remote(rebase_repo, "cros"):
     url = config.chromeos_repo
-    add_remote(rebase_repo, 'cros', url)
-    print('Added cros remote:', url)
+    add_remote(rebase_repo, "cros", url)
+    print("Added cros remote:", url)
 else:
-    print('cros remote ok')
+    print("cros remote ok")
 
-if not has_remote(rebase_repo, 'upstream'):
+if not has_remote(rebase_repo, "upstream"):
     url = config.upstream_repo
-    add_remote(rebase_repo, 'upstream', url)
-    print('Added upstream remote: ', url)
+    add_remote(rebase_repo, "upstream", url)
+    print("Added upstream remote: ", url)
 else:
-    print('upstream remote ok')
+    print("upstream remote ok")
 
-print('Fetching cros...')
-fetch(rebase_repo, 'cros')
+print("Fetching cros...")
+fetch(rebase_repo, "cros")
 
-print('Fetching upstream...')
-fetch(rebase_repo, 'upstream')
+print("Fetching upstream...")
+fetch(rebase_repo, "upstream")
 
-print('setting git config...')
+print("setting git config...")
 with sh.pushd(rebase_repo):
-    print('rerere.enabled = false')
-    sh.git('config', 'rerere.enabled', 'false')
-    print('rerere.autoupdate = false')
-    sh.git('config', 'rerere.autoupdate', 'false')
-    print('merge.renameLimit = 15345')
-    sh.git('config', 'merge.renameLimit', '15345')
-    print('diff.renameLimit = 15345')
-    sh.git('config', 'diff.renameLimit', '15345')
+    print("rerere.enabled = false")
+    sh.git("config", "rerere.enabled", "false")
+    print("rerere.autoupdate = false")
+    sh.git("config", "rerere.autoupdate", "false")
+    print("merge.renameLimit = 15345")
+    sh.git("config", "merge.renameLimit", "15345")
+    print("diff.renameLimit = 15345")
+    sh.git("config", "diff.renameLimit", "15345")
 
-print('Rebase setup OK')
+print("Rebase setup OK")

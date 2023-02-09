@@ -1,6 +1,7 @@
 # Copyright 2023 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Provides handover functionality."""
 
 from enum import Enum
@@ -8,8 +9,9 @@ from enum import Enum
 
 class CellularTechnology(Enum):
     """A supported cellular technology to handover to/from."""
-    LTE = 'LTE'
-    WCDMA = 'WCDMA'
+
+    LTE = "LTE"
+    WCDMA = "WCDMA"
 
 
 class AbstractHandoverSimulator:

@@ -37,7 +37,8 @@ import util
 
 # extract_numerics matches numeric parts of a Linux version as separate elements
 # For example, "v5.4" matches "5" and "4", and "v5.4.12" matches "5", "4", and "12"
-extract_numerics = re.compile(r'(?:v)?([0-9]+)\.([0-9]+)(?:\.([0-9]+))?\s*')
+extract_numerics = re.compile(r"(?:v)?([0-9]+)\.([0-9]+)(?:\.([0-9]+))?\s*")
+
 
 def branch_order(branch):
     """Calculate numeric order of tag or branch.
@@ -60,7 +61,8 @@ def branch_order(branch):
 
 # version_baseline matches the numeric part of the major Linux version as a string
 # For example, "v5.4.15" and "v5.4-rc3" both match "5.4"
-version_baseline = re.compile(r'(?:v)?([0-9]+\.[0-9]+(?:\.[0-9]+)?)\s*')
+version_baseline = re.compile(r"(?:v)?([0-9]+\.[0-9]+(?:\.[0-9]+)?)\s*")
+
 
 def version_list(branches, start, end):
     """Return list of stable release branches between 'start' and 'end'.
@@ -91,8 +93,13 @@ def version_list(branches, start, end):
 
     min_order = branch_order(start)
     max_order = branch_order(end) + offset
-    return list(filter(lambda x: branch_order(x) >= min_order and branch_order(x) < max_order,
-                       branches))
+    return list(
+        filter(
+            lambda x: branch_order(x) >= min_order
+            and branch_order(x) < max_order,
+            branches,
+        )
+    )
 
 
 def mysort(elem):
@@ -101,7 +108,9 @@ def mysort(elem):
     return branch_order(branch)
 
 
-def report_integration_status_sha(handler, rc_handler, branch, branch_name, sha):
+def report_integration_status_sha(
+    handler, rc_handler, branch, branch_name, sha
+):
     """Report integration status for given repository, branch, and sha"""
 
     if rc_handler:
@@ -115,31 +124,36 @@ def report_integration_status_sha(handler, rc_handler, branch, branch_name, sha)
 
     status = handler.cherrypick_status(sha, branch=branch)
     if status == common.Status.CONFLICT:
-        disposition = ' (queued)' if rc_status == common.Status.MERGED \
-                                  else ' (conflicts - backport needed)'
+        disposition = (
+            " (queued)"
+            if rc_status == common.Status.MERGED
+            else " (conflicts - backport needed)"
+        )
     elif status == common.Status.MERGED:
-        disposition = ' (already applied)'
+        disposition = " (already applied)"
     else:
-        disposition = ' (queued)' if rc_status == common.Status.MERGED else ''
+        disposition = " (queued)" if rc_status == common.Status.MERGED else ""
 
-    print('      %s%s' % (branch_name, disposition))
+    print("      %s%s" % (branch_name, disposition))
 
-def report_integration_status_branch(db, metadata, branch, conflicts,
-                                     chromium, handled_shas):
+
+def report_integration_status_branch(
+    db, metadata, branch, conflicts, chromium, handled_shas
+):
     """Report integration status for list of open patches in given repository and branch"""
 
     if not chromium:
-        table = 'linux_stable'
+        table = "linux_stable"
         handler = git_interface.commitHandler(common.Kernel.linux_stable)
         rc_handler = git_interface.commitHandler(common.Kernel.linux_stable_rc)
     else:
-        table = 'linux_chrome'
+        table = "linux_chrome"
         handler = git_interface.commitHandler(common.Kernel.linux_chrome)
         rc_handler = None
 
     c = db.cursor()
 
-    status = 'CONFLICT' if conflicts else 'OPEN'
+    status = "CONFLICT" if conflicts else "OPEN"
 
     # Walk through all fixes table entries with given status
     chosen_table = metadata.kernel_fixes_table
@@ -152,7 +166,12 @@ def report_integration_status_branch(db, metadata, branch, conflicts,
             WHERE ct.status = %s
             AND ct.branch = %s"""
     c.execute(q, [status, branch])
-    for fixedby_sha, fixedby_description, fixes_sha, fixes_description in c.fetchall():
+    for (
+        fixedby_sha,
+        fixedby_description,
+        fixes_sha,
+        fixes_description,
+    ) in c.fetchall():
         # If we already handled a SHA while running this command while examining
         # another branch, we don't need to handle it again.
         if fixedby_sha in handled_shas:
@@ -163,13 +182,13 @@ def report_integration_status_branch(db, metadata, branch, conflicts,
 
         changeid, _ = missing.get_change_id(db, branch, fixedby_sha)
         if changeid:
-            print('  CL:%s' % changeid)
+            print("  CL:%s" % changeid)
 
         integrated = git_interface.get_integrated_tag(fixedby_sha)
         end = integrated
         if not integrated:
-            integrated = 'ToT'
-        print('  upstream: %s' % integrated)
+            integrated = "ToT"
+        print("  upstream: %s" % integrated)
         print('    Fixes: %s ("%s")' % (fixes_sha, fixes_description))
 
         q = f"""SELECT sha, branch
@@ -182,28 +201,38 @@ def report_integration_status_branch(db, metadata, branch, conflicts,
             if fix_branch in metadata.branches:
                 affected_branches += [fix_branch]
                 branch_name = metadata.get_kernel_branch(fix_branch)
-                print('      in %s: %s' % (branch_name, fix_sha))
+                print("      in %s: %s" % (branch_name, fix_sha))
 
         start = git_interface.get_integrated_tag(fixes_sha)
         if start:
-            print('      upstream: %s' % git_interface.get_integrated_tag(fixes_sha))
+            print(
+                "      upstream: %s"
+                % git_interface.get_integrated_tag(fixes_sha)
+            )
 
         affected_branches += version_list(metadata.branches, start, end)
-        affected_branches = sorted(list(set(affected_branches)), key=branch_order)
+        affected_branches = sorted(
+            list(set(affected_branches)), key=branch_order
+        )
         if affected_branches:
-            print('    Affected branches:')
+            print("    Affected branches:")
             for affected_branch in affected_branches:
                 branch_name = metadata.get_kernel_branch(affected_branch)
-                report_integration_status_sha(handler, rc_handler, affected_branch, branch_name,
-                                              fixedby_sha)
+                report_integration_status_sha(
+                    handler,
+                    rc_handler,
+                    affected_branch,
+                    branch_name,
+                    fixedby_sha,
+                )
 
         # Check if this commit has been fixed as well and, if so, report it
         subsequent_fixes = missing.get_subsequent_fixes(db, fixedby_sha)
         # remove initial fix
         subsequent_fixes.pop(0)
         if subsequent_fixes:
-            subsequent_fixes = ["\'" + sha + "\'" for sha in subsequent_fixes]
-            parsed_fixes = ', '.join(subsequent_fixes)
+            subsequent_fixes = ["'" + sha + "'" for sha in subsequent_fixes]
+            parsed_fixes = ", ".join(subsequent_fixes)
             # format query here since we are inserting n values
             q = f"""SELECT sha, description
                    FROM linux_upstream
@@ -211,15 +240,16 @@ def report_integration_status_branch(db, metadata, branch, conflicts,
                    ORDER BY FIELD(sha, {parsed_fixes})"""
             c.execute(q)
             fixes = c.fetchall()
-            print('    Fixed by:')
+            print("    Fixed by:")
             for fix in fixes:
                 print('      %s ("%s")' % fix)
 
 
 @util.cloud_sql_proxy_decorator
 @util.preliminary_check_decorator(False)
-def report_integration_status(branch=None, conflicts=False, chromium=False,
-                              debug=False):
+def report_integration_status(
+    branch=None, conflicts=False, chromium=False, debug=False
+):
     """Report list of open patches"""
 
     handled_shas = set()
@@ -238,9 +268,10 @@ def report_integration_status(branch=None, conflicts=False, chromium=False,
 
     with common.connect_db() as db:
         for b in branches:
-            print('\nBranch: %s\n' % metadata.get_kernel_branch(b))
-            report_integration_status_branch(db, metadata, b, conflicts,
-                                             chromium, handled_shas)
+            print("\nBranch: %s\n" % metadata.get_kernel_branch(b))
+            report_integration_status_branch(
+                db, metadata, b, conflicts, chromium, handled_shas
+            )
 
 
 def report_integration_status_parse():
@@ -251,18 +282,35 @@ def report_integration_status_parse():
     """
 
     metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
-    parser = argparse.ArgumentParser(description='Local functions to retrieve data from database')
-    parser.add_argument('-b', '--branch', type=str, choices=metadata.branches,
-                        help='Branch to check')
-    parser.add_argument('-C', '--chromium', action='store_true',
-                        help='Look for pending chromium patches')
-    parser.add_argument('-c', '--conflicts', action='store_true',
-                        help='Check for conflicting patches')
-    parser.add_argument('-d', '--debug', action='store_true',
-                        help='Enable debug messages')
+    parser = argparse.ArgumentParser(
+        description="Local functions to retrieve data from database"
+    )
+    parser.add_argument(
+        "-b",
+        "--branch",
+        type=str,
+        choices=metadata.branches,
+        help="Branch to check",
+    )
+    parser.add_argument(
+        "-C",
+        "--chromium",
+        action="store_true",
+        help="Look for pending chromium patches",
+    )
+    parser.add_argument(
+        "-c",
+        "--conflicts",
+        action="store_true",
+        help="Check for conflicting patches",
+    )
+    parser.add_argument(
+        "-d", "--debug", action="store_true", help="Enable debug messages"
+    )
     args = vars(parser.parse_args())
 
     report_integration_status(**args)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     report_integration_status_parse()

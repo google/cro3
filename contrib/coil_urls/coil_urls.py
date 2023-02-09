@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 # Copyright 2020 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -21,18 +20,18 @@ class Pattern:
         self.repl_pattern = repl_pattern
 
 
-DEFAULT_REGEX_PATTERN = r'({DOMAIN}[^\s]*\/\+\/)(master)'
-ALT_REGEX_PATTERN = r'({DOMAIN}[^\s]*\/\+\/)(refs\/heads\/master)'
+DEFAULT_REGEX_PATTERN = r"({DOMAIN}[^\s]*\/\+\/)(master)"
+ALT_REGEX_PATTERN = r"({DOMAIN}[^\s]*\/\+\/)(refs\/heads\/master)"
 
-GOOGLESOURCE = 'googlesource.com'
-SOURCE_CHROMIUM_ORG = 'source.chromium.org'
+GOOGLESOURCE = "googlesource.com"
+SOURCE_CHROMIUM_ORG = "source.chromium.org"
 
 GOOGLESOURCE_REGEX = DEFAULT_REGEX_PATTERN.format(DOMAIN=GOOGLESOURCE)
 GOOGLESOURCE_REGEX_ALT = ALT_REGEX_PATTERN.format(DOMAIN=GOOGLESOURCE)
 CHROMIUM_SOURCE_REGEX = DEFAULT_REGEX_PATTERN.format(DOMAIN=SOURCE_CHROMIUM_ORG)
 CHROMIUM_SOURCE_REGEX_ALT = ALT_REGEX_PATTERN.format(DOMAIN=SOURCE_CHROMIUM_ORG)
-GITHUB_REGEX = r'(github.com[^\s]*\/)(master)'
-DEFAULT_REPL_PATTERN = r'\1HEAD'
+GITHUB_REGEX = r"(github.com[^\s]*\/)(master)"
+DEFAULT_REPL_PATTERN = r"\1HEAD"
 
 DOMAINS = [
     GOOGLESOURCE_REGEX,
@@ -43,15 +42,16 @@ DOMAINS = [
 ]
 
 PATTERNS = [
-    Pattern(match_pattern=x,
-            repl_pattern=DEFAULT_REPL_PATTERN) for x in DOMAINS]
+    Pattern(match_pattern=x, repl_pattern=DEFAULT_REPL_PATTERN) for x in DOMAINS
+]
 
 
 def fix_line(text: str):
     # iterate through patterns. if line is changed, return
     for pattern in PATTERNS:
-        new_str, count = re.subn(pattern.match_pattern, pattern.repl_pattern,
-                                 text)
+        new_str, count = re.subn(
+            pattern.match_pattern, pattern.repl_pattern, text
+        )
         if count > 0:
             return new_str
 
@@ -61,7 +61,7 @@ def fix_line(text: str):
 def fix_file(file: str):
     try:
         with tempfile.NamedTemporaryFile() as tmp_file:
-            logging.debug('created temp file: %s', tmp_file.name)
+            logging.debug("created temp file: %s", tmp_file.name)
 
             # replace line-by-line
             with open(file) as orig_file:
@@ -80,25 +80,23 @@ def fix_file(file: str):
 
 
 def is_git_dir():
-    cmd = [
-        'git', 'rev-parse', '--git-dir'
-    ]
-    logging.debug('Running command: "%s"', ' '.join(cmd))
+    cmd = ["git", "rev-parse", "--git-dir"]
+    logging.debug('Running command: "%s"', " ".join(cmd))
     ret = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return ret.returncode == 0
 
 
 def find_files():
-    git_cmd = ['git', 'grep', '--name-only']
-    grep_cmd = ['grep', '-r', '--files-with-matches']
+    git_cmd = ["git", "grep", "--name-only"]
+    grep_cmd = ["grep", "-r", "--files-with-matches"]
 
     if is_git_dir():
         cmd = git_cmd
     else:
         cmd = grep_cmd
 
-    cmd.append('master')
-    logging.debug('Running command: "%s"', ' '.join(cmd))
+    cmd.append("master")
+    logging.debug('Running command: "%s"', " ".join(cmd))
     ret = subprocess.run(cmd, stdout=subprocess.PIPE, check=True)
     return ret.stdout.decode().splitlines()
 
@@ -106,11 +104,9 @@ def find_files():
 def main():
     parser = argparse.ArgumentParser()
 
-    log_level_choices = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+    log_level_choices = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
     parser.add_argument(
-        '--log_level', '-l',
-        choices=log_level_choices,
-        default='INFO'
+        "--log_level", "-l", choices=log_level_choices, default="INFO"
     )
 
     args = parser.parse_args()
@@ -122,5 +118,5 @@ def main():
     sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

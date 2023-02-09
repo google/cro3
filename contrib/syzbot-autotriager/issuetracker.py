@@ -11,8 +11,9 @@ import base64
 import pickle
 import subprocess
 
-import config
 import simpledb
+
+import config
 import utils
 
 
@@ -36,9 +37,9 @@ def clean_st(st):
         temp = set()
         for fnname in stacktrace:
             fnname = fnname.strip()
-            if fnname.startswith('<'):
-                index = 3 if '?' in fnname else 2
-            elif fnname.startswith('['):
+            if fnname.startswith("<"):
+                index = 3 if "?" in fnname else 2
+            elif fnname.startswith("["):
                 index = 1
             else:
                 index = 0
@@ -46,13 +47,13 @@ def clean_st(st):
             try:
                 fnname = fnname.split()[index]
             except IndexError as _:
-                print('[x] Error parsing %s' % (repr(fnname)))
-                fnname = ''
+                print("[x] Error parsing %s" % (repr(fnname)))
+                fnname = ""
 
             if not fnname:
                 continue
 
-            fnname = fnname.split('+')[0]
+            fnname = fnname.split("+")[0]
             if not fnname:
                 continue
 
@@ -78,7 +79,7 @@ def get_stacktrace(lineno, lines):
         An example below.
         [set(['kthread', 'worker_thread', 'ret_from_fork'])]
     """
-    remove_marker = lambda x: x[2:] if x.startswith('> ') else x
+    remove_marker = lambda x: x[2:] if x.startswith("> ") else x
     st, d = list(), set()
     inside_st = False
     for line in lines[lineno:]:
@@ -88,7 +89,7 @@ def get_stacktrace(lineno, lines):
                 st.append(d)
                 d = set()
             inside_st = True
-        elif inside_st and line.startswith(' '):
+        elif inside_st and line.startswith(" "):
             d.add(line)
         else:
             inside_st = False
@@ -101,23 +102,29 @@ def get_stacktrace(lineno, lines):
 
 class IssuetrackerBug(object):
     """IssuetrackerBug represents one parsed issuetracker bug."""
-    COMMIT_MARKER = 'syzbot hit the following crash on '
-    KVER_MARKER = ('https://chromium.googlesource.com/chromiumos/'
-                   'third_party/kernel ')
-    ST_START_MARKER = 'Call Trace:'
+
+    COMMIT_MARKER = "syzbot hit the following crash on "
+    KVER_MARKER = (
+        "https://chromium.googlesource.com/chromiumos/" "third_party/kernel "
+    )
+    ST_START_MARKER = "Call Trace:"
 
     def __init__(self, bugid, title):
         self.bugid = bugid
         self.title = title
-        self.crashat = ''
-        self.kernel = ''
+        self.crashat = ""
+        self.kernel = ""
         self.stacktrace = []
         self.parsebody()
 
     def __repr__(self):
         print(self.stacktrace)
-        return ('bugid:%s title:"%s" crashat:%s kernel:%s\n'
-                % (self.bugid, self.title, self.crashat, self.kernel))
+        return 'bugid:%s title:"%s" crashat:%s kernel:%s\n' % (
+            self.bugid,
+            self.title,
+            self.crashat,
+            self.kernel,
+        )
 
     def setcrashat(self, line):
         """Sets the kernel commit at which this crash occured."""
@@ -139,9 +146,9 @@ class IssuetrackerBug(object):
 
     def parsebody(self):
         """Parse the body of an IssueTracker bug."""
-        print('Bug = %s' % (self.bugid))
+        print("Bug = %s" % (self.bugid))
         cmd = Issuetracker.LIST_BUG_ASC % (self.bugid)
-        bugbody = subprocess.check_output(cmd, shell=True).split('\n')
+        bugbody = subprocess.check_output(cmd, shell=True).split("\n")
 
         for i, line in enumerate(bugbody):
             if IssuetrackerBug.COMMIT_MARKER in line:
@@ -155,8 +162,9 @@ class IssuetrackerBug(object):
 
 class Issuetracker(object):
     """Issuetracker mananger a collection of chromeos IssuetrackerBug's."""
-    LIST_ALL_BUGS = 'bugged hotlist %s'
-    LIST_BUG_ASC = 'bugged show --sort=asc %s'
+
+    LIST_ALL_BUGS = "bugged hotlist %s"
+    LIST_BUG_ASC = "bugged show --sort=asc %s"
 
     def __init__(self, hotlistid):
         self.hotlistid = hotlistid
@@ -168,7 +176,7 @@ class Issuetracker(object):
     def populate_bugs(self):
         """Retrieve a list of all bugs in a hotlist and parse."""
         cmd = Issuetracker.LIST_ALL_BUGS % (self.hotlistid)
-        all_bug_lines = subprocess.check_output(cmd, shell=True).split('\n')
+        all_bug_lines = subprocess.check_output(cmd, shell=True).split("\n")
         for i, line in enumerate(all_bug_lines[1:]):
             print(i)
             self.parse_bug_line(line)
@@ -179,8 +187,8 @@ class Issuetracker(object):
             return
 
         parts = line.split()
-        bugid, status, title = parts[0], parts[7], ' '.join(parts[8:])
-        if status != 'NEW':
+        bugid, status, title = parts[0], parts[7], " ".join(parts[8:])
+        if status != "NEW":
             return
 
         b = IssuetrackerBug(bugid, title)
@@ -195,10 +203,15 @@ class Issuetracker(object):
         """Save parsed Issuetracker bugs to a local cache."""
         self.db.begin()
         for bug in self.bugs:
-            self.db.insert(bugid=bug.bugid, title=bug.title,
-                           crashat=bug.crashat, kernel=bug.kernel,
-                           stacktrace=base64.b64encode(
-                               pickle.dumps(bug.stacktrace)))
+            self.db.insert(
+                bugid=bug.bugid,
+                title=bug.title,
+                crashat=bug.crashat,
+                kernel=bug.kernel,
+                stacktrace=base64.b64encode(pickle.dumps(bug.stacktrace)),
+            )
         self.db.commit()
-        print('[+] Done writing %d records to "%s"' % (len(self.bugs),
-                                                       config.ISSUETRACKER_DB))
+        print(
+            '[+] Done writing %d records to "%s"'
+            % (len(self.bugs), config.ISSUETRACKER_DB)
+        )

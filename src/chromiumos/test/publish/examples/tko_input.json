@@ -3,9 +3,9 @@
     "host_type": "LOCAL",
     "path": "/tmp/publish-for-tko"
   },
-  "retry_count": 2,
   "metadata": {
-    "@type":"type.googleapis.com/chromiumos.test.api.PublishTkoMetadata",
+    "@type": "type.googleapis.com/chromiumos.test.api.PublishTkoMetadata",
     "job_name": "jobname-2"
-  }
+  },
+  "retry_count": 2
 }

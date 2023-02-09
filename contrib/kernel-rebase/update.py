@@ -7,12 +7,17 @@
 """Update rebase database with new information from upstream and next database"""
 
 from __future__ import print_function
-import sqlite3
+
 import re
-from common import rebasedb, upstreamdb, nextdb
+import sqlite3
+
+from common import nextdb
+from common import rebasedb
+from common import upstreamdb
+
 
 subject = re.compile(
-    '(ANDROID: *|CHROMIUM: *|CHROMEOS: *|UPSTREAM: *|FROMGIT: *|FROMLIST: *|BACKPORT: *)*(.*)'
+    "(ANDROID: *|CHROMIUM: *|CHROMEOS: *|UPSTREAM: *|FROMGIT: *|FROMLIST: *|BACKPORT: *)*(.*)"
 )
 
 
@@ -66,7 +71,7 @@ def update_commits():
     nconn = sqlite3.connect(nextdb) if nextdb else None
     c = conn.cursor()
 
-    c.execute('select sha, usha, patchid, subject from commits')
+    c.execute("select sha, usha, patchid, subject from commits")
     for (sha, usha, patchid, desc) in c.fetchall():
         uusha = findsha(uconn, usha, patchid, desc)
         # if it is not in the upstream database, maybe it is in -next.
@@ -74,11 +79,12 @@ def update_commits():
         if uusha is None and nconn:
             uusha = findsha(nconn, usha, None, desc)
         if not uusha:
-            uusha = ''
+            uusha = ""
         if usha != uusha:
             print("SHA '%s': Updating usha '%s' with '%s'" % (sha, usha, uusha))
-            c.execute("UPDATE commits set usha='%s' where sha='%s'" %
-                      (uusha, sha))
+            c.execute(
+                "UPDATE commits set usha='%s' where sha='%s'" % (uusha, sha)
+            )
 
     conn.commit()
     conn.close()
@@ -87,5 +93,5 @@ def update_commits():
         nconn.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     update_commits()

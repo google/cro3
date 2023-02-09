@@ -1,6 +1,2 @@
 // Comments are allowed in this file.
 platform/dev/src/chromiumos/test/lib-reg/example_reg_info.json
-
-
-
-

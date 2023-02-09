@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """Define steps, package names, and directories for creating a Zork variant
 
 Copyright 2020 The ChromiumOS Authors
@@ -7,10 +8,12 @@ found in the LICENSE file.
 """
 
 from __future__ import print_function
+
 import step_names
 
+
 # Name of the baseboard
-base = 'zork'
+base = "zork"
 
 # List of steps (named in step_names.py) to run in sequence to create
 # the new variant of the baseboard
@@ -28,32 +31,42 @@ step_list = [
     step_names.CALC_CQ_DEPEND,
     step_names.ADD_CQ_DEPEND,
     step_names.RE_UPLOAD,
-    step_names.CLEAN_UP]
+    step_names.CLEAN_UP,
+]
 
 # Base directory for coreboot
-coreboot_dir = 'third_party/coreboot'
+coreboot_dir = "third_party/coreboot"
 
 # List of packages to cros_workon
-workon_pkgs = ['coreboot', 'chromeos-ec', 'chromeos-config-bsp-private']
+workon_pkgs = ["coreboot", "chromeos-ec", "chromeos-config-bsp-private"]
 
 # The emerge command
-emerge_cmd = 'emerge-zork'
+emerge_cmd = "emerge-zork"
 
 # List of packages to emerge
 emerge_pkgs = [
-    'coreboot', 'vboot_reference', 'chromeos-ec', 'chromeos-config-bsp-private',
-    'chromeos-config', 'coreboot-private-files', 'chromeos-bootimage']
+    "coreboot",
+    "vboot_reference",
+    "chromeos-ec",
+    "chromeos-config-bsp-private",
+    "chromeos-config",
+    "coreboot-private-files",
+    "chromeos-bootimage",
+]
 
 # List of packages to cros_workon to build the project config
-config_workon_pkgs = ['chromeos-config', 'chromeos-config-bsp-private']
+config_workon_pkgs = ["chromeos-config", "chromeos-config-bsp-private"]
 
 # List of packages to emerge to build the project config
-config_emerge_pkgs = ['chromeos-config', 'chromeos-config-bsp-private']
+config_emerge_pkgs = ["chromeos-config", "chromeos-config-bsp-private"]
 
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [
-    step_names.CB_CONFIG, step_names.CRAS_CONFIG, step_names.EC_IMAGE,
-    step_names.FW_BUILD_CONFIG]
+    step_names.CB_CONFIG,
+    step_names.CRAS_CONFIG,
+    step_names.EC_IMAGE,
+    step_names.FW_BUILD_CONFIG,
+]
 
 # List of commits that will be pushed to review.coreboot.org
 coreboot_push_list = [step_names.CB_VARIANT]
@@ -63,6 +76,10 @@ coreboot_push_list = [step_names.CB_VARIANT]
 depends = {
     step_names.CB_CONFIG: [step_names.FIND],
     step_names.FW_BUILD_CONFIG: [
-        step_names.FIND, step_names.CB_CONFIG,
-        step_names.CRAS_CONFIG, step_names.EC_IMAGE, step_names.COMMIT_FIT]
+        step_names.FIND,
+        step_names.CB_CONFIG,
+        step_names.CRAS_CONFIG,
+        step_names.EC_IMAGE,
+        step_names.COMMIT_FIT,
+    ],
 }

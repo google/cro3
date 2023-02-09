@@ -16,19 +16,18 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/if_ether.h>
+#include <net/if.h>
+#include <pcap.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
-#include <linux/if_ether.h>
-#include <net/if.h>
-#include <pcap.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "ieee80211_header.h"
 
@@ -51,16 +50,16 @@ struct radiotap_packet {
 
 struct radiotap_packet_buf {
   struct radiotap_packet packet;
-  size_t len;  /* Length of populated data */
+  size_t len; /* Length of populated data */
 };
 
 #define PACKET_TIMEOUT_MS 1000
 #define SSID_LENGTH 32
 
-static const char * type_beacon = "beacon";
-static const char * type_channel_switch = "channel_switch";
-static const char * type_probe_response = "probe_response";
-static const char * usage =
+static const char *type_beacon = "beacon";
+static const char *type_channel_switch = "channel_switch";
+static const char *type_probe_response = "probe_response";
+static const char *usage =
     "Usage:\n"
     "  send_management_frame -i interface -t channel_switch\n"
     "                             [-a dest-addr] [-b num-bss] [-c channel]\n"
@@ -95,14 +94,13 @@ enum message_type {
 };
 
 uint8_t message_type_to_80211_frame_subtype[] = {
-  /* Ordered to match |enum message_type| */
-  WLAN_FC_STYPE_BEACON,
-  WLAN_FC_STYPE_ACTION,
-  WLAN_FC_STYPE_PROBE_RESP,
+    /* Ordered to match |enum message_type| */
+    WLAN_FC_STYPE_BEACON,
+    WLAN_FC_STYPE_ACTION,
+    WLAN_FC_STYPE_PROBE_RESP,
 };
 
-int get_interface_info(char *interface,
-                       int *interface_index,
+int get_interface_info(char *interface, int *interface_index,
                        unsigned char *mac_address) {
   struct ifreq ifr;
   int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
@@ -123,11 +121,11 @@ int get_interface_info(char *interface,
     return -1;
   }
   memcpy(mac_address, &ifr.ifr_hwaddr.sa_data, ETH_ALEN);
-  printf("Found interface %s at index %d, "
-         "address %02x:%02x:%02x:%02x:%02x:%02x.\n",
-         interface, *interface_index,
-         mac_address[0], mac_address[1], mac_address[2],
-         mac_address[3], mac_address[4], mac_address[5]);
+  printf(
+      "Found interface %s at index %d, "
+      "address %02x:%02x:%02x:%02x:%02x:%02x.\n",
+      interface, *interface_index, mac_address[0], mac_address[1],
+      mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
   return 0;
 }
 
@@ -140,7 +138,8 @@ int create_ssid(char *ssid_prefix, int bss_number, char **ssid_out) {
     sprintf(*ssid_out, "FakeSSID%08x", bss_number);
   else {
     if (strlen(ssid_prefix) > 24) {
-      fprintf(stderr, "SSID prefix too long, must be less than 24 "
+      fprintf(stderr,
+              "SSID prefix too long, must be less than 24 "
               "characters.\n");
       return -EINVAL;
     }
@@ -149,39 +148,38 @@ int create_ssid(char *ssid_prefix, int bss_number, char **ssid_out) {
   return 0;
 }
 
-struct radiotap_packet_buf* packet_buf_alloc(uint16_t ieee80211_frame_subtype,
-                                             const unsigned char* bssid,
-                                             const unsigned char* source,
-                                             const unsigned char* destination) {
+struct radiotap_packet_buf *packet_buf_alloc(uint16_t ieee80211_frame_subtype,
+                                             const unsigned char *bssid,
+                                             const unsigned char *source,
+                                             const unsigned char *destination) {
   struct radiotap_packet_buf *packet_buf;
   struct ieee80211_mgmt *mgm_packet_ptr;
   packet_buf = calloc(1, sizeof(struct radiotap_packet_buf));
   packet_buf->len = 0;
 
-  struct radiotap_packet* packet = &packet_buf->packet;
+  struct radiotap_packet *packet = &packet_buf->packet;
   packet->radiotap_header.version = 0;
   packet->radiotap_header.header_length = sizeof(packet->radiotap_header);
   packet->radiotap_header.bitmap = 0;
   packet_buf->len += sizeof(packet->radiotap_header);
 
   mgm_packet_ptr = &packet->ieee80211_mgmt_frame;
-  mgm_packet_ptr->frame_control = IEEE80211_FC(WLAN_FC_TYPE_MGMT,
-                                               ieee80211_frame_subtype);
+  mgm_packet_ptr->frame_control =
+      IEEE80211_FC(WLAN_FC_TYPE_MGMT, ieee80211_frame_subtype);
   memcpy(&mgm_packet_ptr->da, destination, sizeof(mgm_packet_ptr->da));
   memcpy(&mgm_packet_ptr->sa, source, sizeof(mgm_packet_ptr->sa));
   memcpy(&mgm_packet_ptr->bssid, bssid, sizeof(mgm_packet_ptr->bssid));
-  packet_buf->len += (unsigned char *) &(mgm_packet_ptr->u) -
-      (unsigned char *) mgm_packet_ptr;
+  packet_buf->len +=
+      (unsigned char *)&(mgm_packet_ptr->u) - (unsigned char *)mgm_packet_ptr;
 
   return packet_buf;
 }
 
 bool packet_buf_can_accept_bytes(size_t length,
                                  struct radiotap_packet_buf *packet_buf) {
-  if (length > sizeof(packet_buf->packet) - packet_buf->len)
-    return false;
+  if (length > sizeof(packet_buf->packet) - packet_buf->len) return false;
 
-  unsigned char *dest = (unsigned char *) packet_buf + packet_buf->len;
+  unsigned char *dest = (unsigned char *)packet_buf + packet_buf->len;
   struct ieee80211_mgmt *mgm_packet_ptr =
       &packet_buf->packet.ieee80211_mgmt_frame;
 
@@ -209,10 +207,9 @@ int packet_buf_add_info_element(unsigned char element_id,
                                 struct radiotap_packet_buf *packet_buf) {
   size_t info_element_len =
       sizeof(element_id) + sizeof(element_data_length) + element_data_length;
-  if (!packet_buf_can_accept_bytes(info_element_len, packet_buf))
-    return -1;
+  if (!packet_buf_can_accept_bytes(info_element_len, packet_buf)) return -1;
 
-  unsigned char *dest = (unsigned char *) packet_buf + packet_buf->len;
+  unsigned char *dest = (unsigned char *)packet_buf + packet_buf->len;
   *dest++ = element_id;
   *dest++ = element_data_length;
   memcpy(dest, element_data, element_data_length);
@@ -220,13 +217,11 @@ int packet_buf_add_info_element(unsigned char element_id,
   return 0;
 }
 
-int packet_buf_add_raw_data(size_t data_length,
-                            const unsigned char *data,
+int packet_buf_add_raw_data(size_t data_length, const unsigned char *data,
                             struct radiotap_packet_buf *packet_buf) {
-  if (!packet_buf_can_accept_bytes(data_length, packet_buf))
-      return -1;
+  if (!packet_buf_can_accept_bytes(data_length, packet_buf)) return -1;
 
-  unsigned char *dest = (unsigned char *) packet_buf + packet_buf->len;
+  unsigned char *dest = (unsigned char *)packet_buf + packet_buf->len;
   memcpy(dest, data, data_length);
   packet_buf->len += data_length;
   return 0;
@@ -244,7 +239,7 @@ void packet_buf_add_fixed_params(int frame_num,
     mgm_packet_ptr->u.probe_resp.timestamp[2] = frame_num >> 16;
     mgm_packet_ptr->u.probe_resp.timestamp[3] = frame_num >> 24;
     mgm_packet_ptr->u.probe_resp.beacon_int = 0x64;  // 0.1024 seconds.  A lie.
-    mgm_packet_ptr->u.probe_resp.capab_info = 0x1;  // We are an AP.
+    mgm_packet_ptr->u.probe_resp.capab_info = 0x1;   // We are an AP.
     packet_buf->len += sizeof(mgm_packet_ptr->u.probe_resp);
   } else if (stype == WLAN_FC_STYPE_BEACON) {
     mgm_packet_ptr->u.beacon.timestamp[0] = frame_num;
@@ -252,30 +247,27 @@ void packet_buf_add_fixed_params(int frame_num,
     mgm_packet_ptr->u.beacon.timestamp[2] = frame_num >> 16;
     mgm_packet_ptr->u.beacon.timestamp[3] = frame_num >> 24;
     mgm_packet_ptr->u.beacon.beacon_int = 0x64;  // 0.1024 seconds.  A lie.
-    mgm_packet_ptr->u.beacon.capab_info = 0x1;  // We are an AP.
+    mgm_packet_ptr->u.beacon.capab_info = 0x1;   // We are an AP.
     packet_buf->len += sizeof(mgm_packet_ptr->u.beacon);
   }
 }
 
-
-int packet_buf_add_bss_info(char *ssid_prefix,
-                            int bss_number,
-                            uint8_t channel,
+int packet_buf_add_bss_info(char *ssid_prefix, int bss_number, uint8_t channel,
                             struct radiotap_packet_buf *packet_buf) {
   char *ssid;
   if (create_ssid(ssid_prefix, bss_number, &ssid) != 0) {
     goto err_exit;
   }
 
-  unsigned char supported_rates[] = { 0x82, 0x84, 0x8b, 0x96,
-                                      0x0c, 0x12, 0x18, 0x24 };
+  unsigned char supported_rates[] = {0x82, 0x84, 0x8b, 0x96,
+                                     0x0c, 0x12, 0x18, 0x24};
 
   if (packet_buf_add_info_element(WLAN_EID_SSID, strlen(ssid),
-                                  (unsigned char *) ssid, packet_buf) != 0 ||
+                                  (unsigned char *)ssid, packet_buf) != 0 ||
       packet_buf_add_info_element(WLAN_EID_SUPP_RATES, sizeof(supported_rates),
                                   supported_rates, packet_buf) != 0 ||
-      packet_buf_add_info_element(WLAN_EID_DS_PARAMS, sizeof(channel),
-                                  &channel, packet_buf) != 0 ) {
+      packet_buf_add_info_element(WLAN_EID_DS_PARAMS, sizeof(channel), &channel,
+                                  packet_buf) != 0) {
     goto err_exit;
   }
   free(ssid);
@@ -309,12 +301,9 @@ int fill_chanswitch_message_frame(uint8_t channel,
   return 0;
 }
 
-int fill_beacon_proberesp_message_frame(char *ssid_prefix,
-                                        uint8_t channel,
-                                        int bss_number,
-                                        int frame_num,
-                                        struct radiotap_packet_buf *packet_buf)
-{
+int fill_beacon_proberesp_message_frame(
+    char *ssid_prefix, uint8_t channel, int bss_number, int frame_num,
+    struct radiotap_packet_buf *packet_buf) {
   packet_buf_add_fixed_params(frame_num, packet_buf);
   if (packet_buf_add_bss_info(ssid_prefix, bss_number, channel, packet_buf) !=
       0) {
@@ -326,14 +315,9 @@ int fill_beacon_proberesp_message_frame(char *ssid_prefix,
 }
 
 struct radiotap_packet_buf *get_message_frame(
-    enum message_type message_type,
-    const unsigned char *interface_address,
-    const unsigned char *destination_address,
-    char *ssid_prefix,
-    uint8_t channel,
-    int bss_count,
-    int frame_num,
-    unsigned char *footer_data,
+    enum message_type message_type, const unsigned char *interface_address,
+    const unsigned char *destination_address, char *ssid_prefix,
+    uint8_t channel, int bss_count, int frame_num, unsigned char *footer_data,
     size_t footer_len) {
   int bss_number = 0;
   unsigned char bss_address[ETH_ALEN];
@@ -354,9 +338,8 @@ struct radiotap_packet_buf *get_message_frame(
   switch (message_type) {
     case BEACON:
     case PROBE_RESPONSE:
-      ret = fill_beacon_proberesp_message_frame(ssid_prefix, channel,
-                                                bss_number, frame_num,
-                                                packet_buf);
+      ret = fill_beacon_proberesp_message_frame(
+          ssid_prefix, channel, bss_number, frame_num, packet_buf);
       break;
     case CHANNEL_SWITCH:
       ret = fill_chanswitch_message_frame(channel, packet_buf);
@@ -386,9 +369,7 @@ err_exit:
 
 static int g_do_exit = 0;
 
-void set_do_exit(int signum) {
-  g_do_exit = 1;
-}
+void set_do_exit(int signum) { g_do_exit = 1; }
 
 int get_footer_bytes(char *footer_file, unsigned char **footer) {
   struct stat st;
@@ -402,7 +383,7 @@ int get_footer_bytes(char *footer_file, unsigned char **footer) {
     goto cleanup_footer;
   }
 
-  *footer = (unsigned char *) malloc(st.st_size);
+  *footer = (unsigned char *)malloc(st.st_size);
 
   int fd = open(footer_file, O_RDONLY);
   if (fd == -1) {
@@ -447,13 +428,13 @@ int main(int argc, char **argv) {
   unsigned char *footer_data = NULL;
   int c;
 
-  while ((c = getopt (argc, argv, "hb:c:d:i:n:t:s:a:f:")) != -1) {
+  while ((c = getopt(argc, argv, "hb:c:d:i:n:t:s:a:f:")) != -1) {
     switch (c) {
       case 'b':
         num_bss = atoi(optarg);
         break;
       case 'c':
-        channel = (unsigned char) atoi(optarg);
+        channel = (unsigned char)atoi(optarg);
         break;
       case 'd':
         ms_delay = atoi(optarg);
@@ -489,8 +470,7 @@ int main(int argc, char **argv) {
     goto cleanup;
   }
   if (ms_delay < 0) {
-    fprintf(stderr, "Invalid value for delay %d, must be >= 0.\n",
-            ms_delay);
+    fprintf(stderr, "Invalid value for delay %d, must be >= 0.\n", ms_delay);
     goto cleanup;
   }
 
@@ -512,14 +492,13 @@ int main(int argc, char **argv) {
   }
 
   unsigned char custom_dest[ETH_ALEN];
-  const unsigned char broadcast_address[] = { 0xff, 0xff, 0xff,
-                                              0xff, 0xff, 0xff };
+  const unsigned char broadcast_address[] = {0xff, 0xff, 0xff,
+                                             0xff, 0xff, 0xff};
   const unsigned char *destination_address_bytes;
   if (destination_address_string) {
     if (sscanf(destination_address_string, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
                &custom_dest[0], &custom_dest[1], &custom_dest[2],
-               &custom_dest[3], &custom_dest[4], &custom_dest[5]) !=
-        ETH_ALEN) {
+               &custom_dest[3], &custom_dest[4], &custom_dest[5]) != ETH_ALEN) {
       fprintf(stderr, "Invalid destination address [%s].\n",
               destination_address_string);
       goto cleanup;
@@ -540,10 +519,7 @@ int main(int argc, char **argv) {
     goto cleanup;
   }
 
-  pcap = pcap_open_live(interface,
-                        sizeof(buf),
-                        promiscuous,
-                        PACKET_TIMEOUT_MS,
+  pcap = pcap_open_live(interface, sizeof(buf), promiscuous, PACKET_TIMEOUT_MS,
                         errbuf);
   if (pcap == NULL) {
     fprintf(stderr, "Could not open capture handle.\n");
@@ -567,17 +543,16 @@ int main(int argc, char **argv) {
    * if number of frame specified is 0.
    */
   int i = 0;
-  while ( (i < pkt_count) || (pkt_count == 0) ) {
-    struct radiotap_packet_buf *packet_buf =
-        get_message_frame(message_type, mac_address, destination_address_bytes,
-                          ssid_prefix, channel, num_bss, i, footer_data,
-                          footer_len);
+  while ((i < pkt_count) || (pkt_count == 0)) {
+    struct radiotap_packet_buf *packet_buf = get_message_frame(
+        message_type, mac_address, destination_address_bytes, ssid_prefix,
+        channel, num_bss, i, footer_data, footer_len);
     if (!packet_buf) {
       fprintf(stderr, "Can't generate a frame of type %s.\n", message_name);
       goto cleanup;
     }
 
-    unsigned char *frame = (unsigned char *) &packet_buf->packet;
+    unsigned char *frame = (unsigned char *)&packet_buf->packet;
     size_t frame_length = packet_buf->len;
     size_t j = 0;
     if (i == 0) {
@@ -588,18 +563,16 @@ int main(int argc, char **argv) {
       printf("\n");
     }
 
-    if (ms_delay > 0)
-      usleep(ms_delay * 1000);
+    if (ms_delay > 0) usleep(ms_delay * 1000);
 
     inject_return = pcap_inject(pcap, frame, frame_length);
     if (i == 1) printf("Inject returned %d.\n", inject_return);
     i++;
 
     free(frame);
-    frame=NULL;
+    frame = NULL;
 
-    if (g_do_exit)
-      break;
+    if (g_do_exit) break;
   }
   exit_value = 0;
   printf("Transmitted %d frames.\n", i);

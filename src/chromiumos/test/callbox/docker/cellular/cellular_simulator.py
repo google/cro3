@@ -9,12 +9,12 @@ from . import simulation_utils as sims
 
 
 class AbstractCellularSimulator:
-    """ A generic cellular simulator controller class that can be derived to
+    """A generic cellular simulator controller class that can be derived to
     implement equipment specific classes and allows the tests to be implemented
     without depending on a singular instrument model.
 
     This class defines the interface that every cellular simulator controller
-    needs to implement and shouldn't be instantiated by itself. """
+    needs to implement and shouldn't be instantiated by itself."""
 
     # Indicates if it is able to use 256 QAM as the downlink modulation for LTE
     LTE_SUPPORTS_DL_256QAM = None
@@ -32,23 +32,23 @@ class AbstractCellularSimulator:
     MAX_DL_POWER = None
 
     def __init__(self):
-        """ Initializes the cellular simulator.  Logger init goes here. """
+        """Initializes the cellular simulator.  Logger init goes here."""
 
     def destroy(self):
-        """ Sends finalization commands to the cellular equipment and closes
-        the connection. """
+        """Sends finalization commands to the cellular equipment and closes
+        the connection."""
         raise NotImplementedError()
 
     def setup_lte_scenario(self):
-        """ Configures the equipment for an LTE simulation. """
+        """Configures the equipment for an LTE simulation."""
         raise NotImplementedError()
 
     def setup_lte_ca_scenario(self):
-        """ Configures the equipment for an LTE with CA simulation. """
+        """Configures the equipment for an LTE with CA simulation."""
         raise NotImplementedError()
 
     def set_ca_combination(self, combination):
-        """ Prepares the test equipment for the indicated CA combination.
+        """Prepares the test equipment for the indicated CA combination.
 
         The reason why this is implemented in a separate method and not calling
         LteSimulation.BtsConfig for each separate band is that configuring each
@@ -65,7 +65,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def configure_bts(self, config, bts_index=0):
-        """ Commands the equipment to setup a base station with the required
+        """Commands the equipment to setup a base station with the required
         configuration. This method applies configurations that are common to all
         RATs.
 
@@ -84,7 +84,7 @@ class AbstractCellularSimulator:
             self.configure_lte_bts(config, bts_index)
 
     def configure_lte_bts(self, config, bts_index=0):
-        """ Commands the equipment to setup an LTE base station with the
+        """Commands the equipment to setup an LTE base station with the
         required configuration.
 
         Args:
@@ -122,18 +122,31 @@ class AbstractCellularSimulator:
 
         if config.scheduling_mode:
 
-            if (config.scheduling_mode ==
-                    sims.LteSimulation.SchedulingMode.STATIC
-                    and not (config.dl_rbs and config.ul_rbs and config.dl_mcs
-                             and config.ul_mcs)):
-                raise ValueError('When the scheduling mode is set to manual, '
-                                 'the RB and MCS parameters are required.')
+            if (
+                config.scheduling_mode
+                == sims.LteSimulation.SchedulingMode.STATIC
+                and not (
+                    config.dl_rbs
+                    and config.ul_rbs
+                    and config.dl_mcs
+                    and config.ul_mcs
+                )
+            ):
+                raise ValueError(
+                    "When the scheduling mode is set to manual, "
+                    "the RB and MCS parameters are required."
+                )
 
             # If scheduling mode is set to Dynamic, the RB and MCS parameters
             # will be ignored by set_scheduling_mode.
-            self.set_scheduling_mode(bts_index, config.scheduling_mode,
-                                     config.dl_mcs, config.ul_mcs,
-                                     config.dl_rbs, config.ul_rbs)
+            self.set_scheduling_mode(
+                bts_index,
+                config.scheduling_mode,
+                config.dl_mcs,
+                config.ul_mcs,
+                config.dl_rbs,
+                config.ul_rbs,
+            )
 
         # This variable stores a boolean value so the following is needed to
         # differentiate False from None
@@ -153,26 +166,30 @@ class AbstractCellularSimulator:
             self.set_drx_connected_mode(bts_index, config.drx_connected_mode)
 
             if config.drx_on_duration_timer:
-                self.set_drx_on_duration_timer(bts_index,
-                                               config.drx_on_duration_timer)
+                self.set_drx_on_duration_timer(
+                    bts_index, config.drx_on_duration_timer
+                )
 
             if config.drx_inactivity_timer:
-                self.set_drx_inactivity_timer(bts_index,
-                                              config.drx_inactivity_timer)
+                self.set_drx_inactivity_timer(
+                    bts_index, config.drx_inactivity_timer
+                )
 
             if config.drx_retransmission_timer:
                 self.set_drx_retransmission_timer(
-                    bts_index, config.drx_retransmission_timer)
+                    bts_index, config.drx_retransmission_timer
+                )
 
             if config.drx_long_cycle:
                 self.set_drx_long_cycle(bts_index, config.drx_long_cycle)
 
             if config.drx_long_cycle_offset is not None:
-                self.set_drx_long_cycle_offset(bts_index,
-                                               config.drx_long_cycle_offset)
+                self.set_drx_long_cycle_offset(
+                    bts_index, config.drx_long_cycle_offset
+                )
 
     def set_lte_rrc_state_change_timer(self, enabled, time=10):
-        """ Configures the LTE RRC state change timer.
+        """Configures the LTE RRC state change timer.
 
         Args:
             enabled: a boolean indicating if the timer should be on or off.
@@ -181,7 +198,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_band(self, bts_index, band):
-        """ Sets the band for the indicated base station.
+        """Sets the band for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -190,7 +207,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_input_power(self, bts_index, input_power):
-        """ Sets the input power for the indicated base station.
+        """Sets the input power for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -199,7 +216,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_output_power(self, bts_index, output_power):
-        """ Sets the output power for the indicated base station.
+        """Sets the output power for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -208,7 +225,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_tdd_config(self, bts_index, tdd_config):
-        """ Sets the tdd configuration number for the indicated base station.
+        """Sets the tdd configuration number for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -217,7 +234,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_ssf_config(self, bts_index, ssf_config):
-        """ Sets the Special Sub-Frame config number for the indicated
+        """Sets the Special Sub-Frame config number for the indicated
         base station.
 
         Args:
@@ -227,7 +244,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_bandwidth(self, bts_index, bandwidth):
-        """ Sets the bandwidth for the indicated base station.
+        """Sets the bandwidth for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -236,7 +253,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_downlink_channel_number(self, bts_index, channel_number):
-        """ Sets the downlink channel number for the indicated base station.
+        """Sets the downlink channel number for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -245,7 +262,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_mimo_mode(self, bts_index, mimo_mode):
-        """ Sets the mimo mode for the indicated base station.
+        """Sets the mimo mode for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -254,7 +271,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_transmission_mode(self, bts_index, transmission_mode):
-        """ Sets the transmission mode for the indicated base station.
+        """Sets the transmission mode for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -262,9 +279,10 @@ class AbstractCellularSimulator:
         """
         raise NotImplementedError()
 
-    def set_scheduling_mode(self, bts_index, scheduling_mode, mcs_dl, mcs_ul,
-                            nrb_dl, nrb_ul):
-        """ Sets the scheduling mode for the indicated base station.
+    def set_scheduling_mode(
+        self, bts_index, scheduling_mode, mcs_dl, mcs_ul, nrb_dl, nrb_ul
+    ):
+        """Sets the scheduling mode for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -277,7 +295,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_dl_modulation(self, bts_index, modulation):
-        """ Sets the DL modulation for the indicated base station.
+        """Sets the DL modulation for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -286,7 +304,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_ul_modulation(self, bts_index, modulation):
-        """ Sets the UL modulation for the indicated base station.
+        """Sets the UL modulation for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -295,7 +313,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_tbs_pattern_on(self, bts_index, tbs_pattern_on):
-        """ Enables or disables TBS pattern in the indicated base station.
+        """Enables or disables TBS pattern in the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -304,7 +322,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_cfi(self, bts_index, cfi):
-        """ Sets the Channel Format Indicator for the indicated base station.
+        """Sets the Channel Format Indicator for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -313,7 +331,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_paging_cycle(self, bts_index, cycle_duration):
-        """ Sets the paging cycle duration for the indicated base station.
+        """Sets the paging cycle duration for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -322,7 +340,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_phich_resource(self, bts_index, phich):
-        """ Sets the PHICH Resource setting for the indicated base station.
+        """Sets the PHICH Resource setting for the indicated base station.
 
         Args:
             bts_index: the base station number
@@ -331,7 +349,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_drx_connected_mode(self, bts_index, active):
-        """ Sets the time interval to wait before entering DRX mode
+        """Sets the time interval to wait before entering DRX mode
 
         Args:
             bts_index: the base station number
@@ -341,7 +359,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_drx_on_duration_timer(self, bts_index, timer):
-        """ Sets the amount of PDCCH subframes to wait for data after
+        """Sets the amount of PDCCH subframes to wait for data after
             waking up from a DRX cycle
 
         Args:
@@ -352,7 +370,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_drx_inactivity_timer(self, bts_index, timer):
-        """ Sets the number of PDCCH subframes to wait before entering DRX mode
+        """Sets the number of PDCCH subframes to wait before entering DRX mode
 
         Args:
             bts_index: the base station number
@@ -361,7 +379,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_drx_retransmission_timer(self, bts_index, timer):
-        """ Sets the number of consecutive PDCCH subframes to wait
+        """Sets the number of consecutive PDCCH subframes to wait
         for retransmission
 
         Args:
@@ -372,7 +390,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_drx_long_cycle(self, bts_index, cycle):
-        """ Sets the amount of subframes representing a DRX long cycle.
+        """Sets the amount of subframes representing a DRX long cycle.
 
         Args:
             bts_index: the base station number
@@ -382,7 +400,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def set_drx_long_cycle_offset(self, bts_index, offset):
-        """ Sets the offset used to determine the subframe number
+        """Sets the offset used to determine the subframe number
         to begin the long drx cycle
 
         Args:
@@ -392,7 +410,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def lte_attach_secondary_carriers(self, ue_capability_enquiry):
-        """ Activates the secondary carriers for CA. Requires the DUT to be
+        """Activates the secondary carriers for CA. Requires the DUT to be
         attached to the primary carrier first.
 
         Args:
@@ -402,7 +420,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def wait_until_attached(self, timeout=120):
-        """ Waits until the DUT is attached to the primary carrier.
+        """Waits until the DUT is attached to the primary carrier.
 
         Args:
             timeout: after this amount of time the method will raise a
@@ -411,7 +429,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def wait_until_communication_state(self, timeout=120):
-        """ Waits until the DUT is in Communication state.
+        """Waits until the DUT is in Communication state.
 
         Args:
             timeout: after this amount of time the method will raise a
@@ -420,7 +438,7 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def wait_until_idle_state(self, timeout=120):
-        """ Waits until the DUT is in Idle state.
+        """Waits until the DUT is in Idle state.
 
         Args:
             timeout: after this amount of time the method will raise a
@@ -438,24 +456,24 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def detach(self):
-        """ Turns off all the base stations so the DUT loose connection."""
+        """Turns off all the base stations so the DUT loose connection."""
         raise NotImplementedError()
 
     def stop(self):
-        """ Stops current simulation. After calling this method, the simulator
-        will need to be set up again. """
+        """Stops current simulation. After calling this method, the simulator
+        will need to be set up again."""
         raise NotImplementedError()
 
     def start_data_traffic(self):
-        """ Starts transmitting data from the instrument to the DUT. """
+        """Starts transmitting data from the instrument to the DUT."""
         raise NotImplementedError()
 
     def stop_data_traffic(self):
-        """ Stops transmitting data from the instrument to the DUT. """
+        """Stops transmitting data from the instrument to the DUT."""
         raise NotImplementedError()
 
     def get_measured_pusch_power(self):
-        """ Queries PUSCH power measured at the callbox.
+        """Queries PUSCH power measured at the callbox.
 
         Returns:
             The PUSCH power in the primary input port.
@@ -463,11 +481,12 @@ class AbstractCellularSimulator:
         raise NotImplementedError()
 
     def send_sms(self, sms_message):
-        """ Sends SMS message from the instrument to the DUT. """
+        """Sends SMS message from the instrument to the DUT."""
         raise NotImplementedError()
 
 
 class CellularSimulatorError(Exception):
-    """ Exceptions thrown when the cellular equipment is unreachable or it
-    returns an error after receiving a command. """
+    """Exceptions thrown when the cellular equipment is unreachable or it
+    returns an error after receiving a command."""
+
     pass

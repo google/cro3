@@ -5,17 +5,17 @@ Found (coreboot, 42551), saving to yaml
 INFO:root:Running step upload_CLs
 INFO:requests.packages.urllib3.connectionpool:Starting new HTTPS connection (1): review.coreboot.org
 [COMMIT 1/1 646dc060f1fe] puff: Add wyvern coreboot configuration
-[PASSED] repohooks passed in 0:00:00.085175                               
+[PASSED] repohooks passed in 0:00:00.085175
 Upload project src/third_party/chromiumos-overlay/ to remote branch refs/heads/master:
   branch create_wyvern_20200618 ( 1 commit, Thu Jun 18 21:06:18 2020 -0600):
          646dc060 puff: Add wyvern coreboot configuration
 to https://chromium-review.googlesource.com (y/N)? <--yes>
-remote: Processing changes: refs: 1, new: 1, done            
-remote: 
-remote: SUCCESS        
-remote: 
-remote:   https://chromium-review.googlesource.com/c/chromiumos/overlays/chromiumos-overlay/+/2252826 puff: Add wyvern coreboot configuration [WIP] [NEW]        
-remote: 
+remote: Processing changes: refs: 1, new: 1, done
+remote:
+remote: SUCCESS
+remote:
+remote:   https://chromium-review.googlesource.com/c/chromiumos/overlays/chromiumos-overlay/+/2252826 puff: Add wyvern coreboot configuration [WIP] [NEW]
+remote:
 To https://chromium-review.googlesource.com/chromiumos/overlays/chromiumos-overlay
  * [new branch]              create_wyvern_20200618 -> refs/for/master%wip
 
@@ -24,17 +24,17 @@ To https://chromium-review.googlesource.com/chromiumos/overlays/chromiumos-overl
 Found (chromium, 2252826), saving to yaml
 INFO:requests.packages.urllib3.connectionpool:Starting new HTTPS connection (1): review.coreboot.org
 [COMMIT 1/1 f84f27faf371] puff: Add fitimage for wyvern
-[PASSED] repohooks passed in 0:00:00.067894                               
+[PASSED] repohooks passed in 0:00:00.067894
 Upload project src/private-overlays/baseboard-puff-private/ to remote branch refs/heads/master:
   branch create_wyvern_20200618 ( 1 commit, Thu Jun 18 21:11:09 2020 -0600):
          f84f27fa puff: Add fitimage for wyvern
 to https://chrome-internal-review.googlesource.com (y/N)? <--yes>
-remote: Processing changes: refs: 1, new: 1, done            
-remote: 
-remote: SUCCESS        
-remote: 
-remote:   https://chrome-internal-review.googlesource.com/c/chromeos/overlays/baseboard-puff-private/+/3122979 puff: Add fitimage for wyvern [WIP] [NEW]        
-remote: 
+remote: Processing changes: refs: 1, new: 1, done
+remote:
+remote: SUCCESS
+remote:
+remote:   https://chrome-internal-review.googlesource.com/c/chromeos/overlays/baseboard-puff-private/+/3122979 puff: Add fitimage for wyvern [WIP] [NEW]
+remote:
 To https://chrome-internal-review.googlesource.com/chromeos/overlays/baseboard-puff-private
  * [new branch]      create_wyvern_20200618 -> refs/for/master%wip
 
@@ -43,17 +43,17 @@ To https://chrome-internal-review.googlesource.com/chromeos/overlays/baseboard-p
 Found (chrome-internal, 3122979), saving to yaml
 INFO:requests.packages.urllib3.connectionpool:Starting new HTTPS connection (1): review.coreboot.org
 [COMMIT 1/1 46d455a21ce4] wyvern: enable default firmware build
-[PASSED] repohooks passed in 0:00:07.158037                               
+[PASSED] repohooks passed in 0:00:07.158037
 Upload project src/project/puff/wyvern/ to remote branch refs/heads/master:
   branch create_wyvern_20200618 ( 1 commit, Thu Jun 18 21:06:17 2020 -0600):
          46d455a2 wyvern: enable default firmware build
 to https://chrome-internal-review.googlesource.com (y/N)? <--yes>
-remote: Processing changes: refs: 1, new: 1, done            
-remote: 
-remote: SUCCESS        
-remote: 
-remote:   https://chrome-internal-review.googlesource.com/c/chromeos/project/puff/wyvern/+/3122980 wyvern: enable default firmware build [WIP] [NEW]        
-remote: 
+remote: Processing changes: refs: 1, new: 1, done
+remote:
+remote: SUCCESS
+remote:
+remote:   https://chrome-internal-review.googlesource.com/c/chromeos/project/puff/wyvern/+/3122980 wyvern: enable default firmware build [WIP] [NEW]
+remote:
 To https://chrome-internal-review.googlesource.com/chromeos/project/puff/wyvern
  * [new branch]      create_wyvern_20200618 -> refs/for/master%wip
 
@@ -63,4 +63,4 @@ INFO:root:Running step find_coreboot_upstream
 ERROR:root:Program cannot continue until coreboot CL is upstreamed.
 ERROR:root:(coreboot:42551, change-id Id7a090058d2926707495387f7e90b3b8ed83dac7)
 ERROR:root:Please wait for the CL to be upstreamed, then run this program again with --continue
-(cr) ((9ec0ecd...)) pfagerburg@pfagerburg2 ~/trunk/src/platform/dev/contrib/variant $ 
+(cr) ((9ec0ecd...)) pfagerburg@pfagerburg2 ~/trunk/src/platform/dev/contrib/variant $

@@ -9,7 +9,7 @@ Copyright (c) 2013 - 2020, Intel Corporation. All rights reserved.
 Using vsccommn.bin with timestamp 19:06:41 03/20/2020 GMT
 
 
-Command Line: /home/pfagerburg/TXE/puff/Tools/System_Tools/FIT/Linux64/fit -b -f outputs/fit_config_wyvern.xml 
+Command Line: /home/pfagerburg/TXE/puff/Tools/System_Tools/FIT/Linux64/fit -b -f outputs/fit_config_wyvern.xml
 
 Log file written to fit.log
 
@@ -17,7 +17,7 @@ Loading XML file: /home/pfagerburg/chromiumos/src/private-overlays/baseboard-puf
 Warning: Invalid value specified for "IA SVID VR Offset Enabled": Above 1.52v Not Allowed, reverting to previous/default value: Yes
 Loading XML file: /home/pfagerburg/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation/outputs/fit_config_wyvern.xml
 Warning: Invalid value specified for "IA SVID VR Offset Enabled": Above 1.52v Not Allowed, reverting to previous/default value: Yes
-Start Building  Image 
+Start Building  Image
 
 
 Executing pre-build actions
@@ -83,4 +83,4 @@ Writing map file /home/pfagerburg/chromiumos/src/private-overlays/baseboard-puff
 
 Program terminated.
 -------------------
-pfagerburg@pfagerburg2:~/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation$ 
+pfagerburg@pfagerburg2:~/chromiumos/src/private-overlays/baseboard-puff-private/sys-boot/coreboot-private-files-puff/asset_generation$

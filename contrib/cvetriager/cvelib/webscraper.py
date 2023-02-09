@@ -4,23 +4,27 @@
 
 """Module for collecting CVE data."""
 
-from urllib.parse import urlparse, parse_qs
+import logging
 import os
 import string
-import logging
+from urllib.parse import parse_qs
+from urllib.parse import urlparse
 
-from cvelib import logutils
 from bs4 import BeautifulSoup
+from cvelib import logutils
 import requests
 
 
-LOGGER = logutils.setuplogging(loglvl=logging.DEBUG, name='WebScraper')
+LOGGER = logutils.setuplogging(loglvl=logging.DEBUG, name="WebScraper")
 
-CVE_URL = 'https://cve.mitre.org/cgi-bin/cvename.cgi'
-KERNEL_ORG = 'git.kernel.org'
-KERNEL_PATH = ['/cgit/linux/kernel/git/torvalds', '/pub/scm/linux/kernel/git/torvalds/']
-GITHUB_COM = 'github.com'
-GITHUB_PATH = '/torvalds/linux/'
+CVE_URL = "https://cve.mitre.org/cgi-bin/cvename.cgi"
+KERNEL_ORG = "git.kernel.org"
+KERNEL_PATH = [
+    "/cgit/linux/kernel/git/torvalds",
+    "/pub/scm/linux/kernel/git/torvalds/",
+]
+GITHUB_COM = "github.com"
+GITHUB_PATH = "/torvalds/linux/"
 
 
 class WebScraperException(Exception):
@@ -29,21 +33,21 @@ class WebScraperException(Exception):
 
 def make_cve_request(cve_number):
     """Generates CVE url."""
-    cve = {'name': cve_number}
+    cve = {"name": cve_number}
     r = requests.get(CVE_URL, params=cve)
 
     if r.status_code != 200:
-        raise WebScraperException('Status code is not 200 OK.')
+        raise WebScraperException("Status code is not 200 OK.")
 
     # Checks page for an invalid CVE number. This is only done because the page
     # is still existent even if the CVE number is not, therefore it returns a
     # 200 status code and passes the first check.
-    soup = BeautifulSoup(r.text, 'html.parser')
-    tag = soup.find('div', attrs={'id':'CenterPane'})
+    soup = BeautifulSoup(r.text, "html.parser")
+    tag = soup.find("div", attrs={"id": "CenterPane"})
 
     for d in tag.descendants:
-        if d.name == 'h2' and d.string.startswith('ERROR:'):
-            raise WebScraperException('CVE number is invalid.')
+        if d.name == "h2" and d.string.startswith("ERROR:"):
+            raise WebScraperException("CVE number is invalid.")
 
     return r
 
@@ -67,15 +71,15 @@ def is_github_com(netloc, path):
 
 def find_cve_description(cve_html):
     """Returns given CVE's description."""
-    soup = BeautifulSoup(cve_html, 'html.parser')
+    soup = BeautifulSoup(cve_html, "html.parser")
 
-    tag = soup.find('div', attrs={'id': 'GeneratedTable'})
+    tag = soup.find("div", attrs={"id": "GeneratedTable"})
 
     for t in tag.descendants:
-        if t.name == 'th' and t.text == 'Description':
+        if t.name == "th" and t.text == "Description":
             description = t.parent.find_next_sibling().get_text()
 
-    return description.replace('\n', '')
+    return description.replace("\n", "")
 
 
 def find_commit_links(cve_html):
@@ -83,13 +87,13 @@ def find_commit_links(cve_html):
     # TODO: Additional pattern to look for might be:
     # https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-19076
     commits = []
-    soup = BeautifulSoup(cve_html, 'html.parser')
+    soup = BeautifulSoup(cve_html, "html.parser")
 
     # Searches through link tags.
-    tag = soup.find('div', attrs={'id': 'GeneratedTable'})
+    tag = soup.find("div", attrs={"id": "GeneratedTable"})
     for l in tag.descendants:
-        if l.name == 'a':
-            link = l.get('href')
+        if l.name == "a":
+            link = l.get("href")
             parsed_link = urlparse(link)
             netloc, path = parsed_link.netloc, parsed_link.path
 
@@ -118,9 +122,9 @@ def find_sha_from_link(link):
 
     if is_kernel_org(netloc, path):
         try:
-            sha = parse_qs(parsed_link.query)['id'][0]
+            sha = parse_qs(parsed_link.query)["id"][0]
         except KeyError:
-            LOGGER.error(f'Sha not found in {link}')
+            LOGGER.error(f"Sha not found in {link}")
 
     elif is_github_com(netloc, path):
         sha = os.path.basename(path)
@@ -135,13 +139,13 @@ def find_relevant_commits(cve_number):
     req = make_cve_request(cve_number)
 
     cve_description = find_cve_description(req.text)
-    LOGGER.info(f'CVE Description: {cve_description}')
+    LOGGER.info(f"CVE Description: {cve_description}")
 
     commit_links = find_commit_links(req.text)
 
     # Collects fix commit sha(s) from links.
     for link in commit_links:
-        LOGGER.debug(f'Looking for sha in {link}')
+        LOGGER.debug(f"Looking for sha in {link}")
 
         sha = find_sha_from_link(link)
         if sha:

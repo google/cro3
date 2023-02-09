@@ -3,8 +3,8 @@
 // found in the LICENSE file.
 
 /* Includes */
-#include "gcc-common.h"
 #include "cache.h"
+#include "gcc-common.h"
 
 /* Macros */
 #define STAGE1_INT "/tmp/rai_int"
@@ -21,9 +21,9 @@
 
 #define IS_RECORD_TYPE(T) (TREE_CODE(T) == RECORD_TYPE)
 #define FOR_EACH_STRUCT_MEMBER(T, MEM) \
-	for (MEM = TYPE_VALUES((T)); (MEM); MEM = TREE_CHAIN(MEM))
+  for (MEM = TYPE_VALUES((T)); (MEM); MEM = TREE_CHAIN(MEM))
 #define FOR_EACH_ATTR_VALUE(SEC, AV) \
-	for (AV = TREE_VALUE((SEC)); (AV); AV = TREE_CHAIN(AV))
+  for (AV = TREE_VALUE((SEC)); (AV); AV = TREE_CHAIN(AV))
 
 #define PASS_NAME roafteriniter
 #define NO_WRITE_SUMMARY
@@ -38,7 +38,7 @@
 
 /* GCC Callbacks */
 __visible int plugin_init(struct plugin_name_args *,
-			  struct plugin_gcc_version *);
+                          struct plugin_gcc_version *);
 static unsigned int roafteriniter_execute(void);
 static void rai_callback_finish(void *, void *);
 
@@ -50,14 +50,8 @@ static void rai_callback_finish(void *, void *);
 /* Static declarations */
 static struct cache interesting, checked, results;
 static const char *blacklisted_typenames[] = {
-	"atomic_t",
-	"atomic64_t",
-	"arch_spinlock_t",
-	"spinlock_t",
-	"cpumask_t",
-	"sk_buff_head",
-	NULL
-};
+    "atomic_t",     "atomic64_t", "arch_spinlock_t", "spinlock_t", "cpumask_t",
+    "sk_buff_head", NULL};
 
 static bool stage2 = false;
 
@@ -78,70 +72,69 @@ static void rai_stage2_execute(void);
 __visible int plugin_is_GPL_compatible = 1;
 
 __visible int plugin_init(struct plugin_name_args *info,
-			  struct plugin_gcc_version *ver __unused)
-{
-	int i;
-	const char *plugin_name = info->base_name;
-	const int argc = info->argc;
-	struct plugin_argument *argv = info->argv;
+                          struct plugin_gcc_version *ver __unused) {
+  int i;
+  const char *plugin_name = info->base_name;
+  const int argc = info->argc;
+  struct plugin_argument *argv = info->argv;
 
-	PASS_INFO(roafteriniter, "ssa", 1, PASS_POS_INSERT_AFTER);
+  PASS_INFO(roafteriniter, "ssa", 1, PASS_POS_INSERT_AFTER);
 
-	for (i = 0; i < argc; i++) {
-		if (!(strcmp(argv[i].key, "stage2"))) {
-			stage2 = true;
-			continue;
-		}
-		fprintf(stderr, "unknown plugin option(%s)\n", argv[i].key);
-		return -1;
-	}
+  for (i = 0; i < argc; i++) {
+    if (!(strcmp(argv[i].key, "stage2"))) {
+      stage2 = true;
+      continue;
+    }
+    fprintf(stderr, "unknown plugin option(%s)\n", argv[i].key);
+    return -1;
+  }
 
-	/* Map cache */
-	rai_map_cache();
+  /* Map cache */
+  rai_map_cache();
 
-	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL,
-			  &roafteriniter_pass_info);
-	register_callback(plugin_name, PLUGIN_FINISH, rai_callback_finish,
-			  NULL);
+  register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL,
+                    &roafteriniter_pass_info);
+  register_callback(plugin_name, PLUGIN_FINISH, rai_callback_finish, NULL);
 
-	return 0;
+  return 0;
 }
 
 /* Static definitions */
-static void die(const char *format, ...)
-{
-	va_list vargs;
-	va_start(vargs, format);
-	fprintf(stderr, "FAILURE: ");
-	vfprintf(stderr, format, vargs);
-	fprintf(stderr, "\n");
-	va_end(vargs);
-	exit(-1);
+static void die(const char *format, ...) {
+  va_list vargs;
+  va_start(vargs, format);
+  fprintf(stderr, "FAILURE: ");
+  vfprintf(stderr, format, vargs);
+  fprintf(stderr, "\n");
+  va_end(vargs);
+  exit(-1);
 }
 
 /*
  * rai_map_cache - Map cache files into memory.
  *
  * The following cache files are mapped into memory:
- *	- STAGE1_INT   : Cache holding struct types that are considered interesting.
- *	- STAGE1_CHK   : Cache holding struct types that have been checked for whether they are interesting
- *		         or not.
- *	- STAGE2_FINAL : Cache holding log entries corresponding to writes to instances of interesting struct
- *			 types.
+ *	- STAGE1_INT   : Cache holding struct types that are considered
+ *interesting.
+ *	- STAGE1_CHK   : Cache holding struct types that have been checked for
+ *whether they are interesting or not.
+ *	- STAGE2_FINAL : Cache holding log entries corresponding to writes to
+ *instances of interesting struct types.
  */
-static void rai_map_cache(void)
-{
-	int ret;
-	if ((ret = cache_map(&interesting, STAGE1_INT, "/int", STAGE1_PG_COUNT*0x1000) != CACHE_OP_SUCCESS))
-		die("cache_map() returned %d at %d", ret, __LINE__);
+static void rai_map_cache(void) {
+  int ret;
+  if ((ret = cache_map(&interesting, STAGE1_INT, "/int",
+                       STAGE1_PG_COUNT * 0x1000) != CACHE_OP_SUCCESS))
+    die("cache_map() returned %d at %d", ret, __LINE__);
 
-	if (!stage2 &&
-	    (ret = cache_map(&checked, STAGE1_CHK, "/chk", STAGE1_PG_COUNT*0x1000) != CACHE_OP_SUCCESS))
-		die("cache_map() returned %d at %d", ret, __LINE__);
+  if (!stage2 &&
+      (ret = cache_map(&checked, STAGE1_CHK, "/chk",
+                       STAGE1_PG_COUNT * 0x1000) != CACHE_OP_SUCCESS))
+    die("cache_map() returned %d at %d", ret, __LINE__);
 
-	if (stage2 &&
-	    (ret = cache_map(&results, STAGE2_FINAL, "/final", STAGE2_PG_COUNT*0x1000) != CACHE_OP_SUCCESS))
-		die("cache_map() returned %d at %d", ret, __LINE__);
+  if (stage2 && (ret = cache_map(&results, STAGE2_FINAL, "/final",
+                                 STAGE2_PG_COUNT * 0x1000) != CACHE_OP_SUCCESS))
+    die("cache_map() returned %d at %d", ret, __LINE__);
 }
 
 /*
@@ -150,25 +143,22 @@ static void rai_map_cache(void)
  * @type_tree: tree node corresponding to the RECORD type or struct instance.
  *
  * Returns:
- *	const char* representing struct instance name or struct type name. If the
- *	typename is a typedef, return the typedef.
+ *	const char* representing struct instance name or struct type name. If
+ *the typename is a typedef, return the typedef.
  */
-static const char *rai_structtype_str(tree type_tree)
-{
-	tree name_tree;
+static const char *rai_structtype_str(tree type_tree) {
+  tree name_tree;
 
-	if (!type_tree)
-		return NULL;
+  if (!type_tree) return NULL;
 
-	if (!(name_tree = TYPE_NAME(type_tree)))
-		return NULL;
+  if (!(name_tree = TYPE_NAME(type_tree))) return NULL;
 
-	if (TREE_CODE(name_tree) == IDENTIFIER_NODE)
-		return IDENTIFIER_POINTER(name_tree);
-	else if (TREE_CODE(name_tree) == TYPE_DECL && DECL_NAME(name_tree))
-		return IDENTIFIER_POINTER(DECL_NAME(name_tree));
+  if (TREE_CODE(name_tree) == IDENTIFIER_NODE)
+    return IDENTIFIER_POINTER(name_tree);
+  else if (TREE_CODE(name_tree) == TYPE_DECL && DECL_NAME(name_tree))
+    return IDENTIFIER_POINTER(DECL_NAME(name_tree));
 
-	return NULL;
+  return NULL;
 }
 
 /*
@@ -196,57 +186,53 @@ static const char *rai_structtype_str(tree type_tree)
  * @type_tree: tree node corresponding to a struct type.
  * @type_name: string representation of the struct type name.
  */
-static bool rai_check_interesting_sttype(tree type_tree, const char *type_name)
-{
-	tree member;
-	bool has_fields = false;
-	gcc_assert(TREE_CODE(type_tree) == RECORD_TYPE);
+static bool rai_check_interesting_sttype(tree type_tree,
+                                         const char *type_name) {
+  tree member;
+  bool has_fields = false;
+  gcc_assert(TREE_CODE(type_tree) == RECORD_TYPE);
 
-	/* (1) Iterate through each member of the struct type. Investigate each
-	 * member for properties that might make this struct type non-interesting. */
-	FOR_EACH_STRUCT_MEMBER(type_tree, member) {
-		has_fields = true;
-		gcc_assert(TREE_CODE(member) == FIELD_DECL);
+  /* (1) Iterate through each member of the struct type. Investigate each
+   * member for properties that might make this struct type non-interesting. */
+  FOR_EACH_STRUCT_MEMBER(type_tree, member) {
+    has_fields = true;
+    gcc_assert(TREE_CODE(member) == FIELD_DECL);
 
-		/* (1.1) Check if the member is a pointer to something. */
-		tree member_tree = TREE_TYPE(member);
-		if (TREE_CODE(member_tree) == POINTER_TYPE) {
+    /* (1.1) Check if the member is a pointer to something. */
+    tree member_tree = TREE_TYPE(member);
+    if (TREE_CODE(member_tree) == POINTER_TYPE) {
+      /* (1.1.1) If it is a pointer to a non-RECORD type, we cannot
+       * infer anything useful from it. So continue onto the next member. */
+      tree member_type = TREE_TYPE(member_tree);
+      if (TREE_CODE(member_type) != RECORD_TYPE) continue;
 
-			/* (1.1.1) If it is a pointer to a non-RECORD type, we cannot
-			 * infer anything useful from it. So continue onto the next member. */
-			tree member_type = TREE_TYPE(member_tree);
-			if (TREE_CODE(member_type) != RECORD_TYPE)
-				continue;
+      /* (1.1.2) If it is an anonymous struct, we cannot infer anything useful
+       * from it. So continue onto the next member. */
+      const char *member_typename = rai_structtype_str(member_type);
+      if (!member_typename) continue;
 
-			/* (1.1.2) If it is an anonymous struct, we cannot infer anything useful
-			 * from it. So continue onto the next member. */
-			const char *member_typename = rai_structtype_str(member_type);
-			if (!member_typename)
-				continue;
+      /* (1.1.3) If it is a pointer to a RECORD type, check if it is a pointer
+       * to itself. If so, this struct type is deemed as not interesting. */
+      /* (1.1.4) If it is a pointer to a RECORD type, check if the RECORD type
+       * is interesting. If it is not interesting, then this struct
+       * type will also be deemed as not interesting. */
+      if (!strcmp(member_typename, type_name) ||
+          !rai_interesting_struct_type(member_type))
+        return false;
 
-			/* (1.1.3) If it is a pointer to a RECORD type, check if it is a pointer
-			 * to itself. If so, this struct type is deemed as not interesting. */
-			/* (1.1.4) If it is a pointer to a RECORD type, check if the RECORD type
-			 * is interesting. If it is not interesting, then this struct
-			 * type will also be deemed as not interesting. */
-			if (!strcmp(member_typename, type_name) ||
-			    !rai_interesting_struct_type(member_type))
-				return false;
+      /* (1.2) Check if the member is an instance of another non-interesting
+       * struct type. If so, return false. */
+    } else if (TREE_CODE(member_tree) == RECORD_TYPE &&
+               !rai_interesting_struct_type(member_tree)) {
+      return false;
+    }
+  }
 
-		/* (1.2) Check if the member is an instance of another non-interesting
-		 * struct type. If so, return false. */
-		} else if (TREE_CODE(member_tree) == RECORD_TYPE &&
-			   !rai_interesting_struct_type(member_tree)) {
-			return false;
-		}
-	}
+  /* If we are unable to iterate through the fields of the RECORD_TYPE
+   * deem the struct type to be non-interesting. */
+  if (!has_fields) return false;
 
-	/* If we are unable to iterate through the fields of the RECORD_TYPE
-	 * deem the struct type to be non-interesting. */
-	if (!has_fields)
-		return false;
-
-	return true;
+  return true;
 }
 
 /*
@@ -258,56 +244,48 @@ static bool rai_check_interesting_sttype(tree type_tree, const char *type_name)
  *	true: if type_name is present in blacklisted_typenames.
  *	false: otherwise.
  */
-static bool rai_hardcoded_blacklist_typename(const char *type_name)
-{
-	const char **tmp;
+static bool rai_hardcoded_blacklist_typename(const char *type_name) {
+  const char **tmp;
 
-	if (!type_name)
-		return false;
+  if (!type_name) return false;
 
-	for (tmp = blacklisted_typenames; *tmp; tmp++)
-		if (!strcmp(*tmp, type_name))
-			return true;
-	return false;
+  for (tmp = blacklisted_typenames; *tmp; tmp++)
+    if (!strcmp(*tmp, type_name)) return true;
+  return false;
 }
 
-static bool rai_interesting_struct_type(tree type_tree)
-{
-	const char *type_name;
-	int ret;
+static bool rai_interesting_struct_type(tree type_tree) {
+  const char *type_name;
+  int ret;
 
-	if (!IS_RECORD_TYPE(type_tree))
-		return false;
+  if (!IS_RECORD_TYPE(type_tree)) return false;
 
-	type_name = rai_structtype_str(type_tree);
-	if (!type_name)
-		return false;
+  type_name = rai_structtype_str(type_tree);
+  if (!type_name) return false;
 
-	/* If type_name is already categorized as interesting, return true */
-	if (cache_contains(&interesting, type_name) == CACHE_CONTAINS_SUCCESS)
-		return true;
+  /* If type_name is already categorized as interesting, return true */
+  if (cache_contains(&interesting, type_name) == CACHE_CONTAINS_SUCCESS)
+    return true;
 
-	/* If type_name is already checked, return. Else insert and continue */
-	ret = cache_notcontains_insert(&checked, type_name);
-	if (ret == CACHE_CONTAINS_SUCCESS)
-		return false;
+  /* If type_name is already checked, return. Else insert and continue */
+  ret = cache_notcontains_insert(&checked, type_name);
+  if (ret == CACHE_CONTAINS_SUCCESS) return false;
 
-	if (ret == CACHE_INSERTION_FAILED)
-		die("cache_notcontains_insert() returned %d at %d", ret, __LINE__);
+  if (ret == CACHE_INSERTION_FAILED)
+    die("cache_notcontains_insert() returned %d at %d", ret, __LINE__);
 
-	if (rai_hardcoded_blacklist_typename(type_name))
-		return false;
+  if (rai_hardcoded_blacklist_typename(type_name)) return false;
 
-	if (rai_check_interesting_sttype(type_tree, type_name)) {
-		ret = cache_notcontains_insert(&interesting, type_name);
-		if (ret == CACHE_INSERTION_FAILED)
-			die("cache_notcontains_insert() returned %d at %d\n", ret, __LINE__);
-		return true;
-	} else {
-		return false;
-	}
+  if (rai_check_interesting_sttype(type_tree, type_name)) {
+    ret = cache_notcontains_insert(&interesting, type_name);
+    if (ret == CACHE_INSERTION_FAILED)
+      die("cache_notcontains_insert() returned %d at %d\n", ret, __LINE__);
+    return true;
+  } else {
+    return false;
+  }
 
-	return true;
+  return true;
 }
 
 /*
@@ -316,34 +294,32 @@ static bool rai_interesting_struct_type(tree type_tree)
  * In stage 1, the plugin iterates over each global variable in a translation
  * unit and determines if its type is interesting.
  */
-static void rai_stage1_execute(void)
-{
-	varpool_node_ptr node;
+static void rai_stage1_execute(void) {
+  varpool_node_ptr node;
 
-	FOR_EACH_VARIABLE(node) {
-		tree var_node = NODE_DECL(node);
-		gcc_assert(TREE_CODE(var_node) == VAR_DECL);
+  FOR_EACH_VARIABLE(node) {
+    tree var_node = NODE_DECL(node);
+    gcc_assert(TREE_CODE(var_node) == VAR_DECL);
 
-		tree type_tree;
-		type_tree = TREE_TYPE(var_node);
-		rai_interesting_struct_type(type_tree);
-	}
+    tree type_tree;
+    type_tree = TREE_TYPE(var_node);
+    rai_interesting_struct_type(type_tree);
+  }
 }
 
 /*
  * is_global - Returns true if var_tree corresponds to a global variable.
  */
-static bool is_global(tree var_tree)
-{
-	varpool_node_ptr node;
+static bool is_global(tree var_tree) {
+  varpool_node_ptr node;
 
-	FOR_EACH_VARIABLE(node) {
-		tree var_node = NODE_DECL(node);
-		gcc_assert(TREE_CODE(var_node) == VAR_DECL);
-		if (var_node == var_tree) return true;
-	}
+  FOR_EACH_VARIABLE(node) {
+    tree var_node = NODE_DECL(node);
+    gcc_assert(TREE_CODE(var_node) == VAR_DECL);
+    if (var_node == var_tree) return true;
+  }
 
-	return false;
+  return false;
 }
 
 /*
@@ -352,21 +328,18 @@ static bool is_global(tree var_tree)
  * @decl: tree node representing variable or function.
  * @sname: annotation to check on decl
  */
-static bool is_annotated(tree decl, const char *sname)
-{
-	tree section, attr_value;
+static bool is_annotated(tree decl, const char *sname) {
+  tree section, attr_value;
 
-	section = lookup_attribute("section", DECL_ATTRIBUTES(decl));
-	if (!section || !TREE_VALUE(section))
-		return false;
+  section = lookup_attribute("section", DECL_ATTRIBUTES(decl));
+  if (!section || !TREE_VALUE(section)) return false;
 
-	FOR_EACH_ATTR_VALUE(section, attr_value) {
-		const char *str = TREE_STRING_POINTER(TREE_VALUE(attr_value));
-		if (!strncmp(str, sname, strlen(sname)))
-			return true;
-	}
+  FOR_EACH_ATTR_VALUE(section, attr_value) {
+    const char *str = TREE_STRING_POINTER(TREE_VALUE(attr_value));
+    if (!strncmp(str, sname, strlen(sname))) return true;
+  }
 
-	return false;
+  return false;
 }
 
 /*
@@ -374,9 +347,8 @@ static bool is_annotated(tree decl, const char *sname)
  *
  * @var_decl: tree node representing a variable.
  */
-static bool is_fn_annotated(tree var_decl)
-{
-	return is_annotated(var_decl, __init);
+static bool is_fn_annotated(tree var_decl) {
+  return is_annotated(var_decl, __init);
 }
 
 /*
@@ -385,10 +357,9 @@ static bool is_fn_annotated(tree var_decl)
  *
  * @var_decl: tree node representing a function.
  */
-static bool is_var_annotated(tree var_decl)
-{
-	return is_annotated(var_decl, __initdata) ||
-	       is_annotated(var_decl, __ro_after_init);
+static bool is_var_annotated(tree var_decl) {
+  return is_annotated(var_decl, __initdata) ||
+         is_annotated(var_decl, __ro_after_init);
 }
 
 /*
@@ -430,40 +401,36 @@ static bool is_var_annotated(tree var_decl)
  *
  * @stmt: statement to check for a write.
  */
-static void rai_check_assign_stmt(gimple stmt)
-{
-	tree lhs, arg0, arg0_type;
-	char buffer[LINELEN];
-	int ret;
+static void rai_check_assign_stmt(gimple stmt) {
+  tree lhs, arg0, arg0_type;
+  char buffer[LINELEN];
+  int ret;
 
-	lhs = gimple_assign_lhs(stmt);
-	if (TREE_CODE(lhs) != COMPONENT_REF)
-		return;
+  lhs = gimple_assign_lhs(stmt);
+  if (TREE_CODE(lhs) != COMPONENT_REF) return;
 
-	arg0 = TREE_OPERAND(lhs, 0);
-	if (TREE_CODE(arg0) != VAR_DECL)
-		return;
+  arg0 = TREE_OPERAND(lhs, 0);
+  if (TREE_CODE(arg0) != VAR_DECL) return;
 
-	if (!is_global(arg0) || is_var_annotated(arg0))
-		return;
+  if (!is_global(arg0) || is_var_annotated(arg0)) return;
 
-	arg0_type = TREE_TYPE(arg0);
-	if (TREE_CODE(arg0_type) != RECORD_TYPE)
-		return;
+  arg0_type = TREE_TYPE(arg0);
+  if (TREE_CODE(arg0_type) != RECORD_TYPE) return;
 
-	if (cache_contains(&interesting, rai_structtype_str(arg0_type)) == CACHE_CONTAINS_FAILED)
-		return;
+  if (cache_contains(&interesting, rai_structtype_str(arg0_type)) ==
+      CACHE_CONTAINS_FAILED)
+    return;
 
-	memset(buffer, 0, LINELEN);
-	snprintf(buffer, LINELEN-1, "v:%s t:%s fn:%s status:%s",
-		 IDENTIFIER_POINTER(DECL_NAME(arg0)),
-		 rai_structtype_str(arg0_type),
-		 DECL_NAME_POINTER(current_function_decl),
-		 is_fn_annotated(current_function_decl) ? "OK" : "NK");
-	if ((ret = cache_notcontains_insert(&results, buffer)) == CACHE_INSERTION_FAILED) {
-		die("cache_notcontains_insert() returned %d at %d\n", ret, __LINE__);
-		exit(-1);
-	}
+  memset(buffer, 0, LINELEN);
+  snprintf(buffer, LINELEN - 1, "v:%s t:%s fn:%s status:%s",
+           IDENTIFIER_POINTER(DECL_NAME(arg0)), rai_structtype_str(arg0_type),
+           DECL_NAME_POINTER(current_function_decl),
+           is_fn_annotated(current_function_decl) ? "OK" : "NK");
+  if ((ret = cache_notcontains_insert(&results, buffer)) ==
+      CACHE_INSERTION_FAILED) {
+    die("cache_notcontains_insert() returned %d at %d\n", ret, __LINE__);
+    exit(-1);
+  }
 }
 
 /*
@@ -473,40 +440,34 @@ static void rai_check_assign_stmt(gimple stmt)
  * of each function in a translation unit, and processes GIMPLE_ASSIGN
  * statements.
  */
-static void rai_stage2_execute(void)
-{
-	basic_block bb;
+static void rai_stage2_execute(void) {
+  basic_block bb;
 
-	FOR_ALL_BB_FN(bb, cfun) {
-		gimple_stmt_iterator gsi;
-		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
-			gimple stmt = gsi_stmt(gsi);
-			if (gimple_code(stmt) == GIMPLE_ASSIGN)
-				rai_check_assign_stmt(stmt);
-		}
-	}
+  FOR_ALL_BB_FN(bb, cfun) {
+    gimple_stmt_iterator gsi;
+    for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
+      gimple stmt = gsi_stmt(gsi);
+      if (gimple_code(stmt) == GIMPLE_ASSIGN) rai_check_assign_stmt(stmt);
+    }
+  }
 }
 
 /* Callback definitions */
-static unsigned int roafteriniter_execute(void)
-{
-	if (!stage2)
-		rai_stage1_execute();
-	else
-		rai_stage2_execute();
+static unsigned int roafteriniter_execute(void) {
+  if (!stage2)
+    rai_stage1_execute();
+  else
+    rai_stage2_execute();
 
-	return 0;
+  return 0;
 }
 
 /*
  * rai_callback_finish: Unmap the caches from memory.
  */
 static void rai_callback_finish(void *event_data __unused,
-				void *user_data __unused)
-{
-	cache_unmap(&interesting);
-	if (!stage2)
-		cache_unmap(&checked);
-	if (stage2)
-		cache_unmap(&results);
+                                void *user_data __unused) {
+  cache_unmap(&interesting);
+  if (!stage2) cache_unmap(&checked);
+  if (stage2) cache_unmap(&results);
 }

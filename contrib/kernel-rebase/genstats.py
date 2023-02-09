@@ -16,54 +16,35 @@ in credentials.json.
 
 from __future__ import print_function
 
-import sqlite3
-import re
 import datetime
+import re
+import sqlite3
 import time
 
-from config import topiclist_consolidated, topiclist_short
-from common import rebasedb, nextdb, upstreamdb, rebase_baseline
-
+from common import nextdb
+from common import rebase_baseline
+from common import rebasedb
+from common import upstreamdb
 import genlib
 
-stats_filename = 'rebase-stats.id'
+from config import topiclist_consolidated
+from config import topiclist_short
+
+
+stats_filename = "rebase-stats.id"
 
 rp = re.compile(
-    '(CHROMIUM: *|CHROMEOS: *|UPSTREAM: *|FROMGIT: *|FROMLIST: *|BACKPORT: *)+(.*)'
+    "(CHROMIUM: *|CHROMEOS: *|UPSTREAM: *|FROMGIT: *|FROMLIST: *|BACKPORT: *)+(.*)"
 )
 
 stats_colors = [
-    {
-        'red': 0,
-        'green': 0.8,
-        'blue': 0
-    },  # Queued: green
-    {
-        'blue': 1
-    },  # Upstream: blue
-    {
-        'red': 0.5,
-        'green': 0.5,
-        'blue': 1
-    },  # Backport: light blue
-    {
-        'red': 0.9,
-        'green': 0.9
-    },  # yellow
-    {
-        'red': 1,
-        'green': 0.6
-    },  # Fromlist: orange
-    {
-        'red': 1,
-        'green': 0.3,
-        'blue': 0.3
-    },  # Chromium: red
-    {
-        'red': 0.8,
-        'green': 0.8,
-        'blue': 0.8
-    }  # Other: gray
+    {"red": 0, "green": 0.8, "blue": 0},  # Queued: green
+    {"blue": 1},  # Upstream: blue
+    {"red": 0.5, "green": 0.5, "blue": 1},  # Backport: light blue
+    {"red": 0.9, "green": 0.9},  # yellow
+    {"red": 1, "green": 0.6},  # Fromlist: orange
+    {"red": 1, "green": 0.3, "blue": 0.3},  # Chromium: red
+    {"red": 0.8, "green": 0.8, "blue": 0.8},  # Other: gray
 ]
 
 
@@ -88,8 +69,10 @@ def get_consolidated_topic(c, tlist, topic_name):
     for (_, topic_names) in tlist:
         for elem in topic_names:
             if topic_name == elem:
-                c.execute("select topic from topics where name is '%s'" %
-                          topic_names[0])
+                c.execute(
+                    "select topic from topics where name is '%s'"
+                    % topic_names[0]
+                )
                 topic = c.fetchone()
                 if topic:
                     return topic[0]
@@ -98,7 +81,7 @@ def get_consolidated_topic(c, tlist, topic_name):
     if topic:
         return topic[0]
     # oops
-    print('No topic found for %s' % topic_name)
+    print("No topic found for %s" % topic_name)
     return 0
 
 
@@ -108,17 +91,17 @@ def get_consolidated_topics(c, tlist):
     topics = {}
     other_topic_id = None
 
-    c.execute('SELECT topic, name FROM topics ORDER BY name')
+    c.execute("SELECT topic, name FROM topics ORDER BY name")
     for topic, name in c.fetchall():
         if name:
             consolidated_name = get_consolidated_topic_name(name, tlist)
             consolidated_topic = get_consolidated_topic(c, tlist, name)
             topics[topic] = consolidated_name
-            if consolidated_name == 'other':
+            if consolidated_name == "other":
                 other_topic_id = consolidated_topic
 
     if not other_topic_id:
-        topics[genlib.get_other_topic_id(c)] = 'other'
+        topics[genlib.get_other_topic_id(c)] = "other"
 
     return topics
 
@@ -137,13 +120,13 @@ def get_tags(cu=None):
     tag_list = {}
     largest_ts = 0
 
-    cu.execute('SELECT tag, timestamp FROM tags ORDER BY timestamp')
+    cu.execute("SELECT tag, timestamp FROM tags ORDER BY timestamp")
     for (tag, timestamp) in cu.fetchall():
         tag_list[tag] = timestamp
         if timestamp > largest_ts:
             largest_ts = timestamp
 
-    tag_list[u'ToT'] = largest_ts + 1
+    tag_list["ToT"] = largest_ts + 1
 
     if uconn:
         uconn.close()
@@ -176,46 +159,52 @@ def get_topic_stats(c, tlist):
             topic_stats[topic][tag] = 0
 
     c.execute(
-        'SELECT usha, dsha, committed, topic, disposition, reason from commits')
+        "SELECT usha, dsha, committed, topic, disposition, reason from commits"
+    )
     for (
-            usha,
-            dsha,
-            committed,
-            topic,
-            disposition,
-            reason,
+        usha,
+        dsha,
+        committed,
+        topic,
+        disposition,
+        reason,
     ) in c.fetchall():
         # Skip entries with topic 0 immediately.
         if topic == 0:
             continue
-        topic_name = topics.get(topic, 'other')
-        if disposition != 'drop':
-            do_topic_stats_count(topic_stats, tags, topic_name, committed,
-                                 NOW())
+        topic_name = topics.get(topic, "other")
+        if disposition != "drop":
+            do_topic_stats_count(
+                topic_stats, tags, topic_name, committed, NOW()
+            )
             continue
         # disposition is drop.
-        if reason == 'fixup/reverted':
+        if reason == "fixup/reverted":
             # This patch is a fixup of a reverted and dropped patch, identified
             # by dsha. Count from its commit time up to the revert time.
             # First find the companion (dsha)
             c.execute("SELECT dsha from commits where sha is '%s'" % dsha)
-            reverted_dsha, = c.fetchone()
+            (reverted_dsha,) = c.fetchone()
             # Now get the revert time, and count for time in between
-            c.execute("SELECT committed from commits where sha is '%s'" %
-                      reverted_dsha)
-            revert_committed, = c.fetchone()
-            do_topic_stats_count(topic_stats, tags, topic_name, committed,
-                                 revert_committed)
+            c.execute(
+                "SELECT committed from commits where sha is '%s'"
+                % reverted_dsha
+            )
+            (revert_committed,) = c.fetchone()
+            do_topic_stats_count(
+                topic_stats, tags, topic_name, committed, revert_committed
+            )
             continue
-        if reason == 'reverted' and dsha:
+        if reason == "reverted" and dsha:
             # This patch reverts dsha, or it was reverted by dsha.
             # Count only if it was committed after its companion to ensure that
             # it is counted only once.
             c.execute("SELECT committed from commits where sha is '%s'" % dsha)
-            revert_committed, = c.fetchone()
+            (revert_committed,) = c.fetchone()
             if revert_committed > committed:
-                do_topic_stats_count(topic_stats, tags, topic_name, committed,
-                                     revert_committed)
+                do_topic_stats_count(
+                    topic_stats, tags, topic_name, committed, revert_committed
+                )
             continue
         # This is not a revert, or the revert companion is unknown (which can
         # happen if we reverted an upstream patch). Check if we have a matching
@@ -224,30 +213,37 @@ def get_topic_stats(c, tlist):
         if not usha:
             usha = dsha
         if usha:
-            cu.execute("SELECT integrated from commits where sha is '%s'" %
-                       usha)
+            cu.execute(
+                "SELECT integrated from commits where sha is '%s'" % usha
+            )
             integrated = cu.fetchone()
             if integrated:
                 integrated = integrated[0] if integrated[0] else None
             if integrated and integrated in tags:
-                do_topic_stats_count(topic_stats, tags, topic_name, committed,
-                                     tags[integrated])
+                do_topic_stats_count(
+                    topic_stats, tags, topic_name, committed, tags[integrated]
+                )
             elif not integrated:
                 # Not yet integrated.
                 # We know that disposition is 'drop', suggesting that the patch was accepted
                 # upstream after the most recent tag. Therefore, count against ToT.
-                do_topic_stats_count(topic_stats, tags, topic_name, committed,
-                                     tags['ToT'])
+                do_topic_stats_count(
+                    topic_stats, tags, topic_name, committed, tags["ToT"]
+                )
             else:
-                print('sha %s: integrated tag %s not in database' %
-                      (usha, integrated))
+                print(
+                    "sha %s: integrated tag %s not in database"
+                    % (usha, integrated)
+                )
 
     uconn.close()
 
     return topic_stats
 
 
-def add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, topics, name):
+def add_topics_summary_row(
+    requests, conn, nconn, sheetId, rowindex, topics, name
+):
     """Add topics summary row"""
 
     c = conn.cursor()
@@ -257,11 +253,16 @@ def add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, topics, nam
     age = 0
     now = NOW()
     if topics:
-        search = ('select topic, patchid, usha, authored, subject, disposition '
-                  'from commits where topic in (%s)' % ','.join(str(t) for t in topics))
+        search = (
+            "select topic, patchid, usha, authored, subject, disposition "
+            "from commits where topic in (%s)"
+            % ",".join(str(t) for t in topics)
+        )
     else:
-        search = ('select topic, patchid, usha, authored, subject, disposition '
-                  'from commits where topic != 0')
+        search = (
+            "select topic, patchid, usha, authored, subject, disposition "
+            "from commits where topic != 0"
+        )
     c.execute(search)
     rows = 0
     effrows = 0
@@ -272,19 +273,26 @@ def add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, topics, nam
     chromium = 0
     backport = 0
     other = 0
-    for (t, patchid, usha, a, subject, d) in c.fetchall(): # pylint: disable=too-many-nested-blocks
+    for (
+        t,
+        patchid,
+        usha,
+        a,
+        subject,
+        d,
+    ) in c.fetchall():  # pylint: disable=too-many-nested-blocks
         if not topics:
             # We are interested if the topic name is 'other',
             # or if the topic is not in the named topic list.
-            c2.execute('select name from topics where topic is %d' % t)
+            c2.execute("select name from topics where topic is %d" % t)
             topic_name = c2.fetchone()
-            if topic_name and topic_name[0] != 'other':
+            if topic_name and topic_name[0] != "other":
                 continue
 
         rows += 1
-        if d == 'pick':
+        if d == "pick":
             effrows += 1
-            age += (now - a)
+            age += now - a
             # Search for the patch ID in the next database.
             # If it is found there, count it as "Queued".
             cmd = 'SELECT sha FROM commits WHERE patchid IS "%s"' % patchid
@@ -296,20 +304,20 @@ def add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, topics, nam
             else:
                 m = rp.search(subject)
                 if m:
-                    what = m.group(1).replace(' ', '')
-                    if what == 'BACKPORT:':
+                    what = m.group(1).replace(" ", "")
+                    if what == "BACKPORT:":
                         m = rp.search(m.group(2))
                         if m:
-                            what = m.group(1).replace(' ', '')
-                    if what in ('CHROMIUM:', 'CHROMEOS:'):
+                            what = m.group(1).replace(" ", "")
+                    if what in ("CHROMIUM:", "CHROMEOS:"):
                         chromium += 1
-                    elif what == 'UPSTREAM:':
+                    elif what == "UPSTREAM:":
                         upstream += 1
-                    elif what == 'FROMLIST:':
+                    elif what == "FROMLIST:":
                         fromlist += 1
-                    elif what == 'FROMGIT:':
+                    elif what == "FROMGIT:":
                         fromgit += 1
-                    elif what == 'BACKPORT:':
+                    elif what == "BACKPORT:":
                         backport += 1
                     else:
                         other += 1
@@ -321,23 +329,30 @@ def add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, topics, nam
     # where all commits have been pushed upstream or have been reverted.
     if effrows:
         age /= effrows
-        age /= (3600 * 24)  # Display age in days
-        requests.append({
-            'pasteData': {
-                'data':
-                    '%s;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d' %
-                    (name, queued, upstream, backport, fromgit, fromlist,
-                     chromium, other, effrows, rows, age),
-                'type':
-                    'PASTE_NORMAL',
-                'delimiter':
-                    ';',
-                'coordinate': {
-                    'sheetId': sheetId,
-                    'rowIndex': rowindex
+        age /= 3600 * 24  # Display age in days
+        requests.append(
+            {
+                "pasteData": {
+                    "data": "%s;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d"
+                    % (
+                        name,
+                        queued,
+                        upstream,
+                        backport,
+                        fromgit,
+                        fromlist,
+                        chromium,
+                        other,
+                        effrows,
+                        rows,
+                        age,
+                    ),
+                    "type": "PASTE_NORMAL",
+                    "delimiter": ";",
+                    "coordinate": {"sheetId": sheetId, "rowIndex": rowindex},
                 }
             }
-        })
+        )
     return effrows
 
 
@@ -353,19 +368,24 @@ def add_topics_summary(requests, sheetId):
     c.execute("select topic from topics where name is 'chromeos'")
     topic = c.fetchone()
     if topic:
-        add_topics_summary_row(requests, conn, nconn, sheetId, 1, list(topic), 'chromeos')
+        add_topics_summary_row(
+            requests, conn, nconn, sheetId, 1, list(topic), "chromeos"
+        )
 
-    c.execute('select topic, name from topics order by name')
+    c.execute("select topic, name from topics order by name")
     rowindex = 2
     for (topic, name) in c.fetchall():
-        if name not in ('chromeos', 'other'):
-            added = add_topics_summary_row(requests, conn, nconn, sheetId, rowindex,
-                                           [topic], name)
+        if name not in ("chromeos", "other"):
+            added = add_topics_summary_row(
+                requests, conn, nconn, sheetId, rowindex, [topic], name
+            )
             if added:
                 rowindex += 1
 
     # Finally, do the same for 'other' topics, identified as empty topics list.
-    added = add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, None, 'other')
+    added = add_topics_summary_row(
+        requests, conn, nconn, sheetId, rowindex, None, "other"
+    )
 
     conn.close()
 
@@ -385,15 +405,18 @@ def add_topics_summary_short(requests, sheetId):
 
     rowindex = 1
     for name in unique:
-        topic_list = [i for i,j in topics.items() if j == name]
-        if name not in ('discard', 'other'):
-            added = add_topics_summary_row(requests, conn, nconn, sheetId, rowindex,
-                                           topic_list, name)
+        topic_list = [i for i, j in topics.items() if j == name]
+        if name not in ("discard", "other"):
+            added = add_topics_summary_row(
+                requests, conn, nconn, sheetId, rowindex, topic_list, name
+            )
             if added:
                 rowindex += 1
 
     # Finally, do the same for 'other' topics, identified as topic==None.
-    added = add_topics_summary_row(requests, conn, nconn, sheetId, rowindex, None, 'other')
+    added = add_topics_summary_row(
+        requests, conn, nconn, sheetId, rowindex, None, "other"
+    )
 
     conn.close()
 
@@ -406,30 +429,34 @@ def create_summary(sheet, title, sheetId=None, summary_func=add_topics_summary):
     requests = []
 
     if sheetId is None:
-        requests.append({
-            'addSheet': {
-                'properties': {
-                    'title': title,
-                },
+        requests.append(
+            {
+                "addSheet": {
+                    "properties": {
+                        "title": title,
+                    },
+                }
             }
-        })
+        )
         response = genlib.doit(sheet, requests)
-        reply = response.get('replies')
-        sheetId = reply[0]['addSheet']['properties']['sheetId']
+        reply = response.get("replies")
+        sheetId = reply[0]["addSheet"]["properties"]["sheetId"]
         requests = []
     else:
-        requests.append({
-            'updateSheetProperties': {
-                'properties': {
-                    'sheetId': sheetId,
-                    'title': title,
-                },
-                'fields': 'title'
+        requests.append(
+            {
+                "updateSheetProperties": {
+                    "properties": {
+                        "sheetId": sheetId,
+                        "title": title,
+                    },
+                    "fields": "title",
+                }
             }
-        })
+        )
 
-    header = 'Topic, Queued, Upstream, Backport, Fromgit, Fromlist, \
-              Chromium, Untagged/Other, Net, Total, Average Age (days)'
+    header = "Topic, Queued, Upstream, Backport, Fromgit, Fromlist, \
+              Chromium, Untagged/Other, Net, Total, Average Age (days)"
 
     genlib.add_sheet_header(requests, sheetId, header)
 
@@ -440,7 +467,7 @@ def create_summary(sheet, title, sheetId=None, summary_func=add_topics_summary):
     genlib.resize_sheet(requests, sheetId, 0, 11)
 
     # sort by CHROMIUM column, descending
-    genlib.sort_sheet(requests, sheetId, 6, 'DESCENDING', rows + 1, 11)
+    genlib.sort_sheet(requests, sheetId, 6, "DESCENDING", rows + 1, 11)
 
     # and execute
     genlib.doit(sheet, requests)
@@ -451,33 +478,33 @@ def create_summary(sheet, title, sheetId=None, summary_func=add_topics_summary):
 def update_one_cell(request, sheetId, row, column, data):
     """Update data in a a single cell"""
 
-    print('update_one_cell(id=%d row=%d column=%d data=%s type=%s' %
-          (sheetId, row, column, data, type(data)))
+    print(
+        "update_one_cell(id=%d row=%d column=%d data=%s type=%s"
+        % (sheetId, row, column, data, type(data))
+    )
 
     if isinstance(data, int):
-        fieldtype = 'numberValue'
+        fieldtype = "numberValue"
     else:
-        fieldtype = 'stringValue'
+        fieldtype = "stringValue"
 
-    request.append({
-        'updateCells': {
-            'rows': {
-                'values': [{
-                    'userEnteredValue': {
-                        fieldtype: '%s' % data
-                    }
-                }]
-            },
-            'fields': 'userEnteredValue(stringValue)',
-            'range': {
-                'sheetId': sheetId,
-                'startRowIndex': row,
-                'startColumnIndex': column
-                # 'endRowIndex': 1
-                # 'endColumnIndexIndex': column + 1
-            },
+    request.append(
+        {
+            "updateCells": {
+                "rows": {
+                    "values": [{"userEnteredValue": {fieldtype: "%s" % data}}]
+                },
+                "fields": "userEnteredValue(stringValue)",
+                "range": {
+                    "sheetId": sheetId,
+                    "startRowIndex": row,
+                    "startColumnIndex": column
+                    # 'endRowIndex': 1
+                    # 'endColumnIndexIndex': column + 1
+                },
+            }
         }
-    })
+    )
 
 
 def add_topic_stats_column(request, sheetId, column, tag, data):
@@ -507,31 +534,33 @@ def create_topic_stats(sheet, title, tlist):
     topics = get_consolidated_topics(c, tlist)
     topic_list = list(set(topics.values()))
 
-    if 'discard' in topic_list:
-        topic_list.remove('discard')
+    if "discard" in topic_list:
+        topic_list.remove("discard")
 
     request = []
 
-    request.append({
-        'addSheet': {
-            'properties': {
-                # 'sheetId': 1,
-                'title': title,
-            },
+    request.append(
+        {
+            "addSheet": {
+                "properties": {
+                    # 'sheetId': 1,
+                    "title": title,
+                },
+            }
         }
-    })
+    )
 
     response = genlib.doit(sheet, request)
-    reply = response.get('replies')
-    sheetId = reply[0]['addSheet']['properties']['sheetId']
+    reply = response.get("replies")
+    sheetId = reply[0]["addSheet"]["properties"]["sheetId"]
 
     request = []
 
     # One column per topic
-    header = ''
+    header = ""
     columns = 1
     for topic in topic_list:
-        header += ', %s' % topic
+        header += ", %s" % topic
         columns += 1
 
     genlib.add_sheet_header(request, sheetId, header)
@@ -542,18 +571,17 @@ def create_topic_stats(sheet, title, tlist):
         # rowdata = topic
         rowdata = tag
         for topic in topic_list:
-            rowdata += ';%d' % topic_stats[topic][tag]
-        request.append({
-            'pasteData': {
-                'data': rowdata,
-                'type': 'PASTE_NORMAL',
-                'delimiter': ';',
-                'coordinate': {
-                    'sheetId': sheetId,
-                    'rowIndex': rowindex
+            rowdata += ";%d" % topic_stats[topic][tag]
+        request.append(
+            {
+                "pasteData": {
+                    "data": rowdata,
+                    "type": "PASTE_NORMAL",
+                    "delimiter": ";",
+                    "coordinate": {"sheetId": sheetId, "rowIndex": rowindex},
                 }
             }
-        })
+        )
         rowindex = rowindex + 1
 
     # As final step, resize sheet
@@ -573,8 +601,8 @@ def colored_scope(name, sheetId, rows, column):
 
     return {
         name: genlib.source_range(sheetId, rows, column),
-        'targetAxis': 'LEFT_AXIS',
-        'color': stats_colors[column - 1]
+        "targetAxis": "LEFT_AXIS",
+        "color": stats_colors[column - 1],
     }
 
 
@@ -595,52 +623,56 @@ def add_backlog_chart(sheet, dataSheetId, title, rows):
 
     # chart start with summary row 2. Row 1 is assumed to be 'chromeos'
     # which is not counted as backlog.
-    request.append({
-        'addChart': {
-            'chart': {
-                'spec': {
-                    'title':
-                        'Upstream Backlog (updated %s)' %
-                        datetime.datetime.now().strftime('%x'),
-                    'basicChart': {
-                        'chartType': 'COLUMN',
-                        'stackedType': 'STACKED',
-                        'headerCount': 1,
-                        # "legendPosition": "BOTTOM_LEGEND",
-                        'axis': [{
-                            'position': 'BOTTOM_AXIS',
-                            'title': 'Topic'
-                        }, {
-                            'position': 'LEFT_AXIS',
-                            'title': 'Backlog'
-                        }],
-                        'domains': [genlib.scope('domain', dataSheetId, rows + 1, 0)],
-                        'series': colored_sscope('series', dataSheetId, rows + 1, 1, 7),
-                    }
-                },
-                'position': {
-                    'newSheet': True,
+    request.append(
+        {
+            "addChart": {
+                "chart": {
+                    "spec": {
+                        "title": "Upstream Backlog (updated %s)"
+                        % datetime.datetime.now().strftime("%x"),
+                        "basicChart": {
+                            "chartType": "COLUMN",
+                            "stackedType": "STACKED",
+                            "headerCount": 1,
+                            # "legendPosition": "BOTTOM_LEGEND",
+                            "axis": [
+                                {"position": "BOTTOM_AXIS", "title": "Topic"},
+                                {"position": "LEFT_AXIS", "title": "Backlog"},
+                            ],
+                            "domains": [
+                                genlib.scope("domain", dataSheetId, rows + 1, 0)
+                            ],
+                            "series": colored_sscope(
+                                "series", dataSheetId, rows + 1, 1, 7
+                            ),
+                        },
+                    },
+                    "position": {
+                        "newSheet": True,
+                    },
                 }
             }
         }
-    })
+    )
 
     response = genlib.doit(sheet, request)
 
     # Extract sheet Id from response
-    reply = response.get('replies')
-    sheetId = reply[0]['addChart']['chart']['position']['sheetId']
+    reply = response.get("replies")
+    sheetId = reply[0]["addChart"]["chart"]["position"]["sheetId"]
 
     request = []
-    request.append({
-        'updateSheetProperties': {
-            'properties': {
-                'sheetId': sheetId,
-                'title': title,
-            },
-            'fields': 'title',
+    request.append(
+        {
+            "updateSheetProperties": {
+                "properties": {
+                    "sheetId": sheetId,
+                    "title": title,
+                },
+                "fields": "title",
+            }
         }
-    })
+    )
     genlib.doit(sheet, request)
 
 
@@ -649,51 +681,60 @@ def add_age_chart(sheet, dataSheetId, rows):
 
     request = []
 
-    request.append({
-        'addChart': {
-            'chart': {
-                'spec': {
-                    'title':
-                        'Upstream Backlog Age (updated %s)' %
-                        datetime.datetime.now().strftime('%x'),
-                    'basicChart': {
-                        'chartType': 'COLUMN',
-                        'headerCount': 1,
-                        # "legendPosition": "BOTTOM_LEGEND",
-                        'axis': [{
-                            'position': 'BOTTOM_AXIS',
-                            'title': 'Topic'
-                        }, {
-                            'position': 'LEFT_AXIS',
-                            'title': 'Average Age (days)'
-                        }],
-                        'domains': [genlib.scope('domain', dataSheetId, rows + 1, 0)],
-                        'series': [genlib.scope('series', dataSheetId, rows + 1, 10)]
-                    }
-                },
-                'position': {
-                    'newSheet': True,
+    request.append(
+        {
+            "addChart": {
+                "chart": {
+                    "spec": {
+                        "title": "Upstream Backlog Age (updated %s)"
+                        % datetime.datetime.now().strftime("%x"),
+                        "basicChart": {
+                            "chartType": "COLUMN",
+                            "headerCount": 1,
+                            # "legendPosition": "BOTTOM_LEGEND",
+                            "axis": [
+                                {"position": "BOTTOM_AXIS", "title": "Topic"},
+                                {
+                                    "position": "LEFT_AXIS",
+                                    "title": "Average Age (days)",
+                                },
+                            ],
+                            "domains": [
+                                genlib.scope("domain", dataSheetId, rows + 1, 0)
+                            ],
+                            "series": [
+                                genlib.scope(
+                                    "series", dataSheetId, rows + 1, 10
+                                )
+                            ],
+                        },
+                    },
+                    "position": {
+                        "newSheet": True,
+                    },
                 }
             }
         }
-    })
+    )
 
     response = genlib.doit(sheet, request)
 
     # Extract sheet Id from response
-    reply = response.get('replies')
-    sheetId = reply[0]['addChart']['chart']['position']['sheetId']
+    reply = response.get("replies")
+    sheetId = reply[0]["addChart"]["chart"]["position"]["sheetId"]
 
     request = []
-    request.append({
-        'updateSheetProperties': {
-            'properties': {
-                'sheetId': sheetId,
-                'title': 'Backlog Age',
-            },
-            'fields': 'title',
+    request.append(
+        {
+            "updateSheetProperties": {
+                "properties": {
+                    "sheetId": sheetId,
+                    "title": "Backlog Age",
+                },
+                "fields": "title",
+            }
         }
-    })
+    )
     genlib.doit(sheet, request)
 
 
@@ -703,59 +744,62 @@ def add_stats_chart(sheet, dataSheetId, title, rows, columns):
     request = []
 
     if columns > 25:
-        print('########### Limiting number of columns to 25 from %d' % columns)
+        print("########### Limiting number of columns to 25 from %d" % columns)
         columns = 25
 
-    request.append({
-        'addChart': {
-            'chart': {
-                'spec': {
-                    'title':
-                        'Topic Statistics (updated %s)' %
-                        datetime.datetime.now().strftime('%x'),
-                    'basicChart': {
-                        'chartType':
-                            'AREA',
-                        'stackedType':
-                            'STACKED',
-                        'headerCount':
-                            1,
-                        # "legendPosition": "BOTTOM_LEGEND",
-                        'axis': [{
-                            'position': 'BOTTOM_AXIS',
-                            'title': 'Upstream Release Tag'
-                        }, {
-                            'position': 'LEFT_AXIS',
-                            'title': 'Patches'
-                        }],
-                        'domains': [genlib.scope('domain', dataSheetId, rows, 0)],
-                        'series':
-                            genlib.sscope('series', dataSheetId, rows, 1, columns),
-                    }
-                },
-                'position': {
-                    'newSheet': True,
+    request.append(
+        {
+            "addChart": {
+                "chart": {
+                    "spec": {
+                        "title": "Topic Statistics (updated %s)"
+                        % datetime.datetime.now().strftime("%x"),
+                        "basicChart": {
+                            "chartType": "AREA",
+                            "stackedType": "STACKED",
+                            "headerCount": 1,
+                            # "legendPosition": "BOTTOM_LEGEND",
+                            "axis": [
+                                {
+                                    "position": "BOTTOM_AXIS",
+                                    "title": "Upstream Release Tag",
+                                },
+                                {"position": "LEFT_AXIS", "title": "Patches"},
+                            ],
+                            "domains": [
+                                genlib.scope("domain", dataSheetId, rows, 0)
+                            ],
+                            "series": genlib.sscope(
+                                "series", dataSheetId, rows, 1, columns
+                            ),
+                        },
+                    },
+                    "position": {
+                        "newSheet": True,
+                    },
                 }
             }
         }
-    })
+    )
 
     response = genlib.doit(sheet, request)
 
     # Extract sheet Id from response
-    reply = response.get('replies')
-    sheetId = reply[0]['addChart']['chart']['position']['sheetId']
+    reply = response.get("replies")
+    sheetId = reply[0]["addChart"]["chart"]["position"]["sheetId"]
 
     request = []
-    request.append({
-        'updateSheetProperties': {
-            'properties': {
-                'sheetId': sheetId,
-                'title': title,
-            },
-            'fields': 'title',
+    request.append(
+        {
+            "updateSheetProperties": {
+                "properties": {
+                    "sheetId": sheetId,
+                    "title": title,
+                },
+                "fields": "title",
+            }
         }
-    })
+    )
     genlib.doit(sheet, request)
 
 
@@ -764,26 +808,49 @@ def main():
 
     sheet = genlib.init_spreadsheet(
         stats_filename,
-        'Backlog Status for chromeos-%s' % rebase_baseline().strip('v'))
+        "Backlog Status for chromeos-%s" % rebase_baseline().strip("v"),
+    )
 
-    summary_sheet, summary_rows = create_summary(sheet, 'Backlog Data', 0)
-    short_summary_sheet, short_summary_rows = create_summary(sheet, 'Backlog Data (short)',
-                                                             summary_func=add_topics_summary_short)
+    summary_sheet, summary_rows = create_summary(sheet, "Backlog Data", 0)
+    short_summary_sheet, short_summary_rows = create_summary(
+        sheet, "Backlog Data (short)", summary_func=add_topics_summary_short
+    )
 
-    topic_stats_sheet, topic_stats_rows, topic_stats_columns = create_topic_stats(
-        sheet, 'Topic Statistics Data', topiclist_consolidated)
-    short_topic_stats_sheet, short_topic_stats_rows, short_topic_stats_columns = create_topic_stats(
-        sheet, 'Topic Statistics Data (short)', topiclist_short)
+    (
+        topic_stats_sheet,
+        topic_stats_rows,
+        topic_stats_columns,
+    ) = create_topic_stats(
+        sheet, "Topic Statistics Data", topiclist_consolidated
+    )
+    (
+        short_topic_stats_sheet,
+        short_topic_stats_rows,
+        short_topic_stats_columns,
+    ) = create_topic_stats(
+        sheet, "Topic Statistics Data (short)", topiclist_short
+    )
 
-    add_backlog_chart(sheet, summary_sheet, 'Backlog Count', summary_rows)
-    add_backlog_chart(sheet, short_summary_sheet, 'Backlog Count (short)',
-                      short_summary_rows)
+    add_backlog_chart(sheet, summary_sheet, "Backlog Count", summary_rows)
+    add_backlog_chart(
+        sheet, short_summary_sheet, "Backlog Count (short)", short_summary_rows
+    )
 
     add_age_chart(sheet, summary_sheet, summary_rows)
-    add_stats_chart(sheet, topic_stats_sheet, 'Topic Statistics',
-                    topic_stats_rows, topic_stats_columns)
-    add_stats_chart(sheet, short_topic_stats_sheet, 'Topic Statistics (short)',
-                    short_topic_stats_rows, short_topic_stats_columns)
+    add_stats_chart(
+        sheet,
+        topic_stats_sheet,
+        "Topic Statistics",
+        topic_stats_rows,
+        topic_stats_columns,
+    )
+    add_stats_chart(
+        sheet,
+        short_topic_stats_sheet,
+        "Topic Statistics (short)",
+        short_topic_stats_rows,
+        short_topic_stats_columns,
+    )
 
     # Move data sheets to the very end
     genlib.move_sheet(sheet, summary_sheet, 9)
@@ -798,5 +865,5 @@ def main():
     genlib.hide_sheet(sheet, short_topic_stats_sheet, True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Read two test logs and report differences in power consumption."""
 # Copyright 2022 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
@@ -7,19 +8,25 @@
 # Parse logs of 2 runs of PowerQual.full and compare them printing problems.
 # Based on a script by jacobraz@google.com
 
+from io import StringIO
+import json
+
 # Additions:
 # - Collect energy ratings and compare
 import os
+from pathlib import Path
 import sys
 import time
-import json
-from pathlib import Path
-from io import StringIO
-# pylint: disable=import-error
-from colorama import Fore, Style
 
-SUBSYSTEMS = ['PL1', 'uncore', 'dram', 'core', 'package-0', 'psys']
-ENERGY_RATINGS = ['w_energy_rate', 'wh_energy_used']
+# pylint: disable=import-error
+from colorama import Fore
+from colorama import Style
+
+
+SUBSYSTEMS = ["PL1", "uncore", "dram", "core", "package-0", "psys"]
+ENERGY_RATINGS = ["w_energy_rate", "wh_energy_used"]
+
+
 def get_subsystem(val):
     """Return valid subsystem from given string or None."""
     for s in SUBSYSTEMS:
@@ -28,31 +35,35 @@ def get_subsystem(val):
 
     return None
 
+
 def get_energy_metric(name):
     """Return valid energy metric or None."""
     if name in ENERGY_RATINGS:
         return name
     return None
 
+
 def color_number(value):
     """Return the number as a string with color formatting"""
-    if value == 'NA' or value < 0:
+    if value == "NA" or value < 0:
         color = Fore.RED
     else:
         color = Fore.GREEN
-    return (color + '{}' + Style.RESET_ALL).format(value)
+    return (color + "{}" + Style.RESET_ALL).format(value)
+
 
 def get_test_name(fname):
     """Read the test name from the JSON file, if we can find it."""
-    json_file = Path(os.path.join(os.path.dirname(fname), 'results.json'))
+    json_file = Path(os.path.join(os.path.dirname(fname), "results.json"))
     if not json_file.exists():
-        return ''
+        return ""
     try:
         results = json.loads(open(json_file).read())
-        return results['tests'][0]['testname']
+        return results["tests"][0]["testname"]
     # pylint: disable=broad-except
     except Exception:
-        return ''
+        return ""
+
 
 def read_report(fname):
     """Read a test log and return a dictionary of metrics.
@@ -63,6 +74,7 @@ def read_report(fname):
     The returned dictionary will have keys for both, if they are present
     in the log.
     """
+
     def is_float(val):
         try:
             float(val)
@@ -76,15 +88,15 @@ def read_report(fname):
         if get_energy_metric(metric):
             return True
 
-        if 'temp' in metric:
+        if "temp" in metric:
             return False
-        if 'avg' in metric:
+        if "avg" in metric:
             return True
 
         return False
 
     metrics = {}
-    with open(fname, 'r') as results:
+    with open(fname, "r") as results:
         for line in results.readlines():
             if not line:
                 break
@@ -115,7 +127,7 @@ def main():
     new_file = sys.argv[2]
 
     metric_diffs = {}
-    subsys_diffs = {s:[] for s in SUBSYSTEMS}
+    subsys_diffs = {s: [] for s in SUBSYSTEMS}
 
     test_name = get_test_name(new_file)
     metrics_old = read_report(old_file)
@@ -130,7 +142,9 @@ def main():
         if subsys_name is None:
             continue
         if new_val != 0:
-            subsys_diffs[subsys_name].append(metric_diffs[metric_name]/new_val)
+            subsys_diffs[subsys_name].append(
+                metric_diffs[metric_name] / new_val
+            )
         elif metric_diffs[metric_name] != 0:
             # there is a difference but cant divide by kn value since its 0
             # use 100% change if one value is 0
@@ -138,37 +152,37 @@ def main():
 
     # Compute differences in w_energy_rate and wh_energy_used
     try:
-        wer_diff = metrics_old['w_energy_rate'] - metrics_new['w_energy_rate']
+        wer_diff = metrics_old["w_energy_rate"] - metrics_new["w_energy_rate"]
     except KeyError:
         # In case w_energy_rate is missing in either report
-        wer_diff = 'NA'
+        wer_diff = "NA"
 
     try:
-        whe_diff = metrics_old['wh_energy_used'] - metrics_new['wh_energy_used']
+        whe_diff = metrics_old["wh_energy_used"] - metrics_new["wh_energy_used"]
     except KeyError:
         # In case w_energy_rate is missing in either report
-        whe_diff = 'NA'
+        whe_diff = "NA"
 
     def summary_print(buf, format_fn):
         # if the diff is negative, the kernel-next used more power
-        buf.write(f'******************* Test: {test_name} ')
-        buf.write('ENERGY RATINGS ********************\n')
-        buf.write('w_energy_rate difference: ' + format_fn(wer_diff) + '\n')
-        buf.write('wh_energy_used difference: ' + format_fn(whe_diff) + '\n')
-        buf.write(f'******************* Test: {test_name} ')
-        buf.write('SUB SYSTEMS************************\n')
-        buf.write('Average percent change in each subsystem ')
-        buf.write('(Positive values indicate better performance)\n')
+        buf.write(f"******************* Test: {test_name} ")
+        buf.write("ENERGY RATINGS ********************\n")
+        buf.write("w_energy_rate difference: " + format_fn(wer_diff) + "\n")
+        buf.write("wh_energy_used difference: " + format_fn(whe_diff) + "\n")
+        buf.write(f"******************* Test: {test_name} ")
+        buf.write("SUB SYSTEMS************************\n")
+        buf.write("Average percent change in each subsystem ")
+        buf.write("(Positive values indicate better performance)\n")
         for subsys in SUBSYSTEMS:
             if len(subsys_diffs[subsys]) == 0:
                 continue
             buf.write(subsys)
-            buf.write(': ')
-            avg_percent_diff = (sum(subsys_diffs[subsys])/
-                                len(subsys_diffs[subsys])*100)
+            buf.write(": ")
+            avg_percent_diff = (
+                sum(subsys_diffs[subsys]) / len(subsys_diffs[subsys]) * 100
+            )
             buf.write(format_fn(avg_percent_diff))
-            buf.write('\n')
-
+            buf.write("\n")
 
     summarybuf = StringIO()
     # Print a summary of statistic to standard out
@@ -177,18 +191,18 @@ def main():
     print(summarybuf.getvalue())
 
     # Dump summary to file as well
-    suffix = test_name + '_' + str(int(time.time())) + '.txt'
-    with open('summary_' + suffix, 'w') as summary:
+    suffix = test_name + "_" + str(int(time.time())) + ".txt"
+    with open("summary_" + suffix, "w") as summary:
         summary_print(summary, str)
 
-    with open('diffs_' + suffix, 'w') as diffs:
-        diffs.write('Diff of each individual metric:\n')
+    with open("diffs_" + suffix, "w") as diffs:
+        diffs.write("Diff of each individual metric:\n")
         for metric in list(metric_diffs.keys()):
             diffs.write(metric)
-            diffs.write(': ')
+            diffs.write(": ")
             diffs.write(str(metric_diffs[metric]))
-            diffs.write('\n')
+            diffs.write("\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

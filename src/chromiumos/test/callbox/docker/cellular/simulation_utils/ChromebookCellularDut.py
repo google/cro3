@@ -1,6 +1,7 @@
 # Copyright 2021 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Provides cellular DUT implementation for CrOS devices."""
 
 from cellular.simulation_utils import BaseCellularDut
@@ -33,7 +34,7 @@ class ChromebookCellularDut(BaseCellularDut.BaseCellularDut):
         """Not relevant to Chromebooks, but required interface for compatibility."""
         return (None, None)
 
-    def set_apn(self, name, apn, type='default'):  # pylint: disable=W0622
+    def set_apn(self, name, apn, type="default"):  # pylint: disable=W0622
         """Not currently supported by Chromebooks yet."""
 
     def set_preferred_network_type(self, type):  # pylint: disable=W0622

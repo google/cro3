@@ -3,6 +3,7 @@
 # Copyright 2022 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Classes related to loading config data"""
 
 import importlib.util
@@ -43,7 +44,7 @@ class PacConfig:
 
     def __init__(self, config_path):
         """Loads config from the given path"""
-        spec = importlib.util.spec_from_file_location('config', config_path)
+        spec = importlib.util.spec_from_file_location("config", config_path)
         config = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(config)
 
@@ -54,7 +55,7 @@ class PacConfig:
 
         # Create our sensors, also group them by i2c address
         for (addr, name, nom, rsense) in config.PACS:
-            addr_parts = addr.split(':')
+            addr_parts = addr.split(":")
             addr = int(addr_parts[0], 16)
             channel = addr_parts[1]
 

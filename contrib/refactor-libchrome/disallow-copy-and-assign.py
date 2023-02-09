@@ -37,37 +37,44 @@ import sys
 
 
 def main():
-    content = open(sys.argv[1], 'r').read()
+    content = open(sys.argv[1], "r").read()
 
     while True:
-        found = re.search(r'^ *DISALLOW_COPY_AND_ASSIGN\(([^)]*)\);', content,
-                          re.MULTILINE)
+        found = re.search(
+            r"^ *DISALLOW_COPY_AND_ASSIGN\(([^)]*)\);", content, re.MULTILINE
+        )
         if not found:
             break
         classname = found.group(1)
         found_constructors = list(
             re.compile(
-                '^ *(explicit )?' + classname + '\(([^;{]*;|[^;{]*{[^}]*})$',
-                re.MULTILINE).finditer(content, 0, found.start()))
+                "^ *(explicit )?" + classname + "\(([^;{]*;|[^;{]*{[^}]*})$",
+                re.MULTILINE,
+            ).finditer(content, 0, found.start())
+        )
         if found_constructors:
             # Pick the last constructor.
             insertion_point = found_constructors[-1].end()
         else:
             # If no constructors are found, look for public:.
             insertion_point = list(
-                re.compile('class ' + classname + r' .*{[ \n]*public:\n',
-                           re.MULTILINE).finditer(content, 0,
-                                                  found.start()))[-1].end()
-        content = ('%(prefix)s' + '%(name)s(const %(name)s&) = delete;\n' +
-                   '%(name)s& operator=(const %(name)s&) = delete;\n'
-                   '%(middle)s%(suffix)s') % {
-                       'prefix': content[0:insertion_point + 1],
-                       'name': classname,
-                       'middle': content[insertion_point:found.start()],
-                       'suffix': content[found.end() + 1:],
-                   }
-    open(sys.argv[1], 'w').write(content)
+                re.compile(
+                    "class " + classname + r" .*{[ \n]*public:\n", re.MULTILINE
+                ).finditer(content, 0, found.start())
+            )[-1].end()
+        content = (
+            "%(prefix)s"
+            + "%(name)s(const %(name)s&) = delete;\n"
+            + "%(name)s& operator=(const %(name)s&) = delete;\n"
+            "%(middle)s%(suffix)s"
+        ) % {
+            "prefix": content[0 : insertion_point + 1],
+            "name": classname,
+            "middle": content[insertion_point : found.start()],
+            "suffix": content[found.end() + 1 :],
+        }
+    open(sys.argv[1], "w").write(content)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

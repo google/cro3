@@ -7,9 +7,9 @@ import (
 
 	"chromiumos/lroold"
 
+	"go.chromium.org/chromiumos/config/go/api/test/tls"
 	"go.chromium.org/chromiumos/config/go/api/test/tls/dependencies/longrunning"
 	"go.chromium.org/chromiumos/config/go/test/api"
-	"go.chromium.org/chromiumos/config/go/api/test/tls"
 	"google.golang.org/grpc"
 )
 

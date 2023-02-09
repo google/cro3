@@ -6,43 +6,57 @@
 """Common functions and variables used by rebase scripts"""
 
 import os
-import sys
 import re
 import sqlite3
 import subprocess
+import sys
 
-from config import datadir, rebasedb_name
-from config import rebase_baseline_branch, rebase_target
-from config import next_repo, stable_repo, android_repo
+from config import android_repo
+from config import datadir
+from config import next_repo
+from config import rebase_baseline_branch
+from config import rebase_target
+from config import rebasedb_name
+from config import stable_repo
 
-data_subdir = 'data'
+
+data_subdir = "data"
 if datadir is None:
     datadir = os.path.join(sys.path[0], data_subdir)
 
 if rebasedb_name is None:
-    rebasedb_name = 'rebase-%s.db' % rebase_target
+    rebasedb_name = "rebase-%s.db" % rebase_target
 
-repodir = 'repositories'
+repodir = "repositories"
 
-chromeos_path = os.path.join(datadir, repodir, 'linux-chrome')
-upstream_path = os.path.join(datadir, repodir, 'linux-upstream')
-stable_path = os.path.join(datadir, repodir, 'linux-stable') if stable_repo else None
-android_path = os.path.join(datadir, repodir, 'linux-android') if android_repo else None
-next_path = os.path.join(datadir, repodir, 'linux-next') if next_repo else None
+chromeos_path = os.path.join(datadir, repodir, "linux-chrome")
+upstream_path = os.path.join(datadir, repodir, "linux-upstream")
+stable_path = (
+    os.path.join(datadir, repodir, "linux-stable") if stable_repo else None
+)
+android_path = (
+    os.path.join(datadir, repodir, "linux-android") if android_repo else None
+)
+next_path = os.path.join(datadir, repodir, "linux-next") if next_repo else None
 
-dbdir = os.path.join(datadir, 'database')
+dbdir = os.path.join(datadir, "database")
 rebasedb = os.path.join(dbdir, rebasedb_name)
-upstreamdb = os.path.join(dbdir, 'upstream.db')
-nextdb = os.path.join(dbdir, 'next.db') if next_repo else None
+upstreamdb = os.path.join(dbdir, "upstream.db")
+nextdb = os.path.join(dbdir, "next.db") if next_repo else None
 
 # This path must be relative to the root of the project
-executor_io = os.path.join(data_subdir, 'executor_io')
+executor_io = os.path.join(data_subdir, "executor_io")
+
 
 def do_check_output(cmd):
     """Python version independent implementation of 'subprocess.check_output'"""
 
-    return subprocess.check_output(cmd, stderr=subprocess.DEVNULL, # pylint: disable=no-member
-                                   encoding='utf-8', errors='ignore')
+    return subprocess.check_output(
+        cmd,
+        stderr=subprocess.DEVNULL,  # pylint: disable=no-member
+        encoding="utf-8",
+        errors="ignore",
+    )
 
 
 def stable_baseline():
@@ -51,9 +65,9 @@ def stable_baseline():
     if not os.path.exists(chromeos_path):
         return None
 
-    cmd = ['git', '-C', chromeos_path, 'describe', rebase_baseline_branch]
+    cmd = ["git", "-C", chromeos_path, "describe", rebase_baseline_branch]
     tag = do_check_output(cmd)
-    return tag.split('-')[0]
+    return tag.split("-")[0]
 
 
 def rebase_baseline():
@@ -61,27 +75,27 @@ def rebase_baseline():
 
     baseline = stable_baseline()
     if baseline:
-        return baseline.split('.')[0] + '.' + baseline.split('.')[1]
+        return baseline.split(".")[0] + "." + baseline.split(".")[1]
     return None
 
 
-version_re = re.compile(r'(v[0-9]+(\.[0-9]+)(-rc[0-9]+(-dontuse)?)?)\s*')
+version_re = re.compile(r"(v[0-9]+(\.[0-9]+)(-rc[0-9]+(-dontuse)?)?)\s*")
 
 
 def rebase_target_tag():
     """Return most recent label in upstream kernel"""
 
     if not os.path.exists(upstream_path):
-        return 'HEAD'
+        return "HEAD"
 
-    if rebase_target == 'latest':
-        cmd = ['git', '-C', upstream_path, 'describe']
+    if rebase_target == "latest":
+        cmd = ["git", "-C", upstream_path, "describe"]
         tag = do_check_output(cmd)
         v = version_re.match(tag)
         if v:
-            tag = v.group(0).strip('\n')
+            tag = v.group(0).strip("\n")
         else:
-            tag = 'HEAD'
+            tag = "HEAD"
     else:
         tag = rebase_target
 
@@ -90,17 +104,17 @@ def rebase_target_tag():
 
 def rebase_target_version():
     """Return target version for rebase"""
-    return rebase_target_tag().strip('v')
+    return rebase_target_tag().strip("v")
 
 
 def stable_branch(version):
     """Return stable branch name in upstream stable kernel"""
-    return 'linux-%s.y' % version
+    return "linux-%s.y" % version
 
 
 def chromeos_branch(version):
     """Return chromeos branch name"""
-    return 'chromeos-%s' % version
+    return "chromeos-%s" % version
 
 
 def doremove(filename):
@@ -128,8 +142,8 @@ def createdb(db, op):
 
     # Convention: table 'tip' ref 1 contains the most recently processed SHA.
     # Use this to avoid re-processing SHAs already in the database.
-    c.execute('CREATE TABLE tip (ref integer, sha text)')
-    c.execute('INSERT INTO tip (ref, sha) VALUES (?, ?)', (1, ''))
+    c.execute("CREATE TABLE tip (ref integer, sha text)")
+    c.execute("INSERT INTO tip (ref, sha) VALUES (?, ?)", (1, ""))
 
     # Save (commit) the changes
     conn.commit()
@@ -137,7 +151,7 @@ def createdb(db, op):
 
 
 # match "vX.Y[.Z][.rcN]"
-_version_re = re.compile(r'(v[0-9]+(?:\.[0-9]+)+(?:-rc[0-9]+(-dontuse)?)?)\s*')
+_version_re = re.compile(r"(v[0-9]+(?:\.[0-9]+)+(?:-rc[0-9]+(-dontuse)?)?)\s*")
 
 
 def get_integrated_tag(sha):
@@ -145,8 +159,14 @@ def get_integrated_tag(sha):
 
     try:
         cmd = [
-            'git', '-C', upstream_path, 'describe', '--match', 'v*',
-            '--contains', sha
+            "git",
+            "-C",
+            upstream_path,
+            "describe",
+            "--match",
+            "v*",
+            "--contains",
+            sha,
         ]
         tag = do_check_output(cmd)
         return _version_re.match(tag).group()
@@ -159,7 +179,8 @@ def get_integrated_tag(sha):
 # extract_numerics matches numeric parts of a Linux version as separate elements
 # For example, "v5.4" matches "5" and "4", and "v5.4.12" matches "5", "4", and "12"
 extract_numerics = re.compile(
-    r'(?:v)?([0-9]+)\.([0-9]+)(?:\.([0-9]+))?(?:-rc([0-9]+))?\s*')
+    r"(?:v)?([0-9]+)\.([0-9]+)(?:\.([0-9]+))?(?:-rc([0-9]+))?\s*"
+)
 
 
 def version_to_number(version):
@@ -179,7 +200,7 @@ def version_to_number(version):
         minor3 = int(m.group(4)) if m.group(4) else 0
         total = major * 1000000000 + minor1 * 1000000 + minor2 * 1000
         if minor3 != 0:
-            total -= (100 - minor3)
+            total -= 100 - minor3
         return total
     return 0
 

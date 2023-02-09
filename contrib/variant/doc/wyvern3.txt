@@ -36,22 +36,22 @@ Calculating dependencies... done!
 21:11:24 >>> Source configured.
 21:11:24 >>> Compiling source in /build/puff/tmp/portage/sys-boot/libpayload-9999/work/libpayload-9999 ...
 /build/puff/tmp/portage/sys-boot/libpayload-9999/work/libpayload-9999/payloads/libpayload /build/puff/tmp/portage/sys-boot/libpayload-9999/work/libpayload-9999
-make -j72 objutil=objutil obj=build oldconfig 
+make -j72 objutil=objutil obj=build oldconfig
 *
 * Restart config...
 *
 *
 * Generic Options
 *
-GPLv2-licensed Options (GPL) [Y/n/?] (NEW) 
-Experimental Options (EXPERIMENTAL) [N/y/?] (NEW) 
-Developer Options (DEVELOPER) [N/y/?] (NEW) 
+GPLv2-licensed Options (GPL) [Y/n/?] (NEW)
+Experimental Options (EXPERIMENTAL) [N/y/?] (NEW)
+Developer Options (DEVELOPER) [N/y/?] (NEW)
 Chrome OS Options (CHROMEOS) [Y/n/?] y
 Compiler to use
 > 1. GCC (COMPILER_GCC) (NEW)
   2. LLVM/clang (COMPILER_LLVM_CLANG) (NEW)
-choice[1-2?]: Remote GDB stub (REMOTEGDB) [N/y/?] (NEW) 
-Only consider RAM entries in memory map for further processing (MEMMAP_RAM_ONLY) [N/y] (NEW) 
+choice[1-2?]: Remote GDB stub (REMOTEGDB) [N/y/?] (NEW)
+Only consider RAM entries in memory map for further processing (MEMMAP_RAM_ONLY) [N/y] (NEW)
 *
 * Architecture Options
 *
@@ -59,10 +59,10 @@ Target Architecture
   1. ARM (ARCH_ARM) (NEW)
 > 2. x86 (ARCH_X86) (NEW)
   3. ARM64 (ARCH_ARM64) (NEW)
-choice[1-3]: Multiboot header support (MULTIBOOT) [N/y] (NEW) 
-Heap size (HEAP_SIZE) [131072] (NEW) 
-Stack size (STACK_SIZE) [16384] (NEW) 
-Base address (BASE_ADDRESS) [0x00100000] (NEW) 
+choice[1-3]: Multiboot header support (MULTIBOOT) [N/y] (NEW)
+Heap size (HEAP_SIZE) [131072] (NEW)
+Stack size (STACK_SIZE) [16384] (NEW)
+Base address (BASE_ADDRESS) [0x00100000] (NEW)
 *
 * Libpayload Configuration
 *
@@ -91,51 +91,51 @@ Multiboot header support (MULTIBOOT) [N/y] n
 Heap size (HEAP_SIZE) [131072] 131072
 Stack size (STACK_SIZE) [16384] 16384
 Base address (BASE_ADDRESS) [0x00100000] 0x00100000
-Use march=586 qualifier to build (USE_MARCH_586) [N/y/?] (NEW) 
+Use march=586 qualifier to build (USE_MARCH_586) [N/y/?] (NEW)
 *
 * Standard Libraries
 *
-Enable C library support (LIBC) [Y/n] (NEW) 
-Build a curses library (CURSES) [N/y] (NEW) 
-CBFS support (CBFS) [Y/n/?] (NEW) 
-LZMA decoder (LZMA) [Y/n/?] (NEW) 
-LZ4 decoder (LZ4) [Y/n/?] (NEW) 
+Enable C library support (LIBC) [Y/n] (NEW)
+Build a curses library (CURSES) [N/y] (NEW)
+CBFS support (CBFS) [Y/n/?] (NEW)
+LZMA decoder (LZMA) [Y/n/?] (NEW)
+LZ4 decoder (LZ4) [Y/n/?] (NEW)
 *
 * Console Options
 *
-Skip initializing the consoles at startup (SKIP_CONSOLE_INIT) [Y/n/?] (NEW) 
-Send output to the in memory CBMEM console (CBMEM_CONSOLE) [Y/n] (NEW) 
-See output on the serial port console (SERIAL_CONSOLE) [Y/n] (NEW) 
-  8250-compatible serial port driver (including IO and MMIO) (8250_SERIAL_CONSOLE) [Y/n] (NEW) 
-  Exynos SOC, S5P compatible serial port driver (S5P_SERIAL_CONSOLE) [N/y] (NEW) 
-  IPQ806x SOC compatible serial port driver (IPQ806X_SERIAL_CONSOLE) [N/y] (NEW) 
-  IPQ40xx SOC compatible serial port driver (IPQ40XX_SERIAL_CONSOLE) [N/y] (NEW) 
-  QCS405 SOC compatible serial port driver (QCS405_SERIAL_CONSOLE) [N/y] (NEW) 
-  Qualcomm QUPV3 serial port driver (QUALCOMM_QUPV3_SERIAL_CONSOLE) [N/y] (NEW) 
-PL011 compatible serial port driver (PL011_SERIAL_CONSOLE) [N/y] (NEW) 
-Default I/O base for the serial port (default 0x3f8) (SERIAL_IOBASE) [0x3f8] (NEW) 
-Override the serial console baud rate (SERIAL_SET_SPEED) [N/y] (NEW) 
-Use plain ASCII characters for ACS (SERIAL_ACS_FALLBACK) [N/y/?] (NEW) 
-See output on a video console (VIDEO_CONSOLE) [Y/n] (NEW) 
-  VGA video console driver (VGA_VIDEO_CONSOLE) [N/y] (NEW) 
-  Geode LX video console driver (GEODELX_VIDEO_CONSOLE) [N/y] (NEW) 
-  coreboot video console driver (COREBOOT_VIDEO_CONSOLE) [Y/n/?] (NEW) 
-    Center a classic 80x25 console on bigger screens (COREBOOT_VIDEO_CENTERED) [N/y/?] (NEW) 
-Scale factor for the included font (FONT_SCALE_FACTOR) [0] (NEW) 
-A common PC i8042 driver (PC_I8042) [Y/n/?] (NEW) 
-Allow input from a PC mouse (PC_MOUSE) [N/y/?] (NEW) 
-Allow input from a PC keyboard (PC_KEYBOARD) [Y/n] (NEW) 
-AT Translation keyboard device (PC_KEYBOARD_AT_TRANSLATED) [N/y] (NEW) 
-English (US) keyboard layout (PC_KEYBOARD_LAYOUT_US) [Y/n] (NEW) 
-German keyboard layout (PC_KEYBOARD_LAYOUT_DE) [N/y] (NEW) 
+Skip initializing the consoles at startup (SKIP_CONSOLE_INIT) [Y/n/?] (NEW)
+Send output to the in memory CBMEM console (CBMEM_CONSOLE) [Y/n] (NEW)
+See output on the serial port console (SERIAL_CONSOLE) [Y/n] (NEW)
+  8250-compatible serial port driver (including IO and MMIO) (8250_SERIAL_CONSOLE) [Y/n] (NEW)
+  Exynos SOC, S5P compatible serial port driver (S5P_SERIAL_CONSOLE) [N/y] (NEW)
+  IPQ806x SOC compatible serial port driver (IPQ806X_SERIAL_CONSOLE) [N/y] (NEW)
+  IPQ40xx SOC compatible serial port driver (IPQ40XX_SERIAL_CONSOLE) [N/y] (NEW)
+  QCS405 SOC compatible serial port driver (QCS405_SERIAL_CONSOLE) [N/y] (NEW)
+  Qualcomm QUPV3 serial port driver (QUALCOMM_QUPV3_SERIAL_CONSOLE) [N/y] (NEW)
+PL011 compatible serial port driver (PL011_SERIAL_CONSOLE) [N/y] (NEW)
+Default I/O base for the serial port (default 0x3f8) (SERIAL_IOBASE) [0x3f8] (NEW)
+Override the serial console baud rate (SERIAL_SET_SPEED) [N/y] (NEW)
+Use plain ASCII characters for ACS (SERIAL_ACS_FALLBACK) [N/y/?] (NEW)
+See output on a video console (VIDEO_CONSOLE) [Y/n] (NEW)
+  VGA video console driver (VGA_VIDEO_CONSOLE) [N/y] (NEW)
+  Geode LX video console driver (GEODELX_VIDEO_CONSOLE) [N/y] (NEW)
+  coreboot video console driver (COREBOOT_VIDEO_CONSOLE) [Y/n/?] (NEW)
+    Center a classic 80x25 console on bigger screens (COREBOOT_VIDEO_CENTERED) [N/y/?] (NEW)
+Scale factor for the included font (FONT_SCALE_FACTOR) [0] (NEW)
+A common PC i8042 driver (PC_I8042) [Y/n/?] (NEW)
+Allow input from a PC mouse (PC_MOUSE) [N/y/?] (NEW)
+Allow input from a PC keyboard (PC_KEYBOARD) [Y/n] (NEW)
+AT Translation keyboard device (PC_KEYBOARD_AT_TRANSLATED) [N/y] (NEW)
+English (US) keyboard layout (PC_KEYBOARD_LAYOUT_US) [Y/n] (NEW)
+German keyboard layout (PC_KEYBOARD_LAYOUT_DE) [N/y] (NEW)
 *
 * Drivers
 *
-Support for PCI devices (PCI) [Y/n] (NEW) 
-Support for reading/writing NVRAM bytes (NVRAM) [Y/n] (NEW) 
-Support for mouse cursor handling (MOUSE_CURSOR) [N/y/?] (NEW) 
-Extended RTC ports are 0x74/0x75 (RTC_PORT_EXTENDED_VIA) [N/y/?] (NEW) 
-Support for PC speaker (SPEAKER) [N/y] (NEW) 
+Support for PCI devices (PCI) [Y/n] (NEW)
+Support for reading/writing NVRAM bytes (NVRAM) [Y/n] (NEW)
+Support for mouse cursor handling (MOUSE_CURSOR) [N/y/?] (NEW)
+Extended RTC ports are 0x74/0x75 (RTC_PORT_EXTENDED_VIA) [N/y/?] (NEW)
+Support for PC speaker (SPEAKER) [N/y] (NEW)
 Timer driver
 > 1. x86 rdtsc (TIMER_RDTSC) (NEW)
   2. None (TIMER_NONE) (NEW)
@@ -147,23 +147,23 @@ Timer driver
   8. Timer for Rockchip RK3288 (TIMER_RK3288) (NEW)
   9. Timer for Rockchip RK3399 (TIMER_RK3399) (NEW)
   10. Timer for MediaTek (TIMER_MTK) (NEW)
-choice[1-10]: Generic Timer Frequency (TIMER_GENERIC_HZ) [0] (NEW) 
-Generic Timer Register Address (TIMER_GENERIC_REG) [0x0] (NEW) 
-Generic Timer High Register Address (TIMER_GENERIC_HIGH_REG) [0x0] (NEW) 
-Support for storage devices (STORAGE) [N/y/?] (NEW) 
-USB Support (USB) [Y/n] (NEW) 
-  Support for USB UHCI controllers (USB_UHCI) [N/y/?] (NEW) 
-  Support for USB OHCI controllers (USB_OHCI) [N/y/?] (NEW) 
-  Support for USB EHCI controllers (USB_EHCI) [N/y/?] (NEW) 
+choice[1-10]: Generic Timer Frequency (TIMER_GENERIC_HZ) [0] (NEW)
+Generic Timer Register Address (TIMER_GENERIC_REG) [0x0] (NEW)
+Generic Timer High Register Address (TIMER_GENERIC_HIGH_REG) [0x0] (NEW)
+Support for storage devices (STORAGE) [N/y/?] (NEW)
+USB Support (USB) [Y/n] (NEW)
+  Support for USB UHCI controllers (USB_UHCI) [N/y/?] (NEW)
+  Support for USB OHCI controllers (USB_OHCI) [N/y/?] (NEW)
+  Support for USB EHCI controllers (USB_EHCI) [N/y/?] (NEW)
   Support for USB xHCI controllers (USB_XHCI) [Y/n/?] y
-    Support for USB xHCI controllers on MTK SoC (USB_XHCI_MTK_QUIRK) [N/y/?] (NEW) 
-  Support for USB DesignWare HCD controllers (USB_DWC2) [N/y/?] (NEW) 
-  Support for USB keyboards (USB_HID) [Y/n/?] (NEW) 
-  Support for USB hubs (USB_HUB) [Y/n/?] (NEW) 
-Support for USB storage (USB_MSC) [Y/n/?] (NEW) 
-Auto-scan PCI bus for USB host controllers (USB_PCI) [Y/n] (NEW) 
-USB device mode support (UDC) [N/y/?] (NEW) 
-Enables the Local APIC (ENABLE_APIC) [N/y] (NEW) 
+    Support for USB xHCI controllers on MTK SoC (USB_XHCI_MTK_QUIRK) [N/y/?] (NEW)
+  Support for USB DesignWare HCD controllers (USB_DWC2) [N/y/?] (NEW)
+  Support for USB keyboards (USB_HID) [Y/n/?] (NEW)
+  Support for USB hubs (USB_HUB) [Y/n/?] (NEW)
+Support for USB storage (USB_MSC) [Y/n/?] (NEW)
+Auto-scan PCI bus for USB host controllers (USB_PCI) [Y/n] (NEW)
+USB device mode support (UDC) [N/y/?] (NEW)
+Enables the Local APIC (ENABLE_APIC) [N/y] (NEW)
 Interrupt Handling
   1. Ignore unknown user defined interrupts (IGNORE_UNKNOWN_INTERRUPTS) (NEW)
   2. Logs unknown user defined interrupts to the console (LOG_UNKNOWN_INTERRUPTS) (NEW)
@@ -171,7 +171,7 @@ Interrupt Handling
 choice[1-3]: #
 # configuration written to .config
 #
-make -j72 objutil=objutil obj=build 
+make -j72 objutil=objutil obj=build
     CC         libpci/libpci.libpci.o
     CC         arch/x86/main.libc.o
     CC         arch/x86/sysinfo.libc.o
@@ -250,12 +250,12 @@ make -j72 objutil=objutil obj=build
     AR         build/liblzma.a
     AR         build/libc.a
     AR         build/libpayload.a
-make -j72 objutil=objutil obj=build_gdb DOTCONFIG=.config.gdb oldconfig 
+make -j72 objutil=objutil obj=build_gdb DOTCONFIG=.config.gdb oldconfig
 .config.gdb:111:notice: override: reassigning to symbol REMOTEGDB
 #
 # configuration written to .config.gdb
 #
-make -j72 objutil=objutil obj=build_gdb DOTCONFIG=.config.gdb 
+make -j72 objutil=objutil obj=build_gdb DOTCONFIG=.config.gdb
     CC         libpci/libpci.libpci.o
     CC         arch/x86/main.libc.o
     CC         arch/x86/sysinfo.libc.o
@@ -349,11 +349,11 @@ make -j72 objutil=objutil obj=build_gdb DOTCONFIG=.config.gdb
 21:11:28
 21:11:28 >>> Install sys-boot/libpayload-9999 into /build/puff/tmp/portage/sys-boot/libpayload-9999/image
 /build/puff/tmp/portage/sys-boot/libpayload-9999/work/libpayload-9999/payloads/libpayload /build/puff/tmp/portage/sys-boot/libpayload-9999/work/libpayload-9999
-make -j72 obj=build_gdb DESTDIR=/build/puff/tmp/portage/sys-boot/libpayload-9999/image/firmware DOTCONFIG=.config.gdb install 
+make -j72 obj=build_gdb DESTDIR=/build/puff/tmp/portage/sys-boot/libpayload-9999/image/firmware DOTCONFIG=.config.gdb install
     INSTALL    /build/puff/tmp/portage/sys-boot/libpayload-9999/image/firmware/libpayload/lib
     INSTALL    /build/puff/tmp/portage/sys-boot/libpayload-9999/image/firmware/libpayload/include
     INSTALL    /build/puff/tmp/portage/sys-boot/libpayload-9999/image/firmware/libpayload/bin
-make -j72 obj=build DESTDIR=/build/puff/tmp/portage/sys-boot/libpayload-9999/image/firmware install 
+make -j72 obj=build DESTDIR=/build/puff/tmp/portage/sys-boot/libpayload-9999/image/firmware install
     INSTALL    /build/puff/tmp/portage/sys-boot/libpayload-9999/image/firmware/libpayload/lib
     INSTALL    /build/puff/tmp/portage/sys-boot/libpayload-9999/image/firmware/libpayload/include
     INSTALL    /build/puff/tmp/portage/sys-boot/libpayload-9999/image/firmware/libpayload/bin
@@ -379,9 +379,9 @@ File not built with -Wl,-z,now: /build/puff/tmp/portage/sys-boot/libpayload-9999
 21:11:38  *  architectures/operating systems.  A bug should be filed at
 21:11:38  *  https://bugs.gentoo.org/ to make sure the issue is fixed.
 21:11:38  *  For more information, see:
-21:11:38  * 
+21:11:38  *
 21:11:39  *    https://wiki.gentoo.org/wiki/Hardened/GNU_stack_quickstart
-21:11:39  * 
+21:11:39  *
 21:11:39  *  Please include the following list of files in your report:
 21:11:39  *  Note: Bugs should be filed for the respective maintainers
 21:11:39  *  of the package in question and not hardened@gentoo.org.
@@ -751,7 +751,7 @@ make: Entering directory '/build/puff/tmp/portage/sys-boot/intel-cmlfsp-9999/wor
 Attempting to detect HOST_ARCH from 'uname -m': x86_64
 Detected HOST_ARCH of X64 using uname.
 mkdir -p .
-mkdir ./libs 
+mkdir ./libs
 make -C Common
 make[1]: Entering directory '/build/puff/tmp/portage/sys-boot/intel-cmlfsp-9999/work/intel-cmlfsp-9999/Edk2/BaseTools/Source/C/Common'
 x86_64-pc-linux-gnu-clang  -c  -I .. -I ../Include/Common -I ../Include/ -I ../Include/IndustryStandard -I ../Common/ -I .. -I . -I ../Include/X64/  -MD -fshort-wchar -fno-strict-aliasing -fwrapv -fno-delete-null-pointer-checks -Wall -Werror -Wno-deprecated-declarations -Wno-stringop-truncation -Wno-restrict -Wno-unused-result -nostdlib -g -O2  BasePeCoff.c -o BasePeCoff.o
@@ -969,7 +969,7 @@ x86_64-pc-linux-gnu-clang  -c  -I .. -I ../Include/Common -I ../Include/ -I ../I
 x86_64-pc-linux-gnu-clang  -c  -I .. -I ../Include/Common -I ../Include/ -I ../Include/IndustryStandard -I ../Common/ -I .. -I . -I ../Include/X64/  -MD -fshort-wchar -fno-strict-aliasing -fwrapv -fno-delete-null-pointer-checks -Wall -Werror -Wno-deprecated-declarations -Wno-stringop-truncation -Wno-restrict -Wno-unused-result -nostdlib -g -O2  -D_7ZIP_ST Sdk/C/7zFile.c -o Sdk/C/7zFile.o
 x86_64-pc-linux-gnu-clang  -c  -I .. -I ../Include/Common -I ../Include/ -I ../Include/IndustryStandard -I ../Common/ -I .. -I . -I ../Include/X64/  -MD -fshort-wchar -fno-strict-aliasing -fwrapv -fno-delete-null-pointer-checks -Wall -Werror -Wno-deprecated-declarations -Wno-stringop-truncation -Wno-restrict -Wno-unused-result -nostdlib -g -O2  -D_7ZIP_ST Sdk/C/7zStream.c -o Sdk/C/7zStream.o
 x86_64-pc-linux-gnu-clang  -c  -I .. -I ../Include/Common -I ../Include/ -I ../Include/IndustryStandard -I ../Common/ -I .. -I . -I ../Include/X64/  -MD -fshort-wchar -fno-strict-aliasing -fwrapv -fno-delete-null-pointer-checks -Wall -Werror -Wno-deprecated-declarations -Wno-stringop-truncation -Wno-restrict -Wno-unused-result -nostdlib -g -O2  -D_7ZIP_ST Sdk/C/Bra86.c -o Sdk/C/Bra86.o
-x86_64-pc-linux-gnu-clang -o ../bin/LzmaCompress   LzmaCompress.o Sdk/C/Alloc.o Sdk/C/LzFind.o Sdk/C/LzmaDec.o Sdk/C/LzmaEnc.o Sdk/C/7zFile.o Sdk/C/7zStream.o Sdk/C/Bra86.o -L../libs 
+x86_64-pc-linux-gnu-clang -o ../bin/LzmaCompress   LzmaCompress.o Sdk/C/Alloc.o Sdk/C/LzFind.o Sdk/C/LzmaDec.o Sdk/C/LzmaEnc.o Sdk/C/7zFile.o Sdk/C/7zStream.o Sdk/C/Bra86.o -L../libs
 make[1]: Leaving directory '/build/puff/tmp/portage/sys-boot/intel-cmlfsp-9999/work/intel-cmlfsp-9999/Edk2/BaseTools/Source/C/LzmaCompress'
 make -C Split
 make[1]: Entering directory '/build/puff/tmp/portage/sys-boot/intel-cmlfsp-9999/work/intel-cmlfsp-9999/Edk2/BaseTools/Source/C/Split'
@@ -3649,7 +3649,7 @@ Create FSP component file 'Intel/CometLakeFspBinPkg/Fsp_T.fd'
 21:15:33 >>> Configuring source in /build/puff/tmp/portage/chromeos-base/vboot_reference-9999/work/vboot_reference-9999 ...
 21:15:33 >>> Source configured.
 21:15:33 >>> Compiling source in /build/puff/tmp/portage/chromeos-base/vboot_reference-9999/work/vboot_reference-9999 ...
-make -j72 SRCDIR=/build/puff/tmp/portage/chromeos-base/vboot_reference-9999/work/vboot_reference-9999 LIBDIR=lib64 ARCH=amd64 SDK_BUILD= TPM2_MODE=tpm2 PD_SYNC= DEV_DEBUG_FORCE= FUZZ_FLAGS= BUILD=/build/puff/tmp/portage/chromeos-base/vboot_reference-9999/work/vboot_reference-9999/build-main all 
+make -j72 SRCDIR=/build/puff/tmp/portage/chromeos-base/vboot_reference-9999/work/vboot_reference-9999 LIBDIR=lib64 ARCH=amd64 SDK_BUILD= TPM2_MODE=tpm2 PD_SYNC= DEV_DEBUG_FORCE= FUZZ_FLAGS= BUILD=/build/puff/tmp/portage/chromeos-base/vboot_reference-9999/work/vboot_reference-9999/build-main all
 vboot SHA256 built with tight loops (slower, smaller code size)
     CC            futility/futility.o
     CC            futility/cmd_create.o
@@ -3803,7 +3803,7 @@ vboot SHA256 built with tight loops (slower, smaller code size)
 21:15:38
 21:15:38 >>> Install chromeos-base/vboot_reference-9999 into /build/puff/tmp/portage/chromeos-base/vboot_reference-9999/image
  * Installing programs
-make -j72 SRCDIR=/build/puff/tmp/portage/chromeos-base/vboot_reference-9999/work/vboot_reference-9999 LIBDIR=lib64 ARCH=amd64 SDK_BUILD= TPM2_MODE=tpm2 PD_SYNC= DEV_DEBUG_FORCE= FUZZ_FLAGS= BUILD=/build/puff/tmp/portage/chromeos-base/vboot_reference-9999/work/vboot_reference-9999/build-main DESTDIR=/build/puff/tmp/portage/chromeos-base/vboot_reference-9999/image install install_dev 
+make -j72 SRCDIR=/build/puff/tmp/portage/chromeos-base/vboot_reference-9999/work/vboot_reference-9999 LIBDIR=lib64 ARCH=amd64 SDK_BUILD= TPM2_MODE=tpm2 PD_SYNC= DEV_DEBUG_FORCE= FUZZ_FLAGS= BUILD=/build/puff/tmp/portage/chromeos-base/vboot_reference-9999/work/vboot_reference-9999/build-main DESTDIR=/build/puff/tmp/portage/chromeos-base/vboot_reference-9999/image install install_dev
 vboot SHA256 built with tight loops (slower, smaller code size)
     INSTALL       CGPT
     INSTALL       SIGNING
@@ -5295,7 +5295,7 @@ done.
 21:16:42 >>> Configuring source in /build/puff/tmp/portage/sys-boot/coreboot-9999/work/coreboot-9999 ...
 21:16:42 >>> Source configured.
 21:16:43 >>> Compiling source in /build/puff/tmp/portage/sys-boot/coreboot-9999/work/coreboot-9999 ...
-make -j72 oldconfig DOTCONFIG=.config-wyvern obj=build-wyvern 
+make -j72 oldconfig DOTCONFIG=.config-wyvern obj=build-wyvern
 .config-wyvern:55:notice: override: reassigning to symbol RUN_FSP_GOP
 .config-wyvern:55:notice: override: RUN_FSP_GOP changes choice state
 *
@@ -5304,28 +5304,28 @@ make -j72 oldconfig DOTCONFIG=.config-wyvern obj=build-wyvern
 *
 * General setup
 *
-Local version string (LOCALVERSION) [] (NEW) 
+Local version string (LOCALVERSION) [] (NEW)
 Compiler to use
 > 1. GCC (COMPILER_GCC) (NEW)
   2. LLVM/clang (TESTING ONLY - Not currently working) (COMPILER_LLVM_CLANG) (NEW)
-choice[1-2?]: Allow building with any toolchain (ANY_TOOLCHAIN) [N/y/?] (NEW) 
-Use ccache to speed up (re)compilation (CCACHE) [N/y/?] (NEW) 
-Generate flashmap descriptor parser using flex and bison (FMD_GENPARSER) [N/y/?] (NEW) 
-Generate SCONFIG & BINCFG parser using flex and bison (UTIL_GENPARSER) [N/y/?] (NEW) 
-Compress ramstage with LZMA (COMPRESS_RAMSTAGE) [Y/n/?] (NEW) 
-Include the coreboot .config file into the ROM image (INCLUDE_CONFIG_FILE) [Y/n/?] (NEW) 
+choice[1-2?]: Allow building with any toolchain (ANY_TOOLCHAIN) [N/y/?] (NEW)
+Use ccache to speed up (re)compilation (CCACHE) [N/y/?] (NEW)
+Generate flashmap descriptor parser using flex and bison (FMD_GENPARSER) [N/y/?] (NEW)
+Generate SCONFIG & BINCFG parser using flex and bison (UTIL_GENPARSER) [N/y/?] (NEW)
+Compress ramstage with LZMA (COMPRESS_RAMSTAGE) [Y/n/?] (NEW)
+Include the coreboot .config file into the ROM image (INCLUDE_CONFIG_FILE) [Y/n/?] (NEW)
 Create a table of timestamps collected during boot (COLLECT_TIMESTAMPS) [Y/?] (NEW) y
-  Print the timestamp values on the console (TIMESTAMPS_ON_CONSOLE) [N/y/?] (NEW) 
+  Print the timestamp values on the console (TIMESTAMPS_ON_CONSOLE) [N/y/?] (NEW)
 Allow use of binary-only repository (USE_BLOBS) [Y/n/?] y
-  Allow AMD blobs repository (with license agreement) (USE_AMD_BLOBS) [N/y/?] (NEW) 
-Code coverage support (COVERAGE) [N/y/?] (NEW) 
-Undefined behavior sanitizer support (UBSAN) [N/y/?] (NEW) 
+  Allow AMD blobs repository (with license agreement) (USE_AMD_BLOBS) [N/y/?] (NEW)
+Code coverage support (COVERAGE) [N/y/?] (NEW)
+Undefined behavior sanitizer support (UBSAN) [N/y/?] (NEW)
 Stage Cache for ACPI S3 resume
   1. Disabled (NO_STAGE_CACHE) (NEW)
 > 2. TSEG (TSEG_STAGE_CACHE) (NEW)
-choice[1-2]: Update existing coreboot.rom image (UPDATE_IMAGE) [N/y/?] (NEW) 
-Add a bootsplash image (BOOTSPLASH_IMAGE) [N/y/?] (NEW) 
-Firmware Configuration Probing (FW_CONFIG) [N/y/?] (NEW) 
+choice[1-2]: Update existing coreboot.rom image (UPDATE_IMAGE) [N/y/?] (NEW)
+Add a bootsplash image (BOOTSPLASH_IMAGE) [N/y/?] (NEW)
+Firmware Configuration Probing (FW_CONFIG) [N/y/?] (NEW)
 *
 * Mainboard
 *
@@ -5581,8 +5581,8 @@ choice[1-48]: Mainboard model
   174. ->  Morphius (BOARD_GOOGLE_MORPHIUS) (NEW)
   175. ->  Trembyle (BOARD_GOOGLE_TREMBYLE) (NEW)
   176. -> Berknip (BOARD_GOOGLE_BERKNIP) (NEW)
-choice[1-176]: Enable SAR options for Chrome OS build (CHROMEOS_WIFI_SAR) [N/y] (NEW) 
-Mainboard vendor name (MAINBOARD_VENDOR) [Google] (NEW) 
+choice[1-176]: Enable SAR options for Chrome OS build (CHROMEOS_WIFI_SAR) [N/y] (NEW)
+Mainboard vendor name (MAINBOARD_VENDOR) [Google] (NEW)
 ROM chip size
   1. 64 KB (COREBOOT_ROMSIZE_KB_64) (NEW)
   2. 128 KB (COREBOOT_ROMSIZE_KB_128) (NEW)
@@ -5603,7 +5603,7 @@ choice[1-15?]: System Power State after Failure
   1. S5 Soft Off (POWER_STATE_OFF_AFTER_FAILURE) (NEW)
 > 2. S0 Full On (POWER_STATE_ON_AFTER_FAILURE) (NEW)
   3. Keep Previous State (POWER_STATE_PREVIOUS_AFTER_FAILURE) (NEW)
-choice[1-3?]: fmap description file in fmd format (FMDFILE) [src/mainboard/$(CONFIG_MAINBOARD_DIR)/chromeos-puff-16MiB.fmd] (NEW) 
+choice[1-3?]: fmap description file in fmd format (FMDFILE) [src/mainboard/$(CONFIG_MAINBOARD_DIR)/chromeos-puff-16MiB.fmd] (NEW)
 *
 * Chipset
 *
@@ -5613,12 +5613,12 @@ choice[1-3?]: fmap description file in fmd format (FMDFILE) [src/mainboard/$(CON
 Cache-as-ram implementation
 > 1. Enhanced Non-evict mode (USE_CANNONLAKE_CAR_NEM_ENHANCED) (NEW)
   2. Use FSP CAR (USE_CANNONLAKE_FSP_CAR) (NEW)
-choice[1-2?]: Debug Consent for CNL (SOC_INTEL_CANNONLAKE_DEBUG_CONSENT) [0] (NEW) 
+choice[1-2?]: Debug Consent for CNL (SOC_INTEL_CANNONLAKE_DEBUG_CONSENT) [0] (NEW)
 *
 * Intel SoC Common Code
 *
-Perform MP Initialization by FSP (USE_INTEL_FSP_MP_INIT) [N/y/?] (NEW) 
-Disable write status SPI opcode (FAST_SPI_DISABLE_WRITE_STATUS) [N/y/?] (NEW) 
+Perform MP Initialization by FSP (USE_INTEL_FSP_MP_INIT) [N/y/?] (NEW)
+Disable write status SPI opcode (FAST_SPI_DISABLE_WRITE_STATUS) [N/y/?] (NEW)
 PRMRR size
   1. Maximum (SOC_INTEL_COMMON_BLOCK_SGX_PRMRR_SIZE_MAX) (NEW)
   2. 256 MiB (SOC_INTEL_COMMON_BLOCK_SGX_PRMRR_SIZE_256MB) (NEW)
@@ -5627,20 +5627,20 @@ PRMRR size
   5. 32 MiB (SOC_INTEL_COMMON_BLOCK_SGX_PRMRR_SIZE_32MB) (NEW)
   6. 1 MiB (SOC_INTEL_COMMON_BLOCK_SGX_PRMRR_SIZE_1MB) (NEW)
 > 7. Disabled (SOC_INTEL_COMMON_BLOCK_SGX_PRMRR_DISABLED) (NEW)
-choice[1-7?]: Enable TCO SMI (SOC_INTEL_COMMON_BLOCK_SMM_TCO_ENABLE) [N/y/?] (NEW) 
-Use Legacy 8254 Timer (USE_LEGACY_8254_TIMER) [N/y/?] (NEW) 
+choice[1-7?]: Enable TCO SMI (SOC_INTEL_COMMON_BLOCK_SMM_TCO_ENABLE) [N/y/?] (NEW)
+Use Legacy 8254 Timer (USE_LEGACY_8254_TIMER) [N/y/?] (NEW)
 *
 * Intel SoC Common PCH Code
 *
 *
 * Intel SoC Common coreboot stages
 *
-Enable SOC debug interface (SOC_INTEL_DEBUG_CONSENT) [N/y/?] (NEW) 
+Enable SOC debug interface (SOC_INTEL_DEBUG_CONSENT) [N/y/?] (NEW)
 *
 * CPU
 *
-Enable VMX for virtualization (ENABLE_VMX) [Y/n] (NEW) 
-Set IA32_FEATURE_CONTROL lock bit (SET_IA32_FC_LOCK_BIT) [Y/n/?] (NEW) 
+Enable VMX for virtualization (ENABLE_VMX) [Y/n] (NEW)
+Set IA32_FEATURE_CONTROL lock bit (SET_IA32_FC_LOCK_BIT) [Y/n/?] (NEW)
 Include CPU microcode in CBFS
   1. Generate from tree (CPU_MICROCODE_CBFS_DEFAULT_BINS) (NEW)
 > 2. Include external microcode binary (CPU_MICROCODE_CBFS_EXTERNAL_BINS)
@@ -5653,15 +5653,15 @@ choice[1-4]: Microcode binary path and filename (CPU_UCODE_BINARIES) [3rdparty/b
 *
 * Southbridge
 *
-Validate Intel firmware descriptor (VALIDATE_INTEL_DESCRIPTOR) [N/y/?] (NEW) 
+Validate Intel firmware descriptor (VALIDATE_INTEL_DESCRIPTOR) [N/y/?] (NEW)
 *
 * Super I/O
 *
 *
 * Embedded Controllers
 *
-Chrome EC board name for EC (EC_GOOGLE_CHROMEEC_BOARDNAME) [] (NEW) 
-Enable Chrome OS EC RTC (EC_GOOGLE_CHROMEEC_RTC) [N/y/?] (NEW) 
+Chrome EC board name for EC (EC_GOOGLE_CHROMEEC_BOARDNAME) [] (NEW)
+Enable Chrome OS EC RTC (EC_GOOGLE_CHROMEEC_RTC) [N/y/?] (NEW)
 Chrome EC firmware source
 > 1. No EC firmware is included (EC_GOOGLE_CHROMEEC_FIRMWARE_NONE)
   2. External EC firmware is included (EC_GOOGLE_CHROMEEC_FIRMWARE_EXTERNAL) (NEW)
@@ -5681,10 +5681,10 @@ choice[1-3?]: *
 * ChromeOS
 *
 Build for ChromeOS (CHROMEOS) [Y/n/?] y
-  Reserve space for Chrome OS ramoops (CHROMEOS_RAMOOPS) [Y/n] (NEW) 
+  Reserve space for Chrome OS ramoops (CHROMEOS_RAMOOPS) [Y/n] (NEW)
     Allocate RAM oops buffer in cbmem (CHROMEOS_RAMOOPS_DYNAMIC) [Y] (NEW) y
-    Size of preserved RAM (CHROMEOS_RAMOOPS_RAM_SIZE) [0x00100000] (NEW) 
-  Add regulatory domain methods (HAVE_REGULATORY_DOMAIN) [N/y/?] (NEW) 
+    Size of preserved RAM (CHROMEOS_RAMOOPS_RAM_SIZE) [0x00100000] (NEW)
+  Add regulatory domain methods (HAVE_REGULATORY_DOMAIN) [N/y/?] (NEW)
 *
 * Devices
 *
@@ -5692,108 +5692,108 @@ Graphics initialization
   1. Run VGA Option ROMs (VGA_ROM_RUN) (NEW)
 > 2. Run a GOP driver (RUN_FSP_GOP)
   3. None (NO_GFX_INIT) (NEW)
-choice[1-3]: Use onboard VGA as primary video device (ONBOARD_VGA_IS_PRIMARY) [N/y/?] (NEW) 
+choice[1-3]: Use onboard VGA as primary video device (ONBOARD_VGA_IS_PRIMARY) [N/y/?] (NEW)
 *
 * Display
 *
 Framebuffer mode
 > 1. Linear "high-resolution" framebuffer (GENERIC_LINEAR_FRAMEBUFFER) (NEW)
 choice[1]: 1
-Show graphical bootsplash (BOOTSPLASH) [N/y/?] (NEW) 
+Show graphical bootsplash (BOOTSPLASH) [N/y/?] (NEW)
 Enable PCIe Common Clock (PCIEXP_COMMON_CLOCK) [Y/?] (NEW) y
 Enable PCIe ASPM (PCIEXP_ASPM) [Y/?] (NEW) y
 Enable PCIe Clock Power Management (PCIEXP_CLK_PM) [Y/?] (NEW) y
 Enable PCIe ASPM L1 SubState (PCIEXP_L1_SUB_STATE) [Y/?] (NEW) y
-Enable PCIe Hotplug Support (PCIEXP_HOTPLUG) [N/y/?] (NEW) 
-Early PCI bridge (EARLY_PCI_BRIDGE) [N/y/?] (NEW) 
-Override PCI Subsystem Vendor ID (SUBSYSTEM_VENDOR_ID) [0x0000] (NEW) 
-Override PCI Subsystem Device ID (SUBSYSTEM_DEVICE_ID) [0x0000] (NEW) 
-Add a VGA BIOS image (VGA_BIOS) [N/y/?] (NEW) 
+Enable PCIe Hotplug Support (PCIEXP_HOTPLUG) [N/y/?] (NEW)
+Early PCI bridge (EARLY_PCI_BRIDGE) [N/y/?] (NEW)
+Override PCI Subsystem Vendor ID (SUBSYSTEM_VENDOR_ID) [0x0000] (NEW)
+Override PCI Subsystem Device ID (SUBSYSTEM_DEVICE_ID) [0x0000] (NEW)
+Add a VGA BIOS image (VGA_BIOS) [N/y/?] (NEW)
 Add a Video BIOS Table (VBT) binary to CBFS (INTEL_GMA_ADD_VBT) [Y/?] y
   VBT binary path and filename (INTEL_GMA_VBT_FILE) [3rdparty/blobs/baseboard/puff/vbt.bin] 3rdparty/blobs/baseboard/puff/vbt.bin
-Enable I2C controller emulation in software (SOFTWARE_I2C) [N/y/?] (NEW) 
+Enable I2C controller emulation in software (SOFTWARE_I2C) [N/y/?] (NEW)
 *
 * Generic Drivers
 *
 Support for flash based event log (ELOG) [Y/?] (NEW) y
-  Enable debug output for event logging (ELOG_DEBUG) [N/y] (NEW) 
-  Store a copy of ELOG in CBMEM (ELOG_CBMEM) [N/y/?] (NEW) 
+  Enable debug output for event logging (ELOG_DEBUG) [N/y] (NEW)
+  Store a copy of ELOG in CBMEM (ELOG_CBMEM) [N/y/?] (NEW)
   SMI interface to write and clear event log (ELOG_GSMI) [Y/n/?] y
   Maintain a monotonic boot number in CMOS (ELOG_BOOT_COUNT) [Y/n/?] y
     Offset in CMOS to store the boot count (ELOG_BOOT_COUNT_CMOS_OFFSET) [144] 144
 Enable protection on MRC settings (MRC_SETTINGS_PROTECT) [Y] (NEW) y
-Support for flash based, SMM mediated data store (SMMSTORE) [N/y] (NEW) 
-Disable Fast Read command (SPI_FLASH_NO_FAST_READ) [N/y/?] (NEW) 
+Support for flash based, SMM mediated data store (SMMSTORE) [N/y] (NEW)
+Disable Fast Read command (SPI_FLASH_NO_FAST_READ) [N/y/?] (NEW)
 Serial port on SuperIO (DRIVERS_UART_8250IO) [N/y] n
-UART's PCI bus, device, function address (UART_PCI_ADDR) [0x0] (NEW) 
+UART's PCI bus, device, function address (UART_PCI_ADDR) [0x0] (NEW)
 Support for Vital Product Data tables (VPD) [Y/?] (NEW) y
-Serial number in CBFS (DRIVERS_GENERIC_CBFS_SERIAL) [N/y/?] (NEW) 
-Support runtime generation of Intel DPTF ACPI tables (DRIVERS_INTEL_DPTF) [N/y/?] (NEW) 
+Serial number in CBFS (DRIVERS_GENERIC_CBFS_SERIAL) [N/y/?] (NEW)
+Support runtime generation of Intel DPTF ACPI tables (DRIVERS_INTEL_DPTF) [N/y/?] (NEW)
 Use binaries of the Intel FSP repository on GitHub (FSP_USE_REPO) [N/y/?] n
 Location of FSP headers (FSP_HEADER_PATH) [3rdparty/blobs/intel/cml/fsp/Include/] 3rdparty/blobs/intel/cml/fsp/Include/
 Add Intel FSP 2.0 binaries to CBFS (ADD_FSP_BINARIES) [Y/n/?] y
-Name of FSP-S in CBFS (FSP_S_CBFS) [fsps.bin] (NEW) 
-Name of FSP-M in CBFS (FSP_M_CBFS) [fspm.bin] (NEW) 
+Name of FSP-S in CBFS (FSP_S_CBFS) [fsps.bin] (NEW)
+Name of FSP-M in CBFS (FSP_M_CBFS) [fspm.bin] (NEW)
 Intel FSP-M (memory init) binary path and filename (FSP_M_FILE) [3rdparty/blobs/intel/cml/fsp/Fsp_M.fd] 3rdparty/blobs/intel/cml/fsp/Fsp_M.fd
 Intel FSP-S (silicon init) binary path and filename (FSP_S_FILE) [3rdparty/blobs/intel/cml/fsp/Fsp_S.fd] 3rdparty/blobs/intel/cml/fsp/Fsp_S.fd
-Enable logo (FSP2_0_DISPLAY_LOGO) [N/y/?] (NEW) 
-Support Intel PCI-e WiFi adapters (DRIVERS_INTEL_WIFI) [Y/n/?] (NEW) 
-PS/2 keyboard init (DRIVERS_PS2_KEYBOARD) [N/y/?] (NEW) 
-Silicon Image SIL3114 (DRIVERS_SIL_3114) [N/y/?] (NEW) 
-SPI bus TPM chip is connected to (DRIVER_TPM_SPI_BUS) [0x1] (NEW) 
-Chip Select of the TPM chip on its SPI bus (DRIVER_TPM_SPI_CHIP) [0] (NEW) 
+Enable logo (FSP2_0_DISPLAY_LOGO) [N/y/?] (NEW)
+Support Intel PCI-e WiFi adapters (DRIVERS_INTEL_WIFI) [Y/n/?] (NEW)
+PS/2 keyboard init (DRIVERS_PS2_KEYBOARD) [N/y/?] (NEW)
+Silicon Image SIL3114 (DRIVERS_SIL_3114) [N/y/?] (NEW)
+SPI bus TPM chip is connected to (DRIVER_TPM_SPI_BUS) [0x1] (NEW)
+Chip Select of the TPM chip on its SPI bus (DRIVER_TPM_SPI_CHIP) [0] (NEW)
 *
 * Verified Boot (vboot)
 *
 Verify firmware with vboot. (VBOOT) [Y/?] (NEW) y
   Firmware RO + RW_A (VBOOT_SLOTS_RW_A) [Y/?] (NEW) y
   Firmware RO + RW_A + RW_B (VBOOT_SLOTS_RW_AB) [Y/?] (NEW) y
-  Mock secdata for firmware verification (VBOOT_MOCK_SECDATA) [N/y/?] (NEW) 
-  Force to always enable display (VBOOT_ALWAYS_ENABLE_DISPLAY) [N/y/?] (NEW) 
-  Firmware ID model (VBOOT_FWID_MODEL) [Google_$(CONFIG_MAINBOARD_PART_NUMBER)] (NEW) 
+  Mock secdata for firmware verification (VBOOT_MOCK_SECDATA) [N/y/?] (NEW)
+  Force to always enable display (VBOOT_ALWAYS_ENABLE_DISPLAY) [N/y/?] (NEW)
+  Firmware ID model (VBOOT_FWID_MODEL) [Google_$(CONFIG_MAINBOARD_PART_NUMBER)] (NEW)
   Firmware ID version (VBOOT_FWID_VERSION) [.13296.0.2020_06_18_2116] .13296.0.2020_06_18_2116
-  Allow the use of vboot without board support (VBOOT_NO_BOARD_SUPPORT) [N/y/?] (NEW) 
-  Additional files that should not be copied to RW (RO_REGION_ONLY) [] (NEW) 
-  Early firmware selection (EFS) EC (VBOOT_EC_EFS) [N/y/?] (NEW) 
+  Allow the use of vboot without board support (VBOOT_NO_BOARD_SUPPORT) [N/y/?] (NEW)
+  Additional files that should not be copied to RW (RO_REGION_ONLY) [] (NEW)
+  Early firmware selection (EFS) EC (VBOOT_EC_EFS) [N/y/?] (NEW)
   *
   * GBB configuration
   *
-  Hardware ID (GBB_HWID) [] (NEW) 
-  Path to bmpfv image (GBB_BMPFV_FILE) [] (NEW) 
+  Hardware ID (GBB_HWID) [] (NEW)
+  Path to bmpfv image (GBB_BMPFV_FILE) [] (NEW)
   Reduce dev screen delay (GBB_FLAG_DEV_SCREEN_SHORT_DELAY) [Y/n] y
-  Load option ROMs (GBB_FLAG_LOAD_OPTION_ROMS) [N/y] (NEW) 
-  Allow booting a non-Chrome OS kernel if dev switch is on (GBB_FLAG_ENABLE_ALTERNATE_OS) [N/y] (NEW) 
+  Load option ROMs (GBB_FLAG_LOAD_OPTION_ROMS) [N/y] (NEW)
+  Allow booting a non-Chrome OS kernel if dev switch is on (GBB_FLAG_ENABLE_ALTERNATE_OS) [N/y] (NEW)
   Force dev switch on (GBB_FLAG_FORCE_DEV_SWITCH_ON) [Y] y
   Allow booting from USB in dev mode even if dev_boot_usb=0 (GBB_FLAG_FORCE_DEV_BOOT_USB) [Y] y
   Disable firmware rollback protection (GBB_FLAG_DISABLE_FW_ROLLBACK_CHECK) [Y/n] y
-  Return to normal boot with Enter (GBB_FLAG_ENTER_TRIGGERS_TONORM) [N/y] (NEW) 
+  Return to normal boot with Enter (GBB_FLAG_ENTER_TRIGGERS_TONORM) [N/y] (NEW)
   Allow booting to legacy in dev mode even if dev_boot_legacy=0 (GBB_FLAG_FORCE_DEV_BOOT_LEGACY) [Y] (NEW) y
-  Running FAFT tests; used as a hint to disable other debug features (GBB_FLAG_RUNNING_FAFT) [N/y] (NEW) 
-  Disable EC software sync (GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC) [N/y] (NEW) 
-  Default to booting to legacy in dev mode (GBB_FLAG_DEFAULT_DEV_BOOT_LEGACY) [N/y] (NEW) 
-  Disable PD software sync (GBB_FLAG_DISABLE_PD_SOFTWARE_SYNC) [N/y] (NEW) 
-  Disable shutdown on closed lid (GBB_FLAG_DISABLE_LID_SHUTDOWN) [N/y] (NEW) 
+  Running FAFT tests; used as a hint to disable other debug features (GBB_FLAG_RUNNING_FAFT) [N/y] (NEW)
+  Disable EC software sync (GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC) [N/y] (NEW)
+  Default to booting to legacy in dev mode (GBB_FLAG_DEFAULT_DEV_BOOT_LEGACY) [N/y] (NEW)
+  Disable PD software sync (GBB_FLAG_DISABLE_PD_SOFTWARE_SYNC) [N/y] (NEW)
+  Disable shutdown on closed lid (GBB_FLAG_DISABLE_LID_SHUTDOWN) [N/y] (NEW)
   Always assume manual recovery in recovery mode (GBB_FLAG_FORCE_MANUAL_RECOVERY) [Y] (NEW) y
-  Disable Firmware Management Parameters (FWMP) (GBB_FLAG_DISABLE_FWMP) [N/y] (NEW) 
+  Disable Firmware Management Parameters (FWMP) (GBB_FLAG_DISABLE_FWMP) [N/y] (NEW)
   *
   * Vboot Keys
   *
-  Root key (public) (VBOOT_ROOT_KEY) [$(VBOOT_SOURCE)/tests/devkeys/root_key.vbpubk] (NEW) 
-  Recovery key (public) (VBOOT_RECOVERY_KEY) [$(VBOOT_SOURCE)/tests/devkeys/recovery_key.vbpubk] (NEW) 
-  Firmware key (private) (VBOOT_FIRMWARE_PRIVKEY) [$(VBOOT_SOURCE)/tests/devkeys/firmware_data_key.vbprivk] (NEW) 
-  Kernel subkey (public) (VBOOT_KERNEL_KEY) [$(VBOOT_SOURCE)/tests/devkeys/kernel_subkey.vbpubk] (NEW) 
-  Keyblock to use for the RW regions (VBOOT_KEYBLOCK) [$(VBOOT_SOURCE)/tests/devkeys/firmware.keyblock] (NEW) 
-  Keyblock version number (VBOOT_KEYBLOCK_VERSION) [1] (NEW) 
-  Keyblock preamble flags (VBOOT_KEYBLOCK_PREAMBLE_FLAGS) [0x0] (NEW) 
+  Root key (public) (VBOOT_ROOT_KEY) [$(VBOOT_SOURCE)/tests/devkeys/root_key.vbpubk] (NEW)
+  Recovery key (public) (VBOOT_RECOVERY_KEY) [$(VBOOT_SOURCE)/tests/devkeys/recovery_key.vbpubk] (NEW)
+  Firmware key (private) (VBOOT_FIRMWARE_PRIVKEY) [$(VBOOT_SOURCE)/tests/devkeys/firmware_data_key.vbprivk] (NEW)
+  Kernel subkey (public) (VBOOT_KERNEL_KEY) [$(VBOOT_SOURCE)/tests/devkeys/kernel_subkey.vbpubk] (NEW)
+  Keyblock to use for the RW regions (VBOOT_KEYBLOCK) [$(VBOOT_SOURCE)/tests/devkeys/firmware.keyblock] (NEW)
+  Keyblock version number (VBOOT_KEYBLOCK_VERSION) [1] (NEW)
+  Keyblock preamble flags (VBOOT_KEYBLOCK_PREAMBLE_FLAGS) [0x0] (NEW)
 *
 * Trusted Platform Module
 *
-Output verbose TPM debug messages (DEBUG_TPM) [N/y/?] (NEW) 
-Enable Measured Boot (TPM_MEASURED_BOOT) [N/y/?] (NEW) 
+Output verbose TPM debug messages (DEBUG_TPM) [N/y/?] (NEW)
+Enable Measured Boot (TPM_MEASURED_BOOT) [N/y/?] (NEW)
 *
 * Memory initialization
 *
-Always clear all DRAM on regular boot (SECURITY_CLEAR_DRAM_ON_REGULAR_BOOT) [N/y/?] (NEW) 
+Always clear all DRAM on regular boot (SECURITY_CLEAR_DRAM_ON_REGULAR_BOOT) [N/y/?] (NEW)
 *
 * Security
 *
@@ -5808,13 +5808,13 @@ Verify firmware with vboot. (VBOOT) [Y/?] (NEW) y
   Firmware ID model (VBOOT_FWID_MODEL) [Google_$(CONFIG_MAINBOARD_PART_NUMBER)] Google_$(CONFIG_MAINBOARD_PART_NUMBER)
   Firmware ID version (VBOOT_FWID_VERSION) [.13296.0.2020_06_18_2116] .13296.0.2020_06_18_2116
   Allow the use of vboot without board support (VBOOT_NO_BOARD_SUPPORT) [N/y/?] n
-  Additional files that should not be copied to RW (RO_REGION_ONLY) [] 
+  Additional files that should not be copied to RW (RO_REGION_ONLY) []
   Early firmware selection (EFS) EC (VBOOT_EC_EFS) [N/y/?] n
   *
   * GBB configuration
   *
-  Hardware ID (GBB_HWID) [] 
-  Path to bmpfv image (GBB_BMPFV_FILE) [] 
+  Hardware ID (GBB_HWID) []
+  Path to bmpfv image (GBB_BMPFV_FILE) []
   Reduce dev screen delay (GBB_FLAG_DEV_SCREEN_SHORT_DELAY) [Y/n] y
   Load option ROMs (GBB_FLAG_LOAD_OPTION_ROMS) [N/y] n
   Allow booting a non-Chrome OS kernel if dev switch is on (GBB_FLAG_ENABLE_ALTERNATE_OS) [N/y] n
@@ -5849,8 +5849,8 @@ Enable Measured Boot (TPM_MEASURED_BOOT) [N/y/?] n
 * Memory initialization
 *
 Always clear all DRAM on regular boot (SECURITY_CLEAR_DRAM_ON_REGULAR_BOOT) [N/y/?] n
-Intel TXT support (INTEL_TXT) [N/y] (NEW) 
-Enable STM (STM) [N/y/?] (NEW) 
+Intel TXT support (INTEL_TXT) [N/y] (NEW)
+Enable STM (STM) [N/y/?] (NEW)
 Boot media protection mechanism
 > 1. Don't lock boot media sections (BOOTMEDIA_LOCK_NONE) (NEW)
   2. Lock boot media using the controller (BOOTMEDIA_LOCK_CONTROLLER) (NEW)
@@ -5858,16 +5858,16 @@ Boot media protection mechanism
 choice[1-3]: *
 * Console
 *
-Enable early (bootblock) console output. (BOOTBLOCK_CONSOLE) [Y/n/?] (NEW) 
-Enable console output during postcar. (POSTCAR_CONSOLE) [Y/n/?] (NEW) 
-Squelch AP CPUs from early console. (SQUELCH_EARLY_SMP) [Y/n/?] (NEW) 
+Enable early (bootblock) console output. (BOOTBLOCK_CONSOLE) [Y/n/?] (NEW)
+Enable console output during postcar. (POSTCAR_CONSOLE) [Y/n/?] (NEW)
+Squelch AP CPUs from early console. (SQUELCH_EARLY_SMP) [Y/n/?] (NEW)
 Serial port console output (CONSOLE_SERIAL) [N/y/?] n
-spkmodem (console on speaker) console output (SPKMODEM) [N/y/?] (NEW) 
-Network console over NE2000 compatible Ethernet adapter (CONSOLE_NE2K) [N/y/?] (NEW) 
-Send console output to a CBMEM buffer (CONSOLE_CBMEM) [Y/n/?] (NEW) 
-  Room allocated for console output in CBMEM (CONSOLE_CBMEM_BUFFER_SIZE) [0x20000] (NEW) 
-  Dump CBMEM console on resets (CONSOLE_CBMEM_DUMP_TO_UART) [N/y/?] (NEW) 
-SPI Flash console output (CONSOLE_SPI_FLASH) [N/y/?] (NEW) 
+spkmodem (console on speaker) console output (SPKMODEM) [N/y/?] (NEW)
+Network console over NE2000 compatible Ethernet adapter (CONSOLE_NE2K) [N/y/?] (NEW)
+Send console output to a CBMEM buffer (CONSOLE_CBMEM) [Y/n/?] (NEW)
+  Room allocated for console output in CBMEM (CONSOLE_CBMEM_BUFFER_SIZE) [0x20000] (NEW)
+  Dump CBMEM console on resets (CONSOLE_CBMEM_DUMP_TO_UART) [N/y/?] (NEW)
+SPI Flash console output (CONSOLE_SPI_FLASH) [N/y/?] (NEW)
 Default console log level
 > 1. 8: SPEW (DEFAULT_CONSOLE_LOGLEVEL_8) (NEW)
   2. 7: DEBUG (DEFAULT_CONSOLE_LOGLEVEL_7) (NEW)
@@ -5878,25 +5878,25 @@ Default console log level
   7. 2: CRIT (DEFAULT_CONSOLE_LOGLEVEL_2) (NEW)
   8. 1: ALERT (DEFAULT_CONSOLE_LOGLEVEL_1) (NEW)
   9. 0: EMERG (DEFAULT_CONSOLE_LOGLEVEL_0) (NEW)
-choice[1-9]: Don't show any POST codes (NO_POST) [N/y] (NEW) 
+choice[1-9]: Don't show any POST codes (NO_POST) [N/y] (NEW)
   Store post codes in CMOS for debugging (CMOS_POST) [Y/n/?] y
     Offset into CMOS to store POST codes (CMOS_POST_OFFSET) [0x70] 0x70
-  Show POST codes on the debug console (CONSOLE_POST) [N/y/?] (NEW) 
-  Send POST codes to an external device (POST_DEVICE) [Y/n] (NEW) 
+  Show POST codes on the debug console (CONSOLE_POST) [N/y/?] (NEW)
+  Send POST codes to an external device (POST_DEVICE) [Y/n] (NEW)
     Device to send POST codes to
     > 1. None (POST_DEVICE_NONE) (NEW)
       2. LPC (POST_DEVICE_LPC) (NEW)
       3. PCI/PCIe (POST_DEVICE_PCI_PCIE) (NEW)
-    choice[1-3]: Send POST codes to an IO port (POST_IO) [Y/n/?] (NEW) 
-  IO port for POST codes (POST_IO_PORT) [0x80] (NEW) 
+    choice[1-3]: Send POST codes to an IO port (POST_IO) [Y/n/?] (NEW)
+  IO port for POST codes (POST_IO_PORT) [0x80] (NEW)
 *
 * System tables
 *
-Generate SMBIOS tables (GENERATE_SMBIOS_TABLES) [Y/n/?] (NEW) 
-SMBIOS Serial Number (MAINBOARD_SERIAL_NUMBER) [123456789] (NEW) 
-SMBIOS Version Number (MAINBOARD_VERSION) [1.0] (NEW) 
-SMBIOS Manufacturer (MAINBOARD_SMBIOS_MANUFACTURER) [Google] (NEW) 
-SMBIOS Product name (MAINBOARD_SMBIOS_PRODUCT_NAME) [Wyvern] (NEW) 
+Generate SMBIOS tables (GENERATE_SMBIOS_TABLES) [Y/n/?] (NEW)
+SMBIOS Serial Number (MAINBOARD_SERIAL_NUMBER) [123456789] (NEW)
+SMBIOS Version Number (MAINBOARD_VERSION) [1.0] (NEW)
+SMBIOS Manufacturer (MAINBOARD_SMBIOS_MANUFACTURER) [Google] (NEW)
+SMBIOS Product name (MAINBOARD_SMBIOS_PRODUCT_NAME) [Wyvern] (NEW)
 *
 * Payload
 *
@@ -5912,52 +5912,52 @@ Add a payload
   9. Depthcharge (PAYLOAD_DEPTHCHARGE) (NEW)
   10. A Linux payload (PAYLOAD_LINUX) (NEW)
   11. Tianocore payload (PAYLOAD_TIANOCORE) (NEW)
-choice[1-11]: Add a PXE ROM (PXE) [N/y] (NEW) 
-Use LZMA compression for secondary payloads (COMPRESS_SECONDARY_PAYLOAD) [Y/n/?] (NEW) 
+choice[1-11]: Add a PXE ROM (PXE) [N/y] (NEW)
+Use LZMA compression for secondary payloads (COMPRESS_SECONDARY_PAYLOAD) [Y/n/?] (NEW)
 *
 * Secondary Payloads
 *
-Load coreinfo as a secondary payload (COREINFO_SECONDARY_PAYLOAD) [N/y/?] (NEW) 
-Load Memtest86+ as a secondary payload (MEMTEST_SECONDARY_PAYLOAD) [N/y/?] (NEW) 
-Load tint as a secondary payload (TINT_SECONDARY_PAYLOAD) [N/y/?] (NEW) 
+Load coreinfo as a secondary payload (COREINFO_SECONDARY_PAYLOAD) [N/y/?] (NEW)
+Load Memtest86+ as a secondary payload (MEMTEST_SECONDARY_PAYLOAD) [N/y/?] (NEW)
+Load tint as a secondary payload (TINT_SECONDARY_PAYLOAD) [N/y/?] (NEW)
 *
 * Debugging
 *
 *
 * CPU Debug Settings
 *
-Display intermediate MTRR settings (DISPLAY_MTRRS) [N/y] (NEW) 
+Display intermediate MTRR settings (DISPLAY_MTRRS) [N/y] (NEW)
 *
 * BLOB Debug Settings
 *
-Display the FSP calls and status (DISPLAY_FSP_CALLS_AND_STATUS) [N/y/?] (NEW) 
-Display the FSP header (DISPLAY_FSP_HEADER) [N/y/?] (NEW) 
-Display the hand-off-blocks (DISPLAY_HOBS) [N/y/?] (NEW) 
-Display UPD data (DISPLAY_UPD_DATA) [N/y/?] (NEW) 
-Verify the FSP hand-off-blocks (VERIFY_HOBS) [N/y/?] (NEW) 
+Display the FSP calls and status (DISPLAY_FSP_CALLS_AND_STATUS) [N/y/?] (NEW)
+Display the FSP header (DISPLAY_FSP_HEADER) [N/y/?] (NEW)
+Display the hand-off-blocks (DISPLAY_HOBS) [N/y/?] (NEW)
+Display UPD data (DISPLAY_UPD_DATA) [N/y/?] (NEW)
+Verify the FSP hand-off-blocks (VERIFY_HOBS) [N/y/?] (NEW)
 Display Firmware Ingredient Version Information (DISPLAY_FSP_VERSION_INFO) [Y/?] (NEW) y
 *
 * General Debug Settings
 *
-GDB debugging support (GDB_STUB) [N/y/?] (NEW) 
-Halt when hitting a BUG() or assertion error (FATAL_ASSERTS) [N/y/?] (NEW) 
-Output verbose GPIO debug messages (DEBUG_GPIO) [N/y] (NEW) 
-Output verbose CBFS debug messages (DEBUG_CBFS) [N/y/?] (NEW) 
-Output verbose SMBus debug messages (DEBUG_SMBUS) [N/y/?] (NEW) 
-Output verbose SMI debug messages (DEBUG_SMI) [N/y/?] (NEW) 
-Output verbose malloc debug messages (DEBUG_MALLOC) [N/y/?] (NEW) 
-Debug console initialisation code (DEBUG_CONSOLE_INIT) [N/y/?] (NEW) 
-Output verbose SPI flash debug messages (DEBUG_SPI_FLASH) [N/y/?] (NEW) 
-Trace function calls (TRACE) [N/y/?] (NEW) 
-Debug boot state machine (DEBUG_BOOT_STATE) [N/y/?] (NEW) 
-Compile debug code in Ada sources (DEBUG_ADA_CODE) [N/y/?] (NEW) 
+GDB debugging support (GDB_STUB) [N/y/?] (NEW)
+Halt when hitting a BUG() or assertion error (FATAL_ASSERTS) [N/y/?] (NEW)
+Output verbose GPIO debug messages (DEBUG_GPIO) [N/y] (NEW)
+Output verbose CBFS debug messages (DEBUG_CBFS) [N/y/?] (NEW)
+Output verbose SMBus debug messages (DEBUG_SMBUS) [N/y/?] (NEW)
+Output verbose SMI debug messages (DEBUG_SMI) [N/y/?] (NEW)
+Output verbose malloc debug messages (DEBUG_MALLOC) [N/y/?] (NEW)
+Debug console initialisation code (DEBUG_CONSOLE_INIT) [N/y/?] (NEW)
+Output verbose SPI flash debug messages (DEBUG_SPI_FLASH) [N/y/?] (NEW)
+Trace function calls (TRACE) [N/y/?] (NEW)
+Debug boot state machine (DEBUG_BOOT_STATE) [N/y/?] (NEW)
+Compile debug code in Ada sources (DEBUG_ADA_CODE) [N/y/?] (NEW)
 Platform can support the Dediprog EM100 SPI emulator (HAVE_EM100_SUPPORT) [Y/?] (NEW) y
-  Configure image for EM100 usage (EM100) [N/y/?] (NEW) 
+  Configure image for EM100 usage (EM100) [N/y/?] (NEW)
 #
 # configuration written to .config-wyvern
 #
-make -j72 DOTCONFIG=.config-wyvern obj=build-wyvern HOSTCC=x86_64-pc-linux-gnu-clang HOSTPKGCONFIG=x86_64-pc-linux-gnu-pkg-config 
-    MAKE       
+make -j72 DOTCONFIG=.config-wyvern obj=build-wyvern HOSTCC=x86_64-pc-linux-gnu-clang HOSTPKGCONFIG=x86_64-pc-linux-gnu-pkg-config
+    MAKE
     CC         bootblock/arch/x86/bootblock_crt0.o
     GEN        build.h
     CC         bootblock/arch/x86/idt.o
@@ -5972,11 +5972,11 @@ make -j72 DOTCONFIG=.config-wyvern obj=build-wyvern HOSTCC=x86_64-pc-linux-gnu-c
     CC         bootblock/cpu/x86/early_reset.o
     CC         bootblock/cpu/intel/microcode/microcode_asm.o
     CC         bootblock/soc/intel/common/block/cpu/car/cache_as_ram.o
-    MAKE       
+    MAKE
     GEN        generated/assembly.inc
     CC         romstage/arch/x86/idt.o
     CC         romstage/arch/x86/gdt_init.o
-    MAKE       
+    MAKE
     CC         smm/arch/x86/exception.o
     CC         smm/arch/x86/idt.o
     CC         smm/arch/x86/memcpy.o
@@ -6060,14 +6060,14 @@ make -j72 DOTCONFIG=.config-wyvern obj=build-wyvern HOSTCC=x86_64-pc-linux-gnu-c
     CREATE     build-wyvern/mainboard/google/hatch/cbfs-file.I8bV0i.out (from ./.config-wyvern)
     CC         ramstage/arch/x86/idt.o
     CC         ramstage/arch/x86/wakeup.o
-    MAKE       
+    MAKE
     CC         postcar/arch/x86/exit_car.o
     CC         postcar/arch/x86/gdt_init.o
     CC         postcar/arch/x86/idt.o
     MICROCODE  cpu_microcode_blob.bin
     CC         postcar/soc/intel/common/block/cpu/car/exit_car.o
 3rdparty/blobs/baseboard/puff/ucode.bin
-    MAKE       
+    MAKE
     CC         verstage/arch/x86/assembly_entry.o
     CC         verstage/arch/x86/gdt_init.o
     CC         verstage/arch/x86/idt.o
@@ -6083,7 +6083,7 @@ Intel ACPI Component Architecture
 ASL+ Optimizing Compiler/Disassembler version 20200110
 Copyright (c) 2000 - 2020 Intel Corporation
 
-coreboot toolchain v 
+coreboot toolchain v
     HOSTCC     cbfstool/mem_pool.o
     HOSTCC     cbfstool/region.o
     HOSTCC     cbfstool/linux_trampoline.o
@@ -7275,7 +7275,7 @@ Writing new image to build-wyvern/coreboot.pre
     UPDATE-FIT
 
     FIT table:
-    Index  Type                 Addr             Size    
+    Index  Type                 Addr             Size
          0 Microcode            0xffc1ce50      0x00000000
          1 Microcode            0xffc35650      0x00000000
 
@@ -7445,7 +7445,7 @@ successfully saved new image to: build-wyvern/gbb.region.tmp
 W: Written area will abut bottom of target region: any unused space will keep its current contents
 W: Written area will abut bottom of target region: any unused space will keep its current contents
     FLASHMAP Layout generated for RO, A and B partition.
-make -j72 oldconfig DOTCONFIG=.config_serial-wyvern obj=build_serial-wyvern 
+make -j72 oldconfig DOTCONFIG=.config_serial-wyvern obj=build_serial-wyvern
 .config_serial-wyvern:55:notice: override: reassigning to symbol RUN_FSP_GOP
 .config_serial-wyvern:55:notice: override: RUN_FSP_GOP changes choice state
 .config_serial-wyvern:57:notice: override: reassigning to symbol CONSOLE_SERIAL
@@ -7460,28 +7460,28 @@ make -j72 oldconfig DOTCONFIG=.config_serial-wyvern obj=build_serial-wyvern
 *
 * General setup
 *
-Local version string (LOCALVERSION) [] (NEW) 
+Local version string (LOCALVERSION) [] (NEW)
 Compiler to use
 > 1. GCC (COMPILER_GCC) (NEW)
   2. LLVM/clang (TESTING ONLY - Not currently working) (COMPILER_LLVM_CLANG) (NEW)
-choice[1-2?]: Allow building with any toolchain (ANY_TOOLCHAIN) [N/y/?] (NEW) 
-Use ccache to speed up (re)compilation (CCACHE) [N/y/?] (NEW) 
-Generate flashmap descriptor parser using flex and bison (FMD_GENPARSER) [N/y/?] (NEW) 
-Generate SCONFIG & BINCFG parser using flex and bison (UTIL_GENPARSER) [N/y/?] (NEW) 
-Compress ramstage with LZMA (COMPRESS_RAMSTAGE) [Y/n/?] (NEW) 
-Include the coreboot .config file into the ROM image (INCLUDE_CONFIG_FILE) [Y/n/?] (NEW) 
+choice[1-2?]: Allow building with any toolchain (ANY_TOOLCHAIN) [N/y/?] (NEW)
+Use ccache to speed up (re)compilation (CCACHE) [N/y/?] (NEW)
+Generate flashmap descriptor parser using flex and bison (FMD_GENPARSER) [N/y/?] (NEW)
+Generate SCONFIG & BINCFG parser using flex and bison (UTIL_GENPARSER) [N/y/?] (NEW)
+Compress ramstage with LZMA (COMPRESS_RAMSTAGE) [Y/n/?] (NEW)
+Include the coreboot .config file into the ROM image (INCLUDE_CONFIG_FILE) [Y/n/?] (NEW)
 Create a table of timestamps collected during boot (COLLECT_TIMESTAMPS) [Y/?] (NEW) y
-  Print the timestamp values on the console (TIMESTAMPS_ON_CONSOLE) [N/y/?] (NEW) 
+  Print the timestamp values on the console (TIMESTAMPS_ON_CONSOLE) [N/y/?] (NEW)
 Allow use of binary-only repository (USE_BLOBS) [Y/n/?] y
-  Allow AMD blobs repository (with license agreement) (USE_AMD_BLOBS) [N/y/?] (NEW) 
-Code coverage support (COVERAGE) [N/y/?] (NEW) 
-Undefined behavior sanitizer support (UBSAN) [N/y/?] (NEW) 
+  Allow AMD blobs repository (with license agreement) (USE_AMD_BLOBS) [N/y/?] (NEW)
+Code coverage support (COVERAGE) [N/y/?] (NEW)
+Undefined behavior sanitizer support (UBSAN) [N/y/?] (NEW)
 Stage Cache for ACPI S3 resume
   1. Disabled (NO_STAGE_CACHE) (NEW)
 > 2. TSEG (TSEG_STAGE_CACHE) (NEW)
-choice[1-2]: Update existing coreboot.rom image (UPDATE_IMAGE) [N/y/?] (NEW) 
-Add a bootsplash image (BOOTSPLASH_IMAGE) [N/y/?] (NEW) 
-Firmware Configuration Probing (FW_CONFIG) [N/y/?] (NEW) 
+choice[1-2]: Update existing coreboot.rom image (UPDATE_IMAGE) [N/y/?] (NEW)
+Add a bootsplash image (BOOTSPLASH_IMAGE) [N/y/?] (NEW)
+Firmware Configuration Probing (FW_CONFIG) [N/y/?] (NEW)
 *
 * Mainboard
 *
@@ -7737,8 +7737,8 @@ choice[1-48]: Mainboard model
   174. ->  Morphius (BOARD_GOOGLE_MORPHIUS) (NEW)
   175. ->  Trembyle (BOARD_GOOGLE_TREMBYLE) (NEW)
   176. -> Berknip (BOARD_GOOGLE_BERKNIP) (NEW)
-choice[1-176]: Enable SAR options for Chrome OS build (CHROMEOS_WIFI_SAR) [N/y] (NEW) 
-Mainboard vendor name (MAINBOARD_VENDOR) [Google] (NEW) 
+choice[1-176]: Enable SAR options for Chrome OS build (CHROMEOS_WIFI_SAR) [N/y] (NEW)
+Mainboard vendor name (MAINBOARD_VENDOR) [Google] (NEW)
 ROM chip size
   1. 64 KB (COREBOOT_ROMSIZE_KB_64) (NEW)
   2. 128 KB (COREBOOT_ROMSIZE_KB_128) (NEW)
@@ -7759,7 +7759,7 @@ choice[1-15?]: System Power State after Failure
   1. S5 Soft Off (POWER_STATE_OFF_AFTER_FAILURE) (NEW)
 > 2. S0 Full On (POWER_STATE_ON_AFTER_FAILURE) (NEW)
   3. Keep Previous State (POWER_STATE_PREVIOUS_AFTER_FAILURE) (NEW)
-choice[1-3?]: fmap description file in fmd format (FMDFILE) [src/mainboard/$(CONFIG_MAINBOARD_DIR)/chromeos-puff-16MiB.fmd] (NEW) 
+choice[1-3?]: fmap description file in fmd format (FMDFILE) [src/mainboard/$(CONFIG_MAINBOARD_DIR)/chromeos-puff-16MiB.fmd] (NEW)
 *
 * Chipset
 *
@@ -7769,12 +7769,12 @@ choice[1-3?]: fmap description file in fmd format (FMDFILE) [src/mainboard/$(CON
 Cache-as-ram implementation
 > 1. Enhanced Non-evict mode (USE_CANNONLAKE_CAR_NEM_ENHANCED) (NEW)
   2. Use FSP CAR (USE_CANNONLAKE_FSP_CAR) (NEW)
-choice[1-2?]: Debug Consent for CNL (SOC_INTEL_CANNONLAKE_DEBUG_CONSENT) [0] (NEW) 
+choice[1-2?]: Debug Consent for CNL (SOC_INTEL_CANNONLAKE_DEBUG_CONSENT) [0] (NEW)
 *
 * Intel SoC Common Code
 *
-Perform MP Initialization by FSP (USE_INTEL_FSP_MP_INIT) [N/y/?] (NEW) 
-Disable write status SPI opcode (FAST_SPI_DISABLE_WRITE_STATUS) [N/y/?] (NEW) 
+Perform MP Initialization by FSP (USE_INTEL_FSP_MP_INIT) [N/y/?] (NEW)
+Disable write status SPI opcode (FAST_SPI_DISABLE_WRITE_STATUS) [N/y/?] (NEW)
 PRMRR size
   1. Maximum (SOC_INTEL_COMMON_BLOCK_SGX_PRMRR_SIZE_MAX) (NEW)
   2. 256 MiB (SOC_INTEL_COMMON_BLOCK_SGX_PRMRR_SIZE_256MB) (NEW)
@@ -7783,20 +7783,20 @@ PRMRR size
   5. 32 MiB (SOC_INTEL_COMMON_BLOCK_SGX_PRMRR_SIZE_32MB) (NEW)
   6. 1 MiB (SOC_INTEL_COMMON_BLOCK_SGX_PRMRR_SIZE_1MB) (NEW)
 > 7. Disabled (SOC_INTEL_COMMON_BLOCK_SGX_PRMRR_DISABLED) (NEW)
-choice[1-7?]: Enable TCO SMI (SOC_INTEL_COMMON_BLOCK_SMM_TCO_ENABLE) [N/y/?] (NEW) 
-Use Legacy 8254 Timer (USE_LEGACY_8254_TIMER) [N/y/?] (NEW) 
+choice[1-7?]: Enable TCO SMI (SOC_INTEL_COMMON_BLOCK_SMM_TCO_ENABLE) [N/y/?] (NEW)
+Use Legacy 8254 Timer (USE_LEGACY_8254_TIMER) [N/y/?] (NEW)
 *
 * Intel SoC Common PCH Code
 *
 *
 * Intel SoC Common coreboot stages
 *
-Enable SOC debug interface (SOC_INTEL_DEBUG_CONSENT) [N/y/?] (NEW) 
+Enable SOC debug interface (SOC_INTEL_DEBUG_CONSENT) [N/y/?] (NEW)
 *
 * CPU
 *
-Enable VMX for virtualization (ENABLE_VMX) [Y/n] (NEW) 
-Set IA32_FEATURE_CONTROL lock bit (SET_IA32_FC_LOCK_BIT) [Y/n/?] (NEW) 
+Enable VMX for virtualization (ENABLE_VMX) [Y/n] (NEW)
+Set IA32_FEATURE_CONTROL lock bit (SET_IA32_FC_LOCK_BIT) [Y/n/?] (NEW)
 Include CPU microcode in CBFS
   1. Generate from tree (CPU_MICROCODE_CBFS_DEFAULT_BINS) (NEW)
 > 2. Include external microcode binary (CPU_MICROCODE_CBFS_EXTERNAL_BINS)
@@ -7809,15 +7809,15 @@ choice[1-4]: Microcode binary path and filename (CPU_UCODE_BINARIES) [3rdparty/b
 *
 * Southbridge
 *
-Validate Intel firmware descriptor (VALIDATE_INTEL_DESCRIPTOR) [N/y/?] (NEW) 
+Validate Intel firmware descriptor (VALIDATE_INTEL_DESCRIPTOR) [N/y/?] (NEW)
 *
 * Super I/O
 *
 *
 * Embedded Controllers
 *
-Chrome EC board name for EC (EC_GOOGLE_CHROMEEC_BOARDNAME) [] (NEW) 
-Enable Chrome OS EC RTC (EC_GOOGLE_CHROMEEC_RTC) [N/y/?] (NEW) 
+Chrome EC board name for EC (EC_GOOGLE_CHROMEEC_BOARDNAME) [] (NEW)
+Enable Chrome OS EC RTC (EC_GOOGLE_CHROMEEC_RTC) [N/y/?] (NEW)
 Chrome EC firmware source
 > 1. No EC firmware is included (EC_GOOGLE_CHROMEEC_FIRMWARE_NONE)
   2. External EC firmware is included (EC_GOOGLE_CHROMEEC_FIRMWARE_EXTERNAL) (NEW)
@@ -7837,10 +7837,10 @@ choice[1-3?]: *
 * ChromeOS
 *
 Build for ChromeOS (CHROMEOS) [Y/n/?] y
-  Reserve space for Chrome OS ramoops (CHROMEOS_RAMOOPS) [Y/n] (NEW) 
+  Reserve space for Chrome OS ramoops (CHROMEOS_RAMOOPS) [Y/n] (NEW)
     Allocate RAM oops buffer in cbmem (CHROMEOS_RAMOOPS_DYNAMIC) [Y] (NEW) y
-    Size of preserved RAM (CHROMEOS_RAMOOPS_RAM_SIZE) [0x00100000] (NEW) 
-  Add regulatory domain methods (HAVE_REGULATORY_DOMAIN) [N/y/?] (NEW) 
+    Size of preserved RAM (CHROMEOS_RAMOOPS_RAM_SIZE) [0x00100000] (NEW)
+  Add regulatory domain methods (HAVE_REGULATORY_DOMAIN) [N/y/?] (NEW)
 *
 * Devices
 *
@@ -7848,108 +7848,108 @@ Graphics initialization
   1. Run VGA Option ROMs (VGA_ROM_RUN) (NEW)
 > 2. Run a GOP driver (RUN_FSP_GOP)
   3. None (NO_GFX_INIT) (NEW)
-choice[1-3]: Use onboard VGA as primary video device (ONBOARD_VGA_IS_PRIMARY) [N/y/?] (NEW) 
+choice[1-3]: Use onboard VGA as primary video device (ONBOARD_VGA_IS_PRIMARY) [N/y/?] (NEW)
 *
 * Display
 *
 Framebuffer mode
 > 1. Linear "high-resolution" framebuffer (GENERIC_LINEAR_FRAMEBUFFER) (NEW)
 choice[1]: 1
-Show graphical bootsplash (BOOTSPLASH) [N/y/?] (NEW) 
+Show graphical bootsplash (BOOTSPLASH) [N/y/?] (NEW)
 Enable PCIe Common Clock (PCIEXP_COMMON_CLOCK) [Y/?] (NEW) y
 Enable PCIe ASPM (PCIEXP_ASPM) [Y/?] (NEW) y
 Enable PCIe Clock Power Management (PCIEXP_CLK_PM) [Y/?] (NEW) y
 Enable PCIe ASPM L1 SubState (PCIEXP_L1_SUB_STATE) [Y/?] (NEW) y
-Enable PCIe Hotplug Support (PCIEXP_HOTPLUG) [N/y/?] (NEW) 
-Early PCI bridge (EARLY_PCI_BRIDGE) [N/y/?] (NEW) 
-Override PCI Subsystem Vendor ID (SUBSYSTEM_VENDOR_ID) [0x0000] (NEW) 
-Override PCI Subsystem Device ID (SUBSYSTEM_DEVICE_ID) [0x0000] (NEW) 
-Add a VGA BIOS image (VGA_BIOS) [N/y/?] (NEW) 
+Enable PCIe Hotplug Support (PCIEXP_HOTPLUG) [N/y/?] (NEW)
+Early PCI bridge (EARLY_PCI_BRIDGE) [N/y/?] (NEW)
+Override PCI Subsystem Vendor ID (SUBSYSTEM_VENDOR_ID) [0x0000] (NEW)
+Override PCI Subsystem Device ID (SUBSYSTEM_DEVICE_ID) [0x0000] (NEW)
+Add a VGA BIOS image (VGA_BIOS) [N/y/?] (NEW)
 Add a Video BIOS Table (VBT) binary to CBFS (INTEL_GMA_ADD_VBT) [Y/?] y
   VBT binary path and filename (INTEL_GMA_VBT_FILE) [3rdparty/blobs/baseboard/puff/vbt.bin] 3rdparty/blobs/baseboard/puff/vbt.bin
-Enable I2C controller emulation in software (SOFTWARE_I2C) [N/y/?] (NEW) 
+Enable I2C controller emulation in software (SOFTWARE_I2C) [N/y/?] (NEW)
 *
 * Generic Drivers
 *
 Support for flash based event log (ELOG) [Y/?] (NEW) y
-  Enable debug output for event logging (ELOG_DEBUG) [N/y] (NEW) 
-  Store a copy of ELOG in CBMEM (ELOG_CBMEM) [N/y/?] (NEW) 
+  Enable debug output for event logging (ELOG_DEBUG) [N/y] (NEW)
+  Store a copy of ELOG in CBMEM (ELOG_CBMEM) [N/y/?] (NEW)
   SMI interface to write and clear event log (ELOG_GSMI) [Y/n/?] y
   Maintain a monotonic boot number in CMOS (ELOG_BOOT_COUNT) [Y/n/?] y
     Offset in CMOS to store the boot count (ELOG_BOOT_COUNT_CMOS_OFFSET) [144] 144
 Enable protection on MRC settings (MRC_SETTINGS_PROTECT) [Y] (NEW) y
-Support for flash based, SMM mediated data store (SMMSTORE) [N/y] (NEW) 
-Disable Fast Read command (SPI_FLASH_NO_FAST_READ) [N/y/?] (NEW) 
+Support for flash based, SMM mediated data store (SMMSTORE) [N/y] (NEW)
+Disable Fast Read command (SPI_FLASH_NO_FAST_READ) [N/y/?] (NEW)
 Serial port on SuperIO (DRIVERS_UART_8250IO) [N/y] n
-UART's PCI bus, device, function address (UART_PCI_ADDR) [0x0] (NEW) 
+UART's PCI bus, device, function address (UART_PCI_ADDR) [0x0] (NEW)
 Support for Vital Product Data tables (VPD) [Y/?] (NEW) y
-Serial number in CBFS (DRIVERS_GENERIC_CBFS_SERIAL) [N/y/?] (NEW) 
-Support runtime generation of Intel DPTF ACPI tables (DRIVERS_INTEL_DPTF) [N/y/?] (NEW) 
+Serial number in CBFS (DRIVERS_GENERIC_CBFS_SERIAL) [N/y/?] (NEW)
+Support runtime generation of Intel DPTF ACPI tables (DRIVERS_INTEL_DPTF) [N/y/?] (NEW)
 Use binaries of the Intel FSP repository on GitHub (FSP_USE_REPO) [N/y/?] n
 Location of FSP headers (FSP_HEADER_PATH) [3rdparty/blobs/intel/cml/fsp/Include/] 3rdparty/blobs/intel/cml/fsp/Include/
 Add Intel FSP 2.0 binaries to CBFS (ADD_FSP_BINARIES) [Y/n/?] y
-Name of FSP-S in CBFS (FSP_S_CBFS) [fsps.bin] (NEW) 
-Name of FSP-M in CBFS (FSP_M_CBFS) [fspm.bin] (NEW) 
+Name of FSP-S in CBFS (FSP_S_CBFS) [fsps.bin] (NEW)
+Name of FSP-M in CBFS (FSP_M_CBFS) [fspm.bin] (NEW)
 Intel FSP-M (memory init) binary path and filename (FSP_M_FILE) [3rdparty/blobs/intel/cml/fsp/Fsp_M.fd] 3rdparty/blobs/intel/cml/fsp/Fsp_M.fd
 Intel FSP-S (silicon init) binary path and filename (FSP_S_FILE) [3rdparty/blobs/intel/cml/fsp/Fsp_S.fd] 3rdparty/blobs/intel/cml/fsp/Fsp_S.fd
-Enable logo (FSP2_0_DISPLAY_LOGO) [N/y/?] (NEW) 
-Support Intel PCI-e WiFi adapters (DRIVERS_INTEL_WIFI) [Y/n/?] (NEW) 
-PS/2 keyboard init (DRIVERS_PS2_KEYBOARD) [N/y/?] (NEW) 
-Silicon Image SIL3114 (DRIVERS_SIL_3114) [N/y/?] (NEW) 
-SPI bus TPM chip is connected to (DRIVER_TPM_SPI_BUS) [0x1] (NEW) 
-Chip Select of the TPM chip on its SPI bus (DRIVER_TPM_SPI_CHIP) [0] (NEW) 
+Enable logo (FSP2_0_DISPLAY_LOGO) [N/y/?] (NEW)
+Support Intel PCI-e WiFi adapters (DRIVERS_INTEL_WIFI) [Y/n/?] (NEW)
+PS/2 keyboard init (DRIVERS_PS2_KEYBOARD) [N/y/?] (NEW)
+Silicon Image SIL3114 (DRIVERS_SIL_3114) [N/y/?] (NEW)
+SPI bus TPM chip is connected to (DRIVER_TPM_SPI_BUS) [0x1] (NEW)
+Chip Select of the TPM chip on its SPI bus (DRIVER_TPM_SPI_CHIP) [0] (NEW)
 *
 * Verified Boot (vboot)
 *
 Verify firmware with vboot. (VBOOT) [Y/?] (NEW) y
   Firmware RO + RW_A (VBOOT_SLOTS_RW_A) [Y/?] (NEW) y
   Firmware RO + RW_A + RW_B (VBOOT_SLOTS_RW_AB) [Y/?] (NEW) y
-  Mock secdata for firmware verification (VBOOT_MOCK_SECDATA) [N/y/?] (NEW) 
-  Force to always enable display (VBOOT_ALWAYS_ENABLE_DISPLAY) [N/y/?] (NEW) 
-  Firmware ID model (VBOOT_FWID_MODEL) [Google_$(CONFIG_MAINBOARD_PART_NUMBER)] (NEW) 
+  Mock secdata for firmware verification (VBOOT_MOCK_SECDATA) [N/y/?] (NEW)
+  Force to always enable display (VBOOT_ALWAYS_ENABLE_DISPLAY) [N/y/?] (NEW)
+  Firmware ID model (VBOOT_FWID_MODEL) [Google_$(CONFIG_MAINBOARD_PART_NUMBER)] (NEW)
   Firmware ID version (VBOOT_FWID_VERSION) [.13296.0.2020_06_18_2116] .13296.0.2020_06_18_2116
-  Allow the use of vboot without board support (VBOOT_NO_BOARD_SUPPORT) [N/y/?] (NEW) 
-  Additional files that should not be copied to RW (RO_REGION_ONLY) [] (NEW) 
-  Early firmware selection (EFS) EC (VBOOT_EC_EFS) [N/y/?] (NEW) 
+  Allow the use of vboot without board support (VBOOT_NO_BOARD_SUPPORT) [N/y/?] (NEW)
+  Additional files that should not be copied to RW (RO_REGION_ONLY) [] (NEW)
+  Early firmware selection (EFS) EC (VBOOT_EC_EFS) [N/y/?] (NEW)
   *
   * GBB configuration
   *
-  Hardware ID (GBB_HWID) [] (NEW) 
-  Path to bmpfv image (GBB_BMPFV_FILE) [] (NEW) 
+  Hardware ID (GBB_HWID) [] (NEW)
+  Path to bmpfv image (GBB_BMPFV_FILE) [] (NEW)
   Reduce dev screen delay (GBB_FLAG_DEV_SCREEN_SHORT_DELAY) [Y/n] y
-  Load option ROMs (GBB_FLAG_LOAD_OPTION_ROMS) [N/y] (NEW) 
-  Allow booting a non-Chrome OS kernel if dev switch is on (GBB_FLAG_ENABLE_ALTERNATE_OS) [N/y] (NEW) 
+  Load option ROMs (GBB_FLAG_LOAD_OPTION_ROMS) [N/y] (NEW)
+  Allow booting a non-Chrome OS kernel if dev switch is on (GBB_FLAG_ENABLE_ALTERNATE_OS) [N/y] (NEW)
   Force dev switch on (GBB_FLAG_FORCE_DEV_SWITCH_ON) [Y] y
   Allow booting from USB in dev mode even if dev_boot_usb=0 (GBB_FLAG_FORCE_DEV_BOOT_USB) [Y] y
   Disable firmware rollback protection (GBB_FLAG_DISABLE_FW_ROLLBACK_CHECK) [Y/n] y
-  Return to normal boot with Enter (GBB_FLAG_ENTER_TRIGGERS_TONORM) [N/y] (NEW) 
+  Return to normal boot with Enter (GBB_FLAG_ENTER_TRIGGERS_TONORM) [N/y] (NEW)
   Allow booting to legacy in dev mode even if dev_boot_legacy=0 (GBB_FLAG_FORCE_DEV_BOOT_LEGACY) [Y] (NEW) y
-  Running FAFT tests; used as a hint to disable other debug features (GBB_FLAG_RUNNING_FAFT) [N/y] (NEW) 
-  Disable EC software sync (GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC) [N/y] (NEW) 
-  Default to booting to legacy in dev mode (GBB_FLAG_DEFAULT_DEV_BOOT_LEGACY) [N/y] (NEW) 
-  Disable PD software sync (GBB_FLAG_DISABLE_PD_SOFTWARE_SYNC) [N/y] (NEW) 
-  Disable shutdown on closed lid (GBB_FLAG_DISABLE_LID_SHUTDOWN) [N/y] (NEW) 
+  Running FAFT tests; used as a hint to disable other debug features (GBB_FLAG_RUNNING_FAFT) [N/y] (NEW)
+  Disable EC software sync (GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC) [N/y] (NEW)
+  Default to booting to legacy in dev mode (GBB_FLAG_DEFAULT_DEV_BOOT_LEGACY) [N/y] (NEW)
+  Disable PD software sync (GBB_FLAG_DISABLE_PD_SOFTWARE_SYNC) [N/y] (NEW)
+  Disable shutdown on closed lid (GBB_FLAG_DISABLE_LID_SHUTDOWN) [N/y] (NEW)
   Always assume manual recovery in recovery mode (GBB_FLAG_FORCE_MANUAL_RECOVERY) [Y] (NEW) y
-  Disable Firmware Management Parameters (FWMP) (GBB_FLAG_DISABLE_FWMP) [N/y] (NEW) 
+  Disable Firmware Management Parameters (FWMP) (GBB_FLAG_DISABLE_FWMP) [N/y] (NEW)
   *
   * Vboot Keys
   *
-  Root key (public) (VBOOT_ROOT_KEY) [$(VBOOT_SOURCE)/tests/devkeys/root_key.vbpubk] (NEW) 
-  Recovery key (public) (VBOOT_RECOVERY_KEY) [$(VBOOT_SOURCE)/tests/devkeys/recovery_key.vbpubk] (NEW) 
-  Firmware key (private) (VBOOT_FIRMWARE_PRIVKEY) [$(VBOOT_SOURCE)/tests/devkeys/firmware_data_key.vbprivk] (NEW) 
-  Kernel subkey (public) (VBOOT_KERNEL_KEY) [$(VBOOT_SOURCE)/tests/devkeys/kernel_subkey.vbpubk] (NEW) 
-  Keyblock to use for the RW regions (VBOOT_KEYBLOCK) [$(VBOOT_SOURCE)/tests/devkeys/firmware.keyblock] (NEW) 
-  Keyblock version number (VBOOT_KEYBLOCK_VERSION) [1] (NEW) 
-  Keyblock preamble flags (VBOOT_KEYBLOCK_PREAMBLE_FLAGS) [0x0] (NEW) 
+  Root key (public) (VBOOT_ROOT_KEY) [$(VBOOT_SOURCE)/tests/devkeys/root_key.vbpubk] (NEW)
+  Recovery key (public) (VBOOT_RECOVERY_KEY) [$(VBOOT_SOURCE)/tests/devkeys/recovery_key.vbpubk] (NEW)
+  Firmware key (private) (VBOOT_FIRMWARE_PRIVKEY) [$(VBOOT_SOURCE)/tests/devkeys/firmware_data_key.vbprivk] (NEW)
+  Kernel subkey (public) (VBOOT_KERNEL_KEY) [$(VBOOT_SOURCE)/tests/devkeys/kernel_subkey.vbpubk] (NEW)
+  Keyblock to use for the RW regions (VBOOT_KEYBLOCK) [$(VBOOT_SOURCE)/tests/devkeys/firmware.keyblock] (NEW)
+  Keyblock version number (VBOOT_KEYBLOCK_VERSION) [1] (NEW)
+  Keyblock preamble flags (VBOOT_KEYBLOCK_PREAMBLE_FLAGS) [0x0] (NEW)
 *
 * Trusted Platform Module
 *
-Output verbose TPM debug messages (DEBUG_TPM) [N/y/?] (NEW) 
-Enable Measured Boot (TPM_MEASURED_BOOT) [N/y/?] (NEW) 
+Output verbose TPM debug messages (DEBUG_TPM) [N/y/?] (NEW)
+Enable Measured Boot (TPM_MEASURED_BOOT) [N/y/?] (NEW)
 *
 * Memory initialization
 *
-Always clear all DRAM on regular boot (SECURITY_CLEAR_DRAM_ON_REGULAR_BOOT) [N/y/?] (NEW) 
+Always clear all DRAM on regular boot (SECURITY_CLEAR_DRAM_ON_REGULAR_BOOT) [N/y/?] (NEW)
 *
 * Security
 *
@@ -7964,13 +7964,13 @@ Verify firmware with vboot. (VBOOT) [Y/?] (NEW) y
   Firmware ID model (VBOOT_FWID_MODEL) [Google_$(CONFIG_MAINBOARD_PART_NUMBER)] Google_$(CONFIG_MAINBOARD_PART_NUMBER)
   Firmware ID version (VBOOT_FWID_VERSION) [.13296.0.2020_06_18_2116] .13296.0.2020_06_18_2116
   Allow the use of vboot without board support (VBOOT_NO_BOARD_SUPPORT) [N/y/?] n
-  Additional files that should not be copied to RW (RO_REGION_ONLY) [] 
+  Additional files that should not be copied to RW (RO_REGION_ONLY) []
   Early firmware selection (EFS) EC (VBOOT_EC_EFS) [N/y/?] n
   *
   * GBB configuration
   *
-  Hardware ID (GBB_HWID) [] 
-  Path to bmpfv image (GBB_BMPFV_FILE) [] 
+  Hardware ID (GBB_HWID) []
+  Path to bmpfv image (GBB_BMPFV_FILE) []
   Reduce dev screen delay (GBB_FLAG_DEV_SCREEN_SHORT_DELAY) [Y/n] y
   Load option ROMs (GBB_FLAG_LOAD_OPTION_ROMS) [N/y] n
   Allow booting a non-Chrome OS kernel if dev switch is on (GBB_FLAG_ENABLE_ALTERNATE_OS) [N/y] n
@@ -8005,8 +8005,8 @@ Enable Measured Boot (TPM_MEASURED_BOOT) [N/y/?] n
 * Memory initialization
 *
 Always clear all DRAM on regular boot (SECURITY_CLEAR_DRAM_ON_REGULAR_BOOT) [N/y/?] n
-Intel TXT support (INTEL_TXT) [N/y] (NEW) 
-Enable STM (STM) [N/y/?] (NEW) 
+Intel TXT support (INTEL_TXT) [N/y] (NEW)
+Enable STM (STM) [N/y/?] (NEW)
 Boot media protection mechanism
 > 1. Don't lock boot media sections (BOOTMEDIA_LOCK_NONE) (NEW)
   2. Lock boot media using the controller (BOOTMEDIA_LOCK_CONTROLLER) (NEW)
@@ -8014,9 +8014,9 @@ Boot media protection mechanism
 choice[1-3]: *
 * Console
 *
-Enable early (bootblock) console output. (BOOTBLOCK_CONSOLE) [Y/n/?] (NEW) 
-Enable console output during postcar. (POSTCAR_CONSOLE) [Y/n/?] (NEW) 
-Squelch AP CPUs from early console. (SQUELCH_EARLY_SMP) [Y/n/?] (NEW) 
+Enable early (bootblock) console output. (BOOTBLOCK_CONSOLE) [Y/n/?] (NEW)
+Enable console output during postcar. (POSTCAR_CONSOLE) [Y/n/?] (NEW)
+Squelch AP CPUs from early console. (SQUELCH_EARLY_SMP) [Y/n/?] (NEW)
 Serial port console output (CONSOLE_SERIAL) [Y/n/?] y
 *
 * memory mapped, 8250-compatible
@@ -8030,11 +8030,11 @@ Baud rate
   6. 38400 (CONSOLE_SERIAL_38400) (NEW)
   7. 19200 (CONSOLE_SERIAL_19200) (NEW)
   8. 9600 (CONSOLE_SERIAL_9600) (NEW)
-choice[1-8]: spkmodem (console on speaker) console output (SPKMODEM) [N/y/?] (NEW) 
-Network console over NE2000 compatible Ethernet adapter (CONSOLE_NE2K) [N/y/?] (NEW) 
-Send console output to a CBMEM buffer (CONSOLE_CBMEM) [Y/n/?] (NEW) 
-  Room allocated for console output in CBMEM (CONSOLE_CBMEM_BUFFER_SIZE) [0x20000] (NEW) 
-SPI Flash console output (CONSOLE_SPI_FLASH) [N/y/?] (NEW) 
+choice[1-8]: spkmodem (console on speaker) console output (SPKMODEM) [N/y/?] (NEW)
+Network console over NE2000 compatible Ethernet adapter (CONSOLE_NE2K) [N/y/?] (NEW)
+Send console output to a CBMEM buffer (CONSOLE_CBMEM) [Y/n/?] (NEW)
+  Room allocated for console output in CBMEM (CONSOLE_CBMEM_BUFFER_SIZE) [0x20000] (NEW)
+SPI Flash console output (CONSOLE_SPI_FLASH) [N/y/?] (NEW)
 Default console log level
 > 1. 8: SPEW (DEFAULT_CONSOLE_LOGLEVEL_8) (NEW)
   2. 7: DEBUG (DEFAULT_CONSOLE_LOGLEVEL_7) (NEW)
@@ -8045,25 +8045,25 @@ Default console log level
   7. 2: CRIT (DEFAULT_CONSOLE_LOGLEVEL_2) (NEW)
   8. 1: ALERT (DEFAULT_CONSOLE_LOGLEVEL_1) (NEW)
   9. 0: EMERG (DEFAULT_CONSOLE_LOGLEVEL_0) (NEW)
-choice[1-9]: Don't show any POST codes (NO_POST) [N/y] (NEW) 
+choice[1-9]: Don't show any POST codes (NO_POST) [N/y] (NEW)
   Store post codes in CMOS for debugging (CMOS_POST) [Y/n/?] y
     Offset into CMOS to store POST codes (CMOS_POST_OFFSET) [0x70] 0x70
-  Show POST codes on the debug console (CONSOLE_POST) [N/y/?] (NEW) 
-  Send POST codes to an external device (POST_DEVICE) [Y/n] (NEW) 
+  Show POST codes on the debug console (CONSOLE_POST) [N/y/?] (NEW)
+  Send POST codes to an external device (POST_DEVICE) [Y/n] (NEW)
     Device to send POST codes to
     > 1. None (POST_DEVICE_NONE) (NEW)
       2. LPC (POST_DEVICE_LPC) (NEW)
       3. PCI/PCIe (POST_DEVICE_PCI_PCIE) (NEW)
-    choice[1-3]: Send POST codes to an IO port (POST_IO) [Y/n/?] (NEW) 
-  IO port for POST codes (POST_IO_PORT) [0x80] (NEW) 
+    choice[1-3]: Send POST codes to an IO port (POST_IO) [Y/n/?] (NEW)
+  IO port for POST codes (POST_IO_PORT) [0x80] (NEW)
 *
 * System tables
 *
-Generate SMBIOS tables (GENERATE_SMBIOS_TABLES) [Y/n/?] (NEW) 
-SMBIOS Serial Number (MAINBOARD_SERIAL_NUMBER) [123456789] (NEW) 
-SMBIOS Version Number (MAINBOARD_VERSION) [1.0] (NEW) 
-SMBIOS Manufacturer (MAINBOARD_SMBIOS_MANUFACTURER) [Google] (NEW) 
-SMBIOS Product name (MAINBOARD_SMBIOS_PRODUCT_NAME) [Wyvern] (NEW) 
+Generate SMBIOS tables (GENERATE_SMBIOS_TABLES) [Y/n/?] (NEW)
+SMBIOS Serial Number (MAINBOARD_SERIAL_NUMBER) [123456789] (NEW)
+SMBIOS Version Number (MAINBOARD_VERSION) [1.0] (NEW)
+SMBIOS Manufacturer (MAINBOARD_SMBIOS_MANUFACTURER) [Google] (NEW)
+SMBIOS Product name (MAINBOARD_SMBIOS_PRODUCT_NAME) [Wyvern] (NEW)
 *
 * Payload
 *
@@ -8079,52 +8079,52 @@ Add a payload
   9. Depthcharge (PAYLOAD_DEPTHCHARGE) (NEW)
   10. A Linux payload (PAYLOAD_LINUX) (NEW)
   11. Tianocore payload (PAYLOAD_TIANOCORE) (NEW)
-choice[1-11]: Add a PXE ROM (PXE) [N/y] (NEW) 
-Use LZMA compression for secondary payloads (COMPRESS_SECONDARY_PAYLOAD) [Y/n/?] (NEW) 
+choice[1-11]: Add a PXE ROM (PXE) [N/y] (NEW)
+Use LZMA compression for secondary payloads (COMPRESS_SECONDARY_PAYLOAD) [Y/n/?] (NEW)
 *
 * Secondary Payloads
 *
-Load coreinfo as a secondary payload (COREINFO_SECONDARY_PAYLOAD) [N/y/?] (NEW) 
-Load Memtest86+ as a secondary payload (MEMTEST_SECONDARY_PAYLOAD) [N/y/?] (NEW) 
-Load tint as a secondary payload (TINT_SECONDARY_PAYLOAD) [N/y/?] (NEW) 
+Load coreinfo as a secondary payload (COREINFO_SECONDARY_PAYLOAD) [N/y/?] (NEW)
+Load Memtest86+ as a secondary payload (MEMTEST_SECONDARY_PAYLOAD) [N/y/?] (NEW)
+Load tint as a secondary payload (TINT_SECONDARY_PAYLOAD) [N/y/?] (NEW)
 *
 * Debugging
 *
 *
 * CPU Debug Settings
 *
-Display intermediate MTRR settings (DISPLAY_MTRRS) [N/y] (NEW) 
+Display intermediate MTRR settings (DISPLAY_MTRRS) [N/y] (NEW)
 *
 * BLOB Debug Settings
 *
-Display the FSP calls and status (DISPLAY_FSP_CALLS_AND_STATUS) [N/y/?] (NEW) 
-Display the FSP header (DISPLAY_FSP_HEADER) [N/y/?] (NEW) 
-Display the hand-off-blocks (DISPLAY_HOBS) [N/y/?] (NEW) 
-Display UPD data (DISPLAY_UPD_DATA) [N/y/?] (NEW) 
-Verify the FSP hand-off-blocks (VERIFY_HOBS) [N/y/?] (NEW) 
+Display the FSP calls and status (DISPLAY_FSP_CALLS_AND_STATUS) [N/y/?] (NEW)
+Display the FSP header (DISPLAY_FSP_HEADER) [N/y/?] (NEW)
+Display the hand-off-blocks (DISPLAY_HOBS) [N/y/?] (NEW)
+Display UPD data (DISPLAY_UPD_DATA) [N/y/?] (NEW)
+Verify the FSP hand-off-blocks (VERIFY_HOBS) [N/y/?] (NEW)
 Display Firmware Ingredient Version Information (DISPLAY_FSP_VERSION_INFO) [Y/?] (NEW) y
 *
 * General Debug Settings
 *
-GDB debugging support (GDB_STUB) [N/y/?] (NEW) 
+GDB debugging support (GDB_STUB) [N/y/?] (NEW)
 Halt when hitting a BUG() or assertion error (FATAL_ASSERTS) [Y/n/?] y
-Output verbose GPIO debug messages (DEBUG_GPIO) [N/y] (NEW) 
-Output verbose CBFS debug messages (DEBUG_CBFS) [N/y/?] (NEW) 
-Output verbose SMBus debug messages (DEBUG_SMBUS) [N/y/?] (NEW) 
-Output verbose SMI debug messages (DEBUG_SMI) [N/y/?] (NEW) 
-Output verbose malloc debug messages (DEBUG_MALLOC) [N/y/?] (NEW) 
-Debug console initialisation code (DEBUG_CONSOLE_INIT) [N/y/?] (NEW) 
-Output verbose SPI flash debug messages (DEBUG_SPI_FLASH) [N/y/?] (NEW) 
-Trace function calls (TRACE) [N/y/?] (NEW) 
-Debug boot state machine (DEBUG_BOOT_STATE) [N/y/?] (NEW) 
-Compile debug code in Ada sources (DEBUG_ADA_CODE) [N/y/?] (NEW) 
+Output verbose GPIO debug messages (DEBUG_GPIO) [N/y] (NEW)
+Output verbose CBFS debug messages (DEBUG_CBFS) [N/y/?] (NEW)
+Output verbose SMBus debug messages (DEBUG_SMBUS) [N/y/?] (NEW)
+Output verbose SMI debug messages (DEBUG_SMI) [N/y/?] (NEW)
+Output verbose malloc debug messages (DEBUG_MALLOC) [N/y/?] (NEW)
+Debug console initialisation code (DEBUG_CONSOLE_INIT) [N/y/?] (NEW)
+Output verbose SPI flash debug messages (DEBUG_SPI_FLASH) [N/y/?] (NEW)
+Trace function calls (TRACE) [N/y/?] (NEW)
+Debug boot state machine (DEBUG_BOOT_STATE) [N/y/?] (NEW)
+Compile debug code in Ada sources (DEBUG_ADA_CODE) [N/y/?] (NEW)
 Platform can support the Dediprog EM100 SPI emulator (HAVE_EM100_SUPPORT) [Y/?] (NEW) y
-  Configure image for EM100 usage (EM100) [N/y/?] (NEW) 
+  Configure image for EM100 usage (EM100) [N/y/?] (NEW)
 #
 # configuration written to .config_serial-wyvern
 #
-make -j72 DOTCONFIG=.config_serial-wyvern obj=build_serial-wyvern HOSTCC=x86_64-pc-linux-gnu-clang HOSTPKGCONFIG=x86_64-pc-linux-gnu-pkg-config 
-    MAKE       
+make -j72 DOTCONFIG=.config_serial-wyvern obj=build_serial-wyvern HOSTCC=x86_64-pc-linux-gnu-clang HOSTPKGCONFIG=x86_64-pc-linux-gnu-pkg-config
+    MAKE
     CC         bootblock/arch/x86/bootblock_crt0.o
     GEN        build.h
     CC         bootblock/arch/x86/idt.o
@@ -8139,11 +8139,11 @@ make -j72 DOTCONFIG=.config_serial-wyvern obj=build_serial-wyvern HOSTCC=x86_64-
     CC         bootblock/cpu/x86/early_reset.o
     CC         bootblock/cpu/intel/microcode/microcode_asm.o
     CC         bootblock/soc/intel/common/block/cpu/car/cache_as_ram.o
-    MAKE       
+    MAKE
     GEN        generated/assembly.inc
     CC         romstage/arch/x86/idt.o
     CC         romstage/arch/x86/gdt_init.o
-    MAKE       
+    MAKE
     CC         smm/arch/x86/exception.o
     CC         smm/arch/x86/idt.o
     CC         smm/arch/x86/memcpy.o
@@ -8227,14 +8227,14 @@ make -j72 DOTCONFIG=.config_serial-wyvern obj=build_serial-wyvern HOSTCC=x86_64-
     CREATE     build_serial-wyvern/mainboard/google/hatch/cbfs-file.X087cf.out (from ./.config_serial-wyvern)
     IASL       build_serial-wyvern/dsdt.aml
     Creating a file holding the rt8168 macaddress
-    MAKE       
+    MAKE
     CC         postcar/arch/x86/exit_car.o
     CC         postcar/arch/x86/gdt_init.o
     CC         postcar/arch/x86/idt.o
     CC         postcar/soc/intel/common/block/cpu/car/exit_car.o
     MICROCODE  cpu_microcode_blob.bin
 3rdparty/blobs/baseboard/puff/ucode.bin
-    MAKE       
+    MAKE
     CC         verstage/arch/x86/assembly_entry.o
     CC         verstage/arch/x86/gdt_init.o
     CC         verstage/arch/x86/idt.o
@@ -8253,7 +8253,7 @@ Intel ACPI Component Architecture
 ASL+ Optimizing Compiler/Disassembler version 20200110
 Copyright (c) 2000 - 2020 Intel Corporation
 
-coreboot toolchain v 
+coreboot toolchain v
     HOSTCC     cbfstool/cbfs-payload-linux.o
     HOSTCC     cbfstool/compress.o
     HOSTCC     cbfstool/lz4.o
@@ -9442,7 +9442,7 @@ Writing new image to build_serial-wyvern/coreboot.pre
     UPDATE-FIT
 
     FIT table:
-    Index  Type                 Addr             Size    
+    Index  Type                 Addr             Size
          0 Microcode            0xffc1cfd0      0x00000000
          1 Microcode            0xffc357d0      0x00000000
 
@@ -9667,9 +9667,9 @@ File not built with -Wl,-z,now: /build/puff/tmp/portage/sys-boot/coreboot-9999/i
 21:17:18  *  architectures/operating systems.  A bug should be filed at
 21:17:18  *  https://bugs.gentoo.org/ to make sure the issue is fixed.
 21:17:18  *  For more information, see:
-21:17:18  * 
+21:17:18  *
 21:17:18  *    https://wiki.gentoo.org/wiki/Hardened/GNU_stack_quickstart
-21:17:18  * 
+21:17:18  *
 21:17:18  *  Please include the following list of files in your report:
 21:17:18  *  Note: Bugs should be filed for the respective maintainers
 21:17:18  *  of the package in question and not hardened@gentoo.org.
@@ -9722,13 +9722,13 @@ tar: Write checkpoint 5000
 21:17:28 >>> Configuring source in /build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999 ...
 21:17:28 >>> Source configured.
 21:17:29 >>> Compiling source in /build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999 ...
-make -j72 EC_HEADERS=/build/puff/usr/include/chromeos/ec VB_SOURCE=/build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999/vboot_reference PD_SYNC= obj=puff LIBPAYLOAD_DIR=/build/puff/firmware/libpayload/ distclean 
-make -j72 EC_HEADERS=/build/puff/usr/include/chromeos/ec VB_SOURCE=/build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999/vboot_reference PD_SYNC= obj=puff LIBPAYLOAD_DIR=/build/puff/firmware/libpayload/ defconfig BOARD=puff 
+make -j72 EC_HEADERS=/build/puff/usr/include/chromeos/ec VB_SOURCE=/build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999/vboot_reference PD_SYNC= obj=puff LIBPAYLOAD_DIR=/build/puff/firmware/libpayload/ distclean
+make -j72 EC_HEADERS=/build/puff/usr/include/chromeos/ec VB_SOURCE=/build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999/vboot_reference PD_SYNC= obj=puff LIBPAYLOAD_DIR=/build/puff/firmware/libpayload/ defconfig BOARD=puff
 *** Default configuration is based on '/build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999/board/puff/defconfig'
 #
 # configuration written to .config
 #
-make -j72 EC_HEADERS=/build/puff/usr/include/chromeos/ec VB_SOURCE=/build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999/vboot_reference PD_SYNC= obj=puff LIBPAYLOAD_DIR=/build/puff/firmware/libpayload/ depthcharge 
+make -j72 EC_HEADERS=/build/puff/usr/include/chromeos/ec VB_SOURCE=/build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999/vboot_reference PD_SYNC= obj=puff LIBPAYLOAD_DIR=/build/puff/firmware/libpayload/ depthcharge
     MAKE       external/vboot/vboot_fw.a
 #
 # configuration written to .config
@@ -9882,7 +9882,7 @@ vboot SHA256 built with unrolled loops (faster, larger code size)
     AR            tlcl.a
     LD         depthcharge.elf.tmp
     OBJCOPY    depthcharge.elf
-make -j72 EC_HEADERS=/build/puff/usr/include/chromeos/ec VB_SOURCE=/build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999/vboot_reference PD_SYNC= obj=puff LIBPAYLOAD_DIR=/build/puff/firmware/libpayload_gdb/ dev 
+make -j72 EC_HEADERS=/build/puff/usr/include/chromeos/ec VB_SOURCE=/build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999/vboot_reference PD_SYNC= obj=puff LIBPAYLOAD_DIR=/build/puff/firmware/libpayload_gdb/ dev
     CC         netboot/dhcp.netboot.o
     CC         netboot/netboot.netboot.o
     CC         netboot/params.netboot.o
@@ -9904,7 +9904,7 @@ make -j72 EC_HEADERS=/build/puff/usr/include/chromeos/ec VB_SOURCE=/build/puff/t
 vboot SHA256 built with unrolled loops (faster, larger code size)
     LD         dev.elf.tmp
     OBJCOPY    dev.elf
-make -j72 EC_HEADERS=/build/puff/usr/include/chromeos/ec VB_SOURCE=/build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999/vboot_reference PD_SYNC= obj=puff LIBPAYLOAD_DIR=/build/puff/firmware/libpayload_gdb/ netboot 
+make -j72 EC_HEADERS=/build/puff/usr/include/chromeos/ec VB_SOURCE=/build/puff/tmp/portage/sys-boot/depthcharge-9999/work/depthcharge-9999/vboot_reference PD_SYNC= obj=puff LIBPAYLOAD_DIR=/build/puff/firmware/libpayload_gdb/ netboot
     MAKE       external/vboot/vboot_fw.a
 vboot SHA256 built with unrolled loops (faster, larger code size)
     LD         netboot.elf.tmp
@@ -9917,7 +9917,7 @@ vboot SHA256 built with unrolled loops (faster, larger code size)
  *    tidy_setup ...                                                                                                         [ ok ]
 21:17:42
 21:17:42 >>> Install sys-boot/depthcharge-9999 into /build/puff/tmp/portage/sys-boot/depthcharge-9999/image
- * Installing depthcharge puff into 
+ * Installing depthcharge puff into
 21:17:47 >>> Completed installing sys-boot/depthcharge-9999 into /build/puff/tmp/portage/sys-boot/depthcharge-9999/image
 21:17:47
  * Running stacked hooks for post_src_install
@@ -9943,9 +9943,9 @@ File not built with -Wl,-z,now: /build/puff/tmp/portage/sys-boot/depthcharge-999
 21:17:49  *  architectures/operating systems.  A bug should be filed at
 21:17:49  *  https://bugs.gentoo.org/ to make sure the issue is fixed.
 21:17:49  *  For more information, see:
-21:17:49  * 
+21:17:49  *
 21:17:49  *    https://wiki.gentoo.org/wiki/Hardened/GNU_stack_quickstart
-21:17:49  * 
+21:17:49  *
 21:17:49  *  Please include the following list of files in your report:
 21:17:49  *  Note: Bugs should be filed for the respective maintainers
 21:17:49  *  of the package in question and not hardened@gentoo.org.
@@ -10000,9 +10000,9 @@ tar: Write checkpoint 1000
  * Building targets: puff
  * Building EC for puff into /build/puff/tmp/portage/chromeos-base/chromeos-ec-9999/work/build_puff with touchpad_fw=/build/puff/firmware/puff/touchpad.bin bootblock=
  * pwd: /build/puff/tmp/portage/chromeos-base/chromeos-ec-9999/work/chromeos-ec-9999/platform/ec
-make -j72 clean 
+make -j72 clean
 rm -rf build/puff
-make -j72 TOUCHPAD_FW=/build/puff/firmware/puff/touchpad.bin all 
+make -j72 TOUCHPAD_FW=/build/puff/firmware/puff/touchpad.bin all
   VERSION ec_version.h
   LDS     firmware_image.lds
   LDS     RW/ec.RW.lds
@@ -10394,4 +10394,4 @@ ERROR:root:  Branch "coreboot_wyvern_20200618"
 ERROR:root:  in directory "/mnt/host/source/src/third_party/coreboot"
 ERROR:root:  with change-id "Id7a090058d2926707495387f7e90b3b8ed83dac7"
 ERROR:root:Please push the branch to review.coreboot.org, and then re-start this program with --continue
-(cr) ((9ec0ecd...)) pfagerburg@pfagerburg2 ~/trunk/src/platform/dev/contrib/variant $ 
+(cr) ((9ec0ecd...)) pfagerburg@pfagerburg2 ~/trunk/src/platform/dev/contrib/variant $

@@ -5,46 +5,46 @@ pfagerburg@pfagerburg2:~/chromiumos$ cros_sdk
 INFO:root:Running step find_coreboot_upstream
 INFO:root:Running step calc_cq_depend
 INFO:root:Running step add_cq_depend
-Rewrite 646dc060f1fe2c322c51def45ab9249d89148389 (1/1) (0 seconds passed, remaining 0 predicted)    
+Rewrite 646dc060f1fe2c322c51def45ab9249d89148389 (1/1) (0 seconds passed, remaining 0 predicted)
 Ref 'refs/heads/create_wyvern_20200618' was rewritten
-Rewrite 46d455a21ce4791732b1ef826f5f5b9fc6660173 (1/1) (0 seconds passed, remaining 0 predicted)    
+Rewrite 46d455a21ce4791732b1ef826f5f5b9fc6660173 (1/1) (0 seconds passed, remaining 0 predicted)
 Ref 'refs/heads/create_wyvern_20200618' was rewritten
 INFO:root:Running step re_upload
 [COMMIT 1/1 6bb367ff5ebf] puff: Add wyvern coreboot configuration
-[PASSED] repohooks passed in 0:00:00.093924                               
+[PASSED] repohooks passed in 0:00:00.093924
 Upload project src/third_party/chromiumos-overlay/ to remote branch refs/heads/master:
   branch create_wyvern_20200618 ( 1 commit, Thu Jun 18 21:06:18 2020 -0600):
          6bb367ff puff: Add wyvern coreboot configuration
 to https://chromium-review.googlesource.com (y/N)? <--yes>
-remote: Processing changes: refs: 1, updated: 1, done            
-remote: warning: 6bb367f: no files changed, message updated        
-remote: 
-remote: SUCCESS        
-remote: 
-remote:   https://chromium-review.googlesource.com/c/chromiumos/overlays/chromiumos-overlay/+/2252826 puff: Add wyvern coreboot configuration [WIP]        
-remote: 
+remote: Processing changes: refs: 1, updated: 1, done
+remote: warning: 6bb367f: no files changed, message updated
+remote:
+remote: SUCCESS
+remote:
+remote:   https://chromium-review.googlesource.com/c/chromiumos/overlays/chromiumos-overlay/+/2252826 puff: Add wyvern coreboot configuration [WIP]
+remote:
 To https://chromium-review.googlesource.com/chromiumos/overlays/chromiumos-overlay
  * [new branch]              create_wyvern_20200618 -> refs/for/master%wip
 
 ----------------------------------------------------------------------
 [OK    ] src/third_party/chromiumos-overlay/ create_wyvern_20200618
 [COMMIT 1/1 f20f4a265340] wyvern: enable default firmware build
-[PASSED] repohooks passed in 0:00:06.741477                               
+[PASSED] repohooks passed in 0:00:06.741477
 Upload project src/project/puff/wyvern/ to remote branch refs/heads/master:
   branch create_wyvern_20200618 ( 1 commit, Wed Jun 24 10:05:59 2020 -0600):
          f20f4a26 wyvern: enable default firmware build
 to https://chrome-internal-review.googlesource.com (y/N)? <--yes>
-remote: Processing changes: refs: 1, updated: 1, done            
-remote: warning: f20f4a2: no files changed, message updated        
-remote: 
-remote: SUCCESS        
-remote: 
-remote:   https://chrome-internal-review.googlesource.com/c/chromeos/project/puff/wyvern/+/3122980 wyvern: enable default firmware build [WIP]        
-remote: 
+remote: Processing changes: refs: 1, updated: 1, done
+remote: warning: f20f4a2: no files changed, message updated
+remote:
+remote: SUCCESS
+remote:
+remote:   https://chrome-internal-review.googlesource.com/c/chromeos/project/puff/wyvern/+/3122980 wyvern: enable default firmware build [WIP]
+remote:
 To https://chrome-internal-review.googlesource.com/chromeos/project/puff/wyvern
  * [new branch]      create_wyvern_20200618 -> refs/for/master%wip
 
 ----------------------------------------------------------------------
 [OK    ] src/project/puff/wyvern/ create_wyvern_20200618
 INFO:root:Running step clean_up
-(cr) ((90918ac...)) pfagerburg@pfagerburg2 ~/trunk/src/platform/dev/contrib/variant $ 
+(cr) ((90918ac...)) pfagerburg@pfagerburg2 ~/trunk/src/platform/dev/contrib/variant $

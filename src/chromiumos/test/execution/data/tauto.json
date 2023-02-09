@@ -1,25 +1,27 @@
 {
-	"test_suites" : [
-		{
-			"name" : "suite1",
-			"test_case_ids" : {
-				"test_case_ids" : [
-					{
-						"value" : "tauto.stub_Pass"
-					}
-				]
-			}
-		}
-	],
-	"primary":{
-            "dut":{
-                "id":{"value":"primary_dut"},
-                "chromeos":{
-                    "ssh":{
-                        "address":"127.0.0.1",
-                        "port":2223
-                   }
-                }
-            }
+  "primary": {
+    "dut": {
+      "chromeos": {
+        "ssh": {
+          "address": "127.0.0.1",
+          "port": 2223
         }
+      },
+      "id": {
+        "value": "primary_dut"
+      }
+    }
+  },
+  "test_suites": [
+    {
+      "name": "suite1",
+      "test_case_ids": {
+        "test_case_ids": [
+          {
+            "value": "tauto.stub_Pass"
+          }
+        ]
+      }
+    }
+  ]
 }

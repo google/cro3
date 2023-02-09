@@ -1,6 +1,7 @@
 # Copyright 2021 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Utilities for reading from PAC sensors"""
 
 import binascii
@@ -11,6 +12,7 @@ import pac19xx
 import pandas
 from pyftdi.i2c import I2cController
 from pyftdi.i2c import I2cNackError
+
 
 REFRESH_WAIT_TIME = 0.001
 
@@ -84,10 +86,10 @@ def read_pac_int(device, reg, num_bytes, signed=False):
         (int) The value of read_pac converted to an int
     """
     pacval = device.read_from(reg, num_bytes)
-    return int.from_bytes(pacval, byteorder='big', signed=signed)
+    return int.from_bytes(pacval, byteorder="big", signed=signed)
 
 
-def read_voltage(device, ch_num=1, polarity='bipolar'):
+def read_voltage(device, ch_num=1, polarity="bipolar"):
     """Returns PAC voltage of given channel number.
 
     Args:
@@ -99,14 +101,14 @@ def read_voltage(device, ch_num=1, polarity='bipolar'):
         act_volt: (float) Voltage.
     """
     # Read Voltage.
-    signed = polarity == 'bipolar'
+    signed = polarity == "bipolar"
     act_volt = read_pac_int(device, pac19xx.VBUS1_AVG + int(ch_num), 2, signed)
     # Convert to voltage.
     act_volt = act_volt * (pac19xx.FSV / pac19xx.V_POLAR[polarity])
     return float(act_volt)
 
 
-def read_power(device, sense_resistance, ch_num=1, polarity='unipolar'):
+def read_power(device, sense_resistance, ch_num=1, polarity="unipolar"):
     """Returns PAC power of given channel number.
 
     Args:
@@ -119,7 +121,7 @@ def read_power(device, sense_resistance, ch_num=1, polarity='unipolar'):
         power: (float) Power in W.
     """
     # Read power
-    signed = polarity == 'bipolar'
+    signed = polarity == "bipolar"
     power = read_pac_int(device, pac19xx.VPOWER1 + int(ch_num), 4, signed)
     power_fsr = (pac19xx.FSR / float(sense_resistance)) * pac19xx.FSV
     p_prop = power / pac19xx.P_POLAR[polarity]
@@ -128,7 +130,7 @@ def read_power(device, sense_resistance, ch_num=1, polarity='unipolar'):
     return power
 
 
-def read_current(device, sense_resistance, ch_num=1, polarity='unipolar'):
+def read_current(device, sense_resistance, ch_num=1, polarity="unipolar"):
     """Returns PAC current of given channel number.
 
     Args:
@@ -140,7 +142,7 @@ def read_current(device, sense_resistance, ch_num=1, polarity='unipolar'):
     Returns:
         current: (float) Current.
     """
-    signed = polarity == 'bipolar'
+    signed = polarity == "bipolar"
     current = read_pac_int(device, pac19xx.VSENSE1_AVG + int(ch_num), 2, signed)
     fsc = pac19xx.FSR / float(sense_resistance)
     current = (fsc / pac19xx.V_POLAR[polarity]) * current
@@ -184,13 +186,13 @@ def print_registers(device, pac_address):
 
     # read back register and print value for debugging
     tmp = read_pac(device, pac19xx.CTRL, 2)
-    print(f'{pac_address} register CTRL: \t\t0x{tmp}')
+    print(f"{pac_address} register CTRL: \t\t0x{tmp}")
     tmp = read_pac(device, pac19xx.SLOW, 1)
-    print(f'{pac_address} register SLOW: \t\t0x{tmp}')
+    print(f"{pac_address} register SLOW: \t\t0x{tmp}")
     tmp = read_pac(device, pac19xx.CTRL_ACT, 2)
-    print(f'{pac_address} register CTRL_ACT: \t0x{tmp}')
+    print(f"{pac_address} register CTRL_ACT: \t0x{tmp}")
     tmp = read_pac(device, pac19xx.CTRL_LAT, 2)
-    print(f'{pac_address} register CTRL_LAT: \t0x{tmp}')
+    print(f"{pac_address} register CTRL_LAT: \t0x{tmp}")
 
 
 def disable_slow(device):
@@ -206,7 +208,7 @@ def disable_slow(device):
     # CTRL register defaults to 0x0700:
     # this sets bits[9:8] from 0b11 (SLOW) to 0b01 (GPIO in).
     # Alternate method is to keep register as SLOW but set FTDI GPIO Low
-    device.write_to(pac19xx.CTRL, b'\x05\x00')
+    device.write_to(pac19xx.CTRL, b"\x05\x00")
 
     # force refreshing the updated control register
     device.write_to(pac19xx.REFRESH, 0)
@@ -226,7 +228,7 @@ def enable_slow(device):
     # this sets bits[9:8] to 0b11 (SLOW)
     # note this just enables SLOW control
     # #TODO more work needed for forcing FTDI GPIO High
-    device.write_to(pac19xx.CTRL, b'\x07\x00')
+    device.write_to(pac19xx.CTRL, b"\x07\x00")
 
     # force refreshing the updated control register
     device.write_to(pac19xx.REFRESH, 0)
@@ -245,18 +247,18 @@ def dump_accumulator(device, ch_num, polarity):
         count: (int) number of accumulations.
     """
     lut = {
-        '0': pac19xx.VACC1,
-        '1': pac19xx.VACC2,
-        '2': pac19xx.VACC3,
-        '3': pac19xx.VACC4
+        "0": pac19xx.VACC1,
+        "1": pac19xx.VACC2,
+        "2": pac19xx.VACC3,
+        "3": pac19xx.VACC4,
     }
     reg_bytes = device.read_from(lut[str(ch_num)], 7)
     count = device.read_from(pac19xx.ACC_COUNT, 4)
-    count = int.from_bytes(count, byteorder='big', signed=False)
-    if polarity == 'unipolar':
-        reg = int.from_bytes(reg_bytes, byteorder='big', signed=False)
+    count = int.from_bytes(count, byteorder="big", signed=False)
+    if polarity == "unipolar":
+        reg = int.from_bytes(reg_bytes, byteorder="big", signed=False)
     else:
-        reg = int.from_bytes(reg_bytes, byteorder='big', signed=True)
+        reg = int.from_bytes(reg_bytes, byteorder="big", signed=True)
     return (reg, count)
 
 
@@ -269,7 +271,7 @@ def unpack_bytes_at(bytes_array, offset, length):
     @param offset: the number of bytes to offset into the array
     @param length: the number of bytes the output
     """
-    return bytes_array[offset:offset + length]
+    return bytes_array[offset : offset + length]
 
 
 def dump_all_accumulators(device, polarity):
@@ -286,24 +288,27 @@ def dump_all_accumulators(device, polarity):
     ACCUMULATOR_WIDTH = 7
     ACCUMULATOR_COUNT_WIDTH = 4
 
-    all_bytes = device.read_from(pac19xx.ACC_COUNT, (ACCUMULATOR_WIDTH * 4) +
-                                 ACCUMULATOR_COUNT_WIDTH)
+    all_bytes = device.read_from(
+        pac19xx.ACC_COUNT, (ACCUMULATOR_WIDTH * 4) + ACCUMULATOR_COUNT_WIDTH
+    )
     count_bytes = unpack_bytes_at(all_bytes, 0, ACCUMULATOR_COUNT_WIDTH)
-    accum_bytes = unpack_bytes_at(all_bytes, ACCUMULATOR_COUNT_WIDTH,
-                                  ACCUMULATOR_WIDTH * 4)
+    accum_bytes = unpack_bytes_at(
+        all_bytes, ACCUMULATOR_COUNT_WIDTH, ACCUMULATOR_WIDTH * 4
+    )
     accums = []
     for accum_idx in range(4):
         reg = 0
-        sel_bytes = unpack_bytes_at(accum_bytes, accum_idx * ACCUMULATOR_WIDTH,
-                                    ACCUMULATOR_WIDTH)
-        if polarity == 'unipolar':
-            reg = int.from_bytes(sel_bytes, byteorder='big', signed=False)
+        sel_bytes = unpack_bytes_at(
+            accum_bytes, accum_idx * ACCUMULATOR_WIDTH, ACCUMULATOR_WIDTH
+        )
+        if polarity == "unipolar":
+            reg = int.from_bytes(sel_bytes, byteorder="big", signed=False)
         else:
-            reg = int.from_bytes(sel_bytes, byteorder='big', signed=True)
+            reg = int.from_bytes(sel_bytes, byteorder="big", signed=True)
         accums.append(reg)
-    count = int.from_bytes(all_bytes[:ACCUMULATOR_COUNT_WIDTH],
-                           byteorder='big',
-                           signed=False)
+    count = int.from_bytes(
+        all_bytes[:ACCUMULATOR_COUNT_WIDTH], byteorder="big", signed=False
+    )
     return (accums, count)
 
 
@@ -318,30 +323,30 @@ def pac_info(ftdi_url):
     i2c = I2cController()
     i2c.configure(ftdi_url)
     device = i2c.get_port(0x10)
-    print(f'Device: \t{device}')
+    print(f"Device: \t{device}")
     tmp = read_pac(device, pac19xx.MANUFACTURER_ID, 1)
-    print(f'PAC Mfg ID: \t0x{tmp}')
+    print(f"PAC Mfg ID: \t0x{tmp}")
     tmp = read_pac(device, pac19xx.REVISION_ID, 1)
-    print(f'PAC revision: \t0x{tmp}')
+    print(f"PAC revision: \t0x{tmp}")
     tmp = read_pac(device, pac19xx.SMBUS_SET, 1)
-    print(f'SMBus Set: \t0x{tmp}')
+    print(f"SMBus Set: \t0x{tmp}")
     tmp = read_pac(device, pac19xx.NEG_PWR_FSR, 1)
-    print(f'NEG_PWR_FSR: \t0x{tmp}')
+    print(f"NEG_PWR_FSR: \t0x{tmp}")
     tmp = read_pac(device, pac19xx.CTRL, 2)
-    print(f'CTRL: \t\t0x{tmp}\n')
+    print(f"CTRL: \t\t0x{tmp}\n")
 
 
 def set_polarity(device, polarity):
     """Sets the polarity of the given device"""
-    if polarity == 'unipolar':
-        reg = b'\x00\x00'
-    elif polarity == 'bipolar':
-        reg = b'\x55\x55'
+    if polarity == "unipolar":
+        reg = b"\x00\x00"
+    elif polarity == "bipolar":
+        reg = b"\x55\x55"
     else:
-        raise ValueError('Unsupported polarity type ' + polarity)
+        raise ValueError("Unsupported polarity type " + polarity)
 
     device.write_to(pac19xx.NEG_PWR_FSR, reg)
-    print(f'Set \t{hex(device.address)} polarity to: {polarity}')
+    print(f"Set \t{hex(device.address)} polarity to: {polarity}")
 
 
 terminate_signal = False
@@ -354,22 +359,24 @@ def signal_handler(signum, frame):
     dump the rest of the log.
     """
 
-    print('Signal handler called with signal', signum)
-    print('Dumping accumulators and generating reports.')
+    print("Signal handler called with signal", signum)
+    print("Dumping accumulators and generating reports.")
     global terminate_signal
     terminate_signal = True
 
 
-def record(config,
-           ftdi_url='ftdi:///',
-           rails=['all'],
-           record_length=360.0,
-           voltage=True,
-           current=True,
-           power=True,
-           polarity='bipolar',
-           sample_time=5,
-           refresh_all=True):
+def record(
+    config,
+    ftdi_url="ftdi:///",
+    rails=["all"],
+    record_length=360.0,
+    voltage=True,
+    current=True,
+    power=True,
+    polarity="bipolar",
+    sample_time=5,
+    refresh_all=True,
+):
     """High level function to reset, log, then dump PAC power accumulations.
 
     Args:
@@ -397,7 +404,7 @@ def record(config,
 
     # Filter the config to rows we care about.
     allow_rails = set()
-    if 'all' not in rails:
+    if "all" not in rails:
         for rail in rails:
             allow_rails.add(rail)
 
@@ -413,7 +420,7 @@ def record(config,
             reset_accumulator(device)
         except I2cNackError:
             # This happens on the DB PAC in Z states.
-            print(f'Unable to reset PAC {addr:#x}. Ignoring value')
+            print(f"Unable to reset PAC {addr:#x}. Ignoring value")
             skip_pacs.add(addr)
 
     log = []
@@ -436,9 +443,11 @@ def record(config,
         last_target_sample = last_target_sample + sample_time
         if terminate_signal:
             break
-        print('Logging: %.2f / %.2f s...' %
-              (time.time() - start_time, float(record_length)),
-              end='\r')
+        print(
+            "Logging: %.2f / %.2f s..."
+            % (time.time() - start_time, float(record_length)),
+            end="\r",
+        )
 
         if refresh_all:
             pacbus.refresh_all()
@@ -463,69 +472,69 @@ def record(config,
 
                     # Grab a log timestamp
                     tmp = {}
-                    tmp['systime'] = refresh_time
-                    tmp['relativeTime'] = refresh_time - start_time
-                    tmp['rail'] = pac.name
+                    tmp["systime"] = refresh_time
+                    tmp["relativeTime"] = refresh_time - start_time
+                    tmp["rail"] = pac.name
 
-                    depth = {'unipolar': 2**30, 'bipolar': 2**29}
+                    depth = {"unipolar": 2**30, "bipolar": 2**29}
                     # Equation 5-8 Energy Calculation.
-                    tmp['accumReg'] = accum[ch_num]
-                    tmp['count'] = count
+                    tmp["accumReg"] = accum[ch_num]
+                    tmp["count"] = count
 
                     pwrFSR = 3.2 / sense_r
-                    tmp['power'] = (accum[ch_num] / (depth[polarity] * count) *
-                                    pwrFSR)
+                    tmp["power"] = (
+                        accum[ch_num] / (depth[polarity] * count) * pwrFSR
+                    )
 
                     if pac.name not in accumulators:
                         accumulators[pac.name] = {
-                            'Rail': pac.name,
-                            'rSense': pac.rsense,
-                            'count': 0,
-                            'accumReg': 0,
-                            'Average Power (w)': 0
+                            "Rail": pac.name,
+                            "rSense": pac.rsense,
+                            "count": 0,
+                            "accumReg": 0,
+                            "Average Power (w)": 0,
                         }
 
-                    accumulators[
-                        pac.name]['tAccum'] = refresh_time - start_time
-                    accumulators[pac.name]['count'] += count
+                    accumulators[pac.name]["tAccum"] = refresh_time - start_time
+                    accumulators[pac.name]["count"] += count
 
-                    accumulators[pac.name]['accumReg'] += accum[ch_num]
-                    new_weighting = count / accumulators[pac.name]['count']
+                    accumulators[pac.name]["accumReg"] += accum[ch_num]
+                    new_weighting = count / accumulators[pac.name]["count"]
                     old_weighting = 1 - new_weighting
-                    accumulators[
-                        pac.name]['Average Power (w)'] *= old_weighting
-                    accumulators[pac.name]['Average Power (w)'] += (
-                        tmp['power']) * new_weighting
+                    accumulators[pac.name]["Average Power (w)"] *= old_weighting
+                    accumulators[pac.name]["Average Power (w)"] += (
+                        tmp["power"]
+                    ) * new_weighting
                     log.append(tmp)
                 except I2cNackError:
-                    print('NACK detected, continuing measurements')
-                    time.sleep(.001)
+                    print("NACK detected, continuing measurements")
+                    time.sleep(0.001)
                     continue
 
     # We need a newline since the Loading message doesn't print one.
     print()
 
-    pandas.options.display.float_format = '{:,.3f}'.format
+    pandas.options.display.float_format = "{:,.3f}".format
 
     time_log = pandas.DataFrame(log)
 
-    stats = time_log.groupby('rail').power.describe()
-    stats = stats.sort_values(by='mean', ascending=False)
-    stats = stats.astype({'count': int})
+    stats = time_log.groupby("rail").power.describe()
+    stats = stats.sort_values(by="mean", ascending=False)
+    stats = stats.astype({"count": int})
 
-    print('Accumulator Power Statistics by Rail (W)')
+    print("Accumulator Power Statistics by Rail (W)")
     print(stats)
     print()
 
     accumulatorLog = pandas.DataFrame(accumulators.values())
-    print('Accumulator Power Measurements by Rail (W)')
-    print(accumulatorLog.sort_values(by='Average Power (w)', ascending=False))
+    print("Accumulator Power Measurements by Rail (W)")
+    print(accumulatorLog.sort_values(by="Average Power (w)", ascending=False))
     print()
 
     return (time_log, accumulatorLog)
 
 
-def query_all(config, ftdi_url='ftdi:///', polarity='bipolar'):
+def query_all(config, ftdi_url="ftdi:///", polarity="bipolar"):
     """Preform a one time query of GPIOs, powers, currents, voltages.
 
     Args:
@@ -550,21 +559,21 @@ def query_all(config, ftdi_url='ftdi:///', polarity='bipolar'):
             time.sleep(0.001)
         except I2cNackError:
             # This happens on the DB PAC in Z states
-            print(f'Unable to reset PAC {addr:#x}. Ignoring value')
+            print(f"Unable to reset PAC {addr:#x}. Ignoring value")
             skip_pacs.add(addr)
 
     # Measure the GPIOs of all of the pacs
     gpio_log = []
     for gpio in config.gpios:
-        tmp = {'Rail': gpio.rail}
+        tmp = {"Rail": gpio.rail}
         if gpio.addr in skip_pacs:
             continue
         # Parse from the dataframe.
         device = i2c.get_port(gpio.addr)
         if read_gpio(device):
-            tmp['GPIO'] = 'High'
+            tmp["GPIO"] = "High"
         else:
-            tmp['GPIO'] = 'Low'
+            tmp["GPIO"] = "Low"
         gpio_log.append(tmp)
 
     gpio_log = pandas.DataFrame(gpio_log)
@@ -576,11 +585,11 @@ def query_all(config, ftdi_url='ftdi:///', polarity='bipolar'):
         if pac.addr in skip_pacs:
             continue
         tmp = {}
-        tmp['ic_addr'] = f'{pac.addr:#x}'
-        tmp['ch_num'] = pac.channel
-        tmp['Rail'] = pac.name
-        tmp['bus_volt'] = pac.nom
-        tmp['sense_r'] = pac.rsense
+        tmp["ic_addr"] = f"{pac.addr:#x}"
+        tmp["ch_num"] = pac.channel
+        tmp["Rail"] = pac.name
+        tmp["bus_volt"] = pac.nom
+        tmp["sense_r"] = pac.rsense
 
         i2c = I2cController()
         i2c.configure(ftdi_url)
@@ -592,15 +601,14 @@ def query_all(config, ftdi_url='ftdi:///', polarity='bipolar'):
         time.sleep(0.001)
 
         # Read voltage.
-        tmp['act_volt'] = read_voltage(device, pac.channel, polarity)
+        tmp["act_volt"] = read_voltage(device, pac.channel, polarity)
         # Read power.
-        tmp['power'] = read_power(device, pac.rsense, pac.channel, polarity)
+        tmp["power"] = read_power(device, pac.rsense, pac.channel, polarity)
         # Read current.
-        tmp['current'] = read_current(device, pac.rsense, pac.channel,
-                                      polarity)
+        tmp["current"] = read_current(device, pac.rsense, pac.channel, polarity)
         log.append(tmp)
 
     log = pandas.DataFrame(log)
-    pandas.options.display.float_format = '{:,.3f}'.format
+    pandas.options.display.float_format = "{:,.3f}".format
     print(log)
     return log

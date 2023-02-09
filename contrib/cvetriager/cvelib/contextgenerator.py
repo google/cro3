@@ -4,19 +4,20 @@
 
 """Context generator for CVE Triage tool."""
 
-import subprocess
+import logging
 import os
 import re
-import logging
+import subprocess
 
-from cvelib import common, logutils
+from cvelib import common
+from cvelib import logutils
 
 
 class ContextGeneratorException(Exception):
     """Exception raised from ContextGenerator."""
 
 
-class ContextGenerator():
+class ContextGenerator:
     """Determines which kernels a commit should be applied to."""
 
     def __init__(self, kernels, check_rel_commits=False, loglvl=logging.DEBUG):
@@ -27,15 +28,17 @@ class ContextGenerator():
 
     def get_fixes_commit(self, linux_sha):
         """Returns Fixes: tag's commit sha."""
-        commit_message = common.get_commit_message(os.getenv('LINUX'), linux_sha)
+        commit_message = common.get_commit_message(
+            os.getenv("LINUX"), linux_sha
+        )
 
         # Collects 'Fixes: {sha}' string from commit_message.
-        m = re.findall('^Fixes: [a-z0-9]{12}', commit_message, re.M)
+        m = re.findall("^Fixes: [a-z0-9]{12}", commit_message, re.M)
 
         if not m:
-            return ''
+            return ""
 
-        split_str = m[0].split(' ')
+        split_str = m[0].split(" ")
         sha = split_str[1]
 
         return sha
@@ -43,20 +46,28 @@ class ContextGenerator():
     def get_subject_line(self, linux_sha):
         """Returns subject line of given sha."""
         try:
-            subject = subprocess.check_output(['git', 'log', '--pretty=format:%s', '-n', '1',
-                                              linux_sha], stderr=subprocess.DEVNULL,
-                                              cwd=os.getenv('LINUX'), encoding='utf-8')
+            subject = subprocess.check_output(
+                ["git", "log", "--pretty=format:%s", "-n", "1", linux_sha],
+                stderr=subprocess.DEVNULL,
+                cwd=os.getenv("LINUX"),
+                encoding="utf-8",
+            )
         except subprocess.CalledProcessError:
-            raise ContextGeneratorException(f'Error locating subject for sha {linux_sha}')
+            raise ContextGeneratorException(
+                f"Error locating subject for sha {linux_sha}"
+            )
 
         return subject
 
     def is_in_kernel(self, path, subject, is_inside):
         """Searches through kernel for a given subject."""
         try:
-            result = subprocess.check_output(['git', 'log', '--no-merges', '-F', '--grep',
-                                             subject], stderr=subprocess.DEVNULL,
-                                             cwd=path, encoding='utf-8')
+            result = subprocess.check_output(
+                ["git", "log", "--no-merges", "-F", "--grep", subject],
+                stderr=subprocess.DEVNULL,
+                cwd=path,
+                encoding="utf-8",
+            )
             if bool(result) == is_inside:
                 return True
         except subprocess.CalledProcessError:
@@ -71,12 +82,14 @@ class ContextGenerator():
         subject = self.get_subject_line(sha)
 
         for kernel in self.kernels:
-            self.logger.debug(f'Checking if {kernel} is fixed with {sha}')
+            self.logger.debug(f"Checking if {kernel} is fixed with {sha}")
 
-            kernel_path = os.path.join(os.getenv('CHROMIUMOS_KERNEL'), kernel)
+            kernel_path = os.path.join(os.getenv("CHROMIUMOS_KERNEL"), kernel)
 
             branch = common.get_cros_branch(kernel)
-            common.checkout_branch(kernel, f'cros/{branch}', 'cros', branch, kernel_path)
+            common.checkout_branch(
+                kernel, f"cros/{branch}", "cros", branch, kernel_path
+            )
 
             if self.is_in_kernel(kernel_path, subject, False):
                 valid_kernels.append(kernel)
@@ -87,16 +100,20 @@ class ContextGenerator():
         """Filters out stable or stable-rc kernels with linux commit."""
         valid_kernels = []
         environment = os.getenv(env_var)
-        is_rc = bool(env_var == 'STABLE_RC')
+        is_rc = bool(env_var == "STABLE_RC")
 
         subject = self.get_subject_line(linux_sha)
 
         for kernel in self.kernels:
-            self.logger.debug(f'Checking if {kernel} on {env_var} contains {linux_sha}')
+            self.logger.debug(
+                f"Checking if {kernel} on {env_var} contains {linux_sha}"
+            )
 
             branch, remote = common.get_stable_branch(kernel, is_rc)
 
-            common.checkout_branch(kernel, branch, 'origin', remote, environment)
+            common.checkout_branch(
+                kernel, branch, "origin", remote, environment
+            )
 
             if self.is_in_kernel(environment, subject, False):
                 valid_kernels.append(kernel)
@@ -109,19 +126,23 @@ class ContextGenerator():
 
         fixes_sha = self.get_fixes_commit(linux_sha)
 
-        if fixes_sha == '':
-            self.logger.debug(f'Commit {linux_sha} does not have a Fixes tag')
+        if fixes_sha == "":
+            self.logger.debug(f"Commit {linux_sha} does not have a Fixes tag")
             return
 
         subject = self.get_subject_line(fixes_sha)
 
         for kernel in self.kernels:
-            self.logger.debug(f'Checking if {kernel} contains fixes commit: {fixes_sha}')
+            self.logger.debug(
+                f"Checking if {kernel} contains fixes commit: {fixes_sha}"
+            )
 
-            kernel_path = os.path.join(os.getenv('CHROMIUMOS_KERNEL'), kernel)
+            kernel_path = os.path.join(os.getenv("CHROMIUMOS_KERNEL"), kernel)
 
             branch = common.get_cros_branch(kernel)
-            common.checkout_branch(kernel, f'cros/{branch}', 'cros', branch, kernel_path)
+            common.checkout_branch(
+                kernel, f"cros/{branch}", "cros", branch, kernel_path
+            )
 
             if self.is_in_kernel(kernel_path, subject, True):
                 valid_kernels.append(kernel)
@@ -132,11 +153,14 @@ class ContextGenerator():
         """Displays information about fixes that refer to the linux sha."""
         linux_subj = self.get_subject_line(linux_sha)
 
-        shas = subprocess.check_output(['git', 'log', '--format=%H'],
-                                       stderr=subprocess.DEVNULL, cwd=os.getenv('LINUX'),
-                                       encoding='utf-8')
+        shas = subprocess.check_output(
+            ["git", "log", "--format=%H"],
+            stderr=subprocess.DEVNULL,
+            cwd=os.getenv("LINUX"),
+            encoding="utf-8",
+        )
 
-        sha_list = shas.split('\n')
+        sha_list = shas.split("\n")
 
         for sha in sha_list:
             if linux_sha in sha:
@@ -144,7 +168,7 @@ class ContextGenerator():
 
             fixes_sha = self.get_fixes_commit(sha)
 
-            if fixes_sha == '':
+            if fixes_sha == "":
                 continue
 
             try:
@@ -152,10 +176,12 @@ class ContextGenerator():
             except ContextGeneratorException:
                 # Given sha contains fixes tag from another working tree.
                 # Ex: 1bb0fa189c6a is refered to by a7868323c2638a7c6c5b30b37831b73cbdf0dc15.
-                self.logger.error(f'{sha} contains a fix commit from another working tree.')
+                self.logger.error(
+                    f"{sha} contains a fix commit from another working tree."
+                )
 
             if fixes_subj == linux_subj:
-                self.logger.info(f'Sha {sha} is a relevant commit.')
+                self.logger.info(f"Sha {sha} is a relevant commit.")
                 self.relevant_commits.append(sha)
                 return
 
@@ -165,9 +191,9 @@ class ContextGenerator():
 
         self.find_kernels_with_fixes_subj(linux_sha)
 
-        self.filter_based_on_stable(linux_sha, 'STABLE')
+        self.filter_based_on_stable(linux_sha, "STABLE")
 
-        self.filter_based_on_stable(linux_sha, 'STABLE_RC')
+        self.filter_based_on_stable(linux_sha, "STABLE_RC")
 
         if self.check_rel_commits:
             self.detect_relevant_commits(linux_sha)

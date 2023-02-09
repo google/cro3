@@ -51,15 +51,16 @@ upstreaming stats:
 -----------+----------+--------
 """
 
-email_subject = '%s -> %s: %d/%d commits need manual resolution'
+email_subject = "%s -> %s: %d/%d commits need manual resolution"
 
-mailing_from = 'from@example.com'
-recip_limited = ['recip1@example.com', 'recip2@example.com']
+mailing_from = "from@example.com"
+recip_limited = ["recip1@example.com", "recip2@example.com"]
 recip_all = [
-    'recip1@example.com',
-    'recip2@example.com',
-    'recip3@example.com',
-    'recip4@example.com']
+    "recip1@example.com",
+    "recip2@example.com",
+    "recip3@example.com",
+    "recip4@example.com",
+]
 
 
 class Mailing:
@@ -73,11 +74,8 @@ class Mailing:
         self.server = None
 
     def build_mail(
-            self,
-            topic_stats,
-            upstream_stats,
-            total_stats,
-            topic_errors):
+        self, topic_stats, upstream_stats, total_stats, topic_errors
+    ):
         """Formats statistics into an email"""
 
         mail = email_text % (self.rebase_base, self.rebase_target[1:])
@@ -93,35 +91,37 @@ class Mailing:
             stats[2] += manual
             stats[3] += fixup_manual
             if data[5]:
-                build = 'OK'
+                build = "OK"
             else:
-                build = 'FAIL'
-            val = f'{manual}+{fixup_manual}'
-            mail += f'{topic:14} | {overall:15d} | {auto:21d} | {val:>22s} | {build}\n'
+                build = "FAIL"
+            val = f"{manual}+{fixup_manual}"
+            mail += f"{topic:14} | {overall:15d} | {auto:21d} | {val:>22s} | {build}\n"
 
-        topic = 'ALL'
-        build = 'ON HOLD'
-        mail += '-' * len(email_text.split('\n')[6])
-        mail += '\n'
-        val = f'{stats[2]}+{stats[3]}'
-        mail += f'{topic:14} | {stats[0]:15d} | {stats[1]:21d} | {val:>22s} | {build}\n'
-        mail += '\n'
+        topic = "ALL"
+        build = "ON HOLD"
+        mail += "-" * len(email_text.split("\n")[6])
+        mail += "\n"
+        val = f"{stats[2]}+{stats[3]}"
+        mail += f"{topic:14} | {stats[0]:15d} | {stats[1]:21d} | {val:>22s} | {build}\n"
+        mail += "\n"
 
         mail += upstream_prefix
-        fromlist = total_stats['fromlist']
-        fromgit = total_stats['fromgit']
-        mail += f'total      | {fromlist:8} | {fromgit:7}\n'
-        fromlist = upstream_stats['fromlist']
-        fromgit = upstream_stats['fromgit']
-        mail += f'upstreamed | {fromlist:8} | {fromgit:7}\n\n'
+        fromlist = total_stats["fromlist"]
+        fromgit = total_stats["fromgit"]
+        mail += f"total      | {fromlist:8} | {fromgit:7}\n"
+        fromlist = upstream_stats["fromlist"]
+        fromgit = upstream_stats["fromgit"]
+        mail += f"upstreamed | {fromlist:8} | {fromgit:7}\n\n"
 
         for topic in topic_errors:
-            mail += 'Branch %s failed to build due to:\n' % topic
+            mail += "Branch %s failed to build due to:\n" % topic
             mail += topic_errors[topic]
-            mail += '\n\n'
+            mail += "\n\n"
 
-        mail += '* - is a number of commmits+fixups which need manual resolution'
-        mail += '\n'
+        mail += (
+            "* - is a number of commmits+fixups which need manual resolution"
+        )
+        mail += "\n"
 
         return (mail, stats)
 
@@ -131,20 +131,20 @@ class Mailing:
         try:
             from cred import login
             from cred import passw
-        except: # pylint: disable=bare-except
+        except:  # pylint: disable=bare-except
             print(cred_error)
             sys.exit()
-        self.server = smtplib.SMTP('smtp.gmail.com', 587)
+        self.server = smtplib.SMTP("smtp.gmail.com", 587)
         self.server.starttls()
         self.server.login(login, passw)
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From'] = mailing_from
-        msg['To'] = ', '.join(recipients)
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = mailing_from
+        msg["To"] = ", ".join(recipients)
         part1 = MIMEText(
-            'This message should be viewed in HTML. Check your client.',
-            'plain')
-        part2 = MIMEText(html_header + mail + html_footer, 'html')
+            "This message should be viewed in HTML. Check your client.", "plain"
+        )
+        part2 = MIMEText(html_header + mail + html_footer, "html")
         msg.attach(part1)
         msg.attach(part2)
         self.server.send_message(msg)
@@ -153,16 +153,21 @@ class Mailing:
         """Preview and send report"""
 
         mail, stats = self.build_mail(
-            topic_stats, upstream_stats, total_stats, topic_errors)
+            topic_stats, upstream_stats, total_stats, topic_errors
+        )
         subject = email_subject % (
-            self.rebase_base, self.rebase_target, stats[2], stats[0])
+            self.rebase_base,
+            self.rebase_target,
+            stats[2],
+            stats[0],
+        )
         print(mail)
-        ans = input('Send? [y/n] ')
-        if ans == 'y':
+        ans = input("Send? [y/n] ")
+        if ans == "y":
             # Send out to limited audience first
             self.send_mail(subject, mail, recip_limited)
-        ans = input('Resend to all? [y/n] ')
-        if ans == 'y':
+        ans = input("Resend to all? [y/n] ")
+        if ans == "y":
             # Send out to all
             self.send_mail(subject, mail, recip_all)
 
@@ -171,8 +176,8 @@ def load_and_notify():
     """Creates a report, shows preview and sends it if ok"""
 
     m = Mailing(rebase_baseline_branch, rebase_target)
-    topic_stats = pickle.load(open('topic_stats.bin', 'rb'))
-    topic_stderr = pickle.load(open('topic_stderr.bin', 'rb'))
-    upstream_stats = pickle.load(open('upstream_stats.bin', 'rb'))
-    total_stats = pickle.load(open('total_stats.bin', 'rb'))
+    topic_stats = pickle.load(open("topic_stats.bin", "rb"))
+    topic_stderr = pickle.load(open("topic_stderr.bin", "rb"))
+    upstream_stats = pickle.load(open("upstream_stats.bin", "rb"))
+    total_stats = pickle.load(open("total_stats.bin", "rb"))
     m.notify(topic_stats, upstream_stats, total_stats, topic_stderr)

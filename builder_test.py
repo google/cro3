@@ -13,18 +13,21 @@ import unittest
 
 import builder
 
+
 # pylint: disable=protected-access
 
+
 class BuilderTest(unittest.TestCase):
-  """Tests for builder."""
-  def testOutputOf(self):
-    self.assertRaises(subprocess.CalledProcessError,
-                      builder._OutputOf, ['/bin/false'])
+    """Tests for builder."""
 
-    hello = 'hello, world'
-    self.assertEqual(hello + '\n',
-                     builder._OutputOf(['/bin/echo', hello]))
+    def testOutputOf(self):
+        self.assertRaises(
+            subprocess.CalledProcessError, builder._OutputOf, ["/bin/false"]
+        )
+
+        hello = "hello, world"
+        self.assertEqual(hello + "\n", builder._OutputOf(["/bin/echo", hello]))
 
 
-if __name__ == '__main__':
-  unittest.main()
+if __name__ == "__main__":
+    unittest.main()

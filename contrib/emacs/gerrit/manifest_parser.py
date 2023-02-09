@@ -6,11 +6,12 @@
 
 """This is a utility script for parsing the repo manifest used by gerrit.el"""
 
-import xml.parsers.expat as xml
-import sys
 import argparse
 import pathlib
 import subprocess
+import sys
+import xml.parsers.expat as xml
+
 
 def parse_manifest_projects_to_lisp_alist(repo_root_path):
     """Parse repo manifest to Lisp alist.
@@ -38,39 +39,41 @@ def parse_manifest_projects_to_lisp_alist(repo_root_path):
             name: The name of the handled xml element.
             attrs: A dictionary of the handled xml element's attributes.
         """
-        if name == 'project':
-            project_name = attrs['name']
-            project_path = attrs.get('path', project_name)
-            dest_branch = attrs.get('dest-branch')
+        if name == "project":
+            project_name = attrs["name"]
+            project_path = attrs.get("path", project_name)
+            dest_branch = attrs.get("dest-branch")
             if not dest_branch:
                 # We skip anything without a dest-branch
                 return
             # We don't want the refs/heads/ prefix of dest-branch
-            dest_branch = dest_branch.replace('refs/heads/', '')
+            dest_branch = dest_branch.replace("refs/heads/", "")
 
             key = '("{}" . "{}")'.format(project_name, dest_branch)
             value = '"{}"'.format(project_path)
 
-            assoc_list_entries.append('({} . {})'.format(key, value))
+            assoc_list_entries.append("({} . {})".format(key, value))
 
     p = xml.ParserCreate()
     p.StartElementHandler = _project_elem_handler
 
-    repo_cmd = ['repo', '--no-pager', 'manifest']
-    repo_cmd_result = subprocess.run(repo_cmd,
-                                     cwd=repo_root_path.expanduser().resolve(),
-                                     capture_output=True,
-                                     check=True)
+    repo_cmd = ["repo", "--no-pager", "manifest"]
+    repo_cmd_result = subprocess.run(
+        repo_cmd,
+        cwd=repo_root_path.expanduser().resolve(),
+        capture_output=True,
+        check=True,
+    )
     p.Parse(repo_cmd_result.stdout)
-    return '({})'.format(''.join(assoc_list_entries))
+    return "({})".format("".join(assoc_list_entries))
 
 
 def main(argv):
     """main."""
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('repo_root_path',
-                            type=pathlib.Path,
-                            help='System path to repo root.')
+    arg_parser.add_argument(
+        "repo_root_path", type=pathlib.Path, help="System path to repo root."
+    )
     args = arg_parser.parse_args(argv)
 
     try:
@@ -78,9 +81,9 @@ def main(argv):
         return 0
 
     except xml.ExpatError as err:
-        print('XML Parsing Error:', err)
+        print("XML Parsing Error:", err)
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

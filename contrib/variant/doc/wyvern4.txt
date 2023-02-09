@@ -34,12 +34,12 @@ Compressing objects: 100% (16/16), done.
 Writing objects: 100% (18/18), 1.81 KiB | 1.81 MiB/s, done.
 Total 18 (delta 8), reused 3 (delta 0), pack-reused 0
 remote: Resolving deltas: 100% (8/8)
-remote: Processing changes: refs: 1, new: 1, done    
-remote: 
+remote: Processing changes: refs: 1, new: 1, done
+remote:
 remote: SUCCESS
-remote: 
+remote:
 remote:   https://review.coreboot.org/c/coreboot/+/42551 hatch: Create wyvern variant [NEW]
-remote: 
+remote:
 To ssh://review.coreboot.org:29418/coreboot.git
  * [new branch]              HEAD -> refs/for/master
-pfagerburg@pfagerburg2:~/devel/coreboot$ 
+pfagerburg@pfagerburg2:~/devel/coreboot$

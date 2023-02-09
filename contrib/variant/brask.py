@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """Define steps, package names, and directories for creating a Brya variant
 
 Copyright 2022 The ChromiumOS Authors
@@ -7,19 +8,21 @@ found in the LICENSE file.
 """
 
 from __future__ import print_function
+
 import step_names
 
+
 # Name of the baseboard
-base = 'brask'
+base = "brask"
 
 # Name of the reference board
-board = 'brask'
+board = "brask"
 
 # Name of the baseboard in coreboot
-coreboot_base = 'brya'
+coreboot_base = "brya"
 
 # Name of the depthcharge reference
-depthcharge_ref = 'brask'
+depthcharge_ref = "brask"
 
 # List of steps (named in step_names.py) to run in sequence to create
 # the new variant of the baseboard
@@ -40,68 +43,91 @@ step_list = [
     step_names.CALC_CQ_DEPEND,
     step_names.ADD_CQ_DEPEND,
     step_names.RE_UPLOAD,
-    step_names.CLEAN_UP]
+    step_names.CLEAN_UP,
+]
 
 # Base directory for coreboot
-coreboot_dir = 'third_party/coreboot'
+coreboot_dir = "third_party/coreboot"
 
 # Reference board for EC image
-ec_board = 'brask'
+ec_board = "brask"
 
 # Package name for FSP
-fsp = 'intel-adlfsp'
+fsp = "intel-adlfsp"
 
 # Package name for the fitimage
-fitimage_pkg = 'coreboot-private-files-baseboard-brya'
+fitimage_pkg = "coreboot-private-files-baseboard-brya"
 
 # Directory for fitimage; append '~/trunk/src/'' in chroot, '~/chromiumos/src'
 # outside
-fitimage_dir = ('private-overlays/baseboard-brya-private/sys-boot/'
-                'coreboot-private-files-baseboard-brya')
+fitimage_dir = (
+    "private-overlays/baseboard-brya-private/sys-boot/"
+    "coreboot-private-files-baseboard-brya"
+)
 
 # Brask fitimages use csme-${VARIANT}.bin, not fitimage-${VARIANT}.bin
-fitimage_bin = 'csme-%s.bin'
+fitimage_bin = "csme-%s.bin"
 
 # Directory under fitimage_dir where the fitimage binary will be
-fitimage_bin_dir = 'files/blobs'
+fitimage_bin_dir = "files/blobs"
 
 # Explanation of gen_fit_image command
-fitimage_cmd = './gen_fit_image.sh %s <path_to_fit_kit>'
+fitimage_cmd = "./gen_fit_image.sh %s <path_to_fit_kit>"
 
 # Directory under fitimage_dir where the fitimage versions file will be
-fitimage_versions_dir = 'files/metadata'
+fitimage_versions_dir = "files/metadata"
 
 # Script to add fitimage sources
-fitimage_script = 'files/add_fitimage.sh'
+fitimage_script = "files/add_fitimage.sh"
 
 # ADL-P CSE Lite uses MFIT, not FIT
-fitimage_versions = 'mfitimage-%s-versions.txt'
+fitimage_versions = "mfitimage-%s-versions.txt"
 
 # List of packages to cros_workon
 workon_pkgs = [
-    'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
-    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-private',
-    'coreboot-private-files-baseboard-brya']
+    "coreboot",
+    "libpayload",
+    "vboot_reference",
+    "depthcharge",
+    fsp,
+    fitimage_pkg,
+    "chromeos-ec",
+    "chromeos-config-bsp-private",
+    "coreboot-private-files-baseboard-brya",
+]
 
 # The emerge command
-emerge_cmd = 'emerge-brask'
+emerge_cmd = "emerge-brask"
 
 # List of packages to emerge
 emerge_pkgs = [
-    'coreboot', 'libpayload', 'vboot_reference', 'depthcharge', fsp,
-    fitimage_pkg, 'chromeos-ec', 'chromeos-config-bsp-private',
-    'chromeos-config', 'coreboot-private-files', 'chromeos-bootimage']
+    "coreboot",
+    "libpayload",
+    "vboot_reference",
+    "depthcharge",
+    fsp,
+    fitimage_pkg,
+    "chromeos-ec",
+    "chromeos-config-bsp-private",
+    "chromeos-config",
+    "coreboot-private-files",
+    "chromeos-bootimage",
+]
 
 # List of packages to cros_workon to build the project config
-config_workon_pkgs = ['chromeos-config-bsp-private']
+config_workon_pkgs = ["chromeos-config-bsp-private"]
 
 # List of packages to emerge to build the project config
-config_emerge_pkgs = ['chromeos-config-bsp-private']
+config_emerge_pkgs = ["chromeos-config-bsp-private"]
 
 # List of commits that will be uploaded with `repo upload`
 repo_upload_list = [
-    step_names.CB_CONFIG, step_names.COMMIT_FIT, step_names.EC_IMAGE,
-    step_names.DC_VARIANT, step_names.FW_BUILD_CONFIG]
+    step_names.CB_CONFIG,
+    step_names.COMMIT_FIT,
+    step_names.EC_IMAGE,
+    step_names.DC_VARIANT,
+    step_names.FW_BUILD_CONFIG,
+]
 
 # List of commits that will be pushed to review.coreboot.org
 coreboot_push_list = [step_names.CB_VARIANT]
@@ -111,6 +137,9 @@ coreboot_push_list = [step_names.CB_VARIANT]
 depends = {
     step_names.CB_CONFIG: [step_names.FIND],
     step_names.FW_BUILD_CONFIG: [
-        step_names.FIND, step_names.CB_CONFIG,
-        step_names.COMMIT_FIT, step_names.EC_IMAGE]
+        step_names.FIND,
+        step_names.CB_CONFIG,
+        step_names.COMMIT_FIT,
+        step_names.EC_IMAGE,
+    ],
 }

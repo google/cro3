@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 # Copyright 2021 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -31,8 +30,13 @@ def _test_case_exec_factory(target_bin_location: str) -> th_pb.TestHarness:
         target_bin_location: String representing the path on the DUT to the
                              compiled gtest binary.
     """
-    return tc_metadata_pb.TestCaseExec(test_harness=th_pb.TestHarness(
-        gtest=th_pb.TestHarness.Gtest(target_bin_location=target_bin_location)))
+    return tc_metadata_pb.TestCaseExec(
+        test_harness=th_pb.TestHarness(
+            gtest=th_pb.TestHarness.Gtest(
+                target_bin_location=target_bin_location
+            )
+        )
+    )
 
 
 def _test_case_info_factory(data: dict) -> list:
@@ -42,7 +46,8 @@ def _test_case_info_factory(data: dict) -> list:
         data: dict representing the 'owners' yaml data
     """
     return tc_metadata_pb.TestCaseInfo(
-        owners=[tc_metadata_pb.Contact(email=x['email']) for x in data])
+        owners=[tc_metadata_pb.Contact(email=x["email"]) for x in data]
+    )
 
 
 def _test_case_factory(case_data: dict, suite_name: str) -> tc_pb.TestCase:
@@ -52,31 +57,37 @@ def _test_case_factory(case_data: dict, suite_name: str) -> tc_pb.TestCase:
         case_data: dict representing the 'cases' yaml data
         suite_name: string representing the 'name' yaml field
     """
-    tags = [tc_pb.TestCase.Tag(value=t) for t in case_data['tags']]
+    tags = [tc_pb.TestCase.Tag(value=t) for t in case_data["tags"]]
     tc_id = tc_pb.TestCase.Id(value=f'gtest.{suite_name}.{case_data["id"]}')
     name = f'{suite_name}.{case_data["id"]}'
-    testBedDeps = [tc_pb.TestCase.Dependency(value=t) for t in case_data.get('testBedDependencies', [])]
-    return tc_pb.TestCase(id=tc_id, name=name, tags=tags, dependencies=testBedDeps)
+    testBedDeps = [
+        tc_pb.TestCase.Dependency(value=t)
+        for t in case_data.get("testBedDependencies", [])
+    ]
+    return tc_pb.TestCase(
+        id=tc_id, name=name, tags=tags, dependencies=testBedDeps
+    )
 
 
 def _test_case_metadata_factory(
-        case: tc_pb.TestCase, case_exec: tc_metadata_pb.TestCaseExec,
-        case_info: tc_metadata_pb.TestCaseInfo
+    case: tc_pb.TestCase,
+    case_exec: tc_metadata_pb.TestCaseExec,
+    case_info: tc_metadata_pb.TestCaseInfo,
 ) -> tc_metadata_pb.TestCaseMetadata:
     """Factory method for building TestCaseMetadata proto objects"""
-    return tc_metadata_pb.TestCaseMetadata(test_case=case,
-                                           test_case_exec=case_exec,
-                                           test_case_info=case_info)
+    return tc_metadata_pb.TestCaseMetadata(
+        test_case=case, test_case_exec=case_exec, test_case_info=case_info
+    )
 
 
 def _test_case_list_factory(input_data: dict) -> list:
     """Factory method for batch building TestCaseMetadata objects"""
-    suite_name = input_data['name']
-    test_case_exec = _test_case_exec_factory(input_data['target_bin_location'])
-    test_case_info = _test_case_info_factory(input_data['owners'])
+    suite_name = input_data["name"]
+    test_case_exec = _test_case_exec_factory(input_data["target_bin_location"])
+    test_case_info = _test_case_info_factory(input_data["owners"])
 
     test_cases = [
-        _test_case_factory(tc, suite_name) for tc in input_data['cases']
+        _test_case_factory(tc, suite_name) for tc in input_data["cases"]
     ]
 
     test_case_metadata = [
@@ -99,8 +110,9 @@ def _validate_yaml_file(parsed_yaml: dict, schema: dict):
     jsonschema.validate(instance=parsed_yaml, schema=schema)
 
 
-def main(input_files: list, output_file: pathlib.Path,
-         yaml_schema_file: pathlib.Path):
+def main(
+    input_files: list, output_file: pathlib.Path, yaml_schema_file: pathlib.Path
+):
     """Main entry point
 
     Args:
@@ -118,7 +130,8 @@ def main(input_files: list, output_file: pathlib.Path,
         test_case_metadata.extend(_test_case_list_factory(yaml_data))
 
     test_case_metadata_list = tc_metadata_pb.TestCaseMetadataList(
-        values=test_case_metadata)
+        values=test_case_metadata
+    )
 
     # Make sure the appropriate directory structure is created.
     # Mimic "mkdir -p" here.
@@ -139,11 +152,13 @@ def _argparse_existing_file_factory(path: str) -> pathlib.Path:
     p = pathlib.Path(path)
     if not p.exists():
         raise argparse.ArgumentTypeError(
-            f"The specified file '{path}' does not exist!")
+            f"The specified file '{path}' does not exist!"
+        )
 
     if not p.is_file():
         raise argparse.ArgumentTypeError(
-            f"The specified file '{path}' is not a file!")
+            f"The specified file '{path}' is not a file!"
+        )
 
     return p
 
@@ -153,40 +168,49 @@ def _argparse_file_factory(path: str) -> pathlib.Path:
     return pathlib.Path(path)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if six.PY2:
-        print('ERROR: Python2 detected, this script only runs with python3!')
+        print("ERROR: Python2 detected, this script only runs with python3!")
         sys.exit(1)
 
     parser = argparse.ArgumentParser(
-        description='Generate Gtest harness test case metadata')
-    parser.add_argument('--output_file',
-                        help='Output file to write proto metadata',
-                        type=_argparse_file_factory,
-                        required=True)
-    parser.add_argument('--yaml_schema',
-                        help='YAML schema file to validate test metadata',
-                        type=_argparse_existing_file_factory,
-                        required=True)
-    parser.add_argument('files',
-                        help='Gtest YAML metadata files',
-                        metavar='INPUT_YAML',
-                        type=_argparse_existing_file_factory,
-                        nargs='+')
+        description="Generate Gtest harness test case metadata"
+    )
     parser.add_argument(
-        '--dump',
-        help='Dump pretty printed protobuf to stdout. For debugging purposes',
-        action='store_true',
-        default=False,
-        required=False)
-
+        "--output_file",
+        help="Output file to write proto metadata",
+        type=_argparse_file_factory,
+        required=True,
+    )
     parser.add_argument(
-        '--dump-bytes',
-        help='Dump byte array representation of protobuf to stdout. For debugging purposes',
-        action='store_true',
+        "--yaml_schema",
+        help="YAML schema file to validate test metadata",
+        type=_argparse_existing_file_factory,
+        required=True,
+    )
+    parser.add_argument(
+        "files",
+        help="Gtest YAML metadata files",
+        metavar="INPUT_YAML",
+        type=_argparse_existing_file_factory,
+        nargs="+",
+    )
+    parser.add_argument(
+        "--dump",
+        help="Dump pretty printed protobuf to stdout. For debugging purposes",
+        action="store_true",
         default=False,
         required=False,
-        dest='dumpBytes')
+    )
+
+    parser.add_argument(
+        "--dump-bytes",
+        help="Dump byte array representation of protobuf to stdout. For debugging purposes",
+        action="store_true",
+        default=False,
+        required=False,
+        dest="dumpBytes",
+    )
     args = parser.parse_args()
     main(args.files, args.output_file, args.yaml_schema)
 

@@ -10,23 +10,26 @@ from __future__ import print_function
 import base64
 
 import simpledb
+
 import utils
 
 
 class Gitcommit(object):
     """Gitcommit represents a parsed git commit message."""
-    def __init__(self, commitid, title, body, files=''):
+
+    def __init__(self, commitid, title, body, files=""):
         self.commitid = commitid
         self.title = title
         self.body = body
         self.files = files.strip()
 
     def __repr__(self):
-        return '%s: %s' % (self.commitid, self.title)
+        return "%s: %s" % (self.commitid, self.title)
 
 
 class Gitlog(object):
     """Gitlog reads and parses a gitlog into Gitcommit objects."""
+
     def __init__(self, filename, dbname):
         self.filename = filename
         self.dbname = dbname
@@ -40,12 +43,12 @@ class Gitlog(object):
     def parse_log(self):
         """Parse the output of 'git log'."""
         i = 0
-        is_commit_start = lambda x: x.startswith('commit')
-        is_merge_commit = lambda x: x.startswith('Merge:')
+        is_commit_start = lambda x: x.startswith("commit")
+        is_merge_commit = lambda x: x.startswith("Merge:")
 
         while i < len(self.contents):
             if is_commit_start(self.contents[i]):
-                if is_merge_commit(self.contents[i+1]):
+                if is_merge_commit(self.contents[i + 1]):
                     i += 1
                     continue
 
@@ -56,18 +59,20 @@ class Gitlog(object):
                 title = utils.clean_git_title(title)
 
                 i += 2
-                body = ''
-                while (i < len(self.contents) and not
-                       is_commit_start(self.contents[i])):
-                    if not self.contents[i].startswith(' '):
+                body = ""
+                while i < len(self.contents) and not is_commit_start(
+                    self.contents[i]
+                ):
+                    if not self.contents[i].startswith(" "):
                         i += 1
                         break
-                    body += self.contents[i].strip() + '\n'
+                    body += self.contents[i].strip() + "\n"
                     i += 1
 
-                files = ''
-                while (i < len(self.contents) and not
-                       is_commit_start(self.contents[i])):
+                files = ""
+                while i < len(self.contents) and not is_commit_start(
+                    self.contents[i]
+                ):
                     if not self.contents[i].strip():
                         i += 1
                         continue
@@ -85,12 +90,17 @@ class Gitlog(object):
         i = 0
         self.db.begin()
         for commit in self.commits:
-            self.db.insert(commitid=commit.commitid, title=commit.title,
-                           body=base64.b64encode(commit.body),
-                           files=base64.b64encode(commit.files))
+            self.db.insert(
+                commitid=commit.commitid,
+                title=commit.title,
+                body=base64.b64encode(commit.body),
+                files=base64.b64encode(commit.files),
+            )
             i += 1
             if i % 100000 == 0:
-                print('---', i)
+                print("---", i)
         self.db.commit()
-        print('[+] Done writing %d records to "%s"' % (len(self.commits),
-                                                       self.dbname))
+        print(
+            '[+] Done writing %d records to "%s"'
+            % (len(self.commits), self.dbname)
+        )

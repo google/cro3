@@ -9,83 +9,83 @@
 #define __ro_after_init __attribute__((__section__(".data..ro_after_init")))
 
 struct testtype_B_NK {
-	struct testtype_B_NK *next;
-	struct list_head head;
-	int d;
-	char e;
-	char *f;
+  struct testtype_B_NK *next;
+  struct list_head head;
+  int d;
+  char e;
+  char *f;
 };
 
 struct testtype_C_OK {
-	int a;
-	char b;
+  int a;
+  char b;
 };
 
 struct testtype_D_OK {
-	struct testtype_D_OK **ptr2ptr;
+  struct testtype_D_OK **ptr2ptr;
 };
 
 struct mutex {
-	int val;
-	struct list_head wait_list;
+  int val;
+  struct list_head wait_list;
 };
 
 struct testtype_E_NK {
-	struct mutex mutexobj;
+  struct mutex mutexobj;
 };
 
 struct rb_node {
-	struct rb_node *left, *right;
+  struct rb_node *left, *right;
 };
 
 struct rb_root {
-	struct rb_node *rb_node;
+  struct rb_node *rb_node;
 };
 
 struct testtype_F_NK {
-	struct rb_node blah;
+  struct rb_node blah;
 };
 
 struct testtype_FF_NK {
-	struct rb_root *root;
+  struct rb_root *root;
 };
 
 typedef struct {
-	int counter;
+  int counter;
 } atomic_t;
 
 typedef struct refcount_struct {
-	atomic_t refs;
+  atomic_t refs;
 } refcount_t;
 
 struct testtype_G_NK {
-	refcount_t refcount;
+  refcount_t refcount;
 };
 
 struct testtype_G2_NK {
-	struct refcount_struct refstr;
+  struct refcount_struct refstr;
 };
 
 struct testtype_H_OK {
-	int a;
-	int b;
-	char c;
+  int a;
+  int b;
+  char c;
 };
 
 struct testtype_I_OK {
-	int a;
-	int b;
-	char c;
+  int a;
+  int b;
+  char c;
 };
 
 typedef unsigned long resource_size_t;
 struct resource {
-	resource_size_t start;
-	resource_size_t end;
-	const char *name;
-	unsigned long flags;
-	unsigned long desc;
-	struct resource *parent, *sibling, *child;
+  resource_size_t start;
+  resource_size_t end;
+  const char *name;
+  unsigned long flags;
+  unsigned long desc;
+  struct resource *parent, *sibling, *child;
 };
 
 static struct testtype_A_NK global_objA;
@@ -109,38 +109,36 @@ struct testtype_I_OK global_objI __initdata;
 struct testtype_I_OK global_objII __ro_after_init;
 static struct resource resource_obj;
 
-void __init blah(void)
-{
-	global_ns_objC.a = 123;
-	global_ns_objC.b = 'c';
+void __init blah(void) {
+  global_ns_objC.a = 123;
+  global_ns_objC.b = 'c';
 
-	global_objH.a = 234;
-	global_objH.b = 345;
-	global_objH.c = 'z';
+  global_objH.a = 234;
+  global_objH.b = 345;
+  global_objH.c = 'z';
 
-	global_objI.a = 123;
-	global_objI.b = 456;
-	global_objI.c = 'a';
+  global_objI.a = 123;
+  global_objI.b = 456;
+  global_objI.c = 'a';
 
-	global_objII.a = 123;
-	global_objII.b = 456;
-	global_objII.c = 'a';
+  global_objII.a = 123;
+  global_objII.b = 456;
+  global_objII.c = 'a';
 }
 
-int main(int argc, const char *argv[])
-{
-	struct testtype_B_NK obj_b = {
-		.d = 10,
-		.e = 'b',
-		.f = (void *)0,
-	};
-	struct testtype_A_NK obj_a = {
-		.a = 11,
-		.b = 'a',
-	};
+int main(int argc, const char *argv[]) {
+  struct testtype_B_NK obj_b = {
+      .d = 10,
+      .e = 'b',
+      .f = (void *)0,
+  };
+  struct testtype_A_NK obj_a = {
+      .a = 11,
+      .b = 'a',
+  };
 
-	global_ns_objC.a = 567;
-	global_ns_objC.b = 'd';
+  global_ns_objC.a = 567;
+  global_ns_objC.b = 'd';
 
-	return 0;
+  return 0;
 }

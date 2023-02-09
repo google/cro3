@@ -16,17 +16,17 @@ import (
 // RandomWeightedSelector selects from a list of boards, with a random choice
 // weighted by BoardPriorities. The algorithm is as follows:
 //
-// 1. The sign of priorities is flipped, so that the board with the most
-//    negative configured priority now has the most positive priority.
-// 2. If a priority is not defined for a board, it is implicitly 0, as defined
-//    in the BoardPriority proto comment.
-// 3. Priorities are shifted so that the minimum priority is 1.
-// 4. Priorities are divided by the sum of the shifted priorities. At this
-//    point, the priorities form a probability distribution (each is in the
-//    range (0, 1], and they sum to 1). Each board's probability is proportional
-//    to its original configured priority, i.e. the board with the most negative
-//    configured priority has the highest probability.
-// 5. Sample a board from the probability distribution.
+//  1. The sign of priorities is flipped, so that the board with the most
+//     negative configured priority now has the most positive priority.
+//  2. If a priority is not defined for a board, it is implicitly 0, as defined
+//     in the BoardPriority proto comment.
+//  3. Priorities are shifted so that the minimum priority is 1.
+//  4. Priorities are divided by the sum of the shifted priorities. At this
+//     point, the priorities form a probability distribution (each is in the
+//     range (0, 1], and they sum to 1). Each board's probability is proportional
+//     to its original configured priority, i.e. the board with the most negative
+//     configured priority has the highest probability.
+//  5. Sample a board from the probability distribution.
 type RandomWeightedSelector struct {
 	rand            *rand.Rand
 	boardToPriority map[string]*testplans.BoardPriority

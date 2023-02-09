@@ -33,45 +33,50 @@ from chromite.lib.parser import package_info
 
 
 # The path of the cache.
-DEFAULT_CACHE_PATH = os.path.join(osutils.GetGlobalTempDir(),
-                                  'cleanup_crates.py')
+DEFAULT_CACHE_PATH = os.path.join(
+    osutils.GetGlobalTempDir(), "cleanup_crates.py"
+)
 
 # build targets to include for the host.
 HOST_CONFIGURATIONS = {
-    'virtual/target-sdk',
-    'virtual/target-sdk-post-cross',
+    "virtual/target-sdk",
+    "virtual/target-sdk-post-cross",
 }
 # build targets to include for each board.
 BOARD_CONFIGURATIONS = {
-    'virtual/target-os',
-    'virtual/target-os-dev',
-    'virtual/target-os-test',
+    "virtual/target-os",
+    "virtual/target-os-dev",
+    "virtual/target-os-test",
 }
 
 # The set of boards to check. This only needs to be a representative set.
-BOARDS = {'eve', 'tatl'} | (
-    set() if not os.path.isdir(os.path.join(constants.SOURCE_ROOT, 'src',
-                                            'private-overlays')) else
-    {'reven'}
+BOARDS = {"eve", "tatl"} | (
+    set()
+    if not os.path.isdir(
+        os.path.join(constants.SOURCE_ROOT, "src", "private-overlays")
+    )
+    else {"reven"}
 )
 
 _GEN_CONFIG = lambda boards, configs: [(b, c) for b in boards for c in configs]
 # A tuple of (board, ebuild) pairs used to generate the set of installed
 # packages.
-CONFIGURATIONS = (
-    _GEN_CONFIG((None,), HOST_CONFIGURATIONS) +
-    _GEN_CONFIG(BOARDS, BOARD_CONFIGURATIONS)
+CONFIGURATIONS = _GEN_CONFIG((None,), HOST_CONFIGURATIONS) + _GEN_CONFIG(
+    BOARDS, BOARD_CONFIGURATIONS
 )
 
-EBUILD_SUFFIX = '.ebuild'
+EBUILD_SUFFIX = ".ebuild"
+
 
 def main(argv):
     """List ebuilds for rust crates replaced by newer versions."""
     opts = get_opts(argv)
 
-    cln = CachedPackageLists(use_cache=opts.cache,
-                             clear_cache=opts.clear_cache,
-                             cache_dir=opts.cache_dir)
+    cln = CachedPackageLists(
+        use_cache=opts.cache,
+        clear_cache=opts.clear_cache,
+        cache_dir=opts.cache_dir,
+    )
 
     ebuilds = get_dev_rust_ebuilds()
     used = cln.get_used_packages(CONFIGURATIONS)
@@ -80,7 +85,7 @@ def main(argv):
 
     for key, value in find_ebuild_symlinks(ebuilds).items():
         if key in used and value not in used:
-            logging.info('Used symlink to unused cpvr: %s -> %s', key, value)
+            logging.info("Used symlink to unused cpvr: %s -> %s", key, value)
             used.add(value)
 
     used_pv = set()
@@ -90,12 +95,13 @@ def main(argv):
             unused_ebuilds.append(ebuild)
         else:
             used_pv.add(ebuild.pv)
-    print('\n'.join(sorted(x.cpvr for x in unused_ebuilds)))
+    print("\n".join(sorted(x.cpvr for x in unused_ebuilds)))
 
     if opts.apply:
         remove_ebuilds(unused_ebuilds)
-        remove_manifest_entries([x for x in unused_ebuilds
-                                 if x.pv not in used_pv])
+        remove_manifest_entries(
+            [x for x in unused_ebuilds if x.pv not in used_pv]
+        )
     return 0
 
 
@@ -103,21 +109,37 @@ def get_opts(argv):
     """Parse the command-line options."""
     parser = commandline.ArgumentParser(description=__doc__)
     parser.add_argument(
-        '-c', '--cache', action='store_true',
-        help='Enables caching of the results of GetPackageDependencies.')
+        "-c",
+        "--cache",
+        action="store_true",
+        help="Enables caching of the results of GetPackageDependencies.",
+    )
     parser.add_argument(
-        '-x', '--clear-cache', action='store_true',
-        help='Clears the contents of the cache before executing.')
+        "-x",
+        "--clear-cache",
+        action="store_true",
+        help="Clears the contents of the cache before executing.",
+    )
     parser.add_argument(
-        '-C', '--cache-dir', action='store', default=DEFAULT_CACHE_PATH,
-        type='path',
-        help='The path to store the cache (default: %(default)s)')
+        "-C",
+        "--cache-dir",
+        action="store",
+        default=DEFAULT_CACHE_PATH,
+        type="path",
+        help="The path to store the cache (default: %(default)s)",
+    )
     parser.add_argument(
-        '-A', '--apply', action='store_true',
-        help='Remove the ebuilds and their Manifest entries.')
+        "-A",
+        "--apply",
+        action="store_true",
+        help="Remove the ebuilds and their Manifest entries.",
+    )
     parser.add_argument(
-        '-L', '--latest', action='store_true',
-        help='Remove even the latest version of unused ebuilds')
+        "-L",
+        "--latest",
+        action="store_true",
+        help="Remove even the latest version of unused ebuilds",
+    )
     opts = parser.parse_args(argv)
     opts.Freeze()
     return opts
@@ -126,23 +148,23 @@ def get_opts(argv):
 def get_dev_rust_ebuilds():
     """Return a list of dev-rust ebuilds excluding cros-workon packages."""
     results = []
-    category = 'dev-rust'
-    category_dir = os.path.join(constants.SOURCE_ROOT,
-                                constants.CHROMIUMOS_OVERLAY_DIR,
-                                category)
+    category = "dev-rust"
+    category_dir = os.path.join(
+        constants.SOURCE_ROOT, constants.CHROMIUMOS_OVERLAY_DIR, category
+    )
     for package in os.listdir(category_dir):
         package_dir = os.path.join(category_dir, package)
         if not os.path.isdir(package_dir):
             continue
         # Skip cros-workon packages.
-        if os.path.exists(os.path.join(package_dir,
-                                       '%s-9999.ebuild' % package)):
+        if os.path.exists(
+            os.path.join(package_dir, "%s-9999.ebuild" % package)
+        ):
             continue
         for ebuild_name in os.listdir(package_dir):
             if not ebuild_name.lower().endswith(EBUILD_SUFFIX):
                 continue
-            cpvr = os.path.join(category,
-                                ebuild_name[0:-len(EBUILD_SUFFIX)])
+            cpvr = os.path.join(category, ebuild_name[0 : -len(EBUILD_SUFFIX)])
             results.append(package_info.parse(cpvr))
     return results
 
@@ -166,17 +188,23 @@ def _get_package_dependencies(board, package):
     if not board:
         board = None
     if board and not os.path.isdir(
-            build_target_lib.get_default_sysroot_path(board)):
-        chroot_util.SetupBoard(board, update_chroot=False,
-                               update_host_packages=False,)
+        build_target_lib.get_default_sysroot_path(board)
+    ):
+        chroot_util.SetupBoard(
+            board,
+            update_chroot=False,
+            update_host_packages=False,
+        )
     return portage_util.GetPackageDependencies(package, board)
 
 
 def get_ebuild_path(package):
     """Get the absolute path to a chromiumos-overlay ebuild."""
-    return os.path.join(constants.SOURCE_ROOT,
-                        constants.CHROMIUMOS_OVERLAY_DIR,
-                        package.relative_path)
+    return os.path.join(
+        constants.SOURCE_ROOT,
+        constants.CHROMIUMOS_OVERLAY_DIR,
+        package.relative_path,
+    )
 
 
 def chase_references(references):
@@ -219,16 +247,18 @@ def __find_ebuild_symlinks_impl(ebuild_dir, links):
             continue
         target = os.path.realpath(ebuild_path)
         target_name = os.path.basename(target)
-        prefix = '%s-' % package
-        if (os.path.dirname(target) != ebuild_dir or
-            not target_name.startswith(prefix) or
-            not target_name.lower().endswith(EBUILD_SUFFIX)):
-            logging.warning('Skipping symlink: %s -> %s', ebuild_path, target)
+        prefix = "%s-" % package
+        if (
+            os.path.dirname(target) != ebuild_dir
+            or not target_name.startswith(prefix)
+            or not target_name.lower().endswith(EBUILD_SUFFIX)
+        ):
+            logging.warning("Skipping symlink: %s -> %s", ebuild_path, target)
             continue
-        cpvr = os.path.join(category,
-                            ebuild_name[0:-len(EBUILD_SUFFIX)])
-        target_cpvr = os.path.join(category,
-                                   target_name[0:-len(EBUILD_SUFFIX)])
+        cpvr = os.path.join(category, ebuild_name[0 : -len(EBUILD_SUFFIX)])
+        target_cpvr = os.path.join(
+            category, target_name[0 : -len(EBUILD_SUFFIX)]
+        )
         links[cpvr] = target_cpvr
 
 
@@ -237,13 +267,13 @@ def remove_ebuilds(packages):
     for package in packages:
         ebuild_path = get_ebuild_path(package)
         ebuild_dir = os.path.dirname(ebuild_path)
-        logging.info('Removing: %s', ebuild_path)
+        logging.info("Removing: %s", ebuild_path)
         try:
             os.unlink(ebuild_path)
         except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
-            logging.warning('Could not find: %s', ebuild_path)
+            logging.warning("Could not find: %s", ebuild_path)
         try:
             os.rmdir(ebuild_dir)
         except OSError as e:
@@ -255,18 +285,18 @@ def remove_manifest_entries(packages):
     """Removes the manifest entries for the listed ebuilds."""
     for package in packages:
         ebuild_dir = os.path.dirname(get_ebuild_path(package))
-        manifest_path = os.path.join(ebuild_dir, 'Manifest')
+        manifest_path = os.path.join(ebuild_dir, "Manifest")
         if not os.path.exists(manifest_path):
-            logging.warning('Could not find: %s', manifest_path)
+            logging.warning("Could not find: %s", manifest_path)
             continue
-        logging.info('Updating: %s', manifest_path)
-        with open(manifest_path, 'r') as m:
+        logging.info("Updating: %s", manifest_path)
+        with open(manifest_path, "r") as m:
             manifest_lines = m.readlines()
         filtered_lines = [a for a in manifest_lines if package.pv not in a]
         if not filtered_lines:
             os.remove(manifest_path)
         elif len(filtered_lines) != len(manifest_lines):
-            with open(manifest_path, 'w') as m:
+            with open(manifest_path, "w") as m:
                 for line in filtered_lines:
                     m.write(line)
         try:
@@ -279,8 +309,9 @@ def remove_manifest_entries(packages):
 class CachedPackageLists:
     """Lists used packages with the specified cache configuration."""
 
-    def __init__(self, use_cache=False, clear_cache=False,
-                 cache_dir=DEFAULT_CACHE_PATH):
+    def __init__(
+        self, use_cache=False, clear_cache=False, cache_dir=DEFAULT_CACHE_PATH
+    ):
         """Initialize the cache if it is enabled."""
         self.use_cache = bool(use_cache)
         self.clear_cache = bool(clear_cache)
@@ -296,16 +327,16 @@ class CachedPackageLists:
             return fn()
 
         try:
-            with open(os.path.join(self.cache_dir, name), 'rb') as fp:
-                logging.info('cache hit: %s', name)
+            with open(os.path.join(self.cache_dir, name), "rb") as fp:
+                logging.info("cache hit: %s", name)
                 return pickle.load(fp)
         except FileNotFoundError:
             pass
 
-        logging.info('cache miss: %s', name)
+        logging.info("cache miss: %s", name)
         result = fn()
 
-        with open(os.path.join(self.cache_dir, name), 'wb+') as fp:
+        with open(os.path.join(self.cache_dir, name), "wb+") as fp:
             pickle.dump(result, fp)
 
         return result
@@ -314,10 +345,11 @@ class CachedPackageLists:
         """Return the packages installed in the specified configurations."""
 
         def get_deps(board, package):
-            filename_package = package.replace('/', ':')
+            filename_package = package.replace("/", ":")
             return self._try_cache(
-                f'deps:{board}:{filename_package}',
-                lambda: _get_package_dependencies(board, package))
+                f"deps:{board}:{filename_package}",
+                lambda: _get_package_dependencies(board, package),
+            )
 
         used = set()
         for board, package in configurations:
@@ -325,9 +357,9 @@ class CachedPackageLists:
             if deps:
                 used.update(deps)
             else:
-                logging.warning('No depts for (%s, %s)', board, package)
+                logging.warning("No depts for (%s, %s)", board, package)
         return used
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

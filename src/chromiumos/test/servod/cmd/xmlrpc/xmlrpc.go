@@ -101,9 +101,10 @@ type member struct {
 
 // String implements the String() interface of value.
 // Example:
-//  "test-string" : (string)test-string
-//        4       : (int)4
-//        1.25    : (double)1.25
+//
+//	"test-string" : (string)test-string
+//	      4       : (int)4
+//	      1.25    : (double)1.25
 func (v value) String() string {
 	if v.Boolean != nil {
 		return "(boolean)" + *v.Boolean

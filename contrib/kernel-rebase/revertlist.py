@@ -7,9 +7,11 @@
 """Calculate initial revert list, and mark patches in rebase database accordingly"""
 
 from __future__ import print_function
-import sqlite3
+
 import re
+import sqlite3
 import time
+
 from common import rebasedb
 
 
@@ -26,15 +28,18 @@ def mark_disposition(db, sha, disposition, reason, revert_sha):
 
     c = db.cursor()
 
-    print('    Marking %s for %s (%s)' % (sha, disposition, reason))
+    print("    Marking %s for %s (%s)" % (sha, disposition, reason))
 
     cmd = 'UPDATE commits SET disposition="%s", reason="%s", updated="%d"' % (
-        disposition, reason, NOW())
+        disposition,
+        reason,
+        NOW(),
+    )
     if revert_sha:
         cmd += ', dsha="%s"' % revert_sha
     cmd += ' where sha="%s"' % sha
 
-    print('  SQL: %s' % cmd)
+    print("  SQL: %s" % cmd)
 
     c.execute(cmd)
 
@@ -53,6 +58,7 @@ def mark_disposition(db, sha, disposition, reason, revert_sha):
 
 rp = re.compile(r'Revert "(.*)"')
 
+
 def handle_reverts():
     """Calculate initial revert list"""
 
@@ -61,24 +67,29 @@ def handle_reverts():
     c = conn.cursor()
     c2 = conn.cursor()
 
-    c.execute('select committed, sha, disposition, subject from commits')
+    c.execute("select committed, sha, disposition, subject from commits")
 
     for (committed, sha, disposition, desc) in c.fetchall():
         # If the patch has already been dropped, don't bother any further
-        if disposition == 'drop':
+        if disposition == "drop":
             continue
         m = rp.search(desc)
         if m:
             ndesc = m.group(1)
             print("Found revert : '%s' (%s)" % (desc.replace("'", "''"), sha))
             ndesc = ndesc.replace("'", "''")
-            c2.execute("select committed, sha from commits where subject is '%s'" %
-                       ndesc)
+            c2.execute(
+                "select committed, sha from commits where subject is '%s'"
+                % ndesc
+            )
             # Search for commit closest to the revert in the past
             # (There may be multiple if the revert was repeated)
             revert_committed = None
             revert_sha = None
-            for (_committed, _sha,) in c2.fetchall():
+            for (
+                _committed,
+                _sha,
+            ) in c2.fetchall():
                 if _committed < committed:
                     if not revert_sha or revert_committed < _committed:
                         revert_committed = _committed
@@ -86,25 +97,30 @@ def handle_reverts():
 
             # <sha> is the revert of <revert_sha>. Mark both as reverted.
             if revert_sha:
-                mark_disposition(conn, revert_sha, 'drop', 'reverted', sha)
-                mark_disposition(conn, sha, 'drop', 'reverted', revert_sha)
+                mark_disposition(conn, revert_sha, "drop", "reverted", sha)
+                mark_disposition(conn, sha, "drop", "reverted", revert_sha)
                 # Now check if we can find a FIXUP: of <revert_sha>. It must
                 # have been committed between <revert_sha> and <sha>.
-                fdesc = 'FIXUP: %s' % ndesc
+                fdesc = "FIXUP: %s" % ndesc
                 c2.execute(
-                    "select committed, sha from commits where subject is '%s'" %
-                    fdesc)
-                for (_committed, _sha,) in c2.fetchall():
+                    "select committed, sha from commits where subject is '%s'"
+                    % fdesc
+                )
+                for (
+                    _committed,
+                    _sha,
+                ) in c2.fetchall():
                     if revert_committed <= _committed <= committed:
-                        mark_disposition(conn, _sha, 'drop', 'fixup/reverted',
-                                         revert_sha)
+                        mark_disposition(
+                            conn, _sha, "drop", "fixup/reverted", revert_sha
+                        )
             else:
-                mark_disposition(conn, sha, 'pick', 'revisit', None)
-                print('    No matching commit found')
+                mark_disposition(conn, sha, "pick", "revisit", None)
+                print("    No matching commit found")
 
     conn.commit()
     conn.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     handle_reverts()

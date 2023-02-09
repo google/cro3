@@ -208,11 +208,11 @@ func (ib *CrosOpenWrtImageBuilder) CompileCustomPackages(ctx context.Context) er
 // image builder that includes customizations for ChromeOS test APs.
 //
 // These customizations include:
-//  - Inclusion of custom-built packages.
-//  - Inclusion/exclusion of specific official packages.
-//  - Inclusion of custom image files.
-//  - A customized image name.
-//  - The disabling of some core OpenWrt services that are not needed.
+//   - Inclusion of custom-built packages.
+//   - Inclusion/exclusion of specific official packages.
+//   - Inclusion of custom image files.
+//   - A customized image name.
+//   - The disabling of some core OpenWrt services that are not needed.
 //
 // This does not compile custom packages, it just uses precompiled package
 // IPKs saved to dirs.WorkingDirectory.PackagesOutputDirPath as IPK overrides

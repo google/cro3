@@ -8,6 +8,7 @@
 
 # Ignore line too long errors as many lines are large byte-arrays over 80 char
 # pylint: disable=line-too-long
+
 """Consts used by the generate_gtest_metadata unit tests."""
 
 ###### VALID YAML DATA #######
@@ -28,7 +29,7 @@ cases:
 target_bin_location: "/usr/local/fake_test_path/test_binary"
 ...
 """
-VALID_YAML_SINGLE_CASE_NO_TAG_PROTOBUF = b'\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com'
+VALID_YAML_SINGLE_CASE_NO_TAG_PROTOBUF = b"\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12+\n)\"'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com"
 
 VALID_YAML_SINGLE_CASE_ONE_TAG = """---
 author: "Existing Team"
@@ -47,7 +48,7 @@ cases:
 target_bin_location: "/usr/local/fake_test_path/test_binary"
 ...
 """
-VALID_YAML_SINGLE_CASE_ONE_TAG_PROTOBUF = b'\n\x8b\x01\nA\n\x1d\n\x1bgtest.MyFakeTest2.FakeCaseX\x12\x15MyFakeTest2.FakeCaseX\x1a\t\n\x07tag one\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com'
+VALID_YAML_SINGLE_CASE_ONE_TAG_PROTOBUF = b"\n\x8b\x01\nA\n\x1d\n\x1bgtest.MyFakeTest2.FakeCaseX\x12\x15MyFakeTest2.FakeCaseX\x1a\t\n\x07tag one\x12+\n)\"'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com"
 
 VALID_YAML_SINGLE_CASE_MULTIPLE_TAGS = """---
 author: "The Best Team"
@@ -66,7 +67,7 @@ cases:
 target_bin_location: "/usr/bin/fake_test_path/test_binary"
 ...
 """
-VALID_YAML_SINGLE_CASE_MULTIPLE_TAGS_PROTOBUF = b'\n\xd7\x01\n\x8f\x01\n&\n$gtest.YetAnotherTest.AnotherFakeCase\x12\x1eYetAnotherTest.AnotherFakeCase\x1a\t\n\x07tag one\x1a\t\n\x07two tag\x1a\r\n\x0banother tag\x1a\n\n\x08this_tag\x1a\x08\n\x06my*tag\x1a\n\n\x08your&tag\x12)\n\'"%\n#/usr/bin/fake_test_path/test_binary\x1a\x18\n\x16\n\x14myemail@chromium.org'
+VALID_YAML_SINGLE_CASE_MULTIPLE_TAGS_PROTOBUF = b"\n\xd7\x01\n\x8f\x01\n&\n$gtest.YetAnotherTest.AnotherFakeCase\x12\x1eYetAnotherTest.AnotherFakeCase\x1a\t\n\x07tag one\x1a\t\n\x07two tag\x1a\r\n\x0banother tag\x1a\n\n\x08this_tag\x1a\x08\n\x06my*tag\x1a\n\n\x08your&tag\x12)\n'\"%\n#/usr/bin/fake_test_path/test_binary\x1a\x18\n\x16\n\x14myemail@chromium.org"
 
 VALID_YAML_MULTIPLE_CASE_NO_TAG = """---
 author: "New Team"
@@ -88,7 +89,7 @@ cases:
 target_bin_location: "/usr/local/fake_test_path/test_binary"
 ...
 """
-VALID_YAML_MULTIPLE_CASE_NO_TAG_PROTOBUF = b'\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase2\x12\x14MyFakeTest.FakeCase2\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com'
+VALID_YAML_MULTIPLE_CASE_NO_TAG_PROTOBUF = b"\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12+\n)\"'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase2\x12\x14MyFakeTest.FakeCase2\x12+\n)\"'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com"
 
 VALID_YAML_MULTIPLE_CASE_ONE_TAG = """---
 author: "Multi-Case Team"
@@ -158,7 +159,7 @@ cases:
 target_bin_location: "/usr/local/fake_test_path/test_binary"
 ...
 """
-VALID_YAML_EMPTY_TEST_BED_DEPS_PROTOBUF = b'\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12+\n)"\'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com'
+VALID_YAML_EMPTY_TEST_BED_DEPS_PROTOBUF = b"\n~\n4\n\x1c\n\x1agtest.MyFakeTest.FakeCase1\x12\x14MyFakeTest.FakeCase1\x12+\n)\"'\n%/usr/local/fake_test_path/test_binary\x1a\x19\n\x17\n\x15owneremail@google.com"
 
 VALID_YAML_SINGLE_TEST_BED_DEPS = """---
 author: "New Team"

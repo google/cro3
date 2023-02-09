@@ -1,23 +1,37 @@
 {
-  "extends": ["google", "prettier", "plugin:react/recommended"],
-  "plugins": ["prettier", "react", "react-hooks", "babel"],
+  "env": {
+    "browser": true,
+    "es2021": true
+  },
+  "extends": [
+    "google",
+    "prettier",
+    "plugin:react/recommended"
+  ],
   "parser": "@babel/eslint-parser",
+  "plugins": [
+    "prettier",
+    "react",
+    "react-hooks",
+    "babel"
+  ],
+  "rules": {
+    "babel/no-invalid-this": 1,
+    "jsx-quotes": [
+      2,
+      "prefer-single"
+    ],
+    "no-invalid-this": 0,
+    "prettier/prettier": [
+      "error"
+    ],
+    "react-hooks/exhaustive-deps": "warn",
+    "react-hooks/rules-of-hooks": "error",
+    "require-jsdoc": 0
+  },
   "settings": {
     "react": {
-        "version": "detect"
+      "version": "detect"
     }
-  },
-  "env": {
-      "browser": true,
-      "es2021": true
-  },
-  "rules": {
-    "prettier/prettier": ["error"],
-    "react-hooks/rules-of-hooks": "error",
-    "react-hooks/exhaustive-deps": "warn",
-    "require-jsdoc": 0,
-    "no-invalid-this": 0,
-    "babel/no-invalid-this": 1,
-    "jsx-quotes": [2, "prefer-single"]
   }
 }

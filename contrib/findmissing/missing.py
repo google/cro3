@@ -5,23 +5,19 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Find missing stable and backported mainline fix patches in chromeos.
-
-   isort:skip_file
-"""
+"""Find missing stable and backported mainline fix patches in chromeos."""
 
 import logging
 import os
 import subprocess
 import sys
 
-import MySQLdb # pylint: disable=import-error
-import requests # pylint: disable=import-error
-
 import cloudsql_interface
 import common
 import gerrit_interface
 import git_interface
+import MySQLdb  # pylint: disable=import-error
+import requests  # pylint: disable=import-error
 
 
 # Constant representing number CL's we want created on single new missing patch run
@@ -82,7 +78,7 @@ def get_change_id(db, target_branch, sha):
 
     If multiple Change IDs are available, pick one that has not been abandoned.
     """
-    logging.info('Looking up Change ID for upstream SHA %s', sha)
+    logging.info("Looking up Change ID for upstream SHA %s", sha)
 
     q = """SELECT c.fix_change_id, c.branch, s.fix_change_id, s.branch
         FROM linux_upstream AS l1
@@ -101,9 +97,19 @@ def get_change_id(db, target_branch, sha):
     change_id_cand, status_cand = None, None
     reject_list = []
 
-    for chrome_change_id, chrome_branch, stable_change_id, stable_branch in rows:
-        logging.info('Database: %s %s %s %s',
-                     chrome_change_id, chrome_branch, stable_change_id, stable_branch)
+    for (
+        chrome_change_id,
+        chrome_branch,
+        stable_change_id,
+        stable_branch,
+    ) in rows:
+        logging.info(
+            "Database: %s %s %s %s",
+            chrome_change_id,
+            chrome_branch,
+            stable_change_id,
+            stable_branch,
+        )
         # Some entries in fixes_table do not have a change id attached.
         # This will be seen if a patch was identified as already merged
         # or as duplicate.  Skip those. Also skip empty entries returned
@@ -125,18 +131,27 @@ def get_change_id(db, target_branch, sha):
                 # such Change-Ids. To verify, try to get the status from Gerrit
                 # and skip if the Change-Id is not found.
                 gerrit_status = gerrit_interface.get_status(change_id, branch)
-                logging.info('Found Change ID %s in branch %s, status %s',
-                             change_id, branch, gerrit_status)
+                logging.info(
+                    "Found Change ID %s in branch %s, status %s",
+                    change_id,
+                    branch,
+                    gerrit_status,
+                )
                 # We can not use a Change-ID which exists in Gerrit but is marked
                 # as abandoned for the target branch.
                 if change_id in reject_list:
                     continue
-                if (branch == target_branch and
-                        gerrit_status == gerrit_interface.GerritStatus.ABANDONED):
+                if (
+                    branch == target_branch
+                    and gerrit_status == gerrit_interface.GerritStatus.ABANDONED
+                ):
                     reject_list.append(change_id)
                     continue
 
-                if not change_id_cand or gerrit_status != gerrit_interface.GerritStatus.ABANDONED:
+                if (
+                    not change_id_cand
+                    or gerrit_status != gerrit_interface.GerritStatus.ABANDONED
+                ):
                     change_id_cand, status_cand = change_id, gerrit_status
                 if status_cand != gerrit_interface.GerritStatus.ABANDONED:
                     break
@@ -147,8 +162,10 @@ def get_change_id(db, target_branch, sha):
         if change_id_cand in reject_list:
             change_id_cand, status_cand = None, None
 
-    reject = status_cand == gerrit_interface.GerritStatus.ABANDONED and bool(reject_list)
-    logging.info('Returning Change-Id %s, reject=%s', change_id_cand, reject)
+    reject = status_cand == gerrit_interface.GerritStatus.ABANDONED and bool(
+        reject_list
+    )
+    logging.info("Returning Change-Id %s, reject=%s", change_id_cand, reject)
     return change_id_cand, reject
 
 
@@ -191,7 +208,10 @@ def update_duplicate_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
     # (meaning both have the same patch ID).
     # The entry we need to add to the fixes table is for fixed_sha, not for
     # kernel_sha (because kernel_sha is already in the database).
-    reason = 'Already merged/queued into linux_chrome [upstream sha %s]' % recorded_upstream_sha
+    reason = (
+        "Already merged/queued into linux_chrome [upstream sha %s]"
+        % recorded_upstream_sha
+    )
 
     # Status must be OPEN, MERGED or ABANDONED since we don't have
     # entries with CONFLICT in the fixes table.
@@ -212,16 +232,34 @@ def update_duplicate_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
 
     try:
         with db.cursor() as c:
-            c.execute(q, [fixed_sha, fixedby_upstream_sha, branch, entry_time, entry_time,
-                          status, final_status, reason])
+            c.execute(
+                q,
+                [
+                    fixed_sha,
+                    fixedby_upstream_sha,
+                    branch,
+                    entry_time,
+                    entry_time,
+                    status,
+                    final_status,
+                    reason,
+                ],
+            )
         db.commit()
 
-        logging.info('SHA %s [%s] fixed by %s: %s',
-                     fixed_sha, kernel_sha, fixedby_upstream_sha, reason)
-    except MySQLdb.Error as e: # pylint: disable=no-member
+        logging.info(
+            "SHA %s [%s] fixed by %s: %s",
+            fixed_sha,
+            kernel_sha,
+            fixedby_upstream_sha,
+            reason,
+        )
+    except MySQLdb.Error as e:  # pylint: disable=no-member
         logging.error(
-            'Failed to insert an already merged/queued entry into chrome_fixes: error %d (%s)',
-            e.args[0], e.args[1])
+            "Failed to insert an already merged/queued entry into chrome_fixes: error %d (%s)",
+            e.args[0],
+            e.args[1],
+        )
 
     return True
 
@@ -263,7 +301,10 @@ def update_duplicate_by_patch_id2(db, branch, fixedby_upstream_sha):
     if chrome_shas:
         entry_time = common.get_current_time()
         cl_status = common.Status.MERGED.name
-        reason = 'Already merged into linux_chrome [upstream sha %s]' % fixedby_upstream_sha
+        reason = (
+            "Already merged into linux_chrome [upstream sha %s]"
+            % fixedby_upstream_sha
+        )
         q = """INSERT INTO chrome_fixes
                 (kernel_sha, fixedby_upstream_sha, branch, entry_time,
                 close_time, initial_status, status, reason)
@@ -272,13 +313,26 @@ def update_duplicate_by_patch_id2(db, branch, fixedby_upstream_sha):
         for chrome_sha in chrome_shas:
             try:
                 with db.cursor() as c:
-                    c.execute(q, [chrome_sha, fixedby_upstream_sha, branch, entry_time, entry_time,
-                                  cl_status, cl_status, reason])
+                    c.execute(
+                        q,
+                        [
+                            chrome_sha,
+                            fixedby_upstream_sha,
+                            branch,
+                            entry_time,
+                            entry_time,
+                            cl_status,
+                            cl_status,
+                            reason,
+                        ],
+                    )
                 db.commit()
-            except MySQLdb.Error as e: # pylint: disable=no-member
+            except MySQLdb.Error as e:  # pylint: disable=no-member
                 logging.error(
-                    'Failed to insert an already merged entry into chrome_fixes: error %d(%s)',
-                    e.args[0], e.args[1])
+                    "Failed to insert an already merged entry into chrome_fixes: error %d(%s)",
+                    e.args[0],
+                    e.args[1],
+                )
 
         return True
 
@@ -290,7 +344,9 @@ def check_merged_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
 
     Returns True if successful patch_id insertion and False if patch_id not found.
     """
-    updated = update_duplicate_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha)
+    updated = update_duplicate_by_patch_id(
+        db, branch, fixed_sha, fixedby_upstream_sha
+    )
     if updated:
         return True
 
@@ -301,14 +357,23 @@ def check_merged_by_patch_id(db, branch, fixed_sha, fixedby_upstream_sha):
     return False
 
 
-def create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstream_sha,
-               in_recursion=False):
+def create_fix(
+    db,
+    chosen_table,
+    chosen_fixes,
+    branch,
+    kernel_sha,
+    fixedby_upstream_sha,
+    in_recursion=False,
+):
     """Inserts fix row by checking status of applying a fix change.
 
     Return True if we create a new Gerrit CL, otherwise return False.
     """
     # Check if fix has been merged using it's patch-id since sha's might've changed
-    merged = check_merged_by_patch_id(db, branch, kernel_sha, fixedby_upstream_sha)
+    merged = check_merged_by_patch_id(
+        db, branch, kernel_sha, fixedby_upstream_sha
+    )
     if merged:
         return False
 
@@ -317,8 +382,9 @@ def create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstr
     close_time = fix_change_id = reason = None
 
     # Try applying patch and get status
-    handler = git_interface.commitHandler(common.Kernel.linux_chrome, branch=branch,
-                                          full_reset=not in_recursion)
+    handler = git_interface.commitHandler(
+        common.Kernel.linux_chrome, branch=branch, full_reset=not in_recursion
+    )
     status = handler.cherrypick_status(fixedby_upstream_sha)
     initial_status = status.name
     current_status = status.name
@@ -327,18 +393,26 @@ def create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstr
         # Create a row for the merged CL (we don't need to track this), but can be stored
         # to indicate that the changes of this patch are already merged
         # entry_time and close_time are the same since we weren't tracking when it was merged
-        fixedby_kernel_sha = upstream_sha_to_kernel_sha(db, chosen_table,
-                branch, fixedby_upstream_sha)
-        logging.info('%s SHA [%s] already merged bugfix patch [kernel: %s] [upstream: %s]',
-                     chosen_fixes, kernel_sha, fixedby_kernel_sha, fixedby_upstream_sha)
+        fixedby_kernel_sha = upstream_sha_to_kernel_sha(
+            db, chosen_table, branch, fixedby_upstream_sha
+        )
+        logging.info(
+            "%s SHA [%s] already merged bugfix patch [kernel: %s] [upstream: %s]",
+            chosen_fixes,
+            kernel_sha,
+            fixedby_kernel_sha,
+            fixedby_upstream_sha,
+        )
 
-        reason = 'Patch applied to linux_chrome before this robot was run'
+        reason = "Patch applied to linux_chrome before this robot was run"
         close_time = entry_time
 
         # linux_chrome will have change-id's but stable merged fixes will not
         # Correctly located fixedby_kernel_sha in linux_chrome
-        if chosen_table == 'linux_chrome' and fixedby_kernel_sha:
-            fix_change_id = git_interface.get_commit_changeid_linux_chrome(fixedby_kernel_sha)
+        if chosen_table == "linux_chrome" and fixedby_kernel_sha:
+            fix_change_id = git_interface.get_commit_changeid_linux_chrome(
+                fixedby_kernel_sha
+            )
     elif status == common.Status.OPEN:
         change_id, rejected = get_change_id(db, branch, fixedby_upstream_sha)
         if rejected:
@@ -347,19 +421,28 @@ def create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstr
             # as abandoned to prevent it from being retried over and over again.
             current_status = common.Status.ABANDONED.name
         else:
-            fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha, branch,
-                                                           chosen_table == 'linux_chrome',
-                                                           change_id)
+            fix_change_id = gerrit_interface.create_change(
+                kernel_sha,
+                fixedby_upstream_sha,
+                branch,
+                chosen_table == "linux_chrome",
+                change_id,
+            )
             created_new_change = bool(fix_change_id)
 
             # Checks if change was created successfully
             if not created_new_change:
-                logging.error('Failed to create change for kernel_sha %s fixed by %s',
-                              kernel_sha, fixedby_upstream_sha)
+                logging.error(
+                    "Failed to create change for kernel_sha %s fixed by %s",
+                    kernel_sha,
+                    fixedby_upstream_sha,
+                )
                 return False
 
             if not gerrit_interface.label_cq_plus1(branch, fix_change_id):
-                logging.info('Failed to CQ+1 for branch:%s %s', branch, fix_change_id)
+                logging.info(
+                    "Failed to CQ+1 for branch:%s %s", branch, fix_change_id
+                )
     elif status == common.Status.CONFLICT:
         # Register conflict entry_time, do not create gerrit CL
         # Requires engineer to manually explore why CL doesn't apply cleanly
@@ -372,24 +455,68 @@ def create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fixedby_upstr
 
     try:
         with db.cursor() as c:
-            c.execute(q, [kernel_sha, fixedby_upstream_sha, branch, entry_time,
-                          close_time, fix_change_id, initial_status, current_status, reason])
+            c.execute(
+                q,
+                [
+                    kernel_sha,
+                    fixedby_upstream_sha,
+                    branch,
+                    entry_time,
+                    close_time,
+                    fix_change_id,
+                    initial_status,
+                    current_status,
+                    reason,
+                ],
+            )
 
-        logging.info('Inserted row into fixes table %s %s %s %s %s %s %s %s %s %s',
-                     chosen_fixes, kernel_sha, fixedby_upstream_sha, branch,
-                     entry_time, close_time, fix_change_id, initial_status, current_status, reason)
-    except MySQLdb.Error as e: # pylint: disable=no-member
+        logging.info(
+            "Inserted row into fixes table %s %s %s %s %s %s %s %s %s %s",
+            chosen_fixes,
+            kernel_sha,
+            fixedby_upstream_sha,
+            branch,
+            entry_time,
+            close_time,
+            fix_change_id,
+            initial_status,
+            current_status,
+            reason,
+        )
+    except MySQLdb.Error as e:  # pylint: disable=no-member
         logging.error(
-            'Error inserting fix CL into fixes table %s %s %s %s %s %s %s %s %s %s: error %d(%s)',
-            chosen_fixes, kernel_sha, fixedby_upstream_sha, branch,
-            entry_time, close_time, fix_change_id, initial_status, current_status, reason,
-            e.args[0], e.args[1])
+            "Error inserting fix CL into fixes table %s %s %s %s %s %s %s %s %s %s: error %d(%s)",
+            chosen_fixes,
+            kernel_sha,
+            fixedby_upstream_sha,
+            branch,
+            entry_time,
+            close_time,
+            fix_change_id,
+            initial_status,
+            current_status,
+            reason,
+            e.args[0],
+            e.args[1],
+        )
 
     if created_new_change and not in_recursion:
         subsequent_fixes = get_subsequent_fixes(db, fixedby_upstream_sha)
-        for fix in subsequent_fixes[1:]: # 1st returned SHA is fixedby_upstream_sha
-            logging.info('SHA %s recursively fixed by: %s', fixedby_upstream_sha, fix)
-            create_fix(db, chosen_table, chosen_fixes, branch, kernel_sha, fix, in_recursion=True)
+        for fix in subsequent_fixes[
+            1:
+        ]:  # 1st returned SHA is fixedby_upstream_sha
+            logging.info(
+                "SHA %s recursively fixed by: %s", fixedby_upstream_sha, fix
+            )
+            create_fix(
+                db,
+                chosen_table,
+                chosen_fixes,
+                branch,
+                kernel_sha,
+                fix,
+                in_recursion=True,
+            )
 
     return created_new_change
 
@@ -414,45 +541,66 @@ def fixup_unmerged_patches(db, branch, kernel_metadata):
         rows = c.fetchall()
 
     for kernel_sha, fixedby_upstream_sha, status, fix_change_id in rows:
-        new_status_enum = handler.cherrypick_status(fixedby_upstream_sha,
-                                                    apply=status != 'ABANDONED')
+        new_status_enum = handler.cherrypick_status(
+            fixedby_upstream_sha, apply=status != "ABANDONED"
+        )
         if not new_status_enum:
             continue
 
         new_status = new_status_enum.name
 
-        if status == 'CONFLICT' and new_status == 'OPEN':
-            change_id, rejected = get_change_id(db, branch, fixedby_upstream_sha)
+        if status == "CONFLICT" and new_status == "OPEN":
+            change_id, rejected = get_change_id(
+                db, branch, fixedby_upstream_sha
+            )
             if rejected:
                 # The cherry-pick was successful, but the commit is marked as abandoned
                 # in gerrit. Mark it accordingly.
-                reason = 'Fix abandoned in Gerrit'
-                cloudsql_interface.update_change_abandoned(db, fixes_table, kernel_sha,
-                                                           fixedby_upstream_sha, reason)
+                reason = "Fix abandoned in Gerrit"
+                cloudsql_interface.update_change_abandoned(
+                    db, fixes_table, kernel_sha, fixedby_upstream_sha, reason
+                )
             else:
-                fix_change_id = gerrit_interface.create_change(kernel_sha, fixedby_upstream_sha,
-                                        branch, kernel_metadata.path == 'linux_chrome', change_id)
+                fix_change_id = gerrit_interface.create_change(
+                    kernel_sha,
+                    fixedby_upstream_sha,
+                    branch,
+                    kernel_metadata.path == "linux_chrome",
+                    change_id,
+                )
 
                 # Check if we successfully created the fix patch before performing update
                 if fix_change_id:
-                    cloudsql_interface.update_conflict_to_open(db, fixes_table,
-                                        kernel_sha, fixedby_upstream_sha, fix_change_id)
+                    cloudsql_interface.update_conflict_to_open(
+                        db,
+                        fixes_table,
+                        kernel_sha,
+                        fixedby_upstream_sha,
+                        fix_change_id,
+                    )
 
-                    if not gerrit_interface.label_cq_plus1(branch, fix_change_id):
-                        logging.info('Failed to CQ+1 for branch:%s %s', branch, fix_change_id)
-        elif new_status == 'MERGED':
+                    if not gerrit_interface.label_cq_plus1(
+                        branch, fix_change_id
+                    ):
+                        logging.info(
+                            "Failed to CQ+1 for branch:%s %s",
+                            branch,
+                            fix_change_id,
+                        )
+        elif new_status == "MERGED":
             # This specifically includes situations where a patch marked ABANDONED
             # in the database was merged at some point anyway.
-            reason = 'Fix was merged externally and detected by robot.'
+            reason = "Fix was merged externally and detected by robot."
             if fix_change_id:
                 gerrit_interface.abandon_change(fix_change_id, branch, reason)
-            cloudsql_interface.update_change_merged(db, fixes_table,
-                                        kernel_sha, fixedby_upstream_sha, reason)
+            cloudsql_interface.update_change_merged(
+                db, fixes_table, kernel_sha, fixedby_upstream_sha, reason
+            )
 
 
 def update_fixes_in_branch(db, branch, kernel_metadata, limit):
     """Updates fix patch table row by determining if CL merged into linux_chrome."""
-    del limit # unused here
+    del limit  # unused here
 
     chosen_fixes = kernel_metadata.kernel_fixes_table
 
@@ -468,17 +616,26 @@ def update_fixes_in_branch(db, branch, kernel_metadata, limit):
                 OR fixes.status = 'ABANDONED')"""
 
     close_time = common.get_current_time()
-    reason = 'Patch has been applied to linux_chome'
+    reason = "Patch has been applied to linux_chome"
 
     try:
         with db.cursor() as c:
             c.execute(q, [close_time, reason, branch, branch])
         logging.info(
-            'Updating rows that have been merged into linux_chrome in table %s / branch %s',
-            chosen_fixes, branch)
-    except MySQLdb.Error as e: # pylint: disable=no-member
-        logging.error('Error updating fixes table for merged commits %s %s %s %s: %d(%s)',
-                      chosen_fixes, close_time, reason, branch, e.args[0], e.args[1])
+            "Updating rows that have been merged into linux_chrome in table %s / branch %s",
+            chosen_fixes,
+            branch,
+        )
+    except MySQLdb.Error as e:  # pylint: disable=no-member
+        logging.error(
+            "Error updating fixes table for merged commits %s %s %s %s: %d(%s)",
+            chosen_fixes,
+            close_time,
+            reason,
+            branch,
+            e.args[0],
+            e.args[1],
+        )
     db.commit()
 
     # Sync status of unmerged patches in a branch
@@ -489,9 +646,13 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
     """Look for missing Fixup commits in provided chromeos or stable release."""
     branch_name = kernel_metadata.get_kernel_branch(branch)
 
-    logging.info('Checking branch %s', branch_name)
-    subprocess.run(['git', 'checkout', branch_name], check=True,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    logging.info("Checking branch %s", branch_name)
+    subprocess.run(
+        ["git", "checkout", branch_name],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
     # chosen_table is either linux_stable or linux_chrome
     chosen_table = kernel_metadata.path
@@ -518,11 +679,21 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
             rows = c.fetchall()
 
         if rows:
-            logging.info('Finding new rows to insert into fixes table %s %s %s',
-                         chosen_table, chosen_fixes, branch)
-    except MySQLdb.Error as e: # pylint: disable=no-member
-        logging.error('Error finding new rows to insert %s %s %s: error %d(%s)',
-                      chosen_table, chosen_fixes, branch, e.args[0], e.args[1])
+            logging.info(
+                "Finding new rows to insert into fixes table %s %s %s",
+                chosen_table,
+                chosen_fixes,
+                branch,
+            )
+    except MySQLdb.Error as e:  # pylint: disable=no-member
+        logging.error(
+            "Error finding new rows to insert %s %s %s: error %d(%s)",
+            chosen_table,
+            chosen_fixes,
+            branch,
+            e.args[0],
+            e.args[1],
+        )
 
     # todo(hirthanan): Create an intermediate state in Status that allows us to
     #   create all the patches in chrome/stable fixes tables but does not add reviewers
@@ -533,8 +704,14 @@ def create_new_fixes_in_branch(db, branch, kernel_metadata, limit):
         if limit is not None and limit <= 0:
             break
 
-        created = create_fix(db, chosen_table, chosen_fixes, branch,
-                             kernel_sha, fixedby_upstream_sha)
+        created = create_fix(
+            db,
+            chosen_table,
+            chosen_fixes,
+            branch,
+            kernel_sha,
+            fixedby_upstream_sha,
+        )
         if created and limit:
             limit -= 1
 
@@ -560,12 +737,20 @@ def new_missing_patches():
     """Rate limit calling create_new_fixes_in_branch."""
     with common.connect_db() as db:
         kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_stable)
-        missing_patches_sync(db, kernel_metadata, create_new_fixes_in_branch,
-                             NEW_CL_DAILY_LIMIT_PER_STABLE_BRANCH)
+        missing_patches_sync(
+            db,
+            kernel_metadata,
+            create_new_fixes_in_branch,
+            NEW_CL_DAILY_LIMIT_PER_STABLE_BRANCH,
+        )
 
         kernel_metadata = common.get_kernel_metadata(common.Kernel.linux_chrome)
-        missing_patches_sync(db, kernel_metadata, create_new_fixes_in_branch,
-                             NEW_CL_DAILY_LIMIT_PER_BRANCH)
+        missing_patches_sync(
+            db,
+            kernel_metadata,
+            create_new_fixes_in_branch,
+            NEW_CL_DAILY_LIMIT_PER_BRANCH,
+        )
 
 
 def update_missing_patches():

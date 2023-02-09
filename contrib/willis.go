@@ -220,7 +220,9 @@ func findRepoRoot() (string, error) {
 
 // runCommand runs a shell command.
 // cmdArray is an array of strings starting with the command name and followed
-//    by the command line paramters.
+//
+//	by the command line paramters.
+//
 // Returns two strinngs (stdout and stderr) and the error value.
 func runCommand(args ...string) (stdout, stderr string, err error) {
 	var outbuf bytes.Buffer

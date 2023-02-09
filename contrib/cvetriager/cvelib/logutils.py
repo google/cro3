@@ -7,8 +7,9 @@ from __future__ import print_function
 
 import logging
 
+
 loggers = {}
-LOGFMT = '%(process)d:%(levelname)s:%(name)s:%(message)s'
+LOGFMT = "%(process)d:%(levelname)s:%(name)s:%(message)s"
 
 
 def setuplogging(loglvl, name):
