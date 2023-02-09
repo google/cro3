@@ -120,3 +120,31 @@ disp_overwrite["c5daa007043c"] = [
     "move",
     "bluetooth",
 ]  # FROMLIST: devcoredump: Add per device sysfs entry to enable/disable coredump
+disp_overwrite["c43794b74082"] = [
+    "move",
+    "mm",
+]  # CHROMIUM: Restrict swapon() to "zram" devices / lock down zram
+disp_overwrite["dba4f3cbb765"] = [
+    "move",
+    "mm",
+]  # CHROMIUM: mm: Optionally limit per-process reclaim.
+disp_overwrite["b0d09d869ece"] = [
+    "move",
+    "other",
+]  # UBUNTU: SAUCE: trace: add trace events for open(), exec() and uselib()
+disp_overwrite["96b417ee494a"] = [
+    "move",
+    "arch",
+]  # CHROMIUM: sched: Add /proc/pid/tasks/tid/latency_sensitive attribute
+disp_overwrite["84c9494dc1c2"] = [
+    "move",
+    "arch",
+]  # FIXUP: trace: sched: Use __get_wchan() instead of get_wchan()
+disp_overwrite["58b9f94d66b0"] = [
+    "move",
+    "chromeos",
+]  # CHROMIUM: ARM64: Add alt-syscall support
+disp_overwrite["00e61e91369c"] = [
+    "move",
+    "chromeos",
+]  # CHROMIUM: alt-syscall: Make required syscalls available for use
