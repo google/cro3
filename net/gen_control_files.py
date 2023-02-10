@@ -154,13 +154,6 @@ for carrier in [
     )
 
     tests = single_test_template.format(
-        test_exprs="['cellular.HostCellularNetworkConnectivity']"
-    )
-    write_control_file(
-        out_dir, ["cellular_ota_flaky"], carrier, "for_stabilization", tests
-    )
-
-    tests = single_test_template.format(
         test_exprs="['cellular.ShillCellularEnableAndConnect','cellular.HostCellularStressEnableDisable','cellular.ModemmanagerEnableAndConnect','cellular.ShillCellularSafetyDance']"
     )
     write_control_file(
