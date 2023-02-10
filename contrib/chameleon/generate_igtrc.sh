@@ -13,8 +13,8 @@ while [[ $# -gt 0 ]]; do
       echo "For more info about this file, please check https://gitlab.freedesktop.org/drm/igt-gpu-tools/-/blob/master/docs/chamelium.txt#:~:text=FrameDumpPath%3D/root/"
       echo ""
       echo "Options:"
-      echo "  -d, --dut_ip      IP or hostname of the DUT where the file will live and to which chamelium is connected. i.e. mydut"
-      echo "  -c, --cv3_ip      IP or hostname of the chamelium itself. i.e. 192.168.0.29"
+      echo "  -d, --dut_ip      IP or hostname of the DUT from YOUR POV where the file will live and to which chamelium is connected. i.e. mydut"
+      echo "  -c, --cv3_ip      IP of chamelium from the DUT's POV i.e. 192.168.0.29"
       echo "  -h, --help        Show this help message."
       exit 0
       ;;
@@ -70,7 +70,7 @@ fi
 
 
 # Write the igtrc file to the remote device
-if ssh "${target_dut_ip}" "echo '${igtrc_file}' > ~/.igtrc4"; then
+if ssh "${target_dut_ip}" "echo '${igtrc_file}' > ~/.igtrc"; then
   echo "igtrc file successfully written to the remote device at ${dut_ip}."
 else
   echo "Error: Failed to write igtrc file to the remote device. Make sure rootfs verification has been removed by running |sudo /usr/share/vboot/bin/make_dev_ssd.sh --remove_rootfs_verification|"
