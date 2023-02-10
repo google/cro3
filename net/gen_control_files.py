@@ -147,7 +147,7 @@ for carrier in [
     )
     write_control_file(
         out_dir,
-        ["cellular_ota", "cellular_repair"],
+        dut_check_suites,
         carrier,
         "autoconnect_enable",
         tests,
@@ -216,3 +216,10 @@ for carrier in [
     write_control_file(
         out_dir, ["cellular_ota_perf_flaky"], carrier, "perf", tests
     )
+
+    # limit carrier independent cq tests to tmobile to save lab time.
+    if carrier == "tmobile":
+        tests = single_test_template.format(
+            test_exprs='[\'("group:cellular" && "cellular_sim_active" && !"cellular_run_isolated" && "cellular_cq")\']'
+        )
+        write_control_file(out_dir, ["cellular-cq"], carrier, "cq", tests)
