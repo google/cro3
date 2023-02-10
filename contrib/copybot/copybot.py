@@ -763,12 +763,8 @@ def run_copybot(args, tmp_dir):
 
     push_refspec = get_push_refspec(args, downstream_branch)
     if not args.dry_run:
-        # We always want uploadvalidator~skip, since we're uploading
-        # pre-existing third-party commits.
         try:
-            repo.push(
-                downstream_url, push_refspec, options=["uploadvalidator~skip"]
-            )
+            repo.push(downstream_url, push_refspec, options=args.push_options)
         except subprocess.CalledProcessError as e:
             raise PushError(f"Failed to push to {downstream_url}") from e
     else:
@@ -833,6 +829,13 @@ def main(argv=None):
         help="CC to set in Gerrit (can be passed multiple times)",
         action="append",
         dest="ccs",
+        default=[],
+    )
+    parser.add_argument(
+        "--push-option",
+        help="Add downstream push option (can be passed multiple times)",
+        action="append",
+        dest="push_options",
         default=[],
     )
     parser.add_argument(

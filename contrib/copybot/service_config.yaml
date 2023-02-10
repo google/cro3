@@ -21,6 +21,11 @@ base-manifest:
 common-options: &common_options
   keep-pseudoheaders:
     - Cq-Depend
+  push-options:
+    # Ignore leak checks: we're publishing already-public commits, so
+    # we can't leak anything that isn't already public.
+    - "uploadvalidator~skip"
+    - "nokeycheck"
 
 zephyr-downstream: &zephyr_downstream
   <<: *common_options

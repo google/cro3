@@ -57,6 +57,7 @@ def get_copybot_command(path_to_copybot, service):
         ("hashtags", "--ht"),
         ("exclude-file-patterns", "--exclude-file-pattern"),
         ("keep-pseudoheaders", "--keep-pseudoheader"),
+        ("push-options", "--push-option"),
     ]:
         vals = service.get(option, [])
         for val in vals:
