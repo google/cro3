@@ -9,6 +9,7 @@
 
 import socket
 
+from cellular import logger
 import requests  # pylint: disable=E0401
 
 
@@ -23,7 +24,7 @@ class SocketInstrumentError(Exception):
             command: Additional information on command,
                 Type, Str.
         """
-        super().__init__(error)
+        super(SocketInstrumentError, self).__init__(error)
         self._error_code = error
         self._error_message = self._error_code
         if command is not None:
@@ -35,10 +36,10 @@ class SocketInstrumentError(Exception):
         return self._error_message
 
 
-class SocketInstrument:
+class SocketInstrument(object):
     """Abstract Instrument Class, via Socket and SCPI."""
 
-    def __init__(self, ip_addr, ip_port, logger):
+    def __init__(self, ip_addr, ip_port):
         """Init method for Socket Instrument.
 
         Args:
@@ -47,7 +48,6 @@ class SocketInstrument:
             ip_port: TCPIP Port.
                 Type, str.
         """
-        self._logger = logger
         self._socket_timeout = 120
         self._socket_buffer_size = 1024
 
@@ -57,12 +57,14 @@ class SocketInstrument:
         self._escseq = "\n"
         self._codefmt = "utf-8"
 
+        self._logger = logger.create_tagged_trace_logger(
+            "%s:%s" % (self._ip_addr, self._ip_port)
+        )
+
         self._socket = None
 
     def _connect_socket(self):
         """Init and Connect to socket."""
-        self._logger.error("CONNECTING SOCKET")
-
         try:
             self._socket = socket.create_connection(
                 (self._ip_addr, self._ip_port), timeout=self._socket_timeout
@@ -71,13 +73,16 @@ class SocketInstrument:
             infmsg = "Opened Socket connection to {}:{} with handle {}.".format(
                 repr(self._ip_addr), repr(self._ip_port), repr(self._socket)
             )
+            self._logger.debug(infmsg)
 
         except socket.timeout:
             errmsg = "Socket timeout while connecting to instrument."
+            self._logger.exception(errmsg)
             raise SocketInstrumentError(errmsg)
 
         except socket.error:
             errmsg = "Socket error while connecting to instrument."
+            self._logger.exception(errmsg)
             raise SocketInstrumentError(errmsg)
 
     def _send(self, cmd):
@@ -88,32 +93,37 @@ class SocketInstrument:
                 Type, Str.
         """
         if not self._socket:
+            self._logger.warning("Socket instrument is not connected")
             self._connect_socket()
 
         cmd_es = cmd + self._escseq
 
-        self._logger.debug("SOCKET_SEND: {}".format(cmd))
-
         try:
             self._socket.sendall(cmd_es.encode(self._codefmt))
+            self._logger.debug(
+                "Sent %r to %r:%r.", cmd, self._ip_addr, self._ip_port
+            )
 
         except socket.timeout:
             errmsg = (
                 "Socket timeout while sending command {} " "to instrument."
             ).format(repr(cmd))
+            self._logger.exception(errmsg)
             raise SocketInstrumentError(errmsg)
 
         except socket.error:
             errmsg = (
                 "Socket error while sending command {} " "to instrument."
             ).format(repr(cmd))
+            self._logger.exception(errmsg)
             raise SocketInstrumentError(errmsg)
 
         except Exception as err:
             errmsg = (
                 "Error {} while sending command {} " "to instrument."
             ).format(repr(cmd), repr(err))
-            raise SocketInstrumentError(errmsg)
+            self._logger.exception(errmsg)
+            raise
 
     def _recv(self):
         """Receive response via Socket.
@@ -123,6 +133,7 @@ class SocketInstrument:
                 Type, Str.
         """
         if not self._socket:
+            self._logger.warning("Socket instrument is not connected")
             self._connect_socket()
 
         resp = ""
@@ -137,21 +148,26 @@ class SocketInstrument:
 
         except socket.timeout:
             errmsg = "Socket timeout while receiving response from instrument."
+            self._logger.exception(errmsg)
             raise SocketInstrumentError(errmsg)
 
         except socket.error:
             errmsg = "Socket error while receiving response from instrument."
+            self._logger.exception(errmsg)
             raise SocketInstrumentError(errmsg)
 
         except Exception as err:
             errmsg = (
                 "Error {} while receiving response " "from instrument"
             ).format(repr(err))
-            raise SocketInstrumentError(errmsg)
+            self._logger.exception(errmsg)
+            raise
 
         resp = resp.rstrip(self._escseq)
 
-        self._logger.debug("SOCKET_RECV: {}".format(resp))
+        self._logger.debug(
+            "Received %r from %r:%r.", resp, self._ip_addr, self._ip_port
+        )
 
         return resp
 
@@ -164,10 +180,14 @@ class SocketInstrument:
             self._socket.shutdown(socket.SHUT_RDWR)
             self._socket.close()
             self._socket = None
+            self._logger.debug(
+                "Closed Socket Instrument %r:%r.", self._ip_addr, self._ip_port
+            )
 
         except Exception as err:
             errmsg = "Error {} while closing instrument.".format(repr(err))
-            raise SocketInstrumentError(errmsg)
+            self._logger.exception(errmsg)
+            raise
 
     def _query(self, cmd):
         """query instrument via Socket.
@@ -200,6 +220,8 @@ class RequestInstrument(object):
         self._ip_addr = ip_addr
         self._escseq = "\r\n"
 
+        self._logger = logger.create_tagged_trace_logger(self._ip_addr)
+
     def _query(self, cmd):
         """query instrument via request.
 
@@ -219,5 +241,9 @@ class RequestInstrument(object):
         resp = resp_raw.text
         for char_del in self._escseq:
             resp = resp.replace(char_del, "")
+
+        self._logger.debug(
+            "Sent %r to %r, and get %r.", cmd, self._ip_addr, resp
+        )
 
         return resp

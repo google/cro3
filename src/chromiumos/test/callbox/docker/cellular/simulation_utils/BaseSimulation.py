@@ -9,6 +9,7 @@ from enum import Enum
 import time
 
 from cellular import cellular_simulator
+from cellular.simulation_utils.BaseCellConfig import BaseCellConfig
 import numpy as np
 
 
@@ -58,34 +59,9 @@ class BaseSimulation(object):
     # the simulations inheriting from this class.
     DOWNLINK_SIGNAL_LEVEL_UNITS = None
 
-    class BtsConfig(object):
-        """Base station configuration class. This class is only a container for
-        base station parameters and should not interact with the instrument
-        controller.
-
-        Attributes:
-            output_power: a float indicating the required signal level at the
-                instrument's output.
-            input_level: a float indicating the required signal level at the
-                instrument's input.
-        """
-
-        def __init__(self):
-            """Initialize the base station config by setting all its
-            parameters to None."""
-            self.output_power = None
-            self.input_power = None
-            self.band = None
-
-        def incorporate(self, new_config):
-            """Incorporates a different configuration by replacing the current
-            values with the new ones for all the parameters different to None.
-            """
-            for attr, value in vars(new_config).items():
-                if value is not None:
-                    setattr(self, attr, value)
-
-    def __init__(self, simulator, log, dut, test_config, calibration_table):
+    def __init__(
+        self, simulator, log, dut, test_config, calibration_table, nr_mode=None
+    ):
         """Initializes the Simulation object.
 
         Keeps a reference to the callbox, log and dut handlers and
@@ -104,6 +80,7 @@ class BaseSimulation(object):
         self.log = log
         self.dut = dut
         self.calibration_table = calibration_table
+        self.nr_mode = nr_mode
 
         # Turn calibration on or off depending on the test config value. If the
         # key is not present, set to False by default
@@ -143,8 +120,8 @@ class BaseSimulation(object):
             self.KEY_ATTACH_TIMEOUT, self.DEFAULT_ATTACH_TIMEOUT
         )
 
-        # Configuration object for the primary base station
-        self.primary_config = self.BtsConfig()
+        # Create an empty list for cell configs.
+        self.cell_configs = []
 
         # Store the current calibrated band
         self.current_calibrated_band = None
@@ -171,7 +148,6 @@ class BaseSimulation(object):
         self.dut.toggle_airplane_mode(True)
 
         # Wait for airplane mode setting to propagate
-        # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
         time.sleep(2)
 
         # Prepare the simulator for this simulation setup
@@ -195,15 +171,14 @@ class BaseSimulation(object):
         self.dut.toggle_airplane_mode(True)
 
         # Wait for airplane mode setting to propagate
-        # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
         time.sleep(2)
 
         # Provide a good signal power for the phone to attach easily
-        new_config = self.BtsConfig()
+        new_config = BaseCellConfig(self.log)
         new_config.input_power = -10
         new_config.output_power = -30
         self.simulator.configure_bts(new_config)
-        self.primary_config.incorporate(new_config)
+        self.cell_configs[0].incorporate(new_config)
 
         # Try to attach the phone.
         for i in range(self.attach_retries):
@@ -227,18 +202,18 @@ class BaseSimulation(object):
                 self.dut.toggle_airplane_mode(True)
 
                 # Wait for APM to propagate
-                # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
                 time.sleep(3)
 
                 # Retry
                 if i < self.attach_retries - 1:
+                    # Retry
                     continue
                 else:
+                    # No more retries left. Return False.
                     return False
 
             else:
                 # The phone attached successfully.
-                # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
                 time.sleep(self.SETTLING_TIME)
                 self.log.info("UE attached to the callbox.")
                 break
@@ -256,7 +231,6 @@ class BaseSimulation(object):
         self.dut.toggle_airplane_mode(True)
 
         # Wait for APM to propagate
-        # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
         time.sleep(2)
 
         # Power off basestation
@@ -272,7 +246,6 @@ class BaseSimulation(object):
         self.dut.toggle_airplane_mode(True)
 
         # Wait for APM to propagate
-        # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
         time.sleep(2)
 
         # Stop the simulation
@@ -294,17 +267,18 @@ class BaseSimulation(object):
         # in Communication state, as UL power cannot be set in Idle state
         self.start_traffic_for_calibration()
 
+        # Wait until it goes to communication state
         self.simulator.wait_until_communication_state()
 
-        # Set uplink power to a minimum before going to the actual desired
+        # Set uplink power to a low value before going to the actual desired
         # value. This avoid inconsistencies produced by the hysteresis in the
         # PA switching points.
         self.log.info(
-            "Setting UL power to -30 dBm before going to the "
+            "Setting UL power to -5 dBm before going to the "
             "requested value to avoid incosistencies caused by "
             "hysteresis."
         )
-        self.set_uplink_tx_power(-30)
+        self.set_uplink_tx_power(-5)
 
         # Set signal levels obtained from the test parameters
         self.set_downlink_rx_power(self.sim_dl_power)
@@ -331,53 +305,28 @@ class BaseSimulation(object):
         # Stop IP traffic after setting the UL power level
         self.stop_traffic_for_calibration()
 
-    def parse_parameters(self, parameters):
-        """Configures simulation using a list of parameters.
+    def configure(self, parameters):
+        """Configures simulation using a dictionary of parameters.
 
-        Consumes parameters from a list.
         Children classes need to call this method first.
 
         Args:
-            parameters: list of parameters
+            parameters: a configuration dictionary
         """
+        # Setup uplink power
+        ul_power = self.get_uplink_power_from_parameters(parameters)
 
-        raise NotImplementedError()
+        # Power is not set on the callbox until after the simulation is
+        # started. Saving this value in a variable for later
+        self.sim_ul_power = ul_power
 
-    def consume_parameter(self, parameters, parameter_name, num_values=0):
-        """Parses a parameter from a list.
+        # Setup downlink power
 
-        Allows to parse the parameter list. Will delete parameters from the
-        list after consuming them to ensure that they are not used twice.
+        dl_power = self.get_downlink_power_from_parameters(parameters)
 
-        Args:
-            parameters: list of parameters
-            parameter_name: keyword to look up in the list
-            num_values: number of arguments following the
-                parameter name in the list
-        Returns:
-            A list containing the parameter name and the following num_values
-            arguments
-        """
-
-        try:
-            i = parameters.index(parameter_name)
-        except ValueError:
-            # parameter_name is not set
-            return []
-
-        return_list = []
-
-        try:
-            for j in range(num_values + 1):
-                return_list.append(parameters.pop(i))
-        except IndexError:
-            raise ValueError(
-                "Parameter {} has to be followed by {} values.".format(
-                    parameter_name, num_values
-                )
-            )
-
-        return return_list
+        # Power is not set on the callbox until after the simulation is
+        # started. Saving this value in a variable for later
+        self.sim_dl_power = dl_power
 
     def set_uplink_tx_power(self, signal_level):
         """Configure the uplink tx power level
@@ -385,12 +334,12 @@ class BaseSimulation(object):
         Args:
             signal_level: calibrated tx power in dBm
         """
-        new_config = self.BtsConfig()
+        new_config = BaseCellConfig(self.log)
         new_config.input_power = self.calibrated_uplink_tx_power(
-            self.primary_config, signal_level
+            self.cell_configs[0], signal_level
         )
         self.simulator.configure_bts(new_config)
-        self.primary_config.incorporate(new_config)
+        self.cell_configs[0].incorporate(new_config)
 
     def set_downlink_rx_power(self, signal_level):
         """Configure the downlink rx power level
@@ -398,71 +347,51 @@ class BaseSimulation(object):
         Args:
             signal_level: calibrated rx power in dBm
         """
-        new_config = self.BtsConfig()
+        new_config = BaseCellConfig(self.log)
         new_config.output_power = self.calibrated_downlink_rx_power(
-            self.primary_config, signal_level
+            self.cell_configs[0], signal_level
         )
         self.simulator.configure_bts(new_config)
-        self.primary_config.incorporate(new_config)
-
-    def get_uplink_tx_power(self):
-        """Returns the uplink tx power level
-
-        Returns:
-            calibrated tx power in dBm
-        """
-        return self.primary_config.input_power
-
-    def get_downlink_rx_power(self):
-        """Returns the downlink tx power level
-
-        Returns:
-            calibrated rx power in dBm
-        """
-        return self.primary_config.output_power
+        self.cell_configs[0].incorporate(new_config)
 
     def get_uplink_power_from_parameters(self, parameters):
-        """Reads uplink power from a list of parameters."""
+        """Reads uplink power from the parameter dictionary."""
 
-        values = self.consume_parameter(parameters, self.PARAM_UL_PW, 1)
-
-        if values:
-            if values[1] in self.UPLINK_SIGNAL_LEVEL_DICTIONARY:
-                return self.UPLINK_SIGNAL_LEVEL_DICTIONARY[values[1]]
+        if BaseCellConfig.PARAM_UL_PW in parameters:
+            value = parameters[BaseCellConfig.PARAM_UL_PW]
+            if value in self.UPLINK_SIGNAL_LEVEL_DICTIONARY:
+                return self.UPLINK_SIGNAL_LEVEL_DICTIONARY[value]
             else:
-                if values[1][0] == "n":
-                    # Treat the 'n' character as a negative sign
-                    return -float(values[1][1:])
-                else:
-                    return float(values[1])
+                try:
+                    if isinstance(value[0], str) and value[0] == "n":
+                        # Treat the 'n' character as a negative sign
+                        return -int(value[1:])
+                    else:
+                        return int(value)
+                except ValueError:
+                    pass
 
         # If the method got to this point it is because PARAM_UL_PW was not
         # included in the test parameters or the provided value was invalid.
         raise ValueError(
-            "The test name needs to include parameter {} followed by the "
-            "desired uplink power expressed by an integer number in dBm "
-            "or by one the following values: {}. To indicate negative "
+            "The config dictionary must include a key {} with the desired "
+            "uplink power expressed by an integer number in dBm or with one of "
+            "the following values: {}. To indicate negative "
             "values, use the letter n instead of - sign.".format(
-                self.PARAM_UL_PW,
+                BaseCellConfig.PARAM_UL_PW,
                 list(self.UPLINK_SIGNAL_LEVEL_DICTIONARY.keys()),
             )
         )
 
     def get_downlink_power_from_parameters(self, parameters):
-        """Reads downlink power from a list of parameters."""
+        """Reads downlink power from a the parameter dictionary."""
 
-        values = self.consume_parameter(parameters, self.PARAM_DL_PW, 1)
-
-        if values:
-            if values[1] in self.DOWNLINK_SIGNAL_LEVEL_DICTIONARY:
-                return self.DOWNLINK_SIGNAL_LEVEL_DICTIONARY[values[1]]
+        if BaseCellConfig.PARAM_DL_PW in parameters:
+            value = parameters[BaseCellConfig.PARAM_DL_PW]
+            if value not in self.DOWNLINK_SIGNAL_LEVEL_DICTIONARY:
+                raise ValueError("Invalid signal level value {}.".format(value))
             else:
-                if values[1][0] == "n":
-                    # Treat the 'n' character as a negative sign
-                    return -float(values[1][1:])
-                else:
-                    return float(values[1])
-
+                return self.DOWNLINK_SIGNAL_LEVEL_DICTIONARY[value]
         else:
             # Use default value
             power = self.DOWNLINK_SIGNAL_LEVEL_DICTIONARY["excellent"]
@@ -498,7 +427,7 @@ class BaseSimulation(object):
         # Try to use measured path loss value. If this was not set, it will
         # throw an TypeError exception
         try:
-            calibrated_power = round(power + self.dl_path_loss, 1)
+            calibrated_power = round(power + self.dl_path_loss)
             if calibrated_power > self.simulator.MAX_DL_POWER:
                 self.log.warning(
                     "Cannot achieve phone DL Rx power of {} dBm. Requested TX "
@@ -517,6 +446,7 @@ class BaseSimulation(object):
                 "Requested phone DL Rx power of {} dBm, setting callbox Tx "
                 "power at {} dBm".format(power, calibrated_power)
             )
+            time.sleep(2)
             # Power has to be a natural number so calibration wont be exact.
             # Inform the actual received power after rounding.
             self.log.info(
@@ -530,7 +460,7 @@ class BaseSimulation(object):
                 "Phone downlink received power set to {} (link is "
                 "uncalibrated).".format(round(power))
             )
-            return round(power, 1)
+            return round(power)
 
     def calibrated_uplink_tx_power(self, bts_config, signal_level):
         """Calculates the power level at the instrument's input in order to
@@ -556,7 +486,7 @@ class BaseSimulation(object):
         # Try to use measured path loss value. If this was not set, it will
         # throw an TypeError exception
         try:
-            calibrated_power = round(power - self.ul_path_loss, 1)
+            calibrated_power = round(power - self.ul_path_loss)
             if calibrated_power < self.UL_MIN_POWER:
                 self.log.warning(
                     "Cannot achieve phone UL Tx power of {} dBm. Requested UL "
@@ -575,6 +505,7 @@ class BaseSimulation(object):
                 "Requested phone UL Tx power of {} dBm, setting callbox Rx "
                 "power at {} dBm".format(power, calibrated_power)
             )
+            time.sleep(2)
             # Power has to be a natural number so calibration wont be exact.
             # Inform the actual transmitted power after rounding.
             self.log.info(
@@ -588,7 +519,7 @@ class BaseSimulation(object):
                 "Phone uplink transmitted power set to {} (link is "
                 "uncalibrated).".format(round(power))
             )
-            return round(power, 1)
+            return round(power)
 
     def calibrate(self, band):
         """Calculates UL and DL path loss if it wasn't done before.
@@ -618,7 +549,6 @@ class BaseSimulation(object):
 
         # Detach after calibrating
         self.detach()
-        # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
         time.sleep(2)
 
     def start_traffic_for_calibration(self):
@@ -660,11 +590,11 @@ class BaseSimulation(object):
             )
 
         # Save initial output level to restore it after calibration
-        restoration_config = self.BtsConfig()
-        restoration_config.output_power = self.primary_config.output_power
+        restoration_config = BaseCellConfig(self.log)
+        restoration_config.output_power = self.cell_configs[0].output_power
 
         # Set BTS to a good output level to minimize measurement error
-        new_config = self.BtsConfig()
+        new_config = BaseCellConfig(self.log)
         new_config.output_power = self.simulator.MAX_DL_POWER - 5
         self.simulator.configure_bts(new_config)
 
@@ -676,7 +606,6 @@ class BaseSimulation(object):
             # For some reason, the RSRP gets updated on Screen ON event
             signal_strength = self.dut.get_telephony_signal_strength()
             down_power_measured.append(signal_strength[rat])
-            # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
             time.sleep(5)
 
         # Stop IP traffic
@@ -684,7 +613,6 @@ class BaseSimulation(object):
 
         # Reset bts to original settings
         self.simulator.configure_bts(restoration_config)
-        # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
         time.sleep(2)
 
         # Calculate the mean of the measurements
@@ -693,7 +621,7 @@ class BaseSimulation(object):
         # Convert from RSRP to signal power
         if power_units_conversion_func:
             avg_down_power = power_units_conversion_func(
-                reported_asu_power, self.primary_config
+                reported_asu_power, self.cell_configs[0]
             )
         else:
             avg_down_power = reported_asu_power
@@ -726,13 +654,13 @@ class BaseSimulation(object):
         """
 
         # Save initial input level to restore it after calibration
-        restoration_config = self.BtsConfig()
-        restoration_config.input_power = self.primary_config.input_power
+        restoration_config = BaseCellConfig(self.log)
+        restoration_config.input_power = self.cell_configs[0].input_power
 
         # Set BTS1 to maximum input allowed in order to perform
         # uplink calibration
         target_power = self.MAX_PHONE_OUTPUT_POWER
-        new_config = self.BtsConfig()
+        new_config = BaseCellConfig(self.log)
         new_config.input_power = self.MAX_BTS_INPUT_POWER
         self.simulator.configure_bts(new_config)
 
@@ -760,7 +688,6 @@ class BaseSimulation(object):
                         float(str_power_chain[ichain])
                     )
 
-            # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
             time.sleep(3)
 
         # Stop IP traffic
@@ -768,7 +695,6 @@ class BaseSimulation(object):
 
         # Reset bts to original settings
         self.simulator.configure_bts(restoration_config)
-        # TODO @latware b/186880504 change this to a poll_for_condition (Q3 21)
         time.sleep(2)
 
         # Phone only supports 1x1 Uplink so always chain 0
@@ -803,7 +729,8 @@ class BaseSimulation(object):
 
         # Load the new ones
         if self.calibration_required:
-            band = self.primary_config.band
+
+            band = self.cell_configs[0].band
 
             # Try loading the path loss values from the calibration table. If
             # they are not available, use the automated calibration procedure.
@@ -848,6 +775,9 @@ class BaseSimulation(object):
         """
         raise NotImplementedError()
 
-    def send_sms(self, sms_message):
-        """Sends the set SMS message."""
-        raise NotImplementedError()
+    def send_sms(self, message):
+        """Sends an SMS message to the DUT.
+
+        Args:
+            message: the SMS message to send.
+        """

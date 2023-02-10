@@ -212,16 +212,14 @@ class ReducedPdcch(Enum):
 
 
 class Cmw500(abstract_inst.SocketInstrument):
-    """Base class for interfacing with the CMW500 Callbox device"""
-
-    def __init__(self, ip_addr, port, logger):
+    def __init__(self, ip_addr, port):
         """Init method to setup variables for controllers.
 
         Args:
               ip_addr: Controller's ip address.
               port: Port
         """
-        super(Cmw500, self).__init__(ip_addr, port, logger)
+        super(Cmw500, self).__init__(ip_addr, port)
         self._connect_socket()
         self._send("*CLS")
         self._send("*ESE 0;*SRE 0")
@@ -391,6 +389,7 @@ class Cmw500(abstract_inst.SocketInstrument):
 
         while timeout > 0:
             new_state = self.send_and_recv("SENSe:LTE:SIGN:RRCState?")
+
             if new_state == state:
                 self._logger.debug("The RRC state is {}.".format(new_state))
                 break
@@ -527,27 +526,28 @@ class Cmw500(abstract_inst.SocketInstrument):
         """
         return perf.Cmw500IperfMeasurement(self)
 
-    def set_sms(self, sms_message):
-        """Sets the SMS message to be sent by the callbox."""
-        self.send_and_recv(
-            'CONFigure:LTE:SIGN:SMS:OUTGoing:INTernal "%s"' % sms_message
-        )
+    def set_sms(self, message):
+        """Sets the SMS message to be sent to the DUT.
+
+        Args:
+            message: the SMS message to send.
+        """
+        cmd = 'CONFigure:LTE:SIGN:SMS:OUTGoing:INTernal "{}"'.format(message)
+        self.send_and_recv(cmd)
 
     def send_sms(self):
-        """Sends the SMS message."""
-        self.send_and_recv("CALL:LTE:SIGN:PSWitched:ACTion SMS; *OPC?")
+        """Sends the currently set SMS message."""
+        self.send_and_recv("CALL:LTE:SIGN:PSWitched:ACTion SMS;*OPC?")
         timeout = time.time() + STATE_CHANGE_TIMEOUT
-        while "SUCC" != self.send_and_recv(
-            "SENSe:LTE:SIGN:SMS:OUTGoing:INFO:LMSent?"
-        ):
-            if time.time() > timeout:
-                raise CmwError(
-                    "SENSe:LTE:SIGN:SMS:OUTGoing:INFO:LMSent? never returns status 'SUCC' instead got (%s)"
-                    % self.send_and_recv(
-                        "SENSe:LTE:SIGN:SMS:OUTGoing:INFO:LMSent?"
-                    )
-                )
-            time.sleep(2)
+        while time.time() < timeout:
+            state = self.send_and_recv(
+                "SENSe:LTE:SIGN:SMS:OUTGoing:INFO:LMSent?"
+            )
+            if state == "SUCC":
+                return
+            time.sleep(1)
+
+        raise CmwError("Failed to send SMS message")
 
 
 class BaseStation(object):

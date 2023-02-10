@@ -12,8 +12,9 @@ from cellular.callbox_utils import cmw500_cellular_simulator as cmw
 from cellular.callbox_utils.cmw500_handover_simulator import (
     Cmw500HandoverSimulator,
 )
+from cellular.simulation_utils import BaseCellConfig
 from cellular.simulation_utils import ChromebookCellularDut
-from cellular.simulation_utils import LteSimulation
+from cellular.simulation_utils import CrOSLteSimulation
 import flask  # pylint: disable=E0401
 from flask import request  # pylint: disable=E0401
 
@@ -31,7 +32,7 @@ class CallboxConfiguration:
         self.dut = None
         self.simulator = None
         self.simulation = None
-        self.parameter_list = None
+        self.parameters = None
         self.iperf = None
         self.tx_measurement = None
         self.technology = None
@@ -78,14 +79,12 @@ class CallboxManager:
         self.configs_by_host = dict()
 
     def configure_callbox(self, data):
-        self._require_dict_keys(
-            data, "callbox", "hardware", "cellular_type", "parameter_list"
-        )
+        self._require_dict_keys(data, "callbox", "hardware", "cellular_type")
         config = self._get_callbox_config(data["callbox"], True)
         config.technology = hs.CellularTechnology(data["cellular_type"])
         if data["hardware"] == "CMW":
             config.simulator = cmw.CMW500CellularSimulator(
-                config.host, config.port, app.logger
+                config.host, config.port
             )
             config.handover = Cmw500HandoverSimulator(config.simulator.cmw)
             config.iperf = config.simulator.cmw.init_perf_measurement()
@@ -98,7 +97,7 @@ class CallboxManager:
             "no_dut_connection", app.logger
         )
         if data["cellular_type"] == "LTE":
-            config.simulation = LteSimulation.LteSimulation(
+            config.simulation = CrOSLteSimulation.CrOSLteSimulation(
                 config.simulator,
                 app.logger,
                 config.dut,
@@ -108,11 +107,25 @@ class CallboxManager:
         else:
             raise Exception(f'Unsupported RAT: {data["cellular_type"]}')
 
-        config.parameter_list = data["parameter_list"]
+        # backwards compatibility, configuration options were changed
+        # from a list to a dictionary
+        if "parameter_list" in data:
+            params = data["parameter_list"]
+            config.parameters = {
+                params[i]: params[i + 1] for i in range(0, len(params), 2)
+            }
+        elif "configuration" in data:
+            config.parameters = data["configuration"]
+        else:
+            raise Exception(
+                "Missing required argument, either "
+                '"configuration" or "parameter_list" must be defined'
+            )
+
         # Stop any existing connection before configuring as some configuration
         # items cannot be adjusted while the UE is attached.
         config.simulation.stop()
-        config.simulation.parse_parameters(config.parameter_list)
+        config.simulation.configure(config.parameters)
         config.simulator.wait_until_quiet()
         config.simulation.setup_simulator()
         return "OK"
@@ -127,14 +140,15 @@ class CallboxManager:
 
     def set_uplink_tx_power(self, data):
         self._require_dict_keys(
-            data, "callbox", LteSimulation.LteSimulation.PARAM_UL_PW
+            data, "callbox", BaseCellConfig.BaseCellConfig.PARAM_UL_PW
         )
         config = self._get_callbox_config(data["callbox"])
         config.require_simulation()
-        parameters = [
-            LteSimulation.LteSimulation.PARAM_UL_PW,
-            data[LteSimulation.LteSimulation.PARAM_UL_PW],
-        ]
+        parameters = {
+            BaseCellConfig.BaseCellConfig.PARAM_UL_PW: data[
+                BaseCellConfig.BaseCellConfig.PARAM_UL_PW
+            ]
+        }
         power = config.simulation.get_uplink_power_from_parameters(parameters)
 
         config.simulation.set_uplink_tx_power(power)
@@ -143,14 +157,15 @@ class CallboxManager:
 
     def set_downlink_rx_power(self, data):
         self._require_dict_keys(
-            data, "callbox", LteSimulation.LteSimulation.PARAM_DL_PW
+            data, "callbox", BaseCellConfig.BaseCellConfig.PARAM_DL_PW
         )
         config = self._get_callbox_config(data["callbox"])
         config.require_simulation()
-        parameters = [
-            LteSimulation.LteSimulation.PARAM_DL_PW,
-            data[LteSimulation.LteSimulation.PARAM_DL_PW],
-        ]
+        parameters = {
+            BaseCellConfig.BaseCellConfig.PARAM_DL_PW: data[
+                BaseCellConfig.BaseCellConfig.PARAM_DL_PW
+            ]
+        }
         power = config.simulation.get_downlink_power_from_parameters(parameters)
         config.simulation.set_downlink_rx_power(power)
         return "OK"
@@ -160,7 +175,7 @@ class CallboxManager:
         config = self._get_callbox_config(data["callbox"])
         config.require_simulation()
         return {
-            LteSimulation.LteSimulation.PARAM_UL_PW: config.simulation.get_uplink_tx_power()
+            BaseCellConfig.BaseCellConfig.PARAM_UL_PW: config.simulation.get_uplink_tx_power()
         }
 
     def query_downlink_rx_power(self, data):
@@ -168,7 +183,7 @@ class CallboxManager:
         config = self._get_callbox_config(data["callbox"])
         config.require_simulation()
         return {
-            LteSimulation.LteSimulation.PARAM_DL_PW: config.simulation.get_downlink_rx_power()
+            BaseCellConfig.BaseCellConfig.PARAM_DL_PW: config.simulation.get_downlink_rx_power()
         }
 
     def query_throughput(self, data):

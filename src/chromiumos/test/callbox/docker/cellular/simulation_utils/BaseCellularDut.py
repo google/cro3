@@ -2,16 +2,24 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+"""Provides base cellular DUT controller implementation."""
+
+# pylint: disable=banned-string-format-function
+# pylint: disable=docstring-leading-whitespace, docstring-trailing-whitespace, docstring-section-newline
+# pylint: disable=docstring-trailing-quotes, docstring-second-line-blank
+
 from enum import Enum
 
 
 class PreferredNetworkType(Enum):
     """Available preferred network types that can be passed to
-    set_preferred_network_type"""
+    set_preferred_network_type.
+    """
 
     LTE_ONLY = "lte-only"
     GSM_ONLY = "gsm-only"
     WCDMA_ONLY = "wcdma-only"
+    NR_LTE = "nr-lte"
 
 
 class BaseCellularDut:
@@ -43,7 +51,7 @@ class BaseCellularDut:
         """
         raise NotImplementedError()
 
-    def set_apn(self, name, apn, type="default"):
+    def set_apn(self, name, apn, type="default"):  # pylint: disable=W0622
         """Sets the Access Point Name.
 
         Args:
@@ -53,7 +61,7 @@ class BaseCellularDut:
         """
         raise NotImplementedError()
 
-    def set_preferred_network_type(self, type):
+    def set_preferred_network_type(self, type):  # pylint: disable=W0622
         """Sets the preferred RAT.
 
         Args:
@@ -64,5 +72,13 @@ class BaseCellularDut:
     def get_telephony_signal_strength(self):
         """Wrapper for the method with the same name in tel_utils.
 
-        Will be deprecated and replaced by get_rx_tx_power_levels."""
+        Will be deprecated and replaced by get_rx_tx_power_levels.
+        """
         raise NotImplementedError()
+
+    def start_modem_logging(self):
+        """Starts on-device log collection."""
+        raise NotImplementedError()
+
+    def stop_modem_logging(self):
+        """Stops log collection and pulls logs."""
