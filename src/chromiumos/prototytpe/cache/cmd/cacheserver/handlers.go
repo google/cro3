@@ -5,9 +5,11 @@
 package main
 
 import (
+	"chromiumos/test/util/portdiscovery"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -52,7 +54,17 @@ func InstantiateHandlers(port int, cacheLocation string) error {
 	http.HandleFunc(downloadPrefix, h.cacheGSHandler)
 	http.HandleFunc(downloadLocalPrefix, h.cacheLocalHandler)
 
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return err
+	}
+	// Write port number to ~/.cftmeta for go/cft-port-discovery
+	err = portdiscovery.WriteServiceMetadata("cache-server", l.Addr().String(), log.Default())
+	if err != nil {
+		log.Println("Warning: error when writing to metadata file: ", err)
+	}
+
+	if err := http.Serve(l, nil); err != nil {
 		return err
 	}
 
