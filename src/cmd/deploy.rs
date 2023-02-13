@@ -22,9 +22,9 @@ pub struct Args {
     #[argh(option)]
     dut: String,
 
-    /// package to build
+    /// package to deploy (space separated)
     #[argh(option)]
-    package: String,
+    packages: String,
 
     /// if specified, it will invoke autologin
     #[argh(switch)]
@@ -35,7 +35,7 @@ pub fn run(args: &Args) -> Result<()> {
     let target = SshInfo::new(&args.dut)?;
     println!("Target DUT is {:?}", target);
     let board = target.get_board()?;
-    let package = &args.package;
+    let packages = &args.packages;
     let re_cros_kernel = regex!(r"chromeos-kernel-");
     let target = SshInfo::new(&args.dut)?;
     let mut ssh_forwarding_control: Option<async_process::Child> = None;
@@ -46,12 +46,12 @@ pub fn run(args: &Args) -> Result<()> {
         target
     };
     let chroot = Chroot::new(&get_repo_dir(&args.repo)?)?;
-    if re_cros_kernel.is_match(package) {
+    if re_cros_kernel.is_match(packages) {
         chroot.run_bash_script_in_chroot(
             "update_kernel",
             &format!(
                 r###"
-cros-workon-{board} start {package}
+cros-workon-{board} start {packages}
 ~/trunk/src/scripts/update_kernel.sh --remote={} --ssh_port {} --remote_bootargs
 "###,
                 target.host(),
@@ -63,7 +63,7 @@ cros-workon-{board} start {package}
         chroot.run_bash_script_in_chroot(
             "deploy",
             &format!(
-                r"cros-workon-{board} start {package} && cros deploy {} {package}",
+                r"cros-workon-{board} start {packages} && cros deploy {} {packages}",
                 target.host_and_port()
             ),
             None,
