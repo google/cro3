@@ -19,7 +19,9 @@ pub mod sync;
 pub mod tast;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// Top-level command.
+/// yet another wrapper for CrOS developers.
+/// For more information, see: https://chromium.googlesource.com/chromiumos/platform/dev-util/+/refs/heads/main/contrib/lium/ .
+/// For Googlers, see go/lium and go/lium-bug
 pub struct TopLevel {
     #[argh(subcommand)]
     nested: Args,
