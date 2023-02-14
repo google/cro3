@@ -35,8 +35,8 @@ use std::str::FromStr;
 use std::time::Duration;
 use url::Url;
 
-const COMMON_SSH_OPTIONS: [&str; 14] = [
-    // Do not read ~/.ssh/config
+const COMMON_SSH_OPTIONS: [&str; 16] = [
+    // Do not read ~/.ssh/config to avoid effects comes from ssh_config
     "-F",
     "none",
     // Use CrOS testing_rsa as a key
@@ -51,12 +51,15 @@ const COMMON_SSH_OPTIONS: [&str; 14] = [
     // Do not record or verify the known hosts
     "-o",
     "UserKnownHostsFile=/dev/null",
-    // Silence the messages
+    // Silence the "Warning: Permanently added ... to the list of known hosts" message
     "-o",
-    "LogLevel=QUIET",
-    // Connection timeout
+    "LogLevel=ERROR",
+    // Set connection timeout to give up quickly
     "-o",
-    "ConnectTimeout=10",
+    "ConnectTimeout=5",
+    // Try pubkey auth only
+    "-o",
+    "PreferredAuthentications=publickey",
 ];
 const COMMON_PORT_FORWARD_TOKEN: &str = "lium-ssh-portforward";
 
@@ -385,6 +388,13 @@ impl SshInfo {
         if let Ok(Some(resolved)) = SSH_CACHE.get(dut) {
             return Ok(resolved);
         }
+        if dut.contains('_') {
+            // '_' is a character that is not allowed for hostname.
+            // Therefore, we can assume that unknown DUT ID is specified.
+            return Err(anyhow!(
+                "DUT {dut} is not cached yet. Please run `lium dut info ${{DUT_IP}}` first."
+            ));
+        }
         let url = "ssh://".to_string() + dut;
         // As https://url.spec.whatwg.org/#concept-ipv6 says,
         // > Support for <zone_id> is intentionally omitted.
@@ -579,14 +589,12 @@ impl SshInfo {
     }
     pub fn open_ssh(&self) -> Result<()> {
         let cmd = self.ssh_cmd(None)?.spawn()?;
-        let result = cmd.wait_with_output()?;
-        let stdout = get_stdout(&result);
-        let stderr = get_stderr(&result);
-        result.status.exit_ok().context(anyhow!(
-            "Failed to establish ssh connection:\nstdout:\n{}\nstderr:\n{}",
-            stdout,
-            stderr
-        ))
+        let exit_status = cmd.wait_with_output()?.status;
+        // stdout and stderr is not captured so printing them here is useless
+        exit_status.exit_ok().or(Err(anyhow!(
+            "Failed to establish ssh connection. code = {:?}",
+            exit_status.code()
+        )))
     }
 
     pub fn start_port_forwarding(
