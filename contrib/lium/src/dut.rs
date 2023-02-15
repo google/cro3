@@ -5,7 +5,6 @@
 use crate::cache::KvCache;
 use crate::config::Config;
 use crate::cros::ensure_testing_rsa_is_there;
-use crate::parser::LsbRelease;
 use crate::util::get_async_lines;
 use crate::util::get_stderr;
 use crate::util::get_stdout;
@@ -27,6 +26,7 @@ use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::process::Command;
 use std::process::Output;
@@ -68,6 +68,8 @@ lazy_static! {
     // based on https://url.spec.whatwg.org/#host-miscellaneous
     static ref RE_DUT_HOST_NAME: Regex =
         Regex::new(r"^(([0-9.]+)|([0-9a-fA-F:]+(%.*)?)|([^\t\n\r #/:<>?@\[\]^|]+))$").unwrap();
+    static ref RE_GBB_FLAGS: Regex =
+        Regex::new(r"^0x[0-9a-fA-F]+$").unwrap();
 }
 
 #[test]
@@ -119,6 +121,12 @@ fn regex_test() {
     assert!(!RE_DUT_HOST_NAME.is_match("a]"));
     assert!(!RE_DUT_HOST_NAME.is_match("a^"));
     assert!(!RE_DUT_HOST_NAME.is_match("a|"));
+
+    assert!(RE_GBB_FLAGS.is_match("0x00000000"));
+    assert!(RE_GBB_FLAGS.is_match("0x00000019"));
+    assert!(!RE_GBB_FLAGS.is_match("0x00000019 "));
+    assert!(!RE_GBB_FLAGS.is_match(" 0x00000019"));
+    assert!(!RE_GBB_FLAGS.is_match("flags: 0x00000019"));
 }
 
 pub static SSH_CACHE: KvCache<SshInfo> = KvCache::new("ssh_cache");
@@ -179,6 +187,51 @@ impl MonitoredDut {
     }
 }
 
+lazy_static! {
+    // We cannot use `grep -Po` here since some machines have grep built with --disable-perl-regexp
+    static ref DUT_ATTRIBUTE_CMDS: HashMap<&'static str, &'static str> = {
+        let mut m: HashMap<&'static str, &'static str> = HashMap::new();
+        m.insert("board", r"cat /etc/lsb-release | grep CHROMEOS_RELEASE_BOARD | cut -d '=' -f 2 | cut -d '-' -f 1");
+        m.insert("hwid", r"crossystem hwid");
+        m.insert("arch", r"crossystem arch");
+        m.insert("serial", r"vpd -g serial_number");
+        m.insert("model_from_cros_config", r"cros_config / name");
+        m.insert("model_from_mosys", r"mosys platform name");
+        m.insert("ectool_temps_all", r"ectool temps all");
+        m.insert(
+            "gbb_flags_from_futility",
+            r"/usr/bin/futility gbb --flash --get --flags | grep 'flags: ' | cut -d : -f 2",
+        );
+        m.insert(
+            "gbb_flags_from_shell",
+            // get_gbb_flags.sh is deprecated but keeping this usage for backwards compatibility.
+            // Newer scripts should use futility instead (see above). b/269179419 for more info.
+            r"/usr/share/vboot/bin/get_gbb_flags.sh | grep 'Chrome OS GBB' | cut -d : -f 2",
+        );
+        m.insert(
+            "host_kernel_config",
+            r"modprobe configs; zcat /proc/config.gz",
+        );
+        m.insert("lshw", r"lshw -json");
+        m.insert("lsb_release", r"cat /etc/lsb-release");
+        m.insert("ipv6_addr", concat!(r"ip -6 address show dev `lium_get_default_iface` mngtmpaddr | grep inet6 | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3"));
+        m.insert("ipv4_addr", r"ip -4 address show dev `lium_get_default_iface` scope global | grep inet | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3");
+        m.insert("ipv6_addrs", r"ip -6 address show dev `lium_get_default_iface` mngtmpaddr | grep inet6 | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3");
+        m.insert("mac", r"ip addr show dev `lium_get_default_iface` | grep ether | grep -E -o '([0-9a-z]{2}:){5}([0-9a-z]{2})' | head -n 1");
+        m.insert("release", r"cat /etc/lsb-release | grep CHROMEOS_RELEASE_DESCRIPTION | sed -e 's/CHROMEOS_RELEASE_DESCRIPTION=//'");
+        m.insert("dev_boot_usb", r"crossystem dev_boot_usb");
+        m.insert("dev_default_boot", r"crossystem dev_default_boot");
+        m.insert("fwid", r"crossystem fwid");
+        m.insert("ro_fwid", r"crossystem ro_fwid");
+        m.insert("uptime", r"cat /proc/uptime | cut -d ' ' -f 2");
+        m.insert("ectool_temps_all", r"ectool temps all");
+        m
+    };
+}
+
+const CMD_GET_DEFAULT_IFACE: &str =
+    r"ip route get 8.8.8.8 | sed -E 's/^.* dev ([^ ]+) .*$/\1/' | head -n 1";
+
 /// DutInfo holds information around a DUT
 #[derive(Debug, Clone)]
 pub struct DutInfo {
@@ -187,21 +240,25 @@ pub struct DutInfo {
     info: HashMap<String, String>,
 }
 impl DutInfo {
-    async fn from_ssh(ssh: &SshInfo) -> Result<Self> {
+    async fn from_ssh(ssh: &SshInfo, extra_attr: &[String]) -> Result<Self> {
         let info = Self::fetch_keys(
             ssh,
-            &vec![
-                "timestamp",
-                "dut_id",
-                "hwid",
-                "address",
-                "release",
-                "model",
-                "serial",
-                "mac",
-                "board",
-                "ipv6_addrs",
-            ],
+            &[
+                vec![
+                    "timestamp",
+                    "dut_id",
+                    "hwid",
+                    "ipv4_addr",
+                    "ipv6_addr",
+                    "release",
+                    "model",
+                    "serial",
+                    "mac",
+                    "board",
+                ],
+                extra_attr.iter().map(|s| s.as_str()).collect(),
+            ]
+            .concat(),
         )?;
         let key = KeyInfo::from_raw_dut_info(&info)
             .await
@@ -214,13 +271,14 @@ impl DutInfo {
         SSH_CACHE.set(dut.id(), ssh.clone())?;
         Ok(dut)
     }
+    /// new should be fast enough (less than a sec per a DUT)
     pub fn new(dut: &str) -> Result<Self> {
         let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
-        block_on(Self::from_ssh(&ssh))
+        block_on(Self::from_ssh(&ssh, &Vec::new()))
     }
     pub fn new_host_and_port(host: &str, port: u16) -> Result<Self> {
         let ssh = SshInfo::new_host_and_port(host, port).context("failed to create SshInfo")?;
-        block_on(Self::from_ssh(&ssh))
+        block_on(Self::from_ssh(&ssh, &Vec::new()))
     }
     pub fn id(&self) -> &str {
         self.key.key()
@@ -231,143 +289,139 @@ impl DutInfo {
     pub fn info(&self) -> &HashMap<String, String> {
         &self.info
     }
-    fn fetch_keys(ssh: &SshInfo, keys: &Vec<&str>) -> Result<HashMap<String, String>> {
+    /// To avoid problems around shell escapes and make it easy to parse,
+    /// using base64 here to run the commands.
+    fn gen_cmd_for_key(key: &str) -> Result<String> {
+        let cmd = *DUT_ATTRIBUTE_CMDS
+            .get(key)
+            .context(anyhow!("Unknown DUT attribute: {key}"))?;
+        let cmd = STANDARD.encode(cmd);
+        Ok(format!(
+            r##"export tmp="$(mktemp -d)" && echo {cmd} | base64 -d | bash > $tmp/stdout 2>$tmp/stderr ; code=$? ; echo {key},$?,`cat $tmp/stdout | base64 -w 0`,`cat $tmp/stderr | base64 -w 0`"##
+        ))
+    }
+    fn decode_result_line(s: &str, key: &str) -> Result<String> {
+        let s = s.split(',').collect::<Vec<&str>>();
+        if s.len() != 4 {
+            return Err(anyhow!("4 elements are expected in a row but got: {s:?}"));
+        }
+        if s[0] == key {
+            let key = s[0].to_string();
+            let exit_code = u8::from_str(s[1])?;
+            let value = String::from_utf8(STANDARD.decode(s[2])?)?
+                .trim()
+                .to_string();
+            let stderr = String::from_utf8(STANDARD.decode(s[3])?)?
+                .trim()
+                .to_string();
+            if exit_code != 0 {
+                Err(anyhow!(
+                    "Command for key {key} exited with code {exit_code}"
+                ))
+            } else if value.is_empty() {
+                Err(anyhow!("key {key} found but was empty. stderr: {stderr}"))
+            } else {
+                Ok(value)
+            }
+        } else {
+            Err(anyhow!("key {key} did not found. stderr"))
+        }
+    }
+    pub fn fetch_keys(ssh: &SshInfo, keys: &Vec<&str>) -> Result<HashMap<String, String>> {
         ensure_testing_rsa_is_there()?;
-        eprintln!("Fetching info for {:?}...", ssh);
-        let base_result = ssh
-            .run_cmd_stdio(
-                &[
-                    r"echo board `cat /etc/lsb-release | grep CHROMEOS_RELEASE_BOARD | cut -d '=' -f 2 | cut -d '-' -f 1 | base64 -w 0`",
-                r"echo hwid `crossystem hwid | base64 -w 0`",
-                    r"echo arch `crossystem arch | base64 -w 0`",
-                    r"echo serial `vpd -g serial_number | base64 -w 0`",
-                    r"echo model_from_cros_config `cros_config / name ||  | base64 -w 0`",
-                    r"echo model_from_mosys `cros_config / name | base64 -w 0`",
-                    r"echo ectool_temps_all `ectool temps all | base64 -w 0`",
-                    r"echo get_gbb_flags `/usr/share/vboot/bin/get_gbb_flags.sh 2>&1 | base64 -w 0`",
-                    //"echo host_kernel_config `modprobe configs; zcat /proc/config.gz | base64 -w 0`",
-                    r"echo lshw `lshw -json | base64 -w 0`",
-                    r"echo lsb_release `cat /etc/lsb-release | base64 -w 0`",
-                    r"echo ipv6_addr `ip -6 address show dev eth0 mngtmpaddr | grep inet6 | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3 | base64 -w 0`",
-                    r"echo ipv6_addrs `ip -6 address show dev eth0 mngtmpaddr | grep inet6 | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3 | base64 -w 0`",
-                    r"echo mac `ip addr show dev eth0 | grep ether | grep -E -o '([0-9a-z]{2}:){5}([0-9a-z]{2})' | head -n 1 | base64 -w 0`",
-                    r"echo release `cat /etc/lsb-release | grep CHROMEOS_RELEASE_DESCRIPTION | sed -e 's/CHROMEOS_RELEASE_DESCRIPTION=//' | base64 -w 0`",
-                ]
-                .join(" ; "),
-            )?;
-        let mut base_result: HashMap<String, String> = base_result
-            .split('\n')
-            .flat_map(|s| {
-                let s = s.split(' ').collect::<Vec<&str>>();
-                if s.len() == 2 {
-                    Ok((
-                        s[0].to_string(),
-                        String::from_utf8(STANDARD.decode(s[1])?)?
-                            .trim()
-                            .to_string(),
-                    ))
-                } else {
-                    Err(anyhow!("Not a valid row"))
+        // First, list up all the keys to retrieve from a DUT
+        let mut keys_from_dut = HashSet::new();
+        // Dependent variables
+        for k in keys {
+            match *k {
+                "timestamp" => continue,
+                "gbb_flags" => {
+                    keys_from_dut.insert("gbb_flags_from_futility");
+                    keys_from_dut.insert("gbb_flags_from_shell");
                 }
+                "dut_id" => {
+                    keys_from_dut.insert("ipv6_addr");
+                    keys_from_dut.insert("serial");
+                }
+                "model" => {
+                    keys_from_dut.insert("model_from_cros_config");
+                    keys_from_dut.insert("model_from_mosys");
+                }
+                k => {
+                    keys_from_dut.insert(k);
+                }
+            }
+        }
+        let cmds = format!("function lium_get_default_iface {{ {CMD_GET_DEFAULT_IFACE} ; }} && export -f lium_get_default_iface && ");
+        let cmds = cmds
+            + &keys_from_dut
+                .iter()
+                .map(|s| Self::gen_cmd_for_key(s))
+                .collect::<Result<Vec<String>>>()?
+                .join(" && ");
+
+        eprintln!("Fetching info for {:?}...", ssh);
+        let result = ssh.run_cmd_stdio(&cmds)?;
+        let mut values: HashMap<String, Result<String>> = result
+            .split('\n')
+            .zip(keys_from_dut.iter())
+            .map(|(line, key)| -> (String, Result<String>) {
+                let value = Self::decode_result_line(line, key);
+                (key.to_string(), value)
             })
             .collect();
-        if let Some(model) = base_result.get("model_from_cros_config") {
-            base_result.insert("model".to_string(), model.clone());
-        } else if let Some(model) = base_result.get("model_from_mosys") {
-            base_result.insert("model".to_string(), model.clone());
-        }
-        let model = base_result.get("model").context("model was empty")?.clone();
-        let serial = base_result
-            .get("serial")
-            .context("serial was empty")?
-            .clone();
-        let dut_id = format!("{model}_{serial}");
-        base_result.insert("dut_id".to_string(), dut_id.clone());
-        base_result.insert("timestamp".to_string(), Local::now().to_string());
 
-        let mut values: HashMap<String, String> = HashMap::new();
-        let target = if let Some(lab_ip) = base_result.get("ipv6_addr") {
-            // Lab DUT
-            SshInfo::new_host_and_port(lab_ip, 22)?
-        } else {
-            // Local DUT
-            ssh.clone()
-        };
-        SSH_CACHE.set(&dut_id, target.clone())?;
-        for key in keys {
-            let value = if let Some(value) = base_result.get(*key) {
-                value.clone()
+        // Construct values based on values
+        if keys.contains(&"timestamp") {
+            values.insert("timestamp".to_string(), Ok(Local::now().to_string()));
+        }
+        if keys.contains(&"model") {
+            if let Some(Ok(model)) = values.get("model_from_cros_config") {
+                values.insert("model".to_string(), Ok(model.clone()));
+            } else if let Some(Ok(model)) = values.get("model_from_mosys") {
+                values.insert("model".to_string(), Ok(model.clone()));
             } else {
-                match *key {
-                "address" => Ok(target.host_and_port()),
-                "dev_boot_usb" =>
-                    Ok(target.run_cmd_stdio("crossystem dev_boot_usb")?.to_string()),
-                "dev_default_boot" =>
-                    Ok(target.run_cmd_stdio("crossystem dev_default_boot")?.to_string()),
-                "dut_id" => continue,
-                "ectool_temps_all" =>
-                    Ok(target.run_cmd_stdio("ectool temps all")?.to_string()),
-                "fwid" => {
-                    let fwid = target.run_cmd_stdio("crossystem fwid")?;
-                    Ok(fwid.to_string())
-                }
-                "gbb_flags" => {
-                    let gbb_flags = target.run_cmd_stdio("/usr/share/vboot/bin/get_gbb_flags.sh 2>&1 | grep 'Chrome OS GBB set flags' | cut -d ':' -f 2",
-                        )?;
-                    Ok(gbb_flags.to_string())
-                }
-                "host_kernel_config" =>
-                    Ok(target.run_cmd_stdio("modprobe configs; zcat /proc/config.gz")?.to_string()),
-                "lshw" =>
-                    Ok(target.run_cmd_stdio("lshw -json")?.to_string()),
-                "mac" => Ok(target.get_mac_addr()?),
-                "model" => Ok(model.clone()),
-                "release" => {
-                    Ok(target.run_cmd_stdio("cat /etc/lsb-release | grep CHROMEOS_RELEASE_DESCRIPTION | sed -e 's/CHROMEOS_RELEASE_DESCRIPTION=//'")?.to_string())
-                }
-                "ro_fwid" =>
-                    Ok(target.run_cmd_stdio("crossystem ro_fwid")?.to_string()),
-                "serial" => Ok(serial.clone()),
-                "timestamp" => continue,
-                "uptime" => Ok(target.get_uptime()?.as_secs_f64().to_string()),
-                key => Err(anyhow!("unknown key: {}", key)),
-            }?
-            };
-            values.insert(key.to_string(), value);
+                return Err(anyhow!("Failed to get model"));
+            }
         }
-        Ok(values)
+        if keys.contains(&"gbb_flags") {
+            let gbb_flags = if let Some(Ok(v)) = values.get("gbb_flags_from_futility") {
+                v
+            } else if let Some(Ok(v)) = values.get("gbb_flags_from_shell") {
+                v
+            } else {
+                return Err(anyhow!("Failed to get model"));
+            };
+            if RE_GBB_FLAGS.is_match(gbb_flags) {
+                values.insert("gbb_flags".to_string(), Ok(gbb_flags.clone()));
+            } else {
+                return Err(anyhow!(
+                    "Model should match regex RE_GBB_FLAGS but got {gbb_flags:?}"
+                ));
+            }
+        }
+        if keys.contains(&"dut_id") {
+            let model = values.get("model");
+            let serial = values.get("serial");
+            if let (Some(Ok(model)), Some(Ok(serial))) = (model, serial) {
+                let dut_id = format!("{model}_{serial}");
+                values.insert("dut_id".to_string(), Ok(dut_id));
+            } else {
+                return Err(anyhow!("model and serial is needed for dut_id but got: (model: {model:?}, serial: {serial:?})"));
+            }
+        }
+        // Collect all values for given keys
+        keys.iter()
+            .map(|&k| {
+                let v = values.get(k);
+                if let Some(Ok(v)) = v {
+                    Ok((k.to_string(), v.clone()))
+                } else {
+                    Err(anyhow!("failed to get key {k}: {v:?}"))
+                }
+            })
+            .collect()
     }
-}
-
-/// This test requires a working DUT so excluded by default
-#[ignore]
-#[test]
-fn dut_info_is_valid() {
-    let ip = std::env::var("DUT")
-        .context("please set DUT env var correctly")
-        .unwrap();
-    eprintln!("Using DUT = {ip}");
-    let ssh = SshInfo::new(&ip).expect("Failed to create ssh info");
-    let keys = vec!["dut_id", "hwid", "address", "model", "serial", "mac"];
-    let info = DutInfo::fetch_keys(&ssh, &keys).expect("Failed to fetch DUT info");
-    assert_eq!(
-        info.get("serial").map(String::as_str),
-        Some("NXHTZSJ00403428C037600")
-    );
-    assert_eq!(
-        info.get("hwid").map(String::as_str),
-        Some("KLED-QYGU C5I-A2B-E5P-74H-A3O")
-    );
-    assert_eq!(
-        info.get("dut_id").map(String::as_str),
-        Some("kled_NXHTZSJ00403428C037600")
-    );
-    assert_eq!(info.get("address").map(String::as_str), Some(ip.as_str()));
-    assert_eq!(
-        info.get("mac").map(String::as_str),
-        Some("48:65:ee:15:07:9c")
-    );
-    assert_eq!(info.get("model").map(String::as_str), Some("kled"));
 }
 
 /// SshInfo holds information needed to establish an ssh connection
@@ -686,28 +740,11 @@ impl SshInfo {
     pub fn run_autologin(&self) -> Result<()> {
         self.run_cmd_piped(&["/usr/local/autotest/bin/autologin.py", "-a", "-d"])
     }
-    pub fn get_lsb_release(&self) -> Result<LsbRelease> {
-        let lsb_release = self
-            .run_cmd_stdio("cat /etc/lsb-release")
-            .context("Failed to read /etc/lsb-release")?;
-        LsbRelease::from_str(&lsb_release).context("Failed to parse /etc/lsb_release")
-    }
     pub fn get_host_kernel_config(&self) -> Result<String> {
         self.run_cmd_stdio("modprobe configs; zcat /proc/config.gz")
     }
     pub fn get_board(&self) -> Result<String> {
         self.run_cmd_stdio("cat /etc/lsb-release | grep CHROMEOS_RELEASE_BOARD | cut -d '=' -f 2")
-    }
-    pub fn get_ipv6_addr(&self) -> Result<String> {
-        self
-                .run_cmd_stdio(r"ip -6 address show dev eth0 mngtmpaddr | grep inet6 | grep 2401:fa00:480:ee08 | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3")
-    }
-    pub fn get_mac_addr(&self) -> Result<String> {
-        self
-                .run_cmd_stdio(r"ip addr show dev eth0 | grep ether | grep -E -o '([0-9a-z]{2}:){5}([0-9a-z]{2})' | head -n 1")
-    }
-    pub fn get_serial(&self) -> Result<String> {
-        self.run_cmd_stdio("vpd -g serial_number")
     }
     pub fn get_arch(&self) -> Result<String> {
         // Return "x86_64" or "arm64"
@@ -804,13 +841,13 @@ pub fn pingable_duts() -> Result<Vec<SshInfo>> {
         .collect())
 }
 
-pub fn discover_local_duts(iface: Option<String>) -> Result<Vec<DutInfo>> {
+pub fn discover_local_duts(iface: Option<String>, extra_attr: &[String]) -> Result<Vec<DutInfo>> {
     ensure_testing_rsa_is_there()?;
     eprintln!("Detecting DUTs on the same network...");
     let iface = iface
         .ok_or(())
         .or_else(|_| -> Result<String, anyhow::Error> {
-            let r = run_bash_command("ip --json route | jq -r '.[0].dev'", None)
+            let r = run_bash_command(CMD_GET_DEFAULT_IFACE, None)
                 .context("failed to determine interface to scan from ip route")?;
             r.status.exit_ok()?;
             Ok(get_stdout(&r).trim().to_string())
@@ -833,7 +870,11 @@ pub fn discover_local_duts(iface: Option<String>) -> Result<Vec<DutInfo>> {
             .par_iter()
             .flat_map(|addr| -> Result<DutInfo> {
                 let addr = &format!("[{}]", addr);
-                let dut = DutInfo::new_host_and_port(addr, 22);
+                // Since we are listing the DUTs on the same network
+                // so assume that port 22 is open for ssh
+                let ssh =
+                    SshInfo::new_host_and_port(addr, 22).context("failed to create SshInfo")?;
+                let dut = block_on(DutInfo::from_ssh(&ssh, extra_attr));
                 match &dut {
                     Ok(_) => {
                         eprintln!("{} is a DUT :)", addr)

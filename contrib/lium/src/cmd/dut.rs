@@ -362,31 +362,31 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
 #[argh(subcommand, name = "info")]
 struct ArgsDutInfo {
     /// DUT identifiers (e.g. 127.0.0.1, localhost:2222, droid_NXHKDSJ003138124257611)
-    #[argh(positional)]
-    duts: Vec<String>,
+    #[argh(option)]
+    dut: String,
     /// comma-separated list of attribute names. to show the full list, try `lium dut info --keys ?`
-    #[argh(
-        option,
-        default = "String::from(\"timestamp,dut_id,hwid,address,release,model,serial,mac\")"
-    )]
-    keys: String,
+    #[argh(positional)]
+    keys: Vec<String>,
 }
 fn run_dut_info(args: &ArgsDutInfo) -> Result<()> {
-    let keys: Vec<&str> = args.keys.split(',').map(str::trim).collect();
-    eprintln!("keys: ${keys:?}");
-    let mut result = HashMap::new();
-    for dut_id in &args.duts {
-        let dut = DutInfo::new(dut_id)?;
-        result.insert(dut_id, dut.info().clone());
-        /*
-        let disk_info = target.run_cmd_stdio(
-        r#"lshw -json -c storage | jq '.[] | select(.id == "nvme") | {handle: .handle, vendor: .vendor, logicalname: .logicalname, product: .product, serial: .serial}'"#,
-        )?;
-        let ectool_temps_all = target.run_cmd_stdio(r#"ectool temps all"#)?;
-        }
-        */
-    }
-    let result = serde_json::to_string(&result)?;
+    let dut = &args.dut;
+    let keys = if args.keys.is_empty() {
+        vec![
+            "timestamp",
+            "dut_id",
+            "hwid",
+            "address",
+            "release",
+            "model",
+            "serial",
+            "mac",
+        ]
+    } else {
+        args.keys.iter().map(|s| s.as_str()).collect()
+    };
+    let ssh = SshInfo::new(dut)?;
+    let info = DutInfo::fetch_keys(&ssh, &keys)?;
+    let result = serde_json::to_string(&info)?;
     println!("{}", result);
     Ok(())
 }
@@ -402,6 +402,9 @@ pub struct ArgsDiscover {
     /// remote machine to do the scan. If not specified, run the discovery locally.
     #[argh(option)]
     remote: Option<String>,
+    /// additional attributes to retrieve
+    #[argh(option)]
+    extra_attr: Vec<String>,
 }
 pub fn run_discover(args: &ArgsDiscover) -> Result<()> {
     if let Some(remote) = &args.remote {
@@ -413,10 +416,15 @@ pub fn run_discover(args: &ArgsDiscover) -> Result<()> {
             &[lium_path.to_string_lossy().to_string()],
             Some(&"~/".to_string()),
         )?;
-        remote.run_cmd_piped(&["~/lium", "dut", "discover"])?;
+        let mut cmd = "~/lium dut discover".to_string();
+        for ea in &args.extra_attr {
+            cmd += " --extra-attr ";
+            cmd += ea;
+        }
+        remote.run_cmd_piped(&[cmd])?;
         Ok(())
     } else {
-        let dut_list = discover_local_duts(args.interface.to_owned())?;
+        let dut_list = discover_local_duts(args.interface.to_owned(), &args.extra_attr)?;
         let dut_list: Vec<HashMap<String, String>> =
             dut_list.iter().map(|e| e.info().to_owned()).collect();
         let dut_list = serde_json::to_string_pretty(&dut_list)?;
