@@ -1,0 +1,294 @@
+syntax = "proto2";
+
+// the kernel build dispatcher service definition
+service KbuildDisp {
+  // create a kernel bisection session
+  rpc CreateBisectSession(BisectSessionRequest)
+      returns (BisectSessionResponse) {}
+  // create a kernel bisection build
+  rpc CreateBisectKbuild(BisectKbuildRequest) returns (BisectKbuildResponse) {}
+  // get a kernel bisection build status
+  rpc GetBisectKbuildStatus(BisectKbuildStatusRequest)
+      returns (BisectKbuildStatusResponse) {}
+  // provision a DUT for bisection
+  rpc ProvisionDut(DutProvisionRequest) returns (DutProvisionResponse) {}
+  // get a DUT provision status for bisection
+  rpc GetDutProvisionStatus(DutProvisionStatusRequest)
+      returns (DutProvisionStatusResponse) {}
+}
+
+enum Error {
+  NO_ERROR = 0x00;
+  TOO_MANY_SESSIONS_OPENED = 0x01;
+  SESSION_ALREADY_EXISTS = 0x02;
+  SESSION_DOES_NOT_EXIST = 0x03;
+  ACTION_ALREADY_SCHEDULED = 0x04;
+  SHA_DOES_NOT_EXIST = 0x05;
+  BRANCH_DOES_NOT_EXIST = 0x6;
+  INVALID_BOARD_NAME = 0x07;
+  SHA_IS_OUTSIDE_BISECTION_RANGE = 0x08;
+  SHA_IS_NOT_BISECTABLE = 0x09;
+  KBUILD_ALREADY_EXISTS = 0x0A;
+  INVALID_IP_ADDRESS = 0x0B;
+  INVALID_KBUILD_PATH = 0x0C;
+}
+
+enum Status {
+  COMPLETED = 0x00;
+  PENDING = 0x01;
+  IN_PROGRESS = 0x02;
+  FAILED = 0x03;
+  IDLE = 0x04;
+}
+
+/*
+ * kernel bisection session request
+ *
+ * session_id - bisection session UUID requested by the Bisector runner for a
+ * session, e.g. ddeced18-abbc-11ed-9ac1-502f9bd350cc
+ *
+ */
+message BisectSessionRequest {
+  required string session_id = 1;
+}
+
+/*
+ * kernel bisection session response
+ *
+ * error_code:
+ * NO_ERROR - a kernel bisection session was created
+ *
+ * TOO_MANY_SESSIONS_OPENED - too many bisection sessions are already opened,
+ * maximum number of open sessions is 4096
+ *
+ * SESSION_ALREADY_EXISTS - a session with requested UUID already exists
+ *
+ *
+ *
+ * session_id - requested bisection session identifier UUID
+ *
+ */
+message BisectSessionResponse {
+  required Error error_code = 1;
+  required string session_id = 2;
+}
+
+/*
+ * kernel bisection build request
+ *
+ * session_id - bisection session UUID
+ *
+ * commit_sha - full commit sha to build kernel from, e.g.
+ * ebddb1404900657b7f03a56ee4c34a9d218c4030 from
+ * https://chromium.googlesource.com/chromiumos/third_party/kernel
+ *
+ * board_name - board name for which kernel will be built e.g.
+ * volteer-kernelnext
+ *
+ * branch_name - branch name to build kernel from, e.g.
+ * chromeos-kernelupstream-6.2-rc3
+ *
+ */
+message BisectKbuildRequest {
+  required string session_id = 1;
+  required string commit_sha = 2;
+  required string board_name = 3;
+  required string branch_name = 4;
+}
+
+/*
+ * kernel bisection build response
+ *
+ * error_code:
+ * NO_ERROR - kernel bisection build request was accepted
+ *
+ * SESSION_DOES_NOT_EXIST - requested bisection session does not exist
+ *
+ * SHA_DOES_NOT_EXIST - requested commit sha does not exist
+ *
+ * BRANCH_DOES_NOT_EXIST - requested branch does not exist
+ *
+ * INVALID_BOARD_NAME - request board name is invalid
+ *
+ * ACTION_ALREADY_SCHEDULED - kernel build or DUT provision was already
+ * requested for the session_id and is pending or in progress
+ *
+ * SHA_IS_OUTSIDE_BISECTION_RANGE - requested commit sha is outside bisection
+ * range
+ *
+ * SHA_IS_NOT_BISECTABLE - requested commit sha is not bisectable, in this case
+ * bisect_sha includes sha of the closest bisectable commit sha to the requested
+ * commit sha
+ *
+ * KBUILD_ALREADY_EXISTS - kernel build already exists, in this case
+ * kbuild_archive_path includes path to kernel build archive stored on GCS
+ *
+ */
+message BisectKbuildResponse {
+  required Error error_code = 1;
+  required string session_id = 2;
+  oneof value {
+    string bisect_sha = 3;
+    string kbuild_archive_path = 4;
+  }
+}
+
+/*
+ * kernel bisection build status request
+ *
+ * session_id - bisection session UUID
+ *
+ * commit_sha - full commit sha to build kernel from,
+ *              e.g. ebddb1404900657b7f03a56ee4c34a9d218c4030
+ *
+ * board_name - board name for which kernel will be built
+ *		e.g. volteer-kernelnext
+ *
+ * branch_name - branch name to build kernel from,
+ *		 e.g. chromeos-kernelupstream-6.2-rc3
+ *
+ */
+message BisectKbuildStatusRequest {
+  required string session_id = 1;
+}
+
+/*
+ * kernel bisection build status response
+ *
+ * error_code:
+ * NO_ERROR - kbuild_status includes kernel build status
+ *
+ * SESSION_DOES_NOT_EXIST - requested bisection session does not exist
+ *
+ *
+ *
+ * kbuild_status:
+ * COMPLETED - kernel build completed with success and kbuild_archive_path
+ * points to kernel build archive on GCS
+ *
+ * PENDING - kernel build is pending for requested session_id
+ *
+ * IN_PROGRESS - kernel build is in progress for requested session_id
+ *
+ * FAILED - kernel build failed and error_msg includes the error description
+ *
+ * IDLE - there is no pending, in progress or completed kernel builds for
+ * requested session_id
+ *
+ *
+ *
+ * kbuild_archive_path - when error_code is set to NO_ERROR and kbuild_status is
+ * set to COMPLETED then this field includes path to the kernel build archive
+ * stored on GCS
+ *
+ * error_msg - when error_code is NO_ERROR and kbuild_status is FAILED then
+ * this field includes the error description
+ *
+ */
+message BisectKbuildStatusResponse {
+  required Error error_code = 1;
+  required Status kbuild_status = 2;
+  required string session_id = 3;
+  oneof value {
+    string kbuild_archive_path = 4;
+    string error_msg = 5;
+  }
+}
+
+/*
+ * provision a DUT for bisection request
+ *
+ * session_id - bisection session UUID
+ *
+ * dut_ip_adress - IPv4 address of a DUT to provision
+ *
+ * kbuild_archive_path - includes a path to kernel build archive on GCS which
+ * will be used to provision a DUT, e.g.
+ * gs://kcr-bisection/volteer-kernelnext_chromeos-kernelupstream-6.2-rc3_ebddb1404900657b7f03a56ee4c34a9d218c4030.tgz
+ *
+ */
+message DutProvisionRequest {
+  required string session_id = 1;
+  required string dut_ip_address = 2;
+  required string kbuild_archive_path = 3;
+}
+
+/*
+ * provision a DUT for bisection response
+ *
+ * error_code:
+ * NO_ERROR - DUT provision request was accepted
+ *
+ * SESSION_DOES_NOT_EXIST - requested bisection session does not exist
+ *
+ * ACTION_ALREADY_SCHEDULED - kernel build or DUT provision was already
+ * requested for the session_id and is pending or in progress
+ *
+ * INVALID_IP_ADDRESS - DUT IP address is invalid
+ *
+ * INVALID_KBUILD_PATH - path to kernel build archive is invalid and does not
+ * point to a valid kernel archive on GCS
+ *
+ *
+ *
+ * session_id - bisection session for which DUT provision was requested
+ *
+ */
+message DutProvisionResponse {
+  required Error error_code = 1;
+  required string session_id = 2;
+}
+
+/*
+ * DUT provision status request
+ *
+ * session_id - bisection session UUID
+ *
+ */
+message DutProvisionStatusRequest {
+  required string session_id = 1;
+}
+
+/*
+ * DUT provision status response
+ *
+ * error_code:
+ * NO_ERROR - provision_status includes status of a DUT provision
+ *
+ * SESSION_DOES_NOT_EXIST - requested bisection session does not exist
+ *
+ *
+ *
+ * provision_status:
+ * COMPLETED - DUT provision completed with success and kernel_version includes
+ * kernel version the DUT was provisioned to
+ *
+ * PENDING - DUT provision is pending for requested session_id
+ *
+ * IN_PROGRESS - DUT provision is in progress for requested session_id
+ *
+ * FAILED - DUT provision failed and error_msg includes the error description
+ *
+ * IDLE - there is no pending, in progress or completed DUT provisions for
+ * requested session_id
+ *
+ *
+ *
+ * session_id - bisection session for which DUT provision was requested
+ *
+ * kernel_version - when error_code is set to NO_ERROR and provision_status is
+ * set to COMPLETED then this field includes kernel version the DUT was
+ * provisioned to
+ *
+ * error_msg - when error_code is set to NO_ERROR and provision_status is set to
+ * FAILED then this field includes the error description
+ */
+message DutProvisionStatusResponse {
+  required Error error_code = 1;
+  required Status provision_status = 2;
+  required string session_id = 3;
+  oneof value {
+    string kernel_version = 4;
+    string error_msg = 5;
+  }
+}
