@@ -6,6 +6,7 @@
 
 #![feature(addr_parse_ascii)]
 #![feature(exit_status_error)]
+#![feature(hash_drain_filter)]
 
 pub mod arc;
 pub mod cache;
