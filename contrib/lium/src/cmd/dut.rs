@@ -13,7 +13,6 @@ use lium::dut::DutInfo;
 use lium::dut::MonitoredDut;
 use lium::dut::SshInfo;
 use lium::dut::SSH_CACHE;
-use lium::util::run_bash_command;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::env::current_exe;
@@ -166,8 +165,6 @@ fn run_dut_monitor(args: &ArgsDutMonitor) -> Result<()> {
     }
 
     let mut screen = stdout().into_alternate_screen().unwrap();
-    let mut reconnecting_all = false;
-    let mut gcert_ok = true;
     loop {
         // Draw headers.
         write!(
@@ -178,26 +175,10 @@ fn run_dut_monitor(args: &ArgsDutMonitor) -> Result<()> {
         )?;
         println!("{}", MonitoredDut::get_status_header());
 
-        if gcert_ok {
-            reconnecting_all = true;
-            for target in targets.iter_mut() {
-                println!("{}", target.get_status()?);
-                if !target.reconnecting() {
-                    reconnecting_all = false;
-                }
-            }
+        for target in targets.iter_mut() {
+            println!("{}", target.get_status()?);
         }
 
-        if reconnecting_all || !gcert_ok {
-            // All connection is reconnecting state. Need to check gcert.
-            let out = run_bash_command("gcertstatus -quiet", None)?;
-            if out.status.exit_ok().is_err() {
-                eprintln!("DUTs are disconnected because gcert is expired. Please update it.");
-                gcert_ok = false;
-            } else {
-                gcert_ok = true;
-            }
-        }
         thread::sleep(time::Duration::from_secs(5))
     }
 }
