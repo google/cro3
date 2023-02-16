@@ -101,7 +101,16 @@ func combineTestSuiteNames(suites []*api.TestSuite) string {
 }
 
 // metadataToTestSuite convert a list of test metadata to a test suite.
-func metadataToTestSuite(name string, mdList []*api.TestCaseMetadata) *api.TestSuite {
+func metadataToTestSuite(name string, mdList []*api.TestCaseMetadata, metadataRequired bool) *api.TestSuite {
+
+	if metadataRequired == true {
+		return &api.TestSuite{
+			Name: name,
+			Spec: &api.TestSuite_TestCasesMetadata{
+				TestCasesMetadata: &api.TestCaseMetadataList{Values: mdList},
+			},
+		}
+	}
 	testInfos := []*api.TestCase{}
 	for _, md := range mdList {
 		testInfos = append(testInfos, &api.TestCase{
@@ -115,6 +124,7 @@ func metadataToTestSuite(name string, mdList []*api.TestCaseMetadata) *api.TestS
 			TestCases: &api.TestCaseList{TestCases: testInfos},
 		},
 	}
+
 }
 
 // Version is the version info of this command. It is filled in during emerge.
@@ -135,6 +145,7 @@ type args struct {
 
 func innerMain(logger *log.Logger, req *api.CrosTestFinderRequest, metadataDir string) (*api.CrosTestFinderResponse, error) {
 	logger.Println("Reading metadata from directory: ", metadataDir)
+
 	allTestMetadata, err := metadata.ReadDir(metadataDir)
 	if err != nil {
 		logger.Println("Error: ", err)
@@ -150,7 +161,7 @@ func innerMain(logger *log.Logger, req *api.CrosTestFinderRequest, metadataDir s
 		return nil, err
 	}
 
-	resultTestSuite := metadataToTestSuite(suiteName, selectedTestMetadata)
+	resultTestSuite := metadataToTestSuite(suiteName, selectedTestMetadata, req.GetMetadataRequired())
 
 	rspn := &api.CrosTestFinderResponse{TestSuites: []*api.TestSuite{resultTestSuite}}
 	return rspn, nil

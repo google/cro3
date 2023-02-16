@@ -243,7 +243,116 @@ func TestMetadataToTestSuite(t *testing.T) {
 			TestCases: &api.TestCaseList{TestCases: testInfos},
 		},
 	}
-	suites := metadataToTestSuite("test_suite", mdList)
+	suites := metadataToTestSuite("test_suite", mdList, false)
+
+	if !proto.Equal(suites, &expected) {
+		t.Errorf("Got unexpected test suite from metadataToTestSuite (-got +want):\n%v\n--\n%v\n", suites, &expected)
+	}
+}
+
+func TestMetadataToTestSuiteWithMetaData(t *testing.T) {
+	mdList := []*api.TestCaseMetadata{
+		{
+			TestCase: &api.TestCase{
+				Id: &api.TestCase_Id{
+					Value: "tast/test001",
+				},
+				Name: "tastTest",
+				Tags: []*api.TestCase_Tag{
+					{Value: "attr1"},
+					{Value: "attr2"},
+				},
+				Dependencies: []*api.TestCase_Dependency{
+					{Value: "dep1"},
+					{Value: "dep2"},
+				},
+			},
+			TestCaseExec: &api.TestCaseExec{
+				TestHarness: &api.TestHarness{
+					TestHarnessType: &api.TestHarness_Tast_{
+						Tast: &api.TestHarness_Tast{},
+					},
+				},
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{Email: "someone1@chromium.org"},
+				},
+			},
+		},
+		{
+			TestCase: &api.TestCase{
+				Id: &api.TestCase_Id{
+					Value: "tauto/test002",
+				},
+				Name: "tautoTest",
+				Tags: []*api.TestCase_Tag{
+					{Value: "attr1"},
+					{Value: "attr2"},
+				},
+			},
+			TestCaseExec: &api.TestCaseExec{
+				TestHarness: &api.TestHarness{
+					TestHarnessType: &api.TestHarness_Tauto_{
+						Tauto: &api.TestHarness_Tauto{},
+					},
+				},
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{Email: "someone2@chromium.org"},
+				},
+			},
+		},
+		{
+			TestCase: &api.TestCase{
+				Id: &api.TestCase_Id{
+					Value: "tauto/test003",
+				},
+				Name: "tautoTest",
+				Tags: []*api.TestCase_Tag{
+					{Value: "attr3"},
+				},
+			},
+			TestCaseExec: &api.TestCaseExec{
+				TestHarness: &api.TestHarness{
+					TestHarnessType: &api.TestHarness_Tauto_{
+						Tauto: &api.TestHarness_Tauto{},
+					},
+				},
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{Email: "someone3@chromium.org"},
+				},
+			},
+		},
+	}
+	testInfos := []*api.TestCase{}
+	testNames := []string{"tast/test001", "tauto/test002", "tauto/test003"}
+	testDeps := [][]string{{"dep1", "dep2"}, {}, {}}
+	for i := range testNames {
+		deps := []*api.TestCase_Dependency{}
+		for _, dep := range testDeps[i] {
+
+			deps = append(deps, &api.TestCase_Dependency{Value: dep})
+		}
+		if len(deps) == 0 {
+			deps = nil
+		}
+		testInfos = append(testInfos, &api.TestCase{
+			Id:           &api.TestCase_Id{Value: testNames[i]},
+			Dependencies: deps,
+		})
+
+	}
+	expected := api.TestSuite{
+		Name: "test_suite",
+		Spec: &api.TestSuite_TestCasesMetadata{
+			TestCasesMetadata: &api.TestCaseMetadataList{Values: mdList},
+		},
+	}
+	suites := metadataToTestSuite("test_suite", mdList, true)
 
 	if !proto.Equal(suites, &expected) {
 		t.Errorf("Got unexpected test suite from metadataToTestSuite (-got +want):\n%v\n--\n%v\n", suites, &expected)
