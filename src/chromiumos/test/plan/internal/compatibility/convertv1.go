@@ -363,9 +363,10 @@ type suiteInfo struct {
 	suite string
 	// environment to run the suite in.
 	environment testEnvironment
-	// tastExpr that defines the suite. Only valid if environment is TastVM or
-	// TastGCE
-	tastExpr string
+	// optional, tagCriteria that define the suite. Only valid if runViaCft is
+	// set. If not set, the name of the suite is used as the id to lookup and
+	// execute the suite.
+	tagCriteria *testpb.TestSuite_TestCaseTagCriteria
 	// whether the test suite is critical or not
 	critical bool
 	// optional, variant of the build target to test. For example, if program
@@ -394,16 +395,16 @@ func (si *suiteInfo) getBuildTarget() string {
 	return si.program
 }
 
-// tagCriteriaToTastExpr converts a TestCaseTagCriteria to a Tast expression.
-// All of the included and excluded tags in criteria are joined together with
-// " && ", i.e. Tast expressions with "|" cannot be generated. Excluded tags are
-// negated with "!". The entire expression is surrounded in parens.
+// getTastExpr converts suiteInfo's TestCaseTagCriteria to a Tast expression.
+// All of the included and excluded tags are joined together with " && ", i.e.
+// Tast expressions with "|" cannot be generated. Excluded tags are negated with
+// "!". The entire expression is surrounded in parens.
 //
 // See https://chromium.googlesource.com/chromiumos/platform/tast/+/HEAD/docs/running_tests.md
 // for a description of Tast expressions.
-func tagCriteriaToTastExpr(criteria *testpb.TestSuite_TestCaseTagCriteria) string {
-	attributes := criteria.GetTags()
-	for _, tag := range criteria.GetTagExcludes() {
+func (si *suiteInfo) getTastExpr() string {
+	attributes := si.tagCriteria.GetTags()
+	for _, tag := range si.tagCriteria.GetTagExcludes() {
 		attributes = append(attributes, "!"+tag)
 	}
 
@@ -566,6 +567,7 @@ func coverageRuleToSuiteInfo(
 						design:       design,
 						pool:         pool,
 						suite:        id.Value,
+						tagCriteria:  nil,
 						environment:  hw,
 						critical:     critical,
 						boardVariant: boardVariant,
@@ -575,40 +577,35 @@ func coverageRuleToSuiteInfo(
 					})
 			}
 		case *testpb.TestSuite_TestCaseTagCriteria_:
-			if !isVM {
-				return nil, fmt.Errorf("TestCaseTagCriteria are only valid for VM tests")
-			}
-
 			var env testEnvironment
-			name := suite.GetName()
-			switch {
-			case strings.HasPrefix(name, "tast_vm"):
-				env = tastVM
-			case strings.HasPrefix(name, "tast_gce"):
-				env = tastGCE
-			default:
-				return nil, fmt.Errorf("VM suite names must start with either \"tast_vm\" or \"tast_gce\" in CTP1 compatibility mode, got %q", name)
-			}
-
-			if design != "" {
-				glog.Warning("attr-design DutCriteria has no effect on VM tests")
-			}
-
-			if len(licenses) > 0 {
-				glog.Warning("misc-licenses DutCriteria has no effect on VM tests")
+			if isVM {
+				name := suite.GetName()
+				switch {
+				case strings.HasPrefix(name, "tast_vm"):
+					env = tastVM
+				case strings.HasPrefix(name, "tast_gce"):
+					env = tastGCE
+				default:
+					return nil, fmt.Errorf("VM suite names must start with either \"tast_vm\" or \"tast_gce\" in CTP1 compatibility mode, got %q", name)
+				}
+			} else {
+				env = hw
 			}
 
 			suiteInfos = append(suiteInfos,
 				&suiteInfo{
 					program:      chosenProgram,
+					design:       design,
 					pool:         pool,
 					suite:        suite.GetName(),
-					tastExpr:     tagCriteriaToTastExpr(spec.TestCaseTagCriteria),
+					tagCriteria:  suite.GetTestCaseTagCriteria(),
 					environment:  env,
 					critical:     critical,
 					boardVariant: boardVariant,
 					profile:      profile,
 					totalShards:  suite.GetTotalShards(),
+					licenses:     licenses,
+					runViaCft:    rule.GetRunViaCft(),
 				})
 		default:
 			return nil, fmt.Errorf("TestSuite spec type %T is not supported", spec)
@@ -730,7 +727,7 @@ func createTastVMTest(buildInfo *buildInfo, suiteInfo *suiteInfo, shardIndex int
 		SuiteName: suiteInfo.suite,
 		TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
 			{
-				TestExpr: suiteInfo.tastExpr,
+				TestExpr: suiteInfo.getTastExpr(),
 			},
 		},
 		Common: &testplans.TestSuiteCommon{
@@ -767,7 +764,7 @@ func createTastGCETest(buildInfo *buildInfo, suiteInfo *suiteInfo, shardIndex in
 		SuiteName: suiteInfo.suite,
 		TastTestExpr: []*testplans.TastGceTestCfg_TastTestExpr{
 			{
-				TestExpr: suiteInfo.tastExpr,
+				TestExpr: suiteInfo.getTastExpr(),
 			},
 		},
 		GceMetadata: &testplans.TastGceTestCfg_TastGceTest_GceMetadata{
@@ -896,7 +893,8 @@ func ToCTP1(
 							Value: suiteInfo.critical,
 						},
 					},
-					RunViaCft: suiteInfo.runViaCft,
+					RunViaCft:   suiteInfo.runViaCft,
+					TagCriteria: suiteInfo.tagCriteria,
 				}
 
 				if _, found := hwTests[displayName]; found {

@@ -95,14 +95,11 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 			{
 				TestSuites: []*testpb.TestSuite{
 					{
-
-						Spec: &testpb.TestSuite_TestCaseIds{
-							TestCaseIds: &testpb.TestCaseIdList{
-								TestCaseIds: []*testpb.TestCase_Id{
-									{
-										Value: "suite3",
-									},
-								},
+						Name: "suite3",
+						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags:        []string{`"group:somegroup"`},
+								TagExcludes: []string{"informational"},
 							},
 						},
 					},
@@ -738,7 +735,11 @@ func TestToCTP1(t *testing.T) {
 								DisplayName: "cq-builderA.model1.hw.suite3",
 								Critical:    wrapperspb.Bool(false),
 							},
-							Suite:       "suite3",
+							Suite: "suite3",
+							TagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags:        []string{`"group:somegroup"`},
+								TagExcludes: []string{"informational"},
+							},
 							SkylabBoard: "boardA",
 							SkylabModel: "model1",
 							Licenses: []lab.LicenseType{
@@ -1171,47 +1172,6 @@ func TestToCTP1Errors(t *testing.T) {
 			},
 			dutAttributeList: dutAttributeList,
 			errRegexp:        "only DutCriteria with one \"attr-design\" attribute are supported",
-		},
-		{
-			name:        "test tags used",
-			vmTestPlans: vmTestPlans,
-			hwTestPlans: []*test_api_v1.HWTestPlan{
-				{
-					CoverageRules: []*testpb.CoverageRule{
-						{
-							DutTargets: []*testpb.DutTarget{
-								{
-									Criteria: []*testpb.DutCriterion{
-										{
-											AttributeId: &testpb.DutAttribute_Id{
-												Value: "attr-program",
-											},
-											Values: []string{"programA"},
-										},
-										{
-											AttributeId: &testpb.DutAttribute_Id{
-												Value: "swarming-pool",
-											},
-											Values: []string{"DUT_POOL_QUOTA"},
-										},
-									},
-								},
-							},
-							TestSuites: []*testpb.TestSuite{
-								{
-									Spec: &testpb.TestSuite_TestCaseTagCriteria_{
-										TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
-											Tags: []string{"kernel"},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			dutAttributeList: dutAttributeList,
-			errRegexp:        "TestCaseTagCriteria are only valid for VM tests",
 		},
 		{
 			name:        "multiple DUT targets",
