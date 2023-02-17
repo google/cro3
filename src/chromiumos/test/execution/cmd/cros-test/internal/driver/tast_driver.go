@@ -138,7 +138,7 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.
 
 	_ = common.PublishTkoStatusFile(resultsDir, results)
 
-	return &api.CrosTestResponse{TestCaseResults: results}, err
+	return &api.CrosTestResponse{TestCaseResults: results}, nil
 }
 
 // Command name and flag names.
