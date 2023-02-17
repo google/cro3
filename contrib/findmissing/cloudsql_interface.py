@@ -32,14 +32,14 @@ def upstream_fixes_for_shas(db, upstream_shas):
         return [a[0] for a in c.fetchall()]
 
 
-def get_fixes_table_primary_key(db, fixes_table, fix_change_id):
+def get_fixes_table_primary_key(db, fixes_table, branch, fix_change_id):
     """Retrieves the primary keys from a fixes table using changeid."""
     q = f"""SELECT kernel_sha, fixedby_upstream_sha
             FROM {fixes_table}
-            WHERE fix_change_id = %s"""
+            WHERE branch = %s AND fix_change_id = %s"""
 
     with db.cursor(MySQLdb.cursors.DictCursor) as c:
-        c.execute(q, [fix_change_id])
+        c.execute(q, [branch, fix_change_id])
         row = c.fetchone()
         return (row["kernel_sha"], row["fixedby_upstream_sha"])
 
@@ -130,14 +130,14 @@ def update_change_merged(
     db.commit()
 
 
-def update_change_status(db, fixes_table, fix_change_id, status):
+def update_change_status(db, fixes_table, branch, fix_change_id, status):
     """Updates fixes_table with the latest status from Gerrit API.
 
     This is done to synchronize CL's that are
     abandoned/restored on Gerrit with our database state
     """
     kernel_sha, fixedby_upstream_sha = get_fixes_table_primary_key(
-        db, fixes_table, fix_change_id
+        db, fixes_table, branch, fix_change_id
     )
     if status == common.Status.OPEN:
         update_change_restored(

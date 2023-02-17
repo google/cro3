@@ -159,7 +159,7 @@ def synchronize_fixes_tables_with_gerrit():
                     )
                     status = gerrit_to_db_status_map[gerrit_status]
                     cloudsql_interface.update_change_status(
-                        db, fixes_table, fix_change_id, status
+                        db, fixes_table, branch, fix_change_id, status
                     )
 
 
