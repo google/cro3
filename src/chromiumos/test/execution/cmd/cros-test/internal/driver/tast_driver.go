@@ -187,7 +187,6 @@ func newTastArgs(primary *device.DutInfo, companionDuts []*device.DutInfo, tests
 			downloadDataFlag:           "batch",
 			buildFlag:                  "false",
 			downloadPrivateBundlesFlag: "true",
-			timeOutFlag:                "3000",
 			resultsDirFlag:             resultsDir,
 			reportsServerFlag:          rsAddress,
 			varsFile:                   varsFilePath,
