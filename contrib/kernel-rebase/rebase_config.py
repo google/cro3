@@ -142,3 +142,7 @@ disp_overwrite["00e61e91369c"] = [
     "move",
     "chromeos",
 ]  # CHROMIUM: alt-syscall: Make required syscalls available for use
+disp_overwrite["5ee58f274912"] = [
+    "move",
+    "gpu/other",
+]  # CHROMIUM: config: mediatek: Enable Mali configs
