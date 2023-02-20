@@ -1,6 +1,6 @@
 # corp-ssh-helper-helper
 
-corp-ssh-helper-helper is a helper tool to interact with DUTs from inside the ChromiumOS SDK chroot where corp-ssh-helper is not available.
+corp-ssh-helper-helper is a helper tool to interact with DUTs (DUT stands for Device under test) from inside the ChromiumOS SDK chroot where corp-ssh-helper is not available.
 
 ## Prerequisites
 
@@ -23,6 +23,17 @@ To do this, run the following command **inside** the chroot.
 ```shell
 (inside the chroot) $ sudo ln -s ~/chromiumos/src/platform/dev/contrib/corp-ssh-helper-helper/corp-ssh-helper-helper-client.py /usr/bin/corp-ssh-helper
 ```
+
+## Set up ~/.ssh/config inside the chroot
+
+If you are lucky, you don't have to do anything, as `cros_sdk` copies ~/.ssh/config outside the chroot when entering the chroot, and your config file may contain the required ProxyCommand setup. Otherwise, you need to create ~/.ssh/config inside the chroot, and the following is to use the helper for $DUT (replace $DUT with an IP address or a host name).
+
+```
+Host $DUT
+  ProxyCommand corp-ssh-helper %h %p
+```
+
+See http://go/arc-corp-ssh-helper-notes and http://go/chromeos-lab-duts-ssh to learn more.
 
 ## How to use
 
