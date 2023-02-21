@@ -146,3 +146,19 @@ disp_overwrite["5ee58f274912"] = [
     "move",
     "gpu/other",
 ]  # CHROMIUM: config: mediatek: Enable Mali configs
+disp_overwrite["26681b893753"] = [
+    "move",
+    "gpu/other",
+]  # FROMGIT: accel/ivpu: Add IPC driver and JSM messages
+disp_overwrite["8ca584bb62ee"] = [
+    "move",
+    "gpu/other",
+]  # FROMGIT: accel/ivpu: Add PM support
+disp_overwrite["93c50cc711b4"] = [
+    "move",
+    "gpu/other",
+]  # FROMGIT: accel/ivpu: Fix spelling mistake "tansition" -> "transition"
+disp_overwrite["82e42e181cc2"] = [
+    "move",
+    "gpu/other",
+]  # FROMGIT: accel/ivpu: PM: remove broken ivpu_dbg() statements
