@@ -31,6 +31,7 @@ func TestNewTastArgs(t *testing.T) {
 		},
 		runFlags: map[string]string{
 			sshRetriesFlag:             "2",
+			testRetriesFlag:            "2",
 			downloadDataFlag:           "batch",
 			buildFlag:                  "false",
 			downloadPrivateBundlesFlag: "true",
@@ -72,6 +73,7 @@ func TestNewTastArgsCompanions(t *testing.T) {
 		},
 		runFlags: map[string]string{
 			sshRetriesFlag:             "2",
+			testRetriesFlag:            "2",
 			downloadDataFlag:           "batch",
 			buildFlag:                  "false",
 			downloadPrivateBundlesFlag: "true",
@@ -112,6 +114,7 @@ func TestGenArgList(t *testing.T) {
 		},
 		runFlags: map[string]string{
 			sshRetriesFlag:             "2",
+			testRetriesFlag:            "2",
 			downloadDataFlag:           "batch",
 			buildFlag:                  "false",
 			downloadPrivateBundlesFlag: "true",
@@ -188,6 +191,7 @@ func TestGenArgListWithServers(t *testing.T) {
 		},
 		runFlags: map[string]string{
 			sshRetriesFlag:             "2",
+			testRetriesFlag:            "2",
 			downloadDataFlag:           "batch",
 			buildFlag:                  "false",
 			downloadPrivateBundlesFlag: "true",

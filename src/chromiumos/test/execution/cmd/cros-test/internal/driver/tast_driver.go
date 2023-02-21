@@ -157,6 +157,7 @@ const (
 	devServerFlag              = "-devservers"
 	resultsDirFlag             = "-resultsdir"
 	waitUntilReadyFlag         = "-waituntilready"
+	testRetriesFlag            = "-retries"
 	timeOutFlag                = "-timeout"
 	keyfileFlag                = "-keyfile"
 	reportsServerFlag          = "-reports_server"
@@ -187,6 +188,7 @@ func newTastArgs(primary *device.DutInfo, companionDuts []*device.DutInfo, tests
 			downloadDataFlag:           "batch",
 			buildFlag:                  "false",
 			downloadPrivateBundlesFlag: "true",
+			testRetriesFlag:            "2", // TODO b/270193958 remove this hardcode for a var.
 			resultsDirFlag:             resultsDir,
 			reportsServerFlag:          rsAddress,
 			varsFile:                   varsFilePath,
