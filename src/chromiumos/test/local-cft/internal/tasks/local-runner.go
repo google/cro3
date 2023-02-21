@@ -197,8 +197,8 @@ func (c *localCftCmd) compileServicesToRun(manager *services.LocalCFTManager) []
 }
 
 func (c *localCftCmd) validateArgs() error {
-	if c.board == "" || c.model == "" {
-		return fmt.Errorf("-model and -board must be provided.")
+	if c.board == "" {
+		return fmt.Errorf("-board must be provided.")
 	}
 	if (c.fullRun || c.test || c.provision) && c.dutHost == "" {
 		return fmt.Errorf("-host must be provided.")

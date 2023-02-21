@@ -43,6 +43,7 @@ apt install -y autossh google-cloud-sdk
 SUDO
 
 gcloud auth login
+gcloud auth application-default login
 gcloud auth configure-docker
 
 # newgrp starts a new shell, therefore must run last

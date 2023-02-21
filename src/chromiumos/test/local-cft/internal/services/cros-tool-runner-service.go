@@ -62,19 +62,14 @@ func (c *CTRService) Start() error {
 	}
 
 	// Start CacheServer, SSHTunnel, SSHReverseTunnel, CrosDut
-
-	cacheServerService := &CacheServerService{
-		ServiceBase: NewServiceBase(
-			c.manager,
-			c.executor,
-			SERVICES().CacheServer,
-		),
-	}
-	if err := c.manager.Start(cacheServerService.Name, cacheServerService); err != nil {
-		return err
-	}
-
 	if c.manager.DutHost != "" {
+		cacheServerService := &CacheServerService{
+			ServiceBase: NewServiceBase(
+				c.manager,
+				c.executor,
+				SERVICES().CacheServer,
+			),
+		}
 		sshReverseTunnelService := &SSHTunnelService{
 			ServiceBase: NewServiceBase(
 				c.manager,
@@ -95,6 +90,10 @@ func (c *CTRService) Start() error {
 				c.executor,
 				SERVICES().CrosDut,
 			),
+		}
+
+		if err := c.manager.Start(cacheServerService.Name, cacheServerService); err != nil {
+			return err
 		}
 		if err := c.manager.Start(sshReverseTunnelService.Name, sshReverseTunnelService); err != nil {
 			return err
