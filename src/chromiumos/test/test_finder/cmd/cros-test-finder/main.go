@@ -23,6 +23,7 @@ import (
 	"chromiumos/test/execution/errors"
 	"chromiumos/test/util/finder"
 	"chromiumos/test/util/metadata"
+	"chromiumos/test/util/portdiscovery"
 )
 
 const (
@@ -247,6 +248,12 @@ func startServer(d []string) int {
 		return 2
 	}
 	logger.Println("Starting TestFinderService on port ", a.port)
+
+	// Write port number to ~/.cftmeta for go/cft-port-discovery
+	err = portdiscovery.WriteServiceMetadata("cros-test-finder", l.Addr().String(), logger)
+	if err != nil {
+		logger.Println("Warning: error when writing to metadata file: ", err)
+	}
 
 	server, closer := NewServer(logger, a.metadataDir)
 	defer closer()
