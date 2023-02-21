@@ -157,10 +157,6 @@ func TestStateTransitions(t *testing.T) {
 	gomock.InOrder(
 		getRunCmdCommand(sam, stopUI).Return("", nil),
 		getRunCmdCommand(sam, stopUpdateEngine).Return("", nil),
-		getPathExistsCommand(sam, dlcLibExists).Return(true, nil),
-		getRunCmdCommand(sam, stopDLCservice).Return("", nil),
-		getRunCmdCommand(sam, removeVerified).Return("", nil),
-		getRunCmdCommand(sam, startDLCservice).Return("", nil),
 		getPipeDataCommand(sam, copyKernel).Return(nil),
 		getPipeDataCommand(sam, copyRoot).Return(nil),
 		getRunCmdCommand(sam, makeTemp).Return("temporary_dir", nil),
@@ -381,10 +377,6 @@ func TestInstallPostInstallFailureCausesReversal(t *testing.T) {
 	gomock.InOrder(
 		getRunCmdCommand(sam, stopUI).Return("", nil),
 		getRunCmdCommand(sam, stopUpdateEngine).Return("", nil),
-		getPathExistsCommand(sam, dlcLibExists).Return(true, nil),
-		getRunCmdCommand(sam, stopDLCservice).Return("", nil),
-		getRunCmdCommand(sam, removeVerified).Return("", nil),
-		getRunCmdCommand(sam, startDLCservice).Return("", nil),
 		getPipeDataCommand(sam, copyKernel).Return(nil),
 		getPipeDataCommand(sam, copyRoot).Return(nil),
 		getRunCmdCommand(sam, makeTemp).Return("temporary_dir", nil),
@@ -441,10 +433,6 @@ func TestInstallClearTPMFailureCausesReversal(t *testing.T) {
 	gomock.InOrder(
 		getRunCmdCommand(sam, stopUI).Return("", nil),
 		getRunCmdCommand(sam, stopUpdateEngine).Return("", nil),
-		getPathExistsCommand(sam, dlcLibExists).Return(true, nil),
-		getRunCmdCommand(sam, stopDLCservice).Return("", nil),
-		getRunCmdCommand(sam, removeVerified).Return("", nil),
-		getRunCmdCommand(sam, startDLCservice).Return("", nil),
 		getPipeDataCommand(sam, copyKernel).Return(nil),
 		getPipeDataCommand(sam, copyRoot).Return(nil),
 		getRunCmdCommand(sam, makeTemp).Return("temporary_dir", nil),

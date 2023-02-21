@@ -29,11 +29,14 @@ func NewWaitForDutToStabilizeCommand(ctx context.Context, cs *service.CrOSServic
 
 func (c *WaitForDutToStabilizeCommand) Execute(log *log.Logger) error {
 	log.Printf("Start WaitForDutToStabilizeCommand Execute")
+	fiveMinutes := time.Minute * 5
+	twoSeconds := time.Second * 2
 
-	for {
+	// Note in CLI mode the context is not built with a timeout, thus we need to check on loop.
+	for start := time.Now(); time.Since(start) < fiveMinutes; time.Sleep(twoSeconds) {
 		select {
 		case <-c.ctx.Done():
-			return errors.New("timeout reached")
+			return errors.New("failed to wait for UI to stablize, likely a bad image")
 		default:
 			status, err := c.cs.Connection.RunCmd(c.ctx, "status", []string{"system-services"})
 			if err != nil {
@@ -45,9 +48,9 @@ func (c *WaitForDutToStabilizeCommand) Execute(log *log.Logger) error {
 				log.Printf("WaitForDutToStabilizeCommand Success")
 				return nil
 			}
-			time.Sleep(2 * time.Second)
 		}
 	}
+	return errors.New("failed to wait for UI to stablize, likely a bad image")
 }
 
 func (c *WaitForDutToStabilizeCommand) Revert() error {
