@@ -62,16 +62,16 @@ func (sc *ServerCommand) Init(args []string) error {
 		return fmt.Errorf("unable to set up logs: %s", err)
 	}
 
-	cpp, err := common_utils.ParseCrosProvisionRequest(sc.metadataFile)
+	apr, err := common_utils.ParseAndroidProvisionRequest(sc.metadataFile)
 	if err != nil {
 		return fmt.Errorf("unable to parse CrosProvisionRequest proto: %s", err)
 	}
 
-	if err = sc.validateProtoInputs(cpp); err != nil {
+	if err = sc.validateProtoInputs(apr); err != nil {
 		return err
 	}
-	sc.metadata.Dut = cpp.GetDut()
-	sc.metadata.DutAddress = fmt.Sprintf("%s:%d", cpp.GetDutServer().GetAddress(), cpp.GetDutServer().GetPort())
+	sc.metadata.Dut = apr.GetDut()
+	sc.metadata.DutAddress = fmt.Sprintf("%s:%d", apr.GetDutServer().GetAddress(), apr.GetDutServer().GetPort())
 
 	return nil
 }
@@ -85,11 +85,20 @@ func (sc *ServerCommand) validateCLIInputs() error {
 }
 
 // validateProtoInputs ensures the proto part of the CLI input is valid
-func (sc *ServerCommand) validateProtoInputs(cpp *api.CrosProvisionRequest) error {
-	if cpp.GetDut() == nil || cpp.GetDut().GetId().GetValue() == "" {
+func (sc *ServerCommand) validateProtoInputs(apr *api.AndroidProvisionRequest) error {
+	if apr.GetDut() == nil || apr.GetDut().GetId().GetValue() == "" {
 		return errors.New("dut id is not specified in input file")
 	}
-	if cpp.GetDutServer() == nil || cpp.DutServer.GetAddress() == "" || cpp.DutServer.GetPort() <= 0 {
+	if apr.GetDut().GetAndroid() == nil {
+		return errors.New("android dut is not specified in input file")
+	}
+	if apr.GetDut().GetAndroid().GetSerialNumber() == "" {
+		return errors.New("android dut serial number is missing from input file")
+	}
+	if apr.GetDut().GetAndroid().GetAssociatedHostname() == nil || apr.GetDut().GetAndroid().GetAssociatedHostname().GetAddress() == "" {
+		return errors.New("associated host of android dut is not specified in input file")
+	}
+	if apr.GetDutServer() == nil || apr.DutServer.GetAddress() == "" || apr.DutServer.GetPort() <= 0 {
 		return errors.New("dut server address is no specified or incorrect in input file")
 	}
 	return nil
