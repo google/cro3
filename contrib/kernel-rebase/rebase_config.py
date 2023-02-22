@@ -171,3 +171,6 @@ disp_overwrite["82e42e181cc2"] = [
 disp_overwrite[
     "91a70c368104"
 ] = "drop"  # CHROMIUM: driver:  Support iwl7000 driver on v6.1
+disp_overwrite[
+    "4fe58164b6e0"
+] = "drop"  # CHROMIUM: defconfig:  Support iwl7000 driver on v6.1
