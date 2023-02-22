@@ -87,8 +87,21 @@ func (s *ReportsServer) ReportResult(ctx context.Context, req *protocol.ReportRe
 		testResult.Verdict = &api.TestCaseResult_Skip_{Skip: &api.TestCaseResult_Skip{}}
 		testResult.Reason = req.SkipReason
 	}
-
 	s.mu.Lock()
+
+	// Check the reported tests (which uses req.Test), to see if a result for the test has previously been reported.
+	if _, ok := s.reportedTests[req.Test]; ok {
+		// If it has, we will remove the duplicate result, in order to stub in the new proper retry result.
+		// testID is used for matching there... a bit odd...
+		for i, res := range s.testCaseResults {
+			if res.TestCaseId.Value == testID {
+				s.testCaseResults = append(s.testCaseResults[:i], s.testCaseResults[i+1:]...)
+				break
+			}
+		}
+	}
+
+	// Note, must be created AFTER the dup check; otherwise everything will be a dup
 	s.reportedTests[req.Test] = struct{}{}
 	s.testCaseResults = append(s.testCaseResults, &testResult)
 	s.mu.Unlock()
@@ -126,7 +139,7 @@ func (s *ReportsServer) MissingTestsReports(reason string) []*api.TestCaseResult
 	return missingTestResults
 }
 
-// TestsReports returnd results to all tests that have reported results.
+// TestsReports returns results to all tests that have reported results.
 func (s *ReportsServer) TestsReports() []*api.TestCaseResult {
 	s.mu.Lock()
 	defer s.mu.Unlock()
