@@ -4,15 +4,17 @@
 
 RUSTFLAGS='-C target-feature=+crt-static'
 
-install:
+build:
 	@rustup -q which rustc > /dev/null || { echo "Please install rustup via https://rustup.rs/" ; exit 1 ; }
 	RUSTFLAGS=$(RUSTFLAGS) cargo install --path . --target x86_64-unknown-linux-gnu
+
+install: build
 	file `which lium`
 	ls -lah `which lium`
 	echo $${SHELL} | grep bash && { lium setup bash-completion && source ~/.bash_completion ; }
 
 run:
-	make build_static
+	make build
 	scp target/x86_64-unknown-linux-gnu/release/lium tok-satlab1:~/
 	ssh tok-satlab1 -- /usr/local/bin/docker run --rm -it -d --name lium --privileged ubuntu:latest || echo "skipping docker run"
 	# `docker exec -ti lium /bin/bash` on satlab to get into lium container

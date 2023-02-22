@@ -13,7 +13,7 @@ give you some time for a nap and/or coffee, or other tasks ;)
 [Install the Rust toolchain](https://rustup.rs/) and run:
 
 ```
-make
+make install
 ```
 
 ### Install bash completion file
@@ -24,7 +24,7 @@ You can also install the bash completion file by running:
 lium setup bash-completion && source ~/.bash_completion
 ```
 
-If you updated your lium installation, please update the bash completion in the same way.
+This will be done automatically after `make install` if your default shell is bash.
 
 ## Usage examples
 
