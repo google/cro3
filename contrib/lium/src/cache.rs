@@ -105,6 +105,16 @@ impl<T: Serialize + DeserializeOwned + Sized + Clone + Debug> KvCache<T> {
         self.sync()?;
         Ok(())
     }
+    pub fn remove(&self, key: &str) -> Result<Option<T>> {
+        self.load_cache_file()?;
+        let old = {
+            let mut map = self.map.lock().unwrap();
+            let map = map.as_mut().unwrap();
+            map.remove(key)
+        };
+        self.sync()?;
+        Ok(old)
+    }
     pub fn sync(&self) -> Result<()> {
         let mut map = self.map.lock().unwrap();
         let map = map.as_mut().unwrap();
