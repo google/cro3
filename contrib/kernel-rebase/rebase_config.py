@@ -54,6 +54,11 @@ topic_patches["cros_ec"] = [
     "fixups/platform: x86: add ACPI driver for ChromeOS.patch",
 ]
 
+topic_patches["gpu/other"] = [
+    "fixups/CHROMIUM: gpu: mali: Apply r40p0 EAC release 1.patch",
+    "fixups/CHROMIUM: gpu: mali: Apply r40p0 EAC release 2.patch",
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
@@ -83,6 +88,7 @@ patch_deps = {
     "dba4f3cbb765": ["f1c5e6917f73"],
     "343cf85ba839": ["85634c066fc3"],
     "e8eba5950370": ["ff52d46e7dbb"],
+    "0e90656c5af0": ["49631570c04c"],
 }
 
 # Add entry here to overwrite default disposition on particular commit
