@@ -297,6 +297,12 @@ fn run_dut_do(args: &ArgsDutDo) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum DutStatus {
+    Online,
+    Offline,
+    AddressReused,
+}
 #[derive(FromArgs, PartialEq, Debug)]
 /// list all cached DUTs
 #[argh(subcommand, name = "list")]
@@ -312,47 +318,96 @@ struct ArgsDutList {
     /// display current status of DUTs (may take a few moments)
     #[argh(switch)]
     status: bool,
+
+    /// add a DUT to the list with the connection provided
+    #[argh(option)]
+    add: Option<String>,
+
+    /// remove a DUT with a specified ID from the list
+    #[argh(option)]
+    remove: Option<String>,
+
+    /// update the DUT list and show their status
+    #[argh(switch)]
+    update: bool,
 }
 fn run_dut_list(args: &ArgsDutList) -> Result<()> {
     if args.clear {
         return SSH_CACHE.clear();
     }
+    let duts = SSH_CACHE
+        .entries()
+        .context(anyhow!("SSH_CACHE is not initialized yet"))?;
     if args.ids {
-        let keys: Vec<String> = SSH_CACHE.entries()?.keys().map(|s| s.to_string()).collect();
+        let keys: Vec<String> = duts.keys().map(|s| s.to_string()).collect();
         println!("{}", keys.join(" "));
         return Ok(());
     }
-    if args.status {
-        eprintln!("Checking DUT status. Please be patient...");
-        let status: Vec<(String, &str, SshInfo)> = SSH_CACHE
-            .entries()?
+    if let Some(dut_to_add) = &args.add {
+        eprintln!("Checking DutInfo of {dut_to_add}...");
+        let info = DutInfo::new(dut_to_add)?;
+        let id = info.id();
+        let ssh = info.ssh();
+        SSH_CACHE.set(id, ssh.clone())?;
+        println!("Added: {:32} {}", id, serde_json::to_string(ssh)?);
+        return Ok(());
+    }
+    if let Some(dut_to_remove) = &args.remove {
+        SSH_CACHE.remove(dut_to_remove)?;
+        eprintln!("Removed: {dut_to_remove}",);
+        return Ok(());
+    }
+    if args.status || args.update {
+        eprintln!(
+            "Checking status of {} DUTs. It will take a minute...",
+            duts.len()
+        );
+        let duts: Vec<(String, DutStatus, SshInfo)> = duts
             .par_iter()
             .map(|e| {
                 let id = e.0;
                 let info = DutInfo::new(id).map(|e| e.info().clone());
                 let status = if let Ok(info) = info {
                     if Some(id) == info.get("dut_id") {
-                        "Online"
+                        DutStatus::Online
                     } else {
-                        "IP reused"
+                        DutStatus::AddressReused
                     }
                 } else {
-                    "Offline"
+                    DutStatus::Offline
                 };
                 (id.to_owned(), status, e.1.clone())
             })
             .collect();
-        for s in status {
-            println!("{:32} {:32} {:?}", s.0, s.1, s.2);
+        let (duts_to_be_removed, duts) = if args.update {
+            (
+                duts.iter()
+                    .filter(|e| e.1 == DutStatus::AddressReused)
+                    .cloned()
+                    .collect(),
+                duts.iter()
+                    .filter(|e| e.1 != DutStatus::AddressReused)
+                    .cloned()
+                    .collect(),
+            )
+        } else {
+            (Vec::new(), duts)
+        };
+        for dut in duts {
+            println!("{:32} {:13} {:?}", dut.0, &format!("{:?}", dut.1), dut.2);
+        }
+        if !duts_to_be_removed.is_empty() {
+            println!("\nFollowing DUTs are removed: ");
+            for dut in duts_to_be_removed {
+                println!("{:32} {:13} {:?}", dut.0, &format!("{:?}", dut.1), dut.2);
+                SSH_CACHE.remove(&dut.0)?;
+            }
         }
         return Ok(());
     }
-    for it in SSH_CACHE
-        .entries()
-        .context(anyhow!("SSH_CACHE is not initialized yet"))?
-        .iter()
-    {
-        println!("{} {}", it.0, serde_json::to_string(it.1)?);
+    // List cached DUTs
+    for it in duts.iter() {
+        println!("{:32} {}", it.0, serde_json::to_string(it.1)?);
     }
     Ok(())
 }
