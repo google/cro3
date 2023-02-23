@@ -16,7 +16,7 @@ import (
 )
 
 const sshCmd = "ssh"
-const tunnelKeepaliveCmd = "sleep 8h"
+const tunnelKeepaliveCmd = "sleep 24h"
 
 type Runner struct {
 	sshOpts   []string
