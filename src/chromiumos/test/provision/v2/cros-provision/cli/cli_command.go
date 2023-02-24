@@ -41,6 +41,7 @@ var statusToResult = map[api.InstallResponse_Status]api.InstallFailure_Reason{
 	api.InstallResponse_STATUS_CLEAR_TPM_FAILED:                       api.InstallFailure_REASON_CLEAR_TPM_FAILED,
 	api.InstallResponse_STATUS_STABLIZE_DUT_FAILED:                    api.InstallFailure_REASON_STABLIZE_DUT_FAILED,
 	api.InstallResponse_STATUS_INSTALL_DLC_FAILED:                     api.InstallFailure_REASON_INSTALL_DLC_FAILED,
+	api.InstallResponse_STATUS_PRE_PROVISION_SETUP_FAILED:             api.InstallFailure_REASON_PRE_PROVISION_SETUP_FAILED,
 }
 
 // CLI command executed the provisioning as a CLI
