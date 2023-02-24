@@ -126,6 +126,7 @@ for carrier in [
     "kddi",
     "docomo",
     "softbank",
+    "fi",
 ]:
 
     dut_check_suites = ["cellular_ota", "cellular_repair"]
