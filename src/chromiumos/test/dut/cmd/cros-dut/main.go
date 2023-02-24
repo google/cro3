@@ -112,7 +112,24 @@ func main() {
 			logger.Fatalln("Failed to create a net listener: ", err)
 			return 2
 		}
+		ctx := context.Background()
+		logger.Println("Attempting to connect w/ Retry.")
 
+		// Define the initial connection tries/retry logic.
+		initialConReq := api.RestartRequest{
+			Args: []string{},
+			Retry: &api.RestartRequest_ReconnectRetry{
+				Times:      3,
+				IntervalMs: 5000,
+			},
+		}
+
+		conn, err := GetConnectionWithRetry(ctx, *dutName, *wiringAddress, &initialConReq, logger)
+		if err != nil {
+			logger.Println("Failed to connect to dut: ", err)
+			return 2
+		}
+		// Log the port _after_ the conn is established server.
 		logger.Println("Started server on address ", l.Addr().String())
 		logger.Println("Continue")
 
@@ -120,15 +137,6 @@ func main() {
 		err = portdiscovery.WriteServiceMetadata("cros-dut", l.Addr().String(), logger)
 		if err != nil {
 			logger.Println("Warning: error when writing to metadata file: ", err)
-		}
-
-		ctx := context.Background()
-		logger.Println("Attempting to connect w/ Retry.")
-
-		conn, err := GetConnectionWithRetry(ctx, *dutName, *wiringAddress, &api.RestartRequest{}, logger)
-		if err != nil {
-			logger.Println("Failed to connect to dut: ", err)
-			return 2
 		}
 
 		server, destructor := newDutServiceServer(l, logger, &dutssh.SSHClient{Client: conn}, *serializerPath, *protoChunkSize, *dutName, *wiringAddress, *cacheAddress)
