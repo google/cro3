@@ -54,6 +54,9 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     tast_bundles: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    ssh_port_search_timeout: Option<u64>,
 }
 static CONFIG_FILE_NAME: &str = "config.json";
 impl Config {
@@ -119,6 +122,12 @@ impl Config {
                     values[0..].iter().map(|s| s.as_ref().to_string()).collect();
                 self.tast_bundles = Some(bundles);
             }
+            "ssh_port_search_timeout" => {
+                if values.len() != 1 {
+                    return Err(anyhow!("{key} only takes 1 params"));
+                }
+                self.ssh_port_search_timeout = Some(values[0].as_ref().parse().unwrap());
+            }
             _ => return Err(anyhow!("config key {key} is not valid")),
         }
         self.write()
@@ -143,6 +152,9 @@ impl Config {
             "tast_bundles" => {
                 self.tast_bundles = None;
             }
+            "ssh_port_search_timeout" => {
+                self.ssh_port_search_timeout = None;
+            }
             _ => return Err(anyhow!("lium config clear for '{key}' is not implemented")),
         }
         self.write()?;
@@ -163,5 +175,8 @@ impl Config {
     }
     pub fn default_cros_checkout(&self) -> Option<String> {
         self.default_cros_checkout.clone()
+    }
+    pub fn ssh_port_search_timeout(&self) -> Option<u64> {
+        self.ssh_port_search_timeout
     }
 }
