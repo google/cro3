@@ -105,7 +105,7 @@ fn update_cached_tests(bundles: &Vec<&str>, dut: &str, repodir: &str) -> Result<
     ensure_testing_rsa_is_there()?;
     let chroot = Chroot::new(repodir)?;
     let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
-    let (fwdcmd, port) = ssh.start_ssh_forwarding_range((4100, 4199))?;
+    let (fwdcmd, port) = ssh.start_ssh_forwarding_range(4100..4200)?;
 
     let ret = if bundles.is_empty() {
         update_cached_tests_in_bundle(DEFAULT_BUNDLE, &chroot, port)
@@ -191,7 +191,7 @@ fn run_tast_run(args: &ArgsRun) -> Result<()> {
     let chroot = Chroot::new(&repodir)?;
     let ssh = SshInfo::new(&args.dut).context("failed to create SshInfo")?;
     // setup port forwarding for chroot.
-    let (fwdcmd, port) = ssh.start_ssh_forwarding_range((4100, 4199))?;
+    let port = ssh.start_ssh_forwarding_range_background(4100..4200)?;
 
     let config = Config::read()?;
     let bundles = config.tast_bundles();
@@ -205,6 +205,5 @@ fn run_tast_run(args: &ArgsRun) -> Result<()> {
         }
     }
 
-    drop(fwdcmd);
     Ok(())
 }

@@ -28,10 +28,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsStr;
+use std::ops::Range;
 use std::process::Command;
 use std::process::Output;
 use std::process::Stdio;
 use std::str::FromStr;
+use std::thread;
 use std::time::Duration;
 use url::Url;
 
@@ -682,13 +684,11 @@ impl SshInfo {
     // Start SSH port forwarding in given range
     pub fn start_ssh_forwarding_range(
         &self,
-        port_range: (u16, u16),
+        port_range: Range<u16>,
     ) -> Result<(async_process::Child, u16)> {
         let sshcmd = &format!("echo {COMMON_PORT_FORWARD_TOKEN}; sleep 8h");
         block_on(async {
-            let mut ports = (port_range.0..port_range.1)
-                .into_iter()
-                .collect::<Vec<u16>>();
+            let mut ports: Vec<u16> = port_range.into_iter().collect::<Vec<u16>>();
             let mut rng = thread_rng();
             ports.shuffle(&mut rng);
             for port in ports {
@@ -725,6 +725,28 @@ impl SshInfo {
             return Err(anyhow!("Do not find any vacant port"));
         })
     }
+    pub fn start_ssh_forwarding_range_background(&self, port_range: Range<u16>) -> Result<u16> {
+        let (mut child, port) = self.start_ssh_forwarding_range(port_range)?;
+        let ssh = self.clone();
+        let fwport = port;
+        thread::spawn(move || {
+            block_on(async move {
+                loop {
+                    let _ = child.status().await; // Ignore the result.
+                    loop {
+                        thread::sleep(Duration::from_secs(5));
+                        let ret = ssh.start_ssh_forwarding(fwport);
+                        if let Ok(new_child) = ret {
+                            child = new_child;
+                            break;
+                        }
+                    }
+                }
+            })
+        });
+        Ok(port)
+    }
+
     pub fn run_cmd_stdio(&self, cmd: &str) -> Result<String> {
         let output = self.run_cmd_captured(cmd)?;
         if output.status.success() {
