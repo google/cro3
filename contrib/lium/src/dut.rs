@@ -33,6 +33,7 @@ use std::process::Command;
 use std::process::Output;
 use std::process::Stdio;
 use std::str::FromStr;
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::Duration;
 use url::Url;
@@ -681,8 +682,10 @@ impl SshInfo {
     pub fn start_ssh_forwarding(&self, port: u16) -> Result<async_process::Child> {
         self.start_port_forwarding(port, 22, "sleep 8h")
     }
-    // Start SSH port forwarding in given range
-    pub fn start_ssh_forwarding_range(
+    // Start SSH port forwarding in a given range without timeout.
+    // Since this doesn't check the timeout, user should use
+    // SshInfo::start_ssh_forwarding_range_background() instead.
+    fn start_ssh_forwarding_range(
         &self,
         port_range: Range<u16>,
     ) -> Result<(async_process::Child, u16)> {
@@ -725,26 +728,62 @@ impl SshInfo {
             return Err(anyhow!("Do not find any vacant port"));
         })
     }
+    // Keep forwarding in background. This refers config.ssh_port_search_timeout.
     pub fn start_ssh_forwarding_range_background(&self, port_range: Range<u16>) -> Result<u16> {
-        let (mut child, port) = self.start_ssh_forwarding_range(port_range)?;
+        let timeout = if let Some(timeout) = Config::read()?.ssh_port_search_timeout() {
+            timeout
+        } else {
+            // Default timeout is 1 hour. This should be enough long.
+            3600
+        };
+
+        let est_port = Arc::new((Mutex::new(0_u16), Condvar::new()));
+        let est_port2 = est_port.clone();
+
         let ssh = self.clone();
-        let fwport = port;
         thread::spawn(move || {
+            let (lock, cvar) = &*est_port2;
+            let (mut child, port) =
+                if let Ok((child, port)) = ssh.start_ssh_forwarding_range(port_range) {
+                    (child, port)
+                } else {
+                    eprintln!("Failed to establish ssh port forwarding");
+                    return;
+                };
+
+            {
+                // NOTE: We have to unlock mutex after updating the object
+                let mut fwport = lock.lock().unwrap();
+                *fwport = port;
+            };
+            cvar.notify_all(); // notify the port forwarding is established.
+
             block_on(async move {
                 loop {
                     let _ = child.status().await; // Ignore the result.
                     loop {
                         thread::sleep(Duration::from_secs(5));
-                        let ret = ssh.start_ssh_forwarding(fwport);
+                        let ret = ssh.start_ssh_forwarding(port);
                         if let Ok(new_child) = ret {
                             child = new_child;
                             break;
                         }
                     }
                 }
-            })
+            });
         });
-        Ok(port)
+
+        let (lock, cvar) = &*est_port;
+        let port = lock.lock().unwrap();
+        let result = cvar
+            .wait_timeout(port, Duration::from_secs(timeout))
+            .unwrap();
+
+        if result.1.timed_out() {
+            Err(anyhow!("SSH vacant port search timed out"))
+        } else {
+            Ok(*result.0)
+        }
     }
 
     pub fn run_cmd_stdio(&self, cmd: &str) -> Result<String> {
