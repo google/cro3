@@ -38,10 +38,9 @@ pub fn run(args: &Args) -> Result<()> {
     let packages = &args.packages;
     let re_cros_kernel = regex!(r"chromeos-kernel-");
     let target = SshInfo::new(&args.dut)?;
-    let mut ssh_forwarding_control: Option<async_process::Child> = None;
     let target = if target.needs_port_forwarding_in_chroot() {
-        ssh_forwarding_control = Some(target.start_ssh_forwarding(2222)?);
-        SshInfo::new("localhost:2222")?
+        let port = target.start_ssh_forwarding_range_background(4100..4200)?;
+        SshInfo::new_host_and_port("localhost", port)?
     } else {
         target
     };
@@ -72,6 +71,5 @@ cros-workon-{board} start {packages}
     if args.autologin {
         target.run_autologin()?;
     }
-    drop(ssh_forwarding_control);
     Ok(())
 }

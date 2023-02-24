@@ -25,17 +25,15 @@ pub struct Args {
 pub fn run(args: &Args) -> Result<()> {
     let repo = get_repo_dir(&args.repo)?;
     let mut additional_args = Vec::new();
-    let mut ssh_forwarding_control: Option<async_process::Child> = None;
     if let Some(dut) = &args.dut {
         let dut = SshInfo::new(dut)?;
-        ssh_forwarding_control = Some(dut.start_ssh_forwarding(2222)?);
-        additional_args.push("DUT=localhost:2222".to_string());
+        let port = dut.start_ssh_forwarding_range_background(4100..4200)?;
+        additional_args.push(format!("DUT=localhost:{port}"));
     }
     if let Some(board) = &args.board {
         additional_args.push(format!("BOARD={board}"));
     }
     let chroot = Chroot::new(&repo)?;
     chroot.open_chroot(additional_args.as_slice())?;
-    drop(ssh_forwarding_control);
     Ok(())
 }
