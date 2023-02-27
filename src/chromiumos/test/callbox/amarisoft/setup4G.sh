@@ -6,6 +6,8 @@
 #
 # Sets up the amarisoft callbox with the 4G eNode-B configuration.
 
+source setupCrosServer.sh
+
 cp -r enb/* /root/enb/ || exit
 cp -r mme/* /root/mme/ || exit
 

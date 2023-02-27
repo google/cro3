@@ -1,0 +1,15 @@
+[package]
+name = "cros_webserver"
+authors = ["The ChromiumOS Authors"]
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tiny_http = "0.11.0"
+serde_json = "1"
+serde = { version ="1", features = ["derive"]}
+tungstenite = "0.18.0"
+
+[[bin]]
+name = "cros_webserver"
+path = "src/main.rs"
