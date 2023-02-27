@@ -1,8 +1,10 @@
 # End-to-End testing instruction:
 
 ## Requirements:
-To run end-to-end testing locally, you will need <b>cipd access</b> on your machine and <b>drone service account</b> (or direct access to `android-provisioning/android-provisioning-apks` gs bucket)
+To run end-to-end testing locally, you will need <b>cipd access</b> on your machine and <b>drone service account</b> (or direct access to `android-provisioning/android-provisioning-apks` gs bucket).</br>
+You will also need a valid ssh config to connect to the labstation (see ssh config section).
 
+## Testing:
 End to end testing is done over ssh tunneling to labstation (dutServer).
 
 1. Establish the ssh tunnel:
@@ -35,3 +37,14 @@ End to end testing is done over ssh tunneling to labstation (dutServer).
 - Make sure the dutServer field is set to `127.0.0.1` and the port used in the ssh tunnel corresponds to the port in your input file. Passing `127.0.0.1` as the address will automatically start the application in testing mode and use the ssh connection to reach the host.
 - Because this implementation focuses on testing `android-provision` service, we are not doing any caching. Instead, apk files are downloaded locally and copied remotely to labstation everytime the service is run. Depending on the size of the apk, this step alone could take 7-10 minutes.
 
+## ssh config:
+- connect to [labstation](https://yaqs.corp.google.com/eng/q/4714681670647676928).
+- connect to localhost:
+```
+Host 127.0.0.1 localhost
+  CanonicalizeHostname yes
+  PreferredAuthentications publickey
+  StrictHostKeyChecking no
+  User root
+  IdentityFile %d/.ssh/testing_rsa
+```
