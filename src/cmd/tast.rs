@@ -107,15 +107,17 @@ fn update_cached_tests(bundles: &Vec<&str>, dut: &str, repodir: &str) -> Result<
     let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
     let port = ssh.start_ssh_forwarding_range_background(4100..4200)?;
 
-    let ret = if bundles.is_empty() {
+    // To avoid "build failed: failed checking build deps:" error
+    chroot.run_bash_script_in_chroot("update_chroot", "./update_chroot", None)?;
+
+    if bundles.is_empty() {
         update_cached_tests_in_bundle(DEFAULT_BUNDLE, &chroot, port)
     } else {
         for b in bundles {
             update_cached_tests_in_bundle(b, &chroot, port)?
         }
         Ok(())
-    };
-    ret
+    }
 }
 
 fn run_tast_list(args: &ArgsList) -> Result<()> {

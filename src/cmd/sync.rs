@@ -54,29 +54,32 @@ pub fn run(args: &Args) -> Result<()> {
     };
     let repo = get_cros_dir_unchecked(&args.repo)?;
 
-    print!("Syncing {} to {} ", &repo, version);
+    eprint!("Syncing {} to {} ", &repo, version);
     if args.force {
-        println!("forcibly ...");
+        eprintln!("forcibly ...");
     } else {
-        println!("...");
+        eprintln!("...");
     }
 
     if !Path::new(&repo).is_dir() {
-        println!("Creating {repo} ...");
+        eprintln!("Creating {repo} ...");
         fs::create_dir_all(&repo)?;
     } else if Path::new(&format!("{}/Android.bp", &repo)).exists() {
         let prev_version = get_current_synced_arc_version(&repo)?;
-        println!("Previous ARC version was: {}", prev_version);
+        eprintln!("Previous ARC version was: {}", prev_version);
         is_arc = true;
     } else if let Ok(prev_version) = get_current_synced_version(&repo) {
-        println!("Previous CROS version was: {}", prev_version);
+        eprintln!("Previous CROS version was: {}", prev_version);
         is_arc = false;
     } else if Path::new(&repo).read_dir()?.next().is_some() {
         return Err(anyhow!(
             "{repo} is not a cros directory nor an empty directory."
         ));
     }
-
+    if let Some(reference) = &args.reference {
+        eprintln!("Updating the mirror at {reference}...");
+        repo_sync(reference, args.force)?;
+    }
     if is_arc {
         setup_arc_repo(&repo, &version)?;
     } else {
