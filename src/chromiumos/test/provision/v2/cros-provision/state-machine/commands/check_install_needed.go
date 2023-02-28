@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -40,7 +41,13 @@ func (c *CheckInstallNeeded) Execute(log *log.Logger) error {
 		return err
 	}
 
-	if c.cs.MachineMetadata.Version == targetBuilderPath {
+	// Long term, we might want to consider a flag to be used here, as someone might provision a CQ image locally and be ok with a skip.
+	isCq, err := isCQImage(targetBuilderPath)
+	if err != nil || isCq {
+		// TODO, investigate following TLS logic for only provisioing stateful
+		log.Printf("Forcing provision on CQ build.")
+		c.cs.UpdateCros = true
+	} else if c.cs.MachineMetadata.Version == targetBuilderPath {
 		log.Printf("SKIPPING PROVISION AS TARGET VERSION MATCHES CURRENT")
 		c.cs.UpdateCros = false
 	} else {
@@ -49,6 +56,10 @@ func (c *CheckInstallNeeded) Execute(log *log.Logger) error {
 	log.Printf("RUNNING CheckInstallNeeded Success")
 
 	return nil
+}
+
+func isCQImage(imageName string) (bool, error) {
+	return regexp.MatchString(`.*-cq/.*`, imageName)
 }
 
 // Revert interface command. None needed as nothing has happened yet.

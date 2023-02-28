@@ -301,6 +301,43 @@ func TestSkipInstall(t *testing.T) {
 	}
 }
 
+func TestDontSkipInstallCqImage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sam := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
+	log, _ := cli.SetUpLog(constants.DefaultLogDirectory)
+	cs := service.NewCrOSServiceFromExistingConnection(
+		sam,
+		&conf.StoragePath{
+			HostType: conf.StoragePath_GS,
+			Path:     "gs://chromeos-image-archive/drallion-cq/R110-15278.36.0/",
+		},
+		nil,
+		false,
+		[]*api.CrOSProvisionMetadata_DLCSpec{{Id: "1"}},
+		true, // FirmwareUpdate enabled.
+	)
+
+	ctx := context.Background()
+
+	// INIT STATE
+	st := state_machine.NewCrOSPreInitState(&cs)
+
+	gomock.InOrder(
+		getRunCmdCommand(sam, getVersion).Return("CHROMEOS_RELEASE_BUILDER_PATH=drallion-cq/R110-15278.35.0", nil),
+	)
+
+	if _, _, err := st.Execute(ctx, log); err != nil {
+		t.Fatalf("failed init state: %v", err)
+	}
+
+	// Check state completion
+	if st.Next() == nil {
+		t.Fatalf("pre_init_state should not be the last step")
+	}
+}
+
 func TestDontSkipInstall(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
