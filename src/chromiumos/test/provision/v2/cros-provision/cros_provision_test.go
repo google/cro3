@@ -203,6 +203,7 @@ func TestStateTransitions(t *testing.T) {
 		getRunCmdCommand(sam, cleanPostInstall).Return("", nil),
 		getPipeDataCommand(sam, copyStateful).Return(nil),
 		getRunCmdCommand(sam, createUpdateAvailableFile).Return("", nil),
+		getRunCmdCommand(sam, crosSystem).Return("", nil),
 		getRestartCommand(sam).Return(nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
@@ -594,6 +595,8 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 		getRunCmdCommand(sam, cleanPostInstall).Return("", nil),
 		getPipeDataCommand(sam, copyStateful).Return(nil),
 		getRunCmdCommand(sam, createUpdateAvailableFile).Return("", nil),
+		getRunCmdCommand(sam, crosSystem).Return("", nil),
+
 		getRestartCommand(sam).Return(nil),
 		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
 		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
@@ -804,6 +807,8 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 		getRunCmdCommand(sam, cleanPostInstall).Return("", nil),
 		getPipeDataCommand(sam, copyStateful).Return(nil),
 		getRunCmdCommand(sam, createUpdateAvailableFile).Return("", nil),
+		getRunCmdCommand(sam, crosSystem).Return("", nil),
+
 		getRestartCommand(sam).Return(nil),
 		getPipeDataCommand(sam, copyOverwritePayload).Return(nil),
 		getRestartCommand(sam).Return(nil),
