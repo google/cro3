@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 use crate::chroot::Chroot;
+use crate::util::gen_path_in_lium_dir;
 use crate::util::get_async_lines;
 use crate::util::get_stdout;
 use crate::util::require_root_privilege;
@@ -17,10 +18,169 @@ use futures::FutureExt;
 use futures::StreamExt;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::fs;
+use std::fs::read_to_string;
+use std::fs::write;
+use std::iter::FromIterator;
 use std::path::Path;
+
+fn read_usb_attribute(dir: &Path, name: &str) -> Result<String> {
+    let value = dir.join(name);
+    let value = fs::read_to_string(value)?;
+    Ok(value.trim().to_string())
+}
+
+// This is private since users should use ServoList instead
+fn discover() -> Result<Vec<LocalServo>> {
+    let paths = fs::read_dir("/sys/bus/usb/devices/").unwrap();
+    Ok(paths
+        .flat_map(|usb_path| -> Result<LocalServo> {
+            let usb_sysfs_path = usb_path?.path();
+            let product = read_usb_attribute(&usb_sysfs_path, "product")?;
+            let serial = read_usb_attribute(&usb_sysfs_path, "serial")?;
+            if product.starts_with("Servo")
+                || product.starts_with("Cr50")
+                || product.starts_with("Ti50")
+            {
+                let paths = fs::read_dir(&usb_sysfs_path).context("failed to read dir")?;
+                let tty_list: HashMap<String, String> = paths
+                    .flat_map(|path| -> Result<(String, String)> {
+                        let path = path?.path();
+                        let interface = fs::read_to_string(path.join("interface"))?
+                            .trim()
+                            .to_string();
+                        let tty_name = fs::read_dir(path)?
+                            .find_map(|p| {
+                                let s = p.ok()?.path();
+                                let s = s.file_name()?.to_string_lossy().to_string();
+                                s.starts_with("ttyUSB").then_some(s.clone())
+                            })
+                            .context("ttyUSB not found")?;
+                        Ok((interface, tty_name))
+                    })
+                    .collect();
+                Ok(LocalServo {
+                    product,
+                    serial,
+                    usb_sysfs_path: usb_sysfs_path.to_string_lossy().to_string(),
+                    tty_list,
+                    ..Default::default()
+                })
+            } else {
+                Err(anyhow!("Not a servo"))
+            }
+        })
+        .collect())
+}
+
+fn discover_slow() -> Result<Vec<LocalServo>> {
+    require_root_privilege()?;
+    for mut s in discover()? {
+        s.reset().context("Failed to reset servo")?
+    }
+    let mut servos = discover()?;
+    servos.iter_mut().for_each(|s| {
+            eprintln!("Checking {}", s.serial);
+            let mac_addr = s.tty_list.get("Servo EC Shell").and_then(|id|
+                {
+                    run_bash_command(&format!("echo macaddr | socat - /dev/{id},echo=0 | grep -E -o '([0-9A-Z]{{2}}:){{5}}([0-9A-Z]{{2}})'"), None)
+                        .ok()
+                        .filter(|o| {o.status.success()})
+                        .as_ref()
+                        .map(get_stdout)
+                });
+            let ec_version = s.tty_list.get("EC").and_then(|id|
+                {
+                    run_bash_command(&format!("echo version | socat - /dev/{id},echo=0,crtscts=1 | grep 'RO:' | sed -e 's/^RO:\\s*'//"), None)
+                        .ok()
+                        .filter(|o| {o.status.success()})
+                        .as_ref()
+                        .map(get_stdout)
+                        .filter(|s| {!s.is_empty()})
+                });
+            s.mac_addr = mac_addr;
+            s.ec_version = ec_version;
+        });
+    Ok(servos)
+}
+
+pub fn reset_devices(serials: &Vec<String>) -> Result<()> {
+    let servo_info = discover()?;
+    let mut servo_info: Vec<LocalServo> = if !serials.is_empty() {
+        let serials: HashSet<_> = HashSet::from_iter(serials.iter());
+        servo_info
+            .iter()
+            .filter(|s| serials.contains(&s.serial().to_string()))
+            .cloned()
+            .collect()
+    } else {
+        servo_info
+    };
+    for s in &mut servo_info {
+        s.reset()?;
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct ServoList {
+    #[serde(default)]
+    devices: Vec<LocalServo>,
+}
+static CONFIG_FILE_NAME: &str = "servo_list.json";
+impl ServoList {
+    pub fn read() -> Result<Self> {
+        let path = gen_path_in_lium_dir(CONFIG_FILE_NAME)?;
+        let list = read_to_string(&path);
+        match list {
+            Ok(list) => Ok(serde_json::from_str(&list)?),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                // Just create a default config
+                let list = Self::default();
+                list.write()?;
+                eprintln!("INFO: Servo list created at {:?}", path);
+                Ok(list)
+            }
+            e => Err(anyhow!("Failed to create a new servo list: {:?}", e)),
+        }
+    }
+    // This is private since write should happen on every updates transparently
+    fn write(&self) -> Result<()> {
+        let s = serde_json::to_string_pretty(&self)?;
+        write(gen_path_in_lium_dir(CONFIG_FILE_NAME)?, s.into_bytes())
+            .context("failed to write servo list")
+    }
+    pub fn update() -> Result<()> {
+        let devices = discover_slow()?;
+        let list = Self { devices };
+        list.write()
+    }
+    pub fn find_by_serial(&self, serial: &str) -> Result<&LocalServo> {
+        self.devices
+            .iter()
+            .find(|s| s.serial() == serial)
+            .context("Servo not found with a given serial")
+    }
+    pub fn devices(&self) -> &Vec<LocalServo> {
+        &self.devices
+    }
+}
+impl Display for ServoList {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            serde_json::to_string_pretty(&self).map_err(|_| fmt::Error)?
+        )
+    }
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct LocalServo {
@@ -36,11 +196,6 @@ pub struct LocalServo {
     ec_version: Option<String>,
 }
 impl LocalServo {
-    fn read_usb_attribute(dir: &Path, name: &str) -> Result<String> {
-        let value = dir.join(name);
-        let value = fs::read_to_string(value)?;
-        Ok(value.trim().to_string())
-    }
     pub fn product(&self) -> &str {
         &self.product
     }
@@ -73,79 +228,8 @@ impl LocalServo {
         fs::write(&path, b"1").context("Failed to set authorized = 1")?;
         Ok(())
     }
-    pub fn discover() -> Result<Vec<LocalServo>> {
-        let paths = fs::read_dir("/sys/bus/usb/devices/").unwrap();
-        Ok(paths
-            .flat_map(|usb_path| -> Result<LocalServo> {
-                let usb_sysfs_path = usb_path?.path();
-                let product = Self::read_usb_attribute(&usb_sysfs_path, "product")?;
-                let serial = Self::read_usb_attribute(&usb_sysfs_path, "serial")?;
-                if product.starts_with("Servo")
-                    || product.starts_with("Cr50")
-                    || product.starts_with("Ti50")
-                {
-                    let paths = fs::read_dir(&usb_sysfs_path).context("failed to read dir")?;
-                    let tty_list: HashMap<String, String> = paths
-                        .flat_map(|path| -> Result<(String, String)> {
-                            let path = path?.path();
-                            let interface = fs::read_to_string(path.join("interface"))?
-                                .trim()
-                                .to_string();
-                            let tty_name = fs::read_dir(path)?
-                                .find_map(|p| {
-                                    let s = p.ok()?.path();
-                                    let s = s.file_name()?.to_string_lossy().to_string();
-                                    s.starts_with("ttyUSB").then_some(s.clone())
-                                })
-                                .context("ttyUSB not found")?;
-                            Ok((interface, tty_name))
-                        })
-                        .collect();
-                    Ok(Self {
-                        product,
-                        serial,
-                        usb_sysfs_path: usb_sysfs_path.to_string_lossy().to_string(),
-                        tty_list,
-                        ..Default::default()
-                    })
-                } else {
-                    Err(anyhow!("Not a servo"))
-                }
-            })
-            .collect())
-    }
-    pub fn discover_slow() -> Result<Vec<LocalServo>> {
-        require_root_privilege()?;
-        for mut s in Self::discover()? {
-            s.reset().context("Failed to reset servo")?
-        }
-        let mut servos = Self::discover()?;
-        servos.iter_mut().for_each(|s| {
-            eprintln!("Checking {}", s.serial);
-            let mac_addr = s.tty_list.get("Servo EC Shell").and_then(|id|
-                {
-                    run_bash_command(&format!("echo macaddr | socat - /dev/{id},echo=0 | grep -E -o '([0-9A-Z]{{2}}:){{5}}([0-9A-Z]{{2}})'"), None)
-                        .ok()
-                        .filter(|o| {o.status.success()})
-                        .as_ref()
-                        .map(get_stdout)
-                });
-            let ec_version = s.tty_list.get("EC").and_then(|id|
-                {
-                    run_bash_command(&format!("echo version | socat - /dev/{id},echo=0,crtscts=1 | grep 'RO:' | sed -e 's/^RO:\\s*'//"), None)
-                        .ok()
-                        .filter(|o| {o.status.success()})
-                        .as_ref()
-                        .map(get_stdout)
-                        .filter(|s| {!s.is_empty()})
-                });
-            s.mac_addr = mac_addr;
-            s.ec_version = ec_version;
-        });
-        Ok(servos)
-    }
     pub fn from_serial(serial: &str) -> Result<LocalServo> {
-        let servos = Self::discover()?;
+        let servos = discover()?;
         Ok(servos
             .iter()
             .find(|&s| s.serial == serial)
@@ -205,6 +289,9 @@ impl LocalServo {
             return Err(anyhow!("servod failed unexpectedly"));
         })?;
         ServodConnection::from_serial(&self.serial)
+    }
+    pub fn is_cr50(&self) -> bool {
+        self.product() == "Cr50" || self.product() == "Ti50"
     }
 }
 

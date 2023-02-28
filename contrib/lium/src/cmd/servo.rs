@@ -7,10 +7,10 @@ use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::chroot::Chroot;
+use lium::servo::reset_devices;
 use lium::servo::LocalServo;
+use lium::servo::ServoList;
 use lium::servo::ServodConnection;
-use std::collections::HashSet;
-use std::iter::FromIterator;
 use std::process;
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -48,40 +48,23 @@ pub struct ArgsReset {
     serials: Vec<String>,
 }
 pub fn run_reset(args: &ArgsReset) -> Result<()> {
-    let servo_info = LocalServo::discover()?;
-    let mut servo_info: Vec<LocalServo> = if !args.serials.is_empty() {
-        let serials: HashSet<_> = HashSet::from_iter(args.serials.iter());
-        servo_info
-            .iter()
-            .filter(|s| serials.contains(&s.serial().to_string()))
-            .cloned()
-            .collect()
-    } else {
-        servo_info
-    };
-    for s in &mut servo_info {
-        s.reset()?;
-    }
-    Ok(())
+    reset_devices(&args.serials)
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// list servo-compatible devices (Servo V4, Servo V4p1, SuzyQable)
 #[argh(subcommand, name = "list")]
 pub struct ArgsList {
-    /// deep info retrieval. it will take a few seconds per servo.
+    /// update the cached servo info. It will take a few seconds per servo.
     #[argh(switch)]
-    deep: bool,
+    update: bool,
 }
 pub fn run_list(args: &ArgsList) -> Result<()> {
-    let servo_info = if args.deep {
-        // Slow path
-        LocalServo::discover_slow()?
-    } else {
-        // Fast path
-        LocalServo::discover()?
-    };
-    println!("{}", serde_json::to_string_pretty(&servo_info)?);
+    if args.update {
+        ServoList::update()?;
+    }
+    let list = ServoList::read()?;
+    println!("{}", list);
     Ok(())
 }
 
@@ -140,11 +123,8 @@ pub struct ArgsShell {
     cmd: Option<String>,
 }
 fn run_shell(args: &ArgsShell) -> Result<()> {
-    let servo_list = LocalServo::discover()?;
-    let s = servo_list
-        .iter()
-        .find(|s| s.serial() == args.serial)
-        .context("Servo not found with a given serial")?;
+    let list = ServoList::read()?;
+    let s = list.find_by_serial(&args.serial)?;
     if args.print_tty_path {
         eprintln!("{}", s.tty_path(&args.tty_type)?);
         Ok(())

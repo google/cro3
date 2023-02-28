@@ -10,6 +10,7 @@ use anyhow::Error;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::servo::LocalServo;
+use lium::servo::ServoList;
 use lium::util::gen_path_in_lium_dir;
 use lium::util::get_stdout;
 use lium::util::run_bash_command;
@@ -92,16 +93,11 @@ fn setup_dut(cr50: &LocalServo) -> Result<()> {
 #[argh(subcommand, name = "dut")]
 pub struct ArgsDut {}
 fn run_dut(_args: &ArgsDut) -> Result<()> {
-    let servo_list = LocalServo::discover()?;
-    let cr50_list: Vec<LocalServo> = servo_list
-        .iter()
-        .filter(|e| e.product() == "Cr50" || e.product() == "Ti50")
-        .cloned()
-        .collect();
-
-    println!("{} Cr50 found.", cr50_list.len());
-    for cr50 in cr50_list {
-        if let Err(e) = setup_dut(&cr50) {
+    let list = ServoList::read()?;
+    let list: Vec<&LocalServo> = list.devices().iter().filter(|e| e.is_cr50()).collect();
+    println!("{} Cr50 found.", list.len());
+    for cr50 in list {
+        if let Err(e) = setup_dut(cr50) {
             eprintln!("{:?}", e);
             continue;
         }
