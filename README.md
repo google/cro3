@@ -28,11 +28,22 @@ This will be done automatically after `make install` if your default shell is ba
 
 ## Usage examples
 
-You can replace `lium` with `cargo run -- ` to run your own modified version of lium.
+Note: You can replace `lium` with `cargo run -- ` to run your own modified version of lium.
 
-Some may not work due to the updates. If you find them, let hikalium@ know!
+Some may not work due to the updates. If you find them, let hikalium@ know or upload a CL to fix them!
 
 ```
+#
+# Servo
+#
+
+# Update the list of Servo devices connected
+lium servo list --update
+
+# Show the cached list of Servo devices
+lium servo list
+
+# Various random commands (TODO(hikalium): to be cleaned later)
 lium arc guest_kernel_uprev --repo /work/chromiumos_stable/
 lium build --repo /work/chromiumos_stable --board brya --packages sys-kernel/arcvm-kernel-ack-5_10
 lium build --full --repo /work/chromiumos_stable --board brya
@@ -48,9 +59,6 @@ lium dut shell localhost:2282
 lium dut shell '[2001:DB8::4a65:eeff:fe15:79c]:22' -- ./lium
 lium flash --board octopus-kernelnext --version 15263.0.0 --dut kled_SOMESERIALNUMBERS1234 --repo /work/chromiumos_stable/
 lium flash --repo /work/chromiumos_stable/ --board brya
-lium servo control --repo /work/chromiumos_stable/ --serial SERVOV4P1-S-SOMESERIALNUMBERS1234 --mac-addr
-lium servo list
-lium servo list --json | jq .
 sudo `which lium` servo reset
 lium sync --repo /work/chromiumos_stable/ --version 14899.0.0
 lium sync --repo /work/chromiumos_stable/ --version R110-15263.0.0

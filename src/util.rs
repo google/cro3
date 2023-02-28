@@ -31,7 +31,8 @@ pub fn require_root_privilege() -> Result<()> {
         let mut c = Command::new("sudo");
         let args: Vec<String> = env::args().into_iter().skip(1).collect();
         std::process::exit(
-            c.arg(current_exe()?)
+            c.arg("--preserve-env=HOME")
+                .arg(current_exe()?)
                 .args(&args)
                 .status()
                 .context("Failed to re-execute lium with sudo")?

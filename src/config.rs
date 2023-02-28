@@ -75,7 +75,8 @@ impl Config {
             e => Err(anyhow!("Failed to create a new config: {:?}", e)),
         }
     }
-    pub fn write(&self) -> Result<()> {
+    // This is private since write should happen on every updates transparently
+    fn write(&self) -> Result<()> {
         let s = serde_json::to_string_pretty(&self)?;
         write(gen_path_in_lium_dir(CONFIG_FILE_NAME)?, s.into_bytes())
             .context("failed to write config")
