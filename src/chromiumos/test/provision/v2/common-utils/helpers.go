@@ -35,5 +35,5 @@ func ExecuteStateMachine(ctx context.Context, cs ServiceState, log *log.Logger) 
 		}
 		cs = cs.Next()
 	}
-	return api.InstallResponse_STATUS_OK, md, nil
+	return api.InstallResponse_STATUS_SUCCESS, md, nil
 }
