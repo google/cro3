@@ -90,17 +90,17 @@ fn run_dut_pull(args: &ArgsPull) -> Result<()> {
 /// Push files from DUT
 #[argh(subcommand, name = "push")]
 struct ArgsPush {
-    /// DUT which the files are pushed to
-    #[argh(positional)]
+    /// destination DUT
+    #[argh(option)]
     dut: String,
 
-    /// pulled file names
-    #[argh(positional)]
-    files: Vec<String>,
-
-    /// destination directory (required)
+    /// destination directory on a DUT
     #[argh(option)]
     dest: String,
+
+    /// source files
+    #[argh(positional)]
+    files: Vec<String>,
 }
 
 fn run_dut_push(args: &ArgsPush) -> Result<()> {
@@ -188,7 +188,7 @@ fn run_dut_monitor(args: &ArgsDutMonitor) -> Result<()> {
 #[argh(subcommand, name = "shell")]
 struct ArgsDutShell {
     /// a DUT identifier (e.g. 127.0.0.1, localhost:2222)
-    #[argh(positional)]
+    #[argh(option)]
     dut: String,
 
     /// if specified, it will invoke autologin before opening a shell
