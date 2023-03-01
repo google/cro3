@@ -260,7 +260,7 @@ class GcloudDockerBuilder(DockerBuilder):
         self.auth_gcloud()
         cloud_build_cmd = (
             f"gcloud builds submit --config {self.build_context}/cloudbuild.yaml"
-            f" {self.build_context} --project {self.cloud_build_project}"
+            f" {self.build_context} --project {self.cloud_build_project} --region us-west4"
             f" --substitutions={subs}"
         )
 

@@ -26,6 +26,8 @@ steps:
   timeout: 1800s
 options:
   logging: CLOUD_LOGGING_ONLY
+  pool:
+    name: 'projects/cros-registry/locations/us-west4/workerPools/cros-registry-privatepool'
 """
 
 SUB_VAR = "__BUILD_TAG{n}"
