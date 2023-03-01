@@ -11,6 +11,7 @@ import time
 
 import cs_types
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -135,9 +136,13 @@ class BusConfig:
                 self.gpio_vals = []
 
     def load_current_sensor_config(self, drv, addr_ch, name, rsense, nom):
-        [addr, ch] = addr_ch.split(":")
-        addr = int(addr, 16)
-        ch = int(ch)
+        if ":" not in addr_ch:
+            addr = int(addr_ch, 16)
+            ch = 0
+        else:
+            [addr, ch] = addr_ch.split(":")
+            addr = int(addr, 16)
+            ch = int(ch)
         if addr not in self.sensors:
             self.sensors[addr] = CurrentSensor(addr, drv)
         self.sensors[addr].add_ch_info(ch, name, rsense, nom)
