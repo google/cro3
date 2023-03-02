@@ -65,7 +65,7 @@ func (v version) branched() bool {
 	return v.y != 0
 }
 
-func (v version) less(w version) bool {
+func (v version) less(w version, latestMilestone int) bool {
 	if v.r != w.r {
 		return v.r < w.r
 	}
@@ -73,7 +73,11 @@ func (v version) less(w version) bool {
 	// For the same release R###, prefer branched versions.
 	// For example R109-15236.80.0 should be preferred to R109-15237.0.0.
 	// See also b/259389997.
-	if v.branched() != w.branched() {
+	// The exception to this rule is if the milestone is the latest
+	// milestone which is on ToT and has not been branched to a release branch.
+	// In that case we should just pick the one with highest build number.
+	// See also b/271417619
+	if latestMilestone != v.r && v.branched() != w.branched() {
 		return w.branched()
 	}
 
@@ -144,7 +148,12 @@ func GetLatestVersionWithPrefix(ctx context.Context, c *storage.Client, board, p
 		versions = append(versions, v)
 	}
 
-	slices.SortFunc(versions, func(a, b version) bool { return b.less(a) })
+	latestMilestone, err := latestMilestone(ctx, c, board)
+	if err != nil {
+		return "", err
+	}
+
+	slices.SortFunc(versions, func(a, b version) bool { return b.less(a, latestMilestone) })
 	for _, v := range versions {
 		if err := checkVersion(ctx, c, board, v); err != nil {
 			log.Printf("ignoring version %q: %v", v, err)
@@ -190,7 +199,9 @@ func getLatestVersionForLATEST(ctx context.Context, c *storage.Client, board str
 		if err != nil {
 			return "", fmt.Errorf("cannot parse LATEST file %s: %w", misc.GsURI(latestFileObj), err)
 		}
-		if latestVersion.less(version) {
+		// using the latest file to parse version so don't need to worry about milestone when comparing
+		// versions
+		if latestVersion.less(version, 0) {
 			latestVersion = version
 		}
 	}
@@ -199,6 +210,18 @@ func getLatestVersionForLATEST(ctx context.Context, c *storage.Client, board str
 		return "", fmt.Errorf("no LATEST file found for gs://chromeos-image-archive/%s*", name)
 	}
 	return latestVersion.String(), nil
+}
+
+func latestMilestone(ctx context.Context, c *storage.Client, board string) (int, error) {
+	latestVersionStr, err := GetLatestVersion(ctx, c, board)
+	if err != nil {
+		return 0, fmt.Errorf("Cannot determine latest milestone %w", err)
+	}
+	latestVersion, err := parseVersion(latestVersionStr)
+	if err != nil {
+		return 0, fmt.Errorf("Cannot determine latest milestone %w", err)
+	}
+	return latestVersion.r, nil
 }
 
 // GetLatestVersionForMilestone finds the latest version for board and milestone on gs://chromeos-image-archive.
