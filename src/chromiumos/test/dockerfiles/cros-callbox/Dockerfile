@@ -28,6 +28,15 @@ Host * \n\
   UserKnownHostsFile=/dev/null \n\
 '> ~/.ssh/config
 
+# Install connectivity libraries from AOSP
+ENV HASH=c3ab5dae5f634bacec6d8a026fbea944724b66f3
+RUN wget -P /tmp/dldir https://android.googlesource.com/platform/tools/test/connectivity/+archive/$HASH.tar.gz
+RUN tar -xvf /tmp/dldir/$HASH.tar.gz -C $VIRTUAL_ENV && cd $VIRTUAL_ENV/acts/framework && python3 setup.py install
+ENV PYTHONPATH=$PYTHONPATH:$VIRTUAL_ENV/acts/framework
+
+# Remove old dl files
+RUN rm -rf /tmp/dldir
+
 # Copy project
 COPY ./cellular ./cellular
 
