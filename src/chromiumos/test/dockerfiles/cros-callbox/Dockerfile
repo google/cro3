@@ -13,6 +13,21 @@ ENV PATH=$VIRTUAL_ENV/bin:$PATH
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
+# Add ssh keys and configure
+RUN mkdir -p /tmp/dldir
+RUN mkdir -p ~/.ssh
+RUN wget -P /tmp/dldir https://chromium.googlesource.com/chromiumos/chromite/+archive/3045c5df5fb784858cd0e7cd98608a5d7570d842/ssh_keys.tar.gz
+RUN tar -xvf /tmp/dldir/ssh_keys.tar.gz -C ~/.ssh
+RUN chmod 400 ~/.ssh/testing_rsa
+
+RUN  echo '\n\
+Host * \n\
+  User root \n\
+  StrictHostKeyChecking=no \n\
+  IdentityFile %d/.ssh/testing_rsa \n\
+  UserKnownHostsFile=/dev/null \n\
+'> ~/.ssh/config
+
 # Copy project
 COPY ./cellular ./cellular
 
