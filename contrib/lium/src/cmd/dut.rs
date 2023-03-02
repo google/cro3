@@ -430,7 +430,6 @@ fn run_dut_info(args: &ArgsDutInfo) -> Result<()> {
             "timestamp",
             "dut_id",
             "hwid",
-            "address",
             "release",
             "model",
             "serial",

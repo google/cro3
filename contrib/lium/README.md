@@ -32,18 +32,46 @@ Note: You can replace `lium` with `cargo run -- ` to run your own modified versi
 
 Some may not work due to the updates. If you find them, let hikalium@ know or upload a CL to fix them!
 
+### DUT
 ```
-#
-# Servo
-#
+# SSH into a DUT using testing_rsa
+lium dut shell --dut ${DUT}
 
+# Execute a shell command on a DUT
+lium dut shell --dut ${DUT} -- uname -a
+
+# Add a DUT to the list
+lium dut list --add ${IP}
+
+# Show the list of DUTs registered
+lium dut list
+
+# Check connection and remove DUTs that have reused IP addresses
+lium dut list --update
+
+# Show DUT info
+lium dut info --dut ${DUT}
+
+# Show specific DUT info (e.g. ipv6_addr)
+lium dut info --dut ${DUT} ipv6_addr
+
+# Scan DUTs on a remote network
+lium dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
+```
+
+### Servo
+
+```
 # Update the list of Servo devices connected
 lium servo list --update
 
 # Show the cached list of Servo devices
 lium servo list
+```
 
-# Various random commands (TODO(hikalium): to be cleaned later)
+### Misc
+
+```
 lium arc guest_kernel_uprev --repo /work/chromiumos_stable/
 lium build --repo /work/chromiumos_stable --board brya --packages sys-kernel/arcvm-kernel-ack-5_10
 lium build --full --repo /work/chromiumos_stable --board brya
@@ -51,12 +79,6 @@ lium config set default_cros_checkout /work/chromiumos_stable/
 lium config show
 lium deploy --repo /work/chromiumos_stable --dut localhost:2282 --package sys-kernel/arcvm-kernel-ack-5_10 --autologin
 lium dut discover --remote kled_SOMESERIALNUMBERS1234 --v6prefix 2001:DB8::
-lium dut info 192.0.2.1
-lium dut info --keys arch,hwid nightfury_SOMESERIALNUMBERS1234
-lium dut list
-lium dut shell droid_SOMESERIALNUMBERS1234
-lium dut shell localhost:2282
-lium dut shell '[2001:DB8::4a65:eeff:fe15:79c]:22' -- ./lium
 lium flash --board octopus-kernelnext --version 15263.0.0 --dut kled_SOMESERIALNUMBERS1234 --repo /work/chromiumos_stable/
 lium flash --repo /work/chromiumos_stable/ --board brya
 sudo `which lium` servo reset
