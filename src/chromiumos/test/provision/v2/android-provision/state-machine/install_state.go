@@ -28,6 +28,7 @@ func (s InstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any,
 	cmds := []common_utils.CommandInterface{
 		commands.NewCopyAPKCommand(ctx, s.svc),
 		commands.NewInstallAPKCommand(ctx, s.svc),
+		commands.NewRestartAppCommand(ctx, s.svc),
 	}
 	for i, c := range cmds {
 		if err := c.Execute(log); err != nil {
