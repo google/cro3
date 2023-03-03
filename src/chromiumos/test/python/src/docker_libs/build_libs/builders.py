@@ -7,8 +7,8 @@
 import json
 import os
 import sys
+import time
 from typing import List
-
 
 sys.path.append("../../../")
 
@@ -27,6 +27,8 @@ CWD = os.path.dirname(os.path.abspath(__file__))
 CHROOT_DEFAULT = os.path.join(CWD, "../../../../../../../../../../chroot")
 REGISTRY_DEFAULT = "us-docker.pkg.dev"
 PROJECT_DEFAULT = "cros-registry/test-services"
+BUILD_TIMEOUT = 30*60
+BUILD_POLL_TIME = 15
 
 
 class DockerBuilder:
@@ -239,11 +241,67 @@ class GcloudDockerBuilder(DockerBuilder):
 
     def sha_from_cloudbuild_out(self, out: str):
         """Find the "sha:foo" from the cloudbuild log."""
-        KEY = "digest: "
-        for l in out.splitlines():
-            if "digest: " in l:
-                return l.split(KEY)[-1]
-        return ""
+        if not out:
+            print("Could not find SHA due to nothing provided.")
+            return ""
+        outJson = {}
+        try:
+            outJson = json.loads(out)
+        except json.JSONDecodeError:
+            print(f"Unable to unmarshal json {out}")
+            return ""
+        digest = ''
+        imageSummary = outJson.get('image_summary')
+        if imageSummary:
+            digest = imageSummary.get('digest')
+        print(f'Using: {digest} as image sha.')
+        return digest
+
+    def _find_build_id(self, build_output: str) -> str:
+        build_json = {}
+        try:
+            build_json = json.loads(build_output)
+        except json.JSONDecodeError:
+            raise Exception("Build ID could not be found from build output.")
+
+        build_id = build_json.get("id")
+        if not build_id:
+            raise Exception("Build ID was not found in output.")
+        return build_id
+
+    def _monitor_build(self, build_id: str) -> str:
+        """Monitor the build_id, return when its not "working" or "queued".
+
+        Each loop of the poll will wait BUILD_POLL_TIME seconds to reduce load
+        on the RPM quota.
+        """
+        outp = {}
+        start_time = time.time()
+
+        while time.time() - start_time < BUILD_TIMEOUT:
+            gcloud_out = getoutput("gcloud builds describe --format=json"
+                                   f" --project cros-registry --region us-west4 {build_id}")
+            print(f"gcloud describe output:\n{gcloud_out}")
+            if not gcloud_out:
+                time.sleep(BUILD_POLL_TIME)
+                continue
+
+            try:
+                outp = json.loads(gcloud_out)
+            except json.JSONDecodeError:
+                print(f"Found Invalid JSON: {outp}")
+                time.sleep(BUILD_POLL_TIME)
+                continue
+
+            if outp["status"] in ["WORKING", "QUEUED"]:
+                print(f"Build in Queue or Building: {outp['status']}\n")
+                time.sleep(BUILD_POLL_TIME)
+            else:
+                print(f"Build Output: {outp}")
+                return outp["status"]
+
+        print(f"Final build status:\n{outp}\n")
+        return outp.get("status", "")
 
     def build(self):
         """Build the Docker image using gcloud build.
@@ -261,7 +319,7 @@ class GcloudDockerBuilder(DockerBuilder):
         cloud_build_cmd = (
             f"gcloud builds submit --config {self.build_context}/cloudbuild.yaml"
             f" {self.build_context} --project {self.cloud_build_project} --region us-west4"
-            f" --substitutions={subs}"
+            f' --substitutions={subs} --async --format="json"'
         )
 
         print(f"Running cloud build cmd: {cloud_build_cmd}")
@@ -272,21 +330,26 @@ class GcloudDockerBuilder(DockerBuilder):
             " Build log follows:\n"
         )
         # Stream the cloudbuild cmd.
-        out, err, status = run(cloud_build_cmd, stream=True)
-        if status != 0:
+        out = getoutput(cloud_build_cmd)
+        build_id = self._find_build_id(out)
+
+        gcloud_build_final_status = self._monitor_build(build_id)
+        if gcloud_build_final_status != 'SUCCESS':
             raise GCloudBuildException(
-                f"gcloud build failed with err:\n {err}\n"
+                f"gcloud build failed with status: {gcloud_build_final_status}"
             )
-        else:
-            out = getoutput(
-                f"gcloud artifacts docker images describe {search_tag}"
-            )
-            print(f"Digest output:\n{out}")
+        out, err,_ = run(
+            f"gcloud artifacts docker images describe {search_tag} --format=json",
+            shell=True
+        )
+        print(f"Digest output:\n{out}")
+        print(f"Digest stderr:\n{err}")
+
         self.write_outfile(self.sha_from_cloudbuild_out(out))
 
     def upload_image(self):
         """Stub for simplicity sakes, as gcloud build automatically uploads."""
-        pass
+        return
 
 
 class LocalDockerBuilder(DockerBuilder):
