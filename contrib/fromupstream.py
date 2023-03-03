@@ -209,7 +209,7 @@ def _get_patch_from_message_id(args, message_id):
     for (url_template, mbox_suffix) in [
         ("https://lore.kernel.org/r/%s", "raw"),
         # hostap project (and others) are here, but not kernel.org.
-        ("https://marc.info/?i=%s", None),
+        ("https://marc.info/?i=%s", "&q=mbox"),
         # public-inbox comes last as a "default"; it has a nice error page
         # pointing to other redirectors, even if it doesn't have what
         # you're looking for directly.
@@ -221,9 +221,9 @@ def _get_patch_from_message_id(args, message_id):
         try:
             opener = urllib.request.urlopen(this_url)
 
-            # To actually get the patch from lore.kernel.org we need to:
+            # To actually get the patch from some servers we need to:
             # - Let it redirect us to an actual list it's tracking.
-            # - Add the "raw" suffix
+            # - Add a suffix
             if (opener.url != this_url) and mbox_suffix:
                 opener = urllib.request.urlopen(opener.url + mbox_suffix)
         except urllib.error.HTTPError as e:
