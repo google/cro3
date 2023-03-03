@@ -221,11 +221,24 @@ def _get_patch_from_message_id(args, message_id):
         try:
             opener = urllib.request.urlopen(this_url)
 
-            # To actually get the patch from some servers we need to:
-            # - Let it redirect us to an actual list it's tracking.
-            # - Add a suffix
             if (opener.url != this_url) and mbox_suffix:
+                # To actually get the patch from some servers we need to:
+                # - Let it redirect us to an actual list it's tracking.
+                # - Add a suffix
                 opener = urllib.request.urlopen(opener.url + mbox_suffix)
+            elif opener.url == this_url and "marc.info" in url_template:
+                # On "marc.info" if there are more than one hit then it _won't_
+                # redirect us and instead will show a disambiguation page.
+                # We'll use "re" to scrape. This is a bit fragile but
+                # marc.info doesn't seem to have any API to help us with this.
+                data = opener.read().decode('utf-8')
+                mo = re.search(r'<a href="\?l=([^&]*)\&m=([^"]*)', data)
+                if mo is not None:
+                    l, m = mo.groups()
+                    errprint("Warning: multiple hits on marc.info; picking %s" % l)
+                    new_url = "https://marc.info/?l=%s&m=%s&q=mbox" % (l, m)
+                    opener = urllib.request.urlopen(new_url)
+
         except urllib.error.HTTPError as e:
             # Skip all HTTP errors. We can expect 404 for archives that
             # don't have this MessageId, or 300 for public-inbox ("not
