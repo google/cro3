@@ -75,63 +75,6 @@ lazy_static! {
         Regex::new(r"^0x[0-9a-fA-F]+$").unwrap();
 }
 
-#[test]
-fn regex_test() {
-    // bracketed ipv6 address is prohibited as an internal representation
-    assert!(!RE_DUT_HOST_NAME.is_match("[fe00::]"));
-    // but allowed for inputs
-    assert!(RE_IPV6_WITH_BRACKETS.is_match("[fe00::]"));
-    assert_eq!(
-        &RE_IPV6_WITH_BRACKETS.captures("[fe00::]").unwrap()["addr"],
-        "fe00::"
-    );
-    // %ifname should be supported for IPv6 link local addresses
-    assert_eq!(
-        &RE_IPV6_WITH_BRACKETS.captures("[fe00::%eth0]").unwrap()["addr"],
-        "fe00::%eth0"
-    );
-    assert!(!RE_IPV6_WITH_BRACKETS.is_match("fe00::]"));
-    assert!(!RE_IPV6_WITH_BRACKETS.is_match("[fe00::"));
-
-    assert!(RE_DUT_HOST_NAME.is_match("1.2.3.4"));
-    assert!(!RE_DUT_HOST_NAME.is_match(" 1.2.3.4"));
-
-    assert!(RE_DUT_HOST_NAME.is_match("fe00::"));
-    assert!(RE_DUT_HOST_NAME.is_match("fe00::"));
-    // %ifname should be supported for IPv6 link local addresses
-    assert!(RE_DUT_HOST_NAME.is_match("fe00::%eth0"));
-    assert!(RE_DUT_HOST_NAME.is_match("a:"));
-    assert!(!RE_DUT_HOST_NAME.is_match("fe00:: "));
-    assert!(!RE_DUT_HOST_NAME.is_match(" fe00::"));
-
-    assert!(RE_DUT_HOST_NAME.is_match("chromium.org"));
-    assert!(RE_DUT_HOST_NAME.is_match("a"));
-    assert!(!RE_DUT_HOST_NAME.is_match(" chromium.org "));
-    assert!(!RE_DUT_HOST_NAME.is_match(""));
-    assert!(!RE_DUT_HOST_NAME.is_match(" "));
-    assert!(!RE_DUT_HOST_NAME.is_match("a\t"));
-    assert!(!RE_DUT_HOST_NAME.is_match("a\n"));
-    assert!(!RE_DUT_HOST_NAME.is_match("a\r"));
-    assert!(!RE_DUT_HOST_NAME.is_match("a "));
-    assert!(!RE_DUT_HOST_NAME.is_match("a#"));
-    assert!(!RE_DUT_HOST_NAME.is_match("a/"));
-    assert!(!RE_DUT_HOST_NAME.is_match("g:"));
-    assert!(!RE_DUT_HOST_NAME.is_match("g<"));
-    assert!(!RE_DUT_HOST_NAME.is_match("g>"));
-    assert!(!RE_DUT_HOST_NAME.is_match("a?"));
-    assert!(!RE_DUT_HOST_NAME.is_match("a@"));
-    assert!(!RE_DUT_HOST_NAME.is_match("a["));
-    assert!(!RE_DUT_HOST_NAME.is_match("a]"));
-    assert!(!RE_DUT_HOST_NAME.is_match("a^"));
-    assert!(!RE_DUT_HOST_NAME.is_match("a|"));
-
-    assert!(RE_GBB_FLAGS.is_match("0x00000000"));
-    assert!(RE_GBB_FLAGS.is_match("0x00000019"));
-    assert!(!RE_GBB_FLAGS.is_match("0x00000019 "));
-    assert!(!RE_GBB_FLAGS.is_match(" 0x00000019"));
-    assert!(!RE_GBB_FLAGS.is_match("flags: 0x00000019"));
-}
-
 pub static SSH_CACHE: KvCache<SshInfo> = KvCache::new("ssh_cache");
 
 /// MonitoredDut holds connection to a monitoring Dut
@@ -235,6 +178,17 @@ lazy_static! {
 const CMD_GET_DEFAULT_IFACE: &str =
     r"ip route get 8.8.8.8 | sed -E 's/^.* dev ([^ ]+) .*$/\1/' | head -n 1";
 
+// Only keys that are always available can be listed here
+const DEFAULT_DUT_INFO_KEYS: [&str; 7] = [
+    "timestamp",
+    "dut_id",
+    "hwid",
+    "release",
+    "model",
+    "serial",
+    "board",
+];
+
 /// DutInfo holds information around a DUT
 #[derive(Debug, Clone)]
 pub struct DutInfo {
@@ -247,18 +201,7 @@ impl DutInfo {
         let info = Self::fetch_keys(
             ssh,
             &[
-                vec![
-                    "timestamp",
-                    "dut_id",
-                    "hwid",
-                    "ipv4_addr",
-                    "ipv6_addr",
-                    "release",
-                    "model",
-                    "serial",
-                    "mac",
-                    "board",
-                ],
+                DEFAULT_DUT_INFO_KEYS.to_vec(),
                 extra_attr.iter().map(|s| s.as_str()).collect(),
             ]
             .concat(),
@@ -330,50 +273,10 @@ impl DutInfo {
             Err(anyhow!("key {key} did not found. stderr"))
         }
     }
-    pub fn fetch_keys(ssh: &SshInfo, keys: &Vec<&str>) -> Result<HashMap<String, String>> {
-        ensure_testing_rsa_is_there()?;
-        // First, list up all the keys to retrieve from a DUT
-        let mut keys_from_dut = HashSet::new();
-        // Dependent variables
-        for k in keys {
-            match *k {
-                "timestamp" => continue,
-                "gbb_flags" => {
-                    keys_from_dut.insert("gbb_flags_from_futility");
-                    keys_from_dut.insert("gbb_flags_from_shell");
-                }
-                "dut_id" => {
-                    keys_from_dut.insert("ipv6_addr");
-                    keys_from_dut.insert("serial");
-                }
-                "model" => {
-                    keys_from_dut.insert("model_from_cros_config");
-                    keys_from_dut.insert("model_from_mosys");
-                }
-                k => {
-                    keys_from_dut.insert(k);
-                }
-            }
-        }
-        let cmds = format!("function lium_get_default_iface {{ {CMD_GET_DEFAULT_IFACE} ; }} && export -f lium_get_default_iface && ");
-        let cmds = cmds
-            + &keys_from_dut
-                .iter()
-                .map(|s| Self::gen_cmd_for_key(s))
-                .collect::<Result<Vec<String>>>()?
-                .join(" && ");
-
-        eprintln!("Fetching info for {:?}...", ssh);
-        let result = ssh.run_cmd_stdio(&cmds)?;
-        let mut values: HashMap<String, Result<String>> = result
-            .split('\n')
-            .zip(keys_from_dut.iter())
-            .map(|(line, key)| -> (String, Result<String>) {
-                let value = Self::decode_result_line(line, key);
-                (key.to_string(), value)
-            })
-            .collect();
-
+    fn parse_values(
+        keys: &[&str],
+        mut values: HashMap<String, Result<String>>,
+    ) -> Result<HashMap<String, String>> {
         // Construct values based on values
         if keys.contains(&"timestamp") {
             values.insert("timestamp".to_string(), Ok(Local::now().to_string()));
@@ -424,6 +327,51 @@ impl DutInfo {
                 }
             })
             .collect()
+    }
+    pub fn fetch_keys(ssh: &SshInfo, keys: &Vec<&str>) -> Result<HashMap<String, String>> {
+        ensure_testing_rsa_is_there()?;
+        // First, list up all the keys to retrieve from a DUT
+        let mut keys_from_dut = HashSet::new();
+        // Dependent variables
+        for k in keys {
+            match *k {
+                "timestamp" => continue,
+                "gbb_flags" => {
+                    keys_from_dut.insert("gbb_flags_from_futility");
+                    keys_from_dut.insert("gbb_flags_from_shell");
+                }
+                "dut_id" => {
+                    keys_from_dut.insert("ipv6_addr");
+                    keys_from_dut.insert("serial");
+                }
+                "model" => {
+                    keys_from_dut.insert("model_from_cros_config");
+                    keys_from_dut.insert("model_from_mosys");
+                }
+                k => {
+                    keys_from_dut.insert(k);
+                }
+            }
+        }
+        let cmds = format!("function lium_get_default_iface {{ {CMD_GET_DEFAULT_IFACE} ; }} && export -f lium_get_default_iface && ");
+        let cmds = cmds
+            + &keys_from_dut
+                .iter()
+                .map(|s| Self::gen_cmd_for_key(s))
+                .collect::<Result<Vec<String>>>()?
+                .join(" && ");
+
+        eprintln!("Fetching info for {:?}...", ssh);
+        let result = ssh.run_cmd_stdio(&cmds)?;
+        let values: HashMap<String, Result<String>> = result
+            .split('\n')
+            .zip(keys_from_dut.iter())
+            .map(|(line, key)| -> (String, Result<String>) {
+                let value = Self::decode_result_line(line, key);
+                (key.to_string(), value)
+            })
+            .collect();
+        Self::parse_values(keys, values)
     }
 }
 
@@ -950,4 +898,91 @@ pub fn discover_local_duts(iface: Option<String>, extra_attr: &[String]) -> Resu
     });
     eprintln!("Discovery completed with {} DUTs", duts.len());
     Ok(duts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn regex() {
+        // bracketed ipv6 address is prohibited as an internal representation
+        assert!(!RE_DUT_HOST_NAME.is_match("[fe00::]"));
+        // but allowed for inputs
+        assert!(RE_IPV6_WITH_BRACKETS.is_match("[fe00::]"));
+        assert_eq!(
+            &RE_IPV6_WITH_BRACKETS.captures("[fe00::]").unwrap()["addr"],
+            "fe00::"
+        );
+        // %ifname should be supported for IPv6 link local addresses
+        assert_eq!(
+            &RE_IPV6_WITH_BRACKETS.captures("[fe00::%eth0]").unwrap()["addr"],
+            "fe00::%eth0"
+        );
+        assert!(!RE_IPV6_WITH_BRACKETS.is_match("fe00::]"));
+        assert!(!RE_IPV6_WITH_BRACKETS.is_match("[fe00::"));
+
+        assert!(RE_DUT_HOST_NAME.is_match("1.2.3.4"));
+        assert!(!RE_DUT_HOST_NAME.is_match(" 1.2.3.4"));
+
+        assert!(RE_DUT_HOST_NAME.is_match("fe00::"));
+        assert!(RE_DUT_HOST_NAME.is_match("fe00::"));
+        // %ifname should be supported for IPv6 link local addresses
+        assert!(RE_DUT_HOST_NAME.is_match("fe00::%eth0"));
+        assert!(RE_DUT_HOST_NAME.is_match("a:"));
+        assert!(!RE_DUT_HOST_NAME.is_match("fe00:: "));
+        assert!(!RE_DUT_HOST_NAME.is_match(" fe00::"));
+
+        assert!(RE_DUT_HOST_NAME.is_match("chromium.org"));
+        assert!(RE_DUT_HOST_NAME.is_match("a"));
+        assert!(!RE_DUT_HOST_NAME.is_match(" chromium.org "));
+        assert!(!RE_DUT_HOST_NAME.is_match(""));
+        assert!(!RE_DUT_HOST_NAME.is_match(" "));
+        assert!(!RE_DUT_HOST_NAME.is_match("a\t"));
+        assert!(!RE_DUT_HOST_NAME.is_match("a\n"));
+        assert!(!RE_DUT_HOST_NAME.is_match("a\r"));
+        assert!(!RE_DUT_HOST_NAME.is_match("a "));
+        assert!(!RE_DUT_HOST_NAME.is_match("a#"));
+        assert!(!RE_DUT_HOST_NAME.is_match("a/"));
+        assert!(!RE_DUT_HOST_NAME.is_match("g:"));
+        assert!(!RE_DUT_HOST_NAME.is_match("g<"));
+        assert!(!RE_DUT_HOST_NAME.is_match("g>"));
+        assert!(!RE_DUT_HOST_NAME.is_match("a?"));
+        assert!(!RE_DUT_HOST_NAME.is_match("a@"));
+        assert!(!RE_DUT_HOST_NAME.is_match("a["));
+        assert!(!RE_DUT_HOST_NAME.is_match("a]"));
+        assert!(!RE_DUT_HOST_NAME.is_match("a^"));
+        assert!(!RE_DUT_HOST_NAME.is_match("a|"));
+
+        assert!(RE_GBB_FLAGS.is_match("0x00000000"));
+        assert!(RE_GBB_FLAGS.is_match("0x00000019"));
+        assert!(!RE_GBB_FLAGS.is_match("0x00000019 "));
+        assert!(!RE_GBB_FLAGS.is_match(" 0x00000019"));
+        assert!(!RE_GBB_FLAGS.is_match("flags: 0x00000019"));
+    }
+
+    #[test]
+    fn info_dut_id_failure() {
+        let keys = vec!["dut_id"];
+        let values = HashMap::new();
+        let result_actual = DutInfo::parse_values(&keys, values);
+        assert!(result_actual.is_err());
+    }
+    #[test]
+    fn info_dut_id() {
+        let keys = vec!["dut_id"];
+        let mut values = HashMap::new();
+        values.insert("model".to_string(), Ok("MODEL".to_string()));
+        values.insert("serial".to_string(), Ok("SERIAL".to_string()));
+        let result_actual = DutInfo::parse_values(&keys, values);
+        let mut result_expected = HashMap::new();
+        result_expected.insert("dut_id".to_string(), "MODEL_SERIAL".to_string());
+        let result_expected: HashMap<String, String> = result_expected;
+        assert_eq!(result_actual.expect("result should be Ok"), result_expected);
+    }
+    #[test]
+    fn default_dut_info_has_no_env_specific_keys() {
+        assert!(!DEFAULT_DUT_INFO_KEYS
+            .iter()
+            .any(|&k| { k == "ipv6_addr" || k == "ipv4_addr" }));
+    }
 }
