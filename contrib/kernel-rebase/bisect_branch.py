@@ -11,10 +11,12 @@
 # pylint: disable=wrong-import-order
 # pylint: disable=global-statement
 # pylint: disable=logging-fstring-interpolation
+# pylint: disable=encoding-missing
 
 """Creates a bisection branch between two KCR results."""
 
 import argparse
+from collections import OrderedDict
 from datetime import datetime
 import logging
 import re
@@ -88,6 +90,7 @@ dropped = 0
 default_begin = "6.1-rc6"
 default_end = "6.1-rc7"
 default_steps = 80
+default_board = "volteer-kernelnext"
 
 parser = argparse.ArgumentParser()
 mode_group = parser.add_mutually_exclusive_group(required=True)
@@ -145,6 +148,13 @@ parser.add_argument(
     type=int,
     default=default_steps,
     help=f"number of steps to perform during verification (default: {default_steps})",
+)
+parser.add_argument(
+    "-b",
+    "--board",
+    type=str,
+    default=default_board,
+    help=f"board to use during verification (default: {default_board})",
 )
 parser.add_argument(
     "begin",
@@ -614,7 +624,6 @@ def handle_error(e):
     global dropped
 
     while True:
-
         if args.triage:
             generic_abort("kernel-upstream")
             dropped += 1
@@ -926,7 +935,7 @@ def build_kernel():
         return True
 
     log.info("Building kernel...")
-    ret = verify_build(None)
+    ret = verify_build(None, args.board)
     if ret["exit_code"] == 0:
         log.info("Built succesfully.")
         return True
@@ -954,34 +963,55 @@ def verify_bisect_branch(begin, end, steps_cnt):
     shas = list_shas(
         "kernel-upstream", f"{KERNELUPSTREAM_BRANCH_PREFIX}{begin}..HEAD"
     )
-    shas_cnt = len(shas)
-    log.info(
-        f"There are {shas_cnt} commits on {bisect_branch} branch which "
-        f"will be verified in {steps_cnt} steps\n"
-    )
 
     idx = 0
+    res_dict = OrderedDict()
+    shas_cnt = len(shas)
     step = round(shas_cnt / steps_cnt)
     start_time = datetime.now()
-    while idx < shas_cnt:
+    log.info(
+        f"There are {shas_cnt} commits on {bisect_branch} branch which "
+        f"will be verified in {steps_cnt} steps (step size {step}) for "
+        f"{args.board} board.\n"
+    )
+
+    for i in range(1, steps_cnt + 1):
         start = datetime.now()
 
         sha = list_shas("kernel-upstream", "HEAD~1..HEAD")
-        title = commit_subject("kernel-upstream", sha)
-        log.info(f"Verifying build with HEAD set at commit {sha[0]} {title}")
+        title = commit_subject("kernel-upstream", sha[0])
+        log.info(
+            f"Step {i} of {steps_cnt}. Verifying build with HEAD set at commit {sha[0]} {title}"
+        )
 
-        build_kernel()
-
-        idx += step
-        if idx < shas_cnt:
-            checkout("kernel-upstream", f"HEAD~{step}")
+        res_dict[sha[0]] = build_kernel()
 
         end = datetime.now()
         diff = end - start
         log.info(f"Build took {diff}\n")
 
+        idx += step
+        if idx >= shas_cnt:
+            break
+        checkout("kernel-upstream", f"HEAD~{step}")
+
     end_time = datetime.now()
     log.info(f"Total verification time {end_time - start_time}")
+
+    log.info("\nVerification summary:")
+    with open(bisect_branch + ".txt", "a") as f:
+        fail_cnt = 0
+        f.write(args.board + ":\n")
+        for i, (key, val) in enumerate(res_dict.items()):
+            if val:
+                f.write(f"{key}\n")
+                status = "passed"
+            else:
+                status = "failed"
+                fail_cnt += 1
+            log.info(f"{i+1}. commit {key} build {status}")
+        log.info(f"\nTotal number of builds : {len(res_dict)}")
+        log.info(f"Number of failed builds : {fail_cnt}")
 
 
 def split_list(alist, splits=2):
@@ -1078,7 +1108,6 @@ def alternative_bisect_branch(begin, end):
     )
 
     for step in range(steps_count):
-
         commit_first = shas_split[step][0]
         commit_last = shas_split[step][-1]
 

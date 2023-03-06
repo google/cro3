@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# pylint: disable=encoding-missing
+
 """Build helpers"""
 
 import multiprocessing
@@ -70,7 +72,7 @@ def do_on_cros_sdk(command, timeout_s=None):
     return do_on_cros_sdk_impl(command)
 
 
-def verify_build(sha):
+def verify_build(sha, board=rebase_config.verify_board):
     """Executes a build and returns its status"""
 
     assert not is_dirty(
@@ -79,8 +81,5 @@ def verify_build(sha):
     if sha is not None:
         checkout("kernel-upstream", sha)
     return do_on_cros_sdk(
-        "emerge-"
-        + rebase_config.verify_board
-        + " --color n -B "
-        + rebase_config.verify_package
+        "emerge-" + board + " --color n -B " + rebase_config.verify_package
     )
