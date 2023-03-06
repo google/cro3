@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 use crate::lookup_full_version;
+use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
@@ -15,118 +16,89 @@ use std::process::Command;
 /// Flash CrOS images
 #[argh(subcommand, name = "flash")]
 pub struct Args {
-    #[argh(subcommand)]
-    nested: SubCommand,
-}
-#[derive(FromArgs, PartialEq, Debug)]
-#[argh(subcommand)]
-enum SubCommand {
-    Dut(ArgsDut),
-    Usb(ArgsUsb),
-}
-pub fn run(args: &Args) -> Result<()> {
-    match &args.nested {
-        SubCommand::Dut(args) => run_dut(args),
-        SubCommand::Usb(args) => run_usb(args),
-    }
-}
+    /// flash to a USB stick
+    #[argh(switch)]
+    usb: bool,
 
-#[derive(FromArgs, PartialEq, Debug)]
-/// flash CrOS image to DUT via ssh
-#[argh(subcommand, name = "dut")]
-pub struct ArgsDut {
-    /// target DUT
-    #[argh(positional)]
-    dut: String,
+    /// flash to a dut
+    #[argh(option)]
+    dut: Option<String>,
 
     /// target cros repo dir
     #[argh(option)]
     repo: Option<String>,
 
-    /// target board
+    /// target BOARD
     #[argh(option)]
     board: Option<String>,
 
-    /// target board
+    /// chromiumos version to flash
     #[argh(option)]
     version: Option<String>,
 }
-pub fn run_dut(args: &ArgsDut) -> Result<()> {
-    ensure_testing_rsa_is_there()?;
+pub fn run(args: &Args) -> Result<()> {
     let repo = &get_repo_dir(&args.repo)?;
     let version = args
         .version
         .clone()
         .unwrap_or_else(|| "latest-dev".to_string());
-    let dut = &DutInfo::new(&args.dut)?;
-    eprintln!("{:?}", dut.info());
-    let board = args
-        .board
-        .as_ref()
-        .or_else(|| dut.info().get("board"))
-        .context("Failed to determine BOARD. Please manually specify --board.")?;
-    let version = if version == "latest-dev" {
-        version
-    } else {
-        lookup_full_version(&version)?
-    };
-    let cmd = Command::new("cros")
-        .current_dir(repo)
-        .args([
-            "flash",
-            "--clobber-stateful",
-            "-vvv",
-            "--disable-rootfs-verification",
-            &dut.ssh().host_and_port(),
-            &format!("xBuddy://remote/{board}/{version}/test"),
-        ])
-        .spawn()?;
-    let result = cmd.wait_with_output()?;
-    if !result.status.success() {
-        println!("cros sdk failed");
+    match (&args.dut, args.usb) {
+        (Some(dut), false) => {
+            ensure_testing_rsa_is_there()?;
+            let dut = &DutInfo::new(dut)?;
+            eprintln!("{:?}", dut.info());
+            let board = args
+                .board
+                .as_ref()
+                .or_else(|| dut.info().get("board"))
+                .context("Failed to determine BOARD. Please manually specify --board.")?;
+            let version = if version == "latest-dev" {
+                version
+            } else {
+                lookup_full_version(&version)?
+            };
+            let cmd = Command::new("cros")
+                .current_dir(repo)
+                .args([
+                    "flash",
+                    "--clobber-stateful",
+                    "-vvv",
+                    "--disable-rootfs-verification",
+                    &dut.ssh().host_and_port(),
+                    &format!("xBuddy://remote/{board}/{version}/test"),
+                ])
+                .spawn()?;
+            let result = cmd.wait_with_output()?;
+            if !result.status.success() {
+                println!("cros sdk failed");
+            }
+            Ok(())
+        }
+        (None, true) => {
+            let board = args.board.as_ref().context("BOARD is needed for --usb")?;
+            let version = if version == "latest-dev" {
+                version
+            } else {
+                lookup_full_version(&version)?
+            };
+            let cmd = Command::new("cros")
+                .current_dir(repo)
+                .args([
+                    "flash",
+                    "--clobber-stateful",
+                    "--clear-tpm-owner",
+                    "-vvv",
+                    "--disable-rootfs-verification",
+                    "usb://",
+                    &format!("xBuddy://remote/{board}/{version}/test"),
+                ])
+                .spawn()?;
+            let result = cmd.wait_with_output()?;
+            if !result.status.success() {
+                println!("cros sdk failed");
+            }
+            Ok(())
+        }
+        _ => Err(anyhow!("Please provide either --dut ${{DUT}} or --usb")),
     }
-    Ok(())
-}
-
-#[derive(FromArgs, PartialEq, Debug)]
-/// flash CrOS image to USB Stick
-#[argh(subcommand, name = "usb")]
-pub struct ArgsUsb {
-    /// target board
-    #[argh(option)]
-    board: String,
-
-    /// target cros repo dir
-    #[argh(option)]
-    repo: Option<String>,
-
-    /// target board
-    #[argh(option)]
-    version: Option<String>,
-}
-pub fn run_usb(args: &ArgsUsb) -> Result<()> {
-    ensure_testing_rsa_is_there()?;
-    let repo = &get_repo_dir(&args.repo)?;
-    let board = &args.board;
-    let version = args
-        .version
-        .clone()
-        .unwrap_or_else(|| "latest-dev".to_string());
-    let cmd = Command::new("cros")
-        .current_dir(repo)
-        .args([
-            "flash",
-            "--clobber-stateful",
-            "--clear-tpm-owner",
-            "-vvv",
-            "--disable-rootfs-verification",
-            "usb://",
-            &format!("xBuddy://remote/{board}/{version}/test"),
-        ])
-        .spawn()?;
-    let result = cmd.wait_with_output()?;
-    if !result.status.success() {
-        println!("cros sdk failed");
-    }
-    Ok(())
 }
