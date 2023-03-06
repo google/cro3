@@ -69,6 +69,13 @@ lium servo list --update
 lium servo list
 ```
 
+### Flash
+
+```
+lium flash --repo ${CROS_DIR} --dut ${DUT}
+lium flash --repo ${CROS_DIR} --board ${BOARD}
+```
+
 ### Misc
 
 ```
@@ -79,8 +86,6 @@ lium config set default_cros_checkout /work/chromiumos_stable/
 lium config show
 lium deploy --repo /work/chromiumos_stable --dut localhost:2282 --package sys-kernel/arcvm-kernel-ack-5_10 --autologin
 lium dut discover --remote kled_SOMESERIALNUMBERS1234 --v6prefix 2001:DB8::
-lium flash --board octopus-kernelnext --version 15263.0.0 --dut kled_SOMESERIALNUMBERS1234 --repo /work/chromiumos_stable/
-lium flash --repo /work/chromiumos_stable/ --board brya
 sudo `which lium` servo reset
 lium sync --repo /work/chromiumos_stable/ --version 14899.0.0
 lium sync --repo /work/chromiumos_stable/ --version R110-15263.0.0
