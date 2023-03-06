@@ -130,10 +130,11 @@ class DockerBuilder:
         print(getoutput("docker-credential-gcloud list"))
         print("\n== User Authorization Scopes")
         token = getoutput("gcloud auth print-access-token")
-        print(f"Token found: {token}")
+        print("Curling Authorization: Bearer with private token.")
         out = getoutput(
             f'curl -H "Authorization: Bearer {token}"'
-            " https://www.googleapis.com/oauth2/v1/tokeninfo"
+            " https://www.googleapis.com/oauth2/v1/tokeninfo",
+            log=False
         )
         print(out)
 

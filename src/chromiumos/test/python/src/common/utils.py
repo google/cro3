@@ -114,7 +114,8 @@ def run(cmd, shell: bool = True, stream: bool = True, raiserr: bool = False):
     return out, err, code
 
 
-def getoutput(cmd, shell: bool = True, stream: bool = False, log=True):
+def getoutput(cmd, shell: bool = True, stream: bool = False, log: bool = True):
     """Get the stdout from a command."""
-    print(f"Running cmd: {cmd}")
+    if log:
+        print(f"Running cmd: {cmd}")
     return run(cmd, shell, stream)[0]
