@@ -457,7 +457,7 @@ pub struct ArgsDiscover {
     #[argh(option)]
     remote: Option<String>,
     /// additional attributes to retrieve
-    #[argh(option)]
+    #[argh(positional, greedy)]
     extra_attr: Vec<String>,
 }
 pub fn run_discover(args: &ArgsDiscover) -> Result<()> {
@@ -472,7 +472,7 @@ pub fn run_discover(args: &ArgsDiscover) -> Result<()> {
         )?;
         let mut cmd = "~/lium dut discover".to_string();
         for ea in &args.extra_attr {
-            cmd += " --extra-attr ";
+            cmd += " ";
             cmd += ea;
         }
         remote.run_cmd_piped(&[cmd])?;
