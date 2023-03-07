@@ -20,7 +20,7 @@ pub struct Args {
     #[argh(option)]
     board: String,
 
-    /// packages to build, space separated
+    /// packages to build (or workon, for a full build), space separated
     #[argh(option)]
     packages: Option<String>,
 
@@ -32,14 +32,14 @@ pub struct Args {
     #[argh(switch)]
     keep_workon: bool,
 
-    /// packages to build, space separated
+    /// USE flags to be used, space separated
     #[argh(
         option,
         default = "String::from(\"chrome_internal -cros-debug pcserial\")"
     )]
     use_flags: String,
 
-    /// do full build (build_packages + build_image) instead of building indivisual packages
+    /// do full build (build_packages + build_image)
     #[argh(switch)]
     full: bool,
 }
