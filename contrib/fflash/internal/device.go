@@ -20,7 +20,7 @@ import (
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/ssh"
 )
 
-var boardLineRegexp = regexp.MustCompile(`CHROMEOS_RELEASE_BOARD=(.+)\n`)
+var boardLineRegexp = regexp.MustCompile(`CHROMEOS_RELEASE_BOARD=(.+?)(?:-signed-.*)?\n`)
 
 // DetectBoard detects the board of c's remote host.
 func DetectBoard(c *ssh.Client) (string, error) {
@@ -34,7 +34,7 @@ func DetectBoard(c *ssh.Client) (string, error) {
 		return "", errors.New("cannot find CHROMEOS_RELEASE_BOARD line")
 	}
 
-	return match[1], err
+	return match[1], nil
 }
 
 // DetectPartitions detects the active/inactive partition state on c's remote host.
