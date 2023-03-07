@@ -106,7 +106,7 @@ func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build
 
 	// `testRunnerTags` are only applied to the downstream test runner builds
 	testRunnerTags := c.testRunnerTags()
-	ctpRequest, err := c.testPlatformRequest(testRunnerTags)
+	ctpRequest, err := c.TestPlatformRequest(testRunnerTags)
 	if err != nil {
 		return nil, err
 	}
@@ -282,8 +282,8 @@ func (c *CTPBuilder) genericTags() map[string]string {
 	return tags
 }
 
-// testPlatformRequest constructs a cros_test_platform.Request from the given CTPBuilder
-func (c *CTPBuilder) testPlatformRequest(buildTags map[string]string) (*test_platform.Request, error) {
+// TestPlatformRequest constructs a cros_test_platform.Request from the given CTPBuilder
+func (c *CTPBuilder) TestPlatformRequest(buildTags map[string]string) (*test_platform.Request, error) {
 	softwareDependencies, err := c.softwareDependencies()
 	if err != nil {
 		return nil, err

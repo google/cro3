@@ -573,7 +573,7 @@ func TestTestPlatformRequest(t *testing.T) {
 			ScheduleViaScheduke: true,
 		},
 	}
-	gotRequest, err := b.testPlatformRequest(buildTags)
+	gotRequest, err := b.TestPlatformRequest(buildTags)
 	if err != nil {
 		t.Fatalf("unexpected error constructing Test Platform request: %v", err)
 	}
