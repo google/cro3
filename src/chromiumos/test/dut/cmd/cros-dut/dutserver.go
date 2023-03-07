@@ -169,6 +169,8 @@ func (s *DutServiceServer) Restart(ctx context.Context, req *api.RestartRequest)
 	}
 
 	command := "reboot " + strings.Join(req.Args, " ")
+
+	s.logger.Printf("Rebooting Client.")
 	output, bootStderr, _ := s.runCmdOutput(command)
 	if bootStderr != "" {
 		s.logger.Printf("reboot command stderr: %s", bootStderr)
@@ -212,18 +214,26 @@ func (s *DutServiceServer) getBootID(ctx context.Context) (string, error) {
 func (s *DutServiceServer) waitForReboot(ctx context.Context, req *api.RestartRequest) error {
 	// Wait so following commands don't run before an actual reboot has kicked off
 	// by waiting for the client connection to shutdown or a timeout.
+	s.logger.Printf("Waiting for reboot to complete.")
+
 	wait := make(chan interface{})
 	go func() {
+		s.logger.Printf("Waiting for reboot: Connection wait.")
 		_ = s.connection.Wait()
+		s.logger.Printf("Waiting for reboot: Connection wait complete.")
 		close(wait)
+		s.logger.Printf("Waiting for reboot: close wait")
+
 	}()
 	select {
 	case <-wait:
+		s.logger.Printf("Waiting for reboot: GetConnectionWithRetry")
 		conn, err := GetConnectionWithRetry(ctx, s.dutName, s.wiringAddress, req, s.logger)
 		if err != nil {
 			s.logger.Println("unable to connect to dut post reboot.")
 			return fmt.Errorf("rebootDut: unable to get connection, %s", err)
 		}
+		s.logger.Printf("Waiting for reboot: GetConnectionWithRetry completed.")
 		s.connection = &dutssh.SSHClient{Client: conn}
 		return nil
 
@@ -512,6 +522,8 @@ func GetConnection(ctx context.Context, dutIdentifier string, wiringAddress stri
 // runCmd run remote command returning return value, stdout, stderr, and error if any
 func (s *DutServiceServer) runCmd(cmd string, stdin io.Reader, combined bool) *api.ExecCommandResponse {
 	s.logger.Printf("Running cmd %s", cmd)
+
+	s.logger.Printf("Checking Connection")
 	if !s.connection.IsAlive() {
 		s.logger.Printf("Connection is not alive, trying to reconnect")
 		if err := s.reconnect(context.Background()); err != nil {
@@ -522,6 +534,7 @@ func (s *DutServiceServer) runCmd(cmd string, stdin io.Reader, combined bool) *a
 			}
 		}
 	}
+	s.logger.Printf("Connection check complete.")
 
 	session, err := s.connection.NewSession()
 	if err != nil {
@@ -556,11 +569,15 @@ func (s *DutServiceServer) runCmd(cmd string, stdin io.Reader, combined bool) *a
 // runCmdOutput interprets the given string command in a shell and returns stdout and stderr.
 // Overall this is a simplified version of runCmd which only returns output.
 func (s *DutServiceServer) runCmdOutput(cmd string) (string, string, error) {
+	s.logger.Printf("Checking Connection is alive.")
 	if !s.connection.IsAlive() {
 		if err := s.reconnect(context.Background()); err != nil {
 			return "", "", fmt.Errorf("failed to reconnect after connection failure, %s", err)
 		}
 	}
+	s.logger.Printf("Checking Connection complete.")
+
+	s.logger.Printf("Creating new session.")
 	session, err := s.connection.NewSession()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to establish a new session for command run, %s", err)
