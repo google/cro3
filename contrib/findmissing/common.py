@@ -124,11 +124,13 @@ def search_upstream_sha(kernel_sha):
     """
     usha = None
     desc = subprocess.check_output(
-        ["git", "show", "-s", kernel_sha], encoding="utf-8", errors="ignore"
+        ["git", "show", "-s", "--pretty=%b", kernel_sha],
+        encoding="utf-8",
+        errors="ignore",
     )
 
     # "commit" is sometimes seen multiple times, such as with commit 6093aabdd0ee
-    m = re.findall(r"cherry picked from (?:commit )+([0-9a-f]+)", desc, re.M)
+    m = re.findall(r"^\(cherry picked from (?:commit )+([0-9a-f]+)", desc, re.M)
     if not m:
         m = re.findall(r"^\s*(?:commit )+([a-f0-9]+) upstream", desc, re.M)
         if not m:
