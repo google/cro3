@@ -25,7 +25,8 @@ do
 # shellcheck disable=SC2002
   commands=$(cat "${IO}"/commands)
   echo "$(date '+%Y-%m-%d %H:%M:%S'): executing ${commands}"
-  echo "${commands}" | bash > "${IO}"/output
+  echo "${commands}" | bash > "${IO}"/tmp
   echo $? > "${IO}"/last_exit
+  cat tmp > "${IO}"/output
   echo "$(date '+%Y-%m-%d %H:%M:%S'): returncode ${?}"
 done
