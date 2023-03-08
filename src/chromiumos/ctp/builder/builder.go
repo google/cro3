@@ -105,7 +105,7 @@ func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build
 	c.validateAndAddDefaults()
 
 	// `testRunnerTags` are only applied to the downstream test runner builds
-	testRunnerTags := c.testRunnerTags()
+	testRunnerTags := c.TestRunnerTags()
 	ctpRequest, err := c.TestPlatformRequest(testRunnerTags)
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build
 	}
 
 	// ctpBuildTags are only applied to the parent CTP build
-	ctpBuildTags := c.ctpTags()
+	ctpBuildTags := c.CtpTags()
 
 	// Parent cros_test_platform builds run on generic GCE bots at the default
 	// priority, so we pass zero values for the dimensions and priority of the
@@ -225,8 +225,8 @@ const (
 	containerMetadataURLSuffix = "metadata/containers.jsonpb"
 )
 
-// ctpTags returns the tags we should attach to the parent CTP build.
-func (c *CTPBuilder) ctpTags() map[string]string {
+// CtpTags returns the tags we should attach to the parent CTP build.
+func (c *CTPBuilder) CtpTags() map[string]string {
 	tags := map[string]string{}
 
 	for k, v := range c.CTPBuildTags {
@@ -239,9 +239,9 @@ func (c *CTPBuilder) ctpTags() map[string]string {
 	return tags
 }
 
-// testRunnerTags returns the tags we should attach to each test runner build
+// TestRunnerTags returns the tags we should attach to each test runner build
 // by combining user supplied tags with generic metadata tags.
-func (c *CTPBuilder) testRunnerTags() map[string]string {
+func (c *CTPBuilder) TestRunnerTags() map[string]string {
 	tags := map[string]string{}
 
 	for k, v := range c.TestRunnerBuildTags {

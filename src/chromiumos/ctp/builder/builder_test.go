@@ -639,13 +639,13 @@ var testCTPTags = []struct {
 	},
 }
 
-func TestCTPTags(t *testing.T) {
+func TestCtpTags(t *testing.T) {
 	t.Parallel()
 	for _, tt := range testCTPTags {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := tt.input.ctpTags()
+			got := tt.input.CtpTags()
 			if diff := cmp.Diff(tt.want, got, CmpOpts); diff != "" {
 				t.Errorf("unexpected diff (%s)", diff)
 			}
@@ -716,7 +716,7 @@ func TestTestRunnerTags(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := tt.input.ctpTags()
+			got := tt.input.CtpTags()
 			if diff := cmp.Diff(tt.want, got, CmpOpts); diff != "" {
 				t.Errorf("unexpected diff (%s)", diff)
 			}
