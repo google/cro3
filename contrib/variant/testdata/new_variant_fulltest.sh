@@ -17,7 +17,7 @@ fi
 
 if [[ "$#" -lt 1 ]]; then
   echo "Usage: ${SCRIPT} reference_name"
-  echo "e.g. ${SCRIPT} hatch | puff | volteer2 | waddledee | waddledoo | lalala | trembyle | dalboz | brya0 | guybrush | nereid | nivviks"
+  echo "e.g. ${SCRIPT} hatch | puff | volteer2 | waddledee | waddledoo | lalala | trembyle | dalboz | brya0 | guybrush | nereid | nivviks | geralt"
   echo "End-to-end test to create a new variant of a reference board"
   echo "Script version ${VERSION}"
   exit 1
@@ -28,6 +28,9 @@ REFERENCE="${1,,}"
 
 # Support for depthcharge variants was added later, so the default is no support
 SUPPORTS_DC_VARIANT=0
+
+# Support detachable form factor to prevent depthcharge emerge fail
+SUPPORTS_DETACHABLE=0
 
 # ebuild for all boards that use Boxster config
 EBUILD=chromeos-config-bsp-private-9999.ebuild
@@ -155,6 +158,15 @@ case "${REFERENCE}" in
     USE_ZEPHYR=1
     ;;
 
+  geralt)
+    BASE=geralt
+    NEW=whiteorchard
+    CONFIG_DIR=/mnt/host/source/src/project/geralt
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-geralt-private/chromeos-base/chromeos-config-bsp-private
+    USE_ZEPHYR=1
+    SUPPORTS_DETACHABLE=1
+    ;;
+
   *)
     echo Unsupported reference board "${REFERENCE}"
     exit 1
@@ -268,6 +280,10 @@ if [[ -n ${CONFIG_DIR+x} ]] ; then
   # fw_build_config.sh to make the changes we need. Instead just apply the
   # changes manually.
   pushd "${CONFIG_DIR}/${NEW}"
+
+  if [[ ${SUPPORTS_DETACHABLE} -eq 1 ]] ; then
+    sed -i -e "s/CLAMSHELL/DETACHABLE/g" config.star
+  fi
 
   if [[ ${SUPPORTS_DC_VARIANT} -eq 1 ]] ; then
     # Load sw_config.star and update FW_BUILD_CONFIG to new project and build the config

@@ -3,6 +3,7 @@ base: hatch
 board: hatch
 bug: None
 cb_config_dir: null
+ignore_cb_template: null
 commits:
   add_priv_yaml:
     branch_name: kindred

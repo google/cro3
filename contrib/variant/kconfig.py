@@ -50,6 +50,7 @@ def main(argv):
             "brask",
             "guybrush",
             "nissa",
+            "geralt",
         ),
         help="Name of the baseboard",
     )
@@ -192,6 +193,10 @@ def add_to_kconfig_name(baseboard_name, variant_name):
             print("\nconfig " + "BOARD_GOOGLE_" + uppercase, file=outfile)
             print('\tbool "->  ' + capitalized + '"', file=outfile)
             print("\tselect BOARD_GOOGLE_BASEBOARD_NISSA", file=outfile)
+        elif baseboard_name == "geralt":
+            print("\nconfig " + "BOARD_GOOGLE_" + uppercase, file=outfile)
+            print('\tbool "->  ' + capitalized + '"', file=outfile)
+            print("\tselect BOARD_GOOGLE_GERALT_COMMON", file=outfile)
         else:
             raise ValueError(f"Unsupported board {baseboard_name}")
 

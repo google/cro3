@@ -103,15 +103,18 @@ abandon() {
 }
 trap 'abandon' ERR
 
-# Copy the template tree to the target.
-mkdir -p "variants/${VARIANT}/"
-cp -pr "${TEMPLATE}/." "variants/${VARIANT}/"
-if [[ -e "variants/${VARIANT}/Kconfig" ]]; then
-  sed -i -e "s/BOARD_GOOGLE_TEMPLATE/BOARD_GOOGLE_${VARIANT_UPPER}/" \
-    "variants/${VARIANT}/Kconfig"
-fi
+# Copy coreboot template relate if ignore flag is not being set up.
+if [[ -z "${IGNORE_CB_TEMPLATE}" ]] ; then
+  # Copy the template tree to the target.
+  mkdir -p "variants/${VARIANT}/"
+  cp -pr "${TEMPLATE}/." "variants/${VARIANT}/"
+  if [[ -e "variants/${VARIANT}/Kconfig" ]]; then
+    sed -i -e "s/BOARD_GOOGLE_TEMPLATE/BOARD_GOOGLE_${VARIANT_UPPER}/" \
+      "variants/${VARIANT}/Kconfig"
+  fi
 
-git add "variants/${VARIANT}/"
+  git add "variants/${VARIANT}/"
+fi
 
 restore_git() {
   # After adding changes to git, now to recover from an error we need to

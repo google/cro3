@@ -294,6 +294,8 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
         depends[step_names.ADD_PRIV_YAML] is a list of other steps that
         the 'add_priv_yaml' step depends on. This map is used to amend
         the commits with CL numbers for Cq-Depend.
+    * ignore_cb_templat - set this flag if you'd like to ignore copy template
+        folder to coreboot
 
     Additionally, the following fields will be set:
 
@@ -426,6 +428,7 @@ def get_status(board, variant, bug, branch, continue_flag, abort_flag):
     )
     status.fsp = getattr(module, "fsp", None)
     status.private_yaml_dir = getattr(module, "private_yaml_dir", None)
+    status.ignore_cb_template = getattr(module, "ignore_cb_template", None)
     status.step_list = module.step_list
     status.workon_pkgs = module.workon_pkgs
     status.config_workon_pkgs = module.config_workon_pkgs
@@ -801,6 +804,8 @@ def create_coreboot_variant(status):
         "CB_SRC_DIR": cb_src_dir,
         "NEW_VARIANT_BRANCH": status.branch,
     }
+    if status.ignore_cb_template is not None:
+        environ["IGNORE_CB_TEMPLATE"] = status.ignore_cb_template
     create_coreboot_variant_sh = os.path.join(
         status.my_loc, "create_coreboot_variant.sh"
     )
