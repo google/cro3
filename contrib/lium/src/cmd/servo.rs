@@ -11,6 +11,7 @@ use lium::servo::reset_devices;
 use lium::servo::LocalServo;
 use lium::servo::ServoList;
 use lium::servo::ServodConnection;
+use lium::util::require_root_privilege;
 use std::process;
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -48,6 +49,7 @@ pub struct ArgsReset {
     serials: Vec<String>,
 }
 pub fn run_reset(args: &ArgsReset) -> Result<()> {
+    require_root_privilege()?;
     reset_devices(&args.serials)
 }
 
