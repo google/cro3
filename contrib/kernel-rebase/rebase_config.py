@@ -59,6 +59,12 @@ topic_patches["gpu/other"] = [
     "fixups/CHROMIUM: gpu: mali: Apply r40p0 EAC release 2.patch",
 ]
 
+topic_patches["mm"] = [
+    "fixups/CHROMIUM: Reland of add implementation of MGLRU in sysfs.patch",
+    "fixups/CHROMIUM: mm: per-process reclaim.patch",
+    "fixups/FROMLIST: Add flags option to get xattr method paired to __vfs_getxattr.patch",
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
