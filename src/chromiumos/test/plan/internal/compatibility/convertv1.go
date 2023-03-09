@@ -23,7 +23,6 @@ import (
 	"go.chromium.org/chromiumos/infra/proto/go/lab"
 	"go.chromium.org/chromiumos/infra/proto/go/testplans"
 	bbpb "go.chromium.org/luci/buildbucket/proto"
-	"go.chromium.org/luci/common/data/stringset"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -235,16 +234,6 @@ func parseBuildProtos(
 
 	buildInfos := []*buildInfo{}
 
-	// The presence of any one of these artifacts is enough to tell us that this
-	// build should be considered for testing.
-	testArtifacts := stringset.NewFromSlice(
-		"AUTOTEST_FILES",
-		"IMAGE_ZIP",
-		"PINNED_GUEST_IMAGES",
-		"TAST_FILES",
-		"TEST_UPDATE_PAYLOAD",
-	)
-
 	for _, protoBytes := range buildbucketProtos {
 		build := &bbpb.Build{}
 		if err := proto.Unmarshal(protoBytes.SerializedProto, build); err != nil {
@@ -281,11 +270,48 @@ func parseBuildProtos(
 			return nil, fmt.Errorf("artifacts.files_by_artifact must be a non-empty struct")
 		}
 
+		// The presence of any one of these artifacts is enough to tell us that this
+		// build should be considered for testing. It is possible they are present
+		// as keys in the map but empty lists; in this case, skip the artifact
+		// and log a warning, as this is somewhat unexpected.
+		testArtifacts := []string{
+			"AUTOTEST_FILES",
+			"IMAGE_ZIP",
+			"PINNED_GUEST_IMAGES",
+			"TAST_FILES",
+			"TEST_UPDATE_PAYLOAD",
+		}
+
 		foundTestArtifact := false
-		for field := range filesByArtifact.GetStructValue().GetFields() {
-			if testArtifacts.Has(field) {
-				foundTestArtifact = true
-				break
+		for _, testArtifact := range testArtifacts {
+			files, found := filesByArtifact.GetStructValue().GetFields()[testArtifact]
+			if found {
+				// The key exists in the map, check that it is a non-empty list.
+				switch files.GetKind().(type) {
+				case *structpb.Value_ListValue:
+					if len(files.GetListValue().GetValues()) > 0 {
+						glog.Infof(
+							"found test artifact %q on build %q",
+							testArtifact,
+							builderName,
+						)
+						foundTestArtifact = true
+						break
+					}
+
+					glog.Warningf(
+						"test artifact %q is present but empty on build %q",
+						testArtifact,
+						builderName,
+					)
+				default:
+					glog.Warningf(
+						"test artifact %q is present but not a list, this is unexpected. On build %q. value is: %q",
+						testArtifact,
+						builderName,
+						files,
+					)
+				}
 			}
 		}
 

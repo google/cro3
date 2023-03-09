@@ -388,6 +388,10 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 					"gs_path":   "testgspathB",
 					"files_by_artifact": map[string]interface{}{
 						"testartifact": []interface{}{"file1", "file2"},
+						// A test artifact is an empty list, this should be ignored.
+						"IMAGE_ZIP": []interface{}{},
+						// A test artifact is not a list, this should also be ignored.
+						"AUTOTEST_FILES": 123,
 					},
 				},
 			}),
