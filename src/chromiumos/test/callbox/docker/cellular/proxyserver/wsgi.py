@@ -13,6 +13,11 @@ gunicorn_logger = logging.getLogger("gunicorn.error")
 app.logger.handlers = gunicorn_logger.handlers
 app.logger.setLevel(gunicorn_logger.level)
 
+# link default logger and flask app logger
+default = logging.getLogger()
+default.handlers = gunicorn_logger.handlers
+default.setLevel(gunicorn_logger.level)
+
 if gunicorn_logger.level >= logging.DEBUG:
     app.config["DEBUG"] = True
 

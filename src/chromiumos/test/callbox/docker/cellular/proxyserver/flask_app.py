@@ -7,12 +7,15 @@
 import traceback
 import urllib
 
-from cellular import handover_simulator as hs
-from cellular.callbox_utils import cmw500_cellular_simulator as cmw
-from cellular.callbox_utils.cmw500_handover_simulator import (
+from acts.controllers import handover_simulator as hs
+from acts.controllers.cellular_lib import BaseCellConfig
+from acts.controllers.rohdeschwarz_lib import cmw500_cellular_simulator as cmw
+from acts.controllers.rohdeschwarz_lib.cmw500_handover_simulator import (
     Cmw500HandoverSimulator,
 )
-from cellular.simulation_utils import BaseCellConfig
+from cellular.callbox_utils.cmw500_iperf_measurement import (
+    Cmw500IperfMeasurement,
+)
 from cellular.simulation_utils import ChromebookCellularDut
 from cellular.simulation_utils import CrOSLteSimulation
 import flask  # pylint: disable=E0401
@@ -87,7 +90,7 @@ class CallboxManager:
                 config.host, config.port
             )
             config.handover = Cmw500HandoverSimulator(config.simulator.cmw)
-            config.iperf = config.simulator.cmw.init_perf_measurement()
+            config.iperf = Cmw500IperfMeasurement(config.simulator.cmw)
             config.tx_measurement = config.simulator.cmw.init_lte_measurement()
             config.simulator.cmw.stop_all_signalling()
         else:

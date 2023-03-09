@@ -4,7 +4,7 @@
 
 """Provides cellular DUT implementation for CrOS devices."""
 
-from cellular.simulation_utils import BaseCellularDut
+from acts.controllers.cellular_lib import BaseCellularDut
 
 
 class ChromebookCellularDut(BaseCellularDut.BaseCellularDut):
@@ -46,3 +46,9 @@ class ChromebookCellularDut(BaseCellularDut.BaseCellularDut):
 
     def get_telephony_signal_strength(self):
         """Not relevant to Chromebooks, but required interface for compatibility."""
+
+    def start_modem_logging(self):
+        """Starts on-device log collection."""
+
+    def stop_modem_logging(self):
+        """Stops log collection and pulls logs."""

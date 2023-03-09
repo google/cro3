@@ -4,8 +4,8 @@
 
 """Provides ChromeOS-specific LTE simulation implementations."""
 
-from cellular.simulation_utils.BaseCellConfig import BaseCellConfig
-from cellular.simulation_utils.LteSimulation import LteSimulation
+from acts.controllers.cellular_lib.BaseCellConfig import BaseCellConfig
+from acts.controllers.cellular_lib.LteSimulation import LteSimulation
 
 
 class CrOSLteSimulation(LteSimulation):
