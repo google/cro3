@@ -183,3 +183,6 @@ disp_overwrite[
 disp_overwrite[
     "2c618bec56d3"
 ] = "drop"  # CHROMIUM: ASoC: amd: acp: Add tdm support for codecs in machine driver
+disp_overwrite[
+    "2a50a5338af9"
+] = "drop"  # FROMLIST: drm/bridge: add it6505 driver to read data-lanes and max-pixel-clock-khz from dt
