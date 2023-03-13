@@ -180,3 +180,6 @@ disp_overwrite[
 disp_overwrite[
     "4fe58164b6e0"
 ] = "drop"  # CHROMIUM: defconfig:  Support iwl7000 driver on v6.1
+disp_overwrite[
+    "2c618bec56d3"
+] = "drop"  # CHROMIUM: ASoC: amd: acp: Add tdm support for codecs in machine driver
