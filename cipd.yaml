@@ -1,0 +1,5 @@
+package: experimental/lium
+description: yet another wrapper for CrOS developers - go/lium
+install_mode: copy
+data:
+  - file: target/x86_64-unknown-linux-gnu/release/lium
