@@ -196,3 +196,6 @@ disp_overwrite[
 disp_overwrite[
     "2f2e7a0afd91"
 ] = "drop"  # CHROMIUM: arm64: dts: mt8186: Add afe nodes
+disp_overwrite[
+    "88325c695e48"
+] = "drop"  # FROMLIST: dt-bindings: mfd: Add DT compatible string "google,cros_ec_uart"
