@@ -193,3 +193,6 @@ disp_overwrite[
 disp_overwrite[
     "bd1096913a65"
 ] = "drop"  # FROMLIST: irqdomain: use per-domain mutex for associations
+disp_overwrite[
+    "2f2e7a0afd91"
+] = "drop"  # CHROMIUM: arm64: dts: mt8186: Add afe nodes
