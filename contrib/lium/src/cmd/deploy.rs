@@ -26,9 +26,9 @@ pub struct Args {
     #[argh(option)]
     packages: String,
 
-    /// if specified, it will invoke autologin
+    /// if specified, it will skip automatic reboot
     #[argh(switch)]
-    autologin: bool,
+    skip_reboot: bool,
 }
 pub fn run(args: &Args) -> Result<()> {
     ensure_testing_rsa_is_there()?;
@@ -67,9 +67,10 @@ cros-workon-{board} start {packages}
             ),
             None,
         )?;
-    }
-    if args.autologin {
-        target.run_autologin()?;
+        if !args.skip_reboot {
+            println!("Rebooting DUT...");
+            target.run_cmd_piped(&["reboot; exit"])?;
+        }
     }
     Ok(())
 }
