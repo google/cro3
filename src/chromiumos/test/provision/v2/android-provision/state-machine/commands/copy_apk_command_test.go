@@ -28,13 +28,14 @@ func TestCopyAPKCommand(t *testing.T) {
 			},
 			AndroidPackage: api.AndroidPackage_GMS_CORE,
 		}
-		apkFile := &service.APKFile{
+		apkFile := &service.PkgFile{
 			Name:   "apkName.apk",
 			GsPath: "gsPath",
 		}
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
 			associatedHost,
 			"dutSerialNumber",
+			nil,
 			[]*api.CIPDPackage{pkgProto},
 		)
 		provisionPkg := svc.ProvisionPackages[0]
@@ -52,9 +53,9 @@ func TestCopyAPKCommand(t *testing.T) {
 				associatedHost.EXPECT().CreateDirectories(gomock.Any(), gomock.Eq([]string{"/tmp/instanceId"})).Times(1),
 				associatedHost.EXPECT().CopyData(gomock.Any(), "gsPath", "/tmp/instanceId/apkName.apk").Times(1),
 			)
-			So(provisionPkg.APKFile.ProvisionPath, ShouldBeEmpty)
+			So(provisionPkg.APKFile.DutPath, ShouldBeEmpty)
 			So(cmd.Execute(log), ShouldBeNil)
-			So(provisionPkg.APKFile.ProvisionPath, ShouldEqual, "/tmp/instanceId/apkName.apk")
+			So(provisionPkg.APKFile.DutPath, ShouldEqual, "/tmp/instanceId/apkName.apk")
 		})
 		Convey("Revert", func() {
 			So(cmd.Revert(), ShouldBeNil)

@@ -31,6 +31,7 @@ func TestGetInstalledPackageVersionCommand(t *testing.T) {
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
 			associatedHost,
 			"dutSerialNumber",
+			nil,
 			[]*api.CIPDPackage{pkgProto},
 		)
 		provisionPkg := svc.ProvisionPackages[0]

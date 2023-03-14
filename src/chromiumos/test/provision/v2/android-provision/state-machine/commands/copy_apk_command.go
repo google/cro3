@@ -40,7 +40,7 @@ func (c *CopyAPKCommand) Execute(log *log.Logger) error {
 				log.Printf("CopyAPKCommand Failure: %v", err)
 				return err
 			}
-			apkFile.ProvisionPath = dstPath
+			apkFile.DutPath = dstPath
 		}
 	}
 	log.Printf("CopyAPKCommand Success")

@@ -32,7 +32,7 @@ type gs struct {
 
 func NewGsClient() GsClient {
 	return &gs{
-		bucketName: common.GSBucketName,
+		bucketName: common.GSPackageBucketName,
 	}
 }
 

@@ -36,6 +36,7 @@ func TestResolveCIPDPackageCommand(t *testing.T) {
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
 			nil,
 			"",
+			nil,
 			[]*api.CIPDPackage{pkgProto},
 		)
 		provisionPkg := svc.ProvisionPackages[0]

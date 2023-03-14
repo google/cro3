@@ -16,5 +16,6 @@ const (
 
 	// DroneServiceAccountCreds is needed to upload APKs to Android Provisioning GSBucket.
 	DroneServiceAccountCreds = "/creds/service_accounts/skylab-drone.json"
-	GSBucketName             = "android-provisioning-apks"
+	GSImageBucketName        = "android-provisioning-images"
+	GSPackageBucketName      = "android-provisioning-apks"
 )

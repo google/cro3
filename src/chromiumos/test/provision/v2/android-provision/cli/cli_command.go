@@ -127,7 +127,7 @@ func (cc *CLICommand) Run() error {
 		if err != nil {
 			return fmt.Errorf("failed to create AndroidService: %s", err)
 		}
-		svc, err = service.NewAndroidServiceFromExistingConnection(svcAdapter, cc.inputProto.GetDut().GetAndroid().GetSerialNumber(), cc.inputProto.GetProvisionState().GetCipdPackages())
+		svc, err = service.NewAndroidServiceFromExistingConnection(svcAdapter, cc.inputProto.GetDut().GetAndroid().GetSerialNumber(), cc.inputProto.GetProvisionState().GetAndroidOsImage(), cc.inputProto.GetProvisionState().GetCipdPackages())
 		if err != nil {
 			return fmt.Errorf("failed to create Android service: %s", err)
 		}

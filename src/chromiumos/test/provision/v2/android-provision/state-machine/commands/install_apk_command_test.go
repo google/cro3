@@ -27,13 +27,14 @@ func TestInstallAPKCommand(t *testing.T) {
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
 			associatedHost,
 			"dutSerialNumber",
+			nil,
 			[]*api.CIPDPackage{pkgProto},
 		)
 		provisionPkg := svc.ProvisionPackages[0]
-		provisionPkg.APKFile = &service.APKFile{
-			Name:          "apkName.apk",
-			GsPath:        "gs_path",
-			ProvisionPath: "/tmp/instanceId/apkName.apk",
+		provisionPkg.APKFile = &service.PkgFile{
+			Name:    "apkName.apk",
+			GsPath:  "gs_path",
+			DutPath: "/tmp/instanceId/apkName.apk",
 		}
 		provisionPkg.AndroidPackage = &service.AndroidPackage{
 			PackageName: common.GMSCorePackageName,

@@ -32,14 +32,15 @@ func TestCleanupCommand(t *testing.T) {
 			},
 			AndroidPackage: api.AndroidPackage_GMS_CORE,
 		}
-		apkFile := &service.APKFile{
-			Name:          "apkName.apk",
-			GsPath:        "gsPath",
-			ProvisionPath: "/tmp/instanceId/apkName.apk",
+		apkFile := &service.PkgFile{
+			Name:    "apkName.apk",
+			GsPath:  "gsPath",
+			DutPath: "/tmp/instanceId/apkName.apk",
 		}
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
 			associatedHost,
 			"dutSerialNumber",
+			nil,
 			[]*api.CIPDPackage{pkgProto},
 		)
 		svc.ProvisionPackages[0].APKFile = apkFile

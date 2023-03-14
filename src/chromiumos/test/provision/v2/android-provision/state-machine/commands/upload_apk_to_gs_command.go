@@ -67,8 +67,8 @@ func (c *UploadAPKToGSCommand) Execute(log *log.Logger) error {
 					return err
 				}
 			}
-			gspath := "gs://" + common.GSBucketName + "/" + apkRemotePath
-			pkg.APKFile = &service.APKFile{
+			gspath := "gs://" + common.GSPackageBucketName + "/" + apkRemotePath
+			pkg.APKFile = &service.PkgFile{
 				Name:   apkName,
 				GsPath: gspath,
 			}

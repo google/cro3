@@ -43,6 +43,7 @@ func TestFetchCIPDPackageCommand(t *testing.T) {
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
 			nil,
 			"",
+			nil,
 			[]*api.CIPDPackage{pkgProto},
 		)
 		provisionPkg := svc.ProvisionPackages[0]
@@ -55,8 +56,8 @@ func TestFetchCIPDPackageCommand(t *testing.T) {
 		cmd := NewFetchCIPDPackageCommand(context.Background(), svc)
 
 		Convey("Execute", func() {
-			log, _ := common.SetUpLog(provisionDir)
 			mockCIPDClient := cipd.NewMockCIPDClientInterface(ctrl)
+			log, _ := common.SetUpLog(provisionDir)
 			cmd.cipd = mockCIPDClient
 			provisionPkg.CIPDPackage.PackageProto.AndroidPackage = api.AndroidPackage_GMS_CORE
 			Convey("New Android Package", func() {

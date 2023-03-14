@@ -31,7 +31,7 @@ func (c *InstallAPKCommand) Execute(log *log.Logger) error {
 		androidPkg := pkg.AndroidPackage
 		if apkFile := pkg.APKFile; apkFile != nil {
 			dut := c.svc.DUT
-			args := []string{"-s", dut.SerialNumber, "install", "-r", "-d", "-g", apkFile.ProvisionPath}
+			args := []string{"-s", dut.SerialNumber, "install", "-r", "-d", "-g", apkFile.DutPath}
 			if _, err := dut.AssociatedHost.RunCmd(c.ctx, "adb", args); err != nil {
 				log.Printf("InstallAPKCommand start failed: %v", err)
 				return err

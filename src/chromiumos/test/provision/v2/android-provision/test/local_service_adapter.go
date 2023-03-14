@@ -191,7 +191,7 @@ func downloadFile(ctx context.Context, object string, destFileName string) error
 		return fmt.Errorf("os.Create: %v", err)
 	}
 
-	rc, err := client.Bucket(common.GSBucketName).Object(object).NewReader(ctx)
+	rc, err := client.Bucket(common.GSPackageBucketName).Object(object).NewReader(ctx)
 	if err != nil {
 		return fmt.Errorf("Object(%q).NewReader: %v", object, err)
 	}

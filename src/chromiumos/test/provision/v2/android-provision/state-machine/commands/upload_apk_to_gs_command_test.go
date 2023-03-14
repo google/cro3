@@ -34,6 +34,7 @@ func TestUploadApkToGsCommand(t *testing.T) {
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
 			nil,
 			"",
+			nil,
 			[]*api.CIPDPackage{pkgProto},
 		)
 		// Default apkName.

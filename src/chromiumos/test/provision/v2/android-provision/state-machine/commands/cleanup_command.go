@@ -32,7 +32,7 @@ func (c *CleanupCommand) Execute(log *log.Logger) error {
 	os.RemoveAll(c.svc.ProvisionDir)
 	for _, pkg := range c.svc.ProvisionPackages {
 		if apkFile := pkg.APKFile; apkFile != nil {
-			c.svc.DUT.AssociatedHost.DeleteDirectory(c.ctx, filepath.Dir(apkFile.ProvisionPath))
+			c.svc.DUT.AssociatedHost.DeleteDirectory(c.ctx, filepath.Dir(apkFile.DutPath))
 		}
 	}
 	log.Printf("CleanupCommand Success")

@@ -28,6 +28,7 @@ func TestRestartADBCommand(t *testing.T) {
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
 			associatedHost,
 			"dutSerialNumber",
+			nil,
 			[]*api.CIPDPackage{{}},
 		)
 		provisionDir, _ := os.MkdirTemp("", "testCleanup")
