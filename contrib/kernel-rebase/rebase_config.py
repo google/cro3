@@ -190,3 +190,6 @@ disp_overwrite[
 disp_overwrite[
     "2a50a5338af9"
 ] = "drop"  # FROMLIST: drm/bridge: add it6505 driver to read data-lanes and max-pixel-clock-khz from dt
+disp_overwrite[
+    "bd1096913a65"
+] = "drop"  # FROMLIST: irqdomain: use per-domain mutex for associations
