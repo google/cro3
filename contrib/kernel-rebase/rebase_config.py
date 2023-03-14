@@ -65,6 +65,10 @@ topic_patches["mm"] = [
     "fixups/FROMLIST: Add flags option to get xattr method paired to __vfs_getxattr.patch",
 ]
 
+topic_patches["drivers"] = [
+    "fixups/FROMGIT: xhci: check for a pending command completion during command timeout.patch",
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
