@@ -78,12 +78,13 @@ func (ps *ProvisionServer) Install(ctx context.Context, req *api.InstallRequest)
 
 	installResp, md, err := ps.installTarget(ctx, req)
 	if err != nil {
-		ps.options.Log.Fatalf("failed provision, %s", err)
+		ps.options.Log.Printf("failed provision, %s", err)
 	}
 	response.Status = installResp
 	response.Metadata = md
 	ps.manager.SetResult(op.Name, &response)
-	return op, nil
+	ps.options.Log.Printf("Provision set OP Response to:%s ", &response)
+	return op, err
 }
 
 // installTarget installs a specified version of the software on the target, along
