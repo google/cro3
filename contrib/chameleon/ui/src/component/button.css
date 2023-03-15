@@ -1,3 +1,25 @@
+.row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.rowPortButton{
+  display: flex;
+}
+
+.rowPortButtonReverse{
+  display: flex;
+  flex-direction: row-reverse;
+}
+
+.row > div {
+  margin-right: 10px;
+}
+
+.edidButton{
+  margin-top: 25px;
+}
+
 .hdmiPortButton {
   width: 120px;
   height: 60px;

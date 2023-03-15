@@ -1,0 +1,60 @@
+.edidButtons {
+    padding: 8px 16px;
+    font-size: 16px;
+    background-color: #fff380;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.editButtonContainer {
+    position: relative;
+}
+
+.modal {
+    width: 400px;
+    height: auto;
+    margin: auto;
+    border: 1px solid;
+    border-radius: 8px;
+    background-color: #f7f7d2;
+    padding: 24px;
+}
+
+.radioLabel {
+    display: block;
+    margin-right: 8px;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.customTextField {
+    display: block;
+    width: 90%;
+    height: 500px;
+    margin: 8px 0;
+    padding: 6px 12px;
+    font-size: 14px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+.saveButton {
+    padding: 8px 16px;
+    font-size: 16px;
+    background-color: #8dd580;
+    border: 1px solid;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 16px;
+}
+
+.cancelButton {
+    padding: 8px 16px;
+    font-size: 16px;
+    background-color: #de868f;
+    border: 1px solid;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 16px;
+    margin-right: 10px;
+}

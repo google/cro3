@@ -4,10 +4,13 @@
 
 import React, { useState } from 'react';
 
+import EdidButton from './edidButton';
 import PortButton from './portButton';
 import ResetButton from './resetButton';
 
-import { PORT_STATE } from '../consts/plugButtonConstants';
+import { PORT_STATE, PORT_LABELS } from '../consts/plugButtonConstants';
+
+import './button.css';
 
 const PortButtons = () => {
   const [plugState0, setPlugState0] = useState(PORT_STATE.UNPLUGGED);
@@ -22,25 +25,33 @@ const PortButtons = () => {
     setPlugState3(PORT_STATE.UNPLUGGED);
   };
 
+  const renderPortButton = (className, label, portId, plugState, setPlugState) => {
+    return (
+      <div className={className}>
+        <div className='edidButton'>
+          <EdidButton portId={portId} />
+        </div>
+        <div>
+          <PortButton
+            label={label}
+            portId={portId}
+            plugState={plugState}
+            setPlugState={setPlugState}
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
-      <div>
-        <PortButton label={'DP1'} portId={0} plugState={plugState0} setPlugState={setPlugState0} />
-        <PortButton label={'DP2'} portId={1} plugState={plugState1} setPlugState={setPlugState1} />
+      <div className='row'>
+        {renderPortButton('rowPortButton', PORT_LABELS.DP1, 0, plugState0, setPlugState0)}
+        {renderPortButton('rowPortButtonReverse', PORT_LABELS.DP2, 1, plugState1, setPlugState1)}
       </div>
-      <div>
-        <PortButton
-          label={'HDMI1'}
-          portId={2}
-          plugState={plugState2}
-          setPlugState={setPlugState2}
-        />
-        <PortButton
-          label={'HDMI2'}
-          portId={3}
-          plugState={plugState3}
-          setPlugState={setPlugState3}
-        />
+      <div className='row'>
+        {renderPortButton('rowPortButton', PORT_LABELS.HDMI1, 2, plugState2, setPlugState2)}
+        {renderPortButton('rowPortButtonReverse', PORT_LABELS.HDMI2, 3, plugState3, setPlugState3)}
       </div>
       <ResetButton onResetButtonClicked={onResetButtonClicked} />
     </div>

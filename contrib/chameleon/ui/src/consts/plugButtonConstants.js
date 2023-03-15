@@ -21,6 +21,13 @@ export const PORT_ID_TO_PORT_TYPE = {
   3: 'HDMI',
 };
 
+export const PORT_LABELS = {
+  DP1: 'DP1',
+  DP2: 'DP2',
+  HDMI1: 'HDMI1',
+  HDMI2: 'HDMI2',
+};
+
 export const PORT_TYPE_TO_CLASSNAME = {
   DP: 'dpPortButton',
   HDMI: 'hdmiPortButton',
