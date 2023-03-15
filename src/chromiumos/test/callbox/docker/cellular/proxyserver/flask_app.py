@@ -7,72 +7,15 @@
 import traceback
 import urllib
 
-from acts.controllers import handover_simulator as hs
 from acts.controllers.cellular_lib import BaseCellConfig
-from acts.controllers.rohdeschwarz_lib import cmw500_cellular_simulator as cmw
-from acts.controllers.rohdeschwarz_lib.cmw500_handover_simulator import (
-    Cmw500HandoverSimulator,
-)
-from cellular.callbox_utils.cmw500_iperf_measurement import (
-    Cmw500IperfMeasurement,
-)
+from cellular.proxyserver import callbox_configuration as cbc
 from cellular.simulation_utils import ChromebookCellularDut
-from cellular.simulation_utils import CrOSLteSimulation
 import flask  # pylint: disable=E0401
 from flask import request  # pylint: disable=E0401
 
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = False
-
-
-class CallboxConfiguration:
-    """Callbox access configuration."""
-
-    def __init__(self):
-        self.host = None
-        self.port = None
-        self.dut = None
-        self.simulator = None
-        self.simulation = None
-        self.parameters = None
-        self.iperf = None
-        self.tx_measurement = None
-        self.technology = None
-        self.handover = None
-
-    def require_simulation(self):
-        """Verifies that CellularSimulator controls are available for the current callbox configuration.
-
-        Raises:
-            ValueError: If the feature is not supported for the current callbox configuration.
-        """
-        if self.simulation is None or self.simulator is None:
-            raise ValueError(
-                "Action not supported for RAT: {self.technology} in the current callbox configuration"
-            )
-
-    def require_iperf(self):
-        """Verifies that Iperf measurements are available for the current callbox configuration.
-
-        Raises:
-            ValueError: If the feature is not supported for the current callbox configuration.
-        """
-        if self.simulation is None:
-            raise ValueError(
-                "Iperf not supported for RAT: {self.technology} in the current callbox configuration"
-            )
-
-    def require_tx_measurement(self):
-        """Verifies that tx measurements are available for the current callbox configuration.
-
-        Raises:
-            ValueError: If the feature is not supported for the current callbox configuration.
-        """
-        if self.simulation is None:
-            raise ValueError(
-                "Tx measurement not supported for RAT: {self.technology} in the current callbox configuration"
-            )
 
 
 class CallboxManager:
@@ -83,32 +26,24 @@ class CallboxManager:
 
     def configure_callbox(self, data):
         self._require_dict_keys(data, "callbox", "hardware", "cellular_type")
-        config = self._get_callbox_config(data["callbox"], True)
-        config.technology = hs.CellularTechnology(data["cellular_type"])
+        technology = cbc.CellularTechnology(data["cellular_type"])
+        dut = ChromebookCellularDut.ChromebookCellularDut(
+            "no_dut_connection", app.logger
+        )
+
+        callbox = data["callbox"]
+        if callbox in self.configs_by_host:
+            self.configs_by_host[callbox].close()
+
+        host, port = self._parse_callbox_host(callbox)
         if data["hardware"] == "CMW":
-            config.simulator = cmw.CMW500CellularSimulator(
-                config.host, config.port
-            )
-            config.handover = Cmw500HandoverSimulator(config.simulator.cmw)
-            config.iperf = Cmw500IperfMeasurement(config.simulator.cmw)
-            config.tx_measurement = config.simulator.cmw.init_lte_measurement()
-            config.simulator.cmw.stop_all_signalling()
+            config = cbc.CMW500Configuration(dut, host, port, technology)
+        elif data["hardware"] == "CMX":
+            config = cbc.CMX500Configuration(dut, host, port, technology)
         else:
             raise Exception(f'Unsupported hardware: {data["hardware"]}')
 
-        config.dut = ChromebookCellularDut.ChromebookCellularDut(
-            "no_dut_connection", app.logger
-        )
-        if data["cellular_type"] == "LTE":
-            config.simulation = CrOSLteSimulation.CrOSLteSimulation(
-                config.simulator,
-                app.logger,
-                config.dut,
-                {"attach_retries": 1, "attach_timeout": 120},
-                None,
-            )
-        else:
-            raise Exception(f'Unsupported RAT: {data["cellular_type"]}')
+        self.configs_by_host[callbox] = config
 
         # backwards compatibility, configuration options were changed
         # from a list to a dictionary
@@ -125,19 +60,14 @@ class CallboxManager:
                 '"configuration" or "parameter_list" must be defined'
             )
 
-        # Stop any existing connection before configuring as some configuration
-        # items cannot be adjusted while the UE is attached.
-        config.simulation.stop()
-        config.simulation.configure(config.parameters)
-        config.simulator.wait_until_quiet()
-        config.simulation.setup_simulator()
+        config.configure(config.parameters)
         return "OK"
 
     def begin_simulation(self, data):
         self._require_dict_keys(data, "callbox")
         config = self._get_callbox_config(data["callbox"])
         config.require_simulation()
-        config.simulation.start()
+        config.start()
         config.simulator.wait_until_quiet()
         return "OK"
 
@@ -292,54 +222,34 @@ class CallboxManager:
 
         # If technology not defined, then treat as intra-RAT
         technology = (
-            hs.CellularTechnology(data["technology"])
+            cbc.CellularTechnology(data["technology"])
             if "technology" in data
             else config.technology
         )
 
-        # NOTE: treating LTE as default and do not wipe config simulation/measurement items.
-        # TODO: For CMX/5G(b/262286938), revisit this and move logic to switch between technologies into
-        # the configuration object itself.
-        if technology == hs.CellularTechnology.LTE:
+        if technology == cbc.CellularTechnology.LTE:
             self._require_dict_keys(data, "bw")
-            config.handover.lte_handover(
-                data["band"], data["channel"], data["bw"], config.technology
-            )
-        elif technology == hs.CellularTechnology.WCDMA:
-            # simulation and measurement items are unsupported for WCDMA,
-            # handovers can still be performed, but returning to LTE will
-            # not restore them until configure_callbox is called again.
-            config.simulator = None
-            config.simulation = None
-            config.iperf = None
-            config.tx_measurement = None
-            config.handover.wcdma_handover(
-                data["band"], data["channel"], config.technology
-            )
+            config.lte_handover(data["band"], data["channel"], data["bw"])
+        elif technology == cbc.CellularTechnology.WCDMA:
+            config.wcdma_handover(data["band"], data["channel"])
         else:
             raise ValueError(
                 f"Unsupported handover destination technology {technology}"
             )
 
-        config.technology = technology
         return "OK"
 
-    def _get_callbox_config(self, callbox, create_if_dne=False):
-        if callbox not in self.configs_by_host:
-            if create_if_dne:
-                url = urllib.parse.urlsplit(callbox)
-                if not url.hostname:
-                    url = urllib.parse.urlsplit("//" + callbox)
-                if not url.hostname:
-                    raise ValueError(
-                        f'Unable to parse callbox host: "{callbox}"'
-                    )
-                config = CallboxConfiguration()
-                config.host = url.hostname
-                config.port = 5025 if not url.port else url.port
-                self.configs_by_host[callbox] = config
-            else:
-                raise ValueError(f'Callbox "{callbox}" not configured')
+    def _parse_callbox_host(self, callbox):
+        url = urllib.parse.urlsplit(callbox)
+        if not url.hostname:
+            url = urllib.parse.urlsplit("//" + callbox)
+        if not url.hostname:
+            raise ValueError(f'Unable to parse callbox host: "{callbox}"')
+        return (url.hostname, 5025 if not url.port else url.port)
+
+    def _get_callbox_config(self, callbox):
+        if not callbox in self.configs_by_host:
+            raise ValueError(f"Unknown callbox: {callbox}")
         return self.configs_by_host[callbox]
 
     @staticmethod
