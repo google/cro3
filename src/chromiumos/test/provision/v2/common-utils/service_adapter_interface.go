@@ -15,6 +15,10 @@ import (
 	"go.chromium.org/chromiumos/config/go/test/api"
 )
 
+const (
+	defaulTimeout = 5 * time.Minute
+)
+
 // ServiceAdapters are used to interface with a DUT
 // All methods here are proxies to cros-dut (with some additions for simplicity)
 type ServiceAdapterInterface interface {
@@ -43,6 +47,11 @@ type ServiceAdapterInterface interface {
 	CreateDirectories(ctx context.Context, dirs []string) error
 }
 
+type execCmdResult struct {
+	response string
+	err      error
+}
+
 type ServiceAdapter struct {
 	dutClient api.DutServiceClient
 	noReboot  bool
@@ -58,6 +67,32 @@ func NewServiceAdapter(dutClient api.DutServiceClient, noReboot bool) ServiceAda
 // RunCmd runs a command in a remote DUT
 func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (string, error) {
 	log.Printf("<cros-provision> Run cmd: %s, %s\n", cmd, args)
+	var timeout time.Duration
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout = time.Until(deadline)
+	} else {
+		timeout = defaulTimeout
+	}
+
+	// Channel used to receive the result from ExecCommand function.
+	ch := make(chan execCmdResult, 1)
+
+	// Create a context with the specified timeout.
+	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Start the execCmd function.
+	go s.execCmd(ctxTimeout, cmd, args, ch)
+
+	select {
+	case <-ctxTimeout.Done():
+		return "", fmt.Errorf("<cros-provision> Timeout %d(sec) reached", timeout.Seconds())
+	case result := <-ch:
+		return result.response, result.err
+	}
+}
+
+func (s ServiceAdapter) execCmd(ctx context.Context, cmd string, args []string, ch chan execCmdResult) {
 	req := api.ExecCommandRequest{
 		Command: cmd,
 		Args:    args,
@@ -67,12 +102,12 @@ func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (
 	stream, err := s.dutClient.ExecCommand(ctx, &req)
 	if err != nil {
 		log.Printf("<cros-provision> Run cmd FAILED: %s\n", err)
-		return "", fmt.Errorf("execution fail: %w", err)
+		ch <- execCmdResult{response: "", err: fmt.Errorf("execution fail: %w", err)}
 	}
 	// Expecting single stream result
 	execCmdResponse, err := stream.Recv()
 	if err != nil {
-		return "", fmt.Errorf("execution single stream result: %w", err)
+		ch <- execCmdResult{response: "", err: fmt.Errorf("execution single stream result: %w", err)}
 	}
 	log.Printf("Run cmd response: %s\n", execCmdResponse)
 	if execCmdResponse.ExitInfo.Status != 0 {
@@ -81,7 +116,7 @@ func (s ServiceAdapter) RunCmd(ctx context.Context, cmd string, args []string) (
 	if string(execCmdResponse.Stderr) != "" {
 		log.Printf("<cros-provision> execution finished with stderr: %s\n", string(execCmdResponse.Stderr))
 	}
-	return string(execCmdResponse.Stdout), err
+	ch <- execCmdResult{response: string(execCmdResponse.Stdout), err: err}
 }
 
 // Restart restarts a DUT
