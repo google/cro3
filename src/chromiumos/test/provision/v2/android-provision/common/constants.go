@@ -19,3 +19,14 @@ const (
 	GSImageBucketName        = "android-provisioning-images"
 	GSPackageBucketName      = "android-provisioning-apks"
 )
+
+type ProvisionState int64
+
+const (
+	Prepare ProvisionState = iota
+	OSFetch
+	OSInstall
+	PackageFetch
+	PackageInstall
+	Cleanup
+)

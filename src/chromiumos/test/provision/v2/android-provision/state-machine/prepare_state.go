@@ -13,6 +13,7 @@ import (
 	"go.chromium.org/luci/common/errors"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"chromiumos/test/provision/v2/android-provision/common"
 	"chromiumos/test/provision/v2/android-provision/service"
 	"chromiumos/test/provision/v2/android-provision/state-machine/commands"
 	common_utils "chromiumos/test/provision/v2/common-utils"
@@ -30,6 +31,7 @@ func NewPrepareState(s *service.AndroidService) common_utils.ServiceState {
 
 func (s PrepareState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
 	log.Println("State: Execute AndroidPrepareState")
+	ctx = context.WithValue(ctx, "stage", common.Prepare)
 	cmds := []common_utils.CommandInterface{
 		commands.NewResolveCIPDPackageCommand(ctx, s.svc),
 		commands.NewRestartADBCommand(ctx, s.svc),

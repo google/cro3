@@ -7,6 +7,7 @@ import (
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"chromiumos/test/provision/v2/android-provision/common"
 	"chromiumos/test/provision/v2/android-provision/service"
 	"chromiumos/test/provision/v2/android-provision/state-machine/commands"
 	common_utils "chromiumos/test/provision/v2/common-utils"
@@ -18,6 +19,7 @@ type CleanupState struct {
 
 func (s CleanupState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
 	log.Println("State: Execute AndroidCleanupState")
+	ctx = context.WithValue(ctx, "stage", common.Cleanup)
 	cmds := []common_utils.CommandInterface{
 		commands.NewCleanupCommand(ctx, s.svc),
 	}
