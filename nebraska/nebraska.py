@@ -30,18 +30,13 @@ from xml.dom import minidom
 from xml.etree import ElementTree
 
 
-# '1.1' is just a default value for testing. It means there never was any
-# version roll, which should be the case for most devices.
-# Note that a device that had a version roll may not accept rollback images
-# from nebraska. You can check those versions with crossystem.
-_FIRMWARE_VER = "1.1"
-_KERNEL_VER = "1.1"
-
-
 # This is the same for all images on canary channel.
 _CANARY_APP_ID = "{90F229CE-83E2-4FAF-8479-E368A34938B1}"
 
 _MINIOS_APP_ID_SUFFIX = "_minios"
+
+_FIRMWARE = "_firmware_version"
+_KERNEL = "_kernel_version"
 
 
 class Error(Exception):
@@ -543,23 +538,21 @@ class Response(object):
 
             if self._app_data is not None:
                 update_check_attribs = {"status": "ok"}
-                if (
-                    self._config.is_rollback
-                    and self._app_request.rollback_allowed
-                ):
+                if self._config.is_rollback:
                     update_check_attribs["_rollback"] = "true"
-                    # Techincally we have to always send _firmware_version and
-                    # _kernel_version attributes regardless of the rollback situation. But
-                    # for the sake of simplicity, we can just send it when rollback was
-                    # requested.
-                    index_strs = ["", "_0", "_1", "_2", "_3", "_4"]
-                    for idx in index_strs:
-                        update_check_attribs[
-                            "_firmware_version" + idx
-                        ] = _FIRMWARE_VER
-                        update_check_attribs[
-                            "_kernel_version" + idx
-                        ] = _KERNEL_VER
+
+                (
+                    update_check_attribs[_FIRMWARE],
+                    update_check_attribs[_KERNEL],
+                ) = self._config.rollback_prevention_image
+                for idx, versions in enumerate(
+                    self._config.rollback_prevention_stable
+                ):
+                    (
+                        update_check_attribs[_FIRMWARE + "_" + str(idx)],
+                        update_check_attribs[_KERNEL + "_" + str(idx)],
+                    ) = versions
+
                 if self._config.eol_date is not None:
                     update_check_attribs["_eol_date"] = str(
                         self._config.eol_date
@@ -907,6 +900,19 @@ class Config(object):
 
         # Whether the update request will be a rollback or not.
         self.is_rollback = False
+
+        # Rollback prevention version of the served image in the form
+        # [firmware, kernel].
+        self.rollback_prevention_image = ["1.1", "1.1"]
+
+        # Rollback prevention versions of stable and previous release images.
+        self.rollback_prevention_stable = [
+            ["1.1", "1.1"],  # [firmware, kernel] versions of stable
+            ["1.1", "1.1"],  # stable - 1
+            ["1.1", "1.1"],  # stable - 2
+            ["1.1", "1.1"],  # stable - 3
+            ["1.1", "1.1"],  # stable - 4
+        ]
 
         # How many times each url can fail.
         self.failures_per_url = None

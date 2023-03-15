@@ -507,9 +507,17 @@ class NebraskaTest(NebraskaBaseTest):
 
         update_check = apps[0].find("updatecheck")
         self.assertEqual(update_check.attrib["status"], "ok")
+
         self.assertNotIn("_is_rollback", update_check.attrib)
-        self.assertNotIn("_firmware_version", update_check.attrib)
-        self.assertNotIn("_kernel_version", update_check.attrib)
+        index_strs = ["", "_0", "_1", "_2", "_3", "_4"]
+        for idx in index_strs:
+            self.assertEqual(
+                update_check.attrib["_firmware_version" + idx], "1.1"
+            )
+            self.assertEqual(
+                update_check.attrib["_kernel_version" + idx], "1.1"
+            )
+
         self.assertNotIn("_eol_date", update_check.attrib)
 
         urls = update_check.findall("urls/url")
@@ -1102,9 +1110,7 @@ class NebraskaTest(NebraskaBaseTest):
         action_tag = root.findall("app/updatecheck/manifest/actions/action")[1]
         self.assertEqual(action_tag.attrib["PublicKeyRsa"], app_data.public_key)
 
-    def testRollback(
-        self,
-    ):
+    def testRollback(self):
         """Tests rollback parametes are setup correctly."""
         self.GenerateAppData()
         neb = nebraska.Nebraska()
@@ -1117,20 +1123,33 @@ class NebraskaTest(NebraskaBaseTest):
         )
 
         neb.UpdateConfig(is_rollback=True)
+        neb.UpdateConfig(rollback_prevention_image=["1.1", "1.2"])
+        neb.UpdateConfig(
+            rollback_prevention_stable=[
+                ["1.3", "1.4"],
+                ["1.5", "1.6"],
+                ["1.7", "1.8"],
+                ["2.3", "3.4"],
+                ["4.3", "5.4"],
+            ]
+        )
         response = neb.GetResponseToRequest(nebraska.Request(request))
         root = ElementTree.fromstring(response)
         update_check_tag = root.find("app/updatecheck")
-        index_strs = ["", "_0", "_1", "_2", "_3", "_4"]
+
         self.assertEqual(update_check_tag.attrib["_rollback"], "true")
-        for idx in index_strs:
-            self.assertEqual(
-                update_check_tag.attrib["_firmware_version" + idx],
-                nebraska._FIRMWARE_VER,
-            )
-            self.assertEqual(
-                update_check_tag.attrib["_kernel_version" + idx],
-                nebraska._KERNEL_VER,
-            )
+        self.assertEqual(update_check_tag.attrib["_firmware_version"], "1.1")
+        self.assertEqual(update_check_tag.attrib["_kernel_version"], "1.2")
+        self.assertEqual(update_check_tag.attrib["_firmware_version_0"], "1.3")
+        self.assertEqual(update_check_tag.attrib["_kernel_version_0"], "1.4")
+        self.assertEqual(update_check_tag.attrib["_firmware_version_1"], "1.5")
+        self.assertEqual(update_check_tag.attrib["_kernel_version_1"], "1.6")
+        self.assertEqual(update_check_tag.attrib["_firmware_version_2"], "1.7")
+        self.assertEqual(update_check_tag.attrib["_kernel_version_2"], "1.8")
+        self.assertEqual(update_check_tag.attrib["_firmware_version_3"], "2.3")
+        self.assertEqual(update_check_tag.attrib["_kernel_version_3"], "3.4")
+        self.assertEqual(update_check_tag.attrib["_firmware_version_4"], "4.3")
+        self.assertEqual(update_check_tag.attrib["_kernel_version_4"], "5.4")
 
     def testFailuresPerUrl(self):
         """Tests response for number of failures allowed per URL."""
