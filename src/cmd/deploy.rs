@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+use anyhow::anyhow;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::chroot::Chroot;
@@ -45,7 +46,41 @@ pub fn run(args: &Args) -> Result<()> {
         target
     };
     let chroot = Chroot::new(&get_repo_dir(&args.repo)?)?;
-    if re_cros_kernel.is_match(packages) {
+
+    let mut iter = args
+        .packages
+        .split_whitespace()
+        .filter(|s| re_cros_kernel.is_match(s));
+    if iter.clone().count() > 1 {
+        return Err(anyhow!(
+            "There are more than 2 kernel packages. Please specify one of them."
+        ));
+    }
+    let kernel_pkg = iter.next();
+
+    let mut user_pkgs = String::new();
+    args.packages.split_whitespace().for_each(|s| {
+        if !re_cros_kernel.is_match(s) {
+            user_pkgs.push_str(&format!("{s} "))
+        }
+    });
+    if !user_pkgs.is_empty() {
+        chroot.run_bash_script_in_chroot(
+            "deploy",
+            &format!(
+                r"cros-workon-{board} start {packages} && cros deploy {} {user_pkgs}",
+                target.host_and_port()
+            ),
+            None,
+        )?;
+    }
+
+    if kernel_pkg.is_some() {
+        if iter.next().is_some() {
+            return Err(anyhow!(
+                "There are more than 2 kernel packages. Please specify one of them."
+            ));
+        }
         chroot.run_bash_script_in_chroot(
             "update_kernel",
             &format!(
@@ -58,19 +93,9 @@ cros-workon-{board} start {packages}
             ),
             None,
         )?;
-    } else {
-        chroot.run_bash_script_in_chroot(
-            "deploy",
-            &format!(
-                r"cros-workon-{board} start {packages} && cros deploy {} {packages}",
-                target.host_and_port()
-            ),
-            None,
-        )?;
-        if !args.skip_reboot {
-            println!("Rebooting DUT...");
-            target.run_cmd_piped(&["reboot; exit"])?;
-        }
+    } else if !args.skip_reboot {
+        println!("Rebooting DUT...");
+        target.run_cmd_piped(&["reboot; exit"])?;
     }
     Ok(())
 }
