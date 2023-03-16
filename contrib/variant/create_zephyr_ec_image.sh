@@ -77,8 +77,12 @@ cleanup() {
 }
 trap 'cleanup' ERR
 
+# Copy the reference board EC files into a new directory named for the variant.
+mkdir -p "${BASE}"/"${VARIANT}"
+cp -r "${BASE}"/"${REF}"/* "${BASE}"/"${VARIANT}"
+
 # Add the new variant to BUILD.py
-echo "${VARIANT} = ${REF}.variant(project_name=\"${VARIANT}\",)" >> ${BUILD_PY}
+echo "${VARIANT} = register_${REF}_project(project_name=\"${VARIANT}\",)" >> ${BUILD_PY}
 
 # Format the code
 black "${BUILD_PY}"
@@ -88,6 +92,7 @@ zmake build "${VARIANT}"
 
 # Add the changed file
 git add "${BUILD_PY}"
+git add "${BASE}"/"${VARIANT}"
 
 # Now commit the files. Use fmt to word-wrap the main commit message.
 MSG=$(echo "Create the initial Zephyr EC image for the ${VARIANT} variant

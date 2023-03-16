@@ -122,7 +122,7 @@ config_emerge_pkgs = ["chromeos-config-bsp-private"]
 repo_upload_list = [
     step_names.CB_CONFIG,
     step_names.COMMIT_FIT,
-    step_names.EC_IMAGE,
+    step_names.ZEPHYR_EC,
     step_names.FW_BUILD_CONFIG,
 ]
 
@@ -137,6 +137,6 @@ depends = {
         step_names.FIND,
         step_names.CB_CONFIG,
         step_names.COMMIT_FIT,
-        step_names.EC_IMAGE,
+        step_names.ZEPHYR_EC,
     ],
 }
