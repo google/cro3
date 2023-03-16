@@ -14,6 +14,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -24,6 +25,7 @@ import (
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	"go.chromium.org/chromiumos/infra/proto/go/chromiumos"
 	"go.chromium.org/chromiumos/infra/proto/go/testplans"
+	bbpb "go.chromium.org/luci/buildbucket/proto"
 	luciflag "go.chromium.org/luci/common/flag"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -47,18 +49,18 @@ func errToCode(a subcommands.Application, err error) int {
 	return 0
 }
 
-// addExistingFlags adds all currently defined flags to generateRun.
+// addExistingFlags adds all currently defined flags to a CommandRun.
 //
 // Some packages define flags in their init functions (e.g. glog). In order for
 // these flags to be defined on a command, they need to be defined in the
 // CommandRun function as well.
-func (r *generateRun) addExistingFlags() {
+func addExistingFlags(c subcommands.CommandRun) {
 	if !flag.Parsed() {
 		panic("flag.Parse() must be called before addExistingFlags()")
 	}
 
 	flag.VisitAll(func(f *flag.Flag) {
-		r.GetFlags().Var(f.Value, f.Name, f.Usage)
+		c.GetFlags().Var(f.Value, f.Name, f.Usage)
 	})
 }
 
@@ -68,6 +70,7 @@ var application = &subcommands.DefaultApplication{
 	Commands: []*subcommands.Command{
 		cmdGenerate,
 		cmdVersion,
+		cmdGetTestable,
 
 		subcommands.CmdHelp,
 	},
@@ -187,7 +190,7 @@ Evaluates Starlark files to generate CoverageRules as newline-delimited json pro
 				"CoverageRules to. If not set, no summary is written.",
 		)
 
-		r.addExistingFlags()
+		addExistingFlags(r)
 
 		return r
 	},
@@ -423,6 +426,210 @@ func (r *generateRun) run() error {
 	}
 
 	return nil
+}
+
+type getTestableRun struct {
+	subcommands.CommandRunBase
+	planPaths             []string
+	builds                []*bbpb.Build
+	buildMetadataListPath string
+	dutAttributeListPath  string
+	configBundleListPath  string
+	builderConfigsPath    string
+}
+
+var cmdGetTestable = &subcommands.Command{
+	UsageLine: `get-testable -plan plan1.star [-plan plan2.star] -build BUILD1 [-build BUILD2] -dutattributes PATH -buildmetadata PATH -configbundlelist PATH -builderconfigs PATH`,
+	ShortDesc: "get a list of builds that could possibly be tested by plans",
+	LongDesc: `Get a list of builds that could possibly be tested by plans.
+
+First compute a set of CoverageRules from plans, then compute which builds in
+GenerateTestPlanRequest could possibly be tested based off the CoverageRules.
+This doesn't take the status, output test artifacts, etc. of builds into
+account, just whether their build target, variant, and profile could be included
+in one of the CoverageRules.
+
+The list of testable builders is printed to stdout, delimited by spaces.
+
+Note that the main use case for this is programatically deciding which builders
+to collect for testing, so it is marked as advanced, and doesn't offer
+conveniences such as -crossrcroot that generate does.
+	`,
+	Advanced: true,
+	CommandRun: func() subcommands.CommandRun {
+		r := &getTestableRun{}
+
+		r.Flags.Var(
+			luciflag.StringSlice(&r.planPaths),
+			"plan",
+			"Starlark file to use. Must be specified at least once.",
+		)
+		r.Flags.Var(
+			luciflag.MessageSliceFlag(&r.builds),
+			"build",
+			"Buildbucket build protos to analyze, as JSON proto. Each proto must"+
+				"include the `builder.builder` field and the `build_target.name`"+
+				"input property, all other fields will be ignored",
+		)
+		r.Flags.StringVar(
+			&r.dutAttributeListPath,
+			"dutattributes",
+			"",
+			"Path to a proto file containing a DutAttributeList. Can be JSON "+
+				"or binary proto.",
+		)
+		r.Flags.StringVar(
+			&r.buildMetadataListPath,
+			"buildmetadata",
+			"",
+			"Path to a proto file containing a SystemImage.BuildMetadataList. "+
+				"Can be JSON or binary proto.",
+		)
+		r.Flags.StringVar(
+			&r.configBundleListPath,
+			"configbundlelist",
+			"",
+			"Path to a proto file containing a ConfigBundleList. Can be JSON or "+
+				"binary proto.",
+		)
+		r.Flags.StringVar(
+			&r.builderConfigsPath,
+			"builderconfigs",
+			"",
+			"Path to a proto file containing a BuilderConfigs. Can be JSON"+
+				"or binary proto. Should be set iff ctpv1 is set.",
+		)
+
+		addExistingFlags(r)
+
+		return r
+	},
+}
+
+func (r *getTestableRun) Run(a subcommands.Application, args []string, env subcommands.Env) int {
+	return errToCode(a, r.run())
+}
+
+// validateFlags checks valid flags are passed to get-testable, e.g. all
+// required flags are set.
+func (r *getTestableRun) validateFlags() error {
+	if len(r.planPaths) == 0 {
+		return errors.New("at least one -plan is required")
+	}
+
+	if len(r.builds) == 0 {
+		return errors.New("at least one -build is required")
+	}
+
+	for _, build := range r.builds {
+		if build.GetBuilder().GetBuilder() == "" {
+			return fmt.Errorf("builds must set builder.builder, got %q", build)
+		}
+
+		inputProps := build.GetInput().GetProperties()
+		btProp, ok := inputProps.GetFields()["build_target"]
+		if !ok {
+			return fmt.Errorf("builds must set the build_target.name input prop, got %q", build)
+		}
+
+		if _, ok := btProp.GetStructValue().GetFields()["name"]; !ok {
+			return fmt.Errorf("builds must set the build_target.name input prop, got %q", build)
+		}
+	}
+
+	if r.dutAttributeListPath == "" {
+		return errors.New("-dutattributes is required")
+	}
+
+	if r.buildMetadataListPath == "" {
+		return errors.New("-buildmetadata is required")
+	}
+
+	if r.configBundleListPath == "" {
+		return errors.New("-configbundlelist is required")
+	}
+
+	if r.builderConfigsPath == "" {
+		return errors.New("-builderconfigs is required")
+	}
+
+	return nil
+}
+
+func (r *getTestableRun) run() error {
+	ctx := context.Background()
+
+	if err := r.validateFlags(); err != nil {
+		return err
+	}
+
+	buildMetadataList := &buildpb.SystemImage_BuildMetadataList{}
+	if err := protoio.ReadBinaryOrJSONPb(r.buildMetadataListPath, buildMetadataList); err != nil {
+		return err
+	}
+
+	glog.Infof("Read %d SystemImage.Metadata from %s", len(buildMetadataList.Values), r.buildMetadataListPath)
+
+	for _, buildMetadata := range buildMetadataList.Values {
+		glog.V(2).Infof("Read BuildMetadata: %s", buildMetadata)
+	}
+
+	dutAttributeList := &testpb.DutAttributeList{}
+	if err := protoio.ReadBinaryOrJSONPb(r.dutAttributeListPath, dutAttributeList); err != nil {
+		return err
+	}
+
+	glog.Infof("Read %d DutAttributes from %s", len(dutAttributeList.DutAttributes), r.dutAttributeListPath)
+
+	for _, dutAttribute := range dutAttributeList.DutAttributes {
+		glog.V(2).Infof("Read DutAttribute: %s", dutAttribute)
+	}
+
+	glog.Infof("Starting read of ConfigBundleList from %s", r.configBundleListPath)
+
+	configBundleList := &payload.ConfigBundleList{}
+	if err := protoio.ReadBinaryOrJSONPb(r.configBundleListPath, configBundleList); err != nil {
+		return err
+	}
+
+	glog.Infof("Read %d ConfigBundles from %s", len(configBundleList.Values), r.configBundleListPath)
+
+	hwTestPlans, vmTestPlans, err := testplan.Generate(
+		ctx, r.planPaths, buildMetadataList, dutAttributeList, configBundleList,
+	)
+	if err != nil {
+		return err
+	}
+
+	builderConfigs := &chromiumos.BuilderConfigs{}
+	if err := protoio.ReadBinaryOrJSONPb(r.builderConfigsPath, builderConfigs); err != nil {
+		return err
+	}
+
+	glog.Infof(
+		"Read %d BuilderConfigs from %s",
+		len(builderConfigs.GetBuilderConfigs()),
+		r.builderConfigsPath,
+	)
+
+	testableBuilds, err := compatibility.TestableBuilds(
+		hwTestPlans,
+		vmTestPlans,
+		r.builds,
+		builderConfigs,
+		dutAttributeList,
+	)
+	if err != nil {
+		return err
+	}
+
+	builderNames := make([]string, 0, len(testableBuilds))
+	for _, build := range testableBuilds {
+		builderNames = append(builderNames, build.GetBuilder().GetBuilder())
+	}
+
+	_, err = fmt.Fprint(os.Stdout, strings.Join(builderNames, " ")+"\n")
+	return err
 }
 
 func main() {

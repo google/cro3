@@ -10,20 +10,19 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"regexp"
 	"sort"
 	"strings"
 
 	"chromiumos/test/plan/internal/compatibility/priority"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	testpb "go.chromium.org/chromiumos/config/go/test/api"
 	test_api_v1 "go.chromium.org/chromiumos/config/go/test/api/v1"
 	"go.chromium.org/chromiumos/infra/proto/go/chromiumos"
 	"go.chromium.org/chromiumos/infra/proto/go/lab"
 	"go.chromium.org/chromiumos/infra/proto/go/testplans"
 	bbpb "go.chromium.org/luci/buildbucket/proto"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -171,7 +170,7 @@ func extractFromProtoStruct(s *structpb.Struct, fields ...string) (*structpb.Val
 
 	for i, field := range fields {
 		var ok bool
-		value, ok = s.Fields[field]
+		value, ok = s.GetFields()[field]
 		if !ok {
 			return nil, false
 		}
@@ -212,20 +211,131 @@ func extractStringFromProtoStruct(s *structpb.Struct, fields ...string) (string,
 // buildInfo describes properties parsed from a Buildbucket build and
 // BuilderConfigs.
 type buildInfo struct {
+	// the build_target.name input property.
 	buildTarget string
+
+	// the builder.builder field.
 	builderName string
-	profile     string
+
+	// the build.portage_profile.profile field from the BuilderConfig. If the
+	// build didn't have a corresponding BuilderConfig, this will be empty.
+	profile string
+
+	// the critical field.
 	criticality bbpb.Trinary
-	payload     *testplans.BuildPayload
+
+	// a payload containing information about the build's artifacts. If the
+	// build doesn't have testable artifacts, this will be nil.
+	payload *testplans.BuildPayload
+
+	// a pointer to the Build itself, useful for functions that need the above
+	// extracted fields for computation, but still return results containing
+	// the actual Build.
+	build *bbpb.Build
 }
 
-var kernelBuilderRegexp = regexp.MustCompile(`-kernel-v.+`)
+// getTestArtifacts returns a BuildPayload pointing to the test artifacts in
+// build. If the build doesn't contain test artifacts, nil is returned.
+func getTestArtifacts(build *bbpb.Build) (*testplans.BuildPayload, error) {
+	builderName := build.GetBuilder().GetBuilder()
 
-// parseBuildProtos parses serialized Buildbucket Build protos and extracts
-// properties into buildInfos.
-func parseBuildProtos(
-	buildbucketProtos []*testplans.ProtoBytes,
+	filesByArtifact, ok := extractFromProtoStruct(
+		build.GetOutput().GetProperties(),
+		"artifacts", "files_by_artifact",
+	)
+	if !ok {
+		glog.Warningf("artifacts.files_by_artifact not found in output properties of build %q", builderName)
+		return nil, nil
+	}
+
+	if filesByArtifact.GetStructValue() == nil {
+		return nil, fmt.Errorf("artifacts.files_by_artifact must be a non-empty struct")
+	}
+
+	// The presence of any one of these artifacts is enough to tell us that this
+	// build should be considered for testing. It is possible they are present
+	// as keys in the map but empty lists; in this case, skip the artifact
+	// and log a warning, as this is somewhat unexpected.
+	testArtifacts := []string{
+		"AUTOTEST_FILES",
+		"IMAGE_ZIP",
+		"PINNED_GUEST_IMAGES",
+		"TAST_FILES",
+		"TEST_UPDATE_PAYLOAD",
+	}
+
+	foundTestArtifact := false
+	for _, testArtifact := range testArtifacts {
+		files, found := filesByArtifact.GetStructValue().GetFields()[testArtifact]
+		if found {
+			// The key exists in the map, check that it is a non-empty list.
+			switch files.GetKind().(type) {
+			case *structpb.Value_ListValue:
+				if len(files.GetListValue().GetValues()) > 0 {
+					glog.Infof(
+						"found test artifact %q on build %q",
+						testArtifact,
+						builderName,
+					)
+					foundTestArtifact = true
+					break
+				}
+
+				glog.Warningf(
+					"test artifact %q is present but empty on build %q",
+					testArtifact,
+					builderName,
+				)
+			default:
+				glog.Warningf(
+					"test artifact %q is present but not a list, this is unexpected. On build %q. value is: %q",
+					testArtifact,
+					builderName,
+					files,
+				)
+			}
+		}
+	}
+
+	if !foundTestArtifact {
+		glog.Warningf("no test artifacts found for build %q", builderName)
+		return nil, nil
+	}
+
+	// If files_by_artifact was populated with test artifacts, but the GS fields
+	// are missing, return an error.
+	artifactsGsBucket, ok := extractStringFromProtoStruct(
+		build.GetOutput().GetProperties(),
+		"artifacts", "gs_bucket",
+	)
+	if !ok {
+		return nil, fmt.Errorf("artifacts.gs_bucket not found for build %q", builderName)
+	}
+
+	artifactsGsPath, ok := extractStringFromProtoStruct(
+		build.GetOutput().GetProperties(),
+		"artifacts", "gs_path",
+	)
+	if !ok {
+		return nil, fmt.Errorf("artifacts.gs_path not found for build %q", builderName)
+	}
+
+	return &testplans.BuildPayload{
+		ArtifactsGsBucket: artifactsGsBucket,
+		ArtifactsGsPath:   artifactsGsPath,
+		FilesByArtifact:   filesByArtifact.GetStructValue(),
+	}, nil
+
+}
+
+// buildsToBuildInfos extracts properties from builds into buildInfos. If
+// skipIfNoTestArtifacts is true, builds without test artifacts will not be
+// returned. Builds that have set the pointless_build output property are always
+// skipped.
+func buildsToBuildInfos(
+	builds []*bbpb.Build,
 	builderConfigs *chromiumos.BuilderConfigs,
+	skipIfNoTestArtifacts bool,
 ) ([]*buildInfo, error) {
 	builderToBuilderConfig := make(map[string]*chromiumos.BuilderConfig)
 	for _, builder := range builderConfigs.GetBuilderConfigs() {
@@ -234,12 +344,7 @@ func parseBuildProtos(
 
 	buildInfos := []*buildInfo{}
 
-	for _, protoBytes := range buildbucketProtos {
-		build := &bbpb.Build{}
-		if err := proto.Unmarshal(protoBytes.SerializedProto, build); err != nil {
-			return nil, err
-		}
-
+	for _, build := range builds {
 		builderName := build.GetBuilder().GetBuilder()
 
 		pointless, ok := extractFromProtoStruct(build.GetOutput().GetProperties(), "pointless_build")
@@ -257,83 +362,13 @@ func parseBuildProtos(
 			continue
 		}
 
-		filesByArtifact, ok := extractFromProtoStruct(
-			build.GetOutput().GetProperties(),
-			"artifacts", "files_by_artifact",
-		)
-		if !ok {
-			glog.Warningf("artifacts.files_by_artifact not found in output properties of build %q, skipping", builderName)
-			continue
+		payload, err := getTestArtifacts(build)
+		if err != nil {
+			return nil, err
 		}
 
-		if filesByArtifact.GetStructValue() == nil {
-			return nil, fmt.Errorf("artifacts.files_by_artifact must be a non-empty struct")
-		}
-
-		// The presence of any one of these artifacts is enough to tell us that this
-		// build should be considered for testing. It is possible they are present
-		// as keys in the map but empty lists; in this case, skip the artifact
-		// and log a warning, as this is somewhat unexpected.
-		testArtifacts := []string{
-			"AUTOTEST_FILES",
-			"IMAGE_ZIP",
-			"PINNED_GUEST_IMAGES",
-			"TAST_FILES",
-			"TEST_UPDATE_PAYLOAD",
-		}
-
-		foundTestArtifact := false
-		for _, testArtifact := range testArtifacts {
-			files, found := filesByArtifact.GetStructValue().GetFields()[testArtifact]
-			if found {
-				// The key exists in the map, check that it is a non-empty list.
-				switch files.GetKind().(type) {
-				case *structpb.Value_ListValue:
-					if len(files.GetListValue().GetValues()) > 0 {
-						glog.Infof(
-							"found test artifact %q on build %q",
-							testArtifact,
-							builderName,
-						)
-						foundTestArtifact = true
-						break
-					}
-
-					glog.Warningf(
-						"test artifact %q is present but empty on build %q",
-						testArtifact,
-						builderName,
-					)
-				default:
-					glog.Warningf(
-						"test artifact %q is present but not a list, this is unexpected. On build %q. value is: %q",
-						testArtifact,
-						builderName,
-						files,
-					)
-				}
-			}
-		}
-
-		if !foundTestArtifact {
-			glog.Warningf("no test artifacts found for build %q, skipping", builderName)
-			continue
-		}
-
-		artifactsGsBucket, ok := extractStringFromProtoStruct(
-			build.GetOutput().GetProperties(),
-			"artifacts", "gs_bucket",
-		)
-		if !ok {
-			return nil, fmt.Errorf("artifacts.gs_bucket not found for build %q", builderName)
-		}
-
-		artifactsGsPath, ok := extractStringFromProtoStruct(
-			build.GetOutput().GetProperties(),
-			"artifacts", "gs_path",
-		)
-		if !ok {
-			return nil, fmt.Errorf("artifacts.gs_path not found for build %q", builderName)
+		if payload == nil && skipIfNoTestArtifacts {
+			glog.Warningf("skipIfNoTestArtifacts set, skipping build %q", builderName)
 		}
 
 		// Attempt to lookup the BuilderConfig to find profile information. If
@@ -353,11 +388,8 @@ func parseBuildProtos(
 			builderName: build.GetBuilder().GetBuilder(),
 			profile:     profile,
 			criticality: build.GetCritical(),
-			payload: &testplans.BuildPayload{
-				ArtifactsGsBucket: artifactsGsBucket,
-				ArtifactsGsPath:   artifactsGsPath,
-				FilesByArtifact:   filesByArtifact.GetStructValue(),
-			},
+			payload:     payload,
+			build:       build,
 		},
 		)
 	}
@@ -642,6 +674,18 @@ func coverageRuleToSuiteInfo(
 	return suiteInfos, nil
 }
 
+// getDutAttribute returns the DutAttribute matching id from dutAttributeList.
+// If no matching DutAttribute is found, returns an error.
+func getDutAttribute(dutAttributeList *testpb.DutAttributeList, id string) (*testpb.DutAttribute, error) {
+	for _, attr := range dutAttributeList.GetDutAttributes() {
+		if attr.GetId().GetValue() == id {
+			return attr, nil
+		}
+	}
+
+	return nil, fmt.Errorf("%q not found in DutAttributeList", id)
+}
+
 // extractSuiteInfos returns a map from build target name to suiteInfos for the
 // build target. There is one suiteInfo per CoverageRule in hwTestPlans and
 // vmTestPlans.
@@ -654,34 +698,24 @@ func extractSuiteInfos(
 	buildTargetToBuildInfo map[string]*buildInfo,
 ) (map[string][]*suiteInfo, error) {
 	// Find relevant attributes in the DutAttributeList.
-	var programAttr, designAttr, poolAttr, licenseAttr *testpb.DutAttribute
-	for _, attr := range dutAttributeList.GetDutAttributes() {
-		switch attr.Id.Value {
-		case "attr-program":
-			programAttr = attr
-		case "attr-design":
-			designAttr = attr
-		case "swarming-pool":
-			poolAttr = attr
-		case "misc-license":
-			licenseAttr = attr
-		}
+	programAttr, err := getDutAttribute(dutAttributeList, "attr-program")
+	if err != nil {
+		return nil, err
 	}
 
-	if programAttr == nil {
-		return nil, fmt.Errorf("\"attr-program\" not found in DutAttributeList")
+	designAttr, err := getDutAttribute(dutAttributeList, "attr-design")
+	if err != nil {
+		return nil, err
 	}
 
-	if poolAttr == nil {
-		return nil, fmt.Errorf("\"swarming-pool\" not found in DutAttributeList")
+	poolAttr, err := getDutAttribute(dutAttributeList, "swarming-pool")
+	if err != nil {
+		return nil, err
 	}
 
-	if designAttr == nil {
-		return nil, fmt.Errorf("\"attr-design\" not found in DutAttributeList")
-	}
-
-	if licenseAttr == nil {
-		return nil, fmt.Errorf("\"misc-license\" not found in DutAttributeList")
+	licenseAttr, err := getDutAttribute(dutAttributeList, "misc-license")
+	if err != nil {
+		return nil, err
 	}
 
 	buildTargetToSuiteInfos := map[string][]*suiteInfo{}
@@ -849,7 +883,17 @@ func ToCTP1(
 	boardPriorityList *testplans.BoardPriorityList,
 	builderConfigs *chromiumos.BuilderConfigs,
 ) (*testplans.GenerateTestPlanResponse, error) {
-	buildInfos, err := parseBuildProtos(generateTestPlanReq.GetBuildbucketProtos(), builderConfigs)
+	builds := make([]*bbpb.Build, 0, len(generateTestPlanReq.GetBuildbucketProtos()))
+	for _, protoBytes := range generateTestPlanReq.GetBuildbucketProtos() {
+		build := &bbpb.Build{}
+		if err := proto.Unmarshal(protoBytes.GetSerializedProto(), build); err != nil {
+			return nil, err
+		}
+
+		builds = append(builds, build)
+	}
+
+	buildInfos, err := buildsToBuildInfos(builds, builderConfigs, true)
 	if err != nil {
 		return nil, err
 	}
