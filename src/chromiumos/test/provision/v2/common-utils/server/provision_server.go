@@ -84,7 +84,9 @@ func (ps *ProvisionServer) Install(ctx context.Context, req *api.InstallRequest)
 	response.Metadata = md
 	ps.manager.SetResult(op.Name, &response)
 	ps.options.Log.Printf("Provision set OP Response to:%s ", &response)
-	return op, err
+	// Note: Do not return the err here, as it causes the op response to not be set.
+	// Since the op will carry the failure reason, just set the op.
+	return op, nil
 }
 
 // installTarget installs a specified version of the software on the target, along
