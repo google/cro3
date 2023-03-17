@@ -48,6 +48,9 @@ topic_patches = {}
 
 topic_patches["block-fs"] = [
     "fixups/FIXUP-CHROMIUM-drivers-md-dm-verity-chromeos-Fix-bio.patch",
+    "fixups/FROMLIST: Add flags option to get xattr method paired to __vfs_getxattr.patch",
+    "fixups/CHROMIUM: fuse: Implement CHROMEOS_TMPFILE.patch",
+    "fixups/FROMLIST: configfs: make directories inherit uid_gid from creator.patch",
 ]
 
 topic_patches["cros_ec"] = [
