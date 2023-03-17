@@ -6,6 +6,7 @@ package builder
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"go.chromium.org/chromiumos/infra/proto/go/test_platform"
 	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/buildbucket"
 	"go.chromium.org/chromiumos/platform/dev-util/src/chromiumos/ctp/site"
+	"go.chromium.org/luci/auth"
 	buildbucketpb "go.chromium.org/luci/buildbucket/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -57,6 +59,7 @@ var testValidateAndAddDefaultsData = []struct {
 	{
 		testName: "test happy path",
 		input: CTPBuilder{
+			BBClient:    fakeClientExposeFields{},
 			BBService:   "cr-buildbucket.appspot.com",
 			Board:       "zork",
 			BuilderID:   getDefaultBuilder(),
@@ -69,6 +72,7 @@ var testValidateAndAddDefaultsData = []struct {
 		},
 		wantValidationErrString: "",
 		wantCTPBuilder: CTPBuilder{
+			BBClient:    fakeClientExposeFields{},
 			BBService:   "cr-buildbucket.appspot.com",
 			Board:       "zork",
 			BuilderID:   getDefaultBuilder(),
@@ -83,6 +87,7 @@ var testValidateAndAddDefaultsData = []struct {
 	{
 		testName: "test defaults",
 		input: CTPBuilder{
+			BBClient: fakeClientExposeFields{},
 			Board:    "zork",
 			Image:    "zork-release/R107-15117.103.0",
 			Pool:     "xolabs-satlab",
@@ -90,7 +95,8 @@ var testValidateAndAddDefaultsData = []struct {
 		},
 		wantValidationErrString: "",
 		wantCTPBuilder: CTPBuilder{
-			BBService:   "cr-buildbucket.appspot.com",
+			BBClient:    fakeClientExposeFields{},
+			BBService:   "",
 			Board:       "zork",
 			BuilderID:   getDefaultBuilder(),
 			Image:       "zork-release/R107-15117.103.0",
@@ -104,6 +110,7 @@ var testValidateAndAddDefaultsData = []struct {
 	{
 		testName: "test missing required",
 		input: CTPBuilder{
+			BBClient: fakeClientExposeFields{},
 			Image:    "zork-release/R107-15117.103.0",
 			Pool:     "xolabs-satlab",
 			TestPlan: sampleTestPlan,
@@ -118,12 +125,14 @@ var testValidateAndAddDefaultsData = []struct {
 		},
 		wantValidationErrString: `missing board flag
 missing pool flag
-priority flag should be in [50, 255]`,
+priority flag should be in [50, 255]
+BBClient is required to be non-nil. You likely just need to call CTPBuilder.AddDefaultBBClient() to accomplish this`,
 		wantCTPBuilder: CTPBuilder{},
 	},
 	{
 		testName: "test secondary boards != images",
 		input: CTPBuilder{
+			BBClient:        fakeClientExposeFields{},
 			Board:           "zork",
 			Image:           "zork-release/R107-15117.103.0",
 			Pool:            "xolabs-satlab",
@@ -133,7 +142,8 @@ priority flag should be in [50, 255]`,
 		},
 		wantValidationErrString: "number of requested secondary-boards: 2 does not match with number of requested secondary-images: 1",
 		wantCTPBuilder: CTPBuilder{
-			BBService:   "cr-buildbucket.appspot.com",
+			BBClient:    fakeClientExposeFields{},
+			BBService:   "",
 			Board:       "zork",
 			BuilderID:   getDefaultBuilder(),
 			Image:       "zork-release/R107-15117.103.0",
@@ -147,6 +157,7 @@ priority flag should be in [50, 255]`,
 	{
 		testName: "test secondary boards != models",
 		input: CTPBuilder{
+			BBClient:        fakeClientExposeFields{},
 			Board:           "zork",
 			Image:           "zork-release/R107-15117.103.0",
 			Pool:            "xolabs-satlab",
@@ -157,7 +168,8 @@ priority flag should be in [50, 255]`,
 		},
 		wantValidationErrString: "number of requested secondary-boards: 1 does not match with number of requested secondary-models: 2",
 		wantCTPBuilder: CTPBuilder{
-			BBService:   "cr-buildbucket.appspot.com",
+			BBClient:    fakeClientExposeFields{},
+			BBService:   "",
 			Board:       "zork",
 			BuilderID:   getDefaultBuilder(),
 			Image:       "zork-release/R107-15117.103.0",
@@ -171,6 +183,7 @@ priority flag should be in [50, 255]`,
 	{
 		testName: "test secondary boards != lacrospath",
 		input: CTPBuilder{
+			BBClient:             fakeClientExposeFields{},
 			Board:                "zork",
 			Image:                "zork-release/R107-15117.103.0",
 			Pool:                 "xolabs-satlab",
@@ -181,7 +194,8 @@ priority flag should be in [50, 255]`,
 		},
 		wantValidationErrString: "number of requested secondary-boards: 1 does not match with number of requested secondary-lacros-paths: 2",
 		wantCTPBuilder: CTPBuilder{
-			BBService:   "cr-buildbucket.appspot.com",
+			BBClient:    fakeClientExposeFields{},
+			BBService:   "",
 			Board:       "zork",
 			BuilderID:   getDefaultBuilder(),
 			Image:       "zork-release/R107-15117.103.0",
@@ -724,47 +738,6 @@ func TestTestRunnerTags(t *testing.T) {
 	}
 }
 
-type fakeClient struct{}
-
-func (f fakeClient) GetBuild(context.Context, *buildbucketpb.GetBuildRequest, ...grpc.CallOption) (*buildbucketpb.Build, error) {
-	return nil, nil
-}
-func (f fakeClient) ScheduleBuild(context.Context, *buildbucketpb.ScheduleBuildRequest, ...grpc.CallOption) (*buildbucketpb.Build, error) {
-	return nil, nil
-}
-
-func TestGetClient(t *testing.T) {
-	tests := []struct {
-		name               string
-		providedClient     buildbucket.BBClient
-		shouldBeFakeClient bool
-	}{
-		{
-			name:               "client provided",
-			providedClient:     fakeClient{},
-			shouldBeFakeClient: true,
-		},
-		{
-			name:               "no client",
-			providedClient:     nil,
-			shouldBeFakeClient: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &CTPBuilder{
-				AuthOptions: &site.DefaultAuthOptions,
-				BBClient:    tt.providedClient,
-			}
-			got, _ := c.getClient(context.Background())
-			if (got == fakeClient{}) != tt.shouldBeFakeClient {
-				t.Errorf("expected fake client: %t, got fake client: %t", tt.shouldBeFakeClient, (got == fakeClient{}))
-				return
-			}
-		})
-	}
-}
-
 func TestCTPBuilder_addRequestToProperties(t *testing.T) {
 	type fields struct {
 		Properties map[string]interface{}
@@ -809,5 +782,110 @@ func TestCTPBuilder_addRequestToProperties(t *testing.T) {
 		if diff := cmp.Diff(tt.want, tt.builder, CmpOpts); diff != "" {
 			t.Errorf("unexpected diff (%s)", diff)
 		}
+	}
+}
+
+// newFakeClient generates a fake client with bbService, opts.
+func newFakeClient(
+	ctx context.Context,
+	bbService string,
+	opts *auth.Options,
+	httpClientGenerator buildbucket.HttpClientGenerator,
+) (buildbucket.BBClient, error) {
+	return fakeClientExposeFields{
+		Opts:      opts,
+		BBService: bbService,
+	}, nil
+}
+
+// fakeClientExposeFields is a fake client that verify the auth.Options and
+// bbService it was created with
+type fakeClientExposeFields struct {
+	Opts      *auth.Options
+	BBService string
+}
+
+// GetBuild returns nothing.
+func (f fakeClientExposeFields) GetBuild(context.Context, *buildbucketpb.GetBuildRequest, ...grpc.CallOption) (*buildbucketpb.Build, error) {
+	return nil, nil
+}
+
+// ScheduleBuild returns nothing.
+func (f fakeClientExposeFields) ScheduleBuild(context.Context, *buildbucketpb.ScheduleBuildRequest, ...grpc.CallOption) (*buildbucketpb.Build, error) {
+	return nil, nil
+}
+
+// TestCTPBuilder_AddDefaultBBClient ensures we make a BB client which respects
+// things like the BBService, AuthOptions in the CTPBuilder
+func TestCTPBuilder_AddDefaultBBClient(t *testing.T) {
+	clientGenerator = newFakeClient // override client generator
+
+	type fields struct {
+		AuthOptions *auth.Options
+		BBService   string
+	}
+	tests := []struct {
+		name       string
+		fields     fields
+		wantClient buildbucket.BBClient
+	}{
+		{
+			name: "specified",
+			fields: fields{
+				AuthOptions: &auth.Options{},
+				BBService:   "google.com",
+			},
+			wantClient: fakeClientExposeFields{Opts: &auth.Options{}, BBService: "google.com"},
+		},
+		{
+			name:       "default",
+			fields:     fields{},
+			wantClient: fakeClientExposeFields{Opts: &site.DefaultAuthOptions, BBService: defaultBBService},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			c := &CTPBuilder{
+				AuthOptions: tt.fields.AuthOptions,
+				BBService:   tt.fields.BBService,
+			}
+			err := c.AddDefaultBBClient(context.Background())
+			if err != nil {
+				t.Errorf("unexpected err: %s", err)
+			}
+
+			if diff := cmp.Diff(c.BBClient, tt.wantClient, cmpopts.IgnoreUnexported(auth.Options{})); diff != "" {
+				t.Errorf("diff in clients. got: %s, want: %s", c.BBClient, tt.wantClient)
+			}
+		})
+	}
+}
+
+// newFakeClientWithError always returns an error.
+func newFakeClientWithError(
+	ctx context.Context,
+	bbService string,
+	opts *auth.Options,
+	httpClientGenerator buildbucket.HttpClientGenerator,
+) (buildbucket.BBClient, error) {
+	return nil, errors.New("bad client")
+}
+
+// TestCTPBuilder_AddDefaultBBClientError verifies we pass on error in client
+// generation.
+func TestCTPBuilder_AddDefaultBBClientError(t *testing.T) {
+	t.Parallel()
+	clientGenerator = newFakeClientWithError // override client generator
+
+	ctp := &CTPBuilder{}
+	err := ctp.AddDefaultBBClient(context.Background())
+
+	if err == nil {
+		t.Errorf("expected an error when making client")
+	}
+
+	if ctp.BBClient != nil {
+		t.Errorf("expected client to still be nil")
 	}
 }

@@ -21,6 +21,13 @@ ctp := &builder.CTPBuilder{
     TestPlan:   tp,
 }
 
+// Create default client
+err := ctp.AddDefaultBBClient(ctx)
+if err != nil {
+    return err
+}
+
+
 b, err := ctp.ScheduleCTPBuild(c)
 ```
 

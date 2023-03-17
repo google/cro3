@@ -102,7 +102,10 @@ type CTPBuilder struct {
 
 // ScheduleCTPBuild sends a buildbucket request based on CTPBuilder
 func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build, error) {
-	c.validateAndAddDefaults()
+	err := c.validateAndAddDefaults()
+	if err != nil {
+		return nil, err
+	}
 
 	// `testRunnerTags` are only applied to the downstream test runner builds
 	testRunnerTags := c.TestRunnerTags()
@@ -113,15 +116,6 @@ func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build
 
 	c.addRequestToProperties(ctpRequest)
 
-	if c.AuthOptions == nil {
-		c.AuthOptions = &site.DefaultAuthOptions
-	}
-
-	ctpBBClient, err := c.getClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	// ctpBuildTags are only applied to the parent CTP build
 	ctpBuildTags := c.CtpTags()
 
@@ -131,13 +125,14 @@ func (c *CTPBuilder) ScheduleCTPBuild(ctx context.Context) (*buildbucketpb.Build
 	//
 	// buildProps contains separate dimensions and priority values to apply to
 	// the child test_runner builds that will be launched by the parent build.
-	return buildbucket.ScheduleBuild(ctx, c.Properties, nil, ctpBuildTags, 0, ctpBBClient, c.BuilderID)
+	return buildbucket.ScheduleBuild(ctx, c.Properties, nil, ctpBuildTags, 0, c.BBClient, c.BuilderID)
 }
 
 const (
 	defaultImageBucket      = "chromeos-image-archive"
 	defaultSwarmingPriority = 140
 	defaultSwarmingTimeout  = 360
+	defaultBBService        = "cr-buildbucket.appspot.com"
 
 	minSwarmingPriority = 50
 	maxSwarmingPriority = 255
@@ -151,20 +146,30 @@ func getDefaultBuilder() *buildbucketpb.BuilderID {
 	}
 }
 
-// getClient returns a new high level client using either an existing BBClient
-// or creating one on demand
-func (c *CTPBuilder) getClient(ctx context.Context) (buildbucket.BBClient, error) {
-	// use the struct's builder if exists
-	if c.BBClient != nil {
-		return c.BBClient, nil
+// clientGenerator allows injection fake client generation in tests of
+// AddDefaultBBClient.
+var clientGenerator = buildbucket.NewClient
+
+// AddDefaultBBClient adds a client respecting the CTPBuilder's configuration
+// and should suffice for most use cases
+func (c *CTPBuilder) AddDefaultBBClient(ctx context.Context) error {
+	bbService := c.BBService
+	if bbService == "" {
+		bbService = defaultBBService
 	}
 
-	// otherwise build one for throwaway use
-	ctpBBClient, err := buildbucket.NewClient(ctx, c.BBService, c.AuthOptions, buildbucket.NewHTTPClient)
-	if err != nil {
-		return nil, err
+	authOptions := c.AuthOptions
+	if authOptions == nil {
+		authOptions = &site.DefaultAuthOptions
 	}
-	return ctpBBClient, nil
+
+	client, err := clientGenerator(ctx, bbService, authOptions, buildbucket.NewHTTPClient)
+	if err != nil {
+		return err
+	}
+
+	c.BBClient = client
+	return nil
 }
 
 // validateAndAddDefaults checks for any required fields and adds appropriate
@@ -181,9 +186,6 @@ func (c *CTPBuilder) validateAndAddDefaults() error {
 	}
 	if c.BuilderID == nil {
 		c.BuilderID = getDefaultBuilder()
-	}
-	if c.BBService == "" {
-		c.BBService = "cr-buildbucket.appspot.com"
 	}
 
 	var errors []string
@@ -211,6 +213,9 @@ func (c *CTPBuilder) validateAndAddDefaults() error {
 	// each secondary DUT.
 	if len(c.SecondaryLacrosPaths) > 0 && len(c.SecondaryLacrosPaths) != len(c.SecondaryBoards) {
 		errors = append(errors, fmt.Sprintf("number of requested secondary-boards: %d does not match with number of requested secondary-lacros-paths: %d", len(c.SecondaryBoards), len(c.SecondaryLacrosPaths)))
+	}
+	if c.BBClient == nil {
+		errors = append(errors, fmt.Sprintf("BBClient is required to be non-nil. You likely just need to call CTPBuilder.AddDefaultBBClient() to accomplish this"))
 	}
 
 	if len(errors) > 0 {
