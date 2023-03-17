@@ -72,6 +72,10 @@ topic_patches["drivers"] = [
     "fixups/FROMGIT: xhci: check for a pending command completion during command timeout.patch",
 ]
 
+topic_patches["power-thermal"] = [
+    "fixups/CHROMIUM: thermal: Add notifier call chain for hot_critical events.patch",
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
