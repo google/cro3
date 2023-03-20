@@ -67,7 +67,7 @@ pub fn run(args: &Args) -> Result<()> {
 #[argh(subcommand, name = "pull")]
 struct ArgsPull {
     /// DUT which the files are pulled from
-    #[argh(positional)]
+    #[argh(option)]
     dut: String,
 
     /// pulled file names
