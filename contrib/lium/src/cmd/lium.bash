@@ -5,7 +5,6 @@
 #
 # bash completion script for lium
 #
-
 # return 0(OK) if given argument is already used
 __lium_arg_used() { # arg
   local i=0
@@ -67,6 +66,15 @@ _lium_get_dut_actions() {
   lium dut do --list-actions 2>/dev/null
 }
 
+_lium_comp_fs() { # option(-d|-f) current
+  local DIR=`compgen ${1} ${2}`
+  if [ `echo ${DIR} | wc -w` = 1 -a -d "${DIR}" ]; then
+    compgen ${1} "${DIR}/"
+  else
+    compgen ${1} ${2}
+  fi
+}
+
 _lium_current_command() {
   local i=0
   while [ $i -lt $COMP_CWORD ]; do
@@ -79,7 +87,7 @@ _lium_current_command() {
   done
 }
 
-_lium_get_options() {
+_lium_get_options() { # current
   local cmd=`_lium_current_command`
   local pout=0 posarg=0
   local a b
@@ -92,14 +100,18 @@ _lium_get_options() {
       *)
         # TODO: handle `lium dut do ...` case correctly
         if [ ${posarg} = 1 ]; then
-          if [ "${a}" = "dut" -o "${a}" = "duts" ] ; then
-            _lium_get_duts
-          elif [ "${a}" = "actions" ] ; then
-            _lium_get_dut_actions
-          elif [ "${a}" = "tests" ]; then
-            echo "tests"
-            _lium_get_tests
-          fi
+          case "${a}" in
+          dut|duts)
+            _lium_get_duts;;
+          actions)
+            _lium_get_dut_actions;;
+          tests)
+            _lium_get_tests;;
+          files)
+            if [ "${1#-}" == "${1}" ]; then
+              _lium_comp_fs -f ${1}
+            fi;;
+          esac
         elif [ ${pout} = 1 ]; then
           echo ${a}
         fi
@@ -111,7 +123,7 @@ _lium_get_options() {
 _lium() { # command current prev
   local cur=$2
   local prev=$3
-  local dir_opts="--repo --dir"
+  local dir_opts="--repo --dir --dest"
   local todo_opts="--version --board --workon --packages"
 
   COMPREPLY=
@@ -130,15 +142,9 @@ _lium() { # command current prev
     local DUTS=`_lium_get_servos`
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
   elif _lium_arg_included ${prev} ${dir_opts}; then
-    # TODO: make this smarter
-    local DIR=`compgen -d ${cur}`
-    if [ `echo ${DIR} | wc -w` = 1 ]; then
-      COMPREPLY=($(compgen -d "${DIR}/"))
-    else
-      COMPREPLY=($(compgen -d ${cur}))
-    fi
+    COMPREPLY=($(_lium_comp_fs -d ${cur}))
   else
-    local OPTS=`_lium_get_options`
+    local OPTS=`_lium_get_options ${cur}`
     COMPREPLY=($(compgen -W "${OPTS}" -- ${cur}))
   fi
 }
