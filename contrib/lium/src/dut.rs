@@ -789,25 +789,23 @@ impl SshInfo {
     }
     pub fn get_files(&self, files: &[String], dest: Option<&String>) -> Result<()> {
         let mut cmd = self.scp_get_cmd(files, dest)?;
-        let chd = cmd.spawn()?;
+        let chd = cmd.stderr(Stdio::piped()).spawn()?;
         let result = chd.wait_with_output()?;
-        let stdout = get_stdout(&result);
         let stderr = get_stderr(&result);
         result.status.exit_ok().context(anyhow!(
-            "Failed to run scp {cmd:?}:\nstdout:\n{}\nstderr:\n{}",
-            stdout,
+            r#"Failed to run scp {cmd:?}:
+stderr:
+    {}"#,
             stderr
         ))
     }
     pub fn send_files(&self, files: &[String], dest: Option<&String>) -> Result<()> {
         let mut cmd = self.scp_send_cmd(files, dest)?;
-        let chd = cmd.spawn()?;
+        let chd = cmd.stderr(Stdio::piped()).spawn()?;
         let result = chd.wait_with_output()?;
-        let stdout = get_stdout(&result);
         let stderr = get_stderr(&result);
         result.status.exit_ok().context(anyhow!(
-            "Failed to run scp {cmd:?}:\nstdout:\n{}\nstderr:\n{}",
-            stdout,
+            "Failed to run scp {cmd:?}:\nstderr:\n    {}",
             stderr
         ))
     }
