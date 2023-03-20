@@ -51,7 +51,7 @@ def RunProcess(cmd):  # pragma: no cover
 # Unit tests CTP client codebase if a changed to the CTP files is merged.
 # This would ideally be in `src/chromiumos/ctp`, but `repo upload` only runs
 # against `PRESUBMIT.py` at the top level of a repo, so we need this logic here
-def CheckCTPOnUpload(input_api, output_api):
+def CheckCTPTests(input_api, output_api):
     results = []
 
     file_filter = lambda x: CTP_DIR in x.LocalPath()
