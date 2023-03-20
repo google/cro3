@@ -96,7 +96,7 @@ struct ArgsPush {
 
     /// destination directory on a DUT
     #[argh(option)]
-    dest: String,
+    dest: Option<String>,
 
     /// source files
     #[argh(positional)]
@@ -107,7 +107,7 @@ fn run_dut_push(args: &ArgsPush) -> Result<()> {
     cros::ensure_testing_rsa_is_there()?;
     let target = &SshInfo::new(&args.dut)?;
 
-    target.send_files(&args.files, Some(&args.dest))
+    target.send_files(&args.files, args.dest.as_ref())
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
