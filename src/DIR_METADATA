@@ -16,23 +16,13 @@ chromeos {
       test_plan_starlark_files {
         host: "chrome-internal.googlesource.com"
         project: "chromeos/config-internal"
-        path: "test/plans/v2/ctpv1_compatible/legacy_default_tast_hw.star"
+        path: "test/plans/v2/ctpv1_compatible/cft_critical.star"
       }
       test_plan_starlark_files {
         host: "chrome-internal.googlesource.com"
         project: "chromeos/config-internal"
-        path: "test/plans/v2/ctpv1_compatible/legacy_default_autotest_hw.star"
+        path: "test/plans/v2/ctpv1_compatible/tast_tags_cft.star"
       }
-      test_plan_starlark_files {
-        host: "chrome-internal.googlesource.com"
-        project: "chromeos/config-internal"
-        path: "test/plans/v2/ctpv1_compatible/legacy_default_vm.star"
-      }
-      path_regexp_excludes: "contrib/.*"
-      # The `src` subdirectory has it's own DIR_METADATA file with a testplan.
-      # TODO(b/241934701): Remove exclusion once DIR_METADATA files can specify
-      # that they do not inherit from their parent.
-      path_regexp_excludes: "src/.*"
     }
   }
 }
