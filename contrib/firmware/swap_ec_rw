@@ -1,0 +1,92 @@
+#!/bin/bash
+# Copyright 2023 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# shellcheck disable=SC1091
+CONTRIB_DIR="$(dirname "$(readlink -f "$0")")/.."
+. "${CONTRIB_DIR}/common.sh" || exit 1
+
+FLAGS_HELP="
+Swap the EC RW (ecrw) within an AP firmware (BIOS) image.
+"
+
+# Flags.
+DEFINE_string image "" "The AP firmware file (e.g 'image-steelix.bin') to swap out ecrw" i
+DEFINE_string ec "" "The EC firmware file (e.g 'ec.bin')" e
+
+# Parse command line.
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+
+# Only after this point should you enable `set -e` as  shflags does not work
+# when that is turned on first.
+set -e
+
+FMAP_REGIONS=( "FW_MAIN_A" "FW_MAIN_B" )
+CBFS_ECRW_NAME="ecrw"
+CBFS_ECRW_HASH_NAME="ecrw.hash"
+DEVKEYS_DIR="/usr/share/vboot/devkeys"
+
+swap_ecrw() {
+  local ap_file=$1
+  local ec_file=$2
+  local temp_dir
+  local info
+  local ecrw_file
+  local ecrw_hash_file
+  local ecrw_type
+  local ecrw_comp_type
+  local ecrw_version
+  temp_dir=$(mktemp -d)
+  cp "${ec_file}" "${temp_dir}/"
+  ( cd "${temp_dir}" && dump_fmap -x "$(basename "${ec_file}")" RW_FW >/dev/null )
+  ecrw_file="${temp_dir}/RW_FW"
+  info "EC RW extracted to ${ecrw_file}"
+
+  ecrw_hash_file="${temp_dir}/ecrw.hash"
+  openssl dgst -sha256 -binary "${ecrw_file}" > "${ecrw_hash_file}"
+  info "EC RW hash saved to ${ecrw_hash_file}"
+
+  for region in "${FMAP_REGIONS[@]}"
+  do
+    info="$(cbfstool "${ap_file}" print -r "${region}" -k -v \
+      | grep -m 1 "^${CBFS_ECRW_NAME}\s")"
+    ecrw_type="$(cut -f3 <<< "${info}")"
+    ecrw_comp_type="$(cut -f7- <<< "${info}" | grep -o '\<comp\>:\w*' \
+      | cut -d: -f2)"
+    ecrw_comp_type=${ecrw_comp_type:-none}
+    cbfstool "${ap_file}" remove -r "${region}" -n "${CBFS_ECRW_NAME}"
+    cbfstool "${ap_file}" remove -r "${region}" -n "${CBFS_ECRW_HASH_NAME}"
+    cbfstool "${ap_file}" expand -r "${region}"
+    cbfstool "${ap_file}" add -r "${region}" -t "${ecrw_type}" \
+      -c "${ecrw_comp_type}" -f "${ecrw_file}" -n "${CBFS_ECRW_NAME}"
+    cbfstool "${ap_file}" add -r "${region}" -t "${ecrw_type}" \
+      -c none -f "${ecrw_hash_file}" -n "${CBFS_ECRW_HASH_NAME}"
+    cbfstool "${ap_file}" truncate -r "${region}" >/dev/null
+  done
+
+  futility sign --keyset "${DEVKEYS_DIR}" "${ap_file}"
+
+  ecrw_version=$(futility update --manifest -e "${ec_file}" \
+    | jq -r '.default.ec.versions.rw')
+  info "${CBFS_ECRW_NAME} (${ecrw_version}) swapped in ${ap_file}"
+  info "Done"
+}
+
+main() {
+  assert_inside_chroot
+
+  if [[ -z "${FLAGS_image}" ]]; then
+    flags_help
+    die "-i or --image required."
+  fi
+  if [[ -z "${FLAGS_ec}" ]]; then
+    flags_help
+    die "-e or --ec required."
+  fi
+
+  swap_ecrw "${FLAGS_image}" "${FLAGS_ec}"
+}
+
+main "$@"
