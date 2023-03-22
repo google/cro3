@@ -76,6 +76,10 @@ topic_patches["power-thermal"] = [
     "fixups/CHROMIUM: thermal: Add notifier call chain for hot_critical events.patch",
 ]
 
+topic_patches["tpm-virtio"] = [
+    "fixups/FROMLIST: tpm: add sysfs attributes for tpm2.patch",
+]
+
 # order for automatic branch merging in rebase.py.
 # branches that aren't specified are merged in an unspecified order.
 # example that first merges drm, then gpu/other, then others:
