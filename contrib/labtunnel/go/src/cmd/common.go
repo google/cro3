@@ -203,11 +203,11 @@ func tunnelToPcap(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tun
 }
 
 func tunnelToBtpeer(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) string {
-	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("BTPEER-", tunnelID), "", chameleondTunnelPort(), hostname)
+	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("BTPEER-", tunnelID), "", remotePortSsh, hostname)
 }
 
 func tunnelToChameleon(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) string {
-	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("CHAMELEON-", tunnelID), "", chameleondTunnelPort(), hostname)
+	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("CHAMELEON-", tunnelID), "", remotePortChameleond, hostname)
 }
 
 func genericTunnelToSshPort(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) string {
@@ -216,13 +216,6 @@ func genericTunnelToSshPort(ctx context.Context, sshManager *ssh.ConcurrentSshMa
 
 func genericTunnelToChameleondPort(ctx context.Context, sshManager *ssh.ConcurrentSshManager, tunnelID int, hostname string) string {
 	return tunnelLocalPortToRemotePort(ctx, sshManager, fmt.Sprint("CHAMELEOND-", tunnelID), "", remotePortChameleond, hostname)
-}
-
-func chameleondTunnelPort() int {
-	if forAutotest {
-		return remotePortSsh
-	}
-	return remotePortChameleond
 }
 
 func tunnelToRoutersUsingDutHost(ctx context.Context, sshManager *ssh.ConcurrentSshManager, hostDut string, routerCount int) []string {

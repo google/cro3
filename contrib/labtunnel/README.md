@@ -58,15 +58,6 @@ When a local port is forwarded to remote port, the next available port starting
 at 2200 is used. The start port can be adjusted with --local-port-start. Used
 ports will be freed upon stopping labtunnel.
 
-Labtunnel can optionally use DUTs leased by crosfleet with the special `leased`
-hostname.  If you specify `leased` as the dut_hostname to labtunnel it will
-query crosfleet for leased DUTs. If there is only one DUT leased it will use
-that hostname, otherwise it will prompt the user to select from among the
-leased DUTs. The `leased` hostname will work with **all** subcommands except
-hosts which does not do any hostname resolution.  When using `leased` as the
-dut_hostname labtunnel will automatically close down withing 60s of the lease
-ending (either through timeout or due to the lease being abandoned).
-
 Usage:
   labtunnel [command]
 
@@ -89,7 +80,6 @@ Flags:
       --remote-port-ssh int           Remote port to forward ssh tunnels to (default 22)
   -o, --ssh-options strings           ssh options for all ssh commands (default [StrictHostKeyChecking=no,ExitOnForwardFailure=yes,ForkAfterAuthentication=no,LogLevel=ERROR,ControlMaster=auto,ControlPersist=3600,ControlPath=/tmp/ssh-labtunnel-%C,ServerAliveCountMax=10,ServerAliveInterval=1,VerifyHostKeyDNS=no,CheckHostIP=no,UserKnownHostsFile=/dev/null,Compression=yes])
       --ssh-retry-delay-seconds int   Time to wait before retrying failed ssh command calls (default 10)
-  -a, --tauto                         For tunnel usage that differs between Tauto/Autotest and Tast, make then as expected for Tauto (effects btpeer and chameleon tunnels)
   -v, --version                       version for labtunnel
 
 Use "labtunnel [command] --help" for more information about a command.
@@ -124,23 +114,23 @@ $ labtunnel wificell chromeos1-dev-host1
 ```
 ```text
 $ labtunnel wificell chromeos1-dev-host1 --routers 1 --pcaps 1 --btpeers 1
-15:15:45.423683 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]"
-15:15:45.424232 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos1-dev-host1 sleep 8h
-15:15:45.434158 starting ssh exec "TUNNEL-ROUTER-1   [localhost:2201 -> chromeos1-dev-host1-router -> localhost:22]"
-15:15:45.434469 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2201:localhost:22 chromeos1-dev-host1-router sleep 8h
-15:15:45.451007 starting ssh exec "TUNNEL-PCAP-1     [localhost:2202 -> chromeos1-dev-host1-pcap -> localhost:22]"
-15:15:45.451403 SSH[3]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2202:localhost:22 chromeos1-dev-host1-pcap sleep 8h
-15:15:45.466456 starting ssh exec "TUNNEL-BTPEER-1   [localhost:2203 -> chromeos1-dev-host1-btpeer1 -> localhost:9992]"
-15:15:45.466708 SSH[4]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2203:localhost:9992 chromeos1-dev-host1-btpeer1 sleep 8h
-15:15:46.466998 Example Tast call (in chroot): tast run -var=router=localhost:2201 -var=pcap=localhost:2202 localhost:2200 <test>
-15:15:46.467079 ssh state summary:
-  TUNNEL-BTPEER-1   [localhost:2203 -> chromeos1-dev-host1-btpeer1 -> localhost:9992]  RUNNING
+12:47:27.513469 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]"
+12:47:27.514066 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos1-dev-host1 sleep 24h
+12:47:27.534781 starting ssh exec "TUNNEL-ROUTER-1   [localhost:2201 -> chromeos1-dev-host1-router -> localhost:22]"
+12:47:27.535628 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2201:localhost:22 chromeos1-dev-host1-router sleep 24h
+12:47:27.552675 starting ssh exec "TUNNEL-PCAP-1     [localhost:2202 -> chromeos1-dev-host1-pcap -> localhost:22]"
+12:47:27.553006 SSH[3]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2202:localhost:22 chromeos1-dev-host1-pcap sleep 24h
+12:47:27.571573 starting ssh exec "TUNNEL-BTPEER-1   [localhost:2203 -> chromeos1-dev-host1-btpeer1 -> localhost:22]"
+12:47:27.571810 SSH[4]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2203:localhost:22 chromeos1-dev-host1-btpeer1 sleep 24h
+12:47:28.572109 Example Tast call (in chroot): tast run -var=router=localhost:2201 -var=pcap=localhost:2202 localhost:2200 <test>
+12:47:28.572202 ssh state summary:
+  TUNNEL-BTPEER-1   [localhost:2203 -> chromeos1-dev-host1-btpeer1 -> localhost:22]  RUNNING
   TUNNEL-DUT-1      [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]  RUNNING
   TUNNEL-PCAP-1     [localhost:2202 -> chromeos1-dev-host1-pcap -> localhost:22]  RUNNING
   TUNNEL-ROUTER-1   [localhost:2201 -> chromeos1-dev-host1-router -> localhost:22]  RUNNING
-^C15:15:50.256373 received SIGINT, cancelling operations
-15:15:50.256541 ssh state summary:
-  TUNNEL-BTPEER-1   [localhost:2203 -> chromeos1-dev-host1-btpeer1 -> localhost:9992]  CLOSED
+^C12:47:31.033286 received SIGINT, cancelling operations
+12:47:31.033895 ssh state summary:
+  TUNNEL-BTPEER-1   [localhost:2203 -> chromeos1-dev-host1-btpeer1 -> localhost:22]  CLOSED
   TUNNEL-DUT-1      [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]  CLOSED
   TUNNEL-PCAP-1     [localhost:2202 -> chromeos1-dev-host1-pcap -> localhost:22]  CLOSED
   TUNNEL-ROUTER-1   [localhost:2201 -> chromeos1-dev-host1-router -> localhost:22]  CLOSED
@@ -249,59 +239,44 @@ See https://www.tigervnc.org for information on TigerVNC.
 ### btpeers
 ```text
 $ labtunnel btpeers crossk-chromeos15-row8-rack1-host4
-15:21:01.052132 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row8-rack1-host4 -> localhost:22]"
-15:21:01.052932 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos15-row8-rack1-host4 sleep 8h
-15:21:01.078329 starting ssh exec "TUNNEL-BTPEER-1   [localhost:2202 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:9992]"
-15:21:01.078577 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2202:localhost:9992 chromeos15-row8-rack1-host4-btpeer1 sleep 8h
-15:21:02.078905 ssh state summary:
-  TUNNEL-BTPEER-1   [localhost:2202 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:9992]  RUNNING
+12:48:05.579940 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row8-rack1-host4 -> localhost:22]"
+12:48:05.580644 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos15-row8-rack1-host4 sleep 24h
+12:48:05.593527 starting ssh exec "TUNNEL-BTPEER-1   [localhost:2201 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:22]"
+12:48:05.593832 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2201:localhost:22 chromeos15-row8-rack1-host4-btpeer1 sleep 24h
+12:48:06.594169 ssh state summary:
+  TUNNEL-BTPEER-1   [localhost:2201 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:22]  RUNNING
   TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row8-rack1-host4 -> localhost:22]  RUNNING
-^C15:21:04.465951 received SIGINT, cancelling operations
-15:21:04.466110 ssh state summary:
-  TUNNEL-BTPEER-1   [localhost:2202 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:9992]  CLOSED
+^C12:48:09.420183 received SIGINT, cancelling operations
+12:48:09.420283 ssh state summary:
+  TUNNEL-BTPEER-1   [localhost:2201 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:22]  CLOSED
   TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row8-rack1-host4 -> localhost:22]  CLOSED
 ```
 ```text
 $ labtunnel btpeers crossk-chromeos15-row8-rack1-host4 4
-15:21:25.139733 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row8-rack1-host4 -> localhost:22]"
-15:21:25.140279 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos15-row8-rack1-host4 sleep 8h
-15:21:25.176699 starting ssh exec "TUNNEL-BTPEER-1   [localhost:2203 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:9992]"
-15:21:25.177054 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2203:localhost:9992 chromeos15-row8-rack1-host4-btpeer1 sleep 8h
-15:21:25.190148 starting ssh exec "TUNNEL-BTPEER-2   [localhost:2204 -> chromeos15-row8-rack1-host4-btpeer2 -> localhost:9992]"
-15:21:25.190778 SSH[3]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2204:localhost:9992 chromeos15-row8-rack1-host4-btpeer2 sleep 8h
-15:21:25.207135 starting ssh exec "TUNNEL-BTPEER-3   [localhost:2205 -> chromeos15-row8-rack1-host4-btpeer3 -> localhost:9992]"
-15:21:25.207440 SSH[4]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2205:localhost:9992 chromeos15-row8-rack1-host4-btpeer3 sleep 8h
-15:21:25.224119 starting ssh exec "TUNNEL-BTPEER-4   [localhost:2206 -> chromeos15-row8-rack1-host4-btpeer4 -> localhost:9992]"
-15:21:25.224330 SSH[5]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2206:localhost:9992 chromeos15-row8-rack1-host4-btpeer4 sleep 8h
-15:21:26.224643 ssh state summary:
-  TUNNEL-BTPEER-1   [localhost:2203 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:9992]  RUNNING
-  TUNNEL-BTPEER-2   [localhost:2204 -> chromeos15-row8-rack1-host4-btpeer2 -> localhost:9992]  RUNNING
-  TUNNEL-BTPEER-3   [localhost:2205 -> chromeos15-row8-rack1-host4-btpeer3 -> localhost:9992]  RUNNING
-  TUNNEL-BTPEER-4   [localhost:2206 -> chromeos15-row8-rack1-host4-btpeer4 -> localhost:9992]  RUNNING
+12:48:29.965128 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row8-rack1-host4 -> localhost:22]"
+12:48:29.965707 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos15-row8-rack1-host4 sleep 24h
+12:48:29.981905 starting ssh exec "TUNNEL-BTPEER-1   [localhost:2201 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:22]"
+12:48:29.982262 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2201:localhost:22 chromeos15-row8-rack1-host4-btpeer1 sleep 24h
+12:48:29.995841 starting ssh exec "TUNNEL-BTPEER-2   [localhost:2202 -> chromeos15-row8-rack1-host4-btpeer2 -> localhost:22]"
+12:48:29.997159 SSH[3]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2202:localhost:22 chromeos15-row8-rack1-host4-btpeer2 sleep 24h
+12:48:30.010030 starting ssh exec "TUNNEL-BTPEER-3   [localhost:2203 -> chromeos15-row8-rack1-host4-btpeer3 -> localhost:22]"
+12:48:30.010413 SSH[4]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2203:localhost:22 chromeos15-row8-rack1-host4-btpeer3 sleep 24h
+12:48:30.033923 starting ssh exec "TUNNEL-BTPEER-4   [localhost:2204 -> chromeos15-row8-rack1-host4-btpeer4 -> localhost:22]"
+12:48:30.034196 SSH[5]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2204:localhost:22 chromeos15-row8-rack1-host4-btpeer4 sleep 24h
+12:48:31.034502 ssh state summary:
+  TUNNEL-BTPEER-1   [localhost:2201 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:22]  RUNNING
+  TUNNEL-BTPEER-2   [localhost:2202 -> chromeos15-row8-rack1-host4-btpeer2 -> localhost:22]  RUNNING
+  TUNNEL-BTPEER-3   [localhost:2203 -> chromeos15-row8-rack1-host4-btpeer3 -> localhost:22]  RUNNING
+  TUNNEL-BTPEER-4   [localhost:2204 -> chromeos15-row8-rack1-host4-btpeer4 -> localhost:22]  RUNNING
   TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row8-rack1-host4 -> localhost:22]  RUNNING
-^C15:21:28.903450 received SIGINT, cancelling operations
-15:21:28.903846 ssh state summary:
-  TUNNEL-BTPEER-1   [localhost:2203 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:9992]  CLOSED
-  TUNNEL-BTPEER-2   [localhost:2204 -> chromeos15-row8-rack1-host4-btpeer2 -> localhost:9992]  CLOSED
-  TUNNEL-BTPEER-3   [localhost:2205 -> chromeos15-row8-rack1-host4-btpeer3 -> localhost:9992]  CLOSED
-  TUNNEL-BTPEER-4   [localhost:2206 -> chromeos15-row8-rack1-host4-btpeer4 -> localhost:9992]  CLOSED
+^C12:48:31.444833 received SIGINT, cancelling operations
+12:48:31.445079 ssh state summary:
+  TUNNEL-BTPEER-1   [localhost:2201 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:22]  CLOSED
+  TUNNEL-BTPEER-2   [localhost:2202 -> chromeos15-row8-rack1-host4-btpeer2 -> localhost:22]  CLOSED
+  TUNNEL-BTPEER-3   [localhost:2203 -> chromeos15-row8-rack1-host4-btpeer3 -> localhost:22]  CLOSED
+  TUNNEL-BTPEER-4   [localhost:2204 -> chromeos15-row8-rack1-host4-btpeer4 -> localhost:22]  CLOSED
   TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row8-rack1-host4 -> localhost:22]  CLOSED
 ```
-```text
-$ labtunnel btpeers crossk-chromeos15-row8-rack1-host4 --tauto
-15:25:10.097488 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row8-rack1-host4 -> localhost:22]"
-15:25:10.098022 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos15-row8-rack1-host4 sleep 8h
-15:25:10.200863 starting ssh exec "TUNNEL-BTPEER-1   [localhost:2207 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:22]"
-15:25:10.201039 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2207:localhost:22 chromeos15-row8-rack1-host4-btpeer1 sleep 8h
-15:25:11.201282 ssh state summary:
-  TUNNEL-BTPEER-1   [localhost:2207 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:22]  RUNNING
-  TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row8-rack1-host4 -> localhost:22]  RUNNING
-^C15:25:13.501509 received SIGINT, cancelling operations
-15:25:13.501634 ssh state summary:
-  TUNNEL-BTPEER-1   [localhost:2207 -> chromeos15-row8-rack1-host4-btpeer1 -> localhost:22]  CLOSED
-  TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row8-rack1-host4 -> localhost:22]  CLOSED
-```
-
 
 ### sshwatcher
 ```text
@@ -347,20 +322,6 @@ $ labtunnel chameleon crossk-chromeos15-row1-metro11-host2
 ^C15:23:54.778548 received SIGINT, cancelling operations
 15:23:54.778670 ssh state summary:
   TUNNEL-CHAMELEON-1 [localhost:2207 -> chromeos15-row1-metro11-host2-chameleon -> localhost:9992]  CLOSED
-  TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row1-metro11-host2 -> localhost:22]  CLOSED
-```
-```text
-$ labtunnel chameleon crossk-chromeos15-row1-metro11-host2 --tauto
-15:24:37.616469 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row1-metro11-host2 -> localhost:22]"
-15:24:37.617166 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos15-row1-metro11-host2 sleep 8h
-15:24:37.716890 starting ssh exec "TUNNEL-CHAMELEON-1 [localhost:2207 -> chromeos15-row1-metro11-host2-chameleon -> localhost:22]"
-15:24:37.717098 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2207:localhost:22 chromeos15-row1-metro11-host2-chameleon sleep 8h
-15:24:38.717334 ssh state summary:
-  TUNNEL-CHAMELEON-1 [localhost:2207 -> chromeos15-row1-metro11-host2-chameleon -> localhost:22]  RUNNING
-  TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row1-metro11-host2 -> localhost:22]  RUNNING
-^C15:24:40.485102 received SIGINT, cancelling operations
-15:24:40.485258 ssh state summary:
-  TUNNEL-CHAMELEON-1 [localhost:2207 -> chromeos15-row1-metro11-host2-chameleon -> localhost:22]  CLOSED
   TUNNEL-DUT-1      [localhost:2200 -> chromeos15-row1-metro11-host2 -> localhost:22]  CLOSED
 ```
 
@@ -410,7 +371,6 @@ Global Flags:
       --remote-port-ssh int           Remote port to forward ssh tunnels to (default 22)
   -o, --ssh-options strings           ssh options for all ssh commands (default [StrictHostKeyChecking=no,ExitOnForwardFailure=yes,ForkAfterAuthentication=no,LogLevel=ERROR,ControlMaster=auto,ControlPersist=3600,ControlPath=/tmp/ssh-labtunnel-%C,ServerAliveCountMax=10,ServerAliveInterval=1,VerifyHostKeyDNS=no,CheckHostIP=no,UserKnownHostsFile=/dev/null,Compression=yes])
       --ssh-retry-delay-seconds int   Time to wait before retrying failed ssh command calls (default 10)
-  -a, --tauto                         For tunnel usage that differs between Tauto/Autotest and Tast, make then as expected for Tauto (effects btpeer and chameleon tunnels)
 ```
 ```text
 $ labtunnel hosts --dut chromeos1-dev-host1
@@ -456,20 +416,20 @@ $ labtunnel hosts --dut chromeos1-dev-host1 --router chromeos1-dev-host1-router 
 ```
 ```text
 $ labtunnel hosts --dut chromeos1-dev-host1 --btpeer chromeos1-dev-host1-btpeer1 --btpeer chromeos1-dev-host1-btpeer2
-15:35:08.068598 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]"
-15:35:08.069188 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos1-dev-host1 sleep 8h
-15:35:08.203363 starting ssh exec "TUNNEL-BTPEER-1   [localhost:2209 -> chromeos1-dev-host1-btpeer1 -> localhost:9992]"
-15:35:08.203661 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2209:localhost:9992 chromeos1-dev-host1-btpeer1 sleep 8h
-15:35:08.212139 starting ssh exec "TUNNEL-BTPEER-2   [localhost:2210 -> chromeos1-dev-host1-btpeer2 -> localhost:9992]"
-15:35:08.212331 SSH[3]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2210:localhost:9992 chromeos1-dev-host1-btpeer2 sleep 8h
-15:35:09.212590 ssh state summary:
-  TUNNEL-BTPEER-1   [localhost:2209 -> chromeos1-dev-host1-btpeer1 -> localhost:9992]  RUNNING
-  TUNNEL-BTPEER-2   [localhost:2210 -> chromeos1-dev-host1-btpeer2 -> localhost:9992]  RUNNING
+12:49:36.901401 starting ssh exec "TUNNEL-DUT-1      [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]"
+12:49:36.901812 SSH[1]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2200:localhost:22 chromeos1-dev-host1 sleep 24h
+12:49:36.923469 starting ssh exec "TUNNEL-BTPEER-1   [localhost:2201 -> chromeos1-dev-host1-btpeer1 -> localhost:22]"
+12:49:36.923755 SSH[2]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2201:localhost:22 chromeos1-dev-host1-btpeer1 sleep 24h
+12:49:36.942751 starting ssh exec "TUNNEL-BTPEER-2   [localhost:2202 -> chromeos1-dev-host1-btpeer2 -> localhost:22]"
+12:49:36.943100 SSH[3]: RUN: /usr/bin/ssh -o StrictHostKeyChecking="no" -o ExitOnForwardFailure="yes" -o ForkAfterAuthentication="no" -o LogLevel="ERROR" -o ControlMaster="auto" -o ControlPersist="3600" -o ControlPath="/tmp/ssh-labtunnel-%C" -o ServerAliveCountMax="10" -o ServerAliveInterval="1" -o VerifyHostKeyDNS="no" -o CheckHostIP="no" -o UserKnownHostsFile="/dev/null" -o Compression="yes" -L 2202:localhost:22 chromeos1-dev-host1-btpeer2 sleep 24h
+12:49:37.943446 ssh state summary:
+  TUNNEL-BTPEER-1   [localhost:2201 -> chromeos1-dev-host1-btpeer1 -> localhost:22]  RUNNING
+  TUNNEL-BTPEER-2   [localhost:2202 -> chromeos1-dev-host1-btpeer2 -> localhost:22]  RUNNING
   TUNNEL-DUT-1      [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]  RUNNING
-^C15:35:11.930556 received SIGINT, cancelling operations
-15:35:11.930894 ssh state summary:
-  TUNNEL-BTPEER-1   [localhost:2209 -> chromeos1-dev-host1-btpeer1 -> localhost:9992]  CLOSED
-  TUNNEL-BTPEER-2   [localhost:2210 -> chromeos1-dev-host1-btpeer2 -> localhost:9992]  CLOSED
+^C12:49:39.783457 received SIGINT, cancelling operations
+12:49:39.783595 ssh state summary:
+  TUNNEL-BTPEER-1   [localhost:2201 -> chromeos1-dev-host1-btpeer1 -> localhost:22]  CLOSED
+  TUNNEL-BTPEER-2   [localhost:2202 -> chromeos1-dev-host1-btpeer2 -> localhost:22]  CLOSED
   TUNNEL-DUT-1      [localhost:2200 -> chromeos1-dev-host1 -> localhost:22]  CLOSED
 ```
 ```text

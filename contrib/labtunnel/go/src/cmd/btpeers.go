@@ -19,8 +19,7 @@ var (
 		Use:   "btpeers <dut_hostname> [btpeer_count]",
 		Short: "Ssh tunnel to dut and its bluetooth peers.",
 		Long: `
-Opens ssh tunnels to the dut and the remote chameleond port on its bluetooth
-peers.
+Opens ssh tunnels to the ssh port on the dut and its bluetooth peers.
 
 All tunnels are destroyed upon stopping labtunnel, and are restarted if
 interrupted by a remote device reboot.
@@ -34,9 +33,6 @@ argument "btpeer_count" after the dut hostname. The default is 1 btpeer.
 The formula for the btpeer hostname is "<dut>-btpeer<n>", where "<dut>" is the
 dut hostname (as used in the dut command) and "<n>" is the Nth bluetooth peer,
 starting at 1.
-
-When the --tauto flag is provided, btpeer tunnels are to the remote ssh port
-rather than the remote chameleond port.
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 && len(args) != 2 {

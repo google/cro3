@@ -13,7 +13,7 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:     "labtunnel",
-		Version: "2.3.1",
+		Version: "2.4.0",
 		Short:   "Create and maintain ssh tunnels for common lab environments easily.",
 		Long: `
 Create and maintain ssh tunnels for common lab environments easily.
@@ -43,7 +43,6 @@ ports will be freed upon stopping labtunnel.
 	remotePortSsh        int
 	sshRetryDelaySeconds int
 	remotePortChameleond int
-	forAutotest          bool
 )
 
 func init() {
@@ -70,7 +69,6 @@ func init() {
 		"ssh options for all ssh commands",
 	)
 	rootCmd.PersistentFlags().IntVar(&remotePortChameleond, "remote-port-chameleond", 9992, "Remote port for accessing the chameleond service on btpeers and chameleon devices")
-	rootCmd.PersistentFlags().BoolVarP(&forAutotest, "tauto", "a", false, "For tunnel usage that differs between Tauto/Autotest and Tast, make then as expected for Tauto (effects btpeer and chameleon tunnels)")
 }
 
 func Execute(ctx context.Context) error {

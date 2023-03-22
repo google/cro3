@@ -25,9 +25,6 @@ The dut tunnel is created in the same manner as with the dut command, run
 "labtunnel dut --help" for details.
 
 The formula for the chameleon device hostname is "<dut>-chameleon".
-
-When the --tauto flag is provided, chameleon tunnels are to the remote ssh port
-rather than the remote chameleond port.
 `,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
