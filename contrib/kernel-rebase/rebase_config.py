@@ -210,3 +210,6 @@ disp_overwrite[
 disp_overwrite[
     "88325c695e48"
 ] = "drop"  # FROMLIST: dt-bindings: mfd: Add DT compatible string "google,cros_ec_uart"
+disp_overwrite[
+    "ad3d8c389580"
+] = "drop"  # BACKPORT: FROMLIST: media: uvcvideo: Limit power line control for Lenovo Integrated Camera
