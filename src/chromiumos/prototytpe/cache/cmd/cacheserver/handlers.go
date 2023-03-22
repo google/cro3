@@ -13,18 +13,25 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"strings"
 
 	"golang.org/x/sys/unix"
 )
 
 const (
+	gsBucketParam       = "gs_bucket"
 	sourceURLKey        = "source_url"
 	downloadPrefix      = "/download/"
 	downloadLocalPrefix = "/download-local/"
+	staticPrefix        = "/static/"
+	isStagedPrefix      = "/is_staged/"
+	stagePrefix         = "/stage/"
+	checkHealthPrefix   = "/check_health/"
 )
 
-type HttpHandlers struct {
+// HTTPHandlers contains the cache server api endpoint logic
+type HTTPHandlers struct {
 	cache *Cache
 }
 
@@ -47,12 +54,16 @@ func InstantiateHandlers(port int, cacheLocation string) error {
 	}()
 
 	// TODO(jaquesc): Add SSL (currently unnecessary for localhost)
-	h := HttpHandlers{
+	h := HTTPHandlers{
 		cache: cache,
 	}
 
 	http.HandleFunc(downloadPrefix, h.cacheGSHandler)
 	http.HandleFunc(downloadLocalPrefix, h.cacheLocalHandler)
+	http.HandleFunc(staticPrefix, h.staticHandler)
+	http.HandleFunc(isStagedPrefix, h.isStagedHandler)
+	http.HandleFunc(stagePrefix, h.stageHandler)
+	http.HandleFunc(checkHealthPrefix, h.checkHealthHandler)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -72,19 +83,53 @@ func InstantiateHandlers(port int, cacheLocation string) error {
 }
 
 // cacheGSHandler handles the cache for GS
-func (h *HttpHandlers) cacheGSHandler(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandlers) cacheGSHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		h.getCacheGSHandler(w, r)
+		h.getCacheGSHandler(w, strings.TrimPrefix(r.URL.EscapedPath(), downloadPrefix))
+	default:
+		http.Error(w, "Only GETs are supported.", http.StatusNotFound)
+	}
+}
+
+// checkHealthHandler is a stub endpoint that returns nothing
+func (h *HTTPHandlers) checkHealthHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("received %v request", checkHealthPrefix)
+	return
+}
+
+// isStagedHandler is a stub endpoint that returns "True"
+func (h *HTTPHandlers) isStagedHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("received %v request", isStagedPrefix)
+	io.WriteString(w, "True")
+	return
+}
+
+// stageHandler is a stub endpoint that returns nothing
+func (h *HTTPHandlers) stageHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("received %v request", stagePrefix)
+	return
+}
+
+// staticHandler handles GET requests to GS cache
+func (h *HTTPHandlers) staticHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		bucketParam, ok := r.URL.Query()[gsBucketParam]
+		if !ok || len(bucketParam) != 1 {
+			http.Error(w, "URL must have a bucket query parameter", http.StatusUnprocessableEntity)
+			return
+		}
+		gsPath := path.Join(bucketParam[0], strings.TrimPrefix(r.URL.Path, staticPrefix))
+		h.getCacheGSHandler(w, gsPath)
 	default:
 		http.Error(w, "Only GETs are supported.", http.StatusNotFound)
 	}
 }
 
 // getCacheGSHandler handles GET requests to GS cache
-func (h *HttpHandlers) getCacheGSHandler(w http.ResponseWriter, r *http.Request) {
-	log.Print("got GET request for GS file")
-	gsPath := strings.TrimPrefix(r.URL.EscapedPath(), downloadPrefix)
+func (h *HTTPHandlers) getCacheGSHandler(w http.ResponseWriter, gsPath string) {
+	log.Printf("got GET request for GS file: %v", gsPath)
 	if gsPath == "" {
 		http.Error(w, "URL must have a path to download", http.StatusUnprocessableEntity)
 		return
@@ -109,7 +154,7 @@ func (h *HttpHandlers) getCacheGSHandler(w http.ResponseWriter, r *http.Request)
 }
 
 // cacheLocalHandler handles the cache for local files
-func (h *HttpHandlers) cacheLocalHandler(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandlers) cacheLocalHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		h.getCacheLocalHandler(w, r)
@@ -119,7 +164,7 @@ func (h *HttpHandlers) cacheLocalHandler(w http.ResponseWriter, r *http.Request)
 }
 
 // getCacgeLocalHandler handles GET requests to local files
-func (h *HttpHandlers) getCacheLocalHandler(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandlers) getCacheLocalHandler(w http.ResponseWriter, r *http.Request) {
 	log.Print("got GET request for local file")
 	localPath := r.URL.Query().Get(sourceURLKey)
 	if localPath == "" {
