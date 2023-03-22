@@ -542,6 +542,7 @@ func TestTestPlatformRequest(t *testing.T) {
 		Dimensions:      map[string]string{"foo-dim": "bar-dim"},
 		Keyvals:         map[string]string{"foo-key": "foo-val"},
 		CFT:             true,
+		TRV2:            true,
 		TestPlan:        sampleTestPlan,
 		UseScheduke:     true,
 	}
@@ -584,6 +585,7 @@ func TestTestPlatformRequest(t *testing.T) {
 				MaximumDuration: durationpb.New(time.Duration(1800000000000)),
 			},
 			RunViaCft:           true,
+			RunViaTrv2:          true,
 			ScheduleViaScheduke: true,
 		},
 	}

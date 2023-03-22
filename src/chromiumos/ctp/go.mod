@@ -6,7 +6,7 @@ go 1.20
 require (
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.9
-	go.chromium.org/chromiumos/infra/proto/go v0.0.0-20230102123923-ce62ad0b0523
+	go.chromium.org/chromiumos/infra/proto/go v0.0.0-20230321181237-93aaab0cc47c
 	go.chromium.org/luci v0.0.0-20230103053340-8a57daa72e32
 	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef
 	google.golang.org/grpc v1.51.0

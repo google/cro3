@@ -43,6 +43,8 @@ type CTPBuilder struct {
 	BuilderID *buildbucketpb.BuilderID // TODO
 	// CFT determines whether we will use CFT to run tests.
 	CFT bool
+	// TRV2 determines whether we will use Test Runner V2
+	TRV2 bool
 	// CTPBuildTags are any tags that should be associated solely with the CTP
 	// build and not passed down to the test_runner builds.
 	CTPBuildTags map[string]string
@@ -324,6 +326,7 @@ func (c *CTPBuilder) TestPlatformRequest(buildTags map[string]string) (*test_pla
 					time.Duration(c.TimeoutMins) * time.Minute),
 			},
 			RunViaCft:           c.CFT,
+			RunViaTrv2:          c.TRV2,
 			ScheduleViaScheduke: c.UseScheduke,
 		},
 	}
