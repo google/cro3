@@ -4,3 +4,8 @@ build --define=gotags=with_embedded_agent
 build --compilation_mode=opt
 
 test --test_output=errors
+
+# Silence warnings for protobuf
+build --host_copt=-Wno-unknown-warning-option
+build --host_copt=-Wno-stringop-overflow
+build --host_copt=-Wno-unused-function
