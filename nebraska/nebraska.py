@@ -563,7 +563,11 @@ class Response(object):
                 urls = ElementTree.SubElement(update_check, "urls")
                 for _ in range(self._config.num_urls):
                     ElementTree.SubElement(
-                        urls, "url", attrib={"codebase": self._payloads_address}
+                        urls,
+                        "url",
+                        attrib={
+                            "codebase": os.path.join(self._payloads_address, "")
+                        }
                     )
                 manifest = ElementTree.SubElement(
                     update_check,
