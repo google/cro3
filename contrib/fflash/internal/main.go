@@ -12,16 +12,15 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/user"
+	"os/exec"
 	"path"
-	"path/filepath"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
-	"gopkg.in/ini.v1"
 
 	"chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/dut"
 	embeddedagent "chromium.googlesource.com/chromiumos/platform/dev-util.git/contrib/fflash/internal/embedded-agent"
@@ -30,8 +29,10 @@ import (
 
 const devFeaturesRootfsVerification = "/usr/libexec/debugd/helpers/dev_features_rootfs_verification"
 
+const oauth2Scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/devstorage.read_only"
+
 // getToken returns the user's token to access Google Cloud Storage.
-// It reads ~/.boto, which is a ini file set up by `gsutil.py config`.
+// It uses luci-auth which is shipped with depot_tools.
 func getToken(ctx context.Context) (oauth2.TokenSource, error) {
 	// Impersonate gsutil
 	// https://github.com/GoogleCloudPlatform/gsutil/blob/7bad311bd5444907c515ff745429cc2ffd31b22d/gslib/utils/system_util.py#L174
@@ -41,27 +42,29 @@ func getToken(ctx context.Context) (oauth2.TokenSource, error) {
 		Endpoint:     google.Endpoint,
 	}
 
-	u, err := user.Current()
+	cmd := exec.CommandContext(ctx, "luci-auth", "token", "-scopes", oauth2Scopes)
+	stdout, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("cannot lookup user: %w", err)
-	}
+		if err, ok := err.(*exec.ExitError); ok {
+			return nil, fmt.Errorf(`luci-auth failed: %s
+You may need to login with:
+luci-auth login -scopes %q
 
-	botoFile := filepath.Join(u.HomeDir, ".boto")
-
-	// Get the key used by gsutil.py
-	boto, err := ini.Load(botoFile)
-	if err != nil {
-		return nil, fmt.Errorf("cannot load %s: %w (please run `gsutil.py config`)", botoFile, err)
-	}
-	refreshToken := boto.Section("Credentials").Key("gs_oauth2_refresh_token").String()
-	if refreshToken == "" {
-		return nil, fmt.Errorf("cannot get refresh token from %s (please run `gsutil.py config`)", refreshToken)
+refer to the error message below:
+=== luci-auth output ===
+%s`,
+				err,
+				oauth2Scopes,
+				strings.TrimSpace(string(err.Stderr)),
+			)
+		}
+		return nil, fmt.Errorf("luci-auth failed: %s", err)
 	}
 
 	ts := c.TokenSource(
 		ctx,
 		&oauth2.Token{
-			RefreshToken: refreshToken,
+			AccessToken: strings.TrimSpace(string(stdout)),
 		},
 	)
 

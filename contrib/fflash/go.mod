@@ -12,7 +12,6 @@ require (
 	github.com/frankban/quicktest v1.14.3
 	github.com/klauspost/readahead v1.4.0
 	golang.org/x/exp v0.0.0-20230126173853-a67bb567ff2e
-	gopkg.in/ini.v1 v1.67.0
 )
 
 require (

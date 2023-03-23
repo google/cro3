@@ -25,7 +25,6 @@ go_library(
         "//internal/ssh",
         "@com_github_alecthomas_kingpin//:kingpin",
         "@com_google_cloud_go_storage//:storage",
-        "@in_gopkg_ini_v1//:ini_v1",
         "@org_golang_google_api//iterator",
         "@org_golang_google_api//option",
         "@org_golang_x_exp//slices",
