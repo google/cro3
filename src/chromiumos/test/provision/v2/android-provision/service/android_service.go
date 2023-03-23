@@ -48,8 +48,13 @@ type PkgFile struct {
 	DutPath string
 }
 
-// ImageFile defines OS image file to install.
-type ImageFile = PkgFile
+// ImagePath defines OS image file(s) to flash.
+type ImagePath struct {
+	GsPath string
+	Files  []string
+	// DUT directory containing the binary images.
+	DutAndroidProductOut string
+}
 
 // ProvisionPackage contains information about provision package.
 type ProvisionPackage struct {
@@ -60,7 +65,7 @@ type ProvisionPackage struct {
 
 // AndroidOS contains information about Android OS to install.
 type AndroidOS struct {
-	ImageFile        *ImageFile
+	ImagePath        *ImagePath
 	BuildInfo        *OsBuildInfo
 	UpdatedBuildInfo *OsBuildInfo
 }
@@ -108,8 +113,8 @@ func NewAndroidServiceFromAndroidProvisionRequest(dutClient api.DutServiceClient
 		if osImage := ps.GetAndroidOsImage(); osImage != nil {
 			switch v := osImage.GetLocationOneof().(type) {
 			case *api.AndroidOsImage_GsPath:
-				if imageFile := parseGsPath(osImage.GetGsPath()); imageFile != nil {
-					androidOs = &AndroidOS{ImageFile: imageFile}
+				if imagePath := parseGsPath(osImage.GetGsPath()); imagePath != nil {
+					androidOs = &AndroidOS{ImagePath: imagePath}
 				}
 			default:
 				return nil, fmt.Errorf("unknown Android OS image type: %T", v)
@@ -144,8 +149,8 @@ func NewAndroidServiceFromExistingConnection(conn common_utils.ServiceAdapterInt
 	if osImage != nil {
 		switch v := osImage.GetLocationOneof().(type) {
 		case *api.AndroidOsImage_GsPath:
-			if imageFile := parseGsPath(osImage.GetGsPath()); imageFile != nil {
-				androidOs = &AndroidOS{ImageFile: imageFile}
+			if imagePath := parseGsPath(osImage.GetGsPath()); imagePath != nil {
+				androidOs = &AndroidOS{ImagePath: imagePath}
 			}
 		default:
 			return nil, fmt.Errorf("unknown Android OS image type: %T", v)
@@ -173,8 +178,8 @@ func NewAndroidServiceFromExistingConnection(conn common_utils.ServiceAdapterInt
 func (svc *AndroidService) CleanupOnFailure(states []common_utils.ServiceState, executionErr error) error {
 	os.RemoveAll(svc.ProvisionDir)
 	ctx := context.Background()
-	if svc.OS != nil && svc.OS.ImageFile.DutPath != "" {
-		svc.DUT.AssociatedHost.DeleteDirectory(ctx, filepath.Dir(svc.OS.ImageFile.DutPath))
+	if svc.OS != nil && svc.OS.ImagePath.DutAndroidProductOut != "" {
+		svc.DUT.AssociatedHost.DeleteDirectory(ctx, svc.OS.ImagePath.DutAndroidProductOut)
 	}
 	for _, pkg := range svc.ProvisionPackages {
 		if apkFile := pkg.APKFile; apkFile.DutPath != "" {
@@ -209,8 +214,8 @@ func (svc *AndroidService) UnmarshalRequestMetadata(req *api.InstallRequest) err
 	if osImage := m.GetAndroidOsImage(); osImage != nil {
 		switch v := osImage.GetLocationOneof().(type) {
 		case *api.AndroidOsImage_GsPath:
-			if imageFile := parseGsPath(osImage.GetGsPath()); imageFile != nil {
-				svc.OS = &AndroidOS{ImageFile: imageFile}
+			if imagePath := parseGsPath(osImage.GetGsPath()); imagePath != nil {
+				svc.OS = &AndroidOS{ImagePath: imagePath}
 			}
 		default:
 			return fmt.Errorf("unknown Android OS image type: %T", v)
@@ -223,16 +228,19 @@ func (svc *AndroidService) UnmarshalRequestMetadata(req *api.InstallRequest) err
 	return nil
 }
 
-func parseGsPath(imagePath *api.GsPath) *ImageFile {
-	if imagePath == nil {
+func parseGsPath(gsPathProto *api.GsPath) *ImagePath {
+	if gsPathProto == nil {
 		return nil
 	}
-	bucketName := imagePath.GetBucket()
+	bucketName := gsPathProto.GetBucket()
 	if bucketName == "" {
 		bucketName = common.GSImageBucketName
 	}
-	return &ImageFile{
-		Name:   imagePath.GetFile(),
-		GsPath: "gs://" + filepath.Join(bucketName, imagePath.GetFolder(), imagePath.GetFile()),
+	gsPath := "gs://" + filepath.Join(bucketName, gsPathProto.GetFolder(), gsPathProto.GetFile())
+	if gsPathProto.GetFile() == "" {
+		gsPath += "/"
+	}
+	return &ImagePath{
+		GsPath: gsPath,
 	}
 }

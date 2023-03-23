@@ -37,13 +37,13 @@ func TestRebootToSystemCommand(t *testing.T) {
 		cmd := NewRebootToSystemCommand(context.Background(), svc)
 
 		Convey("Execute", func() {
-			svc.OS = &service.AndroidOS{ImageFile: &service.ImageFile{Name: "image.zip"}}
+			svc.OS = &service.AndroidOS{ImagePath: &service.ImagePath{}}
 			rebootArgs := []string{"-s", "dutSerialNumber", "reboot"}
-			checkArgs := []string{"devices", "|", "grep", "-sw", "dutSerialNumber", "|", "awk", "'{print $2}'"}
+			waitArgs := []string{"devices", "|", "grep", "-sw", "dutSerialNumber", "|", "awk", "'{print $2}'"}
 
 			gomock.InOrder(
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(rebootArgs)).Return("", nil).Times(1),
-				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(checkArgs)).Return("device", nil).Times(3),
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(waitArgs)).Return("device", nil).Times(3),
 			)
 			So(cmd.Execute(log), ShouldBeNil)
 		})

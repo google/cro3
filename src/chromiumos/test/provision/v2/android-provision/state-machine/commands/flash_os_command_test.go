@@ -19,11 +19,11 @@ import (
 	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
 )
 
-func TestRebootToBootloaderCommand(t *testing.T) {
+func TestFlashOsCommand(t *testing.T) {
 	t.Parallel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	Convey("RebootToBootloaderCommand", t, func() {
+	Convey("FlashOsCommandCommand", t, func() {
 		associatedHost := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
 			associatedHost,
@@ -34,22 +34,35 @@ func TestRebootToBootloaderCommand(t *testing.T) {
 		provisionDir, _ := os.MkdirTemp("", "testCleanup")
 		defer os.RemoveAll(provisionDir)
 		log, _ := common.SetUpLog(provisionDir)
-		cmd := NewRebootToBootloaderCommand(context.Background(), svc)
+		cmd := NewFlashOsCommand(context.Background(), svc)
 
 		Convey("Execute", func() {
-			svc.OS = &service.AndroidOS{ImagePath: &service.ImagePath{}}
+			svc.OS = &service.AndroidOS{
+				ImagePath: &service.ImagePath{
+					DutAndroidProductOut: provisionDir,
+					Files:                []string{"abcd/bootloader-model-123456789.img", "radio-model-123456789.img", "model-img-123456789.zip"},
+				},
+			}
+			bootloaderArgs := []string{"-s", "dutSerialNumber", "flash", "bootloader", provisionDir + "/abcd/bootloader-model-123456789.img"}
+			radioArgs := []string{"-s", "dutSerialNumber", "flash", "radio", provisionDir + "/radio-model-123456789.img"}
+			updateArgs := []string{"-s", "dutSerialNumber", "update", provisionDir + "/model-img-123456789.zip"}
 			rebootArgs := []string{"-s", "dutSerialNumber", "reboot", "bootloader"}
 			waitArgs := []string{"devices", "|", "grep", "-sw", "dutSerialNumber", "|", "awk", "'{print $2}'"}
 			gomock.InOrder(
-				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(rebootArgs)).Return("", nil).Times(1),
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(bootloaderArgs)).Return("any string", nil).Times(1),
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(rebootArgs)).Return("any string", nil).Times(1),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(waitArgs)).Return("fastboot", nil).Times(1),
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(radioArgs)).Return("any string", nil).Times(1),
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(rebootArgs)).Return("any string", nil).Times(1),
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(waitArgs)).Return("fastboot", nil).Times(1),
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(updateArgs)).Return("any string", nil).Times(1),
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(waitArgs)).Return("device", nil).Times(3),
 			)
 			So(cmd.Execute(log), ShouldBeNil)
 		})
 		Convey("Execute - Nothing to provision", func() {
 			log, _ := common.SetUpLog(provisionDir)
 			svc.OS = nil
-			associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Any()).Times(0)
 			associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Any()).Times(0)
 			So(cmd.Execute(log), ShouldBeNil)
 		})
@@ -57,7 +70,7 @@ func TestRebootToBootloaderCommand(t *testing.T) {
 			So(cmd.Revert(), ShouldBeNil)
 		})
 		Convey("GetErrorMessage", func() {
-			So(cmd.GetErrorMessage(), ShouldEqual, "failed to reboot to bootloader")
+			So(cmd.GetErrorMessage(), ShouldEqual, "failed to flash Android OS")
 		})
 		Convey("GetStatus", func() {
 			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_PROVISIONING_FAILED)

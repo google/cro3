@@ -6,7 +6,6 @@ package commands
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"go.chromium.org/luci/common/errors"
@@ -40,13 +39,13 @@ func rebootToBootloader(ctx context.Context, dut *service.DUTConnection, cmd str
 func waitForBootloaderMode(ctx context.Context, dut *service.DUTConnection, waitTimeout time.Duration) error {
 	waitInRetry := 1 * time.Second
 	retryCount := int(waitTimeout / waitInRetry)
-	args := []string{"devices", "|", "grep", dut.SerialNumber}
+	args := []string{"devices", "|", "grep", "-sw", dut.SerialNumber, "|", "awk", "'{print $2}'"}
 	for {
-		stdOut, err := dut.AssociatedHost.RunCmd(ctx, "fastboot", args)
+		ds, err := dut.AssociatedHost.RunCmd(ctx, "fastboot", args)
 		if err != nil {
 			return err
 		}
-		if strings.HasPrefix(stdOut, dut.SerialNumber) {
+		if ds == "fastboot" {
 			return nil
 		}
 		retryCount -= 1
