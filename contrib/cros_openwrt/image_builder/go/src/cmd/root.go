@@ -216,6 +216,10 @@ func init() {
 			"netperf",
 			"iperf",
 			"sudo",
+			"python3-email",
+			"python3-idna",
+			"python3-light",
+			"python3-urllib",
 		},
 		"Names of packages that should be included in built images that are downloaded from official OpenWrt repositories.",
 	)
