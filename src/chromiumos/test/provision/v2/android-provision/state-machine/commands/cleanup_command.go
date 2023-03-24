@@ -12,6 +12,7 @@ import (
 
 	"go.chromium.org/chromiumos/config/go/test/api"
 
+	"chromiumos/test/provision/v2/android-provision/common"
 	"chromiumos/test/provision/v2/android-provision/service"
 )
 
@@ -29,10 +30,20 @@ func NewCleanupCommand(ctx context.Context, svc *service.AndroidService) *Cleanu
 
 func (c *CleanupCommand) Execute(log *log.Logger) error {
 	log.Printf("Start CleanupCommand Execute")
-	os.RemoveAll(c.svc.ProvisionDir)
-	for _, pkg := range c.svc.ProvisionPackages {
-		if apkFile := pkg.APKFile; apkFile != nil {
-			c.svc.DUT.AssociatedHost.DeleteDirectory(c.ctx, filepath.Dir(apkFile.DutPath))
+	if stage := c.ctx.Value("stage"); stage != nil {
+		switch stage {
+		case common.OSInstall:
+			if osImage := c.svc.OS; osImage != nil {
+				c.svc.DUT.AssociatedHost.DeleteDirectory(c.ctx, osImage.ImagePath.DutAndroidProductOut)
+			}
+		case common.PackageInstall:
+			for _, pkg := range c.svc.ProvisionPackages {
+				if apkFile := pkg.APKFile; apkFile != nil {
+					c.svc.DUT.AssociatedHost.DeleteDirectory(c.ctx, filepath.Dir(apkFile.DutPath))
+				}
+			}
+		case common.Cleanup:
+			os.RemoveAll(c.svc.ProvisionDir)
 		}
 	}
 	log.Printf("CleanupCommand Success")
@@ -48,5 +59,8 @@ func (c *CleanupCommand) GetErrorMessage() string {
 }
 
 func (c *CleanupCommand) GetStatus() api.InstallResponse_Status {
-	return api.InstallResponse_STATUS_POST_PROVISION_SETUP_FAILED
+	if stage := c.ctx.Value("stage"); stage == common.Cleanup {
+		return api.InstallResponse_STATUS_POST_PROVISION_SETUP_FAILED
+	}
+	return api.InstallResponse_STATUS_PROVISIONING_FAILED
 }

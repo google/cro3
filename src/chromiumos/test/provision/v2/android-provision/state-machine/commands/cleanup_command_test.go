@@ -40,19 +40,31 @@ func TestCleanupCommand(t *testing.T) {
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
 			associatedHost,
 			"dutSerialNumber",
-			nil,
+			&api.AndroidOsImage{LocationOneof: &api.AndroidOsImage_GsPath{GsPath: &api.GsPath{Folder: "image_folder"}}},
 			[]*api.CIPDPackage{pkgProto},
 		)
 		svc.ProvisionPackages[0].APKFile = apkFile
 		provisionDir, _ := os.MkdirTemp("", "testCleanup")
 		defer os.RemoveAll(provisionDir)
 		svc.ProvisionDir = provisionDir
-
+		svc.OS.ImagePath.DutAndroidProductOut = "/tmp_DutAndroidProductOut"
 		cmd := NewCleanupCommand(context.Background(), svc)
 
-		Convey("Execute", func() {
+		Convey("Execute - OSInstall", func() {
+			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.OSInstall)
+			log, _ := common.SetUpLog(provisionDir)
+			associatedHost.EXPECT().DeleteDirectory(gomock.Any(), gomock.Eq("/tmp_DutAndroidProductOut")).Times(1)
+			So(cmd.Execute(log), ShouldBeNil)
+		})
+		Convey("Execute - PackageInstall", func() {
+			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.PackageInstall)
 			log, _ := common.SetUpLog(provisionDir)
 			associatedHost.EXPECT().DeleteDirectory(gomock.Any(), gomock.Eq("/tmp/instanceId")).Times(1)
+			So(cmd.Execute(log), ShouldBeNil)
+		})
+		Convey("Execute - Final Cleanup", func() {
+			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.Cleanup)
+			log, _ := common.SetUpLog(provisionDir)
 			So(cmd.Execute(log), ShouldBeNil)
 			_, err := os.Stat(svc.ProvisionDir)
 			So(os.IsNotExist(err), ShouldBeTrue)
@@ -63,7 +75,16 @@ func TestCleanupCommand(t *testing.T) {
 		Convey("GetErrorMessage", func() {
 			So(cmd.GetErrorMessage(), ShouldEqual, "failed to cleanup temp files")
 		})
-		Convey("GetStatus", func() {
+		Convey("GetStatus - OSInstall", func() {
+			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.OSInstall)
+			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_PROVISIONING_FAILED)
+		})
+		Convey("GetStatus - PackageInstall", func() {
+			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.PackageInstall)
+			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_PROVISIONING_FAILED)
+		})
+		Convey("GetStatus - Final Cleanup", func() {
+			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.Cleanup)
 			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_POST_PROVISION_SETUP_FAILED)
 		})
 	})
