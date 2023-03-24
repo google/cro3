@@ -1,4 +1,4 @@
-// Copyright 2022 The ChromiumOS Authors
+// Copyright 2023 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,27 +19,22 @@ import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
 )
 
-type PrepareState struct {
+type OSInstallState struct {
 	svc *service.AndroidService
 }
 
-func NewPrepareState(s *service.AndroidService) common_utils.ServiceState {
-	return PrepareState{
-		svc: s,
-	}
-}
-
-func (s PrepareState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
-	log.Println("State: Execute AndroidPrepareState")
-	ctx = context.WithValue(ctx, "stage", common.Prepare)
+func (s OSInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
+	log.Println("State: Execute AndroidOSInstallState")
+	ctx = context.WithValue(ctx, "stage", common.OSInstall)
 	cmds := []common_utils.CommandInterface{
-		commands.NewRestartADBCommand(ctx, s.svc),
-		commands.NewFetchDutInfoCommand(ctx, s.svc),
+		commands.NewRebootToBootloaderCommand(ctx, s.svc),
+		commands.NewFlashOsCommand(ctx, s.svc),
+		commands.NewCleanupCommand(ctx, s.svc),
 	}
 	for i, c := range cmds {
 		if err := c.Execute(log); err != nil {
-			log.Printf("State: Execute AndroidPrepareState failure %s\n", err)
-			log.Println("State: Revert AndroidPrepareState")
+			log.Printf("State: Execute AndroidOSInstallState failure %s\n", err)
+			log.Println("State: Revert AndroidOSInstallState")
 			for ; i >= 0; i-- {
 				if e := cmds[i].Revert(); e != nil {
 					err = errors.Annotate(err, "failure while reverting %s", e).Err()
@@ -49,16 +44,16 @@ func (s PrepareState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any,
 			return nil, c.GetStatus(), fmt.Errorf("%s: %s", c.GetErrorMessage(), err)
 		}
 	}
-	log.Println("State: AndroidPrepareState Completed")
+	log.Println("State: AndroidOSInstallState Completed")
 	return nil, api.InstallResponse_STATUS_OK, nil
 }
 
-func (s PrepareState) Next() common_utils.ServiceState {
-	return OSFetchState{
+func (s OSInstallState) Next() common_utils.ServiceState {
+	return PackageFetchState{
 		svc: s.svc,
 	}
 }
 
-func (s PrepareState) Name() string {
-	return "Android Prepare State"
+func (s OSInstallState) Name() string {
+	return "Android OS Install State"
 }

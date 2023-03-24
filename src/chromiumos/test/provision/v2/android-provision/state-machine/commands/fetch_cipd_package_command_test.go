@@ -57,27 +57,30 @@ func TestFetchCIPDPackageCommand(t *testing.T) {
 
 		Convey("Execute", func() {
 			mockCIPDClient := cipd.NewMockCIPDClientInterface(ctrl)
-			log, _ := common.SetUpLog(provisionDir)
 			cmd.cipd = mockCIPDClient
 			provisionPkg.CIPDPackage.PackageProto.AndroidPackage = api.AndroidPackage_GMS_CORE
 			Convey("New Android Package", func() {
 				provisionPkg.AndroidPackage.VersionCode = ""
+				log, _ := common.SetUpLog(provisionDir)
 				mockCIPDClient.EXPECT().FetchInstanceTo(gomock.Eq(pkgProto), gomock.Eq("cipd_package_name"), gomock.Eq("instanceId"), gomock.Eq("/tmp/provision_dir/cipd_package_name.zip")).Times(1)
 				So(cmd.Execute(log), ShouldBeNil)
 			})
 			Convey("Existing Android Package - same version code", func() {
 				provisionPkg.AndroidPackage.VersionCode = "1234567890"
+				log, _ := common.SetUpLog(provisionDir)
 				mockCIPDClient.EXPECT().FetchInstanceTo(gomock.Eq(pkgProto), gomock.Eq("cipd_package_name"), gomock.Eq("instanceId"), gomock.Eq("/tmp/provision_dir/cipd_package_name.zip")).Times(0)
 				So(cmd.Execute(log), ShouldBeNil)
 			})
 			Convey("Existing Android Package - different version code", func() {
 				provisionPkg.AndroidPackage.VersionCode = "1234567889"
+				log, _ := common.SetUpLog(provisionDir)
 				mockCIPDClient.EXPECT().FetchInstanceTo(gomock.Eq(pkgProto), gomock.Eq("cipd_package_name"), gomock.Eq("instanceId"), gomock.Eq("/tmp/provision_dir/cipd_package_name.zip")).Times(1)
 				So(cmd.Execute(log), ShouldBeNil)
 			})
 			Convey("Unknown Android Package type - returns error", func() {
 				provisionPkg.AndroidPackage.VersionCode = ""
 				provisionPkg.CIPDPackage.PackageProto.AndroidPackage = api.AndroidPackage_ANDROID_PACKAGE_UNSPECIFIED
+				log, _ := common.SetUpLog(provisionDir)
 				mockCIPDClient.EXPECT().FetchInstanceTo(gomock.Eq(pkgProto), gomock.Eq("cipd_package_name"), gomock.Eq("instanceId"), gomock.Eq("/tmp/provision_dir/cipd_package_name.zip")).Times(0)
 				So(cmd.Execute(log), ShouldNotBeNil)
 			})

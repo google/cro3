@@ -28,5 +28,5 @@ const (
 	OSInstall
 	PackageFetch
 	PackageInstall
-	Cleanup
+	PostInstall
 )

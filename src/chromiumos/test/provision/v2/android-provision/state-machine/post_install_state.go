@@ -1,3 +1,7 @@
+// Copyright 2023 The ChromiumOS Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 package state_machine
 
 import (
@@ -13,13 +17,13 @@ import (
 	common_utils "chromiumos/test/provision/v2/common-utils"
 )
 
-type CleanupState struct {
+type PostInstallState struct {
 	svc *service.AndroidService
 }
 
-func (s CleanupState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
-	log.Println("State: Execute AndroidCleanupState")
-	ctx = context.WithValue(ctx, "stage", common.Cleanup)
+func (s PostInstallState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any, api.InstallResponse_Status, error) {
+	log.Println("State: Execute AndroidPostInstallState")
+	ctx = context.WithValue(ctx, "stage", common.PostInstall)
 	cmds := []common_utils.CommandInterface{
 		commands.NewCleanupCommand(ctx, s.svc),
 	}
@@ -27,16 +31,16 @@ func (s CleanupState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any,
 		// Ignore errors. Don't fail provisioning due to cleanup errors.
 		c.Execute(log)
 	}
-	log.Println("State: AndroidCleanupState Completed")
-	// Return metadata with a list of the provisioned packages.
+	log.Println("State: AndroidPostInstallState Completed")
+	// Return metadata with provisioned OS and packages.
 	resp, _ := s.svc.MarshalResponseMetadata()
 	return resp, api.InstallResponse_STATUS_OK, nil
 }
 
-func (s CleanupState) Next() common_utils.ServiceState {
+func (s PostInstallState) Next() common_utils.ServiceState {
 	return nil
 }
 
-func (s CleanupState) Name() string {
-	return "Android Cleanup State"
+func (s PostInstallState) Name() string {
+	return "Android Post Install State"
 }

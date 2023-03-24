@@ -62,8 +62,8 @@ func TestCleanupCommand(t *testing.T) {
 			associatedHost.EXPECT().DeleteDirectory(gomock.Any(), gomock.Eq("/tmp/instanceId")).Times(1)
 			So(cmd.Execute(log), ShouldBeNil)
 		})
-		Convey("Execute - Final Cleanup", func() {
-			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.Cleanup)
+		Convey("Execute - PostInstall", func() {
+			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.PostInstall)
 			log, _ := common.SetUpLog(provisionDir)
 			So(cmd.Execute(log), ShouldBeNil)
 			_, err := os.Stat(svc.ProvisionDir)
@@ -83,8 +83,8 @@ func TestCleanupCommand(t *testing.T) {
 			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.PackageInstall)
 			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_PROVISIONING_FAILED)
 		})
-		Convey("GetStatus - Final Cleanup", func() {
-			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.Cleanup)
+		Convey("GetStatus - PostInstall", func() {
+			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.PostInstall)
 			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_POST_PROVISION_SETUP_FAILED)
 		})
 	})

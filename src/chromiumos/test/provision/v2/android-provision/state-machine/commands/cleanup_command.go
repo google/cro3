@@ -42,7 +42,7 @@ func (c *CleanupCommand) Execute(log *log.Logger) error {
 					c.svc.DUT.AssociatedHost.DeleteDirectory(c.ctx, filepath.Dir(apkFile.DutPath))
 				}
 			}
-		case common.Cleanup:
+		case common.PostInstall:
 			os.RemoveAll(c.svc.ProvisionDir)
 		}
 	}
@@ -59,7 +59,7 @@ func (c *CleanupCommand) GetErrorMessage() string {
 }
 
 func (c *CleanupCommand) GetStatus() api.InstallResponse_Status {
-	if stage := c.ctx.Value("stage"); stage == common.Cleanup {
+	if stage := c.ctx.Value("stage"); stage == common.PostInstall {
 		return api.InstallResponse_STATUS_POST_PROVISION_SETUP_FAILED
 	}
 	return api.InstallResponse_STATUS_PROVISIONING_FAILED

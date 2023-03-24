@@ -96,9 +96,9 @@ func TestExtractZipCommand(t *testing.T) {
 		})
 		Convey("Execute - PackageFetch", func() {
 			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.PackageFetch)
-			log, _ := common.SetUpLog(provisionDir)
 			mockZipReader := zip.NewMockZipReaderInterface(ctrl)
 			cmd.zip = mockZipReader
+			log, _ := common.SetUpLog(provisionDir)
 
 			mockZipReader.EXPECT().UnzipFile(gomock.Eq("/tmp/instanceId/cipd_package_name.zip"), gomock.Eq(provisionDir+"/instanceId")).Times(1)
 			So(cmd.Execute(log), ShouldBeNil)

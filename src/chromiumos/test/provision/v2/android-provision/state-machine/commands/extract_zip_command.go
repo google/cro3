@@ -37,8 +37,7 @@ func (c *ExtractZipCommand) Execute(log *log.Logger) error {
 	var err error
 	if stage := c.ctx.Value("stage"); stage != nil {
 		switch stage {
-		// TODO(b/274634373): Remove common.Prepare after refactoring the state machine stages.
-		case common.Prepare, common.PackageFetch:
+		case common.PackageFetch:
 			err = c.extractCIPDPackages()
 		case common.OSFetch:
 			err = c.extractOsImage()
