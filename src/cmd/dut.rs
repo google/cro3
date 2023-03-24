@@ -115,7 +115,7 @@ fn run_dut_push(args: &ArgsPush) -> Result<()> {
 #[argh(subcommand, name = "vnc")]
 struct ArgsVnc {
     /// DUT which the files are pushed to
-    #[argh(positional)]
+    #[argh(option)]
     dut: String,
 
     /// local port (default: 5900)
