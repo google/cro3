@@ -37,7 +37,7 @@ func (s PrepareState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any,
 		commands.NewRestartADBCommand(ctx, s.svc),
 		commands.NewGetInstalledPackageVersionCommand(ctx, s.svc),
 		commands.NewFetchCIPDPackageCommand(ctx, s.svc),
-		commands.NewExtractAPKFileCommand(ctx, s.svc),
+		commands.NewExtractZipCommand(ctx, s.svc),
 		commands.NewUploadAPKToGSCommand(ctx, s.svc),
 	}
 	for i, c := range cmds {
