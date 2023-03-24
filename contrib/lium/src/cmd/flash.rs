@@ -10,6 +10,7 @@ use argh::FromArgs;
 use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::DutInfo;
 use lium::repo::get_repo_dir;
+use regex::Regex;
 use std::process::Command;
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -56,11 +57,25 @@ pub fn run(args: &Args) -> Result<()> {
                 .context("Failed to get --board from ")?
                 .clone();
             if let Some(board_from_arg) = &args.board {
-                if board_from_arg != &board_from_dut {
+                // The board name may have suffix '64' or '-*', so get the first alphabet
+                // sequence as the base board name.
+                let re = Regex::new(r"(^[[:alpha:]]*)")?;
+                let cap_arg = if let Some(cap) = re.captures(board_from_arg) {
+                    cap
+                } else {
+                    return Err(anyhow!(
+                        "{} doesn not match the board name pattern.",
+                        board_from_arg
+                    ));
+                };
+                let cap_dut = re.captures(&board_from_dut).unwrap();
+                if cap_arg[1] != cap_dut[1] {
                     return Err(anyhow!("Given BOARD does not match with DUT: {} is given but {} is installed on {:?}", board_from_arg, board_from_dut, dut));
                 }
+                board_from_arg.to_string()
+            } else {
+                board_from_dut
             }
-            board_from_dut
         }
         (None, None) => return Err(anyhow!("Please specify --board or --dut")),
     };
