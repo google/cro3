@@ -55,6 +55,11 @@ func (c *FlashOsCommand) Execute(log *log.Logger) error {
 			log.Printf("FlashOsCommand failed: %v", err)
 			return err
 		}
+		// Fetch the updated OS info
+		if err := c.fetchOSInfo(); err != nil {
+			log.Printf("FlashOsCommand failed: %v", err)
+			return err
+		}
 	}
 	log.Printf("FlashOsCommand Success")
 	return nil
@@ -100,4 +105,21 @@ func (c *FlashOsCommand) flashAll() error {
 		}
 	}
 	return errors.Reason("cannot find update zip file").Err()
+}
+
+func (c *FlashOsCommand) fetchOSInfo() error {
+	dut := c.svc.DUT
+	buildId, err := getOSBuildId(c.ctx, dut)
+	if err != nil {
+		return err
+	}
+	incrementalVersion, err := getOSIncrementalVersion(c.ctx, dut)
+	if err != nil {
+		return err
+	}
+	c.svc.OS.UpdatedBuildInfo = &service.OsBuildInfo{
+		Id:                 buildId,
+		IncrementalVersion: incrementalVersion,
+	}
+	return nil
 }
