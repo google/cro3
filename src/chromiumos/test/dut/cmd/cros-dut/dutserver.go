@@ -81,6 +81,11 @@ func (s *DutServiceServer) Close() {
 	s.connection.Close()
 }
 
+// FetchFile pulls a file or directory from the remote host.
+func (s *DutServiceServer) FetchFile(req *api.FetchFileRequest, stream api.DutService_FetchFileServer) error {
+	return status.Error(codes.Unimplemented, "FetchFile unimplemented")
+}
+
 // ExecCommand remotely executes a command on the DUT.
 func (s *DutServiceServer) ExecCommand(req *api.ExecCommandRequest, stream api.DutService_ExecCommandServer) error {
 	s.logger.Println("Received api.ExecCommandRequest: ", req)
