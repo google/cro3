@@ -57,6 +57,9 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     ssh_port_search_timeout: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    default_ipv6_prefix: Option<String>,
 }
 static CONFIG_FILE_NAME: &str = "config.json";
 impl Config {
@@ -129,6 +132,12 @@ impl Config {
                 }
                 self.ssh_port_search_timeout = Some(values[0].as_ref().parse().unwrap());
             }
+            "default_ipv6_prefix" => {
+                if values.len() != 1 {
+                    return Err(anyhow!("{key} only takes 1 params"));
+                }
+                self.default_ipv6_prefix = Some(values[0].as_ref().parse().unwrap());
+            }
             _ => return Err(anyhow!("config key {key} is not valid")),
         }
         self.write()
@@ -156,6 +165,9 @@ impl Config {
             "ssh_port_search_timeout" => {
                 self.ssh_port_search_timeout = None;
             }
+            "default_ipv6_prefix" => {
+                self.default_ipv6_prefix = None;
+            }
             _ => return Err(anyhow!("lium config clear for '{key}' is not implemented")),
         }
         self.write()?;
@@ -179,5 +191,8 @@ impl Config {
     }
     pub fn ssh_port_search_timeout(&self) -> Option<u64> {
         self.ssh_port_search_timeout
+    }
+    pub fn default_ipv6_prefix(&self) -> Option<String> {
+        self.default_ipv6_prefix.clone()
     }
 }
