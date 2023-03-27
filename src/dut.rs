@@ -898,6 +898,16 @@ pub fn discover_local_duts(iface: Option<String>, extra_attr: &[String]) -> Resu
     Ok(duts)
 }
 
+pub fn register_dut(dut: &str) -> Result<DutInfo> {
+    eprintln!("Checking: {dut:?}...");
+    let info = DutInfo::new(dut)?;
+    let id = info.id();
+    let ssh = info.ssh();
+    SSH_CACHE.set(id, ssh.clone())?;
+    println!("Added: {:32} {}", id, serde_json::to_string(ssh)?);
+    Ok(info)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
