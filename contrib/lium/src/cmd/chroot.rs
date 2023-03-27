@@ -21,6 +21,9 @@ pub struct Args {
     /// BOARD env var in chroot
     #[argh(option)]
     board: Option<String>,
+    /// if specified, run the command in chroot and exit.
+    #[argh(option)]
+    cmd: Option<String>,
 }
 pub fn run(args: &Args) -> Result<()> {
     let repo = get_repo_dir(&args.repo)?;
@@ -34,6 +37,15 @@ pub fn run(args: &Args) -> Result<()> {
         additional_args.push(format!("BOARD={board}"));
     }
     let chroot = Chroot::new(&repo)?;
-    chroot.open_chroot(additional_args.as_slice())?;
+    if let Some(cmd) = &args.cmd {
+        let mut script = String::new();
+        for l in additional_args {
+            script.push_str(&format!("{l}\n"));
+        }
+        script.push_str(cmd);
+        chroot.run_bash_script_in_chroot("exec", &script, None)?;
+    } else {
+        chroot.open_chroot(additional_args.as_slice())?;
+    }
     Ok(())
 }
