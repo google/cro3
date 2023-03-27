@@ -6,16 +6,18 @@ use crate::chroot::Chroot;
 use crate::util::gen_path_in_lium_dir;
 use crate::util::get_async_lines;
 use crate::util::get_stdout;
-use crate::util::require_root_privilege;
 use crate::util::run_bash_command;
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use async_process::Child;
+use core::str::FromStr;
 use futures::executor::block_on;
 use futures::select;
 use futures::FutureExt;
 use futures::StreamExt;
+use macaddr::MacAddr6;
+use macaddr::MacAddr8;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use serde::Deserialize;
@@ -81,33 +83,12 @@ fn discover() -> Result<Vec<LocalServo>> {
 }
 
 fn discover_slow() -> Result<Vec<LocalServo>> {
-    require_root_privilege()?;
-    for mut s in discover()? {
-        s.reset().context("Failed to reset servo")?
-    }
     let mut servos = discover()?;
     servos.iter_mut().for_each(|s| {
-            eprintln!("Checking {}", s.serial);
-            let mac_addr = s.tty_list.get("Servo EC Shell").and_then(|id|
-                {
-                    run_bash_command(&format!("echo macaddr | socat - /dev/{id},echo=0 | grep -E -o '([0-9A-Z]{{2}}:){{5}}([0-9A-Z]{{2}})'"), None)
-                        .ok()
-                        .filter(|o| {o.status.success()})
-                        .as_ref()
-                        .map(get_stdout)
-                });
-            let ec_version = s.tty_list.get("EC").and_then(|id|
-                {
-                    run_bash_command(&format!("echo version | socat - /dev/{id},echo=0,crtscts=1 | grep 'RO:' | sed -e 's/^RO:\\s*'//"), None)
-                        .ok()
-                        .filter(|o| {o.status.success()})
-                        .as_ref()
-                        .map(get_stdout)
-                        .filter(|s| {!s.is_empty()})
-                });
-            s.mac_addr = mac_addr;
-            s.ec_version = ec_version;
-        });
+        eprintln!("Checking {}", s.serial);
+        s.mac_addr = s.read_mac_addr().ok();
+        s.ec_version = s.read_ec_version().ok();
+    });
     Ok(servos)
 }
 
@@ -221,6 +202,9 @@ impl LocalServo {
         output.status.exit_ok()?;
         Ok(get_stdout(&output))
     }
+    pub fn usb_sysfs_path(&self) -> &str {
+        &self.usb_sysfs_path
+    }
     pub fn reset(&mut self) -> Result<()> {
         eprintln!("Resetting servo device: {}", self.serial);
         let path = Path::new(&self.usb_sysfs_path).join("authorized");
@@ -292,6 +276,35 @@ impl LocalServo {
     }
     pub fn is_cr50(&self) -> bool {
         self.product() == "Cr50" || self.product() == "Ti50"
+    }
+    pub fn read_ec_version(&mut self) -> Result<String> {
+        self.tty_list.get("EC").and_then(|id|
+                {
+                    run_bash_command(&format!("echo version | socat - /dev/{id},echo=0,crtscts=1 | grep 'RO:' | sed -e 's/^RO:\\s*'//"), None)
+                        .ok()
+                        .filter(|o| {o.status.success()})
+                        .as_ref()
+                        .map(get_stdout)
+                        .filter(|s| {!s.is_empty()})
+                }).context("Failed to read ec_version")
+    }
+    pub fn read_mac_addr(&mut self) -> Result<String> {
+        self.tty_list.get("Servo EC Shell").and_then(|id|
+                {
+                    run_bash_command(&format!("echo macaddr | socat - /dev/{id},echo=0 | grep -E -o '([0-9A-Z]{{2}}:){{5}}([0-9A-Z]{{2}})'"), None)
+                        .ok()
+                        .filter(|o| {o.status.success()})
+                        .as_ref()
+                        .map(get_stdout)
+                }).context("Failed to read mac_addr")
+    }
+    pub fn read_mac_addr6(&mut self) -> Result<MacAddr6> {
+        MacAddr6::from_str(&self.read_mac_addr()?)
+            .context("Failed to convert MAC address string to MacAddr6")
+    }
+    pub fn read_mac_addr8(&mut self) -> Result<MacAddr8> {
+        MacAddr8::from_str(&self.read_mac_addr()?)
+            .context("Failed to convert MAC address string to MacAddr8")
     }
 }
 
