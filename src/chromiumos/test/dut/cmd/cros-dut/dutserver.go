@@ -38,6 +38,7 @@ import (
 const cacheDownloadURI = "/download/%s"
 const cacheUntarAndDownloadURI = "/extract/%s?file=%s"
 const cacheExtraAndDownloadURI = "/decompress/%s"
+const streamchunksize = 1024
 
 // DutServiceServer implementation of dut_service.proto
 type DutServiceServer struct {
@@ -81,11 +82,6 @@ func (s *DutServiceServer) Close() {
 	s.connection.Close()
 }
 
-// FetchFile pulls a file or directory from the remote host.
-func (s *DutServiceServer) FetchFile(req *api.FetchFileRequest, stream api.DutService_FetchFileServer) error {
-	return status.Error(codes.Unimplemented, "FetchFile unimplemented")
-}
-
 // ExecCommand remotely executes a command on the DUT.
 func (s *DutServiceServer) ExecCommand(req *api.ExecCommandRequest, stream api.DutService_ExecCommandServer) error {
 	s.logger.Println("Received api.ExecCommandRequest: ", req)
@@ -105,6 +101,67 @@ func (s *DutServiceServer) ExecCommand(req *api.ExecCommandRequest, stream api.D
 
 	resp := s.runCmd(command, stdin, combined)
 	return stream.Send(resp)
+}
+
+// FetchFile pulls a file or directory from the remote host.
+func (s *DutServiceServer) FetchFile(req *api.FetchFileRequest, stream api.DutService_FetchFileServer) error {
+	fetchFile := req.File
+	s.logger.Printf("Received api.FetchFile: %s", fetchFile)
+
+	if exists, stderr, err := s.runCmdOutput(dutssh.PathExistsCommand(fetchFile)); err != nil {
+		return status.Errorf(codes.FailedPrecondition, "Failed to check for file: %s", stderr)
+	} else if exists != "1" {
+		return status.Errorf(codes.NotFound, "file not present on device.")
+	}
+
+	session, err := s.connection.NewSession()
+
+	if err != nil {
+		return status.Errorf(codes.FailedPrecondition, "Failed to start ssh session: %s", err)
+	}
+
+	stdout, _, err := getPipes(session)
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	d, f := filepath.Split(fetchFile)
+	rCmd := fmt.Sprintf("tar -c --mode='a+rw' --gzip -C %s %s", filepath.Dir(d), f)
+	log.Printf("FetchFile running: %s", rCmd)
+	err = session.Start(rCmd)
+	if err != nil {
+		log.Println("FetchFile unable to start command")
+		return status.Errorf(codes.FailedPrecondition, "Failed to start command: %s", err.Error())
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	scanner.Split(bufio.ScanBytes)
+	for scanner.Scan() {
+		b := scanner.Bytes()
+		r := &api.File{
+			File: b,
+		}
+		stream.Send(r)
+	}
+
+	return nil
+
+}
+
+func byteChunks(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if len(data) >= streamchunksize {
+		return streamchunksize, data[0:streamchunksize], nil
+	}
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		return len(data), data, nil
+	}
+	// Request more data.
+	return 0, nil, nil
 }
 
 // FetchCrashes remotely fetches crashes from the DUT.

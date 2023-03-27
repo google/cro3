@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"chromiumos/test/dut/cmd/cros-dut/dutssh"
 	"chromiumos/test/dut/cmd/cros-dut/dutssh/mock_dutssh"
 	"context"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -938,6 +940,94 @@ func TestCache(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("Failed at api.Cache: %v", err)
+	}
+}
+
+// TestFetchFile tests that the regular FetchFile command works
+func TestFetchFile(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mci := mock_dutssh.NewMockClientInterface(ctrl)
+	msi := mock_dutssh.NewMockSessionInterface(ctrl)
+
+	var so io.Writer
+	var se io.Writer
+
+	fetchFile := "/foo/bar/messages"
+	d, f := filepath.Split(fetchFile)
+	expect := fmt.Sprintf("tar -c --mode='a+rw' --gzip -C %s %s", filepath.Dir(d), f)
+	gomock.InOrder(
+		mci.EXPECT().IsAlive().Return(true),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().SetStdout(gomock.Any()).Do(func(arg io.Writer) { so = arg }),
+		msi.EXPECT().SetStderr(gomock.Any()).Do(func(arg io.Writer) { se = arg }),
+		msi.EXPECT().Run(gomock.Eq(dutssh.PathExistsCommand(fetchFile))).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("1"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().NewSession().Return(msi, nil),
+		msi.EXPECT().StdoutPipe().Return(strings.NewReader("stdout"), nil),
+		msi.EXPECT().StderrPipe().Return(strings.NewReader("stderr"), nil),
+		msi.EXPECT().Start(gomock.Eq(expect)).DoAndReturn(
+			func(arg string) error {
+				so.Write([]byte("stdout"))
+				se.Write([]byte(""))
+				return nil
+			},
+		),
+		msi.EXPECT().Close(),
+		mci.EXPECT().Close(),
+	)
+
+	var logBuf bytes.Buffer
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal("Failed to create a net listener: ", err)
+	}
+
+	ctx := context.Background()
+	srv, destructor := newDutServiceServer(l, log.New(&logBuf, "", log.LstdFlags|log.LUTC), mci, "serializer_path", 0, "dutname", "wiringaddress", "cacheaddress")
+	defer destructor()
+	if err != nil {
+		t.Fatalf("Failed to start DutServiceServer: %v", err)
+	}
+	go srv.Serve(l)
+	defer srv.Stop()
+
+	conn, err := grpc.Dial(l.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial: %v", err)
+	}
+	defer conn.Close()
+
+	cl := api.NewDutServiceClient(conn)
+	stream, err := cl.FetchFile(ctx, &api.FetchFileRequest{
+		File: fetchFile,
+	})
+
+	if err != nil {
+		t.Fatalf("Failed at api.Cache: %v", err)
+	}
+	outp := []byte{}
+	for {
+		resp, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Failed at stream.Recv(): %v", err)
+		}
+		// Maybe eed ...
+		outp = append(outp, resp.File...)
+	}
+
+	if string(outp) != "stdout" {
+		t.Fatalf("wrong response %v", string(outp))
 	}
 }
 
