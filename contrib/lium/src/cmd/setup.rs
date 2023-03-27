@@ -94,11 +94,30 @@ fn setup_dut_ccd_open(cr50: &LocalServo) -> Result<()> {
             .nth(1)
             .context("Could not get rma_auth challenge")?;
         if !rma_auth_challenge.starts_with("RMA Auth error") {
-            return Err(anyhow!(
-                r#"Visit https://chromeos.google.com/partner/console/cr50reset?challenge={rma_auth_challenge} to get the unlock code and run `lium servo shell --serial {} --cmd "rma_auth ${{UNLOCK_CODE}}"` to get the ccd unlocked. (For Googlers: go/rma-auth for more details) (cr50_shell = {})"#,
-                cr50.serial(),
-                cr50.tty_path("Shell")?
-            ));
+            eprintln!("CCD unlock is required.");
+            eprintln!(
+                r#"If you are eligible, visit https://chromeos.google.com/partner/console/cr50reset?challenge={rma_auth_challenge} to get the unlock code and paste the output below. ( For Googlers, go/rma-auth has more details. )"#,
+            );
+            eprintln!("If not, follow https://chromium.googlesource.com/chromiumos/platform/ec/+/cr50_stab/docs/case_closed_debugging_cr50.md#ccd-open to do this manually.");
+            let mut input = String::new();
+            std::io::stdin()
+                .read_line(&mut input)
+                .context("Failed to read a line")?;
+            let response = cr50
+                .run_cmd(
+                    "Shell",
+                    &format!(
+                        "rma_auth {}",
+                        input
+                            .trim()
+                            .split(':')
+                            .last()
+                            .context("code is invalid")?
+                            .trim()
+                    ),
+                )
+                .context("Failed to run rma_auth command")?;
+            return Err(anyhow!("response: {response}"));
         }
         eprintln!("Failed: {rma_auth_challenge}");
         eprintln!("retrying in 3 sec...");

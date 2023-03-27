@@ -6,6 +6,7 @@ use crate::chroot::Chroot;
 use crate::config::Config;
 use crate::util::gen_path_in_lium_dir;
 use crate::util::get_async_lines;
+use crate::util::get_stderr;
 use crate::util::get_stdout;
 use crate::util::run_bash_command;
 use anyhow::anyhow;
@@ -202,7 +203,10 @@ impl LocalServo {
             &format!("echo {cmd} | socat - {tty_path},echo=0,crtscts=1"),
             None,
         )?;
-        output.status.exit_ok()?;
+        output
+            .status
+            .exit_ok()
+            .context(anyhow!("servo command failed: {}", get_stderr(&output)))?;
         Ok(get_stdout(&output))
     }
     pub fn usb_sysfs_path(&self) -> &str {
