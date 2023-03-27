@@ -33,6 +33,7 @@ setup:
 	rustup update
 
 commit:
+	cargo fmt
 	cargo clippy -- -D warnings
 	cargo test
 	cargo build
