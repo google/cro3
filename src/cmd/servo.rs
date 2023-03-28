@@ -65,6 +65,9 @@ pub fn run_get(args: &ArgsGet) -> Result<()> {
         "ipv6_addr" => {
             println!("{}", s.read_ipv6_addr()?);
         }
+        "ec_version" => {
+            println!("{}", s.read_ec_version()?);
+        }
         key => {
             return Err(anyhow!("attribute {key} is not defined"));
         }
