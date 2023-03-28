@@ -18,10 +18,12 @@ use futures::executor::block_on;
 use futures::select;
 use futures::FutureExt;
 use futures::StreamExt;
+use lazy_static::lazy_static;
 use macaddr::MacAddr6;
 use macaddr::MacAddr8;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use regex::Regex;
 use retry::delay;
 use retry::retry;
 use serde::Deserialize;
@@ -36,6 +38,29 @@ use std::fs::read_to_string;
 use std::fs::write;
 use std::iter::FromIterator;
 use std::path::Path;
+use std::time::Duration;
+
+lazy_static! {
+    static ref RE_MAC_ADDR: Regex =
+        Regex::new(r"(?P<addr>([0-9A-Za-z]{2}:){5}([0-9A-Za-z]{2}))").unwrap();
+    static ref RE_EC_VERSION: Regex = Regex::new(r"RO:\s*(?P<version>.*)\n").unwrap();
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn regex() {
+        assert!(RE_MAC_ADDR.is_match("FF:FF:FF:FF:FF:FF"));
+        assert!(RE_MAC_ADDR.is_match("00:00:00:00:00:00"));
+        assert!(RE_MAC_ADDR.is_match("99:99:99:99:99:99"));
+        assert_eq!(
+            &RE_MAC_ADDR
+                .captures("Mac addr ff:ff:ff:ff:ff:ff should match")
+                .unwrap()["addr"],
+            "ff:ff:ff:ff:ff:ff"
+        );
+    }
+}
 
 fn read_usb_attribute(dir: &Path, name: &str) -> Result<String> {
     let value = dir.join(name);
@@ -90,8 +115,12 @@ fn discover_slow() -> Result<Vec<LocalServo>> {
     let mut servos = discover()?;
     servos.iter_mut().for_each(|s| {
         eprintln!("Checking {}", s.serial);
-        s.mac_addr = s.read_mac_addr().ok();
-        s.ec_version = s.read_ec_version().ok();
+        if s.is_servo() {
+            s.mac_addr = s.read_mac_addr().ok();
+        }
+        if s.is_cr50() {
+            s.ec_version = s.read_ec_version().ok();
+        }
     });
     Ok(servos)
 }
@@ -111,6 +140,8 @@ pub fn reset_devices(serials: &Vec<String>) -> Result<()> {
     for s in &servo_info {
         s.reset()?;
     }
+    std::thread::sleep(Duration::from_millis(1000));
+
     Ok(())
 }
 
@@ -199,8 +230,9 @@ impl LocalServo {
     }
     pub fn run_cmd(&self, tty_type: &str, cmd: &str) -> Result<String> {
         let tty_path = self.tty_path(tty_type)?;
+        // stat tty_path first to ensure that the tty is available
         let output = run_bash_command(
-            &format!("echo {cmd} | socat - {tty_path},echo=0,crtscts=1"),
+            &format!("stat {tty_path} && echo {cmd} | socat - {tty_path},echo=0,crtscts=1"),
             None,
         )?;
         output
@@ -284,32 +316,46 @@ impl LocalServo {
     pub fn is_cr50(&self) -> bool {
         self.product() == "Cr50" || self.product() == "Ti50"
     }
+    pub fn is_servo(&self) -> bool {
+        self.product().starts_with("Servo")
+    }
     pub fn read_ec_version(&self) -> Result<String> {
-        self.tty_list.get("EC").and_then(|id|
-                {
-                    run_bash_command(&format!("echo version | socat - /dev/{id},echo=0,crtscts=1 | grep 'RO:' | sed -e 's/^RO:\\s*'//"), None)
-                        .ok()
-                        .filter(|o| {o.status.success()})
-                        .as_ref()
-                        .map(get_stdout)
-                        .filter(|s| {!s.is_empty()})
-                }).context("Failed to read ec_version")
+        if !self.is_cr50() {
+            return Err(anyhow!(
+                "{} is not a Cr50, but {}",
+                self.serial(),
+                self.product()
+            ));
+        }
+        retry(delay::Fixed::from_millis(500).take(2), || {
+            let output = self.run_cmd("EC", "version").inspect_err(|e| {
+                eprintln!("version command on EC failed: {e}");
+            })?;
+            RE_EC_VERSION
+                .captures(&output)
+                .map(|c| c["version"].trim().to_lowercase())
+                .context(anyhow!("Failed to get EC version"))
+                .inspect_err(|e| {
+                    eprintln!("{:#?}: {output}", e);
+                })
+        })
+        .or(Err(anyhow!("Failed to get EC version after retries")))
     }
     pub fn read_mac_addr(&self) -> Result<String> {
-        retry(delay::Fixed::from_millis(500).take(3), || {
-        self.tty_list.get("Servo EC Shell").and_then(|id|
-                {
-                    let mac_addr = run_bash_command(&format!("echo macaddr | socat - /dev/{id},echo=0 | grep -E -o '([0-9A-Z]{{2}}:){{5}}([0-9A-Z]{{2}})'"), None)
-                        .ok()
-                        .filter(|o| {o.status.success()})
-                        .as_ref()
-                        .map(get_stdout);
-                    if mac_addr.is_none() {
-                                eprintln!("Failed");
-                    }
-                        mac_addr
-                }).context("Failed to read mac_addr")
-        }).or(Err(anyhow!("Failed to get mac_addr after retries")))
+        if !self.is_servo() {
+            return Err(anyhow!(
+                "{} is not a Servo, but {}",
+                self.serial(),
+                self.product()
+            ));
+        }
+        retry(delay::Fixed::from_millis(500).take(2), || {
+            RE_MAC_ADDR
+                .captures(&self.run_cmd("Servo EC Shell", "macaddr")?)
+                .map(|c| c["addr"].to_lowercase())
+                .context(anyhow!("Failed to get mac_addr of Servo"))
+        })
+        .or(Err(anyhow!("Failed to get mac_addr after retries")))
     }
     pub fn read_mac_addr6(&self) -> Result<MacAddr6> {
         MacAddr6::from_str(&self.read_mac_addr()?)
