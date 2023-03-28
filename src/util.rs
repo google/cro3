@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use async_process::Child;
@@ -12,7 +13,6 @@ use dirs::home_dir;
 use futures::io::BufReader;
 use futures::io::Lines;
 use futures::AsyncBufReadExt;
-use std::env;
 use std::env::current_exe;
 use std::fs::create_dir_all;
 use std::io::ErrorKind;
@@ -21,25 +21,30 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::process::Output;
 
-pub fn require_root_privilege() -> Result<()> {
+pub fn has_root_privilege() -> Result<bool> {
     let output = run_bash_command("id -u", None)?;
-    output.status.exit_ok()?;
-    if get_stdout(&output).trim() == "0" {
-        Ok(())
-    } else {
-        eprintln!("This actions requires root permission. Restarting with sudo...");
-        let mut c = Command::new("sudo");
-        let args: Vec<String> = env::args().into_iter().skip(1).collect();
-        std::process::exit(
-            c.arg("--preserve-env=HOME")
-                .arg(current_exe()?)
-                .args(&args)
-                .status()
-                .context("Failed to re-execute lium with sudo")?
-                .code()
-                .expect("Exit code is not available"),
-        )
-    }
+    output
+        .status
+        .exit_ok()
+        .context("Failed to get current uid")?;
+    Ok(get_stdout(&output).trim() == "0")
+}
+/// Usage of this should be minimized, to avoid environment variable related issues.
+/// Current use cases are:
+/// - Resetting servo by writing to sysfs
+pub fn run_lium_with_sudo(args: &[&str]) -> Result<()> {
+    let mut c = Command::new("sudo");
+    let status = c
+        .arg("--preserve-env=HOME,PATH")
+        .arg(current_exe()?)
+        .args(args)
+        .status()
+        .context("Failed to run lium with sudo")?;
+    status.exit_ok().context(anyhow!(
+        "`sudo lium {} exited with {:?}`",
+        args.join(" "),
+        status.code()
+    ))
 }
 
 pub fn lium_dir() -> Result<String> {

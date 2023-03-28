@@ -34,11 +34,8 @@ impl Chroot {
         .status
         .exit_ok()?;
         // Remove ~/.bash_logout in chroot to avoid clearing the screen after exiting
-        chroot.run_bash_script_in_chroot(
-            "remove_bash_logout",
-            "rm -f ~/.bash_logout || true",
-            None,
-        )?;
+        // Ignore error
+        drop(chroot.run_bash_script_in_chroot("remove_bash_logout", "rm -f ~/.bash_logout", None));
         Ok(chroot)
     }
     pub fn exec_in_chroot(&self, args: &[&str]) -> Result<String> {
@@ -75,7 +72,7 @@ impl Chroot {
     }
     pub fn write_bash_script_for_chroot(&self, name: &str, script: &str) -> Result<()> {
         let dst = gen_path_in_lium_dir(&format!("tmp/{name}.sh"))?;
-        fs::write(dst, script.as_bytes())?;
+        fs::write(dst, script.as_bytes()).context("Failed to create a script file")?;
         Ok(())
     }
     /// Run a script in chroot.
@@ -106,9 +103,16 @@ impl Chroot {
             cmd.args(args);
         }
         eprintln!("Running {name} in chroot...");
-        let cmd = cmd.spawn()?;
-        let result = cmd.wait_with_output()?;
-        result.status.exit_ok().context("run_in_chroot failed")?;
+        let run = cmd
+            .spawn()
+            .context(anyhow!("spawn failed. cmd = {cmd:?}"))?;
+        let result = run
+            .wait_with_output()
+            .context(anyhow!("wait_with_output_failed. cmd = {cmd:?}"))?;
+        result
+            .status
+            .exit_ok()
+            .context(anyhow!("run_in_chroot failed. cmd = {cmd:?}"))?;
         let result = get_stdout(&result);
         Ok(result)
     }

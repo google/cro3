@@ -7,11 +7,15 @@ use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::chroot::Chroot;
+use lium::repo::get_repo_dir;
 use lium::servo::reset_devices;
 use lium::servo::LocalServo;
 use lium::servo::ServoList;
 use lium::servo::ServodConnection;
-use lium::util::require_root_privilege;
+use lium::util::gen_path_in_lium_dir;
+use lium::util::lium_dir;
+use lium::util::run_bash_command;
+use std::fs::read_to_string;
 use std::process;
 use std::time::Duration;
 
@@ -56,7 +60,6 @@ pub struct ArgsGet {
     key: String,
 }
 pub fn run_get(args: &ArgsGet) -> Result<()> {
-    require_root_privilege()?;
     let list = ServoList::read()?;
     let s = list.find_by_serial(&args.serial)?;
     s.reset()?;
@@ -67,6 +70,26 @@ pub fn run_get(args: &ArgsGet) -> Result<()> {
         }
         "ec_version" => {
             println!("{}", s.read_ec_version()?);
+        }
+        "model" => {
+            println!(
+                "{}",
+                s.read_ec_version()?
+                    .split('_')
+                    .next()
+                    .context("failed to parse")?
+            );
+        }
+        "board" => {
+            run_bash_command(
+                "wget -N https://dl.google.com/edgedl/chromeos/recovery/recovery.conf",
+                Some(&lium_dir()?),
+            )?;
+            let _list = read_to_string(gen_path_in_lium_dir("recovery.conf")?)?;
+        }
+        "gbb_flags" => {
+            let repo = get_repo_dir(&None)?;
+            println!("{:#X}", s.read_gbb_flags(&repo)?);
         }
         key => {
             return Err(anyhow!("attribute {key} is not defined"));
@@ -84,7 +107,6 @@ pub struct ArgsReset {
     serials: Vec<String>,
 }
 pub fn run_reset(args: &ArgsReset) -> Result<()> {
-    require_root_privilege()?;
     reset_devices(&args.serials)
 }
 

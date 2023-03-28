@@ -8,7 +8,9 @@ use crate::util::gen_path_in_lium_dir;
 use crate::util::get_async_lines;
 use crate::util::get_stderr;
 use crate::util::get_stdout;
+use crate::util::has_root_privilege;
 use crate::util::run_bash_command;
+use crate::util::run_lium_with_sudo;
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
@@ -44,6 +46,7 @@ lazy_static! {
     static ref RE_MAC_ADDR: Regex =
         Regex::new(r"(?P<addr>([0-9A-Za-z]{2}:){5}([0-9A-Za-z]{2}))").unwrap();
     static ref RE_EC_VERSION: Regex = Regex::new(r"RO:\s*(?P<version>.*)\n").unwrap();
+    static ref RE_GBB_FLAGS: Regex = Regex::new(r"^flags: 0x(?P<flags>[0-9a-fA-F]+)$").unwrap();
 }
 #[cfg(test)]
 mod tests {
@@ -58,6 +61,10 @@ mod tests {
                 .captures("Mac addr ff:ff:ff:ff:ff:ff should match")
                 .unwrap()["addr"],
             "ff:ff:ff:ff:ff:ff"
+        );
+        assert_eq!(
+            &RE_GBB_FLAGS.captures("flags: 0x000040b9").unwrap()["flags"],
+            "000040b9"
         );
     }
 }
@@ -245,11 +252,15 @@ impl LocalServo {
         &self.usb_sysfs_path
     }
     pub fn reset(&self) -> Result<()> {
-        eprintln!("Resetting servo device: {}", self.serial);
-        let path = Path::new(&self.usb_sysfs_path).join("authorized");
-        fs::write(&path, b"0").context("Failed to set authorized = 0")?;
-        fs::write(&path, b"1").context("Failed to set authorized = 1")?;
-        Ok(())
+        if has_root_privilege()? {
+            eprintln!("Resetting servo device: {}", self.serial);
+            let path = Path::new(&self.usb_sysfs_path).join("authorized");
+            fs::write(&path, b"0").context("Failed to set authorized = 0")?;
+            fs::write(&path, b"1").context("Failed to set authorized = 1")?;
+            Ok(())
+        } else {
+            run_lium_with_sudo(&["servo", "reset", self.serial()])
+        }
     }
     pub fn from_serial(serial: &str) -> Result<LocalServo> {
         let servos = discover()?;
@@ -386,6 +397,33 @@ impl LocalServo {
                 .replace('.', ":")
                 .to_lowercase()
         ))
+    }
+    pub fn read_gbb_flags(&self, repo: &str) -> Result<u64> {
+        if !self.is_cr50() {
+            return Err(anyhow!(
+                "{} is not a Cr50, but {}",
+                self.serial(),
+                self.product()
+            ));
+        }
+        let chroot = Chroot::new(repo)?;
+        eprintln!("Reading gbb flags via Cr50...");
+        chroot.exec_in_chroot(&[
+            "sudo",
+            "flashrom",
+            "-p",
+            &format!("raiden_debug_spi:target=AP,serial={}", self.serial),
+            "-r",
+            "-i",
+            "GBB:/tmp/gbb.bin",
+        ])?;
+        eprintln!("Extracting gbb flags...");
+        let flags =
+            chroot.exec_in_chroot(&["sudo", "futility", "gbb", "-g", "--flags", "/tmp/gbb.bin"])?;
+        let flags = &RE_GBB_FLAGS
+            .captures(&flags)
+            .context("Invalid output of futility: {flags}")?["flags"];
+        u64::from_str_radix(flags, 16).context("Failed to convert value: {flags}")
     }
 }
 
