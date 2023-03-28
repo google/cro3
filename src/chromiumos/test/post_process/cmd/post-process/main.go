@@ -61,9 +61,14 @@ func parseAndRunCmds(req *api.RunActivityRequest, log *log.Logger, dutClient api
 		return &resp, err
 	case *api.RunActivityRequest_GetFilesFromDutRequest:
 		log.Println("GetFilesFromDut Task")
-		_, err := commands.GetFilesFromDUT(log, op.GetFilesFromDutRequest, dutClient)
+		cmdResp, err := commands.GetFilesFromDUT(log, op.GetFilesFromDutRequest, dutClient)
+		resp := api.RunActivityResponse{
+			Response: &api.RunActivityResponse_GetFilesFromDutResponse{
+				GetFilesFromDutResponse: cmdResp,
+			},
+		}
+		return &resp, err
 
-		return nil, err
 	default:
 		log.Println("None")
 		return nil, fmt.Errorf("can only be one of registered types")
