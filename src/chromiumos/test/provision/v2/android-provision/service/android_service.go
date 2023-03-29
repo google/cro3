@@ -191,22 +191,17 @@ func (svc *AndroidService) CleanupOnFailure(states []common_utils.ServiceState, 
 
 // MarshalResponseMetadata packs AndroidProvisionResponseMetadata into the Any message type.
 func (svc *AndroidService) MarshalResponseMetadata() (*anypb.Any, error) {
-	resp := &api.AndroidProvisionResponseMetadata{}
-	if osImage := svc.OS; osImage != nil && osImage.UpdatedBuildInfo != nil {
-		resp.InstalledAndroidOs = &api.InstalledAndroidOS{
-			BuildId:            osImage.UpdatedBuildInfo.Id,
-			IncrementalVersion: osImage.UpdatedBuildInfo.IncrementalVersion,
-		}
-	}
+	var p []*api.InstalledAndroidPackage
 	for _, pkg := range svc.ProvisionPackages {
 		if ap := pkg.AndroidPackage; ap != nil && ap.UpdatedVersionCode != "" {
 			installedPkg := &api.InstalledAndroidPackage{
 				Name:        ap.PackageName,
 				VersionCode: ap.UpdatedVersionCode,
 			}
-			resp.InstalledAndroidPackages = append(resp.InstalledAndroidPackages, installedPkg)
+			p = append(p, installedPkg)
 		}
 	}
+	resp := &api.AndroidProvisionResponseMetadata{InstalledAndroidPackages: p}
 	return anypb.New(resp)
 }
 

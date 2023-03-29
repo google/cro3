@@ -48,9 +48,6 @@ func TestFlashOsCommand(t *testing.T) {
 			updateArgs := []string{"-s", "dutSerialNumber", "update", provisionDir + "/model-img-123456789.zip"}
 			rebootArgs := []string{"-s", "dutSerialNumber", "reboot", "bootloader"}
 			waitArgs := []string{"devices", "|", "grep", "-sw", "dutSerialNumber", "|", "awk", "'{print $2}'"}
-			fetchBuildIdArgs := []string{"-s", "dutSerialNumber", "shell", "getprop", "ro.build.id"}
-			fetchOSVersionArgs := []string{"-s", "dutSerialNumber", "shell", "getprop", "ro.build.version.incremental"}
-
 			gomock.InOrder(
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(bootloaderArgs)).Return("any string", nil).Times(1),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(rebootArgs)).Return("any string", nil).Times(1),
@@ -60,8 +57,6 @@ func TestFlashOsCommand(t *testing.T) {
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(waitArgs)).Return("fastboot", nil).Times(1),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(updateArgs)).Return("any string", nil).Times(1),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(waitArgs)).Return("device", nil).Times(3),
-				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(fetchBuildIdArgs)).Return("any string", nil).Times(1),
-				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(fetchOSVersionArgs)).Return("1234567890", nil).Times(1),
 			)
 			So(cmd.Execute(log), ShouldBeNil)
 		})
