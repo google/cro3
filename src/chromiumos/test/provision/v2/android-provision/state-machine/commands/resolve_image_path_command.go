@@ -38,7 +38,10 @@ func (c *ResolveImagePathCommand) Execute(log *log.Logger) error {
 				log.Printf("ResolveImagePathCommand Failure: %v", err)
 				return err
 			}
-			c.svc.OS.ImagePath.GsPath = gsstorage.GetGsPath("", buildId, board)
+			if buildId != c.svc.OS.BuildInfo.Id {
+				// DUT has a different Android OS build. Proceeding with provision.
+				c.svc.OS.ImagePath.GsPath = gsstorage.GetGsPath("", buildId, board)
+			}
 		}
 	}
 	log.Printf("ResolveImagePathCommand Success")

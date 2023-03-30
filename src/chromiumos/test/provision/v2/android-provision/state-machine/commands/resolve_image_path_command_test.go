@@ -41,8 +41,17 @@ func TestResolveImagePathCommand(t *testing.T) {
 
 		Convey("Execute", func() {
 			svc.DUT.Board = "barbet"
+			svc.OS.BuildInfo = &service.OsBuildInfo{Id: "QD4A.200805.003"}
 			log, _ := common.SetUpLog(provisionDir)
 			expectedGSPath := "gs://android-provisioning-images/SQ3A.220705.003.A1/barbet/"
+			So(cmd.Execute(log), ShouldBeNil)
+			So(svc.OS.ImagePath.GsPath, ShouldEqual, expectedGSPath)
+		})
+		Convey("Execute - DUT has the same build", func() {
+			svc.DUT.Board = "barbet"
+			svc.OS.BuildInfo = &service.OsBuildInfo{Id: "SQ3A.220705.003.A1"}
+			log, _ := common.SetUpLog(provisionDir)
+			expectedGSPath := ""
 			So(cmd.Execute(log), ShouldBeNil)
 			So(svc.OS.ImagePath.GsPath, ShouldEqual, expectedGSPath)
 		})
