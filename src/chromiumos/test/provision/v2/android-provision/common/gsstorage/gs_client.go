@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -62,4 +63,12 @@ func (gs *gs) Upload(ctx context.Context, apkPath string, remotePath string) err
 		return err
 	}
 	return nil
+}
+
+// GetGsPath return GS path to image files.
+func GetGsPath(bucketName string, folders ...string) string {
+	if bucketName == "" {
+		bucketName = common.GSImageBucketName
+	}
+	return "gs://" + filepath.Join(append([]string{bucketName}, folders...)...) + "/"
 }

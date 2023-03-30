@@ -30,3 +30,28 @@ const (
 	PackageInstall
 	PostInstall
 )
+
+var OSVersionToBuildIDMap = map[string]map[string]string{
+	"10": {
+		"sunfish": "QD4A.200805.003", // android-10.0.0_r45
+	},
+	"11": {
+		"sunfish": "RQ3A.211001.001", // android-11.0.0_r46
+		"redfin":  "RQ3A.211001.001", // android-11.0.0_r46
+		"barbet":  "RD2A.211001.002", // android-11.0.0_r48
+	},
+	"12": {
+		"sunfish": "SQ3A.220705.003.A1", // android-12.1.0_r11
+		"redfin":  "SQ3A.220705.003.A1", // android-12.1.0_r11
+		"barbet":  "SQ3A.220705.003.A1", // android-12.1.0_r11
+		"oriole":  "SQ3A.220705.003.A1", // android-12.1.0_r11
+		"raven":   "SQ3A.220705.003.A1", // android-12.1.0_r11
+	},
+	"13": {
+		"sunfish": "TQ1A.230205.002", // android-13.0.0_r30
+		"redfin":  "TQ1A.230205.002", // android-13.0.0_r30
+		"barbet":  "TQ1A.230205.002", // android-13.0.0_r30
+		"oriole":  "TQ1A.230205.002", // android-13.0.0_r30
+		"raven":   "TQ1A.230205.002", // android-13.0.0_r30
+	},
+}

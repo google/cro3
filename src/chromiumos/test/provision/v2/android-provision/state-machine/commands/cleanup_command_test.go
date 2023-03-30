@@ -40,7 +40,7 @@ func TestCleanupCommand(t *testing.T) {
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
 			associatedHost,
 			"dutSerialNumber",
-			&api.AndroidOsImage{LocationOneof: &api.AndroidOsImage_GsPath{GsPath: &api.GsPath{Folder: "image_folder"}}},
+			&api.AndroidOsImage{LocationOneof: &api.AndroidOsImage_OsVersion{OsVersion: "10"}},
 			[]*api.CIPDPackage{pkgProto},
 		)
 		svc.ProvisionPackages[0].APKFile = apkFile

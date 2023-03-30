@@ -28,6 +28,10 @@ func NewFetchDutInfoCommand(ctx context.Context, svc *service.AndroidService) *F
 
 func (c *FetchDutInfoCommand) Execute(log *log.Logger) error {
 	log.Printf("Start FetchDutInfoCommand Execute")
+	if err := c.fetchBoard(); err != nil {
+		log.Printf("FetchDutInfoCommand Failure: %v", err)
+		return err
+	}
 	if err := c.fetchOSInfo(); err != nil {
 		log.Printf("FetchDutInfoCommand Failure: %v", err)
 		return err
@@ -52,6 +56,17 @@ func (c *FetchDutInfoCommand) GetStatus() api.InstallResponse_Status {
 	return api.InstallResponse_STATUS_DUT_UNREACHABLE_PRE_PROVISION
 }
 
+func (c *FetchDutInfoCommand) fetchBoard() error {
+	dut := c.svc.DUT
+	// Fetch DUT board.
+	board, err := getBoard(c.ctx, dut)
+	if err != nil {
+		return err
+	}
+	c.svc.DUT.Board = board
+	return nil
+}
+
 func (c *FetchDutInfoCommand) fetchOSInfo() error {
 	if c.svc.OS == nil {
 		// OS provision is not requested.
@@ -63,6 +78,10 @@ func (c *FetchDutInfoCommand) fetchOSInfo() error {
 	if err != nil {
 		return err
 	}
+	osVersion, err := getOSVersion(c.ctx, dut)
+	if err != nil {
+		return err
+	}
 	// Fetch incremental build version.
 	incrementalVersion, err := getOSIncrementalVersion(c.ctx, dut)
 	if err != nil {
@@ -70,6 +89,7 @@ func (c *FetchDutInfoCommand) fetchOSInfo() error {
 	}
 	c.svc.OS.BuildInfo = &service.OsBuildInfo{
 		Id:                 buildId,
+		OsVersion:          osVersion,
 		IncrementalVersion: incrementalVersion,
 	}
 	return nil

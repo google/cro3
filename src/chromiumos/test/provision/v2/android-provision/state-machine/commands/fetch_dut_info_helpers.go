@@ -14,8 +14,18 @@ import (
 
 var reVersionCode = regexp.MustCompile(`^versionCode=(\d+).+`)
 
+func getBoard(ctx context.Context, dut *service.DUTConnection) (string, error) {
+	args := []string{"-s", dut.SerialNumber, "shell", "getprop", "ro.product.board"}
+	return dut.AssociatedHost.RunCmd(ctx, "adb", args)
+}
+
 func getOSBuildId(ctx context.Context, dut *service.DUTConnection) (string, error) {
 	args := []string{"-s", dut.SerialNumber, "shell", "getprop", "ro.build.id"}
+	return dut.AssociatedHost.RunCmd(ctx, "adb", args)
+}
+
+func getOSVersion(ctx context.Context, dut *service.DUTConnection) (string, error) {
+	args := []string{"-s", dut.SerialNumber, "shell", "getprop", "ro.build.version.release"}
 	return dut.AssociatedHost.RunCmd(ctx, "adb", args)
 }
 

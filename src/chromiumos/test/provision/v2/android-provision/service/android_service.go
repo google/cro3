@@ -7,15 +7,16 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
 	lab_api "go.chromium.org/chromiumos/config/go/test/lab/api"
+	"go.chromium.org/luci/common/errors"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"chromiumos/test/provision/v2/android-provision/common"
+	"chromiumos/test/provision/v2/android-provision/common/gsstorage"
 	common_utils "chromiumos/test/provision/v2/common-utils"
 )
 
@@ -29,6 +30,7 @@ type AndroidPackage struct {
 // OsBuildInfo contains information about Android OS build.
 type OsBuildInfo struct {
 	Id                 string
+	OsVersion          string
 	IncrementalVersion string
 }
 
@@ -50,8 +52,9 @@ type PkgFile struct {
 
 // ImagePath defines OS image file(s) to flash.
 type ImagePath struct {
-	GsPath string
-	Files  []string
+	GsPath         string
+	BoardToBuildID map[string]string
+	Files          []string
 	// DUT directory containing the binary images.
 	DutAndroidProductOut string
 }
@@ -74,6 +77,7 @@ type AndroidOS struct {
 type DUTConnection struct {
 	AssociatedHost common_utils.ServiceAdapterInterface
 	SerialNumber   string
+	Board          string
 }
 
 // AndroidService inherits ServiceInterface
@@ -111,14 +115,17 @@ func NewAndroidServiceFromAndroidProvisionRequest(dutClient api.DutServiceClient
 	var p []*ProvisionPackage
 	if ps := req.GetProvisionState(); ps != nil {
 		if osImage := ps.GetAndroidOsImage(); osImage != nil {
-			switch v := osImage.GetLocationOneof().(type) {
+			var imagePath *ImagePath
+			switch osImage.GetLocationOneof().(type) {
 			case *api.AndroidOsImage_GsPath:
-				if imagePath := parseGsPath(osImage.GetGsPath()); imagePath != nil {
-					androidOs = &AndroidOS{ImagePath: imagePath}
-				}
-			default:
-				return nil, fmt.Errorf("unknown Android OS image type: %T", v)
+				imagePath = parseGsPath(osImage.GetGsPath())
+			case *api.AndroidOsImage_OsVersion:
+				imagePath = parseOSVersion(osImage.GetOsVersion())
 			}
+			if imagePath == nil {
+				return nil, errors.Reason("invalid provision request or unsupported Android OS version").Err()
+			}
+			androidOs = &AndroidOS{ImagePath: imagePath}
 		}
 		for _, pkgProto := range ps.GetCipdPackages() {
 			cipdPkg := &CIPDPackage{
@@ -147,14 +154,17 @@ func NewAndroidServiceFromExistingConnection(conn common_utils.ServiceAdapterInt
 	var androidOs *AndroidOS
 	var p []*ProvisionPackage
 	if osImage != nil {
-		switch v := osImage.GetLocationOneof().(type) {
+		var imagePath *ImagePath
+		switch osImage.GetLocationOneof().(type) {
 		case *api.AndroidOsImage_GsPath:
-			if imagePath := parseGsPath(osImage.GetGsPath()); imagePath != nil {
-				androidOs = &AndroidOS{ImagePath: imagePath}
-			}
-		default:
-			return nil, fmt.Errorf("unknown Android OS image type: %T", v)
+			imagePath = parseGsPath(osImage.GetGsPath())
+		case *api.AndroidOsImage_OsVersion:
+			imagePath = parseOSVersion(osImage.GetOsVersion())
 		}
+		if imagePath == nil {
+			return nil, errors.Reason("invalid provision request or unsupported Android OS version").Err()
+		}
+		androidOs = &AndroidOS{ImagePath: imagePath}
 	}
 	for _, pkgProto := range pkgProtos {
 		cipdPkg := &CIPDPackage{
@@ -195,6 +205,7 @@ func (svc *AndroidService) MarshalResponseMetadata() (*anypb.Any, error) {
 	if osImage := svc.OS; osImage != nil && osImage.UpdatedBuildInfo != nil {
 		resp.InstalledAndroidOs = &api.InstalledAndroidOS{
 			BuildId:            osImage.UpdatedBuildInfo.Id,
+			OsVersion:          osImage.UpdatedBuildInfo.OsVersion,
 			IncrementalVersion: osImage.UpdatedBuildInfo.IncrementalVersion,
 		}
 	}
@@ -214,17 +225,20 @@ func (svc *AndroidService) MarshalResponseMetadata() (*anypb.Any, error) {
 func (svc *AndroidService) UnmarshalRequestMetadata(req *api.InstallRequest) error {
 	m := api.AndroidProvisionRequestMetadata{}
 	if err := req.Metadata.UnmarshalTo(&m); err != nil {
-		return fmt.Errorf("improperly formatted input proto metadata, %s", err)
+		return errors.Reason("improperly formatted input proto metadata, %s", err).Err()
 	}
 	if osImage := m.GetAndroidOsImage(); osImage != nil {
-		switch v := osImage.GetLocationOneof().(type) {
+		var imagePath *ImagePath
+		switch osImage.GetLocationOneof().(type) {
 		case *api.AndroidOsImage_GsPath:
-			if imagePath := parseGsPath(osImage.GetGsPath()); imagePath != nil {
-				svc.OS = &AndroidOS{ImagePath: imagePath}
-			}
-		default:
-			return fmt.Errorf("unknown Android OS image type: %T", v)
+			imagePath = parseGsPath(osImage.GetGsPath())
+		case *api.AndroidOsImage_OsVersion:
+			imagePath = parseOSVersion(osImage.GetOsVersion())
 		}
+		if imagePath == nil {
+			return errors.Reason("invalid provision request or unsupported Android OS version").Err()
+		}
+		svc.OS = &AndroidOS{ImagePath: imagePath}
 	}
 	for _, pkgProto := range m.GetCipdPackages() {
 		cipdPkg := &CIPDPackage{PackageProto: pkgProto}
@@ -233,19 +247,18 @@ func (svc *AndroidService) UnmarshalRequestMetadata(req *api.InstallRequest) err
 	return nil
 }
 
+func parseOSVersion(osVersion string) *ImagePath {
+	if boardToBuildId, ok := common.OSVersionToBuildIDMap[osVersion]; ok {
+		return &ImagePath{BoardToBuildID: boardToBuildId}
+	}
+	return nil
+}
+
 func parseGsPath(gsPathProto *api.GsPath) *ImagePath {
 	if gsPathProto == nil {
 		return nil
 	}
-	bucketName := gsPathProto.GetBucket()
-	if bucketName == "" {
-		bucketName = common.GSImageBucketName
-	}
-	gsPath := "gs://" + filepath.Join(bucketName, gsPathProto.GetFolder(), gsPathProto.GetFile())
-	if gsPathProto.GetFile() == "" {
-		gsPath += "/"
-	}
 	return &ImagePath{
-		GsPath: gsPath,
+		GsPath: gsstorage.GetGsPath(gsPathProto.GetBucket(), gsPathProto.GetFolder()),
 	}
 }
