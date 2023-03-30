@@ -8,9 +8,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 
 	"go.chromium.org/chromiumos/config/go/test/api"
+	"go.chromium.org/luci/common/errors"
 
 	"chromiumos/test/provision/v2/android-provision/common"
 	"chromiumos/test/provision/v2/android-provision/common/cipd"
@@ -35,6 +37,15 @@ func (c *ResolveCIPDPackageCommand) Execute(log *log.Logger) error {
 	log.Printf("Start ResolveCIPDPackageCommand Execute")
 	for _, pkg := range c.svc.ProvisionPackages {
 		cipdPkg := pkg.CIPDPackage
+		if cipdPkg.PackageProto.GetName() == "" {
+			// CIPD package name is not specified in the provision request.
+			// It will be resolved from the Android package name.
+			// e.g. "com.google.android.gms" -> "chromiumos/infra/skylab/third_party/gmscore/gmscore_prodsc_arm64_alldpi_release_apk"
+			if err := c.resolvePackageName(cipdPkg.PackageProto); err != nil {
+				log.Printf("ResolveCIPDPackageCommand Failure: %v", err)
+				return err
+			}
+		}
 		d, err := c.cipd.Describe(cipdPkg.PackageProto, true, false)
 		if err != nil {
 			log.Printf("ResolveCIPDPackageCommand Failure: %v", err)
@@ -70,4 +81,30 @@ func (c *ResolveCIPDPackageCommand) GetErrorMessage() string {
 
 func (c *ResolveCIPDPackageCommand) GetStatus() api.InstallResponse_Status {
 	return api.InstallResponse_STATUS_CIPD_PACKAGE_LOOKUP_FAILED
+}
+
+// getPackageName uses AndroidPackage proto for CIPD package resolution.
+func (c *ResolveCIPDPackageCommand) resolvePackageName(cipdPackageProto *api.CIPDPackage) error {
+	switch p := cipdPackageProto.GetAndroidPackage(); p {
+	case api.AndroidPackage_GMS_CORE:
+		// Read OS version from DUT.
+		osVersion, err := getOSVersion(c.ctx, c.svc.DUT)
+		if err != nil {
+			return err
+		}
+		platform := common.OSVersionToGMSCorePlatformMap[osVersion]
+		if platform == "" {
+			return errors.Reason("missing GMSCore package platform for Android OS v.%s", osVersion).Err()
+		}
+		dpi := "alldpi"
+		if apkDetails := cipdPackageProto.GetApkDetails(); apkDetails != nil {
+			if apkDetails.GetDensity() == api.ApkDetails_XXHDPI {
+				dpi = "xxhdpi"
+			}
+		}
+		cipdPackageProto.Name = filepath.Join(common.GMSCoreCIPDPath, fmt.Sprintf("gmscore_%s_arm64_%s_release_apk", platform, dpi))
+	default:
+		return errors.Reason("failed to resolve CIPD package from unsupported Android package: %s", p.String()).Err()
+	}
+	return nil
 }

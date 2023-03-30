@@ -13,6 +13,7 @@ const (
 	ADBVendorKeys               = "/var/lib/android_keys"
 	ADBUnixSocketMountDirectory = "/run/arc/adb"
 	GMSCorePackageName          = "com.google.android.gms"
+	GMSCoreCIPDPath             = "chromiumos/infra/skylab/third_party/gmscore/"
 
 	// DroneServiceAccountCreds is needed to upload APKs to Android Provisioning GSBucket.
 	DroneServiceAccountCreds = "/creds/service_accounts/skylab-drone.json"
@@ -54,4 +55,11 @@ var OSVersionToBuildIDMap = map[string]map[string]string{
 		"oriole":  "TQ1A.230205.002", // android-13.0.0_r30
 		"raven":   "TQ1A.230205.002", // android-13.0.0_r30
 	},
+}
+
+var OSVersionToGMSCorePlatformMap = map[string]string{
+	"10": "prodpi",
+	"11": "prodrvc",
+	"12": "prodsc",
+	"13": "prodsc",
 }

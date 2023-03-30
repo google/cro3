@@ -100,6 +100,6 @@ func (c *CIPD) getVersion(cipdPackageProto *api.CIPDPackage) (string, error) {
 	case *api.CIPDPackage_InstanceId:
 		return cipdPackageProto.GetInstanceId(), nil
 	default:
-		return "", fmt.Errorf("unknown CIPD version type: %T", v)
+		return "", errors.Reason("unknown CIPD version type: %T", v).Err()
 	}
 }

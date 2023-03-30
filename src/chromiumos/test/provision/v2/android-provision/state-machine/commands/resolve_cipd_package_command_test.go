@@ -9,8 +9,6 @@ import (
 	"os"
 	"testing"
 
-	"chromiumos/test/provision/v2/android-provision/common"
-	"chromiumos/test/provision/v2/android-provision/common/cipd"
 	"github.com/golang/mock/gomock"
 	"go.chromium.org/chromiumos/config/go/test/api"
 	luci_cipd "go.chromium.org/luci/cipd/client/cipd"
@@ -18,7 +16,10 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
+	"chromiumos/test/provision/v2/android-provision/common"
+	"chromiumos/test/provision/v2/android-provision/common/cipd"
 	"chromiumos/test/provision/v2/android-provision/service"
+	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
 )
 
 func TestResolveCIPDPackageCommand(t *testing.T) {
@@ -27,15 +28,15 @@ func TestResolveCIPDPackageCommand(t *testing.T) {
 	defer ctrl.Finish()
 	Convey("ResolveCIPDPackageCommand", t, func() {
 		pkgProto := &api.CIPDPackage{
-			Name: "cipd_path/cipd_package_name",
 			VersionOneof: &api.CIPDPackage_InstanceId{
 				InstanceId: "instanceId",
 			},
 			AndroidPackage: api.AndroidPackage_GMS_CORE,
 		}
+		associatedHost := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
-			nil,
-			"",
+			associatedHost,
+			"dutSerialNumber",
 			nil,
 			[]*api.CIPDPackage{pkgProto},
 		)
@@ -50,11 +51,27 @@ func TestResolveCIPDPackageCommand(t *testing.T) {
 			mockCIPDClient := cipd.NewMockCIPDClientInterface(ctrl)
 			cmd.cipd = mockCIPDClient
 			Convey("New Android Package", func() {
+				provisionPkg.CIPDPackage.PackageProto.Name = "cipd_path/cipd_package_name"
 				pin := luci_cipd_common.Pin{PackageName: "resolved_cipd_package_name", InstanceID: "resolvedInstanceId"}
 				tags := []luci_cipd.TagInfo{{Tag: "arch:arm64"}, {Tag: "build_type:prodrvc"}, {Tag: "dpi:alldpi"}, {Tag: "version_code:222615037"}}
 				d := &luci_cipd.InstanceDescription{InstanceInfo: luci_cipd.InstanceInfo{Pin: pin}, Tags: tags}
 				mockCIPDClient.EXPECT().Describe(gomock.Eq(pkgProto), gomock.Eq(true), gomock.Eq(false)).Return(d, nil).Times(1)
 				So(cmd.Execute(log), ShouldBeNil)
+				So(provisionPkg.CIPDPackage.PackageProto.Name, ShouldEqual, "cipd_path/cipd_package_name")
+				So(provisionPkg.CIPDPackage.PackageName, ShouldEqual, "resolved_cipd_package_name")
+				So(provisionPkg.CIPDPackage.InstanceId, ShouldEqual, "resolvedInstanceId")
+				So(provisionPkg.CIPDPackage.VersionCode, ShouldEqual, "222615037")
+			})
+			Convey("Resolve CIPD package name", func() {
+				provisionPkg.CIPDPackage.PackageProto.Name = ""
+				pin := luci_cipd_common.Pin{PackageName: "resolved_cipd_package_name", InstanceID: "resolvedInstanceId"}
+				tags := []luci_cipd.TagInfo{{Tag: "arch:arm64"}, {Tag: "build_type:prodrvc"}, {Tag: "dpi:alldpi"}, {Tag: "version_code:222615037"}}
+				d := &luci_cipd.InstanceDescription{InstanceInfo: luci_cipd.InstanceInfo{Pin: pin}, Tags: tags}
+				versionArgs := []string{"-s", "dutSerialNumber", "shell", "getprop", "ro.build.version.release"}
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), versionArgs).Return("12", nil).Times(1)
+				mockCIPDClient.EXPECT().Describe(gomock.Eq(pkgProto), gomock.Eq(true), gomock.Eq(false)).Return(d, nil).Times(1)
+				So(cmd.Execute(log), ShouldBeNil)
+				So(provisionPkg.CIPDPackage.PackageProto.Name, ShouldEqual, "chromiumos/infra/skylab/third_party/gmscore/gmscore_prodsc_arm64_alldpi_release_apk")
 				So(provisionPkg.CIPDPackage.PackageName, ShouldEqual, "resolved_cipd_package_name")
 				So(provisionPkg.CIPDPackage.InstanceId, ShouldEqual, "resolvedInstanceId")
 				So(provisionPkg.CIPDPackage.VersionCode, ShouldEqual, "222615037")
