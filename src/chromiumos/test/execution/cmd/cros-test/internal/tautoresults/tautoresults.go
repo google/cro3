@@ -84,7 +84,7 @@ func GetDuration(test test) time.Duration {
 }
 
 // GenerateReport gets a report request from tast and passes on to progress sink.
-func GenerateReport(test test, testID string, resultsDir string) *api.TestCaseResult {
+func GenerateReport(test test, testID string, resultsDir string, testCaseMetadata *api.TestCaseMetadata) *api.TestCaseResult {
 	// For now, assume results will be in $results_dir/"test_results.json"
 	// Mark the result as found.
 	// r.reportedTests[test] = struct{}{}
@@ -102,7 +102,8 @@ func GenerateReport(test test, testID string, resultsDir string) *api.TestCaseRe
 				Tauto: &api.TestHarness_Tauto{},
 			},
 		},
-		Reason: "Result status indicator unknown, defaulting to CRASH",
+		Reason:           "Result status indicator unknown, defaulting to CRASH",
+		TestCaseMetadata: testCaseMetadata,
 	}
 
 	// If there is an errmsg, append it for clarity.
@@ -155,7 +156,7 @@ func GenerateReport(test test, testID string, resultsDir string) *api.TestCaseRe
 }
 
 // MissingTestsReports returns tests not found in the resultsdir, marked as err.
-func (r *Report) MissingTestsReports(reason string) []*api.TestCaseResult {
+func (r *Report) MissingTestsReports(reason string, testNamesToMetadata map[string]*api.TestCaseMetadata) []*api.TestCaseResult {
 	var missingTestResults []*api.TestCaseResult
 	for _, t := range r.tests {
 		if _, ok := r.reportedTests[t]; ok {
@@ -164,6 +165,11 @@ func (r *Report) MissingTestsReports(reason string) []*api.TestCaseResult {
 		testID, ok := r.testNamesToIds[t]
 		if !ok {
 			continue
+		}
+		testMetadata, ok := testNamesToMetadata[t]
+		if !ok {
+			testMetadata = nil
+			log.Printf("failed to find test case metadata for missing test: %v.", t)
 		}
 		missingTestResults = append(missingTestResults, &api.TestCaseResult{
 			TestCaseId: &api.TestCase_Id{Value: testID},
@@ -174,24 +180,24 @@ func (r *Report) MissingTestsReports(reason string) []*api.TestCaseResult {
 					Tauto: &api.TestHarness_Tauto{},
 				},
 			},
+			TestCaseMetadata: testMetadata,
 		})
 	}
 	return missingTestResults
 }
 
 // TestsReports returns results to all tests.
-func TestsReports(resultsDir string, tests []string, testNamesToIds map[string]string, missingReason string) ([]*api.TestCaseResult, error) {
+func TestsReports(resultsDir string, tests []string, testNamesToIds map[string]string, testNamesToMetadata map[string]*api.TestCaseMetadata, missingReason string) ([]*api.TestCaseResult, error) {
 	report := Report{
 		reportedTests:  make(map[string]struct{}),
 		tests:          tests,
 		testResultsDir: resultsDir,
 		testNamesToIds: testNamesToIds,
 	}
-	report.tests = tests
 
 	err := report.loadJSON(resultsDir)
 	if err != nil {
-		return append(report.testCaseResults, report.MissingTestsReports(missingReason)...), err
+		return append(report.testCaseResults, report.MissingTestsReports(missingReason, testNamesToMetadata)...), err
 	}
 	for _, test := range report.RawResults.Tests {
 		var testID string
@@ -200,8 +206,13 @@ func TestsReports(resultsDir string, tests []string, testNamesToIds map[string]s
 			testID = test.Testname
 			log.Printf("failed to find test id for test: %v, will default to this name.", test.Testname)
 		}
+		testMetadata, ok := testNamesToMetadata[test.Testname]
+		if !ok {
+			testMetadata = nil
+			log.Printf("failed to find test case metadata for test: %v.", test.Testname)
+		}
 		report.reportedTests[test.Testname] = struct{}{}
-		report.testCaseResults = append(report.testCaseResults, GenerateReport(test, testID, resultsDir))
+		report.testCaseResults = append(report.testCaseResults, GenerateReport(test, testID, resultsDir, testMetadata))
 	}
-	return append(report.testCaseResults, report.MissingTestsReports(missingReason)...), nil
+	return append(report.testCaseResults, report.MissingTestsReports(missingReason, testNamesToMetadata)...), nil
 }

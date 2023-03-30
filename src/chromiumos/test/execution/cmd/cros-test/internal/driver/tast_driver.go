@@ -45,9 +45,10 @@ func (td *TastDriver) Name() string {
 // RunTests drives a test framework to execute tests.
 func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.CrosTestRequest, tlwAddr string, tests []*api.TestCaseMetadata) (*api.CrosTestResponse, error) {
 	testNamesToIds := getTestNamesToIds(tests)
+	testNamesToMetadata := getTestNamesToMetadata(tests)
 	testNames := getTestNames(tests)
 
-	reportServer, err := tastrpc.NewReportsServer(0, testNames, testNamesToIds, resultsDir)
+	reportServer, err := tastrpc.NewReportsServer(0, testNames, testNamesToIds, testNamesToMetadata, resultsDir)
 	if err != nil {
 		return nil, errors.NewStatusError(errors.ServerStartingError,
 			fmt.Errorf("failed to create tast report server: %v", err))

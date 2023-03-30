@@ -51,7 +51,7 @@ func TestTestsReports(t *testing.T) {
 	}`
 	td, err := ioutil.TempDir("", "example")
 	if err != nil {
-		t.Fatal("Failed to create temporary dictectory: ", err)
+		t.Fatal("Failed to create temporary directory: ", err)
 	}
 	defer os.RemoveAll(td)
 	fn := filepath.Join(td, "results.json")
@@ -84,6 +84,32 @@ func TestTestsReports(t *testing.T) {
 			},
 			StartTime: EXPECTSTARTTIME,
 			Duration:  DURATION105,
+			TestCaseMetadata: &api.TestCaseMetadata{
+				TestCase: &api.TestCase{
+					Name: "infra_pass",
+				},
+				TestCaseInfo: &api.TestCaseInfo{
+					Owners: []*api.Contact{
+						{
+							Email: "owner1@test.com",
+						},
+					},
+					Requirements: []*api.Requirement{
+						{
+							Value: "requirement 1",
+						},
+					},
+					BugComponent: &api.BugComponent{
+						Value: "b/1234",
+					},
+					Criteria: &api.Criteria{
+						Value: "criteria 1",
+					},
+					HwAgnostic: &api.HwAgnostic{
+						Value: true,
+					},
+				},
+			},
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_fail_id"},
@@ -138,7 +164,36 @@ func TestTestsReports(t *testing.T) {
 		"infra_dne":  "infra_dne_id",
 	}
 
-	reports, err := TestsReports(resultsDir, tests, testNamesToIds, "AutoservCrash")
+	testNamesToMetadata := map[string]*api.TestCaseMetadata{
+		"infra_pass": {
+			TestCase: &api.TestCase{
+				Name: "infra_pass",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{
+						Email: "owner1@test.com",
+					},
+				},
+				Requirements: []*api.Requirement{
+					{
+						Value: "requirement 1",
+					},
+				},
+				BugComponent: &api.BugComponent{
+					Value: "b/1234",
+				},
+				Criteria: &api.Criteria{
+					Value: "criteria 1",
+				},
+				HwAgnostic: &api.HwAgnostic{
+					Value: true,
+				},
+			},
+		},
+	}
+
+	reports, err := TestsReports(resultsDir, tests, testNamesToIds, testNamesToMetadata, "AutoservCrash")
 	if err != nil {
 		t.Fatal("Got error from unexpected: ", err)
 	}
@@ -166,6 +221,32 @@ func TestTestsReports_BadJson(t *testing.T) {
 					Tauto: &api.TestHarness_Tauto{},
 				},
 			},
+			TestCaseMetadata: &api.TestCaseMetadata{
+				TestCase: &api.TestCase{
+					Name: "infra_pass",
+				},
+				TestCaseInfo: &api.TestCaseInfo{
+					Owners: []*api.Contact{
+						{
+							Email: "owner1@test.com",
+						},
+					},
+					Requirements: []*api.Requirement{
+						{
+							Value: "requirement 1",
+						},
+					},
+					BugComponent: &api.BugComponent{
+						Value: "b/1234",
+					},
+					Criteria: &api.Criteria{
+						Value: "criteria 1",
+					},
+					HwAgnostic: &api.HwAgnostic{
+						Value: true,
+					},
+				},
+			},
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: "infra_dne_id"},
@@ -186,8 +267,36 @@ func TestTestsReports_BadJson(t *testing.T) {
 		"infra_err":  "infra_err_id",
 		"infra_dne":  "infra_dne_id",
 	}
+	testNamesToMetadata := map[string]*api.TestCaseMetadata{
+		"infra_pass": &api.TestCaseMetadata{
+			TestCase: &api.TestCase{
+				Name: "infra_pass",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{
+						Email: "owner1@test.com",
+					},
+				},
+				Requirements: []*api.Requirement{
+					{
+						Value: "requirement 1",
+					},
+				},
+				BugComponent: &api.BugComponent{
+					Value: "b/1234",
+				},
+				Criteria: &api.Criteria{
+					Value: "criteria 1",
+				},
+				HwAgnostic: &api.HwAgnostic{
+					Value: true,
+				},
+			},
+		},
+	}
 
-	reports, _ := TestsReports(resultsDir, tests, testNamesToIds, missingReason)
+	reports, _ := TestsReports(resultsDir, tests, testNamesToIds, testNamesToMetadata, missingReason)
 
 	for i := 0; i < len(reports); i++ {
 		if !proto.Equal(reports[i], expectedResults[i]) {
@@ -235,6 +344,32 @@ func TestAbortedResults(t *testing.T) {
 			Reason:    "client job was aborted",
 			StartTime: EXPECTSTARTTIME,
 			Duration:  DURATION105,
+			TestCaseMetadata: &api.TestCaseMetadata{
+				TestCase: &api.TestCase{
+					Name: "stub_ServerToClientPass",
+				},
+				TestCaseInfo: &api.TestCaseInfo{
+					Owners: []*api.Contact{
+						{
+							Email: "owner1@test.com",
+						},
+					},
+					Requirements: []*api.Requirement{
+						{
+							Value: "requirement 1",
+						},
+					},
+					BugComponent: &api.BugComponent{
+						Value: "b/1234",
+					},
+					Criteria: &api.Criteria{
+						Value: "criteria 1",
+					},
+					HwAgnostic: &api.HwAgnostic{
+						Value: true,
+					},
+				},
+			},
 		},
 	}
 
@@ -243,8 +378,36 @@ func TestAbortedResults(t *testing.T) {
 	testNamesToIds := map[string]string{
 		"stub_ServerToClientPass": "stub_ServerToClientPass",
 	}
+	testNamesToMetadata := map[string]*api.TestCaseMetadata{
+		"stub_ServerToClientPass": &api.TestCaseMetadata{
+			TestCase: &api.TestCase{
+				Name: "stub_ServerToClientPass",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{
+						Email: "owner1@test.com",
+					},
+				},
+				Requirements: []*api.Requirement{
+					{
+						Value: "requirement 1",
+					},
+				},
+				BugComponent: &api.BugComponent{
+					Value: "b/1234",
+				},
+				Criteria: &api.Criteria{
+					Value: "criteria 1",
+				},
+				HwAgnostic: &api.HwAgnostic{
+					Value: true,
+				},
+			},
+		},
+	}
 
-	reports, err := TestsReports(resultsDir, tests, testNamesToIds, "AutoservCrash")
+	reports, err := TestsReports(resultsDir, tests, testNamesToIds, testNamesToMetadata, "AutoservCrash")
 	if err != nil {
 		t.Fatal("Got error from unexpected: ", err)
 	}
@@ -295,6 +458,32 @@ func TestMalformedResults(t *testing.T) {
 			Reason:    "Result status indicator unknown, defaulting to CRASH: someCrash",
 			StartTime: EXPECTSTARTTIME,
 			Duration:  DURATION105,
+			TestCaseMetadata: &api.TestCaseMetadata{
+				TestCase: &api.TestCase{
+					Name: "stub_ServerToClientPass",
+				},
+				TestCaseInfo: &api.TestCaseInfo{
+					Owners: []*api.Contact{
+						{
+							Email: "owner1@test.com",
+						},
+					},
+					Requirements: []*api.Requirement{
+						{
+							Value: "requirement 1",
+						},
+					},
+					BugComponent: &api.BugComponent{
+						Value: "b/1234",
+					},
+					Criteria: &api.Criteria{
+						Value: "criteria 1",
+					},
+					HwAgnostic: &api.HwAgnostic{
+						Value: true,
+					},
+				},
+			},
 		},
 	}
 
@@ -303,8 +492,36 @@ func TestMalformedResults(t *testing.T) {
 	testNamesToIds := map[string]string{
 		"stub_ServerToClientPass": "stub_ServerToClientPass",
 	}
+	testNamesToMetadata := map[string]*api.TestCaseMetadata{
+		"stub_ServerToClientPass": &api.TestCaseMetadata{
+			TestCase: &api.TestCase{
+				Name: "stub_ServerToClientPass",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{
+						Email: "owner1@test.com",
+					},
+				},
+				Requirements: []*api.Requirement{
+					{
+						Value: "requirement 1",
+					},
+				},
+				BugComponent: &api.BugComponent{
+					Value: "b/1234",
+				},
+				Criteria: &api.Criteria{
+					Value: "criteria 1",
+				},
+				HwAgnostic: &api.HwAgnostic{
+					Value: true,
+				},
+			},
+		},
+	}
 
-	reports, err := TestsReports(resultsDir, tests, testNamesToIds, "AutoservCrash")
+	reports, err := TestsReports(resultsDir, tests, testNamesToIds, testNamesToMetadata, "AutoservCrash")
 	if err != nil {
 		t.Fatal("Got error from unexpected: ", err)
 	}

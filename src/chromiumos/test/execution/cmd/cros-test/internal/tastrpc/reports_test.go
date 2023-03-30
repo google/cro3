@@ -40,7 +40,36 @@ func TestReportsServer_LogStream(t *testing.T) {
 		testName2: testID2,
 	}
 
-	srv, err := NewReportsServer(0, []string{testName1, testName2}, testNamesToIds, resultDir)
+	testNamesToMetadata := map[string]*api.TestCaseMetadata{
+		"test.Name1": {
+			TestCase: &api.TestCase{
+				Name: "test.Name1",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{
+						Email: "owner1@test.com",
+					},
+				},
+				Requirements: []*api.Requirement{
+					{
+						Value: "requirement 1",
+					},
+				},
+				BugComponent: &api.BugComponent{
+					Value: "b/1234",
+				},
+				Criteria: &api.Criteria{
+					Value: "criteria 1",
+				},
+				HwAgnostic: &api.HwAgnostic{
+					Value: true,
+				},
+			},
+		},
+	}
+
+	srv, err := NewReportsServer(0, []string{testName1, testName2}, testNamesToIds, testNamesToMetadata, resultDir)
 	if err != nil {
 		t.Fatalf("Failed to start Reports server: %v", err)
 	}
@@ -104,6 +133,64 @@ func TestReportsServer_ReportResult(t *testing.T) {
 		"SkippedTest": "SkippedTestId",
 		"MissingTest": "MissingTestId",
 	}
+	testNamesToMetadata := map[string]*api.TestCaseMetadata{
+		"PassedTest": {
+			TestCase: &api.TestCase{
+				Name: "PassedTest",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{
+						Email: "owner1@test.com",
+					},
+				},
+				Requirements: []*api.Requirement{
+					{
+						Value: "requirement 1",
+					},
+				},
+				BugComponent: &api.BugComponent{
+					Value: "b/1234",
+				},
+				Criteria: &api.Criteria{
+					Value: "criteria 1",
+				},
+				HwAgnostic: &api.HwAgnostic{
+					Value: true,
+				},
+			},
+		},
+		"SkippedTest": {
+			TestCase: &api.TestCase{
+				Name: "SkippedTest",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				BugComponent: &api.BugComponent{
+					Value: "b/1234",
+				},
+			},
+		},
+		"MissingTest": {
+			TestCase: &api.TestCase{
+				Name: "MissingTest",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Criteria: &api.Criteria{
+					Value: "criteria 2",
+				},
+			},
+		},
+		"FailedTest": {
+			TestCase: &api.TestCase{
+				Name: "FailedTest",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				HwAgnostic: &api.HwAgnostic{
+					Value: false,
+				},
+			},
+		},
+	}
 	testTimePassedTest, err := ptypes.TimestampProto(time.Time{})
 	if err != nil {
 		t.Error("Failed to create start time for PassedTest", err)
@@ -158,8 +245,9 @@ func TestReportsServer_ReportResult(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
-			StartTime: testTimePassedTest,
-			Duration:  ptypes.DurationProto(time.Second),
+			StartTime:        testTimePassedTest,
+			Duration:         ptypes.DurationProto(time.Second),
+			TestCaseMetadata: testNamesToMetadata[tests[0]],
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: testIDs[1]},
@@ -174,8 +262,9 @@ func TestReportsServer_ReportResult(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
-			StartTime: testTimeFailedTest,
-			Duration:  ptypes.DurationProto(time.Second),
+			StartTime:        testTimeFailedTest,
+			Duration:         ptypes.DurationProto(time.Second),
+			TestCaseMetadata: testNamesToMetadata[tests[1]],
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: testIDs[2]},
@@ -190,8 +279,9 @@ func TestReportsServer_ReportResult(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
-			StartTime: testTimeSkippedTest,
-			Duration:  ptypes.DurationProto(0),
+			StartTime:        testTimeSkippedTest,
+			Duration:         ptypes.DurationProto(0),
+			TestCaseMetadata: testNamesToMetadata[tests[2]],
 		},
 	}
 	expectedMissingReports := []*api.TestCaseResult{
@@ -204,11 +294,12 @@ func TestReportsServer_ReportResult(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
+			TestCaseMetadata: testNamesToMetadata[tests[3]],
 		},
 	}
 
 	// Setting up reports server and client
-	reportsServer, err := NewReportsServer(0, tests, testNamesToIds, resultDir)
+	reportsServer, err := NewReportsServer(0, tests, testNamesToIds, testNamesToMetadata, resultDir)
 	if err != nil {
 		t.Fatalf("Failed to start Reports server: %v", err)
 	}
@@ -269,6 +360,64 @@ func TestReportsServer_ReportResultRetry(t *testing.T) {
 		"FailedTest":  "FailedTestId",
 		"SkippedTest": "SkippedTestId",
 		"MissingTest": "MissingTestId",
+	}
+	testNamesToMetadata := map[string]*api.TestCaseMetadata{
+		"PassedTest": {
+			TestCase: &api.TestCase{
+				Name: "PassedTest",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Owners: []*api.Contact{
+					{
+						Email: "owner1@test.com",
+					},
+				},
+				Requirements: []*api.Requirement{
+					{
+						Value: "requirement 1",
+					},
+				},
+				BugComponent: &api.BugComponent{
+					Value: "b/1234",
+				},
+				Criteria: &api.Criteria{
+					Value: "criteria 1",
+				},
+				HwAgnostic: &api.HwAgnostic{
+					Value: true,
+				},
+			},
+		},
+		"SkippedTest": {
+			TestCase: &api.TestCase{
+				Name: "SkippedTest",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				BugComponent: &api.BugComponent{
+					Value: "b/1234",
+				},
+			},
+		},
+		"MissingTest": {
+			TestCase: &api.TestCase{
+				Name: "MissingTest",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				Criteria: &api.Criteria{
+					Value: "criteria 2",
+				},
+			},
+		},
+		"FailedTest": {
+			TestCase: &api.TestCase{
+				Name: "FailedTest",
+			},
+			TestCaseInfo: &api.TestCaseInfo{
+				HwAgnostic: &api.HwAgnostic{
+					Value: false,
+				},
+			},
+		},
 	}
 	testTimePassedTest, err := ptypes.TimestampProto(time.Time{})
 	if err != nil {
@@ -332,8 +481,9 @@ func TestReportsServer_ReportResultRetry(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
-			StartTime: testTimePassedTest,
-			Duration:  ptypes.DurationProto(time.Second),
+			StartTime:        testTimePassedTest,
+			Duration:         ptypes.DurationProto(time.Second),
+			TestCaseMetadata: testNamesToMetadata[tests[0]],
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: testIDs[2]},
@@ -348,8 +498,9 @@ func TestReportsServer_ReportResultRetry(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
-			StartTime: testTimeSkippedTest,
-			Duration:  ptypes.DurationProto(0),
+			StartTime:        testTimeSkippedTest,
+			Duration:         ptypes.DurationProto(0),
+			TestCaseMetadata: testNamesToMetadata[tests[2]],
 		},
 		{
 			TestCaseId: &api.TestCase_Id{Value: testIDs[1]},
@@ -363,8 +514,9 @@ func TestReportsServer_ReportResultRetry(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
-			StartTime: testTimeFailedTestRetry,
-			Duration:  ptypes.DurationProto(time.Second),
+			StartTime:        testTimeFailedTestRetry,
+			Duration:         ptypes.DurationProto(time.Second),
+			TestCaseMetadata: testNamesToMetadata[tests[1]],
 		},
 	}
 	expectedMissingReports := []*api.TestCaseResult{
@@ -377,11 +529,12 @@ func TestReportsServer_ReportResultRetry(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
+			TestCaseMetadata: testNamesToMetadata[tests[3]],
 		},
 	}
 
 	// Setting up reports server and client
-	reportsServer, err := NewReportsServer(0, tests, testNamesToIds, resultDir)
+	reportsServer, err := NewReportsServer(0, tests, testNamesToIds, testNamesToMetadata, resultDir)
 	if err != nil {
 		t.Fatalf("Failed to start Reports server: %v", err)
 	}

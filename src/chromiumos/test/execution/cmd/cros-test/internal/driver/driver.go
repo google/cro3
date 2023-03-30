@@ -21,6 +21,16 @@ func getTestNamesToIds(tests []*api.TestCaseMetadata) map[string]string {
 	return testNamesToIds
 }
 
+// Helper function that creates a quick lookup to get test metadata by test name
+func getTestNamesToMetadata(tests []*api.TestCaseMetadata) map[string]*api.TestCaseMetadata {
+	testNamesToMetadata := make(map[string]*api.TestCaseMetadata)
+	for _, tc := range tests {
+		testNamesToMetadata[tc.TestCase.Name] = tc
+	}
+
+	return testNamesToMetadata
+}
+
 // Helper function to get list of test names from TestCaseMetadata array
 func getTestNames(tests []*api.TestCaseMetadata) []string {
 	testNames := []string{}

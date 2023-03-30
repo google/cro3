@@ -51,6 +51,7 @@ func (td *TautoDriver) Name() string {
 // RunTests drives a test framework to execute tests.
 func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, req *api.CrosTestRequest, tlwAddr string, tests []*api.TestCaseMetadata) (*api.CrosTestResponse, error) {
 	testNamesToIds := getTestNamesToIds(tests)
+	testNamesToMetadata := getTestNamesToMetadata(tests)
 	testNames := getTestNames(tests)
 
 	primary, err := device.FillDUTInfo(req.Primary, "")
@@ -131,7 +132,13 @@ func (td *TautoDriver) RunTests(ctx context.Context, resultsDir string, req *api
 		MissingTestErrMsg = fmt.Sprintf("Test did not run due to %s", err)
 	}
 
-	results, err := tautoresults.TestsReports(resultsDir, testNames, testNamesToIds, MissingTestErrMsg)
+	results, err := tautoresults.TestsReports(
+		resultsDir,
+		testNames,
+		testNamesToIds,
+		testNamesToMetadata,
+		MissingTestErrMsg,
+	)
 
 	if err != nil {
 		return &api.CrosTestResponse{}, err

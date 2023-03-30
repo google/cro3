@@ -30,12 +30,13 @@ type ReportsServer struct {
 
 	mu sync.Mutex // A mutex to protect reportedTests and testCaseResults.
 
-	tests           []string              // Tests to be run.
-	reportedTests   map[string]struct{}   // Tests that have received results.
-	testCaseResults []*api.TestCaseResult // Reported test results.
-	testResultsDir  string                // Parent directory for all test results.
-	testNamesToIds  map[string]string     // Mapping between test names and test ids.
-	allErrors       []error               // All errors that has been encountered.
+	tests               []string                         // Tests to be run.
+	reportedTests       map[string]struct{}              // Tests that have received results.
+	testCaseResults     []*api.TestCaseResult            // Reported test results.
+	testResultsDir      string                           // Parent directory for all test results.
+	testNamesToIds      map[string]string                // Mapping between test names and test ids.
+	testNamesToMetadata map[string]*api.TestCaseMetadata // Mapping between test names and test metadata.
+	allErrors           []error                          // All errors that has been encountered.
 }
 
 var _ protocol.ReportsServer = (*ReportsServer)(nil)
@@ -61,6 +62,12 @@ func (s *ReportsServer) ReportResult(ctx context.Context, req *protocol.ReportRe
 			fmt.Errorf("failed to find test id for test %v", req.Test)))
 		return &protocol.ReportResultResponse{}, nil
 	}
+	testMetadata, ok := s.testNamesToMetadata[req.Test]
+	if !ok {
+		testMetadata = nil
+		s.allErrors = append(s.allErrors, errors.NewStatusError(errors.MissingArgument,
+			fmt.Errorf("failed to find test metadata for test %v", req.Test)))
+	}
 	testResult := api.TestCaseResult{
 		TestCaseId: &api.TestCase_Id{Value: testID},
 		ResultDirPath: &_go.StoragePath{
@@ -73,8 +80,9 @@ func (s *ReportsServer) ReportResult(ctx context.Context, req *protocol.ReportRe
 				Tast: &api.TestHarness_Tast{},
 			},
 		},
-		StartTime: req.StartTime,
-		Duration:  req.Duration,
+		StartTime:        req.StartTime,
+		Duration:         req.Duration,
+		TestCaseMetadata: testMetadata,
 	}
 	if len(req.Errors) > 0 {
 		testResult.Verdict = &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}}
@@ -125,6 +133,13 @@ func (s *ReportsServer) MissingTestsReports(reason string) []*api.TestCaseResult
 		if !ok {
 			continue
 		}
+		// We still should be able to map the missing tests' metadata.
+		testMetadata, ok := s.testNamesToMetadata[t]
+		if !ok {
+			testMetadata = nil
+			s.allErrors = append(s.allErrors, errors.NewStatusError(errors.MissingArgument,
+				fmt.Errorf("failed to find test metadata for missing test %v", t)))
+		}
 		missingTestResults = append(missingTestResults, &api.TestCaseResult{
 			TestCaseId: &api.TestCase_Id{Value: testID},
 			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
@@ -134,6 +149,7 @@ func (s *ReportsServer) MissingTestsReports(reason string) []*api.TestCaseResult
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
+			TestCaseMetadata: testMetadata,
 		})
 	}
 	return missingTestResults
@@ -163,18 +179,19 @@ func (s *ReportsServer) Errors() []error {
 
 // NewReportsServer starts a Reports gRPC service and returns a ReportsServer object when success.
 // The caller is responsible for calling Stop() method.
-func NewReportsServer(port int, tests []string, testNamesToIds map[string]string, resultDir string) (*ReportsServer, error) {
+func NewReportsServer(port int, tests []string, testNamesToIds map[string]string, testNamesToMetadata map[string]*api.TestCaseMetadata, resultDir string) (*ReportsServer, error) {
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
 	}
 	s := ReportsServer{
-		srv:            grpc.NewServer(),
-		listenerAddr:   l.Addr(),
-		reportedTests:  make(map[string]struct{}),
-		tests:          tests,
-		testResultsDir: resultDir,
-		testNamesToIds: testNamesToIds,
+		srv:                 grpc.NewServer(),
+		listenerAddr:        l.Addr(),
+		reportedTests:       make(map[string]struct{}),
+		tests:               tests,
+		testResultsDir:      resultDir,
+		testNamesToIds:      testNamesToIds,
+		testNamesToMetadata: testNamesToMetadata,
 	}
 
 	protocol.RegisterReportsServer(s.srv, &s)
