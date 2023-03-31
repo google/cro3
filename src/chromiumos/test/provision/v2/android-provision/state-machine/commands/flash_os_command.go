@@ -99,8 +99,11 @@ func (c *FlashOsCommand) flashAll() error {
 		if strings.HasSuffix(f, ".zip") {
 			dut := c.svc.DUT
 			provisionDir := c.svc.OS.ImagePath.DutAndroidProductOut
+			tmpDir := filepath.Join(c.svc.OS.ImagePath.DutAndroidProductOut, "/tmp")
+			dut.AssociatedHost.CreateDirectories(c.ctx, []string{tmpDir})
 			args := []string{"-s", dut.SerialNumber, "update", filepath.Join(provisionDir, f)}
-			_, err := dut.AssociatedHost.RunCmd(c.ctx, "fastboot", args)
+			// fastboot fails if TMPDIR does not point to a directory in stateful_partition.
+			_, err := dut.AssociatedHost.RunCmd(c.ctx, "TMPDIR="+tmpDir+" fastboot", args)
 			return err
 		}
 	}

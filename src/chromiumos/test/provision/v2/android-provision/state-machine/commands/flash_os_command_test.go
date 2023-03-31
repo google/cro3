@@ -7,6 +7,7 @@ package commands
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -50,6 +51,7 @@ func TestFlashOsCommand(t *testing.T) {
 			waitArgs := []string{"devices", "|", "grep", "-sw", "dutSerialNumber", "|", "awk", "'{print $2}'"}
 			fetchBuildIdArgs := []string{"-s", "dutSerialNumber", "shell", "getprop", "ro.build.id"}
 			fetchOSVersionArgs := []string{"-s", "dutSerialNumber", "shell", "getprop", "ro.build.version.incremental"}
+			tmpDirPath := filepath.Join(svc.OS.ImagePath.DutAndroidProductOut, "/tmp")
 
 			gomock.InOrder(
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(bootloaderArgs)).Return("any string", nil).Times(1),
@@ -58,7 +60,8 @@ func TestFlashOsCommand(t *testing.T) {
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(radioArgs)).Return("any string", nil).Times(1),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(rebootArgs)).Return("any string", nil).Times(1),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(waitArgs)).Return("fastboot", nil).Times(1),
-				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("fastboot"), gomock.Eq(updateArgs)).Return("any string", nil).Times(1),
+				associatedHost.EXPECT().CreateDirectories(gomock.Any(), []string{tmpDirPath}),
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("TMPDIR="+tmpDirPath+" fastboot"), gomock.Eq(updateArgs)).Return("any string", nil).Times(1),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(waitArgs)).Return("device", nil).Times(3),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(fetchBuildIdArgs)).Return("any string", nil).Times(1),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(fetchOSVersionArgs)).Return("1234567890", nil).Times(1),
