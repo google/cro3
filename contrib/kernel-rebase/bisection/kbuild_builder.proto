@@ -1,0 +1,107 @@
+syntax = "proto2";
+
+// the kernel builder service definition
+service KbuildBuilder {
+  // create a kernel bisection build
+  rpc CreateBisectKbuild(BisectKbuildRequest) returns (BisectKbuildResponse) {}
+  // provision a DUT for bisection
+  rpc ProvisionDut(DutProvisionRequest) returns (DutProvisionResponse) {}
+}
+
+enum Status {
+  COMPLETED = 0x00;
+  IN_PROGRESS = 0x01;
+  FAILED = 0x02;
+}
+
+/*
+ * kernel bisection build request
+ *
+ * commit_sha - full commit sha to build kernel from, e.g.
+ * ebddb1404900657b7f03a56ee4c34a9d218c4030 from
+ * https://chromium.googlesource.com/chromiumos/third_party/kernel
+ *
+ * board_name - board name for which kernel will be built e.g.
+ * volteer-kernelnext
+ *
+ * branch_name - branch name to build kernel from, e.g.
+ * chromeos-kernelupstream-6.2-rc3
+ *
+ */
+message BisectKbuildRequest {
+  required string commit_sha = 1;
+  required string board_name = 2;
+  required string branch_name = 3;
+}
+
+/*
+ * kernel bisection build response
+ *
+ * kbuild_status:
+ * COMPLETED - kernel bisection build was completed succesfully
+ *
+ * IN_PROGRESS - kernel builder is busy executing kernel build or DUT
+ * provisioning
+ *
+ * FAILED - kernel bisection build failed
+ *
+ *
+ *
+ * kbuild_archive_path - when status_code is set to COMPLETED then this field
+ * includes path to the kernel build archive stored on GCS, e.g.
+ * gs://kcr-bisection/volteer-kernelnext_chromeos-kernelupstream-6.2-rc3_ebddb1404900657b7f03a56ee4c34a9d218c4030.tgz
+ *
+ * error_msg - when status_code is set to FAILED then this field includes the
+ * error description
+ *
+ */
+message BisectKbuildResponse {
+  required Status kbuild_status = 1;
+  oneof value {
+    string kbuild_archive_path = 2;
+    string error_msg = 3;
+  }
+}
+
+/*
+ * provision a DUT for bisection request
+ *
+ * dut_ip_adress - IPv4 address of a DUT to provision
+ *
+ * kbuild_archive_path - includes a path to kernel build archive on GCS which
+ * will be used to provision a DUT, e.g.
+ * gs://kcr-bisection/volteer-kernelnext_chromeos-kernelupstream-6.2-rc3_ebddb1404900657b7f03a56ee4c34a9d218c4030.tgz
+ *
+ */
+message DutProvisionRequest {
+  required string dut_ip_address = 1;
+  required string kbuild_archive_path = 2;
+}
+
+/*
+ * DUT provision response
+ *
+ * provision_status:
+ * COMPLETED - DUT provisioning was completed succesfully
+ *
+ * IN_PROGRESS - kernel builder is busy executing kernel build or DUT
+ * provisioning
+ *
+ * FAILED - DUT provisioning failed
+ *
+ *
+ *
+ * kernel_version - when status_code is set to COMPLETED then this field
+ * includes kernel version the DUT was provisioned to
+ *
+ * error_msg - when status_code is set to FAILED then this field includes the
+ * error description
+ *
+ */
+message DutProvisionResponse {
+  required Status provision_status = 1;
+  oneof value {
+    string kernel_version = 2;
+    string error_msg = 3;
+  }
+}
