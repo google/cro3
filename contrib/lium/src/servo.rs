@@ -77,12 +77,22 @@ fn get_usb_sysfs_path_stem(path: &str) -> String {
 pub fn get_servo_attached_to_cr50(cr50: &LocalServo) -> Result<LocalServo> {
     let usb_path = cr50.usb_sysfs_path();
     let common_path = get_usb_sysfs_path_stem(usb_path);
-    let list = ServoList::read()?;
-    list.devices()
-        .iter()
+    let list = discover()?;
+    list.iter()
+        .filter(|s| s.is_servo())
         .find(|s| get_usb_sysfs_path_stem(s.usb_sysfs_path()) == common_path)
         .cloned()
-        .context(anyhow!("No servo attached with the Cr50 found"))
+        .context(anyhow!("No Cr50 attached with the Servo found"))
+}
+pub fn get_cr50_attached_to_servo(servo: &LocalServo) -> Result<LocalServo> {
+    let usb_path = servo.usb_sysfs_path();
+    let common_path = get_usb_sysfs_path_stem(usb_path);
+    let list = discover()?;
+    list.iter()
+        .filter(|s| s.is_cr50())
+        .find(|s| get_usb_sysfs_path_stem(s.usb_sysfs_path()) == common_path)
+        .cloned()
+        .context(anyhow!("No Cr50 attached with the Servo found"))
 }
 
 fn read_usb_attribute(dir: &Path, name: &str) -> Result<String> {
@@ -416,11 +426,7 @@ impl LocalServo {
     }
     pub fn read_gbb_flags(&self, repo: &str) -> Result<u64> {
         if !self.is_cr50() {
-            return Err(anyhow!(
-                "{} is not a Cr50, but {}",
-                self.serial(),
-                self.product()
-            ));
+            return get_cr50_attached_to_servo(self)?.read_gbb_flags(repo);
         }
         let chroot = Chroot::new(repo)?;
         eprintln!("Reading gbb flags via Cr50...");
