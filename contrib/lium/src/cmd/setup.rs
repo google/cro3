@@ -2,30 +2,24 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::fs;
-
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Error;
 use anyhow::Result;
 use argh::FromArgs;
-use lazy_static::lazy_static;
 use lium::chroot::Chroot;
 use lium::config::Config;
 use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::register_dut;
 use lium::dut::DutInfo;
 use lium::repo::get_repo_dir;
+use lium::servo::get_servo_attached_to_cr50;
 use lium::servo::LocalServo;
 use lium::servo::ServoList;
 use lium::util::gen_path_in_lium_dir;
 use lium::util::get_stdout;
 use lium::util::run_bash_command;
-use regex::Regex;
-
-lazy_static! {
-    static ref RE_USB_SYSFS_PATH_FUNC: Regex = Regex::new(r"\.[0-9]+$").unwrap();
-}
+use std::fs;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// DUT controller
@@ -124,21 +118,6 @@ fn setup_dut_ccd_open(cr50: &LocalServo) -> Result<()> {
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
     Err(anyhow!("Failed to get rma_auth code."))
-}
-
-fn get_usb_sysfs_path_stem(path: &str) -> String {
-    RE_USB_SYSFS_PATH_FUNC.replace(path, "").to_string()
-}
-
-fn get_servo_attached_to_cr50(cr50: &LocalServo) -> Result<LocalServo> {
-    let usb_path = cr50.usb_sysfs_path();
-    let common_path = get_usb_sysfs_path_stem(usb_path);
-    let list = ServoList::read()?;
-    list.devices()
-        .iter()
-        .find(|s| get_usb_sysfs_path_stem(s.usb_sysfs_path()) == common_path)
-        .cloned()
-        .context(anyhow!("No servo attached with the Cr50 found"))
 }
 
 fn ensure_dut_network_connection(servo: &mut LocalServo) -> Result<DutInfo> {
