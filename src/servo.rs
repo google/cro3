@@ -47,6 +47,7 @@ lazy_static! {
         Regex::new(r"(?P<addr>([0-9A-Za-z]{2}:){5}([0-9A-Za-z]{2}))").unwrap();
     static ref RE_EC_VERSION: Regex = Regex::new(r"RO:\s*(?P<version>.*)\n").unwrap();
     static ref RE_GBB_FLAGS: Regex = Regex::new(r"^flags: 0x(?P<flags>[0-9a-fA-F]+)$").unwrap();
+    static ref RE_USB_SYSFS_PATH_FUNC: Regex = Regex::new(r"\.[0-9]+$").unwrap();
 }
 #[cfg(test)]
 mod tests {
@@ -67,6 +68,21 @@ mod tests {
             "000040b9"
         );
     }
+}
+
+fn get_usb_sysfs_path_stem(path: &str) -> String {
+    RE_USB_SYSFS_PATH_FUNC.replace(path, "").to_string()
+}
+
+pub fn get_servo_attached_to_cr50(cr50: &LocalServo) -> Result<LocalServo> {
+    let usb_path = cr50.usb_sysfs_path();
+    let common_path = get_usb_sysfs_path_stem(usb_path);
+    let list = ServoList::read()?;
+    list.devices()
+        .iter()
+        .find(|s| get_usb_sysfs_path_stem(s.usb_sysfs_path()) == common_path)
+        .cloned()
+        .context(anyhow!("No servo attached with the Cr50 found"))
 }
 
 fn read_usb_attribute(dir: &Path, name: &str) -> Result<String> {
