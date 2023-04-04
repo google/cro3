@@ -17,7 +17,7 @@ fi
 
 if [[ "$#" -lt 1 ]]; then
   echo "Usage: ${SCRIPT} reference_name"
-  echo "e.g. ${SCRIPT} hatch | puff | volteer2 | waddledee | waddledoo | lalala | trembyle | dalboz | brya0 | guybrush | nereid | nivviks | geralt"
+  echo "e.g. ${SCRIPT} hatch | puff | volteer2 | waddledee | waddledoo | lalala | trembyle | dalboz | brya0 | guybrush | nereid | nivviks | geralt | rex0"
   echo "End-to-end test to create a new variant of a reference board"
   echo "Script version ${VERSION}"
   exit 1
@@ -167,6 +167,17 @@ case "${REFERENCE}" in
     SUPPORTS_DETACHABLE=1
     ;;
 
+  rex0)
+    BASE=rex
+    NEW=eris
+    CONFIG_DIR=/mnt/host/source/src/project/rex
+    OVERLAY_DIR=/mnt/host/source/src/private-overlays/overlay-rex-private/chromeos-base/chromeos-config-bsp-private
+    FITIMAGE=rex0
+    FITIMAGE_OUTPUTS_DIR=/mnt/host/source/src/private-overlays/baseboard-rex-private/sys-boot/coreboot-private-files-baseboard-rex/files/blobs
+    FITIMAGE_FILES_DIR=/mnt/host/source/src/private-overlays/baseboard-rex-private/sys-boot/coreboot-private-files-baseboard-rex/files
+    SUPPORTS_DC_VARIANT=1
+    ;;
+
   *)
     echo Unsupported reference board "${REFERENCE}"
     exit 1
@@ -225,7 +236,7 @@ cleanup() {
       rm -f "fitimage-${NEW}.map"
     fi
     # Clean up the extra Brya fitimage files, too.
-    if [[ "${REFERENCE}" == "brya0" || "${REFERENCE}" == "nereid" || "${REFERENCE}" == "nivviks" ]] ; then
+    if [[ "${REFERENCE}" == "brya0" || "${REFERENCE}" == "nereid" || "${REFERENCE}" == "nivviks" || "${REFERENCE}" == "rex0" ]] ; then
       pushd "${FITIMAGE_FILES_DIR}/blobs"
       rm -f "csme-${NEW}.bin"
       rm -f "descriptor-${NEW}.bin"
@@ -320,7 +331,7 @@ if [[ -n ${FITIMAGE_OUTPUTS_DIR+x} ]] ; then
     popd
     pushd "${FITIMAGE_FILES_DIR}/maps"
     cp "fitimage-${REFERENCE}.map" "fitimage-${NEW}.map"
-  elif [[ "${REFERENCE}" == "brya0" || "${REFERENCE}" == "nereid" || "${REFERENCE}" == "nivviks" ]] ; then
+  elif [[ "${REFERENCE}" == "brya0" || "${REFERENCE}" == "nereid" || "${REFERENCE}" == "nivviks" || "${REFERENCE}" == "rex0" ]] ; then
     pushd "${FITIMAGE_OUTPUTS_DIR}"
     cp "csme-${FITIMAGE}.bin" "csme-${NEW}.bin"
     cp "descriptor-${FITIMAGE}.bin" "descriptor-${NEW}.bin"
