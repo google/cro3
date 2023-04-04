@@ -57,43 +57,6 @@ func TestExtractZipCommand(t *testing.T) {
 			}}
 		ctx := context.Background()
 		cmd := NewExtractZipCommand(ctx, svc)
-
-		Convey("Execute - OSFetch", func() {
-			svc.OS.ImagePath.GsPath = "gs://bucket/folder/image.zip"
-			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.OSFetch)
-			log, _ := common.SetUpLog(provisionDir)
-			files := "bootloader.img radio.img update.zip"
-
-			infoArgs := []string{"-1", "dutProvisionDir/image.zip", "|", "grep", "-E", "'\\.(img|zip)$'", "|", "awk", "'{print}'", "ORS=' '"}
-			unzipArgs := []string{"-oq", "dutProvisionDir/image.zip", files, "-d", "dutProvisionDir"}
-			gomock.InOrder(
-				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("zipinfo"), gomock.Eq(infoArgs)).Return(files, nil).Times(1),
-				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("unzip"), gomock.Eq(unzipArgs)).Return("", nil).Times(1),
-			)
-			So(cmd.Execute(log), ShouldBeNil)
-			So(svc.OS.ImagePath.Files, ShouldResemble, []string{"bootloader.img", "radio.img", "update.zip"})
-		})
-		Convey("Execute - OSFetch - No zip file", func() {
-			svc.OS.ImagePath.GsPath = ""
-			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.OSFetch)
-			log, _ := common.SetUpLog(provisionDir)
-
-			associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("zipinfo"), gomock.Any()).Times(0)
-			associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("unzip"), gomock.Any()).Times(0)
-			So(cmd.Execute(log), ShouldBeNil)
-			So(svc.OS.ImagePath.Files, ShouldBeEmpty)
-		})
-		Convey("Execute - OSFetch - No image files", func() {
-			svc.OS.ImagePath.GsPath = "gs://bucket/folder/image.zip"
-			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.OSFetch)
-			log, _ := common.SetUpLog(provisionDir)
-
-			infoArgs := []string{"-1", "dutProvisionDir/image.zip", "|", "grep", "-E", "'\\.(img|zip)$'", "|", "awk", "'{print}'", "ORS=' '"}
-			associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("zipinfo"), gomock.Eq(infoArgs)).Return("", nil).Times(1)
-			associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("unzip"), gomock.Any()).Times(0)
-			So(cmd.Execute(log), ShouldNotBeNil)
-			So(svc.OS.ImagePath.Files, ShouldBeEmpty)
-		})
 		Convey("Execute - PackageFetch", func() {
 			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.PackageFetch)
 			mockZipReader := zip.NewMockZipReaderInterface(ctrl)

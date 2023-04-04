@@ -8,7 +8,6 @@ import (
 	"context"
 	"log"
 	"path/filepath"
-	"strings"
 
 	"chromiumos/test/provision/v2/android-provision/common"
 	"go.chromium.org/chromiumos/config/go/test/api"
@@ -39,8 +38,6 @@ func (c *ExtractZipCommand) Execute(log *log.Logger) error {
 		switch stage {
 		case common.PackageFetch:
 			err = c.extractCIPDPackages()
-		case common.OSFetch:
-			err = c.extractOsImage()
 		}
 	} else {
 		err = errors.Reason("provision stage is not set").Err()
@@ -63,35 +60,6 @@ func (c *ExtractZipCommand) GetErrorMessage() string {
 
 func (c *ExtractZipCommand) GetStatus() api.InstallResponse_Status {
 	return api.InstallResponse_STATUS_PRE_PROVISION_SETUP_FAILED
-}
-
-// extractOsImage extract OS images from a zip file uploaded to associated host.
-func (c *ExtractZipCommand) extractOsImage() error {
-	osImage := c.svc.OS
-	if osImage == nil || !strings.HasSuffix(osImage.ImagePath.GsPath, ".zip") {
-		// There is no zipped image. Nothing to extract
-		return nil
-	}
-	dut := c.svc.DUT
-	dutProvisionDir := c.svc.OS.ImagePath.DutAndroidProductOut
-	zipFile := filepath.Join(dutProvisionDir, filepath.Base(osImage.ImagePath.GsPath))
-	// List the image files to extract
-	args := []string{"-1", zipFile, "|", "grep", "-E", "'\\.(img|zip)$'", "|", "awk", "'{print}'", "ORS=' '"}
-	files, err := dut.AssociatedHost.RunCmd(c.ctx, "zipinfo", args)
-	if err != nil {
-		return err
-	}
-	if files == "" {
-		return errors.Reason("image files not found").Err()
-	}
-	// Unzip the image files
-	args = []string{"-oq", zipFile, files, "-d", dutProvisionDir}
-	if _, err = dut.AssociatedHost.RunCmd(c.ctx, "unzip", args); err != nil {
-		return err
-	}
-	// Populate the list of image files to flash
-	c.svc.OS.ImagePath.Files = strings.Fields(files)
-	return nil
 }
 
 // extractCIPDPackages extracts Android package (APK) file from CIPD package
