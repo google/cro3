@@ -62,7 +62,8 @@ impl CrosWebServer {
     fn get_json_content<T: DeserializeOwned>(
         request: &mut tiny_http::Request,
     ) -> std::result::Result<T, ServerError> {
-        if CrosWebServer::get_content_type(request).starts_with("application/json") {
+        let content_type = CrosWebServer::get_content_type(request);
+        if content_type.starts_with("application/json") {
             let mut content = String::new();
             if let Err(error) = request.as_reader().read_to_string(&mut content) {
                 println!("Failed to read JSON content");
@@ -70,9 +71,10 @@ impl CrosWebServer {
             }
             return common::parse_string_to_json(&mut content);
         }
-        return Err(ServerError(
-            "The Content type is not application/json".to_owned(),
-        ));
+        return Err(ServerError(format!(
+            "The Content type {} is not application/json",
+            content_type
+        )));
     }
 
     fn handle_entitlement_check(&mut self, mut request: tiny_http::Request, imeisv: String) {
@@ -114,13 +116,18 @@ impl CrosWebServer {
 
     /// Handles all the server commands that will change the server behavior. The commands should be json values
     /// that include the API version, the command name, and the parameters applicable to that command.
-    fn handle_server_command(&mut self, mut request: tiny_http::Request, imeisv: String) {
+    fn handle_server_command(
+        &mut self,
+        mut request: tiny_http::Request,
+        imeisv: String,
+        request_ip: String,
+    ) {
         match CrosWebServer::get_json_content::<common::ServerCommand>(&mut request) {
             Ok(server_command) => {
                 println!(
                     "Server Command received: {} ip:{}",
                     server_command.command.as_str(),
-                    request.remote_addr().ip().to_string()
+                    request_ip
                 );
                 let result: Result<(), Box<dyn Error>> = match server_command.command.as_str() {
                     "SetupEntitlementReturnCodeForDevice"
@@ -153,10 +160,12 @@ impl CrosWebServer {
         &mut self,
         request: tiny_http::Request,
     ) -> std::result::Result<(), std::io::Error> {
-        let imeisv = match self
-            .amarisoft
-            .get_imeisv(request.remote_addr().ip().to_string().as_str())
-        {
+        let mut request_ip = request.remote_addr().ip().to_string();
+        // IPv4 addresses are sometimes converted to IPv6 addresses
+        if request_ip.starts_with("::ffff:192.") {
+            request_ip = request_ip.replace("::ffff:", "")
+        }
+        let imeisv = match self.amarisoft.get_imeisv(request_ip.as_str()) {
             Ok(val) => val,
             Err(error) => {
                 println!("Failed to get imeisv:{:?}", error);
@@ -190,7 +199,7 @@ impl CrosWebServer {
             "/entitlement_check" => self.handle_entitlement_check(request, imeisv),
             // `server_command` implements the first version of this API. Any major changes on the API or implementation should be added by adding a new url(e.g. server_command_v2)
             // because the server should be backwards compatible.
-            "/server_command" => self.handle_server_command(request, imeisv),
+            "/server_command" => self.handle_server_command(request, imeisv, request_ip),
             _ => CrosWebServer::respond_http_response(
                 request,
                 r###"<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>cros_webserver!</title></head><body><h1>Error 404</h1>
@@ -205,7 +214,7 @@ impl CrosWebServer {
 }
 
 fn main() -> std::result::Result<(), std::io::Error> {
-    let server = tiny_http::Server::http(format!("0.0.0.0:{}", SERVER_PORT)).unwrap();
+    let server = tiny_http::Server::http(format!("[::]:{}", SERVER_PORT)).unwrap();
     let mut cros_webserver = CrosWebServer::new();
     loop {
         // blocks until the next request is received

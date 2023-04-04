@@ -7,6 +7,8 @@ use crate::common::ServerError;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::error::Error;
+use std::net::Ipv6Addr;
+use std::str::FromStr;
 use std::{collections::HashMap, str, time};
 use tungstenite::{
     client::IntoClientRequest,
@@ -42,15 +44,15 @@ impl AmarisoftAPI {
         }
     }
 
-    pub fn get_imeisv(&mut self, ip: &str) -> std::result::Result<String, Box<dyn Error>> {
+    pub fn get_imeisv(&mut self, dut_ip: &str) -> std::result::Result<String, Box<dyn Error>> {
         // cache the value for 5 minutes
-        if let Some(val) = self.imeisv_cache.get_mut(ip) {
+        if let Some(val) = self.imeisv_cache.get_mut(dut_ip) {
             if time::Instant::now().duration_since(val.last_retrieved)
                 < time::Duration::from_secs(60 * 5)
             {
                 println!(
                     "Returning cached imeisv value. ip:{} imeisv:{}",
-                    ip, val.imeisv
+                    dut_ip, val.imeisv
                 );
                 return Ok(val.imeisv.clone());
             }
@@ -64,13 +66,21 @@ impl AmarisoftAPI {
                 continue;
             }
             for bearer in Self::extract_member::<Vec<Value>>(&ue, "bearers", &data)? {
-                let ipv4 = bearer["ip"].as_str().unwrap_or_default();
-                let ipv6 = bearer["ipv6"].as_str().unwrap_or_default();
-                if ip == ipv6 || ip == ipv4 {
+                let ipv4_match = bearer["ip"].as_str().unwrap_or_default() == dut_ip;
+                let mut ipv6_match = false;
+                if let (Ok(ipv6), Ok(dut_ipv6)) = (
+                    Ipv6Addr::from_str(bearer["ipv6"].as_str().unwrap_or_default()),
+                    Ipv6Addr::from_str(dut_ip),
+                ) {
+                    if ipv6.octets()[..8] == dut_ipv6.octets()[..8] {
+                        ipv6_match = true;
+                    }
+                }
+                if ipv4_match || ipv6_match {
                     let imeisv = Self::extract_member::<String>(&ue, "imeisv", &data)?;
-                    println!("Found matching ip: {:?}  imeisv:{:?}", ip, imeisv);
+                    println!("Found matching ip: {:?}  imeisv:{:?}", dut_ip, imeisv);
                     self.imeisv_cache.insert(
-                        ip.to_string(),
+                        dut_ip.to_string(),
                         ImeisvCache {
                             imeisv: imeisv.to_string(),
                             last_retrieved: time::Instant::now(),
@@ -80,9 +90,10 @@ impl AmarisoftAPI {
                 }
             }
         }
-        return Err(Box::new(ServerError(
-            "ip address was not found in ue_get".to_owned(),
-        )));
+        return Err(Box::new(ServerError(format!(
+            "ip address {} was not found in ue_get",
+            dut_ip
+        ))));
     }
 
     // Execute a generic command on the Amarisoft Remote API using ws.js

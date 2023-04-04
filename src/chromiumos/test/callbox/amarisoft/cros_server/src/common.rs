@@ -60,9 +60,10 @@ pub fn parse_string_to_json<T: DeserializeOwned>(
         Ok(result) => return Ok(result),
         Err(error) => {
             println!(
-                "Failed to parse JSON content of type: `{}`: {}",
+                "Failed to parse JSON content of type: `{}`: {} : {}",
                 std::any::type_name::<T>(),
-                error
+                error,
+                content
             );
             return Err(ServerError("Failed to parse json message".to_owned()));
         }
