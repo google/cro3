@@ -40,6 +40,10 @@ pub struct Args {
     /// flash a locally-built image instead of remote prebuilts
     #[argh(switch)]
     use_local_image: bool,
+
+    /// flash image with rootfs verification (disable by default)
+    #[argh(switch)]
+    enable_rootfs_verification: bool,
 }
 pub fn run(args: &Args) -> Result<()> {
     // repo path is needed since cros flash outside chroot only works within the cros checkout
@@ -111,17 +115,18 @@ pub fn run(args: &Args) -> Result<()> {
         (None, true) => "usb://".to_string(),
         _ => return Err(anyhow!("Please specify either --dut or --usb")),
     };
+
+    let mut cmd_args: Vec<&str> =
+        Vec::from(["flash", "--clobber-stateful", "--clear-tpm-owner", "-vvv"]);
+    if !args.enable_rootfs_verification {
+        cmd_args.push("--disable-rootfs-verification");
+    }
+    cmd_args.push(&destination);
+    cmd_args.push(&image_path);
+
     let cmd = Command::new("cros")
         .current_dir(repo)
-        .args([
-            "flash",
-            "--clobber-stateful",
-            "--clear-tpm-owner",
-            "-vvv",
-            "--disable-rootfs-verification",
-            &destination,
-            &image_path,
-        ])
+        .args(cmd_args)
         .spawn()?;
     let result = cmd.wait_with_output()?;
     if !result.status.success() {
