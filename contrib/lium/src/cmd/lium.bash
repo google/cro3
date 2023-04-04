@@ -89,17 +89,22 @@ _lium_current_command() {
 
 _lium_get_options() { # current
   local cmd=`_lium_current_command`
-  local pout=0 posarg=0
+  local otype=0
   local a b
 
-  ${cmd} --help | cut -c 1-20 | while read a b ;do
+  ${cmd} --help 2>/dev/null | while read a b ;do
     case ${a} in
-      Options:|Commands:) pout=1;;
-      Positional) posarg=1;;
-      -*) _lium_arg_used ${a} || echo ${a} ;;
+      Positional) otype=1;;
+      Options:) otype=2;;
+      Commands:) otype=3;;
+      -*)
+        # All options start with '-'.
+        if [ ${otype} -eq 2 ]; then
+          _lium_arg_used ${a} || echo ${a}
+        fi;;
       *)
-        # TODO: handle `lium dut do ...` case correctly
-        if [ ${posarg} = 1 ]; then
+        # Positional arguments must be converted.
+        if [ ${otype} -eq 1 ]; then
           case "${a}" in
           dut|duts)
             _lium_get_duts;;
@@ -112,7 +117,8 @@ _lium_get_options() { # current
               _lium_comp_fs -f ${1}
             fi;;
           esac
-        elif [ ${pout} = 1 ]; then
+        # Subcommands must be shown as it is.
+        elif [ ${otype} = 3 ]; then
           echo ${a}
         fi
         ;;
