@@ -117,12 +117,25 @@ pub struct ArgsList {
     /// update the cached servo info. It will take a few seconds per servo.
     #[argh(switch)]
     update: bool,
+
+    /// display space-separated Servo serials on one line (stable)
+    #[argh(switch)]
+    serials: bool,
 }
 pub fn run_list(args: &ArgsList) -> Result<()> {
     if args.update {
         ServoList::update()?;
     }
     let list = ServoList::read()?;
+    if args.serials {
+        let keys: Vec<String> = list
+            .devices()
+            .iter()
+            .map(|s| s.serial().to_string())
+            .collect();
+        println!("{}", keys.join(" "));
+        return Ok(());
+    }
     println!("{}", list);
     Ok(())
 }
