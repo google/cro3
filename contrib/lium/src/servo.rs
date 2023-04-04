@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 use crate::chroot::Chroot;
+use crate::config::Config;
 use crate::util::gen_path_in_lium_dir;
 use crate::util::get_async_lines;
 use crate::util::get_stdout;
@@ -20,6 +21,8 @@ use macaddr::MacAddr6;
 use macaddr::MacAddr8;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use retry::delay;
+use retry::retry;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -94,7 +97,7 @@ fn discover_slow() -> Result<Vec<LocalServo>> {
 
 pub fn reset_devices(serials: &Vec<String>) -> Result<()> {
     let servo_info = discover()?;
-    let mut servo_info: Vec<LocalServo> = if !serials.is_empty() {
+    let servo_info: Vec<LocalServo> = if !serials.is_empty() {
         let serials: HashSet<_> = HashSet::from_iter(serials.iter());
         servo_info
             .iter()
@@ -104,7 +107,7 @@ pub fn reset_devices(serials: &Vec<String>) -> Result<()> {
     } else {
         servo_info
     };
-    for s in &mut servo_info {
+    for s in &servo_info {
         s.reset()?;
     }
     Ok(())
@@ -205,7 +208,7 @@ impl LocalServo {
     pub fn usb_sysfs_path(&self) -> &str {
         &self.usb_sysfs_path
     }
-    pub fn reset(&mut self) -> Result<()> {
+    pub fn reset(&self) -> Result<()> {
         eprintln!("Resetting servo device: {}", self.serial);
         let path = Path::new(&self.usb_sysfs_path).join("authorized");
         fs::write(&path, b"0").context("Failed to set authorized = 0")?;
@@ -277,7 +280,7 @@ impl LocalServo {
     pub fn is_cr50(&self) -> bool {
         self.product() == "Cr50" || self.product() == "Ti50"
     }
-    pub fn read_ec_version(&mut self) -> Result<String> {
+    pub fn read_ec_version(&self) -> Result<String> {
         self.tty_list.get("EC").and_then(|id|
                 {
                     run_bash_command(&format!("echo version | socat - /dev/{id},echo=0,crtscts=1 | grep 'RO:' | sed -e 's/^RO:\\s*'//"), None)
@@ -288,23 +291,51 @@ impl LocalServo {
                         .filter(|s| {!s.is_empty()})
                 }).context("Failed to read ec_version")
     }
-    pub fn read_mac_addr(&mut self) -> Result<String> {
+    pub fn read_mac_addr(&self) -> Result<String> {
+        retry(delay::Fixed::from_millis(500).take(3), || {
         self.tty_list.get("Servo EC Shell").and_then(|id|
                 {
-                    run_bash_command(&format!("echo macaddr | socat - /dev/{id},echo=0 | grep -E -o '([0-9A-Z]{{2}}:){{5}}([0-9A-Z]{{2}})'"), None)
+                    let mac_addr = run_bash_command(&format!("echo macaddr | socat - /dev/{id},echo=0 | grep -E -o '([0-9A-Z]{{2}}:){{5}}([0-9A-Z]{{2}})'"), None)
                         .ok()
                         .filter(|o| {o.status.success()})
                         .as_ref()
-                        .map(get_stdout)
+                        .map(get_stdout);
+                    if mac_addr.is_none() {
+                                eprintln!("Failed");
+                    }
+                        mac_addr
                 }).context("Failed to read mac_addr")
+        }).or(Err(anyhow!("Failed to get mac_addr after retries")))
     }
-    pub fn read_mac_addr6(&mut self) -> Result<MacAddr6> {
+    pub fn read_mac_addr6(&self) -> Result<MacAddr6> {
         MacAddr6::from_str(&self.read_mac_addr()?)
             .context("Failed to convert MAC address string to MacAddr6")
     }
-    pub fn read_mac_addr8(&mut self) -> Result<MacAddr8> {
+    pub fn read_mac_addr8(&self) -> Result<MacAddr8> {
         MacAddr8::from_str(&self.read_mac_addr()?)
             .context("Failed to convert MAC address string to MacAddr8")
+    }
+    pub fn read_ipv6_addr(&self) -> Result<String> {
+        let mac_addr = self.read_mac_addr6()?;
+        let config = Config::read()?;
+        let prefix = config
+            .default_ipv6_prefix()
+            .context("Config default_ipv6_prefix is needed")?;
+        let mac_addr = mac_addr.as_bytes();
+        let mut eui64_bytes = [0; 8];
+        eui64_bytes.copy_from_slice(
+            [&mac_addr[0..3], [0xff, 0xfe].as_slice(), &mac_addr[3..6]]
+                .concat()
+                .as_slice(),
+        );
+        eui64_bytes[0] |= 0x02; // Modified EUI-64 has universal/local bit = 1 (universal)
+        Ok(format!(
+            "[{}{}]",
+            prefix,
+            format!("{:#}", MacAddr8::from(eui64_bytes))
+                .replace('.', ":")
+                .to_lowercase()
+        ))
     }
 }
 

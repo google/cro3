@@ -21,7 +21,6 @@ use lium::servo::ServoList;
 use lium::util::gen_path_in_lium_dir;
 use lium::util::get_stdout;
 use lium::util::run_bash_command;
-use macaddr::MacAddr8;
 use regex::Regex;
 
 lazy_static! {
@@ -124,28 +123,7 @@ fn get_servo_attached_to_cr50(cr50: &LocalServo) -> Result<LocalServo> {
 }
 
 fn ensure_dut_network_connection(servo: &mut LocalServo) -> Result<DutInfo> {
-    let mac_addr = servo.read_mac_addr6()?;
-    eprintln!("MAC address: {mac_addr}");
-    let config = Config::read()?;
-    let prefix = config
-        .default_ipv6_prefix()
-        .context("Config default_ipv6_prefix is needed")?;
-    let mac_addr = mac_addr.as_bytes();
-    let mut eui64_bytes = [0; 8];
-    eui64_bytes.copy_from_slice(
-        [&mac_addr[0..3], [0xff, 0xfe].as_slice(), &mac_addr[3..6]]
-            .concat()
-            .as_slice(),
-    );
-    eui64_bytes[0] |= 0x02; // Modified EUI-64 has universal/local bit = 1 (universal)
-    let addr = format!(
-        "[{}{}]",
-        prefix,
-        format!("{:#}", MacAddr8::from(eui64_bytes))
-            .replace('.', ":")
-            .to_lowercase()
-    );
-    register_dut(&addr)
+    register_dut(&servo.read_ipv6_addr()?)
 }
 
 fn ensure_dev_gbb_flags(repo: &str, cr50: &LocalServo) -> Result<()> {

@@ -13,6 +13,7 @@ use lium::servo::ServoList;
 use lium::servo::ServodConnection;
 use lium::util::require_root_privilege;
 use std::process;
+use std::time::Duration;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// DUT controller
@@ -25,6 +26,7 @@ pub struct Args {
 #[argh(subcommand)]
 enum SubCommand {
     Control(ArgsControl),
+    Get(ArgsGet),
     List(ArgsList),
     Kill(ArgsKill),
     Reset(ArgsReset),
@@ -33,11 +35,41 @@ enum SubCommand {
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::Control(args) => run_control(args),
+        SubCommand::Get(args) => run_get(args),
         SubCommand::List(args) => run_list(args),
         SubCommand::Kill(args) => run_kill(args),
         SubCommand::Reset(args) => run_reset(args),
         SubCommand::Shell(args) => run_shell(args),
     }
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// get servo attributes
+#[argh(subcommand, name = "get")]
+pub struct ArgsGet {
+    /// servo serial
+    #[argh(option)]
+    serial: String,
+
+    /// name of attribute
+    #[argh(positional)]
+    key: String,
+}
+pub fn run_get(args: &ArgsGet) -> Result<()> {
+    require_root_privilege()?;
+    let list = ServoList::read()?;
+    let s = list.find_by_serial(&args.serial)?;
+    s.reset()?;
+    std::thread::sleep(Duration::from_millis(1000));
+    match args.key.as_str() {
+        "ipv6_addr" => {
+            println!("{}", s.read_ipv6_addr()?);
+        }
+        key => {
+            return Err(anyhow!("attribute {key} is not defined"));
+        }
+    }
+    Ok(())
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
