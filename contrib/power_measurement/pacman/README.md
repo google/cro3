@@ -1,29 +1,40 @@
 ## Prereqs
 
- * `sudo pip3 install pandas plotly pyftdi`
- * If running in chroot:
+ * If running in chroot you need to install pip:
    * wget https://bootstrap.pypa.io/pip/3.6/get-pip.py
    * sudo python ./get-pip.py
-   * pip3 install pandas plotly pyftdi
-   * Set udev permissions
+ * Else you can just use pip3 to install python dependicies using the following command.
+   * `pip3 install -r requirements.txt`
+   * Then set udev permissions as follows so you don't have to run pacman as super user.
      * Add the following in `/etc/udev/rules.d/pacman.rules`
      * `
      SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", MODE:="0666"
      SUBSYSTEM=="usb_device", ATTRS{idVendor}=="0403", MODE:="0666"
      `
-     * `sudo udevadm control --reload-rules`
+     * `sudo udevadm control --reload-rules &&  sudo udevadm trigger`
 
 # Usage
 
-* pacman.py <options>
-  * -s|--single    Take a single voltage, current, power measurement of all rails
-  * -t|--time      Length of time to capture in seconds
-  * -c|--config    PAC address and configuration file used by servod
-  * -O|--output    Directory for output logs
-  * -m|--mapping   Rail hierachy mapping used to generate sunburst plot
-  * -g|--gpio      PAC address to GPIO Rail mapping
+usage: ipython3 [-h] [-s] [-t TIME] [--sample_time SAMPLE_TIME] [-c CONFIG] [-O [OUTPUT]] [-p POLARITY] [-d DEVICE]
 
-* Example: `sudo ./pacman.py -t 10 -c guybrush_r0_pacs_mainsmt.py`
+Main file for pacman utility
+
+options:
+  -h, --help            show this help message and exit
+  -s, --single          Use to take a single voltage, current, power measurement of all rails and report GPIO status
+  -t TIME, --time TIME  Time to capture in seconds
+  --sample_time SAMPLE_TIME
+                        Sample time in seconds
+  -c CONFIG, --config CONFIG
+                        PAC address and configuration file used by servod
+  -O [OUTPUT], --output [OUTPUT]
+                        Path for log files
+  -p POLARITY, --polarity POLARITY
+                        Measurements can either be unipolar or bipolar
+  -d DEVICE, --device DEVICE
+                        Serial number of provisioned pacdebugger to use
+
+* Example: `pacman.py -t 10 -c guybrush_r0_pacs_mainsmt.py`
 
 # Output
 
