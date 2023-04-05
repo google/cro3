@@ -59,7 +59,7 @@ _lium_get_tests() {
 }
 
 _lium_get_servos() {
-  ${COMP_WORDS[0]} servo list 2>/dev/null | cut -f 1
+  ${COMP_WORDS[0]} servo list --serials 2>/dev/null | cut -f 1
 }
 
 _lium_get_dut_actions() {
