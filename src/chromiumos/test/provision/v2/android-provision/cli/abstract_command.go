@@ -23,13 +23,16 @@ type AbstractCommand interface {
 
 	// Name is the command name (for debugging)
 	Name() string
+
+	// Usage prints to standard error a usage message showing the default settings of all defined command-line flags
+	Usage()
 }
 
 // ParseInputs is a helper method which parses input arguments. It is
 // effectively a factory method.
 func ParseInputs() (AbstractCommand, error) {
-	if len(os.Args) < 1 {
-		return nil, errors.New("CLI arguments must be specified")
+	if len(os.Args) < 2 {
+		return nil, errors.New("input arguments must be specified")
 	}
 
 	cmds := []AbstractCommand{

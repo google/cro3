@@ -52,7 +52,7 @@ type CLICommand struct {
 
 func NewCLICommand() *CLICommand {
 	cc := &CLICommand{
-		flagSet: flag.NewFlagSet("server", flag.ContinueOnError),
+		flagSet: flag.NewFlagSet("cli", flag.ContinueOnError),
 	}
 
 	cc.flagSet.StringVar(&cc.logFileName, "log-path", common.DefaultLogDirectory, fmt.Sprintf("Path to record execution logs. Default value is %s", common.DefaultLogDirectory))
@@ -90,6 +90,10 @@ func (cc *CLICommand) Init(args []string) error {
 	}
 
 	return nil
+}
+
+func (cc *CLICommand) Usage() {
+	cc.flagSet.Usage()
 }
 
 // Logger returns the log

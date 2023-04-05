@@ -12,13 +12,15 @@ import (
 )
 
 func main() {
-	opt, err := cli.ParseInputs()
+	cmd, err := cli.ParseInputs()
 	if err != nil {
-		fmt.Printf("unable to parse inputs: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to parse inputs: %s\n", err)
+		cli.NewCLICommand().Usage()
+		cli.NewServerCommand().Usage()
 		os.Exit(2)
 	}
-	if err := opt.Run(); err != nil {
-		fmt.Printf("Android Provision failed: %v\n", err)
+	if err = cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Android Provision failed: %v\n", err)
 		os.Exit(1)
 	}
 }

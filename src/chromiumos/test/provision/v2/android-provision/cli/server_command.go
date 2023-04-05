@@ -32,7 +32,6 @@ func NewServerCommand() *ServerCommand {
 		flagSet:  flag.NewFlagSet("server", flag.ContinueOnError),
 		metadata: &metadata.ServerMetadata{},
 	}
-
 	sc.flagSet.IntVar(&sc.metadata.Port, "port", common.DefaultServerPort, fmt.Sprintf("Specify the port for the server. Default value %d.", common.DefaultServerPort))
 	sc.flagSet.StringVar(&sc.logFileName, "log-path", common.DefaultLogDirectory, fmt.Sprintf("Path to record execution logs. Default value is %s", common.DefaultLogDirectory))
 	sc.flagSet.StringVar(&sc.metadataFile, "metadata", "", "Specify the request jsonproto input file. Provide service paths and ProvisionState.")
@@ -74,6 +73,10 @@ func (sc *ServerCommand) Init(args []string) error {
 	sc.metadata.DutAddress = fmt.Sprintf("%s:%d", apr.GetDutServer().GetAddress(), apr.GetDutServer().GetPort())
 
 	return nil
+}
+
+func (sc *ServerCommand) Usage() {
+	sc.flagSet.Usage()
 }
 
 // validateCLIInputs ensures the CLI input values are valid
