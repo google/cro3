@@ -13,7 +13,7 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:     "labtunnel",
-		Version: "2.4.0",
+		Version: "2.4.1",
 		Short:   "Create and maintain ssh tunnels for common lab environments easily.",
 		Long: `
 Create and maintain ssh tunnels for common lab environments easily.
@@ -59,8 +59,9 @@ func init() {
 			"ControlMaster=auto",
 			"ControlPersist=3600",
 			"ControlPath=/tmp/ssh-labtunnel-%C",
-			"ServerAliveCountMax=10",
-			"ServerAliveInterval=1",
+			"ConnectTimeout=5",
+			"ServerAliveCountMax=3",
+			"ServerAliveInterval=5",
 			"VerifyHostKeyDNS=no",
 			"CheckHostIP=no",
 			"UserKnownHostsFile=/dev/null",
