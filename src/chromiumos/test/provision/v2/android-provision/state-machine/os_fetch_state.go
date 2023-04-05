@@ -28,7 +28,8 @@ func (s OSFetchState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any,
 	ctx = context.WithValue(ctx, "stage", common.OSFetch)
 	cmds := []common_utils.CommandInterface{
 		commands.NewResolveImagePathCommand(ctx, s.svc),
-		// TODO(b:274782508): Add the new copy command after refactoring copy_apk_command
+		commands.NewCopyDataCommand(ctx, s.svc),
+		commands.NewExtractZipCommand(ctx, s.svc),
 	}
 	for i, c := range cmds {
 		if err := c.Execute(log); err != nil {

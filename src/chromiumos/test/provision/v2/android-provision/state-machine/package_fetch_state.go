@@ -31,7 +31,7 @@ func (s PackageFetchState) Execute(ctx context.Context, log *log.Logger) (*anypb
 		commands.NewFetchCIPDPackageCommand(ctx, s.svc),
 		commands.NewExtractZipCommand(ctx, s.svc),
 		commands.NewUploadAPKToGSCommand(ctx, s.svc),
-		commands.NewCopyAPKCommand(ctx, s.svc),
+		commands.NewCopyDataCommand(ctx, s.svc),
 	}
 	for i, c := range cmds {
 		if err := c.Execute(log); err != nil {

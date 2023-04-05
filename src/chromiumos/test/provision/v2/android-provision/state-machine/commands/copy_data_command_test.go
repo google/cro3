@@ -19,11 +19,11 @@ import (
 	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
 )
 
-func TestCopyAPKCommand(t *testing.T) {
+func TestCopyDataCommand(t *testing.T) {
 	t.Parallel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	Convey("CopyAPKCommand", t, func() {
+	Convey("CopyDataCommand", t, func() {
 		associatedHost := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
 		pkgProto := &api.CIPDPackage{
 			Name: "cipd_path/cipd_package_name",
@@ -49,10 +49,11 @@ func TestCopyAPKCommand(t *testing.T) {
 		provisionDir, _ := os.MkdirTemp("", "testCleanup")
 		defer os.RemoveAll(provisionDir)
 
-		cmd := NewCopyAPKCommand(context.Background(), svc)
+		cmd := NewCopyDataCommand(context.Background(), svc)
 
 		Convey("Execute", func() {
 			log, _ := common.SetUpLog(provisionDir)
+			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.PackageFetch)
 			gomock.InOrder(
 				associatedHost.EXPECT().CreateDirectories(gomock.Any(), gomock.Eq([]string{"/tmp/instanceId"})).Times(1),
 				associatedHost.EXPECT().CopyData(gomock.Any(), "gsPath", "/tmp/instanceId/apkName.apk").Times(1),
@@ -65,7 +66,7 @@ func TestCopyAPKCommand(t *testing.T) {
 			So(cmd.Revert(), ShouldBeNil)
 		})
 		Convey("GetErrorMessage", func() {
-			So(cmd.GetErrorMessage(), ShouldEqual, "failed to copy APK file")
+			So(cmd.GetErrorMessage(), ShouldEqual, "failed to copy data")
 		})
 		Convey("GetStatus", func() {
 			So(cmd.GetStatus(), ShouldEqual, api.InstallResponse_STATUS_GS_DOWNLOAD_FAILED)
