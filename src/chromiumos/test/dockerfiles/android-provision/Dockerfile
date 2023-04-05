@@ -3,4 +3,5 @@
 # found in the LICENSE file.
 
 FROM ubuntu:bionic
+RUN apt-get update && apt-get install -y ca-certificates
 COPY android-provision /usr/bin/android-provision
