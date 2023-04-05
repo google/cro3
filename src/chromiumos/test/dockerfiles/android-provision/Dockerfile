@@ -3,5 +3,8 @@
 # found in the LICENSE file.
 
 FROM ubuntu:bionic
-RUN apt-get update && apt-get install -y ca-certificates
+RUN apt-get update \
+    && apt-get install -y ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 COPY android-provision /usr/bin/android-provision
