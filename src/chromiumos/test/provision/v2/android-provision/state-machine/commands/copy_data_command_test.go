@@ -15,6 +15,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 
 	"chromiumos/test/provision/v2/android-provision/common"
+	"chromiumos/test/provision/v2/android-provision/common/gsstorage"
 	"chromiumos/test/provision/v2/android-provision/service"
 	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
 )
@@ -48,19 +49,39 @@ func TestCopyDataCommand(t *testing.T) {
 		provisionPkg.APKFile = apkFile
 		provisionDir, _ := os.MkdirTemp("", "testCleanup")
 		defer os.RemoveAll(provisionDir)
-
+		svc.OS = &service.AndroidOS{
+			ImagePath: &service.ImagePath{
+				DutAndroidProductOut: "dutProvisionDir",
+			}}
+		mockGsClient := gsstorage.NewMockGsClient(ctrl)
 		cmd := NewCopyDataCommand(context.Background(), svc)
+		cmd.gs = mockGsClient
 
-		Convey("Execute", func() {
+		Convey("Execute - copy package", func() {
 			log, _ := common.SetUpLog(provisionDir)
 			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.PackageFetch)
 			gomock.InOrder(
-				associatedHost.EXPECT().CreateDirectories(gomock.Any(), gomock.Eq([]string{"/tmp/instanceId"})).Times(1),
 				associatedHost.EXPECT().CopyData(gomock.Any(), "gsPath", "/tmp/instanceId/apkName.apk").Times(1),
 			)
 			So(provisionPkg.APKFile.DutPath, ShouldBeEmpty)
 			So(cmd.Execute(log), ShouldBeNil)
 			So(provisionPkg.APKFile.DutPath, ShouldEqual, "/tmp/instanceId/apkName.apk")
+		})
+		Convey("Execute - copy os images from folder", func() {
+			svc.OS.ImagePath.GsPath = "gs://bucket/folder1/folder2/"
+			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.OSFetch)
+			log, _ := common.SetUpLog(provisionDir)
+			gomock.InOrder(
+				mockGsClient.EXPECT().ListFiles(gomock.Any(), gomock.Eq("folder1/folder2/"), gomock.Eq("/")).Return([]string{"bootloader.img", "radio.img", "smtg-img-2132123.zip"}, nil).Times(1),
+				associatedHost.EXPECT().CopyData(gomock.Any(), gomock.Any(), gomock.Eq("/mnt/stateful_partition/android_provision/folder1/folder2")).Times(3),
+			)
+			So(cmd.Execute(log), ShouldBeNil)
+			So(svc.OS.ImagePath.Files, ShouldResemble, []string{"bootloader.img", "radio.img", "smtg-img-2132123.zip"})
+		})
+		Convey("Execute - undefined stage", func() {
+			cmd.ctx = context.WithValue(cmd.ctx, "stage", nil)
+			log, _ := common.SetUpLog(provisionDir)
+			So(cmd.Execute(log), ShouldBeError)
 		})
 		Convey("Revert", func() {
 			So(cmd.Revert(), ShouldBeNil)
