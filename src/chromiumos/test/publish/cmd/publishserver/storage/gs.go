@@ -14,8 +14,11 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"sync"
+
+	"go.chromium.org/luci/common/sync/parallel"
 )
+
+const maxConcurrentUploads = 10
 
 // For testing
 type GSClientInterface interface {
@@ -91,35 +94,40 @@ func (c *GSClient) Upload(ctx context.Context, localFolder string, gsUrl string)
 	if err != nil {
 		return fmt.Errorf("unable to get local files, %w", err)
 	}
-	log.Printf("Uploading files: %s", allFiles)
+	log.Printf("Uploading files (max %d workers): %s", maxConcurrentUploads, allFiles)
 
-	errChan := make(chan error)
-	doneChan := make(chan bool) // For fail-fast
-	var wg sync.WaitGroup
-	wg.Add(len(allFiles))
-
-	for _, currentFile := range allFiles {
-		go func(currentFile LocalObject, fileStartPos int) {
-			defer wg.Done()
-			currentObject := rootObject.Extend(currentFile.RelPath)
-			if err := c.client.Write(ctx, currentFile.FullPath, currentObject); err != nil {
-				errChan <- fmt.Errorf("failed upload for file %s to %s, %w", currentFile, gsUrl, err)
-			}
-		}(currentFile, len(localFolder)+1)
-	}
-
-	go func() {
-		wg.Wait()
-		close(doneChan)
-	}()
-
-	select {
-	case <-doneChan:
+	uploadOne := func(currentFile LocalObject) error {
+		currentObject := rootObject.Extend(currentFile.RelPath)
+		if err := c.client.Write(ctx, currentFile.FullPath, currentObject); err != nil {
+			return fmt.Errorf("failed upload for file %s to %s, %w", currentFile, gsUrl, err)
+		}
 		return nil
-	case err := <-errChan:
-		close(errChan)
-		return err
 	}
+
+	// timeout error
+	var terr error
+	err = parallel.WorkPool(maxConcurrentUploads, func(items chan<- func() error) {
+		for _, aFile := range allFiles {
+			// Create a loop-local variable for capture in the lambda.
+			f := aFile
+			item := func() error {
+				return uploadOne(f)
+			}
+			// Check the context timeout when adding files to the stack.
+			select {
+			case <-ctx.Done():
+				terr = ctx.Err()
+				return
+			default:
+				items <- item
+			}
+		}
+	})
+	if terr != nil {
+		return terr
+	}
+
+	return err
 }
 
 // parseGSURL retrieves the bucket and object from a GS URL.
