@@ -15,6 +15,7 @@ static/state.gz
 /pkg
 /contrib/labtunnel/go/bin
 /contrib/labtunnel/go/pkg
+/contrib/cros_openwrt/build
 /contrib/cros_openwrt/image_builder/go/bin
 /contrib/cros_openwrt/image_builder/go/pkg
 /src/chromiumos/ctp/.cipd_bin
