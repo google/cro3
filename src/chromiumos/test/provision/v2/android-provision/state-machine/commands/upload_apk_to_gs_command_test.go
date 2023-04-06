@@ -66,7 +66,7 @@ func TestUploadApkToGsCommand(t *testing.T) {
 			VersionCode:  "1234567890",
 		}
 		provisionPkg.CIPDPackage = cipdPkg
-		mockGsClient := gsstorage.NewMockgsClient(ctrl)
+		mockGsClient := gsstorage.NewMockGsClient(ctrl)
 		cmd := NewUploadAPKToGSCommand(context.Background(), svc)
 		cmd.gs = mockGsClient
 		Convey("Execute", func() {

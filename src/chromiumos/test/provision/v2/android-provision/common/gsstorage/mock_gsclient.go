@@ -11,39 +11,54 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockgsClient is a mock of gsClient interface.
-type MockgsClient struct {
+// MockGsClient is a mock of GsClient interface.
+type MockGsClient struct {
 	ctrl     *gomock.Controller
-	recorder *MockgsClientMockRecorder
+	recorder *MockGsClientMockRecorder
 }
 
-// MockgsClientMockRecorder is the mock recorder for MockgsClient.
-type MockgsClientMockRecorder struct {
-	mock *MockgsClient
+// MockGsClientMockRecorder is the mock recorder for MockGsClient.
+type MockGsClientMockRecorder struct {
+	mock *MockGsClient
 }
 
-// NewMockgsClient creates a new mock instance.
-func NewMockgsClient(ctrl *gomock.Controller) *MockgsClient {
-	mock := &MockgsClient{ctrl: ctrl}
-	mock.recorder = &MockgsClientMockRecorder{mock}
+// NewMockGsClient creates a new mock instance.
+func NewMockGsClient(ctrl *gomock.Controller) *MockGsClient {
+	mock := &MockGsClient{ctrl: ctrl}
+	mock.recorder = &MockGsClientMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockgsClient) EXPECT() *MockgsClientMockRecorder {
+func (m *MockGsClient) EXPECT() *MockGsClientMockRecorder {
 	return m.recorder
 }
 
-// Upload mocks base method.
-func (m *MockgsClient) Upload(ctx context.Context, apkLocalPath, apkName string) error {
+// ListFiles mocks base method.
+func (m *MockGsClient) ListFiles(arg0 context.Context, arg1, arg2 string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Upload", ctx, apkLocalPath, apkName)
-	ret1, _ := ret[0].(error)
-	return ret1
+	ret := m.ctrl.Call(m, "ListFiles", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListFiles indicates an expected call of ListFiles.
+func (mr *MockGsClientMockRecorder) ListFiles(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListFiles", reflect.TypeOf((*MockGsClient)(nil).ListFiles), arg0, arg1, arg2)
+}
+
+// Upload mocks base method.
+func (m *MockGsClient) Upload(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Upload", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Upload indicates an expected call of Upload.
-func (mr *MockgsClientMockRecorder) Upload(ctx, apkLocalPath, apkName interface{}) *gomock.Call {
+func (mr *MockGsClientMockRecorder) Upload(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upload", reflect.TypeOf((*MockgsClient)(nil).Upload), ctx, apkLocalPath, apkName)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upload", reflect.TypeOf((*MockGsClient)(nil).Upload), arg0, arg1, arg2)
 }

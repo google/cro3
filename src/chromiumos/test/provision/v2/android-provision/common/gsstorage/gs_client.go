@@ -13,17 +13,20 @@ import (
 
 	"cloud.google.com/go/storage"
 
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
 	"chromiumos/test/provision/v2/android-provision/common"
 )
 
-// GsClient specifies the APIs between archive-server and storage client.
+// GsClient specifies the APIs between provisioning service and storage client.
 // GsClient interface is used mainly for testing purpose,
 // since storage pkg does not provide test pkg.
 type GsClient interface {
 	// Upload uploads an apk to the Fleet Services caching service.
 	Upload(ctx context.Context, apkLocalPath string, apkName string) error
+	// ListFiles lists objects using prefix and delimeter.
+	ListFiles(ctx context.Context, prefix, delim string) ([]string, error)
 }
 
 // gs is mainly used for testing purpose.
@@ -31,9 +34,9 @@ type gs struct {
 	bucketName string
 }
 
-func NewGsClient() GsClient {
+func NewGsClient(bucketName string) GsClient {
 	return &gs{
-		bucketName: common.GSPackageBucketName,
+		bucketName: bucketName,
 	}
 }
 
@@ -71,4 +74,35 @@ func GetGsPath(bucketName string, folders ...string) string {
 		bucketName = common.GSImageBucketName
 	}
 	return "gs://" + filepath.Join(append([]string{bucketName}, folders...)...) + "/"
+}
+
+func (gs *gs) ListFiles(ctx context.Context, prefix, delim string) ([]string, error) {
+	client, err := storage.NewClient(ctx, option.WithCredentialsFile(common.DroneServiceAccountCreds))
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	it := client.Bucket(gs.bucketName).Objects(ctx, &storage.Query{
+		Prefix:     prefix,
+		Delimiter:  delim,
+		Projection: storage.ProjectionNoACL,
+	})
+	var names []string
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		// Filtering out current folder/prefix from listing.
+		if name := attrs.Name; name != prefix {
+			names = append(names, filepath.Base(name))
+		}
+	}
+	return names, err
 }
