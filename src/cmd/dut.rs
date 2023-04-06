@@ -38,7 +38,6 @@ enum SubCommand {
     Info(ArgsDutInfo),
     KernelConfig(ArgsDutKernelConfig),
     List(ArgsDutList),
-    Proxy(ProxyArgs),
     Shell(ArgsDutShell),
     Monitor(ArgsDutMonitor),
     Pull(ArgsPull),
@@ -53,7 +52,6 @@ pub fn run(args: &Args) -> Result<()> {
         SubCommand::Info(args) => run_dut_info(args),
         SubCommand::KernelConfig(args) => run_dut_kernel_config(args),
         SubCommand::List(args) => run_dut_list(args),
-        SubCommand::Proxy(args) => run_proxy(args),
         SubCommand::Shell(args) => run_dut_shell(args),
         SubCommand::Monitor(args) => run_dut_monitor(args),
         SubCommand::Pull(args) => run_dut_pull(args),
@@ -486,75 +484,6 @@ pub fn run_discover(args: &ArgsDiscover) -> Result<()> {
 
         Ok(())
     }
-}
-
-#[derive(FromArgs, PartialEq, Debug)]
-/// monitor local DUTs and establish a proxy
-#[argh(subcommand, name = "proxy")]
-pub struct ProxyArgs {
-    /// a DUT identifier (e.g. 127.0.0.1, localhost:2222)
-    #[argh(positional)]
-    dut: String,
-}
-pub fn run_proxy(args: &ProxyArgs) -> Result<()> {
-    // ssh -R 2501:10.10.10.85:22 hikalium.tok
-    let target = &SshInfo::new(&args.dut)?;
-    println!(
-        r#"
-Host hikalium*
-    ControlMaster auto
-    ControlPath ~/.ssh/mux-%r@%h:%p
-    ControlPersist 10
-    # Hosts
-    RemoteForward 2300 {}
-    # Vnc
-    LocalForward 15900 127.0.0.1:5900
-"#,
-        target.host_and_port()
-    );
-    /*
-    let mut screen = stdout().into_alternate_screen().unwrap();
-    let mut dut_info = Vec::new();
-    let mut needs_discovery = true;
-    dut_info.resize(args.duts.len(), DutInfoCache::empty());
-    loop {
-        // Draw headers.
-        let (screen_width, _) = terminal_size()?;
-        write!(
-            screen,
-            "{}{}",
-            termion::clear::All,
-            termion::cursor::Goto(1, 1)
-        )?;
-        write!(
-            screen,
-            "lium dut proxy : DUTs under control: {}",
-            dut_info.len()
-        )?;
-        write!(screen, "{}", termion::cursor::Goto(1, 2))?;
-        for dut in &args.duts {
-            writeln!(screen, "{dut:16}: ")?;
-        }
-        let progress_width = screen_width - 18;
-        screen.flush().unwrap();
-        for x in 0..progress_width {
-            for (y, dut) in dut_info.iter_mut().enumerate() {
-                if dut.target.is_none() {
-                    dut.target = Some(SshInfo::new(&args.duts[y])?);
-                }
-                write!(
-                    screen,
-                    "{}{}",
-                    cursor::Goto(1 + (screen_width - progress_width) + x, (y + 2).try_into()?),
-                    "o",
-                )?;
-                screen.flush().unwrap();
-                thread::sleep(Duration::from_millis(100));
-            }
-        }
-    }
-    */
-    Ok(())
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
