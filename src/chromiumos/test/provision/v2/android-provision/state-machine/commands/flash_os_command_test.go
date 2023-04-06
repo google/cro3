@@ -50,7 +50,8 @@ func TestFlashOsCommand(t *testing.T) {
 			rebootArgs := []string{"-s", "dutSerialNumber", "reboot", "bootloader"}
 			waitArgs := []string{"devices", "|", "grep", "-sw", "dutSerialNumber", "|", "awk", "'{print $2}'"}
 			fetchBuildIdArgs := []string{"-s", "dutSerialNumber", "shell", "getprop", "ro.build.id"}
-			fetchOSVersionArgs := []string{"-s", "dutSerialNumber", "shell", "getprop", "ro.build.version.incremental"}
+			fetchOSIncrementalVersionArgs := []string{"-s", "dutSerialNumber", "shell", "getprop", "ro.build.version.incremental"}
+			fetchOSReleaseVersionArgs := []string{"-s", "dutSerialNumber", "shell", "getprop", "ro.build.version.release"}
 			tmpDirPath := filepath.Join(svc.OS.ImagePath.DutAndroidProductOut, "/tmp")
 
 			gomock.InOrder(
@@ -64,7 +65,8 @@ func TestFlashOsCommand(t *testing.T) {
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("TMPDIR="+tmpDirPath+" fastboot"), gomock.Eq(updateArgs)).Return("any string", nil).Times(1),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(waitArgs)).Return("device", nil).Times(3),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(fetchBuildIdArgs)).Return("any string", nil).Times(1),
-				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(fetchOSVersionArgs)).Return("1234567890", nil).Times(1),
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(fetchOSIncrementalVersionArgs)).Return("1234567890", nil).Times(1),
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(fetchOSReleaseVersionArgs)).Return("10", nil).Times(1),
 			)
 			So(cmd.Execute(log), ShouldBeNil)
 		})

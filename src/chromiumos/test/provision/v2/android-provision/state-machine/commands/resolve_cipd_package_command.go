@@ -87,10 +87,17 @@ func (c *ResolveCIPDPackageCommand) GetStatus() api.InstallResponse_Status {
 func (c *ResolveCIPDPackageCommand) resolvePackageName(cipdPackageProto *api.CIPDPackage) error {
 	switch p := cipdPackageProto.GetAndroidPackage(); p {
 	case api.AndroidPackage_GMS_CORE:
-		// Read OS version from DUT.
-		osVersion, err := getOSVersion(c.ctx, c.svc.DUT)
-		if err != nil {
-			return err
+		var osVersion string
+		if os := c.svc.OS; os != nil && os.UpdatedBuildInfo != nil {
+			osVersion = os.UpdatedBuildInfo.OsVersion
+		}
+		if osVersion == "" {
+			// Read OS version from DUT.
+			v, err := getOSVersion(c.ctx, c.svc.DUT)
+			if err != nil {
+				return err
+			}
+			osVersion = v
 		}
 		platform := common.OSVersionToGMSCorePlatformMap[osVersion]
 		if platform == "" {

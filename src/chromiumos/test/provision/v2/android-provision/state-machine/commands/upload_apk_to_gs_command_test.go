@@ -13,6 +13,7 @@ import (
 	"chromiumos/test/provision/v2/android-provision/common"
 	"chromiumos/test/provision/v2/android-provision/common/gsstorage"
 	"chromiumos/test/provision/v2/android-provision/service"
+	mock_common_utils "chromiumos/test/provision/v2/mock-common-utils"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
@@ -31,14 +32,15 @@ func TestUploadApkToGsCommand(t *testing.T) {
 			},
 			AndroidPackage: api.AndroidPackage_GMS_CORE,
 		}
+		associatedHost := mock_common_utils.NewMockServiceAdapterInterface(ctrl)
 		svc, _ := service.NewAndroidServiceFromExistingConnection(
-			nil,
-			"",
+			associatedHost,
+			"dutSerialNumber",
 			nil,
 			[]*api.CIPDPackage{pkgProto},
 		)
 		// Default apkName.
-		apkName := "gmscore_prodrvc_arm64_alldpi_release.apk"
+		apkName := "gmscore_prodsc_arm64_alldpi_release.apk"
 		// Create provision dir and cleanup.
 		provisionDir, _ := os.MkdirTemp("", "testCleanup")
 		defer os.RemoveAll(provisionDir)
@@ -71,6 +73,8 @@ func TestUploadApkToGsCommand(t *testing.T) {
 			log, _ := common.SetUpLog(provisionDir)
 			Convey("Upload Android package", func() {
 				gsPath := "gs://android-provisioning-apks/instanceId/" + apkName
+				fetchOSReleaseVersionArgs := []string{"-s", "dutSerialNumber", "shell", "getprop", "ro.build.version.release"}
+				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq(fetchOSReleaseVersionArgs)).Return("12", nil).Times(1)
 				mockGsClient.EXPECT().Upload(gomock.Eq(context.Background()), gomock.Eq(apkPath), gomock.Eq("instanceId/"+apkName)).Return(nil).Times(1)
 				So(cmd.Execute(log), ShouldBeNil)
 				So(provisionPkg.APKFile.Name, ShouldEqual, apkName)

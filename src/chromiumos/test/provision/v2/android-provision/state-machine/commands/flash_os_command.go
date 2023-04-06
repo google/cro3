@@ -120,9 +120,14 @@ func (c *FlashOsCommand) fetchOSInfo() error {
 	if err != nil {
 		return err
 	}
+	osVersion, err := getOSVersion(c.ctx, dut)
+	if err != nil {
+		return err
+	}
 	c.svc.OS.UpdatedBuildInfo = &service.OsBuildInfo{
 		Id:                 buildId,
 		IncrementalVersion: incrementalVersion,
+		OsVersion:          osVersion,
 	}
 	return nil
 }

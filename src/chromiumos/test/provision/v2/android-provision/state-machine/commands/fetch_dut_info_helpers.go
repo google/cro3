@@ -16,22 +16,38 @@ var reVersionCode = regexp.MustCompile(`^versionCode=(\d+).+`)
 
 func getBoard(ctx context.Context, dut *service.DUTConnection) (string, error) {
 	args := []string{"-s", dut.SerialNumber, "shell", "getprop", "ro.product.board"}
-	return dut.AssociatedHost.RunCmd(ctx, "adb", args)
+	board, err := dut.AssociatedHost.RunCmd(ctx, "adb", args)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(board, "\n"), nil
 }
 
 func getOSBuildId(ctx context.Context, dut *service.DUTConnection) (string, error) {
 	args := []string{"-s", dut.SerialNumber, "shell", "getprop", "ro.build.id"}
-	return dut.AssociatedHost.RunCmd(ctx, "adb", args)
+	buildId, err := dut.AssociatedHost.RunCmd(ctx, "adb", args)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(buildId, "\n"), nil
 }
 
 func getOSVersion(ctx context.Context, dut *service.DUTConnection) (string, error) {
 	args := []string{"-s", dut.SerialNumber, "shell", "getprop", "ro.build.version.release"}
-	return dut.AssociatedHost.RunCmd(ctx, "adb", args)
+	releaseVersion, err := dut.AssociatedHost.RunCmd(ctx, "adb", args)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(releaseVersion, "\n"), nil
 }
 
 func getOSIncrementalVersion(ctx context.Context, dut *service.DUTConnection) (string, error) {
 	args := []string{"-s", dut.SerialNumber, "shell", "getprop", "ro.build.version.incremental"}
-	return dut.AssociatedHost.RunCmd(ctx, "adb", args)
+	osVersion, err := dut.AssociatedHost.RunCmd(ctx, "adb", args)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(osVersion, "\n"), nil
 }
 
 func getAndroidPackageVersionCode(ctx context.Context, dut *service.DUTConnection, packageName string) (string, error) {
