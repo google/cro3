@@ -30,7 +30,7 @@ func (c *RestartAppCommand) Execute(log *log.Logger) error {
 	log.Printf("Start RestartAppCommand Execute")
 	dut := c.svc.DUT
 	for _, pkg := range c.svc.ProvisionPackages {
-		if androidPkg := pkg.AndroidPackage; androidPkg != nil {
+		if androidPkg := pkg.AndroidPackage; androidPkg != nil && androidPkg.UpdatedVersionCode != "" {
 			switch p := androidPkg.PackageName; p {
 			case common.GMSCorePackageName:
 				intent := "com.google.android.gms.INITIALIZE"

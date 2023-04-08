@@ -39,7 +39,6 @@ func TestRestartAppCommand(t *testing.T) {
 		}
 		provisionPkg.AndroidPackage = &service.AndroidPackage{
 			PackageName: common.GMSCorePackageName,
-			VersionCode: "224312037",
 		}
 		provisionDir, _ := os.MkdirTemp("", "testCleanup")
 		defer os.RemoveAll(provisionDir)
@@ -47,11 +46,18 @@ func TestRestartAppCommand(t *testing.T) {
 		cmd := NewRestartAppCommand(context.Background(), svc)
 
 		Convey("Execute", func() {
+			provisionPkg.AndroidPackage.UpdatedVersionCode = "224312037"
 			log, _ := common.SetUpLog(provisionDir)
 			gomock.InOrder(
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq([]string{"-s", "dutSerialNumber", "shell", "am", "force-stop", "com.google.android.gms"})).Return("", nil).Times(1),
 				associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Eq("adb"), gomock.Eq([]string{"-s", "dutSerialNumber", "shell", "am", "broadcast", "-a", "com.google.android.gms.INITIALIZE"})).Return("", nil).Times(1),
 			)
+			So(cmd.Execute(log), ShouldBeNil)
+		})
+		Convey("Execute - nothing installed", func() {
+			provisionPkg.AndroidPackage.UpdatedVersionCode = ""
+			log, _ := common.SetUpLog(provisionDir)
+			associatedHost.EXPECT().RunCmd(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 			So(cmd.Execute(log), ShouldBeNil)
 		})
 		Convey("Revert", func() {
