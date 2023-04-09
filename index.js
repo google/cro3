@@ -5,16 +5,22 @@ function sleep(ms) {
 let button = document.getElementById('request-device');
 let serial_output = document.getElementById('serial_output');
 let device;
-let interface = 0;  // 1: AP Console
+let interface = 0;
 let ep = interface + 1;
+/*
+ Servo
+ interface 0 : servo console
+
+ */
 button.addEventListener('click', async () => {
   device = null;
   button.disabled = true;
   try {
     device = await navigator.usb.requestDevice({
       filters: [{
-        vendorId: 0x18d1,  /* Google */
-        productId: 0x5014, /* Cr50 */
+        vendorId: 0x18d1, /* Google */
+        // productId: 0x5014, /* Cr50 */
+        productId: 0x520d, /* Servo v4p1 */
       }]
     });
   } catch (err) {
@@ -33,18 +39,29 @@ button.addEventListener('click', async () => {
     await device.claimInterface(interface);
     let utf8decoder = new TextDecoder();  // default 'utf-8' or 'utf8'
 
+      const f = 
+    async (event) => {console.log(`On connect!: ${event}`)
+while (true) {
+  let data = new TextEncoder().encode("ina 0\n");
+  await device.transferOut(ep, data);
+  await new Promise(r => setTimeout(r, 1000));
+}
+    };
+    setTimeout(f, 1000);
+
     while (true) {
       let result = await device.transferIn(ep, 64);
       result = new Int8Array(result.data.buffer);
 
       serial_output.innerText += utf8decoder.decode(result);
 
-      window.scrollTo(0, document.body.scrollHeight);
+      window.scrollTo(document.body.scrollWidth, document.body.scrollHeight);
 
       if (result.status === 'stall') {
         console.warn('Endpoint stalled. Clearing.');
         await device.clearHalt(1);
       }
+      await new Promise(r => setTimeout(r, 100));
     }
   } catch (err) {
     console.log(`Disconnected: ${err}`);
@@ -52,8 +69,6 @@ button.addEventListener('click', async () => {
     button.disabled = false;
   }
 });
-navigator.usb.addEventListener(
-    'connect', (event) => {console.log(`On connect!: ${event}`)});
 window.addEventListener('keydown', async (event) => {
   console.log(`KeyboardEvent: key='${event.key}' | code='${event.code}'`);
   if (!device) {
@@ -64,7 +79,6 @@ window.addEventListener('keydown', async (event) => {
     data = new Int8Array([event.key.charCodeAt(0)]);
   } else if (event.code === 'Enter') {
     data = new Uint8Array([0x0a]);
-
   } else {
     return;
   }
