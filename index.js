@@ -1,25 +1,40 @@
+const ctx = document.getElementById('myChart');
+const data = {
+  datasets: [{
+    label: 'Power (mW)',
+    data: [],
+    backgroundColor: 'rgb(255, 99, 132)'
+  }],
+};
+const config = {
+  type: 'scatter',
+  data: data,
+  options: {
+    scales: {
+      x: {
+        type: 'timeseries',
+        position: 'bottom'
+      }
+    }
+  }
+};
+const chart = new Chart(ctx, config);
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-// https://wicg.github.io/webusb/
 let button = document.getElementById('request-device');
 let serial_output = document.getElementById('serial_output');
 let device;
 let interface = 0;
 let ep = interface + 1;
-/*
- Servo
- interface 0 : servo console
-
- */
 button.addEventListener('click', async () => {
   device = null;
   button.disabled = true;
   try {
     device = await navigator.usb.requestDevice({
       filters: [{
-        vendorId: 0x18d1, /* Google */
-        // productId: 0x5014, /* Cr50 */
+        vendorId: 0x18d1,  /* Google */
         productId: 0x520d, /* Servo v4p1 */
       }]
     });
@@ -39,13 +54,13 @@ button.addEventListener('click', async () => {
     await device.claimInterface(interface);
     let utf8decoder = new TextDecoder();  // default 'utf-8' or 'utf8'
 
-      const f = 
-    async (event) => {console.log(`On connect!: ${event}`)
-while (true) {
-  let data = new TextEncoder().encode("ina 0\n");
-  await device.transferOut(ep, data);
-  await new Promise(r => setTimeout(r, 1000));
-}
+    const f = async (event) => {
+      console.log(`On connect!: ${event}`)
+      while (true) {
+        let data = new TextEncoder().encode('ina 0\n');
+        await device.transferOut(ep, data);
+        await new Promise(r => setTimeout(r, 1000));
+      }
     };
     setTimeout(f, 1000);
 
@@ -55,6 +70,22 @@ while (true) {
 
       serial_output.innerText += utf8decoder.decode(result);
 
+      let output = serial_output.innerText;
+
+      let splitted = output.split('\n').filter((s) => s.trim().length > 10);
+      if (splitted.length > 0 &&
+          splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
+        console.log(output);
+        let power = splitted.find((s) => s.startsWith('Power'));
+        power = power.split('=>')[1].trim();
+        power = power.split(' ');
+        console.log(power);
+        power = parseInt(power[0]);
+        chart.data.datasets[0].data.push({x: new Date(), y: power});
+        chart.update();
+
+        serial_output.innerText = '';
+      }
       window.scrollTo(document.body.scrollWidth, document.body.scrollHeight);
 
       if (result.status === 'stall') {
