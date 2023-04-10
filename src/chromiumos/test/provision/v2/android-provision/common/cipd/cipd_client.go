@@ -92,6 +92,10 @@ func (c *CIPD) FetchInstanceTo(cipdPackageProto *api.CIPDPackage, packageName, i
 }
 
 func (c *CIPD) getVersion(cipdPackageProto *api.CIPDPackage) (string, error) {
+	if cipdPackageProto.GetVersionOneof() == nil && cipdPackageProto.GetAndroidPackage() == api.AndroidPackage_GMS_CORE {
+		// GMSCore version is latest_stable by default.
+		return "latest_stable", nil
+	}
 	switch v := cipdPackageProto.GetVersionOneof().(type) {
 	case *api.CIPDPackage_Ref:
 		return cipdPackageProto.GetRef(), nil
