@@ -1,24 +1,100 @@
-const ctx = document.getElementById('myChart');
+const intervalMs = 100;
+const avgWindow = 9;
+const avgWindow2 = 41;
 
-//const rawData = Array.from({ length: 100 }, (v, i) => {return {x: i, y: 0}});
-//let dataIndex = 0;
-const rawData = [];
+const ctx = document.getElementById('myChart');
+ctx.width = 1024;
+ctx.height = 768
 
 const data = {
-  datasets:
-      [{label: 'Power (mW)', data: rawData, backgroundColor: 'rgb(255, 99, 132)'}],
+  datasets: [
+    {
+      label: 'Power (mW)',
+      data: [],
+      backgroundColor: 'rgb(255, 99, 132)',
+      pointStyle: 'circle',
+      pointRadius: 1,
+      order: 3,
+    },
+    {
+      label: `Power avg (mW) (window = ${avgWindow})`,
+      data: [],
+      backgroundColor: 'rgb(99, 255, 132)',
+      borderColor: 'rgb(0, 255, 0)',
+      showLine: true,
+      order: 2,
+      pointStyle: 'false',
+    },
+    {
+      label: `Power avg (mW) (window = ${avgWindow2})`,
+      data: [],
+      backgroundColor: 'rgb(0, 0, 255)',
+      borderColor: 'rgb(0, 0, 255)',
+      showLine: true,
+      order: 1,
+      pointStyle: 'false',
+    },
+  ],
 };
 const config = {
   type: 'scatter',
   data: data,
   options: {
-    scales: {x: {position: 'bottom'}},
+    scales: {
+      y: {
+        suggestedMin: 0,
+        suggestedMax: 30 * 1000,
+      },
+      x: {position: 'bottom'},
+    },
+    animation: false,
+    responsive: false,
+    plugins: {
+      tooltip: {
+        enabled: false,
+      }
+    }
   },
 };
-config.options.animation = false;
 const chart = new Chart(ctx, config);
 
 const utf8decoder = new TextDecoder();  // default 'utf-8' or 'utf8'
+
+let output = '';
+let avgPoints = [];
+let avgPoints2 = [];
+function pushOutput(s) {
+  output += s
+
+  let splitted = output.split('\n').filter((s) => s.trim().length > 10);
+  if (splitted.length > 0 &&
+      splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
+    let power = splitted.find((s) => s.startsWith('Power'));
+    power = power.split('=>')[1].trim();
+    power = power.split(' ');
+    power = parseInt(power[0]);
+    // chart.data.datasets[0].data[dataIndex++] = {x: dataIndex, y: power};
+    let p = {x: new Date(), y: power};
+    chart.data.datasets[0].data.push(p);
+    avgPoints.push(p);
+    avgPoints2.push(p);
+    if (avgPoints.length == avgWindow) {
+      let sum = avgPoints.reduce((l, r) => l + r.y, 0);
+      let avg = sum / avgWindow;
+      chart.data.datasets[1].data.push({x: avgPoints[(avgWindow/2) | 0].x, y: avg});
+      avgPoints = [];
+    }
+    if (avgPoints2.length == avgWindow2) {
+      let sum = avgPoints2.reduce((l, r) => l + r.y, 0);
+      let avg = sum / avgWindow2;
+      chart.data.datasets[2].data.push({x: avgPoints2[(avgWindow/2) | 0].x, y: avg});
+      avgPoints2 = [];
+    }
+    chart.update('none');
+    serial_output.innerText = output;
+    output = '';
+  }
+}
 
 const requestSerialButton = document.getElementById('requestSerialButton');
 requestSerialButton.addEventListener('click', () => {
@@ -27,7 +103,6 @@ requestSerialButton.addEventListener('click', () => {
       .then(async (port) => {
         // Connect to `port` or add it to the list of available ports.
         await port.open({baudRate: 115200});
-        console.log(port);
         const encoder = new TextEncoder();
         const writer = port.writable.getWriter();
         await writer.write(encoder.encode('help\n'));
@@ -35,13 +110,12 @@ requestSerialButton.addEventListener('click', () => {
 
         // Launch write loop
         const f = async (event) => {
-          console.log(`On connect!: ${event}`)
           while (true) {
             let data = new TextEncoder().encode('ina 0\n');
             const writer = port.writable.getWriter();
             await writer.write(data);
             writer.releaseLock();
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, intervalMs));
           }
         };
         setTimeout(f, 1000);
@@ -57,28 +131,7 @@ requestSerialButton.addEventListener('click', () => {
                   // |reader| has been canceled.
                   break;
                 }
-                console.log(value);
-                serial_output.innerText += utf8decoder.decode(value);
-
-                let output = serial_output.innerText;
-
-                let splitted =
-                    output.split('\n').filter((s) => s.trim().length > 10);
-                if (splitted.length > 0 &&
-                    splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
-                  console.log(output);
-                  let power = splitted.find((s) => s.startsWith('Power'));
-                  power = power.split('=>')[1].trim();
-                  power = power.split(' ');
-                  console.log(power);
-                  power = parseInt(power[0]);
-                  //chart.data.datasets[0].data[dataIndex++] = {x: dataIndex, y: power};
-                  chart.data.datasets[0].data.push({x: new Date(), y: power});
-                  //dataIndex %= chart.data.datasets[0].data.length;
-                  chart.update('none');
-
-                  serial_output.innerText = '';
-                }
+                pushOutput(utf8decoder.decode(value));
               }
             } catch (error) {
               console.log(error);
@@ -94,9 +147,6 @@ requestSerialButton.addEventListener('click', () => {
       });
 });
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 let button = document.getElementById('request-device');
 let serial_output = document.getElementById('serial_output');
 let device;
@@ -123,49 +173,26 @@ button.addEventListener('click', async () => {
 
   try {
     await device.open();
-    console.log(device);
     await device.selectConfiguration(1);
     await device.claimInterface(interface);
 
-    const f = async (event) => {
-      console.log(`On connect!: ${event}`)
+    const f = async (_event) => {
       while (true) {
         let data = new TextEncoder().encode('ina 0\n');
         await device.transferOut(ep, data);
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, intervalMs));
       }
     };
-    setTimeout(f, 1000);
+    setTimeout(f, intervalMs);
 
     while (true) {
       let result = await device.transferIn(ep, 64);
-      result = new Int8Array(result.data.buffer);
-
-      serial_output.innerText += utf8decoder.decode(result);
-
-      let output = serial_output.innerText;
-
-      let splitted = output.split('\n').filter((s) => s.trim().length > 10);
-      if (splitted.length > 0 &&
-          splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
-        console.log(output);
-        let power = splitted.find((s) => s.startsWith('Power'));
-        power = power.split('=>')[1].trim();
-        power = power.split(' ');
-        console.log(power);
-        power = parseInt(power[0]);
-        chart.data.datasets[0].data.push({x: new Date(), y: power});
-        chart.update();
-
-        serial_output.innerText = '';
-      }
-      window.scrollTo(document.body.scrollWidth, document.body.scrollHeight);
-
       if (result.status === 'stall') {
-        console.warn('Endpoint stalled. Clearing.');
         await device.clearHalt(1);
+        continue;
       }
-      await new Promise(r => setTimeout(r, 100));
+      result = new Int8Array(result.data.buffer);
+      pushOutput(utf8decoder.decode(result));
     }
   } catch (err) {
     console.log(`Disconnected: ${err}`);
@@ -174,7 +201,6 @@ button.addEventListener('click', async () => {
   }
 });
 window.addEventListener('keydown', async (event) => {
-  console.log(`KeyboardEvent: key='${event.key}' | code='${event.code}'`);
   if (!device) {
     return;
   }
@@ -186,6 +212,5 @@ window.addEventListener('keydown', async (event) => {
   } else {
     return;
   }
-  console.log(data);
   await device.transferOut(ep, data);
 }, true);
