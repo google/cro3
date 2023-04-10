@@ -1,24 +1,53 @@
 const ctx = document.getElementById('myChart');
 const data = {
-  datasets: [{
-    label: 'Power (mW)',
-    data: [],
-    backgroundColor: 'rgb(255, 99, 132)'
-  }],
+  datasets:
+      [{label: 'Power (mW)', data: [], backgroundColor: 'rgb(255, 99, 132)'}],
 };
 const config = {
   type: 'scatter',
   data: data,
-  options: {
-    scales: {
-      x: {
-        type: 'timeseries',
-        position: 'bottom'
-      }
-    }
-  }
+  options: {scales: {x: {type: 'timeseries', position: 'bottom'}}}
 };
 const chart = new Chart(ctx, config);
+
+const utf8decoder = new TextDecoder();  // default 'utf-8' or 'utf8'
+
+const requestSerialButton = document.getElementById('requestSerialButton');
+requestSerialButton.addEventListener('click', () => {
+  console.log('serial');
+  navigator.serial.requestPort({filters: [{usbVendorId: 0x18d1}]})
+      .then(async (port) => {
+        // Connect to `port` or add it to the list of available ports.
+        await port.open({baudRate: 9600});
+        console.log(port);
+        for (;;) {
+          while (port.readable) {
+            const reader = port.readable.getReader();
+            try {
+              while (true) {
+                const {value, done} = await reader.read();
+                if (done) {
+                  // |reader| has been canceled.
+                  break;
+                }
+                console.log(value);
+                serial_output.innerText += utf8decoder.decode(value);
+
+                let output = serial_output.innerText;
+              }
+            } catch (error) {
+              console.log(error);
+            } finally {
+              reader.releaseLock();
+            }
+          }
+        }
+      })
+      .catch((e) => {
+        // The user didn't select a port.
+        console.log(e);
+      });
+});
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -50,9 +79,8 @@ button.addEventListener('click', async () => {
   try {
     await device.open();
     console.log(device);
-    if (device.configuration === null) await device.selectConfiguration(1);
+    await device.selectConfiguration(1);
     await device.claimInterface(interface);
-    let utf8decoder = new TextDecoder();  // default 'utf-8' or 'utf8'
 
     const f = async (event) => {
       console.log(`On connect!: ${event}`)
