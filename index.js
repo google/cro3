@@ -1,25 +1,52 @@
 const ctx = document.getElementById('myChart');
+
+//const rawData = Array.from({ length: 100 }, (v, i) => {return {x: i, y: 0}});
+//let dataIndex = 0;
+const rawData = [];
+
 const data = {
   datasets:
-      [{label: 'Power (mW)', data: [], backgroundColor: 'rgb(255, 99, 132)'}],
+      [{label: 'Power (mW)', data: rawData, backgroundColor: 'rgb(255, 99, 132)'}],
 };
 const config = {
   type: 'scatter',
   data: data,
-  options: {scales: {x: {type: 'timeseries', position: 'bottom'}}}
+  options: {
+    scales: {x: {position: 'bottom'}},
+  },
 };
+config.options.animation = false;
 const chart = new Chart(ctx, config);
 
 const utf8decoder = new TextDecoder();  // default 'utf-8' or 'utf8'
 
 const requestSerialButton = document.getElementById('requestSerialButton');
 requestSerialButton.addEventListener('click', () => {
-  console.log('serial');
-  navigator.serial.requestPort({filters: [{usbVendorId: 0x18d1}]})
+  navigator.serial
+      .requestPort({filters: [{usbVendorId: 0x18d1, usbProductId: 0x520d}]})
       .then(async (port) => {
         // Connect to `port` or add it to the list of available ports.
-        await port.open({baudRate: 9600});
+        await port.open({baudRate: 115200});
         console.log(port);
+        const encoder = new TextEncoder();
+        const writer = port.writable.getWriter();
+        await writer.write(encoder.encode('help\n'));
+        writer.releaseLock();
+
+        // Launch write loop
+        const f = async (event) => {
+          console.log(`On connect!: ${event}`)
+          while (true) {
+            let data = new TextEncoder().encode('ina 0\n');
+            const writer = port.writable.getWriter();
+            await writer.write(data);
+            writer.releaseLock();
+            await new Promise(r => setTimeout(r, 100));
+          }
+        };
+        setTimeout(f, 1000);
+
+        // read loop
         for (;;) {
           while (port.readable) {
             const reader = port.readable.getReader();
@@ -34,6 +61,24 @@ requestSerialButton.addEventListener('click', () => {
                 serial_output.innerText += utf8decoder.decode(value);
 
                 let output = serial_output.innerText;
+
+                let splitted =
+                    output.split('\n').filter((s) => s.trim().length > 10);
+                if (splitted.length > 0 &&
+                    splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
+                  console.log(output);
+                  let power = splitted.find((s) => s.startsWith('Power'));
+                  power = power.split('=>')[1].trim();
+                  power = power.split(' ');
+                  console.log(power);
+                  power = parseInt(power[0]);
+                  //chart.data.datasets[0].data[dataIndex++] = {x: dataIndex, y: power};
+                  chart.data.datasets[0].data.push({x: new Date(), y: power});
+                  //dataIndex %= chart.data.datasets[0].data.length;
+                  chart.update('none');
+
+                  serial_output.innerText = '';
+                }
               }
             } catch (error) {
               console.log(error);
